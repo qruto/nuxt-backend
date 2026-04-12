@@ -10,7 +10,7 @@
       "types": "./dist/types.d.mts",
       "import": "./dist/module.mjs"
     },
-    "./backend-component": {
+    "./convex-component": {
       "types": "./dist/convex-component/config.d.ts",
       "import": "./src/convex-component/config.ts"
     },
@@ -28,6 +28,9 @@
     "*": {
       ".": [
         "./dist/types.d.mts"
+      ],
+      "convex-component": [
+        "./dist/convex-component/config.d.ts"
       ],
       "backend-component": [
         "./dist/convex-component/config.d.ts"
@@ -56,7 +59,7 @@
     "lint": "eslint .",
     "test": "vitest",
     "test:watch": "vitest --watch",
-    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
+    "test:types": "npm run dev:prepare && vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
     "test:unit": "vitest --project unit",
     "test:nuxt": "vitest --project nuxt",
     "test:e2e": "vitest --project e2e",

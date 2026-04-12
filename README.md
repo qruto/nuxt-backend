@@ -61,7 +61,8 @@ On first run the module scaffolds the minimum Convex files:
 your-project/
 ├── backend/
 │   ├── convex.config.ts   # Mounts the packaged auth component
-│   └── auth.config.ts     # Convex auth provider config for Better Auth
+│   ├── auth.config.ts     # Convex auth provider config for Better Auth
+│   └── auth.ts            # Better Auth helpers bound to the packaged component
 ├── convex.json            # Points the Convex CLI at backend/
 └── .env
 ```
@@ -268,7 +269,7 @@ If you want a different auth route, replace the scaffolded files with the named 
 
 ```ts
 // backend/convex.config.ts
-import { defineBackendApp } from 'nuxt-backend/convex-config'
+import { defineBackendApp } from 'nuxt-backend/convex-component'
 
 export default defineBackendApp({
   httpPrefix: '/internal/auth',

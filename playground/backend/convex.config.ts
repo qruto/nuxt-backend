@@ -1,1 +1,1 @@
-export { default } from 'nuxt-backend/backend-component'
+export { default } from 'nuxt-backend/convex-component'

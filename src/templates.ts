@@ -6,7 +6,7 @@
  * does not yet exist.
  */
 export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
-  'convex.config.ts': `export { default } from 'nuxt-backend/backend-component'\n`,
+  'convex.config.ts': `export { default } from 'nuxt-backend/convex-component'\n`,
   'auth.config.ts': `export { default } from 'nuxt-backend/auth-config'\n`,
   'auth.ts': [
     `import { setupAuth } from 'nuxt-backend/auth'`,
