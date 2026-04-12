@@ -8,7 +8,7 @@ type ActionReference = FunctionReference<'action'>
 
 function getHttpClient(): ConvexHttpClient {
   const config = useRuntimeConfig()
-  return new ConvexHttpClient(config.public.convex.url)
+  return new ConvexHttpClient(config.public.backend.url)
 }
 
 // --- Plain server-side utilities ---

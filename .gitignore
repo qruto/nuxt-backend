@@ -27,12 +27,12 @@ dist
 # Env
 .env
 
-# Auto-scaffolded Convex files (module dev only)
+# Auto-scaffolded backend files (module dev only)
 /convex.json
 /backend/_generated
-/convex/_generated
+/backend/auth.ts
 playground/backend/_generated
-playground/convex/_generated
+playground/backend/auth.ts
 playground/convex.json
 
 # Testing

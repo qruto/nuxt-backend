@@ -3,7 +3,7 @@ import { defineNuxtPlugin, useRuntimeConfig, useRequestHeaders } from '#app'
 
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
-  const url = config.public.convex.url
+  const url = config.public.backend.url
   if (!url) {
     console.warn('[nuxt-backend] No Convex URL configured for server plugin.')
     return

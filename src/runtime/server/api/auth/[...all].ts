@@ -7,7 +7,7 @@ import { useRuntimeConfig } from '#imports'
  */
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const siteUrl = config.convex.siteUrl
+  const siteUrl = config.backend.siteUrl
 
   if (!siteUrl) {
     throw new Error('[nuxt-backend] CONVEX_SITE_URL is not configured. Auth proxy cannot forward requests.')

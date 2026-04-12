@@ -65,8 +65,8 @@
   "dependencies": {
     "@convex-dev/better-auth": "^0.11.4",
     "@nuxt/kit": "^4.4.2",
-    "better-auth": "^1.2.0",
-    "convex": "^1.22.0"
+    "better-auth": "^1.6.2",
+    "convex": "^1.35.1"
   },
   "devDependencies": {
     "@nuxt/devtools": "^3.2.4",
@@ -76,7 +76,7 @@
     "@nuxt/schema": "^4.4.2",
     "@nuxt/test-utils": "^4.0.2",
     "@types/node": "latest",
-    "@unhead/vue": "^3.0.2",
+    "@unhead/vue": "^3.0.3",
     "@vue/test-utils": "^2.4.6",
     "changelogen": "^0.6.2",
     "eslint": "^10.2.0",

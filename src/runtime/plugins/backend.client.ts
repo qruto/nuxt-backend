@@ -4,7 +4,7 @@ import { authClient } from '../auth/client'
 
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
-  const client = new ConvexClient(config.public.convex.url)
+  const client = new ConvexClient(config.public.backend.url)
 
   // Wire Better Auth JWT into the Convex client
   const session = authClient.useSession()

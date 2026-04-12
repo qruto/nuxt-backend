@@ -17,6 +17,49 @@ export interface SetupAuthOptions {
 /** Component API shape expected by the Better Auth client. */
 type AuthComponentApi = Parameters<typeof createClient>[0]
 
+interface CreateBetterAuthOptions {
+  authConfig?: AuthConfig
+  authOptions?: BetterAuthOptions
+  basePath?: string
+}
+
+/**
+ * Shared factory that creates a Better Auth instance from a database adapter.
+ *
+ * Used internally by both the Convex component HTTP router and the
+ * user-facing `setupAuth` helper to avoid duplicating config.
+ */
+export function createBetterAuth(
+  database: ReturnType<ReturnType<typeof createClient>['adapter']>,
+  options: CreateBetterAuthOptions = {},
+) {
+  const resolvedAuthConfig = options.authConfig ?? authConfig
+  const resolvedBasePath = options.basePath ?? DEFAULT_AUTH_ROUTE
+  const resolvedAuthOptions = options.authOptions ?? {}
+  const siteUrl = process.env.SITE_URL!
+
+  return betterAuth({
+    baseURL: siteUrl,
+    ...resolvedAuthOptions,
+    basePath: resolvedBasePath,
+    database,
+    emailAndPassword: {
+      enabled: true,
+      requireEmailVerification: false,
+      ...resolvedAuthOptions.emailAndPassword,
+    },
+    plugins: [
+      convex({
+        authConfig: resolvedAuthConfig,
+        options: {
+          basePath: resolvedBasePath,
+        },
+      }),
+      ...(resolvedAuthOptions.plugins ?? []),
+    ],
+  })
+}
+
 /**
  * Factory to set up Better Auth on Convex with sensible defaults.
  *
@@ -24,10 +67,9 @@ type AuthComponentApi = Parameters<typeof createClient>[0]
  * ```ts
  * import { setupAuth } from 'nuxt-backend/auth'
  * import { components } from './_generated/api'
- * import type { DataModel } from './_generated/dataModel'
  * import { query } from './_generated/server'
  *
- * export const { authComponent, createAuth, getCurrentUser } = setupAuth<DataModel>(
+ * export const { authComponent, createAuth, getCurrentUser } = setupAuth(
  *   components.backend, query,
  * )
  * ```
@@ -37,33 +79,13 @@ export function setupAuth<DM extends GenericDataModel>(
   queryBuilder: QueryBuilder<DM, 'public'>,
   options?: SetupAuthOptions,
 ) {
-  const resolvedAuthConfig = options?.authConfig ?? authConfig
-  const resolvedBasePath = options?.basePath ?? DEFAULT_AUTH_ROUTE
-  const resolvedAuthOptions = options?.authOptions ?? {}
-
   const authComponent = createClient<DM>(componentRef)
 
   const createAuth = (ctx: GenericCtx<DM>) => {
-    const siteUrl = process.env.SITE_URL!
-    return betterAuth({
-      baseURL: siteUrl,
-      ...resolvedAuthOptions,
-      basePath: resolvedBasePath,
-      database: authComponent.adapter(ctx),
-      emailAndPassword: {
-        enabled: true,
-        requireEmailVerification: false,
-        ...resolvedAuthOptions.emailAndPassword,
-      },
-      plugins: [
-        convex({
-          authConfig: resolvedAuthConfig,
-          options: {
-            basePath: resolvedBasePath,
-          },
-        }),
-        ...(resolvedAuthOptions.plugins ?? []),
-      ],
+    return createBetterAuth(authComponent.adapter(ctx), {
+      authConfig: options?.authConfig,
+      authOptions: options?.authOptions,
+      basePath: options?.basePath,
     })
   }
 
