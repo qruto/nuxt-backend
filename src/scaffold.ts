@@ -70,7 +70,8 @@ function readFunctionsDirFromConvexJson(convexJsonPath: string) {
 }
 
 function normalizeFunctionsDir(functionsDir: string) {
-  return functionsDir
+  const normalized = functionsDir
     .replace(/^\.?\//, '')
     .replace(/\/+$/, '')
+  return normalized || undefined
 }
