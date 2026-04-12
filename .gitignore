@@ -27,6 +27,14 @@ dist
 # Env
 .env
 
+# Auto-scaffolded Convex files (module dev only)
+/convex.json
+/backend/_generated
+/convex/_generated
+playground/backend/_generated
+playground/convex/_generated
+playground/convex.json
+
 # Testing
 reports
 coverage
