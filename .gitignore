@@ -27,13 +27,6 @@ dist
 # Env
 .env
 
-# Auto-scaffolded backend files (module dev only)
-/convex.json
-/backend/_generated
-/backend/auth.ts
-playground/backend/_generated
-playground/backend/auth.ts
-playground/convex.json
 
 # Testing
 reports
@@ -52,6 +45,10 @@ coverage
 # Intellij idea
 *.iml
 .idea
+
+# Build artifacts
+*.tsbuildinfo
+*.tgz
 
 # OSX
 .DS_Store

@@ -7,11 +7,9 @@ export default defineBuildConfig({
   failOnWarn: false,
   hooks: {
     'build:done'() {
-      // Generate .d.ts declarations for the Convex-facing subpath exports
-      // (convex-component, auth-config, auth, and compatibility aliases).
-      // The source .ts files are consumed by the Convex runtime directly,
-      // so only type declarations need to be emitted.
-      execSync('tsc -p src/convex-component/tsconfig.declarations.json', { stdio: 'inherit' })
+      // Generate .d.ts declarations for the convex-component subpath exports.
+      // Source .ts files ship as-is for the Convex runtime; only declarations are emitted.
+      execSync('tsc --project ./tsconfig.build.json', { stdio: 'inherit' })
     },
   },
 })

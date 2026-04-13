@@ -12,6 +12,13 @@ export default defineConfig({
           environment: 'node',
         },
       },
+      {
+        test: {
+          name: 'convex-component',
+          include: ['test/convex-component/**/*.test.ts'],
+          environment: 'edge-runtime',
+        },
+      },
       await defineVitestProject({
         test: {
           name: 'nuxt',

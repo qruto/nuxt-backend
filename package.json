@@ -21,7 +21,8 @@
     "./auth": {
       "types": "./dist/convex-component/auth.d.ts",
       "import": "./src/convex-component/auth.ts"
-    }
+    },
+    "./test": "./src/convex-component/test.ts"
   },
   "main": "./dist/module.mjs",
   "typesVersions": {
@@ -51,7 +52,7 @@
     "playground"
   ],
   "scripts": {
-    "prepack": "nuxt-module-build build",
+    "prepack": "convex codegen --component-dir ./src/convex-component && nuxt-module-build build",
     "dev": "npm run dev:prepare && nuxt dev playground",
     "dev:build": "nuxt build playground",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
@@ -61,6 +62,7 @@
     "test:watch": "vitest --watch",
     "test:types": "npm run dev:prepare && vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
     "test:unit": "vitest --project unit",
+    "test:convex": "vitest --project convex-component",
     "test:nuxt": "vitest --project nuxt",
     "test:e2e": "vitest --project e2e",
     "bump": "npx taze major -w"
@@ -72,6 +74,7 @@
     "convex": "^1.35.1"
   },
   "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
     "@nuxt/devtools": "^3.2.4",
     "@nuxt/eslint": "^1.15.2",
     "@nuxt/eslint-config": "^1.15.2",
@@ -82,10 +85,12 @@
     "@unhead/vue": "^3.0.3",
     "@vue/test-utils": "^2.4.6",
     "changelogen": "^0.6.2",
+    "convex-test": "^0.0.47",
     "eslint": "^10.2.0",
     "happy-dom": "^20.8.9",
     "nuxt": "^4.4.2",
     "oxc-parser": "^0.124.0",
+    "pkg-pr-new": "^0.0.66",
     "typescript": "~6.0.2",
     "vitest": "^4.1.4",
     "vue-tsc": "^3.2.6"

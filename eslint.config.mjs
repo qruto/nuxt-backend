@@ -16,5 +16,26 @@ export default createConfigForNuxt({
   },
 })
   .append(
-    // your custom flat config here...
+    // Convex component code runs in the Convex worker runtime.
+    // Enforce no-floating-promises to catch silent failures.
+    {
+      files: ['src/convex-component/**/*.ts'],
+      ignores: ['**/_generated/**', '**/*.test.ts'],
+      languageOptions: {
+        parserOptions: {
+          project: './tsconfig.convex.json',
+          tsconfigRootDir: import.meta.dirname,
+        },
+      },
+      rules: {
+        '@typescript-eslint/no-floating-promises': 'error',
+      },
+    },
+    // Convex component test files use `any` for generic adapters
+    {
+      files: ['test/convex-component/**/*.test.ts', 'src/convex-component/test.ts'],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off',
+      },
+    },
   )
