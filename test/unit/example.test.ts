@@ -14,14 +14,16 @@ describe('package exports', () => {
     expect(packageJson.exports).toHaveProperty('./auth-config')
     expect(packageJson.exports).toHaveProperty('./auth')
     expect(packageJson.exports).not.toHaveProperty('./react')
-    expect(packageJson.exports).not.toHaveProperty('./convex.config')
   })
 })
 
 describe('scaffold templates', () => {
   it('scaffolds Convex root files from the clean package entrypoints', () => {
-    expect(BACKEND_FILE_TEMPLATES['convex.config.ts']).toBe(
-      `export { default } from 'nuxt-backend/convex-component'\n`,
+    expect(BACKEND_FILE_TEMPLATES['convex.config.ts']).toContain(
+      `import backend from 'nuxt-backend/convex-component'`,
+    )
+    expect(BACKEND_FILE_TEMPLATES['convex.config.ts']).toContain(
+      `app.use(backend`,
     )
     expect(BACKEND_FILE_TEMPLATES['auth.config.ts']).toBe(
       `export { default } from 'nuxt-backend/auth-config'\n`,

@@ -273,15 +273,16 @@ export default defineNuxtConfig({
 
 Zero-config mode mounts the packaged component at `/api/auth` and wires Convex auth to the same path.
 
-If you want a different auth route, replace the scaffolded files with the named helpers:
+If you want a different auth route, update the scaffolded files:
 
 ```ts
 // backend/convex.config.ts
-import { defineBackendApp } from 'nuxt-backend/convex-component'
+import { defineApp } from 'convex/server'
+import backend from 'nuxt-backend/convex-component'
 
-export default defineBackendApp({
-  httpPrefix: '/internal/auth',
-})
+const app = defineApp()
+app.use(backend, { httpPrefix: '/internal/auth' })
+export default app
 ```
 
 ```ts

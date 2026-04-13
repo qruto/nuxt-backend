@@ -11,8 +11,8 @@
       "import": "./dist/module.mjs"
     },
     "./convex-component": {
-      "types": "./dist/convex-component/config.d.ts",
-      "import": "./src/convex-component/config.ts"
+      "types": "./dist/convex-component/convex.config.d.ts",
+      "import": "./src/convex-component/convex.config.ts"
     },
     "./auth-config": {
       "types": "./dist/convex-component/auth-config.d.ts",
@@ -31,10 +31,10 @@
         "./dist/types.d.mts"
       ],
       "convex-component": [
-        "./dist/convex-component/config.d.ts"
+        "./dist/convex-component/convex.config.d.ts"
       ],
       "backend-component": [
-        "./dist/convex-component/config.d.ts"
+        "./dist/convex-component/convex.config.d.ts"
       ],
       "auth-config": [
         "./dist/convex-component/auth-config.d.ts"
