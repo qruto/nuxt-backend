@@ -3,5 +3,8 @@
   "functions": "playground/backend",
   "codegen": {
     "legacyComponentApi": false
+  },
+  "node": {
+    "externalPackages": ["@opentelemetry/api"]
   }
 }

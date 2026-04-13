@@ -309,18 +309,30 @@ The package ships two things in one:
 | **Nuxt module** (`nuxt-backend`) | Registers plugins, composables, server utilities, auth proxy, and auto-scaffolds Convex root files |
 | **Convex component** (`nuxt-backend/convex-component`) | Defines the `backend` component with a Better Auth adapter, HTTP router, and auth config |
 
-```
-┌─────────────┐    WebSocket     ┌──────────────────┐
-│   Browser    │◄───────────────►│   Convex Cloud    │
-│              │                 │                   │
-│              │   /api/auth/*   │   queries         │
-│              │────────────────►│   mutations       │
-│              │     proxy       │   actions         │
-└──────────────┘                 │                   │
-                                 │   Convex Component│
-┌──────────────┐    HTTP         │   └─ Better Auth  │
-│  Nuxt Server │◄───────────────►│      (HTTP actions│
-└──────────────┘                 └───────────────────┘
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant N as Nuxt Server
+  participant C as Convex Cloud
+  participant A as Better Auth<br/>(Convex Component)
+
+  Note over B,A: Real-time queries & mutations
+  B->>C: WebSocket (ConvexClient)
+  C-->>B: Live updates
+
+  Note over B,A: SSR
+  B->>N: Page request
+  N->>C: HTTP (ConvexHttpClient)
+  C-->>N: Query result
+  N-->>B: Rendered HTML + hydration
+
+  Note over B,A: Authentication
+  B->>N: /api/auth/* (sign in, sign up, session)
+  N->>A: Proxy request
+  A->>C: Read/write user & session data
+  C-->>A: Result
+  A-->>N: Auth response + session token
+  N-->>B: Set-Cookie + response
 ```
 
 - **Client**: `ConvexClient` connects via WebSocket for real-time reactivity. Auth tokens are automatically wired in.
@@ -331,14 +343,53 @@ The package ships two things in one:
 
 ## Development
 
+This package ships both a **Nuxt module** and a **Convex component**. The dev process runs both environments in parallel.
+
 ```bash
-npm install          # Install dependencies
-npm run dev:prepare  # Generate type stubs
-npm run dev          # Dev with playground
-npm run lint         # ESLint
-npm run test         # Vitest
-npm run prepack      # Build for publishing
+npm install                          # Install dependencies
+npm run dev                          # Run everything (prepare → convex + nuxt + codegen watcher)
 ```
+
+### Dev Scripts
+
+`npm run dev` prepares the nuxt module then starts three processes in parallel:
+
+| Script | Description |
+|---|---|
+| `dev:convex-component` | Convex dev server with component typechecking |
+| `dev:convex-component:codegen` | Watches `src/convex-component/` and re-runs codegen on changes |
+| `dev:nuxt-module` | Nuxt dev server with the playground app |
+| `dev:nuxt-module:prepare` | Generates type stubs and prepares the playground |
+| `dev:nuxt-module:build` | Full Nuxt build of the playground |
+
+### Build Scripts
+
+| Script | Description |
+|---|---|
+| `build` | Build both the convex component and nuxt module |
+| `build:convex-component` | Codegen + emit `.d.ts` declarations for the component |
+| `build:convex-component:codegen` | Run Convex codegen for `src/convex-component/` |
+| `build:nuxt-module` | Build the Nuxt module with `nuxt-module-build` |
+| `prepack` | Full build (runs before `npm publish`) |
+
+### Test Scripts
+
+| Script | Description |
+|---|---|
+| `test` | Run all test suites via Vitest |
+| `test:unit` | Unit tests only |
+| `test:convex` | Convex component tests (edge-runtime) |
+| `test:nuxt` | Nuxt environment tests |
+| `test:e2e` | End-to-end tests |
+| `test:types` | Typecheck nuxt module, convex component, and playground |
+| `test:watch` | Watch mode |
+
+### Other
+
+| Script | Description |
+|---|---|
+| `lint` | ESLint |
+| `release` | Lint → test → build → publish → push tags |
 
 ## License
 
