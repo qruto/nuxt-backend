@@ -5,16 +5,24 @@
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-Batteries-included [Nuxt](https://nuxt.com) module for [Convex](https://convex.dev) with built-in authentication.
+Integrate [Convex](https://convex.dev) with [Nuxt](https://nuxt.com) — ships a **Nuxt module** and a **Convex component** in a single package.
+
+The **Nuxt module** wires up real-time composables, SSR helpers, server utilities, and an auth proxy.
+The **Convex component** provides a ready-made authentication backend powered by [Better Auth](https://www.better-auth.com).
 
 ## Features
 
+### Nuxt Module
 - 🔌 **Real-time Convex client** — WebSocket on client, HTTP on server
-- 🔐 **Authentication** — Email/password out of the box via [Better Auth](https://www.better-auth.com)
-- 🛡️ **Route protection** — `auth` middleware to guard pages
 - 🔄 **SSR** — Session hydration, server-side queries and mutations
 - 📦 **Auto-imports** — Composables and server utilities, zero manual imports
+- 🛡️ **Route protection** — `auth` middleware to guard pages
 - 🏗️ **Auto-scaffold** — Minimal Convex root files generated on first run
+
+### Convex Component
+- 🔐 **Authentication** — Email/password out of the box via Better Auth
+- 🗄️ **Adapter layer** — Proxies Better Auth data operations through Convex
+- 🌐 **HTTP router** — Auth endpoints served as Convex HTTP actions
 
 ## Installation
 
@@ -55,14 +63,14 @@ BETTER_AUTH_SECRET=<random-secret>
 npm run dev
 ```
 
-On first run the module scaffolds the minimum Convex files:
+On first run the module scaffolds the minimum Convex files that wire your app to the packaged component:
 
 ```
 your-project/
 ├── backend/
-│   ├── convex.config.ts   # Mounts the packaged auth component
+│   ├── convex.config.ts   # Mounts the packaged Convex component
 │   ├── auth.config.ts     # Convex auth provider config for Better Auth
-│   └── auth.ts            # Better Auth helpers bound to the packaged component
+│   └── auth.ts            # Better Auth helpers bound to the component
 ├── convex.json            # Points the Convex CLI at backend/
 └── .env
 ```
@@ -261,9 +269,9 @@ export default defineNuxtConfig({
 
 ---
 
-## Customizing the Convex root files
+## Customizing the Convex Component
 
-Zero-config mode mounts the packaged auth component at `/api/auth` and wires Convex auth to the same path.
+Zero-config mode mounts the packaged component at `/api/auth` and wires Convex auth to the same path.
 
 If you want a different auth route, replace the scaffolded files with the named helpers:
 
@@ -285,13 +293,20 @@ export default defineBackendAuthConfig({
 })
 ```
 
-If you change the Nuxt module's `backend.authRoute`, keep these Convex helpers on the same path.
+If you change the Nuxt module's `backend.authRoute`, keep these Convex component helpers on the same path.
 
 The packaged component is intentionally opinionated for zero setup. If you need full Better Auth ownership beyond route wiring, switch out of the zero-config defaults and own the Convex auth files in your project.
 
 ---
 
 ## Architecture
+
+The package ships two things in one:
+
+| Layer | What it does |
+|---|---|
+| **Nuxt module** (`nuxt-backend`) | Registers plugins, composables, server utilities, auth proxy, and auto-scaffolds Convex root files |
+| **Convex component** (`nuxt-backend/convex-component`) | Defines the `backend` component with a Better Auth adapter, HTTP router, and auth config |
 
 ```
 ┌─────────────┐    WebSocket     ┌──────────────────┐
@@ -301,9 +316,9 @@ The packaged component is intentionally opinionated for zero setup. If you need 
 │              │────────────────►│   mutations       │
 │              │     proxy       │   actions         │
 └──────────────┘                 │                   │
-                                 │   Better Auth     │
-┌──────────────┐    HTTP         │   (HTTP actions)  │
-│  Nuxt Server │◄───────────────►│                   │
+                                 │   Convex Component│
+┌──────────────┐    HTTP         │   └─ Better Auth  │
+│  Nuxt Server │◄───────────────►│      (HTTP actions│
 └──────────────┘                 └───────────────────┘
 ```
 

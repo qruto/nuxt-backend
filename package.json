@@ -1,7 +1,7 @@
 {
   "name": "nuxt-backend",
   "version": "1.0.0",
-  "description": "Batteries-included Nuxt module for Convex backend with authentication",
+  "description": "Nuxt module and Convex component for a full-stack Convex backend with authentication",
   "repository": "qruto/nuxt-backend",
   "license": "MIT",
   "type": "module",
