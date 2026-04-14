@@ -70,6 +70,7 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Server utilities
     const serverUtils = [
+      'getToken', 'isAuthenticated',
       'fetchQuery', 'fetchMutation', 'fetchAction',
       'fetchAuthQuery', 'fetchAuthMutation', 'fetchAuthAction',
       'preloadQuery', 'preloadAuthQuery', 'preloadedQueryResult',
