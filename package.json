@@ -15,14 +15,14 @@
       "import": "./src/convex-component/convex.config.ts"
     },
     "./auth-config": {
-      "types": "./dist/convex-component/auth-config.d.ts",
-      "import": "./src/convex-component/auth-config.ts"
+      "types": "./dist/convex-component/authConfig.d.ts",
+      "import": "./src/convex-component/authConfig.ts"
     },
     "./auth": {
       "types": "./dist/convex-component/auth.d.ts",
       "import": "./src/convex-component/auth.ts"
     },
-    "./test": "./src/convex-component/test.ts"
+    "./test": "./src/test.ts"
   },
   "main": "./dist/module.mjs",
   "typesVersions": {
@@ -33,9 +33,9 @@
       "convex-component": [
         "./dist/convex-component/convex.config.d.ts"
       ],
-      "auth-config": [
-        "./dist/convex-component/auth-config.d.ts"
-      ],
+       "auth-config": [
+          "./dist/convex-component/authConfig.d.ts"
+        ],
       "auth": [
         "./dist/convex-component/auth.d.ts"
       ]
@@ -50,9 +50,9 @@
   ],
   "scripts": {
     "prepack": "npm run build",
-    "build": "npm run build:convex-component && npm run build:nuxt-module",
+    "build": "npm run build:nuxt-module && npm run build:convex-component",
     "build:convex-component": "npm run build:convex-component:codegen && tsc --project ./tsconfig.build.json",
-    "build:convex-component:codegen": "convex codegen --component-dir ./src/convex-component",
+    "build:convex-component:codegen": "convex codegen --component-dir ./src/convex-component && node ./scripts/fix-convex-generated-files.mjs",
     "build:nuxt-module": "nuxt-module-build build",
     "dev": "npm run dev:nuxt-module:prepare && run-p -r 'dev:convex-component' 'dev:nuxt-module' 'dev:convex-component:codegen'",
     "dev:convex-component": "convex dev --typecheck-components",

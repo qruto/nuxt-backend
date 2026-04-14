@@ -3,7 +3,7 @@ import { test } from 'vitest'
 import { convexTest } from 'convex-test'
 import { componentsGeneric, defineSchema, type GenericSchema, type SchemaDefinition } from 'convex/server'
 import betterAuth from '@convex-dev/better-auth/test'
-import component from '../../src/convex-component/test'
+import component from '../../src/test'
 
 export function initConvexTest<
   Schema extends SchemaDefinition<GenericSchema, boolean>,

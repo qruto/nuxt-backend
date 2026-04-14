@@ -3,7 +3,7 @@ import type { TestConvex } from 'convex-test'
 import type { GenericSchema, SchemaDefinition } from 'convex/server'
 import betterAuth from '@convex-dev/better-auth/test'
 
-const modules = import.meta.glob('./**/*.ts')
+const modules = import.meta.glob('./convex-component/**/*.ts')
 
 /**
  * Register the nuxt-backend component with a test Convex instance.
@@ -28,7 +28,11 @@ export function register(
   t: TestConvex<SchemaDefinition<GenericSchema, boolean>>,
   name: string = 'backend',
 ) {
-  t.registerComponent(name, undefined as any, modules)
+  t.registerComponent(
+    name,
+    undefined as unknown as Parameters<typeof t.registerComponent>[1],
+    modules,
+  )
   betterAuth.register(t, `${name}.betterAuth`)
 }
 

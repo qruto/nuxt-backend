@@ -11,24 +11,76 @@
 import type { FunctionReference } from "convex/server";
 
 /**
- * A utility for referencing the backend Convex component's exposed API.
+ * A utility for referencing a Convex component's exposed API.
  *
+ * Useful when expecting a parameter like `components.myComponent`.
  * Usage:
  * ```ts
  * async function myFunction(ctx: QueryCtx, component: ComponentApi) {
- *   return ctx.runQuery(component.adapter.findOne, { ...args });
+ *   return ctx.runQuery(component.someFile.someQuery, { ...args });
  * }
  * ```
  */
 export type ComponentApi<Name extends string | undefined = string | undefined> =
   {
     adapter: {
-      create: FunctionReference<"mutation", "internal", any, any, Name>;
-      findOne: FunctionReference<"query", "internal", any, any, Name>;
-      findMany: FunctionReference<"query", "internal", any, any, Name>;
-      updateOne: FunctionReference<"mutation", "internal", any, any, Name>;
-      updateMany: FunctionReference<"mutation", "internal", any, any, Name>;
-      deleteOne: FunctionReference<"mutation", "internal", any, any, Name>;
-      deleteMany: FunctionReference<"mutation", "internal", any, any, Name>;
+      create: FunctionReference<
+        "mutation",
+        "internal",
+        { input: any; onCreateHandle?: string; select?: any },
+        any,
+        Name
+      >;
+      deleteMany: FunctionReference<
+        "mutation",
+        "internal",
+        { input: any; onDeleteHandle?: string; paginationOpts: any },
+        any,
+        Name
+      >;
+      deleteOne: FunctionReference<
+        "mutation",
+        "internal",
+        { input: any; onDeleteHandle?: string },
+        any,
+        Name
+      >;
+      findMany: FunctionReference<
+        "query",
+        "internal",
+        {
+          join?: any;
+          limit?: number;
+          model: any;
+          offset?: number;
+          paginationOpts: any;
+          select?: any;
+          sortBy?: any;
+          where?: any;
+        },
+        any,
+        Name
+      >;
+      findOne: FunctionReference<
+        "query",
+        "internal",
+        { join?: any; model: any; select?: any; where?: any },
+        any,
+        Name
+      >;
+      updateMany: FunctionReference<
+        "mutation",
+        "internal",
+        { input: any; onUpdateHandle?: string; paginationOpts: any },
+        any,
+        Name
+      >;
+      updateOne: FunctionReference<
+        "mutation",
+        "internal",
+        { input: any; onUpdateHandle?: string },
+        any,
+        Name
+      >;
     };
   };

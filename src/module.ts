@@ -7,6 +7,17 @@ export interface ModuleOptions {
   authRoute?: string
 }
 
+interface PublicBackendRuntimeConfig {
+  url: string
+  siteUrl: string
+  authRoute: string
+}
+
+interface PrivateBackendRuntimeConfig {
+  siteUrl: string
+  authRoute: string
+}
+
 export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: 'nuxt-backend',
@@ -36,11 +47,13 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.options.runtimeConfig.public.backend = {
       url: url || '',
       siteUrl: siteUrl || '',
-    }
+      authRoute,
+    } as PublicBackendRuntimeConfig
 
     nuxt.options.runtimeConfig.backend = {
       siteUrl: siteUrl || '',
-    }
+      authRoute,
+    } as PrivateBackendRuntimeConfig
 
     // Auto-scaffold the minimum backend files
     scaffoldBackendFiles(nuxt.options.rootDir)
@@ -57,6 +70,10 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Auth proxy
     addServerHandler({
+      route: authRoute,
+      handler: resolver.resolve('./runtime/server/api/auth/[...all]'),
+    })
+    addServerHandler({
       route: `${authRoute}/**`,
       handler: resolver.resolve('./runtime/server/api/auth/[...all]'),
     })
@@ -71,6 +88,7 @@ export default defineNuxtModule<ModuleOptions>({
     // Server utilities
     const serverUtils = [
       'fetchQuery', 'fetchMutation', 'fetchAction',
+      'getToken', 'isAuthenticated',
       'fetchAuthQuery', 'fetchAuthMutation', 'fetchAuthAction',
       'preloadQuery', 'preloadAuthQuery', 'preloadedQueryResult',
     ]

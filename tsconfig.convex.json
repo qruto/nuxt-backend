@@ -17,7 +17,8 @@
     "rootDir": "./src/convex-component",
     "outDir": "./dist/convex-component",
     "verbatimModuleSyntax": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["node"]
   },
   "include": ["./src/convex-component/**/*"]
 }

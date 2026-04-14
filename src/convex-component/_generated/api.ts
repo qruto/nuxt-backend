@@ -9,6 +9,11 @@
  */
 
 import type * as adapter from "../adapter.js";
+import type * as auth from "../auth.js";
+import type * as authConfig from "../authConfig.js";
+import type * as componentAuth from "../componentAuth.js";
+import type * as constants from "../constants.js";
+import type * as http from "../http.js";
 
 import type {
   ApiFromModules,
@@ -19,6 +24,11 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   adapter: typeof adapter;
+  auth: typeof auth;
+  authConfig: typeof authConfig;
+  componentAuth: typeof componentAuth;
+  constants: typeof constants;
+  http: typeof http;
 }> = anyApi as any;
 
 /**
@@ -48,15 +58,5 @@ export const internal: FilterApi<
 > = anyApi as any;
 
 export const components = componentsGeneric() as unknown as {
-  betterAuth: {
-    adapter: {
-      create: FunctionReference<"mutation", "internal", any, any>;
-      findOne: FunctionReference<"query", "internal", any, any>;
-      findMany: FunctionReference<"query", "internal", any, any>;
-      updateOne: FunctionReference<"mutation", "internal", any, any>;
-      updateMany: FunctionReference<"mutation", "internal", any, any>;
-      deleteOne: FunctionReference<"mutation", "internal", any, any>;
-      deleteMany: FunctionReference<"mutation", "internal", any, any>;
-    };
-  };
+  betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
 };

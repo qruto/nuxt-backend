@@ -1,4 +1,4 @@
-import { authClient } from '../auth/client'
+import { getAuthClient } from '../auth/client'
 
 /**
  * Access the Better Auth client for sign-in, sign-up, sign-out, and other auth operations.
@@ -14,5 +14,5 @@ import { authClient } from '../auth/client'
  * ```
  */
 export function useAuthClient() {
-  return authClient
+  return getAuthClient()
 }

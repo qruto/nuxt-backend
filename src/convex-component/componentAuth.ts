@@ -1,7 +1,7 @@
 import { createClient } from '@convex-dev/better-auth'
 import { components } from './_generated/api'
 import { createBetterAuth } from './auth'
-import authConfig from './auth-config'
+import authConfig from './authConfig'
 
 export const authComponent = createClient(components.betterAuth)
 

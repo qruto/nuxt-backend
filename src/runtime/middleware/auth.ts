@@ -1,6 +1,6 @@
 import { defineNuxtRouteMiddleware, navigateTo } from '#app'
 import { watch } from 'vue'
-import { authClient } from '../auth/client'
+import { useSession } from '../composables/useSession'
 
 /**
  * Auth route middleware — protects pages from unauthenticated access.
@@ -13,7 +13,7 @@ import { authClient } from '../auth/client'
  * ```
  */
 export default defineNuxtRouteMiddleware(async () => {
-  const session = authClient.useSession()
+  const session = await useSession()
 
   // Wait for session to resolve if still loading
   if (session.isPending.value) {

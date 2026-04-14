@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { defineBackendAuthConfig } from '../../src/convex-component/auth-config'
+import { defineBackendAuthConfig } from '../../src/convex-component/authConfig'
 
 const originalConvexSiteUrl = process.env.CONVEX_SITE_URL
 

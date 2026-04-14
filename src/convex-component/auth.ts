@@ -2,7 +2,7 @@ import { createClient, type GenericCtx } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth, type BetterAuthOptions } from 'better-auth/minimal'
 import type { AuthConfig, GenericDataModel, QueryBuilder } from 'convex/server'
-import authConfig from './auth-config'
+import authConfig from './authConfig'
 import { DEFAULT_AUTH_ROUTE } from './constants'
 
 export interface SetupAuthOptions {

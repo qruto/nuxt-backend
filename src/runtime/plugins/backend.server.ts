@@ -1,22 +1,31 @@
 import { ConvexHttpClient } from 'convex/browser'
-import { defineNuxtPlugin, useRuntimeConfig, useRequestHeaders } from '#app'
+import { defineNuxtPlugin, useRuntimeConfig, useState } from '#app'
+import { getToken } from '../server/utils/auth'
 
-export default defineNuxtPlugin(() => {
+export default defineNuxtPlugin(async () => {
   const config = useRuntimeConfig()
   const url = config.public.backend.url
+  const authToken = useState<string | null>('backend:token', () => null)
   if (!url) {
     console.warn('[nuxt-backend] No Convex URL configured for server plugin.')
-    return
+    authToken.value = null
+    return {}
   }
 
   const client = new ConvexHttpClient(url)
 
-  // SSR token hydration: read session token from cookies
-  const headers = useRequestHeaders(['cookie'])
-  const cookies = headers.cookie || ''
-  const tokenMatch = cookies.match(/better-auth\.session_token=([^;]+)/)
-  if (tokenMatch && tokenMatch[1]) {
-    client.setAuth(tokenMatch[1])
+  try {
+    authToken.value = await getToken()
+  }
+  catch (error) {
+    authToken.value = null
+    console.warn(
+      `[nuxt-backend] Failed to resolve SSR auth token: ${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
+
+  if (authToken.value) {
+    client.setAuth(authToken.value)
   }
 
   return {

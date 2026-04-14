@@ -1,4 +1,4 @@
-import { authClient } from '../auth/client'
+import { getAuthClient, normalizeSessionState } from '../auth/client'
 import { useFetch } from '#app'
 
 /**
@@ -7,5 +7,6 @@ import { useFetch } from '#app'
  * On the client, subscribes to reactive session state.
  */
 export async function useSession() {
-  return authClient.useSession(useFetch)
+  const session = await getAuthClient().useSession(useFetch)
+  return normalizeSessionState(session)
 }

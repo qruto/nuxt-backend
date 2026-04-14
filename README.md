@@ -7,7 +7,7 @@
 
 Integrate [Convex](https://convex.dev) with [Nuxt](https://nuxt.com) — ships a **Nuxt module** and a **Convex component** in a single package.
 
-The **Nuxt module** wires up real-time composables, SSR helpers, server utilities, and an auth proxy.
+The **Nuxt module** wires up the Nuxt-side equivalent of the official Better Auth + Convex client, provider, SSR helpers, server utilities, and auth proxy.
 The **Convex component** provides a ready-made authentication backend powered by [Better Auth](https://www.better-auth.com).
 
 ## Features
@@ -29,7 +29,7 @@ The **Convex component** provides a ready-made authentication backend powered by
 ### 1. Install the package
 
 ```bash
-npm install nuxt-backend
+npm install nuxt-backend convex@latest
 ```
 
 ### 2. Add the module
@@ -46,9 +46,11 @@ export default defineNuxtConfig({
 Create a `.env` file in your project root:
 
 ```bash
-CONVEX_URL=https://your-deployment.convex.cloud
-CONVEX_SITE_URL=https://your-deployment.convex.site
+NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
+NUXT_PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site
 ```
+
+`CONVEX_URL` and `CONVEX_SITE_URL` are also supported if you prefer non-public env names.
 
 In the [Convex dashboard](https://dashboard.convex.dev), set these environment variables:
 
@@ -57,7 +59,7 @@ SITE_URL=http://localhost:3000
 BETTER_AUTH_SECRET=<random-secret>
 ```
 
-### 4. Start development
+### 4. Start Nuxt once to scaffold the Convex files
 
 ```bash
 npm run dev
@@ -74,6 +76,8 @@ your-project/
 ├── convex.json            # Points the Convex CLI at backend/
 └── .env
 ```
+
+This is the Nuxt equivalent of the official framework guide's Convex-side setup. The module keeps the Nuxt-side auth client, auth proxy, SSR token exchange, and server helpers internal, so you do not need separate `auth-client`, `auth-server`, or provider files in your app.
 
 ### 5. Start Convex
 
@@ -208,13 +212,16 @@ export default defineEventHandler(async () => {
 
 ```ts
 // server/api/profile.ts
-export default defineEventHandler(async (event) => {
-  const token = getCookie(event, 'better-auth.session_token')
-  if (!token) throw createError({ statusCode: 401 })
+export default defineEventHandler(async () => {
+  if (!await isAuthenticated()) {
+    throw createError({ statusCode: 401 })
+  }
 
-  return await fetchAuthQuery(token, api.users.me, {})
+  return await fetchAuthQuery(api.users.me, {})
 })
 ```
+
+Authenticated helpers resolve the current request's Better Auth session automatically. You can still pass an explicit token as the first argument for advanced cases.
 
 ### Preloading
 
@@ -228,6 +235,8 @@ const data = preloadedQueryResult(preloaded)
 | `fetchQuery` | Run a query |
 | `fetchMutation` | Run a mutation |
 | `fetchAction` | Run an action |
+| `getToken` | Resolve the current request's Convex JWT |
+| `isAuthenticated` | Check whether the current request has an auth session |
 | `fetchAuthQuery` | Authenticated query |
 | `fetchAuthMutation` | Authenticated mutation |
 | `fetchAuthAction` | Authenticated action |
@@ -246,13 +255,15 @@ All options have sensible defaults. Environment variables are picked up automati
 export default defineNuxtConfig({
   modules: ['nuxt-backend'],
   backend: {
-    // Convex deployment URL (default: CONVEX_URL env)
+    // Convex deployment URL (default: NUXT_PUBLIC_CONVEX_URL or CONVEX_URL env)
     url: 'https://your-deployment.convex.cloud',
 
-    // Convex site URL for auth proxy (default: CONVEX_SITE_URL env)
+    // Convex site URL for auth proxy (default: NUXT_PUBLIC_CONVEX_SITE_URL or CONVEX_SITE_URL env)
     siteUrl: 'https://your-deployment.convex.site',
 
-    // Auth proxy route prefix (default: '/api/auth')
+    // Auth proxy route prefix (default: '/api/auth').
+    // If you change this, keep backend/convex.config.ts,
+    // backend/auth.config.ts, and backend/auth.ts in sync.
     authRoute: '/api/auth',
   },
 })

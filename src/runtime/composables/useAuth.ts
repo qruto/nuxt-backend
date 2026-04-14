@@ -1,12 +1,12 @@
 import { computed } from 'vue'
-import { authClient } from '../auth/client'
+import { getAuthClient, normalizeSessionState } from '../auth/client'
 
 /**
  * Reactive auth state.
  * Returns `{ isAuthenticated, isLoading }` computed refs.
  */
 export function useAuth() {
-  const session = authClient.useSession()
+  const session = normalizeSessionState(getAuthClient().useSession())
 
   return {
     isAuthenticated: computed(() => !!session.data.value),

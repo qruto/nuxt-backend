@@ -14,5 +14,5 @@
     "types": ["node"]
   },
   "include": ["src/convex-component/**/*"],
-  "exclude": ["src/convex-component/**/*.test.*", "src/convex-component/test.ts"]
+  "exclude": ["src/convex-component/**/*.test.*"]
 }
