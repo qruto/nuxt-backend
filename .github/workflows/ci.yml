@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: lts/*
 
       - run: npm i -g --force corepack@latest && corepack enable
 
@@ -35,7 +35,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: lts/*
 
       - run: npm i -g --force corepack@latest && corepack enable
 
@@ -47,3 +47,25 @@ jobs:
 
       - name: Test
         run: npm run test
+
+  preview:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - run: npm i -g --force corepack@latest && corepack enable
+
+      - name: Install dependencies
+        run: npx nypm@latest i
+
+      - name: Build
+        run: npm run prepack
+
+      - name: Publish preview package
+        run: npx pkg-pr-new publish || echo "pkg-pr-new not configured for this repo"

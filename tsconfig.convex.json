@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "strict": true,
+
+    "target": "ESNext",
+    "lib": ["ES2023", "dom", "DOM.Iterable"],
+    "forceConsistentCasingInFileNames": true,
+    "allowSyntheticDefaultImports": true,
+    "noErrorTruncation": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+
+    "isolatedModules": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "rootDir": "./src/convex-component",
+    "outDir": "./dist/convex-component",
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true
+  },
+  "include": ["./src/convex-component/**/*"]
+}

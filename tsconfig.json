@@ -3,6 +3,8 @@
   "exclude": [
     "dist",
     "node_modules",
+    "backend",
     "playground",
+    "src/convex-component"
   ]
 }

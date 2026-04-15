@@ -1,69 +1,105 @@
 {
-  "name": "nuxt-convex-backend",
+  "name": "nuxt-backend",
   "version": "1.0.0",
-  "description": "Nuxt module for Convex backend integration, including authentication and permissions",
-  "repository": "qruto/nuxt-convex-backend",
+  "description": "Nuxt module and Convex component for a full-stack Convex backend with authentication",
+  "repository": "qruto/nuxt-backend",
   "license": "MIT",
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/types.d.mts",
       "import": "./dist/module.mjs"
-    }
+    },
+    "./convex-component": {
+      "types": "./dist/convex-component/convex.config.d.ts",
+      "import": "./src/convex-component/convex.config.ts"
+    },
+    "./auth-config": {
+      "types": "./dist/convex-component/auth-config.d.ts",
+      "import": "./src/convex-component/auth-config.ts"
+    },
+    "./auth": {
+      "types": "./dist/convex-component/auth.d.ts",
+      "import": "./src/convex-component/auth.ts"
+    },
+    "./test": "./src/convex-component/test.ts"
   },
   "main": "./dist/module.mjs",
   "typesVersions": {
     "*": {
       ".": [
         "./dist/types.d.mts"
+      ],
+      "convex-component": [
+        "./dist/convex-component/convex.config.d.ts"
+      ],
+      "backend-component": [
+        "./dist/convex-component/convex.config.d.ts"
+      ],
+      "auth-config": [
+        "./dist/convex-component/auth-config.d.ts"
+      ],
+      "auth": [
+        "./dist/convex-component/auth.d.ts"
       ]
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "workspaces": [
     "playground"
   ],
   "scripts": {
-    "prepack": "nuxt-module-build build",
-    "dev": "npm run dev:prepare && nuxt dev playground",
-    "dev:build": "nuxt build playground",
-    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
+    "prepack": "npm run build",
+    "build": "npm run build:convex-component && npm run build:nuxt-module",
+    "build:convex-component": "npm run build:convex-component:codegen && tsc --project ./tsconfig.build.json",
+    "build:convex-component:codegen": "convex codegen --component-dir ./src/convex-component",
+    "build:nuxt-module": "nuxt-module-build build",
+    "dev": "npm run dev:nuxt-module:prepare && run-p -r 'dev:convex-component' 'dev:nuxt-module' 'dev:convex-component:codegen'",
+    "dev:convex-component": "convex dev --typecheck-components",
+    "dev:convex-component:codegen": "chokidar 'tsconfig*.json' 'src/convex-component/**/*.ts' -i '**/*.test.ts' -c 'npm run build:convex-component:codegen' --initial",
+    "dev:nuxt-module": "nuxt dev playground",
+    "dev:nuxt-module:build": "nuxt build playground",
+    "dev:nuxt-module:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
     "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
     "lint": "eslint .",
     "test": "vitest",
     "test:watch": "vitest --watch",
-    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
+    "test:types": "npm run dev:nuxt-module:prepare && vue-tsc --noEmit && tsc --noEmit -p tsconfig.convex.json && cd playground && vue-tsc --noEmit",
     "test:unit": "vitest --project unit",
+    "test:convex": "vitest --project convex-component",
     "test:nuxt": "vitest --project nuxt",
     "test:e2e": "vitest --project e2e",
     "bump": "npx taze major -w"
   },
   "dependencies": {
+    "@convex-dev/better-auth": "^0.11.4",
     "@nuxt/kit": "^4.4.2",
-    "better-sqlite3": "^12.8.0"
+    "better-auth": "^1.6.2",
+    "convex": "^1.35.1"
   },
   "devDependencies": {
-    "@nuxt/content": "^3.12.0",
+    "@edge-runtime/vm": "^5.0.0",
     "@nuxt/devtools": "^3.2.4",
     "@nuxt/eslint": "^1.15.2",
     "@nuxt/eslint-config": "^1.15.2",
-    "@nuxt/fonts": "^0.14.0",
-    "@nuxt/hints": "^1.0.3",
-    "@nuxt/icon": "^2.2.1",
-    "@nuxt/image": "^2.0.0",
     "@nuxt/module-builder": "^1.0.2",
     "@nuxt/schema": "^4.4.2",
-    "@nuxt/scripts": "^0.13.2",
     "@nuxt/test-utils": "^4.0.2",
     "@types/node": "latest",
-    "@unhead/vue": "^3.0.2",
+    "@unhead/vue": "^3.0.3",
     "@vue/test-utils": "^2.4.6",
     "changelogen": "^0.6.2",
+    "chokidar-cli": "^3.0.0",
+    "convex-test": "^0.0.47",
     "eslint": "^10.2.0",
     "happy-dom": "^20.8.9",
+    "npm-run-all2": "^8.0.4",
     "nuxt": "^4.4.2",
+    "oxc-parser": "^0.124.0",
+    "pkg-pr-new": "^0.0.66",
     "typescript": "~6.0.2",
     "vitest": "^4.1.4",
     "vue-tsc": "^3.2.6"

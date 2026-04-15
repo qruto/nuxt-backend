@@ -15,6 +15,7 @@ node_modules
 
 # Generated dirs
 dist
+playground/backend/_generated
 
 # Nuxt
 .nuxt
@@ -26,6 +27,8 @@ dist
 
 # Env
 .env
+.env.*
+!.env.example
 
 # Testing
 reports
@@ -44,6 +47,10 @@ coverage
 # Intellij idea
 *.iml
 .idea
+
+# Build artifacts
+*.tsbuildinfo
+*.tgz
 
 # OSX
 .DS_Store
