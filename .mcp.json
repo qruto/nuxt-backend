@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "convex": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "convex@latest",
+        "mcp",
+        "start"
+      ]
+    },
+    "nuxt-docs": {
+      "type": "sse",
+      "url": "https://nuxt.com/mcp"
+    },
+    "better-auth": {
+      "url": "https://mcp.chonkie.ai/better-auth/better-auth-builder/mcp",
+      "type": "https"
+    }
+  }
+}
