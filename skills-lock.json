@@ -1,35 +1,30 @@
 {
   "version": 1,
   "skills": {
-    "convex-create-component": {
-      "source": "get-convex/agent-skills",
+    "nuxt": {
+      "source": "antfu/skills",
       "sourceType": "github",
-      "computedHash": "d110fca7f65b4919367e6fc63a93bf54abea2cf5e4e097234c947559ffa6e527"
+      "computedHash": "9e8237ec92083db9a6f4c77d5e5bf4b1d9873d670671235bc75455ee1ca39c74"
     },
-    "convex-migration-helper": {
-      "source": "get-convex/agent-skills",
+    "nuxt-modules": {
+      "source": "onmax/nuxt-skills",
       "sourceType": "github",
-      "computedHash": "46d1ac354eefbed05e1367d828e893816c13302276080bfaf6bcd828281be486"
+      "computedHash": "628065a8cf5cab196853ff5ef5538d3a7ff553293dde146380ec1b57f33def48"
     },
-    "convex-performance-audit": {
-      "source": "get-convex/agent-skills",
+    "typescript-advanced-types": {
+      "source": "wshobson/agents",
       "sourceType": "github",
-      "computedHash": "30ea0d3c259df011e44ea9b70502ab272f5ac3bd1fb3672ae18489ba99b2c4ae"
+      "computedHash": "3a3be8c925f96ac4e1280db28a01677e7ca5197f3792de2bbf35ab3bb324b6dd"
     },
-    "convex-quickstart": {
-      "source": "get-convex/agent-skills",
+    "vue": {
+      "source": "antfu/skills",
       "sourceType": "github",
-      "computedHash": "8ae9e1b02f526ea65e7895fac82af74142cd8e70e364d9dae9dbf79a296fb5ef"
+      "computedHash": "9c241141e07e836e4f0537c63e8f929fba3767c2997250be38e699f19b75e3f2"
     },
-    "convex-setup-auth": {
-      "source": "get-convex/agent-skills",
+    "vueuse-functions": {
+      "source": "antfu/skills",
       "sourceType": "github",
-      "computedHash": "e719d31d1ab0d19ca7b942d1154d3ff436b5c156900eea9866c2aaeb910a1388"
-    },
-    "find-skills": {
-      "source": "vercel-labs/skills",
-      "sourceType": "github",
-      "computedHash": "d31e234f0c90694a670222cdd1dafa853e051d7066beda389f1097c22dadd461"
+      "computedHash": "fedfc78f035a88fe3e9d823f44725fe8981486c55b966c17fbd0d7c28339e49a"
     }
   }
 }
