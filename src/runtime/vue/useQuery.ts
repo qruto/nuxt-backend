@@ -222,10 +222,10 @@ export function useQuery<Query extends FunctionReference<'query'>>(
       return v === 'skip' ? 'skip' : JSON.stringify(v)
     },
     () => subscribe(),
+    // `immediate: true` triggers the initial subscription during setup,
+    // matching React's behaviour of subscribing on mount.
+    { immediate: true },
   )
-
-  // Initial subscription (equivalent of the initial render in React).
-  subscribe()
 
   // Cleanup on scope disposal (equivalent of useEffect cleanup in React).
   onScopeDispose(() => {

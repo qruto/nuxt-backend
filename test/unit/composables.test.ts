@@ -17,8 +17,8 @@ import { useQuery } from '../../src/runtime/vue/useQuery'
 interface MockSubscription {
   callback: (result: unknown) => void
   onError: (err: Error) => void
-  unsubscribe: Mock
-  getCurrentValue: Mock
+  unsubscribe: ReturnType<typeof vi.fn>
+  getCurrentValue: ReturnType<typeof vi.fn>
 }
 
 function createMockClient() {
