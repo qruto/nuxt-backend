@@ -7,17 +7,18 @@
  *   React's `useConvex` which reads from `ConvexContext`).
  * - {@link useQuery} — reactive query subscription (equivalent of React's
  *   `useQuery` with both positional and object-form overloads).
+ * - {@link useQueries} — subscribe to a dynamic number of queries at once.
  *
  * ### Architecture note
  *
- * The React integration (`convex/react`) is built on top of
- * `ConvexReactClient`, `QueriesObserver`, and `useSubscription` — layers
- * needed to safely schedule React re-renders and batch state updates in
- * concurrent mode.
+ * Internally this follows the same structure as `convex/react`:
  *
- * Vue's fine-grained reactivity system makes these layers unnecessary.
- * We subscribe directly to `ConvexClient.onUpdate()` and write to `ref()`s,
- * which Vue schedules and batches automatically.
+ *   useQuery → QueriesObserver.setQueries → Watch.onUpdate → localQueryResult
+ *
+ * The `QueriesObserver` class is ported verbatim from the React source.
+ * Only the hook/subscription glue is replaced with Vue equivalents
+ * (`watch`, `ref`, `onScopeDispose` instead of `useMemo`, `useState`,
+ * `useEffect`, `useSubscription`).
  *
  * @module
  */
@@ -25,3 +26,5 @@
 export { ConvexClientKey, useConvex } from './client'
 export { useQuery } from './useQuery'
 export type { UseQueryReturn, UseQueryOptions, OptionalRestArgsOrSkip } from './useQuery'
+export { useQueries } from './use_queries'
+export type { RequestForQueries } from './use_queries'

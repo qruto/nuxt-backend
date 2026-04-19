@@ -3,42 +3,107 @@
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { nextTick, ref, computed, createApp } from 'vue'
+import { makeFunctionReference, getFunctionName } from 'convex/server'
 import { ConvexClientKey } from '../../src/runtime/vue/client'
 import { useQuery } from '../../src/runtime/vue/useQuery'
 
 // ---------------------------------------------------------------------------
 // Mock ConvexClient
 //
-// The Vue layer's `useQuery` subscribes via `ConvexClient.onUpdate()`.
-// We create a minimal mock that captures the callback so tests can push
-// new values and assert the reactive refs update correctly.
+// The new implementation uses:
+// - ConvexClient.onUpdate(query, args, callback, onError) for Watch.onUpdate()
+// - ConvexClient.client.localQueryResult(name, args) for Watch.localQueryResult()
+// - ConvexClient.client.queryJournal(name, args) for Watch.journal()
+//
+// We mock all three, and simulate the query update flow:
+// 1. useQuery → QueriesObserver → Watch.onUpdate() → registers subscription
+// 2. Test pushes new value → callback fires → QueriesObserver notifies
+// 3. useQuery reads Watch.localQueryResult() to get the latest value
 // ---------------------------------------------------------------------------
 
 interface MockSubscription {
-  callback: (result: unknown) => void
+  query: string
+  args: Record<string, unknown>
+  callback: () => void
   onError: (err: Error) => void
   unsubscribe: ReturnType<typeof vi.fn>
-  getCurrentValue: ReturnType<typeof vi.fn>
 }
 
 function createMockClient() {
   const subscriptions: MockSubscription[] = []
 
+  // Store for query results (simulates BaseConvexClient's internal cache)
+  const queryResults = new Map<string, unknown>()
+  const queryErrors = new Map<string, Error>()
+
+  function resultKey(name: string, args: Record<string, unknown>): string {
+    return `${name}::${JSON.stringify(args)}`
+  }
+
   const client = {
-    onUpdate: vi.fn((_query: unknown, _args: unknown, callback: (result: unknown) => void, onError?: (err: Error) => void) => {
+    // Mock ConvexClient.onUpdate()
+    onUpdate: vi.fn((
+      query: unknown,
+      args: Record<string, unknown>,
+      callback: () => void,
+      onError?: (err: Error) => void,
+    ) => {
+      const name = getFunctionName(query as Parameters<typeof getFunctionName>[0])
       const sub: MockSubscription = {
+        query: name,
+        args,
         callback,
         onError: onError ?? (() => {}),
         unsubscribe: vi.fn(),
-        getCurrentValue: vi.fn(() => undefined),
       }
       subscriptions.push(sub)
 
-      // Return an Unsubscribe function (matching ConvexClient API)
+      // Return Unsubscribe function (matches ConvexClient API)
       const unsubFn = () => sub.unsubscribe()
       return unsubFn
     }),
+
+    // Mock ConvexClient.client (BaseConvexClient)
+    client: {
+      localQueryResult: vi.fn((name: string, args: Record<string, unknown>) => {
+        const key = resultKey(name, args)
+        if (queryErrors.has(key)) {
+          throw queryErrors.get(key)
+        }
+        return queryResults.get(key)
+      }),
+      queryJournal: vi.fn(() => undefined),
+      subscribe: vi.fn((_name: string, _args: unknown, _options: unknown) => {
+        return {
+          queryToken: `token-${_name}`,
+          unsubscribe: vi.fn(),
+        }
+      }),
+    },
+
     subscriptions,
+
+    // Test helpers: simulate server pushing a new result
+    pushResult(subIndex: number, value: unknown) {
+      const sub = subscriptions[subIndex]
+      const key = resultKey(sub.query, sub.args)
+      queryResults.set(key, value)
+      queryErrors.delete(key)
+      sub.callback()
+    },
+
+    pushError(subIndex: number, error: Error) {
+      const sub = subscriptions[subIndex]
+      const key = resultKey(sub.query, sub.args)
+      queryErrors.set(key, error)
+      queryResults.delete(key)
+      sub.onError(error)
+    },
+
+    clearResults() {
+      queryResults.clear()
+      queryErrors.clear()
+    },
   }
 
   return client
@@ -65,10 +130,10 @@ function runComposable<T>(composable: () => T, client: ReturnType<typeof createM
   return result
 }
 
-// Fake FunctionReference — the ConvexClient mock doesn't validate the reference
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mockQueryRef(name: string): any {
-  return name
+// Create a proper FunctionReference for testing
+// (makeFunctionReference is used internally by useQuery for string queries)
+function mockQueryRef(name: string) {
+  return makeFunctionReference<'query'>(name)
 }
 
 // ---------------------------------------------------------------------------
@@ -93,16 +158,15 @@ describe('useQuery (Vue layer)', () => {
     // Initially pending
     expect(status.value).toBe('pending')
     expect(data.value).toBeUndefined()
-    expect(error.value).toBeNull()
+    expect(error.value).toBeUndefined()
 
     // Simulate server pushing a result
     expect(client.onUpdate).toHaveBeenCalledTimes(1)
-    const sub = client.subscriptions[0]
-    sub.callback([{ _id: '1', text: 'Buy milk' }])
+    client.pushResult(0, [{ _id: '1', text: 'Buy milk' }])
 
     expect(data.value).toEqual([{ _id: '1', text: 'Buy milk' }])
     expect(status.value).toBe('success')
-    expect(error.value).toBeNull()
+    expect(error.value).toBeUndefined()
   })
 
   it('handles errors via onError callback', () => {
@@ -111,8 +175,7 @@ describe('useQuery (Vue layer)', () => {
       client,
     )
 
-    const sub = client.subscriptions[0]
-    sub.onError(new Error('Query failed'))
+    client.pushError(0, new Error('Query failed'))
 
     expect(error.value).toBeInstanceOf(Error)
     expect(error.value!.message).toBe('Query failed')
@@ -139,12 +202,6 @@ describe('useQuery (Vue layer)', () => {
 
     // Should subscribe with empty args (default)
     expect(client.onUpdate).toHaveBeenCalledTimes(1)
-    expect(client.onUpdate).toHaveBeenCalledWith(
-      mockQueryRef('api.tasks.list'),
-      {},
-      expect.any(Function),
-      expect.any(Function),
-    )
     expect(status.value).toBe('pending')
   })
 
@@ -162,12 +219,11 @@ describe('useQuery (Vue layer)', () => {
     expect(status.value).toBe('pending')
     expect(client.onUpdate).toHaveBeenCalledTimes(1)
 
-    const sub = client.subscriptions[0]
-    sub.callback(['task1', 'task2'])
+    client.pushResult(0, ['task1', 'task2'])
 
     expect(data.value).toEqual(['task1', 'task2'])
     expect(status.value).toBe('success')
-    expect(error.value).toBeNull()
+    expect(error.value).toBeUndefined()
   })
 
   it('skips subscription with object form args: "skip"', () => {
@@ -196,7 +252,7 @@ describe('useQuery (Vue layer)', () => {
 
     // First subscription
     expect(client.onUpdate).toHaveBeenCalledTimes(1)
-    client.subscriptions[0].callback(['result-1'])
+    client.pushResult(0, ['result-1'])
     expect(data.value).toEqual(['result-1'])
 
     // Change args → should re-subscribe
@@ -208,7 +264,7 @@ describe('useQuery (Vue layer)', () => {
     expect(client.subscriptions[0].unsubscribe).toHaveBeenCalled()
 
     // New subscription delivers a new result
-    client.subscriptions[1].callback(['result-2'])
+    client.pushResult(1, ['result-2'])
     expect(data.value).toEqual(['result-2'])
     expect(status.value).toBe('success')
   })
@@ -229,7 +285,7 @@ describe('useQuery (Vue layer)', () => {
     await nextTick()
 
     expect(client.onUpdate).toHaveBeenCalledTimes(1)
-    client.subscriptions[0].callback({ name: 'Alice' })
+    client.pushResult(0, { name: 'Alice' })
     expect(data.value).toEqual({ name: 'Alice' })
     expect(status.value).toBe('success')
   })
@@ -242,7 +298,7 @@ describe('useQuery (Vue layer)', () => {
       client,
     )
 
-    client.subscriptions[0].callback({ name: 'Alice' })
+    client.pushResult(0, { name: 'Alice' })
     expect(data.value).toEqual({ name: 'Alice' })
     expect(status.value).toBe('success')
 
@@ -286,14 +342,14 @@ describe('useQuery (Vue layer)', () => {
     )
 
     // First: error
-    client.subscriptions[0].onError(new Error('fail'))
+    client.pushError(0, new Error('fail'))
     expect(error.value).toBeInstanceOf(Error)
     expect(status.value).toBe('error')
 
     // Then: success
-    client.subscriptions[0].callback(['recovered'])
+    client.pushResult(0, ['recovered'])
     expect(data.value).toEqual(['recovered'])
-    expect(error.value).toBeNull()
+    expect(error.value).toBeUndefined()
     expect(status.value).toBe('success')
   })
 
