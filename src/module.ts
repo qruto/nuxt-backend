@@ -50,9 +50,12 @@ export default defineNuxtModule<ModuleOptions>({
     addPlugin(resolver.resolve('./runtime/plugins/backend.server'))
 
     // Composables
-    const composables = ['useBackend', 'useQuery', 'useMutation', 'useAction', 'useAuth', 'useSession', 'useAuthClient']
+    const composables = ['useBackend', 'useConvex', 'useQuery', 'useMutation', 'useAction', 'useAuth', 'useSession', 'useAuthClient']
     for (const name of composables) {
-      addImports({ name, from: resolver.resolve(`./runtime/composables/${name}`) })
+      const from = name === 'useConvex'
+        ? resolver.resolve(`./runtime/composables/useBackend`)
+        : resolver.resolve(`./runtime/composables/${name}`)
+      addImports({ name, from })
     }
 
     // Auth proxy
