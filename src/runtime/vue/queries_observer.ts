@@ -155,7 +155,7 @@ export class QueriesObserver {
       const journal = watch.journal()
       this.removeQuery(identifier)
       this.addQuery(identifier, query, args, {
-        ...(journal ? { journal } : []),
+        ...(journal ? { journal } : {}),
       })
     }
   }
@@ -183,7 +183,7 @@ export class QueriesObserver {
       )
     }
     const watch = this.createWatch(query, args, {
-      ...(journal ? { journal } : []),
+      ...(journal ? { journal } : {}),
     })
     const unsubscribe = watch.onUpdate(() => this.notifyListeners())
     this.queries[identifier] = {
