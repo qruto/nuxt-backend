@@ -49,7 +49,7 @@ export function useAction<Action extends FunctionReference<'action'>>(
 ): VueAction<Action> {
   const actionReference
     = typeof action === 'string'
-      ? makeFunctionReference<'action', any, any>(action)
+      ? makeFunctionReference<'action'>(action) as Action
       : action
 
   const convex = useConvex()

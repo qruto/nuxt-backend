@@ -13,8 +13,8 @@ The **Convex component** provides a ready-made authentication backend powered by
 ## Features
 
 ### Nuxt Module
-- 🔌 **Real-time Convex client** — WebSocket on client, HTTP on server
-- 🔄 **SSR** — Session hydration, server-side queries and mutations
+- 🔌 **Real-time Convex client** — `ConvexVueClient` in app code via `useConvex`, `useQuery`, `useMutation`, and `useAction`
+- 🔄 **SSR** — Next-style server helpers (`fetchQuery`, `fetchMutation`, `fetchAction`, `preloadQuery`) plus client hydration with `usePreloadedQuery`
 - 📦 **Auto-imports** — Composables and server utilities, zero manual imports
 - 🛡️ **Route protection** — `auth` middleware to guard pages
 - 🏗️ **Auto-scaffold** — Minimal Convex root files generated on first run
@@ -63,7 +63,7 @@ BETTER_AUTH_SECRET=<random-secret>
 npm run dev
 ```
 
-On first run the module scaffolds the minimum Convex files that wire your app to the packaged component:
+On first run the module scaffolds the minimum Convex files that wire your app to the packaged component. If your app already has a configured Convex functions directory, scaffolding reuses it; otherwise it creates `backend/` by default:
 
 ```
 your-project/
@@ -84,44 +84,99 @@ npx convex deploy  # Production
 
 ---
 
-## Composables
+## Client APIs
 
-All composables are auto-imported.
+The Nuxt module auto-imports two API groups in app code:
 
-### `useQuery(query, args)`
+- Convex Vue APIs from the package runtime (`useConvex`, `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `useConvexConnectionState`)
+- Better Auth helpers (`useAuth`, `useSession`, `useAuthClient`)
 
-Reactive query with real-time updates on the client and one-shot fetch during SSR.
+### `useConvex()` and `$convex`
 
 ```vue
-<script setup>
-import { api } from '~/backend/_generated/api'
-
-const { data, error, isLoading } = useQuery(api.messages.list, {})
-
-// Skip conditionally
-const { data: user } = useQuery(api.users.get, computed(() =>
-  userId.value ? { id: userId.value } : 'skip'
-))
+<script setup lang="ts">
+const convex = useConvex()
+// or: const { $convex } = useNuxtApp()
 </script>
 ```
 
-Returns `{ data: Ref<T | undefined>, error: Ref<Error | null>, isLoading: Ref<boolean> }`
+Returns the client-side `ConvexVueClient` injected by the Nuxt plugin. There is no server-side `$convex` injection; in Nitro routes and other server code, use `fetchQuery`, `fetchMutation`, `fetchAction`, or `preloadQuery` instead.
 
-### `useMutation(mutation)`
+### `useQuery()` / `useConvexQuery()`
+
+The positional overload returns a `ShallowRef<T | undefined>` and throws query errors.
 
 ```vue
-<script setup>
+<script setup lang="ts">
+import { computed } from 'vue'
+import { api } from '~/backend/_generated/api'
+
+const messages = useQuery(api.messages.list, {})
+// messages.value: Message[] | undefined
+
+const profile = useQuery(
+  api.users.get,
+  computed(() => userId.value ? { userId: userId.value } : 'skip'),
+)
+</script>
+```
+
+The object overload returns a discriminated union with `status`, `data`, and `error`.
+
+```vue
+<script setup lang="ts">
+import { computed } from 'vue'
+import { api } from '~/backend/_generated/api'
+
+const result = useQuery({
+  query: api.messages.list,
+  args: computed(() => ({ channel: channel.value })),
+  throwOnError: false,
+})
+
+// result.value.status: 'pending' | 'success' | 'error'
+</script>
+```
+
+### `useQueries()` / `useConvexQueries()`
+
+Use this when the set of active queries is dynamic.
+
+```vue
+<script setup lang="ts">
+import { api } from '~/backend/_generated/api'
+
+const results = useQueries({
+  messages: { query: api.messages.list, args: { channel: '#general' } },
+  me: { query: api.users.me, args: {} },
+})
+
+// results.value.messages
+// results.value.me
+</script>
+```
+
+### `useMutation()` / `useConvexMutation()`
+
+```vue
+<script setup lang="ts">
 import { api } from '~/backend/_generated/api'
 
 const sendMessage = useMutation(api.messages.send)
 await sendMessage({ body: 'Hello!' })
+
+const optimisticSend = sendMessage.withOptimisticUpdate((localStore, args) => {
+  localStore.setQuery(api.messages.list, {}, [
+    { _id: 'optimistic', body: args.body },
+  ])
+})
 </script>
 ```
 
-### `useAction(action)`
+### `useAction()` / `useConvexAction()`
 
 ```vue
-<script setup>
+<script setup lang="ts">
 import { api } from '~/backend/_generated/api'
 
 const generateImage = useAction(api.images.generate)
@@ -129,39 +184,65 @@ const url = await generateImage({ prompt: 'a cat' })
 </script>
 ```
 
-### `useAuth()`
-
-Reactive auth state.
+### `usePaginatedQuery()`
 
 ```vue
-<script setup>
-const { isAuthenticated, isLoading } = useAuth()
+<script setup lang="ts">
+import { api } from '~/backend/_generated/api'
+
+const messages = usePaginatedQuery(
+  api.messages.list,
+  { channel: '#general' },
+  { initialNumItems: 20 },
+)
+
+messages.value.loadMore(20)
+</script>
+```
+
+The positional overload returns `{ results, status, isLoading, loadMore }`. The object overload returns `{ data, status, error, canLoadMore, isLoading, loadMore }`.
+
+### `usePreloadedQuery()`
+
+Consumes the `Preloaded<Query>` payload returned by `preloadQuery` on the server and switches to live client updates once the browser-side client has data.
+
+### `useConvexConnectionState()`
+
+```vue
+<script setup lang="ts">
+const connection = useConvexConnectionState()
 </script>
 
 <template>
-  <div v-if="isLoading">Loading...</div>
-  <div v-else-if="isAuthenticated">Welcome!</div>
-  <div v-else>Please sign in</div>
+  <span v-if="!connection.isWebSocketConnected">Offline</span>
 </template>
 ```
 
-### `useSession()`
+### Better Auth composables
 
-SSR-compatible session data.
+`useAuth()` exposes Better Auth provider state as computed refs:
 
 ```vue
-<script setup>
+<script setup lang="ts">
+const { isAuthenticated, isLoading } = useAuth()
+</script>
+```
+
+`useSession()` is SSR-friendly and returns the Better Auth session wrapper:
+
+```vue
+<script setup lang="ts">
+import { computed } from 'vue'
+
 const session = await useSession()
 const user = computed(() => session.data.value?.user)
 </script>
 ```
 
-### `useAuthClient()`
-
-Full Better Auth client for sign-in, sign-up, sign-out.
+`useAuthClient()` returns the full Better Auth client:
 
 ```vue
-<script setup>
+<script setup lang="ts">
 const auth = useAuthClient()
 
 await auth.signIn.email({ email: 'user@example.com', password: 'secret' })
@@ -170,9 +251,11 @@ await auth.signOut()
 </script>
 ```
 
-### `useBackend()`
+### Advanced low-level auth helpers
 
-Direct access to the Convex client (`ConvexClient` on client, `ConvexHttpClient` on server).
+The package also exports low-level Convex auth helpers for custom auth integrations: `provideConvexAuth`, `useConvexAuth`, `Authenticated`, `Unauthenticated`, and `AuthLoading`.
+
+These are advanced building blocks for custom auth providers. They are not required for the default Better Auth setup scaffolded by the module.
 
 ---
 
@@ -192,7 +275,7 @@ Unauthenticated users are redirected to `/login`.
 
 ## Server Utilities
 
-Auto-imported in your `server/` directory.
+Auto-imported in your `server/` directory and Nitro handlers. These mirror the official `convex/nextjs` API surface. There is no server-side injected Convex client; all server access goes through these helpers.
 
 ```ts
 // server/api/example.ts
@@ -223,6 +306,22 @@ export default defineEventHandler(async (event) => {
 ```ts
 const preloaded = await preloadQuery(api.messages.list, {})
 const data = preloadedQueryResult(preloaded)
+```
+
+The payload returned by `preloadQuery` is designed to be passed back to app code and consumed with `usePreloadedQuery`.
+
+```ts
+// server/api/messages.preload.ts
+export default defineEventHandler(async () => {
+  return preloadQuery(api.messages.list, {})
+})
+```
+
+```vue
+<script setup lang="ts">
+const { data: preloaded } = await useFetch('/api/messages.preload')
+const messages = usePreloadedQuery(preloaded.value!)
+</script>
 ```
 
 | Function | Description |
@@ -296,6 +395,45 @@ If you change the Nuxt module's `backend.authRoute`, keep these Convex component
 
 The packaged component is intentionally opinionated for zero setup. If you need full Better Auth ownership beyond route wiring, switch out of the zero-config defaults and own the Convex auth files in your project.
 
+## Package Exports
+
+The package publishes multiple entrypoints:
+
+| Export | Use for |
+|---|---|
+| `nuxt-backend` | The Nuxt module (`modules: ['nuxt-backend']`) |
+| `nuxt-backend/convex-component` | Mounting the packaged Convex component in `convex.config.ts` |
+| `nuxt-backend/auth-config` | Creating `auth.config.ts` with `defineBackendAuthConfig(...)` |
+| `nuxt-backend/auth` | Creating `backend/auth.ts` with `setupAuth(...)` |
+| `nuxt-backend/test` | Registering the packaged Convex component in `convex-test` |
+
+### `nuxt-backend/auth`
+
+This is what the scaffolded `backend/auth.ts` uses:
+
+```ts
+import { setupAuth } from 'nuxt-backend/auth'
+import { components } from './_generated/api'
+import { query } from './_generated/server'
+
+export const { authComponent, createAuth, getCurrentUser } = setupAuth(
+  components.backend,
+  query,
+)
+```
+
+### `nuxt-backend/test`
+
+Use this when testing the packaged component with `convex-test`:
+
+```ts
+import { convexTest } from 'convex-test'
+import backendTest from 'nuxt-backend/test'
+
+const t = convexTest(schema, modules)
+backendTest.register(t)
+```
+
 ---
 
 ## Architecture
@@ -333,8 +471,8 @@ sequenceDiagram
   N-->>B: Set-Cookie + response
 ```
 
-- **Client**: `ConvexClient` connects via WebSocket for real-time reactivity. Auth tokens are automatically wired in.
-- **Server**: `ConvexHttpClient` makes stateless HTTP requests. Session tokens read from cookies.
+- **Client**: `ConvexVueClient` connects via WebSocket for real-time reactivity.
+- **Server**: `fetchQuery`, `fetchMutation`, `fetchAction`, and `preloadQuery` use `ConvexHttpClient` under the hood. Pass `{ token }` when auth is required.
 - **Auth proxy**: `/api/auth/*` proxied to Convex site URL — same-origin, no CORS issues.
 
 ---

@@ -45,6 +45,10 @@ export interface NuxtConvexOptions {
   skipConvexDeploymentUrlCheck?: boolean
 }
 
+interface ConvexHttpClientWithFetchOptions extends ConvexHttpClient {
+  setFetchOptions(options: RequestInit): void
+}
+
 function getConvexUrl(deploymentUrl: string | undefined): string {
   const url = deploymentUrl
     ?? process.env.CONVEX_URL
@@ -61,7 +65,7 @@ function getConvexUrl(deploymentUrl: string | undefined): string {
 }
 
 function setupClient(options: NuxtConvexOptions): ConvexHttpClient {
-  const client = new ConvexHttpClient(getConvexUrl(options.url))
+  const client = new ConvexHttpClient(getConvexUrl(options.url)) as ConvexHttpClientWithFetchOptions
   if (options.token !== undefined) {
     client.setAuth(options.token)
   }
@@ -74,8 +78,8 @@ function setupClient(options: NuxtConvexOptions): ConvexHttpClient {
  * which can be passed to `usePreloadedQuery` in a client component.
  *
  * @param query - A FunctionReference for the public query to run.
- * @param args - The arguments object for the query.
- * @param options - A {@link NuxtConvexOptions} options object.
+ * @param args - The query arguments and optional {@link NuxtConvexOptions}
+ *   passed as the final argument.
  * @returns A promise of the `Preloaded` payload.
  *
  * @public
@@ -90,7 +94,7 @@ export async function preloadQuery<Query extends FunctionReference<'query'>>(
     _argsJSON: convexToJson(args[0] ?? {}),
     _valueJSON: convexToJson(value),
   }
-  return preloaded as any
+  return preloaded as Preloaded<Query>
 }
 
 /**
@@ -111,8 +115,8 @@ export function preloadedQueryResult<Query extends FunctionReference<'query'>>(
  * Execute a Convex query function.
  *
  * @param query - A FunctionReference for the public query to run.
- * @param args - The arguments object for the query.
- * @param options - A {@link NuxtConvexOptions} options object.
+ * @param args - The query arguments and optional {@link NuxtConvexOptions}
+ *   passed as the final argument.
  * @returns A promise of the query's result.
  *
  * @public
@@ -130,8 +134,8 @@ export async function fetchQuery<Query extends FunctionReference<'query'>>(
  * Execute a Convex mutation function.
  *
  * @param mutation - A FunctionReference for the public mutation to run.
- * @param args - The arguments object for the mutation.
- * @param options - A {@link NuxtConvexOptions} options object.
+ * @param args - The mutation arguments and optional {@link NuxtConvexOptions}
+ *   passed as the final argument.
  * @returns A promise of the mutation's result.
  *
  * @public
@@ -149,8 +153,8 @@ export async function fetchMutation<Mutation extends FunctionReference<'mutation
  * Execute a Convex action function.
  *
  * @param action - A FunctionReference for the public action to run.
- * @param args - The arguments object for the action.
- * @param options - A {@link NuxtConvexOptions} options object.
+ * @param args - The action arguments and optional {@link NuxtConvexOptions}
+ *   passed as the final argument.
  * @returns A promise of the action's result.
  *
  * @public

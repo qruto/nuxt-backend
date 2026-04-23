@@ -7,6 +7,8 @@ import { QueriesObserver, type CreateWatch, type RequestForQueries } from './que
 
 export type { RequestForQueries }
 
+export type QueriesResults = Record<string, Value | undefined | Error>
+
 /**
  * Load multiple reactive Convex queries at once.
  *
@@ -38,7 +40,7 @@ export type { RequestForQueries }
  */
 export function useConvexQueries(
   queries: MaybeRefOrGetter<RequestForQueries>,
-): ShallowRef<Record<string, any | undefined | Error>> {
+): ShallowRef<QueriesResults> {
   const convex = useConvex()
 
   const createWatch: CreateWatch = (
@@ -61,9 +63,9 @@ export function useConvexQueries(
 export function useQueriesHelper(
   queries: MaybeRefOrGetter<RequestForQueries>,
   createWatch: CreateWatch,
-): ShallowRef<Record<string, any | undefined | Error>> {
+): ShallowRef<QueriesResults> {
   const observer = new QueriesObserver(createWatch)
-  const results = shallowRef<Record<string, any | undefined | Error>>({})
+  const results = shallowRef<QueriesResults>({})
 
   watchEffect((onCleanup) => {
     const currentQueries = toValue(queries)

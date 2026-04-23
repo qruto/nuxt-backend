@@ -1,3 +1,4 @@
+import type { FunctionReference } from 'convex/server'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 // Hoist mock functions so they're available before vi.mock factory runs
@@ -9,8 +10,26 @@ const { mockQuery, mockMutation, mockAction, mockSetAuth, mockSetFetchOptions } 
   mockSetFetchOptions: vi.fn(),
 }))
 
+type MockConvexHttpClientInstance = {
+  query: typeof mockQuery
+  mutation: typeof mockMutation
+  action: typeof mockAction
+  setAuth: typeof mockSetAuth
+  setFetchOptions: typeof mockSetFetchOptions
+}
+
+type NamedFunctionReference<Type extends 'query' | 'mutation' | 'action'> = FunctionReference<Type> & {
+  _name: string
+}
+
+function mockFunctionReference<Type extends 'query' | 'mutation' | 'action'>(
+  name: string,
+): NamedFunctionReference<Type> {
+  return { _name: name } as unknown as NamedFunctionReference<Type>
+}
+
 vi.mock('convex/browser', () => ({
-  ConvexHttpClient: function MockConvexHttpClient(this: any, _url: string) {
+  ConvexHttpClient: function MockConvexHttpClient(this: MockConvexHttpClientInstance, _url: string) {
     this.query = mockQuery
     this.mutation = mockMutation
     this.action = mockAction
@@ -20,13 +39,13 @@ vi.mock('convex/browser', () => ({
 }))
 
 vi.mock('convex/server', () => ({
-  getFunctionName: vi.fn((ref: any) => ref?._name ?? String(ref)),
+  getFunctionName: vi.fn((ref: { _name?: string } | string) => typeof ref === 'string' ? ref : ref?._name ?? String(ref)),
   makeFunctionReference: vi.fn((name: string) => ({ _name: name })),
 }))
 
 vi.mock('convex/values', () => ({
-  convexToJson: vi.fn((v: any) => JSON.parse(JSON.stringify(v))),
-  jsonToConvex: vi.fn((v: any) => v),
+  convexToJson: vi.fn(<T>(value: T) => JSON.parse(JSON.stringify(value)) as T),
+  jsonToConvex: vi.fn(<T>(value: T) => value),
 }))
 
 describe('Nuxt server utilities', () => {
@@ -39,7 +58,7 @@ describe('Nuxt server utilities', () => {
   describe('fetchQuery', () => {
     it('calls ConvexHttpClient.query', async () => {
       const { fetchQuery } = await import('../../src/runtime/nuxt/index')
-      const queryRef = { _name: 'api.tasks.list' } as any
+      const queryRef = mockFunctionReference<'query'>('api.tasks.list')
       mockQuery.mockResolvedValue([{ text: 'Buy groceries' }])
 
       const result = await fetchQuery(queryRef, {})
@@ -49,7 +68,7 @@ describe('Nuxt server utilities', () => {
 
     it('passes auth token to client', async () => {
       const { fetchQuery } = await import('../../src/runtime/nuxt/index')
-      const queryRef = { _name: 'api.tasks.list' } as any
+      const queryRef = mockFunctionReference<'query'>('api.tasks.list')
       mockQuery.mockResolvedValue([])
 
       await fetchQuery(queryRef, {}, { token: 'my-jwt' })
@@ -58,7 +77,7 @@ describe('Nuxt server utilities', () => {
 
     it('uses custom URL if provided', async () => {
       const { fetchQuery } = await import('../../src/runtime/nuxt/index')
-      const queryRef = { _name: 'api.tasks.list' } as any
+      const queryRef = mockFunctionReference<'query'>('api.tasks.list')
       mockQuery.mockResolvedValue([])
 
       // Just verify it doesn't throw and calls query
@@ -70,7 +89,7 @@ describe('Nuxt server utilities', () => {
   describe('fetchMutation', () => {
     it('calls ConvexHttpClient.mutation', async () => {
       const { fetchMutation } = await import('../../src/runtime/nuxt/index')
-      const mutationRef = { _name: 'api.tasks.create' } as any
+      const mutationRef = mockFunctionReference<'mutation'>('api.tasks.create')
       mockMutation.mockResolvedValue({ _id: '123' })
 
       const result = await fetchMutation(mutationRef, { text: 'New task' })
@@ -82,7 +101,7 @@ describe('Nuxt server utilities', () => {
   describe('fetchAction', () => {
     it('calls ConvexHttpClient.action', async () => {
       const { fetchAction } = await import('../../src/runtime/nuxt/index')
-      const actionRef = { _name: 'api.tasks.process' } as any
+      const actionRef = mockFunctionReference<'action'>('api.tasks.process')
       mockAction.mockResolvedValue({ ok: true })
 
       const result = await fetchAction(actionRef, { id: '123' })
@@ -94,7 +113,7 @@ describe('Nuxt server utilities', () => {
   describe('preloadQuery', () => {
     it('returns a Preloaded payload with JSON-encoded value', async () => {
       const { preloadQuery } = await import('../../src/runtime/nuxt/index')
-      const queryRef = { _name: 'api.tasks.list' } as any
+      const queryRef = mockFunctionReference<'query'>('api.tasks.list')
       mockQuery.mockResolvedValue([{ text: 'Task 1' }])
 
       const preloaded = await preloadQuery(queryRef, {})
@@ -107,7 +126,7 @@ describe('Nuxt server utilities', () => {
   describe('preloadedQueryResult', () => {
     it('extracts the result from a Preloaded payload', async () => {
       const { preloadQuery, preloadedQueryResult } = await import('../../src/runtime/nuxt/index')
-      const queryRef = { _name: 'api.tasks.list' } as any
+      const queryRef = mockFunctionReference<'query'>('api.tasks.list')
       mockQuery.mockResolvedValue([{ text: 'Task 1' }])
 
       const preloaded = await preloadQuery(queryRef, {})
@@ -125,7 +144,7 @@ describe('Nuxt server utilities', () => {
       vi.resetModules()
 
       const { fetchQuery } = await import('../../src/runtime/nuxt/index')
-      const queryRef = { _name: 'api.tasks.list' } as any
+      const queryRef = mockFunctionReference<'query'>('api.tasks.list')
 
       await expect(fetchQuery(queryRef, {})).rejects.toThrow()
     })

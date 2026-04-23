@@ -1,15 +1,27 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { defineComponent, h, provide, nextTick, type ShallowRef } from 'vue'
+import type { ConnectionState, QueryJournal } from 'convex/browser'
 import { makeFunctionReference, getFunctionName } from 'convex/server'
+import type { FunctionReference } from 'convex/server'
+import type { Value } from 'convex/values'
 import { ConvexClientKey, type ConvexVueClient } from '../../src/runtime/vue/client'
 import { withConvex } from '../helpers/vue_test_utils'
 import { useConvex } from '../../src/runtime/vue/client'
-import { useMutation } from '../../src/runtime/vue/use_mutation'
-import { useAction } from '../../src/runtime/vue/use_action'
+import { useMutation, type VueMutation } from '../../src/runtime/vue/use_mutation'
+import { useAction, type VueAction } from '../../src/runtime/vue/use_action'
 import { useConvexConnectionState } from '../../src/runtime/vue/use_connection_state'
-import { useConvexAuth, ConvexAuthStateKey } from '../../src/runtime/vue/auth'
+import { useConvexAuth, ConvexAuthStateKey, type ConvexAuthState } from '../../src/runtime/vue/auth'
 import { useQuery } from '../../src/runtime/vue/use_query'
+
+type MockQuery = FunctionReference<'query'> | string
+
+type MockConvexVueClient = ConvexVueClient & {
+  _watchers: Map<string, Array<() => void>>
+  _results: Map<string, unknown>
+  _journals: Map<string, QueryJournal | undefined>
+  _triggerUpdate: (name: string, args: Record<string, Value>, value: unknown) => void
+}
 
 /**
  * Create a minimal mock ConvexVueClient.
@@ -17,11 +29,11 @@ import { useQuery } from '../../src/runtime/vue/use_query'
 function createMockClient(overrides: Partial<ConvexVueClient> = {}) {
   const watchers = new Map<string, Array<() => void>>()
   const results = new Map<string, unknown>()
-  const journals = new Map<string, unknown>()
+  const journals = new Map<string, QueryJournal | undefined>()
 
   const client = {
     url: 'https://test.convex.cloud',
-    watchQuery: vi.fn((query: any, args: any, opts?: any) => {
+    watchQuery: vi.fn((query: MockQuery, args: Record<string, Value>, _opts?: unknown) => {
       let name: string
       if (typeof query === 'string') {
         name = query
@@ -31,7 +43,7 @@ function createMockClient(overrides: Partial<ConvexVueClient> = {}) {
           name = getFunctionName(query)
         }
         catch {
-          name = query?._name ?? 'unknown'
+          name = 'unknown'
         }
       }
       const key = `${name}:${JSON.stringify(args ?? {})}`
@@ -57,8 +69,13 @@ function createMockClient(overrides: Partial<ConvexVueClient> = {}) {
       hasInflightRequests: false,
       isWebSocketConnected: true,
       timeOfOldestInflightRequest: null,
-    })),
-    subscribeToConnectionState: vi.fn((cb: any) => () => {}),
+      hasEverConnected: true,
+      connectionCount: 1,
+      connectionRetries: 0,
+      inflightMutations: 0,
+      inflightActions: 0,
+    }) satisfies ConnectionState),
+    subscribeToConnectionState: vi.fn((_cb: (connectionState: ConnectionState) => void) => () => {}),
     setAuth: vi.fn(),
     clearAuth: vi.fn(),
     close: vi.fn(async () => {}),
@@ -66,19 +83,14 @@ function createMockClient(overrides: Partial<ConvexVueClient> = {}) {
     _watchers: watchers,
     _results: results,
     _journals: journals,
-    _triggerUpdate(name: string, args: any, value: unknown) {
+    _triggerUpdate(name: string, args: Record<string, Value>, value: unknown) {
       const key = `${name}:${JSON.stringify(args ?? {})}`
       results.set(key, value)
       const cbs = watchers.get(key)
       if (cbs) for (const cb of cbs) cb()
     },
     ...overrides,
-  } as unknown as ConvexVueClient & {
-    _watchers: Map<string, Array<() => void>>
-    _results: Map<string, unknown>
-    _journals: Map<string, unknown>
-    _triggerUpdate: (name: string, args: any, value: unknown) => void
-  }
+  } as unknown as MockConvexVueClient
 
   return client
 }
@@ -87,7 +99,7 @@ describe('useConvex', () => {
   it('returns the provided client', async () => {
     const mockClient = createMockClient()
 
-    let result: any
+    let result!: ConvexVueClient
     const Child = defineComponent({
       setup() {
         result = useConvex()
@@ -120,9 +132,9 @@ describe('useConvex', () => {
 describe('useMutation', () => {
   it('returns a callable function that invokes client.mutation', async () => {
     const mockClient = createMockClient()
-    const mutationRef = { _name: 'api.tasks.create' } as any
+    const mutationRef = makeFunctionReference<'mutation'>('api.tasks.create')
 
-    let mutate: any
+    let mutate!: VueMutation<typeof mutationRef>
     const { Wrapper } = withConvex(mockClient, () => {
       mutate = useMutation(mutationRef)
     })
@@ -138,9 +150,9 @@ describe('useMutation', () => {
 describe('useAction', () => {
   it('returns a callable function that invokes client.action', async () => {
     const mockClient = createMockClient()
-    const actionRef = { _name: 'api.tasks.process' } as any
+    const actionRef = makeFunctionReference<'action'>('api.tasks.process')
 
-    let act: any
+    let act!: VueAction<typeof actionRef>
     const { Wrapper } = withConvex(mockClient, () => {
       act = useAction(actionRef)
     })
@@ -157,7 +169,7 @@ describe('useConvexConnectionState', () => {
   it('returns a reactive connection state ref', async () => {
     const mockClient = createMockClient()
 
-    let state: ShallowRef<any>
+    let state!: ShallowRef<ConnectionState>
     const { Wrapper } = withConvex(mockClient, () => {
       state = useConvexConnectionState()
     })
@@ -171,7 +183,7 @@ describe('useConvexConnectionState', () => {
 
 describe('useConvexAuth', () => {
   it('returns isLoading and isAuthenticated refs', async () => {
-    let authState: any
+    let authState!: ConvexAuthState
 
     const Child = defineComponent({
       setup() {
@@ -217,7 +229,7 @@ describe('useQuery', () => {
     await nextTick() // let watchEffect register the observer subscriber
 
     // Trigger the mock with a query result then wait for Vue reactivity.
-    ;(mockClient as any)._triggerUpdate(queryKey, {}, 'queryResult')
+    mockClient._triggerUpdate(queryKey, {}, 'queryResult')
     await nextTick()
 
     expect(result!.value).toStrictEqual('queryResult')
@@ -246,7 +258,7 @@ describe('useQuery', () => {
 
     await mountSuspended(Wrapper)
     await nextTick() // let watchEffect register the observer subscriber
-    ;(mockClient as any)._triggerUpdate(queryKey, {}, 'queryResult')
+    mockClient._triggerUpdate(queryKey, {}, 'queryResult')
     await nextTick()
 
     expect(result!.value).toStrictEqual({

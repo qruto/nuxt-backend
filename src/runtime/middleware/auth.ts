@@ -16,10 +16,10 @@ export default defineNuxtRouteMiddleware(async () => {
   const session = authClient.useSession()
 
   // Wait for session to resolve if still loading
-  if (session.isPending.value) {
+  if (session.value.isPending) {
     await new Promise<void>((resolve) => {
       const stop = watch(
-        () => session.isPending.value,
+        () => session.value.isPending,
         (pending) => {
           if (!pending) {
             stop()
@@ -31,7 +31,7 @@ export default defineNuxtRouteMiddleware(async () => {
     })
   }
 
-  if (!session.data.value) {
+  if (!session.value.data) {
     return navigateTo('/login')
   }
 })

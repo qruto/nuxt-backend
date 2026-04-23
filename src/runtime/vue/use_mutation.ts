@@ -1,8 +1,26 @@
 import type { OptimisticUpdate } from 'convex/browser'
 import type { FunctionArgs, FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
 import { getFunctionName, makeFunctionReference } from 'convex/server'
-import type { Value } from 'convex/values'
 import { useConvex, type ConvexVueClient } from './client'
+
+type EventLike = {
+  bubbles: unknown
+  cancelable: unknown
+  target: unknown
+  preventDefault: () => void
+}
+
+function isEventLike(value: unknown): value is EventLike {
+  return (
+    typeof value === 'object'
+    && value !== null
+    && 'bubbles' in value
+    && 'cancelable' in value
+    && 'target' in value
+    && 'preventDefault' in value
+    && typeof value.preventDefault === 'function'
+  )
+}
 
 /**
  * In Vue, `@click` (and other event) handlers receive a native DOM Event as
@@ -10,15 +28,7 @@ import { useConvex, type ConvexVueClient } from './client'
  * instead of sending the event object to the Convex backend.
  */
 function assertNotAccidentalArgument(value: unknown): void {
-  if (
-    typeof value === 'object'
-    && value !== null
-    && 'bubbles' in value
-    && 'cancelable' in value
-    && 'target' in value
-    && 'preventDefault' in value
-    && typeof (value as any).preventDefault === 'function'
-  ) {
+  if (isEventLike(value)) {
     throw new Error(
       'Convex mutation called with Event object. '
       + 'Did you use a Convex mutation as an event handler directly? '
@@ -59,20 +69,27 @@ export interface VueMutation<Mutation extends FunctionReference<'mutation'>> {
  *
  * @public
  */
-export function createMutation(
-  mutationReference: FunctionReference<'mutation'>,
+export function createMutation<Mutation extends FunctionReference<'mutation'>>(
+  mutationReference: Mutation,
   client: ConvexVueClient,
-  update?: OptimisticUpdate<any>,
-): VueMutation<any> {
-  function mutation(args?: Record<string, Value>): Promise<unknown> {
-    assertNotAccidentalArgument(args)
-    return client.mutation(mutationReference, args, {
+  update?: OptimisticUpdate<FunctionArgs<Mutation>>,
+): VueMutation<Mutation> {
+  function mutation(
+    ...args: OptionalRestArgs<Mutation>
+  ): Promise<FunctionReturnType<Mutation>> {
+    const mutationArgs = (args[0] ?? {}) as FunctionArgs<Mutation>
+    assertNotAccidentalArgument(mutationArgs)
+    return client.mutation(mutationReference, mutationArgs, {
       optimisticUpdate: update,
     })
   }
-  mutation.withOptimisticUpdate = function withOptimisticUpdate(
-    optimisticUpdate: OptimisticUpdate<any>,
-  ): VueMutation<any> {
+  mutation.withOptimisticUpdate = function withOptimisticUpdate<
+    Update extends OptimisticUpdate<FunctionArgs<Mutation>>,
+  >(
+    optimisticUpdate: Update & (ReturnType<Update> extends Promise<unknown>
+      ? 'Optimistic update handlers must be synchronous'
+      : unknown),
+  ): VueMutation<Mutation> {
     if (update !== undefined) {
       throw new Error(
         `Already specified optimistic update for mutation ${getFunctionName(mutationReference)}`,
@@ -80,7 +97,7 @@ export function createMutation(
     }
     return createMutation(mutationReference, client, optimisticUpdate)
   }
-  return mutation as VueMutation<any>
+  return mutation as VueMutation<Mutation>
 }
 
 /**
@@ -115,11 +132,11 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
 ): VueMutation<Mutation> {
   const mutationReference
     = typeof mutation === 'string'
-      ? makeFunctionReference<'mutation', any, any>(mutation)
+      ? makeFunctionReference<'mutation'>(mutation) as Mutation
       : mutation
 
   const convex = useConvex()
-  return createMutation(mutationReference, convex) as VueMutation<Mutation>
+  return createMutation(mutationReference, convex)
 }
 
 /** @public */

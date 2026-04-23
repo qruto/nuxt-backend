@@ -2,9 +2,15 @@ import { describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, shallowRef } from 'vue'
 import { anyApi, getFunctionName } from 'convex/server'
 import type { FunctionReference } from 'convex/server'
+import type { QueryJournal } from 'convex/browser'
+import type { Value } from 'convex/values'
 import { type RequestForQueries, useQueriesHelper } from '../../src/runtime/vue/use_queries'
+import type { CreateWatch } from '../../src/runtime/vue/queries_observer'
 
-class FakeWatch<T> {
+const query1Ref = anyApi.query1!.default! as FunctionReference<'query'>
+const query2Ref = anyApi.query2!.default! as FunctionReference<'query'>
+
+class FakeWatch<T extends Value> {
   value: T | undefined
   private callbacks = new Set<() => void>()
 
@@ -19,7 +25,11 @@ class FakeWatch<T> {
     return this.value
   }
 
-  journal() {
+  localQueryLogs(): string[] | undefined {
+    return undefined
+  }
+
+  journal(): QueryJournal | undefined {
     return undefined
   }
 
@@ -37,11 +47,11 @@ class FakeWatch<T> {
 
 describe('useQueriesHelper', () => {
   it('adding a new query', async () => {
-    const values: Record<string, unknown> = {}
-    const watches = new Map<string, Array<FakeWatch<unknown>>>()
-    const createWatch = vi.fn((query: FunctionReference<'query'>) => {
+    const values: Record<string, Value | undefined> = {}
+    const watches = new Map<string, Array<FakeWatch<Value>>>()
+    const createWatch: CreateWatch = vi.fn((query: FunctionReference<'query'>, _args: Record<string, Value>) => {
       const name = getFunctionName(query)
-      const watch = new FakeWatch<unknown>()
+      const watch = new FakeWatch<Value>()
       watch.value = values[name]
       const current = watches.get(name) ?? []
       current.push(watch)
@@ -51,7 +61,7 @@ describe('useQueriesHelper', () => {
 
     const queries = shallowRef<RequestForQueries>({
       query1: {
-        query: anyApi.query1.default,
+        query: query1Ref,
         args: {},
       },
     })
@@ -73,11 +83,11 @@ describe('useQueriesHelper', () => {
 
     queries.value = {
       query1: {
-        query: anyApi.query1.default,
+        query: query1Ref,
         args: {},
       },
       query2: {
-        query: anyApi.query2.default,
+        query: query2Ref,
         args: {},
       },
     }
@@ -101,10 +111,10 @@ describe('useQueriesHelper', () => {
   })
 
   it('swapping queries and unsubscribing', async () => {
-    const watches = new Map<string, Array<FakeWatch<unknown>>>()
-    const createWatch = vi.fn((query: FunctionReference<'query'>) => {
+    const watches = new Map<string, Array<FakeWatch<Value>>>()
+    const createWatch: CreateWatch = vi.fn((query: FunctionReference<'query'>, _args: Record<string, Value>) => {
       const name = getFunctionName(query)
-      const watch = new FakeWatch<unknown>()
+      const watch = new FakeWatch<Value>()
       const current = watches.get(name) ?? []
       current.push(watch)
       watches.set(name, current)
@@ -113,7 +123,7 @@ describe('useQueriesHelper', () => {
 
     const queries = shallowRef<RequestForQueries>({
       query: {
-        query: anyApi.query1.default,
+        query: query1Ref,
         args: {},
       },
     })
@@ -125,7 +135,7 @@ describe('useQueriesHelper', () => {
 
     queries.value = {
       query1: {
-        query: anyApi.query2.default,
+        query: query2Ref,
         args: {},
       },
     }
@@ -142,15 +152,15 @@ describe('useQueriesHelper', () => {
 
   it('local results on initial render', () => {
     const value = 'query1 result'
-    const createWatch = vi.fn(() => {
-      const watch = new FakeWatch<string>()
+    const createWatch: CreateWatch = vi.fn(() => {
+      const watch = new FakeWatch<Value>()
       watch.value = value
       return watch
     })
 
     const queries: RequestForQueries = {
       query1: {
-        query: anyApi.query1.default,
+        query: query1Ref,
         args: {},
       },
     }

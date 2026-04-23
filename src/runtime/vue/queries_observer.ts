@@ -53,14 +53,14 @@ export class QueriesObserver {
   ): void {
     // Add new queries before unsubscribing old ones for deduplication.
     for (const identifier of Object.keys(newQueries)) {
-      const { query, args } = newQueries[identifier]
+      const { query, args } = newQueries[identifier]!
       getFunctionName(query)
 
       if (this.queries[identifier] === undefined) {
         this.addQuery(identifier, query, args, {})
       }
       else {
-        const existingInfo = this.queries[identifier]
+        const existingInfo = this.queries[identifier]!
 
         if (
           getFunctionName(query) !== getFunctionName(existingInfo.query)
@@ -92,7 +92,7 @@ export class QueriesObserver {
   ): Record<Identifier, Value | undefined | Error> {
     const result: Record<Identifier, Value | Error | undefined> = {}
     for (const identifier of Object.keys(queries)) {
-      const { query, args } = queries[identifier]
+      const { query, args } = queries[identifier]!
       getFunctionName(query)
 
       const watch = this.createWatch(query, args, {})
@@ -117,7 +117,7 @@ export class QueriesObserver {
   setCreateWatch(createWatch: CreateWatch): void {
     this.createWatch = createWatch
     for (const identifier of Object.keys(this.queries)) {
-      const { query, args, watch } = this.queries[identifier]
+      const { query, args, watch } = this.queries[identifier]!
       const journal = watch.journal()
       this.removeQuery(identifier)
       this.addQuery(identifier, query, args, journal ? { journal } : {})

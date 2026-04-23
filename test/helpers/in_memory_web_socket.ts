@@ -63,6 +63,17 @@ export type InMemoryWebSocketTest = (args: {
   close: () => void
 }) => Promise<void>
 
+type ActiveSocket = {
+  send(data: string): void
+  close(): void
+}
+
+function closeActiveSocket(activeSocket: ActiveSocket | null): void {
+  if (activeSocket !== null) {
+    activeSocket.close()
+  }
+}
+
 function listeningSocketServer(): Promise<WebSocketServer> {
   return new Promise((resolve) => {
     const wss = new WebSocketServer({ port: 0 })
@@ -90,7 +101,7 @@ export async function withInMemoryWebSocket(
       received = r
     }),
   ]
-  let socket: WebSocket | null = null
+  let socket: ActiveSocket | null = null
 
   const wss = await listeningSocketServer()
 
@@ -133,6 +144,9 @@ export async function withInMemoryWebSocket(
   }
 
   const addressInfo = wss.address()
+  if (addressInfo === null) {
+    throw new Error('WebSocket server address is unavailable.')
+  }
   const address
     = typeof addressInfo === 'string'
       ? addressInfo
@@ -148,13 +162,13 @@ export async function withInMemoryWebSocket(
         if (debug) {
           console.debug(`           --CLOSE-->8-- server`)
         }
-        socket?.close()
+        closeActiveSocket(socket)
         setUpSocket()
       },
     })
   }
   finally {
-    socket?.close()
+    closeActiveSocket(socket)
     wss.close()
   }
 }

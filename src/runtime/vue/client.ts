@@ -77,6 +77,27 @@ export interface ConvexVueClientOptions extends BaseConvexClientOptions {
   custom?: boolean
 }
 
+export type ConvexLogger = Exclude<BaseConvexClientOptions['logger'], boolean | undefined>
+
+const noopLogger: ConvexLogger = {
+  logVerbose() {},
+  log() {},
+  warn() {},
+  error() {},
+}
+
+const defaultConsoleLogger: ConvexLogger = {
+  logVerbose: (...args) => console.debug(...args),
+  log: (...args) => console.log(...args),
+  warn: (...args) => console.warn(...args),
+  error: (...args) => console.error(...args),
+}
+
+interface SyncClientWithInternals extends BaseConvexClient {
+  setAdminAuth(token: string, identity?: UserIdentityAttributes): void
+  localQueryLogs(udfPath: string, args?: Record<string, Value>): string[] | undefined
+}
+
 /**
  * The primary Convex client for Vue and Nuxt applications.
  *
@@ -148,7 +169,8 @@ export class ConvexVueClient {
       this.options,
     )
     if (this.adminAuth) {
-      (this.cachedSync as any).setAdminAuth(this.adminAuth, this.fakeUserIdentity)
+      const sync = this.cachedSync as SyncClientWithInternals
+      sync.setAdminAuth(this.adminAuth, this.fakeUserIdentity)
     }
     return this.cachedSync
   }
@@ -189,7 +211,8 @@ export class ConvexVueClient {
       throw new Error('ConvexVueClient has already been closed.')
     }
     if (this.cachedSync) {
-      (this.cachedSync as any).setAdminAuth(token, identity)
+      const sync = this.cachedSync as SyncClientWithInternals
+      sync.setAdminAuth(token, identity)
     }
   }
 
@@ -244,7 +267,8 @@ export class ConvexVueClient {
 
       localQueryLogs: () => {
         if (this.cachedSync) {
-          return (this.cachedSync as any).localQueryLogs(name as string, args) as string[] | undefined
+          const sync = this.cachedSync as SyncClientWithInternals
+          return sync.localQueryLogs(name as string, args)
         }
         return undefined
       },
@@ -338,6 +362,20 @@ export class ConvexVueClient {
     cb: (connectionState: ConnectionState) => void,
   ): () => void {
     return this.sync.subscribeToConnectionState(cb)
+  }
+
+  /**
+   * Get the logger configured for this client.
+   */
+  get logger(): ConvexLogger {
+    const logger = this.options.logger
+    if (logger === false) {
+      return noopLogger
+    }
+    if (logger && typeof logger === 'object') {
+      return logger
+    }
+    return defaultConsoleLogger
   }
 
   /**

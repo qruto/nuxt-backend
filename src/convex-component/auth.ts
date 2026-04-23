@@ -23,6 +23,12 @@ interface CreateBetterAuthOptions {
   basePath?: string
 }
 
+type EnvHost = typeof globalThis & {
+  process?: {
+    env?: Record<string, string | undefined>
+  }
+}
+
 /**
  * Shared factory that creates a Better Auth instance from a database adapter.
  *
@@ -36,7 +42,11 @@ export function createBetterAuth(
   const resolvedAuthConfig = options.authConfig ?? authConfig
   const resolvedBasePath = options.basePath ?? DEFAULT_AUTH_ROUTE
   const resolvedAuthOptions = options.authOptions ?? {}
-  const siteUrl = process.env.SITE_URL!
+  const siteUrl = (globalThis as EnvHost).process?.env?.SITE_URL
+
+  if (!siteUrl) {
+    throw new Error('SITE_URL environment variable is required to configure Better Auth.')
+  }
 
   return betterAuth({
     baseURL: siteUrl,

@@ -9,7 +9,7 @@ export function useAuth() {
   const session = authClient.useSession()
 
   return {
-    isAuthenticated: computed(() => !!session.data.value),
-    isLoading: computed(() => session.isPending.value),
+    isAuthenticated: computed(() => !!session.value.data),
+    isLoading: computed(() => session.value.isPending),
   }
 }

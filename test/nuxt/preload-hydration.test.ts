@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { anyApi } from 'convex/server'
+import { anyApi, type FunctionReference } from 'convex/server'
 import { convexToJson } from 'convex/values'
-import { defineComponent, h, nextTick, provide } from 'vue'
+import { defineComponent, h, nextTick, provide, type ShallowRef } from 'vue'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { ConvexVueClient, ConvexClientKey } from '../../src/runtime/vue/client'
 import { usePreloadedQuery } from '../../src/runtime/vue/hydration'
@@ -11,6 +11,8 @@ import { nodeWebSocket } from '../helpers/in_memory_web_socket'
 // Mirrors convex-js/src/nextjs/nextjs.test.tsx
 
 const address = 'https://127.0.0.1:3001'
+const queryRef = anyApi.myQuery!.default! as FunctionReference<'query'>
+const mutationRef = anyApi.myMutation!.default! as FunctionReference<'mutation'>
 
 function testClient() {
   return new ConvexVueClient(address, {
@@ -22,10 +24,13 @@ function testClient() {
 describe('preloadQuery + usePreloadedQuery round-trip', () => {
   beforeEach(() => {
     process.env.CONVEX_URL = address
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ status: 'success', value: convexToJson({ x: 42 }) }),
-    } as never) as any
+    global.fetch = vi.fn(async () => new Response(
+      JSON.stringify({ status: 'success', value: convexToJson({ x: 42 }) }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    )) as typeof fetch
   })
 
   afterEach(() => {
@@ -33,7 +38,7 @@ describe('preloadQuery + usePreloadedQuery round-trip', () => {
   })
 
   it('returns the server result before the client has live data', async () => {
-    const preloaded = await preloadQuery(anyApi.myQuery.default, { arg: 'something' })
+    const preloaded = await preloadQuery(queryRef, { arg: 'something' })
 
     expect(fetch).toHaveBeenCalledWith(
       expect.anything(),
@@ -42,7 +47,7 @@ describe('preloadQuery + usePreloadedQuery round-trip', () => {
     expect(preloadedQueryResult(preloaded)).toStrictEqual({ x: 42 })
 
     const client = testClient()
-    let hydrated: any
+    let hydrated!: ShallowRef<unknown>
     const Child = defineComponent({
       setup() {
         hydrated = usePreloadedQuery(preloaded)
@@ -66,23 +71,23 @@ describe('preloadQuery + usePreloadedQuery round-trip', () => {
   })
 
   it('returns the client result once an optimistic update primes the cache', async () => {
-    const preloaded = await preloadQuery(anyApi.myQuery.default, { arg: 'something' })
+    const preloaded = await preloadQuery(queryRef, { arg: 'something' })
     const client = testClient()
 
     // Fire an optimistic update to seed the local query store, mirroring the
     // upstream React test. The mutation RPC itself is irrelevant here — the
     // optimistic callback runs synchronously against the local cache.
     void client.mutation(
-      anyApi.myMutation.default,
+      mutationRef,
       {},
       {
         optimisticUpdate: (localStore) => {
-          localStore.setQuery(anyApi.myQuery.default, { arg: 'something' }, null)
+          localStore.setQuery(queryRef, { arg: 'something' }, null)
         },
       },
     )
 
-    let hydrated: any
+    let hydrated!: ShallowRef<unknown>
     const Child = defineComponent({
       setup() {
         hydrated = usePreloadedQuery(preloaded)

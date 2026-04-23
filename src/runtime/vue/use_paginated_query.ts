@@ -84,6 +84,20 @@ interface UsePaginatedQueryState {
   skip: boolean
 }
 
+type PaginatedQueryValue<Item> = PaginationResult<Item> & {
+  splitCursor?: string | null
+  pageStatus?: 'SplitRecommended' | 'SplitRequired' | null
+}
+
+function isPaginatedQueryValue(value: unknown): value is PaginatedQueryValue<Value> {
+  return typeof value === 'object'
+    && value !== null
+    && 'page' in value
+    && Array.isArray(value.page)
+    && 'isDone' in value
+    && 'continueCursor' in value
+}
+
 /**
  * The positional-form return value of {@link usePaginatedQuery}.
  *
@@ -388,15 +402,20 @@ function usePaginatedQueryInternal<Query extends PaginatedQueryReference>(
     continueCursor: string,
   ): void {
     const prev = state.value
+    const currentQuery = prev.queries[key]
+    if (currentQuery === undefined) {
+      return
+    }
     const queries = { ...prev.queries }
     const splitKey1 = prev.nextPageKey
     const splitKey2 = prev.nextPageKey + 1
 
-    const basePaginationOpts = (prev.queries[key].args as { paginationOpts: Record<string, unknown> }).paginationOpts
+    const currentArgs = currentQuery.args
+    const basePaginationOpts = (currentArgs as { paginationOpts: Record<string, unknown> }).paginationOpts
     queries[splitKey1] = {
       query: prev.query,
       args: {
-        ...prev.queries[key].args,
+        ...currentArgs,
         paginationOpts: {
           ...basePaginationOpts,
           endCursor: splitCursor,
@@ -406,7 +425,7 @@ function usePaginatedQueryInternal<Query extends PaginatedQueryReference>(
     queries[splitKey2] = {
       query: prev.query,
       args: {
-        ...prev.queries[key].args,
+        ...currentArgs,
         paginationOpts: {
           ...basePaginationOpts,
           cursor: splitCursor,
@@ -512,9 +531,11 @@ function usePaginatedQueryInternal<Query extends PaginatedQueryReference>(
         break
       }
 
-      const result = currResult as PaginationResult<Value> & {
-        pageStatus?: 'SplitRecommended' | 'SplitRequired'
+      if (!isPaginatedQueryValue(currResult)) {
+        throw new Error('Paginated query returned a non-pagination result.')
       }
+
+      const result = currResult
 
       const ongoingSplit = currState.ongoingSplits[pageKey]
       if (ongoingSplit !== undefined) {
@@ -847,6 +868,7 @@ function insertAtPositionInPages<Query extends PaginatedQueryReference>(
   }
 
   const lastLoadedPage = sortedPages[sortedPages.length - 1]
+  if (lastLoadedPage === undefined) return
   const lastValue = lastLoadedPage.value as PaginationResult<PaginatedQueryItem<Query>>
   const lastPageKey = sortKeyFromItem(
     lastValue.page[lastValue.page.length - 1],
