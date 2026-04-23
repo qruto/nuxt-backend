@@ -19,15 +19,13 @@ export default defineNuxtModule<ModuleOptions>({
     const resolver = createResolver(import.meta.url)
 
     const url = options.url
-      || process.env.CONVEX_URL
       || process.env.NUXT_PUBLIC_CONVEX_URL
 
     if (!url) {
-      console.warn('[nuxt-backend] No Convex URL configured. Set `backend.url` in nuxt.config or CONVEX_URL env variable.')
+      console.warn('[nuxt-backend] No Convex URL configured. Set `backend.url` in nuxt.config or NUXT_PUBLIC_CONVEX_URL.')
     }
 
     const siteUrl = options.siteUrl
-      || process.env.CONVEX_SITE_URL
       || process.env.NUXT_PUBLIC_CONVEX_SITE_URL
 
     const authRoute = options.authRoute || '/api/auth'

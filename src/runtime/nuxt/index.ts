@@ -6,8 +6,8 @@
  * 2. {@link fetchQuery}, {@link fetchMutation} and {@link fetchAction} for loading
  *    and mutating Convex data from Nuxt server routes, API handlers, and middleware.
  *
- * All exported functions assume that a Convex deployment URL is set in either
- * the `CONVEX_URL` or `NUXT_PUBLIC_CONVEX_URL` environment variable.
+ * All exported functions assume that a Convex deployment URL is set in the
+ * `NUXT_PUBLIC_CONVEX_URL` environment variable.
  *
  * @module
  */
@@ -34,8 +34,7 @@ export interface NuxtConvexOptions {
    */
   token?: string
   /**
-   * The URL of the Convex deployment to use.
-   * Defaults to `process.env.CONVEX_URL` or `process.env.NUXT_PUBLIC_CONVEX_URL`.
+   * The URL of the Convex deployment to use. Defaults to `process.env.NUXT_PUBLIC_CONVEX_URL`.
    */
   url?: string
   /**
@@ -51,13 +50,12 @@ interface ConvexHttpClientWithFetchOptions extends ConvexHttpClient {
 
 function getConvexUrl(deploymentUrl: string | undefined): string {
   const url = deploymentUrl
-    ?? process.env.CONVEX_URL
     ?? process.env.NUXT_PUBLIC_CONVEX_URL
 
   if (typeof url !== 'string' || !url) {
     throw new Error(
       deploymentUrl === undefined
-        ? 'Environment variable CONVEX_URL or NUXT_PUBLIC_CONVEX_URL is not set.'
+        ? 'Environment variable NUXT_PUBLIC_CONVEX_URL is not set.'
         : 'Convex function called with invalid deployment address.',
     )
   }
