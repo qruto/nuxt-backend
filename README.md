@@ -206,13 +206,15 @@ export default defineEventHandler(async () => {
 
 ### Authenticated
 
+Pass a session token via the `token` option to authenticate server-side calls:
+
 ```ts
 // server/api/profile.ts
 export default defineEventHandler(async (event) => {
   const token = getCookie(event, 'better-auth.session_token')
   if (!token) throw createError({ statusCode: 401 })
 
-  return await fetchAuthQuery(token, api.users.me, {})
+  return await fetchQuery(api.users.me, {}, { token })
 })
 ```
 
@@ -225,14 +227,10 @@ const data = preloadedQueryResult(preloaded)
 
 | Function | Description |
 |---|---|
-| `fetchQuery` | Run a query |
-| `fetchMutation` | Run a mutation |
-| `fetchAction` | Run an action |
-| `fetchAuthQuery` | Authenticated query |
-| `fetchAuthMutation` | Authenticated mutation |
-| `fetchAuthAction` | Authenticated action |
+| `fetchQuery` | Run a query (accepts `{ token }` for auth) |
+| `fetchMutation` | Run a mutation (accepts `{ token }` for auth) |
+| `fetchAction` | Run an action (accepts `{ token }` for auth) |
 | `preloadQuery` | Preload query for SSR |
-| `preloadAuthQuery` | Preload authenticated query |
 | `preloadedQueryResult` | Extract result from preloaded query |
 
 ---

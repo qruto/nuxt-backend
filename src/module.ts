@@ -32,7 +32,6 @@ export default defineNuxtModule<ModuleOptions>({
 
     const authRoute = options.authRoute || '/api/auth'
 
-    // Runtime config
     nuxt.options.runtimeConfig.public.backend = {
       url: url || '',
       siteUrl: siteUrl || '',
@@ -45,13 +44,34 @@ export default defineNuxtModule<ModuleOptions>({
     // Auto-scaffold the minimum backend files
     scaffoldBackendFiles(nuxt.options.rootDir)
 
-    // Plugins
+    // Client-only Convex plugin (mirrors React's ConvexProvider).
+    // SSR data should be loaded via `fetchQuery` / `preloadQuery` from `#imports`
+    // in server routes and passed to `usePreloadedQuery` on the client.
     addPlugin(resolver.resolve('./runtime/plugins/backend.client'))
-    addPlugin(resolver.resolve('./runtime/plugins/backend.server'))
 
-    // Composables
-    const composables = ['useBackend', 'useQuery', 'useMutation', 'useAction', 'useAuth', 'useSession', 'useAuthClient']
-    for (const name of composables) {
+    // Vue composables (mirror convex/react public surface).
+    const vueComposables: Array<{ name: string, from: string, as?: string }> = [
+      { name: 'useConvex', from: resolver.resolve('./runtime/vue/client') },
+      { name: 'useQuery', from: resolver.resolve('./runtime/vue/use_query') },
+      { name: 'useConvexQuery', from: resolver.resolve('./runtime/vue/use_query') },
+      { name: 'useQueries', from: resolver.resolve('./runtime/vue/use_queries') },
+      { name: 'useConvexQueries', from: resolver.resolve('./runtime/vue/use_queries') },
+      { name: 'useMutation', from: resolver.resolve('./runtime/vue/use_mutation') },
+      { name: 'useConvexMutation', from: resolver.resolve('./runtime/vue/use_mutation') },
+      { name: 'useAction', from: resolver.resolve('./runtime/vue/use_action') },
+      { name: 'useConvexAction', from: resolver.resolve('./runtime/vue/use_action') },
+      { name: 'useConvexConnectionState', from: resolver.resolve('./runtime/vue/use_connection_state') },
+      { name: 'useConvexAuth', from: resolver.resolve('./runtime/vue/auth') },
+      { name: 'provideConvexAuth', from: resolver.resolve('./runtime/vue/auth') },
+      { name: 'usePreloadedQuery', from: resolver.resolve('./runtime/vue/hydration') },
+      { name: 'usePaginatedQuery', from: resolver.resolve('./runtime/vue/use_paginated_query') },
+    ]
+    for (const composable of vueComposables) {
+      addImports(composable)
+    }
+
+    // Better Auth composables
+    for (const name of ['useAuth', 'useSession', 'useAuthClient']) {
       addImports({ name, from: resolver.resolve(`./runtime/composables/${name}`) })
     }
 
@@ -68,15 +88,14 @@ export default defineNuxtModule<ModuleOptions>({
       global: false,
     })
 
-    // Server utilities
+    // Server utilities (mirror convex/nextjs).
     const serverUtils = [
       'fetchQuery', 'fetchMutation', 'fetchAction',
-      'fetchAuthQuery', 'fetchAuthMutation', 'fetchAuthAction',
-      'preloadQuery', 'preloadAuthQuery', 'preloadedQueryResult',
+      'preloadQuery', 'preloadedQueryResult',
     ]
     addServerImports(serverUtils.map(name => ({
       name,
-      from: resolver.resolve('./runtime/server/utils/backend'),
+      from: resolver.resolve('./runtime/nuxt/index'),
     })))
   },
 })

@@ -1,26 +1,30 @@
-import { ConvexClient } from 'convex/browser'
 import { defineNuxtPlugin, useRuntimeConfig } from '#app'
-import { authClient } from '../auth/client'
+import { ConvexVueClient, ConvexClientKey } from '../vue/client'
 
-export default defineNuxtPlugin(() => {
+export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
-  const client = new ConvexClient(config.public.backend.url)
+  const url = config.public.backend.url
 
-  // Wire Better Auth JWT into the Convex client
-  const session = authClient.useSession()
-  client.setAuth(async () => {
-    const token = session.data.value?.session?.token
-    return token ?? null
-  })
+  if (!url) {
+    console.warn('[nuxt-backend] No Convex URL configured for client plugin.')
+    return
+  }
 
-  // Close WebSocket connection on page unload
-  window.addEventListener('beforeunload', () => {
-    client.close()
-  })
+  const client = new ConvexVueClient(url)
+
+  // Provide the client via Vue's provide/inject for composables.
+  nuxtApp.vueApp.provide(ConvexClientKey, client)
+
+  // Close WebSocket connection on page unload.
+  if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', () => {
+      client.close()
+    })
+  }
 
   return {
     provide: {
-      backend: client,
+      convex: client,
     },
   }
 })
