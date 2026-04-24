@@ -9,6 +9,7 @@ import type {
   OptimisticUpdate,
   QueryJournal,
   QueryToken,
+  SubscribeOptions,
 } from 'convex/browser'
 import type {
   ArgsAndOptions,
@@ -19,7 +20,6 @@ import type {
 } from 'convex/server'
 import { getFunctionName, makeFunctionReference } from 'convex/server'
 import type { Value } from 'convex/values'
-import { convexToJson } from 'convex/values'
 
 export type { AuthTokenFetcher, ConnectionState, OptimisticUpdate, QueryJournal }
 
@@ -50,8 +50,7 @@ export interface Watch<T> {
  *
  * @public
  */
-export interface WatchQueryOptions {
-  journal?: QueryJournal
+export interface WatchQueryOptions extends SubscribeOptions {
   /** @internal */
   componentPath?: string
 }
@@ -61,7 +60,10 @@ export interface WatchQueryOptions {
  *
  * @public
  */
-export interface VueMutationOptions<Args extends Record<string, Value>> {
+export type VueMutationOptions<Args extends Record<string, Value>> = Omit<
+  BaseMutationOptions,
+  'optimisticUpdate'
+> & {
   optimisticUpdate?: OptimisticUpdate<Args> | undefined
 }
 
@@ -291,7 +293,10 @@ export class ConvexVueClient {
    */
   mutation<Mutation extends FunctionReference<'mutation'>>(
     mutation: Mutation,
-    ...argsAndOptions: ArgsAndOptions<Mutation, BaseMutationOptions>
+    ...argsAndOptions: ArgsAndOptions<
+      Mutation,
+      VueMutationOptions<FunctionArgs<Mutation>>
+    >
   ): Promise<FunctionReturnType<Mutation>> {
     const [args, options] = argsAndOptions
     const name = getFunctionName(mutation)

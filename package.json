@@ -33,9 +33,6 @@
       "convex-component": [
         "./dist/convex-component/convex.config.d.ts"
       ],
-      "backend-component": [
-        "./dist/convex-component/convex.config.d.ts"
-      ],
       "auth-config": [
         "./dist/convex-component/auth-config.d.ts"
       ],
@@ -65,6 +62,7 @@
     "dev:nuxt-module:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
     "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:types": "npm run dev:nuxt-module:prepare && vue-tsc --noEmit && tsc --noEmit -p tsconfig.convex.json && cd playground && vue-tsc --noEmit",

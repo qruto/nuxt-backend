@@ -1,4 +1,4 @@
-import { defineComponent, h, type SlotsType, type VNode } from 'vue'
+import { defineComponent, type SlotsType, type VNode } from 'vue'
 import { useConvexAuth } from './auth'
 
 /**

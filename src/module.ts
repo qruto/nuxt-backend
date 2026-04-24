@@ -45,7 +45,7 @@ export default defineNuxtModule<ModuleOptions>({
     // Client-only Convex plugin (mirrors React's ConvexProvider).
     // SSR data should be loaded via `fetchQuery` / `preloadQuery` from `#imports`
     // in server routes and passed to `usePreloadedQuery` on the client.
-    addPlugin(resolver.resolve('./runtime/plugins/backend.client'))
+    addPlugin(resolver.resolve('./runtime/auth/vue/plugin'))
 
     // Vue composables (mirror convex/react public surface).
     const vueComposables: Array<{ name: string, from: string, as?: string }> = [
@@ -68,21 +68,21 @@ export default defineNuxtModule<ModuleOptions>({
       addImports(composable)
     }
 
-    // Better Auth composables
-    for (const name of ['useAuth', 'useSession', 'useAuthClient']) {
-      addImports({ name, from: resolver.resolve(`./runtime/composables/${name}`) })
-    }
+    // Auth composables adapted for Vue from `@convex-dev/better-auth/react`.
+    addImports({ name: 'useAuth', from: resolver.resolve('./runtime/auth/vue/useAuth') })
+    addImports({ name: 'useSession', from: resolver.resolve('./runtime/auth/vue/useSession') })
+    addImports({ name: 'useAuthClient', from: resolver.resolve('./runtime/auth/vue/useAuthClient') })
 
     // Auth proxy
     addServerHandler({
       route: `${authRoute}/**`,
-      handler: resolver.resolve('./runtime/server/api/auth/[...all]'),
+      handler: resolver.resolve('./runtime/auth/nuxt/proxy'),
     })
 
     // Auth middleware (opt-in per page via definePageMeta)
     addRouteMiddleware({
       name: 'auth',
-      path: resolver.resolve('./runtime/middleware/auth'),
+      path: resolver.resolve('./runtime/auth/nuxt/middleware'),
       global: false,
     })
 
@@ -95,5 +95,11 @@ export default defineNuxtModule<ModuleOptions>({
       name,
       from: resolver.resolve('./runtime/nuxt/index'),
     })))
+    addServerImports([
+      {
+        name: 'convexBetterAuth',
+        from: resolver.resolve('./runtime/auth/nuxt/server'),
+      },
+    ])
   },
 })

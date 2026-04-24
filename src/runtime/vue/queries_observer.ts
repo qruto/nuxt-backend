@@ -158,7 +158,8 @@ export class QueriesObserver {
       throw new Error(`No query found with identifier ${identifier}.`)
     }
     info.unsubscribe()
-    delete this.queries[identifier]
+    const { [identifier]: _removed, ...remainingQueries } = this.queries
+    this.queries = remainingQueries
   }
 
   private notifyListeners(): void {

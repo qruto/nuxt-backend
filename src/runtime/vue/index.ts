@@ -26,7 +26,8 @@ export type {
   ConnectionState,
   OptimisticUpdate,
   QueryJournal,
-} from './client'
+  QueryOptions,
+} from 'convex/browser'
 
 // Re-export convex types for convenience
 export type {
@@ -35,8 +36,9 @@ export type {
   FunctionReturnType,
   OptionalRestArgs,
   ArgsAndOptions,
-  Value,
-} from './client'
+} from 'convex/server'
+
+export type { Value } from 'convex/values'
 
 // Queries
 export {
@@ -80,6 +82,8 @@ export { useConvexConnectionState } from './use_connection_state'
 export {
   useConvexAuth,
   provideConvexAuth,
+  createConvexAuthState,
+  createScopedConvexAuthState,
   ConvexAuthStateKey,
   type ConvexAuthState,
   type ConvexAuthProviderOptions,

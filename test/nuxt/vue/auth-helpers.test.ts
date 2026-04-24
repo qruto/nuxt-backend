@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { defineComponent, h, provide, reactive, nextTick } from 'vue'
-import { Authenticated, AuthLoading, Unauthenticated } from '../../src/runtime/vue/auth_helpers'
-import { ConvexAuthStateKey } from '../../src/runtime/vue/auth'
+import { Authenticated, AuthLoading, Unauthenticated } from '../../../src/runtime/vue/auth_helpers'
+import { ConvexAuthStateKey } from '../../../src/runtime/vue/auth'
 
 describe('auth helpers', () => {
   it('helpers are valid children', async () => {
