@@ -42,12 +42,12 @@ export default defineNuxtModule<ModuleOptions>({
     // Auto-scaffold the minimum backend files
     scaffoldBackendFiles(nuxt.options.rootDir)
 
-    // Client-only Convex plugin (mirrors React's ConvexProvider).
+    // Client-only Convex plugin for Nuxt applications.
     // SSR data should be loaded via `fetchQuery` / `preloadQuery` from `#imports`
     // in server routes and passed to `usePreloadedQuery` on the client.
     addPlugin(resolver.resolve('./runtime/auth/vue/plugin'))
 
-    // Vue composables (mirror convex/react public surface).
+    // Vue composables exposed by the Nuxt module.
     const vueComposables: Array<{ name: string, from: string, as?: string }> = [
       { name: 'useConvex', from: resolver.resolve('./runtime/vue/client') },
       { name: 'useQuery', from: resolver.resolve('./runtime/vue/use_query') },
@@ -68,7 +68,7 @@ export default defineNuxtModule<ModuleOptions>({
       addImports(composable)
     }
 
-    // Auth composables adapted for Vue from `@convex-dev/better-auth/react`.
+    // Better Auth composables for the Vue/Nuxt runtime.
     addImports({ name: 'useAuth', from: resolver.resolve('./runtime/auth/vue/useAuth') })
     addImports({ name: 'useSession', from: resolver.resolve('./runtime/auth/vue/useSession') })
     addImports({ name: 'useAuthClient', from: resolver.resolve('./runtime/auth/vue/useAuthClient') })
@@ -86,7 +86,7 @@ export default defineNuxtModule<ModuleOptions>({
       global: false,
     })
 
-    // Server utilities (mirror convex/nextjs).
+    // Server utilities for Nuxt server routes and SSR.
     const serverUtils = [
       'fetchQuery', 'fetchMutation', 'fetchAction',
       'preloadQuery', 'preloadedQueryResult',

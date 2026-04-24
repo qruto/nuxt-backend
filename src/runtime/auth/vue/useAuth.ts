@@ -3,8 +3,7 @@ import type { AuthTokenFetcher } from 'convex/browser'
 import { authClient } from '../client'
 
 /**
- * Module-level state, shared across all `useAuth()` calls — mirrors the
- * React integration which relies on a single Better Auth client instance.
+ * Module-level state, shared across all `useAuth()` calls in the Nuxt app.
  *
  * The cached JWT and in-flight token promise are kept at module scope so
  * concurrent `fetchAccessToken()` callers share the same Better Auth round-trip.

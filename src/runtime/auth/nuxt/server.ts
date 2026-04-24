@@ -1,10 +1,9 @@
 /**
  * Server-side Better Auth + Convex integration for Nuxt.
  *
- * Provides {@link convexBetterAuth} — the Nuxt equivalent of
- * `convexBetterAuthNextJs` from `@convex-dev/better-auth/nextjs`.
+ * Provides {@link convexBetterAuth} for Nuxt server handlers.
  *
- * Instead of reading headers from `next/headers`, it accepts the H3
+ * It accepts the H3
  * {@link H3Event} that is available in every Nuxt server route, API handler
  * and server middleware.
  *
@@ -58,8 +57,7 @@ export type ConvexBetterAuthOptions = GetTokenOptions & {
 /**
  * Create a per-request Better Auth + Convex helper for Nuxt server code.
  *
- * Mirrors `convexBetterAuthNextJs` from `@convex-dev/better-auth/nextjs` but
- * adapted for H3 events instead of `next/headers`.
+ * Adapts the Better Auth + Convex server helper pattern to H3 events.
  *
  * Call once at the top of a server route / event handler and destructure the
  * helpers you need. The auth token is fetched at most once per request (cached

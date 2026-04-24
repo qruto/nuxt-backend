@@ -8,7 +8,7 @@ import { usePreloadedQuery } from '../../src/runtime/vue/hydration'
 import { preloadQuery, preloadedQueryResult } from '../../src/runtime/nuxt/index'
 import { nodeWebSocket } from '../helpers/in_memory_web_socket'
 
-// Mirrors convex-js/src/nextjs/nextjs.test.tsx
+// Coverage for Nuxt preload + hydration round-trips.
 
 const address = 'https://127.0.0.1:3001'
 const queryRef = anyApi.myQuery!.default! as FunctionReference<'query'>
@@ -74,8 +74,8 @@ describe('preloadQuery + usePreloadedQuery round-trip', () => {
     const preloaded = await preloadQuery(queryRef, { arg: 'something' })
     const client = testClient()
 
-    // Fire an optimistic update to seed the local query store, mirroring the
-    // upstream React test. The mutation RPC itself is irrelevant here — the
+    // Fire an optimistic update to seed the local query store. The mutation
+    // RPC itself is irrelevant here — the
     // optimistic callback runs synchronously against the local cache.
     void client.mutation(
       mutationRef,

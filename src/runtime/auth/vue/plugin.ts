@@ -17,8 +17,7 @@ type CrossDomainAuthClient = typeof authClient & {
 
 /**
  * Exchange a `?ott=...` one-time token (set by the Better Auth cross-domain
- * plugin when redirecting from an auth origin) for a full session. Mirrors
- * the equivalent logic in `<ConvexBetterAuthProvider>` from `@convex-dev/better-auth/react`.
+ * plugin when redirecting from an auth origin) for a full session in Nuxt.
  */
 export async function consumeCrossDomainOneTimeToken() {
   if (typeof window === 'undefined' || !window.location?.href) return

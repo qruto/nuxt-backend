@@ -29,7 +29,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-// Port of convex-js/src/react/auth_websocket.test.tsx for the Vue client.
+// WebSocket auth coverage for the Vue client.
 // Disabled to match upstream: the reconnect flow is known to be flaky.
 describe.sequential.skip('auth websocket tests', () => {
   it('Authenticate via valid static token', async () => {

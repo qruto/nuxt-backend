@@ -88,4 +88,4 @@ export function useQueriesHelper(
 
 /** @public */
 export const useQueries = useConvexQueries
-// Port of convex-js/src/react/use_queries.ts
+// Public alias for the Vue composable name used by the module.

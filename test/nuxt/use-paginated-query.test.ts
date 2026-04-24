@@ -589,7 +589,7 @@ describe('usePaginatedQuery', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Type-only checks — compile-time parity with the React API.
+// Type-only checks for the Vue paginated query API.
 // ---------------------------------------------------------------------------
 
 describe('PaginatedQueryArgs', () => {

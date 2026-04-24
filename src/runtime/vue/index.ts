@@ -62,7 +62,7 @@ export {
   type VueMutation,
 } from './use_mutation'
 
-// Alias matching the React export name
+// Public alias matching Convex's mutation option naming.
 export type { VueMutationOptions as MutationOptions } from './client'
 
 // Action

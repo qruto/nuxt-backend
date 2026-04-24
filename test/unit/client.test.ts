@@ -130,7 +130,7 @@ describe('ConvexVueClient', () => {
 })
 
 // ── createMutation ────────────────────────────────────────────────────────────
-// Mirrors React client.test.tsx `describe("createMutation")`.
+// Coverage for the Vue client mutation helper.
 
 describe('createMutation', () => {
   let client: ConvexVueClient
@@ -206,7 +206,7 @@ describe('createMutation', () => {
 // test/nuxt/composables.test.ts (useQuery describe).
 
 // ── async query fetch ─────────────────────────────────────────────────────────
-// Mirrors React client.test.tsx `describe("async query fetch")`.
+// Coverage for async query reads on the Vue client.
 
 describe('async query fetch', () => {
   let client: ConvexVueClient
@@ -245,7 +245,7 @@ describe('async query fetch', () => {
 })
 
 // ── prewarmQuery ──────────────────────────────────────────────────────────────
-// Mirrors React client.test.tsx `describe("prewarmQuery types")`.
+// Type coverage for the Vue client's prewarmQuery helper.
 
 describe('prewarmQuery types', () => {
   let client: ConvexVueClient

@@ -210,7 +210,7 @@ describe('useConvexAuth', () => {
 })
 
 // ── useQuery ─────────────────────────────────────────────────────────────────
-// Mirrors React client.test.tsx `describe("useQuery")`.
+// Coverage for the Vue useQuery composable.
 // These tests live here because they require a Vue component tree.
 
 describe('useQuery', () => {
