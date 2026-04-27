@@ -1,5 +1,6 @@
 import { defineNuxtModule, addPlugin, addImports, addServerHandler, addServerImports, addRouteMiddleware, createResolver } from '@nuxt/kit'
-import { scaffoldBackendFiles } from './scaffold'
+import { join } from 'node:path'
+import { resolveFunctionsDir, scaffoldBackendFiles } from './scaffold'
 
 export interface ModuleOptions {
   url?: string
@@ -41,6 +42,22 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Auto-scaffold the minimum backend files
     scaffoldBackendFiles(nuxt.options.rootDir)
+
+    // Import aliases for the Convex backend folder and its generated assets.
+    // - `#backend`            -> <rootDir>/<functionsDir>
+    // - `#backend/_generated` -> <rootDir>/<functionsDir>/_generated
+    //   (also covers `#backend/_generated/api`, `dataModel`, `server`, ...)
+    const functionsDir = resolveFunctionsDir(nuxt.options.rootDir)
+    const backendDir = join(nuxt.options.rootDir, functionsDir)
+    const generatedDir = join(backendDir, '_generated')
+
+    nuxt.options.alias['#backend'] = backendDir
+    nuxt.options.alias['#backend/_generated'] = generatedDir
+
+    nuxt.options.nitro ||= {}
+    nuxt.options.nitro.alias ||= {}
+    nuxt.options.nitro.alias['#backend'] = backendDir
+    nuxt.options.nitro.alias['#backend/_generated'] = generatedDir
 
     // Client-only Convex plugin for Nuxt applications.
     // SSR data should be loaded via `fetchQuery` / `preloadQuery` from `#imports`

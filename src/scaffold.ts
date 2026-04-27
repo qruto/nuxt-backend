@@ -32,7 +32,7 @@ export function scaffoldBackendFiles(rootDir: string) {
   }
 }
 
-function resolveFunctionsDir(rootDir: string) {
+export function resolveFunctionsDir(rootDir: string) {
   const convexJsonPath = join(rootDir, 'convex.json')
   const configuredFunctionsDir = readFunctionsDirFromConvexJson(convexJsonPath)
   if (configuredFunctionsDir) {
