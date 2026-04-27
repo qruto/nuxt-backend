@@ -1,3 +1,5 @@
+import dedent from 'dedent'
+
 /**
  * Auto-scaffolded backend file templates.
  *
@@ -6,22 +8,20 @@
  * does not yet exist.
  */
 export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
-  'convex.config.ts': [
-    `import { defineApp } from 'convex/server'`,
-    `import backend from 'nuxt-backend/convex/component/convex.config'`,
-    ``,
-    `const app = defineApp()`,
-    `app.use(backend, { httpPrefix: '/api/auth' })`,
-    `export default app`,
-    ``,
-  ].join('\n'),
+  'convex.config.ts': dedent`
+    import { defineApp } from 'convex/server'
+    import backend from 'nuxt-backend/convex/component/convex.config'
+
+    const app = defineApp()
+    app.use(backend, { httpPrefix: '/api/auth' })
+    export default app
+    ` + '\n',
   'auth.config.ts': `export { default } from 'nuxt-backend/convex/auth.config'\n`,
-  'auth.ts': [
-    `import { setupAuth } from 'nuxt-backend/convex'`,
-    `import { components } from './_generated/api'`,
-    `import { query } from './_generated/server'`,
-    ``,
-    `export const { authComponent, createAuth, getCurrentUser } = setupAuth(components.backend, query)`,
-    ``,
-  ].join('\n'),
+  'auth.ts': dedent`
+    import { setupAuth } from 'nuxt-backend/convex'
+    import { components } from './_generated/api'
+    import { query } from './_generated/server'
+
+    export const { authComponent, createAuth, getCurrentUser } = setupAuth(components.backend, query)
+    ` + '\n',
 }

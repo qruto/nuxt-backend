@@ -1,6 +1,7 @@
 import type { InjectionKey } from 'vue'
 import { inject } from 'vue'
 import { BaseConvexClient } from 'convex/browser'
+import dedent from 'dedent'
 import type {
   AuthTokenFetcher,
   BaseConvexClientOptions,
@@ -125,10 +126,11 @@ export class ConvexVueClient {
 
   constructor(address: string, options?: ConvexVueClientOptions) {
     if (address === undefined) {
-      throw new Error(
-        'No address provided to ConvexVueClient.\n'
-        + 'Make sure to set the Convex URL in your configuration or environment variables.',
-      )
+      throw new Error(dedent`
+        No address provided to ConvexVueClient.\n
+        If trying to deploy to production, make sure to follow all the instructions found at https://docs.convex.dev/production/hosting/\n
+        If running locally, make sure to run \`convex dev\` and ensure the .env.local file is populated.
+      `)
     }
     if (typeof address !== 'string') {
       throw new TypeError(
@@ -463,11 +465,11 @@ export const ConvexClientKey: InjectionKey<ConvexVueClient> = Symbol('ConvexVueC
 export function useConvex(): ConvexVueClient {
   const client = inject(ConvexClientKey)
   if (!client) {
-    throw new Error(
-      'Could not find Convex client! `useConvex` must be used in a component tree '
-      + 'where the Convex client has been provided. '
-      + 'In Nuxt, ensure the nuxt-backend module is installed.',
-    )
+    throw new Error(dedent`
+      Could not find Convex client! \`useConvex\` must be used in a component tree
+      where the Convex client has been provided.
+      In Nuxt, ensure the nuxt-backend module is installed.
+    `)
   }
   return client
 }
