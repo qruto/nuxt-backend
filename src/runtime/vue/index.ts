@@ -92,6 +92,10 @@ export {
 // Auth Helpers
 export { Authenticated, Unauthenticated, AuthLoading } from './auth/helpers'
 
+// Better Auth service
+export { useAuth, type UseAuthService, type AuthSession } from './auth/use-auth'
+export type { AuthClient } from './auth/client'
+
 // Hydration / SSR
 export {
   usePreloadedQuery,

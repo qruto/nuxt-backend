@@ -539,7 +539,6 @@ npm run dev
 |---|---|
 | `build` | Build both the Convex component and Nuxt module |
 | `build:convex-component` | Codegen and TypeScript declarations for the component |
-| `build:convex-component:codegen` | Run Convex codegen for `src/convex/component/` |
 | `build:nuxt-module` | Build the Nuxt module with `nuxt-module-build` |
 | `prepack` | Full build before publish |
 
@@ -560,4 +559,6 @@ npm run dev
 | Script | Description |
 |---|---|
 | `lint` | ESLint |
+| `lint:fix` | ESLint with `--fix` |
+| `bump` | Run `taze` to bump dependency major versions |
 | `release` | Lint, test, build, publish, and push tags |

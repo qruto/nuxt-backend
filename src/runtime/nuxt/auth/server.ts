@@ -55,6 +55,40 @@ export type BackendAuthOptions = GetTokenOptions & {
 }
 
 /**
+ * Per-request Better Auth + Convex helper returned by {@link backendAuth}.
+ *
+ * @public
+ */
+export interface BackendAuthService {
+  /** Convex JWT for the current user, or `undefined` when not authenticated. */
+  getToken: () => Promise<string | undefined>
+  /** `true` when the current request has a valid Convex auth token. */
+  isAuthenticated: () => Promise<boolean>
+  /** Proxy a Better Auth route to the configured Convex site URL. */
+  handler: () => Promise<Response>
+  /** Preload a Convex query with the current user's auth token. */
+  preloadAuthQuery: <Query extends FunctionReference<'query'>>(
+    query: Query,
+    args?: Query['_args'],
+  ) => Promise<Preloaded<Query>>
+  /** Execute a Convex query with the current user's auth token. */
+  fetchAuthQuery: <Query extends FunctionReference<'query'>>(
+    query: Query,
+    args?: Query['_args'],
+  ) => Promise<FunctionReturnType<Query>>
+  /** Execute a Convex mutation with the current user's auth token. */
+  fetchAuthMutation: <Mutation extends FunctionReference<'mutation'>>(
+    mutation: Mutation,
+    args?: Mutation['_args'],
+  ) => Promise<FunctionReturnType<Mutation>>
+  /** Execute a Convex action with the current user's auth token. */
+  fetchAuthAction: <Action extends FunctionReference<'action'>>(
+    action: Action,
+    args?: Action['_args'],
+  ) => Promise<FunctionReturnType<Action>>
+}
+
+/**
  * Create a per-request Better Auth + Convex helper for Nuxt server code.
  *
  * Adapts the Better Auth + Convex server helper pattern to H3 events.
@@ -89,7 +123,7 @@ export type BackendAuthOptions = GetTokenOptions & {
  *
  * @public
  */
-export function backendAuth(event: H3Event, opts?: BackendAuthOptions) {
+export function backendAuth(event: H3Event, opts?: BackendAuthOptions): BackendAuthService {
   const siteUrl = getConvexSiteUrl(opts?.convexSiteUrl)
 
   // Per-request token cache — lazy, invalidated on forced refresh.

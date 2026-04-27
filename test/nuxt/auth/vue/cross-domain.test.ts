@@ -18,18 +18,18 @@ vi.mock('../../../../src/runtime/vue/auth/client', () => ({
   },
 }))
 
-async function loadPlugin() {
+async function loadModule() {
   return import('../../../../src/runtime/vue/auth/cross-domain')
 }
 
-describe('auth/vue/plugin', () => {
+describe('auth/vue/cross-domain', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     window.history.replaceState({}, '', 'http://localhost:3000/profile')
   })
 
   it('exchanges the cross-domain one-time token and refreshes the auth session', async () => {
-    const { consumeCrossDomainOneTimeToken } = await loadPlugin()
+    const { consumeCrossDomainOneTimeToken } = await loadModule()
     mockVerify.mockResolvedValue({
       data: {
         session: {
@@ -55,7 +55,7 @@ describe('auth/vue/plugin', () => {
   })
 
   it('no-ops when the OTT exchange does not return a session token', async () => {
-    const { consumeCrossDomainOneTimeToken } = await loadPlugin()
+    const { consumeCrossDomainOneTimeToken } = await loadModule()
     mockVerify.mockResolvedValue({ data: { session: null } })
     window.history.replaceState({}, '', 'http://localhost:3000/profile?ott=missing-token')
 
