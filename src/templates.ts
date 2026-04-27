@@ -8,16 +8,16 @@
 export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
   'convex.config.ts': [
     `import { defineApp } from 'convex/server'`,
-    `import backend from 'nuxt-backend/convex-component'`,
+    `import backend from 'nuxt-backend/convex/component/convex.config'`,
     ``,
     `const app = defineApp()`,
     `app.use(backend, { httpPrefix: '/api/auth' })`,
     `export default app`,
     ``,
   ].join('\n'),
-  'auth.config.ts': `export { default } from 'nuxt-backend/auth-config'\n`,
+  'auth.config.ts': `export { default } from 'nuxt-backend/convex/auth.config'\n`,
   'auth.ts': [
-    `import { setupAuth } from 'nuxt-backend/auth'`,
+    `import { setupAuth } from 'nuxt-backend/convex'`,
     `import { components } from './_generated/api'`,
     `import { query } from './_generated/server'`,
     ``,

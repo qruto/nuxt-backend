@@ -45,7 +45,7 @@ export {
   useConvexQueries,
   useQueries,
   type RequestForQueries,
-} from './use_queries'
+} from './composables/use-queries'
 
 // Query
 export {
@@ -53,14 +53,14 @@ export {
   useConvexQuery,
   type UseQueryResult,
   type OptionalRestArgsOrSkip,
-} from './use_query'
+} from './composables/use-query'
 
 // Mutation
 export {
   useMutation,
   useConvexMutation,
   type VueMutation,
-} from './use_mutation'
+} from './composables/use-mutation'
 
 // Public alias matching Convex's mutation option naming.
 export type { VueMutationOptions as MutationOptions } from './client'
@@ -70,13 +70,13 @@ export {
   useAction,
   useConvexAction,
   type VueAction,
-} from './use_action'
+} from './composables/use-action'
 
 // Paginated Query
-export * from './use_paginated_query'
+export * from './composables/use-paginated-query'
 
 // Connection State
-export { useConvexConnectionState } from './use_connection_state'
+export { useConvexConnectionState } from './composables/use-connection-state'
 
 // Auth
 export {
@@ -90,13 +90,14 @@ export {
 } from './auth'
 
 // Auth Helpers
-export { Authenticated, Unauthenticated, AuthLoading } from './auth_helpers'
+export { Authenticated, Unauthenticated, AuthLoading } from './auth/helpers'
 
 // Hydration / SSR
 export {
   usePreloadedQuery,
   type Preloaded,
 } from './hydration'
+export { usePreloadedAuthQuery } from './auth/hydration'
 
 // Subscription utility (internal)
-export { useSubscription } from './use_subscription'
+export { useSubscription } from './composables/use-subscription'

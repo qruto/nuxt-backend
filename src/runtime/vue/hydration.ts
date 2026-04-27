@@ -2,7 +2,7 @@ import type { FunctionReference, FunctionReturnType } from 'convex/server'
 import { makeFunctionReference } from 'convex/server'
 import { jsonToConvex } from 'convex/values'
 import { computed, type ShallowRef } from 'vue'
-import { useQuery } from './use_query'
+import { useQuery } from './composables/use-query'
 
 /**
  * The preloaded query payload, which should be passed to a client component

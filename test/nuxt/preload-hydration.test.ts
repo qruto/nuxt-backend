@@ -1,9 +1,11 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { anyApi, type FunctionReference } from 'convex/server'
 import { convexToJson } from 'convex/values'
-import { defineComponent, h, nextTick, provide, type ShallowRef } from 'vue'
+import { defineComponent, h, nextTick, provide, reactive, type ShallowRef } from 'vue'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { ConvexVueClient, ConvexClientKey } from '../../src/runtime/vue/client'
+import { ConvexAuthStateKey } from '../../src/runtime/vue/auth'
+import { usePreloadedAuthQuery } from '../../src/runtime/vue/auth/hydration'
 import { usePreloadedQuery } from '../../src/runtime/vue/hydration'
 import { preloadQuery, preloadedQueryResult } from '../../src/runtime/nuxt/index'
 import { nodeWebSocket } from '../helpers/in_memory_web_socket'
@@ -23,7 +25,7 @@ function testClient() {
 
 describe('preloadQuery + usePreloadedQuery round-trip', () => {
   beforeEach(() => {
-    process.env.CONVEX_URL = address
+    process.env.NUXT_PUBLIC_CONVEX_URL = address
     global.fetch = vi.fn(async () => new Response(
       JSON.stringify({ status: 'success', value: convexToJson({ x: 42 }) }),
       {
@@ -34,7 +36,7 @@ describe('preloadQuery + usePreloadedQuery round-trip', () => {
   })
 
   afterEach(() => {
-    delete process.env.CONVEX_URL
+    delete process.env.NUXT_PUBLIC_CONVEX_URL
   })
 
   it('returns the server result before the client has live data', async () => {
@@ -102,6 +104,81 @@ describe('preloadQuery + usePreloadedQuery round-trip', () => {
     })
 
     const mounted = await mountSuspended(Wrapper)
+    await nextTick()
+
+    expect(hydrated.value).toStrictEqual(null)
+
+    mounted.unmount()
+    await client.close()
+  })
+
+  it('keeps auth-preloaded data while auth loads, then clears for unauthenticated users', async () => {
+    const preloaded = await preloadQuery(queryRef, { arg: 'something' })
+    const client = testClient()
+    const authState = reactive({ isLoading: true, isAuthenticated: false })
+
+    let hydrated!: ShallowRef<unknown>
+    const Child = defineComponent({
+      setup() {
+        hydrated = usePreloadedAuthQuery(preloaded)
+        return () => h('div')
+      },
+    })
+    const Wrapper = defineComponent({
+      setup() {
+        provide(ConvexClientKey, client)
+        provide(ConvexAuthStateKey, authState)
+        return () => h(Child)
+      },
+    })
+
+    const mounted = await mountSuspended(Wrapper)
+    await nextTick()
+
+    expect(hydrated.value).toStrictEqual({ x: 42 })
+
+    authState.isLoading = false
+    await nextTick()
+    await nextTick()
+
+    expect(hydrated.value).toBeNull()
+
+    mounted.unmount()
+    await client.close()
+  })
+
+  it('switches auth-preloaded data to the live authenticated result', async () => {
+    const preloaded = await preloadQuery(queryRef, { arg: 'something' })
+    const client = testClient()
+    const authState = reactive({ isLoading: false, isAuthenticated: true })
+
+    void client.mutation(
+      mutationRef,
+      {},
+      {
+        optimisticUpdate: (localStore) => {
+          localStore.setQuery(queryRef, { arg: 'something' }, null)
+        },
+      },
+    )
+
+    let hydrated!: ShallowRef<unknown>
+    const Child = defineComponent({
+      setup() {
+        hydrated = usePreloadedAuthQuery(preloaded)
+        return () => h('div')
+      },
+    })
+    const Wrapper = defineComponent({
+      setup() {
+        provide(ConvexClientKey, client)
+        provide(ConvexAuthStateKey, authState)
+        return () => h(Child)
+      },
+    })
+
+    const mounted = await mountSuspended(Wrapper)
+    await nextTick()
     await nextTick()
 
     expect(hydrated.value).toStrictEqual(null)

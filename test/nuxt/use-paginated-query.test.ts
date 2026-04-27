@@ -26,7 +26,7 @@ import {
   type UsePaginatedQueryObjectReturnType,
   type UsePaginatedQueryResult,
   type UsePaginatedQueryReturnType,
-} from '../../src/runtime/vue/use_paginated_query'
+} from '../../src/runtime/vue/composables/use-paginated-query'
 import { withInMemoryWebSocket } from '../helpers/in_memory_web_socket'
 import { withConvex } from '../helpers/vue_test_utils'
 

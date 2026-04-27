@@ -1,6 +1,6 @@
 import { describe, test } from 'vitest'
 import { makeFunctionReference } from 'convex/server'
-import type { useQuery as useQueryReal } from '../../src/runtime/vue/use_query'
+import type { useQuery as useQueryReal } from '../../src/runtime/vue/composables/use-query'
 
 // Intentional noop, we're only testing types.
 const useQuery = (() => {}) as unknown as typeof useQueryReal

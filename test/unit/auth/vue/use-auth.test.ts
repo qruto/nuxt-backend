@@ -10,17 +10,19 @@ const tokenMock = vi.fn<
   (opts: { fetchOptions: { throw: boolean } }) => Promise<{ data?: { token?: string | null } | null }>
 >()
 
-vi.mock('../../../../src/runtime/auth/client', () => ({
-  authClient: {
-    useSession: () => sessionRef,
-    get convex() {
-      return { token: tokenMock }
-    },
+const mockAuthClient = {
+  useSession: () => sessionRef,
+  get convex() {
+    return { token: tokenMock }
   },
+}
+
+vi.mock('../../../../src/runtime/vue/auth/client', () => ({
+  authClient: mockAuthClient,
 }))
 
 async function loadUseAuth() {
-  const mod = await import('../../../../src/runtime/auth/vue/useAuth')
+  const mod = await import('../../../../src/runtime/vue/auth/use-auth')
   mod.__resetUseAuthForTests()
   return mod
 }
@@ -29,6 +31,15 @@ describe('useAuth (Better Auth + Convex)', () => {
   beforeEach(() => {
     sessionRef.value = { data: null, isPending: true }
     tokenMock.mockReset()
+  })
+
+  it('exposes the Better Auth client and session from one service', async () => {
+    const { useAuth } = await loadUseAuth()
+
+    const auth = useAuth()
+
+    expect(auth.client).toBe(mockAuthClient)
+    expect(auth.session).toBe(sessionRef)
   })
 
   it('caches tokens across calls and dedups concurrent fetches', async () => {

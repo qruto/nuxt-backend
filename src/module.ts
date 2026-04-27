@@ -45,44 +45,43 @@ export default defineNuxtModule<ModuleOptions>({
     // Client-only Convex plugin for Nuxt applications.
     // SSR data should be loaded via `fetchQuery` / `preloadQuery` from `#imports`
     // in server routes and passed to `usePreloadedQuery` on the client.
-    addPlugin(resolver.resolve('./runtime/auth/vue/plugin'))
+    addPlugin(resolver.resolve('./runtime/vue/auth/plugin'))
 
     // Vue composables exposed by the Nuxt module.
     const vueComposables: Array<{ name: string, from: string, as?: string }> = [
       { name: 'useConvex', from: resolver.resolve('./runtime/vue/client') },
-      { name: 'useQuery', from: resolver.resolve('./runtime/vue/use_query') },
-      { name: 'useConvexQuery', from: resolver.resolve('./runtime/vue/use_query') },
-      { name: 'useQueries', from: resolver.resolve('./runtime/vue/use_queries') },
-      { name: 'useConvexQueries', from: resolver.resolve('./runtime/vue/use_queries') },
-      { name: 'useMutation', from: resolver.resolve('./runtime/vue/use_mutation') },
-      { name: 'useConvexMutation', from: resolver.resolve('./runtime/vue/use_mutation') },
-      { name: 'useAction', from: resolver.resolve('./runtime/vue/use_action') },
-      { name: 'useConvexAction', from: resolver.resolve('./runtime/vue/use_action') },
-      { name: 'useConvexConnectionState', from: resolver.resolve('./runtime/vue/use_connection_state') },
-      { name: 'useConvexAuth', from: resolver.resolve('./runtime/vue/auth') },
-      { name: 'provideConvexAuth', from: resolver.resolve('./runtime/vue/auth') },
+      { name: 'useQuery', from: resolver.resolve('./runtime/vue/composables/use-query') },
+      { name: 'useConvexQuery', from: resolver.resolve('./runtime/vue/composables/use-query') },
+      { name: 'useQueries', from: resolver.resolve('./runtime/vue/composables/use-queries') },
+      { name: 'useConvexQueries', from: resolver.resolve('./runtime/vue/composables/use-queries') },
+      { name: 'useMutation', from: resolver.resolve('./runtime/vue/composables/use-mutation') },
+      { name: 'useConvexMutation', from: resolver.resolve('./runtime/vue/composables/use-mutation') },
+      { name: 'useAction', from: resolver.resolve('./runtime/vue/composables/use-action') },
+      { name: 'useConvexAction', from: resolver.resolve('./runtime/vue/composables/use-action') },
+      { name: 'useConvexConnectionState', from: resolver.resolve('./runtime/vue/composables/use-connection-state') },
+      { name: 'useConvexAuth', from: resolver.resolve('./runtime/vue/auth/index') },
+      { name: 'provideConvexAuth', from: resolver.resolve('./runtime/vue/auth/index') },
       { name: 'usePreloadedQuery', from: resolver.resolve('./runtime/vue/hydration') },
-      { name: 'usePaginatedQuery', from: resolver.resolve('./runtime/vue/use_paginated_query') },
+      { name: 'usePreloadedAuthQuery', from: resolver.resolve('./runtime/vue/auth/hydration') },
+      { name: 'usePaginatedQuery', from: resolver.resolve('./runtime/vue/composables/use-paginated-query') },
     ]
     for (const composable of vueComposables) {
       addImports(composable)
     }
 
     // Better Auth composables for the Vue/Nuxt runtime.
-    addImports({ name: 'useAuth', from: resolver.resolve('./runtime/auth/vue/useAuth') })
-    addImports({ name: 'useSession', from: resolver.resolve('./runtime/auth/vue/useSession') })
-    addImports({ name: 'useAuthClient', from: resolver.resolve('./runtime/auth/vue/useAuthClient') })
+    addImports({ name: 'useAuth', from: resolver.resolve('./runtime/vue/auth/use-auth') })
 
     // Auth proxy
     addServerHandler({
       route: `${authRoute}/**`,
-      handler: resolver.resolve('./runtime/auth/nuxt/proxy'),
+      handler: resolver.resolve('./runtime/nuxt/auth/proxy'),
     })
 
     // Auth middleware (opt-in per page via definePageMeta)
     addRouteMiddleware({
       name: 'auth',
-      path: resolver.resolve('./runtime/auth/nuxt/middleware'),
+      path: resolver.resolve('./runtime/nuxt/auth/middleware'),
       global: false,
     })
 
@@ -97,8 +96,8 @@ export default defineNuxtModule<ModuleOptions>({
     })))
     addServerImports([
       {
-        name: 'convexBetterAuth',
-        from: resolver.resolve('./runtime/auth/nuxt/server'),
+        name: 'backendAuth',
+        from: resolver.resolve('./runtime/nuxt/auth/server'),
       },
     ])
   },

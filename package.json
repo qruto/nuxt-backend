@@ -10,19 +10,22 @@
       "types": "./dist/types.d.mts",
       "import": "./dist/module.mjs"
     },
-    "./convex-component": {
-      "types": "./dist/convex-component/convex.config.d.ts",
-      "import": "./src/convex-component/convex.config.ts"
+    "./convex": {
+      "types": "./dist/convex/client/index.d.ts",
+      "default": "./dist/convex/client/index.js"
     },
-    "./auth-config": {
-      "types": "./dist/convex-component/auth-config.d.ts",
-      "import": "./src/convex-component/auth-config.ts"
+    "./convex/component/_generated/component": {
+      "types": "./dist/convex/component/_generated/component.d.ts"
     },
-    "./auth": {
-      "types": "./dist/convex-component/auth.d.ts",
-      "import": "./src/convex-component/auth.ts"
+    "./convex/component/convex.config": {
+      "types": "./dist/convex/component/convex.config.d.ts",
+      "default": "./dist/convex/component/convex.config.js"
     },
-    "./test": "./src/convex-component/test.ts"
+    "./convex/auth.config": {
+      "types": "./dist/convex/auth.config.d.ts",
+      "default": "./dist/convex/auth.config.js"
+    },
+    "./convex/test": "./src/convex/test.ts"
   },
   "main": "./dist/module.mjs",
   "typesVersions": {
@@ -30,14 +33,17 @@
       ".": [
         "./dist/types.d.mts"
       ],
-      "convex-component": [
-        "./dist/convex-component/convex.config.d.ts"
+      "convex": [
+        "./dist/convex/client/index.d.ts"
       ],
-      "auth-config": [
-        "./dist/convex-component/auth-config.d.ts"
+      "convex/component/_generated/component": [
+        "./dist/convex/component/_generated/component.d.ts"
       ],
-      "auth": [
-        "./dist/convex-component/auth.d.ts"
+      "convex/component/convex.config": [
+        "./dist/convex/component/convex.config.d.ts"
+      ],
+      "convex/auth.config": [
+        "./dist/convex/auth.config.d.ts"
       ]
     }
   },
@@ -50,26 +56,25 @@
   ],
   "scripts": {
     "prepack": "npm run build",
-    "build": "npm run build:convex-component && npm run build:nuxt-module",
-    "build:convex-component": "npm run build:convex-component:codegen && tsc --project ./tsconfig.build.json",
-    "build:convex-component:codegen": "convex codegen --component-dir ./src/convex-component",
+    "build": "npm run build:nuxt-module && npm run build:convex-component",
+    "build:convex-component": "convex codegen --component-dir ./src/convex/component && tsc --project ./tsconfig.convex-component.build.json",
     "build:nuxt-module": "nuxt-module-build build",
-    "dev": "npm run dev:nuxt-module:prepare && run-p -r 'dev:convex-component' 'dev:nuxt-module' 'dev:convex-component:codegen'",
-    "dev:convex-component": "convex dev --typecheck-components",
-    "dev:convex-component:codegen": "chokidar 'tsconfig*.json' 'src/convex-component/**/*.ts' -i '**/*.test.ts' -c 'npm run build:convex-component:codegen' --initial",
+    "dev": "npm run dev:nuxt-module:prepare && run-p -r 'dev:convex-component' 'dev:nuxt-module'",
+    "dev:convex-component": "convex dev --typecheck-components --start 'npm run dev:convex-component:codegen'",
+    "dev:convex-component:codegen": "chokidar 'tsconfig*.json' 'src/convex/**/*.ts' -i '**/*.test.ts' -c 'convex codegen --component-dir ./src/convex/component' --initial",
     "dev:nuxt-module": "nuxt dev playground",
     "dev:nuxt-module:build": "nuxt build playground",
     "dev:nuxt-module:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
     "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "vitest",
+    "test": "vitest --run",
     "test:watch": "vitest --watch",
     "test:types": "npm run dev:nuxt-module:prepare && vue-tsc --noEmit && tsc --noEmit -p tsconfig.convex.json && cd playground && vue-tsc --noEmit",
-    "test:unit": "vitest --project unit",
-    "test:convex": "vitest --project convex-component",
-    "test:nuxt": "vitest --project nuxt",
-    "test:e2e": "vitest --project e2e",
+    "test:unit": "vitest --project unit --run",
+    "test:convex": "vitest --project convex-component --run",
+    "test:nuxt": "vitest --project nuxt --run",
+    "test:e2e": "vitest --project e2e --run",
     "bump": "npx taze major -w"
   },
   "dependencies": {

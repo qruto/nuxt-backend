@@ -52,7 +52,7 @@ describe('Nuxt server utilities', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Set env var
-    process.env.CONVEX_URL = 'https://test.convex.cloud'
+    process.env.NUXT_PUBLIC_CONVEX_URL = 'https://test.convex.cloud'
   })
 
   describe('fetchQuery', () => {
@@ -137,7 +137,6 @@ describe('Nuxt server utilities', () => {
 
   describe('error handling', () => {
     it('throws when no URL is available', async () => {
-      delete process.env.CONVEX_URL
       delete process.env.NUXT_PUBLIC_CONVEX_URL
 
       // Re-import to get fresh module with no URL env vars

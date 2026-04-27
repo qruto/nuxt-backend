@@ -4,8 +4,8 @@ import { anyApi, getFunctionName } from 'convex/server'
 import type { FunctionReference } from 'convex/server'
 import type { QueryJournal } from 'convex/browser'
 import type { Value } from 'convex/values'
-import { type RequestForQueries, useQueriesHelper } from '../../src/runtime/vue/use_queries'
-import type { CreateWatch } from '../../src/runtime/vue/queries_observer'
+import { type RequestForQueries, useQueriesHelper } from '../../src/runtime/vue/composables/use-queries'
+import type { CreateWatch } from '../../src/runtime/vue/queries-observer'
 
 const query1Ref = anyApi.query1!.default! as FunctionReference<'query'>
 const query2Ref = anyApi.query2!.default! as FunctionReference<'query'>

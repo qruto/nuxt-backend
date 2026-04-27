@@ -2,19 +2,23 @@ import type { FunctionReference } from 'convex/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
+  mockFetch,
   mockFetchAction,
   mockFetchMutation,
   mockFetchQuery,
   mockGetRequestHeaders,
   mockGetToken,
   mockPreloadQuery,
+  mockToWebRequest,
 } = vi.hoisted(() => ({
+  mockFetch: vi.fn(),
   mockFetchAction: vi.fn(),
   mockFetchMutation: vi.fn(),
   mockFetchQuery: vi.fn(),
   mockGetRequestHeaders: vi.fn(),
   mockGetToken: vi.fn(),
   mockPreloadQuery: vi.fn(),
+  mockToWebRequest: vi.fn(),
 }))
 
 type NamedFunctionReference<Type extends 'query' | 'mutation' | 'action'> = FunctionReference<Type> & {
@@ -29,6 +33,7 @@ function mockFunctionReference<Type extends 'query' | 'mutation' | 'action'>(
 
 vi.mock('h3', () => ({
   getRequestHeaders: mockGetRequestHeaders,
+  toWebRequest: mockToWebRequest,
 }))
 
 vi.mock('@convex-dev/better-auth/utils', () => ({
@@ -45,6 +50,7 @@ vi.mock('../../../../src/runtime/nuxt/index', () => ({
 describe('auth/nuxt/server', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.stubGlobal('fetch', mockFetch)
     mockGetRequestHeaders.mockReturnValue({
       'cookie': 'session=abc',
       'content-length': '123',
@@ -53,12 +59,12 @@ describe('auth/nuxt/server', () => {
   })
 
   it('caches the token per request and forwards it to Convex query helpers', async () => {
-    const { convexBetterAuth } = await import('../../../../src/runtime/auth/nuxt/server')
+    const { backendAuth } = await import('../../../../src/runtime/nuxt/auth/server')
     const queryRef = mockFunctionReference<'query'>('api.tasks.list')
     mockGetToken.mockResolvedValue({ token: 'jwt-1', isFresh: false })
     mockFetchQuery.mockResolvedValue([{ text: 'Buy milk' }])
 
-    const auth = convexBetterAuth({} as never, {
+    const auth = backendAuth({} as never, {
       convexSiteUrl: 'https://example.convex.site',
     })
 
@@ -78,7 +84,7 @@ describe('auth/nuxt/server', () => {
   })
 
   it('refreshes the token once when jwt cache marks the first error as auth-related', async () => {
-    const { convexBetterAuth } = await import('../../../../src/runtime/auth/nuxt/server')
+    const { backendAuth } = await import('../../../../src/runtime/nuxt/auth/server')
     const queryRef = mockFunctionReference<'query'>('api.tasks.list')
     const authError = new Error('expired')
 
@@ -89,7 +95,7 @@ describe('auth/nuxt/server', () => {
       .mockRejectedValueOnce(authError)
       .mockResolvedValueOnce([{ text: 'Fresh result' }])
 
-    const auth = convexBetterAuth({} as never, {
+    const auth = backendAuth({} as never, {
       convexSiteUrl: 'https://example.convex.site',
       jwtCache: {
         enabled: true,
@@ -106,7 +112,7 @@ describe('auth/nuxt/server', () => {
   })
 
   it('passes the auth token through preload, mutation, and action helpers', async () => {
-    const { convexBetterAuth } = await import('../../../../src/runtime/auth/nuxt/server')
+    const { backendAuth } = await import('../../../../src/runtime/nuxt/auth/server')
     const queryRef = mockFunctionReference<'query'>('api.tasks.list')
     const mutationRef = mockFunctionReference<'mutation'>('api.tasks.create')
     const actionRef = mockFunctionReference<'action'>('api.tasks.process')
@@ -115,7 +121,7 @@ describe('auth/nuxt/server', () => {
     mockFetchMutation.mockResolvedValue({ _id: 'task-1' })
     mockFetchAction.mockResolvedValue({ ok: true })
 
-    const auth = convexBetterAuth({} as never, {
+    const auth = backendAuth({} as never, {
       convexSiteUrl: 'https://example.convex.site',
     })
 
@@ -126,5 +132,32 @@ describe('auth/nuxt/server', () => {
     expect(mockPreloadQuery).toHaveBeenCalledWith(queryRef, { page: 1 }, { token: 'jwt-1' })
     expect(mockFetchMutation).toHaveBeenCalledWith(mutationRef, { text: 'Milk' }, { token: 'jwt-1' })
     expect(mockFetchAction).toHaveBeenCalledWith(actionRef, { id: 'task-1' }, { token: 'jwt-1' })
+  })
+
+  it('provides a Nuxt auth route handler adapted from the Next.js helper shape', async () => {
+    const { backendAuth } = await import('../../../../src/runtime/nuxt/auth/server')
+
+    mockToWebRequest.mockReturnValue(new Request('https://app.example.com/api/auth/session?foo=bar', {
+      method: 'POST',
+      headers: {
+        cookie: 'session=abc',
+      },
+    }))
+    mockFetch.mockResolvedValue(new Response('ok'))
+
+    const response = await backendAuth({} as never, {
+      convexSiteUrl: 'https://example.convex.site',
+    }).handler()
+
+    expect(response).toBeInstanceOf(Response)
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+
+    const proxiedRequest = mockFetch.mock.calls[0]?.[0] as Request
+    expect(proxiedRequest.url).toBe('https://example.convex.site/api/auth/session?foo=bar')
+    expect(proxiedRequest.headers.get('host')).toBe('example.convex.site')
+    expect(proxiedRequest.headers.get('x-forwarded-host')).toBe('app.example.com')
+    expect(proxiedRequest.headers.get('x-forwarded-proto')).toBe('https')
+    expect(proxiedRequest.headers.get('x-better-auth-forwarded-host')).toBe('app.example.com')
+    expect(proxiedRequest.headers.get('x-better-auth-forwarded-proto')).toBe('https')
   })
 })

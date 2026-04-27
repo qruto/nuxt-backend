@@ -6,7 +6,7 @@ const { mockGetSession, mockUpdateSession, mockVerify } = vi.hoisted(() => ({
   mockVerify: vi.fn(),
 }))
 
-vi.mock('../../../../src/runtime/auth/client', () => ({
+vi.mock('../../../../src/runtime/vue/auth/client', () => ({
   authClient: {
     getSession: mockGetSession,
     crossDomain: {
@@ -19,7 +19,7 @@ vi.mock('../../../../src/runtime/auth/client', () => ({
 }))
 
 async function loadPlugin() {
-  return import('../../../../src/runtime/auth/vue/plugin')
+  return import('../../../../src/runtime/vue/auth/plugin')
 }
 
 describe('auth/vue/plugin', () => {

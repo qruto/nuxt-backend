@@ -13,24 +13,49 @@ const playgroundApp = readFileSync(playgroundAppPath, 'utf-8')
 const playgroundBackendTsconfig = readFileSync(playgroundBackendTsconfigPath, 'utf-8')
 
 describe('package exports', () => {
-  it('exposes the packaged Convex component without React-only or config-style aliases', () => {
-    expect(packageJson.exports).toHaveProperty('./convex-component')
-    expect(packageJson.exports).toHaveProperty('./auth-config')
-    expect(packageJson.exports).toHaveProperty('./auth')
+  it('exposes the packaged Convex component only through the extensionless Convex config subpath', () => {
+    expect(packageJson.exports).toHaveProperty('./convex')
+    expect(packageJson.exports).toHaveProperty('./convex/component/_generated/component')
+    expect(packageJson.exports).not.toHaveProperty('./convex/component/_generated/component.js')
+    expect(packageJson.exports).toHaveProperty('./convex/component/convex.config')
+    expect(packageJson.exports).not.toHaveProperty('./convex/component/convex.config.js')
+    expect(packageJson.exports).toHaveProperty('./convex/auth.config')
+    expect(packageJson.exports).toHaveProperty('./convex/test')
+    expect(packageJson.exports).not.toHaveProperty('./client')
+    expect(packageJson.exports).not.toHaveProperty('./auth-config')
+    expect(packageJson.exports).not.toHaveProperty('./auth')
     expect(packageJson.exports).not.toHaveProperty('./react')
+  })
+
+  it('ships built convex runtime entrypoints from dist instead of src', () => {
+    expect(packageJson.exports['./convex']).toEqual({
+      types: './dist/convex/client/index.d.ts',
+      default: './dist/convex/client/index.js',
+    })
+    expect(packageJson.exports['./convex/component/convex.config']).toEqual({
+      types: './dist/convex/component/convex.config.d.ts',
+      default: './dist/convex/component/convex.config.js',
+    })
+    expect(packageJson.exports['./convex/auth.config']).toEqual({
+      types: './dist/convex/auth.config.d.ts',
+      default: './dist/convex/auth.config.js',
+    })
   })
 })
 
 describe('scaffold templates', () => {
   it('scaffolds Convex root files from the clean package entrypoints', () => {
     expect(BACKEND_FILE_TEMPLATES['convex.config.ts']).toContain(
-      `import backend from 'nuxt-backend/convex-component'`,
+      `import backend from 'nuxt-backend/convex/component/convex.config'`,
     )
     expect(BACKEND_FILE_TEMPLATES['convex.config.ts']).toContain(
       `app.use(backend`,
     )
     expect(BACKEND_FILE_TEMPLATES['auth.config.ts']).toBe(
-      `export { default } from 'nuxt-backend/auth-config'\n`,
+      `export { default } from 'nuxt-backend/convex/auth.config'\n`,
+    )
+    expect(BACKEND_FILE_TEMPLATES['auth.ts']).toContain(
+      `import { setupAuth } from 'nuxt-backend/convex'`,
     )
   })
 })

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ws from 'ws'
 import { makeFunctionReference } from 'convex/server'
 import { ConvexVueClient } from '../../src/runtime/vue/client'
-import { createMutation } from '../../src/runtime/vue/use_mutation'
+import { createMutation } from '../../src/runtime/vue/composables/use-mutation'
 
 const address = 'https://127.0.0.1:3001'
 

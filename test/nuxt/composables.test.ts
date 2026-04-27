@@ -8,11 +8,11 @@ import type { Value } from 'convex/values'
 import { ConvexClientKey, type ConvexVueClient } from '../../src/runtime/vue/client'
 import { withConvex } from '../helpers/vue_test_utils'
 import { useConvex } from '../../src/runtime/vue/client'
-import { useMutation, type VueMutation } from '../../src/runtime/vue/use_mutation'
-import { useAction, type VueAction } from '../../src/runtime/vue/use_action'
-import { useConvexConnectionState } from '../../src/runtime/vue/use_connection_state'
+import { useMutation, type VueMutation } from '../../src/runtime/vue/composables/use-mutation'
+import { useAction, type VueAction } from '../../src/runtime/vue/composables/use-action'
+import { useConvexConnectionState } from '../../src/runtime/vue/composables/use-connection-state'
 import { useConvexAuth, ConvexAuthStateKey, type ConvexAuthState } from '../../src/runtime/vue/auth'
-import { useQuery } from '../../src/runtime/vue/use_query'
+import { useQuery } from '../../src/runtime/vue/composables/use-query'
 
 type MockQuery = FunctionReference<'query'> | string
 

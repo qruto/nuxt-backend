@@ -1,7 +1,7 @@
 import { describe, expectTypeOf, test } from 'vitest'
 import { makeFunctionReference } from 'convex/server'
 import type { ShallowRef } from 'vue'
-import type { useQuery as useQueryReal, type UseQueryResult } from '../../src/runtime/vue/use_query'
+import type { useQuery as useQueryReal, UseQueryResult } from '../../src/runtime/vue/composables/use-query'
 
 // Intentional noop, we're only testing types.
 const useQuery = (() => {}) as unknown as typeof useQueryReal

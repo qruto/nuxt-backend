@@ -7,14 +7,16 @@
 
 Integrate [Convex](https://convex.dev) with [Nuxt](https://nuxt.com) — one package that ships a **Nuxt module** and a **packaged Convex component** with [Better Auth](https://www.better-auth.com) built in.
 
+`nuxt-backend` is a Vue/Nuxt port of the official Convex + Better Auth React/Next integration. It keeps the same core pieces — the Better Auth Convex plugin, Convex auth config, server helpers, auth-aware preloading, and client auth state — but preconfigures the route wiring and component setup so new Nuxt apps do less manual installation work.
+
 > This README covers setup and the end-to-end integration flow. Full API details, exports, architecture, and development notes are in [docs/reference.md](./docs/reference.md).
 
 ## Features
 
 ### Nuxt Module
 - 🔌 **Real-time Convex client** — auto-imported `useConvex`, `useQuery`, `useMutation`, `useAction`, and more
-- 🔄 **SSR** — `fetchQuery`, `fetchMutation`, `fetchAction`, `preloadQuery` plus hydration with `usePreloadedQuery`
-- 🔐 **Auth composables** — `useAuth`, `useSession`, `useAuthClient` auto-imported, no setup needed
+- 🔄 **SSR** — `fetchQuery`, `fetchMutation`, `fetchAction`, `preloadQuery` plus hydration with `usePreloadedQuery` and `usePreloadedAuthQuery`
+- 🔐 **Auth composable** — auto-imported `useAuth` exposes Better Auth client + session state, no setup needed
 - 🛡️ **Route protection** — built-in `auth` middleware, opt-in per page with `definePageMeta`
 - 🌐 **Same-origin auth proxy** — `/api/auth` proxied to Convex, keeps cookies on your domain
 - 🏗️ **Auto-scaffold** — minimum Convex root files generated on first run
@@ -22,7 +24,7 @@ Integrate [Convex](https://convex.dev) with [Nuxt](https://nuxt.com) — one pac
 ### Convex Auth Component
 - 🔑 **Better Auth** — email/password authentication out of the box
 - 🗄️ **Convex adapter** — Better Auth persistence backed by your Convex database
-- ⚙️ **`setupAuth(...)` bridge** — exposes `createAuth(ctx)` and `getCurrentUser` for app Convex functions
+- ⚙️ **`nuxt-backend/convex` bridge** — exposes `setupAuth(...)`, `createAuth(ctx)`, and `getCurrentUser` for app Convex functions
 - 🔗 **Auth config wiring** — `auth.config.ts` keeps Convex token verification aligned with Better Auth
 
 ## Installation
@@ -88,7 +90,7 @@ export default defineNuxtConfig({
 npm run dev
 ```
 
-On first run, the module creates the minimum Convex files needed to mount the packaged Better Auth component. If the app already has a Convex functions directory, scaffolding reuses it. Otherwise it creates `backend/` by default:
+On first run, the module creates the minimum Convex files needed to mount the packaged Better Auth component. This replaces the manual `convex/betterAuth/*` component setup from the official guide with a prebuilt component and root helpers. If the app already has a Convex functions directory, scaffolding reuses it. Otherwise it creates `backend/` by default:
 
 ```text
 your-project/
@@ -127,7 +129,7 @@ If you let the module scaffold files, you can keep them as generated. If you cre
 ```ts
 // backend/convex.config.ts
 import { defineApp } from 'convex/server'
-import backend from 'nuxt-backend/convex-component'
+import backend from 'nuxt-backend/convex/component/convex.config'
 
 const app = defineApp()
 app.use(backend, { httpPrefix: '/api/auth' })
@@ -136,12 +138,12 @@ export default app
 
 ```ts
 // backend/auth.config.ts
-export { default } from 'nuxt-backend/auth-config'
+export { default } from 'nuxt-backend/convex/auth.config'
 ```
 
 ```ts
 // backend/auth.ts
-import { setupAuth } from 'nuxt-backend/auth'
+import { setupAuth } from 'nuxt-backend/convex'
 import { components } from './_generated/api'
 import { query } from './_generated/server'
 
@@ -158,7 +160,7 @@ That setup mounts the packaged Better Auth component, configures Convex to trust
 ```vue
 <!-- pages/login.vue -->
 <script setup lang="ts">
-const auth = useAuthClient()
+const { client: auth } = useAuth()
 const email = ref('')
 const password = ref('')
 const pending = ref(false)
@@ -208,9 +210,9 @@ import { api } from '~/backend/_generated/api'
 
 definePageMeta({ middleware: 'auth' })
 
-const session = await useSession()
+const { session } = useAuth()
 const currentUser = useQuery(api.auth.getCurrentUser, {})
-const email = computed(() => session.data.value?.user.email)
+const email = computed(() => session.value.data?.user.email)
 </script>
 
 <template>
@@ -221,25 +223,44 @@ const email = computed(() => session.data.value?.user.email)
 </template>
 ```
 
-The built-in `auth` middleware protects the page, `useSession()` exposes the Better Auth session, and `useQuery(...)` keeps Convex data live after hydration.
+The built-in `auth` middleware protects the page, `useAuth().session` exposes the Better Auth session, and `useQuery(...)` keeps Convex data live after hydration.
 
-### 4. Use the same auth token in Nitro handlers
+### 4. Use authenticated server helpers in Nitro handlers
 
 ```ts
 // server/api/me.ts
 import { api } from '~/backend/_generated/api'
 
 export default defineEventHandler(async (event) => {
-  const token = getCookie(event, 'better-auth.session_token')
-  if (!token) {
+  const auth = backendAuth(event)
+
+  if (!await auth.isAuthenticated()) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-  return fetchQuery(api.auth.getCurrentUser, {}, { token })
+  return auth.fetchAuthQuery(api.auth.getCurrentUser, {})
 })
 ```
 
-This is how SSR routes, API handlers, and middleware call Convex on behalf of the signed-in user.
+`backendAuth(event)` is the Nuxt/Nitro equivalent of the official Next helper. It can get the Convex auth token, check authentication, run authenticated queries/mutations/actions, and preload authenticated query data for the client.
+
+```ts
+// server/api/account.preload.ts
+import { api } from '~/backend/_generated/api'
+
+export default defineEventHandler((event) => {
+  return backendAuth(event).preloadAuthQuery(api.auth.getCurrentUser, {})
+})
+```
+
+```vue
+<script setup lang="ts">
+const { data: preloaded } = await useFetch('/api/account.preload')
+const currentUser = usePreloadedAuthQuery(preloaded.value!)
+</script>
+```
+
+Use `usePreloadedAuthQuery` for auth-protected SSR data. It keeps the server result during auth startup, then switches to the live authenticated Convex query or clears the data if the browser is unauthenticated.
 
 ### 5. Keep the auth route consistent if you customize it
 

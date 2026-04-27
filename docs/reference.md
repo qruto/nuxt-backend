@@ -9,7 +9,7 @@ For installation and the end-to-end integration walkthrough, see [../README.md](
 ### Nuxt module
 
 - Real-time Convex client via `useConvex`, `useQuery`, `useMutation`, and `useAction`
-- SSR helpers via `fetchQuery`, `fetchMutation`, `fetchAction`, and `preloadQuery`
+- SSR helpers via `fetchQuery`, `fetchMutation`, `fetchAction`, `preloadQuery`, and `backendAuth(event)`
 - Auto-imported composables and server utilities
 - Built-in `auth` route middleware
 - Auto-scaffolded Convex root files
@@ -20,12 +20,28 @@ For installation and the end-to-end integration walkthrough, see [../README.md](
 - Convex adapter for Better Auth persistence
 - HTTP auth endpoints served through Convex
 
+## Official Integration Parity
+
+`nuxt-backend` ports the official Better Auth Convex React/Next integration to Vue/Nuxt. The package preconfigures the same moving parts, but gives them Nuxt defaults:
+
+| Official React/Next piece | Nuxt/Vue equivalent |
+|---|---|
+| Manual Better Auth Convex component files | Packaged `nuxt-backend/convex/component/convex.config` mounted from `backend/convex.config.ts` |
+| `auth.config.ts` using the Better Auth Convex provider | `nuxt-backend/convex/auth.config`, scaffolded as `backend/auth.config.ts` |
+| Better Auth client with `convexClient()` | Auto-created Vue Better Auth client exposed through `useAuth()` |
+| `ConvexBetterAuthProvider` | Nuxt client plugin plus `useConvexAuth()`/`provideConvexAuth()` state |
+| Next route handler proxy | Nuxt server proxy at `backend.authRoute`, default `/api/auth` |
+| `convexBetterAuthNextJs()` | `backendAuth(event)` for H3/Nitro handlers |
+| `usePreloadedAuthQuery()` | `usePreloadedAuthQuery()` for Vue hydration |
+
+The goal is API parity where it matters, with less setup: Nuxt owns route registration, app scaffolding, composable auto-imports, and the same-origin auth proxy.
+
 ## Client APIs
 
 The Nuxt module auto-imports two API groups in app code:
 
-- Convex Vue APIs from the package runtime: `useConvex`, `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `useConvexConnectionState`
-- Better Auth helpers: `useAuth`, `useSession`, `useAuthClient`
+- Convex Vue APIs from the package runtime: `useConvex`, `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `usePreloadedAuthQuery`, `useConvexConnectionState`
+- Better Auth helper: `useAuth`
 
 ### `useConvex()` and `$convex`
 
@@ -142,6 +158,19 @@ The positional overload returns `{ results, status, isLoading, loadMore }`. The 
 
 Consumes the `Preloaded<Query>` payload returned by `preloadQuery` on the server and switches to live client updates once the browser-side client has data.
 
+### `usePreloadedAuthQuery()`
+
+Consumes the `Preloaded<Query>` payload returned by `backendAuth(event).preloadAuthQuery(...)`.
+
+```vue
+<script setup lang="ts">
+const { data: preloaded } = await useFetch('/api/account.preload')
+const currentUser = usePreloadedAuthQuery(preloaded.value!)
+</script>
+```
+
+This mirrors the official Next client helper. It keeps the server result visible while Convex auth is loading in the browser, skips the live query if the user is unauthenticated, and switches to the live authenticated query after client auth is ready.
+
 ### `useConvexConnectionState()`
 
 ```vue
@@ -156,34 +185,14 @@ const connection = useConvexConnectionState()
 
 ### Better Auth composables
 
-`useAuth()` exposes Better Auth provider state as computed refs:
+`useAuth()` is the single Better Auth service. It exposes the Better Auth client, the reactive session wrapper, and the computed auth state used by the Convex integration:
 
 ```vue
 <script setup lang="ts">
-const { isAuthenticated, isLoading } = useAuth()
-</script>
-```
+const { client, session, isAuthenticated, isLoading } = useAuth()
 
-`useSession()` is SSR-friendly and returns the Better Auth session wrapper:
-
-```vue
-<script setup lang="ts">
-import { computed } from 'vue'
-
-const session = await useSession()
-const user = computed(() => session.data.value?.user)
-</script>
-```
-
-`useAuthClient()` returns the full Better Auth client:
-
-```vue
-<script setup lang="ts">
-const auth = useAuthClient()
-
-await auth.signIn.email({ email: 'user@example.com', password: 'secret' })
-await auth.signUp.email({ email: 'user@example.com', password: 'secret', name: 'User' })
-await auth.signOut()
+await client.signIn.email({ email: 'user@example.com', password: 'secret' })
+const user = computed(() => session.value.data?.user)
 </script>
 ```
 
@@ -221,17 +230,19 @@ export default defineEventHandler(async () => {
 
 ### Authenticated calls
 
-Pass a session token via the `token` option to authenticate server-side calls:
+Use `backendAuth(event)` for authenticated server-side calls. It mirrors the official Next integration helper, but accepts the current H3 event:
 
 ```ts
 // server/api/profile.ts
 export default defineEventHandler(async (event) => {
-  const token = getCookie(event, 'better-auth.session_token')
-  if (!token) throw createError({ statusCode: 401 })
+  const auth = backendAuth(event)
+  if (!await auth.isAuthenticated()) throw createError({ statusCode: 401 })
 
-  return await fetchQuery(api.users.me, {}, { token })
+  return await auth.fetchAuthQuery(api.users.me, {})
 })
 ```
+
+Use `auth.getToken()` if you need to pass the token to a lower-level `fetchQuery`, `fetchMutation`, or `fetchAction` call yourself.
 
 ### Preloading
 
@@ -256,6 +267,22 @@ const messages = usePreloadedQuery(preloaded.value!)
 </script>
 ```
 
+For auth-protected data, preload through `backendAuth(event)` and hydrate with `usePreloadedAuthQuery`:
+
+```ts
+// server/api/account.preload.ts
+export default defineEventHandler((event) => {
+  return backendAuth(event).preloadAuthQuery(api.auth.getCurrentUser, {})
+})
+```
+
+```vue
+<script setup lang="ts">
+const { data: preloaded } = await useFetch('/api/account.preload')
+const currentUser = usePreloadedAuthQuery(preloaded.value!)
+</script>
+```
+
 | Function | Description |
 |---|---|
 | `fetchQuery` | Run a query and optionally pass `{ token }` for auth |
@@ -263,6 +290,19 @@ const messages = usePreloadedQuery(preloaded.value!)
 | `fetchAction` | Run an action and optionally pass `{ token }` for auth |
 | `preloadQuery` | Preload query data for SSR |
 | `preloadedQueryResult` | Extract the result from a preloaded query payload |
+| `backendAuth` | Create authenticated server helpers for the current H3 event |
+
+`backendAuth(event)` returns these helpers:
+
+| Helper | Description |
+|---|---|
+| `handler` | Proxy Better Auth requests from Nuxt to the Convex site URL |
+| `getToken` | Fetch a Convex auth token from the Better Auth session |
+| `isAuthenticated` | Check whether the current request has an authenticated Convex token |
+| `fetchAuthQuery` | Run an authenticated Convex query |
+| `fetchAuthMutation` | Run an authenticated Convex mutation |
+| `fetchAuthAction` | Run an authenticated Convex action |
+| `preloadAuthQuery` | Preload an authenticated query for `usePreloadedAuthQuery` |
 
 ## Configuration
 
@@ -320,7 +360,7 @@ Zero-config mode mounts the packaged component at `/api/auth` and wires Convex a
 If you want to keep the packaged component but extend Better Auth options such as providers or plugins, customize `setupAuth(...)` in `backend/auth.ts`:
 
 ```ts
-import { setupAuth } from 'nuxt-backend/auth'
+import { setupAuth } from 'nuxt-backend/convex'
 import { components } from './_generated/api'
 import { query } from './_generated/server'
 
@@ -343,7 +383,7 @@ If you want a different auth route, update the scaffolded files:
 ```ts
 // backend/convex.config.ts
 import { defineApp } from 'convex/server'
-import backend from 'nuxt-backend/convex-component'
+import backend from 'nuxt-backend/convex/component/convex.config'
 
 const app = defineApp()
 app.use(backend, { httpPrefix: '/internal/auth' })
@@ -352,7 +392,7 @@ export default app
 
 ```ts
 // backend/auth.config.ts
-import { defineBackendAuthConfig } from 'nuxt-backend/auth-config'
+import { defineBackendAuthConfig } from 'nuxt-backend/convex/auth.config'
 
 export default defineBackendAuthConfig({
   basePath: '/internal/auth',
@@ -371,17 +411,17 @@ The stable user-facing surface should stay narrow and opinionated. The package s
 |---|---|---|
 | Bootstrap | Nuxt module options: `backend.url`, `backend.siteUrl`, `backend.authRoute` | One place to configure Convex and auth route wiring |
 | Scaffolding | Generated `backend/convex.config.ts`, `backend/auth.config.ts`, `backend/auth.ts` | Zero-config first run with an escape hatch to own the files later |
-| Runtime data | `useConvex`, `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `useConvexConnectionState` | Real-time Convex data and hydration-safe SSR |
-| Runtime auth | `useAuth`, `useSession`, `useAuthClient`, `auth` middleware | Better Auth session state, sign-in/out, and route protection in Nuxt |
-| Server data | `fetchQuery`, `fetchMutation`, `fetchAction`, `preloadQuery`, `preloadedQueryResult` | Nitro and SSR access to Convex with optional token forwarding |
-| Convex auth bridge | `nuxt-backend/convex-component`, `nuxt-backend/auth-config`, `nuxt-backend/auth` | Mount the packaged component, align Convex auth config, and create Better Auth helpers |
-| Testing | `nuxt-backend/test` | Register the packaged component in `convex-test` |
+| Runtime data | `useConvex`, `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `usePreloadedAuthQuery`, `useConvexConnectionState` | Real-time Convex data and hydration-safe SSR |
+| Runtime auth | `useAuth`, `auth` middleware | Better Auth client access, session state, sign-in/out, and route protection in Nuxt |
+| Server data | `fetchQuery`, `fetchMutation`, `fetchAction`, `preloadQuery`, `preloadedQueryResult`, `backendAuth` | Nitro and SSR access to Convex, including authenticated helper calls |
+| Convex auth bridge | `nuxt-backend/convex/component/convex.config`, `nuxt-backend/convex/auth.config`, `nuxt-backend/convex` | Mount the packaged component, align Convex auth config, and create Better Auth helpers |
+| Testing | `nuxt-backend/convex/test` | Register the packaged component in `convex-test` |
 
 The package-specific capabilities, beyond the raw Better Auth component, are:
 
 - Same-origin auth proxying from Nuxt to Convex so cookies stay on the app domain.
 - Route alignment between the Nuxt auth proxy, Convex HTTP prefix, and Convex JWKS/auth provider config.
-- SSR-friendly Better Auth access through `useSession()` and server-side token forwarding through `fetchQuery(..., { token })`.
+- Reactive Better Auth access through `useAuth().session` and server-side token forwarding through `fetchQuery(..., { token })`.
 - A small Convex auth bridge with `setupAuth(...)`, `createAuth(ctx)`, and `getCurrentUser` so apps can stay close to Convex conventions.
 - A zero-config path for new apps, plus extension points for apps that need custom Better Auth options.
 
@@ -394,17 +434,24 @@ The package publishes multiple entrypoints:
 | Export | Use for |
 |---|---|
 | `nuxt-backend` | The Nuxt module used in `modules: ['nuxt-backend']` |
-| `nuxt-backend/convex-component` | Mounting the packaged Convex component in `convex.config.ts` |
-| `nuxt-backend/auth-config` | Creating `auth.config.ts` with `defineBackendAuthConfig(...)` |
-| `nuxt-backend/auth` | Creating `backend/auth.ts` with `setupAuth(...)` |
-| `nuxt-backend/test` | Registering the packaged Convex component in `convex-test` |
+| `nuxt-backend/convex` | App-side helper bridge for the packaged Convex component (`createAuth(ctx, component, ...)`, `makeAuthApi(...)`, `setupAuth(...)`) |
+| `nuxt-backend/convex/component/convex.config` | Mounting the packaged Convex component in `convex.config.ts` |
+| `nuxt-backend/convex/auth.config` | Creating `auth.config.ts` with `defineBackendAuthConfig(...)` |
+| `nuxt-backend/convex/test` | Registering the packaged Convex component in `convex-test` |
 
-### `nuxt-backend/auth`
+### `nuxt-backend/convex`
+
+This entrypoint exposes the same two client-code patterns described in the Convex component authoring docs:
+
+- A simple wrapper via `createAuth(ctx, component, options?)`
+- A ready-made API remount helper via `makeAuthApi(component, query)`
+
+`setupAuth(...)` is a convenience helper that composes both patterns for the common scaffolded case.
 
 This is what the scaffolded `backend/auth.ts` uses:
 
 ```ts
-import { setupAuth } from 'nuxt-backend/auth'
+import { setupAuth } from 'nuxt-backend/convex'
 import { components } from './_generated/api'
 import { query } from './_generated/server'
 
@@ -414,13 +461,13 @@ export const { authComponent, createAuth, getCurrentUser } = setupAuth(
 )
 ```
 
-### `nuxt-backend/test`
+### `nuxt-backend/convex/test`
 
 Use this when testing the packaged component with `convex-test`:
 
 ```ts
 import { convexTest } from 'convex-test'
-import backendTest from 'nuxt-backend/test'
+import backendTest from 'nuxt-backend/convex/test'
 
 const t = convexTest(schema, modules)
 backendTest.register(t)
@@ -433,7 +480,7 @@ The package ships two things in one:
 | Layer | What it does |
 |---|---|
 | **Nuxt module** (`nuxt-backend`) | Registers plugins, composables, server utilities, auth proxy, and auto-scaffolds Convex root files |
-| **Convex component** (`nuxt-backend/convex-component`) | Defines the `backend` component with a Better Auth adapter, HTTP router, and auth config |
+| **Convex component** (`nuxt-backend/convex/component/convex.config`) | Defines the `backend` component with a Better Auth adapter, HTTP router, and auth config |
 
 ```mermaid
 sequenceDiagram
@@ -481,7 +528,7 @@ npm run dev
 | Script | Description |
 |---|---|
 | `dev:convex-component` | Convex dev server with component typechecking |
-| `dev:convex-component:codegen` | Watches `src/convex-component/` and re-runs codegen on changes |
+| `dev:convex-component:codegen` | Watches `src/convex/` and re-runs codegen for `src/convex/component/` |
 | `dev:nuxt-module` | Nuxt dev server with the playground app |
 | `dev:nuxt-module:prepare` | Generates type stubs and prepares the playground |
 | `dev:nuxt-module:build` | Full Nuxt build of the playground |
@@ -492,7 +539,7 @@ npm run dev
 |---|---|
 | `build` | Build both the Convex component and Nuxt module |
 | `build:convex-component` | Codegen and TypeScript declarations for the component |
-| `build:convex-component:codegen` | Run Convex codegen for `src/convex-component/` |
+| `build:convex-component:codegen` | Run Convex codegen for `src/convex/component/` |
 | `build:nuxt-module` | Build the Nuxt module with `nuxt-module-build` |
 | `prepack` | Full build before publish |
 

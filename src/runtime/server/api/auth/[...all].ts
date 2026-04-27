@@ -1,1 +1,1 @@
-export { default } from '../../../auth/nuxt/proxy'
+export { default } from '../../../nuxt/auth/proxy'
