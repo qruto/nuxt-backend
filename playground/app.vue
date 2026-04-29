@@ -1,5 +1,3 @@
 <template>
-  <div>
-    Nuxt backend playground!
-  </div>
+  <NuxtPage />
 </template>

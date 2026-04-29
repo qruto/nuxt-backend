@@ -61,8 +61,8 @@ describe('scaffold templates', () => {
 })
 
 describe('playground templates', () => {
-  it('keeps the Nuxt playground minimal and Vue-only', () => {
-    expect(playgroundApp).toContain('Nuxt backend playground!')
+  it('keeps the Nuxt playground Vue-only', () => {
+    expect(playgroundApp).toContain('<NuxtPage />')
     expect(playgroundApp).not.toContain('useSession')
     expect(playgroundApp).not.toContain('useAuthClient')
   })

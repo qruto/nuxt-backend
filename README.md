@@ -98,9 +98,10 @@ your-project/
 │   ├── convex.config.ts
 │   ├── auth.config.ts
 │   └── auth.ts
-├── convex.json
-└── .env
+└── convex.json
 ```
+
+`convex.json` is only generated when the functions directory is non-standard (anything other than `convex/`).
 
 ### 6. Start Convex
 
@@ -121,6 +122,8 @@ The intended integration shape is:
 - Nuxt owns the UI, route middleware, SSR handlers, and the same-origin auth proxy.
 - Convex owns data, real-time subscriptions, Better Auth persistence, and auth identity.
 - `nuxt-backend` keeps the auth route, auth config, and client/server helpers aligned.
+
+A complete working example lives in [`playground/`](./playground) — sign-in/sign-up page, protected todos page with auth-aware SSR preload, Convex queries/mutations, and `auth` middleware.
 
 ### 1. Keep the scaffolded Convex files aligned
 
