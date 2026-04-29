@@ -1,7 +1,7 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { makeFunctionReference } from 'convex/server'
 import type { Value } from 'convex/values'
-import { computed, toValue, type MaybeRefOrGetter, type ShallowRef } from 'vue'
+import { computed, shallowRef, toValue, watchEffect, type MaybeRefOrGetter, type ShallowRef } from 'vue'
 import type { RequestForQueries } from '../queries-observer'
 import { useConvexQueries } from './use-queries'
 
@@ -107,17 +107,17 @@ export function useQuery<Query extends FunctionReference<'query'>>(
   let argsGetter: MaybeRefOrGetter<FunctionArgs<Query> | 'skip'>
 
   if (isObjectOptions) {
-    const q = queryOrOptions.query
-    queryReference = typeof q === 'string'
-      ? (makeFunctionReference<'query'>(q) as Query)
-      : q
+    const query = queryOrOptions.query
+    queryReference = typeof query === 'string'
+      ? (makeFunctionReference<'query'>(query) as Query)
+      : query
     argsGetter = queryOrOptions.args
   }
   else {
-    const q = queryOrOptions
-    queryReference = typeof q === 'string'
-      ? (makeFunctionReference<'query'>(q) as Query)
-      : q
+    const query = queryOrOptions
+    queryReference = typeof query === 'string'
+      ? (makeFunctionReference<'query'>(query) as Query)
+      : query
     argsGetter = (args[0] ?? {}) as MaybeRefOrGetter<FunctionArgs<Query> | 'skip'>
   }
 
@@ -138,26 +138,40 @@ export function useQuery<Query extends FunctionReference<'query'>>(
   const allResults = useConvexQueries(queriesInput)
 
   if (isObjectOptions) {
-    // Object form: return UseQueryResult
-    return computed(() => {
+    // Object form: return UseQueryResult discriminated union as a ShallowRef.
+    // Using shallowRef + watchEffect (instead of `computed` + cast) yields a
+    // genuine ShallowRef whose type matches the public signature without `as`.
+    const result = shallowRef<UseQueryResult<FunctionReturnType<Query>>>({
+      data: undefined,
+      error: undefined,
+      status: 'pending',
+    })
+    watchEffect(() => {
       const r = allResults.value.query
       if (r instanceof Error) {
         if (throwOnError) throw r
-        return { data: undefined, error: r, status: 'error' as const }
+        result.value = { data: undefined, error: r, status: 'error' }
+        return
       }
       if (r === undefined) {
-        return { data: undefined, error: undefined, status: 'pending' as const }
+        result.value = { data: undefined, error: undefined, status: 'pending' }
+        return
       }
-      return { data: r, error: undefined, status: 'success' as const }
-    }) as ShallowRef<UseQueryResult<FunctionReturnType<Query>>>
+      result.value = { data: r, error: undefined, status: 'success' }
+    })
+    return result
   }
 
-  // Positional form: return raw value ref
-  return computed(() => {
+  // Positional form: mirror React's render-time throw semantics by throwing
+  // from inside watchEffect — Vue propagates this to the nearest
+  // `errorCaptured` boundary, matching React's `<ErrorBoundary>` behavior.
+  const result = shallowRef<FunctionReturnType<Query> | undefined>(undefined)
+  watchEffect(() => {
     const r = allResults.value.query
     if (r instanceof Error) throw r
-    return r
-  }) as ShallowRef<FunctionReturnType<Query> | undefined>
+    result.value = r
+  })
+  return result
 }
 
 /** @public */

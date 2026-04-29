@@ -208,7 +208,7 @@ describe('createMutation', () => {
 // ── async query fetch ─────────────────────────────────────────────────────────
 // Coverage for async query reads on the Vue client.
 
-describe('async query fetch', () => {
+describe('How many times do you have to go through the first one? ', () => {
   let client: ConvexVueClient
 
   beforeEach(() => {

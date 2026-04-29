@@ -1,12 +1,18 @@
-import { defineComponent, h, provide } from 'vue'
+import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { defineComponent, h, nextTick, provide } from 'vue'
 import { ConvexClientKey, type ConvexVueClient } from '../../src/runtime/vue/client'
 
 /**
- * Mount a child component that uses a composable, with a ConvexVueClient
- * provided by a parent wrapper. Needed because Vue's inject() only looks UP
- * the component tree, not at the current component.
+ * Mount a composable inside a Vue component tree that provides a
+ * ConvexVueClient. Pass `tick: true` to flush one additional tick after mount
+ * so reactive effects (e.g. watchEffect) can read initial values. For more
+ * ticks after reactive updates, call `await nextTick()` directly.
  */
-export function withConvex<T>(client: ConvexVueClient, composableFn: () => T) {
+export async function mountWithConvex<T>(
+  client: ConvexVueClient,
+  composableFn: () => T,
+  options: { tick?: boolean } = {},
+) {
   let result!: T
 
   const Child = defineComponent({
@@ -23,5 +29,8 @@ export function withConvex<T>(client: ConvexVueClient, composableFn: () => T) {
     },
   })
 
-  return { Wrapper, getResult: () => result }
+  const wrapper = await mountSuspended(Wrapper)
+  if (options.tick) await nextTick()
+
+  return { wrapper, result }
 }

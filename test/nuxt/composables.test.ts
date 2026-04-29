@@ -1,104 +1,48 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { defineComponent, h, provide, nextTick, type ShallowRef } from 'vue'
-import type { ConnectionState, QueryJournal } from 'convex/browser'
-import { makeFunctionReference, getFunctionName } from 'convex/server'
-import type { FunctionReference } from 'convex/server'
-import type { Value } from 'convex/values'
-import { ConvexClientKey, type ConvexVueClient } from '../../src/runtime/vue/client'
-import { withConvex } from '../helpers/vue_test_utils'
-import { useConvex } from '../../src/runtime/vue/client'
-import { useMutation, type VueMutation } from '../../src/runtime/vue/composables/use-mutation'
-import { useAction, type VueAction } from '../../src/runtime/vue/composables/use-action'
+import { defineComponent, h, provide } from 'vue'
+import type { ConnectionState } from 'convex/browser'
+import { makeFunctionReference } from 'convex/server'
+import { ConvexClientKey, ConvexVueClient, useConvex } from '../../src/runtime/vue/client'
+import { mountWithConvex } from '../helpers/vue_test_utils'
+import { createMutation, useMutation } from '../../src/runtime/vue/composables/use-mutation'
+import { useAction } from '../../src/runtime/vue/composables/use-action'
 import { useConvexConnectionState } from '../../src/runtime/vue/composables/use-connection-state'
 import { useConvexAuth, ConvexAuthStateKey, type ConvexAuthState } from '../../src/runtime/vue/auth'
 import { useQuery } from '../../src/runtime/vue/composables/use-query'
 
-type MockQuery = FunctionReference<'query'> | string
+const address = 'https://127.0.0.1:3001'
+const seededQueryRef = makeFunctionReference<'query'>('myQuery:default')
+const seededMutationRef = makeFunctionReference<'mutation'>('myMutation:default')
+const initialConnectionState = {
+  hasInflightRequests: false,
+  isWebSocketConnected: true,
+  timeOfOldestInflightRequest: null,
+  hasEverConnected: true,
+  connectionCount: 1,
+  connectionRetries: 0,
+  inflightMutations: 0,
+  inflightActions: 0,
+} satisfies ConnectionState
 
-type MockConvexVueClient = ConvexVueClient & {
-  _watchers: Map<string, Array<() => void>>
-  _results: Map<string, unknown>
-  _journals: Map<string, QueryJournal | undefined>
-  _triggerUpdate: (name: string, args: Record<string, Value>, value: unknown) => void
-}
+let client: ConvexVueClient
 
-/**
- * Create a minimal mock ConvexVueClient.
- */
-function createMockClient(overrides: Partial<ConvexVueClient> = {}) {
-  const watchers = new Map<string, Array<() => void>>()
-  const results = new Map<string, unknown>()
-  const journals = new Map<string, QueryJournal | undefined>()
+beforeEach(() => {
+  client = new ConvexVueClient(address)
+})
 
-  const client = {
-    url: 'https://test.convex.cloud',
-    watchQuery: vi.fn((query: MockQuery, args: Record<string, Value>, _opts?: unknown) => {
-      let name: string
-      if (typeof query === 'string') {
-        name = query
-      }
-      else {
-        try {
-          name = getFunctionName(query)
-        }
-        catch {
-          name = 'unknown'
-        }
-      }
-      const key = `${name}:${JSON.stringify(args ?? {})}`
-      return {
-        onUpdate: (callback: () => void) => {
-          if (!watchers.has(key)) watchers.set(key, [])
-          watchers.get(key)!.push(callback)
-          return () => {
-            const arr = watchers.get(key)
-            if (arr) {
-              const idx = arr.indexOf(callback)
-              if (idx >= 0) arr.splice(idx, 1)
-            }
-          }
-        },
-        localQueryResult: () => results.get(key),
-        journal: () => journals.get(key),
-      }
-    }),
-    mutation: vi.fn(async () => ({ success: true })),
-    action: vi.fn(async () => ({ result: true })),
-    connectionState: vi.fn(() => ({
-      hasInflightRequests: false,
-      isWebSocketConnected: true,
-      timeOfOldestInflightRequest: null,
-      hasEverConnected: true,
-      connectionCount: 1,
-      connectionRetries: 0,
-      inflightMutations: 0,
-      inflightActions: 0,
-    }) satisfies ConnectionState),
-    subscribeToConnectionState: vi.fn((_cb: (connectionState: ConnectionState) => void) => () => {}),
-    setAuth: vi.fn(),
-    clearAuth: vi.fn(),
-    close: vi.fn(async () => {}),
-    // Test helpers
-    _watchers: watchers,
-    _results: results,
-    _journals: journals,
-    _triggerUpdate(name: string, args: Record<string, Value>, value: unknown) {
-      const key = `${name}:${JSON.stringify(args ?? {})}`
-      results.set(key, value)
-      const cbs = watchers.get(key)
-      if (cbs) for (const cb of cbs) cb()
-    },
-    ...overrides,
-  } as unknown as MockConvexVueClient
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
-  return client
-}
+describe('ConvexVueClient', () => {
+  it('can be constructed', () => {
+    expect(typeof client).not.toEqual('undefined')
+  })
+})
 
 describe('useConvex', () => {
   it('returns the provided client', async () => {
-    const mockClient = createMockClient()
-
     let result!: ConvexVueClient
     const Child = defineComponent({
       setup() {
@@ -108,13 +52,13 @@ describe('useConvex', () => {
     })
     const Wrapper = defineComponent({
       setup() {
-        provide(ConvexClientKey, mockClient)
+        provide(ConvexClientKey, client)
         return () => h(Child)
       },
     })
 
     await mountSuspended(Wrapper)
-    expect(result).toBe(mockClient)
+    expect(result).toBe(client)
   })
 
   it('throws if no client is provided', async () => {
@@ -131,53 +75,39 @@ describe('useConvex', () => {
 
 describe('useMutation', () => {
   it('returns a callable function that invokes client.mutation', async () => {
-    const mockClient = createMockClient()
     const mutationRef = makeFunctionReference<'mutation'>('api.tasks.create')
+    const mutationSpy = vi.spyOn(client, 'mutation').mockImplementation(async () => ({ success: true }) as never)
 
-    let mutate!: VueMutation<typeof mutationRef>
-    const { Wrapper } = withConvex(mockClient, () => {
-      mutate = useMutation(mutationRef)
-    })
+    const { result } = await mountWithConvex(client, () => useMutation(mutationRef))
 
-    await mountSuspended(Wrapper)
-
-    expect(typeof mutate).toBe('function')
-    await mutate({ text: 'New task' })
-    expect(mockClient.mutation).toHaveBeenCalledWith(mutationRef, { text: 'New task' }, { optimisticUpdate: undefined })
+    expect(typeof result).toBe('function')
+    await result({ text: 'New task' })
+    expect(mutationSpy).toHaveBeenCalledWith(mutationRef, { text: 'New task' }, { optimisticUpdate: undefined })
   })
 })
 
 describe('useAction', () => {
   it('returns a callable function that invokes client.action', async () => {
-    const mockClient = createMockClient()
     const actionRef = makeFunctionReference<'action'>('api.tasks.process')
+    const actionSpy = vi.spyOn(client, 'action').mockImplementation(async () => ({ result: true }) as never)
 
-    let act!: VueAction<typeof actionRef>
-    const { Wrapper } = withConvex(mockClient, () => {
-      act = useAction(actionRef)
-    })
+    const { result } = await mountWithConvex(client, () => useAction(actionRef))
 
-    await mountSuspended(Wrapper)
-
-    expect(typeof act).toBe('function')
-    await act({ id: '123' })
-    expect(mockClient.action).toHaveBeenCalledWith(actionRef, { id: '123' })
+    expect(typeof result).toBe('function')
+    await result({ id: '123' })
+    expect(actionSpy).toHaveBeenCalledWith(actionRef, { id: '123' })
   })
 })
 
 describe('useConvexConnectionState', () => {
   it('returns a reactive connection state ref', async () => {
-    const mockClient = createMockClient()
+    vi.spyOn(client, 'connectionState').mockReturnValue(initialConnectionState)
+    vi.spyOn(client, 'subscribeToConnectionState').mockReturnValue(() => {})
 
-    let state!: ShallowRef<ConnectionState>
-    const { Wrapper } = withConvex(mockClient, () => {
-      state = useConvexConnectionState()
-    })
+    const { result } = await mountWithConvex(client, () => useConvexConnectionState())
 
-    await mountSuspended(Wrapper)
-
-    expect(state!.value).toBeDefined()
-    expect(state!.value.isWebSocketConnected).toBe(true)
+    expect(result.value).toBeDefined()
+    expect(result.value.isWebSocketConnected).toBe(true)
   })
 })
 
@@ -212,56 +142,40 @@ describe('useConvexAuth', () => {
 // ── useQuery ─────────────────────────────────────────────────────────────────
 // Coverage for the Vue useQuery composable.
 // These tests live here because they require a Vue component tree.
+// Mirrors the React upstream client.test.tsx useQuery suite, using a real
+// ConvexVueClient seeded via an optimistic update instead of a mock client.
 
 describe('useQuery', () => {
-  const queryRef = makeFunctionReference<'query'>('myQuery:default')
-  const queryKey = 'myQuery:default'
+  beforeEach(() => {
+    // Seed a query result into the local store synchronously via an optimistic
+    // update — no WebSocket round-trip needed. Mirrors the React upstream
+    // technique from client.test.tsx.
+    void client.mutation(seededMutationRef, {}, {
+      optimisticUpdate: (localStore) => {
+        localStore.setQuery(seededQueryRef, {}, 'queryResult')
+      },
+    })
+  })
 
   it('returns the result', async () => {
-    const mockClient = createMockClient()
+    const { result } = await mountWithConvex(
+      client,
+      () => useQuery(seededQueryRef),
+    )
 
-    let result: ShallowRef<unknown>
-    const { Wrapper } = withConvex(mockClient, () => {
-      result = useQuery(queryRef, {})
-    })
-
-    await mountSuspended(Wrapper)
-    await nextTick() // let watchEffect register the observer subscriber
-
-    // Trigger the mock with a query result then wait for Vue reactivity.
-    mockClient._triggerUpdate(queryKey, {}, 'queryResult')
-    await nextTick()
-
-    expect(result!.value).toStrictEqual('queryResult')
+    expect(result.value).toStrictEqual('queryResult')
   })
 
   it('returns undefined when skipped', async () => {
-    const mockClient = createMockClient()
+    const { result } = await mountWithConvex(client, () => useQuery(seededQueryRef, 'skip'))
 
-    let result: ShallowRef<unknown>
-    const { Wrapper } = withConvex(mockClient, () => {
-      result = useQuery(queryRef, 'skip')
-    })
-
-    await mountSuspended(Wrapper)
-
-    expect(result!.value).toBeUndefined()
+    expect(result.value).toBeUndefined()
   })
 
   it('object form returns success result', async () => {
-    const mockClient = createMockClient()
+    const { result } = await mountWithConvex(client, () => useQuery({ query: seededQueryRef, args: {} }), { tick: true })
 
-    let result: ShallowRef<unknown>
-    const { Wrapper } = withConvex(mockClient, () => {
-      result = useQuery({ query: queryRef, args: {} })
-    })
-
-    await mountSuspended(Wrapper)
-    await nextTick() // let watchEffect register the observer subscriber
-    mockClient._triggerUpdate(queryKey, {}, 'queryResult')
-    await nextTick()
-
-    expect(result!.value).toStrictEqual({
+    expect(result.value).toStrictEqual({
       data: 'queryResult',
       error: undefined,
       status: 'success',
@@ -269,19 +183,24 @@ describe('useQuery', () => {
   })
 
   it('object form returns pending when skipped', async () => {
-    const mockClient = createMockClient()
+    const { result } = await mountWithConvex(client, () => useQuery({ query: seededQueryRef, args: 'skip' }))
 
-    let result: ShallowRef<unknown>
-    const { Wrapper } = withConvex(mockClient, () => {
-      result = useQuery({ query: queryRef, args: 'skip' })
-    })
-
-    await mountSuspended(Wrapper)
-
-    expect(result!.value).toStrictEqual({
+    expect(result.value).toStrictEqual({
       data: undefined,
       error: undefined,
       status: 'pending',
     })
+  })
+
+  it('async optimistic update handlers warn', () => {
+    const consoleWarnSpy = vi.spyOn(console, 'warn')
+    const mutation = createMutation(
+      seededMutationRef,
+      client,
+    ).withOptimisticUpdate(async () => {})
+    void mutation()
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Optimistic update handler returned a Promise. Optimistic updates should be synchronous.',
+    )
   })
 })

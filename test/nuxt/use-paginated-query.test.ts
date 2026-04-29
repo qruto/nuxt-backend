@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { nextTick, ref, type ShallowRef } from 'vue'
+import { nextTick, ref } from 'vue'
 import {
   anyApi,
   getFunctionName,
@@ -24,11 +23,10 @@ import {
   type PaginatedQueryItem,
   type PaginatedQueryReference,
   type UsePaginatedQueryObjectReturnType,
-  type UsePaginatedQueryResult,
   type UsePaginatedQueryReturnType,
 } from '../../src/runtime/vue/composables/use-paginated-query'
 import { withInMemoryWebSocket } from '../helpers/in_memory_web_socket'
-import { withConvex } from '../helpers/vue_test_utils'
+import { mountWithConvex } from '../helpers/vue_test_utils'
 
 const address = 'https://127.0.0.1:30001'
 const mutationRef = makeFunctionReference<'mutation'>('myMutation:default')
@@ -122,15 +120,15 @@ describe('usePaginatedQuery', () => {
     },
   ])('throws an error when options is $options', async ({ options, expectedError }) => {
     const client = new ConvexVueClient(address)
-    const { Wrapper } = withConvex(client, () =>
-      usePaginatedQuery(
-        queryRef,
-        {},
-        options as { initialNumItems: number },
+    await expect(
+      mountWithConvex(client, () =>
+        usePaginatedQuery(
+          queryRef,
+          {},
+          options as { initialNumItems: number },
+        ),
       ),
-    )
-
-    await expect(mountSuspended(Wrapper)).rejects.toThrow(expectedError)
+    ).rejects.toThrow(expectedError)
     await client.close()
   })
 
@@ -140,17 +138,14 @@ describe('usePaginatedQuery', () => {
     await withInMemoryWebSocket(async ({ address }) => {
       const client = new ConvexVueClient(address)
 
-      let result!: ShallowRef<UsePaginatedQueryObjectReturnType<PaginatedQueryReference>>
-      const { Wrapper } = withConvex(client, () => {
-        result = usePaginatedQuery({
+      const { result } = await mountWithConvex(client, () =>
+        usePaginatedQuery({
           query: queryRef,
           args: {},
           initialNumItems: 10,
-        })
-      })
-
-      await mountSuspended(Wrapper)
-      await nextTick()
+        }),
+      { tick: true },
+      )
 
       pushFirstPageError(client, queryRef, 'boom-default')
       await nextTick()
@@ -172,18 +167,15 @@ describe('usePaginatedQuery', () => {
     await withInMemoryWebSocket(async ({ address }) => {
       const client = new ConvexVueClient(address)
 
-      let result!: ShallowRef<UsePaginatedQueryObjectReturnType<PaginatedQueryReference>>
-      const { Wrapper } = withConvex(client, () => {
-        result = usePaginatedQuery({
+      const { result } = await mountWithConvex(client, () =>
+        usePaginatedQuery({
           query: queryRef,
           args: {},
           initialNumItems: 10,
           throwOnError: true,
-        })
-      })
-
-      await mountSuspended(Wrapper)
-      await nextTick()
+        }),
+      { tick: true },
+      )
 
       pushFirstPageError(client, queryRef, 'boom-throw')
       await nextTick()
@@ -198,13 +190,11 @@ describe('usePaginatedQuery', () => {
     await withInMemoryWebSocket(async ({ address }) => {
       const client = new ConvexVueClient(address)
 
-      let result!: ShallowRef<UsePaginatedQueryResult<unknown>>
-      const { Wrapper } = withConvex(client, () => {
-        result = usePaginatedQuery(queryRef, {}, { initialNumItems: 10 })
-      })
-
-      await mountSuspended(Wrapper)
-      await nextTick()
+      const { result } = await mountWithConvex(
+        client,
+        () => usePaginatedQuery(queryRef, {}, { initialNumItems: 10 }),
+        { tick: true },
+      )
 
       pushFirstPageError(client, queryRef, 'boom-positional')
       await nextTick()
@@ -220,13 +210,11 @@ describe('usePaginatedQuery', () => {
   it('returns nothing when args are skip (positional)', async () => {
     const client = new ConvexVueClient(address)
 
-    let result!: ShallowRef<UsePaginatedQueryResult<unknown>>
     const watchQuerySpy = vi.spyOn(client, 'watchQuery')
-    const { Wrapper } = withConvex(client, () => {
-      result = usePaginatedQuery(queryRef, 'skip', { initialNumItems: 10 })
-    })
-
-    await mountSuspended(Wrapper)
+    const { result } = await mountWithConvex(
+      client,
+      () => usePaginatedQuery(queryRef, 'skip', { initialNumItems: 10 }),
+    )
 
     expect(watchQuerySpy).not.toHaveBeenCalled()
     expect(result.value).toMatchObject({
@@ -241,17 +229,14 @@ describe('usePaginatedQuery', () => {
   it('returns pending when object-form args are skip', async () => {
     const client = new ConvexVueClient(address)
 
-    let result!: ShallowRef<UsePaginatedQueryObjectReturnType<PaginatedQueryReference>>
     const watchQuerySpy = vi.spyOn(client, 'watchQuery')
-    const { Wrapper } = withConvex(client, () => {
-      result = usePaginatedQuery({
+    const { result } = await mountWithConvex(client, () =>
+      usePaginatedQuery({
         query: queryRef,
         args: 'skip',
         initialNumItems: 10,
-      })
-    })
-
-    await mountSuspended(Wrapper)
+      }),
+    )
 
     expect(watchQuerySpy).not.toHaveBeenCalled()
     expect(result.value).toMatchObject({
@@ -271,17 +256,14 @@ describe('usePaginatedQuery', () => {
       const client = new ConvexVueClient(address)
       const watchQuerySpy = vi.spyOn(client, 'watchQuery')
 
-      let result!: ShallowRef<UsePaginatedQueryObjectReturnType<PaginatedQueryReference>>
-      const { Wrapper } = withConvex(client, () => {
-        result = usePaginatedQuery({
+      const { result } = await mountWithConvex(client, () =>
+        usePaginatedQuery({
           query: queryRef,
           args: {},
           initialNumItems: 10,
-        })
-      })
-
-      await mountSuspended(Wrapper)
-      await nextTick()
+        }),
+      { tick: true },
+      )
 
       const firstPageArgs = getWatchQueryArgs(
         watchQuerySpy.mock.calls as WatchQueryCalls,
@@ -306,13 +288,11 @@ describe('usePaginatedQuery', () => {
       const client = new ConvexVueClient(address)
       const watchQuerySpy = vi.spyOn(client, 'watchQuery')
 
-      let result!: ShallowRef<UsePaginatedQueryResult<unknown>>
-      const { Wrapper } = withConvex(client, () => {
-        result = usePaginatedQuery(queryRef, {}, { initialNumItems: 10 })
-      })
-
-      await mountSuspended(Wrapper)
-      await nextTick()
+      const { result } = await mountWithConvex(
+        client,
+        () => usePaginatedQuery(queryRef, {}, { initialNumItems: 10 }),
+        { tick: true },
+      )
 
       const firstPageArgs = getWatchQueryArgs(
         watchQuerySpy.mock.calls as WatchQueryCalls,
@@ -339,13 +319,11 @@ describe('usePaginatedQuery', () => {
       const watchQuerySpy = vi.spyOn(client, 'watchQuery')
       const args = ref<{ channel: string } | 'skip'>({ channel: 'general' })
 
-      let result!: ShallowRef<UsePaginatedQueryResult<unknown>>
-      const { Wrapper } = withConvex(client, () => {
-        result = usePaginatedQuery(queryRef, args, { initialNumItems: 1 })
-      })
-
-      await mountSuspended(Wrapper)
-      await nextTick()
+      const { result } = await mountWithConvex(
+        client,
+        () => usePaginatedQuery(queryRef, args, { initialNumItems: 1 }),
+        { tick: true },
+      )
 
       const firstArgs = getWatchQueryArgs(
         watchQuerySpy.mock.calls as WatchQueryCalls,
@@ -394,12 +372,11 @@ describe('usePaginatedQuery', () => {
       const watchQuerySpy = vi.spyOn(client, 'watchQuery')
       const args = ref<Record<string, Value>>({ someArg: 123 })
 
-      const { Wrapper } = withConvex(client, () => {
-        usePaginatedQuery(queryRef, args, { initialNumItems: 10 })
-      })
-
-      await mountSuspended(Wrapper)
-      await nextTick()
+      await mountWithConvex(
+        client,
+        () => usePaginatedQuery(queryRef, args, { initialNumItems: 10 }),
+        { tick: true },
+      )
 
       const before = watchQuerySpy.mock.calls.length
 
@@ -420,13 +397,11 @@ describe('usePaginatedQuery', () => {
       await withInMemoryWebSocket(async ({ address }) => {
         const client = new ConvexVueClient(address)
 
-        let result!: ShallowRef<UsePaginatedQueryResult<unknown>>
-        const { Wrapper } = withConvex(client, () => {
-          result = usePaginatedQuery(queryRef, {}, { initialNumItems: 1 })
-        })
-
-        await mountSuspended(Wrapper)
-        await nextTick()
+        const { result } = await mountWithConvex(
+          client,
+          () => usePaginatedQuery(queryRef, {}, { initialNumItems: 1 }),
+          { tick: true },
+        )
 
         expect(result.value.status).toBe('LoadingFirstPage')
 
@@ -471,13 +446,11 @@ describe('usePaginatedQuery', () => {
       await withInMemoryWebSocket(async ({ address }) => {
         const client = new ConvexVueClient(address)
 
-        let result!: ShallowRef<UsePaginatedQueryResult<unknown>>
-        const { Wrapper } = withConvex(client, () => {
-          result = usePaginatedQuery(queryRef, {}, { initialNumItems: 1 })
-        })
-
-        await mountSuspended(Wrapper)
-        await nextTick()
+        const { result } = await mountWithConvex(
+          client,
+          () => usePaginatedQuery(queryRef, {}, { initialNumItems: 1 }),
+          { tick: true },
+        )
 
         applyOptimisticQueryResult(
           client,
@@ -519,13 +492,11 @@ describe('usePaginatedQuery', () => {
       await withInMemoryWebSocket(async ({ address }) => {
         const client = new ConvexVueClient(address)
 
-        let result!: ShallowRef<UsePaginatedQueryResult<unknown>>
-        const { Wrapper } = withConvex(client, () => {
-          result = usePaginatedQuery(queryRef, {}, { initialNumItems: 1 })
-        })
-
-        await mountSuspended(Wrapper)
-        await nextTick()
+        const { result } = await mountWithConvex(
+          client,
+          () => usePaginatedQuery(queryRef, {}, { initialNumItems: 1 }),
+          { tick: true },
+        )
 
         applyOptimisticQueryResult(
           client,
