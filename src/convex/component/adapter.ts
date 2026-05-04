@@ -1,94 +1,31 @@
-import { v } from 'convex/values'
-import { mutation, query } from './_generated/server'
-import { components } from './_generated/api'
+import { createApi } from '@convex-dev/better-auth'
+import type { RegisteredMutation, RegisteredQuery } from 'convex/server'
+import { options } from '../auth'
+import schema from './schema'
 
-// Proxy adapter functions that forward to the betterAuth child component.
-// We use v.any() for args — actual validation happens at the betterAuth level.
+// `createApi` returns types that reference `TableNames` from
+// `@convex-dev/better-auth`'s internal `_generated/dataModel`, which isn't a
+// portable subpath. Cast the result to a permissive adapter shape; the public
+// component surface is generated in ./_generated/component.ts.
+type AdapterMutation = RegisteredMutation<'public', Record<string, unknown>, Promise<unknown>>
+type AdapterQuery = RegisteredQuery<'public', Record<string, unknown>, Promise<unknown>>
 
-export const create = mutation({
-  args: {
-    input: v.any(),
-    select: v.optional(v.any()),
-    onCreateHandle: v.optional(v.string()),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    return ctx.runMutation(components.betterAuth.adapter.create, args)
-  },
-})
+interface Adapter {
+  create: AdapterMutation
+  findOne: AdapterQuery
+  findMany: AdapterQuery
+  updateOne: AdapterMutation
+  updateMany: AdapterMutation
+  deleteOne: AdapterMutation
+  deleteMany: AdapterMutation
+}
 
-export const findOne = query({
-  args: {
-    model: v.any(),
-    where: v.optional(v.any()),
-    select: v.optional(v.any()),
-    join: v.optional(v.any()),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    return ctx.runQuery(components.betterAuth.adapter.findOne, args)
-  },
-})
-
-export const findMany = query({
-  args: {
-    model: v.any(),
-    where: v.optional(v.any()),
-    select: v.optional(v.any()),
-    limit: v.optional(v.number()),
-    sortBy: v.optional(v.any()),
-    offset: v.optional(v.number()),
-    join: v.optional(v.any()),
-    paginationOpts: v.any(),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    return ctx.runQuery(components.betterAuth.adapter.findMany, args)
-  },
-})
-
-export const updateOne = mutation({
-  args: {
-    input: v.any(),
-    onUpdateHandle: v.optional(v.string()),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    return ctx.runMutation(components.betterAuth.adapter.updateOne, args)
-  },
-})
-
-export const updateMany = mutation({
-  args: {
-    input: v.any(),
-    paginationOpts: v.any(),
-    onUpdateHandle: v.optional(v.string()),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    return ctx.runMutation(components.betterAuth.adapter.updateMany, args)
-  },
-})
-
-export const deleteOne = mutation({
-  args: {
-    input: v.any(),
-    onDeleteHandle: v.optional(v.string()),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    return ctx.runMutation(components.betterAuth.adapter.deleteOne, args)
-  },
-})
-
-export const deleteMany = mutation({
-  args: {
-    input: v.any(),
-    paginationOpts: v.any(),
-    onDeleteHandle: v.optional(v.string()),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    return ctx.runMutation(components.betterAuth.adapter.deleteMany, args)
-  },
-})
+export const {
+  create,
+  findOne,
+  findMany,
+  updateOne,
+  updateMany,
+  deleteOne,
+  deleteMany,
+} = createApi(schema, () => options) as unknown as Adapter

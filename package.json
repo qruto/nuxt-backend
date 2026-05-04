@@ -44,6 +44,9 @@
       ],
       "convex/auth.config": [
         "./dist/convex/auth.config.d.ts"
+      ],
+      "convex/test": [
+        "./src/convex/test.ts"
       ]
     }
   },
@@ -57,12 +60,12 @@
   "scripts": {
     "prepack": "npm run build",
     "build": "npm run build:nuxt-module && npm run build:convex-component",
-    "build:convex-component": "convex codegen --component-dir ./src/convex/component && tsc --project ./tsconfig.convex-component.build.json",
-    "build:convex-component:clean-build": "rm -rf dist/convex tsconfig.convex-component.build.tsbuildinfo && npm run build:convex-component",
     "build:nuxt-module": "nuxt-module-build build",
-    "dev": "npm run dev:nuxt-module:prepare && run-p -r 'dev:convex-component' 'dev:nuxt-module'",
-    "dev:convex-component": "npm run build:convex-component:clean-build && convex dev --typecheck-components --start 'npm run dev:convex-component:build'",
-    "dev:convex-component:build": "chokidar 'tsconfig*.json' 'src/convex/**/*.ts' -i '**/*.test.ts' -c 'npm run build:convex-component' --initial",
+    "build:convex-component": "npx convex codegen --component-dir ./src/convex/component && tsc --project ./tsconfig.convex-component.build.json",
+    "build:convex-component:clean": "rm -rf dist/convex tsconfig.convex-component.build.tsbuildinfo && npm run build:convex-component",
+    "dev": "npm run dev:nuxt-module:prepare && npm run build:convex-component:clean && run-p -r 'dev:convex-component' 'dev:nuxt-module'",
+    "dev:convex-component": "convex dev --start 'npm run dev:convex-component:codegen'",
+    "dev:convex-component:codegen": "chokidar 'tsconfig*.json' 'src/convex/**/*.ts' -i '**/*.test.ts' -i 'src/convex/component/_generated/**' -c 'npm run build:convex-component' --initial",
     "dev:nuxt-module": "nuxt dev playground",
     "dev:nuxt-module:build": "nuxt build playground",
     "dev:nuxt-module:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
@@ -73,16 +76,17 @@
     "test:watch": "vitest --watch",
     "test:types": "npm run dev:nuxt-module:prepare && vue-tsc --noEmit && tsc --noEmit -p tsconfig.convex.json && cd playground && vue-tsc --noEmit",
     "test:unit": "vitest --project unit --run",
-    "test:convex": "vitest --project convex-component --run",
     "test:nuxt": "vitest --project nuxt --run",
     "test:e2e": "vitest --project e2e --run",
+    "test:convex-component": "vitest --project convex-component --run",
     "bump": "npx taze major -w"
   },
   "dependencies": {
+    "@better-auth/passkey": "~1.6.9",
     "@convex-dev/better-auth": "^0.11.4",
     "@nuxt/kit": "^4.4.2",
     "@opentelemetry/api": "^1.9.1",
-    "better-auth": "^1.6.2",
+    "better-auth": "~1.6.9",
     "convex": "^1.35.1",
     "dedent": "^1.7.2"
   },
