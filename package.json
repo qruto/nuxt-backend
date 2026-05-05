@@ -72,7 +72,7 @@
     "dev": "npm run dev:nuxt-module:prepare && npm run build:convex-component && run-p -r 'dev:convex-component' 'dev:nuxt-module'",
     "dev:convex-component": "convex dev --typecheck-components --local --start 'npm run dev:convex-component:watch'",
     "dev:convex-component:watch": "chokidar 'tsconfig*.json' 'src/convex/**/*.ts' -i '**/*.test.ts' -i 'src/convex/component/_generated/**' -c 'npm run build:convex-component' --initial",
-    "dev:nuxt-module": "nuxt dev playground",
+    "dev:nuxt-module": "portless nuxt-backend nuxt dev playground",
     "dev:nuxt-module:build": "nuxt build playground",
     "dev:nuxt-module:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
     "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
@@ -116,6 +116,7 @@
     "nuxt": "^4.4.2",
     "oxc-parser": "^0.124.0",
     "pkg-pr-new": "^0.0.66",
+    "portless": "^0.12.0",
     "typescript": "~6.0.2",
     "vitest": "^4.1.4",
     "vue-tsc": "^3.2.6"
