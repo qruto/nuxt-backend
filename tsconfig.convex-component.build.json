@@ -1,5 +1,9 @@
 {
   "extends": "./tsconfig.convex.json",
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false
+  },
   "include": ["src/convex/**/*"],
   "exclude": ["src/convex/**/*.test.*", "./src/convex/test.ts"]
 }
