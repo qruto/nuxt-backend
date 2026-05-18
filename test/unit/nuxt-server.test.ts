@@ -1,8 +1,10 @@
 import type { FunctionReference } from 'convex/server'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { resetNuxtRuntimeConfigForTests, setNuxtRuntimeConfigForTests } from '../helpers/nuxt-imports'
 
 // Hoist mock functions so they're available before vi.mock factory runs
-const { mockQuery, mockMutation, mockAction, mockSetAuth, mockSetFetchOptions } = vi.hoisted(() => ({
+const { mockClientUrls, mockQuery, mockMutation, mockAction, mockSetAuth, mockSetFetchOptions } = vi.hoisted(() => ({
+  mockClientUrls: [] as string[],
   mockQuery: vi.fn(),
   mockMutation: vi.fn(),
   mockAction: vi.fn(),
@@ -29,7 +31,8 @@ function mockFunctionReference<Type extends 'query' | 'mutation' | 'action'>(
 }
 
 vi.mock('convex/browser', () => ({
-  ConvexHttpClient: function MockConvexHttpClient(this: MockConvexHttpClientInstance, _url: string) {
+  ConvexHttpClient: function MockConvexHttpClient(this: MockConvexHttpClientInstance, url: string) {
+    mockClientUrls.push(url)
     this.query = mockQuery
     this.mutation = mockMutation
     this.action = mockAction
@@ -51,6 +54,8 @@ vi.mock('convex/values', () => ({
 describe('Nuxt server utilities', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockClientUrls.length = 0
+    resetNuxtRuntimeConfigForTests()
     // Set env var
     process.env.NUXT_PUBLIC_CONVEX_URL = 'https://test.convex.cloud'
   })
@@ -80,9 +85,27 @@ describe('Nuxt server utilities', () => {
       const queryRef = mockFunctionReference<'query'>('api.tasks.list')
       mockQuery.mockResolvedValue([])
 
-      // Just verify it doesn't throw and calls query
       await fetchQuery(queryRef, {}, { url: 'https://custom.convex.cloud' })
+      expect(mockClientUrls).toContain('https://custom.convex.cloud')
       expect(mockQuery).toHaveBeenCalled()
+    })
+
+    it('uses Nuxt runtime config when no env URL is set', async () => {
+      delete process.env.NUXT_PUBLIC_CONVEX_URL
+      setNuxtRuntimeConfigForTests({
+        public: {
+          backend: {
+            url: 'https://runtime.convex.cloud',
+          },
+        },
+      })
+
+      const { fetchQuery } = await import('../../src/runtime/nuxt/index')
+      const queryRef = mockFunctionReference<'query'>('api.tasks.list')
+      mockQuery.mockResolvedValue([])
+
+      await fetchQuery(queryRef, {})
+      expect(mockClientUrls).toContain('https://runtime.convex.cloud')
     })
   })
 

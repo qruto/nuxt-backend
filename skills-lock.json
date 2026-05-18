@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "chrome-devtools": {
+      "source": "chromedevtools/chrome-devtools-mcp",
+      "sourceType": "github",
+      "skillPath": "skills/chrome-devtools/SKILL.md",
+      "computedHash": "5260f8bf2b080592eec1a381cbe381e6a5ba52cbc7d374ed97df588872afb2ad"
+    },
     "convex": {
       "source": "get-convex/agent-skills",
       "sourceType": "github",

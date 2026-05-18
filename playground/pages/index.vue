@@ -45,6 +45,7 @@ async function signOut() {
       </div>
       <button
         type="button"
+        class="danger"
         @click="signOut"
       >
         Sign out
@@ -56,7 +57,10 @@ async function signOut() {
         v-model="newTodo"
         placeholder="What needs doing?"
       >
-      <button type="submit">
+      <button
+        type="submit"
+        class="primary"
+      >
         Add
       </button>
     </form>
@@ -86,7 +90,7 @@ async function signOut() {
 
     <p
       v-if="(todos ?? []).length === 0"
-      class="muted"
+      class="muted empty"
     >
       No todos yet — add one above.
     </p>
@@ -94,14 +98,22 @@ async function signOut() {
 </template>
 
 <style scoped>
-.page { max-width: 540px; margin: 3rem auto; font-family: system-ui, sans-serif; }
-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-form { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-input[type="text"], form input { flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; }
-ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
-li { display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0.6rem; border: 1px solid #eee; border-radius: 4px; }
-li label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
-.done { text-decoration: line-through; color: #999; }
-.remove { background: none; border: none; color: #c00; cursor: pointer; font-size: 1.1rem; }
-.muted { color: #888; font-size: 0.875rem; margin: 0; }
+.page { max-width: 540px; margin: 3rem auto; }
+header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); }
+h1 { margin: 0; }
+form { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+input[type="text"], input[type="email"], form input { flex: 1; padding: 0.5rem; border: 1px solid var(--input-border); border-radius: 4px; background: var(--input-bg); color: var(--text-color); }
+button.primary { background: var(--primary-color); color: white; border: 1px solid var(--primary-color); padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+button.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+button.danger { background: var(--danger-color); color: white; border: 1px solid var(--danger-color); padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+button.danger:hover { background: var(--danger-hover); border-color: var(--danger-hover); }
+ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
+li { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); transition: background-color 0.2s; }
+li:hover { background: var(--card-hover); }
+li label { display: flex; align-items: center; gap: 0.75rem; cursor: pointer; flex: 1; }
+.done { text-decoration: line-through; color: var(--muted-color); }
+.remove { background: none; border: none; color: var(--danger-color); cursor: pointer; font-size: 1.5rem; padding: 0 0.5rem; line-height: 1; font-weight: bold; }
+.remove:hover { color: var(--danger-hover); }
+.muted { color: var(--muted-color); font-size: 0.875rem; margin: 0; margin-top: 0.25rem; }
+.empty { text-align: center; padding: 2rem 0; }
 </style>

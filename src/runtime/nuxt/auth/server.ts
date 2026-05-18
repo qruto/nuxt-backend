@@ -16,10 +16,14 @@ import { getToken } from '@convex-dev/better-auth/utils'
 import type { GetTokenOptions } from '@convex-dev/better-auth/utils'
 import type { FunctionReference, FunctionReturnType } from 'convex/server'
 import type { Preloaded } from '../../vue/hydration'
+import { getBackendRuntimeConfig } from '../config'
 import { fetchAction, fetchMutation, fetchQuery, preloadQuery } from '../index'
 
 function getConvexSiteUrl(override?: string): string {
-  const url = override ?? process.env.NUXT_PUBLIC_CONVEX_SITE_URL
+  const runtimeSiteUrl = getBackendRuntimeConfig().siteUrl
+  const url = override
+    ?? runtimeSiteUrl
+    ?? process.env.NUXT_PUBLIC_CONVEX_SITE_URL
 
   if (!url) {
     throw new Error(

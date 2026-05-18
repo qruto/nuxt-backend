@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { BACKEND_FILE_TEMPLATES, LOCAL_BACKEND_FILE_TEMPLATES } from '../../src/templates'
+import { BACKEND_FILE_TEMPLATES, LOCAL_BACKEND_FILE_TEMPLATES, getBackendFileTemplates } from '../../src/templates'
 
 const packageJsonPath = fileURLToPath(new URL('../../package.json', import.meta.url))
 const playgroundAppPath = fileURLToPath(new URL('../../playground/app.vue', import.meta.url))
@@ -83,6 +83,12 @@ describe('scaffold templates', () => {
     expect(LOCAL_BACKEND_FILE_TEMPLATES['components/backend/generated-schema.ts']).toBe(
       `export { tables } from 'nuxt-backend/convex/component/schema'\n`,
     )
+  })
+
+  it('selects local templates through the installation scaffold option', () => {
+    expect(getBackendFileTemplates()).toBe(BACKEND_FILE_TEMPLATES)
+    expect(getBackendFileTemplates({ installation: 'default' })).toBe(BACKEND_FILE_TEMPLATES)
+    expect(getBackendFileTemplates({ installation: 'local' })).toBe(LOCAL_BACKEND_FILE_TEMPLATES)
   })
 })
 

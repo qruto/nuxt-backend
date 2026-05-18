@@ -21,6 +21,7 @@ import type {
 import { getFunctionName } from 'convex/server'
 import { convexToJson, jsonToConvex } from 'convex/values'
 import type { Preloaded } from '../vue/hydration'
+import { getBackendRuntimeConfig } from './config'
 
 /**
  * Options for {@link preloadQuery}, {@link fetchQuery}, {@link fetchMutation}
@@ -49,7 +50,9 @@ interface ConvexHttpClientWithFetchOptions extends ConvexHttpClient {
 }
 
 function getConvexUrl(deploymentUrl: string | undefined): string {
+  const runtimeUrl = getBackendRuntimeConfig().url
   const url = deploymentUrl
+    ?? runtimeUrl
     ?? process.env.NUXT_PUBLIC_CONVEX_URL
 
   if (typeof url !== 'string' || !url) {

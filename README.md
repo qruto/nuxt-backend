@@ -5,7 +5,7 @@
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-Integrate [Convex](https://convex.dev) with [Nuxt](https://nuxt.com) — one package that ships a **Nuxt module** and a **packaged Convex component** with [Better Auth](https://www.better-auth.com) built in.
+Integrate [Convex](https://convex.dev) with [Nuxt](https://nuxt.com) — one package that ships a **Nuxt module** and a **Convex auth component** with [Better Auth](https://www.better-auth.com) built in.
 
 `nuxt-backend` is a Vue/Nuxt port of the official Convex + Better Auth React/Next integration. It keeps the same core pieces — the Better Auth Convex plugin, Convex auth config, server helpers, auth-aware preloading, and client auth state — but preconfigures the route wiring and component setup so new Nuxt apps do less manual installation work.
 
@@ -20,11 +20,12 @@ Integrate [Convex](https://convex.dev) with [Nuxt](https://nuxt.com) — one pac
 - 🛡️ **Route protection** — built-in `auth` middleware, opt-in per page with `definePageMeta`
 - 🌐 **Same-origin auth proxy** — `/api/auth` proxied to Convex, keeps cookies on your domain
 - 🏗️ **Auto-scaffold** — minimum Convex root files generated on first run
+- 🧩 **Local install mode** — scaffold a hybrid Better Auth component when you want to own the schema
 
 ### Convex Auth Component
 - 🔑 **Better Auth** — email/password authentication out of the box
 - 🗄️ **Convex adapter** — Better Auth persistence backed by your Convex database
-- ⚙️ **`nuxt-backend/convex` bridge** — exposes `setupAuth(...)`, `createAuth(ctx)`, and `getCurrentUser` for app Convex functions
+- ⚙️ **`nuxt-backend/convex` bridge** — exposes `setupAuth(...)`, official Better Auth Convex exports, and `getCurrentUser` for app Convex functions
 - 🔗 **Auth config wiring** — `auth.config.ts` keeps Convex token verification aligned with Better Auth
 
 ## Installation
@@ -56,12 +57,14 @@ NUXT_PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site
 
 These are the only app environment variables auto-detected by the module.
 
-In the [Convex dashboard](https://dashboard.convex.dev), set:
+Set the Convex deployment environment variables via the CLI:
 
 ```bash
-SITE_URL=http://localhost:3000
-BETTER_AUTH_SECRET=<random-secret>
+npx convex env set BETTER_AUTH_SECRET=$(openssl rand -base64 32)
+npx convex env set SITE_URL http://localhost:3000
 ```
+
+Or set them manually in the [Convex dashboard](https://dashboard.convex.dev). These variables are added to the `.env.local` file created by `npx convex dev` and will be picked up by your framework dev server.
 
 So the required values are split like this:
 
@@ -90,14 +93,15 @@ export default defineNuxtConfig({
 npm run dev
 ```
 
-On first run, the module creates the minimum Convex files needed to mount the packaged Better Auth component. This replaces the manual `convex/betterAuth/*` component setup from the official guide with a prebuilt component and root helpers. If the app already has a Convex functions directory, scaffolding reuses it. Otherwise it creates `backend/` by default:
+On first run, the module creates the minimum Convex files needed to mount the packaged Better Auth component and register the official auth routes. This replaces the manual `convex/betterAuth/*` component setup from the official guide with a prebuilt component and root helpers. If the app already has a Convex functions directory, scaffolding reuses it. Otherwise it creates `backend/` by default:
 
 ```text
 your-project/
 ├── backend/
 │   ├── convex.config.ts
 │   ├── auth.config.ts
-│   └── auth.ts
+│   ├── auth.ts
+│   └── http.ts
 └── convex.json
 ```
 
@@ -135,7 +139,7 @@ import { defineApp } from 'convex/server'
 import backend from 'nuxt-backend/convex/component/convex.config'
 
 const app = defineApp()
-app.use(backend, { httpPrefix: '/api/auth' })
+app.use(backend)
 export default app
 ```
 
@@ -150,13 +154,49 @@ import { setupAuth } from 'nuxt-backend/convex'
 import { components } from './_generated/api'
 import { query } from './_generated/server'
 
-export const { authComponent, createAuth, getCurrentUser } = setupAuth(
-  components.backend,
-  query,
-)
+export const {
+  authComponent,
+  createAuthOptions,
+  options,
+  createAuth,
+  getCurrentUser,
+} = setupAuth(components.backend, query)
+```
+
+```ts
+// backend/http.ts
+import { httpRouter } from 'convex/server'
+import { authComponent, createAuth } from './auth'
+
+const http = httpRouter()
+authComponent.registerRoutes(http, createAuth)
+
+export default http
 ```
 
 That setup mounts the packaged Better Auth component, configures Convex to trust its tokens, and exposes `api.auth.getCurrentUser` for app queries.
+
+### Local hybrid install
+
+Auth is always installed. Use local installation mode when you want to own the Better Auth schema, add custom indexes, or regenerate schema after adding Better Auth plugins:
+
+```ts
+// nuxt.config.ts
+export default defineNuxtConfig({
+  modules: ['nuxt-backend'],
+  backend: {
+    installation: 'local',
+  },
+})
+```
+
+The first run scaffolds `backend/components/backend/*` with a local `convex.config.ts`, `schema.ts`, `adapter.ts`, and a schema-generation `auth.ts`. The app-facing `backend/auth.ts` still exports `authComponent`, `createAuthOptions`, `options`, and `createAuth`, matching the official Better Auth Convex API while hiding the installation details behind the Nuxt module.
+
+After changing Better Auth plugins or schema-affecting options, regenerate the local schema and keep your custom indexes in `schema.ts`:
+
+```bash
+npx auth generate --config ./backend/components/backend/auth.ts --output ./backend/components/backend/generated-schema.ts
+```
 
 ### 2. Sign in from Nuxt
 
@@ -267,7 +307,7 @@ Use `usePreloadedAuthQuery` for auth-protected SSR data. It keeps the server res
 
 ### 5. Keep the auth route consistent if you customize it
 
-If you change `backend.authRoute` from `/api/auth`, keep the same path in the packaged Convex component mount and Convex auth config. The Nuxt proxy route, `app.use(backend, { httpPrefix: ... })`, and `defineBackendAuthConfig({ basePath: ... })` must all match.
+If you change `backend.authRoute` from `/api/auth`, keep the same path in `createAuthOptions` and Convex auth config. The Nuxt proxy route, Better Auth `basePath`, and `defineBackendAuthConfig({ basePath: ... })` must all match.
 
 ## More Documentation
 

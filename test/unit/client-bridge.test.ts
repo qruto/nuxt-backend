@@ -12,15 +12,15 @@ const fakeComponent = {
 const fakeAppComponent = fakeComponent as unknown as AnyComponents[string]
 
 describe('Convex component client bridge', () => {
-  it('fails fast when SITE_URL is missing', () => {
+  it('creates Better Auth options without requiring runtime env at import time', () => {
     const previousSiteUrl = process.env.SITE_URL
 
     try {
       delete process.env.SITE_URL
 
-      expect(() => clientBridge.createBetterAuth({} as never)).toThrow(
-        'SITE_URL environment variable is required to configure Better Auth.',
-      )
+      const options = clientBridge.createBetterAuthOptions({} as never)
+      expect(options.database).toBeDefined()
+      expect(options.basePath).toBe('/api/auth')
     }
     finally {
       if (previousSiteUrl === undefined) {
@@ -48,6 +48,8 @@ describe('Convex component client bridge', () => {
     const authSetup = clientBridge.setupAuth(fakeAppComponent, queryBuilder as never)
 
     expect(typeof authSetup.createAuth).toBe('function')
+    expect(typeof authSetup.createAuthOptions).toBe('function')
+    expect(authSetup).toHaveProperty('options')
     expect(authSetup).toHaveProperty('authComponent')
     expect(authSetup).toHaveProperty('getCurrentUser')
   })

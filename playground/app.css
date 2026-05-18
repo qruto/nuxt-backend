@@ -1,0 +1,41 @@
+:root {
+  --bg-color: #ffffff;
+  --text-color: #111827;
+  --border-color: #e5e7eb;
+  --muted-color: #6b7280;
+  --link-color: #3b82f6;
+  --primary-color: #3b82f6;
+  --primary-hover: #2563eb;
+  --danger-color: #ef4444;
+  --danger-hover: #dc2626;
+  --card-bg: #f9fafb;
+  --card-hover: #f3f4f6;
+  --input-bg: #ffffff;
+  --input-border: #ccc;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #111827;
+    --text-color: #f9fafb;
+    --border-color: #374151;
+    --muted-color: #9ca3af;
+    --link-color: #60a5fa;
+    --primary-color: #3b82f6;
+    --primary-hover: #2563eb;
+    --danger-color: #ef4444;
+    --danger-hover: #dc2626;
+    --card-bg: #1f2937;
+    --card-hover: #374151;
+    --input-bg: #111827;
+    --input-border: #4b5563;
+  }
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: system-ui, sans-serif;
+  transition: background-color 0.2s, color 0.2s;
+  margin: 0;
+}

@@ -13,6 +13,7 @@ For installation and the end-to-end integration walkthrough, see [../README.md](
 - Auto-imported composables and server utilities
 - Built-in `auth` route middleware
 - Auto-scaffolded Convex root files
+- Optional local hybrid Better Auth component scaffolding
 
 ### Convex component
 
@@ -26,8 +27,9 @@ For installation and the end-to-end integration walkthrough, see [../README.md](
 
 | Official React/Next piece | Nuxt/Vue equivalent |
 |---|---|
-| Manual Better Auth Convex component files | Packaged `nuxt-backend/convex/component/convex.config` mounted from `backend/convex.config.ts` |
+| Manual Better Auth Convex component files | Packaged `nuxt-backend/convex/component/convex.config` by default, or local `backend/components/backend/*` with `backend.installation: 'local'` |
 | `auth.config.ts` using the Better Auth Convex provider | `nuxt-backend/convex/auth.config`, scaffolded as `backend/auth.config.ts` |
+| `auth.ts` with `authComponent`, `createAuthOptions`, `options`, `createAuth` | Scaffolded `backend/auth.ts` using `setupAuth(...)` |
 | Better Auth client with `convexClient()` | Auto-created Vue Better Auth client exposed through `useAuth()` |
 | `ConvexBetterAuthProvider` | Nuxt client plugin plus `useConvexAuth()`/`provideConvexAuth()` state |
 | Next route handler proxy | Nuxt server proxy at `backend.authRoute`, default `/api/auth` |
@@ -329,6 +331,8 @@ export default defineNuxtConfig({
 })
 ```
 
+Auth is always enabled by the module. The only installation choice is whether the first scaffold uses the packaged component defaults or creates a local hybrid component for schema ownership.
+
 ### Environment variables
 
 Minimal app environment file:
@@ -355,7 +359,7 @@ BETTER_AUTH_SECRET=<random-secret>
 
 ## Customizing the Convex component
 
-Zero-config mode mounts the packaged component at `/api/auth` and wires Convex auth to the same path.
+Zero-config mode mounts the packaged component and registers Better Auth HTTP routes from `backend/http.ts`. The default route is `/api/auth`.
 
 If you want to keep the packaged component but extend Better Auth options such as providers or plugins, customize `setupAuth(...)` in `backend/auth.ts`:
 
@@ -364,18 +368,20 @@ import { setupAuth } from 'nuxt-backend/convex'
 import { components } from './_generated/api'
 import { query } from './_generated/server'
 
-export const { authComponent, createAuth, getCurrentUser } = setupAuth(
-  components.backend,
-  query,
-  {
-    authOptions: {
-      appName: 'Acme',
-      emailAndPassword: {
-        enabled: true,
-      },
+export const {
+  authComponent,
+  createAuthOptions,
+  options,
+  createAuth,
+  getCurrentUser,
+} = setupAuth(components.backend, query, {
+  authOptions: {
+    appName: 'Acme',
+    emailAndPassword: {
+      enabled: true,
     },
   },
-)
+})
 ```
 
 If you want a different auth route, update the scaffolded files:
@@ -386,8 +392,21 @@ import { defineApp } from 'convex/server'
 import backend from 'nuxt-backend/convex/component/convex.config'
 
 const app = defineApp()
-app.use(backend, { httpPrefix: '/internal/auth' })
+app.use(backend)
 export default app
+```
+
+```ts
+// backend/auth.ts
+export const {
+  authComponent,
+  createAuthOptions,
+  options,
+  createAuth,
+  getCurrentUser,
+} = setupAuth(components.backend, query, {
+  basePath: '/internal/auth',
+})
 ```
 
 ```ts
@@ -401,7 +420,25 @@ export default defineBackendAuthConfig({
 
 If you change the Nuxt module's `backend.authRoute`, keep these Convex component helpers on the same path.
 
-The packaged component is intentionally opinionated for zero setup. If you need full Better Auth ownership beyond route wiring, own the Convex auth files in your project and configure `setupAuth(...)` with custom Better Auth options.
+The packaged component is intentionally opinionated for zero setup. If you need full Better Auth ownership beyond route wiring, switch the first scaffold to local hybrid installation:
+
+```ts
+// nuxt.config.ts
+export default defineNuxtConfig({
+  modules: ['nuxt-backend'],
+  backend: {
+    installation: 'local',
+  },
+})
+```
+
+Local mode creates `backend/components/backend/convex.config.ts`, `schema.ts`, `generated-schema.ts`, `adapter.ts`, and a schema-generation `auth.ts`. Regenerate `generated-schema.ts` after schema-affecting Better Auth changes:
+
+```bash
+npx auth generate --config ./backend/components/backend/auth.ts --output ./backend/components/backend/generated-schema.ts
+```
+
+Keep hand-written indexes and schema customizations in `backend/components/backend/schema.ts`; it imports and spreads the generated tables so regeneration does not overwrite local edits.
 
 ## Recommended package contract
 
@@ -409,21 +446,21 @@ The stable user-facing surface should stay narrow and opinionated. The package s
 
 | Layer | API | Capability |
 |---|---|---|
-| Bootstrap | Nuxt module options: `backend.url`, `backend.siteUrl`, `backend.authRoute` | One place to configure Convex and auth route wiring |
-| Scaffolding | Generated `backend/convex.config.ts`, `backend/auth.config.ts`, `backend/auth.ts` | Zero-config first run with an escape hatch to own the files later |
+| Bootstrap | Nuxt module options: `backend.url`, `backend.siteUrl`, `backend.authRoute`, `backend.installation` | One place to configure Convex, auth route wiring, and first-run scaffold ownership |
+| Scaffolding | Generated `backend/convex.config.ts`, `backend/auth.config.ts`, `backend/auth.ts`, `backend/http.ts` | Zero-config first run with an escape hatch to own the files later |
 | Runtime data | `useConvex`, `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `usePreloadedAuthQuery`, `useConvexConnectionState` | Real-time Convex data and hydration-safe SSR |
 | Runtime auth | `useAuth`, `auth` middleware | Better Auth client access, session state, sign-in/out, and route protection in Nuxt |
 | Server data | `fetchQuery`, `fetchMutation`, `fetchAction`, `preloadQuery`, `preloadedQueryResult`, `backendAuth` | Nitro and SSR access to Convex, including authenticated helper calls |
-| Convex auth bridge | `nuxt-backend/convex/component/convex.config`, `nuxt-backend/convex/auth.config`, `nuxt-backend/convex` | Mount the packaged component, align Convex auth config, and create Better Auth helpers |
+| Convex auth bridge | `nuxt-backend/convex/component/convex.config`, `nuxt-backend/convex/component/schema`, `nuxt-backend/convex/auth.config`, `nuxt-backend/convex` | Mount the packaged component, seed local schemas, align Convex auth config, and create Better Auth helpers |
 | Testing | `nuxt-backend/convex/test` | Register the packaged component in `convex-test` |
 
 The package-specific capabilities, beyond the raw Better Auth component, are:
 
 - Same-origin auth proxying from Nuxt to Convex so cookies stay on the app domain.
-- Route alignment between the Nuxt auth proxy, Convex HTTP prefix, and Convex JWKS/auth provider config.
+- Route alignment between the Nuxt auth proxy, Better Auth `basePath`, and Convex JWKS/auth provider config.
 - Reactive Better Auth access through `useAuth().session` and server-side token forwarding through `fetchQuery(..., { token })`.
-- A small Convex auth bridge with `setupAuth(...)`, `createAuth(ctx)`, and `getCurrentUser` so apps can stay close to Convex conventions.
-- A zero-config path for new apps, plus extension points for apps that need custom Better Auth options.
+- A small Convex auth bridge with `setupAuth(...)`, `createAuthOptions(ctx)`, `options`, `createAuth(ctx)`, and `getCurrentUser` so apps can stay close to Convex conventions.
+- A zero-config path for new apps, plus local hybrid scaffolding for apps that need schema ownership.
 
 The package should not try to own app-specific user schema, onboarding, profile storage, or product authorization rules. It should provide the auth transport and integration contract, then let the app define domain behavior on top.
 
@@ -436,6 +473,7 @@ The package publishes multiple entrypoints:
 | `nuxt-backend` | The Nuxt module used in `modules: ['nuxt-backend']` |
 | `nuxt-backend/convex` | App-side helper bridge for the packaged Convex component (`createAuth(ctx, component, ...)`, `makeAuthApi(...)`, `setupAuth(...)`) |
 | `nuxt-backend/convex/component/convex.config` | Mounting the packaged Convex component in `convex.config.ts` |
+| `nuxt-backend/convex/component/schema` | Base Better Auth tables for local hybrid schema scaffolding |
 | `nuxt-backend/convex/auth.config` | Creating `auth.config.ts` with `defineBackendAuthConfig(...)` |
 | `nuxt-backend/convex/test` | Registering the packaged Convex component in `convex-test` |
 
@@ -455,10 +493,13 @@ import { setupAuth } from 'nuxt-backend/convex'
 import { components } from './_generated/api'
 import { query } from './_generated/server'
 
-export const { authComponent, createAuth, getCurrentUser } = setupAuth(
-  components.backend,
-  query,
-)
+export const {
+  authComponent,
+  createAuthOptions,
+  options,
+  createAuth,
+  getCurrentUser,
+} = setupAuth(components.backend, query)
 ```
 
 ### `nuxt-backend/convex/test`
@@ -480,7 +521,7 @@ The package ships two things in one:
 | Layer | What it does |
 |---|---|
 | **Nuxt module** (`nuxt-backend`) | Registers plugins, composables, server utilities, auth proxy, and auto-scaffolds Convex root files |
-| **Convex component** (`nuxt-backend/convex/component/convex.config`) | Defines the `backend` component with a Better Auth adapter, HTTP router, and auth config |
+| **Convex component** (`nuxt-backend/convex/component/convex.config`) | Defines the `backend` component with a Better Auth adapter proxy and auth config |
 
 ```mermaid
 sequenceDiagram

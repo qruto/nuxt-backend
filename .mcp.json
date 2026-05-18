@@ -1,5 +1,12 @@
 {
   "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest",
+        "--autoConnect"
+      ]
+    },
     "convex": {
       "command": "npx",
       "args": [

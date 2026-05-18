@@ -2,10 +2,17 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import { defineVitestProject } from '@nuxt/test-utils/config'
 
+const nuxtImportsTestAlias = fileURLToPath(new URL('./test/helpers/nuxt-imports.ts', import.meta.url))
+
 export default defineConfig({
   test: {
     projects: [
       {
+        resolve: {
+          alias: {
+            '#imports': nuxtImportsTestAlias,
+          },
+        },
         test: {
           name: 'unit',
           include: ['test/unit/**/*.{test,spec}.ts'],

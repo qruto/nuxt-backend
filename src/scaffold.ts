@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { BACKEND_FILE_TEMPLATES } from './templates'
+import { dirname, join } from 'node:path'
+import { getBackendFileTemplates, type BackendTemplateOptions } from './templates'
 
 const DEFAULT_FUNCTIONS_DIR = 'backend'
 const STANDARD_FUNCTIONS_DIR = 'convex'
@@ -8,7 +8,7 @@ const STANDARD_FUNCTIONS_DIR = 'convex'
 /**
  * Auto-scaffold the minimum backend files if they don't exist.
  */
-export function scaffoldBackendFiles(rootDir: string) {
+export function scaffoldBackendFiles(rootDir: string, options: BackendTemplateOptions = {}) {
   const functionsDir = resolveFunctionsDir(rootDir)
   const functionsDirPath = join(rootDir, functionsDir)
   const convexJsonPath = join(rootDir, 'convex.json')
@@ -18,9 +18,10 @@ export function scaffoldBackendFiles(rootDir: string) {
     console.log(`[nuxt-backend] Created ${functionsDir}/ directory`)
   }
 
-  for (const [file, contents] of Object.entries(BACKEND_FILE_TEMPLATES)) {
+  for (const [file, contents] of Object.entries(getBackendFileTemplates(options))) {
     const targetPath = join(functionsDirPath, file)
     if (!existsSync(targetPath)) {
+      mkdirSync(dirname(targetPath), { recursive: true })
       writeFileSync(targetPath, contents)
       console.log(`[nuxt-backend] Created ${functionsDir}/${file}`)
     }

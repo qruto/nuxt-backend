@@ -1,5 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { resetNuxtRuntimeConfigForTests, setNuxtRuntimeConfigForTests } from '../../../helpers/nuxt-imports'
 
 const {
   mockFetch,
@@ -50,6 +51,8 @@ vi.mock('../../../../src/runtime/nuxt/index', () => ({
 describe('auth/nuxt/server', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetNuxtRuntimeConfigForTests()
+    delete process.env.NUXT_PUBLIC_CONVEX_SITE_URL
     vi.stubGlobal('fetch', mockFetch)
     mockGetRequestHeaders.mockReturnValue({
       'cookie': 'session=abc',
@@ -159,5 +162,24 @@ describe('auth/nuxt/server', () => {
     expect(proxiedRequest.headers.get('x-forwarded-proto')).toBe('https')
     expect(proxiedRequest.headers.get('x-better-auth-forwarded-host')).toBe('app.example.com')
     expect(proxiedRequest.headers.get('x-better-auth-forwarded-proto')).toBe('https')
+  })
+
+  it('uses Nuxt runtime config for the Convex site URL when no override or env is set', async () => {
+    const { backendAuth } = await import('../../../../src/runtime/nuxt/auth/server')
+    setNuxtRuntimeConfigForTests({
+      backend: {
+        siteUrl: 'https://runtime.convex.site',
+      },
+      public: {
+        backend: {
+          siteUrl: 'https://public-runtime.convex.site',
+        },
+      },
+    })
+    mockGetToken.mockResolvedValue({ token: 'jwt-1', isFresh: true })
+
+    await backendAuth({} as never).getToken()
+
+    expect(mockGetToken.mock.calls[0]?.[0]).toBe('https://runtime.convex.site')
   })
 })

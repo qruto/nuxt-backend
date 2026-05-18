@@ -1,11 +1,27 @@
 import { defineNuxtModule, addPlugin, addImports, addServerHandler, addServerImports, addRouteMiddleware, createResolver } from '@nuxt/kit'
 import { join } from 'node:path'
 import { resolveFunctionsDir, scaffoldBackendFiles } from './scaffold'
+import type { BackendInstallationMode } from './templates'
 
 export interface ModuleOptions {
   url?: string
   siteUrl?: string
   authRoute?: string
+  installation?: BackendInstallationMode
+}
+
+declare module '@nuxt/schema' {
+  interface RuntimeConfig {
+    backend: {
+      siteUrl: string
+    }
+  }
+  interface PublicRuntimeConfig {
+    backend: {
+      url: string
+      siteUrl: string
+    }
+  }
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -15,14 +31,16 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     authRoute: '/api/auth',
+    installation: 'default',
   },
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
 
-    const url = options.url
-      || process.env.NUXT_PUBLIC_CONVEX_URL
+    const url = nuxt.options._prepare
+      ? undefined
+      : options.url || process.env.NUXT_PUBLIC_CONVEX_URL
 
-    if (!url) {
+    if (!url && !nuxt.options._prepare) {
       console.warn('[nuxt-backend] No Convex URL configured. Set `backend.url` in nuxt.config or NUXT_PUBLIC_CONVEX_URL.')
     }
 
@@ -41,7 +59,7 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     // Auto-scaffold the minimum backend files
-    scaffoldBackendFiles(nuxt.options.rootDir)
+    scaffoldBackendFiles(nuxt.options.rootDir, { installation: options.installation })
 
     // Import aliases for the Convex backend folder and its generated assets.
     // - `#backend`            -> <rootDir>/<functionsDir>

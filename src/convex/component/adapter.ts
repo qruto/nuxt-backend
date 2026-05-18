@@ -1,31 +1,39 @@
+import { passkey } from '@better-auth/passkey'
+import type { BetterAuthOptions } from 'better-auth/minimal'
+import { emailOTP } from 'better-auth/plugins'
 import { createApi } from '@convex-dev/better-auth'
+import { convex } from '@convex-dev/better-auth/plugins'
 import type { RegisteredMutation, RegisteredQuery } from 'convex/server'
-import { options } from '../auth'
 import schema from './schema'
 
-// `createApi` returns types that reference `TableNames` from
-// `@convex-dev/better-auth`'s internal `_generated/dataModel`, which isn't a
-// portable subpath. Cast the result to a permissive adapter shape; the public
-// component surface is generated in ./_generated/component.ts.
-type AdapterMutation = RegisteredMutation<'public', Record<string, unknown>, Promise<unknown>>
-type AdapterQuery = RegisteredQuery<'public', Record<string, unknown>, Promise<unknown>>
-
-interface Adapter {
-  create: AdapterMutation
-  findOne: AdapterQuery
-  findMany: AdapterQuery
-  updateOne: AdapterMutation
-  updateMany: AdapterMutation
-  deleteOne: AdapterMutation
-  deleteMany: AdapterMutation
+/**
+ * Options used solely to derive the auth schema (via `getAuthTables`) for the
+ * component adapter. Must include every plugin that contributes tables to our
+ * local `schema` (e.g. passkey).
+ */
+const options: BetterAuthOptions = {
+  rateLimit: { storage: 'database' },
+  plugins: [
+    convex({
+      authConfig: { providers: [{ applicationID: 'convex', domain: '' }] },
+    }),
+    emailOTP({ sendVerificationOTP: async () => {} }),
+    passkey(),
+  ],
 }
 
-export const {
-  create,
-  findOne,
-  findMany,
-  updateOne,
-  updateMany,
-  deleteOne,
-  deleteMany,
-} = createApi(schema, () => options) as unknown as Adapter
+const api = createApi(schema, () => options)
+
+// Use loose explicit type annotations so emitted declarations don't reference
+// the upstream package's internal `_generated/dataModel` (which breaks
+// portability). Runtime validators come from `createApi` itself.
+type AnyMutation = RegisteredMutation<'public', Record<string, unknown>, Promise<unknown>>
+type AnyQuery = RegisteredQuery<'public', Record<string, unknown>, Promise<unknown>>
+
+export const create: AnyMutation = api.create as unknown as AnyMutation
+export const findOne: AnyQuery = api.findOne as unknown as AnyQuery
+export const findMany: AnyQuery = api.findMany as unknown as AnyQuery
+export const updateOne: AnyMutation = api.updateOne as unknown as AnyMutation
+export const updateMany: AnyMutation = api.updateMany as unknown as AnyMutation
+export const deleteOne: AnyMutation = api.deleteOne as unknown as AnyMutation
+export const deleteMany: AnyMutation = api.deleteMany as unknown as AnyMutation
