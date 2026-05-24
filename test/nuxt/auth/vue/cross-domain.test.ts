@@ -1,3 +1,4 @@
+// @vitest-environment-options { "url": "https://nuxt-backend.localhost/" }
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { mockGetSession, mockUpdateSession, mockVerify } = vi.hoisted(() => ({
@@ -25,7 +26,7 @@ async function loadModule() {
 describe('auth/vue/cross-domain', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    window.history.replaceState({}, '', 'http://localhost:3000/profile')
+    window.history.replaceState({}, '', 'https://nuxt-backend.localhost/profile')
   })
 
   it('exchanges the cross-domain one-time token and refreshes the auth session', async () => {
@@ -37,7 +38,7 @@ describe('auth/vue/cross-domain', () => {
         },
       },
     })
-    window.history.replaceState({}, '', 'http://localhost:3000/profile?ott=one-time-token&next=%2Fdashboard')
+    window.history.replaceState({}, '', 'https://nuxt-backend.localhost/profile?ott=one-time-token&next=%2Fdashboard')
 
     await consumeCrossDomainOneTimeToken()
 
@@ -57,7 +58,7 @@ describe('auth/vue/cross-domain', () => {
   it('no-ops when the OTT exchange does not return a session token', async () => {
     const { consumeCrossDomainOneTimeToken } = await loadModule()
     mockVerify.mockResolvedValue({ data: { session: null } })
-    window.history.replaceState({}, '', 'http://localhost:3000/profile?ott=missing-token')
+    window.history.replaceState({}, '', 'https://nuxt-backend.localhost/profile?ott=missing-token')
 
     await consumeCrossDomainOneTimeToken()
 

@@ -346,7 +346,7 @@ NUXT_PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site
 Required Convex dashboard environment variables:
 
 ```bash
-SITE_URL=http://localhost:3000
+SITE_URL=https://nuxt-backend.localhost
 BETTER_AUTH_SECRET=<random-secret>
 ```
 
@@ -354,7 +354,7 @@ BETTER_AUTH_SECRET=<random-secret>
 |---|---|---|
 | `NUXT_PUBLIC_CONVEX_URL` | `.env.local` or `.env` | Convex deployment URL used by the Nuxt app |
 | `NUXT_PUBLIC_CONVEX_SITE_URL` | `.env.local` or `.env` | Convex site URL used by the Nuxt auth proxy |
-| `SITE_URL` | Convex dashboard | App URL such as `http://localhost:3000` |
+| `SITE_URL` | Convex dashboard | App URL such as `https://nuxt-backend.localhost` |
 | `BETTER_AUTH_SECRET` | Convex dashboard | Secret used by Better Auth |
 
 ## Customizing the Convex component

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://docs.fallow.tools/schema/fallow-config.json",
+  "entry": [
+    "build.config.ts",
+    "nuxt.config.ts",
+    "vitest.config.ts",
+    "eslint.config.mjs",
+    "scripts/**/*.{ts,mjs,js}",
+    "src/runtime/nuxt/auth/middleware.ts",
+    "src/runtime/nuxt/auth/proxy.ts",
+    "src/runtime/nuxt/auth/server.ts",
+    "src/runtime/vue/index.ts",
+    "playground/nuxt.config.ts",
+    "playground/app.vue",
+    "playground/app.css",
+    "playground/pages/**/*.vue",
+    "playground/components/**/*.vue",
+    "playground/server/**/*.ts",
+    "playground/backend/**/*.ts",
+    "test/setup/**/*.ts",
+    "test/helpers/**/*.ts",
+    "test/fixtures/**/*.{ts,vue}",
+    "test/fake-watch.ts"
+  ],
+  "ignorePatterns": [
+    "dist/**",
+    ".nuxt/**",
+    "playground/.nuxt/**",
+    "playground/backend/_generated/**",
+    "src/convex/component/_generated/**",
+    "src/convex/_generated/**",
+    "src/runtime/vue/index.ts"
+  ],
+  "ignoreDependencies": [
+    "@edge-runtime/vm",
+    "@vue/test-utils",
+    "oxc-parser"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "duplicates": {
+    "ignore": [
+      "**/_generated/**",
+      "test/**",
+      "playground/**",
+      "src/runtime/vue/client.ts",
+      "src/runtime/vue/queries-observer.ts",
+      "src/runtime/vue/hydration.ts",
+      "src/runtime/vue/composables/**",
+      "src/runtime/vue/auth/**",
+      "src/runtime/nuxt/index.ts",
+      "src/runtime/nuxt/auth/server.ts",
+      "src/runtime/nuxt/auth/proxy.ts"
+    ]
+  },
+  "health": {
+    "ignore": [
+      "test/**",
+      "playground/**",
+      "**/_generated/**",
+      "src/runtime/vue/client.ts",
+      "src/runtime/vue/queries-observer.ts",
+      "src/runtime/vue/hydration.ts",
+      "src/runtime/vue/composables/**",
+      "src/runtime/vue/auth/**",
+      "src/runtime/nuxt/index.ts",
+      "src/runtime/nuxt/auth/server.ts",
+      "src/runtime/nuxt/auth/proxy.ts"
+    ]
+  }
+}

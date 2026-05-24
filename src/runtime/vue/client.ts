@@ -473,12 +473,3 @@ export function useConvex(): ConvexVueClient {
   }
   return client
 }
-
-// Internal helper: parse/normalize args
-function parseArgs(args: Record<string, Value> | undefined): Record<string, Value> {
-  if (args === undefined) return {}
-  return args
-}
-
-export { parseArgs, getFunctionName, makeFunctionReference }
-export type { FunctionReference, FunctionArgs, FunctionReturnType, OptionalRestArgs, ArgsAndOptions, Value }

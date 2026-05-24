@@ -85,6 +85,7 @@
     "test:nuxt": "vitest --project nuxt --run",
     "test:e2e": "vitest --project e2e --run",
     "test:convex-component": "vitest --project convex-component --run",
+    "test:quality": "fallow --summary",
     "bump": "npx taze major -w",
     "db:reset": "node scripts/db-reset.mjs"
   },
@@ -92,7 +93,6 @@
     "@better-auth/passkey": "~1.6.11",
     "@convex-dev/better-auth": "^0.12.2",
     "@nuxt/kit": "^4.4.5",
-    "@opentelemetry/api": "^1.9.1",
     "better-auth": "~1.6.11",
     "convex": "^1.39.1",
     "dedent": "^1.7.2"
@@ -112,6 +112,7 @@
     "chokidar-cli": "^3.0.0",
     "convex-test": "^0.0.52",
     "eslint": "^10.4.0",
+    "fallow": "^2.80.0",
     "happy-dom": "^20.9.0",
     "npm-run-all2": "^8.0.4",
     "nuxt": "^4.4.5",
@@ -120,6 +121,7 @@
     "portless": "^0.13.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.6",
-    "vue-tsc": "^3.2.9"
+    "vue-tsc": "^3.2.9",
+    "ws": "^8.20.0"
   }
 }

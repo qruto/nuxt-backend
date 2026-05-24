@@ -61,7 +61,7 @@ Set the Convex deployment environment variables via the CLI:
 
 ```bash
 npx convex env set BETTER_AUTH_SECRET=$(openssl rand -base64 32)
-npx convex env set SITE_URL http://localhost:3000
+npx convex env set SITE_URL https://nuxt-backend.localhost
 ```
 
 Or set them manually in the [Convex dashboard](https://dashboard.convex.dev). These variables are added to the `.env.local` file created by `npx convex dev` and will be picked up by your framework dev server.
