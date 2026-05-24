@@ -19,7 +19,7 @@ import type {
   FunctionReturnType,
   OptionalRestArgs, UserIdentityAttributes,
 } from 'convex/server'
-import { getFunctionName, makeFunctionReference } from 'convex/server'
+import { getFunctionName } from 'convex/server'
 import type { Value } from 'convex/values'
 
 export type { AuthTokenFetcher, ConnectionState, OptimisticUpdate, QueryJournal }
@@ -237,7 +237,7 @@ export class ConvexVueClient {
     return {
       onUpdate: (callback: () => void) => {
         const { queryToken, unsubscribe } = this.sync.subscribe(
-          name as string,
+          name,
           args,
           options,
         )
@@ -264,7 +264,7 @@ export class ConvexVueClient {
 
       localQueryResult: () => {
         if (this.cachedSync) {
-          return this.cachedSync.localQueryResult(name as string, args) as FunctionReturnType<Query> | undefined
+          return this.cachedSync.localQueryResult(name, args) as FunctionReturnType<Query> | undefined
         }
         return undefined
       },
@@ -272,14 +272,14 @@ export class ConvexVueClient {
       localQueryLogs: () => {
         if (this.cachedSync) {
           const sync = this.cachedSync as SyncClientWithInternals
-          return sync.localQueryLogs(name as string, args)
+          return sync.localQueryLogs(name, args)
         }
         return undefined
       },
 
       journal: () => {
         if (this.cachedSync) {
-          return this.cachedSync.queryJournal(name as string, args)
+          return this.cachedSync.queryJournal(name, args)
         }
         return undefined
       },
@@ -302,7 +302,7 @@ export class ConvexVueClient {
   ): Promise<FunctionReturnType<Mutation>> {
     const [args, options] = argsAndOptions
     const name = getFunctionName(mutation)
-    return this.sync.mutation(name as string, args, options)
+    return this.sync.mutation(name, args, options)
   }
 
   /**
@@ -317,7 +317,7 @@ export class ConvexVueClient {
     ...args: OptionalRestArgs<Action>
   ): Promise<FunctionReturnType<Action>> {
     const name = getFunctionName(action)
-    return this.sync.action(name as string, ...args)
+    return this.sync.action(name, ...args)
   }
 
   /**

@@ -1,4 +1,5 @@
-import { defineNuxtPlugin, useState, useRequestEvent } from '#app'
+import { defineNuxtPlugin, useRuntimeConfig, useState, useRequestEvent } from '#app'
+import { ConvexVueClient, ConvexClientKey } from '../client'
 import { backendAuth } from '../../nuxt/auth/server'
 import { ConvexAuthStateKey, type ConvexAuthState } from './index'
 
@@ -15,6 +16,18 @@ import { ConvexAuthStateKey, type ConvexAuthState } from './index'
  */
 export default defineNuxtPlugin(async (nuxtApp) => {
   const initialToken = useState<string | null>('backend:initialToken', () => null)
+
+  // Provide a Convex client on SSR so composables like `useMutation` /
+  // `useAction` that call `useConvex()` during component setup don't throw.
+  // The WebSocket is opened lazily on first subscription — `usePreloadedQuery`
+  // and `usePreloadedAuthQuery` short-circuit on the server, so no
+  // subscriptions are created during SSR.
+  const url = useRuntimeConfig().public.backend.url
+  if (url) {
+    const ssrClient = new ConvexVueClient(url)
+    nuxtApp.vueApp.provide(ConvexClientKey, ssrClient)
+    nuxtApp.provide('convex', ssrClient)
+  }
 
   // Provide a stub auth state for SSR so components calling `useConvexAuth`
   // (e.g. via `usePreloadedAuthQuery`) don't throw. `isLoading: true` makes

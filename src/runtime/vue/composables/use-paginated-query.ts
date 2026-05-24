@@ -130,6 +130,39 @@ export type UsePaginatedQueryReturnType<Query extends PaginatedQueryReference>
   = UsePaginatedQueryResult<PaginatedQueryItem<Query>>
 
 /**
+ * Item-parameterised discriminated union returned by the object-form of
+ * {@link usePaginatedQuery}. Exposed via {@link UsePaginatedQueryObjectReturnType}
+ * when bound to a specific query.
+ *
+ * @public
+ */
+export type UsePaginatedQueryObjectResult<Item>
+  = | {
+    data: Item[] | undefined
+    status: 'pending'
+    canLoadMore: false
+    isLoading: true
+    error: undefined
+    loadMore: (numItems: number) => void
+  }
+  | {
+    data: Item[]
+    status: 'success'
+    canLoadMore: boolean
+    isLoading: false
+    error: undefined
+    loadMore: (numItems: number) => void
+  }
+  | {
+    data: Item[]
+    status: 'error'
+    canLoadMore: false
+    isLoading: false
+    error: Error
+    loadMore: (numItems: number) => void
+  }
+
+/**
  * The return type of {@link usePaginatedQuery} when called with the
  * object-form options.
  *
@@ -141,31 +174,7 @@ export type UsePaginatedQueryReturnType<Query extends PaginatedQueryReference>
  */
 export type UsePaginatedQueryObjectReturnType<
   Query extends PaginatedQueryReference,
->
-  = | {
-    data: PaginatedQueryItem<Query>[] | undefined
-    status: 'pending'
-    canLoadMore: false
-    isLoading: true
-    error: undefined
-    loadMore: (numItems: number) => void
-  }
-  | {
-    data: PaginatedQueryItem<Query>[]
-    status: 'success'
-    canLoadMore: boolean
-    isLoading: false
-    error: undefined
-    loadMore: (numItems: number) => void
-  }
-  | {
-    data: PaginatedQueryItem<Query>[]
-    status: 'error'
-    canLoadMore: false
-    isLoading: false
-    error: Error
-    loadMore: (numItems: number) => void
-  }
+> = UsePaginatedQueryObjectResult<PaginatedQueryItem<Query>>
 
 /**
  * @internal
@@ -264,7 +273,7 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
 
     return computed(
       () => reshapeToObjectForm<PaginatedQueryItem<Query>>(internal.value),
-    ) as unknown as ShallowRef<UsePaginatedQueryObjectReturnType<Query>>
+    )
   }
 
   validateInitialNumItems(options?.initialNumItems)
@@ -283,16 +292,16 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
 }
 
 function validateInitialNumItems(value: unknown): void {
-  if (typeof value !== 'number' || (value as number) < 0) {
+  if (typeof value !== 'number' || value < 0) {
     throw new Error(
-      `\`options.initialNumItems\` must be a positive number. Received \`${value as string}\`.`,
+      `\`options.initialNumItems\` must be a positive number. Received \`${String(value)}\`.`,
     )
   }
 }
 
 function reshapeToObjectForm<Item>(
   internal: UsePaginatedQueryInternalResult<Item>,
-): UsePaginatedQueryObjectReturnType<PaginatedQueryReference> {
+): UsePaginatedQueryObjectResult<Item> {
   const { results, loadMore } = internal
   if (internal.status === 'Error') {
     return {
@@ -302,7 +311,7 @@ function reshapeToObjectForm<Item>(
       isLoading: false,
       error: internal.error,
       loadMore,
-    } as UsePaginatedQueryObjectReturnType<PaginatedQueryReference>
+    }
   }
   if (internal.status === 'LoadingFirstPage' || internal.status === 'LoadingMore') {
     return {
@@ -312,7 +321,7 @@ function reshapeToObjectForm<Item>(
       isLoading: true,
       error: undefined,
       loadMore,
-    } as UsePaginatedQueryObjectReturnType<PaginatedQueryReference>
+    }
   }
   // CanLoadMore or Exhausted
   return {
@@ -322,7 +331,7 @@ function reshapeToObjectForm<Item>(
     isLoading: false,
     error: undefined,
     loadMore,
-  } as UsePaginatedQueryObjectReturnType<PaginatedQueryReference>
+  }
 }
 
 /**
@@ -336,7 +345,6 @@ function usePaginatedQueryInternal<Query extends PaginatedQueryReference>(
 ): ComputedRef<UsePaginatedQueryInternalResult<PaginatedQueryItem<Query>>> {
   const convex = useConvex()
   const logger = convex.logger
-  const state = shallowRef<UsePaginatedQueryState>(null as unknown as UsePaginatedQueryState)
 
   function buildInitialState(
     q: Query,
@@ -371,6 +379,16 @@ function usePaginatedQueryInternal<Query extends PaginatedQueryReference>(
     }
   }
 
+  // Eagerly compute the initial state so `state.value` is never `null`.
+  const initialQuery = toValue(query)
+  const initialRawArgs = toValue(args)
+  const initialSkip = initialRawArgs === 'skip'
+  const initialArgsObject = (initialSkip ? {} : initialRawArgs) as Record<string, Value>
+  const { initialNumItems: initialInitialNumItems } = toValue(options)
+  const state = shallowRef<UsePaginatedQueryState>(
+    buildInitialState(initialQuery, initialArgsObject, initialSkip, initialInitialNumItems),
+  )
+
   // Reactive queries input for useConvexQueries. Resets state whenever
   // the query name, serialized args, or skip flag change.
   const queriesInput = computed(() => {
@@ -381,11 +399,11 @@ function usePaginatedQueryInternal<Query extends PaginatedQueryReference>(
     const { initialNumItems } = toValue(options)
 
     const currentState = state.value
-    const needsReset = !currentState
-      || getFunctionName(q) !== getFunctionName(currentState.query)
-      || JSON.stringify(convexToJson(argsObject as Value))
-      !== JSON.stringify(convexToJson(currentState.args))
-      || skip !== currentState.skip
+    const needsReset
+      = getFunctionName(q) !== getFunctionName(currentState.query)
+        || JSON.stringify(convexToJson(argsObject as Value))
+        !== JSON.stringify(convexToJson(currentState.args))
+        || skip !== currentState.skip
 
     if (needsReset) {
       state.value = buildInitialState(q, argsObject, skip, initialNumItems)

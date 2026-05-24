@@ -6,8 +6,8 @@ import type { RequestForQueries } from '../queries-observer'
 import { useConvexQueries } from './use-queries'
 
 type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<'query'>> = FuncRef['_args'] extends Record<string, never>
-  ? [args?: Record<string, never> | 'skip']
-  : [args: FuncRef['_args'] | 'skip']
+  ? [args?: MaybeRefOrGetter<Record<string, never> | 'skip'>]
+  : [args: MaybeRefOrGetter<FuncRef['_args'] | 'skip'>]
 
 export type { OptionalRestArgsOrSkip }
 

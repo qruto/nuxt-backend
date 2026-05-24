@@ -1,7 +1,7 @@
 import type { FunctionReference, FunctionReturnType } from 'convex/server'
 import { makeFunctionReference } from 'convex/server'
 import { jsonToConvex } from 'convex/values'
-import { computed, type ShallowRef } from 'vue'
+import { computed, shallowRef, type ShallowRef } from 'vue'
 import { useQuery } from './composables/use-query'
 
 /**
@@ -49,6 +49,13 @@ export function usePreloadedQuery<Query extends FunctionReference<'query'>>(
 ): ShallowRef<FunctionReturnType<Query>> {
   const args = jsonToConvex(preloadedQuery._argsJSON) as Query['_args']
   const preloadedResult = jsonToConvex(preloadedQuery._valueJSON) as FunctionReturnType<Query>
+
+  // On the server there is no live query — return the preloaded value
+  // without opening a Convex subscription. The client plugin replaces this
+  // with a reactive query after hydration.
+  if (import.meta.server) {
+    return shallowRef(preloadedResult) as ShallowRef<FunctionReturnType<Query>>
+  }
 
   const result = useQuery(
     makeFunctionReference(preloadedQuery._name) as Query,
