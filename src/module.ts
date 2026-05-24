@@ -1,4 +1,4 @@
-import { defineNuxtModule, addPlugin, addImports, addServerHandler, addServerImports, addRouteMiddleware, createResolver } from '@nuxt/kit'
+import { defineNuxtModule, addPlugin, addImports, addServerHandler, addServerImports, addRouteMiddleware, addComponent, createResolver } from '@nuxt/kit'
 import { join } from 'node:path'
 import { resolveFunctionsDir, scaffoldBackendFiles } from './scaffold'
 import type { BackendInstallationMode } from './templates'
@@ -80,7 +80,13 @@ export default defineNuxtModule<ModuleOptions>({
     // Client-only Convex plugin for Nuxt applications.
     // SSR data should be loaded via `fetchQuery` / `preloadQuery` from `#imports`
     // in server routes and passed to `usePreloadedQuery` on the client.
-    addPlugin(resolver.resolve('./runtime/vue/auth/plugin'))
+    addPlugin(resolver.resolve('./runtime/vue/auth/plugin.client'))
+
+    // Server plugin: prefetches the Better Auth/Convex JWT for SSR and
+    // stashes it in `useState('backend:initialToken')` so the client plugin
+    // can pass it to `useAuth(initialToken)` — mirrors React's
+    // `initialToken={await getToken()}` prop.
+    addPlugin(resolver.resolve('./runtime/vue/auth/plugin.server'))
 
     // Vue composables exposed by the Nuxt module.
     const vueComposables: Array<{ name: string, from: string, as?: string }> = [
@@ -106,6 +112,14 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Better Auth composables for the Vue/Nuxt runtime.
     addImports({ name: 'useAuth', from: resolver.resolve('./runtime/vue/auth/use-auth') })
+
+    // Auto-register low-level Convex auth helper components so that users
+    // can drop `<Authenticated>`, `<Unauthenticated>`, and `<AuthLoading>`
+    // straight into templates — mirroring the React integration's exports.
+    const helpersFile = resolver.resolve('./runtime/vue/auth/helpers')
+    for (const name of ['Authenticated', 'Unauthenticated', 'AuthLoading'] as const) {
+      addComponent({ name, filePath: helpersFile, export: name })
+    }
 
     // Auth proxy
     addServerHandler({

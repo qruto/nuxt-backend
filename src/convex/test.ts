@@ -1,14 +1,14 @@
 /// <reference types="vite/client" />
 import type { TestConvex } from 'convex-test'
 import { defineSchema, type GenericSchema, type SchemaDefinition } from 'convex/server'
-import betterAuth from '@convex-dev/better-auth/test'
 
 const modules = import.meta.glob('./component/**/*.ts')
 
 /**
  * Register the nuxt-backend component with a test Convex instance.
  *
- * This also registers the `betterAuth` child component automatically.
+ * The component owns its own auth schema locally (hybrid component pattern),
+ * so no upstream `betterAuth` child component is registered.
  *
  * @param t - The test convex instance, e.g. from calling `convexTest`.
  * @param name - The name of the component, as registered in convex.config.ts.
@@ -29,7 +29,6 @@ export function register(
   name: string = 'backend',
 ) {
   t.registerComponent(name, defineSchema({}), modules)
-  betterAuth.register(t, `${name}.betterAuth`)
 }
 
 export default { register, modules }

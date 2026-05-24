@@ -1,4 +1,4 @@
-import { defineNuxtPlugin, useRuntimeConfig } from '#app'
+import { defineNuxtPlugin, useRuntimeConfig, useState } from '#app'
 import { ConvexVueClient, ConvexClientKey } from '../client'
 import { ConvexAuthStateKey, createScopedConvexAuthState } from './index'
 import { useAuth } from './use-auth'
@@ -20,16 +20,18 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   // on the very first `setAuth()` call after a cross-domain redirect.
   await consumeCrossDomainOneTimeToken()
 
+  // Read the SSR-prefetched token from the Nuxt payload. Mirrors the React
+  // integration's `initialToken={await getToken()}` prop.
+  const initialToken = useState<string | null>('backend:initialToken', () => null)
+
   const { state, scope } = createScopedConvexAuthState({
     client,
-    useAuth: () => useAuth(),
+    useAuth: () => useAuth(initialToken.value),
   })
   nuxtApp.vueApp.provide(ConvexAuthStateKey, state)
 
-  if (typeof window !== 'undefined') {
-    window.addEventListener('beforeunload', () => {
-      scope.stop()
-      client.close()
-    })
-  }
+  window.addEventListener('beforeunload', () => {
+    scope.stop()
+    client.close()
+  })
 })

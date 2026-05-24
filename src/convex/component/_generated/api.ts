@@ -10,7 +10,6 @@
 
 import type * as adapter from "../adapter.js";
 import type * as constants from "../constants.js";
-import type * as http from "../http.js";
 
 import type {
   ApiFromModules,
@@ -22,7 +21,6 @@ import { anyApi, componentsGeneric } from "convex/server";
 const fullApi: ApiFromModules<{
   adapter: typeof adapter;
   constants: typeof constants;
-  http: typeof http;
 }> = anyApi as any;
 
 /**
@@ -51,6 +49,4 @@ export const internal: FilterApi<
   FunctionReference<any, "internal">
 > = anyApi as any;
 
-export const components = componentsGeneric() as unknown as {
-  betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
-};
+export const components = componentsGeneric() as unknown as {};

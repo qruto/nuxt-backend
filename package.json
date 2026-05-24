@@ -85,7 +85,8 @@
     "test:nuxt": "vitest --project nuxt --run",
     "test:e2e": "vitest --project e2e --run",
     "test:convex-component": "vitest --project convex-component --run",
-    "bump": "npx taze major -w"
+    "bump": "npx taze major -w",
+    "db:reset": "node scripts/db-reset.mjs"
   },
   "dependencies": {
     "@better-auth/passkey": "~1.6.11",
