@@ -1,119 +1,245 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { api } from '../backend/_generated/api'
-
 definePageMeta({ middleware: 'auth' })
 
-const { client, session } = useAuth()
-
-const { data: preloadedTodos } = await useFetch('/api/todos.preload', {
-  key: 'todos.preload',
-})
 const { data: preloadedUser } = await useFetch('/api/me.preload', {
   key: 'me.preload',
 })
-
 const user = usePreloadedAuthQuery(preloadedUser.value!)
-const todos = usePreloadedAuthQuery(preloadedTodos.value!)
 
-const createTodo = useMutation(api.todos.create)
-const toggleTodo = useMutation(api.todos.toggle)
-const removeTodo = useMutation(api.todos.remove)
-
-const newTodo = ref('')
-
-async function addTodo() {
-  if (!newTodo.value.trim()) return
-  await createTodo({ text: newTodo.value.trim() })
-  newTodo.value = ''
-}
-
-async function signOut() {
-  await client.signOut()
-  await navigateTo('/login')
-}
+const features = [
+  {
+    to: '/todos',
+    icon: '✓',
+    label: 'query + mutation',
+    title: 'Todos',
+    desc: 'Preloaded with SSR, hydrated into a live subscription. Per-user isolation.',
+    color: '#60a5fa',
+    live: false,
+  },
+  {
+    to: '/showcase/chat',
+    icon: '◈',
+    label: 'useQuery',
+    title: 'Realtime chat',
+    desc: 'Shared message stream. Open two windows and watch messages push instantly.',
+    color: '#a78bfa',
+    live: true,
+  },
+  {
+    to: '/showcase/counter',
+    icon: '⚡',
+    label: 'withOptimisticUpdate',
+    title: 'Optimistic mutations',
+    desc: 'UI updates before the server responds. Toggle to compare the latency difference.',
+    color: '#fbbf24',
+    live: true,
+  },
+  {
+    to: '/showcase/logs',
+    icon: '≡',
+    label: 'usePaginatedQuery',
+    title: 'Paginated logs',
+    desc: 'Infinite-scroll pagination. Seed hundreds of entries, filter by level.',
+    color: '#34d399',
+    live: false,
+  },
+  {
+    to: '/showcase/actions',
+    icon: '▶',
+    label: 'useAction',
+    title: 'Server actions',
+    desc: 'Non-reactive server calls with configurable delay, error rate, and results.',
+    color: '#f87171',
+    live: false,
+  },
+  {
+    to: '/showcase/connection',
+    icon: '◉',
+    label: 'useConvexConnectionState',
+    title: 'Connection state',
+    desc: 'Live WebSocket metrics, inflight counters, and a history of state transitions.',
+    color: '#818cf8',
+    live: true,
+  },
+]
 </script>
 
 <template>
-  <main class="page">
-    <header>
-      <div>
-        <h1>{{ user?.name ?? 'Welcome' }}</h1>
-        <p class="muted">
-          {{ user?.email ?? session.data?.user.email }}
-        </p>
-      </div>
-      <button
-        type="button"
-        class="danger"
-        @click="signOut"
-      >
-        Sign out
-      </button>
+  <div class="overview">
+    <header class="hero">
+      <p class="greeting">
+        Welcome back{{ user?.name ? `, ${user.name}` : '' }}
+      </p>
+      <h1>Convex Visual Playground</h1>
+      <p class="subtitle">
+        Every primitive exposed by <code>nuxt-backend</code> — live, interactive, and wired to a real Convex deployment.
+      </p>
     </header>
 
-    <form @submit.prevent="addTodo">
-      <input
-        v-model="newTodo"
-        placeholder="What needs doing?"
+    <div class="grid">
+      <NuxtLink
+        v-for="f in features"
+        :key="f.to"
+        :to="f.to"
+        class="card"
+        :style="{ '--feature-color': f.color }"
       >
-      <button
-        type="submit"
-        class="primary"
-      >
-        Add
-      </button>
-    </form>
-
-    <ul>
-      <li
-        v-for="todo in todos ?? []"
-        :key="todo._id"
-      >
-        <label>
-          <input
-            type="checkbox"
-            :checked="todo.completed"
-            @change="toggleTodo({ id: todo._id })"
-          >
-          <span :class="{ done: todo.completed }">{{ todo.text }}</span>
-        </label>
-        <button
-          type="button"
-          class="remove"
-          @click="removeTodo({ id: todo._id })"
-        >
-          ×
-        </button>
-      </li>
-    </ul>
-
-    <p
-      v-if="(todos ?? []).length === 0"
-      class="muted empty"
-    >
-      No todos yet — add one above.
-    </p>
-  </main>
+        <div class="card-top">
+          <span
+            class="card-icon"
+            :style="{ color: f.color }"
+          >{{ f.icon }}</span>
+          <span
+            v-if="f.live"
+            class="live-badge"
+          ><span class="live-dot" />live</span>
+        </div>
+        <code class="api-label">{{ f.label }}</code>
+        <h3>{{ f.title }}</h3>
+        <p>{{ f.desc }}</p>
+        <span class="arrow">→</span>
+      </NuxtLink>
+    </div>
+  </div>
 </template>
 
 <style scoped>
-.page { max-width: 540px; margin: 3rem auto; }
-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); }
-h1 { margin: 0; }
-form { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
-input[type="text"], input[type="email"], form input { flex: 1; padding: 0.5rem; border: 1px solid var(--input-border); border-radius: 4px; background: var(--input-bg); color: var(--text-color); }
-button.primary { background: var(--primary-color); color: white; border: 1px solid var(--primary-color); padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
-button.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
-button.danger { background: var(--danger-color); color: white; border: 1px solid var(--danger-color); padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
-button.danger:hover { background: var(--danger-hover); border-color: var(--danger-hover); }
-ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
-li { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); transition: background-color 0.2s; }
-li:hover { background: var(--card-hover); }
-li label { display: flex; align-items: center; gap: 0.75rem; cursor: pointer; flex: 1; }
-.done { text-decoration: line-through; color: var(--muted-color); }
-.remove { background: none; border: none; color: var(--danger-color); cursor: pointer; font-size: 1.5rem; padding: 0 0.5rem; line-height: 1; font-weight: bold; }
-.remove:hover { color: var(--danger-hover); }
-.muted { color: var(--muted-color); font-size: 0.875rem; margin: 0; margin-top: 0.25rem; }
-.empty { text-align: center; padding: 2rem 0; }
+.overview { max-width: 900px; }
+
+/* Hero */
+.hero { margin-bottom: 2rem; }
+.greeting {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 0.5rem;
+}
+h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.02em;
+}
+.subtitle {
+  color: var(--muted-color);
+  font-size: 0.9rem;
+  margin: 0;
+  max-width: 540px;
+}
+code {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  color: var(--accent);
+}
+
+/* Grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+/* Card */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+  text-decoration: none;
+  color: var(--text-color);
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--feature-color, var(--accent));
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.card:hover {
+  border-color: var(--border-hover);
+  background: var(--card-hover);
+  transform: translateY(-2px);
+}
+.card:hover::before { opacity: 1; }
+
+.card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+.card-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--success);
+  background: rgba(52, 211, 153, 0.12);
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+}
+.live-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--success);
+  animation: pulse-dot 2s infinite;
+}
+
+.api-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  color: var(--muted-color);
+  background: transparent;
+  border: none;
+  padding: 0;
+  letter-spacing: 0.02em;
+}
+
+.card h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.card p {
+  font-size: 0.82rem;
+  color: var(--muted-color);
+  margin: 0;
+  flex: 1;
+  line-height: 1.5;
+}
+.arrow {
+  align-self: flex-end;
+  color: var(--muted-color);
+  font-size: 1rem;
+  margin-top: 0.5rem;
+  transition: transform var(--transition), color var(--transition);
+}
+.card:hover .arrow {
+  transform: translateX(3px);
+  color: var(--text-color);
+}
 </style>

@@ -1,41 +1,109 @@
+/* ────────────────────────────────────────────────────────────
+   Design tokens — dark-first, light mode via @media override
+   ──────────────────────────────────────────────────────────── */
 :root {
-  --bg-color: #ffffff;
-  --text-color: #111827;
-  --border-color: #e5e7eb;
-  --muted-color: #6b7280;
-  --link-color: #3b82f6;
-  --primary-color: #3b82f6;
-  --primary-hover: #2563eb;
-  --danger-color: #ef4444;
-  --danger-hover: #dc2626;
-  --card-bg: #f9fafb;
-  --card-hover: #f3f4f6;
-  --input-bg: #ffffff;
-  --input-border: #ccc;
+  /* Backgrounds */
+  --bg-color:      #0b0f1a;
+  --sidebar-bg:    #07090f;
+  --card-bg:       #111827;
+  --card-hover:    #1a2235;
+  --input-bg:      #0d1321;
+
+  /* Borders */
+  --border-color:  #1e2d45;
+  --border-hover:  #2e4166;
+  --input-border:  #1e2d45;
+
+  /* Text */
+  --text-color:    #e2e8f0;
+  --muted-color:   #566a8a;
+  --code-color:    #94a3b8;
+
+  /* Links & accent */
+  --link-color:    #818cf8;
+  --accent:        #6366f1;
+  --accent-hover:  #4f46e5;
+  --accent-dim:    rgba(99, 102, 241, 0.12);
+  --accent-glow:   rgba(99, 102, 241, 0.25);
+
+  /* Primary button */
+  --primary-color: #6366f1;
+  --primary-hover: #4f46e5;
+
+  /* Danger */
+  --danger-color:  #f87171;
+  --danger-hover:  #ef4444;
+  --danger-dim:    rgba(248, 113, 113, 0.12);
+
+  /* Status */
+  --success:       #34d399;
+  --warning:       #fbbf24;
+  --info:          #60a5fa;
+
+  /* Misc */
+  --radius:        6px;
+  --radius-lg:     10px;
+  --transition:    150ms ease;
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   :root {
-    --bg-color: #111827;
-    --text-color: #f9fafb;
-    --border-color: #374151;
-    --muted-color: #9ca3af;
-    --link-color: #60a5fa;
-    --primary-color: #3b82f6;
-    --primary-hover: #2563eb;
-    --danger-color: #ef4444;
-    --danger-hover: #dc2626;
-    --card-bg: #1f2937;
-    --card-hover: #374151;
-    --input-bg: #111827;
-    --input-border: #4b5563;
+    --bg-color:     #f8fafc;
+    --sidebar-bg:   #f1f5f9;
+    --card-bg:      #ffffff;
+    --card-hover:   #f1f5f9;
+    --input-bg:     #ffffff;
+    --border-color: #e2e8f0;
+    --border-hover: #cbd5e1;
+    --input-border: #cbd5e1;
+    --text-color:   #0f172a;
+    --muted-color:  #64748b;
+    --code-color:   #475569;
+    --link-color:   #4f46e5;
+    --accent-dim:   rgba(99, 102, 241, 0.08);
+    --accent-glow:  rgba(99, 102, 241, 0.2);
+    --danger-dim:   rgba(239, 68, 68, 0.08);
   }
 }
 
+/* ────────────────────────────────────────────────────────────
+   Keyframes
+   ──────────────────────────────────────────────────────────── */
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 var(--success); opacity: 1; }
+  50%       { box-shadow: 0 0 0 5px transparent; opacity: 0.8; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ────────────────────────────────────────────────────────────
+   Reset / base
+   ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
 body {
-  background-color: var(--bg-color);
+  background: var(--bg-color);
   color: var(--text-color);
-  font-family: system-ui, sans-serif;
-  transition: background-color 0.2s, color 0.2s;
+  font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.6;
   margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ────────────────────────────────────────────────────────────
+   Shared utilities (used across components without scoping)
+   ──────────────────────────────────────────────────────────── */
+.mono {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+.fade-up {
+  animation: fade-up 0.2s ease both;
 }
