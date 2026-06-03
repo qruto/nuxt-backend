@@ -267,13 +267,15 @@ export function makeAuthApi<
 ) {
   const authComponent = createAuthComponent<DM, Schema>(componentRef, options)
 
+  const getAuthUser = queryBuilder({
+    args: {},
+    handler: async (ctx) => {
+      return authComponent.getAuthUser(ctx)
+    },
+  })
+
   return {
-    getCurrentUser: queryBuilder({
-      args: {},
-      handler: async (ctx) => {
-        return authComponent.getAuthUser(ctx)
-      },
-    }),
+    getAuthUser,
   }
 }
 
@@ -289,7 +291,7 @@ export function makeAuthApi<
  * import { components } from './_generated/api'
  * import { query } from './_generated/server'
  *
- * export const { authComponent, createAuth, getCurrentUser } = setupAuth(
+ * export const { authComponent, createAuth, getAuthUser } = setupAuth(
  *   components.backend, query,
  * )
  * ```
@@ -303,7 +305,7 @@ export function setupAuth<
   options?: SetupAuthOptions<Schema>,
 ) {
   const authComponent = createAuthComponent<DM, Schema>(componentRef, options)
-  const { getCurrentUser } = makeAuthApi(componentRef, queryBuilder, options)
+  const { getAuthUser } = makeAuthApi(componentRef, queryBuilder, options)
 
   const createAuthOptionsForContext = (ctx: GenericCtx<DM>) => {
     return createBetterAuthOptions(authComponent.adapter(ctx), {
@@ -322,6 +324,6 @@ export function setupAuth<
     createAuthOptions: createAuthOptionsForContext,
     options: createAuthOptionsForContext({} as GenericCtx<DM>),
     createAuth: createAuthForContext,
-    getCurrentUser,
+    getAuthUser,
   }
 }

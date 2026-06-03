@@ -296,7 +296,7 @@ For auth-protected data, preload through `backendAuth(event)` and hydrate with `
 ```ts
 // server/api/account.preload.ts
 export default defineEventHandler((event) => {
-  return backendAuth(event).preloadAuthQuery(api.auth.getCurrentUser, {})
+  return backendAuth(event).preloadAuthQuery(api.auth.getAuthUser, {})
 })
 ```
 
@@ -395,7 +395,7 @@ export const {
   createAuthOptions,
   options,
   createAuth,
-  getCurrentUser,
+  getAuthUser,
 } = setupAuth(components.backend, query, {
   authOptions: {
     appName: 'Acme',
@@ -425,7 +425,7 @@ export const {
   createAuthOptions,
   options,
   createAuth,
-  getCurrentUser,
+  getAuthUser,
 } = setupAuth(components.backend, query, {
   basePath: '/internal/auth',
 })
@@ -481,7 +481,7 @@ The package-specific capabilities, beyond the raw Better Auth component, are:
 - Same-origin auth proxying from Nuxt to Convex so cookies stay on the app domain.
 - Route alignment between the Nuxt auth proxy, Better Auth `basePath`, and Convex JWKS/auth provider config.
 - Reactive Better Auth access through `useAuth().session` and server-side token forwarding through `fetchQuery(..., { token })`.
-- A small Convex auth bridge with `setupAuth(...)`, `createAuthOptions(ctx)`, `options`, `createAuth(ctx)`, and `getCurrentUser` so apps can stay close to Convex conventions.
+- A small Convex auth bridge with `setupAuth(...)`, `createAuthOptions(ctx)`, `options`, `createAuth(ctx)`, and `getAuthUser` so apps can stay close to Convex conventions.
 - A zero-config path for new apps, plus local hybrid scaffolding for apps that need schema ownership.
 
 The package should not try to own app-specific user schema, onboarding, profile storage, or product authorization rules. It should provide the auth transport and integration contract, then let the app define domain behavior on top.
@@ -520,7 +520,7 @@ export const {
   createAuthOptions,
   options,
   createAuth,
-  getCurrentUser,
+  getAuthUser,
 } = setupAuth(components.backend, query)
 ```
 

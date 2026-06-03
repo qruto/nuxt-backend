@@ -25,7 +25,7 @@ Integrate [Convex](https://convex.dev) with [Nuxt](https://nuxt.com) — one pac
 ### Convex Auth Component
 - 🔑 **Better Auth** — email/password authentication out of the box
 - 🗄️ **Convex adapter** — Better Auth persistence backed by your Convex database
-- ⚙️ **`nuxt-backend/convex` bridge** — exposes `setupAuth(...)`, official Better Auth Convex exports, and `getCurrentUser` for app Convex functions
+- ⚙️ **`nuxt-backend/convex` bridge** — exposes `setupAuth(...)`, official Better Auth Convex exports, and `getAuthUser` for app Convex functions
 - 🔗 **Auth config wiring** — `auth.config.ts` keeps Convex token verification aligned with Better Auth
 
 ## Installation
@@ -159,7 +159,7 @@ export const {
   createAuthOptions,
   options,
   createAuth,
-  getCurrentUser,
+  getAuthUser,
 } = setupAuth(components.backend, query)
 ```
 
@@ -174,7 +174,7 @@ authComponent.registerRoutes(http, createAuth)
 export default http
 ```
 
-That setup mounts the packaged Better Auth component, configures Convex to trust its tokens, and exposes `api.auth.getCurrentUser` for app queries.
+That setup mounts the packaged Better Auth component, configures Convex to trust its tokens, and exposes `api.auth.getAuthUser` for app queries.
 
 ### Local hybrid install
 
@@ -254,7 +254,7 @@ import { api } from '~/backend/_generated/api'
 definePageMeta({ middleware: 'auth' })
 
 const { session } = useAuth()
-const currentUser = useQuery(api.auth.getCurrentUser, {})
+const currentUser = useQuery(api.auth.getAuthUser, {})
 const email = computed(() => session.value.data?.user.email)
 </script>
 
@@ -281,7 +281,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-  return auth.fetchAuthQuery(api.auth.getCurrentUser, {})
+  return auth.fetchAuthQuery(api.auth.getAuthUser, {})
 })
 ```
 
@@ -292,7 +292,7 @@ export default defineEventHandler(async (event) => {
 import { api } from '~/backend/_generated/api'
 
 export default defineEventHandler((event) => {
-  return backendAuth(event).preloadAuthQuery(api.auth.getCurrentUser, {})
+  return backendAuth(event).preloadAuthQuery(api.auth.getAuthUser, {})
 })
 ```
 

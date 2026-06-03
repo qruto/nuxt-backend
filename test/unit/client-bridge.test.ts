@@ -39,7 +39,7 @@ describe('Convex component client bridge', () => {
 
     expect(queryBuilder).toHaveBeenCalledTimes(1)
     expect(queryBuilder).toHaveBeenCalledWith(expect.objectContaining({ args: {} }))
-    expect(authApi).toHaveProperty('getCurrentUser')
+    expect(authApi).toHaveProperty('getAuthUser')
   })
 
   it('keeps setupAuth as the convenience composition of the client patterns', () => {
@@ -51,6 +51,6 @@ describe('Convex component client bridge', () => {
     expect(typeof authSetup.createAuthOptions).toBe('function')
     expect(authSetup).toHaveProperty('options')
     expect(authSetup).toHaveProperty('authComponent')
-    expect(authSetup).toHaveProperty('getCurrentUser')
+    expect(authSetup).toHaveProperty('getAuthUser')
   })
 })

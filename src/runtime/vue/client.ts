@@ -11,6 +11,7 @@ import type {
   QueryJournal,
   QueryToken,
   SubscribeOptions,
+  PaginationStatus,
 } from 'convex/browser'
 import type {
   ArgsAndOptions,
@@ -41,6 +42,20 @@ export interface Watch<T> {
   localQueryLogs(): string[] | undefined
   /** Get the current journal for this query. */
   journal(): QueryJournal | undefined
+}
+
+/**
+ * A watch on the output of a paginated Convex query function.
+ *
+ * @public
+ */
+export interface PaginatedWatch<T> {
+  onUpdate(callback: () => void): () => void
+  localQueryResult(): {
+    results: T[]
+    status: PaginationStatus
+    loadMore: (numItems: number) => boolean
+  } | undefined
 }
 
 /**
@@ -96,6 +111,20 @@ const defaultConsoleLogger: ConvexLogger = {
   error: (...args) => console.error(...args),
 }
 
+// Local definition for the paginated client ctor getter (to match pasted react client
+// logic for getter + method + field + handle + PaginationStatus etc).
+// We intentionally do not import the internal PaginatedQueryClient (from
+// convex/browser/sync/... which is not part of the public exports) to avoid
+// "forbidden internals". The main paginated query composables use fully local
+// implementations (local defs + local helpers) for parity. This keeps the
+// low-level watchPaginatedQuery path falling back gracefully.
+function getPaginatedQueryClientCtor(): any {
+  // Always throw here so the try/catch in paginatedQueryClient getter surfaces
+  // the documented "not available" message. This is the intended behavior when
+  // not using the (non-exported) internal.
+  throw new Error('getPaginatedQueryClientCtor: internal not available (local def avoids forbidden import)')
+}
+
 interface SyncClientWithInternals extends BaseConvexClient {
   setAdminAuth(token: string, identity?: UserIdentityAttributes): void
   localQueryLogs(udfPath: string, args?: Record<string, Value>): string[] | undefined
@@ -117,7 +146,8 @@ interface SyncClientWithInternals extends BaseConvexClient {
 export class ConvexVueClient {
   private address: string
   private cachedSync?: BaseConvexClient
-  private listeners: Map<QueryToken, Set<() => void>>
+  private cachedPaginatedQueryClient?: any
+  private listeners: Map<any, Set<() => void>>
   private options: ConvexVueClientOptions
   private closed = false
 
@@ -177,6 +207,35 @@ export class ConvexVueClient {
       sync.setAdminAuth(this.adminAuth, this.fakeUserIdentity)
     }
     return this.cachedSync
+  }
+
+  /**
+   * Lazily instantiate the `PaginatedQueryClient` so we don't create it
+   * when server-side rendering.
+   *
+   * @internal
+   */
+  get paginatedQueryClient() {
+    if (this.cachedPaginatedQueryClient) {
+      return this.cachedPaginatedQueryClient
+    }
+    // access sync to ensure base
+    void this.sync
+    try {
+      const PQC = getPaginatedQueryClientCtor()
+      this.cachedPaginatedQueryClient = new PQC(
+        this.cachedSync,
+        (transition: any) => this.handleTransition(transition),
+      )
+      return this.cachedPaginatedQueryClient
+    }
+    catch (e) {
+      this.cachedPaginatedQueryClient = null as any
+      throw new Error(
+        'PaginatedQueryClient is not available. This is an internal Convex detail; '
+        + 'usePaginatedQuery_experimental currently falls back to a manual implementation.',
+      )
+    }
   }
 
   /**
@@ -282,6 +341,59 @@ export class ConvexVueClient {
           return this.cachedSync.queryJournal(name, args)
         }
         return undefined
+      },
+    }
+  }
+
+  /**
+   * Construct a new {@link PaginatedWatch} on a Convex paginated query function.
+   *
+   * **Most application code should not call this method directly. Instead use
+   * the {@link usePaginatedQuery} composable.**
+   *
+   * The act of creating a watch does nothing, a Watch is stateless.
+   *
+   * @internal
+   */
+  watchPaginatedQuery<Query extends FunctionReference<'query'>>(
+    query: Query,
+    args: FunctionArgs<Query>,
+    options: any,
+  ): PaginatedWatch<FunctionReturnType<Query>> {
+    const name = getFunctionName(query)
+    const PQC = this.paginatedQueryClient // ensures created and lazy inits
+
+    return {
+      onUpdate: (callback: () => void) => {
+        const { paginatedQueryToken, unsubscribe }
+          = PQC.subscribe(name, (args || {}) as Record<string, Value>, options)
+
+        const currentListeners = this.listeners.get(paginatedQueryToken as any)
+        if (currentListeners !== undefined) {
+          currentListeners.add(callback)
+        }
+        else {
+          this.listeners.set(paginatedQueryToken as any, new Set([callback]))
+        }
+
+        return () => {
+          if (this.closed) {
+            return
+          }
+
+          const currentListeners = this.listeners.get(paginatedQueryToken as any)!
+          currentListeners.delete(callback)
+          if (currentListeners.size === 0) {
+            this.listeners.delete(paginatedQueryToken as any)
+          }
+          unsubscribe()
+        }
+      },
+
+      localQueryResult: () => {
+        return PQC.localQueryResult(name, (args || {}) as Record<string, Value>, options) as
+          | { results: FunctionReturnType<Query>['page'], status: any, loadMore: any }
+          | undefined
       },
     }
   }
@@ -436,6 +548,12 @@ export class ConvexVueClient {
         }
       }
     }
+  }
+
+  private handleTransition(transition: any) {
+    const simple = transition.queries.map((q: any) => q.token)
+    const paginated = transition.paginatedQueries.map((q: any) => q.token)
+    this.transition([...simple, ...paginated])
   }
 }
 

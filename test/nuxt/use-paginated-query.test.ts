@@ -266,6 +266,8 @@ describe('usePaginatedQuery', () => {
       { tick: true },
       )
 
+      // Experimental uses the manual (multi-page) impl via watchQuery (with
+      // paginationOpts injected into args), same as stable positional.
       const firstPageArgs = getWatchQueryArgs(
         watchQuerySpy.mock.calls as WatchQueryCalls,
         args => asPaginatedCallArgs(args).paginationOpts?.cursor === null,
@@ -652,12 +654,11 @@ describe('UsePaginatedQueryObjectReturnType', () => {
 describe('usePaginatedQuery_experimental', () => {
   const queryRef = makeFunctionReference<'query'>('myQuery:default') as PaginatedQueryReference
 
-  // Mirrors React's public `usePaginatedQuery_experimental`. React backs its
-  // experimental hook with the native `PaginatedQueryClient` the published
-  // `convex` package does not export; this port reuses our manual page-management
-  // implementation. The signatures still match React exactly: `usePaginatedQuery`
-  // is positional-only, while only `usePaginatedQuery_experimental` adds the
-  // object-form overload.
+  // Mirrors React's public `usePaginatedQuery_experimental`. The experimental
+  // hook is powered by the native `PaginatedQueryClient` (via watchPaginatedQuery +
+  // paginationOptions in useQueries), while the stable `usePaginatedQuery` uses the
+  // manual multi-page implementation for backward compatibility. Signatures match
+  // the React/Next integration exactly.
   it('is a distinct function from usePaginatedQuery', () => {
     expect(usePaginatedQuery_experimental).not.toBe(usePaginatedQuery)
     expect(typeof usePaginatedQuery_experimental).toBe('function')
@@ -689,6 +690,7 @@ describe('usePaginatedQuery_experimental', () => {
 
   it('object form returns pending when skipped', async () => {
     const client = new ConvexVueClient(address)
+    const watchPaginatedSpy = vi.spyOn(client, 'watchPaginatedQuery')
     const watchQuerySpy = vi.spyOn(client, 'watchQuery')
 
     const { result } = await mountWithConvex(client, () =>
@@ -699,6 +701,7 @@ describe('usePaginatedQuery_experimental', () => {
       }),
     )
 
+    expect(watchPaginatedSpy).not.toHaveBeenCalled()
     expect(watchQuerySpy).not.toHaveBeenCalled()
     expect(result.value).toMatchObject({
       isLoading: true,

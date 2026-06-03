@@ -35,21 +35,35 @@ export interface NuxtConvexOptions {
    */
   token?: string
   /**
-   * The URL of the Convex deployment to use. Defaults to `process.env.NUXT_PUBLIC_CONVEX_URL`.
+   * The URL of the Convex deployment to use for the function call.
+   * Defaults to `process.env.NUXT_PUBLIC_CONVEX_URL` if not provided.
+   *
+   * Explicitly passing undefined here (such as from missing ENV variables) will throw an error in the future.
    */
   url?: string
+
   /**
-   * Skip validating that the deployment URL looks like
+   * @internal
+   */
+  adminToken?: string
+  /**
+   * Skip validating that the Convex deployment URL looks like
    * `https://happy-animal-123.convex.cloud` or localhost.
+   *
+   * This can be useful if running a self-hosted Convex backend that uses a different
+   * URL.
+   *
+   * The default value is `false`
    */
   skipConvexDeploymentUrlCheck?: boolean
 }
 
 interface ConvexHttpClientWithFetchOptions extends ConvexHttpClient {
   setFetchOptions(options: RequestInit): void
+  setAdminAuth(token: string): void
 }
 
-function getConvexUrl(deploymentUrl: string | undefined): string {
+function getConvexUrl(deploymentUrl: string | undefined, skipConvexDeploymentUrlCheck: boolean): string {
   const runtimeUrl = getBackendRuntimeConfig().url
   const url = deploymentUrl
     ?? runtimeUrl
@@ -62,13 +76,44 @@ function getConvexUrl(deploymentUrl: string | undefined): string {
         : 'Convex function called with invalid deployment address.',
     )
   }
+  if (!skipConvexDeploymentUrlCheck) {
+    if (!(url.startsWith('http:') || url.startsWith('https:'))) {
+      throw new Error(
+        `Invalid deployment address: Must start with "https://" or "http://". Found "${url}".`,
+      )
+    }
+    try {
+      new URL(url)
+    }
+    catch {
+      throw new Error(
+        `Invalid deployment address: "${url}" is not a valid URL. If you believe this URL is correct, use the \`skipConvexDeploymentUrlCheck\` option to bypass this.`,
+      )
+    }
+    if (url.endsWith('.convex.site')) {
+      throw new Error(
+        `Invalid deployment address: "${url}" ends with .convex.site, which is used for HTTP Actions. Convex deployment URLs typically end with .convex.cloud? If you believe this URL is correct, use the \`skipConvexDeploymentUrlCheck\` option to bypass this.`,
+      )
+    }
+  }
   return url
 }
 
 function setupClient(options: NuxtConvexOptions): ConvexHttpClient {
-  const client = new ConvexHttpClient(getConvexUrl(options.url)) as ConvexHttpClientWithFetchOptions
+  if ('url' in options && options.url === undefined) {
+    // This will be an error in the future.
+
+    console.error(
+      'deploymentUrl is undefined, are your environment variables set? In the future explicitly passing undefined will cause an error. To explicitly use the default, pass `process.env.NUXT_PUBLIC_CONVEX_URL`.',
+    )
+  }
+  const skip = options.skipConvexDeploymentUrlCheck ?? false
+  const client = new ConvexHttpClient(getConvexUrl(options.url, skip)) as ConvexHttpClientWithFetchOptions
   if (options.token !== undefined) {
     client.setAuth(options.token)
+  }
+  if (options.adminToken !== undefined) {
+    client.setAdminAuth(options.adminToken)
   }
   client.setFetchOptions({ cache: 'no-store' })
   return client

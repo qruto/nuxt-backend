@@ -2,28 +2,27 @@ import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex
 import { makeFunctionReference } from 'convex/server'
 import type { Value } from 'convex/values'
 import { computed, shallowRef, toValue, watchEffect, type MaybeRefOrGetter, type ShallowRef } from 'vue'
-import type { RequestForQueries } from '../queries-observer'
-import { useConvexQueries } from './use-queries'
-
+import { useConvexQueries, type RequestForQueries } from './use-queries'
+// Our OptionalRestArgsOrSkip is Vue-enhanced (supports MaybeRefOrGetter for reactive args).
 type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<'query'>> = FuncRef['_args'] extends Record<string, never>
   ? [args?: MaybeRefOrGetter<Record<string, never> | 'skip'>]
   : [args: MaybeRefOrGetter<FuncRef['_args'] | 'skip'>]
 
 export type { OptionalRestArgsOrSkip }
 
-/**
- * Result returned by the object-form {@link useQuery_experimental}.
- *
- * Inspect the discriminated `status` field to use the result. When
- * `ThrowOnError` is `true` the `'error'` variant is removed from the union,
- * since in that mode errors are thrown instead of being returned.
- *
- * @public
- */
-export type UseQueryResult<QueryResult, ThrowOnError extends boolean = false>
-  = | { status: 'pending' }
-    | { status: 'success', data: QueryResult }
-    | (ThrowOnError extends true ? never : { status: 'error', error: Error })
+// UseQueryResult is defined locally (derived from convex/react shape) to avoid a runtime
+// dependency on the react entrypoint of convex (which would require the "react" peer
+// even for pure-Vue usage). The barrel at ../index.ts re-exports the canonical type
+// from "convex/react" for consumers who import types from the Vue barrel.
+export type UseQueryResult<QueryResult, ThrowOnError extends boolean = false> = {
+  status: 'pending'
+} | {
+  status: 'success'
+  data: QueryResult
+} | (ThrowOnError extends true ? never : {
+  status: 'error'
+  error: Error
+})
 
 interface UseQueryOptions<
   Query extends FunctionReference<'query'>,
@@ -103,7 +102,7 @@ export function useQuery<Query extends FunctionReference<'query'>>(
   // matching React's `<ErrorBoundary>` behavior.
   const result = shallowRef<FunctionReturnType<Query> | undefined>(undefined)
   watchEffect(() => {
-    const r = allResults.value.query
+    const r = allResults.value.query as FunctionReturnType<Query> | undefined | Error
     if (r instanceof Error) throw r
     result.value = r
   })
@@ -179,7 +178,7 @@ export function useQuery_experimental<
     status: 'pending',
   })
   watchEffect(() => {
-    const r = allResults.value.query
+    const r = allResults.value.query as FunctionReturnType<Query> | undefined | Error
     if (r instanceof Error) {
       if (throwOnError) throw r
       result.value = { error: r, status: 'error' }

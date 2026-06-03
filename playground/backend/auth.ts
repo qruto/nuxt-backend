@@ -7,5 +7,5 @@ export const {
   createAuthOptions,
   options,
   createAuth,
-  getCurrentUser,
+  getAuthUser,
 } = setupAuth(components.backend, query)

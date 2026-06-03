@@ -38,7 +38,7 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
       createAuthOptions,
       options,
       createAuth,
-      getCurrentUser,
+      getAuthUser,
     } = setupAuth(components.backend, query)
     ` + '\n',
   'http.ts': HTTP_TEMPLATE,
@@ -71,7 +71,7 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
       createAuthOptions,
       options,
       createAuth,
-      getCurrentUser,
+      getAuthUser,
     } = setupAuth(components.backend, query, { schema })
     ` + '\n',
   'http.ts': HTTP_TEMPLATE,

@@ -11,11 +11,30 @@
  */
 
 // Client
+// Derive additional shared types from the official Convex React integration
+// (avoids duplication and keeps our public API types in sync with upstream).
+// Use "import type" here so the specifier is erased in JS output; no runtime dep
+// on convex/react (and thus no "react" peer) even if this barrel is loaded.
+// Internals (composables) use local defs; barrel provides the canonical types.
+import type {
+  UsePaginatedQueryOptions,
+  UsePaginatedQueryObjectReturnType,
+  UsePaginatedQueryResult,
+  UsePaginatedQueryReturnType,
+  PaginatedQueryReference,
+  PaginatedQueryArgs,
+  PaginatedQueryItem,
+  // UseQueryResult provided via composables (local def for internals; see use-query.ts)
+  // OptionalRestArgsOrSkip provided via composables (derived)
+  // PaginationStatus already re-exported via browser or composables
+} from 'convex/react'
+
 export {
   ConvexVueClient,
   ConvexClientKey,
   useConvex,
   type Watch,
+  type PaginatedWatch,
   type WatchQueryOptions,
   type VueMutationOptions,
   type ConvexVueClientOptions,
@@ -39,6 +58,16 @@ export type {
 } from 'convex/server'
 
 export type { Value } from 'convex/values'
+
+export type {
+  UsePaginatedQueryOptions,
+  UsePaginatedQueryObjectReturnType,
+  UsePaginatedQueryResult,
+  UsePaginatedQueryReturnType,
+  PaginatedQueryReference,
+  PaginatedQueryArgs,
+  PaginatedQueryItem,
+}
 
 // Queries
 export {
