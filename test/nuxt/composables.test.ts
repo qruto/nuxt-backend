@@ -9,7 +9,7 @@ import { createMutation, useMutation } from '../../src/runtime/vue/composables/u
 import { useAction } from '../../src/runtime/vue/composables/use-action'
 import { useConvexConnectionState } from '../../src/runtime/vue/composables/use-connection-state'
 import { useConvexAuth, ConvexAuthStateKey, type ConvexAuthState } from '../../src/runtime/vue/auth'
-import { useQuery } from '../../src/runtime/vue/composables/use-query'
+import { useQuery, useQuery_experimental } from '../../src/runtime/vue/composables/use-query'
 
 const address = 'https://127.0.0.1:3001'
 const seededQueryRef = makeFunctionReference<'query'>('myQuery:default')
@@ -173,21 +173,18 @@ describe('useQuery', () => {
   })
 
   it('object form returns success result', async () => {
-    const { result } = await mountWithConvex(client, () => useQuery({ query: seededQueryRef, args: {} }), { tick: true })
+    const { result } = await mountWithConvex(client, () => useQuery_experimental({ query: seededQueryRef, args: {} }), { tick: true })
 
     expect(result.value).toStrictEqual({
       data: 'queryResult',
-      error: undefined,
       status: 'success',
     })
   })
 
   it('object form returns pending when skipped', async () => {
-    const { result } = await mountWithConvex(client, () => useQuery({ query: seededQueryRef, args: 'skip' }))
+    const { result } = await mountWithConvex(client, () => useQuery_experimental({ query: seededQueryRef, args: 'skip' }))
 
     expect(result.value).toStrictEqual({
-      data: undefined,
-      error: undefined,
       status: 'pending',
     })
   })

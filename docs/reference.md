@@ -58,7 +58,8 @@ Returns the client-side `ConvexVueClient` injected by the Nuxt plugin. There is 
 
 ### `useQuery()` / `useConvexQuery()`
 
-The positional overload returns a `ShallowRef<T | undefined>` and throws query errors.
+Returns a `ShallowRef<T | undefined>` and throws query errors. Use
+`useQuery_experimental()` if you want errors returned in the result instead.
 
 ```vue
 <script setup lang="ts">
@@ -75,14 +76,16 @@ const profile = useQuery(
 </script>
 ```
 
-The object overload returns a discriminated union with `status`, `data`, and `error`.
+### `useQuery_experimental()`
+
+The experimental object form returns a `ShallowRef` of a discriminated union with `status` and either `data` or `error`. Errors are returned in the result unless `throwOnError: true` is set, in which case they are thrown.
 
 ```vue
 <script setup lang="ts">
 import { computed } from 'vue'
 import { api } from '~/backend/_generated/api'
 
-const result = useQuery({
+const result = useQuery_experimental({
   query: api.messages.list,
   args: computed(() => ({ channel: channel.value })),
   throwOnError: false,
@@ -154,7 +157,26 @@ messages.value.loadMore(20)
 </script>
 ```
 
-The positional overload returns `{ results, status, isLoading, loadMore }`. The object overload returns `{ data, status, error, canLoadMore, isLoading, loadMore }`.
+Returns a `ShallowRef` of `{ results, status, isLoading, loadMore }`, where `status` is one of `'LoadingFirstPage' | 'CanLoadMore' | 'LoadingMore' | 'Exhausted'`. Query errors are thrown. Use `usePaginatedQuery_experimental()` if you want errors returned in the result instead.
+
+### `usePaginatedQuery_experimental()`
+
+Adds an object-form overload on top of `usePaginatedQuery`. The positional overload behaves exactly like `usePaginatedQuery` (TitleCase `status`, throws on error). The object overload returns `{ data, status, error, canLoadMore, isLoading, loadMore }`, where `status` is one of `'pending' | 'success' | 'error'`; errors are returned via `status: 'error'` unless `throwOnError: true` is set.
+
+```vue
+<script setup lang="ts">
+import { api } from '~/backend/_generated/api'
+
+const messages = usePaginatedQuery_experimental({
+  query: api.messages.list,
+  args: { channel: '#general' },
+  initialNumItems: 20,
+})
+// messages.value.status: 'pending' | 'success' | 'error'
+</script>
+```
+
+> React backs its experimental hook with the Convex client's native `PaginatedQueryClient`, which the published `convex` package does not export. This port reuses the same manual page-management implementation `usePaginatedQuery` uses, which yields identical observable results.
 
 ### `usePreloadedQuery()`
 

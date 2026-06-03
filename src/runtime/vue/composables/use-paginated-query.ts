@@ -52,7 +52,10 @@ export type PaginatedQueryItem<Query extends PaginatedQueryReference>
  *
  * @public
  */
-export type UsePaginatedQueryOptions<Query extends PaginatedQueryReference> = {
+export type UsePaginatedQueryOptions<
+  Query extends PaginatedQueryReference,
+  ThrowOnError extends boolean = false,
+> = {
   query: Query
   args: PaginatedQueryArgs<Query> | 'skip'
   initialNumItems: number
@@ -61,7 +64,7 @@ export type UsePaginatedQueryOptions<Query extends PaginatedQueryReference> = {
    * When `false` (default for the object overload) errors surface via
    * `status: 'error'` instead of being thrown.
    */
-  throwOnError?: boolean
+  throwOnError?: ThrowOnError
 }
 
 // Internal state key type.
@@ -134,9 +137,12 @@ export type UsePaginatedQueryReturnType<Query extends PaginatedQueryReference>
  * {@link usePaginatedQuery}. Exposed via {@link UsePaginatedQueryObjectReturnType}
  * when bound to a specific query.
  *
+ * When `ThrowOnError` is `true` the `'error'` variant is removed from the
+ * union, since in that mode errors are thrown instead of being returned.
+ *
  * @public
  */
-export type UsePaginatedQueryObjectResult<Item>
+export type UsePaginatedQueryObjectResult<Item, ThrowOnError extends boolean = false>
   = | {
     data: Item[] | undefined
     status: 'pending'
@@ -153,14 +159,14 @@ export type UsePaginatedQueryObjectResult<Item>
     error: undefined
     loadMore: (numItems: number) => void
   }
-  | {
+  | (ThrowOnError extends true ? never : {
     data: Item[]
     status: 'error'
     canLoadMore: false
     isLoading: false
     error: Error
     loadMore: (numItems: number) => void
-  }
+  })
 
 /**
  * The return type of {@link usePaginatedQuery} when called with the
@@ -174,7 +180,8 @@ export type UsePaginatedQueryObjectResult<Item>
  */
 export type UsePaginatedQueryObjectReturnType<
   Query extends PaginatedQueryReference,
-> = UsePaginatedQueryObjectResult<PaginatedQueryItem<Query>>
+  ThrowOnError extends boolean = false,
+> = UsePaginatedQueryObjectResult<PaginatedQueryItem<Query>, ThrowOnError>
 
 /**
  * @internal
@@ -224,70 +231,18 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
   query: Query,
   args: MaybeRefOrGetter<PaginatedQueryArgs<Query> | 'skip'>,
   options: { initialNumItems: number },
-): ShallowRef<UsePaginatedQueryReturnType<Query>>
-
-/**
- * Object-form overload for {@link usePaginatedQuery}.
- *
- * Accepts a single options object and returns an object-form result with
- * `data`, `status: 'pending' | 'success' | 'error'`, `canLoadMore`, and
- * `error`. Errors are surfaced via `status: 'error'` unless
- * `throwOnError: true` is set.
- *
- * @public
- */
-export function usePaginatedQuery<Query extends PaginatedQueryReference>(
-  options: MaybeRefOrGetter<UsePaginatedQueryOptions<Query>>,
-): ShallowRef<UsePaginatedQueryObjectReturnType<Query>>
-
-export function usePaginatedQuery<Query extends PaginatedQueryReference>(
-  queryOrOptions:
-    | Query
-    | MaybeRefOrGetter<UsePaginatedQueryOptions<Query>>,
-  args?: MaybeRefOrGetter<PaginatedQueryArgs<Query> | 'skip'>,
-  options?: { initialNumItems: number },
-):
-  | ShallowRef<UsePaginatedQueryReturnType<Query>>
-  | ShallowRef<UsePaginatedQueryObjectReturnType<Query>> {
-  // Detect object-form by sniffing the first arg. Supports reactive refs
-  // (ref/computed/getter) of the options object too, matching the
-  // `MaybeRefOrGetter` contract used elsewhere in this package.
-  const firstValue = toValue(queryOrOptions as MaybeRefOrGetter<unknown>)
-  const isObjectOptions = typeof firstValue === 'object'
-    && firstValue !== null
-    && 'query' in (firstValue as object)
-
-  if (isObjectOptions) {
-    const optsGetter = () => toValue(
-      queryOrOptions as MaybeRefOrGetter<UsePaginatedQueryOptions<Query>>,
-    )
-    const initial = optsGetter()
-    validateInitialNumItems(initial.initialNumItems)
-
-    const internal = usePaginatedQueryInternal<Query>(
-      () => optsGetter().query,
-      () => optsGetter().args,
-      () => ({ initialNumItems: optsGetter().initialNumItems }),
-      () => optsGetter().throwOnError ?? false,
-    )
-
-    return computed(
-      () => reshapeToObjectForm<PaginatedQueryItem<Query>>(internal.value),
-    )
-  }
-
+): ShallowRef<UsePaginatedQueryReturnType<Query>> {
   validateInitialNumItems(options?.initialNumItems)
 
-  const query = queryOrOptions as Query
   const internal = usePaginatedQueryInternal<Query>(
     () => query,
-    args as MaybeRefOrGetter<PaginatedQueryArgs<Query> | 'skip'>,
-    () => options as { initialNumItems: number },
+    args,
+    () => options,
     () => true,
   )
 
-  // Positional form always throws on error — expose the positional result
-  // type by stripping the internal 'Error' variant from the union.
+  // The positional form always throws on error, so the internal 'Error'
+  // variant never surfaces — expose the positional result type directly.
   return internal as ShallowRef<UsePaginatedQueryReturnType<Query>>
 }
 
@@ -664,6 +619,86 @@ function noopLoadMore(_numItems: number): void {
 
 /** @public */
 export const useConvexPaginatedQuery = usePaginatedQuery
+
+/**
+ * Experimental paginated query that adds an object-form overload on top of the
+ * positional {@link usePaginatedQuery}, mirroring the public name React's
+ * Convex integration exposes (`usePaginatedQuery_experimental`).
+ *
+ * The positional overload behaves exactly like {@link usePaginatedQuery}: it
+ * returns the TitleCase {@link UsePaginatedQueryReturnType} and throws on error.
+ * The object overload returns the lowercase-status
+ * {@link UsePaginatedQueryObjectReturnType} and surfaces errors via
+ * `status: 'error'` (unless `throwOnError: true`).
+ *
+ * Note: React backs its experimental hook with the Convex client's native
+ * `PaginatedQueryClient`, which the published `convex` package does not export.
+ * This port reuses our manual page-management implementation, which produces
+ * identical observable results (`results`/`data`, `status`, `loadMore`).
+ *
+ * @public
+ */
+export function usePaginatedQuery_experimental<Query extends PaginatedQueryReference>(
+  query: Query,
+  args: MaybeRefOrGetter<PaginatedQueryArgs<Query> | 'skip'>,
+  options: { initialNumItems: number },
+): ShallowRef<UsePaginatedQueryReturnType<Query>>
+
+export function usePaginatedQuery_experimental<
+  Query extends PaginatedQueryReference,
+  ThrowOnError extends boolean = false,
+>(
+  options: MaybeRefOrGetter<UsePaginatedQueryOptions<Query, ThrowOnError>>,
+): ShallowRef<UsePaginatedQueryObjectReturnType<Query, ThrowOnError>>
+
+export function usePaginatedQuery_experimental<Query extends PaginatedQueryReference>(
+  queryOrOptions:
+    | Query
+    | MaybeRefOrGetter<UsePaginatedQueryOptions<Query>>,
+  args?: MaybeRefOrGetter<PaginatedQueryArgs<Query> | 'skip'>,
+  options?: { initialNumItems: number },
+):
+  | ShallowRef<UsePaginatedQueryReturnType<Query>>
+  | ShallowRef<UsePaginatedQueryObjectReturnType<Query>> {
+  // Detect object-form by sniffing the first arg. Supports reactive refs
+  // (ref/computed/getter) of the options object too, matching the
+  // `MaybeRefOrGetter` contract used elsewhere in this package.
+  const firstValue = toValue(queryOrOptions as MaybeRefOrGetter<unknown>)
+  const isObjectOptions = typeof firstValue === 'object'
+    && firstValue !== null
+    && 'query' in (firstValue as object)
+
+  if (isObjectOptions) {
+    const optsGetter = () => toValue(
+      queryOrOptions as MaybeRefOrGetter<UsePaginatedQueryOptions<Query>>,
+    )
+    const initial = optsGetter()
+    validateInitialNumItems(initial.initialNumItems)
+
+    const internal = usePaginatedQueryInternal<Query>(
+      () => optsGetter().query,
+      () => optsGetter().args,
+      () => ({ initialNumItems: optsGetter().initialNumItems }),
+      () => optsGetter().throwOnError ?? false,
+    )
+
+    return computed(
+      () => reshapeToObjectForm<PaginatedQueryItem<Query>>(internal.value),
+    )
+  }
+
+  validateInitialNumItems(options?.initialNumItems)
+
+  const query = queryOrOptions as Query
+  const internal = usePaginatedQueryInternal<Query>(
+    () => query,
+    args as MaybeRefOrGetter<PaginatedQueryArgs<Query> | 'skip'>,
+    () => options as { initialNumItems: number },
+    () => true,
+  )
+
+  return internal as ShallowRef<UsePaginatedQueryReturnType<Query>>
+}
 
 /**
  * Optimistically update values in a paginated list.

@@ -50,6 +50,7 @@ export {
 // Query
 export {
   useQuery,
+  useQuery_experimental,
   useConvexQuery,
   type UseQueryResult,
   type OptionalRestArgsOrSkip,

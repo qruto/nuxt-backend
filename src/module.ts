@@ -116,6 +116,7 @@ function registerVueComposables(resolver: Resolver): void {
   const composables: Array<{ name: string, from: string }> = [
     { name: 'useConvex', from: resolver.resolve('./runtime/vue/client') },
     { name: 'useQuery', from: resolver.resolve('./runtime/vue/composables/use-query') },
+    { name: 'useQuery_experimental', from: resolver.resolve('./runtime/vue/composables/use-query') },
     { name: 'useConvexQuery', from: resolver.resolve('./runtime/vue/composables/use-query') },
     { name: 'useQueries', from: resolver.resolve('./runtime/vue/composables/use-queries') },
     { name: 'useConvexQueries', from: resolver.resolve('./runtime/vue/composables/use-queries') },
@@ -129,6 +130,7 @@ function registerVueComposables(resolver: Resolver): void {
     { name: 'usePreloadedQuery', from: resolver.resolve('./runtime/vue/hydration') },
     { name: 'usePreloadedAuthQuery', from: resolver.resolve('./runtime/vue/auth/hydration') },
     { name: 'usePaginatedQuery', from: resolver.resolve('./runtime/vue/composables/use-paginated-query') },
+    { name: 'usePaginatedQuery_experimental', from: resolver.resolve('./runtime/vue/composables/use-paginated-query') },
     { name: 'useAuth', from: resolver.resolve('./runtime/vue/auth/use-auth') },
   ]
   for (const composable of composables) {

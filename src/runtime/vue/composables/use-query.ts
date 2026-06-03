@@ -12,17 +12,26 @@ type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<'query'>> = FuncRe
 export type { OptionalRestArgsOrSkip }
 
 /**
- * The discriminated-union result type returned by the object-options form of
- * {@link useQuery}.
+ * Result returned by the object-form {@link useQuery_experimental}.
+ *
+ * Inspect the discriminated `status` field to use the result. When
+ * `ThrowOnError` is `true` the `'error'` variant is removed from the union,
+ * since in that mode errors are thrown instead of being returned.
  *
  * @public
  */
-export type UseQueryResult<QueryResult> = { data: QueryResult, error: undefined, status: 'success' } | { data: undefined, error: Error, status: 'error' } | { data: undefined, error: undefined, status: 'pending' }
+export type UseQueryResult<QueryResult, ThrowOnError extends boolean = false>
+  = | { status: 'pending' }
+    | { status: 'success', data: QueryResult }
+    | (ThrowOnError extends true ? never : { status: 'error', error: Error })
 
-interface UseQueryOptions<Query extends FunctionReference<'query'>> {
+interface UseQueryOptions<
+  Query extends FunctionReference<'query'>,
+  ThrowOnError extends boolean,
+> {
   query: Query
   args: MaybeRefOrGetter<FunctionArgs<Query> | 'skip'>
-  throwOnError?: boolean
+  throwOnError?: ThrowOnError
 }
 
 /**
@@ -34,6 +43,10 @@ interface UseQueryOptions<Query extends FunctionReference<'query'>> {
  *
  * Pass `'skip'` (or a reactive getter that returns `'skip'`) to conditionally
  * disable the subscription without breaking the rules of composables.
+ *
+ * Returns `undefined` while the first result is loading. Query errors are
+ * thrown and propagate to the nearest `errorCaptured` boundary — use
+ * {@link useQuery_experimental} if you want errors returned in the result.
  *
  * @example
  * ```vue
@@ -63,63 +76,11 @@ interface UseQueryOptions<Query extends FunctionReference<'query'>> {
 export function useQuery<Query extends FunctionReference<'query'>>(
   query: Query,
   ...args: OptionalRestArgsOrSkip<Query>
-): ShallowRef<FunctionReturnType<Query> | undefined>
-
-/**
- * Object-options form of {@link useQuery}.
- *
- * Instead of a positional `args` argument, accepts a single options object
- * with `query`, `args` (reactive), and an optional `throwOnError` flag.
- * Returns a discriminated-union {@link UseQueryResult} so you can inspect
- * `status` rather than relying on `undefined` as a loading sentinel.
- *
- * @example
- * ```vue
- * <script setup lang="ts">
- * const result = useQuery({
- *   query: api.tasks.list,
- *   args: computed(() => ({ completed: filter.value })),
- * })
- * // result.value.status: 'pending' | 'success' | 'error'
- * </script>
- * ```
- *
- * @public
- */
-export function useQuery<Query extends FunctionReference<'query'>>(
-  options: UseQueryOptions<Query>,
-): ShallowRef<UseQueryResult<FunctionReturnType<Query>>>
-
-export function useQuery<Query extends FunctionReference<'query'>>(
-  queryOrOptions: Query | UseQueryOptions<Query>,
-  ...args: OptionalRestArgsOrSkip<Query>
-): ShallowRef<FunctionReturnType<Query> | undefined> | ShallowRef<UseQueryResult<FunctionReturnType<Query>>> {
-  const isObjectOptions
-    = typeof queryOrOptions === 'object'
-      && queryOrOptions !== null
-      && 'query' in queryOrOptions
-
-  const throwOnError = isObjectOptions
-    ? (queryOrOptions.throwOnError ?? false)
-    : true
-
-  let queryReference: Query
-  let argsGetter: MaybeRefOrGetter<FunctionArgs<Query> | 'skip'>
-
-  if (isObjectOptions) {
-    const query = queryOrOptions.query
-    queryReference = typeof query === 'string'
-      ? (makeFunctionReference<'query'>(query) as Query)
-      : query
-    argsGetter = queryOrOptions.args
-  }
-  else {
-    const query = queryOrOptions
-    queryReference = typeof query === 'string'
-      ? (makeFunctionReference<'query'>(query) as Query)
-      : query
-    argsGetter = (args[0] ?? {}) as MaybeRefOrGetter<FunctionArgs<Query> | 'skip'>
-  }
+): ShallowRef<FunctionReturnType<Query> | undefined> {
+  const queryReference = typeof query === 'string'
+    ? (makeFunctionReference<'query'>(query) as Query)
+    : query
+  const argsGetter = (args[0] ?? {}) as MaybeRefOrGetter<FunctionArgs<Query> | 'skip'>
 
   // Build reactive queries input for useConvexQueries.
   const queriesInput = computed((): RequestForQueries => {
@@ -137,39 +98,98 @@ export function useQuery<Query extends FunctionReference<'query'>>(
 
   const allResults = useConvexQueries(queriesInput)
 
-  if (isObjectOptions) {
-    // Object form: return UseQueryResult discriminated union as a ShallowRef.
-    // Using shallowRef + watchEffect (instead of `computed` + cast) yields a
-    // genuine ShallowRef whose type matches the public signature without `as`.
-    const result = shallowRef<UseQueryResult<FunctionReturnType<Query>>>({
-      data: undefined,
-      error: undefined,
-      status: 'pending',
-    })
-    watchEffect(() => {
-      const r = allResults.value.query
-      if (r instanceof Error) {
-        if (throwOnError) throw r
-        result.value = { data: undefined, error: r, status: 'error' }
-        return
-      }
-      if (r === undefined) {
-        result.value = { data: undefined, error: undefined, status: 'pending' }
-        return
-      }
-      result.value = { data: r, error: undefined, status: 'success' }
-    })
-    return result
-  }
-
-  // Positional form: mirror React's render-time throw semantics by throwing
-  // from inside watchEffect — Vue propagates this to the nearest
-  // `errorCaptured` boundary, matching React's `<ErrorBoundary>` behavior.
+  // Mirror React's render-time throw semantics by throwing from inside
+  // watchEffect — Vue propagates this to the nearest `errorCaptured` boundary,
+  // matching React's `<ErrorBoundary>` behavior.
   const result = shallowRef<FunctionReturnType<Query> | undefined>(undefined)
   watchEffect(() => {
     const r = allResults.value.query
     if (r instanceof Error) throw r
     result.value = r
+  })
+  return result
+}
+
+/**
+ * Load a reactive query within a Vue component using an options object.
+ *
+ * This is an experimental form of {@link useQuery} that accepts a single
+ * {@link UseQueryOptions} object instead of positional arguments and returns a
+ * discriminated-union {@link UseQueryResult} as a shallow ref.
+ *
+ * Inspect the returned `status` field to use the result. If an error occurs it
+ * is present in the result object unless `throwOnError` is `true`, in which case
+ * the error is thrown instead.
+ *
+ * @example
+ * ```vue
+ * <script setup lang="ts">
+ * import { useQuery_experimental as useQuery } from '#imports'
+ * import { api } from '~/backend/_generated/api'
+ *
+ * const state = useQuery({ query: api.tasks.list, args: { completed: false } })
+ * // state.value.status: 'pending' | 'success' | 'error'
+ * </script>
+ * ```
+ *
+ * @param options - Query options. Pass `args: 'skip'` to disable the query.
+ * @returns A shallow ref containing the current query state as a
+ *   {@link UseQueryResult} object.
+ *
+ * @public
+ */
+export function useQuery_experimental<
+  Query extends FunctionReference<'query'>,
+  ThrowOnError extends boolean = false,
+>(
+  options: UseQueryOptions<Query, ThrowOnError>,
+): ShallowRef<UseQueryResult<FunctionReturnType<Query>, ThrowOnError>>
+
+export function useQuery_experimental<
+  Query extends FunctionReference<'query'>,
+  ThrowOnError extends boolean = false,
+>(
+  options: UseQueryOptions<Query, ThrowOnError>,
+): ShallowRef<UseQueryResult<FunctionReturnType<Query>, false>> {
+  const throwOnError = options.throwOnError ?? false
+  const queryReference = typeof options.query === 'string'
+    ? (makeFunctionReference<'query'>(options.query) as Query)
+    : options.query
+  const argsGetter = options.args
+
+  // Build reactive queries input for useConvexQueries.
+  const queriesInput = computed((): RequestForQueries => {
+    const currentArgs = toValue(argsGetter)
+    if (currentArgs === 'skip') {
+      return {}
+    }
+    return {
+      query: {
+        query: queryReference,
+        args: currentArgs as Record<string, Value>,
+      },
+    }
+  })
+
+  const allResults = useConvexQueries(queriesInput)
+
+  // Using shallowRef + watchEffect (instead of `computed` + cast) yields a
+  // genuine ShallowRef whose type matches the public signature without `as`.
+  const result = shallowRef<UseQueryResult<FunctionReturnType<Query>, false>>({
+    status: 'pending',
+  })
+  watchEffect(() => {
+    const r = allResults.value.query
+    if (r instanceof Error) {
+      if (throwOnError) throw r
+      result.value = { error: r, status: 'error' }
+      return
+    }
+    if (r === undefined) {
+      result.value = { status: 'pending' }
+      return
+    }
+    result.value = { data: r, status: 'success' }
   })
   return result
 }

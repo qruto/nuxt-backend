@@ -1,6 +1,6 @@
 import { describe, test } from 'vitest'
 import { makeFunctionReference } from 'convex/server'
-import type { useQuery as useQueryReal } from '../../src/runtime/vue/composables/use-query'
+import type { useQuery_experimental as useQueryReal } from '../../src/runtime/vue/composables/use-query'
 
 // Intentional noop, we're only testing types.
 const useQuery = (() => {}) as unknown as typeof useQueryReal
@@ -8,7 +8,7 @@ const useQuery = (() => {}) as unknown as typeof useQueryReal
 const noArgsQuery = makeFunctionReference<'query', Record<string, never>, string>('module:noArgs')
 const argsQuery = makeFunctionReference<'query', { _arg: string }, string>('module:args')
 
-describe('useQuery object options', () => {
+describe('useQuery_experimental object options', () => {
   test('supports object options and skip sentinel', () => {
     useQuery({
       query: noArgsQuery,

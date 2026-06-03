@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
-import { nextTick, ref } from 'vue'
+import { nextTick, ref, type ShallowRef } from 'vue'
 import {
   anyApi,
   getFunctionName,
@@ -19,6 +19,7 @@ import {
   insertAtTop,
   resetPaginationId,
   usePaginatedQuery,
+  usePaginatedQuery_experimental,
   type PaginatedQueryArgs,
   type PaginatedQueryItem,
   type PaginatedQueryReference,
@@ -139,7 +140,7 @@ describe('usePaginatedQuery', () => {
       const client = new ConvexVueClient(address)
 
       const { result } = await mountWithConvex(client, () =>
-        usePaginatedQuery({
+        usePaginatedQuery_experimental({
           query: queryRef,
           args: {},
           initialNumItems: 10,
@@ -168,7 +169,7 @@ describe('usePaginatedQuery', () => {
       const client = new ConvexVueClient(address)
 
       const { result } = await mountWithConvex(client, () =>
-        usePaginatedQuery({
+        usePaginatedQuery_experimental({
           query: queryRef,
           args: {},
           initialNumItems: 10,
@@ -231,7 +232,7 @@ describe('usePaginatedQuery', () => {
 
     const watchQuerySpy = vi.spyOn(client, 'watchQuery')
     const { result } = await mountWithConvex(client, () =>
-      usePaginatedQuery({
+      usePaginatedQuery_experimental({
         query: queryRef,
         args: 'skip',
         initialNumItems: 10,
@@ -257,7 +258,7 @@ describe('usePaginatedQuery', () => {
       const watchQuerySpy = vi.spyOn(client, 'watchQuery')
 
       const { result } = await mountWithConvex(client, () =>
-        usePaginatedQuery({
+        usePaginatedQuery_experimental({
           query: queryRef,
           args: {},
           initialNumItems: 10,
@@ -616,6 +617,12 @@ describe('UsePaginatedQueryObjectReturnType', () => {
     expectTypeOf<ErrorVariant>().toEqualTypeOf<never>()
   })
 
+  it('throwOnError removes the error variant from the object-form union', () => {
+    type ObjResult = UsePaginatedQueryObjectReturnType<MyQuery, true>
+    type ErrorVariant = Extract<ObjResult, { status: 'error' }>
+    expectTypeOf<ErrorVariant>().toEqualTypeOf<never>()
+  })
+
   it('object-form pending variant allows undefined data', () => {
     type ObjResult = UsePaginatedQueryObjectReturnType<MyQuery>
     type PendingData = Extract<ObjResult, { status: 'pending' }>['data']
@@ -639,6 +646,68 @@ describe('UsePaginatedQueryObjectReturnType', () => {
       error: undefined
       loadMore: (numItems: number) => void
     }>()
+  })
+})
+
+describe('usePaginatedQuery_experimental', () => {
+  const queryRef = makeFunctionReference<'query'>('myQuery:default') as PaginatedQueryReference
+
+  // Mirrors React's public `usePaginatedQuery_experimental`. React backs its
+  // experimental hook with the native `PaginatedQueryClient` the published
+  // `convex` package does not export; this port reuses our manual page-management
+  // implementation. The signatures still match React exactly: `usePaginatedQuery`
+  // is positional-only, while only `usePaginatedQuery_experimental` adds the
+  // object-form overload.
+  it('is a distinct function from usePaginatedQuery', () => {
+    expect(usePaginatedQuery_experimental).not.toBe(usePaginatedQuery)
+    expect(typeof usePaginatedQuery_experimental).toBe('function')
+  })
+
+  it('matches usePaginatedQuery for the positional form and adds the object form', () => {
+    // Type-only signature checks via noop casts (the composables call useConvex
+    // at runtime, so they must not actually execute here).
+    const usePaginated = (() => {}) as unknown as typeof usePaginatedQuery
+    const useExperimental = (() => {}) as unknown as typeof usePaginatedQuery_experimental
+    type Query = typeof queryRef
+
+    // Positional form: both hooks return the TitleCase positional result.
+    expectTypeOf(useExperimental(queryRef, {}, { initialNumItems: 10 }))
+      .toEqualTypeOf<ShallowRef<UsePaginatedQueryReturnType<Query>>>()
+    expectTypeOf(usePaginated(queryRef, {}, { initialNumItems: 10 }))
+      .toEqualTypeOf<ShallowRef<UsePaginatedQueryReturnType<Query>>>()
+
+    // Object form: only the experimental hook accepts it, returning the
+    // lowercase-status object result.
+    expectTypeOf(useExperimental({ query: queryRef, args: {}, initialNumItems: 10 }))
+      .toEqualTypeOf<ShallowRef<UsePaginatedQueryObjectReturnType<Query>>>()
+
+    // The stable `usePaginatedQuery` is positional-only — passing the object
+    // form is a type error there, matching React.
+    // @ts-expect-error object form is not part of the positional-only signature
+    usePaginated({ query: queryRef, args: {}, initialNumItems: 10 })
+  })
+
+  it('object form returns pending when skipped', async () => {
+    const client = new ConvexVueClient(address)
+    const watchQuerySpy = vi.spyOn(client, 'watchQuery')
+
+    const { result } = await mountWithConvex(client, () =>
+      usePaginatedQuery_experimental({
+        query: queryRef,
+        args: 'skip',
+        initialNumItems: 10,
+      }),
+    )
+
+    expect(watchQuerySpy).not.toHaveBeenCalled()
+    expect(result.value).toMatchObject({
+      isLoading: true,
+      data: undefined,
+      status: 'pending',
+      canLoadMore: false,
+    })
+
+    await client.close()
   })
 })
 
