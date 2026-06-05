@@ -38,6 +38,14 @@ For installation and the end-to-end integration walkthrough, see [../README.md](
 
 The goal is API parity where it matters, with less setup: Nuxt owns route registration, app scaffolding, composable auto-imports, and the same-origin auth proxy.
 
+## Nuxt module provided APIs
+
+For the grouped overview of everything the module registers when installed — configuration, app-runtime composables/components/plugins, server utilities, import aliases, scaffolded files, types, and the Convex bridge entrypoints — see [What this module provides](../README.md#what-this-module-provides) in the README. It also includes a full triage of the complete Nuxt module surface against what `nuxt-backend` provides versus what stays app-owned.
+
+The sections below document each of those APIs in detail.
+
+In addition to the auto-imported APIs, the scaffolded `backend/auth.ts` re-exports `authComponent`, `createAuthOptions`, `options`, `createAuth`, and `getAuthUser` for app Convex functions to import.
+
 ## Client APIs
 
 The Nuxt module auto-imports two API groups in app code:

@@ -11,22 +11,79 @@ Integrate [Convex](https://convex.dev) with [Nuxt](https://nuxt.com) — one pac
 
 > This README covers setup and the end-to-end integration flow. Full API details, exports, architecture, and development notes are in [docs/reference.md](./docs/reference.md).
 
-## Features
+## What this module provides
 
-### Nuxt Module
-- 🔌 **Real-time Convex client** — auto-imported `useConvex`, `useQuery`, `useMutation`, `useAction`, and more
-- 🔄 **SSR** — `fetchQuery`, `fetchMutation`, `fetchAction`, `preloadQuery` plus hydration with `usePreloadedQuery` and `usePreloadedAuthQuery`
-- 🔐 **Auth composable** — auto-imported `useAuth` exposes Better Auth client + session state, no setup needed
-- 🛡️ **Route protection** — built-in `auth` middleware, opt-in per page with `definePageMeta`
-- 🌐 **Same-origin auth proxy** — `/api/auth` proxied to Convex, keeps cookies on your domain
-- 🏗️ **Auto-scaffold** — minimum Convex root files generated on first run
-- 🧩 **Local install mode** — scaffold a hybrid Better Auth component when you want to own the schema
+Adding `modules: ['nuxt-backend']` registers the following surface, described in standard Nuxt module terms. Grouped by where each piece lives. Full signatures, argument types, and the import tree are in the [API reference](#api-reference) below.
 
-### Convex Auth Component
-- 🔑 **Better Auth** — email/password authentication out of the box
-- 🗄️ **Convex adapter** — Better Auth persistence backed by your Convex database
-- ⚙️ **`nuxt-backend/convex` bridge** — exposes `setupAuth(...)`, official Better Auth Convex exports, and `getAuthUser` for app Convex functions
-- 🔗 **Auth config wiring** — `auth.config.ts` keeps Convex token verification aligned with Better Auth
+### ⚙️ Configuration
+
+- **Module options** (`backend` config key) — `url`, `siteUrl`, `authRoute`, `installation`. All optional; URLs fall back to env vars.
+- **Runtime config** — `runtimeConfig.public.backend.{url,siteUrl}` and `runtimeConfig.backend.siteUrl`, resolved from module options or `NUXT_PUBLIC_CONVEX_URL` / `NUXT_PUBLIC_CONVEX_SITE_URL`.
+
+### 🖼️ App runtime (Vue)
+
+- **Nuxt plugins** — a client Convex plugin and an SSR auth-token prefetch plugin; injects `useNuxtApp().$convex`.
+- **Auto-imported composables** — `useConvex`, `useQuery` (+ `useConvexQuery`, `useQuery_experimental`), `useQueries` (+ `useConvexQueries`), `useMutation` (+ `useConvexMutation`), `useAction` (+ `useConvexAction`), `usePaginatedQuery` (+ `usePaginatedQuery_experimental`), `usePreloadedQuery`, `usePreloadedAuthQuery`, `useConvexConnectionState`, `useConvexAuth`, `provideConvexAuth`, and `useAuth`.
+- **Auto-registered components** — `<Authenticated>`, `<Unauthenticated>`, `<AuthLoading>`.
+- **Route middleware** — `auth`, opt-in per page via `definePageMeta({ middleware: 'auth' })` (registered non-global, so installing the module never guards routes by surprise).
+
+### 🛠️ Server (Nitro)
+
+- **Server route** — `${backend.authRoute}/**` (default `/api/auth/**`): a same-origin Better Auth proxy that keeps cookies on your domain.
+- **Server auto-imports** — `fetchQuery`, `fetchMutation`, `fetchAction`, `preloadQuery`, `preloadedQueryResult`, `backendAuth` (available in `server/` routes, Nitro handlers, and middleware).
+
+### 🧩 Project wiring & types
+
+- **Import aliases** — `#backend` and `#backend/_generated`, registered for both Vite and Nitro, pointing at your Convex functions directory and generated files.
+- **Scaffolded files** (first run) — `backend/convex.config.ts`, `auth.config.ts`, `auth.ts`, `http.ts`; local mode also creates `backend/components/backend/*`.
+- **Type augmentation** — runtime config keys, the injected `$convex`, auto-imported composables, auto-registered components, and package subpath declarations all become typed after Nuxt preparation.
+
+### 🔐 Convex auth bridge (package entrypoints)
+
+- **Better Auth component** — email/password auth out of the box, a Convex adapter for persistence, and HTTP auth endpoints served through Convex.
+- **Entrypoints** — `nuxt-backend` (the module), `nuxt-backend/convex` (`setupAuth`, `createAuth`, `createAuthOptions`, `makeAuthApi`, `createBetterAuth`), `nuxt-backend/convex/component/convex.config`, `nuxt-backend/convex/component/schema`, `nuxt-backend/convex/auth.config`, and `nuxt-backend/convex/test`. (`getAuthUser`, `authComponent`, and `options` are returned by `setupAuth(...)`, not direct exports.)
+
+### Full Nuxt module surface
+
+`nuxt-backend` deliberately uses only the part of the Nuxt module API that an auth/data integration needs, and leaves routing, layout, and styling to your app. The table below triages the complete set of things a Nuxt module *can* provide against what this module does.
+
+<details>
+<summary>Provided vs. intentionally app-owned</summary>
+
+| Capability (Nuxt Kit / mechanism) | In `nuxt-backend` |
+|---|---|
+| Module options · `defineNuxtModule({ configKey })` | ✅ `backend.url`, `siteUrl`, `authRoute`, `installation` |
+| Runtime config · `options.runtimeConfig` / `updateRuntimeConfig` | ✅ public + private `backend` keys |
+| App plugins · `addPlugin` / `addPluginTemplate` | ✅ client + server plugins, injects `$convex` |
+| Auto-imported composables · `addImports` / `addImportsDir` | ✅ Convex + auth composables |
+| Auto-imported components · `addComponent` / `addComponentsDir` | ✅ `<Authenticated>`, `<Unauthenticated>`, `<AuthLoading>` |
+| Route middleware · `addRouteMiddleware` | ✅ `auth` (opt-in, non-global) |
+| Server routes / middleware · `addServerHandler` | ✅ auth proxy at `authRoute/**` |
+| Server auto-imports · `addServerImports` / `addServerImportsDir` | ✅ `fetchQuery`, `preloadQuery`, `backendAuth`, … |
+| Import aliases · `options.alias` (+ `nitro.alias`) | ✅ `#backend`, `#backend/_generated` |
+| Type augmentation · `declare module` / `addTypeTemplate` | ✅ runtime config + generated declarations |
+| Package entrypoints · `exports` map | ✅ 6 subpaths (module + Convex bridge) |
+| Scaffolded files on disk | ✅ first-run Convex wiring (module-specific) |
+| Layouts · `addLayout` | — app-owned |
+| Pages / routes · `extendPages` | — app-owned |
+| Route rules · `extendRouteRules` | — app-owned |
+| Global head · `setGlobalHead` / `app.head` | — app-owned |
+| Global CSS · `options.css` | — app-owned |
+| Global route middleware · `addRouteMiddleware({ global: true })` | — app-owned (auth is opt-in) |
+| App config · `options.appConfig` | — not used |
+| Nitro plugins · `addServerPlugin` | — not used |
+| Server scan dirs / virtual files · `addServerScanDir` / `addServerTemplate` | — not used |
+| Dev-only handlers · `addDevServerHandler` | — not used |
+| Prerender routes · `addPrerenderRoutes` | — app-owned |
+| Virtual files · `addTemplate` / `updateTemplates` | — not used (physical scaffold instead) |
+| Bundler plugins / config · `addVitePlugin` / `extendViteConfig` / `build.transpile` | — not used |
+| Module dependencies · `moduleDependencies` / `installModule` | — not used |
+| Compatibility constraints · `meta.compatibility` | — not declared |
+| Nuxt layer · `extends` | — not shipped as a layer |
+
+</details>
+
+Keeping pages, layouts, global CSS, global middleware, route rules, and layers app-owned means installing the module never changes your routing, layout, styling, or domain behavior.
 
 ## Installation
 
@@ -309,9 +366,320 @@ Use `usePreloadedAuthQuery` for auth-protected SSR data. It keeps the server res
 
 If you change `backend.authRoute` from `/api/auth`, keep the same path in `createAuthOptions` and Convex auth config. The Nuxt proxy route, Better Auth `basePath`, and `defineBackendAuthConfig({ basePath: ... })` must all match.
 
+## API reference
+
+Two ways to consume the surface:
+
+- **Explicit imports** — `import { … } from 'nuxt-backend/…'`, declared in the package `exports` map. The `nuxt-backend/convex*` subpaths run in your **Convex backend** (`backend/`), not the Vue app.
+- **Auto-imports** — registered by the module, no `import` needed. Vue composables and components are available in app code; the server utilities are available in `server/` (Nitro).
+
+Generic helpers in the signatures below (`FunctionReference`, `FunctionArgs`, `FunctionReturnType`, `OptionalRestArgs`, `ConnectionState`, `Value`) come from `convex`; the paginated result types are re-exported from `convex/react` for parity.
+
+### Import tree
+
+```text
+nuxt-backend
+├─ "nuxt-backend" ............................ Nuxt module (default) + type ModuleOptions
+├─ "nuxt-backend/convex" .................... setupAuth · createAuth · createAuthOptions
+│                                             makeAuthApi · createBetterAuth · createBetterAuthOptions
+│                                             + types CreateBetterAuthOptions · SetupAuthOptions
+├─ "nuxt-backend/convex/component/convex.config" ......... default: the `backend` component
+├─ "nuxt-backend/convex/component/schema" .. tables · authSchema · default (= authSchema)
+├─ "nuxt-backend/convex/component/_generated/component" .. type ComponentApi  (types only)
+├─ "nuxt-backend/convex/auth.config" ....... defineBackendAuthConfig · default · type DefineBackendAuthConfigOptions
+└─ "nuxt-backend/convex/test" .............. register · default ({ register, modules })
+
+auto-imports (no import statement)
+├─ Vue composables ......... useConvex · useQuery (+ useConvexQuery, useQuery_experimental)
+│                            useQueries (+ useConvexQueries) · useMutation (+ useConvexMutation)
+│                            useAction (+ useConvexAction) · usePaginatedQuery (+ usePaginatedQuery_experimental)
+│                            usePreloadedQuery · usePreloadedAuthQuery · useConvexConnectionState
+│                            useConvexAuth · provideConvexAuth · useAuth
+├─ Vue components .......... <Authenticated> · <Unauthenticated> · <AuthLoading>
+├─ Injection ............... useNuxtApp().$convex : ConvexVueClient
+└─ Server utils (Nitro) .... fetchQuery · fetchMutation · fetchAction
+                             preloadQuery · preloadedQueryResult · backendAuth
+
+aliases ...................... #backend · #backend/_generated   (Vite + Nitro)
+```
+
+### Explicit entrypoints
+
+#### `nuxt-backend`
+
+```ts
+import nuxtBackendModule, { type ModuleOptions } from 'nuxt-backend'
+
+interface ModuleOptions {
+  url?: string
+  siteUrl?: string
+  authRoute?: string                  // default '/api/auth'
+  installation?: 'default' | 'local'  // default 'default'
+}
+// Also augments RuntimeConfig.backend.siteUrl and
+// PublicRuntimeConfig.backend.{ url, siteUrl }.
+```
+
+#### `nuxt-backend/convex` — app-side Convex bridge
+
+```ts
+import {
+  setupAuth, createAuth, createAuthOptions,
+  makeAuthApi, createBetterAuth, createBetterAuthOptions,
+  type CreateBetterAuthOptions, type SetupAuthOptions,
+} from 'nuxt-backend/convex'
+
+// Composes the wrapper + API-remount patterns for the common scaffolded case.
+function setupAuth<DM extends GenericDataModel, Schema = DefaultAuthSchema>(
+  componentRef: ComponentRef,
+  queryBuilder: QueryBuilder<DM, 'public'>,
+  options?: SetupAuthOptions<Schema>,
+): {
+  authComponent: AuthComponent
+  createAuthOptions: (ctx: GenericCtx<DM>) => BetterAuthOptions
+  options: BetterAuthOptions
+  createAuth: (ctx: GenericCtx<DM>) => BetterAuthInstance
+  getAuthUser: RegisteredQuery
+}
+
+function createAuth<DM extends GenericDataModel, Schema = DefaultAuthSchema>(
+  ctx: GenericCtx<DM>, componentRef: ComponentRef, options?: SetupAuthOptions<Schema>,
+): BetterAuthInstance
+
+function createAuthOptions<DM extends GenericDataModel, Schema = DefaultAuthSchema>(
+  ctx: GenericCtx<DM>, componentRef: ComponentRef, options?: SetupAuthOptions<Schema>,
+): BetterAuthOptions
+
+function makeAuthApi<DM extends GenericDataModel, Schema = DefaultAuthSchema>(
+  componentRef: ComponentRef, queryBuilder: QueryBuilder<DM, 'public'>, options?: SetupAuthOptions<Schema>,
+): { getAuthUser: RegisteredQuery }
+
+function createBetterAuth(database: BetterAuthAdapter, options?: CreateBetterAuthOptions): BetterAuthInstance
+function createBetterAuthOptions(database: BetterAuthAdapter, options?: CreateBetterAuthOptions): BetterAuthOptions
+
+interface CreateBetterAuthOptions {
+  authConfig?: AuthConfig          // override the default Convex auth config
+  authOptions?: BetterAuthOptions  // merged with package defaults
+  basePath?: string                // default '/api/auth'
+}
+interface SetupAuthOptions<Schema> extends CreateBetterAuthOptions {
+  schema?: Schema                  // local Better Auth schema for hybrid/local installs
+  verbose?: boolean                // verbose component client logs
+}
+```
+
+#### `nuxt-backend/convex/component/convex.config`
+
+```ts
+import backend from 'nuxt-backend/convex/component/convex.config'
+// default export: the `backend` Convex component → app.use(backend)
+```
+
+#### `nuxt-backend/convex/component/schema`
+
+```ts
+import authSchema, { tables, authSchema as schema } from 'nuxt-backend/convex/component/schema'
+// tables:     { user, session, account, verification, rateLimit, passkey, jwks }
+// authSchema: SchemaDefinition = defineSchema(tables)   (default export === authSchema)
+```
+
+#### `nuxt-backend/convex/component/_generated/component` — types only
+
+```ts
+import type { ComponentApi } from 'nuxt-backend/convex/component/_generated/component'
+type ComponentApi<Name extends string | undefined = string | undefined>
+```
+
+#### `nuxt-backend/convex/auth.config`
+
+```ts
+import defineBackendAuthConfig, {
+  type DefineBackendAuthConfigOptions,
+} from 'nuxt-backend/convex/auth.config'
+
+function defineBackendAuthConfig(options?: DefineBackendAuthConfigOptions): AuthConfig
+interface DefineBackendAuthConfigOptions {
+  basePath?: string  // default '/api/auth'
+  jwks?: string
+}
+// default export === defineBackendAuthConfig()
+```
+
+#### `nuxt-backend/convex/test`
+
+```ts
+import backendTest, { register } from 'nuxt-backend/convex/test'
+
+function register(
+  t: TestConvex<SchemaDefinition<GenericSchema, boolean>>,
+  name?: string,           // default 'backend'
+): void
+// default export: { register, modules }
+```
+
+### Auto-imported composables (Vue)
+
+```ts
+// Client access
+function useConvex(): ConvexVueClient
+
+// Queries — returns undefined while loading; throws query errors
+function useQuery<Q extends FunctionReference<'query'>>(
+  query: Q,
+  ...args: OptionalRestArgsOrSkip<Q>   // reactive args; pass 'skip' to pause
+): ShallowRef<FunctionReturnType<Q> | undefined>
+const useConvexQuery = useQuery
+
+// Experimental object form — errors returned in result unless throwOnError
+function useQuery_experimental<Q extends FunctionReference<'query'>, ThrowOnError extends boolean = false>(
+  options: { query: Q, args: MaybeRefOrGetter<FunctionArgs<Q> | 'skip'>, throwOnError?: ThrowOnError },
+): ShallowRef<UseQueryResult<FunctionReturnType<Q>, ThrowOnError>>  // { status: 'pending'|'success'|'error', data?, error? }
+
+// Dynamic set of queries
+function useConvexQueries(queries: MaybeRefOrGetter<RequestForQueries>): ShallowRef<QueriesResults>
+const useQueries = useConvexQueries
+// RequestForQueries: Record<string, { query: FunctionReference<'query'>, args: Record<string, Value> }>
+// QueriesResults:    Record<string, Value | undefined | Error>
+
+// Mutations
+function useMutation<M extends FunctionReference<'mutation'>>(mutation: M): VueMutation<M>
+const useConvexMutation = useMutation
+interface VueMutation<M extends FunctionReference<'mutation'>> {
+  (...args: OptionalRestArgs<M>): Promise<FunctionReturnType<M>>
+  withOptimisticUpdate(update: OptimisticUpdate<FunctionArgs<M>>): VueMutation<M>
+}
+
+// Actions
+function useAction<A extends FunctionReference<'action'>>(action: A): VueAction<A>
+const useConvexAction = useAction
+interface VueAction<A extends FunctionReference<'action'>> {
+  (...args: OptionalRestArgs<A>): Promise<FunctionReturnType<A>>
+}
+
+// Pagination — positional form, throws on error
+function usePaginatedQuery<Q extends PaginatedQueryReference>(
+  query: Q,
+  args: MaybeRefOrGetter<PaginatedQueryArgs<Q> | 'skip'>,
+  options: { initialNumItems: number },
+): ShallowRef<UsePaginatedQueryReturnType<Q>>
+// → { results, status: 'LoadingFirstPage'|'CanLoadMore'|'LoadingMore'|'Exhausted', isLoading, loadMore }
+
+// Experimental — overloaded: positional (throws) OR object form (errors in result)
+function usePaginatedQuery_experimental<Q extends PaginatedQueryReference>(
+  query: Q, args: MaybeRefOrGetter<PaginatedQueryArgs<Q> | 'skip'>, options: { initialNumItems: number },
+): ShallowRef<UsePaginatedQueryReturnType<Q>>
+function usePaginatedQuery_experimental<Q extends PaginatedQueryReference, ThrowOnError extends boolean = false>(
+  options: MaybeRefOrGetter<UsePaginatedQueryOptions<Q, ThrowOnError>>,
+): ShallowRef<UsePaginatedQueryObjectReturnType<Q, ThrowOnError>>
+// object form → { data, status: 'pending'|'success'|'error', error, canLoadMore, isLoading, loadMore }
+
+// SSR hydration — consume a Preloaded payload, then go live on the client
+function usePreloadedQuery<Q extends FunctionReference<'query'>>(preloaded: Preloaded<Q>): ShallowRef<FunctionReturnType<Q>>
+function usePreloadedAuthQuery<Q extends FunctionReference<'query'>>(preloaded: Preloaded<Q>): ShallowRef<FunctionReturnType<Q> | null>
+
+// WebSocket connection
+function useConvexConnectionState(): ShallowRef<ConnectionState>
+
+// Better Auth (the single auth service for app code)
+function useAuth(initialToken?: string | null): UseAuthService
+interface UseAuthService {
+  client: AuthClient                       // Better Auth client (signIn, signUp, signOut, …)
+  session: AuthSession                     // reactive Better Auth session
+  isAuthenticated: ComputedRef<boolean>
+  isLoading: ComputedRef<boolean>
+  fetchAccessToken: AuthTokenFetcher
+  authVersion: ComputedRef<string | null>
+}
+
+// Low-level Convex auth (advanced — not needed for the default Better Auth setup)
+function useConvexAuth(): ConvexAuthState                              // { isLoading, isAuthenticated }
+function provideConvexAuth(options: ConvexAuthProviderOptions): ConvexAuthState
+interface ConvexAuthProviderOptions {
+  client: ConvexVueClient
+  useAuth: () => {
+    isLoading: MaybeRefOrGetter<boolean>
+    isAuthenticated: MaybeRefOrGetter<boolean>
+    fetchAccessToken: AuthTokenFetcher
+    authVersion?: MaybeRefOrGetter<unknown>
+  }
+}
+```
+
+### Auto-imported components (Vue templates)
+
+```vue
+<Authenticated>   <!-- renders its slot only when authenticated -->
+<Unauthenticated> <!-- renders its slot only when unauthenticated -->
+<AuthLoading>     <!-- renders its slot while auth state is resolving -->
+```
+
+### Auto-imported server utilities (Nitro / `server/`)
+
+```ts
+function fetchQuery<Q extends FunctionReference<'query'>>(
+  query: Q, ...args: ArgsAndOptions<Q, NuxtConvexOptions>      // (args?, options?)
+): Promise<FunctionReturnType<Q>>
+function fetchMutation<M extends FunctionReference<'mutation'>>(
+  mutation: M, ...args: ArgsAndOptions<M, NuxtConvexOptions>
+): Promise<FunctionReturnType<M>>
+function fetchAction<A extends FunctionReference<'action'>>(
+  action: A, ...args: ArgsAndOptions<A, NuxtConvexOptions>
+): Promise<FunctionReturnType<A>>
+function preloadQuery<Q extends FunctionReference<'query'>>(
+  query: Q, ...args: ArgsAndOptions<Q, NuxtConvexOptions>
+): Promise<Preloaded<Q>>
+function preloadedQueryResult<Q extends FunctionReference<'query'>>(preloaded: Preloaded<Q>): FunctionReturnType<Q>
+
+interface NuxtConvexOptions {
+  token?: string  // JWT for an authenticated call
+  url?: string    // defaults to NUXT_PUBLIC_CONVEX_URL
+}
+
+// Per-request authenticated helper for the current H3 event
+function backendAuth(event: H3Event, opts?: BackendAuthOptions): BackendAuthService
+type BackendAuthOptions = GetTokenOptions & { convexSiteUrl?: string }
+interface BackendAuthService {
+  getToken(): Promise<string | undefined>
+  isAuthenticated(): Promise<boolean>
+  handler(): Promise<Response>
+  preloadAuthQuery<Q extends FunctionReference<'query'>>(query: Q, args?: Q['_args']): Promise<Preloaded<Q>>
+  fetchAuthQuery<Q extends FunctionReference<'query'>>(query: Q, args?: Q['_args']): Promise<FunctionReturnType<Q>>
+  fetchAuthMutation<M extends FunctionReference<'mutation'>>(mutation: M, args?: M['_args']): Promise<FunctionReturnType<M>>
+  fetchAuthAction<A extends FunctionReference<'action'>>(action: A, args?: A['_args']): Promise<FunctionReturnType<A>>
+}
+```
+
+### `ConvexVueClient`
+
+Returned by `useConvex()` and injected as `useNuxtApp().$convex`. Most app code should prefer the composables; reach for the client for imperative one-off calls.
+
+```ts
+class ConvexVueClient {
+  query<Q extends FunctionReference<'query'>>(query: Q, ...args: OptionalRestArgs<Q>): Promise<FunctionReturnType<Q>>
+  mutation<M extends FunctionReference<'mutation'>>(
+    mutation: M, ...args: ArgsAndOptions<M, VueMutationOptions<FunctionArgs<M>>>
+  ): Promise<FunctionReturnType<M>>
+  action<A extends FunctionReference<'action'>>(action: A, ...args: OptionalRestArgs<A>): Promise<FunctionReturnType<A>>
+  watchQuery<Q extends FunctionReference<'query'>>(query: Q, ...args: OptionalRestArgs<Q>): Watch<FunctionReturnType<Q>>
+  connectionState(): ConnectionState
+  subscribeToConnectionState(cb: (state: ConnectionState) => void): () => void
+  setAuth(fetchToken: AuthTokenFetcher, onChange?: (isAuthenticated: boolean) => void): void
+  clearAuth(): void
+  close(): Promise<void>
+}
+```
+
+### Import aliases
+
+```ts
+import { api, internal } from '#backend/_generated/api'
+// '#backend'            → your Convex functions dir (backend/ or convex/)
+// '#backend/_generated' → generated api / server / dataModel  (registered for Vite + Nitro)
+```
+
 ## More Documentation
 
-See [docs/reference.md](./docs/reference.md) for the full API reference, package exports, customization details, architecture notes, and development workflow.
+See [docs/reference.md](./docs/reference.md) for usage examples, customization details, architecture notes, and the development workflow.
 
 ## License
 
