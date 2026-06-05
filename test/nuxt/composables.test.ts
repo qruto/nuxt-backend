@@ -5,6 +5,7 @@ import type { ConnectionState } from 'convex/browser'
 import { makeFunctionReference } from 'convex/server'
 import { ConvexClientKey, ConvexVueClient, useConvex } from '../../src/runtime/vue/client'
 import { mountWithConvex } from '../helpers/vue_test_utils'
+import { silentConnectLogger } from '../helpers/silent-logger'
 import { createMutation, useMutation } from '../../src/runtime/vue/composables/use-mutation'
 import { useAction } from '../../src/runtime/vue/composables/use-action'
 import { useConvexConnectionState } from '../../src/runtime/vue/composables/use-connection-state'
@@ -28,7 +29,10 @@ const initialConnectionState = {
 let client: ConvexVueClient
 
 beforeEach(() => {
-  client = new ConvexVueClient(address)
+  // `address` is intentionally unreachable; `silentConnectLogger` drops the
+  // convex client's connection chatter while keeping `warn`/`error` so the
+  // "async optimistic update handlers warn" test still observes its warning.
+  client = new ConvexVueClient(address, { logger: silentConnectLogger })
 })
 
 afterEach(() => {

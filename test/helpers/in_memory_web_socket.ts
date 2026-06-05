@@ -55,6 +55,36 @@ export function encodeU64LE(value: number): string {
   return buffer.toString('base64')
 }
 
+/**
+ * Serialize a server message to its on-the-wire JSON form.
+ *
+ * Mirrors the upstream `encodeServerMessage` helper from
+ * `convex-js/src/browser/sync/client_node_test_helpers.ts`. Convex `ts` fields
+ * are `Long` instances on the parsed `remoteQuerySet.version`, but the wire
+ * protocol expects them as a base64 little-endian string. Tests routinely read
+ * the parsed version (via `getQuerySetVersion`) and echo it back inside a
+ * `Transition`, so any `Long` value must be re-encoded here — otherwise the
+ * client's `parseServerMessage` throws `b64.indexOf is not a function`.
+ *
+ * `Long` is not part of Convex's public exports, so it's detected structurally
+ * via its `toBytesLE()` method and encoded with `Buffer` (matching
+ * {@link encodeU64LE}) rather than importing Convex internals.
+ */
+export function encodeServerMessage(message: WireServerMessage): string {
+  return JSON.stringify(message, (_key, value) => {
+    if (
+      value
+      && typeof value === 'object'
+      && typeof (value as { toBytesLE?: unknown }).toBytesLE === 'function'
+    ) {
+      return Buffer.from(
+        (value as { toBytesLE: () => number[] }).toBytesLE(),
+      ).toString('base64')
+    }
+    return value
+  })
+}
+
 export type InMemoryWebSocketTest = (args: {
   address: string
   socket: () => WebSocket
@@ -140,7 +170,7 @@ export async function withInMemoryWebSocket(
     if (!socket) {
       throw new Error('send() called before a client connected.')
     }
-    socket.send(JSON.stringify(message))
+    socket.send(encodeServerMessage(message))
   }
 
   const addressInfo = wss.address()

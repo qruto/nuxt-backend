@@ -9,6 +9,7 @@ import { usePreloadedAuthQuery } from '../../src/runtime/vue/auth/hydration'
 import { usePreloadedQuery } from '../../src/runtime/vue/hydration'
 import { preloadQuery, preloadedQueryResult } from '../../src/runtime/nuxt/index'
 import { nodeWebSocket } from '../helpers/in_memory_web_socket'
+import { silentConnectLogger } from '../helpers/silent-logger'
 
 // Coverage for Nuxt preload + hydration round-trips.
 
@@ -17,9 +18,13 @@ const queryRef = anyApi.myQuery!.default! as FunctionReference<'query'>
 const mutationRef = anyApi.myMutation!.default! as FunctionReference<'mutation'>
 
 function testClient() {
+  // `address` is intentionally unreachable; `silentConnectLogger` drops the
+  // convex client's connection logs (irrelevant to hydration coverage) while
+  // keeping `warn`/`error` intact.
   return new ConvexVueClient(address, {
     webSocketConstructor: nodeWebSocket,
     unsavedChangesWarning: false,
+    logger: silentConnectLogger,
   })
 }
 

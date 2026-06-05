@@ -10,11 +10,16 @@ import {
   type WireServerMessage,
   withInMemoryWebSocket,
 } from '../../helpers/in_memory_web_socket'
+import { silentConnectLogger } from '../../helpers/silent-logger'
 
 const testVueClient = (address: string, options?: ConvexVueClientOptions) =>
   new ConvexVueClient(address, {
     webSocketConstructor: nodeWebSocket,
     unsavedChangesWarning: false,
+    // Drop the client's `log`-level reconnect chatter from test output while
+    // keeping `warn`/`error` — the "Fail when tokens are always rejected" test
+    // asserts on `console.error`, so that level must still reach the console.
+    logger: silentConnectLogger,
     ...options,
   })
 
@@ -29,9 +34,13 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-// WebSocket auth coverage for the Vue client.
-// Disabled to match upstream: the reconnect flow is known to be flaky.
-describe.sequential.skip('auth websocket tests', () => {
+// WebSocket auth coverage for the Vue client, ported from convex-js
+// `react/auth_websocket.test.tsx`. Upstream marks this block `.skip` because it
+// flaked in their CI (EADDRINUSE / reconnect retries when run in parallel on
+// Linux). Here it runs `.sequential` against an ephemeral `port: 0` server and
+// passes deterministically, so we keep the coverage enabled rather than
+// inheriting the skip.
+describe.sequential('auth websocket tests', () => {
   it('Authenticate via valid static token', async () => {
     await withInMemoryWebSocket(async ({ address, receive, send }) => {
       const client = testVueClient(address)
@@ -184,12 +193,15 @@ describe.sequential.skip('auth websocket tests', () => {
         .spyOn(global.console, 'error')
         .mockImplementation(() => undefined)
 
-      const tokens = [
-        jwtEncode({ iat: 1234500, exp: 1244500 }, 'secret1'),
-        jwtEncode({ iat: 1234500, exp: 1244500 }, 'secret2'),
-        jwtEncode({ iat: 1234500, exp: 1244500 }, 'secret3'),
-        jwtEncode({ iat: 1234500, exp: 1244500 }, 'secret4'),
-      ]
+      // Distinct tokens (same payload, different signatures) so each retry
+      // attempt can be asserted independently. They must be captured in stable
+      // variables because `tokenFetcher` mutates `tokens` via `shift()`.
+      const token1 = jwtEncode({ iat: 1234500, exp: 1244500 }, 'secret1')
+      const token2 = jwtEncode({ iat: 1234500, exp: 1244500 }, 'secret2')
+      const token3 = jwtEncode({ iat: 1234500, exp: 1244500 }, 'secret3')
+      const token4 = jwtEncode({ iat: 1234500, exp: 1244500 }, 'secret4')
+
+      const tokens = [token1, token2, token3, token4]
 
       const tokenFetcher = vi.fn(async () => tokens.shift() ?? null)
       const onAuthChange = vi.fn()
@@ -198,7 +210,7 @@ describe.sequential.skip('auth websocket tests', () => {
       expect((await receive()).type).toEqual('Connect')
       assertAuthenticateMessage(await receive(), {
         baseVersion: 0,
-        token: tokens[0]!,
+        token: token1,
       })
       expect((await receive()).type).toEqual('ModifyQuerySet')
 
@@ -210,10 +222,11 @@ describe.sequential.skip('auth websocket tests', () => {
       })
       close()
 
+      // The client reconnects automatically and retries with the next token
       expect((await receive()).type).toEqual('Connect')
       assertAuthenticateMessage(await receive(), {
         baseVersion: 0,
-        token: tokens[0]!,
+        token: token2,
       })
       expect((await receive()).type).toEqual('ModifyQuerySet')
 
@@ -229,7 +242,7 @@ describe.sequential.skip('auth websocket tests', () => {
       expect((await receive()).type).toEqual('Connect')
       assertAuthenticateMessage(await receive(), {
         baseVersion: 0,
-        token: tokens[0]!,
+        token: token3,
       })
       expect((await receive()).type).toEqual('ModifyQuerySet')
 
@@ -244,7 +257,7 @@ describe.sequential.skip('auth websocket tests', () => {
       expect((await receive()).type).toEqual('Connect')
       assertAuthenticateMessage(await receive(), {
         baseVersion: 0,
-        token: tokens[0]!,
+        token: token4,
       })
       expect((await receive()).type).toEqual('ModifyQuerySet')
 
@@ -427,7 +440,7 @@ describe.sequential.skip('auth websocket tests', () => {
       expect(onChange).toHaveBeenCalledTimes(2)
       expect(onChange).toHaveBeenNthCalledWith(1, true)
       expect(onChange).toHaveBeenNthCalledWith(2, true)
-    }, true)
+    })
   })
 
   it('Client maintains connection when refetch occurs during reauth attempt', async () => {
@@ -915,6 +928,59 @@ describe.sequential.skip('auth websocket tests', () => {
       })
     })
   })
+
+  // Ported from convex-js `react/ConvexAuthState.test.tsx` ("Tokens must be
+  // valid JWT"). On initial auth the client confirms the first (cached) token
+  // and then force-refreshes to a fresh one; only once that fresh token is
+  // confirmed does it try to schedule a refetch from the token's `exp`. A
+  // non-JWT token can't be decoded, so it logs an error instead. Driven
+  // entirely over the public protocol (no internal `authenticationManager`
+  // poking) — hence the two server confirmations, mirroring the original's two
+  // `mockServerConfirmsAuth` calls.
+  it('logs an error when the auth token is not a valid JWT', async () => {
+    await withInMemoryWebSocket(async ({ address, receive, send }) => {
+      const client = testVueClient(address)
+      const consoleSpy = vi
+        .spyOn(global.console, 'error')
+        .mockImplementation(() => undefined)
+
+      let tokenId = 0
+      client.setAuth(async () => `foo${tokenId++}`)
+
+      // Initial handshake authenticates with the first (cached) token.
+      expect((await receive()).type).toEqual('Connect')
+      expect((await receive()).type).toEqual('Authenticate')
+      expect((await receive()).type).toEqual('ModifyQuerySet')
+
+      // Confirm the cached token; the client force-refreshes to a fresh token.
+      const cachedVersion = getQuerySetVersion(client)
+      send({
+        type: 'Transition',
+        startVersion: { ...cachedVersion, identity: 0 },
+        endVersion: { ...cachedVersion, identity: 1 },
+        modifications: [],
+      })
+
+      // The force-refreshed (fresh) token is sent as a new Authenticate.
+      expect((await receive()).type).toEqual('Authenticate')
+
+      // Confirm the fresh token; scheduling its refetch fails (not a JWT).
+      const freshVersion = getQuerySetVersion(client)
+      send({
+        type: 'Transition',
+        startVersion: { ...freshVersion, identity: 1 },
+        endVersion: { ...freshVersion, identity: 2 },
+        modifications: [],
+      })
+
+      await waitForAssertion(() => {
+        expect(consoleSpy).toHaveBeenCalledWith(
+          'Auth token is not a valid JWT, cannot refetch the token',
+        )
+      })
+      await client.close()
+    })
+  })
 })
 
 describe.sequential('authMode WebSocket', () => {
@@ -957,7 +1023,7 @@ describe.sequential('authMode WebSocket', () => {
 
       await client.close()
       close()
-    }, true)
+    })
   })
 })
 

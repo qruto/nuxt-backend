@@ -54,15 +54,16 @@ export function useConvexQueries(
       paginationOptions,
     }: {
       journal?: QueryJournal
-      // paginationOptions presence indicates a paginated subscription (uses
-      // watchPaginatedQuery internally when supported). Matches React client.
+      // `paginationOptions` mirrors React's createWatch: its presence requests a
+      // paginated subscription. The Vue port has no client-level paginated
+      // engine (Convex's internal PaginatedQueryClient is not publicly
+      // exported), so this branch throws — paginated queries go through the
+      // `usePaginatedQuery` composable, which only ever passes plain queries
+      // here. The branch is kept for structural parity with the React client.
       paginationOptions?: unknown
     },
   ) => {
     if (paginationOptions) {
-      // Delegate to paginated watch path (falls back to error in client if
-      // internal PaginatedQueryClient unavailable; our paginated composables
-      // currently use manual impl for broad compatibility).
       return convex.watchPaginatedQuery(query, args, paginationOptions)
     }
     return convex.watchQuery(query, args, journal ? { journal } : {})

@@ -1,3 +1,9 @@
+// This suite exercises a pure browser-side helper (it mocks its only
+// dependency and touches only `window`/`URL`), so it runs in a plain happy-dom
+// environment rather than the full `nuxt` one. That avoids Nuxt's app entry
+// trying — and failing — to auto-mount onto `#__nuxt`, which otherwise emits a
+// benign "[Vue warn]: Failed to mount app" line into the test output.
+// @vitest-environment happy-dom
 // @vitest-environment-options { "url": "https://nuxt-backend.localhost/" }
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

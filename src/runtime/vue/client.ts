@@ -93,9 +93,11 @@ export type VueMutationOptions<Args extends Record<string, Value>> = Omit<
  *
  * @public
  */
-export interface ConvexVueClientOptions extends BaseConvexClientOptions {
-  custom?: boolean
-}
+// Mirrors `ConvexReactClientOptions`: an (intentionally empty) interface rather
+// than a type alias, so consumers can augment it and the public surface matches
+// the React client.
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface ConvexVueClientOptions extends BaseConvexClientOptions {}
 
 export type ConvexLogger = Exclude<BaseConvexClientOptions['logger'], boolean | undefined>
 
@@ -106,26 +108,25 @@ const noopLogger: ConvexLogger = {
   error() {},
 }
 
-const defaultConsoleLogger: ConvexLogger = {
-  logVerbose: (...args) => console.debug(...args),
-  log: (...args) => console.log(...args),
-  warn: (...args) => console.warn(...args),
-  error: (...args) => console.error(...args),
-}
-
-// Local definition for the paginated client ctor getter (to match pasted react client
-// logic for getter + method + field + handle + PaginationStatus etc).
-// We intentionally do not import the internal PaginatedQueryClient (from
-// convex/browser/sync/... which is not part of the public exports) to avoid
-// "forbidden internals". The main paginated query composables use fully local
-// implementations (local defs + local helpers) for parity. This keeps the
-// low-level watchPaginatedQuery path falling back gracefully.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getPaginatedQueryClientCtor(): any {
-  // Always throw here so the try/catch in paginatedQueryClient getter surfaces
-  // the documented "not available" message. This is the intended behavior when
-  // not using the (non-exported) internal.
-  throw new Error('getPaginatedQueryClientCtor: internal not available (local def avoids forbidden import)')
+/**
+ * Build the default console-backed logger.
+ *
+ * Mirrors the observable behaviour of Convex's internal
+ * `instantiateDefaultLogger`: `logVerbose` lines are only emitted when
+ * `verbose` is enabled. Convex's `DefaultLogger` / `instantiateDefaultLogger`
+ * helpers are not part of the public `convex/browser` exports, so we
+ * reconstruct equivalent behaviour from the public `Logger` shape rather than
+ * reaching into Convex internals.
+ */
+function defaultLogger(verbose: boolean): ConvexLogger {
+  return {
+    logVerbose: (...args) => {
+      if (verbose) console.debug(...args)
+    },
+    log: (...args) => console.log(...args),
+    warn: (...args) => console.warn(...args),
+    error: (...args) => console.error(...args),
+  }
 }
 
 interface SyncClientWithInternals extends BaseConvexClient {
@@ -150,11 +151,10 @@ export class ConvexVueClient {
   private address: string
   private cachedSync?: BaseConvexClient
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private cachedPaginatedQueryClient?: any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private listeners: Map<any, Set<() => void>>
   private options: ConvexVueClientOptions
   private closed = false
+  private _logger: ConvexLogger
 
   private adminAuth?: string
   private fakeUserIdentity?: UserIdentityAttributes
@@ -177,7 +177,18 @@ export class ConvexVueClient {
     }
     this.address = address
     this.listeners = new Map()
-    this.options = { ...options }
+    // Resolve the logger once and hand the *same* instance to the underlying
+    // BaseConvexClient via `options.logger`, so `client.logger` and the SDK's
+    // internal logging share a single logger that honours `verbose`. This
+    // mirrors ConvexReactClient's `_logger` wiring (which uses the non-exported
+    // instantiateDefaultLogger/instantiateNoopLogger helpers).
+    this._logger
+      = options?.logger === false
+        ? noopLogger
+        : options?.logger !== true && options?.logger
+          ? options.logger
+          : defaultLogger(options?.verbose ?? false)
+    this.options = { ...options, logger: this._logger }
   }
 
   /**
@@ -202,6 +213,13 @@ export class ConvexVueClient {
     if (this.cachedSync) {
       return this.cachedSync
     }
+    // Unlike ConvexReactClient — which passes a no-op transition handler here
+    // and routes every transition through its internal PaginatedQueryClient —
+    // the Vue port wires the base client's transition callback straight to
+    // `transition()`. That internal PaginatedQueryClient is not part of
+    // Convex's public API (see {@link watchPaginatedQuery}), so pagination is
+    // handled in the composable layer instead and simple-query updates must be
+    // delivered directly from the base client.
     this.cachedSync = new BaseConvexClient(
       this.address,
       (updatedQueries: QueryToken[]) => this.transition(updatedQueries),
@@ -215,37 +233,6 @@ export class ConvexVueClient {
   }
 
   /**
-   * Lazily instantiate the `PaginatedQueryClient` so we don't create it
-   * when server-side rendering.
-   *
-   * @internal
-   */
-  get paginatedQueryClient() {
-    if (this.cachedPaginatedQueryClient) {
-      return this.cachedPaginatedQueryClient
-    }
-    // access sync to ensure base
-    void this.sync
-    try {
-      const PQC = getPaginatedQueryClientCtor()
-      this.cachedPaginatedQueryClient = new PQC(
-        this.cachedSync,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (transition: any) => this.handleTransition(transition),
-      )
-      return this.cachedPaginatedQueryClient
-    }
-    catch {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.cachedPaginatedQueryClient = null as any
-      throw new Error(
-        'PaginatedQueryClient is not available. This is an internal Convex detail; '
-        + 'usePaginatedQuery_experimental currently falls back to a manual implementation.',
-      )
-    }
-  }
-
-  /**
    * Register a callback that returns the current auth token.
    *
    * Called by auth integrations (e.g. Better Auth) to pass tokens to the
@@ -256,6 +243,12 @@ export class ConvexVueClient {
     fetchToken: AuthTokenFetcher,
     onChange?: (isAuthenticated: boolean) => void,
   ): void {
+    if (typeof fetchToken === 'string') {
+      throw new TypeError(
+        'Passing a string to ConvexVueClient.setAuth is no longer supported, '
+        + 'please upgrade to passing in an async function to handle reauthentication.',
+      )
+    }
     this.sync.setAuth(
       fetchToken,
       onChange ?? (() => {}),
@@ -355,60 +348,35 @@ export class ConvexVueClient {
   /**
    * Construct a new {@link PaginatedWatch} on a Convex paginated query function.
    *
-   * **Most application code should not call this method directly. Instead use
-   * the {@link usePaginatedQuery} composable.**
+   * **Not supported in the Vue port — use the {@link usePaginatedQuery}
+   * composable instead.**
    *
-   * The act of creating a watch does nothing, a Watch is stateless.
+   * Convex's native paginated-subscription engine (`PaginatedQueryClient`,
+   * added in convex 1.40) is an internal module that is not part of the public
+   * `convex/*` exports, so a third-party package cannot instantiate it without
+   * reaching into Convex internals. The Vue port therefore handles pagination
+   * entirely in the composable layer: {@link usePaginatedQuery} walks pages via
+   * ordinary {@link watchQuery} subscriptions.
+   *
+   * This method is retained for structural and type parity with
+   * `ConvexReactClient.watchPaginatedQuery`. It is reachable only if a caller
+   * passes `paginationOptions` to {@link useConvexQueries} (the React-shaped
+   * escape hatch); doing so throws this error to fail loudly rather than
+   * silently mis-subscribe.
    *
    * @internal
    */
   watchPaginatedQuery<Query extends FunctionReference<'query'>>(
-    query: Query,
-    args: FunctionArgs<Query>,
+    _query: Query,
+    _args: FunctionArgs<Query>,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    options: any,
+    _options: any,
   ): PaginatedWatch<FunctionReturnType<Query>> {
-    const name = getFunctionName(query)
-    const PQC = this.paginatedQueryClient // ensures created and lazy inits
-
-    return {
-      onUpdate: (callback: () => void) => {
-        const { paginatedQueryToken, unsubscribe }
-          = PQC.subscribe(name, (args || {}) as Record<string, Value>, options)
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const currentListeners = this.listeners.get(paginatedQueryToken as any)
-        if (currentListeners !== undefined) {
-          currentListeners.add(callback)
-        }
-        else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          this.listeners.set(paginatedQueryToken as any, new Set([callback]))
-        }
-
-        return () => {
-          if (this.closed) {
-            return
-          }
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const currentListeners = this.listeners.get(paginatedQueryToken as any)!
-          currentListeners.delete(callback)
-          if (currentListeners.size === 0) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            this.listeners.delete(paginatedQueryToken as any)
-          }
-          unsubscribe()
-        }
-      },
-
-      localQueryResult: () => {
-        return PQC.localQueryResult(name, (args || {}) as Record<string, Value>, options) as
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          | { results: FunctionReturnType<Query>['page'], status: any, loadMore: any }
-          | undefined
-      },
-    }
+    throw new Error(
+      'ConvexVueClient.watchPaginatedQuery is not supported: Convex\'s internal '
+      + 'PaginatedQueryClient is not part of the public API. Use the '
+      + '`usePaginatedQuery` composable for paginated queries.',
+    )
   }
 
   /**
@@ -498,16 +466,13 @@ export class ConvexVueClient {
 
   /**
    * Get the logger configured for this client.
+   *
+   * This is the same logger instance handed to the underlying
+   * {@link BaseConvexClient}, so client-level and SDK-level logging stay
+   * consistent.
    */
   get logger(): ConvexLogger {
-    const logger = this.options.logger
-    if (logger === false) {
-      return noopLogger
-    }
-    if (logger && typeof logger === 'object') {
-      return logger
-    }
-    return defaultConsoleLogger
+    return this._logger
   }
 
   /**
@@ -558,15 +523,6 @@ export class ConvexVueClient {
       }
     }
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private handleTransition(transition: any) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const simple = transition.queries.map((q: any) => q.token)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const paginated = transition.paginatedQueries.map((q: any) => q.token)
-    this.transition([...simple, ...paginated])
-  }
 }
 
 /**
@@ -593,7 +549,10 @@ export const ConvexClientKey: InjectionKey<ConvexVueClient> = Symbol('ConvexVueC
  * @public
  */
 export function useConvex(): ConvexVueClient {
-  const client = inject(ConvexClientKey)
+  // Pass an explicit default so Vue doesn't emit its own generic
+  // "injection not found" warning before we throw the more helpful error
+  // below. Mirrors React's `useContext`, which returns null silently.
+  const client = inject(ConvexClientKey, undefined)
   if (!client) {
     throw new Error(dedent`
       Could not find Convex client! \`useConvex\` must be used in a component tree

@@ -3,15 +3,20 @@ import ws from 'ws'
 import { makeFunctionReference } from 'convex/server'
 import { ConvexVueClient } from '../../src/runtime/vue/client'
 import { createMutation } from '../../src/runtime/vue/composables/use-mutation'
+import { silentConnectLogger } from '../helpers/silent-logger'
 
 const address = 'https://127.0.0.1:3001'
 
 const testQuery = makeFunctionReference<'query'>('myQuery:default')
 const testMutation = makeFunctionReference<'mutation'>('myMutation:default')
 
+// `address` is intentionally unreachable; `silentConnectLogger` drops the
+// underlying convex client's connection logs (irrelevant to these tests) while
+// keeping `warn`/`error` intact.
 const createClient = () =>
   new ConvexVueClient(address, {
     webSocketConstructor: ws as unknown as typeof WebSocket,
+    logger: silentConnectLogger,
   })
 
 // ── ConvexVueClient ───────────────────────────────────────────────────────────
@@ -82,11 +87,35 @@ describe('ConvexVueClient', () => {
     })
   })
 
+  describe('watchPaginatedQuery', () => {
+    // Unlike ConvexReactClient (which routes pagination through Convex's
+    // internal, non-public PaginatedQueryClient), the Vue port handles paginated
+    // queries entirely in the `usePaginatedQuery` composable. The client-level
+    // method is retained for structural parity but throws loudly so callers
+    // don't silently mis-subscribe.
+    it('throws because the internal PaginatedQueryClient is not part of the public API', () => {
+      expect(() =>
+        client.watchPaginatedQuery(testQuery, {}, { initialNumItems: 10 }),
+      ).toThrow('ConvexVueClient.watchPaginatedQuery is not supported')
+    })
+  })
+
   describe('auth', () => {
     it('setAuth does not throw', () => {
       expect(() => {
         client!.setAuth(async () => null)
       }).not.toThrow()
+    })
+
+    it('setAuth throws when passed a string (legacy signature)', () => {
+      // Mirrors ConvexReactClient.setAuth: the string-token signature was
+      // removed in favour of an async fetcher that supports reauthentication.
+      expect(() =>
+        // @ts-expect-error legacy string signature is intentionally unsupported
+        client!.setAuth('a-static-token'),
+      ).toThrow(
+        'Passing a string to ConvexVueClient.setAuth is no longer supported',
+      )
     })
 
     it('clearAuth does not throw', () => {
@@ -126,6 +155,64 @@ describe('ConvexVueClient', () => {
       await client.close()
       client = undefined as unknown as ConvexVueClient
     })
+  })
+})
+
+// ── logger ──────────────────────────────────────────────────────────────────
+// Coverage for the client's logger resolution. Mirrors ConvexReactClient's
+// `_logger` wiring (instantiateDefaultLogger / instantiateNoopLogger),
+// reconstructed from the public `Logger` shape.
+
+describe('ConvexVueClient logger', () => {
+  it('exposes a default console logger when none is provided', () => {
+    const client = new ConvexVueClient(address)
+    for (const level of ['logVerbose', 'log', 'warn', 'error'] as const) {
+      expect(typeof client.logger[level]).toBe('function')
+    }
+  })
+
+  it('uses a noop logger when logger is false', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const client = new ConvexVueClient(address, { logger: false })
+
+    client.logger.log('swallowed')
+    client.logger.warn('swallowed')
+
+    expect(logSpy).not.toHaveBeenCalled()
+    expect(warnSpy).not.toHaveBeenCalled()
+    logSpy.mockRestore()
+    warnSpy.mockRestore()
+  })
+
+  it('returns a provided logger object unchanged', () => {
+    const custom = { logVerbose() {}, log() {}, warn() {}, error() {} }
+    const client = new ConvexVueClient(address, { logger: custom })
+    expect(client.logger).toBe(custom)
+  })
+
+  it('only emits logVerbose lines when verbose is enabled', () => {
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+
+    const quiet = new ConvexVueClient(address)
+    quiet.logger.logVerbose('hidden')
+    expect(debugSpy).not.toHaveBeenCalled()
+
+    const loud = new ConvexVueClient(address, { verbose: true })
+    loud.logger.logVerbose('shown')
+    expect(debugSpy).toHaveBeenCalledWith('shown')
+
+    debugSpy.mockRestore()
+  })
+
+  it('hands the same logger instance to the underlying sync client', () => {
+    const custom = { logVerbose() {}, log() {}, warn() {}, error() {} }
+    const client = new ConvexVueClient(address, { logger: custom })
+    // The resolved logger is stored on `options.logger`, which is exactly what
+    // gets handed to the lazily-created BaseConvexClient — so client-level and
+    // SDK-level logging share one instance.
+    expect(Reflect.get(client, 'options').logger).toBe(client.logger)
+    expect(client.logger).toBe(custom)
   })
 })
 

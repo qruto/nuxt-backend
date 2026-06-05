@@ -28,7 +28,12 @@ import {
 } from '../../src/runtime/vue/composables/use-paginated-query'
 import { withInMemoryWebSocket } from '../helpers/in_memory_web_socket'
 import { mountWithConvex } from '../helpers/vue_test_utils'
+import { silentConnectLogger } from '../helpers/silent-logger'
 
+// `address` is intentionally unreachable (matches convex-js's
+// use_paginated_query.test.tsx). Clients are constructed with
+// `silentConnectLogger` so the convex client's connection logs don't leak into
+// test output — these tests only exercise composable logic, not networking.
 const address = 'https://127.0.0.1:30001'
 const mutationRef = makeFunctionReference<'mutation'>('myMutation:default')
 
@@ -120,14 +125,17 @@ describe('usePaginatedQuery', () => {
       expectedError: '`options.initialNumItems` must be a positive number. Received `wrongType`.',
     },
   ])('throws an error when options is $options', async ({ options, expectedError }) => {
-    const client = new ConvexVueClient(address)
+    const client = new ConvexVueClient(address, { logger: silentConnectLogger })
     await expect(
-      mountWithConvex(client, () =>
-        usePaginatedQuery(
-          queryRef,
-          {},
-          options as { initialNumItems: number },
-        ),
+      mountWithConvex(
+        client,
+        () =>
+          usePaginatedQuery(
+            queryRef,
+            {},
+            options as { initialNumItems: number },
+          ),
+        { expectSetupThrow: true },
       ),
     ).rejects.toThrow(expectedError)
     await client.close()
@@ -137,7 +145,7 @@ describe('usePaginatedQuery', () => {
 
   it('object options default to non-throwing error state', async () => {
     await withInMemoryWebSocket(async ({ address }) => {
-      const client = new ConvexVueClient(address)
+      const client = new ConvexVueClient(address, { logger: silentConnectLogger })
 
       const { result } = await mountWithConvex(client, () =>
         usePaginatedQuery_experimental({
@@ -166,7 +174,7 @@ describe('usePaginatedQuery', () => {
 
   it('object options throw when throwOnError is true', async () => {
     await withInMemoryWebSocket(async ({ address }) => {
-      const client = new ConvexVueClient(address)
+      const client = new ConvexVueClient(address, { logger: silentConnectLogger })
 
       const { result } = await mountWithConvex(client, () =>
         usePaginatedQuery_experimental({
@@ -189,7 +197,7 @@ describe('usePaginatedQuery', () => {
 
   it('positional form continues throwing on errors', async () => {
     await withInMemoryWebSocket(async ({ address }) => {
-      const client = new ConvexVueClient(address)
+      const client = new ConvexVueClient(address, { logger: silentConnectLogger })
 
       const { result } = await mountWithConvex(
         client,
@@ -209,7 +217,7 @@ describe('usePaginatedQuery', () => {
   // -- skip behaviour ---------------------------------------------------------
 
   it('returns nothing when args are skip (positional)', async () => {
-    const client = new ConvexVueClient(address)
+    const client = new ConvexVueClient(address, { logger: silentConnectLogger })
 
     const watchQuerySpy = vi.spyOn(client, 'watchQuery')
     const { result } = await mountWithConvex(
@@ -228,7 +236,7 @@ describe('usePaginatedQuery', () => {
   })
 
   it('returns pending when object-form args are skip', async () => {
-    const client = new ConvexVueClient(address)
+    const client = new ConvexVueClient(address, { logger: silentConnectLogger })
 
     const watchQuerySpy = vi.spyOn(client, 'watchQuery')
     const { result } = await mountWithConvex(client, () =>
@@ -254,7 +262,7 @@ describe('usePaginatedQuery', () => {
 
   it('initially returns pending for object options', async () => {
     await withInMemoryWebSocket(async ({ address }) => {
-      const client = new ConvexVueClient(address)
+      const client = new ConvexVueClient(address, { logger: silentConnectLogger })
       const watchQuerySpy = vi.spyOn(client, 'watchQuery')
 
       const { result } = await mountWithConvex(client, () =>
@@ -288,7 +296,7 @@ describe('usePaginatedQuery', () => {
 
   it('initially returns LoadingFirstPage', async () => {
     await withInMemoryWebSocket(async ({ address }) => {
-      const client = new ConvexVueClient(address)
+      const client = new ConvexVueClient(address, { logger: silentConnectLogger })
       const watchQuerySpy = vi.spyOn(client, 'watchQuery')
 
       const { result } = await mountWithConvex(
@@ -318,7 +326,7 @@ describe('usePaginatedQuery', () => {
 
   it('updates to a new query when args change', async () => {
     await withInMemoryWebSocket(async ({ address }) => {
-      const client = new ConvexVueClient(address)
+      const client = new ConvexVueClient(address, { logger: silentConnectLogger })
       const watchQuerySpy = vi.spyOn(client, 'watchQuery')
       const args = ref<{ channel: string } | 'skip'>({ channel: 'general' })
 
@@ -371,7 +379,7 @@ describe('usePaginatedQuery', () => {
 
   it('does not re-subscribe when args serialize identically', async () => {
     await withInMemoryWebSocket(async ({ address }) => {
-      const client = new ConvexVueClient(address)
+      const client = new ConvexVueClient(address, { logger: silentConnectLogger })
       const watchQuerySpy = vi.spyOn(client, 'watchQuery')
       const args = ref<Record<string, Value>>({ someArg: 123 })
 
@@ -398,7 +406,7 @@ describe('usePaginatedQuery', () => {
   describe('pages', () => {
     it('loadMore', async () => {
       await withInMemoryWebSocket(async ({ address }) => {
-        const client = new ConvexVueClient(address)
+        const client = new ConvexVueClient(address, { logger: silentConnectLogger })
 
         const { result } = await mountWithConvex(
           client,
@@ -447,7 +455,7 @@ describe('usePaginatedQuery', () => {
 
     it('single page updating', async () => {
       await withInMemoryWebSocket(async ({ address }) => {
-        const client = new ConvexVueClient(address)
+        const client = new ConvexVueClient(address, { logger: silentConnectLogger })
 
         const { result } = await mountWithConvex(
           client,
@@ -493,7 +501,7 @@ describe('usePaginatedQuery', () => {
 
     it('page split', async () => {
       await withInMemoryWebSocket(async ({ address }) => {
-        const client = new ConvexVueClient(address)
+        const client = new ConvexVueClient(address, { logger: silentConnectLogger })
 
         const { result } = await mountWithConvex(
           client,
@@ -654,10 +662,12 @@ describe('UsePaginatedQueryObjectReturnType', () => {
 describe('usePaginatedQuery_experimental', () => {
   const queryRef = makeFunctionReference<'query'>('myQuery:default') as PaginatedQueryReference
 
-  // Mirrors React's public `usePaginatedQuery_experimental`. The experimental
-  // hook is powered by the native `PaginatedQueryClient` (via watchPaginatedQuery +
-  // paginationOptions in useQueries), while the stable `usePaginatedQuery` uses the
-  // manual multi-page implementation for backward compatibility. Signatures match
+  // Mirrors React's public `usePaginatedQuery_experimental`. In React the
+  // experimental hook is powered by the native `PaginatedQueryClient` (via
+  // watchPaginatedQuery + paginationOptions in useQueries). That client is not
+  // part of Convex's public API, so the Vue port implements BOTH the stable and
+  // experimental hooks with the manual multi-page implementation over
+  // `watchQuery`; neither calls `watchPaginatedQuery`. Signatures still match
   // the React/Next integration exactly.
   it('is a distinct function from usePaginatedQuery', () => {
     expect(usePaginatedQuery_experimental).not.toBe(usePaginatedQuery)
@@ -689,7 +699,7 @@ describe('usePaginatedQuery_experimental', () => {
   })
 
   it('object form returns pending when skipped', async () => {
-    const client = new ConvexVueClient(address)
+    const client = new ConvexVueClient(address, { logger: silentConnectLogger })
     const watchPaginatedSpy = vi.spyOn(client, 'watchPaginatedQuery')
     const watchQuerySpy = vi.spyOn(client, 'watchQuery')
 

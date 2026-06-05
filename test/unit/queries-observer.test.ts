@@ -9,7 +9,7 @@ let createWatch: MockedFunction<(
   query: FunctionReference<'query'>,
   args: Record<string, Value>,
   options?: { journal?: unknown, paginationOptions?: unknown },
-) => FakeWatch<Value> | unknown>
+) => FakeWatch<Value>>
 let listener: MockedFunction<() => void>
 
 beforeEach(() => {
@@ -17,7 +17,7 @@ beforeEach(() => {
     query: FunctionReference<'query'>,
     args: Record<string, Value>,
     options?: { journal?: unknown, paginationOptions?: unknown },
-  ) => FakeWatch<Value> | unknown>
+  ) => FakeWatch<Value>>
   queriesObserver = new QueriesObserver(createWatch)
   listener = vi.fn() as MockedFunction<() => void>
   queriesObserver.subscribe(listener)
