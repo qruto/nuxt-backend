@@ -4,4 +4,12 @@ export default defineNuxtConfig({
     '@nuxt/eslint',
     '@nuxt/test-utils',
   ],
+  eslint: {
+    config: {
+      stylistic: {
+        commaDangle: 'only-multiline',
+        braceStyle: '1tbs',
+      },
+    },
+  },
 })

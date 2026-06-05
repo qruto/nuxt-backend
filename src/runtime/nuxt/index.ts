@@ -1,0 +1,215 @@
+/**
+ * Helpers for integrating Convex into Nuxt applications using server rendering.
+ *
+ * This module contains:
+ * 1. {@link preloadQuery}, for preloading data for reactive client components.
+ * 2. {@link fetchQuery}, {@link fetchMutation} and {@link fetchAction} for loading
+ *    and mutating Convex data from Nuxt server routes, API handlers, and middleware.
+ *
+ * All exported functions assume that a Convex deployment URL is set in the
+ * `NUXT_PUBLIC_CONVEX_URL` environment variable.
+ *
+ * @module
+ */
+
+import { ConvexHttpClient } from 'convex/browser'
+import type {
+  ArgsAndOptions,
+  FunctionReference,
+  FunctionReturnType,
+} from 'convex/server'
+import { getFunctionName } from 'convex/server'
+import { convexToJson, jsonToConvex } from 'convex/values'
+import type { Preloaded } from '../vue/hydration'
+import { getBackendRuntimeConfig } from './config'
+
+/**
+ * Options for {@link preloadQuery}, {@link fetchQuery}, {@link fetchMutation}
+ * and {@link fetchAction}.
+ *
+ * @public
+ */
+export interface NuxtConvexOptions {
+  /**
+   * The JWT-encoded OpenID Connect authentication token to use for the function call.
+   */
+  token?: string
+  /**
+   * The URL of the Convex deployment to use for the function call.
+   * Defaults to `process.env.NUXT_PUBLIC_CONVEX_URL` if not provided.
+   *
+   * Explicitly passing undefined here (such as from missing ENV variables) will throw an error in the future.
+   */
+  url?: string
+
+  /**
+   * @internal
+   */
+  adminToken?: string
+  /**
+   * Skip validating that the Convex deployment URL looks like
+   * `https://happy-animal-123.convex.cloud` or localhost.
+   *
+   * This can be useful if running a self-hosted Convex backend that uses a different
+   * URL.
+   *
+   * The default value is `false`
+   */
+  skipConvexDeploymentUrlCheck?: boolean
+}
+
+interface ConvexHttpClientWithFetchOptions extends ConvexHttpClient {
+  setFetchOptions(options: RequestInit): void
+  setAdminAuth(token: string): void
+}
+
+function getConvexUrl(deploymentUrl: string | undefined, skipConvexDeploymentUrlCheck: boolean): string {
+  const runtimeUrl = getBackendRuntimeConfig().url
+  const url = deploymentUrl
+    ?? runtimeUrl
+    ?? process.env.NUXT_PUBLIC_CONVEX_URL
+
+  if (typeof url !== 'string' || !url) {
+    throw new Error(
+      deploymentUrl === undefined
+        ? 'Environment variable NUXT_PUBLIC_CONVEX_URL is not set.'
+        : 'Convex function called with invalid deployment address.',
+    )
+  }
+  if (!skipConvexDeploymentUrlCheck) {
+    if (!(url.startsWith('http:') || url.startsWith('https:'))) {
+      throw new Error(
+        `Invalid deployment address: Must start with "https://" or "http://". Found "${url}".`,
+      )
+    }
+    try {
+      new URL(url)
+    }
+    catch {
+      throw new Error(
+        `Invalid deployment address: "${url}" is not a valid URL. If you believe this URL is correct, use the \`skipConvexDeploymentUrlCheck\` option to bypass this.`,
+      )
+    }
+    if (url.endsWith('.convex.site')) {
+      throw new Error(
+        `Invalid deployment address: "${url}" ends with .convex.site, which is used for HTTP Actions. Convex deployment URLs typically end with .convex.cloud? If you believe this URL is correct, use the \`skipConvexDeploymentUrlCheck\` option to bypass this.`,
+      )
+    }
+  }
+  return url
+}
+
+function setupClient(options: NuxtConvexOptions): ConvexHttpClient {
+  if ('url' in options && options.url === undefined) {
+    // This will be an error in the future.
+
+    console.error(
+      'deploymentUrl is undefined, are your environment variables set? In the future explicitly passing undefined will cause an error. To explicitly use the default, pass `process.env.NUXT_PUBLIC_CONVEX_URL`.',
+    )
+  }
+  const skip = options.skipConvexDeploymentUrlCheck ?? false
+  const client = new ConvexHttpClient(getConvexUrl(options.url, skip)) as ConvexHttpClientWithFetchOptions
+  if (options.token !== undefined) {
+    client.setAuth(options.token)
+  }
+  if (options.adminToken !== undefined) {
+    client.setAdminAuth(options.adminToken)
+  }
+  client.setFetchOptions({ cache: 'no-store' })
+  return client
+}
+
+/**
+ * Execute a Convex query function and return a `Preloaded` payload
+ * which can be passed to `usePreloadedQuery` in a client component.
+ *
+ * @param query - A FunctionReference for the public query to run.
+ * @param args - The query arguments and optional {@link NuxtConvexOptions}
+ *   passed as the final argument.
+ * @returns A promise of the `Preloaded` payload.
+ *
+ * @public
+ */
+export async function preloadQuery<Query extends FunctionReference<'query'>>(
+  query: Query,
+  ...args: ArgsAndOptions<Query, NuxtConvexOptions>
+): Promise<Preloaded<Query>> {
+  const value = await fetchQuery(query, ...args)
+  const preloaded = {
+    _name: getFunctionName(query),
+    _argsJSON: convexToJson(args[0] ?? {}),
+    _valueJSON: convexToJson(value),
+  }
+  return preloaded as Preloaded<Query>
+}
+
+/**
+ * Returns the result of executing a query via `preloadQuery`.
+ *
+ * @param preloaded - The `Preloaded` payload returned by `preloadQuery`.
+ * @returns The query result.
+ *
+ * @public
+ */
+export function preloadedQueryResult<Query extends FunctionReference<'query'>>(
+  preloaded: Preloaded<Query>,
+): FunctionReturnType<Query> {
+  return jsonToConvex(preloaded._valueJSON)
+}
+
+/**
+ * Execute a Convex query function.
+ *
+ * @param query - A FunctionReference for the public query to run.
+ * @param args - The query arguments and optional {@link NuxtConvexOptions}
+ *   passed as the final argument.
+ * @returns A promise of the query's result.
+ *
+ * @public
+ */
+export async function fetchQuery<Query extends FunctionReference<'query'>>(
+  query: Query,
+  ...args: ArgsAndOptions<Query, NuxtConvexOptions>
+): Promise<FunctionReturnType<Query>> {
+  const [fnArgs, options] = args
+  const client = setupClient(options ?? {})
+  return client.query(query, fnArgs || {})
+}
+
+/**
+ * Execute a Convex mutation function.
+ *
+ * @param mutation - A FunctionReference for the public mutation to run.
+ * @param args - The mutation arguments and optional {@link NuxtConvexOptions}
+ *   passed as the final argument.
+ * @returns A promise of the mutation's result.
+ *
+ * @public
+ */
+export async function fetchMutation<Mutation extends FunctionReference<'mutation'>>(
+  mutation: Mutation,
+  ...args: ArgsAndOptions<Mutation, NuxtConvexOptions>
+): Promise<FunctionReturnType<Mutation>> {
+  const [fnArgs, options] = args
+  const client = setupClient(options ?? {})
+  return client.mutation(mutation, fnArgs || {})
+}
+
+/**
+ * Execute a Convex action function.
+ *
+ * @param action - A FunctionReference for the public action to run.
+ * @param args - The action arguments and optional {@link NuxtConvexOptions}
+ *   passed as the final argument.
+ * @returns A promise of the action's result.
+ *
+ * @public
+ */
+export async function fetchAction<Action extends FunctionReference<'action'>>(
+  action: Action,
+  ...args: ArgsAndOptions<Action, NuxtConvexOptions>
+): Promise<FunctionReturnType<Action>> {
+  const [fnArgs, options] = args
+  const client = setupClient(options ?? {})
+  return client.action(action, fnArgs || {})
+}

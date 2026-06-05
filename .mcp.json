@@ -1,12 +1,21 @@
 {
   "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest",
+        "--autoConnect"
+      ]
+    },
     "convex": {
       "command": "npx",
       "args": [
         "-y",
         "convex@latest",
         "mcp",
-        "start"
+        "start",
+        "--project-dir",
+        "."
       ]
     },
     "nuxt-docs": {

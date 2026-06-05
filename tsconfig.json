@@ -5,6 +5,6 @@
     "node_modules",
     "backend",
     "playground",
-    "src/convex-component"
+    "src/convex"
   ]
 }

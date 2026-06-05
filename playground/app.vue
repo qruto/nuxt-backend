@@ -1,5 +1,5 @@
 <template>
-  <div>
-    Nuxt backend playground!
-  </div>
+  <NuxtLayout>
+    <NuxtPage />
+  </NuxtLayout>
 </template>

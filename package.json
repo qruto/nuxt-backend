@@ -10,19 +10,26 @@
       "types": "./dist/types.d.mts",
       "import": "./dist/module.mjs"
     },
-    "./convex-component": {
-      "types": "./dist/convex-component/convex.config.d.ts",
-      "import": "./src/convex-component/convex.config.ts"
+    "./convex": {
+      "types": "./dist/convex/client/index.d.ts",
+      "default": "./dist/convex/client/index.js"
     },
-    "./auth-config": {
-      "types": "./dist/convex-component/auth-config.d.ts",
-      "import": "./src/convex-component/auth-config.ts"
+    "./convex/component/_generated/component": {
+      "types": "./dist/convex/component/_generated/component.d.ts"
     },
-    "./auth": {
-      "types": "./dist/convex-component/auth.d.ts",
-      "import": "./src/convex-component/auth.ts"
+    "./convex/component/convex.config": {
+      "types": "./dist/convex/component/convex.config.d.ts",
+      "default": "./dist/convex/component/convex.config.js"
     },
-    "./test": "./src/convex-component/test.ts"
+    "./convex/component/schema": {
+      "types": "./dist/convex/component/schema.d.ts",
+      "default": "./dist/convex/component/schema.js"
+    },
+    "./convex/auth.config": {
+      "types": "./dist/convex/auth.config.d.ts",
+      "default": "./dist/convex/auth.config.js"
+    },
+    "./convex/test": "./src/convex/test.ts"
   },
   "main": "./dist/module.mjs",
   "typesVersions": {
@@ -30,17 +37,23 @@
       ".": [
         "./dist/types.d.mts"
       ],
-      "convex-component": [
-        "./dist/convex-component/convex.config.d.ts"
+      "convex": [
+        "./dist/convex/client/index.d.ts"
       ],
-      "backend-component": [
-        "./dist/convex-component/convex.config.d.ts"
+      "convex/component/_generated/component": [
+        "./dist/convex/component/_generated/component.d.ts"
       ],
-      "auth-config": [
-        "./dist/convex-component/auth-config.d.ts"
+      "convex/component/convex.config": [
+        "./dist/convex/component/convex.config.d.ts"
       ],
-      "auth": [
-        "./dist/convex-component/auth.d.ts"
+      "convex/component/schema": [
+        "./dist/convex/component/schema.d.ts"
+      ],
+      "convex/auth.config": [
+        "./dist/convex/auth.config.d.ts"
+      ],
+      "convex/test": [
+        "./src/convex/test.ts"
       ]
     }
   },
@@ -53,33 +66,36 @@
   ],
   "scripts": {
     "prepack": "npm run build",
-    "build": "npm run build:convex-component && npm run build:nuxt-module",
-    "build:convex-component": "npm run build:convex-component:codegen && tsc --project ./tsconfig.build.json",
-    "build:convex-component:codegen": "convex codegen --component-dir ./src/convex-component",
+    "build": "npm run build:nuxt-module && npm run build:convex-component",
     "build:nuxt-module": "nuxt-module-build build",
-    "dev": "npm run dev:nuxt-module:prepare && run-p -r 'dev:convex-component' 'dev:nuxt-module' 'dev:convex-component:codegen'",
-    "dev:convex-component": "convex dev --typecheck-components",
-    "dev:convex-component:codegen": "chokidar 'tsconfig*.json' 'src/convex-component/**/*.ts' -i '**/*.test.ts' -c 'npm run build:convex-component:codegen' --initial",
-    "dev:nuxt-module": "nuxt dev playground",
+    "build:convex-component": "npx convex codegen --component-dir ./src/convex/component && tsc --project ./tsconfig.convex-component.build.json && node -e \"require('fs').utimesSync('playground/backend/convex.config.ts', new Date(), new Date())\"",
+    "dev": "npm run dev:nuxt-module:prepare && npm run build:convex-component && run-p -r 'dev:convex-component' 'dev:nuxt-module'",
+    "dev:convex-component": "convex dev --typecheck-components --start 'npm run dev:convex-component:watch'",
+    "dev:convex-component:watch": "chokidar 'tsconfig*.json' 'src/convex/**/*.ts' -i '**/*.test.ts' -i 'src/convex/component/_generated/**' -c 'npm run build:convex-component' --initial",
+    "dev:nuxt-module": "TMPDIR=/tmp portless nuxt-backend nuxt dev playground",
     "dev:nuxt-module:build": "nuxt build playground",
     "dev:nuxt-module:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
     "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
     "lint": "eslint .",
-    "test": "vitest",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest --run",
     "test:watch": "vitest --watch",
-    "test:types": "npm run dev:nuxt-module:prepare && vue-tsc --noEmit && tsc --noEmit -p tsconfig.convex.json && cd playground && vue-tsc --noEmit",
-    "test:unit": "vitest --project unit",
-    "test:convex": "vitest --project convex-component",
-    "test:nuxt": "vitest --project nuxt",
-    "test:e2e": "vitest --project e2e",
-    "bump": "npx taze major -w"
+    "test:types": "npm run dev:nuxt-module:prepare && npm run build:convex-component && vue-tsc --noEmit && tsc --noEmit -p tsconfig.convex.json && cd playground && vue-tsc --noEmit",
+    "test:unit": "vitest --project unit --run",
+    "test:nuxt": "vitest --project nuxt --run",
+    "test:e2e": "vitest --project e2e --run",
+    "test:convex-component": "vitest --project convex-component --run",
+    "test:quality": "fallow --summary",
+    "bump": "npx taze major -w",
+    "db:reset": "node scripts/db-reset.mjs"
   },
   "dependencies": {
-    "@convex-dev/better-auth": "^0.11.4",
-    "@nuxt/kit": "^4.4.2",
-    "@opentelemetry/api": "^1.9.1",
-    "better-auth": "^1.6.2",
-    "convex": "^1.35.1"
+    "@better-auth/passkey": "~1.6.11",
+    "@convex-dev/better-auth": "^0.12.2",
+    "@nuxt/kit": "^4.4.5",
+    "better-auth": "~1.6.11",
+    "convex": "^1.40.0",
+    "dedent": "^1.7.2"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
@@ -87,22 +103,25 @@
     "@nuxt/eslint": "^1.15.2",
     "@nuxt/eslint-config": "^1.15.2",
     "@nuxt/module-builder": "^1.0.2",
-    "@nuxt/schema": "^4.4.2",
-    "@nuxt/test-utils": "^4.0.2",
+    "@nuxt/schema": "^4.4.5",
+    "@nuxt/test-utils": "^4.0.3",
     "@types/node": "latest",
-    "@unhead/vue": "^3.0.3",
-    "@vue/test-utils": "^2.4.6",
+    "@unhead/vue": "^3.1.0",
+    "@vue/test-utils": "^2.4.10",
     "changelogen": "^0.6.2",
     "chokidar-cli": "^3.0.0",
-    "convex-test": "^0.0.47",
-    "eslint": "^10.2.0",
-    "happy-dom": "^20.8.9",
+    "convex-test": "^0.0.52",
+    "eslint": "^10.4.0",
+    "fallow": "^2.80.0",
+    "happy-dom": "^20.9.0",
     "npm-run-all2": "^8.0.4",
-    "nuxt": "^4.4.2",
-    "oxc-parser": "^0.124.0",
-    "pkg-pr-new": "^0.0.66",
-    "typescript": "~6.0.2",
-    "vitest": "^4.1.4",
-    "vue-tsc": "^3.2.6"
+    "nuxt": "^4.4.5",
+    "oxc-parser": "^0.131.0",
+    "pkg-pr-new": "^0.0.73",
+    "portless": "^0.13.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.6",
+    "vue-tsc": "^3.2.9",
+    "ws": "^8.20.0"
   }
 }

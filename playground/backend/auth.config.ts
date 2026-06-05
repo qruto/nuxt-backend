@@ -1,1 +1,1 @@
-export { default } from 'nuxt-backend/auth-config'
+export { default } from 'nuxt-backend/convex/auth.config'
