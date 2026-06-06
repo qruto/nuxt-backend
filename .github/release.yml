@@ -1,0 +1,48 @@
+# GitHub Release notes configuration
+# Controls the default "Generate release notes" behavior in the GitHub UI
+# and when using `gh release create --generate-notes`.
+#
+# This complements changelogithub (used in our release workflow for richer,
+# conventional + contributor-thanks notes).
+
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - bot
+  categories:
+    - title: '🚀 Features'
+      labels:
+        - feat
+        - enhancement
+        - 'type: feature'
+    - title: '🐛 Bug Fixes'
+      labels:
+        - fix
+        - bug
+        - 'type: bug'
+    - title: '📝 Documentation'
+      labels:
+        - docs
+        - documentation
+    - title: '🔧 Maintenance & Chores'
+      labels:
+        - chore
+        - refactor
+        - ci
+        - test
+        - build
+        - deps
+        - dependencies
+    - title: '⚠️ Breaking Changes'
+      labels:
+        - breaking
+        - 'type: breaking'
+    - title: '👏 Contributors'
+      labels:
+        - contributor
+      collapse-after: 3
+    - title: 'Other Changes'
+      labels:
+        - '*'
+      collapse-after: 5

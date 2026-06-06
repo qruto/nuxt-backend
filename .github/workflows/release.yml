@@ -1,0 +1,78 @@
+name: Release
+
+permissions:
+  contents: write
+  id-token: write
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run prepack
+
+      # 1. changelogithub creates a rich GitHub Release with conventional grouping
+      #    + explicit "Thank you to our contributors" section (avatars, links, etc.).
+      #    This is the community-preferred tool in the Nuxt ecosystem for beautiful releases.
+      - name: Create rich GitHub Release + contributor thanks
+        run: pnpm dlx changelogithub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2. Explicit / fallback GitHub Release creation using the official gh CLI.
+      #    Ensures a proper GitHub "Release" object always exists (even if changelogithub
+      #    is skipped or the tag was created without notes). Uses GitHub's native
+      #    generate-notes (which respects .github/release.yml) + marks prereleases.
+      - name: Ensure GitHub Release exists (fallback + prerelease handling)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          PRERELEASE=false
+          if [[ "$TAG" =~ -(beta|rc|alpha) ]]; then
+            PRERELEASE=true
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists (likely created by changelogithub)."
+            if [ "$PRERELEASE" = true ]; then
+              gh release edit "$TAG" --prerelease || true
+            fi
+          else
+            echo "Creating release $TAG via gh CLI..."
+            gh release create "$TAG" \
+              --generate-notes \
+              --title "v${TAG#v}" \
+              --prerelease="$PRERELEASE" \
+              --notes "See CHANGELOG.md for full details." || true
+          fi
+
+      - name: Publish to npm
+        # For npm Trusted Publishing (OIDC/provenance): do not set NODE_AUTH_TOKEN.
+        # Configure at https://www.npmjs.com/package/nuxt-backend/access → "Add GitHub Actions".
+        # Falls back to NODE_AUTH_TOKEN secret if provided.
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

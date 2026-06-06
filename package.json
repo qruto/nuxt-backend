@@ -2,7 +2,10 @@
   "name": "nuxt-backend",
   "version": "1.0.0",
   "description": "Nuxt module and Convex component for a full-stack Convex backend with authentication",
-  "repository": "qruto/nuxt-backend",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qruto/nuxt-backend.git"
+  },
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -78,7 +81,7 @@
     "dev:nuxt-module:build": "nuxt build playground",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
     "dev:nuxt-module:prepare": "pnpm run dev:prepare",
-    "release": "pnpm run lint && pnpm run test && pnpm run prepack && changelogen --release && pnpm publish && git push --follow-tags",
+    "release": "release-it",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest --run",
@@ -111,7 +114,6 @@
     "@types/node": "latest",
     "@unhead/vue": "^3.1.0",
     "@vue/test-utils": "^2.4.10",
-    "changelogen": "^0.6.2",
     "chokidar-cli": "^3.0.0",
     "convex-test": "^0.0.52",
     "eslint": "^10.4.0",
@@ -122,9 +124,14 @@
     "oxc-parser": "^0.131.0",
     "pkg-pr-new": "^0.0.73",
     "portless": "^0.13.0",
+    "release-it": "^20.2.0",
+    "@release-it/conventional-changelog": "^11.0.1",
     "typescript": "~6.0.3",
     "vitest": "^4.1.6",
     "vue-tsc": "^3.2.9",
     "ws": "^8.20.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

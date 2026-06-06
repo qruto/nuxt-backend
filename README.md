@@ -705,6 +705,13 @@ See [docs/reference.md](./docs/reference.md) for usage examples, customization d
 3. Prepare for development using `pnpm dev:prepare`
 4. Start development server using `pnpm dev`
 
+We follow conventional commits (Renovate PRs do too). After CI is green on `main`, run `pnpm release` locally to cut a new release (release-it updates CHANGELOG.md, creates a git tag, and can create a GitHub Release). Pushing the tag triggers the automated release workflow which:
+
+- Creates (or updates) a rich GitHub Release with conventional commit grouping and an explicit "Thank you to contributors" section (via `changelogithub` + fallback `gh release create`).
+- Publishes to npm with provenance (OIDC recommended).
+
+See `.github/workflows/release.yml` and `.github/release.yml` for the exact configuration.
+
 ## License
 
 [MIT](./LICENSE)

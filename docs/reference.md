@@ -633,4 +633,4 @@ pnpm run dev
 | `lint` | ESLint |
 | `lint:fix` | ESLint with `--fix` |
 | `bump` | Run `taze` to bump dependency major versions |
-| `release` | Lint, test, build, publish, and push tags |
+| `release` | Run release-it (conventional commits → version bump + CHANGELOG.md + git tag + optional GitHub Release). The tag triggers `.github/workflows/release.yml` which creates a rich GitHub Release (via changelogithub + gh CLI fallback, with contributor thanks) and publishes to npm with provenance. |
