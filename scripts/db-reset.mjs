@@ -7,7 +7,7 @@
  *
  * Usage:
  *   node scripts/db-reset.mjs
- *   npm run db:reset
+ *   pnpm run db:reset
  */
 
 import { execSync } from 'node:child_process'
@@ -51,7 +51,7 @@ const urlArgs = url ? `--url ${url}` : ''
 function run(label, args) {
   try {
     const result = execSync(
-      `npx convex run ${args} ${urlArgs}`,
+      `pnpm exec convex run ${args} ${urlArgs}`,
       { env: baseEnv, cwd: root, stdio: 'pipe' },
     ).toString().trim()
     console.log(`✓ ${label}:`, result)

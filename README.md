@@ -90,8 +90,25 @@ Keeping pages, layouts, global CSS, global middleware, route rules, and layers a
 ### 1. Install the package
 
 ```bash
+npx nuxi@latest module add nuxt-backend
+```
+
+<details>
+
+<summary>…or install using your dependency manager</summary>
+
+```bash
+# Using pnpm
+pnpm add nuxt-backend
+
+# Using yarn
+yarn add nuxt-backend
+
+# Using npm
 npm install nuxt-backend
 ```
+
+</details>
 
 ### 2. Add the Nuxt module
 
@@ -680,6 +697,13 @@ import { api, internal } from '#backend/_generated/api'
 ## More Documentation
 
 See [docs/reference.md](./docs/reference.md) for usage examples, customization details, architecture notes, and the development workflow.
+
+## Contributing
+
+1. Clone this repository
+2. Install dependencies using `pnpm install`
+3. Prepare for development using `pnpm dev:prepare`
+4. Start development server using `pnpm dev`
 
 ## License
 

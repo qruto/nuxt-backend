@@ -588,20 +588,21 @@ sequenceDiagram
 This package ships both a Nuxt module and a Convex component. The development workflow runs both environments in parallel.
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 ### Dev scripts
 
-`npm run dev` prepares the Nuxt module and then starts three processes in parallel:
+`pnpm run dev` prepares the Nuxt module and then starts three processes in parallel:
 
 | Script | Description |
 |---|---|
+| `dev:prepare` | Generates type stubs and prepares the playground |
 | `dev:convex-component` | Convex dev server with component typechecking |
 | `dev:convex-component:codegen` | Watches `src/convex/` and re-runs codegen for `src/convex/component/` |
 | `dev:nuxt-module` | Nuxt dev server with the playground app |
-| `dev:nuxt-module:prepare` | Generates type stubs and prepares the playground |
+| `dev:nuxt-module:prepare` | Alias for `dev:prepare` |
 | `dev:nuxt-module:build` | Full Nuxt build of the playground |
 
 ### Build scripts

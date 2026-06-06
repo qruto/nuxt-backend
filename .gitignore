@@ -1,5 +1,6 @@
 # Dependencies
 node_modules
+pnpm-debug.log*
 
 # Logs
 *.log*
@@ -8,10 +9,6 @@ node_modules
 .temp
 .tmp
 .cache
-
-# Yarn
-**/.yarn/cache
-**/.yarn/*state*
 
 # Generated dirs
 dist
