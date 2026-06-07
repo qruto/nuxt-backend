@@ -189,6 +189,13 @@ const rows = computed(() => list.value.results)
         <li><strong>insertAtPosition</strong> — splice into the correct page given a sort order + key.</li>
         <li><strong>optimisticallyUpdateValueInPaginatedQuery</strong> — map every loaded item to update in place.</li>
       </ul>
+      <p class="tip">
+        The dashed <span class="tip-opt">optimistic</span> row appears the instant
+        you click and is reconciled away when the server row arrives. On localhost
+        that swap is near-instant — throttle the network in
+        <strong>DevTools → Network → Slow 4G</strong> to watch the ghost row linger
+        before it confirms.
+      </p>
     </LabPanel>
   </div>
 </template>
@@ -245,6 +252,22 @@ const rows = computed(() => list.value.results)
 .notes ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.4rem; }
 .notes li { font-size: 0.82rem; color: var(--ink-dim); line-height: 1.5; }
 .notes strong { color: var(--ink); font-family: var(--mono); font-size: 0.92em; }
+.tip {
+  margin: 0.85rem 0 0;
+  padding-top: 0.7rem;
+  border-top: 1px dashed var(--edge);
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+  line-height: 1.55;
+}
+.tip-opt {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  color: var(--ok);
+  background: var(--ok-dim);
+  padding: 0.02rem 0.3rem;
+  border-radius: 4px;
+}
 
 code {
   font-family: var(--mono);

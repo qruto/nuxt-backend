@@ -91,6 +91,7 @@ async function run() {
       <LabPanel
         label="output"
         title="Result"
+        aria-live="polite"
         :tone="error ? 'err' : result ? 'ok' : 'neutral'"
       >
         <template #actions>

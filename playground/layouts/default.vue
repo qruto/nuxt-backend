@@ -26,7 +26,10 @@ const initials = computed(() => {
 })
 
 const groups = [
-  { label: 'Overview', items: [{ to: '/', label: 'Feature Gallery', exact: true }] },
+  { label: 'Overview', items: [
+    { to: '/', label: 'Feature Gallery', exact: true },
+    { to: '/showcase/dashboard', label: 'Mission Control', api: 'live composition', live: true },
+  ] },
   {
     label: 'Authentication',
     items: [
@@ -61,6 +64,7 @@ const groups = [
     label: 'Server & Actions',
     items: [
       { to: '/showcase/actions', label: 'useAction + controls', api: 'useAction' },
+      { to: '/showcase/server-functions', label: 'Server functions (SSR)', api: 'fetchQuery · backendAuth' },
       { to: '/showcase/connection', label: 'Connection & metrics', api: 'useConvexConnectionState', live: true },
     ],
   },
@@ -137,6 +141,7 @@ const isLogin = computed(() => route.path === '/login')
                 type="button"
                 class="signout-btn"
                 title="Sign out"
+                aria-label="Sign out"
                 @click="signOut"
               >
                 ⎋
@@ -269,9 +274,11 @@ const isLogin = computed(() => route.path === '/login')
   background: var(--panel);
   color: var(--ink-dim);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: color var(--transition), border-color var(--transition),
+    background var(--transition), transform var(--press) var(--ease-out);
 }
 .reset-btn:hover { color: var(--warn); border-color: var(--warn); background: var(--warn-dim); }
+.reset-btn:active { transform: scale(0.96); }
 
 .user-chip {
   display: flex; align-items: center; gap: 0.5rem;
@@ -290,6 +297,7 @@ const isLogin = computed(() => route.path === '/login')
 .user-meta { display: flex; flex-direction: column; min-width: 0; }
 .user-name { font-size: 0.78rem; font-weight: 600; line-height: 1; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .signout-btn {
+  position: relative;
   width: 26px; height: 26px;
   border-radius: 999px;
   border: 1px solid transparent;
@@ -297,9 +305,19 @@ const isLogin = computed(() => route.path === '/login')
   color: var(--ink-dim);
   font-size: 15px; line-height: 1;
   cursor: pointer;
-  transition: all var(--transition);
+  transition: color var(--transition), background var(--transition),
+    border-color var(--transition), transform var(--press) var(--ease-out);
+}
+/* Extend the hit area to 40×40 without growing the visible chip. */
+.signout-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 40px; height: 40px;
+  transform: translate(-50%, -50%);
 }
 .signout-btn:hover { color: var(--err); background: var(--err-dim); border-color: var(--err); }
+.signout-btn:active { transform: scale(0.92); }
 
 /* Main grid: sidebar + content */
 .main-grid {

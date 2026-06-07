@@ -15,6 +15,16 @@ const online = computed(() => conn.value.isWebSocketConnected)
  */
 const features = [
   {
+    to: '/showcase/dashboard',
+    glyph: '⊞',
+    api: 'useConvexQueries + usePaginatedQuery + useMutation + connectionState',
+    title: 'Mission Control',
+    desc: 'The flagship: one screen holding many live subscriptions open at once — gauge, tasks, stream & activity, all reacting in real time.',
+    tone: 'signal',
+    live: true,
+    highlight: 'Flagship',
+  },
+  {
     to: '/todos',
     glyph: '✓',
     api: 'useQuery + usePreloadedAuthQuery + auth middleware',
@@ -100,6 +110,15 @@ const features = [
     highlight: 'Actions',
   },
   {
+    to: '/showcase/server-functions',
+    glyph: '⌗',
+    api: 'backendAuth · fetchQuery · fetchMutation · fetchAction',
+    title: 'Server Functions (Nuxt)',
+    desc: 'Run Convex queries, mutations & actions from a Nitro route with the user’s token — plus non-auth usePreloadedQuery.',
+    tone: 'warn',
+    highlight: 'SSR',
+  },
+  {
     to: '/showcase/connection',
     glyph: '◉',
     api: 'useConvexConnectionState',
@@ -156,7 +175,7 @@ const features = [
         Welcome, {{ user?.name || 'Operator' }} — session active
       </p>
 
-      <h1>nuxt-backend<br>Playground</h1>
+      <h1>nuxt-backend <em>Playground</em></h1>
       <p class="subtitle">
         A living demonstration of <strong>every</strong> public API surface:
         real-time queries &amp; pagination, optimistic mutations, server actions,
@@ -166,14 +185,52 @@ const features = [
 
       <div class="hero-ctas">
         <NuxtLink
-          to="/todos"
+          to="/showcase/dashboard"
           class="btn primary"
-        >Open full-stack Todos demo</NuxtLink>
+        >Open Mission Control</NuxtLink>
         <NuxtLink
           to="/showcase/chat"
           class="btn"
         >Try realtime chat</NuxtLink>
       </div>
+
+      <ClientOnly>
+        <div
+          class="scope-strip"
+          :class="{ off: !online }"
+        >
+          <div class="scope-head">
+            <span class="scope-tag">WS · SIGNAL TRACE</span>
+            <span
+              class="scope-stat"
+              :class="online ? 'on' : 'off'"
+            >
+              <SignalDot
+                :tone="online ? 'ok' : 'err'"
+                :pulse="online"
+              />
+              {{ online ? 'LOCKED' : 'NO CARRIER' }}
+            </span>
+          </div>
+          <Oscilloscope
+            :live="online"
+            :tone="online ? 'signal' : 'err'"
+            :height="80"
+            :speed="6"
+          />
+        </div>
+        <template #fallback>
+          <div class="scope-strip">
+            <div class="scope-head">
+              <span class="scope-tag">WS · SIGNAL TRACE</span>
+            </div>
+            <Oscilloscope
+              :live="false"
+              :height="80"
+            />
+          </div>
+        </template>
+      </ClientOnly>
     </header>
 
     <section class="gallery">
@@ -184,7 +241,7 @@ const features = [
         <h2>Interactive capabilities</h2>
       </div>
 
-      <div class="grid">
+      <div class="grid stagger">
         <NuxtLink
           v-for="f in features"
           :key="f.to"
@@ -243,19 +300,51 @@ const features = [
 .spec.live.off { color: var(--err); border-color: color-mix(in srgb, var(--err) 32%, transparent); }
 
 .greeting {
-  font-family: var(--mono); font-size: 0.68rem; font-weight: 600; letter-spacing: .07em;
-  color: var(--accent); margin: 0 0 0.35rem; text-transform: uppercase;
+  font-family: var(--mono); font-size: 0.68rem; font-weight: 600; letter-spacing: .1em;
+  color: var(--accent); margin: 0 0 0.5rem; text-transform: uppercase;
 }
 h1 {
-  font-size: clamp(1.85rem, 5.2vw, 2.55rem);
-  font-weight: 800; letter-spacing: -0.032em; line-height: 1.0; margin: 0 0 0.55rem;
-  background: linear-gradient(180deg, var(--ink), color-mix(in srgb, var(--ink) 55%, transparent));
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  font-family: var(--display);
+  font-size: clamp(2.6rem, 6.2vw, 4rem);
+  font-weight: 700; letter-spacing: -0.025em; line-height: 0.98; margin: 0 0 0.7rem;
+  color: var(--ink);
 }
-.subtitle { color: var(--ink-dim); font-size: 0.97rem; margin: 0 0 0.9rem; max-width: 68ch; line-height: 1.55; }
-.subtitle strong { color: var(--ink); font-weight: 650; }
+h1 em {
+  font-style: normal;
+  color: var(--signal);
+}
+.subtitle { color: var(--ink-dim); font-size: 0.92rem; margin: 0 0 1.1rem; max-width: 70ch; line-height: 1.6; }
+.subtitle strong { color: var(--ink); font-weight: 600; }
 
-.hero-ctas { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.hero-ctas { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 1.4rem; }
+
+/* Live oscilloscope strip — the WebSocket made visible. */
+.scope-strip {
+  border: 1px solid color-mix(in srgb, var(--signal) 22%, var(--edge));
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 140% at 100% 0%, var(--signal-dim), transparent 60%),
+    var(--panel);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.scope-strip.off { border-color: color-mix(in srgb, var(--err) 26%, var(--edge)); }
+.scope-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid var(--edge);
+}
+.scope-tag {
+  font-family: var(--mono); font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim);
+}
+.scope-stat {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  font-family: var(--mono); font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+.scope-stat.on { color: var(--ok); }
+.scope-stat.off { color: var(--err); }
 
 .gallery-head { margin-bottom: 0.7rem; }
 .gallery-head h2 { margin: 0.1rem 0 0; font-size: 1.15rem; font-weight: 700; letter-spacing: -.015em; }
@@ -278,11 +367,15 @@ h1 {
   transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition), background var(--transition);
 }
 .feat:hover {
-  transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--accent) 38%, var(--edge));
   box-shadow: var(--shadow);
   background: var(--panel-hi);
 }
+/* Lift only on hover-capable pointers; everyone gets a press response. */
+@media (hover: hover) and (pointer: fine) {
+  .feat:hover { transform: translateY(-2px); }
+}
+.feat:active { transform: scale(0.99); }
 
 .feat-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.1rem; }
 .feat-glyph { font-size: 1.35rem; line-height: 1; color: var(--accent); }

@@ -108,6 +108,60 @@ describe('ConvexAuthState', () => {
     expect(wrapper.text()).toBe('Unauthenticated')
   })
 
+  it('settles to unauthenticated on a live sign-out (authenticated → unauthenticated directly)', async () => {
+    // Reproduces the "live sign-out hangs in loading" bug: the provider goes
+    // straight from authenticated to not-authenticated in a single tick (no
+    // intermediate loading state, as happens on `client.signOut()`). The
+    // setAuth() effect cleanup resets Convex state to `null`; without the
+    // reconciliation re-running, useConvexAuth() would stay stuck in loading.
+    const isLoading = ref(false)
+    const isAuthenticated = ref(true)
+    const fetchAccessToken: AuthTokenFetcher = vi.fn(async () => 'token')
+
+    let onAuthChange: ((isAuthenticated: boolean) => void) | undefined
+    const client = {
+      setAuth: vi.fn((_fetchToken, callback) => {
+        onAuthChange = callback
+      }),
+      clearAuth: vi.fn(),
+    } as unknown as ConvexVueClient
+
+    const App = defineComponent({
+      setup() {
+        const auth = useConvexAuth()
+        return () => h('div', auth.isLoading ? 'Loading...' : auth.isAuthenticated ? 'Authenticated' : 'Unauthenticated')
+      },
+    })
+
+    const Wrapper = defineComponent({
+      setup() {
+        provideConvexAuth({
+          client,
+          useAuth: () => ({
+            isLoading,
+            isAuthenticated,
+            fetchAccessToken,
+          }),
+        })
+        return () => h(App)
+      },
+    })
+
+    const wrapper = await mountSuspended(Wrapper)
+    onAuthChange?.(true)
+    await nextTick()
+    expect(wrapper.text()).toBe('Authenticated')
+
+    // Sign out: the Better Auth session resolves directly to "not authenticated"
+    // without ever flipping back to loading.
+    isAuthenticated.value = false
+    await nextTick()
+    expect(wrapper.text()).toBe('Unauthenticated')
+    expect(client.clearAuth).toHaveBeenCalledTimes(1)
+
+    wrapper.unmount()
+  })
+
   it('re-registers Convex auth when the auth context changes', async () => {
     const isLoading = ref(false)
     const isAuthenticated = ref(true)

@@ -8,27 +8,33 @@ definePageMeta({ middleware: 'auth' })
 type LogFilter = 'all' | (typeof LOG_LEVELS)[number]
 const level = ref<LogFilter>('all')
 
-const paginated = usePaginatedQuery(
-  api.logs.listPaginated,
-  {},
-  { initialNumItems: 15 },
-)
+// Bumped on structural resets (seed / clear) to remount the stream and
+// re-initialize the paginated query over the current table — see the note
+// in PaginatedLogStream.vue for why this is what surfaces the page walk.
+const generation = ref(0)
 
-const results = computed(() => paginated.value.results)
-const status = computed(() => paginated.value.status)
-function loadMore(n: number) {
-  paginated.value.loadMore(n)
-}
-
-const filtered = computed(() =>
-  level.value === 'all'
-    ? results.value
-    : results.value.filter((r: { level: (typeof LOG_LEVELS)[number] }) => r.level === level.value),
-)
+const status = ref<string>('LoadingFirstPage')
 
 const seed = useMutation(api.logs.seed)
 const add = useMutation(api.logs.add)
 const clear = useMutation(api.logs.clear)
+
+const seeding = ref(false)
+async function seedLogs() {
+  seeding.value = true
+  try {
+    await seed({ count: 40 })
+    generation.value++
+  }
+  finally {
+    seeding.value = false
+  }
+}
+
+async function clearLogs() {
+  await clear()
+  generation.value++
+}
 
 const customMessage = ref('')
 const customLevel = ref<(typeof LOG_LEVELS)[number]>('info')
@@ -38,10 +44,6 @@ async function addCustom() {
   if (!message) return
   await add({ level: customLevel.value, message })
   customMessage.value = ''
-}
-
-function clock(at: number) {
-  return new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 const statusTone = computed(() =>
@@ -77,14 +79,15 @@ const statusTone = computed(() =>
           <LabButton
             variant="ghost"
             size="sm"
-            @click="seed({ count: 25 })"
+            :loading="seeding"
+            @click="seedLogs"
           >
-            Seed 25
+            Seed 40
           </LabButton>
           <LabButton
             variant="danger"
             size="sm"
-            @click="clear()"
+            @click="clearLogs"
           >
             Clear all
           </LabButton>
@@ -134,47 +137,23 @@ const statusTone = computed(() =>
         </LabButton>
       </form>
 
-      <div class="viewer">
-        <div
-          v-if="status === 'LoadingFirstPage'"
-          class="vstate"
-        >
-          <span class="spinner" /> loading…
-        </div>
-        <div
-          v-else-if="filtered.length === 0"
-          class="vstate"
-        >
-          No entries match the current filter.
-        </div>
-        <template v-else>
-          <div
-            v-for="log in filtered"
-            :key="log._id"
-            class="lrow fade-up"
-          >
-            <span
-              class="lbadge"
-              :class="log.level"
-            >{{ log.level }}</span>
-            <span class="lmsg">{{ log.message }}</span>
-            <time class="ltime">{{ clock(log._creationTime) }}</time>
-          </div>
-        </template>
-      </div>
-
-      <div class="pager">
-        <span class="pager-status">{{ filtered.length }} shown</span>
-        <LabButton
-          variant="ghost"
-          size="sm"
-          :disabled="status !== 'CanLoadMore'"
-          @click="loadMore(15)"
-        >
-          {{ status === 'Exhausted' ? 'All loaded' : status === 'LoadingMore' ? 'Loading…' : 'Load 15 more' }}
-        </LabButton>
-      </div>
+      <PaginatedLogStream
+        :key="generation"
+        v-model:status="status"
+        :filter="level"
+        :page-size="15"
+        :initial-num-items="15"
+      />
     </LabPanel>
+
+    <p class="hint">
+      <span class="hint-k">Note</span>
+      A paginated query that first loads over an <em>empty</em> table owns the
+      whole range, so later rows grow that one page and it stays
+      <code>Exhausted</code>. <strong>Seed 40</strong> re-initializes the stream
+      so you can watch it walk <code>CanLoadMore → Exhausted</code>; new rows
+      added afterwards stream straight into the live first page.
+    </p>
   </div>
 </template>
 
@@ -203,8 +182,10 @@ const statusTone = computed(() =>
   text-transform: uppercase;
   background: transparent;
   color: var(--ink-dim);
-  transition: background var(--transition), color var(--transition);
+  transition: background var(--transition), color var(--transition),
+    transform var(--press) var(--ease-out);
 }
+.fbtn:active { transform: scale(0.94); }
 .fbtn.active { background: var(--edge); color: var(--ink); }
 .fbtn.info.active { color: var(--info); }
 .fbtn.warn.active { color: var(--warn); }
@@ -234,54 +215,22 @@ const statusTone = computed(() =>
 }
 .add-input:focus { outline: none; border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-dim); }
 
-.viewer { font-family: var(--mono); max-height: 360px; overflow-y: auto; }
-.vstate {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 2.5rem;
-  color: var(--ink-dim);
-  font-size: 0.85rem;
-}
-.lrow {
-  display: grid;
-  grid-template-columns: 50px 1fr auto;
-  gap: 0.75rem;
-  align-items: center;
-  padding: 0.42rem 1rem;
-  border-bottom: 1px solid var(--edge);
+.hint {
+  margin: 0.9rem 0 0;
   font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--ink-dim);
 }
-.lrow:last-child { border-bottom: none; }
-.lrow:hover { background: var(--panel-hi); }
-.lbadge {
+.hint-k {
+  font-family: var(--mono);
   font-size: 0.6rem;
   font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 0.14rem 0.36rem;
-  border-radius: 3px;
-  text-align: center;
+  color: var(--signal);
+  margin-right: 0.4rem;
 }
-.lbadge.info { color: var(--info); background: rgba(90, 166, 255, 0.13); }
-.lbadge.warn { color: var(--warn); background: var(--warn-dim); }
-.lbadge.error { color: var(--err); background: var(--err-dim); }
-.lmsg { word-break: break-word; color: var(--ink); }
-.ltime { font-size: 0.68rem; color: var(--ink-dim); white-space: nowrap; }
-
-.pager { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.75rem 1rem; }
-.pager-status { font-size: 0.74rem; color: var(--ink-dim); font-family: var(--mono); }
-
-.spinner {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border: 1.5px solid var(--edge);
-  border-top-color: var(--signal);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
+.hint strong { color: var(--ink); }
 
 code {
   font-family: var(--mono);

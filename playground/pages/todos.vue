@@ -88,6 +88,7 @@ async function addTodo() {
             type="button"
             class="remove"
             title="Remove"
+            aria-label="Remove todo"
             @click="removeTodo({ id: todo._id })"
           >
             ×
@@ -162,8 +163,10 @@ li label { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; fle
   font-size: 0.65rem;
   color: transparent;
   background: var(--input-bg);
-  transition: all var(--transition);
+  transition: background var(--transition), border-color var(--transition),
+    color var(--transition), transform var(--press) var(--ease-out);
 }
+li label:active .checkmark { transform: scale(0.9); }
 .checked .checkmark { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
 .doneitem { text-decoration: line-through; color: var(--ink-dim); }
 li label span:not(.checkbox):not(.checkmark) {
@@ -173,18 +176,24 @@ li label span:not(.checkbox):not(.checkmark) {
   text-overflow: ellipsis;
 }
 .remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   background: none;
   border: none;
   color: var(--ink-dim);
   cursor: pointer;
   font-size: 1.25rem;
   line-height: 1;
-  padding: 0.1rem 0.3rem;
-  border-radius: 4px;
+  border-radius: 6px;
   flex-shrink: 0;
-  transition: color var(--transition), background var(--transition);
+  transition: color var(--transition), background var(--transition),
+    transform var(--press) var(--ease-out);
 }
 .remove:hover { color: var(--err); background: var(--err-dim); }
+.remove:active { transform: scale(0.9); }
 
 .empty { text-align: center; padding: 2.5rem 0; color: var(--ink-dim); font-size: 0.85rem; }
 .empty-glyph { display: block; font-size: 1.75rem; opacity: 0.3; margin-bottom: 0.4rem; }

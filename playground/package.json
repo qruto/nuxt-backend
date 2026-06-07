@@ -8,7 +8,7 @@
     "generate": "nuxt generate"
   },
   "dependencies": {
-    "nuxt-backend": "file:..",
+    "nuxt-backend": "workspace:*",
     "nuxt": "^4.4.2"
   }
 }

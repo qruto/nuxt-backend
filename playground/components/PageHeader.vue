@@ -75,11 +75,12 @@ withDefaults(defineProps<{
   color: var(--ok);
 }
 .ph-title {
-  font-size: 1.42rem;
-  font-weight: 750;
-  letter-spacing: -0.022em;
-  margin: 0 0 0.3rem;
-  line-height: 1.08;
+  font-family: var(--display);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.35rem;
+  line-height: 1.05;
 }
 .ph-sub {
   color: var(--ink-dim);

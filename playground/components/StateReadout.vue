@@ -54,7 +54,7 @@ const formatted = computed(() => {
 .readout {
   border: 1px solid var(--edge);
   border-radius: var(--radius);
-  background: #07090e;
+  background: var(--code-bg);
   overflow: hidden;
 }
 .readout.signal { border-color: color-mix(in srgb, var(--signal) 30%, var(--edge)); }

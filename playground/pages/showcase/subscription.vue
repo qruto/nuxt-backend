@@ -156,7 +156,7 @@ const online = useSubscription({
 .code {
   margin: 0 0 0.85rem;
   padding: 0.85rem 0.95rem;
-  background: #07090e;
+  background: var(--code-bg);
   border: 1px solid var(--edge);
   border-radius: var(--radius);
   font-size: 0.78rem;

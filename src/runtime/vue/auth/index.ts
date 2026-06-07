@@ -116,24 +116,39 @@ export function createConvexAuthState(
   }
 
   const register = () => {
-    // When auth provider goes back to loading, reset Convex auth state.
+    // Reconcile the Convex auth state with the external auth provider.
+    //
+    // This mirrors the render-phase reconciliation in convex/react's
+    // `ConvexProviderWithAuth`, which re-runs on *every* render — including
+    // renders caused by `isConvexAuthenticated` itself changing. That property
+    // is essential: the `setAuth` effect's cleanup below resets
+    // `isConvexAuthenticated` to `null` whenever the provider stops being
+    // authenticated. On a live sign-out the provider transitions straight from
+    // authenticated to not-authenticated in a single tick, so the cleanup fires
+    // in the same flush as this watcher. If we only tracked
+    // `[loading, authenticated]` (as a plain Vue `watch` would), the cleanup's
+    // reset to `null` would never be corrected and `useConvexAuth().isLoading`
+    // would hang at `true` forever. Tracking `isConvexAuthenticated.value` here
+    // re-runs the reconciliation after the cleanup and settles it to `false`.
     watch(
-      isAuthProviderLoading,
-      (loading) => {
+      () => [
+        isAuthProviderLoading(),
+        isAuthProviderAuthenticated(),
+        isConvexAuthenticated.value,
+      ] as const,
+      ([loading, authenticated]) => {
+        // Provider went (back) to loading: drop to the loading state so we can
+        // transition straight to "authenticated" without flashing through
+        // "unauthenticated".
         if (loading && isConvexAuthenticated.value !== null) {
           isConvexAuthenticated.value = null
         }
-      },
-    )
-
-    // When auth provider becomes not-authenticated, reflect it.
-    watch(
-      () => [isAuthProviderLoading(), isAuthProviderAuthenticated()],
-      ([loading, authenticated]) => {
-        if (!loading && !authenticated && isConvexAuthenticated.value !== false) {
+        // Provider settled as not-authenticated: reflect it.
+        else if (!loading && !authenticated && isConvexAuthenticated.value !== false) {
           isConvexAuthenticated.value = false
         }
       },
+      { immediate: true },
     )
 
     // Set auth on the Convex client when authenticated.

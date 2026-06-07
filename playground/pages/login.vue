@@ -364,6 +364,15 @@ async function skipPasskey() {
           {{ error }}
         </p>
       </div>
+
+      <Oscilloscope
+        class="auth-scope"
+        :height="56"
+        :speed="9"
+        :amp="0.42"
+        :density="2"
+        :grid="false"
+      />
     </div>
   </main>
 </template>
@@ -375,7 +384,8 @@ async function skipPasskey() {
   align-items: center;
   justify-content: center;
   padding: 2rem 1rem;
-  background: var(--bg);
+  /* transparent so the body's signal-grid + phosphor bloom show through */
+  background: transparent;
 }
 .auth-card {
   width: 100%;
@@ -411,6 +421,13 @@ async function skipPasskey() {
   opacity: 0.6;
 }
 
+.auth-scope {
+  display: block;
+  border-top: 1px solid var(--edge);
+  background: color-mix(in srgb, var(--panel-2) 60%, transparent);
+  opacity: 0.85;
+}
+
 .auth-body { padding: 1.55rem 1.35rem 1.65rem; display: flex; flex-direction: column; gap: 0.95rem; }
 section, form { display: flex; flex-direction: column; gap: 0.65rem; }
 label { display: flex; flex-direction: column; gap: 0.32rem; font-size: 0.82rem; font-weight: 500; color: var(--ink-dim); }
@@ -436,9 +453,16 @@ button {
   color: var(--on-accent);
   font: inherit;
   font-weight: 600;
-  transition: all var(--transition);
+  transition: background var(--transition), border-color var(--transition),
+    color var(--transition), box-shadow var(--transition),
+    transform var(--press) var(--ease-out);
 }
-button:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent-soft); transform: translateY(-1px); }
+button:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+/* Lift only on real hover-capable pointers (avoids sticky hover on touch). */
+@media (hover: hover) and (pointer: fine) {
+  button:hover:not(:disabled) { transform: translateY(-1px); }
+}
+button:active:not(:disabled) { transform: scale(0.97); }
 button.secondary { background: transparent; color: var(--ink); border-color: var(--edge-hi); }
 button.secondary:hover:not(:disabled) { background: var(--panel-hi); border-color: var(--accent); color: var(--accent); }
 button.link { background: none; border: none; color: var(--ink-dim); cursor: pointer; padding: 0.15rem 0; text-align: center; font-weight: 500; font-size: 0.88rem; }
@@ -451,6 +475,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .muted { color: var(--ink-dim); font-size: 0.85rem; margin: 0; line-height: 1.5; }
 .error { color: var(--err); padding: 0.6rem 0.7rem; background: var(--err-dim); border: 1px solid color-mix(in srgb, var(--err) 28%, transparent); border-radius: var(--radius); font-size: 0.82rem; }
-h1 { margin: 0; font-size: 1.45rem; font-weight: 750; letter-spacing: -0.025em; }
-h2 { margin: 0; font-size: 1.05rem; font-weight: 650; }
+h1 { margin: 0; font-family: var(--display); font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.02; }
+h2 { margin: 0; font-family: var(--display); font-size: 1.3rem; font-weight: 600; letter-spacing: -0.01em; }
 </style>

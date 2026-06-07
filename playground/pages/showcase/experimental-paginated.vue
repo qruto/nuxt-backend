@@ -166,7 +166,7 @@ const probeKey = computed(() => `${shouldFail.value}-${throwOnError.value}-${ski
 .call {
   margin: 0;
   padding: 0.75rem 0.85rem;
-  background: #07090e;
+  background: var(--code-bg);
   border: 1px solid var(--edge);
   border-radius: var(--radius);
   font-size: 0.74rem;

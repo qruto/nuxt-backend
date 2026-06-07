@@ -152,6 +152,11 @@ function clock(at: number) {
         <div class="explain">
           <p><b>Optimistic ON</b> — cache patches instantly, then the server confirms: two events.</p>
           <p><b>Optimistic OFF</b> — the UI waits for the server: one event when it lands.</p>
+          <p class="tip">
+            On localhost the round-trip is sub-millisecond, so both feel instant.
+            Throttle the network in <b>DevTools → Network → Slow 4G</b> to watch the
+            optimistic value jump ahead while the confirmation lands a beat later.
+          </p>
         </div>
       </LabPanel>
     </div>
@@ -172,7 +177,7 @@ function clock(at: number) {
   color: var(--ink);
   transition: color 0.15s;
 }
-.num.pending { color: var(--signal); text-shadow: 0 0 24px var(--signal-glow); }
+.num.pending { color: var(--signal); }
 .inflight {
   display: inline-flex;
   align-items: center;
@@ -207,6 +212,12 @@ time { font-size: 0.68rem; color: var(--ink-dim); font-family: var(--mono); }
 .explain { border-top: 1px solid var(--edge); margin-top: 0.85rem; padding-top: 0.85rem; display: flex; flex-direction: column; gap: 0.3rem; }
 .explain p { margin: 0; font-size: 0.78rem; color: var(--ink-dim); line-height: 1.5; }
 .explain b { color: var(--ink); }
+.explain .tip {
+  margin-top: 0.2rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--edge);
+  font-size: 0.76rem;
+}
 
 .spinner {
   display: inline-block;

@@ -4,12 +4,15 @@ withDefaults(defineProps<{
   size?: 'sm' | 'md'
   loading?: boolean
   disabled?: boolean
-}>(), { variant: 'signal', size: 'md', loading: false, disabled: false })
+  /** Default to "button" so a LabButton never submits a form by accident. */
+  type?: 'button' | 'submit' | 'reset'
+}>(), { variant: 'signal', size: 'md', loading: false, disabled: false, type: 'button' })
 </script>
 
 <template>
   <button
     class="lb"
+    :type="type"
     :class="[variant, size, { loading }]"
     :disabled="disabled || loading"
   >
@@ -33,12 +36,15 @@ withDefaults(defineProps<{
   border-radius: var(--radius);
   border: 1px solid transparent;
   transition: background var(--transition), border-color var(--transition),
-    color var(--transition), box-shadow var(--transition), opacity var(--transition);
+    color var(--transition), box-shadow var(--transition), opacity var(--transition),
+    transform var(--press) var(--ease-out);
   white-space: nowrap;
 }
 .lb.md { padding: 0.5rem 0.95rem; font-size: 0.85rem; }
 .lb.sm { padding: 0.32rem 0.62rem; font-size: 0.76rem; }
 .lb:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Tactile press feedback (scale children too). Skill: always 0.96, never <0.95. */
+.lb:active:not(:disabled):not(.loading) { transform: scale(0.96); }
 
 .lb.signal {
   background: var(--signal);
@@ -46,13 +52,13 @@ withDefaults(defineProps<{
   border-color: var(--signal);
 }
 .lb.signal:not(:disabled):hover {
-  background: var(--signal-soft);
+  background: var(--signal-hover);
   box-shadow: 0 0 0 3px var(--signal-dim);
 }
 
 .lb.xp {
   background: var(--xp);
-  color: #1a0f2e;
+  color: var(--on-xp);
   border-color: var(--xp);
 }
 .lb.xp:not(:disabled):hover { box-shadow: 0 0 0 3px var(--xp-dim); }

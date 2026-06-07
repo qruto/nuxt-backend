@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="nuxt-backend">
+  <style>
+    .tile { fill: #ea580c; }            /* Tailwind orange-600 (light) */
+    @media (prefers-color-scheme: dark) {
+      .tile { fill: #f97316; }          /* Tailwind orange-500 (dark) */
+    }
+  </style>
+  <rect class="tile" width="100" height="100" rx="24"/>
+  <!-- panel mark — mirrors the ◳ logo + the UI's corner-ticks / signal dot -->
+  <rect x="27" y="27" width="46" height="46" rx="11" fill="none" stroke="#fff" stroke-width="7.5"/>
+  <rect x="35.5" y="35.5" width="15" height="15" rx="3.5" fill="#fff"/>
+</svg>

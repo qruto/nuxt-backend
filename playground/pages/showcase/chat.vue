@@ -121,6 +121,7 @@ async function submit() {
         <button
           type="submit"
           class="send"
+          aria-label="Send message"
           :disabled="pending || !text.trim()"
         >
           {{ pending ? '…' : '↑' }}
@@ -149,8 +150,14 @@ async function submit() {
   font-size: 0.66rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  padding: 0.4rem 0.5rem;
+  margin: -0.4rem -0.5rem;
+  border-radius: 6px;
+  transition: color var(--transition), background var(--transition),
+    transform var(--press) var(--ease-out);
 }
-.clear:hover { color: var(--err); }
+.clear:hover { color: var(--err); background: var(--err-dim); }
+.clear:active { transform: scale(0.94); }
 
 .thread {
   display: flex;
@@ -217,9 +224,11 @@ async function submit() {
   cursor: pointer;
   font-size: 1.1rem;
   flex-shrink: 0;
-  transition: background var(--transition);
+  transition: background var(--transition), opacity var(--transition),
+    transform var(--press) var(--ease-out);
 }
-.send:hover:not(:disabled) { background: var(--signal-soft); }
+.send:hover:not(:disabled) { background: var(--signal-hover); }
+.send:active:not(:disabled) { transform: scale(0.94); }
 .send:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .error { margin: 0.75rem 0 0; font-size: 0.8rem; color: var(--err); }
