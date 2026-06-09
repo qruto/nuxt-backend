@@ -1,7 +1,37 @@
+# pnpm workspace + settings (single source of truth for pnpm config).
+# Since pnpm 10.6 project-level pnpm settings live here rather than in .npmrc.
+# Docs: https://pnpm.io/settings
+
 packages:
   - playground
 
-onlyBuiltDependencies:
-  - '@parcel/watcher'
-  - esbuild
-  - unrs-resolver
+# --- Catalog: one version, used across every workspace package ---------------
+# Reference with `"nuxt": "catalog:"` in package.json so the root module and the
+# playground can never drift onto different Nuxt majors. https://pnpm.io/catalogs
+catalog:
+  nuxt: ^4.4.5
+
+# --- Node module layout ------------------------------------------------------
+# Nuxt/Vite + Convex codegen expect a flat node_modules; keep the hoisted linker.
+nodeLinker: hoisted
+
+# --- Supply-chain security ---------------------------------------------------
+# Lifecycle (postinstall) scripts are blocked for every dependency by default
+# (pnpm 10+). Only the packages explicitly set to `true` here may run them;
+# anything not listed (or set to false) is denied. This is the allowlist that
+# `pnpm approve-builds` maintains.
+allowBuilds:
+  '@parcel/watcher': true
+  esbuild: true
+  unrs-resolver: true
+
+# Cooldown: refuse to install any package version published less than 1440
+# minutes (24h) ago. Blunts "compromised release pulled within hours" attacks
+# (the chalk/debug/nx class of incidents). pnpm picks the newest version that
+# satisfies the range AND clears the cooldown. https://pnpm.io/settings#minimumreleaseage
+minimumReleaseAge: 1440
+
+# --- Integrity ---------------------------------------------------------------
+# Warn (without blocking) when node_modules is out of sync with the lockfile
+# before running a script, so stale installs are caught early.
+verifyDepsBeforeRun: warn

@@ -9,6 +9,6 @@
   },
   "dependencies": {
     "nuxt-backend": "workspace:*",
-    "nuxt": "^4.4.2"
+    "nuxt": "catalog:"
   }
 }
