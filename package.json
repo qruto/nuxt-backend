@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "nuxt-backend",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Nuxt module and Convex component for a full-stack Convex backend with authentication",
   "repository": {
     "type": "git",
