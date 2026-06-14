@@ -4,17 +4,22 @@ on:
   push:
     branches:
       - main
-      - 'renovate/**'
-    tags:
-      - 'v*'
   pull_request:
     branches:
       - main
 
+# Cancel superseded runs on the same branch / PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+# Least-privilege default for every job.
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v6
 
@@ -31,11 +36,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: pnpm lint
+        run: pnpm run lint
 
-  test:
+  typecheck:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v6
 
@@ -51,16 +55,42 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Playground prepare
+      # Type-checks the published surface (module + Convex code). The playground
+      # typecheck is intentionally excluded — it imports the app's
+      # `backend/_generated` code, which only exists with a Convex deployment.
+      - name: Type check
+        run: pnpm run test:types:lib
+
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node: [20, lts/*]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare
         run: pnpm run dev:prepare
 
       - name: Test
-        run: pnpm test
+        run: pnpm run test
 
-  preview:
-    if: github.event_name == 'pull_request'
+  build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v6
 
@@ -78,6 +108,3 @@ jobs:
 
       - name: Build
         run: pnpm run prepack
-
-      - name: Publish preview package
-        run: pnpm exec pkg-pr-new publish || echo "pkg-pr-new not configured for this repo"

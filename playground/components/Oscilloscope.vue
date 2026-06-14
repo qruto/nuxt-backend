@@ -39,9 +39,9 @@ const points = computed(() => {
     const t = (i / steps) * Math.PI * 2 * props.density
     const y
       = H / 2
-      + Math.sin(t) * (H / 2) * props.amp * 0.62
-      + Math.sin(t * 2.3 + 1.1) * (H / 2) * props.amp * 0.24
-      + Math.sin(t * 5.1 + 0.4) * (H / 2) * props.amp * 0.08
+        + Math.sin(t) * (H / 2) * props.amp * 0.62
+        + Math.sin(t * 2.3 + 1.1) * (H / 2) * props.amp * 0.24
+        + Math.sin(t * 5.1 + 0.4) * (H / 2) * props.amp * 0.08
     pts.push(`${x.toFixed(2)},${y.toFixed(2)}`)
   }
   return pts.join(' ')
@@ -54,7 +54,7 @@ const points = computed(() => {
     :class="[tone, { paused: !live }]"
     :viewBox="`0 0 ${W} ${H}`"
     preserveAspectRatio="none"
-    :style="{ height: `${height}px`, '--dur': `${speed}s` }"
+    :style="{ 'height': `${height}px`, '--dur': `${speed}s` }"
     aria-hidden="true"
   >
     <g

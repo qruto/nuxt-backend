@@ -38,4 +38,11 @@ export default createConfigForNuxt({
         '@typescript-eslint/no-explicit-any': 'off',
       },
     },
+    // Playground demo components use short, single-word names by design.
+    {
+      files: ['playground/**/*.vue'],
+      rules: {
+        'vue/multi-word-component-names': 'off',
+      },
+    },
   )
