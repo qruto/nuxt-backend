@@ -24,13 +24,17 @@ const inflight = ref(0)
 const lastError = ref<string | null>(null)
 const timeline = ref<Array<{ at: number, type: 'optimistic' | 'confirmed' | 'reset' }>>([])
 
+async function runIncrement(by: number) {
+  if (optimistic.value) await incrementOptimistic({ name: 'demo', by })
+  else await incrementRaw({ name: 'demo', by })
+}
+
 async function bump(by = 1) {
   inflight.value++
   lastError.value = null
   if (optimistic.value) timeline.value.unshift({ at: Date.now(), type: 'optimistic' })
   try {
-    if (optimistic.value) await incrementOptimistic({ name: 'demo', by })
-    else await incrementRaw({ name: 'demo', by })
+    await runIncrement(by)
     timeline.value.unshift({ at: Date.now(), type: 'confirmed' })
     timeline.value = timeline.value.slice(0, 7)
   }

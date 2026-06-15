@@ -13,36 +13,40 @@ import { backendAuth } from './server'
  * </script>
  * ```
  */
+
+async function serverGuard(path: string) {
+  const event = useRequestEvent()
+  if (!event) return
+  const authed = await backendAuth(event).isAuthenticated()
+  if (!authed && path !== '/login') return navigateTo('/login')
+}
+
+// The Better Auth client only resolves a session in the browser (it relies
+// on cookies + window fetch). On the server `isPending` never flips to
+// `false`, so waiting for it would hang SSR forever.
+function waitForSession(isPending: () => boolean) {
+  return new Promise<void>((resolve) => {
+    const stop = watch(
+      isPending,
+      (pending) => {
+        if (!pending) {
+          stop()
+          resolve()
+        }
+      },
+      { immediate: true },
+    )
+  })
+}
+
 export default defineNuxtRouteMiddleware(async (to) => {
-  // The Better Auth client only resolves a session in the browser (it relies
-  // on cookies + window fetch). On the server `isPending` never flips to
-  // `false`, so waiting for it would hang SSR forever. Instead, do a
-  // server-side auth check using `backendAuth(event)` with the request
-  // cookies, then defer everything else to the client.
   if (import.meta.server) {
-    const event = useRequestEvent()
-    if (!event) return
-    const authed = await backendAuth(event).isAuthenticated()
-    if (!authed && to.path !== '/login') return navigateTo('/login')
-    return
+    return serverGuard(to.path)
   }
 
   const { session } = useAuth()
-
-  // Wait for session to resolve if still loading
   if (session.value.isPending) {
-    await new Promise<void>((resolve) => {
-      const stop = watch(
-        () => session.value.isPending,
-        (pending) => {
-          if (!pending) {
-            stop()
-            resolve()
-          }
-        },
-        { immediate: true },
-      )
-    })
+    await waitForSession(() => session.value.isPending)
   }
 
   if (!session.value.data) {

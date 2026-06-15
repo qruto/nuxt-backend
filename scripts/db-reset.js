@@ -18,16 +18,21 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
 
+function parseEnvLine(line) {
+  const trimmed = line.trim()
+  if (!trimmed || trimmed.startsWith('#')) return null
+  const [key, ...rest] = trimmed.split('=')
+  if (!key) return null
+  return [key.trim(), rest.join('=').split('#')[0].trim()]
+}
+
 // Load .env.local without external deps
 function loadEnvFile(path) {
   try {
-    const content = readFileSync(path, 'utf8')
     const env = {}
-    for (const line of content.split('\n')) {
-      const trimmed = line.trim()
-      if (!trimmed || trimmed.startsWith('#')) continue
-      const [key, ...rest] = trimmed.split('=')
-      if (key) env[key.trim()] = rest.join('=').split('#')[0].trim()
+    for (const line of readFileSync(path, 'utf8').split('\n')) {
+      const pair = parseEnvLine(line)
+      if (pair) env[pair[0]] = pair[1]
     }
     return env
   }

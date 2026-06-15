@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
+import { getOwnedTodo, requireIdentity } from './lib'
 
 export const list = query({
   args: {},
@@ -18,8 +19,7 @@ export const list = query({
 export const create = mutation({
   args: { text: v.string() },
   handler: async (ctx, { text }) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error('Not authenticated')
+    const identity = await requireIdentity(ctx)
 
     await ctx.db.insert('todos', {
       text,
@@ -32,13 +32,8 @@ export const create = mutation({
 export const toggle = mutation({
   args: { id: v.id('todos') },
   handler: async (ctx, { id }) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error('Not authenticated')
-
-    const todo = await ctx.db.get(id)
-    if (!todo || todo.userId !== identity.subject) {
-      throw new Error('Todo not found')
-    }
+    const identity = await requireIdentity(ctx)
+    const todo = await getOwnedTodo(ctx, id, identity.subject)
 
     await ctx.db.patch(id, { completed: !todo.completed })
   },
@@ -47,13 +42,8 @@ export const toggle = mutation({
 export const remove = mutation({
   args: { id: v.id('todos') },
   handler: async (ctx, { id }) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error('Not authenticated')
-
-    const todo = await ctx.db.get(id)
-    if (!todo || todo.userId !== identity.subject) {
-      throw new Error('Todo not found')
-    }
+    const identity = await requireIdentity(ctx)
+    await getOwnedTodo(ctx, id, identity.subject)
 
     await ctx.db.delete(id)
   },

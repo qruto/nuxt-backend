@@ -7,6 +7,23 @@ type ConvexNuxtInjection = {
   convex?: ConvexVueClient
 }
 
+function buildProvide(ssrClient?: ConvexVueClient): { provide: ConvexNuxtInjection } {
+  return ssrClient ? { provide: { convex: ssrClient } } : { provide: {} }
+}
+
+async function prefetchAuthToken(
+  event: ReturnType<typeof useRequestEvent>,
+  initialToken: ReturnType<typeof useState<string | null>>,
+) {
+  try {
+    const token = await backendAuth(event!).getToken()
+    initialToken.value = token ?? null
+  }
+  catch (error) {
+    console.warn('[nuxt-backend] Failed to prefetch auth token for SSR:', error)
+  }
+}
+
 /**
  * Server-side Better Auth bootstrap.
  *
@@ -27,9 +44,8 @@ export default defineNuxtPlugin<ConvexNuxtInjection>(async (nuxtApp) => {
   // and `usePreloadedAuthQuery` short-circuit on the server, so no
   // subscriptions are created during SSR.
   const url = useRuntimeConfig().public.backend.url
-  let ssrClient: ConvexVueClient | undefined
-  if (url) {
-    ssrClient = new ConvexVueClient(url)
+  const ssrClient = url ? new ConvexVueClient(url) : undefined
+  if (ssrClient) {
     nuxtApp.vueApp.provide(ConvexClientKey, ssrClient)
   }
 
@@ -44,17 +60,9 @@ export default defineNuxtPlugin<ConvexNuxtInjection>(async (nuxtApp) => {
   nuxtApp.vueApp.provide(ConvexAuthStateKey, ssrAuthState)
 
   const event = useRequestEvent()
-  if (!event) {
-    return ssrClient ? { provide: { convex: ssrClient } } : { provide: {} }
+  if (event) {
+    await prefetchAuthToken(event, initialToken)
   }
 
-  try {
-    const token = await backendAuth(event).getToken()
-    initialToken.value = token ?? null
-  }
-  catch (error) {
-    console.warn('[nuxt-backend] Failed to prefetch auth token for SSR:', error)
-  }
-
-  return ssrClient ? { provide: { convex: ssrClient } } : { provide: {} }
+  return buildProvide(ssrClient)
 })

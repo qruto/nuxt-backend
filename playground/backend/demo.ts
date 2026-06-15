@@ -1,6 +1,7 @@
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 import { action, mutation, query } from './_generated/server'
+import { paginateUserLogs } from './lib'
 
 /**
  * A pretend "slow" action that simulates a network round-trip on the server
@@ -60,18 +61,10 @@ export const flakyPaginated = query({
     shouldFail: v.optional(v.boolean()),
   },
   handler: async (ctx, { paginationOpts, shouldFail }) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      return { page: [], isDone: true, continueCursor: '' }
-    }
     if (shouldFail) {
       throw new Error('Paginated query failed (simulated).')
     }
-    return await ctx.db
-      .query('logs')
-      .withIndex('userId', q => q.eq('userId', identity.subject))
-      .order('desc')
-      .paginate(paginationOpts)
+    return await paginateUserLogs(ctx, paginationOpts)
   },
 })
 
@@ -84,45 +77,30 @@ export const clearUserData = mutation({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) return { deleted: 0 }
-    let deleted = 0
 
-    // Use explicit queries per table (avoids union type narrowing issues with dynamic table + withIndex)
-    const todoRows = await ctx.db
-      .query('todos')
-      .withIndex('userId', q => q.eq('userId', identity.subject))
-      .collect()
-    for (const r of todoRows) {
-      await ctx.db.delete(r._id)
-      deleted++
-    }
+    // Explicit per-table queries keep `withIndex` names statically correct.
+    const tables = await Promise.all([
+      ctx.db
+        .query('todos')
+        .withIndex('userId', q => q.eq('userId', identity.subject))
+        .collect(),
+      ctx.db
+        .query('messages')
+        .withIndex('userId', q => q.eq('userId', identity.subject))
+        .collect(),
+      ctx.db
+        .query('counters')
+        .withIndex('userId_name', q => q.eq('userId', identity.subject))
+        .collect(),
+      ctx.db
+        .query('logs')
+        .withIndex('userId', q => q.eq('userId', identity.subject))
+        .collect(),
+    ])
 
-    const messageRows = await ctx.db
-      .query('messages')
-      .withIndex('userId', q => q.eq('userId', identity.subject))
-      .collect()
-    for (const r of messageRows) {
-      await ctx.db.delete(r._id)
-      deleted++
-    }
+    const rows = tables.flat()
+    await Promise.all(rows.map(r => ctx.db.delete(r._id)))
 
-    const counterRows = await ctx.db
-      .query('counters')
-      .withIndex('userId_name', q => q.eq('userId', identity.subject))
-      .collect()
-    for (const r of counterRows) {
-      await ctx.db.delete(r._id)
-      deleted++
-    }
-
-    const logRows = await ctx.db
-      .query('logs')
-      .withIndex('userId', q => q.eq('userId', identity.subject))
-      .collect()
-    for (const r of logRows) {
-      await ctx.db.delete(r._id)
-      deleted++
-    }
-
-    return { deleted }
+    return { deleted: rows.length }
   },
 })

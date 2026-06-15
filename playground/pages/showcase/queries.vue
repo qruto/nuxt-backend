@@ -35,11 +35,19 @@ function statusOf(r: unknown): 'pending' | 'error' | 'success' {
 function toneOf(r: unknown) {
   return statusOf(r) === 'success' ? 'ok' : statusOf(r) === 'error' ? 'err' : 'signal'
 }
-function summarize(key: string, r: unknown): string {
+function pluralRows(n: number): string {
+  return `${n} row${n === 1 ? '' : 's'}`
+}
+function summarizePending(r: unknown): string | null {
   if (r === undefined) return 'loading…'
   if (r instanceof Error) return r.message
+  return null
+}
+function summarize(key: string, r: unknown): string {
+  const early = summarizePending(r)
+  if (early !== null) return early
+  if (Array.isArray(r)) return pluralRows(r.length)
   if (key === 'counter') return `value = ${(r as { value: number }).value}`
-  if (Array.isArray(r)) return `${r.length} row${r.length === 1 ? '' : 's'}`
   return String(r)
 }
 

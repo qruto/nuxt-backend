@@ -17,18 +17,19 @@ async function getOrCreate(ctx: MutationCtx, userId: string, name: string) {
 export const get = query({
   args: { name: v.optional(v.string()) },
   handler: async (ctx, { name }) => {
+    const resolved = name ?? DEFAULT_NAME
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return { value: 0, name: name ?? DEFAULT_NAME }
+    if (!identity) return { value: 0, name: resolved }
 
     const counter = await ctx.db
       .query('counters')
       .withIndex('userId_name', q =>
-        q.eq('userId', identity.subject).eq('name', name ?? DEFAULT_NAME))
+        q.eq('userId', identity.subject).eq('name', resolved))
       .unique()
 
     return {
-      name: name ?? DEFAULT_NAME,
-      value: counter?.value ?? 0,
+      name: resolved,
+      value: counter === null ? 0 : counter.value,
     }
   },
 })

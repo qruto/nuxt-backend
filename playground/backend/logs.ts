@@ -2,6 +2,7 @@ import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { LOG_LEVELS as LEVELS, logLevelValidator } from './schema'
+import { paginateUserLogs, requireIdentity } from './lib'
 
 const SAMPLES = [
   'User signed in',
@@ -18,18 +19,7 @@ const SAMPLES = [
 
 export const listPaginated = query({
   args: { paginationOpts: paginationOptsValidator },
-  handler: async (ctx, { paginationOpts }) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      return { page: [], isDone: true, continueCursor: '' }
-    }
-
-    return await ctx.db
-      .query('logs')
-      .withIndex('userId', q => q.eq('userId', identity.subject))
-      .order('desc')
-      .paginate(paginationOpts)
-  },
+  handler: async (ctx, { paginationOpts }) => paginateUserLogs(ctx, paginationOpts),
 })
 
 export const add = mutation({
@@ -38,8 +28,7 @@ export const add = mutation({
     message: v.string(),
   },
   handler: async (ctx, { level, message }) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error('Not authenticated')
+    const identity = await requireIdentity(ctx)
 
     await ctx.db.insert('logs', {
       userId: identity.subject,
@@ -52,8 +41,7 @@ export const add = mutation({
 export const seed = mutation({
   args: { count: v.optional(v.number()) },
   handler: async (ctx, { count }) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error('Not authenticated')
+    const identity = await requireIdentity(ctx)
 
     const total = Math.min(Math.max(count ?? 25, 1), 200)
     for (let i = 0; i < total; i++) {
@@ -72,8 +60,7 @@ export const seed = mutation({
 export const clear = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error('Not authenticated')
+    const identity = await requireIdentity(ctx)
 
     const rows = await ctx.db
       .query('logs')

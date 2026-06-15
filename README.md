@@ -4,6 +4,10 @@
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
+[![Tests][tests-src]][tests-href]
+[![Coverage][coverage-src]][coverage-href]
+[![Bundle Size][bundle-src]][bundle-href]
+[![GitHub Stars][stars-src]][stars-href]
 
 Integrate [Convex](https://convex.dev) with [Nuxt](https://nuxt.com) — one package that ships a **Nuxt module** and a **Convex auth component** with [Better Auth](https://www.better-auth.com) built in.
 
@@ -759,3 +763,15 @@ See `.github/workflows/release.yml` and `.github/release.yml` for the exact conf
 
 [nuxt-src]: https://img.shields.io/badge/Nuxt-020420?logo=nuxt
 [nuxt-href]: https://nuxt.com
+
+[tests-src]: https://img.shields.io/github/actions/workflow/status/qruto/nuxt-backend/ci.yml?branch=main&style=flat&colorA=020420&colorB=00DC82&label=tests
+[tests-href]: https://github.com/qruto/nuxt-backend/actions/workflows/ci.yml
+
+[coverage-src]: https://img.shields.io/codecov/c/github/qruto/nuxt-backend?style=flat&colorA=020420&colorB=00DC82
+[coverage-href]: https://codecov.io/gh/qruto/nuxt-backend
+
+[bundle-src]: https://img.shields.io/bundlephobia/minzip/nuxt-backend?style=flat&colorA=020420&colorB=00DC82
+[bundle-href]: https://bundlephobia.com/package/nuxt-backend
+
+[stars-src]: https://img.shields.io/github/stars/qruto/nuxt-backend?style=flat&colorA=020420&colorB=00DC82
+[stars-href]: https://github.com/qruto/nuxt-backend

@@ -20,10 +20,14 @@ async function resetData() {
 }
 
 const user = computed(() => session.value.data?.user)
-const initials = computed(() => {
-  const name = user.value?.name ?? user.value?.email ?? '?'
-  return name.split(/[\s@]+/).filter(Boolean).slice(0, 2).map(s => s[0]!.toUpperCase()).join('')
+const displayName = computed(() => {
+  const u = user.value
+  if (!u) return '?'
+  return u.name ?? u.email ?? '?'
 })
+const initials = computed(() =>
+  displayName.value.split(/[\s@]+/).filter(Boolean).slice(0, 2).map(s => s[0]!.toUpperCase()).join(''),
+)
 
 const groups = [
   { label: 'Overview', items: [

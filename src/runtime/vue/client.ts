@@ -8,7 +8,6 @@ import type {
   ConnectionState,
   MutationOptions as BaseMutationOptions,
   OptimisticUpdate,
-  QueryJournal,
   QueryOptions,
   QueryToken,
   SubscribeOptions,
@@ -25,7 +24,7 @@ import type {
 import { getFunctionName } from 'convex/server'
 import type { Value } from 'convex/values'
 
-export type { AuthTokenFetcher, ConnectionState, OptimisticUpdate, QueryJournal }
+export type { AuthTokenFetcher, ConnectionState, OptimisticUpdate }
 
 /**
  * A live subscription to the output of a Convex query function.

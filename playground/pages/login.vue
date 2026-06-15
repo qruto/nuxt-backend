@@ -41,23 +41,36 @@ async function refreshSession() {
   await session.value.refetch()
 }
 
-async function signInWithPasskey() {
+type AuthResult = { error?: { message?: string } | null }
+
+/** Throws when an auth call returned an error, using a friendly fallback. */
+function ensureOk(result: AuthResult, fallback: string) {
+  if (result.error) {
+    throw new Error(result.error.message ?? fallback)
+  }
+}
+
+/** Runs an async auth step with shared pending/error handling. */
+async function runStep(fallback: string, step: () => Promise<void>) {
   pending.value = true
   clearError()
   try {
-    const { error: signInError } = await client.signIn.passkey()
-    if (signInError) {
-      throw new Error(signInError.message ?? 'Passkey sign-in failed')
-    }
-    await refreshSession()
-    await navigateTo('/')
+    await step()
   }
   catch (cause) {
-    setError(cause instanceof Error ? cause.message : 'Passkey sign-in failed')
+    setError(cause instanceof Error ? cause.message : fallback)
   }
   finally {
     pending.value = false
   }
+}
+
+async function signInWithPasskey() {
+  await runStep('Passkey sign-in failed', async () => {
+    ensureOk(await client.signIn.passkey(), 'Passkey sign-in failed')
+    await refreshSession()
+    await navigateTo('/')
+  })
 }
 
 function startPasskeyRegistration() {
@@ -84,87 +97,50 @@ async function registerWithPasskey() {
     return
   }
 
-  pending.value = true
-  try {
-    const { error: addError } = await client.passkey.addPasskey({
-      context: passkeyRegistrationContext(),
-    })
-    if (addError) {
-      throw new Error(addError.message ?? 'Failed to register passkey')
-    }
+  await runStep('Passkey registration failed', async () => {
+    ensureOk(
+      await client.passkey.addPasskey({ context: passkeyRegistrationContext() }),
+      'Failed to register passkey',
+    )
     await refreshSession()
     await navigateTo('/')
-  }
-  catch (cause) {
-    setError(cause instanceof Error ? cause.message : 'Passkey registration failed')
-  }
-  finally {
-    pending.value = false
-  }
+  })
 }
 
 async function sendCode() {
-  pending.value = true
-  clearError()
-  try {
-    const { error: otpError } = await client.emailOtp.sendVerificationOtp({
-      email: trimmedEmail(),
-      type: 'sign-in',
-    })
-    if (otpError) {
-      throw new Error(otpError.message ?? 'Failed to send code')
-    }
+  await runStep('Failed to send code', async () => {
+    ensureOk(
+      await client.emailOtp.sendVerificationOtp({
+        email: trimmedEmail(),
+        type: 'sign-in',
+      }),
+      'Failed to send code',
+    )
     step.value = 'verify-code'
-  }
-  catch (cause) {
-    setError(cause instanceof Error ? cause.message : 'Failed to send code')
-  }
-  finally {
-    pending.value = false
-  }
+  })
 }
 
 async function verifyCode() {
-  pending.value = true
-  clearError()
-  try {
+  await runStep('Verification failed', async () => {
     const displayName = trimmedName()
-    const { error: verifyError } = await client.signIn.emailOtp({
-      email: trimmedEmail(),
-      otp: otp.value.trim(),
-      ...(displayName ? { name: displayName } : {}),
-    })
-    if (verifyError) {
-      throw new Error(verifyError.message ?? 'Invalid code')
-    }
-
+    ensureOk(
+      await client.signIn.emailOtp({
+        email: trimmedEmail(),
+        otp: otp.value.trim(),
+        ...(displayName ? { name: displayName } : {}),
+      }),
+      'Invalid code',
+    )
     await refreshSession()
     step.value = 'add-passkey'
-  }
-  catch (cause) {
-    setError(cause instanceof Error ? cause.message : 'Verification failed')
-  }
-  finally {
-    pending.value = false
-  }
+  })
 }
 
 async function addPasskeyToCurrentAccount() {
-  pending.value = true
-  clearError()
-  try {
-    const { error: addError } = await client.passkey.addPasskey()
-    if (addError) {
-      throw new Error(addError.message ?? 'Failed to register passkey')
-    }
+  await runStep('Passkey registration failed', async () => {
+    ensureOk(await client.passkey.addPasskey(), 'Failed to register passkey')
     await navigateTo('/')
-  }
-  catch (cause) {
-    setError(cause instanceof Error ? cause.message : 'Passkey registration failed')
-  }
-  finally {
-    pending.value = false
-  }
+  })
 }
 
 async function skipPasskey() {

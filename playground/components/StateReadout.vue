@@ -13,6 +13,9 @@ const props = withDefaults(defineProps<{
  * (which it drops entirely). Both matter for showing query result objects.
  */
 const UNDEF = '__UNDEFINED__'
+function functionLabel(fn: { name?: string }): string {
+  return `[Function ${fn.name || 'anonymous'}]`
+}
 const formatted = computed(() => {
   const v = props.value
   if (v === undefined) return 'undefined'
@@ -21,7 +24,7 @@ const formatted = computed(() => {
       v,
       (_key, val) => {
         if (val instanceof Error) return { name: val.name, message: val.message }
-        if (typeof val === 'function') return `[Function ${val.name || 'anonymous'}]`
+        if (typeof val === 'function') return functionLabel(val)
         if (val === undefined) return UNDEF
         return val
       },
