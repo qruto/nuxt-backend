@@ -11,8 +11,8 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/types.d.mts",
-      "import": "./dist/module.mjs"
+      "types": "./dist/types.d.ts",
+      "import": "./dist/module.js"
     },
     "./convex": {
       "types": "./dist/convex/client/index.d.ts",
@@ -35,11 +35,11 @@
     },
     "./convex/test": "./src/convex/test.ts"
   },
-  "main": "./dist/module.mjs",
+  "main": "./dist/module.js",
   "typesVersions": {
     "*": {
       ".": [
-        "./dist/types.d.mts"
+        "./dist/types.d.ts"
       ],
       "convex": [
         "./dist/convex/client/index.d.ts"
@@ -74,7 +74,7 @@
     "preinstall": "npx -y only-allow pnpm",
     "prepack": "pnpm run build",
     "build": "pnpm run build:nuxt-module && pnpm run build:convex-component",
-    "build:nuxt-module": "nuxt-module-build build",
+    "build:nuxt-module": "nuxt-module-build build && node scripts/normalize-module-ext.js",
     "build:convex-component": "tsc --project ./tsconfig.convex-component.build.json && node -e \"require('fs').utimesSync('playground/backend/convex.config.ts', new Date(), new Date())\"",
     "dev": "pnpm run dev:prepare && pnpm run build:convex-component && run-p -r 'dev:convex-component' 'dev:nuxt-module'",
     "dev:convex-component": "convex dev --typecheck-components --start 'pnpm run dev:convex-component:watch'",
@@ -82,7 +82,7 @@
     "dev:convex-component:watch": "chokidar 'tsconfig*.json' 'src/convex/**/*.ts' -i '**/*.test.ts' -i 'src/convex/component/_generated/**' -c 'pnpm run dev:convex-component:codegen && pnpm run build:convex-component' --initial",
     "dev:nuxt-module": "TMPDIR=/tmp portless nuxt-backend nuxt dev playground",
     "dev:nuxt-module:build": "nuxt build playground",
-    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && node scripts/normalize-module-ext.js && nuxt prepare playground",
     "dev:nuxt-module:prepare": "pnpm run dev:prepare",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -96,7 +96,7 @@
     "test:convex-component": "vitest --project convex-component --run",
     "test:quality": "fallow --summary",
     "bump": "pnpm exec taze major -w",
-    "db:reset": "node scripts/db-reset.mjs"
+    "db:reset": "node scripts/db-reset.js"
   },
   "dependencies": {
     "@better-auth/passkey": "~1.6.11",
