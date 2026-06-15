@@ -85,10 +85,10 @@
     "dist",
     "src/convex"
   ],
-  "packageManager": "pnpm@11.5.2",
+  "packageManager": "pnpm@11.6.0",
   "engines": {
     "node": ">=24.11.0",
-    "pnpm": ">=11"
+    "pnpm": ">=11.6.0"
   },
   "scripts": {
     "preinstall": "npx -y only-allow pnpm",
@@ -122,11 +122,11 @@
     "db:reset": "node scripts/db-reset.js"
   },
   "dependencies": {
-    "@better-auth/passkey": "~1.6.11",
-    "@convex-dev/better-auth": "^0.12.2",
+    "@better-auth/passkey": "~1.6.18",
+    "@convex-dev/better-auth": "^0.12.3",
     "@nuxt/kit": "^4.4.5",
-    "better-auth": "~1.6.11",
-    "convex": "^1.40.0",
+    "better-auth": "~1.6.18",
+    "convex": "^1.41.0",
     "dedent": "^1.7.2"
   },
   "devDependencies": {
@@ -135,30 +135,30 @@
     "@commitlint/config-conventional": "^21.0.2",
     "@edge-runtime/vm": "^5.0.0",
     "@nuxt/devtools": "^3.2.4",
-    "@nuxt/eslint": "^1.15.2",
-    "@nuxt/eslint-config": "^1.15.2",
+    "@nuxt/eslint": "^1.16.0",
+    "@nuxt/eslint-config": "^1.16.0",
     "@nuxt/module-builder": "^1.0.2",
     "@nuxt/schema": "^4.4.5",
     "@nuxt/test-utils": "^4.0.3",
     "@types/node": "latest",
-    "@unhead/vue": "^3.1.0",
-    "@vitest/coverage-v8": "^4.1.6",
-    "@vue/test-utils": "^2.4.10",
+    "@unhead/vue": "^3.1.4",
+    "@vitest/coverage-v8": "^4.1.8",
+    "@vue/test-utils": "^2.4.11",
     "changelogen": "^0.6.2",
     "changelogithub": "^14.0.0",
     "chokidar-cli": "^3.0.0",
-    "convex-test": "^0.0.52",
-    "eslint": "^10.4.0",
-    "fallow": "^2.80.0",
-    "happy-dom": "^20.9.0",
+    "convex-test": "^0.0.53",
+    "eslint": "^10.5.0",
+    "fallow": "^2.96.0",
+    "happy-dom": "^20.10.3",
     "npm-run-all2": "^8.0.4",
     "nuxt": "catalog:",
-    "oxc-parser": "^0.131.0",
-    "portless": "^0.13.0",
+    "oxc-parser": "^0.135.0",
+    "portless": "^0.14.0",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.6",
-    "vue-tsc": "^3.2.9",
-    "ws": "^8.20.0"
+    "vitest": "^4.1.8",
+    "vue-tsc": "^3.3.5",
+    "ws": "^8.21.0"
   },
   "publishConfig": {
     "access": "public"
