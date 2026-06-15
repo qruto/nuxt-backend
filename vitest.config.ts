@@ -6,6 +6,16 @@ const nuxtImportsTestAlias = fileURLToPath(new URL('./test/helpers/nuxt-imports.
 
 export default defineConfig({
   test: {
+    // In CI, also emit a JUnit report for Codecov Test Analytics (flaky/failure
+    // tracking). Local runs keep the default console reporter only.
+    reporters: process.env.CI
+      ? ['default', ['junit', { outputFile: 'test-report.junit.xml' }]]
+      : ['default'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/**'],
+      reporter: ['text', 'json', 'lcov'],
+    },
     projects: [
       {
         resolve: {

@@ -2,12 +2,12 @@
 
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
-[![License][license-src]][license-href]
-[![Nuxt][nuxt-src]][nuxt-href]
 [![Tests][tests-src]][tests-href]
 [![Coverage][coverage-src]][coverage-href]
-[![Bundle Size][bundle-src]][bundle-href]
-[![GitHub Stars][stars-src]][stars-href]
+[![Package size][size-src]][size-href]
+[![GitHub stars][stars-src]][stars-href]
+[![License][license-src]][license-href]
+[![Nuxt][nuxt-src]][nuxt-href]
 
 Integrate [Convex](https://convex.dev) with [Nuxt](https://nuxt.com) — one package that ships a **Nuxt module** and a **Convex auth component** with [Better Auth](https://www.better-auth.com) built in.
 
@@ -752,26 +752,26 @@ See `.github/workflows/release.yml` and `.github/release.yml` for the exact conf
 [MIT](./LICENSE)
 
 <!-- Badges -->
-[npm-version-src]: https://img.shields.io/npm/v/nuxt-backend/latest.svg?style=flat&colorA=020420&colorB=00DC82
+[npm-version-src]: https://img.shields.io/npm/v/nuxt-backend/latest.svg?style=plastic&colorA=020420&colorB=00DC82
 [npm-version-href]: https://npmjs.com/package/nuxt-backend
 
-[npm-downloads-src]: https://img.shields.io/npm/dm/nuxt-backend.svg?style=flat&colorA=020420&colorB=00DC82
+[npm-downloads-src]: https://img.shields.io/npm/dm/nuxt-backend.svg?style=plastic&colorA=020420&colorB=00DC82
 [npm-downloads-href]: https://npm.chart.dev/nuxt-backend
 
-[license-src]: https://img.shields.io/npm/l/nuxt-backend.svg?style=flat&colorA=020420&colorB=00DC82
+[license-src]: https://img.shields.io/npm/l/nuxt-backend.svg?style=plastic&colorA=020420&colorB=00DC82
 [license-href]: https://npmjs.com/package/nuxt-backend
 
-[nuxt-src]: https://img.shields.io/badge/Nuxt-020420?logo=nuxt
-[nuxt-href]: https://nuxt.com
-
-[tests-src]: https://img.shields.io/github/actions/workflow/status/qruto/nuxt-backend/ci.yml?branch=main&style=flat&colorA=020420&colorB=00DC82&label=tests
+[tests-src]: https://img.shields.io/github/actions/workflow/status/qruto/nuxt-backend/ci.yml?branch=main&style=plastic&colorA=020420&label=tests
 [tests-href]: https://github.com/qruto/nuxt-backend/actions/workflows/ci.yml
 
-[coverage-src]: https://img.shields.io/codecov/c/github/qruto/nuxt-backend?style=flat&colorA=020420&colorB=00DC82
+[coverage-src]: https://img.shields.io/codecov/c/github/qruto/nuxt-backend?style=plastic&colorA=020420&label=coverage
 [coverage-href]: https://codecov.io/gh/qruto/nuxt-backend
 
-[bundle-src]: https://img.shields.io/bundlephobia/minzip/nuxt-backend?style=flat&colorA=020420&colorB=00DC82
-[bundle-href]: https://bundlephobia.com/package/nuxt-backend
+[size-src]: https://img.shields.io/npm/unpacked-size/nuxt-backend?style=plastic&colorA=020420&colorB=00DC82&label=size
+[size-href]: https://npmjs.com/package/nuxt-backend
 
-[stars-src]: https://img.shields.io/github/stars/qruto/nuxt-backend?style=flat&colorA=020420&colorB=00DC82
+[stars-src]: https://img.shields.io/github/stars/qruto/nuxt-backend?style=plastic&colorA=020420&colorB=00DC82
 [stars-href]: https://github.com/qruto/nuxt-backend
+
+[nuxt-src]: https://img.shields.io/badge/Nuxt-020420?logo=nuxt&style=plastic
+[nuxt-href]: https://nuxt.com

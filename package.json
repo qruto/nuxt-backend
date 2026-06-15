@@ -108,6 +108,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest --run",
+    "test:coverage": "vitest --run --coverage",
     "test:watch": "vitest --watch",
     "test:types": "pnpm run test:types:lib && cd playground && vue-tsc --noEmit",
     "test:types:lib": "pnpm run dev:prepare && pnpm run build:convex-component && vue-tsc --noEmit && tsc --noEmit -p tsconfig.convex.json",
@@ -128,6 +129,7 @@
     "dedent": "^1.7.2"
   },
   "devDependencies": {
+    "@codecov/nuxt-plugin": "^2.0.1",
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
     "@edge-runtime/vm": "^5.0.0",
@@ -139,6 +141,7 @@
     "@nuxt/test-utils": "^4.0.3",
     "@types/node": "latest",
     "@unhead/vue": "^3.1.0",
+    "@vitest/coverage-v8": "^4.1.6",
     "@vue/test-utils": "^2.4.10",
     "changelogen": "^0.6.2",
     "changelogithub": "^14.0.0",
