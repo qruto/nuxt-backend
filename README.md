@@ -4,9 +4,10 @@
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
 [![Tests][tests-src]][tests-href]
 [![Coverage][coverage-src]][coverage-href]
-[![Package size][size-src]][size-href]
-[![GitHub stars][stars-src]][stars-href]
+[![Minified size][min-size-src]][size-href]
+[![Minzipped size][minzip-size-src]][size-href]
 [![License][license-src]][license-href]
+[![GitHub stars][stars-src]][stars-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
 Integrate [Convex](https://convex.dev) with [Nuxt](https://nuxt.com) — one package that ships a **Nuxt module** and a **Convex auth component** with [Better Auth](https://www.better-auth.com) built in.
@@ -747,6 +748,16 @@ We follow conventional commits (Renovate PRs do too). After CI is green on `main
 
 See `.github/workflows/release.yml` and `.github/release.yml` for the exact configuration.
 
+### Analyzing the bundle
+
+The playground is wired up with [Sonda](https://sonda.dev) to visualize bundle size. Run:
+
+```bash
+pnpm analyze
+```
+
+This builds the playground and opens an interactive treemap report (`.sonda/sonda_client_0.html`) in your browser. It's opt-in via the `ANALYZE` env var, so regular builds stay clean (no source maps, no report). The `.sonda/` output is git-ignored. Configure it in [`playground/nuxt.config.ts`](./playground/nuxt.config.ts).
+
 ## License
 
 [MIT](./LICENSE)
@@ -767,10 +778,11 @@ See `.github/workflows/release.yml` and `.github/release.yml` for the exact conf
 [coverage-src]: https://img.shields.io/codecov/c/github/qruto/nuxt-backend?style=plastic&colorA=020420&label=coverage
 [coverage-href]: https://codecov.io/gh/qruto/nuxt-backend
 
-[size-src]: https://img.shields.io/npm/unpacked-size/nuxt-backend?style=plastic&colorA=020420&colorB=00DC82&label=size
-[size-href]: https://npmjs.com/package/nuxt-backend
+[min-size-src]: https://img.shields.io/bundlephobia/min/nuxt-backend?style=plastic&colorA=020420&colorB=00DC82&label=min
+[minzip-size-src]: https://img.shields.io/bundlephobia/minzip/nuxt-backend?style=plastic&colorA=020420&colorB=00DC82&label=min%2Bgzip
+[size-href]: https://bundlephobia.com/package/nuxt-backend
 
-[stars-src]: https://img.shields.io/github/stars/qruto/nuxt-backend?style=plastic&colorA=020420&colorB=00DC82
+[stars-src]: https://img.shields.io/github/stars/qruto/nuxt-backend?style=plastic&logo=github&logoColor=white&colorA=181717&colorB=181717
 [stars-href]: https://github.com/qruto/nuxt-backend
 
 [nuxt-src]: https://img.shields.io/badge/Nuxt-020420?logo=nuxt&style=plastic

@@ -9,7 +9,10 @@
     "generate": "nuxt generate"
   },
   "dependencies": {
-    "nuxt-backend": "workspace:*",
-    "nuxt": "catalog:"
+    "nuxt": "catalog:",
+    "nuxt-backend": "workspace:*"
+  },
+  "devDependencies": {
+    "sonda": "^0.13.0"
   }
 }

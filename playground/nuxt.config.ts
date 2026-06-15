@@ -1,5 +1,14 @@
+import Sonda from 'sonda/nuxt'
+
+// Bundle analysis is opt-in: `pnpm analyze` sets ANALYZE=true. Normal builds
+// stay clean (no source maps, no report).
+const analyze = process.env.ANALYZE === 'true'
+
 export default defineNuxtConfig({
-  modules: ['nuxt-backend'],
+  modules: [
+    'nuxt-backend',
+    Sonda({ enabled: analyze }),
+  ],
   devtools: { enabled: true },
   app: {
     head: {
@@ -21,6 +30,8 @@ export default defineNuxtConfig({
     },
   },
   css: ['~/app.css'],
+  // Sonda reads source maps to report true post-minify/tree-shake sizes.
+  sourcemap: { client: analyze },
   compatibilityDate: 'latest',
   backend: {
     url: 'http://127.0.0.1:3210',

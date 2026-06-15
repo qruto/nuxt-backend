@@ -97,6 +97,7 @@
     "build": "pnpm run build:nuxt-module && pnpm run build:convex-component",
     "build:nuxt-module": "nuxt-module-build build && node scripts/normalize-module-ext.js",
     "build:convex-component": "tsc --project ./tsconfig.convex-component.build.json && node -e \"require('fs').utimesSync('playground/backend/convex.config.ts', new Date(), new Date())\"",
+    "analyze": "ANALYZE=true nuxt build playground",
     "dev": "pnpm run dev:prepare && pnpm run build:convex-component && run-p -r 'dev:convex-component' 'dev:nuxt-module'",
     "dev:convex-component": "convex dev --typecheck-components --start 'pnpm run dev:convex-component:watch'",
     "dev:convex-component:codegen": "convex codegen --component-dir ./src/convex/component",
@@ -116,7 +117,7 @@
     "test:nuxt": "vitest --project nuxt --run",
     "test:e2e": "vitest --project e2e --run",
     "test:convex-component": "vitest --project convex-component --run",
-    "test:quality": "fallow --summary",
+    "test:quality": "fallow",
     "bump": "pnpm exec taze major -w",
     "db:reset": "node scripts/db-reset.js"
   },

@@ -50,6 +50,9 @@ coverage
 *.tsbuildinfo
 *.tgz
 
+# Bundle analysis (Sonda)
+.sonda
+
 # OSX
 .DS_Store
 .AppleDouble
