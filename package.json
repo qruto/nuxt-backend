@@ -8,6 +8,25 @@
     "url": "git+https://github.com/qruto/nuxt-backend.git"
   },
   "license": "MIT",
+  "author": "Slava Razum <razum@qruto.to>",
+  "homepage": "https://github.com/qruto/nuxt-backend#readme",
+  "bugs": {
+    "url": "https://github.com/qruto/nuxt-backend/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/qruto"
+  },
+  "keywords": [
+    "nuxt",
+    "nuxt-module",
+    "convex",
+    "authentication",
+    "auth",
+    "better-auth",
+    "backend",
+    "fullstack"
+  ],
   "type": "module",
   "exports": {
     ".": {

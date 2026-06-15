@@ -1,0 +1,70 @@
+name: Bug report
+description: Report a bug in nuxt-backend
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+        Please search existing issues first to avoid duplicates.
+  - type: input
+    id: package-version
+    attributes:
+      label: Package version
+      description: e.g. 0.1.0 or latest
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: nuxt-version
+    attributes:
+      label: Nuxt version
+      placeholder: "3.x / 4.x"
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      placeholder: "20.19.0"
+    validations:
+      required: true
+  - type: input
+    id: pnpm-version
+    attributes:
+      label: pnpm version
+      placeholder: "11.x"
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: |
+        Steps to reproduce the behavior:
+        1. Install `nuxt-backend` ...
+        2. Add module ...
+        3. ...
+        Or better: link to a minimal reproduction repo (e.g. on StackBlitz / CodeSandbox / GitHub).
+      placeholder: |
+        Steps to reproduce...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, logs, or other context that might help.

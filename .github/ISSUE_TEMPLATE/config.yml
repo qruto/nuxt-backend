@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GitHub Discussions
+    url: https://github.com/qruto/nuxt-backend/discussions
+    about: Please use Discussions for questions, ideas, and support requests.
