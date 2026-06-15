@@ -91,6 +91,15 @@ export * from './composables/use-paginated-query'
 // Connection State
 export { useConvexConnectionState } from './composables/use-connection-state'
 
+// Storage
+export {
+  useStorage,
+  useConvexStorage,
+  type VueStorage,
+  type UseStorageOptions,
+  type GenerateUploadUrl,
+} from './composables/use-storage'
+
 // Auth
 export {
   useConvexAuth,

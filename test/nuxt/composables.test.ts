@@ -9,6 +9,7 @@ import { silentConnectLogger } from '../helpers/silent-logger'
 import { createMutation, useMutation } from '../../src/runtime/vue/composables/use-mutation'
 import { useAction } from '../../src/runtime/vue/composables/use-action'
 import { useConvexConnectionState } from '../../src/runtime/vue/composables/use-connection-state'
+import { useStorage } from '../../src/runtime/vue/composables/use-storage'
 import { useConvexAuth, ConvexAuthStateKey, type ConvexAuthState } from '../../src/runtime/vue/auth'
 import { useQuery, useQuery_experimental } from '../../src/runtime/vue/composables/use-query'
 
@@ -112,6 +113,105 @@ describe('useConvexConnectionState', () => {
 
     expect(result.value).toBeDefined()
     expect(result.value.isWebSocketConnected).toBe(true)
+  })
+})
+
+describe('useStorage', () => {
+  const generateUploadUrl = makeFunctionReference<'mutation', Record<string, never>, string>(
+    'api.files.generateUploadUrl',
+  )
+  const uploadUrl = 'https://example.convex.site/upload'
+
+  // Minimal XMLHttpRequest stand-in: records the request, emits one progress
+  // event, then fires `onload` with a configurable status/response.
+  class MockXHR {
+    static instances: MockXHR[] = []
+    static nextStatus = 200
+    status = 200
+    responseText = JSON.stringify({ storageId: 'kg-123' })
+    method = ''
+    url = ''
+    headers: Record<string, string> = {}
+    sent: unknown = undefined
+    upload: { onprogress?: (event: { lengthComputable: boolean, loaded: number, total: number }) => void } = {}
+    onload?: () => void
+    onerror?: () => void
+
+    constructor() {
+      this.status = MockXHR.nextStatus
+      MockXHR.instances.push(this)
+    }
+
+    open(method: string, url: string) {
+      this.method = method
+      this.url = url
+    }
+
+    setRequestHeader(key: string, value: string) {
+      this.headers[key] = value
+    }
+
+    send(body: unknown) {
+      this.sent = body
+      this.upload.onprogress?.({ lengthComputable: true, loaded: 5, total: 10 })
+      queueMicrotask(() => this.onload?.())
+    }
+  }
+
+  let originalXHR: typeof XMLHttpRequest
+
+  beforeEach(() => {
+    MockXHR.instances = []
+    MockXHR.nextStatus = 200
+    originalXHR = globalThis.XMLHttpRequest
+    globalThis.XMLHttpRequest = MockXHR as unknown as typeof XMLHttpRequest
+  })
+
+  afterEach(() => {
+    globalThis.XMLHttpRequest = originalXHR
+  })
+
+  it('uploads a file and resolves with the storageId', async () => {
+    const mutationSpy = vi.spyOn(client, 'mutation').mockResolvedValue(uploadUrl as never)
+    const file = new File(['hello'], 'hello.txt', { type: 'text/plain' })
+
+    const { result } = await mountWithConvex(client, () => useStorage(generateUploadUrl))
+    const storageId = await result.upload(file)
+
+    expect(storageId).toBe('kg-123')
+    expect(mutationSpy).toHaveBeenCalledWith(generateUploadUrl, {}, { optimisticUpdate: undefined })
+    const xhr = MockXHR.instances[0]!
+    expect(xhr.method).toBe('POST')
+    expect(xhr.url).toBe(uploadUrl)
+    expect(xhr.headers['Content-Type']).toBe('text/plain')
+    expect(xhr.sent).toBe(file)
+    expect(result.uploading.value).toBe(false)
+    expect(result.progress.value).toBe(1)
+    expect(result.error.value).toBeNull()
+  })
+
+  it('invokes the onUploaded hook with the storageId and file', async () => {
+    vi.spyOn(client, 'mutation').mockResolvedValue(uploadUrl as never)
+    const onUploaded = vi.fn()
+    const file = new File(['data'], 'data.bin', { type: 'application/octet-stream' })
+
+    const { result } = await mountWithConvex(client, () => useStorage(generateUploadUrl, { onUploaded }))
+    await result.upload(file)
+
+    expect(onUploaded).toHaveBeenCalledWith('kg-123', file)
+  })
+
+  it('captures and rethrows a failed upload', async () => {
+    vi.spyOn(client, 'mutation').mockResolvedValue(uploadUrl as never)
+    const file = new File(['oops'], 'oops.txt', { type: 'text/plain' })
+
+    const { result } = await mountWithConvex(client, () => useStorage(generateUploadUrl))
+
+    // Make the next upload fail with a server error status.
+    MockXHR.nextStatus = 500
+    await expect(result.upload(file)).rejects.toThrow('Convex storage upload failed with status 500.')
+    expect(result.error.value).toBeInstanceOf(Error)
+    expect(result.uploading.value).toBe(false)
   })
 })
 

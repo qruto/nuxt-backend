@@ -50,7 +50,7 @@ In addition to the auto-imported APIs, the scaffolded `backend/auth.ts` re-expor
 
 The Nuxt module auto-imports two API groups in app code:
 
-- Convex Vue APIs from the package runtime: `useConvex`, `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `usePreloadedAuthQuery`, `useConvexConnectionState`
+- Convex Vue APIs from the package runtime: `useConvex`, `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `usePreloadedAuthQuery`, `useConvexConnectionState`, `useStorage`
 - Better Auth helper: `useAuth`
 
 ### `useConvex()` and `$convex`
@@ -214,6 +214,38 @@ const connection = useConvexConnectionState()
   <span v-if="!connection.isWebSocketConnected">Offline</span>
 </template>
 ```
+
+### `useStorage()` / `useConvexStorage()`
+
+Uploads files to [Convex file storage](https://docs.convex.dev/file-storage) with reactive `uploading` / `progress` / `error` state. It wraps the three-step Convex upload flow — generate a one-time upload URL via your mutation, `POST` the bytes, and read back the `storageId` — behind a single `upload(file)` call.
+
+```vue
+<script setup lang="ts">
+import { api } from '#backend/api'
+
+const saveFile = useMutation(api.files.save)
+
+const { upload, uploading, progress, error } = useStorage(
+  api.files.generateUploadUrl,
+  { onUploaded: (storageId, file) => saveFile({ storageId, name: file.name }) },
+)
+
+async function onChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (file) await upload(file)
+}
+</script>
+
+<template>
+  <input type="file" :disabled="uploading" @change="onChange">
+  <progress v-if="uploading" :value="progress ?? undefined" max="1" />
+  <p v-if="error">{{ error.message }}</p>
+</template>
+```
+
+`useStorage(generateUploadUrl, options?)` takes a FunctionReference for the public mutation that returns an upload URL via `ctx.storage.generateUploadUrl()`. It returns `{ upload, uploading, progress, error }`, where `upload(file)` resolves with the resulting `storageId`. `progress` is a value between `0` and `1`, or `null` when the size is unknown. The optional `onUploaded(storageId, file)` hook runs after the bytes are stored but before `upload` resolves — use it to persist the reference with your own mutation. Errors are both assigned to `error` and rethrown from `upload`.
+
+This adds no capability over calling `useMutation` plus `fetch` yourself; it is purely an ergonomic wrapper. Reading a file back is a normal Convex query that calls `ctx.storage.getUrl`, so use `useQuery` for downloads — there is no separate helper for that.
 
 ### Better Auth composables
 
@@ -478,7 +510,7 @@ The stable user-facing surface should stay narrow and opinionated. The package s
 |---|---|---|
 | Bootstrap | Nuxt module options: `backend.url`, `backend.siteUrl`, `backend.authRoute`, `backend.installation` | One place to configure Convex, auth route wiring, and first-run scaffold ownership |
 | Scaffolding | Generated `backend/convex.config.ts`, `backend/auth.config.ts`, `backend/auth.ts`, `backend/http.ts` | Zero-config first run with an escape hatch to own the files later |
-| Runtime data | `useConvex`, `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `usePreloadedAuthQuery`, `useConvexConnectionState` | Real-time Convex data and hydration-safe SSR |
+| Runtime data | `useConvex`, `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `usePreloadedAuthQuery`, `useConvexConnectionState`, `useStorage` | Real-time Convex data, file uploads, and hydration-safe SSR |
 | Runtime auth | `useAuth`, `auth` middleware | Better Auth client access, session state, sign-in/out, and route protection in Nuxt |
 | Server data | `fetchQuery`, `fetchMutation`, `fetchAction`, `preloadQuery`, `preloadedQueryResult`, `backendAuth` | Nitro and SSR access to Convex, including authenticated helper calls |
 | Convex auth bridge | `nuxt-backend/convex/component/convex.config`, `nuxt-backend/convex/component/schema`, `nuxt-backend/convex/auth.config`, `nuxt-backend/convex` | Mount the packaged component, seed local schemas, align Convex auth config, and create Better Auth helpers |

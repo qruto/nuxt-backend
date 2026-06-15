@@ -152,6 +152,8 @@ function registerVueComposables(resolver: Resolver): void {
     { name: 'useAction', from: resolver.resolve('./runtime/vue/composables/use-action') },
     { name: 'useConvexAction', from: resolver.resolve('./runtime/vue/composables/use-action') },
     { name: 'useConvexConnectionState', from: resolver.resolve('./runtime/vue/composables/use-connection-state') },
+    { name: 'useStorage', from: resolver.resolve('./runtime/vue/composables/use-storage') },
+    { name: 'useConvexStorage', from: resolver.resolve('./runtime/vue/composables/use-storage') },
     { name: 'useConvexAuth', from: resolver.resolve('./runtime/vue/auth/index') },
     { name: 'provideConvexAuth', from: resolver.resolve('./runtime/vue/auth/index') },
     { name: 'usePreloadedQuery', from: resolver.resolve('./runtime/vue/hydration') },
