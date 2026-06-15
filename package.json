@@ -123,7 +123,7 @@
   "dependencies": {
     "@better-auth/passkey": "~1.6.11",
     "@convex-dev/better-auth": "^0.12.2",
-    "@nuxt/kit": "^4.4.5",
+    "@nuxt/kit": "^4.4.8",
     "better-auth": "~1.6.11",
     "convex": "^1.40.0",
     "dedent": "^1.7.2"
@@ -137,7 +137,7 @@
     "@nuxt/eslint": "^1.15.2",
     "@nuxt/eslint-config": "^1.15.2",
     "@nuxt/module-builder": "^1.0.2",
-    "@nuxt/schema": "^4.4.5",
+    "@nuxt/schema": "^4.4.8",
     "@nuxt/test-utils": "^4.0.3",
     "@types/node": "latest",
     "@unhead/vue": "^3.1.0",
