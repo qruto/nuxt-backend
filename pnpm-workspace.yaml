@@ -24,6 +24,7 @@ allowBuilds:
   '@parcel/watcher': true
   esbuild: true
   unrs-resolver: true
+  vue-demi: true
 
 # Cooldown: refuse to install any package version published less than 1440
 # minutes (24h) ago. Blunts "compromised release pulled within hours" attacks

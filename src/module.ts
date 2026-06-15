@@ -34,11 +34,19 @@ export default defineNuxtModule<ModuleOptions>({
     authRoute: '/api/auth',
     installation: 'default',
   },
+  // nuxt-security is an integral part of the backend: declaring it as a module
+  // dependency makes Nuxt's core loader install it (hoisting its types and
+  // deduping if you also register it yourself), and guarantees our setup runs
+  // *before* it — so the CSP defaults below land before nuxt-security reads its
+  // config. It can't be disabled, only configured via the `security` key.
+  moduleDependencies: {
+    'nuxt-security': {},
+  },
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
     const authRoute = options.authRoute || '/api/auth'
 
-    applyRuntimeConfig(nuxt, options)
+    const { url, siteUrl } = applyRuntimeConfig(nuxt, options)
     scaffoldBackendFiles(nuxt.options.rootDir, { installation: options.installation })
     registerBackendAliases(nuxt)
 
@@ -47,6 +55,17 @@ export default defineNuxtModule<ModuleOptions>({
     registerAuthComponents(resolver)
     registerAuthServerHandlers(resolver, authRoute)
     registerServerImports(resolver)
+
+    // Ship a tightened, Convex-aware CSP by default. Only in production builds
+    // (a strict connect-src would break Vite HMR / devtools in `nuxt dev`) and
+    // only when a build-time Convex URL is known (otherwise we'd lock Convex
+    // out instead of allowing it). nuxt-security is installed afterwards via
+    // moduleDependencies, so mutating its config here lands before it reads it.
+    const opts = nuxt.options as unknown as Record<string, unknown>
+    if (url && !nuxt.options.dev && opts.security !== false) {
+      const security = (opts.security ??= {}) as Record<string, unknown>
+      applyConvexSecurityDefaults(security, convexConnectSrc(url, siteUrl), convexResourceSrc(url))
+    }
   },
 })
 
@@ -54,7 +73,7 @@ export default defineNuxtModule<ModuleOptions>({
  * Resolve the Convex deployment URL from module options or environment, and
  * publish `backend.url` / `backend.siteUrl` into Nuxt's runtime config.
  */
-function applyRuntimeConfig(nuxt: Nuxt, options: ModuleOptions): void {
+function applyRuntimeConfig(nuxt: Nuxt, options: ModuleOptions): { url: string, siteUrl: string } {
   const url = nuxt.options._prepare
     ? undefined
     : options.url || process.env.NUXT_PUBLIC_CONVEX_URL
@@ -70,6 +89,8 @@ function applyRuntimeConfig(nuxt: Nuxt, options: ModuleOptions): void {
     siteUrl,
   }
   nuxt.options.runtimeConfig.backend = { siteUrl }
+
+  return { url: url || '', siteUrl }
 }
 
 /**
@@ -213,4 +234,88 @@ function registerServerImports(resolver: Resolver): void {
   addServerImports([
     { name: 'backendAuth', from: resolver.resolve('./runtime/nuxt/auth/server') },
   ])
+}
+
+function toHttpOrigin(raw?: string): string | undefined {
+  if (!raw) return undefined
+  try {
+    return new URL(raw).origin
+  }
+  catch {
+    return undefined
+  }
+}
+
+function toWsOrigin(raw?: string): string | undefined {
+  if (!raw) return undefined
+  try {
+    const u = new URL(raw)
+    return `${u.protocol === 'https:' ? 'wss:' : 'ws:'}//${u.host}`
+  }
+  catch {
+    return undefined
+  }
+}
+
+function uniq(values: Array<string | undefined>): string[] {
+  return Array.from(new Set(values.filter((v): v is string => Boolean(v))))
+}
+
+/**
+ * CSP `connect-src` entries the browser needs to reach a Convex backend: the
+ * deployment URL over both HTTPS and WebSocket (the realtime sync channel) and,
+ * when configured, the `.site` URL that serves Convex HTTP actions / Better Auth
+ * endpoints. Returns `[]` for empty or unparseable input.
+ */
+export function convexConnectSrc(url?: string, siteUrl?: string): string[] {
+  return uniq([toHttpOrigin(url), toWsOrigin(url), toHttpOrigin(siteUrl), toWsOrigin(siteUrl)])
+}
+
+/**
+ * CSP source for Convex-served resources (`img-src` / `media-src`): files
+ * uploaded through `useStorageUrl()` are served from the deployment origin.
+ */
+export function convexResourceSrc(url?: string): string[] {
+  return uniq([toHttpOrigin(url)])
+}
+
+/**
+ * Apply nuxt-backend's secure-by-default, Convex-aware CSP onto a security
+ * config object (mutated in place). This tightens the directives we can safely
+ * pre-fill — locking network egress and Convex-served media to same-origin plus
+ * the Convex deployment — while leaving every other directive (script/style/
+ * font, etc.) to nuxt-security's own defaults.
+ *
+ * For each directive we keep any value the user already set and *append* the
+ * Convex origins, so consumers extend (add their own third parties) rather than
+ * fight the defaults, and the Convex origins are always present. A user who sets
+ * `contentSecurityPolicy: false` (CSP disabled) is left untouched.
+ */
+export function applyConvexSecurityDefaults(
+  security: Record<string, unknown>,
+  connectSrc: string[],
+  resourceSrc: string[],
+): void {
+  if (security.headers === false) return
+  if (typeof security.headers !== 'object' || security.headers === null) security.headers = {}
+  const headers = security.headers as Record<string, unknown>
+
+  if (headers.contentSecurityPolicy === false) return // CSP explicitly disabled.
+  if (typeof headers.contentSecurityPolicy !== 'object' || headers.contentSecurityPolicy === null) {
+    headers.contentSecurityPolicy = {}
+  }
+  const csp = headers.contentSecurityPolicy as Record<string, unknown>
+
+  tightenDirective(csp, 'connect-src', ['\'self\''], connectSrc)
+  tightenDirective(csp, 'img-src', ['\'self\'', 'data:'], resourceSrc)
+  tightenDirective(csp, 'media-src', ['\'self\''], resourceSrc)
+}
+
+/**
+ * Set a CSP directive to the union of its existing value (or `baseline` if it
+ * was unset) and `additions`, deduplicated and order-preserving.
+ */
+function tightenDirective(csp: Record<string, unknown>, name: string, baseline: string[], additions: string[]): void {
+  const existing = Array.isArray(csp[name]) ? csp[name] as string[] : baseline
+  csp[name] = uniq([...existing, ...additions])
 }
