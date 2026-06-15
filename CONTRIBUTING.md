@@ -17,7 +17,8 @@ This project follows our [Code of Conduct](CODE_OF_CONDUCT.md). Please read it b
 
 ## Development Setup
 
-**Prerequisites:** Node.js 20+, pnpm 11+
+**Prerequisites:** Node.js 20+, pnpm 11+ (Git 2.54+ optional — enables the local commit-message
+hook; CI enforces it either way)
 
 ```bash
 # Clone the repository
@@ -81,6 +82,17 @@ Breaking changes must include `BREAKING CHANGE:` in the commit footer or use `!`
 ```
 feat!: rename createBackend to defineBackend
 ```
+
+Allowed types: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`,
+`style`, `revert`, and `ai` (AI-instruction / agent metadata updates).
+
+**This is enforced, not just documented.** `pnpm install` registers a native Git
+[config-based hook](https://git-scm.com/docs/githooks) (`hook.commitlint.*` in your local
+`.git/config`) that runs [commitlint](https://commitlint.js.org/) on `commit-msg` and rejects
+non-conforming messages locally — no hook-manager dependency. This requires **Git 2.54+**; on
+older Git the local hook is silently skipped. Either way, CI re-checks every commit on a pull
+request, so the gate holds. The local hook can be bypassed with `git commit --no-verify`; CI
+cannot — non-conventional commits will not merge.
 
 ## Releasing
 

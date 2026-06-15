@@ -92,6 +92,7 @@
   },
   "scripts": {
     "preinstall": "npx -y only-allow pnpm",
+    "prepare": "git config hook.commitlint.event commit-msg && git config hook.commitlint.command 'pnpm exec commitlint --edit' || true",
     "prepack": "pnpm run build",
     "build": "pnpm run build:nuxt-module && pnpm run build:convex-component",
     "build:nuxt-module": "nuxt-module-build build && node scripts/normalize-module-ext.js",
@@ -127,6 +128,8 @@
     "dedent": "^1.7.2"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
     "@edge-runtime/vm": "^5.0.0",
     "@nuxt/devtools": "^3.2.4",
     "@nuxt/eslint": "^1.15.2",
