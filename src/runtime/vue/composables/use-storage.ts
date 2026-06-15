@@ -1,4 +1,4 @@
-import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
+import type { FunctionReference } from 'convex/server'
 import { ref, type Ref } from 'vue'
 import { useMutation } from './use-mutation'
 
@@ -76,7 +76,9 @@ function postFile(
           resolve(storageId)
         }
         catch {
-          reject(new Error('Convex storage upload returned a malformed response.'))
+          reject(new Error(
+            'Convex storage upload returned a malformed response. Expected JSON with a `storageId` field.',
+          ))
         }
       }
       else {
@@ -142,9 +144,7 @@ export function useStorage(
     progress.value = null
     error.value = null
     try {
-      const url = await requestUploadUrl(
-        ...([] as unknown as OptionalRestArgs<GenerateUploadUrl>),
-      ) as FunctionReturnType<GenerateUploadUrl>
+      const url = await requestUploadUrl()
       const storageId = await postFile(url, file, value => (progress.value = value))
       if (options.onUploaded) await options.onUploaded(storageId, file)
       progress.value = 1
