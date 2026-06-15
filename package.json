@@ -127,7 +127,8 @@
     "@nuxt/kit": "^4.4.5",
     "better-auth": "~1.6.18",
     "convex": "^1.41.0",
-    "dedent": "^1.7.2"
+    "dedent": "^1.7.2",
+    "nuxt-security": "^2.6.0"
   },
   "devDependencies": {
     "@codecov/nuxt-plugin": "^2.0.1",
