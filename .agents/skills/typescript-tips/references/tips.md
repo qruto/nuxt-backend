@@ -4,7 +4,7 @@ Source: https://github.com/AllThingsSmitty/typescript-tips-everyone-should-know
 
 The 15 tips, each with the rule and a before/after. The recurring theme: prefer constructs that *add*
 type information (inference, `satisfies`, `as const`, predicates, derivation) over `as`, which *removes*
-checks. After the catalog, a map to where each tip shows up in this package.
+checks.
 
 ## Table of contents
 
@@ -23,7 +23,6 @@ checks. After the catalog, a map to where each tip shows up in this package.
 13. [Enable Strict Compiler Options](#13-enable-strict-compiler-options)
 14. [Learn Template Literal Types](#14-learn-template-literal-types)
 15. [Type Safety ≠ Runtime Safety](#15-type-safety--runtime-safety)
-16. [Map to this codebase](#map-to-this-codebase)
 
 ---
 
@@ -203,40 +202,3 @@ type EventName = `on${Capitalize<'click' | 'focus'>}` // 'onClick' | 'onFocus'
 
 The biggest reason to distrust `as`: types are erased at runtime. An assertion changes what the compiler
 believes, never what the value actually is. At boundaries, pair types with runtime validation (Tip 10).
-
----
-
-## Map to this codebase
-
-Concrete examples in `nuxt-backend` of these tips in action — useful as precedent when deciding whether a
-cast is avoidable.
-
-- **Tips 3 + declared return types** — `reshapeToObjectForm` in
-  `src/runtime/vue/composables/use-paginated-query.ts` builds discriminated-union objects with
-  `status: 'error' as const` etc. The function declares its return type, so the object literals are
-  validated directly and need **no** outer `as` cast. Keep the per-field `as const` (Tip 7); drop the
-  whole-object `as`.
-
-- **Decision step 1 (no-op cast)** — `useUploadQueue` returns `computed(...)` values that are already
-  `ComputedRef<…>` and assignable to the declared `VueUploadQueue` (`Readonly<Ref<…>>`) return type. The
-  `as ComputedRef<boolean>` casts were pure no-ops and were removed.
-
-- **`shallowRef` + `watchEffect` instead of `computed(...) as ShallowRef`** — `useQuery`
-  (`src/runtime/vue/composables/use-query.ts`) and the hydration wrappers (`src/runtime/vue/hydration.ts`,
-  `src/runtime/vue/auth/hydration.ts`) expose a genuine `ShallowRef<T>` by writing into a real
-  `shallowRef` from a `watchEffect`, rather than casting a `computed`. Use explicit type params on the
-  server branch (`shallowRef<T | null>(value)`) instead of `as`.
-
-- **Necessary boundary cast (Tips 10 + 15)** — `jsonToConvex(preloadedQuery._valueJSON) as
-  FunctionReturnType<Query>` and `JSON.parse(xhr.responseText) as { storageId: string }` cast across an
-  external-data boundary. Unavoidable; the shape is a runtime contract. Comment it.
-
-- **Necessary generic-conditional cast** — `useSubscription`
-  (`src/runtime/vue/composables/use-subscription.ts`) keeps `shallowRef(getCurrentValue()) as
-  ShallowRef<T>` because Vue's `shallowRef` return type doesn't reduce for an unconstrained generic `T`.
-  Known limitation; leave it.
-
-- **Necessary union-narrowing cast** — the positional `usePaginatedQuery` returns
-  `internal as unknown as ShallowRef<UsePaginatedQueryReturnType<Query>>` because the form always throws
-  on error, so the internal `'Error'` variant can't surface. The comment documents the runtime guarantee
-  the compiler can't see.
