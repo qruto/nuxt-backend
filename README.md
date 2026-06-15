@@ -23,7 +23,7 @@ Adding `modules: ['nuxt-backend']` registers the following surface, described in
 ### 🖼️ App runtime (Vue)
 
 - **Nuxt plugins** — a client Convex plugin and an SSR auth-token prefetch plugin; injects `useNuxtApp().$convex`.
-- **Auto-imported composables** — `useConvex`, `useQuery` (+ `useConvexQuery`, `useQuery_experimental`), `useQueries` (+ `useConvexQueries`), `useMutation` (+ `useConvexMutation`), `useAction` (+ `useConvexAction`), `usePaginatedQuery` (+ `usePaginatedQuery_experimental`), `usePreloadedQuery`, `usePreloadedAuthQuery`, `useConvexConnectionState`, `useConvexAuth`, `provideConvexAuth`, and `useAuth`.
+- **Auto-imported composables** — `useConvex`, `useQuery` (+ `useConvexQuery`, `useQuery_experimental`), `useQueries` (+ `useConvexQueries`), `useMutation` (+ `useConvexMutation`), `useAction` (+ `useConvexAction`), `usePaginatedQuery` (+ `usePaginatedQuery_experimental`), `usePreloadedQuery`, `usePreloadedAuthQuery`, `useConvexConnectionState`, `useUpload`, `useUploadQueue`, `useStorageUrl` (+ `uploadFile`), `useConvexAuth`, `provideConvexAuth`, and `useAuth`.
 - **Auto-registered components** — `<Authenticated>`, `<Unauthenticated>`, `<AuthLoading>`.
 - **Route middleware** — `auth`, opt-in per page via `definePageMeta({ middleware: 'auth' })` (registered non-global, so installing the module never guards routes by surprise).
 
@@ -411,6 +411,7 @@ auto-imports (no import statement)
 │                            useQueries (+ useConvexQueries) · useMutation (+ useConvexMutation)
 │                            useAction (+ useConvexAction) · usePaginatedQuery (+ usePaginatedQuery_experimental)
 │                            usePreloadedQuery · usePreloadedAuthQuery · useConvexConnectionState
+│                            useUpload · useUploadQueue · useStorageUrl (+ uploadFile)
 │                            useConvexAuth · provideConvexAuth · useAuth
 ├─ Vue components .......... <Authenticated> · <Unauthenticated> · <AuthLoading>
 ├─ Injection ............... useNuxtApp().$convex : ConvexVueClient
@@ -597,6 +598,22 @@ function usePreloadedAuthQuery<Q extends FunctionReference<'query'>>(preloaded: 
 
 // WebSocket connection
 function useConvexConnectionState(): ShallowRef<ConnectionState>
+
+// File storage — convenience helpers over Convex file storage (see docs/reference.md)
+function useUpload(generateUploadUrl: GenerateUploadUrl, options?: UseUploadOptions): VueUpload
+const useConvexUpload = useUpload
+interface VueUpload {
+  upload: (file: Blob) => Promise<StorageId | null>   // null on failure; see `error`
+  isUploading: Ref<boolean>; progress: Ref<number>    // progress 0–1
+  error: Ref<Error | null>; storageId: Ref<StorageId | null>
+  cancel: () => void; reset: () => void
+}
+function useUploadQueue(generateUploadUrl: GenerateUploadUrl, options?: UseUploadQueueOptions): VueUploadQueue
+const useConvexUploadQueue = useUploadQueue
+// → { items, enqueue, isUploading, progress, pendingCount, activeCount, cancel, remove, clear }
+function useStorageUrl(getUrl: GetStorageUrl, storageId: MaybeRefOrGetter<StorageId | string | null | undefined>): ShallowRef<string | null | undefined>
+const useConvexStorageUrl = useStorageUrl
+function uploadFile(options: { url: string, file: Blob, onProgress?: (p: number) => void, signal?: AbortSignal }): Promise<StorageId>
 
 // Better Auth (the single auth service for app code)
 function useAuth(initialToken?: string | null): UseAuthService

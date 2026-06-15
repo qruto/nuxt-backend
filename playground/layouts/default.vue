@@ -66,6 +66,7 @@ const groups = [
       { to: '/showcase/actions', label: 'useAction + controls', api: 'useAction' },
       { to: '/showcase/server-functions', label: 'Server functions (SSR)', api: 'fetchQuery · backendAuth' },
       { to: '/showcase/connection', label: 'Connection & metrics', api: 'useConvexConnectionState', live: true },
+      { to: '/showcase/storage', label: 'File storage', api: 'useUpload · useStorageUrl', live: true },
     ],
   },
   {

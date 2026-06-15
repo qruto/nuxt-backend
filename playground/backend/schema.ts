@@ -40,4 +40,12 @@ export default defineSchema({
     level: logLevelValidator,
     message: v.string(),
   }).index('userId', ['userId']),
+
+  files: defineTable({
+    userId: v.string(),
+    storageId: v.id('_storage'),
+    name: v.string(),
+    contentType: v.optional(v.string()),
+    size: v.optional(v.number()),
+  }).index('userId', ['userId']),
 })

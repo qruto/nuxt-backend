@@ -91,6 +91,31 @@ export * from './composables/use-paginated-query'
 // Connection State
 export { useConvexConnectionState } from './composables/use-connection-state'
 
+// File Storage (convenience helpers beyond Convex's React parity surface)
+export {
+  useUpload,
+  useConvexUpload,
+  uploadFile,
+  type VueUpload,
+  type UseUploadOptions,
+  type UploadFileOptions,
+  type GenerateUploadUrl,
+  type StorageId,
+} from './composables/use-upload'
+export {
+  useUploadQueue,
+  useConvexUploadQueue,
+  type VueUploadQueue,
+  type UseUploadQueueOptions,
+  type UploadQueueItem,
+  type UploadItemStatus,
+} from './composables/use-upload-queue'
+export {
+  useStorageUrl,
+  useConvexStorageUrl,
+  type GetStorageUrl,
+} from './composables/use-storage-url'
+
 // Auth
 export {
   useConvexAuth,

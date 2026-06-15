@@ -51,6 +51,7 @@ In addition to the auto-imported APIs, the scaffolded `backend/auth.ts` re-expor
 The Nuxt module auto-imports two API groups in app code:
 
 - Convex Vue APIs from the package runtime: `useConvex`, `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `usePreloadedAuthQuery`, `useConvexConnectionState`
+- File storage helpers: `useUpload`, `useUploadQueue`, `useStorageUrl`
 - Better Auth helper: `useAuth`
 
 ### `useConvex()` and `$convex`
@@ -213,6 +214,111 @@ const connection = useConvexConnectionState()
 <template>
   <span v-if="!connection.isWebSocketConnected">Offline</span>
 </template>
+```
+
+### File storage
+
+Convenience helpers for [Convex file storage](https://docs.convex.dev/file-storage). Convex's own React client ships no upload composable — file storage is plain app code (a `generateUploadUrl` mutation, a `POST` to the returned URL, then a query/HTTP action to serve the file). These helpers wrap that flow with reactive progress, cancellation, queueing, and URL resolution, while staying type-safe against your own functions. They sit outside the React parity surface but are auto-imported like every other composable.
+
+They assume your Convex backend exposes the standard storage functions, for example `backend/files.ts`:
+
+```ts
+import { v } from 'convex/values'
+import { mutation, query } from './_generated/server'
+
+// Returns a one-time upload URL. Add auth checks as needed.
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: ctx => ctx.storage.generateUploadUrl(),
+})
+
+// Resolve the served URL for a stored file (null if it was deleted).
+export const getUrl = query({
+  args: { storageId: v.id('_storage') },
+  handler: (ctx, { storageId }) => ctx.storage.getUrl(storageId),
+})
+```
+
+#### `useUpload()` / `useConvexUpload()`
+
+Upload a single file with reactive `isUploading`, `progress` (`0`–`1`), `error`, and `storageId`. `upload()` resolves to the new storage id (or `null` on failure — inspect `error` rather than `try`/`catch`). Pass the resulting id to your own mutation to persist it. Uploads are client-only; calling `upload()` during SSR resolves to `null`.
+
+```vue
+<script setup lang="ts">
+const saveImage = useMutation(api.images.save)
+const { upload, isUploading, progress, error, cancel } = useUpload(
+  api.files.generateUploadUrl,
+  { onSuccess: storageId => saveImage({ storageId }) },
+)
+
+async function onPick(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (file) await upload(file)
+}
+</script>
+
+<template>
+  <input type="file" :disabled="isUploading" @change="onPick">
+  <progress v-if="isUploading" :value="progress" />
+  <button v-if="isUploading" @click="cancel">Cancel</button>
+  <p v-if="error">{{ error.message }}</p>
+</template>
+```
+
+`onProgress`, `onSuccess(storageId, file)`, and `onError(error, file)` callbacks are supported. `cancel()` aborts the in-flight upload; `reset()` clears `progress`/`error`/`storageId`.
+
+#### `useUploadQueue()` / `useConvexUploadQueue()`
+
+Upload many files with bounded concurrency (default `3`). `enqueue()` accepts a file, an array, or a `FileList` straight from a multi-file `<input>` and starts uploading immediately. Exposes a reactive `items` list (each with its own `status`/`progress`/`storageId`/`error`), aggregate `progress`, `isUploading`, `activeCount`, and `pendingCount`.
+
+```vue
+<script setup lang="ts">
+const saveImage = useMutation(api.images.save)
+const { items, enqueue, progress, isUploading } = useUploadQueue(
+  api.files.generateUploadUrl,
+  { concurrency: 4, onItemSuccess: storageId => saveImage({ storageId }) },
+)
+</script>
+
+<template>
+  <input type="file" multiple @change="enqueue(($event.target as HTMLInputElement).files)">
+  <progress v-if="isUploading" :value="progress" />
+  <ul>
+    <li v-for="item in items" :key="item.id">
+      {{ item.status }} — {{ Math.round(item.progress * 100) }}%
+    </li>
+  </ul>
+</template>
+```
+
+`cancel()` aborts all in-flight uploads, `remove(id)` drops one item, and `clear()` empties the queue. `onItemSuccess`, `onItemError`, and `onComplete` callbacks are supported.
+
+#### `useStorageUrl()` / `useConvexStorageUrl()`
+
+Reactively resolve a stored file's served URL via your `getUrl` query. Accepts a reactive storage id and automatically skips the query while the id is `null`/`undefined`, so it binds straight to an id ref.
+
+```vue
+<script setup lang="ts">
+const { storageId } = useUpload(api.files.generateUploadUrl)
+const url = useStorageUrl(api.files.getUrl, storageId)
+</script>
+
+<template>
+  <img v-if="url" :src="url">
+</template>
+```
+
+Returns a shallow ref of `string | null` once loaded (`null` if the file is gone) or `undefined` while loading/skipped.
+
+#### `uploadFile()`
+
+Low-level promise-based uploader behind the composables, for use outside a component setup (e.g. utilities or tests). Takes `{ url, file, onProgress?, signal? }` and resolves to the storage id:
+
+```ts
+import { uploadFile } from '#imports'
+
+const url = await convex.mutation(api.files.generateUploadUrl, {})
+const storageId = await uploadFile({ url, file })
 ```
 
 ### Better Auth composables
@@ -479,6 +585,7 @@ The stable user-facing surface should stay narrow and opinionated. The package s
 | Bootstrap | Nuxt module options: `backend.url`, `backend.siteUrl`, `backend.authRoute`, `backend.installation` | One place to configure Convex, auth route wiring, and first-run scaffold ownership |
 | Scaffolding | Generated `backend/convex.config.ts`, `backend/auth.config.ts`, `backend/auth.ts`, `backend/http.ts` | Zero-config first run with an escape hatch to own the files later |
 | Runtime data | `useConvex`, `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `usePreloadedAuthQuery`, `useConvexConnectionState` | Real-time Convex data and hydration-safe SSR |
+| File storage | `useUpload`, `useUploadQueue`, `useStorageUrl`, `uploadFile` | Reactive uploads with progress/cancel/queueing and served-URL resolution over Convex file storage |
 | Runtime auth | `useAuth`, `auth` middleware | Better Auth client access, session state, sign-in/out, and route protection in Nuxt |
 | Server data | `fetchQuery`, `fetchMutation`, `fetchAction`, `preloadQuery`, `preloadedQueryResult`, `backendAuth` | Nitro and SSR access to Convex, including authenticated helper calls |
 | Convex auth bridge | `nuxt-backend/convex/component/convex.config`, `nuxt-backend/convex/component/schema`, `nuxt-backend/convex/auth.config`, `nuxt-backend/convex` | Mount the packaged component, seed local schemas, align Convex auth config, and create Better Auth helpers |
