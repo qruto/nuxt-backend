@@ -87,7 +87,7 @@
   ],
   "packageManager": "pnpm@11.5.2",
   "engines": {
-    "node": ">=20.19.0",
+    "node": ">=24.11.0",
     "pnpm": ">=11"
   },
   "scripts": {

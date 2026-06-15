@@ -95,7 +95,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        node: [20, lts/*]
+        # The project tracks the current LTS everywhere via the `lts/*` alias, so
+        # it follows new LTS lines without manual bumps. Kept as a matrix so an
+        # extra line can be slotted in later without restructuring.
+        node: [lts/*]
     steps:
       - uses: actions/checkout@v6
 
@@ -151,6 +154,11 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Generates `.nuxt/tsconfig.json`, which the root tsconfig extends. Without
+      # it, `nuxt-module-build` can't resolve compiler options and prepack fails.
+      - name: Prepare
+        run: pnpm run dev:prepare
 
       - name: Build
         run: pnpm run prepack
