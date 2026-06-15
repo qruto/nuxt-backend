@@ -1,7 +1,7 @@
 import type { FunctionReference, FunctionReturnType } from 'convex/server'
 import { makeFunctionReference } from 'convex/server'
 import { jsonToConvex } from 'convex/values'
-import { computed, shallowRef, type ShallowRef } from 'vue'
+import { computed, type ComputedRef } from 'vue'
 import { useQuery } from './composables/use-query'
 
 /**
@@ -39,22 +39,22 @@ export type Preloaded<Query extends FunctionReference<'query'>> = {
  * ```
  *
  * @param preloadedQuery - The `Preloaded` payload from server-side preloading.
- * @returns A shallow ref that initially contains the preloaded data and
+ * @returns A computed ref that initially contains the preloaded data and
  * subsequently updates with live query results.
  *
  * @public
  */
 export function usePreloadedQuery<Query extends FunctionReference<'query'>>(
   preloadedQuery: Preloaded<Query>,
-): ShallowRef<FunctionReturnType<Query>> {
+): ComputedRef<FunctionReturnType<Query>> {
   const args = jsonToConvex(preloadedQuery._argsJSON) as Query['_args']
   const preloadedResult = jsonToConvex(preloadedQuery._valueJSON) as FunctionReturnType<Query>
 
-  // On the server there is no live query — return the preloaded value
-  // without opening a Convex subscription. The client plugin replaces this
-  // with a reactive query after hydration.
+  // On the server there is no live query — expose the preloaded value as a
+  // frozen computed without opening a Convex subscription. The client plugin
+  // replaces this with a reactive query after hydration.
   if (import.meta.server) {
-    return shallowRef(preloadedResult) as ShallowRef<FunctionReturnType<Query>>
+    return computed(() => preloadedResult)
   }
 
   const result = useQuery(
@@ -62,7 +62,8 @@ export function usePreloadedQuery<Query extends FunctionReference<'query'>>(
     args,
   )
 
+  // Derived state → a `computed`; the result type is inferred, not asserted.
   return computed(() => {
     return result.value === undefined ? preloadedResult : result.value
-  }) as ShallowRef<FunctionReturnType<Query>>
+  })
 }

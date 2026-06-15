@@ -9,7 +9,7 @@ packages:
 # Reference with `"nuxt": "catalog:"` in package.json so the root module and the
 # playground can never drift onto different Nuxt majors. https://pnpm.io/catalogs
 catalog:
-  nuxt: ^4.4.5
+  nuxt: ^4.4.8
 
 # --- Node module layout ------------------------------------------------------
 # Nuxt/Vite + Convex codegen expect a flat node_modules; keep the hoisted linker.

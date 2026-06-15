@@ -1,7 +1,7 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { makeFunctionReference } from 'convex/server'
 import type { Value } from 'convex/values'
-import { computed, shallowRef, toValue, watchEffect, type MaybeRefOrGetter, type ShallowRef } from 'vue'
+import { computed, toValue, type ComputedRef, type MaybeRefOrGetter } from 'vue'
 import { useConvexQueries, type RequestForQueries } from './use-queries'
 
 // Derive UseQueryResult from the canonical React integration (avoids duplicating
@@ -60,7 +60,7 @@ interface UseQueryOptions<
  * @param query - A `FunctionReference` for the public query to run.
  * @param args - Arguments for the query, or `'skip'` to pause the subscription.
  *   Accepts a ref, computed, or getter for reactive args.
- * @returns A shallow ref containing the latest query result, or `undefined`
+ * @returns A computed ref containing the latest query result, or `undefined`
  *   while the first result is loading.
  *
  * @public
@@ -68,7 +68,7 @@ interface UseQueryOptions<
 export function useQuery<Query extends FunctionReference<'query'>>(
   query: Query,
   ...args: OptionalRestArgsOrSkip<Query>
-): ShallowRef<FunctionReturnType<Query> | undefined> {
+): ComputedRef<FunctionReturnType<Query> | undefined> {
   const queryReference = typeof query === 'string'
     ? (makeFunctionReference<'query'>(query) as Query)
     : query
@@ -90,16 +90,17 @@ export function useQuery<Query extends FunctionReference<'query'>>(
 
   const allResults = useConvexQueries(queriesInput)
 
-  // Mirror React's render-time throw semantics by throwing from inside
-  // watchEffect — Vue propagates this to the nearest `errorCaptured` boundary,
-  // matching React's `<ErrorBoundary>` behavior.
-  const result = shallowRef<FunctionReturnType<Query> | undefined>(undefined)
-  watchEffect(() => {
+  // The result is derived state, so it is a `computed` (VueUse convention for
+  // derived values). Mirroring React's render-time throw, the getter throws on
+  // error — Vue surfaces that when `.value` is read during render and
+  // propagates it to the nearest `errorCaptured` boundary (React's
+  // `<ErrorBoundary>` analog). Returning the narrowed value means the public
+  // `ComputedRef` type is inferred, not asserted.
+  return computed(() => {
     const r = allResults.value.query as FunctionReturnType<Query> | undefined | Error
     if (r instanceof Error) throw r
-    result.value = r
+    return r
   })
-  return result
 }
 
 /**
@@ -107,7 +108,7 @@ export function useQuery<Query extends FunctionReference<'query'>>(
  *
  * This is an experimental form of {@link useQuery} that accepts a single
  * {@link UseQueryOptions} object instead of positional arguments and returns a
- * discriminated-union {@link UseQueryResult} as a shallow ref.
+ * discriminated-union {@link UseQueryResult} as a computed ref.
  *
  * Inspect the returned `status` field to use the result. If an error occurs it
  * is present in the result object unless `throwOnError` is `true`, in which case
@@ -125,7 +126,7 @@ export function useQuery<Query extends FunctionReference<'query'>>(
  * ```
  *
  * @param options - Query options. Pass `args: 'skip'` to disable the query.
- * @returns A shallow ref containing the current query state as a
+ * @returns A computed ref containing the current query state as a
  *   {@link UseQueryResult} object.
  *
  * @public
@@ -135,14 +136,14 @@ export function useQuery_experimental<
   ThrowOnError extends boolean = false,
 >(
   options: UseQueryOptions<Query, ThrowOnError>,
-): ShallowRef<UseQueryResult<FunctionReturnType<Query>, ThrowOnError>>
+): ComputedRef<UseQueryResult<FunctionReturnType<Query>, ThrowOnError>>
 
 export function useQuery_experimental<
   Query extends FunctionReference<'query'>,
   ThrowOnError extends boolean = false,
 >(
   options: UseQueryOptions<Query, ThrowOnError>,
-): ShallowRef<UseQueryResult<FunctionReturnType<Query>, false>> {
+): ComputedRef<UseQueryResult<FunctionReturnType<Query>, false>> {
   const throwOnError = options.throwOnError ?? false
   const queryReference = typeof options.query === 'string'
     ? (makeFunctionReference<'query'>(options.query) as Query)
@@ -165,25 +166,22 @@ export function useQuery_experimental<
 
   const allResults = useConvexQueries(queriesInput)
 
-  // Using shallowRef + watchEffect (instead of `computed` + cast) yields a
-  // genuine ShallowRef whose type matches the public signature without `as`.
-  const result = shallowRef<UseQueryResult<FunctionReturnType<Query>, false>>({
-    status: 'pending',
-  })
-  watchEffect(() => {
+  // Derived discriminated-union state → a `computed`. The explicit type
+  // argument gives the returned object literals their contextual type (so
+  // `status: 'error'` narrows to the literal), letting the `ComputedRef` type
+  // be inferred without a cast. Errors are returned as `status: 'error'` unless
+  // `throwOnError`, in which case the getter throws (→ `errorCaptured`).
+  return computed<UseQueryResult<FunctionReturnType<Query>, false>>(() => {
     const r = allResults.value.query as FunctionReturnType<Query> | undefined | Error
     if (r instanceof Error) {
       if (throwOnError) throw r
-      result.value = { error: r, status: 'error' }
-      return
+      return { error: r, status: 'error' }
     }
     if (r === undefined) {
-      result.value = { status: 'pending' }
-      return
+      return { status: 'pending' }
     }
-    result.value = { data: r, status: 'success' }
+    return { data: r, status: 'success' }
   })
-  return result
 }
 
 /** @public */

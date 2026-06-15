@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, test } from 'vitest'
 import { makeFunctionReference } from 'convex/server'
-import type { ShallowRef } from 'vue'
+import type { ComputedRef } from 'vue'
 import type { useQuery_experimental as useQueryReal, UseQueryResult } from '../../src/runtime/vue/composables/use-query'
 
 // Intentional noop, we're only testing types.
@@ -27,7 +27,7 @@ describe('useQuery_experimental object-form result types', () => {
       args: _arg ? { _arg } : 'skip',
     })
 
-    expectTypeOf(conditionalResult).toEqualTypeOf<ShallowRef<UseQueryResult<string>>>()
+    expectTypeOf(conditionalResult).toEqualTypeOf<ComputedRef<UseQueryResult<string>>>()
   })
 
   test('throwOnError removes the error variant from the result union', () => {
@@ -37,7 +37,7 @@ describe('useQuery_experimental object-form result types', () => {
       throwOnError: true,
     })
 
-    expectTypeOf(result).toEqualTypeOf<ShallowRef<UseQueryResult<string, true>>>()
+    expectTypeOf(result).toEqualTypeOf<ComputedRef<UseQueryResult<string, true>>>()
     // With throwOnError, only 'pending' | 'success' remain.
     expectTypeOf<UseQueryResult<string, true>['status']>().toEqualTypeOf<'pending' | 'success'>()
   })

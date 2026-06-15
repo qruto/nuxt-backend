@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
-import { nextTick, ref, type ShallowRef } from 'vue'
+import { nextTick, ref, type ComputedRef } from 'vue'
 import {
   anyApi,
   getFunctionName,
@@ -683,14 +683,14 @@ describe('usePaginatedQuery_experimental', () => {
 
     // Positional form: both hooks return the TitleCase positional result.
     expectTypeOf(useExperimental(queryRef, {}, { initialNumItems: 10 }))
-      .toEqualTypeOf<ShallowRef<UsePaginatedQueryReturnType<Query>>>()
+      .toEqualTypeOf<ComputedRef<UsePaginatedQueryReturnType<Query>>>()
     expectTypeOf(usePaginated(queryRef, {}, { initialNumItems: 10 }))
-      .toEqualTypeOf<ShallowRef<UsePaginatedQueryReturnType<Query>>>()
+      .toEqualTypeOf<ComputedRef<UsePaginatedQueryReturnType<Query>>>()
 
     // Object form: only the experimental hook accepts it, returning the
     // lowercase-status object result.
     expectTypeOf(useExperimental({ query: queryRef, args: {}, initialNumItems: 10 }))
-      .toEqualTypeOf<ShallowRef<UsePaginatedQueryObjectReturnType<Query>>>()
+      .toEqualTypeOf<ComputedRef<UsePaginatedQueryObjectReturnType<Query>>>()
 
     // The stable `usePaginatedQuery` is positional-only — passing the object
     // form is a type error there, matching React.

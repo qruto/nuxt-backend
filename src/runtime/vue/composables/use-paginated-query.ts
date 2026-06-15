@@ -9,7 +9,7 @@ import type {
 import { getFunctionName } from 'convex/server'
 import type { Value } from 'convex/values'
 import { ConvexError, compareValues, convexToJson } from 'convex/values'
-import { computed, shallowRef, toValue, type ComputedRef, type MaybeRefOrGetter, type ShallowRef } from 'vue'
+import { computed, shallowRef, toValue, type ComputedRef, type MaybeRefOrGetter } from 'vue'
 import { useConvex } from '../client'
 import { useConvexQueries } from './use-queries'
 
@@ -139,7 +139,7 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
   query: Query,
   args: MaybeRefOrGetter<PaginatedQueryArgs<Query> | 'skip'>,
   options: { initialNumItems: number },
-): ShallowRef<UsePaginatedQueryReturnType<Query>> {
+): ComputedRef<UsePaginatedQueryReturnType<Query>> {
   validateInitialNumItems(options?.initialNumItems)
 
   const internal = usePaginatedQueryInternal<Query>(
@@ -149,9 +149,26 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
     () => true,
   )
 
-  // The positional form always throws on error, so the internal 'Error'
-  // variant never surfaces — expose the positional result type directly.
-  return internal as unknown as ShallowRef<UsePaginatedQueryReturnType<Query>>
+  return narrowToPositionalResult<Query>(internal)
+}
+
+/**
+ * Adapt the internal result to the public positional union as a `ComputedRef`.
+ *
+ * The positional forms run with `throwOnError`, so `usePaginatedQueryInternal`
+ * never produces the internal `'Error'` variant — the defensive re-throw here
+ * both preserves that semantic and narrows the type to
+ * {@link UsePaginatedQueryReturnType}, so the public `ComputedRef` is inferred
+ * rather than asserted with a cast.
+ */
+function narrowToPositionalResult<Query extends PaginatedQueryReference>(
+  internal: ComputedRef<UsePaginatedQueryInternalResult<PaginatedQueryItem<Query>>>,
+): ComputedRef<UsePaginatedQueryReturnType<Query>> {
+  return computed(() => {
+    const value = internal.value
+    if (value.status === INTERNAL_ERROR_STATUS) throw value.error
+    return value
+  })
 }
 
 function validateInitialNumItems(value: unknown): void {
@@ -551,14 +568,14 @@ export function usePaginatedQuery_experimental<Query extends PaginatedQueryRefer
   query: Query,
   args: MaybeRefOrGetter<PaginatedQueryArgs<Query> | 'skip'>,
   options: { initialNumItems: number },
-): ShallowRef<UsePaginatedQueryReturnType<Query>>
+): ComputedRef<UsePaginatedQueryReturnType<Query>>
 
 export function usePaginatedQuery_experimental<
   Query extends PaginatedQueryReference,
   ThrowOnError extends boolean = false,
 >(
   options: MaybeRefOrGetter<UsePaginatedQueryOptions<Query, ThrowOnError>>,
-): ShallowRef<UsePaginatedQueryObjectReturnType<Query, ThrowOnError>>
+): ComputedRef<UsePaginatedQueryObjectReturnType<Query, ThrowOnError>>
 
 export function usePaginatedQuery_experimental<Query extends PaginatedQueryReference>(
   queryOrOptions:
@@ -567,8 +584,8 @@ export function usePaginatedQuery_experimental<Query extends PaginatedQueryRefer
   args?: MaybeRefOrGetter<PaginatedQueryArgs<Query> | 'skip'>,
   options?: { initialNumItems: number },
 ):
-  | ShallowRef<UsePaginatedQueryReturnType<Query>>
-  | ShallowRef<UsePaginatedQueryObjectReturnType<Query>> {
+  | ComputedRef<UsePaginatedQueryReturnType<Query>>
+  | ComputedRef<UsePaginatedQueryObjectReturnType<Query>> {
   // Detect object-form by sniffing the first arg. Supports reactive refs
   // (ref/computed/getter) of the options object too, matching the
   // `MaybeRefOrGetter` contract used elsewhere in this package.
@@ -591,9 +608,9 @@ export function usePaginatedQuery_experimental<Query extends PaginatedQueryRefer
       () => optsGetter().throwOnError ?? false,
     )
 
-    return computed(
-      () => reshapeToObjectForm<Query>(internal.value),
-    ) as unknown as ShallowRef<UsePaginatedQueryObjectReturnType<Query>>
+    // Object form is derived state → a `computed`; `reshapeToObjectForm`
+    // already returns the object union, so the `ComputedRef` type is inferred.
+    return computed(() => reshapeToObjectForm<Query>(internal.value))
   }
 
   validateInitialNumItems(options?.initialNumItems)
@@ -606,7 +623,7 @@ export function usePaginatedQuery_experimental<Query extends PaginatedQueryRefer
     () => true,
   )
 
-  return internal as unknown as ShallowRef<UsePaginatedQueryReturnType<Query>>
+  return narrowToPositionalResult<Query>(internal)
 }
 
 /**

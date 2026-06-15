@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { anyApi, type FunctionReference } from 'convex/server'
 import { convexToJson } from 'convex/values'
-import { defineComponent, h, nextTick, provide, reactive, type ShallowRef } from 'vue'
+import { defineComponent, h, nextTick, provide, reactive, type ComputedRef } from 'vue'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { ConvexVueClient, ConvexClientKey } from '../../src/runtime/vue/client'
 import { ConvexAuthStateKey } from '../../src/runtime/vue/auth'
@@ -54,7 +54,7 @@ describe('preloadQuery + usePreloadedQuery round-trip', () => {
     expect(preloadedQueryResult(preloaded)).toStrictEqual({ x: 42 })
 
     const client = testClient()
-    let hydrated!: ShallowRef<unknown>
+    let hydrated!: ComputedRef<unknown>
     const Child = defineComponent({
       setup() {
         hydrated = usePreloadedQuery(preloaded)
@@ -94,7 +94,7 @@ describe('preloadQuery + usePreloadedQuery round-trip', () => {
       },
     )
 
-    let hydrated!: ShallowRef<unknown>
+    let hydrated!: ComputedRef<unknown>
     const Child = defineComponent({
       setup() {
         hydrated = usePreloadedQuery(preloaded)
@@ -122,7 +122,7 @@ describe('preloadQuery + usePreloadedQuery round-trip', () => {
     const client = testClient()
     const authState = reactive({ isLoading: true, isAuthenticated: false })
 
-    let hydrated!: ShallowRef<unknown>
+    let hydrated!: ComputedRef<unknown>
     const Child = defineComponent({
       setup() {
         hydrated = usePreloadedAuthQuery(preloaded)
@@ -167,7 +167,7 @@ describe('preloadQuery + usePreloadedQuery round-trip', () => {
       },
     )
 
-    let hydrated!: ShallowRef<unknown>
+    let hydrated!: ComputedRef<unknown>
     const Child = defineComponent({
       setup() {
         hydrated = usePreloadedAuthQuery(preloaded)

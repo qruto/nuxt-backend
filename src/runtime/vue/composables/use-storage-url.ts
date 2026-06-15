@@ -1,5 +1,5 @@
 import type { FunctionReference } from 'convex/server'
-import { toValue, type MaybeRefOrGetter, type ShallowRef } from 'vue'
+import { toValue, type ComputedRef, type MaybeRefOrGetter } from 'vue'
 import { useQuery } from './use-query'
 import type { StorageId } from './use-upload'
 
@@ -42,7 +42,7 @@ export type GetStorageUrl = FunctionReference<
  * @param getUrl - A `FunctionReference` for the public `getUrl` query.
  * @param storageId - The storage id to resolve. Accepts a ref, computed, or
  *   getter; `null`/`undefined` skips the query.
- * @returns A shallow ref of the served URL: `string | null` once loaded
+ * @returns A computed ref of the served URL: `string | null` once loaded
  *   (`null` if the file is gone), or `undefined` while loading or skipped.
  *
  * @public
@@ -50,7 +50,7 @@ export type GetStorageUrl = FunctionReference<
 export function useStorageUrl(
   getUrl: GetStorageUrl,
   storageId: MaybeRefOrGetter<StorageId | string | null | undefined>,
-): ShallowRef<string | null | undefined> {
+): ComputedRef<string | null | undefined> {
   return useQuery(getUrl, () => {
     const id = toValue(storageId)
     return id ? { storageId: id as StorageId } : 'skip'

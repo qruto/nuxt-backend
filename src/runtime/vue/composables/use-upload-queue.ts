@@ -1,4 +1,4 @@
-import { computed, ref, type ComputedRef, type Ref } from 'vue'
+import { computed, ref, type Ref } from 'vue'
 import { useConvex } from '../client'
 import { uploadFile, type GenerateUploadUrl, type StorageId } from './use-upload'
 
@@ -234,13 +234,15 @@ export function useUploadQueue(
     items.value = []
   }
 
+  // `computed` returns a `ComputedRef`, which is already assignable to the
+  // `Readonly<Ref<…>>` shape declared on `VueUploadQueue` — no cast needed.
   return {
     items,
     enqueue,
-    isUploading: isUploading as ComputedRef<boolean>,
-    progress: progress as ComputedRef<number>,
-    pendingCount: pendingCount as ComputedRef<number>,
-    activeCount: activeCount as ComputedRef<number>,
+    isUploading,
+    progress,
+    pendingCount,
+    activeCount,
     cancel,
     remove,
     clear,

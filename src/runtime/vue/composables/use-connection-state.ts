@@ -1,6 +1,7 @@
 import type { ConnectionState } from 'convex/browser'
-import { shallowRef, watchEffect, type ShallowRef } from 'vue'
+import type { ShallowRef } from 'vue'
 import { useConvex } from '../client'
+import { useSubscription } from './use-subscription'
 
 /**
  * Subscribe reactively to the Convex WebSocket connection state.
@@ -26,14 +27,15 @@ import { useConvex } from '../client'
  */
 export function useConvexConnectionState(): ShallowRef<ConnectionState> {
   const convex = useConvex()
-  const state = shallowRef<ConnectionState>(convex.connectionState())
 
-  watchEffect((onCleanup) => {
-    const unsubscribe = convex.subscribeToConnectionState((newState) => {
-      state.value = newState
-    })
-    onCleanup(unsubscribe)
+  // Bridge the client's `{ connectionState, subscribeToConnectionState }` pair
+  // into Vue reactivity through the shared `useSubscription` primitive. Mirrors
+  // React's `useConvexConnectionState`, which composes `useSubscription` the
+  // same way, and lets `useSubscription` re-read the value synchronously when
+  // the effect attaches (closing the gap between the initial read and the
+  // subscription).
+  return useSubscription({
+    getCurrentValue: () => convex.connectionState(),
+    subscribe: callback => convex.subscribeToConnectionState(() => callback()),
   })
-
-  return state
 }
