@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import type { Value } from 'convex/values'
 import type { FunctionReference } from 'convex/server'
-import { api } from '../../backend/_generated/api'
+import { api } from '#backend/api'
 
 definePageMeta({ middleware: 'auth' })
 

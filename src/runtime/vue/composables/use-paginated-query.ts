@@ -121,7 +121,7 @@ export function resetPaginationId(): void {
  * ```vue
  * <script setup lang="ts">
  * import { usePaginatedQuery } from '#imports'
- * import { api } from '~/backend/_generated/api'
+ * import { api } from '#backend/api'
  *
  * const { results, status, loadMore, isLoading } = usePaginatedQuery(
  *   api.messages.list,

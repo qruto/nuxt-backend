@@ -24,7 +24,7 @@ export interface VueAction<Action extends FunctionReference<'action'>> {
  * ```vue
  * <script setup lang="ts">
  * import { useAction } from '#imports'
- * import { api } from '~/backend/_generated/api'
+ * import { api } from '#backend/api'
  *
  * const generate = useAction(api.ai.generateSummary)
  *

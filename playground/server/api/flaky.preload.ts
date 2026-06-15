@@ -1,4 +1,4 @@
-import { api } from '../../backend/_generated/api'
+import { api } from '#backend/api'
 
 // Non-auth `preloadQuery`: runs a public query on the server and returns a
 // Preloaded payload. The client hands it to `usePreloadedQuery` (the non-auth

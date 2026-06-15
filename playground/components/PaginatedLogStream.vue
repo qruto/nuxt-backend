@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { api } from '../backend/_generated/api'
+import { api } from '#backend/api'
 import type { LogLevel } from '../backend/schema'
 
 /**

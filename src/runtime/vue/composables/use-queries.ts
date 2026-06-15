@@ -23,7 +23,7 @@ export type QueriesResults = Record<string, Value | undefined | Error | unknown>
  * ```vue
  * <script setup lang="ts">
  * import { useConvexQueries } from '#imports'
- * import { api } from '~/backend/_generated/api'
+ * import { api } from '#backend/api'
  *
  * const results = useConvexQueries({
  *   tasks: { query: api.tasks.list, args: { completed: false } },

@@ -72,7 +72,7 @@ Returns a `ShallowRef<T | undefined>` and throws query errors. Use
 ```vue
 <script setup lang="ts">
 import { computed } from 'vue'
-import { api } from '~/backend/_generated/api'
+import { api } from '#backend/api'
 
 const messages = useQuery(api.messages.list, {})
 // messages.value: Message[] | undefined
@@ -91,7 +91,7 @@ The experimental object form returns a `ShallowRef` of a discriminated union wit
 ```vue
 <script setup lang="ts">
 import { computed } from 'vue'
-import { api } from '~/backend/_generated/api'
+import { api } from '#backend/api'
 
 const result = useQuery_experimental({
   query: api.messages.list,
@@ -109,7 +109,7 @@ Use this when the set of active queries is dynamic.
 
 ```vue
 <script setup lang="ts">
-import { api } from '~/backend/_generated/api'
+import { api } from '#backend/api'
 
 const results = useQueries({
   messages: { query: api.messages.list, args: { channel: '#general' } },
@@ -125,7 +125,7 @@ const results = useQueries({
 
 ```vue
 <script setup lang="ts">
-import { api } from '~/backend/_generated/api'
+import { api } from '#backend/api'
 
 const sendMessage = useMutation(api.messages.send)
 await sendMessage({ body: 'Hello!' })
@@ -142,7 +142,7 @@ const optimisticSend = sendMessage.withOptimisticUpdate((localStore, args) => {
 
 ```vue
 <script setup lang="ts">
-import { api } from '~/backend/_generated/api'
+import { api } from '#backend/api'
 
 const generateImage = useAction(api.images.generate)
 const url = await generateImage({ prompt: 'a cat' })
@@ -153,7 +153,7 @@ const url = await generateImage({ prompt: 'a cat' })
 
 ```vue
 <script setup lang="ts">
-import { api } from '~/backend/_generated/api'
+import { api } from '#backend/api'
 
 const messages = usePaginatedQuery(
   api.messages.list,
@@ -173,7 +173,7 @@ Adds an object-form overload on top of `usePaginatedQuery`. The positional overl
 
 ```vue
 <script setup lang="ts">
-import { api } from '~/backend/_generated/api'
+import { api } from '#backend/api'
 
 const messages = usePaginatedQuery_experimental({
   query: api.messages.list,

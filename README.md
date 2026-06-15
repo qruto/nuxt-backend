@@ -34,7 +34,7 @@ Adding `modules: ['nuxt-backend']` registers the following surface, described in
 
 ### 🧩 Project wiring & types
 
-- **Import aliases** — `#backend` and `#backend/_generated`, registered for both Vite and Nitro, pointing at your Convex functions directory and generated files.
+- **Import aliases** — `#backend`, `#backend/api`, `#backend/server`, `#backend/dataModel`, and `#backend/_generated`, registered for both Vite and Nitro, pointing at your Convex functions directory and its [generated files](https://docs.convex.dev/generated-api/).
 - **Scaffolded files** (first run) — `backend/convex.config.ts`, `auth.config.ts`, `auth.ts`, `http.ts`; local mode also creates `backend/components/backend/*`.
 - **Type augmentation** — runtime config keys, the injected `$convex`, auto-imported composables, auto-registered components, and package subpath declarations all become typed after Nuxt preparation.
 
@@ -60,7 +60,7 @@ Adding `modules: ['nuxt-backend']` registers the following surface, described in
 | Route middleware · `addRouteMiddleware` | ✅ `auth` (opt-in, non-global) |
 | Server routes / middleware · `addServerHandler` | ✅ auth proxy at `authRoute/**` |
 | Server auto-imports · `addServerImports` / `addServerImportsDir` | ✅ `fetchQuery`, `preloadQuery`, `backendAuth`, … |
-| Import aliases · `options.alias` (+ `nitro.alias`) | ✅ `#backend`, `#backend/_generated` |
+| Import aliases · `options.alias` (+ `nitro.alias`) | ✅ `#backend`, `#backend/api`, `#backend/server`, `#backend/dataModel`, `#backend/_generated` |
 | Type augmentation · `declare module` / `addTypeTemplate` | ✅ runtime config + generated declarations |
 | Package entrypoints · `exports` map | ✅ 6 subpaths (module + Convex bridge) |
 | Scaffolded files on disk | ✅ first-run Convex wiring (module-specific) |
@@ -417,7 +417,8 @@ auto-imports (no import statement)
 └─ Server utils (Nitro) .... fetchQuery · fetchMutation · fetchAction
                              preloadQuery · preloadedQueryResult · backendAuth
 
-aliases ...................... #backend · #backend/_generated   (Vite + Nitro)
+aliases ...................... #backend · #backend/api · #backend/server
+                             #backend/dataModel · #backend/_generated  (Vite + Nitro)
 ```
 
 ### Explicit entrypoints
@@ -689,10 +690,23 @@ class ConvexVueClient {
 ### Import aliases
 
 ```ts
-import { api, internal } from '#backend/_generated/api'
+import { api, internal, components } from '#backend/api'
+import { query, mutation, action } from '#backend/server'
+import type { Doc, Id } from '#backend/dataModel'
+
 // '#backend'            → your Convex functions dir (backend/ or convex/)
-// '#backend/_generated' → generated api / server / dataModel  (registered for Vite + Nitro)
+// '#backend/api'        → _generated/api       (api, internal, components)
+// '#backend/server'     → _generated/server    (query, mutation, action, *Ctx, ...)
+// '#backend/dataModel'  → _generated/dataModel (DataModel, Doc, Id, TableNames)
+// '#backend/_generated' → _generated           (long form, any generated file)
+// All registered for both Vite and Nitro.
 ```
+
+The short aliases resolve to the same files as `#backend/_generated/*`, so use
+whichever you prefer. Because `#backend/api` / `#backend/server` /
+`#backend/dataModel` map straight to the generated modules, they shadow any
+function file you happen to name `api.ts` / `server.ts` / `dataModel.ts` —
+import those via a different name (or `#backend/_generated/...`).
 
 ## More Documentation
 

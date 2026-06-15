@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { api } from '../../backend/_generated/api'
-import type { Id } from '../../backend/_generated/dataModel'
+import { api } from '#backend/api'
+import type { Id } from '#backend/dataModel'
 // Paginated optimistic helpers are public utilities (used inside
 // withOptimisticUpdate) but not Nuxt auto-imports — pull from the runtime.
 import { insertAtTop } from '../../../src/runtime/vue/composables/use-paginated-query'

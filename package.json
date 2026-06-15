@@ -29,6 +29,7 @@
   ],
   "type": "module",
   "exports": {
+    "./package.json": "./package.json",
     ".": {
       "types": "./dist/types.d.ts",
       "import": "./dist/module.js"
@@ -82,7 +83,7 @@
   },
   "files": [
     "dist",
-    "src"
+    "src/convex"
   ],
   "packageManager": "pnpm@11.5.2",
   "engines": {

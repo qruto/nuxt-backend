@@ -44,7 +44,7 @@ interface UseQueryOptions<
  * ```vue
  * <script setup lang="ts">
  * import { useQuery } from '#imports'
- * import { api } from '~/backend/_generated/api'
+ * import { api } from '#backend/api'
  *
  * const tasks = useQuery(api.tasks.list, { completed: false })
  * // tasks.value is Task[] | undefined while the first result is loading
@@ -117,7 +117,7 @@ export function useQuery<Query extends FunctionReference<'query'>>(
  * ```vue
  * <script setup lang="ts">
  * import { useQuery_experimental as useQuery } from '#imports'
- * import { api } from '~/backend/_generated/api'
+ * import { api } from '#backend/api'
  *
  * const state = useQuery({ query: api.tasks.list, args: { completed: false } })
  * // state.value.status: 'pending' | 'success' | 'error'

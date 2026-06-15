@@ -112,7 +112,7 @@ export function createMutation<Mutation extends FunctionReference<'mutation'>>(
  * ```vue
  * <script setup lang="ts">
  * import { useMutation } from '#imports'
- * import { api } from '~/backend/_generated/api'
+ * import { api } from '#backend/api'
  *
  * const createTask = useMutation(api.tasks.create)
  *

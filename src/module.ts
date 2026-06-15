@@ -73,25 +73,52 @@ function applyRuntimeConfig(nuxt: Nuxt, options: ModuleOptions): void {
 }
 
 /**
- * Wire up import aliases for the Convex backend folder and its generated
- * assets so user code and server routes can `import from '#backend/...'`.
+ * Build the ordered import-alias map for the Convex backend folder and its
+ * generated modules, so user code and server routes can `import from
+ * '#backend/...'` without spelling out `_generated`.
  *
+ * - `#backend/api`        -> _generated/api        (`api`, `internal`, `components`)
+ * - `#backend/server`     -> _generated/server     (`query`, `mutation`, `action`, `*Ctx`, ...)
+ * - `#backend/dataModel`  -> _generated/dataModel  (`DataModel`, `Doc`, `Id`, `TableNames`)
+ * - `#backend/_generated` -> _generated            (long form, covers every generated file)
  * - `#backend`            -> <rootDir>/<functionsDir>
- * - `#backend/_generated` -> <rootDir>/<functionsDir>/_generated
- *   (also covers `#backend/_generated/api`, `dataModel`, `server`, ...)
+ *
+ * Order is significant: both Vite and Nitro resolve aliases with
+ * `@rollup/plugin-alias`, which is first-match-wins and treats `#backend` as a
+ * prefix of `#backend/api`. The specific generated-module aliases must come
+ * before the catch-all `#backend`, otherwise `#backend/api` would resolve to
+ * `<functionsDir>/api` instead of `<functionsDir>/_generated/api` (and would
+ * shadow any user function file literally named `api.ts` / `server.ts`).
  */
-function registerBackendAliases(nuxt: Nuxt): void {
-  const functionsDir = resolveFunctionsDir(nuxt.options.rootDir)
-  const backendDir = join(nuxt.options.rootDir, functionsDir)
+export function getBackendAliases(rootDir: string): Record<string, string> {
+  const functionsDir = resolveFunctionsDir(rootDir)
+  const backendDir = join(rootDir, functionsDir)
   const generatedDir = join(backendDir, '_generated')
 
-  nuxt.options.alias['#backend'] = backendDir
-  nuxt.options.alias['#backend/_generated'] = generatedDir
+  return {
+    '#backend/api': join(generatedDir, 'api'),
+    '#backend/server': join(generatedDir, 'server'),
+    '#backend/dataModel': join(generatedDir, 'dataModel'),
+    '#backend/_generated': generatedDir,
+    '#backend': backendDir,
+  }
+}
+
+/**
+ * Register the backend import aliases for both Vite (`options.alias`) and Nitro
+ * (`nitro.alias`). Iterates {@link getBackendAliases} in declaration order to
+ * preserve the specific-before-general ordering the alias resolvers depend on.
+ */
+function registerBackendAliases(nuxt: Nuxt): void {
+  const aliases = getBackendAliases(nuxt.options.rootDir)
 
   nuxt.options.nitro ||= {}
   nuxt.options.nitro.alias ||= {}
-  nuxt.options.nitro.alias['#backend'] = backendDir
-  nuxt.options.nitro.alias['#backend/_generated'] = generatedDir
+
+  for (const [alias, target] of Object.entries(aliases)) {
+    nuxt.options.alias[alias] = target
+    nuxt.options.nitro.alias[alias] = target
+  }
 }
 
 /**

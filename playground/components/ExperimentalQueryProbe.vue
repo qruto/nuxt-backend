@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { api } from '../backend/_generated/api'
+import { api } from '#backend/api'
 
 const props = defineProps<{
   shouldFail: boolean

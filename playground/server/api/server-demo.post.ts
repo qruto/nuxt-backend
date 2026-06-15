@@ -1,4 +1,4 @@
-import { api } from '../../backend/_generated/api'
+import { api } from '#backend/api'
 
 /**
  * Runs Convex functions entirely on the Nuxt (Nitro) server — no browser, no
