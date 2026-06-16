@@ -31,7 +31,7 @@
       "url": "https://nuxt.com/mcp"
     },
     "better-auth-docs": {
-      "url": "https://mcp.chonkie.ai/better-auth/better-auth-builder/mcp",
+      "url": "https://mcp.better-auth.com/mcp",
       "type": "https"
     },
     "resend-docs": {
@@ -47,6 +47,13 @@
       "env": {
         "RESEND_API_KEY": "${input:resend-api-key}"
       }
+    },
+    "polar": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp.polar.sh/mcp/polar-sandbox"
+      ]
     }
   }
 }
