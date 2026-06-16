@@ -1,4 +1,12 @@
 {
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "resend-api-key",
+      "description": "Resend API key",
+      "password": true
+    }
+  ],
   "mcpServers": {
     "chrome-devtools": {
       "command": "npx",
@@ -22,9 +30,23 @@
       "type": "sse",
       "url": "https://nuxt.com/mcp"
     },
-    "better-auth": {
+    "better-auth-docs": {
       "url": "https://mcp.chonkie.ai/better-auth/better-auth-builder/mcp",
       "type": "https"
+    },
+    "resend-docs": {
+      "type": "http",
+      "url": "https://resend.com/docs/mcp"
+    },
+    "resend": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "resend-mcp@latest"
+      ],
+      "env": {
+        "RESEND_API_KEY": "${input:resend-api-key}"
+      }
     }
   }
 }
