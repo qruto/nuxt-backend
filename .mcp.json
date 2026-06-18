@@ -1,12 +1,4 @@
 {
-  "inputs": [
-    {
-      "type": "promptString",
-      "id": "resend-api-key",
-      "description": "Resend API key",
-      "password": true
-    }
-  ],
   "mcpServers": {
     "chrome-devtools": {
       "command": "npx",
@@ -45,7 +37,7 @@
         "resend-mcp@latest"
       ],
       "env": {
-        "RESEND_API_KEY": "${input:resend-api-key}"
+        "RESEND_API_KEY": "${env:RESEND_API_KEY}"
       }
     },
     "polar": {
