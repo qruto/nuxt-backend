@@ -15,6 +15,16 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**'],
       reporter: ['text', 'json', 'lcov'],
+      // Lock in the current baseline (a small margin below the measured numbers)
+      // so a regression fails CI without being brittle. Raise these as coverage
+      // climbs; the harder build-time/runtime files (module/scaffold, auth
+      // plugins/middleware) keep the global ceiling modest for now.
+      thresholds: {
+        statements: 73,
+        branches: 65,
+        functions: 74,
+        lines: 74,
+      },
     },
     projects: [
       {

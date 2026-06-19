@@ -15,11 +15,16 @@ import { ConvexClientKey, type ConvexVueClient } from '../../src/runtime/vue/cli
  * render function" warning; this flag installs a scoped `warnHandler` that
  * swallows just that one message while letting every other warning through, so
  * the assertion stays clean without hiding real problems.
+ *
+ * Pass `provide` to supply extra `provide()` bindings in the wrapper (above the
+ * composable's component), e.g. to inject `ConvexAuthStateKey` for auth-gated
+ * composables — the callback runs inside the wrapper's `setup`, so call Vue's
+ * `provide()` directly there.
  */
 export async function mountWithConvex<T>(
   client: ConvexVueClient,
   composableFn: () => T,
-  options: { tick?: boolean, expectSetupThrow?: boolean } = {},
+  options: { tick?: boolean, expectSetupThrow?: boolean, provide?: () => void } = {},
 ) {
   let result!: T
 
@@ -33,6 +38,7 @@ export async function mountWithConvex<T>(
   const Wrapper = defineComponent({
     setup() {
       provide(ConvexClientKey, client)
+      options.provide?.()
       return () => h(Child)
     },
   })
