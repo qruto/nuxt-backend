@@ -321,6 +321,31 @@ const url = await convex.mutation(api.files.generateUploadUrl, {})
 const storageId = await uploadFile({ url, file })
 ```
 
+### Component composables
+
+Reactive helpers for the bundled components — all thin, typed wrappers over `useQuery` that drive the queries exposed by the scaffolded component files.
+
+```vue
+<script setup lang="ts">
+import { api } from '#backend/api'
+
+// Debounced, reactive full-text search. Pauses while the term is blank.
+const term = ref('')
+const { results, isLoading } = useSearch(api.search.searchMessages, term, { debounce: 200 })
+
+// Live aggregate count (coerces loading/null to 0). `useCount` is an alias.
+const messageCount = useCount(api.aggregates.countMessages)
+
+// Billing: subscription state + checkout/portal; feature-gating; prepaid credits.
+const billing = useBilling() // billing.subscription, billing.isSubscribed, billing.checkout(...)
+const { has, hasPlan } = useFeatures() // has('priority_support'), hasPlan('prod_pro')
+const credits = useCredits() // credits.balance, credits.topUp(packId), credits.refresh()
+
+// Live durable-workflow status; pauses while the id is null/undefined.
+const status = useWorkflowStatus(api.workflows.status, workflowId)
+</script>
+```
+
 ### Better Auth composables
 
 `useAuth()` is the single Better Auth service. It exposes the Better Auth client, the reactive session wrapper, and the computed auth state used by the Convex integration:
@@ -493,6 +518,13 @@ BETTER_AUTH_SECRET=<random-secret>
 | `SITE_URL` | Convex dashboard | App URL such as `https://nuxt-backend.localhost` |
 | `BETTER_AUTH_SECRET` | Convex dashboard | Secret used by Better Auth |
 
+The bundled components add the following **optional** Convex dashboard variables, declared with typed validators in the scaffolded `convex.config.ts` (`defineApp({ env })`). Leave any unset to keep that feature a graceful no-op:
+
+| Variable | Feature |
+|---|---|
+| `RESEND_API_KEY`, `RESEND_FROM`, `RESEND_TEST_MODE` | Email (Resend) — forwarded to the nested `backend` component via `app.use(backend, { env })` |
+| `POLAR_ORGANIZATION_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_SERVER` | Billing (Polar) |
+
 ## Customizing the Convex component
 
 Zero-config mode mounts the packaged component and registers Better Auth HTTP routes from `backend/http.ts`. The default route is `/api/auth`.
@@ -523,12 +555,14 @@ export const {
 If you want a different auth route, update the scaffolded files:
 
 ```ts
-// backend/convex.config.ts
+// backend/convex.config.ts (email config forwarded to the nested Resend; see
+// "Backend components" for the full declaration)
 import { defineApp } from 'convex/server'
+import { v } from 'convex/values'
 import backend from 'nuxt-backend/convex/component/convex.config'
 
-const app = defineApp()
-app.use(backend)
+const app = defineApp({ env: { RESEND_API_KEY: v.optional(v.string()) } })
+app.use(backend, { env: { RESEND_API_KEY: app.env.RESEND_API_KEY } })
 export default app
 ```
 
@@ -613,6 +647,12 @@ The package publishes multiple entrypoints:
 | `nuxt-backend/convex/component/schema` | Base Better Auth tables for local hybrid schema scaffolding |
 | `nuxt-backend/convex/auth.config` | Creating `auth.config.ts` with `defineBackendAuthConfig(...)` |
 | `nuxt-backend/convex/test` | Registering the packaged Convex component in `convex-test` |
+| `nuxt-backend/convex/billing` | `setupBilling(...)` — subscriptions, discounts & prepaid credits via the Polar component |
+| `nuxt-backend/convex/rate-limit` | `setupRateLimiter(...)` + `DEFAULT_AUTH_LIMITS` |
+| `nuxt-backend/convex/migrations` | `setupMigrations(...)` — online schema migrations |
+| `nuxt-backend/convex/aggregate` | `TableAggregate`, `withTriggers`, `Triggers` — denormalized counts/sums |
+| `nuxt-backend/convex/workflows` | `setupWorkflows(...)` — durable multi-step functions |
+| `nuxt-backend/convex/search` | `search(...)` (fluent) + `defineSearch(...)` over native full-text search |
 
 ### `nuxt-backend/convex`
 
@@ -650,6 +690,129 @@ import backendTest from 'nuxt-backend/convex/test'
 const t = convexTest(schema, modules)
 backendTest.register(t)
 ```
+
+## Backend components
+
+The [Resend](https://www.convex.dev/components/resend) component is **nested inside `backend`**, so email works out of the box with no app-level mount. The scaffolded `convex.config.ts` additionally mounts the [Polar](https://www.convex.dev/components/polar), [Workflow](https://www.convex.dev/components/workflow), [Rate Limiter](https://www.convex.dev/components/rate-limiter), [Migrations](https://www.convex.dev/components/migrations), and [Aggregate](https://www.convex.dev/components/aggregate) components, declares the deployment's environment variables with typed validators, and **forwards** the email config to the nested component ([components are isolated from the app's env](https://docs.convex.dev/components)):
+
+```ts
+import { defineApp } from 'convex/server'
+import { v } from 'convex/values'
+import backend from 'nuxt-backend/convex/component/convex.config'
+// …and the other five components
+
+const app = defineApp({
+  env: {
+    RESEND_API_KEY: v.optional(v.string()),
+    POLAR_SERVER: v.optional(v.union(v.literal('sandbox'), v.literal('production'))),
+    // …see the env-var table below
+  },
+})
+// Resend is nested in `backend`; forward its config by reference.
+app.use(backend, {
+  env: {
+    RESEND_API_KEY: app.env.RESEND_API_KEY,
+    RESEND_FROM: app.env.RESEND_FROM,
+    RESEND_TEST_MODE: app.env.RESEND_TEST_MODE,
+  },
+})
+// …app.use() the rest
+export default app
+```
+
+Each app-level setup helper accepts the typed `env` from `_generated/server` and degrades gracefully when its variables are unset.
+
+### Email — `components.backend.email.send` (nested)
+
+Email is served by the `backend` component itself via the nested Resend component, so there is no setup helper or app-level mount — just set `RESEND_API_KEY`. Call it from any app function (action, mutation, or a Workflow step):
+
+```ts
+await ctx.runMutation(components.backend.email.send, {
+  to: 'user@example.com',
+  subject: 'Welcome!',
+  html: '<p>Hello</p>',
+})
+```
+
+It enqueues a durable email and resolves to the email id, or logs and resolves to `null` when `RESEND_API_KEY` is unset. The same path powers auth OTP / verification / reset automatically (see [cross-component wiring](#cross-component-auth-wiring--setupauth--integrations-)). With `RESEND_TEST_MODE` left on (the default), only Resend's test addresses receive mail — set it to `"false"` to deliver to real recipients.
+
+### Billing — `setupBilling(components.polar, components.backend, config)`
+
+Subscriptions, discounts, and **prepaid credits** via the Polar component, linked to your auth users. The config mirrors the Polar client (`getUserInfo`, `products?`, `organizationToken?`, `server?`) plus a query-safe `currentUserId(ctx)` resolver used by the reactive reads. The reactive **feature + credit cache** lives inside the bundled `backend` component, so **you add nothing to your schema**.
+
+Returns:
+
+- `api` — `polar.api()`: checkout / portal / product / subscription functions to re-export.
+- `functions` — ready-made reactive functions to re-export so the composables work with zero wiring: `getCurrentSubscription` (→ `useBilling`), `getFeatures` (→ `useFeatures`), `getCredits` (→ `useCredits`), and a `syncEntitlements` action to refresh the cache after checkout/top-up.
+- `webhookEvents` — typed Polar webhook handlers for `polar.registerRoutes(http, { events })` that keep the cache fresh (subscriptions, benefit grants, credit balances).
+- `spendCredits(ctx, { userId, name, meterId?, value? })` — spend prepaid credits from your **own server** code; with `meterId` set it throws when the balance is too low, so credits are never billed as overage.
+- `getCustomerState` / `createDiscount` / `polar` — live customer state, coupon creation, and the raw client.
+
+**Credits are Polar's official model:** a credit pack is a one-time product whose *Credits* benefit tops up a meter balance (no backend crediting code needed). The client tops up via `useCredits().topUp(packId)` (a checkout) and the balance is drawn down by `spendCredits`. The auto-imported composables — `useBilling` (subscriptions/checkout/portal), `useFeatures` (`has()` / `hasPlan()`), `useCredits` (`balance` / `topUp` / `refresh`) — read the cache reactively.
+
+**Feature-gating by a friendly name:** `useFeatures().has(feature)` matches a granted benefit by its Polar benefit id, grant id, `type`, **or any value in the benefit's metadata**. So set a stable key on the Polar benefit (e.g. metadata `{ key: 'premium' }`) and gate with `has('premium')` instead of hardcoding a UUID. The cache reads the benefit's metadata **live** (not the grant-time snapshot), so changing it takes effect on the next sync — no re-granting.
+
+### Rate limiting — `setupRateLimiter(components.rateLimiter, limits?)`
+
+Returns a `RateLimiter` pre-seeded with `DEFAULT_AUTH_LIMITS` (`emailOtp`, `signIn`, `signUp`, `passwordReset`); your `limits` are merged on top.
+
+### Migrations — `setupMigrations(components.migrations, { schema? })`
+
+Returns `{ migrations, run }`. Define migrations with `migrations.define({ table, migrateOne })` and run them via `npx convex run migrations:run '{ "fn": "migrations:yourMigration" }'`.
+
+### Workflows — `setupWorkflows(components.workflow, options?)`
+
+Returns a `WorkflowManager` with sensible default retry behaviour. Define durable functions with `workflow.define({ args, handler })` and start them with `workflow.start(ctx, internal.x.y, args)`.
+
+### Aggregates — `TableAggregate`, `withTriggers`, `Triggers`
+
+Construct one `TableAggregate` per mounted instance and keep it in sync automatically:
+
+```ts
+import { TableAggregate, Triggers, withTriggers } from 'nuxt-backend/convex/aggregate'
+
+export const messagesCount = new TableAggregate<{ Key: null, DataModel: DataModel, TableName: 'messages' }>(
+  components.aggregate,
+  { sortKey: () => null },
+)
+const triggers = new Triggers<DataModel>()
+triggers.register('messages', messagesCount.trigger())
+export const mutation = withTriggers(rawMutation, triggers)
+```
+
+### Fluent search — `search(...)` and `defineSearch(...)`
+
+A type-safe builder over Convex's native `searchIndex` — index names, search fields, and `eq` filters are checked against your schema:
+
+```ts
+const results = await search(ctx, 'messages')
+  .withSearchIndex('search_text')
+  .search('text', term)
+  .eq('userId', userId)
+  .take(20)
+```
+
+`defineSearch(query, { table, index, searchField, defaultLimit? })` turns that into a ready query taking `{ query, limit? }`, which the `useSearch` composable drives reactively.
+
+### Cross-component auth wiring — `setupAuth(..., { integrations })`
+
+OTP / verification / reset emails are routed through the nested Resend component **automatically** — you don't pass an `email` integration. `integrations` accepts `{ rateLimiter, onUserCreated, email? }`: the `rateLimiter` throttles OTP sends, `onUserCreated(ctx, user)` runs on signup, and `email?` is an optional override if you want to bypass the nested transport. The ctx passed to `onUserCreated` is a full mutation/action ctx, so it can start a Workflow:
+
+```ts
+export const { authComponent, createAuth, getAuthUser } = setupAuth(components.backend, query, {
+  integrations: {
+    // email is automatic via the nested Resend component (set RESEND_API_KEY)
+    rateLimiter,
+    onUserCreated: async (ctx, user) => {
+      await workflow.start(ctx, internal.workflows.onSignup, {
+        userId: user.id, email: user.email, name: user.name,
+      })
+    },
+  },
+})
+```
+
+With no `RESEND_API_KEY` configured, OTP codes log to the console instead of sending (graceful no-op).
 
 ## Architecture
 

@@ -186,12 +186,28 @@ export function backendAuth(event: H3Event, opts?: BackendAuthOptions): BackendA
     headers.set('x-better-auth-forwarded-host', requestUrl.host)
     headers.set('x-better-auth-forwarded-proto', forwardedProto)
 
-    return fetch(new Request(targetUrl, {
+    const upstream = await fetch(new Request(targetUrl, {
       method: request.method,
       headers,
       body,
       redirect: 'manual',
     }))
+
+    // `fetch` transparently decompresses the upstream body but leaves the
+    // `Content-Encoding`/`Content-Length` headers untouched. Forwarding those
+    // verbatim makes the browser try to decode an already-decoded body
+    // (`ERR_CONTENT_DECODING_FAILED`), so drop them before relaying. Every
+    // other header is preserved — `Set-Cookie` (the auth session cookies, kept
+    // as separate entries) and `Location` (manual redirects) included.
+    const responseHeaders = new Headers(upstream.headers)
+    responseHeaders.delete('content-encoding')
+    responseHeaders.delete('content-length')
+
+    return new Response(upstream.body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers: responseHeaders,
+    })
   }
 
   return {

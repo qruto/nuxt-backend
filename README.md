@@ -28,7 +28,7 @@ Adding `modules: ['nuxt-backend']` registers the following surface, described in
 ### 🖼️ App runtime (Vue)
 
 - **Nuxt plugins** — a client Convex plugin and an SSR auth-token prefetch plugin; injects `useNuxtApp().$convex`.
-- **Auto-imported composables** — `useConvex`, `useQuery` (+ `useConvexQuery`, `useQuery_experimental`), `useQueries` (+ `useConvexQueries`), `useMutation` (+ `useConvexMutation`), `useAction` (+ `useConvexAction`), `usePaginatedQuery` (+ `usePaginatedQuery_experimental`), `usePreloadedQuery`, `usePreloadedAuthQuery`, `useConvexConnectionState`, `useUpload`, `useUploadQueue`, `useStorageUrl` (+ `uploadFile`), `useConvexAuth`, `provideConvexAuth`, and `useAuth`.
+- **Auto-imported composables** — `useConvex`, `useQuery` (+ `useConvexQuery`, `useQuery_experimental`), `useQueries` (+ `useConvexQueries`), `useMutation` (+ `useConvexMutation`), `useAction` (+ `useConvexAction`), `usePaginatedQuery` (+ `usePaginatedQuery_experimental`), `usePreloadedQuery`, `usePreloadedAuthQuery`, `useConvexConnectionState`, `useUpload`, `useUploadQueue`, `useStorageUrl` (+ `uploadFile`), `useConvexAuth`, `provideConvexAuth`, `useAuth`, and the component composables `useSearch`, `useAggregate` (+ `useCount`), `useBilling`, `useFeatures`, `useCredits`, `useWorkflowStatus`.
 - **Auto-registered components** — `<Authenticated>`, `<Unauthenticated>`, `<AuthLoading>`.
 - **Route middleware** — `auth`, opt-in per page via `definePageMeta({ middleware: 'auth' })` (registered non-global, so installing the module never guards routes by surprise).
 
@@ -40,13 +40,46 @@ Adding `modules: ['nuxt-backend']` registers the following surface, described in
 ### 🧩 Project wiring & types
 
 - **Import aliases** — `#backend`, `#backend/api`, `#backend/server`, `#backend/dataModel`, and `#backend/_generated`, registered for both Vite and Nitro, pointing at your Convex functions directory and its [generated files](https://docs.convex.dev/generated-api/).
-- **Scaffolded files** (first run) — `backend/convex.config.ts`, `auth.config.ts`, `auth.ts`, `http.ts`; local mode also creates `backend/components/backend/*`.
+- **Scaffolded files** (first run) — `backend/convex.config.ts` (mounts every component + declares typed env vars, forwarding email config to the nested Resend), `auth.config.ts`, `auth.ts` (cross-component wiring), `http.ts` (auth + Polar webhook), and one file per app-level component: `billing.ts`, `rateLimiter.ts`, `workflows.ts`, `migrations.ts`, `aggregates.ts`, `search.ts` (email needs no file — it's nested in `backend`); local mode also creates `backend/components/backend/*`.
 - **Type augmentation** — runtime config keys, the injected `$convex`, auto-imported composables, auto-registered components, and package subpath declarations all become typed after Nuxt preparation.
 
 ### 🔐 Convex auth bridge (package entrypoints)
 
 - **Better Auth component** — email/password auth out of the box, a Convex adapter for persistence, and HTTP auth endpoints served through Convex.
-- **Entrypoints** — `nuxt-backend` (the module), `nuxt-backend/convex` (`setupAuth`, `createAuth`, `createAuthOptions`, `makeAuthApi`, `createBetterAuth`), `nuxt-backend/convex/component/convex.config`, `nuxt-backend/convex/component/schema`, `nuxt-backend/convex/auth.config`, and `nuxt-backend/convex/test`. (`getAuthUser`, `authComponent`, and `options` are returned by `setupAuth(...)`, not direct exports.)
+- **Entrypoints** — `nuxt-backend` (the module), `nuxt-backend/convex/app` (`defineBackendApp`, `installBackend`, `backendEnv` — the one-call `convex.config.ts`), `nuxt-backend/convex` (`setupAuth`, `createAuth`, `createAuthOptions`, `makeAuthApi`, `createBetterAuth`), `nuxt-backend/convex/component/convex.config`, `nuxt-backend/convex/component/schema`, `nuxt-backend/convex/auth.config`, and `nuxt-backend/convex/test`. (`getAuthUser`, `authComponent`, and `options` are returned by `setupAuth(...)`, not direct exports.)
+
+### 🧰 Backend components
+
+Bundled [Convex components](https://www.convex.dev/components), wired into Better Auth and activated by env vars — each **degrades gracefully** when unconfigured (billing queries return `null`, email is skipped with a log, etc.).
+
+**One call mounts everything.** `defineBackendApp(components)` (from `nuxt-backend/convex/app`) is the whole `convex.config.ts`: it mounts every bundled component, declares their typed env vars, and forwards the email config to the nested Resend component — so you set `RESEND_API_KEY` and auth OTP / verification / reset email just works (`components.backend.email.send`, no email file to wire). You still `import` each component definition in `convex.config.ts` (Convex builds its component tree from those imports) and hand them in; the wiring is done for you:
+
+```ts
+import { defineBackendApp } from 'nuxt-backend/convex/app'
+import backend from 'nuxt-backend/convex/component/convex.config'
+import aggregate from '@convex-dev/aggregate/convex.config'
+import migrations from '@convex-dev/migrations/convex.config'
+import polar from '@convex-dev/polar/convex.config'
+import rateLimiter from '@convex-dev/rate-limiter/convex.config'
+import workflow from '@convex-dev/workflow/convex.config'
+
+export default defineBackendApp({ backend, aggregate, migrations, polar, rateLimiter, workflow })
+```
+
+Email is the one component nested *inside* `backend` (it's self-contained, so `backend` exposes it as `email.send`). The other five mount at the app level — they can't be hidden inside `backend` because a nested component is sandboxed from the parent app, and these operate over **your** tables, functions, auth, and HTTP routes. Each exposes a config-free setup helper on its own entrypoint:
+
+| Capability | Component | Entrypoint | Setup helper |
+|---|---|---|---|
+| Billing | [`@convex-dev/polar`](https://www.convex.dev/components/polar) | `nuxt-backend/convex/billing` | `setupBilling` — subscriptions, discounts, prepaid credits |
+| Rate limiting | [`@convex-dev/rate-limiter`](https://www.convex.dev/components/rate-limiter) | `nuxt-backend/convex/rate-limit` | `setupRateLimiter` |
+| Migrations | [`@convex-dev/migrations`](https://www.convex.dev/components/migrations) | `nuxt-backend/convex/migrations` | `setupMigrations` |
+| Aggregates | [`@convex-dev/aggregate`](https://www.convex.dev/components/aggregate) | `nuxt-backend/convex/aggregate` | `TableAggregate`, `withTriggers` |
+| Workflows | [`@convex-dev/workflow`](https://www.convex.dev/components/workflow) | `nuxt-backend/convex/workflows` | `setupWorkflows` |
+| Fluent search | Convex native full-text search | `nuxt-backend/convex/search` | `search`, `defineSearch` |
+
+> **Server helpers vs. composables — two halves, not duplicates.** The `nuxt-backend/convex/*` entrypoints above are **server** code: you import them *inside your Convex functions* to construct and configure each component client (with sensible defaults baked in — auth rate limits, workflow retries, etc.). The auto-imported `useSearch` / `useCount` / `useBilling` / `useWorkflowStatus` composables are **client** code: thin Vue-reactive wrappers over `useQuery` that subscribe to the queries those functions expose. You need both — the helper builds the server endpoint; the composable consumes it reactively in your components. And each helper lives on its **own** entrypoint (rather than one barrel) so a Convex function only bundles the component it actually imports — the same reason the underlying `@convex-dev/*` packages are split, and what keeps `better-auth` out of a file that only does rate limiting.
+
+- **Cross-component wiring** — email is delivered automatically through the nested Resend component (no integration to pass). `setupAuth(..., { integrations: { rateLimiter, onUserCreated } })` additionally throttles OTP sends with the rate limiter and runs an `onUserCreated` hook — the scaffold kicks off a durable welcome-email **workflow** that sends via `components.backend.email.send`. Billing links Polar customers to auth users, and its reactive feature/credit cache lives **inside** the `backend` component — so subscriptions, discounts, feature-gating (`useFeatures`) and prepaid credits (`useCredits`) work out of the box with nothing added to your schema.
 
 ### Full Nuxt module surface
 
@@ -67,7 +100,7 @@ Adding `modules: ['nuxt-backend']` registers the following surface, described in
 | Server auto-imports · `addServerImports` / `addServerImportsDir` | ✅ `fetchQuery`, `preloadQuery`, `backendAuth`, … |
 | Import aliases · `options.alias` (+ `nitro.alias`) | ✅ `#backend`, `#backend/api`, `#backend/server`, `#backend/dataModel`, `#backend/_generated` |
 | Type augmentation · `declare module` / `addTypeTemplate` | ✅ runtime config + generated declarations |
-| Package entrypoints · `exports` map | ✅ 6 subpaths (module + Convex bridge) |
+| Package entrypoints · `exports` map | ✅ module, Convex auth bridge, per-component setup helpers, component config/schema |
 | Scaffolded files on disk | ✅ first-run Convex wiring (module-specific) |
 | Layouts · `addLayout` | — app-owned |
 | Pages / routes · `extendPages` | — app-owned |
@@ -115,6 +148,20 @@ npm install nuxt-backend
 
 </details>
 
+> **That's the only package you install.** The bundled Convex components (`@convex-dev/aggregate`, `migrations`, `polar`, `rate-limiter`, `resend`, `workflow`, `better-auth`) ship as dependencies of `nuxt-backend`, so installing this one package brings them all in. The scaffolded `convex.config.ts` imports them by their real specifiers (Convex resolves its component tree from those `…/convex.config` imports — they can't be re-exported through a wrapper), but you never add them to your own `package.json`.
+>
+> <details><summary>Using <strong>strict</strong> pnpm? (one extra line)</summary>
+>
+> A flat `node_modules` (npm, yarn, or pnpm with `nodeLinker: hoisted`) exposes the bundled components automatically. pnpm's default isolated linker hides transitive deps, so let Convex's components reach the project root by adding to `.npmrc`:
+>
+> ```ini
+> public-hoist-pattern[]=@convex-dev/*
+> ```
+>
+> (or set `node-linker=hoisted`). Without this the `convex dev` push fails to resolve the component definitions.
+>
+> </details>
+
 ### 2. Add the Nuxt module
 
 ```ts
@@ -149,6 +196,24 @@ So the required values are split like this:
 
 - `.env.local` in the Nuxt app: `NUXT_PUBLIC_CONVEX_URL`, `NUXT_PUBLIC_CONVEX_SITE_URL`
 - Convex dashboard env vars: `SITE_URL`, `BETTER_AUTH_SECRET`
+
+#### Component environment variables (optional)
+
+The scaffolded `convex.config.ts` **declares** these on the deployment via Convex's typed [`defineApp({ env })`](https://docs.convex.dev/production/environment-variables), so they're validated at deploy and read type-safely through `env` from `_generated/server`. All are optional — leave them unset and the matching feature stays a graceful no-op. The `RESEND_*` vars are forwarded to the nested `backend` component (`app.use(backend, { env })`), since components can't read the app's env directly.
+
+| Variable | Feature | Effect when unset |
+|---|---|---|
+| `RESEND_API_KEY` | Email (Resend) | OTP / emails log to the console instead of sending |
+| `RESEND_FROM` | Email | Falls back to Resend's shared onboarding sender |
+| `RESEND_TEST_MODE` | Email | Defaults to test mode (only delivers to Resend's test addresses); set to `"false"` to send to real recipients |
+| `POLAR_ORGANIZATION_TOKEN` | Billing (Polar) | Checkout/portal disabled; subscription queries return `null` |
+| `POLAR_WEBHOOK_SECRET` | Billing | Polar webhook events aren't verified |
+| `POLAR_SERVER` | Billing | Defaults to `sandbox` |
+
+```bash
+npx convex env set RESEND_API_KEY re_...
+npx convex env set POLAR_ORGANIZATION_TOKEN polar_...
+```
 
 ### 4. Optional: override module defaults
 
@@ -213,14 +278,26 @@ A complete working example lives in [`playground/`](./playground) — sign-in/si
 If you let the module scaffold files, you can keep them as generated. If you create them manually, they should look like this:
 
 ```ts
-// backend/convex.config.ts
-import { defineApp } from 'convex/server'
+// backend/convex.config.ts — the whole file.
+// One call mounts every bundled component, declares their typed env vars, and
+// forwards the email config to the nested Resend component (components can't read
+// the app's env directly), so auth OTP / verification / reset email works out of
+// the box. The component definitions are imported here because Convex builds its
+// component tree from these imports.
+import { defineBackendApp } from 'nuxt-backend/convex/app'
 import backend from 'nuxt-backend/convex/component/convex.config'
+import aggregate from '@convex-dev/aggregate/convex.config'
+import migrations from '@convex-dev/migrations/convex.config'
+import polar from '@convex-dev/polar/convex.config'
+import rateLimiter from '@convex-dev/rate-limiter/convex.config'
+import workflow from '@convex-dev/workflow/convex.config'
 
-const app = defineApp()
-app.use(backend)
-export default app
+export default defineBackendApp({ backend, aggregate, migrations, polar, rateLimiter, workflow })
 ```
+
+> Need extra env vars or your own components? `defineBackendApp` returns the app:
+> `const app = defineBackendApp(components, { env: { STRIPE_SECRET_KEY: v.optional(v.string()) } }); app.use(myComponent); export default app`.
+> For total control, build the app yourself and call `installBackend(app, components)` — both from `nuxt-backend/convex/app`.
 
 ```ts
 // backend/auth.config.ts
@@ -402,9 +479,11 @@ Generic helpers in the signatures below (`FunctionReference`, `FunctionArgs`, `F
 ```text
 nuxt-backend
 ├─ "nuxt-backend" ............................ Nuxt module (default) + type ModuleOptions
+├─ "nuxt-backend/convex/app" ............... defineBackendApp · installBackend · backendEnv
 ├─ "nuxt-backend/convex" .................... setupAuth · createAuth · createAuthOptions
 │                                             makeAuthApi · createBetterAuth · createBetterAuthOptions
 │                                             + types CreateBetterAuthOptions · SetupAuthOptions
+├─ "nuxt-backend/convex/{billing,rate-limit,migrations,aggregate,search,workflows}" .. per-component setup helpers
 ├─ "nuxt-backend/convex/component/convex.config" ......... default: the `backend` component
 ├─ "nuxt-backend/convex/component/schema" .. tables · authSchema · default (= authSchema)
 ├─ "nuxt-backend/convex/component/_generated/component" .. type ComponentApi  (types only)
@@ -496,7 +575,8 @@ interface SetupAuthOptions<Schema> extends CreateBetterAuthOptions {
 
 ```ts
 import backend from 'nuxt-backend/convex/component/convex.config'
-// default export: the `backend` Convex component → app.use(backend)
+// default export: the `backend` Convex component (auth + nested Resend email)
+// → app.use(backend, { env: { RESEND_API_KEY: app.env.RESEND_API_KEY, ... } })
 ```
 
 #### `nuxt-backend/convex/component/schema`

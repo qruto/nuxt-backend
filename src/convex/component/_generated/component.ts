@@ -1335,4 +1335,109 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
     };
+    billing: {
+      getByUser: FunctionReference<
+        "query",
+        "internal",
+        { userId: string },
+        {
+          activeProductIds: Array<string>;
+          benefits: Array<{
+            benefitId: string;
+            id: string;
+            metadata?: Record<string, string | number | boolean>;
+            type: string;
+          }>;
+          customerId: string | null;
+          meters: Array<{
+            balance: number;
+            consumedUnits: number;
+            creditedUnits: number;
+            meterId: string;
+          }>;
+        } | null,
+        Name
+      >;
+      upsert: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          activeProductIds: Array<string>;
+          benefits: Array<{
+            benefitId: string;
+            id: string;
+            metadata?: Record<string, string | number | boolean>;
+            type: string;
+          }>;
+          customerId?: string;
+          meters: Array<{
+            balance: number;
+            consumedUnits: number;
+            creditedUnits: number;
+            meterId: string;
+          }>;
+          userId: string;
+        },
+        null,
+        Name
+      >;
+      userByCustomer: FunctionReference<
+        "query",
+        "internal",
+        { customerId: string },
+        string | null,
+        Name
+      >;
+    };
+    email: {
+      cancel: FunctionReference<
+        "mutation",
+        "internal",
+        { emailId: string },
+        null,
+        Name
+      >;
+      get: FunctionReference<
+        "query",
+        "internal",
+        { emailId: string },
+        any,
+        Name
+      >;
+      handleWebhook: FunctionReference<
+        "action",
+        "internal",
+        { body: string; headers: Record<string, string> },
+        { body: string; status: number },
+        Name
+      >;
+      send: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          bcc?: string | Array<string>;
+          cc?: string | Array<string>;
+          from?: string;
+          headers?: Array<{ name: string; value: string }>;
+          html?: string;
+          replyTo?: Array<string>;
+          subject?: string;
+          template?: {
+            id: string;
+            variables?: Record<string, string | number>;
+          };
+          text?: string;
+          to: string | Array<string>;
+        },
+        string | null,
+        Name
+      >;
+      status: FunctionReference<
+        "query",
+        "internal",
+        { emailId: string },
+        any,
+        Name
+      >;
+    };
   };

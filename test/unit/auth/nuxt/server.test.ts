@@ -164,6 +164,32 @@ describe('auth/nuxt/server', () => {
     expect(proxiedRequest.headers.get('x-better-auth-forwarded-proto')).toBe('https')
   })
 
+  it('strips stale content-encoding/length from the proxied response', async () => {
+    const { backendAuth } = await import('../../../../src/runtime/nuxt/auth/server')
+
+    mockToWebRequest.mockReturnValue(new Request('https://app.example.com/api/auth/get-session', {
+      headers: { cookie: 'session=abc' },
+    }))
+    // `fetch` decompresses the body but leaves the encoding headers behind;
+    // relaying them makes the browser fail with ERR_CONTENT_DECODING_FAILED.
+    mockFetch.mockResolvedValue(new Response('{"user":null}', {
+      headers: {
+        'content-encoding': 'gzip',
+        'content-length': '999',
+        'content-type': 'application/json',
+      },
+    }))
+
+    const response = await backendAuth({} as never, {
+      convexSiteUrl: 'https://example.convex.site',
+    }).handler()
+
+    expect(response.headers.get('content-encoding')).toBeNull()
+    expect(response.headers.get('content-length')).toBeNull()
+    expect(response.headers.get('content-type')).toBe('application/json')
+    expect(await response.text()).toBe('{"user":null}')
+  })
+
   it('uses Nuxt runtime config for the Convex site URL when no override or env is set', async () => {
     const { backendAuth } = await import('../../../../src/runtime/nuxt/auth/server')
     setNuxtRuntimeConfigForTests({

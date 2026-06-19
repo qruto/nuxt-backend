@@ -1,4 +1,4 @@
-import { defineNuxtRouteMiddleware, navigateTo, useRequestEvent } from '#app'
+import { defineNuxtRouteMiddleware, navigateTo, useNuxtApp, useRequestEvent } from '#app'
 import { watch } from 'vue'
 import { useAuth } from '../../vue/auth/use-auth'
 import { backendAuth } from './server'
@@ -17,8 +17,14 @@ import { backendAuth } from './server'
 async function serverGuard(path: string) {
   const event = useRequestEvent()
   if (!event) return
+  // Capture the Nuxt app *before* the await — awaiting loses the async context,
+  // so a bare `navigateTo` afterwards throws "called outside of setup". Restore
+  // it with runWithContext so the server-side redirect works on direct loads.
+  const nuxtApp = useNuxtApp()
   const authed = await backendAuth(event).isAuthenticated()
-  if (!authed && path !== '/login') return navigateTo('/login')
+  if (!authed && path !== '/login') {
+    return nuxtApp.runWithContext(() => navigateTo('/login'))
+  }
 }
 
 // The Better Auth client only resolves a session in the browser (it relies

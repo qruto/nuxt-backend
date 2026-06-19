@@ -9,7 +9,9 @@
  */
 
 import type * as adapter from "../adapter.js";
+import type * as billing from "../billing.js";
 import type * as constants from "../constants.js";
+import type * as email from "../email.js";
 
 import type {
   ApiFromModules,
@@ -20,7 +22,9 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   adapter: typeof adapter;
+  billing: typeof billing;
   constants: typeof constants;
+  email: typeof email;
 }> = anyApi as any;
 
 /**
@@ -49,4 +53,6 @@ export const internal: FilterApi<
   FunctionReference<any, "internal">
 > = anyApi as any;
 
-export const components = componentsGeneric() as unknown as {};
+export const components = componentsGeneric() as unknown as {
+  resend: import("@convex-dev/resend/_generated/component.js").ComponentApi<"resend">;
+};

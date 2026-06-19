@@ -22,6 +22,8 @@ describe('package exports', () => {
     expect(packageJson.exports).toHaveProperty('./convex/component/schema')
     expect(packageJson.exports).not.toHaveProperty('./convex/component/schema.js')
     expect(packageJson.exports).toHaveProperty('./convex/auth.config')
+    expect(packageJson.exports).toHaveProperty('./convex/billing')
+    expect(packageJson.exports).toHaveProperty('./convex/email')
     expect(packageJson.exports).toHaveProperty('./convex/test')
     expect(packageJson.exports).not.toHaveProperty('./client')
     expect(packageJson.exports).not.toHaveProperty('./auth-config')
@@ -54,8 +56,13 @@ describe('scaffold templates', () => {
     expect(BACKEND_FILE_TEMPLATES['convex.config.ts']).toContain(
       `import backend from 'nuxt-backend/convex/component/convex.config'`,
     )
+    // The default scaffold is one `defineBackendApp({ ... })` call, which mounts
+    // every component and forwards the email env to the nested Resend component.
     expect(BACKEND_FILE_TEMPLATES['convex.config.ts']).toContain(
-      `app.use(backend)`,
+      `import { defineBackendApp } from 'nuxt-backend/convex/app'`,
+    )
+    expect(BACKEND_FILE_TEMPLATES['convex.config.ts']).toContain(
+      `export default defineBackendApp({ backend`,
     )
     expect(BACKEND_FILE_TEMPLATES['http.ts']).toContain(
       `authComponent.registerRoutes(http, createAuth)`,

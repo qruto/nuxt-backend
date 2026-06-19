@@ -74,6 +74,12 @@ const groups = [
     ],
   },
   {
+    label: 'Backend Components',
+    items: [
+      { to: '/showcase/backend', label: 'Components overview', api: 'useSearch · useCount · useBilling', live: true },
+    ],
+  },
+  {
     label: 'Experimental',
     items: [
       { to: '/showcase/experimental-query', label: 'Query (object form)', api: 'useQuery_experimental', xp: true },

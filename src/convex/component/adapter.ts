@@ -4,7 +4,7 @@ import { emailOTP } from 'better-auth/plugins'
 import { createApi } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import type { RegisteredMutation, RegisteredQuery } from 'convex/server'
-import schema from './schema'
+import { authSchema as schema } from './schema'
 
 /**
  * Options used solely to derive the auth schema (via `getAuthTables`) for the

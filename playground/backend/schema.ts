@@ -27,7 +27,9 @@ export default defineSchema({
     userId: v.string(),
     author: v.string(),
     text: v.string(),
-  }).index('userId', ['userId']),
+  })
+    .index('userId', ['userId'])
+    .searchIndex('search_text', { searchField: 'text', filterFields: ['userId'] }),
 
   counters: defineTable({
     userId: v.string(),
@@ -48,4 +50,26 @@ export default defineSchema({
     contentType: v.optional(v.string()),
     size: v.optional(v.number()),
   }).index('userId', ['userId']),
+
+  // Note: the Polar feature/credit cache (`billingEntitlements`) now lives inside
+  // the bundled `backend` component — nothing to declare here. useFeatures() /
+  // useCredits() read it reactively via api.billing.getFeatures / getCredits.
+
+  // Transactional emails sent from the app, so the showcase can show a feed with
+  // live delivery status (via useEmailStatus per row).
+  sentEmails: defineTable({
+    userId: v.string(),
+    emailId: v.string(),
+    to: v.string(),
+    subject: v.string(),
+    createdAt: v.number(),
+  }).index('userId', ['userId']),
+
+  // Recent Polar webhook events, for the showcase activity feed.
+  webhookEvents: defineTable({
+    source: v.string(),
+    type: v.string(),
+    summary: v.string(),
+    createdAt: v.number(),
+  }).index('createdAt', ['createdAt']),
 })

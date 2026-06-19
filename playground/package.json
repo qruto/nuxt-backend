@@ -9,6 +9,7 @@
     "generate": "nuxt generate"
   },
   "dependencies": {
+    "convex": "^1.41.0",
     "nuxt": "catalog:",
     "nuxt-backend": "workspace:*"
   },

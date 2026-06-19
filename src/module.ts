@@ -1,5 +1,6 @@
-import { defineNuxtModule, addPlugin, addImports, addServerHandler, addServerImports, addRouteMiddleware, addComponent, createResolver, type Resolver } from '@nuxt/kit'
+import { defineNuxtModule, addPlugin, addPluginTemplate, addImports, addServerHandler, addServerImports, addRouteMiddleware, addComponent, createResolver, type Resolver } from '@nuxt/kit'
 import { join } from 'node:path'
+import { existsSync } from 'node:fs'
 import type { Nuxt } from '@nuxt/schema'
 import { resolveFunctionsDir, scaffoldBackendFiles } from './scaffold'
 import type { BackendInstallationMode } from './templates'
@@ -51,6 +52,7 @@ export default defineNuxtModule<ModuleOptions>({
     registerBackendAliases(nuxt)
 
     registerAuthPlugins(resolver)
+    registerBackendApiPlugin(resolver, nuxt)
     registerVueComposables(resolver)
     registerAuthComponents(resolver)
     registerAuthServerHandlers(resolver, authRoute)
@@ -157,6 +159,42 @@ function registerAuthPlugins(resolver: Resolver): void {
 }
 
 /**
+ * Auto-provide the generated Convex `api` (`#backend/api`) app-wide so the
+ * billing/email composables and components (`useBilling()`, `<CheckoutLink>`,
+ * `useEmailStatus()`, …) work with zero arguments — see
+ * `runtime/vue/provide.ts`. Runs on both server and client.
+ *
+ * Generated as a template so we can fs-guard it: before `convex dev` has emitted
+ * `_generated/api`, the import would fail the build, so we emit a no-op plugin
+ * instead (features fall back to graceful no-ops). The plugin is regenerated
+ * with the real wiring on the next build once codegen has run.
+ */
+function registerBackendApiPlugin(resolver: Resolver, nuxt: Nuxt): void {
+  const functionsDir = resolveFunctionsDir(nuxt.options.rootDir)
+  const generatedApi = join(nuxt.options.rootDir, functionsDir, '_generated', 'api')
+  const provideModule = resolver.resolve('./runtime/vue/provide')
+
+  addPluginTemplate({
+    filename: 'nuxt-backend-provide-api.mjs',
+    getContents: () => {
+      const hasApi = existsSync(`${generatedApi}.d.ts`) || existsSync(`${generatedApi}.js`)
+      if (!hasApi) {
+        return 'import { defineNuxtPlugin } from \'#app\'\nexport default defineNuxtPlugin(() => {})\n'
+      }
+      return [
+        'import { defineNuxtPlugin } from \'#app\'',
+        'import { api } from \'#backend/api\'',
+        `import { provideBackendApi } from ${JSON.stringify(provideModule)}`,
+        'export default defineNuxtPlugin((nuxtApp) => {',
+        '  provideBackendApi(api, nuxtApp.vueApp)',
+        '})',
+        '',
+      ].join('\n')
+    },
+  })
+}
+
+/**
  * Expose the Vue composables (`useQuery`, `useMutation`, `useAction`,
  * pagination, auth, preloaded-query helpers, ...) as Nuxt auto-imports.
  */
@@ -182,11 +220,26 @@ function registerVueComposables(resolver: Resolver): void {
     { name: 'useConvexStorageUrl', from: resolver.resolve('./runtime/vue/composables/use-storage-url') },
     { name: 'useConvexAuth', from: resolver.resolve('./runtime/vue/auth/index') },
     { name: 'provideConvexAuth', from: resolver.resolve('./runtime/vue/auth/index') },
+    { name: 'provideBackendApi', from: resolver.resolve('./runtime/vue/provide') },
+    { name: 'useBackendApi', from: resolver.resolve('./runtime/vue/provide') },
+    { name: 'useBackendNamespace', from: resolver.resolve('./runtime/vue/provide') },
     { name: 'usePreloadedQuery', from: resolver.resolve('./runtime/vue/hydration') },
     { name: 'usePreloadedAuthQuery', from: resolver.resolve('./runtime/vue/auth/hydration') },
     { name: 'usePaginatedQuery', from: resolver.resolve('./runtime/vue/composables/use-paginated-query') },
     { name: 'usePaginatedQuery_experimental', from: resolver.resolve('./runtime/vue/composables/use-paginated-query') },
     { name: 'useAuth', from: resolver.resolve('./runtime/vue/auth/use-auth') },
+    { name: 'useSearch', from: resolver.resolve('./runtime/vue/composables/use-search') },
+    { name: 'useConvexSearch', from: resolver.resolve('./runtime/vue/composables/use-search') },
+    { name: 'useAggregate', from: resolver.resolve('./runtime/vue/composables/use-aggregate') },
+    { name: 'useCount', from: resolver.resolve('./runtime/vue/composables/use-aggregate') },
+    { name: 'useBilling', from: resolver.resolve('./runtime/vue/composables/use-billing') },
+    { name: 'useConvexBilling', from: resolver.resolve('./runtime/vue/composables/use-billing') },
+    { name: 'useFeatures', from: resolver.resolve('./runtime/vue/composables/use-features') },
+    { name: 'useConvexFeatures', from: resolver.resolve('./runtime/vue/composables/use-features') },
+    { name: 'useCredits', from: resolver.resolve('./runtime/vue/composables/use-credits') },
+    { name: 'useConvexCredits', from: resolver.resolve('./runtime/vue/composables/use-credits') },
+    { name: 'useEmailStatus', from: resolver.resolve('./runtime/vue/composables/use-email-status') },
+    { name: 'useWorkflowStatus', from: resolver.resolve('./runtime/vue/composables/use-workflow') },
   ]
   for (const composable of composables) {
     addImports(composable)
@@ -202,6 +255,12 @@ function registerAuthComponents(resolver: Resolver): void {
   const helpersFile = resolver.resolve('./runtime/vue/auth/helpers')
   for (const name of ['Authenticated', 'Unauthenticated', 'AuthLoading'] as const) {
     addComponent({ name, filePath: helpersFile, export: name })
+  }
+
+  // Polar billing components (Vue ports of @convex-dev/polar/react).
+  const billingFile = resolver.resolve('./runtime/vue/billing/index')
+  for (const name of ['CheckoutLink', 'CustomerPortalLink'] as const) {
+    addComponent({ name, filePath: billingFile, export: name })
   }
 }
 

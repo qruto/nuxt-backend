@@ -34,7 +34,7 @@ export default defineNuxtConfig({
   sourcemap: { client: analyze },
   compatibilityDate: 'latest',
   backend: {
-    url: 'http://127.0.0.1:3210',
-    siteUrl: 'http://127.0.0.1:3211',
+    // url: 'http://127.0.0.1:3210',
+    // siteUrl: 'http://127.0.0.1:3211',
   },
 })

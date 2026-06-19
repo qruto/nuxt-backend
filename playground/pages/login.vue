@@ -282,8 +282,9 @@ async function skipPasskey() {
           @submit.prevent="verifyCode"
         >
           <p class="muted">
-            We sent a verification code to <strong>{{ email }}</strong>.
-            Check the Convex function console for the code.
+            We sent a verification code to <strong>{{ email }}</strong> via the
+            nested Resend component. Without <code>RESEND_API_KEY</code> set, the
+            code is logged to the Convex function console instead.
           </p>
           <label>
             Verification code

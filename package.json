@@ -38,6 +38,38 @@
       "types": "./dist/convex/client/index.d.ts",
       "default": "./dist/convex/client/index.js"
     },
+    "./convex/app": {
+      "types": "./dist/convex/app.d.ts",
+      "default": "./dist/convex/app.js"
+    },
+    "./convex/billing": {
+      "types": "./dist/convex/integrations/billing.d.ts",
+      "default": "./dist/convex/integrations/billing.js"
+    },
+    "./convex/email": {
+      "types": "./dist/convex/integrations/email.d.ts",
+      "default": "./dist/convex/integrations/email.js"
+    },
+    "./convex/rate-limit": {
+      "types": "./dist/convex/integrations/rate-limit.d.ts",
+      "default": "./dist/convex/integrations/rate-limit.js"
+    },
+    "./convex/migrations": {
+      "types": "./dist/convex/integrations/migrations.d.ts",
+      "default": "./dist/convex/integrations/migrations.js"
+    },
+    "./convex/aggregate": {
+      "types": "./dist/convex/integrations/aggregate.d.ts",
+      "default": "./dist/convex/integrations/aggregate.js"
+    },
+    "./convex/search": {
+      "types": "./dist/convex/integrations/search.d.ts",
+      "default": "./dist/convex/integrations/search.js"
+    },
+    "./convex/workflows": {
+      "types": "./dist/convex/integrations/workflows.d.ts",
+      "default": "./dist/convex/integrations/workflows.js"
+    },
     "./convex/component/_generated/component": {
       "types": "./dist/convex/component/_generated/component.d.ts"
     },
@@ -63,6 +95,30 @@
       ],
       "convex": [
         "./dist/convex/client/index.d.ts"
+      ],
+      "convex/app": [
+        "./dist/convex/app.d.ts"
+      ],
+      "convex/billing": [
+        "./dist/convex/integrations/billing.d.ts"
+      ],
+      "convex/email": [
+        "./dist/convex/integrations/email.d.ts"
+      ],
+      "convex/rate-limit": [
+        "./dist/convex/integrations/rate-limit.d.ts"
+      ],
+      "convex/migrations": [
+        "./dist/convex/integrations/migrations.d.ts"
+      ],
+      "convex/aggregate": [
+        "./dist/convex/integrations/aggregate.d.ts"
+      ],
+      "convex/search": [
+        "./dist/convex/integrations/search.d.ts"
+      ],
+      "convex/workflows": [
+        "./dist/convex/integrations/workflows.d.ts"
       ],
       "convex/component/_generated/component": [
         "./dist/convex/component/_generated/component.d.ts"
@@ -97,13 +153,14 @@
     "build": "pnpm run build:nuxt-module && pnpm run build:convex-component",
     "build:nuxt-module": "nuxt-module-build build && node scripts/normalize-module-ext.js",
     "build:convex-component": "tsc --project ./tsconfig.convex-component.build.json && node -e \"require('fs').utimesSync('playground/backend/convex.config.ts', new Date(), new Date())\"",
-    "analyze": "ANALYZE=true nuxt build playground",
+    "analyze": "ANALYZE=true nuxt build --dotenv ../.env.local playground",
     "dev": "pnpm run dev:prepare && pnpm run build:convex-component && run-p -r 'dev:convex-component' 'dev:nuxt-module'",
     "dev:convex-component": "convex dev --typecheck-components --start 'pnpm run dev:convex-component:watch'",
     "dev:convex-component:codegen": "convex codegen --component-dir ./src/convex/component",
     "dev:convex-component:watch": "chokidar 'tsconfig*.json' 'src/convex/**/*.ts' -i '**/*.test.ts' -i 'src/convex/component/_generated/**' -c 'pnpm run dev:convex-component:codegen && pnpm run build:convex-component' --initial",
-    "dev:nuxt-module": "TMPDIR=/tmp portless nuxt-backend nuxt dev playground",
-    "dev:nuxt-module:build": "nuxt build playground",
+    "dev:nuxt-module": "portless nuxt-backend nuxt dev --dotenv ../.env.local playground",
+    "dev:nuxt-module:share": "portless nuxt-backend --ngrok nuxt dev --dotenv ../.env.local playground",
+    "dev:nuxt-module:build": "nuxt build --dotenv ../.env.local playground",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && node scripts/normalize-module-ext.js && nuxt prepare playground",
     "dev:nuxt-module:prepare": "pnpm run dev:prepare",
     "lint": "eslint .",
@@ -123,12 +180,22 @@
   },
   "dependencies": {
     "@better-auth/passkey": "~1.6.18",
+    "@convex-dev/aggregate": "^0.2.1",
     "@convex-dev/better-auth": "^0.12.3",
+    "@convex-dev/migrations": "^0.3.5",
+    "@convex-dev/polar": "^0.9.1",
+    "@convex-dev/rate-limiter": "^0.3.2",
+    "@convex-dev/resend": "^0.2.4",
+    "@convex-dev/workflow": "^0.4.4",
     "@nuxt/kit": "^4.4.8",
+    "@polar-sh/checkout": "^0.3.0",
+    "@polar-sh/sdk": "^0.48.1",
     "better-auth": "~1.6.18",
     "convex": "^1.41.0",
+    "convex-helpers": "^0.1.119",
     "dedent": "^1.7.2",
-    "nuxt-security": "^2.6.0"
+    "nuxt-security": "^2.6.0",
+    "resend": "^6.6.0"
   },
   "devDependencies": {
     "@codecov/nuxt-plugin": "^2.0.1",

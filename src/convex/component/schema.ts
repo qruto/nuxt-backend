@@ -88,6 +88,51 @@ export const tables = {
   }),
 }
 
+/**
+ * Billing entitlement cache — the current user's active plans, granted benefits
+ * (feature-gating) and credit-meter balances, synced from Polar by `setupBilling`
+ * (see `src/convex/integrations/billing.ts`) and served reactively to
+ * `useFeatures()` / `useCredits()`.
+ *
+ * Kept inside this component so consumers add **nothing** to their own schema —
+ * the same "ships out of the box" rationale as the nested Resend email. The
+ * validators are shared with the component's billing functions (`billing.ts`) and
+ * the app-level cache mutation, so the shape is defined once.
+ *
+ * Intentionally NOT part of the auth-only `tables` export above (which is spread
+ * into consumer schemas for local installs) — billing data is the component's own.
+ */
+export const vEntitlementBenefit = v.object({
+  id: v.string(),
+  benefitId: v.string(),
+  type: v.string(),
+  // The benefit's live Polar metadata — lets consumers feature-gate by a friendly
+  // key (`has('premium')`) instead of a UUID. Optional so pre-metadata rows validate.
+  metadata: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean()))),
+})
+
+export const vEntitlementMeter = v.object({
+  meterId: v.string(),
+  consumedUnits: v.number(),
+  creditedUnits: v.number(),
+  balance: v.number(),
+})
+
+export const billingTables = {
+  billingEntitlements: defineTable({
+    userId: v.string(),
+    customerId: v.optional(v.string()),
+    activeProductIds: v.array(v.string()),
+    benefits: v.array(vEntitlementBenefit),
+    meters: v.array(vEntitlementMeter),
+    updatedAt: v.number(),
+  })
+    .index('userId', ['userId'])
+    .index('customerId', ['customerId']),
+}
+
+/** Auth-only schema — passed to Better Auth's `createApi` in `adapter.ts`. */
 export const authSchema = defineSchema(tables)
 
-export default authSchema
+/** Full component schema: auth tables + the billing cache. */
+export default defineSchema({ ...tables, ...billingTables })

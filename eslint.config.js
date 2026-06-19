@@ -16,6 +16,11 @@ export default createConfigForNuxt({
   },
 })
   .append(
+    // `.agents/` holds AI tooling references (skill scripts, fetched examples),
+    // not package source — exclude it from the project's lint rules.
+    {
+      ignores: ['.agents/**'],
+    },
     // Convex component code runs in the Convex worker runtime.
     // Enforce no-floating-promises to catch silent failures.
     {
