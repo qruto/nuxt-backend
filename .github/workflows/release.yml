@@ -36,7 +36,7 @@ jobs:
           fetch-depth: 0 # full history + tags for changelogen, and to push back
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Install node
         uses: actions/setup-node@v6
