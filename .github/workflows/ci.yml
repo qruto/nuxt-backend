@@ -83,7 +83,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Type-checks the published surface (module + Convex code). The playground
+      # Type-checks the published surface (module + Convex code). The website app
       # typecheck is intentionally excluded — it imports the app's
       # `backend/_generated` code, which only exists with a Convex deployment.
       - name: Type check

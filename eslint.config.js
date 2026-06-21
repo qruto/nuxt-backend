@@ -11,7 +11,7 @@ export default createConfigForNuxt({
   },
   dirs: {
     src: [
-      './playground',
+      './website',
     ],
   },
 })
@@ -45,7 +45,7 @@ export default createConfigForNuxt({
     },
     // Playground demo components use short, single-word names by design.
     {
-      files: ['playground/**/*.vue'],
+      files: ['website/**/*.vue'],
       rules: {
         'vue/multi-word-component-names': 'off',
       },

@@ -1,11 +1,8 @@
 {
   "$schema": "./node_modules/convex/schemas/convex.schema.json",
-  "functions": "playground/backend",
+  "functions": "website/backend",
 
   "codegen": {
     "legacyComponentApi": false
-  },
-  "node": {
-    "externalPackages": ["@opentelemetry/api"]
   }
 }

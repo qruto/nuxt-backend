@@ -35,7 +35,7 @@ pnpm test
 pnpm build
 ```
 
-The `playground/` directory contains a full Nuxt app wired to the local package. Start it with:
+The `website/` directory is a full Nuxt app (product homepage · docs · interactive playground) wired to the local package. Start it with:
 
 ```bash
 pnpm dev
@@ -46,8 +46,7 @@ pnpm dev
 ```
 src/        # Module source (Nuxt module + Convex component)
 test/       # Vitest unit & integration tests
-playground/ # Local Nuxt app for manual testing
-docs/       # API reference
+website/    # Nuxt app: product homepage · docs (Docus) · interactive playground
 ```
 
 ## Submitting Changes

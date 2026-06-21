@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Resets the playground Convex database for testing.
+ * Resets the website (dev app) Convex database for testing.
  *
- * Reads CONVEX_DEPLOYMENT and CONVEX_URL from playground/../.env.local,
+ * Reads CONVEX_DEPLOYMENT and CONVEX_URL from the repo-root .env.local,
  * then clears all tables in both the main schema and the auth component.
  *
  * Usage:

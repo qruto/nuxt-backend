@@ -5,7 +5,7 @@
     "dist",
     "node_modules",
     "backend",
-    "playground",
+    "website",
     "src/convex"
   ]
 }

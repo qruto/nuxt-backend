@@ -1,0 +1,619 @@
+/* ════════════════════════════════════════════════════════════════
+   Nuxt backend — playground depth-design system
+   ----------------------------------------------------------------
+   Restrained, premium depth — NOT puffy neumorphism. Surfaces sit a
+   hair ABOVE the canvas and lift with a single soft directional
+   drop-shadow + a hairline edge + a 1px top highlight; wells recess
+   gently. Depth still ENCODES STATE, but it whispers.
+
+     • RAISED  (--raise / --raise-sm)  → active/selected, primary
+       buttons, hoverable cards, the live tiles. A clean lifted card.
+     • INSET   (--inset / --inset-sm)  → text inputs, code/state
+       readouts, toggle tracks, the PRESSED state. A subtle recess.
+     • STATUS  → colored rings (border + inner dot), never flat fills.
+
+   One neutral palette + a single indigo accent + semantic ring
+   colors. Dual light/dark via `color-scheme: light dark` + system
+   preference (no JS, no switcher). LIGHT leans on a soft drop-shadow
+   + hairline + white top highlight; DARK is near-flat, structured by
+   a hairline rim + a faint shadow. Multi-layer shadows can't live in
+   `light-dark()` (no comma lists) → dark variants in a
+   `prefers-color-scheme` block.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ════════════════════════════════════════════════════════════════
+   EDC THEME — Titanium + fluorescent orange
+   ----------------------------------------------------------------
+   One palette across the whole app. The `@theme` block re-tones Nuxt
+   UI / Tailwind (the docs + homepage rendered by Docus); the `:root`
+   tokens further down drive the playground's depth-design. Industrial,
+   machined, hi-vis — titanium greys carry the structure, fluorescent
+   orange carries the signal.
+   ════════════════════════════════════════════════════════════════ */
+@theme {
+  /* Rounded type system: Fredoka (display) + Nunito (sans/body) + JetBrains Mono.
+     `--font-sans` drives the Docus/Nuxt UI docs chrome → soft, rounded Nunito. */
+  --font-sans: "Nunito", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Fluorescent orange — re-tones Tailwind `orange` (the Nuxt UI primary). */
+  --color-orange-50:  #fff4ed;
+  --color-orange-100: #ffe6d5;
+  --color-orange-200: #ffc8aa;
+  --color-orange-300: #ffa274;
+  --color-orange-400: #ff6f3d;
+  --color-orange-500: #ff5a1f;
+  --color-orange-600: #f0420a;
+  --color-orange-700: #c63307;
+  --color-orange-800: #9d2b0e;
+  --color-orange-900: #7e260f;
+  --color-orange-950: #441305;
+}
+
+:root {
+  /* Rounded corners for Nuxt UI / Docus components (depth design wants soft,
+     pill-friendly radii everywhere). */
+  --ui-radius: 0.5rem;
+}
+
+/* Bridge: make the playground's `light-dark()` tokens follow Docus's
+   color-mode toggle (the `.dark` / `.light` class on <html>), not just the OS
+   preference — so the header switch drives the whole app. */
+html.dark { color-scheme: dark; }
+html.light { color-scheme: light; }
+
+:root {
+  /* MANDATORY: adapt native UI (scrollbars, form controls) to scheme. */
+  color-scheme: light dark;
+
+  /* ── Type — a rounded system ───────────────────────────────
+     Gabarito (modern ROUNDED display — soft terminals, slimmer/sharper
+     than the chunky alternatives), Nunito (rounded-terminal body),
+     JetBrains Mono for data/labels/code. Loaded via <link> in
+     nuxt.config. Soft rounded letterforms to echo the full-rounded,
+     depth-design surfaces. */
+  --display: "Gabarito", system-ui, sans-serif;
+  --font: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ── Surfaces — TITANIUM neutral grays (no blue, no warm cast) ──
+     Pure neutral so the orange accent carries all the warmth. The
+     near-white `--surface` lifts off the slightly darker canvas; the
+     `--sink` well sits a hair below for inputs & readouts. */
+  --bg:         light-dark(#e8e8e8, #161616);
+  --surface:    light-dark(#fafafa, #232323);
+  --surface-hi: light-dark(#ffffff, #2b2b2b);
+  /* `--sink` (recessed wells) sits clearly below the surface so nested wells,
+     readouts and inputs read as carved, not washed-out. */
+  --sink:       light-dark(#dadada, #151515);
+
+  /* ── Ink — neutral, AA-checked on the titanium grays ───────── */
+  --ink:       light-dark(#1c1c1c, #ededed);
+  --ink-dim:   light-dark(#565656, #a8a8a8);
+  --ink-faint: light-dark(#6b6b6b, #858585);
+
+  /* ── Accent — Tailwind ORANGE (600 is the identity color) ────
+     -press is the hover/active shade; -soft is the readable TEXT
+     shade; -dim is a faint tint fill. Dark lifts to a lighter orange
+     so it stays legible on the near-black material. */
+  --accent:       light-dark(#f0420a, #ff7a3c);  /* fluorescent orange 600 / lifted */
+  --accent-press: light-dark(#c63307, #ff9166);  /* 700 / lighter for dark */
+  --accent-soft:  light-dark(#c63307, #ffb992);  /* readable text shade */
+  --accent-dim:   light-dark(rgb(240 66 10 / 0.12), rgb(255 90 31 / 0.20));
+  --accent-glow:  light-dark(rgb(240 66 10 / 0.30), rgb(255 90 31 / 0.38));
+  --on-accent:    #ffffff;
+
+  /* ── Semantic ring colors (status, not fills) ───────────────── */
+  --ok:       light-dark(#16a34a, #4ade80);
+  --ok-dim:   light-dark(rgb(22 163 74 / 0.12), rgb(74 222 128 / 0.16));
+  --warn:     light-dark(#d97706, #fbbf24);
+  --warn-dim: light-dark(rgb(217 119 6 / 0.12), rgb(251 191 36 / 0.16));
+  --err:      light-dark(#dc2626, #f87171);
+  --err-dim:  light-dark(rgb(220 38 38 / 0.1), rgb(248 113 113 / 0.16));
+  /* No blue in the palette — "info"/in-progress folds into the orange accent. */
+  --info:     var(--accent);
+  --info-dim: var(--accent-dim);
+
+  /* ── Experimental marker (a violet, distinct from the accent) ─ */
+  --xp:      light-dark(#7c3aed, #c4b5fd);
+  --xp-dim:  light-dark(rgb(124 58 237 / 0.12), rgb(196 181 253 / 0.18));
+  --xp-glow: light-dark(rgb(124 58 237 / 0.22), rgb(196 181 253 / 0.3));
+  --on-xp:   #ffffff;
+
+  /* Neutral hairline — separates busy lists / table rows / headers. */
+  --edge:    light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.07));
+  --edge-hi: light-dark(rgb(0 0 0 / 0.14), rgb(255 255 255 / 0.12));
+
+  /* ── Geometry — rounder for the depth-design refresh ───────── */
+  --r-sm: 10px;
+  --r:    16px;
+  --r-lg: 22px;
+
+  /* ── Motion ────────────────────────────────────────────────── */
+  --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
+  --press:       130ms;
+  --transition:  180ms var(--ease-out);
+
+  /* ── Depth — legacy names, aliased onto the canonical ladder ──
+     The base components (.btn, .card, .well, .input, .pill and the
+     playground's Lab* components) predate the --elev-* ladder defined
+     further down. Rather than keep a SECOND shadow family lit from a
+     different direction (these used a straight-down cast; the ladder
+     casts down-right from the top-left sun), every legacy name now
+     ALIASES the ladder. One light source across homepage, docs AND
+     playground — and, because the ladder carries html.dark/html.light
+     overrides, the playground's depth now follows the theme toggle too
+     (it previously only tracked the OS preference). See design.md §3. */
+  --raise:        var(--elev-1);   /* resting card / panel            */
+  --raise-sm:     var(--elev-1);   /* resting control (button, pill)  */
+  --raise-lg:     var(--elev-3);   /* popover / large lifted surface  */
+  --inset:        var(--inset-2);  /* deep well (panel.well, tracks)  */
+  --inset-sm:     var(--inset-1);  /* shallow well (input, chip)      */
+  --raise-accent: var(--elev-1), var(--glow-accent-soft); /* primary  */
+
+  /* Custom UI hooks */
+  accent-color: var(--accent);
+  scrollbar-color: var(--edge-hi) transparent;
+  scrollbar-width: thin;
+}
+
+/* (Legacy --raise/--inset dark overrides removed — they now alias the
+   --elev-* ladder, which carries its own dark + html.dark/html.light
+   variants below.) */
+
+/* ════════════════════════════════════════════════════════════════
+   Keyframes
+   ════════════════════════════════════════════════════════════════ */
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 var(--ring-glow, var(--accent-glow)); opacity: 1; }
+  50%      { box-shadow: 0 0 0 6px transparent; opacity: 0.6; }
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes blink { 50% { opacity: 0.35; } }
+
+/* ════════════════════════════════════════════════════════════════
+   Reset / base
+   ════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scrollbar-color: var(--edge-hi) transparent; scrollbar-width: thin; }
+
+body { margin: 0; }
+
+/* The playground canvas is scoped to the playground shell so the Docus docs and
+   homepage keep Nuxt UI's surface; the playground keeps its depth-design. */
+.pg-shell {
+  min-height: 100dvh;
+  color: var(--ink);
+  background-color: var(--bg);
+  /* A whisper of an accent vignette so the canvas isn't dead —
+     never a grid, never loud. */
+  background-image:
+    radial-gradient(900px 520px at 94% -12%, var(--accent-dim), transparent 60%);
+  background-attachment: fixed;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.pg-shell ::selection { background: var(--accent); color: var(--on-accent); }
+
+h1, h2, h3 { text-wrap: balance; }
+p, li { text-wrap: pretty; }
+
+input, .mono, code, pre, time, .tnum { font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--edge-hi); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Shared utilities
+   ════════════════════════════════════════════════════════════════ */
+.mono { font-family: var(--mono); }
+
+.lab-label {
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.fade-up { animation: fade-up 0.26s var(--ease-out) both; }
+
+/* Inline code chip — a tiny recessed well */
+.prose-code,
+.subtitle code,
+.ph-sub code,
+code.inline {
+  font-family: var(--mono);
+  font-size: 0.82em;
+  color: var(--accent-soft);
+  background: var(--sink);
+  padding: 0.08rem 0.36rem;
+  border-radius: 5px;
+  box-shadow: var(--inset-sm);
+}
+
+@media (max-width: 860px) {
+  .main-grid { grid-template-columns: 1fr; }
+  .sidebar { display: none !important; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Buttons (.btn base — raised at rest, pressed-in on :active)
+   ════════════════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-family: var(--font);
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: var(--r-sm);
+  border: 0;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: var(--raise-sm);
+  transition: color var(--transition), box-shadow var(--transition),
+    transform var(--press) var(--ease-out);
+  text-decoration: none;
+}
+.btn:hover { color: var(--accent); }
+.btn:active:not(:disabled) { box-shadow: var(--inset-sm); transform: translateY(0.5px); }
+.btn.primary { background: var(--accent); color: var(--on-accent); box-shadow: var(--raise-accent); }
+.btn.primary:hover { background: var(--accent-press); color: var(--on-accent); }
+.btn.primary:active:not(:disabled) { box-shadow: var(--inset-sm); }
+.btn.secondary { background: var(--surface); }
+.btn.danger { color: var(--err); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: var(--raise-sm); }
+
+/* ════════════════════════════════════════════════════════════════
+   Focus & touch (Web Interface Guidelines) — ring sits ON TOP of depth
+   ════════════════════════════════════════════════════════════════ */
+.pg-shell :where(a, button, summary, [role="button"], .lb):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+a, button, summary, [role="button"], .lb, .tg, label { touch-action: manipulation; }
+
+.tg-sw input:focus-visible ~ .tg-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Inputs — concave wells carved into the material
+   ════════════════════════════════════════════════════════════════ */
+.input {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  font-family: var(--font);
+  font-size: 0.92rem;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--sink);
+  color: var(--ink);
+  box-shadow: var(--inset-sm);
+  transition: box-shadow var(--transition);
+}
+.input:focus {
+  outline: none;
+  box-shadow: var(--inset-sm), 0 0 0 2px var(--accent);
+}
+.input::placeholder { color: var(--ink-faint); }
+
+/* ════════════════════════════════════════════════════════════════
+   Cards / panels / pills
+   ════════════════════════════════════════════════════════════════ */
+.card {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--raise);
+}
+
+.well {
+  background: var(--sink);
+  border-radius: var(--r-lg);
+  box-shadow: var(--inset);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  color: var(--ink-dim);
+  background: var(--sink);
+  box-shadow: var(--inset-sm);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Page-level helpers (shared across the rebuilt pages)
+   ════════════════════════════════════════════════════════════════ */
+.stack { display: flex; flex-direction: column; gap: 1rem; }
+.row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+.grid-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; align-items: start; }
+@media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+
+.hint { font-size: 0.78rem; color: var(--ink-dim); line-height: 1.55; margin: 0; }
+.hint code, .lead code { font-family: var(--mono); font-size: 0.9em; color: var(--accent-soft); }
+.lead { font-size: 0.88rem; color: var(--ink-dim); line-height: 1.6; margin: 0; }
+
+textarea.input { resize: vertical; min-height: 4.5rem; line-height: 1.5; }
+select.input { cursor: pointer; }
+
+/* A collapsible "developer details" section — a recessed well. */
+details.dev {
+  background: var(--sink);
+  border-radius: var(--r);
+  box-shadow: var(--inset-sm);
+  padding: 0.2rem 0.2rem;
+}
+details.dev > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.6rem 0.85rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+details.dev > summary::-webkit-details-marker { display: none; }
+details.dev > summary::before {
+  content: '+';
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--accent);
+}
+details.dev[open] > summary::before { content: '−'; }
+details.dev > .dev-body { padding: 0.25rem 0.85rem 0.85rem; }
+
+/* ════════════════════════════════════════════════════════════════
+   DEPTH SYSTEM  (see design.md)
+   ----------------------------------------------------------------
+   Light from the TOP-LEFT, tiny elevation. A 5-step raised ladder
+   (--elev-*) + inset wells (--inset-1/2) + glows. Every raised step
+   = a hand-picked rim highlight on the top-left edge, a tight ambient
+   contact shadow, and a soft cast offset down-right; the ambient part
+   fades as elevation grows while the cast grows (RefactoringUI: two-
+   part shadows). Box-shadow tokens can't use light-dark() (no comma
+   lists), so dark is redefined for BOTH the system pref and the
+   `html.dark` toggle; `html.light` forces light on a dark system.
+   ════════════════════════════════════════════════════════════════ */
+:root {
+  --elev-0:
+    inset 1px 1px 0 rgb(255 255 255 / 0.6),
+    0 0 0 1px rgb(0 0 0 / 0.04);
+  --elev-1:
+    inset 1px 1px 0 rgb(255 255 255 / 0.85),
+    inset -1px -1px 0 rgb(0 0 0 / 0.04),
+    1px 1px 1px rgb(0 0 0 / 0.05),
+    2px 4px 8px rgb(0 0 0 / 0.07);
+  --elev-2:
+    inset 1px 1px 0 rgb(255 255 255 / 0.9),
+    1px 2px 2px rgb(0 0 0 / 0.05),
+    3px 6px 14px rgb(0 0 0 / 0.09);
+  --elev-3:
+    inset 1px 1px 0 rgb(255 255 255 / 0.9),
+    2px 4px 6px rgb(0 0 0 / 0.04),
+    5px 12px 24px rgb(0 0 0 / 0.11);
+  --elev-4:
+    inset 1px 1px 0 rgb(255 255 255 / 0.95),
+    8px 20px 48px rgb(0 0 0 / 0.16);
+  --inset-1:
+    inset 1px 1px 2px rgb(0 0 0 / 0.10),
+    inset -1px -1px 0 rgb(255 255 255 / 0.6);
+  --inset-2:
+    inset 2px 2px 5px rgb(0 0 0 / 0.14),
+    inset -1px -1px 0 rgb(255 255 255 / 0.5);
+
+  --glow-accent:
+    0 0 0 1px rgb(255 90 31 / 0.35),
+    0 4px 16px rgb(255 90 31 / 0.35);
+  --glow-accent-soft: 0 0 14px rgb(255 90 31 / 0.30);
+  --glow-ok:   0 0 9px rgb(74 222 128 / 0.55);
+  --glow-warn: 0 0 9px rgb(251 191 36 / 0.5);
+  --glow-err:  0 0 9px rgb(248 113 113 / 0.5);
+
+  /* Lit surface gradient + the light-top-left → dark-bottom-right bevel
+     used by .depth-border. Colors follow color-scheme via light-dark(). */
+  --grad-surface: linear-gradient(135deg, var(--surface-hi), var(--surface) 58%,
+    color-mix(in srgb, var(--surface), #000 5%) 150%);
+  --grad-bevel: linear-gradient(135deg,
+    rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.12) 45%, rgb(0 0 0 / 0.14));
+}
+
+/* Dark tokens — system pref + explicit toggle. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --elev-0:
+      inset 1px 1px 0 rgb(255 255 255 / 0.05),
+      0 0 0 1px rgb(255 255 255 / 0.05);
+    --elev-1:
+      inset 1px 1px 0 rgb(255 255 255 / 0.06),
+      1px 1px 2px rgb(0 0 0 / 0.4),
+      2px 5px 12px rgb(0 0 0 / 0.4);
+    --elev-2:
+      inset 1px 1px 0 rgb(255 255 255 / 0.07),
+      2px 4px 6px rgb(0 0 0 / 0.45),
+      3px 8px 18px rgb(0 0 0 / 0.5);
+    --elev-3:
+      inset 1px 1px 0 rgb(255 255 255 / 0.08),
+      5px 12px 26px rgb(0 0 0 / 0.55);
+    --elev-4:
+      inset 1px 1px 0 rgb(255 255 255 / 0.1),
+      10px 24px 56px rgb(0 0 0 / 0.68);
+    --inset-1:
+      inset 1px 1px 3px rgb(0 0 0 / 0.5),
+      inset -1px -1px 0 rgb(255 255 255 / 0.05);
+    --inset-2:
+      inset 2px 2px 6px rgb(0 0 0 / 0.6),
+      inset -1px -1px 0 rgb(255 255 255 / 0.04);
+    --grad-bevel: linear-gradient(135deg,
+      rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.03) 45%, rgb(0 0 0 / 0.5));
+  }
+}
+html.dark {
+  --elev-0: inset 1px 1px 0 rgb(255 255 255 / 0.05), 0 0 0 1px rgb(255 255 255 / 0.05);
+  --elev-1: inset 1px 1px 0 rgb(255 255 255 / 0.06), 1px 1px 2px rgb(0 0 0 / 0.4), 2px 5px 12px rgb(0 0 0 / 0.4);
+  --elev-2: inset 1px 1px 0 rgb(255 255 255 / 0.07), 2px 4px 6px rgb(0 0 0 / 0.45), 3px 8px 18px rgb(0 0 0 / 0.5);
+  --elev-3: inset 1px 1px 0 rgb(255 255 255 / 0.08), 5px 12px 26px rgb(0 0 0 / 0.55);
+  --elev-4: inset 1px 1px 0 rgb(255 255 255 / 0.1), 10px 24px 56px rgb(0 0 0 / 0.68);
+  --inset-1: inset 1px 1px 3px rgb(0 0 0 / 0.5), inset -1px -1px 0 rgb(255 255 255 / 0.05);
+  --inset-2: inset 2px 2px 6px rgb(0 0 0 / 0.6), inset -1px -1px 0 rgb(255 255 255 / 0.04);
+  --grad-bevel: linear-gradient(135deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.03) 45%, rgb(0 0 0 / 0.5));
+}
+html.light {
+  --elev-0: inset 1px 1px 0 rgb(255 255 255 / 0.6), 0 0 0 1px rgb(0 0 0 / 0.04);
+  --elev-1: inset 1px 1px 0 rgb(255 255 255 / 0.85), inset -1px -1px 0 rgb(0 0 0 / 0.04), 1px 1px 1px rgb(0 0 0 / 0.05), 2px 4px 8px rgb(0 0 0 / 0.07);
+  --elev-2: inset 1px 1px 0 rgb(255 255 255 / 0.9), 1px 2px 2px rgb(0 0 0 / 0.05), 3px 6px 14px rgb(0 0 0 / 0.09);
+  --elev-3: inset 1px 1px 0 rgb(255 255 255 / 0.9), 2px 4px 6px rgb(0 0 0 / 0.04), 5px 12px 24px rgb(0 0 0 / 0.11);
+  --elev-4: inset 1px 1px 0 rgb(255 255 255 / 0.95), 8px 20px 48px rgb(0 0 0 / 0.16);
+  --inset-1: inset 1px 1px 2px rgb(0 0 0 / 0.10), inset -1px -1px 0 rgb(255 255 255 / 0.6);
+  --inset-2: inset 2px 2px 5px rgb(0 0 0 / 0.14), inset -1px -1px 0 rgb(255 255 255 / 0.5);
+  --grad-bevel: linear-gradient(135deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.12) 45%, rgb(0 0 0 / 0.14));
+}
+
+/* ── Depth utilities ─────────────────────────────────────────────
+   Reusable building blocks for the marketing homepage. */
+.depth-surface {
+  background: var(--grad-surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--elev-1);
+}
+/* A 1px bevel that's lit at the top-left and dark at the bottom-right,
+   sitting on a drop shadow → "border lighter than the shadow". */
+.depth-border {
+  border: 1px solid transparent;
+  border-radius: var(--r-lg);
+  background:
+    var(--grad-surface) padding-box,
+    var(--grad-bevel) border-box;
+  box-shadow: var(--elev-1);
+}
+.depth-well {
+  background: var(--sink);
+  border-radius: var(--r-lg);
+  box-shadow: var(--inset-1);
+}
+.text-grad {
+  background: linear-gradient(135deg, var(--accent-soft), var(--accent) 55%, var(--accent-press));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.text-grad-ink {
+  background: linear-gradient(160deg,
+    color-mix(in srgb, var(--ink), #fff 18%), var(--ink) 55%, var(--ink-dim));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+/* A whisper of fractal noise to stop flat banding on big surfaces. */
+.noise { position: relative; }
+.noise::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ════════════════════════════════════════════════════════════════
+   DOCUS / NUXT UI — depth coat
+   ----------------------------------------------------------------
+   The docs theme is Nuxt UI. Rounder corners come from --ui-radius; here we
+   add tiny, top-left-lit elevation to the docs chrome. Selectors target Nuxt
+   UI's stable utility classes (the Docus header is the only `header.backdrop-blur`,
+   so it won't touch the homepage device's scoped <header>).
+   ════════════════════════════════════════════════════════════════ */
+
+/* Header — a softly lifted bar. */
+header.backdrop-blur {
+  box-shadow: 0 1px 0 var(--edge), 0 10px 26px -20px rgb(0 0 0 / 0.5);
+}
+
+/* Left sidebar + right TOC links: hover/active become depth pills. The link
+   ships a `::before` background layer (inset, z-[-1], rounded) we light up. */
+aside a { transition: color 0.18s var(--ease-out); }
+aside a:hover::before {
+  background: var(--surface);
+  box-shadow: var(--elev-0);
+}
+aside a.text-primary::before {
+  background: var(--grad-surface);
+  box-shadow: var(--elev-1);
+}
+
+/* Code blocks → carved wells. */
+pre.shiki {
+  border-radius: var(--r) !important;
+  border: 1px solid var(--edge);
+  box-shadow: var(--inset-1);
+}
+
+/* Inline code & kbd → tiny recessed chips. */
+:where(p, li, td, h1, h2, h3, h4, h5) > code {
+  box-shadow: var(--inset-sm);
+}
+kbd { box-shadow: var(--elev-0); }
+
+/* The search trigger in the header → a lifted control. */
+header button:has(kbd),
+header [role="button"]:has(kbd) {
+  box-shadow: var(--elev-1);
+  transition: box-shadow var(--transition);
+}
+header button:has(kbd):hover { box-shadow: var(--elev-2); }
+
+/* MDC ::card / ::card-group tiles. This theme renders docs content WITHOUT a
+   `.prose` wrapper, so target Nuxt UI's card classes directly: a bordered,
+   rounded, surfaced block. Lift them a hair off the page; raise on hover so
+   the depth tracks the existing hover:border-primary affordance. */
+:where(a, div)[class*="border-default"][class*="rounded-md"][class*="bg-default"] {
+  box-shadow: var(--elev-1);
+  transition: box-shadow var(--transition), border-color var(--transition),
+    background-color var(--transition);
+}
+:where(a, div)[class*="border-default"][class*="rounded-md"][class*="bg-default"]:hover {
+  box-shadow: var(--elev-2);
+}

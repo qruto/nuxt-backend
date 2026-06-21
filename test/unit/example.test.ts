@@ -4,13 +4,11 @@ import { describe, expect, it } from 'vitest'
 import { BACKEND_FILE_TEMPLATES, LOCAL_BACKEND_FILE_TEMPLATES, getBackendFileTemplates } from '../../src/templates'
 
 const packageJsonPath = fileURLToPath(new URL('../../package.json', import.meta.url))
-const playgroundAppPath = fileURLToPath(new URL('../../playground/app.vue', import.meta.url))
-const playgroundBackendTsconfigPath = fileURLToPath(new URL('../../playground/backend/tsconfig.json', import.meta.url))
+const websiteBackendTsconfigPath = fileURLToPath(new URL('../../website/backend/tsconfig.json', import.meta.url))
 const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8')) as {
   exports: Record<string, unknown>
 }
-const playgroundApp = readFileSync(playgroundAppPath, 'utf-8')
-const playgroundBackendTsconfig = readFileSync(playgroundBackendTsconfigPath, 'utf-8')
+const websiteBackendTsconfig = readFileSync(websiteBackendTsconfigPath, 'utf-8')
 
 describe('package exports', () => {
   it('exposes the packaged Convex component only through the extensionless Convex config subpath', () => {
@@ -99,15 +97,9 @@ describe('scaffold templates', () => {
   })
 })
 
-describe('playground templates', () => {
-  it('keeps the Nuxt playground Vue-only', () => {
-    expect(playgroundApp).toContain('<NuxtPage />')
-    expect(playgroundApp).not.toContain('useSession')
-    expect(playgroundApp).not.toContain('useAuthClient')
-  })
-
+describe('website app', () => {
   it('does not enable React JSX in backend functions', () => {
-    expect(playgroundBackendTsconfig).not.toContain('"jsx"')
-    expect(playgroundBackendTsconfig).toContain('"moduleResolution": "Bundler"')
+    expect(websiteBackendTsconfig).not.toContain('"jsx"')
+    expect(websiteBackendTsconfig).toContain('"moduleResolution": "Bundler"')
   })
 })

@@ -12,7 +12,7 @@ pnpm-debug.log*
 
 # Generated dirs
 dist
-playground/backend/_generated
+website/backend/_generated
 
 # Nuxt
 .nuxt

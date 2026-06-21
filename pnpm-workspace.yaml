@@ -3,11 +3,11 @@
 # Docs: https://pnpm.io/settings
 
 packages:
-  - playground
+  - website
 
 # --- Catalog: one version, used across every workspace package ---------------
 # Reference with `"nuxt": "catalog:"` in package.json so the root module and the
-# playground can never drift onto different Nuxt majors. https://pnpm.io/catalogs
+# website can never drift onto different Nuxt majors. https://pnpm.io/catalogs
 catalog:
   nuxt: ^4.4.8
 
@@ -22,7 +22,12 @@ nodeLinker: hoisted
 # `pnpm approve-builds` maintains.
 allowBuilds:
   '@parcel/watcher': true
+  # Transitive only (via @nuxt/content, better-auth, db0) — never imported: Content
+  # uses Node's built-in `node:sqlite`, better-auth runs against Convex. Don't compile
+  # its native addon.
+  better-sqlite3: false
   esbuild: true
+  sharp: true # Image optimization (Nuxt Image / OG images) for the docs site (Docus)
   unrs-resolver: true
   vue-demi: true
 

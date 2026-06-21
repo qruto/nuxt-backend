@@ -5,7 +5,9 @@
 
     "target": "ESNext",
     "lib": ["ES2023", "dom", "DOM.Iterable"],
-
+    // Convex codegen emits `export const env = process.env` in _generated/server
+    // when a component declares typed env vars — needs the Node `process` global.
+    "types": ["node"],
     "forceConsistentCasingInFileNames": true,
     "allowSyntheticDefaultImports": true,
     "noErrorTruncation": true,
