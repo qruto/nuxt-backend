@@ -54,6 +54,42 @@ export type SendEmailOptions = {
  */
 type AnyActionCtx = Pick<GenericActionCtx<GenericDataModel>, 'runQuery' | 'runMutation' | 'runAction'>
 
+/** A delivery event from the Resend webhook, passed to the email event hooks. */
+export interface EmailEvent {
+  /** The Resend event type, e.g. `'email.bounced'`. */
+  type: string
+  /** The Resend email id (matches `useEmailStatus(emailId)`). */
+  emailId: string | null
+  /** Recipient addresses. */
+  to: string[]
+  /** The raw event `data` payload for anything not surfaced above. */
+  data: Record<string, unknown>
+}
+
+/** A hook invoked after the component has processed a verified webhook event. */
+export type EmailEventHandler = (ctx: AnyActionCtx, event: EmailEvent) => Promise<void>
+
+export interface SetupEmailOptions {
+  /**
+   * React to delivery events. Handlers run **after** the nested Resend
+   * component has verified (svix, `RESEND_WEBHOOK_SECRET`) and processed the
+   * event — `useEmailStatus` already reflects it. E.g. flag a user's address
+   * on `onBounced`, or alert an admin on `onComplained`.
+   */
+  events?: {
+    onDelivered?: EmailEventHandler
+    onBounced?: EmailEventHandler
+    onComplained?: EmailEventHandler
+  }
+}
+
+/** Resend webhook event type → the configured hook. */
+const EMAIL_EVENT_HOOKS: Record<string, keyof NonNullable<SetupEmailOptions['events']>> = {
+  'email.delivered': 'onDelivered',
+  'email.bounced': 'onBounced',
+  'email.complained': 'onComplained',
+}
+
 const sendArgs = {
   to: v.union(v.string(), v.array(v.string())),
   subject: v.optional(v.string()),
@@ -137,8 +173,9 @@ export interface Email {
  * export const { getEmailStatus } = email.api
  * ```
  */
-export function setupEmail(component: EmailComponentApi): Email {
+export function setupEmail(component: EmailComponentApi, options: SetupEmailOptions = {}): Email {
   const refs = component.email
+  const events = options.events
 
   const send: Email['send'] = (ctx, options) =>
     ctx.runMutation(refs.send, options)
@@ -157,6 +194,11 @@ export function setupEmail(component: EmailComponentApi): Email {
       headers[key] = value
     })
     const result = await ctx.runAction(refs.handleWebhook, { body, headers })
+    // A 2xx from the component means the event was signature-verified and
+    // processed (useEmailStatus is already fresh) — now run consumer hooks.
+    if (events && result.status < 300) {
+      await runEmailEventHook(ctx, events, body)
+    }
     return new Response(result.body || null, { status: result.status })
   }
 
@@ -187,6 +229,33 @@ export function setupEmail(component: EmailComponentApi): Email {
       send: (id, payload) => unwrap(marketingClient().broadcasts.send(id, payload)),
     },
   }
+}
+
+/** Parse the (already verified) webhook body and run the matching hook. */
+async function runEmailEventHook(
+  ctx: AnyActionCtx,
+  events: NonNullable<SetupEmailOptions['events']>,
+  body: string,
+): Promise<void> {
+  let payload: { type?: unknown, data?: unknown }
+  try {
+    payload = JSON.parse(body) as { type?: unknown, data?: unknown }
+  }
+  catch {
+    return
+  }
+  if (typeof payload.type !== 'string') return
+  const hook = events[EMAIL_EVENT_HOOKS[payload.type] as keyof typeof events]
+  if (!hook) return
+
+  const data = (payload.data ?? {}) as Record<string, unknown>
+  const to = Array.isArray(data.to) ? data.to.filter((entry): entry is string => typeof entry === 'string') : []
+  await hook(ctx, {
+    type: payload.type,
+    emailId: typeof data.email_id === 'string' ? data.email_id : null,
+    to,
+    data,
+  })
 }
 
 /** Re-export so consumers can keep the `send` argument validator aligned. */

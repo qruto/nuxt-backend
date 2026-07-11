@@ -1,6 +1,6 @@
 import type { QueryJournal } from 'convex/browser'
 import type { Value } from 'convex/values'
-import type { Watch } from '../src/runtime/vue/client'
+import type { Watch } from 'nuxt-convex-module/client'
 
 export default class FakeWatch<T extends Value> implements Watch<T> {
   callbacks: Set<() => void>

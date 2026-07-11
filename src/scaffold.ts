@@ -5,31 +5,45 @@ import { getBackendFileTemplates, type BackendTemplateOptions } from './template
 const DEFAULT_FUNCTIONS_DIR = 'backend'
 const STANDARD_FUNCTIONS_DIR = 'convex'
 
+export interface ScaffoldOptions extends BackendTemplateOptions {
+  /** Only scaffold these template files (e.g. `['billing.ts']`). Default: all. */
+  files?: string[]
+  /** Overwrite existing files. Default `false` (existing files are never touched). */
+  force?: boolean
+  /** Log sink for created-file messages. Default `console.log`. */
+  log?: (message: string) => void
+}
+
 /**
- * Auto-scaffold the minimum backend files if they don't exist.
+ * Scaffold the backend files that don't exist yet (idempotent). Used by the
+ * module's first-run auto-scaffold and by the CLI's `init` / `add` commands.
  */
-export function scaffoldBackendFiles(rootDir: string, options: BackendTemplateOptions = {}) {
+export function scaffoldBackendFiles(rootDir: string, options: ScaffoldOptions = {}) {
+  const log = options.log ?? console.log
   const functionsDir = resolveFunctionsDir(rootDir)
   const functionsDirPath = join(rootDir, functionsDir)
   const convexJsonPath = join(rootDir, 'convex.json')
 
   if (!existsSync(functionsDirPath)) {
     mkdirSync(functionsDirPath, { recursive: true })
-    console.log(`[nuxt-backend] Created ${functionsDir}/ directory`)
+    log(`[nuxt-backend] Created ${functionsDir}/ directory`)
   }
 
-  for (const [file, contents] of Object.entries(getBackendFileTemplates(options))) {
+  const templates = Object.entries(getBackendFileTemplates(options))
+    .filter(([file]) => !options.files || options.files.includes(file))
+
+  for (const [file, contents] of templates) {
     const targetPath = join(functionsDirPath, file)
-    if (!existsSync(targetPath)) {
+    if (options.force || !existsSync(targetPath)) {
       mkdirSync(dirname(targetPath), { recursive: true })
       writeFileSync(targetPath, contents)
-      console.log(`[nuxt-backend] Created ${functionsDir}/${file}`)
+      log(`[nuxt-backend] Created ${functionsDir}/${file}`)
     }
   }
 
-  if (functionsDir !== STANDARD_FUNCTIONS_DIR && !existsSync(convexJsonPath)) {
+  if (!options.files && functionsDir !== STANDARD_FUNCTIONS_DIR && !existsSync(convexJsonPath)) {
     writeFileSync(convexJsonPath, `${JSON.stringify({ functions: `${functionsDir}/` }, null, 2)}\n`)
-    console.log('[nuxt-backend] Created convex.json')
+    log('[nuxt-backend] Created convex.json')
   }
 }
 

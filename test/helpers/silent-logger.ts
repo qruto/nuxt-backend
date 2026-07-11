@@ -1,4 +1,4 @@
-import type { ConvexLogger } from '../../src/runtime/vue/client'
+import type { ConvexLogger } from 'nuxt-convex-module/client'
 
 /**
  * A logger for tests that point a client at an intentionally unreachable

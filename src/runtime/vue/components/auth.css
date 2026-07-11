@@ -1,0 +1,121 @@
+/*
+ * Neutral default styles for <AuthForm>, hooked on its data-auth attributes.
+ * Opt in from nuxt.config.ts:  css: ['nuxt-backend/auth.css']
+ * Theme via the custom properties below, or skip this file and style the
+ * data-auth hooks yourself.
+ */
+[data-auth='form'] {
+  --auth-accent: #00dc82;
+  --auth-on-accent: #04101f;
+  --auth-ink: inherit;
+  --auth-muted: color-mix(in srgb, currentColor 55%, transparent);
+  --auth-edge: color-mix(in srgb, currentColor 18%, transparent);
+  --auth-error: #e5484d;
+  --auth-radius: 8px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  max-width: 24rem;
+  color: var(--auth-ink);
+}
+
+[data-auth='title'] {
+  margin: 0;
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+}
+
+[data-auth^='step-'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+[data-auth^='label-'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--auth-muted);
+}
+
+[data-auth^='input-'] {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--auth-edge);
+  border-radius: var(--auth-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+[data-auth^='input-']:focus {
+  outline: 2px solid var(--auth-accent);
+  outline-offset: 1px;
+}
+
+[data-auth='form'] button {
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--auth-edge);
+  border-radius: var(--auth-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+[data-auth='form'] button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+[data-auth='submit'],
+[data-auth='passkey-sign-in'] {
+  background: var(--auth-accent);
+  border-color: var(--auth-accent);
+  color: var(--auth-on-accent);
+}
+
+[data-auth='back'],
+[data-auth='skip'] {
+  border: 0;
+  background: none;
+  font-weight: 500;
+  color: var(--auth-muted);
+}
+
+[data-auth='divider'] {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--auth-muted);
+}
+
+[data-auth='divider']::before,
+[data-auth='divider']::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--auth-edge);
+}
+
+[data-auth='sent-note'],
+[data-auth='add-passkey-note'] {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--auth-muted);
+  line-height: 1.5;
+}
+
+[data-auth='error'] {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--auth-radius);
+  background: color-mix(in srgb, var(--auth-error) 12%, transparent);
+  color: var(--auth-error);
+  font-size: 0.85rem;
+}

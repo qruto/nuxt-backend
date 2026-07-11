@@ -1,8 +1,6 @@
 import { computed, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
-import { useAction } from './use-action'
-import { useQuery } from './use-query'
+import { useAction, useQuery, useConvexNamespace } from 'nuxt-convex-module/client'
 import { type BillingApi, type CheckoutOptions, createCheckout, type Credits } from './use-billing'
-import { useBackendNamespace } from '../provide'
 
 export interface UseCreditsOptions {
   /** Override the injected `api.billing` namespace. */
@@ -48,7 +46,7 @@ export interface UseCreditsReturn {
  * @param meterId - Optional meter id to read (reactive); defaults to the user's first meter.
  */
 export function useCredits(meterId?: MaybeRefOrGetter<string>, options: UseCreditsOptions = {}): UseCreditsReturn {
-  const billing = (options.api ?? useBackendNamespace<BillingApi>('billing') ?? {}) as BillingApi
+  const billing = (options.api ?? useConvexNamespace<BillingApi>('billing') ?? {}) as BillingApi
 
   const credits = billing.getCredits
     ? useQuery(billing.getCredits)
@@ -85,6 +83,3 @@ export function useCredits(meterId?: MaybeRefOrGetter<string>, options: UseCredi
     },
   }
 }
-
-/** @public */
-export const useConvexCredits = useCredits

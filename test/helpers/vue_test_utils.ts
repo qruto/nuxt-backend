@@ -1,6 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { defineComponent, h, nextTick, provide } from 'vue'
-import { ConvexClientKey, type ConvexVueClient } from '../../src/runtime/vue/client'
+import { ConvexClientKey, type ConvexVueClient } from 'nuxt-convex-module/client'
 
 /**
  * Mount a composable inside a Vue component tree that provides a

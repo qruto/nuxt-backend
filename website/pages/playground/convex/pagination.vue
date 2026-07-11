@@ -5,8 +5,8 @@ import type { Id } from '#backend/dataModel'
 import { LOG_LEVELS } from '../../../backend/schema'
 import type { LogLevel } from '../../../backend/schema'
 // Paginated optimistic helpers are public utilities (used inside
-// withOptimisticUpdate) but not Nuxt auto-imports — pull from the runtime.
-import { insertAtTop } from '../../../../src/runtime/vue/composables/use-paginated-query'
+// withOptimisticUpdate) but not Nuxt auto-imports — pull from the package.
+import { insertAtTop } from 'nuxt-convex-module/client'
 
 definePageMeta({ middleware: 'auth' })
 

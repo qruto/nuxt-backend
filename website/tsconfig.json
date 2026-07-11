@@ -2,6 +2,7 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "./.nuxt/tsconfig.json",
   "exclude": [
-    "backend"
+    "backend",
+    "../node_modules/docus"
   ]
 }

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
 import {
   isDeliveredTestEmail,
   normalizeTestEmail,
@@ -9,132 +8,31 @@ import {
 
 definePageMeta({ layout: false })
 
-const { client, session } = useAuth()
+// The whole passwordless state machine (steps, guards, sequencing) comes from
+// the package; this page only supplies the Strata markup and the playground's
+// Resend-test-inbox email gate.
+const {
+  step, name, email, otp, pending, error, emailValid,
+  signInWithPasskey, registerWithPasskey, sendCode, verifyCode,
+  addPasskey: addPasskeyToCurrentAccount, skipPasskey, goTo,
+} = useLoginFlow({
+  // Sign-up only accepts Resend's delivered inbox (alias-aware) — the OTP must arrive.
+  validateEmail: value => isDeliveredTestEmail(value) || TEST_EMAIL_HELP,
+  onSuccess: () => navigateTo('/playground'),
+})
 
-type Step = 'choose' | 'register-passkey' | 'request-code' | 'verify-code' | 'add-passkey'
-
-const step = ref<Step>('choose')
-const name = ref('')
-const email = ref('')
-const otp = ref('')
-const pending = ref(false)
-const error = ref<string | null>(null)
-
-function setError(message: string) {
-  error.value = message
-}
-function clearError() {
-  error.value = null
-}
-function trimmedName() {
-  return name.value.trim()
-}
 function trimmedEmail() {
   return normalizeTestEmail(email.value)
 }
-/** Sign-up only accepts Resend's delivered inbox (alias-aware) — the OTP must arrive. */
-const emailValid = computed(() => isDeliveredTestEmail(email.value))
 function useTestEmail(preset: string) {
   email.value = preset
-  clearError()
-}
-function passkeyRegistrationContext() {
-  return JSON.stringify({ email: trimmedEmail(), name: trimmedName() })
-}
-async function refreshSession() {
-  await session.value.refetch()
-}
-
-type AuthResult = { error?: { message?: string } | null }
-function ensureOk(result: AuthResult, fallback: string) {
-  if (result.error) throw new Error(result.error.message ?? fallback)
-}
-async function runStep(fallback: string, fn: () => Promise<void>) {
-  pending.value = true
-  clearError()
-  try {
-    await fn()
-  }
-  catch (cause) {
-    setError(cause instanceof Error ? cause.message : fallback)
-  }
-  finally {
-    pending.value = false
-  }
-}
-
-async function signInWithPasskey() {
-  await runStep('Passkey sign-in failed', async () => {
-    ensureOk(await client.signIn.passkey(), 'Passkey sign-in failed')
-    await refreshSession()
-    await navigateTo('/playground')
-  })
+  error.value = null
 }
 function startPasskeyRegistration() {
-  clearError()
-  otp.value = ''
-  step.value = 'register-passkey'
+  goTo('register-passkey')
 }
 function startEmailFlow() {
-  clearError()
-  otp.value = ''
-  step.value = 'request-code'
-}
-
-async function registerWithPasskey() {
-  clearError()
-  if (!trimmedName()) {
-    setError('Enter your name to register a passkey.')
-    return
-  }
-  if (!emailValid.value) {
-    setError(TEST_EMAIL_HELP)
-    return
-  }
-  await runStep('Passkey registration failed', async () => {
-    // Creating a NEW account: drop any lingering session first, otherwise the
-    // passkey endpoint attaches the credential to the *current* user (its
-    // `afterVerification` returns early when a session exists) and the typed
-    // email is silently ignored.
-    if (session.value.data?.user) {
-      await client.signOut()
-      await refreshSession()
-    }
-    ensureOk(await client.passkey.addPasskey({ context: passkeyRegistrationContext() }), 'Failed to register passkey')
-    await refreshSession()
-    await navigateTo('/playground')
-  })
-}
-async function sendCode() {
-  clearError()
-  if (!emailValid.value) {
-    setError(TEST_EMAIL_HELP)
-    return
-  }
-  await runStep('Failed to send code', async () => {
-    ensureOk(await client.emailOtp.sendVerificationOtp({ email: trimmedEmail(), type: 'sign-in' }), 'Failed to send code')
-    step.value = 'verify-code'
-  })
-}
-async function verifyCode() {
-  await runStep('Verification failed', async () => {
-    const displayName = trimmedName()
-    ensureOk(
-      await client.signIn.emailOtp({ email: trimmedEmail(), otp: otp.value.trim(), ...(displayName ? { name: displayName } : {}) }),
-      'Invalid code',
-    )
-    await refreshSession()
-    step.value = 'add-passkey'
-  })
-}
-async function addPasskeyToCurrentAccount() {
-  await runStep('Passkey registration failed', async () => {
-    ensureOk(await client.passkey.addPasskey(), 'Failed to register passkey')
-    await navigateTo('/playground')
-  })
-}
-async function skipPasskey() {
-  await navigateTo('/playground')
+  goTo('request-code')
 }
 </script>
 

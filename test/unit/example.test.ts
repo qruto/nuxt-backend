@@ -63,7 +63,7 @@ describe('scaffold templates', () => {
       `export default defineBackendApp({ backend`,
     )
     expect(BACKEND_FILE_TEMPLATES['http.ts']).toContain(
-      `authComponent.registerRoutes(http, createAuth)`,
+      `registerBackendRoutes(http, {`,
     )
     expect(BACKEND_FILE_TEMPLATES['auth.config.ts']).toBe(
       `export { default } from 'nuxt-backend/convex/auth.config'\n`,

@@ -1,243 +1,127 @@
-import { defineNuxtModule, addPlugin, addPluginTemplate, addImports, addServerHandler, addServerImports, addRouteMiddleware, addComponent, createResolver, type Resolver } from '@nuxt/kit'
-import { join } from 'node:path'
-import { existsSync } from 'node:fs'
-import type { Nuxt } from '@nuxt/schema'
-import { resolveFunctionsDir, scaffoldBackendFiles } from './scaffold'
+import { defineNuxtModule, addComponent, addImports, addTypeTemplate, createResolver, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
+import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
+import { scaffoldBackendFiles } from './scaffold'
+import { registerBackendAliases, backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from './aliases'
+import { collectPreflightFindings, formatPreflightSummary } from './preflight'
 import type { BackendInstallationMode } from './templates'
+
+const logger = useLogger('nuxt-backend')
 
 export interface ModuleOptions {
   url?: string
   siteUrl?: string
   authRoute?: string
   installation?: BackendInstallationMode
-}
-
-declare module '@nuxt/schema' {
-  interface RuntimeConfig {
-    backend: {
-      siteUrl: string
-    }
-  }
-  interface PublicRuntimeConfig {
-    backend: {
-      url: string
-      siteUrl: string
-    }
-  }
+  /**
+   * Auto-scaffold missing Convex backend files on dev startup. Set `false`
+   * when you scaffold explicitly with `npx nuxt-backend init` / `add`.
+   */
+  scaffold?: 'auto' | false
 }
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: 'nuxt-backend',
     configKey: 'backend',
+    // moduleDependencies with option forwarding is a Nuxt 4.1 feature.
+    compatibility: { nuxt: '>=4.1.0' },
   },
   defaults: {
-    authRoute: '/api/auth',
     installation: 'default',
+    scaffold: 'auto',
   },
-  // nuxt-security is an integral part of the backend: declaring it as a module
-  // dependency makes Nuxt's core loader install it (hoisting its types and
-  // deduping if you also register it yourself), and guarantees our setup runs
-  // *before* it — so the CSP defaults below land before nuxt-security reads its
-  // config. It can't be disabled, only configured via the `security` key.
-  moduleDependencies: {
-    'nuxt-security': {},
+  // The Convex + Better Auth + Polar framework integration. Declared as a
+  // module dependency (not `installModule`) so Nuxt dedupes it when the app
+  // lists it too, and so its own dependencies (nuxt-security with the
+  // Convex-aware CSP) chain through. `defaults` forward the `backend.*`
+  // options (user `convex.*` config wins over them); `overrides` force-enable
+  // the integrations this package bundles.
+  moduleDependencies: (nuxt): ModuleDependencies => {
+    const rawOptions = nuxt.options as unknown as Record<string, unknown>
+    const backend = (rawOptions.backend ?? {}) as ModuleOptions
+    const convex = (rawOptions.convex ?? {}) as Record<string, unknown>
+    const resolver = createResolver(import.meta.url)
+    return {
+      'nuxt-convex-module': {
+        defaults: {
+          url: backend.url,
+          siteUrl: backend.siteUrl,
+          authRoute: backend.authRoute,
+        },
+        overrides: {
+          // Better Auth with this package's passwordless client (OTP +
+          // passkeys). A user-supplied `convex.betterAuth` object (e.g. a
+          // custom `authClient`) wins; only a disable is overridden.
+          betterAuth: typeof convex.betterAuth === 'object' && convex.betterAuth !== null
+            ? convex.betterAuth
+            : { authClient: resolver.resolve('./runtime/vue/auth-client') },
+          polar: true,
+          // This package's auth story is Better Auth — don't let auto-detect
+          // enable a second auth provider just because its SDK is resolvable.
+          clerk: false,
+          auth0: false,
+        },
+      },
+    }
   },
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
-    const authRoute = options.authRoute || '/api/auth'
 
-    const { url, siteUrl } = applyRuntimeConfig(nuxt, options)
-    scaffoldBackendFiles(nuxt.options.rootDir, { installation: options.installation })
-    registerBackendAliases(nuxt)
-
-    registerAuthPlugins(resolver)
-    registerBackendApiPlugin(resolver, nuxt)
-    registerVueComposables(resolver)
-    registerAuthComponents(resolver)
-    registerAuthServerHandlers(resolver, authRoute)
-    registerServerImports(resolver)
-
-    // Ship a tightened, Convex-aware CSP by default. Only in production builds
-    // (a strict connect-src would break Vite HMR / devtools in `nuxt dev`) and
-    // only when a build-time Convex URL is known (otherwise we'd lock Convex
-    // out instead of allowing it). nuxt-security is installed afterwards via
-    // moduleDependencies, so mutating its config here lands before it reads it.
-    const opts = nuxt.options as unknown as Record<string, unknown>
-    if (url && !nuxt.options.dev && opts.security !== false) {
-      const security = (opts.security ??= {}) as Record<string, unknown>
-      applyConvexSecurityDefaults(security, convexConnectSrc(url, siteUrl), convexResourceSrc(url))
+    // Scaffold the minimum Convex backend files (auth component mount, route
+    // registration) on the first dev run.
+    if (options.scaffold !== false) {
+      scaffoldBackendFiles(nuxt.options.rootDir, { installation: options.installation })
     }
+
+    // `#backend/*` — the backend-branded aliases for the Convex functions
+    // folder (same targets as the base module's `#convex/*`).
+    registerBackendAliases(nuxt)
+    registerBackendTypeFallback(nuxt)
+
+    registerSaasComposables(resolver)
+
+    runPreflight(options, nuxt)
   },
 })
 
 /**
- * Resolve the Convex deployment URL from module options or environment, and
- * publish `backend.url` / `backend.siteUrl` into Nuxt's runtime config.
+ * Expose the SaaS layer as Nuxt auto-imports — one name per concept. The core
+ * data composables (`useQuery`, `useMutation`, ...) come from
+ * `nuxt-convex-module`; `useAuth` is this package's extended service and takes
+ * priority over the base registration.
  */
-function applyRuntimeConfig(nuxt: Nuxt, options: ModuleOptions): { url: string, siteUrl: string } {
-  const url = nuxt.options._prepare
-    ? undefined
-    : options.url || process.env.NUXT_PUBLIC_CONVEX_URL
-
-  if (!url && !nuxt.options._prepare) {
-    console.warn('[nuxt-backend] No Convex URL configured. Set `backend.url` in nuxt.config or NUXT_PUBLIC_CONVEX_URL.')
-  }
-
-  const siteUrl = options.siteUrl || process.env.NUXT_PUBLIC_CONVEX_SITE_URL || ''
-
-  nuxt.options.runtimeConfig.public.backend = {
-    url: url || '',
-    siteUrl,
-  }
-  nuxt.options.runtimeConfig.backend = { siteUrl }
-
-  return { url: url || '', siteUrl }
-}
-
-/**
- * Build the ordered import-alias map for the Convex backend folder and its
- * generated modules, so user code and server routes can `import from
- * '#backend/...'` without spelling out `_generated`.
- *
- * - `#backend/api`        -> _generated/api        (`api`, `internal`, `components`)
- * - `#backend/server`     -> _generated/server     (`query`, `mutation`, `action`, `*Ctx`, ...)
- * - `#backend/dataModel`  -> _generated/dataModel  (`DataModel`, `Doc`, `Id`, `TableNames`)
- * - `#backend/_generated` -> _generated            (long form, covers every generated file)
- * - `#backend`            -> <rootDir>/<functionsDir>
- *
- * Order is significant: both Vite and Nitro resolve aliases with
- * `@rollup/plugin-alias`, which is first-match-wins and treats `#backend` as a
- * prefix of `#backend/api`. The specific generated-module aliases must come
- * before the catch-all `#backend`, otherwise `#backend/api` would resolve to
- * `<functionsDir>/api` instead of `<functionsDir>/_generated/api` (and would
- * shadow any user function file literally named `api.ts` / `server.ts`).
- */
-export function getBackendAliases(rootDir: string): Record<string, string> {
-  const functionsDir = resolveFunctionsDir(rootDir)
-  const backendDir = join(rootDir, functionsDir)
-  const generatedDir = join(backendDir, '_generated')
-
-  return {
-    '#backend/api': join(generatedDir, 'api'),
-    '#backend/server': join(generatedDir, 'server'),
-    '#backend/dataModel': join(generatedDir, 'dataModel'),
-    '#backend/_generated': generatedDir,
-    '#backend': backendDir,
-  }
-}
-
-/**
- * Register the backend import aliases for both Vite (`options.alias`) and Nitro
- * (`nitro.alias`). Iterates {@link getBackendAliases} in declaration order to
- * preserve the specific-before-general ordering the alias resolvers depend on.
- */
-function registerBackendAliases(nuxt: Nuxt): void {
-  const aliases = getBackendAliases(nuxt.options.rootDir)
-
-  nuxt.options.nitro ||= {}
-  nuxt.options.nitro.alias ||= {}
-
-  for (const [alias, target] of Object.entries(aliases)) {
-    nuxt.options.alias[alias] = target
-    nuxt.options.nitro.alias[alias] = target
-  }
-}
-
-/**
- * Register the client-only Convex plugin and the SSR token-prefetch plugin.
- *
- * The server plugin stashes the Better Auth/Convex JWT in
- * `useState('backend:initialToken')` so the client plugin can pass it to
- * `useAuth(initialToken)` — mirrors React's `initialToken={await getToken()}`.
- * SSR data should be loaded via `fetchQuery` / `preloadQuery` from `#imports`
- * in server routes and passed to `usePreloadedQuery` on the client.
- */
-function registerAuthPlugins(resolver: Resolver): void {
-  addPlugin(resolver.resolve('./runtime/vue/auth/plugin.client'))
-  addPlugin(resolver.resolve('./runtime/vue/auth/plugin.server'))
-}
-
-/**
- * Auto-provide the generated Convex `api` (`#backend/api`) app-wide so the
- * billing/email composables and components (`useBilling()`, `<CheckoutLink>`,
- * `useEmailStatus()`, …) work with zero arguments — see
- * `runtime/vue/provide.ts`. Runs on both server and client.
- *
- * Generated as a template so we can fs-guard it: before `convex dev` has emitted
- * `_generated/api`, the import would fail the build, so we emit a no-op plugin
- * instead (features fall back to graceful no-ops). The plugin is regenerated
- * with the real wiring on the next build once codegen has run.
- */
-function registerBackendApiPlugin(resolver: Resolver, nuxt: Nuxt): void {
-  const functionsDir = resolveFunctionsDir(nuxt.options.rootDir)
-  const generatedApi = join(nuxt.options.rootDir, functionsDir, '_generated', 'api')
-  const provideModule = resolver.resolve('./runtime/vue/provide')
-
-  addPluginTemplate({
-    filename: 'nuxt-backend-provide-api.mjs',
-    getContents: () => {
-      const hasApi = existsSync(`${generatedApi}.d.ts`) || existsSync(`${generatedApi}.js`)
-      if (!hasApi) {
-        return 'import { defineNuxtPlugin } from \'#app\'\nexport default defineNuxtPlugin(() => {})\n'
-      }
-      return [
-        'import { defineNuxtPlugin } from \'#app\'',
-        'import { api } from \'#backend/api\'',
-        `import { provideBackendApi } from ${JSON.stringify(provideModule)}`,
-        'export default defineNuxtPlugin((nuxtApp) => {',
-        '  provideBackendApi(api, nuxtApp.vueApp)',
-        '})',
-        '',
-      ].join('\n')
-    },
+function registerSaasComposables(resolver: Resolver): void {
+  addImports({
+    name: 'useAuth',
+    from: resolver.resolve('./runtime/vue/composables/use-auth'),
+    priority: 10,
   })
-}
 
-/**
- * Expose the Vue composables (`useQuery`, `useMutation`, `useAction`,
- * pagination, auth, preloaded-query helpers, ...) as Nuxt auto-imports.
- */
-function registerVueComposables(resolver: Resolver): void {
+  addComponent({
+    name: 'AuthForm',
+    export: 'AuthForm',
+    filePath: resolver.resolve('./runtime/vue/components/auth-form'),
+  })
+  addComponent({
+    name: 'RoleBoundary',
+    export: 'RoleBoundary',
+    filePath: resolver.resolve('./runtime/vue/components/role-boundary'),
+  })
+  addComponent({
+    name: 'OrganizationBoundary',
+    export: 'OrganizationBoundary',
+    filePath: resolver.resolve('./runtime/vue/components/organization-boundary'),
+  })
+
   const composables: Array<{ name: string, from: string }> = [
-    { name: 'useConvex', from: resolver.resolve('./runtime/vue/client') },
-    { name: 'useQuery', from: resolver.resolve('./runtime/vue/composables/use-query') },
-    { name: 'useQuery_experimental', from: resolver.resolve('./runtime/vue/composables/use-query') },
-    { name: 'useConvexQuery', from: resolver.resolve('./runtime/vue/composables/use-query') },
-    { name: 'useQueries', from: resolver.resolve('./runtime/vue/composables/use-queries') },
-    { name: 'useConvexQueries', from: resolver.resolve('./runtime/vue/composables/use-queries') },
-    { name: 'useMutation', from: resolver.resolve('./runtime/vue/composables/use-mutation') },
-    { name: 'useConvexMutation', from: resolver.resolve('./runtime/vue/composables/use-mutation') },
-    { name: 'useAction', from: resolver.resolve('./runtime/vue/composables/use-action') },
-    { name: 'useConvexAction', from: resolver.resolve('./runtime/vue/composables/use-action') },
-    { name: 'useConvexConnectionState', from: resolver.resolve('./runtime/vue/composables/use-connection-state') },
-    { name: 'useUpload', from: resolver.resolve('./runtime/vue/composables/use-upload') },
-    { name: 'useConvexUpload', from: resolver.resolve('./runtime/vue/composables/use-upload') },
-    { name: 'uploadFile', from: resolver.resolve('./runtime/vue/composables/use-upload') },
-    { name: 'useUploadQueue', from: resolver.resolve('./runtime/vue/composables/use-upload-queue') },
-    { name: 'useConvexUploadQueue', from: resolver.resolve('./runtime/vue/composables/use-upload-queue') },
-    { name: 'useStorageUrl', from: resolver.resolve('./runtime/vue/composables/use-storage-url') },
-    { name: 'useConvexStorageUrl', from: resolver.resolve('./runtime/vue/composables/use-storage-url') },
-    { name: 'useConvexAuth', from: resolver.resolve('./runtime/vue/auth/index') },
-    { name: 'provideConvexAuth', from: resolver.resolve('./runtime/vue/auth/index') },
-    { name: 'provideBackendApi', from: resolver.resolve('./runtime/vue/provide') },
-    { name: 'useBackendApi', from: resolver.resolve('./runtime/vue/provide') },
-    { name: 'useBackendNamespace', from: resolver.resolve('./runtime/vue/provide') },
-    { name: 'usePreloadedQuery', from: resolver.resolve('./runtime/vue/hydration') },
-    { name: 'usePreloadedAuthQuery', from: resolver.resolve('./runtime/vue/auth/hydration') },
-    { name: 'usePaginatedQuery', from: resolver.resolve('./runtime/vue/composables/use-paginated-query') },
-    { name: 'usePaginatedQuery_experimental', from: resolver.resolve('./runtime/vue/composables/use-paginated-query') },
-    { name: 'useAuth', from: resolver.resolve('./runtime/vue/auth/use-auth') },
+    { name: 'useLoginFlow', from: resolver.resolve('./runtime/vue/composables/use-login-flow') },
+    { name: 'useOrganization', from: resolver.resolve('./runtime/vue/composables/use-organization') },
     { name: 'useSearch', from: resolver.resolve('./runtime/vue/composables/use-search') },
-    { name: 'useConvexSearch', from: resolver.resolve('./runtime/vue/composables/use-search') },
     { name: 'useAggregate', from: resolver.resolve('./runtime/vue/composables/use-aggregate') },
     { name: 'useCount', from: resolver.resolve('./runtime/vue/composables/use-aggregate') },
     { name: 'useBilling', from: resolver.resolve('./runtime/vue/composables/use-billing') },
-    { name: 'useConvexBilling', from: resolver.resolve('./runtime/vue/composables/use-billing') },
     { name: 'useFeatures', from: resolver.resolve('./runtime/vue/composables/use-features') },
-    { name: 'useConvexFeatures', from: resolver.resolve('./runtime/vue/composables/use-features') },
     { name: 'useCredits', from: resolver.resolve('./runtime/vue/composables/use-credits') },
-    { name: 'useConvexCredits', from: resolver.resolve('./runtime/vue/composables/use-credits') },
     { name: 'useEmailStatus', from: resolver.resolve('./runtime/vue/composables/use-email-status') },
     { name: 'useWorkflowStatus', from: resolver.resolve('./runtime/vue/composables/use-workflow') },
   ]
@@ -247,134 +131,46 @@ function registerVueComposables(resolver: Resolver): void {
 }
 
 /**
- * Auto-register the low-level Convex auth helper components so users can drop
- * `<Authenticated>`, `<Unauthenticated>`, and `<AuthLoading>` straight into
- * templates — mirroring the React integration's exports.
+ * Fallback ambient types for `#backend/*` until `convex dev` emits codegen,
+ * re-rendered live the moment `_generated/api` appears (mirrors the base
+ * module's `#convex/*` fallback).
  */
-function registerAuthComponents(resolver: Resolver): void {
-  const helpersFile = resolver.resolve('./runtime/vue/auth/helpers')
-  for (const name of ['Authenticated', 'Unauthenticated', 'AuthLoading'] as const) {
-    addComponent({ name, filePath: helpersFile, export: name })
-  }
+function registerBackendTypeFallback(nuxt: Nuxt): void {
+  const functionsDir = resolveFunctionsDir(nuxt.options.rootDir)
+  const filename = 'types/nuxt-backend-api-fallback.d.ts' as const
+  addTypeTemplate({
+    filename,
+    getContents: () => backendTypeFallbackContents(hasGeneratedApi(nuxt.options.rootDir, functionsDir), functionsDir),
+  }, { nuxt: true, nitro: true })
 
-  // Polar billing components (Vue ports of @convex-dev/polar/react).
-  const billingFile = resolver.resolve('./runtime/vue/billing/index')
-  for (const name of ['CheckoutLink', 'CustomerPortalLink'] as const) {
-    addComponent({ name, filePath: billingFile, export: name })
-  }
-}
-
-/**
- * Mount the auth proxy route and the opt-in route middleware. The middleware
- * is registered as non-global; pages enable it via `definePageMeta`.
- */
-function registerAuthServerHandlers(resolver: Resolver, authRoute: string): void {
-  addServerHandler({
-    route: `${authRoute}/**`,
-    handler: resolver.resolve('./runtime/nuxt/auth/proxy'),
-  })
-
-  addRouteMiddleware({
-    name: 'auth',
-    path: resolver.resolve('./runtime/nuxt/auth/middleware'),
-    global: false,
+  if (!nuxt.options.dev) return
+  nuxt.hook('builder:watch', async (_event, path) => {
+    if (!path.replace(/\\/g, '/').includes('_generated/api')) return
+    await updateTemplates({ filter: template => template.filename === filename })
   })
 }
 
 /**
- * Expose server-side utilities (`fetchQuery`, `preloadQuery`, `backendAuth`,
- * ...) as Nitro server auto-imports for use inside server routes and SSR.
+ * Dev-startup environment preflight. Reports findings, never throws — a dev
+ * server must still boot with an incomplete environment.
  */
-function registerServerImports(resolver: Resolver): void {
-  const fromNuxt = resolver.resolve('./runtime/nuxt/index')
-  const serverUtils = ['fetchQuery', 'fetchMutation', 'fetchAction', 'preloadQuery', 'preloadedQueryResult']
-  addServerImports(serverUtils.map(name => ({ name, from: fromNuxt })))
+function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
+  if (!nuxt.options.dev || nuxt.options._prepare || nuxt.options.test) return
 
-  addServerImports([
-    { name: 'backendAuth', from: resolver.resolve('./runtime/nuxt/auth/server') },
-  ])
-}
+  const siteUrlConfigured = Boolean(
+    options.siteUrl
+    ?? process.env.NUXT_PUBLIC_CONVEX_SITE_URL
+    ?? ((nuxt.options as unknown as Record<string, unknown>).convex as { siteUrl?: string } | undefined)?.siteUrl,
+  )
+  const findings = collectPreflightFindings({ env: process.env, siteUrlConfigured })
 
-function toHttpOrigin(raw?: string): string | undefined {
-  if (!raw) return undefined
-  try {
-    return new URL(raw).origin
+  for (const finding of findings) {
+    if (finding.status === 'fail') {
+      logger.error(`${finding.title}: ${finding.message}${finding.fixHint ? `\n  ↳ ${finding.fixHint}` : ''}`)
+    }
+    else if (finding.status === 'warn') {
+      logger.warn(`${finding.title}: ${finding.message}${finding.fixHint ? `\n  ↳ ${finding.fixHint}` : ''}`)
+    }
   }
-  catch {
-    return undefined
-  }
-}
-
-function toWsOrigin(raw?: string): string | undefined {
-  if (!raw) return undefined
-  try {
-    const u = new URL(raw)
-    return `${u.protocol === 'https:' ? 'wss:' : 'ws:'}//${u.host}`
-  }
-  catch {
-    return undefined
-  }
-}
-
-function uniq(values: Array<string | undefined>): string[] {
-  return Array.from(new Set(values.filter((v): v is string => Boolean(v))))
-}
-
-/**
- * CSP `connect-src` entries the browser needs to reach a Convex backend: the
- * deployment URL over both HTTPS and WebSocket (the realtime sync channel) and,
- * when configured, the `.site` URL that serves Convex HTTP actions / Better Auth
- * endpoints. Returns `[]` for empty or unparseable input.
- */
-export function convexConnectSrc(url?: string, siteUrl?: string): string[] {
-  return uniq([toHttpOrigin(url), toWsOrigin(url), toHttpOrigin(siteUrl), toWsOrigin(siteUrl)])
-}
-
-/**
- * CSP source for Convex-served resources (`img-src` / `media-src`): files
- * uploaded through `useStorageUrl()` are served from the deployment origin.
- */
-export function convexResourceSrc(url?: string): string[] {
-  return uniq([toHttpOrigin(url)])
-}
-
-/**
- * Apply nuxt-backend's secure-by-default, Convex-aware CSP onto a security
- * config object (mutated in place). This tightens the directives we can safely
- * pre-fill — locking network egress and Convex-served media to same-origin plus
- * the Convex deployment — while leaving every other directive (script/style/
- * font, etc.) to nuxt-security's own defaults.
- *
- * For each directive we keep any value the user already set and *append* the
- * Convex origins, so consumers extend (add their own third parties) rather than
- * fight the defaults, and the Convex origins are always present. A user who sets
- * `contentSecurityPolicy: false` (CSP disabled) is left untouched.
- */
-export function applyConvexSecurityDefaults(
-  security: Record<string, unknown>,
-  connectSrc: string[],
-  resourceSrc: string[],
-): void {
-  if (security.headers === false) return
-  if (typeof security.headers !== 'object' || security.headers === null) security.headers = {}
-  const headers = security.headers as Record<string, unknown>
-
-  if (headers.contentSecurityPolicy === false) return // CSP explicitly disabled.
-  if (typeof headers.contentSecurityPolicy !== 'object' || headers.contentSecurityPolicy === null) {
-    headers.contentSecurityPolicy = {}
-  }
-  const csp = headers.contentSecurityPolicy as Record<string, unknown>
-
-  tightenDirective(csp, 'connect-src', ['\'self\''], connectSrc)
-  tightenDirective(csp, 'img-src', ['\'self\'', 'data:'], resourceSrc)
-  tightenDirective(csp, 'media-src', ['\'self\''], resourceSrc)
-}
-
-/**
- * Set a CSP directive to the union of its existing value (or `baseline` if it
- * was unset) and `additions`, deduplicated and order-preserving.
- */
-function tightenDirective(csp: Record<string, unknown>, name: string, baseline: string[], additions: string[]): void {
-  const existing = Array.isArray(csp[name]) ? csp[name] as string[] : baseline
-  csp[name] = uniq([...existing, ...additions])
+  logger.info(`backend preflight: ${formatPreflightSummary(findings)}`)
 }

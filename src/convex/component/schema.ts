@@ -1,11 +1,15 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-// Schema for default plugins only: passkey + emailOTP (+ convex plugin which pulls in jwt for Convex tokens + rateLimit).
-// Core tables (user/session/account/verification) + passkey + rateLimit + jwks (required by jwt plugin used for Convex JWTs).
-// No 2FA, no OAuth, no extra user fields (username/phone/anon/etc), no email/password specific beyond core account.
-// This keeps the surface minimal per package defaults (even without email+password).
+// Schema for the default plugins: passkey + emailOTP + admin + organization
+// (+ convex plugin which pulls in jwt for Convex tokens + rateLimit).
+// Core tables (user/session/account/verification) + passkey + rateLimit + jwks
+// (required by jwt plugin used for Convex JWTs) + the admin plugin's role/ban
+// fields and the organization plugin's workspace tables.
+// No 2FA, no OAuth, no extra user fields (username/phone/anon/etc), no
+// email/password specific beyond core account.
 // For hybrid/local installs, users get only these tables (spread in their schema).
+// Verified against `createSchema` from @convex-dev/better-auth with this plugin set.
 // See: https://labs.convex.dev/better-auth/features/local-install
 export const tables = {
   user: defineTable({
@@ -15,6 +19,11 @@ export const tables = {
     image: v.optional(v.union(v.null(), v.string())),
     createdAt: v.number(),
     updatedAt: v.number(),
+    // Admin plugin: app-wide role ('user' when unset) and ban state.
+    role: v.optional(v.union(v.null(), v.string())),
+    banned: v.optional(v.union(v.null(), v.boolean())),
+    banReason: v.optional(v.union(v.null(), v.string())),
+    banExpires: v.optional(v.union(v.null(), v.number())),
   })
     .index('email_name', ['email', 'name'])
     .index('name', ['name']),
@@ -26,6 +35,10 @@ export const tables = {
     ipAddress: v.optional(v.union(v.null(), v.string())),
     userAgent: v.optional(v.union(v.null(), v.string())),
     userId: v.string(),
+    // Admin plugin: who is impersonating this session, if anyone.
+    impersonatedBy: v.optional(v.union(v.null(), v.string())),
+    // Organization plugin: the session's active workspace.
+    activeOrganizationId: v.optional(v.union(v.null(), v.string())),
   })
     .index('expiresAt', ['expiresAt'])
     .index('expiresAt_userId', ['expiresAt', 'userId'])
@@ -86,6 +99,42 @@ export const tables = {
     createdAt: v.number(),
     expiresAt: v.optional(v.union(v.null(), v.number())),
   }),
+  // Organization plugin: workspaces, memberships, and invitations.
+  organization: defineTable({
+    name: v.string(),
+    slug: v.string(),
+    logo: v.optional(v.union(v.null(), v.string())),
+    createdAt: v.number(),
+    metadata: v.optional(v.union(v.null(), v.string())),
+  })
+    .index('name', ['name'])
+    .index('slug', ['slug']),
+  member: defineTable({
+    organizationId: v.string(),
+    userId: v.string(),
+    role: v.string(),
+    createdAt: v.number(),
+  })
+    .index('organizationId', ['organizationId'])
+    // Compound index beyond the generated set: serves the frequent
+    // "membership of user X in workspace Y" lookup (requireMember).
+    .index('organizationId_userId', ['organizationId', 'userId'])
+    .index('userId', ['userId'])
+    .index('role', ['role']),
+  invitation: defineTable({
+    organizationId: v.string(),
+    email: v.string(),
+    role: v.optional(v.union(v.null(), v.string())),
+    status: v.string(),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+    inviterId: v.string(),
+  })
+    .index('organizationId', ['organizationId'])
+    .index('email', ['email'])
+    .index('role', ['role'])
+    .index('status', ['status'])
+    .index('inviterId', ['inviterId']),
 }
 
 /**
@@ -120,6 +169,8 @@ export const vEntitlementMeter = v.object({
 
 export const billingTables = {
   billingEntitlements: defineTable({
+    // The billing entity id — the workspace id (billTo: 'organization', the
+    // default) or the auth user id (billTo: 'user'). Opaque string either way.
     userId: v.string(),
     customerId: v.optional(v.string()),
     activeProductIds: v.array(v.string()),

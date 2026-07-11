@@ -1,6 +1,6 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { computed, onScopeDispose, ref, toValue, watch, type ComputedRef, type MaybeRefOrGetter } from 'vue'
-import { useQuery } from './use-query'
+import { useQuery } from 'nuxt-convex-module/client'
 
 export interface UseSearchOptions<Query extends FunctionReference<'query'>> {
   /** Debounce, in milliseconds, before the term is sent to the server (default 200). */
@@ -71,6 +71,3 @@ export function useSearch<Query extends FunctionReference<'query'>>(
     term: computed(() => debounced.value),
   }
 }
-
-/** @public */
-export const useConvexSearch = useSearch

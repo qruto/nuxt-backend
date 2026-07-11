@@ -55,9 +55,9 @@ const recentMessages = computed(() => messages.value.slice(-5).reverse())
 const credits = useCredits()
 
 // Paginated activity feed.
-const activity = usePaginatedQuery(api.logs.listPaginated, {}, { initialNumItems: 6 })
+const { results: activityResults, status: activityStatus, loadMore: loadMoreActivity } = usePaginatedQuery(api.logs.listPaginated, {}, { initialNumItems: 6 })
 const activityRows = computed(() =>
-  activity.value.results as Array<{ _id: string, level: 'info' | 'warn' | 'error', message: string, _creationTime: number }>)
+  activityResults.value as Array<{ _id: string, level: 'info' | 'warn' | 'error', message: string, _creationTime: number }>)
 
 // Mutations.
 const increment = useMutation(api.counter.increment).withOptimisticUpdate((store, args) => {
@@ -284,7 +284,7 @@ function clock(at: number) {
             <span class="act-msg">{{ row.message }}</span>
           </li>
           <li
-            v-if="activity.status === 'LoadingFirstPage'"
+            v-if="activityStatus === 'LoadingFirstPage'"
             class="muted"
           >
             loading…
@@ -299,10 +299,10 @@ function clock(at: number) {
         <LabButton
           variant="ghost"
           size="sm"
-          :disabled="activity.status !== 'CanLoadMore'"
-          @click="activity.loadMore(6)"
+          :disabled="activityStatus !== 'CanLoadMore'"
+          @click="loadMoreActivity(6)"
         >
-          {{ activity.status === 'Exhausted' ? 'All loaded' : 'Load more' }}
+          {{ activityStatus === 'Exhausted' ? 'All loaded' : 'Load more' }}
         </LabButton>
       </LabPanel>
     </div>

@@ -1,7 +1,6 @@
 import { computed, type ComputedRef } from 'vue'
-import { useQuery } from './use-query'
+import { useQuery, useConvexNamespace } from 'nuxt-convex-module/client'
 import type { BillingApi, EntitlementBenefit, Features } from './use-billing'
-import { useBackendNamespace } from '../provide'
 
 export interface UseFeaturesOptions {
   /** Override the injected `api.billing` namespace (or the `getFeatures` ref). */
@@ -38,7 +37,7 @@ export interface UseFeaturesReturn {
  * ```
  */
 export function useFeatures(options: UseFeaturesOptions = {}): UseFeaturesReturn {
-  const billing = (options.api ?? useBackendNamespace<BillingApi>('billing') ?? {}) as BillingApi
+  const billing = (options.api ?? useConvexNamespace<BillingApi>('billing') ?? {}) as BillingApi
 
   const features = billing.getFeatures
     ? useQuery(billing.getFeatures)
@@ -64,6 +63,3 @@ export function useFeatures(options: UseFeaturesOptions = {}): UseFeaturesReturn
     hasPlan: productId => plans.value?.includes(productId) ?? false,
   }
 }
-
-/** @public */
-export const useConvexFeatures = useFeatures

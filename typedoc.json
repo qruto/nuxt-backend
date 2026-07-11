@@ -1,0 +1,71 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "plugin": ["typedoc-plugin-markdown", "typedoc-plugin-frontmatter"],
+  "tsconfig": "tsconfig.typedoc.json",
+
+  // One entry point per public module — mirrors the package `exports` map so the
+  // generated tree matches the import paths consumers actually type.
+  "entryPoints": [
+    "src/module.ts",
+    "src/runtime/vue/composables/use-auth.ts",
+    "src/runtime/vue/composables/use-billing.ts",
+    "src/runtime/vue/composables/use-features.ts",
+    "src/runtime/vue/composables/use-credits.ts",
+    "src/runtime/vue/composables/use-email-status.ts",
+    "src/runtime/vue/composables/use-search.ts",
+    "src/runtime/vue/composables/use-aggregate.ts",
+    "src/runtime/vue/composables/use-workflow.ts",
+    "src/convex/client/index.ts",
+    "src/convex/app.ts",
+    "src/convex/integrations/billing.ts",
+    "src/convex/integrations/email.ts",
+    "src/convex/integrations/rate-limit.ts",
+    "src/convex/integrations/migrations.ts",
+    "src/convex/integrations/aggregate.ts",
+    "src/convex/integrations/search.ts",
+    "src/convex/integrations/workflows.ts"
+  ],
+  "entryPointStrategy": "resolve",
+
+  // Emit Markdown straight into the Docus content tree so it renders with the
+  // site theme, sidebar, and search instead of TypeDoc's standalone HTML.
+  "out": "website/content/5.api-reference/9.reference",
+  "readme": "none",
+  "githubPages": false,
+  "hideGenerator": true,
+
+  // The runtime + convex sources live in two TS configs; don't fail the build on
+  // cross-world resolution noise — just document what resolves.
+  "skipErrorChecking": true,
+
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "sort": ["source-order"],
+
+  // --- typedoc-plugin-markdown ----------------------------------------------
+  // One Markdown file per module (members documented inline on their module
+  // page), rather than one file per exported member. `router: "module"` is the
+  // TypeDoc 0.28+ replacement for the now-deprecated `outputFileStrategy`.
+  "router": "module",
+  // Nuxt Content treats `index.md` (not README) as a folder's landing route.
+  "entryFileName": "index",
+  // Drop TypeDoc's breadcrumb/header block; the Docus sidebar handles navigation
+  // and the `# <module>` H1 still gives Nuxt Content the page title.
+  "hidePageHeader": true,
+  "hideBreadcrumbs": true,
+  "useCodeBlocks": true,
+  "expandObjects": true,
+  "parametersFormat": "table",
+  "propertiesFormat": "table",
+  "enumMembersFormat": "table",
+  "typeDeclarationFormat": "table",
+  "indexFormat": "table",
+
+  // --- typedoc-plugin-frontmatter -------------------------------------------
+  // Give every generated page Nuxt Content frontmatter so Docus picks up titles
+  // + includes them in navigation.
+  "frontmatterGlobals": {
+    "navigation": true
+  }
+}

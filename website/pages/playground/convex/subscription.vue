@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // `useSubscription` is exported but marked @internal, so it is not a Nuxt
-// auto-import — pull it from the package runtime directly for this showcase.
-import { useSubscription } from '../../../../src/runtime/vue/composables/use-subscription'
+// auto-import — pull it from the package directly for this showcase.
+import { useSubscription } from 'nuxt-convex-module/client'
 
 definePageMeta({ middleware: 'auth' })
 

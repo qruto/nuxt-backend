@@ -21,14 +21,13 @@ const props = withDefaults(defineProps<{
 
 const status = defineModel<string>('status')
 
-const paginated = usePaginatedQuery(
+const { results, status: pageStatus, loadMore } = usePaginatedQuery(
   api.logs.listPaginated,
   {},
   { initialNumItems: props.initialNumItems },
 )
 
-const results = computed(() => paginated.value.results)
-watch(() => paginated.value.status, s => (status.value = s), { immediate: true })
+watch(pageStatus, s => (status.value = s), { immediate: true })
 
 const filtered = computed(() =>
   props.filter === 'all'
@@ -44,7 +43,7 @@ function clock(at: number) {
 <template>
   <div class="viewer">
     <div
-      v-if="paginated.status === 'LoadingFirstPage'"
+      v-if="pageStatus === 'LoadingFirstPage'"
       class="vstate"
     >
       <span class="spinner" /> loading…
@@ -76,10 +75,10 @@ function clock(at: number) {
     <LabButton
       variant="ghost"
       size="sm"
-      :disabled="paginated.status !== 'CanLoadMore'"
-      @click="paginated.loadMore(pageSize)"
+      :disabled="pageStatus !== 'CanLoadMore'"
+      @click="loadMore(pageSize)"
     >
-      {{ paginated.status === 'Exhausted' ? 'All loaded' : paginated.status === 'LoadingMore' ? 'Loading…' : `Load ${pageSize} more` }}
+      {{ pageStatus === 'Exhausted' ? 'All loaded' : pageStatus === 'LoadingMore' ? 'Loading…' : `Load ${pageSize} more` }}
     </LabButton>
   </div>
 </template>

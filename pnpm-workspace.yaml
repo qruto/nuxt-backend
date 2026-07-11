@@ -4,6 +4,7 @@
 
 packages:
   - website
+  - examples/*
 
 # --- Catalog: one version, used across every workspace package ---------------
 # Reference with `"nuxt": "catalog:"` in package.json so the root module and the

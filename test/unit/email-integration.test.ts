@@ -171,3 +171,53 @@ describe('setupEmail marketing helpers', () => {
     await expect(email.audiences.create({ name: 'x' })).rejects.toThrow('[nuxt-backend] Resend: rate limited')
   })
 })
+
+describe('email event hooks', () => {
+  function webhookRequest(payload: unknown) {
+    return new Request('https://x.convex.site/resend-webhook', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  it('runs the matching hook after the component accepts the event', async () => {
+    const onBounced = vi.fn()
+    const email = setupEmail(component, { events: { onBounced } })
+    const ctx = makeCtx()
+    ctx.runAction.mockResolvedValue({ status: 200, body: 'ok' })
+
+    await email.webhookHandler(ctx as never, webhookRequest({
+      type: 'email.bounced',
+      data: { email_id: 'em_1', to: ['bounced@resend.dev'] },
+    }))
+
+    expect(onBounced).toHaveBeenCalledWith(ctx, expect.objectContaining({
+      type: 'email.bounced',
+      emailId: 'em_1',
+      to: ['bounced@resend.dev'],
+    }))
+  })
+
+  it('does not run hooks when the component rejects the event (bad signature)', async () => {
+    const onDelivered = vi.fn()
+    const email = setupEmail(component, { events: { onDelivered } })
+    const ctx = makeCtx()
+    ctx.runAction.mockResolvedValue({ status: 401, body: 'invalid signature' })
+
+    await email.webhookHandler(ctx as never, webhookRequest({ type: 'email.delivered', data: {} }))
+
+    expect(onDelivered).toHaveBeenCalledTimes(0)
+  })
+
+  it('ignores event types without a configured hook and malformed bodies', async () => {
+    const onComplained = vi.fn()
+    const email = setupEmail(component, { events: { onComplained } })
+    const ctx = makeCtx()
+    ctx.runAction.mockResolvedValue({ status: 200, body: 'ok' })
+
+    await email.webhookHandler(ctx as never, webhookRequest({ type: 'email.opened', data: {} }))
+    await email.webhookHandler(ctx as never, new Request('https://x.convex.site/resend-webhook', { method: 'POST', body: 'not json' }))
+
+    expect(onComplained).not.toHaveBeenCalled()
+  })
+})

@@ -58,6 +58,8 @@ const groups: NavGroup[] = [
     hint: 'Auth · billing · email · more',
     items: [
       { to: '/playground/platform/account', label: 'Account & auth', icon: 'account', api: 'useAuth · Authenticated' },
+      { to: '/playground/platform/workspaces', label: 'Workspaces', icon: 'account', api: 'useOrganization', live: true },
+      { to: '/playground/platform/authorization', label: 'Roles & permissions', icon: 'shield', api: 'hasRole · RoleBoundary' },
       { to: '/playground/platform/billing', label: 'Billing', icon: 'billing', api: 'useBilling · CheckoutLink' },
       { to: '/playground/platform/features', label: 'Feature gates', icon: 'features', api: 'useFeatures' },
       { to: '/playground/platform/credits', label: 'Credits', icon: 'credits', api: 'useCredits', live: true },

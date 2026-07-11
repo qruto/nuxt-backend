@@ -62,7 +62,7 @@ async function spendCredit() {
       <div class="row">
         <CheckoutLink
           v-if="creditPackId"
-          :products="[creditPackId]"
+          :product-ids="[creditPackId]"
           class="buy-btn"
         >
           Buy credit pack

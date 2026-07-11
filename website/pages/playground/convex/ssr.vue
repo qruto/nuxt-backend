@@ -12,7 +12,7 @@ const toggleTodo = useMutation(api.todos.toggle)
 const removeTodo = useMutation(api.todos.remove)
 const newTodo = ref('')
 const total = computed(() => (todos.value ?? []).length)
-const done = computed(() => (todos.value ?? []).filter(t => t.completed).length)
+const done = computed(() => (todos.value ?? []).filter((t: { completed: boolean }) => t.completed).length)
 async function addTodo() {
   if (!newTodo.value.trim()) return
   await createTodo({ text: newTodo.value.trim() })

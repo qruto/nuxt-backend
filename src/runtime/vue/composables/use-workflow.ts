@@ -1,6 +1,6 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { computed, toValue, type ComputedRef, type MaybeRefOrGetter } from 'vue'
-import { useQuery } from './use-query'
+import { useQuery } from 'nuxt-convex-module/client'
 
 /**
  * Reactively track a durable {@link https://www.convex.dev/components/workflow |

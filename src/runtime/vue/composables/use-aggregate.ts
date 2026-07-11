@@ -1,6 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, type ComputedRef } from 'vue'
-import { useQuery, type OptionalRestArgsOrSkip } from './use-query'
+import { useQuery, type OptionalRestArgsOrSkip } from 'nuxt-convex-module/client'
 
 /**
  * Reactive numeric aggregate (count / sum) backed by a Convex query — typically

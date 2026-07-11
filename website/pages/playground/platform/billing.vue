@@ -80,7 +80,7 @@ async function makeDiscount() {
               {{ product?.name ?? key }}
             </div>
             <CheckoutLink
-              :products="product ? [product.id] : []"
+              :product-ids="product ? [product.id] : []"
               :trial-interval-count="7"
               trial-interval="day"
               class="checkout-btn"

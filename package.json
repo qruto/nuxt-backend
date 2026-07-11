@@ -34,9 +34,22 @@
       "types": "./dist/types.d.ts",
       "import": "./dist/module.js"
     },
+    "./auth.css": "./dist/runtime/vue/components/auth.css",
     "./convex": {
       "types": "./dist/convex/client/index.d.ts",
       "default": "./dist/convex/client/index.js"
+    },
+    "./convex/authorization": {
+      "types": "./dist/convex/integrations/authorization.d.ts",
+      "import": "./dist/convex/integrations/authorization.js"
+    },
+    "./convex/http": {
+      "types": "./dist/convex/integrations/http.d.ts",
+      "import": "./dist/convex/integrations/http.js"
+    },
+    "./convex/functions": {
+      "types": "./dist/convex/integrations/functions.d.ts",
+      "import": "./dist/convex/integrations/functions.js"
     },
     "./convex/app": {
       "types": "./dist/convex/app.d.ts",
@@ -88,6 +101,9 @@
     "./convex/test": "./src/convex/test.ts"
   },
   "main": "./dist/module.js",
+  "bin": {
+    "nuxt-backend": "./dist/cli.mjs"
+  },
   "typesVersions": {
     "*": {
       ".": [
@@ -95,6 +111,15 @@
       ],
       "convex": [
         "./dist/convex/client/index.d.ts"
+      ],
+      "convex/authorization": [
+        "./dist/convex/integrations/authorization.d.ts"
+      ],
+      "convex/http": [
+        "./dist/convex/integrations/http.d.ts"
+      ],
+      "convex/functions": [
+        "./dist/convex/integrations/functions.d.ts"
       ],
       "convex/app": [
         "./dist/convex/app.d.ts"
@@ -168,7 +193,7 @@
     "test": "vitest --run",
     "test:coverage": "vitest --run --coverage",
     "test:watch": "vitest --watch",
-    "test:types": "pnpm run test:types:lib && cd website && vue-tsc --noEmit",
+    "test:types": "pnpm run test:types:lib && node scripts/typecheck-website.mjs",
     "test:types:lib": "pnpm run dev:prepare && pnpm run build:convex-component && vue-tsc --noEmit && tsc --noEmit -p tsconfig.convex.json",
     "test:unit": "vitest --project unit --run",
     "test:nuxt": "vitest --project nuxt --run",
@@ -194,6 +219,7 @@
     "convex": "^1.41.0",
     "convex-helpers": "^0.1.119",
     "dedent": "^1.7.2",
+    "nuxt-convex-module": "link:../nuxt-convex-module",
     "nuxt-security": "^2.6.0",
     "resend": "^6.6.0"
   },

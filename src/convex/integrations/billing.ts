@@ -5,6 +5,7 @@ import { discountsCreate } from '@polar-sh/sdk/funcs/discountsCreate.js'
 import { eventsIngest } from '@polar-sh/sdk/funcs/eventsIngest.js'
 import {
   actionGeneric,
+  type Auth,
   type FunctionReference,
   type GenericActionCtx,
   type GenericDataModel,
@@ -74,8 +75,12 @@ export interface CustomerEntitlements {
 
 /** A prepaid-credit consumption event (drawn from the customer's meter balance). */
 export interface SpendCreditsEvent {
-  /** The auth user id (resolved to a Polar customer). */
-  userId: string
+  /**
+   * The billing entity id — the workspace id (`billTo: 'organization'`, the
+   * default) or the auth user id (`billTo: 'user'`). Omit to resolve it from
+   * the caller's identity (the active workspace / signed-in user).
+   */
+  userId?: string
   /** The meter event name (must match the credit meter's filter, e.g. `"credits"`). */
   name: string
   /**
@@ -117,25 +122,45 @@ export interface BillingComponentApi {
   }
 }
 
+type PolarConfig = ConstructorParameters<typeof Polar>[1]
+
 /**
- * Polar client configuration. Mirrors `@convex-dev/polar`'s constructor config (a
- * required `getUserInfo` mapping the current user to a Polar customer, plus optional
- * product map / organization token / server) and adds a query-safe `currentUserId`
- * resolver used by the reactive feature/credit queries. The token, webhook secret,
- * and server fall back to the `POLAR_*` env vars when omitted.
+ * Polar client configuration. Mirrors `@convex-dev/polar`'s constructor config
+ * (product map / organization token / server — token, webhook secret, and
+ * server fall back to the `POLAR_*` env vars when omitted), plus `billTo`.
+ *
+ * The billing entity resolves from identity claims out of the box — the
+ * active workspace (`billTo: 'organization'`, the default) or the signed-in
+ * user (`billTo: 'user'`) — so `getUserInfo` / `currentUserId` are optional
+ * overrides, not required wiring.
  */
-export type SetupBillingConfig = ConstructorParameters<typeof Polar>[1] & {
+export type SetupBillingConfig = Omit<PolarConfig, 'getUserInfo'> & {
   /**
-   * Resolve the current auth user id from a **query** context (used by the
-   * reactive `getCurrentSubscription` / `getFeatures` / `getCredits` queries).
-   * Returns `null` when signed out so reads degrade gracefully (e.g. during SSR).
-   * `getUserInfo` covers action contexts (checkout / sync); this covers queries,
-   * where `ctx.runQuery` isn't available.
-   *
-   * Typed against an `any` data model so your concrete query ctx (e.g. for
-   * `authComponent.getAuthUser(ctx)`) is assignable without a cast.
+   * Who owns subscriptions and credits: the active workspace (`'organization'`,
+   * the default — members share the workspace's plan and credits) or the
+   * individual user (`'user'`, for B2C apps without shared billing).
+   */
+  billTo?: 'organization' | 'user'
+  /**
+   * Override the billing-entity resolution for **action** contexts (checkout /
+   * portal / sync). Only consulted with `billTo: 'user'`; the default reads
+   * the signed-in user from identity claims.
+   */
+  getUserInfo?: PolarConfig['getUserInfo']
+  /**
+   * Override the billing-entity resolution for **query** contexts (the
+   * reactive `getCurrentSubscription` / `getFeatures` / `getCredits` reads).
+   * Only consulted with `billTo: 'user'`; the default reads identity claims.
+   * Return `null` when signed out so reads degrade gracefully.
    */
   currentUserId?: (ctx: AnyQueryCtx) => Promise<string | null>
+  /**
+   * React to Polar webhook events, keyed by Polar's own event names
+   * (`'order.paid'`, `'subscription.active'`, …). Your handler runs **after**
+   * the built-in entitlement-cache refresh, so features/credits read fresh
+   * inside it. Events outside the built-in refresh set are mounted too.
+   */
+  events?: Partial<WebhookEventHandlers>
 }
 
 /** Webhook events that signal a customer's plans / benefits / credits may have changed. */
@@ -187,11 +212,13 @@ export interface Billing {
    */
   getCustomerState: (ctx: RunQueryCtx, args: { userId: string }) => Promise<CustomerEntitlements>
   /**
-   * Spend prepaid credits for a user (Polar `events.ingest`) — call from your own
-   * **server** action when a metered feature is used. With `meterId` set, the spend
-   * is blocked when the balance is insufficient (credits stay strictly prepaid).
+   * Spend prepaid credits (Polar `events.ingest`) — call from your own
+   * **server** action when a metered feature is used. The billing entity
+   * (workspace or user, per `billTo`) resolves from the caller's identity;
+   * pass `userId` to spend for a specific entity. With `meterId` set, the
+   * spend is blocked when the balance is insufficient (strictly prepaid).
    */
-  spendCredits: (ctx: RunQueryCtx, event: SpendCreditsEvent) => Promise<void>
+  spendCredits: (ctx: RunQueryCtx & { auth?: Auth }, event: SpendCreditsEvent) => Promise<void>
   /**
    * Create a discount / coupon (Polar `discounts.create`). Call from an **action**.
    * Accepts the full Polar `DiscountCreate` shape (fixed or percentage).
@@ -209,24 +236,20 @@ export interface Billing {
  * so an unconfigured deployment degrades gracefully; checkout / portal / credit /
  * discount operations require a `POLAR_ORGANIZATION_TOKEN`.
  *
+ * Billing follows the tenant: with the default `billTo: 'organization'` the
+ * active workspace owns the subscription and credits (every member shares
+ * them); with `billTo: 'user'` each user is their own customer. Either way
+ * the entity resolves from identity claims — zero wiring.
+ *
  * @example
  * ```ts
  * import { setupBilling } from 'nuxt-backend/convex/billing'
- * import { api, components } from './_generated/api'
+ * import { components } from './_generated/api'
  * import { env } from './_generated/server'
- * import { authComponent } from './auth'
  *
  * const billing = setupBilling(components.polar, components.backend, {
  *   organizationToken: env.POLAR_ORGANIZATION_TOKEN,
  *   server: env.POLAR_SERVER ?? 'sandbox',
- *   getUserInfo: async (ctx) => {
- *     const user = await ctx.runQuery(api.auth.getAuthUser, {})
- *     return { userId: user._id, email: user.email }
- *   },
- *   currentUserId: async (ctx) => {
- *     if (!(await ctx.auth.getUserIdentity())) return null
- *     return (await authComponent.getAuthUser(ctx))._id
- *   },
  * })
  *
  * export const { polar } = billing
@@ -237,9 +260,41 @@ export interface Billing {
 export function setupBilling(
   component: PolarComponent,
   backend: BillingComponentApi,
-  config: SetupBillingConfig,
+  config: SetupBillingConfig = {},
 ): Billing {
-  const polar = new Polar(component, config)
+  const billTo = config.billTo ?? 'organization'
+
+  /**
+   * Resolve the billing entity from identity claims: the active workspace
+   * (org mode) or the signed-in user (user mode). Claims carry `email` and
+   * `activeOrganizationId` via this package's JWT payload.
+   */
+  const entityFromIdentity = async (ctx: { auth?: Auth }): Promise<{ userId: string, email: string } | null> => {
+    const identity = await ctx.auth?.getUserIdentity()
+    if (!identity) return null
+    const claims = identity as unknown as Record<string, unknown>
+    const entityId = billTo === 'organization'
+      ? (typeof claims.activeOrganizationId === 'string' ? claims.activeOrganizationId : null)
+      : identity.subject
+    if (!entityId) return null
+    return { userId: entityId, email: typeof claims.email === 'string' ? claims.email : '' }
+  }
+
+  // Polar requires a `getUserInfo`; wrap the entity resolution (or the
+  // consumer's override in user mode) with a clear failure for billing
+  // operations that need a signed-in entity.
+  const getUserInfo: NonNullable<PolarConfig['getUserInfo']> = async (ctx) => {
+    if (billTo === 'user' && config.getUserInfo) return config.getUserInfo(ctx)
+    const entity = await entityFromIdentity(ctx as unknown as { auth?: Auth })
+    if (!entity) {
+      throw new Error(billTo === 'organization'
+        ? '[nuxt-backend] Billing needs an active workspace — sign in (a personal workspace is created automatically) or activate one.'
+        : '[nuxt-backend] Billing needs a signed-in user.')
+    }
+    return entity
+  }
+
+  const polar = new Polar(component, { ...config, getUserInfo })
   const cache = backend.billing
 
   const getCustomerState: Billing['getCustomerState'] = async (ctx, { userId }) => {
@@ -296,12 +351,17 @@ export function setupBilling(
   }
 
   const spendCredits: Billing['spendCredits'] = async (ctx, event) => {
-    const customer = await polar.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, event.userId)
+    const entityId = event.userId
+      ?? (await entityFromIdentity(ctx as { auth?: Auth }))?.userId
+    if (!entityId) {
+      throw new Error('[nuxt-backend] spendCredits: no billing entity — pass `userId` or call from an authenticated context.')
+    }
+    const customer = await polar.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, entityId)
     if (!customer) {
-      throw new Error(`[nuxt-backend] No Polar customer for user ${event.userId}. Start a checkout first.`)
+      throw new Error(`[nuxt-backend] No Polar customer for ${entityId}. Start a checkout first.`)
     }
     if (event.meterId) {
-      const state = await getCustomerState(ctx, { userId: event.userId })
+      const state = await getCustomerState(ctx, { userId: entityId })
       const meter = state.meters.find(m => m.meterId === event.meterId)
       const need = event.value ?? 1
       if (!meter || meter.balance < need) {
@@ -329,8 +389,10 @@ export function setupBilling(
 
   // --- Ready-made reactive functions (re-exported by the consumer's billing.ts) ---
 
-  const resolveUserId = (ctx: GenericQueryCtx<GenericDataModel>) =>
-    config.currentUserId ? config.currentUserId(ctx) : Promise.resolve(null)
+  const resolveUserId = async (ctx: GenericQueryCtx<GenericDataModel>): Promise<string | null> => {
+    if (billTo === 'user' && config.currentUserId) return config.currentUserId(ctx)
+    return (await entityFromIdentity(ctx))?.userId ?? null
+  }
 
   const getCurrentSubscription = queryGeneric({
     args: {},
@@ -364,7 +426,7 @@ export function setupBilling(
   const syncEntitlements = actionGeneric({
     args: {},
     handler: async (ctx) => {
-      const { userId } = await config.getUserInfo(ctx as unknown as PolarRunQueryCtx)
+      const { userId } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
       if (userId) await refreshEntitlements(ctx, userId)
       return null
     },
@@ -392,8 +454,19 @@ export function setupBilling(
     await refreshEntitlements(ctx, userId)
   }
 
+  // One handler per event type: the built-in cache refresh (for the refresh
+  // set), then the consumer's hook — which therefore reads fresh entitlements.
+  const consumerEvents = config.events ?? {}
+  const eventTypes = new Set<string>([...REFRESH_EVENTS, ...Object.keys(consumerEvents)])
   const webhookEvents = Object.fromEntries(
-    REFRESH_EVENTS.map(type => [type, handleRefreshEvent]),
+    [...eventTypes].map((type) => {
+      const refreshes = (REFRESH_EVENTS as readonly string[]).includes(type)
+      const consumerHandler = consumerEvents[type as keyof WebhookEventHandlers]
+      return [type, async (ctx: RunWriteCtx, event: PolarWebhookEvent) => {
+        if (refreshes) await handleRefreshEvent(ctx, event)
+        if (consumerHandler) await (consumerHandler as (ctx: RunWriteCtx, event: PolarWebhookEvent) => Promise<void>)(ctx, event)
+      }]
+    }),
   ) as WebhookEventHandlers
 
   return {

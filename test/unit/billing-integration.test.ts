@@ -188,3 +188,118 @@ describe('webhook refresh handler', () => {
     expect(ctx.runMutation).not.toHaveBeenCalled()
   })
 })
+
+describe('billing entity resolution (billTo)', () => {
+  function identityCtx(claims: Record<string, unknown> | null) {
+    return {
+      runQuery: vi.fn(),
+      runMutation: vi.fn(),
+      auth: { getUserIdentity: vi.fn(async () => claims) },
+    }
+  }
+
+  function setup(config: Parameters<typeof setupBilling>[2] = {}) {
+    const instance = setupBilling(fakeComponent, backend, config)
+    const spy = vi.spyOn(instance.polar, 'getCustomerByUserId')
+    spy.mockResolvedValue({ id: 'cus_entity' } as never)
+    mockEventsIngest.mockResolvedValue({ ok: true, value: {} } as never)
+    return { instance, spy }
+  }
+
+  it('bills the active workspace by default (zero config)', async () => {
+    const { instance, spy } = setup()
+    await instance.spendCredits(
+      identityCtx({ subject: 'u1', activeOrganizationId: 'org-1' }) as never,
+      { name: 'credits' },
+    )
+    expect(spy).toHaveBeenCalledWith(expect.anything(), 'org-1')
+  })
+
+  it('bills the signed-in user with billTo: "user"', async () => {
+    const { instance, spy } = setup({ billTo: 'user' })
+    await instance.spendCredits(
+      identityCtx({ subject: 'u1', activeOrganizationId: 'org-1' }) as never,
+      { name: 'credits' },
+    )
+    expect(spy).toHaveBeenCalledWith(expect.anything(), 'u1')
+  })
+
+  it('an explicit userId wins over identity resolution', async () => {
+    const { instance, spy } = setup()
+    await instance.spendCredits(
+      identityCtx({ subject: 'u1', activeOrganizationId: 'org-1' }) as never,
+      { userId: 'org-override', name: 'credits' },
+    )
+    expect(spy).toHaveBeenCalledWith(expect.anything(), 'org-override')
+  })
+
+  it('throws a clear error with no identity and no explicit userId', async () => {
+    const { instance } = setup()
+    await expect(
+      instance.spendCredits(identityCtx(null) as never, { name: 'credits' }),
+    ).rejects.toThrow(/no billing entity/)
+  })
+
+  it('org mode without an active workspace claim yields no entity', async () => {
+    const { instance } = setup()
+    await expect(
+      instance.spendCredits(identityCtx({ subject: 'u1' }) as never, { name: 'credits' }),
+    ).rejects.toThrow(/no billing entity/)
+  })
+})
+
+describe('billing event hooks', () => {
+  function refreshableCtx() {
+    const ctx = makeCtx()
+    // handleRefreshEvent path: metadata carries the entity, state fetch mocked.
+    getCustomerByUserId.mockResolvedValue(null as never)
+    return ctx
+  }
+
+  it('runs the consumer hook after the built-in cache refresh', async () => {
+    const order: string[] = []
+    const onPaid = vi.fn(async () => {
+      order.push('hook')
+    })
+    billing = setupBilling(fakeComponent, backend, { events: { 'order.paid': onPaid } })
+    getCustomerByUserId = vi.spyOn(billing.polar, 'getCustomerByUserId')
+    getCustomerByUserId.mockResolvedValue(null as never)
+    const ctx = makeCtx()
+    ctx.runMutation.mockImplementation(async () => {
+      order.push('refresh')
+    })
+
+    await billing.webhookEvents['order.paid']!(ctx as never, {
+      data: { customerId: 'cus_1', customer: { metadata: { userId: 'org-1' } } },
+    } as never)
+
+    expect(onPaid).toHaveBeenCalled()
+    expect(order).toStrictEqual(['refresh', 'hook'])
+  })
+
+  it('mounts consumer-only event types outside the refresh set', async () => {
+    const onCheckout = vi.fn()
+    billing = setupBilling(fakeComponent, backend, { events: { 'checkout.created': onCheckout } as never })
+    const ctx = refreshableCtx()
+
+    const handler = billing.webhookEvents['checkout.created' as keyof typeof billing.webhookEvents]!
+    await handler(ctx as never, { data: {} } as never)
+
+    expect(onCheckout).toHaveBeenCalled()
+    // No refresh for non-refresh events.
+    expect(ctx.runMutation).not.toHaveBeenCalled()
+  })
+
+  it('keeps refreshing without any consumer hooks (default)', async () => {
+    billing = setupBilling(fakeComponent, backend, {})
+    getCustomerByUserId = vi.spyOn(billing.polar, 'getCustomerByUserId')
+    getCustomerByUserId.mockResolvedValue(null as never)
+    const ctx = makeCtx()
+
+    await billing.webhookEvents['subscription.active']!(ctx as never, {
+      data: { customerId: 'cus_1', customer: { metadata: { userId: 'org-1' } } },
+    } as never)
+
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:upsert', expect.objectContaining({ userId: 'org-1' }))
+  })
+})

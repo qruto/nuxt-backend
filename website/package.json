@@ -9,8 +9,10 @@
     "generate": "nuxt generate"
   },
   "dependencies": {
+    "citty": "^0.2.2",
     "convex": "^1.41.0",
     "docus": "^5.12.2",
+    "magicast": "^0.5.3",
     "nuxt": "catalog:",
     "nuxt-backend": "workspace:*"
   },

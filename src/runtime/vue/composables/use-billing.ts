@@ -1,9 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, inject, type ComputedRef } from 'vue'
-import { useAction } from './use-action'
-import { useQuery } from './use-query'
-import { ConvexAuthStateKey } from '../auth'
-import { useBackendNamespace } from '../provide'
+import { useAction, useQuery, ConvexAuthStateKey, useConvexNamespace } from 'nuxt-convex-module/client'
 
 /** A Polar product (loose — the full shape is Polar's; cast as needed). */
 export type PolarProduct = { id: string, name: string } & Record<string, unknown>
@@ -180,7 +177,7 @@ export function createCheckout(billing: BillingApi) {
  * ```
  */
 export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
-  const billing = (options.api ?? useBackendNamespace<BillingApi>('billing') ?? {}) as BillingApi
+  const billing = (options.api ?? useConvexNamespace<BillingApi>('billing') ?? {}) as BillingApi
 
   const products = billing.getConfiguredProducts
     ? useQuery(billing.getConfiguredProducts)
@@ -193,7 +190,7 @@ export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
   // still works without the auth integration. When signed out, the user is simply
   // on the free plan (no subscriptions).
   const auth = inject(ConvexAuthStateKey, null)
-  const signedOut = computed(() => auth != null && !auth.isAuthenticated)
+  const signedOut = computed(() => auth != null && !auth.isAuthenticated.value)
   const userScopedArgs = () => (signedOut.value ? 'skip' : {})
 
   const rawSubscriptions = billing.listAllSubscriptions
@@ -245,6 +242,3 @@ export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
     },
   }
 }
-
-/** @public */
-export const useConvexBilling = useBilling

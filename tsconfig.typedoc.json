@@ -1,0 +1,30 @@
+{
+  // Dedicated TypeScript project for TypeDoc. The library is split across two TS
+  // worlds (runtime/* uses the Nuxt tsconfig, convex/* uses tsconfig.convex.json);
+  // TypeDoc takes a single project, so this one spans both. We don't typecheck
+  // here (TypeDoc runs with `skipErrorChecking`) — it only needs to resolve
+  // modules well enough to read the public API + TSDoc comments.
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.convex.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "rootDir": ".",
+    "types": ["node"],
+    "jsx": "preserve",
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/runtime/**/*.ts",
+    "src/convex/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "src/convex/component/_generated/**"
+  ]
+}

@@ -43,9 +43,9 @@ export default createConfigForNuxt({
         '@typescript-eslint/no-explicit-any': 'off',
       },
     },
-    // Playground demo components use short, single-word names by design.
+    // Playground demos and example pages use short, single-word names by design.
     {
-      files: ['website/**/*.vue'],
+      files: ['website/**/*.vue', 'examples/**/*.vue'],
       rules: {
         'vue/multi-word-component-names': 'off',
       },

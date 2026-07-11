@@ -1,6 +1,6 @@
 import { passkey } from '@better-auth/passkey'
 import type { BetterAuthOptions } from 'better-auth/minimal'
-import { emailOTP } from 'better-auth/plugins'
+import { admin, emailOTP, organization } from 'better-auth/plugins'
 import { createApi } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import type { RegisteredMutation, RegisteredQuery } from 'convex/server'
@@ -10,7 +10,8 @@ import { authSchema as schema } from './schema'
  * Options used solely to derive the auth schema (via `getAuthTables`) for the
  * component adapter. Mirrors upstream @convex-dev/better-auth component/adapter
  * pattern (see their auth-options.ts + adapter.ts) but limited to plugins we
- * enable by default (convex + emailOTP + passkey) for minimal surface.
+ * enable by default (convex + emailOTP + passkey + admin + organization) for
+ * minimal surface.
  */
 const options: BetterAuthOptions = {
   rateLimit: { storage: 'database' },
@@ -20,6 +21,8 @@ const options: BetterAuthOptions = {
     }),
     emailOTP({ sendVerificationOTP: async () => {} }),
     passkey(),
+    admin(),
+    organization(),
   ],
 }
 

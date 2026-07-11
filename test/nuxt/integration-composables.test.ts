@@ -1,18 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { nextTick, provide, ref } from 'vue'
+import { computed, nextTick, provide, ref } from 'vue'
 import { makeFunctionReference } from 'convex/server'
 import type { OptimisticLocalStore } from 'convex/browser'
-import { ConvexVueClient } from '../../src/runtime/vue/client'
+import { ConvexVueClient, ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { mountWithConvex } from '../helpers/vue_test_utils'
 import { silentConnectLogger } from '../helpers/silent-logger'
 import { useAggregate, useCount } from '../../src/runtime/vue/composables/use-aggregate'
-import { type BillingApi, useBilling, useConvexBilling } from '../../src/runtime/vue/composables/use-billing'
+import { type BillingApi, useBilling } from '../../src/runtime/vue/composables/use-billing'
 import { useFeatures } from '../../src/runtime/vue/composables/use-features'
 import { useCredits } from '../../src/runtime/vue/composables/use-credits'
 import { type EmailApi, useEmailStatus } from '../../src/runtime/vue/composables/use-email-status'
 import { useSearch } from '../../src/runtime/vue/composables/use-search'
 import { useWorkflowStatus } from '../../src/runtime/vue/composables/use-workflow'
-import { ConvexAuthStateKey } from '../../src/runtime/vue/auth'
 
 const address = 'https://127.0.0.1:3001'
 const seedMutationRef = makeFunctionReference<'mutation'>('seed:default')
@@ -109,7 +108,7 @@ describe('useBilling', () => {
     const { result } = await mountWithConvex(
       client,
       () => useBilling({ api }),
-      { provide: () => provide(ConvexAuthStateKey, { isLoading: false, isAuthenticated: false }) },
+      { provide: () => provide(ConvexAuthStateKey, { isLoading: computed(() => false), isAuthenticated: computed(() => false), isRefreshing: computed(() => false) }) },
     )
     expect(result.subscriptions.value).toStrictEqual([])
     expect(result.subscription.value).toBeNull()
@@ -170,10 +169,6 @@ describe('useBilling', () => {
     await expect(result.portal()).rejects.toThrow(/Billing portal is unavailable/)
     await expect(result.changePlan('p')).rejects.toThrow(/Billing changePlan is unavailable/)
     await expect(result.cancel()).rejects.toThrow(/Billing cancel is unavailable/)
-  })
-
-  it('exposes useConvexBilling as an alias', () => {
-    expect(useConvexBilling).toBe(useBilling)
   })
 })
 

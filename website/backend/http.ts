@@ -1,27 +1,19 @@
-import { setupEmail } from 'nuxt-backend/convex/email'
+import { registerBackendRoutes } from 'nuxt-backend/convex/http'
 import { httpRouter } from 'convex/server'
-import { components } from './_generated/api'
-import { httpAction } from './_generated/server'
 import { authComponent, createAuth } from './auth'
 import { polar, webhookEvents } from './billing'
+import { email } from './email'
 
+// Mounts every bundled service: Better Auth routes, the Polar webhook
+// (default /polar/events, POLAR_WEBHOOK_SECRET) — `webhookEvents` (from
+// billing.ts) also logs each event to the showcase feed — and the Resend
+// webhook (/resend-webhook, RESEND_WEBHOOK_SECRET) that makes useEmailStatus
+// reactive.
 const http = httpRouter()
-authComponent.registerRoutes(http, createAuth)
-
-const email = setupEmail(components.backend)
-
-// Polar webhooks (default path /polar/events). The component auto-persists
-// subscriptions/products; `webhookEvents` (from billing.ts) logs each event to the
-// showcase feed and refreshes the reactive feature/credit cache. Set
-// POLAR_WEBHOOK_SECRET to verify signatures.
-polar.registerRoutes(http, { events: webhookEvents })
-
-// Resend delivery/bounce/open webhooks → advance email status (makes
-// useEmailStatus reactive). Set RESEND_WEBHOOK_SECRET to verify signatures.
-http.route({
-  path: '/resend-webhook',
-  method: 'POST',
-  handler: httpAction(async (ctx, request) => email.webhookHandler(ctx, request)),
+registerBackendRoutes(http, {
+  auth: { authComponent, createAuth },
+  billing: { polar, webhookEvents },
+  email,
 })
 
 export default http

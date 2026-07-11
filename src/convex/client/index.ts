@@ -4,7 +4,7 @@ import { passkey } from '@better-auth/passkey'
 import { APIError, getSessionFromCtx } from 'better-auth/api'
 import { setSessionCookie } from 'better-auth/cookies'
 import { betterAuth, type BetterAuthOptions } from 'better-auth/minimal'
-import { emailOTP } from 'better-auth/plugins'
+import { admin, emailOTP, organization } from 'better-auth/plugins'
 import type { AnyComponents, AuthConfig, FunctionReference, GenericActionCtx, GenericDataModel, GenericMutationCtx, GenericSchema, QueryBuilder, SchemaDefinition } from 'convex/server'
 import authConfig from '../auth.config'
 import { DEFAULT_AUTH_ROUTE } from '../component/constants'
@@ -317,6 +317,18 @@ function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRunt
   }
 }
 
+/** Options for the bundled admin plugin (roles, permissions, ban, impersonation). */
+export type AdminPluginOptions = Parameters<typeof admin>[0]
+
+/**
+ * Options for the bundled organization plugin (workspaces), plus `personal`:
+ * when `true` (the default), a personal workspace is auto-created on a user's
+ * first sign-in and set active — so `activeOrganizationId` is never null.
+ */
+export type OrganizationPluginOptions = Parameters<typeof organization>[0] & {
+  personal?: boolean
+}
+
 export interface CreateBetterAuthOptions {
   /** Override the default auth config (e.g. to add custom providers) */
   authConfig?: AuthConfig
@@ -324,6 +336,17 @@ export interface CreateBetterAuthOptions {
   authOptions?: BetterAuthOptions
   /** Override Better Auth basePath and matching Convex auth route */
   basePath?: string
+  /**
+   * Admin plugin options (roles via `adminRoles`/`ac`, ban, impersonation).
+   * Enabled by default; pass `false` to disable — a disabled plugin still
+   * leaves its (optional) schema fields in place.
+   */
+  admin?: AdminPluginOptions | false
+  /**
+   * Organization (workspace) plugin options. Enabled by default with a
+   * personal workspace per user (`personal: true`); pass `false` to disable.
+   */
+  organization?: OrganizationPluginOptions | false
 }
 
 export interface SetupAuthOptions<
@@ -441,11 +464,19 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
     ?? readEnv('CONVEX_SITE_URL')
   const secret = resolvedAuthOptions.secret ?? readEnv('BETTER_AUTH_SECRET')
 
+  const adminOptions = options.admin
+  const organizationOptions = options.organization
+  const organizationEnabled = organizationOptions !== false
+  const { personal: personalWorkspace = true, ...organizationPluginOptions }
+    = typeof organizationOptions === 'object' ? organizationOptions : {}
+
   const userPlugins = resolvedAuthOptions.plugins ?? []
   const userPluginIds = new Set(userPlugins.map(p => p.id))
   const defaultPlugins = [
     emailOTP({ sendVerificationOTP: makeSendVerificationOTP(runtime) }),
     defaultPasskey(),
+    ...(adminOptions === false ? [] : [admin(adminOptions)]),
+    ...(organizationEnabled ? [organization(organizationPluginOptions)] : []),
   ].filter(plugin => !userPluginIds.has(plugin.id))
 
   // When an email transport is wired, deliver verification, email-change,
@@ -514,8 +545,28 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
     ...(sendVerificationEmail && !resolvedAuthOptions.emailVerification
       ? { emailVerification: { sendVerificationEmail } }
       : {}),
-    ...(createAfterHook && !resolvedAuthOptions.databaseHooks
-      ? { databaseHooks: { user: { create: { after: createAfterHook } } } }
+    // Consumer-supplied databaseHooks win entirely (documented behavior).
+    ...(!resolvedAuthOptions.databaseHooks && (createAfterHook || organizationEnabled)
+      ? {
+          databaseHooks: {
+            ...(createAfterHook ? { user: { create: { after: createAfterHook } } } : {}),
+            ...(organizationEnabled
+              ? {
+                  session: {
+                    create: {
+                      // Every new session gets an active workspace: the user's
+                      // first membership, or (with `personal`) a workspace
+                      // auto-created on first sign-in.
+                      before: async (session: { userId: string } & Record<string, unknown>, hookCtx: unknown) => {
+                        const activeOrganizationId = await ensureActiveOrganization(session.userId, hookCtx, personalWorkspace)
+                        return activeOrganizationId ? { data: { ...session, activeOrganizationId } } : undefined
+                      },
+                    },
+                  },
+                }
+              : {}),
+          },
+        }
       : {}),
     plugins: [
       convex({
@@ -523,11 +574,67 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
         options: {
           basePath: resolvedBasePath,
         },
+        jwt: {
+          // Default payload (the user sans id/image) + the active workspace, so
+          // Convex functions read org context straight from identity claims.
+          definePayload: ({ user, session }) => {
+            const { id: _id, image: _image, ...claims } = user
+            if (!organizationEnabled) return claims
+            const activeOrganizationId = (session as { activeOrganizationId?: string | null }).activeOrganizationId
+            return activeOrganizationId ? { ...claims, activeOrganizationId } : claims
+          },
+        },
       }),
       ...defaultPlugins,
       ...userPlugins,
     ],
   } satisfies BetterAuthOptions
+}
+
+/** The minimal Better Auth adapter surface the workspace session hook needs. */
+interface AuthHookAdapter {
+  findOne: (args: { model: string, where: Array<{ field: string, value: unknown }> }) => Promise<unknown>
+  create: (args: { model: string, data: Record<string, unknown> }) => Promise<unknown>
+}
+
+/**
+ * Resolve the workspace a new session should activate: the user's first
+ * membership, or — when `createPersonal` — a personal workspace created on the
+ * spot (organization + owner membership rows via the Better Auth adapter).
+ */
+async function ensureActiveOrganization(
+  userId: string,
+  hookCtx: unknown,
+  createPersonal: boolean,
+): Promise<string | undefined> {
+  const adapter = (hookCtx as { context?: { adapter?: AuthHookAdapter } } | undefined)?.context?.adapter
+  if (!adapter) return undefined
+
+  const membership = await adapter.findOne({
+    model: 'member',
+    where: [{ field: 'userId', value: userId }],
+  }) as { organizationId?: string } | null
+  if (membership?.organizationId) return membership.organizationId
+  if (!createPersonal) return undefined
+
+  const user = await adapter.findOne({
+    model: 'user',
+    where: [{ field: 'id', value: userId }],
+  }) as { name?: string } | null
+  const now = new Date()
+  const workspace = await adapter.create({
+    model: 'organization',
+    data: {
+      name: user?.name ? `${user.name}'s workspace` : 'Personal workspace',
+      slug: `personal-${userId.toLowerCase()}`,
+      createdAt: now,
+    },
+  }) as { id: string }
+  await adapter.create({
+    model: 'member',
+    data: { organizationId: workspace.id, userId, role: 'owner', createdAt: now },
+  })
+  return workspace.id
 }
 
 /**
@@ -556,6 +663,8 @@ export function createAuthOptions<
     authConfig: options?.authConfig,
     authOptions: options?.authOptions,
     basePath: options?.basePath,
+    admin: options?.admin,
+    organization: options?.organization,
   }, { ctx, ...resolveIntegrations(componentRef, options?.integrations) })
 }
 
@@ -640,6 +749,8 @@ export function setupAuth<
       authConfig: options?.authConfig,
       authOptions: options?.authOptions,
       basePath: options?.basePath,
+      admin: options?.admin,
+      organization: options?.organization,
     }, { ctx, ...resolvedIntegrations })
   }
 

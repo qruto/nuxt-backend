@@ -1,0 +1,15 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { margin: 0; line-height: 1.6; }
+main { max-width: 52rem; margin: 0 auto; padding: 2.5rem 1.25rem; display: flex; flex-direction: column; gap: 1.5rem; }
+nav { display: flex; gap: 1rem; align-items: center; }
+nav a { color: inherit; }
+h1 { letter-spacing: -0.02em; margin: 0; }
+section { border: 1px solid color-mix(in srgb, currentColor 15%, transparent); border-radius: 10px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+button { padding: 0.45rem 0.8rem; border-radius: 8px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); background: none; color: inherit; font: inherit; cursor: pointer; }
+button.primary { background: #00dc82; border-color: #00dc82; color: #04101f; font-weight: 600; }
+input, select { padding: 0.45rem 0.6rem; border-radius: 8px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); background: none; color: inherit; font: inherit; }
+ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+li { display: flex; align-items: center; gap: 0.6rem; }
+.muted { opacity: 0.65; font-size: 0.9rem; }
+.row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.spacer { flex: 1; }

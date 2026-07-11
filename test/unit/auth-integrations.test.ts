@@ -46,6 +46,14 @@ describe('Better Auth cross-component integrations', () => {
     expect(options.emailVerification).toBeUndefined()
     expect(options.emailAndPassword.sendResetPassword).toBeUndefined()
     expect(options.user?.changeEmail).toBeUndefined()
+    // No email/lifecycle hooks — only the always-on workspace session hook
+    // (organizations are a default feature, not an integration).
+    expect(options.databaseHooks?.user).toBeUndefined()
+    expect(options.databaseHooks?.session?.create?.before).toBeTypeOf('function')
+  })
+
+  it('has no database hooks at all when organizations are disabled and no integrations given', () => {
+    const options = createBetterAuthOptions(fakeDb, { organization: false })
     expect(options.databaseHooks).toBeUndefined()
   })
 })

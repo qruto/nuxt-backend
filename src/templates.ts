@@ -3,28 +3,22 @@ import dedent from 'dedent'
 const AUTH_CONFIG_TEMPLATE = `export { default } from 'nuxt-backend/convex/auth.config'\n`
 
 const HTTP_TEMPLATE = dedent`
-  import { setupEmail } from 'nuxt-backend/convex/email'
+  import { registerBackendRoutes } from 'nuxt-backend/convex/http'
   import { httpRouter } from 'convex/server'
-  import { components } from './_generated/api'
-  import { httpAction } from './_generated/server'
   import { authComponent, createAuth } from './auth'
   import { polar, webhookEvents } from './billing'
+  import { email } from './email'
 
+  // Mounts every bundled service: Better Auth routes, the Polar webhook
+  // (default /polar/events, POLAR_WEBHOOK_SECRET) that keeps the reactive
+  // feature/credit cache fresh, and the Resend webhook (/resend-webhook,
+  // RESEND_WEBHOOK_SECRET) that makes useEmailStatus reactive. React to
+  // events via \`setupBilling({ events })\` / \`setupEmail({ events })\`.
   const http = httpRouter()
-  authComponent.registerRoutes(http, createAuth)
-
-  // Polar webhook (default path /polar/events). The component syncs
-  // subscriptions/products; \`webhookEvents\` keeps the reactive feature/credit
-  // cache fresh. Set POLAR_WEBHOOK_SECRET to verify events.
-  polar.registerRoutes(http, { events: webhookEvents })
-
-  // Resend delivery/bounce/open webhook → advances email status (makes
-  // useEmailStatus reactive). Set RESEND_WEBHOOK_SECRET to verify signatures.
-  const email = setupEmail(components.backend)
-  http.route({
-    path: '/resend-webhook',
-    method: 'POST',
-    handler: httpAction(async (ctx, request) => email.webhookHandler(ctx, request)),
+  registerBackendRoutes(http, {
+    auth: { authComponent, createAuth },
+    billing: { polar, webhookEvents },
+    email,
   })
 
   export default http
@@ -96,31 +90,45 @@ function convexConfigTemplate(backendImport: string): string {
  * degrades gracefully until its env vars are set.
  */
 const FEATURE_FILE_TEMPLATES: Record<string, string> = {
+  'functions.ts': dedent`
+    import { setupAuthorization } from 'nuxt-backend/convex/authorization'
+    import { createFunctions } from 'nuxt-backend/convex/functions'
+    import { components } from './_generated/api'
+    import { action, internalMutation, mutation, query } from './_generated/server'
+
+    // Authorization over identity claims (role, ban state, active workspace),
+    // with fresh reads where it matters. Bootstrap your first admin with:
+    //   npx convex run functions:setUserRole '{"email":"you@example.com","role":"admin"}'
+    export const authorization = setupAuthorization(components.backend, { internalMutation })
+    export const { setUserRole } = authorization
+
+    // Pre-authorized builders — drop-in replacements for query/mutation/action:
+    //   authed.query({ ... })            ctx.user (signed in, not banned)
+    //   org.mutation({ ... })            + ctx.organization (fresh workspace membership)
+    //   admin.action({ ... })            app-wide admin role
+    //   withRole('editor').query({ .. }) custom role tier
+    export const { authed, org, admin, withRole } = createFunctions(
+      { query, mutation, action },
+      authorization,
+    )
+    ` + '\n',
+
   'billing.ts': dedent`
     import { setupBilling, type DiscountInput } from 'nuxt-backend/convex/billing'
     import { v } from 'convex/values'
-    import { api, components } from './_generated/api'
+    import { components } from './_generated/api'
     import { action, env } from './_generated/server'
-    import { authComponent } from './auth'
 
-    // Subscriptions, discounts & prepaid credits via the Polar component, linked to
-    // your auth users. The reactive feature/credit cache lives inside the \`backend\`
-    // component, so there's nothing to add to your schema. Set
+    // Subscriptions, discounts & prepaid credits via the Polar component. Billing
+    // follows the tenant: with the default \`billTo: 'organization'\` the active
+    // workspace owns the subscription and credits (members share them); switch to
+    // \`billTo: 'user'\` for per-user B2C billing. The billing entity resolves from
+    // identity claims automatically. The reactive feature/credit cache lives inside
+    // the \`backend\` component, so there's nothing to add to your schema. Set
     // POLAR_ORGANIZATION_TOKEN (and POLAR_SERVER) to enable checkout/credits/discounts.
     const billing = setupBilling(components.polar, components.backend, {
       organizationToken: env.POLAR_ORGANIZATION_TOKEN,
       server: env.POLAR_SERVER ?? 'sandbox',
-      // Action context (checkout / sync): map the current user to a Polar customer.
-      getUserInfo: async (ctx) => {
-        const user = await ctx.runQuery(api.auth.getAuthUser, {})
-        return { userId: user._id, email: user.email }
-      },
-      // Query context (reactive reads): resolve the current user id, or null when
-      // signed out so reads degrade gracefully (e.g. during SSR).
-      currentUserId: async (ctx) => {
-        if (!(await ctx.auth.getUserIdentity())) return null
-        return (await authComponent.getAuthUser(ctx))._id
-      },
     })
 
     export const { polar } = billing
@@ -162,9 +170,8 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // export const consumeCredit = action({
     //   args: { meterId: v.string() },
     //   handler: async (ctx, { meterId }) => {
-    //     const user = await ctx.runQuery(api.auth.getAuthUser, {})
-    //     if (!user) throw new Error('Sign in to use credits.')
-    //     await billing.spendCredits(ctx, { userId: user._id, name: 'credits', meterId })
+    //     // The billing entity (active workspace or user) resolves from identity.
+    //     await billing.spendCredits(ctx, { name: 'credits', meterId })
     //   },
     // })
     ` + '\n',
@@ -177,7 +184,9 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
 
     // Transactional + marketing email over the Resend component nested in
     // \`backend\`. Set RESEND_API_KEY to enable delivery (else it logs).
-    const email = setupEmail(components.backend)
+    // React to delivery events with \`setupEmail(components.backend, { events:
+    // { onBounced: async (ctx, event) => { ... } } })\`.
+    export const email = setupEmail(components.backend)
 
     // Reactive delivery-status query behind the \`useEmailStatus\` composable.
     export const { getEmailStatus } = email.api
@@ -345,6 +354,9 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
       createAuth,
       getAuthUser,
     } = setupAuth(components.backend, query, {
+      // Roles/permissions (admin plugin) and workspaces (organization plugin)
+      // are on by default, including a personal workspace per user. Customize
+      // or disable: \`admin: false\`, \`organization: { personal: false }\`, ...
       integrations: {
         // Email (OTP / verification / reset) is delivered automatically through
         // the Resend component nested inside \`backend\` — just set RESEND_API_KEY.
@@ -445,4 +457,20 @@ export function getBackendFileTemplates(options: BackendTemplateOptions = {}) {
   return options.installation === 'local'
     ? LOCAL_BACKEND_FILE_TEMPLATES
     : BACKEND_FILE_TEMPLATES
+}
+
+/**
+ * Scaffold files per feature — drives `nuxt-backend add <feature>`. The
+ * `functions` feature (authorization + pre-authorized builders) is included
+ * because it's a plain scaffold file like the rest.
+ */
+export const FEATURES: Record<string, string[]> = {
+  'functions': ['functions.ts'],
+  'billing': ['billing.ts'],
+  'email': ['email.ts'],
+  'rate-limit': ['rateLimiter.ts'],
+  'workflows': ['workflows.ts'],
+  'migrations': ['migrations.ts'],
+  'aggregates': ['aggregates.ts'],
+  'search': ['search.ts'],
 }
