@@ -92,6 +92,8 @@ describe('add', () => {
 })
 
 describe('doctor', () => {
+  // The first doctor run pays a cold-start cost (~4s locally) that overshoots
+  // the 5s default on CI runners.
   it('reports findings as json and flags missing codegen', async () => {
     await run(['doctor', '--json'])
 
@@ -100,7 +102,7 @@ describe('doctor', () => {
     const codegen = report.findings.find(finding => finding.id === 'convex-codegen')
     expect(codegen?.status).toBe('warn')
     expect(report.findings.some(finding => finding.id === 'auth-secret')).toBe(true)
-  })
+  }, 30_000)
 
   it('reads env from .env.local (weak secret fails, exit code 1)', async () => {
     writeFileSync(join(rootDir, '.env.local'), 'AUTH_SECRET=changeme\n')
