@@ -67,3 +67,6 @@ coverage
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Claude Code local settings (machine-specific permissions)
+.claude/settings.local.json
