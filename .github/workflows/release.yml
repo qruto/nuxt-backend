@@ -2,9 +2,11 @@ name: Release
 
 # Manually triggered from the Actions tab (Release → Run workflow).
 # Performs the whole release in CI — no local tooling, no stored secrets:
-#   gate → changelogen (bump + CHANGELOG.md + commit + tag)
-#        → npm publish (Trusted Publishing / OIDC)
+#   assert ci green → gate → changelogen (bump + CHANGELOG.md + commit + tag)
+#        → pnpm publish (Trusted Publishing / OIDC; rewrites `catalog:` deps)
 #        → push commit + tag → changelogithub (GitHub Release)
+# With `dry-run: true` everything runs except the publish and the push —
+# a full rehearsal that leaves npm and the repository untouched.
 on:
   workflow_dispatch:
     inputs:
@@ -17,6 +19,10 @@ on:
           - patch
           - minor
           - major
+      dry-run:
+        description: Rehearse only (no publish, no push)
+        type: boolean
+        default: false
 
 # Only one release at a time; never cancel a publish midway.
 concurrency:
@@ -30,27 +36,50 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Binds the npm Trusted Publisher's OIDC claims (and any required-reviewer
+    # rule) to this environment — only runs approved through it can publish.
+    environment: release
     steps:
-      - uses: actions/checkout@v6
+      # Audit-mode egress monitoring for the job that holds id-token + contents
+      # write. Tighten to `egress-policy: block` with an allowlist once the
+      # first releases have produced a baseline audit report.
+      - name: Harden runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # full history + tags for changelogen, and to push back
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+      # The gate below re-runs lint/test/typecheck, but not the full ci matrix
+      # (quality, build). Never release a commit whose ci run isn't a completed
+      # success.
+      - name: Assert ci is green for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          conclusion=$(gh run list --repo "$GITHUB_REPOSITORY" --commit "$GITHUB_SHA" \
+            --workflow ci --limit 1 --json conclusion --jq '.[0].conclusion // "missing"')
+          if [ "$conclusion" != "success" ]; then
+            echo "::error::ci for $GITHUB_SHA is '$conclusion' — wait for a green ci run before releasing."
+            exit 1
+          fi
 
-      - name: Install node
-        uses: actions/setup-node@v6
+      # One action for pnpm (version from `packageManager`), the Node LTS runtime
+      # and `pnpm install` (frozen automatically in CI). The pnpm that publishes
+      # below is therefore the exact version the lockfile was authored with.
+      - name: Install pnpm, node & dependencies
+        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
         with:
-          node-version: lts/*
-          cache: pnpm
-          registry-url: https://registry.npmjs.org
+          runtime: node@lts
+          cache: true
 
-      # npm Trusted Publishing (OIDC) requires npm >= 11.5.1.
-      - name: Update npm
-        run: npm install -g npm@latest
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      # Generates `.nuxt/tsconfig.json`, which the root tsconfig extends —
+      # required by the test run and by the build that `pnpm publish`
+      # triggers via `prepack`.
+      - name: Prepare
+        run: pnpm run dev:prepare
 
       # Gate: never tag or publish a broken state.
       - name: Lint
@@ -76,18 +105,57 @@ jobs:
             pnpm exec changelogen --release --"$RELEASE_TYPE"
           fi
 
+      - name: Report the planned release
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "$DRY_RUN" = "true" ]; then
+            SUFFIX=" (dry run — nothing published)"
+          else
+            SUFFIX=""
+          fi
+          {
+            echo "## Release v${VERSION}${SUFFIX}"
+            echo
+            awk '/^## /{n++} n==1' CHANGELOG.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Guard against the publish/push race: the gate steps above take minutes,
+      # and if a commit lands on the release branch meanwhile, the push below
+      # would be rejected — after npm had already irrevocably consumed the
+      # version number. Fail here instead, before anything is published;
+      # re-running the release is then a clean recovery.
+      - name: Ensure the release branch has not moved
+        run: |
+          git fetch origin "$GITHUB_REF_NAME"
+          if ! git merge-base --is-ancestor "origin/$GITHUB_REF_NAME" HEAD; then
+            echo "::error::origin/$GITHUB_REF_NAME gained commits while the release was building — nothing was published; re-run the release."
+            exit 1
+          fi
+
       # Publish first; only mutate the remote once npm has accepted the release.
-      # `npm publish` runs `prepack` (the build); on failure nothing has been pushed.
+      # pnpm (not npm): rewrites `catalog:` ranges at pack time and supports
+      # npm Trusted Publishing natively. `--no-git-checks` because the release
+      # commit is intentionally not pushed yet. `prepack` runs the build; on
+      # failure nothing has been pushed.
+      - name: Publish to npm (dry run)
+        if: ${{ inputs.dry-run }}
+        run: pnpm publish --dry-run --no-git-checks
+
       - name: Publish to npm
-        run: npm publish
+        if: ${{ !inputs.dry-run }}
+        run: pnpm publish --no-git-checks
 
       - name: Push release commit & tag
+        if: ${{ !inputs.dry-run }}
         run: |
           git push origin HEAD
           git push origin --tags
 
       # GitHub Release: conventional grouping + "Thanks to contributors" section.
       - name: Create GitHub Release
+        if: ${{ !inputs.dry-run }}
         run: pnpm exec changelogithub
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

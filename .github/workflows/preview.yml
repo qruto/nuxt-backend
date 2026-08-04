@@ -1,0 +1,45 @@
+name: preview
+
+# Continuous preview releases via pkg.pr.new (StackBlitz): every PR and every
+# push to main gets an installable build —
+#   npm i https://pkg.pr.new/qruto/nuxt-backend@<sha>
+# Auth is handled by the pkg.pr.new GitHub App installed on the repository;
+# the workflow token needs no extra permissions.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: preview-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pnpm, node & dependencies
+        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+        with:
+          runtime: node@lts
+          cache: true
+
+      # Generates `.nuxt/tsconfig.json`, which the root tsconfig extends —
+      # required by the build that packing triggers via `prepack`.
+      - name: Prepare
+        run: pnpm run dev:prepare
+
+      # --pnpm packs with `pnpm pack` so `catalog:` ranges are rewritten,
+      # exactly like a real `pnpm publish`. Packing runs `prepack` (the build).
+      - name: Publish preview
+        run: pnpm dlx pkg-pr-new publish --pnpm --comment=update
