@@ -25,6 +25,17 @@ const BASE_ROUTE = '/api-reference/reference'
 // pure anchors (`#`), and protocol-ish (`mailto:`) links.
 const LINK = /\]\((?!https?:\/\/|\/|#|mailto:)([^)]+)\)/g
 
+// `Defined in:` paths for symbols re-exported from dependencies (convex, the TS
+// lib) are emitted as the on-disk location, which under pnpm's default isolated
+// linker is the store path: `node_modules/.pnpm/convex@1.42.3_react@19.2.8/
+// node_modules/convex/...`. That embeds both the node_modules layout and the
+// exact resolved version, so the committed reference drifts — and the ci drift
+// gate fails — whenever the linker or any dependency version changes. Collapse
+// the store segment back to the plain `node_modules/<pkg>/...` form, which is
+// what the path means and is stable across both. Underscores arrive
+// markdown-escaped (`node\_modules`), so match either spelling.
+const PNPM_STORE = /node(\\?)_modules\/\.pnpm\/[^/]+\/node\\?_modules\//g
+
 async function* walk(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name)
@@ -40,7 +51,7 @@ for await (const file of walk(ROOT)) {
   const relDir = posix.dirname(relative(ROOT, file).split(sep).join('/'))
   const linkBase = relDir === '.' ? BASE_ROUTE : posix.join(BASE_ROUTE, relDir)
 
-  const out = src.replace(LINK, (_match, target) => {
+  const out = src.replace(PNPM_STORE, 'node$1_modules/').replace(LINK, (_match, target) => {
     const hash = target.indexOf('#')
     const path = hash === -1 ? target : target.slice(0, hash)
     const anchor = hash === -1 ? '' : target.slice(hash)
