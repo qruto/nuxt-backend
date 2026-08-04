@@ -1,0 +1,49 @@
+# Dependabot owns every dependency PR here: npm version updates, GitHub Actions
+# digest bumps, and CVE fixes (security updates are enabled in the repo's
+# Code security settings). No third-party app holds write access to this repo.
+#
+# `cooldown` mirrors pnpm's minimumReleaseAge (pnpm-workspace.yaml) but one day
+# wider, so Dependabot never proposes a version pnpm will refuse to resolve.
+# Keep the exclude list in sync with minimumReleaseAgeExclude there.
+# Security updates are exempt from cooldown by design — CVE fixes ship as fast
+# as pnpm's own 24h gate allows.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 2
+      exclude:
+        - nuxt
+        - 'nuxt-*'
+        - '@nuxt/*'
+        - '@nuxtjs/*'
+        - convex
+        - convex-helpers
+        - '@convex-dev/*'
+    groups:
+      all-non-major:
+        patterns: ['*']
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore
+      include: scope
+
+  # Actions digest bumps — keeps the `@<sha> # vX.Y.Z` pinning convention
+  # intact. Native workflow-file writes: no PAT, no GitHub App.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 2
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci
+      include: scope

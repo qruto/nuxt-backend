@@ -1,5 +1,10 @@
 name: ci
 
+# Every job is two steps: checkout, then `pnpm/setup` — one action that
+# installs pnpm (version pinned by `packageManager` in package.json), downloads
+# the Node LTS runtime through it (`pnpm runtime`, so no actions/setup-node),
+# restores the pnpm store cache, and runs `pnpm install` — which pnpm switches
+# to frozen-lockfile mode automatically because CI is set.
 on:
   push:
     branches:
@@ -21,19 +26,15 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
-
-      - name: Install node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: lts/*
-          cache: pnpm
+          persist-credentials: false
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install pnpm, node & dependencies
+        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+        with:
+          runtime: node@lts
+          cache: true
 
       - name: Lint
         run: pnpm run lint
@@ -46,42 +47,50 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Full history so commitlint can read every commit in the PR range.
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
-
-      - name: Install node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - name: Install pnpm, node & dependencies
+        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
         with:
-          node-version: lts/*
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          runtime: node@lts
+          cache: true
 
       - name: Lint PR commit messages
         run: pnpm exec commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}" --verbose
 
+  # Inspects the dependency delta a PR introduces and fails on a known CVE or a
+  # package GitHub has flagged as malicious. Complements pnpm's cooldown, which
+  # only delays a new version — it never looks at what's inside it. PR-only:
+  # the action diffs two commits, so there is nothing to review on a push.
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate
+
   typecheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
-
-      - name: Install node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: lts/*
-          cache: pnpm
+          persist-credentials: false
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install pnpm, node & dependencies
+        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+        with:
+          runtime: node@lts
+          cache: true
 
       # Type-checks the published surface (module + Convex code). The website app
       # typecheck is intentionally excluded — it imports the app's
@@ -95,24 +104,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        # The project tracks the current LTS everywhere via the `lts/*` alias, so
-        # it follows new LTS lines without manual bumps. Kept as a matrix so an
+        # The project tracks the current LTS everywhere via the `lts` tag, so it
+        # follows new LTS lines without manual bumps. Kept as a matrix so an
         # extra line can be slotted in later without restructuring.
-        node: [lts/*]
+        node: [lts]
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
-
-      - name: Install node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: ${{ matrix.node }}
-          cache: pnpm
+          persist-credentials: false
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install pnpm, node & dependencies
+        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+        with:
+          runtime: node@${{ matrix.node }}
+          cache: true
 
       - name: Prepare
         run: pnpm run dev:prepare
@@ -120,10 +125,10 @@ jobs:
       - name: Test
         run: pnpm run test:coverage
 
-      # Upload coverage once (from the lts/* leg) to keep the Codecov badge fed.
+      # Upload coverage once (from the lts leg) to keep the Codecov badge fed.
       - name: Upload coverage to Codecov
-        if: matrix.node == 'lts/*'
-        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
+        if: matrix.node == 'lts'
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: ./coverage/lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -132,28 +137,44 @@ jobs:
       # Upload test results (run times, failure/flaky detection) to Codecov Test
       # Analytics. Runs even when tests fail so failures are captured.
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() && matrix.node == 'lts/*' }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        if: ${{ !cancelled() && matrix.node == 'lts' }}
+        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1.2.1
         with:
           files: ./test-report.junit.xml
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  # Static analysis of the workflows themselves (template injection, unpinned
+  # actions, credential persistence, …). Accepted findings live in
+  # .github/zizmor.yml.
+  #
+  # A fallow step (`pnpm run test:quality`) belongs here too — mirror of the
+  # nuxt-convex-module quality job — but the current codebase carries ~58
+  # pre-existing findings; add the step once they are burned down so the gate
+  # starts green.
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Workflow lint (zizmor)
+        uses: zizmorcore/zizmor-action@6fc4b006235f201fdab3722e17240ab420d580e5 # v0.6.1
+        with:
+          advanced-security: false
+
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
-
-      - name: Install node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: lts/*
-          cache: pnpm
+          persist-credentials: false
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install pnpm, node & dependencies
+        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+        with:
+          runtime: node@lts
+          cache: true
 
       # Generates `.nuxt/tsconfig.json`, which the root tsconfig extends. Without
       # it, `nuxt-module-build` can't resolve compiler options and prepack fails.

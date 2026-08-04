@@ -1,0 +1,24 @@
+# zizmor (workflow static analysis) — accepted findings.
+# https://docs.zizmor.sh/configuration/
+rules:
+  artipacked:
+    ignore:
+      # The release checkout must persist credentials: the workflow pushes the
+      # release commit + tag back to main with the ephemeral GITHUB_TOKEN.
+      - release.yml
+  use-trusted-publishing:
+    ignore:
+      # pkg.pr.new authenticates via its GitHub App, not a registry token —
+      # npm trusted publishing does not apply to it.
+      - preview.yml
+  dependabot-cooldown:
+    # The audit's default wants >= 7 days; this repo's policy is 2, so declare
+    # that as the threshold rather than ignoring the audit — it still fires if
+    # the cooldown ever drops below the documented value. 2 is deliberate: the
+    # cooldown-margin rule (RELEASING.md) keeps Dependabot one day wider than
+    # pnpm's own 24h minimumReleaseAge gate, which every install — Dependabot
+    # PRs included — already passes through; ci's dependency-review job then
+    # inspects the delta for known CVEs and malware. Widening to 7 days would
+    # only delay fixes without adding a gate that isn't already present.
+    config:
+      days: 2
