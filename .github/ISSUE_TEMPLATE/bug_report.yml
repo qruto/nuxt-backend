@@ -7,6 +7,10 @@ body:
       value: |
         Thanks for taking the time to fill out this bug report!
         Please search existing issues first to avoid duplicates.
+
+        **Found a security vulnerability?** Don't file it here — report it privately via
+        [GitHub Security Advisories](https://github.com/qruto/nuxt-backend/security/advisories/new).
+        See [SECURITY.md](https://github.com/qruto/nuxt-backend/blob/main/SECURITY.md).
   - type: input
     id: package-version
     attributes:

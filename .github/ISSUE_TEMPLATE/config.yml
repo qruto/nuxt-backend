@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/qruto/nuxt-backend/security/advisories/new
+    about: Report privately through GitHub Security Advisories — never in a public issue. See SECURITY.md.
   - name: GitHub Discussions
     url: https://github.com/qruto/nuxt-backend/discussions
     about: Please use Discussions for questions, ideas, and support requests.

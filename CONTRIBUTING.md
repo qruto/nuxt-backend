@@ -5,6 +5,7 @@ Thank you for your interest in contributing! This guide covers everything you ne
 ## Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
+- [Reporting Security Issues](#reporting-security-issues)
 - [Development Setup](#development-setup)
 - [Project Structure](#project-structure)
 - [Submitting Changes](#submitting-changes)
@@ -14,6 +15,15 @@ Thank you for your interest in contributing! This guide covers everything you ne
 ## Code of Conduct
 
 This project follows our [Code of Conduct](CODE_OF_CONDUCT.md). Please read it before participating.
+
+## Reporting Security Issues
+
+Security vulnerabilities never go in a public issue, discussion, or pull request. Report them
+privately through GitHub's
+[private vulnerability reporting](https://github.com/qruto/nuxt-backend/security/advisories/new)
+(**Security** tab → **Report a vulnerability**), which opens a draft advisory visible only to you
+and the maintainers. [SECURITY.md](SECURITY.md) covers scope, response times, and what happens
+after you report.
 
 ## Development Setup
 
