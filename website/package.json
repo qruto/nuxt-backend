@@ -12,11 +12,11 @@
     "citty": "^0.2.2",
     "convex": "^1.43.0",
     "docus": "^5.12.2",
-    "magicast": "^0.5.3",
+    "magicast": "^0.5.4",
     "nuxt": "catalog:",
     "nuxt-backend": "workspace:*"
   },
   "devDependencies": {
-    "sonda": "^0.13.0"
+    "sonda": "^0.14.0"
   }
 }
