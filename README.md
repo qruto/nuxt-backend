@@ -17,7 +17,7 @@ The all-in-one SaaS backend for [Nuxt](https://nuxt.com) on [Convex](https://con
 - a **Nuxt module** — the SaaS composables, scaffolding, env preflight, and `#backend/*` aliases; and
 - a **Convex backend** — a preassembled app definition (`defineBackendApp`) that mounts the package's all-in-one `backend` component (auth tables + adapter, email with the provider component nested inside, the billing entitlement cache, and gifts) plus the upstream Polar, rate limiter, workflow, migrations, and aggregate components for you.
 
-The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR, auth plumbing, DevTools, Convex-aware CSP) comes from [`nuxt-convex-module`](https://github.com/qruto/nuxt-convex) — installed and configured automatically. Use that package directly if you only want Convex bindings without the SaaS layer.
+The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR, auth plumbing, DevTools, Convex-aware CSP) comes from [`nuxt-convex-module`](https://github.com/qruto/nuxt-convex-module) — installed and configured automatically. Use that package directly if you only want Convex bindings without the SaaS layer.
 
 > 📖 **Full documentation:** the **[docs site](./website)** (homepage · docs · playground, one Nuxt app) covers installation, every composable, the bundled backend components, and the complete API reference.
 
@@ -168,7 +168,7 @@ pnpm generate   # static build
 
 ## Contributing
 
-1. Clone this repository (and its sibling [`nuxt-convex-module`](https://github.com/qruto/nuxt-convex) next to it — linked via `link:../nuxt-convex-module`)
+1. Clone this repository (and its sibling [`nuxt-convex-module`](https://github.com/qruto/nuxt-convex-module) next to it — linked via `link:../nuxt-convex-module`)
 2. Install dependencies using `pnpm install` (in both repos; run `pnpm dev:prepare` in `nuxt-convex-module` once)
 3. Prepare for development using `pnpm dev:prepare`
 4. Start development server using `pnpm dev`

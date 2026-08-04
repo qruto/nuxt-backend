@@ -56,7 +56,7 @@ billing, email, gifts and invitations), the Convex integrations it wires up, and
 configuration this module generates.
 
 Vulnerabilities in the upstream projects the package integrates with —
-[`nuxt-convex-module`](https://github.com/qruto/nuxt-convex) (the Convex/Nuxt foundation this
+[`nuxt-convex-module`](https://github.com/qruto/nuxt-convex-module) (the Convex/Nuxt foundation this
 package builds on), [Convex](https://github.com/get-convex),
 [Better Auth](https://github.com/better-auth/better-auth), Polar, or Resend — belong in *their*
 security process, not here. Report them to that project directly. If you are unsure which side a
