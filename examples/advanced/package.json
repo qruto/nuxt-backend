@@ -10,7 +10,7 @@
   "dependencies": {
     "@convex-dev/better-auth": "^0.12.3",
     "@convex-dev/resend": "^0.2.4",
-    "convex": "^1.42.2",
+    "convex": "^1.43.0",
     "nuxt": "catalog:",
     "nuxt-backend": "workspace:*"
   }

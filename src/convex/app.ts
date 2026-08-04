@@ -1,4 +1,4 @@
-import { defineApp, type AppDefinition, type EnvDefinition } from 'convex/server'
+import { defineApp, type AppDefinition, type ComponentDefinition, type EnvDefinition } from 'convex/server'
 import { v } from 'convex/values'
 // The bundled component definitions. Convex discovers its component tree by
 // intercepting every import whose specifier contains `convex.config` while
@@ -49,6 +49,13 @@ type BackendApp = AppDefinition<typeof backendEnv>
 
 /** A component definition (the default export of a `convex.config`). */
 type ComponentDef = Parameters<BackendApp['use']>[0]
+
+/**
+ * A component definition with no required env vars, so `use()` accepts it
+ * without an options argument (since convex 1.43 the options argument is
+ * mandatory whenever required env can't be ruled out from the type).
+ */
+type EnvlessComponentDef = ComponentDefinition
 
 /**
  * Every component {@link installBackend} mounts, by its dashboard name.
@@ -114,18 +121,18 @@ export interface InstallBackendOptions {
  */
 export function installBackend<App extends BackendApp>(app: App, options: InstallBackendOptions = {}): App {
   const skip = new Set(options.omit ?? [])
-  const defs: Record<BackendComponentName, ComponentDef> = {
-    backend,
+  const { backend: backendDef = backend, ...upstreamOverrides } = options.components ?? {}
+  const defs: Record<Exclude<BackendComponentName, 'backend'>, EnvlessComponentDef> = {
     aggregate,
     migrations,
     polar,
     rateLimiter,
     workflow,
-    ...options.components,
+    ...upstreamOverrides,
   }
   // Components are isolated from the app's env — forward the email config by
   // reference so the deployment's values reach the component's email functions.
-  app.use(defs.backend, {
+  app.use(backendDef, {
     env: {
       EMAIL_API_KEY: app.env.EMAIL_API_KEY,
       EMAIL_FROM: app.env.EMAIL_FROM,

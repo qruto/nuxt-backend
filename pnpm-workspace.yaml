@@ -10,10 +10,16 @@ packages:
 # Reference with `"nuxt": "catalog:"` in package.json so the root module and the
 # website can never drift onto different Nuxt majors. https://pnpm.io/catalogs
 catalog:
-  nuxt: ^4.4.8
+  nuxt: ^4.5.1
 
 # --- Node module layout ------------------------------------------------------
-# Nuxt/Vite + Convex codegen expect a flat node_modules; keep the hoisted linker.
+# Deviation from nuxt-convex-module (which runs pnpm's default isolated linker):
+# this package emits library d.ts for `setupAuth`, whose inferred better-auth
+# return type references transitive packages (@simplewebauthn/server, zod/v4
+# internals). Under the isolated linker tsc cannot name those references
+# portably (TS2883) and the serialized type blows past the compiler limit
+# (TS7056); a flat node_modules keeps them nameable. Revisit if setupAuth ever
+# gets explicit return types.
 nodeLinker: hoisted
 
 # --- Supply-chain security ---------------------------------------------------
@@ -38,7 +44,62 @@ allowBuilds:
 # satisfies the range AND clears the cooldown. https://pnpm.io/settings#minimumreleaseage
 minimumReleaseAge: 1440
 
+# Waived for first-party frameworks: a compromised @nuxt/* or convex release is
+# caught within minutes by a large user base, and we want same-day access to
+# fixes in our own stack. Mirrored by `cooldown.exclude` in .github/dependabot.yml —
+# keep the two lists in sync, or Dependabot proposes versions pnpm refuses to
+# resolve.
+minimumReleaseAgeExclude:
+  - nuxt
+  - 'nuxt-*'
+  - '@nuxt/*'
+  - '@nuxtjs/*'
+  - convex
+  - convex-helpers
+  - '@convex-dev/*'
+
+# Refuse transitive dependencies pulled from exotic sources (git repos, raw
+# tarball URLs) — those bypass registry auditing entirely.
+blockExoticSubdeps: true
+
+# Refuse an install when a package's trust level drops versus prior releases
+# (e.g. provenance/attestation disappears) — a compromised-account tell.
+trustPolicy: no-downgrade
+
+# `no-downgrade` compares by publish date across a package's whole history: a
+# version fails if any earlier-published one carried stronger trust evidence.
+# A late maintenance release on an old major therefore reads as a downgrade
+# once the current major has moved to signed releases.
+trustPolicyExclude:
+  # Hand-published backport on the 6.x branch (2023-07-10, no attestation);
+  # semver 7.x was already publishing with provenance via CI by then. Pulled in
+  # by @babel/core and two @babel/helper-* packages, which pin semver ^6.
+  - semver@6.3.1
+
+# --- Security overrides ------------------------------------------------------
+# Pin transitive deps whose parents still request vulnerable ranges. Each entry
+# names the parent so the blast radius stays one package, targets a version the
+# lockfile already resolves elsewhere (no new code enters the tree), and lists
+# the condition for removing it.
+overrides:
+  # giget@1 (changelogithub -> changelogen@0.5 -> c12@1) pins tar ^6 — EOL, in
+  # range for the 7.5.x path-traversal series (GHSA-8qq5-rm4j-mr97 et al.,
+  # fixed in 7.5.18+). giget only calls `extract({ file, cwd, onentry })`; tar 7
+  # keeps that API (onentry survives as a deprecated alias of onReadEntry).
+  # Remove when changelogithub ships a changelogen with c12@3+/giget@2+.
+  'giget>tar': ^7.5.18
+  # fontless@0.2.1 (latest; via @nuxt/fonts and nuxt-og-image) pins esbuild
+  # ^0.27.0, in range for GHSA-g7r4-m6w7-qqqr (dev-server file read on Windows,
+  # fixed in 0.28.1). fontless only imports `transform`, stable across 0.x.
+  # Remove when fontless allows ^0.28.
+  'fontless>esbuild': ^0.28.1
+  # resend@6.18.1 (2026-07-28) was published without the provenance attestations
+  # 6.18.0 and earlier releases carried — `trustPolicy: no-downgrade` rejects it
+  # as a possible package takeover. Hold the last attested release; remove when
+  # a newer version ships with attestations again.
+  resend: 6.18.0
+
 # --- Integrity ---------------------------------------------------------------
-# Warn (without blocking) when node_modules is out of sync with the lockfile
-# before running a script, so stale installs are caught early.
-verifyDepsBeforeRun: warn
+# Fail a script outright when node_modules is out of sync with the lockfile, so
+# a stale install can never silently produce a passing build or test run.
+verifyDepsBeforeRun: error

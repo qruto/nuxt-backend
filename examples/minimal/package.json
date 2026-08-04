@@ -8,7 +8,7 @@
     "build": "nuxt build"
   },
   "dependencies": {
-    "convex": "^1.42.2",
+    "convex": "^1.43.0",
     "nuxt": "catalog:",
     "nuxt-backend": "workspace:*"
   }
