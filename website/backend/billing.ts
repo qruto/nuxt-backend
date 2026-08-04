@@ -2,22 +2,29 @@ import { setupBilling, type DiscountInput } from 'nuxt-backend/convex/billing'
 import type { GenericActionCtx, GenericDataModel } from 'convex/server'
 import { v } from 'convex/values'
 import { api, components, internal } from './_generated/api'
-import { action, env, internalMutation, query } from './_generated/server'
+import { action, internalMutation, query } from './_generated/server'
 import { authComponent } from './auth'
+import { authed } from './functions'
+import { rateLimiter } from './rateLimiter'
 
-// Subscriptions, discounts & prepaid credits via the Polar component, linked to
-// auth users. The reactive feature/credit cache lives inside the `backend`
-// component, so there's nothing to add to this schema. Set
-// POLAR_ORGANIZATION_TOKEN (and POLAR_SERVER) to enable checkout/credits/discounts.
-const billing = setupBilling(components.polar, components.backend, {
-  organizationToken: env.POLAR_ORGANIZATION_TOKEN,
-  server: env.POLAR_SERVER ?? 'sandbox',
-  // Demo catalog in the qruto Polar sandbox: a monthly subscription (`pro`, grants
-  // a "premium" benefit) and a one-time credit pack (`credits`, grants 100 units to
-  // the "Credits" meter). Configured here so `useBilling().products` resolves them.
+// Subscriptions, discounts, prepaid credits & gifts, linked to auth users.
+// Configuration comes from the required BILLING_* env vars; the reactive
+// feature/credit cache lives inside the backend component, so there's nothing
+// to add to this schema.
+const billing = setupBilling(components, {
+  // Throttle syncEntitlements per billing entity (guards the live provider fan-out).
+  rateLimiter,
+  // Demo catalog in the qruto Polar sandbox: three monthly plans that each grant
+  // prepaid units to the "Credits" meter (Pro and Ultra also grant feature
+  // benefits, matched by `useFeatures().has()` via benefit metadata keys), plus
+  // two one-time credit packs. Configured here so `useBilling().products`
+  // resolves them.
   products: {
+    starter: '96561ea3-e168-4219-9716-5128ac57dd7c',
     pro: 'd852636d-a5fb-4472-b592-3ac921a84ba3',
-    credits: 'f55734b4-428f-47b9-b305-70576acf9181',
+    ultra: '9e9097b4-22dc-4b40-9823-47a15fbe9f17',
+    credits100: 'f55734b4-428f-47b9-b305-70576acf9181',
+    credits500: '907659da-d66c-4e4a-9cb3-799ec445c79b',
   },
   getUserInfo: async (ctx) => {
     const user = await ctx.runQuery(api.auth.getAuthUser, {})
@@ -29,7 +36,7 @@ const billing = setupBilling(components.polar, components.backend, {
   },
 })
 
-export const { polar } = billing
+export const { provider } = billing
 export const {
   generateCheckoutLink,
   generateCustomerPortalUrl,
@@ -38,15 +45,18 @@ export const {
   listAllSubscriptions,
   changeCurrentSubscription,
   cancelCurrentSubscription,
+  giftCheckout,
 } = billing.api
 export const {
   getCurrentSubscription,
   getFeatures,
   getCredits,
   syncEntitlements,
+  getReceivedGifts,
+  claimGift,
 } = billing.functions
 
-// --- Showcase: a live feed of incoming Polar webhooks --------------------------
+// --- Showcase: a live feed of incoming billing webhooks ------------------------
 
 export const recordWebhookEvent = internalMutation({
   args: { source: v.string(), type: v.string(), summary: v.string() },
@@ -68,7 +78,7 @@ export const webhookEvents = Object.fromEntries(
   Object.entries(billing.webhookEvents).map(([type, handler]) => [
     type,
     async (ctx: GenericActionCtx<GenericDataModel>, event: { type: string }) => {
-      await ctx.runMutation(internal.billing.recordWebhookEvent, { source: 'polar', type, summary: type })
+      await ctx.runMutation(internal.billing.recordWebhookEvent, { source: 'billing', type, summary: type })
       await (handler as unknown as ((c: GenericActionCtx<GenericDataModel>, e: { type: string }) => Promise<void>) | undefined)?.(ctx, event)
     },
   ]),
@@ -76,29 +86,41 @@ export const webhookEvents = Object.fromEntries(
 
 // --- Credits -------------------------------------------------------------------
 
-/** Spend one prepaid credit for the current user (blocks when the balance is empty). */
+/** Spend one prepaid credit for the current entity (blocks when the balance is empty). */
 export const consumeCredit = action({
   args: { meterId: v.string() },
   handler: async (ctx, { meterId }) => {
-    const user = await ctx.runQuery(api.auth.getAuthUser, {})
-    if (!user) throw new Error('Sign in to use credits.')
-    await billing.spendCredits(ctx, { userId: user._id, name: 'credits', meterId })
+    if (!(await ctx.auth.getUserIdentity())) throw new Error('Sign in to use credits.')
+    // No explicit userId: the billing entity (the active workspace) resolves
+    // from the caller's identity claims, matching how checkout billed it.
+    await billing.spendCredits(ctx, { name: 'credits', meterId })
     return null
   },
 })
 
 // --- Discounts -----------------------------------------------------------------
 
-/** Create a percentage discount/coupon (admin). */
-export const createDiscount = action({
-  args: { name: v.string(), percent: v.number(), code: v.optional(v.string()) },
-  handler: async (ctx, { name, percent, code }) => {
+/**
+ * Create a percentage discount/coupon. Gated to a signed-in caller (a public
+ * action would let anyone mint a 100%-off code); `percent` is clamped to
+ * [0, 100]. This is a sandbox showcase — a production app should require an
+ * admin role here (swap `authed.action` for `admin.action`).
+ */
+export const createDiscount = authed.action({
+  args: {
+    name: v.string(),
+    percent: v.number(),
+    code: v.optional(v.string()),
+    // `forever` keeps recurring checkouts card-free in the sandbox.
+    duration: v.optional(v.union(v.literal('once'), v.literal('forever'))),
+  },
+  handler: async (ctx, { name, percent, code, duration }) => {
     const discount: DiscountInput = {
       type: 'percentage',
       name,
       code,
-      duration: 'once',
-      basisPoints: Math.round(percent * 100),
+      duration: duration ?? 'once',
+      basisPoints: Math.round(Math.min(Math.max(percent, 0), 100) * 100),
     }
     return billing.createDiscount(discount)
   },

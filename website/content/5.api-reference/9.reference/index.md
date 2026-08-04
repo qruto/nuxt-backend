@@ -1,24 +1,29 @@
 ---
 navigation: true
-title: Modules
-description: Auto-generated TypeScript API reference for every public nuxt-backend module.
 ---
 
-# API Modules
+# nuxt-backend
 
 ## Modules
 
 | Module | Description |
 | ------ | ------ |
-| [convex/app](/api-reference/reference/convex/app) | - |
-| [convex/client](/api-reference/reference/convex/client) | - |
-| [convex/integrations/aggregate](/api-reference/reference/convex/integrations/aggregate) | - |
-| [convex/integrations/billing](/api-reference/reference/convex/integrations/billing) | - |
-| [convex/integrations/email](/api-reference/reference/convex/integrations/email) | - |
-| [convex/integrations/migrations](/api-reference/reference/convex/integrations/migrations) | - |
-| [convex/integrations/rate-limit](/api-reference/reference/convex/integrations/rate-limit) | - |
-| [convex/integrations/search](/api-reference/reference/convex/integrations/search) | - |
-| [convex/integrations/workflows](/api-reference/reference/convex/integrations/workflows) | - |
-| [runtime/nuxt](/api-reference/reference/runtime/nuxt) | Helpers for integrating Convex into Nuxt applications using server rendering. |
-| [runtime/vue/billing](/api-reference/reference/runtime/vue/billing) | - |
-| [runtime/vue](/api-reference/reference/runtime/vue) | Tools to integrate Convex into Vue applications. |
+| [convex/app](convex/app.md) | - |
+| [convex/client](convex/client.md) | - |
+| [convex/integrations/aggregate](convex/integrations/aggregate.md) | - |
+| [convex/integrations/billing](convex/integrations/billing.md) | - |
+| [convex/integrations/email](convex/integrations/email.md) | - |
+| [convex/integrations/migrations](convex/integrations/migrations.md) | - |
+| [convex/integrations/rate-limit](convex/integrations/rate-limit.md) | - |
+| [convex/integrations/search](convex/integrations/search.md) | - |
+| [convex/integrations/workflows](convex/integrations/workflows.md) | - |
+| [runtime/vue/composables/use-aggregate](runtime/vue/composables/use-aggregate.md) | - |
+| [runtime/vue/composables/use-auth](runtime/vue/composables/use-auth.md) | - |
+| [runtime/vue/composables/use-billing](runtime/vue/composables/use-billing.md) | - |
+| [runtime/vue/composables/use-credits](runtime/vue/composables/use-credits.md) | - |
+| [runtime/vue/composables/use-email-status](runtime/vue/composables/use-email-status.md) | - |
+| [runtime/vue/composables/use-features](runtime/vue/composables/use-features.md) | - |
+| [runtime/vue/composables/use-gifts](runtime/vue/composables/use-gifts.md) | - |
+| [runtime/vue/composables/use-organization](runtime/vue/composables/use-organization.md) | - |
+| [runtime/vue/composables/use-search](runtime/vue/composables/use-search.md) | - |
+| [runtime/vue/composables/use-workflow](runtime/vue/composables/use-workflow.md) | - |

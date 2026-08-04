@@ -1,108 +1,30 @@
 import { createClient, type GenericCtx } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { passkey } from '@better-auth/passkey'
-import { APIError, getSessionFromCtx } from 'better-auth/api'
-import { setSessionCookie } from 'better-auth/cookies'
 import { betterAuth, type BetterAuthOptions } from 'better-auth/minimal'
 import { admin, emailOTP, organization } from 'better-auth/plugins'
 import type { AnyComponents, AuthConfig, FunctionReference, GenericActionCtx, GenericDataModel, GenericMutationCtx, GenericSchema, QueryBuilder, SchemaDefinition } from 'convex/server'
 import authConfig from '../auth.config'
-import { DEFAULT_AUTH_ROUTE } from '../component/constants'
-import { authSchema } from '../component/schema'
+import { DEFAULT_AUTH_ROUTE, DEFAULT_INVITATION_PATH } from '../constants'
+import { authSchema } from '../components/backend/schema'
 
 /**
- * Client-supplied details for passkey-first registration.
+ * Default passkey plugin. Registration requires an authenticated session (the
+ * plugin's default), so a passkey can only be added to an account whose email
+ * has already been proven via the OTP sign-in flow.
  *
- * The Better Auth passkey endpoint forwards this as an opaque `context`
- * string. We default to a small JSON shape: `{ email, name }`.
- */
-interface PasskeyRegistrationContext {
-  email: string
-  name: string
-}
-
-function parsePasskeyContext(context?: string | null): PasskeyRegistrationContext {
-  if (!context) {
-    throw APIError.from('BAD_REQUEST', {
-      code: 'INVALID_PASSKEY_REGISTRATION',
-      message: 'Passkey registration details are missing.',
-    })
-  }
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(context)
-  }
-  catch {
-    throw APIError.from('BAD_REQUEST', {
-      code: 'INVALID_PASSKEY_REGISTRATION',
-      message: 'Passkey registration details are invalid.',
-    })
-  }
-  const { email, name } = (parsed ?? {}) as Partial<PasskeyRegistrationContext>
-  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : ''
-  const normalizedName = typeof name === 'string' ? name.trim() : ''
-  if (!normalizedEmail || !normalizedEmail.includes('@')) {
-    throw APIError.from('BAD_REQUEST', {
-      code: 'INVALID_PASSKEY_REGISTRATION',
-      message: 'Enter a valid email address.',
-    })
-  }
-  if (!normalizedName) {
-    throw APIError.from('BAD_REQUEST', {
-      code: 'INVALID_PASSKEY_REGISTRATION',
-      message: 'Enter your name to register a passkey.',
-    })
-  }
-  return { email: normalizedEmail, name: normalizedName }
-}
-
-function accountExistsError() {
-  return APIError.from('UNPROCESSABLE_ENTITY', {
-    code: 'PASSKEY_REGISTRATION_ACCOUNT_EXISTS',
-    message: 'An account already exists for this email. Sign in first, then add a passkey.',
-  })
-}
-
-/**
- * Default passkey plugin: enables passkey-first (pre-auth) registration so
- * users can create an account with just a passkey. When unauthenticated, the
- * client passes `{ email, name }` as the `context` argument when calling
- * `addPasskey`. When the user already has a session, the passkey is attached
- * to the current user and `context` is ignored.
+ * This deliberately omits passkey-first (pre-auth) account creation: minting an
+ * account + session from a WebAuthn ceremony over an unverified, client-typed
+ * email lets an attacker squat on or pre-hijack a victim's email (they plant a
+ * passkey before the victim signs up, then the victim's later OTP sign-in
+ * verifies the email while the attacker's passkey persists — account takeover).
+ * New users sign up with OTP, then add a passkey from their authenticated
+ * session (the `add-passkey` step of `useLoginFlow`).
  *
  * Override by passing your own `passkey(...)` plugin in `authOptions.plugins`.
  */
 function defaultPasskey() {
-  return passkey({
-    registration: {
-      requireSession: false,
-      resolveUser: async ({ ctx, context }) => {
-        const { email, name } = parsePasskeyContext(context)
-        const existing = await ctx.context.internalAdapter.findUserByEmail(email)
-        if (existing) throw accountExistsError()
-        return { id: `passkey-registration:${email}`, name: email, displayName: name }
-      },
-      afterVerification: async ({ ctx, context }) => {
-        // If a session already exists, this is an "add passkey to current
-        // user" flow — the plugin will associate the new passkey with the
-        // session user, so we have nothing to do here.
-        const existingSession = await getSessionFromCtx(ctx)
-        if (existingSession?.user?.id) return
-
-        const { email, name } = parsePasskeyContext(context)
-        const existing = await ctx.context.internalAdapter.findUserByEmail(email)
-        if (existing) throw accountExistsError()
-        const user = await ctx.context.internalAdapter.createUser({
-          email,
-          emailVerified: false,
-          name,
-        })
-        const session = await ctx.context.internalAdapter.createSession(user.id)
-        await setSessionCookie(ctx, { session, user })
-        return { userId: user.id }
-      },
-    },
-  })
+  return passkey()
 }
 
 type DefaultAuthSchema = typeof authSchema
@@ -130,8 +52,8 @@ export interface AuthEmailMessage {
 
 /**
  * Sends an auth-related email. By default this is wired automatically to the
- * Resend component nested inside `backend` (`components.backend.email.send`),
- * so auth OTP / verification / reset email works out of the box — but any
+ * `backend` component's email module (`components.backend.email.send`), so
+ * auth OTP / verification / reset email works out of the box — but any
  * compatible function can be supplied via `integrations.email` to override it.
  */
 export type AuthEmailSender = (ctx: AuthMutationCtx, message: AuthEmailMessage) => Promise<unknown>
@@ -167,17 +89,17 @@ export type OnUserCreated<DM extends GenericDataModel = GenericDataModel>
   = (ctx: GenericMutationCtx<DM> | GenericActionCtx<DM>, user: AuthCreatedUser) => Promise<void>
 
 /**
- * Cross-component wiring for Better Auth. All optional and fully backward
- * compatible: with none supplied, auth behaves exactly as before (OTP logs to
- * the console). Provide an `email` transport to deliver OTP / verification /
- * reset emails, a `rateLimiter` to throttle OTP sends, and `onUserCreated` to
- * run side effects (durable workflows, analytics) on signup.
+ * Cross-component wiring for Better Auth. All optional: with no `email`
+ * transport, OTP delivery no-ops (set `NUXT_BACKEND_LOG_OTP=1` to echo codes to
+ * the console during local dev). Provide an `email` transport to deliver OTP /
+ * verification / reset emails, a `rateLimiter` to throttle OTP sends, and
+ * `onUserCreated` to run side effects (durable workflows, analytics) on signup.
  */
 export interface AuthIntegrations<DM extends GenericDataModel = GenericDataModel> {
   email?: AuthEmailSender
   rateLimiter?: AuthRateLimiter
   onUserCreated?: OnUserCreated<DM>
-  /** Override any of the default auth-email templates (welcome/otp/verify/change/delete). */
+  /** Override any of the default auth-email templates (welcome/otp/verify/change/delete/invite). */
   emailTemplates?: Partial<AuthEmailTemplates>
 }
 
@@ -258,6 +180,15 @@ export interface AuthEmailTemplates {
   changeEmail: (data: { email: string, newEmail: string, url: string }) => AuthEmailMessage
   /** Confirmation link for account deletion. */
   deleteAccount: (data: { email: string, url: string }) => AuthEmailMessage
+  /** Workspace invitation with an accept link (organization plugin). */
+  invite: (data: {
+    email: string
+    url: string
+    inviterName: string
+    inviterEmail: string
+    organizationName: string
+    role: string
+  }) => AuthEmailMessage
 }
 
 const defaultEmailTemplates: AuthEmailTemplates = {
@@ -292,6 +223,13 @@ const defaultEmailTemplates: AuthEmailTemplates = {
     url,
     'Delete account',
   ),
+  invite: ({ email, url, inviterName, inviterEmail, organizationName, role }) => linkEmail(
+    email,
+    `Join ${organizationName}`,
+    `${inviterName || inviterEmail} invited you to join ${organizationName} as ${role}.`,
+    url,
+    'Accept invitation',
+  ),
 }
 
 /** Resolve the active template set (defaults overlaid with consumer overrides). */
@@ -304,9 +242,19 @@ function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRunt
   return async (data: { email: string, otp: string, type: OtpPurpose }): Promise<void> => {
     const ctx = asMutationCtx(runtime?.ctx)
     if (!runtime?.email || !ctx) {
-      console.warn(
-        `[nuxt-backend] No email transport configured. Email OTP (${data.type}) for ${data.email}: ${data.otp}`,
-      )
+      // The OTP is a live credential and Convex logs are durable — never echo it
+      // to logs unless a deployment explicitly opts in (local dev without email).
+      if (readEnv('NUXT_BACKEND_LOG_OTP')) {
+        console.warn(
+          `[nuxt-backend] No email transport configured. Email OTP (${data.type}) for ${data.email}: ${data.otp}`,
+        )
+      }
+      else {
+        console.warn(
+          `[nuxt-backend] No email transport configured — OTP for a ${data.type} request was not delivered. `
+          + `Set the required EMAIL_API_KEY env var to send email, or NUXT_BACKEND_LOG_OTP=1 to echo codes to the console during local dev.`,
+        )
+      }
       return
     }
     if (runtime.rateLimiter) {
@@ -321,12 +269,18 @@ function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRunt
 export type AdminPluginOptions = Parameters<typeof admin>[0]
 
 /**
- * Options for the bundled organization plugin (workspaces), plus `personal`:
- * when `true` (the default), a personal workspace is auto-created on a user's
- * first sign-in and set active — so `activeOrganizationId` is never null.
+ * Options for the bundled organization plugin (workspaces), plus:
+ *
+ * - `personal` — when `true` (the default), a personal workspace is
+ *   auto-created on a user's first sign-in and set active, so
+ *   `activeOrganizationId` is never null.
+ * - `invitationPath` — the app page invitation emails link to (default
+ *   `/accept-invitation`, registered automatically by the Nuxt module). The
+ *   emailed URL is `{SITE_URL}{invitationPath}?id=<invitationId>`.
  */
 export type OrganizationPluginOptions = Parameters<typeof organization>[0] & {
   personal?: boolean
+  invitationPath?: string
 }
 
 export interface CreateBetterAuthOptions {
@@ -368,6 +322,20 @@ export interface SetupAuthOptions<
 type AuthComponentApi = Parameters<typeof createClient>[0]
 type PublicAuthComponentRef = AuthComponentApi | AnyComponents[string]
 
+/**
+ * The component handles the auth setup reads from your generated `components`
+ * object. Pass the whole object — the `backend` key is picked structurally.
+ *
+ * `backend` is the package's all-in-one component: its `adapter` module is the
+ * Better Auth CRUD surface, and its `email` module (when present in the
+ * component build) delivers auth OTP / verification / welcome / invitation
+ * emails automatically via `components.backend.email.send`. Without an email
+ * module, OTP delivery no-ops (see {@link AuthIntegrations}).
+ */
+export interface AuthSetupComponents {
+  backend: PublicAuthComponentRef
+}
+
 type EnvHost = typeof globalThis & {
   process?: {
     env?: Record<string, string | undefined>
@@ -379,8 +347,8 @@ function toAuthComponentApi(componentRef: PublicAuthComponentRef): AuthComponent
 }
 
 /**
- * The email-send function the `backend` component exposes via its nested Resend
- * child (see `src/convex/component/email.ts`).
+ * The email-send function the `backend` component exposes via its nested email
+ * provider (see `src/convex/components/backend/email.ts`).
  */
 type ComponentEmailRef = FunctionReference<
   'mutation',
@@ -390,17 +358,19 @@ type ComponentEmailRef = FunctionReference<
 >
 
 /**
- * Build an {@link AuthEmailSender} that routes auth emails through the backend
- * component's nested Resend. This is what makes transactional email work out of
- * the box — the consumer just mounts `backend` and sets `RESEND_API_KEY`.
+ * Build an {@link AuthEmailSender} that routes auth emails through the
+ * `backend` component's email module. This is what makes transactional email
+ * work out of the box — `installBackend` mounts `backend`, and the consumer
+ * just sets `EMAIL_API_KEY`.
  *
- * Returns `undefined` only if the component ref doesn't expose `email.send`
- * (older component builds), in which case auth falls back to logging OTPs.
+ * Returns `undefined` if the component ref has no `email` module (e.g. a
+ * stripped-down locally installed component), in which case OTP delivery
+ * no-ops unless `NUXT_BACKEND_LOG_OTP=1` is set (see {@link AuthIntegrations}).
  */
-function componentEmailSender(componentRef: PublicAuthComponentRef): AuthEmailSender | undefined {
-  // The backend component exposes `email.send`, but the loose `PublicAuthComponentRef`
+function componentEmailSender(components: AuthSetupComponents): AuthEmailSender | undefined {
+  // The backend component exposes `email.send`, but the loose component-ref
   // type doesn't surface it; read it structurally.
-  const send = (componentRef as { email?: { send?: ComponentEmailRef } }).email?.send
+  const send = (components.backend as { email?: { send?: ComponentEmailRef } } | undefined)?.email?.send
   if (!send) return undefined
   return async (ctx, message) => {
     await ctx.runMutation(send, {
@@ -418,10 +388,10 @@ function componentEmailSender(componentRef: PublicAuthComponentRef): AuthEmailSe
  * built-in one.
  */
 function resolveIntegrations<DM extends GenericDataModel>(
-  componentRef: PublicAuthComponentRef,
+  components: AuthSetupComponents,
   integrations?: AuthIntegrations<DM>,
 ): AuthIntegrations<DM> {
-  const email = componentEmailSender(componentRef)
+  const email = componentEmailSender(components)
   return email ? { email, ...integrations } : { ...integrations }
 }
 
@@ -457,18 +427,54 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
   // from each incoming request. The app proxies /api/auth to the Convex site,
   // so default to CONVEX_SITE_URL (always present on a Convex deployment) when
   // the consumer hasn't set an app URL. Override precedence: explicit
-  // authOptions.baseURL > SITE_URL > BETTER_AUTH_URL > CONVEX_SITE_URL.
+  // authOptions.baseURL > SITE_URL > CONVEX_SITE_URL.
   const siteUrl = resolvedAuthOptions.baseURL
     ?? readEnv('SITE_URL')
-    ?? readEnv('BETTER_AUTH_URL')
     ?? readEnv('CONVEX_SITE_URL')
-  const secret = resolvedAuthOptions.secret ?? readEnv('BETTER_AUTH_SECRET')
+  const secret = resolvedAuthOptions.secret ?? readEnv('AUTH_SECRET')
 
   const adminOptions = options.admin
   const organizationOptions = options.organization
   const organizationEnabled = organizationOptions !== false
-  const { personal: personalWorkspace = true, ...organizationPluginOptions }
-    = typeof organizationOptions === 'object' ? organizationOptions : {}
+  const {
+    personal: personalWorkspace = true,
+    invitationPath = DEFAULT_INVITATION_PATH,
+    ...organizationPluginOptions
+  } = typeof organizationOptions === 'object' ? organizationOptions : {}
+
+  // When an email transport is wired, deliver verification, email-change,
+  // delete-account, welcome, and workspace-invitation emails through it (with
+  // default templates, overridable via integrations.emailTemplates).
+  // User-supplied options win.
+  // Note: this package is passwordless (passkey + OTP) — no password-reset flow.
+  const emailSender = runtime?.email
+  const emailCtx = asMutationCtx(runtime?.ctx)
+  const canSendEmail = Boolean(emailSender && emailCtx)
+  const templates = resolveTemplates(runtime)
+
+  // Workspace invitations: email the invitee an accept link pointing at the
+  // app's invitation page. A consumer-supplied `sendInvitationEmail` wins.
+  const sendInvitationEmail = canSendEmail && !organizationPluginOptions.sendInvitationEmail
+    ? async (data: {
+      id: string
+      role: string
+      email: string
+      organization: { name: string }
+      inviter: { user: { name: string, email: string } }
+    }) => {
+      // Accept links must open the app (SITE_URL), never the Convex site URL.
+      const appUrl = readEnv('SITE_URL') ?? siteUrl ?? ''
+      const url = `${appUrl}${invitationPath}?id=${data.id}`
+      await emailSender!(emailCtx!, templates.invite({
+        email: data.email,
+        url,
+        inviterName: data.inviter.user.name,
+        inviterEmail: data.inviter.user.email,
+        organizationName: data.organization.name,
+        role: data.role,
+      }))
+    }
+    : undefined
 
   const userPlugins = resolvedAuthOptions.plugins ?? []
   const userPluginIds = new Set(userPlugins.map(p => p.id))
@@ -476,17 +482,13 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
     emailOTP({ sendVerificationOTP: makeSendVerificationOTP(runtime) }),
     defaultPasskey(),
     ...(adminOptions === false ? [] : [admin(adminOptions)]),
-    ...(organizationEnabled ? [organization(organizationPluginOptions)] : []),
+    ...(organizationEnabled
+      ? [organization({
+          ...organizationPluginOptions,
+          ...(sendInvitationEmail ? { sendInvitationEmail } : {}),
+        })]
+      : []),
   ].filter(plugin => !userPluginIds.has(plugin.id))
-
-  // When an email transport is wired, deliver verification, email-change,
-  // delete-account, and welcome emails through it (with default templates,
-  // overridable via integrations.emailTemplates). User-supplied options win.
-  // Note: this package is passwordless (passkey + OTP) — no password-reset flow.
-  const emailSender = runtime?.email
-  const emailCtx = asMutationCtx(runtime?.ctx)
-  const canSendEmail = Boolean(emailSender && emailCtx)
-  const templates = resolveTemplates(runtime)
 
   const sendVerificationEmail = canSendEmail
     ? async ({ user, url }: { user: { email: string }, url: string }) => {
@@ -655,17 +657,17 @@ export function createAuthOptions<
   Schema extends SchemaDefinition<GenericSchema, true> = DefaultAuthSchema,
 >(
   ctx: GenericCtx<DM>,
-  componentRef: PublicAuthComponentRef,
+  components: AuthSetupComponents,
   options?: SetupAuthOptions<DM, Schema>,
 ) {
-  const authComponent = createAuthComponent<DM, Schema>(componentRef, options)
+  const authComponent = createAuthComponent<DM, Schema>(components.backend, options)
   return createBetterAuthOptions(authComponent.adapter(ctx), {
     authConfig: options?.authConfig,
     authOptions: options?.authOptions,
     basePath: options?.basePath,
     admin: options?.admin,
     organization: options?.organization,
-  }, { ctx, ...resolveIntegrations(componentRef, options?.integrations) })
+  }, { ctx, ...resolveIntegrations(components, options?.integrations) })
 }
 
 /**
@@ -681,10 +683,10 @@ export function createAuth<
   Schema extends SchemaDefinition<GenericSchema, true> = DefaultAuthSchema,
 >(
   ctx: GenericCtx<DM>,
-  componentRef: PublicAuthComponentRef,
+  components: AuthSetupComponents,
   options?: SetupAuthOptions<DM, Schema>,
 ) {
-  return betterAuth(createAuthOptions(ctx, componentRef, options))
+  return betterAuth(createAuthOptions(ctx, components, options))
 }
 
 /**
@@ -696,11 +698,11 @@ export function makeAuthApi<
   DM extends GenericDataModel,
   Schema extends SchemaDefinition<GenericSchema, true> = DefaultAuthSchema,
 >(
-  componentRef: PublicAuthComponentRef,
+  components: AuthSetupComponents,
   queryBuilder: QueryBuilder<DM, 'public'>,
   options?: SetupAuthOptions<DM, Schema>,
 ) {
-  const authComponent = createAuthComponent<DM, Schema>(componentRef, options)
+  const authComponent = createAuthComponent<DM, Schema>(components.backend, options)
 
   const getAuthUser = queryBuilder({
     args: {},
@@ -727,7 +729,7 @@ export function makeAuthApi<
  * import { query } from './_generated/server'
  *
  * export const { authComponent, createAuth, getAuthUser } = setupAuth(
- *   components.backend, query,
+ *   components, query,
  * )
  * ```
  */
@@ -735,14 +737,14 @@ export function setupAuth<
   DM extends GenericDataModel,
   Schema extends SchemaDefinition<GenericSchema, true> = DefaultAuthSchema,
 >(
-  componentRef: PublicAuthComponentRef,
+  components: AuthSetupComponents,
   queryBuilder: QueryBuilder<DM, 'public'>,
   options?: SetupAuthOptions<DM, Schema>,
 ) {
-  const authComponent = createAuthComponent<DM, Schema>(componentRef, options)
-  const { getAuthUser } = makeAuthApi(componentRef, queryBuilder, options)
+  const authComponent = createAuthComponent<DM, Schema>(components.backend, options)
+  const { getAuthUser } = makeAuthApi(components, queryBuilder, options)
 
-  const resolvedIntegrations = resolveIntegrations(componentRef, options?.integrations)
+  const resolvedIntegrations = resolveIntegrations(components, options?.integrations)
 
   const createAuthOptionsForContext = (ctx: GenericCtx<DM>) => {
     return createBetterAuthOptions(authComponent.adapter(ctx), {

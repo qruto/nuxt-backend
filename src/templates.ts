@@ -6,18 +6,19 @@ const HTTP_TEMPLATE = dedent`
   import { registerBackendRoutes } from 'nuxt-backend/convex/http'
   import { httpRouter } from 'convex/server'
   import { authComponent, createAuth } from './auth'
-  import { polar, webhookEvents } from './billing'
+  import { provider, webhookEvents } from './billing'
   import { email } from './email'
 
-  // Mounts every bundled service: Better Auth routes, the Polar webhook
-  // (default /polar/events, POLAR_WEBHOOK_SECRET) that keeps the reactive
-  // feature/credit cache fresh, and the Resend webhook (/resend-webhook,
-  // RESEND_WEBHOOK_SECRET) that makes useEmailStatus reactive. React to
-  // events via \`setupBilling({ events })\` / \`setupEmail({ events })\`.
+  // Mounts every inbound webhook the backend handles: the auth routes, the
+  // billing events endpoint (/billing/events, BILLING_WEBHOOK_SECRET) that
+  // keeps the reactive feature/credit cache fresh and fulfils gifts, and the
+  // email events endpoint (/email/events, EMAIL_WEBHOOK_SECRET) that makes
+  // useEmailStatus reactive. React to events via \`setupBilling({ events })\`
+  // / \`setupEmail({ events })\`.
   const http = httpRouter()
   registerBackendRoutes(http, {
     auth: { authComponent, createAuth },
-    billing: { polar, webhookEvents },
+    billing: { provider, webhookEvents },
     email,
   })
 
@@ -25,69 +26,25 @@ const HTTP_TEMPLATE = dedent`
   ` + '\n'
 
 /**
- * Typed environment-variable declarations for the app (`defineApp({ env })`).
- * All optional so deploys validate while unconfigured features stay no-ops; the
- * generated `env` from `_generated/server` consumes them type-safely.
+ * Local-install `convex.config.ts`: the whole `backend` component (and its
+ * schema) is installed locally so it can be customized; the upstream
+ * components still come bundled from the package — `defineBackendApp` mounts
+ * them all, swapping in the local `backend` definition.
  */
-const ENV_DECLARATION = dedent`
-  env: {
-      // Auth (Better Auth)
-      BETTER_AUTH_SECRET: v.optional(v.string()),
-      SITE_URL: v.optional(v.string()),
-      // Email (Resend) — forwarded to the nested \`backend\` component below.
-      RESEND_API_KEY: v.optional(v.string()),
-      RESEND_FROM: v.optional(v.string()),
-      RESEND_TEST_MODE: v.optional(v.string()),
-      // Billing (Polar)
-      POLAR_ORGANIZATION_TOKEN: v.optional(v.string()),
-      POLAR_WEBHOOK_SECRET: v.optional(v.string()),
-      POLAR_SERVER: v.optional(v.union(v.literal('sandbox'), v.literal('production'))),
-    }`
+const LOCAL_CONVEX_CONFIG = dedent`
+  import { defineBackendApp } from 'nuxt-backend/convex/app'
+  import backend from './components/backend/convex.config'
 
-const COMPONENT_IMPORTS = dedent`
-  import aggregate from '@convex-dev/aggregate/convex.config'
-  import migrations from '@convex-dev/migrations/convex.config'
-  import polar from '@convex-dev/polar/convex.config'
-  import rateLimiter from '@convex-dev/rate-limiter/convex.config'
-  import workflow from '@convex-dev/workflow/convex.config'`
-
-const COMPONENT_MOUNTS = dedent`
-  // Resend is nested inside \`backend\`, so auth email works out of the box with
-  // no separate mount. Components are isolated from the app's env, so forward
-  // the email config by reference — the nested Resend client reads it at runtime.
-  app.use(backend, {
-    env: {
-      RESEND_API_KEY: app.env.RESEND_API_KEY,
-      RESEND_FROM: app.env.RESEND_FROM,
-      RESEND_TEST_MODE: app.env.RESEND_TEST_MODE,
-    },
-  })
-  app.use(aggregate)
-  app.use(migrations)
-  app.use(polar)
-  app.use(rateLimiter)
-  app.use(workflow)`
-
-function convexConfigTemplate(backendImport: string): string {
-  return dedent`
-    import { defineApp } from 'convex/server'
-    import { v } from 'convex/values'
-    import backend from '${backendImport}'
-    ${COMPONENT_IMPORTS}
-
-    const app = defineApp({
-      ${ENV_DECLARATION},
-    })
-
-    ${COMPONENT_MOUNTS}
-
-    export default app
-    ` + '\n'
-}
+  // The upstream components (aggregate, migrations, Polar, rate limiter,
+  // workflows) still mount from the package; the all-in-one backend component
+  // — and therefore its schema — is locally installed and customizable.
+  export default defineBackendApp({ components: { backend } })
+  ` + '\n'
 
 /**
- * Feature setup files shared by both installation modes. Each is config-free and
- * degrades gracefully until its env vars are set.
+ * Feature setup files shared by both installation modes. Each is config-free —
+ * the required env vars (set once via \`npx convex env set\`) are the only
+ * configuration.
  */
 const FEATURE_FILE_TEMPLATES: Record<string, string> = {
   'functions.ts': dedent`
@@ -99,7 +56,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // Authorization over identity claims (role, ban state, active workspace),
     // with fresh reads where it matters. Bootstrap your first admin with:
     //   npx convex run functions:setUserRole '{"email":"you@example.com","role":"admin"}'
-    export const authorization = setupAuthorization(components.backend, { internalMutation })
+    export const authorization = setupAuthorization(components, { internalMutation })
     export const { setUserRole } = authorization
 
     // Pre-authorized builders — drop-in replacements for query/mutation/action:
@@ -117,22 +74,19 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     import { setupBilling, type DiscountInput } from 'nuxt-backend/convex/billing'
     import { v } from 'convex/values'
     import { components } from './_generated/api'
-    import { action, env } from './_generated/server'
+    import { internalAction } from './_generated/server'
 
-    // Subscriptions, discounts & prepaid credits via the Polar component. Billing
+    // Subscriptions, discounts, prepaid credits & gift purchases. Billing
     // follows the tenant: with the default \`billTo: 'organization'\` the active
     // workspace owns the subscription and credits (members share them); switch to
     // \`billTo: 'user'\` for per-user B2C billing. The billing entity resolves from
-    // identity claims automatically. The reactive feature/credit cache lives inside
-    // the \`backend\` component, so there's nothing to add to your schema. Set
-    // POLAR_ORGANIZATION_TOKEN (and POLAR_SERVER) to enable checkout/credits/discounts.
-    const billing = setupBilling(components.polar, components.backend, {
-      organizationToken: env.POLAR_ORGANIZATION_TOKEN,
-      server: env.POLAR_SERVER ?? 'sandbox',
-    })
+    // identity claims automatically, configuration comes from the required
+    // BILLING_* env vars, and the reactive feature/credit cache lives inside the
+    // backend component — nothing to add to your schema.
+    const billing = setupBilling(components)
 
-    export const { polar } = billing
-    // Checkout / portal / subscription functions (Polar) for \`useBilling\`.
+    export const { provider } = billing
+    // Checkout / portal / subscription / gift functions for \`useBilling\`.
     export const {
       generateCheckoutLink,
       generateCustomerPortalUrl,
@@ -141,31 +95,41 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
       listAllSubscriptions,
       changeCurrentSubscription,
       cancelCurrentSubscription,
+      giftCheckout,
     } = billing.api
-    // Reactive queries + sync behind \`useBilling\` / \`useFeatures\` / \`useCredits\`.
+    // Reactive queries + actions behind \`useBilling\` / \`useFeatures\` /
+    // \`useCredits\` / \`useGifts\`.
     export const {
       getCurrentSubscription,
       getFeatures,
       getCredits,
       syncEntitlements,
+      getReceivedGifts,
+      claimGift,
     } = billing.functions
     // Webhook handlers (imported by http.ts) that keep the cache fresh.
     export const { webhookEvents } = billing
 
-    // Discounts: create a percentage coupon (treat as an admin action).
-    export const createDiscount = action({
+    // Discounts: mint a percentage coupon. This is privileged — a public action
+    // would let anyone create a 100%-off code — so it ships as an internalAction:
+    // run it from ops (\`npx convex run billing:createDiscount '{"name":"Launch","percent":20}'\`)
+    // or your own server code. To expose it to an admin UI, re-declare it with
+    // the \`admin.action\` builder from ./functions instead of internalAction.
+    export const createDiscount = internalAction({
       args: { name: v.string(), percent: v.number(), code: v.optional(v.string()) },
       handler: async (ctx, { name, percent, code }) => {
-        const discount: DiscountInput = { type: 'percentage', name, code, duration: 'once', basisPoints: Math.round(percent * 100) }
+        const basisPoints = Math.round(Math.min(Math.max(percent, 0), 100) * 100)
+        const discount: DiscountInput = { type: 'percentage', name, code, duration: 'once', basisPoints }
         return billing.createDiscount(discount)
       },
     })
 
-    // Credits are prepaid: a credit pack is a one-time Polar product whose Credits
-    // benefit tops up a meter balance (\`useCredits().topUp(packId)\`). Spend them
-    // from your own server code when a metered feature is used — \`spendCredits\`
-    // blocks (throws) when the balance is too low, so credits are never billed as
-    // overage. Uncomment and point \`meterId\` at your credit meter:
+    // Credits are prepaid: a credit pack is a one-time product whose Credits
+    // benefit tops up a meter balance (\`useCredits().topUp(packId)\` — or gift
+    // one to someone else with \`useCredits().gift(packId, { recipientEmail })\`).
+    // Spend them from your own server code when a metered feature is used —
+    // \`spendCredits\` blocks (throws) when the balance is too low, so credits are
+    // never billed as overage. Uncomment and point \`meterId\` at your credit meter:
     //
     // export const consumeCredit = action({
     //   args: { meterId: v.string() },
@@ -180,19 +144,18 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     import { setupEmail } from 'nuxt-backend/convex/email'
     import { v } from 'convex/values'
     import { api, components } from './_generated/api'
-    import { action } from './_generated/server'
+    import { action, internalAction } from './_generated/server'
 
-    // Transactional + marketing email over the Resend component nested in
-    // \`backend\`. Set RESEND_API_KEY to enable delivery (else it logs).
-    // React to delivery events with \`setupEmail(components.backend, { events:
-    // { onBounced: async (ctx, event) => { ... } } })\`.
-    export const email = setupEmail(components.backend)
+    // Transactional + marketing email over the backend component's email module.
+    // Delivery uses the required EMAIL_* env vars. React to delivery events with
+    // \`setupEmail(components, { events: { onBounced: async (ctx, event) => { ... } } })\`.
+    export const email = setupEmail(components)
 
     // Reactive delivery-status query behind the \`useEmailStatus\` composable.
     export const { getEmailStatus } = email.api
 
     // Send a transactional email (gated: requires a signed-in user). The same
-    // nested Resend transport powers auth OTP / verification / welcome.
+    // transport powers auth OTP / verification / welcome / invitation email.
     export const send = action({
       args: { to: v.string(), subject: v.string(), html: v.optional(v.string()), text: v.optional(v.string()) },
       returns: v.union(v.string(), v.null()),
@@ -203,21 +166,24 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
       },
     })
 
-    // Marketing (audiences / contacts / broadcasts) via the Resend SDK. Treat as
-    // admin actions — add your own authorization before exposing to clients.
-    export const createAudience = action({
+    // Marketing (audiences / contacts / broadcasts) via the provider SDK. These
+    // are privileged — a public action would be an open spam/phishing relay on
+    // your verified domain — so they ship as internalActions: run them from ops
+    // or your own server code. To expose one to an admin UI, re-declare it with
+    // the \`admin.action\` builder from ./functions instead of internalAction.
+    export const createAudience = internalAction({
       args: { name: v.string() },
       handler: async (ctx, { name }) => email.audiences.create({ name }),
     })
-    export const addContact = action({
+    export const addContact = internalAction({
       args: { audienceId: v.string(), email: v.string(), firstName: v.optional(v.string()), lastName: v.optional(v.string()) },
       handler: async (ctx, args) => email.contacts.add(args),
     })
-    export const createBroadcast = action({
+    export const createBroadcast = internalAction({
       args: { audienceId: v.string(), from: v.string(), subject: v.string(), html: v.string() },
       handler: async (ctx, args) => email.broadcasts.create(args),
     })
-    export const sendBroadcast = action({
+    export const sendBroadcast = internalAction({
       args: { broadcastId: v.string() },
       handler: async (ctx, { broadcastId }) => email.broadcasts.send(broadcastId),
     })
@@ -229,7 +195,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
 
     // Application rate limiting. Pre-seeded with the auth limits (emailOtp,
     // signIn, signUp, passwordReset) — add your own named limits here.
-    export const rateLimiter = setupRateLimiter(components.rateLimiter)
+    export const rateLimiter = setupRateLimiter(components)
     ` + '\n',
 
   'workflows.ts': dedent`
@@ -237,10 +203,10 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     import { v } from 'convex/values'
     import { components } from './_generated/api'
 
-    export const workflow = setupWorkflows(components.workflow)
+    export const workflow = setupWorkflows(components)
 
-    // Runs once on signup: send a welcome email through the Resend component
-    // nested inside \`backend\`. Steps are durable and retried on failure.
+    // Runs once on signup: send a welcome email through the backend component's
+    // email module. Steps are durable and retried on failure.
     export const onSignup = workflow.define({
       args: { userId: v.string(), email: v.string(), name: v.string() },
       handler: async (step, { email, name }) => {
@@ -259,8 +225,8 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
 
     // Online, batched schema migrations. Pass your schema for typed migrateOne:
     //   import schema from './schema'
-    //   setupMigrations(components.migrations, { schema })
-    export const { migrations, run } = setupMigrations(components.migrations)
+    //   setupMigrations(components, { schema })
+    export const { migrations, run } = setupMigrations(components)
 
     // Define migrations with migrations.define({ table, migrateOne }), then:
     //   npx convex run migrations:run '{ "fn": "migrations:yourMigration" }'
@@ -312,22 +278,21 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
 }
 
 /**
- * Default `convex.config.ts`: one `defineBackendApp({ ... })` call mounts every
- * bundled component, declares their env vars, and forwards the email env to the
- * nested Resend component. The component definitions are imported here (Convex
- * builds its component tree from these imports) and handed to the helper.
+ * Default `convex.config.ts`: zero component imports. `defineBackendApp()`
+ * itself imports and mounts the all-in-one `backend` component (auth + email +
+ * billing + gifts) plus the upstream components (aggregate, migrations, Polar,
+ * rate limiter, workflows), declares the required env vars, and forwards the
+ * email env.
  */
 const DEFAULT_CONVEX_CONFIG = dedent`
   import { defineBackendApp } from 'nuxt-backend/convex/app'
-  import backend from 'nuxt-backend/convex/component/convex.config'
-  ${COMPONENT_IMPORTS}
 
-  // One call mounts every bundled component (Better Auth + nested Resend email,
-  // aggregate, migrations, Polar, rate limiter, workflows), declares their env
-  // vars and forwards the email config to the nested Resend component. Pass extra
-  // env via defineBackendApp(components, { env }), or call app.use(...) on the
-  // returned app for your own components.
-  export default defineBackendApp({ backend, aggregate, migrations, polar, rateLimiter, workflow })
+  // One call mounts the all-in-one backend component (auth, email, billing
+  // cache, gifts) plus aggregate, migrations, Polar, rate limiter and
+  // workflows, declares the required env vars and forwards the email config.
+  // Customize via defineBackendApp({ omit, components, env }), or call
+  // app.use(...) on the returned app for your own components.
+  export default defineBackendApp()
   ` + '\n'
 
 /**
@@ -353,13 +318,14 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
       options,
       createAuth,
       getAuthUser,
-    } = setupAuth(components.backend, query, {
+    } = setupAuth(components, query, {
       // Roles/permissions (admin plugin) and workspaces (organization plugin)
-      // are on by default, including a personal workspace per user. Customize
-      // or disable: \`admin: false\`, \`organization: { personal: false }\`, ...
+      // are on by default, including a personal workspace per user and emailed
+      // workspace invitations with an /accept-invitation page. Customize or
+      // disable: \`admin: false\`, \`organization: { personal: false }\`, ...
       integrations: {
-        // Email (OTP / verification / reset) is delivered automatically through
-        // the Resend component nested inside \`backend\` — just set RESEND_API_KEY.
+        // Email (OTP / verification / invitations) is delivered automatically
+        // through the backend component — configured by the EMAIL_* env vars.
         // Throttle OTP sends and other auth-sensitive flows.
         rateLimiter,
         // Kick off a durable welcome workflow when a user signs up.
@@ -384,13 +350,13 @@ export interface BackendTemplateOptions {
 }
 
 export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
-  'convex.config.ts': convexConfigTemplate('./components/backend/convex.config'),
+  'convex.config.ts': LOCAL_CONVEX_CONFIG,
   'auth.config.ts': AUTH_CONFIG_TEMPLATE,
   'auth.ts': dedent`
     import { setupAuth } from 'nuxt-backend/convex'
     import { components, internal } from './_generated/api'
     import { query } from './_generated/server'
-    import schema from './components/backend/schema'
+    import { authSchema } from './components/backend/schema'
     import { rateLimiter } from './rateLimiter'
     import { workflow } from './workflows'
 
@@ -400,10 +366,10 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
       options,
       createAuth,
       getAuthUser,
-    } = setupAuth(components.backend, query, {
-      schema,
+    } = setupAuth(components, query, {
+      schema: authSchema,
       integrations: {
-        // Email is automatic via the nested Resend component (set RESEND_API_KEY).
+        // Email is automatic via the backend component (EMAIL_* env vars).
         rateLimiter,
         onUserCreated: async (ctx, user) => {
           await workflow.start(ctx, internal.workflows.onSignup, {
@@ -418,22 +384,46 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
   'http.ts': HTTP_TEMPLATE,
   'components/backend/convex.config.ts': dedent`
     import { defineComponent } from 'convex/server'
+    import { v } from 'convex/values'
+    import resend from '@convex-dev/resend/convex.config'
 
-    export default defineComponent('backend')
+    // The locally installed all-in-one backend component. The email provider
+    // component is nested inside, and the email env is declared here (the app
+    // forwards the deployment's values — defineBackendApp does this for you).
+    // Note: under pnpm, add \`@convex-dev/resend\` as a direct dependency so
+    // this import resolves.
+    const component = defineComponent('backend', {
+      env: {
+        EMAIL_API_KEY: v.string(),
+        EMAIL_FROM: v.string(),
+        EMAIL_TEST_MODE: v.string(),
+        EMAIL_WEBHOOK_SECRET: v.string(),
+      },
+    })
+
+    component.use(resend)
+
+    export default component
     ` + '\n',
-  'components/backend/generated-schema.ts': `export { tables } from 'nuxt-backend/convex/component/schema'\n`,
+  'components/backend/generated-schema.ts': `export { tables, billingTables, vEntitlementBenefit, vEntitlementMeter, vGift } from 'nuxt-backend/convex/components/backend/schema'\n`,
   'components/backend/schema.ts': dedent`
     import { defineSchema } from 'convex/server'
-    import { tables } from './generated-schema'
+    import { billingTables, tables } from './generated-schema'
+
+    // Customize the auth tables here — add fields or your own tables. The
+    // billing/gift tables come from the package; the default export is the
+    // component's full schema.
+    export const authSchema = defineSchema(tables)
 
     export default defineSchema({
       ...tables,
+      ...billingTables,
     })
     ` + '\n',
   'components/backend/adapter.ts': dedent`
     import { createApi } from '@convex-dev/better-auth'
     import { createAuthOptions } from '../../auth'
-    import schema from './schema'
+    import { authSchema } from './schema'
 
     export const {
       create,
@@ -443,11 +433,27 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
       updateMany,
       deleteOne,
       deleteMany,
-    } = createApi(schema, createAuthOptions)
+    } = createApi(authSchema, createAuthOptions)
+    ` + '\n',
+  'components/backend/email.ts': dedent`
+    // The packaged email module (send / status / cancel + webhook over the
+    // nested provider component). Inline the implementation to customize it.
+    export { send, status, get, cancel, handleWebhook } from 'nuxt-backend/convex/components/backend/email'
+    ` + '\n',
+  'components/backend/billing.ts': dedent`
+    // The packaged entitlement-cache module. Inline the implementation to
+    // customize it.
+    export { getByUser, upsert, clear, userByCustomer } from 'nuxt-backend/convex/components/backend/billing'
+    ` + '\n',
+  'components/backend/gifts.ts': dedent`
+    // The packaged gift-purchase module. Inline the implementation to
+    // customize it.
+    export { create, markPaid, markClaimed, listByEmail, get, resolveRecipient } from 'nuxt-backend/convex/components/backend/gifts'
     ` + '\n',
   'components/backend/auth.ts': dedent`
     import { createAuth } from '../../auth'
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     export const auth = createAuth({} as any)
     ` + '\n',
   ...FEATURE_FILE_TEMPLATES,

@@ -1,6 +1,6 @@
 import { computed, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
 import { useAction, useQuery, useConvexNamespace } from 'nuxt-convex-module/client'
-import { type BillingApi, type CheckoutOptions, createCheckout, type Credits } from './use-billing'
+import { type BillingApi, type CheckoutOptions, createCheckout, createGiftCheckout, type Credits, type GiftOptions } from './use-billing'
 
 export interface UseCreditsOptions {
   /** Override the injected `api.billing` namespace. */
@@ -18,9 +18,11 @@ export interface UseCreditsReturn {
   meterId: ComputedRef<string | undefined>
   /** `true` until credit balances have loaded. */
   isLoading: ComputedRef<boolean>
-  /** Buy a credit pack (a one-time product) via Polar checkout — returns the URL. */
+  /** Buy a credit pack (a one-time product) via checkout — returns the URL. */
   topUp: (productIds: string | string[], options?: CheckoutOptions) => Promise<string>
-  /** Refresh the cached balance from Polar (e.g. right after a top-up completes). */
+  /** Buy a credit pack as a gift for someone else (by email). Opens checkout. */
+  gift: (productIds: string | string[], options: GiftOptions & { recipientEmail: string }) => Promise<string>
+  /** Refresh the cached balance from the provider (e.g. right after a top-up completes). */
   refresh: () => Promise<void>
 }
 
@@ -69,6 +71,7 @@ export function useCredits(meterId?: MaybeRefOrGetter<string>, options: UseCredi
     })
 
   const topUp = createCheckout(billing)
+  const gift = createGiftCheckout(billing)
   const runSync = billing.syncEntitlements ? useAction(billing.syncEntitlements) : null
 
   return {
@@ -78,6 +81,7 @@ export function useCredits(meterId?: MaybeRefOrGetter<string>, options: UseCredi
     meterId: computed(() => meter.value?.meterId),
     isLoading: computed(() => credits.value === undefined),
     topUp,
+    gift,
     refresh: async () => {
       if (runSync) await runSync({})
     },

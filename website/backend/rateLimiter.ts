@@ -5,7 +5,7 @@ import { mutation } from './_generated/server'
 
 // Application rate limiting. Pre-seeded with the auth limits (emailOtp,
 // signIn, signUp, passwordReset) — add your own named limits here.
-export const rateLimiter = setupRateLimiter(components.rateLimiter, {
+export const rateLimiter = setupRateLimiter(components, {
   // Demo limit for the showcase: a token bucket of 5 pings per minute per user.
   demoPing: { kind: 'token bucket', rate: 5, period: MINUTE, capacity: 5 },
 })

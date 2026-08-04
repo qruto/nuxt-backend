@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 import { describe, expect, test } from 'vitest'
-import * as adapter from '../../src/convex/component/adapter'
+import * as adapter from '../../src/convex/components/backend/adapter'
 
 describe('adapter proxy functions', () => {
   test('exports all required CRUD operations', () => {

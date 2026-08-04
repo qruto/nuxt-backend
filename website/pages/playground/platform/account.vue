@@ -46,7 +46,8 @@ async function doDelete() {
   }
 }
 
-const state = computed(() => ({ isLoading: auth.isLoading, isAuthenticated: auth.isAuthenticated }))
+const state = computed(() =>
+  `isLoading: ${auth.isLoading.value} · isAuthenticated: ${auth.isAuthenticated.value}`)
 const initials = computed(() =>
   (user.value?.name ?? user.value?.email ?? '?').split(/[\s@]+/).filter(Boolean).slice(0, 2).map(s => s[0]!.toUpperCase()).join(''))
 </script>

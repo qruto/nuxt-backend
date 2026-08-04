@@ -10,10 +10,10 @@ export const {
   options,
   createAuth,
   getAuthUser,
-} = setupAuth(components.backend, query, {
+} = setupAuth(components, query, {
   integrations: {
-    // Email (OTP / verification / reset) is wired automatically through the
-    // Resend component nested inside `backend` — just set RESEND_API_KEY.
+    // Email (OTP / verification / invitations) is wired automatically through
+    // the backend component — configured by the EMAIL_* env vars.
     // Throttle OTP sends and other auth-sensitive flows.
     rateLimiter,
     // Kick off a durable welcome workflow when a user signs up.

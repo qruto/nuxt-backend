@@ -52,7 +52,7 @@ export default defineSchema({
   }).index('userId', ['userId']),
 
   // Note: the Polar feature/credit cache (`billingEntitlements`) now lives inside
-  // the bundled `backend` component — nothing to declare here. useFeatures() /
+  // the bundled `auth` / `billing` components — nothing to declare here. useFeatures() /
   // useCredits() read it reactively via api.billing.getFeatures / getCredits.
 
   // Transactional emails sent from the app, so the showcase can show a feed with

@@ -1,8 +1,9 @@
-import { defineNuxtModule, addComponent, addImports, addTypeTemplate, createResolver, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
+import { defineNuxtModule, addComponent, addImports, addTypeTemplate, createResolver, extendPages, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
 import { scaffoldBackendFiles } from './scaffold'
 import { registerBackendAliases, backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from './aliases'
 import { collectPreflightFindings, formatPreflightSummary } from './preflight'
+import { DEFAULT_INVITATION_PATH } from './convex/constants'
 import type { BackendInstallationMode } from './templates'
 
 const logger = useLogger('nuxt-backend')
@@ -17,6 +18,14 @@ export interface ModuleOptions {
    * when you scaffold explicitly with `npx nuxt-backend init` / `add`.
    */
   scaffold?: 'auto' | false
+  /**
+   * Register the ready-made invitation accept page (renders
+   * `<AcceptInvitation>` behind the `auth` middleware). `true` (the default)
+   * uses `/accept-invitation`; pass a string to change the path — keep it in
+   * sync with the Convex-side `organization.invitationPath` so emailed links
+   * land on it. `false` to bring your own page.
+   */
+  invitationPage?: boolean | string
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -29,6 +38,7 @@ export default defineNuxtModule<ModuleOptions>({
   defaults: {
     installation: 'default',
     scaffold: 'auto',
+    invitationPage: true,
   },
   // The Convex + Better Auth + Polar framework integration. Declared as a
   // module dependency (not `installModule`) so Nuxt dedupes it when the app
@@ -80,9 +90,31 @@ export default defineNuxtModule<ModuleOptions>({
 
     registerSaasComposables(resolver)
 
+    registerInvitationPage(options, resolver)
+
     runPreflight(options, nuxt)
   },
 })
+
+/**
+ * Register the ready-made `/accept-invitation` page (see `invitationPage`
+ * module option) behind the base module's `auth` route middleware, so the
+ * accept links in invitation emails work with zero consumer files.
+ */
+function registerInvitationPage(options: ModuleOptions, resolver: Resolver): void {
+  if (options.invitationPage === false) return
+  const path = typeof options.invitationPage === 'string'
+    ? options.invitationPage
+    : DEFAULT_INVITATION_PATH
+  extendPages((pages) => {
+    pages.unshift({
+      name: 'backend-accept-invitation',
+      path,
+      file: resolver.resolve('./runtime/vue/pages/accept-invitation'),
+      meta: { middleware: 'auth' },
+    })
+  })
+}
 
 /**
  * Expose the SaaS layer as Nuxt auto-imports — one name per concept. The core
@@ -112,6 +144,21 @@ function registerSaasComposables(resolver: Resolver): void {
     export: 'OrganizationBoundary',
     filePath: resolver.resolve('./runtime/vue/components/organization-boundary'),
   })
+  addComponent({
+    name: 'FeatureBoundary',
+    export: 'FeatureBoundary',
+    filePath: resolver.resolve('./runtime/vue/components/feature-boundary'),
+  })
+  addComponent({
+    name: 'AcceptInvitation',
+    export: 'AcceptInvitation',
+    filePath: resolver.resolve('./runtime/vue/components/accept-invitation'),
+  })
+  addComponent({
+    name: 'GiftClaimBanner',
+    export: 'GiftClaimBanner',
+    filePath: resolver.resolve('./runtime/vue/components/gift-claim-banner'),
+  })
 
   const composables: Array<{ name: string, from: string }> = [
     { name: 'useLoginFlow', from: resolver.resolve('./runtime/vue/composables/use-login-flow') },
@@ -122,6 +169,7 @@ function registerSaasComposables(resolver: Resolver): void {
     { name: 'useBilling', from: resolver.resolve('./runtime/vue/composables/use-billing') },
     { name: 'useFeatures', from: resolver.resolve('./runtime/vue/composables/use-features') },
     { name: 'useCredits', from: resolver.resolve('./runtime/vue/composables/use-credits') },
+    { name: 'useGifts', from: resolver.resolve('./runtime/vue/composables/use-gifts') },
     { name: 'useEmailStatus', from: resolver.resolve('./runtime/vue/composables/use-email-status') },
     { name: 'useWorkflowStatus', from: resolver.resolve('./runtime/vue/composables/use-workflow') },
   ]

@@ -29,6 +29,24 @@ export interface ActiveWorkspace extends Workspace {
 
 type AuthQuery<T> = Ref<{ data: T | null, isPending: boolean, error?: unknown }>
 
+/** An invitation the signed-in user has received. */
+export interface ReceivedInvitation {
+  id: string
+  email: string
+  role?: string | null
+  status: string
+  organizationId: string
+  inviterId: string
+  expiresAt: Date | number | string
+}
+
+/** A single invitation with its workspace/inviter context (accept-page data). */
+export interface InvitationDetails extends ReceivedInvitation {
+  organizationName: string
+  organizationSlug: string
+  inviterEmail: string
+}
+
 /** The organization plugin surface `useOrganization` drives. */
 interface OrganizationClient {
   useListOrganizations: () => AuthQuery<Workspace[]>
@@ -39,6 +57,11 @@ interface OrganizationClient {
     setActive: (args: { organizationId: string | null }) => Promise<unknown>
     inviteMember: (args: { email: string, role: string, organizationId?: string }) => Promise<unknown>
     leave: (args: { organizationId: string }) => Promise<unknown>
+    acceptInvitation: (args: { invitationId: string }) => Promise<unknown>
+    rejectInvitation: (args: { invitationId: string }) => Promise<unknown>
+    cancelInvitation: (args: { invitationId: string }) => Promise<unknown>
+    getInvitation: (args: { query: { id: string } }) => Promise<unknown>
+    listUserInvitations: () => Promise<unknown>
   }
 }
 
@@ -63,16 +86,31 @@ export interface UseOrganizationReturn {
   setActive: (organizationId: string) => Promise<void>
   /** Create a workspace (users can own several). */
   create: (args: { name: string, slug: string, logo?: string }) => Promise<unknown>
-  /** Invite someone to the active workspace. */
+  /** Invite someone to the active workspace (they receive an accept-link email). */
   invite: (args: { email: string, role?: string, organizationId?: string }) => Promise<unknown>
   /** Leave a workspace (defaults to the active one). */
   leave: (organizationId?: string) => Promise<unknown>
+  /**
+   * Accept a received invitation. Refreshes the workspace claim; with
+   * `activate: true` the joined workspace also becomes the active one.
+   */
+  acceptInvitation: (invitationId: string, options?: { activate?: boolean }) => Promise<unknown>
+  /** Decline a received invitation. */
+  declineInvitation: (invitationId: string) => Promise<unknown>
+  /** Cancel a pending invitation you (or a teammate) sent — inviter side. */
+  cancelInvitation: (invitationId: string) => Promise<unknown>
+  /** A single invitation with workspace/inviter context (for the accept page). */
+  getInvitation: (invitationId: string) => Promise<InvitationDetails | null>
+  /** Invitations the signed-in user has received (across workspaces). */
+  listReceivedInvitations: () => Promise<ReceivedInvitation[]>
 }
 
 /**
- * Workspace (organization) state and actions. Everything beyond the common
- * flows — invitations management, member removal, role updates — lives on the
- * fully-typed client: `useAuth().client.organization.*`.
+ * Workspace (organization) state and actions, including the full invitation
+ * flow (invite / accept / decline / cancel — the packaged `AcceptInvitation`
+ * component and `/accept-invitation` page build on these). Anything beyond —
+ * member removal, role updates — lives on the fully-typed client:
+ * `useAuth().client.organization.*`.
  *
  * @example
  * ```vue
@@ -97,14 +135,18 @@ export function useOrganization(): UseOrganizationReturn {
   const active = client.useActiveOrganization()
   const activeMember = client.useActiveMember()
 
-  const setActive = async (organizationId: string): Promise<void> => {
-    await client.organization.setActive({ organizationId })
-    // The active workspace is a JWT claim: refresh the cached token, then
-    // re-authenticate the live Convex connection so subscriptions re-run
-    // with the new workspace (the session id doesn't change on a switch, so
-    // nothing else would trigger re-auth until the token expires).
+  // The active workspace is a JWT claim: refresh the cached token, then
+  // re-authenticate the live Convex connection so subscriptions re-run
+  // with the new workspace (the session id doesn't change on a switch, so
+  // nothing else would trigger re-auth until the token expires).
+  const refreshWorkspaceClaim = async (): Promise<void> => {
     await auth.fetchAccessToken({ forceRefreshToken: true })
     convex.setAuth(auth.fetchAccessToken)
+  }
+
+  const setActive = async (organizationId: string): Promise<void> => {
+    await client.organization.setActive({ organizationId })
+    await refreshWorkspaceClaim()
   }
 
   return {
@@ -115,13 +157,48 @@ export function useOrganization(): UseOrganizationReturn {
     members: computed(() => active.value.data?.members ?? []),
     isLoading: computed(() => list.value.isPending || active.value.isPending),
     setActive,
-    create: args => client.organization.create(args),
+    // Creating a workspace makes it the active one, and leaving can drop it —
+    // both change the JWT claim, so re-authenticate Convex like setActive does.
+    create: async (args) => {
+      const result = await client.organization.create(args)
+      await refreshWorkspaceClaim()
+      return result
+    },
     invite: ({ email, role = 'member', organizationId }) =>
       client.organization.inviteMember({ email, role, organizationId }),
     leave: async (organizationId) => {
       const target = organizationId ?? active.value.data?.id
       if (!target) throw new Error('[nuxt-backend] No workspace to leave')
-      return client.organization.leave({ organizationId: target })
+      const result = await client.organization.leave({ organizationId: target })
+      await refreshWorkspaceClaim()
+      return result
+    },
+    // Accepting adds a membership (a JWT-relevant change) — refresh the claim
+    // like the other membership mutations do.
+    acceptInvitation: async (invitationId, options) => {
+      const result = await client.organization.acceptInvitation({ invitationId }) as {
+        data?: { invitation?: { organizationId?: string } } | null
+      }
+      await refreshWorkspaceClaim()
+      const organizationId = result?.data?.invitation?.organizationId
+      if (options?.activate && organizationId) await setActive(organizationId)
+      return result
+    },
+    declineInvitation: invitationId =>
+      client.organization.rejectInvitation({ invitationId }),
+    cancelInvitation: invitationId =>
+      client.organization.cancelInvitation({ invitationId }),
+    getInvitation: async (invitationId) => {
+      const result = await client.organization.getInvitation({ query: { id: invitationId } }) as {
+        data?: InvitationDetails | null
+      }
+      return result?.data ?? null
+    },
+    listReceivedInvitations: async () => {
+      const result = await client.organization.listUserInvitations() as {
+        data?: ReceivedInvitation[] | null
+      }
+      return result?.data ?? []
     },
   }
 }

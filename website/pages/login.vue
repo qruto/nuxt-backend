@@ -6,14 +6,16 @@ import {
   TEST_EMAIL_PRESETS,
 } from '../utils/testEmail'
 
-definePageMeta({ layout: false })
+// Standalone full-screen page: no layout, and no Docus chrome (the docs
+// header/footer render from app.vue, so they must be disabled via meta too).
+definePageMeta({ layout: false, header: false, footer: false })
 
 // The whole passwordless state machine (steps, guards, sequencing) comes from
 // the package; this page only supplies the Strata markup and the playground's
 // Resend-test-inbox email gate.
 const {
   step, name, email, otp, pending, error, emailValid,
-  signInWithPasskey, registerWithPasskey, sendCode, verifyCode,
+  signInWithPasskey, sendCode, verifyCode,
   addPasskey: addPasskeyToCurrentAccount, skipPasskey, goTo,
 } = useLoginFlow({
   // Sign-up only accepts Resend's delivered inbox (alias-aware) — the OTP must arrive.
@@ -21,15 +23,19 @@ const {
   onSuccess: () => navigateTo('/playground'),
 })
 
+// Default to the aliased Resend test inbox: the playground only accepts
+// `delivered@resend.dev`, so a personal address autofilled by the browser would
+// always be rejected. The `+you` alias avoids everyone sharing one account
+// (and its 5/min OTP limit) — swap `you` for your own label. A non-empty value
+// also keeps browser autofill from injecting a saved address over it.
+email.value = TEST_EMAIL_PRESETS[1]
+
 function trimmedEmail() {
   return normalizeTestEmail(email.value)
 }
 function useTestEmail(preset: string) {
   email.value = preset
   error.value = null
-}
-function startPasskeyRegistration() {
-  goTo('register-passkey')
 }
 function startEmailFlow() {
   goTo('request-code')
@@ -93,16 +99,6 @@ function startEmailFlow() {
           <p class="choosehint">
             Returning? Picks a passkey already saved on this device.
           </p>
-          <button
-            type="button"
-            :disabled="pending"
-            @click="startPasskeyRegistration"
-          >
-            Create account with passkey
-          </button>
-          <p class="choosehint">
-            New? Create one against a Resend test inbox (alias supported).
-          </p>
           <div class="divider">
             <span>or</span>
           </div>
@@ -113,68 +109,10 @@ function startEmailFlow() {
           >
             Continue with email code
           </button>
+          <p class="choosehint">
+            New here? Get an email code, then add a passkey once you're in.
+          </p>
         </section>
-
-        <form
-          v-else-if="step === 'register-passkey'"
-          @submit.prevent="registerWithPasskey"
-        >
-          <h2>Create account with passkey</h2>
-          <label>Name<input
-            v-model="name"
-            type="text"
-            autocomplete="name"
-            required
-          ></label>
-          <label>Email<input
-            v-model="email"
-            type="email"
-            autocomplete="email"
-            spellcheck="false"
-            required
-          ></label>
-          <div class="testmail">
-            <div class="presets">
-              <button
-                v-for="p in TEST_EMAIL_PRESETS"
-                :key="p"
-                type="button"
-                class="preset"
-                :class="{ on: trimmedEmail() === p }"
-                @click="useTestEmail(p)"
-              >
-                {{ p }}
-              </button>
-            </div>
-            <p
-              v-if="email && !emailValid"
-              class="badmail"
-            >
-              Use <code>delivered@resend.dev</code> — pick one above or add a <code>+label</code>.
-            </p>
-            <p
-              v-else
-              class="okmail"
-            >
-              Delivered inbox only — add <code>+label</code> for a distinct account.
-            </p>
-          </div>
-          <button
-            type="submit"
-            class="primary"
-            :disabled="pending || !emailValid"
-          >
-            {{ pending ? 'Creating…' : 'Create passkey account' }}
-          </button>
-          <button
-            type="button"
-            class="link"
-            :disabled="pending"
-            @click="step = 'choose'"
-          >
-            Back
-          </button>
-        </form>
 
         <form
           v-else-if="step === 'request-code'"
@@ -184,12 +122,18 @@ function startEmailFlow() {
           <label>Name <span class="hint">for new accounts</span><input
             v-model="name"
             type="text"
-            autocomplete="name"
+            name="display-name"
+            autocomplete="off"
           ></label>
+          <!-- Non-semantic name + autocomplete=off: Chrome ignores `off` alone on
+               email-shaped fields, and a saved personal gmail would fail the
+               Resend-only allowlist. The prefilled test inbox does the rest —
+               autofill never overwrites a non-empty field. -->
           <label>Email<input
             v-model="email"
             type="email"
-            autocomplete="email"
+            name="test-inbox"
+            autocomplete="off"
             spellcheck="false"
             required
           ></label>
@@ -242,8 +186,8 @@ function startEmailFlow() {
         >
           <p class="muted">
             We sent a verification code to <strong>{{ email }}</strong> via the
-            nested Resend component. Without <code>RESEND_API_KEY</code> set, the
-            code is logged to the Convex console instead.
+            backend component's email module. Without <code>EMAIL_API_KEY</code>
+            set, the code is logged to the Convex console instead.
           </p>
           <label>Verification code<input
             v-model="otp"
@@ -311,12 +255,25 @@ function startEmailFlow() {
 
 <style scoped>
 .page {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem 1rem;
+  /* Standalone page (`layout: false`): reproduce the playground shell's canvas
+     (see `.pg-shell` in app.css) so the login keeps the depth-design look. */
+  color: var(--ink);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(900px 520px at 94% -12%, var(--accent-dim), transparent 60%);
+  background-attachment: fixed;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+.page ::selection { background: var(--accent); color: var(--on-accent); }
 .auth-card {
   width: 100%;
   max-width: 392px;

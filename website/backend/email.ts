@@ -4,8 +4,8 @@ import { api, components, internal } from './_generated/api'
 import { type ActionCtx, action, internalMutation, query } from './_generated/server'
 import { authComponent } from './auth'
 
-// Transactional + marketing email over the Resend component nested in `backend`.
-export const email = setupEmail(components.backend)
+// Transactional + marketing email over the `email` component (Resend nested inside).
+export const email = setupEmail(components)
 
 // Reactive delivery-status query behind `useEmailStatus`.
 export const { getEmailStatus } = email.api

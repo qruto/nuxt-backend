@@ -3,8 +3,8 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 import { convexTest } from 'convex-test'
 import component from '../../src/convex/test'
-import schema from '../../src/convex/component/schema'
-import { api } from '../../src/convex/component/_generated/api'
+import schema from '../../src/convex/components/backend/schema'
+import { api } from '../../src/convex/components/backend/_generated/api'
 import { setupAuthorization, type AuthorizationCtx } from '../../src/convex/integrations/authorization'
 
 // Run the backend component as the root app (same pattern as billing.test.ts)
@@ -13,10 +13,10 @@ import { setupAuthorization, type AuthorizationCtx } from '../../src/convex/inte
 let t: ReturnType<typeof convexTest>
 
 beforeEach(() => {
-  t = convexTest(schema, component.modules)
+  t = convexTest(schema, component.modules.backend)
 })
 
-const adapterApi = { adapter: { findOne: api.adapter.findOne, updateOne: api.adapter.updateOne } }
+const adapterApi = { backend: { adapter: { findOne: api.adapter.findOne, updateOne: api.adapter.updateOne } } }
 
 async function createRow(model: string, data: Record<string, unknown>) {
   return await t.mutation(api.adapter.create, { input: { model, data } }) as Record<string, unknown> & { _id: string, id?: string }

@@ -54,6 +54,16 @@ const groups: NavGroup[] = [
     ],
   },
   {
+    label: 'SaaS demo',
+    hint: 'A real product built on the stack',
+    items: [
+      { to: '/playground/saas/pricing', label: 'Pricing', icon: 'billing', api: 'checkout · changePlan', live: true },
+      { to: '/playground/saas/profile', label: 'Profile', icon: 'account', api: 'updateUser · changeEmail' },
+      { to: '/playground/saas/settings', label: 'Settings', icon: 'bolt', api: 'workspace · credits' },
+      { to: '/playground/saas/security', label: 'Privacy & security', icon: 'key', api: 'passkeys · sessions' },
+    ],
+  },
+  {
     label: 'Backend platform',
     hint: 'Auth · billing · email · more',
     items: [

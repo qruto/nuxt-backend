@@ -6,8 +6,8 @@ definePageMeta({ middleware: 'auth' })
 
 const billing = useBilling()
 const products = computed(() => Object.entries(billing.products.value ?? {}))
-// Subscription plans exclude the one-time credit pack (key `credits`).
-const subscribable = computed(() => products.value.filter(([key]) => key !== 'credits'))
+// Subscription plans exclude the one-time credit packs (keys `credits*`).
+const subscribable = computed(() => products.value.filter(([key]) => !key.startsWith('credits')))
 const plan = computed(() => (billing.isSubscribed.value ? 'Pro' : 'Free'))
 const planHint = computed(() =>
   billing.subscription.value === undefined
@@ -67,7 +67,7 @@ async function makeDiscount() {
         v-if="products.length === 0"
         class="hint"
       >
-        No products — set <code>POLAR_ORGANIZATION_TOKEN</code> and create products in Polar.
+        No products — set <code>BILLING_ACCESS_TOKEN</code> and create products in Polar.
       </p>
       <template v-else>
         <div class="plans">

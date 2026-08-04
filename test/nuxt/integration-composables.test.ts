@@ -10,6 +10,7 @@ import { type BillingApi, useBilling } from '../../src/runtime/vue/composables/u
 import { useFeatures } from '../../src/runtime/vue/composables/use-features'
 import { useCredits } from '../../src/runtime/vue/composables/use-credits'
 import { type EmailApi, useEmailStatus } from '../../src/runtime/vue/composables/use-email-status'
+import { useGifts } from '../../src/runtime/vue/composables/use-gifts'
 import { useSearch } from '../../src/runtime/vue/composables/use-search'
 import { useWorkflowStatus } from '../../src/runtime/vue/composables/use-workflow'
 
@@ -29,6 +30,9 @@ const portalRef = makeFunctionReference<'action'>('billing:generateCustomerPorta
 const changeRef = makeFunctionReference<'action'>('billing:changeCurrentSubscription')
 const cancelRef = makeFunctionReference<'action'>('billing:cancelCurrentSubscription')
 const syncRef = makeFunctionReference<'action'>('billing:syncEntitlements')
+const giftCheckoutRef = makeFunctionReference<'action'>('billing:giftCheckout')
+const receivedGiftsRef = makeFunctionReference<'query'>('billing:getReceivedGifts')
+const claimGiftRef = makeFunctionReference<'action'>('billing:claimGift')
 
 let client: ConvexVueClient
 
@@ -169,6 +173,78 @@ describe('useBilling', () => {
     await expect(result.portal()).rejects.toThrow(/Billing portal is unavailable/)
     await expect(result.changePlan('p')).rejects.toThrow(/Billing changePlan is unavailable/)
     await expect(result.cancel()).rejects.toThrow(/Billing cancel is unavailable/)
+  })
+})
+
+describe('useGifts', () => {
+  const giftsApi = { getReceivedGifts: receivedGiftsRef, claimGift: claimGiftRef } as unknown as BillingApi
+  const authedProvide = () => provide(ConvexAuthStateKey, {
+    isLoading: computed(() => false),
+    isAuthenticated: computed(() => true),
+    isRefreshing: computed(() => false),
+  })
+  const paidGift = {
+    id: 'gift-1', recipientEmail: 'me@example.com', purchaserUserId: 'u-b',
+    purchaserName: 'Buyer', productIds: ['p1'], status: 'paid', createdAt: 1,
+  }
+
+  it('lists received gifts and filters the unclaimed ones', async () => {
+    seed(store => store.setQuery(receivedGiftsRef, {}, [paidGift, { ...paidGift, id: 'gift-2', status: 'claimed' }]))
+    const { result } = await mountWithConvex(
+      client,
+      () => useGifts({ api: giftsApi, autoClaim: false }),
+      { provide: authedProvide },
+    )
+    expect(result.received.value).toHaveLength(2)
+    expect(result.unclaimed.value).toHaveLength(1)
+    expect(result.unclaimed.value[0]?.id).toBe('gift-1')
+  })
+
+  it('is empty without querying when signed out', async () => {
+    const { result } = await mountWithConvex(client, () => useGifts({ api: giftsApi, autoClaim: false }))
+    expect(result.received.value).toStrictEqual([])
+    expect(result.isLoading.value).toBe(false)
+  })
+
+  it('auto-claims paid gifts once on first authenticated load', async () => {
+    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ claimed: 1 })
+    seed(store => store.setQuery(receivedGiftsRef, {}, [paidGift]))
+    await mountWithConvex(
+      client,
+      () => useGifts({ api: giftsApi }),
+      { provide: authedProvide },
+    )
+    await nextTick()
+    await nextTick()
+    expect(actionSpy).toHaveBeenCalledTimes(1)
+    expect(actionSpy).toHaveBeenCalledWith(claimGiftRef, {})
+  })
+
+  it('claim(giftId) targets a single gift and reports the count', async () => {
+    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ claimed: 1 })
+    const { result } = await mountWithConvex(
+      client,
+      () => useGifts({ api: giftsApi, autoClaim: false }),
+      { provide: authedProvide },
+    )
+    expect(await result.claim('gift-1')).toBe(1)
+    expect(actionSpy).toHaveBeenCalledWith(claimGiftRef, { giftId: 'gift-1' })
+  })
+
+  it('gift checkout opens the returned URL (useBilling.gift)', async () => {
+    const api = { giftCheckout: giftCheckoutRef } as unknown as BillingApi
+    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ url: 'https://checkout.test/gift' })
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const { result } = await mountWithConvex(client, () => useBilling({ api: { ...api, listAllSubscriptions: subscriptionsRef } as never }))
+
+    const url = await result.gift('pack_100', { recipientEmail: 'friend@example.com', message: 'hi' })
+
+    expect(url).toBe('https://checkout.test/gift')
+    expect(actionSpy).toHaveBeenCalledWith(
+      giftCheckoutRef,
+      expect.objectContaining({ productIds: ['pack_100'], recipientEmail: 'friend@example.com', message: 'hi' }),
+    )
+    expect(openSpy).toHaveBeenCalledWith('https://checkout.test/gift', '_blank')
   })
 })
 

@@ -65,7 +65,7 @@ export type CheckoutArgs = {
 export interface BillingApi {
   getConfiguredProducts?: Query<Record<string, PolarProduct | undefined>>
   listAllProducts?: Query<PolarProduct[]>
-  listAllSubscriptions?: Query<PolarSubscription[]>
+  listAllSubscriptions?: Query<PolarSubscription[] | null>
   getCurrentSubscription?: Query<PolarSubscription | null>
   generateCheckoutLink?: FunctionReference<'action', 'public', CheckoutArgs, { url: string }>
   generateCustomerPortalUrl?: FunctionReference<'action', 'public', { returnUrl?: string }, { url: string }>
@@ -74,6 +74,35 @@ export interface BillingApi {
   getFeatures?: Query<Features | null>
   getCredits?: Query<Credits | null>
   syncEntitlements?: FunctionReference<'action', 'public', EmptyArgs, null>
+  giftCheckout?: FunctionReference<'action', 'public', GiftCheckoutArgs, { url: string }>
+  getReceivedGifts?: Query<ReceivedGift[] | null>
+  claimGift?: FunctionReference<'action', 'public', { giftId?: string }, { claimed: number }>
+}
+
+/** Args of the `giftCheckout` action (a checkout whose recipient is someone else). */
+export type GiftCheckoutArgs = {
+  productIds: string[]
+  recipientEmail: string
+  message?: string
+  origin: string
+  successUrl: string
+  metadata?: Record<string, string>
+}
+
+/** A gift addressed to the current user (`getReceivedGifts` shape). */
+export interface ReceivedGift {
+  id: string
+  recipientEmail: string
+  purchaserUserId: string
+  purchaserEmail?: string
+  purchaserName?: string
+  productIds: string[]
+  message?: string
+  /** `'pending'` (awaiting payment) → `'paid'` (claimable) → `'claimed'`. */
+  status: string
+  createdAt: number
+  paidAt?: number
+  claimedAt?: number
 }
 
 /** Per-call checkout overrides for {@link UseBillingReturn.checkout}. */
@@ -107,9 +136,11 @@ export interface UseBillingReturn {
   isFree: ComputedRef<boolean>
   /** `true` until the subscription state has loaded. */
   isLoading: ComputedRef<boolean>
-  /** Generate a Polar checkout for the given product(s) and open it (returns the URL). */
+  /** Generate a checkout for the given product(s) and open it (returns the URL). */
   checkout: (productIds: string | string[], options?: CheckoutOptions) => Promise<string>
-  /** Open the Polar customer portal (returns the URL). */
+  /** Buy the given product(s) as a gift for someone else (by email). Opens checkout. */
+  gift: (productIds: string | string[], options: GiftOptions & { recipientEmail: string }) => Promise<string>
+  /** Open the billing customer portal (returns the URL). */
   portal: (options?: { returnUrl?: string, redirect?: boolean }) => Promise<string>
   /** Switch the active subscription to another product (upgrade/downgrade). */
   changePlan: (productId: string) => Promise<void>
@@ -119,8 +150,8 @@ export interface UseBillingReturn {
 
 function notConfigured(action: string): never {
   throw new Error(
-    `[nuxt-backend] Billing ${action} is unavailable — ensure \`backend/billing.ts\` exports the `
-    + `Polar api (setupBilling) and POLAR_ORGANIZATION_TOKEN is set, or pass \`{ api }\` to useBilling().`,
+    `[nuxt-backend] Billing ${action} is unavailable — ensure \`billing.ts\` re-exports the `
+    + `setupBilling api and the required BILLING_ACCESS_TOKEN env var is set, or pass \`{ api }\` to useBilling().`,
   )
 }
 
@@ -157,9 +188,49 @@ export function createCheckout(billing: BillingApi) {
   }
 }
 
+/** Per-call options for {@link UseBillingReturn.gift}. */
+export interface GiftOptions {
+  /** A note shown to the recipient in the gift email. */
+  message?: string
+  metadata?: Record<string, string>
+  /** Where the purchaser returns after paying. Defaults to the current URL. */
+  successUrl?: string
+  /** Open in the same tab instead of a new one (redirect checkout). */
+  redirect?: boolean
+}
+
 /**
- * Reactive billing state plus checkout/portal/plan actions for the
- * {@link https://www.convex.dev/components/polar | Polar} component, linked to
+ * Build a `gift(productIds, { recipientEmail, ... })` action over a billing
+ * namespace — shared by {@link useBilling} and {@link useCredits} (gifting a
+ * credit pack is just a gift checkout of a one-time product). The purchaser
+ * pays; the recipient (by email) receives the entitlement — attached
+ * automatically if they have an account, claimable on first sign-in otherwise.
+ * Must be called during component setup.
+ */
+export function createGiftCheckout(billing: BillingApi) {
+  const runGiftCheckout = billing.giftCheckout ? useAction(billing.giftCheckout) : null
+  return async (
+    productIds: string | string[],
+    opts: GiftOptions & { recipientEmail: string },
+  ): Promise<string> => {
+    if (!runGiftCheckout) notConfigured('gift')
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const successUrl = opts.successUrl ?? (typeof window !== 'undefined' ? window.location.href : '')
+    const { url } = await runGiftCheckout({
+      productIds: Array.isArray(productIds) ? productIds : [productIds],
+      recipientEmail: opts.recipientEmail,
+      message: opts.message,
+      origin,
+      successUrl,
+      metadata: opts.metadata,
+    })
+    openUrl(url, opts.redirect)
+    return url
+  }
+}
+
+/**
+ * Reactive billing state plus checkout/gift/portal/plan actions, linked to
  * your auth user. Works with no arguments via the auto-provided `api.billing`
  * namespace; pass `{ api }` to override.
  *
@@ -183,22 +254,23 @@ export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
     ? useQuery(billing.getConfiguredProducts)
     : computed(() => undefined)
 
-  // The user-scoped subscription queries resolve the current user server-side, so
-  // they throw ("Unauthenticated") when run before the Convex client is
-  // authenticated — signed out, or the SSR / pre-auth window. Gate them on auth
-  // state, read via `inject` (not `useConvexAuth`, which throws) so `useBilling`
-  // still works without the auth integration. When signed out, the user is simply
-  // on the free plan (no subscriptions).
+  // The user-scoped subscription queries resolve the current user server-side
+  // and return `null` for claimless callers (signed out, or the auth-handshake /
+  // reconnect window). Additionally gate them on auth state, read via `inject`
+  // (not `useConvexAuth`, which throws) so `useBilling` still works without the
+  // auth integration. When signed out, the user is simply on the free plan.
   const auth = inject(ConvexAuthStateKey, null)
   const signedOut = computed(() => auth != null && !auth.isAuthenticated.value)
   const userScopedArgs = () => (signedOut.value ? 'skip' : {})
 
   const rawSubscriptions = billing.listAllSubscriptions
     ? useQuery(billing.listAllSubscriptions, userScopedArgs)
-    : computed<PolarSubscription[] | undefined>(() => undefined)
-  const subscriptions = computed<PolarSubscription[] | undefined>(() =>
-    signedOut.value ? [] : rawSubscriptions.value,
-  )
+    : computed<PolarSubscription[] | null | undefined>(() => undefined)
+  const subscriptions = computed<PolarSubscription[] | undefined>(() => {
+    if (signedOut.value) return []
+    // Server-side null = no billing entity yet — same as having no subscriptions.
+    return rawSubscriptions.value === null ? [] : rawSubscriptions.value
+  })
 
   // Prefer an explicit `getCurrentSubscription` query; otherwise derive the
   // active subscription from the full list.
@@ -214,6 +286,7 @@ export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
   )
 
   const checkout = createCheckout(billing)
+  const gift = createGiftCheckout(billing)
   const runPortal = billing.generateCustomerPortalUrl ? useAction(billing.generateCustomerPortalUrl) : null
   const runChange = billing.changeCurrentSubscription ? useAction(billing.changeCurrentSubscription) : null
   const runCancel = billing.cancelCurrentSubscription ? useAction(billing.cancelCurrentSubscription) : null
@@ -226,6 +299,7 @@ export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
     isFree: computed(() => currentSubscription.value === null),
     isLoading: computed(() => currentSubscription.value === undefined),
     checkout,
+    gift,
     portal: async (opts = {}) => {
       if (!runPortal) notConfigured('portal')
       const { url } = await runPortal({ returnUrl: opts.returnUrl })

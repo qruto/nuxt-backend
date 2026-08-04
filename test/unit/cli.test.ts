@@ -99,17 +99,17 @@ describe('doctor', () => {
     const report = JSON.parse(output) as { findings: Array<{ id: string, status: string }> }
     const codegen = report.findings.find(finding => finding.id === 'convex-codegen')
     expect(codegen?.status).toBe('warn')
-    expect(report.findings.some(finding => finding.id === 'better-auth-secret')).toBe(true)
+    expect(report.findings.some(finding => finding.id === 'auth-secret')).toBe(true)
   })
 
   it('reads env from .env.local (weak secret fails, exit code 1)', async () => {
-    writeFileSync(join(rootDir, '.env.local'), 'BETTER_AUTH_SECRET=changeme\n')
+    writeFileSync(join(rootDir, '.env.local'), 'AUTH_SECRET=changeme\n')
 
     await run(['doctor', '--json'])
 
     const output = vi.mocked(console.log).mock.calls.flat().join('\n')
     const report = JSON.parse(output) as { findings: Array<{ id: string, status: string }> }
-    expect(report.findings.find(finding => finding.id === 'better-auth-secret')?.status).toBe('fail')
+    expect(report.findings.find(finding => finding.id === 'auth-secret')?.status).toBe('fail')
     expect(process.exitCode).toBe(1)
   })
 })

@@ -3,7 +3,7 @@
  * Resets the website (dev app) Convex database for testing.
  *
  * Reads CONVEX_DEPLOYMENT and CONVEX_URL from the repo-root .env.local,
- * then clears all tables in both the main schema and the auth component.
+ * then clears all tables in both the main schema and the backend component.
  *
  * Usage:
  *   node scripts/db-reset.mjs
@@ -69,18 +69,25 @@ function run(label, args) {
 
 const paginationOpts = JSON.stringify({ cursor: null, numItems: 1000 })
 
-// Auth component models (from src/convex/component/schema.ts + plugins)
-const componentModels = ['session', 'account', 'verification', 'passkey', 'jwks', 'rateLimit', 'user']
+// Auth models (from src/convex/components/backend/schema.ts + plugins).
+// Dependent rows (sessions/memberships) before their owners to avoid FK issues.
+const componentModels = [
+  'session', 'account', 'verification', 'passkey', 'jwks', 'rateLimit',
+  'member', 'invitation', 'organization', 'user',
+]
 
 console.log('Resetting Convex database...\n')
 
 // Clear main schema tables
 run('todos', '_clearAll:run \'{}\'')
 
-// Clear auth component tables (sessions/accounts before users to avoid FK issues)
+// Clear the backend component's auth tables
 for (const model of componentModels) {
   const args = JSON.stringify({ input: { model }, paginationOpts: JSON.parse(paginationOpts) })
   run(`component/${model}`, `--component backend adapter:deleteMany '${args}'`)
 }
+
+// Clear the billing entitlement cache (derived data — resyncs from the provider)
+run('billing/entitlements', '--component backend billing:clear \'{}\'')
 
 console.log('\nDatabase reset complete.')

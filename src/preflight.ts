@@ -1,8 +1,10 @@
 /**
  * Dev-startup environment preflight — the doctor-style checks this module can
- * run from the Nuxt process. Deployment-side values (`BETTER_AUTH_SECRET`,
- * `RESEND_*`, `POLAR_*` set via `npx convex env set`) can only be *hinted at*
- * here; the CLI `doctor` command verifies them against the deployment.
+ * run from the Nuxt process. Deployment-side values (`AUTH_SECRET`, `EMAIL_*`,
+ * `BILLING_*` set via `npx convex env set`) can only be *hinted at* here; the
+ * CLI `doctor` command verifies them against the deployment. All backend env
+ * vars are required — a Convex deploy fails until they are set — so a missing
+ * var is a finding, never a designed no-op.
  *
  * Pure and injectable for tests. URL-shape validation of `url`/`siteUrl`
  * belongs to `nuxt-convex-module` — not duplicated here.
@@ -25,6 +27,9 @@ export interface PreflightInput {
 
 const SECRET_PLACEHOLDERS = new Set(['secret', 'changeme', 'change-me', 'your-secret', 'placeholder', 'todo'])
 
+const EMAIL_VARS = ['EMAIL_API_KEY', 'EMAIL_FROM', 'EMAIL_TEST_MODE', 'EMAIL_WEBHOOK_SECRET'] as const
+const BILLING_VARS = ['BILLING_ACCESS_TOKEN', 'BILLING_WEBHOOK_SECRET', 'BILLING_ENVIRONMENT'] as const
+
 export function collectPreflightFindings({ env, siteUrlConfigured }: PreflightInput): PreflightFinding[] {
   const findings: PreflightFinding[] = []
 
@@ -44,31 +49,31 @@ export function collectPreflightFindings({ env, siteUrlConfigured }: PreflightIn
         fixHint: 'Set NUXT_PUBLIC_CONVEX_SITE_URL=https://<slug>.convex.site (or backend.siteUrl in nuxt.config).',
       })
 
-  const secret = env.BETTER_AUTH_SECRET
+  const secret = env.AUTH_SECRET
   if (secret === undefined) {
     findings.push({
-      id: 'better-auth-secret',
-      title: 'Better Auth secret',
+      id: 'auth-secret',
+      title: 'Auth secret',
       status: 'warn',
-      message: 'BETTER_AUTH_SECRET is not visible here — it lives on the Convex deployment and cannot be verified from Nuxt.',
-      fixHint: 'If unset there: npx convex env set BETTER_AUTH_SECRET "$(openssl rand -base64 32)"',
+      message: 'AUTH_SECRET is not visible here — it is required on the Convex deployment (a deploy fails without it) and cannot be verified from Nuxt.',
+      fixHint: 'If unset there: npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"',
     })
   }
   else if (secret.length < 32 || SECRET_PLACEHOLDERS.has(secret.toLowerCase())) {
     findings.push({
-      id: 'better-auth-secret',
-      title: 'Better Auth secret',
+      id: 'auth-secret',
+      title: 'Auth secret',
       status: 'fail',
-      message: 'BETTER_AUTH_SECRET is too short or a placeholder — sessions signed with it are guessable.',
-      fixHint: 'npx convex env set BETTER_AUTH_SECRET "$(openssl rand -base64 32)"',
+      message: 'AUTH_SECRET is too short or a placeholder — sessions signed with it are guessable.',
+      fixHint: 'npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"',
     })
   }
   else {
     findings.push({
-      id: 'better-auth-secret',
-      title: 'Better Auth secret',
+      id: 'auth-secret',
+      title: 'Auth secret',
       status: 'pass',
-      message: 'BETTER_AUTH_SECRET present and strong.',
+      message: 'AUTH_SECRET present and strong.',
       fixHint: '',
     })
   }
@@ -79,8 +84,17 @@ export function collectPreflightFindings({ env, siteUrlConfigured }: PreflightIn
       id: 'site-url',
       title: 'App site URL',
       status: 'fail',
-      message: `SITE_URL is not a valid http(s) URL: "${siteUrl}" — Better Auth uses it as baseURL.`,
+      message: `SITE_URL is not a valid http(s) URL: "${siteUrl}" — auth and invitation/gift links use it as the app origin.`,
       fixHint: 'Set SITE_URL to your app origin, e.g. https://app.example.com',
+    })
+  }
+  else if (siteUrl === undefined) {
+    findings.push({
+      id: 'site-url',
+      title: 'App site URL',
+      status: 'warn',
+      message: 'SITE_URL is not visible here — it is required on the Convex deployment (invitation and gift emails link to it).',
+      fixHint: 'If unset there: npx convex env set SITE_URL https://app.example.com',
     })
   }
   else {
@@ -88,27 +102,46 @@ export function collectPreflightFindings({ env, siteUrlConfigured }: PreflightIn
       id: 'site-url',
       title: 'App site URL',
       status: 'pass',
-      message: siteUrl ? 'SITE_URL is a valid URL.' : 'SITE_URL not set locally (the deployment falls back to CONVEX_SITE_URL).',
+      message: 'SITE_URL is a valid URL.',
       fixHint: '',
     })
   }
 
-  // Email and billing are designed graceful no-ops when unconfigured — these
-  // never warn, only surface as a note in the summary.
-  findings.push({
-    id: 'email-env',
-    title: 'Email (Resend)',
-    status: 'pass',
-    message: env.RESEND_API_KEY ? 'RESEND_API_KEY visible.' : 'Email unconfigured — sending no-ops until RESEND_API_KEY is set on the deployment.',
-    fixHint: '',
-  })
-  findings.push({
-    id: 'billing-env',
-    title: 'Billing (Polar)',
-    status: 'pass',
-    message: env.POLAR_ORGANIZATION_TOKEN ? 'POLAR_ORGANIZATION_TOKEN visible.' : 'Billing unconfigured — checkout/entitlements no-op until POLAR_ORGANIZATION_TOKEN is set on the deployment.',
-    fixHint: '',
-  })
+  // Email and billing env vars are required on the deployment — a deploy fails
+  // while any is missing. From the Nuxt process we can only check visibility.
+  const missingEmail = EMAIL_VARS.filter(name => !env[name])
+  findings.push(missingEmail.length === 0
+    ? {
+        id: 'email-env',
+        title: 'Email',
+        status: 'pass',
+        message: 'Email env vars visible (EMAIL_API_KEY, EMAIL_FROM, EMAIL_TEST_MODE, EMAIL_WEBHOOK_SECRET).',
+        fixHint: '',
+      }
+    : {
+        id: 'email-env',
+        title: 'Email',
+        status: 'warn',
+        message: `Required email env not visible here: ${missingEmail.join(', ')}. A Convex deploy fails until they are set on the deployment.`,
+        fixHint: 'npx convex env set EMAIL_API_KEY <key> (repeat for EMAIL_FROM, EMAIL_TEST_MODE, EMAIL_WEBHOOK_SECRET)',
+      })
+
+  const missingBilling = BILLING_VARS.filter(name => !env[name])
+  findings.push(missingBilling.length === 0
+    ? {
+        id: 'billing-env',
+        title: 'Billing',
+        status: 'pass',
+        message: 'Billing env vars visible (BILLING_ACCESS_TOKEN, BILLING_WEBHOOK_SECRET, BILLING_ENVIRONMENT).',
+        fixHint: '',
+      }
+    : {
+        id: 'billing-env',
+        title: 'Billing',
+        status: 'warn',
+        message: `Required billing env not visible here: ${missingBilling.join(', ')}. A Convex deploy fails until they are set on the deployment.`,
+        fixHint: 'npx convex env set BILLING_ACCESS_TOKEN <token> (repeat for BILLING_WEBHOOK_SECRET, BILLING_ENVIRONMENT)',
+      })
 
   return findings
 }
@@ -123,17 +156,9 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
-/** One-line summary for the dev-startup log, e.g. `auth ✓ · unconfigured (no-op): email, billing`. */
+/** One-line summary for the dev-startup log, e.g. `auth ✓` or `2 findings`. */
 export function formatPreflightSummary(findings: PreflightFinding[]): string {
   const problems = findings.filter(finding => finding.status !== 'pass')
-  const unconfigured = findings
-    .filter(finding => finding.status === 'pass' && finding.message.includes('unconfigured'))
-    .map(finding => finding.id.replace('-env', ''))
-
-  const parts: string[] = []
-  parts.push(problems.length === 0 ? 'auth ✓' : `${problems.length} finding${problems.length === 1 ? '' : 's'}`)
-  if (unconfigured.length > 0) {
-    parts.push(`unconfigured (no-op): ${unconfigured.join(', ')}`)
-  }
-  return parts.join(' · ')
+  if (problems.length === 0) return 'auth ✓'
+  return `${problems.length} finding${problems.length === 1 ? '' : 's'}: ${problems.map(f => f.id).join(', ')}`
 }

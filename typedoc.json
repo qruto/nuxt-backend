@@ -11,6 +11,8 @@
     "src/runtime/vue/composables/use-billing.ts",
     "src/runtime/vue/composables/use-features.ts",
     "src/runtime/vue/composables/use-credits.ts",
+    "src/runtime/vue/composables/use-gifts.ts",
+    "src/runtime/vue/composables/use-organization.ts",
     "src/runtime/vue/composables/use-email-status.ts",
     "src/runtime/vue/composables/use-search.ts",
     "src/runtime/vue/composables/use-aggregate.ts",

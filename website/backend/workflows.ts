@@ -3,18 +3,19 @@ import { v } from 'convex/values'
 import { components, internal } from './_generated/api'
 import { mutation, query } from './_generated/server'
 
-export const workflow = setupWorkflows(components.workflow)
+export const workflow = setupWorkflows(components)
 
-// Runs once on signup: send a welcome email through the Resend component nested
-// inside `backend` (components.backend.email.send). Steps are durable and
-// retried on failure. Add more steps (provisioning, analytics) as needed.
+// Runs once on signup. The welcome email itself is sent by the built-in
+// `user.create.after` hook (templates.welcome), so this workflow handles the
+// rest of onboarding: durable, retried-on-failure steps like provisioning or
+// analytics — here, logging the signup to the showcase activity feed.
 export const onSignup = workflow.define({
   args: { userId: v.string(), email: v.string(), name: v.string() },
-  handler: async (step, { email, name }) => {
-    await step.runMutation(components.backend.email.send, {
-      to: email,
-      subject: 'Welcome!',
-      html: `<p>Welcome aboard, ${name}! We're glad you're here.</p>`,
+  handler: async (step, { email }) => {
+    await step.runMutation(internal.billing.recordWebhookEvent, {
+      source: 'auth',
+      type: 'user.created',
+      summary: `signup: ${email}`,
     })
   },
 })

@@ -53,6 +53,11 @@ coverage
 # Bundle analysis (Sonda)
 .sonda
 
+# deepsec security-scanner workspace (kept local-only: its INFO.md maps the
+# repo's security-sensitive surface and exported findings describe unfixed
+# vulnerabilities — neither belongs in a public repo)
+.deepsec
+
 # OSX
 .DS_Store
 .AppleDouble

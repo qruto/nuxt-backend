@@ -41,6 +41,20 @@ The `website/` directory is a full Nuxt app (product homepage · docs · interac
 pnpm dev
 ```
 
+Both serve through [portless](https://portless.sh): `pnpm dev` publishes the app
+at `https://nuxt-backend.localhost`, and `pnpm dev:lan` runs the same stack with
+the proxy in LAN mode, advertising `https://nuxt-backend.local` over mDNS so
+phones and other devices on the same network can open it. For auth to work from
+a device, the LAN origin must be trusted by Better Auth on the Convex
+deployment:
+
+```bash
+npx convex env set BETTER_AUTH_TRUSTED_ORIGINS https://nuxt-backend.local
+```
+
+Devices also need the portless CA trusted (or they'll see a certificate
+warning); `portless trust` covers this machine only.
+
 ## Project Structure
 
 ```

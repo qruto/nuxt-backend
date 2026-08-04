@@ -4,6 +4,14 @@ import type { GenericDataModel, GenericSchema, SchemaDefinition } from 'convex/s
 /** The component reference accepted by Migrations (`components.migrations`). */
 type MigrationsComponent = ConstructorParameters<typeof Migrations>[0]
 
+/**
+ * The component handle `setupMigrations` reads from your generated `components`
+ * object (the key is picked structurally — pass the whole object).
+ */
+export interface MigrationsComponents {
+  migrations: MigrationsComponent
+}
+
 // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- `void` is the upstream Migrations "no schema" case
 export interface SetupMigrationsOptions<Schema extends SchemaDefinition<GenericSchema, boolean> | void> {
   /**
@@ -33,7 +41,7 @@ export interface SetupMigrationsOptions<Schema extends SchemaDefinition<GenericS
  * import { components } from './_generated/api'
  * import schema from './schema'
  *
- * export const { migrations, run } = setupMigrations(components.migrations, { schema })
+ * export const { migrations, run } = setupMigrations(components, { schema })
  *
  * export const backfillCompleted = migrations.define({
  *   table: 'todos',
@@ -45,9 +53,9 @@ export function setupMigrations<
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- `void` is the upstream Migrations "no schema" case
   Schema extends SchemaDefinition<GenericSchema, boolean> | void = void,
 >(
-  component: MigrationsComponent,
+  components: MigrationsComponents,
   options?: SetupMigrationsOptions<Schema>,
 ) {
-  const migrations = new Migrations<GenericDataModel, Schema>(component, options)
+  const migrations = new Migrations<GenericDataModel, Schema>(components.migrations, options)
   return { migrations, run: migrations.runner() }
 }

@@ -7,7 +7,7 @@ import { messagesCount } from './aggregates'
 // table access. Define migrations with migrations.define({ table, migrateOne }),
 // then run them from the CLI/dashboard through the `run` runner:
 //   npx convex run migrations:run '{ "fn": "migrations:backfillMessagesCount" }'
-export const { migrations, run } = setupMigrations(components.migrations, { schema })
+export const { migrations, run } = setupMigrations(components, { schema })
 
 // Backfill the messages aggregate for rows that predate its trigger. An
 // aggregate only tracks writes made *after* its trigger is registered, so a

@@ -6,28 +6,44 @@ navigation: true
 
 ## Interfaces
 
-### BackendComponents
+### InstallBackendOptions
 
-Defined in: [src/convex/app.ts:42](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L42)
+Defined in: [nuxt-backend/src/convex/app.ts:70](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L70)
 
-The bundled component definitions, imported in your `convex.config.ts` and
-handed to [installBackend](#installbackend).
-
-Convex builds its component tree from the `import … from '…/convex.config'`
-statements in your **app's** `convex.config.ts`, so those imports must live
-there — but the wiring (env declaration, the email env-forwarding to the
-nested Resend component, and the `app.use(...)` calls) is all done for you.
+Customization for [installBackend](#installbackend) / [defineBackendApp](#definebackendapp). The
+defaults mount everything — pass options only to trim or swap components.
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="backend"></a> `backend` | `ComponentDefinition` | `nuxt-backend/convex/component/convex.config` (Better Auth + nested Resend). | [src/convex/app.ts:44](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L44) |
-| <a id="aggregate"></a> `aggregate` | `ComponentDefinition` | `@convex-dev/aggregate/convex.config`. | [src/convex/app.ts:46](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L46) |
-| <a id="migrations"></a> `migrations` | `ComponentDefinition` | `@convex-dev/migrations/convex.config`. | [src/convex/app.ts:48](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L48) |
-| <a id="polar"></a> `polar` | `ComponentDefinition` | `@convex-dev/polar/convex.config`. | [src/convex/app.ts:50](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L50) |
-| <a id="ratelimiter"></a> `rateLimiter` | `ComponentDefinition` | `@convex-dev/rate-limiter/convex.config`. | [src/convex/app.ts:52](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L52) |
-| <a id="workflow"></a> `workflow` | `ComponentDefinition` | `@convex-dev/workflow/convex.config`. | [src/convex/app.ts:54](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L54) |
+| <a id="omit"></a> `omit?` | (`"polar"` \| `"aggregate"` \| `"migrations"` \| `"rateLimiter"` \| `"workflow"`)[] | Skip mounting these upstream components. `backend` is the package's all-in-one core and cannot be omitted. **Example** ``defineBackendApp({ omit: ['aggregate', 'workflow'] })`` | [nuxt-backend/src/convex/app.ts:77](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L77) |
+| <a id="components"></a> `components?` | `Partial`\<`Record`\<[`BackendComponentName`](#backendcomponentname), `ComponentDefinition`\<`any`, `any`\>\>\> | Replace a bundled component definition with your own — e.g. a locally installed `backend` component (see the local-installation guide) or a fork of an upstream component. Anything not listed uses the bundled definition. **Example** `import backend from './components/backend/convex.config' export default defineBackendApp({ components: { backend } })` | [nuxt-backend/src/convex/app.ts:89](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L89) |
+
+## Type Aliases
+
+### BackendComponentName
+
+```ts
+type BackendComponentName = 
+  | "backend"
+  | "aggregate"
+  | "migrations"
+  | "polar"
+  | "rateLimiter"
+  | "workflow";
+```
+
+Defined in: [nuxt-backend/src/convex/app.ts:63](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L63)
+
+Every component [installBackend](#installbackend) mounts, by its dashboard name.
+
+Package-owned: `backend` — the all-in-one component (auth tables + adapter,
+transactional email with the provider component nested inside, the billing
+entitlement cache, and gift purchases).
+Upstream `@convex-dev/*`: `aggregate`, `migrations`, `polar`, `rateLimiter`,
+`workflow` — these operate over the app's auth/HTTP surface and can't be
+nested inside `backend`.
 
 ## Variables
 
@@ -35,59 +51,65 @@ nested Resend component, and the `app.use(...)` calls) is all done for you.
 
 ```ts
 const backendEnv: {
-  BETTER_AUTH_SECRET: VString<string | undefined, "optional">;
-  SITE_URL: VString<string | undefined, "optional">;
-  RESEND_API_KEY: VString<string | undefined, "optional">;
-  RESEND_FROM: VString<string | undefined, "optional">;
-  RESEND_TEST_MODE: VString<string | undefined, "optional">;
-  RESEND_WEBHOOK_SECRET: VString<string | undefined, "optional">;
-  POLAR_ORGANIZATION_TOKEN: VString<string | undefined, "optional">;
-  POLAR_WEBHOOK_SECRET: VString<string | undefined, "optional">;
-  POLAR_SERVER: VUnion<"sandbox" | "production" | undefined, [VLiteral<"sandbox", "required">, VLiteral<"production", "required">], "optional", never>;
+  AUTH_SECRET: VString<string, "required">;
+  SITE_URL: VString<string, "required">;
+  EMAIL_API_KEY: VString<string, "required">;
+  EMAIL_FROM: VString<string, "required">;
+  EMAIL_TEST_MODE: VString<string, "required">;
+  EMAIL_WEBHOOK_SECRET: VString<string, "required">;
+  BILLING_ACCESS_TOKEN: VString<string, "required">;
+  BILLING_WEBHOOK_SECRET: VString<string, "required">;
+  BILLING_ENVIRONMENT: VUnion<"sandbox" | "production", [VLiteral<"sandbox", "required">, VLiteral<"production", "required">], "required", never>;
 };
 ```
 
-Defined in: [src/convex/app.ts:12](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L12)
+Defined in: [nuxt-backend/src/convex/app.ts:32](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L32)
 
-Environment variables the bundled components read. All optional, so a deploy
-validates while unconfigured features stay graceful no-ops (billing returns
-`null`, email logs instead of sending, …).
+Environment variables the backend reads. All required — a deploy fails until
+auth, email, and billing are configured, so misconfiguration surfaces at push
+time instead of as silent no-ops in production.
 
-Pass these straight to `defineApp({ env: backendEnv })`. Spread in your own to
-extend: `defineApp({ env: { ...backendEnv, MY_VAR: v.optional(v.string()) } })`.
+The names are service-neutral on purpose: the package hides its underlying
+providers behind the general capability (auth, email, billing).
+
+`defineBackendApp` declares these for you. For a hand-written `defineApp`,
+pass them yourself — `installBackend` reads `app.env.EMAIL_*` to forward the
+email config, and the env proxy throws on undeclared vars:
+`defineApp({ env: { ...backendEnv, MY_VAR: v.optional(v.string()) } })`.
 
 #### Type Declaration
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="property-better_auth_secret"></a> `BETTER_AUTH_SECRET` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:14](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L14) |
-| <a id="property-site_url"></a> `SITE_URL` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:15](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L15) |
-| <a id="property-resend_api_key"></a> `RESEND_API_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:17](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L17) |
-| <a id="property-resend_from"></a> `RESEND_FROM` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:18](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L18) |
-| <a id="property-resend_test_mode"></a> `RESEND_TEST_MODE` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:19](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L19) |
-| <a id="property-resend_webhook_secret"></a> `RESEND_WEBHOOK_SECRET` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:20](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L20) |
-| <a id="property-polar_organization_token"></a> `POLAR_ORGANIZATION_TOKEN` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:22](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L22) |
-| <a id="property-polar_webhook_secret"></a> `POLAR_WEBHOOK_SECRET` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:23](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L23) |
-| <a id="property-polar_server"></a> `POLAR_SERVER` | `VUnion`\<`"sandbox"` \| `"production"` \| `undefined`, \[`VLiteral`\<`"sandbox"`, `"required"`\>, `VLiteral`\<`"production"`, `"required"`\>\], `"optional"`, `never`\> | [src/convex/app.ts:24](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L24) |
+| <a id="property-auth_secret"></a> `AUTH_SECRET` | `VString`\<`string`, `"required"`\> | [nuxt-backend/src/convex/app.ts:34](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L34) |
+| <a id="property-site_url"></a> `SITE_URL` | `VString`\<`string`, `"required"`\> | [nuxt-backend/src/convex/app.ts:35](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L35) |
+| <a id="property-email_api_key"></a> `EMAIL_API_KEY` | `VString`\<`string`, `"required"`\> | [nuxt-backend/src/convex/app.ts:37](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L37) |
+| <a id="property-email_from"></a> `EMAIL_FROM` | `VString`\<`string`, `"required"`\> | [nuxt-backend/src/convex/app.ts:38](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L38) |
+| <a id="property-email_test_mode"></a> `EMAIL_TEST_MODE` | `VString`\<`string`, `"required"`\> | [nuxt-backend/src/convex/app.ts:39](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L39) |
+| <a id="property-email_webhook_secret"></a> `EMAIL_WEBHOOK_SECRET` | `VString`\<`string`, `"required"`\> | [nuxt-backend/src/convex/app.ts:40](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L40) |
+| <a id="property-billing_access_token"></a> `BILLING_ACCESS_TOKEN` | `VString`\<`string`, `"required"`\> | [nuxt-backend/src/convex/app.ts:42](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L42) |
+| <a id="property-billing_webhook_secret"></a> `BILLING_WEBHOOK_SECRET` | `VString`\<`string`, `"required"`\> | [nuxt-backend/src/convex/app.ts:43](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L43) |
+| <a id="property-billing_environment"></a> `BILLING_ENVIRONMENT` | `VUnion`\<`"sandbox"` \| `"production"`, \[`VLiteral`\<`"sandbox"`, `"required"`\>, `VLiteral`\<`"production"`, `"required"`\>\], `"required"`, `never`\> | [nuxt-backend/src/convex/app.ts:44](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L44) |
 
 ## Functions
 
 ### installBackend()
 
 ```ts
-function installBackend<App>(app, components): App;
+function installBackend<App>(app, options?): App;
 ```
 
-Defined in: [src/convex/app.ts:91](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L91)
+Defined in: [nuxt-backend/src/convex/app.ts:115](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L115)
 
-Mount every bundled component onto your app definition and forward the email
-env to the nested Resend component — the whole `convex.config.ts` wiring in one
-call.
+Mount the all-in-one `backend` component plus the upstream components onto
+your app definition and forward the email env to `backend` — the whole
+`convex.config.ts` wiring in one call. Prefer [defineBackendApp](#definebackendapp) unless
+you need a hand-written `defineApp` (extra env declarations, custom
+components).
 
-You import the component definitions in your `convex.config.ts` (Convex
-resolves its component tree from those imports) and pass them in; everything
-else is handled. Returns the app, so you keep full control — mount your own
-components or read env refs afterwards.
+The component definitions are imported by this module, so your
+`convex.config.ts` needs no component imports at all. Returns the app, so
+you keep full control — mount your own components afterwards.
 
 #### Type Parameters
 
@@ -100,36 +122,23 @@ components or read env refs afterwards.
 | Parameter | Type |
 | ------ | ------ |
 | `app` | `App` |
-| `components` | [`BackendComponents`](#backendcomponents) |
+| `options` | [`InstallBackendOptions`](#installbackendoptions) |
 
 #### Returns
 
 `App`
 
-#### Examples
+#### Example
 
-**The entire \`convex.config.ts\`:**
+**A hand-written \`convex.config.ts\`:**
 
 ```ts
 import { defineApp } from 'convex/server'
 import { backendEnv, installBackend } from 'nuxt-backend/convex/app'
-import backend from 'nuxt-backend/convex/component/convex.config'
-import aggregate from '@convex-dev/aggregate/convex.config'
-import migrations from '@convex-dev/migrations/convex.config'
-import polar from '@convex-dev/polar/convex.config'
-import rateLimiter from '@convex-dev/rate-limiter/convex.config'
-import workflow from '@convex-dev/workflow/convex.config'
+import { v } from 'convex/values'
 
-const app = defineApp({ env: backendEnv })
-installBackend(app, { backend, aggregate, migrations, polar, rateLimiter, workflow })
-export default app
-```
-
-**Full control — extra env and your own components:**
-
-```ts
 const app = defineApp({ env: { ...backendEnv, STRIPE_SECRET_KEY: v.optional(v.string()) } })
-installBackend(app, { backend, aggregate, migrations, polar, rateLimiter, workflow })
+installBackend(app)
 app.use(myOwnComponent)
 export default app
 ```
@@ -139,28 +148,29 @@ export default app
 ### defineBackendApp()
 
 ```ts
-function defineBackendApp<Env>(components, options?): AppDefinition<{
-  BETTER_AUTH_SECRET: VString<string | undefined, "optional">;
-  SITE_URL: VString<string | undefined, "optional">;
-  RESEND_API_KEY: VString<string | undefined, "optional">;
-  RESEND_FROM: VString<string | undefined, "optional">;
-  RESEND_TEST_MODE: VString<string | undefined, "optional">;
-  RESEND_WEBHOOK_SECRET: VString<string | undefined, "optional">;
-  POLAR_ORGANIZATION_TOKEN: VString<string | undefined, "optional">;
-  POLAR_WEBHOOK_SECRET: VString<string | undefined, "optional">;
-  POLAR_SERVER: VUnion<"sandbox" | "production" | undefined, [VLiteral<"sandbox", "required">, VLiteral<"production", "required">], "optional", never>;
+function defineBackendApp<Env>(options?): AppDefinition<{
+  AUTH_SECRET: VString<string, "required">;
+  SITE_URL: VString<string, "required">;
+  EMAIL_API_KEY: VString<string, "required">;
+  EMAIL_FROM: VString<string, "required">;
+  EMAIL_TEST_MODE: VString<string, "required">;
+  EMAIL_WEBHOOK_SECRET: VString<string, "required">;
+  BILLING_ACCESS_TOKEN: VString<string, "required">;
+  BILLING_WEBHOOK_SECRET: VString<string, "required">;
+  BILLING_ENVIRONMENT: VUnion<"sandbox" | "production", [VLiteral<"sandbox", "required">, VLiteral<"production", "required">], "required", never>;
 } & Env>;
 ```
 
-Defined in: [src/convex/app.ts:137](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/app.ts#L137)
+Defined in: [nuxt-backend/src/convex/app.ts:172](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/app.ts#L172)
 
 One-call Convex app definition: declares the standard [backendEnv](#backendenv)
-variables and mounts every bundled component. The cleanest `convex.config.ts`
-— import the component definitions (Convex resolves its component tree from
-those imports) and hand them over.
+variables and mounts the all-in-one `backend` component (auth + email +
+billing + gifts) plus the upstream components (`aggregate`, `migrations`,
+`polar`, `rateLimiter`, `workflow`). The entire `convex.config.ts` is two
+lines.
 
-Returns the `app`, so you keep full control: mount your own components or read
-env refs afterwards.
+Returns the `app`, so you keep full control: mount your own components or
+read env refs afterwards.
 
 #### Type Parameters
 
@@ -172,22 +182,20 @@ env refs afterwards.
 
 | Parameter | Type |
 | ------ | ------ |
-| `components` | [`BackendComponents`](#backendcomponents) |
-| `options?` | \{ `env?`: `Env`; \} |
-| `options.env?` | `Env` |
+| `options?` | [`InstallBackendOptions`](#installbackendoptions) & \{ `env?`: `Env`; \} |
 
 #### Returns
 
 `AppDefinition`\<\{
-  `BETTER_AUTH_SECRET`: `VString`\<`string` \| `undefined`, `"optional"`\>;
-  `SITE_URL`: `VString`\<`string` \| `undefined`, `"optional"`\>;
-  `RESEND_API_KEY`: `VString`\<`string` \| `undefined`, `"optional"`\>;
-  `RESEND_FROM`: `VString`\<`string` \| `undefined`, `"optional"`\>;
-  `RESEND_TEST_MODE`: `VString`\<`string` \| `undefined`, `"optional"`\>;
-  `RESEND_WEBHOOK_SECRET`: `VString`\<`string` \| `undefined`, `"optional"`\>;
-  `POLAR_ORGANIZATION_TOKEN`: `VString`\<`string` \| `undefined`, `"optional"`\>;
-  `POLAR_WEBHOOK_SECRET`: `VString`\<`string` \| `undefined`, `"optional"`\>;
-  `POLAR_SERVER`: `VUnion`\<`"sandbox"` \| `"production"` \| `undefined`, \[`VLiteral`\<`"sandbox"`, `"required"`\>, `VLiteral`\<`"production"`, `"required"`\>\], `"optional"`, `never`\>;
+  `AUTH_SECRET`: `VString`\<`string`, `"required"`\>;
+  `SITE_URL`: `VString`\<`string`, `"required"`\>;
+  `EMAIL_API_KEY`: `VString`\<`string`, `"required"`\>;
+  `EMAIL_FROM`: `VString`\<`string`, `"required"`\>;
+  `EMAIL_TEST_MODE`: `VString`\<`string`, `"required"`\>;
+  `EMAIL_WEBHOOK_SECRET`: `VString`\<`string`, `"required"`\>;
+  `BILLING_ACCESS_TOKEN`: `VString`\<`string`, `"required"`\>;
+  `BILLING_WEBHOOK_SECRET`: `VString`\<`string`, `"required"`\>;
+  `BILLING_ENVIRONMENT`: `VUnion`\<`"sandbox"` \| `"production"`, \[`VLiteral`\<`"sandbox"`, `"required"`\>, `VLiteral`\<`"production"`, `"required"`\>\], `"required"`, `never`\>;
 \} & `Env`\>
 
 #### Examples
@@ -196,20 +204,20 @@ env refs afterwards.
 
 ```ts
 import { defineBackendApp } from 'nuxt-backend/convex/app'
-import backend from 'nuxt-backend/convex/component/convex.config'
-import aggregate from '@convex-dev/aggregate/convex.config'
-import migrations from '@convex-dev/migrations/convex.config'
-import polar from '@convex-dev/polar/convex.config'
-import rateLimiter from '@convex-dev/rate-limiter/convex.config'
-import workflow from '@convex-dev/workflow/convex.config'
-
-export default defineBackendApp({ backend, aggregate, migrations, polar, rateLimiter, workflow })
+export default defineBackendApp()
 ```
 
-**Full control — extra env and your own components:**
+**Trim, extend, and add your own:**
 
 ```ts
-const app = defineBackendApp(components, { env: { STRIPE_SECRET_KEY: v.optional(v.string()) } })
+import { defineBackendApp } from 'nuxt-backend/convex/app'
+import { v } from 'convex/values'
+import myOwnComponent from './components/mine/convex.config'
+
+const app = defineBackendApp({
+  omit: ['aggregate'],
+  env: { STRIPE_SECRET_KEY: v.optional(v.string()) },
+})
 app.use(myOwnComponent)
 export default app
 ```

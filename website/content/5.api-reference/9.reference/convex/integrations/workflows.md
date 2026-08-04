@@ -4,6 +4,21 @@ navigation: true
 
 # convex/integrations/workflows
 
+## Interfaces
+
+### WorkflowComponents
+
+Defined in: [nuxt-backend/src/convex/integrations/workflows.ts:16](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/integrations/workflows.ts#L16)
+
+The component handle `setupWorkflows` reads from your generated `components`
+object (the key is picked structurally — pass the whole object).
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="workflow"></a> `workflow` | `WorkflowComponent` | [nuxt-backend/src/convex/integrations/workflows.ts:17](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/integrations/workflows.ts#L17) |
+
 ## Type Aliases
 
 ### WorkflowStatus
@@ -27,7 +42,7 @@ type WorkflowStatus =
 };
 ```
 
-Defined in: node\_modules/@convex-dev/workflow/dist/client/index.d.ts:51
+Defined in: nuxt-backend/node\_modules/@convex-dev/workflow/dist/client/index.d.ts:51
 
 Re-exported so consumers can type a `status` query's `workflowId` arg and
 cast a stored id back to a [WorkflowId](#workflowid) (it is a branded string).
@@ -42,7 +57,7 @@ type WorkflowId = string & {
 };
 ```
 
-Defined in: node\_modules/@convex-dev/workflow/dist/types.d.ts:4
+Defined in: nuxt-backend/node\_modules/@convex-dev/workflow/dist/types.d.ts:4
 
 Re-exported so consumers can type a `status` query's `workflowId` arg and
 cast a stored id back to a [WorkflowId](#workflowid) (it is a branded string).
@@ -51,17 +66,17 @@ cast a stored id back to a [WorkflowId](#workflowid) (it is a branded string).
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
-| `__isWorkflowId` | `true` | node\_modules/@convex-dev/workflow/dist/types.d.ts:5 |
+| `__isWorkflowId` | `true` | nuxt-backend/node\_modules/@convex-dev/workflow/dist/types.d.ts:5 |
 
 ## Functions
 
 ### setupWorkflows()
 
 ```ts
-function setupWorkflows(component, options?): WorkflowManager;
+function setupWorkflows(components, options?): WorkflowManager;
 ```
 
-Defined in: [src/convex/integrations/workflows.ts:48](https://github.com/qruto/nuxt-backend/blob/29eb1bb20af4070302c37e8b8e2907a04791a76a/src/convex/integrations/workflows.ts#L48)
+Defined in: [nuxt-backend/src/convex/integrations/workflows.ts:56](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/integrations/workflows.ts#L56)
 
 Configure the [Workflow](https://www.convex.dev/components/workflow)
 component for durable, long-running, multi-step functions. Your overrides are
@@ -71,7 +86,7 @@ merged onto DEFAULT\_WORKPOOL\_OPTIONS.
 
 | Parameter | Type |
 | ------ | ------ |
-| `component` | `WorkflowComponent` |
+| `components` | [`WorkflowComponents`](#workflowcomponents) |
 | `options?` | \{ `workpoolOptions?`: `WorkpoolOptions`; \} |
 | `options.workpoolOptions?` | `WorkpoolOptions` |
 
@@ -85,12 +100,12 @@ merged onto DEFAULT\_WORKPOOL\_OPTIONS.
 import { setupWorkflows } from 'nuxt-backend/convex/workflows'
 import { components } from './_generated/api'
 
-export const workflow = setupWorkflows(components.workflow)
+export const workflow = setupWorkflows(components)
 
 export const onSignup = workflow.define({
   args: { email: v.string(), name: v.string() },
   handler: async (step, { email, name }) => {
-    // Email is sent through the Resend component nested inside `backend`.
+    // Email is sent through the `backend` component's email module.
     await step.runMutation(components.backend.email.send, {
       to: email,
       subject: 'Welcome!',

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { setupAuthorization, type AuthorizationCtx } from '../../src/convex/integrations/authorization'
 
-const component = { adapter: { findOne: {} as never, updateOne: {} as never } }
+const component = { backend: { adapter: { findOne: {} as never, updateOne: {} as never } } }
 
 type Identity = Record<string, unknown> | null
 

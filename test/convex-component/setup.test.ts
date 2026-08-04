@@ -1,28 +1,11 @@
 /// <reference types="vite/client" />
-import { test } from 'vitest'
-import { convexTest } from 'convex-test'
-import { componentsGeneric, defineSchema, type GenericSchema, type SchemaDefinition } from 'convex/server'
+import { expect, test } from 'vitest'
 import component from '../../src/convex/test'
 
-export function initConvexTest<
-  Schema extends SchemaDefinition<GenericSchema, boolean>,
->(schema?: Schema) {
-  const t = convexTest(schema ?? defineSchema({}), component.modules)
-  return t
-}
-
-export const components = componentsGeneric() as unknown as {
-  backend: {
-    adapter: {
-      create: import('convex/server').FunctionReference<'mutation', 'internal', any, any>
-      findOne: import('convex/server').FunctionReference<'query', 'internal', any, any>
-      findMany: import('convex/server').FunctionReference<'query', 'internal', any, any>
-      updateOne: import('convex/server').FunctionReference<'mutation', 'internal', any, any>
-      updateMany: import('convex/server').FunctionReference<'mutation', 'internal', any, any>
-      deleteOne: import('convex/server').FunctionReference<'mutation', 'internal', any, any>
-      deleteMany: import('convex/server').FunctionReference<'mutation', 'internal', any, any>
-    }
+test('the test helper exposes the all-in-one backend component module glob', () => {
+  expect(Object.keys(component.modules)).toEqual(['backend'])
+  // The glob carries every function module the component tests mount.
+  for (const name of ['adapter', 'email', 'billing', 'gifts', 'schema']) {
+    expect(Object.keys(component.modules.backend).some(path => path.includes(name))).toBe(true)
   }
-}
-
-test('setup', () => {})
+})

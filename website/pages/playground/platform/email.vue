@@ -32,8 +32,13 @@ async function sendTestEmail() {
   finally { emailPending.value = false }
 }
 
+// A complaint is a flag on top of the delivery status (the mail *was*
+// delivered, then marked as spam), so it gets its own readout.
+const complained = computed(() => delivery.data.value?.complained === true)
+
 const deliveryTone = computed(() => {
   if (delivery.isError.value) return 'err'
+  if (complained.value) return 'warn'
   if (delivery.isDelivered.value) return 'ok'
   return 'info'
 })
@@ -150,13 +155,20 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
         <StatusRing :tone="deliveryTone">
           {{ delivery.status.value ?? 'queued' }}
         </StatusRing>
+        <StatusPill
+          v-if="complained"
+          tone="warn"
+          dot
+        >
+          complained
+        </StatusPill>
         <span class="mono id">id {{ lastEmailId }}</span>
       </p>
       <p
         v-else-if="emailSkipped"
         class="hint"
       >
-        Skipped — set <code>RESEND_API_KEY</code> to enable delivery.
+        Skipped — set <code>EMAIL_API_KEY</code> to enable delivery.
       </p>
       <p
         v-else-if="emailError"

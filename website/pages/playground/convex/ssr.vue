@@ -23,7 +23,7 @@ async function addTodo() {
 const { data: preloaded } = await useFetch('/api/flaky.preload', { key: 'flaky.preload' })
 const flaky = usePreloadedQuery(preloaded.value!)
 
-// ── Server functions: backendAuth + fetchAuth* on Nitro ───────────
+// ── Server functions: convexAuth + fetchAuth* on Nitro ───────────
 interface ServerRun {
   authenticated: boolean
   counterBefore: number
@@ -53,14 +53,14 @@ async function run() {
 <template>
   <div class="stack">
     <PageHeader
-      tag="preloadAuthQuery · usePreloadedQuery · backendAuth · fetchAuth*"
+      tag="preloadAuthQuery · usePreloadedQuery · convexAuth · fetchAuth*"
       title="SSR & preload"
     >
       Convex runs on the server too. Preload a query in a Nitro route, hydrate it
       with no loading flash, then keep it live on the client — for both public
       (<code>usePreloadedQuery</code>) and authenticated
       (<code>usePreloadedAuthQuery</code>) data. Or run functions entirely
-      server-side via <code>backendAuth(event)</code>.
+      server-side via <code>convexAuth(event)</code>.
     </PageHeader>
 
     <LabPanel

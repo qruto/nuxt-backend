@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Resend } from 'resend'
 import { setupEmail } from '../../src/convex/integrations/email'
-import type { EmailComponentApi } from '../../src/convex/integrations/email'
+import type { EmailComponents } from '../../src/convex/integrations/email'
 
 // Mock the marketing Resend SDK. The factory's audience/contact/broadcast
 // objects are stable across `new Resend()` calls, so `new Resend().audiences.*`
@@ -25,7 +25,7 @@ const refs = {
   cancel: 'ref:cancel',
   handleWebhook: 'ref:handleWebhook',
 }
-const component = { email: refs } as unknown as EmailComponentApi
+const component = { backend: { email: refs } } as unknown as EmailComponents
 
 function makeCtx() {
   return {

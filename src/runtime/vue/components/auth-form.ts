@@ -23,7 +23,7 @@ export const AuthForm = defineComponent({
   name: 'AuthForm',
   props: {
     title: { type: String, default: 'Sign in' },
-    /** Offer passkey sign-in / registration. Default `true`. */
+    /** Offer passkey sign-in and post-OTP passkey enrolment. Default `true`. */
     passkeys: { type: Boolean, default: true },
     /** Offer the email-OTP flow. Default `true`. */
     otp: { type: Boolean, default: true },
@@ -81,27 +81,12 @@ export const AuthForm = defineComponent({
     const steps: Record<LoginStep, () => VNodeChild> = {
       'choose': () => h('section', { 'data-auth': 'step-choose' }, [
         ...(props.passkeys
-          ? [
-              h('button', { 'data-auth': 'passkey-sign-in', 'type': 'button', 'disabled': flow.pending.value, 'onClick': flow.signInWithPasskey }, flow.pending.value ? 'Waiting…' : 'Sign in with passkey'),
-              h('button', { 'data-auth': 'passkey-register', 'type': 'button', 'disabled': flow.pending.value, 'onClick': () => flow.goTo('register-passkey') }, 'Create account with passkey'),
-            ]
+          ? [h('button', { 'data-auth': 'passkey-sign-in', 'type': 'button', 'disabled': flow.pending.value, 'onClick': flow.signInWithPasskey }, flow.pending.value ? 'Waiting…' : 'Sign in with passkey')]
           : []),
         ...(props.passkeys && props.otp ? [h('div', { 'data-auth': 'divider' }, 'or')] : []),
         ...(props.otp
           ? [h('button', { 'data-auth': 'otp-start', 'type': 'button', 'disabled': flow.pending.value, 'onClick': () => flow.goTo('request-code') }, 'Continue with email code')]
           : []),
-      ]),
-      'register-passkey': () => h('form', {
-        'data-auth': 'step-register-passkey',
-        'onSubmit': (event: Event) => {
-          event.preventDefault()
-          void flow.registerWithPasskey()
-        },
-      }, [
-        nameField(false),
-        emailField(),
-        h('button', { 'data-auth': 'submit', 'type': 'submit', 'disabled': flow.pending.value || !flow.emailValid.value }, flow.pending.value ? 'Creating…' : 'Create passkey account'),
-        backButton(),
       ]),
       'request-code': () => h('form', {
         'data-auth': 'step-request-code',

@@ -3,13 +3,16 @@ import { useAuth } from './use-auth'
 
 /**
  * The passwordless login state machine:
- * `choose` → `register-passkey` (new account via passkey)
+ * `choose` → `signInWithPasskey` (returning users with a passkey on-device)
  * `choose` → `request-code` → `verify-code` → `add-passkey` (OTP, then save a passkey)
+ *
+ * New accounts are always created through the OTP flow (which verifies email
+ * ownership); a passkey is added afterwards from the authenticated session.
  */
-export type LoginStep = 'choose' | 'register-passkey' | 'request-code' | 'verify-code' | 'add-passkey'
+export type LoginStep = 'choose' | 'request-code' | 'verify-code' | 'add-passkey'
 
 export interface UseLoginFlowOptions {
-  /** Require a name on the registration steps. Default `true`. */
+  /** UI hint for `<AuthForm>`: show a name field on the email step. Default `true`. */
   requireName?: boolean
   /**
    * Gate the email before sending. Return `true` to accept, `false` for the
@@ -33,8 +36,6 @@ export interface UseLoginFlowReturn {
   emailValid: ComputedRef<boolean>
   /** Sign in with a passkey already saved on this device. */
   signInWithPasskey: () => Promise<void>
-  /** Create a new account with just a passkey (uses `email` + `name`). */
-  registerWithPasskey: () => Promise<void>
   /** Email an OTP code to `email` → `verify-code`. */
   sendCode: () => Promise<void>
   /** Verify the entered code (signs in / signs up) → `add-passkey` or done. */
@@ -60,13 +61,10 @@ function defaultValidateEmail(email: string): boolean {
 /**
  * The headless login flow behind `<AuthForm>` — bring your own markup and wire
  * these refs/actions to it. Encodes the proven passwordless sequencing:
- * session-refetch after sign-in, and the sign-out-before-passkey-registration
- * guard (without it, the passkey endpoint silently attaches the credential to
- * a lingering session's user instead of creating the typed account).
+ * session-refetch after sign-in, then an optional post-OTP passkey enrolment.
  */
 export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowReturn {
   const auth = useAuth()
-  const requireName = options.requireName ?? true
   const offerPasskey = options.offerPasskey ?? true
 
   const step = ref<LoginStep>('choose')
@@ -128,28 +126,6 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
     await complete()
   })
 
-  const registerWithPasskey = async () => {
-    error.value = null
-    if (requireName && !trimmedName()) {
-      error.value = 'Enter your name to register a passkey.'
-      return
-    }
-    if (!requireValidEmail()) return
-    await run('Passkey registration failed', async () => {
-      // Creating a NEW account: drop any lingering session first, otherwise
-      // the passkey endpoint attaches the credential to the *current* user
-      // and the typed email is silently ignored.
-      if (auth.user.value) {
-        await auth.signOut()
-        await refreshSession()
-      }
-      const context = JSON.stringify({ email: trimmedEmail(), name: trimmedName() })
-      ensureOk(await auth.registerPasskey(context), 'Failed to register passkey')
-      await refreshSession()
-      await complete()
-    })
-  }
-
   const sendCode = async () => {
     error.value = null
     if (!requireValidEmail()) return
@@ -205,7 +181,6 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
     error,
     emailValid,
     signInWithPasskey,
-    registerWithPasskey,
     sendCode,
     verifyCode,
     addPasskey,

@@ -1,17 +1,27 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 
 definePageMeta({ middleware: 'auth' })
 
 const {
   organizations, current, member, role, members, isLoading,
   setActive, create, invite, leave,
+  acceptInvitation, declineInvitation, cancelInvitation, listReceivedInvitations,
 } = useOrganization()
 
 const newName = ref('')
 const inviteEmail = ref('')
 const pending = ref(false)
 const notice = ref<string | null>(null)
+
+// Invitations addressed to the signed-in user (across workspaces).
+const receivedInvitations = ref<Awaited<ReturnType<typeof listReceivedInvitations>>>([])
+
+async function refreshReceived() {
+  receivedInvitations.value = (await listReceivedInvitations())
+    .filter(entry => entry.status === 'pending')
+}
+onMounted(refreshReceived)
 
 function slugify(name: string) {
   return `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${Date.now().toString(36)}`
@@ -51,7 +61,25 @@ async function sendInvite() {
   await run(async () => {
     await invite({ email })
     inviteEmail.value = ''
-  }, `Invitation sent to ${email}.`)
+  }, `Invitation email sent to ${email} — they accept via the emailed link (or the panel below when signed in here).`)
+}
+
+async function accept(id: string) {
+  await run(async () => {
+    await acceptInvitation(id, { activate: true })
+    await refreshReceived()
+  }, 'Invitation accepted — the workspace is now active.')
+}
+
+async function decline(id: string) {
+  await run(async () => {
+    await declineInvitation(id)
+    await refreshReceived()
+  }, 'Invitation declined.')
+}
+
+async function cancelPending(id: string) {
+  await run(() => cancelInvitation(id), 'Invitation cancelled.')
 }
 </script>
 
@@ -142,6 +170,27 @@ async function sendInvite() {
                 <span class="wsbadge">{{ entry.role }}</span>
               </li>
             </ul>
+            <ul
+              v-if="current?.invitations?.some(entry => entry.status === 'pending')"
+              class="wslist"
+            >
+              <li
+                v-for="entry in current.invitations.filter(item => item.status === 'pending')"
+                :key="entry.id"
+                class="wsrow"
+              >
+                <span class="wsname">{{ entry.email }}</span>
+                <span class="wsbadge">invited</span>
+                <LabButton
+                  variant="ghost"
+                  size="sm"
+                  :disabled="pending"
+                  @click="cancelPending(entry.id)"
+                >
+                  Cancel
+                </LabButton>
+              </li>
+            </ul>
             <form
               class="wsform"
               @submit.prevent="sendInvite"
@@ -190,6 +239,43 @@ async function sendInvite() {
     >
       {{ notice }}
     </p>
+
+    <LabPanel
+      v-if="receivedInvitations.length > 0"
+      label="invitations"
+      title="Invitations for you"
+      tone="accent"
+    >
+      <ul class="wslist">
+        <li
+          v-for="entry in receivedInvitations"
+          :key="entry.id"
+          class="wsrow"
+        >
+          <span class="wsname">Workspace invitation · {{ entry.role ?? 'member' }}</span>
+          <LabButton
+            size="sm"
+            :disabled="pending"
+            @click="accept(entry.id)"
+          >
+            Accept
+          </LabButton>
+          <LabButton
+            variant="ghost"
+            size="sm"
+            :disabled="pending"
+            @click="decline(entry.id)"
+          >
+            Decline
+          </LabButton>
+        </li>
+      </ul>
+      <p class="hint">
+        The emailed accept link lands on <code>/accept-invitation</code> — a page
+        the module registers automatically (the <code>AcceptInvitation</code>
+        component behind the <code>auth</code> middleware).
+      </p>
+    </LabPanel>
 
     <LabPanel
       label="billing"

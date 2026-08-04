@@ -95,33 +95,24 @@ describe('useLoginFlow', () => {
     expect(flow.error.value).toBeNull()
   })
 
-  it('drops a lingering session before passkey registration', async () => {
-    user.value = { id: 'other-user' }
-    const flow = inSetup(() => useLoginFlow())
-    flow.name.value = 'Ada'
+  it('adds a passkey to the current session after OTP, surfacing auth errors', async () => {
+    const onSuccess = vi.fn()
+    const flow = inSetup(() => useLoginFlow({ onSuccess }))
+    flow.goTo('request-code')
     flow.email.value = 'ada@example.com'
+    await flow.sendCode()
+    flow.otp.value = '123456'
+    await flow.verifyCode()
+    expect(flow.step.value).toBe('add-passkey')
 
-    await flow.registerWithPasskey()
-
-    expect(client.signOut).toHaveBeenCalled()
-    expect(client.signOut.mock.invocationCallOrder[0]!)
-      .toBeLessThan(client.passkey.addPasskey.mock.invocationCallOrder[0]!)
-    expect(client.passkey.addPasskey).toHaveBeenCalledWith({
-      context: JSON.stringify({ email: 'ada@example.com', name: 'Ada' }),
-    })
-  })
-
-  it('requires a name for passkey registration and surfaces auth errors', async () => {
-    const flow = inSetup(() => useLoginFlow())
-    flow.email.value = 'ada@example.com'
-    await flow.registerWithPasskey()
-    expect(flow.error.value).toMatch(/name/)
-
-    flow.name.value = 'Ada'
     client.passkey.addPasskey.mockResolvedValueOnce({ error: { message: 'User cancelled' } })
-    await flow.registerWithPasskey()
+    await flow.addPasskey()
     expect(flow.error.value).toBe('User cancelled')
     expect(flow.pending.value).toBe(false)
+    expect(onSuccess).not.toHaveBeenCalled()
+    // The passkey ceremony runs on the already-authenticated session — no
+    // pre-auth account creation, so no sign-out dance.
+    expect(client.signOut).not.toHaveBeenCalled()
   })
 
   it('reset returns to a clean choose step', async () => {

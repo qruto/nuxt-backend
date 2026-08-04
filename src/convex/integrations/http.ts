@@ -1,32 +1,36 @@
 import { httpActionGeneric, type HttpRouter } from 'convex/server'
-import type { WebhookEventHandlers } from '@convex-dev/polar'
+import type { BillingWebhookEventHandlers } from './billing'
 
 /**
- * One call to mount every service the backend bundles on your Convex HTTP
- * router. Signature verification stays where it already lives: Better Auth's
- * own routes, the Polar component (`POLAR_WEBHOOK_SECRET`), and the nested
- * Resend component (`RESEND_WEBHOOK_SECRET`) — this is composition, not
+ * One call to mount every inbound webhook the backend handles on your Convex
+ * HTTP router: the auth routes, the billing events endpoint (entitlement
+ * refresh + gift fulfilment), and the email delivery-events endpoint (status
+ * tracking). Signature verification stays where it already lives — the auth
+ * routes, the billing component (`BILLING_WEBHOOK_SECRET`), and the email
+ * component (`EMAIL_WEBHOOK_SECRET`) — this is composition, not
  * re-implementation. Per-service `registerRoutes` remain available when you
  * need custom routing.
  */
 export interface RegisterBackendRoutesOptions {
-  /** From `setupAuth`: mounts the Better Auth HTTP routes. */
+  /** From `setupAuth`: mounts the auth HTTP routes. */
   auth: {
     // Param types are `never` so any concrete `registerRoutes` signature is
     // assignable (function params are contravariant); called via a cast.
     authComponent: { registerRoutes: (...args: never[]) => void }
     createAuth: unknown
   }
-  /** From `setupBilling`: mounts the Polar webhook (default path `/polar/events`). */
+  /** From `setupBilling`: mounts the billing events webhook at {@link RegisterBackendRoutesOptions.billingPath}. */
   billing?: {
-    polar: { registerRoutes: (http: never, options: { events: WebhookEventHandlers }) => void }
-    webhookEvents: WebhookEventHandlers
+    provider: { registerRoutes: (http: never, options: { path?: string, events: BillingWebhookEventHandlers }) => void }
+    webhookEvents: BillingWebhookEventHandlers
   }
-  /** From `setupEmail`: mounts the Resend webhook at {@link RegisterBackendRoutesOptions.emailPath}. */
+  /** From `setupEmail`: mounts the email events webhook at {@link RegisterBackendRoutesOptions.emailPath}. */
   email?: {
     webhookHandler: (ctx: never, request: Request) => Promise<Response>
   }
-  /** Route for the Resend webhook. Default `/resend-webhook`. */
+  /** Route for the billing events webhook. Default `/billing/events`. */
+  billingPath?: string
+  /** Route for the email events webhook. Default `/email/events`. */
   emailPath?: string
 }
 
@@ -51,13 +55,16 @@ export function registerBackendRoutes(http: HttpRouter, options: RegisterBackend
   registerAuthRoutes(http, options.auth.createAuth)
 
   if (options.billing) {
-    options.billing.polar.registerRoutes(http as never, { events: options.billing.webhookEvents })
+    options.billing.provider.registerRoutes(http as never, {
+      path: options.billingPath ?? '/billing/events',
+      events: options.billing.webhookEvents,
+    })
   }
 
   if (options.email) {
     const { webhookHandler } = options.email
     http.route({
-      path: options.emailPath ?? '/resend-webhook',
+      path: options.emailPath ?? '/email/events',
       method: 'POST',
       handler: httpActionGeneric((ctx, request) => webhookHandler(ctx as never, request)),
     })

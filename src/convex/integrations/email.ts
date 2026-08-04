@@ -8,17 +8,24 @@ import { v } from 'convex/values'
 import { Resend } from 'resend'
 
 /**
- * The `email` function group exposed by the `backend` component (see
- * `src/convex/component/email.ts`), reachable from the app as
- * `components.backend.email`.
+ * The component handle `setupEmail` reads from your generated `components`
+ * object: the package's all-in-one `backend` component, whose email functions
+ * the app reaches as `components.backend.email.*` (see
+ * `src/convex/components/backend/email.ts`). Pass the whole `components`
+ * object — the key is picked structurally.
  */
-export interface EmailComponentApi {
-  email: {
-    send: FunctionReference<'mutation', 'public', SendEmailOptions, string | null>
-    status: FunctionReference<'query', 'public', { emailId: string }, EmailStatus | null>
-    get: FunctionReference<'query', 'public', { emailId: string }, unknown>
-    cancel: FunctionReference<'mutation', 'public', { emailId: string }, null>
-    handleWebhook: FunctionReference<'action', 'public', { body: string, headers: Record<string, string> }, { status: number, body: string }>
+export interface EmailComponents {
+  backend: {
+    email: {
+      // Component functions always surface to the parent app as `internal`
+      // references in the generated `ComponentApi`, regardless of how they
+      // are registered inside the component.
+      send: FunctionReference<'mutation', 'internal', SendEmailOptions, string | null>
+      status: FunctionReference<'query', 'internal', { emailId: string }, EmailStatus | null>
+      get: FunctionReference<'query', 'internal', { emailId: string }, unknown>
+      cancel: FunctionReference<'mutation', 'internal', { emailId: string }, null>
+      handleWebhook: FunctionReference<'action', 'internal', { body: string, headers: Record<string, string> }, { status: number, body: string }>
+    }
   }
 }
 
@@ -71,10 +78,10 @@ export type EmailEventHandler = (ctx: AnyActionCtx, event: EmailEvent) => Promis
 
 export interface SetupEmailOptions {
   /**
-   * React to delivery events. Handlers run **after** the nested Resend
-   * component has verified (svix, `RESEND_WEBHOOK_SECRET`) and processed the
-   * event — `useEmailStatus` already reflects it. E.g. flag a user's address
-   * on `onBounced`, or alert an admin on `onComplained`.
+   * React to delivery events. Handlers run **after** the component has
+   * verified (svix, `EMAIL_WEBHOOK_SECRET`) and processed the event —
+   * `useEmailStatus` already reflects it. E.g. flag a user's address on
+   * `onBounced`, or alert an admin on `onComplained`.
    */
   events?: {
     onDelivered?: EmailEventHandler
@@ -114,7 +121,7 @@ async function unwrap<T>(promise: Promise<{ data: T | null, error: { message: st
 
 type ResendSdk = Resend
 function marketingClient(): ResendSdk {
-  return new Resend(process.env.RESEND_API_KEY)
+  return new Resend(process.env.EMAIL_API_KEY)
 }
 
 export interface Email {
@@ -132,8 +139,8 @@ export interface Email {
   /** Cancel a not-yet-sent email. */
   cancel: (ctx: AnyActionCtx, emailId: string) => Promise<void>
   /**
-   * Handle a Resend event webhook from your app's `/resend-webhook` HTTP route
-   * (inside an `httpAction`); returns the Response to send back.
+   * Handle an email-provider event webhook from your app's `/email/events`
+   * HTTP route (inside an `httpAction`); returns the Response to send back.
    */
   webhookHandler: (ctx: AnyActionCtx, request: Request) => Promise<Response>
   /** Marketing audiences (Resend segments): create / list / remove. */
@@ -157,24 +164,24 @@ export interface Email {
 }
 
 /**
- * App-facing email helper over the `backend` component's nested Resend: both
+ * App-facing email helper over the `backend` component's email module: both
  * **transactional** email (send / status / cancel + webhook) and **marketing**
- * email (audiences / contacts / broadcasts via the Resend SDK).
+ * email (audiences / contacts / broadcasts via the provider SDK).
  *
- * Transactional email needs only `RESEND_API_KEY`; marketing also uses it
- * directly. Unconfigured, transactional `send` logs instead of delivering.
+ * Both use the required `EMAIL_API_KEY` env var. While it's missing (e.g. a
+ * mid-configuration preview), transactional `send` logs instead of delivering.
  *
  * @example
  * ```ts
  * import { setupEmail } from 'nuxt-backend/convex/email'
  * import { components } from './_generated/api'
  *
- * export const email = setupEmail(components.backend)
+ * export const email = setupEmail(components)
  * export const { getEmailStatus } = email.api
  * ```
  */
-export function setupEmail(component: EmailComponentApi, options: SetupEmailOptions = {}): Email {
-  const refs = component.email
+export function setupEmail(components: EmailComponents, options: SetupEmailOptions = {}): Email {
+  const refs = components.backend.email
   const events = options.events
 
   const send: Email['send'] = (ctx, options) =>
@@ -204,7 +211,13 @@ export function setupEmail(component: EmailComponentApi, options: SetupEmailOpti
 
   const getEmailStatus = queryGeneric({
     args: { emailId: v.string() },
-    handler: async (ctx, args) => ctx.runQuery(refs.status, { emailId: args.emailId }),
+    // Delivery records carry recipient/error detail, so require a signed-in
+    // caller — email ids leak via `send` return values, logs, and referrers,
+    // and this is otherwise an unauthenticated lookup by opaque id.
+    handler: async (ctx, args) => {
+      if (!(await ctx.auth.getUserIdentity())) return null
+      return ctx.runQuery(refs.status, { emailId: args.emailId })
+    },
   })
 
   return {

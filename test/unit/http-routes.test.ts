@@ -12,7 +12,7 @@ function makeOptions() {
       createAuth: () => {},
     },
     billing: {
-      polar: { registerRoutes: vi.fn() },
+      provider: { registerRoutes: vi.fn() },
       webhookEvents: {} as never,
     },
     email: {
@@ -22,16 +22,19 @@ function makeOptions() {
 }
 
 describe('registerBackendRoutes', () => {
-  it('mounts auth, billing, and email in one call', () => {
+  it('mounts auth, billing, and email in one call with generic default paths', () => {
     const http = makeHttp()
     const options = makeOptions()
 
     registerBackendRoutes(http, options as never)
 
     expect(options.auth.authComponent.registerRoutes).toHaveBeenCalledWith(http, options.auth.createAuth)
-    expect(options.billing.polar.registerRoutes).toHaveBeenCalledWith(http, { events: options.billing.webhookEvents })
+    expect(options.billing.provider.registerRoutes).toHaveBeenCalledWith(http, {
+      path: '/billing/events',
+      events: options.billing.webhookEvents,
+    })
     expect((http as { route: ReturnType<typeof vi.fn> }).route).toHaveBeenCalledWith(
-      expect.objectContaining({ path: '/resend-webhook', method: 'POST' }),
+      expect.objectContaining({ path: '/email/events', method: 'POST' }),
     )
   })
 
@@ -45,14 +48,18 @@ describe('registerBackendRoutes', () => {
     expect((http as { route: ReturnType<typeof vi.fn> }).route).not.toHaveBeenCalled()
   })
 
-  it('the email route path is configurable', () => {
+  it('the webhook route paths are configurable', () => {
     const http = makeHttp()
     const options = makeOptions()
 
-    registerBackendRoutes(http, { ...options, emailPath: '/hooks/resend' } as never)
+    registerBackendRoutes(http, { ...options, billingPath: '/hooks/billing', emailPath: '/hooks/email' } as never)
 
+    expect(options.billing.provider.registerRoutes).toHaveBeenCalledWith(http, {
+      path: '/hooks/billing',
+      events: options.billing.webhookEvents,
+    })
     expect((http as { route: ReturnType<typeof vi.fn> }).route).toHaveBeenCalledWith(
-      expect.objectContaining({ path: '/hooks/resend' }),
+      expect.objectContaining({ path: '/hooks/email' }),
     )
   })
 })

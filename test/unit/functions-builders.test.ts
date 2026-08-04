@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createFunctions } from '../../src/convex/integrations/functions'
 import { setupAuthorization } from '../../src/convex/integrations/authorization'
 
-const component = { adapter: { findOne: {} as never, updateOne: {} as never } }
+const component = { backend: { adapter: { findOne: {} as never, updateOne: {} as never } } }
 const authorization = setupAuthorization(component)
 
 /** Fake `_generated/server` builders: capture the composed definition. */

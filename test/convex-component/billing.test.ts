@@ -3,17 +3,17 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 import { convexTest } from 'convex-test'
 import component from '../../src/convex/test'
-import schema from '../../src/convex/component/schema'
-import { api } from '../../src/convex/component/_generated/api'
+import schema from '../../src/convex/components/backend/schema'
+import { api } from '../../src/convex/components/backend/_generated/api'
 
-// Run the backend component as the root app: its full schema (which owns the
+// Run the backend component as the root app: its schema (which owns the
 // `billingEntitlements` table) plus its own module glob. `convex-test` strips
-// the `./component/` prefix via the `_generated` heuristic, so `api.billing.*`
-// resolves to the component functions.
+// the `./components/backend/` prefix via the `_generated` heuristic, so
+// `api.billing.*` resolves to the component functions.
 let t: ReturnType<typeof convexTest>
 
 beforeEach(() => {
-  t = convexTest(schema, component.modules)
+  t = convexTest(schema, component.modules.backend)
 })
 
 describe('billing entitlement cache (component)', () => {
@@ -57,5 +57,11 @@ describe('billing entitlement cache (component)', () => {
 
     expect(await t.query(api.billing.userByCustomer, { customerId: 'cus_1' })).toBe('u1')
     expect(await t.query(api.billing.userByCustomer, { customerId: 'cus_x' })).toBeNull()
+  })
+
+  test('clear wipes the cache', async () => {
+    await t.mutation(api.billing.upsert, { userId: 'u1', activeProductIds: [], benefits: [], meters: [] })
+    await t.mutation(api.billing.clear, {})
+    expect(await t.query(api.billing.getByUser, { userId: 'u1' })).toBeNull()
   })
 })

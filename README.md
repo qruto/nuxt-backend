@@ -10,12 +10,12 @@
 [![GitHub stars][stars-src]][stars-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-The all-in-one SaaS backend for [Nuxt](https://nuxt.com) on [Convex](https://convex.dev) — **auth** ([Better Auth](https://www.better-auth.com), passwordless: OTP + passkeys), **billing** ([Polar](https://polar.sh)), **transactional email** ([Resend](https://resend.com)), rate limiting, durable workflows, migrations, aggregates, and full-text search. One module, great defaults, every setting customizable.
+The all-in-one SaaS backend for [Nuxt](https://nuxt.com) on [Convex](https://convex.dev) — **auth** ([Better Auth](https://www.better-auth.com), passwordless: OTP + passkeys), workspaces with **emailed invitations** end-to-end, **billing** ([Polar](https://polar.sh)) with feature gating, prepaid credits, and **gift purchases**, **transactional email** ([Resend](https://resend.com)) with delivery tracking, one-call **webhook wiring**, rate limiting, durable workflows, migrations, aggregates, and full-text search. One module, great defaults, every setting customizable.
 
 `nuxt-backend` ships two halves that work as one:
 
 - a **Nuxt module** — the SaaS composables, scaffolding, env preflight, and `#backend/*` aliases; and
-- a **Convex component** — a preassembled backend (`defineBackendApp`) that mounts Better Auth, Polar, Resend, the rate limiter, workflows, migrations, and aggregates for you.
+- a **Convex backend** — a preassembled app definition (`defineBackendApp`) that mounts the package's all-in-one `backend` component (auth tables + adapter, email with the provider component nested inside, the billing entitlement cache, and gifts) plus the upstream Polar, rate limiter, workflow, migrations, and aggregate components for you.
 
 The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR, auth plumbing, DevTools, Convex-aware CSP) comes from [`nuxt-convex-module`](https://github.com/qruto/nuxt-convex) — installed and configured automatically. Use that package directly if you only want Convex bindings without the SaaS layer.
 
@@ -50,14 +50,23 @@ NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 NUXT_PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site
 ```
 
+All nine Convex deployment variables are **required** — a deploy fails until every one is set, so misconfiguration surfaces at push time instead of in production:
+
 ```bash
 # Convex deployment
-npx convex env set BETTER_AUTH_SECRET=$(openssl rand -base64 32)
+npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"
 npx convex env set SITE_URL https://your-app.localhost
 
-# optional — each integration is a graceful no-op until configured
-npx convex env set RESEND_API_KEY re_...           # email
-npx convex env set POLAR_ORGANIZATION_TOKEN ...    # billing
+# email (powered by Resend)
+npx convex env set EMAIL_API_KEY re_...
+npx convex env set EMAIL_FROM "Acme <hello@yourdomain.com>"
+npx convex env set EMAIL_TEST_MODE true
+npx convex env set EMAIL_WEBHOOK_SECRET whsec_...
+
+# billing (powered by Polar)
+npx convex env set BILLING_ACCESS_TOKEN ...
+npx convex env set BILLING_WEBHOOK_SECRET ...
+npx convex env set BILLING_ENVIRONMENT sandbox   # or production
 ```
 
 ### 4. Start the app, then Convex
@@ -92,10 +101,12 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 **SaaS layer (this package)**
 
 - `useAuth` — session + the passwordless flows: `signOut`, `sendOtp`, `signInWithOtp`, `signInWithPasskey`, `registerPasskey`, `changeEmail`, `deleteAccount`; the fully-typed Better Auth `client` for everything else
-- `useBilling` — Polar subscription state, `checkout`, `portal`, `changePlan`, `cancel`
+- `useOrganization` — workspaces + the full invitation flow: `invite`, `acceptInvitation`, `declineInvitation`, `cancelInvitation`, `getInvitation`, `listReceivedInvitations`
+- `useBilling` — subscription state, `checkout`, `gift`, `portal`, `changePlan`, `cancel`
 - `useFeatures` — entitlement / feature flags from active subscriptions
-- `useCredits` — prepaid credit balances + `topUp`
-- `useEmailStatus` — live Resend delivery status
+- `useCredits` — prepaid credit balances + `topUp` and `gift`
+- `useGifts` — gifts addressed to the signed-in user, auto-claimed on first sign-in (or explicit `claim`)
+- `useEmailStatus` — live email delivery status
 - `useWorkflowStatus` — workflow run status
 - `useSearch` — debounced full-text search
 - `useAggregate` / `useCount` — aggregate-component reads
@@ -104,7 +115,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 
 ### Components
 
-`<Authenticated>` / `<Unauthenticated>` / `<AuthLoading>` / `<AuthBoundary>` — render by auth state · `<CheckoutLink>` / `<CustomerPortalLink>` — Polar billing links
+`<Authenticated>` / `<Unauthenticated>` / `<AuthLoading>` / `<AuthBoundary>` — render by auth state · `<RoleBoundary>` / `<FeatureBoundary>` — gate UI by role or billing entitlement · `<AcceptInvitation>` — the workspace-invitation accept/decline UI (also served by the auto-registered `/accept-invitation` page) · `<GiftClaimBanner>` — surface unclaimed gifts · `<CheckoutLink>` / `<CustomerPortalLink>` — billing links
 
 ### Server (Nitro)
 
@@ -116,7 +127,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 
 ### Env preflight
 
-On dev startup the module checks your environment — missing site URL, weak `BETTER_AUTH_SECRET`, malformed `SITE_URL` — and prints actionable hints. Unconfigured email/billing is by design a graceful no-op, never a warning.
+On dev startup the module checks your environment — missing site URL, weak `AUTH_SECRET`, malformed `SITE_URL` — and prints actionable hints. The Convex deployment itself enforces the full env at push time: a deploy fails until every required variable is set.
 
 ### Module dependencies
 
@@ -126,9 +137,10 @@ On dev startup the module checks your environment — missing site URL, weak `BE
 
 The scaffolded `convex/` files compose the backend from `nuxt-backend/convex/*`:
 
-- `defineBackendApp` — mounts the backend component (hybrid Better Auth + nested Resend) plus Polar, rate limiter, workflows, migrations, and aggregates
-- `setupAuth` — passwordless Better Auth (OTP + passkey plugins), email templates included
-- `setupBilling` — Polar products, checkout, webhook handlers, entitlement cache, prepaid credits (`spendCredits`)
+- `defineBackendApp` — mounts the all-in-one `backend` component (auth + email + billing cache + gifts, with the email provider nested inside) plus the upstream Polar, rate limiter, workflow, migrations, and aggregate components, declares the required env vars, and forwards the email config
+- `setupAuth` — passwordless Better Auth (OTP + passkey plugins), workspaces with emailed invitations, email templates included
+- `setupBilling` — products, checkout, webhook handlers, entitlement cache, prepaid credits (`spendCredits`), and gift purchases (`giftCheckout` / `claimGift`)
+- `registerBackendRoutes` — one call mounts every inbound webhook: auth routes, `/billing/events`, `/email/events`
 - `setupEmail`, `setupRateLimiter`, `setupWorkflows`, `setupMigrations`, `withTriggers` (aggregates), `defineSearch`
 
 ## Documentation
@@ -148,6 +160,11 @@ pnpm generate   # static build
 | [Backend Components](./website/content/3.backend-components) | Email, billing & credits, rate limiting, workflows, migrations, aggregates, search |
 | [Convex Backend](./website/content/4.convex-backend) | Auth setup, customizing auth, local installation, testing |
 | [API Reference](./website/content/5.api-reference) | Composables, server utilities, client, entrypoints, module options |
+
+## Examples
+
+- [`examples/minimal`](./examples/minimal) — the exact `nuxt-backend init` scaffold, zero custom backend code: passwordless auth, workspace invitations, billing, credits, and gifts out of the box
+- [`examples/advanced`](./examples/advanced) — every customization point in one app: local component install, custom email templates, custom webhook paths and hooks, a hand-written `defineApp` + `installBackend`, and a custom invitation accept page
 
 ## Contributing
 

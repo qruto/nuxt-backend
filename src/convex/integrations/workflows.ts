@@ -8,6 +8,14 @@ export type { WorkflowId, WorkflowStatus } from '@convex-dev/workflow'
 
 /** The component reference accepted by WorkflowManager (`components.workflow`). */
 type WorkflowComponent = ConstructorParameters<typeof WorkflowManager>[0]
+
+/**
+ * The component handle `setupWorkflows` reads from your generated `components`
+ * object (the key is picked structurally — pass the whole object).
+ */
+export interface WorkflowComponents {
+  workflow: WorkflowComponent
+}
 /** The workpool options bag (`maxParallelism`, `defaultRetryBehavior`, ...). */
 type WorkpoolOptions = NonNullable<ConstructorParameters<typeof WorkflowManager>[1]>['workpoolOptions']
 
@@ -30,12 +38,12 @@ const DEFAULT_WORKPOOL_OPTIONS = {
  * import { setupWorkflows } from 'nuxt-backend/convex/workflows'
  * import { components } from './_generated/api'
  *
- * export const workflow = setupWorkflows(components.workflow)
+ * export const workflow = setupWorkflows(components)
  *
  * export const onSignup = workflow.define({
  *   args: { email: v.string(), name: v.string() },
  *   handler: async (step, { email, name }) => {
- *     // Email is sent through the Resend component nested inside `backend`.
+ *     // Email is sent through the `backend` component's email module.
  *     await step.runMutation(components.backend.email.send, {
  *       to: email,
  *       subject: 'Welcome!',
@@ -46,10 +54,10 @@ const DEFAULT_WORKPOOL_OPTIONS = {
  * ```
  */
 export function setupWorkflows(
-  component: WorkflowComponent,
+  components: WorkflowComponents,
   options?: { workpoolOptions?: WorkpoolOptions },
 ): WorkflowManager {
-  return new WorkflowManager(component, {
+  return new WorkflowManager(components.workflow, {
     workpoolOptions: { ...DEFAULT_WORKPOOL_OPTIONS, ...options?.workpoolOptions },
   })
 }

@@ -8,19 +8,32 @@ import { TableAggregate, Triggers, withTriggers } from '../../src/convex/integra
 import { search } from '../../src/convex/integrations/search'
 
 const fakeComponent = {} as never
+// Every setup* accepts the whole generated `components` object and picks its
+// keys structurally — this fixture stands in for it.
+const fakeComponents = {
+  rateLimiter: {},
+  workflow: {},
+  migrations: {},
+  polar: { lib: { insertCustomer: {} } },
+  backend: {
+    billing: { getByUser: {}, upsert: {}, userByCustomer: {} },
+    gifts: { create: {}, markPaid: {}, markClaimed: {}, listByEmail: {}, get: {}, resolveRecipient: {} },
+    email: {},
+  },
+} as never
 
 afterEach(() => {
   vi.restoreAllMocks()
 })
 
 describe('setupRateLimiter', () => {
-  it('seeds the auth-sensitive default limits', () => {
-    expect(Object.keys(DEFAULT_AUTH_LIMITS)).toEqual(['emailOtp', 'signIn', 'signUp', 'passwordReset'])
+  it('seeds the sensitive default limits', () => {
+    expect(Object.keys(DEFAULT_AUTH_LIMITS)).toEqual(['emailOtp', 'signIn', 'signUp', 'passwordReset', 'billingSync'])
     expect(DEFAULT_AUTH_LIMITS.emailOtp).toMatchObject({ kind: 'token bucket' })
   })
 
   it('merges custom limits on top of the defaults', () => {
-    const rateLimiter = setupRateLimiter(fakeComponent, {
+    const rateLimiter = setupRateLimiter(fakeComponents, {
       sendMessage: { kind: 'token bucket', rate: 30, period: 60_000, capacity: 5 },
     })
     expect(rateLimiter.limits).toHaveProperty('emailOtp')
@@ -30,31 +43,33 @@ describe('setupRateLimiter', () => {
 
 describe('setup factories', () => {
   it('setupWorkflows returns a manager with define/start', () => {
-    const workflow = setupWorkflows(fakeComponent)
+    const workflow = setupWorkflows(fakeComponents)
     expect(workflow.define).toBeTypeOf('function')
     expect(workflow.start).toBeTypeOf('function')
   })
 
   it('setupMigrations returns migrations + a runner', () => {
-    const { migrations, run } = setupMigrations(fakeComponent)
+    const { migrations, run } = setupMigrations(fakeComponents)
     expect(migrations.define).toBeTypeOf('function')
     expect(run).toBeDefined()
   })
 
-  it('setupBilling exposes the Polar client, ready-made functions, and SaaS helpers', () => {
-    const backend = { billing: { getByUser: {}, upsert: {}, userByCustomer: {} } } as never
-    const billing = setupBilling(fakeComponent, backend, {
+  it('setupBilling exposes the provider client, ready-made functions, and SaaS helpers', () => {
+    const billing = setupBilling(fakeComponents, {
       getUserInfo: async () => ({ userId: 'u1', email: 'a@b.com' }),
       currentUserId: async () => 'u1',
     })
-    expect(billing.polar).toBeDefined()
+    expect(billing.provider).toBeDefined()
     expect(billing.api).toHaveProperty('generateCheckoutLink')
     expect(billing.api).toHaveProperty('generateCustomerPortalUrl')
+    expect(billing.api).toHaveProperty('giftCheckout')
     // Ready-made reactive functions re-exported by the consumer's billing.ts.
     expect(billing.functions.getCurrentSubscription).toBeDefined()
     expect(billing.functions.getFeatures).toBeDefined()
     expect(billing.functions.getCredits).toBeDefined()
     expect(billing.functions.syncEntitlements).toBeDefined()
+    expect(billing.functions.getReceivedGifts).toBeDefined()
+    expect(billing.functions.claimGift).toBeDefined()
     // Webhook handlers keep the reactive cache fresh.
     expect(billing.webhookEvents['customer.state_changed']).toBeTypeOf('function')
     expect(billing.webhookEvents['order.created']).toBeTypeOf('function')
@@ -65,7 +80,7 @@ describe('setup factories', () => {
   })
 
   it('setupEmail exposes transactional + marketing helpers', () => {
-    const email = setupEmail({ email: {} } as never)
+    const email = setupEmail(fakeComponents)
     expect(email.api.getEmailStatus).toBeDefined()
     expect(email.send).toBeTypeOf('function')
     expect(email.status).toBeTypeOf('function')

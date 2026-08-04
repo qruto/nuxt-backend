@@ -2,17 +2,18 @@
 import type { TestConvex } from 'convex-test'
 import { defineSchema, type GenericSchema, type SchemaDefinition } from 'convex/server'
 
-const modules = import.meta.glob('./component/**/*.ts')
+const backend = import.meta.glob('./components/backend/**/*.ts')
 
 /**
- * Register the nuxt-backend component with a test Convex instance.
+ * Register the nuxt-backend all-in-one `backend` component with a test Convex
+ * instance.
  *
- * The component owns its own auth schema locally (hybrid component pattern),
- * so no upstream `betterAuth` child component is registered.
+ * The component owns its auth schema locally (hybrid component pattern), so no
+ * upstream `betterAuth` child component is registered. Note convex-test does
+ * not model nested components, so the email provider child inside `backend` is
+ * not exercised here.
  *
  * @param t - The test convex instance, e.g. from calling `convexTest`.
- * @param name - The name of the component, as registered in convex.config.ts.
- *   Defaults to `"backend"`.
  *
  * @example
  * ```ts
@@ -24,11 +25,8 @@ const modules = import.meta.glob('./component/**/*.ts')
  * component.register(t)
  * ```
  */
-export function register(
-  t: TestConvex<SchemaDefinition<GenericSchema, boolean>>,
-  name: string = 'backend',
-) {
-  t.registerComponent(name, defineSchema({}), modules)
+export function register(t: TestConvex<SchemaDefinition<GenericSchema, boolean>>) {
+  t.registerComponent('backend', defineSchema({}), backend)
 }
 
-export default { register, modules }
+export default { register, modules: { backend } }

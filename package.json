@@ -83,16 +83,35 @@
       "types": "./dist/convex/integrations/workflows.d.ts",
       "default": "./dist/convex/integrations/workflows.js"
     },
-    "./convex/component/_generated/component": {
-      "types": "./dist/convex/component/_generated/component.d.ts"
+    "./convex/components/backend/convex.config": {
+      "types": "./dist/convex/components/backend/convex.config.d.ts",
+      "default": "./dist/convex/components/backend/convex.config.js"
     },
-    "./convex/component/convex.config": {
-      "types": "./dist/convex/component/convex.config.d.ts",
-      "default": "./dist/convex/component/convex.config.js"
+    "./convex/components/backend/convex.config.js": {
+      "types": "./dist/convex/components/backend/convex.config.d.ts",
+      "default": "./dist/convex/components/backend/convex.config.js"
     },
-    "./convex/component/schema": {
-      "types": "./dist/convex/component/schema.d.ts",
-      "default": "./dist/convex/component/schema.js"
+    "./convex/components/backend/_generated/component": {
+      "types": "./dist/convex/components/backend/_generated/component.d.ts"
+    },
+    "./convex/components/backend/_generated/component.js": {
+      "types": "./dist/convex/components/backend/_generated/component.d.ts"
+    },
+    "./convex/components/backend/schema": {
+      "types": "./dist/convex/components/backend/schema.d.ts",
+      "default": "./dist/convex/components/backend/schema.js"
+    },
+    "./convex/components/backend/email": {
+      "types": "./dist/convex/components/backend/email.d.ts",
+      "default": "./dist/convex/components/backend/email.js"
+    },
+    "./convex/components/backend/billing": {
+      "types": "./dist/convex/components/backend/billing.d.ts",
+      "default": "./dist/convex/components/backend/billing.js"
+    },
+    "./convex/components/backend/gifts": {
+      "types": "./dist/convex/components/backend/gifts.d.ts",
+      "default": "./dist/convex/components/backend/gifts.js"
     },
     "./convex/auth.config": {
       "types": "./dist/convex/auth.config.d.ts",
@@ -145,14 +164,23 @@
       "convex/workflows": [
         "./dist/convex/integrations/workflows.d.ts"
       ],
-      "convex/component/_generated/component": [
-        "./dist/convex/component/_generated/component.d.ts"
+      "convex/components/backend/convex.config": [
+        "./dist/convex/components/backend/convex.config.d.ts"
       ],
-      "convex/component/convex.config": [
-        "./dist/convex/component/convex.config.d.ts"
+      "convex/components/backend/_generated/component": [
+        "./dist/convex/components/backend/_generated/component.d.ts"
       ],
-      "convex/component/schema": [
-        "./dist/convex/component/schema.d.ts"
+      "convex/components/backend/schema": [
+        "./dist/convex/components/backend/schema.d.ts"
+      ],
+      "convex/components/backend/email": [
+        "./dist/convex/components/backend/email.d.ts"
+      ],
+      "convex/components/backend/billing": [
+        "./dist/convex/components/backend/billing.d.ts"
+      ],
+      "convex/components/backend/gifts": [
+        "./dist/convex/components/backend/gifts.d.ts"
       ],
       "convex/auth.config": [
         "./dist/convex/auth.config.d.ts"
@@ -180,9 +208,10 @@
     "build:convex-component": "tsc --project ./tsconfig.convex-component.build.json && node -e \"require('fs').utimesSync('website/backend/convex.config.ts', new Date(), new Date())\"",
     "analyze": "ANALYZE=true nuxt build --dotenv ../.env.local website",
     "dev": "pnpm run dev:prepare && pnpm run build:convex-component && run-p -r 'dev:convex-component' 'dev:nuxt-module'",
+    "dev:lan": "PORTLESS_LAN=1 pnpm run dev",
     "dev:convex-component": "convex dev --typecheck-components --start 'pnpm run dev:convex-component:watch'",
-    "dev:convex-component:codegen": "convex codegen --component-dir ./src/convex/component",
-    "dev:convex-component:watch": "chokidar 'tsconfig*.json' 'src/convex/**/*.ts' -i '**/*.test.ts' -i 'src/convex/component/_generated/**' -c 'pnpm run dev:convex-component:codegen && pnpm run build:convex-component' --initial",
+    "dev:convex-component:codegen": "convex codegen --component-dir ./src/convex/components/backend",
+    "dev:convex-component:watch": "chokidar 'tsconfig*.json' 'src/convex/**/*.ts' -i '**/*.test.ts' -i 'src/convex/components/*/_generated/**' -c 'pnpm run dev:convex-component:codegen && pnpm run build:convex-component' --initial",
     "dev:nuxt-module": "portless nuxt-backend nuxt dev --dotenv ../.env.local website",
     "dev:nuxt-module:share": "portless nuxt-backend --ngrok nuxt dev --dotenv ../.env.local website",
     "dev:nuxt-module:build": "nuxt build --dotenv ../.env.local website",
@@ -216,17 +245,20 @@
     "@polar-sh/checkout": "^0.3.0",
     "@polar-sh/sdk": "^0.48.1",
     "better-auth": "~1.6.18",
-    "convex": "^1.41.0",
     "convex-helpers": "^0.1.119",
     "dedent": "^1.7.2",
     "nuxt-convex-module": "link:../nuxt-convex-module",
     "nuxt-security": "^2.6.0",
     "resend": "^6.6.0"
   },
+  "peerDependencies": {
+    "convex": "^1.42.2"
+  },
   "devDependencies": {
     "@codecov/nuxt-plugin": "^2.0.1",
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
+    "@convex-dev/eslint-plugin": "^2.0.0",
     "@edge-runtime/vm": "^5.0.0",
     "@nuxt/devtools": "^3.2.4",
     "@nuxt/eslint": "^1.16.0",
@@ -241,6 +273,7 @@
     "changelogen": "^0.6.2",
     "changelogithub": "^14.0.0",
     "chokidar-cli": "^3.0.0",
+    "convex": "^1.42.2",
     "convex-test": "^0.0.53",
     "eslint": "^10.5.0",
     "fallow": "^2.96.0",
@@ -249,6 +282,9 @@
     "nuxt": "catalog:",
     "oxc-parser": "^0.135.0",
     "portless": "^0.14.0",
+    "typedoc": "^0.28.20",
+    "typedoc-plugin-frontmatter": "^1.3.1",
+    "typedoc-plugin-markdown": "^4.12.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.8",
     "vue-tsc": "^3.3.5",

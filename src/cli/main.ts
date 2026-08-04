@@ -10,11 +10,12 @@ const ENV_EXAMPLE = `# Nuxt app (client + SSR)
 NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 NUXT_PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site
 
-# Convex deployment — set with \`npx convex env set NAME value\`, not here:
-#   BETTER_AUTH_SECRET        $(openssl rand -base64 32)
-#   SITE_URL                  your app origin (Better Auth baseURL)
-#   RESEND_API_KEY            email; RESEND_FROM, RESEND_TEST_MODE, RESEND_WEBHOOK_SECRET
-#   POLAR_ORGANIZATION_TOKEN  billing; POLAR_WEBHOOK_SECRET, POLAR_SERVER=sandbox|production
+# Convex deployment — ALL required (a deploy fails until set); set with
+# \`npx convex env set NAME value\`, not here:
+#   AUTH_SECRET           $(openssl rand -base64 32)
+#   SITE_URL              your app origin (auth base URL + invitation/gift links)
+#   EMAIL_API_KEY         email; EMAIL_FROM, EMAIL_TEST_MODE, EMAIL_WEBHOOK_SECRET
+#   BILLING_ACCESS_TOKEN  billing; BILLING_WEBHOOK_SECRET, BILLING_ENVIRONMENT=sandbox|production
 `
 
 const cwdArg = {
@@ -71,11 +72,18 @@ const init = defineCommand({
       else {
         console.log('[nuxt-backend] Add the module yourself: modules: [\'nuxt-backend\'] in nuxt.config.ts')
       }
+      if (args.installation === 'local') {
+        console.log('[nuxt-backend] Local install: add \'@convex-dev/resend\' as a direct dependency (pnpm add @convex-dev/resend) so the local component config resolves it.')
+      }
       console.log(`
 Next steps:
   1. Set NUXT_PUBLIC_CONVEX_URL / NUXT_PUBLIC_CONVEX_SITE_URL (see .env.example)
   2. npx convex dev        # provisions the deployment + codegen
-  3. npx convex env set BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
+  3. Set the required deployment env (a deploy fails until all are set):
+       npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"
+       npx convex env set SITE_URL http://localhost:3000
+       npx convex env set EMAIL_API_KEY <key>            # + EMAIL_FROM, EMAIL_TEST_MODE, EMAIL_WEBHOOK_SECRET
+       npx convex env set BILLING_ACCESS_TOKEN <token>   # + BILLING_WEBHOOK_SECRET, BILLING_ENVIRONMENT
   4. npm run dev           # sign in with useAuth() / <AuthForm>
 `)
     })
@@ -90,7 +98,7 @@ const add = defineCommand({
     force: { type: 'boolean', description: 'Overwrite the existing file', default: false },
   },
   run({ args }) {
-    const files = FEATURES[args.feature]
+    const files = Object.hasOwn(FEATURES, args.feature) ? FEATURES[args.feature] : undefined
     if (!files) {
       console.error(`[nuxt-backend] Unknown feature "${args.feature}". Available: ${Object.keys(FEATURES).join(', ')}`)
       process.exitCode = 1
@@ -113,11 +121,15 @@ const add = defineCommand({
 /** Read deployment env var NAMES via `npx convex env list` (values never leave the CLI). */
 function deploymentEnvNames(rootDir: string): string[] | null {
   try {
+    // On Windows `npx` is `npx.cmd`; since Node's CVE-2024-27980 hardening,
+    // spawning a `.cmd` without a shell throws EINVAL — so use a shell there.
+    // Args are static literals (no interpolation), so shelling is injection-safe.
     const output = execFileSync('npx', ['convex', 'env', 'list'], {
       cwd: rootDir,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'ignore'],
       timeout: 30_000,
+      shell: process.platform === 'win32',
     })
     return output
       .split('\n')
@@ -171,25 +183,28 @@ const doctor = defineCommand({
       fixHint: hasGenerated ? '' : 'Run: npx convex dev',
     })
 
-    // Deployment-side env presence (names only — values never read).
+    // Deployment-side env presence (names only — values never read). Every
+    // backend env var is required — a deploy fails while any is missing.
     const deployed = deploymentEnvNames(rootDir)
     if (deployed) {
-      for (const name of ['BETTER_AUTH_SECRET', 'SITE_URL'] as const) {
+      const requiredEnv = [
+        'AUTH_SECRET',
+        'SITE_URL',
+        'EMAIL_API_KEY',
+        'EMAIL_FROM',
+        'EMAIL_TEST_MODE',
+        'EMAIL_WEBHOOK_SECRET',
+        'BILLING_ACCESS_TOKEN',
+        'BILLING_WEBHOOK_SECRET',
+        'BILLING_ENVIRONMENT',
+      ] as const
+      for (const name of requiredEnv) {
         findings.push({
           id: `deployment-${name.toLowerCase().replace(/_/g, '-')}`,
           title: `Deployment ${name}`,
           status: deployed.includes(name) ? 'pass' : 'fail',
-          message: deployed.includes(name) ? `${name} is set on the deployment.` : `${name} is not set on the Convex deployment.`,
+          message: deployed.includes(name) ? `${name} is set on the deployment.` : `${name} is not set on the Convex deployment (required — a deploy fails without it).`,
           fixHint: deployed.includes(name) ? '' : `npx convex env set ${name} ...`,
-        })
-      }
-      for (const name of ['RESEND_API_KEY', 'POLAR_ORGANIZATION_TOKEN'] as const) {
-        findings.push({
-          id: `deployment-${name.toLowerCase().replace(/_/g, '-')}`,
-          title: `Deployment ${name}`,
-          status: 'pass',
-          message: deployed.includes(name) ? `${name} is set.` : `${name} unset — the feature no-ops until configured.`,
-          fixHint: '',
         })
       }
     }

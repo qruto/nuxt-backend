@@ -35,7 +35,7 @@ describe('Convex component client bridge', () => {
   it('exposes a ready-made auth API remount helper', () => {
     const queryBuilder = vi.fn(definition => definition)
 
-    const authApi = clientBridge.makeAuthApi(fakeAppComponent, queryBuilder as never)
+    const authApi = clientBridge.makeAuthApi({ backend: fakeAppComponent }, queryBuilder as never)
 
     expect(queryBuilder).toHaveBeenCalledTimes(1)
     expect(queryBuilder).toHaveBeenCalledWith(expect.objectContaining({ args: {} }))
@@ -45,7 +45,7 @@ describe('Convex component client bridge', () => {
   it('keeps setupAuth as the convenience composition of the client patterns', () => {
     const queryBuilder = vi.fn(definition => definition)
 
-    const authSetup = clientBridge.setupAuth(fakeAppComponent, queryBuilder as never)
+    const authSetup = clientBridge.setupAuth({ backend: fakeAppComponent }, queryBuilder as never)
 
     expect(typeof authSetup.createAuth).toBe('function')
     expect(typeof authSetup.createAuthOptions).toBe('function')

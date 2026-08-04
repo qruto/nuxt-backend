@@ -60,13 +60,16 @@ export default defineNuxtConfig({
       ignore: ['/playground', '/login'],
     },
   },
-  // The playground section (and the login page) use their own depth-design shell,
-  // not the Docus docs chrome. Set the layout + hide the Docus header/footer for
-  // those routes centrally so individual pages don't each need `definePageMeta`.
+  // The playground section uses its own depth-design shell, not the Docus docs
+  // chrome. Set the layout + hide the Docus header/footer for those routes
+  // centrally so individual pages don't each need `definePageMeta`.
+  // `/login` is NOT included: it's a standalone full-screen page that opts out
+  // of layouts entirely (`layout: false` in login.vue) — wrapping it in the
+  // playground layout would squeeze its centered card into the sidebar column.
   hooks: {
     'pages:extend'(pages) {
       const isPlaygroundRoute = (path: string) =>
-        path === '/login' || path === '/playground' || path.startsWith('/playground/')
+        path === '/playground' || path.startsWith('/playground/')
       const walk = (list: typeof pages) => {
         for (const page of list) {
           if (page.path && isPlaygroundRoute(page.path)) {

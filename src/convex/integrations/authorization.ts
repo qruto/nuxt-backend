@@ -47,11 +47,18 @@ export interface StatementRole {
   authorize: (permissions: Record<string, string[]>) => { success: boolean, error?: string }
 }
 
-/** The component adapter functions {@link setupAuthorization} reads through. */
-export interface AuthorizationComponentApi {
-  adapter: {
-    findOne: unknown
-    updateOne: unknown
+/**
+ * The component handle {@link setupAuthorization} reads from your generated
+ * `components` object: the package's all-in-one `backend` component, whose
+ * auth adapter functions it queries through. Pass the whole `components`
+ * object — the key is picked structurally.
+ */
+export interface AuthorizationComponents {
+  backend: {
+    adapter: {
+      findOne: unknown
+      updateOne: unknown
+    }
   }
 }
 
@@ -86,8 +93,12 @@ export interface Authorization {
    * JWT staleness — use it for sensitive checks right after role changes.
    */
   requireRole: (ctx: AuthorizationCtx, role: string | string[], options?: { fresh?: boolean }) => Promise<AuthorizationUser>
-  /** Require permission statements (e.g. `{ user: ['ban'] }`) against the user's role. */
-  requirePermission: (ctx: AuthorizationCtx, permissions: Record<string, string[]>) => Promise<AuthorizationUser>
+  /**
+   * Require permission statements (e.g. `{ user: ['ban'] }`) against the user's
+   * role. `fresh: true` re-reads the user document past JWT staleness — use it
+   * for permission-gated destructive operations right after role changes.
+   */
+  requirePermission: (ctx: AuthorizationCtx, permissions: Record<string, string[]>, options?: { fresh?: boolean }) => Promise<AuthorizationUser>
   /** Require an active workspace on the session; returns its id. */
   requireOrganization: (ctx: AuthorizationCtx) => Promise<{ user: AuthorizationUser, organizationId: string }>
   /**
@@ -100,7 +111,7 @@ export interface Authorization {
 }
 
 /**
- * Build the authorization helpers over the backend auth component.
+ * Build the authorization helpers over the `backend` component's auth adapter.
  *
  * @example
  * ```ts
@@ -109,17 +120,17 @@ export interface Authorization {
  * import { components } from './_generated/api'
  * import { internalMutation } from './_generated/server'
  *
- * export const authorization = setupAuthorization(components.backend, { internalMutation })
+ * export const authorization = setupAuthorization(components, { internalMutation })
  * export const { requireUser, requireRole, requireOrganization, setUserRole } = authorization
  * ```
  */
 export function setupAuthorization<DM extends GenericDataModel = GenericDataModel>(
-  component: AuthorizationComponentApi,
+  components: AuthorizationComponents,
   options: SetupAuthorizationOptions<DM> = {},
 ): Authorization {
   const statementRoles: Record<string, StatementRole> = options.roles ?? (defaultRoles as unknown as Record<string, StatementRole>)
-  const findOne = component.adapter.findOne as AdapterFindOne
-  const updateOne = component.adapter.updateOne as AdapterUpdateOne
+  const findOne = components.backend.adapter.findOne as AdapterFindOne
+  const updateOne = components.backend.adapter.updateOne as AdapterUpdateOne
 
   const getUser = async (ctx: AuthorizationCtx): Promise<AuthorizationUser | null> => {
     const identity = await ctx.auth.getUserIdentity()
@@ -150,26 +161,31 @@ export function setupAuthorization<DM extends GenericDataModel = GenericDataMode
     return requiredRoles.some(role => userRoles.includes(role))
   }
 
+  // Re-read the user document past JWT staleness, mutating `user.role`/`banned`
+  // in place. Throws when the account has since been deleted or banned.
+  const refreshUser = async (ctx: AuthorizationCtx, user: AuthorizationUser): Promise<void> => {
+    const document = await ctx.runQuery(findOne, {
+      model: 'user',
+      where: [{ field: '_id', value: user.id }],
+    }) as { role?: string | null, banned?: boolean | null } | null
+    if (!document) throw new ConvexError('Unauthenticated')
+    if (document.banned) throw new ConvexError('Forbidden: account is banned')
+    user.role = document.role || 'user'
+    user.banned = false
+  }
+
   const requireRole: Authorization['requireRole'] = async (ctx, role, { fresh } = {}) => {
     const user = await requireUser(ctx)
-    if (fresh) {
-      const document = await ctx.runQuery(findOne, {
-        model: 'user',
-        where: [{ field: '_id', value: user.id }],
-      }) as { role?: string | null, banned?: boolean | null } | null
-      if (!document) throw new ConvexError('Unauthenticated')
-      if (document.banned) throw new ConvexError('Forbidden: account is banned')
-      user.role = document.role || 'user'
-      user.banned = false
-    }
+    if (fresh) await refreshUser(ctx, user)
     if (!hasAnyRole(user.role, role)) {
       throw new ConvexError('Forbidden: missing required role')
     }
     return user
   }
 
-  const requirePermission: Authorization['requirePermission'] = async (ctx, permissions) => {
+  const requirePermission: Authorization['requirePermission'] = async (ctx, permissions, { fresh } = {}) => {
     const user = await requireUser(ctx)
+    if (fresh) await refreshUser(ctx, user)
     const allowed = user.role.split(',').some((role) => {
       const statementRole = statementRoles[role.trim()]
       return statementRole ? statementRole.authorize(permissions).success : false

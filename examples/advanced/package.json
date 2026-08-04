@@ -1,0 +1,17 @@
+{
+  "name": "example-advanced",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "dev:convex": "convex dev",
+    "build": "nuxt build"
+  },
+  "dependencies": {
+    "@convex-dev/better-auth": "^0.12.3",
+    "@convex-dev/resend": "^0.2.4",
+    "convex": "^1.42.2",
+    "nuxt": "catalog:",
+    "nuxt-backend": "workspace:*"
+  }
+}

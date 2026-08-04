@@ -1,0 +1,15 @@
+{
+  "name": "example-minimal",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "dev:convex": "convex dev",
+    "build": "nuxt build"
+  },
+  "dependencies": {
+    "convex": "^1.42.2",
+    "nuxt": "catalog:",
+    "nuxt-backend": "workspace:*"
+  }
+}

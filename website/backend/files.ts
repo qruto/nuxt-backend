@@ -56,12 +56,20 @@ export const list = query({
   },
 })
 
-/** Resolve the served URL for a single stored file. */
+/** Resolve the served URL for a single stored file the caller owns. */
 export const getUrl = query({
   args: { storageId: v.id('_storage') },
   handler: async (ctx, { storageId }) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) return null
+    // `storage.getUrl` has no per-object ACL, so returning a URL for any id
+    // would be a cross-tenant IDOR — only serve files the caller owns.
+    const file = await ctx.db
+      .query('files')
+      .withIndex('userId', q => q.eq('userId', identity.subject))
+      .filter(q => q.eq(q.field('storageId'), storageId))
+      .first()
+    if (!file) return null
     return await ctx.storage.getUrl(storageId)
   },
 })
