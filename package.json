@@ -217,7 +217,7 @@
     "chokidar-cli": "^3.0.0",
     "convex-test": "^0.0.53",
     "eslint": "^10.5.0",
-    "fallow": "^2.96.0",
+    "fallow": "^3.12.0",
     "happy-dom": "^20.10.3",
     "npm-run-all2": "^8.0.4",
     "nuxt": "catalog:",
