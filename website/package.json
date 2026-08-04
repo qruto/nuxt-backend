@@ -17,6 +17,6 @@
     "nuxt-backend": "workspace:*"
   },
   "devDependencies": {
-    "sonda": "^0.13.0"
+    "sonda": "^0.14.0"
   }
 }
