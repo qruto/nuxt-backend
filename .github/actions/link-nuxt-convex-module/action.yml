@@ -1,0 +1,23 @@
+name: Provide nuxt-convex-module
+description: >
+  Materialize the `link:../nuxt-convex-module` dependency on the runner — CI's
+  equivalent of the sibling-checkout dev setup (README → Contributing). Clones
+  the public repo next to the workspace and stub-builds the module (the same
+  steps as its `dev:prepare`, minus its website prepare, which consumers don't
+  need). Must run AFTER pnpm/setup so pnpm and Node are on PATH. Remove once
+  nuxt-convex-module is published to npm and the `link:` dependency becomes a
+  semver range.
+runs:
+  using: composite
+  steps:
+    - name: Clone, install & stub-build nuxt-convex-module
+      shell: bash
+      run: |
+        git clone --depth 1 https://github.com/qruto/nuxt-convex-module "$GITHUB_WORKSPACE/../nuxt-convex-module"
+        cd "$GITHUB_WORKSPACE/../nuxt-convex-module"
+        # Filtered install: only the module's own deps — skips its website and
+        # devtools workspace packages, which the stub build doesn't touch.
+        pnpm install --filter nuxt-convex-module
+        pnpm exec nuxt-module-build build --stub
+        pnpm exec nuxt-module-build prepare
+        node scripts/normalize-module-ext.js

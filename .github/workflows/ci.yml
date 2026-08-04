@@ -92,6 +92,9 @@ jobs:
           runtime: node@lts
           cache: true
 
+      - name: Provide the link:../nuxt-convex-module dependency
+        uses: ./.github/actions/link-nuxt-convex-module
+
       # Type-checks the published surface (module + Convex code). The website app
       # typecheck is intentionally excluded — it imports the app's
       # `backend/_generated` code, which only exists with a Convex deployment.
@@ -118,6 +121,9 @@ jobs:
         with:
           runtime: node@${{ matrix.node }}
           cache: true
+
+      - name: Provide the link:../nuxt-convex-module dependency
+        uses: ./.github/actions/link-nuxt-convex-module
 
       - name: Prepare
         run: pnpm run dev:prepare
@@ -175,6 +181,9 @@ jobs:
         with:
           runtime: node@lts
           cache: true
+
+      - name: Provide the link:../nuxt-convex-module dependency
+        uses: ./.github/actions/link-nuxt-convex-module
 
       # Generates `.nuxt/tsconfig.json`, which the root tsconfig extends. Without
       # it, `nuxt-module-build` can't resolve compiler options and prepack fails.

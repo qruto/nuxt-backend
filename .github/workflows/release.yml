@@ -75,6 +75,9 @@ jobs:
           runtime: node@lts
           cache: true
 
+      - name: Provide the link:../nuxt-convex-module dependency
+        uses: ./.github/actions/link-nuxt-convex-module
+
       # Generates `.nuxt/tsconfig.json`, which the root tsconfig extends —
       # required by the test run and by the build that `pnpm publish`
       # triggers via `prepack`.
