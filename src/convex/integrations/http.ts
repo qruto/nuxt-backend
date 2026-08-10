@@ -38,7 +38,7 @@ export interface RegisterBackendRoutesOptions {
  * @example
  * ```ts
  * // convex/http.ts
- * import { registerBackendRoutes } from 'nuxt-backend/convex/http'
+ * import { registerBackendRoutes } from 'nuxt-backend/http'
  * import { httpRouter } from 'convex/server'
  * import { components } from './_generated/api'
  * import { authComponent, createAuth } from './auth'

@@ -4,7 +4,7 @@
 // Client-only: subscribing during SSR/prerender opens a Convex WebSocket (the
 // lazy `.sync` client) that keeps the build process alive. The chip reflects the
 // browser's live connection, so it only needs to run on the client.
-const conn = import.meta.client ? useConvexConnectionState() : null
+const conn = import.meta.client ? useConnectionState() : null
 const isConnected = computed(() => !!conn?.value.isWebSocketConnected)
 </script>
 
@@ -27,7 +27,7 @@ const isConnected = computed(() => !!conn?.value.isWebSocketConnected)
         </span>
         <span class="font-medium">{{ isConnected ? 'Convex live' : 'Offline' }}</span>
       </div>
-      <code class="text-xs text-muted">useConvexConnectionState()</code>
+      <code class="text-xs text-muted">useConnectionState()</code>
     </div>
     <p class="mt-2 text-sm text-muted">
       This reflects the real WebSocket connection from your browser to Convex —

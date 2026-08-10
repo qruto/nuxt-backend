@@ -1,4 +1,4 @@
-import { defineBackendApp } from 'nuxt-backend/convex/app'
+import { defineBackendApp } from 'nuxt-backend/app'
 
 // One call mounts every bundled component (auth, email with nested Resend,
 // billing cache, aggregate, migrations, Polar, rate limiter, workflows),

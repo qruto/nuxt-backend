@@ -5,7 +5,7 @@ definePageMeta({ middleware: 'auth' })
 
 // Passwordless Better Auth: the user is also the billing customer.
 const { user, changeEmail, deleteAccount, registerPasskey, signOut } = useAuth()
-const auth = useConvexAuth()
+const auth = useAuthState()
 
 const newEmail = ref('')
 const accountMsg = ref<{ text: string, ok: boolean } | null>(null)
@@ -55,7 +55,7 @@ const initials = computed(() =>
 <template>
   <div class="stack">
     <PageHeader
-      tag="useAuth · useConvexAuth · Authenticated"
+      tag="useAuth · useAuthState · Authenticated"
       title="Account & auth"
     >
       Better Auth, passwordless (passkey + email OTP). The signed-in user is the
@@ -144,7 +144,7 @@ const initials = computed(() =>
       <div class="grid-2">
         <LabPanel
           label="reactive"
-          title="useConvexAuth()"
+          title="useAuthState()"
         >
           <StateReadout
             :value="state"
@@ -192,6 +192,27 @@ const initials = computed(() =>
           </div>
         </LabPanel>
       </div>
+
+      <!-- The packaged sign-in form (the custom /login page proves the full-
+           custom route; this is the zero-markup component it replaces). -->
+      <Unauthenticated>
+        <LabPanel
+          label="AuthForm · packaged"
+          title="Sign in with the packaged form"
+          tone="accent"
+        >
+          <div class="bk-depth">
+            <AuthForm title="Sign in to the playground" />
+          </div>
+          <p class="hint">
+            The same passwordless flow the custom
+            <NuxtLink to="/login">/login</NuxtLink> page hand-builds on
+            <code>useLoginFlow()</code> — here as the drop-in
+            <code>&lt;AuthForm&gt;</code>, styled by the auto-added
+            <code>ui.css</code> plus the site's token bridge.
+          </p>
+        </LabPanel>
+      </Unauthenticated>
     </ClientOnly>
   </div>
 </template>

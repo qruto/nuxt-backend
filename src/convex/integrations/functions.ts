@@ -9,7 +9,7 @@ export interface FunctionOrganization {
   role: string
 }
 
-/** A rate limiter compatible with `setupRateLimiter(...)` from `nuxt-backend/convex/rate-limit`. */
+/** A rate limiter compatible with `setupRateLimiter(...)` from `nuxt-backend/rate-limit`. */
 export interface FunctionsRateLimiter {
   limit: (
     ctx: never,

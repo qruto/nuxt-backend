@@ -20,7 +20,7 @@ export { Triggers } from 'convex-helpers/server/triggers'
  *
  * @example
  * ```ts
- * import { TableAggregate, Triggers, withTriggers } from 'nuxt-backend/convex/aggregate'
+ * import { TableAggregate, Triggers, withTriggers } from 'nuxt-backend/aggregate'
  * import { components } from './_generated/api'
  * import { mutation as rawMutation } from './_generated/server'
  * import type { DataModel } from './_generated/dataModel'

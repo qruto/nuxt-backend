@@ -1,7 +1,7 @@
-import { MINUTE, setupRateLimiter } from 'nuxt-backend/convex/rate-limit'
+import { MINUTE, setupRateLimiter } from 'nuxt-backend/rate-limit'
 import { v } from 'convex/values'
 import { components } from './_generated/api'
-import { mutation } from './_generated/server'
+import { mutation, query } from './_generated/server'
 
 // Application rate limiting. Pre-seeded with the auth limits (emailOtp,
 // signIn, signUp, passwordReset) — add your own named limits here.
@@ -21,5 +21,25 @@ export const ping = mutation({
     const key = identity?.subject ?? 'anonymous'
     const { ok, retryAfter } = await rateLimiter.limit(ctx, 'demoPing', { key })
     return { ok, retryAfter }
+  },
+})
+
+/**
+ * Live view of the pre-seeded auth limits for the caller's email — meters on
+ * the rate-limit playground page drain as OTP requests / sign-ins happen.
+ * `getValue` returns `{ config, value, ts }`, so each entry carries its own
+ * capacity for the meter.
+ */
+export const authLimits = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    const email = typeof identity?.email === 'string' ? identity.email : null
+    if (!email) return { email: null, emailOtp: null, signIn: null }
+    const [emailOtp, signIn] = await Promise.all([
+      rateLimiter.getValue(ctx, 'emailOtp', { key: email }),
+      rateLimiter.getValue(ctx, 'signIn', { key: email }),
+    ])
+    return { email, emailOtp, signIn }
   },
 })

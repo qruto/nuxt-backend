@@ -1,7 +1,7 @@
 # Minimal example
 
 The out-of-the-box [`nuxt-backend`](../../README.md) setup. **Every file in
-`convex/` is byte-identical to what `npx nuxt-backend init` generates** — the
+`backend/` is byte-identical to what `npx nuxt-backend init` generates** — the
 only configuration is the required deployment env vars. There is no custom
 backend code at all, yet the app has:
 

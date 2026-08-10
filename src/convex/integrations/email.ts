@@ -173,7 +173,7 @@ export interface Email {
  *
  * @example
  * ```ts
- * import { setupEmail } from 'nuxt-backend/convex/email'
+ * import { setupEmail } from 'nuxt-backend/email'
  * import { components } from './_generated/api'
  *
  * export const email = setupEmail(components)

@@ -6,6 +6,9 @@ definePageMeta({ middleware: 'auth' })
 
 const billing = useBilling()
 const credits = useCredits()
+// Explicit gift view — the <GiftClaimBanner> above the metrics demonstrates
+// auto-claim; this instance lists and claims manually.
+const gifts = useGifts({ autoClaim: false })
 const consumeCredit = useAction(api.billing.consumeCredit)
 
 const creditPackId = computed(() => billing.products.value?.credits100?.id)
@@ -173,6 +176,52 @@ async function sendGift() {
         (<code>useGifts</code> auto-claim).
       </p>
     </LabPanel>
+
+    <LabPanel
+      label="useGifts · manual"
+      title="Received gifts"
+      variant="well"
+    >
+      <p
+        v-if="!gifts.received.value?.length"
+        class="hint"
+      >
+        Nothing yet — gifts sent to your email show up here (the banner above
+        auto-claims; this panel is the explicit
+        <code>useGifts({ autoClaim: false })</code> view and claim history).
+      </p>
+      <div
+        v-else
+        class="gift-rows"
+      >
+        <div
+          v-for="gift in gifts.received.value"
+          :key="gift.id"
+          class="gift-row"
+        >
+          <StatusPill
+            :tone="gift.status === 'claimed' ? 'ok' : 'signal'"
+            dot
+          >
+            {{ gift.status }}
+          </StatusPill>
+          <span class="gift-from">from {{ gift.purchaserEmail ?? gift.purchaserName ?? 'someone' }}</span>
+          <span
+            v-if="gift.message"
+            class="gift-note hint"
+          >“{{ gift.message }}”</span>
+          <LabButton
+            v-if="gift.status === 'paid'"
+            size="sm"
+            variant="signal"
+            :loading="gifts.isClaiming.value"
+            @click="gifts.claim(gift.id)"
+          >
+            Claim
+          </LabButton>
+        </div>
+      </div>
+    </LabPanel>
   </div>
 </template>
 
@@ -192,6 +241,11 @@ async function sendGift() {
   flex: 1; min-width: 180px; padding: 0.5rem 0.7rem; border-radius: var(--r-sm);
   border: 1px solid var(--line); background: var(--sink); color: inherit; font-size: 0.85rem;
 }
+
+.gift-rows { display: flex; flex-direction: column; gap: 0.45rem; }
+.gift-row { display: flex; align-items: center; gap: 0.6rem; font-size: 0.8rem; }
+.gift-from { font-weight: 600; }
+.gift-note { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .gift-banner :deep([data-gift='item']) {
   display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;

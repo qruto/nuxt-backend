@@ -1,10 +1,91 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import { api } from '#backend/api'
+
 definePageMeta({ middleware: 'auth' })
 
-const { user, role, banned, hasRole, can } = useAuth()
+const { user, role, banned, hasRole, can, client } = useAuth()
 const { role: workspaceRole } = useOrganization()
 
 const bootstrapCommand = `npx convex run functions:setUserRole '{"email":"${'you@example.com'}","role":"admin"}'`
+
+// --- Live server-side guards (backend/guards.ts) ----------------------------
+// Each button calls a Convex function built with a different pre-authorized
+// builder; denials are REAL server-side rejections, not UI gating.
+const convex = useConvex()
+const GUARDS = [
+  { key: 'whoami', label: 'authed.query', fn: api.guards.whoami, hint: 'signed in, not banned' },
+  { key: 'workspaceInfo', label: 'org.query', fn: api.guards.workspaceInfo, hint: 'fresh workspace membership' },
+  { key: 'adminStat', label: 'admin.query', fn: api.guards.adminStat, hint: 'app-wide admin only' },
+  { key: 'editorOnly', label: 'withRole(\'editor\')', fn: api.guards.editorOnly, hint: 'custom role tier' },
+] as const
+
+const guardResults = ref<Record<string, { ok: boolean, detail: string }>>({})
+const guardPending = ref<string | null>(null)
+
+async function callGuard(entry: (typeof GUARDS)[number]) {
+  guardPending.value = entry.key
+  try {
+    const result = await convex.query(entry.fn as never, {})
+    guardResults.value = { ...guardResults.value, [entry.key]: { ok: true, detail: JSON.stringify(result) } }
+  }
+  catch (e) {
+    const message = e instanceof Error ? e.message.split('\n')[0]! : 'denied'
+    guardResults.value = { ...guardResults.value, [entry.key]: { ok: false, detail: message } }
+  }
+  finally {
+    guardPending.value = null
+  }
+}
+
+// --- User administration (admin plugin) -------------------------------------
+interface AdminUserRow { id: string, email: string, role?: string | null, banned?: boolean | null }
+const adminUsers = ref<AdminUserRow[]>([])
+const adminNotice = ref<string | null>(null)
+const adminBusy = ref<string | null>(null)
+
+async function loadUsers() {
+  adminBusy.value = 'list'
+  adminNotice.value = null
+  try {
+    const result = unwrapAuth<{ users: AdminUserRow[] }>(await (client as never as {
+      admin: { listUsers: (args: { query: { limit: number } }) => Promise<unknown> }
+    }).admin.listUsers({ query: { limit: 20 } }))
+    adminUsers.value = result.users ?? []
+  }
+  catch (e) {
+    adminNotice.value = e instanceof Error ? e.message : 'Failed'
+  }
+  finally {
+    adminBusy.value = null
+  }
+}
+
+async function setBanned(row: AdminUserRow, ban: boolean) {
+  adminBusy.value = row.id
+  adminNotice.value = null
+  try {
+    const adminClient = client as never as {
+      admin: {
+        banUser: (args: { userId: string, banReason?: string }) => Promise<unknown>
+        unbanUser: (args: { userId: string }) => Promise<unknown>
+      }
+    }
+    unwrapAuth(ban
+      ? await adminClient.admin.banUser({ userId: row.id, banReason: 'playground demo' })
+      : await adminClient.admin.unbanUser({ userId: row.id }))
+    adminNotice.value = ban
+      ? `${row.email} banned — their authed.* calls now reject server-side.`
+      : `${row.email} unbanned.`
+    await loadUsers()
+  }
+  catch (e) {
+    adminNotice.value = e instanceof Error ? e.message : 'Failed'
+  }
+  finally {
+    adminBusy.value = null
+  }
+}
 </script>
 
 <template>
@@ -87,17 +168,102 @@ const bootstrapCommand = `npx convex run functions:setUserRole '{"email":"${'you
     </div>
 
     <LabPanel
-      label="server"
-      title="Guarding Convex functions"
+      label="server · live"
+      title="Guarded Convex functions"
+      tone="accent"
     >
-      <pre class="cmd"><code>// convex/functions.ts (scaffolded)
-export const { authed, org, admin, withRole } = createFunctions({ query, mutation, action }, authorization)
-
-// anywhere in your backend
-export const purgeLogs = admin.mutation({ … })          // app-wide admin
-export const createProject = org.mutation({ … })        // ctx.organization, fresh membership
-export const review = withRole('editor').query({ … })   // custom role tier</code></pre>
+      <p class="hint">
+        Four real functions from <code>backend/guards.ts</code>, one per
+        builder — the denials below are server-side rejections, not UI gating.
+      </p>
+      <div
+        v-for="entry in GUARDS"
+        :key="entry.key"
+        class="guard-row"
+      >
+        <LabButton
+          size="sm"
+          :loading="guardPending === entry.key"
+          @click="callGuard(entry)"
+        >
+          {{ entry.label }}
+        </LabButton>
+        <span class="hint guard-hint">{{ entry.hint }}</span>
+        <StatusPill
+          v-if="guardResults[entry.key]"
+          :tone="guardResults[entry.key]!.ok ? 'ok' : 'err'"
+          dot
+        >
+          {{ guardResults[entry.key]!.ok ? 'allowed' : 'denied' }}
+        </StatusPill>
+        <span
+          v-if="guardResults[entry.key]"
+          class="mono guard-detail"
+        >{{ guardResults[entry.key]!.detail }}</span>
+      </div>
     </LabPanel>
+
+    <RoleBoundary role="admin">
+      <LabPanel
+        label="admin plugin"
+        title="User administration"
+        variant="well"
+      >
+        <div class="row">
+          <LabButton
+            variant="ghost"
+            size="sm"
+            :loading="adminBusy === 'list'"
+            @click="loadUsers"
+          >
+            Load users
+          </LabButton>
+          <span class="hint">
+            <code>client.admin.listUsers / banUser / unbanUser</code> — a banned
+            user's <code>authed.*</code> calls reject and
+            <code>useAuth().banned</code> flips on their next claim refresh.
+          </span>
+        </div>
+        <div
+          v-for="row in adminUsers"
+          :key="row.id"
+          class="guard-row"
+        >
+          <span class="mono admin-email">{{ row.email }}</span>
+          <StatusPill
+            :tone="row.banned ? 'err' : 'ok'"
+            dot
+          >
+            {{ row.banned ? 'banned' : (row.role ?? 'user') }}
+          </StatusPill>
+          <LabButton
+            v-if="!row.banned"
+            variant="danger"
+            size="sm"
+            :disabled="row.id === user?.id"
+            :loading="adminBusy === row.id"
+            @click="setBanned(row, true)"
+          >
+            Ban
+          </LabButton>
+          <LabButton
+            v-else
+            variant="ghost"
+            size="sm"
+            :loading="adminBusy === row.id"
+            @click="setBanned(row, false)"
+          >
+            Unban
+          </LabButton>
+        </div>
+        <p
+          v-if="adminNotice"
+          class="hint"
+        >
+          {{ adminNotice }}
+        </p>
+      </LabPanel>
+    </RoleBoundary>
   </div>
 </template>
 
@@ -113,4 +279,9 @@ export const review = withRole('editor').query({ … })   // custom role tier</c
   overflow-x: auto; white-space: pre;
 }
 .hint { color: var(--ink-dim); font-size: 0.82rem; line-height: 1.5; margin: 0; }
+
+.guard-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.55rem; flex-wrap: wrap; }
+.guard-hint { min-width: 11rem; }
+.guard-detail { font-size: 0.68rem; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.admin-email { font-size: 0.78rem; flex: 1; }
 </style>

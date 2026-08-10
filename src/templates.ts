@@ -1,9 +1,9 @@
 import dedent from 'dedent'
 
-const AUTH_CONFIG_TEMPLATE = `export { default } from 'nuxt-backend/convex/auth.config'\n`
+const AUTH_CONFIG_TEMPLATE = `export { default } from 'nuxt-backend/auth.config'\n`
 
 const HTTP_TEMPLATE = dedent`
-  import { registerBackendRoutes } from 'nuxt-backend/convex/http'
+  import { registerBackendRoutes } from 'nuxt-backend/http'
   import { httpRouter } from 'convex/server'
   import { authComponent, createAuth } from './auth'
   import { provider, webhookEvents } from './billing'
@@ -32,7 +32,7 @@ const HTTP_TEMPLATE = dedent`
  * them all, swapping in the local `backend` definition.
  */
 const LOCAL_CONVEX_CONFIG = dedent`
-  import { defineBackendApp } from 'nuxt-backend/convex/app'
+  import { defineBackendApp } from 'nuxt-backend/app'
   import backend from './components/backend/convex.config'
 
   // The upstream components (aggregate, migrations, Polar, rate limiter,
@@ -48,8 +48,8 @@ const LOCAL_CONVEX_CONFIG = dedent`
  */
 const FEATURE_FILE_TEMPLATES: Record<string, string> = {
   'functions.ts': dedent`
-    import { setupAuthorization } from 'nuxt-backend/convex/authorization'
-    import { createFunctions } from 'nuxt-backend/convex/functions'
+    import { setupAuthorization } from 'nuxt-backend/authorization'
+    import { createFunctions } from 'nuxt-backend/functions'
     import { components } from './_generated/api'
     import { action, internalMutation, mutation, query } from './_generated/server'
 
@@ -71,7 +71,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     ` + '\n',
 
   'billing.ts': dedent`
-    import { setupBilling, type DiscountInput } from 'nuxt-backend/convex/billing'
+    import { setupBilling, type DiscountInput } from 'nuxt-backend/billing'
     import { v } from 'convex/values'
     import { components } from './_generated/api'
     import { internalAction } from './_generated/server'
@@ -141,7 +141,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     ` + '\n',
 
   'email.ts': dedent`
-    import { setupEmail } from 'nuxt-backend/convex/email'
+    import { setupEmail } from 'nuxt-backend/email'
     import { v } from 'convex/values'
     import { api, components } from './_generated/api'
     import { action, internalAction } from './_generated/server'
@@ -190,7 +190,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     ` + '\n',
 
   'rateLimiter.ts': dedent`
-    import { setupRateLimiter } from 'nuxt-backend/convex/rate-limit'
+    import { setupRateLimiter } from 'nuxt-backend/rate-limit'
     import { components } from './_generated/api'
 
     // Application rate limiting. Pre-seeded with the auth limits (emailOtp,
@@ -199,7 +199,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     ` + '\n',
 
   'workflows.ts': dedent`
-    import { setupWorkflows } from 'nuxt-backend/convex/workflows'
+    import { setupWorkflows } from 'nuxt-backend/workflows'
     import { v } from 'convex/values'
     import { components } from './_generated/api'
 
@@ -220,7 +220,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     ` + '\n',
 
   'migrations.ts': dedent`
-    import { setupMigrations } from 'nuxt-backend/convex/migrations'
+    import { setupMigrations } from 'nuxt-backend/migrations'
     import { components } from './_generated/api'
 
     // Online, batched schema migrations. Pass your schema for typed migrateOne:
@@ -237,7 +237,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // \`components.aggregate\`). Uncomment and adapt to a table in your schema —
     // here, a live count of rows in a \`messages\` table kept in sync by triggers:
     //
-    // import { TableAggregate, Triggers, withTriggers } from 'nuxt-backend/convex/aggregate'
+    // import { TableAggregate, Triggers, withTriggers } from 'nuxt-backend/aggregate'
     // import { components } from './_generated/api'
     // import { mutation as rawMutation, query } from './_generated/server'
     // import type { DataModel } from './_generated/dataModel'
@@ -265,7 +265,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     //     .searchIndex('search_text', { searchField: 'text', filterFields: ['userId'] })
     // then expose a search query and drive it from the client with \`useSearch\`:
     //
-    // import { defineSearch } from 'nuxt-backend/convex/search'
+    // import { defineSearch } from 'nuxt-backend/search'
     // import { query } from './_generated/server'
     //
     // export const searchMessages = defineSearch(query, {
@@ -285,7 +285,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
  * email env.
  */
 const DEFAULT_CONVEX_CONFIG = dedent`
-  import { defineBackendApp } from 'nuxt-backend/convex/app'
+  import { defineBackendApp } from 'nuxt-backend/app'
 
   // One call mounts the all-in-one backend component (auth, email, billing
   // cache, gifts) plus aggregate, migrations, Polar, rate limiter and
@@ -306,7 +306,7 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
   'convex.config.ts': DEFAULT_CONVEX_CONFIG,
   'auth.config.ts': AUTH_CONFIG_TEMPLATE,
   'auth.ts': dedent`
-    import { setupAuth } from 'nuxt-backend/convex'
+    import { setupAuth } from 'nuxt-backend/auth'
     import { components, internal } from './_generated/api'
     import { query } from './_generated/server'
     import { rateLimiter } from './rateLimiter'
@@ -353,7 +353,7 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
   'convex.config.ts': LOCAL_CONVEX_CONFIG,
   'auth.config.ts': AUTH_CONFIG_TEMPLATE,
   'auth.ts': dedent`
-    import { setupAuth } from 'nuxt-backend/convex'
+    import { setupAuth } from 'nuxt-backend/auth'
     import { components, internal } from './_generated/api'
     import { query } from './_generated/server'
     import { authSchema } from './components/backend/schema'
@@ -405,7 +405,7 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
 
     export default component
     ` + '\n',
-  'components/backend/generated-schema.ts': `export { tables, billingTables, vEntitlementBenefit, vEntitlementMeter, vGift } from 'nuxt-backend/convex/components/backend/schema'\n`,
+  'components/backend/generated-schema.ts': `export { tables, billingTables, vEntitlementBenefit, vEntitlementMeter, vGift } from 'nuxt-backend/component/schema'\n`,
   'components/backend/schema.ts': dedent`
     import { defineSchema } from 'convex/server'
     import { billingTables, tables } from './generated-schema'
@@ -438,17 +438,17 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
   'components/backend/email.ts': dedent`
     // The packaged email module (send / status / cancel + webhook over the
     // nested provider component). Inline the implementation to customize it.
-    export { send, status, get, cancel, handleWebhook } from 'nuxt-backend/convex/components/backend/email'
+    export { send, status, get, cancel, handleWebhook } from 'nuxt-backend/component/email'
     ` + '\n',
   'components/backend/billing.ts': dedent`
     // The packaged entitlement-cache module. Inline the implementation to
     // customize it.
-    export { getByUser, upsert, clear, userByCustomer } from 'nuxt-backend/convex/components/backend/billing'
+    export { getByUser, upsert, clear, userByCustomer } from 'nuxt-backend/component/billing'
     ` + '\n',
   'components/backend/gifts.ts': dedent`
     // The packaged gift-purchase module. Inline the implementation to
     // customize it.
-    export { create, markPaid, markClaimed, listByEmail, get, resolveRecipient } from 'nuxt-backend/convex/components/backend/gifts'
+    export { create, markPaid, markClaimed, listByEmail, get, resolveRecipient } from 'nuxt-backend/component/gifts'
     ` + '\n',
   'components/backend/auth.ts': dedent`
     import { createAuth } from '../../auth'
@@ -463,20 +463,4 @@ export function getBackendFileTemplates(options: BackendTemplateOptions = {}) {
   return options.installation === 'local'
     ? LOCAL_BACKEND_FILE_TEMPLATES
     : BACKEND_FILE_TEMPLATES
-}
-
-/**
- * Scaffold files per feature — drives `nuxt-backend add <feature>`. The
- * `functions` feature (authorization + pre-authorized builders) is included
- * because it's a plain scaffold file like the rest.
- */
-export const FEATURES: Record<string, string[]> = {
-  'functions': ['functions.ts'],
-  'billing': ['billing.ts'],
-  'email': ['email.ts'],
-  'rate-limit': ['rateLimiter.ts'],
-  'workflows': ['workflows.ts'],
-  'migrations': ['migrations.ts'],
-  'aggregates': ['aggregates.ts'],
-  'search': ['search.ts'],
 }

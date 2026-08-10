@@ -84,6 +84,17 @@ export default defineNuxtConfig({
   backend: {
     // url: 'http://127.0.0.1:3210',
     // siteUrl: 'http://127.0.0.1:3211',
+    // The playground mounts the SaaS page components under its own chrome
+    // (/playground/saas/*) and the vanilla group shows the zero-config look
+    // (/playground/vanilla/*) — so the root-level default pages stay off.
+    // `login` stays default-but-shadowed by app/pages/login.vue (route
+    // override demo); the accept-invitation page stays module-mounted.
+    pages: {
+      pricing: false,
+      settings: false,
+      profile: false,
+      security: false,
+    },
   },
   // Docus / Nuxt Content compile a SQLite WASM module in the browser (search +
   // client-side content queries). The bundled nuxt-security CSP must allow

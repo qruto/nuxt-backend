@@ -63,7 +63,7 @@ export type AuthRateLimitName = 'emailOtp' | 'signIn' | 'signUp' | 'passwordRese
 
 /**
  * Guards auth-sensitive flows. Satisfied by `setupRateLimiter(...)` from
- * `nuxt-backend/convex/rate-limit` (which seeds these named limits).
+ * `nuxt-backend/rate-limit` (which seeds these named limits).
  */
 export interface AuthRateLimiter {
   limit: (
@@ -90,10 +90,11 @@ export type OnUserCreated<DM extends GenericDataModel = GenericDataModel>
 
 /**
  * Cross-component wiring for Better Auth. All optional: with no `email`
- * transport, OTP delivery no-ops (set `NUXT_BACKEND_LOG_OTP=1` to echo codes to
- * the console during local dev). Provide an `email` transport to deliver OTP /
- * verification / reset emails, a `rateLimiter` to throttle OTP sends, and
- * `onUserCreated` to run side effects (durable workflows, analytics) on signup.
+ * transport, OTP requests fail loudly (set `NUXT_BACKEND_LOG_OTP=1` to echo
+ * codes to the console during local dev instead). Provide an `email` transport
+ * to deliver OTP / verification / reset emails, a `rateLimiter` to throttle
+ * OTP sends, and `onUserCreated` to run side effects (durable workflows,
+ * analytics) on signup.
  */
 export interface AuthIntegrations<DM extends GenericDataModel = GenericDataModel> {
   email?: AuthEmailSender
@@ -248,14 +249,14 @@ function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRunt
         console.warn(
           `[nuxt-backend] No email transport configured. Email OTP (${data.type}) for ${data.email}: ${data.otp}`,
         )
+        return
       }
-      else {
-        console.warn(
-          `[nuxt-backend] No email transport configured — OTP for a ${data.type} request was not delivered. `
-          + `Set the required EMAIL_API_KEY env var to send email, or NUXT_BACKEND_LOG_OTP=1 to echo codes to the console during local dev.`,
-        )
-      }
-      return
+      // Failing loudly beats a login screen waiting for an email that will
+      // never arrive — the thrown message surfaces in the sign-in UI.
+      throw new Error(
+        `[nuxt-backend] OTP not delivered — the backend component has no email transport. `
+        + `Set the required EMAIL_API_KEY env var to send email, or NUXT_BACKEND_LOG_OTP=1 to echo codes to the console during local dev.`,
+      )
     }
     if (runtime.rateLimiter) {
       const { ok } = await runtime.rateLimiter.limit(ctx, 'emailOtp', { key: data.email })
@@ -364,8 +365,8 @@ type ComponentEmailRef = FunctionReference<
  * just sets `EMAIL_API_KEY`.
  *
  * Returns `undefined` if the component ref has no `email` module (e.g. a
- * stripped-down locally installed component), in which case OTP delivery
- * no-ops unless `NUXT_BACKEND_LOG_OTP=1` is set (see {@link AuthIntegrations}).
+ * stripped-down locally installed component), in which case OTP requests
+ * throw unless `NUXT_BACKEND_LOG_OTP=1` is set (see {@link AuthIntegrations}).
  */
 function componentEmailSender(components: AuthSetupComponents): AuthEmailSender | undefined {
   // The backend component exposes `email.send`, but the loose component-ref
@@ -724,7 +725,7 @@ export function makeAuthApi<
  *
  * @example
  * ```ts
- * import { setupAuth } from 'nuxt-backend/convex'
+ * import { setupAuth } from 'nuxt-backend/auth'
  * import { components } from './_generated/api'
  * import { query } from './_generated/server'
  *

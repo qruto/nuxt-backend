@@ -86,7 +86,7 @@ async function logout() {
       <p class="muted">
         {{ billing.isSubscribed.value ? 'Subscribed' : 'Free plan' }} —
         webhooks arrive on the custom <code>/hooks/billing</code> path, and the
-        <code>order.paid</code> hook in <code>convex/billing.ts</code> writes
+        <code>order.paid</code> hook in <code>backend/billing.ts</code> writes
         each paid order to the app's own <code>orders</code> table.
       </p>
       <FeatureBoundary feature="premium">

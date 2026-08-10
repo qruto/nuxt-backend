@@ -3,7 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { defineCommand } from 'citty'
 import { scaffoldBackendFiles, resolveFunctionsDir } from '../scaffold'
-import { FEATURES, type BackendInstallationMode } from '../templates'
+import type { BackendInstallationMode } from '../templates'
 import { collectPreflightFindings, formatPreflightSummary, type PreflightFinding } from '../preflight'
 
 const ENV_EXAMPLE = `# Nuxt app (client + SSR)
@@ -46,7 +46,7 @@ async function addModuleToNuxtConfig(rootDir: string): Promise<boolean> {
 }
 
 const init = defineCommand({
-  meta: { name: 'init', description: 'Scaffold the Convex backend files, .env.example, and nuxt.config wiring' },
+  meta: { name: 'init', description: 'Scaffold the backend files, .env.example, and nuxt.config wiring (re-run to restore missing files; --force to reset)' },
   args: {
     ...cwdArg,
     installation: { type: 'string', description: 'Scaffold mode: default | local', default: 'default' },
@@ -90,34 +90,6 @@ Next steps:
   },
 })
 
-const add = defineCommand({
-  meta: { name: 'add', description: `Scaffold a feature file: ${Object.keys(FEATURES).join(' | ')}` },
-  args: {
-    ...cwdArg,
-    feature: { type: 'positional', description: 'Feature to add', required: true },
-    force: { type: 'boolean', description: 'Overwrite the existing file', default: false },
-  },
-  run({ args }) {
-    const files = Object.hasOwn(FEATURES, args.feature) ? FEATURES[args.feature] : undefined
-    if (!files) {
-      console.error(`[nuxt-backend] Unknown feature "${args.feature}". Available: ${Object.keys(FEATURES).join(', ')}`)
-      process.exitCode = 1
-      return
-    }
-    const rootDir = projectRoot(args)
-    scaffoldBackendFiles(rootDir, { files, force: args.force })
-
-    const functionsDir = resolveFunctionsDir(rootDir)
-    const httpPath = join(rootDir, functionsDir, 'http.ts')
-    if ((args.feature === 'billing' || args.feature === 'email') && existsSync(httpPath)) {
-      const http = readFileSync(httpPath, 'utf-8')
-      if (!http.includes('registerBackendRoutes')) {
-        console.warn(`[nuxt-backend] ${functionsDir}/http.ts doesn't call registerBackendRoutes — mount the ${args.feature} webhook there.`)
-      }
-    }
-  },
-})
-
 /** Read deployment env var NAMES via `npx convex env list` (values never leave the CLI). */
 function deploymentEnvNames(rootDir: string): string[] | null {
   try {
@@ -155,13 +127,65 @@ function readEnvFiles(rootDir: string): Record<string, string> {
   return env
 }
 
+/**
+ * Probe the deployment's webhook routes with an empty-body POST (no secrets
+ * involved): 404 means the route isn't mounted in `http.ts`; any other 4xx
+ * means it is (signature verification correctly rejected the empty probe).
+ */
+async function webhookRouteFindings(siteUrl: string): Promise<PreflightFinding[]> {
+  const routes = [
+    { id: 'billing-webhook-route', title: 'Billing webhook route', path: '/billing/events', service: 'billing' },
+    { id: 'email-webhook-route', title: 'Email webhook route', path: '/email/events', service: 'email' },
+  ]
+  return Promise.all(routes.map(async (route): Promise<PreflightFinding> => {
+    const url = `${siteUrl.replace(/\/+$/, '')}${route.path}`
+    try {
+      const response = await fetch(url, { method: 'POST', body: '', signal: AbortSignal.timeout(5000) })
+      if (response.status === 404) {
+        return {
+          id: route.id,
+          title: route.title,
+          status: 'fail',
+          message: `${route.path} is not mounted on the deployment.`,
+          fixHint: `Pass \`${route.service}\` to registerBackendRoutes in http.ts and deploy.`,
+        }
+      }
+      if (response.status >= 400 && response.status < 500) {
+        return {
+          id: route.id,
+          title: route.title,
+          status: 'pass',
+          message: `${route.path} is mounted (signature verification rejected the probe, as expected).`,
+          fixHint: '',
+        }
+      }
+      return {
+        id: route.id,
+        title: route.title,
+        status: 'warn',
+        message: `${route.path} answered with unexpected status ${response.status}.`,
+        fixHint: 'Check the deployment logs.',
+      }
+    }
+    catch {
+      return {
+        id: route.id,
+        title: route.title,
+        status: 'warn',
+        message: `${url} is unreachable (offline, or the deployment is not running).`,
+        fixHint: 'Run `npx convex dev` (or deploy), then re-run doctor.',
+      }
+    }
+  }))
+}
+
 const doctor = defineCommand({
   meta: { name: 'doctor', description: 'Check the project + deployment configuration' },
   args: {
     ...cwdArg,
     json: { type: 'boolean', description: 'Machine-readable output', default: false },
   },
-  run({ args }) {
+  async run({ args }) {
     const rootDir = projectRoot(args)
     const env = { ...readEnvFiles(rootDir), ...process.env } as Record<string, string | undefined>
 
@@ -218,6 +242,12 @@ const doctor = defineCommand({
       })
     }
 
+    // Webhook routes must actually be mounted — a missing route silently
+    // drops billing/email events.
+    if (env.NUXT_PUBLIC_CONVEX_SITE_URL) {
+      findings.push(...await webhookRouteFindings(env.NUXT_PUBLIC_CONVEX_SITE_URL))
+    }
+
     if (args.json) {
       console.log(JSON.stringify({ findings, summary: formatPreflightSummary(findings) }, null, 2))
     }
@@ -239,5 +269,5 @@ export const main = defineCommand({
     name: 'nuxt-backend',
     description: 'All-in-one SaaS backend for Nuxt on Convex — scaffold and check your project',
   },
-  subCommands: { init, add, doctor },
+  subCommands: { init, doctor },
 })

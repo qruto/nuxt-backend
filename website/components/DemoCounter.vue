@@ -49,7 +49,7 @@ async function bump(by: number) {
             color="neutral"
             icon="i-lucide-rotate-ccw"
             aria-label="Reset"
-            @click="reset({})"
+            @click="() => { void reset({}) }"
           />
         </div>
       </div>

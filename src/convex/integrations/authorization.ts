@@ -116,7 +116,7 @@ export interface Authorization {
  * @example
  * ```ts
  * // convex/functions.ts
- * import { setupAuthorization } from 'nuxt-backend/convex/authorization'
+ * import { setupAuthorization } from 'nuxt-backend/authorization'
  * import { components } from './_generated/api'
  * import { internalMutation } from './_generated/server'
  *

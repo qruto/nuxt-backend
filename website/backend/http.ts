@@ -1,4 +1,4 @@
-import { registerBackendRoutes } from 'nuxt-backend/convex/http'
+import { registerBackendRoutes } from 'nuxt-backend/http'
 import { httpRouter } from 'convex/server'
 import { authComponent, createAuth } from './auth'
 import { provider, webhookEvents } from './billing'

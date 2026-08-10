@@ -11,55 +11,54 @@ const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8')) as {
 const websiteBackendTsconfig = readFileSync(websiteBackendTsconfigPath, 'utf-8')
 
 describe('package exports', () => {
-  it('exposes the all-in-one backend component through Convex config subpaths', () => {
-    expect(packageJson.exports).toHaveProperty('./convex')
-    expect(packageJson.exports).toHaveProperty('./convex/components/backend/convex.config')
+  it('exposes the all-in-one backend component through neutral subpaths', () => {
+    expect(packageJson.exports).toHaveProperty('./auth')
+    expect(packageJson.exports).toHaveProperty('./component/convex.config')
     // The component template (and every @convex-dev component) exports the
     // required component entries both extensionless and `.js`-suffixed — the
     // suffixed form is the historically documented Convex import style and
     // what NodeNext-resolution consumers write. Both must resolve identically.
-    expect(packageJson.exports['./convex/components/backend/convex.config.js'])
-      .toEqual(packageJson.exports['./convex/components/backend/convex.config'])
-    expect(packageJson.exports).toHaveProperty('./convex/components/backend/_generated/component')
-    expect(packageJson.exports['./convex/components/backend/_generated/component.js'])
-      .toEqual(packageJson.exports['./convex/components/backend/_generated/component'])
-    expect(packageJson.exports).toHaveProperty('./convex/components/backend/schema')
+    expect(packageJson.exports['./component/convex.config.js'])
+      .toEqual(packageJson.exports['./component/convex.config'])
+    expect(packageJson.exports).toHaveProperty('./component/_generated/component')
+    expect(packageJson.exports['./component/_generated/component.js'])
+      .toEqual(packageJson.exports['./component/_generated/component'])
+    expect(packageJson.exports).toHaveProperty('./component/schema')
     // Only the required component entries get the `.js` alias — the function
     // modules and schema stay extensionless-only, like the template.
-    expect(packageJson.exports).not.toHaveProperty('./convex/components/backend/schema.js')
+    expect(packageJson.exports).not.toHaveProperty('./component/schema.js')
     // Local-install re-export templates need the function modules.
     for (const name of ['email', 'billing', 'gifts']) {
-      expect(packageJson.exports).toHaveProperty(`./convex/components/backend/${name}`)
+      expect(packageJson.exports).toHaveProperty(`./component/${name}`)
     }
-    // The pre-merge split-component subpaths are gone.
-    for (const name of ['auth', 'email', 'billing']) {
-      expect(packageJson.exports).not.toHaveProperty(`./convex/components/${name}/convex.config`)
+    expect(packageJson.exports).toHaveProperty('./auth.config')
+    expect(packageJson.exports).toHaveProperty('./billing')
+    expect(packageJson.exports).toHaveProperty('./email')
+    expect(packageJson.exports).toHaveProperty('./test')
+    // The brand-named `./convex/*` subpaths are gone — the public surface is
+    // service-neutral.
+    for (const key of Object.keys(packageJson.exports)) {
+      expect(key, `brand-named export subpath ${key}`).not.toMatch(/^\.\/convex/)
     }
-    expect(packageJson.exports).not.toHaveProperty('./convex/component/convex.config')
-    expect(packageJson.exports).toHaveProperty('./convex/auth.config')
-    expect(packageJson.exports).toHaveProperty('./convex/billing')
-    expect(packageJson.exports).toHaveProperty('./convex/email')
-    expect(packageJson.exports).toHaveProperty('./convex/test')
     expect(packageJson.exports).not.toHaveProperty('./client')
     expect(packageJson.exports).not.toHaveProperty('./auth-config')
-    expect(packageJson.exports).not.toHaveProperty('./auth')
     expect(packageJson.exports).not.toHaveProperty('./react')
   })
 
   it('ships built convex runtime entrypoints from dist instead of src', () => {
-    expect(packageJson.exports['./convex']).toEqual({
+    expect(packageJson.exports['./auth']).toEqual({
       types: './dist/convex/client/index.d.ts',
       default: './dist/convex/client/index.js',
     })
-    expect(packageJson.exports['./convex/components/backend/convex.config']).toEqual({
+    expect(packageJson.exports['./component/convex.config']).toEqual({
       types: './dist/convex/components/backend/convex.config.d.ts',
       default: './dist/convex/components/backend/convex.config.js',
     })
-    expect(packageJson.exports['./convex/components/backend/schema']).toEqual({
+    expect(packageJson.exports['./component/schema']).toEqual({
       types: './dist/convex/components/backend/schema.d.ts',
       default: './dist/convex/components/backend/schema.js',
     })
-    expect(packageJson.exports['./convex/auth.config']).toEqual({
+    expect(packageJson.exports['./auth.config']).toEqual({
       types: './dist/convex/auth.config.d.ts',
       default: './dist/convex/auth.config.js',
     })
@@ -71,7 +70,7 @@ describe('scaffold templates', () => {
     // The default scaffold is a zero-import `defineBackendApp()` call — the
     // package itself imports and mounts every bundled component.
     expect(BACKEND_FILE_TEMPLATES['convex.config.ts']).toContain(
-      `import { defineBackendApp } from 'nuxt-backend/convex/app'`,
+      `import { defineBackendApp } from 'nuxt-backend/app'`,
     )
     expect(BACKEND_FILE_TEMPLATES['convex.config.ts']).toContain(
       `export default defineBackendApp()`,
@@ -81,10 +80,10 @@ describe('scaffold templates', () => {
       `registerBackendRoutes(http, {`,
     )
     expect(BACKEND_FILE_TEMPLATES['auth.config.ts']).toBe(
-      `export { default } from 'nuxt-backend/convex/auth.config'\n`,
+      `export { default } from 'nuxt-backend/auth.config'\n`,
     )
     expect(BACKEND_FILE_TEMPLATES['auth.ts']).toContain(
-      `import { setupAuth } from 'nuxt-backend/convex'`,
+      `import { setupAuth } from 'nuxt-backend/auth'`,
     )
     expect(BACKEND_FILE_TEMPLATES['auth.ts']).toContain('createAuthOptions')
     expect(BACKEND_FILE_TEMPLATES['auth.ts']).toContain('options')
@@ -104,7 +103,7 @@ describe('scaffold templates', () => {
       `createApi(authSchema, createAuthOptions)`,
     )
     expect(LOCAL_BACKEND_FILE_TEMPLATES['components/backend/generated-schema.ts']).toBe(
-      `export { tables, billingTables, vEntitlementBenefit, vEntitlementMeter, vGift } from 'nuxt-backend/convex/components/backend/schema'\n`,
+      `export { tables, billingTables, vEntitlementBenefit, vEntitlementMeter, vGift } from 'nuxt-backend/component/schema'\n`,
     )
     // The local component nests the email provider child and re-exports the
     // packaged function modules.
@@ -113,7 +112,7 @@ describe('scaffold templates', () => {
     )
     for (const name of ['email', 'billing', 'gifts']) {
       expect(LOCAL_BACKEND_FILE_TEMPLATES[`components/backend/${name}.ts`]).toContain(
-        `from 'nuxt-backend/convex/components/backend/${name}'`,
+        `from 'nuxt-backend/component/${name}'`,
       )
     }
   })
@@ -126,12 +125,12 @@ describe('scaffold templates', () => {
 })
 
 describe('examples', () => {
-  it('examples/minimal convex files are byte-identical to the scaffold templates', () => {
+  it('examples/minimal backend files are byte-identical to the scaffold templates', () => {
     // The minimal example's promise is "everything here is generated" — any
     // template change must be regenerated into it, and this catches drift.
     for (const [file, content] of Object.entries(BACKEND_FILE_TEMPLATES)) {
-      const target = fileURLToPath(new URL(`../../examples/minimal/convex/${file}`, import.meta.url))
-      expect(readFileSync(target, 'utf-8'), `examples/minimal/convex/${file} drifted from the template`).toBe(content)
+      const target = fileURLToPath(new URL(`../../examples/minimal/backend/${file}`, import.meta.url))
+      expect(readFileSync(target, 'utf-8'), `examples/minimal/backend/${file} drifted from the template`).toBe(content)
     }
   })
 })

@@ -18,7 +18,7 @@ const backend = import.meta.glob('./components/backend/**/*.ts')
  * @example
  * ```ts
  * import { convexTest } from 'convex-test'
- * import component from 'nuxt-backend/convex/test'
+ * import component from 'nuxt-backend/test'
  * import schema from './schema'
  *
  * const t = convexTest(schema, modules)

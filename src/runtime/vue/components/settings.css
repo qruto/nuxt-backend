@@ -1,0 +1,135 @@
+/*
+ * Neutral default styles for <WorkspaceSettings>, hooked on data-settings
+ * attributes. Part of `nuxt-backend/ui.css`; theme via the `--bk-*` tokens.
+ */
+[data-settings='root'] {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+  color: var(--bk-ink);
+}
+
+[data-settings^='section-'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+[data-settings='workspace-list'] {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+[data-settings='workspace'] {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--bk-edge);
+  border-radius: var(--bk-radius);
+  font-size: 0.88rem;
+}
+
+[data-settings='workspace'][data-active] {
+  border-color: color-mix(in srgb, var(--bk-accent) 60%, transparent);
+  background: color-mix(in srgb, var(--bk-accent) 6%, transparent);
+}
+
+[data-settings='workspace-name'] {
+  font-weight: 600;
+}
+
+[data-settings='workspace-slug'] {
+  flex: 1;
+  color: var(--bk-muted);
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-settings='active-badge'] {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bk-ok) 15%, transparent);
+  color: var(--bk-ok);
+}
+
+[data-settings='create-form'] {
+  display: flex;
+  gap: 0.6rem;
+}
+
+[data-settings='input-name'] {
+  flex: 1;
+}
+
+[data-settings='create'] {
+  background: var(--bk-accent);
+  border-color: var(--bk-accent);
+  color: var(--bk-on-accent);
+}
+
+[data-settings='plan-name'] {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+[data-settings='plan-status'] {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+[data-settings='plan-status'][data-tone='ok'] { color: var(--bk-ok); }
+[data-settings='plan-status'][data-tone='warn'] { color: var(--bk-warn); }
+
+[data-settings='period'] {
+  color: var(--bk-muted);
+}
+
+[data-settings='pricing-link'] {
+  align-self: flex-start;
+  color: var(--bk-accent);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+[data-settings='cancel'] {
+  align-self: flex-start;
+  border-color: color-mix(in srgb, var(--bk-error) 50%, transparent);
+  color: var(--bk-error);
+}
+
+[data-settings='balance'] {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+[data-settings='usage'] {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--bk-muted);
+}
+
+[data-settings='topup'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+[data-settings='refresh'] {
+  align-self: flex-start;
+  border: 0;
+  color: var(--bk-muted);
+}

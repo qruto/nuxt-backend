@@ -35,89 +35,90 @@
       "import": "./dist/module.js"
     },
     "./auth.css": "./dist/runtime/vue/components/auth.css",
-    "./convex": {
+    "./ui.css": "./dist/runtime/vue/components/ui.css",
+    "./auth": {
       "types": "./dist/convex/client/index.d.ts",
       "default": "./dist/convex/client/index.js"
     },
-    "./convex/authorization": {
+    "./authorization": {
       "types": "./dist/convex/integrations/authorization.d.ts",
       "import": "./dist/convex/integrations/authorization.js"
     },
-    "./convex/http": {
+    "./http": {
       "types": "./dist/convex/integrations/http.d.ts",
       "import": "./dist/convex/integrations/http.js"
     },
-    "./convex/functions": {
+    "./functions": {
       "types": "./dist/convex/integrations/functions.d.ts",
       "import": "./dist/convex/integrations/functions.js"
     },
-    "./convex/app": {
+    "./app": {
       "types": "./dist/convex/app.d.ts",
       "default": "./dist/convex/app.js"
     },
-    "./convex/billing": {
+    "./billing": {
       "types": "./dist/convex/integrations/billing.d.ts",
       "default": "./dist/convex/integrations/billing.js"
     },
-    "./convex/email": {
+    "./email": {
       "types": "./dist/convex/integrations/email.d.ts",
       "default": "./dist/convex/integrations/email.js"
     },
-    "./convex/rate-limit": {
+    "./rate-limit": {
       "types": "./dist/convex/integrations/rate-limit.d.ts",
       "default": "./dist/convex/integrations/rate-limit.js"
     },
-    "./convex/migrations": {
+    "./migrations": {
       "types": "./dist/convex/integrations/migrations.d.ts",
       "default": "./dist/convex/integrations/migrations.js"
     },
-    "./convex/aggregate": {
+    "./aggregate": {
       "types": "./dist/convex/integrations/aggregate.d.ts",
       "default": "./dist/convex/integrations/aggregate.js"
     },
-    "./convex/search": {
+    "./search": {
       "types": "./dist/convex/integrations/search.d.ts",
       "default": "./dist/convex/integrations/search.js"
     },
-    "./convex/workflows": {
+    "./workflows": {
       "types": "./dist/convex/integrations/workflows.d.ts",
       "default": "./dist/convex/integrations/workflows.js"
     },
-    "./convex/components/backend/convex.config": {
+    "./component/convex.config": {
       "types": "./dist/convex/components/backend/convex.config.d.ts",
       "default": "./dist/convex/components/backend/convex.config.js"
     },
-    "./convex/components/backend/convex.config.js": {
+    "./component/convex.config.js": {
       "types": "./dist/convex/components/backend/convex.config.d.ts",
       "default": "./dist/convex/components/backend/convex.config.js"
     },
-    "./convex/components/backend/_generated/component": {
+    "./component/_generated/component": {
       "types": "./dist/convex/components/backend/_generated/component.d.ts"
     },
-    "./convex/components/backend/_generated/component.js": {
+    "./component/_generated/component.js": {
       "types": "./dist/convex/components/backend/_generated/component.d.ts"
     },
-    "./convex/components/backend/schema": {
+    "./component/schema": {
       "types": "./dist/convex/components/backend/schema.d.ts",
       "default": "./dist/convex/components/backend/schema.js"
     },
-    "./convex/components/backend/email": {
+    "./component/email": {
       "types": "./dist/convex/components/backend/email.d.ts",
       "default": "./dist/convex/components/backend/email.js"
     },
-    "./convex/components/backend/billing": {
+    "./component/billing": {
       "types": "./dist/convex/components/backend/billing.d.ts",
       "default": "./dist/convex/components/backend/billing.js"
     },
-    "./convex/components/backend/gifts": {
+    "./component/gifts": {
       "types": "./dist/convex/components/backend/gifts.d.ts",
       "default": "./dist/convex/components/backend/gifts.js"
     },
-    "./convex/auth.config": {
+    "./auth.config": {
       "types": "./dist/convex/auth.config.d.ts",
       "default": "./dist/convex/auth.config.js"
     },
-    "./convex/test": "./src/convex/test.ts"
+    "./test": "./src/convex/test.ts"
   },
   "main": "./dist/module.js",
   "bin": {
@@ -128,64 +129,64 @@
       ".": [
         "./dist/types.d.ts"
       ],
-      "convex": [
+      "auth": [
         "./dist/convex/client/index.d.ts"
       ],
-      "convex/authorization": [
+      "authorization": [
         "./dist/convex/integrations/authorization.d.ts"
       ],
-      "convex/http": [
+      "http": [
         "./dist/convex/integrations/http.d.ts"
       ],
-      "convex/functions": [
+      "functions": [
         "./dist/convex/integrations/functions.d.ts"
       ],
-      "convex/app": [
+      "app": [
         "./dist/convex/app.d.ts"
       ],
-      "convex/billing": [
+      "billing": [
         "./dist/convex/integrations/billing.d.ts"
       ],
-      "convex/email": [
+      "email": [
         "./dist/convex/integrations/email.d.ts"
       ],
-      "convex/rate-limit": [
+      "rate-limit": [
         "./dist/convex/integrations/rate-limit.d.ts"
       ],
-      "convex/migrations": [
+      "migrations": [
         "./dist/convex/integrations/migrations.d.ts"
       ],
-      "convex/aggregate": [
+      "aggregate": [
         "./dist/convex/integrations/aggregate.d.ts"
       ],
-      "convex/search": [
+      "search": [
         "./dist/convex/integrations/search.d.ts"
       ],
-      "convex/workflows": [
+      "workflows": [
         "./dist/convex/integrations/workflows.d.ts"
       ],
-      "convex/components/backend/convex.config": [
+      "component/convex.config": [
         "./dist/convex/components/backend/convex.config.d.ts"
       ],
-      "convex/components/backend/_generated/component": [
+      "component/_generated/component": [
         "./dist/convex/components/backend/_generated/component.d.ts"
       ],
-      "convex/components/backend/schema": [
+      "component/schema": [
         "./dist/convex/components/backend/schema.d.ts"
       ],
-      "convex/components/backend/email": [
+      "component/email": [
         "./dist/convex/components/backend/email.d.ts"
       ],
-      "convex/components/backend/billing": [
+      "component/billing": [
         "./dist/convex/components/backend/billing.d.ts"
       ],
-      "convex/components/backend/gifts": [
+      "component/gifts": [
         "./dist/convex/components/backend/gifts.d.ts"
       ],
-      "convex/auth.config": [
+      "auth.config": [
         "./dist/convex/auth.config.d.ts"
       ],
-      "convex/test": [
+      "test": [
         "./src/convex/test.ts"
       ]
     }
@@ -247,6 +248,7 @@
     "better-auth": "~1.6.25",
     "convex-helpers": "^0.1.121",
     "dedent": "^1.7.2",
+    "defu": "^6.1.4",
     "nuxt-convex-module": "link:../nuxt-convex-module",
     "nuxt-security": "^2.6.0",
     "resend": "^6.18.0"

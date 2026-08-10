@@ -35,7 +35,7 @@ const DEFAULT_WORKPOOL_OPTIONS = {
  *
  * @example
  * ```ts
- * import { setupWorkflows } from 'nuxt-backend/convex/workflows'
+ * import { setupWorkflows } from 'nuxt-backend/workflows'
  * import { components } from './_generated/api'
  *
  * export const workflow = setupWorkflows(components)

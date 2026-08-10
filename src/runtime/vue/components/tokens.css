@@ -1,0 +1,106 @@
+/*
+ * The shared `--bk-*` token layer for every nuxt-backend component and page.
+ * One override of these custom properties re-themes everything at once;
+ * per-family tokens (e.g. `--auth-*`) derive from them and still work for
+ * finer-grained theming. `:where()` keeps specificity at zero, so any app
+ * selector wins.
+ *
+ * Auto-added by the module (`backend.css: false` to opt out), or import
+ * pieces yourself: `css: ['nuxt-backend/ui.css']`.
+ */
+:where(
+  [data-auth='form'],
+  [data-auth='page'],
+  [data-invitation],
+  [data-gift='banner'],
+  [data-pricing='table'],
+  [data-pricing='page'],
+  [data-settings='root'],
+  [data-settings='page'],
+  [data-profile='root'],
+  [data-profile='page'],
+  [data-security='root'],
+  [data-security='page']
+) {
+  --bk-accent: #00dc82;
+  --bk-on-accent: #04101f;
+  --bk-ink: inherit;
+  --bk-muted: color-mix(in srgb, currentColor 55%, transparent);
+  --bk-edge: color-mix(in srgb, currentColor 18%, transparent);
+  --bk-surface: color-mix(in srgb, currentColor 5%, transparent);
+  --bk-error: #e5484d;
+  --bk-ok: #30a46c;
+  --bk-warn: #f5a524;
+  --bk-radius: 8px;
+}
+
+/* ── Shared element defaults across all families ─────────────────────────── */
+
+:where([data-pricing='table'], [data-settings='root'], [data-profile='root'], [data-security='root'], [data-invitation], [data-gift='banner']) :where(button) {
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--bk-edge);
+  border-radius: var(--bk-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+:where([data-pricing='table'], [data-settings='root'], [data-profile='root'], [data-security='root'], [data-invitation], [data-gift='banner']) :where(button:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+:where([data-settings='root'], [data-profile='root']) :where(input) {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--bk-edge);
+  border-radius: var(--bk-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+:where([data-settings='root'], [data-profile='root'], [data-security='root']) :where(input:focus) {
+  outline: 2px solid var(--bk-accent);
+  outline-offset: 1px;
+}
+
+:where([data-settings='section-title'], [data-security='section-title']) {
+  margin: 0 0 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bk-muted);
+}
+
+:where([data-settings='message'], [data-profile='message'], [data-security='message']) {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--bk-radius);
+  font-size: 0.85rem;
+}
+
+:where([data-settings='message'][data-tone='ok'], [data-profile='message'][data-tone='ok'], [data-security='message'][data-tone='ok']) {
+  background: color-mix(in srgb, var(--bk-ok) 12%, transparent);
+  color: var(--bk-ok);
+}
+
+:where([data-settings='message'][data-tone='error'], [data-profile='message'][data-tone='error'], [data-security='message'][data-tone='error']) {
+  background: color-mix(in srgb, var(--bk-error) 12%, transparent);
+  color: var(--bk-error);
+}
+
+/* ── Default page wrappers (module-mounted routes) ───────────────────────── */
+
+:where([data-auth='page'], [data-pricing='page'], [data-settings='page'], [data-profile='page'], [data-security='page'], [data-invitation='page']) {
+  display: block;
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 3rem 1.25rem 4rem;
+}
+
+:where([data-auth='page']) {
+  max-width: 26rem;
+}

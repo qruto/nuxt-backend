@@ -2,14 +2,14 @@ import { api } from '#backend/api'
 
 /**
  * Runs Convex functions entirely on the Nuxt (Nitro) server — no browser, no
- * WebSocket. `convexAuth(event)` forwards the signed-in user's Convex token so
+ * WebSocket. `backendAuth(event)` forwards the signed-in user's Convex token so
  * these calls execute as that user, against the same data the live client pages
  * use. Demonstrates `fetchAuthQuery`, `fetchAuthMutation` and `fetchAuthAction`
  * (the token-aware wrappers around `fetchQuery` / `fetchMutation` /
  * `fetchAction`).
  */
 export default defineEventHandler(async (event) => {
-  const auth = convexAuth(event)
+  const auth = backendAuth(event)
   const startedAt = Date.now()
 
   if (!(await auth.isAuthenticated())) {

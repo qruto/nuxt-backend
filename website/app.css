@@ -617,3 +617,21 @@ header button:has(kbd):hover { box-shadow: var(--elev-2); }
 :where(a, div)[class*="border-default"][class*="rounded-md"][class*="bg-default"]:hover {
   box-shadow: var(--elev-2);
 }
+
+/* ── nuxt-backend components: depth-palette bridge ──────────────────────────
+   Rung 2 of the customization ladder: one token override re-themes every
+   packaged component. Scoped under `.bk-depth` so the vanilla playground
+   pages (/playground/vanilla/*) keep the untouched zero-config look. */
+.bk-depth :where([data-auth='form'], [data-invitation], [data-gift='banner'],
+                 [data-pricing='table'], [data-settings='root'],
+                 [data-profile='root'], [data-security='root']) {
+  --bk-accent: var(--accent);
+  --bk-on-accent: var(--on-accent);
+  --bk-muted: var(--ink-dim);
+  --bk-edge: var(--edge);
+  --bk-surface: var(--surface);
+  --bk-error: var(--err);
+  --bk-ok: var(--ok);
+  --bk-warn: var(--warn);
+  --bk-radius: var(--r-sm);
+}

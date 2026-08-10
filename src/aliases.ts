@@ -1,31 +1,12 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Nuxt } from '@nuxt/schema'
+import { resolveFunctionsDir } from './scaffold'
 
-const DEFAULT_FUNCTIONS_DIR = 'convex'
-
-/**
- * Resolve the Convex functions directory the way the Convex CLI does: the
- * `functions` field in `convex.json` wins, otherwise the `convex/` default.
- * Mirrors `nuxt-convex-module`'s resolution so `#backend/*` and `#convex/*`
- * always point at the same files.
- */
-export function resolveFunctionsDir(rootDir: string): string {
-  const convexJsonPath = join(rootDir, 'convex.json')
-  if (existsSync(convexJsonPath)) {
-    try {
-      const convexJson = JSON.parse(readFileSync(convexJsonPath, 'utf-8')) as { functions?: unknown }
-      if (typeof convexJson.functions === 'string') {
-        const normalized = convexJson.functions.replace(/^\.?\//, '').replace(/\/+$/, '')
-        if (normalized) return normalized
-      }
-    }
-    catch {
-      // Malformed convex.json — the base module already warns about it.
-    }
-  }
-  return DEFAULT_FUNCTIONS_DIR
-}
+// Single source of truth for functions-dir resolution (convex.json →
+// existing `backend/` → existing `convex/` → `backend`), shared with the
+// scaffolder so aliases, type fallbacks, and generated files always agree.
+export { resolveFunctionsDir } from './scaffold'
 
 /** Whether `convex dev` has emitted the generated `api` module. */
 export function hasGeneratedApi(rootDir: string, functionsDir: string = resolveFunctionsDir(rootDir)): boolean {

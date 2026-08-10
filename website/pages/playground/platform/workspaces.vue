@@ -253,6 +253,12 @@ async function cancelPending(id: string) {
           class="wsrow"
         >
           <span class="wsname">Workspace invitation · {{ entry.role ?? 'member' }}</span>
+          <NuxtLink
+            :to="`/accept-invitation?id=${entry.id}`"
+            class="accept-page-link"
+          >
+            Open accept page ↗
+          </NuxtLink>
           <LabButton
             size="sm"
             :disabled="pending"
@@ -271,9 +277,11 @@ async function cancelPending(id: string) {
         </li>
       </ul>
       <p class="hint">
-        The emailed accept link lands on <code>/accept-invitation</code> — a page
-        the module registers automatically (the <code>AcceptInvitation</code>
-        component behind the <code>auth</code> middleware).
+        “Open accept page” goes to <code>/accept-invitation</code> — the page
+        the module mounts automatically (the <code>AcceptInvitation</code>
+        component behind the <code>auth</code> middleware); emailed accept
+        links land there too. The buttons here accept inline via
+        <code>useOrganization()</code>.
       </p>
     </LabPanel>
 
@@ -292,6 +300,7 @@ async function cancelPending(id: string) {
 </template>
 
 <style scoped>
+.accept-page-link { font-size: 0.75rem; font-weight: 600; color: var(--accent); text-decoration: none; }
 .wslist { list-style: none; margin: 0 0 0.9rem; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .wsrow {
   display: flex; align-items: center; gap: 0.6rem;

@@ -43,7 +43,7 @@ export const DEFAULT_AUTH_LIMITS = {
  *
  * @example
  * ```ts
- * import { setupRateLimiter } from 'nuxt-backend/convex/rate-limit'
+ * import { setupRateLimiter } from 'nuxt-backend/rate-limit'
  * import { components } from './_generated/api'
  * import { MINUTE } from '@convex-dev/rate-limiter'
  *

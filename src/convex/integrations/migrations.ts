@@ -37,7 +37,7 @@ export interface SetupMigrationsOptions<Schema extends SchemaDefinition<GenericS
  *
  * @example
  * ```ts
- * import { setupMigrations } from 'nuxt-backend/convex/migrations'
+ * import { setupMigrations } from 'nuxt-backend/migrations'
  * import { components } from './_generated/api'
  * import schema from './schema'
  *

@@ -1,0 +1,131 @@
+/*
+ * Neutral default styles for <SecuritySettings>, hooked on data-security
+ * attributes. Part of `nuxt-backend/ui.css`; theme via the `--bk-*` tokens.
+ */
+[data-security='root'] {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+  color: var(--bk-ink);
+}
+
+[data-security^='section-'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+[data-security='status'] {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--bk-warn);
+}
+
+[data-security='status'][data-verified] {
+  color: var(--bk-ok);
+}
+
+[data-security='passkey-list'],
+[data-security='session-list'] {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+[data-security='passkey'],
+[data-security='session'] {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--bk-edge);
+  border-radius: var(--bk-radius);
+  font-size: 0.85rem;
+}
+
+[data-security='session'][data-current] {
+  border-color: color-mix(in srgb, var(--bk-accent) 60%, transparent);
+}
+
+[data-security='passkey-name'],
+[data-security='session-name'] {
+  font-weight: 600;
+}
+
+[data-security='passkey-meta'],
+[data-security='session-meta'] {
+  flex: 1;
+  color: var(--bk-muted);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-security='input-passkey-name'] {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--bk-edge);
+  border-radius: var(--bk-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+[data-security='current-badge'] {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bk-ok) 15%, transparent);
+  color: var(--bk-ok);
+}
+
+[data-security='rename'],
+[data-security='revoke'],
+[data-security='remove'] {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.78rem;
+}
+
+[data-security='remove'],
+[data-security='revoke'],
+[data-security='delete-account'] {
+  border-color: color-mix(in srgb, var(--bk-error) 50%, transparent);
+  color: var(--bk-error);
+}
+
+[data-security='add-passkey'],
+[data-security='send-verification'] {
+  align-self: flex-start;
+  background: var(--bk-accent);
+  border-color: var(--bk-accent);
+  color: var(--bk-on-accent);
+}
+
+[data-security='revoke-others'],
+[data-security='sign-out'] {
+  align-self: flex-start;
+  color: var(--bk-muted);
+}
+
+[data-security='delete-account'] {
+  align-self: flex-start;
+}
+
+[data-security='danger-note'] {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--bk-muted);
+  line-height: 1.5;
+}
+
+[data-security='section-danger'] {
+  padding: 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--bk-error) 30%, transparent);
+  border-radius: var(--bk-radius);
+}

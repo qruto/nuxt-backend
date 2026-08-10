@@ -1,17 +1,19 @@
 /*
  * Neutral default styles for <AuthForm>, hooked on its data-auth attributes.
- * Opt in from nuxt.config.ts:  css: ['nuxt-backend/auth.css']
- * Theme via the custom properties below, or skip this file and style the
- * data-auth hooks yourself.
+ * Part of `nuxt-backend/ui.css` (auto-added by the module) and importable
+ * alone: css: ['nuxt-backend/auth.css'].
+ * Theme via the shared `--bk-*` tokens (all components at once), the
+ * `--auth-*` properties below (this form only), or skip the stylesheet and
+ * style the data-auth hooks yourself.
  */
 [data-auth='form'] {
-  --auth-accent: #00dc82;
-  --auth-on-accent: #04101f;
-  --auth-ink: inherit;
-  --auth-muted: color-mix(in srgb, currentColor 55%, transparent);
-  --auth-edge: color-mix(in srgb, currentColor 18%, transparent);
-  --auth-error: #e5484d;
-  --auth-radius: 8px;
+  --auth-accent: var(--bk-accent, #00dc82);
+  --auth-on-accent: var(--bk-on-accent, #04101f);
+  --auth-ink: var(--bk-ink, inherit);
+  --auth-muted: var(--bk-muted, color-mix(in srgb, currentColor 55%, transparent));
+  --auth-edge: var(--bk-edge, color-mix(in srgb, currentColor 18%, transparent));
+  --auth-error: var(--bk-error, #e5484d);
+  --auth-radius: var(--bk-radius, 8px);
 
   display: flex;
   flex-direction: column;

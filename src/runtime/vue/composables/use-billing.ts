@@ -3,9 +3,9 @@ import { computed, inject, type ComputedRef } from 'vue'
 import { useAction, useQuery, ConvexAuthStateKey, useConvexNamespace } from 'nuxt-convex-module/client'
 
 /** A Polar product (loose — the full shape is Polar's; cast as needed). */
-export type PolarProduct = { id: string, name: string } & Record<string, unknown>
+export type BillingProduct = { id: string, name: string } & Record<string, unknown>
 /** A Polar subscription (loose — the full shape is Polar's; cast as needed). */
-export type PolarSubscription = { id: string, status: string, productId: string } & Record<string, unknown>
+export type BillingSubscription = { id: string, status: string, productId: string } & Record<string, unknown>
 
 type EmptyArgs = Record<string, never>
 type Query<Result> = FunctionReference<'query', 'public', EmptyArgs, Result>
@@ -63,10 +63,10 @@ export type CheckoutArgs = {
  * pass `options.api` to override.
  */
 export interface BillingApi {
-  getConfiguredProducts?: Query<Record<string, PolarProduct | undefined>>
-  listAllProducts?: Query<PolarProduct[]>
-  listAllSubscriptions?: Query<PolarSubscription[] | null>
-  getCurrentSubscription?: Query<PolarSubscription | null>
+  getConfiguredProducts?: Query<Record<string, BillingProduct | undefined>>
+  listAllProducts?: Query<BillingProduct[]>
+  listAllSubscriptions?: Query<BillingSubscription[] | null>
+  getCurrentSubscription?: Query<BillingSubscription | null>
   generateCheckoutLink?: FunctionReference<'action', 'public', CheckoutArgs, { url: string }>
   generateCustomerPortalUrl?: FunctionReference<'action', 'public', { returnUrl?: string }, { url: string }>
   changeCurrentSubscription?: FunctionReference<'action', 'public', { productId: string }, null>
@@ -125,11 +125,11 @@ export interface UseBillingOptions {
 
 export interface UseBillingReturn {
   /** Configured products keyed by your product map, or `undefined` while loading. */
-  products: ComputedRef<Record<string, PolarProduct | undefined> | undefined>
+  products: ComputedRef<Record<string, BillingProduct | undefined> | undefined>
   /** The current active subscription, `null` when on the free plan, `undefined` while loading. */
-  subscription: ComputedRef<PolarSubscription | null | undefined>
+  subscription: ComputedRef<BillingSubscription | null | undefined>
   /** Every subscription for the user (incl. ended/expired trials), or `undefined` while loading. */
-  subscriptions: ComputedRef<PolarSubscription[] | undefined>
+  subscriptions: ComputedRef<BillingSubscription[] | undefined>
   /** `true` once an active subscription is known. */
   isSubscribed: ComputedRef<boolean>
   /** `true` once it's known the user has no active subscription. */
@@ -265,8 +265,8 @@ export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
 
   const rawSubscriptions = billing.listAllSubscriptions
     ? useQuery(billing.listAllSubscriptions, userScopedArgs)
-    : computed<PolarSubscription[] | null | undefined>(() => undefined)
-  const subscriptions = computed<PolarSubscription[] | undefined>(() => {
+    : computed<BillingSubscription[] | null | undefined>(() => undefined)
+  const subscriptions = computed<BillingSubscription[] | undefined>(() => {
     if (signedOut.value) return []
     // Server-side null = no billing entity yet — same as having no subscriptions.
     return rawSubscriptions.value === null ? [] : rawSubscriptions.value
@@ -276,12 +276,12 @@ export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
   // active subscription from the full list.
   const rawCurrentSubscription = billing.getCurrentSubscription
     ? useQuery(billing.getCurrentSubscription, userScopedArgs)
-    : computed<PolarSubscription | null | undefined>(() => {
+    : computed<BillingSubscription | null | undefined>(() => {
         const all = subscriptions.value
         if (all === undefined) return undefined
         return all.find(s => s.status === 'active' || s.status === 'trialing') ?? null
       })
-  const currentSubscription = computed<PolarSubscription | null | undefined>(() =>
+  const currentSubscription = computed<BillingSubscription | null | undefined>(() =>
     signedOut.value ? null : rawCurrentSubscription.value,
   )
 

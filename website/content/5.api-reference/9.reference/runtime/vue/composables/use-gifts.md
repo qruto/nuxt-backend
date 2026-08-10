@@ -8,30 +8,30 @@ navigation: true
 
 ### UseGiftsOptions
 
-Defined in: nuxt-backend/src/runtime/vue/composables/use-gifts.ts:5
+Defined in: [nuxt-backend/src/runtime/vue/composables/use-gifts.ts:5](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/runtime/vue/composables/use-gifts.ts#L5)
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="api"></a> `api?` | [`BillingApi`](use-billing.md#billingapi) | Override the injected `api.billing` namespace. | nuxt-backend/src/runtime/vue/composables/use-gifts.ts:7 |
-| <a id="autoclaim"></a> `autoClaim?` | `boolean` | Claim paid gifts automatically once the user is signed in (default `true`). This is what makes "gift to an email without an account" complete: the recipient signs up, and their waiting gifts attach on first load. | nuxt-backend/src/runtime/vue/composables/use-gifts.ts:13 |
+| <a id="api"></a> `api?` | [`BillingApi`](use-billing.md#billingapi) | Override the injected `api.billing` namespace. | [nuxt-backend/src/runtime/vue/composables/use-gifts.ts:7](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/runtime/vue/composables/use-gifts.ts#L7) |
+| <a id="autoclaim"></a> `autoClaim?` | `boolean` | Claim paid gifts automatically once the user is signed in (default `true`). This is what makes "gift to an email without an account" complete: the recipient signs up, and their waiting gifts attach on first load. | [nuxt-backend/src/runtime/vue/composables/use-gifts.ts:13](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/runtime/vue/composables/use-gifts.ts#L13) |
 
 ***
 
 ### UseGiftsReturn
 
-Defined in: nuxt-backend/src/runtime/vue/composables/use-gifts.ts:16
+Defined in: [nuxt-backend/src/runtime/vue/composables/use-gifts.ts:16](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/runtime/vue/composables/use-gifts.ts#L16)
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="received"></a> `received` | `ComputedRef`\<[`ReceivedGift`](use-billing.md#receivedgift)[] \| `undefined`\> | Every gift addressed to the signed-in user's email, or `undefined` while loading. | nuxt-backend/src/runtime/vue/composables/use-gifts.ts:18 |
-| <a id="unclaimed"></a> `unclaimed` | `ComputedRef`\<[`ReceivedGift`](use-billing.md#receivedgift)[]\> | Gifts that are paid but not yet claimed (ready to receive). | nuxt-backend/src/runtime/vue/composables/use-gifts.ts:20 |
-| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until the gift list has loaded (always `false` when signed out). | nuxt-backend/src/runtime/vue/composables/use-gifts.ts:22 |
-| <a id="isclaiming"></a> `isClaiming` | `ComputedRef`\<`boolean`\> | `true` while an auto- or manual claim is in flight. | nuxt-backend/src/runtime/vue/composables/use-gifts.ts:24 |
-| <a id="claim"></a> `claim` | (`giftId?`) => `Promise`\<`number`\> | Claim a specific gift (by id) or every claimable gift (no argument). Resolves with the number of gifts attached; entitlements/credits refresh reactively right after. | nuxt-backend/src/runtime/vue/composables/use-gifts.ts:30 |
+| <a id="received"></a> `received` | `ComputedRef`\<[`ReceivedGift`](use-billing.md#receivedgift)[] \| `undefined`\> | Every gift addressed to the signed-in user's email, or `undefined` while loading. | [nuxt-backend/src/runtime/vue/composables/use-gifts.ts:18](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/runtime/vue/composables/use-gifts.ts#L18) |
+| <a id="unclaimed"></a> `unclaimed` | `ComputedRef`\<[`ReceivedGift`](use-billing.md#receivedgift)[]\> | Gifts that are paid but not yet claimed (ready to receive). | [nuxt-backend/src/runtime/vue/composables/use-gifts.ts:20](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/runtime/vue/composables/use-gifts.ts#L20) |
+| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until the gift list has loaded (always `false` when signed out). | [nuxt-backend/src/runtime/vue/composables/use-gifts.ts:22](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/runtime/vue/composables/use-gifts.ts#L22) |
+| <a id="isclaiming"></a> `isClaiming` | `ComputedRef`\<`boolean`\> | `true` while an auto- or manual claim is in flight. | [nuxt-backend/src/runtime/vue/composables/use-gifts.ts:24](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/runtime/vue/composables/use-gifts.ts#L24) |
+| <a id="claim"></a> `claim` | (`giftId?`) => `Promise`\<`number`\> | Claim a specific gift (by id) or every claimable gift (no argument). Resolves with the number of gifts attached; entitlements/credits refresh reactively right after. | [nuxt-backend/src/runtime/vue/composables/use-gifts.ts:30](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/runtime/vue/composables/use-gifts.ts#L30) |
 
 ## Functions
 
@@ -41,7 +41,7 @@ Defined in: nuxt-backend/src/runtime/vue/composables/use-gifts.ts:16
 function useGifts(options?): UseGiftsReturn;
 ```
 
-Defined in: nuxt-backend/src/runtime/vue/composables/use-gifts.ts:54
+Defined in: [nuxt-backend/src/runtime/vue/composables/use-gifts.ts:54](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/runtime/vue/composables/use-gifts.ts#L54)
 
 Gifts addressed to the signed-in user, with automatic claiming. A gift is a
 checkout someone else paid for this user's email; once paid it either

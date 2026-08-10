@@ -54,41 +54,48 @@ const plans = computed(() => features.plans.value ?? [])
         </LabButton>
       </LabPanel>
 
-      <!-- The gated surface — depth makes the lock literal. -->
+      <!-- The gated surface — the packaged <FeatureBoundary> does the gating
+           declaratively: #default when the feature is granted, #fallback when
+           not, #placeholder while entitlements load. -->
       <LabPanel
-        label="gated"
+        label="gated · FeatureBoundary"
         title="Pro analytics"
         :tone="hasPremium ? 'accent' : 'neutral'"
       >
-        <div
-          class="gated"
-          :class="{ locked: !hasPremium }"
-        >
-          <div class="gated-content">
-            <MetricCard
-              label="conversion"
-              value="4.8"
-              unit="%"
-              tone="accent"
-            />
-            <p
-              class="hint"
-              style="margin-top: 0.75rem"
-            >
-              This panel is rendered only when <code>has('premium')</code> is true.
-            </p>
+        <FeatureBoundary feature="premium">
+          <div class="gated">
+            <div class="gated-content">
+              <MetricCard
+                label="conversion"
+                value="4.8"
+                unit="%"
+                tone="accent"
+              />
+              <p
+                class="hint"
+                style="margin-top: 0.75rem"
+              >
+                Rendered by <code>&lt;FeatureBoundary feature="premium"&gt;</code>.
+              </p>
+            </div>
           </div>
-          <div
-            v-if="!hasPremium"
-            class="lock"
-          >
-            <Icon
-              name="key"
-              :size="22"
-            />
-            <span>Locked — Pro only</span>
-          </div>
-        </div>
+          <template #fallback>
+            <div class="gated locked">
+              <div class="lock">
+                <Icon
+                  name="key"
+                  :size="22"
+                />
+                <span>Locked — Pro only</span>
+              </div>
+            </div>
+          </template>
+          <template #placeholder>
+            <StatusRing tone="muted">
+              checking entitlements…
+            </StatusRing>
+          </template>
+        </FeatureBoundary>
       </LabPanel>
     </div>
 

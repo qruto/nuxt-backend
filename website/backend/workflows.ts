@@ -1,4 +1,4 @@
-import { setupWorkflows, type WorkflowId } from 'nuxt-backend/convex/workflows'
+import { setupWorkflows, type WorkflowId } from 'nuxt-backend/workflows'
 import { v } from 'convex/values'
 import { components, internal } from './_generated/api'
 import { mutation, query } from './_generated/server'

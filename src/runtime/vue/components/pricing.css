@@ -1,0 +1,163 @@
+/*
+ * Neutral default styles for <PricingTable>, hooked on data-pricing
+ * attributes. Part of `nuxt-backend/ui.css`; theme via the `--bk-*` tokens.
+ */
+[data-pricing='table'] {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  color: var(--bk-ink);
+}
+
+[data-pricing='header'] {
+  margin: 0;
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+}
+
+[data-pricing='plans'] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.9rem;
+}
+
+[data-pricing='plan'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.1rem;
+  border: 1px solid var(--bk-edge);
+  border-radius: calc(var(--bk-radius) * 1.5);
+  background: var(--bk-surface);
+}
+
+[data-pricing='plan'][data-current] {
+  border-color: var(--bk-accent);
+  box-shadow: 0 0 0 1px var(--bk-accent);
+}
+
+[data-pricing='plan'][data-highlight] {
+  border-color: color-mix(in srgb, var(--bk-accent) 60%, transparent);
+}
+
+[data-pricing='plan-name'] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+[data-pricing='current-badge'] {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bk-ok) 15%, transparent);
+  color: var(--bk-ok);
+}
+
+[data-pricing='plan-price'] {
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+[data-pricing='plan-period'] {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--bk-muted);
+  margin-left: 0.15rem;
+}
+
+[data-pricing='plan-blurb'] {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--bk-muted);
+}
+
+[data-pricing='plan-features'] {
+  list-style: none;
+  margin: 0 0 0.4rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+  font-size: 0.82rem;
+}
+
+[data-pricing='plan-feature']::before {
+  content: '✓ ';
+  color: var(--bk-accent);
+}
+
+[data-pricing='plan-action'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+}
+
+[data-pricing='plan-action'][data-intent='subscribe'],
+[data-pricing='plan-action'][data-intent='sign-in'] {
+  background: var(--bk-accent);
+  border: 1px solid var(--bk-accent);
+  border-radius: var(--bk-radius);
+  padding: 0.55rem 0.9rem;
+  font-weight: 600;
+  color: var(--bk-on-accent);
+}
+
+[data-pricing='plan-action'][data-intent='cancel'] {
+  border-color: color-mix(in srgb, var(--bk-error) 50%, transparent);
+  color: var(--bk-error);
+}
+
+[data-pricing='packs'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+[data-pricing='pack'] {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--bk-edge);
+  border-radius: var(--bk-radius);
+}
+
+[data-pricing='pack-name'] {
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+[data-pricing='pack-price'] {
+  color: var(--bk-muted);
+  font-size: 0.85rem;
+}
+
+[data-pricing='portal'] {
+  align-self: flex-start;
+}
+
+[data-pricing='empty'] {
+  margin: 0;
+  color: var(--bk-muted);
+  font-size: 0.9rem;
+}
+
+[data-pricing='error'] {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--bk-radius);
+  background: color-mix(in srgb, var(--bk-error) 12%, transparent);
+  color: var(--bk-error);
+  font-size: 0.85rem;
+}

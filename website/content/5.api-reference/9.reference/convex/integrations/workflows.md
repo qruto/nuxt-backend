@@ -8,7 +8,7 @@ navigation: true
 
 ### WorkflowComponents
 
-Defined in: [nuxt-backend/src/convex/integrations/workflows.ts:16](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/integrations/workflows.ts#L16)
+Defined in: [nuxt-backend/src/convex/integrations/workflows.ts:16](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/convex/integrations/workflows.ts#L16)
 
 The component handle `setupWorkflows` reads from your generated `components`
 object (the key is picked structurally — pass the whole object).
@@ -17,7 +17,7 @@ object (the key is picked structurally — pass the whole object).
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="workflow"></a> `workflow` | `WorkflowComponent` | [nuxt-backend/src/convex/integrations/workflows.ts:17](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/integrations/workflows.ts#L17) |
+| <a id="workflow"></a> `workflow` | `WorkflowComponent` | [nuxt-backend/src/convex/integrations/workflows.ts:17](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/convex/integrations/workflows.ts#L17) |
 
 ## Type Aliases
 
@@ -76,7 +76,7 @@ cast a stored id back to a [WorkflowId](#workflowid) (it is a branded string).
 function setupWorkflows(components, options?): WorkflowManager;
 ```
 
-Defined in: [nuxt-backend/src/convex/integrations/workflows.ts:56](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/convex/integrations/workflows.ts#L56)
+Defined in: [nuxt-backend/src/convex/integrations/workflows.ts:56](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/convex/integrations/workflows.ts#L56)
 
 Configure the [Workflow](https://www.convex.dev/components/workflow)
 component for durable, long-running, multi-step functions. Your overrides are
@@ -97,7 +97,7 @@ merged onto DEFAULT\_WORKPOOL\_OPTIONS.
 #### Example
 
 ```ts
-import { setupWorkflows } from 'nuxt-backend/convex/workflows'
+import { setupWorkflows } from 'nuxt-backend/workflows'
 import { components } from './_generated/api'
 
 export const workflow = setupWorkflows(components)

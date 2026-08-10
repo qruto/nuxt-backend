@@ -110,7 +110,7 @@ export interface InstallBackendOptions {
  * @example A hand-written `convex.config.ts`:
  * ```ts
  * import { defineApp } from 'convex/server'
- * import { backendEnv, installBackend } from 'nuxt-backend/convex/app'
+ * import { backendEnv, installBackend } from 'nuxt-backend/app'
  * import { v } from 'convex/values'
  *
  * const app = defineApp({ env: { ...backendEnv, STRIPE_SECRET_KEY: v.optional(v.string()) } })
@@ -158,13 +158,13 @@ export function installBackend<App extends BackendApp>(app: App, options: Instal
  *
  * @example The entire `convex.config.ts`:
  * ```ts
- * import { defineBackendApp } from 'nuxt-backend/convex/app'
+ * import { defineBackendApp } from 'nuxt-backend/app'
  * export default defineBackendApp()
  * ```
  *
  * @example Trim, extend, and add your own:
  * ```ts
- * import { defineBackendApp } from 'nuxt-backend/convex/app'
+ * import { defineBackendApp } from 'nuxt-backend/app'
  * import { v } from 'convex/values'
  * import myOwnComponent from './components/mine/convex.config'
  *

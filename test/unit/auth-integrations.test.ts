@@ -141,4 +141,40 @@ describe('workspace invitation email', () => {
     const options = createBetterAuthOptions(fakeDb)
     expect(orgPluginOptions(options)?.sendInvitationEmail).toBeUndefined()
   })
+
+  describe('OTP delivery without an email transport', () => {
+    function otpHandler(options: ReturnType<typeof createBetterAuthOptions>) {
+      const plugin = options.plugins?.find(entry => (entry as { id?: string }).id === 'email-otp') as
+        { options?: { sendVerificationOTP?: (data: { email: string, otp: string, type: string }) => Promise<void> } } | undefined
+      return plugin?.options?.sendVerificationOTP
+    }
+
+    it('throws loudly instead of silently dropping the code', async () => {
+      const send = otpHandler(createBetterAuthOptions(fakeDb))
+      await expect(send!({ email: 'a@b.com', otp: '123456', type: 'sign-in' }))
+        .rejects.toThrow('OTP not delivered')
+    })
+
+    it('echoes the code to the console with NUXT_BACKEND_LOG_OTP=1', async () => {
+      vi.stubEnv('NUXT_BACKEND_LOG_OTP', '1')
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      try {
+        const send = otpHandler(createBetterAuthOptions(fakeDb))
+        await expect(send!({ email: 'a@b.com', otp: '123456', type: 'sign-in' })).resolves.toBeUndefined()
+        expect(warn.mock.calls.flat().join('\n')).toContain('123456')
+      }
+      finally {
+        warn.mockRestore()
+        vi.unstubAllEnvs()
+      }
+    })
+
+    it('delivers through the transport when one is wired', async () => {
+      const email = vi.fn(async () => 'email_1')
+      const ctx = mutationCtx()
+      const send = otpHandler(createBetterAuthOptions(fakeDb, {}, { ctx, email }))
+      await send!({ email: 'a@b.com', otp: '654321', type: 'sign-in' })
+      expect(email).toHaveBeenCalledWith(ctx, expect.objectContaining({ to: 'a@b.com' }))
+    })
+  })
 })

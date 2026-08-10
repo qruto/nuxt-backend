@@ -51,7 +51,7 @@ function readEnv(name: string) {
 
 /**
  * A structural rate limiter for throttling `syncEntitlements` — satisfied by
- * `setupRateLimiter(...)` from `nuxt-backend/convex/rate-limit`, which seeds the
+ * `setupRateLimiter(...)` from `nuxt-backend/rate-limit`, which seeds the
  * `billingSync` limit by default. Kept structural (rather than importing the
  * rate-limiter's own type) so any compatible limiter is assignable.
  */
@@ -417,7 +417,7 @@ export interface Billing {
  *
  * @example
  * ```ts
- * import { setupBilling } from 'nuxt-backend/convex/billing'
+ * import { setupBilling } from 'nuxt-backend/billing'
  * import { components } from './_generated/api'
  *
  * const billing = setupBilling(components)
@@ -762,6 +762,11 @@ export function setupBilling(
         claimUrl,
       })
       await ctx.runMutation(sendEmail, message)
+    }
+    else {
+      // Never fail the webhook — the gift stays claimable in-app — but don't
+      // be silent about the recipient not hearing of it.
+      console.warn('[nuxt-backend] Gift notification not sent — the backend component has no email module.')
     }
   }
 

@@ -1,4 +1,4 @@
-import { setupBilling, type DiscountInput } from 'nuxt-backend/convex/billing'
+import { setupBilling, type DiscountInput } from 'nuxt-backend/billing'
 import type { GenericActionCtx, GenericDataModel } from 'convex/server'
 import { v } from 'convex/values'
 import { api, components, internal } from './_generated/api'

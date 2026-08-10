@@ -149,7 +149,7 @@ export interface SearchConfig<
  *
  * @example
  * ```ts
- * import { defineSearch } from 'nuxt-backend/convex/search'
+ * import { defineSearch } from 'nuxt-backend/search'
  * import { query } from './_generated/server'
  *
  * export const searchMessages = defineSearch(query, {

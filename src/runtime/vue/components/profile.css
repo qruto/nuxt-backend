@@ -1,0 +1,112 @@
+/*
+ * Neutral default styles for <ProfileSettings>, hooked on data-profile
+ * attributes. Part of `nuxt-backend/ui.css`; theme via the `--bk-*` tokens.
+ */
+[data-profile='root'] {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+  max-width: 30rem;
+  color: var(--bk-ink);
+}
+
+[data-profile='identity'] {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+[data-profile='avatar'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 50%;
+  background: var(--bk-accent);
+  color: var(--bk-on-accent);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+[data-profile='identity-meta'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+[data-profile='identity-name'] {
+  font-weight: 600;
+}
+
+[data-profile='identity-email'] {
+  font-size: 0.82rem;
+  color: var(--bk-muted);
+}
+
+[data-profile='badges'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+[data-profile='badge'] {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--bk-edge);
+  color: var(--bk-muted);
+}
+
+[data-profile='badge'][data-tone='ok'] {
+  border-color: color-mix(in srgb, var(--bk-ok) 40%, transparent);
+  color: var(--bk-ok);
+}
+
+[data-profile='badge'][data-tone='warn'] {
+  border-color: color-mix(in srgb, var(--bk-warn) 50%, transparent);
+  color: var(--bk-warn);
+}
+
+[data-profile^='section-'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+[data-profile^='label-'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--bk-muted);
+}
+
+[data-profile='hint'] {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--bk-muted);
+  line-height: 1.5;
+}
+
+[data-profile='save'],
+[data-profile='submit'] {
+  align-self: flex-start;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--bk-accent);
+  border-radius: var(--bk-radius);
+  background: var(--bk-accent);
+  color: var(--bk-on-accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+[data-profile='save']:disabled,
+[data-profile='submit']:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

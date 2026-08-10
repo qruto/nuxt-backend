@@ -1,4 +1,4 @@
-import { defineSearch } from 'nuxt-backend/convex/search'
+import { defineSearch } from 'nuxt-backend/search'
 import { query } from './_generated/server'
 
 // Type-safe full-text search over the messages `search_text` index. Drive it

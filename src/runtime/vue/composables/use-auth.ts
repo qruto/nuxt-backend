@@ -18,8 +18,15 @@ export interface UseBackendAuthService extends UseAuthService {
   /** Register a passkey — pass `{ email, name }` (JSON) for pre-auth registration. */
   registerPasskey: (context?: string) => Promise<unknown>
   // ── Account management ─────────────────────────────────────────────────
+  /** Update profile fields (name / avatar image) on the current user. */
+  updateUser: (args: { name?: string, image?: string | null }) => Promise<unknown>
   /** Change the account email (confirmed via email). */
   changeEmail: (newEmail: string, callbackURL?: string) => Promise<unknown>
+  /**
+   * Send an email-verification link to the current address. The endpoint
+   * throws for already-verified users — gate on `user.emailVerified`.
+   */
+  sendVerificationEmail: (callbackURL?: string) => Promise<unknown>
   /** Delete the account (confirmed via email). */
   deleteAccount: () => Promise<unknown>
   // ── Authorization (admin plugin) ───────────────────────────────────────
@@ -58,7 +65,9 @@ export function useAuth(initialToken?: string | null): UseBackendAuthService {
       passkey: () => Promise<unknown>
     }
     passkey: { addPasskey: (args: { context?: string }) => Promise<unknown> }
+    updateUser: (args: { name?: string, image?: string | null }) => Promise<unknown>
     changeEmail: (args: { newEmail: string, callbackURL?: string }) => Promise<unknown>
+    sendVerificationEmail: (args: { email: string, callbackURL?: string }) => Promise<unknown>
     deleteUser: (args: Record<string, never>) => Promise<unknown>
     admin: { checkRolePermission: (args: { permissions: Record<string, string[]>, role: string }) => boolean }
   }
@@ -76,7 +85,13 @@ export function useAuth(initialToken?: string | null): UseBackendAuthService {
     signInWithOtp: args => client.signIn.emailOtp(args),
     signInWithPasskey: () => client.signIn.passkey(),
     registerPasskey: context => client.passkey.addPasskey({ context }),
+    updateUser: args => client.updateUser(args),
     changeEmail: (newEmail, callbackURL) => client.changeEmail({ newEmail, callbackURL }),
+    sendVerificationEmail: (callbackURL) => {
+      const email = base.user.value?.email
+      if (!email) return Promise.reject(new Error('No signed-in user to verify'))
+      return client.sendVerificationEmail({ email, callbackURL })
+    },
     deleteAccount: () => client.deleteUser({}),
     role,
     hasRole: (required) => {

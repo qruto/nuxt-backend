@@ -12,6 +12,8 @@
 
 The all-in-one SaaS backend for [Nuxt](https://nuxt.com) on [Convex](https://convex.dev) — **auth** ([Better Auth](https://www.better-auth.com), passwordless: OTP + passkeys), workspaces with **emailed invitations** end-to-end, **billing** ([Polar](https://polar.sh)) with feature gating, prepaid credits, and **gift purchases**, **transactional email** ([Resend](https://resend.com)) with delivery tracking, one-call **webhook wiring**, rate limiting, durable workflows, migrations, aggregates, and full-text search. One module, great defaults, every setting customizable.
 
+It even ships the pages: `/login`, `/pricing`, `/settings`, `/profile`, `/security`, and `/accept-invitation` mount out of the box — headless components with a neutral stylesheet, customizable at every level (CSS tokens → `app.config` content → slots → shadow the route with your own page) without ever ejecting.
+
 `nuxt-backend` ships two halves that work as one:
 
 - a **Nuxt module** — the SaaS composables, scaffolding, env preflight, and `#backend/*` aliases; and
@@ -135,7 +137,7 @@ On dev startup the module checks your environment — missing site URL, weak `AU
 
 ### The Convex side
 
-The scaffolded `convex/` files compose the backend from `nuxt-backend/convex/*`:
+The scaffolded `convex/` files compose the backend from `nuxt-backend/*`:
 
 - `defineBackendApp` — mounts the all-in-one `backend` component (auth + email + billing cache + gifts, with the email provider nested inside) plus the upstream Polar, rate limiter, workflow, migrations, and aggregate components, declares the required env vars, and forwards the email config
 - `setupAuth` — passwordless Better Auth (OTP + passkey plugins), workspaces with emailed invitations, email templates included

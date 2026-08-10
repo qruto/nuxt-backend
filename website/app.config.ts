@@ -1,4 +1,22 @@
 export default defineAppConfig({
+  // The nuxt-backend content layer: the plan catalog rendered by
+  // <PricingTable> / <WorkspaceSettings>. Keys match the products map in
+  // backend/billing.ts — names and prices resolve live from Polar sandbox.
+  backend: {
+    billing: {
+      plans: [
+        { key: 'starter', credits: 50, blurb: 'For trying things out.' },
+        { key: 'pro', credits: 200, blurb: 'For products finding their feet.', features: ['premium'] },
+        { key: 'ultra', credits: 500, blurb: 'Everything, unlocked.', features: ['premium', 'ultra'], highlight: true },
+      ],
+      packs: [
+        { key: 'credits100', credits: 100 },
+        { key: 'credits500', credits: 500 },
+      ],
+    },
+    brand: { name: 'Nuxt backend' },
+  },
+
   docus: {
     locale: 'en',
     // System preference with a toggle (EDC works in both light and dark).

@@ -11,7 +11,7 @@ type InvitationState = 'loading' | 'ready' | 'accepted' | 'declined' | 'missing'
  * makes it the active one.
  *
  * The Nuxt module registers a ready-made page rendering this component (module
- * option `invitationPage`), so most apps ship the whole flow with zero files.
+ * option `pages.acceptInvitation`), so most apps ship the whole flow with zero files.
  * Headless like `AuthForm`: semantic markup with `data-invitation` attributes
  * for styling, or replace any state via its slot (each receives the loaded
  * invitation and the actions).

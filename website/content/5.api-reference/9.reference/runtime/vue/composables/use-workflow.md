@@ -12,7 +12,7 @@ navigation: true
 function useWorkflowStatus<Query>(query, workflowId): ComputedRef<FunctionReturnType<Query> | undefined>;
 ```
 
-Defined in: [nuxt-backend/src/runtime/vue/composables/use-workflow.ts:22](https://github.com/qruto/nuxt-backend/blob/0ca7dc0bc2b050c604e1acc44d383bd91f834a8a/src/runtime/vue/composables/use-workflow.ts#L22)
+Defined in: [nuxt-backend/src/runtime/vue/composables/use-workflow.ts:22](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/runtime/vue/composables/use-workflow.ts#L22)
 
 Reactively track a durable [Workflow](https://www.convex.dev/components/workflow)'s status. Pass a query that takes `{ workflowId }` (wrapping
 `workflow.status`) and the id to watch; the subscription pauses while the id

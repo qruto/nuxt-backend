@@ -1,0 +1,16 @@
+/*
+ * The complete neutral stylesheet for every nuxt-backend component and
+ * default page. Auto-added by the module — set `backend: { css: false }` in
+ * nuxt.config.ts to opt out, then import any piece you want to keep.
+ *
+ * Theming ladder: override the shared `--bk-*` tokens (everything at once) →
+ * per-family tokens (`--auth-*`) → style the `data-*` hooks directly.
+ */
+@import './tokens.css';
+@import './auth.css';
+@import './invitation.css';
+@import './gift.css';
+@import './pricing.css';
+@import './settings.css';
+@import './profile.css';
+@import './security.css';

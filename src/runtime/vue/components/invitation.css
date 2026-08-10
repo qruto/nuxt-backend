@@ -1,0 +1,40 @@
+/*
+ * Neutral default styles for <AcceptInvitation>, hooked on data-invitation
+ * attributes. Part of `nuxt-backend/ui.css`; theme via the `--bk-*` tokens.
+ */
+[data-invitation] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  max-width: 28rem;
+}
+
+[data-invitation='message'] {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--bk-ink);
+}
+
+[data-invitation='actions'] {
+  display: flex;
+  gap: 0.6rem;
+}
+
+[data-invitation='accept'] {
+  background: var(--bk-accent);
+  border-color: var(--bk-accent);
+  color: var(--bk-on-accent);
+}
+
+[data-invitation='decline'] {
+  color: var(--bk-muted);
+}
+
+[data-invitation='error'] [data-invitation='message'],
+[data-invitation='missing'] [data-invitation='message'] {
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--bk-radius);
+  background: color-mix(in srgb, var(--bk-error) 12%, transparent);
+  color: var(--bk-error);
+}

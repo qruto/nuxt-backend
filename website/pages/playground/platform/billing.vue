@@ -100,6 +100,14 @@ async function makeDiscount() {
             <CustomerPortalLink class="portal-btn">
               Manage subscription
             </CustomerPortalLink>
+            <!-- Same portal via the composable — a same-tab redirect instead
+                 of the component's link. -->
+            <LabButton
+              variant="ghost"
+              @click="billing.portal({ redirect: true })"
+            >
+              Open portal (composable)
+            </LabButton>
             <LabButton
               variant="danger"
               @click="billing.cancel()"

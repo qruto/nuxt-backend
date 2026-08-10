@@ -7,7 +7,7 @@ const { isAuthenticated } = useAuth()
     <h1>Minimal example</h1>
     <p class="muted">
       The out-of-the-box <code>nuxt-backend</code> setup: every file in
-      <code>convex/</code> is exactly what <code>npx nuxt-backend init</code>
+      <code>backend/</code> is exactly what <code>npx nuxt-backend init</code>
       generates — the only configuration is the required deployment env vars.
       Auth, workspaces with emailed invitations, billing, prepaid credits, and
       gifts all work from here.

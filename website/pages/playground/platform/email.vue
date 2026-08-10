@@ -248,10 +248,40 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
         </p>
       </LabPanel>
     </div>
+
+    <LabPanel
+      label="templates"
+      title="Template customization"
+    >
+      <p class="hint">
+        Every OTP this deployment sends uses a custom template — the transport
+        stays the packaged one, only the message changes. From
+        <code>backend/auth.ts</code>:
+      </p>
+      <pre class="cmd"><code>integrations: {
+  emailTemplates: {
+    otp: ({ email, otp, type }) => ({
+      to: email,
+      subject: `Your nuxt-backend playground ${'${type}'} code`,
+      text: `Your code: ${'${otp}'} …`,
+    }),
+  },
+}</code></pre>
+      <p class="hint">
+        Request a sign-in code from <NuxtLink to="/login">/login</NuxtLink> and
+        check the Resend test inbox — the subject carries the override.
+      </p>
+    </LabPanel>
   </div>
 </template>
 
 <style scoped>
+.cmd {
+  margin: 0.5rem 0; padding: 0.7rem 0.85rem; border-radius: var(--r-sm);
+  background: var(--sink); box-shadow: var(--inset-sm);
+  font-family: var(--mono); font-size: 0.72rem; line-height: 1.55;
+  overflow-x: auto; white-space: pre;
+}
 .presets { margin-top: 0.6rem; gap: 0.4rem; }
 .preset {
   font-family: var(--mono); font-size: 0.68rem; padding: 0.3rem 0.6rem; border-radius: 99px;

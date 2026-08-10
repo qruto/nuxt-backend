@@ -1,11 +1,37 @@
-import { setupEmail } from 'nuxt-backend/convex/email'
+import { setupEmail } from 'nuxt-backend/email'
 import { v } from 'convex/values'
 import { api, components, internal } from './_generated/api'
 import { type ActionCtx, action, internalMutation, query } from './_generated/server'
 import { authComponent } from './auth'
 
-// Transactional + marketing email over the `email` component (Resend nested inside).
-export const email = setupEmail(components)
+// Transactional + marketing email over the `email` component (Resend nested
+// inside). The event hooks run after the component verified and processed the
+// webhook — the showcase logs them into the same feed as billing events.
+export const email = setupEmail(components, {
+  events: {
+    onDelivered: async (ctx, event) => {
+      await ctx.runMutation(internal.billing.recordWebhookEvent, {
+        source: 'email',
+        type: event.type,
+        summary: `delivered to ${event.to.join(', ')}`,
+      })
+    },
+    onBounced: async (ctx, event) => {
+      await ctx.runMutation(internal.billing.recordWebhookEvent, {
+        source: 'email',
+        type: event.type,
+        summary: `bounced for ${event.to.join(', ')}`,
+      })
+    },
+    onComplained: async (ctx, event) => {
+      await ctx.runMutation(internal.billing.recordWebhookEvent, {
+        source: 'email',
+        type: event.type,
+        summary: `complaint from ${event.to.join(', ')}`,
+      })
+    },
+  },
+})
 
 // Reactive delivery-status query behind `useEmailStatus`.
 export const { getEmailStatus } = email.api

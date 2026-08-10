@@ -1,4 +1,4 @@
-import { setupAuth } from 'nuxt-backend/convex'
+import { setupAuth } from 'nuxt-backend/auth'
 import { components, internal } from './_generated/api'
 import { query } from './_generated/server'
 import { rateLimiter } from './rateLimiter'
@@ -16,6 +16,15 @@ export const {
     // the backend component — configured by the EMAIL_* env vars.
     // Throttle OTP sends and other auth-sensitive flows.
     rateLimiter,
+    // Branded OTP subject — a template override changes the message body while
+    // the transport stays the packaged one (demoed on /playground/platform/email).
+    emailTemplates: {
+      otp: ({ email, otp, type }) => ({
+        to: email,
+        subject: `Your nuxt-backend playground ${type === 'sign-in' ? 'sign-in' : type} code`,
+        text: `Your code: ${otp}\n\nSent by the nuxt-backend playground with a custom template from backend/auth.ts.`,
+      }),
+    },
     // Kick off a durable welcome workflow when a user signs up.
     onUserCreated: async (ctx, user) => {
       await workflow.start(ctx, internal.workflows.onSignup, {

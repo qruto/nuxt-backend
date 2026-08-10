@@ -5,14 +5,14 @@ description: End-to-end verification playbook for the nuxt-backend playground �
 
 # Testing nuxt-backend end-to-end
 
-Everything runs against **testing environments only**: Polar **sandbox** (`POLAR_SERVER=sandbox`), Resend **test mode** (default on; only `*@resend.dev` inboxes), Convex **dev** deployment (`dev:successful-oyster-718`, see root `.env.local`). The dev server is `pnpm dev` from the repo root → https://nuxt-backend.localhost (portless proxy, Nuxt serves `website/`).
+Everything runs against **testing environments only**: Polar **sandbox** (`BILLING_ENVIRONMENT=sandbox`), Resend **test mode** (default on; only `*@resend.dev` inboxes), Convex **dev** deployment (`dev:successful-oyster-718`, see root `.env.local`). The dev server is `pnpm dev` from the repo root → https://nuxt-backend.localhost (portless proxy, Nuxt serves `website/`).
 
 ## Environment cheatsheet
 
-- Secrets live **on the Convex deployment**, not in dotenv files: `npx convex env get <NAME>` (from repo root). Names: `POLAR_ORGANIZATION_TOKEN`, `POLAR_SERVER`, `POLAR_WEBHOOK_SECRET`, `RESEND_API_KEY`, `RESEND_TEST_MODE`, `RESEND_WEBHOOK_SECRET`, `BETTER_AUTH_SECRET`, `SITE_URL`.
+- Secrets live **on the Convex deployment**, not in dotenv files: `npx convex env get <NAME>` (from repo root). Names: `BILLING_ACCESS_TOKEN`, `BILLING_ENVIRONMENT`, `BILLING_WEBHOOK_SECRET`, `EMAIL_API_KEY`, `EMAIL_TEST_MODE`, `EMAIL_WEBHOOK_SECRET`, `AUTH_SECRET`, `SITE_URL`.
 - The Polar/Resend **MCP servers have under-scoped or dead tokens** — use `curl` with deployment tokens instead:
-  - Polar sandbox API: `https://sandbox-api.polar.sh/v1/...` with `Authorization: Bearer $(npx convex env get POLAR_ORGANIZATION_TOKEN)`. **Trailing slash required** on collection endpoints (`/products/`, `/benefits/`) — without it you get an empty 307 body.
-  - Resend API: `https://api.resend.com/emails` with `Bearer $(npx convex env get RESEND_API_KEY)` — list, then `GET /emails/{id}` for html.
+  - Polar sandbox API: `https://sandbox-api.polar.sh/v1/...` with `Authorization: Bearer $(npx convex env get BILLING_ACCESS_TOKEN)`. **Trailing slash required** on collection endpoints (`/products/`, `/benefits/`) — without it you get an empty 307 body.
+  - Resend API: `https://api.resend.com/emails` with `Bearer $(npx convex env get EMAIL_API_KEY)` — list, then `GET /emails/{id}` for html.
 - Polar org `qruto` (sandbox), id `6a50e481-6720-4019-a550-cf2bf410e4c4`, default currency **EUR** (product prices must be `price_currency: "eur"`). Credits meter: `aa62cf4c-2dcd-437d-a407-1872f51531b7`.
 - Catalog (products map in `website/backend/billing.ts`): starter €5/50cr, pro €9/200cr+premium, ultra €19/500cr+premium+ultra, credits100 €10, credits500 €40. Feature benefits match `useFeatures().has()` via benefit `metadata: { key: '<feature>' }`.
 - Webhooks (verify if entitlements "never arrive"): Polar → `https://successful-oyster-718.convex.site/polar/events`; Resend → `.../resend-webhook`.
@@ -31,7 +31,7 @@ npx convex run billing:createDiscount '{"name":"E2E","percent":100,"code":"E2E10
 Sign up at `/login` with `delivered+<label>@resend.dev` (unique label per run; OTP rate limit 5/min/address), then:
 
 ```sh
-RESEND_KEY=$(npx convex env get RESEND_API_KEY)
+RESEND_KEY=$(npx convex env get EMAIL_API_KEY)
 curl -s https://api.resend.com/emails -H "Authorization: Bearer $RESEND_KEY" \
   | jq -r '[.data[] | select(.to[0]=="delivered+LABEL@resend.dev")] | sort_by(.created_at) | last | .id'
 curl -s https://api.resend.com/emails/$ID -H "Authorization: Bearer $RESEND_KEY"   # 6-digit OTP or links in .html
@@ -74,3 +74,15 @@ npx convex data <table> --component email/resend     # emails, deliveryEvents
 - **Session-dependent UI needs `<ClientOnly>`** — SSR has no session while hydration does; class mismatches silently persist (Vue hydration is check-only for classes).
 - `website/backend/**` edits hot-sync via the running `convex dev`; `src/**` module/runtime edits need a `pnpm dev` restart to be safe (runtime stubs sometimes HMR, module.ts never does).
 - `billing.api.listAllSubscriptions` is wrapped by `setupBilling` to return `null` for claimless callers (auth handshake / WS reconnect windows) instead of throwing — if "needs an active workspace" errors spam the Convex logs, that wrapper regressed.
+
+## New surfaces to verify (all-in-one alignment)
+
+- **Default pages**: `/playground/vanilla/{pricing,settings,profile,security}` show the untouched `ui.css` look; `/playground/saas/*` are the same components site-styled. `/login` is the app page shadowing the module page (`<AuthForm>` inside); `/accept-invitation` stays module-mounted.
+- **Migrations**: `/playground/platform/migrations` — run + dry-run both backfills, watch the live status table and the two aggregate metric cards.
+- **Webhooks**: `/playground/platform/webhooks` — send a test email, expect an `email.delivered` row in the unified feed (billing rows come from checkout flows).
+- **Gifts**: `/playground/platform/credits` — the "Received gifts" panel lists and manually claims (`useGifts({ autoClaim: false })`).
+- **Server guards**: `/playground/platform/authorization` — the four guard buttons show real allow/deny per role; the admin panel bans/unbans (admin role required).
+- **Auth rate limits**: `/playground/platform/rate-limit` — the `emailOtp` meter drains when requesting codes from `/login` in a second tab.
+- **Portal**: `/playground/platform/billing` — "Open portal (composable)" redirects a subscriber to the customer portal.
+- **Branded OTP**: request a sign-in code and assert the subject contains "nuxt-backend playground" (custom template from `backend/auth.ts`).
+- **CLI**: `npx nuxt-backend doctor` now probes `/billing/events` + `/email/events`; the `add` command is gone (re-run `init` to repair).

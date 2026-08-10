@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { api } from '#backend/api'
 
 const { client, session } = useAuth()
-const conn = useConvexConnectionState()
+const conn = useConnectionState()
 const isConnected = computed(() => conn.value.isWebSocketConnected)
 
 const clearUserData = useMutation(api.demo.clearUserData)
@@ -40,27 +40,37 @@ const groups: NavGroup[] = [
     ],
   },
   {
-    label: 'Convex client',
+    label: 'Client',
     hint: 'The reactive Vue/Nuxt port',
     items: [
-      { to: '/playground/convex/queries', label: 'Queries', icon: 'database', api: 'useQuery · useConvexQueries', live: true },
-      { to: '/playground/convex/mutations', label: 'Mutations & actions', icon: 'mutate', api: 'useMutation · useAction', live: true },
-      { to: '/playground/convex/pagination', label: 'Pagination', icon: 'pagination', api: 'usePaginatedQuery' },
-      { to: '/playground/convex/search', label: 'Search & counts', icon: 'search', api: 'useSearch · useCount' },
-      { to: '/playground/convex/storage', label: 'File storage', icon: 'storage', api: 'useUpload · useStorageUrl', live: true },
-      { to: '/playground/convex/connection', label: 'Connection', icon: 'connection', api: 'useConvexConnectionState', live: true },
-      { to: '/playground/convex/ssr', label: 'SSR & preload', icon: 'server', api: 'preloadQuery · backendAuth' },
-      { to: '/playground/convex/subscription', label: 'Subscription bridge', icon: 'subscription', api: 'useSubscription' },
+      { to: '/playground/client/queries', label: 'Queries', icon: 'database', api: 'useQuery · useQueries', live: true },
+      { to: '/playground/client/mutations', label: 'Mutations & actions', icon: 'mutate', api: 'useMutation · useAction', live: true },
+      { to: '/playground/client/pagination', label: 'Pagination', icon: 'pagination', api: 'usePaginatedQuery' },
+      { to: '/playground/client/search', label: 'Search & counts', icon: 'search', api: 'useSearch · useCount' },
+      { to: '/playground/client/storage', label: 'File storage', icon: 'storage', api: 'useUpload · useStorageUrl', live: true },
+      { to: '/playground/client/connection', label: 'Connection', icon: 'connection', api: 'useConnectionState', live: true },
+      { to: '/playground/client/ssr', label: 'SSR & preload', icon: 'server', api: 'preloadQuery · backendAuth' },
+      { to: '/playground/client/subscription', label: 'Subscription bridge', icon: 'subscription', api: 'useSubscription' },
     ],
   },
   {
     label: 'SaaS demo',
-    hint: 'A real product built on the stack',
+    hint: 'The packaged pages, site-styled',
     items: [
-      { to: '/playground/saas/pricing', label: 'Pricing', icon: 'billing', api: 'checkout · changePlan', live: true },
-      { to: '/playground/saas/profile', label: 'Profile', icon: 'account', api: 'updateUser · changeEmail' },
-      { to: '/playground/saas/settings', label: 'Settings', icon: 'bolt', api: 'workspace · credits' },
-      { to: '/playground/saas/security', label: 'Privacy & security', icon: 'key', api: 'passkeys · sessions' },
+      { to: '/playground/saas/pricing', label: 'Pricing', icon: 'billing', api: 'PricingTable', live: true },
+      { to: '/playground/saas/profile', label: 'Profile', icon: 'account', api: 'ProfileSettings' },
+      { to: '/playground/saas/settings', label: 'Settings', icon: 'bolt', api: 'WorkspaceSettings' },
+      { to: '/playground/saas/security', label: 'Privacy & security', icon: 'key', api: 'SecuritySettings' },
+    ],
+  },
+  {
+    label: 'Vanilla',
+    hint: 'Zero-config default look',
+    items: [
+      { to: '/playground/vanilla/pricing', label: 'Pricing', icon: 'billing', api: 'ui.css defaults' },
+      { to: '/playground/vanilla/profile', label: 'Profile', icon: 'account', api: 'ui.css defaults' },
+      { to: '/playground/vanilla/settings', label: 'Settings', icon: 'bolt', api: 'ui.css defaults' },
+      { to: '/playground/vanilla/security', label: 'Security', icon: 'key', api: 'ui.css defaults' },
     ],
   },
   {
@@ -71,10 +81,12 @@ const groups: NavGroup[] = [
       { to: '/playground/platform/workspaces', label: 'Workspaces', icon: 'account', api: 'useOrganization', live: true },
       { to: '/playground/platform/authorization', label: 'Roles & permissions', icon: 'shield', api: 'hasRole · RoleBoundary' },
       { to: '/playground/platform/billing', label: 'Billing', icon: 'billing', api: 'useBilling · CheckoutLink' },
-      { to: '/playground/platform/features', label: 'Feature gates', icon: 'features', api: 'useFeatures' },
-      { to: '/playground/platform/credits', label: 'Credits', icon: 'credits', api: 'useCredits', live: true },
-      { to: '/playground/platform/email', label: 'Email', icon: 'email', api: 'useEmailStatus · Resend' },
+      { to: '/playground/platform/features', label: 'Feature gates', icon: 'features', api: 'useFeatures · FeatureBoundary' },
+      { to: '/playground/platform/credits', label: 'Credits', icon: 'credits', api: 'useCredits · useGifts', live: true },
+      { to: '/playground/platform/email', label: 'Email', icon: 'email', api: 'useEmailStatus' },
+      { to: '/playground/platform/webhooks', label: 'Webhooks', icon: 'connection', api: 'registerBackendRoutes', live: true },
       { to: '/playground/platform/workflows', label: 'Workflows', icon: 'workflows', api: 'useWorkflowStatus' },
+      { to: '/playground/platform/migrations', label: 'Migrations', icon: 'database', api: 'migrations.getStatus' },
       { to: '/playground/platform/rate-limit', label: 'Rate limiting', icon: 'shield', api: 'rateLimiter' },
     ],
   },

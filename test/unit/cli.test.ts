@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runCommand } from 'citty'
 import { main } from '../../src/cli/main'
 import { scaffoldBackendFiles } from '../../src/scaffold'
-import { FEATURES } from '../../src/templates'
 
 let rootDir: string
 
@@ -65,29 +64,18 @@ describe('init', () => {
     const logs = vi.mocked(console.log).mock.calls.flat().join('\n')
     expect(logs).toContain('Add the module yourself')
   })
-})
 
-describe('add', () => {
-  it('scaffolds exactly the feature files', async () => {
-    await run(['add', 'search'])
-    expect(existsSync(join(rootDir, 'backend/search.ts'))).toBe(true)
-    expect(existsSync(join(rootDir, 'backend/billing.ts'))).toBe(false)
-  })
+  it('re-running init repairs missing files without touching customized ones', async () => {
+    await run(['init'])
 
-  it('rejects unknown features with the available list', async () => {
-    await run(['add', 'blockchain'])
-    expect(process.exitCode).toBe(1)
-  })
+    const authPath = join(rootDir, 'backend/auth.ts')
+    writeFileSync(authPath, '// customized')
+    rmSync(join(rootDir, 'backend/billing.ts'))
 
-  it('covers every feature in the FEATURES map', async () => {
-    for (const feature of Object.keys(FEATURES)) {
-      await run(['add', feature])
-    }
-    for (const files of Object.values(FEATURES)) {
-      for (const file of files) {
-        expect(existsSync(join(rootDir, 'backend', file))).toBe(true)
-      }
-    }
+    await run(['init'])
+
+    expect(existsSync(join(rootDir, 'backend/billing.ts'))).toBe(true)
+    expect(readFileSync(authPath, 'utf-8')).toBe('// customized')
   })
 })
 
@@ -114,4 +102,29 @@ describe('doctor', () => {
     expect(report.findings.find(finding => finding.id === 'auth-secret')?.status).toBe('fail')
     expect(process.exitCode).toBe(1)
   })
+
+  it('probes webhook routes when a site URL is configured', async () => {
+    writeFileSync(join(rootDir, '.env.local'), 'NUXT_PUBLIC_CONVEX_SITE_URL=https://demo.convex.site\n')
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      // Billing mounted (empty probe rejected by signature check), email not.
+      return String(url).includes('/billing/events')
+        ? new Response('bad signature', { status: 400 })
+        : new Response('not found', { status: 404 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      await run(['doctor', '--json'])
+    }
+    finally {
+      vi.unstubAllGlobals()
+    }
+
+    const output = vi.mocked(console.log).mock.calls.flat().join('\n')
+    const report = JSON.parse(output) as { findings: Array<{ id: string, status: string }> }
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(report.findings.find(finding => finding.id === 'billing-webhook-route')?.status).toBe('pass')
+    expect(report.findings.find(finding => finding.id === 'email-webhook-route')?.status).toBe('fail')
+    expect(process.exitCode).toBe(1)
+  }, 30_000)
 })

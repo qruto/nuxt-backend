@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import type { Value } from 'convex/values'
-import type { FunctionReference } from 'convex/server'
+import type { RequestForQueries } from 'nuxt-convex-module/client'
 import { api } from '#backend/api'
 import type { Id } from '#backend/dataModel'
 
@@ -9,9 +8,9 @@ definePageMeta({ middleware: 'auth' })
 
 /**
  * Mission Control — the flagship surface. Instead of probing one composable, it
- * composes many: a map of live subscriptions (`useConvexQueries`), a paginated
+ * composes many: a map of live subscriptions (`useQueries`), a paginated
  * activity feed (`usePaginatedQuery`), socket telemetry
- * (`useConvexConnectionState`), credits (`useCredits`) and coordinated optimistic
+ * (`useConnectionState`), credits (`useCredits`) and coordinated optimistic
  * mutations — all reacting together in real time.
  */
 
@@ -19,7 +18,7 @@ definePageMeta({ middleware: 'auth' })
 // client's first paint, then goes live.
 const mounted = ref(false)
 onMounted(() => (mounted.value = true))
-const conn = useConvexConnectionState()
+const conn = useConnectionState()
 const online = computed(() => mounted.value && conn.value.isWebSocketConnected)
 const inflight = computed(() => (conn.value.inflightMutations ?? 0) + (conn.value.inflightActions ?? 0))
 const inflightHistory = ref<number[]>(Array.from({ length: 40 }, () => 0))
@@ -28,13 +27,15 @@ watch(conn, (s) => {
   inflightHistory.value = [...inflightHistory.value.slice(1), total]
 }, { deep: true })
 
-// One reactive map → many live subscriptions.
-const queryMap = computed(() => ({
-  counter: { query: api.counter.get as FunctionReference<'query'>, args: { name: 'demo' } as Record<string, Value> },
-  todos: { query: api.todos.list as FunctionReference<'query'>, args: {} as Record<string, Value> },
-  messages: { query: api.messages.list as FunctionReference<'query'>, args: {} as Record<string, Value> },
+// One reactive map → many live subscriptions. (`as never` on the refs: the
+// linked base module carries its own convex type copy, so the branded
+// FunctionReference identities differ across the link until it's published.)
+const queryMap = computed<RequestForQueries>(() => ({
+  counter: { query: api.counter.get as never, args: { name: 'demo' } },
+  todos: { query: api.todos.list as never, args: {} },
+  messages: { query: api.messages.list as never, args: {} },
 }))
-const live = useConvexQueries(queryMap)
+const live = useQueries(() => queryMap.value)
 
 const counterValue = computed(() => {
   const r = live.value.counter
@@ -106,7 +107,7 @@ function clock(at: number) {
 <template>
   <div class="stack">
     <PageHeader
-      tag="useConvexQueries · usePaginatedQuery · useMutation · useCredits"
+      tag="useQueries · usePaginatedQuery · useMutation · useCredits"
       title="Mission Control"
       :live="true"
     >
@@ -310,7 +311,7 @@ function clock(at: number) {
     <!-- Two pillars -->
     <div class="grid-2 pillars">
       <NuxtLink
-        to="/playground/convex/queries"
+        to="/playground/client/queries"
         class="pillar"
       >
         <div class="pillar-icon">
