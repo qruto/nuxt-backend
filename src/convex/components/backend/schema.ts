@@ -170,6 +170,22 @@ export const vEntitlementMeter = v.object({
 })
 
 /**
+ * An in-flight credit reservation (reserve → run → settle): `debit` records
+ * it while atomically decrementing the cached balance, `settle` drops it once
+ * the provider event is ingested, `release` re-credits on failure. `upsert`
+ * subtracts still-active reservations from freshly synced provider state so a
+ * webhook refresh can't resurrect balance that is being spent. Entries
+ * outlive their usefulness after {@link PENDING_SPEND_TTL_MS} (crashed flows)
+ * and are pruned on every touch — the cache stays a cache, never a ledger.
+ */
+export const vPendingSpend = v.object({
+  meterId: v.string(),
+  amount: v.number(),
+  externalId: v.string(),
+  at: v.number(),
+})
+
+/**
  * A gift purchase: one user pays for products (credit packs, plans) that a
  * recipient — identified by email — receives. Created at gift checkout, marked
  * `paid` by the billing webhook, and `claimed` once the entitlement is attached
@@ -203,10 +219,23 @@ export const billingTables = {
     activeProductIds: v.array(v.string()),
     benefits: v.array(vEntitlementBenefit),
     meters: v.array(vEntitlementMeter),
+    // In-flight spend reservations; see vPendingSpend. Optional so existing
+    // rows validate.
+    pendingSpends: v.optional(v.array(vPendingSpend)),
     updatedAt: v.number(),
   })
     .index('userId', ['userId'])
     .index('customerId', ['customerId']),
+  // Live benefit metadata, snapshotted per benefit (not per grant): feature
+  // gating joins this at read time, so a `benefit.updated` webhook patches
+  // one row here and every `useFeatures()` subscriber updates reactively —
+  // no per-sync provider fan-out, no per-row staleness.
+  billingBenefitMetadata: defineTable({
+    benefitId: v.string(),
+    metadata: v.record(v.string(), v.union(v.string(), v.number(), v.boolean())),
+    updatedAt: v.number(),
+  })
+    .index('benefitId', ['benefitId']),
   billingGifts: defineTable({
     // Stored lowercased; matched case-insensitively against the claimant's email.
     recipientEmail: v.string(),
@@ -232,8 +261,37 @@ export const billingTables = {
     .index('status', ['status']),
 }
 
+/**
+ * Metered-stream request plumbing for `setupAi().stream` — the HTTP stream
+ * endpoint can't carry Convex args, so `start` records the request (args,
+ * billing entity, reservation) and the HTTP dispatcher loads it by stream id.
+ * Status mirrors the credit reservation: `reserved` → `settled` (event
+ * ingested) or `released` (failed — nothing charged). Rows are plumbing, not
+ * a usage ledger — the provider event is the durable record; they are safe to
+ * prune.
+ */
+export const aiTables = {
+  aiRequests: defineTable({
+    streamId: v.string(),
+    /** Which `ai.stream({ name })` definition drives this request. */
+    name: v.string(),
+    /** The billing entity (workspace/user) the credits reserve against. */
+    entityId: v.string(),
+    /** The signed-in caller (for member attribution inside workspaces). */
+    userId: v.string(),
+    /** JSON-encoded handler args. */
+    args: v.string(),
+    meterId: v.optional(v.string()),
+    cost: v.number(),
+    externalId: v.string(),
+    status: v.union(v.literal('reserved'), v.literal('settled'), v.literal('released')),
+    createdAt: v.number(),
+  })
+    .index('streamId', ['streamId']),
+}
+
 /** Auth-only schema — passed to Better Auth's `createApi` in `adapter.ts`. */
 export const authSchema = defineSchema(tables)
 
-/** Full component schema: auth tables + the billing cache. */
-export default defineSchema({ ...tables, ...billingTables })
+/** Full component schema: auth tables + the billing cache + AI stream plumbing. */
+export default defineSchema({ ...tables, ...billingTables, ...aiTables })

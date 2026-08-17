@@ -46,7 +46,8 @@ export interface UseCreditsReturn {
  * </template>
  * ```
  *
- * @param meterId - Optional meter id to read (reactive); defaults to the user's first meter.
+ * @param meterId - Optional meter to read (reactive): a configured meter name
+ * (`'credits'`) or a raw meter id; defaults to the user's first meter.
  */
 export function useCredits(meterId?: MaybeRefOrGetter<string>, options: UseCreditsOptions = {}): UseCreditsReturn {
   const billing = useBackendNamespace<BillingApi>('billing', 'useCredits', options.api)
@@ -55,13 +56,15 @@ export function useCredits(meterId?: MaybeRefOrGetter<string>, options: UseCredi
     ? useQuery(billing.getCredits)
     : computed<Credits | null | undefined>(() => null)
 
-  // Resolve the target meter — by id if given, else the user's first/primary meter.
+  // Resolve the target meter — by configured name first (`useCredits('credits')`),
+  // then by raw meter id, else the user's first/primary meter.
   // `undefined` ⇒ still loading; `null` ⇒ loaded but no such meter (treat as 0).
   const meter = computed(() => {
     const list = credits.value?.meters
     if (list === undefined) return undefined
     const id = meterId === undefined ? undefined : toValue(meterId)
-    return (id ? list.find(m => m.meterId === id) : list[0]) ?? null
+    if (!id) return list[0] ?? null
+    return list.find(m => m.name === id) ?? list.find(m => m.meterId === id) ?? null
   })
 
   const pick = (key: 'balance' | 'creditedUnits' | 'consumedUnits') =>

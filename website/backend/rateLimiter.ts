@@ -3,8 +3,8 @@ import { v } from 'convex/values'
 import { components } from './_generated/api'
 import { mutation, query } from './_generated/server'
 
-// Application rate limiting. Pre-seeded with the auth limits (emailOtp,
-// signIn, signUp, passwordReset) — add your own named limits here.
+// Application rate limiting. Pre-seeded with the package defaults (emailOtp,
+// billingSync, ai, mcp) — add your own named limits here.
 export const rateLimiter = setupRateLimiter(components, {
   // Demo limit for the showcase: a token bucket of 5 pings per minute per user.
   demoPing: { kind: 'token bucket', rate: 5, period: MINUTE, capacity: 5 },
@@ -25,8 +25,8 @@ export const ping = mutation({
 })
 
 /**
- * Live view of the pre-seeded auth limits for the caller's email — meters on
- * the rate-limit playground page drain as OTP requests / sign-ins happen.
+ * Live view of the pre-seeded limits for the caller — meters on the
+ * rate-limit playground page drain as OTP requests / metered AI calls happen.
  * `getValue` returns `{ config, value, ts }`, so each entry carries its own
  * capacity for the meter.
  */
@@ -35,11 +35,13 @@ export const authLimits = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity()
     const email = typeof identity?.email === 'string' ? identity.email : null
-    if (!email) return { email: null, emailOtp: null, signIn: null }
-    const [emailOtp, signIn] = await Promise.all([
+    if (!email) return { email: null, emailOtp: null, ai: null }
+    const claims = identity as unknown as Record<string, unknown>
+    const entityId = typeof claims.activeOrganizationId === 'string' ? claims.activeOrganizationId : identity!.subject
+    const [emailOtp, ai] = await Promise.all([
       rateLimiter.getValue(ctx, 'emailOtp', { key: email }),
-      rateLimiter.getValue(ctx, 'signIn', { key: email }),
+      rateLimiter.getValue(ctx, 'ai', { key: entityId }),
     ])
-    return { email, emailOtp, signIn }
+    return { email, emailOtp, ai }
   },
 })

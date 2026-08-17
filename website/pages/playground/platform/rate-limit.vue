@@ -6,13 +6,14 @@ definePageMeta({ middleware: 'auth' })
 
 const ping = useMutation(api.rateLimiter.ping)
 
-// The pre-seeded auth limits (emailOtp / signIn), keyed by the caller's email
-// — reactive, so requesting an OTP from a second tab drains the meter live.
+// The pre-seeded limits (emailOtp per email / ai per billing entity) —
+// reactive, so requesting an OTP or running a metered AI call from a second
+// tab drains the meter live.
 const authLimits = useQuery(api.rateLimiter.authLimits)
 const authMeters = computed(() => {
   const data = authLimits.value
   if (!data?.email) return []
-  return (['emailOtp', 'signIn'] as const)
+  return (['emailOtp', 'ai'] as const)
     .map((name) => {
       const entry = data[name]
       if (!entry) return null

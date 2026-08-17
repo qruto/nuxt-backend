@@ -59,7 +59,7 @@ export interface AuthEmailMessage {
 export type AuthEmailSender = (ctx: AuthMutationCtx, message: AuthEmailMessage) => Promise<unknown>
 
 /** The named rate limits the auth flows consult (a subset of the defaults). */
-export type AuthRateLimitName = 'emailOtp' | 'signIn' | 'signUp' | 'passwordReset'
+export type AuthRateLimitName = 'emailOtp'
 
 /**
  * Guards auth-sensitive flows. Satisfied by `setupRateLimiter(...)` from

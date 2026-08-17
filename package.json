@@ -84,6 +84,10 @@
       "types": "./dist/convex/integrations/workflows.d.ts",
       "default": "./dist/convex/integrations/workflows.js"
     },
+    "./ai": {
+      "types": "./dist/convex/integrations/ai.d.ts",
+      "default": "./dist/convex/integrations/ai.js"
+    },
     "./component/convex.config": {
       "types": "./dist/convex/components/backend/convex.config.d.ts",
       "default": "./dist/convex/components/backend/convex.config.js"
@@ -113,6 +117,10 @@
     "./component/gifts": {
       "types": "./dist/convex/components/backend/gifts.d.ts",
       "default": "./dist/convex/components/backend/gifts.js"
+    },
+    "./component/ai": {
+      "types": "./dist/convex/components/backend/ai.d.ts",
+      "default": "./dist/convex/components/backend/ai.js"
     },
     "./auth.config": {
       "types": "./dist/convex/auth.config.d.ts",
@@ -165,6 +173,9 @@
       "workflows": [
         "./dist/convex/integrations/workflows.d.ts"
       ],
+      "ai": [
+        "./dist/convex/integrations/ai.d.ts"
+      ],
       "component/convex.config": [
         "./dist/convex/components/backend/convex.config.d.ts"
       ],
@@ -182,6 +193,9 @@
       ],
       "component/gifts": [
         "./dist/convex/components/backend/gifts.d.ts"
+      ],
+      "component/ai": [
+        "./dist/convex/components/backend/ai.d.ts"
       ],
       "auth.config": [
         "./dist/convex/auth.config.d.ts"
@@ -238,6 +252,7 @@
     "@convex-dev/aggregate": "^0.2.2",
     "@convex-dev/better-auth": "^0.12.5",
     "@convex-dev/migrations": "^0.3.6",
+    "@convex-dev/persistent-text-streaming": "^0.3.3",
     "@convex-dev/polar": "^0.9.2",
     "@convex-dev/rate-limiter": "^0.3.2",
     "@convex-dev/resend": "^0.2.6",

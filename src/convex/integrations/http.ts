@@ -28,10 +28,17 @@ export interface RegisterBackendRoutesOptions {
   email?: {
     webhookHandler: (ctx: never, request: Request) => Promise<Response>
   }
+  /** From `setupAi`: mounts the metered stream endpoint at {@link RegisterBackendRoutesOptions.aiPath}. */
+  ai?: {
+    httpHandler: unknown
+    corsOrigin: string
+  }
   /** Route for the billing events webhook. Default `/billing/events`. */
   billingPath?: string
   /** Route for the email events webhook. Default `/email/events`. */
   emailPath?: string
+  /** Route for the AI stream endpoint. Default `/ai/stream`. */
+  aiPath?: string
 }
 
 /**
@@ -67,6 +74,32 @@ export function registerBackendRoutes(http: HttpRouter, options: RegisterBackend
       path: options.emailPath ?? '/email/events',
       method: 'POST',
       handler: httpActionGeneric((ctx, request) => webhookHandler(ctx as never, request)),
+    })
+  }
+
+  if (options.ai) {
+    const { httpHandler, corsOrigin } = options.ai
+    const aiPath = options.aiPath ?? '/ai/stream'
+    http.route({
+      path: aiPath,
+      method: 'POST',
+      handler: httpHandler as Parameters<HttpRouter['route']>[0]['handler'],
+    })
+    // Browser preflight for the cross-origin fetch the stream driver makes
+    // (the app origin fetches the Convex site origin directly).
+    http.route({
+      path: aiPath,
+      method: 'OPTIONS',
+      handler: httpActionGeneric(async () => new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': corsOrigin,
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Max-Age': '86400',
+          'Vary': 'Origin',
+        },
+      })),
     })
   }
 }

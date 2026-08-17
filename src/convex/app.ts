@@ -12,6 +12,7 @@ import { v } from 'convex/values'
 import backend from './components/backend/convex.config'
 import aggregate from '@convex-dev/aggregate/convex.config'
 import migrations from '@convex-dev/migrations/convex.config'
+import persistentTextStreaming from '@convex-dev/persistent-text-streaming/convex.config'
 import polar from '@convex-dev/polar/convex.config'
 import rateLimiter from '@convex-dev/rate-limiter/convex.config'
 import workflow from '@convex-dev/workflow/convex.config'
@@ -79,12 +80,13 @@ type EnvlessComponentDef = ComponentDefinition
  * Package-owned: `backend` — the all-in-one component (auth tables + adapter,
  * transactional email with the provider component nested inside, the billing
  * entitlement cache, and gift purchases).
- * Upstream `@convex-dev/*`: `aggregate`, `migrations`, `polar`, `rateLimiter`,
- * `workflow` — these operate over the app's auth/HTTP surface and can't be
- * nested inside `backend`.
+ * Upstream `@convex-dev/*`: `aggregate`, `migrations`, `persistentTextStreaming`
+ * (token streaming for `setupAi`), `polar`, `rateLimiter`, `workflow` — these
+ * operate over the app's auth/HTTP surface and can't be nested inside
+ * `backend`.
  */
 export type BackendComponentName
-  = 'backend' | 'aggregate' | 'migrations' | 'polar' | 'rateLimiter' | 'workflow'
+  = 'backend' | 'aggregate' | 'migrations' | 'persistentTextStreaming' | 'polar' | 'rateLimiter' | 'workflow'
 
 /**
  * Customization for {@link installBackend} / {@link defineBackendApp}. The
@@ -141,6 +143,7 @@ export function installBackend<App extends BackendApp>(app: App, options: Instal
   const defs: Record<Exclude<BackendComponentName, 'backend'>, EnvlessComponentDef> = {
     aggregate,
     migrations,
+    persistentTextStreaming,
     polar,
     rateLimiter,
     workflow,
@@ -156,7 +159,7 @@ export function installBackend<App extends BackendApp>(app: App, options: Instal
       EMAIL_WEBHOOK_SECRET: app.env.EMAIL_WEBHOOK_SECRET,
     },
   })
-  for (const name of ['aggregate', 'migrations', 'polar', 'rateLimiter', 'workflow'] as const) {
+  for (const name of ['aggregate', 'migrations', 'persistentTextStreaming', 'polar', 'rateLimiter', 'workflow'] as const) {
     if (!skip.has(name)) app.use(defs[name])
   }
   return app
@@ -166,8 +169,8 @@ export function installBackend<App extends BackendApp>(app: App, options: Instal
  * One-call Convex app definition: declares the standard {@link backendEnv}
  * variables and mounts the all-in-one `backend` component (auth + email +
  * billing + gifts) plus the upstream components (`aggregate`, `migrations`,
- * `polar`, `rateLimiter`, `workflow`). The entire `convex.config.ts` is two
- * lines.
+ * `persistentTextStreaming`, `polar`, `rateLimiter`, `workflow`). The entire
+ * `convex.config.ts` is two lines.
  *
  * Returns the `app`, so you keep full control: mount your own components or
  * read env refs afterwards.

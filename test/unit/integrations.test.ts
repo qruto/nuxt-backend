@@ -27,9 +27,10 @@ afterEach(() => {
 })
 
 describe('setupRateLimiter', () => {
-  it('seeds the sensitive default limits', () => {
-    expect(Object.keys(DEFAULT_AUTH_LIMITS)).toEqual(['emailOtp', 'signIn', 'signUp', 'passwordReset', 'billingSync'])
+  it('seeds only limits with a real consumer (no dead password/sign-in limits)', () => {
+    expect(Object.keys(DEFAULT_AUTH_LIMITS)).toEqual(['emailOtp', 'billingSync', 'ai', 'mcp'])
     expect(DEFAULT_AUTH_LIMITS.emailOtp).toMatchObject({ kind: 'token bucket' })
+    expect(DEFAULT_AUTH_LIMITS.ai).toMatchObject({ kind: 'token bucket', rate: 30 })
   })
 
   it('merges custom limits on top of the defaults', () => {

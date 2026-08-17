@@ -322,6 +322,7 @@ function registerSaasComposables(resolver: Resolver): void {
     { name: 'useBackendConfig', from: resolver.resolve('./runtime/vue/composables/use-backend-config') },
     { name: 'useEmailStatus', from: resolver.resolve('./runtime/vue/composables/use-email-status') },
     { name: 'useWorkflowStatus', from: resolver.resolve('./runtime/vue/composables/use-workflow') },
+    { name: 'useAiStream', from: resolver.resolve('./runtime/vue/composables/use-ai-stream') },
   ]
   for (const composable of composables) {
     addImports(composable)

@@ -33,7 +33,17 @@ const mockCheckoutsCreate = vi.mocked(checkoutsCreate)
 const components = {
   polar: { lib: { insertCustomer: 'ref:insertCustomer' } },
   backend: {
-    billing: { getByUser: 'ref:getByUser', upsert: 'ref:upsert', userByCustomer: 'ref:userByCustomer' },
+    billing: {
+      getByUser: 'ref:getByUser',
+      upsert: 'ref:upsert',
+      userByCustomer: 'ref:userByCustomer',
+      debit: 'ref:debit',
+      settle: 'ref:settle',
+      release: 'ref:release',
+      credit: 'ref:credit',
+      getBenefitMetadata: 'ref:getBenefitMetadata',
+      upsertBenefitMetadata: 'ref:upsertBenefitMetadata',
+    },
     gifts: {
       create: 'ref:gifts.create',
       markPaid: 'ref:gifts.markPaid',
@@ -50,8 +60,25 @@ const config = {
   currentUserId: async () => 'u1',
 } as never
 
-function makeCtx() {
-  return { runQuery: vi.fn(), runMutation: vi.fn() }
+interface MakeCtxOptions {
+  /** Result(s) for `cache.debit` — an array is consumed per call. */
+  debit?: object | object[]
+}
+
+function makeCtx({ debit }: MakeCtxOptions = {}) {
+  const debitResults = Array.isArray(debit) ? [...debit] : debit === undefined ? [] : [debit]
+  const runQuery = vi.fn(async (ref: unknown): Promise<unknown> => {
+    if (ref === 'ref:getBenefitMetadata') return []
+    if (ref === 'ref:getByUser') return null
+    return undefined
+  })
+  const runMutation = vi.fn(async (ref: unknown): Promise<unknown> => {
+    if (ref === 'ref:debit') {
+      return debitResults.length > 1 ? debitResults.shift() : debitResults[0] ?? { ok: true, balance: 99 }
+    }
+    return null
+  })
+  return { runQuery, runMutation }
 }
 
 let billing: Billing
@@ -110,15 +137,114 @@ describe('spendCredits', () => {
 
   it('blocks the spend when the guarded meter balance is insufficient', async () => {
     getCustomerByUserId.mockResolvedValue({ id: 'cus_1' } as never)
-    mockCustomersGetState.mockResolvedValue({
-      ok: true,
-      value: { activeMeters: [{ meterId: 'm1', consumedUnits: 0, creditedUnits: 1, balance: 1 }] },
-    } as never)
+    const ctx = makeCtx({ debit: { ok: false, balance: 1, reason: 'insufficient' } })
 
     await expect(
-      billing.spendCredits(makeCtx() as never, { userId: 'u1', name: 'credits', meterId: 'm1', value: 5 }),
-    ).rejects.toThrow(/Insufficient credits/)
+      billing.spendCredits(ctx as never, { userId: 'u1', name: 'credits', meterId: 'm1', value: 5 }),
+    ).rejects.toThrow(/Insufficient credits — balance 1, need 5/)
     expect(mockEventsIngest).not.toHaveBeenCalled()
+    // Nothing was reserved, so nothing to release.
+    expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:release', expect.anything())
+  })
+
+  it('reserves, ingests, then settles a guarded spend', async () => {
+    getCustomerByUserId.mockResolvedValue({ id: 'cus_1' } as never)
+    mockEventsIngest.mockResolvedValue({ ok: true, value: {} } as never)
+    const ctx = makeCtx({ debit: { ok: true, balance: 7 } })
+
+    await billing.spendCredits(ctx as never, { userId: 'u1', name: 'credits', meterId: 'm1', value: 1, externalId: 'spend-1' })
+
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:debit', { userId: 'u1', meterId: 'm1', amount: 1, externalId: 'spend-1' })
+    expect(mockEventsIngest).toHaveBeenCalledWith(
+      expect.anything(),
+      { events: [expect.objectContaining({ name: 'credits', customerId: 'cus_1', externalId: 'spend-1' })] },
+    )
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:settle', { userId: 'u1', externalId: 'spend-1' })
+    expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:release', expect.anything())
+  })
+
+  it('releases the reservation when ingestion fails — a failed run consumes nothing', async () => {
+    getCustomerByUserId.mockResolvedValue({ id: 'cus_1' } as never)
+    mockEventsIngest.mockRejectedValue(new Error('provider down'))
+    const ctx = makeCtx({ debit: { ok: true, balance: 7 } })
+
+    await expect(
+      billing.spendCredits(ctx as never, { userId: 'u1', name: 'credits', meterId: 'm1', externalId: 'spend-2' }),
+    ).rejects.toThrow('provider down')
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:release', { userId: 'u1', externalId: 'spend-2' })
+    expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:settle', expect.anything())
+  })
+
+  it('self-heals a cold cache: refreshes entitlements and retries the reservation once', async () => {
+    getCustomerByUserId.mockResolvedValue({ id: 'cus_1' } as never)
+    mockCustomersGetState.mockResolvedValue({ ok: true, value: { activeMeters: [{ meterId: 'm1', consumedUnits: 0, creditedUnits: 5, balance: 5 }] } } as never)
+    mockEventsIngest.mockResolvedValue({ ok: true, value: {} } as never)
+    const ctx = makeCtx({ debit: [{ ok: false, balance: 0, reason: 'no-row' }, { ok: true, balance: 4 }] })
+
+    await billing.spendCredits(ctx as never, { userId: 'u1', name: 'credits', meterId: 'm1' })
+
+    // The cold cache triggered one sync (upsert) before the successful retry.
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:upsert', expect.objectContaining({ userId: 'u1' }))
+    expect(mockEventsIngest).toHaveBeenCalledTimes(1)
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:settle', expect.anything())
+  })
+
+  it('spends by configured meter name: sum meters ingest the amount property', async () => {
+    const named = setupBilling(components, {
+      ...(config as object),
+      credits: { credits: { meterId: 'm_sum', property: 'amount' } },
+    } as never)
+    vi.spyOn(named.provider, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
+    mockEventsIngest.mockResolvedValue({ ok: true, value: {} } as never)
+    const ctx = makeCtx({ debit: { ok: true, balance: 10 } })
+
+    await named.spendCredits(ctx as never, { userId: 'u1', meter: 'credits', value: 5 })
+
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:debit', expect.objectContaining({ meterId: 'm_sum', amount: 5 }))
+    expect(mockEventsIngest).toHaveBeenCalledWith(
+      expect.anything(),
+      { events: [expect.objectContaining({ name: 'credits', metadata: { amount: 5 } })] },
+    )
+  })
+
+  it('rejects multi-credit spends on configured count meters and unknown meter names', async () => {
+    const named = setupBilling(components, {
+      ...(config as object),
+      credits: { actions: { meterId: 'm_count' } },
+    } as never)
+    vi.spyOn(named.provider, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
+
+    await expect(
+      named.spendCredits(makeCtx() as never, { userId: 'u1', meter: 'actions', value: 3 }),
+    ).rejects.toThrow(/counts events/)
+    await expect(
+      named.spendCredits(makeCtx() as never, { userId: 'u1', meter: 'nope' }),
+    ).rejects.toThrow(/Unknown credit meter 'nope'/)
+  })
+
+  it('refunds sum meters with a compensating negative event and rejects count meters', async () => {
+    const named = setupBilling(components, {
+      ...(config as object),
+      credits: {
+        credits: { meterId: 'm_sum', property: 'amount' },
+        actions: { meterId: 'm_count' },
+      },
+    } as never)
+    vi.spyOn(named.provider, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
+    mockEventsIngest.mockResolvedValue({ ok: true, value: {} } as never)
+    const ctx = makeCtx()
+
+    await named.refundCredits(ctx as never, { userId: 'u1', meter: 'credits', value: 3 })
+
+    expect(mockEventsIngest).toHaveBeenCalledWith(
+      expect.anything(),
+      { events: [expect.objectContaining({ metadata: { amount: -3 } })] },
+    )
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:credit', { userId: 'u1', meterId: 'm_sum', amount: 3 })
+
+    await expect(
+      named.refundCredits(makeCtx() as never, { userId: 'u1', meter: 'actions', value: 1 }),
+    ).rejects.toThrow(/only sum meters/)
   })
 
   it('ingests a credit-spend event when not guarded by a meter', async () => {

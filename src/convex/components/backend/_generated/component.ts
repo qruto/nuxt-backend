@@ -1812,8 +1812,94 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
     };
+    ai: {
+      clear: FunctionReference<
+        "mutation",
+        "internal",
+        { beforeMs?: number },
+        null,
+        Name
+      >;
+      createRequest: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          args: string;
+          cost: number;
+          entityId: string;
+          externalId: string;
+          meterId?: string;
+          name: string;
+          streamId: string;
+          userId: string;
+        },
+        null,
+        Name
+      >;
+      getByStream: FunctionReference<
+        "query",
+        "internal",
+        { streamId: string },
+        {
+          args: string;
+          cost: number;
+          createdAt: number;
+          entityId: string;
+          externalId: string;
+          meterId?: string;
+          name: string;
+          status: "reserved" | "settled" | "released";
+          streamId: string;
+          userId: string;
+        } | null,
+        Name
+      >;
+      markReleased: FunctionReference<
+        "mutation",
+        "internal",
+        { streamId: string },
+        null,
+        Name
+      >;
+      markSettled: FunctionReference<
+        "mutation",
+        "internal",
+        { streamId: string },
+        null,
+        Name
+      >;
+    };
     billing: {
       clear: FunctionReference<"mutation", "internal", {}, null, Name>;
+      credit: FunctionReference<
+        "mutation",
+        "internal",
+        { amount: number; meterId: string; userId: string },
+        null,
+        Name
+      >;
+      debit: FunctionReference<
+        "mutation",
+        "internal",
+        { amount: number; externalId: string; meterId: string; userId: string },
+        {
+          balance: number;
+          ok: boolean;
+          reason?: "no-row" | "no-meter" | "insufficient";
+        },
+        Name
+      >;
+      getBenefitMetadata: FunctionReference<
+        "query",
+        "internal",
+        { benefitIds: Array<string> },
+        Array<{
+          benefitId: string;
+          metadata: Record<string, string | number | boolean>;
+          updatedAt: number;
+        }>,
+        Name
+      >;
       getByUser: FunctionReference<
         "query",
         "internal",
@@ -1836,6 +1922,20 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         } | null,
         Name
       >;
+      release: FunctionReference<
+        "mutation",
+        "internal",
+        { externalId: string; userId: string },
+        null,
+        Name
+      >;
+      settle: FunctionReference<
+        "mutation",
+        "internal",
+        { externalId: string; userId: string },
+        null,
+        Name
+      >;
       upsert: FunctionReference<
         "mutation",
         "internal",
@@ -1855,6 +1955,18 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             meterId: string;
           }>;
           userId: string;
+        },
+        null,
+        Name
+      >;
+      upsertBenefitMetadata: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          entries: Array<{
+            benefitId: string;
+            metadata: Record<string, string | number | boolean>;
+          }>;
         },
         null,
         Name

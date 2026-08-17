@@ -9,6 +9,7 @@
  */
 
 import type * as adapter from "../adapter.js";
+import type * as ai from "../ai.js";
 import type * as billing from "../billing.js";
 import type * as email from "../email.js";
 import type * as gifts from "../gifts.js";
@@ -22,6 +23,7 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   adapter: typeof adapter;
+  ai: typeof ai;
   billing: typeof billing;
   email: typeof email;
   gifts: typeof gifts;

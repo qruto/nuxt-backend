@@ -27,6 +27,8 @@ export interface EntitlementBenefit {
 /** A prepaid credit-meter balance (`useCredits()`). */
 export interface EntitlementMeter {
   meterId: string
+  /** The configured friendly name (`setupBilling({ credits })` / catalog key). */
+  name?: string
   consumedUnits: number
   creditedUnits: number
   balance: number

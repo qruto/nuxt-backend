@@ -122,9 +122,10 @@ describe('doctor', () => {
 
     const output = vi.mocked(console.log).mock.calls.flat().join('\n')
     const report = JSON.parse(output) as { findings: Array<{ id: string, status: string }> }
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
     expect(report.findings.find(finding => finding.id === 'billing-webhook-route')?.status).toBe('pass')
     expect(report.findings.find(finding => finding.id === 'email-webhook-route')?.status).toBe('fail')
+    expect(report.findings.find(finding => finding.id === 'ai-stream-route')?.status).toBe('fail')
     expect(process.exitCode).toBe(1)
   }, 30_000)
 })

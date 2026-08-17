@@ -2,6 +2,7 @@ import { setupBilling, type DiscountInput } from 'nuxt-backend/billing'
 import { v } from 'convex/values'
 import { components } from './_generated/api'
 import { internalAction } from './_generated/server'
+import { catalog } from './billing.generated'
 
 // Subscriptions, discounts, prepaid credits & gift purchases. Billing
 // follows the tenant: with the default `billTo: 'organization'` the active
@@ -10,8 +11,11 @@ import { internalAction } from './_generated/server'
 // identity claims automatically, configuration comes from the BILLING_* env
 // vars (optional — billing stays empty until BILLING_ACCESS_TOKEN is set),
 // and the reactive feature/credit cache lives inside the backend component —
-// nothing to add to your schema.
-const billing = setupBilling(components)
+// nothing to add to your schema. The catalog (plans, packs, credit meters)
+// is declared in billing.catalog.ts and pushed with
+// `npx nuxt-backend billing sync`, which fills billing.generated.ts.
+// The instance is exported for ai.ts (metered actions spend through it).
+export const billing = setupBilling(components, { catalog })
 
 export const { provider } = billing
 // Checkout / portal / subscription / gift functions for `useBilling`.

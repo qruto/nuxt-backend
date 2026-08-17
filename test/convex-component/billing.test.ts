@@ -65,3 +65,92 @@ describe('billing entitlement cache (component)', () => {
     expect(await t.query(api.billing.getByUser, { userId: 'u1' })).toBeNull()
   })
 })
+
+describe('spend reservations (reserve → settle / release)', () => {
+  const seed = async (balance = 1) => {
+    await t.mutation(api.billing.upsert, {
+      userId: 'u1',
+      activeProductIds: [],
+      benefits: [],
+      meters: [{ meterId: 'm1', consumedUnits: 0, creditedUnits: balance, balance }],
+    })
+  }
+
+  test('two concurrent spends against balance 1 — exactly one wins', async () => {
+    await seed(1)
+    const [a, b] = await Promise.all([
+      t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 1, externalId: 'a' }),
+      t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 1, externalId: 'b' }),
+    ])
+    expect([a.ok, b.ok].filter(Boolean)).toHaveLength(1)
+    const row = await t.query(api.billing.getByUser, { userId: 'u1' })
+    expect(row?.meters[0]).toMatchObject({ balance: 0, consumedUnits: 1 })
+  })
+
+  test('debit distinguishes cold cache from insufficient balance', async () => {
+    expect(await t.mutation(api.billing.debit, { userId: 'nobody', meterId: 'm1', amount: 1, externalId: 'x' }))
+      .toMatchObject({ ok: false, reason: 'no-row' })
+    await seed(1)
+    expect(await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'other', amount: 1, externalId: 'x' }))
+      .toMatchObject({ ok: false, reason: 'no-meter' })
+    expect(await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 2, externalId: 'x' }))
+      .toMatchObject({ ok: false, reason: 'insufficient', balance: 1 })
+  })
+
+  test('re-reserving the same externalId is idempotent', async () => {
+    await seed(2)
+    await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 1, externalId: 'same' })
+    const again = await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 1, externalId: 'same' })
+    expect(again.ok).toBe(true)
+    const row = await t.query(api.billing.getByUser, { userId: 'u1' })
+    expect(row?.meters[0]?.balance).toBe(1) // decremented once, not twice
+  })
+
+  test('release re-credits; settle keeps the spend', async () => {
+    await seed(2)
+    await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 1, externalId: 'r1' })
+    await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 1, externalId: 's1' })
+    await t.mutation(api.billing.release, { userId: 'u1', externalId: 'r1' })
+    await t.mutation(api.billing.settle, { userId: 'u1', externalId: 's1' })
+    const row = await t.query(api.billing.getByUser, { userId: 'u1' })
+    expect(row?.meters[0]).toMatchObject({ balance: 1, consumedUnits: 1 })
+  })
+
+  test('upsert re-subtracts active reservations from fresh provider state', async () => {
+    await seed(5)
+    await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 2, externalId: 'inflight' })
+    // A webhook-driven refresh lands mid-spend with pre-spend provider truth.
+    await t.mutation(api.billing.upsert, {
+      userId: 'u1',
+      activeProductIds: [],
+      benefits: [],
+      meters: [{ meterId: 'm1', consumedUnits: 0, creditedUnits: 5, balance: 5 }],
+    })
+    const row = await t.query(api.billing.getByUser, { userId: 'u1' })
+    expect(row?.meters[0]).toMatchObject({ balance: 3, consumedUnits: 2 })
+    // After settling, provider truth stands as-is on the next refresh.
+    await t.mutation(api.billing.settle, { userId: 'u1', externalId: 'inflight' })
+    await t.mutation(api.billing.upsert, {
+      userId: 'u1',
+      activeProductIds: [],
+      benefits: [],
+      meters: [{ meterId: 'm1', consumedUnits: 2, creditedUnits: 5, balance: 3 }],
+    })
+    const settled = await t.query(api.billing.getByUser, { userId: 'u1' })
+    expect(settled?.meters[0]).toMatchObject({ balance: 3, consumedUnits: 2 })
+  })
+})
+
+describe('benefit metadata snapshots', () => {
+  test('upsert + read round trip, patched in place', async () => {
+    await t.mutation(api.billing.upsertBenefitMetadata, {
+      entries: [{ benefitId: 'ben_1', metadata: { key: 'premium' } }],
+    })
+    await t.mutation(api.billing.upsertBenefitMetadata, {
+      entries: [{ benefitId: 'ben_1', metadata: { key: 'premium-renamed' } }],
+    })
+    const rows = await t.query(api.billing.getBenefitMetadata, { benefitIds: ['ben_1', 'missing'] })
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ benefitId: 'ben_1', metadata: { key: 'premium-renamed' } })
+  })
+})

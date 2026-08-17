@@ -6,6 +6,7 @@ import type { BackendInstallationMode } from '../templates'
 import { collectPreflightFindings, formatPreflightSummary, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../preflight'
 import { deploymentEnvNames, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
 import { deriveDeploymentUrls } from '../deployment'
+import { billing } from './billing'
 import { REQUIRED_FUNCTION_EXPORTS } from '../contract'
 import { resolvePagePath, type ModulePagesOptions } from '../pages'
 
@@ -271,6 +272,7 @@ async function webhookRouteFindings(siteUrl: string): Promise<PreflightFinding[]
   const routes = [
     { id: 'billing-webhook-route', title: 'Billing webhook route', path: '/billing/events', service: 'billing' },
     { id: 'email-webhook-route', title: 'Email webhook route', path: '/email/events', service: 'email' },
+    { id: 'ai-stream-route', title: 'AI stream route', path: '/ai/stream', service: 'ai' },
   ]
   return Promise.all(routes.map(async (route): Promise<PreflightFinding> => {
     const url = `${siteUrl.replace(/\/+$/, '')}${route.path}`
@@ -456,5 +458,5 @@ export const main = defineCommand({
     name: 'nuxt-backend',
     description: 'All-in-one SaaS backend for Nuxt on Convex — scaffold and check your project',
   },
-  subCommands: { init, doctor, env },
+  subCommands: { init, doctor, env, billing },
 })

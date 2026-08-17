@@ -1,4 +1,5 @@
 import { WorkflowManager } from '@convex-dev/workflow'
+import type { ObjectType, PropertyValidators } from 'convex/values'
 
 /**
  * Re-exported so consumers can type a `status` query's `workflowId` arg and
@@ -59,5 +60,71 @@ export function setupWorkflows(
 ): WorkflowManager {
   return new WorkflowManager(components.workflow, {
     workpoolOptions: { ...DEFAULT_WORKPOOL_OPTIONS, ...options?.workpoolOptions },
+  })
+}
+
+/** One email in an {@link defineEmailSequence} drip. */
+export interface EmailSequenceStep<Data> {
+  /** Delay before this step, in milliseconds from the previous one. */
+  after: number
+  /**
+   * Build the email for this step — or return `null` to skip it (e.g. the
+   * user already activated and the nudge is moot).
+   */
+  email: (data: Data) => { to: string, subject: string, html?: string, text?: string } | null
+}
+
+/** The email transport shape (`components.backend.email.send`, structurally). */
+interface SequenceEmailComponents {
+  backend: {
+    email: {
+      send: unknown
+    }
+  }
+}
+
+/**
+ * A durable, multi-step email sequence (onboarding drips, cancellation
+ * follow-ups): each step sleeps its `after` delay durably (survives restarts
+ * and deploys via the workflow component), then sends through the backend
+ * component's email module — delivery-tracked like every other transactional
+ * email. Cancel a started sequence with the workflow manager's own
+ * `workflow.cancel(ctx, id)`.
+ *
+ * @example
+ * ```ts
+ * // backend/workflows.ts
+ * export const onboardingSequence = defineEmailSequence(workflow, components, {
+ *   args: { email: v.string(), name: v.string() },
+ *   steps: [
+ *     { after: 0, email: ({ email, name }) => ({ to: email, subject: `Welcome, ${name}!`, text: '…' }) },
+ *     { after: 3 * 24 * 60 * 60 * 1000, email: ({ email }) => ({ to: email, subject: 'Getting the most out of it', text: '…' }) },
+ *   ],
+ * })
+ * // started from auth's onUserCreated:
+ * //   await workflow.start(ctx, internal.workflows.onboardingSequence, { email, name })
+ * ```
+ */
+export function defineEmailSequence<Args extends PropertyValidators>(
+  workflow: WorkflowManager,
+  components: SequenceEmailComponents,
+  options: {
+    args: Args
+    steps: EmailSequenceStep<ObjectType<Args>>[]
+  },
+) {
+  const send = components.backend.email.send
+  return workflow.define({
+    args: options.args,
+    handler: async (step, data) => {
+      for (const [index, sequenceStep] of options.steps.entries()) {
+        if (sequenceStep.after > 0) {
+          await step.sleep(sequenceStep.after, { name: `email-sequence-wait-${index}` })
+        }
+        const message = sequenceStep.email(data)
+        if (!message) continue
+        await step.runMutation(send as never, message as never)
+      }
+    },
   })
 }

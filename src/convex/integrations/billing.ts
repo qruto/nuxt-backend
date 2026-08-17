@@ -108,6 +108,33 @@ export interface CustomerEntitlements {
   meters: EntitlementMeter[]
 }
 
+/**
+ * A named credit meter: how a spend by friendly name (`meter: 'credits'`)
+ * resolves to the provider meter and its ingestion shape. Declared in
+ * `setupBilling({ credits })` or generated into `billing.generated.ts` by
+ * `nuxt-backend billing sync`.
+ */
+export interface CreditMeterConfig {
+  /** The provider meter id the balance guard runs against. */
+  meterId: string
+  /** Event name the meter's filter matches. Defaults to the config key. */
+  eventName?: string
+  /**
+   * For sum-aggregation meters: the metadata property carrying the amount —
+   * ingested as `metadata[property] = value`. Omit for count meters (which
+   * count events, so each spend is exactly 1 credit).
+   */
+  property?: string
+}
+
+/** The environment-keyed id map `nuxt-backend billing sync` generates. */
+export interface BillingCatalogIds {
+  /** Catalog key → provider product id (plans and packs). */
+  products?: Record<string, string>
+  /** Catalog key → credit meter config. */
+  meters?: Record<string, CreditMeterConfig>
+}
+
 /** A prepaid-credit consumption event (drawn from the customer's meter balance). */
 export interface SpendCreditsEvent {
   /**
@@ -116,22 +143,65 @@ export interface SpendCreditsEvent {
    * the caller's identity (the active workspace / signed-in user).
    */
   userId?: string
-  /** The meter event name (must match the credit meter's filter, e.g. `"credits"`). */
-  name: string
   /**
-   * The credit meter id to guard against. When set, the spend is **blocked**
-   * (throws) if the balance is below `value` — keeping credits strictly prepaid
-   * (never billed as overage). Omit to skip the balance check.
+   * A configured credit meter name (`setupBilling({ credits })` / catalog key)
+   * — the preferred spend target: resolves the meter id, event name, and
+   * ingestion shape in one word.
+   */
+  meter?: string
+  /** The meter event name. Defaults to the configured meter's `eventName`/key. */
+  name?: string
+  /**
+   * A raw credit meter id to guard against (escape hatch when no named meter
+   * config exists). When a meter resolves (by `meter` or `meterId`), the spend
+   * is **reserved** against the cached balance first and **blocked** (throws)
+   * if it is below `value` — keeping credits strictly prepaid (never billed
+   * as overage). The reservation settles after the provider event ingests, or
+   * releases on failure, so a failed run never consumes credits.
    */
   meterId?: string
-  /** Credits required for this spend (default `1`) — used for the balance guard. */
+  /** Credits required for this spend (default `1`). */
   value?: number
   /** Event properties used by the meter's aggregation/filter. */
   metadata?: Record<string, string | number | boolean>
-  /** Idempotency key to prevent double-counting. */
+  /** Idempotency key to prevent double-counting (defaults to a random UUID). */
   externalId?: string
   /** Event time (defaults to now). */
   timestamp?: Date
+}
+
+/**
+ * A credit reservation's addressing data — serializable, so a spend can
+ * reserve in one function and settle/release in another (the streaming HTTP
+ * dispatcher does exactly that).
+ */
+export interface SpendReservation {
+  /** The billing entity the spend belongs to. */
+  entityId: string
+  /** Idempotency key shared by the reservation and the provider event. */
+  externalId: string
+  /** Whether a meter guard actually reserved cached balance. */
+  reserved: boolean
+  /** The configured meter name (when reserved via one). */
+  meter?: string
+  /** The raw meter id (when reserved). */
+  meterId?: string
+  /** Credits reserved. */
+  value: number
+}
+
+/** A prepaid-credit refund (compensating event on a sum meter). */
+export interface RefundCreditsEvent {
+  /** The billing entity id; omit to resolve from the caller's identity. */
+  userId?: string
+  /** The configured credit meter name to refund on (must be a sum meter). */
+  meter: string
+  /** Credits to give back. */
+  value: number
+  /** Extra event properties. */
+  metadata?: Record<string, string | number | boolean>
+  /** Idempotency key (defaults to a random UUID). */
+  externalId?: string
 }
 
 /** The cached entitlement state served by the component (`getByUser` shape). */
@@ -204,6 +274,23 @@ export interface BillingComponents {
         meters: EntitlementMeter[]
       }, null>
       userByCustomer: FunctionReference<'query', 'internal', { customerId: string }, string | null>
+      debit: FunctionReference<'mutation', 'internal', {
+        userId: string
+        meterId: string
+        amount: number
+        externalId: string
+      }, { ok: boolean, balance: number, reason?: 'no-row' | 'no-meter' | 'insufficient' }>
+      settle: FunctionReference<'mutation', 'internal', { userId: string, externalId: string }, null>
+      release: FunctionReference<'mutation', 'internal', { userId: string, externalId: string }, null>
+      credit: FunctionReference<'mutation', 'internal', { userId: string, meterId: string, amount: number }, null>
+      getBenefitMetadata: FunctionReference<'query', 'internal', { benefitIds: string[] }, Array<{
+        benefitId: string
+        metadata: Record<string, string | number | boolean>
+        updatedAt: number
+      }>>
+      upsertBenefitMetadata: FunctionReference<'mutation', 'internal', {
+        entries: Array<{ benefitId: string, metadata: Record<string, string | number | boolean> }>
+      }, null>
     }
     gifts: {
       create: FunctionReference<'mutation', 'internal', {
@@ -296,9 +383,32 @@ export type SetupBillingConfig = Omit<PolarConfig, 'getUserInfo' | 'organization
    * `SITE_URL` (where signing in claims the gift automatically).
    */
   giftEmail?: (data: GiftEmailData) => GiftEmailMessage
+  /**
+   * Named credit meters: spend by friendly name (`spendCredits({ meter:
+   * 'credits' })`, `useCredits('credits')`) instead of provider meter ids.
+   * Usually supplied via {@link SetupBillingConfig.catalog}; explicit entries
+   * here win.
+   */
+  credits?: Record<string, CreditMeterConfig>
+  /**
+   * The environment-keyed id map generated by `nuxt-backend billing sync`
+   * (`backend/billing.generated.ts`): fills `products` and `credits` for the
+   * active `BILLING_ENVIRONMENT`, so provider UUIDs live in exactly one
+   * generated file. Explicit `products`/`credits` config wins.
+   */
+  catalog?: Partial<Record<'sandbox' | 'production', BillingCatalogIds | undefined>>
+  /**
+   * Maximum age of a cached benefit-metadata snapshot before an entitlement
+   * sync re-reads it live (ms, default 15 minutes). The `benefit.updated`
+   * webhook patches snapshots immediately regardless.
+   */
+  benefitMetadataTtlMs?: number
 }
 
 /** Webhook events that signal a customer's plans / benefits / credits may have changed. */
+// Catalog-as-code authoring surface (billing.catalog.ts / `billing sync`).
+export { type BillingCatalog, BILLING_WEBHOOK_PROVISION_EVENTS, type CatalogCreditGrant, type CatalogFeature, type CatalogMeter, type CatalogPack, type CatalogPlan, defineBillingCatalog } from '../catalog'
+
 const REFRESH_EVENTS = [
   'customer.state_changed',
   'order.created',
@@ -314,6 +424,9 @@ const REFRESH_EVENTS = [
   'benefit_grant.cycled',
   'benefit_grant.revoked',
 ] as const satisfies ReadonlyArray<keyof WebhookEventHandlers>
+
+/** Internal: lets tests pin the provision list against the refresh set. */
+export const BILLING_REFRESH_EVENTS: readonly string[] = REFRESH_EVENTS
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, c => (
@@ -386,13 +499,39 @@ export interface Billing {
    */
   getCustomerState: (ctx: RunQueryCtx, args: { userId: string }) => Promise<CustomerEntitlements>
   /**
-   * Spend prepaid credits (provider `events.ingest`) — call from your own
-   * **server** action when a metered feature is used. The billing entity
-   * (workspace or user, per `billTo`) resolves from the caller's identity;
-   * pass `userId` to spend for a specific entity. With `meterId` set, the
-   * spend is blocked when the balance is insufficient (strictly prepaid).
+   * Spend prepaid credits — call from your own **server** action when a
+   * metered feature is used. The billing entity (workspace or user, per
+   * `billTo`) resolves from the caller's identity; pass `userId` to spend for
+   * a specific entity. With a configured `meter` (or raw `meterId`), the
+   * spend reserves against the cached balance atomically (strictly prepaid —
+   * two concurrent spends can never both pass), ingests the provider event,
+   * then settles; a failed run releases the reservation and consumes nothing.
    */
-  spendCredits: (ctx: RunQueryCtx & { auth?: Auth }, event: SpendCreditsEvent) => Promise<void>
+  spendCredits: (ctx: RunWriteCtx & { auth?: Auth }, event: SpendCreditsEvent) => Promise<void>
+  /**
+   * Give credits back on a **sum** meter (compensating negative-value event +
+   * optimistic cache re-credit). Count meters cannot be refunded.
+   */
+  refundCredits: (ctx: RunWriteCtx & { auth?: Auth }, event: RefundCreditsEvent) => Promise<void>
+  /**
+   * The reserve step of a spend, alone — for flows that run work between the
+   * guard and the charge (`setupAi().meteredAction` / streaming). Atomically
+   * reserves against the cached balance (throws when insufficient) and
+   * returns serializable addressing data for {@link Billing.settleSpend} /
+   * {@link Billing.releaseSpend}. `allowRefresh: false` skips the cold-cache
+   * self-heal (required from mutation contexts — the refresh fetches).
+   */
+  reserveCredits: (ctx: RunWriteCtx & { auth?: Auth }, event: SpendCreditsEvent & { allowRefresh?: boolean }) => Promise<SpendReservation>
+  /** Ingest the provider event for a reservation and finalize the spend. */
+  settleSpend: (ctx: RunWriteCtx, reservation: SpendReservation, options?: { name?: string, metadata?: Record<string, string | number | boolean>, timestamp?: Date }) => Promise<void>
+  /** Undo a reservation whose work failed — nothing is charged. */
+  releaseSpend: (ctx: RunWriteCtx, reservation: SpendReservation) => Promise<void>
+  /**
+   * Resolve the billing entity from the caller's identity claims — the active
+   * workspace (`billTo: 'organization'`) or the signed-in user. `null` when
+   * signed out.
+   */
+  resolveEntity: (ctx: { auth?: Auth }) => Promise<{ userId: string, email: string } | null>
   /**
    * Create a discount / coupon (provider `discounts.create`). Call from an
    * **action**. Accepts the full discount-create shape (fixed or percentage).
@@ -435,14 +574,40 @@ export function setupBilling(
   config: SetupBillingConfig = {},
 ): Billing {
   const billTo = config.billTo ?? 'organization'
-  // Service-neutral config: explicit values win, then the required BILLING_*
-  // env vars — passed explicitly to the provider client so its own
-  // service-named env fallbacks never engage.
+  // Service-neutral config: explicit values win, then the BILLING_* env vars
+  // — passed explicitly to the provider client so its own service-named env
+  // fallbacks never engage.
   const accessToken = config.accessToken ?? readEnv('BILLING_ACCESS_TOKEN')
   const environment = config.environment
     ?? (readEnv('BILLING_ENVIRONMENT') as 'sandbox' | 'production' | undefined)
     ?? 'sandbox'
   const webhookSecret = config.webhookSecret ?? readEnv('BILLING_WEBHOOK_SECRET')
+
+  // The generated catalog (billing.generated.ts) supplies the environment's
+  // product ids and named credit meters; explicit config wins over it.
+  const catalogIds = config.catalog?.[environment]
+  const products = config.products ?? catalogIds?.products
+  const creditMeters: Record<string, CreditMeterConfig> = { ...catalogIds?.meters, ...config.credits }
+  const meterNameById = new Map(Object.entries(creditMeters).map(([key, meter]) => [meter.meterId, key]))
+
+  /** Resolve a spend's target meter from its friendly name or raw meter id. */
+  const resolveMeter = (event: Pick<SpendCreditsEvent, 'meter' | 'meterId'>): (CreditMeterConfig & { key?: string }) | null => {
+    if (event.meter) {
+      const found = creditMeters[event.meter]
+      if (!found) {
+        throw new Error(
+          `[nuxt-backend] Unknown credit meter '${event.meter}' — declare it in setupBilling({ credits }) `
+          + 'or generate it with `nuxt-backend billing sync`.',
+        )
+      }
+      return { key: event.meter, ...found }
+    }
+    if (event.meterId) {
+      const key = meterNameById.get(event.meterId)
+      return key ? { key, ...creditMeters[key]! } : { meterId: event.meterId }
+    }
+    return null
+  }
 
   /**
    * Resolve the billing entity from identity claims: the active workspace
@@ -476,6 +641,7 @@ export function setupBilling(
 
   const provider = new Polar(components.polar, {
     ...config,
+    products,
     getUserInfo,
     organizationToken: accessToken,
     server: environment,
@@ -498,16 +664,35 @@ export function setupBilling(
       activeMeters?: Array<{ meterId: string, consumedUnits: number, creditedUnits: number, balance: number }>
     }
     const grants = state.grantedBenefits ?? []
-    // Customer-state `benefitMetadata` is a grant-time snapshot (not updated when a
-    // benefit's metadata changes), so read each distinct benefit's metadata live —
-    // this is what powers friendly-name feature-gating (`has('premium')`).
-    const metadataByBenefit = new Map<string, Record<string, string | number | boolean>>()
+    // Customer-state `benefitMetadata` is a grant-time snapshot (not updated
+    // when a benefit's metadata changes). Live metadata is kept in the
+    // component's own snapshot table (patched instantly by the
+    // `benefit.updated` webhook) — only missing/stale entries hit the provider
+    // API here, so steady-state syncs make zero benefit reads.
+    const distinctBenefitIds = [...new Set(grants.map(g => g.benefitId))]
+    const snapshots = distinctBenefitIds.length > 0
+      ? await ctx.runQuery(cache.getBenefitMetadata, { benefitIds: distinctBenefitIds })
+      : []
+    const now = Date.now()
+    const ttl = config.benefitMetadataTtlMs ?? 15 * 60 * 1000
+    const metadataByBenefit = new Map<string, Record<string, string | number | boolean>>(
+      snapshots.filter(s => now - s.updatedAt < ttl).map(s => [s.benefitId, s.metadata]),
+    )
+    const staleBenefitIds = distinctBenefitIds.filter(id => !metadataByBenefit.has(id))
+    const fetched: Array<{ benefitId: string, metadata: Record<string, string | number | boolean> }> = []
     await Promise.all(
-      [...new Set(grants.map(g => g.benefitId))].map(async (benefitId) => {
+      staleBenefitIds.map(async (benefitId) => {
         const benefit = await benefitsGet(provider.polar, { id: benefitId })
-        if (benefit.ok) metadataByBenefit.set(benefitId, benefit.value.metadata ?? {})
+        if (benefit.ok) {
+          const metadata = benefit.value.metadata ?? {}
+          metadataByBenefit.set(benefitId, metadata)
+          fetched.push({ benefitId, metadata })
+        }
       }),
     )
+    if (fetched.length > 0 && 'runMutation' in ctx) {
+      await (ctx as RunWriteCtx).runMutation(cache.upsertBenefitMetadata, { entries: fetched })
+    }
     return {
       customerId: customer.id,
       activeProductIds: (state.activeSubscriptions ?? []).map(s => s.productId),
@@ -538,35 +723,128 @@ export function setupBilling(
     })
   }
 
-  const spendCredits: Billing['spendCredits'] = async (ctx, event) => {
+  // Reserve → ingest → settle. The cached balance is the guard: `debit` is an
+  // atomic conditional decrement (Convex mutations serialize), so two
+  // concurrent spends can never both pass, and there is no live provider read
+  // on the spend path at all. The provider event remains the only durable
+  // record; a failed ingest releases the reservation, so a failed run never
+  // consumes credits. Split into reserve/settle/release so `setupAi` (and the
+  // streaming HTTP dispatcher, which settles in a different function than it
+  // reserved in) compose the same semantics — `spendCredits` is the one-call
+  // form.
+  const reserveCredits: Billing['reserveCredits'] = async (ctx, event) => {
     const entityId = event.userId
       ?? (await entityFromIdentity(ctx as { auth?: Auth }))?.userId
     if (!entityId) {
       throw new Error('[nuxt-backend] spendCredits: no billing entity — pass `userId` or call from an authenticated context.')
     }
+    const meter = resolveMeter(event)
+    const value = event.value ?? 1
+    const externalId = event.externalId ?? crypto.randomUUID()
+
+    if (!meter) {
+      return { entityId, externalId, reserved: false, value }
+    }
+    // Configured count meters count events — one event is one credit, so a
+    // multi-credit spend has no representable event shape. Raw `meterId`
+    // spends skip this: the caller owns the event shape there.
+    if (meter.key && !meter.property && value !== 1) {
+      throw new Error(
+        `[nuxt-backend] spendCredits: meter '${meter.key}' counts events (no \`property\` configured) — `
+        + 'spend value must be 1 per event, or configure a sum meter with a `property`.',
+      )
+    }
+    let result = await ctx.runMutation(cache.debit, { userId: entityId, meterId: meter.meterId, amount: value, externalId })
+    if (!result.ok && (result.reason === 'no-row' || result.reason === 'no-meter') && event.allowRefresh !== false) {
+      // Cold cache (granted but never synced) — self-heal once, then retry.
+      // Needs an action ctx (the provider read fetches); mutation callers pass
+      // `allowRefresh: false` and surface the sync hint instead.
+      await refreshEntitlements(ctx as RunWriteCtx, entityId)
+      result = await ctx.runMutation(cache.debit, { userId: entityId, meterId: meter.meterId, amount: value, externalId })
+    }
+    if (!result.ok) {
+      throw new Error(
+        result.reason === 'insufficient'
+          ? `[nuxt-backend] Insufficient credits — balance ${result.balance}, need ${value}. Top up to continue.`
+          : `[nuxt-backend] Credit balance not synced yet for ${entityId} — call syncEntitlements (or open a billing view) and retry.`,
+      )
+    }
+    return { entityId, externalId, reserved: true, meter: meter.key, meterId: meter.meterId, value }
+  }
+
+  const settleSpend: Billing['settleSpend'] = async (ctx, reservation, options = {}) => {
+    const meter = resolveMeter(reservation)
+    const name = options.name ?? meter?.eventName ?? meter?.key
+    if (!name) {
+      throw new Error('[nuxt-backend] settleSpend: pass `name`, or a configured `meter` whose key/eventName names the event.')
+    }
+    try {
+      const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, reservation.entityId)
+      if (!customer) {
+        throw new Error(`[nuxt-backend] No billing customer for ${reservation.entityId}. Start a checkout first.`)
+      }
+      const metadata = meter?.property
+        ? { ...options.metadata, [meter.property]: reservation.value }
+        : options.metadata
+      const events: EventsIngestRequest['events'] = [{
+        name,
+        customerId: customer.id,
+        metadata,
+        externalId: reservation.externalId,
+        timestamp: options.timestamp,
+      }]
+      const result = await eventsIngest(provider.polar, { events })
+      if (!result.ok) throw result.error
+    }
+    catch (error) {
+      if (reservation.reserved) await ctx.runMutation(cache.release, { userId: reservation.entityId, externalId: reservation.externalId })
+      throw error
+    }
+    if (reservation.reserved) await ctx.runMutation(cache.settle, { userId: reservation.entityId, externalId: reservation.externalId })
+  }
+
+  const releaseSpend: Billing['releaseSpend'] = async (ctx, reservation) => {
+    if (!reservation.reserved) return
+    await ctx.runMutation(cache.release, { userId: reservation.entityId, externalId: reservation.externalId })
+  }
+
+  const spendCredits: Billing['spendCredits'] = async (ctx, event) => {
+    const reservation = await reserveCredits(ctx, event)
+    await settleSpend(ctx, reservation, { name: event.name, metadata: event.metadata, timestamp: event.timestamp })
+  }
+
+  /**
+   * Give credits back on a sum meter (e.g. a generation the user rejected):
+   * ingests a compensating negative-value event, then optimistically
+   * re-credits the cache. Count meters cannot be compensated — their events
+   * only count up.
+   */
+  const refundCredits: Billing['refundCredits'] = async (ctx, event) => {
+    const entityId = event.userId
+      ?? (await entityFromIdentity(ctx as { auth?: Auth }))?.userId
+    if (!entityId) {
+      throw new Error('[nuxt-backend] refundCredits: no billing entity — pass `userId` or call from an authenticated context.')
+    }
+    const meter = resolveMeter({ meter: event.meter })
+    if (!meter?.property) {
+      throw new Error(
+        `[nuxt-backend] refundCredits: meter '${event.meter}' has no \`property\` (count meter) — only sum meters can be refunded.`,
+      )
+    }
     const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, entityId)
     if (!customer) {
-      throw new Error(`[nuxt-backend] No billing customer for ${entityId}. Start a checkout first.`)
+      throw new Error(`[nuxt-backend] No billing customer for ${entityId}.`)
     }
-    if (event.meterId) {
-      const state = await getCustomerState(ctx, { userId: entityId })
-      const meter = state.meters.find(m => m.meterId === event.meterId)
-      const need = event.value ?? 1
-      if (!meter || meter.balance < need) {
-        throw new Error(
-          `[nuxt-backend] Insufficient credits — balance ${meter?.balance ?? 0}, need ${need}. Top up to continue.`,
-        )
-      }
-    }
-    const events: EventsIngestRequest['events'] = [{
-      name: event.name,
-      customerId: customer.id,
-      metadata: event.metadata,
-      externalId: event.externalId,
-      timestamp: event.timestamp,
-    }]
-    const result = await eventsIngest(provider.polar, { events })
+    const result = await eventsIngest(provider.polar, {
+      events: [{
+        name: meter.eventName ?? meter.key ?? event.meter,
+        customerId: customer.id,
+        metadata: { ...event.metadata, [meter.property]: -event.value },
+        externalId: event.externalId ?? crypto.randomUUID(),
+      }],
+    })
     if (!result.ok) throw result.error
+    await ctx.runMutation(cache.credit, { userId: entityId, meterId: meter.meterId, amount: event.value })
   }
 
   const createDiscount: Billing['createDiscount'] = async (discount) => {
@@ -805,7 +1083,21 @@ export function setupBilling(
       const userId = await resolveUserId(ctx)
       if (!userId) return null
       const row = await ctx.runQuery(cache.getByUser, { userId })
-      return { plans: row?.activeProductIds ?? [], benefits: row?.benefits ?? [] }
+      const benefits = row?.benefits ?? []
+      // Join live benefit metadata at read time: a `benefit.updated` webhook
+      // patches one snapshot row and every subscriber updates reactively.
+      const benefitIds = [...new Set(benefits.map(benefit => benefit.benefitId))]
+      const snapshots = benefitIds.length > 0
+        ? await ctx.runQuery(cache.getBenefitMetadata, { benefitIds })
+        : []
+      const metadataById = new Map(snapshots.map(s => [s.benefitId, s.metadata]))
+      return {
+        plans: row?.activeProductIds ?? [],
+        benefits: benefits.map(benefit => ({
+          ...benefit,
+          metadata: metadataById.get(benefit.benefitId) ?? benefit.metadata,
+        })),
+      }
     },
   })
 
@@ -815,7 +1107,14 @@ export function setupBilling(
       const userId = await resolveUserId(ctx)
       if (!userId) return null
       const row = await ctx.runQuery(cache.getByUser, { userId })
-      return { meters: row?.meters ?? [] }
+      // Meters carry their configured friendly name so `useCredits('credits')`
+      // resolves without the client ever seeing provider ids.
+      return {
+        meters: (row?.meters ?? []).map(meter => ({
+          ...meter,
+          name: meterNameById.get(meter.meterId),
+        })),
+      }
     },
   })
 
@@ -859,17 +1158,28 @@ export function setupBilling(
     await refreshEntitlements(ctx, userId)
   }
 
+  // A benefit's metadata changed — patch the snapshot so friendly-key feature
+  // gating (`has('premium')`) updates reactively for every entity holding it.
+  const handleBenefitUpdated = async (ctx: RunWriteCtx, event: PolarWebhookEvent): Promise<void> => {
+    const data = event.data as { id?: string, metadata?: Record<string, string | number | boolean> }
+    if (typeof data.id !== 'string') return
+    await ctx.runMutation(cache.upsertBenefitMetadata, {
+      entries: [{ benefitId: data.id, metadata: data.metadata ?? {} }],
+    })
+  }
+
   // One handler per event type: the built-in cache refresh (for the refresh
-  // set) and gift fulfilment, then the consumer's hook — which therefore reads
-  // fresh entitlements.
+  // set), snapshot patching, and gift fulfilment, then the consumer's hook —
+  // which therefore reads fresh entitlements.
   const consumerEvents = config.events ?? {}
-  const eventTypes = new Set<string>([...REFRESH_EVENTS, ...Object.keys(consumerEvents)])
+  const eventTypes = new Set<string>([...REFRESH_EVENTS, 'benefit.updated', ...Object.keys(consumerEvents)])
   const webhookEvents = Object.fromEntries(
     [...eventTypes].map((type) => {
       const refreshes = (REFRESH_EVENTS as readonly string[]).includes(type)
       const consumerHandler = consumerEvents[type as keyof WebhookEventHandlers]
       return [type, async (ctx: RunWriteCtx, event: PolarWebhookEvent) => {
         if (refreshes) await handleRefreshEvent(ctx, event)
+        if (type === 'benefit.updated') await handleBenefitUpdated(ctx, event)
         if (type === 'order.paid') await handleGiftOrderPaid(ctx, event)
         if (consumerHandler) await (consumerHandler as (ctx: RunWriteCtx, event: PolarWebhookEvent) => Promise<void>)(ctx, event)
       }]
@@ -890,6 +1200,11 @@ export function setupBilling(
     webhookEvents,
     getCustomerState,
     spendCredits,
+    refundCredits,
+    reserveCredits,
+    settleSpend,
+    releaseSpend,
+    resolveEntity: entityFromIdentity,
     createDiscount,
   }
 }
