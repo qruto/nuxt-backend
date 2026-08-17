@@ -101,8 +101,9 @@ export default defineNuxtModule<ModuleOptions>({
     const resolver = createResolver(import.meta.url)
 
     // Scaffold the minimum Convex backend files (auth component mount, route
-    // registration) on the first dev run.
-    if (options.scaffold !== false) {
+    // registration) on the first dev run. Dev-boot only: `nuxt build`,
+    // `nuxt prepare`, and test boots must never write into the app.
+    if (options.scaffold !== false && nuxt.options.dev && !nuxt.options._prepare && !nuxt.options.test) {
       scaffoldBackendFiles(nuxt.options.rootDir, { installation: options.installation })
     }
 
