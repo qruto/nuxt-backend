@@ -5,7 +5,7 @@ description: End-to-end verification playbook for the nuxt-backend playground �
 
 # Testing nuxt-backend end-to-end
 
-Everything runs against **testing environments only**: Polar **sandbox** (`BILLING_ENVIRONMENT=sandbox`), Resend **test mode** (default on; only `*@resend.dev` inboxes), Convex **dev** deployment (`dev:successful-oyster-718`, see root `.env.local`). The dev server is `pnpm dev` from the repo root → https://nuxt-backend.localhost (portless proxy, Nuxt serves `website/`).
+Everything runs against **testing environments only**: Polar **sandbox** (`BILLING_ENVIRONMENT=sandbox`), Resend **test mode** (default on; only `*@resend.dev` inboxes), Convex **dev** deployment (`dev:successful-oyster-718`, see root `.env.local`). The dev server is `pnpm dev` from the repo root → **https://nuxt-backend.local** (portless proxy, Nuxt serves `website/`). Watch for origin drift: the deployment's `SITE_URL` may still say `nuxt-backend.localhost` — emailed links break until they match. Always test through the portless origin, not `127.0.0.1:<port>` (client auth state needs the canonical origin).
 
 ## Environment cheatsheet
 
