@@ -104,25 +104,46 @@ export function defineBillingCatalog(catalog: BillingCatalog): BillingCatalog {
 
 /**
  * The webhook event set `billing sync --webhook` subscribes the provider
- * endpoint to: everything the built-in handlers consume (the cache-refresh
- * set + benefit metadata patching). Lives here — dependency-free — so the
- * CLI can import it without pulling Convex runtime code. A unit test pins it
- * against the runtime's own refresh set. (M4 widens this to the full
- * provider catalog once every event is receivable.)
+ * endpoint to: the provider's full live catalog — the composed handler map
+ * covers every one of these (logging, dedupe, consumer dispatch), and
+ * anything newer lands in `onUnknownEvent` with a 202. Lives here —
+ * dependency-free — so the CLI can import it without pulling Convex runtime
+ * code. A unit test pins it against the runtime's refresh set.
  */
 export const BILLING_WEBHOOK_PROVISION_EVENTS = [
+  'checkout.created',
+  'checkout.updated',
+  'checkout.expired',
+  'customer.created',
+  'customer.updated',
+  'customer.deleted',
   'customer.state_changed',
+  'customer_seat.assigned',
+  'customer_seat.claimed',
+  'customer_seat.revoked',
+  'member.created',
+  'member.updated',
+  'member.deleted',
   'order.created',
+  'order.updated',
   'order.paid',
   'order.refunded',
   'subscription.created',
   'subscription.updated',
   'subscription.active',
   'subscription.canceled',
+  'subscription.uncanceled',
   'subscription.revoked',
-  'benefit_grant.created',
-  'benefit_grant.updated',
-  'benefit_grant.cycled',
-  'benefit_grant.revoked',
+  'subscription.past_due',
+  'refund.created',
+  'refund.updated',
+  'product.created',
+  'product.updated',
+  'benefit.created',
   'benefit.updated',
+  'benefit_grant.created',
+  'benefit_grant.cycled',
+  'benefit_grant.updated',
+  'benefit_grant.revoked',
+  'organization.updated',
 ] as const

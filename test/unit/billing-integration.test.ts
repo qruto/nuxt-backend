@@ -47,6 +47,7 @@ const components = {
     gifts: {
       create: 'ref:gifts.create',
       markPaid: 'ref:gifts.markPaid',
+      markNotified: 'ref:gifts.markNotified',
       markClaimed: 'ref:gifts.markClaimed',
       listByEmail: 'ref:gifts.listByEmail',
       get: 'ref:gifts.get',
@@ -76,6 +77,8 @@ function makeCtx({ debit }: MakeCtxOptions = {}) {
     if (ref === 'ref:debit') {
       return debitResults.length > 1 ? debitResults.shift() : debitResults[0] ?? { ok: true, balance: 99 }
     }
+    // First markNotified wins the stamp; the gift email sends exactly once.
+    if (ref === 'ref:gifts.markNotified') return true
     return null
   })
   return { runQuery, runMutation }

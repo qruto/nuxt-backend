@@ -1,15 +1,16 @@
 import { httpActionGeneric, type HttpRouter } from 'convex/server'
-import type { BillingWebhookEventHandlers } from './billing'
 
 /**
- * One call to mount every inbound webhook the backend handles on your Convex
- * HTTP router: the auth routes, the billing events endpoint (entitlement
- * refresh + gift fulfilment), and the email delivery-events endpoint (status
- * tracking). Signature verification stays where it already lives — the auth
- * routes, the billing component (`BILLING_WEBHOOK_SECRET`), and the email
- * component (`EMAIL_WEBHOOK_SECRET`) — this is composition, not
- * re-implementation. Per-service `registerRoutes` remain available when you
- * need custom routing.
+ * One call to mount every inbound route the backend handles on your Convex
+ * HTTP router: the auth routes, the guarded billing events endpoint
+ * (entitlement refresh + gift fulfilment), the guarded email delivery-events
+ * endpoint (status tracking), and the metered AI stream endpoint.
+ *
+ * The webhook endpoints share one fail-closed policy (see `webhook-guard.ts`):
+ * missing secret → 503, invalid signature → 403 (±5 min replay tolerance),
+ * oversized → 413, authentic-but-unknown type → 202, handler throw → 500 so
+ * the provider retries, redelivery of a processed id → 200. Every delivery's
+ * outcome lands in the component's ring-buffer log.
  */
 export interface RegisterBackendRoutesOptions {
   /** From `setupAuth`: mounts the auth HTTP routes. */
@@ -19,10 +20,13 @@ export interface RegisterBackendRoutesOptions {
     authComponent: { registerRoutes: (...args: never[]) => void }
     createAuth: unknown
   }
-  /** From `setupBilling`: mounts the billing events webhook at {@link RegisterBackendRoutesOptions.billingPath}. */
+  /**
+   * From `setupBilling`: mounts the guarded billing events webhook at
+   * {@link RegisterBackendRoutesOptions.billingPath} (fail-closed statuses,
+   * redelivery dedupe, delivery logging — pass the whole `billing` instance).
+   */
   billing?: {
-    provider: { registerRoutes: (http: never, options: { path?: string, events: BillingWebhookEventHandlers }) => void }
-    webhookEvents: BillingWebhookEventHandlers
+    webhookHandler: (ctx: never, request: Request) => Promise<Response>
   }
   /** From `setupEmail`: mounts the email events webhook at {@link RegisterBackendRoutesOptions.emailPath}. */
   email?: {
@@ -62,9 +66,11 @@ export function registerBackendRoutes(http: HttpRouter, options: RegisterBackend
   registerAuthRoutes(http, options.auth.createAuth)
 
   if (options.billing) {
-    options.billing.provider.registerRoutes(http as never, {
+    const { webhookHandler } = options.billing
+    http.route({
       path: options.billingPath ?? '/billing/events',
-      events: options.billing.webhookEvents,
+      method: 'POST',
+      handler: httpActionGeneric((ctx, request) => webhookHandler(ctx as never, request)),
     })
   }
 

@@ -1,7 +1,7 @@
 import { registerBackendRoutes } from 'nuxt-backend/http'
 import { httpRouter } from 'convex/server'
 import { authComponent, createAuth } from './auth'
-import { provider, webhookEvents } from './billing'
+import { billing } from './billing'
 import { email } from './email'
 
 // Mounts every inbound webhook the backend handles: the auth routes, the
@@ -12,7 +12,7 @@ import { email } from './email'
 const http = httpRouter()
 registerBackendRoutes(http, {
   auth: { authComponent, createAuth },
-  billing: { provider, webhookEvents },
+  billing,
   email,
 })
 

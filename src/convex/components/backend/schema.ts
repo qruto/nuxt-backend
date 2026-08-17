@@ -207,6 +207,7 @@ export const vGift = v.object({
   claimedEntityId: v.optional(v.string()),
   createdAt: v.number(),
   paidAt: v.optional(v.number()),
+  notifiedAt: v.optional(v.number()),
   claimedAt: v.optional(v.number()),
 })
 
@@ -254,6 +255,7 @@ export const billingTables = {
     claimedEntityId: v.optional(v.string()),
     createdAt: v.number(),
     paidAt: v.optional(v.number()),
+    notifiedAt: v.optional(v.number()),
     claimedAt: v.optional(v.number()),
   })
     .index('recipientEmail', ['recipientEmail'])
@@ -290,8 +292,36 @@ export const aiTables = {
     .index('streamId', ['streamId']),
 }
 
+/**
+ * Webhook delivery ring buffer (see `webhooks.ts`): one row per inbound
+ * delivery with its outcome — powers redelivery dedupe, doctor's "last
+ * webhook received", and the DevTools feed. Capped, prunable, never a source
+ * of truth.
+ */
+export const webhookTables = {
+  webhookDeliveries: defineTable({
+    service: v.string(),
+    /** The provider delivery id (webhook-id / svix-id header). */
+    deliveryId: v.string(),
+    type: v.optional(v.string()),
+    outcome: v.union(
+      v.literal('ok'),
+      v.literal('invalid_signature'),
+      v.literal('unknown_type'),
+      v.literal('handler_error'),
+      v.literal('duplicate'),
+      v.literal('oversized'),
+      v.literal('missing_secret'),
+    ),
+    note: v.optional(v.string()),
+    receivedAt: v.number(),
+  })
+    .index('receivedAt', ['receivedAt'])
+    .index('service_deliveryId', ['service', 'deliveryId']),
+}
+
 /** Auth-only schema — passed to Better Auth's `createApi` in `adapter.ts`. */
 export const authSchema = defineSchema(tables)
 
-/** Full component schema: auth tables + the billing cache + AI stream plumbing. */
-export default defineSchema({ ...tables, ...billingTables, ...aiTables })
+/** Full component schema: auth + billing cache + AI plumbing + webhook log. */
+export default defineSchema({ ...tables, ...billingTables, ...aiTables, ...webhookTables })

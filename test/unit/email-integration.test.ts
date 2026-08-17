@@ -27,6 +27,14 @@ const refs = {
 }
 const component = { backend: { email: refs } } as unknown as EmailComponents
 
+// The guarded webhook edge fails closed (503) without a configured secret.
+beforeEach(() => {
+  process.env.EMAIL_WEBHOOK_SECRET = 'whsec_test'
+})
+afterEach(() => {
+  delete process.env.EMAIL_WEBHOOK_SECRET
+})
+
 function makeCtx() {
   return {
     runMutation: vi.fn(),
@@ -80,9 +88,9 @@ describe('setupEmail transactional helpers', () => {
     expect(ctx.runMutation).toHaveBeenCalledWith(refs.cancel, { emailId: 'em_1' })
   })
 
-  it('webhookHandler forwards body + headers and returns the action response', async () => {
+  it('webhookHandler forwards body + headers and passes the verified response through', async () => {
     const ctx = makeCtx()
-    ctx.runAction.mockResolvedValue({ status: 200, body: 'ok' })
+    ctx.runAction.mockResolvedValue({ status: 202, body: '', type: 'email.delivered' })
     const email = setupEmail(component)
     const request = new Request('https://app.test/resend-webhook', {
       method: 'POST',
@@ -93,8 +101,7 @@ describe('setupEmail transactional helpers', () => {
     const res = await email.webhookHandler(ctx, request)
 
     expect(res).toBeInstanceOf(Response)
-    expect(res.status).toBe(200)
-    expect(await res.text()).toBe('ok')
+    expect(res.status).toBe(202)
     expect(ctx.runAction).toHaveBeenCalledWith(
       refs.handleWebhook,
       expect.objectContaining({
@@ -104,15 +111,24 @@ describe('setupEmail transactional helpers', () => {
     )
   })
 
-  it('webhookHandler returns an empty body when the action body is empty', async () => {
+  it('webhookHandler fails closed with 503 while the secret env is unset', async () => {
+    delete process.env.EMAIL_WEBHOOK_SECRET
     const ctx = makeCtx()
-    ctx.runAction.mockResolvedValue({ status: 400, body: '' })
+    const email = setupEmail(component)
+
+    const res = await email.webhookHandler(ctx, new Request('https://app.test/x', { method: 'POST', body: 'x' }))
+    expect(res.status).toBe(503)
+    expect(ctx.runAction).not.toHaveBeenCalled()
+  })
+
+  it('webhookHandler passes non-2xx component responses through (bad signature = 403)', async () => {
+    const ctx = makeCtx()
+    ctx.runAction.mockResolvedValue({ status: 403, body: 'Invalid signature' })
     const email = setupEmail(component)
     const request = new Request('https://app.test/resend-webhook', { method: 'POST', body: 'x' })
 
     const res = await email.webhookHandler(ctx, request)
-    expect(res.status).toBe(400)
-    expect(await res.text()).toBe('')
+    expect(res.status).toBe(403)
   })
 
   it('exposes the reactive getEmailStatus query', () => {
@@ -180,11 +196,11 @@ describe('email event hooks', () => {
     })
   }
 
-  it('runs the matching hook after the component accepts the event', async () => {
+  it('runs the matching typed handler after the component verifies the event', async () => {
     const onBounced = vi.fn()
-    const email = setupEmail(component, { events: { onBounced } })
+    const email = setupEmail(component, { events: { 'email.bounced': onBounced } })
     const ctx = makeCtx()
-    ctx.runAction.mockResolvedValue({ status: 200, body: 'ok' })
+    ctx.runAction.mockResolvedValue({ status: 202, body: '', type: 'email.bounced' })
 
     await email.webhookHandler(ctx as never, webhookRequest({
       type: 'email.bounced',
@@ -193,16 +209,41 @@ describe('email event hooks', () => {
 
     expect(onBounced).toHaveBeenCalledWith(ctx, expect.objectContaining({
       type: 'email.bounced',
-      emailId: 'em_1',
-      to: ['bounced@resend.dev'],
+      data: expect.objectContaining({ email_id: 'em_1', to: ['bounced@resend.dev'] }),
     }))
   })
 
-  it('does not run hooks when the component rejects the event (bad signature)', async () => {
-    const onDelivered = vi.fn()
-    const email = setupEmail(component, { events: { onDelivered } })
+  it('dispatches contact events to their typed handlers too', async () => {
+    const onContact = vi.fn()
+    const email = setupEmail(component, { events: { 'contact.created': onContact } })
     const ctx = makeCtx()
-    ctx.runAction.mockResolvedValue({ status: 401, body: 'invalid signature' })
+    ctx.runAction.mockResolvedValue({ status: 202, body: '', type: 'contact.created' })
+
+    await email.webhookHandler(ctx as never, webhookRequest({
+      type: 'contact.created',
+      data: { id: 'c_1', email: 'a@b.co' },
+    }))
+
+    expect(onContact).toHaveBeenCalledWith(ctx, expect.objectContaining({ type: 'contact.created' }))
+  })
+
+  it('acknowledges verified-but-unknown types with 202 and the onUnknownEvent hook', async () => {
+    const onUnknownEvent = vi.fn()
+    const email = setupEmail(component, { onUnknownEvent })
+    const ctx = makeCtx()
+    ctx.runAction.mockResolvedValue({ status: 202, body: '', type: 'email.some_future_thing' })
+
+    const res = await email.webhookHandler(ctx as never, webhookRequest({ type: 'email.some_future_thing' }))
+
+    expect(res.status).toBe(202)
+    expect(onUnknownEvent).toHaveBeenCalledWith(ctx, expect.objectContaining({ type: 'email.some_future_thing' }))
+  })
+
+  it('does not run handlers when the component rejects the event (bad signature)', async () => {
+    const onDelivered = vi.fn()
+    const email = setupEmail(component, { events: { 'email.delivered': onDelivered } })
+    const ctx = makeCtx()
+    ctx.runAction.mockResolvedValue({ status: 403, body: 'invalid signature' })
 
     await email.webhookHandler(ctx as never, webhookRequest({ type: 'email.delivered', data: {} }))
 
@@ -211,12 +252,11 @@ describe('email event hooks', () => {
 
   it('ignores event types without a configured hook and malformed bodies', async () => {
     const onComplained = vi.fn()
-    const email = setupEmail(component, { events: { onComplained } })
+    const email = setupEmail(component, { events: { 'email.complained': onComplained } })
     const ctx = makeCtx()
-    ctx.runAction.mockResolvedValue({ status: 200, body: 'ok' })
+    ctx.runAction.mockResolvedValue({ status: 202, body: '', type: 'email.opened' })
 
     await email.webhookHandler(ctx as never, webhookRequest({ type: 'email.opened', data: {} }))
-    await email.webhookHandler(ctx as never, new Request('https://x.convex.site/resend-webhook', { method: 'POST', body: 'not json' }))
 
     expect(onComplained).not.toHaveBeenCalled()
   })

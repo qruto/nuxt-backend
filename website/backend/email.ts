@@ -5,29 +5,30 @@ import { type ActionCtx, action, internalMutation, query } from './_generated/se
 import { authComponent } from './auth'
 
 // Transactional + marketing email over the `email` component (Resend nested
-// inside). The event hooks run after the component verified and processed the
-// webhook — the showcase logs them into the same feed as billing events.
+// inside). The typed event handlers (full provider catalog — email.*,
+// contact.*, domain.*) run after the component verified the webhook — the
+// showcase logs them into the same feed as billing events.
 export const email = setupEmail(components, {
   events: {
-    onDelivered: async (ctx, event) => {
+    'email.delivered': async (ctx, event) => {
       await ctx.runMutation(internal.billing.recordWebhookEvent, {
         source: 'email',
         type: event.type,
-        summary: `delivered to ${event.to.join(', ')}`,
+        summary: `delivered to ${event.data.to?.join(', ') ?? 'unknown'}`,
       })
     },
-    onBounced: async (ctx, event) => {
+    'email.bounced': async (ctx, event) => {
       await ctx.runMutation(internal.billing.recordWebhookEvent, {
         source: 'email',
         type: event.type,
-        summary: `bounced for ${event.to.join(', ')}`,
+        summary: `bounced for ${event.data.to?.join(', ') ?? 'unknown'}`,
       })
     },
-    onComplained: async (ctx, event) => {
+    'email.complained': async (ctx, event) => {
       await ctx.runMutation(internal.billing.recordWebhookEvent, {
         source: 'email',
         type: event.type,
-        summary: `complaint from ${event.to.join(', ')}`,
+        summary: `complaint from ${event.data.to?.join(', ') ?? 'unknown'}`,
       })
     },
   },

@@ -1998,7 +1998,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "action",
         "internal",
         { body: string; headers: Record<string, string> },
-        { body: string; status: number },
+        { body: string; status: number; type?: string },
         Name
       >;
       send: FunctionReference<
@@ -2059,6 +2059,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           createdAt: number;
           id: string;
           message?: string;
+          notifiedAt?: number;
           paidAt?: number;
           productIds: Array<string>;
           purchaserEmail?: string;
@@ -2082,6 +2083,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           createdAt: number;
           id: string;
           message?: string;
+          notifiedAt?: number;
           paidAt?: number;
           productIds: Array<string>;
           purchaserEmail?: string;
@@ -2099,6 +2101,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         null,
         Name
       >;
+      markNotified: FunctionReference<
+        "mutation",
+        "internal",
+        { giftId: string },
+        boolean,
+        Name
+      >;
       markPaid: FunctionReference<
         "mutation",
         "internal",
@@ -2111,6 +2120,52 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { email: string },
         { organizationId: string | null; userId: string } | null,
+        Name
+      >;
+    };
+    webhooks: {
+      find: FunctionReference<
+        "query",
+        "internal",
+        { deliveryId: string; service: string },
+        {
+          outcome:
+            | "ok"
+            | "invalid_signature"
+            | "unknown_type"
+            | "handler_error"
+            | "duplicate"
+            | "oversized"
+            | "missing_secret";
+          receivedAt: number;
+        } | null,
+        Name
+      >;
+      listRecent: FunctionReference<
+        "query",
+        "internal",
+        { limit?: number },
+        any,
+        Name
+      >;
+      record: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          deliveryId: string;
+          note?: string;
+          outcome:
+            | "ok"
+            | "invalid_signature"
+            | "unknown_type"
+            | "handler_error"
+            | "duplicate"
+            | "oversized"
+            | "missing_secret";
+          service: string;
+          type?: string;
+        },
+        null,
         Name
       >;
     };

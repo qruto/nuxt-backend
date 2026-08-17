@@ -1,7 +1,7 @@
 import { registerBackendRoutes } from 'nuxt-backend/http'
 import { httpRouter } from 'convex/server'
 import { authComponent, createAuth } from './auth'
-import { provider, webhookEvents } from './billing'
+import { billing } from './billing'
 import { email } from './email'
 import { ai } from './ai'
 
@@ -10,11 +10,13 @@ import { ai } from './ai'
 // keeps the reactive feature/credit cache fresh and fulfils gifts, the
 // email events endpoint (/email/events, EMAIL_WEBHOOK_SECRET) that makes
 // useEmailStatus reactive, and the metered AI stream endpoint (/ai/stream).
-// React to events via `setupBilling({ events })` / `setupEmail({ events })`.
+// Every webhook delivery is signature-verified, deduped, logged, and
+// fail-closed (503 until its secret is set). React to events via
+// `setupBilling({ events })` / `setupEmail({ events })`.
 const http = httpRouter()
 registerBackendRoutes(http, {
   auth: { authComponent, createAuth },
-  billing: { provider, webhookEvents },
+  billing,
   email,
   ai,
 })

@@ -1,5 +1,6 @@
 import { type EmailId, Resend, type SendEmailOptions } from '@convex-dev/resend'
 import { v } from 'convex/values'
+import { Webhook } from 'svix'
 import { components } from './_generated/api'
 import { action, env, mutation, query } from './_generated/server'
 
@@ -103,26 +104,73 @@ export const cancel = mutation({
 })
 
 /**
- * Process an email-provider event webhook. The mounting app routes its public
- * `/email/events` HTTP endpoint here (via `setupEmail().webhookHandler`),
- * passing the raw body + headers; this reconstructs the request, verifies the
- * Svix signature, and updates the email's delivery status — which makes
- * `useEmailStatus()` reactive.
+ * The event types the nested provider component tracks against sent-email
+ * records (delivery status behind `useEmailStatus`). Everything else the
+ * provider can send (`contact.*`, `domain.*`, scheduling events) is verified
+ * here too and dispatched to the app's typed handlers — just not
+ * status-tracked.
+ */
+const TRACKED_EMAIL_EVENTS = new Set([
+  'email.sent',
+  'email.delivered',
+  'email.delivery_delayed',
+  'email.complained',
+  'email.bounced',
+  'email.opened',
+  'email.clicked',
+  'email.failed',
+])
+
+/**
+ * Verify and process an email-provider event webhook. The mounting app routes
+ * its public `/email/events` endpoint here (via `setupEmail().webhookHandler`),
+ * passing the raw body + headers.
+ *
+ * Fail-closed: no `EMAIL_WEBHOOK_SECRET` → `503` (never silent acceptance);
+ * signature invalid across the rotation accept-list (comma-separated secrets)
+ * → `403`; verified → the 8 status-tracked `email.*` types update the email's
+ * delivery record (making `useEmailStatus()` reactive) and everything answers
+ * `202` with the parsed type so the app layer can dispatch its handlers.
+ * svix enforces a ±5 minute timestamp tolerance, so stale replays fail
+ * verification.
  */
 export const handleWebhook = action({
   args: { body: v.string(), headers: v.record(v.string(), v.string()) },
-  returns: v.object({ status: v.number(), body: v.string() }),
+  returns: v.object({ status: v.number(), body: v.string(), type: v.optional(v.string()) }),
   handler: async (ctx, args) => {
-    const request = new Request('https://convex.local/email/events', {
-      method: 'POST',
-      body: args.body,
-      headers: new Headers(args.headers),
-    })
-    const resend = resendClient()
-    const response = await resend.handleResendEventWebhook(
-      ctx as unknown as Parameters<Resend['handleResendEventWebhook']>[0],
-      request,
-    )
-    return { status: response.status, body: await response.text() }
+    const secrets = (env.EMAIL_WEBHOOK_SECRET ?? '')
+      .split(',')
+      .map(entry => entry.trim())
+      .filter(Boolean)
+    if (secrets.length === 0) {
+      return { status: 503, body: 'Webhook secret not configured' }
+    }
+
+    let payload: unknown
+    let verified = false
+    for (const secret of secrets) {
+      try {
+        payload = new Webhook(secret).verify(args.body, args.headers)
+        verified = true
+        break
+      }
+      catch {
+        // Try the next accepted secret (rotation overlap window).
+      }
+    }
+    if (!verified) {
+      return { status: 403, body: 'Invalid signature' }
+    }
+
+    const type = typeof (payload as { type?: unknown } | null)?.type === 'string'
+      ? (payload as { type: string }).type
+      : undefined
+    if (type && TRACKED_EMAIL_EVENTS.has(type)) {
+      // The exact call the provider component's own webhook handler makes
+      // after ITS verification — forwarding pre-verified events skips the
+      // duplicate check (and its missing-secret throw). Pinned by tests.
+      await ctx.runMutation(components.resend.lib.handleEmailEvent, { event: payload })
+    }
+    return { status: 202, body: '', type }
   },
 })

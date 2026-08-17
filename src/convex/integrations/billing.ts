@@ -16,6 +16,7 @@ import {
   type GenericQueryCtx,
   queryGeneric,
 } from 'convex/server'
+import { guardDelivery, parseSecretList, WEBHOOK_BODY_LIMIT, type WebhookLogRefs } from './webhook-guard'
 import { v } from 'convex/values'
 import type { SendEmailOptions } from './email'
 
@@ -303,6 +304,7 @@ export interface BillingComponents {
         billingCustomerId: string
       }, string>
       markPaid: FunctionReference<'mutation', 'internal', { giftId: string, billingOrderId?: string }, null>
+      markNotified: FunctionReference<'mutation', 'internal', { giftId: string }, boolean>
       markClaimed: FunctionReference<'mutation', 'internal', { giftId: string, userId: string, entityId: string }, null>
       listByEmail: FunctionReference<'query', 'internal', { email: string, status?: string }, GiftRecord[]>
       get: FunctionReference<'query', 'internal', { giftId: string }, GiftRecord | null>
@@ -311,6 +313,7 @@ export interface BillingComponents {
     email?: {
       send: FunctionReference<'mutation', 'internal', SendEmailOptions, string | null>
     }
+    webhooks?: WebhookLogRefs
   }
 }
 
@@ -403,6 +406,19 @@ export type SetupBillingConfig = Omit<PolarConfig, 'getUserInfo' | 'organization
    * webhook patches snapshots immediately regardless.
    */
   benefitMetadataTtlMs?: number
+  /**
+   * Called for an **authentic** (signature-verified) webhook event whose type
+   * this package's provider SDK cannot parse — e.g. an event newer than the
+   * installed package. The delivery is acknowledged with 202 either way, so
+   * unknown types can never put the endpoint into a retry loop.
+   */
+  onUnknownEvent?: (ctx: RunWriteCtx, event: { type?: string, payload: unknown }) => Promise<void>
+  /**
+   * Record every inbound webhook delivery in the component's capped ring
+   * buffer (powers redelivery dedupe, doctor's "last webhook received", and
+   * the DevTools feed). `false` disables the log — and with it dedupe.
+   */
+  deliveryLog?: boolean
 }
 
 /** Webhook events that signal a customer's plans / benefits / credits may have changed. */
@@ -418,7 +434,11 @@ const REFRESH_EVENTS = [
   'subscription.updated',
   'subscription.active',
   'subscription.canceled',
+  'subscription.uncanceled',
+  'subscription.past_due',
   'subscription.revoked',
+  'refund.created',
+  'refund.updated',
   'benefit_grant.created',
   'benefit_grant.updated',
   'benefit_grant.cycled',
@@ -428,10 +448,77 @@ const REFRESH_EVENTS = [
 /** Internal: lets tests pin the provision list against the refresh set. */
 export const BILLING_REFRESH_EVENTS: readonly string[] = REFRESH_EVENTS
 
+/**
+ * The provider's full webhook catalog. The composed handler map covers every
+ * one of these, so any verified delivery gets logging, dedupe, and consumer
+ * dispatch — events outside it (a newer provider than this package) land in
+ * `onUnknownEvent` with a 202 instead of an error loop.
+ */
+export const ALL_BILLING_EVENTS = [
+  'checkout.created',
+  'checkout.updated',
+  'checkout.expired',
+  'customer.created',
+  'customer.updated',
+  'customer.deleted',
+  'customer.state_changed',
+  'customer_seat.assigned',
+  'customer_seat.claimed',
+  'customer_seat.revoked',
+  'member.created',
+  'member.updated',
+  'member.deleted',
+  'order.created',
+  'order.updated',
+  'order.paid',
+  'order.refunded',
+  'subscription.created',
+  'subscription.updated',
+  'subscription.active',
+  'subscription.canceled',
+  'subscription.uncanceled',
+  'subscription.revoked',
+  'subscription.past_due',
+  'refund.created',
+  'refund.updated',
+  'product.created',
+  'product.updated',
+  'benefit.created',
+  'benefit.updated',
+  'benefit_grant.created',
+  'benefit_grant.cycled',
+  'benefit_grant.updated',
+  'benefit_grant.revoked',
+  'organization.updated',
+  // SDK-known, not yet live on the provider API — composed into the handler
+  // map (harmless) but excluded from the provisioning list.
+  'subscription.paused',
+  'subscription.resumed',
+] as const
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, c => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c] ?? c
   ))
+}
+
+function safeJsonParse(body: string): unknown {
+  try {
+    return JSON.parse(body)
+  }
+  catch {
+    return body
+  }
+}
+
+/** Guard stand-in when the delivery log is disabled — statuses stay fail-closed. */
+function noopGuard(secretsConfigured: boolean, bodyLength: number): { rejection: Response | null, record: () => Promise<void> } {
+  const rejection = !secretsConfigured
+    ? new Response('Webhook secret not configured', { status: 503 })
+    : bodyLength > WEBHOOK_BODY_LIMIT
+      ? new Response('Payload too large', { status: 413 })
+      : null
+  return { rejection, record: async () => {} }
 }
 
 /** Minimal, dependency-free default gift-notification email. */
@@ -485,6 +572,7 @@ export interface Billing {
     syncEntitlements: ReturnType<typeof actionGeneric>
     getReceivedGifts: ReturnType<typeof queryGeneric>
     claimGift: ReturnType<typeof actionGeneric>
+    getWebhookDeliveries: ReturnType<typeof queryGeneric>
   }
   /**
    * Typed billing webhook handlers for `registerBackendRoutes` (mounted at
@@ -492,6 +580,14 @@ export interface Billing {
    * benefit grants, credit balances) and fulfil paid gifts.
    */
   webhookEvents: BillingWebhookEventHandlers
+  /**
+   * The guarded `/billing/events` endpoint `registerBackendRoutes` mounts:
+   * fail-closed (503 while the secret is unset, 413 over the size cap,
+   * 403 on bad signatures across the rotation list, 200 on redeliveries of
+   * processed ids, 202 for authentic-but-unknown types) with every delivery
+   * outcome recorded in the component's ring buffer.
+   */
+  webhookHandler: (ctx: RunWriteCtx, request: Request) => Promise<Response>
   /**
    * Resolve a user's full billing entitlement state (active plans, benefits, and
    * credit-meter balances) live from the provider. Call from an **action**; the
@@ -645,7 +741,9 @@ export function setupBilling(
     getUserInfo,
     organizationToken: accessToken,
     server: environment,
-    webhookSecret,
+    // Primary secret only — the raw value may be a comma-separated rotation
+    // list; per-secret verification happens in the captured webhook handlers.
+    webhookSecret: parseSecretList(webhookSecret)[0],
   })
   const cache = components.backend.billing
   const gifts = components.backend.gifts
@@ -1030,16 +1128,21 @@ export function setupBilling(
     }
     const sendEmail = components.backend.email?.send
     if (sendEmail) {
-      const claimUrl = readEnv('SITE_URL') ?? ''
-      const template = config.giftEmail ?? defaultGiftEmail
-      const message = template({
-        recipientEmail: gift.recipientEmail,
-        purchaserName: gift.purchaserName,
-        purchaserEmail: gift.purchaserEmail,
-        message: gift.message,
-        claimUrl,
-      })
-      await ctx.runMutation(sendEmail, message)
+      // Status-guarded stamp: webhook redeliveries of `order.paid` (retries,
+      // manual replays) must never email the recipient twice.
+      const shouldNotify = await ctx.runMutation(gifts.markNotified, { giftId: gift.id })
+      if (shouldNotify) {
+        const claimUrl = readEnv('SITE_URL') ?? ''
+        const template = config.giftEmail ?? defaultGiftEmail
+        const message = template({
+          recipientEmail: gift.recipientEmail,
+          purchaserName: gift.purchaserName,
+          purchaserEmail: gift.purchaserEmail,
+          message: gift.message,
+          claimUrl,
+        })
+        await ctx.runMutation(sendEmail, message)
+      }
     }
     else {
       // Never fail the webhook — the gift stays claimable in-app — but don't
@@ -1118,6 +1221,18 @@ export function setupBilling(
     },
   })
 
+  // The webhook delivery feed (doctor's "last webhook received", the DevTools
+  // Overview card, the playground's webhook page). Identity-gated: delivery
+  // rows carry event types and provider ids.
+  const getWebhookDeliveries = queryGeneric({
+    args: { limit: v.optional(v.number()) },
+    handler: async (ctx, { limit }) => {
+      if (!(await ctx.auth.getUserIdentity())) return null
+      if (!webhookLog) return []
+      return ctx.runQuery(webhookLog.listRecent, { limit })
+    },
+  })
+
   const syncEntitlements = actionGeneric({
     args: {},
     handler: async (ctx) => {
@@ -1168,11 +1283,13 @@ export function setupBilling(
     })
   }
 
-  // One handler per event type: the built-in cache refresh (for the refresh
-  // set), snapshot patching, and gift fulfilment, then the consumer's hook —
-  // which therefore reads fresh entitlements.
+  // One handler per event type over the provider's FULL catalog — every
+  // verified delivery gets built-in behavior (cache refresh for the refresh
+  // set, snapshot patching, gift fulfilment) and then the consumer's hook,
+  // which therefore reads fresh entitlements. Covering everything means no
+  // authentic event is ever silently invisible.
   const consumerEvents = config.events ?? {}
-  const eventTypes = new Set<string>([...REFRESH_EVENTS, 'benefit.updated', ...Object.keys(consumerEvents)])
+  const eventTypes = new Set<string>([...ALL_BILLING_EVENTS, ...Object.keys(consumerEvents)])
   const webhookEvents = Object.fromEntries(
     [...eventTypes].map((type) => {
       const refreshes = (REFRESH_EVENTS as readonly string[]).includes(type)
@@ -1186,6 +1303,91 @@ export function setupBilling(
     }),
   ) as BillingWebhookEventHandlers
 
+  // --- The guarded webhook edge (mounted by registerBackendRoutes) ---
+  //
+  // Upstream verification + built-in persistence are kept byte-for-byte, but
+  // the public route is OURS: the upstream handlers are captured through a
+  // shim router (one per accepted secret — comma-separated rotation list) and
+  // invoked behind the shared fail-closed guard. This adds: missing-secret
+  // 503, 1 MiB cap, webhook-id dedupe, authentic-unknown-type 202 (instead of
+  // an unparseable event 500-looping the endpoint), and outcome logging.
+  const webhookSecrets = parseSecretList(webhookSecret)
+  const webhookLog = components.backend.webhooks
+  const capturedHandlers: Array<(ctx: RunWriteCtx, request: Request) => Promise<Response>> = []
+  for (const secret of webhookSecrets) {
+    const handlerProvider = secret === webhookSecrets[0]
+      ? provider
+      : new Polar(components.polar, { ...config, products, getUserInfo, organizationToken: accessToken, server: environment, webhookSecret: secret })
+    const shim = {
+      route: (spec: { handler: unknown }) => {
+        // Registered http actions carry their implementation on `_handler`
+        // (the same seam convex-test drives) — pinned by a unit test, with the
+        // documented fallback of single-secret direct mounting.
+        const handler = (spec.handler as { _handler?: (ctx: RunWriteCtx, request: Request) => Promise<Response> })._handler
+        if (handler) capturedHandlers.push(handler)
+      },
+    }
+    handlerProvider.registerRoutes(shim as never, { path: '/billing/events', events: webhookEvents })
+  }
+
+  const webhookHandler = async (ctx: RunWriteCtx, request: Request): Promise<Response> => {
+    const body = await request.text()
+    const logRefs = config.deliveryLog === false ? undefined : webhookLog
+    const guard = logRefs
+      ? await guardDelivery(ctx as never, logRefs, {
+          service: 'billing',
+          deliveryId: request.headers.get('webhook-id'),
+          bodyLength: body.length,
+          secretsConfigured: webhookSecrets.length > 0,
+        })
+      : noopGuard(webhookSecrets.length > 0, body.length)
+    if (guard.rejection) return guard.rejection
+
+    const parsedType = ((): string | undefined => {
+      try {
+        const parsed = JSON.parse(body) as { type?: unknown }
+        return typeof parsed.type === 'string' ? parsed.type : undefined
+      }
+      catch {
+        return undefined
+      }
+    })()
+
+    let lastForbidden: Response | null = null
+    for (const handler of capturedHandlers) {
+      const attempt = new Request(request.url, { method: 'POST', headers: request.headers, body })
+      try {
+        const response = await handler(ctx, attempt)
+        if (response.status === 403) {
+          // Signature mismatch — try the next accepted secret (verification
+          // has no side effects).
+          lastForbidden = response
+          continue
+        }
+        await guard.record('ok', { type: parsedType })
+        return response
+      }
+      catch (error) {
+        if ((error as { name?: string })?.name === 'SDKValidationError') {
+          // Authentic (signature passed before parsing) but unparseable by
+          // the installed SDK — acknowledge instead of 500-looping.
+          if (config.onUnknownEvent) {
+            await config.onUnknownEvent(ctx, { type: parsedType, payload: safeJsonParse(body) })
+          }
+          await guard.record('unknown_type', { type: parsedType })
+          return new Response('Accepted (unknown event type)', { status: 202 })
+        }
+        await guard.record('handler_error', {
+          type: parsedType,
+          note: error instanceof Error ? error.message : String(error),
+        })
+        throw error
+      }
+    }
+    await guard.record('invalid_signature')
+    return lastForbidden ?? new Response('Invalid signature', { status: 403 })
+  }
+
   return {
     provider,
     api: { ...provider.api(), listAllSubscriptions, giftCheckout },
@@ -1196,8 +1398,10 @@ export function setupBilling(
       syncEntitlements,
       getReceivedGifts,
       claimGift,
+      getWebhookDeliveries,
     },
     webhookEvents,
+    webhookHandler,
     getCustomerState,
     spendCredits,
     refundCredits,

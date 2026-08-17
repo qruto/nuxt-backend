@@ -25,6 +25,7 @@ export const REQUIRED_FUNCTION_EXPORTS = {
     'syncEntitlements',
     'getReceivedGifts',
     'claimGift',
+    'getWebhookDeliveries',
   ],
   email: ['getEmailStatus'],
 } as const satisfies Record<string, readonly string[]>

@@ -13,6 +13,7 @@ import type * as ai from "../ai.js";
 import type * as billing from "../billing.js";
 import type * as email from "../email.js";
 import type * as gifts from "../gifts.js";
+import type * as webhooks from "../webhooks.js";
 
 import type {
   ApiFromModules,
@@ -27,6 +28,7 @@ const fullApi: ApiFromModules<{
   billing: typeof billing;
   email: typeof email;
   gifts: typeof gifts;
+  webhooks: typeof webhooks;
 }> = anyApi as any;
 
 /**

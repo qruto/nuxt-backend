@@ -287,12 +287,21 @@ async function webhookRouteFindings(siteUrl: string): Promise<PreflightFinding[]
           fixHint: `Pass \`${route.service}\` to registerBackendRoutes in http.ts and deploy.`,
         }
       }
+      if (response.status === 503) {
+        return {
+          id: route.id,
+          title: route.title,
+          status: 'fail',
+          message: `${route.path} is mounted but fail-closed — its webhook secret is not set, so every delivery is rejected (503).`,
+          fixHint: `Add the ${route.service.toUpperCase()}_WEBHOOK_SECRET to .env.local and run \`npx nuxt-backend env push\`.`,
+        }
+      }
       if (response.status >= 400 && response.status < 500) {
         return {
           id: route.id,
           title: route.title,
           status: 'pass',
-          message: `${route.path} is mounted (signature verification rejected the probe, as expected).`,
+          message: `${route.path} is mounted (the unsigned probe was rejected, as expected).`,
           fixHint: '',
         }
       }

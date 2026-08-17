@@ -6,7 +6,7 @@ import { rateLimiter } from './rateLimiter'
 
 // CUSTOMIZATION: explicit billing config instead of the env-var defaults, a
 // consumer webhook hook composed after the built-ins, and a custom gift email.
-const billing = setupBilling(components, {
+export const billing = setupBilling(components, {
   // Explicit values win over the BILLING_* env defaults (same names here, but
   // any source works — a secrets manager, per-tenant config, …).
   accessToken: env.BILLING_ACCESS_TOKEN,

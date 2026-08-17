@@ -11,7 +11,7 @@ import { rateLimiter } from './rateLimiter'
 // Configuration comes from the required BILLING_* env vars; the reactive
 // feature/credit cache lives inside the backend component, so there's nothing
 // to add to this schema.
-const billing = setupBilling(components, {
+export const billing = setupBilling(components, {
   // Throttle syncEntitlements per billing entity (guards the live provider fan-out).
   rateLimiter,
   // Demo catalog in the qruto Polar sandbox: three monthly plans that each grant

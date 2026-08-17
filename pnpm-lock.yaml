@@ -82,6 +82,9 @@ importers:
       resend:
         specifier: 6.18.0
         version: 6.18.0
+      svix:
+        specifier: ^1.99.1
+        version: 1.99.1
     devDependencies:
       '@codecov/nuxt-plugin':
         specifier: ^2.0.1
@@ -8831,8 +8834,8 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
-  svix@1.95.2:
-    resolution: {integrity: sha512-i2gDtqABKQritWlFOxQHr+Oa63PBQ3q1oUhwhNwJgH+Xi0NjgWz5o6nd+8EwgNFGrH6UOe3wjKZtbZmjVn9r8w==}
+  svix@1.99.1:
+    resolution: {integrity: sha512-JfpvbAg5iT5NagDAfOq3e6Ci6NbOMbMm6C3DnfDBB60m2JDK+Z2hXPE9XNAmutb53DCdPoih1V70IbklZnX09A==}
 
   swrv@1.2.0:
     resolution: {integrity: sha512-lH/g4UcNyj+7lzK4eRGT4C68Q4EhQ6JtM9otPRIASfhhzfLWtbZPHcMuhuba7S9YVYuxkMUGImwMyGpfbkH07A==}
@@ -10424,7 +10427,7 @@ snapshots:
       convex-helpers: 0.1.121(@standard-schema/spec@1.1.0)(convex@1.43.0(react@19.2.7))(hono@4.12.26)(react@19.2.7)(typescript@6.0.3)(zod@4.4.3)
       remeda: 2.39.0
       resend: 6.18.0
-      svix: 1.95.2
+      svix: 1.99.1
     transitivePeerDependencies:
       - '@react-email/render'
       - react
@@ -20948,7 +20951,7 @@ snapshots:
       picocolors: 1.1.1
       sax: 1.6.0
 
-  svix@1.95.2:
+  svix@1.99.1:
     dependencies:
       standardwebhooks: 1.0.0
 

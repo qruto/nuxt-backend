@@ -6,6 +6,7 @@ import {
 } from 'convex/server'
 import { v } from 'convex/values'
 import { Resend } from 'resend'
+import { guardDelivery, parseSecretList, WEBHOOK_BODY_LIMIT, type WebhookLogRefs } from './webhook-guard'
 
 /**
  * The component handle `setupEmail` reads from your generated `components`
@@ -24,8 +25,9 @@ export interface EmailComponents {
       status: FunctionReference<'query', 'internal', { emailId: string }, EmailStatus | null>
       get: FunctionReference<'query', 'internal', { emailId: string }, unknown>
       cancel: FunctionReference<'mutation', 'internal', { emailId: string }, null>
-      handleWebhook: FunctionReference<'action', 'internal', { body: string, headers: Record<string, string> }, { status: number, body: string }>
+      handleWebhook: FunctionReference<'action', 'internal', { body: string, headers: Record<string, string> }, { status: number, body: string, type?: string }>
     }
+    webhooks?: WebhookLogRefs
   }
 }
 
@@ -61,40 +63,104 @@ export type SendEmailOptions = {
  */
 type AnyActionCtx = Pick<GenericActionCtx<GenericDataModel>, 'runQuery' | 'runMutation' | 'runAction'>
 
-/** A delivery event from the Resend webhook, passed to the email event hooks. */
-export interface EmailEvent {
-  /** The Resend event type, e.g. `'email.bounced'`. */
-  type: string
-  /** The Resend email id (matches `useEmailStatus(emailId)`). */
-  emailId: string | null
-  /** Recipient addresses. */
-  to: string[]
-  /** The raw event `data` payload for anything not surfaced above. */
-  data: Record<string, unknown>
+/**
+ * The provider's full webhook event catalog: every transactional delivery
+ * state, plus the contact and domain events the marketing surface
+ * (audiences/contacts/broadcasts) generates. Broadcast sends surface as
+ * `email.*` events carrying a `broadcast_id`.
+ */
+export const ALL_EMAIL_EVENTS = [
+  'email.sent',
+  'email.delivered',
+  'email.delivery_delayed',
+  'email.bounced',
+  'email.complained',
+  'email.opened',
+  'email.clicked',
+  'email.failed',
+  'email.scheduled',
+  'email.received',
+  'email.suppressed',
+  'contact.created',
+  'contact.updated',
+  'contact.deleted',
+  'domain.created',
+  'domain.updated',
+  'domain.deleted',
+] as const
+
+export type EmailWebhookEventType = (typeof ALL_EMAIL_EVENTS)[number]
+
+/** `email.*` payload data (documented fields + open for provider additions). */
+export interface EmailEventData {
+  email_id?: string
+  from?: string
+  to?: string[]
+  subject?: string
+  created_at?: string
+  broadcast_id?: string
+  bounce?: { type?: string, subType?: string, message?: string }
+  [key: string]: unknown
 }
 
-/** A hook invoked after the component has processed a verified webhook event. */
-export type EmailEventHandler = (ctx: AnyActionCtx, event: EmailEvent) => Promise<void>
+/** `contact.*` payload data. */
+export interface ContactEventData {
+  id?: string
+  audience_id?: string
+  email?: string
+  first_name?: string
+  last_name?: string
+  unsubscribed?: boolean
+  [key: string]: unknown
+}
+
+/** `domain.*` payload data. */
+export interface DomainEventData {
+  id?: string
+  name?: string
+  status?: string
+  [key: string]: unknown
+}
+
+type EventDataFor<T extends EmailWebhookEventType>
+  = T extends `email.${string}` ? EmailEventData
+    : T extends `contact.${string}` ? ContactEventData
+      : DomainEventData
+
+/** A verified provider webhook event, as delivered to the typed handlers. */
+export interface EmailWebhookEvent<T extends EmailWebhookEventType = EmailWebhookEventType> {
+  type: T
+  created_at?: string
+  data: EventDataFor<T>
+}
+
+/**
+ * Per-event email webhook handlers, keyed by the provider's event names —
+ * the complete catalog, uniform with `setupBilling({ events })`.
+ */
+export type EmailWebhookEventHandlers = {
+  [K in EmailWebhookEventType]?: (ctx: AnyActionCtx, event: EmailWebhookEvent<K>) => Promise<void>
+}
 
 export interface SetupEmailOptions {
   /**
-   * React to delivery events. Handlers run **after** the component has
-   * verified (svix, `EMAIL_WEBHOOK_SECRET`) and processed the event —
-   * `useEmailStatus` already reflects it. E.g. flag a user's address on
-   * `onBounced`, or alert an admin on `onComplained`.
+   * React to any verified provider event, keyed by its event name
+   * (`'email.bounced'`, `'contact.created'`, …). Handlers run **after** the
+   * component has verified the signature and updated delivery status —
+   * `useEmailStatus` already reflects the event. A handler throw answers 500,
+   * so the provider redelivers (deliveries are deduped once fully processed).
    */
-  events?: {
-    onDelivered?: EmailEventHandler
-    onBounced?: EmailEventHandler
-    onComplained?: EmailEventHandler
-  }
-}
-
-/** Resend webhook event type → the configured hook. */
-const EMAIL_EVENT_HOOKS: Record<string, keyof NonNullable<SetupEmailOptions['events']>> = {
-  'email.delivered': 'onDelivered',
-  'email.bounced': 'onBounced',
-  'email.complained': 'onComplained',
+  events?: EmailWebhookEventHandlers
+  /**
+   * Called for a **verified** event whose type is outside the known catalog
+   * (a provider newer than this package). Acknowledged 202 either way.
+   */
+  onUnknownEvent?: (ctx: AnyActionCtx, event: { type?: string, payload: unknown }) => Promise<void>
+  /**
+   * Record inbound webhook deliveries in the component's capped ring buffer
+   * (dedupe + doctor + DevTools feed). `false` disables the log and dedupe.
+   */
+  deliveryLog?: boolean
 }
 
 const sendArgs = {
@@ -200,11 +266,65 @@ export function setupEmail(components: EmailComponents, options: SetupEmailOptio
     request.headers.forEach((value, key) => {
       headers[key] = value
     })
+
+    // Shared fail-closed edge (size cap, dedupe, delivery logging). The secret
+    // itself lives on the component env; the app-declared copy of the same
+    // deployment var answers "configured?" without invoking the component.
+    const logRefs = options.deliveryLog === false ? undefined : components.backend.webhooks
+    const secretsConfigured = parseSecretList(readProcessEnv('EMAIL_WEBHOOK_SECRET')).length > 0
+    const guard = logRefs
+      ? await guardDelivery(ctx as never, logRefs, {
+          service: 'email',
+          deliveryId: headers['svix-id'] ?? null,
+          bodyLength: body.length,
+          secretsConfigured,
+        })
+      : {
+          rejection: !secretsConfigured
+            ? new Response('Webhook secret not configured', { status: 503 })
+            : body.length > WEBHOOK_BODY_LIMIT ? new Response('Payload too large', { status: 413 }) : null,
+          record: async () => {},
+        }
+    if (guard.rejection) return guard.rejection
+
     const result = await ctx.runAction(refs.handleWebhook, { body, headers })
-    // A 2xx from the component means the event was signature-verified and
-    // processed (useEmailStatus is already fresh) — now run consumer hooks.
-    if (events && result.status < 300) {
-      await runEmailEventHook(ctx, events, body)
+    if (result.status === 403) {
+      await guard.record('invalid_signature')
+      return new Response(result.body || null, { status: 403 })
+    }
+    if (result.status >= 300) {
+      await guard.record('handler_error', { note: `component answered ${result.status}` })
+      return new Response(result.body || null, { status: result.status })
+    }
+
+    // Verified. Dispatch the typed handler (or the unknown-type hook) — a
+    // handler throw propagates to a 500 so the provider redelivers against
+    // the idempotent built-ins.
+    const type = result.type
+    const known = type !== undefined && (ALL_EMAIL_EVENTS as readonly string[]).includes(type)
+    try {
+      if (known) {
+        const handler = events?.[type as EmailWebhookEventType]
+        if (handler) {
+          const payload = JSON.parse(body) as EmailWebhookEvent
+          await (handler as (ctx: AnyActionCtx, event: EmailWebhookEvent) => Promise<void>)(ctx, payload)
+        }
+        await guard.record('ok', { type })
+      }
+      else {
+        if (options.onUnknownEvent) {
+          await options.onUnknownEvent(ctx, { type, payload: safeParse(body) })
+        }
+        await guard.record('unknown_type', { type })
+        return new Response('Accepted (unknown event type)', { status: 202 })
+      }
+    }
+    catch (error) {
+      await guard.record('handler_error', {
+        type,
+        note: error instanceof Error ? error.message : String(error),
+      })
+      throw error
     }
     return new Response(result.body || null, { status: result.status })
   }
@@ -244,31 +364,17 @@ export function setupEmail(components: EmailComponents, options: SetupEmailOptio
   }
 }
 
-/** Parse the (already verified) webhook body and run the matching hook. */
-async function runEmailEventHook(
-  ctx: AnyActionCtx,
-  events: NonNullable<SetupEmailOptions['events']>,
-  body: string,
-): Promise<void> {
-  let payload: { type?: unknown, data?: unknown }
+function safeParse(body: string): unknown {
   try {
-    payload = JSON.parse(body) as { type?: unknown, data?: unknown }
+    return JSON.parse(body)
   }
   catch {
-    return
+    return body
   }
-  if (typeof payload.type !== 'string') return
-  const hook = events[EMAIL_EVENT_HOOKS[payload.type] as keyof typeof events]
-  if (!hook) return
+}
 
-  const data = (payload.data ?? {}) as Record<string, unknown>
-  const to = Array.isArray(data.to) ? data.to.filter((entry): entry is string => typeof entry === 'string') : []
-  await hook(ctx, {
-    type: payload.type,
-    emailId: typeof data.email_id === 'string' ? data.email_id : null,
-    to,
-    data,
-  })
+function readProcessEnv(name: string): string | undefined {
+  return (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[name]
 }
 
 /** Re-export so consumers can keep the `send` argument validator aligned. */

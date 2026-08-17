@@ -38,6 +38,7 @@ export const {
   syncEntitlements,
   getReceivedGifts,
   claimGift,
+  getWebhookDeliveries,
 } = billing.functions
 // Webhook handlers (imported by http.ts) that keep the cache fresh.
 export const { webhookEvents } = billing

@@ -75,6 +75,24 @@ export const markPaid = mutation({
 })
 
 /** Mark a gift claimed after its entitlement attached to an entity. Idempotent. */
+/**
+ * Stamp the recipient-notification email as sent — status-guarded so webhook
+ * redeliveries of `order.paid` can never email the recipient twice.
+ * Returns whether this call won the stamp (the caller sends only on `true`).
+ */
+export const markNotified = mutation({
+  args: { giftId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { giftId }) => {
+    const id = ctx.db.normalizeId('billingGifts', giftId)
+    if (!id) return false
+    const gift = await ctx.db.get('billingGifts', id)
+    if (!gift || gift.notifiedAt !== undefined) return false
+    await ctx.db.patch('billingGifts', gift._id, { notifiedAt: Date.now() })
+    return true
+  },
+})
+
 export const markClaimed = mutation({
   args: { giftId: v.id('billingGifts'), userId: v.string(), entityId: v.string() },
   returns: v.null(),
