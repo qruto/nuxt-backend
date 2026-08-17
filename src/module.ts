@@ -42,6 +42,12 @@ export interface ModuleOptions {
    */
   pages?: ModulePagesOptions | false
   /**
+   * Where the auth middleware sends signed-out visitors. Defaults to the
+   * resolved built-in login page path; set this when you disable
+   * `pages.login` and serve your own sign-in route somewhere else.
+   */
+  loginPath?: string
+  /**
    * Auto-add the neutral default stylesheet (`nuxt-backend/ui.css`) covering
    * every shipped component and page. `false` to opt out and style the
    * `data-*` hooks yourself.
@@ -83,10 +89,10 @@ export default defineNuxtModule<ModuleOptions>({
     const backend = (rawOptions.backend ?? {}) as ModuleOptions
     const convex = (rawOptions.convex ?? {}) as Record<string, unknown>
     const resolver = createResolver(import.meta.url)
-    // The auth middleware redirects to the resolved login page path; when the
-    // login page is disabled the base default (`/login`) stands and the app is
-    // expected to shadow that route (or set `convex.betterAuth.loginPath`).
-    const loginPath = resolvePagePath(backend.pages, 'login') ?? undefined
+    // The auth middleware redirects to the resolved login page path; with the
+    // built-in page disabled, `backend.loginPath` points at the app's own
+    // sign-in route (else the app is expected to shadow `/login`).
+    const loginPath = backend.loginPath ?? resolvePagePath(backend.pages, 'login') ?? undefined
     // Both Convex URLs are derivable from the CONVEX_DEPLOYMENT slug that
     // `npx convex dev` writes to .env.local, so neither is required config.
     // Precedence for these *defaults*: backend.* option → the neutral
@@ -409,11 +415,11 @@ function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
   const findings = collectPreflightFindings({ env: process.env, siteUrlConfigured })
 
   // The auth middleware always needs a login route. With the built-in page
-  // disabled, the app must shadow `/login` (or set `convex.betterAuth.loginPath`).
-  if (resolvePagePath(options.pages, 'login') === null) {
+  // disabled and no explicit `backend.loginPath`, the app must shadow `/login`.
+  if (resolvePagePath(options.pages, 'login') === null && !options.loginPath) {
     logger.warn(
       'The built-in login page is disabled (`backend.pages.login: false`). '
-      + 'Provide your own page at `/login`, or point `convex.betterAuth.loginPath` at your sign-in route.',
+      + 'Provide your own page at `/login`, or point `backend.loginPath` at your sign-in route.',
     )
   }
 

@@ -36,6 +36,7 @@
     },
     "./auth.css": "./dist/runtime/vue/components/auth.css",
     "./ui.css": "./dist/runtime/vue/components/ui.css",
+    "./*.css": "./dist/runtime/vue/components/*.css",
     "./auth": {
       "types": "./dist/convex/client/index.d.ts",
       "default": "./dist/convex/client/index.js"

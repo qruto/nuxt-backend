@@ -29,7 +29,7 @@ export interface UseCreditsReturn {
 
 /**
  * Reactive prepaid-credit balance for the current user, plus a `topUp()` checkout
- * and a `refresh()` re-sync. Credits are Polar's official model: a credit pack is a
+ * and a `refresh()` re-sync. Credits are the provider's native model: a credit pack is a
  * one-time product whose Credits benefit tops up a meter balance, drawn down by
  * server-side consumption (`setupBilling().spendCredits`). Reads the component's
  * webhook-synced cache via `getCredits`. Zero-arg via the auto-provided

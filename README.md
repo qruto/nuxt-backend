@@ -44,41 +44,35 @@ export default defineNuxtConfig({
 })
 ```
 
-### 3. Configure environment variables
+### 3. Run it — no configuration
 
 ```bash
-# .env.local (Nuxt app)
-NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
-NUXT_PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site
+npx convex dev   # terminal 1 — provisions a dev deployment + codegen
+npm run dev      # terminal 2 — scaffolds backend/, derives the Convex URLs,
+                 # and provisions the dev deployment env for you
 ```
 
-All nine Convex deployment variables are **required** — a deploy fails until every one is set, so misconfiguration surfaces at push time instead of in production:
+That's it — sign in right away (with no email provider connected yet, the
+OTP code prints in the `convex dev` console), read live data with `useQuery`,
+gate features with `useFeatures`, and protect pages with the `auth`
+middleware. There is nothing to copy into `.env`: the Convex URLs derive from
+the `CONVEX_DEPLOYMENT` slug, `AUTH_SECRET` is generated, and `SITE_URL`
+defaults to localhost on dev deployments.
+
+### 4. Connect services when you're ready
+
+Add provider keys to `.env.local` as you connect email and billing, then sync
+them to the deployment:
 
 ```bash
-# Convex deployment
-npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"
-npx convex env set SITE_URL https://your-app.localhost
-
-# email (powered by Resend)
-npx convex env set EMAIL_API_KEY re_...
-npx convex env set EMAIL_FROM "Acme <hello@yourdomain.com>"
-npx convex env set EMAIL_TEST_MODE true
-npx convex env set EMAIL_WEBHOOK_SECRET whsec_...
-
-# billing (powered by Polar)
-npx convex env set BILLING_ACCESS_TOKEN ...
-npx convex env set BILLING_WEBHOOK_SECRET ...
-npx convex env set BILLING_ENVIRONMENT sandbox   # or production
+npx nuxt-backend env push
 ```
 
-### 4. Start the app, then Convex
-
-```bash
-npm run dev      # first run scaffolds the Convex files under convex/
-npx convex dev
-```
-
-That's it — sign in with `useAuth()`, read live data with `useQuery`, gate features with `useFeatures`, and protect pages with the `auth` middleware.
+Only `AUTH_SECRET` and `SITE_URL` are required to deploy; everything else is
+optional and degrades in a designed, `nuxt-backend doctor`-visible way until
+configured (email sends no-op, billing panels stay empty). Declare your plans,
+credit packs, and meters in `backend/billing.catalog.ts` and push the catalog
+with `npx nuxt-backend billing sync`.
 
 ## A taste
 
@@ -137,7 +131,7 @@ On dev startup the module checks your environment — missing site URL, weak `AU
 
 ### The Convex side
 
-The scaffolded `convex/` files compose the backend from `nuxt-backend/*`:
+The scaffolded `backend/` files compose the backend from `nuxt-backend/*`:
 
 - `defineBackendApp` — mounts the all-in-one `backend` component (auth + email + billing cache + gifts, with the email provider nested inside) plus the upstream Polar, rate limiter, workflow, migrations, and aggregate components, declares the required env vars, and forwards the email config
 - `setupAuth` — passwordless Better Auth (OTP + passkey plugins), workspaces with emailed invitations, email templates included

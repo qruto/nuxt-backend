@@ -278,6 +278,9 @@ export type AdminPluginOptions = Parameters<typeof admin>[0]
  * - `invitationPath` — the app page invitation emails link to (default
  *   `/accept-invitation`, registered automatically by the Nuxt module). The
  *   emailed URL is `{SITE_URL}{invitationPath}?id=<invitationId>`.
+ *   ⚠ Declared in two places by necessity: keep it aligned with the Nuxt
+ *   side's `backend.pages.acceptInvitation` (nuxt.config) — a mismatch 404s
+ *   invitees, and `nuxt-backend doctor` cross-checks both.
  */
 export type OrganizationPluginOptions = Parameters<typeof organization>[0] & {
   personal?: boolean

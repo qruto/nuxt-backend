@@ -3,9 +3,9 @@ import { computed, inject, type ComputedRef } from 'vue'
 import { useAction, useQuery, ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { useBackendNamespace } from '../utils/namespace'
 
-/** A Polar product (loose — the full shape is Polar's; cast as needed). */
+/** A billing-provider product (loose — the provider owns the full shape; cast as needed). */
 export type BillingProduct = { id: string, name: string } & Record<string, unknown>
-/** A Polar subscription (loose — the full shape is Polar's; cast as needed). */
+/** A billing-provider subscription (loose — the provider owns the full shape; cast as needed). */
 export type BillingSubscription = { id: string, status: string, productId: string } & Record<string, unknown>
 
 type EmptyArgs = Record<string, never>
@@ -17,7 +17,7 @@ export interface EntitlementBenefit {
   benefitId: string
   type: string
   /**
-   * The benefit's Polar metadata (live, not the grant-time snapshot). Set a
+   * The benefit's live provider metadata (not the grant-time snapshot). Set a
    * stable key here (e.g. `{ key: 'premium' }`) to feature-gate by a friendly
    * name — `useFeatures().has('premium')` matches any metadata value.
    */
@@ -47,7 +47,7 @@ export interface Credits {
   meters: EntitlementMeter[]
 }
 
-/** Args of the Polar-generated `generateCheckoutLink` action. */
+/** Args of the generated `generateCheckoutLink` action. */
 export type CheckoutArgs = {
   productIds: string[]
   origin: string
@@ -115,7 +115,7 @@ export interface CheckoutOptions {
   trialInterval?: 'day' | 'week' | 'month' | 'year' | null
   trialIntervalCount?: number | null
   locale?: string
-  /** Where Polar returns the customer after checkout. Defaults to the current URL. */
+  /** Where checkout returns the customer afterwards. Defaults to the current URL. */
   successUrl?: string
   /** Open in the same tab instead of a new one (redirect checkout). */
   redirect?: boolean

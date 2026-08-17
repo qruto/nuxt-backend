@@ -3,7 +3,7 @@ import { computed, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
 import { useQuery } from 'nuxt-convex-module/client'
 import { useBackendNamespace } from '../utils/namespace'
 
-/** Resend delivery status (mirrors the component `status` query). */
+/** Email delivery status (mirrors the component `status` query). */
 export interface EmailStatus {
   status: string
   errorMessage: string | null
@@ -39,7 +39,7 @@ export interface UseEmailStatusReturn {
 }
 
 /**
- * Reactive delivery status for a sent email. Updates live as Resend webhooks
+ * Reactive delivery status for a sent email. Updates live as delivery webhooks
  * advance the status (queued → sent → delivered/bounced). Zero-arg via the
  * auto-provided `api.email` namespace; pass `{ api }` to override.
  *
@@ -54,7 +54,7 @@ export interface UseEmailStatusReturn {
  * </template>
  * ```
  *
- * @param emailId - The Resend email id to track (reactive). Tracking pauses
+ * @param emailId - The email id to track (reactive, from `send`). Tracking pauses
  *   while it is `undefined`/empty.
  */
 export function useEmailStatus(
