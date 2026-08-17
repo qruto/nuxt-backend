@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, join } from 'node:path'
 import { defineNuxtModule, addComponent, addImports, addServerImports, addTypeTemplate, createResolver, extendPages, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
 import { defu } from 'defu'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
@@ -9,6 +12,14 @@ import { BACKEND_PAGE_DEFS, collectExistingPagePaths, resolvePagePath, resolvedB
 import type { BackendInstallationMode } from './templates'
 
 const logger = useLogger('nuxt-backend')
+
+/**
+ * Backend-neutral names for the Nitro `backendAuth(event)` service types —
+ * the base module's `convexAuth` service under this package's terminology.
+ * Type-only: erased at build, so none of the runtime resolution concerns the
+ * `backendAuth` auto-import handles (see `registerSaasComposables`).
+ */
+export type { ConvexAuthOptions as BackendAuthOptions, ConvexAuthService as BackendAuthService } from 'nuxt-convex-module/better-auth/server'
 
 export interface ModuleOptions {
   url?: string
@@ -249,10 +260,29 @@ function registerSaasComposables(resolver: Resolver): void {
     addImports(composable)
   }
 
-  // Nitro-side neutral name for the base module's `convexAuth(event)` service.
-  addServerImports([
-    { name: 'backendAuth', from: resolver.resolve('./runtime/server/backend-auth') },
-  ])
+  // Nitro-side neutral name for the base module's `convexAuth(event)` service,
+  // aliased straight from the base runtime file (same file its own
+  // registration uses). The exact filename varies by install state — compiled
+  // dist (published), raw-`.ts` dist, or src (stub build) — so probe for it.
+  const baseModuleDir = dirname(createRequire(import.meta.url).resolve('nuxt-convex-module/package.json'))
+  const serverRuntime = [
+    'dist/runtime/better-auth/nuxt/server.mjs',
+    'dist/runtime/better-auth/nuxt/server.js',
+    'dist/runtime/better-auth/nuxt/server.ts',
+    'src/runtime/better-auth/nuxt/server.ts',
+  ].map(candidate => join(baseModuleDir, candidate)).find(existsSync)
+  if (serverRuntime) {
+    addServerImports([
+      { name: 'convexAuth', as: 'backendAuth', from: serverRuntime },
+    ])
+  }
+  else {
+    logger.warn(
+      '`backendAuth` auto-import unavailable — could not locate the nuxt-convex-module server runtime '
+      + '(looked in dist/ and src/). Reinstall nuxt-convex-module, or import `convexAuth` from '
+      + '`nuxt-convex-module/better-auth/server` directly.',
+    )
+  }
 }
 
 /**
