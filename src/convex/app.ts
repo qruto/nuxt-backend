@@ -17,9 +17,25 @@ import rateLimiter from '@convex-dev/rate-limiter/convex.config'
 import workflow from '@convex-dev/workflow/convex.config'
 
 /**
- * Environment variables the backend reads. All required — a deploy fails until
- * auth, email, and billing are configured, so misconfiguration surfaces at push
- * time instead of as silent no-ops in production.
+ * Environment variables the backend reads, in two tiers.
+ *
+ * Required — a deploy fails until they are set (misconfiguration of the
+ * security-critical pair must surface at push time, never at runtime):
+ * `AUTH_SECRET` (session/JWT signing) and `SITE_URL` (the app origin — auth
+ * base URL and every emailed link).
+ *
+ * Optional — the deploy succeeds and the feature degrades in a designed,
+ * observable way until configured (`nuxt-backend doctor` reports each):
+ * - `EMAIL_API_KEY` — sends no-op with a console warn; OTP sign-in throws
+ *   loudly (set `NUXT_BACKEND_LOG_OTP=1` to echo codes to the dev console).
+ * - `EMAIL_FROM` — falls back to the provider's onboarding sender.
+ * - `EMAIL_TEST_MODE` — defaults to ON (anything but `'false'`).
+ * - `EMAIL_WEBHOOK_SECRET` — delivery events are rejected until set.
+ * - `BILLING_ACCESS_TOKEN` — billing queries return empty; checkout and other
+ *   billing actions fail on invocation.
+ * - `BILLING_WEBHOOK_SECRET` — billing events are rejected until set
+ *   (`syncEntitlements` remains the on-demand fallback).
+ * - `BILLING_ENVIRONMENT` — defaults to `'sandbox'`.
  *
  * The names are service-neutral on purpose: the package hides its underlying
  * providers behind the general capability (auth, email, billing).
@@ -30,18 +46,18 @@ import workflow from '@convex-dev/workflow/convex.config'
  * `defineApp({ env: { ...backendEnv, MY_VAR: v.optional(v.string()) } })`.
  */
 export const backendEnv = {
-  // Auth
+  // Auth — required.
   AUTH_SECRET: v.string(),
   SITE_URL: v.string(),
-  // Email — forwarded by reference to the `backend` component.
-  EMAIL_API_KEY: v.string(),
-  EMAIL_FROM: v.string(),
-  EMAIL_TEST_MODE: v.string(),
-  EMAIL_WEBHOOK_SECRET: v.string(),
-  // Billing
-  BILLING_ACCESS_TOKEN: v.string(),
-  BILLING_WEBHOOK_SECRET: v.string(),
-  BILLING_ENVIRONMENT: v.union(v.literal('sandbox'), v.literal('production')),
+  // Email — optional; forwarded by reference to the `backend` component.
+  EMAIL_API_KEY: v.optional(v.string()),
+  EMAIL_FROM: v.optional(v.string()),
+  EMAIL_TEST_MODE: v.optional(v.string()),
+  EMAIL_WEBHOOK_SECRET: v.optional(v.string()),
+  // Billing — optional.
+  BILLING_ACCESS_TOKEN: v.optional(v.string()),
+  BILLING_WEBHOOK_SECRET: v.optional(v.string()),
+  BILLING_ENVIRONMENT: v.optional(v.union(v.literal('sandbox'), v.literal('production'))),
 } satisfies EnvDefinition
 
 /** An app definition whose env declares at least the {@link backendEnv} vars. */

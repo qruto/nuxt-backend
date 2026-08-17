@@ -7,9 +7,10 @@ import { internalAction } from './_generated/server'
 // follows the tenant: with the default `billTo: 'organization'` the active
 // workspace owns the subscription and credits (members share them); switch to
 // `billTo: 'user'` for per-user B2C billing. The billing entity resolves from
-// identity claims automatically, configuration comes from the required
-// BILLING_* env vars, and the reactive feature/credit cache lives inside the
-// backend component — nothing to add to your schema.
+// identity claims automatically, configuration comes from the BILLING_* env
+// vars (optional — billing stays empty until BILLING_ACCESS_TOKEN is set),
+// and the reactive feature/credit cache lives inside the backend component —
+// nothing to add to your schema.
 const billing = setupBilling(components)
 
 export const { provider } = billing

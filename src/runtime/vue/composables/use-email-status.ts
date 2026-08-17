@@ -1,6 +1,7 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
-import { useQuery, useConvexNamespace } from 'nuxt-convex-module/client'
+import { useQuery } from 'nuxt-convex-module/client'
+import { useBackendNamespace } from '../utils/namespace'
 
 /** Resend delivery status (mirrors the component `status` query). */
 export interface EmailStatus {
@@ -60,7 +61,7 @@ export function useEmailStatus(
   emailId: MaybeRefOrGetter<string | undefined>,
   options: UseEmailStatusOptions = {},
 ): UseEmailStatusReturn {
-  const email = (options.api ?? useConvexNamespace<EmailApi>('email') ?? {}) as EmailApi
+  const email = useBackendNamespace<EmailApi>('email', 'useEmailStatus', options.api)
 
   const data = email.getEmailStatus
     ? useQuery(email.getEmailStatus, computed(() => {

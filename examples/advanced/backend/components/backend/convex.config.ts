@@ -9,10 +9,10 @@ import resend from '@convex-dev/resend/convex.config'
 // this import resolves.
 const component = defineComponent('backend', {
   env: {
-    EMAIL_API_KEY: v.string(),
-    EMAIL_FROM: v.string(),
-    EMAIL_TEST_MODE: v.string(),
-    EMAIL_WEBHOOK_SECRET: v.string(),
+    EMAIL_API_KEY: v.optional(v.string()),
+    EMAIL_FROM: v.optional(v.string()),
+    EMAIL_TEST_MODE: v.optional(v.string()),
+    EMAIL_WEBHOOK_SECRET: v.optional(v.string()),
   },
 })
 

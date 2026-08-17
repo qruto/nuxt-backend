@@ -1,10 +1,12 @@
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { defineNuxtModule, addComponent, addImports, addServerImports, addTypeTemplate, createResolver, extendPages, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
 import { defu } from 'defu'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
 import { backendAppConfigDefaults, type BackendAppConfigInput } from './runtime/config'
+import { deriveDeploymentUrls } from './deployment'
+import { runEnvPush } from './env-push'
 import { scaffoldBackendFiles } from './scaffold'
 import { registerBackendAliases, backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from './aliases'
 import { collectPreflightFindings, formatPreflightSummary } from './preflight'
@@ -45,6 +47,16 @@ export interface ModuleOptions {
    * `data-*` hooks yourself.
    */
   css?: boolean
+  /**
+   * On dev startup, provision the `dev:` deployment env automatically — the
+   * same engine as `npx nuxt-backend env push`: forward `.env(.local)` values,
+   * generate `AUTH_SECRET`, default `SITE_URL` to localhost, and echo OTP
+   * codes to the convex dev console until an email transport exists. Runs
+   * once per deployment (stamped under `node_modules/.cache/nuxt-backend`),
+   * asynchronously after startup. Never touches non-dev deployments.
+   * `false` to manage the deployment env yourself.
+   */
+  autoEnv?: boolean
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -58,6 +70,7 @@ export default defineNuxtModule<ModuleOptions>({
     installation: 'default',
     scaffold: 'auto',
     css: true,
+    autoEnv: true,
   },
   // The Convex + Better Auth + Polar framework integration. Declared as a
   // module dependency (not `installModule`) so Nuxt dedupes it when the app
@@ -74,11 +87,18 @@ export default defineNuxtModule<ModuleOptions>({
     // login page is disabled the base default (`/login`) stands and the app is
     // expected to shadow that route (or set `convex.betterAuth.loginPath`).
     const loginPath = resolvePagePath(backend.pages, 'login') ?? undefined
+    // Both Convex URLs are derivable from the CONVEX_DEPLOYMENT slug that
+    // `npx convex dev` writes to .env.local, so neither is required config.
+    // Precedence for these *defaults*: backend.* option → the neutral
+    // NUXT_PUBLIC_BACKEND_* env names → derived. Explicit `convex.*` config
+    // and the base module's own NUXT_PUBLIC_CONVEX_* env always win over
+    // defaults (they reach the base module directly).
+    const derived = deriveDeploymentUrls(nuxt.options.rootDir)
     return {
       'nuxt-convex-module': {
         defaults: {
-          url: backend.url,
-          siteUrl: backend.siteUrl,
+          url: backend.url ?? process.env.NUXT_PUBLIC_BACKEND_URL ?? derived?.url,
+          siteUrl: backend.siteUrl ?? process.env.NUXT_PUBLIC_BACKEND_SITE_URL ?? derived?.siteUrl,
           authRoute: backend.authRoute,
         },
         overrides: {
@@ -131,8 +151,54 @@ export default defineNuxtModule<ModuleOptions>({
     registerModulePages(options, resolver, nuxt)
 
     runPreflight(options, nuxt)
+
+    runDevAutoEnv(options, nuxt)
   },
 })
+
+/**
+ * Dev-startup env auto-provision (`backend.autoEnv`, default on): run the
+ * `env push` engine against the `dev:` deployment once per deployment,
+ * asynchronously after startup. The stamp under `node_modules/.cache`
+ * prevents a `convex env list` spawn on every boot; a failed run leaves no
+ * stamp, so the next boot retries. When `npx convex dev` has not provisioned
+ * yet (very first run — no `CONVEX_DEPLOYMENT` in `.env.local`), a watcher
+ * on `.env.local` picks the deployment up the moment it appears, so the two
+ * first-run terminals can start in any order.
+ */
+function runDevAutoEnv(options: ModuleOptions, nuxt: Nuxt): void {
+  if (!nuxt.options.dev || nuxt.options._prepare || nuxt.options.test || options.autoEnv === false) return
+  const rootDir = nuxt.options.rootDir
+
+  const attempt = (): boolean => {
+    const deployment = deriveDeploymentUrls(rootDir)?.deployment
+    if (!deployment?.startsWith('dev:')) return false
+    const stampDir = join(rootDir, 'node_modules/.cache/nuxt-backend')
+    const stamp = join(stampDir, `env-ok-${deployment.replace(/[^\w-]/g, '_')}`)
+    if (existsSync(stamp)) return true
+
+    void runEnvPush(rootDir, {}).then((run) => {
+      if (!run) return
+      for (const { action, outcome, error } of run.results) {
+        if (outcome === 'set') logger.info(`env push: ${action.name} — ${action.detail}`)
+        else if (outcome === 'failed') logger.warn(`env push: ${action.name} failed — ${error}`)
+      }
+      if (run.results.every(result => result.outcome !== 'failed')) {
+        mkdirSync(stampDir, { recursive: true })
+        writeFileSync(stamp, new Date().toISOString())
+      }
+    }).catch((error: unknown) => {
+      logger.warn(`env auto-provision failed: ${error instanceof Error ? error.message : String(error)}`)
+    })
+    return true
+  }
+
+  if (attempt()) return
+  nuxt.hook('builder:watch', (_event, path) => {
+    if (!path.replace(/\\/g, '/').endsWith('.env.local')) return
+    attempt()
+  })
+}
 
 /**
  * Mount the ready-made pages (see the `pages` module option). Detect-and-skip
@@ -328,11 +394,17 @@ declare module '@nuxt/schema' {
 function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
   if (!nuxt.options.dev || nuxt.options._prepare || nuxt.options.test) return
 
+  const derived = deriveDeploymentUrls(nuxt.options.rootDir)
   const siteUrlConfigured = Boolean(
     options.siteUrl
     ?? process.env.NUXT_PUBLIC_CONVEX_SITE_URL
-    ?? ((nuxt.options as unknown as Record<string, unknown>).convex as { siteUrl?: string } | undefined)?.siteUrl,
+    ?? process.env.NUXT_PUBLIC_BACKEND_SITE_URL
+    ?? ((nuxt.options as unknown as Record<string, unknown>).convex as { siteUrl?: string } | undefined)?.siteUrl
+    ?? derived?.siteUrl,
   )
+  if (derived?.source === 'deployment' && !options.url && !process.env.NUXT_PUBLIC_CONVEX_URL && !process.env.NUXT_PUBLIC_BACKEND_URL) {
+    logger.info(`Convex URLs derived from ${derived.deployment} — no NUXT_PUBLIC_* URL vars needed.`)
+  }
   const findings = collectPreflightFindings({ env: process.env, siteUrlConfigured })
 
   // The auth middleware always needs a login route. With the built-in page

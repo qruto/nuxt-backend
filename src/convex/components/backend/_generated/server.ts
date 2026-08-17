@@ -34,10 +34,10 @@ import type { DataModel } from "./dataModel.js";
  * Typesafe environment variables declared in `convex.config.ts`.
  */
 type Env = {
-  readonly EMAIL_API_KEY: string;
-  readonly EMAIL_FROM: string;
-  readonly EMAIL_TEST_MODE: string;
-  readonly EMAIL_WEBHOOK_SECRET: string;
+  readonly EMAIL_API_KEY: string | undefined;
+  readonly EMAIL_FROM: string | undefined;
+  readonly EMAIL_TEST_MODE: string | undefined;
+  readonly EMAIL_WEBHOOK_SECRET: string | undefined;
 };
 
 /**

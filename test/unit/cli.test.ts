@@ -54,7 +54,7 @@ describe('init', () => {
 
     expect(existsSync(join(rootDir, 'backend/convex.config.ts'))).toBe(true)
     expect(existsSync(join(rootDir, 'backend/functions.ts'))).toBe(true)
-    expect(readFileSync(join(rootDir, '.env.example'), 'utf-8')).toContain('NUXT_PUBLIC_CONVEX_URL')
+    expect(readFileSync(join(rootDir, '.env.example'), 'utf-8')).toContain('nuxt-backend env push')
     expect(readFileSync(join(rootDir, 'nuxt.config.ts'), 'utf-8')).toContain('nuxt-backend')
   })
 

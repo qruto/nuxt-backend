@@ -43,8 +43,9 @@ const LOCAL_CONVEX_CONFIG = dedent`
 
 /**
  * Feature setup files shared by both installation modes. Each is config-free —
- * the required env vars (set once via \`npx convex env set\`) are the only
- * configuration.
+ * the deployment env vars are the only configuration (AUTH_SECRET + SITE_URL
+ * required; the rest optional with designed fallbacks — \`nuxt-backend env push\`
+ * syncs them from .env.local).
  */
 const FEATURE_FILE_TEMPLATES: Record<string, string> = {
   'functions.ts': dedent`
@@ -80,9 +81,10 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // follows the tenant: with the default \`billTo: 'organization'\` the active
     // workspace owns the subscription and credits (members share them); switch to
     // \`billTo: 'user'\` for per-user B2C billing. The billing entity resolves from
-    // identity claims automatically, configuration comes from the required
-    // BILLING_* env vars, and the reactive feature/credit cache lives inside the
-    // backend component — nothing to add to your schema.
+    // identity claims automatically, configuration comes from the BILLING_* env
+    // vars (optional — billing stays empty until BILLING_ACCESS_TOKEN is set),
+    // and the reactive feature/credit cache lives inside the backend component —
+    // nothing to add to your schema.
     const billing = setupBilling(components)
 
     export const { provider } = billing
@@ -147,7 +149,8 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     import { action, internalAction } from './_generated/server'
 
     // Transactional + marketing email over the backend component's email module.
-    // Delivery uses the required EMAIL_* env vars. React to delivery events with
+    // Delivery uses the EMAIL_* env vars (optional — sends no-op until
+    // EMAIL_API_KEY is set). React to delivery events with
     // \`setupEmail(components, { events: { onBounced: async (ctx, event) => { ... } } })\`.
     export const email = setupEmail(components)
 
@@ -281,7 +284,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
  * Default `convex.config.ts`: zero component imports. `defineBackendApp()`
  * itself imports and mounts the all-in-one `backend` component (auth + email +
  * billing + gifts) plus the upstream components (aggregate, migrations, Polar,
- * rate limiter, workflows), declares the required env vars, and forwards the
+ * rate limiter, workflows), declares the deployment env vars, and forwards the
  * email env.
  */
 const DEFAULT_CONVEX_CONFIG = dedent`
@@ -289,7 +292,8 @@ const DEFAULT_CONVEX_CONFIG = dedent`
 
   // One call mounts the all-in-one backend component (auth, email, billing
   // cache, gifts) plus aggregate, migrations, Polar, rate limiter and
-  // workflows, declares the required env vars and forwards the email config.
+  // workflows, declares the deployment env vars (AUTH_SECRET + SITE_URL
+  // required, the rest optional) and forwards the email config.
   // Customize via defineBackendApp({ omit, components, env }), or call
   // app.use(...) on the returned app for your own components.
   export default defineBackendApp()
@@ -318,6 +322,7 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
       options,
       createAuth,
       getAuthUser,
+      authConfig,
     } = setupAuth(components, query, {
       // Roles/permissions (admin plugin) and workspaces (organization plugin)
       // are on by default, including a personal workspace per user and emailed
@@ -366,6 +371,7 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
       options,
       createAuth,
       getAuthUser,
+      authConfig,
     } = setupAuth(components, query, {
       schema: authSchema,
       integrations: {
@@ -394,10 +400,10 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
     // this import resolves.
     const component = defineComponent('backend', {
       env: {
-        EMAIL_API_KEY: v.string(),
-        EMAIL_FROM: v.string(),
-        EMAIL_TEST_MODE: v.string(),
-        EMAIL_WEBHOOK_SECRET: v.string(),
+        EMAIL_API_KEY: v.optional(v.string()),
+        EMAIL_FROM: v.optional(v.string()),
+        EMAIL_TEST_MODE: v.optional(v.string()),
+        EMAIL_WEBHOOK_SECRET: v.optional(v.string()),
       },
     })
 

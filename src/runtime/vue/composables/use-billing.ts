@@ -1,6 +1,7 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, inject, type ComputedRef } from 'vue'
-import { useAction, useQuery, ConvexAuthStateKey, useConvexNamespace } from 'nuxt-convex-module/client'
+import { useAction, useQuery, ConvexAuthStateKey } from 'nuxt-convex-module/client'
+import { useBackendNamespace } from '../utils/namespace'
 
 /** A Polar product (loose — the full shape is Polar's; cast as needed). */
 export type BillingProduct = { id: string, name: string } & Record<string, unknown>
@@ -248,7 +249,7 @@ export function createGiftCheckout(billing: BillingApi) {
  * ```
  */
 export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
-  const billing = (options.api ?? useConvexNamespace<BillingApi>('billing') ?? {}) as BillingApi
+  const billing = useBackendNamespace<BillingApi>('billing', 'useBilling', options.api)
 
   const products = billing.getConfiguredProducts
     ? useQuery(billing.getConfiguredProducts)

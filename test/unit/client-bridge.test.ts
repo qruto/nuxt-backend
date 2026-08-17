@@ -32,14 +32,19 @@ describe('Convex component client bridge', () => {
     }
   })
 
-  it('exposes a ready-made auth API remount helper', () => {
+  it('exposes a ready-made auth API remount helper', async () => {
     const queryBuilder = vi.fn(definition => definition)
 
     const authApi = clientBridge.makeAuthApi({ backend: fakeAppComponent }, queryBuilder as never)
 
-    expect(queryBuilder).toHaveBeenCalledTimes(1)
+    // One query per api member: getAuthUser + the authConfig diagnostics.
+    expect(queryBuilder).toHaveBeenCalledTimes(2)
     expect(queryBuilder).toHaveBeenCalledWith(expect.objectContaining({ args: {} }))
     expect(authApi).toHaveProperty('getAuthUser')
+    expect(authApi).toHaveProperty('authConfig')
+    // The diagnostics query reports the resolved invitation path for doctor.
+    const config = await (authApi.authConfig as unknown as { handler: () => Promise<{ invitationPath: string | null }> }).handler()
+    expect(config).toEqual({ invitationPath: '/accept-invitation' })
   })
 
   it('keeps setupAuth as the convenience composition of the client patterns', () => {

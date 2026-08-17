@@ -28,15 +28,16 @@ import resend from '@convex-dev/resend/convex.config'
  * declares the email config it needs here; the mounting app forwards the
  * deployment's values by reference via `app.use(backend, { env: {...} })`
  * (`installBackend` does this). The component reads them type-safely through
- * the generated `env` export (see `email.ts`). All required — a deploy fails
- * until they are set.
+ * the generated `env` export (see `email.ts`). All optional — a deploy
+ * succeeds without them and email degrades in a designed way (sends no-op,
+ * OTP throws loudly, webhooks rejected) until `EMAIL_API_KEY` is set.
  */
 const component = defineComponent('backend', {
   env: {
-    EMAIL_API_KEY: v.string(),
-    EMAIL_FROM: v.string(),
-    EMAIL_TEST_MODE: v.string(),
-    EMAIL_WEBHOOK_SECRET: v.string(),
+    EMAIL_API_KEY: v.optional(v.string()),
+    EMAIL_FROM: v.optional(v.string()),
+    EMAIL_TEST_MODE: v.optional(v.string()),
+    EMAIL_WEBHOOK_SECRET: v.optional(v.string()),
   },
 })
 

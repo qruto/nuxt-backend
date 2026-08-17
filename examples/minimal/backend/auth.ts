@@ -10,6 +10,7 @@ export const {
   options,
   createAuth,
   getAuthUser,
+  authConfig,
 } = setupAuth(components, query, {
   // Roles/permissions (admin plugin) and workspaces (organization plugin)
   // are on by default, including a personal workspace per user and emailed

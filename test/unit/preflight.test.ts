@@ -56,23 +56,33 @@ describe('collectPreflightFindings', () => {
     },
   )
 
-  it('surfaces missing required email/billing env as findings, never designed passes', () => {
+  it('reports missing optional email/billing env as warns describing the degradation', () => {
     const findings = collectPreflightFindings({ env: {}, siteUrlConfigured: true })
-    expect(byId(findings, 'email-env').status).toBe('warn')
-    expect(byId(findings, 'billing-env').status).toBe('warn')
-    expect(byId(findings, 'email-env').message).toContain('EMAIL_API_KEY')
-    expect(byId(findings, 'billing-env').fixHint).toContain('convex env set')
+    for (const id of ['email-transport', 'email-webhook-secret', 'billing-access', 'billing-webhook-secret']) {
+      expect(byId(findings, id).status).toBe('warn')
+      expect(byId(findings, id).message).toContain('optional')
+      // Optional tier never claims a deploy will fail.
+      expect(byId(findings, id).message).not.toContain('deploy fails')
+    }
+    expect(byId(findings, 'email-transport').message).toContain('OTP')
+    expect(byId(findings, 'billing-access').message).toContain('checkout')
   })
 
-  it('lists only the missing vars of a partially configured feature', () => {
+  it('passes each optional capability independently once its gate var is set', () => {
     const findings = collectPreflightFindings({
-      env: { EMAIL_API_KEY: 're_123', EMAIL_FROM: 'a@b.co' },
+      env: { EMAIL_API_KEY: 're_123' },
       siteUrlConfigured: true,
     })
-    const finding = byId(findings, 'email-env')
-    expect(finding.status).toBe('warn')
-    expect(finding.message).toContain('EMAIL_TEST_MODE')
-    expect(finding.message).not.toContain('EMAIL_API_KEY,')
+    expect(byId(findings, 'email-transport').status).toBe('pass')
+    expect(byId(findings, 'email-webhook-secret').status).toBe('warn')
+    expect(byId(findings, 'billing-access').status).toBe('warn')
+  })
+
+  it('produces no finding for fallback-only vars (EMAIL_FROM, EMAIL_TEST_MODE, BILLING_ENVIRONMENT)', () => {
+    const findings = collectPreflightFindings({ env: fullEnv, siteUrlConfigured: true })
+    const ids = findings.map(finding => finding.id)
+    expect(ids).not.toContain('email-from')
+    expect(ids).not.toContain('billing-environment')
   })
 })
 

@@ -11,6 +11,7 @@ export const {
   options,
   createAuth,
   getAuthUser,
+  authConfig,
 } = setupAuth(components, query, {
   // CUSTOMIZATION: the locally installed component's schema (see
   // components/backend/schema.ts) drives the Better Auth adapter.

@@ -712,8 +712,22 @@ export function makeAuthApi<
     },
   })
 
+  // Deployment-side view of cross-boundary auth config, for diagnostics: the
+  // Convex-side `invitationPath` and the Nuxt-side `pages.acceptInvitation`
+  // must point at the same route, and only `nuxt-backend doctor` can see both
+  // sides to compare them.
+  const organizationOptions = options?.organization
+  const invitationPath = organizationOptions === false
+    ? null
+    : (typeof organizationOptions === 'object' ? organizationOptions.invitationPath : undefined) ?? DEFAULT_INVITATION_PATH
+  const authConfig = queryBuilder({
+    args: {},
+    handler: async () => ({ invitationPath }),
+  })
+
   return {
     getAuthUser,
+    authConfig,
   }
 }
 
@@ -743,7 +757,7 @@ export function setupAuth<
   options?: SetupAuthOptions<DM, Schema>,
 ) {
   const authComponent = createAuthComponent<DM, Schema>(components.backend, options)
-  const { getAuthUser } = makeAuthApi(components, queryBuilder, options)
+  const { getAuthUser, authConfig } = makeAuthApi(components, queryBuilder, options)
 
   const resolvedIntegrations = resolveIntegrations(components, options?.integrations)
 
@@ -767,5 +781,6 @@ export function setupAuth<
     options: createAuthOptionsForContext({} as GenericCtx<DM>),
     createAuth: createAuthForContext,
     getAuthUser,
+    authConfig,
   }
 }

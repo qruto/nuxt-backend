@@ -1,5 +1,6 @@
 import { computed, type ComputedRef, inject, ref, watch } from 'vue'
-import { useAction, useQuery, ConvexAuthStateKey, useConvexNamespace } from 'nuxt-convex-module/client'
+import { useAction, useQuery, ConvexAuthStateKey } from 'nuxt-convex-module/client'
+import { useBackendNamespace } from '../utils/namespace'
 import type { BillingApi, ReceivedGift } from './use-billing'
 
 export interface UseGiftsOptions {
@@ -52,7 +53,7 @@ export interface UseGiftsReturn {
  * ```
  */
 export function useGifts(options: UseGiftsOptions = {}): UseGiftsReturn {
-  const billing = (options.api ?? useConvexNamespace<BillingApi>('billing') ?? {}) as BillingApi
+  const billing = useBackendNamespace<BillingApi>('billing', 'useGifts', options.api)
   const autoClaim = options.autoClaim ?? true
 
   // Gate the query on auth state, read via `inject` (not `useConvexAuth`,

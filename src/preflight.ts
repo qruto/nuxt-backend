@@ -2,9 +2,12 @@
  * Dev-startup environment preflight — the doctor-style checks this module can
  * run from the Nuxt process. Deployment-side values (`AUTH_SECRET`, `EMAIL_*`,
  * `BILLING_*` set via `npx convex env set`) can only be *hinted at* here; the
- * CLI `doctor` command verifies them against the deployment. All backend env
- * vars are required — a Convex deploy fails until they are set — so a missing
- * var is a finding, never a designed no-op.
+ * CLI `doctor` command verifies them against the deployment.
+ *
+ * The env contract has two tiers (see `backendEnv` in `src/convex/app.ts`):
+ * `AUTH_SECRET` + `SITE_URL` are required (a deploy fails without them);
+ * everything else is optional and degrades in a designed way — those findings
+ * describe the degradation instead of claiming a deploy will fail.
  *
  * Pure and injectable for tests. URL-shape validation of `url`/`siteUrl`
  * belongs to `nuxt-convex-module` — not duplicated here.
@@ -27,8 +30,23 @@ export interface PreflightInput {
 
 const SECRET_PLACEHOLDERS = new Set(['secret', 'changeme', 'change-me', 'your-secret', 'placeholder', 'todo'])
 
-const EMAIL_VARS = ['EMAIL_API_KEY', 'EMAIL_FROM', 'EMAIL_TEST_MODE', 'EMAIL_WEBHOOK_SECRET'] as const
-const BILLING_VARS = ['BILLING_ACCESS_TOKEN', 'BILLING_WEBHOOK_SECRET', 'BILLING_ENVIRONMENT'] as const
+/** Deployment env that must exist before a deploy succeeds. */
+export const REQUIRED_DEPLOYMENT_ENV = ['AUTH_SECRET', 'SITE_URL'] as const
+
+/**
+ * Optional deployment env with the designed degradation each one's absence
+ * causes — shared by preflight, doctor, and `env push` so the wording never
+ * forks.
+ */
+export const OPTIONAL_DEPLOYMENT_ENV = {
+  EMAIL_API_KEY: 'email sends no-op and OTP sign-in throws (NUXT_BACKEND_LOG_OTP=1 echoes codes to the convex dev console)',
+  EMAIL_FROM: 'the provider onboarding sender is used',
+  EMAIL_TEST_MODE: 'test mode stays ON (set to "false" to deliver for real)',
+  EMAIL_WEBHOOK_SECRET: 'delivery events are rejected — useEmailStatus stays at "sent"',
+  BILLING_ACCESS_TOKEN: 'billing queries return empty and checkout actions fail on invocation',
+  BILLING_WEBHOOK_SECRET: 'billing events are rejected — entitlements refresh only on demand (syncEntitlements)',
+  BILLING_ENVIRONMENT: 'the sandbox billing environment is used',
+} as const satisfies Record<string, string>
 
 export function collectPreflightFindings({ env, siteUrlConfigured }: PreflightInput): PreflightFinding[] {
   const findings: PreflightFinding[] = []
@@ -56,7 +74,7 @@ export function collectPreflightFindings({ env, siteUrlConfigured }: PreflightIn
       title: 'Auth secret',
       status: 'warn',
       message: 'AUTH_SECRET is not visible here — it is required on the Convex deployment (a deploy fails without it) and cannot be verified from Nuxt.',
-      fixHint: 'If unset there: npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"',
+      fixHint: 'On a dev deployment `npx nuxt-backend env push` generates one; otherwise: npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"',
     })
   }
   else if (secret.length < 32 || SECRET_PLACEHOLDERS.has(secret.toLowerCase())) {
@@ -94,7 +112,7 @@ export function collectPreflightFindings({ env, siteUrlConfigured }: PreflightIn
       title: 'App site URL',
       status: 'warn',
       message: 'SITE_URL is not visible here — it is required on the Convex deployment (invitation and gift emails link to it).',
-      fixHint: 'If unset there: npx convex env set SITE_URL https://app.example.com',
+      fixHint: 'On a dev deployment `npx nuxt-backend env push` sets http://localhost:3000; in production: npx convex env set SITE_URL https://app.example.com',
     })
   }
   else {
@@ -107,40 +125,72 @@ export function collectPreflightFindings({ env, siteUrlConfigured }: PreflightIn
     })
   }
 
-  // Email and billing env vars are required on the deployment — a deploy fails
-  // while any is missing. From the Nuxt process we can only check visibility.
-  const missingEmail = EMAIL_VARS.filter(name => !env[name])
-  findings.push(missingEmail.length === 0
+  // Optional tier: absence is a designed degradation, not a broken deploy.
+  // One finding per capability gate (transport, webhooks) — the fallback-only
+  // vars (EMAIL_FROM, EMAIL_TEST_MODE, BILLING_ENVIRONMENT) have safe defaults
+  // and produce no finding on their own.
+  findings.push(env.EMAIL_API_KEY
     ? {
-        id: 'email-env',
-        title: 'Email',
+        id: 'email-transport',
+        title: 'Email transport',
         status: 'pass',
-        message: 'Email env vars visible (EMAIL_API_KEY, EMAIL_FROM, EMAIL_TEST_MODE, EMAIL_WEBHOOK_SECRET).',
+        message: 'EMAIL_API_KEY visible — transactional email is on.',
         fixHint: '',
       }
     : {
-        id: 'email-env',
-        title: 'Email',
+        id: 'email-transport',
+        title: 'Email transport',
         status: 'warn',
-        message: `Required email env not visible here: ${missingEmail.join(', ')}. A Convex deploy fails until they are set on the deployment.`,
-        fixHint: 'npx convex env set EMAIL_API_KEY <key> (repeat for EMAIL_FROM, EMAIL_TEST_MODE, EMAIL_WEBHOOK_SECRET)',
+        message: `EMAIL_API_KEY is not set (optional): ${OPTIONAL_DEPLOYMENT_ENV.EMAIL_API_KEY}.`,
+        fixHint: 'Add EMAIL_API_KEY to .env.local and run `npx nuxt-backend env push` (EMAIL_FROM / EMAIL_TEST_MODE have safe defaults).',
       })
 
-  const missingBilling = BILLING_VARS.filter(name => !env[name])
-  findings.push(missingBilling.length === 0
+  findings.push(env.EMAIL_WEBHOOK_SECRET
     ? {
-        id: 'billing-env',
-        title: 'Billing',
+        id: 'email-webhook-secret',
+        title: 'Email webhooks',
         status: 'pass',
-        message: 'Billing env vars visible (BILLING_ACCESS_TOKEN, BILLING_WEBHOOK_SECRET, BILLING_ENVIRONMENT).',
+        message: 'EMAIL_WEBHOOK_SECRET visible — delivery events verify.',
         fixHint: '',
       }
     : {
-        id: 'billing-env',
-        title: 'Billing',
+        id: 'email-webhook-secret',
+        title: 'Email webhooks',
         status: 'warn',
-        message: `Required billing env not visible here: ${missingBilling.join(', ')}. A Convex deploy fails until they are set on the deployment.`,
-        fixHint: 'npx convex env set BILLING_ACCESS_TOKEN <token> (repeat for BILLING_WEBHOOK_SECRET, BILLING_ENVIRONMENT)',
+        message: `EMAIL_WEBHOOK_SECRET is not set (optional): ${OPTIONAL_DEPLOYMENT_ENV.EMAIL_WEBHOOK_SECRET}.`,
+        fixHint: 'Create the provider webhook for /email/events, then add EMAIL_WEBHOOK_SECRET to .env.local and `npx nuxt-backend env push`.',
+      })
+
+  findings.push(env.BILLING_ACCESS_TOKEN
+    ? {
+        id: 'billing-access',
+        title: 'Billing access',
+        status: 'pass',
+        message: 'BILLING_ACCESS_TOKEN visible — billing is on.',
+        fixHint: '',
+      }
+    : {
+        id: 'billing-access',
+        title: 'Billing access',
+        status: 'warn',
+        message: `BILLING_ACCESS_TOKEN is not set (optional): ${OPTIONAL_DEPLOYMENT_ENV.BILLING_ACCESS_TOKEN}.`,
+        fixHint: 'Add BILLING_ACCESS_TOKEN to .env.local and run `npx nuxt-backend env push` (BILLING_ENVIRONMENT defaults to sandbox).',
+      })
+
+  findings.push(env.BILLING_WEBHOOK_SECRET
+    ? {
+        id: 'billing-webhook-secret',
+        title: 'Billing webhooks',
+        status: 'pass',
+        message: 'BILLING_WEBHOOK_SECRET visible — billing events verify.',
+        fixHint: '',
+      }
+    : {
+        id: 'billing-webhook-secret',
+        title: 'Billing webhooks',
+        status: 'warn',
+        message: `BILLING_WEBHOOK_SECRET is not set (optional): ${OPTIONAL_DEPLOYMENT_ENV.BILLING_WEBHOOK_SECRET}.`,
+        fixHint: 'Create the provider webhook for /billing/events, then add BILLING_WEBHOOK_SECRET to .env.local and `npx nuxt-backend env push`.',
       })
 
   return findings
