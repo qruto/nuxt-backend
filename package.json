@@ -246,9 +246,11 @@
     "@polar-sh/checkout": "^0.4.0",
     "@polar-sh/sdk": "^0.49.0",
     "better-auth": "~1.6.25",
+    "citty": "^0.2.2",
     "convex-helpers": "^0.1.121",
     "dedent": "^1.7.2",
     "defu": "^6.1.4",
+    "magicast": "^0.5.4",
     "nuxt-convex-module": "link:../nuxt-convex-module",
     "nuxt-security": "^2.6.0",
     "resend": "^6.18.0"
