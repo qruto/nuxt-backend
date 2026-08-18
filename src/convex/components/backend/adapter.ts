@@ -1,17 +1,21 @@
 import { passkey } from '@better-auth/passkey'
 import type { BetterAuthOptions } from 'better-auth/minimal'
-import { admin, emailOTP, organization } from 'better-auth/plugins'
+import { admin, emailOTP, jwt, mcp, organization } from 'better-auth/plugins'
 import { createApi } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import type { RegisteredMutation, RegisteredQuery } from 'convex/server'
+import { DEFAULT_LOGIN_PATH } from '../../constants'
 import { authSchema as schema } from './schema'
 
 /**
  * Options used solely to derive the auth schema (via `getAuthTables`) for the
  * component adapter. Mirrors upstream @convex-dev/better-auth component/adapter
  * pattern (see their auth-options.ts + adapter.ts) but limited to plugins we
- * enable by default (convex + emailOTP + passkey + admin + organization) for
- * minimal surface.
+ * enable by default (convex + emailOTP + passkey + admin + organization +
+ * mcp + jwt) for minimal surface. ⚠ Keep this plugin set aligned with the
+ * default set `createBetterAuthOptions` builds (src/convex/client/index.ts) —
+ * a plugin enabled there but missing here leaves its tables out of the
+ * adapter's derived schema.
  */
 const options: BetterAuthOptions = {
   rateLimit: { storage: 'database' },
@@ -23,6 +27,11 @@ const options: BetterAuthOptions = {
     passkey(),
     admin(),
     organization(),
+    // Agent OAuth surface (the OIDC provider tables) + the jwt plugin whose
+    // server-only signJWT backs the /mcp/exchange token mint (jwks table only,
+    // already present via the convex plugin).
+    mcp({ loginPage: DEFAULT_LOGIN_PATH }),
+    jwt(),
   ],
 }
 

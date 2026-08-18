@@ -5,7 +5,7 @@ const AUTH_CONFIG_TEMPLATE = `export { default } from 'nuxt-backend/auth.config'
 const HTTP_TEMPLATE = dedent`
   import { registerBackendRoutes } from 'nuxt-backend/http'
   import { httpRouter } from 'convex/server'
-  import { authComponent, createAuth } from './auth'
+  import { authComponent, createAuth, mcp } from './auth'
   import { billing } from './billing'
   import { email } from './email'
   import { ai } from './ai'
@@ -14,9 +14,10 @@ const HTTP_TEMPLATE = dedent`
   // billing events endpoint (/billing/events, BILLING_WEBHOOK_SECRET) that
   // keeps the reactive feature/credit cache fresh and fulfils gifts, the
   // email events endpoint (/email/events, EMAIL_WEBHOOK_SECRET) that makes
-  // useEmailStatus reactive, and the metered AI stream endpoint (/ai/stream).
-  // Every webhook delivery is signature-verified, deduped, logged, and
-  // fail-closed (503 until its secret is set). React to events via
+  // useEmailStatus reactive, the metered AI stream endpoint (/ai/stream),
+  // and the agent token exchange (/mcp/exchange) behind the app's MCP
+  // endpoint. Every webhook delivery is signature-verified, deduped, logged,
+  // and fail-closed (503 until its secret is set). React to events via
   // \`setupBilling({ events })\` / \`setupEmail({ events })\`.
   const http = httpRouter()
   registerBackendRoutes(http, {
@@ -24,6 +25,7 @@ const HTTP_TEMPLATE = dedent`
     billing,
     email,
     ai,
+    mcp,
   })
 
   export default http
@@ -416,6 +418,13 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
       createAuth,
       getAuthUser,
       authConfig,
+      listWorkspaces,
+      listWorkspaceMembers,
+      updateProfile,
+      // The agent token exchange (mounted at /mcp/exchange by http.ts) — the
+      // app's OAuth-protected MCP endpoint calls Convex through it. Disable
+      // the whole agent surface with \`mcp: false\`.
+      mcp,
     } = setupAuth(components, query, {
       // Roles/permissions (admin plugin) and workspaces (organization plugin)
       // are on by default, including a personal workspace per user and emailed
@@ -465,6 +474,11 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
       createAuth,
       getAuthUser,
       authConfig,
+      listWorkspaces,
+      listWorkspaceMembers,
+      updateProfile,
+      // The agent token exchange (mounted at /mcp/exchange by http.ts).
+      mcp,
     } = setupAuth(components, query, {
       schema: authSchema,
       integrations: {

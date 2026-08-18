@@ -1,6 +1,6 @@
 import { registerBackendRoutes } from 'nuxt-backend/http'
 import { httpRouter } from 'convex/server'
-import { authComponent, createAuth } from './auth'
+import { authComponent, createAuth, mcp } from './auth'
 import { billing } from './billing'
 import { email } from './email'
 
@@ -12,6 +12,7 @@ registerBackendRoutes(http, {
   auth: { authComponent, createAuth },
   billing,
   email,
+  mcp,
   billingPath: '/hooks/billing',
   emailPath: '/hooks/email',
 })

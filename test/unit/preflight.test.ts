@@ -84,6 +84,15 @@ describe('collectPreflightFindings', () => {
     expect(ids).not.toContain('email-from')
     expect(ids).not.toContain('billing-environment')
   })
+
+  it('reports the agent endpoint when enabled and stays silent when disabled', () => {
+    const enabled = collectPreflightFindings({ env: fullEnv, siteUrlConfigured: true, mcp: { route: '/mcp' } })
+    expect(byId(enabled, 'mcp').status).toBe('pass')
+    expect(byId(enabled, 'mcp').message).toContain('/mcp')
+
+    const disabled = collectPreflightFindings({ env: fullEnv, siteUrlConfigured: true })
+    expect(disabled.map(finding => finding.id)).not.toContain('mcp')
+  })
 })
 
 describe('formatPreflightSummary', () => {

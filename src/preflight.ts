@@ -26,6 +26,8 @@ export interface PreflightInput {
   env: Record<string, string | undefined>
   /** Whether a Convex site URL is configured (module option or env). */
   siteUrlConfigured: boolean
+  /** The agent (MCP) endpoint, when enabled — omit to skip the finding. */
+  mcp?: { route: string }
 }
 
 const SECRET_PLACEHOLDERS = new Set(['secret', 'changeme', 'change-me', 'your-secret', 'placeholder', 'todo'])
@@ -48,7 +50,7 @@ export const OPTIONAL_DEPLOYMENT_ENV = {
   BILLING_ENVIRONMENT: 'the sandbox billing environment is used',
 } as const satisfies Record<string, string>
 
-export function collectPreflightFindings({ env, siteUrlConfigured }: PreflightInput): PreflightFinding[] {
+export function collectPreflightFindings({ env, siteUrlConfigured, mcp }: PreflightInput): PreflightFinding[] {
   const findings: PreflightFinding[] = []
 
   findings.push(siteUrlConfigured
@@ -192,6 +194,18 @@ export function collectPreflightFindings({ env, siteUrlConfigured }: PreflightIn
         message: `BILLING_WEBHOOK_SECRET is not set (optional): ${OPTIONAL_DEPLOYMENT_ENV.BILLING_WEBHOOK_SECRET}.`,
         fixHint: 'Create the provider webhook for /billing/events, then add BILLING_WEBHOOK_SECRET to .env.local and `npx nuxt-backend env push`.',
       })
+
+  // Skipped entirely when the agent surface is disabled (`backend.mcp: false`)
+  // — a finding about a removed endpoint would be noise.
+  if (mcp) {
+    findings.push({
+      id: 'mcp',
+      title: 'Agent endpoint',
+      status: 'pass',
+      message: `OAuth-protected MCP endpoint at ${mcp.route} — agents sign in as your users and see only consented scopes.`,
+      fixHint: '',
+    })
+  }
 
   return findings
 }

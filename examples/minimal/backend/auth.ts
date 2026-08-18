@@ -11,6 +11,13 @@ export const {
   createAuth,
   getAuthUser,
   authConfig,
+  listWorkspaces,
+  listWorkspaceMembers,
+  updateProfile,
+  // The agent token exchange (mounted at /mcp/exchange by http.ts) — the
+  // app's OAuth-protected MCP endpoint calls Convex through it. Disable
+  // the whole agent surface with `mcp: false`.
+  mcp,
 } = setupAuth(components, query, {
   // Roles/permissions (admin plugin) and workspaces (organization plugin)
   // are on by default, including a personal workspace per user and emailed

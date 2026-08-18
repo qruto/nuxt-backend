@@ -1,12 +1,14 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-// Schema for the default plugins: passkey + emailOTP + admin + organization
-// (+ convex plugin which pulls in jwt for Convex tokens + rateLimit).
+// Schema for the default plugins: passkey + emailOTP + admin + organization +
+// mcp (+ convex plugin which pulls in jwt for Convex tokens + rateLimit).
 // Core tables (user/session/account/verification) + passkey + rateLimit + jwks
 // (required by jwt plugin used for Convex JWTs) + the admin plugin's role/ban
-// fields and the organization plugin's workspace tables.
-// No 2FA, no OAuth, no extra user fields (username/phone/anon/etc), no
+// fields, the organization plugin's workspace tables, and the mcp plugin's
+// OIDC provider tables (oauthApplication/oauthAccessToken/oauthConsent) that
+// back the agent OAuth surface.
+// No 2FA, no social OAuth, no extra user fields (username/phone/anon/etc), no
 // email/password specific beyond core account.
 // For hybrid/local installs, users get only these tables (spread in their schema).
 // Verified against `createSchema` from @convex-dev/better-auth with this plugin set.
@@ -137,6 +139,52 @@ export const tables = {
     .index('role', ['role'])
     .index('status', ['status'])
     .index('inviterId', ['inviterId']),
+  // MCP (OIDC provider) plugin: dynamically registered agent clients, their
+  // opaque access/refresh tokens, and per-client user consent. Field lists are
+  // the plugin's own schema (every field optional there, hence the uniform
+  // optional-null unions); indexes cover the adapter lookups the OAuth flows
+  // make (client by clientId, token by accessToken/refreshToken, consent by
+  // clientId+userId).
+  oauthApplication: defineTable({
+    name: v.optional(v.union(v.null(), v.string())),
+    icon: v.optional(v.union(v.null(), v.string())),
+    metadata: v.optional(v.union(v.null(), v.string())),
+    clientId: v.optional(v.union(v.null(), v.string())),
+    clientSecret: v.optional(v.union(v.null(), v.string())),
+    redirectUrls: v.optional(v.union(v.null(), v.string())),
+    type: v.optional(v.union(v.null(), v.string())),
+    disabled: v.optional(v.union(v.null(), v.boolean())),
+    userId: v.optional(v.union(v.null(), v.string())),
+    createdAt: v.optional(v.union(v.null(), v.number())),
+    updatedAt: v.optional(v.union(v.null(), v.number())),
+  })
+    .index('clientId', ['clientId'])
+    .index('userId', ['userId']),
+  oauthAccessToken: defineTable({
+    accessToken: v.optional(v.union(v.null(), v.string())),
+    refreshToken: v.optional(v.union(v.null(), v.string())),
+    accessTokenExpiresAt: v.optional(v.union(v.null(), v.number())),
+    refreshTokenExpiresAt: v.optional(v.union(v.null(), v.number())),
+    clientId: v.optional(v.union(v.null(), v.string())),
+    userId: v.optional(v.union(v.null(), v.string())),
+    scopes: v.optional(v.union(v.null(), v.string())),
+    createdAt: v.optional(v.union(v.null(), v.number())),
+    updatedAt: v.optional(v.union(v.null(), v.number())),
+  })
+    .index('accessToken', ['accessToken'])
+    .index('refreshToken', ['refreshToken'])
+    .index('clientId', ['clientId'])
+    .index('userId', ['userId']),
+  oauthConsent: defineTable({
+    clientId: v.optional(v.union(v.null(), v.string())),
+    userId: v.optional(v.union(v.null(), v.string())),
+    scopes: v.optional(v.union(v.null(), v.string())),
+    createdAt: v.optional(v.union(v.null(), v.number())),
+    updatedAt: v.optional(v.union(v.null(), v.number())),
+    consentGiven: v.optional(v.union(v.null(), v.boolean())),
+  })
+    .index('clientId_userId', ['clientId', 'userId'])
+    .index('userId', ['userId']),
 }
 
 /**

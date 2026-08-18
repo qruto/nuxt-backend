@@ -10,6 +10,12 @@ export const {
   options,
   createAuth,
   getAuthUser,
+  authConfig,
+  listWorkspaces,
+  listWorkspaceMembers,
+  updateProfile,
+  // The agent token exchange (mounted at /mcp/exchange by http.ts).
+  mcp,
 } = setupAuth(components, query, {
   integrations: {
     // Email (OTP / verification / invitations) is wired automatically through

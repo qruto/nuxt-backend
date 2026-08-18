@@ -21,6 +21,9 @@ function makeOptions() {
       httpHandler: vi.fn(),
       corsOrigin: 'https://app.test',
     },
+    mcp: {
+      exchangeHandler: vi.fn(async () => Response.json({ token: 't' })),
+    },
   }
 }
 
@@ -29,7 +32,7 @@ function routeCalls(http: unknown): Array<{ path: string, method: string }> {
 }
 
 describe('registerBackendRoutes', () => {
-  it('mounts auth, the guarded webhooks, and the AI stream in one call with generic default paths', () => {
+  it('mounts auth, the guarded webhooks, the AI stream, and the agent exchange in one call with generic default paths', () => {
     const http = makeHttp()
     const options = makeOptions()
 
@@ -41,9 +44,10 @@ describe('registerBackendRoutes', () => {
     expect(calls).toContainEqual(expect.objectContaining({ path: '/email/events', method: 'POST' }))
     expect(calls).toContainEqual(expect.objectContaining({ path: '/ai/stream', method: 'POST' }))
     expect(calls).toContainEqual(expect.objectContaining({ path: '/ai/stream', method: 'OPTIONS' }))
+    expect(calls).toContainEqual(expect.objectContaining({ path: '/mcp/exchange', method: 'POST' }))
   })
 
-  it('billing, email, and ai are optional', () => {
+  it('billing, email, ai, and mcp are optional', () => {
     const http = makeHttp()
     const options = makeOptions()
 
@@ -57,11 +61,12 @@ describe('registerBackendRoutes', () => {
     const http = makeHttp()
     const options = makeOptions()
 
-    registerBackendRoutes(http, { ...options, billingPath: '/hooks/billing', emailPath: '/hooks/email', aiPath: '/hooks/ai' } as never)
+    registerBackendRoutes(http, { ...options, billingPath: '/hooks/billing', emailPath: '/hooks/email', aiPath: '/hooks/ai', mcpExchangePath: '/hooks/mcp' } as never)
 
     const calls = routeCalls(http)
     expect(calls).toContainEqual(expect.objectContaining({ path: '/hooks/billing', method: 'POST' }))
     expect(calls).toContainEqual(expect.objectContaining({ path: '/hooks/email' }))
     expect(calls).toContainEqual(expect.objectContaining({ path: '/hooks/ai', method: 'POST' }))
+    expect(calls).toContainEqual(expect.objectContaining({ path: '/hooks/mcp', method: 'POST' }))
   })
 })

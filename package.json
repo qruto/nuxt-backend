@@ -89,6 +89,10 @@
       "types": "./dist/convex/integrations/ai.d.ts",
       "default": "./dist/convex/integrations/ai.js"
     },
+    "./mcp": {
+      "types": "./dist/runtime/server/mcp/index.d.ts",
+      "import": "./dist/runtime/server/mcp/index.js"
+    },
     "./component/convex.config": {
       "types": "./dist/convex/components/backend/convex.config.d.ts",
       "default": "./dist/convex/components/backend/convex.config.js"
@@ -177,6 +181,9 @@
       "ai": [
         "./dist/convex/integrations/ai.d.ts"
       ],
+      "mcp": [
+        "./dist/runtime/server/mcp/index.d.ts"
+      ],
       "component/convex.config": [
         "./dist/convex/components/backend/convex.config.d.ts"
       ],
@@ -259,6 +266,7 @@
     "@convex-dev/resend": "^0.2.6",
     "@convex-dev/workflow": "^0.4.4",
     "@nuxt/kit": "^4.5.1",
+    "@nuxtjs/mcp-toolkit": "^0.19.0",
     "@polar-sh/checkout": "^0.4.0",
     "@polar-sh/sdk": "^0.49.0",
     "better-auth": "~1.6.25",
@@ -266,11 +274,13 @@
     "convex-helpers": "^0.1.121",
     "dedent": "^1.7.2",
     "defu": "^6.1.4",
+    "h3": "^1.15.11",
     "magicast": "^0.5.4",
     "nuxt-convex-module": "link:../nuxt-convex-module",
     "nuxt-security": "^2.6.0",
     "resend": "^6.18.0",
-    "svix": "^1.99.1"
+    "svix": "^1.99.1",
+    "zod": "^4.1.13"
   },
   "peerDependencies": {
     "convex": "^1.42.2"

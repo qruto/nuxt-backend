@@ -2,11 +2,13 @@ import { createClient, type GenericCtx } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { passkey } from '@better-auth/passkey'
 import { betterAuth, type BetterAuthOptions } from 'better-auth/minimal'
-import { admin, emailOTP, organization } from 'better-auth/plugins'
-import type { AnyComponents, AuthConfig, FunctionReference, GenericActionCtx, GenericDataModel, GenericMutationCtx, GenericSchema, QueryBuilder, SchemaDefinition } from 'convex/server'
+import { admin, emailOTP, jwt, mcp, organization } from 'better-auth/plugins'
+import { mutationGeneric, type AnyComponents, type AuthConfig, type FunctionReference, type GenericActionCtx, type GenericDataModel, type GenericMutationCtx, type GenericSchema, type QueryBuilder, type SchemaDefinition } from 'convex/server'
+import { v } from 'convex/values'
 import authConfig from '../auth.config'
-import { DEFAULT_AUTH_ROUTE, DEFAULT_INVITATION_PATH } from '../constants'
+import { BACKEND_MCP_SCOPES, DEFAULT_AUTH_ROUTE, DEFAULT_INVITATION_PATH, DEFAULT_LOGIN_PATH } from '../constants'
 import { authSchema } from '../components/backend/schema'
+import { setupMcp, type McpExchange } from '../integrations/mcp'
 
 /**
  * Default passkey plugin. Registration requires an authenticated session (the
@@ -58,8 +60,12 @@ export interface AuthEmailMessage {
  */
 export type AuthEmailSender = (ctx: AuthMutationCtx, message: AuthEmailMessage) => Promise<unknown>
 
-/** The named rate limits the auth flows consult (a subset of the defaults). */
-export type AuthRateLimitName = 'emailOtp'
+/**
+ * The named rate limits the auth flows consult (a subset of the defaults):
+ * OTP sends, plus the agent token exchange `setupAuth` wires from the same
+ * integrations.
+ */
+export type AuthRateLimitName = 'emailOtp' | 'mcp'
 
 /**
  * Guards auth-sensitive flows. Satisfied by `setupRateLimiter(...)` from
@@ -287,6 +293,36 @@ export type OrganizationPluginOptions = Parameters<typeof organization>[0] & {
   invitationPath?: string
 }
 
+/** The OIDC provider config accepted by the bundled mcp plugin. */
+type McpOidcConfig = NonNullable<NonNullable<Parameters<typeof mcp>[0]>['oidcConfig']>
+
+/**
+ * Options for the agent (MCP) OAuth provider — better-auth's `mcp` plugin,
+ * enabled by default. Agents obtain access via dynamic client registration +
+ * the OAuth authorization-code flow (passwordless sign-in resumes through the
+ * `oidc_login_prompt` cookie), all mounted under the auth base path and
+ * reachable on the app origin through the base module's auth proxy.
+ */
+export interface McpAuthOptions {
+  /**
+   * Extra OAuth scopes on top of {@link BACKEND_MCP_SCOPES} (identity scopes
+   * plus the built-in tool scopes, always offered).
+   */
+  scopes?: string[]
+  /**
+   * The app page agents' users sign in on mid-OAuth. Defaults to the built-in
+   * login page path; align with `backend.pages.login` / `backend.loginPath`
+   * when those are customized.
+   */
+  loginPage?: string
+  /** Your own consent page path; the plugin's built-in screen when unset. */
+  consentPage?: McpOidcConfig['consentPage']
+  /** Pre-registered clients (e.g. first-party agents with `skipConsent`). */
+  trustedClients?: McpOidcConfig['trustedClients']
+  /** Advanced OIDC provider passthrough; the options above win over it. */
+  oidcConfig?: McpOidcConfig
+}
+
 export interface CreateBetterAuthOptions {
   /** Override the default auth config (e.g. to add custom providers) */
   authConfig?: AuthConfig
@@ -305,6 +341,12 @@ export interface CreateBetterAuthOptions {
    * personal workspace per user (`personal: true`); pass `false` to disable.
    */
   organization?: OrganizationPluginOptions | false
+  /**
+   * Agent (MCP) OAuth provider options. Enabled by default — apps built on
+   * this package expose an OAuth-protected MCP endpoint out of the box; pass
+   * `false` to disable the provider (and the `/mcp/exchange` token mint).
+   */
+  mcp?: McpAuthOptions | false
 }
 
 export interface SetupAuthOptions<
@@ -419,6 +461,98 @@ function createAuthComponent<DM extends GenericDataModel, Schema extends SchemaD
   )
 }
 
+/**
+ * The plugin element type of `BetterAuthOptions.plugins`. The mcp/jwt default
+ * plugins are widened to it because their concrete return types reference
+ * option types better-auth doesn't export (`MCPOptions`) — declaration emit
+ * of `createBetterAuthOptions` would fail on the unnameable type. Their
+ * endpoints stay callable (the exchange reads them structurally).
+ */
+type DefaultAuthPlugin = NonNullable<BetterAuthOptions['plugins']>[number]
+
+/** The identity scopes the mcp plugin always offers on its own. */
+const OIDC_IDENTITY_SCOPES = ['openid', 'profile', 'email']
+
+/**
+ * The agent OAuth provider: better-auth's mcp plugin over the built-in login
+ * page, offering {@link BACKEND_MCP_SCOPES} (plus consumer extras) so agents
+ * can request the built-in tools' scopes at consent time.
+ */
+function defaultMcp(options: McpAuthOptions | undefined): DefaultAuthPlugin {
+  const loginPage = options?.loginPage ?? DEFAULT_LOGIN_PATH
+  return mcp({
+    loginPage,
+    oidcConfig: {
+      ...options?.oidcConfig,
+      // Overridden by the plugin with the top-level value; present because
+      // the OIDC options type requires it.
+      loginPage,
+      // The plugin appends these to its identity-scope defaults
+      // (openid/profile/email/offline_access).
+      scopes: [
+        ...BACKEND_MCP_SCOPES.filter(scope => !OIDC_IDENTITY_SCOPES.includes(scope)),
+        ...options?.scopes ?? [],
+      ],
+      // The advertised catalog (`scopes_supported`) doesn't include custom
+      // scopes on its own — mirror the full offer unless overridden.
+      metadata: {
+        scopes_supported: [...new Set([...BACKEND_MCP_SCOPES, 'offline_access', ...options?.scopes ?? []])],
+        ...options?.oidcConfig?.metadata,
+      },
+      ...(options?.consentPage ? { consentPage: options.consentPage } : {}),
+      ...(options?.trustedClients ? { trustedClients: options.trustedClients } : {}),
+    },
+  }) as DefaultAuthPlugin
+}
+
+/** The jwt plugin's own option shape (for the date-fix adapter override). */
+type JwtPluginOptions = NonNullable<Parameters<typeof jwt>[0]>
+type JwtAdapterOverride = NonNullable<JwtPluginOptions['adapter']>
+type JwksRow = { createdAt: Date, expiresAt?: Date | null } & Record<string, unknown>
+
+/**
+ * A top-level jwt plugin aligned with the convex plugin's internal signer:
+ * same `jwks` table and RS256 keys, issuer/audience matching the
+ * `auth.config` validator, and the same date-fix adapter override (the Convex
+ * database adapter returns `date` fields as numbers while the jwt plugin
+ * internals call `.getTime()` on them). Registered only for its server-only
+ * `auth.api.signJWT`, which `/mcp/exchange` uses to mint short-lived Convex
+ * JWTs for agent sessions — because both signers share the latest `jwks` row,
+ * the minted tokens carry a `kid` the validator's JWKS endpoint serves.
+ */
+function convexSignerJwt() {
+  const adapter: JwtAdapterOverride = {
+    createJwk: async (webKey, ctx) => {
+      return await ctx!.context.adapter.create({
+        model: 'jwks',
+        data: { ...webKey, createdAt: new Date() },
+      })
+    },
+    getJwks: async (ctx) => {
+      const keys = await ctx!.context.adapter.findMany<JwksRow>({
+        model: 'jwks',
+        sortBy: { field: 'createdAt', direction: 'desc' },
+      })
+      return keys.map(key => ({
+        ...key,
+        createdAt: new Date(key.createdAt as unknown as number),
+        ...(key.expiresAt ? { expiresAt: new Date(key.expiresAt as unknown as number) } : {}),
+      })) as never
+    },
+  }
+  return jwt({
+    // The `set-auth-jwt` header hook would sign a token on every get-session
+    // round trip — the convex plugin already owns session-token issuance.
+    disableSettingJwtHeader: true,
+    jwt: {
+      issuer: readEnv('CONVEX_SITE_URL') ?? '',
+      audience: 'convex',
+    },
+    jwks: { keyPairConfig: { alg: 'RS256' } },
+    adapter,
+  }) as DefaultAuthPlugin
+}
+
 export function createBetterAuthOptions<DM extends GenericDataModel = GenericDataModel>(
   database: ReturnType<ReturnType<typeof createClient>['adapter']>,
   options: CreateBetterAuthOptions = {},
@@ -445,6 +579,8 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
     invitationPath = DEFAULT_INVITATION_PATH,
     ...organizationPluginOptions
   } = typeof organizationOptions === 'object' ? organizationOptions : {}
+  const mcpOptions = options.mcp
+  const mcpEnabled = mcpOptions !== false
 
   // When an email transport is wired, deliver verification, email-change,
   // delete-account, welcome, and workspace-invitation emails through it (with
@@ -482,6 +618,11 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
 
   const userPlugins = resolvedAuthOptions.plugins ?? []
   const userPluginIds = new Set(userPlugins.map(p => p.id))
+  // Note: the mcp/jwt defaults must sit AFTER the convex plugin in the final
+  // plugins array — the convex plugin embeds its own oidc provider whose
+  // login-resume after-hook fires on the same `oidc_login_prompt` cookie, and
+  // better-auth's after-hooks are last-write-wins, so the mcp plugin's resume
+  // (which knows the agent scopes) must run later to own the response.
   const defaultPlugins = [
     emailOTP({ sendVerificationOTP: makeSendVerificationOTP(runtime) }),
     defaultPasskey(),
@@ -492,6 +633,7 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
           ...(sendInvitationEmail ? { sendInvitationEmail } : {}),
         })]
       : []),
+    ...(mcpEnabled ? [defaultMcp(mcpOptions), convexSignerJwt()] : []),
   ].filter(plugin => !userPluginIds.has(plugin.id))
 
   const sendVerificationEmail = canSendEmail
@@ -671,6 +813,7 @@ export function createAuthOptions<
     basePath: options?.basePath,
     admin: options?.admin,
     organization: options?.organization,
+    mcp: options?.mcp,
   }, { ctx, ...resolveIntegrations(components, options?.integrations) })
 }
 
@@ -693,6 +836,36 @@ export function createAuth<
   return betterAuth(createAuthOptions(ctx, components, options))
 }
 
+/** The component adapter refs the workspace/profile functions query through. */
+type AdapterWhere = Array<{ field: string, value: string | number | boolean | null }>
+type AdapterFindOneRef = FunctionReference<'query', 'internal', { model: string, where?: AdapterWhere }, unknown>
+type AdapterFindManyRef = FunctionReference<'query', 'internal', {
+  model: string
+  where?: AdapterWhere
+  paginationOpts: { numItems: number, cursor: string | null }
+}, { page: unknown[], isDone: boolean, continueCursor: string }>
+type AdapterUpdateOneRef = FunctionReference<'mutation', 'internal', {
+  input: { model: string, update: Record<string, unknown>, where?: AdapterWhere }
+}, unknown>
+
+interface AdapterRefs {
+  findOne: AdapterFindOneRef
+  findMany: AdapterFindManyRef
+  updateOne: AdapterUpdateOneRef
+}
+
+/**
+ * Read the component's adapter function refs structurally (the loose
+ * component-ref type doesn't surface them) — same technique as
+ * {@link componentEmailSender}.
+ */
+function componentAdapterRefs(components: AuthSetupComponents): AdapterRefs {
+  return (components.backend as unknown as { adapter: AdapterRefs }).adapter
+}
+
+/** More memberships than any real account holds; a bound, not pagination. */
+const WORKSPACE_PAGE_SIZE = 100
+
 /**
  * Ready-made app query wrappers for re-exporting component functionality.
  *
@@ -707,6 +880,7 @@ export function makeAuthApi<
   options?: SetupAuthOptions<DM, Schema>,
 ) {
   const authComponent = createAuthComponent<DM, Schema>(components.backend, options)
+  const adapter = componentAdapterRefs(components)
 
   const getAuthUser = queryBuilder({
     args: {},
@@ -728,9 +902,113 @@ export function makeAuthApi<
     handler: async () => ({ invitationPath }),
   })
 
+  // The caller's workspaces (identity-gated adapter reads over member +
+  // organization). Degrades to `null` for claimless callers — reactive clients
+  // subscribe during auth handshakes, and a throwing query would be retried.
+  const listWorkspaces = queryBuilder({
+    args: {},
+    handler: async (ctx) => {
+      const identity = await ctx.auth.getUserIdentity()
+      if (!identity) return null
+      const claims = identity as unknown as Record<string, unknown>
+      const activeOrganizationId = typeof claims.activeOrganizationId === 'string' ? claims.activeOrganizationId : null
+      const memberships = await ctx.runQuery(adapter.findMany, {
+        model: 'member',
+        where: [{ field: 'userId', value: identity.subject }],
+        paginationOpts: { numItems: WORKSPACE_PAGE_SIZE, cursor: null },
+      })
+      const workspaces = []
+      for (const membership of memberships.page as Array<{ organizationId: string, role: string, createdAt: number }>) {
+        const workspace = await ctx.runQuery(adapter.findOne, {
+          model: 'organization',
+          where: [{ field: '_id', value: membership.organizationId }],
+        }) as { _id: string, name: string, slug: string, logo?: string | null } | null
+        if (!workspace) continue
+        workspaces.push({
+          id: workspace._id,
+          name: workspace.name,
+          slug: workspace.slug,
+          logo: workspace.logo ?? null,
+          role: membership.role,
+          active: workspace._id === activeOrganizationId,
+          joinedAt: membership.createdAt,
+        })
+      }
+      return workspaces
+    },
+  })
+
+  // Members of one of the caller's workspaces (default: the active one).
+  // Gated on a fresh member-table read, not claims — a removed member's JWT
+  // can outlive the removal by the token lifetime.
+  const listWorkspaceMembers = queryBuilder({
+    args: { organizationId: v.optional(v.string()) },
+    handler: async (ctx, args) => {
+      const identity = await ctx.auth.getUserIdentity()
+      if (!identity) return null
+      const claims = identity as unknown as Record<string, unknown>
+      const organizationId = (args as { organizationId?: string }).organizationId
+        ?? (typeof claims.activeOrganizationId === 'string' ? claims.activeOrganizationId : null)
+      if (!organizationId) return null
+      const callerMembership = await ctx.runQuery(adapter.findOne, {
+        model: 'member',
+        where: [
+          { field: 'organizationId', value: organizationId },
+          { field: 'userId', value: identity.subject },
+        ],
+      })
+      if (!callerMembership) return null
+      const memberships = await ctx.runQuery(adapter.findMany, {
+        model: 'member',
+        where: [{ field: 'organizationId', value: organizationId }],
+        paginationOpts: { numItems: WORKSPACE_PAGE_SIZE, cursor: null },
+      })
+      const members = []
+      for (const membership of memberships.page as Array<{ userId: string, role: string, createdAt: number }>) {
+        const user = await ctx.runQuery(adapter.findOne, {
+          model: 'user',
+          where: [{ field: '_id', value: membership.userId }],
+        }) as { name?: string, email?: string } | null
+        members.push({
+          userId: membership.userId,
+          name: user?.name ?? '',
+          email: user?.email ?? '',
+          role: membership.role,
+          joinedAt: membership.createdAt,
+        })
+      }
+      return { organizationId, members }
+    },
+  })
+
+  // Name-only by design: email changes stay in the verified web flow
+  // (change-email confirmation), so neither the profile page nor an agent can
+  // move an account to an unproven address through this mutation.
+  // `mutationGeneric` because `makeAuthApi` receives only a query builder.
+  const updateProfile = mutationGeneric({
+    args: { name: v.string() },
+    handler: async (ctx, { name }) => {
+      const identity = await ctx.auth.getUserIdentity()
+      if (!identity) throw new Error('Sign in to update your profile.')
+      const trimmed = name.trim()
+      if (!trimmed || trimmed.length > 256) throw new Error('Name must be 1-256 characters.')
+      await ctx.runMutation(adapter.updateOne, {
+        input: {
+          model: 'user',
+          where: [{ field: '_id', value: identity.subject }],
+          update: { name: trimmed, updatedAt: Date.now() },
+        },
+      })
+      return null
+    },
+  })
+
   return {
     getAuthUser,
     authConfig,
+    listWorkspaces,
+    listWorkspaceMembers,
+    updateProfile,
   }
 }
 
@@ -760,7 +1038,7 @@ export function setupAuth<
   options?: SetupAuthOptions<DM, Schema>,
 ) {
   const authComponent = createAuthComponent<DM, Schema>(components.backend, options)
-  const { getAuthUser, authConfig } = makeAuthApi(components, queryBuilder, options)
+  const { getAuthUser, authConfig, listWorkspaces, listWorkspaceMembers, updateProfile } = makeAuthApi(components, queryBuilder, options)
 
   const resolvedIntegrations = resolveIntegrations(components, options?.integrations)
 
@@ -771,12 +1049,23 @@ export function setupAuth<
       basePath: options?.basePath,
       admin: options?.admin,
       organization: options?.organization,
+      mcp: options?.mcp,
     }, { ctx, ...resolvedIntegrations })
   }
 
   const createAuthForContext = (ctx: GenericCtx<DM>) => {
     return betterAuth(createAuthOptionsForContext(ctx))
   }
+
+  // The agent token exchange (`POST /mcp/exchange`, mounted by
+  // `registerBackendRoutes`): trades an MCP OAuth Bearer for a short-lived
+  // Convex JWT. Wired here because it needs the same auth instance and rate
+  // limiter; answers 404 when the mcp provider is disabled.
+  const mcpExchange: McpExchange = setupMcp({
+    createAuth: ctx => createAuthForContext(ctx as GenericCtx<DM>),
+    rateLimiter: resolvedIntegrations.rateLimiter,
+    enabled: options?.mcp !== false,
+  })
 
   return {
     authComponent,
@@ -785,5 +1074,9 @@ export function setupAuth<
     createAuth: createAuthForContext,
     getAuthUser,
     authConfig,
+    listWorkspaces,
+    listWorkspaceMembers,
+    updateProfile,
+    mcp: mcpExchange,
   }
 }

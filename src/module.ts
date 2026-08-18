@@ -1,10 +1,11 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
-import { defineNuxtModule, addComponent, addImports, addServerImports, addTypeTemplate, createResolver, extendPages, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
+import { defineNuxtModule, addComponent, addImports, addServerHandler, addServerImports, addTypeTemplate, createResolver, extendPages, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
 import { defu } from 'defu'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
 import { backendAppConfigDefaults, type BackendAppConfigInput } from './runtime/config'
+import { BACKEND_MCP_SCOPES, DEFAULT_MCP_EXCHANGE_PATH } from './convex/constants'
 import { deriveDeploymentUrls } from './deployment'
 import { runEnvPush } from './env-push'
 import { scaffoldBackendFiles } from './scaffold'
@@ -12,6 +13,7 @@ import { registerBackendAliases, backendTypeFallbackContents, hasGeneratedApi, r
 import { collectPreflightFindings, formatPreflightSummary } from './preflight'
 import { BACKEND_PAGE_DEFS, collectExistingPagePaths, resolvePagePath, resolvedBackendPages, type BackendPageKey, type ModulePagesOptions } from './pages'
 import type { BackendInstallationMode } from './templates'
+import type { BackendMcpFunctionKey, BackendMcpToolName } from './runtime/server/mcp/builtin'
 
 const logger = useLogger('nuxt-backend')
 
@@ -22,6 +24,46 @@ const logger = useLogger('nuxt-backend')
  * `backendAuth` auto-import handles (see `registerSaasComposables`).
  */
 export type { ConvexAuthOptions as BackendAuthOptions, ConvexAuthService as BackendAuthService } from 'nuxt-convex-module/better-auth/server'
+
+// The MCP option vocabularies live with the runtime that interprets them
+// (type-only imports — erased at build, so no server-runtime code is pulled
+// into the module bundle).
+export type { BackendMcpFunctionKey, BackendMcpToolName } from './runtime/server/mcp/builtin'
+
+/**
+ * The agent (MCP) surface: an OAuth-protected MCP endpoint served by Nitro
+ * via `@nuxtjs/mcp-toolkit`, with ready-made account/billing/workspace tools
+ * that call Convex as the signed-in user. On by default — everything the
+ * tools expose is already reachable through the product UI under the same
+ * user auth; OAuth adds per-client consent and the deployment's `mcp` rate
+ * limit guards the token exchange. Set `backend.mcp: false` for the
+ * conservative posture (no MCP endpoint, no OAuth discovery routes).
+ */
+export interface ModuleMcpOptions {
+  /** Master switch (same as `backend.mcp: false`). */
+  enabled?: boolean
+  /** MCP endpoint route. Default `/mcp` (the toolkit's default). */
+  route?: string
+  /** Server name/description/instructions forwarded to the toolkit. */
+  name?: string
+  description?: string
+  instructions?: string
+  /** Stateful transport sessions, forwarded to the toolkit. Default off. */
+  sessions?: boolean | { enabled?: boolean, maxDuration?: number, maxSessions?: number }
+  tools?: {
+    /**
+     * The built-in tool set: `false` removes all of them from the build;
+     * a map hides individual tools (`{ 'billing-portal-link': false }`).
+     */
+    builtin?: false | Partial<Record<BackendMcpToolName, boolean>>
+  }
+  /**
+   * Override the Convex functions the built-in tools call — needed only when
+   * the scaffolded `auth.ts`/`billing.ts` files were renamed. Values are
+   * `module:export` refs, e.g. `{ getCredits: 'myBilling:getCredits' }`.
+   */
+  functions?: Partial<Record<BackendMcpFunctionKey, string>>
+}
 
 export interface ModuleOptions {
   url?: string
@@ -63,6 +105,12 @@ export interface ModuleOptions {
    * `false` to manage the deployment env yourself.
    */
   autoEnv?: boolean
+  /**
+   * The agent (MCP) surface — an OAuth-protected `/mcp` endpoint with
+   * built-in account/billing/workspace tools. Enabled by default (dev and
+   * production); `false` disables it. See {@link ModuleMcpOptions}.
+   */
+  mcp?: boolean | ModuleMcpOptions
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -100,6 +148,7 @@ export default defineNuxtModule<ModuleOptions>({
     // and the base module's own NUXT_PUBLIC_CONVEX_* env always win over
     // defaults (they reach the base module directly).
     const derived = deriveDeploymentUrls(nuxt.options.rootDir)
+    const mcp = resolveMcpOptions(backend.mcp)
     return {
       'nuxt-convex-module': {
         defaults: {
@@ -121,6 +170,22 @@ export default defineNuxtModule<ModuleOptions>({
           auth0: false,
         },
       },
+      // The MCP endpoint host. `defaults` forward `backend.mcp.*` — a user's
+      // own top-level `mcp` config wins over them (same contract as the
+      // `convex.*` forwarding above). Dropped entirely when disabled.
+      ...(mcp
+        ? {
+            '@nuxtjs/mcp-toolkit': {
+              defaults: {
+                route: mcp.route,
+                ...(mcp.name !== undefined ? { name: mcp.name } : {}),
+                ...(mcp.description !== undefined ? { description: mcp.description } : {}),
+                ...(mcp.instructions !== undefined ? { instructions: mcp.instructions } : {}),
+                ...(mcp.sessions !== undefined ? { sessions: mcp.sessions } : {}),
+              },
+            },
+          }
+        : {}),
     }
   },
   setup(options, nuxt) {
@@ -156,11 +221,112 @@ export default defineNuxtModule<ModuleOptions>({
 
     registerModulePages(options, resolver, nuxt)
 
+    registerMcp(options, resolver, nuxt)
+
     runPreflight(options, nuxt)
 
     runDevAutoEnv(options, nuxt)
   },
 })
+
+/** Resolve `backend.mcp` into effective options, or `null` when disabled. */
+function resolveMcpOptions(raw: ModuleOptions['mcp']): (ModuleMcpOptions & { route: string }) | null {
+  if (raw === false) return null
+  const options = typeof raw === 'object' ? raw : {}
+  if (options.enabled === false) return null
+  return { ...options, route: options.route?.replace(/\/+$/, '') || '/mcp' }
+}
+
+/**
+ * The agent (MCP) surface: contribute the built-in tools to the toolkit's
+ * definition scan, publish the runtime config the gate/tools read, and mount
+ * the route-scoped middleware — the OAuth gate on the MCP route plus the two
+ * `/.well-known` discovery documents (registered as middleware so they answer
+ * before the toolkit's 404 stubs on the same routes).
+ */
+function registerMcp(options: ModuleOptions, resolver: Resolver, nuxt: Nuxt): void {
+  const mcp = resolveMcpOptions(options.mcp)
+  // The server utils stay importable (and auto-imported) even when disabled,
+  // so consumer tool files keep compiling; without runtime config the gate
+  // never authenticates anything and every backend tool stays hidden.
+  addServerImports([
+    { name: 'useBackendMcp', from: resolver.resolve('./runtime/server/mcp/index') },
+    { name: 'defineBackendMcpTool', from: resolver.resolve('./runtime/server/mcp/index') },
+  ])
+  if (!mcp) return
+
+  const builtin = mcp.tools?.builtin
+  // The toolkit's `useEvent`-based helpers — and our `useBackendMcp()` inside
+  // tool handlers — read the current request through Nitro's async context.
+  nuxt.options.nitro.experimental = defu(
+    { asyncContext: true },
+    nuxt.options.nitro.experimental,
+  )
+
+  // Everything the Nitro runtime needs (the gate, the discovery documents,
+  // and the built-in tools' enabled/function lookups). Server-side only —
+  // never exposed to the client bundle.
+  nuxt.options.runtimeConfig.backendMcp = defu(
+    nuxt.options.runtimeConfig.backendMcp as Record<string, unknown> | undefined,
+    {
+      route: mcp.route,
+      authBase: options.authRoute ?? '/api/auth',
+      exchangePath: DEFAULT_MCP_EXCHANGE_PATH,
+      scopes: [...BACKEND_MCP_SCOPES],
+      tools: builtin === false ? {} : { ...builtin },
+      functions: { ...mcp.functions },
+    },
+  )
+
+  // Contribute the built-in tool files to the toolkit's definition scan
+  // (absolute paths pass through its layer-relative resolution).
+  if (builtin !== false) {
+    // The hook is declared by the toolkit's runtime types, which Nuxt's hook
+    // map doesn't know at module-build time.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(nuxt.hook as any)('mcp:definitions:paths', (paths: { tools: string[] }) => {
+      paths.tools.push(resolver.resolve('./runtime/server/mcp/tools'))
+    })
+  }
+
+  // Route-scoped middleware (h3 prefix matching): the OAuth gate owns the MCP
+  // route; the discovery documents own their `/.well-known` prefixes
+  // (including the RFC 8414/9728 path-suffix forms via the prefix match).
+  addServerHandler({
+    route: mcp.route,
+    middleware: true,
+    handler: resolver.resolve('./runtime/server/mcp/gate'),
+  })
+  addServerHandler({
+    route: '/.well-known/oauth-protected-resource',
+    middleware: true,
+    handler: resolver.resolve('./runtime/server/mcp/protected-resource'),
+  })
+  addServerHandler({
+    route: '/.well-known/oauth-authorization-server',
+    middleware: true,
+    handler: resolver.resolve('./runtime/server/mcp/authorization-server'),
+  })
+
+  // nuxt-security (chained through the base module) would throttle long agent
+  // sessions with its IP rate limiter, reject tool args that look like markup
+  // (xssValidator), and take over CORS on the discovery documents — the MCP
+  // surface has its own guards (OAuth + the deployment's `mcp` limit). Inert
+  // when nuxt-security isn't installed.
+  const routeRules = (nuxt.options.nitro.routeRules ??= {})
+  const relax = { security: { rateLimiter: false as const, xssValidator: false as const, corsHandler: false as const } }
+  for (const route of [mcp.route, `${mcp.route}/**`]) {
+    routeRules[route] = defu(routeRules[route], relax)
+  }
+  for (const route of [
+    '/.well-known/oauth-protected-resource',
+    '/.well-known/oauth-protected-resource/**',
+    '/.well-known/oauth-authorization-server',
+    '/.well-known/oauth-authorization-server/**',
+  ]) {
+    routeRules[route] = defu(routeRules[route], { security: { corsHandler: false as const } })
+  }
+}
 
 /**
  * Dev-startup env auto-provision (`backend.autoEnv`, default on): run the
@@ -412,7 +578,12 @@ function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
   if (derived?.source === 'deployment' && !options.url && !process.env.NUXT_PUBLIC_CONVEX_URL && !process.env.NUXT_PUBLIC_BACKEND_URL) {
     logger.info(`Convex URLs derived from ${derived.deployment} — no NUXT_PUBLIC_* URL vars needed.`)
   }
-  const findings = collectPreflightFindings({ env: process.env, siteUrlConfigured })
+  const mcp = resolveMcpOptions(options.mcp)
+  const findings = collectPreflightFindings({
+    env: process.env,
+    siteUrlConfigured,
+    ...(mcp ? { mcp: { route: mcp.route } } : {}),
+  })
 
   // The auth middleware always needs a login route. With the built-in page
   // disabled and no explicit `backend.loginPath`, the app must shadow `/login`.

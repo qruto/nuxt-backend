@@ -12,6 +12,11 @@ export const {
   createAuth,
   getAuthUser,
   authConfig,
+  listWorkspaces,
+  listWorkspaceMembers,
+  updateProfile,
+  // The agent token exchange (mounted at /mcp/exchange by http.ts).
+  mcp,
 } = setupAuth(components, query, {
   // CUSTOMIZATION: the locally installed component's schema (see
   // components/backend/schema.ts) drives the Better Auth adapter.

@@ -1,10 +1,16 @@
 import { httpActionGeneric, type HttpRouter } from 'convex/server'
+import { DEFAULT_MCP_EXCHANGE_PATH } from '../constants'
+
+// For hand-rolled auth setups that skip `setupAuth` (which wires this
+// automatically and returns it as its `mcp` export).
+export { setupMcp, type McpExchange, type SetupMcpOptions } from './mcp'
 
 /**
  * One call to mount every inbound route the backend handles on your Convex
  * HTTP router: the auth routes, the guarded billing events endpoint
  * (entitlement refresh + gift fulfilment), the guarded email delivery-events
- * endpoint (status tracking), and the metered AI stream endpoint.
+ * endpoint (status tracking), the metered AI stream endpoint, and the agent
+ * (MCP) token exchange.
  *
  * The webhook endpoints share one fail-closed policy (see `webhook-guard.ts`):
  * missing secret → 503, invalid signature → 403 (±5 min replay tolerance),
@@ -37,12 +43,22 @@ export interface RegisterBackendRoutesOptions {
     httpHandler: unknown
     corsOrigin: string
   }
+  /**
+   * From `setupAuth` (its `mcp` export): mounts the agent token exchange at
+   * {@link RegisterBackendRoutesOptions.mcpExchangePath} — the Nuxt MCP gate
+   * trades agents' OAuth Bearers here for short-lived Convex JWTs.
+   */
+  mcp?: {
+    exchangeHandler: (ctx: never, request: Request) => Promise<Response>
+  }
   /** Route for the billing events webhook. Default `/billing/events`. */
   billingPath?: string
   /** Route for the email events webhook. Default `/email/events`. */
   emailPath?: string
   /** Route for the AI stream endpoint. Default `/ai/stream`. */
   aiPath?: string
+  /** Route for the agent token exchange. Default `/mcp/exchange`. */
+  mcpExchangePath?: string
 }
 
 /**
@@ -52,12 +68,12 @@ export interface RegisterBackendRoutesOptions {
  * import { registerBackendRoutes } from 'nuxt-backend/http'
  * import { httpRouter } from 'convex/server'
  * import { components } from './_generated/api'
- * import { authComponent, createAuth } from './auth'
+ * import { authComponent, createAuth, mcp } from './auth'
  * import billing from './billing'
  * import { email } from './email'
  *
  * const http = httpRouter()
- * registerBackendRoutes(http, { auth: { authComponent, createAuth }, billing, email })
+ * registerBackendRoutes(http, { auth: { authComponent, createAuth }, billing, email, mcp })
  * export default http
  * ```
  */
@@ -80,6 +96,15 @@ export function registerBackendRoutes(http: HttpRouter, options: RegisterBackend
       path: options.emailPath ?? '/email/events',
       method: 'POST',
       handler: httpActionGeneric((ctx, request) => webhookHandler(ctx as never, request)),
+    })
+  }
+
+  if (options.mcp) {
+    const { exchangeHandler } = options.mcp
+    http.route({
+      path: options.mcpExchangePath ?? DEFAULT_MCP_EXCHANGE_PATH,
+      method: 'POST',
+      handler: httpActionGeneric((ctx, request) => exchangeHandler(ctx as never, request)),
     })
   }
 

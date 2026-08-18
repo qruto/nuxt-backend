@@ -5,6 +5,7 @@ import * as clientBridge from '../../src/convex/client'
 const fakeComponent = {
   adapter: {
     findOne: {} as never,
+    findMany: {} as never,
     updateOne: {} as never,
   },
 } as never
@@ -37,11 +38,15 @@ describe('Convex component client bridge', () => {
 
     const authApi = clientBridge.makeAuthApi({ backend: fakeAppComponent }, queryBuilder as never)
 
-    // One query per api member: getAuthUser + the authConfig diagnostics.
-    expect(queryBuilder).toHaveBeenCalledTimes(2)
+    // One query per api member: getAuthUser, the authConfig diagnostics, and
+    // the workspace reads (updateProfile is a mutationGeneric, not built here).
+    expect(queryBuilder).toHaveBeenCalledTimes(4)
     expect(queryBuilder).toHaveBeenCalledWith(expect.objectContaining({ args: {} }))
     expect(authApi).toHaveProperty('getAuthUser')
     expect(authApi).toHaveProperty('authConfig')
+    expect(authApi).toHaveProperty('listWorkspaces')
+    expect(authApi).toHaveProperty('listWorkspaceMembers')
+    expect(authApi).toHaveProperty('updateProfile')
     // The diagnostics query reports the resolved invitation path for doctor.
     const config = await (authApi.authConfig as unknown as { handler: () => Promise<{ invitationPath: string | null }> }).handler()
     expect(config).toEqual({ invitationPath: '/accept-invitation' })
@@ -57,6 +62,8 @@ describe('Convex component client bridge', () => {
     expect(authSetup).toHaveProperty('options')
     expect(authSetup).toHaveProperty('authComponent')
     expect(authSetup).toHaveProperty('getAuthUser')
+    // The agent token exchange rides along for http.ts to mount.
+    expect(typeof authSetup.mcp.exchangeHandler).toBe('function')
   })
 })
 
@@ -69,11 +76,35 @@ describe('admin + organization defaults', () => {
     expect(pluginIds(options)).toEqual(expect.arrayContaining(['convex', 'email-otp', 'passkey', 'admin', 'organization']))
   })
 
+  it('bundles the agent OAuth provider (mcp) with its convex-aligned signer (jwt)', () => {
+    const options = clientBridge.createBetterAuthOptions({} as never)
+    const ids = pluginIds(options)
+    expect(ids).toContain('mcp')
+    expect(ids).toContain('jwt')
+    // The mcp defaults must sit after the convex plugin: better-auth after-
+    // hooks are last-write-wins and both resume the oidc_login_prompt cookie.
+    expect(ids.indexOf('mcp')).toBeGreaterThan(ids.indexOf('convex'))
+  })
+
+  it('offers the built-in tool scopes to agents at consent time', () => {
+    const options = clientBridge.createBetterAuthOptions({} as never)
+    const mcpPlugin = (options.plugins ?? []).find(plugin => plugin.id === 'mcp') as unknown as {
+      options?: { oidcConfig?: { scopes?: string[], metadata?: { scopes_supported?: string[] } } }
+    }
+    const oidcConfig = mcpPlugin.options?.oidcConfig
+    for (const scope of ['profile:write', 'billing:read', 'billing:checkout', 'workspace:read', 'act']) {
+      expect(oidcConfig?.scopes).toContain(scope)
+      expect(oidcConfig?.metadata?.scopes_supported).toContain(scope)
+    }
+  })
+
   it('can disable each plugin with false', () => {
-    const options = clientBridge.createBetterAuthOptions({} as never, { admin: false, organization: false })
+    const options = clientBridge.createBetterAuthOptions({} as never, { admin: false, organization: false, mcp: false })
     const ids = pluginIds(options)
     expect(ids).not.toContain('admin')
     expect(ids).not.toContain('organization')
+    expect(ids).not.toContain('mcp')
+    expect(ids).not.toContain('jwt')
   })
 
   it('dedupes against a consumer-supplied plugin of the same id', async () => {
@@ -82,6 +113,103 @@ describe('admin + organization defaults', () => {
       authOptions: { plugins: [admin({ defaultBanReason: 'spam' })] },
     })
     expect(pluginIds(options).filter(id => id === 'admin')).toHaveLength(1)
+  })
+})
+
+describe('workspace + profile api', () => {
+  type Handler = (ctx: unknown, args?: Record<string, unknown>) => Promise<unknown>
+  const build = () => {
+    const queryBuilder = vi.fn(definition => definition)
+    // The queries come back as raw definitions (the fake builder is identity);
+    // updateProfile is a real mutationGeneric, whose raw handler is `_handler`.
+    return clientBridge.makeAuthApi({ backend: fakeAppComponent }, queryBuilder as never) as unknown as {
+      listWorkspaces: { handler: Handler }
+      listWorkspaceMembers: { handler: Handler }
+      updateProfile: { _handler: Handler }
+    }
+  }
+  const adapter = (fakeComponent as { adapter: { findOne: unknown, findMany: unknown, updateOne: unknown } }).adapter
+
+  const identityCtx = (data: {
+    subject?: string
+    claims?: Record<string, unknown>
+    findOne?: (args: { model: string, where: Array<{ field: string, value: unknown }> }) => unknown
+    findMany?: (args: { model: string }) => { page: unknown[] }
+    updateOne?: (args: unknown) => unknown
+  }) => ({
+    auth: {
+      getUserIdentity: async () => (data.subject ? { subject: data.subject, ...data.claims } : null),
+    },
+    runQuery: vi.fn(async (ref: unknown, args: never) => {
+      if (ref === adapter.findOne) return data.findOne?.(args) ?? null
+      if (ref === adapter.findMany) return data.findMany?.(args) ?? { page: [], isDone: true, continueCursor: '' }
+      throw new Error('unexpected query ref')
+    }),
+    runMutation: vi.fn(async (ref: unknown, args: never) => {
+      if (ref === adapter.updateOne) return data.updateOne?.(args) ?? null
+      throw new Error('unexpected mutation ref')
+    }),
+  })
+
+  it('lists the caller workspaces with role and active flags, null when signed out', async () => {
+    const api = build()
+    const ctx = identityCtx({
+      subject: 'user-1',
+      claims: { activeOrganizationId: 'org-2' },
+      findMany: () => ({ page: [
+        { organizationId: 'org-1', role: 'owner', createdAt: 1 },
+        { organizationId: 'org-2', role: 'member', createdAt: 2 },
+      ] }),
+      findOne: ({ where }) => ({ _id: where[0]!.value, name: `W ${where[0]!.value}`, slug: `w-${where[0]!.value}` }),
+    })
+    await expect(api.listWorkspaces.handler(ctx)).resolves.toEqual([
+      { id: 'org-1', name: 'W org-1', slug: 'w-org-1', logo: null, role: 'owner', active: false, joinedAt: 1 },
+      { id: 'org-2', name: 'W org-2', slug: 'w-org-2', logo: null, role: 'member', active: true, joinedAt: 2 },
+    ])
+
+    await expect(api.listWorkspaces.handler(identityCtx({}))).resolves.toBeNull()
+  })
+
+  it('gates member listing on a fresh membership read, not claims', async () => {
+    const api = build()
+    // Claims say org-1 is active, but the member table no longer agrees —
+    // the stale-JWT caller must not see the roster.
+    const removed = identityCtx({
+      subject: 'user-1',
+      claims: { activeOrganizationId: 'org-1' },
+      findOne: () => null,
+    })
+    await expect(api.listWorkspaceMembers.handler(removed, {})).resolves.toBeNull()
+
+    const member = identityCtx({
+      subject: 'user-1',
+      claims: { activeOrganizationId: 'org-1' },
+      findOne: ({ model, where }) => (model === 'member'
+        ? { organizationId: 'org-1' }
+        : { name: `User ${where[0]!.value}`, email: `${where[0]!.value}@example.com` }),
+      findMany: () => ({ page: [{ userId: 'user-1', role: 'owner', createdAt: 5 }] }),
+    })
+    await expect(api.listWorkspaceMembers.handler(member, {})).resolves.toEqual({
+      organizationId: 'org-1',
+      members: [{ userId: 'user-1', name: 'User user-1', email: 'user-1@example.com', role: 'owner', joinedAt: 5 }],
+    })
+  })
+
+  it('updates only the profile name, trimmed and identity-gated', async () => {
+    const api = build()
+    const updateOne = vi.fn()
+    const ctx = identityCtx({ subject: 'user-1', updateOne })
+    await api.updateProfile._handler(ctx, { name: '  Ada  ' })
+    expect(updateOne).toHaveBeenCalledWith(expect.objectContaining({
+      input: expect.objectContaining({
+        model: 'user',
+        where: [{ field: '_id', value: 'user-1' }],
+        update: expect.objectContaining({ name: 'Ada' }),
+      }),
+    }))
+
+    await expect(api.updateProfile._handler(identityCtx({}), { name: 'Ada' })).rejects.toThrow('Sign in')
+    await expect(api.updateProfile._handler(ctx, { name: '   ' })).rejects.toThrow('1-256')
   })
 })
 

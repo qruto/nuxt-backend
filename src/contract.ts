@@ -9,7 +9,7 @@
  * contract and scaffold can never drift apart.
  */
 export const REQUIRED_FUNCTION_EXPORTS = {
-  auth: ['getAuthUser', 'authConfig'],
+  auth: ['getAuthUser', 'authConfig', 'listWorkspaces', 'listWorkspaceMembers', 'updateProfile'],
   billing: [
     'generateCheckoutLink',
     'generateCustomerPortalUrl',
