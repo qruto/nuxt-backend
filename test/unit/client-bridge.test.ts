@@ -76,11 +76,14 @@ describe('admin + organization defaults', () => {
     expect(pluginIds(options)).toEqual(expect.arrayContaining(['convex', 'email-otp', 'passkey', 'admin', 'organization']))
   })
 
-  it('bundles the agent OAuth provider (mcp) with its convex-aligned signer (jwt)', () => {
+  it('bundles the agent OAuth provider (mcp) without a top-level jwt', () => {
     const options = clientBridge.createBetterAuthOptions({} as never)
     const ids = pluginIds(options)
     expect(ids).toContain('mcp')
-    expect(ids).toContain('jwt')
+    // No top-level jwt: better-auth dedupes plugins by id, and a second jwt
+    // displaces the convex plugin's internal custom-path jwt — 404ing
+    // /convex/token. The exchange signs via a separate sign-only instance.
+    expect(ids).not.toContain('jwt')
     // The mcp defaults must sit after the convex plugin: better-auth after-
     // hooks are last-write-wins and both resume the oidc_login_prompt cookie.
     expect(ids.indexOf('mcp')).toBeGreaterThan(ids.indexOf('convex'))
@@ -104,7 +107,6 @@ describe('admin + organization defaults', () => {
     expect(ids).not.toContain('admin')
     expect(ids).not.toContain('organization')
     expect(ids).not.toContain('mcp')
-    expect(ids).not.toContain('jwt')
   })
 
   it('dedupes against a consumer-supplied plugin of the same id', async () => {

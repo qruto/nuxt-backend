@@ -51,13 +51,19 @@ interface McpAccessTokenSession {
 export interface McpExchangeAuth {
   api: {
     getMcpSession: (args: { headers: Headers }) => Promise<McpAccessTokenSession | null>
-    signJWT: (args: { body: { payload: Record<string, unknown> } }) => Promise<{ token: string } | null>
   }
   $context: Promise<{
     adapter: {
       findOne: (args: { model: string, where: Array<{ field: string, value: unknown }> }) => Promise<unknown>
     }
   }>
+}
+
+/** The sign-only instance (see the client bridge) — carries `signJWT`. */
+export interface McpSignerAuth {
+  api: {
+    signJWT: (args: { body: { payload: Record<string, unknown> } }) => Promise<{ token: string } | null>
+  }
 }
 
 export interface SetupMcpOptions {
@@ -68,6 +74,12 @@ export interface SetupMcpOptions {
    * `registerBackendRoutes`'s never-typed auth params).
    */
   createAuth: (ctx: McpExchangeCtx) => unknown
+  /**
+   * Builds the sign-only instance whose `auth.api.signJWT` mints the Convex
+   * JWT (the aligned jwt plugin cannot live on the main instance — see the
+   * client bridge).
+   */
+  createSignerAuth: (ctx: McpExchangeCtx) => unknown
   /** Throttles exchanges per client+user (the `mcp` named limit). */
   rateLimiter?: McpRateLimiter
   /** `false` turns the mounted route into a 404 (provider disabled). */
@@ -152,7 +164,8 @@ export function setupMcp(options: SetupMcpOptions): McpExchange {
     // client bridge) so every claims-first consumer — authorization, billing
     // entity resolution — reads agent calls exactly like web sessions.
     // iss/aud are pinned to the auth.config validator's expectations.
-    const signed = await auth.api.signJWT({
+    const signer = options.createSignerAuth(ctx) as McpSignerAuth
+    const signed = await signer.api.signJWT({
       body: {
         payload: {
           name: user.name ?? '',

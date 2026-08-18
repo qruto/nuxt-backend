@@ -46,6 +46,7 @@ export const {
   getFeatures,
   getCredits,
   syncEntitlements,
+  syncProducts,
   getReceivedGifts,
   claimGift,
 } = billing.functions

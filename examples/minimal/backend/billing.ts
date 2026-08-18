@@ -36,6 +36,7 @@ export const {
   getFeatures,
   getCredits,
   syncEntitlements,
+  syncProducts,
   getReceivedGifts,
   claimGift,
   getWebhookDeliveries,

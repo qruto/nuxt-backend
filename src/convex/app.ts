@@ -9,7 +9,13 @@ import { v } from 'convex/values'
 // ⚠️ These import specifiers must stay LITERAL in `dist/convex/app.js` — the
 // convex build is plain `tsc` (specifiers preserved verbatim). Never bundle or
 // minify this file, or component discovery silently breaks.
-import backend from './components/backend/convex.config'
+//
+// ⚠️ The backend definition is imported through the package's own subpath
+// (self-reference), NOT relatively: 2026-08 Convex backends crash evaluating
+// definition bundles whose component imports resolve relatively from inside
+// a package (opaque start_push 500). The subpath resolves identically in
+// linked dev and published installs.
+import backend from 'nuxt-backend/component/convex.config'
 import aggregate from '@convex-dev/aggregate/convex.config'
 import migrations from '@convex-dev/migrations/convex.config'
 import persistentTextStreaming from '@convex-dev/persistent-text-streaming/convex.config'
@@ -139,19 +145,10 @@ export interface InstallBackendOptions {
  */
 export function installBackend<App extends BackendApp>(app: App, options: InstallBackendOptions = {}): App {
   const skip = new Set(options.omit ?? [])
-  const { backend: backendDef = backend, ...upstreamOverrides } = options.components ?? {}
-  const defs: Record<Exclude<BackendComponentName, 'backend'>, EnvlessComponentDef> = {
-    aggregate,
-    migrations,
-    persistentTextStreaming,
-    polar,
-    rateLimiter,
-    workflow,
-    ...upstreamOverrides,
-  }
+  const components = options.components ?? {}
   // Components are isolated from the app's env — forward the email config by
   // reference so the deployment's values reach the component's email functions.
-  app.use(backendDef, {
+  app.use(components.backend ?? backend, {
     env: {
       EMAIL_API_KEY: app.env.EMAIL_API_KEY,
       EMAIL_FROM: app.env.EMAIL_FROM,
@@ -159,9 +156,16 @@ export function installBackend<App extends BackendApp>(app: App, options: Instal
       EMAIL_WEBHOOK_SECRET: app.env.EMAIL_WEBHOOK_SECRET,
     },
   })
-  for (const name of ['aggregate', 'migrations', 'persistentTextStreaming', 'polar', 'rateLimiter', 'workflow'] as const) {
-    if (!skip.has(name)) app.use(defs[name])
-  }
+  // Unrolled on purpose: collecting the definitions into a record and calling
+  // `app.use` through a loop crashes the definition evaluator on 2026-08
+  // Convex backends (start_push dies with an opaque 500). Direct calls with
+  // the definition identifiers visible to static analysis push cleanly.
+  if (!skip.has('aggregate')) app.use((components.aggregate ?? aggregate) as EnvlessComponentDef)
+  if (!skip.has('migrations')) app.use((components.migrations ?? migrations) as EnvlessComponentDef)
+  if (!skip.has('persistentTextStreaming')) app.use((components.persistentTextStreaming ?? persistentTextStreaming) as EnvlessComponentDef)
+  if (!skip.has('polar')) app.use((components.polar ?? polar) as EnvlessComponentDef)
+  if (!skip.has('rateLimiter')) app.use((components.rateLimiter ?? rateLimiter) as EnvlessComponentDef)
+  if (!skip.has('workflow')) app.use((components.workflow ?? workflow) as EnvlessComponentDef)
   return app
 }
 

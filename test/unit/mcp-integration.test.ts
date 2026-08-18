@@ -49,7 +49,7 @@ describe('setupMcp token exchange', () => {
     process.env.CONVEX_SITE_URL = 'https://deployment.test.site'
     try {
       const { auth, signJWT } = fakeAuth(validState)
-      const { exchangeHandler } = setupMcp({ createAuth: () => auth })
+      const { exchangeHandler } = setupMcp({ createAuth: () => auth, createSignerAuth: () => auth })
 
       const response = await exchangeHandler(ctx, exchangeRequest('opaque'))
 
@@ -82,7 +82,7 @@ describe('setupMcp token exchange', () => {
 
   it('rejects a missing or unknown bearer with a 401 challenge', async () => {
     const { auth } = fakeAuth({ session: null })
-    const { exchangeHandler } = setupMcp({ createAuth: () => auth })
+    const { exchangeHandler } = setupMcp({ createAuth: () => auth, createSignerAuth: () => auth })
 
     const missing = await exchangeHandler(ctx, exchangeRequest())
     expect(missing.status).toBe(401)
@@ -95,7 +95,7 @@ describe('setupMcp token exchange', () => {
 
   it('treats tokens of deleted or banned accounts as invalid', async () => {
     const { auth } = fakeAuth({ ...validState, user: null })
-    const { exchangeHandler } = setupMcp({ createAuth: () => auth })
+    const { exchangeHandler } = setupMcp({ createAuth: () => auth, createSignerAuth: () => auth })
     expect((await exchangeHandler(ctx, exchangeRequest('opaque'))).status).toBe(401)
 
     const banned = fakeAuth({ ...validState, user: { ...validState.user, banned: true } })

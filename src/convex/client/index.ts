@@ -518,14 +518,17 @@ type JwtAdapterOverride = NonNullable<JwtPluginOptions['adapter']>
 type JwksRow = { createdAt: Date, expiresAt?: Date | null } & Record<string, unknown>
 
 /**
- * A top-level jwt plugin aligned with the convex plugin's internal signer:
- * same `jwks` table and RS256 keys, issuer/audience matching the
- * `auth.config` validator, and the same date-fix adapter override (the Convex
- * database adapter returns `date` fields as numbers while the jwt plugin
- * internals call `.getTime()` on them). Registered only for its server-only
- * `auth.api.signJWT`, which `/mcp/exchange` uses to mint short-lived Convex
- * JWTs for agent sessions — because both signers share the latest `jwks` row,
- * the minted tokens carry a `kid` the validator's JWKS endpoint serves.
+ * The jwt plugin for the **sign-only** better-auth instance (see `setupAuth`)
+ * — aligned with the convex plugin's internal signer: same `jwks` table and
+ * RS256 keys, issuer/audience matching the `auth.config` validator, and the
+ * same date-fix adapter override (the Convex database adapter returns `date`
+ * fields as numbers while the jwt plugin internals call `.getTime()` on
+ * them). Its server-only `auth.api.signJWT` mints the `/mcp/exchange` Convex
+ * JWTs; sharing the latest `jwks` row gives minted tokens a `kid` the
+ * validator's JWKS endpoint serves. It must NOT join the main instance's
+ * plugin list: better-auth dedupes plugins by id, and a top-level `jwt`
+ * displaces the convex plugin's internal custom-path jwt (404ing
+ * `/convex/token`).
  */
 function convexSignerJwt() {
   const adapter: JwtAdapterOverride = {
@@ -640,7 +643,11 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
           ...(sendInvitationEmail ? { sendInvitationEmail } : {}),
         })]
       : []),
-    ...(mcpEnabled ? [defaultMcp(mcpOptions), convexSignerJwt()] : []),
+    // No top-level jwt() here: better-auth dedupes plugins by id, and a
+    // second jwt displaces the convex plugin's internal custom-path jwt —
+    // 404ing /convex/token (the client token bridge). The exchange's signJWT
+    // lives on a separate sign-only instance instead (setupAuth).
+    ...(mcpEnabled ? [defaultMcp(mcpOptions)] : []),
   ].filter(plugin => !userPluginIds.has(plugin.id))
 
   const sendVerificationEmail = canSendEmail
@@ -1064,12 +1071,30 @@ export function setupAuth<
     return betterAuth(createAuthOptionsForContext(ctx))
   }
 
+  // A sign-only better-auth instance for the exchange's JWT mint: the aligned
+  // jwt plugin CANNOT sit on the main instance — better-auth dedupes plugins
+  // by id, so a top-level `jwt()` displaces the convex plugin's internal
+  // custom-path jwt and 404s `/convex/token` (the client token bridge). This
+  // instance shares the adapter/secret (same `jwks` row, so minted tokens
+  // carry a `kid` the validator serves) but its handler is never mounted.
+  const createSignerAuthForContext = (ctx: GenericCtx<DM>) => {
+    const base = createAuthOptionsForContext(ctx)
+    return betterAuth({
+      database: base.database,
+      secret: base.secret,
+      baseURL: base.baseURL,
+      basePath: base.basePath,
+      plugins: [convexSignerJwt()],
+    })
+  }
+
   // The agent token exchange (`POST /mcp/exchange`, mounted by
   // `registerBackendRoutes`): trades an MCP OAuth Bearer for a short-lived
   // Convex JWT. Wired here because it needs the same auth instance and rate
   // limiter; answers 404 when the mcp provider is disabled.
   const mcpExchange: McpExchange = setupMcp({
     createAuth: ctx => createAuthForContext(ctx as GenericCtx<DM>),
+    createSignerAuth: ctx => createSignerAuthForContext(ctx as GenericCtx<DM>),
     rateLimiter: resolvedIntegrations.rateLimiter,
     enabled: options?.mcp !== false,
   })

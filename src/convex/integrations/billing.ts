@@ -567,13 +567,17 @@ export interface Billing {
    * so `useBilling` / `useFeatures` / `useCredits` / `useGifts` work with zero
    * hand-wiring: the reactive current-subscription, feature-gating and
    * credit-balance queries, a `syncEntitlements` action to refresh the cache
-   * after checkout / top-up, and the gift queries/claim action.
+   * after checkout / top-up, a `syncProducts` action to pull the provider's
+   * product catalog into the reactive products table (fresh deployments render
+   * empty pricing until it runs once — webhooks keep it fresh afterwards), and
+   * the gift queries/claim action.
    */
   functions: {
     getCurrentSubscription: ReturnType<typeof queryGeneric>
     getFeatures: ReturnType<typeof queryGeneric>
     getCredits: ReturnType<typeof queryGeneric>
     syncEntitlements: ReturnType<typeof actionGeneric>
+    syncProducts: ReturnType<typeof actionGeneric>
     getReceivedGifts: ReturnType<typeof queryGeneric>
     claimGift: ReturnType<typeof actionGeneric>
     getWebhookDeliveries: ReturnType<typeof queryGeneric>
@@ -1253,6 +1257,25 @@ export function setupBilling(
     },
   })
 
+  // Pull the provider's product catalog into the component's reactive products
+  // table. A fresh deployment has never seen a product webhook, so configured
+  // products resolve empty until this runs once (checkout links, pricing pages,
+  // `useBilling().products`). Identity-gated and throttled like
+  // `syncEntitlements` — it fans out to the live provider API.
+  const syncProducts = actionGeneric({
+    args: {},
+    handler: async (ctx) => {
+      const { userId } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
+      if (!userId) return null
+      if (config.rateLimiter) {
+        const { ok } = await config.rateLimiter.limit(ctx, 'billingSync', { key: userId })
+        if (!ok) throw new Error('[nuxt-backend] Too many product syncs — try again shortly.')
+      }
+      await provider.syncProducts(ctx as never)
+      return null
+    },
+  })
+
   // --- Webhook handlers: keep the cache fresh as billing state changes ---
 
   // Handlers run inside an httpAction at runtime, so we can refresh inline.
@@ -1400,6 +1423,7 @@ export function setupBilling(
       getFeatures,
       getCredits,
       syncEntitlements,
+      syncProducts,
       getReceivedGifts,
       claimGift,
       getWebhookDeliveries,

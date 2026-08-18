@@ -23,6 +23,7 @@ export const REQUIRED_FUNCTION_EXPORTS = {
     'getFeatures',
     'getCredits',
     'syncEntitlements',
+    'syncProducts',
     'getReceivedGifts',
     'claimGift',
     'getWebhookDeliveries',

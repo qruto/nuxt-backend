@@ -7,7 +7,7 @@ import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
 import { backendAppConfigDefaults, type BackendAppConfigInput } from './runtime/config'
 import { BACKEND_MCP_SCOPES, DEFAULT_MCP_EXCHANGE_PATH } from './convex/constants'
 import { deriveDeploymentUrls } from './deployment'
-import { runEnvPush } from './env-push'
+import { readEnvFiles, runEnvPush } from './env-push'
 import { scaffoldBackendFiles } from './scaffold'
 import { registerBackendAliases, backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from './aliases'
 import { collectPreflightFindings, formatPreflightSummary } from './preflight'
@@ -334,21 +334,22 @@ function registerMcp(options: ModuleOptions, resolver: Resolver, nuxt: Nuxt): vo
     })
   }
 
-  // Route-scoped middleware (h3 prefix matching): the OAuth gate owns the MCP
-  // route; the discovery documents own their `/.well-known` prefixes
-  // (including the RFC 8414/9728 path-suffix forms via the prefix match).
+  // Global middleware, matched in-handler: the OAuth gate owns the MCP route;
+  // the discovery documents own their `/.well-known` prefixes (including the
+  // RFC 8414/9728 path-suffix forms). Deliberately NOT route-scoped — h3
+  // rewrites `event.path` relative to a `use(base, …)` mount (the base is
+  // stripped), which would break the handlers' own full-path guards; each
+  // handler early-returns on every other path, so the global hop is one
+  // string compare.
   addServerHandler({
-    route: mcp.route,
     middleware: true,
     handler: resolver.resolve('./runtime/server/mcp/gate'),
   })
   addServerHandler({
-    route: '/.well-known/oauth-protected-resource',
     middleware: true,
     handler: resolver.resolve('./runtime/server/mcp/protected-resource'),
   })
   addServerHandler({
-    route: '/.well-known/oauth-authorization-server',
     middleware: true,
     handler: resolver.resolve('./runtime/server/mcp/authorization-server'),
   })
@@ -388,8 +389,12 @@ function runDevAutoEnv(options: ModuleOptions, nuxt: Nuxt): void {
   const rootDir = nuxt.options.rootDir
 
   const attempt = (): boolean => {
-    const deployment = deriveDeploymentUrls(rootDir)?.deployment
-    if (!deployment?.startsWith('dev:')) return false
+    // Dev-class only: cloud dev (`dev:`) and CLI-managed local (`local:`)
+    // deployments. Read the id directly — URL derivation rejects local slugs.
+    const deployment = process.env.CONVEX_DEPLOYMENT
+      ?? readEnvFiles(rootDir).CONVEX_DEPLOYMENT
+      ?? deriveDeploymentUrls(rootDir)?.deployment
+    if (!deployment?.startsWith('dev:') && !deployment?.startsWith('local:')) return false
     const stampDir = join(rootDir, 'node_modules/.cache/nuxt-backend')
     const stamp = join(stampDir, `env-ok-${deployment.replace(/[^\w-]/g, '_')}`)
     if (existsSync(stamp)) return true

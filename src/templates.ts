@@ -190,6 +190,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
       getFeatures,
       getCredits,
       syncEntitlements,
+      syncProducts,
       getReceivedGifts,
       claimGift,
       getWebhookDeliveries,

@@ -204,12 +204,18 @@ export async function runEnvPush(rootDir: string, options: { prod?: boolean, dry
   const deployedNames = await deploymentEnvNames(rootDir)
   if (deployedNames === null) return null
 
-  const derived = deriveDeploymentUrls(rootDir)
-  const dev = !options.prod && derived?.deployment?.startsWith('dev:') === true
+  // Dev-class deployments get required-gap filling: cloud dev (`dev:`) and
+  // CLI-managed local (`local:`) deployments — both disposable, never prod.
+  // Read the deployment id directly (URL derivation rejects local slugs).
+  const deployment = process.env.CONVEX_DEPLOYMENT
+    ?? readEnvFiles(rootDir).CONVEX_DEPLOYMENT
+    ?? deriveDeploymentUrls(rootDir)?.deployment
+    ?? null
+  const dev = !options.prod && (deployment?.startsWith('dev:') === true || deployment?.startsWith('local:') === true)
   const actions = planEnvPush({ deployedNames, localEnv: readEnvFiles(rootDir), dev })
   const results = await executeEnvPush(rootDir, actions, { dryRun: options.dryRun, setEnv: options.setEnv })
   return {
-    deployment: derived?.deployment ?? null,
+    deployment,
     dev,
     results,
     missingRequired: actions.filter(action => action.action === 'missing').map(action => action.name),
