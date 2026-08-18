@@ -17,9 +17,20 @@ import type { Billing, SpendReservation } from './billing'
 
 type RunCtx = Parameters<Billing['reserveCredits']>[0]
 
-/** The rate limiter shape `setupAi` consumes (a `setupRateLimiter` instance fits). */
+/**
+ * The rate limiter shape `setupAi` consumes — satisfied by a
+ * `setupRateLimiter(...)` instance, which seeds the `ai` limit by default.
+ * Typed against the literal default name (the limiter's conditional
+ * rest-tuple signature only resolves for known names — the same pattern as
+ * `BillingRateLimiter`); custom `limit:` names pass through a cast at the
+ * call site.
+ */
 export interface AiRateLimiter {
-  limit: (ctx: unknown, name: never, options?: { key?: string, throws?: boolean }) => Promise<{ ok: boolean, retryAfter?: number }>
+  limit: (
+    ctx: RunCtx,
+    name: 'ai',
+    options?: { key?: string, throws?: boolean },
+  ) => Promise<{ ok: boolean, retryAfter?: number }>
 }
 
 /** The component handles `setupAi` reads from your generated `components` object. */
@@ -202,7 +213,7 @@ export function setupAi(components: AiComponents, config: SetupAiConfig): Ai {
 
     const limitName = options.limit ?? 'ai'
     if (rateLimiter && limitName !== false) {
-      const { ok, retryAfter } = await rateLimiter.limit(ctx, limitName as never, { key: entity.userId })
+      const { ok, retryAfter } = await rateLimiter.limit(ctx as never, limitName as never, { key: entity.userId })
       if (!ok) {
         const wait = retryAfter ? ` Try again in ${Math.ceil(retryAfter / 1000)}s.` : ''
         throw new Error(`[nuxt-backend] Rate limit reached.${wait}`)

@@ -1,8 +1,7 @@
 import { setupBilling, type DiscountInput } from 'nuxt-backend/billing'
-import type { GenericActionCtx, GenericDataModel } from 'convex/server'
 import { v } from 'convex/values'
 import { api, components, internal } from './_generated/api'
-import { action, internalMutation, query } from './_generated/server'
+import { internalMutation, query } from './_generated/server'
 import { authComponent } from './auth'
 import { authed } from './functions'
 import { rateLimiter } from './rateLimiter'
@@ -18,13 +17,22 @@ export const billing = setupBilling(components, {
   // prepaid units to the "Credits" meter (Pro and Ultra also grant feature
   // benefits, matched by `useFeatures().has()` via benefit metadata keys), plus
   // two one-time credit packs. Configured here so `useBilling().products`
-  // resolves them.
+  // resolves them. These sandbox ids are hardcoded until a live
+  // `nuxt-backend billing sync --adopt` run generates billing.generated.ts —
+  // then this block becomes `catalog` (see the billing.ts scaffold template).
   products: {
     starter: '96561ea3-e168-4219-9716-5128ac57dd7c',
     pro: 'd852636d-a5fb-4472-b592-3ac921a84ba3',
     ultra: '9e9097b4-22dc-4b40-9823-47a15fbe9f17',
     credits100: 'f55734b4-428f-47b9-b305-70576acf9181',
     credits500: '907659da-d66c-4e4a-9cb3-799ec445c79b',
+  },
+  // The named credit meter metered actions/streams spend from
+  // (`meter: 'credits'` in ai.ts). The sandbox meter counts `credits` events
+  // (no `property`), so every spend is exactly 1 unit — same id source as the
+  // product ids above, same `billing sync --adopt` migration path.
+  credits: {
+    credits: { meterId: 'aa62cf4c-2dcd-437d-a407-1872f51531b7' },
   },
   getUserInfo: async (ctx) => {
     const user = await ctx.runQuery(api.auth.getAuthUser, {})
@@ -33,6 +41,41 @@ export const billing = setupBilling(components, {
   currentUserId: async (ctx) => {
     if (!(await ctx.auth.getUserIdentity())) return null
     return (await authComponent.getAuthUser(ctx))._id
+  },
+  // The consumer events map: react to verified webhook events after the
+  // built-in cache refresh ran. The showcase logs a few high-signal types into
+  // its own feed table — the packaged delivery log (getWebhookDeliveries,
+  // shown on /playground/platform/webhooks) already records *every* delivery
+  // and its outcome, so consumer handlers are for app reactions, not auditing.
+  events: {
+    'order.paid': async (ctx, event) => {
+      await ctx.runMutation(internal.billing.recordWebhookEvent, {
+        source: 'billing',
+        type: event.type,
+        summary: `order ${event.data.id} paid`,
+      })
+    },
+    'subscription.active': async (ctx, event) => {
+      await ctx.runMutation(internal.billing.recordWebhookEvent, {
+        source: 'billing',
+        type: event.type,
+        summary: `subscription ${event.data.id} active`,
+      })
+    },
+    'subscription.canceled': async (ctx, event) => {
+      await ctx.runMutation(internal.billing.recordWebhookEvent, {
+        source: 'billing',
+        type: event.type,
+        summary: `subscription ${event.data.id} canceled`,
+      })
+    },
+    'benefit_grant.created': async (ctx, event) => {
+      await ctx.runMutation(internal.billing.recordWebhookEvent, {
+        source: 'billing',
+        type: event.type,
+        summary: `benefit ${event.data.benefitId} granted`,
+      })
+    },
   },
 })
 
@@ -54,9 +97,12 @@ export const {
   syncEntitlements,
   getReceivedGifts,
   claimGift,
+  getWebhookDeliveries,
 } = billing.functions
 
-// --- Showcase: a live feed of incoming billing webhooks ------------------------
+// --- Showcase: the consumer-side event feed ------------------------------------
+// Filled by the `events` handlers above (and email.ts's) — the app's own
+// reactions to webhooks, distinct from the packaged per-delivery log.
 
 export const recordWebhookEvent = internalMutation({
   args: { source: v.string(), type: v.string(), summary: v.string() },
@@ -70,32 +116,6 @@ export const recordWebhookEvent = internalMutation({
 export const listWebhookEvents = query({
   args: {},
   handler: async ctx => ctx.db.query('webhookEvents').withIndex('createdAt').order('desc').take(10),
-})
-
-// Wrap each built-in handler so the showcase also logs the event to a feed before
-// it refreshes the reactive feature/credit cache.
-export const webhookEvents = Object.fromEntries(
-  Object.entries(billing.webhookEvents).map(([type, handler]) => [
-    type,
-    async (ctx: GenericActionCtx<GenericDataModel>, event: { type: string }) => {
-      await ctx.runMutation(internal.billing.recordWebhookEvent, { source: 'billing', type, summary: type })
-      await (handler as unknown as ((c: GenericActionCtx<GenericDataModel>, e: { type: string }) => Promise<void>) | undefined)?.(ctx, event)
-    },
-  ]),
-) as typeof billing.webhookEvents
-
-// --- Credits -------------------------------------------------------------------
-
-/** Spend one prepaid credit for the current entity (blocks when the balance is empty). */
-export const consumeCredit = action({
-  args: { meterId: v.string() },
-  handler: async (ctx, { meterId }) => {
-    if (!(await ctx.auth.getUserIdentity())) throw new Error('Sign in to use credits.')
-    // No explicit userId: the billing entity (the active workspace) resolves
-    // from the caller's identity claims, matching how checkout billed it.
-    await billing.spendCredits(ctx, { name: 'credits', meterId })
-    return null
-  },
 })
 
 // --- Discounts -----------------------------------------------------------------

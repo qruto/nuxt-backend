@@ -269,7 +269,9 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
 }</code></pre>
       <p class="hint">
         Request a sign-in code from <NuxtLink to="/login">/login</NuxtLink> and
-        check the Resend test inbox — the subject carries the override.
+        check the Resend test inbox — the subject carries the override. The
+        packaged defaults this replaces are all rendered on
+        <NuxtLink to="/playground/platform/email-templates">Email templates</NuxtLink>.
       </p>
     </LabPanel>
   </div>

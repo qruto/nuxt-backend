@@ -198,7 +198,14 @@ export interface AuthEmailTemplates {
   }) => AuthEmailMessage
 }
 
-const defaultEmailTemplates: AuthEmailTemplates = {
+/**
+ * The packaged default auth-email templates (OTP, welcome, verify,
+ * change-email, delete-account, invite) — minimal, dependency-free HTML/text.
+ * Exported so apps can preview them (e.g. the playground's email-templates
+ * page) or reuse individual builders inside `integrations.emailTemplates`
+ * overrides.
+ */
+export const defaultEmailTemplates: AuthEmailTemplates = {
   otp: otpEmail,
   welcome: ({ email, name }) => ({
     to: email,

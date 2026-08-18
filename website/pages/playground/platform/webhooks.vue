@@ -4,9 +4,12 @@ import { api } from '#backend/api'
 
 definePageMeta({ middleware: 'auth' })
 
-// The unified webhook story: registerBackendRoutes mounts one endpoint per
-// service; the component verifies signatures and this feed logs every event
-// (billing via the webhookEvents wrapper, email via the setupEmail hooks).
+// Two views of the same inbound traffic: the packaged delivery log records
+// EVERY delivery on /billing/events and /email/events with its outcome
+// (verification, dedupe, size caps — the fail-closed edge), while the
+// consumer feed is the app's own `events` handlers reacting to a few
+// high-signal types (billing.ts / email.ts).
+const deliveries = useQuery(api.billing.getWebhookDeliveries, { limit: 15 })
 const events = useQuery(api.billing.listWebhookEvents)
 const sendTest = useAction(api.email.sendTest)
 
@@ -30,6 +33,16 @@ async function triggerEmailEvent() {
   }
 }
 
+const OUTCOME_TONES: Record<string, 'ok' | 'signal' | 'warn' | 'err'> = {
+  ok: 'ok',
+  duplicate: 'signal',
+  unknown_type: 'warn',
+  invalid_signature: 'err',
+  handler_error: 'err',
+  oversized: 'err',
+  missing_secret: 'err',
+}
+
 function timeAgo(ts: number): string {
   const s = Math.max(0, Math.round((Date.now() - ts) / 1000))
   if (s < 60) return `${s}s ago`
@@ -41,13 +54,14 @@ function timeAgo(ts: number): string {
 <template>
   <div class="stack">
     <PageHeader
-      tag="registerBackendRoutes · events"
+      tag="registerBackendRoutes · getWebhookDeliveries"
       title="Webhooks"
       live
     >
       One HTTP mount per service — <code>backend/http.ts</code> passes billing
-      and email to <code>registerBackendRoutes</code>, signatures are verified
-      by the components, and both feeds land in this activity stream.
+      and email to <code>registerBackendRoutes</code>. Every delivery is
+      signature-verified, deduped, and logged with its outcome; your
+      <code>events</code> handlers react on top.
     </PageHeader>
 
     <LabPanel
@@ -78,8 +92,9 @@ function timeAgo(ts: number): string {
         </div>
       </div>
       <p class="hint">
-        <code>npx nuxt-backend doctor</code> probes both routes and fails when
-        one isn't mounted.
+        Fail-closed: 503 until the secret is set, 403 on bad signatures, 413
+        oversized, 202 for authentic-but-unknown types, 200 on redeliveries.
+        <code>npx nuxt-backend doctor</code> probes both routes.
       </p>
     </LabPanel>
 
@@ -96,7 +111,7 @@ function timeAgo(ts: number): string {
           Send test email
         </LabButton>
         <span class="hint">
-          Delivery lands as an <code>email.delivered</code> event below;
+          Delivery lands as <code>email.delivered</code> in both feeds below;
           subscribing on the Pricing page produces billing events.
         </span>
       </div>
@@ -109,10 +124,65 @@ function timeAgo(ts: number): string {
     </LabPanel>
 
     <LabPanel
-      label="feed · live"
-      title="Webhook activity"
+      label="delivery log · packaged"
+      title="Every delivery, with its outcome"
       variant="well"
     >
+      <p class="hint">
+        The component's ring-buffer log behind
+        <code>billing.functions.getWebhookDeliveries</code> — the same feed
+        the doctor and DevTools read. Redeliver a webhook from the provider
+        dashboard and watch it land as <code>duplicate</code>.
+      </p>
+      <p
+        v-if="!deliveries?.length"
+        class="hint"
+      >
+        No deliveries yet — trigger one above.
+      </p>
+      <div
+        v-else
+        class="feed"
+      >
+        <div
+          v-for="delivery in deliveries"
+          :key="`${delivery.service}-${delivery.deliveryId}-${delivery.receivedAt}`"
+          class="feed-row"
+        >
+          <StatusPill
+            :tone="delivery.service === 'email' ? 'signal' : 'ok'"
+            dot
+          >
+            {{ delivery.service }}
+          </StatusPill>
+          <span class="feed-type mono">{{ delivery.type ?? '—' }}</span>
+          <StatusPill
+            :tone="OUTCOME_TONES[delivery.outcome] ?? 'warn'"
+            :dot="false"
+          >
+            {{ delivery.outcome }}
+          </StatusPill>
+          <span
+            v-if="delivery.note"
+            class="feed-summary"
+          >{{ delivery.note }}</span>
+          <span class="feed-time mono">{{ timeAgo(delivery.receivedAt) }}</span>
+        </div>
+      </div>
+    </LabPanel>
+
+    <LabPanel
+      label="events map · consumer"
+      title="Your handlers' feed"
+      variant="well"
+    >
+      <p class="hint">
+        The app-side view: <code>setupBilling({ events })</code> /
+        <code>setupEmail({ events })</code> handlers in
+        <code>backend/billing.ts</code> and <code>backend/email.ts</code> log a
+        few high-signal types into the app's own table — that's the hook point
+        for reacting to billing and email events in your product.
+      </p>
       <p
         v-if="!events?.length"
         class="hint"
@@ -154,11 +224,11 @@ function timeAgo(ts: number): string {
 .endpoint-url { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .endpoint-secret { color: var(--ink-faint); font-size: 0.68rem; }
 
-.feed { display: flex; flex-direction: column; gap: 0.45rem; }
+.feed { display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.7rem; }
 .feed-row { display: flex; align-items: center; gap: 0.6rem; font-size: 0.78rem; }
 .feed-type { color: var(--ink); font-size: 0.72rem; }
 .feed-summary { color: var(--ink-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.feed-time { color: var(--ink-faint); font-size: 0.68rem; }
+.feed-time { color: var(--ink-faint); font-size: 0.68rem; margin-left: auto; }
 
 .msg { margin: 0.6rem 0 0; font-size: 0.8rem; }
 .msg.err { color: var(--err); }

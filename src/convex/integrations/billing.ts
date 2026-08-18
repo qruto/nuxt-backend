@@ -521,8 +521,12 @@ function noopGuard(secretsConfigured: boolean, bodyLength: number): { rejection:
   return { rejection, record: async () => {} }
 }
 
-/** Minimal, dependency-free default gift-notification email. */
-function defaultGiftEmail(data: GiftEmailData): GiftEmailMessage {
+/**
+ * The packaged default gift-notification email — minimal, dependency-free.
+ * Used when {@link SetupBillingConfig.giftEmail} is not supplied; exported so
+ * apps can preview it or build their override on top of it.
+ */
+export function defaultGiftEmail(data: GiftEmailData): GiftEmailMessage {
   const from = data.purchaserName || data.purchaserEmail || 'Someone'
   const intro = `${from} sent you a gift! Sign in to receive it.`
   const safeUrl = escapeHtml(data.claimUrl)

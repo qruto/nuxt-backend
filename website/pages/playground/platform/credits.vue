@@ -5,23 +5,66 @@ import { api } from '#backend/api'
 definePageMeta({ middleware: 'auth' })
 
 const billing = useBilling()
-const credits = useCredits()
+// Name-first resolution: 'credits' is the meter named in backend/billing.ts —
+// the client never touches a provider meter id.
+const credits = useCredits('credits')
 // Explicit gift view — the <GiftClaimBanner> above the metrics demonstrates
 // auto-claim; this instance lists and claims manually.
 const gifts = useGifts({ autoClaim: false })
-const consumeCredit = useAction(api.billing.consumeCredit)
 
 const creditPackId = computed(() => billing.products.value?.credits100?.id)
-const spending = ref(false)
 
-async function spendCredit() {
-  if (!credits.meterId.value) return
-  spending.value = true
+// ── Metered action (ai.meteredAction) ─────────────────────────────
+// reserve → run → settle: the debit hits the reactive cache instantly (watch
+// the balance drop), and a failed run releases the reservation — no charge.
+const transform = useAction(api.ai.transform)
+const transformText = ref('Meter this sentence')
+const simulateFailure = ref(false)
+const transforming = ref(false)
+const transformResult = ref<{ transformed: string, reversed: string, chargedTo: string } | null>(null)
+const transformError = ref<string | null>(null)
+
+async function runTransform() {
+  transforming.value = true
+  transformResult.value = null
+  transformError.value = null
   try {
-    await consumeCredit({ meterId: credits.meterId.value })
+    transformResult.value = await transform({
+      text: transformText.value.trim() || 'Meter this sentence',
+      fail: simulateFailure.value,
+    }) as typeof transformResult.value
   }
-  finally { spending.value = false }
+  catch (error) {
+    transformError.value = error instanceof Error ? error.message : 'Transform failed'
+  }
+  finally { transforming.value = false }
 }
+
+// ── Metered streaming (ai.stream · useAiStream) ───────────────────
+const echo = useAiStream({ start: api.ai.startEcho, body: api.ai.echoBody })
+const streamPrompt = ref('Streamed tokens persist server-side, so a reload mid-stream keeps every word you already received')
+const streamError = ref<string | null>(null)
+
+async function runStream() {
+  streamError.value = null
+  try {
+    await echo.start({ prompt: streamPrompt.value.trim() || 'Hello from the metered stream' })
+  }
+  catch (error) {
+    streamError.value = error instanceof Error ? error.message : 'Stream failed'
+  }
+}
+
+const streamTone = computed(() => {
+  switch (echo.status.value) {
+    case 'done': return 'ok'
+    case 'error':
+    case 'timeout': return 'err'
+    case 'streaming':
+    case 'pending': return 'signal'
+    default: return 'muted'
+  }
+})
 
 // Gift a credit pack to another email — the recipient receives the credits
 // (attached automatically if they have an account, claimed on first sign-in
@@ -54,13 +97,15 @@ async function sendGift() {
 <template>
   <div class="stack">
     <PageHeader
-      tag="useCredits"
+      tag="useCredits · useAiStream"
       title="Credits"
       live
     >
-      The prepaid-credits model: a one-time pack grants units to a usage meter
-      at checkout, you spend them server-side, and <code>useCredits</code> reads
-      the live balance. Prepaid, so spending is blocked at zero.
+      The prepaid-credits model powering metered AI features: a pack or plan
+      grants units to a usage meter, metered actions spend them server-side
+      (reserve → run → settle), and <code>useCredits</code> reads the live
+      balance. Prepaid, so spending is blocked at zero — and a failed run
+      charges nothing.
     </PageHeader>
 
     <GiftClaimBanner class="gift-banner" />
@@ -88,7 +133,7 @@ async function sendGift() {
 
     <LabPanel
       label="meter"
-      title="Top up & spend"
+      title="Top up"
       tone="accent"
     >
       <div class="row">
@@ -104,14 +149,6 @@ async function sendGift() {
           class="hint"
         >No credit pack configured (product key <code>credits100</code>).</span>
 
-        <LabButton
-          variant="signal"
-          :loading="spending"
-          :disabled="!credits.meterId.value || (credits.balance.value ?? 0) <= 0"
-          @click="spendCredit"
-        >
-          Spend 1 credit
-        </LabButton>
         <LabButton
           variant="ghost"
           @click="credits.refresh()"
@@ -130,7 +167,104 @@ async function sendGift() {
         />
       </div>
       <p class="hint">
-        <code>meterId</code>: {{ credits.meterId.value ?? '—' }}
+        meter <code>'credits'</code> → <span class="mono">{{ credits.meterId.value ?? 'not synced yet' }}</span>
+        — named in <code>backend/billing.ts</code>, resolved by
+        <code>useCredits('credits')</code>.
+      </p>
+    </LabPanel>
+
+    <LabPanel
+      label="ai.meteredAction"
+      title="Metered transform"
+    >
+      <div class="row">
+        <input
+          v-model="transformText"
+          class="text-input"
+          type="text"
+          placeholder="Text to transform"
+        >
+        <LabButton
+          variant="signal"
+          :loading="transforming"
+          @click="runTransform"
+        >
+          Run (1 credit)
+        </LabButton>
+      </div>
+      <LabToggle
+        v-model="simulateFailure"
+        class="fail-toggle"
+        label="Simulate failure"
+        hint="the model throws mid-run — the reserved credit is released, nothing charged"
+      />
+      <div
+        v-if="transformResult"
+        class="result"
+      >
+        <div class="result-row">
+          <span class="result-key mono">transformed</span>
+          <span class="mono">{{ transformResult.transformed }}</span>
+        </div>
+        <div class="result-row">
+          <span class="result-key mono">reversed</span>
+          <span class="mono">{{ transformResult.reversed }}</span>
+        </div>
+        <div class="result-row">
+          <span class="result-key mono">charged to</span>
+          <span class="mono">{{ transformResult.chargedTo }}</span>
+        </div>
+      </div>
+      <p
+        v-if="transformError"
+        class="msg err mono"
+      >
+        {{ transformError }}
+      </p>
+      <p class="hint">
+        The balance above drops the instant the action starts — the debit is an
+        atomic cache reservation, settled against the provider only after the
+        run succeeds. At zero the spend throws instead (strictly prepaid).
+      </p>
+    </LabPanel>
+
+    <LabPanel
+      label="ai.stream · useAiStream"
+      title="Metered streaming"
+    >
+      <div class="row">
+        <input
+          v-model="streamPrompt"
+          class="text-input"
+          type="text"
+          placeholder="Prompt to stream back"
+        >
+        <LabButton
+          variant="signal"
+          :loading="echo.isStreaming.value"
+          @click="runStream"
+        >
+          Stream (1 credit)
+        </LabButton>
+        <StatusPill
+          :tone="streamTone"
+          dot
+        >
+          {{ echo.status.value }}
+        </StatusPill>
+      </div>
+      <pre class="stream-out mono">{{ echo.text.value || '· · ·' }}</pre>
+      <p
+        v-if="streamError"
+        class="msg err mono"
+      >
+        {{ streamError }}
+      </p>
+      <p class="hint">
+        Tokens stream over HTTP while persisting server-side — reload
+        mid-stream and the text is still here (the reactive
+        <code>body</code> query takes over). Credits settle only when the
+        stream completes; an interrupted stream never charges.
       </p>
     </LabPanel>
 
@@ -236,6 +370,31 @@ async function sendGift() {
 
 .meter { height: 12px; border-radius: 99px; background: var(--sink); box-shadow: var(--inset-sm); overflow: hidden; margin: 1.1rem 0 0.6rem; }
 .meter-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.3s var(--ease-out); }
+
+.text-input {
+  flex: 1; min-width: 200px; padding: 0.5rem 0.7rem; border-radius: var(--r-sm);
+  border: 1px solid var(--line); background: var(--sink); color: inherit; font-size: 0.85rem;
+}
+
+.fail-toggle { margin-top: 0.7rem; }
+
+.result {
+  margin-top: 0.9rem; padding: 0.7rem 0.85rem; border-radius: var(--r-sm);
+  background: var(--sink); box-shadow: var(--inset-sm);
+  display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.78rem;
+}
+.result-row { display: flex; gap: 0.7rem; align-items: baseline; }
+.result-key { color: var(--ink-faint); font-size: 0.68rem; min-width: 90px; }
+
+.stream-out {
+  margin: 0.9rem 0 0.4rem; padding: 0.8rem 0.9rem; border-radius: var(--r-sm);
+  background: var(--sink); box-shadow: var(--inset-sm);
+  font-size: 0.8rem; line-height: 1.6; min-height: 3.6rem;
+  white-space: pre-wrap; word-break: break-word;
+}
+
+.msg { margin: 0.7rem 0 0; font-size: 0.78rem; }
+.msg.err { color: var(--err); }
 
 .gift-input {
   flex: 1; min-width: 180px; padding: 0.5rem 0.7rem; border-radius: var(--r-sm);

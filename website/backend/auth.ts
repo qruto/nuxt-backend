@@ -31,9 +31,18 @@ export const {
         text: `Your code: ${otp}\n\nSent by the nuxt-backend playground with a custom template from backend/auth.ts.`,
       }),
     },
-    // Kick off a durable welcome workflow when a user signs up.
+    // Kick off a durable welcome workflow when a user signs up, and seed the
+    // playground's demo data. The seed is scheduled (not run inline): this
+    // hook fires mid-sign-up, before the session hook creates the personal
+    // workspace, and seeding a second workspace that early would steal the
+    // "first membership" slot the personal workspace claims.
     onUserCreated: async (ctx, user) => {
       await workflow.start(ctx, internal.workflows.onSignup, {
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+      })
+      await ctx.scheduler.runAfter(0, internal.seed.seedForUser, {
         userId: user.id,
         email: user.email,
         name: user.name,

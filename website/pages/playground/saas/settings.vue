@@ -5,19 +5,18 @@ import { api } from '#backend/api'
 definePageMeta({ middleware: 'auth' })
 
 // The page is the packaged <WorkspaceSettings>; the site adds one showcase
-// extra below it — spending a credit through the demo `consumeCredit` action.
-const credits = useCredits()
-const consumeCredit = useAction(api.billing.consumeCredit)
+// extra below it — spending a credit through the metered `ai.transform` action.
+const credits = useCredits('credits')
+const transform = useAction(api.ai.transform)
 
 const spending = ref(false)
 const spendError = ref<string | null>(null)
 
 async function spendCredit() {
-  if (!credits.meterId.value) return
   spendError.value = null
   spending.value = true
   try {
-    await consumeCredit({ meterId: credits.meterId.value })
+    await transform({ text: 'Spend one credit from settings' })
   }
   catch (e) {
     spendError.value = e instanceof Error ? e.message : 'Failed'
@@ -57,14 +56,15 @@ async function spendCredit() {
         <LabButton
           variant="signal"
           :loading="spending"
-          :disabled="!credits.meterId.value || (credits.balance.value ?? 0) < 1"
+          :disabled="(credits.balance.value ?? 0) < 1"
           @click="spendCredit"
         >
           Spend 1 credit
         </LabButton>
         <span class="hint">
-          Calls the demo <code>billing.consumeCredit</code> action — the
-          balance above updates reactively through the entitlement cache.
+          Calls the metered <code>ai.transform</code> action — the balance
+          above updates reactively through the entitlement cache (full demo on
+          <NuxtLink to="/playground/platform/credits">Credits</NuxtLink>).
         </span>
       </div>
       <p
