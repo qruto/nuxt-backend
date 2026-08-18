@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
-import { defineNuxtModule, addComponent, addImports, addServerHandler, addServerImports, addTypeTemplate, createResolver, extendPages, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
+import { defineNuxtModule, addComponent, addImports, addPlugin, addServerHandler, addServerImports, addTypeTemplate, createResolver, extendPages, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
 import { defu } from 'defu'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
 import { backendAppConfigDefaults, type BackendAppConfigInput } from './runtime/config'
@@ -12,6 +12,8 @@ import { scaffoldBackendFiles } from './scaffold'
 import { registerBackendAliases, backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from './aliases'
 import { collectPreflightFindings, formatPreflightSummary } from './preflight'
 import { BACKEND_PAGE_DEFS, collectExistingPagePaths, resolvePagePath, resolvedBackendPages, type BackendPageKey, type ModulePagesOptions } from './pages'
+import { buildDevtoolsInfo, computeDevtoolsPages, readPackageVersions } from './devtools/info'
+import type { DevtoolsPageInfo } from './devtools/rpc-types'
 import type { BackendInstallationMode } from './templates'
 import type { BackendMcpFunctionKey, BackendMcpToolName } from './runtime/server/mcp/builtin'
 
@@ -111,6 +113,14 @@ export interface ModuleOptions {
    * production); `false` disables it. See {@link ModuleMcpOptions}.
    */
   mcp?: boolean | ModuleMcpOptions
+  /**
+   * The Backend panel in Nuxt DevTools (dev only): preflight findings, env
+   * presence, mounted pages, the agent surface, and live identity/billing/
+   * credits/workspace state with recent webhook deliveries. Enabled by
+   * default whenever Nuxt DevTools is; set `false` to disable just the
+   * Backend tab.
+   */
+  devtools?: boolean
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -125,6 +135,7 @@ export default defineNuxtModule<ModuleOptions>({
     scaffold: 'auto',
     css: true,
     autoEnv: true,
+    devtools: true,
   },
   // The Convex + Better Auth + Polar framework integration. Declared as a
   // module dependency (not `installModule`) so Nuxt dedupes it when the app
@@ -188,7 +199,7 @@ export default defineNuxtModule<ModuleOptions>({
         : {}),
     }
   },
-  setup(options, nuxt) {
+  async setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
 
     // Scaffold the minimum Convex backend files (auth component mount, route
@@ -219,15 +230,49 @@ export default defineNuxtModule<ModuleOptions>({
       nuxt.options.css.push(resolver.resolve('./runtime/vue/components/ui.css'))
     }
 
-    registerModulePages(options, resolver, nuxt)
+    const pagesInfo = registerModulePages(options, resolver, nuxt)
 
     registerMcp(options, resolver, nuxt)
 
     runPreflight(options, nuxt)
 
     runDevAutoEnv(options, nuxt)
+
+    if (nuxt.options.dev && options.devtools !== false && isDevtoolsUiEnabled(nuxt)) {
+      // Lazy import keeps @nuxt/devtools-kit out of production module evaluation.
+      const { setupDevtools } = await import('./devtools/index')
+      const functionsDir = resolveFunctionsDir(nuxt.options.rootDir)
+      const mcp = resolveMcpOptions(options.mcp)
+      const siteUrlConfigured = isSiteUrlConfigured(options, nuxt)
+      const versions = readPackageVersions(nuxt.options.rootDir)
+      setupDevtools(resolver, nuxt, {
+        rootDir: nuxt.options.rootDir,
+        functionsDir,
+        // Rebuilt per RPC call so preflight findings (and the shadowed-page
+        // list `extendPages` fills during build) stay live in the panel.
+        getInfo: () => buildDevtoolsInfo({
+          env: process.env,
+          siteUrlConfigured,
+          options,
+          pages: pagesInfo.list,
+          appConfig: nuxt.options.appConfig.backend as BackendAppConfigInput | undefined,
+          mcp: mcp ? { route: mcp.route, builtin: mcp.tools?.builtin } : null,
+          versions,
+          functionsDir,
+        }),
+      })
+      // Appended so it runs after the plugins that provide the Convex client
+      // and the auth session.
+      addPlugin({ src: resolver.resolve('./runtime/devtools/plugin.client'), mode: 'client' }, { append: true })
+    }
   },
 })
+
+/** Whether the Nuxt DevTools UI itself is enabled for this app. */
+function isDevtoolsUiEnabled(nuxt: Nuxt): boolean {
+  const devtools = nuxt.options.devtools as boolean | { enabled?: boolean } | undefined
+  return typeof devtools === 'boolean' ? devtools : devtools?.enabled !== false
+}
 
 /** Resolve `backend.mcp` into effective options, or `null` when disabled. */
 function resolveMcpOptions(raw: ModuleOptions['mcp']): (ModuleMcpOptions & { route: string }) | null {
@@ -379,9 +424,14 @@ function runDevAutoEnv(options: ModuleOptions, nuxt: Nuxt): void {
  * page at the path, the module simply doesn't mount its own and logs the
  * override. The resolved paths are published to
  * `runtimeConfig.public.backend.pages` for cross-links between the pages.
+ *
+ * Returns a holder the DevTools `getInfo()` reads lazily: `extendPages` runs
+ * during build, after module setup, so the shadowed-page list is filled in
+ * place rather than returned by value.
  */
-function registerModulePages(options: ModuleOptions, resolver: Resolver, nuxt: Nuxt): void {
+function registerModulePages(options: ModuleOptions, resolver: Resolver, nuxt: Nuxt): { list: DevtoolsPageInfo[] } {
   const resolved = resolvedBackendPages(options.pages)
+  const info: { list: DevtoolsPageInfo[] } = { list: [] }
 
   const runtimeConfig = nuxt.options.runtimeConfig
   runtimeConfig.public.backend = {
@@ -389,10 +439,11 @@ function registerModulePages(options: ModuleOptions, resolver: Resolver, nuxt: N
     pages: resolved,
   }
 
-  if (options.pages === false) return
+  if (options.pages === false) return info
 
   extendPages((pages) => {
     const taken = collectExistingPagePaths(pages)
+    info.list = computeDevtoolsPages(resolved, taken)
     for (const def of BACKEND_PAGE_DEFS) {
       const path = resolved[def.key]
       if (!path) continue
@@ -408,6 +459,8 @@ function registerModulePages(options: ModuleOptions, resolver: Resolver, nuxt: N
       })
     }
   })
+
+  return info
 }
 
 /**
@@ -561,6 +614,21 @@ declare module '@nuxt/schema' {
 }
 
 /**
+ * Whether a Convex site URL reaches the base module — from the module option,
+ * either env name, explicit `convex.siteUrl` config, or slug derivation.
+ * Shared by the preflight run and the DevTools `getInfo()` builder.
+ */
+function isSiteUrlConfigured(options: ModuleOptions, nuxt: Nuxt): boolean {
+  return Boolean(
+    options.siteUrl
+    ?? process.env.NUXT_PUBLIC_CONVEX_SITE_URL
+    ?? process.env.NUXT_PUBLIC_BACKEND_SITE_URL
+    ?? ((nuxt.options as unknown as Record<string, unknown>).convex as { siteUrl?: string } | undefined)?.siteUrl
+    ?? deriveDeploymentUrls(nuxt.options.rootDir)?.siteUrl,
+  )
+}
+
+/**
  * Dev-startup environment preflight. Reports findings, never throws — a dev
  * server must still boot with an incomplete environment.
  */
@@ -568,13 +636,7 @@ function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
   if (!nuxt.options.dev || nuxt.options._prepare || nuxt.options.test) return
 
   const derived = deriveDeploymentUrls(nuxt.options.rootDir)
-  const siteUrlConfigured = Boolean(
-    options.siteUrl
-    ?? process.env.NUXT_PUBLIC_CONVEX_SITE_URL
-    ?? process.env.NUXT_PUBLIC_BACKEND_SITE_URL
-    ?? ((nuxt.options as unknown as Record<string, unknown>).convex as { siteUrl?: string } | undefined)?.siteUrl
-    ?? derived?.siteUrl,
-  )
+  const siteUrlConfigured = isSiteUrlConfigured(options, nuxt)
   if (derived?.source === 'deployment' && !options.url && !process.env.NUXT_PUBLIC_CONVEX_URL && !process.env.NUXT_PUBLIC_BACKEND_URL) {
     logger.info(`Convex URLs derived from ${derived.deployment} — no NUXT_PUBLIC_* URL vars needed.`)
   }

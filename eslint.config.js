@@ -10,9 +10,13 @@ export default createConfigForNuxt({
     // Rules for formatting
     stylistic: true,
   },
+  // Every Nuxt app in the repo, so the Nuxt-aware rules know which auto-imports
+  // and components exist in each (nuxt/starter#module-devtools registers its
+  // `client/` app the same way).
   dirs: {
     src: [
       './website',
+      './devtools-client-app',
     ],
   },
 })
@@ -62,9 +66,10 @@ export default createConfigForNuxt({
         '@typescript-eslint/no-explicit-any': 'off',
       },
     },
-    // Playground demos and example pages use short, single-word names by design.
+    // Playground demos, example pages, and DevTools panel pages use short,
+    // single-word names by design.
     {
-      files: ['website/**/*.vue', 'examples/**/*.vue'],
+      files: ['website/**/*.vue', 'examples/**/*.vue', 'devtools-client-app/**/*.vue'],
       rules: {
         'vue/multi-word-component-names': 'off',
       },

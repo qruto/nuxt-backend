@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "name": "nuxt-backend-devtools-client",
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --port 3631",
+    "generate": "nuxt generate"
+  },
+  "devDependencies": {
+    "@nuxt/devtools-kit": "^3.4.0",
+    "@nuxt/devtools-ui-kit": "3.4.0",
+    "nuxt": "catalog:"
+  }
+}

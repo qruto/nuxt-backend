@@ -4,6 +4,7 @@
 
 packages:
   - website
+  - devtools-client-app
   - examples/*
 
 # --- Catalog: one version, used across every workspace package ---------------

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  // Project references per Nuxt type context — the generated per-context
+  // tsconfigs replace the legacy `.nuxt/tsconfig.json` extends.
+  // https://nuxt.com/docs/4.x/guide/directory-structure/tsconfig
+  "files": [],
+  "references": [
+    { "path": "./.nuxt/tsconfig.app.json" },
+    { "path": "./.nuxt/tsconfig.server.json" },
+    { "path": "./.nuxt/tsconfig.shared.json" },
+    { "path": "./.nuxt/tsconfig.node.json" }
+  ]
+}
