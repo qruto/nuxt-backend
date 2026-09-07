@@ -31,7 +31,7 @@ jobs:
           persist-credentials: false
 
       - name: Install pnpm, node & dependencies
-        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+        uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           runtime: node@lts
           cache: true
@@ -54,7 +54,7 @@ jobs:
           persist-credentials: false
 
       - name: Install pnpm, node & dependencies
-        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+        uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           runtime: node@lts
           cache: true
@@ -87,7 +87,7 @@ jobs:
           persist-credentials: false
 
       - name: Install pnpm, node & dependencies
-        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+        uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           runtime: node@lts
           cache: true
@@ -117,7 +117,7 @@ jobs:
           persist-credentials: false
 
       - name: Install pnpm, node & dependencies
-        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+        uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           runtime: node@${{ matrix.node }}
           cache: true
@@ -165,7 +165,7 @@ jobs:
           persist-credentials: false
 
       - name: Workflow lint (zizmor)
-        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+        uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
         with:
           advanced-security: false
 
@@ -177,7 +177,7 @@ jobs:
           persist-credentials: false
 
       - name: Install pnpm, node & dependencies
-        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+        uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           runtime: node@lts
           cache: true

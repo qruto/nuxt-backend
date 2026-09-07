@@ -44,7 +44,7 @@ jobs:
       # write. Tighten to `egress-policy: block` with an allowlist once the
       # first releases have produced a baseline audit report.
       - name: Harden runner
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
@@ -70,7 +70,7 @@ jobs:
       # and `pnpm install` (frozen automatically in CI). The pnpm that publishes
       # below is therefore the exact version the lockfile was authored with.
       - name: Install pnpm, node & dependencies
-        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+        uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           runtime: node@lts
           cache: true
