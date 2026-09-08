@@ -99,14 +99,14 @@ describe('setupMcp token exchange', () => {
     expect((await exchangeHandler(ctx, exchangeRequest('opaque'))).status).toBe(401)
 
     const banned = fakeAuth({ ...validState, user: { ...validState.user, banned: true } })
-    const { exchangeHandler: bannedHandler } = setupMcp({ createAuth: () => banned.auth })
+    const { exchangeHandler: bannedHandler } = setupMcp({ createAuth: () => banned.auth, createSignerAuth: () => banned.auth })
     expect((await bannedHandler(ctx, exchangeRequest('opaque'))).status).toBe(401)
   })
 
   it('rate limits per client+user through the mcp named limit', async () => {
     const { auth } = fakeAuth(validState)
     const limit = vi.fn(async () => ({ ok: false, retryAfter: 2500 }))
-    const { exchangeHandler } = setupMcp({ createAuth: () => auth, rateLimiter: { limit } })
+    const { exchangeHandler } = setupMcp({ createAuth: () => auth, createSignerAuth: () => auth, rateLimiter: { limit } })
 
     const response = await exchangeHandler(ctx, exchangeRequest('opaque'))
 
@@ -117,7 +117,7 @@ describe('setupMcp token exchange', () => {
 
   it('answers 404 when the provider is disabled', async () => {
     const { auth } = fakeAuth(validState)
-    const { exchangeHandler } = setupMcp({ createAuth: () => auth, enabled: false })
+    const { exchangeHandler } = setupMcp({ createAuth: () => auth, createSignerAuth: () => auth, enabled: false })
 
     const response = await exchangeHandler(ctx, exchangeRequest('opaque'))
 

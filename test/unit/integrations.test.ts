@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_AUTH_LIMITS, setupRateLimiter } from '../../src/convex/integrations/rate-limit'
+import { DEFAULT_LIMITS, setupRateLimiter } from '../../src/convex/integrations/rate-limit'
 import { setupWorkflows } from '../../src/convex/integrations/workflows'
 import { setupMigrations } from '../../src/convex/integrations/migrations'
 import { setupBilling } from '../../src/convex/integrations/billing'
@@ -28,9 +28,9 @@ afterEach(() => {
 
 describe('setupRateLimiter', () => {
   it('seeds only limits with a real consumer (no dead password/sign-in limits)', () => {
-    expect(Object.keys(DEFAULT_AUTH_LIMITS)).toEqual(['emailOtp', 'billingSync', 'ai', 'mcp'])
-    expect(DEFAULT_AUTH_LIMITS.emailOtp).toMatchObject({ kind: 'token bucket' })
-    expect(DEFAULT_AUTH_LIMITS.ai).toMatchObject({ kind: 'token bucket', rate: 30 })
+    expect(Object.keys(DEFAULT_LIMITS)).toEqual(['emailOtp', 'billingSync', 'ai', 'mcp'])
+    expect(DEFAULT_LIMITS.emailOtp).toMatchObject({ kind: 'token bucket' })
+    expect(DEFAULT_LIMITS.ai).toMatchObject({ kind: 'token bucket', rate: 30 })
   })
 
   it('merges custom limits on top of the defaults', () => {

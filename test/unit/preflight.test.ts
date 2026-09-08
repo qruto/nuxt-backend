@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { collectPreflightFindings, formatPreflightSummary, type PreflightFinding } from '../../src/preflight'
+import { backendEnv } from '../../src/convex/app'
+import { collectPreflightFindings, DEV_ONLY_DEPLOYMENT_ENV, formatPreflightSummary, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../../src/preflight'
 
 function byId(findings: PreflightFinding[], id: string): PreflightFinding {
   const finding = findings.find(f => f.id === id)
@@ -18,6 +19,24 @@ const fullEnv = {
   BILLING_WEBHOOK_SECRET: 'whsec_billing',
   BILLING_ENVIRONMENT: 'sandbox',
 }
+
+describe('deployment env contract', () => {
+  it('names every backendEnv var exactly once across the required and optional tiers', () => {
+    // `env push`, `doctor`, and the DevTools env tab iterate these two lists —
+    // a var declared in `backendEnv` but missing here is silently never
+    // pushed or reported.
+    const tiers = [...REQUIRED_DEPLOYMENT_ENV, ...Object.keys(OPTIONAL_DEPLOYMENT_ENV)].sort()
+    expect(tiers).toEqual(Object.keys(backendEnv).sort())
+    expect(new Set(tiers).size).toBe(tiers.length)
+  })
+
+  it('lists only optional vars as dev-only', () => {
+    for (const name of DEV_ONLY_DEPLOYMENT_ENV) {
+      expect(OPTIONAL_DEPLOYMENT_ENV).toHaveProperty(name)
+    }
+    expect(DEV_ONLY_DEPLOYMENT_ENV.has('AUTH_TRUST_LOCAL_ORIGINS')).toBe(true)
+  })
+})
 
 describe('collectPreflightFindings', () => {
   it('passes on a fully configured environment', () => {

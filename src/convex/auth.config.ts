@@ -1,6 +1,6 @@
 import { getAuthConfigProvider } from '@convex-dev/better-auth/auth-config'
 import type { AuthConfig } from 'convex/server'
-import { DEFAULT_AUTH_ROUTE } from './constants'
+import { DEFAULT_AUTH_ROUTE } from './constants.js'
 
 export interface DefineBackendAuthConfigOptions {
   basePath?: string

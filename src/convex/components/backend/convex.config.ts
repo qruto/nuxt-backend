@@ -22,12 +22,14 @@ import resend from '@convex-dev/resend/convex.config'
  *
  * Billing — only the entitlement cache + gift records live here. The Polar
  * component operates over the app's auth + HTTP routes and can't be nested, so
- * it mounts at the app level (see `installBackend` in `src/convex/app.ts`).
+ * it mounts at the app level (the scaffolded root `convex.config.ts` does
+ * this — see `DEFAULT_CONVEX_CONFIG` in `src/templates.ts`).
  *
  * Components are isolated from the app's environment variables, so `backend`
  * declares the email config it needs here; the mounting app forwards the
  * deployment's values by reference via `app.use(backend, { env: {...} })`
- * (`installBackend` does this). The component reads them type-safely through
+ * (the scaffolded `convex.config.ts` does this). The component reads them
+ * type-safely through
  * the generated `env` export (see `email.ts`). All optional — a deploy
  * succeeds without them and email degrades in a designed way (sends no-op,
  * OTP throws loudly, webhooks rejected) until `EMAIL_API_KEY` is set.

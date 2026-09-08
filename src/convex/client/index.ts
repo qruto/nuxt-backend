@@ -5,10 +5,10 @@ import { betterAuth, type BetterAuthOptions } from 'better-auth/minimal'
 import { admin, emailOTP, jwt, mcp, organization } from 'better-auth/plugins'
 import { mutationGeneric, type AnyComponents, type AuthConfig, type FunctionReference, type GenericActionCtx, type GenericDataModel, type GenericMutationCtx, type GenericSchema, type QueryBuilder, type SchemaDefinition } from 'convex/server'
 import { v } from 'convex/values'
-import authConfig from '../auth.config'
-import { BACKEND_MCP_SCOPES, DEFAULT_AUTH_ROUTE, DEFAULT_INVITATION_PATH, DEFAULT_LOGIN_PATH } from '../constants'
-import { authSchema } from '../components/backend/schema'
-import { setupMcp, type McpExchange } from '../integrations/mcp'
+import authConfig from '../auth.config.js'
+import { BACKEND_MCP_SCOPES, DEFAULT_AUTH_ROUTE, DEFAULT_INVITATION_PATH, DEFAULT_LOGIN_PATH } from '../constants.js'
+import { authSchema } from '../components/backend/schema.js'
+import { setupMcp, type McpExchange } from '../integrations/mcp.js'
 
 /**
  * Default passkey plugin. Registration requires an authenticated session (the
@@ -108,6 +108,12 @@ export interface AuthIntegrations<DM extends GenericDataModel = GenericDataModel
   onUserCreated?: OnUserCreated<DM>
   /** Override any of the default auth-email templates (welcome/otp/verify/change/delete/invite). */
   emailTemplates?: Partial<AuthEmailTemplates>
+  /**
+   * Send the packaged welcome email right after signup (default `true`).
+   * Set `false` when the app owns onboarding — e.g. a durable email sequence
+   * started from `onUserCreated` — so new users don't get two welcomes.
+   */
+  welcomeEmail?: boolean
 }
 
 /** Per-request runtime carrying the ctx and resolved integrations. */
@@ -117,6 +123,7 @@ interface AuthRuntime<DM extends GenericDataModel = GenericDataModel> {
   rateLimiter?: AuthRateLimiter
   onUserCreated?: OnUserCreated<DM>
   emailTemplates?: Partial<AuthEmailTemplates>
+  welcomeEmail?: boolean
 }
 
 type OtpPurpose = 'sign-in' | 'email-verification' | 'forget-password' | 'change-email'
@@ -413,8 +420,8 @@ type ComponentEmailRef = FunctionReference<
 /**
  * Build an {@link AuthEmailSender} that routes auth emails through the
  * `backend` component's email module. This is what makes transactional email
- * work out of the box — `installBackend` mounts `backend`, and the consumer
- * just sets `EMAIL_API_KEY`.
+ * work out of the box — the scaffolded `convex.config.ts` mounts `backend`,
+ * and the consumer just sets `EMAIL_API_KEY`.
  *
  * Returns `undefined` if the component ref has no `email` module (e.g. a
  * stripped-down locally installed component), in which case OTP requests
@@ -673,7 +680,7 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
   // and run the consumer's onUserCreated hook (workflows, analytics).
   const createAfterHook = emailCtx
     ? async (user: { id: string, email: string, name: string }) => {
-      if (canSendEmail) {
+      if (canSendEmail && runtime?.welcomeEmail !== false) {
         await emailSender!(emailCtx, templates.welcome({ email: user.email, name: user.name }))
       }
       if (onUserCreated) {
@@ -682,10 +689,30 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
     }
     : undefined
 
+  // Opt-in for local development: trust the loopback origins the Nuxt dev
+  // server actually runs on (any port), in addition to SITE_URL. Off unless
+  // AUTH_TRUST_LOCAL_ORIGINS is set on the deployment — never enable in prod.
+  const trustLocalOrigins = readEnv('AUTH_TRUST_LOCAL_ORIGINS') === '1'
+  const configuredTrusted = resolvedAuthOptions.trustedOrigins
+  type TrustedOriginsFn = Extract<NonNullable<BetterAuthOptions['trustedOrigins']>, (...args: never[]) => unknown>
+  // Better Auth also evaluates trustedOrigins without a request (e.g. while
+  // building the session/CSRF context), so the request is optional here.
+  const loopbackOrigins: TrustedOriginsFn = (async (request?: Request) => {
+    const base = typeof configuredTrusted === 'function'
+      ? await (configuredTrusted as (request?: Request) => unknown)(request)
+      : configuredTrusted
+    const list = (Array.isArray(base) ? base : []).filter((entry): entry is string => typeof entry === 'string')
+    const origin = request?.headers?.get('origin') ?? ''
+    const isLoopback = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(origin)
+    return isLoopback ? [...list, origin] : list
+  }) as TrustedOriginsFn
+  const trustedOrigins: BetterAuthOptions['trustedOrigins'] = trustLocalOrigins ? loopbackOrigins : configuredTrusted
+
   return {
     ...resolvedAuthOptions,
     ...(siteUrl ? { baseURL: siteUrl } : {}),
     ...(secret ? { secret } : {}),
+    ...(trustedOrigins ? { trustedOrigins } : {}),
     basePath: resolvedBasePath,
     database,
     // Passwordless by default; consumers may still enable email+password here.

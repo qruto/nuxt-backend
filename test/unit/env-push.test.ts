@@ -49,6 +49,19 @@ describe('planEnvPush', () => {
     expect(byName(actions, 'EMAIL_API_KEY').action).toBe('forward')
     expect(actions.find(a => a.name === 'NUXT_BACKEND_LOG_OTP')).toBeUndefined()
   })
+
+  it('forwards the dev-only loopback trust flag to a dev deployment only', () => {
+    const localEnv = { AUTH_TRUST_LOCAL_ORIGINS: '1' }
+    expect(byName(planEnvPush({ deployedNames: [], localEnv, dev: true }), 'AUTH_TRUST_LOCAL_ORIGINS'))
+      .toMatchObject({ action: 'forward', value: '1' })
+    // A production push never carries it, even when .env.local has it.
+    const prod = byName(planEnvPush({ deployedNames: [], localEnv, dev: false }), 'AUTH_TRUST_LOCAL_ORIGINS')
+    expect(prod.action).toBe('unset')
+    expect(prod.value).toBeUndefined()
+    expect(prod.detail).toContain('dev-only')
+    // Unset locally: reported as optional on dev, dev-only on prod — never invented.
+    expect(byName(planEnvPush({ deployedNames: [], localEnv: {}, dev: true }), 'AUTH_TRUST_LOCAL_ORIGINS').action).toBe('unset')
+  })
 })
 
 describe('executeEnvPush', () => {

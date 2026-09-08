@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
-import { mutation, query } from './_generated/server'
-import { vEntitlementBenefit, vEntitlementMeter } from './schema'
+import { mutation, query } from './_generated/server.js'
+import { vEntitlementBenefit, vEntitlementMeter } from './schema.js'
 
 /**
  * How long an unsettled spend reservation stays effective. A flow that

@@ -1,4 +1,5 @@
 import dedent from 'dedent'
+import { COMPONENT_MODULE_EXPORTS, SCHEMA_EXPORTS } from './templates.generated'
 
 const AUTH_CONFIG_TEMPLATE = `export { default } from 'nuxt-backend/auth.config'\n`
 
@@ -32,19 +33,57 @@ const HTTP_TEMPLATE = dedent`
   ` + '\n'
 
 /**
- * Local-install `convex.config.ts`: the whole `backend` component (and its
- * schema) is installed locally so it can be customized; the upstream
- * components still come bundled from the package — `defineBackendApp` mounts
- * them all, swapping in the local `backend` definition.
+ * Local-install `convex.config.ts`: the same explicit app definition as
+ * {@link DEFAULT_CONVEX_CONFIG}, but the whole `backend` component (and its
+ * schema) is installed locally so it can be customized — the app mounts the
+ * local definition; the upstream components still come bundled from the
+ * package.
  */
 const LOCAL_CONVEX_CONFIG = dedent`
-  import { defineBackendApp } from 'nuxt-backend/app'
+  import { defineApp } from 'convex/server'
+  import { backendEnv } from 'nuxt-backend/app'
+  import aggregate from '@convex-dev/aggregate/convex.config'
+  import migrations from '@convex-dev/migrations/convex.config'
+  import persistentTextStreaming from '@convex-dev/persistent-text-streaming/convex.config'
+  import polar from '@convex-dev/polar/convex.config'
+  import rateLimiter from '@convex-dev/rate-limiter/convex.config'
+  import workflow from '@convex-dev/workflow/convex.config'
+  // The locally installed all-in-one backend component — and therefore its
+  // schema — is customizable (see ./components/backend/schema.ts).
   import backend from './components/backend/convex.config'
 
-  // The upstream components (aggregate, migrations, Polar, rate limiter,
-  // workflows) still mount from the package; the all-in-one backend component
-  // — and therefore its schema — is locally installed and customizable.
-  export default defineBackendApp({ components: { backend } })
+  // Explicit on purpose. Convex discovers components by intercepting every
+  // \`convex.config\` import while bundling this file, and current backends
+  // reject the push (start_push 500) when such an import is reached through an
+  // intermediate module or the components are mounted in a loop — so every
+  // component is imported and mounted right here, one app.use() per component.
+  // Mount your own components after them.
+  //
+  // The env contract is the package's: AUTH_SECRET + SITE_URL are required,
+  // the rest optional with designed fallbacks (\`npx nuxt-backend env push\`
+  // syncs them from .env.local). Extend it with your own vars:
+  // defineApp({ env: { ...backendEnv, MY_VAR: v.optional(v.string()) } })
+  const app = defineApp({ env: backendEnv })
+
+  // Components are isolated from the app env — forward the email config by
+  // reference so the deployment's values reach the backend component (auth,
+  // email, billing cache, gifts — the email provider is nested inside).
+  app.use(backend, {
+    env: {
+      EMAIL_API_KEY: app.env.EMAIL_API_KEY,
+      EMAIL_FROM: app.env.EMAIL_FROM,
+      EMAIL_TEST_MODE: app.env.EMAIL_TEST_MODE,
+      EMAIL_WEBHOOK_SECRET: app.env.EMAIL_WEBHOOK_SECRET,
+    },
+  })
+  app.use(aggregate)
+  app.use(migrations)
+  app.use(persistentTextStreaming)
+  app.use(polar)
+  app.use(rateLimiter)
+  app.use(workflow)
+
+  export default app
   ` + '\n'
 
 /**
@@ -282,8 +321,8 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     import { setupRateLimiter } from 'nuxt-backend/rate-limit'
     import { components } from './_generated/api'
 
-    // Application rate limiting. Pre-seeded with the auth limits (emailOtp,
-    // signIn, signUp, passwordReset) — add your own named limits here.
+    // Application rate limiting. Pre-seeded with the package defaults (emailOtp,
+    // billingSync, ai, mcp) — add your own named limits here.
     export const rateLimiter = setupRateLimiter(components)
     ` + '\n',
 
@@ -377,22 +416,59 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
 }
 
 /**
- * Default `convex.config.ts`: zero component imports. `defineBackendApp()`
- * itself imports and mounts the all-in-one `backend` component (auth + email +
- * billing + gifts) plus the upstream components (aggregate, migrations, Polar,
- * rate limiter, workflows), declares the deployment env vars, and forwards the
- * email env.
+ * Default `convex.config.ts`: the explicit app definition — every component
+ * imported and mounted in the root file, one `app.use` each. Deliberately
+ * NOT a one-call helper: current (2026-08) Convex backends crash the push
+ * (`start_push 500`) when a `convex.config` import is reached through an
+ * intermediate module or `app.use` runs in a loop. Mounts the all-in-one
+ * `backend` component (auth + email + billing + gifts) plus the upstream
+ * components (aggregate, migrations, persistent text streaming, Polar, rate
+ * limiter, workflows), declares the deployment env via `backendEnv`, and
+ * forwards the email env.
  */
 const DEFAULT_CONVEX_CONFIG = dedent`
-  import { defineBackendApp } from 'nuxt-backend/app'
+  import { defineApp } from 'convex/server'
+  import { backendEnv } from 'nuxt-backend/app'
+  import backend from 'nuxt-backend/component/convex.config'
+  import aggregate from '@convex-dev/aggregate/convex.config'
+  import migrations from '@convex-dev/migrations/convex.config'
+  import persistentTextStreaming from '@convex-dev/persistent-text-streaming/convex.config'
+  import polar from '@convex-dev/polar/convex.config'
+  import rateLimiter from '@convex-dev/rate-limiter/convex.config'
+  import workflow from '@convex-dev/workflow/convex.config'
 
-  // One call mounts the all-in-one backend component (auth, email, billing
-  // cache, gifts) plus aggregate, migrations, Polar, rate limiter and
-  // workflows, declares the deployment env vars (AUTH_SECRET + SITE_URL
-  // required, the rest optional) and forwards the email config.
-  // Customize via defineBackendApp({ omit, components, env }), or call
-  // app.use(...) on the returned app for your own components.
-  export default defineBackendApp()
+  // Explicit on purpose. Convex discovers components by intercepting every
+  // \`convex.config\` import while bundling this file, and current backends
+  // reject the push (start_push 500) when such an import is reached through an
+  // intermediate module or the components are mounted in a loop — so every
+  // component is imported and mounted right here, one app.use() per component.
+  // Mount your own components after them.
+  //
+  // The env contract is the package's: AUTH_SECRET + SITE_URL are required,
+  // the rest optional with designed fallbacks (\`npx nuxt-backend env push\`
+  // syncs them from .env.local). Extend it with your own vars:
+  // defineApp({ env: { ...backendEnv, MY_VAR: v.optional(v.string()) } })
+  const app = defineApp({ env: backendEnv })
+
+  // Components are isolated from the app env — forward the email config by
+  // reference so the deployment's values reach the backend component (auth,
+  // email, billing cache, gifts — the email provider is nested inside).
+  app.use(backend, {
+    env: {
+      EMAIL_API_KEY: app.env.EMAIL_API_KEY,
+      EMAIL_FROM: app.env.EMAIL_FROM,
+      EMAIL_TEST_MODE: app.env.EMAIL_TEST_MODE,
+      EMAIL_WEBHOOK_SECRET: app.env.EMAIL_WEBHOOK_SECRET,
+    },
+  })
+  app.use(aggregate)
+  app.use(migrations)
+  app.use(persistentTextStreaming)
+  app.use(polar)
+  app.use(rateLimiter)
+  app.use(workflow)
+
+  export default app
   ` + '\n'
 
 /**
@@ -436,6 +512,9 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
         // through the backend component — configured by the EMAIL_* env vars.
         // Throttle OTP sends and other auth-sensitive flows.
         rateLimiter,
+        // The onboarding sequence below sends its own welcome, so skip the
+        // packaged welcome email (new users would get two otherwise).
+        welcomeEmail: false,
         // Kick off a durable welcome workflow when a user signs up.
         onUserCreated: async (ctx, user) => {
           await workflow.start(ctx, internal.workflows.onSignup, {
@@ -456,6 +535,96 @@ export type BackendInstallationMode = 'default' | 'local'
 export interface BackendTemplateOptions {
   installation?: BackendInstallationMode
 }
+
+type ComponentModule = keyof typeof COMPONENT_MODULE_EXPORTS
+type SchemaExport = (typeof SCHEMA_EXPORTS)[number]
+
+/**
+ * A local-install re-export file: every value export of a packaged module —
+ * taken from the generated list (`pnpm templates:generate`), so the scaffold
+ * cannot drift from the component — re-exported from its package subpath,
+ * under a note on what the module is.
+ */
+function reexportTemplate(names: readonly string[], specifier: string, note: readonly string[]) {
+  return [
+    ...note.map(line => `// ${line}`),
+    'export {',
+    ...names.map(name => `  ${name},`),
+    `} from '${specifier}'`,
+    '',
+  ].join('\n')
+}
+
+/**
+ * What each packaged function module does — the header of its re-export
+ * file, ending with the customization hint.
+ */
+const COMPONENT_MODULE_NOTES: Record<ComponentModule, readonly string[]> = {
+  ai: [
+    'The packaged metered-AI request plumbing — the reserve → settle',
+    'bookkeeping behind `setupAi().stream`. Inline the implementation to',
+    'customize it.',
+  ],
+  billing: [
+    'The packaged entitlement-cache module: the reactive feature/credit',
+    'cache, reserve → settle credit spend, and benefit metadata. Inline the',
+    'implementation to customize it.',
+  ],
+  email: [
+    'The packaged email module (send / status / cancel + webhook over the',
+    'nested provider component). Inline the implementation to customize it.',
+  ],
+  gifts: [
+    'The packaged gift-purchase module. Inline the implementation to',
+    'customize it.',
+  ],
+  webhooks: [
+    'The packaged webhook delivery log — redelivery dedupe and the DevTools',
+    'feed. Inline the implementation to customize it.',
+  ],
+}
+
+/** `components/backend/<name>.ts` — a thin re-export of the packaged module. */
+function componentModuleTemplate(name: ComponentModule) {
+  return reexportTemplate(
+    COMPONENT_MODULE_EXPORTS[name],
+    `nuxt-backend/component/${name}`,
+    COMPONENT_MODULE_NOTES[name],
+  )
+}
+
+/**
+ * The table groups the packaged schema spreads into the component's full
+ * schema, in its order (the auth `tables` first — the base every install
+ * customizes). Typed against the generated export list, so a renamed group
+ * fails to compile here; the parity test checks that no group is missing.
+ */
+export const SCHEMA_TABLE_GROUPS = ['tables', 'billingTables', 'aiTables', 'webhookTables'] as const satisfies readonly SchemaExport[]
+
+/** `components/backend/generated-schema.ts` — every export of the packaged schema. */
+const GENERATED_SCHEMA_TEMPLATE = reexportTemplate(SCHEMA_EXPORTS, 'nuxt-backend/component/schema', [
+  'The packaged component schema — the auth tables, the billing / AI /',
+  'webhook table groups, and the shared validators. Customize in ./schema.ts.',
+])
+
+/**
+ * `components/backend/schema.ts` — the customizable auth schema plus the
+ * component's full schema, composed of every packaged table group.
+ */
+const LOCAL_SCHEMA_TEMPLATE = [
+  `import { defineSchema } from 'convex/server'`,
+  `import { ${[...SCHEMA_TABLE_GROUPS].sort().join(', ')} } from './generated-schema'`,
+  '',
+  '// Customize the auth tables here — add fields or your own tables. The other',
+  '// groups (billing/gift cache, AI request plumbing, webhook log) come from',
+  '// the package; the default export is the component\'s full schema.',
+  'export const authSchema = defineSchema(tables)',
+  '',
+  'export default defineSchema({',
+  ...SCHEMA_TABLE_GROUPS.map(group => `  ...${group},`),
+  '})',
+  '',
+].join('\n')
 
 export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
   'convex.config.ts': LOCAL_CONVEX_CONFIG,
@@ -503,7 +672,8 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
 
     // The locally installed all-in-one backend component. The email provider
     // component is nested inside, and the email env is declared here (the app
-    // forwards the deployment's values — defineBackendApp does this for you).
+    // forwards the deployment's values — the scaffolded convex.config.ts does
+    // this for you).
     // Note: under pnpm, add \`@convex-dev/resend\` as a direct dependency so
     // this import resolves.
     const component = defineComponent('backend', {
@@ -519,21 +689,8 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
 
     export default component
     ` + '\n',
-  'components/backend/generated-schema.ts': `export { tables, billingTables, vEntitlementBenefit, vEntitlementMeter, vGift } from 'nuxt-backend/component/schema'\n`,
-  'components/backend/schema.ts': dedent`
-    import { defineSchema } from 'convex/server'
-    import { billingTables, tables } from './generated-schema'
-
-    // Customize the auth tables here — add fields or your own tables. The
-    // billing/gift tables come from the package; the default export is the
-    // component's full schema.
-    export const authSchema = defineSchema(tables)
-
-    export default defineSchema({
-      ...tables,
-      ...billingTables,
-    })
-    ` + '\n',
+  'components/backend/generated-schema.ts': GENERATED_SCHEMA_TEMPLATE,
+  'components/backend/schema.ts': LOCAL_SCHEMA_TEMPLATE,
   'components/backend/adapter.ts': dedent`
     import { createApi } from '@convex-dev/better-auth'
     import { createAuthOptions } from '../../auth'
@@ -549,21 +706,11 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
       deleteMany,
     } = createApi(authSchema, createAuthOptions)
     ` + '\n',
-  'components/backend/email.ts': dedent`
-    // The packaged email module (send / status / cancel + webhook over the
-    // nested provider component). Inline the implementation to customize it.
-    export { send, status, get, cancel, handleWebhook } from 'nuxt-backend/component/email'
-    ` + '\n',
-  'components/backend/billing.ts': dedent`
-    // The packaged entitlement-cache module. Inline the implementation to
-    // customize it.
-    export { getByUser, upsert, clear, userByCustomer } from 'nuxt-backend/component/billing'
-    ` + '\n',
-  'components/backend/gifts.ts': dedent`
-    // The packaged gift-purchase module. Inline the implementation to
-    // customize it.
-    export { create, markPaid, markClaimed, listByEmail, get, resolveRecipient } from 'nuxt-backend/component/gifts'
-    ` + '\n',
+  'components/backend/email.ts': componentModuleTemplate('email'),
+  'components/backend/billing.ts': componentModuleTemplate('billing'),
+  'components/backend/gifts.ts': componentModuleTemplate('gifts'),
+  'components/backend/ai.ts': componentModuleTemplate('ai'),
+  'components/backend/webhooks.ts': componentModuleTemplate('webhooks'),
   'components/backend/auth.ts': dedent`
     import { createAuth } from '../../auth'
 

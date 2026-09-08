@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
-import type { Doc } from './_generated/dataModel'
-import { mutation, query } from './_generated/server'
-import { vGift } from './schema'
+import type { Doc } from './_generated/dataModel.js'
+import { mutation, query } from './_generated/server.js'
+import { vGift } from './schema.js'
 
 /**
  * Gift purchases: one user pays for products that a recipient (identified by

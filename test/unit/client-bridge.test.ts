@@ -95,7 +95,7 @@ describe('admin + organization defaults', () => {
       options?: { oidcConfig?: { scopes?: string[], metadata?: { scopes_supported?: string[] } } }
     }
     const oidcConfig = mcpPlugin.options?.oidcConfig
-    for (const scope of ['profile:write', 'billing:read', 'billing:checkout', 'workspace:read', 'act']) {
+    for (const scope of ['profile:write', 'billing:read', 'billing:checkout', 'workspace:read']) {
       expect(oidcConfig?.scopes).toContain(scope)
       expect(oidcConfig?.metadata?.scopes_supported).toContain(scope)
     }

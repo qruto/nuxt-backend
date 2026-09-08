@@ -38,9 +38,11 @@ export const REQUIRED_DEPLOYMENT_ENV = ['AUTH_SECRET', 'SITE_URL'] as const
 /**
  * Optional deployment env with the designed degradation each one's absence
  * causes — shared by preflight, doctor, and `env push` so the wording never
- * forks.
+ * forks. Mirrors the optional tier of `backendEnv` (`src/convex/app.ts`);
+ * `test/unit/preflight.test.ts` pins the two lists together.
  */
 export const OPTIONAL_DEPLOYMENT_ENV = {
+  AUTH_TRUST_LOCAL_ORIGINS: 'only SITE_URL is trusted as a browser origin (dev-only: set to "1" on a dev deployment to also trust http://localhost:* and http://127.0.0.1:*)',
   EMAIL_API_KEY: 'email sends no-op and OTP sign-in throws (NUXT_BACKEND_LOG_OTP=1 echoes codes to the convex dev console)',
   EMAIL_FROM: 'the provider onboarding sender is used',
   EMAIL_TEST_MODE: 'test mode stays ON (set to "false" to deliver for real)',
@@ -49,6 +51,13 @@ export const OPTIONAL_DEPLOYMENT_ENV = {
   BILLING_WEBHOOK_SECRET: 'billing events are rejected — entitlements refresh only on demand (syncEntitlements)',
   BILLING_ENVIRONMENT: 'the sandbox billing environment is used',
 } as const satisfies Record<string, string>
+
+/**
+ * The optional vars that only make sense on a dev-class deployment: `env
+ * push` never forwards them to a non-dev deployment, and `doctor` treats their
+ * absence there as the healthy state (presence as a warning).
+ */
+export const DEV_ONLY_DEPLOYMENT_ENV: ReadonlySet<string> = new Set<keyof typeof OPTIONAL_DEPLOYMENT_ENV>(['AUTH_TRUST_LOCAL_ORIGINS'])
 
 export function collectPreflightFindings({ env, siteUrlConfigured, mcp }: PreflightInput): PreflightFinding[] {
   const findings: PreflightFinding[] = []

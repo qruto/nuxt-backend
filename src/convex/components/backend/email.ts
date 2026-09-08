@@ -1,8 +1,8 @@
 import { type EmailId, Resend, type SendEmailOptions } from '@convex-dev/resend'
 import { v } from 'convex/values'
 import { Webhook } from 'svix'
-import { components } from './_generated/api'
-import { action, env, mutation, query } from './_generated/server'
+import { components } from './_generated/api.js'
+import { action, env, mutation, query } from './_generated/server.js'
 
 /**
  * Email sending, served by the `backend` component itself via the nested Resend

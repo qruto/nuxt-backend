@@ -1,7 +1,7 @@
 import { actionGeneric, httpActionGeneric, queryGeneric, type Auth, type FunctionReference, type GenericActionCtx, type GenericDataModel } from 'convex/server'
 import { v, type ObjectType, type PropertyValidators } from 'convex/values'
 import { PersistentTextStreaming, type StreamId } from '@convex-dev/persistent-text-streaming'
-import type { Billing, SpendReservation } from './billing'
+import type { Billing, SpendReservation } from './billing.js'
 
 /**
  * The rails for selling metered AI features: wrap any Convex action so it is

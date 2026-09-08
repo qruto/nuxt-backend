@@ -13,7 +13,8 @@ export interface RateLimiterComponents {
 }
 
 /**
- * Conservative default rate limits guarding sensitive flows. Each is keyed per
+ * The package's default rate limits — `emailOtp`, `billingSync`, `ai`, and
+ * `mcp` — guarding the flows the package itself drives. Each is keyed per
  * email/entity at the call site (e.g. `limit(ctx, 'emailOtp', { key: email })`).
  * Extend or override any of them by passing your own limits to
  * {@link setupRateLimiter}.
@@ -46,14 +47,11 @@ export const DEFAULT_LIMITS = {
   mcp: { kind: 'token bucket', rate: 60, period: MINUTE, capacity: 20 },
 } as const satisfies Record<string, RateLimitConfig>
 
-/** @deprecated Renamed {@link DEFAULT_LIMITS} — the set is no longer auth-only. */
-export const DEFAULT_AUTH_LIMITS = DEFAULT_LIMITS
-
 /**
  * Configure the {@link https://www.convex.dev/components/rate-limiter | Rate
  * Limiter} component, pre-seeded with {@link DEFAULT_LIMITS}. Pass extra
  * named limits to cover your own application functions; they are merged with
- * (and can override) the auth defaults.
+ * (and can override) the package defaults.
  *
  * @example
  * ```ts
@@ -74,7 +72,7 @@ export function setupRateLimiter<
 ): RateLimiter<typeof DEFAULT_LIMITS & Limits> {
   // Intersect the default and custom limit types so callers keep autocomplete
   // and known-name typing on `.limit(ctx, 'yourLimit')` (no inline `config`
-  // required) for both the auth defaults and their own limits.
+  // required) for both the package defaults and their own limits.
   return new RateLimiter<typeof DEFAULT_LIMITS & Limits>(
     components.rateLimiter,
     { ...DEFAULT_LIMITS, ...limits } as typeof DEFAULT_LIMITS & Limits,

@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { mutation, query } from './_generated/server'
+import { mutation, query } from './_generated/server.js'
 
 /**
  * Webhook delivery log — a capped ring buffer (never a source of truth):

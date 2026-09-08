@@ -1,5 +1,5 @@
 import { defineApp } from 'convex/server'
-import { v } from 'convex/values'
+import { backendEnv } from 'nuxt-backend/app'
 import backend from 'nuxt-backend/component/convex.config'
 import aggregate from '@convex-dev/aggregate/convex.config'
 import migrations from '@convex-dev/migrations/convex.config'
@@ -8,26 +8,22 @@ import polar from '@convex-dev/polar/convex.config'
 import rateLimiter from '@convex-dev/rate-limiter/convex.config'
 import workflow from '@convex-dev/workflow/convex.config'
 
-// Component imports and use() calls live directly in this root file: current
-// Convex backends (2026-08) crash on component imports reached through
-// intermediate modules, so the one-call defineBackendApp() form is inlined
-// until that is fixed upstream. Same tree, same env contract — AUTH_SECRET +
-// SITE_URL required, the rest optional with designed fallbacks.
-const app = defineApp({
-  env: {
-    AUTH_SECRET: v.string(),
-    SITE_URL: v.string(),
-    EMAIL_API_KEY: v.optional(v.string()),
-    EMAIL_FROM: v.optional(v.string()),
-    EMAIL_TEST_MODE: v.optional(v.string()),
-    EMAIL_WEBHOOK_SECRET: v.optional(v.string()),
-    BILLING_ACCESS_TOKEN: v.optional(v.string()),
-    BILLING_WEBHOOK_SECRET: v.optional(v.string()),
-    BILLING_ENVIRONMENT: v.optional(v.union(v.literal('sandbox'), v.literal('production'))),
-  },
-})
+// Explicit on purpose. Convex discovers components by intercepting every
+// `convex.config` import while bundling this file, and current backends
+// reject the push (start_push 500) when such an import is reached through an
+// intermediate module or the components are mounted in a loop — so every
+// component is imported and mounted right here, one app.use() per component.
+// Mount your own components after them.
+//
+// The env contract is the package's: AUTH_SECRET + SITE_URL are required,
+// the rest optional with designed fallbacks (`npx nuxt-backend env push`
+// syncs them from .env.local). Extend it with your own vars:
+// defineApp({ env: { ...backendEnv, MY_VAR: v.optional(v.string()) } })
+const app = defineApp({ env: backendEnv })
+
 // Components are isolated from the app env — forward the email config by
-// reference so the deployment's values reach the nested email component.
+// reference so the deployment's values reach the backend component (auth,
+// email, billing cache, gifts — the email provider is nested inside).
 app.use(backend, {
   env: {
     EMAIL_API_KEY: app.env.EMAIL_API_KEY,
@@ -42,4 +38,5 @@ app.use(persistentTextStreaming)
 app.use(polar)
 app.use(rateLimiter)
 app.use(workflow)
+
 export default app

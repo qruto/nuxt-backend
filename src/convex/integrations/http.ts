@@ -1,9 +1,9 @@
 import { httpActionGeneric, type HttpRouter } from 'convex/server'
-import { DEFAULT_MCP_EXCHANGE_PATH } from '../constants'
+import { DEFAULT_MCP_EXCHANGE_PATH } from '../constants.js'
 
 // For hand-rolled auth setups that skip `setupAuth` (which wires this
 // automatically and returns it as its `mcp` export).
-export { setupMcp, type McpExchange, type SetupMcpOptions } from './mcp'
+export { setupMcp, type McpExchange, type SetupMcpOptions } from './mcp.js'
 
 /**
  * One call to mount every inbound route the backend handles on your Convex

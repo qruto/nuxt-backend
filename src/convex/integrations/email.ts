@@ -6,7 +6,7 @@ import {
 } from 'convex/server'
 import { v } from 'convex/values'
 import { Resend } from 'resend'
-import { guardDelivery, parseSecretList, WEBHOOK_BODY_LIMIT, type WebhookLogRefs } from './webhook-guard'
+import { guardDelivery, parseSecretList, WEBHOOK_BODY_LIMIT, type WebhookLogRefs } from './webhook-guard.js'
 
 /**
  * The component handle `setupEmail` reads from your generated `components`

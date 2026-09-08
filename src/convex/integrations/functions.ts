@@ -1,6 +1,6 @@
 import { customAction, customCtx, customMutation, customQuery } from 'convex-helpers/server/customFunctions'
 import type { ActionBuilder, GenericDataModel, MutationBuilder, QueryBuilder } from 'convex/server'
-import type { Authorization, AuthorizationCtx, AuthorizationUser } from './authorization'
+import type { Authorization, AuthorizationCtx, AuthorizationUser } from './authorization.js'
 
 /** The workspace context injected by the `org` tier. */
 export interface FunctionOrganization {

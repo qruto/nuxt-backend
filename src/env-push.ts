@@ -19,7 +19,7 @@ import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './preflight'
+import { DEV_ONLY_DEPLOYMENT_ENV, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './preflight'
 import { deriveDeploymentUrls } from './deployment'
 
 const execFileAsync = promisify(execFile)
@@ -70,6 +70,12 @@ export function planEnvPush({ deployedNames, localEnv, dev }: EnvPushPlanInput):
       continue
     }
     const local = localEnv[name]
+    // Dev-only vars (loopback origin trust) never leave the workstation for a
+    // non-dev deployment, even when .env.local carries them.
+    if (!dev && DEV_ONLY_DEPLOYMENT_ENV.has(name)) {
+      actions.push({ name, action: 'unset', detail: local ? 'dev-only — not forwarded to a non-dev deployment' : 'dev-only — not applicable to a non-dev deployment' })
+      continue
+    }
     if (local !== undefined && local !== '') {
       actions.push({ name, action: 'forward', value: local, detail: 'forwarded from .env(.local)' })
       continue
@@ -199,19 +205,35 @@ export interface EnvPushRunResult {
   missingRequired: string[]
 }
 
+/**
+ * The configured deployment id (`CONVEX_DEPLOYMENT`): process env over
+ * `.env(.local)`. Read directly rather than via URL derivation, which rejects
+ * `local:` slugs.
+ */
+export function configuredDeployment(rootDir: string): string | null {
+  return process.env.CONVEX_DEPLOYMENT
+    ?? readEnvFiles(rootDir).CONVEX_DEPLOYMENT
+    ?? deriveDeploymentUrls(rootDir)?.deployment
+    ?? null
+}
+
+/**
+ * Whether the configured deployment is dev-class — cloud dev (`dev:`) or a
+ * CLI-managed local (`local:`) deployment: both disposable, never prod.
+ */
+export function isDevDeployment(rootDir: string): boolean {
+  const deployment = configuredDeployment(rootDir)
+  return deployment?.startsWith('dev:') === true || deployment?.startsWith('local:') === true
+}
+
 /** The whole flow shared by the CLI and the module's dev auto-provision. */
 export async function runEnvPush(rootDir: string, options: { prod?: boolean, dryRun?: boolean, setEnv?: ExecuteEnvPushOptions['setEnv'] } = {}): Promise<EnvPushRunResult | null> {
   const deployedNames = await deploymentEnvNames(rootDir)
   if (deployedNames === null) return null
 
-  // Dev-class deployments get required-gap filling: cloud dev (`dev:`) and
-  // CLI-managed local (`local:`) deployments — both disposable, never prod.
-  // Read the deployment id directly (URL derivation rejects local slugs).
-  const deployment = process.env.CONVEX_DEPLOYMENT
-    ?? readEnvFiles(rootDir).CONVEX_DEPLOYMENT
-    ?? deriveDeploymentUrls(rootDir)?.deployment
-    ?? null
-  const dev = !options.prod && (deployment?.startsWith('dev:') === true || deployment?.startsWith('local:') === true)
+  // Dev-class deployments get required-gap filling.
+  const deployment = configuredDeployment(rootDir)
+  const dev = !options.prod && isDevDeployment(rootDir)
   const actions = planEnvPush({ deployedNames, localEnv: readEnvFiles(rootDir), dev })
   const results = await executeEnvPush(rootDir, actions, { dryRun: options.dryRun, setEnv: options.setEnv })
   return {

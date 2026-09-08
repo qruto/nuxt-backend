@@ -28,10 +28,9 @@ export const DEFAULT_MCP_EXCHANGE_PATH = '/mcp/exchange'
  * OAuth scopes the agent (MCP) surface understands. `openid`/`profile`/`email`
  * are the OIDC identity scopes (always granted by the provider); the rest gate
  * the built-in tools: reads never need more than `*:read`, `profile:write` is
- * name-only (email changes stay in the verified web flow), `billing:checkout`
- * only ever returns URLs for the human to open — no tool executes a payment —
- * and `act` is reserved for consumer-defined action tools (nothing built-in
- * uses it).
+ * name-only (email changes stay in the verified web flow), and
+ * `billing:checkout` only ever returns URLs for the human to open — no tool
+ * executes a payment.
  */
 export const BACKEND_MCP_SCOPES = [
   'openid',
@@ -41,7 +40,6 @@ export const BACKEND_MCP_SCOPES = [
   'billing:read',
   'billing:checkout',
   'workspace:read',
-  'act',
 ] as const
 
 export type BackendMcpScope = (typeof BACKEND_MCP_SCOPES)[number]

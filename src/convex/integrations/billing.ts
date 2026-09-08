@@ -16,9 +16,9 @@ import {
   type GenericQueryCtx,
   queryGeneric,
 } from 'convex/server'
-import { guardDelivery, parseSecretList, WEBHOOK_BODY_LIMIT, type WebhookLogRefs } from './webhook-guard'
+import { guardDelivery, parseSecretList, WEBHOOK_BODY_LIMIT, type WebhookLogRefs } from './webhook-guard.js'
 import { v } from 'convex/values'
-import type { SendEmailOptions } from './email'
+import type { SendEmailOptions } from './email.js'
 
 /**
  * Any query context — the consumer's `currentUserId` resolver runs inside the
@@ -423,7 +423,7 @@ export type SetupBillingConfig = Omit<PolarConfig, 'getUserInfo' | 'organization
 
 /** Webhook events that signal a customer's plans / benefits / credits may have changed. */
 // Catalog-as-code authoring surface (billing.catalog.ts / `billing sync`).
-export { type BillingCatalog, BILLING_WEBHOOK_PROVISION_EVENTS, type CatalogCreditGrant, type CatalogFeature, type CatalogMeter, type CatalogPack, type CatalogPlan, defineBillingCatalog } from '../catalog'
+export { type BillingCatalog, BILLING_WEBHOOK_PROVISION_EVENTS, type CatalogCreditGrant, type CatalogFeature, type CatalogMeter, type CatalogPack, type CatalogPlan, defineBillingCatalog } from '../catalog.js'
 
 const REFRESH_EVENTS = [
   'customer.state_changed',

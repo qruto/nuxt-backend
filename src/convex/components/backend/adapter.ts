@@ -4,8 +4,8 @@ import { admin, emailOTP, jwt, mcp, organization } from 'better-auth/plugins'
 import { createApi } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import type { RegisteredMutation, RegisteredQuery } from 'convex/server'
-import { DEFAULT_LOGIN_PATH } from '../../constants'
-import { authSchema as schema } from './schema'
+import { DEFAULT_LOGIN_PATH } from '../../constants.js'
+import { authSchema as schema } from './schema.js'
 
 /**
  * Options used solely to derive the auth schema (via `getAuthTables`) for the

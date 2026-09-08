@@ -3,8 +3,8 @@ import { join, resolve } from 'node:path'
 import { defineCommand } from 'citty'
 import { scaffoldBackendFiles, resolveFunctionsDir } from '../scaffold'
 import type { BackendInstallationMode } from '../templates'
-import { collectPreflightFindings, formatPreflightSummary, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../preflight'
-import { deploymentEnvNames, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
+import { collectPreflightFindings, DEV_ONLY_DEPLOYMENT_ENV, formatPreflightSummary, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../preflight'
+import { deploymentEnvNames, isDevDeployment, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
 import { deriveDeploymentUrls } from '../deployment'
 import { billing } from './billing'
 import { REQUIRED_FUNCTION_EXPORTS } from '../contract'
@@ -131,6 +131,11 @@ const ENV_EXAMPLE = `# Everything here is optional in dev — \`npm run dev\` de
 #   EMAIL_WEBHOOK_SECRET    delivery events for /email/events
 #   BILLING_ACCESS_TOKEN    billing (BILLING_ENVIRONMENT defaults to sandbox)
 #   BILLING_WEBHOOK_SECRET  billing events for /billing/events
+#
+# Dev-only (\`env push\` forwards it to dev deployments, never to production):
+# also trust the http://localhost:* origin the Nuxt dev server runs on, in
+# addition to SITE_URL.
+# AUTH_TRUST_LOCAL_ORIGINS=1
 #
 # Explicit overrides (rarely needed — derived in dev):
 # NUXT_PUBLIC_BACKEND_URL=https://your-deployment.convex.cloud
@@ -325,8 +330,12 @@ async function webhookRouteFindings(siteUrl: string): Promise<PreflightFinding[]
   }))
 }
 
-/** Optional-tier findings a production app cannot actually live without. */
+/**
+ * Optional-tier findings a production app cannot actually live without —
+ * plus the dev-only loopback trust flag, which must not be set there.
+ */
 const PROD_ESCALATED_FINDINGS = new Set([
+  'deployment-auth-trust-local-origins',
   'email-transport',
   'email-webhook-secret',
   'billing-access',
@@ -399,13 +408,31 @@ const doctor = defineCommand({
           fixHint: deployed.includes(name) ? '' : 'Run `npx nuxt-backend env push` (dev fills it in), or: npx convex env set ' + name + ' ...',
         })
       }
+      const devDeployment = isDevDeployment(rootDir)
       for (const [name, degradation] of Object.entries(OPTIONAL_DEPLOYMENT_ENV)) {
+        const id = `deployment-${name.toLowerCase().replace(/_/g, '-')}`
+        const isSet = deployed.includes(name)
+        // Dev-only vars: unset is the healthy state; set on a non-dev
+        // deployment is a misconfiguration worth flagging.
+        if (DEV_ONLY_DEPLOYMENT_ENV.has(name)) {
+          const leaked = isSet && !devDeployment
+          findings.push({
+            id,
+            title: `Deployment ${name}`,
+            status: leaked ? 'warn' : 'pass',
+            message: leaked
+              ? `${name} is set on a non-dev deployment — loopback origins are trusted there.`
+              : isSet ? `${name} is set on the dev deployment.` : `${name} is not set (dev-only): ${degradation}.`,
+            fixHint: leaked ? `Remove it: npx convex env remove ${name}` : '',
+          })
+          continue
+        }
         findings.push({
-          id: `deployment-${name.toLowerCase().replace(/_/g, '-')}`,
+          id,
           title: `Deployment ${name}`,
-          status: deployed.includes(name) ? 'pass' : 'warn',
-          message: deployed.includes(name) ? `${name} is set on the deployment.` : `${name} is not set (optional): ${degradation}.`,
-          fixHint: deployed.includes(name) ? '' : `Add ${name} to .env.local and run \`npx nuxt-backend env push\`.`,
+          status: isSet ? 'pass' : 'warn',
+          message: isSet ? `${name} is set on the deployment.` : `${name} is not set (optional): ${degradation}.`,
+          fixHint: isSet ? '' : `Add ${name} to .env.local and run \`npx nuxt-backend env push\`.`,
         })
       }
     }

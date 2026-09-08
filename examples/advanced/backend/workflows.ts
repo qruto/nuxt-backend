@@ -4,8 +4,10 @@ import { components } from './_generated/api'
 
 export const workflow = setupWorkflows(components)
 
-// Runs once on signup: send a welcome email through the backend component's
-// email module. Steps are durable and retried on failure.
+// CUSTOMIZATION: a hand-rolled `workflow.define` instead of the scaffold's
+// `defineEmailSequence` — the step calls the backend component's email
+// module directly. Runs once on signup (started from auth.ts's
+// onUserCreated); steps are durable and retried on failure.
 export const onSignup = workflow.define({
   args: { userId: v.string(), email: v.string(), name: v.string() },
   handler: async (step, { email, name }) => {
