@@ -1,6 +1,7 @@
 import { setupBilling, type DiscountInput } from 'nuxt-backend/billing'
 import { v } from 'convex/values'
 import { api, components, internal } from './_generated/api'
+import { catalog } from './billing.generated'
 import { internalMutation, query } from './_generated/server'
 import { authComponent } from './auth'
 import { authed } from './functions'
@@ -13,27 +14,14 @@ import { rateLimiter } from './rateLimiter'
 export const billing = setupBilling(components, {
   // Throttle syncEntitlements per billing entity (guards the live provider fan-out).
   rateLimiter,
-  // Demo catalog in the qruto Polar sandbox: three monthly plans that each grant
-  // prepaid units to the "Credits" meter (Pro and Ultra also grant feature
-  // benefits, matched by `useFeatures().has()` via benefit metadata keys), plus
-  // two one-time credit packs. Configured here so `useBilling().products`
-  // resolves them. These sandbox ids are hardcoded until a live
-  // `nuxt-backend billing sync --adopt` run generates billing.generated.ts —
-  // then this block becomes `catalog` (see the billing.ts scaffold template).
-  products: {
-    starter: '96561ea3-e168-4219-9716-5128ac57dd7c',
-    pro: 'd852636d-a5fb-4472-b592-3ac921a84ba3',
-    ultra: '9e9097b4-22dc-4b40-9823-47a15fbe9f17',
-    credits100: 'f55734b4-428f-47b9-b305-70576acf9181',
-    credits500: '907659da-d66c-4e4a-9cb3-799ec445c79b',
-  },
-  // The named credit meter metered actions/streams spend from
-  // (`meter: 'credits'` in ai.ts). The sandbox meter counts `credits` events
-  // (no `property`), so every spend is exactly 1 unit — same id source as the
-  // product ids above, same `billing sync --adopt` migration path.
-  credits: {
-    credits: { meterId: 'aa62cf4c-2dcd-437d-a407-1872f51531b7' },
-  },
+  // The catalog — plans, packs, the credit meter and feature benefits — is
+  // declared in billing.catalog.ts and pushed with `npx nuxt-backend billing
+  // sync`, which writes the provider ids into billing.generated.ts (the only
+  // place UUIDs live). Plans grant prepaid units to the "credits" meter every
+  // cycle and Pro/Ultra also grant feature benefits that `useFeatures().has()`
+  // matches; packs grant once at purchase. `meter: 'credits'` in ai.ts spends
+  // from the same meter.
+  catalog,
   getUserInfo: async (ctx) => {
     const user = await ctx.runQuery(api.auth.getAuthUser, {})
     return { userId: user._id, email: user.email }
