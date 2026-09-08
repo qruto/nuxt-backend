@@ -1,0 +1,163 @@
+/* ===========================================================================
+   depth-system.css — a drop-in depth layer: convex/concave surfaces, elevation,
+   and the full set of "depth levers" (glow, gradient border, gradient text,
+   raised/inset edges, seam, solid shadow, texture).
+
+   LIGHT MODEL: light comes from above (top), skewed slightly left — so positive
+   inset offsets carry the HIGHLIGHT, negative carry the SHADOW, and edge
+   highlights sit on the top. This mirrors how the real world lights a raised
+   panel (Refactoring UI, "Creating Depth").
+
+   Set --depth-surface to the colour depth sits on and everything derives from it
+   via color-mix(). --depth-accent drives glows and accent borders (default: an
+   EDC / titanium-tool orange). Depends on color-mix() (Baseline 2023); for static
+   fallbacks use scripts/gen-depth-tokens.mjs.
+   ========================================================================== */
+
+:root {
+  color-scheme: light dark;
+
+  /* ---- the two knobs ------------------------------------------------- */
+  --depth-surface: #d7d7db;                 /* bead-blasted titanium, light */
+  --depth-accent:  #ff5c1a;                 /* EDC orange */
+
+  /* ---- derived light + shadow (hand-mixed from the surface, never raw
+          white/black — raw white sucks the saturation out of a tint) ----- */
+  --depth-highlight: color-mix(in oklch, var(--depth-surface), white 62%);
+  --depth-shadow: color-mix(in oklch, var(--depth-surface), black 22%);
+
+  /* ---- curvature (inset self-shading, top-left light) --------------- */
+  --depth-convex-tiny: inset 1px 1px 0 var(--depth-highlight),
+                       inset -1px -1px 0 var(--depth-shadow);
+  --depth-convex-xs:   inset 1.5px 1.5px 2px var(--depth-highlight),
+                       inset -1.5px -1.5px 2px var(--depth-shadow);
+  --depth-convex:      inset 2px 2px 4px var(--depth-highlight),
+                       inset -2px -2px 4px var(--depth-shadow);
+  --depth-concave-xs:  inset 1.5px 1.5px 2px var(--depth-shadow),
+                       inset -1.5px -1.5px 2px var(--depth-highlight);
+  --depth-concave:     inset 2px 2px 4px var(--depth-shadow),
+                       inset -2px -2px 4px var(--depth-highlight);
+
+  /* ---- elevation: two-part shadows (direct + ambient), tight & sharp
+          at the bottom of the ladder so a TINY lift still reads --------- */
+  --depth-elevation-1: 0 1px 1px rgb(0 0 0 / .10);                          /* tiny */
+  --depth-elevation-2: 0 1px 1px rgb(0 0 0 / .10), 0 2px 3px rgb(0 0 0 / .08);
+  --depth-elevation-3: 0 1px 2px rgb(0 0 0 / .10), 0 4px 8px rgb(0 0 0 / .10);
+  --depth-elevation-4: 0 2px 4px rgb(0 0 0 / .08), 0 12px 24px rgb(0 0 0 / .14);
+  --depth-elevation-5: 0 2px 6px rgb(0 0 0 / .06), 0 24px 48px rgb(0 0 0 / .20);
+
+  /* ---- glow (light emission — pulls an element toward the viewer) ---- */
+  --depth-glow: 0 0 0 1px color-mix(in oklch, var(--depth-accent), transparent 45%),
+                0 0 14px 0 color-mix(in oklch, var(--depth-accent), transparent 55%);
+}
+
+/* Dark theme: keep the light direction, flip which edge does the work — the
+   HIGHLIGHT now opens the contrast gap (a bright top-left edge sells "raised"). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --depth-surface: #26262b;               /* gunmetal / graphite titanium */
+    --depth-highlight: color-mix(in oklch, var(--depth-surface), white 60%);
+    --depth-shadow: color-mix(in oklch, var(--depth-surface), black 65%);
+    --depth-elevation-1: 0 1px 1px rgb(0 0 0 / .5);
+    --depth-elevation-2: 0 1px 1px rgb(0 0 0 / .5), 0 2px 3px rgb(0 0 0 / .4);
+    --depth-elevation-3: 0 1px 2px rgb(0 0 0 / .5), 0 4px 8px rgb(0 0 0 / .45);
+    --depth-elevation-4: 0 2px 4px rgb(0 0 0 / .4), 0 12px 24px rgb(0 0 0 / .55);
+    --depth-elevation-5: 0 2px 6px rgb(0 0 0 / .35), 0 24px 48px rgb(0 0 0 / .65);
+  }
+}
+
+/* ===== surface curvature ================================================= */
+.depth-convex, .depth-convex-xs, .depth-convex-tiny,
+.depth-concave, .depth-concave-xs { background: var(--depth-surface); }
+.depth-convex      { box-shadow: var(--depth-convex); }
+.depth-convex-xs   { box-shadow: var(--depth-convex-xs); }
+.depth-convex-tiny { box-shadow: var(--depth-convex-tiny); }
+.depth-concave     { box-shadow: var(--depth-concave); }
+.depth-concave-xs  { box-shadow: var(--depth-concave-xs); }
+
+/* ===== elevation ========================================================= */
+.depth-elevation-1 { box-shadow: var(--depth-elevation-1); }
+.depth-elevation-2 { box-shadow: var(--depth-elevation-2); }
+.depth-elevation-3 { box-shadow: var(--depth-elevation-3); }
+.depth-elevation-4 { box-shadow: var(--depth-elevation-4); }
+.depth-elevation-5 { box-shadow: var(--depth-elevation-5); }
+
+/* ===== light-from-above edges (Refactoring UI) ===========================
+   "Shadow under border": a hand-picked LIGHTER top edge + a tight DARKER shadow
+   below. The border is lighter than the shadow — that pairing is what reads as a
+   raised lip catching the light. This is the go-to TINY elevation. */
+.depth-raise {
+  background: var(--depth-surface);
+  box-shadow: inset 0 1px 0 0 var(--depth-highlight),   /* top highlight */
+              0 1px 1px 0 rgb(0 0 0 / .28);       /* sharp shadow below only */
+  transition: box-shadow .16s ease, transform .16s ease;
+}
+.depth-raise:active {                             /* press = sink to the surface */
+  box-shadow: inset 0 1px 0 0 var(--depth-highlight);
+  transform: translateY(1px);
+}
+.depth-inset {                                    /* a well / recessed input */
+  background: var(--depth-surface);
+  box-shadow: inset 0 1px 2px 0 rgb(0 0 0 / .30), /* lip above blocks the light */
+              inset 0 -1px 0 0 var(--depth-highlight);    /* lit bottom lip */
+}
+
+/* Flat aesthetic, still with depth: a solid offset shadow, no blur. */
+.depth-solid { box-shadow: 0 2px 0 0 var(--depth-shadow); }
+
+/* ===== seam (parting line) ===============================================
+   A 1px border slightly darker than both face and page — the crack of shadow
+   around a physical control mounted in a panel. Separates the element from the
+   surface as its own object; without it, raised controls can look painted on. */
+.depth-seam { border: 1px solid color-mix(in oklch, var(--depth-surface), black 30%); }
+
+/* Pressable convex knob that sinks concave. Both states have two inset layers,
+   so box-shadow interpolates — the morph animates. */
+.depth-press {
+  background: var(--depth-surface);
+  box-shadow: var(--depth-convex);
+  transition: box-shadow .16s ease, transform .16s ease;
+}
+.depth-press:active { box-shadow: var(--depth-concave); transform: translateY(1px); }
+
+/* ===== glow ============================================================== */
+.depth-glow { box-shadow: var(--depth-glow); }
+
+/* ===== gradient border (light top edge → dark bottom = a bevel) =========
+   Masked so it works with any border-radius and stays 1px crisp. */
+.depth-gradient-border { position: relative; background: var(--depth-surface); }
+.depth-gradient-border::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(180deg,
+    color-mix(in oklch, var(--depth-highlight), transparent 10%),
+    color-mix(in oklch, var(--depth-shadow), transparent 20%));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+}
+.depth-gradient-border.is-accent::before {        /* accent-lit edge */
+  background: linear-gradient(180deg, var(--depth-accent),
+    color-mix(in oklch, var(--depth-accent), black 45%));
+}
+
+/* ===== gradient text (top-lit → bottom-shadowed glyphs) ================= */
+.depth-gradient-text {
+  background: linear-gradient(180deg,
+    color-mix(in oklch, currentColor, white 35%),
+    color-mix(in oklch, currentColor, black 28%));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* ===== texture (fine brushed-metal grain — material depth, kept subtle) == */
+.depth-texture { position: relative; }
+.depth-texture::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  opacity: .5; mix-blend-mode: overlay;
+  background:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / .04) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgb(0 0 0 / .04) 0 1px, transparent 1px 2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .depth-press, .depth-raise { transition: none; }
+}

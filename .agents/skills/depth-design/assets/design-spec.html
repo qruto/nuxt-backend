@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DESIGN.md — Titanium EDC depth system</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Space+Mono&display=swap" rel="stylesheet" />
+<style>
+  /* Titanium EDC depth system — static spec sheet. Light source: top-left.
+     Real depth throughout (dark surfaces make the inset/glow shadows read). */
+  *, *::before, *::after { box-sizing: border-box; }
+  :root {
+    --bg: #161619;
+    --surface: #26262b;
+    --raised: #2f2f35;
+    --sunken: #1d1d21;
+    --ink: #e9e9ee;
+    --muted: #92929c;
+    --accent: #ff5c1a;
+    --accent-bright: #ff8a4d;
+    --on-accent: #1a1206;
+    --highlight: color-mix(in oklch, var(--surface), white 32%);
+    --shadow: color-mix(in oklch, var(--surface), black 66%);
+    --glow: 0 0 0 1px color-mix(in oklch, var(--accent), transparent 45%), 0 0 16px 1px color-mix(in oklch, var(--accent), transparent 50%);
+    --elevation-hair: inset 0 1px 0 0 var(--highlight), 0 1px 1px 0 rgb(0 0 0 / .5);
+    --elevation-low: 0 1px 1px rgb(0 0 0 / .5), 0 2px 4px rgb(0 0 0 / .4);
+    --elevation-mid: 0 1px 2px rgb(0 0 0 / .5), 0 4px 8px rgb(0 0 0 / .45);
+    --elevation-high: 0 2px 4px rgb(0 0 0 / .4), 0 16px 32px rgb(0 0 0 / .55);
+  }
+  body {
+    margin: 0; font-family: system-ui, sans-serif; color: var(--ink);
+    background: radial-gradient(120% 70% at 50% -10%, #202027, transparent 60%), var(--bg);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Light mode — bead-blasted titanium. Same light direction; the shadow now
+     leads and the highlight stays gentle. Follows the system preference. */
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #cfcfd4;
+      --surface: #d9d9dd;
+      --raised: #e8e8ec;
+      --sunken: #c7c7cd;
+      --ink: #1c1c20;
+      --muted: #6b6b73;
+      --highlight: color-mix(in oklch, var(--surface), white 78%);
+      --shadow: color-mix(in oklch, var(--surface), black 22%);
+      --elevation-hair: inset 0 1px 0 0 var(--highlight), 0 1px 1px 0 rgb(0 0 0 / .26);
+      --elevation-low: 0 1px 1px rgb(0 0 0 / .12), 0 2px 4px rgb(0 0 0 / .10);
+      --elevation-mid: 0 1px 2px rgb(0 0 0 / .12), 0 4px 8px rgb(0 0 0 / .10);
+      --elevation-high: 0 2px 4px rgb(0 0 0 / .08), 0 16px 32px rgb(0 0 0 / .16);
+    }
+    body { background: radial-gradient(120% 70% at 50% -10%, #ededf0, transparent 60%), var(--bg); }
+    .meta span { box-shadow: inset 0 1px 0 var(--highlight), 0 1px 2px rgb(0 0 0 / .16); }
+    .raise { box-shadow: inset 0 1px 0 var(--highlight), 0 1px 1px rgb(0 0 0 / .26); }
+    .inset { box-shadow: inset 0 2px 3px rgb(0 0 0 / .24), inset 0 -1px 0 var(--highlight); }
+    .btn-metal { box-shadow: inset 0 1px 0 var(--highlight), 0 1px 2px rgb(0 0 0 / .20); }
+    .switch { box-shadow: inset 0 2px 4px rgb(0 0 0 / .22), inset 0 -1px 0 var(--highlight); }
+    .field { color: #74747c; box-shadow: inset 0 2px 3px rgb(0 0 0 / .22), inset 0 -1px 0 var(--highlight); }
+    .do h3 { color: #1f7a44; }
+    .dont h3 { color: #c23b1e; }
+    .do .badge { background: #d6f5dd; color: #1f7a44; }
+    .dont .badge { background: #ffe0d6; color: #c23b1e; }
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 44px 24px 90px; }
+
+  /* machined panel: raised metal + gradient-border bevel + brushed grain */
+  .panel { position: relative; background: var(--surface); border-radius: 16px; padding: 22px 24px; box-shadow: var(--elevation-hair), var(--elevation-low); overflow: hidden; }
+  .panel::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+    background: linear-gradient(180deg, color-mix(in oklch, var(--highlight), transparent 42%), color-mix(in oklch, var(--shadow), transparent 15%));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+  .panel::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5; mix-blend-mode: overlay;
+    background: repeating-linear-gradient(90deg, rgb(255 255 255 / .04) 0 1px, transparent 1px 3px); }
+
+  .kicker { font-family: "Space Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+  h1 { font-family: "Space Grotesk", system-ui, sans-serif; font-size: 34px; font-weight: 600; letter-spacing: -.02em; margin: 6px 0 10px;
+    background: linear-gradient(180deg, color-mix(in oklch, var(--ink), white 35%), color-mix(in oklch, var(--ink), black 32%));
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lede { font-size: 15px; line-height: 1.6; color: var(--muted); max-width: 62ch; margin: 0 0 16px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; }
+  .meta span { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink); background: var(--raised); border-radius: 999px; padding: 6px 13px; box-shadow: inset 0 1px 0 var(--highlight), 0 1px 2px rgb(0 0 0 / .45); }
+
+  h2 { font-family: "Space Mono", monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); margin: 40px 0 14px; display: flex; align-items: center; gap: 12px; font-weight: 400; }
+  h2::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, color-mix(in oklch, var(--shadow), transparent 35%), transparent); }
+  .note { font-size: 12.5px; color: var(--muted); margin: -8px 0 14px; }
+
+  .ramp { display: grid; grid-template-columns: repeat(9, 1fr); gap: 7px; }
+  .accent-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-top: 8px; }
+  .swatch { border-radius: 9px; height: 46px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .05); }
+  .cap { font-family: "Space Mono", monospace; font-size: 10.5px; color: var(--muted); margin-top: 6px; text-align: center; }
+
+  .type-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid color-mix(in oklch, var(--shadow), transparent 45%); }
+  .type-row:first-of-type { border-top: none; }
+  .type-tag { font-family: "Space Mono", monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .t-display { font-family: "Space Grotesk", sans-serif; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+  .t-mono { font-family: "Space Mono", monospace; font-size: 14px; }
+
+  .ladder { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  .tile { height: 60px; border-radius: 11px; background: var(--raised); display: grid; place-items: end center; }
+  .e-flat { box-shadow: none; outline: 1px dashed color-mix(in oklch, var(--muted), transparent 60%); outline-offset: -1px; }
+  .e-hair { box-shadow: var(--elevation-hair); }
+  .e-low { box-shadow: var(--elevation-low); }
+  .e-mid { box-shadow: var(--elevation-mid); }
+  .e-high { box-shadow: var(--elevation-high); }
+  .e-glow { box-shadow: var(--glow), var(--elevation-hair); }
+  .tname { font-family: "Space Mono", monospace; font-size: 10.5px; color: var(--muted); text-align: center; margin-top: 7px; }
+
+  .curve { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .st { height: 60px; border-radius: 11px; background: var(--surface); }
+  .convex { box-shadow: inset 2px 2px 4px var(--highlight), inset -2px -2px 5px var(--shadow); }
+  .concave { box-shadow: inset 2px 2px 5px var(--shadow), inset -2px -2px 4px var(--highlight); }
+  .raise { box-shadow: inset 0 1px 0 var(--highlight), 0 1px 1px rgb(0 0 0 / .5); }
+  .inset { box-shadow: inset 0 2px 3px rgb(0 0 0 / .55), inset 0 -1px 0 var(--highlight); }
+
+  .components { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .btn { font: inherit; font-size: 14px; font-weight: 600; border: none; border-radius: 10px; padding: 11px 20px; }
+  .btn-primary { color: var(--on-accent); background: linear-gradient(180deg, var(--accent-bright), var(--accent)); box-shadow: var(--glow), inset 0 1px 0 rgb(255 255 255 / .4); }
+  .btn-metal { color: var(--ink); background: var(--raised); box-shadow: inset 0 1px 0 var(--highlight), 0 1px 2px rgb(0 0 0 / .5); }
+  .switch { position: relative; width: 56px; height: 31px; border-radius: 999px; background: var(--sunken); box-shadow: inset 0 2px 4px rgb(0 0 0 / .6), inset 0 -1px 0 var(--highlight); }
+  .switch .knob { position: absolute; top: 3px; left: 28px; width: 25px; height: 25px; border-radius: 50%; background: linear-gradient(180deg, var(--accent-bright), var(--accent)); box-shadow: var(--glow), inset 0 1px 0 rgb(255 255 255 / .4); }
+  .field { flex: 1; min-width: 150px; background: var(--sunken); border-radius: 10px; padding: 11px 15px; font-size: 13px; color: #7c7c85; box-shadow: inset 0 2px 3px rgb(0 0 0 / .55), inset 0 -1px 0 var(--highlight); }
+
+  .rules { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .rules h3 { font-size: 12.5px; font-weight: 600; margin: 0 0 10px; display: flex; align-items: center; gap: 7px; }
+  .do h3 { color: #7bd88f; }
+  .dont h3 { color: #ff7a5c; }
+  .rules ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--muted); line-height: 1.75; }
+  .badge { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; box-shadow: inset 0 1px 0 rgb(255 255 255 / .25); }
+  .do .badge { background: color-mix(in oklch, #7bd88f, black 45%); color: #d6f5dd; }
+  .dont .badge { background: color-mix(in oklch, #ff7a5c, black 45%); color: #ffdccf; }
+
+  @media (max-width: 640px) {
+    .ramp { grid-template-columns: repeat(5, 1fr); }
+    .ladder { grid-template-columns: repeat(3, 1fr); }
+    .curve { grid-template-columns: repeat(2, 1fr); }
+    .rules { grid-template-columns: 1fr; }
+    h1 { font-size: 27px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="kicker">design.md · alpha</div>
+  <h1>Titanium EDC — depth system</h1>
+  <p class="lede">Machined-metal surfaces lit from above. Depth is built from tiny, precise elevation — not big soft shadows — with a single orange accent that glows on the one thing that's live.</p>
+  <div class="meta">
+    <span>one light source · top-left</span>
+    <span>tiny elevation</span>
+    <span>one orange accent</span>
+  </div>
+
+  <h2>Colors — titanium ramp</h2>
+  <div class="panel">
+    <div class="ramp">
+      <div><div class="swatch" style="background:#f4f4f6"></div><div class="cap">50</div></div>
+      <div><div class="swatch" style="background:#e4e4e8"></div><div class="cap">100</div></div>
+      <div><div class="swatch" style="background:#d7d7db"></div><div class="cap">200</div></div>
+      <div><div class="swatch" style="background:#bcbcc3"></div><div class="cap">300</div></div>
+      <div><div class="swatch" style="background:#78787f"></div><div class="cap">500</div></div>
+      <div><div class="swatch" style="background:#3a3a40"></div><div class="cap">700</div></div>
+      <div><div class="swatch" style="background:#26262b"></div><div class="cap">800</div></div>
+      <div><div class="swatch" style="background:#1b1b1e"></div><div class="cap">900</div></div>
+      <div><div class="swatch" style="background:#121214"></div><div class="cap">950</div></div>
+    </div>
+    <div class="accent-row">
+      <div><div class="swatch" style="background:#ff5c1a"></div><div class="cap">accent · ff5c1a</div></div>
+      <div><div class="swatch" style="background:#ff6f38"></div><div class="cap">hover</div></div>
+      <div><div class="swatch" style="background:#e24d12"></div><div class="cap">pressed</div></div>
+      <div><div class="swatch" style="background:#1a1206"></div><div class="cap">on-accent</div></div>
+    </div>
+  </div>
+
+  <h2>Typography</h2>
+  <div class="panel">
+    <div class="type-row"><div class="t-display">Machined depth</div><div class="type-tag">display · Space Grotesk 600</div></div>
+    <div class="type-row"><div style="font-size:15px">Tactile surfaces, lit from above.</div><div class="type-tag">body · system</div></div>
+    <div class="type-row"><div class="t-mono">Ti-64 · 0.28 · glows</div><div class="type-tag">mono · Space Mono</div></div>
+  </div>
+
+  <h2>Elevation &amp; depth — token ladder</h2>
+  <p class="note">Two-part shadows, kept tight at the bottom so a small lift still reads. Glow marks the one live element.</p>
+  <div class="panel">
+    <div class="ladder">
+      <div><div class="tile e-flat"></div><div class="tname">flat</div></div>
+      <div><div class="tile e-hair"></div><div class="tname">hair · tiny</div></div>
+      <div><div class="tile e-low"></div><div class="tname">low · card</div></div>
+      <div><div class="tile e-mid"></div><div class="tname">mid · menu</div></div>
+      <div><div class="tile e-high"></div><div class="tname">high · modal</div></div>
+      <div><div class="tile e-glow"></div><div class="tname">glow · live</div></div>
+    </div>
+  </div>
+
+  <h2>Curvature — convex · concave · raised · inset</h2>
+  <p class="note">The same inset shadows with the light and dark edges swapped.</p>
+  <div class="panel">
+    <div class="curve">
+      <div><div class="st convex"></div><div class="tname">convex · bulges out</div></div>
+      <div><div class="st concave"></div><div class="tname">concave · scooped in</div></div>
+      <div><div class="st raise"></div><div class="tname">raised · tiny lift</div></div>
+      <div><div class="st inset"></div><div class="tname">inset · a well</div></div>
+    </div>
+  </div>
+
+  <h2>Components</h2>
+  <div class="panel">
+    <div class="components">
+      <span class="btn btn-primary">Deploy</span>
+      <span class="btn btn-metal">Configure</span>
+      <span class="switch"><span class="knob"></span></span>
+      <span class="field">search…</span>
+    </div>
+  </div>
+
+  <h2>Principles</h2>
+  <div class="panel">
+    <div class="rules">
+      <div class="do">
+        <h3><span class="badge">✓</span> do</h3>
+        <ul>
+          <li>keep elevation tiny and consistent</li>
+          <li>derive shadow + highlight from the surface</li>
+          <li>one orange glow per view</li>
+          <li>rebalance for dark mode, keep light direction</li>
+        </ul>
+      </div>
+      <div class="dont">
+        <h3><span class="badge">✕</span> don't</h3>
+        <ul>
+          <li>big soft drop-shadows on resting content</li>
+          <li>raw white or pure black on tints</li>
+          <li>fill large areas with orange</li>
+          <li>mix light directions</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

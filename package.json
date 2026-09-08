@@ -254,6 +254,9 @@
     "test:e2e": "vitest --project e2e --run",
     "test:convex-component": "vitest --project convex-component --run",
     "test:quality": "fallow",
+    "skills": "npx -y skills@latest",
+    "skills:install": "npx -y skills@latest experimental_install",
+    "skills:update": "npx -y skills@latest update -p -y",
     "bump": "pnpm exec taze major -w",
     "db:reset": "node scripts/db-reset.js",
     "db:seed": "node scripts/db-seed.js"

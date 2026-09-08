@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>depth-design — soft UI buttons</title>
+<style>
+  /* Soft-UI button specimens — the LIGHT dialect of the depth system.
+     Light source: above, slightly left. On a light surface the SHADOW leads
+     (plenty of headroom to go darker); highlights are hand-mixed near-whites,
+     never raw overlays. Each row is one depth treatment:
+       1 · floating   — two-part outer shadow, clearly lifted
+       2 · cushion    — convex pillow: shaded top rim + bright belly
+       3 · seated     — raised ring with the face set into a groove
+       4 · tiny lift  — lit top edge + crisp small shadow (the workhorse)
+     Pure HTML/CSS, no JS. Press any button: it sinks (press = down the Z axis). */
+  *, *::before, *::after { box-sizing: border-box; }
+  :root {
+    --page: #e9ebf0;
+    --ink: #3e4a61;
+    --icon: #93a0b4;
+    --icon-strong: #46536d;
+    --st: 148 162 186;             /* slate shadow tint, from the surface hue */
+  }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, sans-serif; color: var(--ink);
+    background: radial-gradient(140% 90% at 50% -10%, #f1f3f7, transparent 85%), var(--page);
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 56px 28px 96px; }
+  .kicker { font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: 2.5px;
+    text-transform: uppercase; color: rgb(var(--st)); margin-bottom: 48px; }
+
+  .row { display: grid; grid-template-columns: 64px 1fr; gap: 40px; align-items: center; margin-bottom: 14px; }
+  .cap { grid-column: 2; font-family: ui-monospace, monospace; font-size: 11px;
+    color: rgb(var(--st)); text-align: center; margin-bottom: 44px; }
+
+  .pill, .circle {
+    font: inherit; color: var(--ink); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: box-shadow .16s ease, transform .12s ease, background .16s ease;
+  }
+  .pill { height: 62px; width: 100%; border-radius: 999px; font-size: 19px; font-weight: 600; letter-spacing: .01em; }
+  .circle { width: 64px; height: 64px; border-radius: 50%; }
+  .pill:focus-visible, .circle:focus-visible { outline: 2px solid #8fa0c0; outline-offset: 3px; }
+  svg { display: block; }
+
+  /* 1 · FLOATING — two-part cast shadow (soft direct + tight contact) plus a
+     lit inner top edge; a faint halo above lifts it off the page. */
+  .float {
+    background: linear-gradient(180deg, #fbfcfe, #f0f2f6);
+    box-shadow:
+      inset 0 1.5px 0 rgb(255 255 255 / .95),
+      0 -3px 10px rgb(255 255 255 / .65),
+      0 16px 28px rgb(var(--st) / .34),
+      0 5px 10px rgb(var(--st) / .2),
+      0 1px 2px rgb(var(--st) / .18);
+  }
+  .float:active {
+    transform: translateY(2px);
+    background: linear-gradient(180deg, #eef0f5, #f5f7fa);
+    box-shadow: inset 0 2px 5px rgb(var(--st) / .35), 0 1px 2px rgb(var(--st) / .15);
+  }
+
+  /* 2 · CUSHION — convex pillow: shadow tucked under the top rim, a bright
+     belly low in the face, and a soft cast below. Reads as inflated. */
+  .cushion {
+    background: linear-gradient(180deg, #f2f4f8, #f9fafc);
+    box-shadow:
+      inset 0 4px 7px rgb(var(--st) / .26),
+      inset 0 -12px 18px rgb(255 255 255 / .9),
+      inset 0 -1px 2px rgb(var(--st) / .16),
+      0 10px 20px rgb(var(--st) / .3),
+      0 2px 5px rgb(var(--st) / .16);
+  }
+  .cushion:active {
+    transform: translateY(2px);
+    box-shadow:
+      inset 0 6px 10px rgb(var(--st) / .34),
+      inset 0 -8px 14px rgb(255 255 255 / .75),
+      0 2px 5px rgb(var(--st) / .16);
+  }
+
+  /* 3 · SEATED — a raised ring (elevated wrapper) whose face sits in a
+     shallow groove: the ring casts outward, the face is gently concave. */
+  .ring {
+    border-radius: 999px; padding: 7px;
+    background: linear-gradient(180deg, #fdfdfe, #eef0f5);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / .95),
+      0 14px 26px rgb(var(--st) / .32),
+      0 4px 8px rgb(var(--st) / .18);
+  }
+  .ring--circle { padding: 5px; }
+  .seated {
+    background: linear-gradient(180deg, #f0f2f7, #fafbfd);
+    box-shadow:
+      inset 0 2px 4px rgb(var(--st) / .24),
+      inset 0 -1px 0 rgb(255 255 255 / .9);
+  }
+  .ring .pill { height: 58px; }
+  .ring .circle { width: 54px; height: 54px; }
+  .seated:active {
+    box-shadow:
+      inset 0 4px 7px rgb(var(--st) / .32),
+      inset 0 -1px 0 rgb(255 255 255 / .8);
+  }
+
+  /* 4 · TINY LIFT — the workhorse: a hand-picked lit top edge plus a crisp,
+     sharp shadow just below (border lighter than the shadow beneath it). */
+  .tiny {
+    background: linear-gradient(180deg, #fefefe, #f4f6f9);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 1),
+      0 2px 3px rgb(var(--st) / .32),
+      0 7px 14px rgb(var(--st) / .18);
+  }
+  .tiny:active {
+    transform: translateY(1px);
+    box-shadow: inset 0 1.5px 3px rgb(var(--st) / .3), 0 1px 1px rgb(var(--st) / .15);
+  }
+
+  @media (prefers-reduced-motion: reduce) { .pill, .circle { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">depth-design · soft UI dialect</div>
+
+  <div class="row">
+    <button class="circle float" aria-label="Search">
+      <svg viewBox="0 0 24 24" width="32" height="32" fill="none" aria-hidden="true">
+        <circle cx="11" cy="11.5" r="5.6" stroke="var(--icon)" stroke-width="2"/>
+        <path d="M7.3 16.4 5 20" stroke="var(--icon)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M17.6 2.6l1 3.1 3.1 1-3.1 1-1 3.1-1-3.1-3.1-1 3.1-1z" fill="var(--icon-strong)"/>
+      </svg>
+    </button>
+    <button class="pill float">Search</button>
+  </div>
+  <div class="cap">floating · two-part cast shadow</div>
+
+  <div class="row">
+    <button class="circle cushion" aria-label="Think">
+      <svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true">
+        <path d="M12.4 2.8a7.2 7.2 0 0 0-7.2 7.2c0 2.4 1.2 4.6 3.1 5.9v2.6a2 2 0 0 0 2 2h3.2a2 2 0 0 0 2-2v-.8h.7a1.9 1.9 0 0 0 1.9-1.9v-1.7l1.3-.6c.5-.2.6-.8.3-1.2l-1.7-2.6a7.2 7.2 0 0 0-5.6-6.9z" fill="var(--icon)"/>
+        <path d="M11.7 6.2l.9 2.7 2.7.9-2.7.9-.9 2.7-.9-2.7-2.7-.9 2.7-.9z" fill="#fdfdfe"/>
+      </svg>
+    </button>
+    <button class="pill cushion">Think</button>
+  </div>
+  <div class="cap">cushion · convex pillow face</div>
+
+  <div class="row">
+    <span class="ring ring--circle">
+      <button class="circle seated" aria-label="Upgrade">
+        <svg viewBox="0 0 24 24" width="31" height="31" aria-hidden="true">
+          <path d="M7.2 4.5h9.6l3.4 4.3L12 19.5 3.8 8.8z" fill="var(--icon)"/>
+          <path d="M12 7.2l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z" fill="#3a465e"/>
+        </svg>
+      </button>
+    </span>
+    <span class="ring">
+      <button class="pill seated">Upgrade</button>
+    </span>
+  </div>
+  <div class="cap">seated · raised ring, face in a groove</div>
+
+  <div class="row">
+    <button class="circle tiny" aria-label="Customize">
+      <svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true">
+        <path d="M12 3.2l7 4v.1l-7 4-7-4v-.1z" fill="#b9c2d1"/>
+        <path d="M5 7.3l7 4v8.4l-7-4z" fill="#8f9cb1"/>
+        <path d="M19 7.3l-7 4v8.4l7-4z" fill="#5d6b85"/>
+      </svg>
+    </button>
+    <button class="pill tiny">Customize</button>
+  </div>
+  <div class="cap">tiny lift · lit edge + crisp shadow</div>
+
+</div>
+</body>
+</html>

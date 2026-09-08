@@ -1,101 +1,46 @@
 ---
 name: typescript-tips
-description: Pragmatic everyday TypeScript best practices — derive types from values, prefer `satisfies` and `as const` over `as`, discriminated unions, type predicates, and runtime validation at boundaries. Use whenever writing or reviewing TypeScript, and ESPECIALLY whenever you see or are about to write an `as` type assertion, type a function return value, shape a config/constant object, or handle external data (JSON, API results). Consult this BEFORE reaching for `as` to decide whether the cast is avoidable.
-metadata:
-  source: https://github.com/AllThingsSmitty/typescript-tips-everyone-should-know
+description: TypeScript best-practice conventions and idioms. Use when writing new TypeScript (.ts/.tsx) or editing existing code, to keep what you touch type-safe and maintainable. Not for code you aren't changing.
 ---
 
 # TypeScript Tips
 
-Everyday type hygiene. This is the *pragmatic* companion to
-[[typescript-advanced-types]] (which covers the type-system machinery — generics, conditional/mapped
-types). Here the focus is writing types that stay correct with the least ceremony, and in particular
-**not lying to the compiler with `as`**.
+Fifteen conventions that improve type safety and maintainability. Each is a small win; together they compound. Worked before/after examples for every tip live in [references/examples.md](references/examples.md) — pull the one you need when a tip's transformation isn't obvious from its one-liner.
 
-A type assertion (`as`) tells the compiler "trust me." It silences errors instead of solving them, so
-when the underlying value drifts the assertion keeps compiling while the runtime breaks. Most `as` in a
-codebase is avoidable — the compiler already knows the type, or a better tool (`satisfies`, an explicit
-generic, a type predicate, a declared return type) expresses the same intent *without* discarding
-checks. The goal isn't zero `as`; it's that every remaining `as` is one the compiler genuinely can't
-derive, with a comment saying why.
+## How to apply
 
-## The `as`-removal decision (use this first)
+1. **Scope to your change.** Apply these to code you write or edit — not to surrounding code you aren't touching. For unrelated violations in a touched file, note them briefly — don't rewrite them.
+2. **Let the tips set direction.** Prefer the idiom for in-scope and new code even when surrounding code diverges; flag divergent existing code (e.g. `enum`s) as a migration candidate rather than silently converting it.
+3. **Cite as `tip #N (Title)`** when you apply or flag one, so the reference is traceable and survives reordering.
+4. **Open [references/examples.md](references/examples.md)** for the exact before/after when the principle line alone isn't enough.
 
-When you see or are tempted to write `as X`, walk this list top to bottom and stop at the first that fits:
+## The tips
 
-1. **Is it already that type?** Then the cast is a no-op — delete it. If a function returns `T` and you
-   cast the result to `T`, the cast adds nothing.
-2. **Is it an object literal you're validating against a type?** Use `satisfies X`, not `as X`.
-   `satisfies` checks compatibility *and* keeps the narrow inferred type; `as` widens and can hide a
-   missing/wrong field. (Tip 3.)
-3. **Does a function/variable already declare the target type?** Let the declared type validate the
-   literal — drop the cast entirely. A real mismatch then surfaces instead of being silenced.
-4. **Is it a constant whose literal types you want to keep?** Use `as const`, not `as SomeType`. (Tip 7.)
-5. **Can you pass a generic explicitly instead?** `fn<TargetType>(arg)` beats `fn(arg) as TargetType`
-   when the function is generic. An explicit type parameter guides inference without discarding checks.
-6. **Are you narrowing `unknown`/a union at runtime?** Write a type predicate (`x is T`) so the narrow
-   is earned by a real check, not asserted. (Tip 8.)
-7. **Could the type be derived instead of asserted?** Derive it from the value (`typeof`,
-   `(typeof arr)[number]`) or from an existing type (`Pick`/`Omit`/`ReturnType`/indexed access). (Tips 4, 9.)
+1. **Prefer `unknown` over `any`.** `unknown` forces validation before use; `any` silently disables type checking and spreads unsafety.
+2. **Let inference work.** Annotate only where inference can't reach (function boundaries, ambiguous literals) — redundant annotations add maintenance cost.
+3. **Prefer `satisfies` over `as`.** `satisfies` validates a value against a type without widening it, so you keep the narrow inferred type; `as` discards precision and can mask errors.
+4. **Derive types from values.** Instead of maintaining a value and a parallel type by hand, derive with `as const` + `(typeof value)[number]`.
+5. **Model impossible states with discriminated unions.** A shared discriminant field makes invalid combinations (success with no data, error with no message) unrepresentable.
+6. **Exhaustive-check with `never`.** Assign the narrowed value to a `never` in the `default` branch so a future added case becomes a compile error, not a runtime bug.
+7. **Use `as const` for config and constants.** Without it, literal properties widen to `string`/`number`; with it they keep their literal types.
+8. **Extract reusable type predicates.** A `value is T` guard combines a runtime check with compile-time narrowing and is reusable across call sites.
+9. **Build types from existing types.** Use `Pick`/`Omit`/`Partial`/indexed access instead of re-declaring overlapping shapes.
+10. **Validate external data at runtime.** Type safety ends at the I/O boundary — parse API responses with a runtime schema (e.g. zod) instead of casting.
+11. **Avoid `enum` in most cases.** `const` arrays + literal unions are simpler to refactor, trivially serializable, and free of `enum`'s runtime and erasure quirks.
+12. **Design generics to infer.** Shape APIs so type parameters come from the arguments rather than being passed explicitly.
+13. **Constrain strings with template literal types.** Prefer domain patterns like `` `/api/${string}` `` over bare `string`.
+14. **The compiler trusts assertions — it doesn't verify them.** An `as` cast says "trust me" and stops checking; handle the runtime possibility instead of asserting it away.
+15. **Enable strict compiler options on new projects.** Turn on `strict` plus `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` from the start — retrofitting them later is painful.
 
-If none apply, the cast may be genuinely necessary — see the next section.
+## Gotchas
 
-## When `as` is genuinely necessary (and how to do it well)
+- **`satisfies` needs TS 4.9+.** Older toolchains won't parse it — check the version before recommending it (tip #3).
+- **`as const` is deeply `readonly`.** The frozen value can't be passed where a mutable type is expected; you may need a `readonly`-aware signature or an explicit copy (tips #4, #7).
+- **The `never` check only holds for a closed literal union.** If the discriminant is widened to `string`, the `default` value never narrows to `never`, so the assertion fails to compile — and casting that error away silently kills the guarantee (tip #6).
+- **Type predicates are unsound.** TS trusts your `value is T` return even if the body lies — a wrong guard is as dangerous as `as`. Keep the check exhaustive (tip #8).
+- **Runtime validation has a cost.** Add it at real boundaries (network, storage, user input), not for internal already-typed data — over-validating is noise (tip #10).
+- **`noUncheckedIndexedAccess` is painful to retrofit.** It surfaces many latent errors in an existing codebase; enable it at project creation, not mid-flight (tip #15).
 
-Some casts are unavoidable because **you know something the compiler can't**. Keep them, but: keep them
-*narrow*, prefer `as X` over `as unknown as X`, never reach for `as any`, and **leave a one-line
-comment explaining the knowledge the compiler lacks**. The legitimate categories:
+---
 
-- **External data boundaries.** `JSON.parse(...)`, `response.json()`, and similar calls return
-  `any`/`unknown`. The shape is a runtime contract the compiler can't see. Cast at the boundary — and
-  remember Tip 15: the cast does *not* make the data safe, so validate untrusted input rather than just
-  asserting it.
-- **Generic library APIs returning a broad type.** When a function returns a wider type than needed and
-  no generic overload exists, a narrow cast is the only option. Prefer the generic form where one
-  exists (decision step 5).
-- **Unresolved generic conditional types.** Some library functions return conditional types
-  (`T extends Foo ? A : B`) that don't reduce for an unconstrained generic `T`. These are known
-  compiler limitations — leave the cast and comment it.
-- **Union narrowing where the runtime guarantees a variant.** When type invariance prevents direct
-  assignment and you know a specific union member can't occur at runtime, an `as` is the only tool.
-  Document *why* the excluded variant can't happen.
-
-## The four most impactful tips
-
-**Derive types from values (Tip 4)** — don't write the value and the type twice; they drift.
-```ts
-const roles = ['admin', 'user', 'guest'] as const
-type Role = (typeof roles)[number] // 'admin' | 'user' | 'guest'
-```
-
-**Prefer `satisfies` over `as` (Tip 3)** — validate without widening or losing inference.
-```ts
-// `as` widens: routes.home is `string`, and a typo'd key would be silently allowed.
-const routes = { home: '/', about: '/about' } as Record<string, string>
-// `satisfies` checks the shape but keeps `home: '/'` literal — and catches missing/extra keys.
-const routes = { home: '/', about: '/about' } satisfies Record<string, string>
-```
-
-**Use `as const` for constants (Tip 7)** — narrows to literals so unions stay precise. `as const` is a
-*good* assertion; it adds information rather than discarding checks.
-
-**Type Safety ≠ Runtime Safety (Tip 15)** — `(await res.json()) as User` compiles but proves nothing at
-runtime. At trust boundaries, validate (a predicate or schema), don't assert.
-
-## The full catalog
-
-All 15 tips with before/after examples live in [references/tips.md](references/tips.md). Read it when
-the four above aren't enough, or when you need a tip not covered here (discriminated unions, exhaustive
-`never` checks, type predicates, building types from existing types, runtime validation, avoiding
-`enum`, inferable generics, strict compiler options, template literal types).
-
-## Reviewing a diff for `as`
-
-When reviewing TypeScript changes:
-
-- Flag every new `as` and ask "which decision-list step makes this avoidable?" Most will be steps 1–3.
-- `as any` and `as unknown as X` get extra scrutiny — they discard the most information. Push for a
-  predicate, a narrower cast, or a real type.
-- An unavoidable cast without an explaining comment is incomplete — request the comment.
-- Don't churn legitimate boundary casts (external data, unavoidable library APIs). Removing them just
-  to hit "zero `as`" trades a documented, necessary assertion for a broken or noisier alternative.
+Adapted from [AllThingsSmitty/typescript-tips-everyone-should-know](https://github.com/AllThingsSmitty/typescript-tips-everyone-should-know) (CC0-1.0).
