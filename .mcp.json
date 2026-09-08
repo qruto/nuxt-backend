@@ -18,6 +18,14 @@
         "."
       ]
     },
+    "fallow": {
+      "type": "stdio",
+      "command": "pnpm",
+      "args": [
+        "exec",
+        "fallow-mcp"
+      ]
+    },
     "nuxt-docs": {
       "type": "http",
       "url": "https://nuxt.com/mcp"
@@ -40,6 +48,14 @@
         "mcp-remote",
         "https://mcp.polar.sh/mcp/polar-sandbox"
       ]
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/"
+    },
+    "vercel": {
+      "type": "http",
+      "url": "https://mcp.vercel.com"
     }
   }
 }
