@@ -95,3 +95,42 @@ describe('executeEnvPush', () => {
     expect(results[0]?.outcome).toBe('planned')
   })
 })
+
+describe('rotating a value already on the deployment', () => {
+  const deployedNames = ['AUTH_SECRET', 'SITE_URL', 'BILLING_ACCESS_TOKEN']
+  const localEnv = { AUTH_SECRET: 'a'.repeat(40), SITE_URL: 'https://app.example.com', BILLING_ACCESS_TOKEN: 'fresh-token' }
+
+  it('leaves deployment values alone and says how to replace them', () => {
+    const plan = planEnvPush({ deployedNames, localEnv, dev: true })
+    const token = plan.find(action => action.name === 'BILLING_ACCESS_TOKEN')!
+    expect(token.action).toBe('skip')
+    expect(token.detail).toContain('--force')
+    expect(token.value).toBeUndefined()
+  })
+
+  it('replaces only the named value when forced', () => {
+    const plan = planEnvPush({ deployedNames, localEnv, dev: true, force: new Set(['BILLING_ACCESS_TOKEN']) })
+    const token = plan.find(action => action.name === 'BILLING_ACCESS_TOKEN')!
+    expect(token.action).toBe('update')
+    expect(token.value).toBe('fresh-token')
+    // Untouched names keep their deployment value.
+    expect(plan.find(action => action.name === 'AUTH_SECRET')!.action).toBe('skip')
+  })
+
+  it('cannot replace what the local env does not carry', () => {
+    const plan = planEnvPush({ deployedNames, localEnv: {}, dev: true, force: new Set(['BILLING_ACCESS_TOKEN']) })
+    const token = plan.find(action => action.name === 'BILLING_ACCESS_TOKEN')!
+    expect(token.action).toBe('skip')
+    expect(token.detail).toContain('no local value')
+  })
+
+  it('never forwards a dev-only var to a non-dev deployment, even forced', () => {
+    const plan = planEnvPush({
+      deployedNames: ['AUTH_TRUST_LOCAL_ORIGINS'],
+      localEnv: { AUTH_TRUST_LOCAL_ORIGINS: '1' },
+      dev: false,
+      force: new Set(['AUTH_TRUST_LOCAL_ORIGINS']),
+    })
+    expect(plan.find(action => action.name === 'AUTH_TRUST_LOCAL_ORIGINS')!.action).toBe('unset')
+  })
+})

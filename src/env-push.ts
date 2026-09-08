@@ -38,8 +38,10 @@ export interface EnvPushAction {
     | 'forward'
     /** Dev-only: value invented (generated secret / localhost default). */
     | 'provision'
-    /** Already set on the deployment — never overwritten. */
+    /** Already set on the deployment — left alone unless forced. */
     | 'skip'
+    /** Already set, and replaced with the local value because it was forced. */
+    | 'update'
     /** Required var with no source — blocks a production push. */
     | 'missing'
     /** Optional var with no source — informational only. */
@@ -57,6 +59,13 @@ export interface EnvPushPlanInput {
   localEnv: Record<string, string>
   /** Treat as a dev deployment (gap-filling allowed). */
   dev: boolean
+  /**
+   * Names whose deployment value may be replaced by the local one. Rotation is
+   * deliberate: a push never overwrites a live secret on its own, because the
+   * plan compares presence, not values — it reads names only, so the CLI can
+   * never tell a rotated key from an identical one.
+   */
+  force?: ReadonlySet<string>
 }
 
 /**
@@ -65,16 +74,32 @@ export interface EnvPushPlanInput {
  *
  * @internal
  */
-export function planEnvPush({ deployedNames, localEnv, dev }: EnvPushPlanInput): EnvPushAction[] {
+export function planEnvPush({ deployedNames, localEnv, dev, force }: EnvPushPlanInput): EnvPushAction[] {
   const deployed = new Set(deployedNames)
   const actions: EnvPushAction[] = []
 
   for (const name of BACKEND_ENV_NAMES) {
+    const local = localEnv[name]
     if (deployed.has(name)) {
-      actions.push({ name, action: 'skip', detail: 'already set on the deployment' })
+      const replaceable = force?.has(name) && local !== undefined && local !== ''
+      if (!replaceable) {
+        actions.push({
+          name,
+          action: 'skip',
+          detail: force?.has(name)
+            ? 'no local value to replace it with'
+            : 'already set on the deployment (--force to replace)',
+        })
+        continue
+      }
+      // A dev-only var still never reaches a non-dev deployment, forced or not.
+      if (!dev && DEV_ONLY_DEPLOYMENT_ENV.has(name)) {
+        actions.push({ name, action: 'unset', detail: 'dev-only — not forwarded to a non-dev deployment' })
+        continue
+      }
+      actions.push({ name, action: 'update', value: local, detail: 'replaced from .env(.local)' })
       continue
     }
-    const local = localEnv[name]
     // Dev-only vars (loopback origin trust) never leave the workstation for a
     // non-dev deployment, even when .env.local carries them.
     if (!dev && DEV_ONLY_DEPLOYMENT_ENV.has(name)) {
@@ -189,7 +214,7 @@ export async function executeEnvPush(
 ): Promise<EnvPushResult[]> {
   const results: EnvPushResult[] = []
   for (const action of actions) {
-    if (action.action !== 'forward' && action.action !== 'provision') {
+    if (action.action !== 'forward' && action.action !== 'provision' && action.action !== 'update') {
       results.push({ action, outcome: 'skipped' })
       continue
     }
@@ -238,14 +263,14 @@ export function isDevDeployment(rootDir: string): boolean {
 }
 
 /** The whole flow shared by the CLI and the module's dev auto-provision. */
-export async function runEnvPush(rootDir: string, options: { prod?: boolean, dryRun?: boolean, setEnv?: ExecuteEnvPushOptions['setEnv'] } = {}): Promise<EnvPushRunResult | null> {
+export async function runEnvPush(rootDir: string, options: { prod?: boolean, dryRun?: boolean, force?: ReadonlySet<string>, setEnv?: ExecuteEnvPushOptions['setEnv'] } = {}): Promise<EnvPushRunResult | null> {
   const deployedNames = await deploymentEnvNames(rootDir)
   if (deployedNames === null) return null
 
   // Dev-class deployments get required-gap filling.
   const deployment = configuredDeployment(rootDir)
   const dev = !options.prod && isDevDeployment(rootDir)
-  const actions = planEnvPush({ deployedNames, localEnv: readEnvFiles(rootDir), dev })
+  const actions = planEnvPush({ deployedNames, localEnv: readEnvFiles(rootDir), dev, ...(options.force ? { force: options.force } : {}) })
   const results = await executeEnvPush(rootDir, actions, { dryRun: options.dryRun, setEnv: options.setEnv })
   return {
     deployment,

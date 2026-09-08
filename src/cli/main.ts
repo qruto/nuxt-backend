@@ -4,7 +4,7 @@ import { defineCommand } from 'citty'
 import { scaffoldBackendFiles, resolveFunctionsDir } from '../scaffold'
 import type { BackendInstallationMode } from '../templates'
 import { collectPreflightFindings, DEV_ONLY_DEPLOYMENT_ENV, formatPreflightSummary, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../preflight'
-import { deploymentEnvNames, isDevDeployment, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
+import { BACKEND_ENV_NAMES, deploymentEnvNames, isDevDeployment, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
 import { deriveDeploymentUrls } from '../deployment'
 import type { BillingCatalog } from '../convex/catalog'
 import { billing, collectBillingFindings, loadCatalog, readBillingOrganizationState } from './billing'
@@ -145,6 +145,19 @@ async function billingCatalogFindings(rootDir: string, env: Record<string, strin
   return collectBillingFindings(catalog, state, { tokenPresent: Boolean(accessToken) })
 }
 
+/**
+ * `--force` for `env push`: which already-set deployment values may be
+ * replaced by the local ones. Rotation has to be asked for — the plan reads
+ * deployment env NAMES only, never values, so it cannot tell a rotated secret
+ * from an identical one and must not guess.
+ */
+function parseForce(raw: unknown): ReadonlySet<string> | null {
+  if (typeof raw !== 'string' || raw.trim() === '') return null
+  const names = raw.split(',').map(name => name.trim()).filter(Boolean)
+  if (names.some(name => name.toLowerCase() === 'all')) return new Set(BACKEND_ENV_NAMES)
+  return new Set(names.map(name => name.toUpperCase()))
+}
+
 const ENV_EXAMPLE = `# Local environment, grouped by what each value is for. Names describe what
 # they do rather than the service underneath.
 #
@@ -280,11 +293,12 @@ const envPush = defineCommand({
     ...cwdArg,
     'prod': { type: 'boolean', description: 'Never invent values; fail on missing required env', default: false },
     'dry-run': { type: 'boolean', description: 'Print the plan without setting anything', default: false },
+    'force': { type: 'string', description: 'Replace values already on the deployment: a comma-separated list of names, or "all"' },
     'json': { type: 'boolean', description: 'Machine-readable output', default: false },
   },
   async run({ args }) {
     const rootDir = projectRoot(args)
-    const run = await runEnvPush(rootDir, { prod: args.prod, dryRun: args['dry-run'] })
+    const run = await runEnvPush(rootDir, { prod: args.prod, dryRun: args['dry-run'], ...(parseForce(args.force) ? { force: parseForce(args.force)! } : {}) })
     if (!run) {
       console.error('[nuxt-backend] No Convex deployment reachable — run `npx convex dev` once, then push again.')
       process.exitCode = 1
