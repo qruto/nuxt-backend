@@ -111,10 +111,10 @@ function replay() {
 <template>
   <section class="home-section alt">
     <div class="home-wrap">
-      <p class="eyebrow">
-        <span class="dot" /> One install
+      <p class="eyebrow engraved-sm">
+        One install
       </p>
-      <h2 class="home-title">
+      <h2 class="home-title engraved">
         A whole backend, online in one command.
       </h2>
       <p class="home-lead">
@@ -125,11 +125,10 @@ function replay() {
 
       <div
         ref="root"
-        class="console"
+        class="console plaque noise"
       >
         <header class="chrome">
-          <span class="lights"><i /><i /><i /></span>
-          <span class="ttl">terminal — nuxt-backend</span>
+          <span class="ttl engraved-sm">Boot sequence</span>
           <span
             class="state"
             :class="{ on: online }"
@@ -139,7 +138,7 @@ function replay() {
           </span>
         </header>
 
-        <div class="body">
+        <div class="body slot">
           <p class="cmd">
             <span class="caret-line">{{ cmd }}<span
               v-if="!online"
@@ -204,40 +203,34 @@ function replay() {
 .home-wrap { margin: 0 auto; max-width: 50rem; text-align: center; }
 
 .eyebrow {
-  display: inline-flex; align-items: center; gap: 0.55rem;
-  margin: 0 0 1rem; padding: 0.35rem 0.85rem 0.35rem 0.7rem; border-radius: 999px;
-  font-family: var(--mono); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em;
-  color: var(--ink-dim); background: var(--surface); box-shadow: var(--elev-1);
-}
-.eyebrow .dot {
-  width: 7px; height: 7px; border-radius: 999px;
-  background: var(--accent); box-shadow: var(--glow-accent-soft);
+  margin: 0 0 1.2rem;
+  font-family: var(--mono); font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase;
 }
 .home-title {
   margin: 0 auto; max-width: 20ch; font-family: var(--display);
-  font-size: clamp(1.9rem, 4.5vw, 3rem); font-weight: 700;
-  letter-spacing: -0.02em; line-height: 1.05; color: var(--ink);
+  font-size: clamp(1.9rem, 4.5vw, 3rem); font-weight: 600;
+  letter-spacing: -0.005em; line-height: 1.1;
 }
 .home-lead {
   margin: 1rem auto 0; max-width: 52ch; font-size: 1.04rem; line-height: 1.6;
   color: var(--ink-dim);
 }
 
-/* ── Console (depth surface) ───────────────────────────────── */
+/* ── Console — a plaque bezel holding a recessed slot display ── */
 .console {
-  margin: 2.5rem auto 0; max-width: 46rem; text-align: left; overflow: hidden;
-  border: 1px solid transparent; border-radius: var(--r-lg);
-  background: var(--grad-surface) padding-box, var(--grad-bevel) border-box;
-  box-shadow: var(--elev-4), 0 0 60px -28px var(--accent-glow);
+  margin: 2.5rem auto 0; max-width: 46rem; text-align: left;
+  padding: 0.9rem 1rem 1rem;
 }
 .chrome {
-  display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 1rem;
-  background: linear-gradient(var(--surface-hi), var(--surface));
-  border-bottom: 1px solid var(--edge);
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.15rem 0.15rem 0.75rem;
 }
-.lights { display: inline-flex; gap: 5px; }
-.lights i { width: 9px; height: 9px; border-radius: 999px; background: var(--edge-hi); box-shadow: var(--inset-1); }
-.ttl { flex: 1; font-family: var(--mono); font-size: 0.7rem; color: var(--ink-faint); }
+.ttl {
+  flex: 1;
+  font-family: var(--mono); font-size: 0.68rem; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
 .state {
   display: inline-flex; align-items: center; gap: 0.4rem;
   font-family: var(--mono); font-size: 0.66rem; font-weight: 600;

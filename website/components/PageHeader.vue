@@ -23,7 +23,7 @@ withDefaults(defineProps<{
         live
       </span>
     </div>
-    <h1 class="ph-title">
+    <h1 class="ph-title engraved">
       {{ title }}
     </h1>
     <p class="ph-sub">
@@ -76,10 +76,10 @@ withDefaults(defineProps<{
 .ph-title {
   font-family: var(--display);
   font-size: 2.05rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
+  font-weight: 600;
+  letter-spacing: -0.005em;
   margin: 0 0 0.4rem;
-  line-height: 1.04;
+  line-height: 1.08;
 }
 .ph-sub {
   color: var(--ink-dim);

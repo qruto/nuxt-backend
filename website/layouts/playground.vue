@@ -141,8 +141,8 @@ const isLogin = computed(() => route.path === '/login')
               </svg>
             </span>
             <span class="logo-text">
-              <span class="logo-name">Nuxt backend</span>
-              <span class="logo-tag">playground</span>
+              <span class="logo-name embossed-sm">Nuxt backend</span>
+              <span class="logo-tag engraved-sm">playground</span>
             </span>
           </NuxtLink>
 
@@ -225,7 +225,7 @@ const isLogin = computed(() => route.path === '/login')
             class="nav-group"
           >
             <div class="nav-group-head">
-              <span class="nav-group-label">{{ group.label }}</span>
+              <span class="nav-group-label engraved-sm">{{ group.label }}</span>
               <span
                 v-if="group.hint"
                 class="nav-group-hint"
@@ -261,7 +261,7 @@ const isLogin = computed(() => route.path === '/login')
         <div class="sidebar-foot">
           <p class="foot-note">
             One package — Convex realtime client + Better&nbsp;Auth, Polar billing,
-            Resend email, workflows &amp; rate limiting — sculpted in depth.
+            Resend email, workflows &amp; rate limiting — machined from one material.
           </p>
         </div>
       </aside>
@@ -288,6 +288,11 @@ const isLogin = computed(() => route.path === '/login')
   z-index: 50;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: saturate(1.1) blur(10px);
+  /* Milled seam: a dark hairline with a lit lip below — a carved groove,
+     not a drop shadow. */
+  box-shadow:
+    inset 0 -1px 0 var(--edge),
+    0 1px 0 light-dark(rgb(255 255 255 / 0.6), rgb(255 255 255 / 0.05));
 }
 .topbar-inner {
   max-width: 1320px;
@@ -317,8 +322,11 @@ const isLogin = computed(() => route.path === '/login')
 }
 .logo-glyph { width: 19px; height: 19px; }
 .logo-text { display: flex; flex-direction: column; line-height: 1.05; }
-.logo-name { font-family: var(--display); font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
-.logo-tag { font-family: var(--mono); font-size: 0.58rem; font-weight: 600; letter-spacing: 0.16em; color: var(--ink-faint); text-transform: uppercase; }
+/* Depth comes from the `.embossed-sm` / `.engraved-sm` utilities (app.css) so
+   the prefers-contrast kill-switch reaches it; `.engraved-sm` also carries the
+   4.5:1 small-text ink these 9–10px labels need. */
+.logo-name { font-family: var(--display); font-size: 1rem; font-weight: 600; letter-spacing: 0.02em; color: var(--ink); }
+.logo-tag { font-family: var(--mono); font-size: 0.58rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
 
 .top-status { display: flex; align-items: center; }
 
@@ -406,7 +414,7 @@ const isLogin = computed(() => route.path === '/login')
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--ink-dim);
+  /* ink + carve via `.engraved-sm` (see .logo-tag) */
 }
 .nav-group-hint {
   font-size: 0.66rem;

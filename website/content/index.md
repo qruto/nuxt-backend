@@ -4,7 +4,7 @@ seo:
   description: Nuxt backend ships a Nuxt module and an all-in-one backend Convex component with Better Auth built in — real-time data, SSR-safe auth, and batteries-included backend components, in one package.
 ---
 
-::home-hero-stage
+::home-hero
 ::
 
 ::home-backend-boot

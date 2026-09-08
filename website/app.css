@@ -31,9 +31,12 @@
    orange carries the signal.
    ════════════════════════════════════════════════════════════════ */
 @theme {
-  /* Rounded type system: Fredoka (display) + Nunito (sans/body) + JetBrains Mono.
-     `--font-sans` drives the Docus/Nuxt UI docs chrome → soft, rounded Nunito. */
+  /* Type system: Bai Jamjuree (squared technical display — the engraved face)
+     + Nunito (sans/body) + JetBrains Mono. `--font-sans` drives the
+     Docus/Nuxt UI docs chrome; `--font-display` generates the `font-display`
+     utility injected through app.config `ui.*` slots. */
   --font-sans: "Nunito", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bai Jamjuree", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Fluorescent orange — re-tones Tailwind `orange` (the Nuxt UI primary). */
@@ -48,12 +51,32 @@
   --color-orange-800: #9d2b0e;
   --color-orange-900: #7e260f;
   --color-orange-950: #441305;
+
+  /* Titanium — re-tones Tailwind `zinc` (the Nuxt UI neutral). Nuxt UI emits
+     `--ui-color-neutral-<shade>: var(--color-zinc-<shade>)`, so this one ramp
+     lands every Nuxt UI surface/border/text token on the house palette.
+     Anchors: 50 = --surface light, 800 = --surface dark, 900 = --bg dark. */
+  --color-zinc-50:  #fafafa;
+  --color-zinc-100: #f1f1f1;
+  --color-zinc-200: #dfdfdf;
+  --color-zinc-300: #c8c8c8;
+  --color-zinc-400: #949494;
+  --color-zinc-500: #6b6b6b;
+  --color-zinc-600: #565656;
+  --color-zinc-700: #333333;
+  --color-zinc-800: #232323;
+  --color-zinc-900: #161616;
+  --color-zinc-950: #0d0d0d;
 }
 
 :root {
   /* Rounded corners for Nuxt UI / Docus components (depth design wants soft,
      pill-friendly radii everywhere). */
   --ui-radius: 0.5rem;
+  /* Canvas bridge: Nuxt UI's light `--ui-bg` is a hard-coded #fff in the layered
+     theme; this unlayered definition wins in both schemes (light-dark() resolves
+     per color-scheme) so all docs chrome sits on the titanium canvas. */
+  --ui-bg: var(--bg);
 }
 
 /* Bridge: make the playground's `light-dark()` tokens follow Docus's
@@ -66,13 +89,13 @@ html.light { color-scheme: light; }
   /* MANDATORY: adapt native UI (scrollbars, form controls) to scheme. */
   color-scheme: light dark;
 
-  /* ── Type — a rounded system ───────────────────────────────
-     Gabarito (modern ROUNDED display — soft terminals, slimmer/sharper
-     than the chunky alternatives), Nunito (rounded-terminal body),
-     JetBrains Mono for data/labels/code. Loaded via <link> in
-     nuxt.config. Soft rounded letterforms to echo the full-rounded,
-     depth-design surfaces. */
-  --display: "Gabarito", system-ui, sans-serif;
+  /* ── Type — machined display over a soft body ──────────────
+     Bai Jamjuree (squared TECHNICAL display — the face the engraved
+     headings are cut in), Nunito (rounded-terminal body), JetBrains
+     Mono for data/labels/code. Loaded via <link> in nuxt.config.
+     The squared display wants a touch of positive tracking — never
+     the old rounded-negative tracking. */
+  --display: "Bai Jamjuree", system-ui, sans-serif;
   --font: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
@@ -182,19 +205,23 @@ html.light { color-scheme: light; }
 
 html { scrollbar-color: var(--edge-hi) transparent; scrollbar-width: thin; }
 
-body { margin: 0; }
+/* The whole site sits on one machined matte slab: light ray anchored at the
+   document top (no background-attachment: fixed — it janks on iOS) + fine
+   machining grain, blended soft-light over the titanium base. */
+body {
+  margin: 0;
+  background: var(--matte-bg);
+  background-blend-mode: soft-light, normal, normal, normal;
+}
 
 /* The playground canvas is scoped to the playground shell so the Docus docs and
    homepage keep Nuxt UI's surface; the playground keeps its depth-design. */
 .pg-shell {
   min-height: 100dvh;
   color: var(--ink);
-  background-color: var(--bg);
-  /* A whisper of an accent vignette so the canvas isn't dead —
-     never a grid, never loud. */
-  background-image:
-    radial-gradient(900px 520px at 94% -12%, var(--accent-dim), transparent 60%);
-  background-attachment: fixed;
+  /* The same machined matte slab as the rest of the site. */
+  background: var(--matte-bg);
+  background-blend-mode: soft-light, normal, normal, normal;
   font-family: var(--font);
   font-size: 15px;
   line-height: 1.55;
@@ -455,6 +482,78 @@ details.dev > .dev-body { padding: 0.25rem 0.85rem 0.85rem; }
     color-mix(in srgb, var(--surface), #000 5%) 150%);
   --grad-bevel: linear-gradient(135deg,
     rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.12) 45%, rgb(0 0 0 / 0.14));
+
+  /* ── MATTE MATERIAL — carved type + plaques/slots (design.md §2.5) ──
+     One sun, top-left (ray ≈330°). Engraving is SUBTRACTIVE: the near
+     wall (up-left) falls into shadow, the far wall (down-right) catches
+     light. Embossing flips the offsets. */
+  --engrave-ink: #7a7a7a;                          /* 3.5:1 on #e8e8e8 — WCAG large-text bar; shadows do not count */
+  --engrave-ink-sm: #686868;                       /* 4.55:1 on #e8e8e8 — small labels need the 4.5:1 bar */
+  --engrave:
+    -0.8px -1.39px 0.8px  rgb(0 0 0 / 0.50),       /* near wall shadow, up-left  */
+    -1.7px -2.94px 4.95px rgb(0 0 0 / 0.19),       /* soft ambient               */
+     1px    1.73px 0.94px rgb(255 255 255 / 0.92), /* lit far wall, down-right   */
+     1.8px  3.12px 4.5px  rgb(255 255 255 / 0.30); /* wide bounce                */
+  --engrave-sm:                                    /* body-size labels: 2 layers */
+    -0.4px -0.7px 0.45px rgb(0 0 0 / 0.45),
+     0.5px  0.9px 0.5px  rgb(255 255 255 / 0.90);
+  --emboss:                                        /* convex: offsets flipped    */
+    -0.8px -1.39px 0.8px  rgb(255 255 255 / 0.90),
+    -1.7px -2.94px 4.95px rgb(255 255 255 / 0.35),
+     1px    1.73px 0.94px rgb(0 0 0 / 0.30),
+     1.8px  3.12px 4.5px  rgb(0 0 0 / 0.12);
+  --emboss-sm:
+    -0.5px -0.87px 0.47px rgb(255 255 255 / 0.90),
+     0.5px  0.87px 0.47px rgb(0 0 0 / 0.28);
+  /* Icon glyphs emboss with two chained drop-shadows (same offsets) — a token
+     so the contrast kill-switch can zero it. light-dark() follows the
+     element's color-scheme, so this one definition serves both themes (no
+     html.dark / html.light override needed). */
+  --emboss-icon:
+    drop-shadow(-0.5px -0.87px 0.4px light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.1)))
+    drop-shadow(0.5px 0.87px 0.4px light-dark(rgb(0 0 0 / 0.25), rgb(0 0 0 / 0.6)));
+
+  /* Convex plaque — paired inner bevels at two scales + up-left bounce
+     light + down-right cast. The premium raised panel. */
+  --plaque:
+    inset  1.2px   2.08px 2.68px rgb(255 255 255 / 0.92),
+    inset -1.2px  -2.08px 2.68px rgb(0 0 0 / 0.10),
+    inset  0.5px   0.78px 1.25px rgb(255 255 255 / 0.92),
+    inset -0.5px  -0.78px 1.25px rgb(0 0 0 / 0.10),
+    -3px -5.2px 16.2px rgb(255 255 255 / 0.55),
+     0.18px 0.31px 0.43px rgb(0 0 0 / 0.38),
+     1.5px  2.6px  3.6px  rgb(0 0 0 / 0.10),
+     4px    7px   14px    rgb(0 0 0 / 0.08);
+  --plaque-hi:                                     /* hover: casts grow one step */
+    inset  1.2px   2.08px 2.68px rgb(255 255 255 / 0.92),
+    inset -1.2px  -2.08px 2.68px rgb(0 0 0 / 0.10),
+    inset  0.5px   0.78px 1.25px rgb(255 255 255 / 0.92),
+    inset -0.5px  -0.78px 1.25px rgb(0 0 0 / 0.10),
+    -3px -5.2px 16.2px rgb(255 255 255 / 0.55),
+     0.18px 0.31px 0.43px rgb(0 0 0 / 0.38),
+     2px    3.5px  5px    rgb(0 0 0 / 0.12),
+     6px   11px   22px    rgb(0 0 0 / 0.10);
+
+  /* Concave slot — a machined well, deeper than --inset-2; lit lower lip. */
+  --slot:
+    inset  1.2px  2.08px 3px    rgb(0 0 0 / 0.16),
+    inset  0.5px  0.87px 1.25px rgb(0 0 0 / 0.20),
+    inset -1px   -1.73px 2px    rgb(255 255 255 / 0.55),
+    0 1px 0 rgb(255 255 255 / 0.55);
+
+  /* Plaque face: two diagonal sheens + fine grain over --surface. Matte. */
+  --grad-plaque:
+    linear-gradient(135deg, rgb(255 255 255 / 0.50), rgb(255 255 255 / 0) 40%),
+    linear-gradient(315deg, rgb(0 0 0 / 0.045), rgb(0 0 0 / 0) 45%),
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.02) 0 1px, transparent 1px 3px),
+    linear-gradient(var(--surface), var(--surface));
+
+  /* Canvas: light ray + machining grain over --bg ("carved stone · matte"). */
+  --matte-bg:
+    radial-gradient(130vmax 90vmax at 21% -4%, rgb(255 255 255 / 0.27), rgb(255 255 255 / 0.11) 42%, transparent 115%),
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.024) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(0deg, rgb(0 0 0 / 0.02) 0 1px, transparent 1px 7px),
+    linear-gradient(var(--bg), var(--bg));
 }
 
 /* Dark tokens — system pref + explicit toggle. */
@@ -485,6 +584,64 @@ details.dev > .dev-body { padding: 0.25rem 0.85rem 0.85rem; }
       inset -1px -1px 0 rgb(255 255 255 / 0.04);
     --grad-bevel: linear-gradient(135deg,
       rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.03) 45%, rgb(0 0 0 / 0.5));
+
+    /* Matte material — machined dark steel: highlights faint, shadows deep.
+       Ink sits well ABOVE the steel: #6d6d6d clears 3:1 on #161616 AND on the
+       #232323 plaque face (engraving must survive on plaques too) — text-shadow
+       never counts toward contrast, so the ink carries legibility alone and
+       the dark carve shadows up-left only read the letters as cut in. Small
+       labels take #8a8a8a for the 4.5:1 bar. */
+    --engrave-ink: #6d6d6d;
+    --engrave-ink-sm: #8a8a8a;
+    --engrave:
+      -0.8px -1.39px 1px    rgb(0 0 0 / 0.85),
+      -1.7px -2.94px 4.95px rgb(0 0 0 / 0.45),
+       1px    1.73px 0.94px rgb(255 255 255 / 0.18),
+       1.8px  3.12px 4.5px  rgb(255 255 255 / 0.05);
+    --engrave-sm:
+      -0.4px -0.7px 0.5px rgb(0 0 0 / 0.80),
+       0.5px  0.9px 0.5px rgb(255 255 255 / 0.16);
+    --emboss:
+      -0.8px -1.39px 0.8px  rgb(255 255 255 / 0.10),
+      -1.7px -2.94px 4.95px rgb(255 255 255 / 0.04),
+       1px    1.73px 0.94px rgb(0 0 0 / 0.70),
+       1.8px  3.12px 4.5px  rgb(0 0 0 / 0.35);
+    --emboss-sm:
+      -0.5px -0.87px 0.47px rgb(255 255 255 / 0.10),
+       0.5px  0.87px 0.47px rgb(0 0 0 / 0.60);
+    --plaque:
+      inset  1.2px   2.08px 2.68px rgb(255 255 255 / 0.07),
+      inset -1.2px  -2.08px 2.68px rgb(0 0 0 / 0.55),
+      inset  0.5px   0.78px 1.25px rgb(255 255 255 / 0.06),
+      inset -0.5px  -0.78px 1.25px rgb(0 0 0 / 0.45),
+      -3px -5.2px 16.2px rgb(255 255 255 / 0.03),
+       0.18px 0.31px 0.43px rgb(0 0 0 / 0.80),
+       2px    4px   8px     rgb(0 0 0 / 0.45),
+       5px    9px  18px     rgb(0 0 0 / 0.40);
+    --plaque-hi:
+      inset  1.2px   2.08px 2.68px rgb(255 255 255 / 0.07),
+      inset -1.2px  -2.08px 2.68px rgb(0 0 0 / 0.55),
+      inset  0.5px   0.78px 1.25px rgb(255 255 255 / 0.06),
+      inset -0.5px  -0.78px 1.25px rgb(0 0 0 / 0.45),
+      -3px -5.2px 16.2px rgb(255 255 255 / 0.03),
+       0.18px 0.31px 0.43px rgb(0 0 0 / 0.80),
+       3px    5px  10px     rgb(0 0 0 / 0.50),
+       7px   13px  26px     rgb(0 0 0 / 0.45);
+    --slot:
+      inset  1.2px  2.08px 4px   rgb(0 0 0 / 0.60),
+      inset  0.5px  0.87px 1.5px rgb(0 0 0 / 0.55),
+      inset -1px   -1.73px 2px   rgb(255 255 255 / 0.05),
+      0 1px 0 rgb(255 255 255 / 0.05);
+    --grad-plaque:
+      linear-gradient(135deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0) 40%),
+      linear-gradient(315deg, rgb(0 0 0 / 0.25), rgb(0 0 0 / 0) 45%),
+      repeating-linear-gradient(0deg, rgb(255 255 255 / 0.012) 0 1px, transparent 1px 3px),
+      linear-gradient(var(--surface), var(--surface));
+    --matte-bg:
+      radial-gradient(130vmax 90vmax at 21% -4%, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.02) 42%, transparent 115%),
+      repeating-linear-gradient(0deg, rgb(255 255 255 / 0.012) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(0deg, rgb(0 0 0 / 0.05) 0 1px, transparent 1px 7px),
+      linear-gradient(var(--bg), var(--bg));
   }
 }
 html.dark {
@@ -496,6 +653,17 @@ html.dark {
   --inset-1: inset 1px 1px 3px rgb(0 0 0 / 0.5), inset -1px -1px 0 rgb(255 255 255 / 0.05);
   --inset-2: inset 2px 2px 6px rgb(0 0 0 / 0.6), inset -1px -1px 0 rgb(255 255 255 / 0.04);
   --grad-bevel: linear-gradient(135deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.03) 45%, rgb(0 0 0 / 0.5));
+  --engrave-ink: #6d6d6d;
+  --engrave-ink-sm: #8a8a8a;
+  --engrave: -0.8px -1.39px 1px rgb(0 0 0 / 0.85), -1.7px -2.94px 4.95px rgb(0 0 0 / 0.45), 1px 1.73px 0.94px rgb(255 255 255 / 0.18), 1.8px 3.12px 4.5px rgb(255 255 255 / 0.05);
+  --engrave-sm: -0.4px -0.7px 0.5px rgb(0 0 0 / 0.80), 0.5px 0.9px 0.5px rgb(255 255 255 / 0.16);
+  --emboss: -0.8px -1.39px 0.8px rgb(255 255 255 / 0.10), -1.7px -2.94px 4.95px rgb(255 255 255 / 0.04), 1px 1.73px 0.94px rgb(0 0 0 / 0.70), 1.8px 3.12px 4.5px rgb(0 0 0 / 0.35);
+  --emboss-sm: -0.5px -0.87px 0.47px rgb(255 255 255 / 0.10), 0.5px 0.87px 0.47px rgb(0 0 0 / 0.60);
+  --plaque: inset 1.2px 2.08px 2.68px rgb(255 255 255 / 0.07), inset -1.2px -2.08px 2.68px rgb(0 0 0 / 0.55), inset 0.5px 0.78px 1.25px rgb(255 255 255 / 0.06), inset -0.5px -0.78px 1.25px rgb(0 0 0 / 0.45), -3px -5.2px 16.2px rgb(255 255 255 / 0.03), 0.18px 0.31px 0.43px rgb(0 0 0 / 0.80), 2px 4px 8px rgb(0 0 0 / 0.45), 5px 9px 18px rgb(0 0 0 / 0.40);
+  --plaque-hi: inset 1.2px 2.08px 2.68px rgb(255 255 255 / 0.07), inset -1.2px -2.08px 2.68px rgb(0 0 0 / 0.55), inset 0.5px 0.78px 1.25px rgb(255 255 255 / 0.06), inset -0.5px -0.78px 1.25px rgb(0 0 0 / 0.45), -3px -5.2px 16.2px rgb(255 255 255 / 0.03), 0.18px 0.31px 0.43px rgb(0 0 0 / 0.80), 3px 5px 10px rgb(0 0 0 / 0.50), 7px 13px 26px rgb(0 0 0 / 0.45);
+  --slot: inset 1.2px 2.08px 4px rgb(0 0 0 / 0.60), inset 0.5px 0.87px 1.5px rgb(0 0 0 / 0.55), inset -1px -1.73px 2px rgb(255 255 255 / 0.05), 0 1px 0 rgb(255 255 255 / 0.05);
+  --grad-plaque: linear-gradient(135deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0) 40%), linear-gradient(315deg, rgb(0 0 0 / 0.25), rgb(0 0 0 / 0) 45%), repeating-linear-gradient(0deg, rgb(255 255 255 / 0.012) 0 1px, transparent 1px 3px), linear-gradient(var(--surface), var(--surface));
+  --matte-bg: radial-gradient(130vmax 90vmax at 21% -4%, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.02) 42%, transparent 115%), repeating-linear-gradient(0deg, rgb(255 255 255 / 0.012) 0 1px, transparent 1px 3px), repeating-linear-gradient(0deg, rgb(0 0 0 / 0.05) 0 1px, transparent 1px 7px), linear-gradient(var(--bg), var(--bg));
 }
 html.light {
   --elev-0: inset 1px 1px 0 rgb(255 255 255 / 0.6), 0 0 0 1px rgb(0 0 0 / 0.04);
@@ -506,6 +674,17 @@ html.light {
   --inset-1: inset 1px 1px 2px rgb(0 0 0 / 0.10), inset -1px -1px 0 rgb(255 255 255 / 0.6);
   --inset-2: inset 2px 2px 5px rgb(0 0 0 / 0.14), inset -1px -1px 0 rgb(255 255 255 / 0.5);
   --grad-bevel: linear-gradient(135deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.12) 45%, rgb(0 0 0 / 0.14));
+  --engrave-ink: #7a7a7a;
+  --engrave-ink-sm: #686868;
+  --engrave: -0.8px -1.39px 0.8px rgb(0 0 0 / 0.50), -1.7px -2.94px 4.95px rgb(0 0 0 / 0.19), 1px 1.73px 0.94px rgb(255 255 255 / 0.92), 1.8px 3.12px 4.5px rgb(255 255 255 / 0.30);
+  --engrave-sm: -0.4px -0.7px 0.45px rgb(0 0 0 / 0.45), 0.5px 0.9px 0.5px rgb(255 255 255 / 0.90);
+  --emboss: -0.8px -1.39px 0.8px rgb(255 255 255 / 0.90), -1.7px -2.94px 4.95px rgb(255 255 255 / 0.35), 1px 1.73px 0.94px rgb(0 0 0 / 0.30), 1.8px 3.12px 4.5px rgb(0 0 0 / 0.12);
+  --emboss-sm: -0.5px -0.87px 0.47px rgb(255 255 255 / 0.90), 0.5px 0.87px 0.47px rgb(0 0 0 / 0.28);
+  --plaque: inset 1.2px 2.08px 2.68px rgb(255 255 255 / 0.92), inset -1.2px -2.08px 2.68px rgb(0 0 0 / 0.10), inset 0.5px 0.78px 1.25px rgb(255 255 255 / 0.92), inset -0.5px -0.78px 1.25px rgb(0 0 0 / 0.10), -3px -5.2px 16.2px rgb(255 255 255 / 0.55), 0.18px 0.31px 0.43px rgb(0 0 0 / 0.38), 1.5px 2.6px 3.6px rgb(0 0 0 / 0.10), 4px 7px 14px rgb(0 0 0 / 0.08);
+  --plaque-hi: inset 1.2px 2.08px 2.68px rgb(255 255 255 / 0.92), inset -1.2px -2.08px 2.68px rgb(0 0 0 / 0.10), inset 0.5px 0.78px 1.25px rgb(255 255 255 / 0.92), inset -0.5px -0.78px 1.25px rgb(0 0 0 / 0.10), -3px -5.2px 16.2px rgb(255 255 255 / 0.55), 0.18px 0.31px 0.43px rgb(0 0 0 / 0.38), 2px 3.5px 5px rgb(0 0 0 / 0.12), 6px 11px 22px rgb(0 0 0 / 0.10);
+  --slot: inset 1.2px 2.08px 3px rgb(0 0 0 / 0.16), inset 0.5px 0.87px 1.25px rgb(0 0 0 / 0.20), inset -1px -1.73px 2px rgb(255 255 255 / 0.55), 0 1px 0 rgb(255 255 255 / 0.55);
+  --grad-plaque: linear-gradient(135deg, rgb(255 255 255 / 0.50), rgb(255 255 255 / 0) 40%), linear-gradient(315deg, rgb(0 0 0 / 0.045), rgb(0 0 0 / 0) 45%), repeating-linear-gradient(0deg, rgb(255 255 255 / 0.02) 0 1px, transparent 1px 3px), linear-gradient(var(--surface), var(--surface));
+  --matte-bg: radial-gradient(130vmax 90vmax at 21% -4%, rgb(255 255 255 / 0.27), rgb(255 255 255 / 0.11) 42%, transparent 115%), repeating-linear-gradient(0deg, rgb(255 255 255 / 0.024) 0 1px, transparent 1px 3px), repeating-linear-gradient(0deg, rgb(0 0 0 / 0.02) 0 1px, transparent 1px 7px), linear-gradient(var(--bg), var(--bg));
 }
 
 /* ── Depth utilities ─────────────────────────────────────────────
@@ -558,65 +737,151 @@ html.light {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* ════════════════════════════════════════════════════════════════
-   DOCUS / NUXT UI — depth coat
-   ----------------------------------------------------------------
-   The docs theme is Nuxt UI. Rounder corners come from --ui-radius; here we
-   add tiny, top-left-lit elevation to the docs chrome. Selectors target Nuxt
-   UI's stable utility classes (the Docus header is the only `header.backdrop-blur`,
-   so it won't touch the homepage device's scoped <header>).
-   ════════════════════════════════════════════════════════════════ */
+/* ── Matte-material utilities ────────────────────────────────────
+   Carved & raised type + plaques/slots (design.md §2.5). Bare names
+   on purpose: these classes travel through app.config `ui.*` slots and
+   tailwind-merge mis-groups unknown `text-*`-prefixed classes. */
+.engraved    { color: var(--engrave-ink); text-shadow: var(--engrave); }
+.engraved-sm { color: var(--engrave-ink-sm); text-shadow: var(--engrave-sm); }
+.embossed    { text-shadow: var(--emboss); }
+.embossed-sm { text-shadow: var(--emboss-sm); }
 
-/* Header — a softly lifted bar. */
-header.backdrop-blur {
-  box-shadow: 0 1px 0 var(--edge), 0 10px 26px -20px rgb(0 0 0 / 0.5);
+/* Convex raised panel — the premium plaque. */
+.plaque {
+  background: var(--grad-plaque);
+  border-radius: var(--r-lg);
+  box-shadow: var(--plaque);
+}
+a.plaque, button.plaque { transition: box-shadow var(--transition); }
+a.plaque:hover, button.plaque:hover { box-shadow: var(--plaque-hi); }
+
+/* Concave machined well. `.carved` is the shadow alone — for tinted
+   wells (callouts) that must keep their own background. */
+.slot   { background: var(--sink); border-radius: var(--r); box-shadow: var(--slot); }
+.carved { box-shadow: var(--slot); }
+
+.surface-matte {
+  background: var(--matte-bg);
+  background-blend-mode: soft-light, normal, normal, normal;
 }
 
-/* Left sidebar + right TOC links: hover/active become depth pills. The link
-   ships a `::before` background layer (inset, z-[-1], rounded) we light up. */
+/* A machined groove — section rule under h2. Single-shadow rules may use
+   light-dark() in the color position (only multi-layer LISTS need the
+   triple-definition blocks above). */
+.rule-carved {
+  border-bottom: 1px solid var(--edge-hi);
+  box-shadow: 0 1px 0 light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.06));
+}
+
+/* Header: a matte machined bar (translucent over the canvas, lit top rim). */
+.mach-bar {
+  background:
+    linear-gradient(180deg, light-dark(rgb(255 255 255 / 0.45), rgb(255 255 255 / 0.04)), transparent 55%),
+    color-mix(in srgb, var(--bg) 82%, transparent);
+  box-shadow:
+    inset 0 1px 0 light-dark(rgb(255 255 255 / 0.70), rgb(255 255 255 / 0.06)),
+    0 10px 26px -20px rgb(0 0 0 / 0.5);
+}
+/* Footer: a carved seam above. */
+.mach-seam {
+  border-top: 1px solid var(--edge);
+  box-shadow: inset 0 1px 0 light-dark(rgb(255 255 255 / 0.60), rgb(255 255 255 / 0.05));
+}
+/* Header search trigger: a shallow slot that deepens on hover. */
+.search-slot {
+  background: var(--sink);
+  border-radius: 999px;
+  box-shadow: var(--inset-1);
+  color: var(--ink-dim);
+  transition: box-shadow var(--transition);
+}
+.search-slot:hover { box-shadow: var(--slot); }
+/* Code-block filename bar: a flush plate on the slot's upper lip. */
+.code-plate {
+  background: var(--surface);
+  border-radius: var(--r) var(--r) 0 0;
+  box-shadow: var(--elev-0);
+}
+
+/* Depth is decoration — on request, give back plain ink. Reaches every site
+   that carves or raises type: the four utilities, `kbd`, and the icon-emboss
+   token. Components must apply depth through those (never a hand-written
+   text-shadow / drop-shadow in scoped CSS, which out-specifies these rules),
+   or this switch cannot reach them. */
+@media (prefers-contrast: more) {
+  :root { --emboss-icon: none; }
+  .engraved, .engraved-sm { color: var(--ink); text-shadow: none; }
+  .embossed, .embossed-sm, kbd { text-shadow: none; }
+}
+/* QA hooks (plugins/qa.client.ts): `?qa=contrast` stamps `html.qa-contrast`
+   so the kill-switch above can be exercised without flipping an OS setting —
+   keep the two rule sets identical. `?qa=reduced` stamps `html.qa-reduced`
+   for components that read it; there is no global rule for it here (reduced
+   motion stays on `prefers-reduced-motion` above). */
+html.qa-contrast { --emboss-icon: none; }
+html.qa-contrast .engraved, html.qa-contrast .engraved-sm { color: var(--ink); text-shadow: none; }
+html.qa-contrast .embossed, html.qa-contrast .embossed-sm, html.qa-contrast kbd { text-shadow: none; }
+
+/* Landing CTA buttons — a convex machined pill (shared by the home
+   sections; scoped styles only add layout, never re-declare the recipe). */
+.hbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.72rem 1.25rem;
+  border-radius: 999px;
+  font-family: var(--display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--grad-plaque);
+  box-shadow: var(--plaque);
+  text-decoration: none;
+  transition: box-shadow var(--transition), transform var(--press), color var(--transition);
+}
+.hbtn svg { width: 1.05em; height: 1.05em; }
+.hbtn:hover { box-shadow: var(--plaque-hi); transform: translateY(-1px); }
+.hbtn:active { box-shadow: var(--inset-1); transform: translateY(0.5px); }
+.hbtn--primary {
+  color: var(--on-accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent-press));
+  box-shadow: var(--elev-1), var(--glow-accent-soft);
+}
+.hbtn--primary:hover { box-shadow: var(--elev-2), var(--glow-accent); }
+.hbtn--ghost { background: none; box-shadow: none; color: var(--ink-dim); }
+.hbtn--ghost:hover { color: var(--ink); box-shadow: var(--elev-0); }
+
+/* ════════════════════════════════════════════════════════════════
+   DOCUS / NUXT UI — matte machined coat
+   ----------------------------------------------------------------
+   The docs chrome is themed NATIVELY: the matte utilities above travel
+   through `app.config.ts` `ui.*` slot overrides (header → .mach-bar,
+   prose h1 → .engraved, pre → .slot, cards → .plaque, callouts →
+   .carved, search → .search-slot, footer → .mach-seam …). Raw CSS
+   selectors remain ONLY where Nuxt UI exposes no slot: the sidebar/TOC
+   link ::before layer, inline code chips, and kbd.
+   ════════════════════════════════════════════════════════════════ */
+
+/* Left sidebar + right TOC links. One metaphor: ACTIVE = pressed — the
+   control latches INTO the material; hover = a hairline lift. The link
+   ships a `::before` background layer (inset, z-[-1], rounded) we carve.
+   The orange active label stays crisp on the pressed slot — signal
+   color, never engraved. */
 aside a { transition: color 0.18s var(--ease-out); }
 aside a:hover::before {
   background: var(--surface);
   box-shadow: var(--elev-0);
 }
 aside a.text-primary::before {
-  background: var(--grad-surface);
-  box-shadow: var(--elev-1);
-}
-
-/* Code blocks → carved wells. */
-pre.shiki {
-  border-radius: var(--r) !important;
-  border: 1px solid var(--edge);
+  background: var(--sink);
   box-shadow: var(--inset-1);
 }
 
-/* Inline code & kbd → tiny recessed chips. */
+/* Inline code → tiny recessed chips; kbd → a raised keycap. */
 :where(p, li, td, h1, h2, h3, h4, h5) > code {
   box-shadow: var(--inset-sm);
 }
-kbd { box-shadow: var(--elev-0); }
-
-/* The search trigger in the header → a lifted control. */
-header button:has(kbd),
-header [role="button"]:has(kbd) {
-  box-shadow: var(--elev-1);
-  transition: box-shadow var(--transition);
-}
-header button:has(kbd):hover { box-shadow: var(--elev-2); }
-
-/* MDC ::card / ::card-group tiles. This theme renders docs content WITHOUT a
-   `.prose` wrapper, so target Nuxt UI's card classes directly: a bordered,
-   rounded, surfaced block. Lift them a hair off the page; raise on hover so
-   the depth tracks the existing hover:border-primary affordance. */
-:where(a, div)[class*="border-default"][class*="rounded-md"][class*="bg-default"] {
-  box-shadow: var(--elev-1);
-  transition: box-shadow var(--transition), border-color var(--transition),
-    background-color var(--transition);
-}
-:where(a, div)[class*="border-default"][class*="rounded-md"][class*="bg-default"]:hover {
-  box-shadow: var(--elev-2);
-}
+kbd { box-shadow: var(--elev-0); text-shadow: var(--emboss-sm); }
 
 /* ── nuxt-backend components: depth-palette bridge ──────────────────────────
    Rung 2 of the customization ladder: one token override re-themes every

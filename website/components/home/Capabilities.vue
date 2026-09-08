@@ -63,17 +63,15 @@ function segments(md: string) {
   <section class="bay">
     <div class="bay__inner">
       <header class="bay__head">
-        <p class="eyebrow">
-          <span class="eyebrow__led" /> Everything in the box
+        <p class="eyebrow engraved-sm">
+          Everything in the box
         </p>
-        <h2 class="bay__title">
-          <span class="text-grad-ink">More than a data layer.</span>
+        <h2 class="bay__title engraved">
+          More than a data layer.
         </h2>
         <p class="bay__lead">
-          Nuxt owns the UI, routing and the same-origin auth proxy. Convex owns
-          data, real-time subscriptions and Better Auth persistence.
-          <code>nuxt-backend</code> keeps them aligned — and ships nothing you
-          wire by hand.
+          Client composables, SSR helpers, and a platform layer of backend
+          components — everything the module mounts, nothing you wire by hand.
         </p>
       </header>
 
@@ -83,7 +81,7 @@ function segments(md: string) {
           <li
             v-for="m in modules"
             :key="m.title"
-            class="mod depth-border"
+            class="mod plaque"
             :class="[m.span]"
           >
             <span class="mod__top">
@@ -98,7 +96,7 @@ function segments(md: string) {
               </span>
             </span>
 
-            <h3 class="mod__name">
+            <h3 class="mod__name embossed-sm">
               {{ m.title }}
             </h3>
             <p class="mod__body">
@@ -112,19 +110,22 @@ function segments(md: string) {
               </template>
             </p>
 
-            <ul
+            <p
               v-if="m.chips"
-              class="mod__chips"
+              class="mod__list engraved-sm"
             >
-              <li
-                v-for="c in m.chips"
+              <template
+                v-for="(c, i) in m.chips"
                 :key="c.label"
-                class="mod__chip"
               >
-                <UIcon :name="c.icon" />
-                {{ c.label }}
-              </li>
-            </ul>
+                <span
+                  v-if="i"
+                  class="mod__dot"
+                  aria-hidden="true"
+                >·</span>
+                <span>{{ c.label }}</span>
+              </template>
+            </p>
           </li>
         </ul>
       </div>
@@ -138,28 +139,26 @@ function segments(md: string) {
 .bay__head { max-width: 42rem; margin: 0 auto clamp(2rem, 5vw, 3rem); text-align: center; }
 
 .eyebrow {
-  display: inline-flex; align-items: center; gap: 0.55rem;
-  margin: 0 0 1rem; padding: 0.4rem 0.9rem 0.4rem 0.72rem; border-radius: 999px;
-  font-family: var(--mono); font-size: 0.72rem; font-weight: 600; color: var(--ink-dim);
-  background: var(--grad-surface); box-shadow: var(--elev-1);
+  margin: 0 0 1.2rem;
+  font-family: var(--mono); font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase;
 }
-.eyebrow__led { width: 7px; height: 7px; border-radius: 999px; background: var(--accent); box-shadow: var(--glow-accent-soft); }
 
 .bay__title {
-  margin: 0; font-family: var(--display); font-weight: 700;
-  font-size: clamp(1.9rem, 4.5vw, 3rem); letter-spacing: -0.025em; line-height: 1.05;
+  margin: 0; font-family: var(--display); font-weight: 600;
+  font-size: clamp(1.9rem, 4.5vw, 3rem); letter-spacing: -0.005em; line-height: 1.1;
 }
 .bay__lead { margin: 1rem 0 0; font-size: 1.04rem; line-height: 1.6; color: var(--ink-dim); }
 .bay__lead code, .mod__body code {
   font-family: var(--mono); font-size: 0.88em; color: var(--accent-soft);
 }
 
-/* The bay: a recessed rack the modules sit inside. */
+/* The bay: a recessed rack the modules sit inside — a wide machined slot. */
 .bay__rack {
   padding: clamp(0.85rem, 2vw, 1.35rem);
   border-radius: calc(var(--r-lg) + 6px);
   background: var(--sink);
-  box-shadow: var(--inset-2);
+  box-shadow: var(--slot);
 }
 .bay__grid {
   list-style: none; margin: 0; padding: 0;
@@ -187,26 +186,28 @@ function segments(md: string) {
   .mod { grid-column: span 1; }
 }
 .mod:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--elev-3), 0 0 30px -14px var(--accent-glow);
+  transform: translateY(-2px);
+  box-shadow: var(--plaque-hi);
 }
 
 .mod__top {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 1rem;
 }
-/* Recessed icon well — carved into the module face. */
+/* Recessed icon well — carved into the module face; the glyph itself is
+   embossed neutral ink (raised out of the recess, no accent). */
 .mod__well {
   display: grid; place-items: center;
   width: 2.9rem; height: 2.9rem; border-radius: 0.9rem;
   background: var(--sink);
   box-shadow: var(--inset-1);
-  color: var(--accent);
-  transition: box-shadow var(--transition), color var(--transition);
+  color: var(--ink-dim);
 }
-.mod__well :deep(svg) { width: 1.4rem; height: 1.4rem; }
-.mod:hover .mod__well {
-  box-shadow: var(--inset-1), 0 0 0 1px var(--accent-dim), 0 0 16px -4px var(--accent-glow);
+.mod__well :deep(svg) {
+  width: 1.4rem; height: 1.4rem;
+  /* Token, not inline shadows: the prefers-contrast kill-switch sets it to
+     `none` (app.css). */
+  filter: var(--emboss-icon);
 }
 .mod__live {
   display: inline-flex; align-items: center; gap: 0.36rem;
@@ -219,27 +220,19 @@ function segments(md: string) {
 
 .mod__name {
   margin: 0 0 0.45rem; font-family: var(--display); font-size: 1.12rem;
-  font-weight: 600; color: var(--ink); letter-spacing: -0.01em;
+  font-weight: 600; color: var(--ink); letter-spacing: 0.005em;
+  /* raised via `.embossed-sm` */
 }
 .mod__body { margin: 0; font-size: 0.92rem; line-height: 1.58; color: var(--ink-dim); }
 
-.mod__chips {
-  list-style: none; margin: 1.1rem 0 0; padding: 0;
-  display: flex; flex-wrap: wrap; gap: 0.45rem;
+/* The bundled components — engraved straight into the module face. */
+.mod__list {
+  display: flex; flex-wrap: wrap; column-gap: 0.55rem; row-gap: 0.25rem;
+  margin: 1.1rem 0 0;
+  font-family: var(--mono); font-size: 0.7rem; font-weight: 600;
+  letter-spacing: 0.11em; text-transform: uppercase;
 }
-.mod__chip {
-  display: inline-flex; align-items: center; gap: 0.4rem;
-  padding: 0.36rem 0.7rem; border-radius: 999px;
-  font-family: var(--mono); font-size: 0.72rem; font-weight: 600; color: var(--ink-dim);
-  background: var(--grad-surface); box-shadow: var(--elev-1);
-  transition: color var(--transition), box-shadow var(--transition), transform var(--press);
-}
-.mod__chip :deep(svg) { width: 0.9em; height: 0.9em; color: var(--ink-faint); transition: color var(--transition); }
-.mod__chip:hover {
-  color: var(--accent-soft); transform: translateY(-1px);
-  box-shadow: var(--elev-2), var(--glow-accent-soft);
-}
-.mod__chip:hover :deep(svg) { color: var(--accent); }
+.mod__dot { user-select: none; }
 
 @keyframes beat { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 @media (prefers-reduced-motion: reduce) { .mod__live-led { animation: none; } }

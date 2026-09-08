@@ -27,7 +27,7 @@ withDefaults(defineProps<{
         class="mc-skeleton"
       />
       <template v-else>
-        <span class="mc-num">{{ value ?? '—' }}</span>
+        <span class="mc-num embossed-sm">{{ value ?? '—' }}</span>
         <span
           v-if="unit"
           class="mc-unit"
@@ -47,9 +47,9 @@ withDefaults(defineProps<{
 
 <style scoped>
 .mc {
-  background: var(--surface);
+  background: var(--grad-plaque);
   border-radius: var(--r-lg);
-  box-shadow: var(--raise);
+  box-shadow: var(--plaque);
   padding: 0.95rem 1.05rem;
   min-width: 0;
 }
@@ -70,11 +70,15 @@ withDefaults(defineProps<{
 .mc-num {
   font-family: var(--display);
   font-size: 1.85rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   color: var(--ink);
+  /* Stamped counter via `.embossed-sm` (neutral numerals only; toned values
+     below keep plain color — scoped specificity wins over the utility). */
 }
+.mc.accent .mc-num, .mc.ok .mc-num, .mc.warn .mc-num,
+.mc.err .mc-num, .mc.info .mc-num { text-shadow: none; }
 .mc-unit { font-size: 0.78rem; font-weight: 600; color: var(--ink-dim); }
 .mc-hint { margin-top: 0.4rem; font-size: 0.74rem; color: var(--ink-faint); }
 

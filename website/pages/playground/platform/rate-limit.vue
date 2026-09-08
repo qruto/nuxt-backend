@@ -151,7 +151,7 @@ function clock(at: number) {
         <span class="mono auth-meter-count">{{ meter.value }}/{{ meter.capacity }}</span>
       </div>
       <p class="hint">
-        These buckets ship with the package (<code>DEFAULT_AUTH_LIMITS</code>)
+        These buckets ship with the package (<code>DEFAULT_LIMITS</code>)
         and throttle OTP sends and sign-ins per email. Request a code from a
         second tab at <code>/login</code> and watch <code>emailOtp</code> drain.
       </p>

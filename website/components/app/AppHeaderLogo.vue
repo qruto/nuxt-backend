@@ -38,7 +38,7 @@
         />
       </svg>
     </span>
-    <span class="brand__text">Nuxt backend</span>
+    <span class="brand__text embossed-sm">Nuxt backend</span>
   </span>
 </template>
 
@@ -64,8 +64,10 @@
   font-family: var(--display);
   font-size: 1.02rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  /* The squared display wants air, not the old rounded-negative tracking. */
+  letter-spacing: 0.02em;
   color: var(--ink);
+  /* raised via the `.embossed-sm` utility (contrast kill-switch aware) */
   white-space: nowrap;
 }
 @media (max-width: 420px) {

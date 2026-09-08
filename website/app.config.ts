@@ -26,13 +26,41 @@ export default defineAppConfig({
   ui: {
     colors: {
       // "Flare" — fluorescent orange. The actual ramp is overridden in app.css
-      // (we re-tone Tailwind's `orange`); titanium-grey neutral via `zinc`.
+      // (we re-tone Tailwind's `orange`); titanium-grey neutral via `zinc`
+      // (whose ramp app.css also re-tones to the titanium palette).
       primary: 'orange',
       neutral: 'zinc',
       // No blue in the EDC palette — fold `info` (the default ::note callout
       // colour, normally blue) into the orange accent. success/warning/error
       // keep their semantic green/amber/red, which already live in the palette.
       info: 'orange',
+    },
+    // Matte machined coat — the docs chrome is themed by injecting app.css
+    // utilities (.engraved, .plaque, .slot …) through Nuxt UI's slot system
+    // instead of CSS-selector archaeology. Classes are bare (not text-*
+    // prefixed) so tailwind-merge doesn't mis-group them. NOTE: never override
+    // `commandPalette.slots.input` or `contentNavigation.slots.*` without
+    // copying Docus's own strings first — defu REPLACES same-key strings.
+    header: { slots: { root: 'mach-bar' } },
+    pageHeader: {
+      slots: { title: 'font-display font-semibold tracking-[0.015em] engraved' },
+    },
+    contentToc: {
+      slots: { trigger: 'engraved-sm uppercase tracking-[0.08em] text-xs' },
+    },
+    contentSearchButton: { slots: { base: 'search-slot' } },
+    contentSurround: { slots: { link: 'plaque' } },
+    // Docs-embedded demo cards (PlaygroundLink, DemoCounter, DemoConnection).
+    card: { slots: { root: 'plaque' } },
+    footer: { slots: { root: 'mach-seam' } },
+    prose: {
+      h1: { slots: { base: 'font-display font-semibold tracking-[0.015em] engraved' } },
+      h2: { slots: { base: 'font-display font-semibold tracking-[0.01em] pb-2 rule-carved' } },
+      h3: { slots: { base: 'font-display font-medium tracking-[0.01em]' } },
+      pre: { slots: { base: 'slot', header: 'code-plate' } },
+      card: { slots: { base: 'plaque', title: 'font-display font-semibold embossed-sm' } },
+      // Shadow-only carve — the callout keeps its tinted bg → a pressed tinted well.
+      callout: { slots: { base: 'carved rounded-[10px]' } },
     },
   },
 

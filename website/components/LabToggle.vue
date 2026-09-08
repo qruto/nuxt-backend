@@ -63,12 +63,12 @@ withDefaults(defineProps<{
   height: 18px;
   border-radius: 50%;
   background: var(--surface-hi);
-  box-shadow: 0 1px 2px rgb(20 27 45 / 0.25), 0 0 0 0.5px rgb(20 27 45 / 0.06);
+  box-shadow: var(--elev-1);
   transition: transform var(--transition);
 }
 .tg-sw input:checked ~ .tg-track {
   background: var(--tg-c, var(--accent));
-  box-shadow: inset 0 1px 2px rgb(20 27 45 / 0.18);
+  box-shadow: var(--inset-1);
 }
 .tg-sw input:checked ~ .tg-track .tg-knob {
   transform: translateX(18px);

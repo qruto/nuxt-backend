@@ -40,7 +40,7 @@ withDefaults(defineProps<{
   cursor: pointer;
   border-radius: var(--r-sm);
   border: 0;
-  background: var(--surface);
+  background: var(--grad-surface);
   color: var(--ink);
   box-shadow: var(--raise-sm);
   transition: color var(--transition), background var(--transition),
@@ -48,6 +48,7 @@ withDefaults(defineProps<{
     transform var(--press) var(--ease-out);
   white-space: nowrap;
 }
+.lb:not(:disabled):not(.loading):hover { box-shadow: var(--elev-2); }
 .lb.md { padding: 0.52rem 1rem; font-size: 0.85rem; }
 .lb.sm { padding: 0.34rem 0.7rem; font-size: 0.76rem; }
 .lb:disabled { opacity: 0.5; cursor: not-allowed; }

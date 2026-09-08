@@ -64,8 +64,9 @@ const slots = useSlots()
   position: relative;
   border-radius: var(--r-lg);
 }
-.panel.raised { background: var(--surface); box-shadow: var(--raise); }
-.panel.well   { background: var(--sink);    box-shadow: var(--inset); }
+/* raised = a convex plaque; well = a machined slot. */
+.panel.raised { background: var(--grad-plaque); box-shadow: var(--plaque); }
+.panel.well   { background: var(--sink);        box-shadow: var(--slot); }
 
 .panel-head {
   display: flex;

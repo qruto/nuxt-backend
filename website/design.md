@@ -31,10 +31,16 @@ Sources this standard is built on:
 | Hover / focus lift | step up one elevation (`--elev-1 → --elev-2`) |
 | Press / active-down | step *down* to `--inset-1` (RUI: pressed = smaller/removed shadow) |
 | Carve a well (input, track, readout) | `--inset-1` / `--inset-2` |
+| **Engrave display text into the surface** | `.engraved` (`--engrave` 4-layer letterpress) |
+| **Engrave a small label / eyebrow** | `.engraved-sm` (mono caps, `--engrave-ink-sm` + `--engrave-sm`) |
+| **Raise text/numerals off the metal** | `.embossed` / `.embossed-sm` |
+| **A premium raised panel** | `.plaque` (`--grad-plaque` + `--plaque`, hover `--plaque-hi`) |
+| **A machined well / display recess** | `.slot` (or `.carved` for tinted wells that keep their bg) |
+| **The canvas material itself** | `--matte-bg` / `.surface-matte` (light ray + machining grain) |
+| **A machined section rule / seam** | `.rule-carved` (under h2) · `.mach-seam` (footer) |
 | Make a surface feel lit | `135deg` gradient, lighter top-left |
 | Add a crisp lit edge | gradient border (light top-left → dark bottom-right) |
 | Draw focus / signal "live" | `--glow-accent` (orange) or `--glow-ok` (green status dot) |
-| Lift text off a surface | gradient text + 1px letterpress shadow |
 | Stack layers without shadows | overlap elements; lighter = closer, darker = inset |
 | Stop flat banding on big panels | 2–4 % noise texture |
 
@@ -82,6 +88,17 @@ Resting UI (buttons, pills, cards, tiles) lives at `--elev-1`. It should *whispe
 — a hairline rim + a soft few-pixel shadow. We are not doing photo-realistic
 neumorphism; RUI's warning applies — *"don't get carried away."*
 
+### Matte machined material
+The whole product sits on **one matte machined slab** — pale titanium in light,
+dark steel in dark. The canvas (`--matte-bg`) layers a top-left light ray
+(blended `soft-light`, anchored at ≈330° — the same sun) over ultra-fine
+machining grain (1px hairlines at 3px/7px rhythm, ≤2.4 % alpha). Everything on
+it is either **cut into** the material (engraved type, slots, grooves, pockets)
+or **milled out of** it (plaques, embossed labels, convex controls). Engraving
+is *subtractive*: the near wall (up-left) falls into shadow, the far wall
+(down-right) catches light; embossing flips the offsets. Matte, never glossy —
+sheens stay tight and desaturated.
+
 ---
 
 ## 2. Shadows have two parts (the core recipe)
@@ -117,6 +134,56 @@ box-shadow:
 The first two insets make the **border lighter than the shadow beneath it** —
 the "shadow under border" cue you asked for: the top-left rim catches light, the
 drop shadow underneath is darker, so the element looks physically lifted.
+
+---
+
+## 2.5 Carved & raised type (the engraving system)
+
+Four text-shadow layers carve a glyph into the material (values extracted from
+the depth playground, ray ≈330°):
+
+```css
+.engraved {                       /* display: h1, hero wordmark, plate titles */
+  color: var(--engrave-ink);      /* a mid-tone that clears 3:1 on its own — shadows add depth, not legibility */
+  text-shadow: var(--engrave);    /* dark tight + dark wide (up-left),
+                                     light tight + light wide (down-right) */
+}
+.engraved-sm {                    /* 2 layers, half offsets — eyebrows/labels */
+  color: var(--engrave-ink-sm);   /* darker ink: small text needs the 4.5:1 bar */
+  text-shadow: var(--engrave-sm);
+}
+.embossed(-sm) { text-shadow: var(--emboss…); }  /* offsets flipped = raised */
+```
+
+Rules:
+
+- Engraving is allowed on **display headings, the hero wordmark, and mono
+  eyebrows/labels (≥ 0.8rem)** — never body text, never orange. Signal color
+  stays crisp; the material never swallows a signal.
+- **Text-shadow never counts toward contrast.** The ink must pass WCAG on its
+  own; the carve layers only add depth. `--engrave-ink` (display, ≥ 3:1 large
+  text) is `#7a7a7a` on `#e8e8e8` in light (3.5:1) and `#6d6d6d` on
+  `#161616` in dark (3.5:1) — chosen to still clear 3:1 on the `#232323`
+  plaque face (3.0:1), where engraving must survive too. `--engrave-ink-sm`
+  (labels, ≥ 4.5:1 small text) is `#686868` light (4.55:1) / `#8a8a8a` dark
+  (5.2:1 on the canvas, 4.55:1 on a plaque). Anything under 0.8rem is not
+  engraved at all — it takes plain `--ink-dim` (the hero eyebrow).
+- Icons emboss with two chained `drop-shadow()` filters (same offsets); SVG
+  diagram geometry engraves with **dual offset strokes** (a dark copy up-left +
+  a light copy down-right under the base shape) — never SVG filters.
+- `@media (prefers-contrast: more)` kills engraving/embossing and restores
+  plain `--ink` — depth is decoration, contrast is not negotiable. The switch
+  reaches the `.engraved(-sm)` / `.embossed(-sm)` utilities, `kbd`, and the
+  `--emboss-icon` filter token — so components apply type depth **only**
+  through those (a hand-written `text-shadow: var(--emboss-sm)` in scoped CSS
+  out-specifies the global rule and survives the switch).
+  `?qa=contrast` stamps `html.qa-contrast` with the same rules (§9).
+
+The box-level counterparts: `.plaque` (paired inner bevels at two scales +
+up-left bounce light + down-right cast over `--grad-plaque`) and `.slot`
+(flipped insets on `--sink` with a lit lower lip). A convex control seated
+inside a slot (the command slot's copy button) is the strongest depth statement
+on a page — spend it once.
 
 ---
 
@@ -221,6 +288,23 @@ shadow.
 .is-active { box-shadow: var(--elev-1), var(--glow-accent); }
 ```
 
+### 3.35 Matte-material family
+
+Defined alongside the ladder in [`app.css`](./app.css), with the same
+triple-definition pattern (`:root` light, `prefers-color-scheme: dark`,
+`html.dark`/`html.light` — multi-layer shadow lists can't use `light-dark()`;
+*single*-shadow rules like `.rule-carved` may use `light-dark()` in the color
+position):
+
+| Token | Utility | What it is |
+| --- | --- | --- |
+| `--engrave` / `--engrave-sm` / `--engrave-ink` / `--engrave-ink-sm` | `.engraved(-sm)` | carved type (§2.5); the two inks carry contrast, the shadows carry depth |
+| `--emboss` / `--emboss-sm` | `.embossed(-sm)` | raised type |
+| `--plaque` / `--plaque-hi` / `--grad-plaque` | `.plaque` | convex premium panel |
+| `--slot` | `.slot` / `.carved` | machined well (deeper than `--inset-2`) |
+| `--matte-bg` | `.surface-matte` / `body` | the canvas material |
+| — | `.rule-carved` `.mach-bar` `.mach-seam` `.search-slot` `.code-plate` | chrome cuts |
+
 ### 3.4 Legacy aliases — one ladder, two names
 
 The base components (`.btn`, `.card`, `.well`, `.input`, `.pill`) and the
@@ -305,25 +389,16 @@ Dark theme: swap the border-gradient stops to
 `rgb(255 255 255 / .14) → transparent → rgb(0 0 0 / .5)`.
 
 ### 4.5 Gradient text
-Two uses:
-
-- **Accent emphasis** — a top-left → bottom-right orange ramp for hero words /
-  active labels.
-- **Engraved neutral** — `--ink → --ink-dim` plus a 1px letterpress shadow so
-  the text feels stamped *into* the surface.
+One remaining use — **accent emphasis** (a top-left → bottom-right orange ramp),
+reserved for rare signal moments; the neutral letterpress treatment it used to
+cover is superseded by the full engraving system in **§2.5** (`.engraved`,
+`.embossed`).
 
 ```css
-.text-accent-grad {
-  background: linear-gradient(135deg, #ff7a3c, #f0420a);
+.text-grad {
+  background: linear-gradient(135deg, var(--accent-soft), var(--accent) 55%, var(--accent-press));
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; color: transparent;
-}
-.text-engraved {                 /* letterpress: light below, on a light surface */
-  color: var(--ink);
-  text-shadow: 0 1px 0 rgb(255 255 255 / .6);
-}
-@media (prefers-color-scheme: dark) {
-  .text-engraved { text-shadow: 0 1px 0 rgb(0 0 0 / .5); } /* shadow above-dark */
 }
 ```
 
@@ -356,8 +431,13 @@ The strongest depth cue that needs *no* shadow:
 ```
 
 ### 4.9 Texture
-A whisper of noise (2–4 %) on large surfaces stops flat-colour banding and adds
-tactility — like the matte panels in the references.
+The canvas carries the full matte stack (`--matte-bg`): a top-left light ray
+blended `soft-light` + two repeating 1px hairline gradients (white ≤2.4 %,
+black ≤2 % at a 3px/7px rhythm) over the base tone — machining grain, not
+decoration. Plaque faces repeat a fainter grain inside `--grad-plaque`. On top
+of that, a whisper of fractal noise (2–4 %) on large surfaces stops
+flat-colour banding and adds tactility — like the matte panels in the
+references.
 
 ```css
 .noise::before {
@@ -442,6 +522,24 @@ bright ring (`0 0 0 2px var(--accent)` or a white ring on a tinted theme).
 Track = `--inset-1` well; knob = `--elev-1` raised bead that slides; ON track gets
 the accent fill + `--glow-accent-soft`.
 
+### 5.8 Matte-material recipes (the machined chrome)
+- **Plaque card** — `.plaque` (feature modules, MDC `::card` tiles, surround
+  links, the closing "shipping plate"); hover steps to `--plaque-hi`, never a
+  glow.
+- **Slot display** — `.slot` for code blocks, terminal/boot readouts, the
+  install command; a `.code-plate` filename bar sits flush on the slot's lip.
+- **Command slot** — the signature artifact: the install command milled into a
+  `.slot` with a **convex copy button seated in the well** (`--grad-surface` +
+  `--elev-1`, press → `--inset-1`).
+- **Machined bar / seam** — header `.mach-bar` (lit top rim over translucent
+  canvas), footer `.mach-seam`, and the playground topbar's carved bottom
+  groove (dark hairline + lit lip).
+- **Latched sidebar item** — active nav = **pressed into the material**
+  (`--sink` + `--inset-1`), hover = hairline lift (`--elev-0`); the orange
+  label stays crisp on the pressed slot.
+- **Milled SVG pocket/groove** — dual offset strokes (dark up-left, light
+  down-right) under a `--sink` base shape; see `Architecture.vue`.
+
 ---
 
 ## 6. Light vs dark
@@ -487,7 +585,8 @@ Both modes are driven by the same tokens; only the values differ (see §3.1 vs
 - **Reduced motion:** gate tilt/glow animation behind
   `@media (prefers-reduced-motion: reduce)` (the home components already do).
 - **Contrast:** depth is decoration — text/icon contrast must pass on its own,
-  never rely on a glow to make a label legible.
+  never rely on a glow (or a carve shadow — WCAG ignores `text-shadow`) to make
+  a label legible. Engraved inks are sized to the bar in §2.5.
 - **Focus:** a 2px solid `--accent` outline with `outline-offset: 2px` sits above
   all depth (see `app.css`).
 - **Perf:** prefer `box-shadow` tokens + `transform`; avoid layout-affecting
@@ -506,15 +605,34 @@ Both modes are driven by the same tokens; only the values differ (see §3.1 vs
   `LabToggle`, `LabField`, `StatusRing`, `StatusPill`, `MetricCard`,
   `StateReadout`, `LiveTrace`, `PageHeader` …) — the depth system in use; treat
   them as the reference implementation. They reference the legacy alias names (§3.4).
-- **Homepage depth demos:** `components/home/` (`HeroStage`, `BackendBoot`,
-  `Architecture`, `Capabilities`, `ClosingCta`) plus the `.depth-surface` /
-  `.depth-border` / `.depth-well` utilities and the `.text-grad` / `.noise` helpers.
-- **Docus / Nuxt UI coat:** the docs chrome is Nuxt UI, re-toned to the EDC
-  palette — `info` folds into the orange `accent` (no blue; set in
-  [`app.config.ts`](./app.config.ts)) — with tiny top-left elevation added to the
-  header, sidebar/TOC pills, code wells and **MDC `::card` tiles**. This theme
-  renders content with **no `.prose` wrapper**, so card depth targets Nuxt UI's
-  `border-default rounded-md bg-default` classes directly rather than `.prose …`.
+- **Homepage depth demos:** `components/home/` (`Hero` — the wordmark engraved
+  straight into the slab; `CommandSlot` — the install line milled into a slot
+  with a convex copy button seated in the well; `BackendBoot`, `Architecture`,
+  `Capabilities`, `ClosingCta`) plus the `.depth-surface` / `.depth-border` /
+  `.depth-well` utilities and the `.text-grad` / `.noise` helpers.
+- **QA hooks:** `plugins/qa.client.ts` — append `?qa=dark`, `light`, `contrast`,
+  `reduced` (comma-separated) to any URL to stamp `html.dark` / `html.light` /
+  `html.qa-contrast` / `html.qa-reduced` without touching OS settings. Theme
+  values write the same classes `@nuxtjs/color-mode` (Docus) uses, so every
+  token bridge above follows; `qa-contrast` mirrors the `prefers-contrast`
+  kill-switch in `app.css`; `qa-reduced` is a hook for components that read
+  it. Client-only, inert unless the query is present.
+- **Docus / Nuxt UI coat:** the docs chrome is themed **natively** — the matte
+  utilities travel through `app.config.ts` `ui.*` **slot overrides** (`header`
+  → `.mach-bar`, `prose.h1` → `.engraved`, `prose.pre` → `.slot` +
+  `.code-plate`, `prose.card` + `card` → `.plaque`, `prose.callout` →
+  `.carved`, `contentSearchButton` → `.search-slot`, `contentSurround` →
+  `.plaque`, `footer` → `.mach-seam`, `contentToc.trigger` + `pageHeader.title`
+  engraved). Utility names are **bare** (no `text-*` prefix — tailwind-merge
+  mis-groups unknown `text-*` classes). Raw CSS selectors remain only where no
+  slot exists: sidebar/TOC link `::before` layers, inline code chips, `kbd`.
+  Never override `commandPalette.slots.input` / `contentNavigation.slots.*`
+  without copying Docus's own strings first (defu replaces same-key strings).
+  The palette lands natively too: the `@theme` block re-tones Tailwind's `zinc`
+  ramp to titanium (Nuxt UI's `neutral`), one `--ui-bg: var(--bg)` bridge puts
+  the chrome on the canvas, and `info` folds into the orange `accent` (no
+  blue). Type: **Bai Jamjuree** display (positive tracking ≈0.01–0.02em,
+  engraved headings), Nunito body, JetBrains Mono data.
 
 When adding UI: reach for an existing component first; if you must build new,
 compose from the tokens in §3 and the recipes in §5 so the whole product stays
