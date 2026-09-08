@@ -16,5 +16,17 @@ seo:
 ::home-capabilities
 ::
 
+::home-monetize
+::
+
+::home-agents
+::
+
+::home-dev-x
+::
+
+::home-open-source
+::
+
 ::home-closing-cta
 ::
