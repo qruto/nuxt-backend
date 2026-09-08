@@ -41,7 +41,12 @@ export const BACKEND_PAGE_DEFS: readonly BackendPageDef[] = [
   { key: 'acceptInvitation', defaultPath: DEFAULT_INVITATION_PATH, file: 'accept-invitation', auth: true },
 ]
 
-/** `/settings/` → `/settings`; guarantees a leading slash; `''` stays `''`. */
+/**
+ * `/settings/` → `/settings`; guarantees a leading slash; `''` stays `''`.
+ * Exported for tests.
+ *
+ * @internal
+ */
 export function normalizePagePath(path: string): string {
   const prefixed = path.startsWith('/') ? path : `/${path}`
   const trimmed = prefixed.replace(/\/+$/, '')

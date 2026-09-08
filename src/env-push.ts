@@ -59,7 +59,12 @@ export interface EnvPushPlanInput {
   dev: boolean
 }
 
-/** Decide what to do per var. Pure. */
+/**
+ * Decide what to do per var. Pure; exported for tests — `runEnvPush` is the
+ * flow the CLI and the module call.
+ *
+ * @internal
+ */
 export function planEnvPush({ deployedNames, localEnv, dev }: EnvPushPlanInput): EnvPushAction[] {
   const deployed = new Set(deployedNames)
   const actions: EnvPushAction[] = []
@@ -171,6 +176,12 @@ async function defaultSetEnv(rootDir: string, name: string, value: string): Prom
   })
 }
 
+/**
+ * Apply a plan (`planEnvPush`) to the deployment. Exported for tests (the
+ * `convex env set` spawner is injectable).
+ *
+ * @internal
+ */
 export async function executeEnvPush(
   rootDir: string,
   actions: EnvPushAction[],

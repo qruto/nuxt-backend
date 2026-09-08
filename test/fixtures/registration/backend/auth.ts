@@ -1,0 +1,47 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck
+// Verbatim copy of examples/minimal/backend, present so the scaffolder finds
+// every default file in place. Never built or typechecked (no codegen here).
+import { setupAuth } from 'nuxt-backend/auth'
+import { components, internal } from './_generated/api'
+import { query } from './_generated/server'
+import { rateLimiter } from './rateLimiter'
+import { workflow } from './workflows'
+
+export const {
+  authComponent,
+  createAuthOptions,
+  options,
+  createAuth,
+  getAuthUser,
+  authConfig,
+  listWorkspaces,
+  listWorkspaceMembers,
+  updateProfile,
+  // The agent token exchange (mounted at /mcp/exchange by http.ts) — the
+  // app's OAuth-protected MCP endpoint calls Convex through it. Disable
+  // the whole agent surface with `mcp: false`.
+  mcp,
+} = setupAuth(components, query, {
+  // Roles/permissions (admin plugin) and workspaces (organization plugin)
+  // are on by default, including a personal workspace per user and emailed
+  // workspace invitations with an /accept-invitation page. Customize or
+  // disable: `admin: false`, `organization: { personal: false }`, ...
+  integrations: {
+    // Email (OTP / verification / invitations) is delivered automatically
+    // through the backend component — configured by the EMAIL_* env vars.
+    // Throttle OTP sends and other auth-sensitive flows.
+    rateLimiter,
+    // The onboarding sequence below sends its own welcome, so skip the
+    // packaged welcome email (new users would get two otherwise).
+    welcomeEmail: false,
+    // Kick off a durable welcome workflow when a user signs up.
+    onUserCreated: async (ctx, user) => {
+      await workflow.start(ctx, internal.workflows.onSignup, {
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+      })
+    },
+  },
+})

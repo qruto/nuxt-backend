@@ -3,7 +3,12 @@ import { navigateTo, useRoute } from '#imports'
 import { AuthForm } from '../components/auth-form'
 import { useAuth } from '../composables/use-auth'
 
-/** Path-only redirect targets — never protocol-relative or absolute URLs. @internal exported for tests. */
+/**
+ * Path-only redirect targets — never protocol-relative or absolute URLs.
+ * Exported for tests.
+ *
+ * @internal
+ */
 export function safeRedirect(value: unknown): string | null {
   return typeof value === 'string' && /^\/(?!\/)/.test(value) ? value : null
 }

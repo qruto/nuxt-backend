@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
-import { defineNuxtModule, addComponent, addImports, addPlugin, addServerHandler, addServerImports, addTypeTemplate, createResolver, extendPages, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
+import { defineNuxtModule, addComponent, addImports, addPlugin, addServerHandler, addServerImports, addTypeTemplate, createResolver, extendPages, resolveModule, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
 import { defu } from 'defu'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
 import { moduleDir } from './dirs'
@@ -561,15 +561,8 @@ function registerSaasComposables(resolver: Resolver): void {
 
   // Nitro-side neutral name for the base module's `convexAuth(event)` service,
   // aliased straight from the base runtime file (same file its own
-  // registration uses). The exact filename varies by install state — compiled
-  // dist (published), raw-`.ts` dist, or src (stub build) — so probe for it.
-  const baseModuleDir = dirname(createRequire(import.meta.url).resolve('nuxt-convex-module/package.json'))
-  const serverRuntime = [
-    'dist/runtime/better-auth/nuxt/server.mjs',
-    'dist/runtime/better-auth/nuxt/server.js',
-    'dist/runtime/better-auth/nuxt/server.ts',
-    'src/runtime/better-auth/nuxt/server.ts',
-  ].map(candidate => join(baseModuleDir, candidate)).find(existsSync)
+  // registration uses).
+  const serverRuntime = resolveBaseServerRuntime()
   if (serverRuntime) {
     addServerImports([
       { name: 'convexAuth', as: 'backendAuth', from: serverRuntime },
@@ -578,9 +571,36 @@ function registerSaasComposables(resolver: Resolver): void {
   else {
     logger.warn(
       '`backendAuth` auto-import unavailable — could not locate the nuxt-convex-module server runtime '
-      + '(looked in dist/ and src/). Reinstall nuxt-convex-module, or import `convexAuth` from '
-      + '`nuxt-convex-module/better-auth/server` directly.',
+      + '(neither its `./better-auth/server` export nor a stub-linked src/). Reinstall nuxt-convex-module, '
+      + 'or import `convexAuth` from `nuxt-convex-module/better-auth/server` directly.',
     )
+  }
+}
+
+/**
+ * The base module's `better-auth/server` runtime file for the `backendAuth`
+ * server auto-import. Two candidates: the package's `./better-auth/server`
+ * export (compiled dist in a published install — resolved with ESM
+ * conditions, since that subpath exports `import`/`types` only and
+ * `require.resolve` cannot see it), then the source entry of a stub-linked
+ * checkout (`nuxt-module-build build --stub` ships no dist). `undefined`
+ * when neither is on disk.
+ */
+function resolveBaseServerRuntime(): string | undefined {
+  try {
+    const exported = resolveModule('nuxt-convex-module/better-auth/server', { url: new URL(import.meta.url) })
+    if (existsSync(exported)) return exported
+  }
+  catch {
+    // No resolvable export target — fall through to the stub-linked layout.
+  }
+  try {
+    const baseModuleDir = dirname(createRequire(import.meta.url).resolve('nuxt-convex-module/package.json'))
+    const source = join(baseModuleDir, 'src/runtime/better-auth/nuxt/server.ts')
+    return existsSync(source) ? source : undefined
+  }
+  catch {
+    return undefined
   }
 }
 

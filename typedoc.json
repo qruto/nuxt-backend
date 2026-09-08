@@ -3,8 +3,11 @@
   "plugin": ["typedoc-plugin-markdown", "typedoc-plugin-frontmatter"],
   "tsconfig": "tsconfig.typedoc.json",
 
-  // One entry point per public module — mirrors the package `exports` map so the
-  // generated tree matches the import paths consumers actually type.
+  // One entry point per public module — the sources behind every runtime/convex
+  // `exports` subpath, plus the auto-imported composables (which have no subpath
+  // of their own). `test/nuxt/public-surface.test.ts` checks both directions.
+  // The only subpath left out is `./component/_generated/component`: Convex
+  // generates it, and it ships types only.
   "entryPoints": [
     "src/module.ts",
     "src/runtime/vue/composables/use-auth.ts",
@@ -30,7 +33,16 @@
     "src/convex/integrations/migrations.ts",
     "src/convex/integrations/aggregate.ts",
     "src/convex/integrations/search.ts",
-    "src/convex/integrations/workflows.ts"
+    "src/convex/integrations/workflows.ts",
+    "src/runtime/server/mcp/index.ts",
+    "src/convex/auth.config.ts",
+    "src/convex/components/backend/convex.config.ts",
+    "src/convex/components/backend/schema.ts",
+    "src/convex/components/backend/email.ts",
+    "src/convex/components/backend/billing.ts",
+    "src/convex/components/backend/gifts.ts",
+    "src/convex/components/backend/ai.ts",
+    "src/convex/components/backend/webhooks.ts"
   ],
   "entryPointStrategy": "resolve",
 
@@ -41,7 +53,7 @@
 
   // Emit Markdown straight into the Docus content tree so it renders with the
   // site theme, sidebar, and search instead of TypeDoc's standalone HTML.
-  "out": "website/content/5.api-reference/9.reference",
+  "out": "website/content/7.api-reference/9.reference",
   "readme": "none",
   "githubPages": false,
   "hideGenerator": true,

@@ -7,6 +7,11 @@
  * `nuxt-backend doctor` verifies every name here against the deployment's
  * function specs, and a unit test pins the map to the scaffold templates so
  * contract and scaffold can never drift apart.
+ *
+ * The public form of this contract is STABILITY.md's scaffold promise; the
+ * map itself is doctor plumbing, not an import surface.
+ *
+ * @internal
  */
 export const REQUIRED_FUNCTION_EXPORTS = {
   auth: ['getAuthUser', 'authConfig', 'listWorkspaces', 'listWorkspaceMembers', 'updateProfile'],

@@ -1,3 +1,16 @@
+/**
+ * The agent (MCP) surface's Nitro utilities — `nuxt-backend/mcp`, also
+ * auto-imported in `server/`: {@link useBackendMcp} for the signed-in agent
+ * session behind a tool call, {@link defineBackendMcpTool} for your own tools.
+ *
+ * Experimental: the MCP authorization profile it implements (OAuth 2.1 +
+ * protected-resource metadata) and `@nuxtjs/mcp-toolkit` are both still
+ * moving, so this entry's shape may change in a minor release — the rest of
+ * the package holds the STABILITY.md promise.
+ *
+ * @module
+ * @experimental
+ */
 import { createError, type H3Event } from 'h3'
 import { useEvent } from 'nitropack/runtime'
 import { fetchAction, fetchMutation, fetchQuery } from 'nuxt-convex-module/server'

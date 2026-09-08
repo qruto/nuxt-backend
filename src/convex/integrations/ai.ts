@@ -1,19 +1,26 @@
-import { actionGeneric, httpActionGeneric, queryGeneric, type Auth, type FunctionReference, type GenericActionCtx, type GenericDataModel } from 'convex/server'
-import { v, type ObjectType, type PropertyValidators } from 'convex/values'
-import { PersistentTextStreaming, type StreamId } from '@convex-dev/persistent-text-streaming'
-import type { Billing, SpendReservation } from './billing.js'
-
 /**
- * The rails for selling metered AI features: wrap any Convex action so it is
- * rate-limited, prepaid-credit-metered (reserve → run → settle — a failed run
- * consumes nothing), and optionally token-streamed to the browser with the
- * text persisted server-side (reload mid-stream and it continues).
+ * The rails for selling metered AI features — `nuxt-backend/ai`: wrap any
+ * Convex action so it is rate-limited, prepaid-credit-metered (reserve → run →
+ * settle — a failed run consumes nothing), and optionally token-streamed to
+ * the browser with the text persisted server-side (reload mid-stream and it
+ * continues).
  *
  * Composes the billing spend reservation (`setupBilling`), the rate limiter,
  * and the upstream persistent-text-streaming component — usage recording IS
  * the provider event, so per-customer usage shows up in the provider's own
  * portal and dashboard with no extra tables here.
+ *
+ * Experimental: the metering model (reserve/settle over provider meter
+ * events) is the newest part of the package and may change shape in a minor
+ * release; `useAiStream` on the Vue side is experimental with it.
+ *
+ * @module
+ * @experimental
  */
+import { actionGeneric, httpActionGeneric, queryGeneric, type Auth, type FunctionReference, type GenericActionCtx, type GenericDataModel } from 'convex/server'
+import { v, type ObjectType, type PropertyValidators } from 'convex/values'
+import { PersistentTextStreaming, type StreamId } from '@convex-dev/persistent-text-streaming'
+import type { Billing, SpendReservation } from './billing.js'
 
 type RunCtx = Parameters<Billing['reserveCredits']>[0]
 

@@ -80,7 +80,14 @@ export const markReleased = mutation({
   },
 })
 
-/** Prune request plumbing older than `beforeMs` (rows are not a ledger). */
+/**
+ * Prune request plumbing older than `beforeMs` (rows are not a ledger).
+ *
+ * Dev/test reset plumbing (`pnpm run db:reset`), but a registered component
+ * function all the same: it stays on the `nuxt-backend/component/ai` surface
+ * — the local-install scaffold re-exports it — rather than carrying an
+ * internal tag that would strip it from the published declarations.
+ */
 export const clear = mutation({
   args: { beforeMs: v.optional(v.number()) },
   returns: v.null(),

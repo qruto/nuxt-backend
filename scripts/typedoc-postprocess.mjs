@@ -13,12 +13,12 @@ import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join, relative, posix, sep } from 'node:path'
 
 const ROOT = new URL(
-  '../website/content/5.api-reference/9.reference/',
+  '../website/content/7.api-reference/9.reference/',
   import.meta.url,
 ).pathname
 
 // The route the `9.reference` folder is served at (Nuxt Content strips the
-// numeric `N.` prefixes: `5.api-reference/9.reference` -> `/api-reference/reference`).
+// numeric `N.` prefixes: `7.api-reference/9.reference` -> `/api-reference/reference`).
 const BASE_ROUTE = '/api-reference/reference'
 
 // Any relative link target: skip external (`https://`), root-absolute (`/`),

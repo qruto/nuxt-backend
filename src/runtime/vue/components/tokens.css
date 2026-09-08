@@ -22,6 +22,10 @@
   [data-security='root'],
   [data-security='page']
 ) {
+  /* Package default: Nuxt green. The website does not use this value — it
+     maps every `--bk-*` token onto its own palette through the `.bk-depth`
+     bridge in website/app.css (`--bk-accent: var(--ok)` …), the second rung
+     of the customization ladder. Apps do the same: override, don't edit. */
   --bk-accent: #00dc82;
   --bk-on-accent: #04101f;
   --bk-ink: inherit;

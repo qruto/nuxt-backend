@@ -276,6 +276,11 @@ export const upsertBenefitMetadata = mutation({
  * Wipe the entitlement cache — derived data that resyncs from the billing
  * provider, so this is safe for test/dev resets (`pnpm run db:reset`) and never
  * loses source truth.
+ *
+ * Reset plumbing, but a registered component function all the same: it stays
+ * on the `nuxt-backend/component/billing` surface — the local-install
+ * scaffold re-exports it — rather than carrying an internal tag that would
+ * strip it from the published declarations.
  */
 export const clear = mutation({
   args: {},

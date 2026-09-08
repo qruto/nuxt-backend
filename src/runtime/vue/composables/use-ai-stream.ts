@@ -58,6 +58,9 @@ export interface UseAiStreamReturn {
  *   <pre>{{ echo.text.value }}</pre>
  * </template>
  * ```
+ *
+ * @experimental Paired with the `nuxt-backend/ai` entry — its return shape
+ * may change in a minor release (see STABILITY.md).
  */
 export function useAiStream(stream: AiStreamApi, options: UseAiStreamOptions = {}): UseAiStreamReturn {
   const runStart = useAction(stream.start as never)

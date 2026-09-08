@@ -18,6 +18,9 @@ import { useQuery } from 'nuxt-convex-module/client'
  * // status.value?.type: 'inProgress' | 'completed' | 'failed' | 'canceled'
  * </script>
  * ```
+ *
+ * @experimental Tracks the upstream workflow component's status shape, which
+ * is still pre-1.0; may change in a minor release (see STABILITY.md).
  */
 export function useWorkflowStatus<Query extends FunctionReference<'query'>>(
   query: Query,

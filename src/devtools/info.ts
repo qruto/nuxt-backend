@@ -143,11 +143,12 @@ export function buildDevtoolsInfo(input: BuildDevtoolsInfoInput): DevtoolsServer
  * Map a backend source file named by the panel (`"billing.ts"`, extension
  * optional) to its path under the functions dir, for the DevTools
  * open-in-editor action. The name crosses the RPC from the iframe, so only
- * plain relative paths inside the functions dir resolve; anything else
- * returns `{}`.
+ * plain relative paths inside the functions dir resolve (segments split on
+ * either separator, so a backslash-spelled traversal is caught on Windows
+ * too); anything else returns `{}`.
  */
 export function resolveBackendSource(rootDir: string, functionsDir: string, file: string): { filepath?: string } {
-  if (!file || file.split('/').some(segment => segment === '' || segment === '.' || segment === '..')) {
+  if (!file || file.split(/[\\/]/).some(segment => segment === '' || segment === '.' || segment === '..')) {
     return {}
   }
   const base = join(rootDir, functionsDir, file)

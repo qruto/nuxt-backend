@@ -3,7 +3,11 @@
   "extends": "./tsconfig.convex.json",
   "compilerOptions": {
     "composite": false,
-    "incremental": false
+    "incremental": false,
+    // `@internal`-tagged declarations never reach the published d.ts files
+    // (test/nuxt/public-surface.test.ts keeps the tag off anything an entry
+    // re-exports, so runtime and types cannot diverge).
+    "stripInternal": true
   },
   "include": ["src/convex/**/*"],
   "exclude": ["src/convex/**/*.test.*", "./src/convex/test.ts"]

@@ -477,6 +477,11 @@ const DEFAULT_CONVEX_CONFIG = dedent`
  * Each key is a filename relative to the backend functions directory;
  * the value is the file content that will be written when the file
  * does not yet exist.
+ *
+ * Exported for the scaffold tests; `getBackendFileTemplates` is the lookup
+ * the scaffolder uses.
+ *
+ * @internal
  */
 export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
   'convex.config.ts': DEFAULT_CONVEX_CONFIG,
@@ -598,6 +603,8 @@ function componentModuleTemplate(name: ComponentModule) {
  * schema, in its order (the auth `tables` first — the base every install
  * customizes). Typed against the generated export list, so a renamed group
  * fails to compile here; the parity test checks that no group is missing.
+ *
+ * @internal
  */
 export const SCHEMA_TABLE_GROUPS = ['tables', 'billingTables', 'aiTables', 'webhookTables'] as const satisfies readonly SchemaExport[]
 
@@ -626,6 +633,13 @@ const LOCAL_SCHEMA_TEMPLATE = [
   '',
 ].join('\n')
 
+/**
+ * The `installation: 'local'` counterpart of {@link BACKEND_FILE_TEMPLATES}:
+ * the whole `backend` component installed under `components/backend/` so its
+ * schema is customizable. Exported for the scaffold and parity tests.
+ *
+ * @internal
+ */
 export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
   'convex.config.ts': LOCAL_CONVEX_CONFIG,
   'auth.config.ts': AUTH_CONFIG_TEMPLATE,

@@ -22,7 +22,12 @@ export interface DerivedDeploymentUrls {
   deployment?: string
 }
 
-/** Minimal dotenv parse — KEY=VALUE lines, surrounding quotes stripped. */
+/**
+ * Minimal dotenv parse — KEY=VALUE lines, surrounding quotes stripped.
+ * Exported for tests.
+ *
+ * @internal
+ */
 export function parseEnvFile(content: string): Record<string, string> {
   const env: Record<string, string> = {}
   for (const line of content.split('\n')) {
@@ -32,7 +37,12 @@ export function parseEnvFile(content: string): Record<string, string> {
   return env
 }
 
-/** `https://<slug>.convex.cloud` → `https://<slug>.convex.site`; null otherwise. */
+/**
+ * `https://<slug>.convex.cloud` → `https://<slug>.convex.site`; null otherwise.
+ * Exported for tests.
+ *
+ * @internal
+ */
 export function siteFromCloudUrl(url: string): string | null {
   const match = url.match(/^(https:\/\/[a-z0-9-]+\.convex)\.cloud\/?$/)
   return match ? `${match[1]}.site` : null
