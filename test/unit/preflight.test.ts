@@ -44,11 +44,11 @@ describe('collectPreflightFindings', () => {
     expect(findings.every(finding => finding.status === 'pass')).toBe(true)
   })
 
-  it('warns when no Convex site URL is configured', () => {
+  it('warns when no backend site URL is configured', () => {
     const findings = collectPreflightFindings({ env: {}, siteUrlConfigured: false })
-    const finding = byId(findings, 'convex-site-url')
+    const finding = byId(findings, 'backend-site-url')
     expect(finding.status).toBe('warn')
-    expect(finding.fixHint).toContain('NUXT_PUBLIC_CONVEX_SITE_URL')
+    expect(finding.fixHint).toContain('NUXT_PUBLIC_BACKEND_SITE_URL')
   })
 
   it.each([

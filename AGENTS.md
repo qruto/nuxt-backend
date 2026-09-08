@@ -50,3 +50,26 @@ Convex agent skills for common tasks can be installed by running
 `npx convex ai-files install`.
 
 <!-- convex-ai-end -->
+
+## Local development gotchas
+
+**The website dev server needs the sibling base module *built*, not stubbed.**
+`nuxt-convex-module` is a `link:` dependency, and this app resolves it through
+`dist/runtime/**/*.js`. A stub build replaces `dist/runtime` with a symlink to
+`src/runtime` (TypeScript only), and Nitro then dies with
+`Could not load .../dist/runtime/nuxt/index.js`. Running `pnpm install` here has
+been observed to leave the sibling in that state. The fix is always the same:
+
+```sh
+pnpm --dir ../nuxt-convex-module run build   # a real build, not --stub
+```
+
+Then restart `pnpm run dev:nuxt-module`. This disappears once the base module is
+published and the `link:` protocol goes away.
+
+**Environment naming.** This package names its own variables after what they do
+(`NUXT_PUBLIC_BACKEND_URL`, `EMAIL_*`, `BILLING_*`, `AUTH_SECRET`, `SITE_URL`).
+`CONVEX_DEPLOYMENT`, `CONVEX_SITE_URL` and `CONVEX_SELF_HOSTED_URL` belong to the
+platform CLI and runtime — read them, never ask a user to author them, and never
+rename them. `.env.local` and the generated `.env.example` group by purpose:
+Backend, Email, Billing, Dev only, then the platform's own group last.

@@ -153,12 +153,14 @@ export default defineNuxtModule<ModuleOptions>({
     // built-in page disabled, `backend.loginPath` points at the app's own
     // sign-in route (else the app is expected to shadow `/login`).
     const loginPath = backend.loginPath ?? resolvePagePath(backend.pages, 'login') ?? undefined
-    // Both Convex URLs are derivable from the CONVEX_DEPLOYMENT slug that
-    // `npx convex dev` writes to .env.local, so neither is required config.
-    // Precedence for these *defaults*: backend.* option → the neutral
-    // NUXT_PUBLIC_BACKEND_* env names → derived. Explicit `convex.*` config
-    // and the base module's own NUXT_PUBLIC_CONVEX_* env always win over
-    // defaults (they reach the base module directly).
+    // Both URLs are derivable from the deployment slug the platform CLI
+    // writes to .env.local, so neither is required config. This package's own
+    // env names are NUXT_PUBLIC_BACKEND_URL / NUXT_PUBLIC_BACKEND_SITE_URL;
+    // precedence for these *defaults* is backend.* option → those names →
+    // derived. The base module reads the platform's own NUXT_PUBLIC_CONVEX_*
+    // names directly, so setting one of those still works and wins over a
+    // default — preflight nudges you to the neutral name when it is the only
+    // one set.
     const derived = deriveDeploymentUrls(nuxt.options.rootDir)
     const mcp = resolveMcpOptions(backend.mcp)
     return {
@@ -659,15 +661,16 @@ declare module '@nuxt/schema' {
 }
 
 /**
- * Whether a Convex site URL reaches the base module — from the module option,
- * either env name, explicit `convex.siteUrl` config, or slug derivation.
+ * Whether a backend site URL reaches the base module — from the module option,
+ * the package's own env name (the platform's own name still works as a
+ * fallback), explicit config, or slug derivation.
  * Shared by the preflight run and the DevTools `getInfo()` builder.
  */
 function isSiteUrlConfigured(options: ModuleOptions, nuxt: Nuxt): boolean {
   return Boolean(
     options.siteUrl
-    ?? process.env.NUXT_PUBLIC_CONVEX_SITE_URL
     ?? process.env.NUXT_PUBLIC_BACKEND_SITE_URL
+    ?? process.env.NUXT_PUBLIC_CONVEX_SITE_URL
     ?? ((nuxt.options as unknown as Record<string, unknown>).convex as { siteUrl?: string } | undefined)?.siteUrl
     ?? deriveDeploymentUrls(nuxt.options.rootDir)?.siteUrl,
   )
@@ -682,8 +685,19 @@ function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
 
   const derived = deriveDeploymentUrls(nuxt.options.rootDir)
   const siteUrlConfigured = isSiteUrlConfigured(options, nuxt)
-  if (derived?.source === 'deployment' && !options.url && !process.env.NUXT_PUBLIC_CONVEX_URL && !process.env.NUXT_PUBLIC_BACKEND_URL) {
-    logger.info(`Convex URLs derived from ${derived.deployment} — no NUXT_PUBLIC_* URL vars needed.`)
+  // This package names its own environment after what it does, not after the
+  // services underneath. The platform's names keep working — the base module
+  // reads them — but say so once so a new reader learns the neutral one.
+  for (const [platform, neutral] of [
+    ['NUXT_PUBLIC_CONVEX_URL', 'NUXT_PUBLIC_BACKEND_URL'],
+    ['NUXT_PUBLIC_CONVEX_SITE_URL', 'NUXT_PUBLIC_BACKEND_SITE_URL'],
+  ] as const) {
+    if (process.env[platform] && !process.env[neutral]) {
+      logger.info(`${platform} is set; ${neutral} is this package's own name for it (both work).`)
+    }
+  }
+  if (derived?.source === 'deployment' && !options.url && !process.env.NUXT_PUBLIC_BACKEND_URL && !process.env.NUXT_PUBLIC_CONVEX_URL) {
+    logger.info(`Backend URLs derived from ${derived.deployment} — no NUXT_PUBLIC_* URL vars needed.`)
   }
   const mcp = resolveMcpOptions(options.mcp)
   const findings = collectPreflightFindings({

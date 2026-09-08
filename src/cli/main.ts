@@ -145,25 +145,36 @@ async function billingCatalogFindings(rootDir: string, env: Record<string, strin
   return collectBillingFindings(catalog, state, { tokenPresent: Boolean(accessToken) })
 }
 
-const ENV_EXAMPLE = `# Everything here is optional in dev — \`npm run dev\` derives the Convex URLs
-# from CONVEX_DEPLOYMENT (written by \`npx convex dev\`) and provisions the
-# required deployment env for you.
+const ENV_EXAMPLE = `# Local environment, grouped by what each value is for. Names describe what
+# they do rather than the service underneath.
 #
-# Add provider keys here as you connect services, then sync them to the
-# deployment with \`npx nuxt-backend env push\`:
-#   EMAIL_API_KEY           transactional email (EMAIL_FROM, EMAIL_TEST_MODE optional)
-#   EMAIL_WEBHOOK_SECRET    delivery events for /email/events
-#   BILLING_ACCESS_TOKEN    billing (BILLING_ENVIRONMENT defaults to sandbox)
-#   BILLING_WEBHOOK_SECRET  billing events for /billing/events
-#
-# Dev-only (\`env push\` forwards it to dev deployments, never to production):
-# also trust the http://localhost:* origin the Nuxt dev server runs on, in
-# addition to SITE_URL.
+# Nothing here is required in dev: the backend URLs derive from the deployment
+# slug the platform CLI writes, and AUTH_SECRET + SITE_URL are provisioned for
+# you on the first run. Add provider keys as you connect services, then sync
+# them to the deployment with \`npx nuxt-backend env push\`.
+
+# ── Backend ───────────────────────────────────────────────────────────────────
+# Normally derived. Set these only to point at another deployment.
+# NUXT_PUBLIC_BACKEND_URL=
+# NUXT_PUBLIC_BACKEND_SITE_URL=
+
+# ── Email ─────────────────────────────────────────────────────────────────────
+# Unset: sends no-op and OTP codes print in the backend dev console.
+# EMAIL_API_KEY=
+# EMAIL_FROM=
+# EMAIL_TEST_MODE=
+# EMAIL_WEBHOOK_SECRET=
+
+# ── Billing ───────────────────────────────────────────────────────────────────
+# Unset: billing reads return empty and checkout fails on invocation.
+# BILLING_ACCESS_TOKEN=
+# BILLING_ENVIRONMENT=
+# BILLING_WEBHOOK_SECRET=
+
+# ── Dev only ──────────────────────────────────────────────────────────────────
+# Also trust the http://localhost:* origin the dev server runs on, in addition
+# to SITE_URL. \`env push\` forwards this to dev deployments, never to production.
 # AUTH_TRUST_LOCAL_ORIGINS=1
-#
-# Explicit overrides (rarely needed — derived in dev):
-# NUXT_PUBLIC_BACKEND_URL=https://your-deployment.convex.cloud
-# NUXT_PUBLIC_BACKEND_SITE_URL=https://your-deployment.convex.site
 `
 
 const cwdArg = {
@@ -402,7 +413,7 @@ const doctor = defineCommand({
 
     const findings: PreflightFinding[] = collectPreflightFindings({
       env,
-      siteUrlConfigured: Boolean(env.NUXT_PUBLIC_CONVEX_SITE_URL ?? env.NUXT_PUBLIC_BACKEND_SITE_URL),
+      siteUrlConfigured: Boolean(env.NUXT_PUBLIC_BACKEND_SITE_URL ?? env.NUXT_PUBLIC_CONVEX_SITE_URL),
     })
 
     // Filesystem checks the startup preflight can't do.

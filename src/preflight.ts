@@ -24,7 +24,7 @@ export interface PreflightFinding {
 export interface PreflightInput {
   /** Environment to inspect (inject `process.env` in real runs). */
   env: Record<string, string | undefined>
-  /** Whether a Convex site URL is configured (module option or env). */
+  /** Whether the backend site URL is configured (module option or env). */
   siteUrlConfigured: boolean
   /** The agent (MCP) endpoint, when enabled — omit to skip the finding. */
   mcp?: { route: string }
@@ -64,18 +64,18 @@ export function collectPreflightFindings({ env, siteUrlConfigured, mcp }: Prefli
 
   findings.push(siteUrlConfigured
     ? {
-        id: 'convex-site-url',
-        title: 'Convex site URL',
+        id: 'backend-site-url',
+        title: 'Backend site URL',
         status: 'pass',
-        message: 'Site URL configured — the auth proxy can reach Convex HTTP actions.',
+        message: 'Backend site URL configured — the auth proxy can reach the backend HTTP routes.',
         fixHint: '',
       }
     : {
-        id: 'convex-site-url',
-        title: 'Convex site URL',
+        id: 'backend-site-url',
+        title: 'Backend site URL',
         status: 'warn',
-        message: 'No Convex site URL configured; the /api/auth proxy has no target.',
-        fixHint: 'Set NUXT_PUBLIC_CONVEX_SITE_URL=https://<slug>.convex.site (or backend.siteUrl in nuxt.config).',
+        message: 'No backend site URL configured; the /api/auth proxy has no target.',
+        fixHint: 'Set NUXT_PUBLIC_BACKEND_SITE_URL (or backend.siteUrl in nuxt.config) — normally derived for you.',
       })
 
   const secret = env.AUTH_SECRET
