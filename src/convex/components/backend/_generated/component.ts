@@ -2421,7 +2421,21 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       >;
     };
     billing: {
+      attachReleaseJob: FunctionReference<
+        "mutation",
+        "internal",
+        { externalId: string; jobId: string; userId: string },
+        null,
+        Name
+      >;
       clear: FunctionReference<"mutation", "internal", {}, null, Name>;
+      clearPendingSpends: FunctionReference<
+        "mutation",
+        "internal",
+        { userId: string },
+        null,
+        Name
+      >;
       credit: FunctionReference<
         "mutation",
         "internal",
@@ -2432,11 +2446,30 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       debit: FunctionReference<
         "mutation",
         "internal",
-        { amount: number; externalId: string; meterId: string; userId: string },
+        {
+          allowOverage?: boolean;
+          amount: number;
+          externalId: string;
+          meterId: string;
+          userId: string;
+        },
         {
           balance: number;
           ok: boolean;
           reason?: "no-row" | "no-meter" | "insufficient";
+        },
+        Name
+      >;
+      finalize: FunctionReference<
+        "mutation",
+        "internal",
+        { externalId: string; finalAmount?: number; userId: string },
+        {
+          balance: number;
+          balanceBefore: number;
+          releaseJobId?: string;
+          released: number;
+          settled: boolean;
         },
         Name
       >;
@@ -2468,7 +2501,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             balance: number;
             consumedUnits: number;
             creditedUnits: number;
+            cycleEnd?: number;
+            cycleStart?: number;
             meterId: string;
+            rollover?: boolean;
           }>;
         } | null,
         Name
@@ -2483,7 +2519,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       settle: FunctionReference<
         "mutation",
         "internal",
-        { externalId: string; userId: string },
+        { externalId: string; finalAmount?: number; userId: string },
         null,
         Name
       >;
@@ -2503,7 +2539,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             balance: number;
             consumedUnits: number;
             creditedUnits: number;
+            cycleEnd?: number;
+            cycleStart?: number;
             meterId: string;
+            rollover?: boolean;
           }>;
           userId: string;
         },

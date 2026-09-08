@@ -6,7 +6,8 @@ import type { BackendInstallationMode } from '../templates'
 import { collectPreflightFindings, DEV_ONLY_DEPLOYMENT_ENV, formatPreflightSummary, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../preflight'
 import { deploymentEnvNames, isDevDeployment, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
 import { deriveDeploymentUrls } from '../deployment'
-import { billing } from './billing'
+import type { BillingCatalog } from '../convex/catalog'
+import { billing, collectBillingFindings, loadCatalog, readBillingOrganizationState } from './billing'
 import { REQUIRED_FUNCTION_EXPORTS } from '../contract'
 import { resolvePagePath, type ModulePagesOptions } from '../pages'
 
@@ -119,6 +120,29 @@ async function invitationPathFindings(rootDir: string): Promise<PreflightFinding
         message: `Invitation emails link to ${deployedPath}, but the page mounts at ${nuxtPath ?? 'nowhere (disabled)'} — invitees get a 404.`,
         fixHint: 'Align `organization.invitationPath` (backend/auth.ts) with `backend.pages.acceptInvitation` (nuxt.config).',
       }]
+}
+
+/**
+ * Doctor's billing half: load the declared catalog, read the provider's
+ * organization settings with whatever token is visible here, and cross-check
+ * the two. Local env only — the deployment may hold a token this machine
+ * does not, in which case the provider checks simply do not run.
+ */
+async function billingCatalogFindings(rootDir: string, env: Record<string, string | undefined>): Promise<PreflightFinding[]> {
+  let catalog: BillingCatalog | null
+  try {
+    catalog = (await loadCatalog(rootDir))?.catalog ?? null
+  }
+  catch {
+    // A catalog that will not import is `billing sync`'s error to report, not
+    // a reason for doctor to crash.
+    return []
+  }
+  if (!catalog) return []
+  const accessToken = env.BILLING_ACCESS_TOKEN
+  const environment = env.BILLING_ENVIRONMENT === 'production' ? 'production' : 'sandbox'
+  const state = accessToken ? await readBillingOrganizationState({ accessToken, environment }) : null
+  return collectBillingFindings(catalog, state, { tokenPresent: Boolean(accessToken) })
 }
 
 const ENV_EXAMPLE = `# Everything here is optional in dev — \`npm run dev\` derives the Convex URLs
@@ -463,6 +487,12 @@ const doctor = defineCommand({
       findings.push(...await functionContractFindings(rootDir))
       findings.push(...await invitationPathFindings(rootDir))
     }
+
+    // Billing catalog cross-checks: what backend/billing.catalog.ts declares
+    // against the organization's own subscription + portal settings. Every
+    // half degrades on its own — no catalog file, no findings; no readable
+    // provider, only the catalog-only checks (see collectBillingFindings).
+    findings.push(...await billingCatalogFindings(rootDir, env))
 
     // Production posture: the optional tier's designed degradations are fine
     // in dev, but a live product without email transport has broken sign-in —

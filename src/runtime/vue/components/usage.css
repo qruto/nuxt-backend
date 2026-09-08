@@ -1,0 +1,78 @@
+/*
+ * Neutral default styles for <UsageHistory>, hooked on data-usage attributes.
+ * Part of `nuxt-backend/ui.css`; theme via the `--bk-*` tokens.
+ */
+[data-usage='root'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  color: var(--bk-ink);
+}
+
+[data-usage='header'] {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+
+[data-usage='list'] {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--bk-edge);
+  border-radius: var(--bk-radius);
+  overflow: hidden;
+}
+
+[data-usage='event'] {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+[data-usage='event'] + [data-usage='event'] {
+  border-top: 1px solid var(--bk-edge);
+}
+
+[data-usage='event-time'] {
+  color: var(--bk-muted);
+  white-space: nowrap;
+}
+
+[data-usage='event-name'] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+
+[data-usage='event-units'] {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+[data-usage='pager'] {
+  display: flex;
+  gap: 0.5rem;
+}
+
+[data-usage='empty'],
+[data-usage='loading'] {
+  margin: 0;
+  color: var(--bk-muted);
+  font-size: 0.85rem;
+}
+
+[data-usage='error'] {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--bk-radius);
+  background: color-mix(in srgb, var(--bk-error) 12%, transparent);
+  color: var(--bk-error);
+  font-size: 0.85rem;
+}

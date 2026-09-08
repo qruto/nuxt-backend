@@ -1,0 +1,112 @@
+/*
+ * Neutral default styles for <BillingHistory>, hooked on data-history
+ * attributes. Part of `nuxt-backend/ui.css`; theme via the `--bk-*` tokens.
+ */
+[data-history='root'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  color: var(--bk-ink);
+}
+
+[data-history='header'] {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+
+[data-history='list'] {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--bk-edge);
+  border-radius: var(--bk-radius);
+  overflow: hidden;
+}
+
+[data-history='order'] {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+[data-history='order'] + [data-history='order'] {
+  border-top: 1px solid var(--bk-edge);
+}
+
+[data-history='order-date'] {
+  color: var(--bk-muted);
+  white-space: nowrap;
+}
+
+[data-history='order-description'] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-history='order-amount'] {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+[data-history='order-status'] {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: var(--bk-muted);
+}
+
+[data-history='order'][data-status='paid'] [data-history='order-status'] {
+  background: color-mix(in srgb, var(--bk-ok) 15%, transparent);
+  color: var(--bk-ok);
+}
+
+[data-history='order'][data-status='refunded'] [data-history='order-status'] {
+  background: color-mix(in srgb, var(--bk-warn) 15%, transparent);
+  color: var(--bk-warn);
+}
+
+[data-history='invoice'] {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+[data-history='pager'] {
+  display: flex;
+  gap: 0.5rem;
+}
+
+[data-history='empty'],
+[data-history='loading'] {
+  margin: 0;
+  color: var(--bk-muted);
+  font-size: 0.85rem;
+}
+
+[data-history='error'] {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--bk-radius);
+  background: color-mix(in srgb, var(--bk-error) 12%, transparent);
+  color: var(--bk-error);
+  font-size: 0.85rem;
+}
+
+@media (width <= 34rem) {
+  [data-history='order'] {
+    grid-template-columns: 1fr auto;
+  }
+
+  [data-history='order-date'] {
+    grid-column: 1 / -1;
+  }
+}

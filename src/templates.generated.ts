@@ -17,9 +17,12 @@ export const COMPONENT_MODULE_EXPORTS = {
     'markSettled',
   ],
   billing: [
+    'attachReleaseJob',
     'clear',
+    'clearPendingSpends',
     'credit',
     'debit',
+    'finalize',
     'getBenefitMetadata',
     'getByUser',
     'release',

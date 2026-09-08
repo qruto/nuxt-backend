@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { mutation, query } from './_generated/server.js'
+import { type MutationCtx, mutation, query } from './_generated/server.js'
 import { vEntitlementBenefit, vEntitlementMeter } from './schema.js'
 
 /**
@@ -9,7 +9,13 @@ import { vEntitlementBenefit, vEntitlementMeter } from './schema.js'
  */
 const PENDING_SPEND_TTL_MS = 10 * 60 * 1000
 
-type PendingSpend = { meterId: string, amount: number, externalId: string, at: number }
+type PendingSpend = {
+  meterId: string
+  amount: number
+  externalId: string
+  at: number
+  releaseJobId?: string
+}
 
 function activePendings(pendings: PendingSpend[] | undefined, now: number): PendingSpend[] {
   return (pendings ?? []).filter(pending => now - pending.at < PENDING_SPEND_TTL_MS)
@@ -106,7 +112,8 @@ export const upsert = mutation({
  *
  * `reason` distinguishes a genuinely insufficient balance from a cache that
  * has never synced (`no-row`) or lacks the meter (`no-meter`) — callers
- * refresh-and-retry those instead of failing the spend.
+ * refresh-and-retry those instead of failing the spend. `allowOverage` opts a
+ * spend out of the balance guard entirely (see the arg).
  */
 export const debit = mutation({
   args: {
@@ -114,13 +121,21 @@ export const debit = mutation({
     meterId: v.string(),
     amount: v.number(),
     externalId: v.string(),
+    /**
+     * Let the balance go negative instead of refusing the spend — the
+     * pay-as-you-go case: a meter with no credit benefit has nothing prepaid
+     * to draw down, so every unit is overage the provider invoices at the end
+     * of the cycle. Off by default: credits stay strictly prepaid unless the
+     * app opts a spend in.
+     */
+    allowOverage: v.optional(v.boolean()),
   },
   returns: v.object({
     ok: v.boolean(),
     balance: v.number(),
     reason: v.optional(v.union(v.literal('no-row'), v.literal('no-meter'), v.literal('insufficient'))),
   }),
-  handler: async (ctx, { userId, meterId, amount, externalId }) => {
+  handler: async (ctx, { userId, meterId, amount, externalId, allowOverage }) => {
     const row = await ctx.db
       .query('billingEntitlements')
       .withIndex('userId', q => q.eq('userId', userId))
@@ -134,7 +149,7 @@ export const debit = mutation({
       return { ok: true, balance: row.meters[index]!.balance }
     }
     const meter = row.meters[index]!
-    if (meter.balance < amount) {
+    if (meter.balance < amount && !allowOverage) {
       return { ok: false, balance: meter.balance, reason: 'insufficient' as const }
     }
     const meters = [...row.meters]
@@ -152,11 +167,132 @@ export const debit = mutation({
   },
 })
 
-/** Drop a reservation after its provider event ingested — balance stays spent. */
+/** What closing a reservation did to the meter — see {@link finalize}. */
+type SettleOutcome = {
+  settled: boolean
+  released: number
+  balance: number
+  balanceBefore: number
+  releaseJobId?: string
+}
+
+const NOTHING_SETTLED: SettleOutcome = { settled: false, released: 0, balance: 0, balanceBefore: 0 }
+
+/**
+ * Close a reservation at its final amount: drop the entry and hand back the
+ * difference between what was reserved and what was actually spent.
+ *
+ * A token-priced call can only reserve an *estimate*, so the amount that
+ * settles is usually lower than the amount that was debited. `finalAmount` is
+ * clamped into `[0, reserved]` — settling MORE than was reserved would be a
+ * second, unguarded debit, and the reservation is the only thing that made the
+ * spend safe against a concurrent one.
+ *
+ * `balanceBefore` is what the balance would be *without* this spend (what is
+ * left plus what this reservation still holds), so a caller can tell whether
+ * the spend crossed a low-balance threshold — the crossing, not the level, is
+ * what a notification hook fires on. Other in-flight reservations are not
+ * added back: each spend's crossing is judged against the balance its own
+ * siblings have already committed to.
+ */
+async function closeReservation(
+  ctx: MutationCtx,
+  userId: string,
+  externalId: string,
+  finalAmount?: number,
+): Promise<SettleOutcome> {
+  const row = await ctx.db
+    .query('billingEntitlements')
+    .withIndex('userId', q => q.eq('userId', userId))
+    .unique()
+  if (!row) return NOTHING_SETTLED
+  const now = Date.now()
+  const pending = activePendings(row.pendingSpends, now)
+  const remaining = pending.filter(entry => entry.externalId !== externalId)
+  const entry = pending.find(candidate => candidate.externalId === externalId)
+  if (!entry) {
+    // Already settled, released, or pruned past the TTL: nothing to unwind,
+    // but the prune above is still worth persisting (settle always did).
+    await ctx.db.patch('billingEntitlements', row._id, { pendingSpends: remaining, updatedAt: now })
+    return NOTHING_SETTLED
+  }
+  const final = Math.min(Math.max(finalAmount ?? entry.amount, 0), entry.amount)
+  const released = entry.amount - final
+  const index = row.meters.findIndex(meter => meter.meterId === entry.meterId)
+  const meter = index === -1 ? undefined : row.meters[index]!
+  const meters = [...row.meters]
+  if (meter && released !== 0) {
+    meters[index] = {
+      ...meter,
+      balance: meter.balance + released,
+      consumedUnits: Math.max(0, meter.consumedUnits - released),
+    }
+  }
+  await ctx.db.patch('billingEntitlements', row._id, { meters, pendingSpends: remaining, updatedAt: now })
+  const held = meter?.balance ?? 0
+  return {
+    settled: true,
+    released,
+    balance: held + released,
+    balanceBefore: held + entry.amount,
+    releaseJobId: entry.releaseJobId,
+  }
+}
+
+/**
+ * Drop a reservation after its provider event ingested — balance stays spent.
+ * Pass `finalAmount` when the actual cost came in under the reserved estimate
+ * and the remainder goes back to the balance in the same transaction.
+ *
+ * Returns nothing: this is the shape the app-side `settleSpend` calls, and its
+ * declared reference (see `BillingComponents` in `integrations/billing.ts`)
+ * types the return as `null`. {@link finalize} is the same operation for
+ * callers that need the numbers back.
+ */
 export const settle = mutation({
-  args: { userId: v.string(), externalId: v.string() },
+  args: { userId: v.string(), externalId: v.string(), finalAmount: v.optional(v.number()) },
   returns: v.null(),
-  handler: async (ctx, { userId, externalId }) => {
+  handler: async (ctx, { userId, externalId, finalAmount }) => {
+    await closeReservation(ctx, userId, externalId, finalAmount)
+    return null
+  },
+})
+
+/**
+ * {@link settle}, reporting what it did: how much of the reservation went back
+ * to the balance, where the balance landed, and the auto-release job the
+ * caller can now cancel. `setupAi` settles through this one — it needs the
+ * balance to fire the low-balance hook and the job id to cancel the abandoned
+ * stream timer.
+ */
+export const finalize = mutation({
+  args: { userId: v.string(), externalId: v.string(), finalAmount: v.optional(v.number()) },
+  returns: v.object({
+    /** `false` when there was nothing to settle (already closed, or pruned). */
+    settled: v.boolean(),
+    /** Reserved minus actual — credits handed back to the balance. */
+    released: v.number(),
+    /** The meter's balance after settling. */
+    balance: v.number(),
+    /** The meter's balance as of before this spend reserved. */
+    balanceBefore: v.number(),
+    /** The scheduled auto-release recorded by `attachReleaseJob`, if any. */
+    releaseJobId: v.optional(v.string()),
+  }),
+  handler: async (ctx, { userId, externalId, finalAmount }) => {
+    return closeReservation(ctx, userId, externalId, finalAmount)
+  },
+})
+
+/**
+ * Record the scheduled auto-release guarding a reservation, so settling it can
+ * cancel the job. A no-op when the reservation is already gone — the job it
+ * points at is itself a no-op then (see `release`).
+ */
+export const attachReleaseJob = mutation({
+  args: { userId: v.string(), externalId: v.string(), jobId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { userId, externalId, jobId }) => {
     const row = await ctx.db
       .query('billingEntitlements')
       .withIndex('userId', q => q.eq('userId', userId))
@@ -164,8 +300,12 @@ export const settle = mutation({
     if (!row) return null
     const now = Date.now()
     const pending = activePendings(row.pendingSpends, now)
-      .filter(entry => entry.externalId !== externalId)
-    await ctx.db.patch('billingEntitlements', row._id, { pendingSpends: pending, updatedAt: now })
+    if (!pending.some(entry => entry.externalId === externalId)) return null
+    await ctx.db.patch('billingEntitlements', row._id, {
+      pendingSpends: pending.map(entry =>
+        entry.externalId === externalId ? { ...entry, releaseJobId: jobId } : entry),
+      updatedAt: now,
+    })
     return null
   },
 })
@@ -173,6 +313,10 @@ export const settle = mutation({
 /**
  * Undo a reservation whose flow failed before ingestion: re-credit the meter
  * and drop the entry. A failed run never consumes credits.
+ *
+ * Also the target of the scheduled auto-release an abandoned stream leaves
+ * behind ({@link attachReleaseJob}) — hence the deliberate no-op when the
+ * reservation is already settled or released: whichever happens first wins.
  */
 export const release = mutation({
   args: { userId: v.string(), externalId: v.string() },
@@ -199,6 +343,27 @@ export const release = mutation({
       pendingSpends: pending.filter(candidate => candidate.externalId !== externalId),
       updatedAt: now,
     })
+    return null
+  },
+})
+
+/**
+ * Drop every in-flight spend reservation for one entity without re-crediting
+ * the meters. Used after a refund: the provider's balance is already the
+ * truth, and `upsert`'s re-subtraction of active reservations would push the
+ * cache below it. The reserving flows self-heal — their `settle`/`release`
+ * finds nothing, and the next sync is authoritative.
+ */
+export const clearPendingSpends = mutation({
+  args: { userId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { userId }) => {
+    const row = await ctx.db
+      .query('billingEntitlements')
+      .withIndex('userId', q => q.eq('userId', userId))
+      .unique()
+    if (!row) return null
+    await ctx.db.patch('billingEntitlements', row._id, { pendingSpends: [], updatedAt: Date.now() })
     return null
   },
 })

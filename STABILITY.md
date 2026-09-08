@@ -28,7 +28,7 @@ Anything tagged `@internal` in the source is stripped from the published declara
 ### 2. Configuration names
 
 - `ModuleOptions` (`backend` in `nuxt.config`): `url`, `siteUrl`, `authRoute`, `installation`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools` — and the page keys under `pages`: `login`, `pricing`, `settings`, `profile`, `security`, `acceptInvitation`
-- `appConfig.backend` — the content layer: `billing.plans`, `billing.packs`, `brand.name`, `brand.logo`, `labels.auth`, `labels.pricing`, `labels.settings`, `labels.profile`, `labels.security`
+- `appConfig.backend` — the content layer: `billing.plans`, `billing.packs`, `billing.lowCreditsThreshold`, `brand.name`, `brand.logo`, `labels.auth`, `labels.pricing`, `labels.settings`, `labels.profile`, `labels.security`, `labels.history`, `labels.usage`, `labels.credits`
 - `runtimeConfig.public.backend` — `pages`, the resolved mount path per page key (`''` when disabled)
 - the `#backend/*` aliases: `#backend`, `#backend/api`, `#backend/server`, `#backend/dataModel`, `#backend/_generated`
 
@@ -36,9 +36,11 @@ Anything tagged `@internal` in the source is stripped from the published declara
 
 The names the module registers, exactly as `src/module.ts` installs them:
 
-- **Composables** — `useAuth`, `useAuthState`, `useConnectionState`, `useLoginFlow`, `useOrganization`, `useSearch`, `useAggregate`, `useCount`, `useBilling`, `useFeatures`, `useCredits`, `useGifts`, `usePasskeys`, `useSessions`, `describeUserAgent`, `unwrapAuth`, `useBackendConfig`, `useEmailStatus`, `useWorkflowStatus`, `useAiStream`
-- **Components** — `AuthForm`, `RoleBoundary`, `OrganizationBoundary`, `FeatureBoundary`, `AcceptInvitation`, `GiftClaimBanner`, `PricingTable`, `WorkspaceSettings`, `ProfileSettings`, `SecuritySettings`
+- **Composables** — `useAuth`, `useAuthState`, `useConnectionState`, `useLoginFlow`, `useOrganization`, `useSearch`, `useAggregate`, `useCount`, `useBilling`, `useFeatures`, `useCredits`, `useOrders`, `useUsage`, `useGifts`, `usePasskeys`, `useSessions`, `describeUserAgent`, `unwrapAuth`, `useBackendConfig`, `useEmailStatus`, `useWorkflowStatus`, `useAiStream`
+- **Components** — `AuthForm`, `RoleBoundary`, `OrganizationBoundary`, `FeatureBoundary`, `AcceptInvitation`, `GiftClaimBanner`, `PricingTable`, `BillingHistory`, `UsageHistory`, `CreditsLowBanner`, `WorkspaceSettings`, `ProfileSettings`, `SecuritySettings`
 - **Server (Nitro) imports** — `backendAuth`, `useBackendMcp`, `defineBackendMcpTool`
+
+The billing-history surface — `useOrders`, `useUsage`, `<BillingHistory>`, `<UsageHistory>`, `<CreditsLowBanner>` — ships **stable**, deliberately, not in the experimental tier: each one binds to a deployment function named in the scaffold contract below, which `nuxt-backend doctor` verifies, and each degrades to an empty state rather than an error when the backend has not deployed its half.
 
 The core data composables and components (`useQuery`, `useMutation`, `<Authenticated>`, …) are `nuxt-convex-module`'s surface and follow that package's guarantees.
 
@@ -47,7 +49,7 @@ The core data composables and components (`useQuery`, `useMutation`, `<Authentic
 The composables bind to deployment functions by name, so the scaffolded `backend/` files must keep exporting them. `src/contract.ts` is that contract — `nuxt-backend doctor` verifies it against the deployment, and the tests pin it to the scaffold templates:
 
 - `auth.ts` — `getAuthUser`, `authConfig`, `listWorkspaces`, `listWorkspaceMembers`, `updateProfile`
-- `billing.ts` — `generateCheckoutLink`, `generateCustomerPortalUrl`, `getConfiguredProducts`, `listAllProducts`, `listAllSubscriptions`, `changeCurrentSubscription`, `cancelCurrentSubscription`, `giftCheckout`, `getCurrentSubscription`, `getFeatures`, `getCredits`, `syncEntitlements`, `syncProducts`, `getReceivedGifts`, `claimGift`, `getWebhookDeliveries`
+- `billing.ts` — `generateCheckoutLink`, `generateCustomerPortalUrl`, `getConfiguredProducts`, `listAllProducts`, `listAllSubscriptions`, `changeCurrentSubscription`, `cancelCurrentSubscription`, `giftCheckout`, `getCurrentSubscription`, `getFeatures`, `getCredits`, `syncEntitlements`, `syncProducts`, `getReceivedGifts`, `claimGift`, `getWebhookDeliveries`, `updateSubscription`, `cancelSubscription`, `uncancelSubscription`, `pauseSubscription`, `resumeSubscription`, `getOrders`, `getInvoiceUrl`, `getUsageHistory`, `refundOrder`
 - `email.ts` — `getEmailStatus`
 
 A name is only ever added to this contract in a minor release, and the scaffold ships it in the same release, so `doctor` never fails a project that keeps its scaffolded files current.

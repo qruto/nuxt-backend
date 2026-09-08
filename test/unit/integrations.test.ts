@@ -28,9 +28,11 @@ afterEach(() => {
 
 describe('setupRateLimiter', () => {
   it('seeds only limits with a real consumer (no dead password/sign-in limits)', () => {
-    expect(Object.keys(DEFAULT_LIMITS)).toEqual(['emailOtp', 'billingSync', 'ai', 'mcp'])
+    expect(Object.keys(DEFAULT_LIMITS)).toEqual(['emailOtp', 'billingSync', 'ai', 'aiBudget', 'mcp'])
     expect(DEFAULT_LIMITS.emailOtp).toMatchObject({ kind: 'token bucket' })
     expect(DEFAULT_LIMITS.ai).toMatchObject({ kind: 'token bucket', rate: 30 })
+    // The credit budget is a period allowance that resets, not a smoothed rate.
+    expect(DEFAULT_LIMITS.aiBudget).toMatchObject({ kind: 'fixed window' })
   })
 
   it('merges custom limits on top of the defaults', () => {

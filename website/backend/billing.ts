@@ -87,6 +87,23 @@ export const {
   getReceivedGifts,
   claimGift,
   getWebhookDeliveries,
+  // Subscription lifecycle — upgrade/downgrade, cancel, uncancel,
+  // pause/resume. Each resolves the caller's own billing entity, so a
+  // client can only ever act on its own subscription.
+  updateSubscription,
+  cancelSubscription,
+  uncancelSubscription,
+  pauseSubscription,
+  resumeSubscription,
+  // Order history, invoices and metered usage, read live from the provider
+  // (this package keeps no local order or usage table — the provider is the
+  // ledger).
+  getOrders,
+  getInvoiceUrl,
+  getUsageHistory,
+  // Admin-tier: gated by `setupBilling({ requireAdmin })`, which defaults
+  // to an `admin` role claim on the caller's identity.
+  refundOrder,
 } = billing.functions
 
 // --- Showcase: the consumer-side event feed ------------------------------------
@@ -131,6 +148,6 @@ export const createDiscount = authed.action({
       duration: duration ?? 'once',
       basisPoints: Math.round(Math.min(Math.max(percent, 0), 100) * 100),
     }
-    return billing.createDiscount(discount)
+    return billing.discounts.create(discount)
   },
 })

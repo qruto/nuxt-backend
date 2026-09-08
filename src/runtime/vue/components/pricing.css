@@ -73,6 +73,19 @@
   margin-left: 0.15rem;
 }
 
+[data-pricing='plan'][data-canceling] {
+  border-color: color-mix(in srgb, var(--bk-warn) 60%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bk-warn) 60%, transparent);
+}
+
+[data-pricing='plan-trial'] {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--bk-accent);
+}
+
 [data-pricing='plan-blurb'] {
   margin: 0;
   font-size: 0.82rem;
@@ -104,6 +117,8 @@
 }
 
 [data-pricing='plan-action'][data-intent='subscribe'],
+[data-pricing='plan-action'][data-intent='upgrade'],
+[data-pricing='plan-action'][data-intent='uncancel'],
 [data-pricing='plan-action'][data-intent='sign-in'] {
   background: var(--bk-accent);
   border: 1px solid var(--bk-accent);
@@ -116,6 +131,11 @@
 [data-pricing='plan-action'][data-intent='cancel'] {
   border-color: color-mix(in srgb, var(--bk-error) 50%, transparent);
   color: var(--bk-error);
+}
+
+[data-pricing='plan-action'][data-intent='downgrade'] {
+  border-color: var(--bk-edge);
+  color: var(--bk-muted);
 }
 
 [data-pricing='packs'] {

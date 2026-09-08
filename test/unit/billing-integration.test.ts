@@ -57,6 +57,10 @@ const components = {
   },
 } as never
 const config = {
+  // A token stands in for a configured deployment — every provider call is
+  // mocked, but the operations that write at the provider refuse to run
+  // without one.
+  accessToken: 'oat_test',
   getUserInfo: async () => ({ userId: 'u1', email: 'a@b.com' }),
   currentUserId: async () => 'u1',
 } as never
@@ -120,6 +124,50 @@ describe('getCustomerState', () => {
     })
   })
 
+  it('joins the granting subscription’s period and the benefit’s rollover onto each meter', async () => {
+    getCustomerByUserId.mockResolvedValue({ id: 'cus_1' } as never)
+    const start = new Date('2026-03-01T00:00:00.000Z')
+    const end = new Date('2026-04-01T00:00:00.000Z')
+    mockCustomersGetState.mockResolvedValue({
+      ok: true,
+      value: {
+        // A meter has no period of its own in the provider's model — the cycle
+        // lives on the subscription, which lists the meters it covers.
+        activeSubscriptions: [{
+          productId: 'prod_pro',
+          currentPeriodStart: start,
+          currentPeriodEnd: end,
+          meters: [{ meterId: 'm1' }],
+        }],
+        grantedBenefits: [{ id: 'g1', benefitId: 'ben_credits', benefitType: 'meter_credit' }],
+        activeMeters: [
+          { meterId: 'm1', consumedUnits: 2, creditedUnits: 10, balance: 8 },
+          // Bought as a one-time pack: no subscription, so no cycle at all.
+          { meterId: 'm2', consumedUnits: 0, creditedUnits: 5, balance: 5 },
+        ],
+      },
+    } as never)
+    mockBenefitsGet.mockResolvedValue({
+      ok: true,
+      value: { metadata: {}, type: 'meter_credit', properties: { meterId: 'm1', units: 10, rollover: false } },
+    } as never)
+
+    const state = await billing.getCustomerState(makeCtx() as never, { userId: 'u1' })
+
+    expect(state.meters).toStrictEqual([
+      {
+        meterId: 'm1',
+        consumedUnits: 2,
+        creditedUnits: 10,
+        balance: 8,
+        cycleStart: start.getTime(),
+        cycleEnd: end.getTime(),
+        rollover: false,
+      },
+      { meterId: 'm2', consumedUnits: 0, creditedUnits: 5, balance: 5 },
+    ])
+  })
+
   it('returns an empty state when the user has no Polar customer', async () => {
     getCustomerByUserId.mockResolvedValue(null as never)
 
@@ -162,8 +210,54 @@ describe('spendCredits', () => {
       expect.anything(),
       { events: [expect.objectContaining({ name: 'credits', customerId: 'cus_1', externalId: 'spend-1' })] },
     )
-    expect(ctx.runMutation).toHaveBeenCalledWith('ref:settle', { userId: 'u1', externalId: 'spend-1' })
+    // Settling carries the final amount so the component can hand back an
+    // over-reserved remainder in the same transaction.
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:settle', { userId: 'u1', externalId: 'spend-1', finalAmount: 1 })
     expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:release', expect.anything())
+  })
+
+  it('forwards allowOverage to the debit so a pay-as-you-go meter can go negative', async () => {
+    getCustomerByUserId.mockResolvedValue({ id: 'cus_1' } as never)
+    mockEventsIngest.mockResolvedValue({ ok: true, value: {} } as never)
+    const ctx = makeCtx({ debit: { ok: true, balance: -3 } })
+
+    await billing.spendCredits(ctx as never, {
+      userId: 'u1',
+      name: 'credits',
+      meterId: 'm1',
+      allowOverage: true,
+      externalId: 'spend-overage',
+    })
+
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:debit', {
+      userId: 'u1',
+      meterId: 'm1',
+      amount: 1,
+      externalId: 'spend-overage',
+      allowOverage: true,
+    })
+  })
+
+  it('settles at the final amount when the actual spend came in under the estimate', async () => {
+    getCustomerByUserId.mockResolvedValue({ id: 'cus_1' } as never)
+    mockEventsIngest.mockResolvedValue({ ok: true, value: {} } as never)
+    const ctx = makeCtx({ debit: { ok: true, balance: 5 } })
+    const named = setupBilling(components, {
+      ...(config as object),
+      credits: { credits: { meterId: 'm_sum', property: 'amount' } },
+    } as never)
+    vi.spyOn(named.provider, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
+
+    const reservation = await named.reserveCredits(ctx as never, { userId: 'u1', meter: 'credits', value: 10, externalId: 'est-1' })
+    await named.settleSpend(ctx as never, reservation, { finalAmount: 4 })
+
+    // The event bills the actual amount, and the reservation closes at it —
+    // the estimate stays the ceiling.
+    expect(mockEventsIngest).toHaveBeenCalledWith(
+      expect.anything(),
+      { events: [expect.objectContaining({ metadata: { amount: 4 } })] },
+    )
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:settle', { userId: 'u1', externalId: 'est-1', finalAmount: 4 })
   })
 
   it('releases the reservation when ingestion fails — a failed run consumes nothing', async () => {
@@ -286,6 +380,13 @@ describe('createDiscount', () => {
   it('propagates a failed discounts.create', async () => {
     mockDiscountsCreate.mockResolvedValue({ ok: false, error: new Error('bad discount') } as never)
     await expect(billing.createDiscount({ name: 'x' } as never)).rejects.toThrow('bad discount')
+  })
+
+  // The discount surface grew `list` and `remove`, so it reads as one object.
+  // STABILITY.md's deprecation rule keeps the old name working meanwhile —
+  // it must stay the very same function, not a diverging copy.
+  it('is the same function as the replacement `discounts.create`', () => {
+    expect(billing.discounts.create).toBe(billing.createDiscount)
   })
 })
 

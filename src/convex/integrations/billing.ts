@@ -6,7 +6,16 @@ import { customersGetState } from '@polar-sh/sdk/funcs/customersGetState.js'
 import { customersList } from '@polar-sh/sdk/funcs/customersList.js'
 import { customersUpdate } from '@polar-sh/sdk/funcs/customersUpdate.js'
 import { discountsCreate } from '@polar-sh/sdk/funcs/discountsCreate.js'
+import { discountsDelete } from '@polar-sh/sdk/funcs/discountsDelete.js'
+import { discountsList } from '@polar-sh/sdk/funcs/discountsList.js'
 import { eventsIngest } from '@polar-sh/sdk/funcs/eventsIngest.js'
+import { eventsList } from '@polar-sh/sdk/funcs/eventsList.js'
+import { ordersGenerateInvoice } from '@polar-sh/sdk/funcs/ordersGenerateInvoice.js'
+import { ordersGet } from '@polar-sh/sdk/funcs/ordersGet.js'
+import { ordersInvoice } from '@polar-sh/sdk/funcs/ordersInvoice.js'
+import { ordersList } from '@polar-sh/sdk/funcs/ordersList.js'
+import { refundsCreate } from '@polar-sh/sdk/funcs/refundsCreate.js'
+import { subscriptionsUpdate } from '@polar-sh/sdk/funcs/subscriptionsUpdate.js'
 import {
   actionGeneric,
   type Auth,
@@ -15,6 +24,7 @@ import {
   type GenericDataModel,
   type GenericQueryCtx,
   queryGeneric,
+  type RegisteredAction,
 } from 'convex/server'
 import { guardDelivery, parseSecretList, WEBHOOK_BODY_LIMIT, type WebhookLogRefs } from './webhook-guard.js'
 import { v } from 'convex/values'
@@ -68,6 +78,313 @@ export interface BillingRateLimiter {
 type EventsIngestRequest = Parameters<typeof eventsIngest>[1]
 /** Full discount-create payload (derived from the provider SDK) — fixed or percentage. */
 export type DiscountInput = Parameters<typeof discountsCreate>[1]
+/**
+ * The provider's subscription-mutation union (`SubscriptionUpdate`) — one of
+ * the product/proration, cancel, revoke, pause or resume shapes. Derived from
+ * the installed SDK so the mappings below can never drift from it.
+ */
+type SubscriptionUpdatePayload = Parameters<typeof subscriptionsUpdate>[1]['subscriptionUpdate']
+/** The provider subscription record returned by a lifecycle mutation. */
+type ProviderSubscription = Extract<Awaited<ReturnType<typeof subscriptionsUpdate>>, { ok: true }>['value']
+/** One discount as the provider's discounts API returns it. */
+type ProviderDiscount = Extract<Awaited<ReturnType<typeof discountsList>>, { ok: true }>['value']['result']['items'][number]
+/** Full checkout-create payload (derived from the provider SDK). */
+type CheckoutCreateInput = Parameters<typeof checkoutsCreate>[1]
+
+/**
+ * How the provider settles the money difference when a subscription switches
+ * product mid-period (`proration_behavior`). Omit to use the organization's
+ * configured default.
+ */
+export type ProrationBehavior = 'invoice' | 'prorate' | 'next_period' | 'reset'
+
+/**
+ * The subset of {@link ProrationBehavior} a **client** may choose. `invoice`
+ * and `prorate` both settle the difference now; `next_period` and `reset`
+ * hand over the new plan's credits and features immediately while deferring
+ * (or waiving) the charge, so letting a caller pick one is letting them
+ * upgrade themselves for free. Those two stay server-side: pass them from
+ * app code through `billing.updateSubscription(ctx, …)`, or make them the
+ * organization's configured default.
+ */
+export type ClientProrationBehavior = 'invoice' | 'prorate'
+
+/**
+ * The provider's churn-reason enum, recorded with a cancellation. Only set it
+ * when the customer actually told you — it surfaces to them in their purchases
+ * library, so it is their words, not an internal note.
+ */
+export type CancellationReason
+  = | 'customer_service'
+    | 'low_quality'
+    | 'missing_features'
+    | 'switched_service'
+    | 'too_complex'
+    | 'too_expensive'
+    | 'unused'
+    | 'other'
+
+/** Why an order was refunded (provider `refunds.create` reason). */
+export type RefundReason
+  = | 'duplicate'
+    | 'fraudulent'
+    | 'customer_request'
+    | 'service_disruption'
+    | 'satisfaction_guarantee'
+    | 'other'
+
+/** Shared addressing for the subscription-lifecycle operations. */
+export interface SubscriptionTarget {
+  /**
+   * Which subscription to act on. Omit for the account's single live
+   * subscription — required once {@link SetupBillingConfig.multipleSubscriptions}
+   * is on and an entity can hold several at once.
+   */
+  subscriptionId?: string
+}
+
+/** Options for {@link Billing.updateSubscription} (upgrade / downgrade). */
+export interface UpdateSubscriptionOptions extends SubscriptionTarget {
+  /** The product to switch to. */
+  productId?: string
+  /** How to settle the mid-period money difference. */
+  proration?: ProrationBehavior
+}
+
+/** Options for {@link Billing.cancelSubscription}. */
+export interface CancelSubscriptionOptions extends SubscriptionTarget {
+  /**
+   * Keep the subscription running until the period it is paid for ends
+   * (default). `false` revokes it immediately — benefits are withdrawn on the
+   * spot and the remainder is not refunded.
+   */
+  atPeriodEnd?: boolean
+  /** The customer's own churn reason. */
+  reason?: CancellationReason
+  /** The customer's own words. Never an internal note — they can read it back. */
+  comment?: string
+}
+
+/** Options for {@link Billing.pauseSubscription}. */
+export interface PauseSubscriptionOptions extends SubscriptionTarget {
+  /**
+   * When the paused subscription resumes by itself (must be after the current
+   * period ends). Omit to pause until it is resumed by hand.
+   */
+  resumesAt?: Date
+}
+
+/**
+ * What `getCurrentSubscription` returns once
+ * {@link SetupBillingConfig.multipleSubscriptions} is on: the array leads,
+ * because with add-ons there is no single "the" subscription. The primary
+ * subscription's own fields are spread alongside it, so single-plan consumers
+ * (`subscription.productId`, `subscription.status`) keep reading exactly as
+ * before. Still `null` when the entity has no live subscription at all — the
+ * "null means free plan" contract never changes.
+ */
+export type CurrentSubscriptions = {
+  /** Every live subscription, in the provider's order. */
+  subscriptions: Array<Record<string, unknown>>
+} & Record<string, unknown>
+
+/** Options for {@link Billing.getOrders}. */
+export interface OrdersOptions {
+  /** Orders per page (1–100, default 10). */
+  limit?: number
+  /** An opaque page token from a previous page's `nextCursor`. */
+  cursor?: string
+  /** The provider's 1-based page number — the raw form of `cursor`. */
+  page?: number
+}
+
+/**
+ * A past charge, normalized for a Convex action's return value: the provider's
+ * `Order` fields with every date rendered as an ISO string (Convex cannot
+ * serialize `Date`). The index signature keeps every other provider field
+ * reachable without a cast.
+ */
+export type BillingOrder = {
+  id: string
+  createdAt: string
+  status: string
+  /** Amount in the currency's minor unit (cents), after discounts and taxes. */
+  totalAmount: number
+  currency: string
+  paid: boolean
+  /** Assigned when the invoice is finalized; `null` on draft orders. */
+  invoiceNumber: string | null
+  /** Whether an invoice PDF exists yet — {@link Billing.getInvoiceUrl} needs one. */
+  isInvoiceGenerated: boolean
+} & Record<string, unknown>
+
+/** A page of provider records, plus the token that reads the next one. */
+export interface BillingPage<Item> {
+  items: Item[]
+  pagination: { totalCount: number, maxPage: number }
+  /** Pass back as `cursor` to read the next page; absent on the last one. */
+  nextCursor?: string
+}
+
+/** Options for {@link Billing.getUsageHistory}. */
+export interface UsageHistoryOptions {
+  /**
+   * Which meter's consumption to read: a configured credit-meter name
+   * (`'credits'`) or a raw meter id. Omit for every ingested event on the
+   * account.
+   */
+  meter?: string
+  /** Events per page (1–100, default 10). */
+  limit?: number
+  /** An opaque page token from a previous page's `nextCursor`. */
+  cursor?: string
+  /** The provider's 1-based page number — the raw form of `cursor`. */
+  page?: number
+  /** Only events at or after this moment. */
+  startTimestamp?: Date
+  /** Only events at or before this moment. */
+  endTimestamp?: Date
+}
+
+/**
+ * One ingested usage event as the provider's events API returns it, normalized
+ * for a Convex action's return value (dates as ISO strings). `units` is
+ * resolved from the meter's value property — the same property a spend ingests
+ * — and is absent when the meter is unknown or counts events rather than
+ * summing a property.
+ */
+export type UsageEvent = {
+  id: string
+  timestamp: string
+  name: string
+  units?: number
+  metadata?: Record<string, string | number | boolean>
+} & Record<string, unknown>
+
+/** Options for {@link Billing.refundOrder}. */
+export interface RefundOrderOptions {
+  orderId: string
+  /**
+   * Amount to refund in the currency's minor unit (cents). Omit to refund
+   * everything still refundable on the order.
+   */
+  amount?: number
+  reason: RefundReason
+  /**
+   * Withdraw the order's benefits as well. The provider only allows this for
+   * one-time purchases — a subscription's benefits are withdrawn when the
+   * subscription itself is revoked.
+   */
+  revokeBenefits?: boolean
+  /** Extra key-value data stored on the refund. */
+  metadata?: Record<string, string | number | boolean>
+}
+
+/** The outcome of {@link Billing.refundOrder}, JSON-normalized. */
+export interface RefundRecord {
+  id: string
+  orderId: string
+  status: string
+  reason: string
+  /** Refunded amount in the currency's minor unit (cents). */
+  amount: number
+  currency: string
+  revokeBenefits: boolean
+}
+
+/** Filters for {@link BillingDiscounts.list}. */
+export interface DiscountListOptions {
+  /** Match against the discount's name. */
+  query?: string
+  /** Discounts per page (1–100, default 10). */
+  limit?: number
+  /** The provider's 1-based page number. */
+  page?: number
+}
+
+/**
+ * Discount (coupon) management. Privileged by design — a public action that
+ * mints discounts would let anyone create a 100%-off code — so these are
+ * server-side methods, not registered functions: call them from an
+ * `internalAction` or an admin-tier action of your own.
+ */
+export interface BillingDiscounts {
+  /** Create a discount / coupon. Accepts the full provider shape (fixed or percentage). */
+  create: (discount: DiscountInput) => Promise<{ id: string, code: string | null }>
+  /** List discounts (newest provider order), one page at a time. */
+  list: (options?: DiscountListOptions) => Promise<BillingPage<ProviderDiscount>>
+  /** Permanently delete a discount. Redemptions already applied stay applied. */
+  remove: (discountId: string) => Promise<void>
+}
+
+/**
+ * Pre-filled customer details for a checkout session. Every field is only a
+ * default the customer can still change — the provider owns the form.
+ */
+export interface CheckoutPrefill {
+  name?: string
+  email?: string
+  /** The name that should appear on the invoice, when it differs from `name`. */
+  billingName?: string
+  billingAddress?: {
+    /** ISO 3166-1 alpha-2 country code — the one field the provider requires. */
+    country: string
+    line1?: string
+    line2?: string
+    postalCode?: string
+    city?: string
+    state?: string
+  }
+  /** VAT / tax identification number. */
+  taxId?: string
+  /**
+   * Bill a business rather than an individual. Turning this on makes the
+   * provider require a full billing address and billing name.
+   */
+  business?: boolean
+}
+
+/**
+ * Everything {@link Billing.api}'s `generateCheckoutLink` accepts. A type
+ * alias rather than an interface so it can type the registered action itself
+ * (Convex's `DefaultFunctionArgs` needs an implicit index signature, which only
+ * aliases get) — that is what makes the wide argument list visible to an app
+ * that re-exports `generateCheckoutLink` from the scaffold.
+ */
+export type CheckoutOptions = {
+  productIds: string[]
+  /** The origin of the page embedding the checkout (for the iframe handshake). */
+  origin: string
+  successUrl: string
+  /** Upgrade an existing free subscription instead of starting a new one. */
+  subscriptionId?: string
+  metadata?: Record<string, string>
+  trialInterval?: 'day' | 'week' | 'month' | 'year' | null
+  trialIntervalCount?: number | null
+  /** BCP-47 language tag for the checkout UI. */
+  locale?: string
+  /** Pre-filled customer details. */
+  prefill?: CheckoutPrefill
+  /** Values for the organization's custom checkout fields, keyed by field slug. */
+  customFields?: Record<string, string | number | boolean>
+  /** Require the full billing address, not just the country. */
+  requireBillingAddress?: boolean
+  /**
+   * Let the customer type a discount code into the provider's own checkout
+   * (default `true`). That is where a customer-entered code belongs: the
+   * provider validates it against the live catalog, so this package never has
+   * to.
+   */
+  allowDiscountCodes?: boolean
+  /**
+   * Pre-apply a discount by **id** — the only form the provider's checkout
+   * payload takes. There is no code→id lookup in the provider's API (its
+   * discount list filters by name, not code), so a campaign that knows a code
+   * resolves it once with `billing.discounts.list()` and stores the id, rather
+   * than making every checkout scan the catalog.
+   */
+  discountId?: string
+}
 
 /**
  * Per-event billing webhook handlers, keyed by the provider's event names
@@ -96,6 +413,15 @@ export interface EntitlementMeter {
   consumedUnits: number
   creditedUnits: number
   balance: number
+  /**
+   * The granting subscription's current period (epoch ms) — a meter has no
+   * period of its own in the provider's model. Absent for meters granted only
+   * by one-time credit packs.
+   */
+  cycleStart?: number
+  cycleEnd?: number
+  /** Whether unspent credited units carry into the next cycle. */
+  rollover?: boolean
 }
 
 /**
@@ -163,6 +489,13 @@ export interface SpendCreditsEvent {
   meterId?: string
   /** Credits required for this spend (default `1`). */
   value?: number
+  /**
+   * Let the balance go negative instead of refusing the spend — the
+   * pay-as-you-go case: the meter has no credit benefit behind it, so every
+   * unit is overage the provider invoices at the end of the cycle. Off by
+   * default: credits stay strictly prepaid.
+   */
+  allowOverage?: boolean
   /** Event properties used by the meter's aggregation/filter. */
   metadata?: Record<string, string | number | boolean>
   /** Idempotency key to prevent double-counting (defaults to a random UUID). */
@@ -280,10 +613,19 @@ export interface BillingComponents {
         meterId: string
         amount: number
         externalId: string
+        allowOverage?: boolean
       }, { ok: boolean, balance: number, reason?: 'no-row' | 'no-meter' | 'insufficient' }>
-      settle: FunctionReference<'mutation', 'internal', { userId: string, externalId: string }, null>
+      settle: FunctionReference<'mutation', 'internal', { userId: string, externalId: string, finalAmount?: number }, null>
       release: FunctionReference<'mutation', 'internal', { userId: string, externalId: string }, null>
       credit: FunctionReference<'mutation', 'internal', { userId: string, meterId: string, amount: number }, null>
+      /**
+       * Drop every in-flight spend reservation for one entity, without
+       * re-crediting: used after a refund, where the provider's balance is
+       * already the truth and re-subtracting local reservations would push the
+       * cache below it. Optional so an app pinned to an older component build
+       * still type-checks — the refund path then just re-syncs.
+       */
+      clearPendingSpends?: FunctionReference<'mutation', 'internal', { userId: string }, null>
       getBenefitMetadata: FunctionReference<'query', 'internal', { benefitIds: string[] }, Array<{
         benefitId: string
         metadata: Record<string, string | number | boolean>
@@ -365,13 +707,29 @@ export type SetupBillingConfig = Omit<PolarConfig, 'getUserInfo' | 'organization
    */
   currentUserId?: (ctx: AnyQueryCtx) => Promise<string | null>
   /**
-   * Throttle `syncEntitlements` per billing entity. Pass your
-   * `setupRateLimiter(...)` limiter and each authenticated sync is checked
-   * against the `billingSync` limit (10/min, keyed by the workspace/user), so a
-   * caller can't loop it to amplify the live provider fan-out. Omit to leave
-   * the action unthrottled.
+   * Throttle every client-callable function that reaches the live provider —
+   * `syncEntitlements`, `syncProducts`, checkout, the subscription-lifecycle
+   * actions, order history and invoices. Pass your `setupRateLimiter(...)`
+   * limiter and each authenticated call is checked against the `billingSync`
+   * limit (10/min, keyed by the workspace/user), so a caller can't loop one to
+   * amplify the provider fan-out. Omit to leave them unthrottled.
    */
   rateLimiter?: BillingRateLimiter
+  /**
+   * Let one billing entity hold several live subscriptions at once (a plan
+   * plus add-ons, say). The upstream single-subscription read throws the
+   * moment a second one exists, so this switches `getCurrentSubscription` to
+   * the subscriptions-array-first shape ({@link CurrentSubscriptions}) and
+   * makes `subscriptionId` the way lifecycle actions pick their target.
+   */
+  multipleSubscriptions?: boolean
+  /**
+   * Gate the admin-tier billing actions (`refundOrder` — moving real money).
+   * Throw from here to refuse. The default requires an `admin` role claim on
+   * the caller's identity (the admin plugin's role, carried on the JWT);
+   * supply your own to check permissions, a workspace role, or an allowlist.
+   */
+  requireAdmin?: (ctx: { auth?: Auth }) => Promise<void>
   /**
    * React to billing webhook events, keyed by the provider's own event names
    * (`'order.paid'`, `'subscription.active'`, …). Your handler runs **after**
@@ -502,6 +860,56 @@ function escapeHtml(value: string): string {
   ))
 }
 
+/**
+ * Subscription statuses the provider considers finished. Everything else —
+ * including `past_due` and `paused` — is still manageable, so lifecycle
+ * operations stay available on it. Deliberately a deny-list: the provider owns
+ * the status vocabulary and adds to it, and refusing an unknown status here
+ * would lock customers out of cancelling.
+ */
+const ENDED_SUBSCRIPTION_STATUSES = new Set(['canceled', 'incomplete_expired'])
+
+/** Statuses that count as a live entitlement for the current-subscription reads. */
+const LIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'paused'])
+
+/**
+ * Provider payloads carry `Date` objects and `undefined` holes that Convex
+ * cannot serialize back to a browser. Render dates as ISO strings and drop the
+ * holes so a live provider read can be returned straight out of an action.
+ */
+function toConvexValue<T>(value: T): T {
+  if (value instanceof Date) return value.toISOString() as unknown as T
+  if (Array.isArray(value)) return value.map(entry => toConvexValue(entry)) as unknown as T
+  if (value && typeof value === 'object') {
+    const result: Record<string, unknown> = {}
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      if (entry === undefined) continue
+      result[key] = toConvexValue(entry)
+    }
+    return result as T
+  }
+  return value
+}
+
+/**
+ * The provider paginates by page number, so the opaque `cursor` this package
+ * hands out is just that number as a string — kept opaque at the boundary so
+ * the pagination scheme can change without a breaking argument change.
+ */
+function resolvePage(options: { cursor?: string, page?: number }): number {
+  const fromCursor = options.cursor === undefined ? Number.NaN : Number(options.cursor)
+  const page = Number.isInteger(fromCursor) ? fromCursor : options.page
+  // A malformed cursor or page reads as "the first page" rather than an error:
+  // pagination tokens are opaque, so a stale one should not break the view.
+  return Number.isFinite(page) ? Math.max(1, Math.trunc(page!)) : 1
+}
+
+/** Clamp a page size to the provider's accepted 1–100 window. */
+function resolveLimit(limit: number | undefined): number {
+  if (!Number.isFinite(limit)) return 10
+  return Math.min(Math.max(Math.trunc(limit!), 1), 100)
+}
+
 function safeJsonParse(body: string): unknown {
   try {
     return JSON.parse(body)
@@ -556,11 +964,16 @@ export interface Billing {
    * `giftCheckout`. `listAllSubscriptions` is wrapped to resolve the billing
    * entity like the reactive reads do — it returns `null` instead of throwing
    * for claimless callers (signed out, or the auth-handshake / reconnect window
-   * reactive queries subscribe in).
+   * reactive queries subscribe in). `generateCheckoutLink` is replaced by this
+   * package's superset (prefill, custom fields, billing address, discount id),
+   * and is re-declared here so the scaffold's `export const {
+   * generateCheckoutLink } = billing.api` hands the app the wide argument type
+   * rather than upstream's narrow one.
    */
-  api: Omit<ReturnType<Polar['api']>, 'listAllSubscriptions'> & {
+  api: Omit<ReturnType<Polar['api']>, 'listAllSubscriptions' | 'generateCheckoutLink'> & {
     listAllSubscriptions: ReturnType<typeof queryGeneric>
     giftCheckout: ReturnType<typeof actionGeneric>
+    generateCheckoutLink: RegisteredAction<'public', CheckoutOptions, Promise<{ url: string }>>
   }
   /**
    * Ready-made, client-callable functions to re-export from your `billing.ts`
@@ -581,6 +994,24 @@ export interface Billing {
     getReceivedGifts: ReturnType<typeof queryGeneric>
     claimGift: ReturnType<typeof actionGeneric>
     getWebhookDeliveries: ReturnType<typeof queryGeneric>
+    /** Switch the caller's subscription to another product. */
+    updateSubscription: ReturnType<typeof actionGeneric>
+    /** Cancel at period end (default) or revoke immediately. */
+    cancelSubscription: ReturnType<typeof actionGeneric>
+    /** Undo a scheduled cancellation. */
+    uncancelSubscription: ReturnType<typeof actionGeneric>
+    /** Pause at period end. */
+    pauseSubscription: ReturnType<typeof actionGeneric>
+    /** Resume a paused subscription immediately. */
+    resumeSubscription: ReturnType<typeof actionGeneric>
+    /** The caller's order history, read live from the provider. */
+    getOrders: ReturnType<typeof actionGeneric>
+    /** A signed invoice URL for one of the caller's orders. */
+    getInvoiceUrl: ReturnType<typeof actionGeneric>
+    /** The caller's metered consumption history, read live from the provider. */
+    getUsageHistory: ReturnType<typeof actionGeneric>
+    /** Refund an order — admin-tier (see {@link SetupBillingConfig.requireAdmin}). */
+    refundOrder: ReturnType<typeof actionGeneric>
   }
   /**
    * Typed billing webhook handlers for `registerBackendRoutes` (mounted at
@@ -627,7 +1058,7 @@ export interface Billing {
    */
   reserveCredits: (ctx: RunWriteCtx & { auth?: Auth }, event: SpendCreditsEvent & { allowRefresh?: boolean }) => Promise<SpendReservation>
   /** Ingest the provider event for a reservation and finalize the spend. */
-  settleSpend: (ctx: RunWriteCtx, reservation: SpendReservation, options?: { name?: string, metadata?: Record<string, string | number | boolean>, timestamp?: Date }) => Promise<void>
+  settleSpend: (ctx: RunWriteCtx, reservation: SpendReservation, options?: { name?: string, metadata?: Record<string, string | number | boolean>, timestamp?: Date, finalAmount?: number }) => Promise<void>
   /** Undo a reservation whose work failed — nothing is charged. */
   releaseSpend: (ctx: RunWriteCtx, reservation: SpendReservation) => Promise<void>
   /**
@@ -639,8 +1070,76 @@ export interface Billing {
   /**
    * Create a discount / coupon (provider `discounts.create`). Call from an
    * **action**. Accepts the full discount-create shape (fixed or percentage).
+   *
+   * @deprecated Use `discounts.create` instead — the discount surface grew a
+   * `list` and a `remove`, so it reads as one object. This alias keeps working
+   * for at least one minor release (see STABILITY.md).
    */
   createDiscount: (discount: DiscountInput) => Promise<{ id: string, code: string | null }>
+  /**
+   * Discount (coupon) management: `create`, `list`, `remove`. Server-side by
+   * design — minting discounts is privileged, so wire it through an
+   * `internalAction` or your own admin-tier action.
+   */
+  discounts: BillingDiscounts
+  /**
+   * Switch a subscription to another product (upgrade / downgrade), optionally
+   * choosing how the mid-period difference is settled. Call from an **action**;
+   * the ready-made `updateSubscription` function does it for the caller.
+   */
+  updateSubscription: (ctx: RunWriteCtx & { auth?: Auth }, options?: UpdateSubscriptionOptions) => Promise<ProviderSubscription>
+  /**
+   * Cancel a subscription — at period end by default, immediately with
+   * `atPeriodEnd: false`. The reason and comment are the customer's own words
+   * and are visible to them.
+   */
+  cancelSubscription: (ctx: RunWriteCtx & { auth?: Auth }, options?: CancelSubscriptionOptions) => Promise<ProviderSubscription>
+  /** Undo a scheduled cancellation, putting the subscription back on renewal. */
+  uncancelSubscription: (ctx: RunWriteCtx & { auth?: Auth }, options?: SubscriptionTarget) => Promise<ProviderSubscription>
+  /**
+   * Pause a subscription at the end of the current period, optionally with an
+   * automatic resume date.
+   *
+   * Pause/resume are newer than the rest of the lifecycle: the provider's
+   * `subscription.paused` / `subscription.resumed` webhooks are known to the
+   * installed SDK but not confirmed live here, so entitlement reads treat a
+   * paused subscription as still live rather than assuming an event will
+   * arrive to say so.
+   */
+  pauseSubscription: (ctx: RunWriteCtx & { auth?: Auth }, options?: PauseSubscriptionOptions) => Promise<ProviderSubscription>
+  /** Resume a paused subscription immediately, starting a new billing period. */
+  resumeSubscription: (ctx: RunWriteCtx & { auth?: Auth }, options?: SubscriptionTarget) => Promise<ProviderSubscription>
+  /**
+   * The billing entity's order history, read **live** from the provider — this
+   * package keeps no local order table (that would be a ledger, and the
+   * provider already is one). `null` when no access token is configured.
+   */
+  getOrders: (ctx: RunWriteCtx & { auth?: Auth }, options?: OrdersOptions) => Promise<BillingPage<BillingOrder> | null>
+  /**
+   * A URL to one of the entity's own invoices. `null` when no access token is
+   * configured, and `null` while the provider is still generating the PDF (the
+   * call asks for generation, then the next call returns the URL). Throws if
+   * the order belongs to a different billing account.
+   */
+  getInvoiceUrl: (ctx: RunWriteCtx & { auth?: Auth }, orderId: string) => Promise<{ url: string } | null>
+  /**
+   * The billing entity's metered consumption history, read **live** from the
+   * provider's events API. There is no local usage ledger by design: the
+   * events this package ingests when it spends credits *are* the record, and
+   * the provider bills from them. `null` when no access token is configured.
+   */
+  getUsageHistory: (ctx: RunWriteCtx & { auth?: Auth }, options?: UsageHistoryOptions) => Promise<BillingPage<UsageEvent> | null>
+  /**
+   * Refund an order — admin-tier, gated by
+   * {@link SetupBillingConfig.requireAdmin}. Omit `amount` to refund whatever
+   * is still refundable.
+   *
+   * Credits are **not** reversed here: meter credits come from the provider's
+   * own benefit grants, so the refund's `order.refunded` webhook is what
+   * reverses them. This package only drops the entity's in-flight spend
+   * reservations and re-reads the provider's balance.
+   */
+  refundOrder: (ctx: RunWriteCtx & { auth?: Auth }, options: RefundOrderOptions) => Promise<RefundRecord>
 }
 
 /**
@@ -693,6 +1192,21 @@ export function setupBilling(
   const products = config.products ?? catalogIds?.products
   const creditMeters: Record<string, CreditMeterConfig> = { ...catalogIds?.meters, ...config.credits }
   const meterNameById = new Map(Object.entries(creditMeters).map(([key, meter]) => [meter.meterId, key]))
+
+  /**
+   * How many credits one ingested event represents, for the history read: the
+   * meter's value property for a sum meter, exactly one for a count meter, and
+   * "unknown" when no meter was resolved — never a made-up zero.
+   */
+  const meterUnits = (
+    meter: (CreditMeterConfig & { key?: string }) | null,
+    metadata: Record<string, unknown> | undefined,
+  ): number | undefined => {
+    if (!meter) return undefined
+    if (!meter.property) return 1
+    const raw = metadata?.[meter.property]
+    return typeof raw === 'number' ? raw : undefined
+  }
 
   /** Resolve a spend's target meter from its friendly name or raw meter id. */
   const resolveMeter = (event: Pick<SpendCreditsEvent, 'meter' | 'meterId'>): (CreditMeterConfig & { key?: string }) | null => {
@@ -757,6 +1271,50 @@ export function setupBilling(
   const gifts = components.backend.gifts
   const providerLib = (components.polar as unknown as ProviderLibRefs).lib
 
+  /**
+   * Operations that *write* at the provider fail loudly without a token —
+   * silently doing nothing with someone's money would be worse than an error.
+   * Reads degrade to `null` instead (see `getOrders` / `getInvoiceUrl`), so a
+   * mid-configuration deployment still renders.
+   */
+  const requireProviderAccess = (operation: string): void => {
+    if (accessToken) return
+    throw new Error(
+      `[nuxt-backend] Billing ${operation} needs the BILLING_ACCESS_TOKEN env var — `
+      + 'set it on the deployment (`npx nuxt-backend doctor` lists what is missing).',
+    )
+  }
+
+  /**
+   * Unwrap a provider SDK result at the package boundary. Rethrowing the raw
+   * SDK error would put the provider's own words — HTTP status, response body,
+   * sometimes an expired-token hint — in front of a visitor: `<BillingHistory>`
+   * renders `orders.error` verbatim. The detail is logged instead, where it is
+   * a debugging aid rather than a leak, and the caller sees the same
+   * package-shaped message a missing token produces.
+   */
+  const unwrapProvider = <T>(
+    result: { ok: true, value: T } | { ok: false, error: unknown },
+    operation: string,
+  ): T => {
+    if (result.ok) return result.value
+    console.error(`[nuxt-backend] Billing ${operation} failed at the provider:`, result.error)
+    throw new Error(
+      `[nuxt-backend] Billing is temporarily unavailable — the provider refused the ${operation}. Try again shortly.`,
+    )
+  }
+
+  /**
+   * Throttle one live provider fan-out per billing entity against the shared
+   * `billingSync` limit. A no-op until a limiter is configured, so the
+   * zero-config scaffold behaves exactly as before.
+   */
+  const throttle = async (ctx: RunWriteCtx, userId: string, what: string): Promise<void> => {
+    if (!config.rateLimiter) return
+    const { ok } = await config.rateLimiter.limit(ctx, 'billingSync', { key: userId })
+    if (!ok) throw new Error(`[nuxt-backend] Too many ${what} — try again shortly.`)
+  }
+
   const getCustomerState: Billing['getCustomerState'] = async (ctx, { userId }) => {
     const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, userId)
     if (!customer) {
@@ -765,7 +1323,12 @@ export function setupBilling(
     const result = await customersGetState(provider.polar, { id: customer.id })
     if (!result.ok) throw result.error
     const state = result.value as {
-      activeSubscriptions?: Array<{ productId: string }>
+      activeSubscriptions?: Array<{
+        productId: string
+        currentPeriodStart?: Date
+        currentPeriodEnd?: Date
+        meters?: Array<{ meterId: string }>
+      }>
       grantedBenefits?: Array<{ id: string, benefitId: string, benefitType: string }>
       activeMeters?: Array<{ meterId: string, consumedUnits: number, creditedUnits: number, balance: number }>
     }
@@ -786,6 +1349,11 @@ export function setupBilling(
     )
     const staleBenefitIds = distinctBenefitIds.filter(id => !metadataByBenefit.has(id))
     const fetched: Array<{ benefitId: string, metadata: Record<string, string | number | boolean> }> = []
+    // Rollover lives on the meter-credit *benefit*, not on customer state — so
+    // it is only known on the reads this loop already makes. Absent between
+    // reads (the metadata TTL), which is why `rollover` is optional all the way
+    // out to `useCredits()`: the UI degrades to "no expiry shown", never lies.
+    const rolloverByMeter = new Map<string, boolean>()
     await Promise.all(
       staleBenefitIds.map(async (benefitId) => {
         const benefit = await benefitsGet(provider.polar, { id: benefitId })
@@ -793,11 +1361,27 @@ export function setupBilling(
           const metadata = benefit.value.metadata ?? {}
           metadataByBenefit.set(benefitId, metadata)
           fetched.push({ benefitId, metadata })
+          if (benefit.value.type === 'meter_credit') {
+            rolloverByMeter.set(benefit.value.properties.meterId, benefit.value.properties.rollover)
+          }
         }
       }),
     )
     if (fetched.length > 0 && 'runMutation' in ctx) {
       await (ctx as RunWriteCtx).runMutation(cache.upsertBenefitMetadata, { entries: fetched })
+    }
+    // A meter's cycle is its granting subscription's billing period: the
+    // provider models the period on the subscription, and the subscription
+    // lists the meters it covers. A meter granted only by a one-time pack has
+    // no subscription and therefore no cycle — hence the optional fields.
+    const cycleByMeter = new Map<string, { cycleStart?: number, cycleEnd?: number }>()
+    for (const subscription of state.activeSubscriptions ?? []) {
+      for (const subscriptionMeter of subscription.meters ?? []) {
+        cycleByMeter.set(subscriptionMeter.meterId, {
+          cycleStart: subscription.currentPeriodStart?.getTime(),
+          cycleEnd: subscription.currentPeriodEnd?.getTime(),
+        })
+      }
     }
     return {
       customerId: customer.id,
@@ -813,6 +1397,8 @@ export function setupBilling(
         consumedUnits: m.consumedUnits,
         creditedUnits: m.creditedUnits,
         balance: m.balance,
+        ...cycleByMeter.get(m.meterId),
+        ...(rolloverByMeter.has(m.meterId) ? { rollover: rolloverByMeter.get(m.meterId) } : {}),
       })),
     }
   }
@@ -860,13 +1446,14 @@ export function setupBilling(
         + 'spend value must be 1 per event, or configure a sum meter with a `property`.',
       )
     }
-    let result = await ctx.runMutation(cache.debit, { userId: entityId, meterId: meter.meterId, amount: value, externalId })
+    const debitArgs = { userId: entityId, meterId: meter.meterId, amount: value, externalId, allowOverage: event.allowOverage }
+    let result = await ctx.runMutation(cache.debit, debitArgs)
     if (!result.ok && (result.reason === 'no-row' || result.reason === 'no-meter') && event.allowRefresh !== false) {
       // Cold cache (granted but never synced) — self-heal once, then retry.
       // Needs an action ctx (the provider read fetches); mutation callers pass
       // `allowRefresh: false` and surface the sync hint instead.
       await refreshEntitlements(ctx as RunWriteCtx, entityId)
-      result = await ctx.runMutation(cache.debit, { userId: entityId, meterId: meter.meterId, amount: value, externalId })
+      result = await ctx.runMutation(cache.debit, debitArgs)
     }
     if (!result.ok) {
       throw new Error(
@@ -884,13 +1471,17 @@ export function setupBilling(
     if (!name) {
       throw new Error('[nuxt-backend] settleSpend: pass `name`, or a configured `meter` whose key/eventName names the event.')
     }
+    // The estimate is the ceiling: settling above it would be a second,
+    // unguarded debit — the reservation is what made the spend safe against a
+    // concurrent one.
+    const value = Math.min(Math.max(options.finalAmount ?? reservation.value, 0), reservation.value)
     try {
       const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, reservation.entityId)
       if (!customer) {
         throw new Error(`[nuxt-backend] No billing customer for ${reservation.entityId}. Start a checkout first.`)
       }
       const metadata = meter?.property
-        ? { ...options.metadata, [meter.property]: reservation.value }
+        ? { ...options.metadata, [meter.property]: value }
         : options.metadata
       const events: EventsIngestRequest['events'] = [{
         name,
@@ -906,7 +1497,7 @@ export function setupBilling(
       if (reservation.reserved) await ctx.runMutation(cache.release, { userId: reservation.entityId, externalId: reservation.externalId })
       throw error
     }
-    if (reservation.reserved) await ctx.runMutation(cache.settle, { userId: reservation.entityId, externalId: reservation.externalId })
+    if (reservation.reserved) await ctx.runMutation(cache.settle, { userId: reservation.entityId, externalId: reservation.externalId, finalAmount: value })
   }
 
   const releaseSpend: Billing['releaseSpend'] = async (ctx, reservation) => {
@@ -954,9 +1545,275 @@ export function setupBilling(
   }
 
   const createDiscount: Billing['createDiscount'] = async (discount) => {
+    requireProviderAccess('discount creation')
     const result = await discountsCreate(provider.polar, discount)
     if (!result.ok) throw result.error
     return { id: result.value.id, code: result.value.code ?? null }
+  }
+
+  const listDiscounts: BillingDiscounts['list'] = async (options = {}) => {
+    requireProviderAccess('discount listing')
+    const page = resolvePage(options)
+    const result = await discountsList(provider.polar, {
+      query: options.query,
+      page,
+      limit: resolveLimit(options.limit),
+    })
+    if (!result.ok) throw result.error
+    const { items, pagination } = result.value.result
+    return {
+      items,
+      pagination,
+      ...(page < pagination.maxPage ? { nextCursor: String(page + 1) } : {}),
+    }
+  }
+
+  const discounts: BillingDiscounts = {
+    create: createDiscount,
+    list: listDiscounts,
+    remove: async (discountId) => {
+      requireProviderAccess('discount deletion')
+      const result = await discountsDelete(provider.polar, { id: discountId })
+      if (!result.ok) throw result.error
+    },
+  }
+
+  // --- Subscription lifecycle ---
+
+  /**
+   * The subscription a lifecycle operation acts on, read from the component's
+   * synced table. Never the upstream single-subscription read: that one is a
+   * `.unique()` and throws the moment an entity holds two live subscriptions,
+   * which is exactly the case `multipleSubscriptions` exists for.
+   */
+  const resolveSubscription = async (
+    ctx: RunQueryCtx,
+    userId: string,
+    subscriptionId?: string,
+  ): Promise<{ id: string, status: string }> => {
+    const all = await provider.listAllUserSubscriptions(ctx as unknown as PolarRunQueryCtx, { userId })
+    if (subscriptionId) {
+      const found = all.find(subscription => subscription.id === subscriptionId)
+      if (!found) {
+        throw new Error(`[nuxt-backend] Subscription ${subscriptionId} is not on this billing account.`)
+      }
+      return found
+    }
+    const live = all.filter(subscription =>
+      subscription.endedAt == null && !ENDED_SUBSCRIPTION_STATUSES.has(subscription.status))
+    if (live.length === 0) {
+      throw new Error('[nuxt-backend] No subscription to change — this billing account has none running.')
+    }
+    if (live.length > 1) {
+      throw new Error(
+        '[nuxt-backend] This billing account has several running subscriptions — pass `subscriptionId` to say which one.',
+      )
+    }
+    return live[0]!
+  }
+
+  /**
+   * One provider `subscriptions.update` call, behind the shared guards: token
+   * present, entity resolved, rate limit checked, subscription addressed. Every
+   * lifecycle operation is the same call with a different arm of the SDK's
+   * `SubscriptionUpdate` union.
+   */
+  const applySubscriptionUpdate = async (
+    ctx: RunWriteCtx & { auth?: Auth },
+    operation: string,
+    options: SubscriptionTarget,
+    update: SubscriptionUpdatePayload,
+  ): Promise<ProviderSubscription> => {
+    requireProviderAccess(operation)
+    const { userId } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
+    await throttle(ctx, userId, `${operation}s`)
+    const subscription = await resolveSubscription(ctx, userId, options.subscriptionId)
+    const result = await subscriptionsUpdate(provider.polar, {
+      id: subscription.id,
+      subscriptionUpdate: update,
+    })
+    return unwrapProvider(result, operation)
+  }
+
+  const updateSubscription: Billing['updateSubscription'] = async (ctx, options = {}) => {
+    if (!options.productId && !options.proration) {
+      throw new Error('[nuxt-backend] updateSubscription: pass `productId` (the plan to switch to) and/or `proration`.')
+    }
+    return applySubscriptionUpdate(ctx, 'plan change', options, {
+      productId: options.productId,
+      prorationBehavior: options.proration,
+    })
+  }
+
+  const cancelSubscription: Billing['cancelSubscription'] = (ctx, options = {}) => {
+    // The provider's cancel and revoke arms carry the same customer-supplied
+    // churn fields; only the timing differs.
+    const churn = {
+      customerCancellationReason: options.reason,
+      customerCancellationComment: options.comment,
+    }
+    return applySubscriptionUpdate(
+      ctx,
+      'cancellation',
+      options,
+      options.atPeriodEnd === false ? { ...churn, revoke: true } : { ...churn, cancelAtPeriodEnd: true },
+    )
+  }
+
+  // The provider models "undo the scheduled cancellation" as the cancel arm
+  // with the flag flipped off — there is no separate uncancel endpoint.
+  const uncancelSubscription: Billing['uncancelSubscription'] = (ctx, options = {}) =>
+    applySubscriptionUpdate(ctx, 'uncancellation', options, { cancelAtPeriodEnd: false })
+
+  const pauseSubscription: Billing['pauseSubscription'] = (ctx, options = {}) =>
+    applySubscriptionUpdate(ctx, 'pause', options, {
+      pauseAtPeriodEnd: true,
+      resumesAt: options.resumesAt,
+    })
+
+  const resumeSubscription: Billing['resumeSubscription'] = (ctx, options = {}) =>
+    applySubscriptionUpdate(ctx, 'resume', options, { resume: true })
+
+  // --- Orders, invoices & refunds (live provider reads — no local ledger) ---
+
+  const getOrders: Billing['getOrders'] = async (ctx, options = {}) => {
+    if (!accessToken) return null
+    const { userId } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
+    await throttle(ctx, userId, 'order reads')
+    const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, userId)
+    // No provider customer yet = nothing has ever been charged. An empty page
+    // is the honest answer; `null` is reserved for "billing isn't configured".
+    if (!customer) return { items: [], pagination: { totalCount: 0, maxPage: 0 } }
+    const page = resolvePage(options)
+    const result = await ordersList(provider.polar, {
+      customerId: customer.id,
+      page,
+      limit: resolveLimit(options.limit),
+      sorting: ['-created_at'],
+    })
+    const { items, pagination } = unwrapProvider(result, 'order read').result
+    return {
+      items: items.map(order => toConvexValue(order) as unknown as BillingOrder),
+      pagination,
+      ...(page < pagination.maxPage ? { nextCursor: String(page + 1) } : {}),
+    }
+  }
+
+  const getInvoiceUrl: Billing['getInvoiceUrl'] = async (ctx, orderId) => {
+    if (!accessToken) return null
+    const { userId } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
+    await throttle(ctx, userId, 'invoice reads')
+    const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, userId)
+    const order = unwrapProvider(await ordersGet(provider.polar, { id: orderId }), 'invoice read')
+    // Ownership is the authorization: the order id is guessable-ish and the
+    // invoice carries a name and address, so it never leaves its own account.
+    if (!customer || order.customerId !== customer.id) {
+      throw new Error('[nuxt-backend] getInvoiceUrl: that order belongs to a different billing account.')
+    }
+    if (!order.isInvoiceGenerated) {
+      // Generation is asynchronous at the provider. Ask for it and report "not
+      // yet" — the next call returns the URL.
+      const generated = await ordersGenerateInvoice(provider.polar, { id: orderId })
+      unwrapProvider(generated, 'invoice generation')
+      return null
+    }
+    const invoice = await ordersInvoice(provider.polar, { id: orderId })
+    return { url: unwrapProvider(invoice, 'invoice read').url }
+  }
+
+  const getUsageHistory: Billing['getUsageHistory'] = async (ctx, options = {}) => {
+    if (!accessToken) return null
+    const { userId } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
+    await throttle(ctx, userId, 'usage reads')
+    const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, userId)
+    // No provider customer = nothing was ever metered. An empty page is the
+    // honest answer; `null` is reserved for "billing isn't configured".
+    if (!customer) return { items: [], pagination: { totalCount: 0, maxPage: 0 } }
+    // A friendly meter name resolves to its id; an unconfigured raw id passes
+    // straight through, so an app can read a meter it never named.
+    const meter = options.meter
+      ? (creditMeters[options.meter] ? resolveMeter({ meter: options.meter }) : resolveMeter({ meterId: options.meter }))
+      : null
+    const page = resolvePage(options)
+    const result = await eventsList(provider.polar, {
+      customerId: customer.id,
+      // The provider applies the meter's own filter clause, so the page holds
+      // exactly the events that meter bills from — not merely same-named ones.
+      meterId: meter?.meterId,
+      startTimestamp: options.startTimestamp,
+      endTimestamp: options.endTimestamp,
+      page,
+      limit: resolveLimit(options.limit),
+      sorting: ['-timestamp'],
+    })
+    // Unlike the other list endpoints, the events response IS the list
+    // resource (no `result` envelope), and its pagination has two shapes.
+    const { items, pagination } = unwrapProvider(result, 'usage read')
+    // Page-number pagination is what this package's pagers expect; the
+    // provider's cursor shape carries only `hasNextPage`, so the totals stay
+    // absent rather than being invented.
+    const totals = 'maxPage' in pagination
+      ? pagination
+      : { totalCount: items.length, maxPage: pagination.hasNextPage ? page + 1 : page }
+    return {
+      items: items.map((event) => {
+        const normalized = toConvexValue(event) as unknown as UsageEvent
+        const units = meterUnits(meter, event.metadata as Record<string, unknown> | undefined)
+        return units === undefined ? normalized : { ...normalized, units }
+      }),
+      pagination: totals,
+      ...(page < totals.maxPage ? { nextCursor: String(page + 1) } : {}),
+    }
+  }
+
+  /**
+   * The default admin gate for `refundOrder`: an `admin` role claim on the
+   * caller's identity. Better Auth's admin plugin stores roles as a
+   * comma-separated string, so the claim is split before matching.
+   */
+  const requireAdmin = async (ctx: { auth?: Auth }): Promise<void> => {
+    if (config.requireAdmin) {
+      await config.requireAdmin(ctx)
+      return
+    }
+    const identity = await ctx.auth?.getUserIdentity()
+    const role = (identity as unknown as { role?: unknown } | null)?.role
+    const roles = typeof role === 'string' ? role.split(',').map(entry => entry.trim()) : []
+    if (!roles.includes('admin')) {
+      throw new Error(
+        '[nuxt-backend] refundOrder is admin-only — sign in as an admin, '
+        + 'or pass `requireAdmin` to setupBilling to define your own gate.',
+      )
+    }
+  }
+
+  const refundOrder: Billing['refundOrder'] = async (ctx, options) => {
+    requireProviderAccess('refund')
+    await requireAdmin(ctx)
+    const order = unwrapProvider(await ordersGet(provider.polar, { id: options.orderId }), 'refund')
+    // The provider requires an explicit amount; default to everything still
+    // refundable rather than making every caller read the order first.
+    const amount = options.amount ?? order.refundableAmount
+    if (!(amount > 0)) {
+      throw new Error(`[nuxt-backend] refundOrder: order ${options.orderId} has nothing left to refund.`)
+    }
+    const result = await refundsCreate(provider.polar, {
+      orderId: options.orderId,
+      reason: options.reason,
+      amount,
+      revokeBenefits: options.revokeBenefits,
+      metadata: options.metadata,
+    })
+    const refund = unwrapProvider(result, 'refund')
+    return {
+      id: refund.id,
+      orderId: refund.orderId,
+      status: String(refund.status),
+      reason: String(refund.reason),
+      amount: refund.amount,
+      currency: refund.currency,
+      revokeBenefits: refund.revokeBenefits,
+    }
   }
 
   // --- Gifts ---
@@ -991,6 +1848,114 @@ export function setupBilling(
     await ctx.runMutation(gifts.markClaimed, { giftId: gift.id, userId, entityId })
     await refreshEntitlements(ctx, entityId)
   }
+
+  // --- Checkout ---
+
+  /**
+   * Find-or-create the provider customer for a billing entity and keep the
+   * component's entity↔customer mapping in step. Matching on email first means
+   * a customer who already paid (through a gift, say) keeps one billing
+   * profile instead of sprouting a second.
+   */
+  const resolveCheckoutCustomer = async (ctx: RunWriteCtx, userId: string, email: string): Promise<string> => {
+    const mapped = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, userId)
+    if (mapped) return mapped.id
+    const existing = await customersList(provider.polar, { email, limit: 1 })
+    if (!existing.ok) throw existing.error
+    let customerId = existing.value.result.items[0]?.id
+    if (!customerId) {
+      // The `userId` metadata is what lets the very first webhook resolve its
+      // entity before any sync has run.
+      const created = await customersCreate(provider.polar, { email, metadata: { userId } })
+      if (!created.ok) throw created.error
+      customerId = created.value.id
+    }
+    await ctx.runMutation(providerLib.insertCustomer, { id: customerId, userId })
+    return customerId
+  }
+
+  /**
+   * Build the provider checkout payload from this package's options. Only
+   * fields the installed `CheckoutCreate` actually has are set — `prefill`
+   * maps onto the `customer*` fields, `customFields` onto `customFieldData`.
+   */
+  const buildCheckoutPayload = (options: CheckoutOptions, customerId: string): CheckoutCreateInput => {
+    const prefill = options.prefill ?? {}
+    return {
+      products: options.productIds,
+      customerId,
+      embedOrigin: options.origin,
+      successUrl: options.successUrl,
+      subscriptionId: options.subscriptionId,
+      metadata: options.metadata,
+      trialInterval: options.trialInterval,
+      trialIntervalCount: options.trialIntervalCount,
+      locale: options.locale,
+      allowDiscountCodes: options.allowDiscountCodes ?? true,
+      discountId: options.discountId,
+      requireBillingAddress: options.requireBillingAddress,
+      customFieldData: options.customFields,
+      customerName: prefill.name,
+      customerEmail: prefill.email,
+      customerBillingName: prefill.billingName,
+      // The SDK types `country` as a closed alpha-2 enum; the value is a plain
+      // string at this boundary, validated by the provider on submit.
+      customerBillingAddress: prefill.billingAddress as CheckoutCreateInput['customerBillingAddress'],
+      customerTaxId: prefill.taxId,
+      isBusinessCustomer: prefill.business,
+    }
+  }
+
+  /**
+   * Replaces the provider api()'s `generateCheckoutLink` with a superset: the
+   * same arguments plus prefill, custom fields, billing-address and discount
+   * control. Upstream appends `locale` as a URL query parameter; the payload
+   * has a real `locale` field, so it is passed properly here.
+   */
+  const generateCheckoutLink = actionGeneric({
+    args: {
+      productIds: v.array(v.string()),
+      origin: v.string(),
+      successUrl: v.string(),
+      subscriptionId: v.optional(v.string()),
+      metadata: v.optional(v.record(v.string(), v.string())),
+      trialInterval: v.optional(v.union(v.string(), v.null())),
+      trialIntervalCount: v.optional(v.union(v.number(), v.null())),
+      locale: v.optional(v.string()),
+      prefill: v.optional(v.object({
+        name: v.optional(v.string()),
+        email: v.optional(v.string()),
+        billingName: v.optional(v.string()),
+        billingAddress: v.optional(v.object({
+          country: v.string(),
+          line1: v.optional(v.string()),
+          line2: v.optional(v.string()),
+          postalCode: v.optional(v.string()),
+          city: v.optional(v.string()),
+          state: v.optional(v.string()),
+        })),
+        taxId: v.optional(v.string()),
+        business: v.optional(v.boolean()),
+      })),
+      customFields: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean()))),
+      requireBillingAddress: v.optional(v.boolean()),
+      allowDiscountCodes: v.optional(v.boolean()),
+      discountId: v.optional(v.string()),
+    },
+    returns: v.object({ url: v.string() }),
+    handler: async (ctx, args) => {
+      requireProviderAccess('checkout')
+      const { userId, email } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
+      await throttle(ctx, userId, 'checkouts')
+      const customerId = await resolveCheckoutCustomer(ctx, userId, email)
+      const payload = buildCheckoutPayload(
+        { ...args, trialInterval: args.trialInterval as CheckoutOptions['trialInterval'] },
+        customerId,
+      )
+      const checkout = await checkoutsCreate(provider.polar, payload)
+      return { url: unwrapProvider(checkout, 'checkout').url }
+    },
+  })
 
   const giftCheckout = actionGeneric({
     args: {
@@ -1171,7 +2136,42 @@ export function setupBilling(
     handler: async (ctx) => {
       const userId = await resolveUserId(ctx)
       if (!userId) return null
-      return provider.getCurrentSubscription(ctx as unknown as PolarRunQueryCtx, { userId })
+      if (!config.multipleSubscriptions) {
+        return provider.getCurrentSubscription(ctx as unknown as PolarRunQueryCtx, { userId })
+      }
+      // Array-first: with add-ons there is no single "the" subscription, and
+      // the upstream single-subscription read is a `.unique()` that would
+      // throw here. `paused` counts as live — the provider's pause events are
+      // not confirmed on this deployment, so a paused plan must not silently
+      // read as the free plan.
+      const all = await provider.listAllUserSubscriptions(ctx as unknown as PolarRunQueryCtx, { userId })
+      const now = new Date().toISOString()
+      const live = all.filter(subscription =>
+        subscription.endedAt == null
+        && LIVE_SUBSCRIPTION_STATUSES.has(subscription.status)
+        // The subscriptions table is webhook-synced, so it lags the trial-end
+        // transition. Upstream's single-subscription read drops a trial already
+        // past its end for exactly that reason; both branches have to agree on
+        // what counts as subscribed, or a config flag would change the meaning
+        // of `isSubscribed`.
+        && !(subscription.status === 'trialing' && subscription.trialEnd != null && subscription.trialEnd <= now))
+      // `null` keeps meaning "on the free plan" for every existing consumer.
+      if (live.length === 0) return null
+      // Join each subscription to its product exactly as upstream's single read
+      // does: `<PricingTable>` and feature copy read `product` / `productKey`,
+      // so the two branches must return the same shape.
+      const enriched = await Promise.all(live.map(async (subscription) => {
+        const product = await provider.getProduct(ctx as unknown as PolarRunQueryCtx, {
+          productId: subscription.productId,
+        })
+        const productKey = products
+          ? Object.keys(products).find(key => products[key] === subscription.productId)
+          : undefined
+        return { ...subscription, productKey, product }
+      }))
+      // The array leads; the primary subscription's fields ride alongside so
+      // `subscription.productId` / `.status` keep reading unchanged.
+      return { subscriptions: enriched, ...enriched[0] } as CurrentSubscriptions
     },
   })
 
@@ -1248,10 +2248,7 @@ export function setupBilling(
       if (!userId) return null
       // Guard the live provider fan-out: throttle per billing entity so a caller
       // can't loop this to burn the access token's quota / trip provider limits.
-      if (config.rateLimiter) {
-        const { ok } = await config.rateLimiter.limit(ctx, 'billingSync', { key: userId })
-        if (!ok) throw new Error('[nuxt-backend] Too many entitlement syncs — try again shortly.')
-      }
+      await throttle(ctx, userId, 'entitlement syncs')
       await refreshEntitlements(ctx, userId)
       return null
     },
@@ -1267,19 +2264,146 @@ export function setupBilling(
     handler: async (ctx) => {
       const { userId } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
       if (!userId) return null
-      if (config.rateLimiter) {
-        const { ok } = await config.rateLimiter.limit(ctx, 'billingSync', { key: userId })
-        if (!ok) throw new Error('[nuxt-backend] Too many product syncs — try again shortly.')
-      }
+      await throttle(ctx, userId, 'product syncs')
       await provider.syncProducts(ctx as never)
       return null
     },
   })
 
+  // --- Ready-made subscription-lifecycle / order actions ---
+  //
+  // Registered so `useBilling()` reaches them by name. Each one resolves the
+  // billing entity itself, so a client can only ever act on its own
+  // subscription — the ids never come from the caller except as a filter
+  // checked against that entity.
+
+  const subscriptionTargetArgs = { subscriptionId: v.optional(v.string()) }
+
+  const updateSubscriptionFn = actionGeneric({
+    args: {
+      ...subscriptionTargetArgs,
+      productId: v.optional(v.string()),
+      // Deliberately narrower than `ProrationBehavior`: see
+      // {@link ClientProrationBehavior}. `next_period` / `reset` would let any
+      // signed-in customer take an immediate upgrade that is not invoiced
+      // until the next cycle, so they never come off the wire.
+      proration: v.optional(v.union(v.literal('invoice'), v.literal('prorate'))),
+    },
+    handler: async (ctx, args) => {
+      await updateSubscription(ctx, args)
+      return null
+    },
+  })
+
+  const cancelSubscriptionFn = actionGeneric({
+    args: {
+      ...subscriptionTargetArgs,
+      atPeriodEnd: v.optional(v.boolean()),
+      reason: v.optional(v.union(
+        v.literal('customer_service'),
+        v.literal('low_quality'),
+        v.literal('missing_features'),
+        v.literal('switched_service'),
+        v.literal('too_complex'),
+        v.literal('too_expensive'),
+        v.literal('unused'),
+        v.literal('other'),
+      )),
+      comment: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+      await cancelSubscription(ctx, args)
+      return null
+    },
+  })
+
+  const uncancelSubscriptionFn = actionGeneric({
+    args: subscriptionTargetArgs,
+    handler: async (ctx, args) => {
+      await uncancelSubscription(ctx, args)
+      return null
+    },
+  })
+
+  const pauseSubscriptionFn = actionGeneric({
+    // Epoch milliseconds on the wire — Convex has no date value.
+    args: { ...subscriptionTargetArgs, resumesAt: v.optional(v.number()) },
+    handler: async (ctx, args) => {
+      await pauseSubscription(ctx, {
+        subscriptionId: args.subscriptionId,
+        resumesAt: args.resumesAt === undefined ? undefined : new Date(args.resumesAt),
+      })
+      return null
+    },
+  })
+
+  const resumeSubscriptionFn = actionGeneric({
+    args: subscriptionTargetArgs,
+    handler: async (ctx, args) => {
+      await resumeSubscription(ctx, args)
+      return null
+    },
+  })
+
+  const getOrdersFn = actionGeneric({
+    args: {
+      limit: v.optional(v.number()),
+      cursor: v.optional(v.string()),
+      page: v.optional(v.number()),
+    },
+    handler: (ctx, args) => getOrders(ctx, args),
+  })
+
+  const getInvoiceUrlFn = actionGeneric({
+    args: { orderId: v.string() },
+    handler: (ctx, { orderId }) => getInvoiceUrl(ctx, orderId),
+  })
+
+  const getUsageHistoryFn = actionGeneric({
+    args: {
+      meter: v.optional(v.string()),
+      limit: v.optional(v.number()),
+      cursor: v.optional(v.string()),
+      page: v.optional(v.number()),
+      // Epoch milliseconds on the wire — Convex has no date value.
+      startTimestamp: v.optional(v.number()),
+      endTimestamp: v.optional(v.number()),
+    },
+    handler: (ctx, args) => getUsageHistory(ctx, {
+      ...args,
+      startTimestamp: args.startTimestamp === undefined ? undefined : new Date(args.startTimestamp),
+      endTimestamp: args.endTimestamp === undefined ? undefined : new Date(args.endTimestamp),
+    }),
+  })
+
+  const refundOrderFn = actionGeneric({
+    args: {
+      orderId: v.string(),
+      amount: v.optional(v.number()),
+      reason: v.union(
+        v.literal('duplicate'),
+        v.literal('fraudulent'),
+        v.literal('customer_request'),
+        v.literal('service_disruption'),
+        v.literal('satisfaction_guarantee'),
+        v.literal('other'),
+      ),
+      revokeBenefits: v.optional(v.boolean()),
+    },
+    handler: (ctx, args) => refundOrder(ctx, args),
+  })
+
   // --- Webhook handlers: keep the cache fresh as billing state changes ---
 
   // Handlers run inside an httpAction at runtime, so we can refresh inline.
-  const handleRefreshEvent = async (ctx: RunWriteCtx, event: PolarWebhookEvent): Promise<void> => {
+  /**
+   * The billing entity a webhook event belongs to. Prefers the provider
+   * customer metadata (set at checkout, so first-time webhooks self-bootstrap)
+   * and falls back to the synced cache. Gift orders carry no `userId` metadata
+   * until claimed, so they resolve to `null` here and are handled by the gift
+   * branch instead.
+   */
+  const resolveEventEntity = async (ctx: RunWriteCtx, event: PolarWebhookEvent): Promise<string | null> => {
     const data = event.data as {
       id?: string
       customerId?: string
@@ -1287,17 +2411,35 @@ export function setupBilling(
       metadata?: Record<string, unknown>
     }
     const customerId = data.customerId ?? data.customer?.id ?? data.id
-    if (typeof customerId !== 'string') return
-    // Resolve the auth user: prefer the provider customer metadata (set at
-    // checkout, so first-time webhooks self-bootstrap), then fall back to the
-    // synced cache. Gift orders carry no `userId` metadata until claimed, so
-    // they skip here and are handled by the gift branch instead.
+    if (typeof customerId !== 'string') return null
     const metaUserId = data.customer?.metadata?.userId ?? data.metadata?.userId
-    const userId = typeof metaUserId === 'string'
-      ? metaUserId
-      : await ctx.runQuery(cache.userByCustomer, { customerId })
+    if (typeof metaUserId === 'string') return metaUserId
+    return await ctx.runQuery(cache.userByCustomer, { customerId })
+  }
+
+  const handleRefreshEvent = async (ctx: RunWriteCtx, event: PolarWebhookEvent): Promise<void> => {
+    const userId = await resolveEventEntity(ctx, event)
     if (!userId) return
     await refreshEntitlements(ctx, userId)
+  }
+
+  /**
+   * A refund landed. Credit reversal itself is **provider-driven** — meter
+   * credits come from the provider's benefit grants, so the refund revokes
+   * them there and the refresh below simply reads the new truth.
+   *
+   * What this package must do is drop the entity's in-flight spend
+   * reservations: the cache invariant is `provider state − reservations`, and
+   * re-subtracting reservations from an already-reduced balance would leave
+   * the cache below what the provider says. The reserving flows self-heal —
+   * their `settle`/`release` finds nothing and the next sync is authoritative.
+   */
+  const handleOrderRefunded = async (ctx: RunWriteCtx, event: PolarWebhookEvent): Promise<void> => {
+    const clearPendingSpends = cache.clearPendingSpends
+    if (!clearPendingSpends) return
+    const userId = await resolveEventEntity(ctx, event)
+    if (!userId) return
+    await ctx.runMutation(clearPendingSpends, { userId })
   }
 
   // A benefit's metadata changed — patch the snapshot so friendly-key feature
@@ -1322,6 +2464,9 @@ export function setupBilling(
       const refreshes = (REFRESH_EVENTS as readonly string[]).includes(type)
       const consumerHandler = consumerEvents[type as keyof WebhookEventHandlers]
       return [type, async (ctx: RunWriteCtx, event: PolarWebhookEvent) => {
+        // Reservations are dropped *before* the refresh, so the refreshed
+        // cache is exactly what the provider now says.
+        if (type === 'order.refunded') await handleOrderRefunded(ctx, event)
         if (refreshes) await handleRefreshEvent(ctx, event)
         if (type === 'benefit.updated') await handleBenefitUpdated(ctx, event)
         if (type === 'order.paid') await handleGiftOrderPaid(ctx, event)
@@ -1417,7 +2562,7 @@ export function setupBilling(
 
   return {
     provider,
-    api: { ...provider.api(), listAllSubscriptions, giftCheckout },
+    api: { ...provider.api(), listAllSubscriptions, generateCheckoutLink, giftCheckout },
     functions: {
       getCurrentSubscription,
       getFeatures,
@@ -1427,6 +2572,15 @@ export function setupBilling(
       getReceivedGifts,
       claimGift,
       getWebhookDeliveries,
+      updateSubscription: updateSubscriptionFn,
+      cancelSubscription: cancelSubscriptionFn,
+      uncancelSubscription: uncancelSubscriptionFn,
+      pauseSubscription: pauseSubscriptionFn,
+      resumeSubscription: resumeSubscriptionFn,
+      getOrders: getOrdersFn,
+      getInvoiceUrl: getInvoiceUrlFn,
+      getUsageHistory: getUsageHistoryFn,
+      refundOrder: refundOrderFn,
     },
     webhookEvents,
     webhookHandler,
@@ -1438,5 +2592,15 @@ export function setupBilling(
     releaseSpend,
     resolveEntity: entityFromIdentity,
     createDiscount,
+    discounts,
+    updateSubscription,
+    cancelSubscription,
+    uncancelSubscription,
+    pauseSubscription,
+    resumeSubscription,
+    getOrders,
+    getInvoiceUrl,
+    getUsageHistory,
+    refundOrder,
   }
 }

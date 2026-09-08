@@ -1,10 +1,13 @@
-import { mkdtempSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runCommand } from 'citty'
+import { organizationsListOrganizations } from '@polar-sh/sdk/funcs/organizationsListOrganizations.js'
 import { main } from '../../src/cli/main'
 import { scaffoldBackendFiles } from '../../src/scaffold'
+
+vi.mock('@polar-sh/sdk/funcs/organizationsListOrganizations.js', () => ({ organizationsListOrganizations: vi.fn() }))
 
 let rootDir: string
 
@@ -127,5 +130,61 @@ describe('doctor', () => {
     expect(report.findings.find(finding => finding.id === 'email-webhook-route')?.status).toBe('fail')
     expect(report.findings.find(finding => finding.id === 'ai-stream-route')?.status).toBe('fail')
     expect(process.exitCode).toBe(1)
+  }, 30_000)
+})
+
+describe('doctor — billing catalog', () => {
+  // The catalog is imported for real (that is how `billing sync` reads it), so
+  // the fixture stays import-free: `defineBillingCatalog` is identity anyway.
+  function writeCatalog(source: string) {
+    mkdirSync(join(rootDir, 'backend'), { recursive: true })
+    writeFileSync(join(rootDir, 'backend/billing.catalog.ts'), source)
+  }
+
+  async function doctorFindings(): Promise<Array<{ id: string, status: string, message: string }>> {
+    await run(['doctor', '--json'])
+    const output = vi.mocked(console.log).mock.calls.flat().join('\n')
+    return (JSON.parse(output) as { findings: Array<{ id: string, status: string, message: string }> }).findings
+  }
+
+  /** Every finding id the catalog cross-checks can produce. */
+  const CATALOG_FINDINGS = [
+    'billing-meter-usage',
+    'billing-organization',
+    'billing-multiple-subscriptions',
+    'billing-proration',
+    'billing-benefit-grace',
+    'billing-trial-abuse',
+    'billing-portal',
+    'billing-feature-benefits',
+  ]
+
+  it('says nothing about billing when no catalog is declared', async () => {
+    const findings = await doctorFindings()
+    expect(findings.filter(finding => CATALOG_FINDINGS.includes(finding.id))).toEqual([])
+  }, 30_000)
+
+  it('checks the catalog alone when no access token is visible, and skips the provider half', async () => {
+    writeCatalog('export default { meters: { credits: {}, tokens: {} }, plans: { pro: { name: \'Pro\', interval: \'month\', price: 2900, credits: { meter: \'credits\', units: 500 } } } }\n')
+
+    const findings = await doctorFindings()
+
+    // Nothing grants or bills `tokens`.
+    expect(findings.find(finding => finding.id === 'billing-meter-usage')?.status).toBe('warn')
+    expect(findings.some(finding => finding.id === 'billing-organization')).toBe(false)
+    expect(findings.some(finding => finding.id === 'billing-proration')).toBe(false)
+  }, 30_000)
+
+  it('reports the provider checks as skipped when the token is refused', async () => {
+    writeCatalog('export default { plans: { pro: { name: \'Pro\', interval: \'month\', price: 2900 } } }\n')
+    writeFileSync(join(rootDir, '.env.local'), 'BILLING_ACCESS_TOKEN=polar_oat_expired\n')
+    vi.mocked(organizationsListOrganizations).mockResolvedValue({ ok: false, error: new Error('401 Unauthorized') } as never)
+
+    const findings = await doctorFindings()
+
+    const organization = findings.find(finding => finding.id === 'billing-organization')
+    expect(organization?.status).toBe('warn')
+    expect(organization?.message).toContain('BILLING_ACCESS_TOKEN')
+    expect(findings.some(finding => finding.id === 'billing-portal')).toBe(false)
   }, 30_000)
 })

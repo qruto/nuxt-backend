@@ -43,6 +43,57 @@ export interface CatalogMeter {
   eventName?: string
 }
 
+/**
+ * How a price is taxed. `'location'` (the default) lets the provider decide
+ * from the customer's location and the organization's setting.
+ */
+export type CatalogTaxBehavior = 'inclusive' | 'exclusive' | 'location'
+
+/** A free trial the plan grants before its first charge. */
+export interface CatalogTrial {
+  interval: 'day' | 'week' | 'month' | 'year'
+  /** Number of intervals. Defaults to 1. */
+  count?: number
+}
+
+/**
+ * A metered price billed on top of the plan's fixed price — pay-as-you-go
+ * overage, charged at the end of each cycle for what the meter recorded.
+ *
+ * This is the *other* way to sell a meter: `credits` prepays an allowance the
+ * provider grants per cycle, `usage` bills whatever is spent. A plan can do
+ * both (an included allowance, then overage) because the provider settles the
+ * metered price against the meter's remaining balance.
+ */
+export interface CatalogUsagePrice {
+  /** The catalog meter key this price bills. */
+  meter: string
+  /**
+   * Price per unit in cents. Pass a string for sub-cent precision (up to 12
+   * decimal places) — a number would lose it.
+   */
+  unitAmount: number | string
+  /** Never charge more than this many cents per cycle, however much is used. */
+  cap?: number
+}
+
+/**
+ * A field the checkout collects and stores on the order/subscription — the
+ * answers ride along to the provider dashboard and the webhook payloads.
+ */
+export interface CatalogCustomField {
+  /** Input type. `'select'` needs {@link CatalogCustomField.options}. */
+  type: 'text' | 'number' | 'checkbox' | 'date' | 'select'
+  /** Label shown at checkout. Defaults to the catalog key. */
+  name?: string
+  /** Key the answer is stored under. Defaults to the catalog key. */
+  slug?: string
+  /** Checkout refuses to submit without an answer. Defaults to `false`. */
+  required?: boolean
+  /** Choices for `type: 'select'`. */
+  options?: Array<{ value: string, label: string }>
+}
+
 /** A subscription plan (recurring product). */
 export interface CatalogPlan {
   name: string
@@ -55,6 +106,14 @@ export interface CatalogPlan {
   credits?: CatalogCreditGrant
   /** Feature-benefit keys (from {@link BillingCatalog.features}) this plan grants. */
   features?: string[]
+  /** Free trial before the first charge. */
+  trial?: CatalogTrial
+  /** Metered prices charged on top of `price` (pay-as-you-go overage). */
+  usage?: CatalogUsagePrice[]
+  /** Tax treatment of the price. Defaults to the organization's setting. */
+  taxBehavior?: CatalogTaxBehavior
+  /** Checkout field keys (from {@link BillingCatalog.customFields}) to collect. */
+  customFields?: string[]
 }
 
 /** A one-time credit pack. */
@@ -65,9 +124,17 @@ export interface CatalogPack {
   price: number
   /** Credits granted once at purchase. */
   credits: CatalogCreditGrant
+  /** Tax treatment of the price. Defaults to the organization's setting. */
+  taxBehavior?: CatalogTaxBehavior
+  /** Checkout field keys (from {@link BillingCatalog.customFields}) to collect. */
+  customFields?: string[]
 }
 
-/** A feature benefit, gate-checked client-side via `useFeatures().has(key)`. */
+/**
+ * A feature benefit, gate-checked client-side via `useFeatures().has(key)`.
+ * Pushed as the provider's native feature-flag benefit; the catalog key rides
+ * along in the benefit metadata, which is what the gate matches on.
+ */
 export interface CatalogFeature {
   description: string
 }
@@ -77,6 +144,8 @@ export interface BillingCatalog {
   plans?: Record<string, CatalogPlan>
   packs?: Record<string, CatalogPack>
   features?: Record<string, CatalogFeature>
+  /** Checkout fields plans and packs can collect, keyed by catalog key. */
+  customFields?: Record<string, CatalogCustomField>
 }
 
 /**
@@ -89,7 +158,9 @@ export interface BillingCatalog {
  *   meters: { credits: {} },
  *   plans: {
  *     pro: { name: 'Pro', interval: 'month', price: 2900,
- *       credits: { meter: 'credits', units: 500 }, features: ['priority_support'] },
+ *       credits: { meter: 'credits', units: 500 }, features: ['priority_support'],
+ *       trial: { interval: 'day', count: 14 },
+ *       usage: [{ meter: 'credits', unitAmount: 5 }] },
  *   },
  *   packs: {
  *     credits500: { name: '500 credits', price: 2000, credits: { meter: 'credits', units: 500 } },

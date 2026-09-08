@@ -213,6 +213,29 @@ describe('upsert re-subtracts active reservations (cache = provider − reservat
   })
 })
 
+describe('clearing reservations after a refund', () => {
+  test('drops every in-flight reservation without re-crediting, so the next refresh is provider truth', async () => {
+    await seed(5)
+    await debit('a', 2)
+    await debit('b', 1)
+    expect(await meter()).toMatchObject({ balance: 2, consumedUnits: 3 })
+
+    // A refund revoked the grant at the provider: its balance is already the
+    // truth, and re-subtracting local reservations would push the cache below
+    // it. Clearing does not hand the credits back — only drops the holds.
+    await t.mutation(api.billing.clearPendingSpends, { userId: USER })
+    expect(await pendingIds()).toStrictEqual([])
+    expect(await meter()).toMatchObject({ balance: 2, consumedUnits: 3 })
+
+    await refresh(providerMeter(0, 0, 0))
+    expect(await meter()).toMatchObject({ balance: 0, consumedUnits: 0 })
+  })
+
+  test('is a no-op for an entity with no cached row', async () => {
+    await expect(t.mutation(api.billing.clearPendingSpends, { userId: 'nobody' })).resolves.toBeNull()
+  })
+})
+
 describe('pending-spend TTL', () => {
   test('reservations older than the TTL are pruned on the next touch (a crashed flow self-heals)', async () => {
     await seed(5)
@@ -255,5 +278,165 @@ describe('pending-spend TTL', () => {
     advanceClock(PENDING_SPEND_TTL_MS + 1000)
     expect(await debit('same', 1)).toStrictEqual({ ok: true, balance: 1 })
     expect(await pendingIds()).toStrictEqual(['same'])
+  })
+})
+
+describe('settling at the actual amount (an estimate reserves, the run finalizes)', () => {
+  test('releases the difference between what was reserved and what was spent', async () => {
+    await seed(10)
+    await debit('estimate', 5)
+    expect(await meter()).toMatchObject({ balance: 5, consumedUnits: 5 })
+
+    await t.mutation(api.billing.settle, { userId: USER, externalId: 'estimate', finalAmount: 2 })
+
+    // 5 reserved, 2 spent, 3 back.
+    expect(await meter()).toMatchObject({ balance: 8, consumedUnits: 2 })
+    expect(await pendingIds()).toStrictEqual([])
+  })
+
+  test('reports what it released, where the balance landed, and where it started', async () => {
+    await seed(10)
+    await debit('reported', 5)
+
+    const outcome = await t.mutation(api.billing.finalize, { userId: USER, externalId: 'reported', finalAmount: 2 })
+
+    expect(outcome).toStrictEqual({ settled: true, released: 3, balance: 8, balanceBefore: 10 })
+    // `balanceBefore - balance` is exactly what the spend consumed.
+    expect(outcome.balanceBefore - outcome.balance).toBe(2)
+  })
+
+  test('the reservation is the ceiling: a larger final amount cannot debit again', async () => {
+    await seed(10)
+    await debit('over', 5)
+
+    const outcome = await t.mutation(api.billing.finalize, { userId: USER, externalId: 'over', finalAmount: 9 })
+
+    expect(outcome).toMatchObject({ settled: true, released: 0, balance: 5 })
+    expect(await meter()).toMatchObject({ balance: 5, consumedUnits: 5 })
+  })
+
+  test('a negative or zero final amount gives the whole reservation back', async () => {
+    await seed(10)
+    await debit('free', 4)
+
+    expect(await t.mutation(api.billing.finalize, { userId: USER, externalId: 'free', finalAmount: -3 }))
+      .toMatchObject({ settled: true, released: 4, balance: 10 })
+    expect(await meter()).toMatchObject({ balance: 10, consumedUnits: 0 })
+  })
+
+  test('without a final amount it settles the full reservation, as settle always did', async () => {
+    await seed(10)
+    await debit('whole', 4)
+
+    expect(await t.mutation(api.billing.finalize, { userId: USER, externalId: 'whole' }))
+      .toMatchObject({ settled: true, released: 0, balance: 6, balanceBefore: 10 })
+  })
+
+  test('nothing to settle is not an error — it reports that it did nothing', async () => {
+    await seed(10)
+    await debit('gone', 4)
+    await t.mutation(api.billing.settle, { userId: USER, externalId: 'gone' })
+
+    expect(await t.mutation(api.billing.finalize, { userId: USER, externalId: 'gone', finalAmount: 1 }))
+      .toStrictEqual({ settled: false, released: 0, balance: 0, balanceBefore: 0 })
+    expect(await t.mutation(api.billing.finalize, { userId: 'nobody', externalId: 'gone' }))
+      .toStrictEqual({ settled: false, released: 0, balance: 0, balanceBefore: 0 })
+    // The settled spend stands.
+    expect(await meter()).toMatchObject({ balance: 6, consumedUnits: 4 })
+  })
+
+  test('an expired reservation cannot be finalized — the TTL already dropped it', async () => {
+    await seed(10)
+    await debit('stale', 4)
+
+    advanceClock(PENDING_SPEND_TTL_MS + 1000)
+
+    expect(await t.mutation(api.billing.finalize, { userId: USER, externalId: 'stale', finalAmount: 1 }))
+      .toMatchObject({ settled: false, released: 0 })
+  })
+})
+
+describe('the scheduled auto-release of an abandoned reservation', () => {
+  test('settling hands back the job id so the caller can cancel the timer', async () => {
+    await seed(5)
+    await debit('stream', 2)
+
+    await t.mutation(api.billing.attachReleaseJob, { userId: USER, externalId: 'stream', jobId: 'job_1' })
+
+    expect(await t.mutation(api.billing.finalize, { userId: USER, externalId: 'stream', finalAmount: 1 }))
+      .toStrictEqual({ settled: true, released: 1, balance: 4, balanceBefore: 5, releaseJobId: 'job_1' })
+  })
+
+  test('attaching to a reservation that is already gone changes nothing', async () => {
+    await seed(5)
+    await debit('done', 2)
+    await t.mutation(api.billing.settle, { userId: USER, externalId: 'done' })
+
+    expect(await t.mutation(api.billing.attachReleaseJob, { userId: USER, externalId: 'done', jobId: 'job_2' })).toBeNull()
+    expect(await t.mutation(api.billing.attachReleaseJob, { userId: 'nobody', externalId: 'x', jobId: 'job_3' })).toBeNull()
+    expect(await pendingIds()).toStrictEqual([])
+  })
+
+  test('the timer firing on an abandoned reservation re-credits it exactly once', async () => {
+    await seed(5)
+    await debit('abandoned', 2)
+    await t.mutation(api.billing.attachReleaseJob, { userId: USER, externalId: 'abandoned', jobId: 'job_4' })
+
+    // What the scheduled job runs.
+    await t.mutation(api.billing.release, { userId: USER, externalId: 'abandoned' })
+
+    expect(await meter()).toMatchObject({ balance: 5, consumedUnits: 0 })
+    // And a late settle for the same spend finds nothing left to unwind.
+    expect(await t.mutation(api.billing.finalize, { userId: USER, externalId: 'abandoned', finalAmount: 2 }))
+      .toMatchObject({ settled: false, released: 0 })
+    expect(await meter()).toMatchObject({ balance: 5, consumedUnits: 0 })
+  })
+})
+
+describe('deliberate overage (a meter with nothing prepaid behind it)', () => {
+  test('allowOverage debits past zero; the same spend is refused without it', async () => {
+    await seed(1)
+
+    expect(await debit('refused', 3)).toStrictEqual({ ok: false, balance: 1, reason: 'insufficient' })
+    expect(await t.mutation(api.billing.debit, {
+      userId: USER, meterId: METER, amount: 3, externalId: 'allowed', allowOverage: true,
+    })).toStrictEqual({ ok: true, balance: -2 })
+    expect(await meter()).toMatchObject({ balance: -2, consumedUnits: 3 })
+  })
+
+  test('an overage spend settles and finalizes like any other', async () => {
+    await refresh({ meterId: METER, consumedUnits: 0, creditedUnits: 0, balance: 0 })
+
+    await t.mutation(api.billing.debit, {
+      userId: USER, meterId: METER, amount: 4, externalId: 'pay-as-you-go', allowOverage: true,
+    })
+    const outcome = await t.mutation(api.billing.finalize, {
+      userId: USER, externalId: 'pay-as-you-go', finalAmount: 3,
+    })
+
+    expect(outcome).toStrictEqual({ settled: true, released: 1, balance: -3, balanceBefore: 0 })
+    // consumed − credited is the overage the provider invoices.
+    expect(await meter()).toMatchObject({ balance: -3, consumedUnits: 3, creditedUnits: 0 })
+  })
+})
+
+describe('cycle + rollover ride along with the meter', () => {
+  const CYCLE = { cycleStart: 1_700_000_000_000, cycleEnd: 1_702_592_000_000, rollover: false }
+
+  test('a sync stores them and reads them back for the credits UI', async () => {
+    await refresh({ ...providerMeter(20), ...CYCLE })
+
+    expect(await meter()).toStrictEqual({ ...providerMeter(20), ...CYCLE })
+  })
+
+  test('they survive a spend, and provider truth replaces them (a pack has no cycle)', async () => {
+    await refresh({ ...providerMeter(20), ...CYCLE })
+    await debit('mid-cycle', 5)
+    expect(await meter()).toMatchObject({ balance: 15, cycleEnd: CYCLE.cycleEnd, rollover: false })
+
+    // The next sync is the truth: a meter that lost its subscription loses its cycle.
+    await refresh(providerMeter(20))
+    expect(await meter()).toMatchObject({ balance: 15, consumedUnits: 5 })
+    expect(await meter()).not.toHaveProperty('cycleEnd')
   })
 })

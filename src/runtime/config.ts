@@ -35,6 +35,12 @@ export interface BackendAppConfig {
     plans: PricingPlan[]
     /** One-time credit packs rendered by `<PricingTable>` / settings. */
     packs: CreditPack[]
+    /**
+     * Credit balance under which `<CreditsLowBanner>` appears. One number for
+     * the whole app so the nudge is consistent wherever the banner sits; the
+     * component's `threshold` prop overrides it per placement.
+     */
+    lowCreditsThreshold: number
   }
   brand: {
     /** Product name used in shipped page copy. */
@@ -45,15 +51,38 @@ export interface BackendAppConfig {
   /** Copy overrides for the shipped components (props still win). */
   labels: {
     auth?: Partial<Record<'title', string>>
-    pricing?: Partial<Record<'title' | 'subscribe' | 'switch' | 'cancel' | 'current' | 'signIn' | 'topUp', string>>
+    /**
+     * `trial` is a template: `{count}` and `{interval}` are replaced with the
+     * plan's live trial length (`'{count}-{interval} free trial'`).
+     */
+    pricing?: Partial<Record<'title' | 'subscribe' | 'switch' | 'upgrade' | 'downgrade' | 'cancel' | 'uncancel' | 'trial' | 'current' | 'signIn' | 'topUp', string>>
     settings?: Partial<Record<'title' | 'create' | 'switch' | 'viewPlans' | 'cancel', string>>
     profile?: Partial<Record<'title' | 'save' | 'changeEmail', string>>
     security?: Partial<Record<'title' | 'addPasskey' | 'revoke' | 'revokeOthers' | 'deleteAccount' | 'signOut', string>>
+    /** `<BillingHistory>` — past charges and their invoice links. */
+    history?: Partial<Record<'title' | 'invoice' | 'empty' | 'loading' | 'newer' | 'older', string>>
+    /**
+     * `<UsageHistory>` — metered consumption. `units` is a template: `{units}`
+     * is replaced with the event's unit count.
+     */
+    usage?: Partial<Record<'title' | 'units' | 'empty' | 'loading' | 'newer' | 'older', string>>
+    /**
+     * `<CreditsLowBanner>`. `low` is a template: `{balance}` is replaced with
+     * the remaining credits.
+     */
+    credits?: Partial<Record<'low' | 'topUp' | 'dismiss', string>>
   }
 }
 
+/**
+ * The package defaults. Copy stays out of `labels` on purpose: `useBackendConfig`
+ * merges the user's label groups over these, so a shipped default here would be
+ * dropped the moment an app overrode one key of its group. Components own their
+ * fallback strings (`labels.subscribe ?? 'Subscribe'`) instead, which keeps a
+ * partial override partial.
+ */
 export const backendAppConfigDefaults: BackendAppConfig = {
-  billing: { plans: [], packs: [] },
+  billing: { plans: [], packs: [], lowCreditsThreshold: 10 },
   brand: {},
   labels: {},
 }

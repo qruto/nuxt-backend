@@ -95,12 +95,15 @@ const LOCAL_CONVEX_CONFIG = dedent`
 const BILLING_CATALOG_TEMPLATE = dedent`
   import { defineBillingCatalog } from 'nuxt-backend/billing'
 
-  // Your billing catalog as code: meters, plans, packs, and feature benefits.
-  // Push it with \`npx nuxt-backend billing sync\` — objects are created in the
-  // billing provider (find-or-create, tagged, never deleted) and the id map
-  // lands in billing.generated.ts. Credit granting is provider-native: a
-  // plan's \`credits\` become a meter-credit benefit granted every cycle;
-  // a pack's are granted once at purchase.
+  // Your billing catalog as code: meters, plans, packs, feature benefits, and
+  // the checkout fields they collect. Push it with
+  // \`npx nuxt-backend billing sync\` — objects are created in the billing
+  // provider (find-or-create, tagged, never deleted) and the id map lands in
+  // billing.generated.ts. Credit granting is provider-native: a plan's
+  // \`credits\` become a meter-credit benefit granted every cycle; a pack's are
+  // granted once at purchase. A plan can also open with a free \`trial\` and
+  // charge \`usage\` on top of its fixed price — pay-as-you-go overage settled
+  // against the same meter at the end of each cycle.
   export default defineBillingCatalog({
     // meters: { credits: {} },
     // plans: {
@@ -108,6 +111,9 @@ const BILLING_CATALOG_TEMPLATE = dedent`
     //     name: 'Pro', interval: 'month', price: 2900,
     //     credits: { meter: 'credits', units: 500 },
     //     features: ['priority_support'],
+    //     trial: { interval: 'day', count: 14 },
+    //     usage: [{ meter: 'credits', unitAmount: 5 }],
+    //     customFields: ['company'],
     //   },
     // },
     // packs: {
@@ -115,6 +121,9 @@ const BILLING_CATALOG_TEMPLATE = dedent`
     // },
     // features: {
     //   priority_support: { description: 'Priority support' },
+    // },
+    // customFields: {
+    //   company: { type: 'text', name: 'Company' },
     // },
   })
   ` + '\n'
@@ -233,6 +242,23 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
       getReceivedGifts,
       claimGift,
       getWebhookDeliveries,
+      // Subscription lifecycle — upgrade/downgrade, cancel, uncancel,
+      // pause/resume. Each resolves the caller's own billing entity, so a
+      // client can only ever act on its own subscription.
+      updateSubscription,
+      cancelSubscription,
+      uncancelSubscription,
+      pauseSubscription,
+      resumeSubscription,
+      // Order history, invoices and metered usage, read live from the provider
+      // (this package keeps no local order or usage table — the provider is the
+      // ledger).
+      getOrders,
+      getInvoiceUrl,
+      getUsageHistory,
+      // Admin-tier: gated by \`setupBilling({ requireAdmin })\`, which defaults
+      // to an \`admin\` role claim on the caller's identity.
+      refundOrder,
     } = billing.functions
     // Webhook handlers (imported by http.ts) that keep the cache fresh.
     export const { webhookEvents } = billing
@@ -247,7 +273,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
       handler: async (ctx, { name, percent, code }) => {
         const basisPoints = Math.round(Math.min(Math.max(percent, 0), 100) * 100)
         const discount: DiscountInput = { type: 'percentage', name, code, duration: 'once', basisPoints }
-        return billing.createDiscount(discount)
+        return billing.discounts.create(discount)
       },
     })
 

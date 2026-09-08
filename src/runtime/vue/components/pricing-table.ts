@@ -1,10 +1,17 @@
 import { computed, defineComponent, h, ref, type ComputedRef, type PropType, type Ref, type VNodeChild } from 'vue'
 import { useRuntimeConfig } from '#imports'
-import { useBilling, type BillingProduct, type UseBillingReturn } from '../composables/use-billing'
+import { formatBillingAmount, useBilling, type BillingProduct, type UseBillingReturn } from '../composables/use-billing'
 import { useCredits, type UseCreditsReturn } from '../composables/use-credits'
 import { useAuth } from '../composables/use-auth'
 import { useBackendConfig } from '../composables/use-backend-config'
 import type { CreditPack, PricingPlan } from '../../config'
+
+/** A free trial the live product offers, as the provider configured it. */
+export interface PlanTrial {
+  /** `day` | `week` | `month` | `year`. */
+  interval: string
+  count: number
+}
 
 /** A catalog plan joined with its live billing product. */
 export interface ResolvedPlan extends PricingPlan {
@@ -12,6 +19,12 @@ export interface ResolvedPlan extends PricingPlan {
   /** Formatted price (from the live product), `'—'` while unknown. */
   price: string
   isCurrent: boolean
+  /** The product's free trial, when it has one (live, not catalog copy). */
+  trial?: PlanTrial
+  /** Costs more than the current subscription (only meaningful when subscribed). */
+  isUpgrade: boolean
+  /** Costs less than the current subscription (only meaningful when subscribed). */
+  isDowngrade: boolean
 }
 
 /** A credit pack joined with its live billing product. */
@@ -34,30 +47,32 @@ export interface PricingSlotContext {
   subscribe: (key: string) => Promise<void>
   switchTo: (key: string) => Promise<void>
   cancelPlan: (key: string) => Promise<void>
+  /** Undo a pending cancellation and stay on the plan. */
+  uncancelPlan: (key: string) => Promise<void>
   buyPack: (key: string) => Promise<void>
   openPortal: () => Promise<void>
 }
 
+/** The product's first fixed price — the provider's payload is loose on the client. */
+function firstPrice(product?: BillingProduct): { priceAmount?: number, priceCurrency?: string } | undefined {
+  return (product?.prices as Array<{ priceAmount?: number, priceCurrency?: string }> | undefined)?.[0]
+}
+
 function formatPrice(product?: BillingProduct): string {
-  // The billing provider's product payload is loosely typed on the client —
-  // dig out the fixed price defensively.
-  const prices = product?.prices as Array<{ priceAmount?: number, priceCurrency?: string }> | undefined
-  const first = prices?.[0]
-  if (first?.priceAmount == null) return '—'
-  const amount = first.priceAmount / 100
-  if (first.priceCurrency) {
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: first.priceCurrency,
-        maximumFractionDigits: amount % 1 ? 2 : 0,
-      }).format(amount)
-    }
-    catch {
-      // Unknown currency code — fall through to the bare amount.
-    }
-  }
-  return amount % 1 ? amount.toFixed(2) : String(amount)
+  const price = firstPrice(product)
+  if (price?.priceAmount == null) return '—'
+  return formatBillingAmount(price.priceAmount, price.priceCurrency)
+}
+
+/**
+ * The free trial the provider configured on the product, if any — read live so
+ * a trial added in the provider dashboard shows up without a code change.
+ */
+function trialOf(product?: BillingProduct): PlanTrial | undefined {
+  const interval = product?.trialInterval
+  const count = product?.trialIntervalCount
+  if (typeof interval !== 'string' || typeof count !== 'number' || count <= 0) return undefined
+  return { interval, count }
 }
 
 /**
@@ -67,6 +82,11 @@ function formatPrice(product?: BillingProduct): string {
  * (keys, blurbs, feature lists) comes from `appConfig.backend.billing` or the
  * `plans` / `packs` props; names and prices always resolve live from billing
  * so the page cannot drift from the source of truth.
+ *
+ * The card state follows the subscription: a free trial the product offers is
+ * announced on the card and in its button, a subscribed customer sees each
+ * other plan as an explicit upgrade or downgrade (by price), and the plan they
+ * are on offers cancel — or, once it is winding down, the way back.
  *
  * Headless markup: every element carries a `data-pricing` attribute; replace
  * any region via its slot — each slot receives {@link PricingSlotContext}.
@@ -92,6 +112,7 @@ export const PricingTable = defineComponent({
     'checkout': (_url: string) => true,
     'plan-changed': (_key: string) => true,
     'canceled': () => true,
+    'uncanceled': () => true,
     'topped-up': (_key: string) => true,
     'error': (_message: string) => true,
   },
@@ -111,13 +132,27 @@ export const PricingTable = defineComponent({
     const catalogPacks = computed(() => props.packs ?? config.billing.packs)
     const products = computed(() => billing.products.value ?? {})
 
+    // What the customer pays today, so a plan card can say whether switching
+    // to it is a step up or down rather than an unlabelled "switch".
+    const currentAmount = computed(() => {
+      const productId = billing.subscription.value?.productId
+      if (!productId) return undefined
+      const current = Object.values(products.value).find(product => product?.id === productId)
+      return firstPrice(current)?.priceAmount
+    })
+
     const plans: ComputedRef<ResolvedPlan[]> = computed(() => catalogPlans.value.map((plan) => {
       const product = products.value[plan.key]
+      const amount = firstPrice(product)?.priceAmount
+      const comparable = amount != null && currentAmount.value != null
       return {
         ...plan,
         product,
         price: formatPrice(product),
         isCurrent: product != null && product.id === billing.subscription.value?.productId,
+        trial: trialOf(product),
+        isUpgrade: comparable && amount > currentAmount.value!,
+        isDowngrade: comparable && amount < currentAmount.value!,
       }
     }))
     const packs: ComputedRef<ResolvedPack[]> = computed(() => catalogPacks.value.map(pack => ({
@@ -160,6 +195,10 @@ export const PricingTable = defineComponent({
       await billing.cancel()
       emit('canceled')
     })
+    const uncancelPlan = (key: string) => run(key, async () => {
+      await billing.uncancel()
+      emit('uncanceled')
+    })
     const buyPack = (key: string) => run(key, async () => {
       const id = productId(key)
       if (!id) return
@@ -184,6 +223,7 @@ export const PricingTable = defineComponent({
       subscribe,
       switchTo,
       cancelPlan,
+      uncancelPlan,
       buyPack,
       openPortal,
     })
@@ -193,6 +233,12 @@ export const PricingTable = defineComponent({
       return target ? `${loginPath}?redirect=${encodeURIComponent(target)}` : loginPath
     }
 
+    /** `'7-day free trial'` — the length comes from the live product. */
+    const trialText = (trial: PlanTrial): string =>
+      (labels.trial ?? '{count}-{interval} free trial')
+        .replace('{count}', String(trial.count))
+        .replace('{interval}', trial.interval)
+
     const planAction = (plan: ResolvedPlan): VNodeChild => {
       const ctx = { ...context(), plan }
       if (slots['plan-action']) return slots['plan-action'](ctx)
@@ -201,20 +247,35 @@ export const PricingTable = defineComponent({
       }
       const busy = pending.value === plan.key
       if (plan.isCurrent) {
+        // A plan already winding down needs the way back, not another exit.
+        if (billing.cancelAtPeriodEnd.value) {
+          return h('button', { 'data-pricing': 'plan-action', 'data-intent': 'uncancel', 'type': 'button', 'disabled': busy, 'onClick': () => uncancelPlan(plan.key) }, busy ? '…' : labels.uncancel ?? 'Keep plan')
+        }
         return h('button', { 'data-pricing': 'plan-action', 'data-intent': 'cancel', 'type': 'button', 'disabled': busy, 'onClick': () => cancelPlan(plan.key) }, busy ? '…' : labels.cancel ?? 'Cancel plan')
       }
       if (billing.isSubscribed.value) {
-        return h('button', { 'data-pricing': 'plan-action', 'data-intent': 'switch', 'type': 'button', 'disabled': busy, 'onClick': () => switchTo(plan.key) }, busy ? '…' : `${labels.switch ?? 'Switch to'} ${plan.product?.name ?? plan.key}`)
+        // Name the direction when the prices say which way it goes; fall back
+        // to a neutral "switch" when either price is unknown.
+        const intent = plan.isUpgrade ? 'upgrade' : plan.isDowngrade ? 'downgrade' : 'switch'
+        const verb = intent === 'upgrade'
+          ? labels.upgrade ?? 'Upgrade to'
+          : intent === 'downgrade' ? labels.downgrade ?? 'Downgrade to' : labels.switch ?? 'Switch to'
+        return h('button', { 'data-pricing': 'plan-action', 'data-intent': intent, 'type': 'button', 'disabled': busy, 'onClick': () => switchTo(plan.key) }, busy ? '…' : `${verb} ${plan.product?.name ?? plan.key}`)
       }
-      return h('button', { 'data-pricing': 'plan-action', 'data-intent': 'subscribe', 'type': 'button', 'disabled': busy || billing.isLoading.value, 'onClick': () => subscribe(plan.key) }, busy ? '…' : labels.subscribe ?? 'Subscribe')
+      const label = plan.trial ? trialText(plan.trial) : labels.subscribe ?? 'Subscribe'
+      return h('button', { 'data-pricing': 'plan-action', 'data-intent': 'subscribe', 'data-trial': plan.trial ? '' : undefined, 'type': 'button', 'disabled': busy || billing.isLoading.value, 'onClick': () => subscribe(plan.key) }, busy ? '…' : label)
     }
 
     const planCard = (plan: ResolvedPlan): VNodeChild => {
       const ctx = { ...context(), plan }
       if (slots.plan) return slots.plan(ctx)
+      // A trial is only an affordance for someone who could still start one.
+      const offersTrial = plan.trial != null && !plan.isCurrent && !billing.isSubscribed.value
       return h('article', {
         'data-pricing': 'plan',
         'data-current': plan.isCurrent || undefined,
+        'data-canceling': (plan.isCurrent && billing.cancelAtPeriodEnd.value) || undefined,
+        'data-trial': offersTrial || undefined,
         'data-highlight': plan.highlight || undefined,
         'key': plan.key,
       }, [
@@ -226,6 +287,7 @@ export const PricingTable = defineComponent({
           plan.price,
           h('span', { 'data-pricing': 'plan-period' }, props.period),
         ]),
+        offersTrial ? h('p', { 'data-pricing': 'plan-trial' }, trialText(plan.trial!)) : null,
         plan.blurb ? h('p', { 'data-pricing': 'plan-blurb' }, plan.blurb) : null,
         h('ul', { 'data-pricing': 'plan-features' }, [
           plan.credits != null ? h('li', { 'data-pricing': 'plan-feature' }, `${plan.credits} credits / month`) : null,

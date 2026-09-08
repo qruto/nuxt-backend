@@ -7,7 +7,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 const authed = ref(true)
 const user = ref<Record<string, unknown> | null>({ name: 'Ada Lovelace', email: 'ada@example.com', emailVerified: false })
 
-const products = ref<Record<string, { id: string, name: string, prices?: unknown[] } | undefined>>({
+const products = ref<Record<string, { id: string, name: string, prices?: unknown[], trialInterval?: string, trialIntervalCount?: number } | undefined>>({
   pro: { id: 'prod_pro', name: 'Pro', prices: [{ priceAmount: 900, priceCurrency: 'EUR' }] },
   starter: { id: 'prod_starter', name: 'Starter', prices: [{ priceAmount: 0 }] },
   credits100: { id: 'prod_pack', name: '100 credits', prices: [{ priceAmount: 500, priceCurrency: 'EUR' }] },
@@ -19,16 +19,29 @@ const billing = {
   subscription: computed(() => subscription.value),
   subscriptions: computed(() => []),
   isSubscribed: computed(() => subscription.value != null),
+  isFree: computed(() => subscription.value === null),
   isLoading: computed(() => false),
+  status: computed(() => subscription.value?.status ?? null),
+  cancelAtPeriodEnd: computed(() => subscription.value?.cancelAtPeriodEnd === true),
+  pausedAt: computed(() => null),
+  resumesAt: computed(() => null),
+  trialEnd: computed(() => null),
+  isTrialing: computed(() => subscription.value?.status === 'trialing'),
+  isPaused: computed(() => false),
+  pendingUpdate: computed(() => null),
   checkout: vi.fn(async () => 'https://billing.example/checkout'),
   gift: vi.fn(async () => ''),
   portal: vi.fn(async () => ''),
   changePlan: vi.fn(async () => {}),
   cancel: vi.fn(async () => {}),
+  uncancel: vi.fn(async () => {}),
+  pause: vi.fn(async () => {}),
+  resume: vi.fn(async () => {}),
 }
 
+const creditBalance = ref<number | undefined>(42)
 const credits = {
-  balance: computed(() => 42),
+  balance: computed(() => creditBalance.value),
   credited: computed(() => 50),
   consumed: computed(() => 8),
   meterId: computed(() => 'meter_1'),
@@ -106,13 +119,63 @@ const backendConfig = {
       { key: 'pro', credits: 200, features: ['premium'], highlight: true },
     ],
     packs: [{ key: 'credits100', credits: 100 }],
+    lowCreditsThreshold: 10,
   },
   brand: {},
   labels: {},
 }
 
-vi.mock('../../src/runtime/vue/composables/use-billing', () => ({ useBilling: () => billing }))
+// Partial mock: the component reads its money/date formatting from the same
+// module, and those helpers must stay real or every rendered amount is a stub.
+vi.mock('../../src/runtime/vue/composables/use-billing', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../src/runtime/vue/composables/use-billing')>()),
+  useBilling: () => billing,
+}))
 vi.mock('../../src/runtime/vue/composables/use-credits', () => ({ useCredits: () => credits }))
+const orderList = ref<Array<Record<string, unknown>> | undefined>([
+  { id: 'ord_1', createdAt: '2026-08-01T10:00:00.000Z', status: 'paid', totalAmount: 900, currency: 'EUR', isInvoiceGenerated: true, product: { id: 'prod_pro', name: 'Pro' } },
+  { id: 'ord_2', createdAt: '2026-07-01T10:00:00.000Z', status: 'refunded', totalAmount: 900, currency: 'EUR', isInvoiceGenerated: false, product: { id: 'prod_pro', name: 'Pro' } },
+])
+const ordersError = ref<string | null>(null)
+const ordersHasMore = ref(true)
+const orders = {
+  orders: orderList,
+  page: ref(1),
+  total: computed(() => 2),
+  pageCount: computed(() => 2),
+  hasMore: computed(() => ordersHasMore.value),
+  hasPrevious: computed(() => false),
+  isLoading: computed(() => false),
+  error: ordersError,
+  refresh: vi.fn(async () => {}),
+  next: vi.fn(async () => {}),
+  previous: vi.fn(async () => {}),
+  goTo: vi.fn(async () => {}),
+  invoice: vi.fn(async () => 'https://billing.example/invoice.pdf'),
+}
+
+const usageEvents = ref<Array<Record<string, unknown>> | undefined>([
+  { id: 'evt_1', timestamp: '2026-08-01T10:00:00.000Z', name: 'ai_tokens', units: 12 },
+  { id: 'evt_2', timestamp: '2026-08-01T09:00:00.000Z', name: 'ai_tokens' },
+])
+const usage = {
+  events: usageEvents,
+  page: ref(1),
+  total: computed(() => 2),
+  pageCount: computed(() => 1),
+  units: computed(() => 12),
+  hasMore: computed(() => false),
+  hasPrevious: computed(() => false),
+  isLoading: computed(() => false),
+  error: ref<string | null>(null),
+  refresh: vi.fn(async () => {}),
+  next: vi.fn(async () => {}),
+  previous: vi.fn(async () => {}),
+  goTo: vi.fn(async () => {}),
+}
+
+vi.mock('../../src/runtime/vue/composables/use-orders', () => ({ useOrders: () => orders }))
+vi.mock('../../src/runtime/vue/composables/use-usage', () => ({ useUsage: () => usage }))
 vi.mock('../../src/runtime/vue/composables/use-organization', () => ({ useOrganization: () => organization }))
 vi.mock('../../src/runtime/vue/composables/use-auth', () => ({ useAuth: () => auth }))
 vi.mock('../../src/runtime/vue/composables/use-passkeys', () => ({ usePasskeys: () => passkeys }))
@@ -126,6 +189,9 @@ vi.mock('../../src/runtime/vue/composables/use-backend-config', () => ({ useBack
 // paths ('/login', '/pricing') when `public.backend.pages` is absent, which is
 // exactly what the assertions below expect.
 const { PricingTable } = await import('../../src/runtime/vue/components/pricing-table')
+const { BillingHistory } = await import('../../src/runtime/vue/components/billing-history')
+const { UsageHistory } = await import('../../src/runtime/vue/components/usage-history')
+const { CreditsLowBanner } = await import('../../src/runtime/vue/components/credits-low-banner')
 const { WorkspaceSettings } = await import('../../src/runtime/vue/components/workspace-settings')
 const { ProfileSettings } = await import('../../src/runtime/vue/components/profile-settings')
 const { SecuritySettings } = await import('../../src/runtime/vue/components/security-settings')
@@ -136,6 +202,9 @@ beforeEach(() => {
   authed.value = true
   subscription.value = null
   user.value = { name: 'Ada Lovelace', email: 'ada@example.com', emailVerified: false }
+  creditBalance.value = 42
+  ordersError.value = null
+  ordersHasMore.value = true
 })
 
 // ── PricingTable ─────────────────────────────────────────────────────────────
@@ -161,18 +230,56 @@ describe('PricingTable', () => {
     expect(current.find('[data-pricing="plan-action"]').attributes('data-intent')).toBe('cancel')
   })
 
-  it('subscribe runs checkout and switch changes plan', async () => {
+  it('subscribe runs checkout and switching names the direction', async () => {
     const wrapper = mount(PricingTable)
     await wrapper.find('[data-pricing="plan-action"][data-intent="subscribe"]').trigger('click')
     await flushPromises()
     expect(billing.checkout).toHaveBeenCalledWith('prod_starter', { redirect: true })
 
+    // On Pro (€9), the free Starter plan is a downgrade — and says so.
     subscription.value = { id: 'sub1', status: 'active', productId: 'prod_pro' }
     const switching = mount(PricingTable)
-    await switching.find('[data-pricing="plan-action"][data-intent="switch"]').trigger('click')
+    const down = switching.find('[data-pricing="plan-action"][data-intent="downgrade"]')
+    expect(down.text()).toContain('Downgrade to Starter')
+    await down.trigger('click')
     await flushPromises()
     expect(billing.changePlan).toHaveBeenCalledWith('prod_starter')
     expect(switching.emitted('plan-changed')).toBeTruthy()
+  })
+
+  it('calls the other direction an upgrade', () => {
+    subscription.value = { id: 'sub1', status: 'active', productId: 'prod_starter' }
+    const wrapper = mount(PricingTable)
+    const up = wrapper.find('[data-pricing="plan-action"][data-intent="upgrade"]')
+    expect(up.text()).toContain('Upgrade to Pro')
+  })
+
+  it('announces a plan trial on the card and its button', () => {
+    const saved = products.value
+    products.value = {
+      ...products.value,
+      starter: { id: 'prod_starter', name: 'Starter', prices: [{ priceAmount: 0 }], trialInterval: 'day', trialIntervalCount: 7 },
+    }
+    const wrapper = mount(PricingTable)
+    const card = wrapper.findAll('[data-pricing="plan"]')[0]!
+    expect(card.attributes('data-trial')).toBeDefined()
+    expect(card.find('[data-pricing="plan-trial"]').text()).toBe('7-day free trial')
+    expect(card.find('[data-pricing="plan-action"]').text()).toBe('7-day free trial')
+    products.value = saved
+  })
+
+  it('offers the way back on a plan set to cancel', async () => {
+    subscription.value = { id: 'sub1', status: 'active', productId: 'prod_pro', cancelAtPeriodEnd: true }
+    const wrapper = mount(PricingTable)
+    const current = wrapper.find('[data-pricing="plan"][data-current]')
+    expect(current.attributes('data-canceling')).toBeDefined()
+    const action = current.find('[data-pricing="plan-action"]')
+    expect(action.attributes('data-intent')).toBe('uncancel')
+
+    await action.trigger('click')
+    await flushPromises()
+    expect(billing.uncancel).toHaveBeenCalled()
+    expect(wrapper.emitted('uncanceled')).toBeTruthy()
   })
 
   it('signed-out visitors get a sign-in link instead of checkout', () => {
@@ -201,6 +308,125 @@ describe('PricingTable', () => {
     const wrapper = mount(PricingTable)
     expect(wrapper.find('[data-pricing="empty"]').exists()).toBe(true)
     products.value = saved
+  })
+})
+
+// ── BillingHistory ───────────────────────────────────────────────────────────
+
+describe('BillingHistory', () => {
+  it('lists charges with formatted amounts and an invoice link', async () => {
+    const wrapper = mount(BillingHistory, { props: { title: 'Billing history' } })
+    expect(wrapper.find('[data-history="header"]').text()).toBe('Billing history')
+    const rows = wrapper.findAll('[data-history="order"]')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]!.attributes('data-status')).toBe('paid')
+    expect(rows[0]!.find('[data-history="order-description"]').text()).toBe('Pro')
+    expect(rows[0]!.find('[data-history="order-amount"]').text()).toBe('€9')
+    // Only the finalized invoice is offered — the other order has no PDF yet.
+    expect(rows[0]!.find('[data-history="invoice"]').exists()).toBe(true)
+    expect(rows[1]!.find('[data-history="invoice"]').exists()).toBe(false)
+
+    await rows[0]!.find('[data-history="invoice"]').trigger('click')
+    await flushPromises()
+    expect(orders.invoice).toHaveBeenCalledWith('ord_1', { redirect: false })
+    expect(wrapper.emitted('invoice')).toEqual([['https://billing.example/invoice.pdf']])
+  })
+
+  it('pages through the history', async () => {
+    const wrapper = mount(BillingHistory)
+    const older = wrapper.find('[data-history="older"]')
+    expect(wrapper.find('[data-history="newer"]').attributes('disabled')).toBeDefined()
+    await older.trigger('click')
+    expect(orders.next).toHaveBeenCalled()
+  })
+
+  it('shows the empty state instead of an error when there is nothing to show', () => {
+    const saved = orderList.value
+    orderList.value = []
+    ordersHasMore.value = false
+    const wrapper = mount(BillingHistory)
+    expect(wrapper.find('[data-history="empty"]').exists()).toBe(true)
+    expect(wrapper.find('[data-history="pager"]').exists()).toBe(false)
+    orderList.value = saved
+  })
+
+  it('surfaces a load failure as an alert', () => {
+    ordersError.value = 'Provider unreachable'
+    const wrapper = mount(BillingHistory)
+    const error = wrapper.find('[data-history="error"]')
+    expect(error.text()).toBe('Provider unreachable')
+    expect(error.attributes('role')).toBe('alert')
+  })
+
+  it('hands the order slot the full context', () => {
+    const wrapper = mount(BillingHistory, {
+      slots: { order: (ctx: { order: { id: string } }) => h('div', { 'data-test': `row-${ctx.order.id}` }) },
+    })
+    expect(wrapper.find('[data-test="row-ord_1"]').exists()).toBe(true)
+    expect(wrapper.find('[data-history="order"]').exists()).toBe(false)
+  })
+})
+
+// ── UsageHistory ─────────────────────────────────────────────────────────────
+
+describe('UsageHistory', () => {
+  it('lists metered events, with units only where the meter priced them', () => {
+    const wrapper = mount(UsageHistory, { props: { meter: 'credits' } })
+    const rows = wrapper.findAll('[data-usage="event"]')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]!.find('[data-usage="event-name"]').text()).toBe('ai_tokens')
+    expect(rows[0]!.find('[data-usage="event-units"]').text()).toBe('12 credits')
+    expect(rows[1]!.find('[data-usage="event-units"]').exists()).toBe(false)
+  })
+
+  it('shows the empty state when nothing has been metered', () => {
+    const saved = usageEvents.value
+    usageEvents.value = []
+    const wrapper = mount(UsageHistory)
+    expect(wrapper.find('[data-usage="empty"]').exists()).toBe(true)
+    usageEvents.value = saved
+  })
+})
+
+// ── CreditsLowBanner ─────────────────────────────────────────────────────────
+
+describe('CreditsLowBanner', () => {
+  it('stays out of the way while the balance is healthy or unknown', () => {
+    expect(mount(CreditsLowBanner).find('[data-credits="banner"]').exists()).toBe(false)
+    creditBalance.value = undefined
+    expect(mount(CreditsLowBanner, { props: { threshold: 50 } }).find('[data-credits="banner"]').exists()).toBe(false)
+  })
+
+  it('appears under the threshold and links to the plans', () => {
+    creditBalance.value = 3
+    const wrapper = mount(CreditsLowBanner, { props: { threshold: 10 } })
+    expect(wrapper.find('[data-credits="balance"]').text()).toBe('3')
+    expect(wrapper.find('[data-credits="message"]').text()).toContain('credits left')
+    expect(wrapper.find('[data-credits="action"]').attributes('href')).toBe('/pricing')
+  })
+
+  it('tops up the named pack instead of linking out', async () => {
+    creditBalance.value = 3
+    const wrapper = mount(CreditsLowBanner, { props: { threshold: 10, pack: 'credits100' } })
+    await wrapper.find('[data-credits="action"]').trigger('click')
+    await flushPromises()
+    expect(credits.topUp).toHaveBeenCalledWith('prod_pack', { redirect: true })
+    expect(wrapper.emitted('topped-up')).toBeTruthy()
+  })
+
+  it('can be dismissed for the session', async () => {
+    creditBalance.value = 3
+    const wrapper = mount(CreditsLowBanner, { props: { threshold: 10 } })
+    await wrapper.find('[data-credits="dismiss"]').trigger('click')
+    expect(wrapper.find('[data-credits="banner"]').exists()).toBe(false)
+    expect(wrapper.emitted('dismissed')).toBeTruthy()
+  })
+
+  it('falls back to the app-config threshold', () => {
+    creditBalance.value = 3
+    // The mocked app config carries no threshold, so the package default (10)
+    // applies — a balance of 3 is low, 42 is not.
+    expect(mount(CreditsLowBanner).find('[data-credits="banner"]').exists()).toBe(true)
   })
 })
 

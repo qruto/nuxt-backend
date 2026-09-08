@@ -1,4 +1,4 @@
-import { MINUTE, RateLimiter } from '@convex-dev/rate-limiter'
+import { DAY, MINUTE, RateLimiter } from '@convex-dev/rate-limiter'
 import type { RateLimitConfig } from '@convex-dev/rate-limiter'
 
 /** The component reference accepted by the rate limiter (`components.rateLimiter`). */
@@ -13,17 +13,17 @@ export interface RateLimiterComponents {
 }
 
 /**
- * The package's default rate limits — `emailOtp`, `billingSync`, `ai`, and
- * `mcp` — guarding the flows the package itself drives. Each is keyed per
- * email/entity at the call site (e.g. `limit(ctx, 'emailOtp', { key: email })`).
- * Extend or override any of them by passing your own limits to
+ * The package's default rate limits — `emailOtp`, `billingSync`, `ai`,
+ * `aiBudget` and `mcp` — guarding the flows the package itself drives. Each is
+ * keyed per email/entity at the call site (e.g. `limit(ctx, 'emailOtp', { key:
+ * email })`). Extend or override any of them by passing your own limits to
  * {@link setupRateLimiter}.
  *
  * Deliberately small: `emailOtp` throttles code *sends* (per-code brute force
  * is Better Auth's own `allowedAttempts` guard, and this package is
  * passwordless — there are no password flows to limit), `billingSync` guards
- * the live provider fan-out, and `ai`/`mcp` back the metered-action and agent
- * surfaces.
+ * the live provider fan-out, and `ai`/`aiBudget`/`mcp` back the
+ * metered-action, credit-budget and agent surfaces.
  */
 export const DEFAULT_LIMITS = {
   /** Email OTP / verification sends — 5 per minute, small burst allowance. */
@@ -40,6 +40,18 @@ export const DEFAULT_LIMITS = {
    * your own per-feature limits and name them in `meteredAction`.
    */
   ai: { kind: 'token bucket', rate: 30, period: MINUTE, capacity: 10 },
+  /**
+   * Per-entity credit budget for metered AI (`setupAi({ budget })`) — a fixed
+   * window counting **credits**, not calls: each spend consumes its cost in
+   * tokens, so the window is "credits per period per billing entity". A fixed
+   * window (not a bucket) because a budget is a period allowance that resets,
+   * not a smoothed rate.
+   *
+   * The default is a generous ceiling — `setupAi({ budget: { units, period } })`
+   * passes the app's own numbers inline and overrides it. It exists so the
+   * name resolves even when a caller names the limit without configuring one.
+   */
+  aiBudget: { kind: 'fixed window', rate: 10_000, period: DAY },
   /**
    * Agent (MCP) session exchanges — 60 per minute per client+user. Guards the
    * token-exchange endpoint agents call on the app's behalf.
@@ -80,4 +92,4 @@ export function setupRateLimiter<
 }
 
 export type { RateLimitConfig }
-export { HOUR, MINUTE, SECOND } from '@convex-dev/rate-limiter'
+export { DAY, HOUR, MINUTE, SECOND } from '@convex-dev/rate-limiter'

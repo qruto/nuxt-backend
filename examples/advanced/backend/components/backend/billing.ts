@@ -2,9 +2,12 @@
 // cache, reserve → settle credit spend, and benefit metadata. Inline the
 // implementation to customize it.
 export {
+  attachReleaseJob,
   clear,
+  clearPendingSpends,
   credit,
   debit,
+  finalize,
   getBenefitMetadata,
   getByUser,
   release,

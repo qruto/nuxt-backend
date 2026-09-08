@@ -215,22 +215,48 @@ export const vEntitlementMeter = v.object({
   consumedUnits: v.number(),
   creditedUnits: v.number(),
   balance: v.number(),
+  /**
+   * The current billing cycle the meter's units belong to, as epoch ms — the
+   * granting subscription's period, since a meter has no period of its own in
+   * the provider's model (`CustomerStateMeter` carries no dates; the cycle
+   * lives on `CustomerStateSubscription.currentPeriodStart/End`, joined by the
+   * subscription's meter list). Absent for meters granted only by one-time
+   * credit packs, which have no cycle at all.
+   */
+  cycleStart: v.optional(v.number()),
+  cycleEnd: v.optional(v.number()),
+  /**
+   * Whether unspent credited units carry into the next cycle (the meter-credit
+   * benefit's `rollover`). `false` means the remaining balance expires at
+   * {@link cycleEnd} — the one fact a "use them or lose them" UI needs.
+   */
+  rollover: v.optional(v.boolean()),
 })
 
 /**
  * An in-flight credit reservation (reserve → run → settle): `debit` records
  * it while atomically decrementing the cached balance, `settle` drops it once
- * the provider event is ingested, `release` re-credits on failure. `upsert`
- * subtracts still-active reservations from freshly synced provider state so a
- * webhook refresh can't resurrect balance that is being spent. Entries
- * outlive their usefulness after {@link PENDING_SPEND_TTL_MS} (crashed flows)
- * and are pruned on every touch — the cache stays a cache, never a ledger.
+ * the provider event is ingested (releasing the unspent remainder when the
+ * final amount came in under the estimate), `release` re-credits on failure.
+ * `upsert` subtracts still-active reservations from freshly synced provider
+ * state so a webhook refresh can't resurrect balance that is being spent.
+ * Entries outlive their usefulness after {@link PENDING_SPEND_TTL_MS}
+ * (crashed flows) and are pruned on every touch — the cache stays a cache,
+ * never a ledger.
  */
 export const vPendingSpend = v.object({
   meterId: v.string(),
   amount: v.number(),
   externalId: v.string(),
   at: v.number(),
+  /**
+   * The scheduled auto-release that hands this reservation back if its flow
+   * never settles (an abandoned stream). Recorded by `attachReleaseJob` so
+   * `settle` can hand the id back to the app and cancel the job — the TTL
+   * prune above only stops a stale entry from holding provider truth down; it
+   * never re-credits, so a reservation nobody settles needs its own release.
+   */
+  releaseJobId: v.optional(v.string()),
 })
 
 /**

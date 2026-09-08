@@ -52,6 +52,9 @@ const COMPONENT_NAMES = [
   'AcceptInvitation',
   'GiftClaimBanner',
   'PricingTable',
+  'BillingHistory',
+  'UsageHistory',
+  'CreditsLowBanner',
   'WorkspaceSettings',
   'ProfileSettings',
   'SecuritySettings',
@@ -69,6 +72,8 @@ const COMPOSABLE_NAMES = [
   'useBilling',
   'useFeatures',
   'useCredits',
+  'useOrders',
+  'useUsage',
   'useGifts',
   'usePasskeys',
   'useSessions',
@@ -308,7 +313,7 @@ describe('module registration (defaults)', () => {
     expect(existsSync(paths.tools[0]!)).toBe(true)
   })
 
-  it('registers the ten components, each pointing at an existing file', async () => {
+  it('registers every component, each pointing at an existing file', async () => {
     const components = await extendComponents(getNuxt())
     expect(components.map(component => component.pascalName).sort()).toEqual([...COMPONENT_NAMES].sort())
     for (const component of components) {

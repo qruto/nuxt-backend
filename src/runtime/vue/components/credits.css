@@ -1,0 +1,51 @@
+/*
+ * Neutral default styles for <CreditsLowBanner>, hooked on data-credits
+ * attributes. Part of `nuxt-backend/ui.css`; theme via the `--bk-*` tokens.
+ *
+ * Warn, don't alarm: a low balance is a nudge, so the banner borrows the warn
+ * tone rather than the error one.
+ */
+[data-credits='banner'] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--bk-warn) 40%, transparent);
+  border-radius: var(--bk-radius);
+  background: color-mix(in srgb, var(--bk-warn) 10%, transparent);
+  color: var(--bk-ink);
+}
+
+[data-credits='message'] {
+  margin: 0;
+  flex: 1;
+  font-size: 0.88rem;
+}
+
+[data-credits='balance'] {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-credits='action'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--bk-accent);
+  border-radius: var(--bk-radius);
+  background: var(--bk-accent);
+  color: var(--bk-on-accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+[data-credits='dismiss'] {
+  padding: 0.15rem 0.45rem;
+  border-color: transparent;
+  color: var(--bk-muted);
+  font-size: 1rem;
+  line-height: 1;
+}

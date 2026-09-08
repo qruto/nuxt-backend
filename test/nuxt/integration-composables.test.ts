@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
 import { computed, nextTick, provide, ref } from 'vue'
 import { makeFunctionReference } from 'convex/server'
 import type { OptimisticLocalStore } from 'convex/browser'
@@ -9,6 +10,8 @@ import { useAggregate, useCount } from '../../src/runtime/vue/composables/use-ag
 import { type BillingApi, useBilling } from '../../src/runtime/vue/composables/use-billing'
 import { useFeatures } from '../../src/runtime/vue/composables/use-features'
 import { useCredits } from '../../src/runtime/vue/composables/use-credits'
+import { useOrders } from '../../src/runtime/vue/composables/use-orders'
+import { useUsage } from '../../src/runtime/vue/composables/use-usage'
 import { type EmailApi, useEmailStatus } from '../../src/runtime/vue/composables/use-email-status'
 import { useGifts } from '../../src/runtime/vue/composables/use-gifts'
 import { useSearch } from '../../src/runtime/vue/composables/use-search'
@@ -33,6 +36,14 @@ const syncRef = makeFunctionReference<'action'>('billing:syncEntitlements')
 const giftCheckoutRef = makeFunctionReference<'action'>('billing:giftCheckout')
 const receivedGiftsRef = makeFunctionReference<'query'>('billing:getReceivedGifts')
 const claimGiftRef = makeFunctionReference<'action'>('billing:claimGift')
+const updateSubscriptionRef = makeFunctionReference<'action'>('billing:updateSubscription')
+const cancelSubscriptionRef = makeFunctionReference<'action'>('billing:cancelSubscription')
+const uncancelSubscriptionRef = makeFunctionReference<'action'>('billing:uncancelSubscription')
+const pauseSubscriptionRef = makeFunctionReference<'action'>('billing:pauseSubscription')
+const resumeSubscriptionRef = makeFunctionReference<'action'>('billing:resumeSubscription')
+const ordersRef = makeFunctionReference<'action'>('billing:getOrders')
+const invoiceRef = makeFunctionReference<'action'>('billing:getInvoiceUrl')
+const usageRef = makeFunctionReference<'action'>('billing:getUsageHistory')
 
 let client: ConvexVueClient
 
@@ -148,7 +159,9 @@ describe('useBilling', () => {
     expect(openSpy).not.toHaveBeenCalled()
   })
 
-  it('portal, changePlan and cancel drive their actions', async () => {
+  it('portal, changePlan and cancel fall back to the pre-lifecycle actions', async () => {
+    // A backend deployed before the lifecycle functions existed: `changePlan`
+    // and `cancel` must still work through the older product-only pair.
     const api = {
       generateCustomerPortalUrl: portalRef,
       changeCurrentSubscription: changeRef,
@@ -161,7 +174,7 @@ describe('useBilling', () => {
 
     expect(await result.portal()).toBe('https://polar.test/portal')
     await result.changePlan('prod_2')
-    await result.cancel({ revokeImmediately: true })
+    await result.cancel({ atPeriodEnd: false })
 
     expect(actionSpy).toHaveBeenCalledWith(changeRef, { productId: 'prod_2' })
     expect(actionSpy).toHaveBeenCalledWith(cancelRef, { revokeImmediately: true })
@@ -173,6 +186,245 @@ describe('useBilling', () => {
     await expect(result.portal()).rejects.toThrow(/Billing portal is unavailable/)
     await expect(result.changePlan('p')).rejects.toThrow(/Billing changePlan is unavailable/)
     await expect(result.cancel()).rejects.toThrow(/Billing cancel is unavailable/)
+  })
+})
+
+describe('useBilling — subscription lifecycle', () => {
+  const authedProvide = () => provide(ConvexAuthStateKey, {
+    isLoading: computed(() => false),
+    isAuthenticated: computed(() => true),
+    isRefreshing: computed(() => false),
+  })
+  const lifecycleApi = {
+    getCurrentSubscription: subscriptionRef,
+    updateSubscription: updateSubscriptionRef,
+    cancelSubscription: cancelSubscriptionRef,
+    uncancelSubscription: uncancelSubscriptionRef,
+    pauseSubscription: pauseSubscriptionRef,
+    resumeSubscription: resumeSubscriptionRef,
+  } as unknown as BillingApi
+
+  it('reads the lifecycle fields off the provider record', async () => {
+    seed(store => store.setQuery(subscriptionRef, {}, {
+      id: 'sub_1',
+      status: 'trialing',
+      productId: 'prod_pro',
+      cancelAtPeriodEnd: true,
+      trialEnd: '2099-01-08T00:00:00.000Z',
+      pausedAt: null,
+      resumesAt: null,
+      pendingUpdate: { id: 'pu_1', appliesAt: '2099-02-01T00:00:00.000Z', productId: 'prod_max' },
+    }))
+    const { result } = await mountWithConvex(client, () => useBilling({ api: lifecycleApi }), { provide: authedProvide })
+
+    expect(result.status.value).toBe('trialing')
+    expect(result.cancelAtPeriodEnd.value).toBe(true)
+    expect(result.isTrialing.value).toBe(true)
+    expect(result.trialEnd.value?.toISOString()).toBe('2099-01-08T00:00:00.000Z')
+    expect(result.pausedAt.value).toBeNull()
+    expect(result.resumesAt.value).toBeNull()
+    expect(result.isPaused.value).toBe(false)
+    expect(result.pendingUpdate.value).toStrictEqual({
+      id: 'pu_1',
+      appliesAt: new Date('2099-02-01T00:00:00.000Z'),
+      productId: 'prod_max',
+    })
+  })
+
+  it('reads paused state and reports the free plan as no status', async () => {
+    seed(store => store.setQuery(subscriptionRef, {}, {
+      id: 'sub_1', status: 'paused', productId: 'prod_pro', cancelAtPeriodEnd: false,
+      pausedAt: '2026-08-01T00:00:00.000Z', resumesAt: '2026-09-01T00:00:00.000Z',
+    }))
+    const { result } = await mountWithConvex(client, () => useBilling({ api: lifecycleApi }), { provide: authedProvide })
+    expect(result.isPaused.value).toBe(true)
+    expect(result.resumesAt.value?.toISOString()).toBe('2026-09-01T00:00:00.000Z')
+
+    seed(store => store.setQuery(subscriptionRef, {}, null))
+    const free = await mountWithConvex(client, () => useBilling({ api: lifecycleApi }), { provide: authedProvide })
+    expect(free.result.status.value).toBeNull()
+    expect(free.result.cancelAtPeriodEnd.value).toBe(false)
+    expect(free.result.pendingUpdate.value).toBeNull()
+  })
+
+  it('drives changePlan, cancel, uncancel, pause and resume', async () => {
+    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue(null)
+    const { result } = await mountWithConvex(client, () => useBilling({ api: lifecycleApi }), { provide: authedProvide })
+
+    await result.changePlan('prod_max', { proration: 'prorate' })
+    await result.cancel({ reason: 'too_expensive', comment: 'Out of budget' })
+    await result.cancel({ atPeriodEnd: false })
+    await result.uncancel()
+    await result.pause({ resumesAt: new Date('2099-03-01T00:00:00.000Z') })
+    await result.resume()
+
+    expect(actionSpy).toHaveBeenCalledWith(updateSubscriptionRef, { subscriptionId: undefined, productId: 'prod_max', proration: 'prorate' })
+    // Cancelling keeps the paid period by default.
+    expect(actionSpy).toHaveBeenCalledWith(cancelSubscriptionRef, { subscriptionId: undefined, atPeriodEnd: true, reason: 'too_expensive', comment: 'Out of budget' })
+    expect(actionSpy).toHaveBeenCalledWith(cancelSubscriptionRef, { subscriptionId: undefined, atPeriodEnd: false, reason: undefined, comment: undefined })
+    expect(actionSpy).toHaveBeenCalledWith(uncancelSubscriptionRef, { subscriptionId: undefined })
+    // Convex has no date value, so the pause target crosses as epoch ms.
+    expect(actionSpy).toHaveBeenCalledWith(pauseSubscriptionRef, { subscriptionId: undefined, resumesAt: Date.parse('2099-03-01T00:00:00.000Z') })
+    expect(actionSpy).toHaveBeenCalledWith(resumeSubscriptionRef, { subscriptionId: undefined })
+  })
+
+  it('addresses one subscription by id, and honours the deprecated revokeImmediately', async () => {
+    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue(null)
+    const { result } = await mountWithConvex(client, () => useBilling({ api: lifecycleApi }), { provide: authedProvide })
+
+    await result.changePlan('prod_max', { subscriptionId: 'sub_2' })
+    await result.cancel({ revokeImmediately: true })
+
+    expect(actionSpy).toHaveBeenCalledWith(updateSubscriptionRef, { subscriptionId: 'sub_2', productId: 'prod_max', proration: undefined })
+    // The retired spelling still revokes rather than silently deferring.
+    expect(actionSpy).toHaveBeenCalledWith(cancelSubscriptionRef, { subscriptionId: undefined, atPeriodEnd: false, reason: undefined, comment: undefined })
+  })
+
+  it('throws a helpful error for lifecycle actions the backend has not deployed', async () => {
+    const { result } = await mountWithConvex(client, () => useBilling({ api: {} as BillingApi }))
+    await expect(result.uncancel()).rejects.toThrow(/Billing uncancel is unavailable/)
+    await expect(result.pause()).rejects.toThrow(/Billing pause is unavailable/)
+    await expect(result.resume()).rejects.toThrow(/Billing resume is unavailable/)
+  })
+})
+
+describe('useOrders', () => {
+  const authedProvide = () => provide(ConvexAuthStateKey, {
+    isLoading: computed(() => false),
+    isAuthenticated: computed(() => true),
+    isRefreshing: computed(() => false),
+  })
+  const ordersApi = { getOrders: ordersRef, getInvoiceUrl: invoiceRef } as unknown as BillingApi
+  const page = {
+    items: [{ id: 'ord_1', createdAt: '2026-08-01T00:00:00.000Z', status: 'paid', totalAmount: 900, currency: 'EUR' }],
+    pagination: { totalCount: 3, maxPage: 3 },
+  }
+
+  it('loads the first page on mount and pages forward', async () => {
+    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue(page)
+    const { result } = await mountWithConvex(client, () => useOrders({ api: ordersApi, limit: 1 }), { provide: authedProvide })
+    await flushPromises()
+
+    expect(actionSpy).toHaveBeenCalledWith(ordersRef, { page: 1, limit: 1 })
+    expect(result.orders.value).toHaveLength(1)
+    expect(result.total.value).toBe(3)
+    expect(result.pageCount.value).toBe(3)
+    expect(result.hasMore.value).toBe(true)
+    expect(result.hasPrevious.value).toBe(false)
+
+    await result.next()
+    expect(actionSpy).toHaveBeenCalledWith(ordersRef, { page: 2, limit: 1 })
+    expect(result.page.value).toBe(2)
+    expect(result.hasPrevious.value).toBe(true)
+  })
+
+  it('reads as loading from the first frame, never as empty', async () => {
+    // A fetch that never settles: the state a first paint sees must be
+    // "loading", not a flash of "no charges yet".
+    vi.spyOn(client, 'action').mockReturnValue(new Promise(() => {}))
+    const { result } = await mountWithConvex(client, () => useOrders({ api: ordersApi }), { provide: authedProvide })
+    expect(result.isLoading.value).toBe(true)
+    expect(result.orders.value).toBeUndefined()
+  })
+
+  it('accepts a bare array from a backend without the page envelope', async () => {
+    vi.spyOn(client, 'action').mockResolvedValue(page.items)
+    const { result } = await mountWithConvex(client, () => useOrders({ api: ordersApi }), { provide: authedProvide })
+    await flushPromises()
+    expect(result.orders.value).toHaveLength(1)
+    expect(result.total.value).toBeUndefined()
+    expect(result.hasMore.value).toBe(false)
+  })
+
+  it('opens an invoice and returns its URL', async () => {
+    vi.spyOn(client, 'action').mockImplementation(async (...args: unknown[]) =>
+      (args[0] === invoiceRef ? { url: 'https://billing.test/invoice.pdf' } : page) as never)
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const { result } = await mountWithConvex(client, () => useOrders({ api: ordersApi }), { provide: authedProvide })
+
+    expect(await result.invoice('ord_1')).toBe('https://billing.test/invoice.pdf')
+    expect(openSpy).toHaveBeenCalledWith('https://billing.test/invoice.pdf', '_blank')
+  })
+
+  it('reports a failed load instead of rejecting', async () => {
+    vi.spyOn(client, 'action').mockRejectedValue(new Error('Provider unreachable'))
+    const { result } = await mountWithConvex(client, () => useOrders({ api: ordersApi }), { provide: authedProvide })
+    await flushPromises()
+    expect(result.error.value).toBe('Provider unreachable')
+    expect(result.orders.value).toStrictEqual([])
+    expect(result.isLoading.value).toBe(false)
+  })
+
+  it('degrades to an empty list when signed out or unconfigured', async () => {
+    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue(page)
+    const signedOutProvide = () => provide(ConvexAuthStateKey, {
+      isLoading: computed(() => false),
+      isAuthenticated: computed(() => false),
+      isRefreshing: computed(() => false),
+    })
+    const signedOut = await mountWithConvex(client, () => useOrders({ api: ordersApi }), { provide: signedOutProvide })
+    await flushPromises()
+    expect(signedOut.result.orders.value).toStrictEqual([])
+    expect(actionSpy).not.toHaveBeenCalled()
+
+    const unconfigured = await mountWithConvex(client, () => useOrders({ api: {} as BillingApi }), { provide: authedProvide })
+    await flushPromises()
+    expect(unconfigured.result.orders.value).toStrictEqual([])
+    expect(await unconfigured.result.invoice('ord_1')).toBeNull()
+    expect(actionSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('useUsage', () => {
+  const authedProvide = () => provide(ConvexAuthStateKey, {
+    isLoading: computed(() => false),
+    isAuthenticated: computed(() => true),
+    isRefreshing: computed(() => false),
+  })
+  const usageApi = { getUsageHistory: usageRef } as unknown as BillingApi
+  const page = {
+    items: [
+      { id: 'evt_1', timestamp: '2026-08-01T00:00:00.000Z', name: 'ai_tokens', units: 12 },
+      { id: 'evt_2', timestamp: '2026-08-01T00:01:00.000Z', name: 'ai_tokens', units: 3 },
+    ],
+    pagination: { totalCount: 2, maxPage: 1 },
+  }
+
+  it('reads one meter\'s history and totals the page', async () => {
+    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue(page)
+    const { result } = await mountWithConvex(
+      client,
+      () => useUsage({ api: usageApi, meter: 'credits', limit: 20 }),
+      { provide: authedProvide },
+    )
+    await flushPromises()
+
+    expect(actionSpy).toHaveBeenCalledWith(usageRef, { meter: 'credits', page: 1, limit: 20 })
+    expect(result.events.value).toHaveLength(2)
+    expect(result.units.value).toBe(15)
+    expect(result.hasMore.value).toBe(false)
+  })
+
+  it('reloads from the first page when the meter changes', async () => {
+    const meter = ref('credits')
+    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue(page)
+    await mountWithConvex(client, () => useUsage({ api: usageApi, meter }), { provide: authedProvide })
+    await flushPromises()
+
+    meter.value = 'seats'
+    await nextTick()
+    await flushPromises()
+    expect(actionSpy).toHaveBeenCalledWith(usageRef, { meter: 'seats', page: 1, limit: undefined })
+  })
+
+  it('degrades to an empty list when the backend has no usage function', async () => {
+    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue(page)
+    const { result } = await mountWithConvex(client, () => useUsage({ api: {} as BillingApi }), { provide: authedProvide })
+    await flushPromises()
+    expect(result.events.value).toStrictEqual([])
+    expect(result.units.value).toBeUndefined()
+    expect(result.isLoading.value).toBe(false)
+    expect(actionSpy).not.toHaveBeenCalled()
   })
 })
 

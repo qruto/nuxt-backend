@@ -352,17 +352,17 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './app': ['backendEnv'],
   './billing': ['ALL_BILLING_EVENTS', 'BILLING_REFRESH_EVENTS', 'BILLING_WEBHOOK_PROVISION_EVENTS', 'defaultGiftEmail', 'defineBillingCatalog', 'setupBilling'],
   './email': ['ALL_EMAIL_EVENTS', 'sendArgs', 'setupEmail'],
-  './rate-limit': ['DEFAULT_LIMITS', 'HOUR', 'MINUTE', 'SECOND', 'setupRateLimiter'],
+  './rate-limit': ['DAY', 'DEFAULT_LIMITS', 'HOUR', 'MINUTE', 'SECOND', 'setupRateLimiter'],
   './migrations': ['setupMigrations'],
   './aggregate': ['TableAggregate', 'Triggers', 'customCtx', 'customMutation', 'withTriggers'],
   './search': ['defineSearch', 'search'],
   './workflows': ['defineEmailSequence', 'setupWorkflows'],
-  './ai': ['setupAi'],
+  './ai': ['priceTokens', 'setupAi'],
   './mcp': ['BACKEND_MCP_FUNCTION_DEFAULTS', 'EXCHANGE_CACHE_MARGIN_MS', 'backendMcpFunction', 'builtinToolEnabled', 'createExchangeCache', 'defineBackendMcpTool', 'useBackendMcp'],
   './component/convex.config': ['default'],
   './component/schema': ['aiTables', 'authSchema', 'billingTables', 'default', 'tables', 'vEntitlementBenefit', 'vEntitlementMeter', 'vGift', 'vPendingSpend', 'webhookTables'],
   './component/email': ['cancel', 'get', 'handleWebhook', 'send', 'status'],
-  './component/billing': ['clear', 'credit', 'debit', 'getBenefitMetadata', 'getByUser', 'release', 'settle', 'upsert', 'upsertBenefitMetadata', 'userByCustomer'],
+  './component/billing': ['attachReleaseJob', 'clear', 'clearPendingSpends', 'credit', 'debit', 'finalize', 'getBenefitMetadata', 'getByUser', 'release', 'settle', 'upsert', 'upsertBenefitMetadata', 'userByCustomer'],
   './component/gifts': ['create', 'get', 'listByEmail', 'markClaimed', 'markNotified', 'markPaid', 'resolveRecipient'],
   './component/ai': ['clear', 'createRequest', 'getByStream', 'markReleased', 'markSettled'],
   './component/webhooks': ['find', 'listRecent', 'record', 'vDeliveryOutcome'],
@@ -443,8 +443,8 @@ describe('@internal', () => {
 // installs (STABILITY.md surface 3), frozen the same way as the export names.
 
 const REGISTRY = {
-  composables: ['useAuth', 'useAuthState', 'useConnectionState', 'useLoginFlow', 'useOrganization', 'useSearch', 'useAggregate', 'useCount', 'useBilling', 'useFeatures', 'useCredits', 'useGifts', 'usePasskeys', 'useSessions', 'describeUserAgent', 'unwrapAuth', 'useBackendConfig', 'useEmailStatus', 'useWorkflowStatus', 'useAiStream'],
-  components: ['AuthForm', 'RoleBoundary', 'OrganizationBoundary', 'FeatureBoundary', 'AcceptInvitation', 'GiftClaimBanner', 'PricingTable', 'WorkspaceSettings', 'ProfileSettings', 'SecuritySettings'],
+  composables: ['useAuth', 'useAuthState', 'useConnectionState', 'useLoginFlow', 'useOrganization', 'useSearch', 'useAggregate', 'useCount', 'useBilling', 'useFeatures', 'useCredits', 'useOrders', 'useUsage', 'useGifts', 'usePasskeys', 'useSessions', 'describeUserAgent', 'unwrapAuth', 'useBackendConfig', 'useEmailStatus', 'useWorkflowStatus', 'useAiStream'],
+  components: ['AuthForm', 'RoleBoundary', 'OrganizationBoundary', 'FeatureBoundary', 'AcceptInvitation', 'GiftClaimBanner', 'PricingTable', 'BillingHistory', 'UsageHistory', 'CreditsLowBanner', 'WorkspaceSettings', 'ProfileSettings', 'SecuritySettings'],
   server: ['backendAuth', 'useBackendMcp', 'defineBackendMcpTool'],
 }
 

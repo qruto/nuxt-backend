@@ -218,11 +218,13 @@ export default defineNuxtModule<ModuleOptions>({
     // The content layer: `appConfig.backend` (plan catalog, labels, brand).
     // defu keeps user `app.config.ts` values winning and HMR-reactive. Cast:
     // in a consumer typecheck the resolved AppConfig narrows `backend` to the
-    // app's literal config, which the defaults-merge intentionally widens.
+    // app's literal config (empty catalog arrays included), which the
+    // defaults-merge intentionally widens — the two never overlap enough for a
+    // direct assertion.
     nuxt.options.appConfig.backend = defu(
       nuxt.options.appConfig.backend as BackendAppConfigInput | undefined,
       backendAppConfigDefaults,
-    ) as typeof nuxt.options.appConfig.backend
+    ) as unknown as typeof nuxt.options.appConfig.backend
 
     registerSaasComposables(resolver)
 
@@ -518,6 +520,21 @@ function registerSaasComposables(resolver: Resolver): void {
     filePath: resolver.resolve('./runtime/vue/components/pricing-table'),
   })
   addComponent({
+    name: 'BillingHistory',
+    export: 'BillingHistory',
+    filePath: resolver.resolve('./runtime/vue/components/billing-history'),
+  })
+  addComponent({
+    name: 'UsageHistory',
+    export: 'UsageHistory',
+    filePath: resolver.resolve('./runtime/vue/components/usage-history'),
+  })
+  addComponent({
+    name: 'CreditsLowBanner',
+    export: 'CreditsLowBanner',
+    filePath: resolver.resolve('./runtime/vue/components/credits-low-banner'),
+  })
+  addComponent({
     name: 'WorkspaceSettings',
     export: 'WorkspaceSettings',
     filePath: resolver.resolve('./runtime/vue/components/workspace-settings'),
@@ -545,6 +562,8 @@ function registerSaasComposables(resolver: Resolver): void {
     { name: 'useBilling', from: resolver.resolve('./runtime/vue/composables/use-billing') },
     { name: 'useFeatures', from: resolver.resolve('./runtime/vue/composables/use-features') },
     { name: 'useCredits', from: resolver.resolve('./runtime/vue/composables/use-credits') },
+    { name: 'useOrders', from: resolver.resolve('./runtime/vue/composables/use-orders') },
+    { name: 'useUsage', from: resolver.resolve('./runtime/vue/composables/use-usage') },
     { name: 'useGifts', from: resolver.resolve('./runtime/vue/composables/use-gifts') },
     { name: 'usePasskeys', from: resolver.resolve('./runtime/vue/composables/use-passkeys') },
     { name: 'useSessions', from: resolver.resolve('./runtime/vue/composables/use-sessions') },

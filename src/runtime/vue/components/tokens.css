@@ -13,6 +13,9 @@
   [data-auth='page'],
   [data-invitation],
   [data-gift='banner'],
+  [data-credits='banner'],
+  [data-history='root'],
+  [data-usage='root'],
   [data-pricing='table'],
   [data-pricing='page'],
   [data-settings='root'],
@@ -40,7 +43,7 @@
 
 /* ── Shared element defaults across all families ─────────────────────────── */
 
-:where([data-pricing='table'], [data-settings='root'], [data-profile='root'], [data-security='root'], [data-invitation], [data-gift='banner']) :where(button) {
+:where([data-pricing='table'], [data-settings='root'], [data-profile='root'], [data-security='root'], [data-invitation], [data-gift='banner'], [data-history='root'], [data-usage='root'], [data-credits='banner']) :where(button) {
   padding: 0.55rem 0.9rem;
   border: 1px solid var(--bk-edge);
   border-radius: var(--bk-radius);
@@ -51,7 +54,7 @@
   cursor: pointer;
 }
 
-:where([data-pricing='table'], [data-settings='root'], [data-profile='root'], [data-security='root'], [data-invitation], [data-gift='banner']) :where(button:disabled) {
+:where([data-pricing='table'], [data-settings='root'], [data-profile='root'], [data-security='root'], [data-invitation], [data-gift='banner'], [data-history='root'], [data-usage='root'], [data-credits='banner']) :where(button:disabled) {
   opacity: 0.5;
   cursor: not-allowed;
 }
