@@ -10,18 +10,20 @@
 [![GitHub stars][stars-src]][stars-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-The all-in-one SaaS backend for [Nuxt](https://nuxt.com) on [Convex](https://convex.dev) — **auth** ([Better Auth](https://www.better-auth.com), passwordless: OTP + passkeys), workspaces with **emailed invitations** end-to-end, **billing** ([Polar](https://polar.sh)) with feature gating, prepaid credits, and **gift purchases**, **transactional email** ([Resend](https://resend.com)) with delivery tracking, one-call **webhook wiring**, rate limiting, durable workflows, migrations, aggregates, and full-text search. One module, great defaults, every setting customizable.
+The all-in-one SaaS backend for [Nuxt](https://nuxt.com) on [Convex](https://convex.dev) — **auth** ([Better Auth](https://www.better-auth.com), passwordless: OTP + passkeys), workspaces with **emailed invitations** end-to-end, **billing** ([Polar](https://polar.sh)) with feature gating, prepaid credits, and **gift purchases**, **transactional email** ([Resend](https://resend.com)) with delivery tracking, one-call **webhook wiring**, **metered AI** actions and persisted streams, an OAuth-protected **MCP endpoint** where agents act as the signed-in user, rate limiting, durable workflows, migrations, aggregates, and full-text search. One module, great defaults, every setting customizable.
 
 It even ships the pages: `/login`, `/pricing`, `/settings`, `/profile`, `/security`, and `/accept-invitation` mount out of the box — headless components with a neutral stylesheet, customizable at every level (CSS tokens → `app.config` content → slots → shadow the route with your own page) without ever ejecting.
 
 `nuxt-backend` ships two halves that work as one:
 
 - a **Nuxt module** — the SaaS composables, scaffolding, env preflight, and `#backend/*` aliases; and
-- a **Convex backend** — a preassembled app definition (`defineBackendApp`) that mounts the package's all-in-one `backend` component (auth tables + adapter, email with the provider component nested inside, the billing entitlement cache, and gifts) plus the upstream Polar, rate limiter, workflow, migrations, and aggregate components for you.
+- a **Convex backend** — a scaffolded `convex.config.ts` that mounts the package's all-in-one `backend` component (auth tables + adapter, email with the provider component nested inside, the billing entitlement cache, and gifts) plus the upstream Polar, rate limiter, workflow, migrations, aggregate, and persistent-text-streaming components, with a `nuxt-backend/*` setup helper for each.
 
 The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR, auth plumbing, DevTools, Convex-aware CSP) comes from [`nuxt-convex-module`](https://github.com/qruto/nuxt-convex-module) — installed and configured automatically. Use that package directly if you only want Convex bindings without the SaaS layer.
 
 > 📖 **Full documentation:** the **[docs site](./website)** (homepage · docs · playground, one Nuxt app) covers installation, every composable, the bundled backend components, and the complete API reference.
+
+**Requirements:** Nuxt ≥ 4.1 and Node ≥ 24.11.
 
 ## Quick start
 
@@ -104,6 +106,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useGifts` — gifts addressed to the signed-in user, auto-claimed on first sign-in (or explicit `claim`)
 - `useEmailStatus` — live email delivery status
 - `useWorkflowStatus` — workflow run status
+- `useAiStream` — drive a metered, persisted AI token stream (reload mid-stream and the text keeps flowing)
 - `useSearch` — debounced full-text search
 - `useAggregate` / `useCount` — aggregate-component reads
 
@@ -116,6 +119,14 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 ### Server (Nitro)
 
 `fetchQuery` / `fetchMutation` / `fetchAction` · `preloadQuery` / `preloadedQueryResult` · `convexAuth(event)` — an authenticated, request-scoped Convex client. Plus the same-origin `/api/auth/**` Better Auth proxy and the opt-in `auth` route middleware.
+
+### Agents (MCP)
+
+An OAuth-protected `/mcp` endpoint (Better Auth's OIDC provider + `@nuxtjs/mcp-toolkit`), on by default: an agent signs in through the normal consent flow and every tool call runs your Convex functions **as that signed-in user** — `ctx.auth`, workspace, and billing entity resolve exactly like a web session. Built-in tools cover profile, billing (reads and checkout links — never payments), and workspaces; `defineBackendMcpTool` adds your own. `backend.mcp: false` turns the whole surface off.
+
+### Nuxt DevTools
+
+A **Backend** tab in Nuxt DevTools: the deployment you're talking to, the env contract's status, the scaffolded files, and the routes — with jump-to-source for your backend functions.
 
 ### Aliases
 
@@ -133,11 +144,16 @@ On dev startup the module checks your environment — missing site URL, weak `AU
 
 The scaffolded `backend/` files compose the backend from `nuxt-backend/*`:
 
-- `defineBackendApp` — mounts the all-in-one `backend` component (auth + email + billing cache + gifts, with the email provider nested inside) plus the upstream Polar, rate limiter, workflow, migrations, and aggregate components, declares the required env vars, and forwards the email config
+- `convex.config.ts` — the explicit app definition, scaffolded for you: declares the env contract (`backendEnv` from `nuxt-backend/app`), mounts the all-in-one `backend` component (auth + email + billing cache + gifts, with the email provider nested inside) and the upstream components one `app.use` each, and forwards the email config
 - `setupAuth` — passwordless Better Auth (OTP + passkey plugins), workspaces with emailed invitations, email templates included
 - `setupBilling` — products, checkout, webhook handlers, entitlement cache, prepaid credits (`spendCredits`), and gift purchases (`giftCheckout` / `claimGift`)
-- `registerBackendRoutes` — one call mounts every inbound webhook: auth routes, `/billing/events`, `/email/events`
+- `setupAi` (`nuxt-backend/ai`) — metered actions and persisted token streams: rate-limited, prepaid-credit-metered with reserve → run → settle (a failed run costs nothing), usage ingested into the billing provider
+- `registerBackendRoutes` — one call mounts every inbound route: auth routes, `/billing/events`, `/email/events`, `/ai/stream`, and the agent token exchange at `/mcp/exchange`
 - `setupEmail`, `setupRateLimiter`, `setupWorkflows`, `setupMigrations`, `withTriggers` (aggregates), `defineSearch`
+
+### CLI
+
+`npx nuxt-backend <command>` — `init` scaffolds the backend files, `.env.example`, and the `nuxt.config` wiring (re-run to restore missing files); `doctor` checks the project and deployment configuration (`--fix` repairs what it can); `env push` syncs `.env.local` to the Convex deployment; `billing sync` pushes your `billing.catalog.ts` to the billing provider and writes the id map.
 
 ## Documentation
 
@@ -154,13 +170,13 @@ pnpm generate   # static build
 | [Getting Started](./website/content/1.getting-started) | Introduction, installation, configuration, architecture |
 | [Guide](./website/content/2.guide) | Auth, queries & mutations, server & SSR, file storage, import aliases |
 | [Backend Components](./website/content/3.backend-components) | Email, billing & credits, rate limiting, workflows, migrations, aggregates, search |
-| [Convex Backend](./website/content/4.convex-backend) | Auth setup, customizing auth, local installation, testing |
+| [Convex Backend](./website/content/4.backend) | Auth setup, customizing auth, local installation, testing |
 | [API Reference](./website/content/5.api-reference) | Composables, server utilities, client, entrypoints, module options |
 
 ## Examples
 
 - [`examples/minimal`](./examples/minimal) — the exact `nuxt-backend init` scaffold, zero custom backend code: passwordless auth, workspace invitations, billing, credits, and gifts out of the box
-- [`examples/advanced`](./examples/advanced) — every customization point in one app: local component install, custom email templates, custom webhook paths and hooks, a hand-written `defineApp` + `installBackend`, and a custom invitation accept page
+- [`examples/advanced`](./examples/advanced) — every customization point in one app: local component install, custom email templates, custom webhook paths and hooks, a customized `convex.config.ts` (extra env, an unmounted component), and a custom invitation accept page
 
 ## Contributing
 

@@ -1372,7 +1372,7 @@ export const setMyName = myUserMutation({
 function withTriggers<DataModel, Visibility>(rawMutation, triggers): CustomBuilder<"mutation", Record<string, never>, GenericMutationCtx<DataModel>, Record<string, never>, GenericMutationCtx<DataModel>, Visibility, Record<string, any>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/integrations/aggregate.ts:39](https://github.com/qruto/nuxt-backend/blob/2319feb8b3523db41f3ec9ed6900095e65f4ee42/src/convex/integrations/aggregate.ts#L39)
+Defined in: [nuxt-backend/src/convex/integrations/aggregate.ts:39](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/aggregate.ts#L39)
 
 Wrap a raw `mutation`/`internalMutation` builder so every write
 automatically fires the registered [Triggers](#triggers) (e.g. to keep a
