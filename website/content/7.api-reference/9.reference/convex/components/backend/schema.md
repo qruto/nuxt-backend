@@ -449,6 +449,9 @@ into consumer schemas for local installs) — billing data is the component's ow
 
 ```ts
 const vEntitlementMeter: VObject<{
+  cycleStart?: number;
+  cycleEnd?: number;
+  rollover?: boolean;
   meterId: string;
   consumedUnits: number;
   creditedUnits: number;
@@ -458,7 +461,17 @@ const vEntitlementMeter: VObject<{
   consumedUnits: VFloat64<number, "required">;
   creditedUnits: VFloat64<number, "required">;
   balance: VFloat64<number, "required">;
-}, "required", "meterId" | "consumedUnits" | "creditedUnits" | "balance">;
+  cycleStart: VFloat64<number | undefined, "optional">;
+  cycleEnd: VFloat64<number | undefined, "optional">;
+  rollover: VBoolean<boolean | undefined, "optional">;
+}, "required", 
+  | "meterId"
+  | "consumedUnits"
+  | "creditedUnits"
+  | "balance"
+  | "cycleStart"
+  | "cycleEnd"
+| "rollover">;
 ```
 
 Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:213](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L213)
@@ -469,6 +482,7 @@ Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:213](https://g
 
 ```ts
 const vPendingSpend: VObject<{
+  releaseJobId?: string;
   at: number;
   meterId: string;
   amount: number;
@@ -478,18 +492,21 @@ const vPendingSpend: VObject<{
   amount: VFloat64<number, "required">;
   externalId: VString<string, "required">;
   at: VFloat64<number, "required">;
-}, "required", "at" | "meterId" | "amount" | "externalId">;
+  releaseJobId: VString<string | undefined, "optional">;
+}, "required", "at" | "meterId" | "amount" | "externalId" | "releaseJobId">;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:229](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L229)
+Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:247](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L247)
 
 An in-flight credit reservation (reserve → run → settle): `debit` records
 it while atomically decrementing the cached balance, `settle` drops it once
-the provider event is ingested, `release` re-credits on failure. `upsert`
-subtracts still-active reservations from freshly synced provider state so a
-webhook refresh can't resurrect balance that is being spent. Entries
-outlive their usefulness after PENDING\_SPEND\_TTL\_MS (crashed flows)
-and are pruned on every touch — the cache stays a cache, never a ledger.
+the provider event is ingested (releasing the unspent remainder when the
+final amount came in under the estimate), `release` re-credits on failure.
+`upsert` subtracts still-active reservations from freshly synced provider
+state so a webhook refresh can't resurrect balance that is being spent.
+Entries outlive their usefulness after PENDING\_SPEND\_TTL\_MS
+(crashed flows) and are pruned on every touch — the cache stays a cache,
+never a ledger.
 
 ***
 
@@ -549,7 +566,7 @@ const vGift: VObject<{
 | "claimedAt">;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:243](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L243)
+Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:269](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L269)
 
 A gift purchase: one user pays for products (credit packs, plans) that a
 recipient — identified by email — receives. Created at gift checkout, marked
@@ -566,6 +583,7 @@ const billingTables: {
   billingEntitlements: TableDefinition<VObject<{
      customerId?: string;
      pendingSpends?: {
+        releaseJobId?: string;
         at: number;
         meterId: string;
         amount: number;
@@ -581,6 +599,9 @@ const billingTables: {
         benefitId: string;
      }[];
      meters: {
+        cycleStart?: number;
+        cycleEnd?: number;
+        rollover?: boolean;
         meterId: string;
         consumedUnits: number;
         creditedUnits: number;
@@ -607,11 +628,17 @@ const billingTables: {
         metadata: VRecord<Record<string, ... | ... | ... | ...> | undefined, VString<string, "required">, VUnion<string | number | boolean, [VString<..., ...>, VFloat64<..., ...>, VBoolean<..., ...>], "required", never>, "optional", string>;
      }, "required", "type" | "id" | "metadata" | "benefitId" | `metadata.${string}`>, "required">;
      meters: VArray<{
+        cycleStart?: number;
+        cycleEnd?: number;
+        rollover?: boolean;
         meterId: string;
         consumedUnits: number;
         creditedUnits: number;
         balance: number;
       }[], VObject<{
+        cycleStart?: number;
+        cycleEnd?: number;
+        rollover?: boolean;
         meterId: string;
         consumedUnits: number;
         creditedUnits: number;
@@ -621,15 +648,27 @@ const billingTables: {
         consumedUnits: VFloat64<number, "required">;
         creditedUnits: VFloat64<number, "required">;
         balance: VFloat64<number, "required">;
-     }, "required", "meterId" | "consumedUnits" | "creditedUnits" | "balance">, "required">;
+        cycleStart: VFloat64<number | undefined, "optional">;
+        cycleEnd: VFloat64<number | undefined, "optional">;
+        rollover: VBoolean<boolean | undefined, "optional">;
+      }, "required", 
+        | "meterId"
+        | "consumedUnits"
+        | "creditedUnits"
+        | "balance"
+        | "cycleStart"
+        | "cycleEnd"
+       | "rollover">, "required">;
      pendingSpends: VArray<
         | {
+        releaseJobId?: string;
         at: number;
         meterId: string;
         amount: number;
         externalId: string;
       }[]
         | undefined, VObject<{
+        releaseJobId?: string;
         at: number;
         meterId: string;
         amount: number;
@@ -639,7 +678,8 @@ const billingTables: {
         amount: VFloat64<number, "required">;
         externalId: VString<string, "required">;
         at: VFloat64<number, "required">;
-     }, "required", "at" | "meterId" | "amount" | "externalId">, "optional">;
+        releaseJobId: VString<string | undefined, "optional">;
+     }, "required", "at" | "meterId" | "amount" | "externalId" | "releaseJobId">, "optional">;
      updatedAt: VFloat64<number, "required">;
    }, "required", 
      | "updatedAt"
@@ -724,15 +764,15 @@ const billingTables: {
 };
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:262](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L262)
+Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:288](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L288)
 
 #### Type Declaration
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="property-billingentitlements"></a> `billingEntitlements` | `TableDefinition`\<`VObject`\<\{ `customerId?`: `string`; `pendingSpends?`: \{ `at`: `number`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; \}[]; `updatedAt`: `number`; `userId`: `string`; `activeProductIds`: `string`[]; `benefits`: \{ `metadata?`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `type`: `string`; `id`: `string`; `benefitId`: `string`; \}[]; `meters`: \{ `meterId`: `string`; `consumedUnits`: `number`; `creditedUnits`: `number`; `balance`: `number`; \}[]; \}, \{ `userId`: `VString`\<`string`, `"required"`\>; `customerId`: `VString`\<`string` \| `undefined`, `"optional"`\>; `activeProductIds`: `VArray`\<`string`[], `VString`\<`string`, `"required"`\>, `"required"`\>; `benefits`: `VArray`\<\{ `metadata?`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `type`: `string`; `id`: `string`; `benefitId`: `string`; \}[], `VObject`\<\{ `metadata?`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `type`: `string`; `id`: `string`; `benefitId`: `string`; \}, \{ `id`: `VString`\<`string`, `"required"`\>; `benefitId`: `VString`\<`string`, `"required"`\>; `type`: `VString`\<`string`, `"required"`\>; `metadata`: `VRecord`\<`Record`\<`string`, ... \| ... \| ... \| ...\> \| `undefined`, `VString`\<`string`, `"required"`\>, `VUnion`\<`string` \| `number` \| `boolean`, \[`VString`\<..., ...\>, `VFloat64`\<..., ...\>, `VBoolean`\<..., ...\>\], `"required"`, `never`\>, `"optional"`, `string`\>; \}, `"required"`, `"type"` \| `"id"` \| `"metadata"` \| `"benefitId"` \| `` `metadata.${string}` ``\>, `"required"`\>; `meters`: `VArray`\<\{ `meterId`: `string`; `consumedUnits`: `number`; `creditedUnits`: `number`; `balance`: `number`; \}[], `VObject`\<\{ `meterId`: `string`; `consumedUnits`: `number`; `creditedUnits`: `number`; `balance`: `number`; \}, \{ `meterId`: `VString`\<`string`, `"required"`\>; `consumedUnits`: `VFloat64`\<`number`, `"required"`\>; `creditedUnits`: `VFloat64`\<`number`, `"required"`\>; `balance`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, `"meterId"` \| `"consumedUnits"` \| `"creditedUnits"` \| `"balance"`\>, `"required"`\>; `pendingSpends`: `VArray`\< \| \{ `at`: `number`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; \}[] \| `undefined`, `VObject`\<\{ `at`: `number`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; \}, \{ `meterId`: `VString`\<`string`, `"required"`\>; `amount`: `VFloat64`\<`number`, `"required"`\>; `externalId`: `VString`\<`string`, `"required"`\>; `at`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, `"at"` \| `"meterId"` \| `"amount"` \| `"externalId"`\>, `"optional"`\>; `updatedAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, \| `"updatedAt"` \| `"userId"` \| `"customerId"` \| `"activeProductIds"` \| `"benefits"` \| `"meters"` \| `"pendingSpends"`\>, \{ `userId`: \[`"userId"`, `"_creationTime"`\]; `customerId`: \[`"customerId"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [nuxt-backend/src/convex/components/backend/schema.ts:263](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L263) |
-| <a id="property-billingbenefitmetadata"></a> `billingBenefitMetadata` | `TableDefinition`\<`VObject`\<\{ `updatedAt`: `number`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `benefitId`: `string`; \}, \{ `benefitId`: `VString`\<`string`, `"required"`\>; `metadata`: `VRecord`\<`Record`\<`string`, `string` \| `number` \| `boolean`\>, `VString`\<`string`, `"required"`\>, `VUnion`\<`string` \| `number` \| `boolean`, \[`VString`\<`string`, `"required"`\>, `VFloat64`\<`number`, `"required"`\>, `VBoolean`\<`boolean`, `"required"`\>\], `"required"`, `never`\>, `"required"`, `string`\>; `updatedAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, `"updatedAt"` \| `"metadata"` \| `"benefitId"` \| `` `metadata.${string}` ``\>, \{ `benefitId`: \[`"benefitId"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [nuxt-backend/src/convex/components/backend/schema.ts:282](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L282) |
-| <a id="property-billinggifts"></a> `billingGifts` | `TableDefinition`\<`VObject`\<\{ `message?`: `string`; `purchaserEmail?`: `string`; `purchaserName?`: `string`; `billingOrderId?`: `string`; `claimedByUserId?`: `string`; `claimedEntityId?`: `string`; `paidAt?`: `number`; `notifiedAt?`: `number`; `claimedAt?`: `number`; `createdAt`: `number`; `status`: `string`; `recipientEmail`: `string`; `purchaserUserId`: `string`; `productIds`: `string`[]; `billingCustomerId`: `string`; \}, \{ `recipientEmail`: `VString`\<`string`, `"required"`\>; `purchaserUserId`: `VString`\<`string`, `"required"`\>; `purchaserEmail`: `VString`\<`string` \| `undefined`, `"optional"`\>; `purchaserName`: `VString`\<`string` \| `undefined`, `"optional"`\>; `productIds`: `VArray`\<`string`[], `VString`\<`string`, `"required"`\>, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; `status`: `VString`\<`string`, `"required"`\>; `billingCustomerId`: `VString`\<`string`, `"required"`\>; `billingOrderId`: `VString`\<`string` \| `undefined`, `"optional"`\>; `claimedByUserId`: `VString`\<`string` \| `undefined`, `"optional"`\>; `claimedEntityId`: `VString`\<`string` \| `undefined`, `"optional"`\>; `createdAt`: `VFloat64`\<`number`, `"required"`\>; `paidAt`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `notifiedAt`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `claimedAt`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; \}, `"required"`, \| `"createdAt"` \| `"message"` \| `"status"` \| `"recipientEmail"` \| `"purchaserUserId"` \| `"purchaserEmail"` \| `"purchaserName"` \| `"productIds"` \| `"billingCustomerId"` \| `"billingOrderId"` \| `"claimedByUserId"` \| `"claimedEntityId"` \| `"paidAt"` \| `"notifiedAt"` \| `"claimedAt"`\>, \{ `recipientEmail`: \[`"recipientEmail"`, `"_creationTime"`\]; `recipientEmail_status`: \[`"recipientEmail"`, `"status"`, `"_creationTime"`\]; `status`: \[`"status"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [nuxt-backend/src/convex/components/backend/schema.ts:288](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L288) |
+| <a id="property-billingentitlements"></a> `billingEntitlements` | `TableDefinition`\<`VObject`\<\{ `customerId?`: `string`; `pendingSpends?`: \{ `releaseJobId?`: `string`; `at`: `number`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; \}[]; `updatedAt`: `number`; `userId`: `string`; `activeProductIds`: `string`[]; `benefits`: \{ `metadata?`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `type`: `string`; `id`: `string`; `benefitId`: `string`; \}[]; `meters`: \{ `cycleStart?`: `number`; `cycleEnd?`: `number`; `rollover?`: `boolean`; `meterId`: `string`; `consumedUnits`: `number`; `creditedUnits`: `number`; `balance`: `number`; \}[]; \}, \{ `userId`: `VString`\<`string`, `"required"`\>; `customerId`: `VString`\<`string` \| `undefined`, `"optional"`\>; `activeProductIds`: `VArray`\<`string`[], `VString`\<`string`, `"required"`\>, `"required"`\>; `benefits`: `VArray`\<\{ `metadata?`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `type`: `string`; `id`: `string`; `benefitId`: `string`; \}[], `VObject`\<\{ `metadata?`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `type`: `string`; `id`: `string`; `benefitId`: `string`; \}, \{ `id`: `VString`\<`string`, `"required"`\>; `benefitId`: `VString`\<`string`, `"required"`\>; `type`: `VString`\<`string`, `"required"`\>; `metadata`: `VRecord`\<`Record`\<`string`, ... \| ... \| ... \| ...\> \| `undefined`, `VString`\<`string`, `"required"`\>, `VUnion`\<`string` \| `number` \| `boolean`, \[`VString`\<..., ...\>, `VFloat64`\<..., ...\>, `VBoolean`\<..., ...\>\], `"required"`, `never`\>, `"optional"`, `string`\>; \}, `"required"`, `"type"` \| `"id"` \| `"metadata"` \| `"benefitId"` \| `` `metadata.${string}` ``\>, `"required"`\>; `meters`: `VArray`\<\{ `cycleStart?`: `number`; `cycleEnd?`: `number`; `rollover?`: `boolean`; `meterId`: `string`; `consumedUnits`: `number`; `creditedUnits`: `number`; `balance`: `number`; \}[], `VObject`\<\{ `cycleStart?`: `number`; `cycleEnd?`: `number`; `rollover?`: `boolean`; `meterId`: `string`; `consumedUnits`: `number`; `creditedUnits`: `number`; `balance`: `number`; \}, \{ `meterId`: `VString`\<`string`, `"required"`\>; `consumedUnits`: `VFloat64`\<`number`, `"required"`\>; `creditedUnits`: `VFloat64`\<`number`, `"required"`\>; `balance`: `VFloat64`\<`number`, `"required"`\>; `cycleStart`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `cycleEnd`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `rollover`: `VBoolean`\<`boolean` \| `undefined`, `"optional"`\>; \}, `"required"`, \| `"meterId"` \| `"consumedUnits"` \| `"creditedUnits"` \| `"balance"` \| `"cycleStart"` \| `"cycleEnd"` \| `"rollover"`\>, `"required"`\>; `pendingSpends`: `VArray`\< \| \{ `releaseJobId?`: `string`; `at`: `number`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; \}[] \| `undefined`, `VObject`\<\{ `releaseJobId?`: `string`; `at`: `number`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; \}, \{ `meterId`: `VString`\<`string`, `"required"`\>; `amount`: `VFloat64`\<`number`, `"required"`\>; `externalId`: `VString`\<`string`, `"required"`\>; `at`: `VFloat64`\<`number`, `"required"`\>; `releaseJobId`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"at"` \| `"meterId"` \| `"amount"` \| `"externalId"` \| `"releaseJobId"`\>, `"optional"`\>; `updatedAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, \| `"updatedAt"` \| `"userId"` \| `"customerId"` \| `"activeProductIds"` \| `"benefits"` \| `"meters"` \| `"pendingSpends"`\>, \{ `userId`: \[`"userId"`, `"_creationTime"`\]; `customerId`: \[`"customerId"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [nuxt-backend/src/convex/components/backend/schema.ts:289](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L289) |
+| <a id="property-billingbenefitmetadata"></a> `billingBenefitMetadata` | `TableDefinition`\<`VObject`\<\{ `updatedAt`: `number`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `benefitId`: `string`; \}, \{ `benefitId`: `VString`\<`string`, `"required"`\>; `metadata`: `VRecord`\<`Record`\<`string`, `string` \| `number` \| `boolean`\>, `VString`\<`string`, `"required"`\>, `VUnion`\<`string` \| `number` \| `boolean`, \[`VString`\<`string`, `"required"`\>, `VFloat64`\<`number`, `"required"`\>, `VBoolean`\<`boolean`, `"required"`\>\], `"required"`, `never`\>, `"required"`, `string`\>; `updatedAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, `"updatedAt"` \| `"metadata"` \| `"benefitId"` \| `` `metadata.${string}` ``\>, \{ `benefitId`: \[`"benefitId"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [nuxt-backend/src/convex/components/backend/schema.ts:308](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L308) |
+| <a id="property-billinggifts"></a> `billingGifts` | `TableDefinition`\<`VObject`\<\{ `message?`: `string`; `purchaserEmail?`: `string`; `purchaserName?`: `string`; `billingOrderId?`: `string`; `claimedByUserId?`: `string`; `claimedEntityId?`: `string`; `paidAt?`: `number`; `notifiedAt?`: `number`; `claimedAt?`: `number`; `createdAt`: `number`; `status`: `string`; `recipientEmail`: `string`; `purchaserUserId`: `string`; `productIds`: `string`[]; `billingCustomerId`: `string`; \}, \{ `recipientEmail`: `VString`\<`string`, `"required"`\>; `purchaserUserId`: `VString`\<`string`, `"required"`\>; `purchaserEmail`: `VString`\<`string` \| `undefined`, `"optional"`\>; `purchaserName`: `VString`\<`string` \| `undefined`, `"optional"`\>; `productIds`: `VArray`\<`string`[], `VString`\<`string`, `"required"`\>, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; `status`: `VString`\<`string`, `"required"`\>; `billingCustomerId`: `VString`\<`string`, `"required"`\>; `billingOrderId`: `VString`\<`string` \| `undefined`, `"optional"`\>; `claimedByUserId`: `VString`\<`string` \| `undefined`, `"optional"`\>; `claimedEntityId`: `VString`\<`string` \| `undefined`, `"optional"`\>; `createdAt`: `VFloat64`\<`number`, `"required"`\>; `paidAt`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `notifiedAt`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `claimedAt`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; \}, `"required"`, \| `"createdAt"` \| `"message"` \| `"status"` \| `"recipientEmail"` \| `"purchaserUserId"` \| `"purchaserEmail"` \| `"purchaserName"` \| `"productIds"` \| `"billingCustomerId"` \| `"billingOrderId"` \| `"claimedByUserId"` \| `"claimedEntityId"` \| `"paidAt"` \| `"notifiedAt"` \| `"claimedAt"`\>, \{ `recipientEmail`: \[`"recipientEmail"`, `"_creationTime"`\]; `recipientEmail_status`: \[`"recipientEmail"`, `"status"`, `"_creationTime"`\]; `status`: \[`"status"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [nuxt-backend/src/convex/components/backend/schema.ts:314](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L314) |
 
 ***
 
@@ -780,7 +820,7 @@ const aiTables: {
 };
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:323](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L323)
+Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:349](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L349)
 
 Metered-stream request plumbing for `setupAi().stream` — the HTTP stream
 endpoint can't carry Convex args, so `start` records the request (args,
@@ -794,7 +834,7 @@ prune.
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="property-airequests"></a> `aiRequests` | `TableDefinition`\<`VObject`\<\{ `meterId?`: `string`; `createdAt`: `number`; `name`: `string`; `userId`: `string`; `status`: `"reserved"` \| `"settled"` \| `"released"`; `args`: `string`; `streamId`: `string`; `externalId`: `string`; `entityId`: `string`; `cost`: `number`; \}, \{ `streamId`: `VString`\<`string`, `"required"`\>; `name`: `VString`\<`string`, `"required"`\>; `entityId`: `VString`\<`string`, `"required"`\>; `userId`: `VString`\<`string`, `"required"`\>; `args`: `VString`\<`string`, `"required"`\>; `meterId`: `VString`\<`string` \| `undefined`, `"optional"`\>; `cost`: `VFloat64`\<`number`, `"required"`\>; `externalId`: `VString`\<`string`, `"required"`\>; `status`: `VUnion`\<`"reserved"` \| `"settled"` \| `"released"`, \[`VLiteral`\<`"reserved"`, `"required"`\>, `VLiteral`\<`"settled"`, `"required"`\>, `VLiteral`\<`"released"`, `"required"`\>\], `"required"`, `never`\>; `createdAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, \| `"createdAt"` \| `"name"` \| `"userId"` \| `"status"` \| `"args"` \| `"streamId"` \| `"meterId"` \| `"externalId"` \| `"entityId"` \| `"cost"`\>, \{ `streamId`: \[`"streamId"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [nuxt-backend/src/convex/components/backend/schema.ts:324](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L324) |
+| <a id="property-airequests"></a> `aiRequests` | `TableDefinition`\<`VObject`\<\{ `meterId?`: `string`; `createdAt`: `number`; `name`: `string`; `userId`: `string`; `status`: `"reserved"` \| `"settled"` \| `"released"`; `args`: `string`; `streamId`: `string`; `externalId`: `string`; `entityId`: `string`; `cost`: `number`; \}, \{ `streamId`: `VString`\<`string`, `"required"`\>; `name`: `VString`\<`string`, `"required"`\>; `entityId`: `VString`\<`string`, `"required"`\>; `userId`: `VString`\<`string`, `"required"`\>; `args`: `VString`\<`string`, `"required"`\>; `meterId`: `VString`\<`string` \| `undefined`, `"optional"`\>; `cost`: `VFloat64`\<`number`, `"required"`\>; `externalId`: `VString`\<`string`, `"required"`\>; `status`: `VUnion`\<`"reserved"` \| `"settled"` \| `"released"`, \[`VLiteral`\<`"reserved"`, `"required"`\>, `VLiteral`\<`"settled"`, `"required"`\>, `VLiteral`\<`"released"`, `"required"`\>\], `"required"`, `never`\>; `createdAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, \| `"createdAt"` \| `"name"` \| `"userId"` \| `"status"` \| `"args"` \| `"streamId"` \| `"meterId"` \| `"externalId"` \| `"entityId"` \| `"cost"`\>, \{ `streamId`: \[`"streamId"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [nuxt-backend/src/convex/components/backend/schema.ts:350](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L350) |
 
 ***
 
@@ -807,11 +847,11 @@ const webhookTables: {
      note?: string;
      service: string;
      deliveryId: string;
-     outcome:   | "ok"
+     outcome:   | "duplicate"
+        | "ok"
         | "invalid_signature"
         | "unknown_type"
         | "handler_error"
-        | "duplicate"
         | "oversized"
         | "missing_secret";
      receivedAt: number;
@@ -820,11 +860,11 @@ const webhookTables: {
      deliveryId: VString<string, "required">;
      type: VString<string | undefined, "optional">;
      outcome: VUnion<
+        | "duplicate"
         | "ok"
         | "invalid_signature"
         | "unknown_type"
         | "handler_error"
-        | "duplicate"
         | "oversized"
        | "missing_secret", [VLiteral<"ok", "required">, VLiteral<"invalid_signature", "required">, VLiteral<"unknown_type", "required">, VLiteral<"handler_error", "required">, VLiteral<"duplicate", "required">, VLiteral<"oversized", "required">, VLiteral<"missing_secret", "required">], "required", never>;
      note: VString<string | undefined, "optional">;
@@ -838,7 +878,7 @@ const webhookTables: {
 };
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:349](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L349)
+Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:375](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L375)
 
 Webhook delivery ring buffer (see `webhooks.ts`): one row per inbound
 delivery with its outcome — powers redelivery dedupe, doctor's "last
@@ -849,7 +889,7 @@ of truth.
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="property-webhookdeliveries"></a> `webhookDeliveries` | `TableDefinition`\<`VObject`\<\{ `type?`: `string`; `note?`: `string`; `service`: `string`; `deliveryId`: `string`; `outcome`: \| `"ok"` \| `"invalid_signature"` \| `"unknown_type"` \| `"handler_error"` \| `"duplicate"` \| `"oversized"` \| `"missing_secret"`; `receivedAt`: `number`; \}, \{ `service`: `VString`\<`string`, `"required"`\>; `deliveryId`: `VString`\<`string`, `"required"`\>; `type`: `VString`\<`string` \| `undefined`, `"optional"`\>; `outcome`: `VUnion`\< \| `"ok"` \| `"invalid_signature"` \| `"unknown_type"` \| `"handler_error"` \| `"duplicate"` \| `"oversized"` \| `"missing_secret"`, \[`VLiteral`\<`"ok"`, `"required"`\>, `VLiteral`\<`"invalid_signature"`, `"required"`\>, `VLiteral`\<`"unknown_type"`, `"required"`\>, `VLiteral`\<`"handler_error"`, `"required"`\>, `VLiteral`\<`"duplicate"`, `"required"`\>, `VLiteral`\<`"oversized"`, `"required"`\>, `VLiteral`\<`"missing_secret"`, `"required"`\>\], `"required"`, `never`\>; `note`: `VString`\<`string` \| `undefined`, `"optional"`\>; `receivedAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, `"type"` \| `"service"` \| `"deliveryId"` \| `"outcome"` \| `"note"` \| `"receivedAt"`\>, \{ `receivedAt`: \[`"receivedAt"`, `"_creationTime"`\]; `service_deliveryId`: \[`"service"`, `"deliveryId"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [nuxt-backend/src/convex/components/backend/schema.ts:350](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L350) |
+| <a id="property-webhookdeliveries"></a> `webhookDeliveries` | `TableDefinition`\<`VObject`\<\{ `type?`: `string`; `note?`: `string`; `service`: `string`; `deliveryId`: `string`; `outcome`: \| `"duplicate"` \| `"ok"` \| `"invalid_signature"` \| `"unknown_type"` \| `"handler_error"` \| `"oversized"` \| `"missing_secret"`; `receivedAt`: `number`; \}, \{ `service`: `VString`\<`string`, `"required"`\>; `deliveryId`: `VString`\<`string`, `"required"`\>; `type`: `VString`\<`string` \| `undefined`, `"optional"`\>; `outcome`: `VUnion`\< \| `"duplicate"` \| `"ok"` \| `"invalid_signature"` \| `"unknown_type"` \| `"handler_error"` \| `"oversized"` \| `"missing_secret"`, \[`VLiteral`\<`"ok"`, `"required"`\>, `VLiteral`\<`"invalid_signature"`, `"required"`\>, `VLiteral`\<`"unknown_type"`, `"required"`\>, `VLiteral`\<`"handler_error"`, `"required"`\>, `VLiteral`\<`"duplicate"`, `"required"`\>, `VLiteral`\<`"oversized"`, `"required"`\>, `VLiteral`\<`"missing_secret"`, `"required"`\>\], `"required"`, `never`\>; `note`: `VString`\<`string` \| `undefined`, `"optional"`\>; `receivedAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, `"type"` \| `"service"` \| `"deliveryId"` \| `"outcome"` \| `"note"` \| `"receivedAt"`\>, \{ `receivedAt`: \[`"receivedAt"`, `"_creationTime"`\]; `service_deliveryId`: \[`"service"`, `"deliveryId"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [nuxt-backend/src/convex/components/backend/schema.ts:376](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L376) |
 
 ***
 
@@ -1237,7 +1277,7 @@ const authSchema: SchemaDefinition<{
 }, true>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:372](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L372)
+Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:398](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L398)
 
 Auth-only schema — passed to Better Auth's `createApi` in `adapter.ts`.
 
@@ -1627,6 +1667,7 @@ default: SchemaDefinition<{
   billingEntitlements: TableDefinition<VObject<{
      customerId?: string;
      pendingSpends?: {
+        releaseJobId?: string;
         at: number;
         meterId: string;
         amount: number;
@@ -1642,6 +1683,9 @@ default: SchemaDefinition<{
         benefitId: string;
      }[];
      meters: {
+        cycleStart?: number;
+        cycleEnd?: number;
+        rollover?: boolean;
         meterId: string;
         consumedUnits: number;
         creditedUnits: number;
@@ -1668,11 +1712,17 @@ default: SchemaDefinition<{
         metadata: VRecord<Record<..., ...> | undefined, VString<string, "required">, VUnion<... | ... | ... | ..., [..., ..., ...], "required", never>, "optional", string>;
      }, "required", "type" | "id" | "metadata" | "benefitId" | `metadata.${string}`>, "required">;
      meters: VArray<{
+        cycleStart?: number;
+        cycleEnd?: number;
+        rollover?: boolean;
         meterId: string;
         consumedUnits: number;
         creditedUnits: number;
         balance: number;
       }[], VObject<{
+        cycleStart?: number;
+        cycleEnd?: number;
+        rollover?: boolean;
         meterId: string;
         consumedUnits: number;
         creditedUnits: number;
@@ -1682,15 +1732,27 @@ default: SchemaDefinition<{
         consumedUnits: VFloat64<number, "required">;
         creditedUnits: VFloat64<number, "required">;
         balance: VFloat64<number, "required">;
-     }, "required", "meterId" | "consumedUnits" | "creditedUnits" | "balance">, "required">;
+        cycleStart: VFloat64<number | undefined, "optional">;
+        cycleEnd: VFloat64<number | undefined, "optional">;
+        rollover: VBoolean<boolean | undefined, "optional">;
+      }, "required", 
+        | "meterId"
+        | "consumedUnits"
+        | "creditedUnits"
+        | "balance"
+        | "cycleStart"
+        | "cycleEnd"
+       | "rollover">, "required">;
      pendingSpends: VArray<
         | {
+        releaseJobId?: string;
         at: number;
         meterId: string;
         amount: number;
         externalId: string;
       }[]
         | undefined, VObject<{
+        releaseJobId?: string;
         at: number;
         meterId: string;
         amount: number;
@@ -1700,7 +1762,8 @@ default: SchemaDefinition<{
         amount: VFloat64<number, "required">;
         externalId: VString<string, "required">;
         at: VFloat64<number, "required">;
-     }, "required", "at" | "meterId" | "amount" | "externalId">, "optional">;
+        releaseJobId: VString<string | undefined, "optional">;
+     }, "required", "at" | "meterId" | "amount" | "externalId" | "releaseJobId">, "optional">;
      updatedAt: VFloat64<number, "required">;
    }, "required", 
      | "updatedAt"
@@ -1824,11 +1887,11 @@ default: SchemaDefinition<{
      note?: string;
      service: string;
      deliveryId: string;
-     outcome:   | "ok"
+     outcome:   | "duplicate"
+        | "ok"
         | "invalid_signature"
         | "unknown_type"
         | "handler_error"
-        | "duplicate"
         | "oversized"
         | "missing_secret";
      receivedAt: number;
@@ -1837,11 +1900,11 @@ default: SchemaDefinition<{
      deliveryId: VString<string, "required">;
      type: VString<string | undefined, "optional">;
      outcome: VUnion<
+        | "duplicate"
         | "ok"
         | "invalid_signature"
         | "unknown_type"
         | "handler_error"
-        | "duplicate"
         | "oversized"
        | "missing_secret", [VLiteral<"ok", "required">, VLiteral<"invalid_signature", "required">, VLiteral<"unknown_type", "required">, VLiteral<"handler_error", "required">, VLiteral<"duplicate", "required">, VLiteral<"oversized", "required">, VLiteral<"missing_secret", "required">], "required", never>;
      note: VString<string | undefined, "optional">;
@@ -1855,6 +1918,6 @@ default: SchemaDefinition<{
 }, true>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:375](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L375)
+Defined in: [nuxt-backend/src/convex/components/backend/schema.ts:401](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L401)
 
 Full component schema: auth + billing cache + AI plumbing + webhook log.

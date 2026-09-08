@@ -216,7 +216,7 @@ Resolve a built-in tool's Convex function ref (`backend.mcp.functions` wins).
 
 | Parameter | Type |
 | ------ | ------ |
-| `key` | \| `"getAuthUser"` \| `"listWorkspaces"` \| `"listWorkspaceMembers"` \| `"updateProfile"` \| `"getConfiguredProducts"` \| `"generateCheckoutLink"` \| `"generateCustomerPortalUrl"` \| `"getCurrentSubscription"` \| `"getCredits"` |
+| `key` | \| `"getAuthUser"` \| `"listWorkspaces"` \| `"listWorkspaceMembers"` \| `"updateProfile"` \| `"generateCheckoutLink"` \| `"getConfiguredProducts"` \| `"generateCustomerPortalUrl"` \| `"getCurrentSubscription"` \| `"getCredits"` |
 | `event?` | `H3Event`\<`EventHandlerRequest`\> |
 
 #### Returns

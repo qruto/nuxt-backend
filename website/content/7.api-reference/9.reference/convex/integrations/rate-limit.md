@@ -67,6 +67,16 @@ Defined in: nuxt-backend/node\_modules/@convex-dev/rate-limiter/dist/client/inde
 
 ***
 
+### DAY
+
+```ts
+const DAY: number;
+```
+
+Defined in: nuxt-backend/node\_modules/@convex-dev/rate-limiter/dist/client/index.d.ts:9
+
+***
+
 ### DEFAULT\_LIMITS
 
 ```ts
@@ -89,6 +99,11 @@ const DEFAULT_LIMITS: {
      period: number;
      capacity: 10;
   };
+  aiBudget: {
+     kind: "fixed window";
+     rate: 10000;
+     period: number;
+  };
   mcp: {
      kind: "token bucket";
      rate: 60;
@@ -100,17 +115,17 @@ const DEFAULT_LIMITS: {
 
 Defined in: [nuxt-backend/src/convex/integrations/rate-limit.ts:28](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L28)
 
-The package's default rate limits — `emailOtp`, `billingSync`, `ai`, and
-`mcp` — guarding the flows the package itself drives. Each is keyed per
-email/entity at the call site (e.g. `limit(ctx, 'emailOtp', { key: email })`).
-Extend or override any of them by passing your own limits to
+The package's default rate limits — `emailOtp`, `billingSync`, `ai`,
+`aiBudget` and `mcp` — guarding the flows the package itself drives. Each is
+keyed per email/entity at the call site (e.g. `limit(ctx, 'emailOtp', { key:
+email })`). Extend or override any of them by passing your own limits to
 [setupRateLimiter](#setupratelimiter).
 
 Deliberately small: `emailOtp` throttles code *sends* (per-code brute force
 is Better Auth's own `allowedAttempts` guard, and this package is
 passwordless — there are no password flows to limit), `billingSync` guards
-the live provider fan-out, and `ai`/`mcp` back the metered-action and agent
-surfaces.
+the live provider fan-out, and `ai`/`aiBudget`/`mcp` back the
+metered-action, credit-budget and agent surfaces.
 
 #### Type Declaration
 
@@ -131,11 +146,15 @@ surfaces.
 | `ai.rate` | `30` | `30` | - | [nuxt-backend/src/convex/integrations/rate-limit.ts:42](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L42) |
 | `ai.period` | `number` | `MINUTE` | - | [nuxt-backend/src/convex/integrations/rate-limit.ts:42](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L42) |
 | `ai.capacity` | `10` | `10` | - | [nuxt-backend/src/convex/integrations/rate-limit.ts:42](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L42) |
-| <a id="property-mcp"></a> `mcp` | \{ `kind`: `"token bucket"`; `rate`: `60`; `period`: `number`; `capacity`: `20`; \} | - | Agent (MCP) session exchanges — 60 per minute per client+user. Guards the token-exchange endpoint agents call on the app's behalf. | [nuxt-backend/src/convex/integrations/rate-limit.ts:47](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L47) |
-| `mcp.kind` | `"token bucket"` | `'token bucket'` | - | [nuxt-backend/src/convex/integrations/rate-limit.ts:47](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L47) |
-| `mcp.rate` | `60` | `60` | - | [nuxt-backend/src/convex/integrations/rate-limit.ts:47](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L47) |
-| `mcp.period` | `number` | `MINUTE` | - | [nuxt-backend/src/convex/integrations/rate-limit.ts:47](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L47) |
-| `mcp.capacity` | `20` | `20` | - | [nuxt-backend/src/convex/integrations/rate-limit.ts:47](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L47) |
+| <a id="property-aibudget"></a> `aiBudget` | \{ `kind`: `"fixed window"`; `rate`: `10000`; `period`: `number`; \} | - | Per-entity credit budget for metered AI (`setupAi({ budget })`) — a fixed window counting **credits**, not calls: each spend consumes its cost in tokens, so the window is "credits per period per billing entity". A fixed window (not a bucket) because a budget is a period allowance that resets, not a smoothed rate. The default is a generous ceiling — `setupAi({ budget: { units, period } })` passes the app's own numbers inline and overrides it. It exists so the name resolves even when a caller names the limit without configuring one. | [nuxt-backend/src/convex/integrations/rate-limit.ts:54](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L54) |
+| `aiBudget.kind` | `"fixed window"` | `'fixed window'` | - | [nuxt-backend/src/convex/integrations/rate-limit.ts:54](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L54) |
+| `aiBudget.rate` | `10000` | `10_000` | - | [nuxt-backend/src/convex/integrations/rate-limit.ts:54](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L54) |
+| `aiBudget.period` | `number` | `DAY` | - | [nuxt-backend/src/convex/integrations/rate-limit.ts:54](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L54) |
+| <a id="property-mcp"></a> `mcp` | \{ `kind`: `"token bucket"`; `rate`: `60`; `period`: `number`; `capacity`: `20`; \} | - | Agent (MCP) session exchanges — 60 per minute per client+user. Guards the token-exchange endpoint agents call on the app's behalf. | [nuxt-backend/src/convex/integrations/rate-limit.ts:59](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L59) |
+| `mcp.kind` | `"token bucket"` | `'token bucket'` | - | [nuxt-backend/src/convex/integrations/rate-limit.ts:59](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L59) |
+| `mcp.rate` | `60` | `60` | - | [nuxt-backend/src/convex/integrations/rate-limit.ts:59](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L59) |
+| `mcp.period` | `number` | `MINUTE` | - | [nuxt-backend/src/convex/integrations/rate-limit.ts:59](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L59) |
+| `mcp.capacity` | `20` | `20` | - | [nuxt-backend/src/convex/integrations/rate-limit.ts:59](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L59) |
 
 ## Functions
 
@@ -161,6 +180,11 @@ function setupRateLimiter<Limits>(components, limits?): RateLimiter<{
      period: number;
      capacity: 10;
   };
+  aiBudget: {
+     kind: "fixed window";
+     rate: 10000;
+     period: number;
+  };
   mcp: {
      kind: "token bucket";
      rate: 60;
@@ -170,7 +194,7 @@ function setupRateLimiter<Limits>(components, limits?): RateLimiter<{
 } & Limits>;
 ```
 
-Defined in: [nuxt-backend/src/convex/integrations/rate-limit.ts:67](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L67)
+Defined in: [nuxt-backend/src/convex/integrations/rate-limit.ts:79](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts#L79)
 
 Configure the [Rate Limiter](https://www.convex.dev/components/rate-limiter) component, pre-seeded with [DEFAULT\_LIMITS](#default_limits). Pass extra
 named limits to cover your own application functions; they are merged with
@@ -209,6 +233,11 @@ named limits to cover your own application functions; they are merged with
      `rate`: `30`;
      `period`: `number`;
      `capacity`: `10`;
+  \};
+  `aiBudget`: \{
+     `kind`: `"fixed window"`;
+     `rate`: `10000`;
+     `period`: `number`;
   \};
   `mcp`: \{
      `kind`: `"token bucket"`;

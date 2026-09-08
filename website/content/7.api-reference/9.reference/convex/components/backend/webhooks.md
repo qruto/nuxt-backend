@@ -10,11 +10,11 @@ navigation: true
 
 ```ts
 const vDeliveryOutcome: VUnion<
+  | "duplicate"
   | "ok"
   | "invalid_signature"
   | "unknown_type"
   | "handler_error"
-  | "duplicate"
   | "oversized"
 | "missing_secret", [VLiteral<"ok", "required">, VLiteral<"invalid_signature", "required">, VLiteral<"unknown_type", "required">, VLiteral<"handler_error", "required">, VLiteral<"duplicate", "required">, VLiteral<"oversized", "required">, VLiteral<"missing_secret", "required">], "required", never>;
 ```
@@ -31,11 +31,11 @@ const record: RegisteredMutation<"public", {
   note?: string;
   service: string;
   deliveryId: string;
-  outcome:   | "ok"
+  outcome:   | "duplicate"
+     | "ok"
      | "invalid_signature"
      | "unknown_type"
      | "handler_error"
-     | "duplicate"
      | "oversized"
      | "missing_secret";
 }, Promise<null>>;
@@ -53,11 +53,11 @@ const find: RegisteredQuery<"public", {
   deliveryId: string;
 }, Promise<
   | {
-  outcome:   | "ok"
+  outcome:   | "duplicate"
+     | "ok"
      | "invalid_signature"
      | "unknown_type"
      | "handler_error"
-     | "duplicate"
      | "oversized"
      | "missing_secret";
   receivedAt: number;
@@ -80,11 +80,11 @@ const listRecent: RegisteredQuery<"public", {
   service: string;
   deliveryId: string;
   type: string | undefined;
-  outcome:   | "ok"
+  outcome:   | "duplicate"
+     | "ok"
      | "invalid_signature"
      | "unknown_type"
      | "handler_error"
-     | "duplicate"
      | "oversized"
      | "missing_secret";
   note: string | undefined;
