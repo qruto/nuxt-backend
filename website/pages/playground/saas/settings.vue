@@ -42,7 +42,7 @@ async function spendCredit() {
     <LabPanel
       label="workspace · billing · credits"
       title="Workspace settings"
-      tone="accent"
+      tone="ok"
     >
       <WorkspaceSettings pricing-path="/playground/saas/pricing" />
     </LabPanel>
@@ -54,7 +54,7 @@ async function spendCredit() {
     >
       <div class="row">
         <LabButton
-          variant="signal"
+          variant="primary"
           :loading="spending"
           :disabled="(credits.balance.value ?? 0) < 1"
           @click="spendCredit"

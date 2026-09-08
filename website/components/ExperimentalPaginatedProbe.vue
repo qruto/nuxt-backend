@@ -18,7 +18,7 @@ const state = usePaginatedQuery_experimental(() => ({
 }))
 
 const tone = computed(() =>
-  state.value.status === 'success' ? 'ok' : state.value.status === 'error' ? 'err' : 'signal',
+  state.value.status === 'success' ? 'ok' : state.value.status === 'error' ? 'err' : 'warn',
 )
 
 const meta = computed(() => ({
@@ -81,7 +81,7 @@ const meta = computed(() => ({
     </div>
 
     <LabButton
-      variant="xp"
+      variant="warn"
       size="sm"
       :disabled="!state.canLoadMore"
       @click="state.loadMore(5)"
@@ -121,7 +121,7 @@ const meta = computed(() => ({
   border-radius: 3px;
   flex-shrink: 0;
 }
-.pp-lvl.info { color: var(--info); background: rgba(90, 166, 255, 0.13); }
+.pp-lvl.info { color: var(--warn); background: var(--warn-dim); }
 .pp-lvl.warn { color: var(--warn); background: var(--warn-dim); }
 .pp-lvl.error { color: var(--err); background: var(--err-dim); }
 .pp-msg { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

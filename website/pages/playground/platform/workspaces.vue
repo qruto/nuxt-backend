@@ -100,7 +100,7 @@ async function cancelPending(id: string) {
       <LabPanel
         label="workspaces"
         title="Your workspaces"
-        tone="accent"
+        tone="ok"
       >
         <p
           v-if="isLoading"
@@ -125,7 +125,7 @@ async function cancelPending(id: string) {
             >active · {{ role }}</span>
             <LabButton
               v-else
-              variant="ghost"
+              variant="secondary"
               size="sm"
               :disabled="pending"
               @click="switchTo(workspace.id)"
@@ -182,7 +182,7 @@ async function cancelPending(id: string) {
                 <span class="wsname">{{ entry.email }}</span>
                 <span class="wsbadge">invited</span>
                 <LabButton
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   :disabled="pending"
                   @click="cancelPending(entry.id)"
@@ -203,7 +203,7 @@ async function cancelPending(id: string) {
               >
               <LabButton
                 type="submit"
-                variant="ghost"
+                variant="secondary"
                 :disabled="pending || !inviteEmail.trim()"
               >
                 Invite
@@ -211,7 +211,7 @@ async function cancelPending(id: string) {
             </form>
             <LabButton
               v-if="member?.role !== 'owner'"
-              variant="ghost"
+              variant="secondary"
               size="sm"
               :disabled="pending"
               @click="run(() => leave(workspace.id), 'Left the workspace.')"
@@ -244,7 +244,7 @@ async function cancelPending(id: string) {
       v-if="receivedInvitations.length > 0"
       label="invitations"
       title="Invitations for you"
-      tone="accent"
+      tone="ok"
     >
       <ul class="wslist">
         <li
@@ -267,7 +267,7 @@ async function cancelPending(id: string) {
             Accept
           </LabButton>
           <LabButton
-            variant="ghost"
+            variant="secondary"
             size="sm"
             :disabled="pending"
             @click="decline(entry.id)"
@@ -300,7 +300,7 @@ async function cancelPending(id: string) {
 </template>
 
 <style scoped>
-.accept-page-link { font-size: 0.75rem; font-weight: 600; color: var(--accent); text-decoration: none; }
+.accept-page-link { font-size: 0.75rem; font-weight: 600; color: var(--ok); text-decoration: none; }
 .wslist { list-style: none; margin: 0 0 0.9rem; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .wsrow {
   display: flex; align-items: center; gap: 0.6rem;
@@ -309,13 +309,13 @@ async function cancelPending(id: string) {
 }
 .wsrow.active { background: var(--surface); box-shadow: var(--raise-sm); }
 .wsname { flex: 1; font-size: 0.88rem; font-weight: 500; }
-.wsbadge { font-family: var(--mono); font-size: 0.62rem; color: var(--accent-soft); letter-spacing: 0.05em; }
+.wsbadge { font-family: var(--mono); font-size: 0.62rem; color: var(--ink-dim); letter-spacing: 0.05em; }
 .wsform { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; }
 .wsform input {
   flex: 1; padding: 0.5rem 0.7rem; border: 0; border-radius: var(--r-sm);
   background: var(--sink); color: var(--ink); font: inherit; font-size: 0.88rem;
   box-shadow: var(--inset-sm);
 }
-.wsform input:focus { outline: none; box-shadow: var(--inset-sm), 0 0 0 2px var(--accent); }
+.wsform input:focus { outline: none; box-shadow: var(--inset-sm), 0 0 0 2px var(--focus); }
 .hint { color: var(--ink-dim); font-size: 0.82rem; line-height: 1.5; margin: 0; }
 </style>

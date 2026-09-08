@@ -51,14 +51,20 @@ onBeforeUnmount(() => {
   max-width: 100%;
   padding: 0.55rem 0.55rem 0.55rem 1.1rem;
 }
+/* The line WRAPS rather than scrolls. It used to be `nowrap` + a hidden
+   `overflow-x: auto`, which on a phone clipped the page's main call to
+   action mid-word ("…add nuxt-bac") with no ellipsis, fade or scrollbar to
+   say there was more — and it did so in the closing CTA but not in the
+   hero, because the CTA plate's padding eats ~40px more, so the same
+   component looked correct once and broken once on one page. Wrapping is
+   conditional: wherever the command fits, it still sits on a single line. */
 .cmd__line {
   font-family: var(--mono);
   font-size: 0.92rem;
   font-weight: 500;
   color: var(--ink);
-  white-space: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .cmd__prompt { color: var(--ink-faint); user-select: none; }
 
@@ -83,7 +89,13 @@ onBeforeUnmount(() => {
 .cmd__copy :deep(svg) { width: 0.95rem; height: 0.95rem; }
 .cmd__copy .ok { color: var(--ok); }
 
-@media (max-width: 420px) {
+/* On a phone the chrome gives back every pixel it can before the line has
+   to wrap: smaller type, a tighter gap and less lead-in padding. */
+@media (max-width: 480px) {
+  .cmd {
+    gap: 0.5rem;
+    padding: 0.5rem 0.5rem 0.5rem 0.8rem;
+  }
   .cmd__line { font-size: 0.8rem; }
 }
 </style>

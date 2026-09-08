@@ -29,10 +29,10 @@ async function run(name: (typeof MIGRATIONS)[number], dryRun = false) {
   }
 }
 
-function stateTone(state: string): 'ok' | 'warn' | 'err' | 'signal' {
+function stateTone(state: string): 'ok' | 'warn' | 'err' {
   if (state === 'success') return 'ok'
   if (state === 'failed') return 'err'
-  if (state === 'inProgress') return 'signal'
+  if (state === 'inProgress') return 'ok'
   return 'warn'
 }
 </script>
@@ -53,13 +53,13 @@ function stateTone(state: string): 'ok' | 'warn' | 'err' | 'signal' {
       <MetricCard
         label="messages counted"
         :value="messageCount"
-        tone="accent"
+        tone="ok"
         hint="messagesCount aggregate"
       />
       <MetricCard
         label="characters stored"
         :value="totalCharacters"
-        tone="accent"
+        tone="ok"
         hint="messagesSize aggregate · sum"
       />
     </div>
@@ -67,7 +67,7 @@ function stateTone(state: string): 'ok' | 'warn' | 'err' | 'signal' {
     <LabPanel
       label="runner"
       title="Run backfills"
-      tone="accent"
+      tone="ok"
     >
       <div
         v-for="name in MIGRATIONS"
@@ -76,7 +76,7 @@ function stateTone(state: string): 'ok' | 'warn' | 'err' | 'signal' {
       >
         <span class="mono run-name">{{ name }}</span>
         <LabButton
-          variant="signal"
+          variant="primary"
           size="sm"
           :loading="pending === name"
           @click="run(name)"
@@ -84,7 +84,7 @@ function stateTone(state: string): 'ok' | 'warn' | 'err' | 'signal' {
           Run
         </LabButton>
         <LabButton
-          variant="ghost"
+          variant="secondary"
           size="sm"
           :loading="pending === `${name}:dry`"
           @click="run(name, true)"
@@ -135,7 +135,7 @@ function stateTone(state: string): 'ok' | 'warn' | 'err' | 'signal' {
           <span class="status-meta mono">{{ entry.processed ?? 0 }} processed</span>
           <SignalDot
             v-if="entry.state === 'inProgress'"
-            tone="accent"
+            tone="ok"
             pulse
           />
         </div>

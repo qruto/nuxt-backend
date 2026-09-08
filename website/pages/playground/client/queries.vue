@@ -41,7 +41,7 @@ function statusOf(r: unknown): 'pending' | 'error' | 'success' {
   return r === undefined ? 'pending' : r instanceof Error ? 'error' : 'success'
 }
 function toneOf(r: unknown) {
-  return statusOf(r) === 'success' ? 'ok' : statusOf(r) === 'error' ? 'err' : 'signal'
+  return statusOf(r) === 'success' ? 'ok' : statusOf(r) === 'error' ? 'err' : 'warn'
 }
 function summarize(key: string, r: unknown): string {
   if (r === undefined) return 'loading…'
@@ -103,14 +103,14 @@ const probeKey = computed(() => `${shouldFail.value}-${throwOnError.value}-${ski
         <StateReadout
           :value="overview"
           label="status by key"
-          tone="accent"
+          tone="ok"
         />
       </LabPanel>
 
       <LabPanel
         label="output"
         title="useQueries(map)"
-        tone="accent"
+        tone="ok"
       >
         <div
           v-if="sources.length === 0"
@@ -180,17 +180,17 @@ const probeKey = computed(() => `${shouldFail.value}-${throwOnError.value}-${ski
         >
           <LabToggle
             v-model="shouldFail"
-            tone="xp"
+            tone="warn"
             label="shouldFail"
           />
           <LabToggle
             v-model="throwOnError"
-            tone="xp"
+            tone="warn"
             label="throwOnError"
           />
           <LabToggle
             v-model="skip"
-            tone="xp"
+            tone="warn"
             label="skip"
           />
         </div>
@@ -211,7 +211,7 @@ const probeKey = computed(() => `${shouldFail.value}-${throwOnError.value}-${ski
                 {{ error.message }}
               </p>
               <LabButton
-                variant="ghost"
+                variant="secondary"
                 size="sm"
                 @click="reset"
               >
@@ -230,13 +230,13 @@ const probeKey = computed(() => `${shouldFail.value}-${throwOnError.value}-${ski
 .results { display: flex; flex-direction: column; gap: 0.6rem; }
 .rcard { padding: 0.7rem 0.8rem; }
 .rcard-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.4rem; }
-.rcard-api { font-family: var(--mono); font-size: 0.74rem; color: var(--accent-soft); }
+.rcard-api { font-family: var(--mono); font-size: 0.74rem; color: var(--ink-dim); }
 .rcard-val { font-size: 0.82rem; color: var(--ink); word-break: break-word; }
 .rcard-val.err { color: var(--err); }
 .empty { padding: 1.5rem; text-align: center; color: var(--ink-dim); font-size: 0.85rem; }
 
 .single { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .single-val { display: flex; flex-direction: column; gap: 0.2rem; }
-.big { font-size: 2rem; font-weight: 700; color: var(--accent-soft); line-height: 1; }
+.big { font-size: 2rem; font-weight: 700; color: var(--ink); line-height: 1; }
 .err-text { color: var(--err); font-size: 0.82rem; margin: 0 0 0.6rem; }
 </style>

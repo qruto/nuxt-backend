@@ -93,7 +93,7 @@ function clock(at: number) {
       <LabPanel
         label="gauge"
         title="counter.get"
-        tone="accent"
+        tone="ok"
       >
         <div class="gauge">
           <span
@@ -110,13 +110,13 @@ function clock(at: number) {
             +1
           </LabButton>
           <LabButton
-            variant="ghost"
+            variant="secondary"
             @click="bump(5)"
           >
             +5
           </LabButton>
           <LabButton
-            variant="ghost"
+            variant="secondary"
             @click="bump(10)"
           >
             +10
@@ -154,7 +154,7 @@ function clock(at: number) {
             class="event fade-up"
           >
             <SignalDot
-              :tone="ev.type === 'optimistic' ? 'accent' : ev.type === 'confirmed' ? 'ok' : 'muted'"
+              :tone="ev.type === 'optimistic' ? 'warn' : ev.type === 'confirmed' ? 'ok' : 'muted'"
               :pulse="false"
             />
             <span
@@ -218,7 +218,7 @@ function clock(at: number) {
             </LabField>
           </div>
           <LabButton
-            variant="signal"
+            variant="primary"
             :loading="actionPending"
             @click="runAction"
           >
@@ -286,13 +286,13 @@ function clock(at: number) {
 <style scoped>
 .gauge { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
 .num { font-size: 3rem; font-weight: 700; line-height: 1; letter-spacing: -0.03em; color: var(--ink); transition: color 0.15s; }
-.num.pending { color: var(--accent-soft); }
+.num.pending { color: var(--warn); }
 .controls { margin-bottom: 1rem; }
 
 .timeline { display: flex; flex-direction: column; gap: 0.35rem; min-height: 150px; }
 .event { display: flex; align-items: center; gap: 0.55rem; padding: 0.45rem 0.6rem; border-radius: var(--r-sm); background: var(--surface); box-shadow: var(--raise-sm); font-size: 0.8rem; }
 .event-label { flex: 1; font-family: var(--mono); }
-.event-label.optimistic { color: var(--accent-soft); }
+.event-label.optimistic { color: var(--warn); }
 .event-label.confirmed { color: var(--ok); }
 .event-label.reset { color: var(--ink-dim); }
 time { font-size: 0.68rem; color: var(--ink-dim); font-family: var(--mono); }
@@ -304,6 +304,6 @@ time { font-size: 0.68rem; color: var(--ink-dim); font-family: var(--mono); }
 .err-text { color: var(--err); font-size: 0.82rem; margin: 0; word-break: break-word; }
 .empty { color: var(--ink-dim); font-size: 0.8rem; text-align: center; padding: 1.25rem 0; }
 
-.spinner { display: inline-block; width: 12px; height: 12px; border: 1.5px solid var(--edge-hi); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+.spinner { display: inline-block; width: 12px; height: 12px; border: 1.5px solid var(--edge-hi); border-top-color: var(--warn); border-radius: 50%; animation: spin 0.7s linear infinite; }
 .spinner.big { width: 24px; height: 24px; border-width: 2px; }
 </style>

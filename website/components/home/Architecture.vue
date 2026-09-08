@@ -8,6 +8,14 @@ import { computed, onMounted, ref } from 'vue'
  * Better Auth persistence and real-time data. Animated flow lines show auth
  * (same-origin cookies) and live WebSocket subscriptions. The status chip is
  * genuinely live — it reflects THIS page's WebSocket to Convex.
+ *
+ * TWO drawings, not one canvas scaled down. The wide one is side-by-side
+ * (760×250); shrunk to a phone it hits scale 0.55, which rendered its 17px
+ * title at 9.3px and its 10.5px lane tags at 5.7px — a third the size of the
+ * body copy directly above it. Under 640px the stacked drawing takes over
+ * instead: the same nodes in a column, capped at 320px wide so the type
+ * lands at roughly its authored size. Only one is ever displayed, so only
+ * one is exposed to assistive tech (the other is `display: none`).
  */
 // The live chip is inherently client-only. Calling the composable during SSR /
 // prerender would open a Convex WebSocket (the lazy `.sync` client) and keep the
@@ -44,6 +52,7 @@ const chip = computed(() => {
 
       <div class="diagram plaque noise">
         <svg
+          class="dia dia--wide"
           viewBox="0 0 760 250"
           fill="none"
           role="img"
@@ -79,16 +88,16 @@ const chip = computed(() => {
             />
           </g>
           <!-- Data lanes: live WebSocket, bidirectional — the diagram's only
-               orange, kept marching. -->
+               signal (green = live), kept marching. -->
           <line
-            class="lane accent flow-r"
+            class="lane live flow-r"
             x1="240"
             y1="150"
             x2="520"
             y2="150"
           />
           <line
-            class="lane accent flow-l"
+            class="lane live flow-l"
             x1="240"
             y1="170"
             x2="520"
@@ -209,7 +218,7 @@ const chip = computed(() => {
             y="134"
           >Better Auth</text>
           <text
-            class="mono sub accent-tx"
+            class="mono sub live-tx"
             x="626"
             y="156"
           >Data · real-time</text>
@@ -221,10 +230,195 @@ const chip = computed(() => {
             y="92"
           >same-origin cookies</text>
           <text
-            class="mono tag accent-tx"
+            class="mono tag live-tx"
             x="380"
             y="196"
           >live WebSocket</text>
+        </svg>
+
+        <!-- The phone drawing: the same three nodes stacked in a column, each
+             connection labelled on its own line so nothing crosses a label.
+             Authored at 300 units wide and capped at 320px, so the type sits
+             at ~1:1 instead of being scaled to a third of its size. -->
+        <svg
+          class="dia dia--narrow"
+          viewBox="0 0 300 436"
+          fill="none"
+          role="img"
+          aria-label="Nuxt app talks to Convex over a same-origin auth proxy and a live WebSocket"
+        >
+          <!-- Nuxt node -->
+          <g class="pocket">
+            <rect
+              class="p-dark"
+              x="8"
+              y="8"
+              width="284"
+              height="102"
+              rx="14"
+            />
+            <rect
+              class="p-lite"
+              x="8"
+              y="8"
+              width="284"
+              height="102"
+              rx="14"
+            />
+            <rect
+              class="p-base"
+              x="8"
+              y="8"
+              width="284"
+              height="102"
+              rx="14"
+            />
+          </g>
+          <text
+            class="title"
+            x="150"
+            y="44"
+          >Your Nuxt app</text>
+          <text
+            class="mono sub"
+            x="150"
+            y="70"
+          >UI · routing · SSR</text>
+          <text
+            class="mono sub dim"
+            x="150"
+            y="92"
+          >/api/auth proxy</text>
+
+          <!-- Auth path: Nuxt → /api/auth → Convex, carved as a groove -->
+          <g class="groove">
+            <path
+              class="g-dark"
+              d="M150 110 V 138"
+            />
+            <path
+              class="g-lite"
+              d="M150 110 V 138"
+            />
+            <path
+              class="g-base"
+              d="M150 110 V 138"
+            />
+            <path
+              class="g-dark"
+              d="M150 178 V 206"
+            />
+            <path
+              class="g-lite"
+              d="M150 178 V 206"
+            />
+            <path
+              class="g-base"
+              d="M150 178 V 206"
+            />
+          </g>
+
+          <!-- Proxy chip — a small milled pocket -->
+          <g class="pocket">
+            <rect
+              class="p-dark"
+              x="88"
+              y="138"
+              width="124"
+              height="40"
+              rx="8"
+            />
+            <rect
+              class="p-lite"
+              x="88"
+              y="138"
+              width="124"
+              height="40"
+              rx="8"
+            />
+            <rect
+              class="p-base"
+              x="88"
+              y="138"
+              width="124"
+              height="40"
+              rx="8"
+            />
+          </g>
+          <text
+            class="mono mid"
+            x="150"
+            y="163"
+          >/api/auth</text>
+          <text
+            class="mono tag"
+            x="150"
+            y="225"
+          >same-origin cookies</text>
+
+          <!-- Data lanes: live WebSocket, bidirectional -->
+          <line
+            class="lane live flow-r"
+            x1="138"
+            y1="240"
+            x2="138"
+            y2="296"
+          />
+          <line
+            class="lane live flow-l"
+            x1="162"
+            y1="240"
+            x2="162"
+            y2="296"
+          />
+          <text
+            class="mono tag live-tx"
+            x="150"
+            y="316"
+          >live WebSocket</text>
+
+          <!-- Convex node -->
+          <g class="pocket">
+            <rect
+              class="p-dark"
+              x="8"
+              y="326"
+              width="284"
+              height="102"
+              rx="14"
+            />
+            <rect
+              class="p-lite"
+              x="8"
+              y="326"
+              width="284"
+              height="102"
+              rx="14"
+            />
+            <rect
+              class="p-base"
+              x="8"
+              y="326"
+              width="284"
+              height="102"
+              rx="14"
+            />
+          </g>
+          <text
+            class="title"
+            x="150"
+            y="362"
+          >Convex</text>
+          <text
+            class="mono sub"
+            x="150"
+            y="388"
+          >Better Auth</text>
+          <text
+            class="mono sub live-tx"
+            x="150"
+            y="410"
+          >Data · real-time</text>
         </svg>
 
         <div
@@ -258,12 +452,20 @@ const chip = computed(() => {
   margin: 1rem auto 0; max-width: 52ch; font-size: 1.04rem; line-height: 1.6;
   color: var(--ink-dim);
 }
-.home-lead code { font-family: var(--mono); font-size: 0.9em; color: var(--accent-soft); }
+.home-lead code { font-family: var(--mono); font-size: 0.9em; color: var(--ok-soft); }
 
 .diagram {
   margin: 2.5rem auto 0; max-width: 48rem; padding: 1.6rem 1.4rem 0.85rem;
 }
 .diagram svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+/* One drawing at a time. The stacked one is capped so its type stays close
+   to its authored size instead of growing with the column. */
+.diagram .dia--narrow { display: none; margin: 0 auto; max-width: 320px; }
+@media (max-width: 640px) {
+  .diagram .dia--wide { display: none; }
+  .diagram .dia--narrow { display: block; }
+}
 
 /* Milled pockets — engraved recesses. The dark copy peeks out up-left, the
    light copy down-right, the sink-toned base sits on top (the same subtractive
@@ -282,9 +484,16 @@ const chip = computed(() => {
 .mono { font-family: var(--mono); text-anchor: middle; }
 .mid { fill: var(--ink); font-size: 12px; font-weight: 600; }
 .sub { fill: var(--ink-dim); font-size: 12px; }
-.sub.dim { fill: var(--ink-faint); }
-.tag { fill: var(--ink-faint); font-size: 10.5px; letter-spacing: 0.04em; }
-.accent-tx { fill: var(--accent-soft); }
+.sub.dim { fill: var(--ink-dim); }
+.tag { fill: var(--ink-dim); font-size: 10.5px; letter-spacing: 0.04em; }
+/* The stacked drawing renders at ~1:1, so its labels are sized for the phone
+   directly rather than inheriting sizes chosen for a 0.55 scale factor. */
+.dia--narrow .title { font-size: 18px; }
+.dia--narrow .mid { font-size: 13px; }
+.dia--narrow .sub { font-size: 13px; }
+.dia--narrow .tag { font-size: 12px; }
+/* Live-lane labels — green, crisp (a signal is never engraved). */
+.live-tx { fill: var(--ok-soft); }
 
 /* Engraved grooves — the neutral auth lanes, carved not drawn. */
 .groove path { fill: none; stroke-linecap: round; }
@@ -299,7 +508,7 @@ const chip = computed(() => {
 .groove .g-base { stroke: var(--sink); stroke-width: 2; }
 
 .lane { stroke-width: 2; stroke-dasharray: 5 7; stroke-linecap: round; }
-.lane.accent { stroke: var(--accent); opacity: 0.95; filter: drop-shadow(0 0 5px var(--accent-glow)); }
+.lane.live { stroke: var(--ok); opacity: 0.95; filter: drop-shadow(0 0 5px var(--ok-glow)); }
 .flow-r { animation: march-r 0.9s linear infinite; }
 .flow-l { animation: march-l 0.9s linear infinite; }
 
@@ -313,8 +522,11 @@ const chip = computed(() => {
   transition: background 0.3s, box-shadow 0.3s;
 }
 .status.on { color: var(--ink); }
+/* LED language: amber while connecting (attention), green once live, red when
+   the socket drops. One signal per state. */
+.status.idle .led { background: var(--warn); box-shadow: var(--glow-warn); }
 .status.on .led { background: var(--ok); box-shadow: var(--glow-ok); animation: beat 2s ease-in-out infinite; }
-.status.off .led { background: var(--err); }
+.status.off .led { background: var(--err); box-shadow: var(--glow-err); }
 .status code { color: var(--ink-faint); font-size: 0.9em; }
 
 @keyframes march-r { to { stroke-dashoffset: -24; } }

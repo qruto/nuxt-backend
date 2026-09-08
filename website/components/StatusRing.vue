@@ -2,11 +2,13 @@
 /**
  * The signature status element — a colored ring with an inner dot, label in
  * mono. Status is communicated by ring color, never a flat fill (echoing the
- * Draft/Review/Approval/Done ring icons in the reference set). Use for email
- * delivery states, connection state, workflow steps, etc.
+ * Draft/Review/Approval/Done ring icons in the reference set). The ring is
+ * one of the three signals — ok (green), warn (amber), err (red) — or muted
+ * titanium; the label stays neutral ink. Use for email delivery states,
+ * connection state, workflow steps, etc.
  */
 withDefaults(defineProps<{
-  tone?: 'accent' | 'ok' | 'warn' | 'err' | 'info' | 'xp' | 'muted'
+  tone?: 'ok' | 'warn' | 'err' | 'muted'
   pulse?: boolean
   size?: 'sm' | 'md'
 }>(), { tone: 'muted', pulse: false, size: 'md' })
@@ -42,7 +44,8 @@ withDefaults(defineProps<{
   border-radius: 50%;
   border: 2px solid var(--c, var(--ink-faint));
   flex-shrink: 0;
-  --ring-glow: var(--cdim, transparent);
+  /* The pulse halo is the signal's translucent glow colour. */
+  --ring-glow: var(--cglow, transparent);
 }
 .sr.sm .sr-ring { width: 13px; height: 13px; }
 .sr-ring::after {
@@ -55,11 +58,8 @@ withDefaults(defineProps<{
 .sr.sm .sr-ring::after { inset: 2.5px; }
 .sr-ring.pulse { animation: pulse-ring 2s infinite; }
 
-.sr.accent { --c: var(--accent); --cdim: var(--accent-dim); color: var(--accent-soft); }
-.sr.ok   { --c: var(--ok);   --cdim: var(--ok-dim); }
-.sr.warn { --c: var(--warn); --cdim: var(--warn-dim); }
-.sr.err  { --c: var(--err);  --cdim: var(--err-dim); }
-.sr.info { --c: var(--info); --cdim: var(--info-dim); }
-.sr.xp   { --c: var(--xp);   --cdim: var(--xp-dim); color: var(--xp); }
-.sr.muted { --c: var(--ink-faint); --cdim: transparent; }
+.sr.ok    { --c: var(--ok);   --cglow: var(--ok-glow); }
+.sr.warn  { --c: var(--warn); --cglow: var(--warn-glow); }
+.sr.err   { --c: var(--err);  --cglow: var(--err-glow); }
+.sr.muted { --c: var(--ink-faint); --cglow: transparent; }
 </style>

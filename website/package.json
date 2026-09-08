@@ -11,7 +11,7 @@
   "dependencies": {
     "citty": "^0.2.2",
     "convex": "^1.43.0",
-    "docus": "^5.12.2",
+    "docus": "^5.13.0",
     "magicast": "^0.5.4",
     "nuxt": "catalog:",
     "nuxt-backend": "workspace:*"

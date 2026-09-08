@@ -4,7 +4,8 @@ import { computed } from 'vue'
 const props = withDefaults(defineProps<{
   value: unknown
   label?: string
-  tone?: 'signal' | 'accent' | 'ok' | 'warn' | 'err' | 'xp' | 'neutral'
+  /** Signal for the JSON ink: ok (green), warn (amber), err (red). */
+  tone?: 'ok' | 'warn' | 'err' | 'neutral'
 }>(), { tone: 'neutral' })
 
 /**
@@ -54,7 +55,8 @@ const formatted = computed(() => {
 </template>
 
 <style scoped>
-/* A concave well carved into the material — the canonical "readout". */
+/* A concave well carved into the material — the canonical "readout". The
+   toned ink is the signal's `-soft` shade (the readable step on a well). */
 .readout {
   border-radius: var(--r);
   background: var(--sink);
@@ -62,10 +64,9 @@ const formatted = computed(() => {
   overflow: hidden;
   --rc: var(--ink-dim);
 }
-.readout.signal, .readout.accent { --rc: var(--accent-soft); }
-.readout.ok  { --rc: var(--ok); }
-.readout.err { --rc: var(--err); }
-.readout.xp  { --rc: var(--xp); }
+.readout.ok   { --rc: var(--ok-soft); }
+.readout.warn { --rc: var(--warn-soft); }
+.readout.err  { --rc: var(--err-soft); }
 
 .readout-head {
   padding: 0.4rem 0.85rem 0.25rem;

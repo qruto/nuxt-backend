@@ -9,12 +9,13 @@ import { computed } from 'vue'
  */
 const props = withDefaults(defineProps<{
   values?: number[]
-  tone?: 'accent' | 'ok' | 'warn' | 'err'
+  /** The trace line is a signal: ok (green, default), warn (amber), err (red). */
+  tone?: 'ok' | 'warn' | 'err'
   height?: number
   /** seconds per ambient sweep — lower is faster */
   speed?: number
   live?: boolean
-}>(), { tone: 'accent', height: 88, speed: 8, live: true })
+}>(), { tone: 'ok', height: 88, speed: 8, live: true })
 
 const W = 240
 const H = 100
@@ -94,11 +95,10 @@ const isData = computed(() => dataPoints.value !== null)
 
 <style scoped>
 .trace {
-  --c: var(--accent);
+  --c: var(--ok);
   padding: 0.4rem 0.55rem;
   overflow: hidden;
 }
-.trace.accent { --c: var(--accent); }
 .trace.ok   { --c: var(--ok); }
 .trace.warn { --c: var(--warn); }
 .trace.err  { --c: var(--err); }

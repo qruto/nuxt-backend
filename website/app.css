@@ -12,23 +12,26 @@
        readouts, toggle tracks, the PRESSED state. A subtle recess.
      • STATUS  → colored rings (border + inner dot), never flat fills.
 
-   One neutral palette + a single indigo accent + semantic ring
-   colors. Dual light/dark via `color-scheme: light dark` + system
-   preference (no JS, no switcher). LIGHT leans on a soft drop-shadow
-   + hairline + white top highlight; DARK is near-flat, structured by
-   a hairline rim + a faint shadow. Multi-layer shadows can't live in
-   `light-dark()` (no comma lists) → dark variants in a
+   One neutral palette + three status signals (green / amber / red;
+   there is no brand accent). Dual light/dark via `color-scheme: light
+   dark` + system preference (no JS, no switcher). LIGHT leans on a
+   soft drop-shadow + hairline + white top highlight; DARK is near-flat,
+   structured by a hairline rim + a faint shadow. Multi-layer shadows
+   can't live in `light-dark()` (no comma lists) → dark variants in a
    `prefers-color-scheme` block.
    ════════════════════════════════════════════════════════════════ */
 
 /* ════════════════════════════════════════════════════════════════
-   EDC THEME — Titanium + fluorescent orange
+   PALETTE — Titanium + three signals, no primary
    ----------------------------------------------------------------
-   One palette across the whole app. The `@theme` block re-tones Nuxt
+   One palette across the whole app. The `@theme` blocks re-tone Nuxt
    UI / Tailwind (the docs + homepage rendered by Docus); the `:root`
-   tokens further down drive the playground's depth-design. Industrial,
-   machined, hi-vis — titanium greys carry the structure, fluorescent
-   orange carries the signal.
+   tokens further down drive the playground's depth-design. Machined
+   titanium carries ALL the structure; the only chroma on the slab is
+   the three universal status colours — green (go / ok / live / the
+   primary action), amber (attention / idle / secondary / experimental)
+   and red (danger / error / destructive) — enamel fired onto metal,
+   a step desaturated, never engraved. See design.md §Palette.
    ════════════════════════════════════════════════════════════════ */
 @theme {
   /* Type system: Bai Jamjuree (squared technical display — the engraved face)
@@ -38,19 +41,6 @@
   --font-sans: "Nunito", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Bai Jamjuree", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-
-  /* Fluorescent orange — re-tones Tailwind `orange` (the Nuxt UI primary). */
-  --color-orange-50:  #fff4ed;
-  --color-orange-100: #ffe6d5;
-  --color-orange-200: #ffc8aa;
-  --color-orange-300: #ffa274;
-  --color-orange-400: #ff6f3d;
-  --color-orange-500: #ff5a1f;
-  --color-orange-600: #f0420a;
-  --color-orange-700: #c63307;
-  --color-orange-800: #9d2b0e;
-  --color-orange-900: #7e260f;
-  --color-orange-950: #441305;
 
   /* Titanium — re-tones Tailwind `zinc` (the Nuxt UI neutral). Nuxt UI emits
      `--ui-color-neutral-<shade>: var(--color-zinc-<shade>)`, so this one ramp
@@ -67,6 +57,56 @@
   --color-zinc-800: #232323;
   --color-zinc-900: #161616;
   --color-zinc-950: #0d0d0d;
+}
+
+/* Signal ramps — re-tone Tailwind `green` / `amber` / `red` (50…950) so
+   Nuxt UI's `primary` + `success` (green), `secondary` + `info` +
+   `warning` (amber) and `error` (red) aliases land on the house palette
+   natively. Hand-picked in OKLCH with the chroma held a hair inside
+   sRGB — "enamel on metal", a step less saturated than stock Tailwind.
+   Anchors: 500 = the LIGHT signal (text-safe ≥ 4.5:1 on #e8e8e8, #fafafa
+   and the #dadada sink), 400 = the DARK signal (≥ 5.2:1 on #161616 /
+   #232323) — exactly the steps Nuxt UI binds every alias to (500 light,
+   400 dark), so docs chrome and playground read one signal. 600 / 300
+   are the press shades, 600 / 200 the soft text shades. `static`: Nuxt
+   UI reads these through a runtime `var(--color-green-500, …)` that
+   Tailwind's usage scan cannot see — emit the whole ramp. */
+@theme static {
+  --color-green-50:  #ebf9ef;
+  --color-green-100: #d3f3dd;
+  --color-green-200: #afe8c0;
+  --color-green-300: #7dd296;
+  --color-green-400: #49b567;   /* dark signal   · Y .354 */
+  --color-green-500: #136d36;   /* light signal  · Y .113 */
+  --color-green-600: #065d2b;   /* light press / soft */
+  --color-green-700: #044d23;
+  --color-green-800: #023e1b;
+  --color-green-900: #013013;
+  --color-green-950: #021c09;
+
+  --color-amber-50:  #faf5e6;
+  --color-amber-100: #f7e8c4;
+  --color-amber-200: #f6d389;
+  --color-amber-300: #e7b349;
+  --color-amber-400: #ce9622;   /* dark signal   · Y .350 */
+  --color-amber-500: #845007;   /* light signal  · Y .107 — a text-safe yellow on #e8e8e8 is a burnt amber */
+  --color-amber-600: #723e04;   /* light press / soft */
+  --color-amber-700: #623103;
+  --color-amber-800: #512501;
+  --color-amber-900: #401a02;
+  --color-amber-950: #270e02;
+
+  --color-red-50:  #fdf2f2;
+  --color-red-100: #fde2e1;
+  --color-red-200: #fdc9c5;
+  --color-red-300: #f6a39d;
+  --color-red-400: #ee6d69;     /* dark signal   · Y .301 */
+  --color-red-500: #a1302d;     /* light signal  · Y .099 */
+  --color-red-600: #8b1e1e;     /* light press / soft */
+  --color-red-700: #761617;
+  --color-red-800: #610e0f;
+  --color-red-900: #4b0a0b;
+  --color-red-950: #2e0505;
 }
 
 :root {
@@ -100,7 +140,7 @@ html.light { color-scheme: light; }
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* ── Surfaces — TITANIUM neutral grays (no blue, no warm cast) ──
-     Pure neutral so the orange accent carries all the warmth. The
+     Pure neutral so the three signals are the only chroma on the slab. The
      near-white `--surface` lifts off the slightly darker canvas; the
      `--sink` well sits a hair below for inputs & readouts. */
   --bg:         light-dark(#e8e8e8, #161616);
@@ -113,41 +153,82 @@ html.light { color-scheme: light; }
   /* ── Ink — neutral, AA-checked on the titanium grays ───────── */
   --ink:       light-dark(#1c1c1c, #ededed);
   --ink-dim:   light-dark(#565656, #a8a8a8);
-  --ink-faint: light-dark(#6b6b6b, #858585);
+  /* `--ink-faint` carries real labels (placeholders, prompts, sub-captions),
+     so it is held to the 4.5:1 small-text bar, not to a decorative one. The
+     values below clear it on `--bg` (light 4.69:1, dark 4.90:1); the darker
+     `--sink` and the lighter dark plaque faces get their own value in the
+     surface-aware block further down — one ink per ground, never one global
+     ink measured against a single surface. */
+  --ink-faint: light-dark(#666666, #858585);
 
-  /* ── Accent — Tailwind ORANGE (600 is the identity color) ────
-     -press is the hover/active shade; -soft is the readable TEXT
-     shade; -dim is a faint tint fill. Dark lifts to a lighter orange
-     so it stays legible on the near-black material. */
-  --accent:       light-dark(#f0420a, #ff7a3c);  /* fluorescent orange 600 / lifted */
-  --accent-press: light-dark(#c63307, #ff9166);  /* 700 / lighter for dark */
-  --accent-soft:  light-dark(#c63307, #ffb992);  /* readable text shade */
-  --accent-dim:   light-dark(rgb(240 66 10 / 0.12), rgb(255 90 31 / 0.20));
-  --accent-glow:  light-dark(rgb(240 66 10 / 0.30), rgb(255 90 31 / 0.38));
-  --on-accent:    #ffffff;
+  /* ── Signals — three enamel status colours, no brand accent ──
+     Green = go / ok / live / the primary action. Amber = attention /
+     idle / secondary / experimental. Red = danger / error / destructive.
+     Each family: the signal itself (text-safe ≥ 4.5:1 on --bg, --surface
+     AND --sink in both themes, so one token serves label, LED, hairline
+     and fill), -press (hover/active fill), -soft (the readable text
+     shade for wells and chips), -dim (faint tint fill), -glow (the
+     translucent glow colour), -on (lettering on a filled control).
+     Light runs the ramp's 500 / 600 / 600 steps — deep enamel under
+     white lettering; dark runs 400 / 300 / 200 — lit enamel under
+     near-black lettering. Values live in the @theme ramps above; the
+     mid steps are the ones Nuxt UI binds its aliases to, so docs
+     chrome = playground. Glow colour is mixed from the ramp's 400 step
+     (the lit one) in BOTH schemes, dark dialed down. */
+  --ok:         light-dark(var(--color-green-500), var(--color-green-400));
+  --ok-press:   light-dark(var(--color-green-600), var(--color-green-300));
+  --ok-soft:    light-dark(var(--color-green-600), var(--color-green-200));
+  --ok-dim:     light-dark(color-mix(in srgb, var(--color-green-500) 12%, transparent),
+                           color-mix(in srgb, var(--color-green-400) 16%, transparent));
+  --ok-glow:    light-dark(color-mix(in srgb, var(--color-green-400) 34%, transparent),
+                           color-mix(in srgb, var(--color-green-400) 26%, transparent));
+  --on-ok:      light-dark(#ffffff, #06150b);
 
-  /* ── Semantic ring colors (status, not fills) ───────────────── */
-  --ok:       light-dark(#16a34a, #4ade80);
-  --ok-dim:   light-dark(rgb(22 163 74 / 0.12), rgb(74 222 128 / 0.16));
-  --warn:     light-dark(#d97706, #fbbf24);
-  --warn-dim: light-dark(rgb(217 119 6 / 0.12), rgb(251 191 36 / 0.16));
-  --err:      light-dark(#dc2626, #f87171);
-  --err-dim:  light-dark(rgb(220 38 38 / 0.1), rgb(248 113 113 / 0.16));
-  /* No blue in the palette — "info"/in-progress folds into the orange accent. */
-  --info:     var(--accent);
-  --info-dim: var(--accent-dim);
+  --warn:       light-dark(var(--color-amber-500), var(--color-amber-400));
+  --warn-press: light-dark(var(--color-amber-600), var(--color-amber-300));
+  --warn-soft:  light-dark(var(--color-amber-600), var(--color-amber-200));
+  --warn-dim:   light-dark(color-mix(in srgb, var(--color-amber-500) 12%, transparent),
+                           color-mix(in srgb, var(--color-amber-400) 16%, transparent));
+  --warn-glow:  light-dark(color-mix(in srgb, var(--color-amber-400) 34%, transparent),
+                           color-mix(in srgb, var(--color-amber-400) 26%, transparent));
+  --on-warn:    light-dark(#ffffff, #1a1200);
 
-  /* ── Experimental marker (a violet, distinct from the accent) ─ */
-  --xp:      light-dark(#7c3aed, #c4b5fd);
-  --xp-dim:  light-dark(rgb(124 58 237 / 0.12), rgb(196 181 253 / 0.18));
-  --xp-glow: light-dark(rgb(124 58 237 / 0.22), rgb(196 181 253 / 0.3));
-  --on-xp:   #ffffff;
+  --err:        light-dark(var(--color-red-500), var(--color-red-400));
+  --err-press:  light-dark(var(--color-red-600), var(--color-red-300));
+  --err-soft:   light-dark(var(--color-red-600), var(--color-red-200));
+  --err-dim:    light-dark(color-mix(in srgb, var(--color-red-500) 10%, transparent),
+                           color-mix(in srgb, var(--color-red-400) 16%, transparent));
+  --err-glow:   light-dark(color-mix(in srgb, var(--color-red-400) 34%, transparent),
+                           color-mix(in srgb, var(--color-red-400) 26%, transparent));
+  --on-err:     light-dark(#ffffff, #1c0707);
+
+  /* Focus is green — "go here". Gradient type is a green ramp. */
+  --focus:      var(--ok);
+  --text-grad:  linear-gradient(135deg, var(--ok-soft), var(--ok) 55%, var(--ok-press));
+
+  /* ── Legacy names — thin aliases onto a signal so the sweep can retire
+     them file by file without a visual break. The old "accent" (the
+     fluorescent brand hue) IS the green now; "info" and the violet
+     "experimental" marker fold into amber. ─────────────────────── */
+  --accent:       var(--ok);         /* legacy alias — retire after the sweep */
+  --accent-press: var(--ok-press);   /* legacy alias — retire after the sweep */
+  --accent-soft:  var(--ok-soft);    /* legacy alias — retire after the sweep */
+  --accent-dim:   var(--ok-dim);     /* legacy alias — retire after the sweep */
+  --accent-glow:  var(--ok-glow);    /* legacy alias — retire after the sweep */
+  --on-accent:    var(--on-ok);      /* legacy alias — retire after the sweep */
+  --info:         var(--warn);       /* legacy alias — retire after the sweep */
+  --info-dim:     var(--warn-dim);   /* legacy alias — retire after the sweep */
+  --xp:           var(--warn);       /* legacy alias — retire after the sweep */
+  --xp-dim:       var(--warn-dim);   /* legacy alias — retire after the sweep */
+  --xp-glow:      var(--warn-glow);  /* legacy alias — retire after the sweep */
+  --on-xp:        var(--on-warn);    /* legacy alias — retire after the sweep */
 
   /* Neutral hairline — separates busy lists / table rows / headers. */
   --edge:    light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.07));
   --edge-hi: light-dark(rgb(0 0 0 / 0.14), rgb(255 255 255 / 0.12));
 
   /* ── Geometry — rounder for the depth-design refresh ───────── */
+  --r-xs: 6px;
   --r-sm: 10px;
   --r:    16px;
   --r-lg: 22px;
@@ -172,10 +253,10 @@ html.light { color-scheme: light; }
   --raise-lg:     var(--elev-3);   /* popover / large lifted surface  */
   --inset:        var(--inset-2);  /* deep well (panel.well, tracks)  */
   --inset-sm:     var(--inset-1);  /* shallow well (input, chip)      */
-  --raise-accent: var(--elev-1), var(--glow-accent-soft); /* primary  */
+  --raise-accent: var(--elev-1), var(--glow-ok-soft); /* legacy alias — retire after the sweep */
 
   /* Custom UI hooks */
-  accent-color: var(--accent);
+  accent-color: var(--ok);
   scrollbar-color: var(--edge-hi) transparent;
   scrollbar-width: thin;
 }
@@ -188,7 +269,7 @@ html.light { color-scheme: light; }
    Keyframes
    ════════════════════════════════════════════════════════════════ */
 @keyframes pulse-ring {
-  0%, 100% { box-shadow: 0 0 0 0 var(--ring-glow, var(--accent-glow)); opacity: 1; }
+  0%, 100% { box-shadow: 0 0 0 0 var(--ring-glow, var(--ok-glow)); opacity: 1; }
   50%      { box-shadow: 0 0 0 6px transparent; opacity: 0.6; }
 }
 @keyframes fade-up {
@@ -229,7 +310,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-.pg-shell ::selection { background: var(--accent); color: var(--on-accent); }
+.pg-shell ::selection { background: var(--ok); color: var(--on-ok); }
 
 h1, h2, h3 { text-wrap: balance; }
 p, li { text-wrap: pretty; }
@@ -274,7 +355,7 @@ input, .mono, code, pre, time, .tnum { font-variant-numeric: tabular-nums; }
 code.inline {
   font-family: var(--mono);
   font-size: 0.82em;
-  color: var(--accent-soft);
+  color: var(--ok-soft);
   background: var(--sink);
   padding: 0.08rem 0.36rem;
   border-radius: 5px;
@@ -308,10 +389,10 @@ code.inline {
     transform var(--press) var(--ease-out);
   text-decoration: none;
 }
-.btn:hover { color: var(--accent); }
+.btn:hover { color: var(--ok); }
 .btn:active:not(:disabled) { box-shadow: var(--inset-sm); transform: translateY(0.5px); }
-.btn.primary { background: var(--accent); color: var(--on-accent); box-shadow: var(--raise-accent); }
-.btn.primary:hover { background: var(--accent-press); color: var(--on-accent); }
+.btn.primary { background: var(--ok); color: var(--on-ok); box-shadow: var(--elev-1), var(--glow-ok-soft); }
+.btn.primary:hover { background: var(--ok-press); color: var(--on-ok); }
 .btn.primary:active:not(:disabled) { box-shadow: var(--inset-sm); }
 .btn.secondary { background: var(--surface); }
 .btn.danger { color: var(--err); }
@@ -321,13 +402,13 @@ code.inline {
    Focus & touch (Web Interface Guidelines) — ring sits ON TOP of depth
    ════════════════════════════════════════════════════════════════ */
 .pg-shell :where(a, button, summary, [role="button"], .lb):focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 a, button, summary, [role="button"], .lb, .tg, label { touch-action: manipulation; }
 
 .tg-sw input:focus-visible ~ .tg-track {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -348,7 +429,7 @@ a, button, summary, [role="button"], .lb, .tg, label { touch-action: manipulatio
 }
 .input:focus {
   outline: none;
-  box-shadow: var(--inset-sm), 0 0 0 2px var(--accent);
+  box-shadow: var(--inset-sm), 0 0 0 2px var(--focus);
 }
 .input::placeholder { color: var(--ink-faint); }
 
@@ -392,7 +473,7 @@ a, button, summary, [role="button"], .lb, .tg, label { touch-action: manipulatio
 @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
 
 .hint { font-size: 0.78rem; color: var(--ink-dim); line-height: 1.55; margin: 0; }
-.hint code, .lead code { font-family: var(--mono); font-size: 0.9em; color: var(--accent-soft); }
+.hint code, .lead code { font-family: var(--mono); font-size: 0.9em; color: var(--ok-soft); }
 .lead { font-size: 0.88rem; color: var(--ink-dim); line-height: 1.6; margin: 0; }
 
 textarea.input { resize: vertical; min-height: 4.5rem; line-height: 1.5; }
@@ -424,7 +505,7 @@ details.dev > summary::before {
   content: '+';
   font-size: 0.95rem;
   line-height: 1;
-  color: var(--accent);
+  color: var(--ok);
 }
 details.dev[open] > summary::before { content: '−'; }
 details.dev > .dev-body { padding: 0.25rem 0.85rem 0.85rem; }
@@ -468,13 +549,24 @@ details.dev > .dev-body { padding: 0.25rem 0.85rem 0.85rem; }
     inset 2px 2px 5px rgb(0 0 0 / 0.14),
     inset -1px -1px 0 rgb(255 255 255 / 0.5);
 
-  --glow-accent:
-    0 0 0 1px rgb(255 90 31 / 0.35),
-    0 4px 16px rgb(255 90 31 / 0.35);
-  --glow-accent-soft: 0 0 14px rgb(255 90 31 / 0.30);
-  --glow-ok:   0 0 9px rgb(74 222 128 / 0.55);
-  --glow-warn: 0 0 9px rgb(251 191 36 / 0.5);
-  --glow-err:  0 0 9px rgb(248 113 113 / 0.5);
+  /* Glows — one family per signal, three strengths: the bare glow is an
+     LED (live dot, doctor finding, delivery outcome), -soft a resting
+     primary control, -ring an active control (1px ring + cast). Colour
+     is mixed from the ramp's lit 400 step in both schemes (--*-glow is
+     light-dark); the dark blocks pull radii and alpha in — lit enamel
+     already reads bright on dark steel. Glows obey §Palette: one per
+     element, on a control or an LED, never on a panel. */
+  --glow-ok:        0 0 9px color-mix(in srgb, var(--color-green-400) 55%, transparent);
+  --glow-ok-soft:   0 0 14px var(--ok-glow);
+  --glow-ok-ring:   0 0 0 1px var(--ok-glow), 0 4px 16px var(--ok-glow);
+  --glow-warn:      0 0 9px color-mix(in srgb, var(--color-amber-400) 55%, transparent);
+  --glow-warn-soft: 0 0 14px var(--warn-glow);
+  --glow-warn-ring: 0 0 0 1px var(--warn-glow), 0 4px 16px var(--warn-glow);
+  --glow-err:       0 0 9px color-mix(in srgb, var(--color-red-400) 55%, transparent);
+  --glow-err-soft:  0 0 14px var(--err-glow);
+  --glow-err-ring:  0 0 0 1px var(--err-glow), 0 4px 16px var(--err-glow);
+  --glow-accent:      var(--glow-ok-ring); /* legacy alias — retire after the sweep */
+  --glow-accent-soft: var(--glow-ok-soft); /* legacy alias — retire after the sweep */
 
   /* Lit surface gradient + the light-top-left → dark-bottom-right bevel
      used by .depth-border. Colors follow color-scheme via light-dark(). */
@@ -487,7 +579,11 @@ details.dev > .dev-body { padding: 0.25rem 0.85rem 0.85rem; }
      One sun, top-left (ray ≈330°). Engraving is SUBTRACTIVE: the near
      wall (up-left) falls into shadow, the far wall (down-right) catches
      light. Embossing flips the offsets. */
-  --engrave-ink: #7a7a7a;                          /* 3.5:1 on #e8e8e8 — WCAG large-text bar; shadows do not count */
+  /* These two are the CANVAS calibration (`--bg` = #e8e8e8). Engraving is
+     applied on plaques and in slots too, and an ink measured against one
+     ground does not hold on another — so `.plaque`/`.slot` re-derive both
+     inks against their own face in the surface-aware block below. */
+  --engrave-ink: #7a7a7a;                          /* 3.50:1 on #e8e8e8 — WCAG large-text bar; shadows do not count */
   --engrave-ink-sm: #686868;                       /* 4.55:1 on #e8e8e8 — small labels need the 4.5:1 bar */
   --engrave:
     -0.8px -1.39px 0.8px  rgb(0 0 0 / 0.50),       /* near wall shadow, up-left  */
@@ -585,14 +681,27 @@ details.dev > .dev-body { padding: 0.25rem 0.85rem 0.85rem; }
     --grad-bevel: linear-gradient(135deg,
       rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.03) 45%, rgb(0 0 0 / 0.5));
 
+    /* Signal glows — dialed down: lit enamel already reads bright. */
+    --glow-ok:        0 0 8px color-mix(in srgb, var(--color-green-400) 45%, transparent);
+    --glow-ok-soft:   0 0 12px var(--ok-glow);
+    --glow-ok-ring:   0 0 0 1px var(--ok-glow), 0 4px 14px var(--ok-glow);
+    --glow-warn:      0 0 8px color-mix(in srgb, var(--color-amber-400) 45%, transparent);
+    --glow-warn-soft: 0 0 12px var(--warn-glow);
+    --glow-warn-ring: 0 0 0 1px var(--warn-glow), 0 4px 14px var(--warn-glow);
+    --glow-err:       0 0 8px color-mix(in srgb, var(--color-red-400) 45%, transparent);
+    --glow-err-soft:  0 0 12px var(--err-glow);
+    --glow-err-ring:  0 0 0 1px var(--err-glow), 0 4px 14px var(--err-glow);
+
     /* Matte material — machined dark steel: highlights faint, shadows deep.
        Ink sits well ABOVE the steel: #6d6d6d clears 3:1 on #161616 AND on the
        #232323 plaque face (engraving must survive on plaques too) — text-shadow
        never counts toward contrast, so the ink carries legibility alone and
        the dark carve shadows up-left only read the letters as cut in. Small
-       labels take #8a8a8a for the 4.5:1 bar. */
-    --engrave-ink: #6d6d6d;
-    --engrave-ink-sm: #8a8a8a;
+       labels take #8a8a8a for the 4.5:1 bar. Both are the CANVAS values —
+       #6d6d6d only reaches 3.04:1 on the #232323 plaque face and 2.74:1 on
+       #2b2b2b, so plaques re-derive them (surface-aware block below). */
+    --engrave-ink: #6d6d6d;                        /* 3.50:1 on #161616 */
+    --engrave-ink-sm: #8a8a8a;                     /* 5.24:1 on #161616 */
     --engrave:
       -0.8px -1.39px 1px    rgb(0 0 0 / 0.85),
       -1.7px -2.94px 4.95px rgb(0 0 0 / 0.45),
@@ -653,6 +762,15 @@ html.dark {
   --inset-1: inset 1px 1px 3px rgb(0 0 0 / 0.5), inset -1px -1px 0 rgb(255 255 255 / 0.05);
   --inset-2: inset 2px 2px 6px rgb(0 0 0 / 0.6), inset -1px -1px 0 rgb(255 255 255 / 0.04);
   --grad-bevel: linear-gradient(135deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.03) 45%, rgb(0 0 0 / 0.5));
+  --glow-ok: 0 0 8px color-mix(in srgb, var(--color-green-400) 45%, transparent);
+  --glow-ok-soft: 0 0 12px var(--ok-glow);
+  --glow-ok-ring: 0 0 0 1px var(--ok-glow), 0 4px 14px var(--ok-glow);
+  --glow-warn: 0 0 8px color-mix(in srgb, var(--color-amber-400) 45%, transparent);
+  --glow-warn-soft: 0 0 12px var(--warn-glow);
+  --glow-warn-ring: 0 0 0 1px var(--warn-glow), 0 4px 14px var(--warn-glow);
+  --glow-err: 0 0 8px color-mix(in srgb, var(--color-red-400) 45%, transparent);
+  --glow-err-soft: 0 0 12px var(--err-glow);
+  --glow-err-ring: 0 0 0 1px var(--err-glow), 0 4px 14px var(--err-glow);
   --engrave-ink: #6d6d6d;
   --engrave-ink-sm: #8a8a8a;
   --engrave: -0.8px -1.39px 1px rgb(0 0 0 / 0.85), -1.7px -2.94px 4.95px rgb(0 0 0 / 0.45), 1px 1.73px 0.94px rgb(255 255 255 / 0.18), 1.8px 3.12px 4.5px rgb(255 255 255 / 0.05);
@@ -674,6 +792,15 @@ html.light {
   --inset-1: inset 1px 1px 2px rgb(0 0 0 / 0.10), inset -1px -1px 0 rgb(255 255 255 / 0.6);
   --inset-2: inset 2px 2px 5px rgb(0 0 0 / 0.14), inset -1px -1px 0 rgb(255 255 255 / 0.5);
   --grad-bevel: linear-gradient(135deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.12) 45%, rgb(0 0 0 / 0.14));
+  --glow-ok: 0 0 9px color-mix(in srgb, var(--color-green-400) 55%, transparent);
+  --glow-ok-soft: 0 0 14px var(--ok-glow);
+  --glow-ok-ring: 0 0 0 1px var(--ok-glow), 0 4px 16px var(--ok-glow);
+  --glow-warn: 0 0 9px color-mix(in srgb, var(--color-amber-400) 55%, transparent);
+  --glow-warn-soft: 0 0 14px var(--warn-glow);
+  --glow-warn-ring: 0 0 0 1px var(--warn-glow), 0 4px 16px var(--warn-glow);
+  --glow-err: 0 0 9px color-mix(in srgb, var(--color-red-400) 55%, transparent);
+  --glow-err-soft: 0 0 14px var(--err-glow);
+  --glow-err-ring: 0 0 0 1px var(--err-glow), 0 4px 16px var(--err-glow);
   --engrave-ink: #7a7a7a;
   --engrave-ink-sm: #686868;
   --engrave: -0.8px -1.39px 0.8px rgb(0 0 0 / 0.50), -1.7px -2.94px 4.95px rgb(0 0 0 / 0.19), 1px 1.73px 0.94px rgb(255 255 255 / 0.92), 1.8px 3.12px 4.5px rgb(255 255 255 / 0.30);
@@ -710,7 +837,7 @@ html.light {
   box-shadow: var(--inset-1);
 }
 .text-grad {
-  background: linear-gradient(135deg, var(--accent-soft), var(--accent) 55%, var(--accent-press));
+  background: var(--text-grad);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -760,6 +887,32 @@ a.plaque:hover, button.plaque:hover { box-shadow: var(--plaque-hi); }
 .slot   { background: var(--sink); border-radius: var(--r); box-shadow: var(--slot); }
 .carved { box-shadow: var(--slot); }
 
+/* ── Surface-aware inks ──────────────────────────────────────────
+   A text-shadow never counts toward contrast, so an engraved (or faint)
+   label is carried by its ink alone — and an ink calibrated against the
+   canvas does NOT survive being moved onto a raised plaque or down into a
+   milled slot. Each ground therefore re-derives the three inks that carry
+   real text, so every one of them holds 3:1 (large / `.engraved`) and
+   4.5:1 (small / `.engraved-sm`, `--ink-faint`) on the face it sits on.
+   Ratios are WCAG sRGB, measured light / dark against that block's own
+   `--surface`+`--surface-hi` or `--sink`.
+
+   Raised faces — `--surface` #fafafa / #232323, `--surface-hi` #ffffff /
+   #2b2b2b. The dark side is the tight one: the canvas ink would land at
+   2.74:1 on #2b2b2b, below even the large-text floor. */
+.plaque, .card, .code-plate {
+  --engrave-ink:    light-dark(#7a7a7a, #787878); /* 4.11 / 4.29 · 3.56 / 3.21 */
+  --engrave-ink-sm: light-dark(#686868, #969696); /* 5.34 / 5.57 · 5.31 / 4.79 */
+  --ink-faint:      light-dark(#666666, #949494); /* 5.50 / 5.74 · 5.18 / 4.67 */
+}
+/* Milled wells — `--sink` #dadada / #151515. Here the LIGHT side is tight:
+   the canvas small ink drops to 3.99:1 on #dadada. */
+.slot, .well, .input, .pill, .search-slot, details.dev {
+  --engrave-ink:    light-dark(#767676, #6d6d6d); /* 3.25 · 3.53 */
+  --engrave-ink-sm: light-dark(#5f5f5f, #8a8a8a); /* 4.57 · 5.29 */
+  --ink-faint:      light-dark(#5e5e5e, #858585); /* 4.64 · 4.95 */
+}
+
 .surface-matte {
   background: var(--matte-bg);
   background-blend-mode: soft-light, normal, normal, normal;
@@ -803,6 +956,16 @@ a.plaque:hover, button.plaque:hover { box-shadow: var(--plaque-hi); }
   box-shadow: var(--elev-0);
 }
 
+/* The copy button is absolutely positioned at the block's top-right corner
+   with no gutter reserved for it, and below `lg` it is permanently visible
+   (Nuxt UI only fades it in on hover from `lg` up). On a phone it therefore
+   landed ON the first line of code — over `--prod` in
+   `npx nuxt-backend doctor --prod`, for one. Reserve its lane instead: on a
+   block WITH a filename the button sits on the plate, so the plate takes the
+   inset; on a block without one it sits on the code, so the `pre` does. */
+div.code-plate { padding-right: 3.25rem; }
+div:not(:has(> .code-plate)) > pre.slot { padding-right: 3.25rem; }
+
 /* Depth is decoration — on request, give back plain ink. Reaches every site
    that carves or raises type: the four utilities, `kbd`, and the icon-emboss
    token. Components must apply depth through those (never a hand-written
@@ -843,11 +1006,11 @@ html.qa-contrast .embossed, html.qa-contrast .embossed-sm, html.qa-contrast kbd 
 .hbtn:hover { box-shadow: var(--plaque-hi); transform: translateY(-1px); }
 .hbtn:active { box-shadow: var(--inset-1); transform: translateY(0.5px); }
 .hbtn--primary {
-  color: var(--on-accent);
-  background: linear-gradient(135deg, var(--accent), var(--accent-press));
-  box-shadow: var(--elev-1), var(--glow-accent-soft);
+  color: var(--on-ok);
+  background: linear-gradient(135deg, var(--ok), var(--ok-press));
+  box-shadow: var(--elev-1), var(--glow-ok-soft);
 }
-.hbtn--primary:hover { box-shadow: var(--elev-2), var(--glow-accent); }
+.hbtn--primary:hover { box-shadow: var(--elev-2), var(--glow-ok-ring); }
 .hbtn--ghost { background: none; box-shadow: none; color: var(--ink-dim); }
 .hbtn--ghost:hover { color: var(--ink); box-shadow: var(--elev-0); }
 
@@ -865,8 +1028,8 @@ html.qa-contrast .embossed, html.qa-contrast .embossed-sm, html.qa-contrast kbd 
 /* Left sidebar + right TOC links. One metaphor: ACTIVE = pressed — the
    control latches INTO the material; hover = a hairline lift. The link
    ships a `::before` background layer (inset, z-[-1], rounded) we carve.
-   The orange active label stays crisp on the pressed slot — signal
-   color, never engraved. */
+   The green active label stays crisp on the pressed slot — a signal is
+   never engraved. */
 aside a { transition: color 0.18s var(--ease-out); }
 aside a:hover::before {
   background: var(--surface);
@@ -877,8 +1040,17 @@ aside a.text-primary::before {
   box-shadow: var(--inset-1);
 }
 
-/* Inline code → tiny recessed chips; kbd → a raised keycap. */
+/* Inline code → tiny recessed chips; kbd → a raised keycap.
+   The well needs the pocket to go with it: without a radius and a ground
+   the inset shadow reads as a square notch cut into the paragraph, which
+   is the one hard 90° corner on an otherwise fully machined page. Written
+   at `:where()` (specificity 0) on purpose — inside the docs, Nuxt UI's
+   ProseCode utilities out-specify these and keep their own tinted chip, so
+   the two halves of the site converge instead of fighting. */
 :where(p, li, td, h1, h2, h3, h4, h5) > code {
+  padding: 0.05em 0.35em;
+  border-radius: var(--r-xs);
+  background: var(--sink);
   box-shadow: var(--inset-sm);
 }
 kbd { box-shadow: var(--elev-0); text-shadow: var(--emboss-sm); }
@@ -890,8 +1062,8 @@ kbd { box-shadow: var(--elev-0); text-shadow: var(--emboss-sm); }
 .bk-depth :where([data-auth='form'], [data-invitation], [data-gift='banner'],
                  [data-pricing='table'], [data-settings='root'],
                  [data-profile='root'], [data-security='root']) {
-  --bk-accent: var(--accent);
-  --bk-on-accent: var(--on-accent);
+  --bk-accent: var(--ok);
+  --bk-on-accent: var(--on-ok);
   --bk-muted: var(--ink-dim);
   --bk-edge: var(--edge);
   --bk-surface: var(--surface);

@@ -73,7 +73,7 @@ function clock(at: number) {
   <div class="pager">
     <span class="pager-status">{{ filtered.length }} shown</span>
     <LabButton
-      variant="ghost"
+      variant="secondary"
       size="sm"
       :disabled="pageStatus !== 'CanLoadMore'"
       @click="loadMore(pageSize)"
@@ -114,7 +114,7 @@ function clock(at: number) {
   border-radius: 3px;
   text-align: center;
 }
-.lbadge.info { color: var(--info); background: var(--info-dim); }
+.lbadge.info { color: var(--warn); background: var(--warn-dim); }
 .lbadge.warn { color: var(--warn); background: var(--warn-dim); }
 .lbadge.error { color: var(--err); background: var(--err-dim); }
 .lmsg { word-break: break-word; color: var(--ink); }
@@ -128,7 +128,7 @@ function clock(at: number) {
   width: 12px;
   height: 12px;
   border: 1.5px solid var(--edge);
-  border-top-color: var(--accent);
+  border-top-color: var(--ok);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }

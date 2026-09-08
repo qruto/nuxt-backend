@@ -1,0 +1,155 @@
+---
+navigation: true
+---
+
+# convex/components/backend/gifts
+
+## Variables
+
+### create
+
+```ts
+const create: RegisteredMutation<"public", {
+  message?: string;
+  purchaserEmail?: string;
+  purchaserName?: string;
+  recipientEmail: string;
+  purchaserUserId: string;
+  productIds: string[];
+  billingCustomerId: string;
+}, Promise<string>>;
+```
+
+Defined in: [nuxt-backend/src/convex/components/backend/gifts.ts:43](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L43)
+
+Record a gift at checkout time (status `pending` until the order webhook).
+
+***
+
+### markPaid
+
+```ts
+const markPaid: RegisteredMutation<"public", {
+  billingOrderId?: string;
+  giftId: Id<"billingGifts">;
+}, Promise<null>>;
+```
+
+Defined in: [nuxt-backend/src/convex/components/backend/gifts.ts:66](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L66)
+
+Mark a gift paid once the billing provider confirms the order. Idempotent.
+
+***
+
+### markNotified
+
+```ts
+const markNotified: RegisteredMutation<"public", {
+  giftId: string;
+}, Promise<boolean>>;
+```
+
+Defined in: [nuxt-backend/src/convex/components/backend/gifts.ts:83](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L83)
+
+Stamp the recipient-notification email as sent — status-guarded so webhook
+redeliveries of `order.paid` can never email the recipient twice.
+Returns whether this call won the stamp (the caller sends only on `true`).
+
+***
+
+### markClaimed
+
+```ts
+const markClaimed: RegisteredMutation<"public", {
+  userId: string;
+  entityId: string;
+  giftId: Id<"billingGifts">;
+}, Promise<null>>;
+```
+
+Defined in: [nuxt-backend/src/convex/components/backend/gifts.ts:96](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L96)
+
+***
+
+### listByEmail
+
+```ts
+const listByEmail: RegisteredQuery<"public", {
+  status?: string;
+  email: string;
+}, Promise<{
+  id: string;
+  recipientEmail: string;
+  purchaserUserId: string;
+  purchaserEmail: string | undefined;
+  purchaserName: string | undefined;
+  productIds: string[];
+  message: string | undefined;
+  status: string;
+  billingCustomerId: string;
+  billingOrderId: string | undefined;
+  claimedByUserId: string | undefined;
+  claimedEntityId: string | undefined;
+  createdAt: number;
+  paidAt: number | undefined;
+  claimedAt: number | undefined;
+}[]>>;
+```
+
+Defined in: [nuxt-backend/src/convex/components/backend/gifts.ts:113](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L113)
+
+Gifts addressed to an email (lowercased), optionally filtered by status.
+
+***
+
+### get
+
+```ts
+const get: RegisteredQuery<"public", {
+  giftId: Id<"billingGifts">;
+}, Promise<
+  | {
+  id: string;
+  recipientEmail: string;
+  purchaserUserId: string;
+  purchaserEmail: string | undefined;
+  purchaserName: string | undefined;
+  productIds: string[];
+  message: string | undefined;
+  status: string;
+  billingCustomerId: string;
+  billingOrderId: string | undefined;
+  claimedByUserId: string | undefined;
+  claimedEntityId: string | undefined;
+  createdAt: number;
+  paidAt: number | undefined;
+  claimedAt: number | undefined;
+}
+| null>>;
+```
+
+Defined in: [nuxt-backend/src/convex/components/backend/gifts.ts:132](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L132)
+
+A single gift by id, or `null`.
+
+***
+
+### resolveRecipient
+
+```ts
+const resolveRecipient: RegisteredQuery<"public", {
+  email: string;
+}, Promise<
+  | {
+  userId: string;
+  organizationId: string | null;
+}
+| null>>;
+```
+
+Defined in: [nuxt-backend/src/convex/components/backend/gifts.ts:147](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L147)
+
+Resolve a recipient email to an existing auth user and their first workspace
+— direct index reads on this component's own auth tables (one benefit of the
+all-in-one component). Used by the order webhook to attach a gift
+automatically when the recipient already has an account.

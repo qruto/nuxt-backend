@@ -84,11 +84,11 @@ function clock(at: number) {
     <LabPanel
       label="bucket"
       title="rateLimiter.ping · 5/min"
-      tone="accent"
+      tone="ok"
     >
       <div class="row">
         <LabButton
-          variant="signal"
+          variant="primary"
           :loading="pending"
           @click="runPing"
         >
@@ -165,7 +165,7 @@ function clock(at: number) {
 .auth-meter-name { font-size: 0.75rem; width: 5.5rem; }
 .auth-meter-count { font-size: 0.7rem; color: var(--ink-dim); }
 .meter { flex: 1; height: 10px; border-radius: 99px; background: var(--sink); box-shadow: var(--inset-sm); overflow: hidden; }
-.meter-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.3s var(--ease-out); }
+.meter-fill { height: 100%; background: var(--ok); border-radius: 99px; transition: width 0.3s var(--ease-out); }
 .log { list-style: none; margin: 1rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
 .log li { display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; border-radius: var(--r-sm); background: var(--surface); box-shadow: var(--raise-sm); }
 time { font-size: 0.68rem; color: var(--ink-dim); font-family: var(--mono); }

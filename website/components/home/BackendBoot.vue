@@ -7,6 +7,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
  * On scroll-into-view it types the install command, then boots each backend
  * module in sequence: most light up "ready", while integrations you haven't
  * wired yet stay honestly "idle" (a graceful no-op until configured). Replayable.
+ * Status language: amber while booting / idle, green once ready and online.
  * SSR renders the finished state, so there's no layout shift and hydration is
  * stable; the animation only resets + replays on the client.
  */
@@ -131,7 +132,7 @@ function replay() {
           <span class="ttl engraved-sm">Boot sequence</span>
           <span
             class="state"
-            :class="{ on: online }"
+            :class="online ? 'on' : 'busy'"
           >
             <span class="led" />
             {{ online ? 'backend online' : 'booting…' }}
@@ -236,15 +237,17 @@ function replay() {
   font-family: var(--mono); font-size: 0.66rem; font-weight: 600;
   color: var(--ink-faint); transition: color 0.3s;
 }
-.state.on { color: var(--accent-soft); }
-.state .led { width: 7px; height: 7px; border-radius: 999px; background: currentColor; }
-.state.on .led { background: var(--accent); box-shadow: var(--glow-accent-soft); }
+.state .led { width: 7px; height: 7px; border-radius: 999px; background: currentColor; transition: box-shadow 0.3s; }
+.state.busy { color: var(--warn); }
+.state.busy .led { box-shadow: var(--glow-warn); animation: beat 1.2s ease-in-out infinite; }
+.state.on { color: var(--ok); }
+.state.on .led { box-shadow: var(--glow-ok); }
 
 .body { padding: 1.1rem 1.15rem 1.2rem; font-family: var(--mono); }
 .cmd { margin: 0 0 0.9rem; font-size: 0.84rem; color: var(--ink); min-height: 1.2em; }
 .caret {
   display: inline-block; width: 8px; height: 1.05em; margin-left: 2px;
-  vertical-align: text-bottom; background: var(--accent); animation: blink 1s steps(1) infinite;
+  vertical-align: text-bottom; background: currentColor; animation: blink 1s steps(1) infinite;
 }
 
 .rack { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
@@ -257,25 +260,27 @@ function replay() {
 .mod.pending { opacity: 0.28; transform: translateY(1px); }
 .glyph { display: inline-flex; justify-content: center; color: var(--ink-faint); }
 .mod.ready .glyph { color: var(--ok); }
-.mod.booting .glyph { color: var(--accent); }
+.mod.idle .glyph { color: var(--warn); }
+.mod.booting .glyph { color: var(--warn); }
 .glyph :deep(svg) { width: 14px; height: 14px; }
 .bullet { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
 .spinner {
   width: 12px; height: 12px; border-radius: 999px;
-  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  border-top-color: var(--accent); animation: spin 0.7s linear infinite;
+  border: 2px solid var(--warn-dim);
+  border-top-color: var(--warn); animation: spin 0.7s linear infinite;
 }
 .name { color: var(--ink); font-weight: 600; }
 .desc { color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tag { font-size: 0.64rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
 .mod.ready .tag { color: var(--ok); }
-.mod.booting .tag { color: var(--accent); }
+.mod.idle .tag { color: var(--warn); }
+.mod.booting .tag { color: var(--warn); }
 
 .summary {
   margin: 1rem 0 0; padding-top: 0.8rem; border-top: 1px solid var(--edge);
   font-size: 0.74rem; color: var(--ink-dim);
 }
-.summary .arrow { color: var(--accent); }
+.summary .arrow { color: var(--ok); }
 .summary .hl { color: var(--ink); font-weight: 600; }
 
 .replay {
@@ -285,13 +290,14 @@ function replay() {
   background: var(--grad-surface); box-shadow: var(--elev-1);
   transition: color var(--transition), box-shadow var(--transition), transform var(--press);
 }
-.replay:hover { color: var(--accent-soft); box-shadow: var(--elev-2); transform: translateY(-1px); }
+.replay:hover { color: var(--ok); box-shadow: var(--elev-2); transform: translateY(-1px); }
 .replay:active { box-shadow: var(--inset-1); transform: translateY(0.5px); }
 .replay :deep(svg) { width: 14px; height: 14px; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes blink { 50% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .spinner, .caret { animation: none; } }
+@keyframes beat { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .spinner, .caret, .state .led { animation: none; } }
 @media (max-width: 560px) {
   .mod { grid-template-columns: 1.2rem 1fr auto; }
   .mod .desc { display: none; }

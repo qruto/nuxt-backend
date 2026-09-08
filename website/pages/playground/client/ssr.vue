@@ -66,7 +66,7 @@ async function run() {
     <LabPanel
       label="auth preload · live"
       title="todos.list"
-      tone="accent"
+      tone="ok"
     >
       <template #actions>
         <span class="mono stat"><b>{{ total }}</b> total · <b class="ok">{{ done }}</b> done</span>
@@ -91,7 +91,7 @@ async function run() {
           style="flex: 1"
         >
         <LabButton
-          variant="signal"
+          variant="primary"
           type="submit"
           :disabled="!newTodo.trim()"
         >
@@ -152,7 +152,7 @@ async function run() {
           <li><code>fetchAuthAction(demo.echo)</code></li>
         </ol>
         <LabButton
-          variant="signal"
+          variant="primary"
           :loading="pending"
           @click="run"
         >
@@ -211,7 +211,7 @@ async function run() {
       </p>
       <StateReadout
         :value="flaky"
-        tone="accent"
+        tone="ok"
         label="usePreloadedQuery(...).value"
       />
     </LabPanel>
@@ -228,11 +228,11 @@ async function run() {
 .todos li.completed { opacity: 0.6; }
 .check {
   width: 19px; height: 19px; flex-shrink: 0; border: 0; border-radius: 5px;
-  background: var(--sink); box-shadow: var(--inset-sm); color: var(--on-accent); cursor: pointer;
+  background: var(--sink); box-shadow: var(--inset-sm); color: var(--on-ok); cursor: pointer;
   font-size: 0.7rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
   transition: background var(--transition), box-shadow var(--transition);
 }
-.check.on { background: var(--accent); box-shadow: var(--raise-sm); }
+.check.on { background: var(--ok); box-shadow: var(--raise-sm); }
 .todos span { flex: 1; font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .doneitem { text-decoration: line-through; color: var(--ink-dim); }
 .remove { width: 26px; height: 26px; border: 0; background: transparent; color: var(--ink-dim); cursor: pointer; font-size: 1.15rem; line-height: 1; border-radius: 6px; flex-shrink: 0; }

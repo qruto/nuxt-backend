@@ -22,20 +22,20 @@ const tone = computed(() => {
   switch (type.value) {
     case 'completed': return 'ok'
     case 'failed': return 'err'
-    case 'inProgress': return 'accent'
-    case 'starting': return 'info'
+    case 'inProgress': return 'ok'
+    case 'starting': return 'warn'
     default: return 'muted'
   }
 })
 // LabPanel has no 'info'/'muted' tones — map them to its palette.
-const panelTone = computed(() => (tone.value === 'info' ? 'accent' : tone.value === 'muted' ? 'neutral' : tone.value))
+const panelTone = computed(() => (tone.value === 'warn' ? 'warn' : tone.value === 'muted' ? 'neutral' : tone.value))
 
 // Derive step states for the durable run: email → pause → result.
 const running = computed(() => type.value === 'inProgress' || type.value === 'starting')
 const done = computed(() => type.value === 'completed')
 const steps = computed(() => [
   { label: 'send welcome email', tone: workflowId.value ? (running.value || done.value ? 'ok' : 'muted') : 'muted' },
-  { label: 'durable pause (4s)', tone: running.value ? 'accent' : done.value ? 'ok' : 'muted' },
+  { label: 'durable pause (4s)', tone: running.value ? 'ok' : done.value ? 'ok' : 'muted' },
   { label: 'produce result', tone: done.value ? 'ok' : 'muted' },
 ] as const)
 </script>
@@ -58,7 +58,7 @@ const steps = computed(() => [
     >
       <div class="row">
         <LabButton
-          variant="signal"
+          variant="primary"
           :loading="workflowPending"
           @click="runWorkflow"
         >
@@ -80,7 +80,7 @@ const steps = computed(() => [
         >
           <StatusRing
             :tone="s.tone"
-            :pulse="s.tone === 'accent'"
+            :pulse="s.tone === 'ok'"
           >
             {{ s.label }}
           </StatusRing>

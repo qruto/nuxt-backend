@@ -75,7 +75,7 @@
   line-height: 1.6;
   color: var(--ink-dim);
 }
-.cta__lead code { font-family: var(--mono); font-size: 0.9em; color: var(--accent-soft); }
+.cta__lead code { font-family: var(--mono); font-size: 0.9em; color: var(--ok-soft); }
 
 .cta__cmd { margin-top: 1.7rem; }
 

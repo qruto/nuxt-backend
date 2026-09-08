@@ -66,7 +66,7 @@ const initials = computed(() =>
     <LabPanel
       label="identity"
       title="Signed in"
-      tone="accent"
+      tone="ok"
     >
       <div class="who">
         <span class="avatar">{{ initials }}</span>
@@ -94,7 +94,7 @@ const initials = computed(() =>
               style="flex: 1"
             >
             <LabButton
-              variant="signal"
+              variant="primary"
               :loading="busy"
               :disabled="!newEmail.trim()"
               @click="doChangeEmail"
@@ -110,13 +110,13 @@ const initials = computed(() =>
         >
           <div class="row">
             <LabButton
-              variant="ghost"
+              variant="secondary"
               @click="doRegisterPasskey"
             >
               Register passkey
             </LabButton>
             <LabButton
-              variant="ghost"
+              variant="secondary"
               @click="signOut"
             >
               Sign out
@@ -148,7 +148,7 @@ const initials = computed(() =>
         >
           <StateReadout
             :value="state"
-            tone="accent"
+            tone="ok"
             label="reactive flags"
           />
         </LabPanel>
@@ -162,7 +162,7 @@ const initials = computed(() =>
             <div class="gate">
               <code class="gate-name">&lt;AuthLoading&gt;</code>
               <AuthLoading>
-                <StatusRing tone="info">
+                <StatusRing tone="warn">
                   checking session…
                 </StatusRing>
               </AuthLoading>
@@ -199,7 +199,7 @@ const initials = computed(() =>
         <LabPanel
           label="AuthForm · packaged"
           title="Sign in with the packaged form"
-          tone="accent"
+          tone="ok"
         >
           <div class="bk-depth">
             <AuthForm title="Sign in to the playground" />
@@ -221,7 +221,7 @@ const initials = computed(() =>
 .who { display: flex; align-items: center; gap: 0.85rem; }
 .avatar {
   width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
-  background: var(--accent); color: var(--on-accent); box-shadow: var(--raise-accent);
+  background: var(--ink); color: var(--bg); box-shadow: var(--elev-1);
   display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 0.95rem;
 }
 .who-meta { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }

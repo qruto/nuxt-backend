@@ -18,11 +18,11 @@ const isConnected = computed(() => !!conn?.value.isWebSocketConnected)
         <span class="relative flex size-2.5">
           <span
             v-if="isConnected"
-            class="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60"
+            class="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60"
           />
           <span
             class="relative inline-flex size-2.5 rounded-full"
-            :class="isConnected ? 'bg-primary' : 'bg-error'"
+            :class="isConnected ? 'bg-success' : 'bg-error'"
           />
         </span>
         <span class="font-medium">{{ isConnected ? 'Convex live' : 'Offline' }}</span>

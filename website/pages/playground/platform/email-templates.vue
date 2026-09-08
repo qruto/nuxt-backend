@@ -24,7 +24,7 @@ const previews = useQuery(api.emailTemplates.previews)
     <LabPanel
       label="customize"
       title="Two override points"
-      tone="accent"
+      tone="ok"
     >
       <p class="hint">
         Auth emails: <code>integrations.emailTemplates</code> in

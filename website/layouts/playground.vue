@@ -111,35 +111,15 @@ const isLogin = computed(() => route.path === '/login')
             to="/playground"
             class="logo"
           >
-            <span class="logo-mark">
-              <svg
-                class="logo-glyph"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M12 4 19 8.5 12 13 5 8.5Z"
-                  fill="#fff"
-                />
-                <path
-                  d="M5 11.7 12 16 19 11.7"
-                  stroke="#fff"
-                  stroke-width="1.9"
-                  stroke-linejoin="round"
-                  stroke-linecap="round"
-                  opacity="0.78"
-                />
-                <path
-                  d="M5 14.9 12 19.2 19 14.9"
-                  stroke="#fff"
-                  stroke-width="1.9"
-                  stroke-linejoin="round"
-                  stroke-linecap="round"
-                  opacity="0.5"
-                />
-              </svg>
-            </span>
+            <UColorModeImage
+              light="/logo-light.svg"
+              dark="/logo-dark.svg"
+              alt=""
+              aria-hidden="true"
+              class="logo-mark"
+              width="30"
+              height="30"
+            />
             <span class="logo-text">
               <span class="logo-name embossed-sm">Nuxt backend</span>
               <span class="logo-tag engraved-sm">playground</span>
@@ -250,10 +230,12 @@ const isLogin = computed(() => route.path === '/login')
                 tone="ok"
                 :pulse="false"
               />
-              <span
+              <SignalDot
                 v-else-if="item.xp"
-                class="nav-xp"
-              >XP</span>
+                tone="warn"
+                :pulse="false"
+                title="experimental"
+              />
             </NuxtLink>
           </div>
         </nav>
@@ -312,15 +294,15 @@ const isLogin = computed(() => route.path === '/login')
   color: inherit;
 }
 .logo-mark {
+  /* The coin itself (public/logo.svg): a round matte titanium plaque with the
+     stack engraved into it and one green status LED — the same mark the docs
+     header wears (AppHeaderLogo.vue). The explicit light/dark pair follows the
+     site's colour-mode toggle instead of the OS. It carries its own bevel and
+     rim, so it sits bare: no plate, no shadow underneath. */
+  display: block;
   width: 30px; height: 30px;
-  border-radius: 9px;
-  background: var(--accent);
-  box-shadow: var(--raise-accent);
-  display: flex;
-  align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.logo-glyph { width: 19px; height: 19px; }
 .logo-text { display: flex; flex-direction: column; line-height: 1.05; }
 /* Depth comes from the `.embossed-sm` / `.engraved-sm` utilities (app.css) so
    the prefers-contrast kill-switch reaches it; `.engraved-sm` also carries the
@@ -346,7 +328,8 @@ const isLogin = computed(() => route.path === '/login')
   box-shadow: var(--raise-sm);
   transition: color var(--transition), box-shadow var(--transition), transform var(--press) var(--ease-out);
 }
-.reset-btn:hover { color: var(--warn); }
+/* Destructive → red, the only red in the top bar. */
+.reset-btn:hover { color: var(--err); }
 .reset-btn:active { box-shadow: var(--inset-sm); transform: translateY(0.5px); }
 
 .user-chip {
@@ -358,11 +341,12 @@ const isLogin = computed(() => route.path === '/login')
 }
 .avatar {
   width: 26px; height: 26px; border-radius: 50%;
-  background: var(--accent);
-  color: var(--on-accent);
+  /* Stamped initials in a recessed titanium disc — the user chip is neutral. */
+  background: var(--sink);
+  color: var(--ink);
   font-size: 0.66rem; font-weight: 700; font-family: var(--mono);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  box-shadow: var(--raise-accent);
+  box-shadow: var(--inset-sm);
 }
 .user-name { font-size: 0.78rem; font-weight: 600; line-height: 1; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .signout-btn {
@@ -376,19 +360,22 @@ const isLogin = computed(() => route.path === '/login')
   box-shadow: var(--inset-sm);
   transition: color var(--transition), transform var(--press) var(--ease-out);
 }
-.signout-btn:hover { color: var(--err); }
+/* Sign-out is not destructive: hover only sharpens the ink. */
+.signout-btn:hover { color: var(--ink); }
 .signout-btn:active { transform: scale(0.92); }
 
 .signin-link {
   font-size: 0.8rem; font-weight: 600;
   text-decoration: none;
-  color: var(--on-accent);
-  background: var(--accent);
+  /* Primary action: green enamel, resting glow. */
+  color: var(--on-ok);
+  background: var(--ok);
   padding: 0.4rem 0.9rem;
   border-radius: 999px;
-  box-shadow: var(--raise-accent);
+  box-shadow: var(--elev-1), var(--glow-ok-soft);
+  transition: background var(--transition), box-shadow var(--transition);
 }
-.signin-link:hover { background: var(--accent-press); }
+.signin-link:hover { background: var(--ok-press); box-shadow: var(--elev-2), var(--glow-ok-soft); }
 
 .main-grid {
   display: grid;
@@ -431,21 +418,18 @@ const isLogin = computed(() => route.path === '/login')
   transition: color var(--transition), box-shadow var(--transition), background var(--transition);
 }
 .nav-icon { opacity: 0.85; }
-.nav-link:hover { color: var(--ink); box-shadow: var(--raise-sm); background: var(--surface); }
-/* Active = raised out of the material (the page you're on is "lifted"). */
+/* Hover = a hairline lift; active = latched INTO the material (design §5.8):
+   a pressed titanium slot with neutral ink. The LED beside the label is the
+   only signal — green for live pages, amber for experimental ones. */
+.nav-link:hover { color: var(--ink); box-shadow: var(--elev-0); background: var(--surface); }
 .nav-link.active {
-  color: var(--accent-soft);
-  background: var(--surface);
-  box-shadow: var(--raise);
+  color: var(--ink);
+  background: var(--sink);
+  box-shadow: var(--inset-1);
   font-weight: 600;
 }
-.nav-link.active .nav-icon { color: var(--accent); opacity: 1; }
+.nav-link.active .nav-icon { color: var(--ink); opacity: 1; }
 .nav-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nav-xp {
-  font-family: var(--mono); font-size: 0.52rem; font-weight: 700;
-  letter-spacing: 0.06em; color: var(--xp); background: var(--xp-dim);
-  border-radius: 4px; padding: 0.06rem 0.3rem;
-}
 
 .sidebar-foot {
   margin-top: auto;

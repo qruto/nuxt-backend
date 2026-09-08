@@ -61,7 +61,7 @@ const streamTone = computed(() => {
     case 'error':
     case 'timeout': return 'err'
     case 'streaming':
-    case 'pending': return 'signal'
+    case 'pending': return 'ok'
     default: return 'muted'
   }
 })
@@ -114,7 +114,7 @@ async function sendGift() {
       <MetricCard
         label="balance"
         :value="credits.balance.value ?? '—'"
-        tone="accent"
+        tone="ok"
         :loading="credits.isLoading.value"
         hint="available units"
       />
@@ -134,7 +134,7 @@ async function sendGift() {
     <LabPanel
       label="meter"
       title="Top up"
-      tone="accent"
+      tone="ok"
     >
       <div class="row">
         <CheckoutLink
@@ -150,7 +150,7 @@ async function sendGift() {
         >No credit pack configured (product key <code>credits100</code>).</span>
 
         <LabButton
-          variant="ghost"
+          variant="secondary"
           @click="credits.refresh()"
         >
           Refresh
@@ -185,7 +185,7 @@ async function sendGift() {
           placeholder="Text to transform"
         >
         <LabButton
-          variant="signal"
+          variant="primary"
           :loading="transforming"
           @click="runTransform"
         >
@@ -240,7 +240,7 @@ async function sendGift() {
           placeholder="Prompt to stream back"
         >
         <LabButton
-          variant="signal"
+          variant="primary"
           :loading="echo.isStreaming.value"
           @click="runStream"
         >
@@ -290,7 +290,7 @@ async function sendGift() {
           placeholder="Message (optional)"
         >
         <LabButton
-          variant="signal"
+          variant="primary"
           type="submit"
           :loading="gifting"
           :disabled="!creditPackId || !giftEmail"
@@ -334,7 +334,7 @@ async function sendGift() {
           class="gift-row"
         >
           <StatusPill
-            :tone="gift.status === 'claimed' ? 'ok' : 'signal'"
+            :tone="gift.status === 'claimed' ? 'ok' : 'warn'"
             dot
           >
             {{ gift.status }}
@@ -347,7 +347,7 @@ async function sendGift() {
           <LabButton
             v-if="gift.status === 'paid'"
             size="sm"
-            variant="signal"
+            variant="primary"
             :loading="gifts.isClaiming.value"
             @click="gifts.claim(gift.id)"
           >
@@ -364,16 +364,16 @@ async function sendGift() {
   display: inline-flex; align-items: center; justify-content: center;
   padding: 0.5rem 0.9rem; border-radius: var(--r-sm);
   font-size: 0.82rem; font-weight: 600; text-decoration: none; cursor: pointer;
-  background: var(--accent); color: var(--on-accent); box-shadow: var(--raise-accent);
+  background: var(--ok); color: var(--on-ok); box-shadow: var(--elev-1), var(--glow-ok-soft);
 }
-.buy-btn:hover { background: var(--accent-press); }
+.buy-btn:hover { background: var(--ok-press); }
 
 .meter { height: 12px; border-radius: 99px; background: var(--sink); box-shadow: var(--inset-sm); overflow: hidden; margin: 1.1rem 0 0.6rem; }
-.meter-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.3s var(--ease-out); }
+.meter-fill { height: 100%; background: var(--ok); border-radius: 99px; transition: width 0.3s var(--ease-out); }
 
 .text-input {
   flex: 1; min-width: 200px; padding: 0.5rem 0.7rem; border-radius: var(--r-sm);
-  border: 1px solid var(--line); background: var(--sink); color: inherit; font-size: 0.85rem;
+  border: 1px solid var(--edge); background: var(--sink); color: inherit; font-size: 0.85rem;
 }
 
 .fail-toggle { margin-top: 0.7rem; }
@@ -398,7 +398,7 @@ async function sendGift() {
 
 .gift-input {
   flex: 1; min-width: 180px; padding: 0.5rem 0.7rem; border-radius: var(--r-sm);
-  border: 1px solid var(--line); background: var(--sink); color: inherit; font-size: 0.85rem;
+  border: 1px solid var(--edge); background: var(--sink); color: inherit; font-size: 0.85rem;
 }
 
 .gift-rows { display: flex; flex-direction: column; gap: 0.45rem; }
@@ -413,6 +413,6 @@ async function sendGift() {
 }
 .gift-banner :deep([data-gift='claim']) {
   padding: 0.4rem 0.8rem; border-radius: var(--r-sm); border: none; cursor: pointer;
-  background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 0.8rem;
+  background: var(--ok); color: var(--on-ok); font-weight: 600; font-size: 0.8rem;
 }
 </style>

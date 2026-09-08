@@ -40,7 +40,7 @@ const deliveryTone = computed(() => {
   if (delivery.isError.value) return 'err'
   if (complained.value) return 'warn'
   if (delivery.isDelivered.value) return 'ok'
-  return 'info'
+  return 'warn'
 })
 
 // Every Resend outcome inbox is testable here (+label aliases work too). This is
@@ -93,7 +93,7 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
     <LabPanel
       label="transactional"
       title="Send & track"
-      tone="accent"
+      tone="ok"
     >
       <LabField
         label="recipient"
@@ -109,7 +109,7 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
             style="flex: 1; min-width: 12rem"
           >
           <LabButton
-            variant="signal"
+            variant="primary"
             :loading="emailPending"
             :disabled="!recipientValid"
             @click="sendTestEmail"
@@ -133,7 +133,7 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
       <!-- The signature status element: delivery state as colored rings. -->
       <div class="lifecycle">
         <StatusRing
-          tone="info"
+          tone="warn"
           :pulse="!!lastEmailId && !delivery.isDelivered.value && !delivery.isError.value"
         >
           sent
@@ -204,7 +204,7 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
           recipient only).
         </p>
         <LabButton
-          variant="signal"
+          variant="primary"
           :loading="marketingPending"
           @click="runMarketing"
         >
@@ -232,7 +232,7 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
             :key="ev._id"
           >
             <StatusPill
-              tone="signal"
+              tone="ok"
               :dot="false"
             >
               {{ ev.source }}
@@ -289,7 +289,7 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
   font-family: var(--mono); font-size: 0.68rem; padding: 0.3rem 0.6rem; border-radius: 99px;
   border: 0; background: var(--sink); box-shadow: var(--inset-sm); color: var(--ink-dim); cursor: pointer;
 }
-.preset:hover { color: var(--accent); }
+.preset:hover { color: var(--ok); }
 
 .lifecycle { display: flex; align-items: center; gap: 0.6rem; margin: 1.2rem 0 0.4rem; flex-wrap: wrap; }
 .track { width: 22px; height: 2px; border-radius: 2px; background: var(--edge-hi); }
@@ -301,6 +301,6 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
 
 .feed { list-style: none; margin: 0.9rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.78rem; color: var(--ink-dim); }
 .feed li { display: flex; align-items: center; gap: 0.5rem; }
-.to { color: var(--accent-soft); }
+.to { color: var(--ink); }
 .subj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

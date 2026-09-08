@@ -40,7 +40,8 @@ Sources this standard is built on:
 | **A machined section rule / seam** | `.rule-carved` (under h2) · `.mach-seam` (footer) |
 | Make a surface feel lit | `135deg` gradient, lighter top-left |
 | Add a crisp lit edge | gradient border (light top-left → dark bottom-right) |
-| Draw focus / signal "live" | `--glow-accent` (orange) or `--glow-ok` (green status dot) |
+| **Colour anything** | one of three signals — `--ok` / `--warn` / `--err` — never engraved (§Palette) |
+| Light a signal (LED, live dot, active control) | `--glow-ok` / `--glow-warn` / `--glow-err` (LED) · `--glow-ok-ring` (active control) |
 | Stack layers without shadows | overlap elements; lighter = closer, darker = inset |
 | Stop flat banding on big panels | 2–4 % noise texture |
 
@@ -97,7 +98,76 @@ it is either **cut into** the material (engraved type, slots, grooves, pockets)
 or **milled out of** it (plaques, embossed labels, convex controls). Engraving
 is *subtractive*: the near wall (up-left) falls into shadow, the far wall
 (down-right) catches light; embossing flips the offsets. Matte, never glossy —
-sheens stay tight and desaturated.
+sheens stay tight and desaturated. The metal has no colour of its own: the only
+chroma on it is enamel — the three status signals of §Palette.
+
+---
+
+## Palette — three signals, no primary
+
+There is **no brand colour**. Titanium is the canvas — `--bg`, `--surface`,
+`--sink`, the re-toned `zinc` ramp — and the only chroma on the slab is the
+three universal status colours, fired on like enamel: a step desaturated,
+crisp-edged, never engraved. They are the site's *main* colours **and** its
+live-status language (LEDs, doctor findings, delivery outcomes), so a green
+button and a green LED say the same thing: *go*.
+
+| Signal | Token family | Means | Nuxt UI aliases |
+| --- | --- | --- | --- |
+| **Green** | `--ok` `--ok-press` `--ok-soft` `--ok-dim` `--ok-glow` `--on-ok` | go · ok · live · **the primary action** · focus | `primary`, `success` |
+| **Amber** | `--warn` `--warn-press` `--warn-soft` `--warn-dim` `--warn-glow` `--on-warn` | attention · idle · **secondary** · experimental · notes | `secondary`, `info`, `warning` |
+| **Red** | `--err` `--err-press` `--err-soft` `--err-dim` `--err-glow` `--on-err` | danger · error · **destructive** | `error` |
+
+Each family reads the same way:
+
+- **the signal** (`--ok`) — text-safe (≥ 4.5:1) on `--bg`, `--surface` *and*
+  `--sink` in both themes, so one token is the label, the LED, the hairline
+  and the button fill;
+- **`-press`** the hover/active fill · **`-soft`** the readable text shade on
+  wells and inline chips · **`-dim`** a faint (10–16 %) tint *behind* a pill
+  or a row · **`-glow`** the translucent colour the `--glow-*` shadows are
+  mixed from · **`-on`** lettering on a filled control;
+- `--focus` is the green; `--text-grad` is a green ramp for the rare display
+  moment.
+
+Light vs dark is the *ramp*, not a second palette. Light runs each ramp's
+**500 / 600 / 600** steps — *deep* enamel under white lettering (the physics of
+4.5:1 on an `#e8e8e8` slab: a text-safe yellow is a burnt amber). Dark runs
+**400 / 300 / 200** — *lit* enamel under near-black lettering. Those are exactly
+the steps Nuxt UI binds its colour aliases to (500 light, 400 dark), so the docs
+chrome and the playground show one signal.
+
+| Token | Light | Dark | as text on `--bg` / `--surface` / `--sink` (light · dark) |
+| --- | --- | --- | --- |
+| `--ok` | `#136d36` green-500 | `#49b567` green-400 | 5.2 / 6.2 / 4.6 · 7.0 / 6.1 / 7.0 |
+| `--warn` | `#845007` amber-500 | `#ce9622` amber-400 | 5.5 / 6.4 / 4.8 · 6.9 / 6.0 / 7.0 |
+| `--err` | `#a1302d` red-500 | `#ee6d69` red-400 | 5.8 / 6.8 / 5.1 · 6.1 / 5.3 / 6.1 |
+| `--on-ok` / `--on-warn` / `--on-err` | `#fff` — 6.4 / 6.7 / 7.1 on the fills | `#06150b` / `#1a1200` / `#1c0707` — 7.2 / 7.1 / 6.5 | — |
+
+Rules:
+
+1. **Never engrave a signal.** Engraving and embossing are for titanium ink
+   only; a signal sits *on* the metal, crisp, like enamel in a milled pocket.
+2. **Never fill more than a control.** A signal fills a button, a toggle track,
+   an LED, a pill — never a panel, a hero, a section. The canvas stays titanium.
+3. **One signal per element.** A control is green *or* amber *or* red; a status
+   row carries one LED. Two signals side by side are two elements.
+4. **Titanium canvas.** Structure, hierarchy and depth come from the greys and
+   the shadow ladder; colour only ever says *go / look / stop*.
+5. **Text is the signal, not the tint.** Coloured text uses the signal (or
+   `-soft` on a well); `-dim` tints sit *behind* text, never carry it.
+6. **Amber fills take white lettering in light** (`--on-warn`); the bright
+   "lit" amber with dark lettering is the dark-theme reading. When a
+   light-theme control must read as *yellow* at a glance, reach into the ramp
+   (`amber-300` + `amber-950`, 9.5:1) — it is still one signal.
+
+The ramps themselves (`green`, `amber`, `red`, 50…950, hand-picked in OKLCH
+with the chroma held a hair inside sRGB) live in the `@theme static` block of
+[`app.css`](./app.css) and replace Tailwind's stock ramps, so `text-primary`,
+`bg-error/10`, callouts and badges are enamel too. Legacy names (`--accent*`,
+`--on-accent`, `--glow-accent*`, `--raise-accent`, `--info*`, `--xp*`) are thin
+aliases marked `legacy alias — retire after the sweep`: *accent* is the green,
+*info* and the old violet *experimental* marker are amber.
 
 ---
 
@@ -158,8 +228,8 @@ the depth playground, ray ≈330°):
 Rules:
 
 - Engraving is allowed on **display headings, the hero wordmark, and mono
-  eyebrows/labels (≥ 0.8rem)** — never body text, never orange. Signal color
-  stays crisp; the material never swallows a signal.
+  eyebrows/labels (≥ 0.8rem)** — never body text, never a signal. Green, amber
+  and red stay crisp; the material never swallows a signal (§Palette).
 - **Text-shadow never counts toward contrast.** The ink must pass WCAG on its
   own; the carve layers only add depth. `--engrave-ink` (display, ≥ 3:1 large
   text) is `#7a7a7a` on `#e8e8e8` in light (3.5:1) and `#6d6d6d` on
@@ -190,8 +260,8 @@ on a page — spend it once.
 ## 3. Token reference (paste-ready)
 
 These extend the existing `:root` palette in `app.css` (`--bg`, `--surface`,
-`--surface-hi`, `--sink`, `--ink`, `--accent` …). Drop them in and reference the
-ladder instead of hand-rolling shadows.
+`--surface-hi`, `--sink`, `--ink`, `--ok` / `--warn` / `--err` …). Drop them in
+and reference the ladder instead of hand-rolling shadows.
 
 ### 3.1 Elevation ladder — light theme
 
@@ -267,25 +337,36 @@ does.)
 
 ### 3.3 Glows
 
+One glow family per signal, three strengths. Colour comes from the signal's
+`-glow` token — a `light-dark()` mix of the ramp's *lit* **400** step (34 %
+light, 26 % dark) — so one shadow definition serves both schemes; the dark
+blocks only pull the radii and alpha in (lit enamel already reads bright on
+dark steel).
+
 ```css
 :root {
-  /* Accent (fluorescent orange) — focus, primary, "live" emphasis */
-  --glow-accent:
-    0 0 0 1px rgb(255 90 31 / .35),
-    0 4px 16px rgb(255 90 31 / .35);
-  --glow-accent-soft: 0 0 14px rgb(255 90 31 / .30);
-  /* Status — the green "live" dot from the nav reference */
-  --glow-ok:   0 0 8px rgb(74 222 128 / .55);
-  --glow-warn: 0 0 8px rgb(251 191 36 / .5);
-  --glow-err:  0 0 8px rgb(248 113 113 / .5);
+  /* LED — the live dot, a doctor finding, a delivery outcome */
+  --glow-ok:        0 0 9px color-mix(in srgb, var(--color-green-400) 55%, transparent);
+  --glow-warn:      0 0 9px color-mix(in srgb, var(--color-amber-400) 55%, transparent);
+  --glow-err:       0 0 9px color-mix(in srgb, var(--color-red-400) 55%, transparent);
+  /* resting primary control */
+  --glow-ok-soft:   0 0 14px var(--ok-glow);                        /* + -warn-soft, -err-soft */
+  /* active control — 1px ring + cast */
+  --glow-ok-ring:   0 0 0 1px var(--ok-glow), 0 4px 16px var(--ok-glow);
 }
+@media (prefers-color-scheme: dark) { :root {                        /* mirrored in html.dark */
+  --glow-ok:        0 0 8px color-mix(in srgb, var(--color-green-400) 45%, transparent);
+  --glow-ok-soft:   0 0 12px var(--ok-glow);
+  --glow-ok-ring:   0 0 0 1px var(--ok-glow), 0 4px 14px var(--ok-glow);
+} }
 ```
 
 Glows are *additive*: append a glow to an existing elevation, never replace the
-shadow.
+shadow. A glow is a *signal*, so it obeys §Palette — one per element, on a
+control or an LED, never on a panel.
 
 ```css
-.is-active { box-shadow: var(--elev-1), var(--glow-accent); }
+.is-active { box-shadow: var(--elev-1), var(--glow-ok-ring); }
 ```
 
 ### 3.35 Matte-material family
@@ -317,7 +398,7 @@ they're thin aliases onto the ladder above, so the whole product (homepage, docs
 | --- | --- | --- |
 | `--raise` · `--raise-sm` | `--elev-1` | resting card / control |
 | `--raise-lg` | `--elev-3` | large lifted surface / popover |
-| `--raise-accent` | `--elev-1` + `--glow-accent-soft` | primary (accent) control |
+| `--raise-accent` | `--elev-1` + `--glow-ok-soft` | primary (green) control — legacy alias |
 | `--inset` | `--inset-2` | deep well (`panel.well`, tracks) |
 | `--inset-sm` | `--inset-1` | shallow well (input, chip) |
 
@@ -389,14 +470,16 @@ Dark theme: swap the border-gradient stops to
 `rgb(255 255 255 / .14) → transparent → rgb(0 0 0 / .5)`.
 
 ### 4.5 Gradient text
-One remaining use — **accent emphasis** (a top-left → bottom-right orange ramp),
-reserved for rare signal moments; the neutral letterpress treatment it used to
-cover is superseded by the full engraving system in **§2.5** (`.engraved`,
-`.embossed`).
+One remaining use — **signal emphasis** (`--text-grad`, a top-left →
+bottom-right *green* ramp: `--ok-soft → --ok → --ok-press`), reserved for rare
+display moments; the neutral letterpress treatment it used to cover is
+superseded by the full engraving system in **§2.5** (`.engraved`, `.embossed`).
+A signal is never engraved — gradient type is the one way colour gets to be
+*display*.
 
 ```css
 .text-grad {
-  background: linear-gradient(135deg, var(--accent-soft), var(--accent) 55%, var(--accent-press));
+  background: var(--text-grad);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; color: transparent;
 }
@@ -465,8 +548,8 @@ All surfaces are **fully rounded** (`--r-sm` for chips, `--r` for controls,
 - **Idle item:** transparent, `--ink-dim`, mono-ish label + leading icon.
 - **Active item:** a raised pill lifted out of the track —
   `background: var(--surface); box-shadow: var(--elev-1)` and, for the primary
-  "live" tab, `+ var(--glow-accent)` and a gradient/accent label. The green
-  status dot uses `--glow-ok`.
+  "live" tab, `+ var(--glow-ok-ring)` and a green label. The live status dot
+  uses `--glow-ok`.
 - **Hover item:** `--elev-0` (just a hairline lift), label → `--ink`.
 
 ```css
@@ -477,7 +560,7 @@ All surfaces are **fully rounded** (`--r-sm` for chips, `--r` for controls,
   color: var(--ink); background: var(--surface);
   box-shadow: var(--elev-1);
 }
-.seg__item.is-active.is-primary { box-shadow: var(--elev-1), var(--glow-accent); }
+.seg__item.is-active.is-primary { box-shadow: var(--elev-1), var(--glow-ok-ring); }
 ```
 
 ### 5.2 Button (reference: Think / Upgrade / Customize)
@@ -485,14 +568,16 @@ All surfaces are **fully rounded** (`--r-sm` for chips, `--r` for controls,
 - **Hover:** step to `--elev-2` (rises toward the user).
 - **Active/press:** swap to `--inset-1` and nudge `translateY(.5px)` — RUI's
   "pressed into the page."
-- **Primary:** accent gradient fill + `--glow-accent-soft`; **selected** (the
-  "Upgrade" ring) adds a brighter gradient border.
+- **Primary:** green enamel fill (`--ok → --ok-press`) under `--on-ok`
+  lettering + `--glow-ok-soft`; **secondary** is the same recipe in amber;
+  **destructive** in red. **Selected** (the "Upgrade" ring) adds a brighter
+  gradient border. One signal per button.
 
 ```css
 .btn { border-radius: 999px; box-shadow: var(--elev-1); transition: box-shadow .18s, transform .12s; }
 .btn:hover { box-shadow: var(--elev-2); }
 .btn:active { box-shadow: var(--inset-1); transform: translateY(.5px); }
-.btn--primary { background: linear-gradient(135deg, var(--accent), var(--accent-press)); color: #fff; box-shadow: var(--elev-1), var(--glow-accent-soft); }
+.btn--primary { background: linear-gradient(135deg, var(--ok), var(--ok-press)); color: var(--on-ok); box-shadow: var(--elev-1), var(--glow-ok-soft); }
 ```
 
 ### 5.3 Icon tile (the round glyph chips in the references)
@@ -501,12 +586,12 @@ inner top-left highlight so the glyph sits in a shallow dish.
 
 ```css
 .icon-tile { border-radius: 999px; background: var(--surface); box-shadow: var(--elev-1); }
-.icon-tile--selected { box-shadow: var(--elev-0), var(--glow-accent); }
+.icon-tile--selected { box-shadow: var(--elev-0), var(--glow-ok-ring); }
 ```
 
 ### 5.4 Input / well / readout
 `background: var(--sink); box-shadow: var(--inset-1);` Focus = keep the inset and
-add an accent ring **on top** of the depth: `var(--inset-1), 0 0 0 2px var(--accent)`.
+add the green focus ring **on top** of the depth: `var(--inset-1), 0 0 0 2px var(--focus)`.
 
 ### 5.5 Card / panel
 `--surface` gradient + gradient border + `--elev-1` (→ `--elev-2` if hoverable).
@@ -516,11 +601,11 @@ Use **overlap** (§4.8) to cross section boundaries instead of stacking shadows.
 Largest elevation in the system: `--elev-4`, a subtle surface gradient, a lit
 gradient border, generous `--r-lg`. The backdrop dims the page so the modal reads
 as nearest to the user. Inner option cards are `--elev-1`; the selected one gets a
-bright ring (`0 0 0 2px var(--accent)` or a white ring on a tinted theme).
+bright ring (`0 0 0 2px var(--focus)` or a white ring on a tinted theme).
 
 ### 5.7 Toggle
 Track = `--inset-1` well; knob = `--elev-1` raised bead that slides; ON track gets
-the accent fill + `--glow-accent-soft`.
+the green fill (`--ok`) + `--glow-ok-soft` — an experimental toggle takes amber.
 
 ### 5.8 Matte-material recipes (the machined chrome)
 - **Plaque card** — `.plaque` (feature modules, MDC `::card` tiles, surround
@@ -535,8 +620,8 @@ the accent fill + `--glow-accent-soft`.
   canvas), footer `.mach-seam`, and the playground topbar's carved bottom
   groove (dark hairline + lit lip).
 - **Latched sidebar item** — active nav = **pressed into the material**
-  (`--sink` + `--inset-1`), hover = hairline lift (`--elev-0`); the orange
-  label stays crisp on the pressed slot.
+  (`--sink` + `--inset-1`), hover = hairline lift (`--elev-0`); the green
+  label stays crisp on the pressed slot — a signal is never engraved.
 - **Milled SVG pocket/groove** — dual offset strokes (dark up-left, light
   down-right) under a `--sink` base shape; see `Architecture.vue`.
 
@@ -549,7 +634,10 @@ the accent fill + `--glow-accent-soft`.
 | Rim highlight | strong, hand-picked light colour (≈ .85 white) | faint white edge (≈ .06–.10) |
 | Cast shadow | soft grey, low alpha | deep black, higher alpha |
 | Raised surface | lighter than canvas (`--surface-hi`) | *slightly* lighter than near-black (`#232323` on `#161616`) |
-| Glow | subtle | reads brighter — dial alpha down a touch |
+| Signal | ramp **500** — deep enamel (`#136d36` / `#845007` / `#a1302d`) | ramp **400** — lit enamel (`#49b567` / `#ce9622` / `#ee6d69`) |
+| Lettering on a fill | white (`--on-*`) | near-black, signal-tinted (`#06150b` / `#1a1200` / `#1c0707`) |
+| Press / soft text | ramp 600 / 600 | ramp 300 / 200 |
+| Glow | 400 step at 34 % (`-glow`), LED 55 %, 9px | 26 % / 45 %, radii pulled in 1–2px — lit enamel already reads bright |
 | Letterpress | light shadow *below* text | dark shadow *above*/below |
 
 Both modes are driven by the same tokens; only the values differ (see §3.1 vs
@@ -567,9 +655,16 @@ Both modes are driven by the same tokens; only the values differ (see §3.1 vs
 - Combine cues sparingly: surface gradient + 1px lit border + `--elev-1` is
   usually the whole recipe.
 - Fade the contact shadow as things rise; grow the cast.
-- Put focus rings and accent glows **on top of** depth, never instead of it.
+- Put focus rings and signal glows **on top of** depth, never instead of it.
+- Colour with one of the three signals, and give each element **one** — green
+  says go, amber says look, red says stop (§Palette).
 
 **Don't**
+- Don't engrave or emboss a signal — colour stays crisp on the metal.
+- Don't fill more than a control with a signal (no green panels, amber heroes,
+  red sections); the canvas is titanium.
+- Don't invent a fourth colour — no brand accent, no blue, no violet. Info is
+  amber, experimental is amber, primary is green.
 - Don't overlay flat semi-transparent white for highlights (desaturates the
   surface) — pick the colour.
 - Don't reach for big blurry shadows on resting UI; that's modal-only.
@@ -587,8 +682,8 @@ Both modes are driven by the same tokens; only the values differ (see §3.1 vs
 - **Contrast:** depth is decoration — text/icon contrast must pass on its own,
   never rely on a glow (or a carve shadow — WCAG ignores `text-shadow`) to make
   a label legible. Engraved inks are sized to the bar in §2.5.
-- **Focus:** a 2px solid `--accent` outline with `outline-offset: 2px` sits above
-  all depth (see `app.css`).
+- **Focus:** a 2px solid `--focus` (the green) outline with `outline-offset: 2px`
+  sits above all depth (see `app.css`).
 - **Perf:** prefer `box-shadow` tokens + `transform`; avoid layout-affecting
   properties in transitions; keep noise textures to large, few surfaces.
 
@@ -628,11 +723,14 @@ Both modes are driven by the same tokens; only the values differ (see §3.1 vs
   slot exists: sidebar/TOC link `::before` layers, inline code chips, `kbd`.
   Never override `commandPalette.slots.input` / `contentNavigation.slots.*`
   without copying Docus's own strings first (defu replaces same-key strings).
-  The palette lands natively too: the `@theme` block re-tones Tailwind's `zinc`
-  ramp to titanium (Nuxt UI's `neutral`), one `--ui-bg: var(--bg)` bridge puts
-  the chrome on the canvas, and `info` folds into the orange `accent` (no
-  blue). Type: **Bai Jamjuree** display (positive tracking ≈0.01–0.02em,
-  engraved headings), Nunito body, JetBrains Mono data.
+  The palette lands natively too: the `@theme` blocks re-tone Tailwind's `zinc`
+  ramp to titanium (Nuxt UI's `neutral`) and the `green` / `amber` / `red`
+  ramps to enamel, and `app.config.ts` maps every Nuxt UI alias onto a signal
+  — `primary` + `success` → green, `secondary` + `info` + `warning` → amber,
+  `error` → red (no blue anywhere; a `::note` is amber). One
+  `--ui-bg: var(--bg)` bridge puts the chrome on the canvas. Type: **Bai
+  Jamjuree** display (positive tracking ≈0.01–0.02em, engraved headings),
+  Nunito body, JetBrains Mono data.
 
 When adding UI: reach for an existing component first; if you must build new,
 compose from the tokens in §3 and the recipes in §5 so the whole product stays

@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./.github/assets/hero-dark.svg">
+  <img src="./.github/assets/hero-light.svg" alt="nuxt-backend — the all-in-one SaaS backend for Nuxt, built on Convex" width="560">
+</picture>
+
 # nuxt-backend
 
 [![npm version][npm-version-src]][npm-version-href]
@@ -25,6 +30,8 @@ The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR
 
 **Requirements:** Nuxt ≥ 4.1 and Node ≥ 24.11.
 
+**Stability:** [STABILITY.md](./STABILITY.md) — what the 0.1 line promises, the experimental tier, and how upstream releases map to this package's versions.
+
 ## Quick start
 
 ### 1. Install
@@ -35,7 +42,7 @@ npx nuxi@latest module add nuxt-backend
 
 This is the only package you install — the Convex integration and all bundled components ship as its dependencies.
 
-> Using **strict** pnpm? Add `public-hoist-pattern[]=@convex-dev/*` to `.npmrc` (or set `node-linker=hoisted`) so Convex can resolve the bundled component definitions. See the [installation docs](./website/content/1.getting-started/2.installation.md#using-strict-pnpm).
+> Using **strict** pnpm? Add `public-hoist-pattern[]=@convex-dev/*` to `.npmrc` (or set `node-linker=hoisted`) so Convex can resolve the bundled component definitions. See the [installation docs](/getting-started/installation#using-strict-pnpm).
 
 ### 2. Add the module
 
@@ -167,11 +174,13 @@ pnpm generate   # static build
 
 | Section | What's inside |
 |---|---|
-| [Getting Started](./website/content/1.getting-started) | Introduction, installation, configuration, architecture |
-| [Guide](./website/content/2.guide) | Auth, queries & mutations, server & SSR, file storage, import aliases |
-| [Backend Components](./website/content/3.backend-components) | Email, billing & credits, rate limiting, workflows, migrations, aggregates, search |
-| [Convex Backend](./website/content/4.backend) | Auth setup, customizing auth, local installation, testing |
-| [API Reference](./website/content/5.api-reference) | Composables, server utilities, client, entrypoints, module options |
+| [Getting Started](/getting-started/introduction) | Introduction, quickstart, installation, configuration, architecture, examples |
+| [Client Guide](/guide/authentication) | Auth, queries & mutations, server & SSR, file storage, aliases, customization |
+| [Platform](/platform/overview) | Auth, workspaces, authorization, billing & credits, AI, email, webhooks, workflows, rate limiting, migrations, aggregates, search |
+| [Agents](/agents/mcp-server) | The OAuth-protected MCP endpoint, built-in and custom tools, consent, connecting a client |
+| [API Reference](/api-reference/composables) | Composables, server utilities, client, entrypoints, module options |
+| [Developer Experience](/tooling/cli) | CLI, DevTools, testing, local installation |
+| [Production](/production/deployment) | Deployment, launch checklist, security, troubleshooting |
 
 ## Examples
 

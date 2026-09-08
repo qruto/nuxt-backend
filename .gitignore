@@ -70,3 +70,7 @@ Temporary Items
 
 # Claude Code local settings (machine-specific permissions)
 .claude/settings.local.json
+
+# QA screenshots (local-only)
+.qa
+*-dev.log

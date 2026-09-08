@@ -45,20 +45,22 @@ withDefaults(defineProps<{
   font-size: 0.67rem;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: var(--accent-soft);
+  /* API name chip: the readable green on a well (matches inline code chips). */
+  color: var(--ok-soft);
   background: var(--sink);
   box-shadow: var(--inset-sm);
   padding: 0.2rem 0.55rem;
   border-radius: 6px;
 }
+/* Experimental marker = amber (attention), tint behind, signal as text. */
 .ph-xp {
   font-family: var(--mono);
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--xp);
-  background: var(--xp-dim);
+  color: var(--warn);
+  background: var(--warn-dim);
   padding: 0.16rem 0.42rem;
   border-radius: 5px;
 }

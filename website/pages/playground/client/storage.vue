@@ -75,7 +75,7 @@ function kb(size?: number): string {
       <LabPanel
         label="single"
         title="useUpload"
-        tone="accent"
+        tone="ok"
       >
         <label class="drop">
           <input
@@ -131,7 +131,7 @@ function kb(size?: number): string {
       <LabPanel
         label="batch"
         title="useUploadQueue"
-        tone="accent"
+        tone="ok"
       >
         <template #actions>
           <span class="mono agg">{{ pct(queue.progress.value) }} · {{ queue.activeCount.value }} active</span>
@@ -238,7 +238,7 @@ function kb(size?: number): string {
   color: var(--ink-dim); font-size: 0.85rem; cursor: pointer;
   transition: color var(--transition), box-shadow var(--transition);
 }
-.drop:hover { color: var(--accent); }
+.drop:hover { color: var(--ok); }
 .drop input { display: none; }
 
 .upload-foot { display: flex; align-items: center; gap: 0.7rem; margin-top: 0.8rem; }
@@ -250,7 +250,7 @@ function kb(size?: number): string {
 .cancel:hover { color: var(--err); }
 
 .bar { flex: 1; height: 8px; border-radius: 99px; background: var(--sink); box-shadow: var(--inset-sm); overflow: hidden; }
-.bar-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.15s var(--ease-out); }
+.bar-fill { height: 100%; background: var(--warn); border-radius: 99px; transition: width 0.15s var(--ease-out); }
 
 .agg { font-size: 0.68rem; color: var(--ink-dim); }
 .preview { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
@@ -284,12 +284,14 @@ function kb(size?: number): string {
 .card-size { font-size: 0.64rem; color: var(--ink-faint); }
 .remove {
   position: absolute; top: 0.4rem; right: 0.4rem; width: 22px; height: 22px; border-radius: 50%;
-  border: 0; background: color-mix(in srgb, var(--ink) 55%, transparent); color: #fff;
+  /* A fixed dark scrim, NOT `--ink`: the ink inverts with the colour mode,
+     which in dark left a white glyph on a near-white chip. */
+  border: 0; background: color-mix(in srgb, #000 55%, transparent); color: #fff;
   font-size: 1rem; line-height: 1; cursor: pointer; opacity: 0; transition: opacity var(--transition), background var(--transition);
 }
 .filecard:hover .remove { opacity: 1; }
 .remove:hover { background: var(--err); }
 
 .err-text { margin: 0.75rem 0 0; font-size: 0.8rem; color: var(--err); }
-.spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--edge-hi); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+.spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--edge-hi); border-top-color: var(--warn); border-radius: 50%; animation: spin 0.7s linear infinite; }
 </style>

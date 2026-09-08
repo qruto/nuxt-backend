@@ -105,7 +105,7 @@ async function setBanned(row: AdminUserRow, ban: boolean) {
       <LabPanel
         label="identity"
         title="Your claims"
-        tone="accent"
+        tone="ok"
       >
         <dl class="claims">
           <div><dt>user</dt><dd>{{ user?.email ?? '—' }}</dd></div>
@@ -170,7 +170,7 @@ async function setBanned(row: AdminUserRow, ban: boolean) {
     <LabPanel
       label="server · live"
       title="Guarded Convex functions"
-      tone="accent"
+      tone="ok"
     >
       <p class="hint">
         Four real functions from <code>backend/guards.ts</code>, one per
@@ -211,7 +211,7 @@ async function setBanned(row: AdminUserRow, ban: boolean) {
       >
         <div class="row">
           <LabButton
-            variant="ghost"
+            variant="secondary"
             size="sm"
             :loading="adminBusy === 'list'"
             @click="loadUsers"
@@ -248,7 +248,7 @@ async function setBanned(row: AdminUserRow, ban: boolean) {
           </LabButton>
           <LabButton
             v-else
-            variant="ghost"
+            variant="secondary"
             size="sm"
             :loading="adminBusy === row.id"
             @click="setBanned(row, false)"

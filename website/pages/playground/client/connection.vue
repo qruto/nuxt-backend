@@ -61,7 +61,7 @@ const metrics = computed(() => [
         </template>
         <LiveTrace
           :values="inflightHistory"
-          :tone="isOnline ? 'accent' : 'err'"
+          :tone="isOnline ? 'ok' : 'err'"
           :live="isOnline"
           :height="72"
         />

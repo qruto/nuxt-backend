@@ -6,11 +6,12 @@ import { useSlots } from 'vue'
  * extruded from the material; `variant="well"` is a concave recess carved
  * into it (for readouts, lists, secondary content). `tone` colors the
  * header tick + label only — depth, not color, carries the structure.
+ * Tones are the three signals: ok (green), warn (amber), err (red).
  */
 withDefaults(defineProps<{
   label?: string
   title?: string
-  tone?: 'accent' | 'ok' | 'warn' | 'err' | 'xp' | 'neutral'
+  tone?: 'ok' | 'warn' | 'err' | 'neutral'
   variant?: 'raised' | 'well'
   flush?: boolean
 }>(), { tone: 'neutral', variant: 'raised', flush: false })
@@ -106,9 +107,7 @@ const slots = useSlots()
 .panel-body { padding: 1rem; }
 .panel-body.flush { padding: 0; }
 
-.panel.accent { --tone-c: var(--accent); --tone-dim: var(--accent-dim); }
-.panel.ok     { --tone-c: var(--ok);     --tone-dim: var(--ok-dim); }
-.panel.warn   { --tone-c: var(--warn);   --tone-dim: var(--warn-dim); }
-.panel.err    { --tone-c: var(--err);    --tone-dim: var(--err-dim); }
-.panel.xp     { --tone-c: var(--xp);     --tone-dim: var(--xp-dim); }
+.panel.ok   { --tone-c: var(--ok);   --tone-dim: var(--ok-dim); }
+.panel.warn { --tone-c: var(--warn); --tone-dim: var(--warn-dim); }
+.panel.err  { --tone-c: var(--err);  --tone-dim: var(--err-dim); }
 </style>

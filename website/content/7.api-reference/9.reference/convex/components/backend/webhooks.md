@@ -1,0 +1,97 @@
+---
+navigation: true
+---
+
+# convex/components/backend/webhooks
+
+## Variables
+
+### vDeliveryOutcome
+
+```ts
+const vDeliveryOutcome: VUnion<
+  | "ok"
+  | "invalid_signature"
+  | "unknown_type"
+  | "handler_error"
+  | "duplicate"
+  | "oversized"
+| "missing_secret", [VLiteral<"ok", "required">, VLiteral<"invalid_signature", "required">, VLiteral<"unknown_type", "required">, VLiteral<"handler_error", "required">, VLiteral<"duplicate", "required">, VLiteral<"oversized", "required">, VLiteral<"missing_secret", "required">], "required", never>;
+```
+
+Defined in: [nuxt-backend/src/convex/components/backend/webhooks.ts:14](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/webhooks.ts#L14)
+
+***
+
+### record
+
+```ts
+const record: RegisteredMutation<"public", {
+  type?: string;
+  note?: string;
+  service: string;
+  deliveryId: string;
+  outcome:   | "ok"
+     | "invalid_signature"
+     | "unknown_type"
+     | "handler_error"
+     | "duplicate"
+     | "oversized"
+     | "missing_secret";
+}, Promise<null>>;
+```
+
+Defined in: [nuxt-backend/src/convex/components/backend/webhooks.ts:24](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/webhooks.ts#L24)
+
+***
+
+### find
+
+```ts
+const find: RegisteredQuery<"public", {
+  service: string;
+  deliveryId: string;
+}, Promise<
+  | {
+  outcome:   | "ok"
+     | "invalid_signature"
+     | "unknown_type"
+     | "handler_error"
+     | "duplicate"
+     | "oversized"
+     | "missing_secret";
+  receivedAt: number;
+}
+| null>>;
+```
+
+Defined in: [nuxt-backend/src/convex/components/backend/webhooks.ts:55](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/webhooks.ts#L55)
+
+Was this delivery id already fully processed? (Dedupe peek — `ok` only.)
+
+***
+
+### listRecent
+
+```ts
+const listRecent: RegisteredQuery<"public", {
+  limit?: number;
+}, Promise<{
+  service: string;
+  deliveryId: string;
+  type: string | undefined;
+  outcome:   | "ok"
+     | "invalid_signature"
+     | "unknown_type"
+     | "handler_error"
+     | "duplicate"
+     | "oversized"
+     | "missing_secret";
+  note: string | undefined;
+  receivedAt: number;
+}[]>>;
+```
+
+Defined in: [nuxt-backend/src/convex/components/backend/webhooks.ts:71](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/webhooks.ts#L71)
+
+Recent deliveries, newest first (the DevTools / playground feed).

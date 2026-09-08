@@ -1,14 +1,15 @@
 <script setup lang="ts">
 /**
  * A raised metric tile: mono label, big display number, optional unit + hint.
- * The convex card lifts the live value off the material.
+ * The convex card lifts the live value off the material. A toned value is
+ * one crisp signal (green / amber / red); neutral numerals are stamped.
  */
 withDefaults(defineProps<{
   label: string
   value?: string | number | null
   unit?: string
   hint?: string
-  tone?: 'accent' | 'ok' | 'warn' | 'err' | 'info' | 'neutral'
+  tone?: 'ok' | 'warn' | 'err' | 'neutral'
   loading?: boolean
 }>(), { tone: 'neutral', loading: false })
 </script>
@@ -74,19 +75,17 @@ withDefaults(defineProps<{
   line-height: 1;
   letter-spacing: 0;
   color: var(--ink);
-  /* Stamped counter via `.embossed-sm` (neutral numerals only; toned values
-     below keep plain color — scoped specificity wins over the utility). */
+  /* Stamped counter via `.embossed-sm` (neutral numerals only; a signal is
+     never engraved — toned values below drop the relief; scoped
+     specificity wins over the utility). */
 }
-.mc.accent .mc-num, .mc.ok .mc-num, .mc.warn .mc-num,
-.mc.err .mc-num, .mc.info .mc-num { text-shadow: none; }
+.mc.ok .mc-num, .mc.warn .mc-num, .mc.err .mc-num { text-shadow: none; }
 .mc-unit { font-size: 0.78rem; font-weight: 600; color: var(--ink-dim); }
 .mc-hint { margin-top: 0.4rem; font-size: 0.74rem; color: var(--ink-faint); }
 
-.mc.accent .mc-num { color: var(--accent-soft); }
 .mc.ok   .mc-num { color: var(--ok); }
 .mc.warn .mc-num { color: var(--warn); }
 .mc.err  .mc-num { color: var(--err); }
-.mc.info .mc-num { color: var(--info); }
 
 .mc-skeleton {
   display: inline-block;

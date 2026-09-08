@@ -111,10 +111,12 @@ function usePreset(flow: { email: { value: string }, error: { value: string | nu
   width: 2.2rem;
   height: 2.2rem;
   border-radius: var(--r-sm);
-  background: var(--accent);
-  color: var(--on-accent);
+  /* Neutral anodised plate — same recipe as the docs header mark
+     (AppHeaderLogo.vue): ink gradient, glyph in canvas tone. No signal. */
+  color: var(--bg);
   font-size: 0.9rem;
-  box-shadow: var(--raise-accent);
+  background: linear-gradient(135deg, var(--ink-dim), var(--ink) 70%);
+  box-shadow: var(--elev-1), inset 1px 1px 0 light-dark(rgb(255 255 255 / 0.28), rgb(255 255 255 / 0.55));
 }
 
 .auth-brandtext {
@@ -159,9 +161,10 @@ function usePreset(flow: { email: { value: string }, error: { value: string | nu
   cursor: pointer;
 }
 
+/* Selected preset = the green "go" ring; the text is the crisp signal. */
 .preset.on {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--ok);
+  color: var(--ok);
 }
 
 /* The packaged form inherits the depth palette via .bk-depth; only sizing
@@ -173,5 +176,19 @@ function usePreset(flow: { email: { value: string }, error: { value: string | nu
 .auth-card :deep([data-auth='title']) {
   font-family: var(--display);
   font-size: 1.35rem;
+}
+
+/* The primary submit is green enamel with the site's depth. The `.bk-depth`
+   bridge already maps `--bk-accent` → `--ok`; this adds the raised recipe. */
+.auth-card :deep([data-auth='submit']) {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: var(--on-ok);
+  box-shadow: var(--elev-1), var(--glow-ok-soft);
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.auth-card :deep([data-auth='submit']:not(:disabled):hover) {
+  background: var(--ok-press);
+  box-shadow: var(--elev-2), var(--glow-ok-soft);
 }
 </style>

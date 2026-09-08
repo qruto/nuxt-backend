@@ -46,13 +46,13 @@ function highlight(text: string): string {
       <MetricCard
         label="messages (aggregate)"
         :value="messageCount"
-        tone="accent"
+        tone="ok"
         hint="useCount(api.aggregates.countMessages)"
       />
       <MetricCard
         label="characters stored"
         :value="totalCharacters"
-        tone="accent"
+        tone="ok"
         hint="useAggregate · sum"
       />
       <MetricCard
@@ -77,7 +77,7 @@ function highlight(text: string): string {
           style="flex: 1"
         >
         <LabButton
-          variant="signal"
+          variant="primary"
           type="submit"
           :disabled="!draft.trim()"
         >
@@ -89,7 +89,7 @@ function highlight(text: string): string {
     <LabPanel
       label="search"
       title="search.searchMessages"
-      tone="accent"
+      tone="ok"
       flush
     >
       <div class="searchbar">
@@ -157,8 +157,8 @@ function highlight(text: string): string {
 }
 .results-state p { margin: 0; }
 .result { padding: 0.6rem 0.75rem; }
-.result strong { font-size: 0.78rem; font-weight: 600; color: var(--accent-soft); }
+.result strong { font-size: 0.78rem; font-weight: 600; color: var(--ink); }
 .result-text { margin: 0.15rem 0 0; font-size: 0.86rem; line-height: 1.45; word-break: break-word; }
 
-.spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--edge-hi); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+.spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--edge-hi); border-top-color: var(--warn); border-radius: 50%; animation: spin 0.7s linear infinite; }
 </style>

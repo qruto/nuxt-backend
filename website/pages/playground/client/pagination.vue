@@ -65,7 +65,7 @@ async function addCustom() {
 }
 
 const statusTone = computed(() =>
-  status.value === 'Exhausted' ? 'muted' : status.value === 'CanLoadMore' ? 'ok' : 'accent',
+  status.value === 'Exhausted' ? 'muted' : status.value === 'CanLoadMore' ? 'ok' : 'warn',
 )
 
 // Dev drawer
@@ -90,11 +90,11 @@ const xpKey = computed(() => `${xpFail.value}-${xpThrow.value}-${xpSkip.value}`)
     <LabPanel
       label="log · stream"
       title="logs.listPaginated"
-      tone="accent"
+      tone="ok"
       flush
     >
       <template #actions>
-        <StatusPill :tone="statusTone === 'muted' ? 'muted' : statusTone === 'ok' ? 'ok' : 'signal'">
+        <StatusPill :tone="statusTone === 'muted' ? 'muted' : statusTone === 'ok' ? 'ok' : 'warn'">
           {{ status }}
         </StatusPill>
       </template>
@@ -102,7 +102,7 @@ const xpKey = computed(() => `${xpFail.value}-${xpThrow.value}-${xpSkip.value}`)
       <div class="toolbar">
         <div class="row">
           <LabButton
-            variant="ghost"
+            variant="secondary"
             size="sm"
             :loading="seeding"
             @click="seedLogs"
@@ -154,7 +154,7 @@ const xpKey = computed(() => `${xpFail.value}-${xpThrow.value}-${xpSkip.value}`)
           placeholder="Append a log entry…"
         >
         <LabButton
-          variant="ghost"
+          variant="secondary"
           size="sm"
           type="submit"
           :disabled="!customMessage.trim()"
@@ -194,17 +194,17 @@ const xpKey = computed(() => `${xpFail.value}-${xpThrow.value}-${xpSkip.value}`)
         >
           <LabToggle
             v-model="xpFail"
-            tone="xp"
+            tone="warn"
             label="shouldFail"
           />
           <LabToggle
             v-model="xpThrow"
-            tone="xp"
+            tone="warn"
             label="throwOnError"
           />
           <LabToggle
             v-model="xpSkip"
-            tone="xp"
+            tone="warn"
             label="skip"
           />
         </div>
@@ -225,7 +225,7 @@ const xpKey = computed(() => `${xpFail.value}-${xpThrow.value}-${xpSkip.value}`)
                 {{ error.message }}
               </p>
               <LabButton
-                variant="ghost"
+                variant="secondary"
                 size="sm"
                 @click="reset"
               >
@@ -252,7 +252,6 @@ const xpKey = computed(() => `${xpFail.value}-${xpThrow.value}-${xpSkip.value}`)
   transition: color var(--transition), box-shadow var(--transition), background var(--transition);
 }
 .fbtn.active { background: var(--surface); box-shadow: var(--raise-sm); color: var(--ink); }
-.fbtn.info.active { color: var(--info); }
 .fbtn.warn.active { color: var(--warn); }
 .fbtn.error.active { color: var(--err); }
 

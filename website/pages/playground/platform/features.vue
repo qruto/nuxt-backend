@@ -47,7 +47,7 @@ const plans = computed(() => features.plans.value ?? [])
             : 'Subscribe on the Billing page, then sync to unlock.' }}
         </p>
         <LabButton
-          variant="ghost"
+          variant="secondary"
           @click="syncEntitlements({})"
         >
           Sync entitlements
@@ -60,7 +60,7 @@ const plans = computed(() => features.plans.value ?? [])
       <LabPanel
         label="gated · FeatureBoundary"
         title="Pro analytics"
-        :tone="hasPremium ? 'accent' : 'neutral'"
+        :tone="hasPremium ? 'ok' : 'neutral'"
       >
         <FeatureBoundary feature="premium">
           <div class="gated">
@@ -69,7 +69,7 @@ const plans = computed(() => features.plans.value ?? [])
                 label="conversion"
                 value="4.8"
                 unit="%"
-                tone="accent"
+                tone="ok"
               />
               <p
                 class="hint"
@@ -110,7 +110,7 @@ const plans = computed(() => features.plans.value ?? [])
           <StatusPill
             v-for="p in plans"
             :key="p"
-            tone="signal"
+            tone="ok"
             :dot="false"
           >
             {{ p }}

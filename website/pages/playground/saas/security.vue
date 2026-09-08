@@ -21,7 +21,7 @@ definePageMeta({ middleware: 'auth' })
     <LabPanel
       label="webauthn · devices · danger"
       title="Account security"
-      tone="accent"
+      tone="ok"
     >
       <SecuritySettings callback-path="/playground/saas/security" />
     </LabPanel>

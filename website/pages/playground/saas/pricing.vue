@@ -53,7 +53,7 @@ function timeAgo(ts: number): string {
       <MetricCard
         label="credits"
         :value="credits.balance.value ?? '—'"
-        tone="accent"
+        tone="ok"
         :loading="credits.isLoading.value"
         hint="prepaid balance"
       />
@@ -62,7 +62,7 @@ function timeAgo(ts: number): string {
     <LabPanel
       label="plans · PricingTable"
       title="Choose a plan"
-      tone="accent"
+      tone="ok"
     >
       <PricingTable :title="undefined">
         <template #footer>
@@ -80,7 +80,7 @@ function timeAgo(ts: number): string {
               ultra
             </StatusPill>
             <LabButton
-              variant="ghost"
+              variant="secondary"
               @click="credits.refresh()"
             >
               Refresh entitlements
@@ -112,7 +112,7 @@ function timeAgo(ts: number): string {
           class="feed-row"
         >
           <SignalDot
-            :tone="event.source === 'auth' ? 'accent' : 'ok'"
+            :tone="event.source === 'auth' ? 'ok' : 'ok'"
             :pulse="false"
           />
           <span class="feed-type mono">{{ event.type }}</span>

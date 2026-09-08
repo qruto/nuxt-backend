@@ -33,9 +33,9 @@ async function triggerEmailEvent() {
   }
 }
 
-const OUTCOME_TONES: Record<string, 'ok' | 'signal' | 'warn' | 'err'> = {
+const OUTCOME_TONES: Record<string, 'ok' | 'warn' | 'err'> = {
   ok: 'ok',
-  duplicate: 'signal',
+  duplicate: 'warn',
   unknown_type: 'warn',
   invalid_signature: 'err',
   handler_error: 'err',
@@ -67,7 +67,7 @@ function timeAgo(ts: number): string {
     <LabPanel
       label="endpoints"
       title="Mounted routes"
-      tone="accent"
+      tone="ok"
     >
       <div class="rows">
         <div class="endpoint-row">
@@ -104,7 +104,7 @@ function timeAgo(ts: number): string {
     >
       <div class="row">
         <LabButton
-          variant="signal"
+          variant="primary"
           :loading="sending"
           @click="triggerEmailEvent"
         >
@@ -150,7 +150,7 @@ function timeAgo(ts: number): string {
           class="feed-row"
         >
           <StatusPill
-            :tone="delivery.service === 'email' ? 'signal' : 'ok'"
+            :tone="delivery.service === 'email' ? 'ok' : 'ok'"
             dot
           >
             {{ delivery.service }}
@@ -199,7 +199,7 @@ function timeAgo(ts: number): string {
           class="feed-row"
         >
           <StatusPill
-            :tone="event.source === 'email' ? 'signal' : 'ok'"
+            :tone="event.source === 'email' ? 'ok' : 'ok'"
             dot
           >
             {{ event.source }}

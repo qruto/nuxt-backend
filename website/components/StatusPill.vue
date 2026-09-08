@@ -1,6 +1,10 @@
 <script setup lang="ts">
+/**
+ * A recessed chip carved into the material; the tone lives in the LED + the
+ * label (the `-soft` shade — the readable signal on a well).
+ */
 withDefaults(defineProps<{
-  tone?: 'signal' | 'ok' | 'warn' | 'err' | 'xp' | 'muted'
+  tone?: 'ok' | 'warn' | 'err' | 'muted'
   dot?: boolean
 }>(), { tone: 'muted', dot: true })
 </script>
@@ -20,7 +24,6 @@ withDefaults(defineProps<{
 </template>
 
 <style scoped>
-/* A recessed chip carved into the material; tone lives in the dot + label. */
 .pill {
   display: inline-flex;
   align-items: center;
@@ -36,10 +39,8 @@ withDefaults(defineProps<{
   background: var(--sink);
   box-shadow: var(--inset-sm);
 }
-.pill.signal { --p-c: var(--accent-soft); }
-.pill.ok     { --p-c: var(--ok); }
-.pill.warn   { --p-c: var(--warn); }
-.pill.err    { --p-c: var(--err); }
-.pill.xp     { --p-c: var(--xp); }
-.pill.muted  { --p-c: var(--ink-dim); }
+.pill.ok    { --p-c: var(--ok-soft); }
+.pill.warn  { --p-c: var(--warn-soft); }
+.pill.err   { --p-c: var(--err-soft); }
+.pill.muted { --p-c: var(--ink-dim); }
 </style>

@@ -61,7 +61,7 @@ async function makeDiscount() {
     <LabPanel
       label="checkout · polar"
       title="Plans"
-      tone="accent"
+      tone="ok"
     >
       <p
         v-if="products.length === 0"
@@ -103,7 +103,7 @@ async function makeDiscount() {
             <!-- Same portal via the composable — a same-tab redirect instead
                  of the component's link. -->
             <LabButton
-              variant="ghost"
+              variant="secondary"
               @click="billing.portal({ redirect: true })"
             >
               Open portal (composable)
@@ -116,7 +116,7 @@ async function makeDiscount() {
             </LabButton>
           </template>
           <LabButton
-            variant="ghost"
+            variant="secondary"
             @click="syncEntitlements({})"
           >
             Sync entitlements
@@ -148,7 +148,7 @@ async function makeDiscount() {
           >
         </LabField>
         <LabButton
-          variant="signal"
+          variant="primary"
           :loading="discountPending"
           @click="makeDiscount"
         >
@@ -174,10 +174,11 @@ async function makeDiscount() {
   display: inline-flex; align-items: center; justify-content: center;
   padding: 0.5rem 0.9rem; border-radius: var(--r-sm);
   font-size: 0.82rem; font-weight: 600; text-decoration: none; cursor: pointer;
-  background: var(--accent); color: var(--on-accent); box-shadow: var(--raise-accent);
+  background: var(--ok); color: var(--on-ok); box-shadow: var(--elev-1), var(--glow-ok-soft);
   transition: background var(--transition), box-shadow var(--transition);
 }
-.checkout-btn:hover, .portal-btn:hover { background: var(--accent-press); }
+.checkout-btn:hover { background: var(--ok-press); }
+.portal-btn:hover { background: var(--surface-hi); color: var(--ok); }
 .checkout-btn:active, .portal-btn:active { box-shadow: var(--inset-sm); }
 .portal-btn { background: var(--surface); color: var(--ink); box-shadow: var(--raise-sm); }
 

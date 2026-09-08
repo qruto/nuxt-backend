@@ -20,7 +20,7 @@ const state = useQuery_experimental({
 })
 
 const tone = computed(() =>
-  state.value.status === 'success' ? 'ok' : state.value.status === 'error' ? 'err' : 'signal',
+  state.value.status === 'success' ? 'ok' : state.value.status === 'error' ? 'err' : 'warn',
 )
 </script>
 

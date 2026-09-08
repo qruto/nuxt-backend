@@ -37,7 +37,7 @@ function validateEmail(value: string): boolean | string {
     <LabPanel
       label="identity · email"
       title="Your account"
-      tone="accent"
+      tone="ok"
     >
       <ProfileSettings
         :validate-email="validateEmail"

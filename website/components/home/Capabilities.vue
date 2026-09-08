@@ -3,9 +3,10 @@
  * "The module bay" — the package's surface area as a bento of machined modules
  * slotted into a recessed rack. Two hero modules (real-time + the bundled
  * backend components) span wide; the rest are single tiles. Every module is a
- * raised, beveled surface with a recessed icon well and a status LED; on hover
- * it lifts out of the bay and its well lights up. Raised vs inset depth — not
- * colour — carries the structure.
+ * raised, beveled surface with a recessed icon well; on hover it lifts out of
+ * the bay. Raised vs inset depth — not colour — carries the structure; the only
+ * chroma is a status LED where a status is real: green "live" on the real-time
+ * module (it is), amber "idle" on the bundled components (no-ops until wired).
  */
 const modules = [
   {
@@ -13,7 +14,7 @@ const modules = [
     title: 'Real-time by default',
     body: '`useQuery`, `useMutation`, `useAction` and pagination over a live WebSocket client, with SSR-safe hydration.',
     span: 'wide' as const,
-    live: true,
+    status: 'live' as const,
   },
   {
     icon: 'i-lucide-shield-check',
@@ -30,6 +31,7 @@ const modules = [
     title: 'Batteries-included components',
     body: 'A whole platform layer, mounted by one call — each a graceful no-op until you configure it.',
     span: 'wide' as const,
+    status: 'idle' as const,
     chips: [
       { icon: 'i-lucide-credit-card', label: 'Billing' },
       { icon: 'i-lucide-mail', label: 'Email' },
@@ -89,10 +91,11 @@ function segments(md: string) {
                 <UIcon :name="m.icon" />
               </span>
               <span
-                v-if="m.live"
-                class="mod__live"
+                v-if="m.status"
+                class="mod__status"
+                :class="m.status"
               >
-                <span class="mod__live-led" /> live
+                <span class="mod__status-led" /> {{ m.status }}
               </span>
             </span>
 
@@ -150,7 +153,7 @@ function segments(md: string) {
 }
 .bay__lead { margin: 1rem 0 0; font-size: 1.04rem; line-height: 1.6; color: var(--ink-dim); }
 .bay__lead code, .mod__body code {
-  font-family: var(--mono); font-size: 0.88em; color: var(--accent-soft);
+  font-family: var(--mono); font-size: 0.88em; color: var(--ok-soft);
 }
 
 /* The bay: a recessed rack the modules sit inside — a wide machined slot. */
@@ -209,14 +212,20 @@ function segments(md: string) {
      `none` (app.css). */
   filter: var(--emboss-icon);
 }
-.mod__live {
+/* Status pill — one signal per module: green = live (the LED beats because
+   the socket is real), amber = idle until configured (static). The tint sits
+   behind the text; the text is the signal. */
+.mod__status {
   display: inline-flex; align-items: center; gap: 0.36rem;
   padding: 0.2rem 0.55rem; border-radius: 999px;
   font-family: var(--mono); font-size: 0.6rem; font-weight: 700;
-  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ok);
-  background: var(--ok-dim);
+  letter-spacing: 0.1em; text-transform: uppercase;
 }
-.mod__live-led { width: 6px; height: 6px; border-radius: 999px; background: var(--ok); box-shadow: var(--glow-ok); animation: beat 2s ease-in-out infinite; }
+.mod__status-led { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+.mod__status.live { color: var(--ok); background: var(--ok-dim); }
+.mod__status.live .mod__status-led { box-shadow: var(--glow-ok); animation: beat 2s ease-in-out infinite; }
+.mod__status.idle { color: var(--warn); background: var(--warn-dim); }
+.mod__status.idle .mod__status-led { box-shadow: var(--glow-warn); }
 
 .mod__name {
   margin: 0 0 0.45rem; font-family: var(--display); font-size: 1.12rem;
@@ -235,5 +244,5 @@ function segments(md: string) {
 .mod__dot { user-select: none; }
 
 @keyframes beat { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
-@media (prefers-reduced-motion: reduce) { .mod__live-led { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .mod__status-led { animation: none; } }
 </style>

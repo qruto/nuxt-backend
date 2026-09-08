@@ -118,13 +118,13 @@ function clock(at: number) {
 
     <!-- Telemetry banner -->
     <LabPanel
-      :tone="online ? 'accent' : 'err'"
+      :tone="online ? 'ok' : 'err'"
       :label="online ? 'telemetry · live' : 'telemetry · down'"
       :title="online ? 'All systems nominal' : 'Link down'"
     >
       <template #actions>
         <LabButton
-          variant="signal"
+          variant="primary"
           size="sm"
           :loading="pulsing"
           :disabled="!online"
@@ -146,7 +146,7 @@ function clock(at: number) {
         </div>
         <LiveTrace
           :values="inflightHistory"
-          :tone="online ? 'accent' : 'err'"
+          :tone="online ? 'ok' : 'err'"
           :live="online"
           :height="56"
         />
@@ -158,7 +158,7 @@ function clock(at: number) {
       <MetricCard
         label="counter"
         :value="counterValue"
-        tone="accent"
+        tone="ok"
         hint="optimistic useMutation"
       />
       <MetricCard
@@ -195,7 +195,7 @@ function clock(at: number) {
             placeholder="Add a task…"
           >
           <LabButton
-            variant="ghost"
+            variant="secondary"
             size="sm"
             type="submit"
           >
@@ -231,7 +231,7 @@ function clock(at: number) {
       <LabPanel
         label="stream"
         title="Broadcast"
-        tone="accent"
+        tone="ok"
       >
         <ul class="feed">
           <li
@@ -258,7 +258,7 @@ function clock(at: number) {
             placeholder="Broadcast…"
           >
           <LabButton
-            variant="ghost"
+            variant="secondary"
             size="sm"
             type="submit"
           >
@@ -298,7 +298,7 @@ function clock(at: number) {
           </li>
         </ul>
         <LabButton
-          variant="ghost"
+          variant="secondary"
           size="sm"
           :disabled="activityStatus !== 'CanLoadMore'"
           @click="loadMoreActivity(6)"
@@ -370,21 +370,21 @@ function clock(at: number) {
 .mini-list li { display: flex; align-items: center; gap: 0.55rem; font-size: 0.82rem; }
 .check {
   width: 18px; height: 18px; flex-shrink: 0; border: 0; border-radius: 5px;
-  background: var(--sink); box-shadow: var(--inset-sm); color: var(--on-accent); cursor: pointer;
+  background: var(--sink); box-shadow: var(--inset-sm); color: var(--on-ok); cursor: pointer;
   font-size: 0.7rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
   transition: background var(--transition), box-shadow var(--transition);
 }
-.check.on { background: var(--accent); box-shadow: var(--raise-sm); }
+.check.on { background: var(--ok); box-shadow: var(--raise-sm); }
 .mini-list .done { color: var(--ink-faint); text-decoration: line-through; }
 .muted { color: var(--ink-faint); font-size: 0.8rem; }
 
 .feed li { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.8rem; }
-.feed-author { font-family: var(--mono); font-size: 0.7rem; color: var(--accent-soft); flex-shrink: 0; }
+.feed-author { font-family: var(--mono); font-size: 0.7rem; color: var(--ink-dim); flex-shrink: 0; }
 .feed-text { color: var(--ink); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .activity li { display: grid; grid-template-columns: 44px 1fr; gap: 0.6rem; align-items: center; font-size: 0.76rem; }
 .lbadge { font-family: var(--mono); font-size: 0.54rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.14rem 0.3rem; border-radius: 4px; text-align: center; }
-.lbadge.info { color: var(--info); background: var(--info-dim); }
+.lbadge.info { color: var(--ink-dim); background: var(--edge); }
 .lbadge.warn { color: var(--warn); background: var(--warn-dim); }
 .lbadge.error { color: var(--err); background: var(--err-dim); }
 .act-msg { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -401,12 +401,12 @@ function clock(at: number) {
 .pillar-icon {
   width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  background: var(--accent); color: var(--on-accent); box-shadow: var(--raise-accent);
+  background: var(--ok); color: var(--on-ok); box-shadow: var(--elev-1), var(--glow-ok-soft);
 }
 .pillar-icon.alt { background: var(--ink); }
 .pillar-body { flex: 1; min-width: 0; }
 .pillar-body h3 { margin: 0 0 0.2rem; font-family: var(--display); font-size: 1rem; font-weight: 600; }
 .pillar-body p { margin: 0; font-size: 0.78rem; color: var(--ink-dim); line-height: 1.5; }
 .pillar-go { color: var(--ink-faint); flex-shrink: 0; }
-.pillar:hover .pillar-go { color: var(--accent); }
+.pillar:hover .pillar-go { color: var(--ok); }
 </style>

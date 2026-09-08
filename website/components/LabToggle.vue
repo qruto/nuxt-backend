@@ -1,10 +1,14 @@
 <script setup lang="ts">
 const model = defineModel<boolean>({ required: true })
+/**
+ * ON fills the track with a signal: green by default (go), amber for an
+ * experimental switch (design §5.7). The knob stays a neutral bead.
+ */
 withDefaults(defineProps<{
   label?: string
   hint?: string
-  tone?: 'signal' | 'xp' | 'ok'
-}>(), { tone: 'signal' })
+  tone?: 'ok' | 'warn'
+}>(), { tone: 'ok' })
 </script>
 
 <template>
@@ -44,7 +48,7 @@ withDefaults(defineProps<{
 }
 .tg-sw { position: relative; flex-shrink: 0; line-height: 0; }
 .tg-sw input { position: absolute; opacity: 0; width: 0; height: 0; }
-/* Track = a gently recessed channel; fills with the tone when on. */
+/* Track = a gently recessed channel; fills with the signal when on. */
 .tg-track {
   display: block;
   width: 42px;
@@ -67,15 +71,14 @@ withDefaults(defineProps<{
   transition: transform var(--transition);
 }
 .tg-sw input:checked ~ .tg-track {
-  background: var(--tg-c, var(--accent));
-  box-shadow: var(--inset-1);
+  background: var(--tg-c);
+  box-shadow: var(--inset-1), var(--tg-glow);
 }
 .tg-sw input:checked ~ .tg-track .tg-knob {
   transform: translateX(18px);
 }
-.tg.signal { --tg-c: var(--accent); --tg-dim: var(--accent-dim); }
-.tg.xp     { --tg-c: var(--xp);     --tg-dim: var(--xp-dim); }
-.tg.ok     { --tg-c: var(--ok);     --tg-dim: var(--ok-dim); }
+.tg.ok   { --tg-c: var(--ok);   --tg-glow: var(--glow-ok-soft); }
+.tg.warn { --tg-c: var(--warn); --tg-glow: var(--glow-warn-soft); }
 
 .tg-text { display: flex; flex-direction: column; line-height: 1.25; }
 .tg-label { font-size: 0.85rem; font-weight: 600; color: var(--ink); }

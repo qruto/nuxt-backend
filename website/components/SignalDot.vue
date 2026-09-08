@@ -1,6 +1,11 @@
 <script setup lang="ts">
+/**
+ * An LED: an 8px enamel dot with the signal's glow (`--glow-ok` / `-warn` /
+ * `-err`, design §3.3). `pulse` spreads the glow colour as a halo. `muted`
+ * is an unlit titanium dot.
+ */
 withDefaults(defineProps<{
-  tone?: 'signal' | 'accent' | 'ok' | 'warn' | 'err' | 'info' | 'xp' | 'muted'
+  tone?: 'ok' | 'warn' | 'err' | 'muted'
   pulse?: boolean
 }>(), { tone: 'ok', pulse: true })
 </script>
@@ -19,16 +24,13 @@ withDefaults(defineProps<{
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: var(--c, var(--accent));
-  box-shadow: 0 0 0 3px var(--cdim, transparent);
-  --ring-glow: var(--cglow, var(--accent-glow));
+  background: var(--c, var(--ok));
+  box-shadow: var(--led, var(--glow-ok));
+  --ring-glow: var(--cglow, var(--ok-glow));
 }
-.dot.signal, .dot.accent { --c: var(--accent); --cdim: var(--accent-dim); --cglow: var(--accent-glow); }
-.dot.ok     { --c: var(--ok);   --cdim: var(--ok-dim);   --cglow: var(--ok-dim); }
-.dot.warn   { --c: var(--warn); --cdim: var(--warn-dim); --cglow: var(--warn-dim); }
-.dot.err    { --c: var(--err);  --cdim: var(--err-dim);  --cglow: var(--err-dim); }
-.dot.info   { --c: var(--info); --cdim: var(--info-dim); --cglow: var(--info-dim); }
-.dot.xp     { --c: var(--xp);   --cdim: var(--xp-dim);   --cglow: var(--xp-glow); }
-.dot.muted  { --c: var(--ink-faint); --cdim: transparent; box-shadow: none; }
-.dot.pulse  { animation: pulse-ring 2.1s infinite; }
+.dot.ok    { --c: var(--ok);   --led: var(--glow-ok);   --cglow: var(--ok-glow); }
+.dot.warn  { --c: var(--warn); --led: var(--glow-warn); --cglow: var(--warn-glow); }
+.dot.err   { --c: var(--err);  --led: var(--glow-err);  --cglow: var(--err-glow); }
+.dot.muted { --c: var(--ink-faint); --led: none; --cglow: transparent; }
+.dot.pulse { animation: pulse-ring 2.1s infinite; }
 </style>
