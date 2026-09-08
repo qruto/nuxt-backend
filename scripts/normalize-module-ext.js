@@ -43,3 +43,18 @@ if (existsSync(typesSrc)) {
 // Drop the unreferenced CJS declaration stub emitted only in dev/stub mode.
 const cts = join(dist, 'module.d.cts')
 if (existsSync(cts)) rmSync(cts)
+
+// Drop `.d.ts` siblings from the MCP tools directory. The tool files are
+// registered with @nuxtjs/mcp-toolkit's definition scan and imported by its
+// generated server template; with a declaration sibling next to each tool's
+// `.js`, Nitro's rollup resolution picks the `.d.ts` up into the server
+// bundle and dies parsing `declare const` ("Expected ';', '}' or <eof>").
+// Nothing imports these types by subpath — the only export is `./mcp` →
+// `dist/runtime/server/mcp/index.js`, whose declarations stay intact.
+const toolsDir = join(dist, 'runtime', 'server', 'mcp', 'tools')
+if (existsSync(toolsDir)) {
+  const { readdirSync } = await import('node:fs')
+  for (const file of readdirSync(toolsDir)) {
+    if (file.endsWith('.d.ts')) rmSync(join(toolsDir, file))
+  }
+}

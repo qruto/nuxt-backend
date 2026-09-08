@@ -101,6 +101,13 @@ jobs:
       - name: Type check
         run: pnpm run test:types:lib
 
+      # The API reference under website/content/5.api-reference/9.reference is
+      # generated from src/ by TypeDoc and committed; fail when it drifts.
+      - name: API reference is up to date
+        run: |
+          pnpm run docs:reference
+          git diff --exit-code --stat -- website/content/5.api-reference/9.reference
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:

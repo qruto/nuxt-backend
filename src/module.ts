@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 import { defineNuxtModule, addComponent, addImports, addPlugin, addServerHandler, addServerImports, addTypeTemplate, createResolver, extendPages, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
 import { defu } from 'defu'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
+import { moduleDir } from './dirs'
 import { backendAppConfigDefaults, type BackendAppConfigInput } from './runtime/config'
 import { BACKEND_MCP_SCOPES, DEFAULT_MCP_EXCHANGE_PATH } from './convex/constants'
 import { deriveDeploymentUrls } from './deployment'
@@ -147,7 +148,7 @@ export default defineNuxtModule<ModuleOptions>({
     const rawOptions = nuxt.options as unknown as Record<string, unknown>
     const backend = (rawOptions.backend ?? {}) as ModuleOptions
     const convex = (rawOptions.convex ?? {}) as Record<string, unknown>
-    const resolver = createResolver(import.meta.url)
+    const resolver = createResolver(moduleDir)
     // The auth middleware redirects to the resolved login page path; with the
     // built-in page disabled, `backend.loginPath` points at the app's own
     // sign-in route (else the app is expected to shadow `/login`).
@@ -200,7 +201,7 @@ export default defineNuxtModule<ModuleOptions>({
     }
   },
   async setup(options, nuxt) {
-    const resolver = createResolver(import.meta.url)
+    const resolver = createResolver(moduleDir)
 
     // Scaffold the minimum Convex backend files (auth component mount, route
     // registration) on the first dev run. Dev-boot only: `nuxt build`,

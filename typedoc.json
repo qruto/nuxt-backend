@@ -17,10 +17,15 @@
     "src/runtime/vue/composables/use-search.ts",
     "src/runtime/vue/composables/use-aggregate.ts",
     "src/runtime/vue/composables/use-workflow.ts",
+    "src/runtime/vue/composables/use-ai-stream.ts",
     "src/convex/client/index.ts",
     "src/convex/app.ts",
+    "src/convex/integrations/http.ts",
+    "src/convex/integrations/functions.ts",
+    "src/convex/integrations/authorization.ts",
     "src/convex/integrations/billing.ts",
     "src/convex/integrations/email.ts",
+    "src/convex/integrations/ai.ts",
     "src/convex/integrations/rate-limit.ts",
     "src/convex/integrations/migrations.ts",
     "src/convex/integrations/aggregate.ts",
@@ -28,6 +33,11 @@
     "src/convex/integrations/workflows.ts"
   ],
   "entryPointStrategy": "resolve",
+
+  // Source links point at the branch, not the generating commit: the committed
+  // reference (`pnpm docs:reference`) would otherwise churn on every commit and
+  // the ci drift gate could never be green.
+  "gitRevision": "main",
 
   // Emit Markdown straight into the Docus content tree so it renders with the
   // site theme, sidebar, and search instead of TypeDoc's standalone HTML.
