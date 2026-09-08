@@ -24,6 +24,17 @@ updates:
         - convex
         - convex-helpers
         - '@convex-dev/*'
+    # `@convex-dev/better-auth` peers `better-auth: ">=1.6.11 <1.7.0"`, and this
+    # package mirrors that range for better-auth and its passkey plugin. A 1.7.x
+    # bump is a *minor* update, so the all-non-major group below would otherwise
+    # propose one that the add-on rejects at install time. Drop both entries
+    # when @convex-dev/better-auth ships better-auth 1.7 support (and widen the
+    # two ranges in package.json with it).
+    ignore:
+      - dependency-name: better-auth
+        versions: ['>=1.7.0']
+      - dependency-name: '@better-auth/passkey'
+        versions: ['>=1.7.0']
     groups:
       all-non-major:
         patterns: ['*']

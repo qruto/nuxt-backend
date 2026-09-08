@@ -59,6 +59,13 @@ minimumReleaseAgeExclude:
   - convex-helpers
   - '@convex-dev/*'
 
+# Not a default: pnpm falls back to an older version that clears the cooldown
+# unless this is set. Failing the install is the safer read of the cooldown —
+# but it means a range-pinned dependency breaks CI for up to minimumReleaseAge
+# after every release, so pin CI tooling to an exact version (see `fallow` and
+# `portless` in devDependencies). https://pnpm.io/settings#minimumreleaseagestrict
+minimumReleaseAgeStrict: true
+
 # Refuse transitive dependencies pulled from exotic sources (git repos, raw
 # tarball URLs) — those bypass registry auditing entirely.
 blockExoticSubdeps: true

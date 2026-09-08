@@ -35,7 +35,7 @@
     "./package.json": "./package.json",
     ".": {
       "types": "./dist/types.d.ts",
-      "import": "./dist/module.js"
+      "default": "./dist/module.js"
     },
     "./auth.css": "./dist/runtime/vue/components/auth.css",
     "./ui.css": "./dist/runtime/vue/components/ui.css",
@@ -46,15 +46,15 @@
     },
     "./authorization": {
       "types": "./dist/convex/integrations/authorization.d.ts",
-      "import": "./dist/convex/integrations/authorization.js"
+      "default": "./dist/convex/integrations/authorization.js"
     },
     "./http": {
       "types": "./dist/convex/integrations/http.d.ts",
-      "import": "./dist/convex/integrations/http.js"
+      "default": "./dist/convex/integrations/http.js"
     },
     "./functions": {
       "types": "./dist/convex/integrations/functions.d.ts",
-      "import": "./dist/convex/integrations/functions.js"
+      "default": "./dist/convex/integrations/functions.js"
     },
     "./app": {
       "types": "./dist/convex/app.d.ts",
@@ -94,7 +94,7 @@
     },
     "./mcp": {
       "types": "./dist/runtime/server/mcp/index.d.ts",
-      "import": "./dist/runtime/server/mcp/index.js"
+      "default": "./dist/runtime/server/mcp/index.js"
     },
     "./component/convex.config": {
       "types": "./dist/convex/components/backend/convex.config.d.ts",
@@ -234,16 +234,18 @@
   },
   "scripts": {
     "preinstall": "npx -y only-allow pnpm",
-    "prepare": "git config hook.commitlint.event commit-msg && git config hook.commitlint.command 'pnpm exec commitlint --edit' || true",
+    "prepare": "test -d .githooks && git config core.hooksPath .githooks || true",
     "prepack": "pnpm run build",
     "build": "pnpm run build:nuxt-module && pnpm run build:convex-component && pnpm run build:devtools-client",
     "build:nuxt-module": "nuxt-module-build build && node scripts/normalize-module-ext.js",
     "build:devtools-client": "nuxt generate devtools-client-app",
-    "build:convex-component": "tsc --project ./tsconfig.convex-component.build.json && node -e \"require('fs').utimesSync('website/backend/convex.config.ts', new Date(), new Date())\"",
+    "build:convex-component": "node scripts/build-convex-component.mjs",
+    "check:tarball": "pnpm pack --out nuxt-backend.tgz && publint run --strict nuxt-backend.tgz && attw nuxt-backend.tgz --profile esm-only --exclude-entrypoints ./auth.css ./ui.css",
     "templates:generate": "node scripts/generate-templates.mjs",
     "docs:reference": "typedoc && node scripts/typedoc-postprocess.mjs",
+    "docs:reference:check": "pnpm run docs:reference && git diff --exit-code -- website/content/7.api-reference/9.reference && git ls-files --others --exclude-standard -- website/content/7.api-reference/9.reference | (! grep .)",
     "analyze": "ANALYZE=true nuxt build --dotenv ../.env.local website",
-    "dev": "pnpm run dev:prepare && pnpm run build:convex-component && run-p -r 'dev:convex-component' 'dev:nuxt-module'",
+    "dev": "pnpm run dev:prepare && run-p -r 'dev:convex-component' 'dev:nuxt-module'",
     "dev:lan": "PORTLESS_LAN=1 pnpm run dev",
     "dev:convex-component": "convex dev --typecheck-components --start 'pnpm run dev:convex-component:watch'",
     "dev:convex-component:codegen": "convex codegen --component-dir ./src/convex/components/backend",
@@ -252,15 +254,16 @@
     "dev:nuxt-module": "portless nuxt-backend nuxt dev --dotenv ../.env.local website",
     "dev:nuxt-module:share": "portless nuxt-backend --ngrok nuxt dev --dotenv ../.env.local website",
     "dev:nuxt-module:build": "nuxt build --dotenv ../.env.local website",
-    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && node scripts/normalize-module-ext.js && nuxt prepare website",
+    "dev:prepare:lib": "nuxt-module-build build --stub && nuxt-module-build prepare && node scripts/normalize-module-ext.js && pnpm run build:convex-component",
+    "dev:prepare": "pnpm run dev:prepare:lib && nuxt prepare website",
     "dev:nuxt-module:prepare": "pnpm run dev:prepare",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "vitest --run",
-    "test:coverage": "vitest --run --coverage",
-    "test:watch": "vitest --watch",
+    "test": "vitest --run --project \"!e2e\"",
+    "test:coverage": "vitest --run --coverage --project \"!e2e\"",
+    "test:watch": "vitest --watch --project \"!e2e\"",
     "test:types": "pnpm run test:types:lib && node scripts/typecheck-website.mjs",
-    "test:types:lib": "pnpm run dev:prepare && pnpm run build:convex-component && vue-tsc --noEmit && tsc --noEmit -p tsconfig.convex.json",
+    "test:types:lib": "pnpm run dev:prepare:lib && vue-tsc --noEmit && tsc --noEmit -p tsconfig.convex.json",
     "test:unit": "vitest --project unit --run",
     "test:nuxt": "vitest --project nuxt --run",
     "test:e2e": "vitest --project e2e --run",
@@ -306,11 +309,13 @@
     "convex": ">=1.42.2 <2"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@codecov/nuxt-plugin": "^2.0.1",
     "@commitlint/cli": "^21.2.1",
     "@commitlint/config-conventional": "^21.2.0",
     "@convex-dev/eslint-plugin": "^3.0.0",
     "@edge-runtime/vm": "^5.0.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@nuxt/devtools": "^3.4.1",
     "@nuxt/eslint": "^1.16.0",
     "@nuxt/eslint-config": "^1.16.0",
@@ -318,6 +323,7 @@
     "@nuxt/schema": "^4.5.1",
     "@nuxt/test-utils": "^4.1.0",
     "@types/node": "^26.2.0",
+    "@types/semver": "^7.8.0",
     "@unhead/vue": "^3.3.0",
     "@vitest/coverage-v8": "^4.1.10",
     "@vue/test-utils": "^2.4.11",
@@ -332,7 +338,11 @@
     "npm-run-all2": "^9.0.3",
     "nuxt": "catalog:",
     "oxc-parser": "^0.143.0",
+    "pkg-pr-new": "^0.0.88",
+    "playwright-core": "^1.63.0",
     "portless": "0.15.5",
+    "publint": "^0.3.24",
+    "semver": "^7.8.5",
     "typedoc": "^0.28.20",
     "typedoc-plugin-frontmatter": "^1.3.1",
     "typedoc-plugin-markdown": "^4.12.0",

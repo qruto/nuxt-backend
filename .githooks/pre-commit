@@ -1,0 +1,43 @@
+#!/bin/sh
+# Fast gate, runs on every commit. The slower half of CI lives in pre-push; see
+# CONTRIBUTING.md § Git Hooks for the split and for what neither hook can cover.
+#
+# Skipped in CI on purpose: the release job commits through changelogen, which
+# shells out to a plain `git commit` (hooks and all), and a release must not be
+# gated on checks the pull request already ran. `CI=1` also trips pnpm's
+# `verifyDepsBeforeRun` guard, so these would fail there for the wrong reason.
+#
+# Every tool runs through `pnpm exec` / `pnpm run`: each is a devDependency and
+# is on PATH only inside a pnpm script.
+#
+# TODO(fallow burndown): add `pnpm exec fallow audit --gate-marker pre-commit`
+# here — and the whole-project `fallow --fail-on-issues` + `fallow security
+# --fail-on-issues` pair to pre-push and to the `static` CI job — once the ~58
+# pre-existing findings `pnpm test:quality` reports today are burned down. A
+# gate that starts red is a gate everyone learns to bypass.
+#
+# Bypass once with: git commit --no-verify
+if [ -n "$CI" ]; then exit 0; fi
+set -e
+
+# `static` job's lint step, scoped to what this commit stages. The paths go to
+# ESLint explicitly, so `--no-warn-ignored` keeps a staged file the config
+# ignores (dist, _generated, …) from tripping the run. Written without
+# `mapfile`/arrays — this hook is /bin/sh.
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- '*.js' '*.mjs' '*.cjs' '*.ts' '*.mts' '*.cts' '*.vue')
+if [ -n "$staged" ]; then
+  printf '%s\n' "$staged" | tr '\n' '\0' | xargs -0 pnpm exec eslint --no-warn-ignored
+fi
+
+# `static` job's template drift step. `src/templates.generated.ts` is derived
+# from the component's function modules; regenerating must produce no diff, or
+# the local-install scaffold and the component have diverged. This one rewrites
+# the file: if it fails, the regenerated output is already in your working
+# tree, ready to stage.
+pnpm run templates:generate
+if ! git diff --quiet -- src/templates.generated.ts; then
+  echo >&2
+  echo "pre-commit: src/templates.generated.ts drifted — stage the regenerated file." >&2
+  git --no-pager diff --stat -- src/templates.generated.ts >&2
+  exit 1
+fi

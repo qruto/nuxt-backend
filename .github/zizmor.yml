@@ -1,10 +1,23 @@
 # zizmor (workflow static analysis) — accepted findings.
 # https://docs.zizmor.sh/configuration/
 rules:
+  # zizmor prefers GitHub's newer `$/.github/actions/setup` self-repository
+  # syntax over `./.github/actions/setup`. Both resolve to this repository's
+  # checkout; the `./` form is kept on purpose (it is the spelling every
+  # runner and every local tool understands, and the migration was declined —
+  # see the CI/CD port notes), so the audit is waived for the workflows that
+  # call the local action.
+  self-repository:
+    ignore:
+      - ci.yml
+      - preview.yml
+      - release.yml
   artipacked:
     ignore:
       # The release checkout must persist credentials: the workflow pushes the
-      # release commit + tag back to main with the ephemeral GITHUB_TOKEN.
+      # release commit + tag back to main with the ephemeral GITHUB_TOKEN. Drop
+      # this waiver when release.yml is split the way nuxt-convex-module's is
+      # (the push carrying the token in a single step's environment).
       - release.yml
   use-trusted-publishing:
     ignore:

@@ -17,15 +17,16 @@ export default defineConfig({
       reporter: ['text', 'json', 'lcov'],
       // Lock in the current baseline (a small margin below the measured numbers)
       // so a regression fails CI without being brittle. Raise these as coverage
-      // climbs; the harder build-time/runtime files (module/scaffold, auth
-      // plugins/middleware, the MCP module registration) keep the global
-      // ceiling modest for now. Rebaselined with the agent (MCP) surface —
-      // its Nitro registration lives in module.ts, which unit tests don't boot.
+      // climbs; the harder build-time/runtime files (auth plugins/middleware,
+      // the scaffold writer) keep the global ceiling modest for now.
+      // Rebaselined with the `module` project, which boots real Nuxt through
+      // src/module.ts — the registration surface unit tests could not reach.
+      // Measured over `--project "!e2e"`: 73.37 / 65.21 / 72.24 / 75.20.
       thresholds: {
-        statements: 68,
-        branches: 60,
-        functions: 69,
-        lines: 69,
+        statements: 72,
+        branches: 64,
+        functions: 71,
+        lines: 74,
       },
     },
     projects: [
@@ -64,9 +65,27 @@ export default defineConfig({
       }),
       {
         test: {
+          // Boots real Nuxt instances against test/fixtures/registration
+          // (`loadNuxt`, no build) and inspects the registration surface —
+          // serial, with the slack a cold Nuxt boot needs.
+          name: 'module',
+          include: ['test/module/**/*.test.ts'],
+          environment: 'node',
+          fileParallelism: false,
+          testTimeout: 120_000,
+          hookTimeout: 120_000,
+        },
+      },
+      {
+        test: {
+          // Full builds of the example apps: one at a time, and a build can
+          // legitimately take minutes on a cold cache.
           name: 'e2e',
           include: ['test/e2e/**/*.{test,spec}.ts'],
           environment: 'node',
+          fileParallelism: false,
+          testTimeout: 120_000,
+          hookTimeout: 300_000,
         },
       },
     ],

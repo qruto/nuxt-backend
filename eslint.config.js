@@ -21,10 +21,12 @@ export default createConfigForNuxt({
   },
 })
   .append(
-    // `.agents/` and `.deepsec/` hold AI tooling references (skill scripts,
-    // scanner config), not package source — exclude them from the lint rules.
+    // `.agents/`, `.claude/` and `.deepsec/` hold AI tooling references
+    // (skill scripts, agent settings, scanner config), not package source —
+    // exclude them from the lint rules. `examples/` stays linted: the examples
+    // are workspace members and ship as the consumer smoke test.
     {
-      ignores: ['.agents/**', '.deepsec/**'],
+      ignores: ['.agents/**', '.claude/**', '.deepsec/**'],
     },
     // Convex code (component + integrations + client) runs in the Convex
     // worker runtime. Enforce no-floating-promises to catch silent failures.

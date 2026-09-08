@@ -1,0 +1,29 @@
+# Line endings are normalised to LF in the repository and on checkout. The test
+# matrix has a windows-latest leg, so without this a contributor on Windows can
+# commit CRLF and make a snapshot or a path assertion pass on one leg and fail on
+# the other.
+* text=auto eol=lf
+
+# Executed as text on POSIX — a CRLF shebang line is a hard error, and these run
+# as git hooks and CI scripts.
+*.sh          text eol=lf
+.githooks/*   text eol=lf
+
+# Binary: never normalise, never diff.
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.webp   binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+*.tgz    binary
+
+# Text, despite looking like markup to some tools.
+*.svg text
+
+# Generated: keep it out of diffs and out of the language statistics.
+pnpm-lock.yaml linguist-generated -diff

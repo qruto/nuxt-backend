@@ -36,6 +36,10 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # The concurrency group above never cancels, so a wedged run would hold the
+    # release lane for GitHub's 360-minute default. Every other job in the repo
+    # sets its own bound; this one publishes, so it needs one most.
+    timeout-minutes: 60
     # Binds the npm Trusted Publisher's OIDC claims (and any required-reviewer
     # rule) to this environment — only runs approved through it can publish.
     environment: release
@@ -44,7 +48,7 @@ jobs:
       # write. Tighten to `egress-policy: block` with an allowlist once the
       # first releases have produced a baseline audit report.
       - name: Harden runner
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
@@ -66,23 +70,20 @@ jobs:
             exit 1
           fi
 
-      # One action for pnpm (version from `packageManager`), the Node LTS runtime
-      # and `pnpm install` (frozen automatically in CI). The pnpm that publishes
-      # below is therefore the exact version the lockfile was authored with.
-      - name: Install pnpm, node & dependencies
-        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+      # pnpm (version from `packageManager`), the Node LTS runtime, a frozen
+      # `pnpm install`, the `link:../nuxt-convex-module` dependency and the
+      # full `dev:prepare` (the `.nuxt/tsconfig.json` the root tsconfig extends,
+      # required by the test run and by the build `pnpm publish` triggers via
+      # `prepack`) — see .github/actions/setup. No cache: a restored cache is
+      # an input nobody reviewed, and a release takes no unreviewed inputs.
+      # `require-lockfile` refuses the one install pnpm's own CI frozen mode
+      # does not — no lockfile at all. The pnpm that publishes below is
+      # therefore the exact version the lockfile was authored with.
+      - uses: ./.github/actions/setup
         with:
-          runtime: node@lts
-          cache: true
-
-      - name: Provide the link:../nuxt-convex-module dependency
-        uses: ./.github/actions/link-nuxt-convex-module
-
-      # Generates `.nuxt/tsconfig.json`, which the root tsconfig extends —
-      # required by the test run and by the build that `pnpm publish`
-      # triggers via `prepack`.
-      - name: Prepare
-        run: pnpm run dev:prepare
+          cache: 'false'
+          require-lockfile: 'true'
+          prepare: full
 
       # Gate: never tag or publish a broken state.
       - name: Lint

@@ -1,10 +1,15 @@
 name: ci
 
-# Every job is two steps: checkout, then `pnpm/setup` — one action that
-# installs pnpm (version pinned by `packageManager` in package.json), downloads
-# the Node LTS runtime through it (`pnpm runtime`, so no actions/setup-node),
-# restores the pnpm store cache, and runs `pnpm install` — which pnpm switches
-# to frozen-lockfile mode automatically because CI is set.
+# Every per-commit gate lives here, in one file, so `ci-ok` can aggregate them
+# and there is one place to read the gate set.
+#
+# Never add a workflow-level `paths:`/`paths-ignore:` filter: a required workflow
+# that is skipped never reports, and the merge sits on "Expected — waiting for
+# status" forever.
+#
+# Setup is defined once, in .github/actions/setup — that is where the pnpm
+# version, the Node runtime, their action pin and the `link:../nuxt-convex-module`
+# clone live.
 on:
   push:
     branches:
@@ -18,57 +23,402 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
-# Least-privilege default for every job.
-permissions:
-  contents: read
+# Nothing by default — every job declares the minimum it needs.
+permissions: {}
+
+# No usage pings from Nuxt, Nitro, Convex or anything honouring the
+# console.do-not-track convention — CI is not a user.
+env:
+  DO_NOT_TRACK: '1'
+  NUXT_TELEMETRY_DISABLED: '1'
 
 jobs:
-  lint:
+  # Everything that needs a checkout, an install and nothing else. One job rather
+  # than five: the setup is identical, and `if: !cancelled()` still gives a
+  # per-gate verdict, so one push surfaces every problem at once instead of
+  # stopping at the first.
+  #
+  # TODO(fallow burndown): the `quality` gate — `pnpm exec fallow audit
+  # --changed-since "$BASE_SHA"` on pull requests, `pnpm exec fallow
+  # --fail-on-issues` on pushes to main, plus `pnpm exec fallow security
+  # --fail-on-issues` — belongs here, the way nuxt-convex-module's ci.yml has it.
+  # The codebase carries ~58 pre-existing findings (`pnpm test:quality`); add
+  # the steps once they are burned down so the gate starts green.
+  static:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
-
-      - name: Install pnpm, node & dependencies
-        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
-        with:
-          runtime: node@lts
-          cache: true
-
-      - name: Lint
-        run: pnpm run lint
-
-  # Enforce Conventional Commits on PRs. The local commit-msg hook gives fast
-  # feedback but can be bypassed with --no-verify, so this is the gate that
-  # actually keeps the history clean. Pushes to main are skipped — those commits
-  # were already linted on their PR.
-  commit-lint:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # Full history so commitlint can read every commit in the PR range.
+          # Full history: commitlint reads the PR range.
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Install pnpm, node & dependencies
-        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+      - uses: ./.github/actions/setup
         with:
-          runtime: node@lts
-          cache: true
+          prepare: lib
 
-      - name: Lint PR commit messages
-        run: pnpm exec commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}" --verbose
+      - name: Lint
+        if: ${{ !cancelled() }}
+        run: pnpm run lint
+
+      # Type-checks the published surface. The root tsconfig excludes `src/convex`
+      # (and the website, which has its own job), so the Convex world — including
+      # the published `nuxt-backend/test` entrypoint, which the component build
+      # also excludes — needs its own pass. Same two commands the release gate
+      # runs (`test:types:lib`), minus the `dev:prepare:lib` the setup step did.
+      - name: Type check
+        if: ${{ !cancelled() }}
+        run: pnpm exec vue-tsc --noEmit
+
+      - name: Type check (Convex)
+        if: ${{ !cancelled() }}
+        run: pnpm exec tsc --noEmit -p tsconfig.convex.json
+
+      # Enforce Conventional Commits on PRs. The local commit-msg hook gives fast
+      # feedback but can be bypassed with --no-verify, so this is the gate that
+      # actually keeps the history clean. Pushes to main are skipped — those
+      # commits were already linted on their PR.
+      - name: Commit messages
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: pnpm exec commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+
+      # `src/templates.generated.ts` — the export lists the local-install
+      # scaffold re-exports — is derived from the component's function modules
+      # and committed. Regenerating must produce no diff, otherwise a function
+      # was added to the component without reaching the scaffold.
+      - name: Template drift
+        if: ${{ !cancelled() }}
+        run: |
+          pnpm run templates:generate
+          git diff --exit-code -- src/templates.generated.ts
+
+      # Regenerating the committed TypeDoc reference must produce no diff,
+      # otherwise source doc-comments and the published reference have diverged.
+      - name: API reference drift
+        if: ${{ !cancelled() }}
+        run: |
+          pnpm run docs:reference
+          # `git diff` only sees tracked files, so a regeneration that lands in a
+          # renamed-away directory would pass silently — exactly how the stale
+          # `5.api-reference` path stayed green. The second check lists untracked
+          # output under the reference tree, so a wrong `out` fails loudly.
+          git diff --exit-code -- website/content/7.api-reference/9.reference
+          git ls-files --others --exclude-standard -- website/content/7.api-reference/9.reference | (! grep .)
+
+      # Static analysis of the workflows themselves (template injection,
+      # credential persistence, unpinned uses). Accepted findings live in
+      # .github/zizmor.yml.
+      # The action's `version` input defaults to `latest`, which makes zizmor an
+      # unpinned input in a repository that pins every action to a digest: a new
+      # release can add an audit and redden CI with no change here. Pin it, and
+      # bump deliberately — that is when you read the new findings.
+      - name: Workflow lint (zizmor)
+        if: ${{ !cancelled() }}
+        uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
+        with:
+          version: 1.30.0
+          advanced-security: false
+
+  test:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is in the matrix because the module does real path work (the
+        # scaffold writes files, the codegen watcher normalizes paths) — the
+        # class of bug that only ships to Windows users.
+        os: [ubuntu-latest, windows-latest]
+        # The project tracks the current LTS via the `lts` tag, so it follows new
+        # LTS lines without a manual bump. `lts/-1` is not an option: engines.node
+        # is >=24.11.0, which is above it.
+        node: [lts]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # `lib`: the `nuxt` vitest project boots a Nuxt app from the repository
+      # root, not from the website, so nothing here needs `nuxt prepare website`.
+      - uses: ./.github/actions/setup
+        with:
+          runtime: node@${{ matrix.node }}
+          prepare: lib
+
+      # `pnpm test` plus coverage: the same `!e2e` project set, and the
+      # thresholds in vitest.config.ts are enforced here.
+      - name: Test
+        run: pnpm run test:coverage
+
+      # Handed to the `coverage` job, which holds the upload credential. This job
+      # runs PR-authored code, so it must never hold one itself.
+      - name: Upload coverage artifact
+        if: ${{ !cancelled() && matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage
+          path: |
+            coverage/
+            test-report.junit.xml
+          retention-days: 1
+          if-no-files-found: error
+
+  # Full-app end-to-end: builds the example apps with @nuxt/test-utils/e2e and
+  # drives them in a real browser against a real Nitro server.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      # Audit-mode egress monitoring. Applied to the jobs that build and run
+      # PR-authored code against the network, not to every job — harden-runner is
+      # itself a third-party action, so it is worth its surface where there is
+      # untrusted code and outbound traffic to observe, and not elsewhere.
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          prepare: lib
+
+      # The browser the e2e project drives. playwright-core is the lockfile
+      # version, so the browser build it downloads is the one it was tested
+      # against; `--with-deps` adds the runner's system libraries.
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright-core install --with-deps chromium
+
+      - name: End-to-end tests
+        run: pnpm exec vitest --run --project e2e
+
+  # Publishable-package gate: build the real tarball (`pnpm pack` rewrites
+  # `catalog:` ranges exactly like `pnpm publish`), lint its shape, then install
+  # it into both examples with plain npm — the consumer path (registry-shaped
+  # install, lifecycle scripts, engines) that repo-internal jobs never exercise.
+  pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          prepare: lib
+
+      # Runs `prepack` (the full build) and produces the exact artifact a release
+      # would publish. A fixed name, so the steps below need no glob.
+      - name: Pack
+        run: pnpm pack --out nuxt-backend.tgz
+
+      # Until nuxt-convex-module is published, package.json depends on it as
+      # `link:../nuxt-convex-module` — a range only pnpm understands. publint
+      # fails on it by design, and npm refuses it outright, so the publishable
+      # shape cannot be checked yet. Rather than a gate that is red until the
+      # base module ships, the consumer-facing steps below are skipped, with a
+      # warning on every run, and switch themselves on the moment the
+      # dependency becomes a semver range. The tarball-contents assertions do
+      # not depend on it and always run.
+      - name: Publishable dependencies?
+        id: deps
+        run: |
+          if jq -e '.dependencies | to_entries[] | select(.value | startswith("link:"))' package.json >/dev/null; then
+            echo "::warning::package.json still depends on nuxt-convex-module through link: — publint, attw and the consumer smoke test are skipped until it is a published range"
+            echo "publishable=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publishable=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package shape (publint)
+        if: ${{ !cancelled() && steps.deps.outputs.publishable == 'true' }}
+        run: pnpm exec publint run --strict nuxt-backend.tgz
+
+      # The two CSS subpaths are excluded: TypeScript cannot resolve a
+      # stylesheet, so attw reports them as failed resolution on every target —
+      # the same exclusion `pnpm check:tarball` carries.
+      - name: Type resolution (arethetypeswrong)
+        if: ${{ !cancelled() && steps.deps.outputs.publishable == 'true' }}
+        run: pnpm exec attw nuxt-backend.tgz --profile esm-only --exclude-entrypoints ./auth.css ./ui.css
+
+      # What the tarball must and must not carry. Each `grep -q` is a question
+      # about the file list; the `if` makes the verdict explicit rather than
+      # relying on `set -e` and a negated pipeline. Sourcemaps are not on the
+      # list on purpose: `dist/convex` ships `.js.map` and `.d.ts.map` files
+      # (tsconfig.convex.json) that resolve into the `src/convex` tree the
+      # tarball carries for the `./test` export.
+      - name: Tarball contents
+        if: ${{ !cancelled() }}
+        run: |
+          tar -tzf nuxt-backend.tgz > files.txt
+          for required in \
+            package/dist/devtools-client/index.html \
+            package/dist/cli.mjs \
+            package/dist/convex/components/backend/_generated/component.d.ts
+          do
+            if ! grep -qx "$required" files.txt; then
+              echo "::error::missing from the tarball: $required"; exit 1
+            fi
+          done
+          # Only `src/convex` ships TypeScript sources (the `./test` export and the
+          # declaration maps point into it); everywhere else a `.ts` that is not a
+          # declaration means unbuilt source leaked into the package.
+          if grep -v '^package/src/convex/' files.txt | grep -E '\.[mc]?ts$' | grep -qvE '\.d\.[mc]?ts$'; then
+            echo "::error::unbuilt TypeScript outside src/convex:"; grep -v '^package/src/convex/' files.txt | grep -E '\.[mc]?ts$' | grep -vE '\.d\.[mc]?ts$'; exit 1
+          fi
+          if grep -q '^package/src/runtime/' files.txt; then
+            echo "::error::src/runtime must not ship — the module runtime is built into dist/runtime"; exit 1
+          fi
+          echo "$(wc -l < files.txt) files"
+
+      # Lockfile-less install on purpose: simulates a fresh consumer. `npm`
+      # comes from the runner image — pnpm's Node runtime deliberately ships
+      # without the bundled npm/npx (pnpm 11+), and a stock runner npm is
+      # exactly the consumer path this job is meant to exercise.
+      #
+      # The npm the image bundles (10.9.x, from its own Node 22) crashes in
+      # Arborist's peer-set resolution on any Nuxt 4 tree — `Cannot read
+      # properties of null (reading 'edgesOut')`, npm/cli#9787, fixed in npm
+      # 11.6.0. Nothing to do with this package: a bare `npm install` of the
+      # example hits it too. So the consumer npm is pinned, which also keeps
+      # the gate reproducible when the runner image moves.
+      #
+      # The examples are workspace members, so their manifests carry the two
+      # ranges only pnpm understands: `workspace:*` (rewritten to the tarball)
+      # and `catalog:` (rewritten to the value pnpm-workspace.yaml holds). The
+      # copy also drops the pnpm-managed node_modules, whose symlinks point back
+      # into the workspace.
+      - name: Consumer smoke test (npm install + build)
+        if: ${{ !cancelled() && steps.deps.outputs.publishable == 'true' }}
+        env:
+          NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
+        run: | # zizmor: ignore[adhoc-packages]
+          TARBALL="$PWD/nuxt-backend.tgz"
+          CATALOG=$(yq -o=json '.catalog' pnpm-workspace.yaml)
+          for example in minimal advanced; do
+            SMOKE="$RUNNER_TEMP/smoke-$example"
+            cp -R "examples/$example" "$SMOKE"
+            rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output"
+            jq --arg tarball "$TARBALL" --argjson catalog "$CATALOG" '
+              .dependencies |= with_entries(
+                if .value == "workspace:*" then .value = "file:" + $tarball
+                elif .value == "catalog:" then .value = $catalog[.key]
+                else . end)' "$SMOKE/package.json" > "$SMOKE/package.json.tmp"
+            mv "$SMOKE/package.json.tmp" "$SMOKE/package.json"
+            echo "::group::examples/$example"
+            jq .dependencies "$SMOKE/package.json"
+            (cd "$SMOKE" && npx --yes npm@11.17.0 install --no-audit --no-fund && npx --yes npm@11.17.0 run build)
+            echo "::endgroup::"
+          done
+
+      # Verifies the registry signature and provenance attestation of every
+      # dependency the smoke installs pulled. pnpm's `trustPolicy: no-downgrade`
+      # refuses a package whose trust evidence weakens between versions; this
+      # checks that the evidence actually validates, on the consumer's npm path.
+      - name: Verify dependency signatures
+        if: ${{ !cancelled() && steps.deps.outputs.publishable == 'true' }}
+        run: | # zizmor: ignore[adhoc-packages]
+          for example in minimal advanced; do
+            (cd "$RUNNER_TEMP/smoke-$example" && npx --yes npm@11.17.0 audit signatures)
+          done
+
+  # The docs site + playground: type-checked and built the way a deploy builds
+  # it. `full` prepare, because both read website/.nuxt.
+  website:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          prepare: full
+
+      # `website/backend/_generated` is Convex codegen, gitignored — the
+      # website's own functions import it, so neither the type check nor the
+      # build can run without it. `convex codegen` refuses to run without a
+      # deployment, and the component graph makes the API types depend on one,
+      # so this creates an anonymous *local* deployment (no account, no
+      # credentials: the CLI downloads the local backend and runs it for the
+      # duration of the command) and lets `convex dev --once` push to it. The
+      # push itself is expected to fail at the end — the backend declares
+      # required env vars (AUTH_SECRET, SITE_URL) a throwaway deployment has
+      # no values for — but codegen is complete by then, and the assertions
+      # below are what the step actually gates on: the typed `api.d.ts`, not
+      # the untyped placeholder the first codegen phase writes.
+      - name: Convex codegen (anonymous local deployment)
+        working-directory: website
+        env:
+          CONVEX_AGENT_MODE: anonymous
+        run: |
+          pnpm exec convex dev --once --typecheck disable || echo "convex dev --once exited $? (expected: the push needs env vars this deployment does not have)"
+          for generated in api.d.ts api.js dataModel.d.ts server.d.ts server.js; do
+            if [ ! -f "backend/_generated/$generated" ]; then
+              echo "::error::codegen did not write backend/_generated/$generated"; exit 1
+            fi
+          done
+          if grep -q 'AnyApi' backend/_generated/api.d.ts; then
+            echo "::error::backend/_generated/api.d.ts is the untyped placeholder — the component-aware codegen phase did not run"; exit 1
+          fi
+
+      # vue-tsc over the website, with diagnostics from upstream layer sources
+      # (Docus ships app code that type-checks against its own peer set)
+      # filtered out — see the script.
+      - name: Type check (website)
+        if: ${{ !cancelled() }}
+        run: node scripts/typecheck-website.mjs
+
+      # A production build, prerendering the docs. The public URLs are stand-ins:
+      # the build only needs them to be well-formed, and the playground routes
+      # that would open a live connection are excluded from prerendering.
+      - name: Build (website)
+        if: ${{ !cancelled() }}
+        env:
+          NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
+          NUXT_SITE_URL: https://nuxt-backend.example
+        run: pnpm exec nuxt build website
 
   # Inspects the dependency delta a PR introduces and fails on a known CVE or a
   # package GitHub has flagged as malicious. Complements pnpm's cooldown, which
-  # only delays a new version — it never looks at what's inside it. PR-only:
-  # the action diffs two commits, so there is nothing to review on a push.
+  # only delays a new version — it never looks at what's inside it. PR-only: the
+  # action diffs two commits, so there is nothing to review on a push. No install
+  # here, so no PR-authored code runs in this job.
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -79,123 +429,74 @@ jobs:
         with:
           fail-on-severity: moderate
 
-  typecheck:
+  # The only job that holds the coverage upload credential. It downloads an
+  # artifact and installs nothing, so PR-authored code never runs next to it.
+  coverage:
+    needs: test
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
+      # Codecov maps coverage paths against the repository, so the tree has to be
+      # present — but nothing here is installed or executed.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Install pnpm, node & dependencies
-        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          runtime: node@lts
-          cache: true
+          name: coverage
 
-      - name: Provide the link:../nuxt-convex-module dependency
-        uses: ./.github/actions/link-nuxt-convex-module
-
-      # Type-checks the published surface (module + Convex code). The website app
-      # typecheck is intentionally excluded — it imports the app's
-      # `backend/_generated` code, which only exists with a Convex deployment.
-      - name: Type check
-        run: pnpm run test:types:lib
-
-      # The API reference under website/content/5.api-reference/9.reference is
-      # generated from src/ by TypeDoc and committed; fail when it drifts.
-      - name: API reference is up to date
-        run: |
-          pnpm run docs:reference
-          git diff --exit-code --stat -- website/content/5.api-reference/9.reference
-
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
-        # The project tracks the current LTS everywhere via the `lts` tag, so it
-        # follows new LTS lines without manual bumps. Kept as a matrix so an
-        # extra line can be slotted in later without restructuring.
-        node: [lts]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install pnpm, node & dependencies
-        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
-        with:
-          runtime: node@${{ matrix.node }}
-          cache: true
-
-      - name: Provide the link:../nuxt-convex-module dependency
-        uses: ./.github/actions/link-nuxt-convex-module
-
-      - name: Prepare
-        run: pnpm run dev:prepare
-
-      - name: Test
-        run: pnpm run test:coverage
-
-      # Upload coverage once (from the lts leg) to keep the Codecov badge fed.
-      - name: Upload coverage to Codecov
-        if: matrix.node == 'lts'
+      - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
-          files: ./coverage/lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+          slug: qruto/nuxt-backend
+          disable_search: true
+          files: coverage/lcov.info
 
-      # Upload test results (run times, failure/flaky detection) to Codecov Test
-      # Analytics. Runs even when tests fail so failures are captured.
+      # Run times, failure and flaky detection. Runs even when tests fail so
+      # failures are captured.
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() && matrix.node == 'lts' }}
+        if: ${{ !cancelled() }}
         uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1.2.1
         with:
-          files: ./test-report.junit.xml
           token: ${{ secrets.CODECOV_TOKEN }}
+          disable_search: true
+          files: test-report.junit.xml
 
-  # Static analysis of the workflows themselves (template injection, unpinned
-  # actions, credential persistence, …). Accepted findings live in
-  # .github/zizmor.yml.
-  #
-  # A fallow step (`pnpm run test:quality`) belongs here too — mirror of the
-  # nuxt-convex-module quality job — but the current codebase carries ~58
-  # pre-existing findings; add the step once they are burned down so the gate
-  # starts green.
-  quality:
+  # The single required status check. Every job above is aggregated here, so
+  # adding, renaming or splitting a job never means touching the ruleset again.
+  # `skipped` counts as a pass — `dependency-review` is skipped on pushes by
+  # design.
+  ci-ok:
+    if: ${{ always() }}
+    # `coverage` is deliberately absent: Codecov is a reporting service, and a
+    # third party's outage must not block a merge. The coverage *thresholds* are
+    # enforced by vitest inside `test`, which is aggregated here.
+    needs:
+      - static
+      - test
+      - e2e
+      - pack
+      - website
+      - dependency-review
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Workflow lint (zizmor)
-        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
-        with:
-          advanced-security: false
-
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install pnpm, node & dependencies
-        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
-        with:
-          runtime: node@lts
-          cache: true
-
-      - name: Provide the link:../nuxt-convex-module dependency
-        uses: ./.github/actions/link-nuxt-convex-module
-
-      # Generates `.nuxt/tsconfig.json`, which the root tsconfig extends. Without
-      # it, `nuxt-module-build` can't resolve compiler options and prepack fails.
-      - name: Prepare
-        run: pnpm run dev:prepare
-
-      - name: Build
-        run: pnpm run prepack
+      - name: Check required jobs
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          for result in $RESULTS; do
+            case "$result" in
+              failure|cancelled)
+                echo "::error::A required job did not pass: $result"
+                exit 1 ;;
+            esac
+          done
+          echo "All required jobs passed or were skipped."

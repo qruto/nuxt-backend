@@ -1,0 +1,47 @@
+name: scorecard
+
+# OpenSSF Scorecard audits the repository's own posture — pinned actions, token
+# permissions, branch protection, signed releases, dangerous workflow patterns.
+#
+# Most of what it checks this repo already does deliberately; the value is drift
+# detection. If a ruleset is relaxed, a `permissions:` block widened, or an
+# action unpinned, the weekly run says so instead of it going unnoticed. The
+# `branch_protection_rule` trigger makes that immediate for ruleset changes.
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: '3 7 * * 1' # Mondays
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write # sign the results for the public Scorecard API
+      security-events: write # publish results to the Security tab
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Publishes to the public OpenSSF API, which is what backs the badge
+          # and lets consumers check the score without running it themselves.
+          publish_results: true
+
+      - name: Upload results
+        uses: github/codeql-action/upload-sarif@486fec2a3ea2626afcd8c7e9208b4f515078dd7e # codeql-bundle-v2.26.4
+        with:
+          sarif_file: results.sarif

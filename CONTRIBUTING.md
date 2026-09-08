@@ -9,7 +9,9 @@ Thank you for your interest in contributing! This guide covers everything you ne
 - [Development Setup](#development-setup)
 - [Project Structure](#project-structure)
 - [Submitting Changes](#submitting-changes)
+- [Code Quality](#code-quality)
 - [Commit Convention](#commit-convention)
+- [Git Hooks](#git-hooks)
 - [Releasing](#releasing)
 
 ## Code of Conduct
@@ -27,8 +29,17 @@ after you report.
 
 ## Development Setup
 
-**Prerequisites:** Node.js 20+, pnpm 11+ (Git 2.54+ optional — enables the local commit-message
-hook; CI enforces it either way)
+**Prerequisites:** Node.js 24.11+ (latest LTS, matching `engines` in `package.json`), pnpm 11.6+
+(`pnpm install` also points Git at the repo's [`.githooks/`](./.githooks) — see
+[Git Hooks](#git-hooks); CI enforces the same gates either way)
+
+> **Existing clones.** Earlier versions registered commitlint as a Git config-based hook. Git runs
+> those *in addition* to `core.hooksPath`, so remove the old registration once, or every commit
+> message is linted twice:
+>
+> ```bash
+> git config --unset-all hook.commitlint.event; git config --unset-all hook.commitlint.command
+> ```
 
 ```bash
 # Clone the repository
@@ -68,10 +79,30 @@ warning); `portless trust` covers this machine only.
 ## Project Structure
 
 ```
-src/        # Module source (Nuxt module + Convex component)
-test/       # Vitest unit & integration tests
-website/    # Nuxt app: product homepage · docs (Docus) · interactive playground
+src/                  # Module source (Nuxt module + Convex component)
+devtools-client-app/  # Nuxt DevTools panel app (served in the DevTools iframe)
+examples/             # Consumer apps — workspace members that build against the working tree
+test/                 # Vitest unit, Convex component, Nuxt and end-to-end tests
+website/              # Nuxt app: product homepage · docs (Docus) · interactive playground
 ```
+
+`examples/` are pnpm workspace members (`pnpm-workspace.yaml` lists `examples/*`): each app
+depends on the package as `workspace:*` and on Nuxt through the `catalog:` range, so they lint,
+type-resolve and build against `src/` like the website does. Both have a job beyond being
+documentation:
+
+- **[`examples/minimal/`](./examples/minimal)** — the smallest thing that works. It is also the
+  app behind the **Open in StackBlitz** link on every pull request: `preview.yml` hands it to
+  pkg.pr.new as `--template`, after resolving its `catalog:` range, so a reviewer can try a
+  change in a real Nuxt app from the PR comment.
+- **[`examples/advanced/`](./examples/advanced)** — every customization seam at once (local
+  component install, custom pages, overridden auth).
+
+The `pack` CI job copies both, rewrites `workspace:*` to the packed tarball and `catalog:` to
+the catalog value, installs with plain `npm` and builds: the only place a registry-shaped
+install (lifecycle scripts, engines, export maps) is exercised at all. Keep them
+self-contained — no import that only resolves from the repository root, no undeclared
+dependency, no committed lockfile.
 
 ## Submitting Changes
 
@@ -83,11 +114,38 @@ website/    # Nuxt app: product homepage · docs (Docus) · interactive playgrou
 3. Make your changes, add tests where appropriate.
 4. Ensure all checks pass:
    ```bash
-   pnpm lint && pnpm test && pnpm build
+   pnpm lint && pnpm test:types:lib && pnpm test && pnpm check:tarball
    ```
 5. Open a pull request against `main`.
 
 Pull requests that include tests and follow the commit convention below are reviewed fastest.
+
+## Code Quality
+
+[Fallow](https://docs.fallow.tools) is the drift gate for dead code, duplication and
+complexity. Run it over the whole repository at any time:
+
+```bash
+pnpm test:quality
+```
+
+The repository policy lives in [`.fallowrc.jsonc`](./.fallowrc.jsonc); every exception in that
+file carries the reason it exists — prefer fixing a finding in code, and widen the policy only
+with a written justification.
+
+**Not enforced yet.** The codebase carries ~58 pre-existing findings, so neither the hooks nor
+CI gate on fallow today — a gate that starts red is a gate everyone learns to bypass. The
+`TODO(fallow burndown)` notes in [`.githooks/pre-commit`](./.githooks/pre-commit) and
+`ci.yml` mark where the scoped `fallow audit` (pre-commit, pull requests) and the whole-project
+`fallow` + `fallow security` runs (pre-push, pushes to main) go once the count reaches zero.
+Until then, run it before opening a pull request and do not add to the pile.
+
+The gates that *are* enforced today: ESLint (`pnpm lint`), the type check
+(`pnpm test:types:lib`), the test suite (`pnpm test`), the two drift checks — the generated
+template lists (`pnpm templates:generate`) and the API reference (`pnpm docs:reference:check`)
+must produce no diff — and the package shape (`pnpm check:tarball`: `pnpm pack`, then
+[publint](https://publint.dev) and [arethetypeswrong](https://arethetypeswrong.github.io) on
+the real tarball).
 
 ## Commit Convention
 
@@ -109,13 +167,56 @@ feat!: rename createBackend to defineBackend
 Allowed types: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`,
 `style`, `revert`, and `ai` (AI-instruction / agent metadata updates).
 
-**This is enforced, not just documented.** `pnpm install` registers a native Git
-[config-based hook](https://git-scm.com/docs/githooks) (`hook.commitlint.*` in your local
-`.git/config`) that runs [commitlint](https://commitlint.js.org/) on `commit-msg` and rejects
-non-conforming messages locally — no hook-manager dependency. This requires **Git 2.54+**; on
-older Git the local hook is silently skipped. Either way, CI re-checks every commit on a pull
-request, so the gate holds. The local hook can be bypassed with `git commit --no-verify`; CI
-cannot — non-conventional commits will not merge.
+**This is enforced, not just documented.**
+[`.githooks/commit-msg`](./.githooks/commit-msg) runs
+[commitlint](https://commitlint.js.org/) and rejects non-conforming messages locally. CI
+re-checks every commit on a pull request, so the gate holds either way. The local hook can be
+bypassed with `git commit --no-verify`; CI cannot — non-conventional commits will not merge.
+
+## Git Hooks
+
+The hooks live in [`.githooks/`](./.githooks) as ordinary shell scripts — committed, reviewable
+in a pull request, and carrying their own reasoning in comments. `pnpm install` runs `prepare`,
+which points Git at them:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+That is the whole mechanism: no hook manager, nothing generated into `.git/hooks`, and no
+per-clone setup step. Note that Git runs [config-based hooks](https://git-scm.com/docs/githooks)
+(`hook.*` in `.git/config`) *in addition* to these rather than instead of them, so never
+register the same hook both ways — it runs twice (see the note under
+[Development Setup](#development-setup) if your clone predates `.githooks/`).
+
+They mirror CI, split by how often each check can afford to run:
+
+| Hook | Runs | Mirrors | Cost |
+|---|---|---|---|
+| [`pre-commit`](./.githooks/pre-commit) | ESLint on the staged files, `templates:generate` drift | `static` | seconds |
+| [`commit-msg`](./.githooks/commit-msg) | `commitlint` | `static` (commit messages) | instant |
+| [`pre-push`](./.githooks/pre-push) | `vue-tsc`, `pnpm test` | `static` (type check), `test` | ~1 min |
+
+`pre-commit` stays cheap enough to run on every commit: it lints only what the commit stages and
+regenerates the template lists, which must produce no diff. `pre-push` runs once per push and
+can afford the type check and the whole test suite (`unit`, `convex-component`, `nuxt` — the
+`e2e` project stays in CI). A delete-only push skips it. Fallow joins both once its findings are
+burned down — see [Code Quality](#code-quality).
+
+Every tool runs through `pnpm exec` / `pnpm run`, because each CLI is a devDependency and is on
+`PATH` only inside a pnpm script. Bypass once with `git commit --no-verify` or
+`git push --no-verify`; every one of these has a CI counterpart that cannot be bypassed.
+
+Both gates are skipped when `CI` is set. The release job commits through `changelogen`, which
+shells out to a plain `git commit`, and a release must not be gated on checks the pull request
+already ran — and `CI=1` trips pnpm's `verifyDepsBeforeRun` guard, so they would fail there for
+the wrong reason anyway.
+
+**What the hooks cannot cover.** These stay CI's alone, so a green push is not a promise of a
+green pipeline: the `e2e` job (builds the example apps and drives them with Playwright,
+minutes), `pack` (tarball, `publint`, `attw`, a real npm consumer install of both examples),
+`website` (the docs site type check and build), `dependency-review` and the workflow lint,
+which need GitHub, the Windows leg of the test matrix, and the coverage thresholds.
 
 ## Releasing
 

@@ -1,0 +1,9 @@
+#!/bin/sh
+# Conventional Commits gate (see CONTRIBUTING.md § Commit Convention).
+#
+# `$1` is the file git is about to take the message from. Passing it explicitly
+# beats commitlint's `.git/COMMIT_EDITMSG` default, which is the wrong file
+# during a rebase, a merge, or `git commit -F`.
+#
+# Bypass once with: git commit --no-verify
+exec pnpm exec commitlint --edit "$1"

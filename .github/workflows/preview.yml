@@ -3,6 +3,9 @@ name: preview
 # Continuous preview releases via pkg.pr.new (StackBlitz): every PR and every
 # push to main gets an installable build —
 #   npm i https://pkg.pr.new/qruto/nuxt-backend@<sha>
+# — and a runnable one, as a StackBlitz playground built from
+# `examples/minimal` with that same build wired in, so a change can be tried
+# in a real Nuxt app straight from the PR comment.
 # Auth is handled by the pkg.pr.new GitHub App installed on the repository;
 # the workflow token needs no extra permissions.
 on:
@@ -20,29 +23,70 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  DO_NOT_TRACK: '1'
+  NUXT_TELEMETRY_DISABLED: '1'
+
 jobs:
   preview:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
+      # This job builds PR-authored code — from forks included — and then talks
+      # to an external service. Audit-mode egress monitoring gives that a
+      # baseline; there are no secrets here to protect, but there is untrusted
+      # code with network access, which is the case worth observing.
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Install pnpm, node & dependencies
-        uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+      - uses: ./.github/actions/setup
         with:
-          runtime: node@lts
-          cache: true
+          prepare: lib
 
-      - name: Provide the link:../nuxt-convex-module dependency
-        uses: ./.github/actions/link-nuxt-convex-module
-
-      # Generates `.nuxt/tsconfig.json`, which the root tsconfig extends —
-      # required by the build that packing triggers via `prepack`.
-      - name: Prepare
-        run: pnpm run dev:prepare
+      # The template is uploaded standalone — no workspace, no lockfile — and
+      # pkg.pr.new rewrites only our own package name to a preview URL, so the
+      # example's `catalog:` range would reach npm verbatim and fail the cold
+      # install StackBlitz performs. Resolve it here, in the disposable
+      # checkout, to the value pnpm-workspace.yaml holds; `workspace:*` on
+      # `nuxt-backend` is the name pkg.pr.new does rewrite. The pnpm-managed
+      # node_modules and the Nuxt cache would otherwise be uploaded too.
+      - name: Make the template self-contained
+        run: |
+          NUXT_RANGE=$(yq '.catalog.nuxt' pnpm-workspace.yaml)
+          jq --arg nuxt "$NUXT_RANGE" \
+            '.dependencies |= with_entries(if .value == "catalog:" then .value = $nuxt else . end)' \
+            examples/minimal/package.json > "$RUNNER_TEMP/template.package.json"
+          mv "$RUNNER_TEMP/template.package.json" examples/minimal/package.json
+          rm -rf examples/minimal/node_modules examples/minimal/.nuxt examples/minimal/.output
+          jq .dependencies examples/minimal/package.json
 
       # --pnpm packs with `pnpm pack` so `catalog:` ranges are rewritten,
       # exactly like a real `pnpm publish`. Packing runs `prepack` (the build).
+      #
+      # `pnpm exec`, not `pnpm dlx`: pkg-pr-new is a devDependency, so the
+      # version that runs here is the one in the lockfile — under pnpm's
+      # minimumReleaseAge cooldown and under Dependabot, like every other
+      # dependency. `dlx` resolved whatever was newest at run time and executed
+      # it on every PR.
+      #
+      # --template is not optional. pkg.pr.new only skips its synthesised
+      # "default" template when an explicit one is given, and that default is an
+      # empty index.js beside a package.json whose sole dependency is the
+      # tarball — no nuxt, no vue, no convex — so the "Open in StackBlitz" link
+      # opened something that could not run. `examples/minimal` replaces it
+      # with a real app. The path is explicit rather than './examples/*' so a
+      # new example cannot start appearing in public PR comments before it is
+      # ready.
+      #
+      # Note this step runs on pull_request, forks included: what the template
+      # contains, and the name it is linked under, are PR-authored. Sandboxed
+      # and plainly a PR artifact, but `examples/minimal` is review surface in
+      # fork PRs the way workflow files already are.
       - name: Publish preview
-        run: pnpm dlx pkg-pr-new publish --pnpm --comment=update
+        run: pnpm exec pkg-pr-new publish --pnpm --comment=update --template './examples/minimal'

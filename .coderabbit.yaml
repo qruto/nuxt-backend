@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=https://storage.googleapis.com/coderabbit_public_assets/schema.v2.json
+
+# CodeRabbit reviews pull requests through its GitHub App — no workflow, no
+# secret, no job. This file is the repository half of the configuration and
+# wins over the dashboard wherever both set a key. It is read from the pull
+# request's head branch, which makes it review surface in fork pull requests
+# the way `.github/workflows/` already is.
+#
+# Only settings that differ from stock appear here.
+
+reviews:
+  # Exclusions only: one positive pattern would turn this into an allowlist.
+  # These also drive sparse-checkout, so an excluded path is never cloned and
+  # cannot be read for context either.
+  path_filters:
+    # TypeDoc output. `pnpm docs:reference` writes it and CI fails on drift, so
+    # a comment on this tree is really a comment on the generator.
+    - '!website/content/**/9.reference/**'
+    # Convex codegen — the packaged component's `_generated/component.d.ts`
+    # and whatever `convex dev` emits under an app's `backend/_generated`.
+    - '!**/_generated/**'
+    # Machine-written, and Dependabot / the skills CLI are what open them.
+    - '!pnpm-lock.yaml'
+    - '!skills-lock.json'
+
+  path_instructions:
+    - path: 'src/convex/**'
+      instructions: >-
+        The Convex half of the package: the all-in-one `backend` component
+        (`components/backend`), the app-side integrations (`integrations/*`,
+        the `nuxt-backend/<name>` subpaths) and the auth client. This code
+        runs inside the Convex runtime, so review it as server code with a
+        transaction boundary: every public function needs an args validator
+        and an explicit identity/ownership check; a query must never trust a
+        caller-supplied id as authorisation; writes that cross a component
+        boundary go through the component's own API, not its tables.
+
+        The public API is brand-neutral by design — `billing`, `email`,
+        `credits`, `webhooks`, never the provider's name — and the providers
+        behind it (Polar, Resend, Better Auth) are wired in `integrations/*`.
+        Flag a provider name leaking into an exported symbol, an option key,
+        an env var name, or a doc comment on the public surface.
+
+        Webhook handlers fail closed: a missing secret is a 503, never a
+        skipped verification. Credits use reserve/settle, never a direct
+        decrement. Relative imports carry a `.js` suffix (the Convex bundler
+        and the emitted `dist/convex` both need it).
+
+    - path: 'src/runtime/server/mcp/**'
+      instructions: >-
+        The OAuth-protected MCP endpoint through which agents act as the
+        signed-in user. Every tool runs with a short-lived user JWT minted
+        from the agent's session, so the security review question is always
+        the same: can a caller reach data or a mutation the scopes it was
+        granted do not cover? Look for a tool that skips `hasScope`, a
+        fetcher bound to anything other than the exchanged token, cache
+        entries that outlive the token they were minted for, and an error
+        path that leaks the underlying Convex error to the agent.
+
+        Tool files under `tools/` are discovered by @nuxtjs/mcp-toolkit's
+        definition scan and imported by its generated server template, so a
+        new tool is public API the moment the file exists — its name, its
+        input schema and whether it is on by default all matter.
+
+    - path: 'src/templates.ts'
+      instructions: >-
+        The files `nuxt-backend` scaffolds into a consumer's `backend/`
+        directory (and the local-install variant that copies the component
+        in). Consumers read and edit these, so review the generated text as
+        documentation: comments must be true for the app that receives them,
+        and every import must resolve from a consumer install — package
+        subpaths that exist in `package.json#exports`, never repo-relative
+        paths. The re-export lists come from `src/templates.generated.ts`
+        (`pnpm templates:generate`; CI fails on drift), so a missing function
+        is a generator problem, not a template edit.
+
+    - path: 'examples/**'
+      instructions: >-
+        Consumer apps, and workspace members: they depend on the package as
+        `workspace:*` and on Nuxt through the `catalog:` range, so they build
+        against the working tree. Two jobs beyond documentation. The `pack`
+        CI job copies both, rewrites those two ranges to the packed tarball
+        and the catalog value, installs with plain npm and builds — the only
+        registry-shaped consumer install in the pipeline. `examples/minimal`
+        also ships to StackBlitz as the pkg.pr.new template. Flag anything
+        that would break a cold install there: an import that only resolves
+        from the repository root, a dependency the example does not declare,
+        or a committed lockfile.
+
+    - path: 'test/**'
+      instructions: >-
+        Prefer tests that would fail on main. A test that passes both before
+        and after the change under review is noise here — say so rather than
+        asking for coverage as a matter of course.
+
+  tools:
+    # `pnpm lint` already runs ESLint tree-wide on every pull request, with
+    # this repository's flat config and its Nuxt/Vue/Convex plugins resolved
+    # through pnpm's store. A second copy can only repeat that job or disagree
+    # with it over a config it could not fully resolve.
+    eslint:
+      enabled: false

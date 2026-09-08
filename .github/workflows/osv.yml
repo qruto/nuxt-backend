@@ -1,0 +1,38 @@
+name: osv
+
+# Scans the committed pnpm-lock.yaml against the OSV database on a schedule.
+#
+# This is the gap ci's `dependency-review` job cannot cover: that job inspects
+# the dependency *delta* a PR introduces, so a CVE disclosed against a package
+# already in the lockfile is invisible to it — nothing re-examines dependencies
+# that stopped changing. A failing scheduled run is the notification.
+#
+# Deliberately not run on pull requests: dependency-review already gates the
+# delta there, and a lockfile-wide scan would fail unrelated PRs on a
+# pre-existing advisory.
+on:
+  schedule:
+    - cron: '17 6 * * 1' # Mondays, after Dependabot's weekly run
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  scan:
+    # The reusable workflow declares the same three permissions on its own job;
+    # they have to be granted here as well for it to inherit them.
+    permissions:
+      contents: read
+      actions: read # required to upload SARIF, see github/codeql-action#2117
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
+    with:
+      # `-r ./` walks the workspace and picks up pnpm-lock.yaml natively, plus
+      # the website and devtools-client-app manifests.
+      scan-args: |-
+        -r
+        ./

@@ -1,0 +1,75 @@
+{
+  "$schema": "./node_modules/fallow/schema.json",
+
+  // Runtime roots no plugin discovers: build/test tooling configs, the scripts
+  // pnpm runs by path, the website's Nuxt tree (Docus convention-loads app.css
+  // and the layouts/pages/components directories, and `website/backend` is
+  // read by the Convex CLI, not imported), and the vitest fixtures/helpers the
+  // projects reach through setupFiles and aliases (the plugin reads only the
+  // top-level config).
+  "entry": [
+    "build.config.ts",
+    "nuxt.config.ts",
+    "vitest.config.ts",
+    "eslint.config.js",
+    "scripts/**/*.{ts,js}",
+    "website/nuxt.config.ts",
+    "website/app.config.ts",
+    "website/app.css",
+    "website/layouts/**/*.vue",
+    "website/pages/**/*.vue",
+    "website/components/**/*.vue",
+    "website/server/**/*.ts",
+    "website/backend/**/*.ts",
+    "test/setup/**/*.ts",
+    "test/helpers/**/*.ts",
+    "test/fixtures/**/*.{ts,vue}",
+    "test/fake-watch.ts"
+  ],
+
+  // Generated and built output. `**/_generated/**` is Convex codegen wherever it
+  // appears — the component's, the website's, the examples' (the examples are
+  // workspace members here, so they are analysed like any other package); the
+  // rest is build output that a fresh checkout does not even have.
+  "ignorePatterns": [
+    "**/_generated/**",
+    "dist/**",
+    ".nuxt/**",
+    "**/.nuxt/**",
+    "website/.nuxt/**",
+    "website/backend/_generated/**",
+    "src/convex/components/backend/_generated/**"
+  ],
+
+  // Installed on purpose, never imported by name.
+  "ignoreDependencies": [
+    "@edge-runtime/vm", // vitest `environment: 'edge-runtime'` for the convex-component project
+    "@vue/test-utils", // reached through @nuxt/test-utils' mountSuspended
+    "oxc-parser" // scripts/generate-templates.mjs parses the component sources with it
+  ],
+
+  "ignoreExportsUsedInFile": true,
+
+  // Codegen is not ours to deduplicate; the composables mirror upstream shapes
+  // on purpose; tests repeat setup by design.
+  "duplicates": {
+    "ignore": [
+      "**/_generated/**",
+      "test/**",
+      "src/runtime/vue/composables/**"
+    ]
+  },
+
+  "health": {
+    // CRAP needs Istanbul input to mean anything. The gate runs without any,
+    // and coverage for src/ is already gated by vitest's thresholds — so here
+    // the score degenerates to cyclomatic² and merely double-reports the
+    // complexity rules.
+    "maxCrap": 0,
+    "ignore": [
+      "test/**",
+      "**/_generated/**",
+      "src/runtime/vue/composables/**"
+    ]
+  }
+}
