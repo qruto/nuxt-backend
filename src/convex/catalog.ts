@@ -140,6 +140,12 @@ export interface CatalogFeature {
 }
 
 export interface BillingCatalog {
+  /**
+   * ISO 4217 currency every `price` is created in, lowercase (`'usd'`,
+   * `'eur'`). Defaults to the organization's default presentment currency,
+   * which the provider requires on every product.
+   */
+  currency?: string
   meters?: Record<string, CatalogMeter>
   plans?: Record<string, CatalogPlan>
   packs?: Record<string, CatalogPack>

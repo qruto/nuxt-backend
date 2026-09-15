@@ -43,6 +43,9 @@ const MANAGED_BY = 'nuxt-backend'
 
 type Environment = 'sandbox' | 'production'
 
+type ProductPrice = NonNullable<Parameters<typeof productsCreate>[1]['prices']>[number]
+type PriceCurrency = NonNullable<Extract<ProductPrice, { amountType: 'fixed' }>['priceCurrency']>
+
 interface CreditMeterIds {
   meterId: string
   eventName?: string
@@ -56,7 +59,7 @@ interface CatalogIds {
 
 interface SyncLogEntry {
   action: 'created' | 'exists' | 'adopted' | 'would-create' | 'drift' | 'warn'
-  kind: 'meter' | 'benefit' | 'product' | 'webhook' | 'custom-field'
+  kind: 'meter' | 'benefit' | 'product' | 'webhook' | 'custom-field' | 'currency'
   key: string
   id?: string
   note?: string
@@ -158,6 +161,8 @@ export async function syncBillingCatalog(
   const managedCustomFields = catalog.customFields
     ? await listAllPages(page => customFieldsList(client, { limit: 100, page }))
     : []
+
+  const currency = await resolvePriceCurrency(catalog, client, log)
 
   // --- Meters ---
   for (const [key, meter] of Object.entries(catalog.meters ?? {})) {
@@ -337,9 +342,10 @@ export async function syncBillingCatalog(
   /** The fixed price, plus one metered price per `usage` entry (plans only). */
   const pricesFor = (key: string, product: CatalogPlan | CatalogPack): Parameters<typeof productsCreate>[1]['prices'] => {
     const taxBehavior = product.taxBehavior ? { taxBehavior: product.taxBehavior } : {}
+    const priceCurrency = currency ? { priceCurrency: currency } : {}
     const usage = 'usage' in product ? product.usage ?? [] : []
     return [
-      { amountType: 'fixed', priceAmount: product.price, ...taxBehavior },
+      { amountType: 'fixed', priceAmount: product.price, ...priceCurrency, ...taxBehavior },
       ...usage.flatMap((price) => {
         if (!(price.meter in (catalog.meters ?? {}))) {
           log.push({ action: 'warn', kind: 'product', key, note: `usage price meter '${price.meter}' is not in the catalog` })
@@ -353,6 +359,7 @@ export async function syncBillingCatalog(
           meterId: meterIds.meterId,
           unitAmount: price.unitAmount,
           ...(price.cap === undefined ? {} : { capAmount: price.cap }),
+          ...priceCurrency,
           ...taxBehavior,
         }]
       }),
@@ -441,6 +448,33 @@ export async function syncBillingCatalog(
   }
 
   return { log, ids, webhookSecret }
+}
+
+/**
+ * The currency every fixed and metered price is created in: the catalog's
+ * `currency` when pinned, else the organization's default presentment
+ * currency — the provider rejects a product whose prices miss it. Left to
+ * the provider default only when the organization cannot be read (a token
+ * without the organizations scope), which the log calls out.
+ */
+async function resolvePriceCurrency(catalog: BillingCatalog, client: Polar, log: SyncLogEntry[]): Promise<PriceCurrency | undefined> {
+  if (catalog.currency) return catalog.currency.toLowerCase() as PriceCurrency
+  if (!catalog.plans && !catalog.packs) return undefined
+  let organizations: Awaited<ReturnType<typeof organizationsListOrganizations>> | undefined
+  try {
+    organizations = await organizationsListOrganizations(client, { limit: 1 })
+  }
+  catch {
+    organizations = undefined
+  }
+  const organization = organizations?.ok ? organizations.value?.result.items[0] : undefined
+  if (!organization) {
+    log.push({ action: 'warn', kind: 'currency', key: 'provider default', note: 'organization unreadable — set `currency` in the catalog to pin one' })
+    return undefined
+  }
+  const currency = organization.defaultPresentmentCurrency as PriceCurrency
+  log.push({ action: 'exists', kind: 'currency', key: currency, note: 'organization default — set `currency` in the catalog to pin one' })
+  return currency
 }
 
 /**

@@ -48,6 +48,7 @@ const fakeClient = {} as never
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(organizationsListOrganizations).mockResolvedValue(page([{ defaultPresentmentCurrency: 'usd' }]) as never)
   vi.mocked(metersList).mockResolvedValue(emptyPage as never)
   vi.mocked(benefitsList).mockResolvedValue(emptyPage as never)
   vi.mocked(customFieldsList).mockResolvedValue(emptyPage as never)
@@ -86,7 +87,7 @@ describe('syncBillingCatalog', () => {
     expect(productsCreate).toHaveBeenCalledWith(fakeClient, expect.objectContaining({
       name: 'Pro',
       recurringInterval: 'month',
-      prices: [{ amountType: 'fixed', priceAmount: 2900 }],
+      prices: [{ amountType: 'fixed', priceAmount: 2900, priceCurrency: 'usd' }],
     }))
     expect(productsCreate).toHaveBeenCalledWith(fakeClient, expect.objectContaining({
       name: '500 credits',
@@ -183,6 +184,49 @@ describe('syncBillingCatalog', () => {
   })
 })
 
+describe('syncBillingCatalog — price currency', () => {
+  beforeEach(() => {
+    vi.mocked(metersCreate).mockResolvedValue({ ok: true, value: { id: 'mtr_1' } } as never)
+    vi.mocked(benefitsCreate).mockResolvedValue({ ok: true, value: { id: 'ben_x' } } as never)
+    vi.mocked(productsCreate).mockResolvedValue({ ok: true, value: { id: 'prod_x' } } as never)
+    vi.mocked(productsUpdateBenefits).mockResolvedValue({ ok: true, value: {} } as never)
+  })
+
+  it('follows the organization default presentment currency when the catalog does not pin one', async () => {
+    vi.mocked(organizationsListOrganizations).mockResolvedValue(page([{ defaultPresentmentCurrency: 'eur' }]) as never)
+
+    const result = await syncBillingCatalog(catalog, options, fakeClient)
+
+    expect(productsCreate).toHaveBeenCalledWith(fakeClient, expect.objectContaining({
+      name: 'Pro',
+      prices: [{ amountType: 'fixed', priceAmount: 2900, priceCurrency: 'eur' }],
+    }))
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'exists', kind: 'currency', key: 'eur' }))
+  })
+
+  it('pins the catalog currency, lowercased, without reading the organization', async () => {
+    await syncBillingCatalog({ ...catalog, currency: 'GBP' }, options, fakeClient)
+
+    expect(organizationsListOrganizations).not.toHaveBeenCalled()
+    expect(productsCreate).toHaveBeenCalledWith(fakeClient, expect.objectContaining({
+      name: '500 credits',
+      prices: [{ amountType: 'fixed', priceAmount: 2000, priceCurrency: 'gbp' }],
+    }))
+  })
+
+  it('leaves the provider default and warns when the organization cannot be read', async () => {
+    vi.mocked(organizationsListOrganizations).mockResolvedValue({ ok: false, error: new Error('403 Forbidden') } as never)
+
+    const result = await syncBillingCatalog(catalog, options, fakeClient)
+
+    expect(productsCreate).toHaveBeenCalledWith(fakeClient, expect.objectContaining({
+      name: 'Pro',
+      prices: [{ amountType: 'fixed', priceAmount: 2900 }],
+    }))
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'warn', kind: 'currency' }))
+  })
+})
+
 describe('syncBillingCatalog — trials, usage prices, tax behaviour, custom fields', () => {
   const richCatalog: BillingCatalog = {
     meters: { credits: {} },
@@ -230,8 +274,8 @@ describe('syncBillingCatalog — trials, usage prices, tax behaviour, custom fie
       trialInterval: 'day',
       trialIntervalCount: 14,
       prices: [
-        { amountType: 'fixed', priceAmount: 2900, taxBehavior: 'inclusive' },
-        { amountType: 'metered_unit', meterId: 'mtr_1', unitAmount: '0.05', capAmount: 5000, taxBehavior: 'inclusive' },
+        { amountType: 'fixed', priceAmount: 2900, priceCurrency: 'usd', taxBehavior: 'inclusive' },
+        { amountType: 'metered_unit', meterId: 'mtr_1', unitAmount: '0.05', capAmount: 5000, priceCurrency: 'usd', taxBehavior: 'inclusive' },
       ],
       attachedCustomFields: [{ customFieldId: 'cf_1', required: true }],
     }))
@@ -243,7 +287,7 @@ describe('syncBillingCatalog — trials, usage prices, tax behaviour, custom fie
     const pack = vi.mocked(productsCreate).mock.calls
       .map(([, args]) => args as { name: string, prices: unknown[], trialInterval?: string })
       .find(args => args.name === '500 credits')!
-    expect(pack.prices).toEqual([{ amountType: 'fixed', priceAmount: 2000, taxBehavior: 'exclusive' }])
+    expect(pack.prices).toEqual([{ amountType: 'fixed', priceAmount: 2000, priceCurrency: 'usd', taxBehavior: 'exclusive' }])
     expect(pack.trialInterval).toBeUndefined()
   })
 
@@ -256,7 +300,7 @@ describe('syncBillingCatalog — trials, usage prices, tax behaviour, custom fie
       recurringInterval: 'month',
       trialInterval: 'month',
       trialIntervalCount: 1,
-      prices: [{ amountType: 'fixed', priceAmount: 900 }],
+      prices: [{ amountType: 'fixed', priceAmount: 900, priceCurrency: 'usd' }],
       metadata: { managedBy: 'nuxt-backend', key: 'basic' },
     })
   })
@@ -269,7 +313,7 @@ describe('syncBillingCatalog — trials, usage prices, tax behaviour, custom fie
 
     expect(result.log).toContainEqual(expect.objectContaining({ action: 'warn', kind: 'product', key: 'pro', note: expect.stringContaining('tokens') }))
     expect(productsCreate).toHaveBeenCalledWith(fakeClient, expect.objectContaining({
-      prices: [{ amountType: 'fixed', priceAmount: 2900 }],
+      prices: [{ amountType: 'fixed', priceAmount: 2900, priceCurrency: 'usd' }],
     }))
   })
 
