@@ -203,7 +203,7 @@ describe('OTP rate limits', () => {
 
   it('consumes the deployment-wide window first, then the per-address bucket keyed by a digest', async () => {
     const email = vi.fn(async () => 'email_1')
-    const limit = vi.fn(async () => ({ ok: true }))
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: true }))
     const ctx = mutationCtx()
     await otpSender(createBetterAuthOptions(fakeDb, {}, { ctx, email, rateLimiter: { limit } }))(otp)
 
@@ -218,7 +218,7 @@ describe('OTP rate limits', () => {
 
   it('a closed global window aborts before the per-address limit and the send', async () => {
     const email = vi.fn(async () => 'email_1')
-    const limit = vi.fn(async () => ({ ok: false, retryAfter: 1000 }))
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: false, retryAfter: 1000 }))
     const send = otpSender(createBetterAuthOptions(fakeDb, {}, { ctx: mutationCtx(), email, rateLimiter: { limit } }))
 
     await expect(send(otp)).rejects.toThrow(APIError)
@@ -279,7 +279,7 @@ describe('sign-in gate (canSignIn)', () => {
   })
 
   it('refuses a new address before any email and before the per-address limit is consumed', async () => {
-    const limit = vi.fn(async () => ({ ok: true }))
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: true }))
     const { options, email } = setup({ canSignIn: inviteOnly, rateLimiter: { limit } })
 
     await expect(otpSender(options)(signIn)).rejects.toThrow(APIError)
