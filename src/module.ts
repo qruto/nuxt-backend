@@ -660,6 +660,8 @@ declare module '@nuxt/schema' {
   interface PublicRuntimeConfig {
     backend: {
       pages: Record<BackendPageKey, string>
+      /** False when the deployment runs without the organization plugin. */
+      workspaces: boolean
     }
   }
 }

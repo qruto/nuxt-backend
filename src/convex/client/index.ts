@@ -379,9 +379,8 @@ const OTP_SEND_PATH = '/email-otp/send-verification-otp'
  * thrown `APIError` becomes the 429/403 the sign-in UI shows and no code is
  * stored.
  *
- * @internal
  */
-export async function assertOtpRequestAllowed<DM extends GenericDataModel>(
+async function assertOtpRequestAllowed<DM extends GenericDataModel>(
   runtime: AuthRuntime<DM> | undefined,
   request: { path?: string, body?: unknown },
 ): Promise<void> {

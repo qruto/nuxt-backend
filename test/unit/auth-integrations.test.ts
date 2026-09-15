@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { APIError } from 'better-auth/api'
-import { assertOtpRequestAllowed, createBetterAuthOptions } from '../../src/convex/client'
+import { createBetterAuthOptions } from '../../src/convex/client'
 
 const fakeDb = {} as never
 
@@ -15,6 +15,14 @@ function otpSender(options: ReturnType<typeof createBetterAuthOptions>): OtpSend
   const plugin = options.plugins?.find(entry => (entry as { id?: string }).id === 'email-otp') as
     { options?: { sendVerificationOTP?: OtpSender } } | undefined
   return plugin!.options!.sendVerificationOTP!
+}
+
+type OtpGuard = (request: { path: string, body?: unknown }) => Promise<unknown>
+
+/** The package's request before-hook (the OTP guard), as wired into the options. */
+function otpGuard(runtime: unknown): OtpGuard {
+  const options = createBetterAuthOptions(fakeDb, {}, runtime as never)
+  return options.hooks!.before as unknown as OtpGuard
 }
 
 /** An adapter-backed hook context (what Better Auth hands database hooks). */
@@ -220,17 +228,18 @@ describe('OTP rate limits', () => {
     const ctx = mutationCtx()
     const request = { path: '/email-otp/send-verification-otp', body: otp }
 
-    await expect(assertOtpRequestAllowed({ ctx, rateLimiter: { limit } } as never, request)).rejects.toThrow(APIError)
-    await expect(assertOtpRequestAllowed({ ctx, rateLimiter: { limit } } as never, request)).rejects.toEqual(tooMany)
+    const guard = otpGuard({ ctx, rateLimiter: { limit } })
+    await expect(guard(request)).rejects.toThrow(APIError)
+    await expect(guard(request)).rejects.toEqual(tooMany)
     expect(limit.mock.calls.map(call => call[1])).toEqual(['emailOtpGlobal', 'emailOtpGlobal'])
     expect(limit).toHaveBeenNthCalledWith(1, ctx, 'emailOtpGlobal')
   })
 
   it('the request guard ignores other routes and requests without an address', async () => {
-    const limit = vi.fn(async () => ({ ok: false }))
-    const runtime = { ctx: mutationCtx(), rateLimiter: { limit } } as never
-    await assertOtpRequestAllowed(runtime, { path: '/sign-in/email', body: otp })
-    await assertOtpRequestAllowed(runtime, { path: '/email-otp/send-verification-otp', body: { type: 'sign-in' } })
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: false }))
+    const guard = otpGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
+    await guard({ path: '/sign-in/email', body: otp })
+    await guard({ path: '/email-otp/send-verification-otp', body: { type: 'sign-in' } })
     expect(limit).not.toHaveBeenCalled()
   })
 
@@ -297,15 +306,15 @@ describe('sign-in gate (canSignIn)', () => {
   })
 
   it('refuses an uninvited sign-in on the request itself, before any code exists', async () => {
-    const limit = vi.fn(async () => ({ ok: true }))
-    const runtime = { ctx: mutationCtx(), email: vi.fn(), rateLimiter: { limit }, canSignIn: inviteOnly, userExists: async () => false } as never
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: true }))
+    const runtime = { ctx: mutationCtx(), email: vi.fn(), rateLimiter: { limit }, canSignIn: inviteOnly, userExists: async () => false }
     const request = { path: '/email-otp/send-verification-otp', body: signIn }
 
-    await expect(assertOtpRequestAllowed(runtime, request)).rejects.toEqual(forbidden('Invite only'))
+    await expect(otpGuard(runtime)(request)).rejects.toEqual(forbidden('Invite only'))
     expect(limit.mock.calls.map(call => call[1])).toEqual(['emailOtpGlobal'])
     // Existing accounts pass, and non-sign-in codes are never gated.
-    await expect(assertOtpRequestAllowed({ ...(runtime as object), userExists: async () => true } as never, request)).resolves.toBeUndefined()
-    await expect(assertOtpRequestAllowed(runtime, { ...request, body: { ...signIn, type: 'email-verification' } })).resolves.toBeUndefined()
+    await expect(otpGuard({ ...runtime, userExists: async () => true })(request)).resolves.toBeUndefined()
+    await expect(otpGuard(runtime)({ ...request, body: { ...signIn, type: 'email-verification' } })).resolves.toBeUndefined()
   })
 
   it('wires the guard as the before-hook, ahead of a consumer hook', async () => {
