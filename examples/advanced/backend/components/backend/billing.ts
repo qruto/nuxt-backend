@@ -7,6 +7,7 @@ export {
   clearPendingSpends,
   credit,
   debit,
+  deleteByUser,
   finalize,
   getBenefitMetadata,
   getByUser,

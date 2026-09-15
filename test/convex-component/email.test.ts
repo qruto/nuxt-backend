@@ -80,6 +80,50 @@ async function markSent(emailId: string, resendId: string) {
   await t.mutation(components.resend.lib.updateManualEmail, { emailId, status: 'sent', resendId })
 }
 
+describe('retention cleanup (scheduled into the nested provider component)', () => {
+  // The provider ages records by wall clock, so the clock is faked too and
+  // advanced past the retention window between the writes and the cleanup.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'Date'] })
+  })
+
+  test('cleanup prunes finalized emails older than olderThanMs and keeps the rest', async () => {
+    const finalized = await sendOne()
+    await t.mutation(api.email.cancel, { emailId: finalized })
+    const waiting = await sendOne()
+    vi.setSystemTime(Date.now() + 60_000)
+
+    expect(await t.mutation(api.email.cleanup, { olderThanMs: 30_000 })).toBeNull()
+    await t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(0))
+
+    expect(await t.query(api.email.get, { emailId: finalized })).toBeNull()
+    expect(await t.query(api.email.get, { emailId: waiting })).toMatchObject({ status: 'waiting' })
+  })
+
+  test('cleanup leaves finalized emails inside the window alone', async () => {
+    const finalized = await sendOne()
+    await t.mutation(api.email.cancel, { emailId: finalized })
+    vi.setSystemTime(Date.now() + 60_000)
+
+    await t.mutation(api.email.cleanup, { olderThanMs: 120_000 })
+    await t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(0))
+
+    expect(await t.query(api.email.get, { emailId: finalized })).toMatchObject({ status: 'cancelled' })
+  })
+
+  test('cleanupAbandoned prunes never-finalized emails older than olderThanMs', async () => {
+    const abandoned = await sendOne()
+    vi.setSystemTime(Date.now() + 60_000)
+    const fresh = await sendOne()
+
+    expect(await t.mutation(api.email.cleanupAbandoned, { olderThanMs: 30_000 })).toBeNull()
+    await t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(0))
+
+    expect(await t.query(api.email.get, { emailId: abandoned })).toBeNull()
+    expect(await t.query(api.email.get, { emailId: fresh })).toMatchObject({ status: 'waiting' })
+  })
+})
+
 describe('transactional send → status → cancel (nested provider component)', () => {
   test('send stores the email with the provider component and reports it as waiting', async () => {
     const emailId = await sendOne()

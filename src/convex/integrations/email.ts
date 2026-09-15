@@ -25,6 +25,14 @@ export interface EmailComponents {
       status: FunctionReference<'query', 'internal', { emailId: string }, EmailStatus | null>
       get: FunctionReference<'query', 'internal', { emailId: string }, unknown>
       cancel: FunctionReference<'mutation', 'internal', { emailId: string }, null>
+      /**
+       * Retention pruning of the provider component's email records. Optional
+       * so an app pinned to an older component build still type-checks —
+       * `email.cleanup` / `email.cleanupAbandoned` then throw, naming the
+       * missing function.
+       */
+      cleanup?: FunctionReference<'mutation', 'internal', { olderThanMs?: number }, null>
+      cleanupAbandoned?: FunctionReference<'mutation', 'internal', { olderThanMs?: number }, null>
       handleWebhook: FunctionReference<'action', 'internal', { body: string, headers: Record<string, string> }, { status: number, body: string, type?: string }>
     }
     webhooks?: WebhookLogRefs
@@ -205,6 +213,24 @@ export interface Email {
   /** Cancel a not-yet-sent email. */
   cancel: (ctx: AnyActionCtx, emailId: string) => Promise<void>
   /**
+   * Prune finalized email records (delivered, bounced, cancelled, failed …)
+   * older than `olderThanMs` — default 7 days. Schedules the provider's
+   * batched cleanup and returns at once; call it from a cron.
+   *
+   * @example
+   * ```ts [backend/crons.ts]
+   * crons.daily('prune emails', { hourUTC: 3, minuteUTC: 0 }, internal.email.pruneEmails)
+   * // internal.email.pruneEmails: internalMutation(ctx => email.cleanup(ctx, { olderThanMs: 7 * DAY }))
+   * ```
+   */
+  cleanup: (ctx: AnyActionCtx, options?: { olderThanMs?: number }) => Promise<void>
+  /**
+   * Prune abandoned email records — created more than `olderThanMs` ago
+   * (default 30 days) and never finalized, e.g. because a delivery webhook
+   * never arrived. Scheduled like `cleanup`.
+   */
+  cleanupAbandoned: (ctx: AnyActionCtx, options?: { olderThanMs?: number }) => Promise<void>
+  /**
    * Handle an email-provider event webhook from your app's `/email/events`
    * HTTP route (inside an `httpAction`); returns the Response to send back.
    */
@@ -258,6 +284,16 @@ export function setupEmail(components: EmailComponents, options: SetupEmailOptio
 
   const cancel: Email['cancel'] = async (ctx, emailId) => {
     await ctx.runMutation(refs.cancel, { emailId })
+  }
+
+  const cleanup: Email['cleanup'] = async (ctx, options = {}) => {
+    if (!refs.cleanup) throw new Error('[nuxt-backend] components.backend.email.cleanup is missing — redeploy the backend component (or update the local install) to prune emails.')
+    await ctx.runMutation(refs.cleanup, options)
+  }
+
+  const cleanupAbandoned: Email['cleanupAbandoned'] = async (ctx, options = {}) => {
+    if (!refs.cleanupAbandoned) throw new Error('[nuxt-backend] components.backend.email.cleanupAbandoned is missing — redeploy the backend component (or update the local install) to prune emails.')
+    await ctx.runMutation(refs.cleanupAbandoned, options)
   }
 
   const webhookHandler: Email['webhookHandler'] = async (ctx, request) => {
@@ -345,6 +381,8 @@ export function setupEmail(components: EmailComponents, options: SetupEmailOptio
     send,
     status,
     cancel,
+    cleanup,
+    cleanupAbandoned,
     webhookHandler,
     audiences: {
       create: payload => unwrap(marketingClient().audiences.create(payload)),

@@ -2,6 +2,8 @@
 // nested provider component). Inline the implementation to customize it.
 export {
   cancel,
+  cleanup,
+  cleanupAbandoned,
   get,
   handleWebhook,
   send,

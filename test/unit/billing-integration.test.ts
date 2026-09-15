@@ -43,6 +43,7 @@ const components = {
       credit: 'ref:credit',
       getBenefitMetadata: 'ref:getBenefitMetadata',
       upsertBenefitMetadata: 'ref:upsertBenefitMetadata',
+      deleteByUser: 'ref:deleteByUser',
     },
     gifts: {
       create: 'ref:gifts.create',
@@ -363,6 +364,20 @@ describe('spendCredits', () => {
     await expect(
       billing.spendCredits(makeCtx() as never, { userId: 'u1', name: 'credits' }),
     ).rejects.toThrow('ingest failed')
+  })
+})
+
+describe('forgetEntity', () => {
+  it('deletes the entity’s entitlement cache row through the component', async () => {
+    const ctx = makeCtx()
+    await billing.forgetEntity(ctx, 'u1')
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:deleteByUser', { userId: 'u1' })
+  })
+
+  it('names the missing component function on an older component build', async () => {
+    const { deleteByUser: _deleteByUser, ...older } = (components as { backend: { billing: Record<string, string> } }).backend.billing
+    const legacy = setupBilling({ ...components, backend: { ...(components as { backend: object }).backend, billing: older } } as never, config)
+    await expect(legacy.forgetEntity(makeCtx(), 'u1')).rejects.toThrow('components.backend.billing.deleteByUser is missing')
   })
 })
 

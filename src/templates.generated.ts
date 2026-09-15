@@ -22,6 +22,7 @@ export const COMPONENT_MODULE_EXPORTS = {
     'clearPendingSpends',
     'credit',
     'debit',
+    'deleteByUser',
     'finalize',
     'getBenefitMetadata',
     'getByUser',
@@ -33,6 +34,8 @@ export const COMPONENT_MODULE_EXPORTS = {
   ],
   email: [
     'cancel',
+    'cleanup',
+    'cleanupAbandoned',
     'get',
     'handleWebhook',
     'send',

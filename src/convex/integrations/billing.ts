@@ -626,6 +626,12 @@ export interface BillingComponents {
        * still type-checks — the refund path then just re-syncs.
        */
       clearPendingSpends?: FunctionReference<'mutation', 'internal', { userId: string }, null>
+      /**
+       * Delete one entity's entitlement cache row (account erasure). Optional
+       * so an app pinned to an older component build still type-checks —
+       * `billing.forgetEntity` then throws, naming the missing function.
+       */
+      deleteByUser?: FunctionReference<'mutation', 'internal', { userId: string }, null>
       getBenefitMetadata: FunctionReference<'query', 'internal', { benefitIds: string[] }, Array<{
         benefitId: string
         metadata: Record<string, string | number | boolean>
@@ -1067,6 +1073,14 @@ export interface Billing {
    * signed out.
    */
   resolveEntity: (ctx: { auth?: Auth }) => Promise<{ userId: string, email: string } | null>
+  /**
+   * Forget a billing entity: drop its cached entitlements (plans, benefits,
+   * credit balances, in-flight reservations). The provider's customer record
+   * is untouched — this is the app-side erasure step, e.g. from the
+   * `onUserDeleted` auth hook with the deleted user's id (`billTo: 'user'`)
+   * or a dissolved workspace's id. A no-op for an unknown entity.
+   */
+  forgetEntity: (ctx: RunWriteCtx, userId: string) => Promise<void>
   /**
    * Create a discount / coupon (provider `discounts.create`). Call from an
    * **action**. Accepts the full discount-create shape (fixed or percentage).
@@ -2560,6 +2574,11 @@ export function setupBilling(
     return lastForbidden ?? new Response('Invalid signature', { status: 403 })
   }
 
+  const forgetEntity: Billing['forgetEntity'] = async (ctx, userId) => {
+    if (!cache.deleteByUser) throw new Error('[nuxt-backend] components.backend.billing.deleteByUser is missing — redeploy the backend component (or update the local install) to forget billing entities.')
+    await ctx.runMutation(cache.deleteByUser, { userId })
+  }
+
   return {
     provider,
     api: { ...provider.api(), listAllSubscriptions, generateCheckoutLink, giftCheckout },
@@ -2591,6 +2610,7 @@ export function setupBilling(
     settleSpend,
     releaseSpend,
     resolveEntity: entityFromIdentity,
+    forgetEntity,
     createDiscount,
     discounts,
     updateSubscription,

@@ -23,6 +23,8 @@ const refs = {
   status: 'ref:status',
   get: 'ref:get',
   cancel: 'ref:cancel',
+  cleanup: 'ref:cleanup',
+  cleanupAbandoned: 'ref:cleanupAbandoned',
   handleWebhook: 'ref:handleWebhook',
 }
 const component = { backend: { email: refs } } as unknown as EmailComponents
@@ -86,6 +88,22 @@ describe('setupEmail transactional helpers', () => {
 
     await email.cancel(ctx, 'em_1')
     expect(ctx.runMutation).toHaveBeenCalledWith(refs.cancel, { emailId: 'em_1' })
+  })
+
+  it('cleanup / cleanupAbandoned schedule the component pruning with the retention window', async () => {
+    const email = setupEmail(component)
+    const ctx = makeCtx()
+    await email.cleanup(ctx, { olderThanMs: 1_000 })
+    await email.cleanupAbandoned(ctx)
+    expect(ctx.runMutation).toHaveBeenNthCalledWith(1, 'ref:cleanup', { olderThanMs: 1_000 })
+    expect(ctx.runMutation).toHaveBeenNthCalledWith(2, 'ref:cleanupAbandoned', {})
+  })
+
+  it('cleanup names the missing component function on an older component build', async () => {
+    const { cleanup: _cleanup, cleanupAbandoned: _abandoned, ...older } = refs
+    const email = setupEmail({ backend: { email: older } } as unknown as EmailComponents)
+    await expect(email.cleanup(makeCtx())).rejects.toThrow('components.backend.email.cleanup is missing')
+    await expect(email.cleanupAbandoned(makeCtx())).rejects.toThrow('components.backend.email.cleanupAbandoned is missing')
   })
 
   it('webhookHandler forwards body + headers and passes the verified response through', async () => {

@@ -59,6 +59,19 @@ describe('billing entitlement cache (component)', () => {
     expect(await t.query(api.billing.userByCustomer, { customerId: 'cus_x' })).toBeNull()
   })
 
+  test('deleteByUser forgets one entity and leaves the rest', async () => {
+    await t.mutation(api.billing.upsert, { userId: 'u1', customerId: 'cus_1', activeProductIds: [], benefits: [], meters: [] })
+    await t.mutation(api.billing.upsert, { userId: 'u2', customerId: 'cus_2', activeProductIds: [], benefits: [], meters: [] })
+
+    expect(await t.mutation(api.billing.deleteByUser, { userId: 'u1' })).toBeNull()
+
+    expect(await t.query(api.billing.getByUser, { userId: 'u1' })).toBeNull()
+    expect(await t.query(api.billing.userByCustomer, { customerId: 'cus_1' })).toBeNull()
+    expect(await t.query(api.billing.getByUser, { userId: 'u2' })).toMatchObject({ customerId: 'cus_2' })
+    // Unknown entities are a no-op, not an error.
+    expect(await t.mutation(api.billing.deleteByUser, { userId: 'nobody' })).toBeNull()
+  })
+
   test('clear wipes the cache', async () => {
     await t.mutation(api.billing.upsert, { userId: 'u1', activeProductIds: [], benefits: [], meters: [] })
     await t.mutation(api.billing.clear, {})

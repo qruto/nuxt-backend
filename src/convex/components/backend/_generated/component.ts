@@ -2460,6 +2460,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         },
         Name
       >;
+      deleteByUser: FunctionReference<
+        "mutation",
+        "internal",
+        { userId: string },
+        null,
+        Name
+      >;
       finalize: FunctionReference<
         "mutation",
         "internal",
@@ -2574,6 +2581,20 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { emailId: string },
+        null,
+        Name
+      >;
+      cleanup: FunctionReference<
+        "mutation",
+        "internal",
+        { olderThanMs?: number },
+        null,
+        Name
+      >;
+      cleanupAbandoned: FunctionReference<
+        "mutation",
+        "internal",
+        { olderThanMs?: number },
         null,
         Name
       >;

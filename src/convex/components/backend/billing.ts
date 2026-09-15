@@ -458,6 +458,26 @@ export const clear = mutation({
   },
 })
 
+/**
+ * Forget one billing entity: delete its entitlement cache row(s). The
+ * erasure half of account deletion (`billing.forgetEntity`, typically from
+ * the `onUserDeleted` auth hook) — the provider keeps its own customer
+ * record; this only drops the cache derived from it. A no-op for an unknown
+ * entity.
+ */
+export const deleteByUser = mutation({
+  args: { userId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { userId }) => {
+    // `getByUser` reads the row with `.unique()`, so this loop is bounded to
+    // one row in practice; the loop only guards against a historical duplicate.
+    for await (const row of ctx.db.query('billingEntitlements').withIndex('userId', q => q.eq('userId', userId))) {
+      await ctx.db.delete('billingEntitlements', row._id)
+    }
+    return null
+  },
+})
+
 /** Resolve a billing-provider customer id back to its auth user id (used by webhooks). */
 export const userByCustomer = query({
   args: { customerId: v.string() },

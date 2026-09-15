@@ -104,6 +104,37 @@ export const cancel = mutation({
 })
 
 /**
+ * Prune finalized emails (delivered, bounced, cancelled, failed …) older than
+ * `olderThanMs` (the nested provider's default: 7 days) from the provider
+ * component's tables. Scheduled rather than run inline — the provider batches
+ * and re-schedules itself until the backlog is gone — so this returns at once
+ * and is safe to call from a cron. Exposed as `components.backend.email.cleanup`.
+ */
+export const cleanup = mutation({
+  args: { olderThanMs: v.optional(v.number()) },
+  returns: v.null(),
+  handler: async (ctx, { olderThanMs }) => {
+    await ctx.scheduler.runAfter(0, components.resend.lib.cleanupOldEmails, { olderThan: olderThanMs })
+    return null
+  },
+})
+
+/**
+ * Prune abandoned emails — created more than `olderThanMs` ago (the nested
+ * provider's default: 30 days) and never finalized, e.g. because a delivery
+ * webhook never arrived. Scheduled like {@link cleanup}. Exposed as
+ * `components.backend.email.cleanupAbandoned`.
+ */
+export const cleanupAbandoned = mutation({
+  args: { olderThanMs: v.optional(v.number()) },
+  returns: v.null(),
+  handler: async (ctx, { olderThanMs }) => {
+    await ctx.scheduler.runAfter(0, components.resend.lib.cleanupAbandonedEmails, { olderThan: olderThanMs })
+    return null
+  },
+})
+
+/**
  * The event types the nested provider component tracks against sent-email
  * records (delivery status behind `useEmailStatus`). Everything else the
  * provider can send (`contact.*`, `domain.*`, scheduling events) is verified
