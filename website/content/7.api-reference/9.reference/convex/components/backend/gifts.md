@@ -20,7 +20,7 @@ const create: RegisteredMutation<"public", {
 }, Promise<string>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/gifts.ts:43](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L43)
+Defined in: [src/convex/components/backend/gifts.ts:43](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L43)
 
 Record a gift at checkout time (status `pending` until the order webhook).
 
@@ -35,7 +35,7 @@ const markPaid: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/gifts.ts:66](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L66)
+Defined in: [src/convex/components/backend/gifts.ts:66](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L66)
 
 Mark a gift paid once the billing provider confirms the order. Idempotent.
 
@@ -49,7 +49,7 @@ const markNotified: RegisteredMutation<"public", {
 }, Promise<boolean>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/gifts.ts:83](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L83)
+Defined in: [src/convex/components/backend/gifts.ts:83](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L83)
 
 Stamp the recipient-notification email as sent — status-guarded so webhook
 redeliveries of `order.paid` can never email the recipient twice.
@@ -67,7 +67,7 @@ const markClaimed: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/gifts.ts:96](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L96)
+Defined in: [src/convex/components/backend/gifts.ts:96](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L96)
 
 ***
 
@@ -96,7 +96,7 @@ const listByEmail: RegisteredQuery<"public", {
 }[]>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/gifts.ts:113](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L113)
+Defined in: [src/convex/components/backend/gifts.ts:113](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L113)
 
 Gifts addressed to an email (lowercased), optionally filtered by status.
 
@@ -128,7 +128,7 @@ const get: RegisteredQuery<"public", {
 | null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/gifts.ts:132](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L132)
+Defined in: [src/convex/components/backend/gifts.ts:132](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L132)
 
 A single gift by id, or `null`.
 
@@ -147,7 +147,7 @@ const resolveRecipient: RegisteredQuery<"public", {
 | null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/gifts.ts:147](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L147)
+Defined in: [src/convex/components/backend/gifts.ts:147](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/gifts.ts#L147)
 
 Resolve a recipient email to an existing auth user and their first workspace
 — direct index reads on this component's own auth tables (one benefit of the

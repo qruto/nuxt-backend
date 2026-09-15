@@ -8,39 +8,39 @@ navigation: true
 
 ### UseBackendAuthService
 
-Defined in: [nuxt-backend/src/runtime/vue/composables/use-auth.ts:8](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L8)
+Defined in: [src/runtime/vue/composables/use-auth.ts:8](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L8)
 
 The backend identity service: the base Convex + Better Auth service
 extended with this package's passwordless flows and authorization reads.
 
 #### Extends
 
-- `UseAuthService`
+- `UseBetterAuthReturn`
 
 #### Properties
 
 | Property | Type | Description | Inherited from | Defined in |
 | ------ | ------ | ------ | ------ | ------ |
-| <a id="signout"></a> `signOut` | () => `Promise`\<`unknown`\> | Sign the current user out. | - | [nuxt-backend/src/runtime/vue/composables/use-auth.ts:11](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L11) |
-| <a id="sendotp"></a> `sendOtp` | (`email`, `type?`) => `Promise`\<`unknown`\> | Send a sign-in / verification OTP code to an email. | - | [nuxt-backend/src/runtime/vue/composables/use-auth.ts:13](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L13) |
-| <a id="signinwithotp"></a> `signInWithOtp` | (`args`) => `Promise`\<`unknown`\> | Complete sign-in (or passwordless sign-up) with an emailed OTP code. | - | [nuxt-backend/src/runtime/vue/composables/use-auth.ts:15](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L15) |
-| <a id="signinwithpasskey"></a> `signInWithPasskey` | () => `Promise`\<`unknown`\> | Sign in with a passkey (WebAuthn). | - | [nuxt-backend/src/runtime/vue/composables/use-auth.ts:17](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L17) |
-| <a id="registerpasskey"></a> `registerPasskey` | (`context?`) => `Promise`\<`unknown`\> | Register a passkey — pass `{ email, name }` (JSON) for pre-auth registration. | - | [nuxt-backend/src/runtime/vue/composables/use-auth.ts:19](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L19) |
-| <a id="updateuser"></a> `updateUser` | (`args`) => `Promise`\<`unknown`\> | Update profile fields (name / avatar image) on the current user. | - | [nuxt-backend/src/runtime/vue/composables/use-auth.ts:22](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L22) |
-| <a id="changeemail"></a> `changeEmail` | (`newEmail`, `callbackURL?`) => `Promise`\<`unknown`\> | Change the account email (confirmed via email). | - | [nuxt-backend/src/runtime/vue/composables/use-auth.ts:24](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L24) |
-| <a id="sendverificationemail"></a> `sendVerificationEmail` | (`callbackURL?`) => `Promise`\<`unknown`\> | Send an email-verification link to the current address. The endpoint throws for already-verified users — gate on `user.emailVerified`. | - | [nuxt-backend/src/runtime/vue/composables/use-auth.ts:29](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L29) |
-| <a id="deleteaccount"></a> `deleteAccount` | () => `Promise`\<`unknown`\> | Delete the account (confirmed via email). | - | [nuxt-backend/src/runtime/vue/composables/use-auth.ts:31](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L31) |
-| <a id="role"></a> `role` | `ComputedRef`\<`string`\> | The app-wide role; `'user'` when signed out or unset. | - | [nuxt-backend/src/runtime/vue/composables/use-auth.ts:34](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L34) |
-| <a id="hasrole"></a> `hasRole` | (`role`) => `boolean` | Whether the user has (any of) the given app-wide role(s). | - | [nuxt-backend/src/runtime/vue/composables/use-auth.ts:36](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L36) |
-| <a id="can"></a> `can` | (`permissions`) => `boolean` | Check permission statements (e.g. `{ user: ['ban'] }`) against the user's role — sync and local. | - | [nuxt-backend/src/runtime/vue/composables/use-auth.ts:38](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L38) |
-| <a id="banned"></a> `banned` | `ComputedRef`\<`boolean`\> | Whether the account is banned. | - | [nuxt-backend/src/runtime/vue/composables/use-auth.ts:40](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L40) |
-| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | - | `UseAuthService.isLoading` | nuxt-convex-module/runtime/better-auth/vue/use-auth |
-| <a id="isauthenticated"></a> `isAuthenticated` | `ComputedRef`\<`boolean`\> | - | `UseAuthService.isAuthenticated` | nuxt-convex-module/runtime/better-auth/vue/use-auth |
-| <a id="fetchaccesstoken"></a> `fetchAccessToken` | `AuthTokenFetcher` | - | `UseAuthService.fetchAccessToken` | nuxt-convex-module/runtime/better-auth/vue/use-auth |
-| <a id="client"></a> `client` | `AuthClient` | - | `UseAuthService.client` | nuxt-convex-module/runtime/better-auth/vue/use-auth |
-| <a id="session"></a> `session` | `AuthSession` | - | `UseAuthService.session` | nuxt-convex-module/runtime/better-auth/vue/use-auth |
-| <a id="user"></a> `user` | `ComputedRef`\<`AuthUser` \| `null`\> | The current user, or `null` when signed out / still loading. | `UseAuthService.user` | nuxt-convex-module/runtime/better-auth/vue/use-auth |
-| <a id="authversion"></a> `authVersion` | `ComputedRef`\<`string` \| `null`\> | - | `UseAuthService.authVersion` | nuxt-convex-module/runtime/better-auth/vue/use-auth |
+| <a id="signout"></a> `signOut` | () => `Promise`\<`unknown`\> | Sign the current user out. | - | [src/runtime/vue/composables/use-auth.ts:11](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L11) |
+| <a id="sendotp"></a> `sendOtp` | (`email`, `type?`) => `Promise`\<`unknown`\> | Send a sign-in / verification OTP code to an email. | - | [src/runtime/vue/composables/use-auth.ts:13](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L13) |
+| <a id="signinwithotp"></a> `signInWithOtp` | (`args`) => `Promise`\<`unknown`\> | Complete sign-in (or passwordless sign-up) with an emailed OTP code. | - | [src/runtime/vue/composables/use-auth.ts:15](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L15) |
+| <a id="signinwithpasskey"></a> `signInWithPasskey` | () => `Promise`\<`unknown`\> | Sign in with a passkey (WebAuthn). | - | [src/runtime/vue/composables/use-auth.ts:17](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L17) |
+| <a id="registerpasskey"></a> `registerPasskey` | (`context?`) => `Promise`\<`unknown`\> | Register a passkey — pass `{ email, name }` (JSON) for pre-auth registration. | - | [src/runtime/vue/composables/use-auth.ts:19](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L19) |
+| <a id="updateuser"></a> `updateUser` | (`args`) => `Promise`\<`unknown`\> | Update profile fields (name / avatar image) on the current user. | - | [src/runtime/vue/composables/use-auth.ts:22](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L22) |
+| <a id="changeemail"></a> `changeEmail` | (`newEmail`, `callbackURL?`) => `Promise`\<`unknown`\> | Change the account email (confirmed via email). | - | [src/runtime/vue/composables/use-auth.ts:24](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L24) |
+| <a id="sendverificationemail"></a> `sendVerificationEmail` | (`callbackURL?`) => `Promise`\<`unknown`\> | Send an email-verification link to the current address. The endpoint throws for already-verified users — gate on `user.emailVerified`. | - | [src/runtime/vue/composables/use-auth.ts:29](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L29) |
+| <a id="deleteaccount"></a> `deleteAccount` | () => `Promise`\<`unknown`\> | Delete the account (confirmed via email). | - | [src/runtime/vue/composables/use-auth.ts:31](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L31) |
+| <a id="role"></a> `role` | `ComputedRef`\<`string`\> | The app-wide role; `'user'` when signed out or unset. | - | [src/runtime/vue/composables/use-auth.ts:34](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L34) |
+| <a id="hasrole"></a> `hasRole` | (`role`) => `boolean` | Whether the user has (any of) the given app-wide role(s). | - | [src/runtime/vue/composables/use-auth.ts:36](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L36) |
+| <a id="can"></a> `can` | (`permissions`) => `boolean` | Check permission statements (e.g. `{ user: ['ban'] }`) against the user's role — sync and local. | - | [src/runtime/vue/composables/use-auth.ts:38](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L38) |
+| <a id="banned"></a> `banned` | `ComputedRef`\<`boolean`\> | Whether the account is banned. | - | [src/runtime/vue/composables/use-auth.ts:40](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L40) |
+| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until the session is known and no prefetched token covers the gap. | `UseBetterAuthReturn.isLoading` | node\_modules/nuxt-convex-module/runtime/better-auth/vue/use-better-auth |
+| <a id="isauthenticated"></a> `isAuthenticated` | `ComputedRef`\<`boolean`\> | `true` when Better Auth reports a session, or a token is cached while it reloads. | `UseBetterAuthReturn.isAuthenticated` | node\_modules/nuxt-convex-module/runtime/better-auth/vue/use-better-auth |
+| <a id="fetchaccesstoken"></a> `fetchAccessToken` | `AuthTokenFetcher` | Convex's token fetcher: the Better Auth JWT for the current session, or `null`. | `UseBetterAuthReturn.fetchAccessToken` | node\_modules/nuxt-convex-module/runtime/better-auth/vue/use-better-auth |
+| <a id="client"></a> `client` | `AuthClient` | The Better Auth client from `#convex/auth-client` — sign-in, sign-out and every plugin flow live here. | `UseBetterAuthReturn.client` | node\_modules/nuxt-convex-module/runtime/better-auth/vue/use-better-auth |
+| <a id="session"></a> `session` | `BetterAuthSession` | Better Auth's own `useSession()` ref: `{ data, isPending, error }`. | `UseBetterAuthReturn.session` | node\_modules/nuxt-convex-module/runtime/better-auth/vue/use-better-auth |
+| <a id="user"></a> `user` | `ComputedRef`\<`BetterAuthUser` \| `null`\> | The current user, or `null` when signed out / still loading. | `UseBetterAuthReturn.user` | node\_modules/nuxt-convex-module/runtime/better-auth/vue/use-better-auth |
+| <a id="authversion"></a> `authVersion` | `ComputedRef`\<`string` \| `null`\> | The session id (or user id); changes when the signed-in identity changes. | `UseBetterAuthReturn.authVersion` | node\_modules/nuxt-convex-module/runtime/better-auth/vue/use-better-auth |
 
 ## Functions
 
@@ -50,7 +50,7 @@ extended with this package's passwordless flows and authorization reads.
 function useAuth(initialToken?): UseBackendAuthService;
 ```
 
-Defined in: [nuxt-backend/src/runtime/vue/composables/use-auth.ts:55](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L55)
+Defined in: [src/runtime/vue/composables/use-auth.ts:55](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts#L55)
 
 The backend identity composable — the base Better Auth service
 (`isLoading`, `isAuthenticated`, `fetchAccessToken`, `client`, `session`,
@@ -58,8 +58,8 @@ The backend identity composable — the base Better Auth service
 authorization reads this package is opinionated about. Everything else
 (admin/organization management, …) lives on the fully-typed `client`.
 
-Registered with import priority over the base module's `useAuth`, so this
-is what `useAuth()` resolves to in apps using `nuxt-backend`.
+The base module registers its service as `useBetterAuth`; this is the only
+`useAuth` auto-import in apps using `nuxt-backend`.
 
 #### Parameters
 

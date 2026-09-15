@@ -8,7 +8,7 @@ navigation: true
 
 ### WorkflowComponents
 
-Defined in: [nuxt-backend/src/convex/integrations/workflows.ts:17](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L17)
+Defined in: [src/convex/integrations/workflows.ts:17](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L17)
 
 The component handle `setupWorkflows` reads from your generated `components`
 object (the key is picked structurally — pass the whole object).
@@ -17,13 +17,13 @@ object (the key is picked structurally — pass the whole object).
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="workflow"></a> `workflow` | `WorkflowComponent` | [nuxt-backend/src/convex/integrations/workflows.ts:18](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L18) |
+| <a id="workflow"></a> `workflow` | `WorkflowComponent` | [src/convex/integrations/workflows.ts:18](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L18) |
 
 ***
 
 ### EmailSequenceStep
 
-Defined in: [nuxt-backend/src/convex/integrations/workflows.ts:67](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L67)
+Defined in: [src/convex/integrations/workflows.ts:67](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L67)
 
 One email in an [defineEmailSequence](#defineemailsequence) drip.
 
@@ -37,8 +37,8 @@ One email in an [defineEmailSequence](#defineemailsequence) drip.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="after"></a> `after` | `number` | Delay before this step, in milliseconds from the previous one. | [nuxt-backend/src/convex/integrations/workflows.ts:69](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L69) |
-| <a id="email"></a> `email` | (`data`) => \| \{ `to`: `string`; `subject`: `string`; `html?`: `string`; `text?`: `string`; \} \| `null` | Build the email for this step — or return `null` to skip it (e.g. the user already activated and the nudge is moot). | [nuxt-backend/src/convex/integrations/workflows.ts:74](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L74) |
+| <a id="after"></a> `after` | `number` | Delay before this step, in milliseconds from the previous one. | [src/convex/integrations/workflows.ts:69](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L69) |
+| <a id="email"></a> `email` | (`data`) => \| \{ `to`: `string`; `subject`: `string`; `html?`: `string`; `text?`: `string`; \} \| `null` | Build the email for this step — or return `null` to skip it (e.g. the user already activated and the nudge is moot). | [src/convex/integrations/workflows.ts:74](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L74) |
 
 ## Type Aliases
 
@@ -63,7 +63,7 @@ type WorkflowStatus =
 };
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/workflow/dist/client/index.d.ts:51
+Defined in: node\_modules/@convex-dev/workflow/dist/client/index.d.ts:51
 
 Re-exported so consumers can type a `status` query's `workflowId` arg and
 cast a stored id back to a [WorkflowId](#workflowid) (it is a branded string).
@@ -78,7 +78,7 @@ type WorkflowId = string & {
 };
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/workflow/dist/types.d.ts:4
+Defined in: node\_modules/@convex-dev/workflow/dist/types.d.ts:4
 
 Re-exported so consumers can type a `status` query's `workflowId` arg and
 cast a stored id back to a [WorkflowId](#workflowid) (it is a branded string).
@@ -87,7 +87,7 @@ cast a stored id back to a [WorkflowId](#workflowid) (it is a branded string).
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
-| `__isWorkflowId` | `true` | nuxt-backend/node\_modules/@convex-dev/workflow/dist/types.d.ts:5 |
+| `__isWorkflowId` | `true` | node\_modules/@convex-dev/workflow/dist/types.d.ts:5 |
 
 ## Functions
 
@@ -97,7 +97,7 @@ cast a stored id back to a [WorkflowId](#workflowid) (it is a branded string).
 function setupWorkflows(components, options?): WorkflowManager;
 ```
 
-Defined in: [nuxt-backend/src/convex/integrations/workflows.ts:57](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L57)
+Defined in: [src/convex/integrations/workflows.ts:57](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L57)
 
 Configure the [Workflow](https://www.convex.dev/components/workflow)
 component for durable, long-running, multi-step functions. Your overrides are
@@ -147,7 +147,7 @@ function defineEmailSequence<Args>(
 options): RegisteredMutation<"internal", WorkflowArgs<Args>, WorkflowId>;
 ```
 
-Defined in: [nuxt-backend/src/convex/integrations/workflows.ts:108](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L108)
+Defined in: [src/convex/integrations/workflows.ts:108](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L108)
 
 A durable, multi-step email sequence (onboarding drips, cancellation
 follow-ups): each step sleeps its `after` delay durably (survives restarts

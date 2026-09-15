@@ -34,7 +34,7 @@ const getByUser: RegisteredQuery<"public", {
 | null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/billing.ts:39](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L39)
+Defined in: [src/convex/components/backend/billing.ts:39](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L39)
 
 The current user's cached entitlement state, or `null` if never synced.
 
@@ -65,7 +65,7 @@ const upsert: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/billing.ts:73](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L73)
+Defined in: [src/convex/components/backend/billing.ts:73](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L73)
 
 Upsert a user's entitlement cache (called after a Polar sync). Freshly
 synced provider state does not know about in-flight local reservations, so
@@ -108,7 +108,7 @@ const debit: RegisteredMutation<"public", {
 }>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/billing.ts:118](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L118)
+Defined in: [src/convex/components/backend/billing.ts:118](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L118)
 
 Atomically reserve credits against the cached balance (reserve → run →
 settle). Convex mutations are serializable, so two concurrent spends of the
@@ -132,7 +132,7 @@ const settle: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/billing.ts:252](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L252)
+Defined in: [src/convex/components/backend/billing.ts:252](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L252)
 
 Drop a reservation after its provider event ingested — balance stays spent.
 Pass `finalAmount` when the actual cost came in under the reserved estimate
@@ -155,7 +155,7 @@ const finalize: RegisteredMutation<"public", {
 }, Promise<SettleOutcome>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/billing.ts:268](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L268)
+Defined in: [src/convex/components/backend/billing.ts:268](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L268)
 
 [settle](#settle), reporting what it did: how much of the reservation went back
 to the balance, where the balance landed, and the auto-release job the
@@ -175,7 +175,7 @@ const attachReleaseJob: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/billing.ts:292](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L292)
+Defined in: [src/convex/components/backend/billing.ts:292](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L292)
 
 Record the scheduled auto-release guarding a reservation, so settling it can
 cancel the job. A no-op when the reservation is already gone — the job it
@@ -192,7 +192,7 @@ const release: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/billing.ts:321](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L321)
+Defined in: [src/convex/components/backend/billing.ts:321](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L321)
 
 Undo a reservation whose flow failed before ingestion: re-credit the meter
 and drop the entry. A failed run never consumes credits.
@@ -211,7 +211,7 @@ const clearPendingSpends: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/billing.ts:357](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L357)
+Defined in: [src/convex/components/backend/billing.ts:357](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L357)
 
 Drop every in-flight spend reservation for one entity without re-crediting
 the meters. Used after a refund: the provider's balance is already the
@@ -231,7 +231,7 @@ const credit: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/billing.ts:375](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L375)
+Defined in: [src/convex/components/backend/billing.ts:375](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L375)
 
 Optimistically re-credit a meter after a refund event ingested (sum meters
 only — see `refundCredits`). The next provider sync overwrites with truth.
@@ -250,7 +250,7 @@ const getBenefitMetadata: RegisteredQuery<"public", {
 }[]>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/billing.ts:397](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L397)
+Defined in: [src/convex/components/backend/billing.ts:397](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L397)
 
 Read the live-metadata snapshot for a set of benefits (feature gating join).
 
@@ -267,7 +267,7 @@ const upsertBenefitMetadata: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/billing.ts:418](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L418)
+Defined in: [src/convex/components/backend/billing.ts:418](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L418)
 
 Upsert benefit-metadata snapshots (post-sync, or from a benefit.updated webhook).
 
@@ -280,7 +280,7 @@ const clear: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/billing.ts:450](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L450)
+Defined in: [src/convex/components/backend/billing.ts:450](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L450)
 
 Wipe the entitlement cache — derived data that resyncs from the billing
 provider, so this is safe for test/dev resets (`pnpm run db:reset`) and never
@@ -293,6 +293,24 @@ strip it from the published declarations.
 
 ***
 
+### deleteByUser
+
+```ts
+const deleteByUser: RegisteredMutation<"public", {
+  userId: string;
+}, Promise<null>>;
+```
+
+Defined in: [src/convex/components/backend/billing.ts:468](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L468)
+
+Forget one billing entity: delete its entitlement cache row(s). The
+erasure half of account deletion (`billing.forgetEntity`, typically from
+the `onUserDeleted` auth hook) — the provider keeps its own customer
+record; this only drops the cache derived from it. A no-op for an unknown
+entity.
+
+***
+
 ### userByCustomer
 
 ```ts
@@ -301,6 +319,6 @@ const userByCustomer: RegisteredQuery<"public", {
 }, Promise<string | null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/billing.ts:462](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L462)
+Defined in: [src/convex/components/backend/billing.ts:482](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/billing.ts#L482)
 
 Resolve a billing-provider customer id back to its auth user id (used by webhooks).

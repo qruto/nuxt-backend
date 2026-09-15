@@ -17,7 +17,7 @@ const default: ComponentDefinition<any, {
 }>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/convex.config.ts:37](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/convex.config.ts#L37)
+Defined in: [src/convex/components/backend/convex.config.ts:37](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/convex.config.ts#L37)
 
 The all-in-one `backend` Convex component: auth tables + adapter, transactional
 email (with the Resend component nested inside), the billing entitlement cache,

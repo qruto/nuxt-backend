@@ -8,7 +8,7 @@ navigation: true
 
 ### TableAggregate
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:269
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:269
 
 Re-exports for the [Aggregate](https://www.convex.dev/components/aggregate) component, so consumers configure denormalized counts/sums from a
 single import. Construct one `TableAggregate` per app-mounted aggregate
@@ -32,7 +32,7 @@ instance and keep it in sync with [Triggers](#triggers).
 new TableAggregate<T>(component, options): TableAggregate<T>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:271
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:271
 
 ###### Parameters
 
@@ -59,7 +59,7 @@ Aggregate<T["Key"], GenericId<T["TableName"]>, TableAggregateNamespace<T>>.const
 count(ctx, ...opts): Promise<number>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:34
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:34
 
 Counts items between the given bounds.
 
@@ -86,7 +86,7 @@ Aggregate.count
 countBatch(ctx, queries): Promise<number[]>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:40
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:40
 
 Batch version of count() - counts items for multiple bounds in a single call.
 
@@ -113,7 +113,7 @@ Aggregate.countBatch
 sum(ctx, ...opts): Promise<number>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:46
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:46
 
 Adds up the sumValue of items between the given bounds.
 
@@ -140,7 +140,7 @@ Aggregate.sum
 sumBatch(ctx, queries): Promise<number[]>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:52
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:52
 
 Batch version of sum() - sums items for multiple bounds in a single call.
 
@@ -170,7 +170,7 @@ at(
 opts): Promise<Item<T["Key"], Id<T["TableName"]>>>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:63
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:63
 
 Returns the item at the given offset/index/rank in the order of key,
 within the bounds. Zero-indexed, so at(0) is the smallest key within the
@@ -203,7 +203,7 @@ Aggregate.at
 atBatch(ctx, queries): Promise<Item<T["Key"], Id<T["TableName"]>>[]>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:69
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:69
 
 Batch version of at() - returns items at multiple offsets in a single call.
 
@@ -233,7 +233,7 @@ indexOf(
 opts): Promise<number>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:80
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:80
 
 Returns the rank/offset/index of the given key, within the bounds.
 Specifically, it returns the index of the first item with
@@ -270,7 +270,7 @@ offsetOf(
 bounds?): Promise<number>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:88
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:88
 
 ###### Parameters
 
@@ -307,7 +307,7 @@ offsetUntil(
 bounds?): Promise<number>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:92
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:92
 
 ###### Parameters
 
@@ -339,7 +339,7 @@ Aggregate.offsetUntil
 min(ctx, ...opts): Promise<Item<T["Key"], Id<T["TableName"]>> | null>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:96
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:96
 
 Gets the minimum item within the given bounds.
 
@@ -366,7 +366,7 @@ Aggregate.min
 max(ctx, ...opts): Promise<Item<T["Key"], Id<T["TableName"]>> | null>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:102
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:102
 
 Gets the maximum item within the given bounds.
 
@@ -393,7 +393,7 @@ Aggregate.max
 random(ctx, ...opts): Promise<Item<T["Key"], Id<T["TableName"]>> | null>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:108
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:108
 
 Gets a uniformly random item within the given bounds.
 
@@ -424,7 +424,7 @@ paginate(ctx, ...opts): Promise<{
 }>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:115
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:115
 
 Get a page of items between the given bounds, with a cursor to paginate.
 Use `iter` to iterate over all items within the bounds.
@@ -456,7 +456,7 @@ Aggregate.paginate
 iter(ctx, ...opts): AsyncGenerator<Item<T["Key"], Id<T["TableName"]>>, void, undefined>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:133
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:133
 
 Example usage:
 ```ts
@@ -493,7 +493,7 @@ _insert(
 summand?): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:139
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:139
 
 Write operations. See DirectAggregate for docstrings.
 
@@ -527,7 +527,7 @@ _delete(
 id): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:140
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:140
 
 ###### Parameters
 
@@ -561,7 +561,7 @@ _replace(
 summand?): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:141
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:141
 
 ###### Parameters
 
@@ -596,7 +596,7 @@ _insertIfDoesNotExist(
 summand?): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:142
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:142
 
 ###### Parameters
 
@@ -628,7 +628,7 @@ _deleteIfExists(
 id): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:143
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:143
 
 ###### Parameters
 
@@ -662,7 +662,7 @@ _replaceOrInsert(
 summand?): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:144
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:144
 
 ###### Parameters
 
@@ -692,7 +692,7 @@ Aggregate._replaceOrInsert
 clear(ctx, ...opts): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:157
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:157
 
 (re-)initialize the data structure, removing all items if it exists.
 
@@ -728,7 +728,7 @@ Aggregate.clear
 makeRootLazy(ctx, namespace): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:172
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:172
 
 If rootLazy is false (the default is true but it can be set to false by
 `clear`), the aggregates data structure writes to a single root node on
@@ -770,7 +770,7 @@ paginateNamespaces(
 }>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:173
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:173
 
 ###### Parameters
 
@@ -800,7 +800,7 @@ Aggregate.paginateNamespaces
 iterNamespaces(ctx, pageSize?): AsyncGenerator<TableAggregateNamespace<T>, void, undefined>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:178
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:178
 
 ###### Parameters
 
@@ -825,7 +825,7 @@ Aggregate.iterNamespaces
 clearAll(ctx, opts?): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:179
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:179
 
 ###### Parameters
 
@@ -852,7 +852,7 @@ Aggregate.clearAll
 makeAllRootsLazy(ctx): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:183
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:183
 
 ###### Parameters
 
@@ -876,7 +876,7 @@ Aggregate.makeAllRootsLazy
 insert(ctx, doc): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:279
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:279
 
 ###### Parameters
 
@@ -895,7 +895,7 @@ Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d
 delete(ctx, doc): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:280
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:280
 
 ###### Parameters
 
@@ -917,7 +917,7 @@ replace(
 newDoc): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:281
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:281
 
 ###### Parameters
 
@@ -937,7 +937,7 @@ Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d
 insertIfDoesNotExist(ctx, doc): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:282
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:282
 
 ###### Parameters
 
@@ -956,7 +956,7 @@ Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d
 deleteIfExists(ctx, doc): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:283
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:283
 
 ###### Parameters
 
@@ -978,7 +978,7 @@ replaceOrInsert(
 newDoc): Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:284
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:284
 
 ###### Parameters
 
@@ -1001,7 +1001,7 @@ indexOfDoc(
 opts?): Promise<number>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:293
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:293
 
 Returns the rank/offset/index of the given document, within the bounds.
 This differs from `indexOf` in that it take the document rather than key.
@@ -1031,7 +1031,7 @@ Specifically, it returns the index of the first item with
 trigger<Ctx>(): TableAggregateTrigger<Ctx, T>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:298
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:298
 
 ###### Type Parameters
 
@@ -1049,7 +1049,7 @@ Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d
 idempotentTrigger<Ctx>(): TableAggregateTrigger<Ctx, T>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:299
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:299
 
 ###### Type Parameters
 
@@ -1065,7 +1065,7 @@ Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d
 
 ### Triggers
 
-Defined in: nuxt-backend/node\_modules/convex-helpers/server/triggers.d.ts:43
+Defined in: node\_modules/convex-helpers/server/triggers.d.ts:43
 
 Construct Triggers to register functions that run whenever a table changes.
 Sample usage:
@@ -1108,8 +1108,8 @@ new Triggers<DataModel, Ctx>(): Triggers<DataModel, Ctx>;
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="registered"></a> `registered` | `{ [TableName in string]?: Trigger<Ctx, DataModel, TableName>[] }` | nuxt-backend/node\_modules/convex-helpers/server/triggers.d.ts:46 |
-| <a id="wrapdb"></a> `wrapDB` | \<`C`\>(`ctx`) => `C` | nuxt-backend/node\_modules/convex-helpers/server/triggers.d.ts:50 |
+| <a id="registered"></a> `registered` | `{ [TableName in string]?: Trigger<Ctx, DataModel, TableName>[] }` | node\_modules/convex-helpers/server/triggers.d.ts:46 |
+| <a id="wrapdb"></a> `wrapDB` | \<`C`\>(`ctx`) => `C` | node\_modules/convex-helpers/server/triggers.d.ts:50 |
 
 #### Methods
 
@@ -1119,7 +1119,7 @@ new Triggers<DataModel, Ctx>(): Triggers<DataModel, Ctx>;
 register<TableName>(tableName, trigger): void;
 ```
 
-Defined in: nuxt-backend/node\_modules/convex-helpers/server/triggers.d.ts:49
+Defined in: node\_modules/convex-helpers/server/triggers.d.ts:49
 
 ###### Type Parameters
 
@@ -1151,7 +1151,7 @@ type TableAggregateType<K, DataModel, TableName, Namespace> = {
 };
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:258
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:258
 
 #### Type Parameters
 
@@ -1166,10 +1166,10 @@ Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="key"></a> `Key` | `K` | nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:259 |
-| <a id="datamodel-1"></a> `DataModel` | `DataModel` | nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:260 |
-| <a id="tablename-1"></a> `TableName` | `TableName` | nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:261 |
-| <a id="namespace-1"></a> `Namespace?` | `Namespace` | nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:262 |
+| <a id="key"></a> `Key` | `K` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:259 |
+| <a id="datamodel-1"></a> `DataModel` | `DataModel` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:260 |
+| <a id="tablename-1"></a> `TableName` | `TableName` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:261 |
+| <a id="namespace-1"></a> `Namespace?` | `Namespace` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:262 |
 
 ***
 
@@ -1179,7 +1179,7 @@ Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d
 type Trigger<Ctx, DataModel, TableName> = (ctx, change) => Promise<void>;
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:301
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:301
 
 #### Type Parameters
 
@@ -1225,13 +1225,13 @@ type Change<DataModel, TableName> = {
 };
 ```
 
-Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:302
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:302
 
 #### Type Declaration
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
-| `id` | `GenericId`\<`TableName`\> | nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:303 |
+| `id` | `GenericId`\<`TableName`\> | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:303 |
 
 #### Type Parameters
 
@@ -1248,7 +1248,7 @@ Defined in: nuxt-backend/node\_modules/@convex-dev/aggregate/dist/client/index.d
 function customCtx<InCtx, OutCtx, ExtraArgs>(modifyCtx): Customization<InCtx, Record<string, never>, OutCtx, Record<string, never>, ExtraArgs>;
 ```
 
-Defined in: nuxt-backend/node\_modules/convex-helpers/server/customFunctions.d.ts:114
+Defined in: node\_modules/convex-helpers/server/customFunctions.d.ts:114
 
 A helper for defining a Customization when your mod doesn't need to add or remove
 anything from args.
@@ -1281,7 +1281,7 @@ A ctx delta to be applied to the original ctx.
 function customMutation<CustomArgsValidator, CustomCtx, CustomMadeArgs, Visibility, DataModel, ExtraArgs>(mutation, customization): CustomBuilder<"mutation", CustomArgsValidator, CustomCtx, CustomMadeArgs, GenericMutationCtx<DataModel>, Visibility, ExtraArgs>;
 ```
 
-Defined in: nuxt-backend/node\_modules/convex-helpers/server/customFunctions.d.ts:246
+Defined in: node\_modules/convex-helpers/server/customFunctions.d.ts:246
 
 customMutation helps define custom behavior on top of `mutation`
 or `internalMutation` by passing a function that modifies the ctx and args.
@@ -1372,7 +1372,7 @@ export const setMyName = myUserMutation({
 function withTriggers<DataModel, Visibility>(rawMutation, triggers): CustomBuilder<"mutation", Record<string, never>, GenericMutationCtx<DataModel>, Record<string, never>, GenericMutationCtx<DataModel>, Visibility, Record<string, any>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/integrations/aggregate.ts:39](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/aggregate.ts#L39)
+Defined in: [src/convex/integrations/aggregate.ts:39](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/aggregate.ts#L39)
 
 Wrap a raw `mutation`/`internalMutation` builder so every write
 automatically fires the registered [Triggers](#triggers) (e.g. to keep a

@@ -19,7 +19,7 @@ const vDeliveryOutcome: VUnion<
 | "missing_secret", [VLiteral<"ok", "required">, VLiteral<"invalid_signature", "required">, VLiteral<"unknown_type", "required">, VLiteral<"handler_error", "required">, VLiteral<"duplicate", "required">, VLiteral<"oversized", "required">, VLiteral<"missing_secret", "required">], "required", never>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/webhooks.ts:14](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/webhooks.ts#L14)
+Defined in: [src/convex/components/backend/webhooks.ts:14](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/webhooks.ts#L14)
 
 ***
 
@@ -41,7 +41,7 @@ const record: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/webhooks.ts:24](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/webhooks.ts#L24)
+Defined in: [src/convex/components/backend/webhooks.ts:24](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/webhooks.ts#L24)
 
 ***
 
@@ -65,7 +65,7 @@ const find: RegisteredQuery<"public", {
 | null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/webhooks.ts:55](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/webhooks.ts#L55)
+Defined in: [src/convex/components/backend/webhooks.ts:55](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/webhooks.ts#L55)
 
 Was this delivery id already fully processed? (Dedupe peek — `ok` only.)
 
@@ -92,6 +92,6 @@ const listRecent: RegisteredQuery<"public", {
 }[]>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/webhooks.ts:71](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/webhooks.ts#L71)
+Defined in: [src/convex/components/backend/webhooks.ts:71](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/webhooks.ts#L71)
 
 Recent deliveries, newest first (the DevTools / playground feed).

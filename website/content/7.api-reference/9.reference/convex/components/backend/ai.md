@@ -21,7 +21,7 @@ const createRequest: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/ai.ts:25](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L25)
+Defined in: [src/convex/components/backend/ai.ts:25](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L25)
 
 ***
 
@@ -46,7 +46,7 @@ const getByStream: RegisteredQuery<"public", {
 | null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/ai.ts:43](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L43)
+Defined in: [src/convex/components/backend/ai.ts:43](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L43)
 
 ***
 
@@ -58,7 +58,7 @@ const markSettled: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/ai.ts:57](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L57)
+Defined in: [src/convex/components/backend/ai.ts:57](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L57)
 
 ***
 
@@ -70,7 +70,7 @@ const markReleased: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/ai.ts:70](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L70)
+Defined in: [src/convex/components/backend/ai.ts:70](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L70)
 
 ***
 
@@ -82,7 +82,7 @@ const clear: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [nuxt-backend/src/convex/components/backend/ai.ts:91](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L91)
+Defined in: [src/convex/components/backend/ai.ts:91](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L91)
 
 Prune request plumbing older than `beforeMs` (rows are not a ledger).
 

@@ -12,7 +12,7 @@ navigation: true
 const useCount: <Query>(query, ...args) => ComputedRef<number> = useAggregate;
 ```
 
-Defined in: [nuxt-backend/src/runtime/vue/composables/use-aggregate.ts:33](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-aggregate.ts#L33)
+Defined in: [src/runtime/vue/composables/use-aggregate.ts:33](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-aggregate.ts#L33)
 
 Alias of [useAggregate](#useaggregate), for the common count case.
 
@@ -56,7 +56,7 @@ const messageCount = useCount(api.aggregates.countMessages)
 function useAggregate<Query>(query, ...args): ComputedRef<number>;
 ```
 
-Defined in: [nuxt-backend/src/runtime/vue/composables/use-aggregate.ts:21](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-aggregate.ts#L21)
+Defined in: [src/runtime/vue/composables/use-aggregate.ts:21](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-aggregate.ts#L21)
 
 Reactive numeric aggregate (count / sum) backed by a Convex query — typically
 one that reads from the [Aggregate](https://www.convex.dev/components/aggregate) component. Coerces the loading/`null` state to `0` so templates can

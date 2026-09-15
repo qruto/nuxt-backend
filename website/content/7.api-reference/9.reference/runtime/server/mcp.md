@@ -19,7 +19,7 @@ the package holds the STABILITY.md promise.
 
 ### ExchangeCache
 
-Defined in: [nuxt-backend/src/runtime/server/mcp/cache.ts:9](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/cache.ts#L9)
+Defined in: [src/runtime/server/mcp/cache.ts:9](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/cache.ts#L9)
 
 **`Experimental`**
 
@@ -39,15 +39,15 @@ revoked agent token keeps working. Pure and clock-injectable for tests.
 
 | Property | Modifier | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ | ------ |
-| <a id="get"></a> `get` | `public` | (`key`) => `Value` \| `null` | **`Experimental`** | [nuxt-backend/src/runtime/server/mcp/cache.ts:10](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/cache.ts#L10) |
-| <a id="set"></a> `set` | `public` | (`key`, `value`, `ttlMs`) => `void` | **`Experimental`** | [nuxt-backend/src/runtime/server/mcp/cache.ts:11](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/cache.ts#L11) |
-| <a id="size"></a> `size` | `readonly` | `number` | **`Experimental`** | [nuxt-backend/src/runtime/server/mcp/cache.ts:12](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/cache.ts#L12) |
+| <a id="get"></a> `get` | `public` | (`key`) => `Value` \| `null` | **`Experimental`** | [src/runtime/server/mcp/cache.ts:10](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/cache.ts#L10) |
+| <a id="set"></a> `set` | `public` | (`key`, `value`, `ttlMs`) => `void` | **`Experimental`** | [src/runtime/server/mcp/cache.ts:11](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/cache.ts#L11) |
+| <a id="size"></a> `size` | `readonly` | `number` | **`Experimental`** | [src/runtime/server/mcp/cache.ts:12](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/cache.ts#L12) |
 
 ***
 
 ### BackendMcp
 
-Defined in: [nuxt-backend/src/runtime/server/mcp/index.ts:34](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L34)
+Defined in: [src/runtime/server/mcp/index.ts:34](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L34)
 
 **`Experimental`**
 
@@ -57,17 +57,17 @@ The per-request agent context [useBackendMcp](#usebackendmcp) returns.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="session"></a> `session` | [`BackendMcpSession`](#backendmcpsession-1) | **`Experimental`** | [nuxt-backend/src/runtime/server/mcp/index.ts:35](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L35) |
-| <a id="hasscope"></a> `hasScope` | (`scope`) => `boolean` | **`Experimental`** | [nuxt-backend/src/runtime/server/mcp/index.ts:36](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L36) |
-| <a id="fetchquery"></a> `fetchQuery` | \<`Query`\>(`query`, `args?`) => `Promise`\<`FunctionReturnType`\<`Query`\>\> | **`Experimental`** Convex fetchers bound to the agent's short-lived user JWT. | [nuxt-backend/src/runtime/server/mcp/index.ts:38](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L38) |
-| <a id="fetchmutation"></a> `fetchMutation` | \<`Mutation`\>(`mutation`, `args?`) => `Promise`\<`FunctionReturnType`\<`Mutation`\>\> | **`Experimental`** | [nuxt-backend/src/runtime/server/mcp/index.ts:39](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L39) |
-| <a id="fetchaction"></a> `fetchAction` | \<`Action`\>(`action`, `args?`) => `Promise`\<`FunctionReturnType`\<`Action`\>\> | **`Experimental`** | [nuxt-backend/src/runtime/server/mcp/index.ts:40](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L40) |
+| <a id="session"></a> `session` | [`BackendMcpSession`](#backendmcpsession-1) | **`Experimental`** | [src/runtime/server/mcp/index.ts:35](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L35) |
+| <a id="hasscope"></a> `hasScope` | (`scope`) => `boolean` | **`Experimental`** | [src/runtime/server/mcp/index.ts:36](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L36) |
+| <a id="fetchquery"></a> `fetchQuery` | \<`Query`\>(`query`, `args?`) => `Promise`\<`FunctionReturnType`\<`Query`\>\> | **`Experimental`** Convex fetchers bound to the agent's short-lived user JWT. | [src/runtime/server/mcp/index.ts:38](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L38) |
+| <a id="fetchmutation"></a> `fetchMutation` | \<`Mutation`\>(`mutation`, `args?`) => `Promise`\<`FunctionReturnType`\<`Mutation`\>\> | **`Experimental`** | [src/runtime/server/mcp/index.ts:39](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L39) |
+| <a id="fetchaction"></a> `fetchAction` | \<`Action`\>(`action`, `args?`) => `Promise`\<`FunctionReturnType`\<`Action`\>\> | **`Experimental`** | [src/runtime/server/mcp/index.ts:40](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L40) |
 
 ***
 
 ### BackendMcpSession
 
-Defined in: [nuxt-backend/src/runtime/server/mcp/session.ts:6](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/session.ts#L6)
+Defined in: [src/runtime/server/mcp/session.ts:6](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/session.ts#L6)
 
 **`Experimental`**
 
@@ -77,10 +77,10 @@ The authenticated agent behind the current MCP request.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="userid"></a> `userId` | `string` | **`Experimental`** The signed-in user the agent acts as. | [nuxt-backend/src/runtime/server/mcp/session.ts:8](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/session.ts#L8) |
-| <a id="clientid"></a> `clientId` | `string` | **`Experimental`** The OAuth client (agent) id. | [nuxt-backend/src/runtime/server/mcp/session.ts:10](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/session.ts#L10) |
-| <a id="scopes"></a> `scopes` | `string`[] | **`Experimental`** Scopes the user consented to. | [nuxt-backend/src/runtime/server/mcp/session.ts:12](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/session.ts#L12) |
-| <a id="convextoken"></a> `convexToken` | `string` | **`Experimental`** Short-lived Convex JWT for calling deployment functions as the user. | [nuxt-backend/src/runtime/server/mcp/session.ts:14](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/session.ts#L14) |
+| <a id="userid"></a> `userId` | `string` | **`Experimental`** The signed-in user the agent acts as. | [src/runtime/server/mcp/session.ts:8](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/session.ts#L8) |
+| <a id="clientid"></a> `clientId` | `string` | **`Experimental`** The OAuth client (agent) id. | [src/runtime/server/mcp/session.ts:10](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/session.ts#L10) |
+| <a id="scopes"></a> `scopes` | `string`[] | **`Experimental`** Scopes the user consented to. | [src/runtime/server/mcp/session.ts:12](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/session.ts#L12) |
+| <a id="convextoken"></a> `convexToken` | `string` | **`Experimental`** Short-lived Convex JWT for calling deployment functions as the user. | [src/runtime/server/mcp/session.ts:14](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/session.ts#L14) |
 
 ## Type Aliases
 
@@ -90,7 +90,7 @@ The authenticated agent behind the current MCP request.
 type BackendMcpFunctionKey = keyof typeof BACKEND_MCP_FUNCTION_DEFAULTS;
 ```
 
-Defined in: [nuxt-backend/src/runtime/server/mcp/builtin.ts:21](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L21)
+Defined in: [src/runtime/server/mcp/builtin.ts:21](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L21)
 
 **`Experimental`**
 
@@ -111,7 +111,7 @@ type BackendMcpToolName =
   | "workspace-members";
 ```
 
-Defined in: [nuxt-backend/src/runtime/server/mcp/builtin.ts:24](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L24)
+Defined in: [src/runtime/server/mcp/builtin.ts:24](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L24)
 
 **`Experimental`**
 
@@ -127,7 +127,7 @@ type BackendMcpToolDefinition<InputSchema, OutputSchema> = McpToolDefinition<Inp
 };
 ```
 
-Defined in: [nuxt-backend/src/runtime/server/mcp/index.ts:71](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L71)
+Defined in: [src/runtime/server/mcp/index.ts:71](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L71)
 
 **`Experimental`**
 
@@ -135,7 +135,7 @@ Defined in: [nuxt-backend/src/runtime/server/mcp/index.ts:71](https://github.com
 
 | Name | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| `scope?` | `string` | OAuth scope required for this tool. Agents without it never see the tool in `tools/list`, and a direct call is refused — the handler-side check matters because list-time hiding is only advisory. | [nuxt-backend/src/runtime/server/mcp/index.ts:80](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L80) |
+| `scope?` | `string` | OAuth scope required for this tool. Agents without it never see the tool in `tools/list`, and a direct call is refused — the handler-side check matters because list-time hiding is only advisory. | [src/runtime/server/mcp/index.ts:80](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L80) |
 
 #### Type Parameters
 
@@ -162,7 +162,7 @@ const BACKEND_MCP_FUNCTION_DEFAULTS: {
 };
 ```
 
-Defined in: [nuxt-backend/src/runtime/server/mcp/builtin.ts:9](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L9)
+Defined in: [src/runtime/server/mcp/builtin.ts:9](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L9)
 
 **`Experimental`**
 
@@ -174,15 +174,15 @@ scaffolded `auth.ts` / `billing.ts` module names.
 
 | Name | Type | Default value | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="property-getauthuser"></a> `getAuthUser` | `"auth:getAuthUser"` | `'auth:getAuthUser'` | [nuxt-backend/src/runtime/server/mcp/builtin.ts:10](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L10) |
-| <a id="property-updateprofile"></a> `updateProfile` | `"auth:updateProfile"` | `'auth:updateProfile'` | [nuxt-backend/src/runtime/server/mcp/builtin.ts:11](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L11) |
-| <a id="property-getconfiguredproducts"></a> `getConfiguredProducts` | `"billing:getConfiguredProducts"` | `'billing:getConfiguredProducts'` | [nuxt-backend/src/runtime/server/mcp/builtin.ts:12](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L12) |
-| <a id="property-getcurrentsubscription"></a> `getCurrentSubscription` | `"billing:getCurrentSubscription"` | `'billing:getCurrentSubscription'` | [nuxt-backend/src/runtime/server/mcp/builtin.ts:13](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L13) |
-| <a id="property-getcredits"></a> `getCredits` | `"billing:getCredits"` | `'billing:getCredits'` | [nuxt-backend/src/runtime/server/mcp/builtin.ts:14](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L14) |
-| <a id="property-generatecheckoutlink"></a> `generateCheckoutLink` | `"billing:generateCheckoutLink"` | `'billing:generateCheckoutLink'` | [nuxt-backend/src/runtime/server/mcp/builtin.ts:15](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L15) |
-| <a id="property-generatecustomerportalurl"></a> `generateCustomerPortalUrl` | `"billing:generateCustomerPortalUrl"` | `'billing:generateCustomerPortalUrl'` | [nuxt-backend/src/runtime/server/mcp/builtin.ts:16](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L16) |
-| <a id="property-listworkspaces"></a> `listWorkspaces` | `"auth:listWorkspaces"` | `'auth:listWorkspaces'` | [nuxt-backend/src/runtime/server/mcp/builtin.ts:17](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L17) |
-| <a id="property-listworkspacemembers"></a> `listWorkspaceMembers` | `"auth:listWorkspaceMembers"` | `'auth:listWorkspaceMembers'` | [nuxt-backend/src/runtime/server/mcp/builtin.ts:18](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L18) |
+| <a id="property-getauthuser"></a> `getAuthUser` | `"auth:getAuthUser"` | `'auth:getAuthUser'` | [src/runtime/server/mcp/builtin.ts:10](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L10) |
+| <a id="property-updateprofile"></a> `updateProfile` | `"auth:updateProfile"` | `'auth:updateProfile'` | [src/runtime/server/mcp/builtin.ts:11](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L11) |
+| <a id="property-getconfiguredproducts"></a> `getConfiguredProducts` | `"billing:getConfiguredProducts"` | `'billing:getConfiguredProducts'` | [src/runtime/server/mcp/builtin.ts:12](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L12) |
+| <a id="property-getcurrentsubscription"></a> `getCurrentSubscription` | `"billing:getCurrentSubscription"` | `'billing:getCurrentSubscription'` | [src/runtime/server/mcp/builtin.ts:13](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L13) |
+| <a id="property-getcredits"></a> `getCredits` | `"billing:getCredits"` | `'billing:getCredits'` | [src/runtime/server/mcp/builtin.ts:14](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L14) |
+| <a id="property-generatecheckoutlink"></a> `generateCheckoutLink` | `"billing:generateCheckoutLink"` | `'billing:generateCheckoutLink'` | [src/runtime/server/mcp/builtin.ts:15](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L15) |
+| <a id="property-generatecustomerportalurl"></a> `generateCustomerPortalUrl` | `"billing:generateCustomerPortalUrl"` | `'billing:generateCustomerPortalUrl'` | [src/runtime/server/mcp/builtin.ts:16](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L16) |
+| <a id="property-listworkspaces"></a> `listWorkspaces` | `"auth:listWorkspaces"` | `'auth:listWorkspaces'` | [src/runtime/server/mcp/builtin.ts:17](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L17) |
+| <a id="property-listworkspacemembers"></a> `listWorkspaceMembers` | `"auth:listWorkspaceMembers"` | `'auth:listWorkspaceMembers'` | [src/runtime/server/mcp/builtin.ts:18](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L18) |
 
 ***
 
@@ -192,7 +192,7 @@ scaffolded `auth.ts` / `billing.ts` module names.
 const EXCHANGE_CACHE_MARGIN_MS: 30000 = 30_000;
 ```
 
-Defined in: [nuxt-backend/src/runtime/server/mcp/cache.ts:16](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/cache.ts#L16)
+Defined in: [src/runtime/server/mcp/cache.ts:16](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/cache.ts#L16)
 
 **`Experimental`**
 
@@ -206,7 +206,7 @@ Marginal safety window between cache expiry and JWT expiry.
 function backendMcpFunction(key, event?): string;
 ```
 
-Defined in: [nuxt-backend/src/runtime/server/mcp/builtin.ts:31](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L31)
+Defined in: [src/runtime/server/mcp/builtin.ts:31](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L31)
 
 **`Experimental`**
 
@@ -231,7 +231,7 @@ Resolve a built-in tool's Convex function ref (`backend.mcp.functions` wins).
 function builtinToolEnabled(name, event): boolean;
 ```
 
-Defined in: [nuxt-backend/src/runtime/server/mcp/builtin.ts:36](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L36)
+Defined in: [src/runtime/server/mcp/builtin.ts:36](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts#L36)
 
 **`Experimental`**
 
@@ -256,7 +256,7 @@ Whether a built-in tool survived `backend.mcp.tools.builtin` config.
 function createExchangeCache<Value>(options?): ExchangeCache<Value>;
 ```
 
-Defined in: [nuxt-backend/src/runtime/server/mcp/cache.ts:20](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/cache.ts#L20)
+Defined in: [src/runtime/server/mcp/cache.ts:20](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/cache.ts#L20)
 
 **`Experimental`**
 
@@ -286,7 +286,7 @@ Defined in: [nuxt-backend/src/runtime/server/mcp/cache.ts:20](https://github.com
 function useBackendMcp(event?): BackendMcp;
 ```
 
-Defined in: [nuxt-backend/src/runtime/server/mcp/index.ts:55](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L55)
+Defined in: [src/runtime/server/mcp/index.ts:55](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L55)
 
 **`Experimental`**
 
@@ -319,7 +319,7 @@ outside a gated route).
 function defineBackendMcpTool<InputSchema, OutputSchema>(definition): McpToolDefinition<InputSchema, OutputSchema>;
 ```
 
-Defined in: [nuxt-backend/src/runtime/server/mcp/index.ts:89](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L89)
+Defined in: [src/runtime/server/mcp/index.ts:89](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts#L89)
 
 **`Experimental`**
 

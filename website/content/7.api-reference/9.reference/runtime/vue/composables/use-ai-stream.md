@@ -8,7 +8,7 @@ navigation: true
 
 ### AiStreamApi
 
-Defined in: [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:6](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L6)
+Defined in: [src/runtime/vue/composables/use-ai-stream.ts:6](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L6)
 
 The `{ start, body }` pair an `ai.stream(...)` definition exports.
 
@@ -16,39 +16,39 @@ The `{ start, body }` pair an `ai.stream(...)` definition exports.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="start"></a> `start` | `unknown` | The start action — reserves credits and returns `{ streamId }`. | [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:8](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L8) |
-| <a id="body"></a> `body` | `unknown` | The reactive persisted-body query. | [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:10](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L10) |
+| <a id="start"></a> `start` | `unknown` | The start action — reserves credits and returns `{ streamId }`. | [src/runtime/vue/composables/use-ai-stream.ts:8](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L8) |
+| <a id="body"></a> `body` | `unknown` | The reactive persisted-body query. | [src/runtime/vue/composables/use-ai-stream.ts:10](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L10) |
 
 ***
 
 ### UseAiStreamOptions
 
-Defined in: [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:15](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L15)
+Defined in: [src/runtime/vue/composables/use-ai-stream.ts:15](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L15)
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="streamid"></a> `streamId?` | `MaybeRefOrGetter`\<`string` \| `null` \| `undefined`\> | Attach to an existing stream (viewer mode — e.g. after a reload) instead of driving a new one. The persisted body streams in reactively. | [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:20](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L20) |
-| <a id="url"></a> `url?` | `MaybeRefOrGetter`\<`string` \| `undefined`\> | Override the stream endpoint. Default `<convex site url>/ai/stream`. | [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:22](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L22) |
-| <a id="headers"></a> `headers?` | `MaybeRefOrGetter`\<`Record`\<`string`, `string`\> \| `undefined`\> | Extra headers for the driving fetch. | [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:24](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L24) |
+| <a id="streamid"></a> `streamId?` | `MaybeRefOrGetter`\<`string` \| `null` \| `undefined`\> | Attach to an existing stream (viewer mode — e.g. after a reload) instead of driving a new one. The persisted body streams in reactively. | [src/runtime/vue/composables/use-ai-stream.ts:20](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L20) |
+| <a id="url"></a> `url?` | `MaybeRefOrGetter`\<`string` \| `undefined`\> | Override the stream endpoint. Default `<convex site url>/ai/stream`. | [src/runtime/vue/composables/use-ai-stream.ts:22](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L22) |
+| <a id="headers"></a> `headers?` | `MaybeRefOrGetter`\<`Record`\<`string`, `string`\> \| `undefined`\> | Extra headers for the driving fetch. | [src/runtime/vue/composables/use-ai-stream.ts:24](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L24) |
 
 ***
 
 ### UseAiStreamReturn
 
-Defined in: [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:27](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L27)
+Defined in: [src/runtime/vue/composables/use-ai-stream.ts:27](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L27)
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="text"></a> `text` | `ComputedRef`\<`string`\> | The streamed text so far (live while driving; persisted otherwise). | [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:29](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L29) |
-| <a id="status"></a> `status` | `ComputedRef`\<[`AiStreamStatus`](#aistreamstatus)\> | - | [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:30](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L30) |
-| <a id="isstreaming"></a> `isStreaming` | `ComputedRef`\<`boolean`\> | - | [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:31](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L31) |
-| <a id="streamid-1"></a> `streamId` | `ComputedRef`\<`string` \| `undefined`\> | The active stream's id — hand it to another client to watch along. | [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:33](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L33) |
-| <a id="start-1"></a> `start` | (`args?`) => `Promise`\<`string`\> | Start a new metered stream: runs the `start` action (credits reserve, rate limit), then drives the HTTP stream. Resolves with the stream id as soon as driving begins. | [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:39](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L39) |
-| <a id="stop"></a> `stop` | () => `void` | Abort the driving fetch (the server releases the unfinished spend). | [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:41](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L41) |
+| <a id="text"></a> `text` | `ComputedRef`\<`string`\> | The streamed text so far (live while driving; persisted otherwise). | [src/runtime/vue/composables/use-ai-stream.ts:29](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L29) |
+| <a id="status"></a> `status` | `ComputedRef`\<[`AiStreamStatus`](#aistreamstatus)\> | - | [src/runtime/vue/composables/use-ai-stream.ts:30](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L30) |
+| <a id="isstreaming"></a> `isStreaming` | `ComputedRef`\<`boolean`\> | - | [src/runtime/vue/composables/use-ai-stream.ts:31](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L31) |
+| <a id="streamid-1"></a> `streamId` | `ComputedRef`\<`string` \| `undefined`\> | The active stream's id — hand it to another client to watch along. | [src/runtime/vue/composables/use-ai-stream.ts:33](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L33) |
+| <a id="start-1"></a> `start` | (`args?`) => `Promise`\<`string`\> | Start a new metered stream: runs the `start` action (credits reserve, rate limit), then drives the HTTP stream. Resolves with the stream id as soon as driving begins. | [src/runtime/vue/composables/use-ai-stream.ts:39](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L39) |
+| <a id="stop"></a> `stop` | () => `void` | Abort the driving fetch (the server releases the unfinished spend). | [src/runtime/vue/composables/use-ai-stream.ts:41](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L41) |
 
 ## Type Aliases
 
@@ -58,7 +58,7 @@ Defined in: [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:27](https
 type AiStreamStatus = "idle" | "pending" | "streaming" | "done" | "error" | "timeout";
 ```
 
-Defined in: [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:13](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L13)
+Defined in: [src/runtime/vue/composables/use-ai-stream.ts:13](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L13)
 
 ## Functions
 
@@ -68,7 +68,7 @@ Defined in: [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:13](https
 function useAiStream(stream, options?): UseAiStreamReturn;
 ```
 
-Defined in: [nuxt-backend/src/runtime/vue/composables/use-ai-stream.ts:65](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L65)
+Defined in: [src/runtime/vue/composables/use-ai-stream.ts:65](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-ai-stream.ts#L65)
 
 **`Experimental`**
 

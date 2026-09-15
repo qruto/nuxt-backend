@@ -12,7 +12,7 @@ navigation: true
 type BackendEnv = typeof backendEnv;
 ```
 
-Defined in: [nuxt-backend/src/convex/app.ts:66](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L66)
+Defined in: [src/convex/app.ts:66](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L66)
 
 The env declaration the scaffolded `convex.config.ts` passes to `defineApp`.
 
@@ -35,7 +35,7 @@ const backendEnv: {
 };
 ```
 
-Defined in: [nuxt-backend/src/convex/app.ts:46](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L46)
+Defined in: [src/convex/app.ts:46](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L46)
 
 Environment variables the backend reads, in two tiers.
 
@@ -70,13 +70,13 @@ throws on undeclared ones):
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="property-auth_secret"></a> `AUTH_SECRET` | `VString`\<`string`, `"required"`\> | [nuxt-backend/src/convex/app.ts:48](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L48) |
-| <a id="property-site_url"></a> `SITE_URL` | `VString`\<`string`, `"required"`\> | [nuxt-backend/src/convex/app.ts:49](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L49) |
-| <a id="property-auth_trust_local_origins"></a> `AUTH_TRUST_LOCAL_ORIGINS` | `VString`\<`string` \| `undefined`, `"optional"`\> | [nuxt-backend/src/convex/app.ts:53](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L53) |
-| <a id="property-email_api_key"></a> `EMAIL_API_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [nuxt-backend/src/convex/app.ts:55](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L55) |
-| <a id="property-email_from"></a> `EMAIL_FROM` | `VString`\<`string` \| `undefined`, `"optional"`\> | [nuxt-backend/src/convex/app.ts:56](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L56) |
-| <a id="property-email_test_mode"></a> `EMAIL_TEST_MODE` | `VString`\<`string` \| `undefined`, `"optional"`\> | [nuxt-backend/src/convex/app.ts:57](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L57) |
-| <a id="property-email_webhook_secret"></a> `EMAIL_WEBHOOK_SECRET` | `VString`\<`string` \| `undefined`, `"optional"`\> | [nuxt-backend/src/convex/app.ts:58](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L58) |
-| <a id="property-billing_access_token"></a> `BILLING_ACCESS_TOKEN` | `VString`\<`string` \| `undefined`, `"optional"`\> | [nuxt-backend/src/convex/app.ts:60](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L60) |
-| <a id="property-billing_webhook_secret"></a> `BILLING_WEBHOOK_SECRET` | `VString`\<`string` \| `undefined`, `"optional"`\> | [nuxt-backend/src/convex/app.ts:61](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L61) |
-| <a id="property-billing_environment"></a> `BILLING_ENVIRONMENT` | `VUnion`\<`"sandbox"` \| `"production"` \| `undefined`, \[`VLiteral`\<`"sandbox"`, `"required"`\>, `VLiteral`\<`"production"`, `"required"`\>\], `"optional"`, `never`\> | [nuxt-backend/src/convex/app.ts:62](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L62) |
+| <a id="property-auth_secret"></a> `AUTH_SECRET` | `VString`\<`string`, `"required"`\> | [src/convex/app.ts:48](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L48) |
+| <a id="property-site_url"></a> `SITE_URL` | `VString`\<`string`, `"required"`\> | [src/convex/app.ts:49](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L49) |
+| <a id="property-auth_trust_local_origins"></a> `AUTH_TRUST_LOCAL_ORIGINS` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:53](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L53) |
+| <a id="property-email_api_key"></a> `EMAIL_API_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:55](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L55) |
+| <a id="property-email_from"></a> `EMAIL_FROM` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:56](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L56) |
+| <a id="property-email_test_mode"></a> `EMAIL_TEST_MODE` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:57](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L57) |
+| <a id="property-email_webhook_secret"></a> `EMAIL_WEBHOOK_SECRET` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:58](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L58) |
+| <a id="property-billing_access_token"></a> `BILLING_ACCESS_TOKEN` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:60](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L60) |
+| <a id="property-billing_webhook_secret"></a> `BILLING_WEBHOOK_SECRET` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts:61](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L61) |
+| <a id="property-billing_environment"></a> `BILLING_ENVIRONMENT` | `VUnion`\<`"sandbox"` \| `"production"` \| `undefined`, \[`VLiteral`\<`"sandbox"`, `"required"`\>, `VLiteral`\<`"production"`, `"required"`\>\], `"optional"`, `never`\> | [src/convex/app.ts:62](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts#L62) |

@@ -12,7 +12,7 @@ navigation: true
 function useWorkflowStatus<Query>(query, workflowId): ComputedRef<FunctionReturnType<Query> | undefined>;
 ```
 
-Defined in: [nuxt-backend/src/runtime/vue/composables/use-workflow.ts:25](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-workflow.ts#L25)
+Defined in: [src/runtime/vue/composables/use-workflow.ts:25](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-workflow.ts#L25)
 
 **`Experimental`**
 
