@@ -1,6 +1,5 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { defineNuxtModule, addComponent, addImports, addPlugin, addServerHandler, addServerImports, addTypeTemplate, createResolver, extendPages, resolveModule, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
 import { defu } from 'defu'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
@@ -600,25 +599,14 @@ function registerSaasComposables(resolver: Resolver): void {
 
 /**
  * The base module's `better-auth/server` runtime file for the `backendAuth`
- * server auto-import. Two candidates: the package's `./better-auth/server`
- * export (compiled dist in a published install — resolved with ESM
- * conditions, since that subpath exports `import`/`types` only and
- * `require.resolve` cannot see it), then the source entry of a stub-linked
- * checkout (`nuxt-module-build build --stub` ships no dist). `undefined`
- * when neither is on disk.
+ * server auto-import: the package's `./better-auth/server` export (resolved
+ * with ESM conditions, since that subpath exports `import`/`types` only and
+ * `require.resolve` cannot see it). `undefined` when it is not on disk.
  */
 function resolveBaseServerRuntime(): string | undefined {
   try {
     const exported = resolveModule('nuxt-convex-module/better-auth/server', { url: new URL(import.meta.url) })
-    if (existsSync(exported)) return exported
-  }
-  catch {
-    // No resolvable export target — fall through to the stub-linked layout.
-  }
-  try {
-    const baseModuleDir = dirname(createRequire(import.meta.url).resolve('nuxt-convex-module/package.json'))
-    const source = join(baseModuleDir, 'src/runtime/better-auth/nuxt/server.ts')
-    return existsSync(source) ? source : undefined
+    return existsSync(exported) ? exported : undefined
   }
   catch {
     return undefined
