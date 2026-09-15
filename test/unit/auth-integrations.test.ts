@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { APIError } from 'better-auth/api'
-import { createBetterAuthOptions } from '../../src/convex/client'
+import { assertOtpRequestAllowed, createBetterAuthOptions } from '../../src/convex/client'
 
 const fakeDb = {} as never
 
@@ -201,30 +201,37 @@ describe('workspace invitation email', () => {
 describe('OTP rate limits', () => {
   const otp = { email: 'Ada@Example.com', otp: '111111', type: 'sign-in' }
 
-  it('consumes the deployment-wide window first, then the per-address bucket keyed by a digest', async () => {
+  it('the sender consumes only the per-address bucket, keyed by a digest', async () => {
     const email = vi.fn(async () => 'email_1')
     const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: true }))
     const ctx = mutationCtx()
     await otpSender(createBetterAuthOptions(fakeDb, {}, { ctx, email, rateLimiter: { limit } }))(otp)
 
-    expect(limit.mock.calls.map(call => call[1])).toEqual(['emailOtpGlobal', 'emailOtp'])
-    expect(limit).toHaveBeenNthCalledWith(1, ctx, 'emailOtpGlobal')
-    const key = (limit.mock.calls[1] as unknown[])[2] as { key: string }
+    expect(limit.mock.calls.map(call => call[1])).toEqual(['emailOtp'])
+    const key = (limit.mock.calls[0] as unknown[])[2] as { key: string }
     // SHA-256 hex of the normalized address — never the address itself.
     expect(key.key).toMatch(/^[0-9a-f]{64}$/)
     expect(key.key).not.toContain('ada')
     expect(email).toHaveBeenCalledOnce()
   })
 
-  it('a closed global window aborts before the per-address limit and the send', async () => {
-    const email = vi.fn(async () => 'email_1')
+  it('the request guard consumes the deployment-wide window and a closed one answers TOO_MANY_REQUESTS', async () => {
     const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: false, retryAfter: 1000 }))
-    const send = otpSender(createBetterAuthOptions(fakeDb, {}, { ctx: mutationCtx(), email, rateLimiter: { limit } }))
+    const ctx = mutationCtx()
+    const request = { path: '/email-otp/send-verification-otp', body: otp }
 
-    await expect(send(otp)).rejects.toThrow(APIError)
-    await expect(send(otp)).rejects.toEqual(tooMany)
+    await expect(assertOtpRequestAllowed({ ctx, rateLimiter: { limit } } as never, request)).rejects.toThrow(APIError)
+    await expect(assertOtpRequestAllowed({ ctx, rateLimiter: { limit } } as never, request)).rejects.toEqual(tooMany)
     expect(limit.mock.calls.map(call => call[1])).toEqual(['emailOtpGlobal', 'emailOtpGlobal'])
-    expect(email).not.toHaveBeenCalled()
+    expect(limit).toHaveBeenNthCalledWith(1, ctx, 'emailOtpGlobal')
+  })
+
+  it('the request guard ignores other routes and requests without an address', async () => {
+    const limit = vi.fn(async () => ({ ok: false }))
+    const runtime = { ctx: mutationCtx(), rateLimiter: { limit } } as never
+    await assertOtpRequestAllowed(runtime, { path: '/sign-in/email', body: otp })
+    await assertOtpRequestAllowed(runtime, { path: '/email-otp/send-verification-otp', body: { type: 'sign-in' } })
+    expect(limit).not.toHaveBeenCalled()
   })
 
   it('a closed per-address bucket answers TOO_MANY_REQUESTS without sending', async () => {
@@ -285,7 +292,32 @@ describe('sign-in gate (canSignIn)', () => {
     await expect(otpSender(options)(signIn)).rejects.toThrow(APIError)
     await expect(otpSender(options)(signIn)).rejects.toEqual(forbidden('Invite only'))
     expect(email).not.toHaveBeenCalled()
-    expect(limit.mock.calls.map(call => call[1])).toEqual(['emailOtpGlobal', 'emailOtpGlobal'])
+    // A refused address consumes no quota at all in the sender.
+    expect(limit.mock.calls.map(call => call[1])).toEqual([])
+  })
+
+  it('refuses an uninvited sign-in on the request itself, before any code exists', async () => {
+    const limit = vi.fn(async () => ({ ok: true }))
+    const runtime = { ctx: mutationCtx(), email: vi.fn(), rateLimiter: { limit }, canSignIn: inviteOnly, userExists: async () => false } as never
+    const request = { path: '/email-otp/send-verification-otp', body: signIn }
+
+    await expect(assertOtpRequestAllowed(runtime, request)).rejects.toEqual(forbidden('Invite only'))
+    expect(limit.mock.calls.map(call => call[1])).toEqual(['emailOtpGlobal'])
+    // Existing accounts pass, and non-sign-in codes are never gated.
+    await expect(assertOtpRequestAllowed({ ...(runtime as object), userExists: async () => true } as never, request)).resolves.toBeUndefined()
+    await expect(assertOtpRequestAllowed(runtime, { ...request, body: { ...signIn, type: 'email-verification' } })).resolves.toBeUndefined()
+  })
+
+  it('wires the guard as the before-hook, ahead of a consumer hook', async () => {
+    const consumerBefore = vi.fn(async () => 'consumer')
+    const options = createBetterAuthOptions(fakeDb, { authOptions: { hooks: { before: consumerBefore as never } } }, {
+      ctx: mutationCtx(), email: vi.fn(), canSignIn: inviteOnly, userExists: async () => false,
+    } as never)
+    const before = options.hooks!.before as unknown as (ctx: unknown) => Promise<unknown>
+
+    await expect(before({ path: '/email-otp/send-verification-otp', body: signIn })).rejects.toEqual(forbidden('Invite only'))
+    expect(consumerBefore).not.toHaveBeenCalled()
+    await expect(before({ path: '/get-session', body: undefined })).resolves.toBe('consumer')
   })
 
   it('falls back to the default refusal message', async () => {

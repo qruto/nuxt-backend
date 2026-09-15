@@ -1,7 +1,7 @@
 import { createClient, type GenericCtx } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { passkey } from '@better-auth/passkey'
-import { APIError } from 'better-auth/api'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { betterAuth, type BetterAuthOptions } from 'better-auth/minimal'
 import { admin, emailOTP, jwt, mcp, organization } from 'better-auth/plugins'
 import { mutationGeneric, type AnyComponents, type AuthConfig, type FunctionReference, type GenericActionCtx, type GenericDataModel, type GenericMutationCtx, type GenericSchema, type QueryBuilder, type SchemaDefinition } from 'convex/server'
@@ -346,14 +346,12 @@ function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRunt
         + `Set the required EMAIL_API_KEY env var to send email, or NUXT_BACKEND_LOG_OTP=1 to echo codes to the console during local dev.`,
       )
     }
-    // Order matters: the deployment-wide backstop first (mass probing burns
-    // nothing but its own window), then the gate (a refused address consumes
-    // no per-email quota — an invite that arrives later still works), then
-    // the per-email limit, then the send.
-    if (runtime.rateLimiter) {
-      const { ok } = await runtime.rateLimiter.limit(ctx, 'emailOtpGlobal')
-      if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: 'Verification codes are temporarily unavailable. Please try again later.' })
-    }
+    // The deployment-wide backstop and the sign-in gate already ran on the
+    // request (see assertOtpRequestAllowed) — Better Auth swallows whatever
+    // this sender throws, so this is only the belt to that hook's braces:
+    // a gate refusal here still stops the send, then the per-email limit
+    // (a refused address consumes no per-email quota — an invite that
+    // arrives later still works), then the send.
     if (runtime.canSignIn && data.type === 'sign-in') {
       const isNewUser = runtime.userExists ? !(await runtime.userExists(ctx, data.email)) : true
       await assertCanSignIn(runtime.canSignIn, ctx, { email: data.email, isNewUser, purpose: 'sign-in' })
@@ -367,6 +365,55 @@ function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRunt
 }
 
 const DEFAULT_REFUSAL = 'Sign-in is by invitation right now.'
+
+const OTP_SEND_PATH = '/email-otp/send-verification-otp'
+
+/**
+ * Request-level guard for OTP sends. Better Auth runs the emailOTP
+ * `sendVerificationOTP` callback through `runInBackgroundOrAwait`, which
+ * catches anything it throws, logs "Failed to run background task" and still
+ * answers `{ success: true }` — so a refusal raised inside the sender never
+ * reaches the client, and the OTP is minted before the sender even runs.
+ * This before-hook applies the deployment-wide backstop to every OTP request
+ * and the sign-in gate to `type: 'sign-in'` on the request itself, where a
+ * thrown `APIError` becomes the 429/403 the sign-in UI shows and no code is
+ * stored.
+ *
+ * @internal
+ */
+export async function assertOtpRequestAllowed<DM extends GenericDataModel>(
+  runtime: AuthRuntime<DM> | undefined,
+  request: { path?: string, body?: unknown },
+): Promise<void> {
+  if (request.path !== OTP_SEND_PATH) return
+  const body = request.body as { email?: unknown, type?: unknown } | undefined
+  if (typeof body?.email !== 'string') return
+  const ctx = asMutationCtx(runtime?.ctx)
+  if (!runtime || !ctx) return
+  if (runtime.rateLimiter) {
+    const { ok } = await runtime.rateLimiter.limit(ctx, 'emailOtpGlobal')
+    if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: 'Verification codes are temporarily unavailable. Please try again later.' })
+  }
+  if (runtime.canSignIn && body.type === 'sign-in') {
+    const isNewUser = runtime.userExists ? !(await runtime.userExists(ctx, body.email)) : true
+    await assertCanSignIn(runtime.canSignIn, ctx, { email: body.email, isNewUser, purpose: 'sign-in' })
+  }
+}
+
+/** The package's before-hook, chained ahead of a consumer-supplied one. */
+function makeRequestHooks<DM extends GenericDataModel>(
+  runtime: AuthRuntime<DM> | undefined,
+  consumer: BetterAuthOptions['hooks'],
+): BetterAuthOptions['hooks'] {
+  const consumerBefore = consumer?.before as unknown as ((ctx: unknown) => Promise<unknown>) | undefined
+  return {
+    ...consumer,
+    before: createAuthMiddleware(async (ctx) => {
+      await assertOtpRequestAllowed(runtime, ctx)
+      if (consumerBefore) return consumerBefore(ctx)
+    }),
+  }
+}
 
 /** Ask the gate; a refusal becomes the `FORBIDDEN` `APIError` the sign-in UI shows. */
 async function assertCanSignIn<DM extends GenericDataModel>(
@@ -904,6 +951,7 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
   const trustedOrigins: BetterAuthOptions['trustedOrigins'] = trustLocalOrigins ? loopbackOrigins : configuredTrusted
 
   const databaseHooks = mergeDatabaseHooks(packageHooks, resolvedAuthOptions.databaseHooks)
+  const hooks = makeRequestHooks(runtime, resolvedAuthOptions.hooks)
 
   return {
     ...resolvedAuthOptions,
@@ -934,6 +982,8 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
     // mergeDatabaseHooks) — so a consumer hook extends the packaged
     // behaviour rather than replacing it.
     ...(databaseHooks ? { databaseHooks } : {}),
+    // The OTP request guard (and any consumer before-hook after it).
+    hooks,
     plugins: [
       convex({
         authConfig: resolvedAuthConfig,
