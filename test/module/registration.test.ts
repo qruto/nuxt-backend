@@ -28,7 +28,7 @@ interface DependencyOptions {
     url?: string
     siteUrl?: string
     authRoute?: string
-    betterAuth?: { authClient?: string, loginPath?: string }
+    betterAuth?: { authClient?: string, loginPath?: string, crossDomainCallbackRoute?: string }
     polar?: boolean
     clerk?: boolean
     auth0?: boolean
@@ -473,6 +473,18 @@ describe('option forwarding through moduleDependencies', () => {
     expect(routeRules['/agent']).toEqual(MCP_RELAXATION)
     expect(routeRules['/agent/**']).toEqual(MCP_RELAXATION)
     expect(routeRules['/mcp']).toBeUndefined()
+  })
+})
+
+describe('a user betterAuth object without an authClient', () => {
+  const getNuxt = useBoot({ convex: { betterAuth: { crossDomainCallbackRoute: '/cb' } } })
+
+  it('keeps the bundled auth client and login path beside the user options', () => {
+    expect(dependencyOptions(getNuxt()).convex?.betterAuth).toEqual({
+      authClient: join(runtimeDir, 'vue/auth-client'),
+      loginPath: '/login',
+      crossDomainCallbackRoute: '/cb',
+    })
   })
 })
 

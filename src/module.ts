@@ -171,11 +171,16 @@ export default defineNuxtModule<ModuleOptions>({
         },
         overrides: {
           // Better Auth with this package's passwordless client (OTP +
-          // passkeys). A user-supplied `convex.betterAuth` object (e.g. a
-          // custom `authClient`) wins; only a disable is overridden.
-          betterAuth: typeof convex.betterAuth === 'object' && convex.betterAuth !== null
-            ? { loginPath, ...convex.betterAuth }
-            : { authClient: resolver.resolve('./runtime/vue/auth-client'), loginPath },
+          // passkeys). A user-supplied `convex.betterAuth` object is spread
+          // over the package's seed, so its fields win (a custom `authClient`
+          // replaces ours) while an object that only sets other options
+          // (`crossDomainCallbackRoute`, …) keeps the bundled client. Only a
+          // disable is overridden outright.
+          betterAuth: {
+            authClient: resolver.resolve('./runtime/vue/auth-client'),
+            loginPath,
+            ...(typeof convex.betterAuth === 'object' && convex.betterAuth !== null ? convex.betterAuth : {}),
+          },
           polar: true,
           // This package's auth story is Better Auth — don't let auto-detect
           // enable a second auth provider just because its SDK is resolvable.
