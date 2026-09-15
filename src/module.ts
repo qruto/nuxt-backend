@@ -121,6 +121,13 @@ export interface ModuleOptions {
    * Backend tab.
    */
   devtools?: boolean
+  /**
+   * Whether the deployment runs the organization plugin (workspaces). Set
+   * `false` alongside `setupAuth(…, { organization: false })` so nothing on
+   * the Nuxt side — the DevTools bridge in particular — calls the
+   * organization endpoints that no longer exist. Defaults to `true`.
+   */
+  workspaces?: boolean
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -136,6 +143,7 @@ export default defineNuxtModule<ModuleOptions>({
     css: true,
     autoEnv: true,
     devtools: true,
+    workspaces: true,
   },
   // The Convex + Better Auth + Polar framework integration. Declared as a
   // module dependency (not `installModule`) so Nuxt dedupes it when the app
@@ -453,6 +461,7 @@ function registerModulePages(options: ModuleOptions, resolver: Resolver, nuxt: N
   runtimeConfig.public.backend = {
     ...(runtimeConfig.public.backend as Record<string, unknown> | undefined),
     pages: resolved,
+    workspaces: options.workspaces !== false,
   }
 
   if (options.pages === false) return info

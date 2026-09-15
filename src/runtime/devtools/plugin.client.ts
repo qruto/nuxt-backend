@@ -1,6 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, watchEffect } from 'vue'
-import { defineNuxtPlugin } from '#app'
+import { defineNuxtPlugin, useRuntimeConfig } from '#app'
 import { useConvexNamespace, useQuery } from 'nuxt-convex-module/client'
 import { useAuth } from '../vue/composables/use-auth'
 import { useBilling, type BillingApi } from '../vue/composables/use-billing'
@@ -62,7 +62,10 @@ export default defineNuxtPlugin({
           const auth = useAuth()
           const billing = useBilling()
           const features = useFeatures()
-          const workspace = useOrganization()
+          // With workspaces off (`backend.workspaces: false`) the organization
+          // endpoints do not exist — never ask for them.
+          const workspacesOn = (useRuntimeConfig().public.backend as { workspaces?: boolean } | undefined)?.workspaces !== false
+          const workspace = workspacesOn ? useOrganization() : null
 
           // All meters (useCredits narrows to a single one) and the delivery
           // feed come straight from the injected billing namespace — resolved
@@ -118,8 +121,8 @@ export default defineNuxtPlugin({
           })
 
           watchEffect(() => {
-            const current = workspace.current.value
-            bridge.patch('workspace', current
+            const current = workspace?.current.value
+            bridge.patch('workspace', workspace && current
               ? {
                   available: true,
                   id: current.id,
