@@ -1,6 +1,7 @@
 import { createClient, type GenericCtx } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { passkey } from '@better-auth/passkey'
+import { APIError } from 'better-auth/api'
 import { betterAuth, type BetterAuthOptions } from 'better-auth/minimal'
 import { admin, emailOTP, jwt, mcp, organization } from 'better-auth/plugins'
 import { mutationGeneric, type AnyComponents, type AuthConfig, type FunctionReference, type GenericActionCtx, type GenericDataModel, type GenericMutationCtx, type GenericSchema, type QueryBuilder, type SchemaDefinition } from 'convex/server'
@@ -9,6 +10,7 @@ import authConfig from '../auth.config.js'
 import { BACKEND_MCP_SCOPES, DEFAULT_AUTH_ROUTE, DEFAULT_INVITATION_PATH, DEFAULT_LOGIN_PATH } from '../constants.js'
 import { authSchema } from '../components/backend/schema.js'
 import { setupMcp, type McpExchange } from '../integrations/mcp.js'
+import { type DatabaseHooks, mergeDatabaseHooks } from './hooks.js'
 
 /**
  * Default passkey plugin. Registration requires an authenticated session (the
@@ -62,10 +64,11 @@ export type AuthEmailSender = (ctx: AuthMutationCtx, message: AuthEmailMessage) 
 
 /**
  * The named rate limits the auth flows consult (a subset of the defaults):
- * OTP sends, plus the agent token exchange `setupAuth` wires from the same
- * integrations.
+ * OTP sends — per email (`emailOtp`, keyed by a SHA-256 of the address) and
+ * deployment-wide (`emailOtpGlobal`, the backstop against mass probing) —
+ * plus the agent token exchange `setupAuth` wires from the same integrations.
  */
-export type AuthRateLimitName = 'emailOtp' | 'mcp'
+export type AuthRateLimitName = 'emailOtp' | 'emailOtpGlobal' | 'mcp'
 
 /**
  * Guards auth-sensitive flows. Satisfied by `setupRateLimiter(...)` from
@@ -94,18 +97,77 @@ export interface AuthCreatedUser {
 export type OnUserCreated<DM extends GenericDataModel = GenericDataModel>
   = (ctx: GenericMutationCtx<DM> | GenericActionCtx<DM>, user: AuthCreatedUser) => Promise<void>
 
+/** The user just deleted, passed to {@link AuthIntegrations.onUserDeleted}. */
+export interface AuthDeletedUser {
+  id: string
+  email: string
+  name: string
+}
+
+/**
+ * Fired once after a user account is deleted (the `deleteUser` flow, confirmed
+ * via email when a transport is wired) — e.g. to erase the app's own rows for
+ * that user, or the billing cache via `billing.forgetEntity`. Runs after a
+ * consumer-supplied `user.deleteUser.afterDelete`.
+ */
+export type OnUserDeleted<DM extends GenericDataModel = GenericDataModel>
+  = (ctx: GenericMutationCtx<DM> | GenericActionCtx<DM>, user: AuthDeletedUser) => Promise<void>
+
+/**
+ * Where a {@link CanSignIn} verdict is being asked for:
+ *
+ * - `'sign-in'` — an OTP sign-in code was requested for the address, before
+ *   anything is sent. `isNewUser` says whether the address has an account.
+ * - `'user-create'` — an account is about to be created (any path).
+ *   `isNewUser` is always `true`.
+ * - `'session'` — a session is about to be created for an existing account
+ *   (OTP verification, passkey sign-in, …). `isNewUser` is always `false`.
+ */
+export type CanSignInPurpose = 'sign-in' | 'user-create' | 'session'
+
+/** What {@link CanSignIn} is asked about. */
+export interface CanSignInInput {
+  /** The address, as Better Auth holds it (lower-cased). */
+  email: string
+  /** `true` when no account exists for the address yet. */
+  isNewUser: boolean
+  purpose: CanSignInPurpose
+}
+
+/**
+ * A {@link CanSignIn} verdict: `true` to allow, or a refusal with an optional
+ * message shown to the user (default: "Sign-in is by invitation right now.").
+ */
+export type CanSignInVerdict = true | { allowed: false, message?: string }
+
+/**
+ * Gate sign-in and account creation — e.g. an invite-only launch, an
+ * allow-list, or a closed beta. Consulted (with the full request ctx, so it
+ * can query the app's own tables) at three points: before an OTP is sent for
+ * a sign-in request, before any account is created, and before a session is
+ * created for an existing account. A refusal surfaces as a `FORBIDDEN`
+ * `APIError` with the verdict's message — `useLoginFlow().error` shows it.
+ */
+export type CanSignIn<DM extends GenericDataModel = GenericDataModel>
+  = (ctx: GenericMutationCtx<DM> | GenericActionCtx<DM>, input: CanSignInInput) => Promise<CanSignInVerdict>
+
 /**
  * Cross-component wiring for Better Auth. All optional: with no `email`
  * transport, OTP requests fail loudly (set `NUXT_BACKEND_LOG_OTP=1` to echo
  * codes to the console during local dev instead). Provide an `email` transport
  * to deliver OTP / verification / reset emails, a `rateLimiter` to throttle
- * OTP sends, and `onUserCreated` to run side effects (durable workflows,
- * analytics) on signup.
+ * OTP sends, `canSignIn` to gate who may sign in or sign up, and
+ * `onUserCreated` / `onUserDeleted` to run side effects (durable workflows,
+ * analytics, erasure) around the account lifecycle.
  */
 export interface AuthIntegrations<DM extends GenericDataModel = GenericDataModel> {
   email?: AuthEmailSender
   rateLimiter?: AuthRateLimiter
   onUserCreated?: OnUserCreated<DM>
+  /** Gate sign-in / sign-up (invite-only, allow-list, closed beta). See {@link CanSignIn}. */
+  canSignIn?: CanSignIn<DM>
+  /** Fired after an account is deleted, after any consumer `afterDelete`. See {@link OnUserDeleted}. */
+  onUserDeleted?: OnUserDeleted<DM>
   /** Override any of the default auth-email templates (welcome/otp/verify/change/delete/invite). */
   emailTemplates?: Partial<AuthEmailTemplates>
   /**
@@ -116,12 +178,18 @@ export interface AuthIntegrations<DM extends GenericDataModel = GenericDataModel
   welcomeEmail?: boolean
 }
 
+/** Whether an account exists for an email — the adapter read behind `canSignIn`'s `isNewUser`. */
+type UserExists = (ctx: AuthMutationCtx, email: string) => Promise<boolean>
+
 /** Per-request runtime carrying the ctx and resolved integrations. */
 interface AuthRuntime<DM extends GenericDataModel = GenericDataModel> {
   ctx?: GenericCtx<DM>
   email?: AuthEmailSender
   rateLimiter?: AuthRateLimiter
   onUserCreated?: OnUserCreated<DM>
+  canSignIn?: CanSignIn<DM>
+  onUserDeleted?: OnUserDeleted<DM>
+  userExists?: UserExists
   emailTemplates?: Partial<AuthEmailTemplates>
   welcomeEmail?: boolean
 }
@@ -278,12 +346,45 @@ function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRunt
         + `Set the required EMAIL_API_KEY env var to send email, or NUXT_BACKEND_LOG_OTP=1 to echo codes to the console during local dev.`,
       )
     }
+    // Order matters: the deployment-wide backstop first (mass probing burns
+    // nothing but its own window), then the gate (a refused address consumes
+    // no per-email quota — an invite that arrives later still works), then
+    // the per-email limit, then the send.
     if (runtime.rateLimiter) {
-      const { ok } = await runtime.rateLimiter.limit(ctx, 'emailOtp', { key: data.email })
-      if (!ok) throw new Error('Too many verification requests. Please try again in a moment.')
+      const { ok } = await runtime.rateLimiter.limit(ctx, 'emailOtpGlobal')
+      if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: 'Verification codes are temporarily unavailable. Please try again later.' })
+    }
+    if (runtime.canSignIn && data.type === 'sign-in') {
+      const isNewUser = runtime.userExists ? !(await runtime.userExists(ctx, data.email)) : true
+      await assertCanSignIn(runtime.canSignIn, ctx, { email: data.email, isNewUser, purpose: 'sign-in' })
+    }
+    if (runtime.rateLimiter) {
+      const { ok } = await runtime.rateLimiter.limit(ctx, 'emailOtp', { key: await hashKey(data.email) })
+      if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: 'Too many verification requests. Please try again in a moment.' })
     }
     await runtime.email(ctx, resolveTemplates(runtime).otp(data))
   }
+}
+
+const DEFAULT_REFUSAL = 'Sign-in is by invitation right now.'
+
+/** Ask the gate; a refusal becomes the `FORBIDDEN` `APIError` the sign-in UI shows. */
+async function assertCanSignIn<DM extends GenericDataModel>(
+  canSignIn: CanSignIn<DM>,
+  ctx: GenericMutationCtx<DM> | GenericActionCtx<DM>,
+  input: CanSignInInput,
+): Promise<void> {
+  const verdict = await canSignIn(ctx, input)
+  if (verdict !== true) throw new APIError('FORBIDDEN', { message: verdict.message ?? DEFAULT_REFUSAL })
+}
+
+/**
+ * SHA-256 of a normalized key, hex — so rate-limit rows carry a digest of the
+ * address rather than the address itself.
+ */
+async function hashKey(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value.trim().toLowerCase()))
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
 /** Options for the bundled admin plugin (roles, permissions, ban, impersonation). */
@@ -373,7 +474,8 @@ export interface SetupAuthOptions<
   verbose?: boolean
   /**
    * Cross-component wiring: an email transport for auth emails, a rate limiter
-   * for OTP sends, and an `onUserCreated` hook. See {@link AuthIntegrations}.
+   * for OTP sends, a `canSignIn` gate, and the `onUserCreated` /
+   * `onUserDeleted` lifecycle hooks. See {@link AuthIntegrations}.
    */
   integrations?: AuthIntegrations<DM>
 }
@@ -443,16 +545,39 @@ function componentEmailSender(components: AuthSetupComponents): AuthEmailSender 
 }
 
 /**
- * Merge the auto component-email transport with consumer-provided integrations.
- * A consumer-supplied `email` wins, so custom transports still override the
- * built-in one.
+ * The account-exists read behind `canSignIn`'s `isNewUser`, over the
+ * `backend` component's adapter (`components.backend.adapter.findOne`, read
+ * structurally like {@link componentEmailSender}). `undefined` without an
+ * adapter module, in which case every sign-in request counts as a new user.
+ */
+function componentUserExists(components: AuthSetupComponents): UserExists | undefined {
+  const findOne = (components.backend as { adapter?: { findOne?: AdapterFindOneRef } } | undefined)?.adapter?.findOne
+  if (!findOne) return undefined
+  return async (ctx, email) => {
+    const user = await ctx.runQuery(findOne, {
+      model: 'user',
+      where: [{ field: 'email', value: email.trim().toLowerCase() }],
+    })
+    return user !== null && user !== undefined
+  }
+}
+
+/**
+ * Merge the auto component-email transport (and the adapter-backed account
+ * lookup) with consumer-provided integrations. A consumer-supplied `email`
+ * wins, so custom transports still override the built-in one.
  */
 function resolveIntegrations<DM extends GenericDataModel>(
   components: AuthSetupComponents,
   integrations?: AuthIntegrations<DM>,
-): AuthIntegrations<DM> {
+): Omit<AuthRuntime<DM>, 'ctx'> {
   const email = componentEmailSender(components)
-  return email ? { email, ...integrations } : { ...integrations }
+  const userExists = componentUserExists(components)
+  return {
+    ...(email ? { email } : {}),
+    ...(userExists ? { userExists } : {}),
+    ...integrations,
+  }
 }
 
 function readEnv(name: string) {
@@ -689,6 +814,76 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
     }
     : undefined
 
+  // The sign-in gate, bound to the request ctx. The OTP request already asked
+  // it before sending anything; these are the authoritative backstops on the
+  // write path itself — every account-creation route, and every session for
+  // an existing account (passkey sign-in included; passkey *registration*
+  // requires a session, so a passkey can never create an account).
+  const canSignIn = runtime?.canSignIn
+  const gate = canSignIn && emailCtx
+    ? (input: CanSignInInput) => assertCanSignIn(canSignIn, emailCtx, input)
+    : undefined
+  const createBeforeHook = gate
+    ? async (user: { email: string }) => {
+      await gate({ email: user.email, isNewUser: true, purpose: 'user-create' })
+    }
+    : undefined
+  const sessionBeforeHook = organizationEnabled || gate
+    ? async (session: { userId: string } & Record<string, unknown>, hookCtx: unknown) => {
+      // Every new session gets an active workspace: the user's first
+      // membership, or (with `personal`) a workspace auto-created on first
+      // sign-in.
+      const activeOrganizationId = organizationEnabled
+        ? await ensureActiveOrganization(session.userId, hookCtx, personalWorkspace)
+        : undefined
+      if (gate) {
+        const user = await hookAdapter(hookCtx)?.findOne({
+          model: 'user',
+          where: [{ field: 'id', value: session.userId }],
+        }) as { email?: string } | null | undefined
+        // Fail closed: a gate that cannot see the account refuses the session.
+        if (!user?.email) throw new APIError('FORBIDDEN', { message: DEFAULT_REFUSAL })
+        await gate({ email: user.email, isNewUser: false, purpose: 'session' })
+      }
+      return activeOrganizationId ? { data: { ...session, activeOrganizationId } } : undefined
+    }
+    : undefined
+  const packageHooks: DatabaseHooks | undefined = createBeforeHook || createAfterHook || sessionBeforeHook
+    ? {
+        ...(createBeforeHook || createAfterHook
+          ? {
+              user: {
+                create: {
+                  ...(createBeforeHook ? { before: createBeforeHook } : {}),
+                  ...(createAfterHook ? { after: createAfterHook } : {}),
+                },
+              },
+            }
+          : {}),
+        ...(sessionBeforeHook ? { session: { create: { before: sessionBeforeHook } } } : {}),
+      }
+    : undefined
+
+  // Account deletion: on by default (confirmed via email when a transport is
+  // wired), merged with the consumer's own `deleteUser` options — theirs win
+  // field by field — and `onUserDeleted` chained after their `afterDelete`.
+  const consumerDeleteUser = resolvedAuthOptions.user?.deleteUser
+  const onUserDeleted = runtime?.onUserDeleted
+  const afterDelete = onUserDeleted && emailCtx
+    ? async (user: { id: string, email: string, name: string }, request?: Request) => {
+      await consumerDeleteUser?.afterDelete?.(user as never, request)
+      await onUserDeleted(emailCtx, { id: user.id, email: user.email, name: user.name })
+    }
+    : consumerDeleteUser?.afterDelete
+  const deleteUser = sendDeleteAccountVerification || consumerDeleteUser || afterDelete
+    ? {
+        enabled: true,
+        ...(sendDeleteAccountVerification ? { sendDeleteAccountVerification } : {}),
+        ...consumerDeleteUser,
+        ...(afterDelete ? { afterDelete } : {}),
+      }
+    : undefined
+
   // Opt-in for local development: trust the loopback origins the Nuxt dev
   // server actually runs on (any port), in addition to SITE_URL. Off unless
   // AUTH_TRUST_LOCAL_ORIGINS is set on the deployment — never enable in prod.
@@ -707,6 +902,8 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
     return isLoopback ? [...list, origin] : list
   }) as TrustedOriginsFn
   const trustedOrigins: BetterAuthOptions['trustedOrigins'] = trustLocalOrigins ? loopbackOrigins : configuredTrusted
+
+  const databaseHooks = mergeDatabaseHooks(packageHooks, resolvedAuthOptions.databaseHooks)
 
   return {
     ...resolvedAuthOptions,
@@ -727,36 +924,16 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
       ...(sendChangeEmailConfirmation && !resolvedAuthOptions.user?.changeEmail
         ? { changeEmail: { enabled: true, sendChangeEmailConfirmation } }
         : {}),
-      ...(sendDeleteAccountVerification && !resolvedAuthOptions.user?.deleteUser
-        ? { deleteUser: { enabled: true, sendDeleteAccountVerification } }
-        : {}),
+      ...(deleteUser ? { deleteUser } : {}),
     },
     ...(sendVerificationEmail && !resolvedAuthOptions.emailVerification
       ? { emailVerification: { sendVerificationEmail } }
       : {}),
-    // Consumer-supplied databaseHooks win entirely (documented behavior).
-    ...(!resolvedAuthOptions.databaseHooks && (createAfterHook || organizationEnabled)
-      ? {
-          databaseHooks: {
-            ...(createAfterHook ? { user: { create: { after: createAfterHook } } } : {}),
-            ...(organizationEnabled
-              ? {
-                  session: {
-                    create: {
-                      // Every new session gets an active workspace: the user's
-                      // first membership, or (with `personal`) a workspace
-                      // auto-created on first sign-in.
-                      before: async (session: { userId: string } & Record<string, unknown>, hookCtx: unknown) => {
-                        const activeOrganizationId = await ensureActiveOrganization(session.userId, hookCtx, personalWorkspace)
-                        return activeOrganizationId ? { data: { ...session, activeOrganizationId } } : undefined
-                      },
-                    },
-                  },
-                }
-              : {}),
-          },
-        }
-      : {}),
+    // The package's hooks compose with consumer-supplied databaseHooks —
+    // per model and operation, ours run first, theirs second (see
+    // mergeDatabaseHooks) — so a consumer hook extends the packaged
+    // behaviour rather than replacing it.
+    ...(databaseHooks ? { databaseHooks } : {}),
     plugins: [
       convex({
         authConfig: resolvedAuthConfig,
@@ -780,10 +957,15 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
   } satisfies BetterAuthOptions
 }
 
-/** The minimal Better Auth adapter surface the workspace session hook needs. */
+/** The minimal Better Auth adapter surface the session hooks need. */
 interface AuthHookAdapter {
   findOne: (args: { model: string, where: Array<{ field: string, value: unknown }> }) => Promise<unknown>
   create: (args: { model: string, data: Record<string, unknown> }) => Promise<unknown>
+}
+
+/** The adapter a database hook's endpoint context carries (`undefined` outside a request). */
+function hookAdapter(hookCtx: unknown): AuthHookAdapter | undefined {
+  return (hookCtx as { context?: { adapter?: AuthHookAdapter } } | undefined)?.context?.adapter
 }
 
 /**
@@ -796,7 +978,7 @@ async function ensureActiveOrganization(
   hookCtx: unknown,
   createPersonal: boolean,
 ): Promise<string | undefined> {
-  const adapter = (hookCtx as { context?: { adapter?: AuthHookAdapter } } | undefined)?.context?.adapter
+  const adapter = hookAdapter(hookCtx)
   if (!adapter) return undefined
 
   const membership = await adapter.findOne({
