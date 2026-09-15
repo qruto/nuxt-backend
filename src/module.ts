@@ -475,14 +475,14 @@ function registerModulePages(options: ModuleOptions, resolver: Resolver, nuxt: N
 /**
  * Expose the SaaS layer as Nuxt auto-imports — one name per concept. The core
  * data composables (`useQuery`, `useMutation`, ...) come from
- * `nuxt-convex-module`; `useAuth` is this package's extended service and takes
- * priority over the base registration.
+ * `nuxt-convex-module`, which registers its own service as `useBetterAuth`;
+ * `useAuth` is this package's extended service and the only auto-import of
+ * that name.
  */
 function registerSaasComposables(resolver: Resolver): void {
   addImports({
     name: 'useAuth',
     from: resolver.resolve('./runtime/vue/composables/use-auth'),
-    priority: 10,
   })
 
   addComponent({

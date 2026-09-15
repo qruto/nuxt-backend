@@ -53,19 +53,16 @@ Convex agent skills for common tasks can be installed by running
 
 ## Local development gotchas
 
-**The website dev server needs the sibling base module *built*, not stubbed.**
-`nuxt-convex-module` is a `link:` dependency, and this app resolves it through
-`dist/runtime/**/*.js`. A stub build replaces `dist/runtime` with a symlink to
-`src/runtime` (TypeScript only), and Nitro then dies with
-`Could not load .../dist/runtime/nuxt/index.js`. Running `pnpm install` here has
-been observed to leave the sibling in that state. The fix is always the same:
-
-```sh
-pnpm --dir ../nuxt-convex-module run build   # a real build, not --stub
-```
-
-Then restart `pnpm run dev:nuxt-module`. This disappears once the base module is
-published and the `link:` protocol goes away.
+**A stale nested store under `node_modules/nuxt-convex-module/node_modules`.**
+`nuxt-convex-module` now installs from npm. Before that it was a `link:` to the
+sibling checkout, and pnpm's hoisted linker moved that checkout's own isolated
+store (`.pnpm/`, a second `vue`, a second `convex`, its devDependencies) under
+the package directory when the protocol changed. `.modules.yaml` only sanctions
+`@nuxt/kit`, `@nuxt/devtools-kit` and `verkit` there. A second Vue copy breaks
+reactivity across the boundary (a `computed` from one Vue read inside a
+`watchEffect` of the other is never tracked — `useSearch`'s debounce test is
+the canary). Fix: delete everything else in that nested directory, then
+`pnpm install --frozen-lockfile` to re-verify.
 
 **Environment naming.** This package names its own variables after what they do
 (`NUXT_PUBLIC_BACKEND_URL`, `EMAIL_*`, `BILLING_*`, `AUTH_SECRET`, `SITE_URL`).

@@ -47,8 +47,8 @@ export interface UseBackendAuthService extends UseBetterAuthReturn {
  * authorization reads this package is opinionated about. Everything else
  * (admin/organization management, …) lives on the fully-typed `client`.
  *
- * Registered with import priority over the base module's `useAuth`, so this
- * is what `useAuth()` resolves to in apps using `nuxt-backend`.
+ * The base module registers its service as `useBetterAuth`; this is the only
+ * `useAuth` auto-import in apps using `nuxt-backend`.
  *
  * @param initialToken - Optional preloaded token (SSR), forwarded to the base.
  */

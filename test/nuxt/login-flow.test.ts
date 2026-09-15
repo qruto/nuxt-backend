@@ -16,7 +16,7 @@ const client = {
 }
 
 vi.mock('nuxt-convex-module/better-auth/client', () => ({
-  useAuth: () => ({
+  useBetterAuth: () => ({
     isLoading: computed(() => false),
     isAuthenticated: computed(() => user.value !== null),
     fetchAccessToken: vi.fn(async () => 'token'),

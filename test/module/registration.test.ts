@@ -322,17 +322,16 @@ describe('module registration (defaults)', () => {
     }
   })
 
-  it('registers the composable set, with useAuth outranking the base module registration', async () => {
+  it('registers the composable set; useAuth is ours alone (the base module registers useBetterAuth)', async () => {
     const imports = await extendImports(getNuxt())
     const ours = imports.filter(entry => entry.from.startsWith(runtimeDir))
     expect(ours.map(entry => entry.name).sort()).toEqual([...COMPOSABLE_NAMES].sort())
     for (const entry of ours) {
       expect(existsWithExtension(entry.from), entry.from).toBe(true)
     }
-    const useAuth = imports.filter(entry => entry.name === 'useAuth')
-    expect(useAuth.length, 'the base module registers its own useAuth').toBeGreaterThan(1)
-    expect(useAuth.find(entry => entry.from.startsWith(runtimeDir))?.priority).toBe(10)
-    expect(useAuth.filter(entry => !entry.from.startsWith(runtimeDir)).every(entry => (entry.priority ?? 0) < 10)).toBe(true)
+    expect(imports.filter(entry => entry.name === 'useAuth').map(entry => entry.from)).toEqual([join(runtimeDir, 'vue/composables/use-auth')])
+    expect(imports.filter(entry => entry.name === 'useBetterAuth').every(entry => !entry.from.startsWith(runtimeDir))).toBe(true)
+    expect(imports.some(entry => entry.name === 'useBetterAuth'), 'the base module registers useBetterAuth').toBe(true)
   })
 
   it('registers the Nitro server imports, backendAuth aliased from the base runtime', () => {
