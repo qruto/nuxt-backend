@@ -1,11 +1,11 @@
 import { computed, type ComputedRef } from 'vue'
-import { useAuth as useBaseAuth, type UseAuthService } from 'nuxt-convex-module/better-auth/client'
+import { useBetterAuth as useBaseAuth, type UseBetterAuthReturn } from 'nuxt-convex-module/better-auth/client'
 
 /**
  * The backend identity service: the base Convex + Better Auth service
  * extended with this package's passwordless flows and authorization reads.
  */
-export interface UseBackendAuthService extends UseAuthService {
+export interface UseBackendAuthService extends UseBetterAuthReturn {
   // ── Passwordless flows (OTP + passkeys) ────────────────────────────────
   /** Sign the current user out. */
   signOut: () => Promise<unknown>
