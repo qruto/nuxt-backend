@@ -377,7 +377,7 @@ describe('forgetEntity', () => {
   it('names the missing component function on an older component build', async () => {
     const backend = (components as { backend: { billing: Record<string, string> } }).backend
     const { deleteByUser: _deleteByUser, ...older } = backend.billing
-    const legacy = setupBilling({ ...components, backend: { ...backend, billing: older } } as never, config)
+    const legacy = setupBilling({ ...(components as Record<string, unknown>), backend: { ...backend, billing: older } } as never, config)
     await expect(legacy.forgetEntity(makeCtx() as never, 'u1')).rejects.toThrow('components.backend.billing.deleteByUser is missing')
   })
 })
