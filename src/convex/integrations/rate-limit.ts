@@ -1,4 +1,4 @@
-import { DAY, MINUTE, RateLimiter } from '@convex-dev/rate-limiter'
+import { DAY, HOUR, MINUTE, RateLimiter } from '@convex-dev/rate-limiter'
 import type { RateLimitConfig } from '@convex-dev/rate-limiter'
 
 /** The component reference accepted by the rate limiter (`components.rateLimiter`). */
@@ -13,21 +13,30 @@ export interface RateLimiterComponents {
 }
 
 /**
- * The package's default rate limits — `emailOtp`, `billingSync`, `ai`,
- * `aiBudget` and `mcp` — guarding the flows the package itself drives. Each is
- * keyed per email/entity at the call site (e.g. `limit(ctx, 'emailOtp', { key:
- * email })`). Extend or override any of them by passing your own limits to
+ * The package's default rate limits — `emailOtp`, `emailOtpGlobal`,
+ * `billingSync`, `ai`, `aiBudget` and `mcp` — guarding the flows the package
+ * itself drives. Most are keyed per email/entity at the call site (e.g.
+ * `limit(ctx, 'emailOtp', { key: hash })`); `emailOtpGlobal` is unkeyed.
+ * Extend or override any of them by passing your own limits to
  * {@link setupRateLimiter}.
  *
  * Deliberately small: `emailOtp` throttles code *sends* (per-code brute force
  * is Better Auth's own `allowedAttempts` guard, and this package is
- * passwordless — there are no password flows to limit), `billingSync` guards
- * the live provider fan-out, and `ai`/`aiBudget`/`mcp` back the
- * metered-action, credit-budget and agent surfaces.
+ * passwordless — there are no password flows to limit), `emailOtpGlobal`
+ * caps sends deployment-wide, `billingSync` guards the live provider
+ * fan-out, and `ai`/`aiBudget`/`mcp` back the metered-action,
+ * credit-budget and agent surfaces.
  */
 export const DEFAULT_LIMITS = {
-  /** Email OTP / verification sends — 5 per minute, small burst allowance. */
+  /** Email OTP / verification sends — 5 per minute per address, small burst allowance. */
   emailOtp: { kind: 'token bucket', rate: 5, period: MINUTE, capacity: 5 },
+  /**
+   * Email OTP sends across the whole deployment — 300 per hour, a fixed
+   * window. The backstop the per-address limit cannot be: an attacker
+   * rotating addresses to probe an invite gate or run up the email bill hits
+   * this ceiling. Raise it when a launch legitimately signs in more than that.
+   */
+  emailOtpGlobal: { kind: 'fixed window', rate: 300, period: HOUR },
   /**
    * Entitlement syncs — 10 per minute per billing entity, small burst for the
    * back-to-back syncs after checkout / top-up. Guards the live provider
