@@ -8,7 +8,7 @@ import { BACKEND_ENV_NAMES, deploymentEnvNames, isDevDeployment, readEnvFiles, r
 import { deriveDeploymentUrls } from '../deployment'
 import type { BillingCatalog } from '../convex/catalog'
 import { billing, collectBillingFindings, loadCatalog, readBillingOrganizationState } from './billing'
-import { REQUIRED_FUNCTION_EXPORTS } from '../contract'
+import { missingContractFunctions } from '../contract'
 import { resolvePagePath, type ModulePagesOptions } from '../pages'
 
 /** Run a read-only `npx convex <args>` returning stdout, or null on any failure. */
@@ -31,31 +31,46 @@ async function convexCli(rootDir: string, args: string[]): Promise<string | null
   }
 }
 
-/**
- * Verify the composable↔scaffold function contract against the deployment:
- * every name in {@link REQUIRED_FUNCTION_EXPORTS} must exist as a deployed
- * function, or the matching composable silently degrades to undefineds.
- */
-async function functionContractFindings(rootDir: string): Promise<PreflightFinding[]> {
+/** Deployed function identifiers (`module:name`), or null when the CLI is unreachable. */
+async function deployedFunctionIdentifiers(rootDir: string): Promise<Set<string> | null> {
   const stdout = await convexCli(rootDir, ['function-spec'])
-  if (stdout === null) return []
-  let identifiers: Set<string>
+  if (stdout === null) return null
   try {
     const parsed = JSON.parse(stdout) as { functions?: Array<{ identifier?: string }> } | Array<{ identifier?: string }>
     const list = Array.isArray(parsed) ? parsed : parsed.functions ?? []
-    identifiers = new Set(list
+    return new Set(list
       .map(fn => fn.identifier ?? '')
       .map(id => id.replace(/\.[jt]s:/, ':')))
   }
   catch {
-    return []
+    return null
   }
-  const missing: string[] = []
-  for (const [module, names] of Object.entries(REQUIRED_FUNCTION_EXPORTS)) {
-    for (const name of names) {
-      if (!identifiers.has(`${module}:${name}`)) missing.push(`${module}:${name}`)
-    }
+}
+
+/**
+ * The deployment's view of the auth config (`auth:authConfig`): the
+ * invitation path, null when workspaces are off. Null when unreadable.
+ */
+async function deployedAuthConfig(rootDir: string): Promise<{ invitationPath: string | null } | null> {
+  const stdout = await convexCli(rootDir, ['run', 'auth:authConfig'])
+  if (stdout === null) return null
+  try {
+    const { invitationPath } = JSON.parse(stdout) as { invitationPath?: string | null }
+    return invitationPath === undefined ? null : { invitationPath }
   }
+  catch {
+    return null
+  }
+}
+
+/**
+ * Verify the composable↔scaffold function contract against the deployment:
+ * every name in the contract must exist as a deployed function, or the
+ * matching composable silently degrades to undefineds. Workspace functions
+ * are only expected while workspaces are on.
+ */
+function functionContractFindings(identifiers: ReadonlySet<string>, options: { workspaces: boolean }): PreflightFinding[] {
+  const missing = missingContractFunctions(identifiers, options)
   return [missing.length === 0
     ? {
         id: 'function-contract',
@@ -79,18 +94,7 @@ async function functionContractFindings(rootDir: string): Promise<PreflightFindi
  * (where the page mounts) are declared in two places only doctor can see
  * together.
  */
-async function invitationPathFindings(rootDir: string): Promise<PreflightFinding[]> {
-  const stdout = await convexCli(rootDir, ['run', 'auth:authConfig'])
-  if (stdout === null) return []
-  let deployedPath: string | null | undefined
-  try {
-    deployedPath = (JSON.parse(stdout) as { invitationPath?: string | null }).invitationPath
-  }
-  catch {
-    return []
-  }
-  if (deployedPath === undefined) return []
-
+async function invitationPathFindings(rootDir: string, deployedPath: string | null): Promise<PreflightFinding[]> {
   let pagesOption: ModulePagesOptions | false | undefined
   try {
     const { loadNuxtConfig } = await import('@nuxt/kit')
@@ -322,11 +326,13 @@ const env = defineCommand({
  * involved): 404 means the route isn't mounted in `http.ts`; any other 4xx
  * means it is (signature verification correctly rejected the empty probe).
  */
-async function webhookRouteFindings(siteUrl: string): Promise<PreflightFinding[]> {
+async function webhookRouteFindings(siteUrl: string, { ai }: { ai: boolean }): Promise<PreflightFinding[]> {
   const routes = [
     { id: 'billing-webhook-route', title: 'Billing webhook route', path: '/billing/events', service: 'billing' },
     { id: 'email-webhook-route', title: 'Email webhook route', path: '/email/events', service: 'email' },
-    { id: 'ai-stream-route', title: 'AI stream route', path: '/ai/stream', service: 'ai' },
+    // The stream route only matters once setupAi is deployed; a project
+    // without an `ai` module has nothing to mount.
+    ...(ai ? [{ id: 'ai-stream-route', title: 'AI stream route', path: '/ai/stream', service: 'ai' }] : []),
   ]
   return Promise.all(routes.map(async (route): Promise<PreflightFinding> => {
     const url = `${siteUrl.replace(/\/+$/, '')}${route.path}`
@@ -498,19 +504,26 @@ const doctor = defineCommand({
     // Webhook routes must actually be mounted — a missing route silently
     // drops billing/email events. The site URL is derivable from the
     // deployment slug, so this probe usually needs no configuration at all.
+    // Deployment-reachable reads that need the convex CLI; each degrades to
+    // null (and its checks to no finding) when the deployment is unreachable.
+    const identifiers = deployed ? await deployedFunctionIdentifiers(rootDir) : null
+    const authConfig = deployed ? await deployedAuthConfig(rootDir) : null
+
     const siteUrl = env.NUXT_PUBLIC_CONVEX_SITE_URL
       ?? env.NUXT_PUBLIC_BACKEND_SITE_URL
       ?? deriveDeploymentUrls(rootDir, env)?.siteUrl
     if (siteUrl) {
-      findings.push(...await webhookRouteFindings(siteUrl))
+      const ai = identifiers ? [...identifiers].some(id => id.startsWith('ai:')) : true
+      findings.push(...await webhookRouteFindings(siteUrl, { ai }))
     }
 
-    // Deployment-reachable checks that need the convex CLI: the composable
-    // function contract and the invitation-route cross-check. Both degrade to
-    // no finding when the deployment (or nuxt.config) is unreachable.
-    if (deployed) {
-      findings.push(...await functionContractFindings(rootDir))
-      findings.push(...await invitationPathFindings(rootDir))
+    // The composable function contract and the invitation-route cross-check
+    // (no finding when nuxt.config is unreadable).
+    if (identifiers) {
+      findings.push(...functionContractFindings(identifiers, { workspaces: authConfig ? authConfig.invitationPath !== null : true }))
+    }
+    if (authConfig) {
+      findings.push(...await invitationPathFindings(rootDir, authConfig.invitationPath))
     }
 
     // Billing catalog cross-checks: what backend/billing.catalog.ts declares

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { REQUIRED_FUNCTION_EXPORTS } from '../../src/contract'
+import { missingContractFunctions, REQUIRED_FUNCTION_EXPORTS, WORKSPACE_FUNCTION_EXPORTS } from '../../src/contract'
 import { BACKEND_FILE_TEMPLATES } from '../../src/templates'
 
 /**
@@ -22,5 +22,24 @@ describe('REQUIRED_FUNCTION_EXPORTS ↔ scaffold templates', () => {
         `${module}.ts exports ${name}`,
       ).toBe(true)
     }
+  })
+})
+
+describe('missingContractFunctions', () => {
+  const everything = new Set(Object.entries(REQUIRED_FUNCTION_EXPORTS).flatMap(([module, names]) => names.map(name => `${module}:${name}`)))
+
+  it('reports nothing for a full deployment', () => {
+    expect(missingContractFunctions(everything, { workspaces: true })).toEqual([])
+  })
+
+  it('names every missing function with its module', () => {
+    const deployed = new Set([...everything].filter(id => id !== 'billing:getCredits' && id !== 'email:getEmailStatus'))
+    expect(missingContractFunctions(deployed, { workspaces: true })).toEqual(['billing:getCredits', 'email:getEmailStatus'])
+  })
+
+  it('skips the workspace functions while workspaces are off, and only then', () => {
+    const deployed = new Set([...everything].filter(id => !WORKSPACE_FUNCTION_EXPORTS.some(name => id === `auth:${name}`)))
+    expect(missingContractFunctions(deployed, { workspaces: false })).toEqual([])
+    expect(missingContractFunctions(deployed, { workspaces: true })).toEqual(WORKSPACE_FUNCTION_EXPORTS.map(name => `auth:${name}`))
   })
 })
