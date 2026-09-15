@@ -245,6 +245,7 @@ describe('module registration (defaults)', () => {
         security: '/security',
         acceptInvitation: '/accept-invitation',
       },
+      workspaces: true,
     })
     expect(runtimeConfig.backendMcp).toEqual({
       route: '/mcp',
@@ -416,6 +417,7 @@ describe('pages: false', () => {
     const nuxt = getNuxt()
     expect(nuxt.options.runtimeConfig.public.backend).toEqual({
       pages: { login: '', pricing: '', settings: '', profile: '', security: '', acceptInvitation: '' },
+      workspaces: true,
     })
     expect(await extendPages(nuxt)).toEqual([])
     // Nothing else in the fixture registers a page, so Nuxt routing stays off.
@@ -424,6 +426,14 @@ describe('pages: false', () => {
 
   it('forwards no login path to the auth middleware (the app must provide one)', () => {
     expect(dependencyOptions(getNuxt()).convex?.betterAuth?.loginPath).toBeUndefined()
+  })
+})
+
+describe('workspaces: false', () => {
+  const getNuxt = useBoot({ backend: { workspaces: false } })
+
+  it('tells the runtime the organization endpoints do not exist', () => {
+    expect(getNuxt().options.runtimeConfig.public.backend).toMatchObject({ workspaces: false })
   })
 })
 
