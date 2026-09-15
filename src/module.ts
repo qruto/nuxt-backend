@@ -6,7 +6,7 @@ import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
 import { moduleDir } from './dirs'
 import { backendAppConfigDefaults, type BackendAppConfigInput } from './runtime/config'
 import { BACKEND_MCP_SCOPES, DEFAULT_MCP_EXCHANGE_PATH } from './convex/constants'
-import { deriveDeploymentUrls } from './deployment'
+import { deriveDeploymentUrls, resolveSiteUrl } from './deployment'
 import { readEnvFiles, runEnvPush } from './env-push'
 import { scaffoldBackendFiles } from './scaffold'
 import { registerBackendAliases, backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from './aliases'
@@ -166,7 +166,9 @@ export default defineNuxtModule<ModuleOptions>({
       'nuxt-convex-module': {
         defaults: {
           url: backend.url ?? process.env.NUXT_PUBLIC_BACKEND_URL ?? derived?.url,
-          siteUrl: backend.siteUrl ?? process.env.NUXT_PUBLIC_BACKEND_SITE_URL ?? derived?.siteUrl,
+          // A platform build that knows only the client URL still gets its
+          // HTTP-actions origin (the .site twin of a .cloud URL).
+          siteUrl: resolveSiteUrl({ siteUrl: backend.siteUrl, url: backend.url, env: process.env, derived }),
           authRoute: backend.authRoute,
         },
         overrides: {
@@ -661,11 +663,8 @@ declare module '@nuxt/schema' {
  */
 function isSiteUrlConfigured(options: ModuleOptions, nuxt: Nuxt): boolean {
   return Boolean(
-    options.siteUrl
-    ?? process.env.NUXT_PUBLIC_BACKEND_SITE_URL
-    ?? process.env.NUXT_PUBLIC_CONVEX_SITE_URL
-    ?? ((nuxt.options as unknown as Record<string, unknown>).convex as { siteUrl?: string } | undefined)?.siteUrl
-    ?? deriveDeploymentUrls(nuxt.options.rootDir)?.siteUrl,
+    ((nuxt.options as unknown as Record<string, unknown>).convex as { siteUrl?: string } | undefined)?.siteUrl
+    ?? resolveSiteUrl({ siteUrl: options.siteUrl, url: options.url, env: process.env, derived: deriveDeploymentUrls(nuxt.options.rootDir) }),
   )
 }
 

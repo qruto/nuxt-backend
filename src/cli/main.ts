@@ -5,7 +5,7 @@ import { scaffoldBackendFiles, resolveFunctionsDir } from '../scaffold'
 import type { BackendInstallationMode } from '../templates'
 import { collectPreflightFindings, DEV_ONLY_DEPLOYMENT_ENV, formatPreflightSummary, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../preflight'
 import { BACKEND_ENV_NAMES, deploymentEnvNames, isDevDeployment, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
-import { deriveDeploymentUrls } from '../deployment'
+import { deriveDeploymentUrls, resolveSiteUrl } from '../deployment'
 import type { BillingCatalog } from '../convex/catalog'
 import { billing, collectBillingFindings, loadCatalog, readBillingOrganizationState } from './billing'
 import { missingContractFunctions } from '../contract'
@@ -431,9 +431,10 @@ const doctor = defineCommand({
 
     const env = { ...readEnvFiles(rootDir), ...process.env } as Record<string, string | undefined>
 
+    const siteUrl = resolveSiteUrl({ env, derived: deriveDeploymentUrls(rootDir, env) })
     const findings: PreflightFinding[] = collectPreflightFindings({
       env,
-      siteUrlConfigured: Boolean(env.NUXT_PUBLIC_BACKEND_SITE_URL ?? env.NUXT_PUBLIC_CONVEX_SITE_URL),
+      siteUrlConfigured: Boolean(siteUrl),
     })
 
     // Filesystem checks the startup preflight can't do.
@@ -509,9 +510,6 @@ const doctor = defineCommand({
     const identifiers = deployed ? await deployedFunctionIdentifiers(rootDir) : null
     const authConfig = deployed ? await deployedAuthConfig(rootDir) : null
 
-    const siteUrl = env.NUXT_PUBLIC_CONVEX_SITE_URL
-      ?? env.NUXT_PUBLIC_BACKEND_SITE_URL
-      ?? deriveDeploymentUrls(rootDir, env)?.siteUrl
     if (siteUrl) {
       const ai = identifiers ? [...identifiers].some(id => id.startsWith('ai:')) : true
       findings.push(...await webhookRouteFindings(siteUrl, { ai }))

@@ -49,6 +49,25 @@ export function siteFromCloudUrl(url: string): string | null {
 }
 
 /**
+ * The HTTP-actions origin, from every way it can be known, in precedence
+ * order: an explicit site URL, the site-URL env names, the derived deployment
+ * URL, and finally the client URL's cloud origin mapped to its `.site` twin —
+ * the platform-build case, where `npx convex deploy --cmd-url-env-var-name`
+ * exposes only the client URL and nothing else is derivable.
+ */
+export function resolveSiteUrl(input: {
+  siteUrl?: string
+  url?: string
+  env: Record<string, string | undefined>
+  derived: DerivedDeploymentUrls | null
+}): string | undefined {
+  const explicit = input.siteUrl ?? input.env.NUXT_PUBLIC_BACKEND_SITE_URL ?? input.env.NUXT_PUBLIC_CONVEX_SITE_URL ?? input.derived?.siteUrl
+  if (explicit) return explicit
+  const cloudUrl = input.url ?? input.env.NUXT_PUBLIC_BACKEND_URL ?? input.env.NUXT_PUBLIC_CONVEX_URL ?? input.derived?.url
+  return cloudUrl ? siteFromCloudUrl(cloudUrl) ?? undefined : undefined
+}
+
+/**
  * Derive the Convex URLs from the environment: explicit process env wins over
  * `.env.local` over `.env` (the same precedence Nuxt itself applies).
  *
