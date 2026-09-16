@@ -187,7 +187,9 @@ export default defineNuxtModule<ModuleOptions>({
           // (`crossDomainCallbackRoute`, …) keeps the bundled client. Only a
           // disable is overridden outright.
           betterAuth: {
-            authClient: resolver.resolve('./runtime/vue/auth-client'),
+            // Without workspaces the client drops the organization plugin, so
+            // nothing on the page asks for /organization/* routes that do not exist.
+            authClient: resolver.resolve(backend.workspaces === false ? './runtime/vue/auth-client-solo' : './runtime/vue/auth-client'),
             loginPath,
             ...(typeof convex.betterAuth === 'object' && convex.betterAuth !== null ? convex.betterAuth : {}),
           },

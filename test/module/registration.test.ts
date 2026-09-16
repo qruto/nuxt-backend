@@ -435,6 +435,10 @@ describe('workspaces: false', () => {
   it('tells the runtime the organization endpoints do not exist', () => {
     expect(getNuxt().options.runtimeConfig.public.backend).toMatchObject({ workspaces: false })
   })
+
+  it('hands the base module the client without the organization plugin', () => {
+    expect(dependencyOptions(getNuxt()).convex?.betterAuth?.authClient).toMatch(/auth-client-solo$/)
+  })
 })
 
 describe('loginPath with a disabled login page and a custom pricing path', () => {
