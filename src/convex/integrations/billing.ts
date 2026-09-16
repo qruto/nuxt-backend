@@ -1,3 +1,6 @@
+// The bare specifier is deliberate: `node:buffer` would make the isolate bundle fail to resolve.
+// eslint-disable-next-line unicorn/prefer-node-protocol
+import { Buffer as PolyfillBuffer } from 'buffer'
 import { Polar, type PolarWebhookEvent, type WebhookEventHandlers } from '@convex-dev/polar'
 import { benefitsGet } from '@polar-sh/sdk/funcs/benefitsGet.js'
 import { checkoutsCreate } from '@polar-sh/sdk/funcs/checkoutsCreate.js'
@@ -29,6 +32,14 @@ import {
 import { guardDelivery, parseSecretList, WEBHOOK_BODY_LIMIT, type WebhookLogRefs } from './webhook-guard.js'
 import { v } from 'convex/values'
 import type { SendEmailOptions } from './email.js'
+
+// The provider SDK verifies webhook signatures with `Buffer.from(secret)`.
+// HTTP actions run in the Convex isolate runtime, which has no `Buffer`, so
+// without this every genuine delivery was answered 403 and the provider
+// disabled the endpoint. The polyfill is the pure-JS `buffer` package.
+if (typeof globalThis.Buffer === 'undefined') {
+  (globalThis as { Buffer?: typeof PolyfillBuffer }).Buffer = PolyfillBuffer
+}
 
 /**
  * Any query context — the consumer's `currentUserId` resolver runs inside the
