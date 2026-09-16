@@ -1,4 +1,5 @@
 import type { FunctionReference } from 'convex/server'
+import { Webhook } from 'standardwebhooks'
 
 /**
  * The shared fail-closed edge discipline for inbound webhook routes
@@ -139,4 +140,46 @@ export async function guardDelivery(
   }
 
   return { deliveryId, record, rejection: null }
+}
+
+const STANDARD_WEBHOOK_PREFIX = 'whsec_'
+
+/** Base64 of a string's UTF-8 bytes — the secret reading the provider SDK verifies with. */
+function sdkSecretReading(secret: string): string {
+  return btoa(String.fromCharCode(...new TextEncoder().encode(secret)))
+}
+
+/**
+ * Re-sign a Standard Webhooks delivery for the provider SDK's reading of the
+ * secret. The provider signs with Standard Webhooks semantics — the `whsec_`
+ * prefix stripped and the rest base64-decoded into the HMAC key — while the
+ * SDK's `validateEvent` keys the HMAC with the UTF-8 bytes of the whole
+ * secret string, so every genuine delivery failed verification (observed as
+ * 403s until the provider disabled the endpoint). A delivery that verifies
+ * under the standard reading of one of the accepted secrets comes back with
+ * its `webhook-signature` recomputed under the SDK reading of that same
+ * secret; anything else is returned untouched and refused downstream.
+ *
+ * @internal
+ */
+export function translateStandardSignature(headers: Headers, body: string, secrets: readonly string[]): Headers {
+  const id = headers.get('webhook-id')
+  const timestamp = headers.get('webhook-timestamp')
+  const signature = headers.get('webhook-signature')
+  if (!id || !timestamp || !signature) return headers
+  const delivered = { 'webhook-id': id, 'webhook-timestamp': timestamp, 'webhook-signature': signature }
+  for (const secret of secrets) {
+    if (!secret.startsWith(STANDARD_WEBHOOK_PREFIX)) continue
+    try {
+      new Webhook(secret).verify(body, delivered)
+    }
+    catch {
+      continue
+    }
+    const resigned = new Webhook(sdkSecretReading(secret)).sign(id, new Date(Number(timestamp) * 1000), body)
+    const translated = new Headers(headers)
+    translated.set('webhook-signature', resigned)
+    return translated
+  }
+  return headers
 }

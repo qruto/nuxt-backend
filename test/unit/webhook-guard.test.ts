@@ -1,12 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
+import { Webhook } from 'standardwebhooks'
 import { setupEmail, type Email, type EmailComponents, type EmailWebhookEvent } from '../../src/convex/integrations/email'
-import {
-  guardDelivery,
-  parseSecretList,
-  WEBHOOK_BODY_LIMIT,
-  type WebhookLogRefs,
-  type WebhookOutcome,
-} from '../../src/convex/integrations/webhook-guard'
+import { guardDelivery, parseSecretList, translateStandardSignature, type WebhookLogRefs, type WebhookOutcome, WEBHOOK_BODY_LIMIT } from '../../src/convex/integrations/webhook-guard'
 
 // Pins the fail-closed status table documented in webhook-guard.ts:
 //
@@ -288,5 +283,38 @@ describe('/email/events on the guard — the rows the route owns', () => {
 
     expect(ctx.runQuery).not.toHaveBeenCalled()
     expect(ctx.runMutation).not.toHaveBeenCalled()
+  })
+})
+
+describe('translateStandardSignature', () => {
+  // 32 random-looking bytes, base64 — the shape the provider hands out.
+  const secret = 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSHc2e9Vp3kWhY='
+  const sdkReading = btoa(String.fromCharCode(...new TextEncoder().encode(secret)))
+  const body = JSON.stringify({ type: 'order.paid', data: { id: 'ord_1' } })
+  const id = 'msg_1'
+  const at = new Date()
+  const headersFor = (signature: string) => new Headers({ 'webhook-id': id, 'webhook-timestamp': String(Math.floor(at.getTime() / 1000)), 'webhook-signature': signature })
+
+  it('re-signs a delivery signed the standard way so the SDK reading verifies it', () => {
+    const standard = new Webhook(secret).sign(id, at, body)
+    const translated = translateStandardSignature(headersFor(standard), body, [secret])
+
+    expect(translated.get('webhook-signature')).not.toBe(standard)
+    expect(() => new Webhook(sdkReading).verify(body, Object.fromEntries(translated.entries()))).not.toThrow()
+  })
+
+  it('leaves a delivery already signed the SDK way, or not verifiable at all, untouched', () => {
+    const sdkSigned = new Webhook(sdkReading).sign(id, at, body)
+    expect(translateStandardSignature(headersFor(sdkSigned), body, [secret]).get('webhook-signature')).toBe(sdkSigned)
+    expect(translateStandardSignature(headersFor('v1,bogus'), body, [secret]).get('webhook-signature')).toBe('v1,bogus')
+    expect(translateStandardSignature(new Headers(), body, [secret]).get('webhook-signature')).toBeNull()
+  })
+
+  it('tries every accepted secret and only ones with the standard prefix', () => {
+    const rotated = 'whsec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='
+    const standard = new Webhook(rotated).sign(id, at, body)
+    const translated = translateStandardSignature(headersFor(standard), body, ['plain-old-secret', secret, rotated])
+    const rotatedSdkReading = btoa(String.fromCharCode(...new TextEncoder().encode(rotated)))
+    expect(() => new Webhook(rotatedSdkReading).verify(body, Object.fromEntries(translated.entries()))).not.toThrow()
   })
 })

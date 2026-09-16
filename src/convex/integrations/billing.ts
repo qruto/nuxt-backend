@@ -29,7 +29,7 @@ import {
   queryGeneric,
   type RegisteredAction,
 } from 'convex/server'
-import { guardDelivery, parseSecretList, WEBHOOK_BODY_LIMIT, type WebhookLogRefs } from './webhook-guard.js'
+import { guardDelivery, parseSecretList, translateStandardSignature, type WebhookLogRefs, WEBHOOK_BODY_LIMIT } from './webhook-guard.js'
 import { v } from 'convex/values'
 import type { SendEmailOptions } from './email.js'
 
@@ -2550,9 +2550,12 @@ export function setupBilling(
       }
     })()
 
+    // The provider signs with Standard Webhooks semantics; the SDK verifies a
+    // different reading of the same secret (see translateStandardSignature).
+    const headers = translateStandardSignature(request.headers, body, webhookSecrets)
     let lastForbidden: Response | null = null
     for (const handler of capturedHandlers) {
-      const attempt = new Request(request.url, { method: 'POST', headers: request.headers, body })
+      const attempt = new Request(request.url, { method: 'POST', headers, body })
       try {
         const response = await handler(ctx, attempt)
         if (response.status === 403) {
