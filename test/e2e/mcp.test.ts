@@ -128,8 +128,6 @@ await setup({
   setupTimeout: 600_000,
   nuxtConfig: {
     telemetry: false,
-    // See test/e2e/minimal.test.ts — local-checkout `link:` artifact only.
-    build: { transpile: ['better-auth'] },
     backend: {
       url: stub.url,
       siteUrl: stub.url,
