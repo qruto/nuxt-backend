@@ -134,6 +134,9 @@ export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: 'nuxt-backend',
     configKey: 'backend',
+    // Surfaced by Nuxt DevTools and the nuxt/modules registry (which reads it
+    // from dist/module.json and uses it as the listing's website).
+    docs: 'https://nuxt-backend.dev',
     // moduleDependencies with option forwarding is a Nuxt 4.1 feature.
     compatibility: { nuxt: '>=4.1.0' },
   },
