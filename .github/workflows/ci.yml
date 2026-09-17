@@ -165,6 +165,15 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm run docs:reference:check
 
+      # The hand-written docs against the code: every module option documented
+      # where options are listed, every middleware name a docs page uses
+      # registered, README links that resolve from npm, contributor docs that
+      # name real CI jobs, nothing describing the repository as it no longer
+      # is. Here rather than in `test`, which a docs-only change skips.
+      - name: Docs contract
+        if: ${{ !cancelled() }}
+        run: pnpm run test:docs
+
       # Security analysis of the workflow files: template injection, credentials
       # left on disk, unpinned actions. Accepted findings live in
       # .github/zizmor.yml.

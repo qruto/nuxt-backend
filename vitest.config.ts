@@ -64,6 +64,16 @@ export default defineConfig({
         },
       }),
       {
+        // Docs ↔ code contract: reads markdown and source, imports nothing
+        // from src at runtime. Runs in CI's `static` job, which every PR
+        // gets — the `test` job is skipped for docs-only changes.
+        test: {
+          name: 'docs',
+          include: ['test/docs/**/*.{test,spec}.ts'],
+          environment: 'node',
+        },
+      },
+      {
         test: {
           // Boots real Nuxt instances against test/fixtures/registration
           // (`loadNuxt`, no build) and inspects the registration surface —

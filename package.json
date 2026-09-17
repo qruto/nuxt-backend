@@ -293,7 +293,8 @@
     "skills:update": "npx -y skills@latest update -p -y",
     "bump": "pnpm exec taze major -w",
     "db:reset": "node scripts/db-reset.js",
-    "db:seed": "node scripts/db-seed.js"
+    "db:seed": "node scripts/db-seed.js",
+    "test:docs": "vitest --project docs --run"
   },
   "dependencies": {
     "@better-auth/passkey": ">=1.6.25 <1.7.0",
