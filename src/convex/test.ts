@@ -2,7 +2,7 @@
 import type { TestConvex } from 'convex-test'
 import type { GenericSchema, SchemaDefinition } from 'convex/server'
 import resend from '@convex-dev/resend/test'
-import schema from './components/backend/schema'
+import schema from './components/backend/schema.js'
 
 const modules = import.meta.glob('./components/backend/**/*.ts')
 
