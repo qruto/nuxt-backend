@@ -350,7 +350,6 @@
     "@vitest/coverage-v8": "^4.1.10",
     "@vue/test-utils": "^2.5.0",
     "changelogen": "^0.6.2",
-    "changelogithub": "^15.0.4",
     "chokidar-cli": "^3.0.0",
     "convex": "^1.46.0",
     "convex-test": "^0.0.54",

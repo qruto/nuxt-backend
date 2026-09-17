@@ -90,12 +90,6 @@ trustPolicyExclude:
 # lockfile already resolves elsewhere (no new code enters the tree), and lists
 # the condition for removing it.
 overrides:
-  # giget@1 (changelogithub -> changelogen@0.5 -> c12@1) pins tar ^6 — EOL, in
-  # range for the 7.5.x path-traversal series (GHSA-8qq5-rm4j-mr97 et al.,
-  # fixed in 7.5.18+). giget only calls `extract({ file, cwd, onentry })`; tar 7
-  # keeps that API (onentry survives as a deprecated alias of onReadEntry).
-  # Remove when changelogithub ships a changelogen with c12@3+/giget@2+.
-  'giget>tar': ^7.5.18
   # fontless@0.2.1 (latest; via @nuxt/fonts and nuxt-og-image) pins esbuild
   # ^0.27.0, in range for GHSA-g7r4-m6w7-qqqr (dev-server file read on Windows,
   # fixed in 0.28.1). fontless only imports `transform`, stable across 0.x.

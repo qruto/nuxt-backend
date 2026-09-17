@@ -194,7 +194,7 @@ pnpm generate   # static build
 3. Prepare for development using `pnpm dev:prepare`
 4. Start development server using `pnpm dev`
 
-We follow conventional commits (Dependabot PRs do too). See [CONTRIBUTING.md](./CONTRIBUTING.md) and [RELEASING.md](./RELEASING.md) for the full workflow.
+We follow conventional commits (Dependabot PRs do too). See [CONTRIBUTING.md](./CONTRIBUTING.md) and [RELEASE.md](./RELEASE.md) for the full workflow.
 
 ## Security
 

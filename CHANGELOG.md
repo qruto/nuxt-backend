@@ -2,4 +2,4 @@
 
 ## v0.1.0
 
-First release — check out the [README](./README.md).
+A throwaway test publish (2026-06-15), deprecated on npm — the first real release is `v0.2.0`.

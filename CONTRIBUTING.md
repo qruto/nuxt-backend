@@ -220,4 +220,4 @@ which need GitHub, the Windows leg of the test matrix, and the coverage threshol
 
 ## Releasing
 
-Releases are automated via CI. See [RELEASING.md](RELEASING.md) for details.
+Releases are automated via CI. See [RELEASE.md](RELEASE.md) for the two-step, zero-credential flow.
