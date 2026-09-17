@@ -2,6 +2,7 @@ import type { FunctionReference } from 'convex/server'
 import { computed, getCurrentInstance, inject, onMounted, ref, toValue, watch, type ComputedRef, type MaybeRefOrGetter, type Ref } from 'vue'
 import { useAction, useQuery, ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { useBackendNamespace } from '../utils/namespace'
+import { openProviderUrl } from '../utils/open-url'
 
 /** A billing-provider product (loose — the provider owns the full shape; cast as needed). */
 export type BillingProduct = { id: string, name: string } & Record<string, unknown>
@@ -58,18 +59,12 @@ export interface BillingPage<Item> {
 }
 
 /**
- * How the provider settles the money difference when a subscription switches
- * product mid-period (provider `proration_behavior`). Omit to use the
- * organization's configured default.
- */
-export type ProrationBehavior = 'invoice' | 'prorate' | 'next_period' | 'reset'
-
-/**
- * The subset a **client** may choose. `invoice` and `prorate` settle the
- * difference now; `next_period` and `reset` hand over the new plan immediately
- * while deferring or waiving the charge, so they stay server-side — pass them
- * from your own Convex action via `billing.updateSubscription(ctx, …)`, or make
- * one the organization's default.
+ * The subset of the provider's proration behaviours a **client** may choose
+ * (`ProrationBehavior` in `nuxt-backend/billing` has all four). `invoice` and
+ * `prorate` settle the difference now; `next_period` and `reset` hand over the
+ * new plan immediately while deferring or waiving the charge, so they stay
+ * server-side — pass them from your own Convex action via
+ * `billing.updateSubscription(ctx, …)`, or make one the organization's default.
  */
 export type ClientProrationBehavior = 'invoice' | 'prorate'
 
@@ -455,12 +450,6 @@ export function formatBillingAmount(amount: number, currency?: string | null): s
   return value % 1 ? value.toFixed(2) : String(value)
 }
 
-function openUrl(url: string, redirect?: boolean): void {
-  if (typeof window === 'undefined') return
-  if (redirect) window.location.href = url
-  else window.open(url, '_blank')
-}
-
 /**
  * Build a `checkout(productIds, options)` action over a billing namespace —
  * shared by {@link useBilling} (subscriptions) and {@link useCredits} (top-ups),
@@ -488,7 +477,7 @@ export function createCheckout(billing: BillingApi) {
       allowDiscountCodes: opts.allowDiscountCodes,
       discountId: opts.discountId,
     })
-    openUrl(url, opts.redirect)
+    openProviderUrl(url, opts.redirect)
     return url
   }
 }
@@ -677,7 +666,7 @@ export function createGiftCheckout(billing: BillingApi) {
       successUrl,
       metadata: opts.metadata,
     })
-    openUrl(url, opts.redirect)
+    openProviderUrl(url, opts.redirect)
     return url
   }
 }
@@ -804,7 +793,7 @@ export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
     portal: async (opts = {}) => {
       if (!runPortal) notConfigured('portal')
       const { url } = await runPortal({ returnUrl: opts.returnUrl })
-      openUrl(url, opts.redirect)
+      openProviderUrl(url, opts.redirect)
       return url
     },
     // `updateSubscription` is the full-fidelity call; `changeCurrentSubscription`

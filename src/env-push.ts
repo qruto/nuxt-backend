@@ -26,8 +26,6 @@ export const BACKEND_ENV_NAMES = [
   ...Object.keys(OPTIONAL_DEPLOYMENT_ENV) as (keyof typeof OPTIONAL_DEPLOYMENT_ENV)[],
 ] as const
 
-export type BackendEnvName = (typeof BACKEND_ENV_NAMES)[number]
-
 export interface EnvPushAction {
   name: string
   action:
