@@ -1,6 +1,7 @@
 import { computed, inject, type ComputedRef, type MaybeRefOrGetter, type Ref } from 'vue'
 import { useAction, ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { useBackendNamespace } from '../utils/namespace'
+import { openProviderUrl } from '../utils/open-url'
 import { type BillingApi, type BillingOrder, createProviderPager } from './use-billing'
 
 export interface UseOrdersOptions {
@@ -111,10 +112,7 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersReturn {
       const url = result?.url ?? null
       // Invoices are a deliberate click, so opening is the default; `open:
       // false` hands the URL back for a download link or a custom viewer.
-      if (url && (opts.open ?? true) && typeof window !== 'undefined') {
-        if (opts.redirect) window.location.href = url
-        else window.open(url, '_blank')
-      }
+      if (url && (opts.open ?? true)) openProviderUrl(url, opts.redirect)
       return url
     },
   }

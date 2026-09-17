@@ -39,6 +39,7 @@ export async function exchangeBackendMcpToken(event: H3Event, token: string): Pr
     throw createError({ statusCode: 503, message: 'Agent endpoint unavailable — no Convex site URL configured.' })
   }
 
+  // fallow-ignore-next-line security-sink -- destination is the deployment site URL and exchange path from runtime config, never the request; verified 2026-09-17
   const response = await fetch(`${siteUrl}${config.exchangePath}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },

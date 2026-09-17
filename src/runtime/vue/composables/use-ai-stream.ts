@@ -104,6 +104,7 @@ export function useAiStream(stream: AiStreamApi, options: UseAiStreamOptions = {
 
     void (async () => {
       try {
+        // fallow-ignore-next-line security-sink -- the stream URL is the deployment site URL from runtime config plus the configured route; verified 2026-09-17
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...toValue(options.headers) },

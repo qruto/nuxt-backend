@@ -329,6 +329,7 @@ async function webhookRouteFindings(siteUrl: string, { ai }: { ai: boolean }): P
   return Promise.all(routes.map(async (route): Promise<PreflightFinding> => {
     const url = `${siteUrl.replace(/\/+$/, '')}${route.path}`
     try {
+      // fallow-ignore-next-line security-sink -- the doctor probes the project's own SITE_URL (its env file), from the developer's machine; verified 2026-09-17
       const response = await fetch(url, { method: 'POST', body: '', signal: AbortSignal.timeout(5000) })
       if (response.status === 404) {
         return {
