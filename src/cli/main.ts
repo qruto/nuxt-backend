@@ -1,6 +1,8 @@
 import { existsSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { defineCommand } from 'citty'
+import { packageVersion } from '../dirs'
+import { runConvex } from '../convex-cli'
 import { scaffoldBackendFiles, resolveFunctionsDir } from '../scaffold'
 import type { BackendInstallationMode } from '../templates'
 import { collectPreflightFindings, DEV_ONLY_DEPLOYMENT_ENV, formatPreflightSummary, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../preflight'
@@ -11,20 +13,10 @@ import { billing, collectBillingFindings, loadCatalog, readBillingOrganizationSt
 import { missingContractFunctions } from '../contract'
 import { resolvePagePath, type ModulePagesOptions } from '../pages'
 
-/** Run a read-only `npx convex <args>` returning stdout, or null on any failure. */
+/** Run a read-only `convex <args>` returning stdout, or null on any failure (CLI absent, no deployment, …). */
 async function convexCli(rootDir: string, args: string[]): Promise<string | null> {
-  const { execFile } = await import('node:child_process')
-  const { promisify } = await import('node:util')
   try {
-    const { stdout } = await promisify(execFile)('npx', ['convex', ...args], {
-      cwd: rootDir,
-      encoding: 'utf-8',
-      timeout: 30_000,
-      // Windows npx is npx.cmd (needs a shell post-CVE-2024-27980); args are
-      // static literals, so shelling stays injection-safe.
-      shell: process.platform === 'win32',
-    })
-    return stdout
+    return (await runConvex(rootDir, args)).stdout
   }
   catch {
     return null
@@ -558,6 +550,7 @@ const doctor = defineCommand({
 export const main = defineCommand({
   meta: {
     name: 'nuxt-backend',
+    version: packageVersion(),
     description: 'All-in-one SaaS backend for Nuxt on Convex — scaffold and check your project',
   },
   subCommands: { init, doctor, env, billing },
