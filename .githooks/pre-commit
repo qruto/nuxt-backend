@@ -1,26 +1,28 @@
 #!/bin/sh
-# Fast gate, runs on every commit. The slower half of CI lives in pre-push; see
-# CONTRIBUTING.md § Git Hooks for the split and for what neither hook can cover.
+# Fast gate, runs on every commit (~8s). The slower half of CI lives in
+# pre-push; see CONTRIBUTING.md § Git Hooks for the split and for what neither
+# hook can cover.
 #
-# Skipped in CI on purpose: the release job commits through changelogen, which
-# shells out to a plain `git commit` (hooks and all), and a release must not be
-# gated on checks the pull request already ran. `CI=1` also trips pnpm's
-# `verifyDepsBeforeRun` guard, so these would fail there for the wrong reason.
+# Skipped in CI on purpose: every check here already runs as its own CI job,
+# and `CI=1` trips pnpm's `verifyDepsBeforeRun` guard, so these would fail
+# there for the wrong reason. (No CI job runs `git commit` at all — the release
+# commit is made through GitHub's API, hooks never see it.)
 #
 # Every tool runs through `pnpm exec` / `pnpm run`: each is a devDependency and
-# is on PATH only inside a pnpm script.
-#
-# TODO(fallow burndown): add `pnpm exec fallow audit --gate-marker pre-commit`
-# here — and the whole-project `fallow --fail-on-issues` + `fallow security
-# --fail-on-issues` pair to pre-push and to the `static` CI job — once the ~58
-# pre-existing findings `pnpm test:quality` reports today are burned down. A
-# gate that starts red is a gate everyone learns to bypass.
+# is on PATH only inside a pnpm script. A bare `fallow` would not resolve — the
+# stock hook from `fallow hooks install` opens with `command -v fallow || exit 0`
+# and would pass every commit while looking installed.
 #
 # Bypass once with: git commit --no-verify
 if [ -n "$CI" ]; then exit 0; fi
 set -e
 
-# `static` job's lint step, scoped to what this commit stages. The paths go to
+# `static` job's Quality step. Scoped to the files this branch changed — fallow
+# derives the merge-base with the branch upstream itself — and its `new-only`
+# gate fails only on findings the change introduces.
+pnpm exec fallow audit --gate-marker pre-commit
+
+# `static` job's Lint step, scoped to what this commit stages. The paths go to
 # ESLint explicitly, so `--no-warn-ignored` keeps a staged file the config
 # ignores (dist, _generated, …) from tripping the run. Written without
 # `mapfile`/arrays — this hook is /bin/sh.
@@ -29,7 +31,7 @@ if [ -n "$staged" ]; then
   printf '%s\n' "$staged" | tr '\n' '\0' | xargs -0 pnpm exec eslint --no-warn-ignored
 fi
 
-# `static` job's template drift step. `src/templates.generated.ts` is derived
+# `static` job's Template drift step. `src/templates.generated.ts` is derived
 # from the component's function modules; regenerating must produce no diff, or
 # the local-install scaffold and the component have diverged. This one rewrites
 # the file: if it fails, the regenerated output is already in your working
@@ -41,3 +43,24 @@ if ! git diff --quiet -- src/templates.generated.ts; then
   git --no-pager diff --stat -- src/templates.generated.ts >&2
   exit 1
 fi
+
+# Claude Code reads `.claude/skills`, where `npx skills add --agent claude-code`
+# writes a symlink to the canonical `.agents/skills` copy. A skill installed
+# without that link — or one whose file is not exactly `SKILL.md` — is silently
+# invisible on a fresh clone.
+#
+# Local-developer convenience, so it belongs here and not in CI: nothing about it
+# reaches a consumer, and it has no business holding a required merge check.
+# Written without `diff <(...)` — this hook is /bin/sh, and process substitution
+# is a bashism.
+agent_skills=$(ls .agents/skills)
+claude_skills=$(ls .claude/skills)
+if [ "$agent_skills" != "$claude_skills" ]; then
+  echo "error: .claude/skills does not mirror .agents/skills" >&2
+  echo "  .agents/skills: $(echo "$agent_skills" | tr '\n' ' ')" >&2
+  echo "  .claude/skills: $(echo "$claude_skills" | tr '\n' ' ')" >&2
+  exit 1
+fi
+for skill in .claude/skills/*; do
+  test -f "$skill/SKILL.md" || { echo "error: $skill has no SKILL.md" >&2; exit 1; }
+done

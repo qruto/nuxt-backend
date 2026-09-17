@@ -12,7 +12,7 @@
     "nuxt.config.ts",
     "vitest.config.ts",
     "eslint.config.js",
-    "scripts/**/*.{ts,js}",
+    "scripts/**/*.{ts,js,mjs}",
     "website/nuxt.config.ts",
     "website/app.config.ts",
     "website/app.css",
@@ -27,36 +27,85 @@
     "test/fake-watch.ts"
   ],
 
-  // Generated and built output. `**/_generated/**` is Convex codegen wherever it
-  // appears — the component's, the website's, the examples' (the examples are
-  // workspace members here, so they are analysed like any other package); the
-  // rest is build output that a fresh checkout does not even have.
+  // Generated and built output, plus the consumer samples. `**/_generated/**`
+  // is Convex codegen wherever it appears; `dist/` and `.nuxt/` are build
+  // output a fresh checkout does not even have; `examples/` are standalone
+  // apps of the published package — Convex function modules whose exports the
+  // platform calls, not this codebase's.
   "ignorePatterns": [
     "**/_generated/**",
     "dist/**",
     ".nuxt/**",
     "**/.nuxt/**",
-    "website/.nuxt/**",
-    "website/backend/_generated/**",
-    "src/convex/components/backend/_generated/**"
+    "examples/**"
+  ],
+
+  // Registered from src/module.ts by path (addServerHandler, addPlugin, the
+  // MCP toolkit's `mcp:definitions:paths` hook) — the static graph cannot
+  // follow a resolver.resolve() string.
+  "dynamicallyLoaded": [
+    "src/runtime/devtools/plugin.client.ts",
+    "src/runtime/server/mcp/gate.ts",
+    "src/runtime/server/mcp/protected-resource.ts",
+    "src/runtime/server/mcp/authorization-server.ts",
+    "src/runtime/server/mcp/tools/*.ts"
+  ],
+
+  // The website, the tests and the fixtures import the package by its
+  // published name, and those subpaths resolve through `dist/` — gitignored,
+  // so a fresh checkout has nothing to resolve them to; whether they resolve
+  // locally depends on the current build state. The fixtures' and the
+  // website's functions directories import their own `_generated/` codegen,
+  // which only `convex dev` writes. Neither finding is about the import.
+  "ignoreUnresolvedImports": ["nuxt-backend", "nuxt-backend/**", "./_generated/*"],
+
+  "ignoreExports": [
+    // The `#convex/auth-client` contract: the base module imports `authClient`
+    // and its `AuthClient` type through the alias src/module.ts points at one
+    // of these two files; nothing here imports them by path.
+    { "file": "src/runtime/vue/auth-client.ts", "exports": ["AuthClient"] },
+    { "file": "src/runtime/vue/auth-client-solo.ts", "exports": ["AuthClient"] },
+    // Auto-imports registered by name (addImports / addComponent in
+    // src/module.ts, frozen by test/nuxt/public-surface.test.ts): the app
+    // reaches them through the auto-import, never by importing the file.
+    { "file": "src/runtime/vue/composables/base-aliases.ts", "exports": ["useAuthState", "useConnectionState"] },
+    { "file": "src/runtime/vue/composables/use-ai-stream.ts", "exports": ["useAiStream"] },
+    { "file": "src/runtime/vue/components/feature-boundary.ts", "exports": ["FeatureBoundary"] },
+    { "file": "src/runtime/vue/components/gift-claim-banner.ts", "exports": ["GiftClaimBanner"] }
   ],
 
   // Installed on purpose, never imported by name.
   "ignoreDependencies": [
+    "nuxt-security", // installed into every app through moduleDependencies in src/module.ts, by name
     "@edge-runtime/vm", // vitest `environment: 'edge-runtime'` for the convex-component project
     "@vue/test-utils", // reached through @nuxt/test-utils' mountSuspended
-    "oxc-parser" // scripts/generate-templates.mjs parses the component sources with it
+    "oxc-parser", // scripts/generate-templates.mjs parses the component sources with it
+    // Invoked as subprocesses by scripts/check-tarball.mjs (`pnpm exec publint`,
+    // `pnpm exec attw`) rather than imported, so no static reference exists.
+    "publint",
+    "@arethetypeswrong/cli",
+    "typedoc-plugin-frontmatter", // both listed as plain strings in typedoc.json "plugin"
+    "typedoc-plugin-markdown"
   ],
 
   "ignoreExportsUsedInFile": true,
 
   // Codegen is not ours to deduplicate; the composables mirror upstream shapes
-  // on purpose; tests repeat setup by design.
+  // on purpose; tests repeat setup by design; the scaffold templates and the
+  // website's functions are copies of each other by contract
+  // (test/unit/local-install-parity.test.ts).
   "duplicates": {
     "ignore": [
       "**/_generated/**",
       "test/**",
-      "src/runtime/vue/composables/**"
+      "src/runtime/vue/composables/**",
+      "src/templates.ts",
+      // The docs site and the shipped stylesheets: design-system values
+      // restated per surface (a custom property's var()s resolve on the
+      // element that declares it, so a scoped override restates the whole
+      // value) and demo pages that repeat a layout on purpose.
+      "website/**",
+      "src/runtime/vue/components/*.css"
     ]
   },
 
@@ -69,7 +118,98 @@
     "ignore": [
       "test/**",
       "**/_generated/**",
-      "src/runtime/vue/composables/**"
+      "src/runtime/vue/composables/**",
+      // The demo apps, not the library: the playground pages and the DevTools
+      // panel are one `<template>` each, and a template's branching is its
+      // content. The gate is for what ships in the package.
+      "website/**",
+      "devtools-client-app/**"
+    ],
+    // Ceilings set at today's values, so the gate holds the line while these
+    // are worked down — each carries the reason it is where it is, and a
+    // bigger function fails the build. Tracked in the release plan's follow-ups.
+    "thresholdOverrides": [
+      {
+        "files": ["src/cli/main.ts"],
+        "functions": ["run"],
+        "maxCyclomatic": 36,
+        "maxCognitive": 74,
+        "reason": "`doctor` — one command, one report: every finding collector runs in sequence and formats into the same table. Splitting per finding group is the planned refactor; until then the shape is the report's."
+      },
+      {
+        "files": ["src/cli/main.ts"],
+        "functions": ["reportEnvPush"],
+        "maxCognitive": 23,
+        "reason": "Renders one env-push plan in both json and text with per-outcome wording; a decision table, not a flow."
+      },
+      {
+        "files": ["src/cli/billing.ts"],
+        "functions": ["syncBillingCatalog"],
+        "maxCyclomatic": 49,
+        "maxCognitive": 72,
+        "reason": "Find-or-create over meters, benefits, products and prices against the provider API, never deleting: the branching is the sync's contract (docs: catalog-as-code). Split by catalog entity is the planned refactor."
+      },
+      {
+        "files": ["src/cli/billing.ts"],
+        "functions": ["collectBillingFindings", "run"],
+        "maxCyclomatic": 34,
+        "maxCognitive": 49,
+        "reason": "The billing half of `doctor`: one finding per catalog entity state, each with its own fix hint."
+      },
+      {
+        "files": ["src/convex/client/index.ts"],
+        "functions": ["createBetterAuthOptions"],
+        "maxCyclomatic": 60,
+        "maxCognitive": 56,
+        "reason": "Assembles the Better Auth options object from every backend option in one place, so the auth configuration is readable top to bottom as one document. Extracting the plugin list is the planned refactor."
+      },
+      {
+        "files": ["src/env-push.ts"],
+        "functions": ["planEnvPush"],
+        "maxCyclomatic": 23,
+        "maxCognitive": 36,
+        "reason": "The env-push decision table (set / skip / plan / fail per variable class and deployment kind); the cases are the documented behaviour."
+      },
+      {
+        "files": ["src/runtime/vue/components/pricing-table.ts"],
+        "functions": ["planAction", "<arrow>"],
+        "maxCyclomatic": 27,
+        "maxCognitive": 36,
+        "reason": "Which button a plan shows (subscribe / switch / current / manage / gift) from subscription state, entitlement and catalog flags — a product decision table the docs spell out."
+      },
+      {
+        "files": ["src/runtime/vue/components/credits-low-banner.ts"],
+        "functions": ["<arrow>"],
+        "maxCyclomatic": 22,
+        "maxCognitive": 18,
+        "reason": "Banner visibility from meter balance, thresholds and dismissal state."
+      },
+      {
+        "files": [
+          "src/convex/integrations/ai.ts",
+          "src/convex/integrations/billing.ts",
+          "src/convex/integrations/email.ts",
+          "src/convex/integrations/mcp.ts"
+        ],
+        "functions": ["prepare", "handleGiftOrderPaid", "webhookHandler", "exchangeHandler"],
+        "maxCyclomatic": 22,
+        "maxCognitive": 25,
+        "reason": "Fail-closed request handlers: every rejection (missing secret, bad signature, oversized body, unknown event, replay) is an explicit branch with its own status code, per the webhook policy in the docs."
+      },
+      {
+        "files": ["src/module.ts"],
+        "functions": ["moduleDependencies", "runPreflight"],
+        "maxCyclomatic": 21,
+        "maxCognitive": 22,
+        "reason": "Option forwarding to the base module and the startup preflight: one branch per option and per finding."
+      },
+      {
+        "files": ["scripts/generate-templates.mjs"],
+        "functions": ["exportedNames"],
+        "maxCyclomatic": 18,
+        "maxCognitive": 23,
+        "reason": "Walks every export form the component modules use (const, function, re-export, factory call) to derive the scaffold's re-export list."
+      }
     ]
   }
 }
