@@ -68,8 +68,14 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
-# Claude Code local settings (machine-specific permissions)
+# Claude Code local settings (machine-specific permissions) and its scratch
+# writes
 .claude/settings.local.json
+.claude/.cc-writes/
+
+# fallow cache and the fallow GitHub Action's outputs (typos once failed on them)
+.fallow/
+fallow-*
 
 # QA screenshots (local-only)
 .qa

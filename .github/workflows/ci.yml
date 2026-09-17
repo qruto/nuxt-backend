@@ -8,8 +8,7 @@ name: ci
 # status" forever.
 #
 # Setup is defined once, in .github/actions/setup — that is where the pnpm
-# version, the Node runtime, their action pin and the `link:../nuxt-convex-module`
-# clone live.
+# version, the Node runtime and their action pin live.
 on:
   push:
     branches:
@@ -233,33 +232,15 @@ jobs:
       - name: Pack
         run: pnpm pack --out nuxt-backend.tgz
 
-      # Until nuxt-convex-module is published, package.json depends on it as
-      # `link:../nuxt-convex-module` — a range only pnpm understands. publint
-      # fails on it by design, and npm refuses it outright, so the publishable
-      # shape cannot be checked yet. Rather than a gate that is red until the
-      # base module ships, the consumer-facing steps below are skipped, with a
-      # warning on every run, and switch themselves on the moment the
-      # dependency becomes a semver range. The tarball-contents assertions do
-      # not depend on it and always run.
-      - name: Publishable dependencies?
-        id: deps
-        run: |
-          if jq -e '.dependencies | to_entries[] | select(.value | startswith("link:"))' package.json >/dev/null; then
-            echo "::warning::package.json still depends on nuxt-convex-module through link: — publint, attw and the consumer smoke test are skipped until it is a published range"
-            echo "publishable=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "publishable=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Package shape (publint)
-        if: ${{ !cancelled() && steps.deps.outputs.publishable == 'true' }}
+        if: ${{ !cancelled() }}
         run: pnpm exec publint run --strict nuxt-backend.tgz
 
       # The two CSS subpaths are excluded: TypeScript cannot resolve a
       # stylesheet, so attw reports them as failed resolution on every target —
       # the same exclusion `pnpm check:tarball` carries.
       - name: Type resolution (arethetypeswrong)
-        if: ${{ !cancelled() && steps.deps.outputs.publishable == 'true' }}
+        if: ${{ !cancelled() }}
         run: pnpm exec attw nuxt-backend.tgz --profile esm-only --exclude-entrypoints ./auth.css ./ui.css
 
       # What the tarball must and must not carry. Each `grep -q` is a question
@@ -310,7 +291,7 @@ jobs:
       # copy also drops the pnpm-managed node_modules, whose symlinks point back
       # into the workspace.
       - name: Consumer smoke test (npm install + build)
-        if: ${{ !cancelled() && steps.deps.outputs.publishable == 'true' }}
+        if: ${{ !cancelled() }}
         env:
           NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
         run: | # zizmor: ignore[adhoc-packages]
@@ -337,7 +318,7 @@ jobs:
       # refuses a package whose trust evidence weakens between versions; this
       # checks that the evidence actually validates, on the consumer's npm path.
       - name: Verify dependency signatures
-        if: ${{ !cancelled() && steps.deps.outputs.publishable == 'true' }}
+        if: ${{ !cancelled() }}
         run: | # zizmor: ignore[adhoc-packages]
           for example in minimal advanced; do
             (cd "$RUNNER_TEMP/smoke-$example" && npx --yes npm@11.17.0 audit signatures)

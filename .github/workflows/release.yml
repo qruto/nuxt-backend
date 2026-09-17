@@ -71,8 +71,7 @@ jobs:
           fi
 
       # pnpm (version from `packageManager`), the Node LTS runtime, a frozen
-      # `pnpm install`, the `link:../nuxt-convex-module` dependency and the
-      # full `dev:prepare` (the `.nuxt/tsconfig.json` the root tsconfig extends,
+      # `pnpm install` and the full `dev:prepare` (the `.nuxt/tsconfig.json` the root tsconfig extends,
       # required by the test run and by the build `pnpm publish` triggers via
       # `prepack`) — see .github/actions/setup. No cache: a restored cache is
       # an input nobody reviewed, and a release takes no unreviewed inputs.

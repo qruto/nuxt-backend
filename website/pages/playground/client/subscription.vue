@@ -1,11 +1,24 @@
 <script setup lang="ts">
-// `useSubscription` is exported but marked @internal, so it is not a Nuxt
-// auto-import — pull it from the package directly for this showcase.
-import { useSubscription } from 'nuxt-convex-module/client'
+import { onScopeDispose, shallowRef, type ShallowRef } from 'vue'
 
 definePageMeta({ middleware: 'auth' })
 
-const time = useSubscription({
+/**
+ * The subscription bridge, spelled out: read a value now, re-read it whenever
+ * the source says it changed, and tear the listener down with the component.
+ * The Convex client keeps its own copy of this primitive internally; the
+ * showcase uses a local one so it stays on the public surface.
+ */
+function useExternalValue<T>(source: { getCurrentValue: () => T, subscribe: (onChange: () => void) => () => void }): ShallowRef<T> {
+  const value = shallowRef(source.getCurrentValue()) as ShallowRef<T>
+  const stop = source.subscribe(() => {
+    value.value = source.getCurrentValue()
+  })
+  onScopeDispose(stop)
+  return value
+}
+
+const time = useExternalValue({
   getCurrentValue: () => new Date().toLocaleTimeString(),
   subscribe: (cb) => {
     if (!import.meta.client) return () => {}
@@ -14,7 +27,7 @@ const time = useSubscription({
   },
 })
 
-const width = useSubscription({
+const width = useExternalValue({
   getCurrentValue: () => (import.meta.client ? window.innerWidth : 0),
   subscribe: (cb) => {
     if (!import.meta.client) return () => {}
@@ -23,7 +36,7 @@ const width = useSubscription({
   },
 })
 
-const online = useSubscription({
+const online = useExternalValue({
   getCurrentValue: () => (import.meta.client ? navigator.onLine : true),
   subscribe: (cb) => {
     if (!import.meta.client) return () => {}
@@ -40,13 +53,13 @@ const online = useSubscription({
 <template>
   <div class="stack">
     <PageHeader
-      tag="useSubscription"
+      tag="subscription"
       title="Subscription bridge"
     >
-      <code>useSubscription</code> turns any
-      <code>{ getCurrentValue, subscribe }</code> source into a reactive
-      <code>ShallowRef</code> — the same primitive the Convex client uses
-      internally. Three plain browser APIs, bridged into live refs.
+      A <code>{ getCurrentValue, subscribe }</code> source bridged into a
+      reactive <code>ShallowRef</code> — the primitive the Convex client keeps
+      internally for its live queries, written out in a dozen lines. Three
+      plain browser APIs, bridged into live refs.
     </PageHeader>
 
     <div class="grid-auto">
@@ -108,7 +121,7 @@ const online = useSubscription({
       title="The bridge"
       variant="well"
     >
-      <pre class="code mono">const value = useSubscription({
+      <pre class="code mono">const value = useExternalValue({
   getCurrentValue: () =&gt; navigator.onLine,
   subscribe: (cb) =&gt; {
     addEventListener('online', cb)

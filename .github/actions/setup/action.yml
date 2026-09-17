@@ -1,10 +1,8 @@
 name: Setup
 description: >-
-  Install pnpm, the Node runtime and the project's dependencies, materialize the
-  `link:../nuxt-convex-module` dependency, and run as much of `dev:prepare` as
-  the job needs — the one place those versions and their action pin are
-  defined. Every job in every workflow calls this instead of repeating the
-  block.
+  Install pnpm, the Node runtime and the project's dependencies — the one place
+  those versions and their action pin are defined. Every job in every workflow
+  calls this instead of repeating the block.
 
 inputs:
   runtime:
@@ -23,22 +21,12 @@ inputs:
       Refuse the one install pnpm's own CI frozen mode still allows: no lockfile
       at all. Release jobs pass `true`.
     default: 'false'
-  link-base:
-    description: >-
-      Materialize the `link:../nuxt-convex-module` dependency: clone the public
-      qruto/nuxt-convex-module repository next to the workspace at the commit
-      pinned below, install its own dependencies and build it — CI's equivalent
-      of the sibling-checkout dev setup (CONTRIBUTING.md). `false` only for a
-      job that never resolves the base module. Remove this input and its step
-      once nuxt-convex-module is published and the dependency is a semver
-      range.
-    default: 'true'
   prepare:
     description: >-
-      How much of `dev:prepare` to run. `lib` builds the module stub, its types
-      and the Convex component — everything except the website. `full` adds
-      `nuxt prepare website`, which pulls in the entire Docus module graph and is
-      only needed to type-check or build the docs site. `none` skips it.
+      How much of `dev:prepare` to run. `lib` builds the module stub, its
+      types and the Convex component — everything except the website. `full`
+      adds `nuxt prepare website`, which pulls in the entire Docus module graph
+      and is only needed to type-check or build the docs site. `none` skips it.
     default: 'none'
 
 runs:
@@ -50,38 +38,6 @@ runs:
         runtime: ${{ inputs.runtime }}
         cache: ${{ inputs.cache }}
         require-lockfile: ${{ inputs.require-lockfile }}
-
-    # Runs after the install above on purpose: pnpm only symlinks a `link:`
-    # dependency, so the target has to exist by the time something resolves
-    # through it, not at install time. Pinned to a commit rather than a branch
-    # so a push to the base module cannot change what this repository's CI
-    # builds against; bump the SHA deliberately.
-    #
-    # A filtered install (the module and its DevTools app — not its docs site,
-    # which pulls in Docus) and then the base module's real `build` script,
-    # step by step: `nuxt-module-build prepare` for the `.nuxt/tsconfig.json`
-    # the build reads its compiler options from, `nuxt-module-build build` for
-    # `dist/runtime` — this package resolves `nuxt-convex-module/better-auth/server`
-    # and friends from there, which a `--stub` build does not emit — and the
-    # DevTools client the module serves from `dist/devtools-client`.
-    - name: Provide nuxt-convex-module (link:../nuxt-convex-module)
-      if: inputs.link-base == 'true'
-      shell: bash
-      env:
-        BASE_REPO: https://github.com/qruto/nuxt-convex-module
-        BASE_SHA: 9f5424351f41b533c3c68ff7e28e8dab86b5195a
-      run: |
-        BASE_DIR="$GITHUB_WORKSPACE/../nuxt-convex-module"
-        mkdir -p "$BASE_DIR"
-        cd "$BASE_DIR"
-        git init --quiet
-        git remote add origin "$BASE_REPO"
-        git fetch --quiet --depth 1 origin "$BASE_SHA"
-        git checkout --quiet --detach FETCH_HEAD
-        pnpm install --filter nuxt-convex-module --filter nuxt-convex-module-devtools-client
-        pnpm exec nuxt-module-build prepare
-        pnpm exec nuxt-module-build build
-        pnpm exec nuxt generate devtools-client-app
 
     # Generates `.nuxt/tsconfig.json` (which the root tsconfig extends), the
     # `dist/` stub and `dist/convex`. Without it `nuxt-module-build` cannot

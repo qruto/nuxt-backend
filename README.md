@@ -42,7 +42,7 @@ npx nuxi@latest module add nuxt-backend
 
 This is the only package you install — the Convex integration and all bundled components ship as its dependencies.
 
-> Using **strict** pnpm? Add `public-hoist-pattern[]=@convex-dev/*` to `.npmrc` (or set `node-linker=hoisted`) so Convex can resolve the bundled component definitions. See the [installation docs](/getting-started/installation#using-strict-pnpm).
+> Using **strict** pnpm? Add `publicHoistPattern: ['@convex-dev/*']` to `pnpm-workspace.yaml` (or set `nodeLinker: hoisted`) so Convex can resolve the bundled component definitions. See the [installation docs](https://nuxt-backend.dev/getting-started/installation#using-strict-pnpm).
 
 ### 2. Add the module
 
@@ -189,8 +189,8 @@ pnpm generate   # static build
 
 ## Contributing
 
-1. Clone this repository (and its sibling [`nuxt-convex-module`](https://github.com/qruto/nuxt-convex-module) next to it — linked via `link:../nuxt-convex-module`)
-2. Install dependencies using `pnpm install` (in both repos; run `pnpm dev:prepare` in `nuxt-convex-module` once)
+1. Clone this repository
+2. Install dependencies using `pnpm install`
 3. Prepare for development using `pnpm dev:prepare`
 4. Start development server using `pnpm dev`
 

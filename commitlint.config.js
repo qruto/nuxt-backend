@@ -1,5 +1,5 @@
-// Conventional Commits linting. Enforced locally via the `commit-msg` hook
-// (simple-git-hooks, see package.json) and on PRs in CI (.github/workflows/ci.yml).
+// Conventional Commits linting. Enforced locally via `.githooks/commit-msg`
+// (wired by the `prepare` script) and on PRs in CI (.github/workflows/ci.yml).
 // The accepted types drive the automated release bump — see RELEASING.md.
 export default {
   extends: ['@commitlint/config-conventional'],
