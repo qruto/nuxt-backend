@@ -117,11 +117,17 @@ jobs:
       # unpinned input in a repository that pins every action to a digest: a new
       # release can add an audit and redden CI with no change here. Pin it, and
       # bump deliberately — that is when you read the new findings.
+      #
+      # `inputs` is scoped to .github/ (workflows, the composite action and
+      # dependabot.yml): the default walks the whole tree and audits the
+      # workflow files third-party skills vendor under .agents/skills/, which
+      # are not ours to fix.
       - name: Workflow lint (zizmor)
         if: ${{ !cancelled() }}
-        uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
         with:
           version: 1.30.0
+          inputs: .github
           advanced-security: false
 
   test:
@@ -371,6 +377,24 @@ jobs:
           if grep -q 'AnyApi' backend/_generated/api.d.ts; then
             echo "::error::backend/_generated/api.d.ts is the untyped placeholder — the component-aware codegen phase did not run"; exit 1
           fi
+
+      # The packaged component's own `_generated/` (its ComponentApi, server
+      # builders and data model) is committed and compiled into the tarball —
+      # it is what a consumer's codegen types `components.backend.*` against.
+      # Nothing regenerates it but the dev watcher, so a function-signature
+      # change committed without it would publish a stale ComponentApi.
+      # Component codegen needs a selected deployment; the anonymous local one
+      # the step above provisioned in this directory is reused, with the
+      # repository's own convex CLI (the generated file changes shape between
+      # CLI versions).
+      - name: Component codegen drift
+        if: ${{ !cancelled() }}
+        working-directory: website
+        env:
+          CONVEX_AGENT_MODE: anonymous
+        run: |
+          pnpm exec convex codegen --component-dir ../src/convex/components/backend
+          git diff --exit-code -- ../src/convex/components/backend/_generated
 
       # vue-tsc over the website, with diagnostics from upstream layer sources
       # (Docus ships app code that type-checks against its own peer set)
