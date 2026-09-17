@@ -164,11 +164,10 @@ export const handleWebhook = action({
       return { status: 503, body: 'Webhook secret not configured' }
     }
 
-    let payload: unknown
     let verified = false
     for (const secret of secrets) {
       try {
-        payload = new Webhook(secret).verify(args.body, args.headers)
+        new Webhook(secret).verify(args.body, args.headers)
         verified = true
         break
       }
@@ -178,6 +177,18 @@ export const handleWebhook = action({
     }
     if (!verified) {
       return { status: 403, body: 'Invalid signature' }
+    }
+
+    // svix ≥ 2.2 no longer parses the body inside `verify` (it returns
+    // `undefined`), so the event is parsed here and the same code runs on
+    // either major. An authentic body that is not JSON carries no event type
+    // and takes the unknown-event path below.
+    let payload: unknown
+    try {
+      payload = JSON.parse(args.body)
+    }
+    catch {
+      // Authentic but not JSON: no event type.
     }
 
     const type = typeof (payload as { type?: unknown } | null)?.type === 'string'
