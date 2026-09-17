@@ -51,7 +51,8 @@ Defined in: [src/runtime/vue/composables/use-search.ts:12](https://github.com/qr
 function useSearch<Query>(
    query, 
    term, 
-options?): UseSearchResult<Query>;
+   options?
+): UseSearchResult<Query>;
 ```
 
 Defined in: [src/runtime/vue/composables/use-search.ts:38](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-search.ts#L38)
