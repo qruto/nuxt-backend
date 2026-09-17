@@ -22,6 +22,12 @@ reviews:
     # Machine-written, and Dependabot / the skills CLI are what open them.
     - '!pnpm-lock.yaml'
     - '!skills-lock.json'
+    # Third-party skills vendored by `skills update` and pinned by
+    # skills-lock.json above; `.claude/skills` is symlinks into the same tree.
+    # Several hundred files, so one update alone would exceed the per-review
+    # file allowance.
+    - '!.agents/skills/**'
+    - '!.claude/skills/**'
 
   path_instructions:
     - path: 'src/convex/**'

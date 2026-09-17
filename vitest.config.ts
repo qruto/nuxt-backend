@@ -9,7 +9,7 @@ export default defineConfig({
     // In CI, also emit a JUnit report for Codecov Test Analytics (flaky/failure
     // tracking). Local runs keep the default console reporter only.
     reporters: process.env.CI
-      ? ['default', ['junit', { outputFile: 'test-report.junit.xml' }]]
+      ? ['default', 'github-actions', ['junit', { outputFile: 'test-report.junit.xml' }]]
       : ['default'],
     coverage: {
       provider: 'v8',
