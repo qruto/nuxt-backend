@@ -33,17 +33,33 @@ export function scaffoldBackendFiles(rootDir: string, options: ScaffoldOptions =
     .filter(([file]) => !options.files || options.files.includes(file))
 
   for (const [file, contents] of templates) {
-    const targetPath = join(functionsDirPath, file)
-    if (options.force || !existsSync(targetPath)) {
-      mkdirSync(dirname(targetPath), { recursive: true })
-      writeFileSync(targetPath, contents)
+    if (writeUnlessPresent(join(functionsDirPath, file), contents, options.force)) {
       log(`[nuxt-backend] Created ${functionsDir}/${file}`)
     }
   }
 
-  if (!options.files && functionsDir !== STANDARD_FUNCTIONS_DIR && !existsSync(convexJsonPath)) {
-    writeFileSync(convexJsonPath, `${JSON.stringify({ functions: `${functionsDir}/` }, null, 2)}\n`)
-    log('[nuxt-backend] Created convex.json')
+  if (!options.files && functionsDir !== STANDARD_FUNCTIONS_DIR) {
+    const convexJson = `${JSON.stringify({ functions: `${functionsDir}/` }, null, 2)}\n`
+    if (writeUnlessPresent(convexJsonPath, convexJson)) {
+      log('[nuxt-backend] Created convex.json')
+    }
+  }
+}
+
+/**
+ * One exclusive create (`wx`) instead of exists-then-write, so a file that
+ * appears between the two — another `init`, the app's own `convex dev` — is
+ * kept rather than overwritten. Returns whether the file was written.
+ */
+function writeUnlessPresent(path: string, contents: string, force = false): boolean {
+  mkdirSync(dirname(path), { recursive: true })
+  try {
+    writeFileSync(path, contents, { flag: force ? 'w' : 'wx' })
+    return true
+  }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false
+    throw error
   }
 }
 

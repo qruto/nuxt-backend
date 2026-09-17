@@ -477,7 +477,8 @@ function expandSubpath(subpath: string): string[] {
 }
 
 function globToRegExp(pattern: string): RegExp {
-  return new RegExp(`^${pattern.replace(/\./g, '\\.').replace(/\*/g, '.*')}$`)
+  const literal = pattern.replace(/[.+?^${}()|[\]\\/]/g, '\\$&')
+  return new RegExp(`^${literal.replace(/\*/g, '.*')}$`)
 }
 
 /** Whether `nuxt-backend/<subpath>` resolves through `exports` (`*` on either side is a glob). */
