@@ -101,11 +101,6 @@ overrides:
   # fixed in 0.28.1). fontless only imports `transform`, stable across 0.x.
   # Remove when fontless allows ^0.28.
   'fontless>esbuild': ^0.28.1
-  # resend@6.18.1 (2026-07-28) was published without the provenance attestations
-  # 6.18.0 and earlier releases carried — `trustPolicy: no-downgrade` rejects it
-  # as a possible package takeover. Hold the last attested release; remove when
-  # a newer version ships with attestations again.
-  resend: 6.18.0
 
 # --- Integrity ---------------------------------------------------------------
 # Fail a script outright when node_modules is out of sync with the lockfile, so
