@@ -22,6 +22,8 @@ website/backend/_generated/ai/
 .output
 .data
 .vercel_build_output
+# `vercel link` writes the project id here (website/.vercel)
+.vercel
 .build-*
 .netlify
 
