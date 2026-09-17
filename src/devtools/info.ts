@@ -168,6 +168,7 @@ export function readPackageVersions(rootDir: string): Record<string, string> {
   const versions: Record<string, string> = {}
   for (const name of ['nuxt-backend', 'nuxt-convex-module', 'convex', 'nuxt']) {
     try {
+      // fallow-ignore-next-line security-sink -- the names come from the fixed list above, never from a request; dev-only panel; verified 2026-09-17
       versions[name] = (require(`${name}/package.json`) as { version: string }).version
     }
     catch {

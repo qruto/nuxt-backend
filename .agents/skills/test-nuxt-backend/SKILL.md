@@ -5,7 +5,7 @@ description: End-to-end verification playbook for the nuxt-backend playground �
 
 # Testing nuxt-backend end-to-end
 
-Everything runs against **testing environments only**: Polar **sandbox** (`BILLING_ENVIRONMENT=sandbox`), Resend **test mode** (default on; only `*@resend.dev` inboxes), Convex **dev** deployment (`dev:successful-oyster-718`, see root `.env.local`). The dev server is `pnpm dev` from the repo root → **https://nuxt-backend.local** (portless proxy, Nuxt serves `website/`). Watch for origin drift: the deployment's `SITE_URL` may still say `nuxt-backend.localhost` — emailed links break until they match. Always test through the portless origin, not `127.0.0.1:<port>` (client auth state needs the canonical origin).
+Everything runs against **testing environments only**: Polar **sandbox** (`BILLING_ENVIRONMENT=sandbox`), Resend **test mode** (default on; only `*@resend.dev` inboxes), Convex **dev** deployment (the `CONVEX_DEPLOYMENT` in the root `.env.local`). The dev server is `pnpm dev` from the repo root → **https://nuxt-backend.local** (portless proxy, Nuxt serves `website/`). Watch for origin drift: the deployment's `SITE_URL` may still say `nuxt-backend.localhost` — emailed links break until they match. Always test through the portless origin, not `127.0.0.1:<port>` (client auth state needs the canonical origin).
 
 ## Environment cheatsheet
 
@@ -13,9 +13,9 @@ Everything runs against **testing environments only**: Polar **sandbox** (`BILLI
 - The Polar/Resend **MCP servers have under-scoped or dead tokens** — use `curl` with deployment tokens instead:
   - Polar sandbox API: `https://sandbox-api.polar.sh/v1/...` with `Authorization: Bearer $(npx convex env get BILLING_ACCESS_TOKEN)`. **Trailing slash required** on collection endpoints (`/products/`, `/benefits/`) — without it you get an empty 307 body.
   - Resend API: `https://api.resend.com/emails` with `Bearer $(npx convex env get EMAIL_API_KEY)` — list, then `GET /emails/{id}` for html.
-- Polar org `qruto` (sandbox), id `6a50e481-6720-4019-a550-cf2bf410e4c4`, default currency **EUR** (product prices must be `price_currency: "eur"`). Credits meter: `aa62cf4c-2dcd-437d-a407-1872f51531b7`.
+- Polar org `qruto` (sandbox) — its id and the credits meter id are in `website/backend/billing.generated.ts` (written by `nuxt-backend billing sync`); default currency **EUR** (product prices must be `price_currency: "eur"`).
 - Catalog (products map in `website/backend/billing.ts`): starter €5/50cr, pro €9/200cr+premium, ultra €19/500cr+premium+ultra, credits100 €10, credits500 €40. Feature benefits match `useFeatures().has()` via benefit `metadata: { key: '<feature>' }`.
-- Webhooks (verify if entitlements "never arrive"): Polar → `https://successful-oyster-718.convex.site/polar/events`; Resend → `.../resend-webhook`.
+- Webhooks (verify if entitlements "never arrive"): Polar → `https://<deployment>.convex.site/billing/events`; Resend → `https://<deployment>.convex.site/email/events`.
 
 ## Reset & prep
 

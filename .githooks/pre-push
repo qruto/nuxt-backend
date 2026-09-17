@@ -1,12 +1,8 @@
 #!/bin/sh
-# Slow gate, runs once per push: the CI jobs that are too expensive to repeat on
-# every commit. Together with pre-commit this mirrors every ci.yml job that can
-# run on a laptop — see CONTRIBUTING.md § Git Hooks for the ones that cannot.
-#
-# TODO(fallow burndown): `pnpm exec fallow --fail-on-issues` and `pnpm exec
-# fallow security --fail-on-issues` belong here (the whole-project run the
-# scoped pre-commit audit cannot replace) once the ~58 pre-existing findings
-# are burned down — see the note in pre-commit.
+# Slow gate, runs once per push (~40s): the CI jobs that are too expensive to
+# repeat on every commit. Together with pre-commit this mirrors every ci.yml
+# job that can run on a laptop — see CONTRIBUTING.md § Git Hooks for the ones
+# that cannot.
 #
 # Bypass once with: git push --no-verify
 if [ -n "$CI" ]; then exit 0; fi
@@ -24,14 +20,37 @@ done
 
 set -e
 
-# `static` job's type check. vue-tsc reads `.nuxt/tsconfig.json` and resolves
-# the package's own subpaths through `dist/`, both of which `dev:prepare:lib`
-# produces — run it only when they are missing, so a prepared checkout (anyone
-# who has run `pnpm dev`) pays nothing extra.
-if [ ! -f .nuxt/tsconfig.json ] || [ ! -d dist/convex ]; then
-  pnpm run dev:prepare:lib
-fi
-pnpm exec vue-tsc --noEmit
+# `static` job's Quality step, whole-project — the same run pushes to main
+# trigger. The pre-commit gate only sees the files a change touched, so it
+# cannot notice a config edit that strands a file elsewhere in the repo; this
+# can, in about half a second.
+pnpm run test:quality
 
-# `test` job, minus the Windows leg and the coverage thresholds, which need CI.
+# `static` job's Security candidates step, for the same reason it is a
+# separate command there: security candidates never surface under the run
+# above.
+pnpm run test:security
+
+# `static` job's Manifest ranges step. Cheap, and the only check here that can
+# fail without anyone changing anything — a dependency bump narrowing a peer
+# range under us.
+pnpm run check:manifest
+
+# `static` job's two Type check steps. Runs dev:prepare:lib first, so it also
+# proves the module still builds its stubs, its types and the Convex component.
+pnpm run test:types:lib
+
+# `test` job, minus the Windows leg and coverage thresholds, which need CI.
 pnpm run test
+
+# `static` job's API reference drift step. Regenerating must produce no diff,
+# or the committed reference and the source doc-comments have diverged. This
+# one rewrites files: if it fails, the regenerated reference is already in your
+# working tree, ready to commit.
+pnpm run docs:reference
+if ! git diff --quiet -- website/content/7.api-reference/9.reference; then
+  echo >&2
+  echo "pre-push: the API reference drifted — commit the regenerated files below." >&2
+  git --no-pager diff --stat -- website/content/7.api-reference/9.reference >&2
+  exit 1
+fi

@@ -55,7 +55,8 @@ Defined in: [src/convex/integrations/functions.ts:21](https://github.com/qruto/n
 function createFunctions<DM>(
    builders, 
    authorization, 
-   options?): {
+   options?
+): {
   authed: {
      query: CustomBuilder<"query", Record<string, never>, {
         user: AuthorizationUser;

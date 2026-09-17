@@ -1,0 +1,16 @@
+node_modules
+.nuxt
+.output
+.data
+.convex
+# `npx convex dev` writes CONVEX_URL and CONVEX_DEPLOYMENT here — yours, not the example's.
+.env
+.env.*
+!.env.example
+# Codegen: `npx convex dev` writes it against the installed package.
+backend/_generated
+# A lockfile would pin one package manager's tree; the example installs with any.
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock

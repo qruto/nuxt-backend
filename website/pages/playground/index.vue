@@ -27,13 +27,11 @@ watch(conn, (s) => {
   inflightHistory.value = [...inflightHistory.value.slice(1), total]
 }, { deep: true })
 
-// One reactive map → many live subscriptions. (`as never` on the refs: the
-// linked base module carries its own convex type copy, so the branded
-// FunctionReference identities differ across the link until it's published.)
+// One reactive map → many live subscriptions.
 const queryMap = computed<RequestForQueries>(() => ({
-  counter: { query: api.counter.get as never, args: { name: 'demo' } },
-  todos: { query: api.todos.list as never, args: {} },
-  messages: { query: api.messages.list as never, args: {} },
+  counter: { query: api.counter.get, args: { name: 'demo' } },
+  todos: { query: api.todos.list, args: {} },
+  messages: { query: api.messages.list, args: {} },
 }))
 const live = useQueries(() => queryMap.value)
 

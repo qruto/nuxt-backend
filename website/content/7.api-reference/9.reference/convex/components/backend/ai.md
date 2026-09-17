@@ -11,9 +11,9 @@ navigation: true
 ```ts
 const createRequest: RegisteredMutation<"public", {
   meterId?: string;
+  args: string;
   name: string;
   userId: string;
-  args: string;
   streamId: string;
   externalId: string;
   entityId: string;
@@ -33,11 +33,11 @@ const getByStream: RegisteredQuery<"public", {
 }, Promise<
   | {
   meterId?: string;
+  args: string;
   createdAt: number;
   name: string;
   userId: string;
   status: "reserved" | "settled" | "released";
-  args: string;
   streamId: string;
   externalId: string;
   entityId: string;
@@ -58,7 +58,7 @@ const markSettled: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [src/convex/components/backend/ai.ts:57](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L57)
+Defined in: [src/convex/components/backend/ai.ts:73](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L73)
 
 ***
 
@@ -70,7 +70,7 @@ const markReleased: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [src/convex/components/backend/ai.ts:70](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L70)
+Defined in: [src/convex/components/backend/ai.ts:75](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L75)
 
 ***
 
@@ -82,7 +82,7 @@ const clear: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [src/convex/components/backend/ai.ts:91](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L91)
+Defined in: [src/convex/components/backend/ai.ts:85](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/ai.ts#L85)
 
 Prune request plumbing older than `beforeMs` (rows are not a ledger).
 

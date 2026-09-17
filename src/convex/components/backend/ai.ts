@@ -54,31 +54,25 @@ export const getByStream = query({
   },
 })
 
-export const markSettled = mutation({
-  args: { streamId: v.string() },
-  returns: v.null(),
-  handler: async (ctx, { streamId }) => {
-    const row = await ctx.db
-      .query('aiRequests')
-      .withIndex('streamId', q => q.eq('streamId', streamId))
-      .unique()
-    if (row && row.status === 'reserved') await ctx.db.patch('aiRequests', row._id, { status: 'settled' })
-    return null
-  },
-})
+/** Move a reserved request to its final status; a no-op once it left `reserved`. */
+function markRequest(status: 'settled' | 'released') {
+  return mutation({
+    args: { streamId: v.string() },
+    returns: v.null(),
+    handler: async (ctx, { streamId }) => {
+      const row = await ctx.db
+        .query('aiRequests')
+        .withIndex('streamId', q => q.eq('streamId', streamId))
+        .unique()
+      if (row && row.status === 'reserved') await ctx.db.patch('aiRequests', row._id, { status })
+      return null
+    },
+  })
+}
 
-export const markReleased = mutation({
-  args: { streamId: v.string() },
-  returns: v.null(),
-  handler: async (ctx, { streamId }) => {
-    const row = await ctx.db
-      .query('aiRequests')
-      .withIndex('streamId', q => q.eq('streamId', streamId))
-      .unique()
-    if (row && row.status === 'reserved') await ctx.db.patch('aiRequests', row._id, { status: 'released' })
-    return null
-  },
-})
+export const markSettled = markRequest('settled')
+
+export const markReleased = markRequest('released')
 
 /**
  * Prune request plumbing older than `beforeMs` (rows are not a ledger).

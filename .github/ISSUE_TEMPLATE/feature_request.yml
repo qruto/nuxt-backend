@@ -1,38 +1,25 @@
 name: Feature request
-description: Suggest a new feature or enhancement for nuxt-backend
+description: Suggest a feature or a change to nuxt-backend
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for your suggestion! Please first check if a similar request already exists in issues or discussions.
+        The package is all-in-one by design: every capability ships enabled, with one neutral
+        vocabulary (`auth`, `billing`, `email`) over the services underneath. A change to what a
+        service itself offers belongs with that service; a change to how this package exposes it
+        belongs here.
   - type: textarea
     id: problem
     attributes:
-      label: Is your feature request related to a problem? Please describe.
-      description: A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+      label: Problem
+      description: What you are trying to do, and what stops you today.
     validations:
       required: true
   - type: textarea
     id: solution
     attributes:
-      label: Describe the solution you'd like
-      description: A clear and concise description of what you want to happen.
+      label: Proposed solution
+      description: What the API or behaviour would look like. Alternatives you considered, if any.
     validations:
       required: true
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Describe alternatives you've considered
-  - type: textarea
-    id: additional
-    attributes:
-      label: Additional context
-      description: Add any other context or screenshots about the feature request here.
-  - type: checkboxes
-    id: would-pr
-    attributes:
-      label: Would you be willing to implement this?
-      options:
-        - label: "I can submit a PR for this"
-          required: false

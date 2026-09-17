@@ -26,6 +26,7 @@ async function addMessage() {
 function highlight(text: string): string {
   const q = term.value.trim()
   if (!q) return text
+  // fallow-ignore-next-line security-sink -- the term is escaped right there; verified 2026-09-17
   return text.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '«$1»')
 }
 </script>

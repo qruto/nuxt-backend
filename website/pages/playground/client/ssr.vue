@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import type { Preloaded } from 'nuxt-convex-module/client'
 import { api } from '#backend/api'
 
 definePageMeta({ middleware: 'auth' })
 
 // ── Auth preload → live subscription (the Todos surface) ──────────
-const { data: preloadedTodos } = await useFetch('/api/todos.preload', { key: 'todos.preload' })
+// The payload crosses `useFetch` as JSON, so it is typed back to the preloaded
+// query it carries — the same annotation the base module's docs use.
+const { data: preloadedTodos } = await useFetch<Preloaded<typeof api.todos.list>>('/api/todos.preload', { key: 'todos.preload' })
 const todos = usePreloadedAuthQuery(preloadedTodos.value!)
 const createTodo = useMutation(api.todos.create)
 const toggleTodo = useMutation(api.todos.toggle)
@@ -20,7 +23,7 @@ async function addTodo() {
 }
 
 // ── Non-auth preload → usePreloadedQuery ──────────────────────────
-const { data: preloaded } = await useFetch('/api/flaky.preload', { key: 'flaky.preload' })
+const { data: preloaded } = await useFetch<Preloaded<typeof api.demo.flaky>>('/api/flaky.preload', { key: 'flaky.preload' })
 const flaky = usePreloadedQuery(preloaded.value!)
 
 // ── Server functions: backendAuth + fetchAuth* on Nitro ───────────

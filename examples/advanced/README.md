@@ -27,9 +27,10 @@ the local component imports `@convex-dev/resend` directly, which is why it is
 a direct dependency in `package.json`.
 
 ```bash
-pnpm install
-cd examples/advanced
+npx nuxi init -t gh:qruto/nuxt-backend/examples/advanced my-app   # or clone this directory
+cd my-app
+npm install
 cp .env.example .env.local
 npx convex dev        # terminal 1
-pnpm dev              # terminal 2
+npm run dev           # terminal 2
 ```

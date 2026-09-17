@@ -5,13 +5,14 @@
   "scripts": {
     "dev": "nuxt dev",
     "dev:convex": "convex dev",
-    "build": "nuxt build"
+    "build": "nuxt build",
+    "postinstall": "nuxt prepare"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.12.5",
     "@convex-dev/resend": "^0.2.6",
-    "convex": "^1.43.0",
-    "nuxt": "catalog:",
-    "nuxt-backend": "workspace:*"
+    "convex": "^1.46.0",
+    "nuxt": "^4.5.2",
+    "nuxt-backend": "latest"
   }
 }

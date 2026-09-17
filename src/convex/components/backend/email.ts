@@ -1,6 +1,7 @@
 import { type EmailId, Resend, type SendEmailOptions } from '@convex-dev/resend'
 import { v } from 'convex/values'
 import { Webhook } from 'svix'
+import { sendArgs } from '../../email-validators.js'
 import { components } from './_generated/api.js'
 import { action, env, mutation, query } from './_generated/server.js'
 
@@ -26,8 +27,6 @@ function resendClient(): Resend {
   })
 }
 
-const vRecipient = v.union(v.string(), v.array(v.string()))
-
 /**
  * Enqueue a transactional email through the nested Resend component.
  *
@@ -37,21 +36,7 @@ const vRecipient = v.union(v.string(), v.array(v.string()))
  * browser clients.
  */
 export const send = mutation({
-  args: {
-    to: vRecipient,
-    subject: v.optional(v.string()),
-    html: v.optional(v.string()),
-    text: v.optional(v.string()),
-    from: v.optional(v.string()),
-    cc: v.optional(vRecipient),
-    bcc: v.optional(vRecipient),
-    replyTo: v.optional(v.array(v.string())),
-    headers: v.optional(v.array(v.object({ name: v.string(), value: v.string() }))),
-    template: v.optional(v.object({
-      id: v.string(),
-      variables: v.optional(v.record(v.string(), v.union(v.string(), v.number()))),
-    })),
-  },
+  args: sendArgs,
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, args) => {
     if (!env.EMAIL_API_KEY) {
@@ -104,20 +89,29 @@ export const cancel = mutation({
 })
 
 /**
+ * A mutation that hands one of the provider's prune jobs to the scheduler and
+ * returns at once: the provider batches and re-schedules itself until the
+ * backlog is gone, so both prunes are safe to call from a cron.
+ */
+function scheduledCleanup(job: typeof components.resend.lib.cleanupOldEmails) {
+  return mutation({
+    args: { olderThanMs: v.optional(v.number()) },
+    returns: v.null(),
+    handler: async (ctx, { olderThanMs }) => {
+      await ctx.scheduler.runAfter(0, job, { olderThan: olderThanMs })
+      return null
+    },
+  })
+}
+
+/**
  * Prune finalized emails (delivered, bounced, cancelled, failed …) older than
  * `olderThanMs` (the nested provider's default: 7 days) from the provider
  * component's tables. Scheduled rather than run inline — the provider batches
  * and re-schedules itself until the backlog is gone — so this returns at once
  * and is safe to call from a cron. Exposed as `components.backend.email.cleanup`.
  */
-export const cleanup = mutation({
-  args: { olderThanMs: v.optional(v.number()) },
-  returns: v.null(),
-  handler: async (ctx, { olderThanMs }) => {
-    await ctx.scheduler.runAfter(0, components.resend.lib.cleanupOldEmails, { olderThan: olderThanMs })
-    return null
-  },
-})
+export const cleanup = scheduledCleanup(components.resend.lib.cleanupOldEmails)
 
 /**
  * Prune abandoned emails — created more than `olderThanMs` ago (the nested
@@ -125,14 +119,7 @@ export const cleanup = mutation({
  * webhook never arrived. Scheduled like {@link cleanup}. Exposed as
  * `components.backend.email.cleanupAbandoned`.
  */
-export const cleanupAbandoned = mutation({
-  args: { olderThanMs: v.optional(v.number()) },
-  returns: v.null(),
-  handler: async (ctx, { olderThanMs }) => {
-    await ctx.scheduler.runAfter(0, components.resend.lib.cleanupAbandonedEmails, { olderThan: olderThanMs })
-    return null
-  },
-})
+export const cleanupAbandoned = scheduledCleanup(components.resend.lib.cleanupAbandonedEmails)
 
 /**
  * The event types the nested provider component tracks against sent-email

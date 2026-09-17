@@ -144,7 +144,8 @@ export const onSignup = workflow.define({
 function defineEmailSequence<Args>(
    workflow, 
    components, 
-options): RegisteredMutation<"internal", WorkflowArgs<Args>, WorkflowId>;
+   options
+): RegisteredMutation<"internal", WorkflowArgs<Args>, WorkflowId>;
 ```
 
 Defined in: [src/convex/integrations/workflows.ts:108](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L108)

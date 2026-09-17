@@ -1,0 +1,6 @@
+# actionlint (https://github.com/rhysd/actionlint) checks the workflow files for
+# correctness: expressions, `needs`/matrix references, runner labels, cron
+# syntax, and shellcheck over every inline `run:` block.
+#
+# zizmor checks the same files for security problems. The two do not overlap.
+

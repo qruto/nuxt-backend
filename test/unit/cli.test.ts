@@ -83,8 +83,8 @@ describe('init', () => {
 })
 
 describe('doctor', () => {
-  // The first doctor run pays a cold-start cost (~4s locally) that overshoots
-  // the 5s default on CI runners.
+  // The temp dir has no `convex` installed, so the deployment probes resolve
+  // to "unreachable" at once — nothing is fetched from the registry.
   it('reports findings as json and flags missing codegen', async () => {
     await run(['doctor', '--json'])
 
@@ -93,7 +93,7 @@ describe('doctor', () => {
     const codegen = report.findings.find(finding => finding.id === 'convex-codegen')
     expect(codegen?.status).toBe('warn')
     expect(report.findings.some(finding => finding.id === 'auth-secret')).toBe(true)
-  }, 30_000)
+  })
 
   it('reads env from .env.local (weak secret fails, exit code 1)', async () => {
     writeFileSync(join(rootDir, '.env.local'), 'AUTH_SECRET=changeme\n')
@@ -130,7 +130,7 @@ describe('doctor', () => {
     expect(report.findings.find(finding => finding.id === 'email-webhook-route')?.status).toBe('fail')
     expect(report.findings.find(finding => finding.id === 'ai-stream-route')?.status).toBe('fail')
     expect(process.exitCode).toBe(1)
-  }, 30_000)
+  })
 })
 
 describe('doctor — billing catalog', () => {
@@ -162,7 +162,7 @@ describe('doctor — billing catalog', () => {
   it('says nothing about billing when no catalog is declared', async () => {
     const findings = await doctorFindings()
     expect(findings.filter(finding => CATALOG_FINDINGS.includes(finding.id))).toEqual([])
-  }, 30_000)
+  })
 
   it('checks the catalog alone when no access token is visible, and skips the provider half', async () => {
     writeCatalog('export default { meters: { credits: {}, tokens: {} }, plans: { pro: { name: \'Pro\', interval: \'month\', price: 2900, credits: { meter: \'credits\', units: 500 } } } }\n')
@@ -173,7 +173,7 @@ describe('doctor — billing catalog', () => {
     expect(findings.find(finding => finding.id === 'billing-meter-usage')?.status).toBe('warn')
     expect(findings.some(finding => finding.id === 'billing-organization')).toBe(false)
     expect(findings.some(finding => finding.id === 'billing-proration')).toBe(false)
-  }, 30_000)
+  })
 
   it('reports the provider checks as skipped when the token is refused', async () => {
     writeCatalog('export default { plans: { pro: { name: \'Pro\', interval: \'month\', price: 2900 } } }\n')
@@ -186,5 +186,5 @@ describe('doctor — billing catalog', () => {
     expect(organization?.status).toBe('warn')
     expect(organization?.message).toContain('BILLING_ACCESS_TOKEN')
     expect(findings.some(finding => finding.id === 'billing-portal')).toBe(false)
-  }, 30_000)
+  })
 })

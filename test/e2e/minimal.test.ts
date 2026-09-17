@@ -68,14 +68,6 @@ await setup({
   setupTimeout: 600_000,
   nuxtConfig: {
     telemetry: false,
-    // Local-checkout artifact, not a consumer concern: `nuxt-convex-module`
-    // is a `link:` dependency with its own isolated node_modules, so its
-    // runtime resolves a second `better-auth` (and Nitro traces both
-    // versions, linking only one at the top level — the server would then
-    // miss this module's `better-auth/client/plugins`). Bundling the package
-    // into the server build sidesteps the trace; a published install has one
-    // `better-auth` and needs nothing here.
-    build: { transpile: ['better-auth'] },
     backend: {
       url: stub.url,
       siteUrl: stub.url,

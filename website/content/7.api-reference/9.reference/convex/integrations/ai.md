@@ -384,7 +384,8 @@ The app's price list: model id → [ModelPrice](#modelprice).
 function priceTokens(
    usage, 
    table, 
-   options?): number;
+   options?
+): number;
 ```
 
 Defined in: [src/convex/integrations/ai.ts:437](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai.ts#L437)

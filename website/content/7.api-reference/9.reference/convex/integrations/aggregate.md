@@ -166,8 +166,9 @@ Aggregate.sumBatch
 ```ts
 at(
    ctx, 
-   offset, ...
-opts): Promise<Item<T["Key"], Id<T["TableName"]>>>;
+   offset, 
+   ...opts
+): Promise<Item<T["Key"], Id<T["TableName"]>>>;
 ```
 
 Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:63
@@ -229,8 +230,9 @@ Aggregate.atBatch
 ```ts
 indexOf(
    ctx, 
-   key, ...
-opts): Promise<number>;
+   key, 
+   ...opts
+): Promise<number>;
 ```
 
 Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:80
@@ -267,7 +269,8 @@ offsetOf(
    key, 
    namespace, 
    id?, 
-bounds?): Promise<number>;
+   bounds?
+): Promise<number>;
 ```
 
 Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:88
@@ -304,7 +307,8 @@ offsetUntil(
    key, 
    namespace, 
    id?, 
-bounds?): Promise<number>;
+   bounds?
+): Promise<number>;
 ```
 
 Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:92
@@ -490,7 +494,8 @@ _insert(
    namespace, 
    key, 
    id, 
-summand?): Promise<void>;
+   summand?
+): Promise<void>;
 ```
 
 Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:139
@@ -524,7 +529,8 @@ _delete(
    ctx, 
    namespace, 
    key, 
-id): Promise<void>;
+   id
+): Promise<void>;
 ```
 
 Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:140
@@ -558,7 +564,8 @@ _replace(
    newNamespace, 
    newKey, 
    id, 
-summand?): Promise<void>;
+   summand?
+): Promise<void>;
 ```
 
 Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:141
@@ -593,7 +600,8 @@ _insertIfDoesNotExist(
    namespace, 
    key, 
    id, 
-summand?): Promise<void>;
+   summand?
+): Promise<void>;
 ```
 
 Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:142
@@ -625,7 +633,8 @@ _deleteIfExists(
    ctx, 
    namespace, 
    key, 
-id): Promise<void>;
+   id
+): Promise<void>;
 ```
 
 Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:143
@@ -659,7 +668,8 @@ _replaceOrInsert(
    newNamespace, 
    newKey, 
    id, 
-summand?): Promise<void>;
+   summand?
+): Promise<void>;
 ```
 
 Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:144
@@ -763,7 +773,8 @@ Aggregate.makeRootLazy
 paginateNamespaces(
    ctx, 
    cursor?, 
-   pageSize?): Promise<{
+   pageSize?
+): Promise<{
   page: TableAggregateNamespace<T>[];
   cursor: string;
   isDone: boolean;
@@ -914,7 +925,8 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:280
 replace(
    ctx, 
    oldDoc, 
-newDoc): Promise<void>;
+   newDoc
+): Promise<void>;
 ```
 
 Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:281
@@ -975,7 +987,8 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:283
 replaceOrInsert(
    ctx, 
    oldDoc, 
-newDoc): Promise<void>;
+   newDoc
+): Promise<void>;
 ```
 
 Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:284
@@ -998,7 +1011,8 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:284
 indexOfDoc(
    ctx, 
    doc, 
-opts?): Promise<number>;
+   opts?
+): Promise<number>;
 ```
 
 Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:293

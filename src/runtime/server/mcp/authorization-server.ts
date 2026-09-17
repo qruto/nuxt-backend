@@ -1,14 +1,9 @@
 import { defineEventHandler } from 'h3'
-import { readBackendMcpRuntimeConfig, readConvexSiteUrl } from './config'
+import { readConvexSiteUrl } from './config'
+import { CORS_HEADERS, wellKnownRequest } from './well-known'
 
 const WELL_KNOWN_PATH = '/.well-known/oauth-authorization-server'
 const CACHE_TTL_MS = 5 * 60_000
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, mcp-protocol-version',
-} as const
 
 let cached: { body: string, fetchedAt: number } | null = null
 
@@ -21,12 +16,8 @@ let cached: { body: string, fetchedAt: number } | null = null
  * document only changes on deploys.
  */
 export default defineEventHandler(async (event) => {
-  const config = readBackendMcpRuntimeConfig(event)
-  if (!config) return
-
-  const path = event.path.split('?')[0] ?? ''
-  if (path !== WELL_KNOWN_PATH && !path.startsWith(`${WELL_KNOWN_PATH}/`)) return
-  if (event.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS })
+  const config = wellKnownRequest(event, WELL_KNOWN_PATH)
+  if (!config || config instanceof Response) return config
 
   const siteUrl = readConvexSiteUrl(event)
   if (!siteUrl) {
@@ -37,6 +28,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!cached || Date.now() - cached.fetchedAt > CACHE_TTL_MS) {
+    // fallow-ignore-next-line security-sink -- destination is the deployment site URL from runtime config and a constant path; verified 2026-09-17
     const upstream = await fetch(`${siteUrl}${config.authBase}${WELL_KNOWN_PATH}`).catch(() => null)
     if (!upstream?.ok) {
       // Serve a stale copy over an outage; fail only with nothing to serve.

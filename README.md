@@ -1,19 +1,17 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./.github/assets/hero-dark.svg">
-  <img src="./.github/assets/hero-light.svg" alt="nuxt-backend — the all-in-one SaaS backend for Nuxt, built on Convex" width="560">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/qruto/nuxt-backend/main/.github/assets/hero-dark.svg">
+  <img src="https://raw.githubusercontent.com/qruto/nuxt-backend/main/.github/assets/hero-light.svg" alt="nuxt-backend — the all-in-one SaaS backend for Nuxt, built on Convex" width="560">
 </picture>
 
 # nuxt-backend
 
+[![Nuxt][nuxt-src]][nuxt-href]
+[![Convex][convex-src]][convex-href]
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
 [![Tests][tests-src]][tests-href]
 [![Coverage][coverage-src]][coverage-href]
-[![Minified size][min-size-src]][size-href]
-[![Minzipped size][minzip-size-src]][size-href]
 [![License][license-src]][license-href]
-[![GitHub stars][stars-src]][stars-href]
-[![Nuxt][nuxt-src]][nuxt-href]
 
 The all-in-one SaaS backend for [Nuxt](https://nuxt.com) on [Convex](https://convex.dev) — **auth** ([Better Auth](https://www.better-auth.com), passwordless: OTP + passkeys), workspaces with **emailed invitations** end-to-end, **billing** ([Polar](https://polar.sh)) with feature gating, prepaid credits, and **gift purchases**, **transactional email** ([Resend](https://resend.com)) with delivery tracking, one-call **webhook wiring**, **metered AI** actions and persisted streams, an OAuth-protected **MCP endpoint** where agents act as the signed-in user, rate limiting, durable workflows, migrations, aggregates, and full-text search. One module, great defaults, every setting customizable.
 
@@ -26,11 +24,11 @@ It even ships the pages: `/login`, `/pricing`, `/settings`, `/profile`, `/securi
 
 The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR, auth plumbing, DevTools, Convex-aware CSP) comes from [`nuxt-convex-module`](https://github.com/qruto/nuxt-convex-module) — installed and configured automatically. Use that package directly if you only want Convex bindings without the SaaS layer.
 
-> 📖 **Full documentation:** the **[docs site](./website)** (homepage · docs · playground, one Nuxt app) covers installation, every composable, the bundled backend components, and the complete API reference.
+> 📖 **Full documentation:** **[nuxt-backend.dev](https://nuxt-backend.dev)** (docs · playground) covers installation, every composable, the bundled backend components, and the complete API reference.
 
 **Requirements:** Nuxt ≥ 4.1 and Node ≥ 24.11.
 
-**Stability:** [STABILITY.md](./STABILITY.md) — what the 0.1 line promises, the experimental tier, and how upstream releases map to this package's versions.
+**Stability:** [STABILITY.md](./STABILITY.md) — what the 0.x line promises, the experimental tier, and how upstream releases map to this package's versions.
 
 ## Quick start
 
@@ -42,7 +40,7 @@ npx nuxi@latest module add nuxt-backend
 
 This is the only package you install — the Convex integration and all bundled components ship as its dependencies.
 
-> Using **strict** pnpm? Add `public-hoist-pattern[]=@convex-dev/*` to `.npmrc` (or set `node-linker=hoisted`) so Convex can resolve the bundled component definitions. See the [installation docs](/getting-started/installation#using-strict-pnpm).
+> Using **strict** pnpm? Add `publicHoistPattern: ['@convex-dev/*']` to `pnpm-workspace.yaml` (or set `nodeLinker: hoisted`) so Convex can resolve the bundled component definitions. See the [installation docs](https://nuxt-backend.dev/getting-started/installation#using-strict-pnpm).
 
 ### 2. Add the module
 
@@ -164,23 +162,17 @@ The scaffolded `backend/` files compose the backend from `nuxt-backend/*`:
 
 ## Documentation
 
-The site (homepage · docs · playground) lives in [`website/`](./website):
-
-```bash
-cd website
-pnpm dev        # local preview at http://localhost:3000
-pnpm generate   # static build
-```
+Everything is on [nuxt-backend.dev](https://nuxt-backend.dev) — the site (docs · playground) is the [`website/`](./website) app of this repository, and `pnpm dev` at the root serves it.
 
 | Section | What's inside |
 |---|---|
-| [Getting Started](/getting-started/introduction) | Introduction, quickstart, installation, configuration, architecture, examples |
-| [Client Guide](/guide/authentication) | Auth, queries & mutations, server & SSR, file storage, aliases, customization |
-| [Platform](/platform/overview) | Auth, workspaces, authorization, billing & credits, AI, email, webhooks, workflows, rate limiting, migrations, aggregates, search |
-| [Agents](/agents/mcp-server) | The OAuth-protected MCP endpoint, built-in and custom tools, consent, connecting a client |
-| [API Reference](/api-reference/composables) | Composables, server utilities, client, entrypoints, module options |
-| [Developer Experience](/tooling/cli) | CLI, DevTools, testing, local installation |
-| [Production](/production/deployment) | Deployment, launch checklist, security, troubleshooting |
+| [Getting Started](https://nuxt-backend.dev/getting-started/introduction) | Introduction, quickstart, installation, configuration, architecture, examples |
+| [Client Guide](https://nuxt-backend.dev/guide/authentication) | Auth, queries & mutations, server & SSR, file storage, aliases, customization |
+| [Platform](https://nuxt-backend.dev/platform/overview) | Auth, workspaces, authorization, billing & credits, AI, email, webhooks, workflows, rate limiting, migrations, aggregates, search |
+| [Agents](https://nuxt-backend.dev/agents/mcp-server) | The OAuth-protected MCP endpoint, built-in and custom tools, consent, connecting a client |
+| [API Reference](https://nuxt-backend.dev/api-reference/composables) | Composables, server utilities, client, entrypoints, module options |
+| [Developer Experience](https://nuxt-backend.dev/tooling/cli) | CLI, DevTools, testing, local installation |
+| [Production](https://nuxt-backend.dev/production/deployment) | Deployment, launch checklist, security, troubleshooting |
 
 ## Examples
 
@@ -189,12 +181,12 @@ pnpm generate   # static build
 
 ## Contributing
 
-1. Clone this repository (and its sibling [`nuxt-convex-module`](https://github.com/qruto/nuxt-convex-module) next to it — linked via `link:../nuxt-convex-module`)
-2. Install dependencies using `pnpm install` (in both repos; run `pnpm dev:prepare` in `nuxt-convex-module` once)
+1. Clone this repository
+2. Install dependencies using `pnpm install`
 3. Prepare for development using `pnpm dev:prepare`
 4. Start development server using `pnpm dev`
 
-We follow conventional commits (Dependabot PRs do too). See [CONTRIBUTING.md](./CONTRIBUTING.md) and [RELEASING.md](./RELEASING.md) for the full workflow.
+We follow conventional commits (Dependabot PRs do too). See [CONTRIBUTING.md](./CONTRIBUTING.md) and [RELEASE.md](./RELEASE.md) for the full workflow.
 
 ## Security
 
@@ -220,12 +212,8 @@ Found a vulnerability? Report it privately via [GitHub Security Advisories](http
 [coverage-src]: https://img.shields.io/codecov/c/github/qruto/nuxt-backend?style=plastic&colorA=020420&label=coverage
 [coverage-href]: https://codecov.io/gh/qruto/nuxt-backend
 
-[min-size-src]: https://img.shields.io/bundlephobia/min/nuxt-backend?style=plastic&colorA=020420&colorB=00DC82&label=min
-[minzip-size-src]: https://img.shields.io/bundlephobia/minzip/nuxt-backend?style=plastic&colorA=020420&colorB=00DC82&label=min%2Bgzip
-[size-href]: https://bundlephobia.com/package/nuxt-backend
-
-[stars-src]: https://img.shields.io/github/stars/qruto/nuxt-backend?style=plastic&logo=github&logoColor=white&colorA=181717&colorB=181717
-[stars-href]: https://github.com/qruto/nuxt-backend
-
 [nuxt-src]: https://img.shields.io/badge/Nuxt-020420?logo=nuxt&style=plastic
 [nuxt-href]: https://nuxt.com
+
+[convex-src]: https://img.shields.io/badge/Convex-020420?logo=convex&style=plastic
+[convex-href]: https://convex.dev

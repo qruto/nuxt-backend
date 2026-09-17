@@ -523,8 +523,8 @@ const vGift: VObject<{
   paidAt?: number;
   notifiedAt?: number;
   claimedAt?: number;
-  createdAt: number;
   id: string;
+  createdAt: number;
   status: string;
   recipientEmail: string;
   purchaserUserId: string;
@@ -548,8 +548,8 @@ const vGift: VObject<{
   notifiedAt: VFloat64<number | undefined, "optional">;
   claimedAt: VFloat64<number | undefined, "optional">;
 }, "required", 
-  | "createdAt"
   | "id"
+  | "createdAt"
   | "message"
   | "status"
   | "recipientEmail"
@@ -782,11 +782,11 @@ Defined in: [src/convex/components/backend/schema.ts:288](https://github.com/qru
 const aiTables: {
   aiRequests: TableDefinition<VObject<{
      meterId?: string;
+     args: string;
      createdAt: number;
      name: string;
      userId: string;
      status: "reserved" | "settled" | "released";
-     args: string;
      streamId: string;
      externalId: string;
      entityId: string;
@@ -803,11 +803,11 @@ const aiTables: {
      status: VUnion<"reserved" | "settled" | "released", [VLiteral<"reserved", "required">, VLiteral<"settled", "required">, VLiteral<"released", "required">], "required", never>;
      createdAt: VFloat64<number, "required">;
    }, "required", 
+     | "args"
      | "createdAt"
      | "name"
      | "userId"
      | "status"
-     | "args"
      | "streamId"
      | "meterId"
      | "externalId"
@@ -834,7 +834,7 @@ prune.
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="property-airequests"></a> `aiRequests` | `TableDefinition`\<`VObject`\<\{ `meterId?`: `string`; `createdAt`: `number`; `name`: `string`; `userId`: `string`; `status`: `"reserved"` \| `"settled"` \| `"released"`; `args`: `string`; `streamId`: `string`; `externalId`: `string`; `entityId`: `string`; `cost`: `number`; \}, \{ `streamId`: `VString`\<`string`, `"required"`\>; `name`: `VString`\<`string`, `"required"`\>; `entityId`: `VString`\<`string`, `"required"`\>; `userId`: `VString`\<`string`, `"required"`\>; `args`: `VString`\<`string`, `"required"`\>; `meterId`: `VString`\<`string` \| `undefined`, `"optional"`\>; `cost`: `VFloat64`\<`number`, `"required"`\>; `externalId`: `VString`\<`string`, `"required"`\>; `status`: `VUnion`\<`"reserved"` \| `"settled"` \| `"released"`, \[`VLiteral`\<`"reserved"`, `"required"`\>, `VLiteral`\<`"settled"`, `"required"`\>, `VLiteral`\<`"released"`, `"required"`\>\], `"required"`, `never`\>; `createdAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, \| `"createdAt"` \| `"name"` \| `"userId"` \| `"status"` \| `"args"` \| `"streamId"` \| `"meterId"` \| `"externalId"` \| `"entityId"` \| `"cost"`\>, \{ `streamId`: \[`"streamId"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:350](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L350) |
+| <a id="property-airequests"></a> `aiRequests` | `TableDefinition`\<`VObject`\<\{ `meterId?`: `string`; `args`: `string`; `createdAt`: `number`; `name`: `string`; `userId`: `string`; `status`: `"reserved"` \| `"settled"` \| `"released"`; `streamId`: `string`; `externalId`: `string`; `entityId`: `string`; `cost`: `number`; \}, \{ `streamId`: `VString`\<`string`, `"required"`\>; `name`: `VString`\<`string`, `"required"`\>; `entityId`: `VString`\<`string`, `"required"`\>; `userId`: `VString`\<`string`, `"required"`\>; `args`: `VString`\<`string`, `"required"`\>; `meterId`: `VString`\<`string` \| `undefined`, `"optional"`\>; `cost`: `VFloat64`\<`number`, `"required"`\>; `externalId`: `VString`\<`string`, `"required"`\>; `status`: `VUnion`\<`"reserved"` \| `"settled"` \| `"released"`, \[`VLiteral`\<`"reserved"`, `"required"`\>, `VLiteral`\<`"settled"`, `"required"`\>, `VLiteral`\<`"released"`, `"required"`\>\], `"required"`, `never`\>; `createdAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, \| `"args"` \| `"createdAt"` \| `"name"` \| `"userId"` \| `"status"` \| `"streamId"` \| `"meterId"` \| `"externalId"` \| `"entityId"` \| `"cost"`\>, \{ `streamId`: \[`"streamId"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:350](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L350) |
 
 ***
 
@@ -1847,11 +1847,11 @@ default: SchemaDefinition<{
   }>;
   aiRequests: TableDefinition<VObject<{
      meterId?: string;
+     args: string;
      createdAt: number;
      name: string;
      userId: string;
      status: "reserved" | "settled" | "released";
-     args: string;
      streamId: string;
      externalId: string;
      entityId: string;
@@ -1868,11 +1868,11 @@ default: SchemaDefinition<{
      status: VUnion<"reserved" | "settled" | "released", [VLiteral<"reserved", "required">, VLiteral<"settled", "required">, VLiteral<"released", "required">], "required", never>;
      createdAt: VFloat64<number, "required">;
    }, "required", 
+     | "args"
      | "createdAt"
      | "name"
      | "userId"
      | "status"
-     | "args"
      | "streamId"
      | "meterId"
      | "externalId"

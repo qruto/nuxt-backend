@@ -44,9 +44,12 @@ updates:
       include: scope
 
   # Actions digest bumps — keeps the `@<sha> # vX.Y.Z` pinning convention
-  # intact. Native workflow-file writes: no PAT, no GitHub App.
+  # intact. Native workflow-file writes: no PAT, no GitHub App. The composite
+  # action's own pins are not found from `/`, hence the second directory.
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - /
+      - /.github/actions/setup
     schedule:
       interval: weekly
       day: monday

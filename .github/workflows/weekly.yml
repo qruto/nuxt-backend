@@ -1,0 +1,179 @@
+name: Weekly
+
+# Everything that runs on a schedule rather than on a commit, in one file.
+#
+# None of it can block a merge. A scheduled check that fails a pull request
+# blames whoever happened to open it. These jobs are here to catch things
+# changing outside the repository, while the repository itself stays still.
+
+on:
+  # There is no `branch_protection_rule` trigger, because it only fires for
+  # classic branch protection. Everything here is a ruleset, and changing one
+  # fires nothing. The `rulesets` job below catches that on the schedule
+  # instead; dispatch is there for when you want to check right now.
+  schedule:
+    - cron: '3 7 * * 1' # Mondays
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  # Checks the repository's own settings: pinned actions, token permissions,
+  # branch protection, signed releases, risky workflow patterns. This repository
+  # already does most of it on purpose. The value is being told when that stops
+  # being true — a ruleset relaxed, a `permissions:` block widened, an action
+  # unpinned.
+  scorecard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write # sign the results for the public Scorecard API
+      security-events: write # publish results to the Security tab
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Publishes to the public OpenSSF API. That is what backs the badge,
+          # and it lets anyone check the score without running this.
+          publish_results: true
+
+      - name: Upload results
+        uses: github/codeql-action/upload-sarif@486fec2a3ea2626afcd8c7e9208b4f515078dd7e # codeql-bundle-v2.26.4
+        with:
+          sarif_file: results.sarif
+
+  # Scans the whole committed lockfile against OSV. CI's `dependency-review`
+  # cannot do this: it only looks at the dependencies a pull request changes, so
+  # an advisory filed against a package that stopped changing is invisible to it.
+  #
+  # Dependabot alerts cover much of the same ground, but not all of it: OSV
+  # aggregates sources beyond GHSA and reaches transitive dependencies the
+  # dependency graph sometimes fails to parse. A second opinion costs one
+  # scheduled job a week that can never fail a pull request.
+  osv:
+    # The reusable workflow declares these same three on its own job. They have
+    # to be granted here too for it to inherit them.
+    permissions:
+      contents: read
+      actions: read # required to upload SARIF, see github/codeql-action#2117
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
+    with:
+      # `-r ./` walks the workspace: pnpm-lock.yaml, plus the website and
+      # devtools-client-app manifests.
+      scan-args: |-
+        -r
+        ./
+
+  # The rules that protect `main` are committed under .github/rulesets/. That is
+  # only worth anything if something checks the files still match reality — the
+  # rules are edited in a settings page, and GitHub fills in defaults the files
+  # never mentioned. Both have already happened here.
+  #
+  # Scorecard above notices that branch protection exists. This notices that it
+  # stopped matching what was reviewed: a rule removed, a parameter changed, a
+  # bypass actor added, or a whole ruleset that exists only in the settings page.
+  #
+  # It only reads. Fixing a difference is a decision for a person.
+  rulesets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # enough to read rulesets on a public repository
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Compare live rules against the committed ones
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/check-rulesets.mjs
+
+  # Dead links in the docs, the README and the policy files. Nothing else here
+  # checks prose for rot: SECURITY.md linked to a repository that had moved
+  # months earlier, and no other check could have known.
+  links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check links
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          # Settings and exclusions live in lychee.toml. `--root-dir` cannot,
+          # because it has to be an absolute path. It lets the docs' root-
+          # relative route links resolve, after which `scheme` filters them out.
+          # Without it they fail to resolve and no filter is ever reached.
+          args: >-
+            --no-progress
+            --config lychee.toml
+            --root-dir ${{ github.workspace }}/website/content
+            .
+          fail: true
+
+  # The four jobs above are only useful if someone sees them fail. On their own
+  # they are not: a failed scheduled run just emails whoever last edited the
+  # cron, which is the wrong person soon enough and nobody at all once the mail
+  # gets filtered.
+  #
+  # An issue sticks around, can be assigned, and is where the discussion belongs.
+  # It reuses one issue rather than opening a new one every Monday, so a couple
+  # of ignored weeks do not bury the first report.
+  #
+  # `issues: write` on a job that checks nothing out and installs nothing — the
+  # same reason CI keeps its Codecov credential in a job of its own.
+  report:
+    needs:
+      - scorecard
+      - osv
+      - rulesets
+      - links
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the drift issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULTS: >-
+            scorecard=${{ needs.scorecard.result }}
+            osv=${{ needs.osv.result }}
+            rulesets=${{ needs.rulesets.result }}
+            links=${{ needs.links.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          body=$(printf '%s\n\n%s\n' "$RESULTS" "$RUN_URL")
+          # Listed and matched exactly, not searched. `--search` depends on
+          # GitHub's search index, and `in:title` is full-text, so it would also
+          # match an unrelated issue that happens to mention "weekly drift".
+          # `--label` is no good either: it matches nothing until the label
+          # exists, and the way that fails is by opening a second issue every
+          # Monday.
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title \
+            --jq '[.[] | select(.title == "ci: weekly drift")][0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment --repo "$GITHUB_REPOSITORY" "$existing" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title 'ci: weekly drift' --body "$body"
+          fi

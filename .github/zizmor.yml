@@ -1,24 +1,23 @@
 # zizmor (workflow static analysis) — accepted findings.
 # https://docs.zizmor.sh/configuration/
+#
+# `artipacked` used to be waived for release.yml: the release ran as one job that
+# had to persist checkout credentials in order to push. It is split now — the
+# `tag` job carries the token in a single step's environment instead — so no
+# workflow in this repo persists credentials, and the waiver is gone.
 rules:
-  # zizmor prefers GitHub's newer `$/.github/actions/setup` self-repository
-  # syntax over `./.github/actions/setup`. Both resolve to this repository's
-  # checkout; the `./` form is kept on purpose (it is the spelling every
-  # runner and every local tool understands, and the migration was declined —
-  # see the CI/CD port notes), so the audit is waived for the workflows that
-  # call the local action.
   self-repository:
     ignore:
+      # The audit wants `$/.github/actions/setup` over `./...`. `$/` resolves
+      # the action from the workflow's own ref instead of the checkout, which
+      # only matters under `pull_request_target`, and no workflow here uses it —
+      # every checkout is the workflow's own ref, so both forms read the same
+      # files. `./` stays because OpenSSF Scorecard does not parse `$/` yet and
+      # reports each use as an unpinned third-party action. Drop this once
+      # Scorecard learns the syntax, and revisit if a `pull_request_target`
+      # trigger is ever added.
       - ci.yml
       - preview.yml
-      - release.yml
-  artipacked:
-    ignore:
-      # The release checkout must persist credentials: the workflow pushes the
-      # release commit + tag back to main with the ephemeral GITHUB_TOKEN. Drop
-      # this waiver when release.yml is split the way nuxt-convex-module's is
-      # (the push carrying the token in a single step's environment).
-      - release.yml
   use-trusted-publishing:
     ignore:
       # pkg.pr.new authenticates via its GitHub App, not a registry token —
@@ -28,7 +27,7 @@ rules:
     # The audit's default wants >= 7 days; this repo's policy is 2, so declare
     # that as the threshold rather than ignoring the audit — it still fires if
     # the cooldown ever drops below the documented value. 2 is deliberate: the
-    # cooldown-margin rule (RELEASING.md) keeps Dependabot one day wider than
+    # cooldown-margin rule (RELEASE.md) keeps Dependabot one day wider than
     # pnpm's own 24h minimumReleaseAge gate, which every install — Dependabot
     # PRs included — already passes through; ci's dependency-review job then
     # inspects the delta for known CVEs and malware. Widening to 7 days would

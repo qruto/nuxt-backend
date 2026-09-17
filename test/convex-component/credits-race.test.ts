@@ -18,7 +18,7 @@ const USER = 'u1'
 const METER = 'm1'
 
 beforeEach(() => {
-  t = convexTest(schema, component.modules.backend)
+  t = convexTest(schema, component.modules)
 })
 
 afterEach(() => {

@@ -2,11 +2,11 @@
 
 What a version number of `nuxt-backend` promises, which parts are still moving, and how upstream releases translate into releases here.
 
-## The 0.1 line
+## The 0.x line
 
-`0.1.x` is the **complete pack, not yet production-tested**: every capability the package is designed to ship (passwordless auth, workspaces and invitations, billing with entitlements, credits and gifts, email with delivery tracking, webhooks, metered AI, the agent endpoint, rate limiting, workflows, migrations, aggregates, search, the pages, the CLI, the DevTools tab) is present, live-verified against real provider sandboxes, and covered by the test suite — but it has not yet carried real production traffic. `1.0` is the **same promise after production use**: no new surface is required to get there, only the miles.
+The 0.x line (from `0.2.0`; `0.1.0` was a throwaway test publish) is the **complete pack, not yet production-tested**: every capability the package is designed to ship (passwordless auth, workspaces and invitations, billing with entitlements, credits and gifts, email with delivery tracking, webhooks, metered AI, the agent endpoint, rate limiting, workflows, migrations, aggregates, search, the pages, the CLI, the DevTools tab) is present, live-verified against real provider sandboxes, and covered by the test suite — but it has not yet carried real production traffic. `1.0` is the **same promise after production use**: no new surface is required to get there, only the miles.
 
-Within the 0.1 line, patch releases (`0.1.x`) never change the surfaces below. Minor releases (`0.2`, `0.3`, …) may — each change goes through the deprecation cycle and is called out in the changelog. From `1.0`, the same surfaces follow semver strictly: patch and minor releases are additive; removals wait for a major.
+Within the 0.x line, patch releases (`0.2.x`) never change the surfaces below. Minor releases (`0.3`, `0.4`, …) may — each change goes through the deprecation cycle and is called out in the changelog. From `1.0`, the same surfaces follow semver strictly: patch and minor releases are additive; removals wait for a major.
 
 ## The four surfaces
 
@@ -27,9 +27,9 @@ Anything tagged `@internal` in the source is stripped from the published declara
 
 ### 2. Configuration names
 
-- `ModuleOptions` (`backend` in `nuxt.config`): `url`, `siteUrl`, `authRoute`, `installation`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools` — and the page keys under `pages`: `login`, `pricing`, `settings`, `profile`, `security`, `acceptInvitation`
+- `ModuleOptions` (`backend` in `nuxt.config`): `url`, `siteUrl`, `authRoute`, `installation`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools`, `workspaces` — and the page keys under `pages`: `login`, `pricing`, `settings`, `profile`, `security`, `acceptInvitation`
 - `appConfig.backend` — the content layer: `billing.plans`, `billing.packs`, `billing.lowCreditsThreshold`, `brand.name`, `brand.logo`, `labels.auth`, `labels.pricing`, `labels.settings`, `labels.profile`, `labels.security`, `labels.history`, `labels.usage`, `labels.credits`
-- `runtimeConfig.public.backend` — `pages`, the resolved mount path per page key (`''` when disabled)
+- `runtimeConfig.public.backend` — `pages`, the resolved mount path per page key (`''` when disabled), and `workspaces`, whether the deployment runs the organization plugin
 - the `#backend/*` aliases: `#backend`, `#backend/api`, `#backend/server`, `#backend/dataModel`, `#backend/_generated`
 
 ### 3. The auto-import and component registry
@@ -39,6 +39,7 @@ The names the module registers, exactly as `src/module.ts` installs them:
 - **Composables** — `useAuth`, `useAuthState`, `useConnectionState`, `useLoginFlow`, `useOrganization`, `useSearch`, `useAggregate`, `useCount`, `useBilling`, `useFeatures`, `useCredits`, `useOrders`, `useUsage`, `useGifts`, `usePasskeys`, `useSessions`, `describeUserAgent`, `unwrapAuth`, `useBackendConfig`, `useEmailStatus`, `useWorkflowStatus`, `useAiStream`
 - **Components** — `AuthForm`, `RoleBoundary`, `OrganizationBoundary`, `FeatureBoundary`, `AcceptInvitation`, `GiftClaimBanner`, `PricingTable`, `BillingHistory`, `UsageHistory`, `CreditsLowBanner`, `WorkspaceSettings`, `ProfileSettings`, `SecuritySettings`
 - **Server (Nitro) imports** — `backendAuth`, `useBackendMcp`, `defineBackendMcpTool`
+- **Route middleware** — `auth` (`definePageMeta({ middleware: 'auth' })`): the neutral name for the base module's guard, which it registers as `convex-auth`; both stay registered and point at the same file
 
 The billing-history surface — `useOrders`, `useUsage`, `<BillingHistory>`, `<UsageHistory>`, `<CreditsLowBanner>` — ships **stable**, deliberately, not in the experimental tier: each one binds to a deployment function named in the scaffold contract below, which `nuxt-backend doctor` verifies, and each degrades to an empty state rather than an error when the backend has not deployed its half.
 
@@ -73,7 +74,7 @@ A public name is never removed in the release that replaces it. It is marked `@d
 
 - A **breaking change in a `better-auth` or `@convex-dev/*` minor** — an API that consumers of this package touch (auth plugin options, component function signatures, schema shape) — is a **major here** (a minor on the 0.x line, announced as breaking). The dependency ranges stay pinned to the last compatible line until then.
 - A non-breaking upstream update is a patch here.
-- `convex` follows its peer range (`>=1.42.2 <2`); a Convex major is a major here.
+- `convex` follows its peer range (`>=1.43.0 <2` — the floor is the lowest version every bundled `@convex-dev/*` component and `convex-helpers` accept, which `check:manifest` verifies against the installed tree); a Convex major is a major here. `vue` is a peer too (`^3.5.41`, the floor the bundled MCP toolkit needs), satisfied by any Nuxt 4.1+ app.
 - Nuxt majors are majors here. `nuxt-convex-module` is a true dependency, installed and configured for you; its own stability policy applies to the core composables it registers.
 
 `test/unit/peer-ranges.test.ts` keeps the declared ranges honest against the installed versions and against what the upstreams declare for each other.

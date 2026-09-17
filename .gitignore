@@ -12,13 +12,18 @@ pnpm-debug.log*
 
 # Generated dirs
 dist
-website/backend/_generated
+# The website's Convex codegen is committed (a Vercel preview builds without a
+# deployment; CI regenerates it and fails on a diff) — all but the AI
+# guidelines the CLI drops beside it.
+website/backend/_generated/ai/
 
 # Nuxt
 .nuxt
 .output
 .data
 .vercel_build_output
+# `vercel link` writes the project id here (website/.vercel)
+.vercel
 .build-*
 .netlify
 
@@ -68,8 +73,14 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
-# Claude Code local settings (machine-specific permissions)
+# Claude Code local settings (machine-specific permissions) and its scratch
+# writes
 .claude/settings.local.json
+.claude/.cc-writes/
+
+# fallow cache and the fallow GitHub Action's outputs (typos once failed on them)
+.fallow/
+fallow-*
 
 # QA screenshots (local-only)
 .qa

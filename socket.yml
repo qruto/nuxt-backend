@@ -1,0 +1,43 @@
+# Socket (https://socket.dev) looks at what a dependency actually does: install
+# scripts, obfuscated code, network and filesystem access while installing,
+# typosquatted names, maintainer changes.
+#
+# It is the only check here that reads inside a package. Everything else —
+# Dependabot, dependency-review, `npm audit signatures` — reads advisories and
+# signatures about packages, and none of those can describe a malicious release
+# nobody has reported yet.
+#
+# It is deliberately not part of `All checks passed`. Socket is a third-party
+# service, and this check is advisory while its policy is still being tuned.
+version: 2
+
+# Only a manifest or lockfile change can change what gets installed, so those
+# are the only files worth scanning. Source, docs and workflows are other
+# checks' job.
+triggerPaths:
+  - 'package.json'
+  - 'pnpm-lock.yaml'
+  - 'pnpm-workspace.yaml'
+  - 'website/package.json'
+  - 'devtools-client-app/package.json'
+  - 'examples/*/package.json'
+
+projectIgnorePaths:
+  # The deepsec scanner workspace: its own package.json and lockfile, gitignored,
+  # never installed by this project or its consumers.
+  - '.deepsec'
+  # AI tooling references — fetched examples and skill scripts, not dependencies.
+  - '.agents'
+  - '.claude'
+
+githubApp:
+  enabled: true
+  # The pull request comment is the whole point: it names the behaviour it found
+  # and the transitive package it found it in. No other check here can say that.
+  pullRequestAlertsEnabled: true
+  dependencyOverviewEnabled: true
+  projectReportsEnabled: true
+  # Dependabot opens every dependency PR here, and those are exactly the ones
+  # worth scanning. So it is not ignored.
+  ignoreUsers: []
+  disableCommentsAndCheckRuns: false

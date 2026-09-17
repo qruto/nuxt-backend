@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { posix, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadNuxt } from '@nuxt/kit'
 import type { Nuxt, NuxtHooks, NuxtPage } from '@nuxt/schema'
@@ -14,7 +14,12 @@ import { backendAppConfigDefaults } from '../../src/runtime/config'
 // contributes is then visible on `nuxt.options`, on the resolved Nitro
 // options, or through the hooks the kit helpers registered.
 
-const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
+// `/`-separated, like the paths kit's resolver registers, so the prefix and
+// equality checks below hold on Windows too (`join` there would give `\\`).
+const { join, relative } = posix
+/** A path as `/`-separated: kit's resolver already registers them that way; `path.join` on Windows does not. */
+const posixPath = (path: string): string => path.split(sep).join('/')
+const repoRoot = posixPath(fileURLToPath(new URL('../..', import.meta.url))).replace(/\/$/, '')
 const fixtureDir = join(repoRoot, 'test/fixtures/registration')
 const runtimeDir = join(repoRoot, 'src/runtime')
 
@@ -173,6 +178,15 @@ async function extendPages(nuxt: Nuxt, pages: NuxtPage[] = []): Promise<NuxtPage
   return pages
 }
 
+type RegisteredMiddleware = Array<{ name: string, path: string, global?: boolean }>
+
+/** Route middleware lands on the app through `app:resolve`; read it with an empty collector. */
+async function resolveMiddleware(nuxt: Nuxt): Promise<RegisteredMiddleware> {
+  const app = { middleware: [] as RegisteredMiddleware }
+  await nuxt.callHook('app:resolve', app as never)
+  return app.middleware
+}
+
 /**
  * Boot the fixture once per suite (module setup runs in `ready()`), close it
  * afterwards, and pin the zero-write guarantee for that boot: the fixture
@@ -208,6 +222,12 @@ function useBoot(overrides: Record<string, unknown> = {}, options: { dev?: boole
 describe('module registration (defaults)', () => {
   const getNuxt = useBoot()
 
+  it('installs nuxt-security ahead of the base module, which then finds it registered', () => {
+    const names = installedModuleNames(getNuxt())
+    expect(names).toContain('nuxt-security')
+    expect(names.indexOf('nuxt-security')).toBeLessThan(names.indexOf('nuxt-convex-module'))
+  })
+
   it('resolves the module by package name and installs its dependencies', () => {
     const nuxt = getNuxt()
     const entry = nuxt.options._installedModules.find(module => module.meta.name === 'nuxt-backend')
@@ -217,7 +237,9 @@ describe('module registration (defaults)', () => {
 
   it('registers the #backend/* aliases for Vite and Nitro, specific entries first', () => {
     const nuxt = getNuxt()
-    const backendDir = join(nuxt.options.rootDir, 'backend')
+    // The aliases are built with the platform's `path.join` (backslashes on
+    // Windows), so both sides are compared in posix form.
+    const backendDir = join(posixPath(nuxt.options.rootDir), 'backend')
     const expected = {
       '#backend/api': join(backendDir, '_generated/api'),
       '#backend/server': join(backendDir, '_generated/server'),
@@ -229,7 +251,7 @@ describe('module registration (defaults)', () => {
       const keys = Object.keys(aliases).filter(key => key.startsWith('#backend'))
       // First-match-wins resolution: `#backend` must trail its sub-aliases.
       expect(keys).toEqual(Object.keys(expected))
-      expect(Object.fromEntries(keys.map(key => [key, aliases[key]]))).toEqual(expected)
+      expect(Object.fromEntries(keys.map(key => [key, posixPath(aliases[key]!)]))).toEqual(expected)
     }
   })
 
@@ -362,6 +384,20 @@ describe('module registration (defaults)', () => {
     }
   })
 
+  it('registers the neutral `auth` middleware over the base module\'s guard file', async () => {
+    const middleware = await resolveMiddleware(getNuxt())
+    const auth = middleware.find(entry => entry.name === 'auth')
+    // The base module registers the same file as `convex-auth`; the neutral
+    // name is this package's promise (STABILITY.md), and the two must share
+    // one implementation.
+    const base = middleware.find(entry => entry.name === 'convex-auth')
+    expect(auth).toMatchObject({ name: 'auth', global: false })
+    expect(auth!.path).toMatch(/[\\/]nuxt-convex-module[\\/](dist|src)[\\/]runtime[\\/]better-auth[\\/]nuxt[\\/]middleware(\.m?js|\.ts)?$/)
+    expect(existsWithExtension(auth!.path), auth!.path).toBe(true)
+    expect(base, 'the base module still registers convex-auth').toBeDefined()
+    expect(existsWithExtension(base!.path), base!.path).toBe(true)
+  })
+
   it('skips a page the app already serves at the same path', async () => {
     const appLogin: NuxtPage = { name: 'login', path: '/login', file: join(fixtureDir, 'app/pages/login.vue') }
     const pages = await extendPages(getNuxt(), [appLogin])
@@ -472,6 +508,7 @@ describe('option forwarding through moduleDependencies', () => {
       url,
       siteUrl,
       authRoute: '/api/session',
+      security: true,
       betterAuth: { authClient, loginPath: '/login' },
       polar: true,
       clerk: false,
@@ -510,7 +547,7 @@ describe('installation: local', () => {
   it('changes nothing at registration time — the mode only steers scaffolding', async () => {
     const nuxt = getNuxt()
     expect(dependencyOptions(nuxt).backend?.installation).toBe('local')
-    expect(nuxt.options.alias['#backend']).toBe(join(nuxt.options.rootDir, 'backend'))
+    expect(posixPath(nuxt.options.alias['#backend']!)).toBe(join(posixPath(nuxt.options.rootDir), 'backend'))
     expect(existsSync(join(fixtureDir, 'backend/components'))).toBe(false)
     expect((await extendPages(nuxt)).map(page => page.path)).toEqual(DEFAULT_PAGES.map(page => page.path))
     expect(nuxt.options.runtimeConfig.backendMcp).toBeDefined()

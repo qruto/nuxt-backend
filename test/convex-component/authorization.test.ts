@@ -13,7 +13,7 @@ import { setupAuthorization, type AuthorizationCtx } from '../../src/convex/inte
 let t: ReturnType<typeof convexTest>
 
 beforeEach(() => {
-  t = convexTest(schema, component.modules.backend)
+  t = convexTest(schema, component.modules)
 })
 
 const adapterApi = { backend: { adapter: { findOne: api.adapter.findOne, updateOne: api.adapter.updateOne } } }

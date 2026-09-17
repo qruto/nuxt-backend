@@ -18,13 +18,10 @@ const includeTodos = ref(true)
 const includeMessages = ref(true)
 
 const queryMap = computed(() => {
-  // `as never` on the refs: while the base module is a `link:` dep it carries
-  // its own convex type copy, so the branded FunctionReference identities
-  // differ across the link (irrelevant once the dependency is published).
   const map: RequestForQueries = {}
-  if (includeCounter.value) map.counter = { query: api.counter.get as never, args: { name: 'demo' } }
-  if (includeTodos.value) map.todos = { query: api.todos.list as never, args: {} }
-  if (includeMessages.value) map.messages = { query: api.messages.list as never, args: {} }
+  if (includeCounter.value) map.counter = { query: api.counter.get, args: { name: 'demo' } }
+  if (includeTodos.value) map.todos = { query: api.todos.list, args: {} }
+  if (includeMessages.value) map.messages = { query: api.messages.list, args: {} }
   return map
 })
 const results = useQueries(() => queryMap.value)

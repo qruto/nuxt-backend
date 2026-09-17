@@ -1,15 +1,16 @@
-name: ci
+name: CI
 
-# Every per-commit gate lives here, in one file, so `ci-ok` can aggregate them
-# and there is one place to read the gate set.
+# Every check that runs on a commit lives here, so there is one file to read and
+# one job (`All checks passed`) that reports them all.
 #
-# Never add a workflow-level `paths:`/`paths-ignore:` filter: a required workflow
-# that is skipped never reports, and the merge sits on "Expected — waiting for
-# status" forever.
+# Work is skipped per JOB, never per workflow. A workflow-level `paths:` filter
+# stops the whole run, so the required check never reports at all: GitHub shows
+# "Expected — waiting for status" forever, with nothing to re-run. A job-level
+# `if:` saves the same minutes safely — the run happens, expensive jobs report
+# `skipped`, and the aggregate counts `skipped` as a pass.
 #
-# Setup is defined once, in .github/actions/setup — that is where the pnpm
-# version, the Node runtime, their action pin and the `link:../nuxt-convex-module`
-# clone live.
+# The pnpm version, the Node runtime and their action pins are defined once, in
+# .github/actions/setup.
 on:
   push:
     branches:
@@ -18,12 +19,15 @@ on:
     branches:
       - main
 
-# Cancel superseded runs on the same branch / PR.
+# Cancel superseded runs on a pull request, never on main. `head_ref` is empty on
+# a push, so cancelling there would put every merge in one group, and two merges
+# in quick succession would kill the first run. `Release` will not tag a commit
+# whose CI run was cancelled, so that commit could never be released.
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Nothing by default — every job declares the minimum it needs.
+# No permissions by default. Each job asks for what it needs.
 permissions: {}
 
 # No usage pings from Nuxt, Nitro, Convex or anything honouring the
@@ -33,17 +37,58 @@ env:
   NUXT_TELEMETRY_DISABLED: '1'
 
 jobs:
-  # Everything that needs a checkout, an install and nothing else. One job rather
-  # than five: the setup is identical, and `if: !cancelled()` still gives a
-  # per-gate verdict, so one push surfaces every problem at once instead of
-  # stopping at the first.
-  #
-  # TODO(fallow burndown): the `quality` gate — `pnpm exec fallow audit
-  # --changed-since "$BASE_SHA"` on pull requests, `pnpm exec fallow
-  # --fail-on-issues` on pushes to main, plus `pnpm exec fallow security
-  # --fail-on-issues` — belongs here, the way nuxt-convex-module's ci.yml has it.
-  # The codebase carries ~58 pre-existing findings (`pnpm test:quality`); add
-  # the steps once they are burned down so the gate starts green.
+  # Works out which of the expensive jobs this change needs. On a push to main
+  # they all run anyway: that costs one full run per merge, and a green main is
+  # worth the minutes.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      src: ${{ steps.filter.outputs.src }}
+      website: ${{ steps.filter.outputs.website }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          # `&shared` / `*shared` is a YAML anchor, and this action resolves
+          # it. Paths that both filters need are written once, in one place.
+          filters: |
+            shared: &shared
+              - 'src/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.nuxtrc'
+              - 'tsconfig*.json'
+              - '.github/workflows/ci.yml'
+              - '.github/actions/**'
+            website:
+              - *shared
+              - 'website/**'
+            src:
+              - *shared
+              # The DevTools panel ships with the package: `build` generates
+              # it into dist/devtools-client, which `files` publishes. Leave it
+              # out here and a change to the panel skips `pack`, the job that
+              # checks the panel has any built assets at all.
+              - 'devtools-client-app/**'
+              - 'test/**'
+              - 'scripts/**'
+              - 'examples/**'
+              - 'vitest.config.ts'
+              - 'build.config.ts'
+
+  # Everything that needs a checkout and an install and nothing more. One job
+  # rather than a dozen, because the setup is identical. `if: !cancelled()` on
+  # each step means one push reports every problem instead of stopping at the
+  # first.
   static:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -52,7 +97,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Full history: commitlint reads the PR range.
+          # Full history, because commitlint reads the PR's commit range and
+          # `fallow audit` diffs against the PR base.
           fetch-depth: 0
           persist-credentials: false
 
@@ -64,29 +110,43 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm run lint
 
-      # Type-checks the published surface. The root tsconfig excludes `src/convex`
-      # (and the website, which has its own job), so the Convex world — including
-      # the published `nuxt-backend/test` entrypoint, which the component build
-      # also excludes — needs its own pass. Same two commands the release gate
-      # runs (`test:types:lib`), minus the `dev:prepare:lib` the setup step did.
+      # Type-checks what gets published. The root tsconfig excludes `src/convex`
+      # (and the website, which has its own job), so the Convex world —
+      # including the published `nuxt-backend/test` entrypoint, which the
+      # component build also excludes — needs its own pass.
       - name: Type check
         if: ${{ !cancelled() }}
-        run: pnpm exec vue-tsc --noEmit
+        run: pnpm run typecheck
 
       - name: Type check (Convex)
         if: ${{ !cancelled() }}
-        run: pnpm exec tsc --noEmit -p tsconfig.convex.json
+        run: pnpm run typecheck:convex
 
-      # Enforce Conventional Commits on PRs. The local commit-msg hook gives fast
-      # feedback but can be bypassed with --no-verify, so this is the gate that
-      # actually keeps the history clean. Pushes to main are skipped — those
-      # commits were already linted on their PR.
+      # Conventional Commits, on pull requests only. The local commit-msg hook
+      # is faster, but `--no-verify` skips it, so this is the check that holds.
+      # Pushes to main are skipped: those commits were checked on their PR.
       - name: Commit messages
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: pnpm exec commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+        run: pnpm run lint:commits --from "$BASE_SHA" --to "$HEAD_SHA"
+
+      # Compares what package.json promises against what is installed: that our
+      # `engines` is not stricter than a dependency's own, and that no peer range
+      # is wider than what that peer actually accepts.
+      #
+      # Nothing else checks this. publint reads the manifest's shape, attw
+      # resolves its types, fallow reads the module graph. None of them compares
+      # a declared range to reality. This caught a `convex` floor below what
+      # the bundled convex-helpers accepts.
+      #
+      # `--no-workspaces` skips the website and DevTools apps, which are private
+      # and promise nobody anything. `-d` skips devDependencies, which are ours
+      # alone.
+      - name: Manifest ranges (installed-check)
+        if: ${{ !cancelled() }}
+        run: pnpm run check:manifest
 
       # `src/templates.generated.ts` — the export lists the local-install
       # scaffold re-exports — is derived from the component's function modules
@@ -98,34 +158,132 @@ jobs:
           pnpm run templates:generate
           git diff --exit-code -- src/templates.generated.ts
 
-      # Regenerating the committed TypeDoc reference must produce no diff,
-      # otherwise source doc-comments and the published reference have diverged.
+      # Regenerating the TypeDoc reference must produce no diff (and leave no
+      # untracked file under the reference tree). A diff means the doc comments
+      # in the source and the published reference disagree.
       - name: API reference drift
         if: ${{ !cancelled() }}
-        run: |
-          pnpm run docs:reference
-          # `git diff` only sees tracked files, so a regeneration that lands in a
-          # renamed-away directory would pass silently — exactly how the stale
-          # `5.api-reference` path stayed green. The second check lists untracked
-          # output under the reference tree, so a wrong `out` fails loudly.
-          git diff --exit-code -- website/content/7.api-reference/9.reference
-          git ls-files --others --exclude-standard -- website/content/7.api-reference/9.reference | (! grep .)
+        run: pnpm run docs:reference:check
 
-      # Static analysis of the workflows themselves (template injection,
-      # credential persistence, unpinned uses). Accepted findings live in
+      # The hand-written docs against the code: every module option documented
+      # where options are listed, every middleware name a docs page uses
+      # registered, README links that resolve from npm, contributor docs that
+      # name real CI jobs, nothing describing the repository as it no longer
+      # is. Here rather than in `test`, which a docs-only change skips.
+      - name: Docs contract
+        if: ${{ !cancelled() }}
+        run: pnpm run test:docs
+
+      # Security analysis of the workflow files: template injection, credentials
+      # left on disk, unpinned actions. Accepted findings live in
       # .github/zizmor.yml.
-      # The action's `version` input defaults to `latest`, which makes zizmor an
-      # unpinned input in a repository that pins every action to a digest: a new
-      # release can add an audit and redden CI with no change here. Pin it, and
-      # bump deliberately — that is when you read the new findings.
+      #
+      # `version` is pinned because it defaults to `latest`, and a new zizmor
+      # release can add a rule that fails CI with nothing changed here. Bump it
+      # deliberately, and read the new findings then.
+      #
+      # `inputs` is scoped to .github/ (workflows, the composite action and
+      # dependabot.yml): the default walks the whole tree and audits the
+      # workflow files third-party skills vendor under .agents/skills/, which
+      # are not ours to fix.
       - name: Workflow lint (zizmor)
         if: ${{ !cancelled() }}
-        uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
         with:
           version: 1.30.0
+          inputs: .github
           advanced-security: false
 
+      # Correctness of the workflow files, which zizmor does not look at: bad
+      # expressions, `needs`/matrix references that do not exist, invalid runner
+      # labels, malformed cron. It also runs shellcheck over every inline `run:`
+      # block (ubuntu-latest ships shellcheck, and actionlint finds it on PATH).
+      #
+      # Pinned for the same reason as zizmor. Accepted findings live in
+      # .github/actionlint.yaml.
+      - name: Workflow correctness (actionlint)
+        if: ${{ !cancelled() }}
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+        with:
+          version: 1.7.12
+          fail-on-error: true
+
+      # Misspellings in prose, comments, identifiers and workflow files.
+      # Settings and the accepted-word list are in _typos.toml, including the
+      # `.git/` exclusion — without it, the `fetch-depth: 0` above makes typos
+      # report on old commit subjects.
+      - name: Spelling (typos)
+        if: ${{ !cancelled() }}
+        uses: crate-ci/typos@d43b6c087ac471e2ea7b8af622ff15f05c0c365b # v1.50.1
+
+      # ── fallow runs last, and nothing runs after it ──────────────────────
+      #
+      # The fallow action expects to be used without a node setup step. It does
+      # its own `npm install -g` and then calls a bare `fallow`, trusting the
+      # runner's npm to have put it on PATH. There is no input to point it at a
+      # binary, so this step is the only way in.
+      #
+      # That does not work here, because `pnpm/setup` owns the runtime and
+      # creates no global shims. Pointing it at the lockfile's copy is better
+      # anyway: package.json pins `fallow` to an exact version, so CI runs the
+      # same build as .githooks, under Dependabot, the cooldown and pnpm's trust
+      # policy. The action's own global install fetches the MUSL build, which
+      # could not have run on this glibc runner even if PATH had found it. Its
+      # signature check still runs, against the binary that actually executes.
+      #
+      # `$GITHUB_PATH` prepends, for every later step in the job — which is what
+      # zizmor's `github-env` audit flags. It is ignored rather than fixed
+      # because the two steps that need it are the last two. Keep it that way: a
+      # step added below would inherit a PATH where 40-odd project binaries
+      # shadow the system's.
+      #
+      # `!cancelled()` for the same reason every gate above carries it, and this
+      # step is not a gate. Without it the implicit `success()` skips it as soon
+      # as anything earlier fails — and the two fallow steps below, which DO run
+      # after a failure, then call a bare `fallow` that is not on PATH. Both
+      # would report `command not found`, burying the real failure under two
+      # invented ones.
+      - name: Put project binaries on PATH
+        if: ${{ !cancelled() }}
+        run: echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH" # zizmor: ignore[github-env]
+
+      # Dead code, unused exports and dependencies, duplication, complexity.
+      # Through the action rather than the CLI for two things the CLI cannot do:
+      # it works out the PR base itself, and it verifies the binary's signature.
+      #
+      # Its `comment`, `review-comments` and `sarif` outputs stay off. Each one
+      # wants `pull-requests: write`, `checks: write` or `security-events: write`
+      # on a job that runs code from the pull request, and a failing job with the
+      # findings in its log already says the same thing.
+      #
+      # On a pull request it looks only at the changed files, and fails only on
+      # findings the change introduces. On a push to main it runs over
+      # everything, because a scoped audit passes on a config edit that strands
+      # a file elsewhere.
+      #
+      # Must run after the setup step's `dev:prepare`: without `dist/` the
+      # tsconfig chain does not resolve and fallow sees a different module
+      # graph.
+      - name: Quality (fallow)
+        if: ${{ !cancelled() }}
+        uses: fallow-rs/fallow@30167b42257ded3bef683f6c91b4aa4017a1ff59 # v3.25.0
+        with:
+          command: ${{ github.event_name == 'pull_request' && 'audit' || '' }}
+
+      # A separate command, because fallow keeps security candidates out of
+      # both the default run and the audit gate — neither would ever report one.
+      # `auto-changed-since: false` so a candidate in an untouched file still
+      # fails the job.
+      - name: Security candidates (fallow)
+        if: ${{ !cancelled() }}
+        uses: fallow-rs/fallow@30167b42257ded3bef683f6c91b4aa4017a1ff59 # v3.25.0
+        with:
+          command: security
+          auto-changed-since: false
+
   test:
+    needs: changes
+    if: ${{ github.event_name == 'push' || needs.changes.outputs.src == 'true' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     permissions:
@@ -137,9 +295,8 @@ jobs:
         # scaffold writes files, the codegen watcher normalizes paths) — the
         # class of bug that only ships to Windows users.
         os: [ubuntu-latest, windows-latest]
-        # The project tracks the current LTS via the `lts` tag, so it follows new
-        # LTS lines without a manual bump. `lts/-1` is not an option: engines.node
-        # is >=24.11.0, which is above it.
+        # `lts` tracks the current LTS line, so a new one needs no bump here.
+        # `lts/-1` is not an option: engines.node is >=24.11.0, above it.
         node: [lts]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -158,8 +315,8 @@ jobs:
       - name: Test
         run: pnpm run test:coverage
 
-      # Handed to the `coverage` job, which holds the upload credential. This job
-      # runs PR-authored code, so it must never hold one itself.
+      # Handed to the `coverage` job, which holds the upload credential. This
+      # job runs code from the pull request, so it must never hold one itself.
       - name: Upload coverage artifact
         if: ${{ !cancelled() && matrix.os == 'ubuntu-latest' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -172,17 +329,20 @@ jobs:
           if-no-files-found: error
 
   # Full-app end-to-end: builds the example apps with @nuxt/test-utils/e2e and
-  # drives them in a real browser against a real Nitro server.
+  # drives them in a real browser against a real Nitro server — SSR pages, the
+  # auth middleware's redirect, the MCP surface, the Convex-aware CSP.
   e2e:
+    needs: changes
+    if: ${{ github.event_name == 'push' || needs.changes.outputs.src == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
       contents: read
     steps:
-      # Audit-mode egress monitoring. Applied to the jobs that build and run
-      # PR-authored code against the network, not to every job — harden-runner is
-      # itself a third-party action, so it is worth its surface where there is
-      # untrusted code and outbound traffic to observe, and not elsewhere.
+      # Records what the job talks to over the network, without blocking it.
+      # Only on the jobs that build and run code from the pull request:
+      # harden-runner is itself a third-party action, so it is worth adding
+      # where there is untrusted code to watch, and nowhere else.
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
@@ -199,19 +359,23 @@ jobs:
       # The browser the e2e project drives. playwright-core is the lockfile
       # version, so the browser build it downloads is the one it was tested
       # against; `--with-deps` adds the runner's system libraries.
-      - name: Install Playwright Chromium
+      - name: Install Chromium
         run: pnpm exec playwright-core install --with-deps chromium
 
       - name: End-to-end tests
-        run: pnpm exec vitest --run --project e2e
+        run: pnpm run test:e2e
 
-  # Publishable-package gate: build the real tarball (`pnpm pack` rewrites
-  # `catalog:` ranges exactly like `pnpm publish`), lint its shape, then install
-  # it into both examples with plain npm — the consumer path (registry-shaped
-  # install, lifecycle scripts, engines) that repo-internal jobs never exercise.
+  # Checks the package a consumer would actually get. Builds the real tarball
+  # (`pnpm pack` rewrites `catalog:` ranges exactly like `pnpm publish` does),
+  # checks its shape, then installs it into the examples with plain npm and,
+  # once more, with strict pnpm. That last part — a registry-style install,
+  # lifecycle scripts, engines, an isolated node_modules — is what no other job
+  # here exercises.
   pack:
+    needs: changes
+    if: ${{ github.event_name == 'push' || needs.changes.outputs.src == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
@@ -229,123 +393,135 @@ jobs:
           prepare: lib
 
       # Runs `prepack` (the full build) and produces the exact artifact a release
-      # would publish. A fixed name, so the steps below need no glob.
+      # would publish.
       - name: Pack
-        run: pnpm pack --out nuxt-backend.tgz
+        run: pnpm pack
 
-      # Until nuxt-convex-module is published, package.json depends on it as
-      # `link:../nuxt-convex-module` — a range only pnpm understands. publint
-      # fails on it by design, and npm refuses it outright, so the publishable
-      # shape cannot be checked yet. Rather than a gate that is red until the
-      # base module ships, the consumer-facing steps below are skipped, with a
-      # warning on every run, and switch themselves on the moment the
-      # dependency becomes a semver range. The tarball-contents assertions do
-      # not depend on it and always run.
-      - name: Publishable dependencies?
-        id: deps
-        run: |
-          if jq -e '.dependencies | to_entries[] | select(.value | startswith("link:"))' package.json >/dev/null; then
-            echo "::warning::package.json still depends on nuxt-convex-module through link: — publint, attw and the consumer smoke test are skipped until it is a published range"
-            echo "publishable=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "publishable=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Package shape (publint)
-        if: ${{ !cancelled() && steps.deps.outputs.publishable == 'true' }}
-        run: pnpm exec publint run --strict nuxt-backend.tgz
-
-      # The two CSS subpaths are excluded: TypeScript cannot resolve a
-      # stylesheet, so attw reports them as failed resolution on every target —
-      # the same exclusion `pnpm check:tarball` carries.
-      - name: Type resolution (arethetypeswrong)
-        if: ${{ !cancelled() && steps.deps.outputs.publishable == 'true' }}
-        run: pnpm exec attw nuxt-backend.tgz --profile esm-only --exclude-entrypoints ./auth.css ./ui.css
-
-      # What the tarball must and must not carry. Each `grep -q` is a question
-      # about the file list; the `if` makes the verdict explicit rather than
-      # relying on `set -e` and a negated pipeline. Sourcemaps are not on the
-      # list on purpose: `dist/convex` ships `.js.map` and `.d.ts.map` files
-      # (tsconfig.convex.json) that resolve into the `src/convex` tree the
-      # tarball carries for the `./test` export.
-      - name: Tarball contents
+      # publint, attw, the content rules and the phantom-dependency walk.
+      # Defined once in scripts/check-tarball.mjs, and release.yml's build job
+      # runs the same script.
+      - name: Check the tarball
         if: ${{ !cancelled() }}
-        run: |
-          tar -tzf nuxt-backend.tgz > files.txt
-          for required in \
-            package/dist/devtools-client/index.html \
-            package/dist/cli.mjs \
-            package/dist/convex/components/backend/_generated/component.d.ts
-          do
-            if ! grep -qx "$required" files.txt; then
-              echo "::error::missing from the tarball: $required"; exit 1
-            fi
-          done
-          # Only `src/convex` ships TypeScript sources (the `./test` export and the
-          # declaration maps point into it); everywhere else a `.ts` that is not a
-          # declaration means unbuilt source leaked into the package.
-          if grep -v '^package/src/convex/' files.txt | grep -E '\.[mc]?ts$' | grep -qvE '\.d\.[mc]?ts$'; then
-            echo "::error::unbuilt TypeScript outside src/convex:"; grep -v '^package/src/convex/' files.txt | grep -E '\.[mc]?ts$' | grep -vE '\.d\.[mc]?ts$'; exit 1
-          fi
-          if grep -q '^package/src/runtime/' files.txt; then
-            echo "::error::src/runtime must not ship — the module runtime is built into dist/runtime"; exit 1
-          fi
-          echo "$(wc -l < files.txt) files"
+        run: pnpm run check:tarball
 
-      # Lockfile-less install on purpose: simulates a fresh consumer. `npm`
-      # comes from the runner image — pnpm's Node runtime deliberately ships
-      # without the bundled npm/npx (pnpm 11+), and a stock runner npm is
-      # exactly the consumer path this job is meant to exercise.
+      # No lockfile, on purpose: this is what a new user gets. `npm` comes
+      # from the runner image, because pnpm's Node runtime ships without npm
+      # and npx from pnpm 11 on — and a stock npm is exactly the path being
+      # tested.
       #
-      # The npm the image bundles (10.9.x, from its own Node 22) crashes in
-      # Arborist's peer-set resolution on any Nuxt 4 tree — `Cannot read
-      # properties of null (reading 'edgesOut')`, npm/cli#9787, fixed in npm
-      # 11.6.0. Nothing to do with this package: a bare `npm install` of the
-      # example hits it too. So the consumer npm is pinned, which also keeps
-      # the gate reproducible when the runner image moves.
+      # The version pin is a workaround. The image's own npm (10.9.x) crashes
+      # while resolving peers on any Nuxt 4 tree: `Cannot read properties of
+      # null (reading 'edgesOut')`, npm/cli#9787, fixed in 11.6.0. It is not
+      # about this package — a bare `npm install` of the example hits it too.
+      # Pinning also keeps this job reproducible when the runner image moves.
       #
-      # The examples are workspace members, so their manifests carry the two
-      # ranges only pnpm understands: `workspace:*` (rewritten to the tarball)
-      # and `catalog:` (rewritten to the value pnpm-workspace.yaml holds). The
-      # copy also drops the pnpm-managed node_modules, whose symlinks point back
-      # into the workspace.
+      # The examples are standalone apps of the published package
+      # (`nuxt-backend: latest`); installing the tarball over that dependency
+      # is exactly what a user who clones one and installs gets, minus the
+      # registry.
       - name: Consumer smoke test (npm install + build)
-        if: ${{ !cancelled() && steps.deps.outputs.publishable == 'true' }}
+        if: ${{ !cancelled() }}
         env:
           NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
         run: | # zizmor: ignore[adhoc-packages]
-          TARBALL="$PWD/nuxt-backend.tgz"
-          CATALOG=$(yq -o=json '.catalog' pnpm-workspace.yaml)
+          TARBALL="$PWD/$(ls nuxt-backend-*.tgz)"
           for example in minimal advanced; do
             SMOKE="$RUNNER_TEMP/smoke-$example"
             cp -R "examples/$example" "$SMOKE"
-            rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output"
-            jq --arg tarball "$TARBALL" --argjson catalog "$CATALOG" '
-              .dependencies |= with_entries(
-                if .value == "workspace:*" then .value = "file:" + $tarball
-                elif .value == "catalog:" then .value = $catalog[.key]
-                else . end)' "$SMOKE/package.json" > "$SMOKE/package.json.tmp"
-            mv "$SMOKE/package.json.tmp" "$SMOKE/package.json"
+            rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output" "$SMOKE/backend/_generated"
             echo "::group::examples/$example"
-            jq .dependencies "$SMOKE/package.json"
-            (cd "$SMOKE" && npx --yes npm@11.17.0 install --no-audit --no-fund && npx --yes npm@11.17.0 run build)
+            (cd "$SMOKE" && npx --yes npm@11.17.0 install --no-audit --no-fund "$TARBALL" && npx --yes npm@11.17.0 run build)
             echo "::endgroup::"
           done
 
-      # Verifies the registry signature and provenance attestation of every
-      # dependency the smoke installs pulled. pnpm's `trustPolicy: no-downgrade`
-      # refuses a package whose trust evidence weakens between versions; this
-      # checks that the evidence actually validates, on the consumer's npm path.
+      # The other product of this package: the Convex component. A consumer's
+      # `convex dev` resolves `nuxt-backend/component/convex.config` from the
+      # scaffolded config, bundles the component and generates
+      # `components.backend.*` typed against
+      # `nuxt-backend/component/_generated/component.js` — the exports map has
+      # to make both reachable, and only a real codegen from an installed copy
+      # proves it. `convex codegen` refuses to run without a deployment, so this
+      # creates an anonymous local one (no account, no credentials) and lets
+      # `convex dev --once` push to it. The push itself fails at the end (the
+      # backend declares required env vars a throwaway deployment has no values
+      # for), but codegen is complete by then; the assertions are what the step
+      # gates on.
+      - name: Consumer codegen (Convex component from the tarball)
+        if: ${{ !cancelled() }}
+        working-directory: ${{ runner.temp }}/smoke-minimal
+        env:
+          CONVEX_AGENT_MODE: anonymous
+        run: |
+          npx --no-install convex dev --once --typecheck disable || echo "convex dev --once exited $? (expected: the push needs env vars this deployment does not have)"
+          for generated in api.d.ts api.js dataModel.d.ts server.d.ts server.js; do
+            if [ ! -f "backend/_generated/$generated" ]; then
+              echo "::error::codegen did not write backend/_generated/$generated"; exit 1
+            fi
+          done
+          if grep -q 'AnyApi' backend/_generated/api.d.ts; then
+            echo "::error::backend/_generated/api.d.ts is the untyped placeholder — the component-aware codegen phase did not run"; exit 1
+          fi
+          if ! grep -q 'nuxt-backend/component/_generated/component' backend/_generated/api.d.ts; then
+            echo "::error::backend/_generated/api.d.ts does not type components.backend against the package's ComponentApi"; exit 1
+          fi
+
+      # The steps above prove the tarball installs, builds and codegens. This
+      # one proves its type declarations compile inside an app — the Nuxt half
+      # (pages, composables) and the Convex half (the scaffolded functions
+      # against `components.backend.*`). `vue-tsc` checks the sources and `attw`
+      # checks that the types resolve; neither answers this, and this package's
+      # product is its types.
+      - name: Consumer type check (built package)
+        if: ${{ !cancelled() }}
+        run: pnpm run check:consumer-types "$RUNNER_TEMP/smoke-minimal"
+
+      # Checks the registry signature and provenance of every dependency the
+      # install above pulled in. pnpm's `trustPolicy: no-downgrade` refuses a
+      # package whose evidence gets weaker between versions; this checks that
+      # the evidence is valid at all, on the npm path a consumer uses.
       - name: Verify dependency signatures
-        if: ${{ !cancelled() && steps.deps.outputs.publishable == 'true' }}
+        if: ${{ !cancelled() }}
         run: | # zizmor: ignore[adhoc-packages]
           for example in minimal advanced; do
             (cd "$RUNNER_TEMP/smoke-$example" && npx --yes npm@11.17.0 audit signatures)
           done
 
+      # The same consumer path under pnpm's default isolated linker, which
+      # hides everything a package does not declare — the one layout the
+      # hoisted workspace here, and npm above, can never fail on. It installs
+      # the tarball with the settings the installation docs give strict-pnpm
+      # users (the `@convex-dev/*` hoist so Convex's bundler can reach the
+      # component definitions the scaffold imports) and runs the same codegen
+      # assertion. `minimumReleaseAge` is off for this throwaway workspace
+      # only: the gate must not depend on how many hours ago a dependency was
+      # published.
+      - name: Consumer smoke test (strict pnpm)
+        if: ${{ !cancelled() }}
+        env:
+          NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
+          CONVEX_AGENT_MODE: anonymous
+        run: | # zizmor: ignore[adhoc-packages]
+          TARBALL="$PWD/$(ls nuxt-backend-*.tgz)"
+          SMOKE="$RUNNER_TEMP/smoke-strict-pnpm"
+          mkdir -p "$SMOKE/app"
+          cd "$SMOKE"
+          printf '%s\n' '{ "name": "smoke-strict-pnpm", "private": true, "type": "module" }' > package.json
+          printf '%s\n' "export default defineNuxtConfig({ modules: ['nuxt-backend'], telemetry: false })" > nuxt.config.ts
+          printf '%s\n' '<template><div>smoke</div></template>' > app/app.vue
+          printf '%s\n' 'publicHoistPattern:' "  - '@convex-dev/*'" 'allowBuilds:' '  esbuild: true' 'minimumReleaseAge: 0' > pnpm-workspace.yaml
+          pnpm add nuxt convex "$TARBALL"
+          pnpm exec nuxt-backend init
+          pnpm exec nuxt build
+          pnpm exec convex dev --once --typecheck disable || echo "convex dev --once exited $? (expected: the push needs env vars this deployment does not have)"
+          if ! grep -q 'nuxt-backend/component/_generated/component' backend/_generated/api.d.ts; then
+            echo "::error::under strict pnpm the codegen did not type components.backend against the package's ComponentApi"; exit 1
+          fi
+
   # The docs site + playground: type-checked and built the way a deploy builds
   # it. `full` prepare, because both read website/.nuxt.
   website:
+    needs: changes
+    if: ${{ github.event_name == 'push' || needs.changes.outputs.website == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -364,18 +540,18 @@ jobs:
         with:
           prepare: full
 
-      # `website/backend/_generated` is Convex codegen, gitignored — the
-      # website's own functions import it, so neither the type check nor the
-      # build can run without it. `convex codegen` refuses to run without a
-      # deployment, and the component graph makes the API types depend on one,
-      # so this creates an anonymous *local* deployment (no account, no
-      # credentials: the CLI downloads the local backend and runs it for the
-      # duration of the command) and lets `convex dev --once` push to it. The
-      # push itself is expected to fail at the end — the backend declares
-      # required env vars (AUTH_SECRET, SITE_URL) a throwaway deployment has
-      # no values for — but codegen is complete by then, and the assertions
-      # below are what the step actually gates on: the typed `api.d.ts`, not
-      # the untyped placeholder the first codegen phase writes.
+      # `website/backend/_generated` is Convex codegen, committed so a Vercel
+      # preview builds without a deployment. It must regenerate identically:
+      # `convex codegen` refuses to run without a deployment, and the component
+      # graph makes the API types depend on one, so this creates an anonymous
+      # *local* deployment (no account, no credentials: the CLI downloads the
+      # local backend and runs it for the duration of the command) and lets
+      # `convex dev --once` push to it. The push itself is expected to fail at
+      # the end — the backend declares required env vars (AUTH_SECRET,
+      # SITE_URL) a throwaway deployment has no values for — but codegen is
+      # complete by then, and the assertions below are what the step gates
+      # on: the typed `api.d.ts`, not the untyped placeholder the first codegen
+      # phase writes, and no diff against the committed files.
       - name: Convex codegen (anonymous local deployment)
         working-directory: website
         env:
@@ -390,6 +566,25 @@ jobs:
           if grep -q 'AnyApi' backend/_generated/api.d.ts; then
             echo "::error::backend/_generated/api.d.ts is the untyped placeholder — the component-aware codegen phase did not run"; exit 1
           fi
+          git diff --exit-code -- backend/_generated
+
+      # The packaged component's own `_generated/` (its ComponentApi, server
+      # builders and data model) is committed and compiled into the tarball —
+      # it is what a consumer's codegen types `components.backend.*` against.
+      # Nothing regenerates it but the dev watcher, so a function-signature
+      # change committed without it would publish a stale ComponentApi.
+      # Component codegen needs a selected deployment; the anonymous local one
+      # the step above provisioned in this directory is reused, with the
+      # repository's own convex CLI (the generated file changes shape between
+      # CLI versions).
+      - name: Component codegen drift
+        if: ${{ !cancelled() }}
+        working-directory: website
+        env:
+          CONVEX_AGENT_MODE: anonymous
+        run: |
+          pnpm exec convex codegen --component-dir ../src/convex/components/backend
+          git diff --exit-code -- ../src/convex/components/backend/_generated
 
       # vue-tsc over the website, with diagnostics from upstream layer sources
       # (Docus ships app code that type-checks against its own peer set)
@@ -408,11 +603,12 @@ jobs:
           NUXT_SITE_URL: https://nuxt-backend.example
         run: pnpm exec nuxt build website
 
-  # Inspects the dependency delta a PR introduces and fails on a known CVE or a
-  # package GitHub has flagged as malicious. Complements pnpm's cooldown, which
-  # only delays a new version — it never looks at what's inside it. PR-only: the
-  # action diffs two commits, so there is nothing to review on a push. No install
-  # here, so no PR-authored code runs in this job.
+  # Looks at the dependencies a pull request adds or changes, and fails on a
+  # known CVE or a package GitHub has flagged as malicious. pnpm's cooldown only
+  # delays a new version; it never looks at what is inside it.
+  #
+  # Pull requests only: the action compares two commits, so there is nothing to
+  # compare on a push. It installs nothing, so no code from the PR runs here.
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -430,17 +626,27 @@ jobs:
           fail-on-severity: moderate
 
   # The only job that holds the coverage upload credential. It downloads an
-  # artifact and installs nothing, so PR-authored code never runs next to it.
+  # artifact and installs nothing, so no code from the pull request ever runs
+  # beside it.
   coverage:
     needs: test
-    if: ${{ !cancelled() }}
+    # Skipped whenever `test` is, since there would be no artifact to upload.
+    # `!cancelled()` on its own is not enough: a skipped `test` would leave this
+    # job downloading an artifact that was never produced, and failing for a
+    # confusing reason.
+    if: ${{ !cancelled() && needs.test.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
+      # Codecov over OIDC, so there is no stored token. It is the only job in
+      # this file that holds `id-token: write`, and that is why coverage is its
+      # own job: it downloads an artifact and installs nothing, so no code from
+      # the pull request ever runs beside the credential.
+      id-token: write
     steps:
-      # Codecov maps coverage paths against the repository, so the tree has to be
-      # present — but nothing here is installed or executed.
+      # Codecov maps coverage paths onto the repository, so the files have to
+      # be here. Nothing is installed and nothing is run.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -452,31 +658,42 @@ jobs:
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
           slug: qruto/nuxt-backend
           disable_search: true
           files: coverage/lcov.info
 
-      # Run times, failure and flaky detection. Runs even when tests fail so
-      # failures are captured.
+      # Run times, failures and flaky-test detection. Runs even when tests
+      # fail, which is when it matters.
+      #
+      # The same action as above with `report_type: test_results`, not
+      # `codecov/test-results-action`. That one now prints a deprecation notice
+      # telling you to do exactly this, and it still targets Node 20, which the
+      # runners are already force-upgrading.
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1.2.1
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
+          report_type: test_results
+          slug: qruto/nuxt-backend
           disable_search: true
           files: test-report.junit.xml
 
-  # The single required status check. Every job above is aggregated here, so
-  # adding, renaming or splitting a job never means touching the ruleset again.
-  # `skipped` counts as a pass — `dependency-review` is skipped on pushes by
-  # design.
-  ci-ok:
+  # The one required status check, and the only name the branch ruleset knows.
+  # Every job above reports into it, so adding, renaming or splitting a job never
+  # means editing the ruleset. `skipped` counts as a pass: `dependency-review` is
+  # skipped on pushes, and `test`/`e2e`/`pack`/`website` are skipped when no
+  # relevant file changed.
+  all-checks:
+    name: All checks passed
     if: ${{ always() }}
-    # `coverage` is deliberately absent: Codecov is a reporting service, and a
-    # third party's outage must not block a merge. The coverage *thresholds* are
-    # enforced by vitest inside `test`, which is aggregated here.
+    # `coverage` is deliberately not listed. Codecov is a reporting service,
+    # and a third party being down must not block a merge. The coverage
+    # thresholds themselves are enforced by vitest inside `test`, which is
+    # listed.
     needs:
+      - changes
       - static
       - test
       - e2e

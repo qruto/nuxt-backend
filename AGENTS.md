@@ -53,16 +53,13 @@ Convex agent skills for common tasks can be installed by running
 
 ## Local development gotchas
 
-**A stale nested store under `node_modules/nuxt-convex-module/node_modules`.**
-`nuxt-convex-module` now installs from npm. Before that it was a `link:` to the
-sibling checkout, and pnpm's hoisted linker moved that checkout's own isolated
-store (`.pnpm/`, a second `vue`, a second `convex`, its devDependencies) under
-the package directory when the protocol changed. `.modules.yaml` only sanctions
-`@nuxt/kit`, `@nuxt/devtools-kit` and `verkit` there. A second Vue copy breaks
-reactivity across the boundary (a `computed` from one Vue read inside a
-`watchEffect` of the other is never tracked — `useSearch`'s debounce test is
-the canary). Fix: delete everything else in that nested directory, then
-`pnpm install --frozen-lockfile` to re-verify.
+**One Vue copy, always.** `nuxt-convex-module` installs from npm and the
+hoisted linker keeps a single `vue` at the top level. If a nested copy ever
+appears (e.g. `node_modules/nuxt-convex-module/node_modules/vue` — `.modules.yaml`
+only sanctions `@nuxt/*` and `verkit` there), reactivity breaks across the
+boundary: a `computed` from one Vue read inside a `watchEffect` of the other is
+never tracked, and `useSearch`'s debounce test is the canary. Fix: delete the
+nested copy, `pnpm dedupe`, then `pnpm install --frozen-lockfile` to re-verify.
 
 **Environment naming.** This package names its own variables after what they do
 (`NUXT_PUBLIC_BACKEND_URL`, `EMAIL_*`, `BILLING_*`, `AUTH_SECRET`, `SITE_URL`).

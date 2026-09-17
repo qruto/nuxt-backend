@@ -36,13 +36,12 @@ const LINK = /\]\((?!https?:\/\/|\/|#|mailto:)([^)]+)\)/g
 // markdown-escaped (`node\_modules`), so match either spelling.
 const PNPM_STORE = /node(\\?)_modules\/\.pnpm\/[^/]+\/node\\?_modules\//g
 
-// Members inherited from the sibling `link:../nuxt-convex-module` dependency
-// are located inside it: `nuxt-convex-module/dist/…/use-auth.d.ts:71` against
-// a full local build, `nuxt-convex-module/src/…/use-auth.ts:NN` against ci's
-// stub build — and the line moves with every sibling commit. Collapse to the
-// module path (no dist/src segment, extension, or line), the part that means
-// something and is stable. Underscores may arrive markdown-escaped here too.
-const SIBLING_SOURCE = /nuxt-convex-module\/(?:dist|src)\/([\w\\./-]+?)(?:\.d)?\.(?:m?ts|js):\d+/g
+// Members inherited from the base module are located inside its installed
+// declarations: `node_modules/nuxt-convex-module/dist/…/use-auth.d.ts:71` —
+// and the line moves with every base-module release. Collapse to the module
+// path (no dist segment, extension, or line), the part that means something
+// and is stable across bumps. Underscores may arrive markdown-escaped here too.
+const BASE_MODULE_SOURCE = /nuxt-convex-module\/(?:dist|src)\/([\w\\./-]+?)(?:\.d)?\.(?:m?ts|js):\d+/g
 
 async function* walk(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -59,7 +58,7 @@ for await (const file of walk(ROOT)) {
   const relDir = posix.dirname(relative(ROOT, file).split(sep).join('/'))
   const linkBase = relDir === '.' ? BASE_ROUTE : posix.join(BASE_ROUTE, relDir)
 
-  const out = src.replace(PNPM_STORE, 'node$1_modules/').replace(SIBLING_SOURCE, 'nuxt-convex-module/$1').replace(LINK, (_match, target) => {
+  const out = src.replace(PNPM_STORE, 'node$1_modules/').replace(BASE_MODULE_SOURCE, 'nuxt-convex-module/$1').replace(LINK, (_match, target) => {
     const hash = target.indexOf('#')
     const path = hash === -1 ? target : target.slice(0, hash)
     const anchor = hash === -1 ? '' : target.slice(hash)

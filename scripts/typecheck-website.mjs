@@ -21,12 +21,7 @@ catch (error) {
 }
 
 const errors = output.split('\n').filter(line => line.includes('error TS'))
-// The linked base module (`link:../nuxt-convex-module`) is the same upstream
-// category while unpublished: its sources typecheck against ITS peer set
-// (e.g. a different vue patch release makes `ComputedRef` nominally
-// incompatible across the link). Once the dependency is a published semver
-// range it lives in node_modules and the first filter covers it.
-const ours = errors.filter(line => !line.includes('node_modules/') && !line.includes('nuxt-convex-module/'))
+const ours = errors.filter(line => !line.includes('node_modules/'))
 const upstream = errors.length - ours.length
 
 if (upstream > 0) {

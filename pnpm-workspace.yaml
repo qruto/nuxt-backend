@@ -5,13 +5,16 @@
 packages:
   - website
   - devtools-client-app
-  - examples/*
+  # Not examples/*: those are standalone apps of the published package, with
+  # their own package.json and no workspace ranges — what `nuxi init -t gh:…`
+  # clones, what the pack job npm-installs the tarball into, and what
+  # pkg.pr.new ships as the StackBlitz template.
 
 # --- Catalog: one version, used across every workspace package ---------------
 # Reference with `"nuxt": "catalog:"` in package.json so the root module and the
 # website can never drift onto different Nuxt majors. https://pnpm.io/catalogs
 catalog:
-  nuxt: ^4.5.1
+  nuxt: ^4.5.2
 
 # --- Node module layout ------------------------------------------------------
 # Deviation from nuxt-convex-module (which runs pnpm's default isolated linker):
@@ -90,22 +93,11 @@ trustPolicyExclude:
 # lockfile already resolves elsewhere (no new code enters the tree), and lists
 # the condition for removing it.
 overrides:
-  # giget@1 (changelogithub -> changelogen@0.5 -> c12@1) pins tar ^6 — EOL, in
-  # range for the 7.5.x path-traversal series (GHSA-8qq5-rm4j-mr97 et al.,
-  # fixed in 7.5.18+). giget only calls `extract({ file, cwd, onentry })`; tar 7
-  # keeps that API (onentry survives as a deprecated alias of onReadEntry).
-  # Remove when changelogithub ships a changelogen with c12@3+/giget@2+.
-  'giget>tar': ^7.5.18
   # fontless@0.2.1 (latest; via @nuxt/fonts and nuxt-og-image) pins esbuild
   # ^0.27.0, in range for GHSA-g7r4-m6w7-qqqr (dev-server file read on Windows,
   # fixed in 0.28.1). fontless only imports `transform`, stable across 0.x.
   # Remove when fontless allows ^0.28.
   'fontless>esbuild': ^0.28.1
-  # resend@6.18.1 (2026-07-28) was published without the provenance attestations
-  # 6.18.0 and earlier releases carried — `trustPolicy: no-downgrade` rejects it
-  # as a possible package takeover. Hold the last attested release; remove when
-  # a newer version ships with attestations again.
-  resend: 6.18.0
 
 # --- Integrity ---------------------------------------------------------------
 # Fail a script outright when node_modules is out of sync with the lockfile, so

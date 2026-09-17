@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { dirname, join, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { parseSync } from 'oxc-parser'
 import { describe, expect, it, vi } from 'vitest'
 import { REQUIRED_FUNCTION_EXPORTS } from '../../src/contract'
@@ -446,6 +446,8 @@ const REGISTRY = {
   composables: ['useAuth', 'useAuthState', 'useConnectionState', 'useLoginFlow', 'useOrganization', 'useSearch', 'useAggregate', 'useCount', 'useBilling', 'useFeatures', 'useCredits', 'useOrders', 'useUsage', 'useGifts', 'usePasskeys', 'useSessions', 'describeUserAgent', 'unwrapAuth', 'useBackendConfig', 'useEmailStatus', 'useWorkflowStatus', 'useAiStream'],
   components: ['AuthForm', 'RoleBoundary', 'OrganizationBoundary', 'FeatureBoundary', 'AcceptInvitation', 'GiftClaimBanner', 'PricingTable', 'BillingHistory', 'UsageHistory', 'CreditsLowBanner', 'WorkspaceSettings', 'ProfileSettings', 'SecuritySettings'],
   server: ['backendAuth', 'useBackendMcp', 'defineBackendMcpTool'],
+  // Route middleware: the neutral name over the base module's guard file.
+  middleware: ['auth'],
 }
 
 /** The experimental tier, by the names STABILITY.md lists. */
@@ -537,7 +539,7 @@ describe('the surface as documented', () => {
         const declaration = statement?.type === 'ExportNamedDeclaration' ? statement.declaration : undefined
         return declaration && 'id' in declaration && declaration.id && 'name' in declaration.id
           ? String(declaration.id.name)
-          : relative(root, file)
+          : relative(root, file).split(sep).join('/')
       })
     })
     const expected = EXPERIMENTAL.map(name => (name.startsWith('./') ? ENTRIES[name]!.source : name))

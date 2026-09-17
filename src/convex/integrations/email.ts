@@ -7,6 +7,7 @@ import {
 import { v } from 'convex/values'
 import { Resend } from 'resend'
 import { guardDelivery, parseSecretList, WEBHOOK_BODY_LIMIT, type WebhookLogRefs } from './webhook-guard.js'
+import { sendArgs } from '../email-validators.js'
 
 /**
  * The component handle `setupEmail` reads from your generated `components`
@@ -169,22 +170,6 @@ export interface SetupEmailOptions {
    * (dedupe + doctor + DevTools feed). `false` disables the log and dedupe.
    */
   deliveryLog?: boolean
-}
-
-const sendArgs = {
-  to: v.union(v.string(), v.array(v.string())),
-  subject: v.optional(v.string()),
-  html: v.optional(v.string()),
-  text: v.optional(v.string()),
-  from: v.optional(v.string()),
-  cc: v.optional(v.union(v.string(), v.array(v.string()))),
-  bcc: v.optional(v.union(v.string(), v.array(v.string()))),
-  replyTo: v.optional(v.array(v.string())),
-  headers: v.optional(v.array(v.object({ name: v.string(), value: v.string() }))),
-  template: v.optional(v.object({
-    id: v.string(),
-    variables: v.optional(v.record(v.string(), v.union(v.string(), v.number()))),
-  })),
 }
 
 async function unwrap<T>(promise: Promise<{ data: T | null, error: { message: string } | null }>): Promise<T> {

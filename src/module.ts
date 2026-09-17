@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { defineNuxtModule, addComponent, addImports, addPlugin, addServerHandler, addServerImports, addTypeTemplate, createResolver, extendPages, resolveModule, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
+import { dirname, join } from 'node:path'
+import { defineNuxtModule, addComponent, addImports, addPlugin, addRouteMiddleware, addServerHandler, addServerImports, addTypeTemplate, createResolver, extendPages, resolveModule, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
 import { defu } from 'defu'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
 import { moduleDir } from './dirs'
@@ -134,6 +134,9 @@ export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: 'nuxt-backend',
     configKey: 'backend',
+    // Surfaced by Nuxt DevTools and the nuxt/modules registry (which reads it
+    // from dist/module.json and uses it as the listing's website).
+    docs: 'https://nuxt-backend.dev',
     // moduleDependencies with option forwarding is a Nuxt 4.1 feature.
     compatibility: { nuxt: '>=4.1.0' },
   },
@@ -171,6 +174,16 @@ export default defineNuxtModule<ModuleOptions>({
     const derived = deriveDeploymentUrls(nuxt.options.rootDir)
     const mcp = resolveMcpOptions(backend.mcp)
     return {
+      // Installed here, by this package, so every app gets the security
+      // headers and the Convex-aware CSP the docs promise. The base module
+      // treats nuxt-security as optional and only auto-detects a package the
+      // app itself declares; its `convex.security` default below is read at
+      // its own setup, after Nuxt has already resolved the module graph, so
+      // asking the base module alone would register its CSP plugin against a
+      // nuxt-security that was never installed. First in the list, so it is
+      // set up before the base module looks for it. `security: false` in
+      // nuxt.config still disables it outright (nuxt-security's own switch).
+      ...(nuxt.options.security === false ? {} : { 'nuxt-security': {} }),
       'nuxt-convex-module': {
         defaults: {
           url: backend.url ?? process.env.NUXT_PUBLIC_BACKEND_URL ?? derived?.url,
@@ -178,6 +191,13 @@ export default defineNuxtModule<ModuleOptions>({
           // HTTP-actions origin (the .site twin of a .cloud URL).
           siteUrl: resolveSiteUrl({ siteUrl: backend.siteUrl, url: backend.url, env: process.env, derived }),
           authRoute: backend.authRoute,
+          // nuxt-security is this package's dependency, not the app's, and the
+          // base module only auto-detects a package the app itself declares —
+          // so ask for it outright (the module itself installs it, above).
+          // Every app gets the security headers and the Convex-aware CSP the
+          // docs promise; a user's `convex.security: false` still wins over
+          // this default.
+          security: true,
         },
         overrides: {
           // Better Auth with this package's passwordless client (OTP +
@@ -250,6 +270,8 @@ export default defineNuxtModule<ModuleOptions>({
     if (options.css !== false) {
       nuxt.options.css.push(resolver.resolve('./runtime/vue/components/ui.css'))
     }
+
+    registerAuthMiddleware()
 
     const pagesInfo = registerModulePages(options, resolver, nuxt)
 
@@ -613,6 +635,39 @@ function registerSaasComposables(resolver: Resolver): void {
       + 'or import `convexAuth` from `nuxt-convex-module/better-auth/server` directly.',
     )
   }
+}
+
+/**
+ * The neutral `auth` route middleware: the base module registers its guard as
+ * `convex-auth` (since nuxt-convex-module 0.10), and this package promises the
+ * brand-neutral name — the built-in pages, the docs and the scaffold all say
+ * `definePageMeta({ middleware: 'auth' })`. Both names resolve to the same
+ * file: the guard that lives beside the `better-auth/server` runtime this
+ * package already aliases for `backendAuth`, so there is no second
+ * implementation to keep in step. Without the base runtime on disk the base
+ * module's own registration is missing too, so the warning next to
+ * `backendAuth` already covers it.
+ */
+function registerAuthMiddleware(): void {
+  const middleware = resolveBaseAuthMiddleware()
+  if (!middleware) return
+  addRouteMiddleware({ name: 'auth', path: middleware, global: false })
+}
+
+/**
+ * The base module's route middleware file, `middleware.js` next to its
+ * `better-auth/server` runtime (`dist/runtime/better-auth/nuxt/`). `undefined`
+ * when the runtime is not on disk.
+ */
+function resolveBaseAuthMiddleware(): string | undefined {
+  const serverRuntime = resolveBaseServerRuntime()
+  if (!serverRuntime) return undefined
+  const dir = dirname(serverRuntime)
+  for (const candidate of ['middleware.js', 'middleware.mjs', 'middleware.ts']) {
+    const file = join(dir, candidate)
+    if (existsSync(file)) return file
+  }
+  return undefined
 }
 
 /**

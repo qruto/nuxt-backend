@@ -9,7 +9,7 @@ export default defineConfig({
     // In CI, also emit a JUnit report for Codecov Test Analytics (flaky/failure
     // tracking). Local runs keep the default console reporter only.
     reporters: process.env.CI
-      ? ['default', ['junit', { outputFile: 'test-report.junit.xml' }]]
+      ? ['default', 'github-actions', ['junit', { outputFile: 'test-report.junit.xml' }]]
       : ['default'],
     coverage: {
       provider: 'v8',
@@ -63,6 +63,16 @@ export default defineConfig({
           },
         },
       }),
+      {
+        // Docs ↔ code contract: reads markdown and source, imports nothing
+        // from src at runtime. Runs in CI's `static` job, which every PR
+        // gets — the `test` job is skipped for docs-only changes.
+        test: {
+          name: 'docs',
+          include: ['test/docs/**/*.{test,spec}.ts'],
+          environment: 'node',
+        },
+      },
       {
         test: {
           // Boots real Nuxt instances against test/fixtures/registration

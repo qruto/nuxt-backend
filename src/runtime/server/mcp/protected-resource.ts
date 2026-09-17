@@ -1,14 +1,7 @@
 import { defineEventHandler, getRequestURL } from 'h3'
-import { readBackendMcpRuntimeConfig } from './config'
+import { CORS_HEADERS, wellKnownRequest } from './well-known'
 
 const WELL_KNOWN_PATH = '/.well-known/oauth-protected-resource'
-
-/** Public metadata is fetched cross-origin by browser-based MCP clients. */
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, mcp-protocol-version',
-} as const
 
 /**
  * RFC 9728 protected-resource metadata, served locally (the toolkit's own
@@ -18,12 +11,8 @@ const CORS_HEADERS = {
  * covers the path-suffix form (`…/oauth-protected-resource/mcp`).
  */
 export default defineEventHandler((event) => {
-  const config = readBackendMcpRuntimeConfig(event)
-  if (!config) return
-
-  const path = event.path.split('?')[0] ?? ''
-  if (path !== WELL_KNOWN_PATH && !path.startsWith(`${WELL_KNOWN_PATH}/`)) return
-  if (event.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS })
+  const config = wellKnownRequest(event, WELL_KNOWN_PATH)
+  if (!config || config instanceof Response) return config
 
   const origin = getRequestURL(event, { xForwardedHost: true, xForwardedProto: true }).origin
   return new Response(JSON.stringify({

@@ -1,0 +1,57 @@
+# lychee (https://lychee.cli.rs) finds dead links in the docs, the README and
+# the policy files. It runs weekly, never on a pull request — a link breaks
+# because a website changed, not because someone's branch did.
+
+# External links only. Links inside the docs are Nuxt Content routes, not paths
+# on disk — `/guide/queries` is `website/content/2.guide/1.queries.md` once Docus
+# strips the ordering prefixes — so lychee cannot judge them, and the docs build
+# already fails on a broken one.
+#
+# Filtering by scheme is not enough on its own: without a `--root-dir` those
+# links fail to resolve before any filter applies, which is why the workflow
+# passes one (see weekly.yml).
+scheme = ["https", "http"]
+
+# Retry once; a single 5xx from a rate-limited host is not a dead link.
+max_retries = 2
+timeout = 20
+# Some hosts refuse HEAD outright.
+method = "get"
+# Identify ourselves rather than looking like a scraper.
+user_agent = "Mozilla/5.0 (compatible; lychee; +https://github.com/qruto/nuxt-backend)"
+
+exclude_path = [
+  "node_modules",
+  "dist",
+  ".nuxt",
+  ".output",
+  "CHANGELOG.md",        # generated; its links point at commits and old releases
+  ".deepsec",
+  ".agents",
+  ".claude",
+  "pnpm-lock.yaml",
+]
+
+exclude = [
+  # Loopback and placeholders that appear in documentation examples.
+  "^https?://localhost",
+  "^https?://127\\.0\\.0\\.1",
+  "^https?://0\\.0\\.0\\.0",
+  "^https?://example\\.(com|convex\\.cloud)",
+  "^https?://.*\\.example\\.com",
+  # Anchors into the repository's own not-yet-published pages.
+  "^https?://(www\\.)?npmjs\\.com/package/nuxt-backend",
+  # The docs domain, until the site is live (WP8 of the release plan lifts this).
+  "^https?://nuxt-backend\\.dev",
+  # Deployment hosts in examples and the playbook.
+  "^https?://[a-z0-9-]+\\.convex\\.(site|cloud)",
+  # Consistently 403s automated clients while working in a browser.
+  "^https?://(www\\.)?linkedin\\.com",
+  "^https?://(twitter|x)\\.com",
+  # GitHub settings pages answer a logged-out client with 404, not 403, so
+  # `accept` below cannot cover them (RELEASE.md links the Actions settings).
+  "^https?://github\\.com/.*/settings(/|$)",
+]
+
+# A link that needs a login is not a broken link.
+accept = ["200", "204", "206", "403", "429"]

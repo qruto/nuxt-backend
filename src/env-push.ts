@@ -11,25 +11,20 @@
  * Split into a pure planner (unit-testable) and a spawning executor, shared
  * by the CLI command (`nuxt-backend env push`) and the module's dev-startup
  * auto-provision (`backend.autoEnv`). Deployment values are never read —
- * only names via `npx convex env list` — and existing values are never
+ * only names via `convex env list` — and existing values are never
  * overwritten.
  */
-import { execFile } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { promisify } from 'node:util'
 import { DEV_ONLY_DEPLOYMENT_ENV, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './preflight'
 import { deriveDeploymentUrls } from './deployment'
-
-const execFileAsync = promisify(execFile)
+import { runConvex } from './convex-cli'
 
 export const BACKEND_ENV_NAMES = [
   ...REQUIRED_DEPLOYMENT_ENV,
   ...Object.keys(OPTIONAL_DEPLOYMENT_ENV) as (keyof typeof OPTIONAL_DEPLOYMENT_ENV)[],
 ] as const
-
-export type BackendEnvName = (typeof BACKEND_ENV_NAMES)[number]
 
 export interface EnvPushAction {
   name: string
@@ -53,7 +48,7 @@ export interface EnvPushAction {
 }
 
 export interface EnvPushPlanInput {
-  /** Env var names present on the deployment (`npx convex env list`). */
+  /** Env var names present on the deployment (`convex env list`). */
   deployedNames: string[]
   /** Merged local `.env` + `.env.local` values. */
   localEnv: Record<string, string>
@@ -148,18 +143,10 @@ export function readEnvFiles(rootDir: string): Record<string, string> {
   return env
 }
 
-/** Read deployment env var NAMES via `npx convex env list` (values never leave the CLI). */
+/** Read deployment env var NAMES via `convex env list` (values never leave the CLI). */
 export async function deploymentEnvNames(rootDir: string): Promise<string[] | null> {
   try {
-    // On Windows `npx` is `npx.cmd`; since Node's CVE-2024-27980 hardening,
-    // spawning a `.cmd` without a shell throws EINVAL — so use a shell there.
-    // Args are static literals (no interpolation), so shelling is injection-safe.
-    const { stdout } = await execFileAsync('npx', ['convex', 'env', 'list'], {
-      cwd: rootDir,
-      encoding: 'utf-8',
-      timeout: 30_000,
-      shell: process.platform === 'win32',
-    })
+    const { stdout } = await runConvex(rootDir, ['env', 'list'])
     return stdout
       .split('\n')
       .map(line => line.split('=')[0]?.trim() ?? '')
@@ -169,13 +156,6 @@ export async function deploymentEnvNames(rootDir: string): Promise<string[] | nu
     return null
   }
 }
-
-/**
- * Windows needs a shell for `npx.cmd`, and cmd.exe re-parses argv — so only
- * shell-inert values are pushed there; anything else gets a manual-set hint.
- * On POSIX, values pass as argv with no shell at all.
- */
-const WIN32_SAFE_VALUE = /^[\w+/=.:@#-]*$/
 
 export interface EnvPushResult {
   action: EnvPushAction
@@ -189,16 +169,9 @@ export interface ExecuteEnvPushOptions {
   setEnv?: (rootDir: string, name: string, value: string) => Promise<void>
 }
 
+/** Values pass as argv with no shell, on every platform. */
 async function defaultSetEnv(rootDir: string, name: string, value: string): Promise<void> {
-  const useShell = process.platform === 'win32'
-  if (useShell && !WIN32_SAFE_VALUE.test(value)) {
-    throw new Error('value needs shell quoting on Windows — set it manually: npx convex env set ' + name + ' <value>')
-  }
-  await execFileAsync('npx', ['convex', 'env', 'set', name, value], {
-    cwd: rootDir,
-    timeout: 30_000,
-    shell: useShell,
-  })
+  await runConvex(rootDir, ['env', 'set', name, value])
 }
 
 /**

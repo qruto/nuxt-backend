@@ -29,7 +29,7 @@ const TEST_RECIPIENT = 'delivered@resend.dev'
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout'] })
-  t = convexTest(schema, component.modules.backend)
+  t = convexTest(schema, component.modules)
   resendComponent.register(t, 'resend')
   process.env.EMAIL_API_KEY = 're_test_key'
 })
