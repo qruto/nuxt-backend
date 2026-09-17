@@ -13,7 +13,7 @@ import type { Id } from '../../src/convex/components/backend/_generated/dataMode
 let t: ReturnType<typeof convexTest>
 
 beforeEach(() => {
-  t = convexTest(schema, component.modules.backend)
+  t = convexTest(schema, component.modules)
 })
 
 const now = () => Date.now()

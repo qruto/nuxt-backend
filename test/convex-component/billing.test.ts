@@ -13,7 +13,7 @@ import { api } from '../../src/convex/components/backend/_generated/api'
 let t: ReturnType<typeof convexTest>
 
 beforeEach(() => {
-  t = convexTest(schema, component.modules.backend)
+  t = convexTest(schema, component.modules)
 })
 
 describe('billing entitlement cache (component)', () => {
