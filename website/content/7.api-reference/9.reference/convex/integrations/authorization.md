@@ -137,14 +137,14 @@ const defaultStatements: {
 };
 ```
 
-Defined in: node\_modules/better-auth/dist/plugins/admin/access/statement.d.mts:4
+Defined in: node\_modules/better-auth/dist/plugins/admin/access/statement.d.mts:3
 
 #### Type Declaration
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="property-user"></a> `user` | readonly \[`"create"`, `"list"`, `"set-role"`, `"ban"`, `"impersonate"`, `"impersonate-admins"`, `"delete"`, `"set-password"`, `"set-email"`, `"get"`, `"update"`\] | node\_modules/better-auth/dist/plugins/admin/access/statement.d.mts:5 |
-| <a id="property-session"></a> `session` | readonly \[`"list"`, `"revoke"`, `"delete"`\] | node\_modules/better-auth/dist/plugins/admin/access/statement.d.mts:6 |
+| <a id="property-user"></a> `user` | readonly \[`"create"`, `"list"`, `"set-role"`, `"ban"`, `"impersonate"`, `"impersonate-admins"`, `"delete"`, `"set-password"`, `"set-email"`, `"get"`, `"update"`\] | node\_modules/better-auth/dist/plugins/admin/access/statement.d.mts:4 |
+| <a id="property-session"></a> `session` | readonly \[`"list"`, `"revoke"`, `"delete"`\] | node\_modules/better-auth/dist/plugins/admin/access/statement.d.mts:5 |
 
 ***
 
@@ -160,7 +160,7 @@ const adminAc: Role<ExactRoleStatements<{
 }>;
 ```
 
-Defined in: node\_modules/better-auth/dist/plugins/admin/access/statement.d.mts:21
+Defined in: node\_modules/better-auth/dist/plugins/admin/access/statement.d.mts:20
 
 ***
 
@@ -176,7 +176,7 @@ const userAc: Role<ExactRoleStatements<{
 }>;
 ```
 
-Defined in: node\_modules/better-auth/dist/plugins/admin/access/statement.d.mts:28
+Defined in: node\_modules/better-auth/dist/plugins/admin/access/statement.d.mts:27
 
 ## Functions
 
@@ -189,7 +189,7 @@ function createAccessControl<TStatements>(s): {
 };
 ```
 
-Defined in: node\_modules/better-auth/dist/plugins/access/access.d.mts:11
+Defined in: node\_modules/better-auth/dist/plugins/access/access.d.mts:12
 
 #### Type Parameters
 
@@ -214,8 +214,8 @@ Defined in: node\_modules/better-auth/dist/plugins/access/access.d.mts:11
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
-| `newRole()` | (`statements`) => `Role`\<`ExactRoleStatements`\<`TRoleStatements`\>, `TStatements`\> | node\_modules/better-auth/dist/plugins/access/access.d.mts:12 |
-| `statements` | `TStatements` | node\_modules/better-auth/dist/plugins/access/access.d.mts:13 |
+| `newRole()` | (`statements`) => `Role`\<`ExactRoleStatements`\<`TRoleStatements`\>, `TStatements`\> | node\_modules/better-auth/dist/plugins/access/access.d.mts:13 |
+| `statements` | `TStatements` | node\_modules/better-auth/dist/plugins/access/access.d.mts:14 |
 
 ***
 
