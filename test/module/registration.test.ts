@@ -17,7 +17,9 @@ import { backendAppConfigDefaults } from '../../src/runtime/config'
 // `/`-separated, like the paths kit's resolver registers, so the prefix and
 // equality checks below hold on Windows too (`join` there would give `\\`).
 const { join, relative } = posix
-const repoRoot = fileURLToPath(new URL('../..', import.meta.url)).split(sep).join('/').replace(/\/$/, '')
+/** A path as `/`-separated: kit's resolver already registers them that way; `path.join` on Windows does not. */
+const posixPath = (path: string): string => path.split(sep).join('/')
+const repoRoot = posixPath(fileURLToPath(new URL('../..', import.meta.url))).replace(/\/$/, '')
 const fixtureDir = join(repoRoot, 'test/fixtures/registration')
 const runtimeDir = join(repoRoot, 'src/runtime')
 
@@ -235,7 +237,9 @@ describe('module registration (defaults)', () => {
 
   it('registers the #backend/* aliases for Vite and Nitro, specific entries first', () => {
     const nuxt = getNuxt()
-    const backendDir = join(nuxt.options.rootDir, 'backend')
+    // The aliases are built with the platform's `path.join` (backslashes on
+    // Windows), so both sides are compared in posix form.
+    const backendDir = join(posixPath(nuxt.options.rootDir), 'backend')
     const expected = {
       '#backend/api': join(backendDir, '_generated/api'),
       '#backend/server': join(backendDir, '_generated/server'),
@@ -247,7 +251,7 @@ describe('module registration (defaults)', () => {
       const keys = Object.keys(aliases).filter(key => key.startsWith('#backend'))
       // First-match-wins resolution: `#backend` must trail its sub-aliases.
       expect(keys).toEqual(Object.keys(expected))
-      expect(Object.fromEntries(keys.map(key => [key, aliases[key]]))).toEqual(expected)
+      expect(Object.fromEntries(keys.map(key => [key, posixPath(aliases[key]!)]))).toEqual(expected)
     }
   })
 
@@ -543,7 +547,7 @@ describe('installation: local', () => {
   it('changes nothing at registration time — the mode only steers scaffolding', async () => {
     const nuxt = getNuxt()
     expect(dependencyOptions(nuxt).backend?.installation).toBe('local')
-    expect(nuxt.options.alias['#backend']).toBe(join(nuxt.options.rootDir, 'backend'))
+    expect(posixPath(nuxt.options.alias['#backend']!)).toBe(join(posixPath(nuxt.options.rootDir), 'backend'))
     expect(existsSync(join(fixtureDir, 'backend/components'))).toBe(false)
     expect((await extendPages(nuxt)).map(page => page.path)).toEqual(DEFAULT_PAGES.map(page => page.path))
     expect(nuxt.options.runtimeConfig.backendMcp).toBeDefined()
