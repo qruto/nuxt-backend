@@ -78,11 +78,14 @@ function readEnv(name: string) {
  * rate-limiter's own type) so any compatible limiter is assignable.
  */
 export interface BillingRateLimiter {
-  limit: (
+  // A method signature, not a function-typed property: methods are compared
+  // bivariantly, so a limiter whose `ctx` is upstream's own union of
+  // mutation and action contexts still assigns to this shape.
+  limit(
     ctx: RunWriteCtx,
     name: 'billingSync',
     options?: { key?: string, throws?: boolean },
-  ) => Promise<{ ok: boolean, retryAfter?: number }>
+  ): Promise<{ ok: boolean, retryAfter?: number }>
 }
 
 /** Full event-ingest payload (derived from the provider SDK). */

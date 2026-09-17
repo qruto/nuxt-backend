@@ -25,11 +25,13 @@ The component handle `setupRateLimiter` reads from your generated
 
 ```ts
 type RateLimitConfig = 
-  | Infer<typeof tokenBucketValidator>
-| Infer<typeof fixedWindowValidator>;
+  | TokenBucketConfig & ShardedConfig
+  | TokenBucketConfig & AsyncConfig
+  | FixedWindowConfig & ShardedConfig
+  | FixedWindowConfig & AsyncConfig;
 ```
 
-Defined in: node\_modules/@convex-dev/rate-limiter/dist/shared.d.ts:106
+Defined in: node\_modules/@convex-dev/rate-limiter/dist/shared.d.ts:116
 
 One of the supported rate limits.
 See tokenBucketValidator and fixedWindowValidator for more

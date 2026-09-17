@@ -48,28 +48,28 @@ outcome lands in the component's ring-buffer log.
 
 ### SetupMcpOptions
 
-Defined in: [src/convex/integrations/mcp.ts:69](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L69)
+Defined in: [src/convex/integrations/mcp.ts:73](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L73)
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="createauth"></a> `createAuth` | (`ctx`) => `unknown` | From `setupAuth`: builds the per-request better-auth instance. Typed `unknown` because the concrete instance's generics reference option types better-auth doesn't export — it is read structurally (same trade as `registerBackendRoutes`'s never-typed auth params). | [src/convex/integrations/mcp.ts:76](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L76) |
-| <a id="createsignerauth"></a> `createSignerAuth` | (`ctx`) => `unknown` | Builds the sign-only instance whose `auth.api.signJWT` mints the Convex JWT (the aligned jwt plugin cannot live on the main instance — see the client bridge). | [src/convex/integrations/mcp.ts:82](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L82) |
-| <a id="ratelimiter"></a> `rateLimiter?` | `McpRateLimiter` | Throttles exchanges per client+user (the `mcp` named limit). | [src/convex/integrations/mcp.ts:84](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L84) |
-| <a id="enabled"></a> `enabled?` | `boolean` | `false` turns the mounted route into a 404 (provider disabled). | [src/convex/integrations/mcp.ts:86](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L86) |
+| <a id="createauth"></a> `createAuth` | (`ctx`) => `unknown` | From `setupAuth`: builds the per-request better-auth instance. Typed `unknown` because the concrete instance's generics reference option types better-auth doesn't export — it is read structurally (same trade as `registerBackendRoutes`'s never-typed auth params). | [src/convex/integrations/mcp.ts:80](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L80) |
+| <a id="createsignerauth"></a> `createSignerAuth` | (`ctx`) => `unknown` | Builds the sign-only instance whose `auth.api.signJWT` mints the Convex JWT (the aligned jwt plugin cannot live on the main instance — see the client bridge). | [src/convex/integrations/mcp.ts:86](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L86) |
+| <a id="ratelimiter"></a> `rateLimiter?` | `McpRateLimiter` | Throttles exchanges per client+user (the `mcp` named limit). | [src/convex/integrations/mcp.ts:88](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L88) |
+| <a id="enabled"></a> `enabled?` | `boolean` | `false` turns the mounted route into a 404 (provider disabled). | [src/convex/integrations/mcp.ts:90](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L90) |
 
 ***
 
 ### McpExchange
 
-Defined in: [src/convex/integrations/mcp.ts:89](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L89)
+Defined in: [src/convex/integrations/mcp.ts:93](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L93)
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="exchangehandler"></a> `exchangeHandler` | (`ctx`, `request`) => `Promise`\<`Response`\> | httpAction body for `POST /mcp/exchange` (wrapped by `registerBackendRoutes`). | [src/convex/integrations/mcp.ts:91](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L91) |
+| <a id="exchangehandler"></a> `exchangeHandler` | (`ctx`, `request`) => `Promise`\<`Response`\> | httpAction body for `POST /mcp/exchange` (wrapped by `registerBackendRoutes`). | [src/convex/integrations/mcp.ts:95](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L95) |
 
 ## Functions
 
@@ -116,7 +116,7 @@ export default http
 function setupMcp(options): McpExchange;
 ```
 
-Defined in: [src/convex/integrations/mcp.ts:120](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L120)
+Defined in: [src/convex/integrations/mcp.ts:124](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts#L124)
 
 Build the `/mcp/exchange` handler. Wired for you by `setupAuth` (returned
 as its `mcp` export); call directly only for hand-rolled auth setups.

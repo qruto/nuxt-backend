@@ -29,11 +29,15 @@ interface McpExchangeCtx {
  * `mcp` named limit) and by the auth integrations' rate limiter.
  */
 export interface McpRateLimiter {
-  limit: (
-    ctx: McpExchangeCtx,
+  // A method signature, not a function-typed property: methods are compared
+  // bivariantly, so a limiter whose `ctx` is upstream's own union of
+  // mutation and action contexts still assigns to this shape. The limiter
+  // only runs functions, so it is owed nothing else from the exchange ctx.
+  limit(
+    ctx: Pick<McpExchangeCtx, 'runQuery' | 'runMutation'>,
     name: 'mcp',
     options?: { key?: string },
-  ) => Promise<{ ok: boolean, retryAfter?: number }>
+  ): Promise<{ ok: boolean, retryAfter?: number }>
 }
 
 /** The provider's stored access-token row, as `getMcpSession` returns it. */
