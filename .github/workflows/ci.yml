@@ -415,31 +415,22 @@ jobs:
       # about this package — a bare `npm install` of the example hits it too.
       # Pinning also keeps this job reproducible when the runner image moves.
       #
-      # The examples are workspace members, so their manifests carry the two
-      # ranges only pnpm understands: `workspace:*` (rewritten to the tarball)
-      # and `catalog:` (rewritten to the value pnpm-workspace.yaml holds). The
-      # copy also drops the pnpm-managed node_modules, whose symlinks point back
-      # into the workspace.
+      # The examples are standalone apps of the published package
+      # (`nuxt-backend: latest`); installing the tarball over that dependency
+      # is exactly what a user who clones one and installs gets, minus the
+      # registry.
       - name: Consumer smoke test (npm install + build)
         if: ${{ !cancelled() }}
         env:
           NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
         run: | # zizmor: ignore[adhoc-packages]
           TARBALL="$PWD/$(ls nuxt-backend-*.tgz)"
-          CATALOG=$(yq -o=json '.catalog' pnpm-workspace.yaml)
           for example in minimal advanced; do
             SMOKE="$RUNNER_TEMP/smoke-$example"
             cp -R "examples/$example" "$SMOKE"
             rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output" "$SMOKE/backend/_generated"
-            jq --arg tarball "$TARBALL" --argjson catalog "$CATALOG" '
-              .dependencies |= with_entries(
-                if .value == "workspace:*" then .value = "file:" + $tarball
-                elif .value == "catalog:" then .value = $catalog[.key]
-                else . end)' "$SMOKE/package.json" > "$SMOKE/package.json.tmp"
-            mv "$SMOKE/package.json.tmp" "$SMOKE/package.json"
             echo "::group::examples/$example"
-            jq .dependencies "$SMOKE/package.json"
-            (cd "$SMOKE" && npx --yes npm@11.17.0 install --no-audit --no-fund && npx --yes npm@11.17.0 run build)
+            (cd "$SMOKE" && npx --yes npm@11.17.0 install --no-audit --no-fund "$TARBALL" && npx --yes npm@11.17.0 run build)
             echo "::endgroup::"
           done
 

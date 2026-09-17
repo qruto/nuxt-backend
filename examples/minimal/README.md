@@ -18,14 +18,15 @@ for you. There is no custom backend code at all, yet the app has:
 ## Run it
 
 ```bash
-pnpm install                       # from the repo root
-cd examples/minimal
+npx nuxi init -t gh:qruto/nuxt-backend/examples/minimal my-app   # or clone this directory
+cd my-app
+npm install                        # the published package, nothing to rewrite
 
 npx convex dev                     # terminal 1 — provisions a dev deployment + codegen
 ```
 
 ```bash
-pnpm dev                           # terminal 2 — derives the Convex URLs and
+npm run dev                        # terminal 2 — derives the Convex URLs and
                                    # provisions the dev deployment env for you
 ```
 

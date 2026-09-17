@@ -5,11 +5,12 @@
   "scripts": {
     "dev": "nuxt dev",
     "dev:convex": "convex dev",
-    "build": "nuxt build"
+    "build": "nuxt build",
+    "postinstall": "nuxt prepare"
   },
   "dependencies": {
     "convex": "^1.46.0",
-    "nuxt": "catalog:",
-    "nuxt-backend": "workspace:*"
+    "nuxt": "^4.5.2",
+    "nuxt-backend": "latest"
   }
 }

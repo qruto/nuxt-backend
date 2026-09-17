@@ -5,7 +5,10 @@
 packages:
   - website
   - devtools-client-app
-  - examples/*
+  # Not examples/*: those are standalone apps of the published package, with
+  # their own package.json and no workspace ranges — what `nuxi init -t gh:…`
+  # clones, what the pack job npm-installs the tarball into, and what
+  # pkg.pr.new ships as the StackBlitz template.
 
 # --- Catalog: one version, used across every workspace package ---------------
 # Reference with `"nuxt": "catalog:"` in package.json so the root module and the

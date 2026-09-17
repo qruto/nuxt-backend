@@ -49,23 +49,10 @@ jobs:
         with:
           prepare: lib
 
-      # The template is uploaded standalone — no workspace, no lockfile — and
-      # pkg.pr.new rewrites only our own package name to a preview URL, so the
-      # example's `catalog:` range would reach npm verbatim and fail the cold
-      # install StackBlitz performs. Resolve it here, in the disposable
-      # checkout, to the value pnpm-workspace.yaml holds; `workspace:*` on
-      # `nuxt-backend` is the name pkg.pr.new does rewrite. The pnpm-managed
-      # node_modules and the Nuxt cache would otherwise be uploaded too.
-      - name: Make the template self-contained
-        run: |
-          NUXT_RANGE=$(yq '.catalog.nuxt' pnpm-workspace.yaml)
-          jq --arg nuxt "$NUXT_RANGE" \
-            '.dependencies |= with_entries(if .value == "catalog:" then .value = $nuxt else . end)' \
-            examples/minimal/package.json > "$RUNNER_TEMP/template.package.json"
-          mv "$RUNNER_TEMP/template.package.json" examples/minimal/package.json
-          rm -rf examples/minimal/node_modules examples/minimal/.nuxt examples/minimal/.output
-          jq .dependencies examples/minimal/package.json
-
+      # The template is uploaded as-is: examples/minimal is a standalone app of
+      # the published package (`nuxt-backend: latest`, no workspace or catalog
+      # ranges, no lockfile), and pkg.pr.new rewrites that one dependency to
+      # the preview URL. Its own .gitignore is the upload filter.
       # --pnpm packs with `pnpm pack` so `catalog:` ranges are rewritten,
       # exactly like a real `pnpm publish`. Packing runs `prepack` (the build).
       #
