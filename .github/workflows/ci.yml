@@ -540,18 +540,18 @@ jobs:
         with:
           prepare: full
 
-      # `website/backend/_generated` is Convex codegen, gitignored — the
-      # website's own functions import it, so neither the type check nor the
-      # build can run without it. `convex codegen` refuses to run without a
-      # deployment, and the component graph makes the API types depend on one,
-      # so this creates an anonymous *local* deployment (no account, no
-      # credentials: the CLI downloads the local backend and runs it for the
-      # duration of the command) and lets `convex dev --once` push to it. The
-      # push itself is expected to fail at the end — the backend declares
-      # required env vars (AUTH_SECRET, SITE_URL) a throwaway deployment has
-      # no values for — but codegen is complete by then, and the assertions
-      # below are what the step actually gates on: the typed `api.d.ts`, not
-      # the untyped placeholder the first codegen phase writes.
+      # `website/backend/_generated` is Convex codegen, committed so a Vercel
+      # preview builds without a deployment. It must regenerate identically:
+      # `convex codegen` refuses to run without a deployment, and the component
+      # graph makes the API types depend on one, so this creates an anonymous
+      # *local* deployment (no account, no credentials: the CLI downloads the
+      # local backend and runs it for the duration of the command) and lets
+      # `convex dev --once` push to it. The push itself is expected to fail at
+      # the end — the backend declares required env vars (AUTH_SECRET,
+      # SITE_URL) a throwaway deployment has no values for — but codegen is
+      # complete by then, and the assertions below are what the step gates
+      # on: the typed `api.d.ts`, not the untyped placeholder the first codegen
+      # phase writes, and no diff against the committed files.
       - name: Convex codegen (anonymous local deployment)
         working-directory: website
         env:
@@ -566,6 +566,7 @@ jobs:
           if grep -q 'AnyApi' backend/_generated/api.d.ts; then
             echo "::error::backend/_generated/api.d.ts is the untyped placeholder — the component-aware codegen phase did not run"; exit 1
           fi
+          git diff --exit-code -- backend/_generated
 
       # The packaged component's own `_generated/` (its ComponentApi, server
       # builders and data model) is committed and compiled into the tarball —

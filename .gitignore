@@ -12,7 +12,10 @@ pnpm-debug.log*
 
 # Generated dirs
 dist
-website/backend/_generated
+# The website's Convex codegen is committed (a Vercel preview builds without a
+# deployment; CI regenerates it and fails on a diff) — all but the AI
+# guidelines the CLI drops beside it.
+website/backend/_generated/ai/
 
 # Nuxt
 .nuxt

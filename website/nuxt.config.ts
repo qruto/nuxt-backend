@@ -7,7 +7,12 @@ const analyze = process.env.ANALYZE === 'true'
 // The canonical origin. Everything that needs an absolute URL — canonicals,
 // OG image URLs, llms.txt — reads it from here (via `site.url`), so a preview
 // deployment only has to set `NUXT_SITE_URL`.
-const siteUrl = process.env.NUXT_SITE_URL || 'https://nuxt-backend.dev'
+// A Vercel preview is its own origin: canonical URLs, OG images and llms.txt
+// on `*-git-<branch>-razum.vercel.app` must not point at the production site.
+const siteUrl = process.env.NUXT_SITE_URL
+  || (process.env.VERCEL_ENV === 'preview' && (process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL)
+    ? `https://${process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL}`
+    : 'https://nuxt-backend.dev')
 
 // …except the sitemap. @nuxtjs/sitemap is not installed; /sitemap.xml is
 // Docus's own route, and it builds each `<loc>` as `siteUrl ? siteUrl + loc :
