@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { posix, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadNuxt } from '@nuxt/kit'
 import type { Nuxt, NuxtHooks, NuxtPage } from '@nuxt/schema'
@@ -14,7 +14,10 @@ import { backendAppConfigDefaults } from '../../src/runtime/config'
 // contributes is then visible on `nuxt.options`, on the resolved Nitro
 // options, or through the hooks the kit helpers registered.
 
-const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
+// `/`-separated, like the paths kit's resolver registers, so the prefix and
+// equality checks below hold on Windows too (`join` there would give `\\`).
+const { join, relative } = posix
+const repoRoot = fileURLToPath(new URL('../..', import.meta.url)).split(sep).join('/').replace(/\/$/, '')
 const fixtureDir = join(repoRoot, 'test/fixtures/registration')
 const runtimeDir = join(repoRoot, 'src/runtime')
 
