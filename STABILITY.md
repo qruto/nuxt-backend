@@ -2,11 +2,11 @@
 
 What a version number of `nuxt-backend` promises, which parts are still moving, and how upstream releases translate into releases here.
 
-## The 0.1 line
+## The 0.x line
 
-`0.1.x` is the **complete pack, not yet production-tested**: every capability the package is designed to ship (passwordless auth, workspaces and invitations, billing with entitlements, credits and gifts, email with delivery tracking, webhooks, metered AI, the agent endpoint, rate limiting, workflows, migrations, aggregates, search, the pages, the CLI, the DevTools tab) is present, live-verified against real provider sandboxes, and covered by the test suite — but it has not yet carried real production traffic. `1.0` is the **same promise after production use**: no new surface is required to get there, only the miles.
+The 0.x line (from `0.2.0`; `0.1.0` was a throwaway test publish) is the **complete pack, not yet production-tested**: every capability the package is designed to ship (passwordless auth, workspaces and invitations, billing with entitlements, credits and gifts, email with delivery tracking, webhooks, metered AI, the agent endpoint, rate limiting, workflows, migrations, aggregates, search, the pages, the CLI, the DevTools tab) is present, live-verified against real provider sandboxes, and covered by the test suite — but it has not yet carried real production traffic. `1.0` is the **same promise after production use**: no new surface is required to get there, only the miles.
 
-Within the 0.1 line, patch releases (`0.1.x`) never change the surfaces below. Minor releases (`0.2`, `0.3`, …) may — each change goes through the deprecation cycle and is called out in the changelog. From `1.0`, the same surfaces follow semver strictly: patch and minor releases are additive; removals wait for a major.
+Within the 0.x line, patch releases (`0.2.x`) never change the surfaces below. Minor releases (`0.3`, `0.4`, …) may — each change goes through the deprecation cycle and is called out in the changelog. From `1.0`, the same surfaces follow semver strictly: patch and minor releases are additive; removals wait for a major.
 
 ## The four surfaces
 
@@ -27,9 +27,9 @@ Anything tagged `@internal` in the source is stripped from the published declara
 
 ### 2. Configuration names
 
-- `ModuleOptions` (`backend` in `nuxt.config`): `url`, `siteUrl`, `authRoute`, `installation`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools` — and the page keys under `pages`: `login`, `pricing`, `settings`, `profile`, `security`, `acceptInvitation`
+- `ModuleOptions` (`backend` in `nuxt.config`): `url`, `siteUrl`, `authRoute`, `installation`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools`, `workspaces` — and the page keys under `pages`: `login`, `pricing`, `settings`, `profile`, `security`, `acceptInvitation`
 - `appConfig.backend` — the content layer: `billing.plans`, `billing.packs`, `billing.lowCreditsThreshold`, `brand.name`, `brand.logo`, `labels.auth`, `labels.pricing`, `labels.settings`, `labels.profile`, `labels.security`, `labels.history`, `labels.usage`, `labels.credits`
-- `runtimeConfig.public.backend` — `pages`, the resolved mount path per page key (`''` when disabled)
+- `runtimeConfig.public.backend` — `pages`, the resolved mount path per page key (`''` when disabled), and `workspaces`, whether the deployment runs the organization plugin
 - the `#backend/*` aliases: `#backend`, `#backend/api`, `#backend/server`, `#backend/dataModel`, `#backend/_generated`
 
 ### 3. The auto-import and component registry

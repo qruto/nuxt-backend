@@ -133,19 +133,21 @@ The repository policy lives in [`.fallowrc.jsonc`](./.fallowrc.jsonc); every exc
 file carries the reason it exists — prefer fixing a finding in code, and widen the policy only
 with a written justification.
 
-**Not enforced yet.** The codebase carries ~58 pre-existing findings, so neither the hooks nor
-CI gate on fallow today — a gate that starts red is a gate everyone learns to bypass. The
-`TODO(fallow burndown)` notes in [`.githooks/pre-commit`](./.githooks/pre-commit) and
-`ci.yml` mark where the scoped `fallow audit` (pre-commit, pull requests) and the whole-project
-`fallow` + `fallow security` runs (pre-push, pushes to main) go once the count reaches zero.
-Until then, run it before opening a pull request and do not add to the pile.
+The repository sits at zero: `pnpm test:quality` (dead code, duplication, complexity) and
+`pnpm test:security` (the security-candidate scan, a separate command because fallow keeps those
+findings out of the default run) both pass, and both gate every pull request and every push to
+`main`. The library functions still above the complexity thresholds hold per-function ceilings
+in the policy at their current values, each with the reason it is where it is — so the gate
+fails on growth, not on history; shrinking one is always welcome.
 
-The gates that *are* enforced today: ESLint (`pnpm lint`), the type check
-(`pnpm test:types:lib`), the test suite (`pnpm test`), the two drift checks — the generated
-template lists (`pnpm templates:generate`) and the API reference (`pnpm docs:reference:check`)
-must produce no diff — and the package shape (`pnpm check:tarball`: `pnpm pack`, then
-[publint](https://publint.dev) and [arethetypeswrong](https://arethetypeswrong.github.io) on
-the real tarball).
+The other gates: ESLint (`pnpm lint`), both type checks (`pnpm test:types:lib` — the Nuxt
+module and the Convex code have separate tsconfigs), the manifest ranges
+(`pnpm check:manifest`: no peer range wider than what the dependency itself accepts), the test
+suite (`pnpm test`), the two drift checks — the generated template lists
+(`pnpm templates:generate`) and the API reference (`pnpm docs:reference:check`) must produce no
+diff — and the package shape (`pnpm check:tarball` after `pnpm pack`: [publint](https://publint.dev),
+[arethetypeswrong](https://arethetypeswrong.github.io), the content rules and the
+phantom-dependency walk in `scripts/check-tarball.mjs`).
 
 ## Commit Convention
 
@@ -193,30 +195,32 @@ They mirror CI, split by how often each check can afford to run:
 
 | Hook | Runs | Mirrors | Cost |
 |---|---|---|---|
-| [`pre-commit`](./.githooks/pre-commit) | ESLint on the staged files, `templates:generate` drift | `static` | seconds |
+| [`pre-commit`](./.githooks/pre-commit) | `fallow audit` on the branch's changed files, ESLint on the staged files, `templates:generate` drift, the skills mirror | `static` | ~8s |
 | [`commit-msg`](./.githooks/commit-msg) | `commitlint` | `static` (commit messages) | instant |
-| [`pre-push`](./.githooks/pre-push) | `vue-tsc`, `pnpm test` | `static` (type check), `test` | ~1 min |
+| [`pre-push`](./.githooks/pre-push) | `test:quality`, `test:security`, `check:manifest`, `test:types:lib`, `pnpm test`, `docs:reference` drift | `static` (quality, security, manifest, type checks, API reference), `test` | ~1 min |
 
-`pre-commit` stays cheap enough to run on every commit: it lints only what the commit stages and
-regenerates the template lists, which must produce no diff. `pre-push` runs once per push and
-can afford the type check and the whole test suite (`unit`, `convex-component`, `nuxt` — the
-`e2e` project stays in CI). A delete-only push skips it. Fallow joins both once its findings are
-burned down — see [Code Quality](#code-quality).
+`pre-commit` stays cheap enough to run on every commit: fallow looks only at what the branch
+changed, ESLint only at what the commit stages, and the template lists must regenerate without a
+diff. `pre-push` runs once per push and can afford the whole-project runs, both type checks and
+the whole test suite (`unit`, `convex-component`, `nuxt`, `module` — the `e2e` project stays in
+CI). A delete-only push skips it.
 
 Every tool runs through `pnpm exec` / `pnpm run`, because each CLI is a devDependency and is on
 `PATH` only inside a pnpm script. Bypass once with `git commit --no-verify` or
 `git push --no-verify`; every one of these has a CI counterpart that cannot be bypassed.
 
-Both gates are skipped when `CI` is set. The release job commits through `changelogen`, which
-shells out to a plain `git commit`, and a release must not be gated on checks the pull request
-already ran — and `CI=1` trips pnpm's `verifyDepsBeforeRun` guard, so they would fail there for
-the wrong reason anyway.
+Both gates are skipped when `CI` is set: every check here already runs as its own CI job, and
+`CI=1` trips pnpm's `verifyDepsBeforeRun` guard, so they would fail there for the wrong reason.
+No CI job runs `git commit` at all — the release commit is made through GitHub's API, and hooks
+never see it.
 
 **What the hooks cannot cover.** These stay CI's alone, so a green push is not a promise of a
 green pipeline: the `e2e` job (builds the example apps and drives them with Playwright,
-minutes), `pack` (tarball, `publint`, `attw`, a real npm consumer install of both examples),
-`website` (the docs site type check and build), `dependency-review` and the workflow lint,
-which need GitHub, the Windows leg of the test matrix, and the coverage thresholds.
+minutes), `pack` (the tarball gate, a real npm and a strict-pnpm consumer install, a Convex
+codegen from the installed copy, the consumer type check, `npm audit signatures`), `website`
+(the docs site's codegen, the component's generated bindings, type check and build),
+`dependency-review`, the workflow lint (zizmor, actionlint) and the spell check, which need
+GitHub, the Windows leg of the test matrix, and the coverage thresholds.
 
 ## Releasing
 
