@@ -74,7 +74,7 @@ A public name is never removed in the release that replaces it. It is marked `@d
 
 - A **breaking change in a `better-auth` or `@convex-dev/*` minor** — an API that consumers of this package touch (auth plugin options, component function signatures, schema shape) — is a **major here** (a minor on the 0.x line, announced as breaking). The dependency ranges stay pinned to the last compatible line until then.
 - A non-breaking upstream update is a patch here.
-- `convex` follows its peer range (`>=1.42.2 <2`); a Convex major is a major here.
+- `convex` follows its peer range (`>=1.43.0 <2` — the floor is the lowest version every bundled `@convex-dev/*` component and `convex-helpers` accept, which `check:manifest` verifies against the installed tree); a Convex major is a major here. `vue` is a peer too (`^3.5.41`, the floor the bundled MCP toolkit needs), satisfied by any Nuxt 4.1+ app.
 - Nuxt majors are majors here. `nuxt-convex-module` is a true dependency, installed and configured for you; its own stability policy applies to the core composables it registers.
 
 `test/unit/peer-ranges.test.ts` keeps the declared ranges honest against the installed versions and against what the upstreams declare for each other.
