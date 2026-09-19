@@ -99,8 +99,8 @@ importers:
         specifier: ^1.0.0
         version: 1.1.1
       svix:
-        specifier: ^1.99.1
-        version: 1.99.1
+        specifier: ^2.5.0
+        version: 2.5.0
       vue:
         specifier: ^3.5.41
         version: 3.5.42(typescript@6.0.3)
@@ -9249,6 +9249,10 @@ packages:
 
   svix@1.99.1:
     resolution: {integrity: sha512-JfpvbAg5iT5NagDAfOq3e6Ci6NbOMbMm6C3DnfDBB60m2JDK+Z2hXPE9XNAmutb53DCdPoih1V70IbklZnX09A==}
+
+  svix@2.5.0:
+    resolution: {integrity: sha512-mqcwCPKL6J5yqC2EQy5ZqE5XEJriCZffy49EGBDCsnrQ7RAYF4kZLJhKfXrB0n21S+3M9qYmQ9YjzrNjRlIuCw==}
+    engines: {node: '>=22'}
 
   swrv@1.2.0:
     resolution: {integrity: sha512-lH/g4UcNyj+7lzK4eRGT4C68Q4EhQ6JtM9otPRIASfhhzfLWtbZPHcMuhuba7S9YVYuxkMUGImwMyGpfbkH07A==}
@@ -21970,6 +21974,10 @@ snapshots:
   svix@1.99.1:
     dependencies:
       standardwebhooks: 1.0.0
+
+  svix@2.5.0:
+    dependencies:
+      standardwebhooks: 1.1.1
 
   swrv@1.2.0(vue@3.5.42(typescript@6.0.3)):
     dependencies:
