@@ -41,8 +41,6 @@ exclude = [
   "^https?://.*\\.example\\.com",
   # Anchors into the repository's own not-yet-published pages.
   "^https?://(www\\.)?npmjs\\.com/package/nuxt-backend",
-  # The docs domain, until the site is live (WP8 of the release plan lifts this).
-  "^https?://nuxt-backend\\.dev",
   # Deployment hosts in examples and the playbook.
   "^https?://[a-z0-9-]+\\.convex\\.(site|cloud)",
   # Consistently 403s automated clients while working in a browser.
