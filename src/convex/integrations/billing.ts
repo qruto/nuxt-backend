@@ -2159,6 +2159,13 @@ export function setupBilling(
     return (await entityFromIdentity(ctx))?.userId ?? null
   }
 
+  /** The caller's entitlement snapshot row, or `null` when nobody is signed in. */
+  const resolveUserRow = async (ctx: GenericQueryCtx<GenericDataModel>) => {
+    const userId = await resolveUserId(ctx)
+    if (!userId) return null
+    return { userId, row: await ctx.runQuery(cache.getByUser, { userId }) }
+  }
+
   const getCurrentSubscription = queryGeneric({
     args: {},
     handler: async (ctx) => {
@@ -2219,10 +2226,9 @@ export function setupBilling(
   const getFeatures = queryGeneric({
     args: {},
     handler: async (ctx) => {
-      const userId = await resolveUserId(ctx)
-      if (!userId) return null
-      const row = await ctx.runQuery(cache.getByUser, { userId })
-      const benefits = row?.benefits ?? []
+      const resolved = await resolveUserRow(ctx)
+      if (!resolved) return null
+      const benefits = resolved.row?.benefits ?? []
       // Join live benefit metadata at read time: a `benefit.updated` webhook
       // patches one snapshot row and every subscriber updates reactively.
       const benefitIds = [...new Set(benefits.map(benefit => benefit.benefitId))]
@@ -2231,7 +2237,7 @@ export function setupBilling(
         : []
       const metadataById = new Map(snapshots.map(s => [s.benefitId, s.metadata]))
       return {
-        plans: row?.activeProductIds ?? [],
+        plans: resolved.row?.activeProductIds ?? [],
         benefits: benefits.map(benefit => ({
           ...benefit,
           metadata: metadataById.get(benefit.benefitId) ?? benefit.metadata,
@@ -2243,13 +2249,12 @@ export function setupBilling(
   const getCredits = queryGeneric({
     args: {},
     handler: async (ctx) => {
-      const userId = await resolveUserId(ctx)
-      if (!userId) return null
-      const row = await ctx.runQuery(cache.getByUser, { userId })
+      const resolved = await resolveUserRow(ctx)
+      if (!resolved) return null
       // Meters carry their configured friendly name so `useCredits('credits')`
       // resolves without the client ever seeing provider ids.
       return {
-        meters: (row?.meters ?? []).map(meter => ({
+        meters: (resolved.row?.meters ?? []).map(meter => ({
           ...meter,
           name: meterNameById.get(meter.meterId),
         })),
