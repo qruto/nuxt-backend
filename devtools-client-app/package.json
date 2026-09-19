@@ -8,7 +8,7 @@
   },
   "devDependencies": {
     "@nuxt/devtools-kit": "^3.4.0",
-    "@nuxt/devtools-ui-kit": "3.4.0",
+    "@nuxt/devtools-ui-kit": "3.4.2",
     "nuxt": "catalog:"
   }
 }
