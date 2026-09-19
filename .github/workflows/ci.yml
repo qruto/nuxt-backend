@@ -214,7 +214,7 @@ jobs:
       # report on old commit subjects.
       - name: Spelling (typos)
         if: ${{ !cancelled() }}
-        uses: crate-ci/typos@d43b6c087ac471e2ea7b8af622ff15f05c0c365b # v1.50.1
+        uses: crate-ci/typos@512fc24f32f44ab01972217aaaf3dc86ec234d53 # v1.50.2
 
       # ── fallow runs last, and nothing runs after it ──────────────────────
       #
@@ -266,7 +266,7 @@ jobs:
       # graph.
       - name: Quality (fallow)
         if: ${{ !cancelled() }}
-        uses: fallow-rs/fallow@30167b42257ded3bef683f6c91b4aa4017a1ff59 # v3.25.0
+        uses: fallow-rs/fallow@adff2c9f20fe769e2e093b2e99ee09723f6310bd # v3.27.0
         with:
           command: ${{ github.event_name == 'pull_request' && 'audit' || '' }}
 
@@ -276,7 +276,7 @@ jobs:
       # fails the job.
       - name: Security candidates (fallow)
         if: ${{ !cancelled() }}
-        uses: fallow-rs/fallow@30167b42257ded3bef683f6c91b4aa4017a1ff59 # v3.25.0
+        uses: fallow-rs/fallow@adff2c9f20fe769e2e093b2e99ee09723f6310bd # v3.27.0
         with:
           command: security
           auto-changed-since: false
@@ -656,7 +656,7 @@ jobs:
           name: coverage
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           use_oidc: true
           slug: qruto/nuxt-backend
@@ -672,7 +672,7 @@ jobs:
       # runners are already force-upgrading.
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           use_oidc: true
           report_type: test_results
