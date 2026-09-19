@@ -36,6 +36,7 @@ then `Cannot resolve module "nuxt-backend"`). So the command builds the package 
 | Include source files outside the Root Directory | **on** | The package is built from the repo root |
 | Node.js version | 24.x | `engines.node` |
 | `ENABLE_EXPERIMENTAL_COREPACK` | `1` | Uses the `packageManager` pin instead of Vercel's own pnpm |
+| `VERCEL_FORCE_NO_BUILD_CACHE` | `1` (preview + production) | No restored `node_modules`: with the hoisted linker, a cached tree plus a changed lockfile fails `pnpm install` with `ERR_PNPM_EEXIST` on the nested `node_modules` it tries to rename — every dependency PR's preview was red for that alone. The install costs a minute more and is deterministic |
 | Production env | `CONVEX_DEPLOY_KEY` (the playground's production deployment), `NUXT_PUBLIC_BACKEND_URL`, `NUXT_SITE_URL=https://nuxt-backend.dev` | The live playground's Convex project and the canonical origin |
 | Preview env | **nothing Convex-related** | A preview renders the docs and the playground's offline state; it can never push or create a Convex deployment |
 | Deployment Protection → Vercel Authentication | **off** | A preview nobody can open isn't a preview; this is a public docs site |
