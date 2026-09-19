@@ -145,7 +145,7 @@ function defineEmailSequence<Args>(
    workflow, 
    components, 
    options
-): RegisteredMutation<"internal", WorkflowArgs<Args>, WorkflowId>;
+): RegisteredMutation<"internal", WorkflowArgs<Args>, WorkflowMutationResult<unknown>>;
 ```
 
 Defined in: [src/convex/integrations/workflows.ts:108](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts#L108)
@@ -175,7 +175,7 @@ email. Cancel a started sequence with the workflow manager's own
 
 #### Returns
 
-`RegisteredMutation`\<`"internal"`, `WorkflowArgs`\<`Args`\>, [`WorkflowId`](#workflowid)\>
+`RegisteredMutation`\<`"internal"`, `WorkflowArgs`\<`Args`\>, `WorkflowMutationResult`\<`unknown`\>\>
 
 #### Example
 

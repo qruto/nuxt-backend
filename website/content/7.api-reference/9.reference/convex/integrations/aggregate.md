@@ -8,7 +8,7 @@ navigation: true
 
 ### TableAggregate
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:269
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:390
 
 Re-exports for the [Aggregate](https://www.convex.dev/components/aggregate) component, so consumers configure denormalized counts/sums from a
 single import. Construct one `TableAggregate` per app-mounted aggregate
@@ -32,7 +32,7 @@ instance and keep it in sync with [Triggers](#triggers).
 new TableAggregate<T>(component, options): TableAggregate<T>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:271
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:392
 
 ###### Parameters
 
@@ -59,7 +59,7 @@ Aggregate<T["Key"], GenericId<T["TableName"]>, TableAggregateNamespace<T>>.const
 count(ctx, ...opts): Promise<number>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:34
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:83
 
 Counts items between the given bounds.
 
@@ -68,7 +68,7 @@ Counts items between the given bounds.
 | Parameter | Type |
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
-| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; \}, `TableAggregateNamespace`\<`T`\>\> |
+| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; `stale?`: `boolean`; \}, `TableAggregateNamespace`\<`T`\>\> |
 
 ###### Returns
 
@@ -83,10 +83,14 @@ Aggregate.count
 ##### countBatch()
 
 ```ts
-countBatch(ctx, queries): Promise<number[]>;
+countBatch(
+   ctx, 
+   queries, 
+   opts?
+): Promise<number[]>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:40
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:90
 
 Batch version of count() - counts items for multiple bounds in a single call.
 
@@ -96,6 +100,8 @@ Batch version of count() - counts items for multiple bounds in a single call.
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
 | `queries` | `NamespacedOptsBatch`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; \}, `TableAggregateNamespace`\<`T`\>\> |
+| `opts?` | \{ `stale?`: `boolean`; \} |
+| `opts.stale?` | `boolean` |
 
 ###### Returns
 
@@ -113,7 +119,7 @@ Aggregate.countBatch
 sum(ctx, ...opts): Promise<number>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:46
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:98
 
 Adds up the sumValue of items between the given bounds.
 
@@ -122,7 +128,7 @@ Adds up the sumValue of items between the given bounds.
 | Parameter | Type |
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
-| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; \}, `TableAggregateNamespace`\<`T`\>\> |
+| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; `stale?`: `boolean`; \}, `TableAggregateNamespace`\<`T`\>\> |
 
 ###### Returns
 
@@ -137,10 +143,14 @@ Aggregate.sum
 ##### sumBatch()
 
 ```ts
-sumBatch(ctx, queries): Promise<number[]>;
+sumBatch(
+   ctx, 
+   queries, 
+   opts?
+): Promise<number[]>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:52
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:105
 
 Batch version of sum() - sums items for multiple bounds in a single call.
 
@@ -150,6 +160,8 @@ Batch version of sum() - sums items for multiple bounds in a single call.
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
 | `queries` | `NamespacedOptsBatch`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; \}, `TableAggregateNamespace`\<`T`\>\> |
+| `opts?` | \{ `stale?`: `boolean`; \} |
+| `opts.stale?` | `boolean` |
 
 ###### Returns
 
@@ -171,7 +183,7 @@ at(
 ): Promise<Item<T["Key"], Id<T["TableName"]>>>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:63
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:118
 
 Returns the item at the given offset/index/rank in the order of key,
 within the bounds. Zero-indexed, so at(0) is the smallest key within the
@@ -186,7 +198,7 @@ item with the largest key within the bounds.
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
 | `offset` | `number` |
-| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; \}, `TableAggregateNamespace`\<`T`\>\> |
+| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; `stale?`: `boolean`; \}, `TableAggregateNamespace`\<`T`\>\> |
 
 ###### Returns
 
@@ -201,10 +213,14 @@ Aggregate.at
 ##### atBatch()
 
 ```ts
-atBatch(ctx, queries): Promise<Item<T["Key"], Id<T["TableName"]>>[]>;
+atBatch(
+   ctx, 
+   queries, 
+   opts?
+): Promise<Item<T["Key"], Id<T["TableName"]>>[]>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:69
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:125
 
 Batch version of at() - returns items at multiple offsets in a single call.
 
@@ -214,6 +230,8 @@ Batch version of at() - returns items at multiple offsets in a single call.
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
 | `queries` | `NamespacedOptsBatch`\<\{ `offset`: `number`; `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; \}, `TableAggregateNamespace`\<`T`\>\> |
+| `opts?` | \{ `stale?`: `boolean`; \} |
+| `opts.stale?` | `boolean` |
 
 ###### Returns
 
@@ -235,7 +253,7 @@ indexOf(
 ): Promise<number>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:80
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:138
 
 Returns the rank/offset/index of the given key, within the bounds.
 Specifically, it returns the index of the first item with
@@ -249,7 +267,7 @@ Specifically, it returns the index of the first item with
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
 | `key` | `T`\[`"Key"`\] |
-| ...`opts` | `NamespacedOpts`\<\{ `id?`: `Id`\<`T`\[`"TableName"`\]\>; `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; `order?`: `"asc"` \| `"desc"`; \}, `TableAggregateNamespace`\<`T`\>\> |
+| ...`opts` | `NamespacedOpts`\<\{ `id?`: `Id`\<`T`\[`"TableName"`\]\>; `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; `order?`: `"asc"` \| `"desc"`; `stale?`: `boolean`; \}, `TableAggregateNamespace`\<`T`\>\> |
 
 ###### Returns
 
@@ -269,11 +287,12 @@ offsetOf(
    key, 
    namespace, 
    id?, 
-   bounds?
+   bounds?, 
+   stale?
 ): Promise<number>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:88
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:147
 
 ###### Parameters
 
@@ -284,6 +303,7 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:88
 | `namespace` | `TableAggregateNamespace` |
 | `id?` | `Id`\<`T`\[`"TableName"`\]\> |
 | `bounds?` | `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\> |
+| `stale?` | `boolean` |
 
 ###### Returns
 
@@ -307,11 +327,12 @@ offsetUntil(
    key, 
    namespace, 
    id?, 
-   bounds?
+   bounds?, 
+   stale?
 ): Promise<number>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:92
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:151
 
 ###### Parameters
 
@@ -322,6 +343,7 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:92
 | `namespace` | `TableAggregateNamespace` |
 | `id?` | `Id`\<`T`\[`"TableName"`\]\> |
 | `bounds?` | `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\> |
+| `stale?` | `boolean` |
 
 ###### Returns
 
@@ -343,7 +365,7 @@ Aggregate.offsetUntil
 min(ctx, ...opts): Promise<Item<T["Key"], Id<T["TableName"]>> | null>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:96
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:155
 
 Gets the minimum item within the given bounds.
 
@@ -352,7 +374,7 @@ Gets the minimum item within the given bounds.
 | Parameter | Type |
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
-| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; \}, `TableAggregateNamespace`\<`T`\>\> |
+| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; `stale?`: `boolean`; \}, `TableAggregateNamespace`\<`T`\>\> |
 
 ###### Returns
 
@@ -370,7 +392,7 @@ Aggregate.min
 max(ctx, ...opts): Promise<Item<T["Key"], Id<T["TableName"]>> | null>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:102
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:162
 
 Gets the maximum item within the given bounds.
 
@@ -379,7 +401,7 @@ Gets the maximum item within the given bounds.
 | Parameter | Type |
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
-| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; \}, `TableAggregateNamespace`\<`T`\>\> |
+| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; `stale?`: `boolean`; \}, `TableAggregateNamespace`\<`T`\>\> |
 
 ###### Returns
 
@@ -397,7 +419,7 @@ Aggregate.max
 random(ctx, ...opts): Promise<Item<T["Key"], Id<T["TableName"]>> | null>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:108
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:169
 
 Gets a uniformly random item within the given bounds.
 
@@ -406,7 +428,7 @@ Gets a uniformly random item within the given bounds.
 | Parameter | Type |
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
-| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; \}, `TableAggregateNamespace`\<`T`\>\> |
+| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; `stale?`: `boolean`; \}, `TableAggregateNamespace`\<`T`\>\> |
 
 ###### Returns
 
@@ -428,7 +450,7 @@ paginate(ctx, ...opts): Promise<{
 }>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:115
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:177
 
 Get a page of items between the given bounds, with a cursor to paginate.
 Use `iter` to iterate over all items within the bounds.
@@ -438,7 +460,7 @@ Use `iter` to iterate over all items within the bounds.
 | Parameter | Type |
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
-| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; `cursor?`: `string`; `order?`: `"asc"` \| `"desc"`; `pageSize?`: `number`; \}, `TableAggregateNamespace`\<`T`\>\> |
+| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; `cursor?`: `string`; `order?`: `"asc"` \| `"desc"`; `pageSize?`: `number`; `stale?`: `boolean`; \}, `TableAggregateNamespace`\<`T`\>\> |
 
 ###### Returns
 
@@ -460,7 +482,7 @@ Aggregate.paginate
 iter(ctx, ...opts): AsyncGenerator<Item<T["Key"], Id<T["TableName"]>>, void, undefined>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:133
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:196
 
 Example usage:
 ```ts
@@ -474,7 +496,7 @@ for await (const item of aggregate.iter(ctx, bounds)) {
 | Parameter | Type |
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
-| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; `order?`: `"asc"` \| `"desc"`; `pageSize?`: `number`; \}, `TableAggregateNamespace`\<`T`\>\> |
+| ...`opts` | `NamespacedOpts`\<\{ `bounds?`: `Bounds`\<`T`\[`"Key"`\], `Id`\<`T`\[`"TableName"`\]\>\>; `order?`: `"asc"` \| `"desc"`; `pageSize?`: `number`; `stale?`: `boolean`; \}, `TableAggregateNamespace`\<`T`\>\> |
 
 ###### Returns
 
@@ -494,11 +516,12 @@ _insert(
    namespace, 
    key, 
    id, 
-   summand?
+   summand?, 
+   opts?
 ): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:139
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:203
 
 Write operations. See DirectAggregate for docstrings.
 
@@ -511,6 +534,8 @@ Write operations. See DirectAggregate for docstrings.
 | `key` | `T`\[`"Key"`\] |
 | `id` | `Id` |
 | `summand?` | `number` |
+| `opts?` | \{ `async?`: `boolean`; \} |
+| `opts.async?` | `boolean` |
 
 ###### Returns
 
@@ -529,11 +554,12 @@ _delete(
    ctx, 
    namespace, 
    key, 
-   id
+   id, 
+   opts?
 ): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:140
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:206
 
 ###### Parameters
 
@@ -543,6 +569,8 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:140
 | `namespace` | `TableAggregateNamespace` |
 | `key` | `T`\[`"Key"`\] |
 | `id` | `Id` |
+| `opts?` | \{ `async?`: `boolean`; \} |
+| `opts.async?` | `boolean` |
 
 ###### Returns
 
@@ -564,11 +592,12 @@ _replace(
    newNamespace, 
    newKey, 
    id, 
-   summand?
+   summand?, 
+   opts?
 ): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:141
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:209
 
 ###### Parameters
 
@@ -581,6 +610,8 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:141
 | `newKey` | `T`\[`"Key"`\] |
 | `id` | `Id` |
 | `summand?` | `number` |
+| `opts?` | \{ `async?`: `boolean`; \} |
+| `opts.async?` | `boolean` |
 
 ###### Returns
 
@@ -600,11 +631,12 @@ _insertIfDoesNotExist(
    namespace, 
    key, 
    id, 
-   summand?
+   summand?, 
+   opts?
 ): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:142
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:212
 
 ###### Parameters
 
@@ -615,6 +647,8 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:142
 | `key` | `T`\[`"Key"`\] |
 | `id` | `Id` |
 | `summand?` | `number` |
+| `opts?` | \{ `async?`: `boolean`; \} |
+| `opts.async?` | `boolean` |
 
 ###### Returns
 
@@ -633,11 +667,12 @@ _deleteIfExists(
    ctx, 
    namespace, 
    key, 
-   id
+   id, 
+   opts?
 ): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:143
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:215
 
 ###### Parameters
 
@@ -647,6 +682,8 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:143
 | `namespace` | `TableAggregateNamespace` |
 | `key` | `T`\[`"Key"`\] |
 | `id` | `Id` |
+| `opts?` | \{ `async?`: `boolean`; \} |
+| `opts.async?` | `boolean` |
 
 ###### Returns
 
@@ -668,11 +705,12 @@ _replaceOrInsert(
    newNamespace, 
    newKey, 
    id, 
-   summand?
+   summand?, 
+   opts?
 ): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:144
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:218
 
 ###### Parameters
 
@@ -685,6 +723,8 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:144
 | `newKey` | `T`\[`"Key"`\] |
 | `id` | `Id` |
 | `summand?` | `number` |
+| `opts?` | \{ `async?`: `boolean`; \} |
+| `opts.async?` | `boolean` |
 
 ###### Returns
 
@@ -702,7 +742,7 @@ Aggregate._replaceOrInsert
 clear(ctx, ...opts): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:157
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:233
 
 (re-)initialize the data structure, removing all items if it exists.
 
@@ -738,7 +778,7 @@ Aggregate.clear
 makeRootLazy(ctx, namespace): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:172
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:248
 
 If rootLazy is false (the default is true but it can be set to false by
 `clear`), the aggregates data structure writes to a single root node on
@@ -773,7 +813,8 @@ Aggregate.makeRootLazy
 paginateNamespaces(
    ctx, 
    cursor?, 
-   pageSize?
+   pageSize?, 
+   stale?
 ): Promise<{
   page: TableAggregateNamespace<T>[];
   cursor: string;
@@ -781,7 +822,7 @@ paginateNamespaces(
 }>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:173
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:249
 
 ###### Parameters
 
@@ -790,6 +831,7 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:173
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
 | `cursor?` | `string` |
 | `pageSize?` | `number` |
+| `stale?` | `boolean` |
 
 ###### Returns
 
@@ -808,10 +850,14 @@ Aggregate.paginateNamespaces
 ##### iterNamespaces()
 
 ```ts
-iterNamespaces(ctx, pageSize?): AsyncGenerator<TableAggregateNamespace<T>, void, undefined>;
+iterNamespaces(
+   ctx, 
+   pageSize?, 
+   stale?
+): AsyncGenerator<TableAggregateNamespace<T>, void, undefined>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:178
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:254
 
 ###### Parameters
 
@@ -819,6 +865,7 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:178
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
 | `pageSize?` | `number` |
+| `stale?` | `boolean` |
 
 ###### Returns
 
@@ -836,7 +883,7 @@ Aggregate.iterNamespaces
 clearAll(ctx, opts?): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:179
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:255
 
 ###### Parameters
 
@@ -863,7 +910,7 @@ Aggregate.clearAll
 makeAllRootsLazy(ctx): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:183
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:259
 
 ###### Parameters
 
@@ -881,13 +928,43 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:183
 Aggregate.makeAllRootsLazy
 ```
 
+##### enqueueBatch()
+
+```ts
+enqueueBatch(ctx, operations): Promise<void>;
+```
+
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:408
+
+Enqueue a batch of writes, to be applied asynchronously by the batch
+worker.
+
+Equivalent to calling the individual write methods with `{ async: true }`,
+except that the whole batch is sent to the component in a single call.
+The operations are applied in the order they are given.
+
+###### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `ctx` | `MutationCtx` \| `ActionCtx` |
+| `operations` | `TableAggregateOperation`\<`T`\>[] |
+
+###### Returns
+
+`Promise`\<`void`\>
+
 ##### insert()
 
 ```ts
-insert(ctx, doc): Promise<void>;
+insert(
+   ctx, 
+   doc, 
+   opts?
+): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:279
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:410
 
 ###### Parameters
 
@@ -895,6 +972,8 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:279
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` |
 | `doc` | `TableAggregateDocument`\<`T`\> |
+| `opts?` | \{ `async?`: `boolean`; \} |
+| `opts.async?` | `boolean` |
 
 ###### Returns
 
@@ -903,10 +982,14 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:279
 ##### delete()
 
 ```ts
-delete(ctx, doc): Promise<void>;
+delete(
+   ctx, 
+   doc, 
+   opts?
+): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:280
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:413
 
 ###### Parameters
 
@@ -914,6 +997,8 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:280
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` |
 | `doc` | `TableAggregateDocument`\<`T`\> |
+| `opts?` | \{ `async?`: `boolean`; \} |
+| `opts.async?` | `boolean` |
 
 ###### Returns
 
@@ -925,11 +1010,12 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:280
 replace(
    ctx, 
    oldDoc, 
-   newDoc
+   newDoc, 
+   opts?
 ): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:281
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:416
 
 ###### Parameters
 
@@ -938,6 +1024,8 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:281
 | `ctx` | `MutationCtx` \| `ActionCtx` |
 | `oldDoc` | `TableAggregateDocument`\<`T`\> |
 | `newDoc` | `TableAggregateDocument`\<`T`\> |
+| `opts?` | \{ `async?`: `boolean`; \} |
+| `opts.async?` | `boolean` |
 
 ###### Returns
 
@@ -946,10 +1034,14 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:281
 ##### insertIfDoesNotExist()
 
 ```ts
-insertIfDoesNotExist(ctx, doc): Promise<void>;
+insertIfDoesNotExist(
+   ctx, 
+   doc, 
+   opts?
+): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:282
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:419
 
 ###### Parameters
 
@@ -957,6 +1049,8 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:282
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` |
 | `doc` | `TableAggregateDocument`\<`T`\> |
+| `opts?` | \{ `async?`: `boolean`; \} |
+| `opts.async?` | `boolean` |
 
 ###### Returns
 
@@ -965,10 +1059,14 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:282
 ##### deleteIfExists()
 
 ```ts
-deleteIfExists(ctx, doc): Promise<void>;
+deleteIfExists(
+   ctx, 
+   doc, 
+   opts?
+): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:283
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:422
 
 ###### Parameters
 
@@ -976,6 +1074,8 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:283
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` |
 | `doc` | `TableAggregateDocument`\<`T`\> |
+| `opts?` | \{ `async?`: `boolean`; \} |
+| `opts.async?` | `boolean` |
 
 ###### Returns
 
@@ -987,11 +1087,12 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:283
 replaceOrInsert(
    ctx, 
    oldDoc, 
-   newDoc
+   newDoc, 
+   opts?
 ): Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:284
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:425
 
 ###### Parameters
 
@@ -1000,6 +1101,8 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:284
 | `ctx` | `MutationCtx` \| `ActionCtx` |
 | `oldDoc` | `TableAggregateDocument`\<`T`\> |
 | `newDoc` | `TableAggregateDocument`\<`T`\> |
+| `opts?` | \{ `async?`: `boolean`; \} |
+| `opts.async?` | `boolean` |
 
 ###### Returns
 
@@ -1015,7 +1118,7 @@ indexOfDoc(
 ): Promise<number>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:293
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:436
 
 Returns the rank/offset/index of the given document, within the bounds.
 This differs from `indexOf` in that it take the document rather than key.
@@ -1030,10 +1133,11 @@ Specifically, it returns the index of the first item with
 | ------ | ------ |
 | `ctx` | `MutationCtx` \| `ActionCtx` \| `QueryCtx` |
 | `doc` | `TableAggregateDocument`\<`T`\> |
-| `opts?` | \{ `id?`: `TableAggregateId`\<`T`\>; `bounds?`: `Bounds`\<`T`\[`"Key"`\], `TableAggregateId`\<`T`\>\>; `order?`: `"asc"` \| `"desc"`; \} |
+| `opts?` | \{ `id?`: `TableAggregateId`\<`T`\>; `bounds?`: `Bounds`\<`T`\[`"Key"`\], `TableAggregateId`\<`T`\>\>; `order?`: `"asc"` \| `"desc"`; `stale?`: `boolean`; \} |
 | `opts.id?` | `TableAggregateId`\<`T`\> |
 | `opts.bounds?` | `Bounds`\<`T`\[`"Key"`\], `TableAggregateId`\<`T`\>\> |
 | `opts.order?` | `"asc"` \| `"desc"` |
+| `opts.stale?` | `boolean` |
 
 ###### Returns
 
@@ -1042,16 +1146,23 @@ Specifically, it returns the index of the first item with
 ##### trigger()
 
 ```ts
-trigger<Ctx>(): TableAggregateTrigger<Ctx, T>;
+trigger<Ctx>(opts?): TableAggregateTrigger<Ctx, T>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:298
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:442
 
 ###### Type Parameters
 
 | Type Parameter |
 | ------ |
 | `Ctx` *extends* `MutationCtx` |
+
+###### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `opts?` | \{ `async?`: `boolean`; \} |
+| `opts.async?` | `boolean` |
 
 ###### Returns
 
@@ -1060,16 +1171,23 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:298
 ##### idempotentTrigger()
 
 ```ts
-idempotentTrigger<Ctx>(): TableAggregateTrigger<Ctx, T>;
+idempotentTrigger<Ctx>(opts?): TableAggregateTrigger<Ctx, T>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:299
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:445
 
 ###### Type Parameters
 
 | Type Parameter |
 | ------ |
 | `Ctx` *extends* `MutationCtx` |
+
+###### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `opts?` | \{ `async?`: `boolean`; \} |
+| `opts.async?` | `boolean` |
 
 ###### Returns
 
@@ -1165,7 +1283,7 @@ type TableAggregateType<K, DataModel, TableName, Namespace> = {
 };
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:258
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:355
 
 #### Type Parameters
 
@@ -1180,10 +1298,10 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:258
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="key"></a> `Key` | `K` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:259 |
-| <a id="datamodel-1"></a> `DataModel` | `DataModel` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:260 |
-| <a id="tablename-1"></a> `TableName` | `TableName` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:261 |
-| <a id="namespace-1"></a> `Namespace?` | `Namespace` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:262 |
+| <a id="key"></a> `Key` | `K` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:356 |
+| <a id="datamodel-1"></a> `DataModel` | `DataModel` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:357 |
+| <a id="tablename-1"></a> `TableName` | `TableName` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:358 |
+| <a id="namespace-1"></a> `Namespace?` | `Namespace` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:359 |
 
 ***
 
@@ -1193,7 +1311,7 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:258
 type Trigger<Ctx, DataModel, TableName> = (ctx, change) => Promise<void>;
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:301
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:449
 
 #### Type Parameters
 
@@ -1239,13 +1357,13 @@ type Change<DataModel, TableName> = {
 };
 ```
 
-Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:302
+Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:450
 
 #### Type Declaration
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
-| `id` | `GenericId`\<`TableName`\> | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:303 |
+| `id` | `GenericId`\<`TableName`\> | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:451 |
 
 #### Type Parameters
 

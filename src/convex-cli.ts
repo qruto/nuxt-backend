@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
@@ -17,7 +18,13 @@ const execFileAsync = promisify(execFile)
 export function resolveConvexCli(rootDir: string): string | undefined {
   for (const base of [join(rootDir, 'package.json'), import.meta.url]) {
     try {
-      return createRequire(base).resolve('convex/bin/main.js')
+      // `convex/bin/main.js` sits outside the package's `exports` map, so it is
+      // reached through the one file the map does expose — the manifest — and
+      // the `bin` entry declared there.
+      const manifestPath = createRequire(base).resolve('convex/package.json')
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as { bin?: string | Record<string, string> }
+      const bin = typeof manifest.bin === 'string' ? manifest.bin : manifest.bin?.convex
+      if (bin) return join(dirname(manifestPath), bin)
     }
     catch {
       // try the next base

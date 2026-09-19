@@ -81,9 +81,11 @@ run('Type check the consumer', 'npx', ['--no-install', 'vue-tsc', '--build'])
 // is written here when the app has none, and checked with the same compiler.
 const functionsDir = join(appDir, 'backend')
 if (existsSync(join(functionsDir, '_generated/api.d.ts'))) {
-  const tsconfig = join(functionsDir, 'tsconfig.json')
-  if (!existsSync(tsconfig)) {
-    writeFileSync(tsconfig, `${JSON.stringify({
+  // One exclusive create (`wx`) rather than exists-then-write, as in
+  // `scaffoldBackendFiles`: a tsconfig the app already has is kept, whenever
+  // it appeared.
+  try {
+    writeFileSync(join(functionsDir, 'tsconfig.json'), `${JSON.stringify({
       compilerOptions: {
         allowJs: true,
         strict: true,
@@ -99,7 +101,10 @@ if (existsSync(join(functionsDir, '_generated/api.d.ts'))) {
       },
       include: ['./**/*'],
       exclude: ['./_generated'],
-    }, null, 2)}\n`)
+    }, null, 2)}\n`, { flag: 'wx' })
+  }
+  catch (error) {
+    if (error.code !== 'EEXIST') throw error
   }
   run('Type check the Convex functions', 'npx', ['--no-install', 'tsc', '-p', functionsDir])
 }

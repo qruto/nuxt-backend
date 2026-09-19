@@ -75,11 +75,15 @@ export type AuthRateLimitName = 'emailOtp' | 'emailOtpGlobal' | 'mcp'
  * `nuxt-backend/rate-limit` (which seeds these named limits).
  */
 export interface AuthRateLimiter {
-  limit: (
-    ctx: AuthMutationCtx,
+  // A method signature, not a function-typed property: methods are compared
+  // bivariantly, so a limiter whose `ctx` is upstream's own union of
+  // mutation and action contexts still assigns to this shape. The limiter
+  // only runs functions, so it is not owed the scheduler.
+  limit(
+    ctx: Pick<AuthMutationCtx, 'runQuery' | 'runMutation'>,
     name: AuthRateLimitName,
     options?: { key?: string, throws?: boolean },
-  ) => Promise<{ ok: boolean, retryAfter?: number }>
+  ): Promise<{ ok: boolean, retryAfter?: number }>
 }
 
 /** The newly-created user passed to {@link AuthIntegrations.onUserCreated}. */

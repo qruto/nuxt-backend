@@ -46,11 +46,14 @@ const DEFAULT_STREAM_TIMEOUT_MS = 5 * 60 * 1000
  * at the call site.
  */
 export interface AiRateLimiter {
-  limit: (
+  // A method signature, not a function-typed property: methods are compared
+  // bivariantly, so a limiter whose `ctx` is upstream's own union of
+  // mutation and action contexts still assigns to this shape.
+  limit(
     ctx: RunCtx,
     name: 'ai' | 'aiBudget',
     options?: { key?: string, throws?: boolean, count?: number, config?: RateLimitConfig },
-  ) => Promise<{ ok: boolean, retryAfter?: number }>
+  ): Promise<{ ok: boolean, retryAfter?: number }>
 }
 
 /** The component handles `setupAi` reads from your generated `components` object. */
