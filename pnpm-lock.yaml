@@ -118,8 +118,8 @@ importers:
         specifier: ^21.2.2
         version: 21.2.2
       '@convex-dev/eslint-plugin':
-        specifier: ^3.0.0
-        version: 3.0.0(convex@1.46.0(react@19.3.0))(eslint@10.10.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3)
+        specifier: ^5.0.0
+        version: 5.0.0(convex@1.46.0(react@19.3.0))(eslint@10.10.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3)
       '@edge-runtime/vm':
         specifier: ^5.0.0
         version: 5.0.0
@@ -749,8 +749,8 @@ packages:
       convex: ^1.25.0
       react: ^18.3.1 || ^19.0.0
 
-  '@convex-dev/eslint-plugin@3.0.0':
-    resolution: {integrity: sha512-2LTsyUB1g9vsm/d8oGajY5G5sScD8XZr09bGR+OEynn32RLc0nwQsh7ZWnETLJhbVcE7vm0fDmDWS6cAW/VNCw==}
+  '@convex-dev/eslint-plugin@5.0.0':
+    resolution: {integrity: sha512-UFhZ7bJBo4mTfa829/mntoAwyC9aKwXe6dxCV7PianSdAfFIbdCwCjWPBmhqn1hNlpqhVU385C/vjL8CXfxA2Q==}
     peerDependencies:
       convex: ^1.43.0
 
@@ -10881,7 +10881,7 @@ snapshots:
       - hono
       - typescript
 
-  '@convex-dev/eslint-plugin@3.0.0(convex@1.46.0(react@19.3.0))(eslint@10.10.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3)':
+  '@convex-dev/eslint-plugin@5.0.0(convex@1.46.0(react@19.3.0))(eslint@10.10.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3)':
     dependencies:
       '@typescript-eslint/types': 8.58.2
       '@typescript-eslint/utils': 8.58.2(eslint@10.10.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3)
@@ -14899,8 +14899,8 @@ snapshots:
 
   '@typescript-eslint/project-service@8.58.2(supports-color@10.2.2)(typescript@6.0.3)':
     dependencies:
-      '@typescript-eslint/tsconfig-utils': 8.58.2(typescript@6.0.3)
-      '@typescript-eslint/types': 8.58.2
+      '@typescript-eslint/tsconfig-utils': 8.70.0(typescript@6.0.3)
+      '@typescript-eslint/types': 8.70.0
       debug: 4.4.3(supports-color@10.2.2)
       typescript: 6.0.3
     transitivePeerDependencies:
