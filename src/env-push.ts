@@ -18,7 +18,7 @@ import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DEV_ONLY_DEPLOYMENT_ENV, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './preflight'
-import { deriveDeploymentUrls } from './deployment'
+import { deriveDeploymentUrls, isDevDeploymentId } from './deployment'
 import { runConvex } from './convex-cli'
 
 export const BACKEND_ENV_NAMES = [
@@ -216,8 +216,8 @@ export interface EnvPushRunResult {
 
 /**
  * The configured deployment id (`CONVEX_DEPLOYMENT`): process env over
- * `.env(.local)`. Read directly rather than via URL derivation, which rejects
- * `local:` slugs.
+ * `.env(.local)`. Read directly rather than via URL derivation, which has
+ * nothing to say about a local backend whose URLs were not written.
  */
 export function configuredDeployment(rootDir: string): string | null {
   return process.env.CONVEX_DEPLOYMENT
@@ -227,12 +227,12 @@ export function configuredDeployment(rootDir: string): string | null {
 }
 
 /**
- * Whether the configured deployment is dev-class — cloud dev (`dev:`) or a
- * CLI-managed local (`local:`) deployment: both disposable, never prod.
+ * Whether the configured deployment is dev-class — cloud dev (`dev:`), a
+ * CLI-managed local (`local:`) or an anonymous local (`anonymous:`)
+ * deployment: all disposable, never prod.
  */
 export function isDevDeployment(rootDir: string): boolean {
-  const deployment = configuredDeployment(rootDir)
-  return deployment?.startsWith('dev:') === true || deployment?.startsWith('local:') === true
+  return isDevDeploymentId(configuredDeployment(rootDir))
 }
 
 /** The whole flow shared by the CLI and the module's dev auto-provision. */

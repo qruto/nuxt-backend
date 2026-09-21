@@ -106,3 +106,36 @@ function normalizeFunctionsDir(functionsDir: string) {
     .replace(/\/+$/, '')
   return normalized || undefined
 }
+
+/**
+ * Where the app's root component lives, if it exists: Nuxt 4's `app/app.vue`
+ * first, then the legacy root `app.vue`.
+ */
+export function resolveAppComponent(rootDir: string): string | undefined {
+  return ['app/app.vue', 'app.vue'].map(rel => join(rootDir, rel)).find(existsSync)
+}
+
+/**
+ * Whether the app's root component is still the `nuxi init` starter: it
+ * renders `<NuxtWelcome />` and no `<NuxtPage />`, so every page this module
+ * registers (`/login`, `/pricing`, …) resolves but never renders.
+ */
+export function appComponentIsStarter(rootDir: string): boolean {
+  const path = resolveAppComponent(rootDir)
+  if (!path) return false
+  const source = readFileSync(path, 'utf-8')
+  return source.includes('<NuxtWelcome') && !source.includes('<NuxtPage')
+}
+
+/**
+ * Put the router outlet into the starter root component: `<NuxtWelcome />`
+ * becomes `<NuxtPage />`, everything else (the route announcer, the wrapper)
+ * stays. A root component the user has already touched is left alone.
+ * Returns the rewritten path, relative to `rootDir`, or `undefined`.
+ */
+export function mountPagesInAppComponent(rootDir: string): string | undefined {
+  if (!appComponentIsStarter(rootDir)) return undefined
+  const path = resolveAppComponent(rootDir)!
+  writeFileSync(path, readFileSync(path, 'utf-8').replace(/<NuxtWelcome\s*\/>/, '<NuxtPage />'))
+  return path.slice(rootDir.length + 1)
+}

@@ -61,6 +61,47 @@ describe('init', () => {
     expect(readFileSync(join(rootDir, 'nuxt.config.ts'), 'utf-8')).toContain('nuxt-backend')
   })
 
+  it('puts the router outlet into the nuxi starter app.vue, and leaves a touched one alone', async () => {
+    const starter = '<template>\n  <div>\n    <NuxtRouteAnnouncer />\n    <NuxtWelcome />\n  </div>\n</template>\n'
+    mkdirSync(join(rootDir, 'app'))
+    writeFileSync(join(rootDir, 'app/app.vue'), starter)
+
+    await run(['init'])
+
+    expect(readFileSync(join(rootDir, 'app/app.vue'), 'utf-8')).toBe(starter.replace('<NuxtWelcome />', '<NuxtPage />'))
+    expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain('Replaced <NuxtWelcome /> with <NuxtPage /> in app/app.vue')
+
+    const custom = '<template>\n  <NuxtLayout>\n    <NuxtPage />\n  </NuxtLayout>\n</template>\n'
+    writeFileSync(join(rootDir, 'app/app.vue'), custom)
+    await run(['init'])
+    expect(readFileSync(join(rootDir, 'app/app.vue'), 'utf-8')).toBe(custom)
+  })
+
+  it('declares convex in the app manifest, once, and leaves an existing range alone', async () => {
+    // A peer dependency is installed by the package manager but never written
+    // to the app's package.json — and `npx convex dev` refuses to run until
+    // it is. The temp dir has no installed copy, so the range falls back to
+    // this package's own peer range.
+    const manifestPath = join(rootDir, 'package.json')
+    writeFileSync(manifestPath, '{\n  "name": "app",\n  "dependencies": {\n    "nuxt": "^4.5.2"\n  }\n}\n')
+
+    await run(['init'])
+
+    const written = JSON.parse(readFileSync(manifestPath, 'utf-8')) as { dependencies: Record<string, string> }
+    expect(Object.keys(written.dependencies)).toStrictEqual(['convex', 'nuxt'])
+    expect(written.dependencies.convex).toMatch(/^>=1\.\d+\.\d+ <2$/)
+    expect(readFileSync(manifestPath, 'utf-8')).toMatch(/^\{\n {2}"name"/)
+
+    const logs = vi.mocked(console.log).mock.calls.flat().join('\n')
+    expect(logs).toContain('Added convex@')
+
+    writeFileSync(manifestPath, JSON.stringify({ name: 'app', dependencies: { convex: '^1.0.0' } }))
+    vi.mocked(console.log).mockClear()
+    await run(['init'])
+    expect((JSON.parse(readFileSync(manifestPath, 'utf-8')) as { dependencies: Record<string, string> }).dependencies.convex).toBe('^1.0.0')
+    expect(vi.mocked(console.log).mock.calls.flat().join('\n')).not.toContain('Added convex@')
+  })
+
   it('falls back to printed instructions without a nuxt.config', async () => {
     await run(['init'])
     expect(existsSync(join(rootDir, 'backend/auth.ts'))).toBe(true)
@@ -130,6 +171,32 @@ describe('doctor', () => {
     expect(report.findings.find(finding => finding.id === 'email-webhook-route')?.status).toBe('fail')
     expect(report.findings.find(finding => finding.id === 'ai-stream-route')?.status).toBe('fail')
     expect(process.exitCode).toBe(1)
+  })
+
+  it('reports a fail-closed route as a warning, and as a failure under production posture', async () => {
+    // A fresh dev deployment has its routes mounted and no provider webhooks
+    // yet — the designed degradation the *_WEBHOOK_SECRET findings also
+    // report, and not a reason for the first `doctor` to exit 1.
+    writeFileSync(join(rootDir, '.env.local'), 'NUXT_PUBLIC_CONVEX_SITE_URL=https://demo.convex.site\n')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('secret not set', { status: 503 })))
+    const statuses = async (args: string[]) => {
+      vi.mocked(console.log).mockClear()
+      process.exitCode = undefined
+      await run(args)
+      const report = JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { findings: Array<{ id: string, status: string }> }
+      return {
+        billing: report.findings.find(finding => finding.id === 'billing-webhook-route')?.status,
+        email: report.findings.find(finding => finding.id === 'email-webhook-route')?.status,
+        exitCode: process.exitCode,
+      }
+    }
+    try {
+      expect(await statuses(['doctor', '--json'])).toStrictEqual({ billing: 'warn', email: 'warn', exitCode: undefined })
+      expect(await statuses(['doctor', '--json', '--prod'])).toMatchObject({ billing: 'fail', email: 'fail', exitCode: 1 })
+    }
+    finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
 
