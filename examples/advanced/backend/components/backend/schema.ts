@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
-import { aiTables, billingTables, tables, webhookTables } from './generated-schema'
+import { aiTables, billingTables, tables, webhookTables } from './schema.generated'
 
 // CUSTOMIZATION: the locally installed component owns its schema, so it can be
 // extended. Here the component gains an extra table of its own beside the

@@ -225,12 +225,15 @@ async function addModuleToNuxtConfig(rootDir: string): Promise<boolean> {
  */
 function declareConvexDependency(rootDir: string): string | undefined {
   const manifestPath = join(rootDir, 'package.json')
-  if (!existsSync(manifestPath)) return undefined
+  // One read: the same bytes decide, are parsed, and set the formatting.
+  let source: string
   let manifest: { dependencies?: Record<string, string>, devDependencies?: Record<string, string> }
   try {
-    manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as typeof manifest
+    source = readFileSync(manifestPath, 'utf-8')
+    manifest = JSON.parse(source) as typeof manifest
   }
   catch {
+    // No manifest, or not JSON — nothing to declare into.
     return undefined
   }
   if (manifest.dependencies?.convex || manifest.devDependencies?.convex) return undefined
@@ -251,7 +254,6 @@ function declareConvexDependency(rootDir: string): string | undefined {
   const dependencies = Object.fromEntries(
     Object.entries({ ...manifest.dependencies, convex: range }).sort(([a], [b]) => a.localeCompare(b)),
   )
-  const source = readFileSync(manifestPath, 'utf-8')
   const indent = /^(\s+)"/m.exec(source)?.[1] ?? '  '
   const eol = source.endsWith('\n') ? '\n' : ''
   writeFileSync(manifestPath, JSON.stringify({ ...manifest, dependencies }, null, indent) + eol)
@@ -285,7 +287,7 @@ const init = defineCommand({
 
     const convexRange = declareConvexDependency(rootDir)
     if (convexRange) {
-      console.log(`[nuxt-backend] Added convex@${convexRange} to dependencies (\`npx convex dev\` needs it declared by the app)`)
+      console.log(`[nuxt-backend] Added convex@${convexRange} to dependencies — install once more so it links (\`npx convex dev\` needs the app itself to declare it)`)
     }
 
     return addModuleToNuxtConfig(rootDir).then((added) => {

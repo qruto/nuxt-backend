@@ -634,7 +634,7 @@ function componentModuleTemplate(name: ComponentModule) {
  */
 export const SCHEMA_TABLE_GROUPS = ['tables', 'billingTables', 'aiTables', 'webhookTables'] as const satisfies readonly SchemaExport[]
 
-/** `components/backend/generated-schema.ts` — every export of the packaged schema. */
+/** `components/backend/schema.generated.ts` — every export of the packaged schema. */
 const GENERATED_SCHEMA_TEMPLATE = reexportTemplate(SCHEMA_EXPORTS, 'nuxt-backend/component/schema', [
   'The packaged component schema — the auth tables, the billing / AI /',
   'webhook table groups, and the shared validators. Customize in ./schema.ts.',
@@ -646,7 +646,7 @@ const GENERATED_SCHEMA_TEMPLATE = reexportTemplate(SCHEMA_EXPORTS, 'nuxt-backend
  */
 const LOCAL_SCHEMA_TEMPLATE = [
   `import { defineSchema } from 'convex/server'`,
-  `import { ${[...SCHEMA_TABLE_GROUPS].sort().join(', ')} } from './generated-schema'`,
+  `import { ${[...SCHEMA_TABLE_GROUPS].sort().join(', ')} } from './schema.generated'`,
   '',
   '// Customize the auth tables here — add fields or your own tables. The other',
   '// groups (billing/gift cache, AI request plumbing, webhook log) come from',
@@ -729,7 +729,7 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
 
     export default component
     ` + '\n',
-  'components/backend/generated-schema.ts': GENERATED_SCHEMA_TEMPLATE,
+  'components/backend/schema.generated.ts': GENERATED_SCHEMA_TEMPLATE,
   'components/backend/schema.ts': LOCAL_SCHEMA_TEMPLATE,
   'components/backend/adapter.ts': dedent`
     import { createApi } from '@convex-dev/better-auth'

@@ -109,10 +109,13 @@ function normalizeFunctionsDir(functionsDir: string) {
 
 /**
  * Where the app's root component lives, if it exists: Nuxt 4's `app/app.vue`
- * first, then the legacy root `app.vue`.
+ * first, then the legacy root `app.vue`. `name` is the posix-relative form
+ * for messages; `path` is the file.
  */
-export function resolveAppComponent(rootDir: string): string | undefined {
-  return ['app/app.vue', 'app.vue'].map(rel => join(rootDir, rel)).find(existsSync)
+export function resolveAppComponent(rootDir: string): { name: string, path: string } | undefined {
+  return ['app/app.vue', 'app.vue']
+    .map(name => ({ name, path: join(rootDir, name) }))
+    .find(({ path }) => existsSync(path))
 }
 
 /**
@@ -121,9 +124,9 @@ export function resolveAppComponent(rootDir: string): string | undefined {
  * registers (`/login`, `/pricing`, …) resolves but never renders.
  */
 export function appComponentIsStarter(rootDir: string): boolean {
-  const path = resolveAppComponent(rootDir)
-  if (!path) return false
-  const source = readFileSync(path, 'utf-8')
+  const component = resolveAppComponent(rootDir)
+  if (!component) return false
+  const source = readFileSync(component.path, 'utf-8')
   return source.includes('<NuxtWelcome') && !source.includes('<NuxtPage')
 }
 
@@ -131,11 +134,11 @@ export function appComponentIsStarter(rootDir: string): boolean {
  * Put the router outlet into the starter root component: `<NuxtWelcome />`
  * becomes `<NuxtPage />`, everything else (the route announcer, the wrapper)
  * stays. A root component the user has already touched is left alone.
- * Returns the rewritten path, relative to `rootDir`, or `undefined`.
+ * Returns the rewritten file's name, relative to `rootDir`, or `undefined`.
  */
 export function mountPagesInAppComponent(rootDir: string): string | undefined {
   if (!appComponentIsStarter(rootDir)) return undefined
-  const path = resolveAppComponent(rootDir)!
+  const { name, path } = resolveAppComponent(rootDir)!
   writeFileSync(path, readFileSync(path, 'utf-8').replace(/<NuxtWelcome\s*\/>/, '<NuxtPage />'))
-  return path.slice(rootDir.length + 1)
+  return name
 }
