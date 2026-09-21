@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { REQUIRED_FUNCTION_EXPORTS } from '../../src/contract'
 import { BACKEND_FILE_TEMPLATES, LOCAL_BACKEND_FILE_TEMPLATES } from '../../src/templates'
 
-// The public surface, frozen. STABILITY.md promises the 0.1 line keeps every
+// The public surface, frozen. STABILITY.md promises the 0.x line keeps every
 // `nuxt-backend/<subpath>` and every value/type reachable from one; this file
 // makes the promise mechanical. The ENTRY table below is the surface — package
 // `exports`, `typesVersions`, the per-entry export names, the docs, and the

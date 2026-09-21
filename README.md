@@ -127,7 +127,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 
 ### Agents (MCP)
 
-An OAuth-protected `/mcp` endpoint (Better Auth's OIDC provider + `@nuxtjs/mcp-toolkit`), on by default: an agent signs in through the normal consent flow and every tool call runs your Convex functions **as that signed-in user** — `ctx.auth`, workspace, and billing entity resolve exactly like a web session. Built-in tools cover profile, billing (reads and checkout links — never payments), and workspaces; `defineBackendMcpTool` adds your own. `backend.mcp: false` turns the whole surface off.
+An OAuth-protected `/mcp` endpoint (Better Auth's OIDC provider + `@nuxtjs/mcp-toolkit`), on by default: an agent signs in through the normal consent flow and every tool call runs your Convex functions **as that signed-in user** — `ctx.auth`, workspace, and billing entity resolve exactly like a web session. Built-in tools cover profile, billing (reads and checkout links — never payments), and workspaces; `defineBackendMcpTool` adds your own. `backend.mcp: false` turns the whole surface off. **Experimental**: the MCP authorization profile and the toolkit are still moving, so this surface may change shape in a 0.x minor (see [STABILITY.md](./STABILITY.md)).
 
 ### Nuxt DevTools
 
