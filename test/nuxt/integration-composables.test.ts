@@ -268,15 +268,16 @@ describe('useBilling — subscription lifecycle', () => {
     expect(actionSpy).toHaveBeenCalledWith(resumeSubscriptionRef, { subscriptionId: undefined })
   })
 
-  it('addresses one subscription by id, and honours the deprecated revokeImmediately', async () => {
+  it('addresses one subscription by id, and cancels at period end unless told otherwise', async () => {
     const actionSpy = vi.spyOn(client, 'action').mockResolvedValue(null)
     const { result } = await mountWithConvex(client, () => useBilling({ api: lifecycleApi }), { provide: authedProvide })
 
     await result.changePlan('prod_max', { subscriptionId: 'sub_2' })
-    await result.cancel({ revokeImmediately: true })
+    await result.cancel()
+    await result.cancel({ atPeriodEnd: false })
 
     expect(actionSpy).toHaveBeenCalledWith(updateSubscriptionRef, { subscriptionId: 'sub_2', productId: 'prod_max', proration: undefined })
-    // The retired spelling still revokes rather than silently deferring.
+    expect(actionSpy).toHaveBeenCalledWith(cancelSubscriptionRef, { subscriptionId: undefined, atPeriodEnd: true, reason: undefined, comment: undefined })
     expect(actionSpy).toHaveBeenCalledWith(cancelSubscriptionRef, { subscriptionId: undefined, atPeriodEnd: false, reason: undefined, comment: undefined })
   })
 

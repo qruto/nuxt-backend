@@ -1096,15 +1096,6 @@ export interface Billing {
    */
   forgetEntity: (ctx: RunWriteCtx, userId: string) => Promise<void>
   /**
-   * Create a discount / coupon (provider `discounts.create`). Call from an
-   * **action**. Accepts the full discount-create shape (fixed or percentage).
-   *
-   * @deprecated Use `discounts.create` instead — the discount surface grew a
-   * `list` and a `remove`, so it reads as one object. This alias keeps working
-   * for at least one minor release (see STABILITY.md).
-   */
-  createDiscount: (discount: DiscountInput) => Promise<{ id: string, code: string | null }>
-  /**
    * Discount (coupon) management: `create`, `list`, `remove`. Server-side by
    * design — minting discounts is privileged, so wire it through an
    * `internalAction` or your own admin-tier action.
@@ -1572,7 +1563,7 @@ export function setupBilling(
     await ctx.runMutation(cache.credit, { userId: entityId, meterId: meter.meterId, amount: event.value })
   }
 
-  const createDiscount: Billing['createDiscount'] = async (discount) => {
+  const createDiscount: BillingDiscounts['create'] = async (discount) => {
     requireProviderAccess('discount creation')
     const result = await discountsCreate(provider.polar, discount)
     if (!result.ok) throw result.error
@@ -2633,7 +2624,6 @@ export function setupBilling(
     releaseSpend,
     resolveEntity: entityFromIdentity,
     forgetEntity,
-    createDiscount,
     discounts,
     updateSubscription,
     cancelSubscription,

@@ -382,27 +382,20 @@ describe('forgetEntity', () => {
   })
 })
 
-describe('createDiscount', () => {
+describe('discounts.create', () => {
   it('returns the created discount id and code', async () => {
     mockDiscountsCreate.mockResolvedValue({ ok: true, value: { id: 'disc_1', code: 'SAVE10' } } as never)
-    expect(await billing.createDiscount({ name: 'Launch' } as never)).toStrictEqual({ id: 'disc_1', code: 'SAVE10' })
+    expect(await billing.discounts.create({ name: 'Launch' } as never)).toStrictEqual({ id: 'disc_1', code: 'SAVE10' })
   })
 
   it('normalizes a missing code to null', async () => {
     mockDiscountsCreate.mockResolvedValue({ ok: true, value: { id: 'disc_2', code: null } } as never)
-    expect(await billing.createDiscount({ name: 'Internal' } as never)).toStrictEqual({ id: 'disc_2', code: null })
+    expect(await billing.discounts.create({ name: 'Internal' } as never)).toStrictEqual({ id: 'disc_2', code: null })
   })
 
   it('propagates a failed discounts.create', async () => {
     mockDiscountsCreate.mockResolvedValue({ ok: false, error: new Error('bad discount') } as never)
-    await expect(billing.createDiscount({ name: 'x' } as never)).rejects.toThrow('bad discount')
-  })
-
-  // The discount surface grew `list` and `remove`, so it reads as one object.
-  // STABILITY.md's deprecation rule keeps the old name working meanwhile —
-  // it must stay the very same function, not a diverging copy.
-  it('is the same function as the replacement `discounts.create`', () => {
-    expect(billing.discounts.create).toBe(billing.createDiscount)
+    await expect(billing.discounts.create({ name: 'x' } as never)).rejects.toThrow('bad discount')
   })
 })
 

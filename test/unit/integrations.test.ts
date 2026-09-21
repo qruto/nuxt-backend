@@ -81,7 +81,7 @@ describe('setup factories', () => {
     // SaaS depth: customer state, prepaid-credit spend, discounts.
     expect(billing.getCustomerState).toBeTypeOf('function')
     expect(billing.spendCredits).toBeTypeOf('function')
-    expect(billing.createDiscount).toBeTypeOf('function')
+    expect(billing.discounts.create).toBeTypeOf('function')
   })
 
   it('setupEmail exposes transactional + marketing helpers', () => {

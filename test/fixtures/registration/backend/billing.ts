@@ -58,7 +58,7 @@ export const createDiscount = internalAction({
   handler: async (ctx, { name, percent, code }) => {
     const basisPoints = Math.round(Math.min(Math.max(percent, 0), 100) * 100)
     const discount: DiscountInput = { type: 'percentage', name, code, duration: 'once', basisPoints }
-    return billing.createDiscount(discount)
+    return billing.discounts.create(discount)
   },
 })
 
