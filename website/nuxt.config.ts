@@ -299,8 +299,11 @@ export default defineNuxtConfig({
   // playground layout would squeeze its centered card into the sidebar column.
   hooks: {
     'pages:extend'(pages) {
+      // `/playground/offline` is the standalone page a build without a
+      // deployment redirects to (middleware/playground-offline.global.ts);
+      // like /login it opts out of layouts itself.
       const isPlaygroundRoute = (path: string) =>
-        path === '/playground' || path.startsWith('/playground/')
+        (path === '/playground' || path.startsWith('/playground/')) && path !== '/playground/offline'
       const walk = (list: typeof pages) => {
         for (const page of list) {
           if (page.path && isPlaygroundRoute(page.path)) {
@@ -327,6 +330,10 @@ export default defineNuxtConfig({
       security: false,
     },
   },
+  // This app is run from the repository root (`pnpm dev` starts the component
+  // watcher, Convex and Nuxt together), so the base module must not rewrite
+  // its `dev` script into `convex dev --start 'nuxt dev'` on the first boot.
+  convex: { devScript: false },
   // Self-hosted webfonts. Families are declared in app.css's `@theme` block as
   // `--font-sans` (Nunito), `--font-display` (Bai Jamjuree) and `--font-mono`
   // (JetBrains Mono); @nuxt/fonts scans those declarations, downloads the
