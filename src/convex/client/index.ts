@@ -334,7 +334,13 @@ function resolveTemplates<DM extends GenericDataModel>(runtime?: AuthRuntime<DM>
 function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRuntime<DM>) {
   return async (data: { email: string, otp: string, type: OtpPurpose }): Promise<void> => {
     const ctx = asMutationCtx(runtime?.ctx)
-    if (!runtime?.email || !ctx) {
+    // The automatic transport is wired whenever the component has an email
+    // module — but without EMAIL_API_KEY on the deployment that module sends
+    // nothing (it logs "Email skipped"), and the code would be gone while the
+    // sign-in UI waits for it. That is the "no transport" case too. A custom
+    // sender is the consumer's own and is trusted as is.
+    const unconfigured = runtime?.email !== undefined && isAutomaticEmailSender(runtime.email) && !readEnv('EMAIL_API_KEY')
+    if (!runtime?.email || !ctx || unconfigured) {
       // The OTP is a live credential and Convex logs are durable — never echo it
       // to logs unless a deployment explicitly opts in (local dev without email).
       if (readEnv('NUXT_BACKEND_LOG_OTP')) {
@@ -346,7 +352,7 @@ function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRunt
       // Failing loudly beats a login screen waiting for an email that will
       // never arrive — the thrown message surfaces in the sign-in UI.
       throw new Error(
-        `[nuxt-backend] OTP not delivered — the backend component has no email transport. `
+        `[nuxt-backend] OTP not delivered — ${unconfigured ? 'EMAIL_API_KEY is not set on this deployment' : 'the backend component has no email transport'}. `
         + `Set the required EMAIL_API_KEY env var to send email, or NUXT_BACKEND_LOG_OTP=1 to echo codes to the console during local dev.`,
       )
     }
@@ -584,7 +590,7 @@ function componentEmailSender(components: AuthSetupComponents): AuthEmailSender 
   // type doesn't surface it; read it structurally.
   const send = (components.backend as { email?: { send?: ComponentEmailRef } } | undefined)?.email?.send
   if (!send) return undefined
-  return async (ctx, message) => {
+  const sender: AuthEmailSender = async (ctx, message) => {
     await ctx.runMutation(send, {
       to: message.to,
       subject: message.subject,
@@ -592,6 +598,18 @@ function componentEmailSender(components: AuthSetupComponents): AuthEmailSender 
       text: message.text,
     })
   }
+  return Object.assign(sender, { [AUTOMATIC_SENDER]: true })
+}
+
+/**
+ * Marks the sender {@link componentEmailSender} builds, so the OTP path can
+ * tell "the package's own transport, which needs EMAIL_API_KEY" from a
+ * consumer's override.
+ */
+const AUTOMATIC_SENDER = Symbol.for('nuxt-backend.automaticEmailSender')
+
+function isAutomaticEmailSender(sender: AuthEmailSender): boolean {
+  return (sender as AuthEmailSender & { [AUTOMATIC_SENDER]?: boolean })[AUTOMATIC_SENDER] === true
 }
 
 /**
