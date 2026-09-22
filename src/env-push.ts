@@ -18,7 +18,7 @@ import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DEV_ONLY_DEPLOYMENT_ENV, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './preflight'
-import { deriveDeploymentUrls, isDevDeploymentId } from './deployment'
+import { deriveDeploymentUrls, isDevDeploymentId, parseEnvFile } from './deployment'
 import { runConvex } from './convex-cli'
 
 export const BACKEND_ENV_NAMES = [
@@ -135,10 +135,9 @@ export function readEnvFiles(rootDir: string): Record<string, string> {
   for (const name of ['.env', '.env.local']) {
     const path = join(rootDir, name)
     if (!existsSync(path)) continue
-    for (const line of readFileSync(path, 'utf-8').split('\n')) {
-      const match = line.match(/^([A-Z_]\w*)=(.*)$/i)
-      if (match) env[match[1]!] = match[2]!.trim().replace(/^["']|["']$/g, '')
-    }
+    // One parser for both readers (deployment.ts), so an inline comment is
+    // dropped here too — `CONVEX_DEPLOYMENT=dev:<slug> # team: …` as written.
+    Object.assign(env, parseEnvFile(readFileSync(path, 'utf-8')))
   }
   return env
 }

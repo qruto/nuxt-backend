@@ -92,6 +92,21 @@ describe('deriveDeploymentUrls', () => {
 })
 
 describe('parseEnvFile', () => {
+  it('drops the inline comment the Convex CLI writes after the deployment id', () => {
+    // `npx convex dev` records `CONVEX_DEPLOYMENT=dev:<slug> # team: …, project: …`
+    // for a cloud deployment. The comment is not part of the slug — with it,
+    // nothing derived and every dev app fell back to "no URL configured".
+    const env = parseEnvFile('CONVEX_DEPLOYMENT=dev:brave-otter-123 # team: acme, project: app\nQUOTED="a # not a comment"\nHASH=a#b\n')
+    expect(env.CONVEX_DEPLOYMENT).toBe('dev:brave-otter-123')
+    expect(env.QUOTED).toBe('a # not a comment')
+    expect(env.HASH).toBe('a#b')
+  })
+
+  it('derives from the id as the Convex CLI actually writes it', () => {
+    writeFileSync(join(rootDir, '.env.local'), 'CONVEX_DEPLOYMENT=dev:brave-otter-123 # team: acme, project: app\n')
+    expect(deriveDeploymentUrls(rootDir, {})?.siteUrl).toBe('https://brave-otter-123.convex.site')
+  })
+
   it('parses KEY=VALUE lines and strips quotes', () => {
     expect(parseEnvFile('A=1\nB="two"\nC=\'three\'\n# comment\nnot a line\n')).toEqual({
       A: '1',

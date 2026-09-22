@@ -45,8 +45,10 @@ export interface DerivedDeploymentUrls {
 }
 
 /**
- * Minimal dotenv parse — KEY=VALUE lines, surrounding quotes stripped.
- * Exported for tests.
+ * Minimal dotenv parse — KEY=VALUE lines, surrounding quotes stripped, and an
+ * unquoted value ends at the first ` #`: the Convex CLI writes
+ * `CONVEX_DEPLOYMENT=dev:<slug> # team: …, project: …`, and the comment is
+ * not part of the slug. Exported for tests.
  *
  * @internal
  */
@@ -54,7 +56,10 @@ export function parseEnvFile(content: string): Record<string, string> {
   const env: Record<string, string> = {}
   for (const line of content.split('\n')) {
     const match = line.match(/^[ \t]*([A-Z_]\w*)[ \t]*=(.*)$/i)
-    if (match) env[match[1]!] = match[2]!.trim().replace(/^["']|["']$/g, '')
+    if (!match) continue
+    const raw = match[2]!.trim()
+    const quoted = raw.match(/^(["'])(.*)\1/)
+    env[match[1]!] = quoted ? quoted[2]! : raw.replace(/\s+#.*$/, '')
   }
   return env
 }
