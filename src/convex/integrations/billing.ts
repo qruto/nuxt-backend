@@ -2247,11 +2247,18 @@ export function setupBilling(
       if (!resolved) return null
       // Meters carry their configured friendly name so `useCredits('credits')`
       // resolves without the client ever seeing provider ids.
+      //
+      // Configured meters come first. The provider reports every meter a
+      // customer has ever been credited on — a retired one from an earlier
+      // catalog included — and a client asking for "the balance" (no meter
+      // name) takes the first. Ordering here means that is always a meter
+      // this app declares, whatever order the provider lists them in.
+      const meters = (resolved.row?.meters ?? []).map(meter => ({
+        ...meter,
+        name: meterNameById.get(meter.meterId),
+      }))
       return {
-        meters: (resolved.row?.meters ?? []).map(meter => ({
-          ...meter,
-          name: meterNameById.get(meter.meterId),
-        })),
+        meters: [...meters.filter(meter => meter.name !== undefined), ...meters.filter(meter => meter.name === undefined)],
       }
     },
   })

@@ -65,6 +65,70 @@ interface SyncLogEntry {
   note?: string
 }
 
+/**
+ * What an existing managed meter no longer matches in the catalog: its
+ * aggregation (`count` vs `sum` of a property) or the event name its
+ * filter selects. Returns `undefined` when they agree.
+ */
+function describeMeterDrift(
+  existing: { aggregation?: Record<string, unknown>, filter?: { clauses?: Array<Record<string, unknown>> } },
+  wanted: { property?: string, eventName: string },
+): string | undefined {
+  const parts: string[] = []
+  const liveFunc = typeof existing.aggregation?.func === 'string' ? existing.aggregation.func : undefined
+  const liveProperty = typeof existing.aggregation?.property === 'string' ? existing.aggregation.property : undefined
+  const wantedFunc = wanted.property ? 'sum' : 'count'
+  if (liveFunc !== undefined && (liveFunc !== wantedFunc || (wanted.property !== undefined && liveProperty !== wanted.property))) {
+    const describe = (func?: string, property?: string) => (func === 'sum' ? `sum of '${property ?? '?'}'` : func ?? 'unknown')
+    parts.push(`aggregates by ${describe(liveFunc, liveProperty)}, catalog says ${describe(wantedFunc, wanted.property)}`)
+  }
+  const liveEventName = existing.filter?.clauses?.find(clause => clause.property === 'name')?.value
+  if (typeof liveEventName === 'string' && liveEventName !== wanted.eventName) {
+    parts.push(`counts events named "${liveEventName}", catalog says "${wanted.eventName}"`)
+  }
+  return parts.length > 0 ? parts.join('; ') : undefined
+}
+
+/**
+ * What an existing managed product no longer matches in the catalog: its
+ * display name, or the amount of its single fixed price (the shape this
+ * CLI creates). Returns `undefined` when they agree, or when the live
+ * product has a price shape this cannot compare.
+ */
+function describeProductDrift(
+  existing: { name?: string, prices?: Array<Record<string, unknown>> },
+  wanted: Parameters<typeof productsCreate>[1],
+): string | undefined {
+  const parts: string[] = []
+  if (typeof existing.name === 'string' && existing.name !== wanted.name) {
+    parts.push(`named "${existing.name}", catalog says "${wanted.name}"`)
+  }
+  const wantedPrice = (wanted.prices ?? []).find(price => 'priceAmount' in price) as { priceAmount?: number } | undefined
+  const livePrices = (existing.prices ?? []).filter(price => price.amountType === 'fixed')
+  const livePrice = livePrices.length === 1 ? livePrices[0] as { priceAmount?: number } : undefined
+  if (wantedPrice?.priceAmount !== undefined && livePrice?.priceAmount !== undefined && livePrice.priceAmount !== wantedPrice.priceAmount) {
+    parts.push(`priced ${livePrice.priceAmount}, catalog says ${wantedPrice.priceAmount}`)
+  }
+  return parts.length > 0 ? parts.join('; ') : undefined
+}
+
+/**
+ * The log entry for an object that already exists at the provider: plain
+ * `exists`, or `drift` carrying what no longer matches the catalog and what
+ * to do about it. Created objects are never rewritten — the provider forbids
+ * it once they carry usage or orders — so drift is reported, not repaired.
+ */
+function existsOrDrift(
+  kind: SyncLogEntry['kind'],
+  key: string,
+  id: string,
+  drifted: string | undefined,
+  remedy: string,
+): SyncLogEntry {
+  if (!drifted) return { action: 'exists', kind, key, id }
+  return { action: 'drift', kind, key, id, note: `${drifted} — ${remedy}` }
+}
+
 function isManaged(metadata: Record<string, unknown> | undefined | null, key: string): boolean {
   return metadata?.managedBy === MANAGED_BY && metadata?.key === key
 }
@@ -180,7 +244,18 @@ export async function syncBillingCatalog(
     const existing = managedMeters.find(item => isManaged(item.metadata, key))
     if (existing) {
       record(existing.id)
-      log.push({ action: 'exists', kind: 'meter', key, id: existing.id })
+      // A meter is created once and kept — its aggregation and filter decide
+      // whether the events this app ingests count at all, and the provider
+      // will not rewrite them under a meter that already has usage. Silence
+      // here is expensive: a `count` catalog against a `sum` meter grants
+      // credits that no spend ever draws down at the provider.
+      log.push(existsOrDrift(
+        'meter',
+        key,
+        existing.id,
+        describeMeterDrift(existing, { property, eventName }),
+        'spends will not count as the catalog expects; rename the catalog key to publish a new meter',
+      ))
       continue
     }
     if (dryRun) {
@@ -306,29 +381,6 @@ export async function syncBillingCatalog(
   }
 
   // --- Products (plans + packs) ---
-  /**
-   * What an existing managed product no longer matches in the catalog: its
-   * display name, or the amount of its single fixed price (the shape this
-   * CLI creates). Returns `undefined` when they agree, or when the live
-   * product has a price shape this cannot compare.
-   */
-  const describeProductDrift = (
-    existing: { name?: string, prices?: Array<Record<string, unknown>> },
-    wanted: Parameters<typeof productsCreate>[1],
-  ): string | undefined => {
-    const parts: string[] = []
-    if (typeof existing.name === 'string' && existing.name !== wanted.name) {
-      parts.push(`named "${existing.name}", catalog says "${wanted.name}"`)
-    }
-    const wantedPrice = (wanted.prices ?? []).find(price => 'priceAmount' in price) as { priceAmount?: number } | undefined
-    const livePrices = (existing.prices ?? []).filter(price => price.amountType === 'fixed')
-    const livePrice = livePrices.length === 1 ? livePrices[0] as { priceAmount?: number } : undefined
-    if (wantedPrice?.priceAmount !== undefined && livePrice?.priceAmount !== undefined && livePrice.priceAmount !== wantedPrice.priceAmount) {
-      parts.push(`priced ${livePrice.priceAmount}, catalog says ${wantedPrice.priceAmount}`)
-    }
-    return parts.length > 0 ? parts.join('; ') : undefined
-  }
-
   const ensureProduct = async (
     key: string,
     benefits: Array<string | null>,
@@ -349,10 +401,13 @@ export async function syncBillingCatalog(
       // `price` cannot be pushed to a product customers may already hold.
       // Say so rather than logging a bare "exists" — otherwise the catalog
       // silently stops describing what customers actually see.
-      const drifted = describeProductDrift(existing, create())
-      log.push(drifted
-        ? { action: 'drift', kind: 'product', key, id: existing.id, note: `${drifted} — a created product is never rewritten; rename the catalog key to publish a new one` }
-        : { action: 'exists', kind: 'product', key, id: existing.id })
+      log.push(existsOrDrift(
+        'product',
+        key,
+        existing.id,
+        describeProductDrift(existing, create()),
+        'a created product is never rewritten; rename the catalog key to publish a new one',
+      ))
       return
     }
     if (dryRun) {

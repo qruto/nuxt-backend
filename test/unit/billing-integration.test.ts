@@ -382,6 +382,39 @@ describe('forgetEntity', () => {
   })
 })
 
+describe('getCredits', () => {
+  // The provider reports every meter the customer was ever credited on. One
+  // the catalog has since retired comes back nameless — and a client asking
+  // for "the balance" takes the first meter, so the configured ones lead.
+  it('returns configured meters first, each named, unknown ones after', async () => {
+    const named = setupBilling(components, {
+      ...(config as object),
+      credits: { credits: { meterId: 'm_current' } },
+      billTo: 'user',
+    } as never)
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: 'u1', email: 'a@b.com' }) },
+      runQuery: vi.fn(async (ref: unknown) => ref === 'ref:getByUser'
+        ? {
+            customerId: 'cus_1',
+            activeProductIds: [],
+            benefits: [],
+            meters: [
+              { meterId: 'm_retired', balance: 0, creditedUnits: 0, consumedUnits: 0 },
+              { meterId: 'm_current', balance: 50, creditedUnits: 50, consumedUnits: 0 },
+            ],
+          }
+        : null),
+    }
+
+    const result = await (named.functions.getCredits as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<{ meters: Array<{ meterId: string, name?: string, balance: number }> } | null> })._handler(ctx, {}) as { meters: Array<{ meterId: string, name?: string, balance: number }> }
+
+    expect(result.meters.map(meter => meter.meterId)).toStrictEqual(['m_current', 'm_retired'])
+    expect(result.meters[0]).toMatchObject({ name: 'credits', balance: 50 })
+    expect(result.meters[1]!.name).toBeUndefined()
+  })
+})
+
 describe('syncProducts', () => {
   // A fresh deployment has never seen a `product.*` webhook, so the reactive
   // products table is empty and every pricing page renders "no plans" until

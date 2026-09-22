@@ -123,6 +123,48 @@ describe('syncBillingCatalog', () => {
     expect(result.log.every(entry => entry.action === 'exists')).toBe(true)
   })
 
+  it('reports an existing meter whose aggregation or event name no longer matches', async () => {
+    // The worst silent drift: a catalog that says `count` against a meter that
+    // sums a property nobody sends. Credits are granted, spends ingest, and
+    // the provider's balance never moves.
+    vi.mocked(metersList).mockResolvedValue(page([
+      {
+        id: 'mtr_live',
+        aggregation: { func: 'sum', property: 'amount' },
+        filter: { conjunction: 'and', clauses: [{ property: 'name', operator: 'eq', value: 'credits' }] },
+        metadata: { managedBy: 'nuxt-backend', key: 'credits' },
+      },
+    ]) as never)
+    vi.mocked(benefitsCreate).mockResolvedValue({ ok: true, value: { id: 'ben_x' } } as never)
+    vi.mocked(productsCreate).mockResolvedValue({ ok: true, value: { id: 'prod_1' } } as never)
+    vi.mocked(productsUpdateBenefits).mockResolvedValue({ ok: true, value: {} } as never)
+
+    const result = await syncBillingCatalog({ ...catalog, meters: { credits: { aggregation: 'count' } } }, options, fakeClient)
+
+    const meter = result.log.find(entry => entry.kind === 'meter' && entry.key === 'credits')
+    expect(meter?.action).toBe('drift')
+    expect(meter?.note).toContain('aggregates by sum of \'amount\', catalog says count')
+    expect(metersCreate).not.toHaveBeenCalled()
+  })
+
+  it('stays quiet when the live meter matches the catalog', async () => {
+    vi.mocked(metersList).mockResolvedValue(page([
+      {
+        id: 'mtr_live',
+        aggregation: { func: 'count' },
+        filter: { conjunction: 'and', clauses: [{ property: 'name', operator: 'eq', value: 'credits' }] },
+        metadata: { managedBy: 'nuxt-backend', key: 'credits' },
+      },
+    ]) as never)
+    vi.mocked(benefitsCreate).mockResolvedValue({ ok: true, value: { id: 'ben_x' } } as never)
+    vi.mocked(productsCreate).mockResolvedValue({ ok: true, value: { id: 'prod_1' } } as never)
+    vi.mocked(productsUpdateBenefits).mockResolvedValue({ ok: true, value: {} } as never)
+
+    const result = await syncBillingCatalog({ ...catalog, meters: { credits: { aggregation: 'count' } } }, options, fakeClient)
+
+    expect(result.log.find(entry => entry.kind === 'meter' && entry.key === 'credits')?.action).toBe('exists')
+  })
+
   it('reports an existing product whose name or price no longer matches the catalog', async () => {
     // The provider's prices are immutable once a product exists, so a catalog
     // edit cannot be pushed — but silently logging "exists" would let the

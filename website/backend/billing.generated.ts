@@ -14,6 +14,7 @@ export const catalog: Partial<Record<'sandbox' | 'production', BillingCatalogIds
       credits: {
         meterId: '8455082f-da79-4961-b323-bc799ddf7fbc',
         eventName: 'credits',
+        property: 'amount',
       },
     },
   },

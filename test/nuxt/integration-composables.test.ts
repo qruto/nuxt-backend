@@ -552,6 +552,22 @@ describe('useCredits', () => {
     expect(result.meterId.value).toBe('m1')
   })
 
+  it('defaults to a configured meter, not whichever the provider listed first', async () => {
+    // A customer keeps every meter they were ever credited on — including one
+    // this app's catalog has since retired, which `getCredits` returns
+    // nameless. Taking it by position would report its stale zero as "the"
+    // balance, which is what a live checkout did.
+    seed(store => store.setQuery(creditsRef, {}, {
+      meters: [
+        { meterId: 'retired', consumedUnits: 0, creditedUnits: 0, balance: 0 },
+        { meterId: 'm1', name: 'credits', consumedUnits: 1, creditedUnits: 50, balance: 49 },
+      ],
+    }))
+    const { result } = await mountWithConvex(client, () => useCredits(undefined, { api: billingApi }))
+    expect(result.balance.value).toBe(49)
+    expect(result.meterId.value).toBe('m1')
+  })
+
   it('reports a zero balance for an unknown meter id', async () => {
     seed(store => store.setQuery(creditsRef, {}, credits))
     const { result } = await mountWithConvex(client, () => useCredits('missing', { api: billingApi }))
