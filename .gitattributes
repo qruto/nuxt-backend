@@ -25,5 +25,11 @@
 # Text, despite looking like markup to some tools.
 *.svg text
 
-# Generated: keep it out of diffs and out of the language statistics.
-pnpm-lock.yaml linguist-generated -diff
+# Generated, so it stays out of the language statistics — but it is diffed.
+# `-diff` would show every dependency change in a pull request as "binary files
+# differ", and the lockfile is exactly where a supply-chain change is visible: a
+# new transitive package, a resolved version, an integrity hash or a tarball URL
+# that moved. `dependency-review` reads that delta; a reviewer has to be able to
+# as well. GitHub still folds a `linguist-generated` file by default, so the
+# diff is one click away rather than unreadable.
+pnpm-lock.yaml linguist-generated

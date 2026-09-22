@@ -1,6 +1,8 @@
 # Dependabot owns every dependency PR here: npm version updates, GitHub Actions
 # digest bumps, and CVE fixes (security updates are enabled in the repo's
-# Code security settings). No third-party app holds write access to this repo.
+# Code security settings). Dependabot opens branches and pull requests only;
+# like every installed app it can neither push to main nor publish to npm —
+# SECURITY.md#installed-apps lists each app and what it may write.
 #
 # `cooldown` mirrors pnpm's minimumReleaseAge (pnpm-workspace.yaml) but one day
 # wider, so Dependabot never proposes a version pnpm will refuse to resolve.

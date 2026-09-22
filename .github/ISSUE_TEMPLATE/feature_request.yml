@@ -23,3 +23,9 @@ body:
       description: What the API or behaviour would look like. Alternatives you considered, if any.
     validations:
       required: true
+  - type: checkboxes
+    id: would-pr
+    attributes:
+      label: Contribution
+      options:
+        - label: I can submit a PR for this
