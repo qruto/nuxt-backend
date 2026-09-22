@@ -190,6 +190,110 @@ describe('AuthForm', () => {
     await vi.waitFor(() => expect(wrapper.find('[data-auth="error"]').text()).toBe('No passkey found'))
     expect(wrapper.emitted('error')).toStrictEqual([['No passkey found']])
   })
+
+  it('is busy while a ceremony runs', async () => {
+    let release!: () => void
+    client.signIn.passkey.mockImplementationOnce(() => new Promise<object>((resolve) => {
+      release = () => resolve({})
+    }))
+    const wrapper = mount(AuthForm)
+    const form = () => wrapper.find('[data-auth="form"]').attributes('aria-busy')
+    expect(form()).toBeUndefined()
+    await wrapper.find('[data-auth="passkey-sign-in"]').trigger('click')
+    expect(form()).toBe('true')
+    release()
+    await vi.waitFor(() => expect(form()).toBeUndefined())
+  })
+
+  it('announces the sent code as a polite status', async () => {
+    const wrapper = mount(AuthForm)
+    await wrapper.find('[data-auth="otp-start"]').trigger('click')
+    await wrapper.find('[data-auth="input-email"]').setValue('ada@example.com')
+    await wrapper.find('[data-auth="step-request-code"]').trigger('submit')
+    await vi.waitFor(() => expect(wrapper.find('[data-auth="sent-note"]').exists()).toBe(true))
+    const note = wrapper.find('[data-auth="sent-note"]')
+    expect(note.text()).toBe('We sent a code to ada@example.com.')
+    expect(note.attributes('role')).toBe('status')
+    expect(note.attributes('aria-live')).toBe('polite')
+  })
+})
+
+describe('useLoginFlow rate limits', () => {
+  /** What better-fetch hands back for the package's 429: the JSON body spread next to the status. */
+  const limited = (retryAfter?: number) => ({
+    error: {
+      message: 'Too many verification requests. Please try again in a moment.',
+      status: 429,
+      statusText: 'Too Many Requests',
+      ...(retryAfter === undefined ? {} : { retryAfter }),
+    },
+  })
+
+  it('a 429 with retryAfter says when to retry, exposes the seconds and keeps the step', async () => {
+    client.emailOtp.sendVerificationOtp.mockResolvedValueOnce(limited(4200))
+    const flow = inSetup(() => useLoginFlow())
+    flow.goTo('request-code')
+    flow.email.value = 'ada@example.com'
+    await flow.sendCode()
+    // Rounded up — a countdown from the floor would let the user retry early.
+    expect(flow.error.value).toBe('Too many attempts. Try again in 5 seconds.')
+    expect(flow.retryAfter.value).toBe(5)
+    expect(flow.step.value).toBe('request-code')
+    expect(flow.pending.value).toBe(false)
+
+    // The next attempt starts clean.
+    await flow.sendCode()
+    expect(flow.error.value).toBeNull()
+    expect(flow.retryAfter.value).toBeNull()
+    expect(flow.step.value).toBe('verify-code')
+  })
+
+  it('a one-second wait reads in the singular', async () => {
+    client.emailOtp.sendVerificationOtp.mockResolvedValueOnce(limited(800))
+    const flow = inSetup(() => useLoginFlow())
+    flow.email.value = 'ada@example.com'
+    await flow.sendCode()
+    expect(flow.error.value).toBe('Too many attempts. Try again in 1 second.')
+    expect(flow.retryAfter.value).toBe(1)
+  })
+
+  it('a 429 without retryAfter (Better Auth\'s own limiter) says "in a moment"', async () => {
+    // The built-in limiter's body has only a message; its X-Retry-After
+    // header never reaches the client's error object.
+    client.signIn.emailOtp.mockResolvedValueOnce({ error: { message: 'Too many requests. Please try again later.', status: 429, statusText: 'Too Many Requests' } })
+    const flow = inSetup(() => useLoginFlow())
+    flow.email.value = 'ada@example.com'
+    await flow.sendCode()
+    flow.otp.value = '123456'
+    await flow.verifyCode()
+    expect(flow.error.value).toBe('Too many attempts. Try again in a moment.')
+    expect(flow.retryAfter.value).toBeNull()
+    expect(flow.step.value).toBe('verify-code')
+    expect(sessionRefetch).not.toHaveBeenCalled()
+  })
+
+  it('a non-429 error is unchanged', async () => {
+    client.signIn.emailOtp.mockResolvedValueOnce({ error: { message: 'Invalid code', status: 400, statusText: 'Bad Request', retryAfter: 4200 } })
+    const flow = inSetup(() => useLoginFlow())
+    flow.email.value = 'ada@example.com'
+    await flow.sendCode()
+    flow.otp.value = '000000'
+    await flow.verifyCode()
+    expect(flow.error.value).toBe('Invalid code')
+    expect(flow.retryAfter.value).toBeNull()
+    expect(flow.step.value).toBe('verify-code')
+  })
+
+  it('goTo clears the wait with the error', async () => {
+    client.emailOtp.sendVerificationOtp.mockResolvedValueOnce(limited(4200))
+    const flow = inSetup(() => useLoginFlow())
+    flow.email.value = 'ada@example.com'
+    await flow.sendCode()
+    expect(flow.retryAfter.value).toBe(5)
+    flow.goTo('choose')
+    expect(flow.error.value).toBeNull()
+    expect(flow.retryAfter.value).toBeNull()
+  })
 })
 
 describe('AuthForm heading', () => {
