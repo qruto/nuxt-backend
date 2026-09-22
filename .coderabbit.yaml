@@ -2,9 +2,10 @@
 
 # CodeRabbit reviews pull requests through its GitHub App — no workflow, no
 # secret, no job. This file is the repository half of the configuration and
-# wins over the dashboard wherever both set a key. It is read from the pull
-# request's head branch, which makes it review surface in fork pull requests
-# the way `.github/workflows/` already is.
+# wins over the dashboard wherever both set a key. A collaborator's pull
+# request is reviewed with the copy on its head branch; one from a fork or a
+# non-collaborator gets `main's` copy, so a change here takes effect for
+# everyone once it is merged.
 #
 # Only settings that differ from stock appear here.
 
