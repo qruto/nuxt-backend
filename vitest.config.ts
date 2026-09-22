@@ -74,6 +74,24 @@ export default defineConfig({
         },
       },
       {
+        // The typed subpaths are the product; this project is the only place
+        // their types are asserted. Nothing runs: vitest hands the
+        // `*.test-d.ts` files to tsc (`typecheck.only`) and maps each type
+        // error to the `test` block it sits in, one per subpath. The tsconfig
+        // resolves `nuxt-backend/*` to the sources (see
+        // test/types/tsconfig.json), so the assertions hold before any build.
+        test: {
+          name: 'types',
+          include: [],
+          typecheck: {
+            enabled: true,
+            only: true,
+            include: ['test/types/**/*.test-d.ts'],
+            tsconfig: 'test/types/tsconfig.json',
+          },
+        },
+      },
+      {
         test: {
           // Boots real Nuxt instances against test/fixtures/registration
           // (`loadNuxt`, no build) and inspects the registration surface —
