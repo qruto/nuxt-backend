@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /**
  * Header brand — overrides Docus's logo (which showed the bare favicon image).
- * The coin (/logo.svg — a round matte titanium plaque with the stack glyph
+ * The mark (/logo.svg — a machined titanium plate with the three tritium bars
  * engraved in and one green status LED) + the product name "Nuxt backend".
  * The parent AppHeaderLeft already wraps this in a NuxtLink to "/", so no
- * link here. The explicit light/dark coins follow the site's colour-mode
+ * link here. The explicit light/dark marks follow the site's colour-mode
  * toggle (an SVG's own prefers-color-scheme would follow the OS instead).
  */
 </script>

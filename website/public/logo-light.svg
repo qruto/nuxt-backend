@@ -1,54 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-labelledby="nb-title">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44" role="img" aria-labelledby="nb-title">
   <title id="nb-title">Nuxt backend</title>
-  <!-- The coin: a round matte titanium plaque with the stack glyph engraved into it and one green status LED.
-       Explicit variant — colours baked in. -->
+  <!-- The mark: a 44×44 machined plate — a light titanium face on a darker edge, a 1px rim lit from the
+       top-left, and three milled slots (kept black so the bars keep their contrast) each holding a tritium
+       bar in one of the three signals (green = go, yellow = attention, red = danger).
+       Explicit light variant — colours baked in. -->
   <defs>
-    <!-- Coin side: a bevel lit from the top-left, dark at the bottom-right. -->
-    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
-      <stop class="e0" offset="0" stop-color="#ffffff"/>
-      <stop class="e1" offset="0.55" stop-color="#bdbdbd"/>
-      <stop class="e2" offset="1" stop-color="#8d8d8d"/>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0f1f3"/>
+      <stop offset="1" stop-color="#d6d9de"/>
     </linearGradient>
-    <!-- Face: matte titanium, one light ray from the top-left. -->
-    <radialGradient id="face" cx="0.34" cy="0.30" r="0.86">
-      <stop class="f0" offset="0" stop-color="#fdfdfd"/>
-      <stop class="f1" offset="0.5" stop-color="#ececec"/>
-      <stop class="f2" offset="1" stop-color="#d2d2d2"/>
-    </radialGradient>
-    <!-- 1px rim: lit top-left, shadowed bottom-right. -->
     <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
-      <stop class="r0" offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
-      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>
-      <stop offset="0.6" stop-color="#000000" stop-opacity="0"/>
-      <stop class="r3" offset="1" stop-color="#000000" stop-opacity="0.28"/>
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.32"/>
     </linearGradient>
-    <!-- Machining grain: sub-unit hairlines — crisp at 256px+, averaging to a tint at icon sizes. -->
-    <pattern id="grain" width="0.6" height="2.1" patternUnits="userSpaceOnUse">
-      <rect class="g0" width="0.6" height="0.3" fill="#ffffff" fill-opacity="0.22"/>
-      <rect class="g1" y="1.2" width="0.6" height="0.3" fill="#000000" fill-opacity="0.05"/>
-    </pattern>
-    <!-- The stack glyph: many backend services unified into one stack. -->
-    <g id="stack">
-      <path d="M50 20 82 38 50 56 18 38Z" stroke="none"/>
-      <path d="M18 50 50 68 82 50" fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
-      <path d="M18 62 50 80 82 62" fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
-    </g>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.6"/>
+    </filter>
   </defs>
-  <!-- Coin body -->
-  <circle cx="50" cy="50" r="48" fill="url(#edge)"/>
-  <circle cx="50" cy="50" r="46.4" fill="url(#face)"/>
-  <circle cx="50" cy="50" r="46.4" fill="url(#grain)"/>
-  <circle cx="50" cy="50" r="45.9" fill="none" stroke="url(#rim)" stroke-width="1"/>
-  <!-- Engraved glyph: offset copies under the base shape — dark up-left (the cut's shadowed wall),
-       light down-right (its lit lip); a wide + a tight layer per side. No SVG filters. -->
-  <use href="#stack" class="cdw" transform="translate(-2.2 -3.2) translate(50 49) scale(0.8) translate(-50 -50)" fill="#000" stroke="#000" fill-opacity="0.08" stroke-opacity="0.08"/>
-  <use href="#stack" class="clw" transform="translate(2 3) translate(50 49) scale(0.8) translate(-50 -50)" fill="#fff" stroke="#fff" fill-opacity="0.35" stroke-opacity="0.35"/>
-  <use href="#stack" class="cd" transform="translate(-1 -1.4) translate(50 49) scale(0.8) translate(-50 -50)" fill="#000" stroke="#000" fill-opacity="0.40" stroke-opacity="0.40"/>
-  <use href="#stack" class="cl" transform="translate(1 1.6) translate(50 49) scale(0.8) translate(-50 -50)" fill="#fff" stroke="#fff" fill-opacity="0.92" stroke-opacity="0.92"/>
-  <use href="#stack" class="ink" transform="translate(50 49) scale(0.8) translate(-50 -50)" fill="#7c7c7c" stroke="#7c7c7c"/>
-  <!-- Status LED in a milled socket — the only chroma; never engraved. -->
-  <circle class="socket" cx="74" cy="74" r="5.4" fill="#000" fill-opacity="0.16"/>
-  <circle class="glow" cx="74" cy="74" r="7.6" fill="#49b567" fill-opacity="0.26"/>
-  <circle class="led" cx="74" cy="74" r="3.7" fill="#136d36"/>
-  <circle class="core" cx="72.9" cy="72.9" r="1.25" fill="#7dd296" fill-opacity="0.9"/>
+  <!-- Plate: edge, face, rim -->
+  <rect x="1" y="1" width="42" height="42" rx="11" fill="#aeb2b9"/>
+  <rect x="1.5" y="1.5" width="41" height="41" rx="10.5" fill="url(#face)"/>
+  <rect x="1.5" y="1.5" width="41" height="41" rx="10.5" fill="none" stroke="url(#rim)" stroke-width="1"/>
+  <!-- Three milled slots -->
+  <rect x="11" y="12" width="22" height="5" rx="2.5" fill="#0a0b0d"/>
+  <rect x="11" y="19.5" width="22" height="5" rx="2.5" fill="#0a0b0d"/>
+  <rect x="11" y="27" width="22" height="5" rx="2.5" fill="#0a0b0d"/>
+  <!-- Tritium bars: glow, then core -->
+  <rect x="12" y="13" width="20" height="3" rx="1.5" fill="#4ade80" filter="url(#glow)" opacity="0.9"/>
+  <rect x="12" y="13" width="20" height="3" rx="1.5" fill="#c4ffd6"/>
+  <rect x="12" y="20.5" width="20" height="3" rx="1.5" fill="#facc15" filter="url(#glow)" opacity="0.85"/>
+  <rect x="12" y="20.5" width="20" height="3" rx="1.5" fill="#ffeaa0"/>
+  <rect x="12" y="28" width="20" height="3" rx="1.5" fill="#f87171" filter="url(#glow)" opacity="0.85"/>
+  <rect x="12" y="28" width="20" height="3" rx="1.5" fill="#ffb8b0"/>
 </svg>

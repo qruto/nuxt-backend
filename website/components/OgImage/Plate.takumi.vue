@@ -85,7 +85,10 @@ const descriptionText = computed(() => {
       </div>
     </div>
 
-    <!-- The coin, bottom-right (dark variant of /logo.svg, colours baked in). -->
+    <!-- The house mark, bottom-right (colours baked in: takumi resolves no
+         external SVG). STALE: still the pre-2026-09 coin, while /logo.svg is now
+         the three-bar mark — the plate is rebuilt as the console card in the
+         website redesign, which redraws this with the new mark. -->
     <div style="position: absolute; right: 104px; bottom: 100px; display: flex; width: 168px; height: 168px;">
       <svg
         width="168"

@@ -187,7 +187,8 @@ export default defineNuxtConfig({
         { name: 'theme-color', content: '#e8e8e8', media: '(prefers-color-scheme: light)' },
         { name: 'apple-mobile-web-app-title', content: 'Nuxt backend' },
       ],
-      // The favicon set generated from the house mark (`public/logo.svg`):
+      // The favicon set generated from the house mark (`pnpm run icons:generate`
+      // rasterises `public/favicon.svg`, the flat variant of `public/logo.svg`):
       // a 96px PNG for browsers that ignore SVG icons, the vector itself, the
       // ICO for legacy consumers, the iOS touch icon, and the web manifest.
       //
