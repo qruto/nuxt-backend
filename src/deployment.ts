@@ -1,15 +1,37 @@
 /**
  * Derivation of the two Convex URLs from what `npx convex dev` actually
- * writes. Convex's CLI has no Nuxt detection — for a Nuxt app it records only
- * `CONVEX_DEPLOYMENT=dev:<slug>` in `.env.local` — so without derivation the
- * user must copy both `https://<slug>.convex.cloud` / `.site` URLs by hand
- * before anything works. Cloud deployment URLs are a pure function of the
- * slug, so we derive them and the copy-paste step disappears.
+ * writes. Convex's CLI has no Nuxt detection — for a Nuxt app it records
+ * `CONVEX_DEPLOYMENT=dev:<slug>` in `.env.local`, and for a local backend
+ * (`local:` / `anonymous:`) also the `CONVEX_URL` / `CONVEX_SITE_URL` it
+ * listens on — none of which Nuxt reads without `--dotenv`. So without
+ * derivation the user must copy both `https://<slug>.convex.cloud` / `.site`
+ * URLs by hand before anything works. The written URLs are taken as they
+ * are; cloud deployment URLs are otherwise a pure function of the slug, so we
+ * derive them and the copy-paste step disappears.
  *
  * Pure and injectable for tests: pass `env` and read files under `rootDir`.
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+
+/**
+ * Whether a `CONVEX_DEPLOYMENT` id names a dev-class deployment: cloud dev
+ * (`dev:`), a CLI-managed local backend (`local:`), or the account-less local
+ * backend `convex dev` starts in anonymous mode (`anonymous:`). All three are
+ * disposable and never production — the line that decides whether the dev
+ * boot may provision env, and whether dev-only variables belong.
+ */
+export function isDevDeploymentId(deployment: string | null | undefined): deployment is string {
+  return /^(?:dev|local|anonymous):/.test(deployment ?? '')
+}
+
+/**
+ * Whether a `CONVEX_DEPLOYMENT` id names a backend on this machine: its URLs
+ * are whatever the CLI wrote beside it, never a cloud origin.
+ */
+export function isLocalDeploymentId(deployment: string | null | undefined): boolean {
+  return /^(?:local|anonymous):/.test(deployment ?? '')
+}
 
 export interface DerivedDeploymentUrls {
   /** Client/websocket URL, e.g. `https://<slug>.convex.cloud`. */
@@ -23,8 +45,10 @@ export interface DerivedDeploymentUrls {
 }
 
 /**
- * Minimal dotenv parse — KEY=VALUE lines, surrounding quotes stripped.
- * Exported for tests.
+ * Minimal dotenv parse — KEY=VALUE lines, surrounding quotes stripped, and an
+ * unquoted value ends at the first ` #`: the Convex CLI writes
+ * `CONVEX_DEPLOYMENT=dev:<slug> # team: …, project: …`, and the comment is
+ * not part of the slug. Exported for tests.
  *
  * @internal
  */
@@ -32,7 +56,10 @@ export function parseEnvFile(content: string): Record<string, string> {
   const env: Record<string, string> = {}
   for (const line of content.split('\n')) {
     const match = line.match(/^[ \t]*([A-Z_]\w*)[ \t]*=(.*)$/i)
-    if (match) env[match[1]!] = match[2]!.trim().replace(/^["']|["']$/g, '')
+    if (!match) continue
+    const raw = match[2]!.trim()
+    const quoted = raw.match(/^(["'])(.*)\1/)
+    env[match[1]!] = quoted ? quoted[2]! : raw.replace(/\s+#.*$/, '')
   }
   return env
 }
@@ -74,8 +101,11 @@ export function resolveSiteUrl(input: {
  * - `CONVEX_SELF_HOSTED_URL` → that origin as `url`; `siteUrl` stays underived
  *   (self-hosted serves HTTP actions on a separate origin the slug can't
  *   predict — set `NUXT_PUBLIC_BACKEND_SITE_URL` explicitly).
+ * - `CONVEX_URL` (+ `CONVEX_SITE_URL`) written beside `CONVEX_DEPLOYMENT` →
+ *   taken verbatim (a `local:` / `anonymous:` backend on `127.0.0.1:<port>`,
+ *   or the `--start` environment); a `.site` twin is mapped from a cloud URL.
  * - `CONVEX_DEPLOYMENT` (`dev:<slug>`, `prod:<slug>`, or a bare slug) → both
- *   cloud URLs.
+ *   cloud URLs. A local id without written URLs derives nothing.
  */
 export function deriveDeploymentUrls(
   rootDir: string,
@@ -97,6 +127,18 @@ export function deriveDeploymentUrls(
 
   const deployment = merged.CONVEX_DEPLOYMENT
   if (!deployment) return null
+
+  // The CLI writes the deployment's own URLs next to its id — for a local or
+  // anonymous backend they are the only way to know the port, and for a
+  // cloud one they equal what the slug derives to. Take them when present.
+  const written = merged.CONVEX_URL?.replace(/\/+$/, '')
+  if (written) {
+    const writtenSite = merged.CONVEX_SITE_URL?.replace(/\/+$/, '') ?? siteFromCloudUrl(written) ?? undefined
+    return { url: written, ...(writtenSite ? { siteUrl: writtenSite } : {}), source: 'deployment', deployment }
+  }
+  // A local backend without its written URLs cannot be guessed at.
+  if (isLocalDeploymentId(deployment)) return null
+
   const slug = deployment.includes(':') ? deployment.slice(deployment.lastIndexOf(':') + 1) : deployment
   if (!/^[a-z0-9-]+$/.test(slug)) return null
   return {

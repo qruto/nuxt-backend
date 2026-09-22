@@ -86,23 +86,24 @@ test/                 # Vitest unit, Convex component, Nuxt and end-to-end tests
 website/              # Nuxt app: product homepage · docs (Docus) · interactive playground
 ```
 
-`examples/` are pnpm workspace members (`pnpm-workspace.yaml` lists `examples/*`): each app
-depends on the package as `workspace:*` and on Nuxt through the `catalog:` range, so they lint,
-type-resolve and build against `src/` like the website does. Both have a job beyond being
-documentation:
+`examples/` are **standalone apps of the published package**, deliberately outside the pnpm
+workspace (`pnpm-workspace.yaml` excludes them): each depends on `nuxt-backend: latest` and
+on plain version ranges — no `workspace:*`, no `catalog:` — so cloning one and running
+`npm install` is exactly what a user gets. They stay linted, but are excluded from the root
+tsconfig and from fallow (they resolve against the *published* package, not `src/`). Both have
+a job beyond being documentation:
 
-- **[`examples/minimal/`](./examples/minimal)** — the smallest thing that works. It is also the
-  app behind the **Open in StackBlitz** link on every pull request: `preview.yml` hands it to
-  pkg.pr.new as `--template`, after resolving its `catalog:` range, so a reviewer can try a
-  change in a real Nuxt app from the PR comment.
+- **[`examples/minimal/`](./examples/minimal)** — the smallest thing that works. Its `backend/`
+  is byte-identical to what `npx nuxt-backend init` scaffolds (a unit test enforces it), and it
+  is the app behind the **Open in StackBlitz** link on every pull request: `preview.yml` hands
+  it to pkg.pr.new as `--template` with the PR's package build wired in.
 - **[`examples/advanced/`](./examples/advanced)** — every customization seam at once (local
   component install, custom pages, overridden auth).
 
-The `pack` CI job copies both, rewrites `workspace:*` to the packed tarball and `catalog:` to
-the catalog value, installs with plain `npm` and builds: the only place a registry-shaped
-install (lifecycle scripts, engines, export maps) is exercised at all. Keep them
-self-contained — no import that only resolves from the repository root, no undeclared
-dependency, no committed lockfile.
+The `pack` CI job copies both, installs the packed tarball over the `latest` dependency with
+plain `npm` and builds: the only place a registry-shaped install (lifecycle scripts, engines,
+export maps) is exercised at all. Keep them self-contained — no import that only resolves from
+the repository root, no undeclared dependency, no committed lockfile.
 
 ## Submitting Changes
 

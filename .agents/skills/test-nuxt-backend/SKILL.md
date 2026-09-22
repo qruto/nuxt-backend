@@ -5,7 +5,7 @@ description: End-to-end verification playbook for the nuxt-backend playground �
 
 # Testing nuxt-backend end-to-end
 
-Everything runs against **testing environments only**: Polar **sandbox** (`BILLING_ENVIRONMENT=sandbox`), Resend **test mode** (default on; only `*@resend.dev` inboxes), Convex **dev** deployment (the `CONVEX_DEPLOYMENT` in the root `.env.local`). The dev server is `pnpm dev` from the repo root → **https://nuxt-backend.local** (portless proxy, Nuxt serves `website/`). Watch for origin drift: the deployment's `SITE_URL` may still say `nuxt-backend.localhost` — emailed links break until they match. Always test through the portless origin, not `127.0.0.1:<port>` (client auth state needs the canonical origin).
+Everything runs against **testing environments only**: Polar **sandbox** (`BILLING_ENVIRONMENT=sandbox`), Resend **test mode** (default on; only `*@resend.dev` inboxes), Convex **dev** deployment (the `CONVEX_DEPLOYMENT` in the root `.env.local`). The dev server is `pnpm dev` from the repo root → **https://nuxt-backend.localhost** (portless proxy, Nuxt serves `website/`); `pnpm dev:lan` serves the same stack at **https://nuxt-backend.local** for phones on the network. Watch for origin drift: the deployment's `SITE_URL` must equal the origin you test through (`npx convex env get SITE_URL`) — emailed links and sign-in break until they match. Always test through the portless origin, not `127.0.0.1:<port>` (client auth state needs the canonical origin).
 
 ## Environment cheatsheet
 
@@ -13,8 +13,9 @@ Everything runs against **testing environments only**: Polar **sandbox** (`BILLI
 - The Polar/Resend **MCP servers have under-scoped or dead tokens** — use `curl` with deployment tokens instead:
   - Polar sandbox API: `https://sandbox-api.polar.sh/v1/...` with `Authorization: Bearer $(npx convex env get BILLING_ACCESS_TOKEN)`. **Trailing slash required** on collection endpoints (`/products/`, `/benefits/`) — without it you get an empty 307 body.
   - Resend API: `https://api.resend.com/emails` with `Bearer $(npx convex env get EMAIL_API_KEY)` — list, then `GET /emails/{id}` for html.
-- Polar org `qruto` (sandbox) — its id and the credits meter id are in `website/backend/billing.generated.ts` (written by `nuxt-backend billing sync`); default currency **EUR** (product prices must be `price_currency: "eur"`).
-- Catalog (products map in `website/backend/billing.ts`): starter €5/50cr, pro €9/200cr+premium, ultra €19/500cr+premium+ultra, credits100 €10, credits500 €40. Feature benefits match `useFeatures().has()` via benefit `metadata: { key: '<feature>' }`.
+- Polar org `qruto` (sandbox). The catalog is **code**: `website/backend/billing.catalog.ts` (plans, packs, the `credits` meter, feature benefits); `npx nuxt-backend billing sync --env sandbox` finds-or-creates it on the org and writes the product/meter ids into `website/backend/billing.generated.ts` — the only place UUIDs live (commit it when it changes). Prices are in the org's default currency (EUR).
+- Catalog: starter €5/50cr, pro €9/200cr+premium, ultra €19/500cr+premium+ultra, credits100 €10, credits500 €40. Feature benefits match `useFeatures().has()` via benefit `metadata: { key: '<feature>' }`.
+- Before a pass: `npx nuxt-backend doctor` must be fully green — it probes the deployment env, both webhook routes, the function contract and the catalog against the org (an expired token shows as `billing-organization`).
 - Webhooks (verify if entitlements "never arrive"): Polar → `https://<deployment>.convex.site/billing/events`; Resend → `https://<deployment>.convex.site/email/events`.
 
 ## Reset & prep
@@ -24,7 +25,7 @@ pnpm run db:reset        # clears app tables + auth component (NOT Polar sandbox
 npx convex run billing:createDiscount '{"name":"E2E","percent":100,"code":"E2E100","duration":"forever"}'
 ```
 
-`duration: "forever"` keeps recurring checkouts card-free. There is **no product-sync step** — products are static ids in `billing.ts`.
+`duration: "forever"` keeps recurring checkouts card-free. `billing:createDiscount` is an `internalAction` (ops only) — the playground's billing page mints through `createDiscountAsAdmin`, which needs the admin role: `npx convex run functions:setUserRole '{"email":"delivered+admin@resend.dev","role":"admin"}'` after that user signs up. Products come from `billing sync` (above), not from a seed.
 
 ## OTP retrieval (the core trick)
 
@@ -85,4 +86,5 @@ npx convex data <table> --component email/resend     # emails, deliveryEvents
 - **Auth rate limits**: `/playground/platform/rate-limit` — the `emailOtp` meter drains when requesting codes from `/login` in a second tab.
 - **Portal**: `/playground/platform/billing` — "Open portal (composable)" redirects a subscriber to the customer portal.
 - **Branded OTP**: request a sign-in code and assert the subject contains "nuxt-backend playground" (custom template from `backend/auth.ts`).
-- **CLI**: `npx nuxt-backend doctor` now probes `/billing/events` + `/email/events`; the `add` command is gone (re-run `init` to repair).
+- **CLI**: `npx nuxt-backend doctor` probes `/billing/events`, `/email/events` and `/ai/stream` (`404` = not mounted, `503` = mounted without its secret) and cross-checks the catalog; `doctor --fix` restores scaffold files and runs the `env push` engine; there is no `add` command (re-run `init` to repair).
+- **Offline shell**: a build with no backend URL redirects `/playground/**` to `/playground/offline` instead of failing the gated pages (`website/middleware/playground-offline.global.ts`); a preview deployment should land there.

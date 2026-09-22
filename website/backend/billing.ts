@@ -2,9 +2,9 @@ import { setupBilling, type DiscountInput } from 'nuxt-backend/billing'
 import { v } from 'convex/values'
 import { api, components, internal } from './_generated/api'
 import { catalog } from './billing.generated'
-import { internalMutation, query } from './_generated/server'
+import { internalAction, internalMutation, query } from './_generated/server'
 import { authComponent } from './auth'
-import { authed } from './functions'
+import { admin } from './functions'
 import { rateLimiter } from './rateLimiter'
 
 // Subscriptions, discounts, prepaid credits & gifts, linked to auth users.
@@ -126,28 +126,48 @@ export const listWebhookEvents = query({
 
 // --- Discounts -----------------------------------------------------------------
 
+const discountArgs = {
+  name: v.string(),
+  percent: v.number(),
+  code: v.optional(v.string()),
+  // `forever` keeps recurring checkouts card-free in the sandbox.
+  duration: v.optional(v.union(v.literal('once'), v.literal('forever'))),
+}
+
+function percentageDiscount({ name, percent, code, duration }: {
+  name: string
+  percent: number
+  code?: string
+  duration?: 'once' | 'forever'
+}): DiscountInput {
+  return {
+    type: 'percentage',
+    name,
+    code,
+    duration: duration ?? 'once',
+    // Clamped to [0, 100] — a percentage outside it is a typo, not a discount.
+    basisPoints: Math.round(Math.min(Math.max(percent, 0), 100) * 100),
+  }
+}
+
 /**
- * Create a percentage discount/coupon. Gated to a signed-in caller (a public
- * action would let anyone mint a 100%-off code); `percent` is clamped to
- * [0, 100]. This is a sandbox showcase — a production app should require an
- * admin role here (swap `authed.action` for `admin.action`).
+ * Mint a percentage coupon from ops, exactly as the scaffold ships it: an
+ * internalAction, so the CLI (`npx convex run billing:createDiscount …`) and
+ * server code can call it while no client ever can. The test playbook's
+ * card-free `E2E100` coupon comes from here.
  */
-export const createDiscount = authed.action({
-  args: {
-    name: v.string(),
-    percent: v.number(),
-    code: v.optional(v.string()),
-    // `forever` keeps recurring checkouts card-free in the sandbox.
-    duration: v.optional(v.union(v.literal('once'), v.literal('forever'))),
-  },
-  handler: async (ctx, { name, percent, code, duration }) => {
-    const discount: DiscountInput = {
-      type: 'percentage',
-      name,
-      code,
-      duration: duration ?? 'once',
-      basisPoints: Math.round(Math.min(Math.max(percent, 0), 100) * 100),
-    }
-    return billing.discounts.create(discount)
-  },
+export const createDiscount = internalAction({
+  args: discountArgs,
+  handler: async (ctx, args) => billing.discounts.create(percentageDiscount(args)),
+})
+
+/**
+ * The same mint for the playground's billing page — re-declared with the
+ * `admin.action` builder, as the security guide describes. The playground is
+ * public, and a signed-in gate alone would let any visitor with a test inbox
+ * mint a 100%-off code against the showcase org.
+ */
+export const createDiscountAsAdmin = admin.action({
+  args: discountArgs,
+  handler: async (ctx, args) => billing.discounts.create(percentageDiscount(args)),
 })

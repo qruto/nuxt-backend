@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { APIError } from 'better-auth/api'
-import { createBetterAuthOptions } from '../../src/convex/client'
+import { createAuthOptions, createBetterAuthOptions } from '../../src/convex/client'
 
 const fakeDb = {} as never
 
@@ -202,6 +202,71 @@ describe('workspace invitation email', () => {
       const send = otpSender(createBetterAuthOptions(fakeDb, {}, { ctx, email }))
       await send({ email: 'a@b.com', otp: '654321', type: 'sign-in' })
       expect(email).toHaveBeenCalledWith(ctx, expect.objectContaining({ to: 'a@b.com' }))
+    })
+  })
+
+  // The scaffold always has the component's email module, so the automatic
+  // transport is always wired — the question is whether the deployment has
+  // the key it needs. Without it the module sends nothing, and the OTP must
+  // take the no-transport path instead of vanishing behind "we sent a code".
+  describe('OTP delivery over the automatic transport without EMAIL_API_KEY', () => {
+    const components = { backend: { adapter: {}, email: { send: 'backend/email:send' } } } as never
+    const otpOver = (ctx: unknown) => otpSender(createAuthOptions(ctx as never, components) as ReturnType<typeof createBetterAuthOptions>)
+
+    it('throws loudly, naming the missing key', async () => {
+      vi.stubEnv('EMAIL_API_KEY', '')
+      try {
+        const ctx = mutationCtx()
+        await expect(otpOver(ctx)({ email: 'a@b.com', otp: '123456', type: 'sign-in' }))
+          .rejects.toThrow('EMAIL_API_KEY is not set on this deployment')
+        expect((ctx as { runMutation: ReturnType<typeof vi.fn> }).runMutation).not.toHaveBeenCalled()
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
+    })
+
+    it('echoes the code with NUXT_BACKEND_LOG_OTP=1 — what the dev boot provisions', async () => {
+      vi.stubEnv('EMAIL_API_KEY', '')
+      vi.stubEnv('NUXT_BACKEND_LOG_OTP', '1')
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      try {
+        await expect(otpOver(mutationCtx())({ email: 'a@b.com', otp: '123456', type: 'sign-in' })).resolves.toBeUndefined()
+        expect(warn.mock.calls.flat().join('\n')).toContain('123456')
+      }
+      finally {
+        warn.mockRestore()
+        vi.unstubAllEnvs()
+      }
+    })
+
+    it('sends through the component once the key is set, whatever NUXT_BACKEND_LOG_OTP says', async () => {
+      vi.stubEnv('EMAIL_API_KEY', 're_test')
+      vi.stubEnv('NUXT_BACKEND_LOG_OTP', '1')
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      try {
+        const ctx = mutationCtx()
+        await otpOver(ctx)({ email: 'a@b.com', otp: '123456', type: 'sign-in' })
+        expect((ctx as { runMutation: ReturnType<typeof vi.fn> }).runMutation).toHaveBeenCalledWith('backend/email:send', expect.objectContaining({ to: 'a@b.com' }))
+        expect(warn).not.toHaveBeenCalled()
+      }
+      finally {
+        warn.mockRestore()
+        vi.unstubAllEnvs()
+      }
+    })
+
+    it('leaves a custom transport alone — its key is its own business', async () => {
+      vi.stubEnv('EMAIL_API_KEY', '')
+      try {
+        const email = vi.fn(async () => 'email_1')
+        const ctx = mutationCtx()
+        await otpSender(createBetterAuthOptions(fakeDb, {}, { ctx, email }))({ email: 'a@b.com', otp: '654321', type: 'sign-in' })
+        expect(email).toHaveBeenCalled()
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
     })
   })
 })

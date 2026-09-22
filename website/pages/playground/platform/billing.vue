@@ -16,8 +16,8 @@ const planHint = computed(() =>
 
 const syncEntitlements = useAction(api.billing.syncEntitlements)
 
-// Admin: create a percentage discount via the Polar SDK.
-const createDiscount = useAction(api.billing.createDiscount)
+// Admin-only (admin.action on the backend, RoleBoundary in the template).
+const createDiscount = useAction(api.billing.createDiscountAsAdmin)
 const discountPercent = ref(20)
 const discountCode = ref<string | null>(null)
 const discountPending = ref(false)
@@ -134,33 +134,44 @@ async function makeDiscount() {
         style="margin-bottom: 0.85rem"
       >
         Create a percentage discount via the Polar SDK. Customers apply codes at
-        checkout — also the card-free path for sandbox testing.
+        checkout — also the card-free path for sandbox testing. The action is
+        an <code>admin.action</code>, so the form only renders for the admin role.
       </p>
-      <div class="row">
-        <LabField label="percent off">
-          <input
-            v-model.number="discountPercent"
-            class="input"
-            type="number"
-            min="1"
-            max="100"
-            style="width: 7rem"
+      <RoleBoundary role="admin">
+        <div class="row">
+          <LabField label="percent off">
+            <input
+              v-model.number="discountPercent"
+              class="input"
+              type="number"
+              min="1"
+              max="100"
+              style="width: 7rem"
+            >
+          </LabField>
+          <LabButton
+            variant="primary"
+            :loading="discountPending"
+            @click="makeDiscount"
           >
-        </LabField>
-        <LabButton
-          variant="primary"
-          :loading="discountPending"
-          @click="makeDiscount"
+            Create {{ discountPercent }}% off
+          </LabButton>
+        </div>
+        <p
+          v-if="discountCode"
+          class="code-out mono"
         >
-          Create {{ discountPercent }}% off
-        </LabButton>
-      </div>
-      <p
-        v-if="discountCode"
-        class="code-out mono"
-      >
-        code / id: {{ discountCode }}
-      </p>
+          code / id: {{ discountCode }}
+        </p>
+        <template #fallback>
+          <p class="hint">
+            Not an admin here. Sandbox checkout takes the usual test card
+            (<code>4242 4242 4242 4242</code>), so no coupon is needed to try a
+            plan — the guards page shows how <code>RoleBoundary</code> and
+            <code>admin.*</code> decide.
+          </p>
+        </template>
+      </RoleBoundary>
     </LabPanel>
   </div>
 </template>

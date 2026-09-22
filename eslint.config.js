@@ -24,7 +24,8 @@ export default createConfigForNuxt({
     // `.agents/`, `.claude/` and `.deepsec/` hold AI tooling references
     // (skill scripts, agent settings, scanner config), not package source —
     // exclude them from the lint rules. `examples/` stays linted: the examples
-    // are workspace members and ship as the consumer smoke test.
+    // are standalone apps of the published package and ship as the consumer
+    // smoke test.
     {
       ignores: ['.agents/**', '.claude/**', '.deepsec/**'],
     },

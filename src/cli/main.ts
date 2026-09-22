@@ -1,9 +1,10 @@
-import { existsSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { defineCommand } from 'citty'
-import { packageVersion } from '../dirs'
+import { packageDir, packageVersion } from '../dirs'
 import { runConvex } from '../convex-cli'
-import { scaffoldBackendFiles, resolveFunctionsDir } from '../scaffold'
+import { mountPagesInAppComponent, scaffoldBackendFiles, resolveFunctionsDir } from '../scaffold'
 import type { BackendInstallationMode } from '../templates'
 import { collectPreflightFindings, DEV_ONLY_DEPLOYMENT_ENV, formatPreflightSummary, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../preflight'
 import { BACKEND_ENV_NAMES, deploymentEnvNames, isDevDeployment, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
@@ -213,6 +214,52 @@ async function addModuleToNuxtConfig(rootDir: string): Promise<boolean> {
   }
 }
 
+/**
+ * Declare `convex` in the app's own manifest when it is missing. It is this
+ * package's peer dependency, so a package manager installs it anyway — but
+ * `npx convex dev` reads the app's `package.json` and refuses to run until
+ * the app lists it itself. The range comes from the copy already installed
+ * (a caret on its version, so nothing changes on the next install), else
+ * from this package's peer range. Returns the range written, or `undefined`
+ * when nothing needed doing.
+ */
+function declareConvexDependency(rootDir: string): string | undefined {
+  const manifestPath = join(rootDir, 'package.json')
+  // One read: the same bytes decide, are parsed, and set the formatting.
+  let source: string
+  let manifest: { dependencies?: Record<string, string>, devDependencies?: Record<string, string> }
+  try {
+    source = readFileSync(manifestPath, 'utf-8')
+    manifest = JSON.parse(source) as typeof manifest
+  }
+  catch {
+    // No manifest, or not JSON — nothing to declare into.
+    return undefined
+  }
+  if (manifest.dependencies?.convex || manifest.devDependencies?.convex) return undefined
+
+  let range: string | undefined
+  try {
+    const installed = JSON.parse(readFileSync(createRequire(manifestPath).resolve('convex/package.json'), 'utf-8')) as { version: string }
+    range = `^${installed.version}`
+  }
+  catch {
+    const own = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf-8')) as { peerDependencies?: Record<string, string> }
+    range = own.peerDependencies?.convex
+  }
+  if (!range) return undefined
+
+  // Keys sorted like a package manager would write them, so the diff is
+  // one line.
+  const dependencies = Object.fromEntries(
+    Object.entries({ ...manifest.dependencies, convex: range }).sort(([a], [b]) => a.localeCompare(b)),
+  )
+  const indent = /^(\s+)"/m.exec(source)?.[1] ?? '  '
+  const eol = source.endsWith('\n') ? '\n' : ''
+  writeFileSync(manifestPath, JSON.stringify({ ...manifest, dependencies }, null, indent) + eol)
+  return range
+}
+
 const init = defineCommand({
   meta: { name: 'init', description: 'Scaffold the backend files, .env.example, and nuxt.config wiring (re-run to restore missing files; --force to reset)' },
   args: {
@@ -231,6 +278,16 @@ const init = defineCommand({
     if (args.force || !existsSync(envExamplePath)) {
       writeFileSync(envExamplePath, ENV_EXAMPLE)
       console.log('[nuxt-backend] Created .env.example')
+    }
+
+    const appComponent = mountPagesInAppComponent(rootDir)
+    if (appComponent) {
+      console.log(`[nuxt-backend] Replaced <NuxtWelcome /> with <NuxtPage /> in ${appComponent} so the module's pages render`)
+    }
+
+    const convexRange = declareConvexDependency(rootDir)
+    if (convexRange) {
+      console.log(`[nuxt-backend] Added convex@${convexRange} to dependencies — install once more so it links (\`npx convex dev\` needs the app itself to declare it)`)
     }
 
     return addModuleToNuxtConfig(rootDir).then((added) => {
@@ -341,10 +398,13 @@ async function webhookRouteFindings(siteUrl: string, { ai }: { ai: boolean }): P
         }
       }
       if (response.status === 503) {
+        // The same designed degradation the *_WEBHOOK_SECRET findings report:
+        // fine on a dev deployment that has no provider webhooks yet, a
+        // failure under production posture (escalated with the rest).
         return {
           id: route.id,
           title: route.title,
-          status: 'fail',
+          status: 'warn',
           message: `${route.path} is mounted but fail-closed — its webhook secret is not set, so every delivery is rejected (503).`,
           fixHint: `Add the ${route.service.toUpperCase()}_WEBHOOK_SECRET to .env.local and run \`npx nuxt-backend env push\`.`,
         }
@@ -384,6 +444,8 @@ async function webhookRouteFindings(siteUrl: string, { ai }: { ai: boolean }): P
  */
 const PROD_ESCALATED_FINDINGS = new Set([
   'deployment-auth-trust-local-origins',
+  'billing-webhook-route',
+  'email-webhook-route',
   'email-transport',
   'email-webhook-secret',
   'billing-access',

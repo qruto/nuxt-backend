@@ -682,13 +682,12 @@ describe('order.refunded → pending spends', () => {
 })
 
 describe('discounts', () => {
-  it('create still works under the deprecated alias and the new object', async () => {
+  it('creates through the discounts object; no top-level alias', async () => {
     const billing = make()
     mockDiscountsCreate.mockResolvedValue({ ok: true, value: { id: 'disc_1', code: 'SAVE10' } } as never)
 
-    expect(await billing.createDiscount({ name: 'Launch' } as never)).toStrictEqual({ id: 'disc_1', code: 'SAVE10' })
     expect(await billing.discounts.create({ name: 'Launch' } as never)).toStrictEqual({ id: 'disc_1', code: 'SAVE10' })
-    expect(billing.discounts.create).toBe(billing.createDiscount)
+    expect('createDiscount' in billing).toBe(false)
   })
 
   it('lists one page at a time and hands back a next cursor', async () => {

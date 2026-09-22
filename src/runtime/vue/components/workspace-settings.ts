@@ -231,9 +231,12 @@ export const WorkspaceSettings = defineComponent({
         h('h3', { 'data-settings': 'section-title' }, 'Credits'),
         h('p', { 'data-settings': 'balance' }, `${credits.balance.value ?? '—'} credits`),
         h('p', { 'data-settings': 'usage' }, [
-          h('span', { 'data-settings': 'credited' }, `${credits.credited.value ?? 0} credited`),
+          // Em dash while the balance query is in flight, like the balance
+          // above it: a hard `0 credited · 0 used` reads as a real empty
+          // account for the moment before the first result lands.
+          h('span', { 'data-settings': 'credited' }, `${credits.credited.value ?? '—'} credited`),
           ' · ',
-          h('span', { 'data-settings': 'consumed' }, `${credits.consumed.value ?? 0} used`),
+          h('span', { 'data-settings': 'consumed' }, `${credits.consumed.value ?? '—'} used`),
         ]),
         h('div', { 'data-settings': 'topup' }, config.billing.packs.map(pack => h('button', {
           'data-settings': 'topup-pack',

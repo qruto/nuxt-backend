@@ -36,9 +36,10 @@ The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR
 
 ```bash
 npx nuxi@latest module add nuxt-backend
+npm install convex
 ```
 
-This is the only package you install — the Convex integration and all bundled components ship as its dependencies.
+Two packages: `nuxt-backend` brings the Convex integration and every bundled component as its own dependencies; `convex` is its peer and the CLI you run (`npx convex dev` only runs when the app itself declares it — `npx nuxt-backend init` adds the line if it is missing).
 
 > Using **strict** pnpm? Add `publicHoistPattern: ['@convex-dev/*']` to `pnpm-workspace.yaml` (or set `nodeLinker: hoisted`) so Convex can resolve the bundled component definitions. See the [installation docs](https://nuxt-backend.dev/getting-started/installation#using-strict-pnpm).
 
@@ -50,6 +51,8 @@ export default defineNuxtConfig({
   modules: ['nuxt-backend'],
 })
 ```
+
+A fresh `nuxi init` app renders `<NuxtWelcome />` and no `<NuxtPage />` — swap them in `app/app.vue` so the module's pages (`/login`, `/pricing`, …) render. `npx nuxt-backend init` does it for you.
 
 ### 3. Run it — no configuration
 
@@ -127,7 +130,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 
 ### Agents (MCP)
 
-An OAuth-protected `/mcp` endpoint (Better Auth's OIDC provider + `@nuxtjs/mcp-toolkit`), on by default: an agent signs in through the normal consent flow and every tool call runs your Convex functions **as that signed-in user** — `ctx.auth`, workspace, and billing entity resolve exactly like a web session. Built-in tools cover profile, billing (reads and checkout links — never payments), and workspaces; `defineBackendMcpTool` adds your own. `backend.mcp: false` turns the whole surface off.
+An OAuth-protected `/mcp` endpoint (Better Auth's OIDC provider + `@nuxtjs/mcp-toolkit`), on by default: an agent signs in through the normal consent flow and every tool call runs your Convex functions **as that signed-in user** — `ctx.auth`, workspace, and billing entity resolve exactly like a web session. Built-in tools cover profile, billing (reads and checkout links — never payments), and workspaces; `defineBackendMcpTool` adds your own. `backend.mcp: false` turns the whole surface off. **Experimental**: the MCP authorization profile and the toolkit are still moving, so this surface may change shape in a 0.x minor (see [STABILITY.md](./STABILITY.md)).
 
 ### Nuxt DevTools
 

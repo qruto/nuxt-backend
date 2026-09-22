@@ -88,13 +88,16 @@ export function useCredits(meterId?: MaybeRefOrGetter<string>, options: UseCredi
     : computed<Credits | null | undefined>(() => null)
 
   // Resolve the target meter — by configured name first (`useCredits('credits')`),
-  // then by raw meter id, else the user's first/primary meter.
+  // then by raw meter id, else the user's primary meter: the first one this
+  // app configured. A customer can carry meters the catalog no longer
+  // declares (a retired meter still holds its old balance), and picking those
+  // by position would report someone else's zero as the balance.
   // `undefined` ⇒ still loading; `null` ⇒ loaded but no such meter (treat as 0).
   const meter = computed(() => {
     const list = credits.value?.meters
     if (list === undefined) return undefined
     const id = meterId === undefined ? undefined : toValue(meterId)
-    if (!id) return list[0] ?? null
+    if (!id) return list.find(m => m.name !== undefined) ?? list[0] ?? null
     return list.find(m => m.name === id) ?? list.find(m => m.meterId === id) ?? null
   })
 

@@ -117,7 +117,7 @@ describe('scaffold templates', () => {
     )
     // The re-export lists are generated from the component sources — see
     // local-install-parity.test.ts for the exact-list checks.
-    expect(LOCAL_BACKEND_FILE_TEMPLATES['components/backend/generated-schema.ts']).toContain(
+    expect(LOCAL_BACKEND_FILE_TEMPLATES['components/backend/schema.generated.ts']).toContain(
       `} from 'nuxt-backend/component/schema'`,
     )
     // The local component nests the email provider child and re-exports the

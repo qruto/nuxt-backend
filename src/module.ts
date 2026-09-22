@@ -6,9 +6,9 @@ import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
 import { moduleDir } from './dirs'
 import { backendAppConfigDefaults, type BackendAppConfigInput } from './runtime/config'
 import { BACKEND_MCP_SCOPES, DEFAULT_MCP_EXCHANGE_PATH } from './convex/constants'
-import { deriveDeploymentUrls, resolveSiteUrl } from './deployment'
+import { deriveDeploymentUrls, resolveSiteUrl, isDevDeploymentId } from './deployment'
 import { readEnvFiles, runEnvPush } from './env-push'
-import { scaffoldBackendFiles } from './scaffold'
+import { scaffoldBackendFiles, appComponentIsStarter } from './scaffold'
 import { registerBackendAliases, backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from './aliases'
 import { collectPreflightFindings, formatPreflightSummary } from './preflight'
 import { BACKEND_PAGE_DEFS, collectExistingPagePaths, resolvePagePath, resolvedBackendPages, type BackendPageKey, type ModulePagesOptions } from './pages'
@@ -432,12 +432,13 @@ function runDevAutoEnv(options: ModuleOptions, nuxt: Nuxt): void {
   const rootDir = nuxt.options.rootDir
 
   const attempt = (): boolean => {
-    // Dev-class only: cloud dev (`dev:`) and CLI-managed local (`local:`)
-    // deployments. Read the id directly — URL derivation rejects local slugs.
+    // Dev-class only: cloud dev (`dev:`), CLI-managed local (`local:`) and
+    // anonymous local (`anonymous:`) deployments. Read the id directly — URL
+    // derivation has nothing to say about a local backend without written URLs.
     const deployment = process.env.CONVEX_DEPLOYMENT
       ?? readEnvFiles(rootDir).CONVEX_DEPLOYMENT
       ?? deriveDeploymentUrls(rootDir)?.deployment
-    if (!deployment?.startsWith('dev:') && !deployment?.startsWith('local:')) return false
+    if (!isDevDeploymentId(deployment)) return false
     const stampDir = join(rootDir, 'node_modules/.cache/nuxt-backend')
     const stamp = join(stampDir, `env-ok-${deployment.replace(/[^\w-]/g, '_')}`)
     if (existsSync(stamp)) return true
@@ -765,6 +766,16 @@ function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
     siteUrlConfigured,
     ...(mcp ? { mcp: { route: mcp.route } } : {}),
   })
+
+  // A `nuxi init` starter renders <NuxtWelcome /> and no <NuxtPage />: the
+  // module's pages resolve (the auth guard even redirects to /login) but the
+  // welcome screen is all anyone sees. Say so once, with the one-line fix.
+  if (appComponentIsStarter(nuxt.options.rootDir)) {
+    logger.warn(
+      'app.vue still renders <NuxtWelcome /> and no <NuxtPage />, so the pages this module registers (/login, /pricing, …) will not render. '
+      + 'Replace <NuxtWelcome /> with <NuxtPage /> — `npx nuxt-backend init` does it for you.',
+    )
+  }
 
   // The auth middleware always needs a login route. With the built-in page
   // disabled and no explicit `backend.loginPath`, the app must shadow `/login`.

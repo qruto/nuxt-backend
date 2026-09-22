@@ -92,15 +92,15 @@ describe('local-install templates', () => {
     })
   }
 
-  it('components/backend/generated-schema.ts re-exports every schema export', () => {
-    const { names, specifier } = reexportList(LOCAL_BACKEND_FILE_TEMPLATES['components/backend/generated-schema.ts']!)
+  it('components/backend/schema.generated.ts re-exports every schema export', () => {
+    const { names, specifier } = reexportList(LOCAL_BACKEND_FILE_TEMPLATES['components/backend/schema.generated.ts']!)
     expect(specifier).toBe('nuxt-backend/component/schema')
     expect(names).toEqual([...SCHEMA_EXPORTS])
   })
 
   it('components/backend/schema.ts composes every packaged table group', () => {
     const schema = LOCAL_BACKEND_FILE_TEMPLATES['components/backend/schema.ts']!
-    expect(schema).toContain(`import { ${[...SCHEMA_TABLE_GROUPS].sort().join(', ')} } from './generated-schema'`)
+    expect(schema).toContain(`import { ${[...SCHEMA_TABLE_GROUPS].sort().join(', ')} } from './schema.generated'`)
     expect(schema).toContain('export const authSchema = defineSchema(tables)')
     const spread = [...schema.matchAll(/^ {2}\.\.\.(\w+),$/gm)].map(match => match[1])
     expect(spread).toEqual([...SCHEMA_TABLE_GROUPS])

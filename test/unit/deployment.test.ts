@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { deriveDeploymentUrls, parseEnvFile, resolveSiteUrl, siteFromCloudUrl } from '../../src/deployment'
+import { deriveDeploymentUrls, isDevDeploymentId, isLocalDeploymentId, parseEnvFile, resolveSiteUrl, siteFromCloudUrl } from '../../src/deployment'
 
 let rootDir: string
 
@@ -29,6 +29,36 @@ describe('deriveDeploymentUrls', () => {
     const derived = deriveDeploymentUrls(rootDir, { CONVEX_DEPLOYMENT: deployment })
     expect(derived?.url).toBe('https://calm-heron-42.convex.cloud')
     expect(derived?.siteUrl).toBe('https://calm-heron-42.convex.site')
+  })
+
+  it('takes the URLs convex dev writes for an anonymous local backend as they are', () => {
+    // `convex dev` without an account starts a backend on this machine and
+    // records its id *and* its ports; the id is not a cloud slug.
+    writeFileSync(join(rootDir, '.env.local'), [
+      'CONVEX_DEPLOYMENT=anonymous:anonymous-agent',
+      'CONVEX_URL=http://127.0.0.1:3210',
+      'CONVEX_SITE_URL=http://127.0.0.1:3211',
+    ].join('\n'))
+    expect(deriveDeploymentUrls(rootDir, {})).toEqual({
+      url: 'http://127.0.0.1:3210',
+      siteUrl: 'http://127.0.0.1:3211',
+      source: 'deployment',
+      deployment: 'anonymous:anonymous-agent',
+    })
+  })
+
+  it.each(['local:my-app', 'anonymous:anonymous-my-app'])('derives nothing for %s without written URLs', (deployment) => {
+    expect(deriveDeploymentUrls(rootDir, { CONVEX_DEPLOYMENT: deployment })).toBeNull()
+  })
+
+  it('prefers a written cloud URL over the slug, and maps its .site twin', () => {
+    // The `convex dev --start` environment carries CONVEX_URL for the child.
+    expect(deriveDeploymentUrls(rootDir, { CONVEX_DEPLOYMENT: 'dev:brave-otter-123', CONVEX_URL: 'https://brave-otter-123.convex.cloud/' })).toEqual({
+      url: 'https://brave-otter-123.convex.cloud',
+      siteUrl: 'https://brave-otter-123.convex.site',
+      source: 'deployment',
+      deployment: 'dev:brave-otter-123',
+    })
   })
 
   it('rejects slugs that could not be a cloud deployment (no URL guessing)', () => {
@@ -62,6 +92,21 @@ describe('deriveDeploymentUrls', () => {
 })
 
 describe('parseEnvFile', () => {
+  it('drops the inline comment the Convex CLI writes after the deployment id', () => {
+    // `npx convex dev` records `CONVEX_DEPLOYMENT=dev:<slug> # team: …, project: …`
+    // for a cloud deployment. The comment is not part of the slug — with it,
+    // nothing derived and every dev app fell back to "no URL configured".
+    const env = parseEnvFile('CONVEX_DEPLOYMENT=dev:brave-otter-123 # team: acme, project: app\nQUOTED="a # not a comment"\nHASH=a#b\n')
+    expect(env.CONVEX_DEPLOYMENT).toBe('dev:brave-otter-123')
+    expect(env.QUOTED).toBe('a # not a comment')
+    expect(env.HASH).toBe('a#b')
+  })
+
+  it('derives from the id as the Convex CLI actually writes it', () => {
+    writeFileSync(join(rootDir, '.env.local'), 'CONVEX_DEPLOYMENT=dev:brave-otter-123 # team: acme, project: app\n')
+    expect(deriveDeploymentUrls(rootDir, {})?.siteUrl).toBe('https://brave-otter-123.convex.site')
+  })
+
   it('parses KEY=VALUE lines and strips quotes', () => {
     expect(parseEnvFile('A=1\nB="two"\nC=\'three\'\n# comment\nnot a line\n')).toEqual({
       A: '1',
@@ -98,5 +143,18 @@ describe('resolveSiteUrl', () => {
   it('stays undefined for self-hosted or unknown client URLs', () => {
     expect(resolveSiteUrl({ env: { NUXT_PUBLIC_CONVEX_URL: 'https://convex.internal.example' }, derived: null })).toBeUndefined()
     expect(resolveSiteUrl({ env: {}, derived: null })).toBeUndefined()
+  })
+})
+
+describe('deployment classes', () => {
+  it('counts cloud dev, CLI-managed local and anonymous local as dev-class — never prod or preview', () => {
+    for (const id of ['dev:brave-otter-123', 'local:my-app', 'anonymous:anonymous-my-app']) expect(isDevDeploymentId(id)).toBe(true)
+    for (const id of ['prod:calm-heron-42', 'preview:branch-1', 'calm-heron-42', '', null, undefined]) expect(isDevDeploymentId(id)).toBe(false)
+  })
+
+  it('knows which of those live on this machine', () => {
+    expect(isLocalDeploymentId('local:my-app')).toBe(true)
+    expect(isLocalDeploymentId('anonymous:anonymous-my-app')).toBe(true)
+    expect(isLocalDeploymentId('dev:brave-otter-123')).toBe(false)
   })
 })

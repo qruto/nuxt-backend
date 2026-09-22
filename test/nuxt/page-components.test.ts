@@ -40,10 +40,11 @@ const billing = {
 }
 
 const creditBalance = ref<number | undefined>(42)
+const creditsLoading = ref(false)
 const credits = {
   balance: computed(() => creditBalance.value),
-  credited: computed(() => 50),
-  consumed: computed(() => 8),
+  credited: computed(() => (creditsLoading.value ? undefined : 50)),
+  consumed: computed(() => (creditsLoading.value ? undefined : 8)),
   meterId: computed(() => 'meter_1'),
   isLoading: computed(() => false),
   topUp: vi.fn(async () => 'https://billing.example/topup'),
@@ -463,6 +464,24 @@ describe('WorkspaceSettings', () => {
     expect(wrapper.find('[data-settings="plan-status"]').attributes('data-tone')).toBe('ok')
     expect(wrapper.find('[data-settings="pricing-link"]').attributes('href')).toBe('/pricing')
     expect(wrapper.find('[data-settings="balance"]').text()).toContain('42')
+  })
+
+  it('reads as loading, not as an empty account, before the balance lands', () => {
+    // Seen live: the first paint said "— credits · 0 credited · 0 used" while
+    // 50 granted credits were in flight. Zeros there are indistinguishable
+    // from a real empty balance.
+    const previous = creditBalance.value
+    creditBalance.value = undefined
+    creditsLoading.value = true
+    try {
+      const wrapper = mount(WorkspaceSettings)
+      expect(wrapper.find('[data-settings="balance"]').text()).toContain('—')
+      expect(wrapper.find('[data-settings="usage"]').text()).toBe('— credited · — used')
+    }
+    finally {
+      creditBalance.value = previous
+      creditsLoading.value = false
+    }
   })
 
   it('renders only the requested sections', () => {

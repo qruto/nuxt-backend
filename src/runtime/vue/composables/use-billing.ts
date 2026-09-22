@@ -319,12 +319,6 @@ export interface CancelOptions extends SubscriptionTargetOptions {
    * `false` revokes immediately — no refund is implied either way.
    */
   atPeriodEnd?: boolean
-  /**
-   * @deprecated Use `atPeriodEnd` (its inverse). Still honoured — a
-   * money-affecting option is never silently ignored — and removed in a later
-   * minor. `atPeriodEnd` wins when both are given.
-   */
-  revokeImmediately?: boolean
   /** Churn reason, recorded on the subscription for the provider's analytics. */
   reason?: CancellationReason
   /** The customer's own words. Visible to them in the provider's portal. */
@@ -809,12 +803,7 @@ export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
       await runChange({ productId })
     },
     cancel: async (opts = {}) => {
-      // `revokeImmediately` is the retired spelling of `!atPeriodEnd`. It is
-      // still honoured rather than ignored: silently flipping a caller's
-      // "revoke now" into "cancel at period end" would be the wrong answer on
-      // a money-affecting action.
-      const atPeriodEnd = opts.atPeriodEnd
-        ?? (opts.revokeImmediately === undefined ? true : !opts.revokeImmediately)
+      const atPeriodEnd = opts.atPeriodEnd ?? true
       if (runCancelSubscription) {
         await runCancelSubscription({
           subscriptionId: opts.subscriptionId,

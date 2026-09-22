@@ -12,10 +12,12 @@ import { defineBillingCatalog } from 'nuxt-backend/billing'
 // become a meter-credit benefit granted every cycle; a pack's are granted once
 // at purchase.
 export default defineBillingCatalog({
-  // Counts `credits` events, so one spend event = exactly one unit. A meter
-  // with `aggregation: 'sum'` would instead sum `metadata[property]`.
+  // Sums `metadata.amount` on `credits` events, so one spend can cost more
+  // than one unit (the AI pages bill tokens). `aggregation: 'count'` would
+  // instead count events, one unit each — but a meter's aggregation is fixed
+  // once it has usage, so it is chosen here before the first sync.
   meters: {
-    credits: { aggregation: 'count' },
+    credits: { aggregation: 'sum', property: 'amount' },
   },
   plans: {
     starter: {

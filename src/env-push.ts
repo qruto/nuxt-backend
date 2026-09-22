@@ -18,7 +18,7 @@ import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DEV_ONLY_DEPLOYMENT_ENV, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './preflight'
-import { deriveDeploymentUrls } from './deployment'
+import { deriveDeploymentUrls, isDevDeploymentId, parseEnvFile } from './deployment'
 import { runConvex } from './convex-cli'
 
 export const BACKEND_ENV_NAMES = [
@@ -135,10 +135,9 @@ export function readEnvFiles(rootDir: string): Record<string, string> {
   for (const name of ['.env', '.env.local']) {
     const path = join(rootDir, name)
     if (!existsSync(path)) continue
-    for (const line of readFileSync(path, 'utf-8').split('\n')) {
-      const match = line.match(/^([A-Z_]\w*)=(.*)$/i)
-      if (match) env[match[1]!] = match[2]!.trim().replace(/^["']|["']$/g, '')
-    }
+    // One parser for both readers (deployment.ts), so an inline comment is
+    // dropped here too — `CONVEX_DEPLOYMENT=dev:<slug> # team: …` as written.
+    Object.assign(env, parseEnvFile(readFileSync(path, 'utf-8')))
   }
   return env
 }
@@ -216,8 +215,8 @@ export interface EnvPushRunResult {
 
 /**
  * The configured deployment id (`CONVEX_DEPLOYMENT`): process env over
- * `.env(.local)`. Read directly rather than via URL derivation, which rejects
- * `local:` slugs.
+ * `.env(.local)`. Read directly rather than via URL derivation, which has
+ * nothing to say about a local backend whose URLs were not written.
  */
 export function configuredDeployment(rootDir: string): string | null {
   return process.env.CONVEX_DEPLOYMENT
@@ -227,12 +226,12 @@ export function configuredDeployment(rootDir: string): string | null {
 }
 
 /**
- * Whether the configured deployment is dev-class — cloud dev (`dev:`) or a
- * CLI-managed local (`local:`) deployment: both disposable, never prod.
+ * Whether the configured deployment is dev-class — cloud dev (`dev:`), a
+ * CLI-managed local (`local:`) or an anonymous local (`anonymous:`)
+ * deployment: all disposable, never prod.
  */
 export function isDevDeployment(rootDir: string): boolean {
-  const deployment = configuredDeployment(rootDir)
-  return deployment?.startsWith('dev:') === true || deployment?.startsWith('local:') === true
+  return isDevDeploymentId(configuredDeployment(rootDir))
 }
 
 /** The whole flow shared by the CLI and the module's dev auto-provision. */
