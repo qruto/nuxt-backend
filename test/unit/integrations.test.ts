@@ -28,13 +28,19 @@ afterEach(() => {
 
 describe('setupRateLimiter', () => {
   it('seeds only limits with a real consumer (no dead password/sign-in limits)', () => {
-    expect(Object.keys(DEFAULT_LIMITS)).toEqual(['emailOtp', 'emailOtpGlobal', 'billingSync', 'ai', 'aiBudget', 'mcp'])
+    expect(Object.keys(DEFAULT_LIMITS)).toEqual(['emailOtp', 'emailOtpGlobal', 'billingSync', 'ai', 'aiBudget', 'mcp', 'admin', 'invitation'])
     expect(DEFAULT_LIMITS.emailOtp).toMatchObject({ kind: 'token bucket' })
     // The deployment-wide backstop is a fixed window: a ceiling per hour, not a smoothed rate.
     expect(DEFAULT_LIMITS.emailOtpGlobal).toMatchObject({ kind: 'fixed window', rate: 300 })
     expect(DEFAULT_LIMITS.ai).toMatchObject({ kind: 'token bucket', rate: 30 })
     // The credit budget is a period allowance that resets, not a smoothed rate.
     expect(DEFAULT_LIMITS.aiBudget).toMatchObject({ kind: 'fixed window' })
+    // Both privileged-route limits are consumed by setupAuth's before-hook
+    // (see "privileged route rate limits" in auth-integrations.test.ts).
+    expect(DEFAULT_LIMITS.admin).toMatchObject({ kind: 'token bucket', rate: 30 })
+    // An hour, not a minute: an invitation is an email, and what matters is
+    // the volume one account can send rather than its per-second rate.
+    expect(DEFAULT_LIMITS.invitation).toMatchObject({ kind: 'token bucket', rate: 30, period: 60 * 60 * 1000 })
   })
 
   it('merges custom limits on top of the defaults', () => {
