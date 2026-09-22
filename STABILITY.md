@@ -37,7 +37,7 @@ Anything tagged `@internal` in the source is stripped from the published declara
 The names the module registers, exactly as `src/module.ts` installs them:
 
 - **Composables** — `useAuth`, `useAuthState`, `useConnectionState`, `useLoginFlow`, `useOrganization`, `useSearch`, `useAggregate`, `useCount`, `useBilling`, `useFeatures`, `useCredits`, `useOrders`, `useUsage`, `useGifts`, `usePasskeys`, `useSessions`, `describeUserAgent`, `unwrapAuth`, `useBackendConfig`, `useEmailStatus`, `useWorkflowStatus`, `useAiStream`
-- **Components** — `AuthForm`, `RoleBoundary`, `OrganizationBoundary`, `FeatureBoundary`, `AcceptInvitation`, `GiftClaimBanner`, `PricingTable`, `BillingHistory`, `UsageHistory`, `CreditsLowBanner`, `WorkspaceSettings`, `ProfileSettings`, `SecuritySettings`
+- **Components** — `AuthForm`, `RoleBoundary`, `OrganizationBoundary`, `FeatureBoundary`, `AcceptInvitation`, `GiftClaimBanner`, `PricingTable`, `BillingHistory`, `UsageHistory`, `CreditsLowBanner`, `WorkspaceSettings`, `ProfileSettings`, `SecuritySettings`, and `BillingCheckoutLink` / `BillingPortalLink` — the neutral names of the base module's `CheckoutLink` / `CustomerPortalLink`, which stay registered too
 - **Server (Nitro) imports** — `backendAuth`, `useBackendMcp`, `defineBackendMcpTool`
 - **Route middleware** — `auth` (`definePageMeta({ middleware: 'auth' })`): the neutral name for the base module's guard, which it registers as `convex-auth`; both stay registered and point at the same file
 

@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { ENV_EXAMPLE } from '../../src/cli/main'
 import { BACKEND_FILE_TEMPLATES, LOCAL_BACKEND_FILE_TEMPLATES, SCHEMA_TABLE_GROUPS } from '../../src/templates'
 import { COMPONENT_MODULE_EXPORTS, SCHEMA_EXPORTS } from '../../src/templates.generated'
 
@@ -159,5 +160,14 @@ describe('examples/minimal (default install)', () => {
 
   it('has no files beyond the templates', () => {
     expect(listFiles(minimalBackend).filter(file => !(file in BACKEND_FILE_TEMPLATES))).toEqual([])
+  })
+})
+
+describe('examples/*/.env.example', () => {
+  // The file a `nuxi init -t` clone ships is the file `nuxt-backend init`
+  // would write: one template, quoted verbatim, so the two can never describe
+  // the environment differently.
+  it.each(['minimal', 'advanced'])('examples/%s ships the template init writes', (example) => {
+    expect(readFileSync(join(rootDir, 'examples', example, '.env.example'), 'utf-8')).toBe(ENV_EXAMPLE)
   })
 })

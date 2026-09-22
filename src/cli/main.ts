@@ -155,7 +155,12 @@ function parseForce(raw: unknown): ReadonlySet<string> | null {
   return new Set(names.map(name => name.toUpperCase()))
 }
 
-const ENV_EXAMPLE = `# Local environment, grouped by what each value is for. Names describe what
+/**
+ * The `.env.example` that `init` writes. Exported so the standalone examples
+ * can be pinned to it byte for byte (test/unit/local-install-parity.test.ts):
+ * the file a `nuxi init -t` clone ships must be the file `init` would write.
+ */
+export const ENV_EXAMPLE = `# Local environment, grouped by what each value is for. Names describe what
 # they do rather than the service underneath.
 #
 # Nothing here is required in dev: the backend URLs derive from the deployment
