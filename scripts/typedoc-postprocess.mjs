@@ -43,6 +43,17 @@ const PNPM_STORE = /node(\\?)_modules\/\.pnpm\/[^/]+\/node\\?_modules\//g
 // and is stable across bumps. Underscores may arrive markdown-escaped here too.
 const BASE_MODULE_SOURCE = /nuxt-convex-module\/(?:dist|src)\/([\w\\./-]+?)(?:\.d)?\.(?:m?ts|js):\d+/g
 
+// typedoc.json spells source links out as a template with git detection off:
+// TypeDoc only recognises a repository whose `.git` is a directory, and in a
+// git worktree it is a file — detection fails there and every "Defined in"
+// silently loses its link, which the drift gate then reports as a change to
+// every page. The template makes the output independent of where it is
+// generated, but it links EVERY source, including declarations that live in
+// `node_modules` (`blob/main/src/../node_modules/…`, a 404 on GitHub). Git
+// detection never linked those — they are not in the repository — so turn them
+// back into the bare path they were.
+const OUTSIDE_REPO_LINK = /\[([^\]]+)\]\(https:\/\/github\.com\/qruto\/nuxt-backend\/blob\/main\/src\/\.\.\/node_modules\/[^)]*\)/g
+
 async function* walk(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name)
@@ -58,7 +69,7 @@ for await (const file of walk(ROOT)) {
   const relDir = posix.dirname(relative(ROOT, file).split(sep).join('/'))
   const linkBase = relDir === '.' ? BASE_ROUTE : posix.join(BASE_ROUTE, relDir)
 
-  const out = src.replace(PNPM_STORE, 'node$1_modules/').replace(BASE_MODULE_SOURCE, 'nuxt-convex-module/$1').replace(LINK, (_match, target) => {
+  const out = src.replace(OUTSIDE_REPO_LINK, '$1').replace(PNPM_STORE, 'node$1_modules/').replace(BASE_MODULE_SOURCE, 'nuxt-convex-module/$1').replace(LINK, (_match, target) => {
     const hash = target.indexOf('#')
     const path = hash === -1 ? target : target.slice(0, hash)
     const anchor = hash === -1 ? '' : target.slice(hash)
