@@ -19,6 +19,13 @@ reviews:
     # Convex codegen — the packaged component's `_generated/component.d.ts`
     # and whatever `convex dev` emits under an app's `backend/_generated`.
     - '!**/_generated/**'
+    # The other two generators, for the same reason. `pnpm templates:generate`
+    # writes the component export lists the local-install scaffold re-exports
+    # (test/unit/templates-generated.test.ts fails on drift), and
+    # `nuxt-backend billing sync` writes the provider-issued catalog ids
+    # beside every `billing.catalog.ts`. Neither is edited by hand.
+    - '!src/templates.generated.ts'
+    - '!**/billing.generated.ts'
     # Machine-written, and Dependabot / the skills CLI are what open them.
     - '!pnpm-lock.yaml'
     - '!skills-lock.json'
@@ -68,6 +75,23 @@ reviews:
         new tool is public API the moment the file exists — its name, its
         input schema and whether it is on by default all matter.
 
+    - path: 'src/cli/**'
+      instructions: >-
+        `npx nuxt-backend`: `init`, `doctor`, `env push` and `billing sync`.
+        It runs on a developer's machine with no Convex identity, so any
+        deployment function it runs or tells the reader to run with
+        `npx convex run` must be an `internal*` function or a public one that
+        does not gate on a user — an identity-gated one fails with a message
+        that blames the workspace, not the caller. It reads `.env.local` as
+        the Convex CLI writes it (`CONVEX_DEPLOYMENT=dev:<slug> # team: …`,
+        `CONVEX_URL` beside a `local:` or `anonymous:` id) and never asks a
+        user to author a `CONVEX_*` name. Every finding id it can emit
+        belongs in the findings table of `website/content/5.tooling/1.cli.md`
+        with its fix hint, and a finding that only matters in production
+        escalates under `--prod` instead of failing every fresh dev
+        deployment. The unit tests run on Windows in CI: paths in messages
+        are posix.
+
     - path: 'src/templates.ts'
       instructions: >-
         The files `nuxt-backend` scaffolds into a consumer's `backend/`
@@ -82,22 +106,81 @@ reviews:
 
     - path: 'examples/**'
       instructions: >-
-        Consumer apps, and workspace members: they depend on the package as
-        `workspace:*` and on Nuxt through the `catalog:` range, so they build
-        against the working tree. Two jobs beyond documentation. The `pack`
-        CI job copies both, rewrites those two ranges to the packed tarball
-        and the catalog value, installs with plain npm and builds — the only
-        registry-shaped consumer install in the pipeline. `examples/minimal`
-        also ships to StackBlitz as the pkg.pr.new template. Flag anything
-        that would break a cold install there: an import that only resolves
-        from the repository root, a dependency the example does not declare,
-        or a committed lockfile.
+        Standalone apps of the published package, deliberately outside the
+        pnpm workspace: they depend on `nuxt-backend: latest` and plain
+        version ranges — no `workspace:*`, `catalog:` or `link:` — so
+        `npx nuxi init -t gh:qruto/nuxt-backend/examples/minimal` followed by
+        `npm install` is exactly what a user gets. They are linted but sit
+        outside the root tsconfig and fallow. Two jobs beyond documentation:
+        the `pack` CI job copies both, installs the packed tarball over
+        `latest` with plain npm and builds — the only registry-shaped install
+        in the pipeline — and `examples/minimal` is the StackBlitz template
+        pkg.pr.new ships for every pull request. Flag anything that breaks a
+        cold install: an import that only resolves from the repository root,
+        a dependency the example does not declare, a committed lockfile.
+        Both `backend/` directories are parity-tested
+        (test/unit/local-install-parity.test.ts): `examples/minimal/backend`
+        is byte-identical to what `nuxt-backend init` scaffolds, and
+        `examples/advanced` matches the local-install templates except its
+        marked customizations — so an edit there is really an edit to
+        `src/templates.ts`, and a change to one half without the other fails
+        CI.
+
+    - path: 'website/backend/**'
+      instructions: >-
+        The playground's own Convex functions, deployed behind
+        nuxt-backend.dev where anyone with an inbox can sign in: an
+        `authed.*` function is a public write surface, `admin.*` sits behind
+        a role granted with `functions:setUserRole`, and the ops entry points
+        (`_clearAll`, `seed`, minting a discount) are `internal*`, reached
+        only through `npx convex run`. Flag a new mutation or action that
+        spends provider money, clears more than the caller's own rows or
+        grants a role and is not one of the last two. `billing.catalog.ts`
+        is the catalog as code and `billing.generated.ts` its output: a
+        price, meter or benefit change belongs in the catalog and reaches the
+        provider through `nuxt-backend billing sync`, never by editing ids.
+
+    - path: 'website/content/**'
+      instructions: >-
+        The docs site. test/docs/docs-contract.test.ts already keeps it honest
+        in both directions — every `ModuleOptions` key in the API reference,
+        the configuration page and STABILITY.md; a section per CLI command; a
+        `definePageMeta` naming only a registered middleware; nothing
+        describing the repository as it no longer is — so review what the test
+        cannot read. A code sample must work on a deployment with the shipped
+        defaults: passwordless OTP (email-and-password is off), workspaces
+        on. An `npx convex run <module>:<fn>` the reader is told to type must
+        name an `internal*` or public function the CLI can call with no
+        identity. Environment variables carry the package's own names
+        (`NUXT_PUBLIC_BACKEND_*`, `EMAIL_*`, `BILLING_*`, `AUTH_SECRET`,
+        `SITE_URL`); a `CONVEX_*` name belongs to the platform and is only
+        ever read. Every `doctor` and preflight finding id is in the findings
+        table of `5.tooling/1.cli.md`, and a warning or error the package
+        logs is quoted verbatim in `6.production/4.troubleshooting.md`, so a
+        search for the message lands.
 
     - path: 'test/**'
       instructions: >-
         Prefer tests that would fail on main. A test that passes both before
         and after the change under review is noise here — say so rather than
         asking for coverage as a matter of course.
+
+  # The pull request title is the commit subject `main` receives from a
+  # squash merge (the repository merges with COMMIT_OR_PR_TITLE), and
+  # `Release Prepare` derives the bump and the changelog from those subjects
+  # (RELEASE.md). CI's commitlint sees only the branch's commits, so the title
+  # is the one subject nothing else checks. Stock mode (`warning`).
+  pre_merge_checks:
+    title:
+      requirements: >-
+        A Conventional Commits subject as commitlint.config.js accepts it:
+        `<type>(<scope>)?: <description>`, the type one of build, chore, ci,
+        docs, feat, fix, perf, refactor, revert, style, test, ai; a
+        lower-case description with no trailing period, at most 100
+        characters. A `!` before the colon when any commit in the pull
+        request carries one or the change alters a surface STABILITY.md
+        lists — the squash keeps the bodies, but the subject is what the
+        changelog groups by.
 
   tools:
     # `pnpm lint` already runs ESLint tree-wide on every pull request, with
@@ -106,3 +189,16 @@ reviews:
     # with it over a config it could not fully resolve.
     eslint:
       enabled: false
+
+# The guideline documents the review measures a change against. AGENTS.md is
+# in the stock list already (CLAUDE.md is a symlink to it) and is repeated
+# here so it survives whether this list adds to the defaults or replaces
+# them. STABILITY.md is the promise behind every public-surface change — the
+# four surfaces, `@experimental`, and the deprecation cycle a rename or
+# removal has to follow; CONTRIBUTING.md is the commit and test convention.
+knowledge_base:
+  code_guidelines:
+    filePatterns:
+      - 'AGENTS.md'
+      - 'STABILITY.md'
+      - 'CONTRIBUTING.md'
