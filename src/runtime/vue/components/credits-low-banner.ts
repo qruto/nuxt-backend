@@ -122,7 +122,9 @@ export const CreditsLowBanner = defineComponent({
         if (segment) message.push(segment)
       }
 
-      return h('div', { 'data-credits': 'banner', 'role': 'status' }, [
+      // Busy while the top-up checkout is being created, so the "…" in the
+      // button is not the only sign that something is happening.
+      return h('div', { 'data-credits': 'banner', 'role': 'status', 'aria-live': 'polite', 'aria-busy': pending.value ? 'true' : undefined }, [
         slots.message?.(ctx) ?? h('p', { 'data-credits': 'message' }, message),
         slots.action?.(ctx) ?? (props.pack
           ? h('button', {

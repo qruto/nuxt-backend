@@ -322,10 +322,12 @@ export const PricingTable = defineComponent({
     return () => {
       const ctx = context()
       const title = props.title ?? labels.title
-      return h('div', { 'data-pricing': 'table' }, [
+      // Busy while the catalog loads and while an action (checkout, switch,
+      // cancel, portal) is in flight.
+      return h('div', { 'data-pricing': 'table', 'aria-busy': billing.isLoading.value || pending.value !== null ? 'true' : undefined }, [
         slots.header?.(ctx) ?? (title ? h(props.heading, { 'data-pricing': 'header' }, title) : null),
         plans.value.length === 0 || Object.keys(products.value).length === 0
-          ? slots.empty?.(ctx) ?? h('p', { 'data-pricing': 'empty' }, 'No plans are configured yet.')
+          ? slots.empty?.(ctx) ?? h('p', { 'data-pricing': 'empty', 'role': 'status', 'aria-live': 'polite' }, 'No plans are configured yet.')
           : h('div', { 'data-pricing': 'plans' }, plans.value.map(planCard)),
         props.showPacks && packs.value.length > 0
           ? slots.packs?.(ctx) ?? h('div', { 'data-pricing': 'packs' }, packs.value.map(packCard))

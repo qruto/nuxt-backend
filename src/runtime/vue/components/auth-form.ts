@@ -128,7 +128,9 @@ export const AuthForm = defineComponent({
           void flow.verifyCode()
         },
       }, [
-        h('p', { 'data-auth': 'sent-note' }, `We sent a code to ${flow.email.value}.`),
+        // A polite status: the step change is silent otherwise, and the
+        // address is the one thing worth hearing before typing the code.
+        h('p', { 'data-auth': 'sent-note', 'role': 'status', 'aria-live': 'polite' }, `We sent a code to ${flow.email.value}.`),
         h('label', { 'data-auth': 'label-otp' }, [
           'Verification code',
           textInput('input-otp', flow.otp, { type: 'text', inputmode: 'numeric', autocomplete: 'one-time-code', required: true }),
@@ -149,7 +151,8 @@ export const AuthForm = defineComponent({
       ? h('img', { 'data-auth': 'logo', 'src': config.brand.logo, 'alt': config.brand.name ?? '' })
       : null)
 
-    return () => h('div', { 'data-auth': 'form' }, [
+    // Busy while a passkey ceremony or a code round-trip is in flight.
+    return () => h('div', { 'data-auth': 'form', 'aria-busy': flow.pending.value ? 'true' : undefined }, [
       ...(slots.header
         ? [slots.header(flow)]
         : [logo(), title.value ? h('h1', { 'data-auth': 'title' }, title.value) : null]),

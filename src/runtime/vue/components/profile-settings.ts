@@ -133,7 +133,7 @@ export const ProfileSettings = defineComponent({
     const identity = (): VNodeChild => {
       const ctx = context()
       if (slots.identity) return slots.identity(ctx)
-      if (!mounted.value) return h('div', { 'data-profile': 'identity', 'data-loading': true })
+      if (!mounted.value) return h('div', { 'data-profile': 'identity', 'data-loading': true, 'aria-busy': 'true' })
       const user = auth.user.value
       return h('div', { 'data-profile': 'identity' }, [
         h('span', { 'data-profile': 'avatar', 'aria-hidden': 'true' }, initials.value),
@@ -202,12 +202,19 @@ export const ProfileSettings = defineComponent({
       ])
     }
 
-    return () => h('div', { 'data-profile': 'root' }, [
+    return () => h('div', { 'data-profile': 'root', 'aria-busy': savingName.value || changingEmail.value ? 'true' : undefined }, [
       props.showIdentity ? identity() : null,
       nameSection(),
       emailSection(),
+      // A failure interrupts (`alert` is implicitly assertive); a
+      // confirmation waits its turn as a polite status.
       message.value
-        ? h('p', { 'data-profile': 'message', 'data-tone': message.value.ok ? 'ok' : 'error', 'role': 'status' }, message.value.text)
+        ? h('p', {
+            'data-profile': 'message',
+            'data-tone': message.value.ok ? 'ok' : 'error',
+            'role': message.value.ok ? 'status' : 'alert',
+            'aria-live': message.value.ok ? 'polite' : undefined,
+          }, message.value.text)
         : null,
       slots.footer?.(context()) ?? null,
     ])

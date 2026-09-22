@@ -162,7 +162,8 @@ export const SecuritySettings = defineComponent({
       const ctx = context()
       if (slots.verification) return slots.verification(ctx)
       const user = mounted.value ? auth.user.value : null
-      return h('section', { 'data-security': 'section-verification' }, [
+      // Busy until mount: the verified flag is session state, unknown on the server.
+      return h('section', { 'data-security': 'section-verification', 'aria-busy': mounted.value ? undefined : 'true' }, [
         h('h3', { 'data-security': 'section-title' }, 'Email verification'),
         h('p', { 'data-security': 'status', 'data-verified': user?.emailVerified === true || undefined },
           !mounted.value ? 'Checking…' : user?.emailVerified ? 'Address verified.' : 'Address unverified — only passkey-first accounts start unverified.'),
@@ -186,6 +187,9 @@ export const SecuritySettings = defineComponent({
           ? h('input', {
               'data-security': 'input-passkey-name',
               'type': 'text',
+              // The field replaces the name it edits, so there is no room for
+              // a visible label in the row — name it for assistive tech.
+              'aria-label': 'Passkey name',
               'value': editName.value,
               'onInput': (event: Event) => { editName.value = (event.target as HTMLInputElement).value },
               'onKeydown': (event: KeyboardEvent) => {
@@ -297,10 +301,17 @@ export const SecuritySettings = defineComponent({
       danger: dangerSection,
     }
 
-    return () => h('div', { 'data-security': 'root' }, [
+    return () => h('div', { 'data-security': 'root', 'aria-busy': pending.value ? 'true' : undefined }, [
       ...props.sections.map(section => sectionRenderers[section]?.()),
+      // A failure interrupts (`alert` is implicitly assertive); a
+      // confirmation waits its turn as a polite status.
       message.value
-        ? h('p', { 'data-security': 'message', 'data-tone': message.value.ok ? 'ok' : 'error', 'role': 'status' }, message.value.text)
+        ? h('p', {
+            'data-security': 'message',
+            'data-tone': message.value.ok ? 'ok' : 'error',
+            'role': message.value.ok ? 'status' : 'alert',
+            'aria-live': message.value.ok ? 'polite' : undefined,
+          }, message.value.text)
         : null,
       slots.footer?.(context()) ?? null,
     ])

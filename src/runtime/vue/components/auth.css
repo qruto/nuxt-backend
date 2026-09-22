@@ -7,12 +7,13 @@
  * style the data-auth hooks yourself.
  */
 [data-auth='form'] {
-  --auth-accent: var(--bk-accent, #00dc82);
-  --auth-on-accent: var(--bk-on-accent, #04101f);
+  /* Fallbacks mirror tokens.css for apps that import auth.css alone. */
+  --auth-accent: var(--bk-accent, light-dark(#136d36, #49b567));
+  --auth-on-accent: var(--bk-on-accent, light-dark(#ffffff, #06150b));
   --auth-ink: var(--bk-ink, inherit);
   --auth-muted: var(--bk-muted, color-mix(in srgb, currentColor 55%, transparent));
   --auth-edge: var(--bk-edge, color-mix(in srgb, currentColor 18%, transparent));
-  --auth-error: var(--bk-error, #e5484d);
+  --auth-error: var(--bk-error, light-dark(#a1302d, #ee6d69));
   --auth-radius: var(--bk-radius, 8px);
 
   display: flex;
