@@ -37,6 +37,35 @@ rather than symlinking:
 MCP servers `github` and `vercel` need an interactive OAuth sign-in (`/mcp`) before
 their tools work.
 
+Third-party servers that `.mcp.json` runs through `npx` — `chrome-devtools-mcp`, and
+[`mcp-remote`](https://www.npmjs.com/package/mcp-remote) for `polar` — are pinned to an
+exact version. `npx` would otherwise fetch and execute whatever is newest at every
+agent start, on every contributor's machine — outside pnpm's cooldown and
+Dependabot's reach, since neither reads `.mcp.json`. Bump them by hand:
+`npm view <package> version`, then edit the pin. (`convex` floats: it is
+first-party, the same package the project already depends on.)
+
+## Verification
+
+Run the full gate before opening a PR. It is what CI's `static` and `test` jobs
+run; `.githooks/` splits the same list between `pre-commit` and `pre-push`:
+
+```bash
+pnpm lint
+pnpm test                    # vitest, every project but e2e
+pnpm test:types              # vue-tsc + tsc: module, Convex component, website
+pnpm test:docs               # the docs contract — hand-written docs against the code
+pnpm docs:reference:check    # TypeDoc regenerated with no diff
+pnpm templates:generate && git diff --exit-code -- src/templates.generated.ts
+pnpm test:quality            # fallow: dead code, duplication, complexity
+pnpm test:security           # fallow security candidates, kept out of the run above
+```
+
+`test:types` runs `dev:prepare:lib` first, so it also proves the stub, the types
+and the Convex component still build. What stays in CI: the e2e project, the
+tarball gate (`pnpm pack && pnpm check:tarball` — run it when the change touches
+what the package ships), the Windows leg and the coverage thresholds.
+
 <!-- convex-ai-start -->
 
 This project uses [Convex](https://convex.dev) as its backend.

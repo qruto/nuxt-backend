@@ -12,6 +12,7 @@ Thank you for your interest in contributing! This guide covers everything you ne
 - [Code Quality](#code-quality)
 - [Commit Convention](#commit-convention)
 - [Git Hooks](#git-hooks)
+- [Writing Documentation](#writing-documentation)
 - [Releasing](#releasing)
 
 ## Code of Conduct
@@ -76,12 +77,30 @@ npx convex env set BETTER_AUTH_TRUSTED_ORIGINS https://nuxt-backend.local
 Devices also need the portless CA trusted (or they'll see a certificate
 warning); `portless trust` covers this machine only.
 
+### The DevTools panel
+
+The Backend tab in Nuxt DevTools is its own Nuxt app,
+[`devtools-client-app/`](./devtools-client-app), which `pnpm build` generates into
+`dist/devtools-client` and the published package serves from there. Next to the stub that
+`pnpm dev` builds, that directory does not exist, so the module proxies the tab to a dev server
+instead. Start it beside `pnpm dev`:
+
+```bash
+pnpm run dev:devtools-client   # port 3631 — the port the module's proxy expects
+```
+
+The port is `DEVTOOLS_UI_LOCAL_PORT` in `src/devtools/rpc-types.ts` (3630 belongs to the base
+module's Convex tab). The panel hot-reloads over its own HMR socket, which the module's proxy
+cannot carry — that is why it has a port of its own. A full `pnpm build` leaves a built copy in
+`dist/devtools-client`, and the module serves that in preference to the proxy: delete the
+directory to get the dev server back.
+
 ## Project Structure
 
 ```
 src/                  # Module source (Nuxt module + Convex component)
 devtools-client-app/  # Nuxt DevTools panel app (served in the DevTools iframe)
-examples/             # Consumer apps — workspace members that build against the working tree
+examples/             # Standalone apps of the published package — outside the pnpm workspace
 test/                 # Vitest unit, Convex component, Nuxt and end-to-end tests
 website/              # Nuxt app: product homepage · docs (Docus) · interactive playground
 ```
@@ -113,9 +132,10 @@ the repository root, no undeclared dependency, no committed lockfile.
    git checkout -b fix/my-bug-fix
    ```
 3. Make your changes, add tests where appropriate.
-4. Ensure all checks pass:
+4. Ensure all checks pass. `check:tarball` reads the tarball that `pnpm pack` leaves in the
+   repository root, so pack first; [AGENTS.md](AGENTS.md#verification) lists the whole gate:
    ```bash
-   pnpm lint && pnpm test:types:lib && pnpm test && pnpm check:tarball
+   pnpm lint && pnpm test:types:lib && pnpm test && pnpm pack && pnpm check:tarball
    ```
 5. Open a pull request against `main`.
 
@@ -176,6 +196,12 @@ Allowed types: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`,
 re-checks every commit on a pull request, so the gate holds either way. The local hook can be
 bypassed with `git commit --no-verify`; CI cannot — non-conventional commits will not merge.
 
+Commits on `main` must also be **signed**: the `main-pr-gate` ruleset
+([`.github/rulesets/`](./.github/rulesets)) requires a verified signature on every commit, and a
+rebase merge carries a pull request's commits onto `main` exactly as they were made. So
+[set up commit signing](https://docs.github.com/en/authentication/managing-commit-signature-verification)
+— an SSH or GPG key registered on your GitHub account — before your first pull request.
+
 ## Git Hooks
 
 The hooks live in [`.githooks/`](./.githooks) as ordinary shell scripts — committed, reviewable
@@ -222,6 +248,47 @@ codegen from the installed copy, the consumer type check, `npm audit signatures`
 (the docs site's codegen, the component's generated bindings, type check and build),
 `dependency-review`, the workflow lint (zizmor, actionlint) and the spell check, which need
 GitHub, the Windows leg of the test matrix, and the coverage thresholds.
+
+## Writing Documentation
+
+The docs are the [`website/content/`](./website/content) tree, rendered by
+[Docus](https://docus.dev) (Nuxt Content + Nuxt UI). Two kinds of file live there, and only one
+is edited by hand.
+
+**Hand-written pages.** Folders and files carry a numeric prefix that orders the sidebar and is
+stripped from the route: `2.guide/3.server-and-ssr.md` is `/guide/server-and-ssr`. Each folder's
+`.navigation.yml` names the section and its icon, and each page opens with the frontmatter every
+page here has:
+
+```md
+---
+title: Configuration
+description: Module options, runtime config, and the environment-variable reference.
+navigation:
+  icon: i-lucide-settings-2
+---
+```
+
+`title` and `navigation.icon` are the sidebar entry; `description` is the meta tag and the OG
+card. The components in use are Docus's, written in MDC syntax — keep to these rather than
+adding new ones: `::note`, `::tip` and `::warning` for callouts; `::field-group` with
+`:::field{name="…" type="…"}` children for options and parameters (the docs contract reads the
+field group on the configuration page); `::code-group` for one snippet under several package
+managers or files; and `::playground-link{to="/playground/…" label="…"}`, this site's own
+component (`website/components/PlaygroundLink.vue`), for a link into the live playground. Links
+between pages are root-relative routes (`/guide/authentication`), not paths on disk: the docs
+build fails on a broken one, and the weekly link check covers the external URLs.
+
+**Generated reference.** `website/content/7.api-reference/9.reference/` is TypeDoc output.
+`pnpm run docs:reference` regenerates it from the doc comments in `src/`, and nothing under it is
+edited by hand: fix the doc comment, regenerate, commit both. CI's `API reference drift` step
+(`pnpm run docs:reference:check`) fails on a diff, and the `pre-push` hook runs the same check.
+
+**The docs contract.** `pnpm run test:docs` ([`test/docs/`](./test/docs)) checks the hand-written
+pages against the code: every module option appears in the API reference, the configuration page
+and STABILITY.md; every middleware a page names is registered; every CLI command has its section;
+this file and the hooks cite real CI job names. It runs in the `static` job, which a docs-only
+change still gets. Add a case there when a page starts promising something the code has to keep.
 
 ## Releasing
 
