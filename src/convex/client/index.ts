@@ -67,10 +67,11 @@ export type AuthEmailSender = (ctx: AuthMutationCtx, message: AuthEmailMessage) 
  * OTP sends — per email (`emailOtp`, keyed by a SHA-256 of the address) and
  * deployment-wide (`emailOtpGlobal`, the backstop against mass probing) —
  * the agent token exchange `setupAuth` wires from the same integrations, and
- * the two privileged routes `ROUTE_LIMITS` throttles per caller
- * (`admin`, `invitation`).
+ * the two privileged routes `ROUTE_LIMITS` throttles per caller (`admin`,
+ * `invitation`) with the deployment-wide invitation ceiling behind the second
+ * (`invitationGlobal`).
  */
-export type AuthRateLimitName = 'emailOtp' | 'emailOtpGlobal' | 'mcp' | 'admin' | 'invitation'
+export type AuthRateLimitName = 'emailOtp' | 'emailOtpGlobal' | 'mcp' | 'admin' | 'invitation' | 'invitationGlobal'
 
 /**
  * Guards auth-sensitive flows. Satisfied by `setupRateLimiter(...)` from
@@ -426,11 +427,19 @@ async function assertOtpRequestAllowed<DM extends GenericDataModel>(
  * Keyed by user id, not by session: opening more sessions must not multiply
  * the budget. A caller with no session is left alone — the route itself
  * answers 401, so there is nothing to throttle and no bucket to poison.
+ *
+ * A per-caller limit bounds one account and nothing more, so a route whose
+ * cost lands on a shared resource also names a `global` limit: an unkeyed
+ * ceiling for the whole deployment, consumed only after the caller's own
+ * bucket allowed the request, so one account's refused excess never eats it.
+ * Invitations spend the deployment's sending reputation, which is exactly the
+ * shape `emailOtpGlobal` already guards on the OTP path.
  */
 const ROUTE_LIMITS: ReadonlyArray<{
   limit: AuthRateLimitName
   matches: (path: string) => boolean
   message: string
+  global?: { limit: AuthRateLimitName, message: string }
 }> = [
   {
     limit: 'admin',
@@ -446,6 +455,10 @@ const ROUTE_LIMITS: ReadonlyArray<{
     limit: 'invitation',
     matches: path => path === '/organization/invite-member',
     message: 'Too many invitations sent. Please try again later.',
+    global: {
+      limit: 'invitationGlobal',
+      message: 'Invitations are temporarily unavailable. Please try again later.',
+    },
   },
 ]
 
@@ -453,6 +466,9 @@ const ROUTE_LIMITS: ReadonlyArray<{
  * Request-level guard for `ROUTE_LIMITS`. Runs in the same before-hook
  * as {@link assertOtpRequestAllowed}, where a thrown `APIError` becomes the
  * 429 the client sees and the route never runs.
+ *
+ * A rule with a `global` ceiling consumes it second, so a refused caller
+ * never spends the deployment's budget.
  *
  * `getSessionFromCtx` resolves the session from the request cookie and caches
  * it on `ctx.context.session`, which the route's own `sessionMiddleware` then
@@ -477,6 +493,12 @@ async function assertRouteLimitAllowed<DM extends GenericDataModel>(
 
   const { ok } = await runtime.rateLimiter.limit(ctx, rule.limit, { key: userId })
   if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: rule.message })
+
+  // The caller's own budget allowed this one, so it may spend the shared
+  // ceiling — never the other way round (see ROUTE_LIMITS).
+  if (!rule.global) return
+  const { ok: withinGlobal } = await runtime.rateLimiter.limit(ctx, rule.global.limit)
+  if (!withinGlobal) throw new APIError('TOO_MANY_REQUESTS', { message: rule.global.message })
 }
 
 /** The package's before-hook, chained ahead of a consumer-supplied one. */

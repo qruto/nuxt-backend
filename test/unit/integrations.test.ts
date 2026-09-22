@@ -28,7 +28,7 @@ afterEach(() => {
 
 describe('setupRateLimiter', () => {
   it('seeds only limits with a real consumer (no dead password/sign-in limits)', () => {
-    expect(Object.keys(DEFAULT_LIMITS)).toEqual(['emailOtp', 'emailOtpGlobal', 'billingSync', 'ai', 'aiBudget', 'mcp', 'admin', 'invitation'])
+    expect(Object.keys(DEFAULT_LIMITS)).toEqual(['emailOtp', 'emailOtpGlobal', 'billingSync', 'ai', 'aiBudget', 'mcp', 'admin', 'invitation', 'invitationGlobal'])
     expect(DEFAULT_LIMITS.emailOtp).toMatchObject({ kind: 'token bucket' })
     // The deployment-wide backstop is a fixed window: a ceiling per hour, not a smoothed rate.
     expect(DEFAULT_LIMITS.emailOtpGlobal).toMatchObject({ kind: 'fixed window', rate: 300 })
@@ -41,6 +41,9 @@ describe('setupRateLimiter', () => {
     // An hour, not a minute: an invitation is an email, and what matters is
     // the volume one account can send rather than its per-second rate.
     expect(DEFAULT_LIMITS.invitation).toMatchObject({ kind: 'token bucket', rate: 30, period: 60 * 60 * 1000 })
+    // The deployment-wide invitation ceiling is a fixed window, like the OTP
+    // backstop it mirrors — a period allowance, not a smoothed rate.
+    expect(DEFAULT_LIMITS.invitationGlobal).toMatchObject({ kind: 'fixed window', rate: 200, period: 60 * 60 * 1000 })
   })
 
   it('merges custom limits on top of the defaults', () => {

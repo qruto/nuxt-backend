@@ -14,10 +14,10 @@ export interface RateLimiterComponents {
 
 /**
  * The package's default rate limits — `emailOtp`, `emailOtpGlobal`,
- * `billingSync`, `ai`, `aiBudget`, `mcp`, `admin` and `invitation` —
- * guarding the flows the package itself drives. Most are keyed per
+ * `billingSync`, `ai`, `aiBudget`, `mcp`, `admin`, `invitation` and
+ * `invitationGlobal` — guarding the flows the package itself drives. Keyed per
  * email/entity/caller at the call site (e.g. `limit(ctx, 'emailOtp', { key:
- * hash })`); `emailOtpGlobal` is unkeyed. Extend or override any of them by
+ * hash })`); `emailOtpGlobal` and `invitationGlobal` are unkeyed. Extend or override any of them by
  * passing your own limits to {@link setupRateLimiter}.
  *
  * Deliberately small: `emailOtp` throttles code *sends* (per-code brute force
@@ -25,8 +25,9 @@ export interface RateLimiterComponents {
  * passwordless — there are no password flows to limit), `emailOtpGlobal`
  * caps sends deployment-wide, `billingSync` guards the live provider
  * fan-out, `ai`/`aiBudget`/`mcp` back the metered-action, credit-budget and
- * agent surfaces, and `admin`/`invitation` cover the two signed-in routes
- * where one caller acts on *other* people — see `setupAuth`'s route limits.
+ * agent surfaces, and `admin`/`invitation`/`invitationGlobal` cover the two
+ * signed-in routes where one caller acts on *other* people — see `setupAuth`'s
+ * route limits.
  *
  * ## Covering other auth routes
  *
@@ -100,12 +101,23 @@ export const DEFAULT_LIMITS = {
   admin: { kind: 'token bucket', rate: 30, period: MINUTE, capacity: 10 },
   /**
    * Workspace invitations — 30 per hour per inviter, burst 10. An hour window
-   * (not a minute) because the abuse this stops is using a workspace as a mail
-   * cannon: what matters is the volume one account can send, not its
-   * per-second rate. Invitations also cost an email, so this sits in front of
-   * the `emailOtpGlobal` backstop rather than behind it.
+   * (not a minute) because what matters is the volume one account can send,
+   * not its per-second rate. Per **inviter**: it bounds one account, not a
+   * workspace and not the deployment — {@link DEFAULT_LIMITS.invitationGlobal}
+   * is the ceiling that does.
    */
   invitation: { kind: 'token bucket', rate: 30, period: HOUR, capacity: 10 },
+  /**
+   * Invitations across the whole deployment — 200 per hour, a fixed window.
+   * The backstop the per-inviter limit cannot be, and the counterpart of
+   * `emailOtpGlobal` on the package's other outbound-email path: a workspace
+   * with many members, or many accounts acting together, would otherwise put
+   * 30 invitation emails per member per hour on your sending domain. Only
+   * requests that already cleared `invitation` consume this, so one account's
+   * refused excess never eats the shared ceiling. Raise it when a launch
+   * legitimately invites more than that.
+   */
+  invitationGlobal: { kind: 'fixed window', rate: 200, period: HOUR },
 } as const satisfies Record<string, RateLimitConfig>
 
 /**

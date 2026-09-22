@@ -619,7 +619,7 @@ describe('privileged route rate limits', () => {
     expect(limit).not.toHaveBeenCalled()
   })
 
-  it('an invitation consumes the invitation bucket keyed by the inviter', async () => {
+  it('an invitation consumes the inviter\'s bucket, then the deployment ceiling', async () => {
     const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: true }))
     const ctx = mutationCtx()
     await routeGuard({ ctx, rateLimiter: { limit } })({
@@ -627,7 +627,38 @@ describe('privileged route rate limits', () => {
       context: signedIn('user_inviter'),
     })
 
-    expect(limit).toHaveBeenCalledExactlyOnceWith(ctx, 'invitation', { key: 'user_inviter' })
+    // Per-inviter first, unkeyed ceiling second.
+    expect(limit.mock.calls).toEqual([
+      [ctx, 'invitation', { key: 'user_inviter' }],
+      [ctx, 'invitationGlobal'],
+    ])
+  })
+
+  it('a refused inviter never spends the deployment ceiling', async () => {
+    // The per-caller bucket closes first, so one account's excess cannot eat
+    // the budget every other workspace shares.
+    const limit = vi.fn(async (_ctx: unknown, name: string, _options?: { key?: string }) => ({ ok: name !== 'invitation' }))
+    const guard = routeGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
+
+    await expect(guard({ path: '/organization/invite-member', context: signedIn('user_inviter') })).rejects.toEqual(tooMany)
+    expect(limit.mock.calls.map(call => call[1])).toEqual(['invitation'])
+  })
+
+  it('a closed deployment ceiling stops an inviter who is still within their own budget', async () => {
+    const limit = vi.fn(async (_ctx: unknown, name: string, _options?: { key?: string }) => ({ ok: name !== 'invitationGlobal' }))
+    const guard = routeGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
+
+    await expect(guard({ path: '/organization/invite-member', context: signedIn('user_inviter') }))
+      .rejects.toEqual(expect.objectContaining({ status: 'TOO_MANY_REQUESTS', body: { message: expect.stringContaining('temporarily unavailable') } }))
+    expect(limit.mock.calls.map(call => call[1])).toEqual(['invitation', 'invitationGlobal'])
+  })
+
+  it('an admin route has no deployment ceiling — it spends nobody else\'s resource', async () => {
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: true }))
+    const ctx = mutationCtx()
+    await routeGuard({ ctx, rateLimiter: { limit } })(admin)
+
+    expect(limit).toHaveBeenCalledExactlyOnceWith(ctx, 'admin', { key: 'user_admin' })
   })
 
   it('a closed invitation bucket answers TOO_MANY_REQUESTS', async () => {
