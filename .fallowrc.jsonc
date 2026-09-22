@@ -29,7 +29,12 @@
     "website/backend/**/*.ts",
     "test/setup/websocket.ts",
     "test/helpers/nuxt-imports.ts",
-    "test/fixtures/registration/**/*.{ts,vue}",
+    "test/fixtures/registration/nuxt.config.ts",
+    "test/fixtures/registration/app.vue",
+    // The fixture's Convex functions directory: the module resolves it at boot
+    // and scaffolding compares it with the templates, so every file there is
+    // read by path. The one directory entry, and the reason it is one.
+    "test/fixtures/registration/backend/*.ts",
     "test/types/**/*.test-d.ts"
   ],
 

@@ -16,13 +16,14 @@ on:
     branches:
       - main
 
-# Cancel superseded runs on a pull request, never on main — ci.yml's rule, for
-# this workflow's own reason: every commit on main should end up with an
-# installable build and its pkg.pr.new comment, and two merges in quick
-# succession would otherwise leave the first with neither. `head_ref` is empty
-# on a push, so the group falls back to the ref there.
+# Cancel superseded runs on a pull request, never on main: every commit on main
+# should end up with an installable build and its pkg.pr.new comment. A group
+# holds one running and ONE pending run, and a newer run cancels the pending
+# one even with cancel-in-progress off — so main cannot share a group: each
+# push gets its own (`run_id`), and each pull request one keyed by its number
+# (not `head_ref`, which two forks can share).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:

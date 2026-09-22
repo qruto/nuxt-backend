@@ -47,8 +47,13 @@ first-party, the same package the project already depends on.)
 
 ## Verification
 
-Run the full gate before opening a PR. It is what CI's `static` and `test` jobs
-run; `.githooks/` splits the same list between `pre-commit` and `pre-push`:
+Run this gate before opening a PR. It is the local core of CI's `static` and
+`test` jobs, not all of them — CI also lints commit messages, checks manifest
+ranges and workflow files, and runs typos. The git hooks overlap with it without
+mirroring it: `pre-commit` runs a fallow audit of the staged change, eslint on
+staged files and the template drift check; `pre-push` runs fallow, the manifest
+check, `test:types:lib`, `test` and the reference drift check, but not
+`test:docs` — so run that one yourself when docs change.
 
 ```bash
 pnpm lint

@@ -197,10 +197,14 @@ re-checks every commit on a pull request, so the gate holds either way. The loca
 bypassed with `git commit --no-verify`; CI cannot — non-conventional commits will not merge.
 
 Commits on `main` must also be **signed**: the `main-pr-gate` ruleset
-([`.github/rulesets/`](./.github/rulesets)) requires a verified signature on every commit, and a
-rebase merge carries a pull request's commits onto `main` exactly as they were made. So
-[set up commit signing](https://docs.github.com/en/authentication/managing-commit-signature-verification)
-— an SSH or GPG key registered on your GitHub account — before your first pull request.
+([`.github/rulesets/`](./.github/rulesets)) requires a verified signature on every commit. That
+decides the merge method: pull requests are **squash-merged**, and GitHub signs the squash
+commit itself. A rebase merge cannot pass the rule — GitHub rewrites each commit and cannot
+sign what it rewrote. GitHub signs a squash merge only when the person merging authored the
+pull request, so a contributor's pull request is merged by a maintainer who takes that into
+account. Signing your own commits is not required to contribute, but
+[setting it up](https://docs.github.com/en/authentication/managing-commit-signature-verification)
+shows them as verified on your branch.
 
 ## Git Hooks
 
