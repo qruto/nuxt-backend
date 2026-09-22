@@ -1,5 +1,20 @@
-import { defineComponent, h, watch, type PropType, type VNodeChild } from 'vue'
+import { computed, defineComponent, h, watch, type PropType, type VNodeChild } from 'vue'
+import { useBackendConfig } from '../composables/use-backend-config'
 import { useLoginFlow, type LoginStep } from '../composables/use-login-flow'
+import type { BackendAppConfig } from '../../config'
+
+/**
+ * The sign-in heading: the `title` prop, else `appConfig.backend.labels.auth.title`,
+ * else "Sign in to {brand.name}" when a brand name is configured, else "Sign in".
+ * The login page uses the same rule for its document title.
+ *
+ * @internal
+ */
+export function resolveAuthTitle(config: BackendAppConfig, override?: string): string {
+  if (override !== undefined) return override
+  if (config.labels.auth?.title !== undefined) return config.labels.auth.title
+  return config.brand.name ? `Sign in to ${config.brand.name}` : 'Sign in'
+}
 
 /**
  * The complete passwordless sign-in flow (passkeys + email OTP) as one
@@ -22,7 +37,11 @@ import { useLoginFlow, type LoginStep } from '../composables/use-login-flow'
 export const AuthForm = defineComponent({
   name: 'AuthForm',
   props: {
-    title: { type: String, default: 'Sign in' },
+    /**
+     * Heading text. Defaults to `appConfig.backend.labels.auth.title`, then
+     * "Sign in to {brand.name}", then "Sign in"; an empty string hides it.
+     */
+    title: { type: String, default: undefined },
     /** Offer passkey sign-in and post-OTP passkey enrolment. Default `true`. */
     passkeys: { type: Boolean, default: true },
     /** Offer the email-OTP flow. Default `true`. */
@@ -38,6 +57,8 @@ export const AuthForm = defineComponent({
     step: (_step: LoginStep) => true,
   },
   setup(props, { slots, emit }) {
+    const config = useBackendConfig()
+    const title = computed(() => resolveAuthTitle(config, props.title))
     const flow = useLoginFlow({
       requireName: props.requireName,
       validateEmail: props.validateEmail,
@@ -122,8 +143,16 @@ export const AuthForm = defineComponent({
       ]),
     }
 
+    // Above the title when the app configures one: the logo is the brand's,
+    // the heading is the page's.
+    const logo = () => (config.brand.logo
+      ? h('img', { 'data-auth': 'logo', 'src': config.brand.logo, 'alt': config.brand.name ?? '' })
+      : null)
+
     return () => h('div', { 'data-auth': 'form' }, [
-      slots.header?.(flow) ?? (props.title ? h('h1', { 'data-auth': 'title' }, props.title) : null),
+      ...(slots.header
+        ? [slots.header(flow)]
+        : [logo(), title.value ? h('h1', { 'data-auth': 'title' }, title.value) : null]),
       slots[flow.step.value]?.(flow) ?? steps[flow.step.value](),
       flow.error.value
         ? slots.error?.(flow) ?? h('p', { 'data-auth': 'error', 'role': 'alert' }, flow.error.value)

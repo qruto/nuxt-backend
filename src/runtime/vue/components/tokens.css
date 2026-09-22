@@ -99,6 +99,14 @@
   color: var(--bk-error);
 }
 
+/* ── Default page headings (module-mounted routes) ───────────────────────── */
+
+:where([data-settings='title'], [data-profile='title'], [data-security='title'], [data-invitation='title'], [data-pricing='page'] [data-pricing='header']) {
+  margin: 0 0 1.5rem;
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+}
+
 /* ── Default page wrappers (module-mounted routes) ───────────────────────── */
 
 :where([data-auth='page'], [data-pricing='page'], [data-settings='page'], [data-profile='page'], [data-security='page'], [data-invitation='page']) {

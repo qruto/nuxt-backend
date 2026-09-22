@@ -22,6 +22,12 @@
   color: var(--auth-ink);
 }
 
+[data-auth='logo'] {
+  align-self: flex-start;
+  height: 2rem;
+  width: auto;
+}
+
 [data-auth='title'] {
   margin: 0;
   font-size: 1.6rem;

@@ -1,7 +1,8 @@
 import { defineComponent, h, watch } from 'vue'
-import { navigateTo, useRoute } from '#imports'
-import { AuthForm } from '../components/auth-form'
+import { navigateTo, useHead, useRoute } from '#imports'
+import { AuthForm, resolveAuthTitle } from '../components/auth-form'
 import { useAuth } from '../composables/use-auth'
+import { useBackendConfig } from '../composables/use-backend-config'
 
 /**
  * Path-only redirect targets — never protocol-relative or absolute URLs.
@@ -24,6 +25,8 @@ export default defineComponent({
   setup() {
     const route = useRoute()
     const { isAuthenticated, isLoading } = useAuth()
+    // The same heading <AuthForm> renders, as the document title.
+    useHead({ title: resolveAuthTitle(useBackendConfig()) })
 
     const destination = () => safeRedirect(route.query.redirect) ?? '/'
 
