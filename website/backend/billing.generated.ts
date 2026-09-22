@@ -4,15 +4,16 @@ import type { BillingCatalogIds } from 'nuxt-backend/billing'
 export const catalog: Partial<Record<'sandbox' | 'production', BillingCatalogIds>> = {
   sandbox: {
     products: {
-      starter: '96561ea3-e168-4219-9716-5128ac57dd7c',
-      pro: 'd852636d-a5fb-4472-b592-3ac921a84ba3',
-      ultra: '9e9097b4-22dc-4b40-9823-47a15fbe9f17',
-      credits100: 'f55734b4-428f-47b9-b305-70576acf9181',
-      credits500: '907659da-d66c-4e4a-9cb3-799ec445c79b',
+      starter: '7a4d2654-12ab-4ab4-84fa-cc2bafd483c0',
+      pro: 'c7372c4e-2581-42d1-a514-7aec9a2a8ab6',
+      ultra: 'a95df103-3f0e-461e-b260-118343396561',
+      credits100: '0313cfbe-b321-4fde-873a-00e27748682f',
+      credits500: '8eb269bd-5f98-4a3f-9850-ff5f44d03da7',
     },
     meters: {
       credits: {
-        meterId: 'aa62cf4c-2dcd-437d-a407-1872f51531b7',
+        meterId: '8455082f-da79-4961-b323-bc799ddf7fbc',
+        eventName: 'credits',
       },
     },
   },
