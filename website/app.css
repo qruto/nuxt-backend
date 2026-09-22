@@ -14,11 +14,14 @@
 
    One neutral palette + three status signals (green / amber / red;
    there is no brand accent). Dual light/dark via `color-scheme: light
-   dark` + system preference (no JS, no switcher). LIGHT leans on a
-   soft drop-shadow + hairline + white top highlight; DARK is near-flat,
+   dark`: the OS preference by default, overridden by Docus's color-mode
+   toggle through the `html.dark` / `html.light` bridge below, so the
+   header switch drives the playground too. LIGHT leans on a soft
+   drop-shadow + hairline + white top highlight; DARK is near-flat,
    structured by a hairline rim + a faint shadow. Multi-layer shadows
    can't live in `light-dark()` (no comma lists) → dark variants in a
-   `prefers-color-scheme` block.
+   `prefers-color-scheme` block, repeated under `html.dark`, and
+   `html.light` forces light back on a dark system.
    ════════════════════════════════════════════════════════════════ */
 
 /* ════════════════════════════════════════════════════════════════
@@ -206,23 +209,6 @@ html.light { color-scheme: light; }
   --focus:      var(--ok);
   --text-grad:  linear-gradient(135deg, var(--ok-soft), var(--ok) 55%, var(--ok-press));
 
-  /* ── Legacy names — thin aliases onto a signal so the sweep can retire
-     them file by file without a visual break. The old "accent" (the
-     fluorescent brand hue) IS the green now; "info" and the violet
-     "experimental" marker fold into amber. ─────────────────────── */
-  --accent:       var(--ok);         /* legacy alias — retire after the sweep */
-  --accent-press: var(--ok-press);   /* legacy alias — retire after the sweep */
-  --accent-soft:  var(--ok-soft);    /* legacy alias — retire after the sweep */
-  --accent-dim:   var(--ok-dim);     /* legacy alias — retire after the sweep */
-  --accent-glow:  var(--ok-glow);    /* legacy alias — retire after the sweep */
-  --on-accent:    var(--on-ok);      /* legacy alias — retire after the sweep */
-  --info:         var(--warn);       /* legacy alias — retire after the sweep */
-  --info-dim:     var(--warn-dim);   /* legacy alias — retire after the sweep */
-  --xp:           var(--warn);       /* legacy alias — retire after the sweep */
-  --xp-dim:       var(--warn-dim);   /* legacy alias — retire after the sweep */
-  --xp-glow:      var(--warn-glow);  /* legacy alias — retire after the sweep */
-  --on-xp:        var(--on-warn);    /* legacy alias — retire after the sweep */
-
   /* Neutral hairline — separates busy lists / table rows / headers. */
   --edge:    light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.07));
   --edge-hi: light-dark(rgb(0 0 0 / 0.14), rgb(255 255 255 / 0.12));
@@ -253,7 +239,6 @@ html.light { color-scheme: light; }
   --raise-lg:     var(--elev-3);   /* popover / large lifted surface  */
   --inset:        var(--inset-2);  /* deep well (panel.well, tracks)  */
   --inset-sm:     var(--inset-1);  /* shallow well (input, chip)      */
-  --raise-accent: var(--elev-1), var(--glow-ok-soft); /* legacy alias — retire after the sweep */
 
   /* Custom UI hooks */
   accent-color: var(--ok);
@@ -565,8 +550,6 @@ details.dev > .dev-body { padding: 0.25rem 0.85rem 0.85rem; }
   --glow-err:       0 0 9px color-mix(in srgb, var(--color-red-400) 55%, transparent);
   --glow-err-soft:  0 0 14px var(--err-glow);
   --glow-err-ring:  0 0 0 1px var(--err-glow), 0 4px 16px var(--err-glow);
-  --glow-accent:      var(--glow-ok-ring); /* legacy alias — retire after the sweep */
-  --glow-accent-soft: var(--glow-ok-soft); /* legacy alias — retire after the sweep */
 
   /* Lit surface gradient + the light-top-left → dark-bottom-right bevel
      used by .depth-border. Colors follow color-scheme via light-dark(). */
