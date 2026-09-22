@@ -91,3 +91,34 @@ type DeepPartial<T> = { [K in keyof T]?: T[K] extends Record<string, unknown> ? 
 
 /** `appConfig.backend` as users may write it (everything optional). */
 export type BackendAppConfigInput = DeepPartial<BackendAppConfig>
+
+type Paths<T, Prefix extends string = ''> = {
+  [K in keyof T & string]: NonNullable<T[K]> extends Record<string, unknown>
+    ? K extends 'billing' | 'brand' | 'labels' ? Paths<NonNullable<T[K]>, `${Prefix}${K}.`> : `${Prefix}${K}`
+    : `${Prefix}${K}`
+}[keyof T & string]
+
+/** Every dotted key of {@link BackendAppConfig}, as STABILITY.md §2 lists them. */
+export type BackendAppConfigPath = Paths<BackendAppConfig>
+
+/**
+ * The frozen `appConfig.backend` surface, one dotted key per entry. `satisfies`
+ * ties the list to the type both ways: a key added to {@link BackendAppConfig}
+ * without an entry here is a type error, and so is a typo. The surface test
+ * pins this list to STABILITY.md §2 and to the customization page.
+ */
+export const BACKEND_APP_CONFIG_KEYS = [
+  'billing.plans',
+  'billing.packs',
+  'billing.lowCreditsThreshold',
+  'brand.name',
+  'brand.logo',
+  'labels.auth',
+  'labels.pricing',
+  'labels.settings',
+  'labels.profile',
+  'labels.security',
+  'labels.history',
+  'labels.usage',
+  'labels.credits',
+] as const satisfies readonly BackendAppConfigPath[]

@@ -3,6 +3,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { parseSync } from 'oxc-parser'
 import { describe, expect, it, vi } from 'vitest'
 import { REQUIRED_FUNCTION_EXPORTS } from '../../src/contract'
+import { BACKEND_APP_CONFIG_KEYS } from '../../src/runtime/config'
 import { BACKEND_FILE_TEMPLATES, LOCAL_BACKEND_FILE_TEMPLATES } from '../../src/templates'
 
 // The public surface, frozen. STABILITY.md promises the 0.x line keeps every
@@ -444,7 +445,8 @@ describe('@internal', () => {
 
 const REGISTRY = {
   composables: ['useAuth', 'useAuthState', 'useConnectionState', 'useLoginFlow', 'useOrganization', 'useSearch', 'useAggregate', 'useCount', 'useBilling', 'useFeatures', 'useCredits', 'useOrders', 'useUsage', 'useGifts', 'usePasskeys', 'useSessions', 'describeUserAgent', 'unwrapAuth', 'useBackendConfig', 'useEmailStatus', 'useWorkflowStatus', 'useAiStream'],
-  components: ['AuthForm', 'RoleBoundary', 'OrganizationBoundary', 'FeatureBoundary', 'AcceptInvitation', 'GiftClaimBanner', 'PricingTable', 'BillingHistory', 'UsageHistory', 'CreditsLowBanner', 'WorkspaceSettings', 'ProfileSettings', 'SecuritySettings'],
+  // The last two alias the base module's `CheckoutLink` / `CustomerPortalLink`.
+  components: ['AuthForm', 'RoleBoundary', 'OrganizationBoundary', 'FeatureBoundary', 'AcceptInvitation', 'GiftClaimBanner', 'PricingTable', 'BillingHistory', 'UsageHistory', 'CreditsLowBanner', 'WorkspaceSettings', 'ProfileSettings', 'SecuritySettings', 'BillingCheckoutLink', 'BillingPortalLink'],
   server: ['backendAuth', 'useBackendMcp', 'defineBackendMcpTool'],
   // Route middleware: the neutral name over the base module's guard file.
   middleware: ['auth'],
@@ -526,7 +528,19 @@ describe('the surface as documented', () => {
     for (const name of EXPERIMENTAL) {
       if (!mentioned(name.startsWith('./') ? `nuxt-backend/${name.slice('./'.length)}` : name)) missing.push(`experimental ${name}`)
     }
+    // Surface 2's content layer: every dotted key of `appConfig.backend`.
+    for (const key of BACKEND_APP_CONFIG_KEYS) {
+      if (!mentioned(key)) missing.push(`appConfig.backend.${key}`)
+    }
     expect(missing).toEqual([])
+  })
+
+  it('documents every appConfig.backend key on the customization page', () => {
+    // The "full shape" field-group is the reference for surface 2's content
+    // layer: one `::field{name="<key>"}` per frozen key, no more and no fewer.
+    const page = read('website/content/2.guide/7.customization.md')
+    const documented = [...page.matchAll(/:::field\{name="([\w.]+)"/g)].map(([, name]) => name!)
+    expect(documented.sort()).toEqual([...BACKEND_APP_CONFIG_KEYS].sort())
   })
 
   it('tags exactly the experimental tier', () => {

@@ -1,4 +1,5 @@
 import { defineComponent, h } from 'vue'
+import { useHead } from '#imports'
 import { AcceptInvitation } from '../components/accept-invitation'
 
 /**
@@ -11,6 +12,10 @@ import { AcceptInvitation } from '../components/accept-invitation'
 export default defineComponent({
   name: 'AcceptInvitationPage',
   setup() {
-    return () => h('main', { 'data-invitation': 'page' }, [h(AcceptInvitation)])
+    useHead({ title: 'Invitation' })
+    return () => h('main', { 'data-invitation': 'page' }, [
+      h('h1', { 'data-invitation': 'title' }, 'Invitation'),
+      h(AcceptInvitation),
+    ])
   },
 })

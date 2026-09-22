@@ -351,11 +351,21 @@ the June test publish satisfies that, so nothing has to be published by hand.
 
 ## After a release
 
+- **The docs site.** nuxt-backend.dev deploys from this repository (Vercel, root `website`), so the
+  release commit is also a site deploy. Check that production redeployed on that commit, that the
+  API reference it serves is the one `pnpm docs:reference` generated for the tag (the `API reference
+  drift` CI step guarantees the tree; this checks the deploy), and that `/playground` is online
+  rather than redirecting to `/playground/offline` (it needs `NUXT_PUBLIC_BACKEND_URL` and
+  `CONVEX_DEPLOY_KEY` in the Vercel production environment).
+- **Deprecate the test publish.** `npm deprecate nuxt-backend@0.1.0 "Test publish — use >=0.2.0"`
+  (see *Version numbers* above), then close the issues the release fixes.
 - **Registry.** The package is listed on [nuxt.com/modules](https://nuxt.com/modules) through
   [nuxt/modules](https://github.com/nuxt/modules): `modules/backend.yml` there, kept in sync weekly
   from this repository's `package.json` and the published `dist/module.json` (its `docs` field is
-  the listing's website). The first listing is a pull request; write its description yourself —
-  that repository closes pull requests it takes for machine-written.
+  the listing's website). The first listing is a pull request; that repository closes pull requests
+  it takes for machine-written, so the entry and the description are kept ready in
+  [`.github/registry/`](./.github/registry/) — copy `backend.yml` in, paste `PULL_REQUEST.md` as the
+  body, and read both once more before opening it.
 - **Smoke from the registry, not the tarball.** `npx nuxi@latest init smoke`, `npx nuxi module add
   nuxt-backend`, `npx nuxt-backend init`, `npx convex dev --once` against an anonymous local
   deployment, `npm run build`, `npx nuxt-backend doctor` — under npm, and once more under strict

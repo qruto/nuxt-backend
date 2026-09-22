@@ -1,7 +1,7 @@
 import { createClient, type GenericCtx } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { passkey } from '@better-auth/passkey'
-import { APIError, createAuthMiddleware } from 'better-auth/api'
+import { APIError, createAuthMiddleware, getSessionFromCtx } from 'better-auth/api'
 import { betterAuth, type BetterAuthOptions } from 'better-auth/minimal'
 import { admin, emailOTP, jwt, mcp, organization } from 'better-auth/plugins'
 import { mutationGeneric, type AnyComponents, type AuthConfig, type FunctionReference, type GenericActionCtx, type GenericDataModel, type GenericMutationCtx, type GenericSchema, type QueryBuilder, type SchemaDefinition } from 'convex/server'
@@ -66,9 +66,12 @@ export type AuthEmailSender = (ctx: AuthMutationCtx, message: AuthEmailMessage) 
  * The named rate limits the auth flows consult (a subset of the defaults):
  * OTP sends — per email (`emailOtp`, keyed by a SHA-256 of the address) and
  * deployment-wide (`emailOtpGlobal`, the backstop against mass probing) —
- * plus the agent token exchange `setupAuth` wires from the same integrations.
+ * the agent token exchange `setupAuth` wires from the same integrations, and
+ * the two privileged routes `ROUTE_LIMITS` throttles per caller (`admin`,
+ * `invitation`) with the deployment-wide invitation ceiling behind the second
+ * (`invitationGlobal`).
  */
-export type AuthRateLimitName = 'emailOtp' | 'emailOtpGlobal' | 'mcp'
+export type AuthRateLimitName = 'emailOtp' | 'emailOtpGlobal' | 'mcp' | 'admin' | 'invitation' | 'invitationGlobal'
 
 /**
  * Guards auth-sensitive flows. Satisfied by `setupRateLimiter(...)` from
@@ -409,6 +412,95 @@ async function assertOtpRequestAllowed<DM extends GenericDataModel>(
   }
 }
 
+/**
+ * The privileged routes the package throttles on the request itself, keyed by
+ * the signed-in caller.
+ *
+ * Both are routes where one caller acts on *other people*: every `/admin/*`
+ * route reaches into somebody else's account, and `invite-member` sends mail
+ * in the workspace's name. Better Auth authorizes them (only an admin passes
+ * `/admin/*`, only a member with the invite permission passes
+ * `invite-member`) but does not bound how fast an authorized caller may go —
+ * these limits do, so one compromised admin session or one runaway script
+ * cannot ban a thousand accounts or send a thousand invitations.
+ *
+ * Keyed by user id, not by session: opening more sessions must not multiply
+ * the budget. A caller with no session is left alone — the route itself
+ * answers 401, so there is nothing to throttle and no bucket to poison.
+ *
+ * A per-caller limit bounds one account and nothing more, so a route whose
+ * cost lands on a shared resource also names a `global` limit: an unkeyed
+ * ceiling for the whole deployment, consumed only after the caller's own
+ * bucket allowed the request, so one account's refused excess never eats it.
+ * Invitations spend the deployment's sending reputation, which is exactly the
+ * shape `emailOtpGlobal` already guards on the OTP path.
+ */
+const ROUTE_LIMITS: ReadonlyArray<{
+  limit: AuthRateLimitName
+  matches: (path: string) => boolean
+  message: string
+  global?: { limit: AuthRateLimitName, message: string }
+}> = [
+  {
+    limit: 'admin',
+    // `stop-impersonating` is the way out of an impersonated session and must
+    // never be throttled; `has-permission` is a read-only check the console
+    // calls on render.
+    matches: path => path.startsWith('/admin/')
+      && path !== '/admin/stop-impersonating'
+      && path !== '/admin/has-permission',
+    message: 'Too many administrator actions. Please try again in a moment.',
+  },
+  {
+    limit: 'invitation',
+    matches: path => path === '/organization/invite-member',
+    message: 'Too many invitations sent. Please try again later.',
+    global: {
+      limit: 'invitationGlobal',
+      message: 'Invitations are temporarily unavailable. Please try again later.',
+    },
+  },
+]
+
+/**
+ * Request-level guard for `ROUTE_LIMITS`. Runs in the same before-hook
+ * as {@link assertOtpRequestAllowed}, where a thrown `APIError` becomes the
+ * 429 the client sees and the route never runs.
+ *
+ * A rule with a `global` ceiling consumes it second, so a refused caller
+ * never spends the deployment's budget.
+ *
+ * `getSessionFromCtx` resolves the session from the request cookie and caches
+ * it on `ctx.context.session`, which the route's own `sessionMiddleware` then
+ * reuses — so this costs no extra read on a call that was going to resolve a
+ * session anyway. A context too bare to resolve one (or an outright failure)
+ * is treated as "no session": the route will reject it.
+ */
+async function assertRouteLimitAllowed<DM extends GenericDataModel>(
+  runtime: AuthRuntime<DM> | undefined,
+  request: { path?: string, context?: unknown, headers?: unknown },
+): Promise<void> {
+  if (typeof request.path !== 'string') return
+  const rule = ROUTE_LIMITS.find(entry => entry.matches(request.path as string))
+  if (!rule) return
+  const ctx = asMutationCtx(runtime?.ctx)
+  if (!runtime?.rateLimiter || !ctx) return
+
+  const session = await getSessionFromCtx(request as never).catch(() => null) as
+    { user?: { id?: unknown } } | null
+  const userId = session?.user?.id
+  if (typeof userId !== 'string' || userId === '') return
+
+  const { ok } = await runtime.rateLimiter.limit(ctx, rule.limit, { key: userId })
+  if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: rule.message })
+
+  // The caller's own budget allowed this one, so it may spend the shared
+  // ceiling — never the other way round (see ROUTE_LIMITS).
+  if (!rule.global) return
+  const { ok: withinGlobal } = await runtime.rateLimiter.limit(ctx, rule.global.limit)
+  if (!withinGlobal) throw new APIError('TOO_MANY_REQUESTS', { message: rule.global.message })
+}
+
 /** The package's before-hook, chained ahead of a consumer-supplied one. */
 function makeRequestHooks<DM extends GenericDataModel>(
   runtime: AuthRuntime<DM> | undefined,
@@ -419,6 +511,7 @@ function makeRequestHooks<DM extends GenericDataModel>(
     ...consumer,
     before: createAuthMiddleware(async (ctx) => {
       await assertOtpRequestAllowed(runtime, ctx)
+      await assertRouteLimitAllowed(runtime, ctx)
       if (consumerBefore) return consumerBefore(ctx)
     }),
   }

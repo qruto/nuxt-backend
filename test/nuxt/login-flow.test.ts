@@ -27,6 +27,14 @@ vi.mock('nuxt-convex-module/better-auth/client', () => ({
   }),
 }))
 
+// The content layer <AuthForm> reads its heading and logo from.
+const backendConfig = {
+  billing: { plans: [], packs: [], lowCreditsThreshold: 10 },
+  brand: {} as { name?: string, logo?: string },
+  labels: {} as { auth?: { title?: string } },
+}
+vi.mock('../../src/runtime/vue/composables/use-backend-config', () => ({ useBackendConfig: () => backendConfig }))
+
 const { useLoginFlow } = await import('../../src/runtime/vue/composables/use-login-flow')
 const { AuthForm } = await import('../../src/runtime/vue/components/auth-form')
 
@@ -44,6 +52,8 @@ function inSetup<T>(runner: () => T): T {
 beforeEach(() => {
   vi.clearAllMocks()
   user.value = null
+  backendConfig.brand = {}
+  backendConfig.labels = {}
 })
 
 describe('useLoginFlow', () => {
@@ -179,5 +189,40 @@ describe('AuthForm', () => {
     await wrapper.find('[data-auth="passkey-sign-in"]').trigger('click')
     await vi.waitFor(() => expect(wrapper.find('[data-auth="error"]').text()).toBe('No passkey found'))
     expect(wrapper.emitted('error')).toStrictEqual([['No passkey found']])
+  })
+})
+
+describe('AuthForm heading', () => {
+  // props ?? appConfig.backend.labels.auth.title ?? "Sign in to {brand}" ?? "Sign in"
+  const heading = () => mount(AuthForm).find('[data-auth="title"]')
+
+  it('brands the default heading when a brand name is configured', () => {
+    backendConfig.brand = { name: 'Acme' }
+    expect(heading().text()).toBe('Sign in to Acme')
+  })
+
+  it('prefers labels.auth.title over the brand', () => {
+    backendConfig.brand = { name: 'Acme' }
+    backendConfig.labels = { auth: { title: 'Welcome back' } }
+    expect(heading().text()).toBe('Welcome back')
+  })
+
+  it('the title prop wins, and an empty one hides the heading', () => {
+    backendConfig.labels = { auth: { title: 'Welcome back' } }
+    expect(mount(AuthForm, { props: { title: 'Members' } }).find('[data-auth="title"]').text()).toBe('Members')
+    expect(mount(AuthForm, { props: { title: '' } }).find('[data-auth="title"]').exists()).toBe(false)
+  })
+
+  it('renders the brand logo above the heading', () => {
+    backendConfig.brand = { name: 'Acme', logo: '/acme.svg' }
+    const wrapper = mount(AuthForm)
+    const logo = wrapper.find('[data-auth="logo"]')
+    expect(logo.attributes('src')).toBe('/acme.svg')
+    expect(logo.attributes('alt')).toBe('Acme')
+    // Logo first, then the heading — the brand's mark over the page's title.
+    expect(wrapper.find('[data-auth="form"]').element.firstElementChild).toBe(logo.element)
+    // …and nothing is rendered when no logo is configured.
+    backendConfig.brand = { name: 'Acme' }
+    expect(mount(AuthForm).find('[data-auth="logo"]').exists()).toBe(false)
   })
 })

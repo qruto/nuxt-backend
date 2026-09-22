@@ -1,5 +1,7 @@
 import { defineComponent, h } from 'vue'
+import { useHead } from '#imports'
 import { WorkspaceSettings } from '../components/workspace-settings'
+import { useBackendConfig } from '../composables/use-backend-config'
 
 /**
  * The ready-made settings page, registered by the module at `/settings`
@@ -9,6 +11,11 @@ import { WorkspaceSettings } from '../components/workspace-settings'
 export default defineComponent({
   name: 'BackendSettingsPage',
   setup() {
-    return () => h('main', { 'data-settings': 'page' }, [h(WorkspaceSettings)])
+    const title = useBackendConfig().labels.settings?.title ?? 'Settings'
+    useHead({ title })
+    return () => h('main', { 'data-settings': 'page' }, [
+      h('h1', { 'data-settings': 'title' }, title),
+      h(WorkspaceSettings),
+    ])
   },
 })

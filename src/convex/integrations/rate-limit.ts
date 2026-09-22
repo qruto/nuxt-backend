@@ -14,18 +14,40 @@ export interface RateLimiterComponents {
 
 /**
  * The package's default rate limits — `emailOtp`, `emailOtpGlobal`,
- * `billingSync`, `ai`, `aiBudget` and `mcp` — guarding the flows the package
- * itself drives. Most are keyed per email/entity at the call site (e.g.
- * `limit(ctx, 'emailOtp', { key: hash })`); `emailOtpGlobal` is unkeyed.
- * Extend or override any of them by passing your own limits to
- * {@link setupRateLimiter}.
+ * `billingSync`, `ai`, `aiBudget`, `mcp`, `admin`, `invitation` and
+ * `invitationGlobal` — guarding the flows the package itself drives. Keyed per
+ * email/entity/caller at the call site (e.g. `limit(ctx, 'emailOtp', { key:
+ * hash })`); `emailOtpGlobal` and `invitationGlobal` are unkeyed. Extend or override any of them by
+ * passing your own limits to {@link setupRateLimiter}.
  *
  * Deliberately small: `emailOtp` throttles code *sends* (per-code brute force
  * is Better Auth's own `allowedAttempts` guard, and this package is
  * passwordless — there are no password flows to limit), `emailOtpGlobal`
  * caps sends deployment-wide, `billingSync` guards the live provider
- * fan-out, and `ai`/`aiBudget`/`mcp` back the metered-action,
- * credit-budget and agent surfaces.
+ * fan-out, `ai`/`aiBudget`/`mcp` back the metered-action, credit-budget and
+ * agent surfaces, and `admin`/`invitation`/`invitationGlobal` cover the two
+ * signed-in routes where one caller acts on *other* people — see `setupAuth`'s
+ * route limits.
+ *
+ * ## Covering other auth routes
+ *
+ * These names throttle the routes the package wires itself. Every *other*
+ * Better Auth route is throttled by Better Auth's own per-path limiter, which
+ * takes its rules — and a durable storage — straight from your auth options:
+ *
+ * ```ts
+ * setupAuth(components, query, {
+ *   authOptions: {
+ *     rateLimit: {
+ *       storage: 'database',
+ *       customRules: { '/organization/create': { window: 60, max: 5 } },
+ *     },
+ *   },
+ * })
+ * ```
+ *
+ * That limiter counts per IP inside the auth request; the named limits here
+ * count per identity and are enforced before the route runs.
  */
 export const DEFAULT_LIMITS = {
   /** Email OTP / verification sends — 5 per minute per address, small burst allowance. */
@@ -66,6 +88,36 @@ export const DEFAULT_LIMITS = {
    * token-exchange endpoint agents call on the app's behalf.
    */
   mcp: { kind: 'token bucket', rate: 60, period: MINUTE, capacity: 20 },
+  /**
+   * Administrator actions — 30 per minute per administrator, burst 10. Covers
+   * every `/admin/*` route that acts on somebody else (list, create, update,
+   * ban/unban, set role, impersonate, revoke sessions, remove user): each is
+   * one privileged call against another person's account, so the ceiling is
+   * "a human working fast", not a script. `/admin/stop-impersonating` and
+   * `/admin/has-permission` are deliberately exempt — the first is how an
+   * administrator leaves an impersonated session and must never be throttled,
+   * the second is a read-only check the console calls on render.
+   */
+  admin: { kind: 'token bucket', rate: 30, period: MINUTE, capacity: 10 },
+  /**
+   * Workspace invitations — 30 per hour per inviter, burst 10. An hour window
+   * (not a minute) because what matters is the volume one account can send,
+   * not its per-second rate. Per **inviter**: it bounds one account, not a
+   * workspace and not the deployment — {@link DEFAULT_LIMITS.invitationGlobal}
+   * is the ceiling that does.
+   */
+  invitation: { kind: 'token bucket', rate: 30, period: HOUR, capacity: 10 },
+  /**
+   * Invitations across the whole deployment — 200 per hour, a fixed window.
+   * The backstop the per-inviter limit cannot be, and the counterpart of
+   * `emailOtpGlobal` on the package's other outbound-email path: a workspace
+   * with many members, or many accounts acting together, would otherwise put
+   * 30 invitation emails per member per hour on your sending domain. Only
+   * requests that already cleared `invitation` consume this, so one account's
+   * refused excess never eats the shared ceiling. Raise it when a launch
+   * legitimately invites more than that.
+   */
+  invitationGlobal: { kind: 'fixed window', rate: 200, period: HOUR },
 } as const satisfies Record<string, RateLimitConfig>
 
 /**

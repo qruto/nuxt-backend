@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, h, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
+import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 
 // ── Controllable composable state ───────────────────────────────────────────
 
@@ -185,6 +186,9 @@ vi.mock('../../src/runtime/vue/composables/use-sessions', () => ({
   describeUserAgent: (ua?: string | null) => ua ?? 'unknown device',
 }))
 vi.mock('../../src/runtime/vue/composables/use-backend-config', () => ({ useBackendConfig: () => backendConfig }))
+// The shipped pages set the document title through the auto-imported useHead.
+const { useHead } = vi.hoisted(() => ({ useHead: vi.fn() }))
+mockNuxtImport('useHead', () => useHead)
 
 // Runtime config is NOT mocked — the components fall back to the default page
 // paths ('/login', '/pricing') when `public.backend.pages` is absent, which is
@@ -197,6 +201,10 @@ const { WorkspaceSettings } = await import('../../src/runtime/vue/components/wor
 const { ProfileSettings } = await import('../../src/runtime/vue/components/profile-settings')
 const { SecuritySettings } = await import('../../src/runtime/vue/components/security-settings')
 const { safeRedirect } = await import('../../src/runtime/vue/pages/login')
+const { default: PricingPage } = await import('../../src/runtime/vue/pages/pricing')
+const { default: SettingsPage } = await import('../../src/runtime/vue/pages/settings')
+const { default: ProfilePage } = await import('../../src/runtime/vue/pages/profile')
+const { default: SecurityPage } = await import('../../src/runtime/vue/pages/security')
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -206,6 +214,8 @@ beforeEach(() => {
   creditBalance.value = 42
   ordersError.value = null
   ordersHasMore.value = true
+  backendConfig.brand = {}
+  backendConfig.labels = {}
 })
 
 // ── PricingTable ─────────────────────────────────────────────────────────────
@@ -601,5 +611,38 @@ describe('safeRedirect', () => {
     expect(safeRedirect('https://evil.com')).toBeNull()
     expect(safeRedirect(['/a'])).toBeNull()
     expect(safeRedirect(undefined)).toBeNull()
+  })
+})
+
+// ── The shipped pages ────────────────────────────────────────────────────────
+
+describe('the shipped pages', () => {
+  const pages = [
+    { name: 'pricing', Page: PricingPage, family: 'pricing', fallback: 'Pricing', selector: '[data-pricing="header"]' },
+    { name: 'settings', Page: SettingsPage, family: 'settings', fallback: 'Settings', selector: '[data-settings="title"]' },
+    { name: 'profile', Page: ProfilePage, family: 'profile', fallback: 'Profile', selector: '[data-profile="title"]' },
+    { name: 'security', Page: SecurityPage, family: 'security', fallback: 'Security', selector: '[data-security="title"]' },
+  ] as const
+
+  it.each(pages)('/$name renders an h1 and sets the document title', ({ Page, fallback, selector }) => {
+    const wrapper = mount(Page)
+    const heading = wrapper.find(selector)
+    expect(heading.element.tagName).toBe('H1')
+    expect(heading.text()).toBe(fallback)
+    expect(useHead).toHaveBeenCalledWith({ title: fallback })
+  })
+
+  it.each(pages)('/$name takes its heading from appConfig.backend.labels', ({ Page, family, selector }) => {
+    // The second rung of the customization ladder, on the page most apps rename.
+    ;(backendConfig.labels as Record<string, { title: string }>)[family] = { title: 'Renamed' }
+    const wrapper = mount(Page)
+    expect(wrapper.find(selector).text()).toBe('Renamed')
+    expect(useHead).toHaveBeenCalledWith({ title: 'Renamed' })
+  })
+
+  it('an embedded <PricingTable> keeps its h2 under the page heading', () => {
+    // Only the shipped page promotes the title to h1.
+    const wrapper = mount(PricingTable, { props: { title: 'Plans' } })
+    expect(wrapper.find('[data-pricing="header"]').element.tagName).toBe('H2')
   })
 })

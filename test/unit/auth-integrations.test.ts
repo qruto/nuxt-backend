@@ -25,6 +25,24 @@ function otpGuard(runtime: unknown): OtpGuard {
   return options.hooks!.before as unknown as OtpGuard
 }
 
+type RouteGuard = (request: { path: string, context?: unknown }) => Promise<unknown>
+
+/**
+ * The same before-hook, driven as the privileged-route limiter.
+ * `context.session` is pre-set because `getSessionFromCtx` returns a session
+ * already on the context without touching the adapter — which is exactly what
+ * happens in production once the route's own middleware has resolved one.
+ */
+function routeGuard(runtime: unknown): RouteGuard {
+  const options = createBetterAuthOptions(fakeDb, {}, runtime as never)
+  return options.hooks!.before as unknown as RouteGuard
+}
+
+/** A hook context carrying a resolved session for `userId`. */
+function signedIn(userId: string) {
+  return { session: { user: { id: userId }, session: { id: 'session_1' } } }
+}
+
 /** An adapter-backed hook context (what Better Auth hands database hooks). */
 function hookCtx(rows: Record<string, unknown>) {
   return {
@@ -546,5 +564,132 @@ describe('consumer databaseHooks compose with the package hooks', () => {
     })
     expect(options.databaseHooks!.account!.create!.after).toBeTypeOf('function')
     expect(options.databaseHooks!.session!.create!.before).toBeTypeOf('function')
+  })
+})
+
+describe('privileged route rate limits', () => {
+  const admin = { path: '/admin/ban-user', context: signedIn('user_admin') }
+
+  it('an admin route consumes the admin bucket keyed by the administrator', async () => {
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: true }))
+    const ctx = mutationCtx()
+    await routeGuard({ ctx, rateLimiter: { limit } })(admin)
+
+    expect(limit).toHaveBeenCalledExactlyOnceWith(ctx, 'admin', { key: 'user_admin' })
+  })
+
+  it('a closed admin bucket answers TOO_MANY_REQUESTS before the route runs', async () => {
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: false, retryAfter: 1000 }))
+    const guard = routeGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
+
+    await expect(guard(admin)).rejects.toThrow(APIError)
+    await expect(guard(admin)).rejects.toEqual(tooMany)
+  })
+
+  it('every /admin/* route that acts on someone else is covered', async () => {
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: true }))
+    const guard = routeGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
+    const paths = [
+      '/admin/list-users',
+      '/admin/create-user',
+      '/admin/update-user',
+      '/admin/set-role',
+      '/admin/unban-user',
+      '/admin/impersonate-user',
+      '/admin/list-user-sessions',
+      '/admin/revoke-user-session',
+      '/admin/revoke-user-sessions',
+      '/admin/remove-user',
+      '/admin/set-user-password',
+      '/admin/get-user',
+    ]
+    for (const path of paths) await guard({ path, context: signedIn('user_admin') })
+
+    expect(limit.mock.calls.map(call => call[1])).toEqual(paths.map(() => 'admin'))
+  })
+
+  it('leaves the escape hatch and the read-only check alone', async () => {
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: false }))
+    const guard = routeGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
+
+    // Throttling the way *out* of an impersonated session would strand the
+    // administrator inside someone else's account.
+    await guard({ path: '/admin/stop-impersonating', context: signedIn('user_admin') })
+    await guard({ path: '/admin/has-permission', context: signedIn('user_admin') })
+    expect(limit).not.toHaveBeenCalled()
+  })
+
+  it('an invitation consumes the inviter\'s bucket, then the deployment ceiling', async () => {
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: true }))
+    const ctx = mutationCtx()
+    await routeGuard({ ctx, rateLimiter: { limit } })({
+      path: '/organization/invite-member',
+      context: signedIn('user_inviter'),
+    })
+
+    // Per-inviter first, unkeyed ceiling second.
+    expect(limit.mock.calls).toEqual([
+      [ctx, 'invitation', { key: 'user_inviter' }],
+      [ctx, 'invitationGlobal'],
+    ])
+  })
+
+  it('a refused inviter never spends the deployment ceiling', async () => {
+    // The per-caller bucket closes first, so one account's excess cannot eat
+    // the budget every other workspace shares.
+    const limit = vi.fn(async (_ctx: unknown, name: string, _options?: { key?: string }) => ({ ok: name !== 'invitation' }))
+    const guard = routeGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
+
+    await expect(guard({ path: '/organization/invite-member', context: signedIn('user_inviter') })).rejects.toEqual(tooMany)
+    expect(limit.mock.calls.map(call => call[1])).toEqual(['invitation'])
+  })
+
+  it('a closed deployment ceiling stops an inviter who is still within their own budget', async () => {
+    const limit = vi.fn(async (_ctx: unknown, name: string, _options?: { key?: string }) => ({ ok: name !== 'invitationGlobal' }))
+    const guard = routeGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
+
+    await expect(guard({ path: '/organization/invite-member', context: signedIn('user_inviter') }))
+      .rejects.toEqual(expect.objectContaining({ status: 'TOO_MANY_REQUESTS', body: { message: expect.stringContaining('temporarily unavailable') } }))
+    expect(limit.mock.calls.map(call => call[1])).toEqual(['invitation', 'invitationGlobal'])
+  })
+
+  it('an admin route has no deployment ceiling — it spends nobody else\'s resource', async () => {
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: true }))
+    const ctx = mutationCtx()
+    await routeGuard({ ctx, rateLimiter: { limit } })(admin)
+
+    expect(limit).toHaveBeenCalledExactlyOnceWith(ctx, 'admin', { key: 'user_admin' })
+  })
+
+  it('a closed invitation bucket answers TOO_MANY_REQUESTS', async () => {
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: false }))
+    const guard = routeGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
+
+    await expect(guard({ path: '/organization/invite-member', context: signedIn('user_inviter') }))
+      .rejects.toEqual(tooMany)
+  })
+
+  it('ignores unprivileged routes, including the rest of the organization surface', async () => {
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: false }))
+    const guard = routeGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
+
+    for (const path of ['/sign-in/email', '/organization/list', '/organization/set-active', '/passkey/register']) {
+      await guard({ path, context: signedIn('user_1') })
+    }
+    expect(limit).not.toHaveBeenCalled()
+  })
+
+  it('leaves a caller with no session to the route, which answers 401 itself', async () => {
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: false }))
+    const guard = routeGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
+
+    // No bucket is consumed, so an unauthenticated flood cannot poison the
+    // bucket of whoever happens to share a key with it.
+    await guard({ path: '/admin/ban-user', context: {} })
+    expect(limit).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when the deployment configured no rate limiter', async () => {
+    await expect(routeGuard({ ctx: mutationCtx() })(admin)).resolves.toBeUndefined()
   })
 })

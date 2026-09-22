@@ -272,6 +272,7 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     registerAuthMiddleware()
+    registerBillingLinkComponents()
 
     const pagesInfo = registerModulePages(options, resolver, nuxt)
 
@@ -653,6 +654,38 @@ function registerAuthMiddleware(): void {
   const middleware = resolveBaseAuthMiddleware()
   if (!middleware) return
   addRouteMiddleware({ name: 'auth', path: middleware, global: false })
+}
+
+/**
+ * The neutral names of the base module's billing links. `nuxt-convex-module`
+ * registers `<CheckoutLink>` and `<CustomerPortalLink>` (its Vue ports of
+ * `@convex-dev/polar/react`) as global components in every app — provider
+ * names on this package's otherwise brand-neutral surface. Both stay
+ * registered; `<BillingCheckoutLink>` and `<BillingPortalLink>` point at the
+ * same exports, and are what the docs and the scaffold name. Without the base
+ * runtime on disk there is nothing to alias (and the base module's own
+ * registration is missing too).
+ */
+function registerBillingLinkComponents(): void {
+  const components = resolveBasePolarComponents()
+  if (!components) return
+  addComponent({ name: 'BillingCheckoutLink', filePath: components, export: 'CheckoutLink' })
+  addComponent({ name: 'BillingPortalLink', filePath: components, export: 'CustomerPortalLink' })
+}
+
+/**
+ * The base module's `polar/vue` runtime file (its `./polar/vue` export,
+ * resolved with ESM conditions like the server runtime above). `undefined`
+ * when it is not on disk.
+ */
+function resolveBasePolarComponents(): string | undefined {
+  try {
+    const exported = resolveModule('nuxt-convex-module/polar/vue', { url: new URL(import.meta.url) })
+    return existsSync(exported) ? exported : undefined
+  }
+  catch {
+    return undefined
+  }
 }
 
 /**

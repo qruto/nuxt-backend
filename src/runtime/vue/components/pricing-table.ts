@@ -101,6 +101,12 @@ export const PricingTable = defineComponent({
     /** Credit packs. Default: `appConfig.backend.billing.packs`. */
     packs: { type: Array as PropType<CreditPack[]>, default: undefined },
     title: { type: String, default: undefined },
+    /**
+     * The element the title renders as. The shipped `/pricing` page passes
+     * `'h1'` — there the table is the page; embedded in an app page it stays
+     * the `'h2'` default under the page's own heading.
+     */
+    heading: { type: String as PropType<'h1' | 'h2'>, default: 'h2' },
     /** Billing-period suffix rendered after prices. */
     period: { type: String, default: '/mo' },
     showPacks: { type: Boolean, default: true },
@@ -317,7 +323,7 @@ export const PricingTable = defineComponent({
       const ctx = context()
       const title = props.title ?? labels.title
       return h('div', { 'data-pricing': 'table' }, [
-        slots.header?.(ctx) ?? (title ? h('h2', { 'data-pricing': 'header' }, title) : null),
+        slots.header?.(ctx) ?? (title ? h(props.heading, { 'data-pricing': 'header' }, title) : null),
         plans.value.length === 0 || Object.keys(products.value).length === 0
           ? slots.empty?.(ctx) ?? h('p', { 'data-pricing': 'empty' }, 'No plans are configured yet.')
           : h('div', { 'data-pricing': 'plans' }, plans.value.map(planCard)),

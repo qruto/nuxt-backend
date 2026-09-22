@@ -48,8 +48,13 @@
 
   // Source links point at the branch, not the generating commit: the committed
   // reference (`pnpm docs:reference`) would otherwise churn on every commit and
-  // the ci drift gate could never be green.
-  "gitRevision": "main",
+  // the ci drift gate could never be green. Spelled out as a template with git
+  // detection off, so the output does not depend on where it is generated: in
+  // a git worktree `.git` is a file, TypeDoc's detection fails, and every
+  // "Defined in" silently loses its link — which the drift gate then reports as
+  // a change to all 33 pages.
+  "disableGit": true,
+  "sourceLinkTemplate": "https://github.com/qruto/nuxt-backend/blob/main/src/{path}#L{line}",
 
   // Emit Markdown straight into the Docus content tree so it renders with the
   // site theme, sidebar, and search instead of TypeDoc's standalone HTML.

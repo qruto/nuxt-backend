@@ -336,6 +336,28 @@ describe('module registration (defaults)', () => {
     expect(existsSync(paths.tools[0]!)).toBe(true)
   })
 
+  it('aliases the base module\'s billing links under neutral names', async () => {
+    // <BillingCheckoutLink> / <BillingPortalLink> are the base module's
+    // <CheckoutLink> / <CustomerPortalLink> — same file, same exports — so the
+    // documented surface never has to say a provider's name. They live outside
+    // the runtime dir, hence the unfiltered hook here.
+    const components: ExtendedComponents = []
+    await getNuxt().callHook('components:extend', components)
+    const byName = (name: string) => components.find(component => component.pascalName === name)
+    for (const [alias, upstream] of [['BillingCheckoutLink', 'CheckoutLink'], ['BillingPortalLink', 'CustomerPortalLink']] as const) {
+      const component = byName(alias)
+      expect(component, alias).toBeDefined()
+      expect(component!.export).toBe(upstream)
+      expect(component!.filePath).toMatch(/[\\/]nuxt-convex-module[\\/](dist|src)[\\/]runtime[\\/]polar[\\/]vue[\\/]components(\.m?js|\.ts)?$/)
+      expect(existsWithExtension(component!.filePath), component!.filePath).toBe(true)
+    }
+    // The originals stay registered too — apps that already use them keep
+    // working. The base module registers them extensionless; the alias resolves
+    // the file, so compare the two with the extension stripped.
+    const bare = (path?: string) => path?.replace(/\.(m?js|ts)$/, '')
+    expect(bare(byName('CheckoutLink')?.filePath)).toBe(bare(byName('BillingCheckoutLink')?.filePath))
+  })
+
   it('registers every component, each pointing at an existing file', async () => {
     const components = await extendComponents(getNuxt())
     expect(components.map(component => component.pascalName).sort()).toEqual([...COMPONENT_NAMES].sort())
