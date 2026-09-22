@@ -382,6 +382,22 @@ describe('forgetEntity', () => {
   })
 })
 
+describe('syncProducts', () => {
+  // A fresh deployment has never seen a `product.*` webhook, so the reactive
+  // products table is empty and every pricing page renders "no plans" until
+  // this runs once. Every doc names the same caller: `npx convex run`.
+  it('is internal — the ops bootstrap the docs tell you to run, not a client action', () => {
+    expect(billing.functions.syncProducts.isInternal).toBe(true)
+    expect(billing.functions.syncProducts.isAction).toBe(true)
+  })
+
+  it('pulls the provider catalog without asking for an identity', async () => {
+    const ctx = { runQuery: vi.fn(), runMutation: vi.fn(), runAction: vi.fn(), auth: { getUserIdentity: vi.fn(async () => null) } }
+    await expect((billing.functions.syncProducts as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler(ctx, {})).resolves.toBeNull()
+    expect(ctx.auth.getUserIdentity).not.toHaveBeenCalled()
+  })
+})
+
 describe('discounts.create', () => {
   it('returns the created discount id and code', async () => {
     mockDiscountsCreate.mockResolvedValue({ ok: true, value: { id: 'disc_1', code: 'SAVE10' } } as never)

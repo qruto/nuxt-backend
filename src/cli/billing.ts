@@ -306,6 +306,29 @@ export async function syncBillingCatalog(
   }
 
   // --- Products (plans + packs) ---
+  /**
+   * What an existing managed product no longer matches in the catalog: its
+   * display name, or the amount of its single fixed price (the shape this
+   * CLI creates). Returns `undefined` when they agree, or when the live
+   * product has a price shape this cannot compare.
+   */
+  const describeProductDrift = (
+    existing: { name?: string, prices?: Array<Record<string, unknown>> },
+    wanted: Parameters<typeof productsCreate>[1],
+  ): string | undefined => {
+    const parts: string[] = []
+    if (typeof existing.name === 'string' && existing.name !== wanted.name) {
+      parts.push(`named "${existing.name}", catalog says "${wanted.name}"`)
+    }
+    const wantedPrice = (wanted.prices ?? []).find(price => 'priceAmount' in price) as { priceAmount?: number } | undefined
+    const livePrices = (existing.prices ?? []).filter(price => price.amountType === 'fixed')
+    const livePrice = livePrices.length === 1 ? livePrices[0] as { priceAmount?: number } : undefined
+    if (wantedPrice?.priceAmount !== undefined && livePrice?.priceAmount !== undefined && livePrice.priceAmount !== wantedPrice.priceAmount) {
+      parts.push(`priced ${livePrice.priceAmount}, catalog says ${wantedPrice.priceAmount}`)
+    }
+    return parts.length > 0 ? parts.join('; ') : undefined
+  }
+
   const ensureProduct = async (
     key: string,
     benefits: Array<string | null>,
@@ -321,7 +344,15 @@ export async function syncBillingCatalog(
     const existing = managedProducts.find(item => isManaged(item.metadata, key))
     if (existing) {
       ids.products[key] = existing.id
-      log.push({ action: 'exists', kind: 'product', key, id: existing.id })
+      // A product is created once and then kept: the provider's prices are
+      // immutable (an order references one), so a catalog edit to `name` or
+      // `price` cannot be pushed to a product customers may already hold.
+      // Say so rather than logging a bare "exists" — otherwise the catalog
+      // silently stops describing what customers actually see.
+      const drifted = describeProductDrift(existing, create())
+      log.push(drifted
+        ? { action: 'drift', kind: 'product', key, id: existing.id, note: `${drifted} — a created product is never rewritten; rename the catalog key to publish a new one` }
+        : { action: 'exists', kind: 'product', key, id: existing.id })
       return
     }
     if (dryRun) {

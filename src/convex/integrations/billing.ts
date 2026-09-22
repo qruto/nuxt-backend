@@ -21,6 +21,7 @@ import { refundsCreate } from '@polar-sh/sdk/funcs/refundsCreate.js'
 import { subscriptionsUpdate } from '@polar-sh/sdk/funcs/subscriptionsUpdate.js'
 import {
   actionGeneric,
+  internalActionGeneric,
   type Auth,
   type FunctionReference,
   type GenericActionCtx,
@@ -1000,9 +1001,10 @@ export interface Billing {
    * so `useBilling` / `useFeatures` / `useCredits` / `useGifts` work with zero
    * hand-wiring: the reactive current-subscription, feature-gating and
    * credit-balance queries, a `syncEntitlements` action to refresh the cache
-   * after checkout / top-up, a `syncProducts` action to pull the provider's
-   * product catalog into the reactive products table (fresh deployments render
-   * empty pricing until it runs once — webhooks keep it fresh afterwards), and
+   * after checkout / top-up, an **internal** `syncProducts` action to pull
+   * the provider's product catalog into the reactive products table (fresh
+   * deployments render empty pricing until `npx convex run
+   * billing:syncProducts` runs once — webhooks keep it fresh afterwards), and
    * the gift queries/claim action.
    */
   functions: {
@@ -1010,7 +1012,8 @@ export interface Billing {
     getFeatures: ReturnType<typeof queryGeneric>
     getCredits: ReturnType<typeof queryGeneric>
     syncEntitlements: ReturnType<typeof actionGeneric>
-    syncProducts: ReturnType<typeof actionGeneric>
+    /** Ops-only (internal): `npx convex run billing:syncProducts`. */
+    syncProducts: ReturnType<typeof internalActionGeneric>
     getReceivedGifts: ReturnType<typeof queryGeneric>
     claimGift: ReturnType<typeof actionGeneric>
     getWebhookDeliveries: ReturnType<typeof queryGeneric>
@@ -2281,14 +2284,15 @@ export function setupBilling(
   // Pull the provider's product catalog into the component's reactive products
   // table. A fresh deployment has never seen a product webhook, so configured
   // products resolve empty until this runs once (checkout links, pricing pages,
-  // `useBilling().products`). Identity-gated and throttled like
-  // `syncEntitlements` — it fans out to the live provider API.
-  const syncProducts = actionGeneric({
+  // `useBilling().products`). Internal: it is a deployment bootstrap run from
+  // ops — `npx convex run billing:syncProducts`, or `convex deploy`'s
+  // `--preview-run` — and the CLI is the only caller the docs ever name. A
+  // public one would also mean an identity gate and a throttle around a fan-out
+  // to the live provider API; an app that wants a button re-declares it with
+  // its own `admin.action` builder.
+  const syncProducts = internalActionGeneric({
     args: {},
     handler: async (ctx) => {
-      const { userId } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
-      if (!userId) return null
-      await throttle(ctx, userId, 'product syncs')
       await provider.syncProducts(ctx as never)
       return null
     },
