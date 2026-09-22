@@ -32,7 +32,8 @@ const DEFAULT_WORKPOOL_OPTIONS = {
 /**
  * Configure the {@link https://www.convex.dev/components/workflow | Workflow}
  * component for durable, long-running, multi-step functions. Your overrides are
- * merged onto {@link DEFAULT_WORKPOOL_OPTIONS}.
+ * merged onto the package defaults (`DEFAULT_WORKPOOL_OPTIONS`: bounded
+ * parallelism, exponential-backoff retries).
  *
  * @example
  * ```ts

@@ -31,6 +31,12 @@ lost in a mailbox.
 If you cannot use GitHub for any reason, email **razum@qruto.to** with the subject line
 `[nuxt-backend] Security Vulnerability`.
 
+The same contacts are published for scanners and researchers' tooling at
+[`nuxt-backend.dev/.well-known/security.txt`](https://nuxt-backend.dev/.well-known/security.txt)
+([RFC 9116](https://www.rfc-editor.org/rfc/rfc9116)). Its source is
+`website/public/.well-known/security.txt`. The RFC says a file past its `Expires` date is not to
+be trusted, so the date is set a year out and renewed with the release that follows it.
+
 ### What to include
 
 - A description of the vulnerability and its potential impact
@@ -129,8 +135,21 @@ yet. `npx deepsec init` recreates it.
 | `installed-check` | A declared peer range wider than what the dependency itself accepts |
 | `pack` job | Builds the real tarball; `publint` + `attw` lint its shape; a content check refuses sources outside `src/convex`, tests, and any lifecycle script a consumer's package manager would run; a phantom-dependency walk refuses any import a consumer is not guaranteed to have; the tarball is installed with plain npm and with strict pnpm, its Convex component codegen'd from the installed copy, and `npm audit signatures` verifies every dependency's registry signature |
 
-Dependabot owns every dependency PR — npm versions and GitHub Actions digests alike. No
-third-party app holds write access to this repository.
+Dependabot owns every dependency PR — npm versions and GitHub Actions digests alike.
+
+### Installed apps
+
+Four GitHub Apps are installed on the repository, and this is everything each one can write.
+None of them can push to `main`: the `main-pr-gate` ruleset takes pull requests only, and its
+bypass list names no app. None can publish to npm: the only credential npm accepts is the OIDC
+token of a job running in the `Release` environment, from `main`, in `release.yml`.
+
+| App | Can write | Where to see it |
+| --- | --- | --- |
+| [pkg.pr.new](https://github.com/apps/pkg-pr-new) | One comment per pull request; preview builds, published to pkg.pr.new and nowhere else | `preview.yml`, and the comment on any pull request |
+| [CodeRabbit](https://github.com/apps/coderabbitai) | Reviews and comments on pull requests | `.coderabbit.yaml`, and its reviews |
+| Copilot cloud agent | A branch and a pull request, only when a maintainer assigns it an issue or invokes it | its workflow in the Actions tab (`gh workflow list`) |
+| Dependabot | Branches and pull requests for dependency updates | `.github/dependabot.yml`, and its workflow in the Actions tab |
 
 ### CI and release hardening
 

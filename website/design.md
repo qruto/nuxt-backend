@@ -164,10 +164,9 @@ Rules:
 The ramps themselves (`green`, `amber`, `red`, 50…950, hand-picked in OKLCH
 with the chroma held a hair inside sRGB) live in the `@theme static` block of
 [`app.css`](./app.css) and replace Tailwind's stock ramps, so `text-primary`,
-`bg-error/10`, callouts and badges are enamel too. Legacy names (`--accent*`,
-`--on-accent`, `--glow-accent*`, `--raise-accent`, `--info*`, `--xp*`) are thin
-aliases marked `legacy alias — retire after the sweep`: *accent* is the green,
-*info* and the old violet *experimental* marker are amber.
+`bg-error/10`, callouts and badges are enamel too. There is no accent: the old
+`--accent*`, `--info*` and `--xp*` aliases are gone — the green is `--ok*`, and
+what used to be *info* or the violet *experimental* marker is amber, `--warn*`.
 
 ---
 
@@ -398,7 +397,6 @@ they're thin aliases onto the ladder above, so the whole product (homepage, docs
 | --- | --- | --- |
 | `--raise` · `--raise-sm` | `--elev-1` | resting card / control |
 | `--raise-lg` | `--elev-3` | large lifted surface / popover |
-| `--raise-accent` | `--elev-1` + `--glow-ok-soft` | primary (green) control — legacy alias |
 | `--inset` | `--inset-2` | deep well (`panel.well`, tracks) |
 | `--inset-sm` | `--inset-1` | shallow well (input, chip) |
 

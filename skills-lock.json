@@ -1,12 +1,6 @@
 {
   "version": 1,
   "skills": {
-    "agent-email-inbox": {
-      "source": "resend/resend-skills",
-      "sourceType": "github",
-      "skillPath": "skills/agent-email-inbox/SKILL.md",
-      "computedHash": "65ed829de5d962d032c4d0aa96c8557bc48b79e5ba00ee13eb29b3bc881623d2"
-    },
     "animate": {
       "source": "emilkowalski/skills",
       "sourceType": "github",
@@ -456,12 +450,6 @@
       "sourceType": "github",
       "skillPath": ".claude/skills/review-docs/SKILL.md",
       "computedHash": "3aa8d68e58c83182c84c826eccc873961378f710450cec3edc7960a5d1091e4b"
-    },
-    "stitch-design-taste": {
-      "source": "Leonxlnx/taste-skill",
-      "sourceType": "github",
-      "skillPath": "skills/stitch-skill/SKILL.md",
-      "computedHash": "13322f38406cd3abf16ba45e35bdc9b18002d0153a79b4612b97aefc65d5a335"
     },
     "test-nuxt-backend": {
       "source": "./.agents/skills/test-nuxt-backend",

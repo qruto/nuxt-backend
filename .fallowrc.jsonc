@@ -4,9 +4,15 @@
   // Runtime roots no plugin discovers: build/test tooling configs, the scripts
   // pnpm runs by path, the website's Nuxt tree (Docus convention-loads app.css
   // and the layouts/pages/components directories, and `website/backend` is
-  // read by the Convex CLI, not imported), and the vitest fixtures/helpers the
-  // projects reach through setupFiles and aliases (the plugin reads only the
-  // top-level config).
+  // read by the Convex CLI, not imported), and what vitest.config.ts reaches
+  // by path rather than import (the plugin reads only the top-level config):
+  // the `nuxt` project's setup file, the `#imports` alias target, the
+  // fixture app test/module/registration.test.ts boots through `loadNuxt`,
+  // and the `types` project's `*.test-d.ts` files (typecheck.include, which
+  // the plugin does not read).
+  // Named file by file, not by directory — a directory glob would mark a
+  // helper nothing imports as reachable and hide it from the unused-file
+  // check.
   "entry": [
     "build.config.ts",
     "nuxt.config.ts",
@@ -21,10 +27,15 @@
     "website/components/**/*.vue",
     "website/server/**/*.ts",
     "website/backend/**/*.ts",
-    "test/setup/**/*.ts",
-    "test/helpers/**/*.ts",
-    "test/fixtures/**/*.{ts,vue}",
-    "test/fake-watch.ts"
+    "test/setup/websocket.ts",
+    "test/helpers/nuxt-imports.ts",
+    "test/fixtures/registration/nuxt.config.ts",
+    "test/fixtures/registration/app.vue",
+    // The fixture's Convex functions directory: the module resolves it at boot
+    // and scaffolding compares it with the templates, so every file there is
+    // read by path. The one directory entry, and the reason it is one.
+    "test/fixtures/registration/backend/*.ts",
+    "test/types/**/*.test-d.ts"
   ],
 
   // Generated and built output, plus the consumer samples. `**/_generated/**`
@@ -51,10 +62,10 @@
     "src/runtime/server/mcp/tools/*.ts"
   ],
 
-  // The website, the tests and the fixtures import the package by its
+  // The website, the tests and the fixture import the package by its
   // published name, and those subpaths resolve through `dist/` — gitignored,
   // so a fresh checkout has nothing to resolve them to; whether they resolve
-  // locally depends on the current build state. The fixtures' and the
+  // locally depends on the current build state. The fixture's and the
   // website's functions directories import their own `_generated/` codegen,
   // which only `convex dev` writes. Neither finding is about the import.
   "ignoreUnresolvedImports": ["nuxt-backend", "nuxt-backend/**", "./_generated/*"],

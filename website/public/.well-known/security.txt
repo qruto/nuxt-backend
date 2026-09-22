@@ -1,0 +1,9 @@
+# Security contact for nuxt-backend, in the RFC 9116 format. Contacts are in
+# order of preference. Scope, response times and coordinated disclosure are
+# the Policy below.
+Contact: https://github.com/qruto/nuxt-backend/security/advisories/new
+Contact: mailto:razum@qruto.to
+Expires: 2027-09-22T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://nuxt-backend.dev/.well-known/security.txt
+Policy: https://github.com/qruto/nuxt-backend/blob/main/SECURITY.md

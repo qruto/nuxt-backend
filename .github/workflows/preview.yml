@@ -1,4 +1,4 @@
-name: preview
+name: Preview
 
 # Continuous preview releases via pkg.pr.new (StackBlitz): every PR and every
 # push to main gets an installable build —
@@ -16,9 +16,15 @@ on:
     branches:
       - main
 
+# Cancel superseded runs on a pull request, never on main: every commit on main
+# should end up with an installable build and its pkg.pr.new comment. A group
+# holds one running and ONE pending run, and a newer run cancels the pending
+# one even with cancel-in-progress off — so main cannot share a group: each
+# push gets its own (`run_id`), and each pull request one keyed by its number
+# (not `head_ref`, which two forks can share).
 concurrency:
-  group: preview-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

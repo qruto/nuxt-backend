@@ -1,6 +1,8 @@
 {
   "$schema": "https://typedoc.org/schema.json",
-  "plugin": ["typedoc-plugin-markdown", "typedoc-plugin-frontmatter"],
+  // The third plugin resolves {@link} targets inside doc comments TypeDoc copies
+  // from a dependency, through externalSymbolLinkMappings below.
+  "plugin": ["typedoc-plugin-markdown", "typedoc-plugin-frontmatter", "./scripts/typedoc-plugin-upstream-links.mjs"],
   "tsconfig": "tsconfig.typedoc.json",
 
   // One entry point per public module — the sources behind every runtime/convex
@@ -48,13 +50,97 @@
 
   // Source links point at the branch, not the generating commit: the committed
   // reference (`pnpm docs:reference`) would otherwise churn on every commit and
-  // the ci drift gate could never be green. Spelled out as a template with git
-  // detection off, so the output does not depend on where it is generated: in
-  // a git worktree `.git` is a file, TypeDoc's detection fails, and every
-  // "Defined in" silently loses its link — which the drift gate then reports as
-  // a change to all 33 pages.
+  // the ci drift gate could never be green. The URL is spelled out rather than
+  // derived from the git remote, so a fork or a clone with a different remote
+  // name generates the same output. Git detection is off because TypeDoc only
+  // recognises a `.git` *directory*: in a worktree, where `.git` is a file,
+  // it finds no repository and drops every link, so the output would depend
+  // on how the checkout was made. Without git, `{path}` is relative to the
+  // entry points' common directory, `src/`, hence the prefix in the template.
+  // (`basePath` / `displayBasePath` would move that root, but TypeDoc names
+  // modules relative to them too, so every page would gain a `src/` prefix.)
+  // A symbol that lives in a dependency gets a link that climbs out of `src/`
+  // into `node_modules/`, which points at nothing on GitHub —
+  // scripts/typedoc-postprocess.mjs keeps its path text and drops the link.
   "disableGit": true,
   "sourceLinkTemplate": "https://github.com/qruto/nuxt-backend/blob/main/src/{path}#L{line}",
+
+  // The reference is a release gate: a JSDoc `{@link}` that does not resolve
+  // renders as a bare word, and a public type that references an unexported one
+  // documents a name nobody can import. Both fail the build.
+  // `rewrittenLink` is off: it flags links that resolve to a reflection the
+  // markdown router cannot anchor — members of inlined object types, which is
+  // what a dependency's option bag becomes when a function returns it (better-
+  // auth's `trustedOrigins` links to its sibling `baseURL`). Own links avoid
+  // that shape by pointing at the enclosing type instead.
+  "validation": {
+    "invalidLink": true,
+    "notExported": true,
+    "rewrittenLink": false
+  },
+  "treatWarningsAsErrors": true,
+
+  // Helper types a public signature mentions without exporting them: an inline
+  // context shape, an internal validator input, a re-export's constraint. Each
+  // is listed here rather than exported because an export is a public-surface
+  // change (test/nuxt/public-surface.test.ts freezes that surface). TypeDoc
+  // warns when an entry stops being referenced, so the list cannot go stale.
+  "intentionallyNotExported": [
+    "src/convex/catalog.ts:CatalogCustomField",
+    "src/convex/catalog.ts:CatalogTaxBehavior",
+    "src/convex/catalog.ts:CatalogTrial",
+    "src/convex/catalog.ts:CatalogUsagePrice",
+    "src/convex/client/index.ts:AuthRuntime",
+    "src/convex/client/index.ts:DefaultAuthSchema",
+    "src/convex/client/index.ts:OtpPurpose",
+    "src/convex/client/index.ts:PublicAuthComponentRef",
+    "src/convex/components/backend/billing.ts:SettleOutcome",
+    "src/convex/integrations/billing.ts:AnyQueryCtx",
+    "src/convex/integrations/billing.ts:CachedEntitlements",
+    "src/convex/integrations/billing.ts:PolarConfig",
+    "src/convex/integrations/billing.ts:RunQueryCtx",
+    "src/convex/integrations/billing.ts:RunWriteCtx",
+    "src/convex/integrations/email.ts:AnyActionCtx",
+    "src/convex/integrations/email.ts:EventDataFor",
+    "src/convex/integrations/functions.ts:Builders",
+    "src/convex/integrations/mcp.ts:McpExchangeCtx",
+    "src/convex/integrations/mcp.ts:McpRateLimiter",
+    "src/convex/integrations/search.ts:Doc",
+    "src/convex/integrations/search.ts:IndexName",
+    "src/convex/integrations/search.ts:SearchIndexBound",
+    "src/convex/integrations/search.ts:TableInfo",
+    "src/convex/integrations/webhook-guard.ts:WebhookLogRefs",
+    "src/convex/integrations/workflows.ts:SequenceEmailComponents",
+    "src/pages.ts:ModulePagesOptions",
+    "src/runtime/vue/composables/use-billing.ts:EmptyArgs",
+    "src/runtime/vue/composables/use-billing.ts:Query",
+    "src/templates.ts:BackendInstallationMode"
+  ],
+
+  // Upstream symbols that doc comments link to — theirs, inherited through an
+  // inlined type, or ours — resolved to the package's own documentation instead
+  // of a bare name.
+  "externalSymbolLinkMappings": {
+    "convex": {
+      "FunctionReference": "https://docs.convex.dev/api/modules/server#functionreference",
+      "internalMutation": "https://docs.convex.dev/api/modules/server#internalmutation",
+      "internalQuery": "https://docs.convex.dev/api/modules/server#internalquery"
+    },
+    "@convex-dev/better-auth": {
+      "createClient": "https://labs.convex.dev/better-auth",
+      "GetTokenOptions": "https://labs.convex.dev/better-auth"
+    },
+    "nuxt-convex-module": {
+      "convexAuth": "https://nuxt-convex-module.dev/api-reference/reference/better-auth/server"
+    },
+    "@convex-dev/rate-limiter": {
+      "tokenBucketValidator": "https://github.com/get-convex/rate-limiter#define-your-rate-limits",
+      "fixedWindowValidator": "https://github.com/get-convex/rate-limiter#define-your-rate-limits"
+    },
+    "@convex-dev/aggregate": {
+      "DirectAggregate": "https://github.com/get-convex/aggregate#readme"
+    }
+  },
 
   // Emit Markdown straight into the Docus content tree so it renders with the
   // site theme, sidebar, and search instead of TypeDoc's standalone HTML.

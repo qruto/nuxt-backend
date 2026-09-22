@@ -223,6 +223,20 @@ export default defineNuxtConfig({
   // `allowBuilds` entry. Requires Node >= 22.5 at build & runtime (we pin >=24).
   content: {
     experimental: { sqliteConnector: 'native' },
+    build: {
+      markdown: {
+        // The generated reference documents members at h4; the default
+        // depth (2) keeps them out of "On this page".
+        toc: { depth: 3 },
+        highlight: {
+          // Docus's list plus two. `http` for raw request/response samples —
+          // the MCP gate's 401 challenge renders as plain text without it.
+          // `dotenv` so the `.env.local` samples can be fenced as what they
+          // are rather than borrowing `bash`, as they do today.
+          langs: ['bash', 'diff', 'json', 'js', 'ts', 'html', 'css', 'vue', 'shell', 'mdc', 'md', 'yaml', 'http', 'dotenv'],
+        },
+      },
+    },
   },
   // Syntax highlighting — the two house themes defined above. See the note
   // there for why the objects are passed directly and why all three keys are
@@ -385,8 +399,11 @@ export default defineNuxtConfig({
   // llms.txt / llms-full.txt (nuxt-llms, registered by Docus). Docus defaults
   // `domain`/`title`/`description` from the site config, but a missing domain
   // makes the module bail before it registers the routes — so set it here
-  // explicitly. @nuxt/content contributes one section per docs collection;
-  // what's below is what content can't know about.
+  // explicitly. The section map is the one an agent reads first: one section
+  // per area of the docs tree, and the generated TypeDoc pages left out — the
+  // hand-written pages are what an agent should read, the reference is a
+  // lookup surface it can reach by link. The playground section and the notes
+  // are what content can't know about.
   llms: {
     domain: siteUrl,
     title: 'Nuxt backend',
@@ -396,6 +413,13 @@ export default defineNuxtConfig({
       description: 'Every documentation page of nuxt-backend, concatenated as one markdown document.',
     },
     sections: [
+      { title: 'Getting Started', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/getting-started/%' }] },
+      { title: 'Client', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/guide/%' }] },
+      { title: 'Platform', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/platform/%' }] },
+      { title: 'Agents', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/agents/%' }] },
+      { title: 'Developer Experience', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/tooling/%' }] },
+      { title: 'Production', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/production/%' }] },
+      { title: 'API Reference', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/api-reference/%' }, { field: 'path', operator: 'NOT LIKE', value: '/api-reference/reference/%' }] },
       {
         title: 'Live playground',
         description:

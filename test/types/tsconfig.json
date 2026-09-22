@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  // The `types` vitest project's program. It extends the root config (Nuxt's
+  // generated one, the same the `nuxt` project's tests typecheck under) and
+  // points every published subpath at its source, so `import 'nuxt-backend/x'`
+  // in a type test is the source file — the assertions hold before any build
+  // and cannot pass against a stale dist. The map is package.json `exports`
+  // read backwards, and it has to stay complete by hand: a subpath missing
+  // here does not fail, it resolves through the package's own `exports` to
+  // `dist/` and is tested there. The `Tested` list in subpaths.test-d.ts is
+  // the one checked against `exports` — add a subpath to both.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      // `paths` replaces the inherited map wholesale, which is Nuxt's, so the
+      // aliases the sources use are spelled out again: the same targets
+      // .nuxt/tsconfig.json generates for them.
+      "#imports": ["../../.nuxt/imports"],
+      "#app": ["../../node_modules/nuxt/dist/app"],
+      "#app/*": ["../../node_modules/nuxt/dist/app/*"],
+      "#backend/api": ["../../website/backend/_generated/api"],
+      "#backend/_generated/api": ["../../website/backend/_generated/api"],
+      "nuxt-backend": ["../../src/module.ts"],
+      "nuxt-backend/auth": ["../../src/convex/client/index.ts"],
+      "nuxt-backend/authorization": ["../../src/convex/integrations/authorization.ts"],
+      "nuxt-backend/http": ["../../src/convex/integrations/http.ts"],
+      "nuxt-backend/functions": ["../../src/convex/integrations/functions.ts"],
+      "nuxt-backend/app": ["../../src/convex/app.ts"],
+      "nuxt-backend/billing": ["../../src/convex/integrations/billing.ts"],
+      "nuxt-backend/email": ["../../src/convex/integrations/email.ts"],
+      "nuxt-backend/rate-limit": ["../../src/convex/integrations/rate-limit.ts"],
+      "nuxt-backend/migrations": ["../../src/convex/integrations/migrations.ts"],
+      "nuxt-backend/aggregate": ["../../src/convex/integrations/aggregate.ts"],
+      "nuxt-backend/search": ["../../src/convex/integrations/search.ts"],
+      "nuxt-backend/workflows": ["../../src/convex/integrations/workflows.ts"],
+      "nuxt-backend/ai": ["../../src/convex/integrations/ai.ts"],
+      "nuxt-backend/mcp": ["../../src/runtime/server/mcp/index.ts"],
+      "nuxt-backend/component/convex.config": ["../../src/convex/components/backend/convex.config.ts"],
+      "nuxt-backend/component/schema": ["../../src/convex/components/backend/schema.ts"],
+      "nuxt-backend/component/email": ["../../src/convex/components/backend/email.ts"],
+      "nuxt-backend/component/billing": ["../../src/convex/components/backend/billing.ts"],
+      "nuxt-backend/component/gifts": ["../../src/convex/components/backend/gifts.ts"],
+      "nuxt-backend/component/ai": ["../../src/convex/components/backend/ai.ts"],
+      "nuxt-backend/component/webhooks": ["../../src/convex/components/backend/webhooks.ts"],
+      "nuxt-backend/auth.config": ["../../src/convex/auth.config.ts"],
+      "nuxt-backend/test": ["../../src/convex/test.ts"]
+    }
+  },
+  // Nuxt's two declaration entries carry the module augmentations the sources
+  // rely on (`nuxt.options.nitro`, nuxt-security's `security`); the root
+  // config includes them by the same names.
+  "include": ["./**/*.test-d.ts", "../../.nuxt/nuxt.d.ts", "../../.nuxt/nuxt.node.d.ts"],
+  // `exclude` is inherited too, and the root one lists `test/types` — which
+  // would drop this directory's own files and leave tsc checking nothing.
+  "exclude": ["../../node_modules", "../../dist"]
+}

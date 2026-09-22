@@ -264,8 +264,10 @@ instead.
 ## Dependencies
 
 Updates are handled by [Dependabot](./.github/dependabot.yml): npm versions, GitHub Actions digest
-bumps (keeping the `@<sha> # vX.Y.Z` convention), and CVE security updates. No third-party app has
-write access to the repo.
+bumps (keeping the `@<sha> # vX.Y.Z` convention), and CVE security updates. It is one of four
+GitHub Apps installed here — pkg.pr.new, CodeRabbit and the Copilot cloud agent are the others —
+and [SECURITY.md](./SECURITY.md#installed-apps) lists what each can write. None of them can push
+to `main` (the rulesets below) or publish to npm (only a job in the `Release` environment can).
 
 - **Mondays, grouped.** Non-major npm updates come as one PR, Actions bumps as another. Dependabot
   doesn't group majors; run `pnpm bump` for those (`taze major -w`).
