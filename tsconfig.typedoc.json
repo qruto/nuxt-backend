@@ -18,6 +18,7 @@
     "skipLibCheck": true
   },
   "include": [
+    "src/module.ts",
     "src/runtime/**/*.ts",
     "src/convex/**/*.ts"
   ],

@@ -446,7 +446,8 @@ export function formatBillingAmount(amount: number, currency?: string | null): s
 
 /**
  * Build a `checkout(productIds, options)` action over a billing namespace —
- * shared by {@link useBilling} (subscriptions) and {@link useCredits} (top-ups),
+ * shared by {@link useBilling} (subscriptions) and
+ * {@link "runtime/vue/composables/use-credits"!useCredits} (top-ups),
  * since a credit-pack top-up is just a checkout for a one-time product. Must be
  * called during component setup (it sets up the underlying action).
  */
@@ -637,8 +638,9 @@ export interface GiftOptions {
 
 /**
  * Build a `gift(productIds, { recipientEmail, ... })` action over a billing
- * namespace — shared by {@link useBilling} and {@link useCredits} (gifting a
- * credit pack is just a gift checkout of a one-time product). The purchaser
+ * namespace — shared by {@link useBilling} and
+ * {@link "runtime/vue/composables/use-credits"!useCredits} (gifting a credit
+ * pack is just a gift checkout of a one-time product). The purchaser
  * pays; the recipient (by email) receives the entitlement — attached
  * automatically if they have an account, claimable on first sign-in otherwise.
  * Must be called during component setup.

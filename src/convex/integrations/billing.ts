@@ -152,7 +152,7 @@ export type RefundReason
 export interface SubscriptionTarget {
   /**
    * Which subscription to act on. Omit for the account's single live
-   * subscription — required once {@link SetupBillingConfig.multipleSubscriptions}
+   * subscription — required once `multipleSubscriptions` ({@link SetupBillingConfig})
    * is on and an entity can hold several at once.
    */
   subscriptionId?: string
@@ -190,8 +190,8 @@ export interface PauseSubscriptionOptions extends SubscriptionTarget {
 }
 
 /**
- * What `getCurrentSubscription` returns once
- * {@link SetupBillingConfig.multipleSubscriptions} is on: the array leads,
+ * What `getCurrentSubscription` returns once `multipleSubscriptions`
+ * ({@link SetupBillingConfig}) is on: the array leads,
  * because with add-ons there is no single "the" subscription. The primary
  * subscription's own fields are spread alongside it, so single-plan consumers
  * (`subscription.productId`, `subscription.status`) keep reading exactly as
@@ -579,7 +579,7 @@ export interface GiftRecord {
   claimedAt?: number
 }
 
-/** The gift-notification email built by {@link SetupBillingConfig.giftEmail}. */
+/** The gift-notification email built by `giftEmail` ({@link SetupBillingConfig}). */
 export interface GiftEmailMessage {
   to: string
   subject: string
@@ -768,8 +768,7 @@ export type SetupBillingConfig = Omit<PolarConfig, 'getUserInfo' | 'organization
   /**
    * Named credit meters: spend by friendly name (`spendCredits({ meter:
    * 'credits' })`, `useCredits('credits')`) instead of provider meter ids.
-   * Usually supplied via {@link SetupBillingConfig.catalog}; explicit entries
-   * here win.
+   * Usually supplied via `catalog`; explicit entries here win.
    */
   credits?: Record<string, CreditMeterConfig>
   /**
@@ -952,7 +951,7 @@ function noopGuard(secretsConfigured: boolean, bodyLength: number): { rejection:
 
 /**
  * The packaged default gift-notification email — minimal, dependency-free.
- * Used when {@link SetupBillingConfig.giftEmail} is not supplied; exported so
+ * Used when `giftEmail` ({@link SetupBillingConfig}) is not supplied; exported so
  * apps can preview it or build their override on top of it.
  */
 export function defaultGiftEmail(data: GiftEmailData): GiftEmailMessage {
@@ -1033,7 +1032,7 @@ export interface Billing {
     getInvoiceUrl: ReturnType<typeof actionGeneric>
     /** The caller's metered consumption history, read live from the provider. */
     getUsageHistory: ReturnType<typeof actionGeneric>
-    /** Refund an order — admin-tier (see {@link SetupBillingConfig.requireAdmin}). */
+    /** Refund an order — admin-tier (see `requireAdmin` on {@link SetupBillingConfig}). */
     refundOrder: ReturnType<typeof actionGeneric>
   }
   /**
@@ -1152,8 +1151,8 @@ export interface Billing {
    */
   getUsageHistory: (ctx: RunWriteCtx & { auth?: Auth }, options?: UsageHistoryOptions) => Promise<BillingPage<UsageEvent> | null>
   /**
-   * Refund an order — admin-tier, gated by
-   * {@link SetupBillingConfig.requireAdmin}. Omit `amount` to refund whatever
+   * Refund an order — admin-tier, gated by `requireAdmin`
+   * ({@link SetupBillingConfig}). Omit `amount` to refund whatever
    * is still refundable.
    *
    * Credits are **not** reversed here: meter credits come from the provider's

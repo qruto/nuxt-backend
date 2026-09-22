@@ -569,7 +569,7 @@ type McpOidcConfig = NonNullable<NonNullable<Parameters<typeof mcp>[0]>['oidcCon
  */
 export interface McpAuthOptions {
   /**
-   * Extra OAuth scopes on top of {@link BACKEND_MCP_SCOPES} (identity scopes
+   * Extra OAuth scopes on top of the built-in set, `BACKEND_MCP_SCOPES` (identity scopes
    * plus the built-in tool scopes, always offered).
    */
   scopes?: string[]
@@ -775,7 +775,7 @@ const OIDC_IDENTITY_SCOPES = ['openid', 'profile', 'email']
 
 /**
  * The agent OAuth provider: better-auth's mcp plugin over the built-in login
- * page, offering {@link BACKEND_MCP_SCOPES} (plus consumer extras) so agents
+ * page, offering `BACKEND_MCP_SCOPES` (plus consumer extras) so agents
  * can request the built-in tools' scopes at consent time.
  */
 function defaultMcp(options: McpAuthOptions | undefined): DefaultAuthPlugin {

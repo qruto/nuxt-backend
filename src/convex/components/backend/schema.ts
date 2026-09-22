@@ -240,7 +240,7 @@ export const vEntitlementMeter = v.object({
  * final amount came in under the estimate), `release` re-credits on failure.
  * `upsert` subtracts still-active reservations from freshly synced provider
  * state so a webhook refresh can't resurrect balance that is being spent.
- * Entries outlive their usefulness after {@link PENDING_SPEND_TTL_MS}
+ * Entries outlive their usefulness after `PENDING_SPEND_TTL_MS`
  * (crashed flows) and are pruned on every touch — the cache stays a cache,
  * never a ledger.
  */
