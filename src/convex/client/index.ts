@@ -499,14 +499,15 @@ async function assertRouteLimitAllowed<DM extends GenericDataModel>(
   const userId = session?.user?.id
   if (typeof userId !== 'string' || userId === '') return
 
-  const { ok } = await runtime.rateLimiter.limit(ctx, rule.limit, { key: userId })
-  if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: rule.message })
+  // Like the OTP refusals, each carries the limiter's wait (ms) in the body.
+  const { ok, retryAfter } = await runtime.rateLimiter.limit(ctx, rule.limit, { key: userId })
+  if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: rule.message, retryAfter })
 
   // The caller's own budget allowed this one, so it may spend the shared
   // ceiling — never the other way round (see ROUTE_LIMITS).
   if (!rule.global) return
-  const { ok: withinGlobal } = await runtime.rateLimiter.limit(ctx, rule.global.limit)
-  if (!withinGlobal) throw new APIError('TOO_MANY_REQUESTS', { message: rule.global.message })
+  const { ok: withinGlobal, retryAfter: globalRetryAfter } = await runtime.rateLimiter.limit(ctx, rule.global.limit)
+  if (!withinGlobal) throw new APIError('TOO_MANY_REQUESTS', { message: rule.global.message, retryAfter: globalRetryAfter })
 }
 
 /** The package's before-hook, chained ahead of a consumer-supplied one. */

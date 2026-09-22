@@ -686,6 +686,17 @@ describe('privileged route rate limits', () => {
     expect(limit.mock.calls.map(call => call[1])).toEqual(['invitation', 'invitationGlobal'])
   })
 
+  it('route refusals carry the limiter\'s wait as retryAfter (ms), per caller and for the ceiling', async () => {
+    const request = { path: '/organization/invite-member', context: signedIn('user_inviter') }
+    const perCaller = vi.fn(async (_ctx: unknown, name: string) => (name === 'invitation' ? { ok: false, retryAfter: 90_000 } : { ok: true }))
+    const ceiling = vi.fn(async (_ctx: unknown, name: string) => (name === 'invitationGlobal' ? { ok: false, retryAfter: 600_000 } : { ok: true }))
+
+    await expect(routeGuard({ ctx: mutationCtx(), rateLimiter: { limit: perCaller } })(request))
+      .rejects.toEqual(expect.objectContaining({ body: { message: expect.stringContaining('Too many invitations'), retryAfter: 90_000 } }))
+    await expect(routeGuard({ ctx: mutationCtx(), rateLimiter: { limit: ceiling } })(request))
+      .rejects.toEqual(expect.objectContaining({ body: { message: expect.stringContaining('temporarily unavailable'), retryAfter: 600_000 } }))
+  })
+
   it('an admin route has no deployment ceiling — it spends nobody else\'s resource', async () => {
     const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: true }))
     const ctx = mutationCtx()
