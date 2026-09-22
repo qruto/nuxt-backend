@@ -134,16 +134,20 @@ export const BillingHistory = defineComponent({
       ])
     }
 
+    // Busy while a page loads and while an invoice is being fetched.
+    const inFlight = computed(() => orders.isLoading.value || pending.value !== null)
+
     return () => {
       const ctx = context()
       const title = props.title ?? labels.title
       const loadingFirstPage = orders.isLoading.value && orders.orders.value === undefined
-      return h('div', { 'data-history': 'root' }, [
+      // The loading and empty notes are polite statuses, the failure an alert.
+      return h('div', { 'data-history': 'root', 'aria-busy': inFlight.value ? 'true' : undefined }, [
         slots.header?.(ctx) ?? (title ? h('h2', { 'data-history': 'header' }, title) : null),
         loadingFirstPage
-          ? slots.loading?.(ctx) ?? h('p', { 'data-history': 'loading' }, labels.loading ?? 'Loading…')
+          ? slots.loading?.(ctx) ?? h('p', { 'data-history': 'loading', 'role': 'status', 'aria-live': 'polite' }, labels.loading ?? 'Loading…')
           : items.value.length === 0
-            ? slots.empty?.(ctx) ?? h('p', { 'data-history': 'empty' }, labels.empty ?? 'No charges yet.')
+            ? slots.empty?.(ctx) ?? h('p', { 'data-history': 'empty', 'role': 'status', 'aria-live': 'polite' }, labels.empty ?? 'No charges yet.')
             : h('div', { 'data-history': 'list' }, items.value.map(orderRow)),
         pager(),
         orders.error.value

@@ -32,6 +32,11 @@ export interface UseLoginFlowReturn {
   otp: Ref<string>
   pending: Ref<boolean>
   error: Ref<string | null>
+  /**
+   * Seconds until a rate-limited action can be retried, for a countdown next
+   * to `error`; `null` when the last error was not a 429 or gave no wait.
+   */
+  retryAfter: Ref<number | null>
   /** Whether the current email passes `validateEmail`. */
   emailValid: ComputedRef<boolean>
   /** Sign in with a passkey already saved on this device. */
@@ -48,9 +53,33 @@ export interface UseLoginFlowReturn {
   reset: () => void
 }
 
-type AuthResult = { error?: { message?: string } | null }
+/** What the auth client hands back: the response JSON spread next to its status. */
+type AuthResult = { error?: { message?: string, status?: number, retryAfter?: number } | null }
 
 const DEFAULT_EMAIL_MESSAGE = 'Enter a valid email address.'
+
+/**
+ * A 429 on its way up `run()`'s error path, with when to retry. The package's
+ * own limits answer with `retryAfter` in milliseconds in the body, which the
+ * client's fetch spreads into `error` next to `status` — the only wait that
+ * reaches this composable: Better Auth's built-in limiter sets an
+ * `X-Retry-After` header (seconds) that the `{ data, error }` result drops,
+ * so its refusals read as "in a moment".
+ */
+class RateLimitedError extends Error {
+  /** Seconds, rounded up so a countdown never lets the user retry early. */
+  readonly retryAfter: number | null
+
+  constructor(retryAfterMs: number | undefined) {
+    const seconds = typeof retryAfterMs === 'number' && Number.isFinite(retryAfterMs)
+      ? Math.max(1, Math.ceil(retryAfterMs / 1000))
+      : null
+    super(seconds === null
+      ? 'Too many attempts. Try again in a moment.'
+      : `Too many attempts. Try again in ${seconds} ${seconds === 1 ? 'second' : 'seconds'}.`)
+    this.retryAfter = seconds
+  }
+}
 
 function defaultValidateEmail(email: string): boolean {
   const value = email.trim()
@@ -73,6 +102,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   const otp = ref('')
   const pending = ref(false)
   const error = ref<string | null>(null)
+  const retryAfter = ref<number | null>(null)
 
   const validate = (value: string): true | string => {
     const result = (options.validateEmail ?? defaultValidateEmail)(value)
@@ -84,18 +114,28 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   const trimmedEmail = () => email.value.trim()
   const trimmedName = () => name.value.trim()
 
+  const clearError = () => {
+    error.value = null
+    retryAfter.value = null
+  }
+
   function ensureOk(result: unknown, fallback: string) {
     const { error: resultError } = (result ?? {}) as AuthResult
-    if (resultError) throw new Error(resultError.message ?? fallback)
+    if (!resultError) return
+    if (resultError.status === 429) throw new RateLimitedError(resultError.retryAfter)
+    throw new Error(resultError.message ?? fallback)
   }
 
   async function run(fallback: string, action: () => Promise<void>): Promise<void> {
     pending.value = true
-    error.value = null
+    clearError()
     try {
       await action()
     }
     catch (cause) {
+      // The step only advances on success, so a refusal leaves the user where
+      // they were — with the wait beside the message for a countdown.
+      if (cause instanceof RateLimitedError) retryAfter.value = cause.retryAfter
       error.value = cause instanceof Error ? cause.message : fallback
     }
     finally {
@@ -127,7 +167,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   })
 
   const sendCode = async () => {
-    error.value = null
+    clearError()
     if (!requireValidEmail()) return
     await run('Failed to send code', async () => {
       ensureOk(await auth.sendOtp(trimmedEmail()), 'Failed to send code')
@@ -160,7 +200,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   }
 
   const goTo = (target: LoginStep) => {
-    error.value = null
+    clearError()
     otp.value = ''
     step.value = target
   }
@@ -179,6 +219,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
     otp,
     pending,
     error,
+    retryAfter,
     emailValid,
     signInWithPasskey,
     sendCode,

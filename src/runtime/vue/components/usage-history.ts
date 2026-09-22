@@ -101,12 +101,14 @@ export const UsageHistory = defineComponent({
       const ctx = context()
       const title = props.title ?? labels.title
       const loadingFirstPage = usage.isLoading.value && usage.events.value === undefined
-      return h('div', { 'data-usage': 'root' }, [
+      // Busy while a page loads; the loading and empty notes are polite
+      // statuses, the failure an alert.
+      return h('div', { 'data-usage': 'root', 'aria-busy': usage.isLoading.value ? 'true' : undefined }, [
         slots.header?.(ctx) ?? (title ? h('h2', { 'data-usage': 'header' }, title) : null),
         loadingFirstPage
-          ? slots.loading?.(ctx) ?? h('p', { 'data-usage': 'loading' }, labels.loading ?? 'Loading…')
+          ? slots.loading?.(ctx) ?? h('p', { 'data-usage': 'loading', 'role': 'status', 'aria-live': 'polite' }, labels.loading ?? 'Loading…')
           : items.value.length === 0
-            ? slots.empty?.(ctx) ?? h('p', { 'data-usage': 'empty' }, labels.empty ?? 'No usage recorded yet.')
+            ? slots.empty?.(ctx) ?? h('p', { 'data-usage': 'empty', 'role': 'status', 'aria-live': 'polite' }, labels.empty ?? 'No usage recorded yet.')
             : h('div', { 'data-usage': 'list' }, items.value.map(eventRow)),
         pager(),
         usage.error.value

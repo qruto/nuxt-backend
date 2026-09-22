@@ -292,18 +292,28 @@ describe('workspace invitation email', () => {
 describe('OTP rate limits', () => {
   const otp = { email: 'Ada@Example.com', otp: '111111', type: 'sign-in' }
 
-  it('the sender consumes only the per-address bucket, keyed by a digest', async () => {
+  it('the sender consumes no bucket — Better Auth would swallow its refusal', async () => {
+    // The sender runs inside runInBackgroundOrAwait, which catches whatever it
+    // throws and still answers success: a limit here would mean "code sent"
+    // with no code. Every limit lives on the request instead.
     const email = vi.fn(async () => 'email_1')
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: false }))
+    await otpSender(createBetterAuthOptions(fakeDb, {}, { ctx: mutationCtx(), email, rateLimiter: { limit } }))(otp)
+
+    expect(limit).not.toHaveBeenCalled()
+    expect(email).toHaveBeenCalledOnce()
+  })
+
+  it('the request guard consumes the deployment window, then the per-address bucket keyed by a digest', async () => {
     const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: true }))
     const ctx = mutationCtx()
-    await otpSender(createBetterAuthOptions(fakeDb, {}, { ctx, email, rateLimiter: { limit } }))(otp)
+    await otpGuard({ ctx, rateLimiter: { limit } })({ path: '/email-otp/send-verification-otp', body: otp })
 
-    expect(limit.mock.calls.map(call => call[1])).toEqual(['emailOtp'])
-    const key = (limit.mock.calls[0] as unknown[])[2] as { key: string }
+    expect(limit.mock.calls.map(call => call[1])).toEqual(['emailOtpGlobal', 'emailOtp'])
+    const key = (limit.mock.calls[1] as unknown[])[2] as { key: string }
     // SHA-256 hex of the normalized address — never the address itself.
     expect(key.key).toMatch(/^[0-9a-f]{64}$/)
     expect(key.key).not.toContain('ada')
-    expect(email).toHaveBeenCalledOnce()
   })
 
   it('the request guard consumes the deployment-wide window and a closed one answers TOO_MANY_REQUESTS', async () => {
@@ -326,13 +336,36 @@ describe('OTP rate limits', () => {
     expect(limit).not.toHaveBeenCalled()
   })
 
-  it('a closed per-address bucket answers TOO_MANY_REQUESTS without sending', async () => {
-    const email = vi.fn(async () => 'email_1')
+  it('a closed per-address bucket answers TOO_MANY_REQUESTS on the request, before any code exists', async () => {
     const limit = vi.fn(async (_ctx: unknown, name: string) => ({ ok: name === 'emailOtpGlobal' }))
-    const send = otpSender(createBetterAuthOptions(fakeDb, {}, { ctx: mutationCtx(), email, rateLimiter: { limit } }))
+    const guard = otpGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
 
-    await expect(send(otp)).rejects.toEqual(expect.objectContaining({ status: 'TOO_MANY_REQUESTS', body: { message: expect.stringContaining('Too many') } }))
-    expect(email).not.toHaveBeenCalled()
+    await expect(guard({ path: '/email-otp/send-verification-otp', body: otp }))
+      .rejects.toEqual(expect.objectContaining({ status: 'TOO_MANY_REQUESTS', body: { message: expect.stringContaining('Too many') } }))
+  })
+
+  it('both refusals carry the limiter\'s wait as retryAfter (ms) next to the message', async () => {
+    const request = { path: '/email-otp/send-verification-otp', body: otp }
+    const perAddress = vi.fn(async (_ctx: unknown, name: string) => (name === 'emailOtpGlobal' ? { ok: true } : { ok: false, retryAfter: 4200 }))
+    const global = vi.fn(async () => ({ ok: false, retryAfter: 1500 }))
+
+    await expect(otpGuard({ ctx: mutationCtx(), rateLimiter: { limit: perAddress } })(request)).rejects.toEqual(expect.objectContaining({
+      status: 'TOO_MANY_REQUESTS',
+      body: { message: expect.stringContaining('Too many'), retryAfter: 4200 },
+    }))
+    await expect(otpGuard({ ctx: mutationCtx(), rateLimiter: { limit: global } })(request)).rejects.toEqual(expect.objectContaining({
+      status: 'TOO_MANY_REQUESTS',
+      body: { message: expect.stringContaining('unavailable'), retryAfter: 1500 },
+    }))
+  })
+
+  it('a refusal without a wait puts nothing but the message on the wire', async () => {
+    const limit = vi.fn(async () => ({ ok: false }))
+    const guard = otpGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
+    const refusal = await guard({ path: '/email-otp/send-verification-otp', body: otp }).catch((cause: unknown) => cause) as APIError
+    expect(refusal).toBeInstanceOf(APIError)
+    // What better-call serializes: JSON drops an undefined `retryAfter`.
+    expect(JSON.parse(JSON.stringify(refusal.body))).toEqual({ message: expect.any(String) })
   })
 })
 
@@ -651,6 +684,17 @@ describe('privileged route rate limits', () => {
     await expect(guard({ path: '/organization/invite-member', context: signedIn('user_inviter') }))
       .rejects.toEqual(expect.objectContaining({ status: 'TOO_MANY_REQUESTS', body: { message: expect.stringContaining('temporarily unavailable') } }))
     expect(limit.mock.calls.map(call => call[1])).toEqual(['invitation', 'invitationGlobal'])
+  })
+
+  it('route refusals carry the limiter\'s wait as retryAfter (ms), per caller and for the ceiling', async () => {
+    const request = { path: '/organization/invite-member', context: signedIn('user_inviter') }
+    const perCaller = vi.fn(async (_ctx: unknown, name: string) => (name === 'invitation' ? { ok: false, retryAfter: 90_000 } : { ok: true }))
+    const ceiling = vi.fn(async (_ctx: unknown, name: string) => (name === 'invitationGlobal' ? { ok: false, retryAfter: 600_000 } : { ok: true }))
+
+    await expect(routeGuard({ ctx: mutationCtx(), rateLimiter: { limit: perCaller } })(request))
+      .rejects.toEqual(expect.objectContaining({ body: { message: expect.stringContaining('Too many invitations'), retryAfter: 90_000 } }))
+    await expect(routeGuard({ ctx: mutationCtx(), rateLimiter: { limit: ceiling } })(request))
+      .rejects.toEqual(expect.objectContaining({ body: { message: expect.stringContaining('temporarily unavailable'), retryAfter: 600_000 } }))
   })
 
   it('an admin route has no deployment ceiling — it spends nobody else\'s resource', async () => {

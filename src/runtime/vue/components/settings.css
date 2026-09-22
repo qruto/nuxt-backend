@@ -65,11 +65,19 @@
 
 [data-settings='create-form'] {
   display: flex;
+  align-items: flex-end;
   gap: 0.6rem;
 }
 
-[data-settings='input-name'] {
+/* The label owns the row's flexible width; the input stretches inside it and
+   the button lines up with the field, not with the label text. */
+[data-settings='label-create'] {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--bk-muted);
 }
 
 [data-settings='create'] {

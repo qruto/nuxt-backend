@@ -48,10 +48,18 @@ export const GiftClaimBanner = defineComponent({
         return slots.default({ gifts: unclaimed, claim, isClaiming: gifts.isClaiming.value })
       }
       if (unclaimed.length === 0) return null
-      return h('div', { 'data-gift': 'banner' }, unclaimed.map(gift =>
+      // A polite live region: the banner appears when a gift lands, and a
+      // screen reader should hear that without the page moving focus.
+      return h('div', {
+        'data-gift': 'banner',
+        'role': 'status',
+        'aria-live': 'polite',
+        'aria-busy': gifts.isClaiming.value ? 'true' : undefined,
+      }, unclaimed.map(gift =>
         h('div', { 'data-gift': 'item', 'key': gift.id }, [
           h('p', { 'data-gift': 'message' }, [
-            '🎁 ',
+            // Decoration, not content — keep it off the accessible name.
+            h('span', { 'aria-hidden': 'true' }, '🎁 '),
             h('strong', gift.purchaserName || gift.purchaserEmail || 'Someone'),
             ' sent you a gift',
             gift.message ? `: “${gift.message}”` : '.',

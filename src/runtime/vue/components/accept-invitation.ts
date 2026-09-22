@@ -101,22 +101,35 @@ export const AcceptInvitation = defineComponent({
     return () => {
       const slot = slots[state.value]
       if (slot) return slot(slotContext())
-      const wrap = (children: ReturnType<typeof h>[]) => h('div', { 'data-invitation': state.value }, children)
+      // Every message is a live region, so a screen reader hears the outcome
+      // of the load and of each action without the page moving focus: a dead
+      // link or a failure interrupts (`alert`), everything else waits its
+      // turn (`status`). The wrapper reads as busy while the invitation loads
+      // and while an accept/decline is in flight.
+      const busy = state.value === 'loading' || pending.value
+      const wrap = (children: ReturnType<typeof h>[]) =>
+        h('div', { 'data-invitation': state.value, 'aria-busy': busy ? 'true' : undefined }, children)
+      const status = { 'data-invitation': 'message', 'role': 'status', 'aria-live': 'polite' }
+      const alert = { 'data-invitation': 'message', 'role': 'alert' }
       switch (state.value) {
         case 'loading':
-          return wrap([h('p', { 'data-invitation': 'message' }, 'Loading invitation…')])
+          return wrap([h('p', status, 'Loading invitation…')])
         case 'missing':
-          return wrap([h('p', { 'data-invitation': 'message' }, 'This invitation link is invalid or has expired.')])
+          return wrap([h('p', alert, 'This invitation link is invalid or has expired.')])
         case 'error':
-          return wrap([h('p', { 'data-invitation': 'message' }, `Something went wrong: ${errorMessage.value}`)])
+          return wrap([h('p', alert, `Something went wrong: ${errorMessage.value}`)])
         case 'accepted':
-          return wrap([h('p', { 'data-invitation': 'message' }, `You joined ${invitation.value?.organizationName ?? 'the workspace'}. 🎉`)])
+          return wrap([h('p', status, [
+            `You joined ${invitation.value?.organizationName ?? 'the workspace'}. `,
+            // Decoration, not content — keep it off the accessible name.
+            h('span', { 'aria-hidden': 'true' }, '🎉'),
+          ])])
         case 'declined':
-          return wrap([h('p', { 'data-invitation': 'message' }, 'Invitation declined.')])
+          return wrap([h('p', status, 'Invitation declined.')])
         case 'ready': {
           const current = invitation.value!
           return wrap([
-            h('p', { 'data-invitation': 'message' }, [
+            h('p', status, [
               h('strong', current.inviterEmail),
               ` invited you to join `,
               h('strong', current.organizationName),

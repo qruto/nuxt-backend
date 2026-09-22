@@ -359,19 +359,16 @@ function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRunt
         + `Set the required EMAIL_API_KEY env var to send email, or NUXT_BACKEND_LOG_OTP=1 to echo codes to the console during local dev.`,
       )
     }
-    // The deployment-wide backstop and the sign-in gate already ran on the
-    // request (see assertOtpRequestAllowed) — Better Auth swallows whatever
-    // this sender throws, so this is only the belt to that hook's braces:
-    // a gate refusal here still stops the send, then the per-email limit
-    // (a refused address consumes no per-email quota — an invite that
-    // arrives later still works), then the send.
+    // Every limit and the sign-in gate already ran on the request (see
+    // assertOtpRequestAllowed): Better Auth runs this sender through
+    // `runInBackgroundOrAwait`, which catches and logs whatever it throws and
+    // still answers success — so a refusal raised here never reaches the
+    // client. The gate stays as the belt to that hook's braces (it stops the
+    // send even though nobody sees why); a rate limit here would only fail
+    // silently, so there is none.
     if (runtime.canSignIn && data.type === 'sign-in') {
       const isNewUser = runtime.userExists ? !(await runtime.userExists(ctx, data.email)) : true
       await assertCanSignIn(runtime.canSignIn, ctx, { email: data.email, isNewUser, purpose: 'sign-in' })
-    }
-    if (runtime.rateLimiter) {
-      const { ok } = await runtime.rateLimiter.limit(ctx, 'emailOtp', { key: await hashKey(data.email) })
-      if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: 'Too many verification requests. Please try again in a moment.' })
     }
     await runtime.email(ctx, resolveTemplates(runtime).otp(data))
   }
@@ -402,13 +399,24 @@ async function assertOtpRequestAllowed<DM extends GenericDataModel>(
   if (typeof body?.email !== 'string') return
   const ctx = asMutationCtx(runtime?.ctx)
   if (!runtime || !ctx) return
+  // A thrown APIError here is the 429/403 the client sees, and its body is the
+  // response JSON — the client spreads it into the result's `error`, so
+  // `retryAfter` (ms) is how `useLoginFlow` can say when to retry.
   if (runtime.rateLimiter) {
-    const { ok } = await runtime.rateLimiter.limit(ctx, 'emailOtpGlobal')
-    if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: 'Verification codes are temporarily unavailable. Please try again later.' })
+    const { ok, retryAfter } = await runtime.rateLimiter.limit(ctx, 'emailOtpGlobal')
+    if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: 'Verification codes are temporarily unavailable. Please try again later.', retryAfter })
   }
   if (runtime.canSignIn && body.type === 'sign-in') {
     const isNewUser = runtime.userExists ? !(await runtime.userExists(ctx, body.email)) : true
     await assertCanSignIn(runtime.canSignIn, ctx, { email: body.email, isNewUser, purpose: 'sign-in' })
+  }
+  // Per address last, after the gate: a refused address consumes no quota, so
+  // an invitation that arrives later still works. This used to run inside the
+  // sender, where Better Auth swallowed the refusal — the user saw "code sent"
+  // and never got one.
+  if (runtime.rateLimiter) {
+    const { ok, retryAfter } = await runtime.rateLimiter.limit(ctx, 'emailOtp', { key: await hashKey(body.email) })
+    if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: 'Too many verification requests. Please try again in a moment.', retryAfter })
   }
 }
 
@@ -491,14 +499,15 @@ async function assertRouteLimitAllowed<DM extends GenericDataModel>(
   const userId = session?.user?.id
   if (typeof userId !== 'string' || userId === '') return
 
-  const { ok } = await runtime.rateLimiter.limit(ctx, rule.limit, { key: userId })
-  if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: rule.message })
+  // Like the OTP refusals, each carries the limiter's wait (ms) in the body.
+  const { ok, retryAfter } = await runtime.rateLimiter.limit(ctx, rule.limit, { key: userId })
+  if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: rule.message, retryAfter })
 
   // The caller's own budget allowed this one, so it may spend the shared
   // ceiling — never the other way round (see ROUTE_LIMITS).
   if (!rule.global) return
-  const { ok: withinGlobal } = await runtime.rateLimiter.limit(ctx, rule.global.limit)
-  if (!withinGlobal) throw new APIError('TOO_MANY_REQUESTS', { message: rule.global.message })
+  const { ok: withinGlobal, retryAfter: globalRetryAfter } = await runtime.rateLimiter.limit(ctx, rule.global.limit)
+  if (!withinGlobal) throw new APIError('TOO_MANY_REQUESTS', { message: rule.global.message, retryAfter: globalRetryAfter })
 }
 
 /** The package's before-hook, chained ahead of a consumer-supplied one. */

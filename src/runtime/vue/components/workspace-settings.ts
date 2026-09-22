@@ -183,14 +183,18 @@ export const WorkspaceSettings = defineComponent({
             void createWorkspace(newName.value)
           },
         }, [
-          h('input', {
-            'data-settings': 'input-name',
-            'type': 'text',
-            'placeholder': 'New workspace name',
-            'required': true,
-            'value': newName.value,
-            'onInput': (event: Event) => { newName.value = (event.target as HTMLInputElement).value },
-          }),
+          // A real label, not a placeholder: a placeholder disappears on the
+          // first keystroke and is not announced as the field's name.
+          h('label', { 'data-settings': 'label-create' }, [
+            'Workspace name',
+            h('input', {
+              'data-settings': 'input-name',
+              'type': 'text',
+              'required': true,
+              'value': newName.value,
+              'onInput': (event: Event) => { newName.value = (event.target as HTMLInputElement).value },
+            }),
+          ]),
           h('button', {
             'data-settings': 'create',
             'type': 'submit',
@@ -227,7 +231,9 @@ export const WorkspaceSettings = defineComponent({
     const creditsSection = (): VNodeChild => {
       const ctx = context()
       if (slots.credits) return slots.credits(ctx)
-      return h('section', { 'data-settings': 'section-credits' }, [
+      // Busy until the first balance lands — the em dashes below mark the
+      // same moment visually.
+      return h('section', { 'data-settings': 'section-credits', 'aria-busy': credits.balance.value === undefined ? 'true' : undefined }, [
         h('h3', { 'data-settings': 'section-title' }, 'Credits'),
         h('p', { 'data-settings': 'balance' }, `${credits.balance.value ?? '—'} credits`),
         h('p', { 'data-settings': 'usage' }, [
@@ -260,10 +266,17 @@ export const WorkspaceSettings = defineComponent({
       credits: creditsSection,
     }
 
-    return () => h('div', { 'data-settings': 'root' }, [
+    return () => h('div', { 'data-settings': 'root', 'aria-busy': pending.value ? 'true' : undefined }, [
       ...props.sections.map(section => sectionRenderers[section]?.()),
+      // A failure interrupts (`alert` is implicitly assertive); a
+      // confirmation waits its turn as a polite status.
       message.value
-        ? h('p', { 'data-settings': 'message', 'data-tone': message.value.ok ? 'ok' : 'error', 'role': 'status' }, message.value.text)
+        ? h('p', {
+            'data-settings': 'message',
+            'data-tone': message.value.ok ? 'ok' : 'error',
+            'role': message.value.ok ? 'status' : 'alert',
+            'aria-live': message.value.ok ? 'polite' : undefined,
+          }, message.value.text)
         : null,
       slots.footer?.(context()) ?? null,
     ])
