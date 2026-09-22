@@ -294,7 +294,7 @@ const isLogin = computed(() => route.path === '/login')
   color: inherit;
 }
 .logo-mark {
-  /* The coin itself (public/logo.svg): a round matte titanium plaque with the
+  /* The mark itself (public/logo.svg): a machined titanium plate with the
      stack engraved into it and one green status LED — the same mark the docs
      header wears (AppHeaderLogo.vue). The explicit light/dark pair follows the
      site's colour-mode toggle instead of the OS. It carries its own bevel and

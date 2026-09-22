@@ -1,14 +1,15 @@
 {
-  "name": "Nuxt backend",
-  "short_name": "Nuxt backend",
-  "description": "The all-in-one SaaS backend for Nuxt on Convex.",
+  "name": "nuxt-backend",
+  "short_name": "nuxt-backend",
+  "description": "The backend, machined for Nuxt — passwordless auth, workspaces, billing with credits, transactional email, one Nuxt module on one reactive backend.",
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#161616",
-  "background_color": "#e8e8e8",
+  "theme_color": "#26292e",
+  "background_color": "#dcdee2",
   "icons": [
     { "src": "/favicon-96x96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
     { "src": "/web-app-manifest-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/web-app-manifest-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    { "src": "/web-app-manifest-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/web-app-manifest-512x512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
