@@ -914,11 +914,13 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
       organization: { name: string }
       inviter: { user: { name: string, email: string } }
     }) => {
-      // Accept links must open the app (SITE_URL), never the Convex site URL.
-      // An explicit baseURL may be Better Auth's dynamic form ({ allowedHosts,
-      // fallback }), which has no single origin to put in an email: use its
-      // fallback, never the object (a link reading "[object Object]/…").
-      const appUrl = readEnv('SITE_URL') ?? (typeof siteUrl === 'string' ? siteUrl : siteUrl?.fallback) ?? ''
+      // Accept links must open the app (SITE_URL), never the Convex site URL —
+      // so read the explicit baseURL, not `siteUrl`, which falls back to
+      // CONVEX_SITE_URL. That baseURL may be Better Auth's dynamic form
+      // ({ allowedHosts, fallback }), which has no single origin to put in an
+      // email: use its fallback, never the object ("[object Object]/…").
+      const explicitUrl = resolvedAuthOptions.baseURL
+      const appUrl = readEnv('SITE_URL') ?? (typeof explicitUrl === 'string' ? explicitUrl : explicitUrl?.fallback) ?? ''
       const url = `${appUrl}${invitationPath}?id=${data.id}`
       await emailSender!(emailCtx!, templates.invite({
         email: data.email,
