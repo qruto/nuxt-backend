@@ -164,13 +164,13 @@ describe('setupEmail transactional helpers', () => {
 describe('setupEmail marketing helpers', () => {
   it('segments create/list/remove call the Resend SDK and unwrap data', async () => {
     sdk.segments.create.mockResolvedValue({ data: { id: 'seg_1' }, error: null })
-    sdk.segments.list.mockResolvedValue({ data: [{ id: 'seg_1' }], error: null })
+    sdk.segments.list.mockResolvedValue({ data: { object: 'list', data: [{ id: 'seg_1', name: 'Newsletter' }], has_more: false }, error: null })
     sdk.segments.remove.mockResolvedValue({ data: { id: 'seg_1', deleted: true }, error: null })
     const email = setupEmail(component)
 
     expect(await email.segments.create({ name: 'Newsletter' })).toStrictEqual({ id: 'seg_1' })
     expect(sdk.segments.create).toHaveBeenCalledWith({ name: 'Newsletter' })
-    expect(await email.segments.list()).toStrictEqual([{ id: 'seg_1' }])
+    expect(await email.segments.list()).toStrictEqual({ object: 'list', data: [{ id: 'seg_1', name: 'Newsletter' }], has_more: false })
     expect(await email.segments.remove('seg_1')).toStrictEqual({ id: 'seg_1', deleted: true })
     expect(sdk.segments.remove).toHaveBeenCalledWith('seg_1')
   })

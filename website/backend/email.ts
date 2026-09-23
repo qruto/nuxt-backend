@@ -118,7 +118,18 @@ export const addContact = action({
   },
   handler: async (ctx, { segmentId, ...contact }) => {
     await requireUser(ctx)
-    return email.contacts.add({ ...contact, segments: [{ id: segmentId }] })
+    // A contact is one record per address, and the demo reuses the same test
+    // address on every run: when it already exists, creating it again fails,
+    // so put the existing contact in the new segment instead. If that fails
+    // too, the create error is the one worth reporting.
+    try {
+      return await email.contacts.add({ ...contact, segments: [{ id: segmentId }] })
+    }
+    catch (createError) {
+      return email.segments.addContact({ email: contact.email, segmentId }).catch(() => {
+        throw createError
+      })
+    }
   },
 })
 
