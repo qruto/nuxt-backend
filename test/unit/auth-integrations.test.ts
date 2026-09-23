@@ -149,6 +149,22 @@ describe('workspace invitation email', () => {
     }
   })
 
+  it('uses a dynamic baseURL\'s fallback when SITE_URL is unset, never the config object', async () => {
+    // Better Auth's multi-domain form has no single origin; stringifying it
+    // would email a link that starts with "[object Object]".
+    const email = vi.fn(async () => 'email_1')
+    const options = createBetterAuthOptions(
+      fakeDb,
+      { authOptions: { baseURL: { allowedHosts: ['app.example.com', '*.vercel.app'], fallback: 'https://app.example.com' } } },
+      { ctx: mutationCtx(), email },
+    )
+
+    await orgPluginOptions(options)!.sendInvitationEmail!(invitationData)
+    const message = (email.mock.calls[0] as unknown[])[1] as { text: string }
+    expect(message.text).toContain('https://app.example.com/accept-invitation?id=inv-1')
+    expect(message.text).not.toContain('[object Object]')
+  })
+
   it('honors a custom invitationPath and the emailTemplates.invite override', async () => {
     vi.stubEnv('SITE_URL', 'https://app.example.com')
     try {

@@ -57,7 +57,7 @@ export interface AuthEmailMessage {
 /**
  * Sends an auth-related email. By default this is wired automatically to the
  * `backend` component's email module (`components.backend.email.send`), so
- * auth OTP / verification / reset email works out of the box — but any
+ * auth OTP and verification email work out of the box — but any
  * compatible function can be supplied via `integrations.email` to override it.
  */
 export type AuthEmailSender = (ctx: AuthMutationCtx, message: AuthEmailMessage) => Promise<unknown>
@@ -162,7 +162,7 @@ export type CanSignIn<DM extends GenericDataModel = GenericDataModel>
  * Cross-component wiring for Better Auth. All optional: with no `email`
  * transport, OTP requests fail loudly (set `NUXT_BACKEND_LOG_OTP=1` to echo
  * codes to the console during local dev instead). Provide an `email` transport
- * to deliver OTP / verification / reset emails, a `rateLimiter` to throttle
+ * to deliver OTP and verification emails, a `rateLimiter` to throttle
  * OTP sends, `canSignIn` to gate who may sign in or sign up, and
  * `onUserCreated` / `onUserDeleted` to run side effects (durable workflows,
  * analytics, erasure) around the account lifecycle.
@@ -915,7 +915,10 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
       inviter: { user: { name: string, email: string } }
     }) => {
       // Accept links must open the app (SITE_URL), never the Convex site URL.
-      const appUrl = readEnv('SITE_URL') ?? siteUrl ?? ''
+      // An explicit baseURL may be Better Auth's dynamic form ({ allowedHosts,
+      // fallback }), which has no single origin to put in an email: use its
+      // fallback, never the object (a link reading "[object Object]/…").
+      const appUrl = readEnv('SITE_URL') ?? (typeof siteUrl === 'string' ? siteUrl : siteUrl?.fallback) ?? ''
       const url = `${appUrl}${invitationPath}?id=${data.id}`
       await emailSender!(emailCtx!, templates.invite({
         email: data.email,
