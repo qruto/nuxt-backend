@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APIError } from 'better-auth/api'
 import { createAuthOptions, createBetterAuthOptions } from '../../src/convex/client'
 
@@ -110,6 +110,16 @@ describe('Better Auth cross-component integrations', () => {
 })
 
 describe('workspace invitation email', () => {
+  // The link origin is read from the environment: start every test from none,
+  // so a SITE_URL or CONVEX_SITE_URL set on the runner can't decide the result.
+  beforeEach(() => {
+    vi.stubEnv('SITE_URL', undefined)
+    vi.stubEnv('CONVEX_SITE_URL', undefined)
+  })
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   function orgPluginOptions(options: ReturnType<typeof createBetterAuthOptions>) {
     const plugin = options.plugins?.find(entry => entry.id === 'organization') as
       | { options?: { sendInvitationEmail?: (data: unknown) => Promise<void> } }
@@ -147,6 +157,44 @@ describe('workspace invitation email', () => {
     finally {
       vi.unstubAllEnvs()
     }
+  })
+
+  it('uses a dynamic baseURL\'s fallback when SITE_URL is unset, never the config object', async () => {
+    // Better Auth's multi-domain form has no single origin; stringifying it
+    // would email a link that starts with "[object Object]".
+    const email = vi.fn(async () => 'email_1')
+    const options = createBetterAuthOptions(
+      fakeDb,
+      { authOptions: { baseURL: { allowedHosts: ['app.example.com', '*.vercel.app'], fallback: 'https://app.example.com' } } },
+      { ctx: mutationCtx(), email },
+    )
+
+    await orgPluginOptions(options)!.sendInvitationEmail!(invitationData)
+    const message = (email.mock.calls[0] as unknown[])[1] as { text: string }
+    expect(message.text).toContain('https://app.example.com/accept-invitation?id=inv-1')
+    expect(message.text).not.toContain('[object Object]')
+  })
+
+  it('uses an explicit string baseURL when SITE_URL is unset', async () => {
+    const email = vi.fn(async () => 'email_1')
+    const options = createBetterAuthOptions(fakeDb, { authOptions: { baseURL: 'https://app.example.com' } }, { ctx: mutationCtx(), email })
+
+    await orgPluginOptions(options)!.sendInvitationEmail!(invitationData)
+    const message = (email.mock.calls[0] as unknown[])[1] as { text: string }
+    expect(message.text).toContain('https://app.example.com/accept-invitation?id=inv-1')
+  })
+
+  it('never points the accept link at the Convex site URL', async () => {
+    // CONVEX_SITE_URL is Better Auth's own fallback origin (the proxied API),
+    // not the app: the invitation page is not served there.
+    vi.stubEnv('CONVEX_SITE_URL', 'https://happy-otter-123.convex.site')
+    const email = vi.fn(async () => 'email_1')
+    const options = createBetterAuthOptions(fakeDb, {}, { ctx: mutationCtx(), email })
+
+    await orgPluginOptions(options)!.sendInvitationEmail!(invitationData)
+    const message = (email.mock.calls[0] as unknown[])[1] as { text: string }
+    expect(message.text).not.toContain('convex.site')
+    expect(message.text).toContain('/accept-invitation?id=inv-1')
   })
 
   it('honors a custom invitationPath and the emailTemplates.invite override', async () => {

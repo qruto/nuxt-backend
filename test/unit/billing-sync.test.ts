@@ -102,6 +102,27 @@ describe('syncBillingCatalog', () => {
     expect(Object.keys(result.ids.products)).toEqual(['pro', 'credits500'])
   })
 
+  it('a failed list request surfaces as an Error with the provider\'s detail', async () => {
+    // The SDK returns its error as a value; a bare object thrown would print as
+    // "[object Object]" with no stack.
+    vi.mocked(metersList).mockResolvedValue({ ok: false, error: { status: 401, detail: 'invalid token' } } as never)
+    const failure = await syncBillingCatalog(catalog, options, fakeClient).catch((cause: unknown) => cause)
+    expect(failure).toBeInstanceOf(Error)
+    expect((failure as Error).message).toBe('[nuxt-backend] billing sync: list request failed: {"status":401,"detail":"invalid token"}')
+    expect((failure as Error).cause).toEqual({ status: 401, detail: 'invalid token' })
+  })
+
+  it.each([
+    ['an Error, as-is', new Error('socket hang up'), 'socket hang up'],
+    ['no error value, with the default message', undefined, '[nuxt-backend] billing sync: list request failed'],
+    ['a string, as its detail', 'rate limited', '[nuxt-backend] billing sync: list request failed: rate limited'],
+  ])('a failed list request surfaces %s', async (_label, error, message) => {
+    vi.mocked(metersList).mockResolvedValue({ ok: false, error } as never)
+    const failure = await syncBillingCatalog(catalog, options, fakeClient).catch((cause: unknown) => cause)
+    expect(failure).toBeInstanceOf(Error)
+    expect((failure as Error).message).toBe(message)
+  })
+
   it('is idempotent: a second run finds everything by tag and creates nothing', async () => {
     vi.mocked(metersList).mockResolvedValue(page([{ id: 'mtr_1', metadata: { managedBy: 'nuxt-backend', key: 'credits' } }]) as never)
     vi.mocked(benefitsList).mockResolvedValue(page([

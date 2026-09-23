@@ -3,8 +3,8 @@ import { v } from 'convex/values'
 import { components } from './_generated/api'
 import { mutation, query } from './_generated/server'
 
-// Application rate limiting. Pre-seeded with the package defaults (emailOtp,
-// billingSync, ai, mcp) — add your own named limits here.
+// Application rate limiting. Pre-seeded with the package defaults
+// (DEFAULT_LIMITS in nuxt-backend/rate-limit) — add your own named limits here.
 export const rateLimiter = setupRateLimiter(components, {
   // Demo limit for the showcase: a token bucket of 5 pings per minute per user.
   demoPing: { kind: 'token bucket', rate: 5, period: MINUTE, capacity: 5 },
