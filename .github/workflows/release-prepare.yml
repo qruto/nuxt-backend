@@ -88,7 +88,7 @@ jobs:
       # reviewed. `require-lockfile` refuses the one install pnpm's frozen CI
       # mode still allows — one with no lockfile at all.
       - name: Install pnpm, node & dependencies
-        uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
         with:
           runtime: node@lts
           cache: false
