@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APIError } from 'better-auth/api'
 import { createAuthOptions, createBetterAuthOptions } from '../../src/convex/client'
 
@@ -110,6 +110,16 @@ describe('Better Auth cross-component integrations', () => {
 })
 
 describe('workspace invitation email', () => {
+  // The link origin is read from the environment: start every test from none,
+  // so a SITE_URL or CONVEX_SITE_URL set on the runner can't decide the result.
+  beforeEach(() => {
+    vi.stubEnv('SITE_URL', undefined)
+    vi.stubEnv('CONVEX_SITE_URL', undefined)
+  })
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   function orgPluginOptions(options: ReturnType<typeof createBetterAuthOptions>) {
     const plugin = options.plugins?.find(entry => entry.id === 'organization') as
       | { options?: { sendInvitationEmail?: (data: unknown) => Promise<void> } }
@@ -178,18 +188,13 @@ describe('workspace invitation email', () => {
     // CONVEX_SITE_URL is Better Auth's own fallback origin (the proxied API),
     // not the app: the invitation page is not served there.
     vi.stubEnv('CONVEX_SITE_URL', 'https://happy-otter-123.convex.site')
-    try {
-      const email = vi.fn(async () => 'email_1')
-      const options = createBetterAuthOptions(fakeDb, {}, { ctx: mutationCtx(), email })
+    const email = vi.fn(async () => 'email_1')
+    const options = createBetterAuthOptions(fakeDb, {}, { ctx: mutationCtx(), email })
 
-      await orgPluginOptions(options)!.sendInvitationEmail!(invitationData)
-      const message = (email.mock.calls[0] as unknown[])[1] as { text: string }
-      expect(message.text).not.toContain('convex.site')
-      expect(message.text).toContain('/accept-invitation?id=inv-1')
-    }
-    finally {
-      vi.unstubAllEnvs()
-    }
+    await orgPluginOptions(options)!.sendInvitationEmail!(invitationData)
+    const message = (email.mock.calls[0] as unknown[])[1] as { text: string }
+    expect(message.text).not.toContain('convex.site')
+    expect(message.text).toContain('/accept-invitation?id=inv-1')
   })
 
   it('honors a custom invitationPath and the emailTemplates.invite override', async () => {
