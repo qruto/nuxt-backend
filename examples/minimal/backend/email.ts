@@ -6,7 +6,7 @@ import { action, internalAction } from './_generated/server'
 // Transactional + marketing email over the backend component's email module.
 // Delivery uses the EMAIL_* env vars (optional — sends no-op until
 // EMAIL_API_KEY is set). React to delivery events with
-// `setupEmail(components, { events: { onBounced: async (ctx, event) => { ... } } })`.
+// `setupEmail(components, { events: { 'email.bounced': async (ctx, event) => { ... } } })`.
 export const email = setupEmail(components)
 
 // Reactive delivery-status query behind the `useEmailStatus` composable.

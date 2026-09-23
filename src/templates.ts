@@ -302,7 +302,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // Transactional + marketing email over the backend component's email module.
     // Delivery uses the EMAIL_* env vars (optional — sends no-op until
     // EMAIL_API_KEY is set). React to delivery events with
-    // \`setupEmail(components, { events: { onBounced: async (ctx, event) => { ... } } })\`.
+    // \`setupEmail(components, { events: { 'email.bounced': async (ctx, event) => { ... } } })\`.
     export const email = setupEmail(components)
 
     // Reactive delivery-status query behind the \`useEmailStatus\` composable.
@@ -347,8 +347,8 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     import { setupRateLimiter } from 'nuxt-backend/rate-limit'
     import { components } from './_generated/api'
 
-    // Application rate limiting. Pre-seeded with the package defaults (emailOtp,
-    // billingSync, ai, mcp) — add your own named limits here.
+    // Application rate limiting. Pre-seeded with the package defaults
+    // (DEFAULT_LIMITS in nuxt-backend/rate-limit) — add your own named limits here.
     export const rateLimiter = setupRateLimiter(components)
     ` + '\n',
 
