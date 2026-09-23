@@ -589,13 +589,24 @@ function customFieldCreatePayload(key: string, field: CatalogCustomField): Param
 }
 
 /** Drain a paginated list endpoint (`{ result: { items, pagination } }`). */
+/**
+ * The SDK hands back its error as a value, not always an `Error`: wrap it so
+ * the CLI prints a message and a stack, and keep the original as `cause`.
+ */
+function asError(value: unknown, message: string): Error {
+  if (value instanceof Error) return value
+  if (value === undefined) return new Error(message)
+  const detail = typeof value === 'string' ? value : JSON.stringify(value)
+  return new Error(`${message}: ${detail}`, { cause: value })
+}
+
 async function listAllPages<T extends { id: string, metadata?: unknown }>(
   fetchPage: (page: number) => Promise<{ ok: boolean, error?: unknown, value?: { result: { items: T[], pagination: { maxPage: number } } } }>,
 ): Promise<T[]> {
   const items: T[] = []
   for (let page = 1; ; page++) {
     const result = await fetchPage(page)
-    if (!result.ok || !result.value) throw result.error ?? new Error('[nuxt-backend] billing sync: list request failed')
+    if (!result.ok || !result.value) throw asError(result.error, '[nuxt-backend] billing sync: list request failed')
     items.push(...result.value.result.items)
     if (page >= result.value.result.pagination.maxPage) break
   }
