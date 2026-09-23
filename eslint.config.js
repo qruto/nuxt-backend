@@ -22,19 +22,13 @@ const typeAwareRules = /** @satisfies {import('eslint').Linter.RulesRecord} */ (
   // `String(value)` / template interpolation on something whose `toString` is
   // `Object.prototype`'s — ships "[object Object]" into a log line, a header
   // or a URL.
-  '@typescript-eslint/no-base-to-string': 'warn',
+  '@typescript-eslint/no-base-to-string': 'error',
   // Throwing a non-Error loses the stack, and `instanceof Error` guards
   // downstream stop matching.
-  '@typescript-eslint/only-throw-error': 'warn',
+  '@typescript-eslint/only-throw-error': 'error',
   // Calling something upstream has marked `@deprecated`. It is the earliest
   // warning that an integration has fallen behind the component it wraps.
-  '@typescript-eslint/no-deprecated': 'warn',
-  // The last three are `warn` for now: each has findings in `src/` that need a
-  // code change, not a lint exemption — the invite-link `siteUrl` (client),
-  // the SDK error rethrown from the CLI's billing sync, and the email
-  // integration's `audiences` calls that Resend has deprecated for segments.
-  // Promote each to `error` as its findings are fixed; none of them should
-  // stay `warn` past the first stable release.
+  '@typescript-eslint/no-deprecated': 'error',
 })
 
 // Run `npx @eslint/config-inspector` to inspect the resolved config interactively
