@@ -28,21 +28,21 @@ export const send = action({
   },
 })
 
-// Marketing (audiences / contacts / broadcasts) via the provider SDK. These
+// Marketing (segments / contacts / broadcasts) via the provider SDK. These
 // are privileged — a public action would be an open spam/phishing relay on
 // your verified domain — so they ship as internalActions: run them from ops
 // or your own server code. To expose one to an admin UI, re-declare it with
 // the `admin.action` builder from ./functions instead of internalAction.
-export const createAudience = internalAction({
+export const createSegment = internalAction({
   args: { name: v.string() },
-  handler: async (ctx, { name }) => email.audiences.create({ name }),
+  handler: async (ctx, { name }) => email.segments.create({ name }),
 })
 export const addContact = internalAction({
-  args: { audienceId: v.string(), email: v.string(), firstName: v.optional(v.string()), lastName: v.optional(v.string()) },
-  handler: async (ctx, args) => email.contacts.add(args),
+  args: { segmentId: v.string(), email: v.string(), firstName: v.optional(v.string()), lastName: v.optional(v.string()) },
+  handler: async (ctx, { segmentId, ...contact }) => email.contacts.add({ ...contact, segments: [{ id: segmentId }] }),
 })
 export const createBroadcast = internalAction({
-  args: { audienceId: v.string(), from: v.string(), subject: v.string(), html: v.string() },
+  args: { segmentId: v.string(), from: v.string(), subject: v.string(), html: v.string() },
   handler: async (ctx, args) => email.broadcasts.create(args),
 })
 export const sendBroadcast = internalAction({

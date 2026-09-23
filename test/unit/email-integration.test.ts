@@ -3,15 +3,15 @@ import { Resend } from 'resend'
 import { setupEmail } from '../../src/convex/integrations/email'
 import type { EmailComponents } from '../../src/convex/integrations/email'
 
-// Mock the marketing Resend SDK. The factory's audience/contact/broadcast
-// objects are stable across `new Resend()` calls, so `new Resend().audiences.*`
+// Mock the marketing Resend SDK. The factory's segment/contact/broadcast
+// objects are stable across `new Resend()` calls, so `new Resend().segments.*`
 // in a test is the very spy the helper invokes internally.
 vi.mock('resend', () => {
-  const audiences = { create: vi.fn(), list: vi.fn(), remove: vi.fn() }
-  const contacts = { create: vi.fn(), list: vi.fn(), update: vi.fn(), remove: vi.fn() }
+  const segments = { create: vi.fn(), list: vi.fn(), remove: vi.fn() }
+  const contacts = { create: vi.fn(), list: vi.fn(), update: vi.fn(), remove: vi.fn(), segments: { add: vi.fn(), remove: vi.fn() } }
   const broadcasts = { create: vi.fn(), send: vi.fn() }
   class Resend {
-    audiences = audiences
+    segments = segments
     contacts = contacts
     broadcasts = broadcasts
   }
@@ -47,8 +47,14 @@ function makeCtx() {
 
 // The shared marketing SDK instance (same object every `new Resend()`).
 type MarketingSdk = {
-  audiences: { create: ReturnType<typeof vi.fn>, list: ReturnType<typeof vi.fn>, remove: ReturnType<typeof vi.fn> }
-  contacts: { create: ReturnType<typeof vi.fn>, list: ReturnType<typeof vi.fn>, update: ReturnType<typeof vi.fn>, remove: ReturnType<typeof vi.fn> }
+  segments: { create: ReturnType<typeof vi.fn>, list: ReturnType<typeof vi.fn>, remove: ReturnType<typeof vi.fn> }
+  contacts: {
+    create: ReturnType<typeof vi.fn>
+    list: ReturnType<typeof vi.fn>
+    update: ReturnType<typeof vi.fn>
+    remove: ReturnType<typeof vi.fn>
+    segments: { add: ReturnType<typeof vi.fn>, remove: ReturnType<typeof vi.fn> }
+  }
   broadcasts: { create: ReturnType<typeof vi.fn>, send: ReturnType<typeof vi.fn> }
 }
 const sdk = new (Resend as unknown as new () => MarketingSdk)()
@@ -156,17 +162,28 @@ describe('setupEmail transactional helpers', () => {
 })
 
 describe('setupEmail marketing helpers', () => {
-  it('audiences create/list/remove call the Resend SDK and unwrap data', async () => {
-    sdk.audiences.create.mockResolvedValue({ data: { id: 'aud_1' }, error: null })
-    sdk.audiences.list.mockResolvedValue({ data: [{ id: 'aud_1' }], error: null })
-    sdk.audiences.remove.mockResolvedValue({ data: { id: 'aud_1', deleted: true }, error: null })
+  it('segments create/list/remove call the Resend SDK and unwrap data', async () => {
+    sdk.segments.create.mockResolvedValue({ data: { id: 'seg_1' }, error: null })
+    sdk.segments.list.mockResolvedValue({ data: [{ id: 'seg_1' }], error: null })
+    sdk.segments.remove.mockResolvedValue({ data: { id: 'seg_1', deleted: true }, error: null })
     const email = setupEmail(component)
 
-    expect(await email.audiences.create({ name: 'Newsletter' })).toStrictEqual({ id: 'aud_1' })
-    expect(sdk.audiences.create).toHaveBeenCalledWith({ name: 'Newsletter' })
-    expect(await email.audiences.list()).toStrictEqual([{ id: 'aud_1' }])
-    expect(await email.audiences.remove('aud_1')).toStrictEqual({ id: 'aud_1', deleted: true })
-    expect(sdk.audiences.remove).toHaveBeenCalledWith('aud_1')
+    expect(await email.segments.create({ name: 'Newsletter' })).toStrictEqual({ id: 'seg_1' })
+    expect(sdk.segments.create).toHaveBeenCalledWith({ name: 'Newsletter' })
+    expect(await email.segments.list()).toStrictEqual([{ id: 'seg_1' }])
+    expect(await email.segments.remove('seg_1')).toStrictEqual({ id: 'seg_1', deleted: true })
+    expect(sdk.segments.remove).toHaveBeenCalledWith('seg_1')
+  })
+
+  it('segments addContact/removeContact move an existing contact in and out', async () => {
+    sdk.contacts.segments.add.mockResolvedValue({ data: { id: 'seg_1' }, error: null })
+    sdk.contacts.segments.remove.mockResolvedValue({ data: { id: 'seg_1', deleted: true }, error: null })
+    const email = setupEmail(component)
+
+    expect(await email.segments.addContact({ email: 'a@b.com', segmentId: 'seg_1' })).toStrictEqual({ id: 'seg_1' })
+    expect(sdk.contacts.segments.add).toHaveBeenCalledWith({ email: 'a@b.com', segmentId: 'seg_1' })
+    await email.segments.removeContact({ contactId: 'c1', segmentId: 'seg_1' })
+    expect(sdk.contacts.segments.remove).toHaveBeenCalledWith({ contactId: 'c1', segmentId: 'seg_1' })
   })
 
   it('contacts add/list/update/remove proxy to the SDK', async () => {
@@ -176,13 +193,13 @@ describe('setupEmail marketing helpers', () => {
     sdk.contacts.remove.mockResolvedValue({ data: { id: 'c1', deleted: true }, error: null })
     const email = setupEmail(component)
 
-    await email.contacts.add({ email: 'a@b.com', audienceId: 'aud_1' })
-    expect(sdk.contacts.create).toHaveBeenCalledWith({ email: 'a@b.com', audienceId: 'aud_1' })
-    await email.contacts.list({ audienceId: 'aud_1' })
-    expect(sdk.contacts.list).toHaveBeenCalledWith({ audienceId: 'aud_1' })
-    await email.contacts.update({ id: 'c1', audienceId: 'aud_1', unsubscribed: true })
+    await email.contacts.add({ email: 'a@b.com', segments: [{ id: 'seg_1' }] })
+    expect(sdk.contacts.create).toHaveBeenCalledWith({ email: 'a@b.com', segments: [{ id: 'seg_1' }] })
+    await email.contacts.list({ segmentId: 'seg_1' })
+    expect(sdk.contacts.list).toHaveBeenCalledWith({ segmentId: 'seg_1' })
+    await email.contacts.update({ id: 'c1', unsubscribed: true })
     expect(sdk.contacts.update).toHaveBeenCalled()
-    await email.contacts.remove({ id: 'c1', audienceId: 'aud_1' })
+    await email.contacts.remove('c1')
     expect(sdk.contacts.remove).toHaveBeenCalled()
   })
 
@@ -192,17 +209,17 @@ describe('setupEmail marketing helpers', () => {
     const email = setupEmail(component)
 
     // Cast: the SDK's CreateBroadcastOptions requires render fields we don't exercise here.
-    await email.broadcasts.create({ audienceId: 'aud_1', from: 'x@y.com', subject: 'Hi' } as never)
+    await email.broadcasts.create({ segmentId: 'seg_1', from: 'x@y.com', subject: 'Hi' } as never)
     expect(sdk.broadcasts.create).toHaveBeenCalled()
     await email.broadcasts.send('b1', { scheduledAt: 'in 1 hour' })
     expect(sdk.broadcasts.send).toHaveBeenCalledWith('b1', { scheduledAt: 'in 1 hour' })
   })
 
   it('throws a namespaced error when the SDK returns an error', async () => {
-    sdk.audiences.create.mockResolvedValue({ data: null, error: { message: 'rate limited' } })
+    sdk.segments.create.mockResolvedValue({ data: null, error: { message: 'rate limited' } })
     const email = setupEmail(component)
 
-    await expect(email.audiences.create({ name: 'x' })).rejects.toThrow('[nuxt-backend] Resend: rate limited')
+    await expect(email.segments.create({ name: 'x' })).rejects.toThrow('[nuxt-backend] Resend: rate limited')
   })
 })
 

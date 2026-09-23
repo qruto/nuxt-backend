@@ -100,7 +100,7 @@ describe('setup factories', () => {
     expect(email.status).toBeTypeOf('function')
     expect(email.cancel).toBeTypeOf('function')
     expect(email.webhookHandler).toBeTypeOf('function')
-    expect(email.audiences.create).toBeTypeOf('function')
+    expect(email.segments.create).toBeTypeOf('function')
     expect(email.contacts.add).toBeTypeOf('function')
     expect(email.broadcasts.send).toBeTypeOf('function')
   })

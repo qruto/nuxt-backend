@@ -102,20 +102,21 @@ Defined in: [src/convex/integrations/email.ts:116](https://github.com/qruto/nuxt
 
 #### Properties
 
-| Property | Type | Defined in |
-| ------ | ------ | ------ |
-| <a id="id"></a> `id?` | `string` | [src/convex/integrations/email.ts:117](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L117) |
-| <a id="audience_id"></a> `audience_id?` | `string` | [src/convex/integrations/email.ts:118](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L118) |
-| <a id="email"></a> `email?` | `string` | [src/convex/integrations/email.ts:119](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L119) |
-| <a id="first_name"></a> `first_name?` | `string` | [src/convex/integrations/email.ts:120](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L120) |
-| <a id="last_name"></a> `last_name?` | `string` | [src/convex/integrations/email.ts:121](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L121) |
-| <a id="unsubscribed"></a> `unsubscribed?` | `boolean` | [src/convex/integrations/email.ts:122](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L122) |
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id"></a> `id?` | `string` | - | [src/convex/integrations/email.ts:117](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L117) |
+| <a id="segment_ids"></a> `segment_ids?` | `string`[] | The segments the contact belongs to. | [src/convex/integrations/email.ts:119](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L119) |
+| <a id="audience_id"></a> ~~`audience_id?`~~ | `string` | **Deprecated** The provider still sends it; read `segment_ids`. | [src/convex/integrations/email.ts:121](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L121) |
+| <a id="email"></a> `email?` | `string` | - | [src/convex/integrations/email.ts:122](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L122) |
+| <a id="first_name"></a> `first_name?` | `string` | - | [src/convex/integrations/email.ts:123](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L123) |
+| <a id="last_name"></a> `last_name?` | `string` | - | [src/convex/integrations/email.ts:124](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L124) |
+| <a id="unsubscribed"></a> `unsubscribed?` | `boolean` | - | [src/convex/integrations/email.ts:125](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L125) |
 
 ***
 
 ### DomainEventData
 
-Defined in: [src/convex/integrations/email.ts:127](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L127)
+Defined in: [src/convex/integrations/email.ts:130](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L130)
 
 `domain.*` payload data.
 
@@ -129,15 +130,15 @@ Defined in: [src/convex/integrations/email.ts:127](https://github.com/qruto/nuxt
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="id-1"></a> `id?` | `string` | [src/convex/integrations/email.ts:128](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L128) |
-| <a id="name"></a> `name?` | `string` | [src/convex/integrations/email.ts:129](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L129) |
-| <a id="status-1"></a> `status?` | `string` | [src/convex/integrations/email.ts:130](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L130) |
+| <a id="id-1"></a> `id?` | `string` | [src/convex/integrations/email.ts:131](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L131) |
+| <a id="name"></a> `name?` | `string` | [src/convex/integrations/email.ts:132](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L132) |
+| <a id="status-1"></a> `status?` | `string` | [src/convex/integrations/email.ts:133](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L133) |
 
 ***
 
 ### EmailWebhookEvent
 
-Defined in: [src/convex/integrations/email.ts:140](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L140)
+Defined in: [src/convex/integrations/email.ts:143](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L143)
 
 A verified provider webhook event, as delivered to the typed handlers.
 
@@ -151,54 +152,56 @@ A verified provider webhook event, as delivered to the typed handlers.
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="type"></a> `type` | `T` | [src/convex/integrations/email.ts:141](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L141) |
-| <a id="created_at-1"></a> `created_at?` | `string` | [src/convex/integrations/email.ts:142](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L142) |
-| <a id="data"></a> `data` | `EventDataFor`\<`T`\> | [src/convex/integrations/email.ts:143](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L143) |
+| <a id="type"></a> `type` | `T` | [src/convex/integrations/email.ts:144](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L144) |
+| <a id="created_at-1"></a> `created_at?` | `string` | [src/convex/integrations/email.ts:145](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L145) |
+| <a id="data"></a> `data` | `EventDataFor`\<`T`\> | [src/convex/integrations/email.ts:146](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L146) |
 
 ***
 
 ### SetupEmailOptions
 
-Defined in: [src/convex/integrations/email.ts:154](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L154)
+Defined in: [src/convex/integrations/email.ts:157](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L157)
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="events"></a> `events?` | [`EmailWebhookEventHandlers`](#emailwebhookeventhandlers) | React to any verified provider event, keyed by its event name (`'email.bounced'`, `'contact.created'`, …). Handlers run **after** the component has verified the signature and updated delivery status — `useEmailStatus` already reflects the event. A handler throw answers 500, so the provider redelivers (deliveries are deduped once fully processed). | [src/convex/integrations/email.ts:162](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L162) |
-| <a id="onunknownevent"></a> `onUnknownEvent?` | (`ctx`, `event`) => `Promise`\<`void`\> | Called for a **verified** event whose type is outside the known catalog (a provider newer than this package). Acknowledged 202 either way. | [src/convex/integrations/email.ts:167](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L167) |
-| <a id="deliverylog"></a> `deliveryLog?` | `boolean` | Record inbound webhook deliveries in the component's capped ring buffer (dedupe + doctor + DevTools feed). `false` disables the log and dedupe. | [src/convex/integrations/email.ts:172](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L172) |
+| <a id="events"></a> `events?` | [`EmailWebhookEventHandlers`](#emailwebhookeventhandlers) | React to any verified provider event, keyed by its event name (`'email.bounced'`, `'contact.created'`, …). Handlers run **after** the component has verified the signature and updated delivery status — `useEmailStatus` already reflects the event. A handler throw answers 500, so the provider redelivers (deliveries are deduped once fully processed). | [src/convex/integrations/email.ts:165](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L165) |
+| <a id="onunknownevent"></a> `onUnknownEvent?` | (`ctx`, `event`) => `Promise`\<`void`\> | Called for a **verified** event whose type is outside the known catalog (a provider newer than this package). Acknowledged 202 either way. | [src/convex/integrations/email.ts:170](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L170) |
+| <a id="deliverylog"></a> `deliveryLog?` | `boolean` | Record inbound webhook deliveries in the component's capped ring buffer (dedupe + doctor + DevTools feed). `false` disables the log and dedupe. | [src/convex/integrations/email.ts:175](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L175) |
 
 ***
 
 ### Email
 
-Defined in: [src/convex/integrations/email.ts:186](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L186)
+Defined in: [src/convex/integrations/email.ts:189](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L189)
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="api"></a> `api` | \{ `getEmailStatus`: `RegisteredQuery`\<`"public"`\>; \} | Ready-made, client-callable functions to re-export from your `backend/email.ts`. Currently `getEmailStatus` (the reactive query behind `useEmailStatus`). | [src/convex/integrations/email.ts:191](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L191) |
-| `api.getEmailStatus` | `RegisteredQuery`\<`"public"`\> | - | [src/convex/integrations/email.ts:192](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L192) |
-| <a id="send"></a> `send` | (`ctx`, `options`) => `Promise`\<`string` \| `null`\> | Send a transactional email (call from your own gated action/mutation). | [src/convex/integrations/email.ts:195](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L195) |
-| <a id="status-2"></a> `status` | (`ctx`, `emailId`) => `Promise`\<[`EmailStatus`](#emailstatus) \| `null`\> | Read an email's delivery status. | [src/convex/integrations/email.ts:197](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L197) |
-| <a id="cancel"></a> `cancel` | (`ctx`, `emailId`) => `Promise`\<`void`\> | Cancel a not-yet-sent email. | [src/convex/integrations/email.ts:199](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L199) |
-| <a id="cleanup"></a> `cleanup` | (`ctx`, `options?`) => `Promise`\<`void`\> | Prune finalized email records (delivered, bounced, cancelled, failed …) older than `olderThanMs` — default 7 days. Schedules the provider's batched cleanup and returns at once; call it from a cron. **Example** `[backend/crons.ts] crons.daily('prune emails', { hourUTC: 3, minuteUTC: 0 }, internal.email.pruneEmails) // internal.email.pruneEmails: internalMutation(ctx => email.cleanup(ctx, { olderThanMs: 7 * DAY }))` | [src/convex/integrations/email.ts:211](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L211) |
-| <a id="cleanupabandoned"></a> `cleanupAbandoned` | (`ctx`, `options?`) => `Promise`\<`void`\> | Prune abandoned email records — created more than `olderThanMs` ago (default 30 days) and never finalized, e.g. because a delivery webhook never arrived. Scheduled like `cleanup`. | [src/convex/integrations/email.ts:217](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L217) |
-| <a id="webhookhandler"></a> `webhookHandler` | (`ctx`, `request`) => `Promise`\<`Response`\> | Handle an email-provider event webhook from your app's `/email/events` HTTP route (inside an `httpAction`); returns the Response to send back. | [src/convex/integrations/email.ts:222](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L222) |
-| <a id="audiences"></a> `audiences` | \{ `create`: (`payload`) => `Promise`\<`unknown`\>; `list`: () => `Promise`\<`unknown`\>; `remove`: (`id`) => `Promise`\<`unknown`\>; \} | Marketing audiences (Resend segments): create / list / remove. | [src/convex/integrations/email.ts:224](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L224) |
-| `audiences.create` | (`payload`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:225](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L225) |
-| `audiences.list` | () => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:226](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L226) |
-| `audiences.remove` | (`id`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:227](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L227) |
-| <a id="contacts"></a> `contacts` | \{ `add`: (`payload`) => `Promise`\<`unknown`\>; `list`: (`payload`) => `Promise`\<`unknown`\>; `update`: (`payload`) => `Promise`\<`unknown`\>; `remove`: (`payload`) => `Promise`\<`unknown`\>; \} | Marketing contacts: add (subscribe) / list / update / remove (unsubscribe). | [src/convex/integrations/email.ts:230](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L230) |
-| `contacts.add` | (`payload`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:231](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L231) |
-| `contacts.list` | (`payload`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:232](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L232) |
-| `contacts.update` | (`payload`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:233](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L233) |
-| `contacts.remove` | (`payload`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:234](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L234) |
-| <a id="broadcasts"></a> `broadcasts` | \{ `create`: (`payload`) => `Promise`\<`unknown`\>; `send`: (`id`, `payload?`) => `Promise`\<`unknown`\>; \} | Marketing broadcasts: create / send (optionally scheduled). | [src/convex/integrations/email.ts:237](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L237) |
-| `broadcasts.create` | (`payload`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:238](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L238) |
-| `broadcasts.send` | (`id`, `payload?`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:239](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L239) |
+| <a id="api"></a> `api` | \{ `getEmailStatus`: `RegisteredQuery`\<`"public"`\>; \} | Ready-made, client-callable functions to re-export from your `backend/email.ts`. Currently `getEmailStatus` (the reactive query behind `useEmailStatus`). | [src/convex/integrations/email.ts:194](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L194) |
+| `api.getEmailStatus` | `RegisteredQuery`\<`"public"`\> | - | [src/convex/integrations/email.ts:195](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L195) |
+| <a id="send"></a> `send` | (`ctx`, `options`) => `Promise`\<`string` \| `null`\> | Send a transactional email (call from your own gated action/mutation). | [src/convex/integrations/email.ts:198](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L198) |
+| <a id="status-2"></a> `status` | (`ctx`, `emailId`) => `Promise`\<[`EmailStatus`](#emailstatus) \| `null`\> | Read an email's delivery status. | [src/convex/integrations/email.ts:200](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L200) |
+| <a id="cancel"></a> `cancel` | (`ctx`, `emailId`) => `Promise`\<`void`\> | Cancel a not-yet-sent email. | [src/convex/integrations/email.ts:202](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L202) |
+| <a id="cleanup"></a> `cleanup` | (`ctx`, `options?`) => `Promise`\<`void`\> | Prune finalized email records (delivered, bounced, cancelled, failed …) older than `olderThanMs` — default 7 days. Schedules the provider's batched cleanup and returns at once; call it from a cron. **Example** `[backend/crons.ts] crons.daily('prune emails', { hourUTC: 3, minuteUTC: 0 }, internal.email.pruneEmails) // internal.email.pruneEmails: internalMutation(ctx => email.cleanup(ctx, { olderThanMs: 7 * DAY }))` | [src/convex/integrations/email.ts:214](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L214) |
+| <a id="cleanupabandoned"></a> `cleanupAbandoned` | (`ctx`, `options?`) => `Promise`\<`void`\> | Prune abandoned email records — created more than `olderThanMs` ago (default 30 days) and never finalized, e.g. because a delivery webhook never arrived. Scheduled like `cleanup`. | [src/convex/integrations/email.ts:220](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L220) |
+| <a id="webhookhandler"></a> `webhookHandler` | (`ctx`, `request`) => `Promise`\<`Response`\> | Handle an email-provider event webhook from your app's `/email/events` HTTP route (inside an `httpAction`); returns the Response to send back. | [src/convex/integrations/email.ts:225](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L225) |
+| <a id="segments"></a> `segments` | \{ `create`: (`payload`) => `Promise`\<`unknown`\>; `list`: () => `Promise`\<`unknown`\>; `remove`: (`id`) => `Promise`\<`unknown`\>; `addContact`: (`payload`) => `Promise`\<`unknown`\>; `removeContact`: (`payload`) => `Promise`\<`unknown`\>; \} | Marketing segments — the groups a broadcast is sent to. A contact is one record however many segments it sits in: put it in one at creation (`contacts.add({ email, segments: [{ id }] })`) or later with `addContact`. | [src/convex/integrations/email.ts:231](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L231) |
+| `segments.create` | (`payload`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:232](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L232) |
+| `segments.list` | () => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:233](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L233) |
+| `segments.remove` | (`id`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:234](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L234) |
+| `segments.addContact` | (`payload`) => `Promise`\<`unknown`\> | Put an existing contact (`contactId` or `email`) in a segment. | [src/convex/integrations/email.ts:236](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L236) |
+| `segments.removeContact` | (`payload`) => `Promise`\<`unknown`\> | Take a contact out of a segment; the contact itself stays. | [src/convex/integrations/email.ts:238](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L238) |
+| <a id="contacts"></a> `contacts` | \{ `add`: (`payload`) => `Promise`\<`unknown`\>; `list`: (`payload`) => `Promise`\<`unknown`\>; `update`: (`payload`) => `Promise`\<`unknown`\>; `remove`: (`payload`) => `Promise`\<`unknown`\>; \} | Marketing contacts: add (subscribe) / list / update / remove (unsubscribe). | [src/convex/integrations/email.ts:241](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L241) |
+| `contacts.add` | (`payload`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:242](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L242) |
+| `contacts.list` | (`payload`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:243](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L243) |
+| `contacts.update` | (`payload`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:244](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L244) |
+| `contacts.remove` | (`payload`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:245](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L245) |
+| <a id="broadcasts"></a> `broadcasts` | \{ `create`: (`payload`) => `Promise`\<`unknown`\>; `send`: (`id`, `payload?`) => `Promise`\<`unknown`\>; \} | Marketing broadcasts: create / send (optionally scheduled). | [src/convex/integrations/email.ts:248](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L248) |
+| `broadcasts.create` | (`payload`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:249](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L249) |
+| `broadcasts.send` | (`id`, `payload?`) => `Promise`\<`unknown`\> | - | [src/convex/integrations/email.ts:250](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L250) |
 
 ## Type Aliases
 
@@ -264,7 +267,7 @@ Defined in: [src/convex/integrations/email.ts:101](https://github.com/qruto/nuxt
 type EmailWebhookEventHandlers = { [K in EmailWebhookEventType]?: (ctx: AnyActionCtx, event: EmailWebhookEvent<K>) => Promise<void> };
 ```
 
-Defined in: [src/convex/integrations/email.ts:150](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L150)
+Defined in: [src/convex/integrations/email.ts:153](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L153)
 
 Per-event email webhook handlers, keyed by the provider's event names —
 the complete catalog, uniform with `setupBilling({ events })`.
@@ -341,7 +344,7 @@ Defined in: [src/convex/integrations/email.ts:81](https://github.com/qruto/nuxt-
 
 The provider's full webhook event catalog: every transactional delivery
 state, plus the contact and domain events the marketing surface
-(audiences/contacts/broadcasts) generates. Broadcast sends surface as
+(segments/contacts/broadcasts) generates. Broadcast sends surface as
 `email.*` events carrying a `broadcast_id`.
 
 ## Functions
@@ -352,11 +355,11 @@ state, plus the contact and domain events the marketing surface
 function setupEmail(components, options?): Email;
 ```
 
-Defined in: [src/convex/integrations/email.ts:260](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L260)
+Defined in: [src/convex/integrations/email.ts:271](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L271)
 
 App-facing email helper over the `backend` component's email module: both
 **transactional** email (send / status / cancel + webhook) and **marketing**
-email (audiences / contacts / broadcasts via the provider SDK).
+email (segments / contacts / broadcasts via the provider SDK).
 
 Both use the required `EMAIL_API_KEY` env var. While it's missing (e.g. a
 mid-configuration preview), transactional `send` logs instead of delivering.

@@ -5,7 +5,7 @@ import {
   queryGeneric,
 } from 'convex/server'
 import { v } from 'convex/values'
-import { Resend } from 'resend'
+import { Resend, type CreateContactOptions } from 'resend'
 import { guardDelivery, parseSecretList, WEBHOOK_BODY_LIMIT, type WebhookLogRefs } from './webhook-guard.js'
 import { sendArgs } from '../email-validators.js'
 
@@ -75,7 +75,7 @@ type AnyActionCtx = Pick<GenericActionCtx<GenericDataModel>, 'runQuery' | 'runMu
 /**
  * The provider's full webhook event catalog: every transactional delivery
  * state, plus the contact and domain events the marketing surface
- * (audiences/contacts/broadcasts) generates. Broadcast sends surface as
+ * (segments/contacts/broadcasts) generates. Broadcast sends surface as
  * `email.*` events carrying a `broadcast_id`.
  */
 export const ALL_EMAIL_EVENTS = [
@@ -115,6 +115,9 @@ export interface EmailEventData {
 /** `contact.*` payload data. */
 export interface ContactEventData {
   id?: string
+  /** The segments the contact belongs to. */
+  segment_ids?: string[]
+  /** @deprecated The provider still sends it; read `segment_ids`. */
   audience_id?: string
   email?: string
   first_name?: string
@@ -220,15 +223,23 @@ export interface Email {
    * HTTP route (inside an `httpAction`); returns the Response to send back.
    */
   webhookHandler: (ctx: AnyActionCtx, request: Request) => Promise<Response>
-  /** Marketing audiences (Resend segments): create / list / remove. */
-  audiences: {
-    create: (payload: Parameters<ResendSdk['audiences']['create']>[0]) => Promise<unknown>
+  /**
+   * Marketing segments — the groups a broadcast is sent to. A contact is one
+   * record however many segments it sits in: put it in one at creation
+   * (`contacts.add({ email, segments: [{ id }] })`) or later with `addContact`.
+   */
+  segments: {
+    create: (payload: Parameters<ResendSdk['segments']['create']>[0]) => Promise<unknown>
     list: () => Promise<unknown>
     remove: (id: string) => Promise<unknown>
+    /** Put an existing contact (`contactId` or `email`) in a segment. */
+    addContact: (payload: Parameters<ResendSdk['contacts']['segments']['add']>[0]) => Promise<unknown>
+    /** Take a contact out of a segment; the contact itself stays. */
+    removeContact: (payload: Parameters<ResendSdk['contacts']['segments']['remove']>[0]) => Promise<unknown>
   }
   /** Marketing contacts: add (subscribe) / list / update / remove (unsubscribe). */
   contacts: {
-    add: (payload: Parameters<ResendSdk['contacts']['create']>[0]) => Promise<unknown>
+    add: (payload: CreateContactOptions) => Promise<unknown>
     list: (payload: Parameters<ResendSdk['contacts']['list']>[0]) => Promise<unknown>
     update: (payload: Parameters<ResendSdk['contacts']['update']>[0]) => Promise<unknown>
     remove: (payload: Parameters<ResendSdk['contacts']['remove']>[0]) => Promise<unknown>
@@ -243,7 +254,7 @@ export interface Email {
 /**
  * App-facing email helper over the `backend` component's email module: both
  * **transactional** email (send / status / cancel + webhook) and **marketing**
- * email (audiences / contacts / broadcasts via the provider SDK).
+ * email (segments / contacts / broadcasts via the provider SDK).
  *
  * Both use the required `EMAIL_API_KEY` env var. While it's missing (e.g. a
  * mid-configuration preview), transactional `send` logs instead of delivering.
@@ -369,10 +380,12 @@ export function setupEmail(components: EmailComponents, options: SetupEmailOptio
     cleanup,
     cleanupAbandoned,
     webhookHandler,
-    audiences: {
-      create: payload => unwrap(marketingClient().audiences.create(payload)),
-      list: () => unwrap(marketingClient().audiences.list()),
-      remove: id => unwrap(marketingClient().audiences.remove(id)),
+    segments: {
+      create: payload => unwrap(marketingClient().segments.create(payload)),
+      list: () => unwrap(marketingClient().segments.list()),
+      remove: id => unwrap(marketingClient().segments.remove(id)),
+      addContact: payload => unwrap(marketingClient().contacts.segments.add(payload)),
+      removeContact: payload => unwrap(marketingClient().contacts.segments.remove(payload)),
     },
     contacts: {
       add: payload => unwrap(marketingClient().contacts.create(payload)),
