@@ -175,6 +175,12 @@ const movedRouteRules = Object.fromEntries(
 export default defineNuxtConfig({
   extends: ['docus'],
   modules: [
+    // Named here, and first, so nuxt-og-image finds it at setup. Nuxt UI pulls
+    // @nuxt/fonts in as a dependency, but a dependency installs after every
+    // listed module, and og-image checks for the fonts module once, in its own
+    // setup: unlisted, it never reads the site's fonts and sets every social
+    // card in its bundled Inter.
+    '@nuxt/fonts',
     'nuxt-backend',
     Sonda({ enabled: analyze }),
   ],
@@ -200,9 +206,8 @@ export default defineNuxtConfig({
       // default priority (100) puts our vector last. Verify against a real
       // response, not the config: the SVG link must be the last `rel="icon"`.
       //
-      // Fonts have no <link>s any more: @nuxt/fonts (shipped with Nuxt UI)
-      // self-hosts every family named in app.css's `@theme --font-*` vars —
-      // see `fonts` below. No third-party origin, no render-blocking
+      // Fonts have no <link>s: @nuxt/fonts self-hosts every family named in
+      // app.css's `@theme --font-*` vars — see `fonts` below. No third-party origin, no render-blocking
       // stylesheet, and the OG renderer gets the same font data.
       link: [
         { rel: 'icon', type: 'image/png', sizes: '96x96', href: '/favicon-96x96.png', tagPriority: 120 },
@@ -294,17 +299,6 @@ export default defineNuxtConfig({
       ignore: ['/playground', '/login'],
     },
   },
-  typescript: {
-    // `@nuxt/content` is Docus's dependency, not this app's. Under pnpm's
-    // isolated layout nothing beneath website/node_modules would resolve it,
-    // and Content's generated `.nuxt/content/types.d.ts` imports it to augment
-    // `Collections` — with `skipLibCheck` that unresolved import fails
-    // silently, leaving every Docus component reading `Collections['docs']`
-    // untyped. This workspace runs the hoisted linker (see pnpm-workspace.yaml)
-    // so the import resolves today; the alias keeps it resolving if that
-    // deviation is ever reverted.
-    hoist: ['@nuxt/content'],
-  },
   telemetry: false,
   // The playground section uses its own depth-design shell, not the Docus docs
   // chrome. Set the layout + hide the Docus header/footer for those routes
@@ -355,15 +349,21 @@ export default defineNuxtConfig({
   // faces at build time and serves them from `/_fonts/`.
   //
   // Providers are pinned rather than discovered: @nuxt/fonts walks its
-  // provider list per family (and also auto-scans `public/fonts`, which holds
-  // the two OFL TTFs kept for the OG plate), so naming `google` keeps a cold
-  // cache from resolving a family somewhere else — or resolving only the one
-  // weight that happens to sit in `public/fonts`.
+  // provider list per family, so naming `google` keeps a cold cache from
+  // resolving a family somewhere else. Nothing sits in `public/fonts`: the
+  // social cards read the same faces as the pages (see `global` below).
   //
   // Weights are the ones the site actually sets. Nunito carries body copy in
-  // both slopes (the italic is used at 400); Bai Jamjuree is display-only and
-  // preloaded because it paints the first heading in the viewport; JetBrains
-  // Mono is code and the engraved mono labels.
+  // both slopes (the italic is used at 400); Bai Jamjuree is display-only;
+  // JetBrains Mono is code and the engraved mono labels.
+  //
+  // No `<link rel="preload" as="font">`. nuxt-security computes its SRI
+  // hashes in `nitro:build:before`, but @nuxt/fonts writes the real font
+  // bytes into its public-asset dir only in nitro's later `rollup:before`
+  // hook — until then every `_fonts/*.woff2` is an empty placeholder. A
+  // preloaded face would ship `integrity` of an empty file, the browser
+  // would reject the response, and the face would silently fall back.
+  // `@font-face` URLs carry no integrity, so without the preload they load.
   //
   // `global: true` on the two display/mono families is what the OG renderer
   // needs: nuxt-og-image reads its font data out of @nuxt/fonts' generated
@@ -373,25 +373,13 @@ export default defineNuxtConfig({
   // rules to a stylesheet every page already loads; the files themselves stay
   // lazy.
   //
-  // KNOWN GAP — this is necessary but not yet sufficient: the plate still
-  // renders in the module's bundled Inter. Probe it by requesting an og:image
-  // URL with `.json` in place of `.png` and reading its `fonts` array; today
-  // that array is two `"family":"Inter"` fallbacks and neither house family.
-  // The break is inside nuxt-og-image 6.7.8: the `#og-image/fonts` virtual
-  // only awaits its component font-requirement scan (and only runs
-  // `prepareWoff2Fonts`) when `hasSatoriRenderer()` is true, so on a
-  // takumi-only setup `resolveOgImageFonts` filters `allFonts` against a
-  // requirement set that has not been populated. Neither documented
-  // workaround is safe here: a `.satori.vue` twin of the plate makes the
-  // module detect a satori renderer whose `satori` dependency is not
-  // installed, and `provider: 'local'` would repoint the two families at
-  // `public/fonts`, which holds a single weight of each (600 and 500) — the
-  // site would lose Bai Jamjuree 500 and JetBrains Mono 400/600/700 and serve
-  // TTFs instead of woff2. Fix belongs upstream, or behind a module bump.
+  // That only works when og-image can see @nuxt/fonts at all, which is why
+  // the module is listed first in `modules`. Probe a card by requesting its
+  // og:image URL with `.json` in place of `.png` and reading its `fonts`.
   fonts: {
-    defaults: { subsets: ['latin', 'latin-ext'] },
+    defaults: { subsets: ['latin', 'latin-ext'], preload: false },
     families: [
-      { name: 'Bai Jamjuree', provider: 'google', weights: [500, 600], styles: ['normal'], preload: true, global: true },
+      { name: 'Bai Jamjuree', provider: 'google', weights: [500, 600], styles: ['normal'], global: true },
       { name: 'Nunito', provider: 'google', weights: [400, 500, 600, 700, 800], styles: ['normal', 'italic'] },
       { name: 'JetBrains Mono', provider: 'google', weights: [400, 500, 600, 700], styles: ['normal'], global: true },
     ],
@@ -480,6 +468,15 @@ export default defineNuxtConfig({
     // module's own default canvas is 1200×600, which would crop 30px off it.
     defaults: { width: 1200, height: 630 },
     fontSubsets: ['latin', 'latin-ext'],
+    // Cards prerender while the build is still writing @nuxt/fonts' files
+    // into .output/public/_fonts, so an early card finds no local file and
+    // fetches the face from the provider instead. The default 3 s budget is
+    // too short for that under a full parallel prerender: a few cards per
+    // build fell back to Inter, a different few each time. The same budget
+    // covers remote images a card fetches at runtime. The render budget
+    // (15 s by default) has to outlast it, or a slow fetch leaves no time
+    // to draw the card.
+    security: { imageFetchTimeout: 15_000, renderTimeout: 30_000 },
   },
   // Docus / Nuxt Content compile a SQLite WASM module in the browser (search +
   // client-side content queries). The bundled nuxt-security CSP must allow
