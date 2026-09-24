@@ -92,7 +92,7 @@ export const listSentEmails = query({
   },
 })
 
-// --- Marketing (audiences / contacts / broadcasts via the Resend SDK) --------
+// --- Marketing (segments / contacts / broadcasts via the Resend SDK) ---------
 // Gated to signed-in users for the demo; treat as admin actions in production.
 
 async function requireUser(ctx: ActionCtx): Promise<void> {
@@ -100,30 +100,41 @@ async function requireUser(ctx: ActionCtx): Promise<void> {
   if (!user) throw new Error('Sign in to manage marketing email.')
 }
 
-export const createAudience = action({
+export const createSegment = action({
   args: { name: v.string() },
   handler: async (ctx, { name }) => {
     await requireUser(ctx)
-    return email.audiences.create({ name })
+    return email.segments.create({ name })
   },
 })
 
 export const addContact = action({
   args: {
-    audienceId: v.string(),
+    segmentId: v.string(),
     email: v.string(),
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
     unsubscribed: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, { segmentId, ...contact }) => {
     await requireUser(ctx)
-    return email.contacts.add(args)
+    // A contact is one record per address, and the demo reuses the same test
+    // address on every run: when it already exists, creating it again fails,
+    // so put the existing contact in the new segment instead. If that fails
+    // too, the create error is the one worth reporting.
+    try {
+      return await email.contacts.add({ ...contact, segments: [{ id: segmentId }] })
+    }
+    catch (createError) {
+      return email.segments.addContact({ email: contact.email, segmentId }).catch(() => {
+        throw createError
+      })
+    }
   },
 })
 
 export const createBroadcast = action({
-  args: { audienceId: v.string(), from: v.string(), subject: v.string(), html: v.string() },
+  args: { segmentId: v.string(), from: v.string(), subject: v.string(), html: v.string() },
   handler: async (ctx, args) => {
     await requireUser(ctx)
     return email.broadcasts.create(args)

@@ -47,8 +47,8 @@ const deliveryTone = computed(() => {
 // the page for bounce / complaint / suppression — sign-up stays delivered-only.
 const presets = OUTCOME_TEST_EMAILS
 
-// ── Marketing: audience → contact → broadcast ─────────────────────
-const createAudience = useAction(api.email.createAudience)
+// ── Marketing: segment → contact → broadcast ──────────────────────
+const createSegment = useAction(api.email.createSegment)
 const addContact = useAction(api.email.addContact)
 const createBroadcast = useAction(api.email.createBroadcast)
 const sendBroadcast = useAction(api.email.sendBroadcast)
@@ -59,16 +59,16 @@ async function runMarketing() {
   marketingPending.value = true
   marketingMsg.value = null
   try {
-    const audience = await createAudience({ name: 'Showcase audience' }) as { id: string }
-    await addContact({ audienceId: audience.id, email: 'delivered@resend.dev', firstName: 'Test' })
+    const segment = await createSegment({ name: 'Showcase segment' }) as { id: string }
+    await addContact({ segmentId: segment.id, email: 'delivered@resend.dev', firstName: 'Test' })
     const broadcast = await createBroadcast({
-      audienceId: audience.id,
+      segmentId: segment.id,
       from: 'onboarding@resend.dev',
       subject: 'Product update',
       html: '<p>Hello from a nuxt-backend broadcast.</p>',
     }) as { id: string }
     await sendBroadcast({ broadcastId: broadcast.id })
-    marketingMsg.value = `Broadcast ${broadcast.id} sent to audience ${audience.id}.`
+    marketingMsg.value = `Broadcast ${broadcast.id} sent to segment ${segment.id}.`
   }
   catch (e) { marketingMsg.value = e instanceof Error ? e.message : 'Marketing failed' }
   finally { marketingPending.value = false }
@@ -194,13 +194,13 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
     <div class="grid-2">
       <LabPanel
         label="marketing"
-        title="Audiences & broadcasts"
+        title="Segments & broadcasts"
       >
         <p
           class="hint"
           style="margin-bottom: 0.85rem"
         >
-          Audience → contact → broadcast via the Resend SDK, one click (test
+          Segment → contact → broadcast via the Resend SDK, one click (test
           recipient only).
         </p>
         <LabButton
@@ -208,7 +208,7 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
           :loading="marketingPending"
           @click="runMarketing"
         >
-          Create audience & send broadcast
+          Create segment & send broadcast
         </LabButton>
         <p
           v-if="marketingMsg"
