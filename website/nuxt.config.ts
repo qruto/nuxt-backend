@@ -473,8 +473,10 @@ export default defineNuxtConfig({
     // fetches the face from the provider instead. The default 3 s budget is
     // too short for that under a full parallel prerender: a few cards per
     // build fell back to Inter, a different few each time. The same budget
-    // covers remote images a card fetches at runtime.
-    security: { imageFetchTimeout: 15_000 },
+    // covers remote images a card fetches at runtime. The render budget
+    // (15 s by default) has to outlast it, or a slow fetch leaves no time
+    // to draw the card.
+    security: { imageFetchTimeout: 15_000, renderTimeout: 30_000 },
   },
   // Docus / Nuxt Content compile a SQLite WASM module in the browser (search +
   // client-side content queries). The bundled nuxt-security CSP must allow

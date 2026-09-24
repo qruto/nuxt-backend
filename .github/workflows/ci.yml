@@ -72,6 +72,9 @@ jobs:
             website:
               - *shared
               - 'website/**'
+              # The two scripts the website job runs on its own output.
+              - 'scripts/typecheck-website.mjs'
+              - 'scripts/check-website-css.mjs'
             src:
               - *shared
               # The DevTools panel ships with the package: `build` generates

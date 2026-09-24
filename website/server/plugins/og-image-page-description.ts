@@ -30,12 +30,16 @@ interface Page { title?: string, description?: string, seo?: { title?: string, d
 
 let pages: Promise<Page[]> | undefined
 
+// Loaded once and shared by every card. A failed load is not kept: the
+// next card tries again, and until one succeeds cards keep Docus's text.
 function loadPages(e: H3Event) {
   pages ??= Promise.all(COLLECTIONS.map(collection => queryCollection(e, collection)
     .select('title', 'description', 'seo')
-    .all()
-    .catch(() => [] as Page[]),
-  )).then(lists => lists.flat())
+    .all(),
+  )).then(lists => lists.flat() as Page[], (error: unknown) => {
+    pages = undefined
+    throw error
+  })
   return pages
 }
 
@@ -45,7 +49,9 @@ export default defineNitroPlugin((nitroApp) => {
     if (!CARDS.has(String(ctx.options.component))) return
     const title = ctx.options.props?.title
     if (typeof title !== 'string') return
-    const matches = (await loadPages(ctx.e)).filter(page => (page.seo?.title || page.title)?.slice(0, TITLE_LIMIT) === title)
+    const all = await loadPages(ctx.e).catch(() => undefined)
+    if (!all) return
+    const matches = all.filter(page => (page.seo?.title || page.title)?.slice(0, TITLE_LIMIT) === title)
     if (matches.length !== 1) return
     const description = matches[0]?.seo?.description || matches[0]?.description
     if (description) {
