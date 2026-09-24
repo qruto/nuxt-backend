@@ -349,7 +349,7 @@ const envPush = defineCommand({
   meta: { name: 'push', description: 'Sync backend env from .env(.local) to the Convex deployment (dev deployments also get AUTH_SECRET/SITE_URL provisioned)' },
   args: {
     ...cwdArg,
-    'prod': { type: 'boolean', description: 'Never invent values; fail on missing required env', default: false },
+    'prod': { type: 'boolean', description: 'Act on the production deployment; never invent values; fail on missing required env', default: false },
     'dry-run': { type: 'boolean', description: 'Print the plan without setting anything', default: false },
     'force': { type: 'string', description: 'Replace values already on the deployment: a comma-separated list of names, or "all"' },
     'json': { type: 'boolean', description: 'Machine-readable output', default: false },
@@ -467,7 +467,7 @@ const doctor = defineCommand({
     ...cwdArg,
     json: { type: 'boolean', description: 'Machine-readable output', default: false },
     fix: { type: 'boolean', description: 'Repair what doctor can: restore missing scaffold files, push env (`env push`)', default: false },
-    prod: { type: 'boolean', description: 'Production posture: missing email/billing config becomes a failure', default: false },
+    prod: { type: 'boolean', description: 'Check the production deployment; missing email/billing config becomes a failure', default: false },
   },
   async run({ args }) {
     const rootDir = projectRoot(args)
