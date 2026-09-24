@@ -35,8 +35,15 @@
    primary action), amber (attention / idle / secondary / experimental)
    and red (danger / error / destructive) — enamel fired onto metal,
    a step desaturated, never engraved. See design.md §Palette.
+
+   `static`, like the signal ramps below: Nuxt UI reads the neutral ramp
+   through runtime `var(--color-zinc-<shade>)` references that Tailwind's
+   usage scan cannot see. Plain `@theme` emits only the shades the scan
+   finds, and every other `--ui-color-neutral-*` silently falls back to
+   stock Tailwind zinc — a blue-violet grey that is not the house titanium.
+   scripts/check-website-css.mjs fails CI if the built CSS loses the ramp.
    ════════════════════════════════════════════════════════════════ */
-@theme {
+@theme static {
   /* Type system: Bai Jamjuree (squared technical display — the engraved face)
      + Nunito (sans/body) + JetBrains Mono. `--font-sans` drives the
      Docus/Nuxt UI docs chrome; `--font-display` generates the `font-display`

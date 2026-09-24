@@ -615,6 +615,12 @@ jobs:
           NUXT_SITE_URL: https://nuxt-backend.example
         run: pnpm exec nuxt build website
 
+      # The build succeeds even when the site's palette silently falls back to
+      # stock Tailwind; this reads the built CSS and fails if it did.
+      - name: Check website CSS
+        if: ${{ !cancelled() }}
+        run: node scripts/check-website-css.mjs
+
   # Looks at the dependencies a pull request adds or changes, and fails on a
   # known CVE or a package GitHub has flagged as malicious. pnpm's cooldown only
   # delays a new version; it never looks at what is inside it.
