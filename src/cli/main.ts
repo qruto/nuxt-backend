@@ -24,20 +24,42 @@ async function convexCli(rootDir: string, args: string[]): Promise<string | null
   }
 }
 
-/** Deployed function identifiers (`module:name`), or null when the CLI is unreachable. */
-async function deployedFunctionIdentifiers(rootDir: string, prod: boolean): Promise<Set<string> | null> {
+/**
+ * The deployment's function spec: its client URL and the deployed function
+ * identifiers (`module:name`). Null when the CLI is unreachable.
+ */
+async function deployedFunctionSpec(rootDir: string, prod: boolean): Promise<{ url: string | null, identifiers: Set<string> } | null> {
   const stdout = await convexCli(rootDir, ['function-spec', ...deploymentFlags({ prod })])
   if (stdout === null) return null
   try {
-    const parsed = JSON.parse(stdout) as { functions?: Array<{ identifier?: string }> } | Array<{ identifier?: string }>
+    const parsed = JSON.parse(stdout) as { url?: string, functions?: Array<{ identifier?: string }> } | Array<{ identifier?: string }>
     const list = Array.isArray(parsed) ? parsed : parsed.functions ?? []
-    return new Set(list
-      .map(fn => fn.identifier ?? '')
-      .map(id => id.replace(/\.[jt]s:/, ':')))
+    return {
+      url: Array.isArray(parsed) ? null : parsed.url ?? null,
+      identifiers: new Set(list
+        .map(fn => fn.identifier ?? '')
+        .map(id => id.replace(/\.[jt]s:/, ':'))),
+    }
   }
   catch {
     return null
   }
+}
+
+/**
+ * What doctor reads from the deployment it checks, beyond env names: the
+ * deployed functions, the auth config, and the site URL whose routes it
+ * probes. Locally that site is the one .env.local names; under --prod it is
+ * production's, which the function spec reports — an explicit site URL in the
+ * process env (a custom domain) still wins, while .env.local's points at dev.
+ */
+async function readDeployment(rootDir: string, options: { prod: boolean, reachable: boolean, localSiteUrl: string | undefined }) {
+  const spec = options.reachable ? await deployedFunctionSpec(rootDir, options.prod) : null
+  const authConfig = options.reachable ? await deployedAuthConfig(rootDir, options.prod) : null
+  const probeSiteUrl = options.prod
+    ? resolveSiteUrl({ env: process.env, derived: null, ...(spec?.url ? { url: spec.url } : {}) })
+    : options.localSiteUrl
+  return { identifiers: spec?.identifiers ?? null, authConfig, probeSiteUrl }
 }
 
 /**
@@ -524,7 +546,9 @@ const doctor = defineCommand({
           fixHint: deployed.includes(name) ? '' : 'Run `npx nuxt-backend env push` (dev fills it in), or: npx convex env set ' + name + ' ...',
         })
       }
-      const devDeployment = isDevDeployment(rootDir)
+      // Under --prod the deployment read above is production, whatever
+      // .env.local names.
+      const devDeployment = !args.prod && isDevDeployment(rootDir)
       for (const [name, degradation] of Object.entries(OPTIONAL_DEPLOYMENT_ENV)) {
         const id = `deployment-${name.toLowerCase().replace(/_/g, '-')}`
         const isSet = deployed.includes(name)
@@ -567,12 +591,14 @@ const doctor = defineCommand({
     // deployment slug, so this probe usually needs no configuration at all.
     // Deployment-reachable reads that need the convex CLI; each degrades to
     // null (and its checks to no finding) when the deployment is unreachable.
-    const identifiers = deployed ? await deployedFunctionIdentifiers(rootDir, args.prod) : null
-    const authConfig = deployed ? await deployedAuthConfig(rootDir, args.prod) : null
-
-    if (siteUrl) {
+    const { identifiers, authConfig, probeSiteUrl } = await readDeployment(rootDir, {
+      prod: args.prod,
+      reachable: deployed !== null,
+      localSiteUrl: siteUrl,
+    })
+    if (probeSiteUrl) {
       const ai = identifiers ? [...identifiers].some(id => id.startsWith('ai:')) : true
-      findings.push(...await webhookRouteFindings(siteUrl, { ai }))
+      findings.push(...await webhookRouteFindings(probeSiteUrl, { ai }))
     }
 
     // The composable function contract and the invitation-route cross-check

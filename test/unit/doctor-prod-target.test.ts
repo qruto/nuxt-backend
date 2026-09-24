@@ -1,0 +1,84 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { runCommand } from 'citty'
+import { main } from '../../src/cli/main'
+import { runConvex } from '../../src/convex-cli'
+
+// `doctor --prod` checks the production deployment, while `.env.local` names
+// a dev one. Every Convex CLI read has to say `--prod`, and the routes it
+// probes have to be production's — taken from the function spec, not from
+// the dev URLs in `.env.local`.
+vi.mock('../../src/convex-cli', () => ({
+  runConvex: vi.fn(async (_rootDir: string, args: string[]) => {
+    if (args[0] === 'env') return { stdout: 'AUTH_SECRET\nSITE_URL\nAUTH_TRUST_LOCAL_ORIGINS\n', stderr: '' }
+    if (args[0] === 'function-spec') {
+      return { stdout: JSON.stringify({ url: 'https://prod-slug-42.convex.cloud', functions: [{ identifier: 'auth.js:getAuthUser' }] }), stderr: '' }
+    }
+    if (args[0] === 'run') return { stdout: JSON.stringify({ invitationPath: null }), stderr: '' }
+    return { stdout: '', stderr: '' }
+  }),
+}))
+
+let rootDir: string
+let probed: string[]
+
+beforeEach(() => {
+  rootDir = mkdtempSync(join(tmpdir(), 'doctor-prod-'))
+  writeFileSync(join(rootDir, '.env.local'), 'CONVEX_DEPLOYMENT=dev:happy-otter-123\nNUXT_PUBLIC_CONVEX_SITE_URL=https://happy-otter-123.convex.site\n')
+  vi.spyOn(console, 'log').mockImplementation(() => {})
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+  vi.mocked(runConvex).mockClear()
+  probed = []
+  vi.stubGlobal('fetch', vi.fn(async (url: string | URL) => {
+    probed.push(String(url))
+    return new Response('secret not set', { status: 503 })
+  }))
+})
+
+afterEach(() => {
+  rmSync(rootDir, { recursive: true, force: true })
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+  process.exitCode = undefined
+})
+
+async function doctor(args: string[]) {
+  await runCommand(main, { rawArgs: ['doctor', '--json', ...args, '--cwd', rootDir] })
+  return JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { findings: Array<{ id: string, status: string }> }
+}
+
+describe('doctor --prod target', () => {
+  it('reads production with --prod on every Convex CLI call', async () => {
+    await doctor(['--prod'])
+
+    const calls = vi.mocked(runConvex).mock.calls.map(([, args]) => args)
+    expect(calls.map(args => args[0])).toEqual(expect.arrayContaining(['env', 'function-spec', 'run']))
+    expect(calls.every(args => args.includes('--prod'))).toBe(true)
+    // Names only: production values are never requested.
+    expect(calls.find(args => args[0] === 'env')).toContain('--names-only')
+  })
+
+  it('probes production routes, never the dev site URL .env.local names', async () => {
+    await doctor(['--prod'])
+
+    expect(probed.length).toBeGreaterThan(0)
+    expect(probed.every(url => url.startsWith('https://prod-slug-42.convex.site/'))).toBe(true)
+  })
+
+  it('treats production as non-dev: a dev-only var set there is flagged', async () => {
+    const report = await doctor(['--prod'])
+    expect(report.findings.find(finding => finding.id === 'deployment-auth-trust-local-origins')?.status).not.toBe('pass')
+  })
+
+  it('without --prod checks the deployment .env.local names', async () => {
+    const report = await doctor([])
+
+    const calls = vi.mocked(runConvex).mock.calls.map(([, args]) => args)
+    expect(calls.some(args => args.includes('--prod'))).toBe(false)
+    expect(probed.every(url => url.startsWith('https://happy-otter-123.convex.site/'))).toBe(true)
+    // On a dev deployment the dev-only var is the healthy state.
+    expect(report.findings.find(finding => finding.id === 'deployment-auth-trust-local-origins')?.status).toBe('pass')
+  })
+})

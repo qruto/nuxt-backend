@@ -153,10 +153,15 @@ export function deploymentFlags(options: { prod?: boolean } = {}): string[] {
   return options.prod ? ['--prod'] : []
 }
 
-/** Read deployment env var NAMES via `convex env list` (values never leave the CLI). */
+/**
+ * Read deployment env var NAMES via `convex env list --names-only`: the
+ * values are never requested, so a production secret never reaches this
+ * process. (`--names-only` arrived in convex 1.42; the peer range starts
+ * at 1.43.)
+ */
 export async function deploymentEnvNames(rootDir: string, options: { prod?: boolean } = {}): Promise<string[] | null> {
   try {
-    const { stdout } = await runConvex(rootDir, ['env', 'list', ...deploymentFlags(options)])
+    const { stdout } = await runConvex(rootDir, ['env', 'list', '--names-only', ...deploymentFlags(options)])
     return stdout
       .split('\n')
       .map(line => line.split('=')[0]?.trim() ?? '')

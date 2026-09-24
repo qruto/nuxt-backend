@@ -11,7 +11,7 @@ import { runEnvPush } from '../../src/env-push'
 // production push that does not say `--prod` lands on dev.
 vi.mock('../../src/convex-cli', () => ({
   runConvex: vi.fn(async (_rootDir: string, args: string[]) => ({
-    stdout: args[1] === 'list' ? 'AUTH_SECRET=x\nSITE_URL=https://app.example.com\n' : '',
+    stdout: args[1] === 'list' ? 'AUTH_SECRET\nSITE_URL\n' : '',
     stderr: '',
   })),
 }))
@@ -33,7 +33,7 @@ describe('env push target', () => {
     const run = await runEnvPush(rootDir, { prod: true })
 
     const calls = vi.mocked(runConvex).mock.calls.map(([, args]) => args)
-    expect(calls[0]).toStrictEqual(['env', 'list', '--prod'])
+    expect(calls[0]).toStrictEqual(['env', 'list', '--names-only', '--prod'])
     expect(calls).toContainEqual(['env', 'set', '--prod', 'EMAIL_FROM', 'Acme <hello@example.com>'])
     expect(calls.every(args => args.includes('--prod'))).toBe(true)
     // Reported as production, not as the dev deployment .env.local names.
@@ -44,7 +44,7 @@ describe('env push target', () => {
     const run = await runEnvPush(rootDir)
 
     const calls = vi.mocked(runConvex).mock.calls.map(([, args]) => args)
-    expect(calls[0]).toStrictEqual(['env', 'list'])
+    expect(calls[0]).toStrictEqual(['env', 'list', '--names-only'])
     expect(calls.some(args => args.includes('--prod'))).toBe(false)
     expect(run?.deployment).toBe('dev:happy-otter-123')
   })

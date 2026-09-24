@@ -177,7 +177,9 @@ describe('doctor', () => {
     // A fresh dev deployment has its routes mounted and no provider webhooks
     // yet — the designed degradation the *_WEBHOOK_SECRET findings also
     // report, and not a reason for the first `doctor` to exit 1.
-    writeFileSync(join(rootDir, '.env.local'), 'NUXT_PUBLIC_CONVEX_SITE_URL=https://demo.convex.site\n')
+    // The site URL comes from the process env, as a host sets it: under
+    // --prod, .env.local's URLs name the dev deployment and are not probed.
+    vi.stubEnv('NUXT_PUBLIC_CONVEX_SITE_URL', 'https://demo.convex.site')
     vi.stubGlobal('fetch', vi.fn(async () => new Response('secret not set', { status: 503 })))
     const statuses = async (args: string[]) => {
       vi.mocked(console.log).mockClear()
@@ -196,6 +198,7 @@ describe('doctor', () => {
     }
     finally {
       vi.unstubAllGlobals()
+      vi.unstubAllEnvs()
     }
   })
 })
