@@ -10,10 +10,11 @@
  * chroma is the green status LED strip (bottom-left) and the coin's LED
  * (bottom-right) — signals are never engraved.
  *
- * Fonts: Takumi resolves `font-family` declarations it finds in this file.
- * "Bai Jamjuree" 600 / "JetBrains Mono" 500 ship as TTFs under
- * website/public/fonts/ (OFL). They do not reach the renderer yet — see the
- * KNOWN GAP note on `fonts` in nuxt.config.ts — so Takumi falls back to Inter.
+ * Fonts: Takumi resolves `font-family` declarations it finds in this file
+ * against @nuxt/fonts' global sheet, so "Bai Jamjuree" and "JetBrains Mono"
+ * must stay `global: true` in nuxt.config.ts `fonts`, and @nuxt/fonts must be
+ * listed in `modules` (see the note there). A family outside that sheet falls
+ * back to the renderer's bundled Inter.
  *
  * Props: Docus passes `headline` and `description` on EVERY docs page (the
  * headline is the section, e.g. "Getting Started"), on top of `title`. Both
