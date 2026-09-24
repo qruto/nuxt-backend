@@ -30,8 +30,9 @@ then `Cannot resolve module "nuxt-backend"`). So the command builds the package 
     `middleware/playground-offline.global.ts` — without it the module's `auth` middleware fails
     the gated pages on the server).
 
-`vercel.json` has no comments in it because Vercel's schema rejects unknown properties, including
-`$comment`. That's what this file is for.
+The steps live in `vercel-build.sh`, which `vercel.json` runs: Vercel caps `buildCommand` at 256
+characters, and `vercel.json` allows no comments — its schema rejects unknown properties,
+including `$comment`. That's what this file and the script's comments are for.
 
 ## Settings that live in Vercel, not here
 
