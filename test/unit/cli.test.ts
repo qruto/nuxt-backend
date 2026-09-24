@@ -180,6 +180,8 @@ describe('doctor', () => {
     // The site URL comes from the process env, as a host sets it: under
     // --prod, .env.local's URLs name the dev deployment and are not probed.
     vi.stubEnv('NUXT_PUBLIC_CONVEX_SITE_URL', 'https://demo.convex.site')
+    // The package's own name wins over the platform's; keep a runner's value out.
+    vi.stubEnv('NUXT_PUBLIC_BACKEND_SITE_URL', undefined)
     vi.stubGlobal('fetch', vi.fn(async () => new Response('secret not set', { status: 503 })))
     const statuses = async (args: string[]) => {
       vi.mocked(console.log).mockClear()

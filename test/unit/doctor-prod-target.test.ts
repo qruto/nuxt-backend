@@ -24,7 +24,12 @@ vi.mock('../../src/convex-cli', () => ({
 let rootDir: string
 let probed: string[]
 
+// The URLs doctor resolves read the process env too: start from none, so a
+// URL set on the runner cannot stand in for the one under test.
+const URL_VARS = ['NUXT_PUBLIC_BACKEND_SITE_URL', 'NUXT_PUBLIC_CONVEX_SITE_URL', 'NUXT_PUBLIC_BACKEND_URL', 'NUXT_PUBLIC_CONVEX_URL', 'CONVEX_DEPLOYMENT']
+
 beforeEach(() => {
+  for (const name of URL_VARS) vi.stubEnv(name, undefined)
   rootDir = mkdtempSync(join(tmpdir(), 'doctor-prod-'))
   writeFileSync(join(rootDir, '.env.local'), 'CONVEX_DEPLOYMENT=dev:happy-otter-123\nNUXT_PUBLIC_CONVEX_SITE_URL=https://happy-otter-123.convex.site\n')
   vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -40,6 +45,7 @@ beforeEach(() => {
 afterEach(() => {
   rmSync(rootDir, { recursive: true, force: true })
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
   vi.restoreAllMocks()
   process.exitCode = undefined
 })
@@ -69,7 +75,7 @@ describe('doctor --prod target', () => {
 
   it('treats production as non-dev: a dev-only var set there is flagged', async () => {
     const report = await doctor(['--prod'])
-    expect(report.findings.find(finding => finding.id === 'deployment-auth-trust-local-origins')?.status).not.toBe('pass')
+    expect(report.findings.find(finding => finding.id === 'deployment-auth-trust-local-origins')?.status).toBe('fail')
   })
 
   it('without --prod checks the deployment .env.local names', async () => {
@@ -77,6 +83,7 @@ describe('doctor --prod target', () => {
 
     const calls = vi.mocked(runConvex).mock.calls.map(([, args]) => args)
     expect(calls.some(args => args.includes('--prod'))).toBe(false)
+    expect(probed.length).toBeGreaterThan(0)
     expect(probed.every(url => url.startsWith('https://happy-otter-123.convex.site/'))).toBe(true)
     // On a dev deployment the dev-only var is the healthy state.
     expect(report.findings.find(finding => finding.id === 'deployment-auth-trust-local-origins')?.status).toBe('pass')
