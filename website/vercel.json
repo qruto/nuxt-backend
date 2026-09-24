@@ -1,4 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm --dir .. run dev:prepare:lib && pnpm --dir .. run build && if [ -n \"$CONVEX_DEPLOY_KEY\" ]; then pnpm exec convex deploy --cmd 'pnpm exec nuxt build'; else pnpm exec nuxt build; fi"
+  "buildCommand": "pnpm --dir .. run dev:prepare:lib && pnpm --dir .. run build && if [ \"$VERCEL_ENV\" = production ] && [ -n \"$CONVEX_DEPLOY_KEY\" ]; then pnpm exec convex deploy --cmd 'pnpm exec nuxt build' --cmd-url-env-var-name NUXT_PUBLIC_BACKEND_URL; else pnpm exec nuxt build; fi"
 }

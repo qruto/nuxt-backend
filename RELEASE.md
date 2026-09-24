@@ -357,8 +357,8 @@ the June test publish satisfies that, so nothing has to be published by hand.
   release commit is also a site deploy. Check that production redeployed on that commit, that the
   API reference it serves is the one `pnpm docs:reference` generated for the tag (the `API reference
   drift` CI step guarantees the tree; this checks the deploy), and that `/playground` is online
-  rather than redirecting to `/playground/offline` (it needs `NUXT_PUBLIC_BACKEND_URL` and
-  `CONVEX_DEPLOY_KEY` in the Vercel production environment).
+  rather than redirecting to `/playground/offline` (it needs `CONVEX_DEPLOY_KEY` in the Vercel production
+  environment; the build injects `NUXT_PUBLIC_BACKEND_URL` — see website/README.md).
 - **Deprecate the test publish.** `npm deprecate nuxt-backend@0.1.0 "Test publish — use >=0.2.0"`
   (see *Version numbers* above), then close the issues the release fixes.
 - **Registry.** The package is listed on [nuxt.com/modules](https://nuxt.com/modules) through

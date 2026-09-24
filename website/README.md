@@ -17,11 +17,14 @@ then `Cannot resolve module "nuxt-backend"`). So the command builds the package 
 - `build` then replaces the stub with a real build — the module, the component and the DevTools
   panel. The stub symlinks `dist/runtime` at `src/`, fine for development, not for a deploy.
 - Then the site's own build, in one of two ways:
-  - **production** (a `CONVEX_DEPLOY_KEY` is set): `convex deploy --cmd 'nuxt build'` pushes
-    `website/backend/` to the playground's production deployment, regenerates `backend/_generated`
-    against it and builds the site — the [Convex + Vercel](https://docs.convex.dev/production/hosting/vercel)
+  - **production** (`VERCEL_ENV=production` and a `CONVEX_DEPLOY_KEY`): `convex deploy --cmd 'nuxt build'
+    --cmd-url-env-var-name NUXT_PUBLIC_BACKEND_URL` pushes `website/backend/` to the playground's
+    production deployment, regenerates `backend/_generated` against it and builds the site with
+    `NUXT_PUBLIC_BACKEND_URL` set to that deployment — the [Convex + Vercel](https://docs.convex.dev/production/hosting/vercel)
     pattern.
-  - **preview** (no key): a plain `nuxt build`. The site's `backend/_generated` is committed
+  - **anything else**: a plain `nuxt build`, even when a deploy key is present. Vercel's Convex
+    integration writes `CONVEX_DEPLOY_KEY` into every environment; checking `VERCEL_ENV` keeps a
+    pull-request preview from ever pushing its code to the live deployment. The site's `backend/_generated` is committed
     (regenerated and diff-checked by CI's `website` job), so the build needs no deployment; the
     playground renders its offline state (`/playground/offline`, via
     `middleware/playground-offline.global.ts` — without it the module's `auth` middleware fails
@@ -39,8 +42,8 @@ then `Cannot resolve module "nuxt-backend"`). So the command builds the package 
 | Node.js version | 24.x | `engines.node` |
 | `ENABLE_EXPERIMENTAL_COREPACK` | `1` | Uses the `packageManager` pin instead of Vercel's own pnpm |
 | `VERCEL_FORCE_NO_BUILD_CACHE` | `1` (preview + production) | No restored `node_modules`: with the hoisted linker, a cached tree plus a changed lockfile fails `pnpm install` with `ERR_PNPM_EEXIST` on the nested `node_modules` it tries to rename — every dependency PR's preview was red for that alone. The install costs a minute more and is deterministic |
-| Production env | `CONVEX_DEPLOY_KEY` (the playground's production deployment), `NUXT_PUBLIC_BACKEND_URL` (its `https://<slug>.convex.cloud`; the `.convex.site` twin is derived from it — `NUXT_PUBLIC_BACKEND_SITE_URL` only for a custom domain), `NUXT_SITE_URL=https://nuxt-backend.dev` | The live playground's Convex project and the canonical origin. Without the backend URL the build serves the playground's offline state |
-| Preview env | **nothing Convex-related** | A preview renders the docs and the playground's offline state; it can never push or create a Convex deployment |
+| Production env | `CONVEX_DEPLOY_KEY` (the playground's production deployment — the Convex integration sets it), `NUXT_SITE_URL=https://nuxt-backend.dev` | The live playground's Convex project and the canonical origin. `NUXT_PUBLIC_BACKEND_URL` is not set here: the build injects the deployment's URL (the `.convex.site` twin is derived from it — `NUXT_PUBLIC_BACKEND_SITE_URL` only for a custom domain) |
+| Preview env | **nothing Convex-related** — remove the `CONVEX_DEPLOY_KEY` the integration adds to Preview and Development | A preview renders the docs and the playground's offline state. The build command ignores a key outside production anyway; removing it keeps the key where it is needed |
 | Deployment Protection → Vercel Authentication | **off** | A preview nobody can open isn't a preview; this is a public docs site |
 
 The playground's production deployment is configured with the package's own tooling from a
