@@ -6,9 +6,8 @@ import { runConvex } from '../../src/convex-cli'
 import { runEnvPush } from '../../src/env-push'
 
 // Which deployment a push acts on is decided by the flags handed to the Convex
-// CLI. `.env.local` names a dev deployment and a project deploy key (Vercel's
-// Convex integration issues one) resolves to a dev deployment too, so a
-// production push that does not say `--prod` lands on dev.
+// CLI. `.env.local` names a dev deployment, so a production push that does
+// not say `--prod` lands on dev.
 vi.mock('../../src/convex-cli', () => ({
   runConvex: vi.fn(async (_rootDir: string, args: string[]) => ({
     stdout: args[1] === 'list' ? 'AUTH_SECRET\nSITE_URL\n' : '',

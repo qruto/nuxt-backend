@@ -145,9 +145,11 @@ export function readEnvFiles(rootDir: string): Record<string, string> {
 /**
  * The Convex CLI flags that select the deployment to act on. `--prod` is
  * explicit because the ambient selection is not production: `.env.local`
- * names a dev deployment, and a project deploy key — what Vercel's Convex
- * integration issues — resolves to a dev deployment unless told otherwise.
- * Only `convex deploy` implies production on its own.
+ * names a dev deployment, and without the flag every `env` / `run` /
+ * `function-spec` call acts on it. Only `convex deploy` implies production
+ * on its own. A deploy key for one deployment (`CONVEX_DEPLOY_KEY`) selects
+ * that deployment instead; the CLI then ignores `--prod`, so passing it is
+ * harmless.
  */
 export function deploymentFlags(options: { prod?: boolean } = {}): string[] {
   return options.prod ? ['--prod'] : []
