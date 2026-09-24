@@ -7,7 +7,7 @@ import { runConvex } from '../convex-cli'
 import { mountPagesInAppComponent, scaffoldBackendFiles, resolveFunctionsDir } from '../scaffold'
 import type { BackendInstallationMode } from '../templates'
 import { collectPreflightFindings, DEV_ONLY_DEPLOYMENT_ENV, formatPreflightSummary, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../preflight'
-import { BACKEND_ENV_NAMES, deploymentEnvNames, isDevDeployment, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
+import { BACKEND_ENV_NAMES, deploymentEnvNames, deploymentFlags, isDevDeployment, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
 import { deriveDeploymentUrls, resolveSiteUrl } from '../deployment'
 import type { BillingCatalog } from '../convex/catalog'
 import { billing, collectBillingFindings, loadCatalog, readBillingOrganizationState } from './billing'
@@ -25,8 +25,8 @@ async function convexCli(rootDir: string, args: string[]): Promise<string | null
 }
 
 /** Deployed function identifiers (`module:name`), or null when the CLI is unreachable. */
-async function deployedFunctionIdentifiers(rootDir: string): Promise<Set<string> | null> {
-  const stdout = await convexCli(rootDir, ['function-spec'])
+async function deployedFunctionIdentifiers(rootDir: string, prod: boolean): Promise<Set<string> | null> {
+  const stdout = await convexCli(rootDir, ['function-spec', ...deploymentFlags({ prod })])
   if (stdout === null) return null
   try {
     const parsed = JSON.parse(stdout) as { functions?: Array<{ identifier?: string }> } | Array<{ identifier?: string }>
@@ -44,8 +44,8 @@ async function deployedFunctionIdentifiers(rootDir: string): Promise<Set<string>
  * The deployment's view of the auth config (`auth:authConfig`): the
  * invitation path, null when workspaces are off. Null when unreadable.
  */
-async function deployedAuthConfig(rootDir: string): Promise<{ invitationPath: string | null } | null> {
-  const stdout = await convexCli(rootDir, ['run', 'auth:authConfig'])
+async function deployedAuthConfig(rootDir: string, prod: boolean): Promise<{ invitationPath: string | null } | null> {
+  const stdout = await convexCli(rootDir, ['run', ...deploymentFlags({ prod }), 'auth:authConfig'])
   if (stdout === null) return null
   try {
     const { invitationPath } = JSON.parse(stdout) as { invitationPath?: string | null }
@@ -513,7 +513,7 @@ const doctor = defineCommand({
     // Deployment-side env presence (names only — values never read). Two
     // tiers: AUTH_SECRET + SITE_URL are required (fail); the rest are optional
     // and report the designed degradation (warn).
-    const deployed = await deploymentEnvNames(rootDir)
+    const deployed = await deploymentEnvNames(rootDir, { prod: args.prod })
     if (deployed) {
       for (const name of REQUIRED_DEPLOYMENT_ENV) {
         findings.push({
@@ -567,8 +567,8 @@ const doctor = defineCommand({
     // deployment slug, so this probe usually needs no configuration at all.
     // Deployment-reachable reads that need the convex CLI; each degrades to
     // null (and its checks to no finding) when the deployment is unreachable.
-    const identifiers = deployed ? await deployedFunctionIdentifiers(rootDir) : null
-    const authConfig = deployed ? await deployedAuthConfig(rootDir) : null
+    const identifiers = deployed ? await deployedFunctionIdentifiers(rootDir, args.prod) : null
+    const authConfig = deployed ? await deployedAuthConfig(rootDir, args.prod) : null
 
     if (siteUrl) {
       const ai = identifiers ? [...identifiers].some(id => id.startsWith('ai:')) : true

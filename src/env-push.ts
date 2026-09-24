@@ -142,10 +142,21 @@ export function readEnvFiles(rootDir: string): Record<string, string> {
   return env
 }
 
+/**
+ * The Convex CLI flags that select the deployment to act on. `--prod` is
+ * explicit because the ambient selection is not production: `.env.local`
+ * names a dev deployment, and a project deploy key — what Vercel's Convex
+ * integration issues — resolves to a dev deployment unless told otherwise.
+ * Only `convex deploy` implies production on its own.
+ */
+export function deploymentFlags(options: { prod?: boolean } = {}): string[] {
+  return options.prod ? ['--prod'] : []
+}
+
 /** Read deployment env var NAMES via `convex env list` (values never leave the CLI). */
-export async function deploymentEnvNames(rootDir: string): Promise<string[] | null> {
+export async function deploymentEnvNames(rootDir: string, options: { prod?: boolean } = {}): Promise<string[] | null> {
   try {
-    const { stdout } = await runConvex(rootDir, ['env', 'list'])
+    const { stdout } = await runConvex(rootDir, ['env', 'list', ...deploymentFlags(options)])
     return stdout
       .split('\n')
       .map(line => line.split('=')[0]?.trim() ?? '')
@@ -164,13 +175,15 @@ export interface EnvPushResult {
 
 export interface ExecuteEnvPushOptions {
   dryRun?: boolean
+  /** Set on the production deployment (`convex env set --prod`). */
+  prod?: boolean
   /** Injectable spawner for tests. */
   setEnv?: (rootDir: string, name: string, value: string) => Promise<void>
 }
 
 /** Values pass as argv with no shell, on every platform. */
-async function defaultSetEnv(rootDir: string, name: string, value: string): Promise<void> {
-  await runConvex(rootDir, ['env', 'set', name, value])
+async function defaultSetEnv(rootDir: string, name: string, value: string, prod: boolean): Promise<void> {
+  await runConvex(rootDir, ['env', 'set', ...deploymentFlags({ prod }), name, value])
 }
 
 /**
@@ -182,7 +195,7 @@ async function defaultSetEnv(rootDir: string, name: string, value: string): Prom
 export async function executeEnvPush(
   rootDir: string,
   actions: EnvPushAction[],
-  { dryRun = false, setEnv = defaultSetEnv }: ExecuteEnvPushOptions = {},
+  { dryRun = false, prod = false, setEnv = (dir, name, value) => defaultSetEnv(dir, name, value, prod) }: ExecuteEnvPushOptions = {},
 ): Promise<EnvPushResult[]> {
   const results: EnvPushResult[] = []
   for (const action of actions) {
@@ -236,14 +249,15 @@ export function isDevDeployment(rootDir: string): boolean {
 
 /** The whole flow shared by the CLI and the module's dev auto-provision. */
 export async function runEnvPush(rootDir: string, options: { prod?: boolean, dryRun?: boolean, force?: ReadonlySet<string>, setEnv?: ExecuteEnvPushOptions['setEnv'] } = {}): Promise<EnvPushRunResult | null> {
-  const deployedNames = await deploymentEnvNames(rootDir)
+  const deployedNames = await deploymentEnvNames(rootDir, { prod: options.prod })
   if (deployedNames === null) return null
 
-  // Dev-class deployments get required-gap filling.
-  const deployment = configuredDeployment(rootDir)
+  // Dev-class deployments get required-gap filling. Under --prod the target is
+  // the project's production deployment, whatever .env.local names.
+  const deployment = options.prod ? 'production' : configuredDeployment(rootDir)
   const dev = !options.prod && isDevDeployment(rootDir)
   const actions = planEnvPush({ deployedNames, localEnv: readEnvFiles(rootDir), dev, ...(options.force ? { force: options.force } : {}) })
-  const results = await executeEnvPush(rootDir, actions, { dryRun: options.dryRun, setEnv: options.setEnv })
+  const results = await executeEnvPush(rootDir, actions, { dryRun: options.dryRun, prod: options.prod, ...(options.setEnv ? { setEnv: options.setEnv } : {}) })
   return {
     deployment,
     dev,
