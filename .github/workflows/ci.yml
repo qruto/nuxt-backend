@@ -11,15 +11,20 @@ name: CI
 #
 # The pnpm version, the Node runtime and their action pins are defined once, in
 # .github/actions/setup.
+# `integration/**` is where a release is assembled before it reaches main (see
+# CONTRIBUTING.md › Integration branches): pull requests into it run the same
+# gate, and its pushes run everything, exactly like main's.
 on:
   push:
     branches:
       - main
+      - 'integration/**'
   pull_request:
     branches:
       - main
+      - 'integration/**'
 
-# Cancel superseded runs on a pull request, never on main. `head_ref` is empty on
+# Cancel superseded runs on a pull request, never on a push. `head_ref` is empty on
 # a push, so cancelling there would put every merge in one group, and two merges
 # in quick succession would kill the first run. `Release` will not tag a commit
 # whose CI run was cancelled, so that commit could never be released.

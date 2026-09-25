@@ -10,6 +10,14 @@
 # Only settings that differ from stock appear here.
 
 reviews:
+  # Pull requests are reviewed automatically only when they target the default
+  # branch. A release is assembled on an integration branch first (see
+  # CONTRIBUTING.md › Integration branches), and the pull requests into it are
+  # the ones worth reviewing — by the time the branch reaches main, every change
+  # in it has been reviewed already.
+  auto_review:
+    base_branches:
+      - 'integration/.*'
   # Exclusions only: one positive pattern would turn this into an allowlist.
   # These also drive sparse-checkout, so an excluded path is never cloned and
   # cannot be read for context either.

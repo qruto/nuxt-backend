@@ -137,9 +137,29 @@ the repository root, no undeclared dependency, no committed lockfile.
    ```bash
    pnpm lint && pnpm test:types:lib && pnpm test && pnpm pack && pnpm check:tarball
    ```
-5. Open a pull request against `main`.
+5. Open a pull request against `main` — or against the integration branch, while a release is being
+   assembled on one (see below).
 
 Pull requests that include tests and follow the commit convention below are reviewed fastest.
+
+### Integration branches
+
+A release that takes more than one pull request is assembled on an `integration/<version>` branch
+(for 0.2.0: `integration/0.2.0`), not on `main`:
+
+- **Changes** are branches off the integration branch and pull requests into it, squash-merged.
+  CI, the pkg.pr.new preview and CodeRabbit run on them exactly as on pull requests into `main`;
+  the `integration-gate` ruleset enforces the same checks and signed commits.
+- **`main` keeps moving slowly:** dependency updates and production hotfixes land there as usual.
+  Bring them into the integration branch with a pull request from `main`, merged as a **merge
+  commit**, so `main`'s own commits stay intact — at least weekly, and always before the branch
+  merges.
+- **The branch reaches `main` once**, as a merge commit, right before the release: one commit per
+  change on `main`, for bisect and the changelog. [`.github/rulesets/README.md`](.github/rulesets/README.md#integration-gate)
+  has the ruleset steps.
+- **Verification during the cycle** happens on your local dev deployment and on the Vercel preview
+  of the integration branch (docs and site; the playground stays offline there). Production keeps
+  running `main` until the merge.
 
 ## Code Quality
 

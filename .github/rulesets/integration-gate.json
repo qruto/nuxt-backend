@@ -1,11 +1,11 @@
 {
-  "name": "main-pr-gate",
+  "name": "integration-gate",
   "target": "branch",
   "enforcement": "active",
   "conditions": {
     "ref_name": {
       "include": [
-        "~DEFAULT_BRANCH"
+        "refs/heads/integration/**"
       ],
       "exclude": []
     }
@@ -19,6 +19,12 @@
   ],
   "rules": [
     {
+      "type": "deletion"
+    },
+    {
+      "type": "non_fast_forward"
+    },
+    {
       "type": "pull_request",
       "parameters": {
         "required_approving_review_count": 0,
@@ -27,6 +33,7 @@
         "require_last_push_approval": false,
         "required_review_thread_resolution": false,
         "allowed_merge_methods": [
+          "merge",
           "squash"
         ],
         "require_extra_approval_for_unattributed_changes": true
@@ -36,7 +43,7 @@
       "type": "required_status_checks",
       "parameters": {
         "strict_required_status_checks_policy": false,
-        "do_not_enforce_on_create": false,
+        "do_not_enforce_on_create": true,
         "required_status_checks": [
           {
             "context": "All checks passed",

@@ -19,6 +19,7 @@ pnpm run check:rulesets     # needs `gh auth` or GH_TOKEN
 | `main-guard.json` | active | Blocks deletion and force-pushes on `main` |
 | `main-pr-gate.json` | active | Makes CI actually gate a merge — see below |
 | `tag-guard.json` | active | Freezes `v*` tags: no update, delete or force-push |
+| `integration-gate.json` | active | The same gate for `integration/**` branches, plus no deletion or force-push — see below |
 
 ## `main-pr-gate`
 
@@ -29,7 +30,8 @@ This is the ruleset that stops that.
 | --- | --- |
 | `pull_request`, **0 reviewers** | There is one maintainer here, so the gate is CI, not review. What matters is that the change exists as a PR at all, so the checks run and the diff is readable. Zero reviewers makes that free. |
 | `required_status_checks: ["All checks passed"]` | One aggregate check. Adding, renaming or splitting a CI job never means touching this file. |
-| `required_signatures` | Every commit on `main` is already signed. Squash merges are signed by GitHub, but rebase merges are allowed too, and a rebase carries the PR's own commits onto `main` unchanged. That's why `Release Prepare` creates its commit through the API instead of `git commit` — a commit made on a runner is unverified and would be rejected. |
+| `required_signatures` | Every commit on `main` is already signed. Squash is the only merge method: GitHub re-creates and signs the squash commit, while a rebase merge would carry the PR's own commits onto `main` unchanged and unsigned. `Release Prepare` creates its commit through the API instead of `git commit` for the same reason — a commit made on a runner is unverified. |
+| `allowed_merge_methods: ["squash"]` | One commit per pull request on `main`, always signed. The one exception is the merge of an integration branch at the end of a release cycle, which needs `merge` (below): it is added for that pull request and removed after. |
 | `require_extra_approval_for_unattributed_changes` | GitHub's default. Written down rather than left implicit: a commit whose author isn't a GitHub account is worth a second look. |
 | `bypass_actors: OrganizationAdmin`, `pull_request` mode | Break-glass. Without it `current_user_can_bypass` is `"never"`, so one flaky Windows job locks the maintainer out of their own repository. `pull_request` mode, not `always`: it allows merging a PR past a stuck check, never a direct push. |
 
@@ -39,6 +41,28 @@ force-push protection into evaluate mode too.
 
 **Why no bot needs a bypass.** `Release Prepare` pushes to `release/vX.Y.Z` and `Release` pushes
 only a tag. Neither writes to `main`. That's why the release had to be split first.
+
+## `integration-gate`
+
+A release that takes more than one pull request is assembled on an `integration/<version>` branch
+first (see [CONTRIBUTING.md](../../CONTRIBUTING.md#integration-branches)): each change is a pull
+request into it, and the branch reaches `main` once, as a merge commit, before the release. The
+branch holds weeks of reviewed work, so it gets `main`'s gate and `main-guard`'s protection in
+one ruleset:
+
+| Rule | Why |
+| --- | --- |
+| `deletion`, `non_fast_forward` | The branch is the only copy of the cycle's history until it merges. |
+| `pull_request`, **0 reviewers** | As on `main`: every change arrives as a pull request, so CI runs and the diff is readable. |
+| `allowed_merge_methods: ["squash", "merge"]` | Squash for changes, as on `main`. Merge for syncing `main` into the branch, which must keep `main`'s commits intact. |
+| `required_status_checks: ["All checks passed"]` | The same aggregate check. `ci.yml` runs on pushes to and pull requests into `integration/**`. `do_not_enforce_on_create` lets the branch be created from `main`'s head. |
+| `required_signatures` | The branch merges into `main` as a merge commit, which carries every commit on it: each must already be signed. Squash and merge commits made by GitHub are. |
+
+**Merging it into `main`.** Add `merge` to `main-pr-gate`'s `allowed_merge_methods` (file and
+live), merge the integration pull request as a merge commit — one commit per change, for bisect and
+the changelog — then set it back to `["squash"]`. After the release, delete the branch: turn this
+ruleset's `deletion` rule off for the moment it takes, or delete the ruleset if no other cycle is
+running.
 
 ## Adding a ruleset
 

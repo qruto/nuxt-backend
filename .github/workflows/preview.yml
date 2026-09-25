@@ -1,7 +1,7 @@
 name: Preview
 
 # Continuous preview releases via pkg.pr.new (StackBlitz): every PR and every
-# push to main gets an installable build —
+# push to main or an integration branch gets an installable build —
 #   npm i https://pkg.pr.new/qruto/nuxt-backend@<sha>
 # — and a runnable one, as a StackBlitz playground built from
 # `examples/minimal` with that same build wired in, so a change can be tried
@@ -12,9 +12,11 @@ on:
   push:
     branches:
       - main
+      - 'integration/**'
   pull_request:
     branches:
       - main
+      - 'integration/**'
 
 # Cancel superseded runs on a pull request, never on main: every commit on main
 # should end up with an installable build and its pkg.pr.new comment. A group
