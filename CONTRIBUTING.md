@@ -77,6 +77,23 @@ npx convex env set BETTER_AUTH_TRUSTED_ORIGINS https://nuxt-backend.local
 Devices also need the portless CA trusted (or they'll see a certificate
 warning); `portless trust` covers this machine only.
 
+**Running the CLI from this repository.** Use `pnpm cli <command>` (after `pnpm build`), not
+`npx nuxt-backend`: the repository root has no `node_modules/.bin/nuxt-backend`, so `npx` fetches
+the published package from npm instead of running your checkout.
+
+**Re-linking the dev deployment.** The website's Convex dev deployment is the `CONVEX_DEPLOYMENT` in
+the root `.env.local`. If the Convex CLI answers "You don't have access to the selected project",
+you are signed in as a different Convex account: `npx convex logout`, then `npx convex dev` and
+sign in as the account that owns the project — or `npx convex dev --configure existing` to pick
+one. When the deployment changes, check the URLs pinned in `.env.local` (`CONVEX_URL`,
+`CONVEX_SITE_URL`, `NUXT_PUBLIC_BACKEND_*`): they win over what the slug would derive.
+
+**Never export a production deploy key in a shell you develop in.** The Convex CLI follows
+`CONVEX_DEPLOY_KEY` over `.env.local`, so every `npx convex …` in that shell acts on
+production. Prefix the one command that needs it (`CONVEX_DEPLOY_KEY=… npx convex env set …`).
+`pnpm db:reset` and `pnpm db:seed` drop the key before calling Convex, and `env push --prod` /
+`doctor --prod` refuse a dev or preview key.
+
 ### The DevTools panel
 
 The Backend tab in Nuxt DevTools is its own Nuxt app,

@@ -15,6 +15,6 @@ Better Auth, Polar and Resend.
 - Docs: https://nuxt-backend.dev (live playground at /playground)
 - Repository: https://github.com/qruto/nuxt-backend — MIT, signed releases with npm provenance
 - Compatibility: Nuxt >= 4.1, Node >= 24.11, Convex >= 1.43
-- First stable release: 0.2.0 (`0.1.0` was a test publish and is deprecated)
+- First real release: 0.2.0 (`0.1.0` was a test publish, deprecated on npm)
 
 I maintain it and will keep the entry current.
