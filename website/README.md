@@ -47,10 +47,25 @@ including `$comment`. That's what this file and the script's comments are for.
 | Preview env | **nothing Convex-related** — remove the `CONVEX_DEPLOY_KEY` the integration adds to Preview and Development | A preview renders the docs and the playground's offline state. The build command ignores a key outside production anyway; removing it keeps the key where it is needed |
 | Deployment Protection → Vercel Authentication | **off** | A preview nobody can open isn't a preview; this is a public docs site |
 
-The playground's production deployment is configured with the package's own tooling from a
-checkout that has its `.env.local`: `npx nuxt-backend env push --prod` (with `BILLING_ENVIRONMENT=sandbox`
-— the live playground bills against the provider's sandbox, never its production), then
-`npx nuxt-backend doctor --prod`.
+The playground's production deployment (`determined-horse-300`, created by the Convex integration)
+is configured from a checkout, with its production deploy key — Vercel → Settings → Environment
+Variables → `CONVEX_DEPLOY_KEY` (Production). Check the key first: `echo "${CONVEX_DEPLOY_KEY%%|*}"`
+must print `prod:determined-horse-300`. Then, from the repository root, after `pnpm build`:
+
+1. `AUTH_SECRET` and `SITE_URL` directly — `.env.local` has no `AUTH_SECRET`, and its `SITE_URL` is
+   the local origin: `npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"` and
+   `npx convex env set SITE_URL https://nuxt-backend.dev`.
+2. The rest from `.env.local` — `pnpm cli env push --prod`. It never replaces a value already set,
+   so step 1 survives. **Never `--force all`** from a dev `.env.local`: it would overwrite
+   `SITE_URL` with the local origin. `BILLING_ENVIRONMENT` stays `sandbox` — the live playground
+   bills against the provider's sandbox, never its production.
+3. The webhook secrets belong to the production endpoints (`https://determined-horse-300.convex.site/billing/events`
+   and `/email/events`, registered in the Polar sandbox and Resend dashboards), not to the dev ones
+   `env push` copies: set each with `npx convex env set`.
+4. `npx convex run billing:syncProducts`, then `pnpm cli doctor --prod`.
+
+Every `npx convex` above runs with the key in the environment; prefix it per command rather than
+exporting it into a shell you keep using.
 
 ## The two previews on a pull request
 

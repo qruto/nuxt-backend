@@ -295,7 +295,8 @@
     "bump": "pnpm exec taze major -w",
     "db:reset": "node scripts/db-reset.js",
     "db:seed": "node scripts/db-seed.js",
-    "test:docs": "vitest --project docs --run"
+    "test:docs": "vitest --project docs --run",
+    "cli": "node dist/cli.mjs"
   },
   "dependencies": {
     "@better-auth/passkey": ">=1.6.25 <1.7.0",
@@ -392,8 +393,7 @@
       "ci": "CI",
       "cli": "CLI",
       "component": "Convex component",
-      "deps": "Dependencies",
-      "deps-dev": "Dev dependencies",
+      "deps-dev": "deps",
       "devtools": "DevTools",
       "docs": "Docs",
       "email": "Email",

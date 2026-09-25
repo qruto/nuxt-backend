@@ -42,8 +42,18 @@ export function devDeployment() {
     console.error('CONVEX_DEPLOYMENT not found in .env.local. Run `npx convex dev` first.')
     process.exit(1)
   }
+  // The Convex CLI follows a deploy key over CONVEX_DEPLOYMENT. These scripts
+  // wipe and seed data, so a key exported to run one production command must
+  // not come along: drop it from the environment, and refuse one kept in
+  // .env.local, which the Convex CLI would load by itself.
+  if (env.CONVEX_DEPLOY_KEY || env.CONVEX_DEPLOYMENT_TOKEN) {
+    console.error('.env.local holds a deploy key — the Convex CLI would act on that deployment. Remove it; these scripts only ever touch the dev deployment.')
+    process.exit(1)
+  }
+  const shell = Object.fromEntries(Object.entries(process.env)
+    .filter(([name]) => name !== 'CONVEX_DEPLOY_KEY' && name !== 'CONVEX_DEPLOYMENT_TOKEN'))
   return {
-    env: { ...process.env, CONVEX_DEPLOYMENT: deployment },
+    env: { ...shell, CONVEX_DEPLOYMENT: deployment },
     urlArgs: url ? ['--url', url] : [],
   }
 }

@@ -9,6 +9,16 @@ environment can do.
 
 ## Cut a release
 
+**Before you start.**
+
+- **Production is what you release.** `main` deploys nuxt-backend.dev on every merge: check the
+  playground there before cutting the release.
+- **Run the free deepsec scan** — see [SECURITY.md](./SECURITY.md#deeper-review-with-deepsec).
+- **Freeze `main` until the tag exists.** Merge nothing else between the release pull request and
+  step 3, Dependabot included. `Release` refuses unless `HEAD` is the release commit, and a newer
+  push to `main` can also cancel the release commit's pending CI run, which `Release` then treats
+  as not green.
+
 1. **Actions → Release Prepare → Run workflow.** Pick the bump, or leave `auto` to work it out
    from the commit messages since the last tag. To name the version outright, fill in
    `version` (`1.0.0`) — the bump is then ignored.
@@ -17,11 +27,15 @@ environment can do.
    `#### Scope` sub-lists in each section (`scripts/changelog-postprocess.mjs`); a scope's
    display name — `ci` → `CI` — is set in `changelog.scopeMap` in `package.json`.
 
-2. **Read that pull request, then squash-merge it.** Its body is the changelog the GitHub Release
-   will carry. Edit `CHANGELOG.md` on the release branch first if a line needs rewording — the
-   notes are read from the tag, so the edit ships. `CI` waits for **Approve and run** first: the pull request is authored by
-   `github-actions[bot]`, which the *Require approval for all external contributors* policy treats
-   like any outside contributor. After that, wait for it like any other PR.
+2. **Read that pull request, then squash-merge it** — squash is the only method `main` allows. Its
+   body is the changelog the GitHub Release will carry. Edit `CHANGELOG.md` on the release branch
+   first if a line needs rewording — the notes are read from the tag, so the edit ships. Give that
+   edit a Conventional Commit message (`docs(changelog): curate v0.2.0`): CI lints every commit on
+   the pull request, and the web editor's default "Update CHANGELOG.md" fails it.
+
+   Expect `CI` to wait for **Approve and run**: the pull request is authored by
+   `github-actions[bot]`, and the repository's approval policy for first-time contributors holds
+   workflows from an account that hasn't contributed yet. After that, wait for it like any other PR.
 
 3. **Actions → Release → Run workflow.** It tags the merged commit, builds the tarball, attests
    it, creates the GitHub Release (tarball, attestation bundle and SBOM as assets) and only then
@@ -127,7 +141,11 @@ With `release-type: auto`, the bump comes from the
 | `feat!:` / `BREAKING CHANGE:` footer | major   |
 
 `chore:`, `docs:`, `refactor:`, `test:`, `ci:`, `build:` and `perf:` show up in the changelog but
-don't move the version. What counts as breaking — which surface a version number covers, and
+don't move the version. Two kinds of commit never do: `ai:` (the agent tooling — skills and MCP
+servers — which is not part of the package), and Dependabot's `chore(deps)` / `chore(deps-dev)`
+bumps. changelogen drops `chore(deps)` itself, after applying `changelog.scopeMap` — which is why
+the map sends `deps-dev` to `deps` and gives `deps` no display name. `ci(deps)` action bumps
+stay, under CI. What counts as breaking — which surface a version number covers, and
 how an upstream release maps to one here — is [STABILITY.md](./STABILITY.md).
 
 Below `1.0.0` changelogen steps everything down once: a `feat` gives a patch, a breaking change
@@ -148,8 +166,8 @@ notes come from the tag, not from whatever `main` says by then.
 
 **`Verify the attestation` fails with `connection refused`.** The attestation was signed and
 stored; `gh attestation verify` could not fetch it back because the host it was redirected to is
-not in `publish`'s `allowed-endpoints` (v0.9.0 stopped here when GitHub began serving bundles from
-`tmaproduction.blob.core.windows.net`). Add the host from the error, merge, and `re-stage` the tag.
+not in `publish`'s `allowed-endpoints` (nuxt-convex-module's v0.9.0, released through this same
+workflow, stopped here when GitHub began serving bundles from `tmaproduction.blob.core.windows.net`). Add the host from the error, merge, and `re-stage` the tag.
 
 **`CI` is red, or `HEAD` isn't the release commit.** The run refuses before writing anything.
 Nothing to undo.
@@ -159,6 +177,11 @@ moved. Release the next patch instead.
 
 **"tag already exists" when pushing.** That version is already out. You dispatched twice. The
 guard is deliberate — don't re-run past it. `re-stage: vX.Y.Z` is the way back in.
+
+**Release Prepare fails with "Reference already exists".** A `release/vX.Y.Z` branch from an earlier
+attempt is still there — GitHub deletes a head branch only when its pull request merges. Close that
+pull request if it is open, delete the branch (`git push origin --delete release/vX.Y.Z`), and run
+Release Prepare again.
 
 **The release PR was merged but never tagged.** Run **Release** while that commit is still `HEAD`
 on `main`. If something else merged in the meantime it will refuse — prepare a fresh release
