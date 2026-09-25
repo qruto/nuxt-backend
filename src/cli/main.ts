@@ -7,12 +7,28 @@ import { runConvex } from '../convex-cli'
 import { mountPagesInAppComponent, scaffoldBackendFiles, resolveFunctionsDir } from '../scaffold'
 import type { BackendInstallationMode } from '../templates'
 import { collectPreflightFindings, DEV_ONLY_DEPLOYMENT_ENV, formatPreflightSummary, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../preflight'
-import { BACKEND_ENV_NAMES, deploymentEnvNames, isDevDeployment, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
+import { BACKEND_ENV_NAMES, deploymentEnvNames, deploymentFlags, isDevDeployment, nonProductionDeployKey, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
 import { deriveDeploymentUrls, resolveSiteUrl } from '../deployment'
 import type { BillingCatalog } from '../convex/catalog'
 import { billing, collectBillingFindings, loadCatalog, readBillingOrganizationState } from './billing'
 import { missingContractFunctions } from '../contract'
 import { resolvePagePath, type ModulePagesOptions } from '../pages'
+
+/**
+ * Refuse a `--prod` command when the deploy key the Convex CLI will use names
+ * a dev or preview deployment (see `nonProductionDeployKey`). True when
+ * refused. The key is looked up where the Convex CLI looks: the process env,
+ * then `.env.local`, then `.env` — dotenv never overrides a value already
+ * set, and `readEnvFiles` lets `.env.local` win over `.env` the same way.
+ */
+function refuseNonProductionKey(prod: boolean, rootDir: string): boolean {
+  if (!prod) return false
+  const type = nonProductionDeployKey({ ...readEnvFiles(rootDir), ...process.env })
+  if (!type) return false
+  console.error(`[nuxt-backend] --prod refused: CONVEX_DEPLOY_KEY is a ${type} deployment key, and the Convex CLI would act on that deployment instead of production. Use the production deploy key (Convex dashboard → Settings, or your host's production environment).`)
+  process.exitCode = 1
+  return true
+}
 
 /** Run a read-only `convex <args>` returning stdout, or null on any failure (CLI absent, no deployment, …). */
 async function convexCli(rootDir: string, args: string[]): Promise<string | null> {
@@ -24,16 +40,22 @@ async function convexCli(rootDir: string, args: string[]): Promise<string | null
   }
 }
 
-/** Deployed function identifiers (`module:name`), or null when the CLI is unreachable. */
-async function deployedFunctionIdentifiers(rootDir: string): Promise<Set<string> | null> {
-  const stdout = await convexCli(rootDir, ['function-spec'])
+/**
+ * The deployment's function spec: its client URL and the deployed function
+ * identifiers (`module:name`). Null when the CLI is unreachable.
+ */
+async function deployedFunctionSpec(rootDir: string, prod: boolean): Promise<{ url: string | null, identifiers: Set<string> } | null> {
+  const stdout = await convexCli(rootDir, ['function-spec', ...deploymentFlags({ prod })])
   if (stdout === null) return null
   try {
-    const parsed = JSON.parse(stdout) as { functions?: Array<{ identifier?: string }> } | Array<{ identifier?: string }>
+    const parsed = JSON.parse(stdout) as { url?: string, functions?: Array<{ identifier?: string }> } | Array<{ identifier?: string }>
     const list = Array.isArray(parsed) ? parsed : parsed.functions ?? []
-    return new Set(list
-      .map(fn => fn.identifier ?? '')
-      .map(id => id.replace(/\.[jt]s:/, ':')))
+    return {
+      url: Array.isArray(parsed) ? null : parsed.url ?? null,
+      identifiers: new Set(list
+        .map(fn => fn.identifier ?? '')
+        .map(id => id.replace(/\.[jt]s:/, ':'))),
+    }
   }
   catch {
     return null
@@ -41,11 +63,27 @@ async function deployedFunctionIdentifiers(rootDir: string): Promise<Set<string>
 }
 
 /**
+ * What doctor reads from the deployment it checks, beyond env names: the
+ * deployed functions, the auth config, and the site URL whose routes it
+ * probes. Locally that site is the one .env.local names; under --prod it is
+ * production's, which the function spec reports — an explicit site URL in the
+ * process env (a custom domain) still wins, while .env.local's points at dev.
+ */
+async function readDeployment(rootDir: string, options: { prod: boolean, reachable: boolean, localSiteUrl: string | undefined }) {
+  const spec = options.reachable ? await deployedFunctionSpec(rootDir, options.prod) : null
+  const authConfig = options.reachable ? await deployedAuthConfig(rootDir, options.prod) : null
+  const probeSiteUrl = options.prod
+    ? resolveSiteUrl({ env: process.env, derived: null, ...(spec?.url ? { url: spec.url } : {}) })
+    : options.localSiteUrl
+  return { identifiers: spec?.identifiers ?? null, authConfig, probeSiteUrl }
+}
+
+/**
  * The deployment's view of the auth config (`auth:authConfig`): the
  * invitation path, null when workspaces are off. Null when unreadable.
  */
-async function deployedAuthConfig(rootDir: string): Promise<{ invitationPath: string | null } | null> {
-  const stdout = await convexCli(rootDir, ['run', 'auth:authConfig'])
+async function deployedAuthConfig(rootDir: string, prod: boolean): Promise<{ invitationPath: string | null } | null> {
+  const stdout = await convexCli(rootDir, ['run', ...deploymentFlags({ prod }), 'auth:authConfig'])
   if (stdout === null) return null
   try {
     const { invitationPath } = JSON.parse(stdout) as { invitationPath?: string | null }
@@ -349,13 +387,14 @@ const envPush = defineCommand({
   meta: { name: 'push', description: 'Sync backend env from .env(.local) to the Convex deployment (dev deployments also get AUTH_SECRET/SITE_URL provisioned)' },
   args: {
     ...cwdArg,
-    'prod': { type: 'boolean', description: 'Never invent values; fail on missing required env', default: false },
+    'prod': { type: 'boolean', description: 'Act on the production deployment; never invent values; fail on missing required env', default: false },
     'dry-run': { type: 'boolean', description: 'Print the plan without setting anything', default: false },
     'force': { type: 'string', description: 'Replace values already on the deployment: a comma-separated list of names, or "all"' },
     'json': { type: 'boolean', description: 'Machine-readable output', default: false },
   },
   async run({ args }) {
     const rootDir = projectRoot(args)
+    if (refuseNonProductionKey(args.prod, rootDir)) return
     const run = await runEnvPush(rootDir, { prod: args.prod, dryRun: args['dry-run'], ...(parseForce(args.force) ? { force: parseForce(args.force)! } : {}) })
     if (!run) {
       console.error('[nuxt-backend] No Convex deployment reachable — run `npx convex dev` once, then push again.')
@@ -467,10 +506,11 @@ const doctor = defineCommand({
     ...cwdArg,
     json: { type: 'boolean', description: 'Machine-readable output', default: false },
     fix: { type: 'boolean', description: 'Repair what doctor can: restore missing scaffold files, push env (`env push`)', default: false },
-    prod: { type: 'boolean', description: 'Production posture: missing email/billing config becomes a failure', default: false },
+    prod: { type: 'boolean', description: 'Check the production deployment; missing email/billing config becomes a failure', default: false },
   },
   async run({ args }) {
     const rootDir = projectRoot(args)
+    if (refuseNonProductionKey(args.prod, rootDir)) return
 
     if (args.fix) {
       // Restore missing scaffold files (existing files are never touched),
@@ -513,7 +553,7 @@ const doctor = defineCommand({
     // Deployment-side env presence (names only — values never read). Two
     // tiers: AUTH_SECRET + SITE_URL are required (fail); the rest are optional
     // and report the designed degradation (warn).
-    const deployed = await deploymentEnvNames(rootDir)
+    const deployed = await deploymentEnvNames(rootDir, { prod: args.prod })
     if (deployed) {
       for (const name of REQUIRED_DEPLOYMENT_ENV) {
         findings.push({
@@ -524,7 +564,9 @@ const doctor = defineCommand({
           fixHint: deployed.includes(name) ? '' : 'Run `npx nuxt-backend env push` (dev fills it in), or: npx convex env set ' + name + ' ...',
         })
       }
-      const devDeployment = isDevDeployment(rootDir)
+      // Under --prod the deployment read above is production, whatever
+      // .env.local names.
+      const devDeployment = !args.prod && isDevDeployment(rootDir)
       for (const [name, degradation] of Object.entries(OPTIONAL_DEPLOYMENT_ENV)) {
         const id = `deployment-${name.toLowerCase().replace(/_/g, '-')}`
         const isSet = deployed.includes(name)
@@ -567,12 +609,14 @@ const doctor = defineCommand({
     // deployment slug, so this probe usually needs no configuration at all.
     // Deployment-reachable reads that need the convex CLI; each degrades to
     // null (and its checks to no finding) when the deployment is unreachable.
-    const identifiers = deployed ? await deployedFunctionIdentifiers(rootDir) : null
-    const authConfig = deployed ? await deployedAuthConfig(rootDir) : null
-
-    if (siteUrl) {
+    const { identifiers, authConfig, probeSiteUrl } = await readDeployment(rootDir, {
+      prod: args.prod,
+      reachable: deployed !== null,
+      localSiteUrl: siteUrl,
+    })
+    if (probeSiteUrl) {
       const ai = identifiers ? [...identifiers].some(id => id.startsWith('ai:')) : true
-      findings.push(...await webhookRouteFindings(siteUrl, { ai }))
+      findings.push(...await webhookRouteFindings(probeSiteUrl, { ai }))
     }
 
     // The composable function contract and the invitation-route cross-check

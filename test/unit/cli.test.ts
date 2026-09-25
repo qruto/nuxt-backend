@@ -12,6 +12,11 @@ vi.mock('@polar-sh/sdk/funcs/organizationsListOrganizations.js', () => ({ organi
 let rootDir: string
 
 beforeEach(() => {
+  // A deploy key exported in the shell running the suite would point the
+  // Convex CLI at that real deployment. These tests assume no deployment is
+  // reachable, so none may be selected.
+  vi.stubEnv('CONVEX_DEPLOY_KEY', undefined)
+  vi.stubEnv('CONVEX_DEPLOYMENT_TOKEN', undefined)
   rootDir = mkdtempSync(join(tmpdir(), 'nuxt-backend-cli-'))
   vi.spyOn(console, 'log').mockImplementation(() => {})
   vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -19,6 +24,7 @@ beforeEach(() => {
 
 afterEach(() => {
   rmSync(rootDir, { recursive: true, force: true })
+  vi.unstubAllEnvs()
   vi.restoreAllMocks()
   process.exitCode = undefined
 })
@@ -177,7 +183,11 @@ describe('doctor', () => {
     // A fresh dev deployment has its routes mounted and no provider webhooks
     // yet — the designed degradation the *_WEBHOOK_SECRET findings also
     // report, and not a reason for the first `doctor` to exit 1.
-    writeFileSync(join(rootDir, '.env.local'), 'NUXT_PUBLIC_CONVEX_SITE_URL=https://demo.convex.site\n')
+    // The site URL comes from the process env, as a host sets it: under
+    // --prod, .env.local's URLs name the dev deployment and are not probed.
+    vi.stubEnv('NUXT_PUBLIC_CONVEX_SITE_URL', 'https://demo.convex.site')
+    // The package's own name wins over the platform's; keep a runner's value out.
+    vi.stubEnv('NUXT_PUBLIC_BACKEND_SITE_URL', undefined)
     vi.stubGlobal('fetch', vi.fn(async () => new Response('secret not set', { status: 503 })))
     const statuses = async (args: string[]) => {
       vi.mocked(console.log).mockClear()
@@ -196,6 +206,7 @@ describe('doctor', () => {
     }
     finally {
       vi.unstubAllGlobals()
+      vi.unstubAllEnvs()
     }
   })
 })
