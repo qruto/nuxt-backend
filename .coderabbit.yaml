@@ -169,8 +169,9 @@ reviews:
   # The pull request title is the commit subject `main` receives from a
   # squash merge (the repository merges with COMMIT_OR_PR_TITLE), and
   # `Release Prepare` derives the bump and the changelog from those subjects
-  # (RELEASE.md). CI's commitlint sees only the branch's commits, so the title
-  # is the one subject nothing else checks. Stock mode (`warning`).
+  # (RELEASE.md). CI lints the title with commitlint as well; this check is
+  # the second look, and the one that also judges the `!`. Stock mode
+  # (`warning`).
   pre_merge_checks:
     title:
       requirements: >-

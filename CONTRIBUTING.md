@@ -196,6 +196,11 @@ Allowed types: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`,
 re-checks every commit on a pull request, so the gate holds either way. The local hook can be
 bypassed with `git commit --no-verify`; CI cannot — non-conventional commits will not merge.
 
+**The pull request title is a commit message too.** Pull requests are squash-merged, and the squash
+commit on `main` takes the title as its subject whenever the pull request has more than one commit.
+`Release Prepare` builds the version bump and the changelog from those subjects, so CI lints the
+title with the same rules. Write it as `<type>(<scope>): <description>`, at most 100 characters.
+
 Commits on `main` must also be **signed**: the `main-pr-gate` ruleset
 ([`.github/rulesets/`](./.github/rulesets)) requires a verified signature on every commit. That
 decides the merge method: pull requests are **squash-merged**, and GitHub signs the squash

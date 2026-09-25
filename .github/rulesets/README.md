@@ -29,7 +29,8 @@ This is the ruleset that stops that.
 | --- | --- |
 | `pull_request`, **0 reviewers** | There is one maintainer here, so the gate is CI, not review. What matters is that the change exists as a PR at all, so the checks run and the diff is readable. Zero reviewers makes that free. |
 | `required_status_checks: ["All checks passed"]` | One aggregate check. Adding, renaming or splitting a CI job never means touching this file. |
-| `required_signatures` | Every commit on `main` is already signed. Squash merges are signed by GitHub, but rebase merges are allowed too, and a rebase carries the PR's own commits onto `main` unchanged. That's why `Release Prepare` creates its commit through the API instead of `git commit` — a commit made on a runner is unverified and would be rejected. |
+| `required_signatures` | Every commit on `main` is already signed. Squash is the only merge method: GitHub re-creates and signs the squash commit, while a rebase merge would carry the PR's own commits onto `main` unchanged and unsigned. `Release Prepare` creates its commit through the API instead of `git commit` for the same reason — a commit made on a runner is unverified. |
+| `allowed_merge_methods: ["squash"]` | One signed commit per pull request on `main`: a linear history, and one Conventional Commit subject per change for `Release Prepare`'s changelog. CI lints the pull request title, which becomes that subject. |
 | `require_extra_approval_for_unattributed_changes` | GitHub's default. Written down rather than left implicit: a commit whose author isn't a GitHub account is worth a second look. |
 | `bypass_actors: OrganizationAdmin`, `pull_request` mode | Break-glass. Without it `current_user_can_bypass` is `"never"`, so one flaky Windows job locks the maintainer out of their own repository. `pull_request` mode, not `always`: it allows merging a PR past a stuck check, never a direct push. |
 
