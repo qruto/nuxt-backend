@@ -156,7 +156,7 @@ export function deploymentFlags(options: { prod?: boolean } = {}): string[] {
 }
 
 /**
- * The deployment type of a deploy key in the environment, when it is one a
+ * The deployment type of the deploy key in `env`, when it is one a
  * production command must not act on. The Convex CLI follows
  * `CONVEX_DEPLOY_KEY` and ignores `--prod`, so with a dev or preview key a
  * `--prod` command would silently act on that deployment instead. Null when

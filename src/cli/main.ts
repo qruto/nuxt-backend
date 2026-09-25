@@ -15,12 +15,15 @@ import { missingContractFunctions } from '../contract'
 import { resolvePagePath, type ModulePagesOptions } from '../pages'
 
 /**
- * Refuse a `--prod` command when the deploy key in the environment names a
- * dev or preview deployment (see `nonProductionDeployKey`). True when refused.
+ * Refuse a `--prod` command when the deploy key the Convex CLI will use names
+ * a dev or preview deployment (see `nonProductionDeployKey`). True when
+ * refused. The key is looked up where the Convex CLI looks: the process env,
+ * then `.env.local`, then `.env` — dotenv never overrides a value already
+ * set, and `readEnvFiles` lets `.env.local` win over `.env` the same way.
  */
-function refuseNonProductionKey(prod: boolean): boolean {
+function refuseNonProductionKey(prod: boolean, rootDir: string): boolean {
   if (!prod) return false
-  const type = nonProductionDeployKey()
+  const type = nonProductionDeployKey({ ...readEnvFiles(rootDir), ...process.env })
   if (!type) return false
   console.error(`[nuxt-backend] --prod refused: CONVEX_DEPLOY_KEY is a ${type} deployment key, and the Convex CLI would act on that deployment instead of production. Use the production deploy key (Convex dashboard → Settings, or your host's production environment).`)
   process.exitCode = 1
@@ -390,8 +393,8 @@ const envPush = defineCommand({
     'json': { type: 'boolean', description: 'Machine-readable output', default: false },
   },
   async run({ args }) {
-    if (refuseNonProductionKey(args.prod)) return
     const rootDir = projectRoot(args)
+    if (refuseNonProductionKey(args.prod, rootDir)) return
     const run = await runEnvPush(rootDir, { prod: args.prod, dryRun: args['dry-run'], ...(parseForce(args.force) ? { force: parseForce(args.force)! } : {}) })
     if (!run) {
       console.error('[nuxt-backend] No Convex deployment reachable — run `npx convex dev` once, then push again.')
@@ -506,8 +509,8 @@ const doctor = defineCommand({
     prod: { type: 'boolean', description: 'Check the production deployment; missing email/billing config becomes a failure', default: false },
   },
   async run({ args }) {
-    if (refuseNonProductionKey(args.prod)) return
     const rootDir = projectRoot(args)
+    if (refuseNonProductionKey(args.prod, rootDir)) return
 
     if (args.fix) {
       // Restore missing scaffold files (existing files are never touched),

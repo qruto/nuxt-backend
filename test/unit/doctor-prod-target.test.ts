@@ -73,6 +73,29 @@ describe('--prod with a non-production deploy key', () => {
     expect(error.mock.calls.flat().join('\n')).toContain('dev deployment key')
   })
 
+  // The Convex CLI loads the key from the project's env files too (the shell
+  // wins, then .env.local, then .env), so a key kept there counts the same.
+  it.each([
+    ['.env.local', ['env', 'push', '--prod']],
+    ['.env', ['doctor', '--json', '--prod']],
+  ])('a dev key in %s is refused too (%s)', async (file, args) => {
+    writeFileSync(join(rootDir, file), 'CONVEX_DEPLOY_KEY=dev:happy-otter-123|secret\n')
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await runCommand(main, { rawArgs: [...args, '--cwd', rootDir] })
+
+    expect(process.exitCode).toBe(1)
+    expect(vi.mocked(runConvex)).not.toHaveBeenCalled()
+    expect(error.mock.calls.flat().join('\n')).toContain('dev deployment key')
+  })
+
+  it('a production key in the shell wins over a dev key in .env.local', async () => {
+    writeFileSync(join(rootDir, '.env.local'), 'CONVEX_DEPLOY_KEY=dev:happy-otter-123|secret\n')
+    vi.stubEnv('CONVEX_DEPLOY_KEY', 'prod:determined-horse-300|secret')
+    await doctor(['--prod'])
+    expect(vi.mocked(runConvex)).toHaveBeenCalled()
+  })
+
   it('a production key is allowed through', async () => {
     vi.stubEnv('CONVEX_DEPLOY_KEY', 'prod:determined-horse-300|secret')
     await doctor(['--prod'])
