@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runConvex } from '../../src/convex-cli'
-import { runEnvPush } from '../../src/env-push'
+import { nonProductionDeployKey, runEnvPush } from '../../src/env-push'
 
 // Which deployment a push acts on is decided by the flags handed to the Convex
 // CLI. `.env.local` names a dev deployment, so a production push that does
@@ -25,6 +25,20 @@ beforeEach(() => {
 
 afterEach(() => {
   rmSync(rootDir, { recursive: true, force: true })
+})
+
+describe('nonProductionDeployKey', () => {
+  it.each([
+    ['no key', {}, null],
+    ['a prod key', { CONVEX_DEPLOY_KEY: 'prod:happy-otter-123|secret' }, null],
+    ['a project key', { CONVEX_DEPLOY_KEY: 'project:team:app|secret' }, null],
+    ['a legacy key with no type', { CONVEX_DEPLOY_KEY: 'secret' }, null],
+    ['a dev key', { CONVEX_DEPLOY_KEY: 'dev:happy-otter-123|secret' }, 'dev'],
+    ['a preview key', { CONVEX_DEPLOY_KEY: 'preview:team:app|secret' }, 'preview'],
+    ['a dev deployment token', { CONVEX_DEPLOYMENT_TOKEN: 'dev:happy-otter-123|secret' }, 'dev'],
+  ])('%s', (_label, env, expected) => {
+    expect(nonProductionDeployKey(env)).toBe(expected)
+  })
 })
 
 describe('env push target', () => {

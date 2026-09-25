@@ -24,9 +24,10 @@ vi.mock('../../src/convex-cli', () => ({
 let rootDir: string
 let probed: string[]
 
-// The URLs doctor resolves read the process env too: start from none, so a
-// URL set on the runner cannot stand in for the one under test.
-const URL_VARS = ['NUXT_PUBLIC_BACKEND_SITE_URL', 'NUXT_PUBLIC_CONVEX_SITE_URL', 'NUXT_PUBLIC_BACKEND_URL', 'NUXT_PUBLIC_CONVEX_URL', 'CONVEX_DEPLOYMENT']
+// The URLs and the deploy key doctor reads come from the process env too:
+// start from none, so a value set on the runner cannot stand in for the one
+// under test.
+const URL_VARS = ['NUXT_PUBLIC_BACKEND_SITE_URL', 'NUXT_PUBLIC_CONVEX_SITE_URL', 'NUXT_PUBLIC_BACKEND_URL', 'NUXT_PUBLIC_CONVEX_URL', 'CONVEX_DEPLOYMENT', 'CONVEX_DEPLOY_KEY', 'CONVEX_DEPLOYMENT_TOKEN']
 
 beforeEach(() => {
   for (const name of URL_VARS) vi.stubEnv(name, undefined)
@@ -54,6 +55,30 @@ async function doctor(args: string[]) {
   await runCommand(main, { rawArgs: ['doctor', '--json', ...args, '--cwd', rootDir] })
   return JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { findings: Array<{ id: string, status: string }> }
 }
+
+describe('--prod with a non-production deploy key', () => {
+  // The Convex CLI follows CONVEX_DEPLOY_KEY and ignores --prod: a dev key
+  // would make a production command act on dev without saying so.
+  it.each([
+    ['env push', ['env', 'push', '--prod']],
+    ['doctor', ['doctor', '--json', '--prod']],
+  ])('%s refuses before touching the deployment', async (_label, args) => {
+    vi.stubEnv('CONVEX_DEPLOY_KEY', 'dev:happy-otter-123|secret')
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await runCommand(main, { rawArgs: [...args, '--cwd', rootDir] })
+
+    expect(process.exitCode).toBe(1)
+    expect(vi.mocked(runConvex)).not.toHaveBeenCalled()
+    expect(error.mock.calls.flat().join('\n')).toContain('dev deployment key')
+  })
+
+  it('a production key is allowed through', async () => {
+    vi.stubEnv('CONVEX_DEPLOY_KEY', 'prod:determined-horse-300|secret')
+    await doctor(['--prod'])
+    expect(vi.mocked(runConvex)).toHaveBeenCalled()
+  })
+})
 
 describe('doctor --prod target', () => {
   it('reads production with --prod on every Convex CLI call', async () => {

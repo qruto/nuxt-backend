@@ -12,6 +12,11 @@ vi.mock('@polar-sh/sdk/funcs/organizationsListOrganizations.js', () => ({ organi
 let rootDir: string
 
 beforeEach(() => {
+  // A deploy key exported in the shell running the suite would point the
+  // Convex CLI at that real deployment. These tests assume no deployment is
+  // reachable, so none may be selected.
+  vi.stubEnv('CONVEX_DEPLOY_KEY', undefined)
+  vi.stubEnv('CONVEX_DEPLOYMENT_TOKEN', undefined)
   rootDir = mkdtempSync(join(tmpdir(), 'nuxt-backend-cli-'))
   vi.spyOn(console, 'log').mockImplementation(() => {})
   vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -19,6 +24,7 @@ beforeEach(() => {
 
 afterEach(() => {
   rmSync(rootDir, { recursive: true, force: true })
+  vi.unstubAllEnvs()
   vi.restoreAllMocks()
   process.exitCode = undefined
 })

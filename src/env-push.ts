@@ -156,6 +156,27 @@ export function deploymentFlags(options: { prod?: boolean } = {}): string[] {
 }
 
 /**
+ * The deployment type of a deploy key in the environment, when it is one a
+ * production command must not act on. The Convex CLI follows
+ * `CONVEX_DEPLOY_KEY` and ignores `--prod`, so with a dev or preview key a
+ * `--prod` command would silently act on that deployment instead. Null when
+ * no key is set, or the key can reach production: a `prod:` key, a
+ * `project:` key (`--prod` then picks the project's production), or a
+ * legacy key with no type prefix.
+ *
+ * Only the prefix before the first `:` is read — the same parse as the
+ * Convex CLI's `deploymentTypeFromAdminKey`; the secret after `|` is not.
+ */
+export function nonProductionDeployKey(env: Record<string, string | undefined> = process.env): string | null {
+  const key = env.CONVEX_DEPLOY_KEY || env.CONVEX_DEPLOYMENT_TOKEN
+  if (!key) return null
+  const separator = key.indexOf(':')
+  if (separator === -1) return null
+  const type = key.slice(0, separator)
+  return type === 'prod' || type === 'project' ? null : type
+}
+
+/**
  * Read deployment env var NAMES via `convex env list --names-only`: the
  * values are never requested, so a production secret never reaches this
  * process. (`--names-only` arrived in convex 1.42; the peer range starts

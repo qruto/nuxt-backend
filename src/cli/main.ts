@@ -7,12 +7,25 @@ import { runConvex } from '../convex-cli'
 import { mountPagesInAppComponent, scaffoldBackendFiles, resolveFunctionsDir } from '../scaffold'
 import type { BackendInstallationMode } from '../templates'
 import { collectPreflightFindings, DEV_ONLY_DEPLOYMENT_ENV, formatPreflightSummary, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../preflight'
-import { BACKEND_ENV_NAMES, deploymentEnvNames, deploymentFlags, isDevDeployment, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
+import { BACKEND_ENV_NAMES, deploymentEnvNames, deploymentFlags, isDevDeployment, nonProductionDeployKey, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
 import { deriveDeploymentUrls, resolveSiteUrl } from '../deployment'
 import type { BillingCatalog } from '../convex/catalog'
 import { billing, collectBillingFindings, loadCatalog, readBillingOrganizationState } from './billing'
 import { missingContractFunctions } from '../contract'
 import { resolvePagePath, type ModulePagesOptions } from '../pages'
+
+/**
+ * Refuse a `--prod` command when the deploy key in the environment names a
+ * dev or preview deployment (see `nonProductionDeployKey`). True when refused.
+ */
+function refuseNonProductionKey(prod: boolean): boolean {
+  if (!prod) return false
+  const type = nonProductionDeployKey()
+  if (!type) return false
+  console.error(`[nuxt-backend] --prod refused: CONVEX_DEPLOY_KEY is a ${type} deployment key, and the Convex CLI would act on that deployment instead of production. Use the production deploy key (Convex dashboard → Settings, or your host's production environment).`)
+  process.exitCode = 1
+  return true
+}
 
 /** Run a read-only `convex <args>` returning stdout, or null on any failure (CLI absent, no deployment, …). */
 async function convexCli(rootDir: string, args: string[]): Promise<string | null> {
@@ -377,6 +390,7 @@ const envPush = defineCommand({
     'json': { type: 'boolean', description: 'Machine-readable output', default: false },
   },
   async run({ args }) {
+    if (refuseNonProductionKey(args.prod)) return
     const rootDir = projectRoot(args)
     const run = await runEnvPush(rootDir, { prod: args.prod, dryRun: args['dry-run'], ...(parseForce(args.force) ? { force: parseForce(args.force)! } : {}) })
     if (!run) {
@@ -492,6 +506,7 @@ const doctor = defineCommand({
     prod: { type: 'boolean', description: 'Check the production deployment; missing email/billing config becomes a failure', default: false },
   },
   async run({ args }) {
+    if (refuseNonProductionKey(args.prod)) return
     const rootDir = projectRoot(args)
 
     if (args.fix) {
