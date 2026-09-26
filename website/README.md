@@ -53,8 +53,15 @@ Variables → `CONVEX_DEPLOY_KEY` (Production). Check the key first: `echo "${CO
 must print `prod:determined-horse-300`. Then, from the repository root, after `pnpm build`:
 
 1. `AUTH_SECRET` and `SITE_URL` directly — `.env.local` has no `AUTH_SECRET`, and its `SITE_URL` is
-   the local origin: `npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"` and
-   `npx convex env set SITE_URL https://nuxt-backend.dev`.
+   the local origin. Generate the secret **only when the deployment has none**: a new one signs every
+   user and agent out and leaves the stored JWKS keys undecryptable
+   ([troubleshooting](https://nuxt-backend.dev/production/troubleshooting#sessions-or-agent-tokens-fail-after-rotating-auth_secret)).
+
+   ```sh
+   npx convex env list --names-only | grep -qx AUTH_SECRET \
+     || npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"
+   npx convex env set SITE_URL https://nuxt-backend.dev
+   ```
 2. The rest from `.env.local` — `pnpm cli env push --prod`. It never replaces a value already set,
    so step 1 survives. **Never `--force all`** from a dev `.env.local`: it would overwrite
    `SITE_URL` with the local origin. `BILLING_ENVIRONMENT` stays `sandbox` — the live playground
