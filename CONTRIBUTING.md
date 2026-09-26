@@ -199,17 +199,19 @@ bypassed with `git commit --no-verify`; CI cannot — non-conventional commits w
 **The pull request title is a commit message too.** Pull requests are squash-merged, and the squash
 commit on `main` takes the title as its subject whenever the pull request has more than one commit.
 `Release Prepare` builds the version bump and the changelog from those subjects, so CI lints the
-title with the same rules. Write it as `<type>(<scope>): <description>`, at most 100 characters.
+title with the same rules — and without commitlint's exemptions for `Revert "…"` and `Merge …`
+messages (use `revert: …` instead). Write it as `<type>(<scope>): <description>`, the scope
+optional, at most 100 characters.
 
-Commits on `main` must also be **signed**: the `main-pr-gate` ruleset
-([`.github/rulesets/`](./.github/rulesets)) requires a verified signature on every commit. That
-decides the merge method: pull requests are **squash-merged**, and GitHub signs the squash
-commit itself. A rebase merge cannot pass the rule — GitHub rewrites each commit and cannot
-sign what it rewrote. GitHub signs a squash merge only when the person merging authored the
-pull request, so a contributor's pull request is merged by a maintainer who takes that into
-account. Signing your own commits is not required to contribute, but
-[setting it up](https://docs.github.com/en/authentication/managing-commit-signature-verification)
-shows them as verified on your branch.
+Commits must also be **signed** — the ones on your branch too. The `main-pr-gate` ruleset
+([`.github/rulesets/`](./.github/rulesets)) requires a verified signature on every commit, and
+before a pull request can merge GitHub checks the commits it would introduce, **including the
+branch's own**: one unsigned commit blocks the merge, even though GitHub signs the squash commit
+it then writes on `main` ([GitHub docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches#require-signed-commits)).
+So [set up signing](https://docs.github.com/en/authentication/managing-commit-signature-verification)
+before you push — or, if you can't, say so on the pull request, and a maintainer re-creates it
+with signed commits and credits you with a `Co-authored-by` trailer. Squash is the only merge
+method: a rebase merge would carry the branch's commits onto `main` as they are.
 
 ## Git Hooks
 

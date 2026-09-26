@@ -148,13 +148,16 @@ jobs:
       # whenever the pull request has more than one commit, and Release Prepare
       # derives the version bump and the changelog from those subjects. It
       # arrives through `env`, never inside the script, so a title cannot run
-      # as shell. Checked when the pull request opens and on every push — after
-      # editing only the title, re-run this job.
+      # as shell. Its own config turns off commitlint's default ignores, which
+      # would let a `Revert "…"` or `Merge …` title through. Checked when the
+      # pull request opens and on every push — not on `edited`: CodeRabbit
+      # edits every description after its review, and each edit would re-run
+      # this whole workflow. After editing only the title, re-run this job.
       - name: Pull request title
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
-        run: printf '%s\n' "$PR_TITLE" | pnpm exec commitlint --verbose
+        run: printf '%s\n' "$PR_TITLE" | pnpm exec commitlint --config commitlint.title.config.js --verbose
 
       # Compares what package.json promises against what is installed: that our
       # `engines` is not stricter than a dependency's own, and that no peer range
