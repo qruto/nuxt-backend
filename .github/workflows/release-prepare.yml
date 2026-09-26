@@ -160,10 +160,10 @@ jobs:
 
       # Made through GitHub's API rather than `git commit` + `git push`, because
       # `main-pr-gate` requires signed commits. A commit made on the runner is
-      # unverified. A squash merge would re-create and sign it, but rebase merges
-      # are allowed too, and a rebase carries the original commit onto main where
-      # the ruleset rejects it. A commit created through the API is signed by
-      # GitHub, so it passes either way.
+      # unverified. The release pull request is squash-merged, the only method
+      # the ruleset allows, and GitHub re-creates and signs that commit — but a
+      # commit created through the API is signed by GitHub from the start, so it
+      # stays valid whichever way the branch reaches main.
       #
       # Two bonuses: the token never appears inside a git remote URL, and there
       # is no git identity to configure for a commit nobody authored.
