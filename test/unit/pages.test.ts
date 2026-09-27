@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BACKEND_PAGE_DEFS, collectExistingPagePaths, normalizePagePath, resolvePagePath, resolvedBackendPages } from '../../src/pages'
+import { BACKEND_PAGE_DEFS, collectExistingPagePaths, normalizePagePath, privatePagePaths, resolvePagePath, resolvedBackendPages } from '../../src/pages'
 
 describe('resolvePagePath', () => {
   it('returns default paths when nothing is configured', () => {
@@ -37,6 +37,18 @@ describe('resolvedBackendPages', () => {
 
   it('is all-empty when the page set is off', () => {
     expect(Object.values(resolvedBackendPages(false)).every(path => path === '')).toBe(true)
+  })
+})
+
+describe('privatePagePaths', () => {
+  it('lists the enabled pages behind the auth middleware, at their resolved paths', () => {
+    expect(privatePagePaths(undefined)).toEqual(['/settings', '/profile', '/security', '/accept-invitation'])
+    expect(privatePagePaths({ profile: '/me/', security: false })).toEqual(['/settings', '/me', '/accept-invitation'])
+  })
+
+  it('never lists the public pages, and nothing when pages are off', () => {
+    expect(privatePagePaths({ login: '/sign-in', pricing: '/plans' })).not.toEqual(expect.arrayContaining(['/sign-in', '/plans']))
+    expect(privatePagePaths(false)).toEqual([])
   })
 })
 

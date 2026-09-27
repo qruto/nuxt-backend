@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { defineNuxtModule, addComponent, addImports, addPlugin, addRouteMiddleware, addServerHandler, addServerImports, addTypeTemplate, createResolver, extendPages, resolveModule, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
+import { defineNuxtModule, addComponent, addImports, addPlugin, addRouteMiddleware, addServerHandler, addServerImports, addTypeTemplate, createResolver, extendPages, extendRouteRules, resolveModule, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
 import { defu } from 'defu'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
 import { moduleDir } from './dirs'
@@ -11,7 +11,7 @@ import { isEnvProvisioned, markEnvProvisioned, readEnvFiles, runEnvPush } from '
 import { scaffoldBackendFiles, appComponentIsStarter } from './scaffold'
 import { registerBackendAliases, backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from './aliases'
 import { collectPreflightFindings, formatPreflightSummary } from './preflight'
-import { BACKEND_PAGE_DEFS, collectExistingPagePaths, resolvePagePath, resolvedBackendPages, type BackendPageKey, type ModulePagesOptions } from './pages'
+import { BACKEND_PAGE_DEFS, collectExistingPagePaths, privatePagePaths, resolvePagePath, resolvedBackendPages, type BackendPageKey, type ModulePagesOptions } from './pages'
 import { buildDevtoolsInfo, computeDevtoolsPages, readPackageVersions } from './devtools/info'
 import type { DevtoolsPageInfo } from './devtools/rpc-types'
 import type { BackendInstallationMode } from './templates'
@@ -495,6 +495,16 @@ function registerModulePages(options: ModuleOptions, resolver: Resolver, nuxt: N
   }
 
   if (options.pages === false) return info
+
+  // The private pages redirect a signed-out visitor to sign-in, so nothing on
+  // them is worth indexing. These rules keep them out of search results and
+  // sitemaps: @nuxtjs/robots answers `robots: false` with a noindex header and
+  // meta tag, @nuxtjs/sitemap drops the URL; without those modules they are
+  // inert. They follow the path, not the component, so an app page at the same
+  // path gets them too, and a rule the app sets for that path wins key by key.
+  for (const path of privatePagePaths(options.pages)) {
+    extendRouteRules(path, { robots: false, sitemap: false } as Parameters<typeof extendRouteRules>[1])
+  }
 
   extendPages((pages) => {
     const taken = collectExistingPagePaths(pages)
