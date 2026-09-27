@@ -36,10 +36,15 @@ export interface UseSandboxInboxReturn {
 
 const CODE = /\b(\d{6})\b/
 
-/** The first six-digit code in a message: its text, then its subject, then its HTML with tags removed. */
+/** HTML reduced to its visible text: style and script bodies (a `#123456` colour) go first, then the tags. */
+function visibleText(html: string | undefined): string | undefined {
+  return html?.replace(/<(style|script)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ').replace(/<[^>]*>/g, ' ')
+}
+
+/** The first six-digit code in a message: its text, then its subject, then its visible HTML text. */
 function findCode(message: SandboxMessage | undefined): string | undefined {
   if (!message) return undefined
-  for (const source of [message.text, message.subject, message.html?.replace(/<[^>]*>/g, ' ')]) {
+  for (const source of [message.text, message.subject, visibleText(message.html)]) {
     const match = source?.match(CODE)
     if (match) return match[1]
   }

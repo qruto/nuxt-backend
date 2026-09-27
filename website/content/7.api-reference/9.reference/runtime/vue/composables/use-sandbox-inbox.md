@@ -76,7 +76,7 @@ Defined in: [src/runtime/vue/composables/use-sandbox-inbox.ts:26](https://github
 function useSandboxInbox(address, options?): UseSandboxInboxReturn;
 ```
 
-Defined in: [src/runtime/vue/composables/use-sandbox-inbox.ts:75](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts#L75)
+Defined in: [src/runtime/vue/composables/use-sandbox-inbox.ts:80](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts#L80)
 
 **`Experimental`**
 

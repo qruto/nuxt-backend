@@ -635,6 +635,13 @@ describe('useSandboxInbox', () => {
     expect(result.code.value).toBe('905521')
   })
 
+  it('skips style and script bodies in the HTML', async () => {
+    const html = '<style>.body{color:#123456}</style><script>const t = 654321</script><p>Code: 905521</p>'
+    seed(store => store.setQuery(sandboxInboxRef, { address: 'delivered+css@resend.dev' }, [message({ html })]))
+    const { result } = await mountWithConvex(client, () => useSandboxInbox('delivered+css@resend.dev', { api: inboxApi }))
+    expect(result.code.value).toBe('905521')
+  })
+
   it('pauses while the address is empty', async () => {
     const { result } = await mountWithConvex(client, () => useSandboxInbox('  ', { api: inboxApi }))
     expect(result.messages.value).toBeUndefined()

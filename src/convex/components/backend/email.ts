@@ -106,7 +106,9 @@ export const send = mutation({
 
 /**
  * A sandbox address's inbox: the messages test mode sent to it within the last
- * hour, newest first. Empty for any address that is not a sandbox address.
+ * hour, newest first. Empty for any address that is not a sandbox address, and
+ * for every address once test mode is off — mail captured before the switch
+ * stays unreadable until it expires.
  * Exposed to the app as `components.backend.email.inbox`; the app decides
  * whether to publish it (`setupEmail(…).api.getSandboxInbox`).
  */
@@ -120,6 +122,7 @@ export const inbox = query({
     receivedAt: v.number(),
   })),
   handler: async (ctx, { address }) => {
+    if (env.EMAIL_TEST_MODE === 'false') return []
     const to = address.trim().toLowerCase()
     if (!SANDBOX_ADDRESS.test(to)) return []
     const rows = await ctx.db.query('sandboxInbox')

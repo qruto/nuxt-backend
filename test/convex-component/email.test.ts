@@ -100,6 +100,12 @@ describe('sandbox inbox', () => {
   test('keeps nothing once test mode is off', async () => {
     process.env.EMAIL_TEST_MODE = 'false'
     await t.mutation(api.email.send, { to: SANDBOX, subject: 'Live', text: 'x' })
+    expect(await t.run(ctx => ctx.db.query('sandboxInbox').collect())).toEqual([])
+  })
+
+  test('stops serving captured mail the moment test mode is turned off', async () => {
+    await t.mutation(api.email.send, { to: SANDBOX, subject: 'Earlier', text: 'code 444444' })
+    process.env.EMAIL_TEST_MODE = 'false'
     expect(await t.query(api.email.inbox, { address: SANDBOX })).toEqual([])
   })
 
