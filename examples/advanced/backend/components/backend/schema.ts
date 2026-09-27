@@ -1,10 +1,10 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
-import { aiTables, billingTables, tables, webhookTables } from './schema.generated'
+import { aiTables, billingTables, emailTables, tables, webhookTables } from './schema.generated'
 
 // CUSTOMIZATION: the locally installed component owns its schema, so it can be
 // extended. Here the component gains an extra table of its own beside the
-// packaged auth/billing/AI/webhook tables. To change the auth tables
+// packaged auth/billing/AI/webhook/email tables. To change the auth tables
 // themselves, replace an entry of `tables` wholesale with your own
 // `defineTable(...)` (start from the package source:
 // nuxt-backend/component/schema).
@@ -26,4 +26,5 @@ export default defineSchema({
   ...billingTables,
   ...aiTables,
   ...webhookTables,
+  ...emailTables,
 })

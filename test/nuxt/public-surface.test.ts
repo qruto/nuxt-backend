@@ -361,8 +361,8 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './ai': ['priceTokens', 'setupAi'],
   './mcp': ['BACKEND_MCP_FUNCTION_DEFAULTS', 'EXCHANGE_CACHE_MARGIN_MS', 'backendMcpFunction', 'builtinToolEnabled', 'createExchangeCache', 'defineBackendMcpTool', 'useBackendMcp'],
   './component/convex.config': ['default'],
-  './component/schema': ['aiTables', 'authSchema', 'billingTables', 'default', 'tables', 'vEntitlementBenefit', 'vEntitlementMeter', 'vGift', 'vPendingSpend', 'webhookTables'],
-  './component/email': ['cancel', 'cleanup', 'cleanupAbandoned', 'get', 'handleWebhook', 'send', 'status'],
+  './component/schema': ['aiTables', 'authSchema', 'billingTables', 'default', 'emailTables', 'tables', 'vEntitlementBenefit', 'vEntitlementMeter', 'vGift', 'vPendingSpend', 'webhookTables'],
+  './component/email': ['cancel', 'cleanup', 'cleanupAbandoned', 'expireSandboxMessage', 'get', 'handleWebhook', 'inbox', 'send', 'status'],
   './component/billing': ['attachReleaseJob', 'clear', 'clearPendingSpends', 'credit', 'debit', 'deleteByUser', 'finalize', 'getBenefitMetadata', 'getByUser', 'release', 'settle', 'upsert', 'upsertBenefitMetadata', 'userByCustomer'],
   './component/gifts': ['create', 'get', 'listByEmail', 'markClaimed', 'markNotified', 'markPaid', 'resolveRecipient'],
   './component/ai': ['clear', 'createRequest', 'getByStream', 'markReleased', 'markSettled'],
@@ -444,7 +444,7 @@ describe('@internal', () => {
 // installs (STABILITY.md surface 3), frozen the same way as the export names.
 
 const REGISTRY = {
-  composables: ['useAuth', 'useAuthState', 'useConnectionState', 'useLoginFlow', 'useOrganization', 'useSearch', 'useAggregate', 'useCount', 'useBilling', 'useFeatures', 'useCredits', 'useOrders', 'useUsage', 'useGifts', 'usePasskeys', 'useSessions', 'describeUserAgent', 'unwrapAuth', 'useBackendConfig', 'useEmailStatus', 'useWorkflowStatus', 'useAiStream'],
+  composables: ['useAuth', 'useAuthState', 'useConnectionState', 'useLoginFlow', 'useOrganization', 'useSearch', 'useAggregate', 'useCount', 'useBilling', 'useFeatures', 'useCredits', 'useOrders', 'useUsage', 'useGifts', 'usePasskeys', 'useSessions', 'describeUserAgent', 'unwrapAuth', 'useBackendConfig', 'useEmailStatus', 'useSandboxInbox', 'useWorkflowStatus', 'useAiStream'],
   // The last two alias the base module's `CheckoutLink` / `CustomerPortalLink`.
   components: ['AuthForm', 'RoleBoundary', 'OrganizationBoundary', 'FeatureBoundary', 'AcceptInvitation', 'GiftClaimBanner', 'PricingTable', 'BillingHistory', 'UsageHistory', 'CreditsLowBanner', 'WorkspaceSettings', 'ProfileSettings', 'SecuritySettings', 'BillingCheckoutLink', 'BillingPortalLink'],
   server: ['backendAuth', 'useBackendMcp', 'defineBackendMcpTool'],
@@ -453,7 +453,7 @@ const REGISTRY = {
 }
 
 /** The experimental tier, by the names STABILITY.md lists. */
-const EXPERIMENTAL = ['./mcp', './ai', 'useAiStream', 'useWorkflowStatus']
+const EXPERIMENTAL = ['./mcp', './ai', 'useAiStream', 'useWorkflowStatus', 'useSandboxInbox']
 
 describe('the registry', () => {
   it('matches every name src/module.ts registers', () => {

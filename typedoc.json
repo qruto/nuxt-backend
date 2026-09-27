@@ -19,6 +19,7 @@
     "src/runtime/vue/composables/use-gifts.ts",
     "src/runtime/vue/composables/use-organization.ts",
     "src/runtime/vue/composables/use-email-status.ts",
+    "src/runtime/vue/composables/use-sandbox-inbox.ts",
     "src/runtime/vue/composables/use-search.ts",
     "src/runtime/vue/composables/use-aggregate.ts",
     "src/runtime/vue/composables/use-workflow.ts",

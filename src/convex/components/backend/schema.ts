@@ -394,8 +394,27 @@ export const webhookTables = {
     .index('service_deliveryId', ['service', 'deliveryId']),
 }
 
+/**
+ * The sandbox inbox (see `email.ts`): while email runs in test mode, a copy of
+ * every message sent to one of the provider's sandbox addresses, so a demo,
+ * a preview deployment or an e2e run can read a sign-in code without a real
+ * mailbox. Each row is deleted an hour after it is written; it is never a
+ * record of what was sent.
+ */
+export const emailTables = {
+  sandboxInbox: defineTable({
+    /** The sandbox address, lower-cased — `delivered+label@resend.dev`. */
+    to: v.string(),
+    from: v.string(),
+    subject: v.string(),
+    text: v.optional(v.string()),
+    html: v.optional(v.string()),
+  })
+    .index('to', ['to']),
+}
+
 /** Auth-only schema — passed to Better Auth's `createApi` in `adapter.ts`. */
 export const authSchema = defineSchema(tables)
 
-/** Full component schema: auth + billing cache + AI plumbing + webhook log. */
-export default defineSchema({ ...tables, ...billingTables, ...aiTables, ...webhookTables })
+/** Full component schema: auth + billing cache + AI plumbing + webhook log + sandbox inbox. */
+export default defineSchema({ ...tables, ...billingTables, ...aiTables, ...webhookTables, ...emailTables })

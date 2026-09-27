@@ -159,6 +159,20 @@ describe('setupEmail transactional helpers', () => {
     const email = setupEmail(component)
     expect(email.api.getEmailStatus).toBeDefined()
   })
+
+  it('getSandboxInbox reads the component inbox, and is empty on a component without one', async () => {
+    const invoke = (fn: unknown, ctx: unknown, args: unknown) =>
+      (fn as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler(ctx, args)
+    const messages = [{ from: 'onboarding@resend.dev', subject: 'Code', text: '123456', receivedAt: 1 }]
+    const ctx = { runQuery: vi.fn(async () => messages) }
+
+    const withInbox = setupEmail({ backend: { email: { ...refs, inbox: 'ref:inbox' } } } as unknown as EmailComponents)
+    expect(await invoke(withInbox.api.getSandboxInbox, ctx, { address: 'delivered+a@resend.dev' })).toEqual(messages)
+    expect(ctx.runQuery).toHaveBeenCalledWith('ref:inbox', { address: 'delivered+a@resend.dev' })
+
+    const olderBuild = setupEmail(component)
+    expect(await invoke(olderBuild.api.getSandboxInbox, ctx, { address: 'delivered+a@resend.dev' })).toEqual([])
+  })
 })
 
 describe('setupEmail marketing helpers', () => {

@@ -632,12 +632,12 @@ function componentModuleTemplate(name: ComponentModule) {
  *
  * @internal
  */
-export const SCHEMA_TABLE_GROUPS = ['tables', 'billingTables', 'aiTables', 'webhookTables'] as const satisfies readonly SchemaExport[]
+export const SCHEMA_TABLE_GROUPS = ['tables', 'billingTables', 'aiTables', 'webhookTables', 'emailTables'] as const satisfies readonly SchemaExport[]
 
 /** `components/backend/schema.generated.ts` — every export of the packaged schema. */
 const GENERATED_SCHEMA_TEMPLATE = reexportTemplate(SCHEMA_EXPORTS, 'nuxt-backend/component/schema', [
   'The packaged component schema — the auth tables, the billing / AI /',
-  'webhook table groups, and the shared validators. Customize in ./schema.ts.',
+  'webhook / email table groups, and the shared validators. Customize in ./schema.ts.',
 ])
 
 /**

@@ -898,6 +898,46 @@ of truth.
 
 ***
 
+### emailTables
+
+```ts
+const emailTables: {
+  sandboxInbox: TableDefinition<VObject<{
+     html?: string;
+     text?: string;
+     to: string;
+     from: string;
+     subject: string;
+   }, {
+     to: VString<string, "required">;
+     from: VString<string, "required">;
+     subject: VString<string, "required">;
+     text: VString<string | undefined, "optional">;
+     html: VString<string | undefined, "optional">;
+   }, "required", "html" | "text" | "to" | "from" | "subject">, {
+     to: ["to", "_creationTime"];
+   }, {
+   }, {
+  }>;
+};
+```
+
+Defined in: [src/convex/components/backend/schema.ts:404](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L404)
+
+The sandbox inbox (see `email.ts`): while email runs in test mode, a copy of
+every message sent to one of the provider's sandbox addresses, so a demo,
+a preview deployment or an e2e run can read a sign-in code without a real
+mailbox. Each row is deleted an hour after it is written; it is never a
+record of what was sent.
+
+#### Type Declaration
+
+| Name | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="property-sandboxinbox"></a> `sandboxInbox` | `TableDefinition`\<`VObject`\<\{ `html?`: `string`; `text?`: `string`; `to`: `string`; `from`: `string`; `subject`: `string`; \}, \{ `to`: `VString`\<`string`, `"required"`\>; `from`: `VString`\<`string`, `"required"`\>; `subject`: `VString`\<`string`, `"required"`\>; `text`: `VString`\<`string` \| `undefined`, `"optional"`\>; `html`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"html"` \| `"text"` \| `"to"` \| `"from"` \| `"subject"`\>, \{ `to`: \[`"to"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:405](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L405) |
+
+***
+
 ### authSchema
 
 ```ts
@@ -1282,7 +1322,7 @@ const authSchema: SchemaDefinition<{
 }, true>;
 ```
 
-Defined in: [src/convex/components/backend/schema.ts:398](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L398)
+Defined in: [src/convex/components/backend/schema.ts:417](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L417)
 
 Auth-only schema — passed to Better Auth's `createApi` in `adapter.ts`.
 
@@ -1920,9 +1960,26 @@ default: SchemaDefinition<{
    }, {
    }, {
   }>;
+  sandboxInbox: TableDefinition<VObject<{
+     html?: string;
+     text?: string;
+     to: string;
+     from: string;
+     subject: string;
+   }, {
+     to: VString<string, "required">;
+     from: VString<string, "required">;
+     subject: VString<string, "required">;
+     text: VString<string | undefined, "optional">;
+     html: VString<string | undefined, "optional">;
+   }, "required", "html" | "text" | "to" | "from" | "subject">, {
+     to: ["to", "_creationTime"];
+   }, {
+   }, {
+  }>;
 }, true>;
 ```
 
-Defined in: [src/convex/components/backend/schema.ts:401](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L401)
+Defined in: [src/convex/components/backend/schema.ts:420](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L420)
 
-Full component schema: auth + billing cache + AI plumbing + webhook log.
+Full component schema: auth + billing cache + AI plumbing + webhook log + sandbox inbox.

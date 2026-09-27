@@ -48,6 +48,7 @@ navigation:
 | [runtime/vue/composables/use-orders](/api-reference/reference/runtime/vue/composables/use-orders) | - |
 | [runtime/vue/composables/use-organization](/api-reference/reference/runtime/vue/composables/use-organization) | - |
 | [runtime/vue/composables/use-passkeys](/api-reference/reference/runtime/vue/composables/use-passkeys) | - |
+| [runtime/vue/composables/use-sandbox-inbox](/api-reference/reference/runtime/vue/composables/use-sandbox-inbox) | - |
 | [runtime/vue/composables/use-search](/api-reference/reference/runtime/vue/composables/use-search) | - |
 | [runtime/vue/composables/use-sessions](/api-reference/reference/runtime/vue/composables/use-sessions) | - |
 | [runtime/vue/composables/use-usage](/api-reference/reference/runtime/vue/composables/use-usage) | - |
