@@ -80,6 +80,9 @@ sign-in codes print in the terminal that runs `dev`.
   `defineBackendMcpTool` from `nuxt-backend/mcp`, one file each in `server/mcp/tools/`.
 - **Tests:** register the component in `convex-test` with `nuxt-backend/test`
   (`backendTest.register(t)`).
+- **Linting:** `backendEslint()` from `nuxt-backend/eslint` applies Convex's lint rules to
+  `backend/`: `export default withNuxt(backendEslint())`. It needs `@convex-dev/eslint-plugin`
+  installed. See https://nuxt-backend.dev/tooling/linting.
 
 ## Customizing, in order of reach
 
