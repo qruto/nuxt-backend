@@ -189,3 +189,52 @@ describe('hand-written pages', () => {
     expect(handWritten.length).toBeGreaterThan(40)
   })
 })
+
+describe('the ecosystem page', () => {
+  // Each table row names one package and where it stands. The manifest is the
+  // truth for what ships: a component added without its row, or a row that
+  // claims a package the manifest lacks, fails here.
+  const page = read('website/content/1.getting-started/7.ecosystem.md')
+  const STATUSES = ['Shipped', 'Bundled', 'Supported', 'Planned', 'Recipe', 'Not planned']
+  const rows = [...page.matchAll(/^\| `((?:@[\w.-]+\/)?[\w.-]+)` \| ([^|]+?) \|/gm)].map(([, name, status]) => ({ name: name!, status: status!.trim() }))
+  const statusOf = (name: string) => rows.find(row => row.name === name)?.status
+  const pkg = JSON.parse(read('package.json')) as { dependencies: Record<string, string>, peerDependencies: Record<string, string> }
+  const declared = new Set([...Object.keys(pkg.dependencies), ...Object.keys(pkg.peerDependencies)])
+  const moduleSource = read('src/module.ts')
+  const moduleDependencies = [...moduleSource.slice(moduleSource.indexOf('moduleDependencies:'), moduleSource.indexOf('async setup('))
+    .matchAll(/^ {6,}'((?:@[\w.-]+\/)?[\w.-]+)': \{/gm)].map(([, name]) => name!)
+
+  it('reads the rows and the module dependencies', () => {
+    expect(rows.length).toBeGreaterThan(30)
+    expect(moduleDependencies).toEqual(expect.arrayContaining(['nuxt-convex-module', '@nuxtjs/mcp-toolkit']))
+  })
+
+  it('uses only the legend\'s statuses, one row per package', () => {
+    for (const { name, status } of rows) expect(STATUSES, `${name}: ${status}`).toContain(status)
+    expect(new Set(rows.map(row => row.name)).size).toBe(rows.length)
+  })
+
+  it('marks every component and module this package installs as shipped', () => {
+    const installed = [...Object.keys(pkg.dependencies).filter(name => name.startsWith('@convex-dev/')), ...moduleDependencies]
+    for (const name of installed) expect(statusOf(name), name).toBe('Shipped')
+  })
+
+  it('ships only what the manifest declares', () => {
+    for (const { name } of rows.filter(row => row.status === 'Shipped')) {
+      expect(declared.has(name) || moduleDependencies.includes(name), `${name} is marked shipped but not declared`).toBe(true)
+    }
+  })
+
+  it('bundles only what arrives through a shipped package', () => {
+    for (const { name } of rows.filter(row => row.status === 'Bundled')) {
+      expect(declared.has(name), `${name} is declared, so it is shipped`).toBe(false)
+      expect(existsSync(at(`node_modules/${name}/package.json`)), `${name} is not installed`).toBe(true)
+    }
+  })
+
+  it('declares nothing it calls supported, planned, a recipe or left out', () => {
+    for (const { name, status } of rows.filter(row => !['Shipped', 'Bundled'].includes(row.status))) {
+      expect(declared.has(name), `${name} is ${status} but the manifest declares it`).toBe(false)
+    }
+  })
+})
