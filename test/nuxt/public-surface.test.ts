@@ -346,7 +346,7 @@ function reachableExports(file: string, seen = new Set<string>()): Reachable[] {
  */
 const EXPORT_NAMES: Record<string, string[]> = {
   '.': ['default'],
-  './auth': ['createAuth', 'createAuthOptions', 'createBetterAuth', 'createBetterAuthOptions', 'defaultEmailTemplates', 'makeAuthApi', 'setupAuth'],
+  './auth': ['APIError', 'createAuth', 'createAuthOptions', 'createBetterAuth', 'createBetterAuthOptions', 'defaultEmailTemplates', 'makeAuthApi', 'setupAuth'],
   './authorization': ['adminAc', 'createAccessControl', 'defaultStatements', 'setupAuthorization', 'userAc'],
   './http': ['registerBackendRoutes', 'setupMcp'],
   './functions': ['createFunctions'],

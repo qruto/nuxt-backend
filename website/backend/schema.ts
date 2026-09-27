@@ -49,7 +49,7 @@ export default defineSchema({
     name: v.string(),
     contentType: v.optional(v.string()),
     size: v.optional(v.number()),
-  }).index('userId', ['userId']),
+  }).index('userId', ['userId']).index('storageId', ['storageId']),
 
   // Note: the Polar feature/credit cache (`billingEntitlements`) now lives inside
   // the bundled `auth` / `billing` components — nothing to declare here. useFeatures() /

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { api } from '#backend/api'
+import { errorText } from '../../../utils/errorText'
+import { isSandboxIdentity, SANDBOX_IDENTITY_HELP } from '../../../utils/testEmail'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -68,7 +70,9 @@ const streamTone = computed(() => {
 
 // Gift a credit pack to another email — the recipient receives the credits
 // (attached automatically if they have an account, claimed on first sign-in
-// otherwise; see the GiftClaimBanner above the metrics).
+// otherwise; see the GiftClaimBanner above the metrics). The recipient is a
+// sandbox identity, as every playground account is — billing.ts's canGift
+// refuses any other address on the server.
 const giftEmail = ref('')
 const giftMessage = ref('')
 const gifting = ref(false)
@@ -76,6 +80,10 @@ const giftNotice = ref('')
 
 async function sendGift() {
   if (!creditPackId.value || !giftEmail.value) return
+  if (!isSandboxIdentity(giftEmail.value)) {
+    giftNotice.value = SANDBOX_IDENTITY_HELP
+    return
+  }
   gifting.value = true
   giftNotice.value = ''
   try {
@@ -88,7 +96,7 @@ async function sendGift() {
     giftMessage.value = ''
   }
   catch (error) {
-    giftNotice.value = error instanceof Error ? error.message : String(error)
+    giftNotice.value = errorText(error, 'The gift checkout failed')
   }
   finally { gifting.value = false }
 }
@@ -280,7 +288,7 @@ async function sendGift() {
           v-model="giftEmail"
           class="gift-input"
           type="email"
-          placeholder="recipient@example.com"
+          placeholder="delivered+…@resend.dev"
           required
         >
         <input

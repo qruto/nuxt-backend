@@ -2,10 +2,11 @@
 definePageMeta({ middleware: 'auth' })
 
 // The untouched zero-config look of the packaged <ProfileSettings> — the
-// playground's test-inbox allowlist still applies (it guards a live Resend
-// deployment), plugged in via the same prop a real app would use.
+// playground's sandbox rule still applies (an account address is a sandbox
+// identity; backend/auth.ts enforces it too), plugged in via the same prop a
+// real app would use.
 function validateEmail(value: string): boolean | string {
-  return isDeliveredTestEmail(value) || TEST_EMAIL_HELP
+  return isSandboxIdentity(value) || SANDBOX_IDENTITY_HELP
 }
 </script>
 

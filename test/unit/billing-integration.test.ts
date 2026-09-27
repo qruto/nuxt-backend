@@ -603,6 +603,34 @@ describe('gifts', () => {
     }))
   })
 
+  it('giftCheckout asks canGift before it creates anything for the recipient', async () => {
+    const canGift = vi.fn(async (_ctx: unknown, { recipientEmail }: { recipientEmail: string }) =>
+      recipientEmail.endsWith('@example.com') ? true as const : { allowed: false as const, message: 'Gifts go to example.com only.' })
+    const gated = setupBilling(components, { ...(config as object), canGift } as never)
+    const giftCheckout = gated.api.giftCheckout as unknown as (ctx: unknown, args: unknown) => Promise<unknown>
+    const args = { productIds: ['p1'], origin: 'https://app', successUrl: 'https://app/done' }
+
+    await expect(giftCheckout(authedCtx(purchaser), { ...args, recipientEmail: 'Someone@Elsewhere.org' }))
+      .rejects.toMatchObject({ data: 'Gifts go to example.com only.' })
+    expect(canGift).toHaveBeenCalledWith(expect.anything(), { recipientEmail: 'someone@elsewhere.org', purchaserUserId: 'u-buyer' })
+    expect(mockCustomersList).not.toHaveBeenCalled()
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+
+    mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'cus_existing' }] } } } as never)
+    mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout' } } as never)
+    const ctx = authedCtx(purchaser)
+    ctx.runMutation.mockResolvedValue('gift-1')
+    await expect(giftCheckout(ctx, { ...args, recipientEmail: 'friend@example.com' })).resolves.toStrictEqual({ url: 'https://checkout' })
+  })
+
+  it('giftCheckout refuses with the default message when canGift gives none', async () => {
+    const gated = setupBilling(components, { ...(config as object), canGift: () => ({ allowed: false }) } as never)
+    await expect((gated.api.giftCheckout as unknown as (ctx: unknown, args: unknown) => Promise<unknown>)(
+      authedCtx(purchaser),
+      { productIds: ['p1'], recipientEmail: 'r@example.com', origin: 'https://app', successUrl: 'https://app/done' },
+    )).rejects.toMatchObject({ data: 'This address can\'t receive gifts.' })
+  })
+
   it('giftCheckout reuses an existing provider customer for the recipient email', async () => {
     mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'cus_existing' }] } } } as never)
     mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout' } } as never)

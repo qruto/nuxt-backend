@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import {
-  isDeliveredTestEmail,
+  isSandboxIdentity,
+  newSandboxIdentity,
   normalizeTestEmail,
-  TEST_EMAIL_HELP,
-  TEST_EMAIL_PRESETS,
+  SANDBOX_IDENTITY_HELP,
 } from '../utils/testEmail'
 
 // Standalone full-screen page: no layout, and no Docus chrome (the docs
@@ -11,14 +12,28 @@ import {
 //
 // This app page shadows the module's built-in /login route (the module
 // detects it and skips its own) — the whole flow is the packaged <AuthForm>;
-// the site adds only the Strata shell, the Resend test-inbox gate, and the
-// preset chips.
+// the site adds only the Strata shell and the sandbox: a generated identity,
+// and its sign-in code read from the sandbox inbox (<SandboxInbox>).
 definePageMeta({ layout: false, header: false, footer: false })
 
+const STORAGE_KEY = 'nuxt-backend:sandbox-identity'
+
+// The visitor's sandbox identity, remembered on this device only. Storage can
+// be unavailable (a private window, blocked site data): the identity then
+// lasts this visit.
+const identity = ref<string | null>(null)
+
+onMounted(() => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved && isSandboxIdentity(saved)) identity.value = saved
+  }
+  catch { /* storage unavailable */ }
+})
+
 function validateEmail(value: string): boolean | string {
-  // Sign-up only accepts Resend's delivered inbox (alias-aware) — the OTP
-  // must actually arrive.
-  return isDeliveredTestEmail(value) || TEST_EMAIL_HELP
+  // The server's canSignIn admits the same addresses (backend/auth.ts).
+  return isSandboxIdentity(value) || SANDBOX_IDENTITY_HELP
 }
 
 function done() {
@@ -27,9 +42,21 @@ function done() {
   return navigateTo(target)
 }
 
-function usePreset(flow: { email: { value: string }, error: { value: string | null } }, preset: string) {
-  flow.email.value = preset
+type Flow = { email: { value: string }, error: { value: string | null } }
+
+function fillIdentity(flow: Flow, address: string) {
+  flow.email.value = address
   flow.error.value = null
+}
+
+function createIdentity(flow: Flow) {
+  const address = newSandboxIdentity()
+  identity.value = address
+  try {
+    localStorage.setItem(STORAGE_KEY, address)
+  }
+  catch { /* storage unavailable */ }
+  fillIdentity(flow, address)
 }
 </script>
 
@@ -53,25 +80,39 @@ function usePreset(flow: { email: { value: string }, error: { value: string | nu
             </div>
           </div>
           <div class="testmail">
-            <span class="lab-label">test inbox</span>
+            <span class="lab-label">sandbox identity</span>
             <div class="presets">
               <button
-                v-for="preset in TEST_EMAIL_PRESETS"
-                :key="preset"
+                v-if="identity"
+                type="button"
+                class="preset identity"
+                :class="{ on: normalizeTestEmail(flow.email.value) === identity }"
+                @click="fillIdentity(flow, identity)"
+              >
+                {{ identity }}
+              </button>
+              <button
                 type="button"
                 class="preset"
-                :class="{ on: normalizeTestEmail(flow.email.value) === preset }"
-                @click="usePreset(flow, preset)"
+                @click="createIdentity(flow)"
               >
-                {{ preset }}
+                {{ identity ? 'New identity' : 'Create a sandbox identity' }}
               </button>
             </div>
             <p class="hint">
-              The public playground only delivers to Resend's test inbox — pick
-              a preset (swap <code>you</code> for your own label), then continue
-              with an email code.
+              The playground is a sandbox: an account is a generated address,
+              and its sign-in code shows up right here. Anyone who knows the
+              address can sign in as it, so keep it to yourself and keep
+              nothing real in the account.
             </p>
           </div>
+        </template>
+        <template #footer="flow">
+          <SandboxInbox
+            v-if="flow.step.value === 'verify-code'"
+            :email="flow.email.value"
+            @fill="code => flow.otp.value = code"
+          />
         </template>
       </AuthForm>
     </div>
@@ -159,6 +200,12 @@ function usePreset(flow: { email: { value: string }, error: { value: string | nu
   font: inherit;
   font-size: 0.72rem;
   cursor: pointer;
+}
+
+/* A generated address is one long token: let it break anywhere. */
+.preset.identity {
+  word-break: break-all;
+  text-align: left;
 }
 
 /* Selected preset = the green "go" ring; the text is the crisp signal. */

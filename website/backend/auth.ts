@@ -1,8 +1,16 @@
-import { setupAuth } from 'nuxt-backend/auth'
+import { APIError, setupAuth } from 'nuxt-backend/auth'
+import { isSandboxIdentity, SANDBOX_IDENTITY_HELP } from '../utils/testEmail'
 import { components, internal } from './_generated/api'
 import { query } from './_generated/server'
 import { rateLimiter } from './rateLimiter'
 import { workflow } from './workflows'
+
+/** Refuse an address that isn't a sandbox identity, with the reason the forms show. */
+function requireSandboxIdentity(email: unknown): void {
+  if (typeof email === 'string' && !isSandboxIdentity(email)) {
+    throw new APIError('BAD_REQUEST', { message: SANDBOX_IDENTITY_HELP })
+  }
+}
 
 export const {
   authComponent,
@@ -17,7 +25,31 @@ export const {
   // The agent token exchange (mounted at /mcp/exchange by http.ts).
   mcp,
 } = setupAuth(components, query, {
+  // The public playground is a sandbox: every account is a generated sandbox
+  // identity (utils/testEmail.ts), never a real address. `canSignIn` below
+  // guards sign-in and sign-up; these two guard the other ways an address gets
+  // in: an email change, and an invitation.
+  authOptions: {
+    databaseHooks: {
+      user: {
+        update: {
+          before: async (user) => {
+            requireSandboxIdentity(user.email)
+          },
+        },
+      },
+    },
+  },
+  organization: {
+    organizationHooks: {
+      beforeCreateInvitation: async ({ invitation }) => {
+        requireSandboxIdentity(invitation.email)
+      },
+    },
+  },
   integrations: {
+    canSignIn: async (_ctx, { email }) =>
+      isSandboxIdentity(email) || { allowed: false, message: SANDBOX_IDENTITY_HELP },
     // Email (OTP / verification / invitations) is wired automatically through
     // the backend component — configured by the EMAIL_* env vars.
     // Throttle OTP sends and other auth-sensitive flows.

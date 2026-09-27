@@ -31,7 +31,7 @@ import {
   type RegisteredAction,
 } from 'convex/server'
 import { guardDelivery, parseSecretList, translateStandardSignature, type WebhookLogRefs, WEBHOOK_BODY_LIMIT } from './webhook-guard.js'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import type { SendEmailOptions } from './email.js'
 
 // The provider SDK verifies webhook signatures with `Buffer.from(secret)`.
@@ -765,6 +765,19 @@ export type SetupBillingConfig = Omit<PolarConfig, 'getUserInfo' | 'organization
    * `SITE_URL` (where signing in claims the gift automatically).
    */
   giftEmail?: (data: GiftEmailData) => GiftEmailMessage
+  /**
+   * Decide who may receive a gift, before `giftCheckout` creates a billing
+   * customer for the recipient — only addresses on your own domain, say, or
+   * only sandbox addresses on a public demo. Return `true` to allow, or a
+   * refusal whose `message` `giftCheckout` throws as a `ConvexError`, so it
+   * reaches the purchaser even where production redacts other errors
+   * (default: "This address can't receive gifts."). Called with the action
+   * ctx, so it can read your own tables; `recipientEmail` is lower-cased.
+   */
+  canGift?: (
+    ctx: GenericActionCtx<GenericDataModel>,
+    input: { recipientEmail: string, purchaserUserId: string },
+  ) => Promise<true | { allowed: false, message?: string }> | true | { allowed: false, message?: string }
   /**
    * Named credit meters: spend by friendly name (`spendCredits({ meter:
    * 'credits' })`, `useCredits('credits')`) instead of provider meter ids.
@@ -1999,6 +2012,12 @@ export function setupBilling(
       const recipientEmail = args.recipientEmail.trim().toLowerCase()
       if (!recipientEmail || !recipientEmail.includes('@')) {
         throw new Error('[nuxt-backend] giftCheckout: a valid recipient email is required.')
+      }
+      if (config.canGift) {
+        const verdict = await config.canGift(ctx, { recipientEmail, purchaserUserId })
+        if (verdict !== true) {
+          throw new ConvexError(verdict.message ?? 'This address can\'t receive gifts.')
+        }
       }
       // Find-or-create the provider customer keyed by the recipient's email —
       // reusing an existing customer means a recipient who already subscribed
