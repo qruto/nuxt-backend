@@ -29,6 +29,8 @@ import { createRequest, getByStream } from 'nuxt-backend/component/ai'
 import { find, record, vDeliveryOutcome } from 'nuxt-backend/component/webhooks'
 import authConfig, { defineBackendAuthConfig } from 'nuxt-backend/auth.config'
 import backendTest, { register } from 'nuxt-backend/test'
+import { BACKEND_ESLINT_RULES, backendEslint } from 'nuxt-backend/eslint'
+import type { Linter } from 'eslint'
 import { useCredits } from '../../src/runtime/vue/composables/use-credits'
 
 // The typed subpaths are the product. Every runtime test imports a source file
@@ -75,6 +77,7 @@ type Tested
     | './component/webhooks'
     | './auth.config'
     | './test'
+    | './eslint'
 
 type Subpath = Exclude<keyof typeof pkg.exports, Untyped>
 
@@ -193,6 +196,13 @@ describe('integrations', () => {
     expectTypeOf(backendTest).toHaveProperty('schema')
     expectTypeOf(backendTest).toHaveProperty('modules')
   })
+})
+
+test('nuxt-backend/eslint', () => {
+  // What `withNuxt(…)` and a plain flat config both take.
+  expectTypeOf(backendEslint).returns.toEqualTypeOf<Linter.Config[]>()
+  expectTypeOf(backendEslint).parameter(0).toExtend<{ functionsDir?: string, rules?: Linter.RulesRecord } | undefined>()
+  expectTypeOf(BACKEND_ESLINT_RULES).toExtend<Linter.RulesRecord>()
 })
 
 test('nuxt-backend/mcp', () => {

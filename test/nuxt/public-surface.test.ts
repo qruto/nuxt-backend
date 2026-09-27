@@ -46,8 +46,9 @@ const { exports: packageExports } = packageJson
  * - `convex` — the component tsc build (`tsconfig.convex-component.build.json`)
  * - `css` — copied verbatim by mkdist
  * - `raw` — shipped as source (`files` includes `src/convex`)
+ * - `entry` — an unbuild entry of `build.config.ts`: `dist/<name>.mjs` + `.d.mts`
  */
-type EntryKind = 'runtime' | 'convex' | 'css' | 'raw'
+type EntryKind = 'runtime' | 'convex' | 'css' | 'raw' | 'entry'
 
 interface Entry {
   source: string
@@ -86,6 +87,7 @@ const ENTRIES: Record<string, Entry> = {
   './component/webhooks': { source: 'src/convex/components/backend/webhooks.ts', kind: 'convex' },
   './auth.config': { source: 'src/convex/auth.config.ts', kind: 'convex' },
   './test': { source: 'src/convex/test.ts', kind: 'raw' },
+  './eslint': { source: 'src/eslint.ts', kind: 'entry' },
 }
 
 /**
@@ -119,6 +121,7 @@ function expectedCondition(key: string, entry: Entry): ExportCondition {
   if (entry.kind === 'css') return distBase(entry.source)
   if (entry.kind === 'raw') return `./${entry.source}`
   const base = distBase(entry.source)
+  if (entry.kind === 'entry') return { types: `${base}.d.mts`, default: `${base}.mjs` }
   // The module entry's declarations go through nuxt-module-build's shim, which
   // augments Nuxt's hook/config interfaces before re-exporting the module.
   const types = key === '.' ? './dist/types.d.ts' : `${base}.d.ts`
@@ -369,6 +372,7 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './component/webhooks': ['find', 'listRecent', 'record', 'vDeliveryOutcome'],
   './auth.config': ['default', 'defineBackendAuthConfig'],
   './test': ['default', 'register'],
+  './eslint': ['BACKEND_ESLINT_RULES', 'backendEslint'],
 }
 
 /**
@@ -561,7 +565,7 @@ describe('the surface as documented', () => {
     expect(tagged.sort()).toEqual(expected.sort())
   })
 
-  it('documents exactly the runtime and convex entries with TypeDoc', () => {
+  it('documents exactly the runtime, convex and unbuild entries with TypeDoc', () => {
     // One reference page per public module: every source behind a runtime or
     // convex subpath is an entry point, and the only entry points that carry no
     // subpath are the auto-imported composables — reached by name rather than
@@ -571,7 +575,7 @@ describe('the surface as documented', () => {
     const typedoc = JSON.parse(stripJsonComments(read('typedoc.json'))) as { entryPoints: string[] }
     const COMPOSABLES = 'src/runtime/vue/composables/'
     const documented = Object.values(ENTRIES)
-      .filter(entry => (entry.kind === 'runtime' || entry.kind === 'convex') && !entry.typesOnly)
+      .filter(entry => (entry.kind === 'runtime' || entry.kind === 'convex' || entry.kind === 'entry') && !entry.typesOnly)
       .map(entry => entry.source)
     expect({
       undocumentedEntries: documented.filter(source => !typedoc.entryPoints.includes(source)).sort(),

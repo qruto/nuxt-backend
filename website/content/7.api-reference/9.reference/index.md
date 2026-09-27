@@ -33,6 +33,7 @@ navigation:
 | [convex/integrations/rate-limit](/api-reference/reference/convex/integrations/rate-limit) | - |
 | [convex/integrations/search](/api-reference/reference/convex/integrations/search) | - |
 | [convex/integrations/workflows](/api-reference/reference/convex/integrations/workflows) | - |
+| [eslint](/api-reference/reference/eslint) | The ESLint preset for a `nuxt-backend` app: the official Convex lint rules, scoped to the functions directory, with Convex's generated code ignored. |
 | [module](/api-reference/reference/module) | - |
 | [runtime/server/mcp](/api-reference/reference/runtime/server/mcp) | The agent (MCP) surface's Nitro utilities — `nuxt-backend/mcp`, also auto-imported in `server/`: [useBackendMcp](/api-reference/reference/runtime/server/mcp#usebackendmcp) for the signed-in agent session behind a tool call, [defineBackendMcpTool](/api-reference/reference/runtime/server/mcp#definebackendmcptool) for your own tools. |
 | [runtime/vue/composables/use-aggregate](/api-reference/reference/runtime/vue/composables/use-aggregate) | - |

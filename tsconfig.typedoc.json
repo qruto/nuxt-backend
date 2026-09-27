@@ -19,6 +19,7 @@
   },
   "include": [
     "src/module.ts",
+    "src/eslint.ts",
     "src/runtime/**/*.ts",
     "src/convex/**/*.ts"
   ],

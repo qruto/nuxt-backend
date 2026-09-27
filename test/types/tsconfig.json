@@ -43,7 +43,8 @@
       "nuxt-backend/component/ai": ["../../src/convex/components/backend/ai.ts"],
       "nuxt-backend/component/webhooks": ["../../src/convex/components/backend/webhooks.ts"],
       "nuxt-backend/auth.config": ["../../src/convex/auth.config.ts"],
-      "nuxt-backend/test": ["../../src/convex/test.ts"]
+      "nuxt-backend/test": ["../../src/convex/test.ts"],
+      "nuxt-backend/eslint": ["../../src/eslint.ts"]
     }
   },
   // Nuxt's two declaration entries carry the module augmentations the sources

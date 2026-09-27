@@ -151,7 +151,11 @@
       "types": "./dist/convex/auth.config.d.ts",
       "default": "./dist/convex/auth.config.js"
     },
-    "./test": "./src/convex/test.ts"
+    "./test": "./src/convex/test.ts",
+    "./eslint": {
+      "types": "./dist/eslint.d.mts",
+      "default": "./dist/eslint.mjs"
+    }
   },
   "main": "./dist/module.js",
   "bin": {
@@ -233,6 +237,9 @@
       ],
       "test": [
         "./src/convex/test.ts"
+      ],
+      "eslint": [
+        "./dist/eslint.d.mts"
       ]
     }
   },
@@ -332,8 +339,10 @@
     "zod": "^4.1.13"
   },
   "peerDependencies": {
+    "@convex-dev/eslint-plugin": "^5.0.0",
     "convex": ">=1.43.0 <2",
     "convex-test": ">=0.0.54",
+    "eslint": "^9.0.0 || ^10.0.0",
     "vue": "^3.5.41"
   },
   "devDependencies": {
@@ -383,7 +392,13 @@
     "access": "public"
   },
   "peerDependenciesMeta": {
+    "@convex-dev/eslint-plugin": {
+      "optional": true
+    },
     "convex-test": {
+      "optional": true
+    },
+    "eslint": {
       "optional": true
     }
   },
@@ -399,6 +414,7 @@
       "devtools": "DevTools",
       "docs": "Docs",
       "email": "Email",
+      "eslint": "ESLint",
       "examples": "Examples",
       "mcp": "MCP",
       "module": "Nuxt module",

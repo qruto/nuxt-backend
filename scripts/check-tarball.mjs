@@ -72,6 +72,9 @@ for (const required of [
   'dist/module.json',
   // The CLI (`nuxt-backend` bin).
   'dist/cli.mjs',
+  // The ESLint preset (`nuxt-backend/eslint`).
+  'dist/eslint.mjs',
+  'dist/eslint.d.mts',
   // The DevTools panel, prebuilt (see below for its assets).
   'dist/devtools-client/index.html',
   // The DevTools tab icon, served from the panel: a missing file is a broken image in every app's DevTools.
@@ -126,6 +129,12 @@ try {
   // entries, and nothing else asserts it survived the build.
   const cliHead = readFileSync(join(pkgRoot, 'dist/cli.mjs'), 'utf8').split('\n')[0]
   if (cliHead !== '#!/usr/bin/env node') problems.push(`dist/cli.mjs does not start with a node shebang (got: ${JSON.stringify(cliHead)})`)
+
+  // The ESLint preset's declarations reference ESLint's own types. When the
+  // bundler cannot see `eslint` as a peer it inlines them (~100 kB), and the
+  // preset's `Linter.Config[]` stops matching the consumer's ESLint.
+  const eslintTypes = readFileSync(join(pkgRoot, 'dist/eslint.d.mts'), 'utf8')
+  if (!/from ['"]eslint['"]/.test(eslintTypes)) problems.push('dist/eslint.d.mts inlines the ESLint types instead of importing them from `eslint`')
 
   // The registry listing's website and the DevTools docs link come from here.
   const moduleMeta = JSON.parse(readFileSync(join(pkgRoot, 'dist/module.json'), 'utf8'))
