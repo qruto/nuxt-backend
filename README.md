@@ -22,7 +22,7 @@ It even ships the pages: `/login`, `/pricing`, `/settings`, `/profile`, `/securi
 - a **Nuxt module** — the SaaS composables, scaffolding, env preflight, and `#backend/*` aliases; and
 - a **Convex backend** — a scaffolded `convex.config.ts` that mounts the package's all-in-one `backend` component (auth tables + adapter, email with the provider component nested inside, the billing entitlement cache, and gifts) plus the upstream Polar, rate limiter, workflow, migrations, aggregate, and persistent-text-streaming components, with a `nuxt-backend/*` setup helper for each.
 
-The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR, auth plumbing, DevTools, Convex-aware CSP) comes from [`nuxt-convex-module`](https://github.com/qruto/nuxt-convex-module) — installed and configured automatically. Use that package directly if you only want Convex bindings without the SaaS layer.
+The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR, auth plumbing, DevTools, Convex-aware CSP) comes from [`nuxt-convex-module`](https://github.com/qruto/nuxt-convex-module) — installed and configured automatically. Use that package directly if you only want Convex bindings without the SaaS layer. [Ecosystem](https://nuxt-backend.dev/getting-started/ecosystem) says which other Nuxt modules and Convex components ship with the package, work beside it, or are planned.
 
 > 📖 **Full documentation:** **[nuxt-backend.dev](https://nuxt-backend.dev)** (docs · playground) covers installation, every composable, the bundled backend components, and the complete API reference.
 
