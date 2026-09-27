@@ -1,0 +1,40 @@
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node dependencies
+node_modules
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+.fleet
+.idea
+
+# Local env files: `convex dev` writes CONVEX_DEPLOYMENT to .env.local
+.env
+.env.*
+!.env.example
+
+# Convex: the local deployment's state, and the Convex CLI's AI guidelines.
+# backend/_generated itself is committed, like the site's: the pages import
+# the generated API, so the app builds before the first `convex dev`.
+.convex
+backend/_generated/ai
+
+# A lockfile pins one package manager's tree; the example installs with any
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+bun.lockb
+
+# pkg.pr.new uploads this folder to StackBlitz filtered by this file, so it
+# is also what keeps local state out of a preview.

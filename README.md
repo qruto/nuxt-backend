@@ -197,6 +197,7 @@ Everything is on [nuxt-backend.dev](https://nuxt-backend.dev) — the site (docs
 Each one is created with `create nuxt` (`pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/<path>`) and runs against a Convex deployment of your own — see [Templates & Examples](https://nuxt-backend.dev/getting-started/templates).
 
 - [`templates/starter`](./templates/starter) — the app to build on: the exact `nuxt-backend init` scaffold, zero custom backend code: passwordless auth, workspace invitations, billing, credits, and gifts out of the box
+- [`examples/playground`](./examples/playground) — the [live playground](https://nuxt-backend.dev/playground) as an app of your own: 33 pages exercising the client, the packaged pages, auth, workspaces, billing, credits, AI, email, webhooks, workflows and agents against your deployment
 - [`examples/advanced`](./examples/advanced) — every customization point in one app: local component install, custom email templates, custom webhook paths and hooks, a customized `convex.config.ts` (extra env, an unmounted component), and a custom invitation accept page
 
 ## Contributing

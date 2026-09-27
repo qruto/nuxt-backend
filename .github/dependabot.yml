@@ -49,11 +49,15 @@ updates:
   # lockfile (what `create nuxt` hands a user). `increase-if-necessary` only
   # touches a range the newest release has left (a new major), so there is no
   # weekly churn of floors a user's install ignores anyway. `nuxt-backend` is
-  # the `latest` dist-tag on purpose. Same cooldown and exclusions as above.
+  # the `latest` dist-tag on purpose, and the component packages and
+  # nuxt-convex-module an example imports directly keep the package's own
+  # ranges (test/unit/playground-parity.test.ts), so they move with it. Same
+  # cooldown and exclusions as above.
   - package-ecosystem: npm
     directories:
       - /templates/starter
       - /examples/advanced
+      - /examples/playground
     schedule:
       interval: weekly
       day: monday
@@ -70,6 +74,8 @@ updates:
         - '@convex-dev/*'
     ignore:
       - dependency-name: nuxt-backend
+      - dependency-name: '@convex-dev/*'
+      - dependency-name: nuxt-convex-module
     groups:
       templates:
         patterns: ['*']

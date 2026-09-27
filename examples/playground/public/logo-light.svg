@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44" role="img" aria-labelledby="nb-title">
+  <title id="nb-title">Nuxt backend</title>
+  <!-- The mark: a 44×44 machined plate — a light titanium face on a darker edge, a 1px rim lit from the
+       top-left, and three milled slots (kept black so the bars keep their contrast) each holding a tritium
+       bar in one of the three signals (green = go, yellow = attention, red = danger).
+       Explicit light variant — colours baked in. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0f1f3"/>
+      <stop offset="1" stop-color="#d6d9de"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.32"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.6"/>
+    </filter>
+  </defs>
+  <!-- Plate: edge, face, rim -->
+  <rect x="1" y="1" width="42" height="42" rx="11" fill="#aeb2b9"/>
+  <rect x="1.5" y="1.5" width="41" height="41" rx="10.5" fill="url(#face)"/>
+  <rect x="1.5" y="1.5" width="41" height="41" rx="10.5" fill="none" stroke="url(#rim)" stroke-width="1"/>
+  <!-- Three milled slots -->
+  <rect x="11" y="12" width="22" height="5" rx="2.5" fill="#0a0b0d"/>
+  <rect x="11" y="19.5" width="22" height="5" rx="2.5" fill="#0a0b0d"/>
+  <rect x="11" y="27" width="22" height="5" rx="2.5" fill="#0a0b0d"/>
+  <!-- Tritium bars: glow, then core -->
+  <rect x="12" y="13" width="20" height="3" rx="1.5" fill="#4ade80" filter="url(#glow)" opacity="0.9"/>
+  <rect x="12" y="13" width="20" height="3" rx="1.5" fill="#c4ffd6"/>
+  <rect x="12" y="20.5" width="20" height="3" rx="1.5" fill="#facc15" filter="url(#glow)" opacity="0.85"/>
+  <rect x="12" y="20.5" width="20" height="3" rx="1.5" fill="#ffeaa0"/>
+  <rect x="12" y="28" width="20" height="3" rx="1.5" fill="#f87171" filter="url(#glow)" opacity="0.85"/>
+  <rect x="12" y="28" width="20" height="3" rx="1.5" fill="#ffb8b0"/>
+</svg>

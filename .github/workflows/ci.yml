@@ -196,12 +196,15 @@ jobs:
       # `src/templates.generated.ts` — the export lists the local-install
       # scaffold re-exports — is derived from the component's function modules
       # and committed. Regenerating must produce no diff, otherwise a function
-      # was added to the component without reaching the scaffold.
+      # was added to the component without reaching the scaffold. The playground
+      # example is the website's playground copied by scripts/sync-playground.mjs;
+      # a website change that was not synced into it fails here.
       - name: Template drift
         if: ${{ !cancelled() }}
         run: |
           pnpm run templates:generate
           git diff --exit-code -- src/templates.generated.ts
+          node scripts/sync-playground.mjs --check
 
       # Regenerating the TypeDoc reference must produce no diff (and leave no
       # untracked file under the reference tree). A diff means the doc comments
@@ -473,7 +476,7 @@ jobs:
           NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
         run: | # zizmor: ignore[adhoc-packages]
           TARBALL="$PWD/$(ls nuxt-backend-*.tgz)"
-          for app in templates/starter examples/advanced; do
+          for app in templates/starter examples/advanced examples/playground; do
             SMOKE="$RUNNER_TEMP/smoke-$(basename "$app")"
             cp -R "$app" "$SMOKE"
             rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output" "$SMOKE/backend/_generated"
@@ -530,7 +533,7 @@ jobs:
       - name: Verify dependency signatures
         if: ${{ !cancelled() }}
         run: | # zizmor: ignore[adhoc-packages]
-          for app in starter advanced; do
+          for app in starter advanced playground; do
             (cd "$RUNNER_TEMP/smoke-$app" && npx --yes npm@11.17.0 audit signatures)
           done
 
@@ -550,7 +553,7 @@ jobs:
           pnpm_config_minimum_release_age: '0'
         run: | # zizmor: ignore[adhoc-packages]
           TARBALL="$PWD/$(ls nuxt-backend-*.tgz)"
-          for app in templates/starter examples/advanced; do
+          for app in templates/starter examples/advanced examples/playground; do
             SMOKE="$RUNNER_TEMP/smoke-pnpm-$(basename "$app")"
             cp -R "$app" "$SMOKE"
             rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output" "$SMOKE/backend/_generated"

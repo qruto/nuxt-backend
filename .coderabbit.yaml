@@ -128,7 +128,11 @@ reviews:
         `nuxt-backend init` scaffolds, and `examples/advanced` matches the
         local-install templates except its marked customizations — so an edit
         there is really an edit to `src/templates.ts`, and a change to one
-        half without the other fails CI.
+        half without the other fails CI. `examples/playground` is the
+        website's playground copied by `scripts/sync-playground.mjs`: review
+        the change in `website/`, where it belongs, and only the files the
+        script lists as `OWNED` here. An edit to any other file in the example
+        fails the CI drift check.
 
     - path: 'website/backend/**'
       instructions: >-

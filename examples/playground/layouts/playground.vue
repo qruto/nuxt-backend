@@ -1,0 +1,462 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { api } from '#backend/api'
+
+const { client, session } = useAuth()
+const conn = useConnectionState()
+const isConnected = computed(() => conn.value.isWebSocketConnected)
+
+const clearUserData = useMutation(api.demo.clearUserData)
+
+async function resetData() {
+  if (!confirm('Clear all your playground data (todos, chat, logs, counters, files)?')) return
+  await clearUserData({})
+  if (useRoute().path !== '/playground') {
+    await navigateTo('/playground', { replace: true })
+  }
+  else {
+    location.reload()
+  }
+}
+
+const user = computed(() => session.value.data?.user)
+const displayName = computed(() => {
+  const u = user.value
+  if (!u) return '?'
+  return u.name ?? u.email ?? '?'
+})
+const initials = computed(() =>
+  displayName.value.split(/[\s@]+/).filter(Boolean).slice(0, 2).map(s => s[0]!.toUpperCase()).join(''),
+)
+
+type NavItem = { to: string, label: string, icon: string, api?: string, live?: boolean, xp?: boolean, exact?: boolean }
+type NavGroup = { label: string, hint?: string, items: NavItem[] }
+
+const groups: NavGroup[] = [
+  {
+    label: 'Overview',
+    items: [
+      { to: '/playground', label: 'Mission Control', icon: 'overview', api: 'live composition', live: true, exact: true },
+    ],
+  },
+  {
+    label: 'Client',
+    hint: 'The reactive Vue/Nuxt port',
+    items: [
+      { to: '/playground/client/queries', label: 'Queries', icon: 'database', api: 'useQuery · useQueries', live: true },
+      { to: '/playground/client/mutations', label: 'Mutations & actions', icon: 'mutate', api: 'useMutation · useAction', live: true },
+      { to: '/playground/client/pagination', label: 'Pagination', icon: 'pagination', api: 'usePaginatedQuery' },
+      { to: '/playground/client/search', label: 'Search & counts', icon: 'search', api: 'useSearch · useCount' },
+      { to: '/playground/client/storage', label: 'File storage', icon: 'storage', api: 'useUpload · useStorageUrl', live: true },
+      { to: '/playground/client/connection', label: 'Connection', icon: 'connection', api: 'useConnectionState', live: true },
+      { to: '/playground/client/ssr', label: 'SSR & preload', icon: 'server', api: 'preloadQuery · backendAuth' },
+      { to: '/playground/client/subscription', label: 'Subscription bridge', icon: 'subscription', api: 'useSubscription' },
+    ],
+  },
+  {
+    label: 'SaaS demo',
+    hint: 'The packaged pages, site-styled',
+    items: [
+      { to: '/playground/saas/pricing', label: 'Pricing', icon: 'billing', api: 'PricingTable', live: true },
+      { to: '/playground/saas/profile', label: 'Profile', icon: 'account', api: 'ProfileSettings' },
+      { to: '/playground/saas/settings', label: 'Settings', icon: 'bolt', api: 'WorkspaceSettings' },
+      { to: '/playground/saas/security', label: 'Privacy & security', icon: 'key', api: 'SecuritySettings' },
+    ],
+  },
+  {
+    label: 'Vanilla',
+    hint: 'Zero-config default look',
+    items: [
+      { to: '/playground/vanilla/pricing', label: 'Pricing', icon: 'billing', api: 'ui.css defaults' },
+      { to: '/playground/vanilla/profile', label: 'Profile', icon: 'account', api: 'ui.css defaults' },
+      { to: '/playground/vanilla/settings', label: 'Settings', icon: 'bolt', api: 'ui.css defaults' },
+      { to: '/playground/vanilla/security', label: 'Security', icon: 'key', api: 'ui.css defaults' },
+    ],
+  },
+  {
+    label: 'Backend platform',
+    hint: 'Auth · billing · email · more',
+    items: [
+      { to: '/playground/platform/account', label: 'Account & auth', icon: 'account', api: 'useAuth · Authenticated' },
+      { to: '/playground/platform/workspaces', label: 'Workspaces', icon: 'account', api: 'useOrganization', live: true },
+      { to: '/playground/platform/authorization', label: 'Roles & permissions', icon: 'shield', api: 'hasRole · RoleBoundary' },
+      { to: '/playground/platform/billing', label: 'Billing', icon: 'billing', api: 'useBilling · CheckoutLink' },
+      { to: '/playground/platform/features', label: 'Feature gates', icon: 'features', api: 'useFeatures · FeatureBoundary' },
+      { to: '/playground/platform/credits', label: 'Credits', icon: 'credits', api: 'useCredits · useAiStream', live: true },
+      { to: '/playground/platform/history', label: 'Billing history', icon: 'pagination', api: 'useOrders · useUsage', live: true },
+      { to: '/playground/platform/ai', label: 'Metered AI', icon: 'bolt', api: 'ai.meteredAction · useAiStream', live: true, xp: true },
+      { to: '/playground/platform/email', label: 'Email', icon: 'email', api: 'useEmailStatus' },
+      { to: '/playground/platform/email-templates', label: 'Email templates', icon: 'email', api: 'defaultEmailTemplates' },
+      { to: '/playground/platform/webhooks', label: 'Webhooks', icon: 'connection', api: 'registerBackendRoutes', live: true },
+      { to: '/playground/platform/workflows', label: 'Workflows', icon: 'workflows', api: 'useWorkflowStatus' },
+      { to: '/playground/platform/migrations', label: 'Migrations', icon: 'database', api: 'migrations.getStatus' },
+      { to: '/playground/platform/rate-limit', label: 'Rate limiting', icon: 'shield', api: 'rateLimiter' },
+      { to: '/playground/platform/aggregates', label: 'Aggregates', icon: 'database', api: 'useCount · useAggregate', live: true },
+      { to: '/playground/platform/agents', label: 'Agents (MCP)', icon: 'connection', api: 'useBackendMcp · /mcp', xp: true },
+    ],
+  },
+]
+
+async function signOut() {
+  await client.signOut()
+  await navigateTo('/login')
+}
+
+const route = useRoute()
+const isLogin = computed(() => route.path === '/login')
+</script>
+
+<template>
+  <div class="shell pg-shell">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="top-left">
+          <NuxtLink
+            to="/playground"
+            class="logo"
+          >
+            <UColorModeImage
+              light="/logo-light.svg"
+              dark="/logo-dark.svg"
+              alt=""
+              aria-hidden="true"
+              class="logo-mark"
+              width="30"
+              height="30"
+            />
+            <span class="logo-text">
+              <span class="logo-name embossed-sm">Nuxt backend</span>
+              <span class="logo-tag engraved-sm">playground</span>
+            </span>
+          </NuxtLink>
+
+          <div class="top-status">
+            <ClientOnly>
+              <StatusRing
+                :tone="isConnected ? 'ok' : 'err'"
+                :pulse="isConnected"
+                size="sm"
+              >
+                {{ isConnected ? 'Convex live' : 'Offline' }}
+              </StatusRing>
+              <template #fallback>
+                <StatusRing
+                  tone="muted"
+                  size="sm"
+                >
+                  connecting…
+                </StatusRing>
+              </template>
+            </ClientOnly>
+          </div>
+        </div>
+
+        <div class="top-actions">
+          <button
+            type="button"
+            class="reset-btn"
+            title="Reset playground data"
+            @click="resetData"
+          >
+            <Icon
+              name="reset"
+              :size="14"
+            />
+            Reset data
+          </button>
+
+          <ClientOnly>
+            <div
+              v-if="user"
+              class="user-chip"
+            >
+              <span class="avatar">{{ initials }}</span>
+              <span class="user-name">{{ user.name ?? user.email?.split('@')[0] }}</span>
+              <button
+                type="button"
+                class="signout-btn"
+                title="Sign out"
+                aria-label="Sign out"
+                @click="signOut"
+              >
+                <Icon
+                  name="signout"
+                  :size="14"
+                />
+              </button>
+            </div>
+            <NuxtLink
+              v-else
+              to="/login"
+              class="signin-link"
+            >
+              Sign in
+            </NuxtLink>
+          </ClientOnly>
+        </div>
+      </div>
+    </header>
+
+    <div class="main-grid">
+      <aside
+        class="sidebar"
+        :class="{ 'login-hidden': isLogin }"
+      >
+        <nav class="nav">
+          <div
+            v-for="group in groups"
+            :key="group.label"
+            class="nav-group"
+          >
+            <div class="nav-group-head">
+              <span class="nav-group-label engraved-sm">{{ group.label }}</span>
+              <span
+                v-if="group.hint"
+                class="nav-group-hint"
+              >{{ group.hint }}</span>
+            </div>
+            <NuxtLink
+              v-for="item in group.items"
+              :key="item.to"
+              :to="item.to"
+              class="nav-link"
+              :exact-active-class="item.exact ? 'active' : ''"
+              :active-class="item.exact ? '' : 'active'"
+            >
+              <Icon
+                :name="item.icon"
+                :size="17"
+                class="nav-icon"
+              />
+              <span class="nav-label">{{ item.label }}</span>
+              <SignalDot
+                v-if="item.live"
+                tone="ok"
+                :pulse="false"
+              />
+              <SignalDot
+                v-else-if="item.xp"
+                tone="warn"
+                :pulse="false"
+                title="experimental"
+              />
+            </NuxtLink>
+          </div>
+        </nav>
+
+        <div class="sidebar-foot">
+          <p class="foot-note">
+            One package — Convex realtime client + Better&nbsp;Auth, Polar billing,
+            Resend email, workflows &amp; rate limiting — machined from one material.
+          </p>
+        </div>
+      </aside>
+
+      <main class="content">
+        <div class="content-inner fade-up">
+          <slot />
+        </div>
+      </main>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(1.1) blur(10px);
+  /* Milled seam: a dark hairline with a lit lip below — a carved groove,
+     not a drop shadow. */
+  box-shadow:
+    inset 0 -1px 0 var(--edge),
+    0 1px 0 light-dark(rgb(255 255 255 / 0.6), rgb(255 255 255 / 0.05));
+}
+.topbar-inner {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0.6rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.top-left { display: flex; align-items: center; gap: 1rem; }
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: inherit;
+}
+.logo-mark {
+  /* The mark itself (public/logo.svg): a machined titanium plate with the
+     stack engraved into it and one green status LED — the same mark the docs
+     header wears (AppHeaderLogo.vue). The explicit light/dark pair follows the
+     site's colour-mode toggle instead of the OS. It carries its own bevel and
+     rim, so it sits bare: no plate, no shadow underneath. */
+  display: block;
+  width: 30px; height: 30px;
+  flex-shrink: 0;
+}
+.logo-text { display: flex; flex-direction: column; line-height: 1.05; }
+/* Depth comes from the `.embossed-sm` / `.engraved-sm` utilities (app.css) so
+   the prefers-contrast kill-switch reaches it; `.engraved-sm` also carries the
+   4.5:1 small-text ink these 9–10px labels need. */
+.logo-name { font-family: var(--display); font-size: 1rem; font-weight: 600; letter-spacing: 0.02em; color: var(--ink); }
+.logo-tag { font-family: var(--mono); font-size: 0.58rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
+
+.top-status { display: flex; align-items: center; }
+
+.top-actions { display: flex; align-items: center; gap: 0.6rem; }
+
+.reset-btn {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  padding: 0.38rem 0.7rem;
+  border-radius: 999px;
+  border: 0;
+  background: var(--surface);
+  color: var(--ink-dim);
+  cursor: pointer;
+  box-shadow: var(--raise-sm);
+  transition: color var(--transition), box-shadow var(--transition), transform var(--press) var(--ease-out);
+}
+/* Destructive → red, the only red in the top bar. */
+.reset-btn:hover { color: var(--err); }
+.reset-btn:active { box-shadow: var(--inset-sm); transform: translateY(0.5px); }
+
+.user-chip {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.25rem 0.3rem 0.25rem 0.3rem;
+  background: var(--surface);
+  border-radius: 999px;
+  box-shadow: var(--raise-sm);
+}
+.avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  /* Stamped initials in a recessed titanium disc — the user chip is neutral. */
+  background: var(--sink);
+  color: var(--ink);
+  font-size: 0.66rem; font-weight: 700; font-family: var(--mono);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  box-shadow: var(--inset-sm);
+}
+.user-name { font-size: 0.78rem; font-weight: 600; line-height: 1; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.signout-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--sink);
+  color: var(--ink-dim);
+  cursor: pointer;
+  box-shadow: var(--inset-sm);
+  transition: color var(--transition), transform var(--press) var(--ease-out);
+}
+/* Sign-out is not destructive: hover only sharpens the ink. */
+.signout-btn:hover { color: var(--ink); }
+.signout-btn:active { transform: scale(0.92); }
+
+.signin-link {
+  font-size: 0.8rem; font-weight: 600;
+  text-decoration: none;
+  /* Primary action: green enamel, resting glow. */
+  color: var(--on-ok);
+  background: var(--ok);
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  box-shadow: var(--elev-1), var(--glow-ok-soft);
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.signin-link:hover { background: var(--ok-press); box-shadow: var(--elev-2), var(--glow-ok-soft); }
+
+.main-grid {
+  display: grid;
+  grid-template-columns: 256px 1fr;
+  flex: 1;
+  min-height: 0;
+}
+
+.sidebar {
+  overflow-y: auto;
+  padding: 1rem 0.85rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar.login-hidden { display: none; }
+
+.nav { flex: 1; display: flex; flex-direction: column; gap: 1.15rem; }
+.nav-group { display: flex; flex-direction: column; gap: 0.15rem; }
+.nav-group-head { padding: 0.25rem 0.7rem 0.4rem; display: flex; flex-direction: column; gap: 0.1rem; }
+.nav-group-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  /* ink + carve via `.engraved-sm` (see .logo-tag) */
+}
+.nav-group-hint {
+  font-size: 0.66rem;
+  color: var(--ink-faint);
+}
+.nav-link {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--r-sm);
+  color: var(--ink-dim);
+  text-decoration: none;
+  font-size: 0.84rem;
+  font-weight: 500;
+  transition: color var(--transition), box-shadow var(--transition), background var(--transition);
+}
+.nav-icon { opacity: 0.85; }
+/* Hover = a hairline lift; active = latched INTO the material (design §5.8):
+   a pressed titanium slot with neutral ink. The LED beside the label is the
+   only signal — green for live pages, amber for experimental ones. */
+.nav-link:hover { color: var(--ink); box-shadow: var(--elev-0); background: var(--surface); }
+.nav-link.active {
+  color: var(--ink);
+  background: var(--sink);
+  box-shadow: var(--inset-1);
+  font-weight: 600;
+}
+.nav-link.active .nav-icon { color: var(--ink); opacity: 1; }
+.nav-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.sidebar-foot {
+  margin-top: auto;
+  padding: 1rem 0.7rem 0;
+}
+.foot-note {
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--ink-faint);
+  margin: 0;
+}
+
+.content {
+  min-width: 0;
+  padding: 1.85rem 2.25rem 3rem;
+}
+.content-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+@media (max-width: 860px) {
+  .content { padding: 1.25rem 1rem 2rem; }
+  .logo-tag { display: none; }
+}
+</style>
