@@ -270,7 +270,7 @@
     "dev:nuxt-module": "portless nuxt-backend nuxt dev --dotenv ../.env.local website",
     "dev:nuxt-module:share": "portless nuxt-backend --ngrok nuxt dev --dotenv ../.env.local website",
     "dev:nuxt-module:build": "nuxt build --dotenv ../.env.local website",
-    "dev:prepare:lib": "nuxt-module-build build --stub && nuxt-module-build prepare && node scripts/normalize-module-ext.js && pnpm run build:convex-component",
+    "dev:prepare:lib": "nuxt-module-build build --stub && nuxt-module-build prepare && node scripts/normalize-module-ext.js && pnpm run build:convex-component && nuxt prepare devtools-client-app",
     "dev:prepare": "pnpm run dev:prepare:lib && nuxt prepare website",
     "dev:nuxt-module:prepare": "pnpm run dev:prepare",
     "lint": "eslint .",

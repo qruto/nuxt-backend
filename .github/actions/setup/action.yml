@@ -24,7 +24,9 @@ inputs:
   prepare:
     description: >-
       How much of `dev:prepare` to run. `lib` builds the module stub, its
-      types and the Convex component — everything except the website. `full`
+      types and the Convex component, and prepares the DevTools panel's types
+      (its tests import the panel's modules, which Vite compiles against the
+      panel's generated tsconfig) — everything except the website. `full`
       adds `nuxt prepare website`, which pulls in the entire Docus module graph
       and is only needed to type-check or build the docs site. `none` skips it.
     default: 'none'
