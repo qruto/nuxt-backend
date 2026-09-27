@@ -125,8 +125,10 @@ export const recordWebhookEvent = internalMutation({
 
 /**
  * Recent webhook events for the showcase activity feed — signed-in visitors
- * only. The feed is shared by every account, so a summary names ids, never an
- * address: on the playground, an address is the key to its account.
+ * only. The feed is shared by every account, so a summary never names an
+ * address (on the playground, an address is the key to its account) or an
+ * email id (it opens that email's status). Billing ids are safe to show: every
+ * billing function checks the caller owns what an id names.
  */
 export const listWebhookEvents = query({
   args: {},

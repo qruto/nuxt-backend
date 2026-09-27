@@ -10,29 +10,30 @@ import { emailLimits, throttle } from './rateLimiter'
 // Transactional + marketing email over the `email` component (Resend nested
 // inside). The typed event handlers (full provider catalog — email.*,
 // contact.*, domain.*) run after the component verified the webhook — the
-// showcase logs them into the same feed as billing events, by email id: the
-// feed is shared, and on the playground an address is the key to its account.
+// showcase logs them into the same feed as billing events, naming neither the
+// address nor the email id: the feed is shared, an address is the key to its
+// account, and an id opens that email's delivery status (getEmailStatus).
 export const email = setupEmail(components, {
   events: {
     'email.delivered': async (ctx, event) => {
       await ctx.runMutation(internal.billing.recordWebhookEvent, {
         source: 'email',
         type: event.type,
-        summary: `email ${event.data.email_id ?? 'unknown'} delivered`,
+        summary: 'an email was delivered',
       })
     },
     'email.bounced': async (ctx, event) => {
       await ctx.runMutation(internal.billing.recordWebhookEvent, {
         source: 'email',
         type: event.type,
-        summary: `email ${event.data.email_id ?? 'unknown'} bounced`,
+        summary: 'an email bounced',
       })
     },
     'email.complained': async (ctx, event) => {
       await ctx.runMutation(internal.billing.recordWebhookEvent, {
         source: 'email',
         type: event.type,
-        summary: `email ${event.data.email_id ?? 'unknown'} marked as spam`,
+        summary: 'an email was marked as spam',
       })
     },
   },

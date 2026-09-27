@@ -12,12 +12,12 @@ export const workflow = setupWorkflows(components)
 // analytics — here, logging the signup to the showcase activity feed.
 export const onSignup = workflow.define({
   args: { userId: v.string(), email: v.string(), name: v.string() },
-  handler: async (step, { userId }) => {
-    // The feed is shared by every account: name the user by id, not address.
+  handler: async (step) => {
+    // The feed is shared by every account, so it names nobody.
     await step.runMutation(internal.billing.recordWebhookEvent, {
       source: 'auth',
       type: 'user.created',
-      summary: `signup: user ${userId}`,
+      summary: 'a new account signed up',
     })
   },
 })

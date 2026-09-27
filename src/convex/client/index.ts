@@ -13,10 +13,10 @@ import { setupMcp, type McpExchange } from '../integrations/mcp.js'
 import { type DatabaseHooks, mergeDatabaseHooks } from './hooks.js'
 
 /**
- * Better Auth's request error, re-exported so an app needs no direct
- * `better-auth` dependency. Throw it from a hook `setupAuth` passes through
- * (`authOptions.databaseHooks`, `organization.organizationHooks`) to refuse
- * with a status and a message the client shows, not a bare 500:
+ * The auth layer's request error, re-exported so an app needs no direct
+ * dependency on the auth library. Throw it from a hook `setupAuth` passes
+ * through (`authOptions.databaseHooks`, `organization.organizationHooks`) to
+ * refuse with a status and a message the client shows, not a bare 500:
  * `throw new APIError('BAD_REQUEST', { message: 'Invite a company address.' })`.
  */
 export { APIError }

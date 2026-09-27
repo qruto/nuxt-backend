@@ -16,19 +16,26 @@ import {
 // and its sign-in code read from the sandbox inbox (<SandboxInbox>).
 definePageMeta({ layout: false, header: false, footer: false })
 
-const STORAGE_KEY = 'nuxt-backend:sandbox-identity'
+const STORAGE_KEY = 'nuxt-backend:sandbox-identities'
 
-// The visitor's sandbox identity, remembered on this device only. Storage can
-// be unavailable (a private window, blocked site data): the identity then
-// lasts this visit.
-const identity = ref<string | null>(null)
+/** How many identities this device remembers, newest first. */
+const MAX_IDENTITIES = 5
+
+// The visitor's sandbox identities, remembered on this device only — a new
+// one never replaces the others, since an address is the only way back into
+// its account. Storage can be unavailable (a private window, blocked site
+// data): the identities then last this visit.
+const identities = ref<string[]>([])
 
 onMounted(() => {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved && isSandboxIdentity(saved)) identity.value = saved
+    const saved: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+    if (Array.isArray(saved)) {
+      identities.value = saved.filter((item): item is string => typeof item === 'string' && isSandboxIdentity(item))
+        .slice(0, MAX_IDENTITIES)
+    }
   }
-  catch { /* storage unavailable */ }
+  catch { /* storage unavailable or unreadable */ }
 })
 
 function validateEmail(value: string): boolean | string {
@@ -51,9 +58,9 @@ function fillIdentity(flow: Flow, address: string) {
 
 function createIdentity(flow: Flow) {
   const address = newSandboxIdentity()
-  identity.value = address
+  identities.value = [address, ...identities.value].slice(0, MAX_IDENTITIES)
   try {
-    localStorage.setItem(STORAGE_KEY, address)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(identities.value))
   }
   catch { /* storage unavailable */ }
   fillIdentity(flow, address)
@@ -83,27 +90,29 @@ function createIdentity(flow: Flow) {
             <span class="lab-label">sandbox identity</span>
             <div class="presets">
               <button
-                v-if="identity"
+                v-for="address in identities"
+                :key="address"
                 type="button"
                 class="preset identity"
-                :class="{ on: normalizeTestEmail(flow.email.value) === identity }"
-                @click="fillIdentity(flow, identity)"
+                :class="{ on: normalizeTestEmail(flow.email.value) === address }"
+                @click="fillIdentity(flow, address)"
               >
-                {{ identity }}
+                {{ address }}
               </button>
               <button
                 type="button"
                 class="preset"
                 @click="createIdentity(flow)"
               >
-                {{ identity ? 'New identity' : 'Create a sandbox identity' }}
+                {{ identities.length ? 'New identity' : 'Create a sandbox identity' }}
               </button>
             </div>
             <p class="hint">
               The playground is a sandbox: an account is a generated address,
-              and its sign-in code shows up right here. Anyone who knows the
-              address can sign in as it, so keep it to yourself and keep
-              nothing real in the account.
+              and its sign-in code shows up right here. This device remembers
+              your last {{ MAX_IDENTITIES }}. Anyone who knows an address can sign in
+              as it, so keep it to yourself and keep nothing real in the
+              account.
             </p>
           </div>
         </template>

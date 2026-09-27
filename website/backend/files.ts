@@ -39,14 +39,13 @@ export const save = mutation({
     const upload = claimed ? null : await ctx.db.system.get('_storage', storageId)
     if (!upload) throw new ConvexError('Upload not found.')
     // The limits apply here, where the stored size is known: an upload URL
-    // accepts any size. A refused upload is deleted on the spot.
+    // accepts any size. A refused upload stays unclaimed, and the daily sweep
+    // (cleanupOrphanUploads) removes it — deleting it here would roll back
+    // with the refusal.
+    if (upload.size > MAX_BYTES) throw new ConvexError('Files up to 5 MB on the playground.')
     const library = await ctx.db.query('files').withIndex('userId', q => q.eq('userId', identity.subject)).take(MAX_FILES)
-    const refusal = upload.size > MAX_BYTES
-      ? 'Files up to 5 MB on the playground.'
-      : library.length >= MAX_FILES ? `The playground keeps ${MAX_FILES} files per account — delete one first.` : null
-    if (refusal) {
-      await ctx.storage.delete(storageId)
-      throw new ConvexError(refusal)
+    if (library.length >= MAX_FILES) {
+      throw new ConvexError(`The playground keeps ${MAX_FILES} files per account — delete one first.`)
     }
     await ctx.db.insert('files', {
       userId: identity.subject,
@@ -111,7 +110,7 @@ export const remove = mutation({
 
 /**
  * Delete uploads nobody saved: an upload URL was issued, the file streamed,
- * and `save` never ran (a closed tab, a refused save). Walks the storage
+ * and `save` never ran or refused it (a closed tab, a file over the limits). Walks the storage
  * older than an hour a page at a time, scheduling the next page; the daily
  * cron in crons.ts starts it.
  */
