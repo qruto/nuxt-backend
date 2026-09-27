@@ -6,7 +6,7 @@ import resendComponent from '@convex-dev/resend/test'
 import { Webhook } from 'svix'
 import component from '../../src/convex/test'
 import schema from '../../src/convex/components/backend/schema'
-import { api, components } from '../../src/convex/components/backend/_generated/api'
+import { api, components, internal } from '../../src/convex/components/backend/_generated/api'
 import { setupEmail, type EmailComponents, type EmailWebhookEvent } from '../../src/convex/integrations/email'
 import { WEBHOOK_BODY_LIMIT } from '../../src/convex/integrations/webhook-guard'
 
@@ -40,6 +40,7 @@ afterEach(() => {
   delete process.env.EMAIL_API_KEY
   delete process.env.EMAIL_FROM
   delete process.env.EMAIL_WEBHOOK_SECRET
+  delete process.env.EMAIL_TEST_MODE
 })
 
 /** Sign a delivery the way the provider does (svix headers, ±5 min tolerance). */
@@ -79,6 +80,60 @@ async function sendOne(): Promise<string> {
 async function markSent(emailId: string, resendId: string) {
   await t.mutation(components.resend.lib.updateManualEmail, { emailId, status: 'sent', resendId })
 }
+
+describe('sandbox inbox', () => {
+  // Lower-case: the provider's test-mode check is case-sensitive, so a
+  // mixed-case sandbox address is refused before anything is sent.
+  const SANDBOX = 'delivered+demo-1@resend.dev'
+
+  test('keeps a copy of test-mode mail to a sandbox address, newest first', async () => {
+    await t.mutation(api.email.send, { to: SANDBOX, subject: 'First', text: 'code 111111' })
+    await t.mutation(api.email.send, { to: [SANDBOX], subject: 'Second', html: '<p>code <b>222222</b></p>' })
+
+    // Read back whatever the case or surrounding space of the address.
+    const inbox = await t.query(api.email.inbox, { address: ' Delivered+Demo-1@RESEND.dev ' })
+    expect(inbox.map(message => message.subject)).toEqual(['Second', 'First'])
+    expect(inbox[1]).toMatchObject({ from: 'onboarding@resend.dev', text: 'code 111111' })
+    expect(inbox[0]).toMatchObject({ html: '<p>code <b>222222</b></p>' })
+  })
+
+  test('keeps nothing once test mode is off', async () => {
+    process.env.EMAIL_TEST_MODE = 'false'
+    await t.mutation(api.email.send, { to: SANDBOX, subject: 'Live', text: 'x' })
+    expect(await t.run(ctx => ctx.db.query('sandboxInbox').collect())).toEqual([])
+  })
+
+  test('stops serving captured mail the moment test mode is turned off', async () => {
+    await t.mutation(api.email.send, { to: SANDBOX, subject: 'Earlier', text: 'code 444444' })
+    process.env.EMAIL_TEST_MODE = 'false'
+    expect(await t.query(api.email.inbox, { address: SANDBOX })).toEqual([])
+  })
+
+  test('has no inbox for a real address', async () => {
+    expect(await t.query(api.email.inbox, { address: 'someone@example.com' })).toEqual([])
+  })
+
+  test('captures without an API key too, where the send itself is skipped', async () => {
+    delete process.env.EMAIL_API_KEY
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(await t.mutation(api.email.send, { to: SANDBOX, subject: 'Local', text: 'code 333333' })).toBeNull()
+    expect(await t.query(api.email.inbox, { address: SANDBOX })).toMatchObject([{ subject: 'Local' }])
+  })
+
+  test('schedules each message\'s removal an hour after it arrives', async () => {
+    await t.mutation(api.email.send, { to: SANDBOX, subject: 'Soon gone', text: 'x' })
+    const [row] = await t.run(ctx => ctx.db.query('sandboxInbox').collect())
+    const jobs = await t.run(ctx => ctx.db.system.query('_scheduled_functions').collect())
+    const expiry = jobs.find(job => job.name.includes('expireSandboxMessage'))
+    expect(expiry?.args[0]).toEqual({ id: row!._id })
+    expect(expiry!.scheduledTime - row!._creationTime).toBeCloseTo(60 * 60 * 1000, -3)
+
+    await t.mutation(internal.email.expireSandboxMessage, { id: row!._id })
+    expect(await t.query(api.email.inbox, { address: SANDBOX })).toEqual([])
+    // Idempotent: the row is already gone.
+    await expect(t.mutation(internal.email.expireSandboxMessage, { id: row!._id })).resolves.toBeNull()
+  })
+})
 
 describe('retention cleanup (scheduled into the nested provider component)', () => {
   // The provider ages records by wall clock, so the clock is faked too and

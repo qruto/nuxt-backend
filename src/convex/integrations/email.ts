@@ -35,9 +35,29 @@ export interface EmailComponents {
       cleanup?: FunctionReference<'mutation', 'internal', { olderThanMs?: number }, null>
       cleanupAbandoned?: FunctionReference<'mutation', 'internal', { olderThanMs?: number }, null>
       handleWebhook: FunctionReference<'action', 'internal', { body: string, headers: Record<string, string> }, { status: number, body: string, type?: string }>
+      /**
+       * The sandbox inbox (test mode only). Optional so an app pinned to an
+       * older component build still type-checks — `getSandboxInbox` then
+       * answers an empty inbox.
+       */
+      inbox?: FunctionReference<'query', 'internal', { address: string }, SandboxMessage[]>
     }
     webhooks?: WebhookLogRefs
   }
+}
+
+/**
+ * A message in a sandbox inbox: what test mode sent to one of the provider's
+ * sandbox addresses (`delivered+label@resend.dev`) within the last hour.
+ * Part of the experimental sandbox inbox (`useSandboxInbox`, STABILITY.md).
+ */
+export interface SandboxMessage {
+  from: string
+  subject: string
+  text?: string
+  html?: string
+  /** When it was sent, as epoch ms. */
+  receivedAt: number
 }
 
 /** Resend delivery status, as returned by the component `status` query. */
@@ -188,11 +208,23 @@ function marketingClient(): ResendSdk {
 
 export interface Email {
   /**
-   * Ready-made, client-callable functions to re-export from your `backend/email.ts`.
-   * Currently `getEmailStatus` (the reactive query behind `useEmailStatus`).
+   * Ready-made, client-callable functions to re-export from your `backend/email.ts`:
+   * `getEmailStatus` (the reactive query behind `useEmailStatus`) and
+   * `getSandboxInbox` (behind `useSandboxInbox`).
    */
   api: {
     getEmailStatus: ReturnType<typeof queryGeneric>
+    /**
+     * The messages test mode sent to a sandbox address within the last hour,
+     * newest first — for a demo, a preview deployment or an e2e run that has
+     * to read a sign-in code without a real mailbox. Public and unauthenticated
+     * by design (the visitor is not signed in yet), so knowing an address is
+     * enough to read its mail: re-export it only where every account is a
+     * throwaway sandbox one. Empty for any other address, and always empty
+     * with `EMAIL_TEST_MODE=false`, which captures nothing. Experimental,
+     * with `useSandboxInbox` (STABILITY.md).
+     */
+    getSandboxInbox: ReturnType<typeof queryGeneric>
   }
   /** Send a transactional email (call from your own gated action/mutation). */
   send: (ctx: AnyActionCtx, options: SendEmailOptions) => Promise<string | null>
@@ -372,8 +404,16 @@ export function setupEmail(components: EmailComponents, options: SetupEmailOptio
     },
   })
 
+  const getSandboxInbox = queryGeneric({
+    args: { address: v.string() },
+    handler: async (ctx, args): Promise<SandboxMessage[]> => {
+      if (!refs.inbox) return []
+      return ctx.runQuery(refs.inbox, { address: args.address })
+    },
+  })
+
   return {
-    api: { getEmailStatus },
+    api: { getEmailStatus, getSandboxInbox },
     send,
     status,
     cancel,

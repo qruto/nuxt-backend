@@ -4,8 +4,10 @@ export {
   cancel,
   cleanup,
   cleanupAbandoned,
+  expireSandboxMessage,
   get,
   handleWebhook,
+  inbox,
   send,
   status,
 } from 'nuxt-backend/component/email'

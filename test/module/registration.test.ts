@@ -86,6 +86,7 @@ const COMPOSABLE_NAMES = [
   'unwrapAuth',
   'useBackendConfig',
   'useEmailStatus',
+  'useSandboxInbox',
   'useWorkflowStatus',
   'useAiStream',
 ]

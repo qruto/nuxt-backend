@@ -614,6 +614,7 @@ function registerSaasComposables(resolver: Resolver): void {
     { name: 'unwrapAuth', from: resolver.resolve('./runtime/vue/utils/auth-result') },
     { name: 'useBackendConfig', from: resolver.resolve('./runtime/vue/composables/use-backend-config') },
     { name: 'useEmailStatus', from: resolver.resolve('./runtime/vue/composables/use-email-status') },
+    { name: 'useSandboxInbox', from: resolver.resolve('./runtime/vue/composables/use-sandbox-inbox') },
     { name: 'useWorkflowStatus', from: resolver.resolve('./runtime/vue/composables/use-workflow') },
     { name: 'useAiStream', from: resolver.resolve('./runtime/vue/composables/use-ai-stream') },
   ]

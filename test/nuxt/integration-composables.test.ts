@@ -13,6 +13,7 @@ import { useCredits } from '../../src/runtime/vue/composables/use-credits'
 import { useOrders } from '../../src/runtime/vue/composables/use-orders'
 import { useUsage } from '../../src/runtime/vue/composables/use-usage'
 import { type EmailApi, useEmailStatus } from '../../src/runtime/vue/composables/use-email-status'
+import { type SandboxInboxApi, useSandboxInbox } from '../../src/runtime/vue/composables/use-sandbox-inbox'
 import { useGifts } from '../../src/runtime/vue/composables/use-gifts'
 import { useSearch } from '../../src/runtime/vue/composables/use-search'
 import { useWorkflowStatus } from '../../src/runtime/vue/composables/use-workflow'
@@ -25,6 +26,7 @@ const subscriptionRef = makeFunctionReference<'query'>('billing:getCurrentSubscr
 const featuresRef = makeFunctionReference<'query'>('billing:getFeatures')
 const creditsRef = makeFunctionReference<'query'>('billing:getCredits')
 const emailStatusRef = makeFunctionReference<'query'>('email:getEmailStatus')
+const sandboxInboxRef = makeFunctionReference<'query'>('email:getSandboxInbox')
 const workflowRef = makeFunctionReference<'query'>('workflows:status')
 const productsRef = makeFunctionReference<'query'>('billing:getConfiguredProducts')
 const subscriptionsRef = makeFunctionReference<'query'>('billing:listAllSubscriptions')
@@ -607,6 +609,50 @@ describe('useCredits', () => {
     const { result } = await mountWithConvex(client, () => useCredits(undefined, { api: {} as BillingApi }))
     await expect(result.refresh()).resolves.toBeUndefined()
     expect(actionSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('useSandboxInbox', () => {
+  const inboxApi = { getSandboxInbox: sandboxInboxRef } as unknown as SandboxInboxApi
+  const address = 'delivered+demo@resend.dev'
+  const message = (fields: Record<string, string>) => ({ from: 'onboarding@resend.dev', subject: '', receivedAt: 1, ...fields })
+
+  it('reads the inbox and the code in the newest message', async () => {
+    seed(store => store.setQuery(sandboxInboxRef, { address }, [
+      message({ subject: 'Your code', text: 'Your code: 482915' }),
+      message({ subject: 'Older', text: 'Your code: 111111' }),
+    ]))
+    const { result } = await mountWithConvex(client, () => useSandboxInbox(address, { api: inboxApi }))
+    expect(result.messages.value).toHaveLength(2)
+    expect(result.latest.value?.subject).toBe('Your code')
+    expect(result.code.value).toBe('482915')
+    expect(result.isLoading.value).toBe(false)
+  })
+
+  it('finds the code in the subject or the HTML when the text has none', async () => {
+    seed(store => store.setQuery(sandboxInboxRef, { address: 'delivered+html@resend.dev' }, [message({ html: '<p>Code: <b>905521</b></p>' })]))
+    const { result } = await mountWithConvex(client, () => useSandboxInbox('delivered+html@resend.dev', { api: inboxApi }))
+    expect(result.code.value).toBe('905521')
+  })
+
+  it('skips style and script bodies in the HTML', async () => {
+    const html = '<style>.body{color:#123456}</style><script>const t = 654321</script><p>Code: 905521</p>'
+    seed(store => store.setQuery(sandboxInboxRef, { address: 'delivered+css@resend.dev' }, [message({ html })]))
+    const { result } = await mountWithConvex(client, () => useSandboxInbox('delivered+css@resend.dev', { api: inboxApi }))
+    expect(result.code.value).toBe('905521')
+  })
+
+  it('pauses while the address is empty', async () => {
+    const { result } = await mountWithConvex(client, () => useSandboxInbox('  ', { api: inboxApi }))
+    expect(result.messages.value).toBeUndefined()
+    expect(result.isLoading.value).toBe(false)
+  })
+
+  it('degrades gracefully when getSandboxInbox is not exported', async () => {
+    const { result } = await mountWithConvex(client, () => useSandboxInbox(address, { api: {} as SandboxInboxApi }))
+    expect(result.messages.value).toBeUndefined()
+    expect(result.code.value).toBeUndefined()
+    expect(result.isLoading.value).toBe(false)
   })
 })
 

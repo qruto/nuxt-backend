@@ -2612,6 +2612,19 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         { body: string; status: number; type?: string },
         Name
       >;
+      inbox: FunctionReference<
+        "query",
+        "internal",
+        { address: string },
+        Array<{
+          from: string;
+          html?: string;
+          receivedAt: number;
+          subject: string;
+          text?: string;
+        }>,
+        Name
+      >;
       send: FunctionReference<
         "mutation",
         "internal",
