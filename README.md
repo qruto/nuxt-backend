@@ -39,6 +39,8 @@ pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/templates/starter
 npm create nuxt@latest my-app -- -t gh:qruto/nuxt-backend/templates/starter
 ```
 
+> Until `0.2.0` is published, the template's `nuxt-backend: latest` installs `0.1.0`, a throwaway test publish. Install a [preview build](https://nuxt-backend.dev/getting-started/templates#preview-builds-pkgprnew) over it in the meantime.
+
 Adding it to an existing app:
 
 ### 1. Install

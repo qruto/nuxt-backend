@@ -398,5 +398,6 @@ the June test publish satisfies that, so nothing has to be published by hand.
   deployment, `npm run build`, `npx nuxt-backend doctor` — under npm, and once more under strict
   pnpm with the `publicHoistPattern` the installation docs give. Then the template path:
   `pnpm create nuxt@latest smoke-template -t gh:qruto/nuxt-backend/templates/starter` and
-  `npm create nuxt@latest smoke-template-npm -- -t gh:qruto/nuxt-backend/templates/starter`, each
-  followed by `convex dev --once` and `npm run build`.
+  `npm create nuxt@latest smoke-template-npm -- -t gh:qruto/nuxt-backend/templates/starter`, then
+  `pnpm exec convex dev --once` and `pnpm build` in the first, `npx convex dev --once` and
+  `npm run build` in the second.
