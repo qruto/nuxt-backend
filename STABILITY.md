@@ -10,7 +10,7 @@ Within the 0.x line, patch releases (`0.2.x`) never change the surfaces below. M
 
 ## The four surfaces
 
-Everything not listed here — file layout under `dist/`, the internals reachable only through `#backend/*` codegen, the shipped page markup, CLI output wording — may change in any release.
+Everything not listed here — file layout under `dist/`, the internals reachable only through `#backend/*` codegen, the shipped page markup, CLI output wording — may change in any release. The `create nuxt` templates and the examples (`templates/*`, `examples/*`) are documentation, not a surface: they track `nuxt-backend: latest`, change with the default branch, and an app created from one is yours from then on.
 
 ### 1. Package subpaths and what they export
 

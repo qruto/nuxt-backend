@@ -4,13 +4,12 @@ const { isAuthenticated } = useAuth()
 
 <template>
   <main>
-    <h1>Minimal example</h1>
+    <h1>Your app</h1>
     <p class="muted">
-      The out-of-the-box <code>nuxt-backend</code> setup: every file in
-      <code>backend/</code> is exactly what <code>npx nuxt-backend init</code>
-      generates — the only configuration is the required deployment env vars.
-      Auth, workspaces with emailed invitations, billing, prepaid credits, and
-      gifts all work from here.
+      Passwordless sign-in, workspaces with emailed invitations, billing,
+      prepaid credits and gifts work from here. Edit this page in
+      <code>app/pages/index.vue</code>; your backend functions live in
+      <code>backend/</code>.
     </p>
     <div class="row">
       <NuxtLink

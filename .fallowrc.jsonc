@@ -40,15 +40,16 @@
 
   // Generated and built output, plus the consumer samples. `**/_generated/**`
   // is Convex codegen wherever it appears; `dist/` and `.nuxt/` are build
-  // output a fresh checkout does not even have; `examples/` are standalone
-  // apps of the published package — Convex function modules whose exports the
-  // platform calls, not this codebase's.
+  // output a fresh checkout does not even have; `templates/` and `examples/`
+  // are standalone apps of the published package — Convex function modules
+  // whose exports the platform calls, not this codebase's.
   "ignorePatterns": [
     "**/_generated/**",
     "dist/**",
     ".nuxt/**",
     "**/.nuxt/**",
-    "examples/**"
+    "examples/**",
+    "templates/**"
   ],
 
   // Registered from src/module.ts by path (addServerHandler, addPlugin, the

@@ -52,9 +52,9 @@ export default createConfigForNuxt({
   .append(
     // `.agents/`, `.claude/` and `.deepsec/` hold AI tooling references
     // (skill scripts, agent settings, scanner config), not package source —
-    // exclude them from the lint rules. `examples/` stays linted: the examples
-    // are standalone apps of the published package and ship as the consumer
-    // smoke test.
+    // exclude them from the lint rules. `templates/` and `examples/` stay
+    // linted: they are standalone apps of the published package and ship as
+    // the consumer smoke test.
     {
       ignores: ['.agents/**', '.claude/**', '.deepsec/**'],
     },
@@ -118,7 +118,7 @@ export default createConfigForNuxt({
     // Playground demos, example pages, and DevTools panel pages use short,
     // single-word names by design.
     {
-      files: ['website/**/*.vue', 'examples/**/*.vue', 'devtools-client-app/**/*.vue'],
+      files: ['website/**/*.vue', 'templates/**/*.vue', 'examples/**/*.vue', 'devtools-client-app/**/*.vue'],
       rules: {
         'vue/multi-word-component-names': 'off',
       },

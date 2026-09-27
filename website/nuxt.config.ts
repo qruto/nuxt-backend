@@ -143,9 +143,10 @@ const siteDescription
     + 'credits, transactional email, webhooks and an agent (MCP) surface from a '
     + 'single package.'
 
-// OLD → NEW documentation routes, from the pre-`platform/` content tree. Every
-// pair becomes a permanent (301) redirect below, so links published against the
-// old structure — and search-engine indexes — keep landing on the live page.
+// OLD → NEW documentation routes: the pre-`platform/` content tree, and pages
+// renamed since. Every pair becomes a permanent (301) redirect below, so links
+// published against the old structure — and search-engine indexes — keep
+// landing on the live page.
 const movedRoutes: Record<string, string> = {
   '/backend-components/overview': '/platform/overview',
   '/backend-components/email': '/platform/email/sending',
@@ -163,6 +164,7 @@ const movedRoutes: Record<string, string> = {
   '/backend/testing': '/tooling/testing',
   '/backend': '/platform/auth/setup',
   '/api-reference/theming': '/guide/customization',
+  '/getting-started/examples-and-templates': '/getting-started/templates',
 }
 
 const movedRouteRules = Object.fromEntries(
@@ -339,10 +341,6 @@ export default defineNuxtConfig({
       security: false,
     },
   },
-  // This app is run from the repository root (`pnpm dev` starts the component
-  // watcher, Convex and Nuxt together), so the base module must not rewrite
-  // its `dev` script into `convex dev --start 'nuxt dev'` on the first boot.
-  convex: { devScript: false },
   // Self-hosted webfonts. Families are declared in app.css's `@theme` block as
   // `--font-sans` (Nunito), `--font-display` (Bai Jamjuree) and `--font-mono`
   // (JetBrains Mono); @nuxt/fonts scans those declarations, downloads the

@@ -12,13 +12,13 @@ import { BACKEND_MCP_SCOPES } from '../../src/convex/constants'
 import { startConvexStub } from './helpers/convex-stub'
 import { prepareExampleApp } from './helpers/example-app'
 
-// The agent (MCP) surface of the out-of-the-box app (`examples/minimal`),
+// The agent (MCP) surface of the out-of-the-box app (`templates/starter`),
 // driven by a real MCP client (`@modelcontextprotocol/sdk`) over Streamable
 // HTTP against a stub deployment: the OAuth gate's challenge, the two
 // discovery documents, the deployment token exchange, and the scope-derived
 // tool surface — what an agent actually sees and is allowed to do.
 
-const rootDir = fileURLToPath(new URL('../../examples/minimal', import.meta.url))
+const rootDir = fileURLToPath(new URL('../../templates/starter', import.meta.url))
 
 process.env.NUXT_TELEMETRY_DISABLED ||= '1'
 

@@ -45,6 +45,38 @@ updates:
       prefix: chore
       include: scope
 
+  # The template and the examples: standalone apps with plain ranges and no
+  # lockfile (what `create nuxt` hands a user). `increase-if-necessary` only
+  # touches a range the newest release has left (a new major), so there is no
+  # weekly churn of floors a user's install ignores anyway. `nuxt-backend` is
+  # the `latest` dist-tag on purpose. Same cooldown and exclusions as above.
+  - package-ecosystem: npm
+    directories:
+      - /templates/starter
+      - /examples/advanced
+    schedule:
+      interval: weekly
+      day: monday
+    versioning-strategy: increase-if-necessary
+    cooldown:
+      default-days: 2
+      exclude:
+        - nuxt
+        - 'nuxt-*'
+        - '@nuxt/*'
+        - '@nuxtjs/*'
+        - convex
+        - convex-helpers
+        - '@convex-dev/*'
+    ignore:
+      - dependency-name: nuxt-backend
+    groups:
+      templates:
+        patterns: ['*']
+    commit-message:
+      prefix: chore
+      include: scope
+
   # Actions digest bumps — keeps the `@<sha> # vX.Y.Z` pinning convention
   # intact. Native workflow-file writes: no PAT, no GitHub App. The composite
   # action's own pins are not found from `/`, hence the second directory.

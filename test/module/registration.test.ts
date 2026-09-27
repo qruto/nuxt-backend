@@ -37,6 +37,7 @@ interface DependencyOptions {
     polar?: boolean
     clerk?: boolean
     auth0?: boolean
+    devScript?: boolean
   }
   mcp?: { route?: string, name?: string }
   backend?: { installation?: string }
@@ -532,6 +533,7 @@ describe('option forwarding through moduleDependencies', () => {
       siteUrl,
       authRoute: '/api/session',
       security: true,
+      devScript: false,
       betterAuth: { authClient, loginPath: '/login' },
       polar: true,
       clerk: false,
@@ -547,6 +549,16 @@ describe('option forwarding through moduleDependencies', () => {
     expect(routeRules['/agent']).toEqual(MCP_RELAXATION)
     expect(routeRules['/agent/**']).toEqual(MCP_RELAXATION)
     expect(routeRules['/mcp']).toBeUndefined()
+  })
+})
+
+describe('a user convex.devScript', () => {
+  // The default is off (see src/module.ts); an app that wants the base
+  // module's combined `convex dev --start` script can still ask for it.
+  const getNuxt = useBoot({ convex: { devScript: true } })
+
+  it('wins over the forwarded default', () => {
+    expect(dependencyOptions(getNuxt()).convex?.devScript).toBe(true)
   })
 })
 

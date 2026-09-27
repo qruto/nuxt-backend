@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { at, documentedKeys, interfaceKeys, read, walk } from './helpers'
 
@@ -123,9 +124,34 @@ describe('nothing describes the repository as it no longer is', () => {
     ['simple-git-hooks', 'hooks live in .githooks/'],
     ['RELEASING.md', 'the release document is RELEASE.md'],
     ['public-hoist-pattern[]', 'pnpm 11 reads publicHoistPattern from pnpm-workspace.yaml'],
+    ['examples/minimal', 'the starter app is templates/starter'],
+    ['nuxi init -t', 'templates are created with `create nuxt`'],
   ])('no file still says %s (%s)', (needle) => {
     const offenders = files.filter(file => read(file).includes(needle)).map(file => file.replace(`${process.cwd()}/`, ''))
     expect(offenders).toEqual([])
+  })
+})
+
+describe('templates', () => {
+  // Every `create nuxt` path the docs hand out is an app in this repository,
+  // and so is the StackBlitz template the preview workflow publishes: a moved
+  // or renamed template is otherwise a 404 at a user's first command.
+  const buildOutput = (path: string) => /\/(?:node_modules|\.nuxt|\.output)(?:\/|$)/.test(path)
+  const sources = [...prose, at('CONTRIBUTING.md'), ...walk('templates', ['.md'], buildOutput), ...walk('examples', ['.md'], buildOutput)]
+  const paths = [...new Set(sources.flatMap(file => [...read(file).matchAll(/gh:qruto\/nuxt-backend\/([\w./-]*\w)/g)].map(m => m[1]!)))]
+
+  it('reads the create commands', () => {
+    expect(paths).toContain('templates/starter')
+  })
+
+  it.each(paths)('`gh:qruto/nuxt-backend/%s` is an app in the repository', (path) => {
+    expect(existsSync(at(`${path}/package.json`)), `no app at ${path}`).toBe(true)
+  })
+
+  it('the pkg.pr.new StackBlitz template is an app in the repository', () => {
+    const template = read('.github/workflows/preview.yml').match(/--template '\.\/([^']+)'/)?.[1]
+    expect(template).toBeTruthy()
+    expect(existsSync(at(`${template}/package.json`)), `preview.yml publishes ${template}`).toBe(true)
   })
 })
 

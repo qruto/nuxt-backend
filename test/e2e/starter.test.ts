@@ -8,7 +8,7 @@ import type { BackendAppConfigInput } from '../../src/runtime/config'
 import { startConvexStub } from './helpers/convex-stub'
 import { prepareExampleApp } from './helpers/example-app'
 
-// Full production build + serve of `examples/minimal` — the out-of-the-box
+// Full production build + serve of `templates/starter` — the out-of-the-box
 // app (`modules: ['nuxt-backend']`, scaffolded backend, no custom code) —
 // against a stub deployment: the module's ready-made pages over SSR, the
 // auth middleware, the Better Auth proxy, the agent (MCP) surface's OAuth
@@ -16,7 +16,7 @@ import { prepareExampleApp } from './helpers/example-app'
 // drives the passwordless sign-in form and a live query through the stub's
 // sync WebSocket.
 
-const rootDir = fileURLToPath(new URL('../../examples/minimal', import.meta.url))
+const rootDir = fileURLToPath(new URL('../../templates/starter', import.meta.url))
 const repoDir = fileURLToPath(new URL('../..', import.meta.url))
 
 // Keep Nuxt's telemetry out of the build entirely (it is also disabled via
@@ -54,7 +54,7 @@ afterAll(async () => {
   app.cleanup()
 })
 
-const gitStatus = () => execFileSync('git', ['status', '--porcelain', '--', 'examples/minimal'], { cwd: repoDir, encoding: 'utf8' })
+const gitStatus = () => execFileSync('git', ['status', '--porcelain', '--', 'templates/starter'], { cwd: repoDir, encoding: 'utf8' })
   .split('\n')
   .filter(Boolean)
 // Snapshot before the build so the run can prove it wrote nothing into the app.
@@ -108,7 +108,7 @@ function collectBrowserErrors(page: Page): { errors: string[], frames: string[] 
   return { errors, frames }
 }
 
-describe('examples/minimal (production build)', { timeout: 60_000 }, () => {
+describe('templates/starter (production build)', { timeout: 60_000 }, () => {
   it('server-renders the ready-made login page with the passwordless form', async () => {
     const response = await fetch('/login')
     expect(response.status).toBe(200)
@@ -216,7 +216,7 @@ describe('examples/minimal (production build)', { timeout: 60_000 }, () => {
   })
 })
 
-describe('examples/minimal in a browser', { timeout: 90_000 }, () => {
+describe('templates/starter in a browser', { timeout: 90_000 }, () => {
   it('signs in with an email code: the form advances once the deployment accepted the OTP request', async () => {
     const page = await createPage()
     const { errors } = collectBrowserErrors(page)

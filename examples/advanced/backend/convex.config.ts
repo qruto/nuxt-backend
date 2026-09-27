@@ -12,7 +12,7 @@ import workflow from '@convex-dev/workflow/convex.config'
 import backend from './components/backend/convex.config'
 
 // The same explicit app definition the scaffold generates (compare
-// examples/minimal/backend/convex.config.ts): every component is imported and
+// templates/starter/backend/convex.config.ts): every component is imported and
 // mounted right here, one app.use() per component — current Convex backends
 // reject the push when a convex.config import is reached through an
 // intermediate module or the components are mounted in a loop. This app's

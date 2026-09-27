@@ -8,7 +8,7 @@ import { COMPONENT_MODULE_EXPORTS, SCHEMA_EXPORTS } from '../../src/templates.ge
 
 const rootDir = fileURLToPath(new URL('../..', import.meta.url))
 const advancedBackend = join(rootDir, 'examples/advanced/backend')
-const minimalBackend = join(rootDir, 'examples/minimal/backend')
+const starterBackend = join(rootDir, 'templates/starter/backend')
 
 /**
  * Files of examples/advanced/backend that deliberately differ from the
@@ -148,26 +148,26 @@ describe('examples/advanced (local install)', () => {
   })
 })
 
-describe('examples/minimal (default install)', () => {
+describe('templates/starter (default install)', () => {
   it('backend files are byte-identical to the scaffold templates', () => {
-    // The minimal example's promise is "everything here is generated" — any
+    // The starter's promise is "everything here is generated" — any
     // template change must be regenerated into it, and this catches drift.
     for (const [file, content] of Object.entries(BACKEND_FILE_TEMPLATES)) {
-      const target = join(minimalBackend, file)
-      expect(readFileSync(target, 'utf-8'), `examples/minimal/backend/${file} drifted from the template`).toBe(content)
+      const target = join(starterBackend, file)
+      expect(readFileSync(target, 'utf-8'), `templates/starter/backend/${file} drifted from the template`).toBe(content)
     }
   })
 
   it('has no files beyond the templates', () => {
-    expect(listFiles(minimalBackend).filter(file => !(file in BACKEND_FILE_TEMPLATES))).toEqual([])
+    expect(listFiles(starterBackend).filter(file => !(file in BACKEND_FILE_TEMPLATES))).toEqual([])
   })
 })
 
-describe('examples/*/.env.example', () => {
-  // The file a `nuxi init -t` clone ships is the file `nuxt-backend init`
-  // would write: one template, quoted verbatim, so the two can never describe
-  // the environment differently.
-  it.each(['minimal', 'advanced'])('examples/%s ships the template init writes', (example) => {
-    expect(readFileSync(join(rootDir, 'examples', example, '.env.example'), 'utf-8')).toBe(ENV_EXAMPLE)
+describe('.env.example in the templates and examples', () => {
+  // The file an app created from a template ships is the file
+  // `nuxt-backend init` would write: one template, quoted verbatim, so the two
+  // can never describe the environment differently.
+  it.each(['templates/starter', 'examples/advanced'])('%s ships the template init writes', (app) => {
+    expect(readFileSync(join(rootDir, app, '.env.example'), 'utf-8')).toBe(ENV_EXAMPLE)
   })
 })

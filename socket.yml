@@ -20,6 +20,7 @@ triggerPaths:
   - 'pnpm-workspace.yaml'
   - 'website/package.json'
   - 'devtools-client-app/package.json'
+  - 'templates/*/package.json'
   - 'examples/*/package.json'
 
 projectIgnorePaths:
