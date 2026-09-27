@@ -154,7 +154,10 @@ the repository root, no undeclared dependency, no committed lockfile.
    ```bash
    pnpm lint && pnpm test:types:lib && pnpm test && pnpm pack && pnpm check:tarball
    ```
-5. Open a pull request against `main`.
+5. Open a pull request against `main`. A change too large for one review can go up as a stack of
+   pull requests instead, each based on the one below it ([`gh stack`](https://github.com/github/gh-stack)
+   keeps the branches rebased and links them on GitHub). CI checks every layer, and the layers
+   merge in order from the bottom.
 
 Pull requests that include tests and follow the commit convention below are reviewed fastest.
 
