@@ -53,9 +53,9 @@ deployment, writes `CONVEX_DEPLOYMENT` to `.env.local` and provisions the deploy
 (`AUTH_SECRET`, `SITE_URL`). Until then, `/playground` shows how to start it.
 
 Sign in at `/login` with a sandbox identity, a generated `delivered+…@resend.dev` address: the
-playground is a sandbox like the live one. With no email provider connected, the sign-in code
-prints in the terminal that runs `dev`. Once one is connected (email stays in test mode), the code
-shows up on the login page itself, as it does on the live playground.
+playground is a sandbox like the live one. Email stays in test mode, so the sign-in code shows up
+on the login page itself, with or without an email provider connected. It also prints in the
+terminal that runs `dev`.
 
 ## Connect services
 
