@@ -206,10 +206,12 @@ Two things follow from the split, and both are enforced in `release.yml`:
 - **`Release` never bumps the version.** It reads it from the merged `package.json`. Running
   `changelogen --release` in both halves would bump twice and tag `v0.1.1` for a `0.1.0` release.
 - **`Release` refuses a `HEAD` that isn't the release commit**: it must bump the version, under
-  the `chore(release): vX.Y.Z` subject `Release Prepare` gives its pull request. Otherwise an
+  the `chore(release): vX.Y.Z` subject `Release Prepare` gives its pull request, and GitHub must
+  record it as merged from that pull request — `release/vX.Y.Z` into `main`, opened by
+  `github-actions[bot]`. Otherwise an
   ordinary PR merging between the release PR and the dispatch takes the tag instead, and nothing
   downstream notices: `build` compares the tag to `package.json`, which is unchanged, so it still
-  passes. The subject rules out a PR that changed the version some other way.
+  passes. The subject and the pull request rule out a PR that changed the version some other way.
 
 ### Credentials never sit next to dependency code
 
