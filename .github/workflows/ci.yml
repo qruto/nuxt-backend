@@ -479,7 +479,10 @@ jobs:
           for app in templates/starter examples/advanced examples/playground; do
             SMOKE="$RUNNER_TEMP/smoke-$(basename "$app")"
             cp -R "$app" "$SMOKE"
-            rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output" "$SMOKE/backend/_generated"
+            rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output"
+            # Codegen goes unless the app commits it: examples/playground does,
+            # because its pages import the generated API at build time.
+            git ls-files --error-unmatch "$app/backend/_generated/api.d.ts" >/dev/null 2>&1 || rm -rf "$SMOKE/backend/_generated"
             echo "::group::$app"
             (cd "$SMOKE" && npx --yes npm@11.17.0 install --no-audit --no-fund "$TARBALL" && npx --yes npm@11.17.0 run build)
             echo "::endgroup::"
@@ -556,7 +559,10 @@ jobs:
           for app in templates/starter examples/advanced examples/playground; do
             SMOKE="$RUNNER_TEMP/smoke-pnpm-$(basename "$app")"
             cp -R "$app" "$SMOKE"
-            rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output" "$SMOKE/backend/_generated"
+            rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output"
+            # Codegen goes unless the app commits it: examples/playground does,
+            # because its pages import the generated API at build time.
+            git ls-files --error-unmatch "$app/backend/_generated/api.d.ts" >/dev/null 2>&1 || rm -rf "$SMOKE/backend/_generated"
             echo "::group::$app"
             (cd "$SMOKE" && pnpm add "$TARBALL")
             echo "::endgroup::"
