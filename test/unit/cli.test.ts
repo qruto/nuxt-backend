@@ -55,6 +55,53 @@ describe('scaffoldBackendFiles options', () => {
   })
 })
 
+describe('init — agent files', () => {
+  it('writes AGENTS.md and .mcp.json, and says so', async () => {
+    await run(['init'])
+
+    expect(readFileSync(join(rootDir, 'AGENTS.md'), 'utf-8')).toContain('<!-- nuxt-backend-start -->')
+    expect(JSON.parse(readFileSync(join(rootDir, '.mcp.json'), 'utf-8'))).toEqual({ mcpServers: { convex: { command: 'npx', args: ['convex', 'mcp', 'start'] } } })
+    const logs = vi.mocked(console.log).mock.calls.flat().join('\n')
+    expect(logs).toContain('Created AGENTS.md')
+    expect(logs).toContain('Created .mcp.json with the Convex MCP server')
+  })
+
+  it('keeps an existing AGENTS.md and .mcp.json, and is quiet the second time', async () => {
+    writeFileSync(join(rootDir, 'AGENTS.md'), '# House rules\n')
+    writeFileSync(join(rootDir, '.mcp.json'), '{\n    "mcpServers": {\n        "docs": { "url": "https://example.com/mcp" }\n    }\n}\n')
+
+    await run(['init'])
+    const agents = readFileSync(join(rootDir, 'AGENTS.md'), 'utf-8')
+    expect(agents.startsWith('# House rules\n\n<!-- nuxt-backend-start -->')).toBe(true)
+    const mcp = readFileSync(join(rootDir, '.mcp.json'), 'utf-8')
+    expect(Object.keys((JSON.parse(mcp) as { mcpServers: object }).mcpServers)).toEqual(['docs', 'convex'])
+    expect(mcp).toMatch(/^\{\n {4}"mcpServers"/)
+
+    vi.mocked(console.log).mockClear()
+    await run(['init'])
+    expect(readFileSync(join(rootDir, 'AGENTS.md'), 'utf-8')).toBe(agents)
+    expect(readFileSync(join(rootDir, '.mcp.json'), 'utf-8')).toBe(mcp)
+    expect(vi.mocked(console.log).mock.calls.flat().join('\n')).not.toMatch(/AGENTS\.md|\.mcp\.json/)
+  })
+
+  it('writes neither with --no-agents', async () => {
+    await run(['init', '--no-agents'])
+
+    expect(existsSync(join(rootDir, 'AGENTS.md'))).toBe(false)
+    expect(existsSync(join(rootDir, '.mcp.json'))).toBe(false)
+    expect(existsSync(join(rootDir, 'backend/auth.ts'))).toBe(true)
+  })
+
+  it('points a CLAUDE.md that ignores AGENTS.md at it, without editing it', async () => {
+    writeFileSync(join(rootDir, 'CLAUDE.md'), '# Claude\n')
+
+    await run(['init'])
+
+    expect(readFileSync(join(rootDir, 'CLAUDE.md'), 'utf-8')).toBe('# Claude\n')
+    expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain('Add a line with `@AGENTS.md`')
+  })
+})
+
 describe('init', () => {
   it('scaffolds everything, writes .env.example, and wires nuxt.config', async () => {
     writeFileSync(join(rootDir, 'nuxt.config.ts'), 'export default defineNuxtConfig({})\n')

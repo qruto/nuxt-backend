@@ -176,7 +176,7 @@ The scaffolded `backend/` files compose the backend from `nuxt-backend/*`:
 
 ### CLI
 
-`npx nuxt-backend <command>` — `init` scaffolds the backend files, `.env.example`, and the `nuxt.config` wiring (re-run to restore missing files); `doctor` checks the project and deployment configuration (`--fix` repairs what it can); `env push` syncs `.env.local` to the Convex deployment; `billing sync` pushes your `billing.catalog.ts` to the billing provider and writes the id map.
+`npx nuxt-backend <command>` — `init` scaffolds the backend files, `.env.example`, the `nuxt.config` wiring and the agent files, `AGENTS.md` and `.mcp.json` (re-run to restore missing files); `dev` runs Convex and Nuxt together; `doctor` checks the project and deployment configuration (`--fix` repairs what it can); `env push` syncs `.env.local` to the Convex deployment; `billing sync` pushes your `billing.catalog.ts` to the billing provider and writes the id map.
 
 ## Documentation
 
@@ -187,7 +187,7 @@ Everything is on [nuxt-backend.dev](https://nuxt-backend.dev) — the site (docs
 | [Getting Started](https://nuxt-backend.dev/getting-started/introduction) | Introduction, quickstart, installation, configuration, architecture, templates & examples |
 | [Client Guide](https://nuxt-backend.dev/guide/authentication) | Auth, queries & mutations, server & SSR, file storage, aliases, customization |
 | [Platform](https://nuxt-backend.dev/platform/overview) | Auth, workspaces, authorization, billing & credits, AI, email, webhooks, workflows, rate limiting, migrations, aggregates, search |
-| [Agents](https://nuxt-backend.dev/agents/mcp-server) | The OAuth-protected MCP endpoint, built-in and custom tools, consent, connecting a client |
+| [Agents](https://nuxt-backend.dev/agents/mcp-server) | The OAuth-protected MCP endpoint, built-in and custom tools, consent, connecting a client, the agent skill and agent files |
 | [API Reference](https://nuxt-backend.dev/api-reference/composables) | Composables, server utilities, client, entrypoints, module options |
 | [Developer Experience](https://nuxt-backend.dev/tooling/cli) | CLI, DevTools, testing, local installation, linting |
 | [Production](https://nuxt-backend.dev/production/deployment) | Deployment, launch checklist, security, troubleshooting |

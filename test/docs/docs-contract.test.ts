@@ -61,6 +61,13 @@ describe('CLI', () => {
     expect(page).toContain('## `env push`')
     expect(page).toContain('## `billing sync`')
   })
+
+  it('documents the agent files init writes, and how to skip them', () => {
+    const init = page.slice(page.indexOf('## `init`'), page.indexOf('## `dev`'))
+    expect(init).toContain('--no-agents')
+    expect(init).toContain('AGENTS.md')
+    expect(init).toContain('.mcp.json')
+  })
 })
 
 describe('stability', () => {

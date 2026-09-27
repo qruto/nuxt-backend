@@ -2,6 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { defineCommand } from 'citty'
+import { writeAgentFiles } from '../agents'
 import { packageDir, packageVersion } from '../dirs'
 import { mountPagesInAppComponent, scaffoldBackendFiles, resolveFunctionsDir } from '../scaffold'
 import type { BackendInstallationMode } from '../templates'
@@ -159,6 +160,7 @@ const init = defineCommand({
     ...cwdArg,
     installation: { type: 'string', description: 'Scaffold mode: default | local', default: 'default' },
     force: { type: 'boolean', description: 'Overwrite existing scaffold files', default: false },
+    agents: { type: 'boolean', description: 'Write AGENTS.md and .mcp.json for coding agents (--no-agents skips both)', default: true },
   },
   run({ args }) {
     const rootDir = projectRoot(args)
@@ -171,6 +173,10 @@ const init = defineCommand({
     if (args.force || !existsSync(envExamplePath)) {
       writeFileSync(envExamplePath, ENV_EXAMPLE)
       console.log('[nuxt-backend] Created .env.example')
+    }
+
+    if (args.agents) {
+      for (const message of writeAgentFiles(rootDir, { force: args.force })) console.log(`[nuxt-backend] ${message}`)
     }
 
     const appComponent = mountPagesInAppComponent(rootDir)
