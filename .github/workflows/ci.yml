@@ -97,6 +97,8 @@ jobs:
     timeout-minutes: 25
     permissions:
       contents: read
+      # The pull request title step reads the current title from the API.
+      pull-requests: read
     steps:
       # Records what the job talks to over the network, without blocking it.
       # Only on the jobs that build and run code from the pull request:
@@ -143,6 +145,27 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: pnpm run lint:commits --from "$BASE_SHA" --to "$HEAD_SHA"
+
+      # The title too: a squash merge writes it as the commit subject on main
+      # whenever the pull request has more than one commit, and Release Prepare
+      # derives the version bump and the changelog from those subjects. Its own
+      # config turns off commitlint's default ignores, which would let a
+      # `Revert "…"` or `Merge …` title through.
+      #
+      # The title is read from the API, not from the event: a re-run replays
+      # the original event, so after a title-only edit the payload still holds
+      # the old title. The workflow doesn't run on `edited` — CodeRabbit edits
+      # every description after its review, and each edit would re-run all of
+      # CI — so after editing only the title, re-run this job. The title never
+      # reaches the script as an expression, only as the API's output.
+      - name: Pull request title
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          title=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .title)
+          printf '%s\n' "$title" | pnpm exec commitlint --config commitlint.title.config.js --verbose
 
       # Compares what package.json promises against what is installed: that our
       # `engines` is not stricter than a dependency's own, and that no peer range
