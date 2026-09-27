@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { api } from '#backend/api'
-import { isAllowedTestEmail, OUTCOME_TEST_EMAILS } from '../../../utils/testEmail'
+import { errorText } from '../../../utils/errorText'
+import { isAllowedTestEmail, OUTCOME_TEST_EMAILS, TEST_EMAIL_HELP } from '../../../utils/testEmail'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -14,7 +15,8 @@ const emailSkipped = ref(false)
 const emailError = ref<string | null>(null)
 const delivery = useEmailStatus(lastEmailId)
 const sentEmails = useQuery(api.email.listSentEmails)
-// Even here we only send to Resend test inboxes — never a real address.
+// Even here we only send to Resend test inboxes — never a real address
+// (email.sendTest checks it again on the server).
 const recipientValid = computed(() => isAllowedTestEmail(emailTo.value))
 
 async function sendTestEmail() {
@@ -27,7 +29,7 @@ async function sendTestEmail() {
     else emailSkipped.value = true
   }
   catch (cause) {
-    emailError.value = cause instanceof Error ? cause.message : 'Send failed'
+    emailError.value = errorText(cause, 'Send failed')
   }
   finally { emailPending.value = false }
 }
@@ -44,10 +46,27 @@ const deliveryTone = computed(() => {
 })
 
 // Every Resend outcome inbox is testable here (+label aliases work too). This is
-// the page for bounce / complaint / suppression — sign-up stays delivered-only.
+// the page for bounces and complaints — accounts use sandbox identities.
 const presets = OUTCOME_TEST_EMAILS
 
-// ── Marketing: segment → contact → broadcast ──────────────────────
+// ── Sandbox inbox ─────────────────────────────────────────────────
+// A sandbox address's mail from the last hour — welcome, email-change and
+// invitation links included — since nobody can open its real mailbox. Yours
+// by default; during an email change, the new address's. Shown as text: a
+// message's HTML is never rendered.
+const { user } = useAuth()
+const inboxAddress = ref('')
+watch(() => user.value?.email, (email) => {
+  if (email && !inboxAddress.value) inboxAddress.value = email
+}, { immediate: true })
+const inbox = useSandboxInbox(inboxAddress)
+
+function receivedAgo(at: number): string {
+  const minutes = Math.max(0, Math.round((Date.now() - at) / 60_000))
+  return minutes === 0 ? 'just now' : `${minutes} min ago`
+}
+
+// ── Marketing: segment → contact → broadcast (admin) ──────────────
 const createSegment = useAction(api.email.createSegment)
 const addContact = useAction(api.email.addContact)
 const createBroadcast = useAction(api.email.createBroadcast)
@@ -70,7 +89,7 @@ async function runMarketing() {
     await sendBroadcast({ broadcastId: broadcast.id })
     marketingMsg.value = `Broadcast ${broadcast.id} sent to segment ${segment.id}.`
   }
-  catch (e) { marketingMsg.value = e instanceof Error ? e.message : 'Marketing failed' }
+  catch (e) { marketingMsg.value = errorText(e, 'Marketing failed') }
   finally { marketingPending.value = false }
 }
 
@@ -87,7 +106,7 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
     >
       Transactional + marketing email through the nested Resend component.
       <code>useEmailStatus</code> tracks delivery live as Resend webhooks land.
-      Sends default to Resend's test inboxes.
+      Sends go to Resend's test inboxes only.
     </PageHeader>
 
     <LabPanel
@@ -98,7 +117,7 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
       <LabField
         label="recipient"
         hint="test inboxes drive the outcome"
-        :error="recipientValid ? null : 'Resend test inboxes only (delivered / bounced / complained / suppressed).'"
+        :error="recipientValid ? null : TEST_EMAIL_HELP"
       >
         <div class="row">
           <input
@@ -191,6 +210,51 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
       </ul>
     </LabPanel>
 
+    <LabPanel
+      label="sandbox inbox"
+      title="Sandbox inbox"
+    >
+      <p class="hint">
+        A sandbox address's mail from the last hour, read with
+        <code>useSandboxInbox</code> — the playground's accounts are addresses
+        nobody can open, so email-change and invitation links land here. Yours
+        by default; during an email change, enter the new one.
+      </p>
+      <LabField label="address">
+        <input
+          v-model="inboxAddress"
+          class="input"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="delivered+…@resend.dev"
+        >
+      </LabField>
+      <ul
+        v-if="inbox.messages.value?.length"
+        class="mail-list"
+      >
+        <li
+          v-for="(message, index) in inbox.messages.value"
+          :key="`${message.receivedAt}-${index}`"
+        >
+          <details>
+            <summary>
+              <span class="subj">{{ message.subject || '(no subject)' }}</span>
+              <span class="mono when">{{ receivedAgo(message.receivedAt) }}</span>
+            </summary>
+            <pre class="mail">{{ message.text ?? 'This message has no text version.' }}</pre>
+          </details>
+        </li>
+      </ul>
+      <p
+        v-else
+        class="hint"
+        style="margin-top: 0.7rem"
+      >
+        {{ inbox.isLoading.value ? 'Checking the inbox…' : 'Nothing in the last hour.' }}
+      </p>
+    </LabPanel>
+
     <div class="grid-2">
       <LabPanel
         label="marketing"
@@ -201,21 +265,30 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
           style="margin-bottom: 0.85rem"
         >
           Segment → contact → broadcast via the Resend SDK, one click (test
-          recipient only).
+          recipient only). Contacts live in the provider account, outside test
+          mode, so these are <code>admin.action</code>s.
         </p>
-        <LabButton
-          variant="primary"
-          :loading="marketingPending"
-          @click="runMarketing"
-        >
-          Create segment & send broadcast
-        </LabButton>
-        <p
-          v-if="marketingMsg"
-          class="msg mono"
-        >
-          {{ marketingMsg }}
-        </p>
+        <RoleBoundary role="admin">
+          <LabButton
+            variant="primary"
+            :loading="marketingPending"
+            @click="runMarketing"
+          >
+            Create segment & send broadcast
+          </LabButton>
+          <p
+            v-if="marketingMsg"
+            class="msg mono"
+          >
+            {{ marketingMsg }}
+          </p>
+          <template #fallback>
+            <p class="hint">
+              Admin only — the guards page shows how <code>RoleBoundary</code>
+              and <code>admin.*</code> decide.
+            </p>
+          </template>
+        </RoleBoundary>
       </LabPanel>
 
       <LabPanel
@@ -268,8 +341,8 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
   },
 }</code></pre>
       <p class="hint">
-        Request a sign-in code from <NuxtLink to="/login">/login</NuxtLink> and
-        check the Resend test inbox — the subject carries the override. The
+        Request a sign-in code from <NuxtLink to="/login">/login</NuxtLink>:
+        the sandbox inbox there shows the subject carrying the override. The
         packaged defaults this replaces are all rendered on
         <NuxtLink to="/playground/platform/email-templates">Email templates</NuxtLink>.
       </p>
@@ -303,4 +376,14 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
 .feed li { display: flex; align-items: center; gap: 0.5rem; }
 .to { color: var(--ink); }
 .subj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.mail-list { list-style: none; margin: 0.9rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.78rem; }
+.mail-list summary { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; cursor: pointer; color: var(--ink); }
+.when { flex: none; font-size: 0.68rem; color: var(--ink-faint); }
+.mail {
+  margin: 0.5rem 0 0.2rem; padding: 0.7rem 0.85rem; border-radius: var(--r-sm);
+  background: var(--sink); box-shadow: var(--inset-sm);
+  font-family: var(--mono); font-size: 0.72rem; line-height: 1.55;
+  white-space: pre-wrap; word-break: break-word; max-height: 16rem; overflow-y: auto;
+}
 </style>

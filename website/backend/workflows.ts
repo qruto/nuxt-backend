@@ -1,7 +1,8 @@
 import { setupWorkflows, type WorkflowId } from 'nuxt-backend/workflows'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { components, internal } from './_generated/api'
 import { mutation, query } from './_generated/server'
+import { emailLimits, throttle } from './rateLimiter'
 
 export const workflow = setupWorkflows(components)
 
@@ -11,11 +12,12 @@ export const workflow = setupWorkflows(components)
 // analytics — here, logging the signup to the showcase activity feed.
 export const onSignup = workflow.define({
   args: { userId: v.string(), email: v.string(), name: v.string() },
-  handler: async (step, { email }) => {
+  handler: async (step) => {
+    // The feed is shared by every account, so it names nobody.
     await step.runMutation(internal.billing.recordWebhookEvent, {
       source: 'auth',
       type: 'user.created',
-      summary: `signup: ${email}`,
+      summary: 'a new account signed up',
     })
   },
 })
@@ -37,14 +39,19 @@ export const demoWorkflow = workflow.define({
   },
 })
 
-// Kick off the demo workflow and return its id for the client to watch. The
-// explicit `Promise<string>` return type is required: the handler references
-// `internal.workflows`, which would otherwise make its type infer circularly.
+// Kick off the demo workflow and return its id for the client to watch —
+// signed-in visitors only, on the same email budget as the test email, since
+// every run sends one. The explicit `Promise<string>` return type is
+// required: the handler references `internal.workflows`, which would
+// otherwise make its type infer circularly.
 export const startDemoWorkflow = mutation({
   args: { label: v.string() },
   returns: v.string(),
   handler: async (ctx, { label }): Promise<string> => {
-    return workflow.start(ctx, internal.workflows.demoWorkflow, { label })
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new ConvexError('Sign in to start a workflow.')
+    await throttle(ctx, emailLimits(identity.subject))
+    return workflow.start(ctx, internal.workflows.demoWorkflow, { label: label.slice(0, 80) })
   },
 })
 

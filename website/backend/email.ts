@@ -1,55 +1,70 @@
 import { setupEmail } from 'nuxt-backend/email'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
+import { isAllowedTestEmail, normalizeTestEmail, TEST_EMAIL_HELP } from '../utils/testEmail'
 import { api, components, internal } from './_generated/api'
-import { type ActionCtx, action, internalMutation, query } from './_generated/server'
+import { action, internalMutation, query } from './_generated/server'
 import { authComponent } from './auth'
+import { admin } from './functions'
+import { emailLimits, throttle } from './rateLimiter'
 
 // Transactional + marketing email over the `email` component (Resend nested
 // inside). The typed event handlers (full provider catalog — email.*,
 // contact.*, domain.*) run after the component verified the webhook — the
-// showcase logs them into the same feed as billing events.
+// showcase logs them into the same feed as billing events, naming neither the
+// address nor the email id: the feed is shared, an address is the key to its
+// account, and an id opens that email's delivery status (getEmailStatus).
 export const email = setupEmail(components, {
   events: {
     'email.delivered': async (ctx, event) => {
       await ctx.runMutation(internal.billing.recordWebhookEvent, {
         source: 'email',
         type: event.type,
-        summary: `delivered to ${event.data.to?.join(', ') ?? 'unknown'}`,
+        summary: 'an email was delivered',
       })
     },
     'email.bounced': async (ctx, event) => {
       await ctx.runMutation(internal.billing.recordWebhookEvent, {
         source: 'email',
         type: event.type,
-        summary: `bounced for ${event.data.to?.join(', ') ?? 'unknown'}`,
+        summary: 'an email bounced',
       })
     },
     'email.complained': async (ctx, event) => {
       await ctx.runMutation(internal.billing.recordWebhookEvent, {
         source: 'email',
         type: event.type,
-        summary: `complaint from ${event.data.to?.join(', ') ?? 'unknown'}`,
+        summary: 'an email was marked as spam',
       })
     },
   },
 })
 
-// Reactive delivery-status query behind `useEmailStatus`.
-export const { getEmailStatus } = email.api
+// Reactive delivery-status query behind `useEmailStatus`, and the sandbox
+// inbox behind `useSandboxInbox`: the sign-in page reads a visitor's codes
+// from it, since nobody can open a sandbox address's real mailbox.
+export const { getEmailStatus, getSandboxInbox } = email.api
+
+/** A Resend test inbox, lower-cased — or a refusal: the playground never emails a real person. */
+function testRecipient(address: string): string {
+  const recipient = normalizeTestEmail(address)
+  if (!isAllowedTestEmail(recipient)) throw new ConvexError(TEST_EMAIL_HELP)
+  return recipient
+}
 
 /**
  * Send a transactional email (gated: requires a signed-in user). Records it so
- * the showcase can track delivery live. Defaults to a Resend test recipient so
- * the demo never emails real people (test mode accepts delivered@/bounced@/
- * complained@resend.dev without a verified domain).
+ * the showcase can track delivery live. Only Resend test inboxes are accepted,
+ * checked here and not just in the form, and sends are throttled: they share
+ * one provider quota with every visitor's sign-in codes.
  */
 export const sendTest = action({
   args: { to: v.optional(v.string()), subject: v.optional(v.string()) },
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, { to, subject }) => {
     const user = await ctx.runQuery(api.auth.getAuthUser, {})
-    if (!user) throw new Error('Sign in to send email.')
-    const recipient = to ?? 'delivered@resend.dev'
+    if (!user) throw new ConvexError('Sign in to send email.')
+    const recipient = testRecipient(to ?? 'delivered@resend.dev')
+    await throttle(ctx, emailLimits(user._id))
     const subj = subject ?? 'Hello from nuxt-backend'
     const emailId = await email.send(ctx, {
       to: recipient,
@@ -77,6 +92,28 @@ export const recordSent = internalMutation({
   },
 })
 
+/** How long the playground keeps a sent email's record: a week, as `email.cleanup` does. */
+const EMAIL_RETENTION_MS = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * Daily retention (crons.ts): the component prunes finalized email records
+ * after a week and abandoned ones after a month (its defaults), and the
+ * showcase's own sent-email rows go with them, a batch at a time.
+ */
+export const pruneEmails = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    await email.cleanup(ctx)
+    await email.cleanupAbandoned(ctx)
+    const cutoff = Date.now() - EMAIL_RETENTION_MS
+    const rows = await ctx.db.query('sentEmails').withIndex('by_creation_time', q => q.lt('_creationTime', cutoff)).take(500)
+    for (const row of rows) await ctx.db.delete(row._id)
+    if (rows.length === 500) await ctx.scheduler.runAfter(0, internal.email.pruneEmails, {})
+    return null
+  },
+})
+
 /** The current user's recently-sent emails (each row tracked live via useEmailStatus). */
 export const listSentEmails = query({
   args: {},
@@ -93,22 +130,16 @@ export const listSentEmails = query({
 })
 
 // --- Marketing (segments / contacts / broadcasts via the Resend SDK) ---------
-// Gated to signed-in users for the demo; treat as admin actions in production.
+// Admin-only, as the scaffold ships them: contacts live in the provider
+// account, outside test mode, so a public action would let any visitor store
+// an address there. Contacts are Resend test inboxes even for an admin.
 
-async function requireUser(ctx: ActionCtx): Promise<void> {
-  const user = await ctx.runQuery(api.auth.getAuthUser, {})
-  if (!user) throw new Error('Sign in to manage marketing email.')
-}
-
-export const createSegment = action({
+export const createSegment = admin.action({
   args: { name: v.string() },
-  handler: async (ctx, { name }) => {
-    await requireUser(ctx)
-    return email.segments.create({ name })
-  },
+  handler: async (ctx, { name }) => email.segments.create({ name }),
 })
 
-export const addContact = action({
+export const addContact = admin.action({
   args: {
     segmentId: v.string(),
     email: v.string(),
@@ -116,8 +147,8 @@ export const addContact = action({
     lastName: v.optional(v.string()),
     unsubscribed: v.optional(v.boolean()),
   },
-  handler: async (ctx, { segmentId, ...contact }) => {
-    await requireUser(ctx)
+  handler: async (ctx, { segmentId, ...fields }) => {
+    const contact = { ...fields, email: testRecipient(fields.email) }
     // A contact is one record per address, and the demo reuses the same test
     // address on every run: when it already exists, creating it again fails,
     // so put the existing contact in the new segment instead. If that fails
@@ -133,18 +164,13 @@ export const addContact = action({
   },
 })
 
-export const createBroadcast = action({
+export const createBroadcast = admin.action({
   args: { segmentId: v.string(), from: v.string(), subject: v.string(), html: v.string() },
-  handler: async (ctx, args) => {
-    await requireUser(ctx)
-    return email.broadcasts.create(args)
-  },
+  handler: async (ctx, args) => email.broadcasts.create(args),
 })
 
-export const sendBroadcast = action({
+export const sendBroadcast = admin.action({
   args: { broadcastId: v.string(), scheduledAt: v.optional(v.string()) },
-  handler: async (ctx, { broadcastId, scheduledAt }) => {
-    await requireUser(ctx)
-    return email.broadcasts.send(broadcastId, scheduledAt ? { scheduledAt } : undefined)
-  },
+  handler: async (ctx, { broadcastId, scheduledAt }) =>
+    email.broadcasts.send(broadcastId, scheduledAt ? { scheduledAt } : undefined),
 })

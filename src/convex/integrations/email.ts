@@ -91,6 +91,10 @@ export type SendEmailOptions = {
  * any app action / httpAction ctx is assignable regardless of its schema.
  */
 type AnyActionCtx = Pick<GenericActionCtx<GenericDataModel>, 'runQuery' | 'runMutation' | 'runAction'>
+/** A mutation's or an action's ctx — what sending, cancelling and pruning need. */
+type RunMutationCtx = Pick<GenericActionCtx<GenericDataModel>, 'runMutation'>
+/** Any function's ctx — what reading a status needs. */
+type RunQueryCtx = Pick<GenericActionCtx<GenericDataModel>, 'runQuery'>
 
 /**
  * The provider's full webhook event catalog: every transactional delivery
@@ -227,11 +231,11 @@ export interface Email {
     getSandboxInbox: ReturnType<typeof queryGeneric>
   }
   /** Send a transactional email (call from your own gated action/mutation). */
-  send: (ctx: AnyActionCtx, options: SendEmailOptions) => Promise<string | null>
+  send: (ctx: RunMutationCtx, options: SendEmailOptions) => Promise<string | null>
   /** Read an email's delivery status. */
-  status: (ctx: AnyActionCtx, emailId: string) => Promise<EmailStatus | null>
+  status: (ctx: RunQueryCtx, emailId: string) => Promise<EmailStatus | null>
   /** Cancel a not-yet-sent email. */
-  cancel: (ctx: AnyActionCtx, emailId: string) => Promise<void>
+  cancel: (ctx: RunMutationCtx, emailId: string) => Promise<void>
   /**
    * Prune finalized email records (delivered, bounced, cancelled, failed …)
    * older than `olderThanMs` — default 7 days. Schedules the provider's
@@ -243,13 +247,13 @@ export interface Email {
    * // internal.email.pruneEmails: internalMutation(ctx => email.cleanup(ctx, { olderThanMs: 7 * DAY }))
    * ```
    */
-  cleanup: (ctx: AnyActionCtx, options?: { olderThanMs?: number }) => Promise<void>
+  cleanup: (ctx: RunMutationCtx, options?: { olderThanMs?: number }) => Promise<void>
   /**
    * Prune abandoned email records — created more than `olderThanMs` ago
    * (default 30 days) and never finalized, e.g. because a delivery webhook
    * never arrived. Scheduled like `cleanup`.
    */
-  cleanupAbandoned: (ctx: AnyActionCtx, options?: { olderThanMs?: number }) => Promise<void>
+  cleanupAbandoned: (ctx: RunMutationCtx, options?: { olderThanMs?: number }) => Promise<void>
   /**
    * Handle an email-provider event webhook from your app's `/email/events`
    * HTTP route (inside an `httpAction`); returns the Response to send back.

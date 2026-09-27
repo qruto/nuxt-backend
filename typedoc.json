@@ -108,6 +108,8 @@
     "src/convex/integrations/billing.ts:RunQueryCtx",
     "src/convex/integrations/billing.ts:RunWriteCtx",
     "src/convex/integrations/email.ts:AnyActionCtx",
+    "src/convex/integrations/email.ts:RunMutationCtx",
+    "src/convex/integrations/email.ts:RunQueryCtx",
     "src/convex/integrations/email.ts:EventDataFor",
     "src/convex/integrations/functions.ts:Builders",
     "src/convex/integrations/mcp.ts:McpExchangeCtx",

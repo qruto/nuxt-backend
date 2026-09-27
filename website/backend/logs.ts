@@ -3,6 +3,7 @@ import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { LOG_LEVELS as LEVELS, logLevelValidator } from './schema'
 import { paginateUserLogs, requireIdentity } from './lib'
+import { throttle } from './rateLimiter'
 
 const SAMPLES = [
   'User signed in',
@@ -42,6 +43,7 @@ export const seed = mutation({
   args: { count: v.optional(v.number()) },
   handler: async (ctx, { count }) => {
     const identity = await requireIdentity(ctx)
+    await throttle(ctx, [{ name: 'playgroundSeed', key: identity.subject }])
 
     const total = Math.min(Math.max(count ?? 25, 1), 200)
     for (let i = 0; i < total; i++) {

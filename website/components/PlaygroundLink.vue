@@ -34,9 +34,9 @@ const target = computed(() => props.to)
       </UButton>
     </div>
     <p class="mt-2 text-xs text-muted">
-      The playground runs against a live deployment — sign in with Resend's
-      test inbox (<code>delivered@resend.dev</code>, <code>+label</code>
-      aliases welcome).
+      The playground runs against a live deployment, as a sandbox: sign in
+      with a generated address, and its sign-in code shows up on the page. No
+      real mail, no real payments.
     </p>
   </UCard>
 </template>

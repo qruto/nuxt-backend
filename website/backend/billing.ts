@@ -1,6 +1,7 @@
 import { setupBilling, type DiscountInput } from 'nuxt-backend/billing'
 import { v } from 'convex/values'
 import { api, components, internal } from './_generated/api'
+import { isSandboxIdentity, SANDBOX_IDENTITY_HELP } from '../utils/testEmail'
 import { catalog } from './billing.generated'
 import { internalAction, internalMutation, query } from './_generated/server'
 import { authComponent } from './auth'
@@ -30,6 +31,10 @@ export const billing = setupBilling(components, {
     if (!(await ctx.auth.getUserIdentity())) return null
     return (await authComponent.getAuthUser(ctx))._id
   },
+  // The playground is a sandbox: a gift goes to a sandbox identity, the only
+  // kind of account it has, so no real address reaches the provider.
+  canGift: (_ctx, { recipientEmail }) =>
+    isSandboxIdentity(recipientEmail) || { allowed: false, message: SANDBOX_IDENTITY_HELP },
   // The consumer events map: react to verified webhook events after the
   // built-in cache refresh ran. The showcase logs a few high-signal types into
   // its own feed table — the packaged delivery log (getWebhookDeliveries,
@@ -118,10 +123,32 @@ export const recordWebhookEvent = internalMutation({
   },
 })
 
-/** Recent webhook events for the showcase activity feed. */
+/**
+ * Recent webhook events for the showcase activity feed — signed-in visitors
+ * only. The feed is shared by every account, so a summary never names an
+ * address (on the playground, an address is the key to its account) or an
+ * email id (it opens that email's status). Billing ids are safe to show: every
+ * billing function checks the caller owns what an id names.
+ */
 export const listWebhookEvents = query({
   args: {},
-  handler: async ctx => ctx.db.query('webhookEvents').withIndex('createdAt').order('desc').take(10),
+  handler: async (ctx) => {
+    if (!(await ctx.auth.getUserIdentity())) return []
+    return ctx.db.query('webhookEvents').withIndex('createdAt').order('desc').take(10)
+  },
+})
+
+/** Daily retention (crons.ts): feed rows older than a week, a batch at a time. */
+export const pruneWebhookEvents = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
+    const rows = await ctx.db.query('webhookEvents').withIndex('createdAt', q => q.lt('createdAt', cutoff)).take(500)
+    for (const row of rows) await ctx.db.delete(row._id)
+    if (rows.length === 500) await ctx.scheduler.runAfter(0, internal.billing.pruneWebhookEvents, {})
+    return null
+  },
 })
 
 // --- Discounts -----------------------------------------------------------------

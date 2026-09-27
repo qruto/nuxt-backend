@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { api } from '#backend/api'
+import { errorText } from '../../../utils/errorText'
 
 definePageMeta({ middleware: 'auth' })
 
 const startWorkflow = useMutation(api.workflows.startDemoWorkflow)
 const workflowId = ref<string | null>(null)
 const workflowPending = ref(false)
+// Starts are throttled: every run sends an email on the shared quota.
+const workflowError = ref<string | null>(null)
 const status = useWorkflowStatus(api.workflows.getWorkflowStatus, workflowId)
 
 async function runWorkflow() {
   workflowPending.value = true
+  workflowError.value = null
   try {
     workflowId.value = await startWorkflow({ label: new Date().toLocaleTimeString() })
   }
+  catch (cause) { workflowError.value = errorText(cause, 'Could not start the workflow') }
   finally { workflowPending.value = false }
 }
 
@@ -71,6 +76,12 @@ const steps = computed(() => [
           {{ type }}
         </StatusRing>
       </div>
+      <p
+        v-if="workflowError"
+        class="err-text mono"
+      >
+        {{ workflowError }}
+      </p>
 
       <div class="steps">
         <div
@@ -108,6 +119,7 @@ const steps = computed(() => [
 </template>
 
 <style scoped>
+.err-text { color: var(--err); font-size: 0.8rem; margin: 0.7rem 0 0; }
 .steps { display: flex; flex-direction: column; gap: 0; margin: 1.25rem 0 0.5rem; }
 .step { display: flex; flex-direction: column; }
 .riser { width: 2px; height: 16px; margin: 0.3rem 0 0.3rem 6px; background: var(--edge-hi); border-radius: 2px; }

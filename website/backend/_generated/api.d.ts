@@ -14,6 +14,7 @@ import type * as ai from "../ai.js";
 import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
 import type * as counter from "../counter.js";
+import type * as crons from "../crons.js";
 import type * as demo from "../demo.js";
 import type * as email from "../email.js";
 import type * as emailTemplates from "../emailTemplates.js";
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   billing: typeof billing;
   counter: typeof counter;
+  crons: typeof crons;
   demo: typeof demo;
   email: typeof email;
   emailTemplates: typeof emailTemplates;

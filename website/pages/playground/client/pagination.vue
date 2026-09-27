@@ -4,6 +4,7 @@ import { api } from '#backend/api'
 import type { Id } from '#backend/dataModel'
 import { LOG_LEVELS } from '../../../backend/schema'
 import type { LogLevel } from '../../../backend/schema'
+import { errorText } from '../../../utils/errorText'
 // Paginated optimistic helpers are public utilities (used inside
 // withOptimisticUpdate) but not Nuxt auto-imports — pull from the package.
 import { insertAtTop } from 'nuxt-convex-module/client'
@@ -41,12 +42,18 @@ const addOptimistic = useMutation(api.logs.add).withOptimisticUpdate((store, arg
 const customMessage = ref('')
 const customLevel = ref<LogLevel>('info')
 const seeding = ref(false)
+// The seeder is throttled per user (3 runs a minute).
+const seedError = ref<string | null>(null)
 
 async function seedLogs() {
   seeding.value = true
+  seedError.value = null
   try {
     await seed({ count: 40 })
     generation.value++
+  }
+  catch (cause) {
+    seedError.value = errorText(cause, 'Could not seed logs')
   }
   finally {
     seeding.value = false
@@ -117,6 +124,12 @@ const xpKey = computed(() => `${xpFail.value}-${xpThrow.value}-${xpSkip.value}`)
             Clear all
           </LabButton>
         </div>
+        <p
+          v-if="seedError"
+          class="err-text mono"
+        >
+          {{ seedError }}
+        </p>
         <div class="filter">
           <button
             v-for="l in (['all', ...LOG_LEVELS] as const)"

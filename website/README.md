@@ -81,6 +81,22 @@ exporting it into a shell you keep using.
 | **Vercel** — `nuxt-backend-git-<branch>-razum.vercel.app` | The website as that branch would ship it: docs, landing, API reference | none — the playground renders its offline state |
 | **StackBlitz** — from the pkg.pr.new comment | `examples/minimal`, a real Nuxt app running the PR's *package build* | **yours** — `npx convex dev` in the StackBlitz terminal |
 
+## The playground is a sandbox
+
+The live playground is public, and nothing in it is real:
+
+- **Accounts are sandbox identities**, `delivered+<16+ random characters>@resend.dev`, generated on
+  `/login`. `canSignIn` and the email-change and invitation hooks in `backend/auth.ts`, and
+  `canGift` in `backend/billing.ts`, refuse any other address. Email runs in Resend's test mode
+  (`EMAIL_TEST_MODE` unset), which delivers only to such addresses. Nobody can open those
+  mailboxes, so the package's sandbox inbox shows their mail on the page: on `/login` for the
+  code, and on the Email page for links.
+- **Payments** go through the Polar sandbox (card `4242 4242 4242 4242`).
+- **Limits and retention** live in `backend/rateLimiter.ts` and `backend/crons.ts`.
+- **The admin** is a sandbox identity too, promoted with `functions:setUserRole`. Whoever knows
+  an address can read its sign-in codes, so keep the admin's address to yourself. Don't share a
+  workspace from it either: members see each other's addresses.
+
 ## Running it locally
 
 ```sh

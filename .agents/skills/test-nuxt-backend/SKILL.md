@@ -25,20 +25,21 @@ pnpm run db:reset        # clears app tables + auth component (NOT Polar sandbox
 npx convex run billing:createDiscount '{"name":"E2E","percent":100,"code":"E2E100","duration":"forever"}'
 ```
 
-`duration: "forever"` keeps recurring checkouts card-free. `billing:createDiscount` is an `internalAction` (ops only) — the playground's billing page mints through `createDiscountAsAdmin`, which needs the admin role: `npx convex run functions:setUserRole '{"email":"delivered+admin@resend.dev","role":"admin"}'` after that user signs up. Products come from `billing sync` (above), not from a seed.
+`duration: "forever"` keeps recurring checkouts card-free. `billing:createDiscount` is an `internalAction` (ops only) — the playground's billing page mints through `createDiscountAsAdmin`, which needs the admin role: `npx convex run functions:setUserRole '{"email":"delivered+LABEL@resend.dev","role":"admin"}'` after that sandbox identity signs up (the marketing actions on the Email page need it too). Products come from `billing sync` (above), not from a seed.
 
-## OTP retrieval (the core trick)
+## Sign-in: sandbox identities and the sandbox inbox
 
-Sign up at `/login` with `delivered+<label>@resend.dev` (unique label per run; OTP rate limit 5/min/address), then:
+The playground admits **sandbox identities only**: `delivered+LABEL@resend.dev` with a label of 16+ lower-case letters and digits (`canSignIn` in `website/backend/auth.ts`; email changes, invitations and gift recipients follow the same rule). Any other address is refused, `delivered@resend.dev` and short labels included.
+
+On `/login`, "Create a sandbox identity" generates one (remembered in localStorage), or type your own (e.g. `delivered+e2e$(date +%s)run@resend.dev`; one label per run, OTP limit 5/min/address). After "Send code", the sandbox inbox under the form shows the code; "Fill the code" enters it. `/playground/platform/email` → "Sandbox inbox" lists any sandbox address's mail from the last hour as text: the welcome, change-email and delete-account links, invitations.
+
+From a shell, the same inbox:
 
 ```sh
-RESEND_KEY=$(npx convex env get EMAIL_API_KEY)
-curl -s https://api.resend.com/emails -H "Authorization: Bearer $RESEND_KEY" \
-  | jq -r '[.data[] | select(.to[0]=="delivered+LABEL@resend.dev")] | sort_by(.created_at) | last | .id'
-curl -s https://api.resend.com/emails/$ID -H "Authorization: Bearer $RESEND_KEY"   # 6-digit OTP or links in .html
+npx convex run email:getSandboxInbox '{"address":"delivered+LABEL@resend.dev"}'   # newest first; code or links in .text
 ```
 
-Same technique fetches the change-email confirmation link, verification link, and delete-account link (decode `&amp;` → `&` before navigating).
+The inbox needs test mode (the default) and keeps a message for an hour. For anything older, list through the Resend API with `EMAIL_API_KEY` (`GET https://api.resend.com/emails`, then `/emails/{id}`; decode `&amp;` → `&` in links).
 
 ## Card-free checkout
 
@@ -51,7 +52,7 @@ SaaS pages use redirect checkout (`billing.checkout(id, { redirect: true })`) �
 3. **Spend credit** (settings) → balance decrements reactively. Blocked at 0 (prepaid).
 4. **Top-up packs** → balance += pack units.
 5. **Switch plan** (`changePlan`, no checkout) → old plan's monthly grant revoked, new granted (e.g. 148−50+200=298).
-6. **Change email** (profile) → confirm link to OLD address, verify link to NEW address → updated + verified. Covers `changeEmail` + `verify` templates.
+6. **Change email** (profile, to another sandbox identity) → confirm link to OLD address, verify link to NEW address (read both on the Email page's sandbox inbox) → updated + verified. A non-sandbox address is refused. Covers `changeEmail` + `verify` templates.
 7. **Security page** → sessions list (current marked), passkey list/add/rename/remove.
 8. **Email outcomes** (platform/email) → bounced flips status; **complained is a flag on top of `delivered`** (shown as a warn pill), events may arrive out of order.
 9. **Cancel** → `cancelAtPeriodEnd` warning. **Delete account** → confirmation link → user row gone (`npx convex data user --component backend`).
@@ -71,15 +72,16 @@ The live playground runs on the production deployment `determined-horse-300`, de
 
 - Every `npx convex …` needs the production deploy key, **prefixed per command** (`CONVEX_DEPLOY_KEY=… npx convex …`) — never exported into the shell you test from. Check it first: `echo "${CONVEX_DEPLOY_KEY%%|*}"` prints `prod:determined-horse-300`.
 - **Never run `pnpm db:reset` or `db:seed` against it.** They drop the key and refuse one kept in `.env.local`, so they always reach the dev deployment — keep it that way.
-- Test through `https://nuxt-backend.dev`; the OTP trick below works unchanged with a unique `delivered+<label>@resend.dev` address.
-- Admin checks need `functions:setUserRole` run against production with the key.
+- Test through `https://nuxt-backend.dev` with a sandbox identity (see Sign-in above): the code shows up in the sandbox inbox on `/login`, as on dev.
+- Admin checks need `functions:setUserRole` run against production, from the Convex dashboard or with the key, on a sandbox identity. Keep that address private: whoever knows it can read its codes.
 - `pnpm cli doctor --prod` (after `pnpm build`) checks production: env names, the function contract, and the webhook routes on the deployment's own site URL.
 
 ## Known limitations & gotchas
 
 - **Passkeys can't be automated** — chrome-devtools MCP has no WebAuthn virtual authenticator; the ceremony fails with a focus/NotAllowed error (the UI must surface it). Manual test: real DevTools → WebAuthn panel → virtual authenticator (ctap2/internal/resident-key) → add passkey → rename/remove → passkey sign-in from `/login`. Pre-auth passkey signup is also the only path to an `emailVerified: false` account (exercises "Send verification email").
 - **Better Auth client calls do NOT throw** — they resolve `{ data, error }`. Demo pages unwrap with `unwrapAuth()` (`website/utils/authResult.ts`); forgetting it = silent failures.
-- **Marketing broadcasts** require a verified domain — Resend rejects broadcasts from `resend.dev` senders. Expect the surfaced error in test mode.
+- **Marketing broadcasts** require a verified domain — Resend rejects broadcasts from `resend.dev` senders. Expect the surfaced error in test mode. The marketing actions are admin-only, and contacts must be Resend test inboxes.
+- **Playground throttles** (`website/backend/rateLimiter.ts`): the test email and the demo workflow share 5 sends a minute per user and 100 an hour for the deployment; the log seeder runs 3 times a minute. Uploads stop at 5 MB and 50 files. Crons (`website/backend/crons.ts`) prune email records and the event feed after a week, and remove uploads nobody saved (daily, once an hour old).
 - **`spendCredits`**: omit `userId` so the billing entity resolves from identity claims (org mode); passing the auth user id breaks the Polar customer lookup.
 - **Session-dependent UI needs `<ClientOnly>`** — SSR has no session while hydration does; class mismatches silently persist (Vue hydration is check-only for classes).
 - `website/backend/**` edits hot-sync via the running `convex dev`; `src/**` module/runtime edits need a `pnpm dev` restart to be safe (runtime stubs sometimes HMR, module.ts never does).
@@ -89,7 +91,7 @@ The live playground runs on the production deployment `determined-horse-300`, de
 
 - **Default pages**: `/playground/vanilla/{pricing,settings,profile,security}` show the untouched `ui.css` look; `/playground/saas/*` are the same components site-styled. `/login` is the app page shadowing the module page (`<AuthForm>` inside); `/accept-invitation` stays module-mounted.
 - **Migrations**: `/playground/platform/migrations` — run + dry-run both backfills, watch the live status table and the two aggregate metric cards.
-- **Webhooks**: `/playground/platform/webhooks` — send a test email, expect an `email.delivered` row in the unified feed (billing rows come from checkout flows).
+- **Webhooks**: `/playground/platform/webhooks` — send a test email, expect an `email.delivered` row in the unified feed (billing rows come from checkout flows). The feed is for signed-in visitors, and its rows name ids, never addresses.
 - **Gifts**: `/playground/platform/credits` — the "Received gifts" panel lists and manually claims (`useGifts({ autoClaim: false })`).
 - **Server guards**: `/playground/platform/authorization` — the four guard buttons show real allow/deny per role; the admin panel bans/unbans (admin role required).
 - **Auth rate limits**: `/playground/platform/rate-limit` — the `emailOtp` meter drains when requesting codes from `/login` in a second tab.
