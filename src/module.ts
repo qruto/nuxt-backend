@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { defineNuxtModule, addComponent, addImports, addPlugin, addRouteMiddleware, addServerHandler, addServerImports, addTypeTemplate, createResolver, extendPages, resolveModule, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
 import { defu } from 'defu'
@@ -7,7 +7,7 @@ import { moduleDir } from './dirs'
 import { backendAppConfigDefaults, type BackendAppConfigInput } from './runtime/config'
 import { BACKEND_MCP_SCOPES, DEFAULT_MCP_EXCHANGE_PATH } from './convex/constants'
 import { deriveDeploymentUrls, resolveSiteUrl, isDevDeploymentId } from './deployment'
-import { readEnvFiles, runEnvPush } from './env-push'
+import { isEnvProvisioned, markEnvProvisioned, readEnvFiles, runEnvPush } from './env-push'
 import { scaffoldBackendFiles, appComponentIsStarter } from './scaffold'
 import { registerBackendAliases, backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from './aliases'
 import { collectPreflightFindings, formatPreflightSummary } from './preflight'
@@ -449,9 +449,7 @@ function runDevAutoEnv(options: ModuleOptions, nuxt: Nuxt): void {
       ?? readEnvFiles(rootDir).CONVEX_DEPLOYMENT
       ?? deriveDeploymentUrls(rootDir)?.deployment
     if (!isDevDeploymentId(deployment)) return false
-    const stampDir = join(rootDir, 'node_modules/.cache/nuxt-backend')
-    const stamp = join(stampDir, `env-ok-${deployment.replace(/[^\w-]/g, '_')}`)
-    if (existsSync(stamp)) return true
+    if (isEnvProvisioned(rootDir, deployment)) return true
 
     void runEnvPush(rootDir, {}).then((run) => {
       if (!run) return
@@ -459,10 +457,7 @@ function runDevAutoEnv(options: ModuleOptions, nuxt: Nuxt): void {
         if (outcome === 'set') logger.info(`env push: ${action.name} — ${action.detail}`)
         else if (outcome === 'failed') logger.warn(`env push: ${action.name} failed — ${error}`)
       }
-      if (run.results.every(result => result.outcome !== 'failed')) {
-        mkdirSync(stampDir, { recursive: true })
-        writeFileSync(stamp, new Date().toISOString())
-      }
+      if (run.results.every(result => result.outcome !== 'failed')) markEnvProvisioned(rootDir, deployment)
     }).catch((error: unknown) => {
       logger.warn(`env auto-provision failed: ${error instanceof Error ? error.message : String(error)}`)
     })

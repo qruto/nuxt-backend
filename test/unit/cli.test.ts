@@ -108,6 +108,29 @@ describe('init', () => {
     expect(vi.mocked(console.log).mock.calls.flat().join('\n')).not.toContain('Added convex@')
   })
 
+  it('points a plain nuxt dev script at nuxt-backend dev, and says to run it', async () => {
+    const manifestPath = join(rootDir, 'package.json')
+    writeFileSync(manifestPath, JSON.stringify({ name: 'app', scripts: { dev: 'nuxt dev --port 3001', build: 'nuxt build' }, dependencies: { convex: '^1.0.0' } }, null, 2))
+
+    await run(['init'])
+
+    expect((JSON.parse(readFileSync(manifestPath, 'utf-8')) as { scripts: Record<string, string> }).scripts).toEqual({ dev: 'nuxt-backend dev --port 3001', build: 'nuxt build' })
+    const logs = vi.mocked(console.log).mock.calls.flat().join('\n')
+    expect(logs).toContain('Set scripts.dev to `nuxt-backend dev --port 3001`')
+    expect(logs).toMatch(/^ {2}npm run dev +# the first run sets up your Convex dev deployment/m)
+    expect(logs).not.toContain('npm install ')
+  })
+
+  it('keeps a dev script the app wrote itself, and names the command instead', async () => {
+    const manifestPath = join(rootDir, 'package.json')
+    writeFileSync(manifestPath, JSON.stringify({ name: 'app', scripts: { dev: 'nuxt dev && echo done' }, dependencies: { convex: '^1.0.0' } }))
+
+    await run(['init'])
+
+    expect((JSON.parse(readFileSync(manifestPath, 'utf-8')) as { scripts: Record<string, string> }).scripts.dev).toBe('nuxt dev && echo done')
+    expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toMatch(/^ {2}npx nuxt-backend dev +#/m)
+  })
+
   it('falls back to printed instructions without a nuxt.config', async () => {
     await run(['init'])
     expect(existsSync(join(rootDir, 'backend/auth.ts'))).toBe(true)
@@ -140,6 +163,15 @@ describe('doctor', () => {
     const codegen = report.findings.find(finding => finding.id === 'convex-codegen')
     expect(codegen?.status).toBe('warn')
     expect(report.findings.some(finding => finding.id === 'auth-secret')).toBe(true)
+  })
+
+  it('warns about the base module\'s convex dev --start script', async () => {
+    writeFileSync(join(rootDir, 'package.json'), JSON.stringify({ name: 'app', scripts: { dev: `convex dev --start 'nuxt dev'` } }))
+
+    await run(['doctor', '--json'])
+
+    const report = JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { findings: Array<{ id: string, status: string, fixHint: string }> }
+    expect(report.findings.find(finding => finding.id === 'dev-script')).toMatchObject({ status: 'warn', fixHint: expect.stringContaining('doctor --fix') })
   })
 
   it('reads env from .env.local (weak secret fails, exit code 1)', async () => {

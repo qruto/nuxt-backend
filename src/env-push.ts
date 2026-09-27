@@ -15,8 +15,8 @@
  * overwritten.
  */
 import { randomBytes } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { DEV_ONLY_DEPLOYMENT_ENV, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './preflight'
 import { deriveDeploymentUrls, isDevDeploymentId, parseEnvFile } from './deployment'
 import { runConvex } from './convex-cli'
@@ -273,6 +273,28 @@ export function configuredDeployment(rootDir: string): string | null {
  */
 export function isDevDeployment(rootDir: string): boolean {
   return isDevDeploymentId(configuredDeployment(rootDir))
+}
+
+/**
+ * The marker a clean `env push` leaves on a dev deployment: once it exists,
+ * the module's dev-startup auto-provision and `nuxt-backend dev` skip the
+ * `convex env list` spawn for that deployment. A run with a failed `set`
+ * leaves no marker, so the next start retries.
+ */
+function envProvisionedMarker(rootDir: string, deployment: string): string {
+  return join(rootDir, 'node_modules/.cache/nuxt-backend', `env-ok-${deployment.replace(/[^\w-]/g, '_')}`)
+}
+
+/** Whether a clean `env push` has already provisioned this deployment. */
+export function isEnvProvisioned(rootDir: string, deployment: string): boolean {
+  return existsSync(envProvisionedMarker(rootDir, deployment))
+}
+
+/** Record that `env push` provisioned this deployment without a failure. */
+export function markEnvProvisioned(rootDir: string, deployment: string): void {
+  const marker = envProvisionedMarker(rootDir, deployment)
+  mkdirSync(dirname(marker), { recursive: true })
+  writeFileSync(marker, new Date().toISOString())
 }
 
 /** The whole flow shared by the CLI and the module's dev auto-provision. */

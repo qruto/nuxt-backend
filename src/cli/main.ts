@@ -12,6 +12,7 @@ import { deriveDeploymentUrls, resolveSiteUrl } from '../deployment'
 import type { BillingCatalog } from '../convex/catalog'
 import { billing, collectBillingFindings, loadCatalog, readBillingOrganizationState } from './billing'
 import { missingContractFunctions } from '../contract'
+import { adoptBackendDevScript, dev, devScriptFinding } from './dev'
 import { resolvePagePath, type ModulePagesOptions } from '../pages'
 
 /**
@@ -329,6 +330,12 @@ const init = defineCommand({
       console.log(`[nuxt-backend] Replaced <NuxtWelcome /> with <NuxtPage /> in ${appComponent} so the module's pages render`)
     }
 
+    const devScript = adoptBackendDevScript(rootDir)
+    if (devScript?.changed) {
+      console.log(`[nuxt-backend] Set scripts.dev to \`${devScript.script}\`: one command sets up the deployment, provisions its env and runs Convex beside Nuxt`)
+    }
+    const start = devScript ? 'npm run dev' : 'npx nuxt-backend dev'
+
     const convexRange = declareConvexDependency(rootDir)
     if (convexRange) {
       console.log(`[nuxt-backend] Added convex@${convexRange} to dependencies — install once more so it links (\`npx convex dev\` needs the app itself to declare it)`)
@@ -346,9 +353,9 @@ const init = defineCommand({
       }
       console.log(`
 Next steps:
-  1. npx convex dev        # provisions the deployment + codegen (terminal 1)
-  2. npm run dev           # derives URLs, provisions dev env, mounts /login (terminal 2)
-  3. Sign in — with no EMAIL_API_KEY yet, the OTP code prints in the convex dev console.
+${convexRange ? '  npm install              # links the convex dependency added above\n' : ''}  ${start.padEnd(24)} # the first run sets up your Convex dev deployment (log in
+                           # when asked) and provisions its env, then runs Convex and Nuxt
+  Sign in at /login — with no EMAIL_API_KEY yet, the OTP code prints in the same terminal.
 
 Later, as you connect services: add EMAIL_API_KEY / BILLING_ACCESS_TOKEN to
 .env.local and run \`npx nuxt-backend env push\`.
@@ -356,6 +363,28 @@ Later, as you connect services: add EMAIL_API_KEY / BILLING_ACCESS_TOKEN to
     })
   },
 })
+
+/**
+ * `doctor --fix`: restore missing scaffold files (existing files are never
+ * touched), replace a `dev` script that stalls on a new deployment, then
+ * sync env with the same engine as `nuxt-backend env push`.
+ */
+async function repairProject(rootDir: string, prod: boolean): Promise<void> {
+  const functionsDir = resolveFunctionsDir(rootDir)
+  const installation: BackendInstallationMode
+    = existsSync(join(rootDir, functionsDir, 'components/backend')) ? 'local' : 'default'
+  scaffoldBackendFiles(rootDir, { installation })
+  const devScript = adoptBackendDevScript(rootDir, { onlyCombined: true })
+  if (devScript?.changed) console.log(`[nuxt-backend] doctor --fix: scripts.dev → \`${devScript.script}\``)
+  const run = await runEnvPush(rootDir, { prod })
+  if (run) {
+    console.log(`[nuxt-backend] doctor --fix: env push → ${run.deployment ?? 'deployment'}`)
+    reportEnvPush(run, { json: false, dryRun: false })
+  }
+  else {
+    console.log('[nuxt-backend] doctor --fix: no deployment reachable — env not pushed.')
+  }
+}
 
 /**
  * Print an env-push run as a summary table (values never printed), or JSON.
@@ -513,22 +542,7 @@ const doctor = defineCommand({
     const rootDir = projectRoot(args)
     if (refuseNonProductionKey(args.prod, rootDir)) return
 
-    if (args.fix) {
-      // Restore missing scaffold files (existing files are never touched),
-      // then sync env — the same engine as `nuxt-backend env push`.
-      const functionsDir = resolveFunctionsDir(rootDir)
-      const installation: BackendInstallationMode
-        = existsSync(join(rootDir, functionsDir, 'components/backend')) ? 'local' : 'default'
-      scaffoldBackendFiles(rootDir, { installation })
-      const run = await runEnvPush(rootDir, { prod: args.prod })
-      if (run) {
-        console.log(`[nuxt-backend] doctor --fix: env push → ${run.deployment ?? 'deployment'}`)
-        reportEnvPush(run, { json: false, dryRun: false })
-      }
-      else {
-        console.log('[nuxt-backend] doctor --fix: no deployment reachable — env not pushed.')
-      }
-    }
+    if (args.fix) await repairProject(rootDir, args.prod)
 
     const env = { ...readEnvFiles(rootDir), ...process.env } as Record<string, string | undefined>
 
@@ -550,6 +564,7 @@ const doctor = defineCommand({
         : `${functionsDir}/_generated missing — Convex features no-op until codegen runs.`,
       fixHint: hasGenerated ? '' : 'Run: npx convex dev',
     })
+    findings.push(...devScriptFinding(rootDir))
 
     // Deployment-side env presence (names only — values never read). Two
     // tiers: AUTH_SECRET + SITE_URL are required (fail); the rest are optional
@@ -666,5 +681,5 @@ export const main = defineCommand({
     version: packageVersion(),
     description: 'All-in-one SaaS backend for Nuxt on Convex — scaffold and check your project',
   },
-  subCommands: { init, doctor, env, billing },
+  subCommands: { init, dev, doctor, env, billing },
 })

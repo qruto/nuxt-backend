@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
@@ -36,6 +36,23 @@ export function resolveConvexCli(rootDir: string): string | undefined {
 export interface RunConvexOptions {
   /** Milliseconds before the child is killed. */
   timeout?: number
+}
+
+/**
+ * Run `convex <args>` with the terminal attached, for the interactive
+ * commands: the login and project prompts, the `dev` watch. Resolves with the
+ * exit code. No shell, like {@link runConvex}; a Ctrl-C in the terminal
+ * reaches the child directly, so the caller only waits for it.
+ */
+export function spawnConvex(rootDir: string, args: string[], options: { env?: NodeJS.ProcessEnv } = {}): Promise<number> {
+  const cli = resolveConvexCli(rootDir)
+  if (!cli) return Promise.reject(new Error('The `convex` package is not installed in this project.'))
+  return new Promise((resolve, reject) => {
+    // fallow-ignore-next-line security-sink -- the command is this Node binary running the project's own convex CLI, no shell; the arguments come from the developer's own nuxt-backend invocation on their machine; verified 2026-09-27
+    const child = spawn(process.execPath, [cli, ...args], { cwd: rootDir, stdio: 'inherit', env: options.env ?? process.env })
+    child.on('error', reject)
+    child.on('exit', (code, signal) => resolve(code ?? (signal === 'SIGINT' ? 130 : 1)))
+  })
 }
 
 /**

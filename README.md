@@ -32,7 +32,7 @@ The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR
 
 ## Quick start
 
-Starting a new app? Create it from the starter template, then skip to step 3 (`npm run dev:convex` is its `npx convex dev`):
+Starting a new app? Create it from the starter template, then skip to step 3 (its `npm run dev` is the command there):
 
 ```bash
 pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/templates/starter
@@ -68,13 +68,13 @@ A fresh `nuxi init` app renders `<NuxtWelcome />` and no `<NuxtPage />` — swap
 ### 3. Run it — no configuration
 
 ```bash
-npx convex dev   # terminal 1 — provisions a dev deployment + codegen
-npm run dev      # terminal 2 — scaffolds backend/, derives the Convex URLs,
-                 # and provisions the dev deployment env for you
+npx nuxt-backend dev   # first run: sets up a Convex dev deployment (log in when asked),
+                       # scaffolds backend/ and provisions its env; then runs Convex
+                       # and Nuxt together (`npx nuxt-backend init` makes it `npm run dev`)
 ```
 
 That's it — sign in right away (with no email provider connected yet, the
-OTP code prints in the `convex dev` console), read live data with `useQuery`,
+OTP code prints in the same terminal), read live data with `useQuery`,
 gate features with `useFeatures`, and protect pages with the `auth`
 middleware. There is nothing to copy into `.env`: the Convex URLs derive from
 the `CONVEX_DEPLOYMENT` slug, `AUTH_SECRET` is generated, and `SITE_URL`

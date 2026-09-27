@@ -31,6 +31,5 @@ pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/examples/advanced
 # or: npm create nuxt@latest my-app -- -t gh:qruto/nuxt-backend/examples/advanced
 cd my-app
 cp .env.example .env.local
-npm run dev:convex    # terminal 1
-npm run dev           # terminal 2
+npm run dev           # sets up a Convex dev deployment on the first run, then runs Convex and Nuxt
 ```

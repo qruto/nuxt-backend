@@ -3,8 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nuxt dev",
-    "dev:convex": "convex dev",
+    "dev": "nuxt-backend dev",
     "build": "nuxt build",
     "postinstall": "nuxt prepare"
   },
