@@ -37,7 +37,7 @@ interface Finding {
  * output of `src/preflight.ts` / `src/cli/main.ts` for that state.
  */
 const FINDINGS: Finding[] = [
-  { status: 'pass', title: 'Convex site URL', message: 'Site URL configured — the auth proxy can reach Convex HTTP actions.' },
+  { status: 'pass', title: 'Backend site URL', message: 'Backend site URL configured — the auth proxy can reach the backend HTTP routes.' },
   { status: 'pass', title: 'Auth secret', message: 'AUTH_SECRET present and strong.' },
   { status: 'pass', title: 'App site URL', message: 'SITE_URL is a valid URL.' },
   { status: 'pass', title: 'Email transport', message: 'EMAIL_API_KEY visible — transactional email is on.' },
@@ -82,26 +82,41 @@ const TREE: { file: string, note?: string }[] = [
   { file: 'search.ts' },
 ]
 
-/** The panel's three tabs — devtools-client-app/app/app.vue. */
+/** The panel's six pages — PANEL_PAGES in devtools-client-app/app/nav.ts (a unit test pins the labels). */
 const TABS = [
   { label: 'Overview', icon: 'i-lucide-layout-dashboard', active: true },
+  { label: 'Account', icon: 'i-lucide-circle-user', active: false },
   { label: 'Billing', icon: 'i-lucide-credit-card', active: false },
-  { label: 'Workspace', icon: 'i-lucide-users', active: false },
+  { label: 'Email', icon: 'i-lucide-mail', active: false },
+  { label: 'Webhooks', icon: 'i-lucide-webhook', active: false },
+  { label: 'Agents', icon: 'i-lucide-bot', active: false },
 ]
 
-/** What each tab holds — devtools-client-app/app/pages/*.vue. */
+/** What each page holds — devtools-client-app/app/pages/*.vue. */
 const PANELS = [
   {
     name: 'Overview',
-    body: 'Preflight findings with a copyable fix, deployment env presence, every ready-made page (mounted or shadowed), the agent endpoint, and the last 25 webhook deliveries.',
+    body: 'The connection and the deployment, live checks with a copyable fix plus doctor on demand, every env name here and on the deployment, the ready-made pages and the wiring.',
+  },
+  {
+    name: 'Account',
+    body: 'Who is signed in, the active workspace with your role, members and invitations, this account\'s sessions and passkeys.',
   },
   {
     name: 'Billing',
-    body: 'Subscription status, product and plan ids, every credit meter with balance · credited · consumed, and the catalog declared in app.config.ts.',
+    body: 'The subscription\'s full state, granted features, credit meters, gifts waiting, and whether the catalog as code is synced.',
   },
   {
-    name: 'Workspace',
-    body: 'Identity, the active workspace with member and pending-invitation counts, and the granted feature keys useFeatures().has() will match.',
+    name: 'Email',
+    body: 'What the transport has, recent delivery events, one email\'s status by id, and the templates you can override.',
+  },
+  {
+    name: 'Webhooks',
+    body: 'Last event per service, both secrets, and the delivery log filtered by service or problem.',
+  },
+  {
+    name: 'Agents',
+    body: 'The endpoint, the command that connects a client, every built-in tool with its scope, and the discovery URLs.',
   },
 ]
 
@@ -289,7 +304,7 @@ const DELIVERIES = [
             <div
               class="dx__screen slot"
               role="img"
-              aria-label="The Backend tab: a rail of Overview, Billing and Workspace tabs beside the Overview pane's preflight, deployment env and webhook delivery cards."
+              aria-label="The Backend tab: a rail of six pages beside the Overview pane's checks, env and webhook delivery cards."
             >
               <nav
                 class="dx__rail"
@@ -324,7 +339,7 @@ const DELIVERIES = [
                     <span class="dx__copy"><UIcon name="i-lucide-copy" /></span>
                   </p>
                   <p class="dx__badges">
-                    <span class="dx__badge ok">Convex site URL ✓</span>
+                    <span class="dx__badge ok">Backend site URL ✓</span>
                     <span class="dx__badge ok">Auth secret ✓</span>
                     <span class="dx__badge ok">Email transport ✓</span>
                   </p>
@@ -332,22 +347,17 @@ const DELIVERIES = [
 
                 <section class="dx__cardlet">
                   <p class="dx__cardlet-ttl">
-                    Deployment env
-                    <span class="dx__cardlet-sub">presence only — values never leave the dev server</span>
+                    Env
+                    <span class="dx__cardlet-sub">names only — values never leave the dev server</span>
                   </p>
                   <p class="dx__tier">
-                    Required on the deployment
+                    On the deployment
                   </p>
                   <p class="dx__badges">
                     <span class="dx__badge ok"><code>AUTH_SECRET</code> set</span>
                     <span class="dx__badge ok"><code>SITE_URL</code> set</span>
-                  </p>
-                  <p class="dx__tier">
-                    Optional (designed degradation)
-                  </p>
-                  <p class="dx__badges">
                     <span class="dx__badge ok"><code>EMAIL_API_KEY</code> set</span>
-                    <span class="dx__badge mute"><code>BILLING_WEBHOOK_SECRET</code> unset</span>
+                    <span class="dx__badge mute"><code>BILLING_WEBHOOK_SECRET</code> not set</span>
                   </p>
                 </section>
 
@@ -404,10 +414,10 @@ const DELIVERIES = [
                 </div>
               </dl>
               <p class="dx__panels-note">
-                Build-time facts arrive over the DevTools RPC, re-collected per
-                request; live state comes from the inspected page through the
-                module's own composables. Only presence booleans cross for env
-                vars — secrets stay in the Node process.
+                Dev-server facts arrive over the DevTools RPC and refresh when an
+                env file changes; live state comes from the inspected page through
+                the module's own composables. Only env names cross, never values:
+                secrets stay in the Node process.
               </p>
             </div>
           </div>

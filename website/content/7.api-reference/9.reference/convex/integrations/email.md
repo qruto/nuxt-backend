@@ -189,7 +189,7 @@ Defined in: [src/convex/integrations/email.ts:181](https://github.com/qruto/nuxt
 | ------ | ------ | ------ | ------ |
 | <a id="events"></a> `events?` | [`EmailWebhookEventHandlers`](#emailwebhookeventhandlers) | React to any verified provider event, keyed by its event name (`'email.bounced'`, `'contact.created'`, …). Handlers run **after** the component has verified the signature and updated delivery status — `useEmailStatus` already reflects the event. A handler throw answers 500, so the provider redelivers (deliveries are deduped once fully processed). | [src/convex/integrations/email.ts:189](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L189) |
 | <a id="onunknownevent"></a> `onUnknownEvent?` | (`ctx`, `event`) => `Promise`\<`void`\> | Called for a **verified** event whose type is outside the known catalog (a provider newer than this package). Acknowledged 202 either way. | [src/convex/integrations/email.ts:194](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L194) |
-| <a id="deliverylog"></a> `deliveryLog?` | `boolean` | Record inbound webhook deliveries in the component's capped ring buffer (dedupe + doctor + DevTools feed). `false` disables the log and dedupe. | [src/convex/integrations/email.ts:199](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L199) |
+| <a id="deliverylog"></a> `deliveryLog?` | `boolean` | Record inbound webhook deliveries in the component's capped ring buffer (dedupe + the DevTools Webhooks page). `false` disables the log and dedupe. | [src/convex/integrations/email.ts:199](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts#L199) |
 
 ***
 

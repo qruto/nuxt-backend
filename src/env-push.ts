@@ -297,6 +297,18 @@ export function markEnvProvisioned(rootDir: string, deployment: string): void {
   writeFileSync(marker, new Date().toISOString())
 }
 
+/**
+ * The required names a clean `env push` has put on the configured dev
+ * deployment (its marker says so), for the preflight to count as set;
+ * `undefined` when that is not known.
+ */
+export function provisionedEnvNames(rootDir: string): ReadonlySet<string> | undefined {
+  const deployment = configuredDeployment(rootDir)
+  return isDevDeploymentId(deployment) && isEnvProvisioned(rootDir, deployment)
+    ? new Set(REQUIRED_DEPLOYMENT_ENV)
+    : undefined
+}
+
 /** The whole flow shared by the CLI and the module's dev auto-provision. */
 export async function runEnvPush(rootDir: string, options: { prod?: boolean, dryRun?: boolean, force?: ReadonlySet<string>, setEnv?: ExecuteEnvPushOptions['setEnv'] } = {}): Promise<EnvPushRunResult | null> {
   const deployedNames = await deploymentEnvNames(rootDir, { prod: options.prod })

@@ -29,48 +29,68 @@ export interface DevtoolsPageInfo {
 }
 
 /**
- * Presence booleans for the deployment env contract — never the values.
- * Secrets must not cross the DevTools RPC (it is same-origin-open in dev).
+ * Presence booleans over the two-tier deployment env contract — never the
+ * values. Secrets must not cross the DevTools RPC (it is same-origin-open in
+ * dev).
  */
-export interface DevtoolsEnvPresence {
+export interface DevtoolsEnvTier {
   required: Record<string, boolean>
   optional: Record<string, boolean>
+}
+
+/** The env names set on the deployment, read with `convex env list --names-only`. */
+export interface DevtoolsDeploymentEnv {
+  status: 'ok' | 'unavailable'
+  /** Why the names could not be read: no deployment, not a dev one, the CLI failed. */
+  reason?: string
+  /** When the names were read (ms since epoch). */
+  readAt: number
+  names?: DevtoolsEnvTier
+}
+
+/** Where the env contract's names are visible. */
+export interface DevtoolsEnvPresence {
+  /** In the dev server: `.env`, `.env.local` and its process env. */
+  visible: DevtoolsEnvTier
+  /** On the deployment, as last read; `null` until the panel asks. */
+  deployment: DevtoolsDeploymentEnv | null
+}
+
+/**
+ * The deployment the app talks to, by what `CONVEX_DEPLOYMENT` (or
+ * `CONVEX_SELF_HOSTED_URL`) says. `cloud-dev`, `local` and `anonymous` are the
+ * dev-class kinds the dev server provisions.
+ */
+export type DevtoolsDeploymentKind = 'cloud-dev' | 'local' | 'anonymous' | 'self-hosted' | 'production' | 'preview' | 'none'
+
+export interface DevtoolsDeployment {
+  kind: DevtoolsDeploymentKind
+  /** The `CONVEX_DEPLOYMENT` id, e.g. `dev:brave-fox-123`. */
+  id?: string
+  /** The client URL — public already (it reaches the browser). */
+  url?: string
+  /** The HTTP-actions origin. */
+  siteUrl?: string
+  /** The deployment's dashboard page, for cloud deployments. */
+  dashboardUrl?: string
+}
+
+/** One built-in agent tool: its OAuth scope and whether config left it on. */
+export interface DevtoolsMcpTool {
+  name: string
+  scope: string
+  enabled: boolean
 }
 
 /** The agent (MCP) surface as configured. */
 export interface DevtoolsMcpStatus {
   enabled: boolean
   route?: string
-  /** Built-in tool names surviving `backend.mcp.tools.builtin` config. */
-  builtinTools: string[]
-}
-
-/** `appConfig.backend.billing.plans` entry (display catalog, not billing truth). */
-export interface DevtoolsCatalogPlan {
-  key: string
-  credits?: number
-  blurb?: string
-  features?: string[]
-  highlight?: boolean
-}
-
-/** `appConfig.backend.billing.packs` entry. */
-export interface DevtoolsCatalogPack {
-  key: string
-  credits?: number
-  blurb?: string
-}
-
-/** The `appConfig.backend` content layer the shipped pages render from. */
-export interface DevtoolsAppConfigSnapshot {
-  billing: {
-    plans: DevtoolsCatalogPlan[]
-    packs: DevtoolsCatalogPack[]
-  }
-  brand: {
-    name?: string
-    logo?: string
-  }
+  /** Where the endpoint exchanges an agent's OAuth token for a deployment token. */
+  exchangePath?: string
+  tools: DevtoolsMcpTool[]
+  /** Every scope an agent can be granted. */
+  scopes: string[]
 }
 
 /** Redacted module-options snapshot — wiring flags only, no env values. */
@@ -82,6 +102,8 @@ export interface DevtoolsOptionsSnapshot {
   css: boolean
   /** Dev-deployment env auto-provision (`backend.autoEnv`). */
   autoEnv: boolean
+  /** The organization plugin runs (`backend.workspaces`). */
+  workspaces: boolean
   authRoute: string
   /** Explicit `backend.loginPath` (`null` = resolved from the login page). */
   loginPath: string | null
@@ -93,27 +115,65 @@ export interface DevtoolsOptionsSnapshot {
  * Build-time facts only the dev server knows — everything live (identity,
  * billing, credits, workspace, webhook deliveries) flows through the in-page
  * bridge instead, since that state lives in the inspected app's browser
- * context, not in Node. Findings are re-collected on every `getInfo` call.
+ * context, not in Node. Findings are re-collected on every `getInfo` call and
+ * pushed with `onInfo` when an env file or the codegen changes.
  */
 export interface DevtoolsServerInfo {
   /** Functions dir relative to the app root (e.g. `backend`). */
   functionsDir: string
   options: DevtoolsOptionsSnapshot
+  deployment: DevtoolsDeployment
   pages: DevtoolsPageInfo[]
   findings: DevtoolsPreflightFinding[]
   env: DevtoolsEnvPresence
-  appConfig: DevtoolsAppConfigSnapshot
   mcp: DevtoolsMcpStatus
   /** Installed versions of the packages that matter for a bug report. */
   versions: Record<string, string>
 }
 
+/** One `doctor` run from the panel: the same checks as the CLI, never with `--prod`. */
+export interface DevtoolsDoctorRun {
+  ranAt: number
+  findings: DevtoolsPreflightFinding[]
+  /** Set when the run itself failed. */
+  error?: string
+}
+
+/** The billing catalog as code: declared keys, and where `billing sync` has run. */
+export interface DevtoolsCatalogSummary {
+  /** `missing` without a `billing.catalog.ts`; `error` when it does not load. */
+  status: 'ok' | 'missing' | 'error'
+  error?: string
+  meters: string[]
+  plans: string[]
+  packs: string[]
+  features: string[]
+  /** Environments `billing.generated.ts` has ids for (`sandbox`, `production`). */
+  synced: string[]
+}
+
 /** Called from the panel iframe, executed in the Nuxt dev server. */
 export interface ServerFunctions {
   getInfo(): DevtoolsServerInfo
+  /**
+   * The env names set on a dev deployment (a Convex CLI call, cached for a
+   * minute; `refresh` reads again). Never production: the panel reports
+   * `unavailable` for any other deployment.
+   */
+  getDeploymentEnv(options?: { refresh?: boolean }): Promise<DevtoolsDeploymentEnv>
+  /**
+   * Run `nuxt-backend doctor`'s checks in the dev server against the dev
+   * deployment. One run at a time; a second call joins the running one.
+   */
+  runDoctor(): Promise<DevtoolsDoctorRun>
+  /** Read `billing.catalog.ts` and `billing.generated.ts` afresh. */
+  getCatalog(): Promise<DevtoolsCatalogSummary>
   /** Map a backend source file (`"billing.ts"`) to its path for open-in-editor. */
   resolveBackendSource(file: string): { filepath?: string }
 }
 
-/** None yet — browser state reaches the panel via the bridge, not birpc. */
-export type ClientFunctions = Record<string, never>
+/** Called from the dev server, executed in the panel iframe. */
+export interface ClientFunctions {
+  /** The dev server's facts changed: an env file, the codegen, the deployment env read. */
+  onInfo(info: DevtoolsServerInfo): void
+}

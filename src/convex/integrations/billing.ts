@@ -806,8 +806,8 @@ export type SetupBillingConfig = Omit<PolarConfig, 'getUserInfo' | 'organization
   onUnknownEvent?: (ctx: RunWriteCtx, event: { type?: string, payload: unknown }) => Promise<void>
   /**
    * Record every inbound webhook delivery in the component's capped ring
-   * buffer (powers redelivery dedupe, doctor's "last webhook received", and
-   * the DevTools feed). `false` disables the log — and with it dedupe.
+   * buffer (powers redelivery dedupe and the DevTools Webhooks page).
+   * `false` disables the log — and with it dedupe.
    */
   deliveryLog?: boolean
 }
@@ -2281,9 +2281,9 @@ export function setupBilling(
     },
   })
 
-  // The webhook delivery feed (doctor's "last webhook received", the DevTools
-  // Overview card, the playground's webhook page). Identity-gated: delivery
-  // rows carry event types and provider ids.
+  // The webhook delivery feed (the DevTools Webhooks and Email pages, the
+  // playground's webhook page). Identity-gated: delivery rows carry event
+  // types and provider ids.
   const getWebhookDeliveries = queryGeneric({
     args: { limit: v.optional(v.number()) },
     handler: async (ctx, { limit }) => {

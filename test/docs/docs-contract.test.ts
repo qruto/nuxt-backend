@@ -155,6 +155,28 @@ describe('templates', () => {
   })
 })
 
+describe('DevTools panel', () => {
+  // The panel's pages, read as text from its nav (this project imports
+  // nothing from the app): the DevTools docs page describes each one, and
+  // the homepage drawing of the panel lists the same six.
+  const labels = [...read('devtools-client-app/app/nav.ts').matchAll(/label: '([^']+)'/g)].map(m => m[1]!)
+  const page = read('website/content/5.tooling/2.devtools.md')
+
+  it('reads the pages', () => {
+    expect(labels).toContain('Overview')
+    expect(labels.length).toBeGreaterThan(4)
+  })
+
+  it.each(labels)('`%s` has a section on the DevTools page', (label) => {
+    expect(page).toContain(`\n## ${label}\n`)
+  })
+
+  it('the homepage drawing lists the same pages', () => {
+    const tabs = read('website/components/home/DevX.vue').match(/const TABS = \[([\s\S]*?)\n\]/)?.[1] ?? ''
+    expect([...tabs.matchAll(/label: '([^']+)'/g)].map(m => m[1])).toEqual(labels)
+  })
+})
+
 describe('hand-written pages', () => {
   it('exist', () => {
     expect(handWritten.length).toBeGreaterThan(40)

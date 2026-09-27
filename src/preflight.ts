@@ -28,6 +28,12 @@ export interface PreflightInput {
   siteUrlConfigured: boolean
   /** The agent (MCP) endpoint, when enabled — omit to skip the finding. */
   mcp?: { route: string }
+  /**
+   * Env names known to be set on the deployment (`convex env list`, or a clean
+   * `env push` run). A name set there but not visible here is not a problem:
+   * the value lives where it is used.
+   */
+  deployedNames?: ReadonlySet<string>
 }
 
 const SECRET_PLACEHOLDERS = new Set(['secret', 'changeme', 'change-me', 'your-secret', 'placeholder', 'todo'])
@@ -59,10 +65,11 @@ export const OPTIONAL_DEPLOYMENT_ENV = {
  */
 export const DEV_ONLY_DEPLOYMENT_ENV: ReadonlySet<string> = new Set<keyof typeof OPTIONAL_DEPLOYMENT_ENV>(['AUTH_TRUST_LOCAL_ORIGINS'])
 
-export function collectPreflightFindings({ env, siteUrlConfigured, mcp }: PreflightInput): PreflightFinding[] {
-  const findings: PreflightFinding[] = []
+/** Whether a name is set on the deployment but not visible to this process. */
+type OnDeployment = (name: string) => boolean
 
-  findings.push(siteUrlConfigured
+function backendSiteUrlFinding(siteUrlConfigured: boolean): PreflightFinding {
+  return siteUrlConfigured
     ? {
         id: 'backend-site-url',
         title: 'Backend site URL',
@@ -76,134 +83,109 @@ export function collectPreflightFindings({ env, siteUrlConfigured, mcp }: Prefli
         status: 'warn',
         message: 'No backend site URL configured; the /api/auth proxy has no target.',
         fixHint: 'Set NUXT_PUBLIC_BACKEND_SITE_URL (or backend.siteUrl in nuxt.config) — normally derived for you.',
-      })
+      }
+}
 
-  const secret = env.AUTH_SECRET
+function authSecretFinding(secret: string | undefined, onDeployment: OnDeployment): PreflightFinding {
+  const finding = { id: 'auth-secret', title: 'Auth secret' }
+  if (onDeployment('AUTH_SECRET')) {
+    return { ...finding, status: 'pass', message: 'AUTH_SECRET is set on the deployment (its value is not visible here).', fixHint: '' }
+  }
   if (secret === undefined) {
-    findings.push({
-      id: 'auth-secret',
-      title: 'Auth secret',
+    return {
+      ...finding,
       status: 'warn',
       message: 'AUTH_SECRET is not visible here — it is required on the Convex deployment (a deploy fails without it) and cannot be verified from Nuxt.',
       fixHint: 'On a dev deployment `npx nuxt-backend env push` generates one; otherwise: npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"',
-    })
+    }
   }
-  else if (secret.length < 32 || SECRET_PLACEHOLDERS.has(secret.toLowerCase())) {
-    findings.push({
-      id: 'auth-secret',
-      title: 'Auth secret',
+  if (secret.length < 32 || SECRET_PLACEHOLDERS.has(secret.toLowerCase())) {
+    return {
+      ...finding,
       status: 'fail',
       message: 'AUTH_SECRET is too short or a placeholder — sessions signed with it are guessable.',
       fixHint: 'npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"',
-    })
+    }
   }
-  else {
-    findings.push({
-      id: 'auth-secret',
-      title: 'Auth secret',
-      status: 'pass',
-      message: 'AUTH_SECRET present and strong.',
-      fixHint: '',
-    })
-  }
+  return { ...finding, status: 'pass', message: 'AUTH_SECRET present and strong.', fixHint: '' }
+}
 
-  const siteUrl = env.SITE_URL
-  if (siteUrl !== undefined && !isHttpUrl(siteUrl)) {
-    findings.push({
-      id: 'site-url',
-      title: 'App site URL',
-      status: 'fail',
-      message: `SITE_URL is not a valid http(s) URL: "${siteUrl}" — auth and invitation/gift links use it as the app origin.`,
-      fixHint: 'Set SITE_URL to your app origin, e.g. https://app.example.com',
-    })
+function siteUrlFinding(siteUrl: string | undefined, onDeployment: OnDeployment): PreflightFinding {
+  const finding = { id: 'site-url', title: 'App site URL' }
+  if (onDeployment('SITE_URL')) {
+    return { ...finding, status: 'pass', message: 'SITE_URL is set on the deployment (its value is not visible here).', fixHint: '' }
   }
-  else if (siteUrl === undefined) {
-    findings.push({
-      id: 'site-url',
-      title: 'App site URL',
+  if (siteUrl === undefined) {
+    return {
+      ...finding,
       status: 'warn',
       message: 'SITE_URL is not visible here — it is required on the Convex deployment (invitation and gift emails link to it).',
       fixHint: 'On a dev deployment `npx nuxt-backend env push` sets http://localhost:3000; in production: npx convex env set SITE_URL https://app.example.com',
-    })
+    }
   }
-  else {
-    findings.push({
-      id: 'site-url',
-      title: 'App site URL',
-      status: 'pass',
-      message: 'SITE_URL is a valid URL.',
-      fixHint: '',
-    })
+  if (!isHttpUrl(siteUrl)) {
+    return {
+      ...finding,
+      status: 'fail',
+      message: `SITE_URL is not a valid http(s) URL: "${siteUrl}" — auth and invitation/gift links use it as the app origin.`,
+      fixHint: 'Set SITE_URL to your app origin, e.g. https://app.example.com',
+    }
   }
+  return { ...finding, status: 'pass', message: 'SITE_URL is a valid URL.', fixHint: '' }
+}
 
-  // Optional tier: absence is a designed degradation, not a broken deploy.
-  // One finding per capability gate (transport, webhooks) — the fallback-only
-  // vars (EMAIL_FROM, EMAIL_TEST_MODE, BILLING_ENVIRONMENT) have safe defaults
-  // and produce no finding on their own.
-  findings.push(env.EMAIL_API_KEY
-    ? {
-        id: 'email-transport',
-        title: 'Email transport',
-        status: 'pass',
-        message: 'EMAIL_API_KEY visible — transactional email is on.',
-        fixHint: '',
-      }
-    : {
-        id: 'email-transport',
-        title: 'Email transport',
-        status: 'warn',
-        message: `EMAIL_API_KEY is not set (optional): ${OPTIONAL_DEPLOYMENT_ENV.EMAIL_API_KEY}.`,
-        fixHint: 'Add EMAIL_API_KEY to .env.local and run `npx nuxt-backend env push` (EMAIL_FROM / EMAIL_TEST_MODE have safe defaults).',
-      })
+/**
+ * The optional tier's capability gates: absence is a designed degradation,
+ * not a broken deploy. One finding per gate (transport, webhooks); the
+ * fallback-only vars (EMAIL_FROM, EMAIL_TEST_MODE, BILLING_ENVIRONMENT) have
+ * safe defaults and produce no finding on their own.
+ */
+const OPTIONAL_GATES = [
+  {
+    id: 'email-transport',
+    title: 'Email transport',
+    name: 'EMAIL_API_KEY',
+    on: 'transactional email is on',
+    fixHint: 'Add EMAIL_API_KEY to .env.local and run `npx nuxt-backend env push` (EMAIL_FROM / EMAIL_TEST_MODE have safe defaults).',
+  },
+  {
+    id: 'email-webhook-secret',
+    title: 'Email webhooks',
+    name: 'EMAIL_WEBHOOK_SECRET',
+    on: 'delivery events verify',
+    fixHint: 'Create the provider webhook for /email/events, then add EMAIL_WEBHOOK_SECRET to .env.local and `npx nuxt-backend env push`.',
+  },
+  {
+    id: 'billing-access',
+    title: 'Billing access',
+    name: 'BILLING_ACCESS_TOKEN',
+    on: 'billing is on',
+    fixHint: 'Add BILLING_ACCESS_TOKEN to .env.local and run `npx nuxt-backend env push` (BILLING_ENVIRONMENT defaults to sandbox).',
+  },
+  {
+    id: 'billing-webhook-secret',
+    title: 'Billing webhooks',
+    name: 'BILLING_WEBHOOK_SECRET',
+    on: 'billing events verify',
+    fixHint: 'Create the provider webhook for /billing/events, then add BILLING_WEBHOOK_SECRET to .env.local and `npx nuxt-backend env push`.',
+  },
+] as const satisfies ReadonlyArray<{ id: string, title: string, name: keyof typeof OPTIONAL_DEPLOYMENT_ENV, on: string, fixHint: string }>
 
-  findings.push(env.EMAIL_WEBHOOK_SECRET
-    ? {
-        id: 'email-webhook-secret',
-        title: 'Email webhooks',
-        status: 'pass',
-        message: 'EMAIL_WEBHOOK_SECRET visible — delivery events verify.',
-        fixHint: '',
-      }
-    : {
-        id: 'email-webhook-secret',
-        title: 'Email webhooks',
-        status: 'warn',
-        message: `EMAIL_WEBHOOK_SECRET is not set (optional): ${OPTIONAL_DEPLOYMENT_ENV.EMAIL_WEBHOOK_SECRET}.`,
-        fixHint: 'Create the provider webhook for /email/events, then add EMAIL_WEBHOOK_SECRET to .env.local and `npx nuxt-backend env push`.',
-      })
+function optionalGateFinding(gate: (typeof OPTIONAL_GATES)[number], env: PreflightInput['env'], onDeployment: OnDeployment): PreflightFinding {
+  const where = env[gate.name] ? 'visible' : onDeployment(gate.name) ? 'set on the deployment' : null
+  return where
+    ? { id: gate.id, title: gate.title, status: 'pass', message: `${gate.name} ${where} — ${gate.on}.`, fixHint: '' }
+    : { id: gate.id, title: gate.title, status: 'warn', message: `${gate.name} is not set (optional): ${OPTIONAL_DEPLOYMENT_ENV[gate.name]}.`, fixHint: gate.fixHint }
+}
 
-  findings.push(env.BILLING_ACCESS_TOKEN
-    ? {
-        id: 'billing-access',
-        title: 'Billing access',
-        status: 'pass',
-        message: 'BILLING_ACCESS_TOKEN visible — billing is on.',
-        fixHint: '',
-      }
-    : {
-        id: 'billing-access',
-        title: 'Billing access',
-        status: 'warn',
-        message: `BILLING_ACCESS_TOKEN is not set (optional): ${OPTIONAL_DEPLOYMENT_ENV.BILLING_ACCESS_TOKEN}.`,
-        fixHint: 'Add BILLING_ACCESS_TOKEN to .env.local and run `npx nuxt-backend env push` (BILLING_ENVIRONMENT defaults to sandbox).',
-      })
-
-  findings.push(env.BILLING_WEBHOOK_SECRET
-    ? {
-        id: 'billing-webhook-secret',
-        title: 'Billing webhooks',
-        status: 'pass',
-        message: 'BILLING_WEBHOOK_SECRET visible — billing events verify.',
-        fixHint: '',
-      }
-    : {
-        id: 'billing-webhook-secret',
-        title: 'Billing webhooks',
-        status: 'warn',
-        message: `BILLING_WEBHOOK_SECRET is not set (optional): ${OPTIONAL_DEPLOYMENT_ENV.BILLING_WEBHOOK_SECRET}.`,
-        fixHint: 'Create the provider webhook for /billing/events, then add BILLING_WEBHOOK_SECRET to .env.local and `npx nuxt-backend env push`.',
-      })
-
+export function collectPreflightFindings({ env, siteUrlConfigured, mcp, deployedNames }: PreflightInput): PreflightFinding[] {
+  const onDeployment: OnDeployment = name => env[name] === undefined && deployedNames?.has(name) === true
+  const findings: PreflightFinding[] = [
+    backendSiteUrlFinding(siteUrlConfigured),
+    authSecretFinding(env.AUTH_SECRET, onDeployment),
+    siteUrlFinding(env.SITE_URL, onDeployment),
+    ...OPTIONAL_GATES.map(gate => optionalGateFinding(gate, env, onDeployment)),
+  ]
   // Skipped entirely when the agent surface is disabled (`backend.mcp: false`)
   // — a finding about a removed endpoint would be noise.
   if (mcp) {
@@ -215,7 +197,6 @@ export function collectPreflightFindings({ env, siteUrlConfigured, mcp }: Prefli
       fixHint: '',
     })
   }
-
   return findings
 }
 

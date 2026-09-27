@@ -145,7 +145,7 @@ An OAuth-protected `/mcp` endpoint (Better Auth's OIDC provider + `@nuxtjs/mcp-t
 
 ### Nuxt DevTools
 
-A **Backend** tab in Nuxt DevTools: the deployment you're talking to, the env contract's status, the scaffolded files, and the routes — with jump-to-source for your backend functions.
+A **Backend** tab in Nuxt DevTools, six pages: the deployment you're talking to and every env name set here and on it, live checks with a copyable fix and `doctor` on demand, the signed-in account with its workspace, sessions and passkeys, the subscription, credits and catalog sync, email transport and delivery status, the webhook delivery log, and the agent endpoint. File buttons open your backend functions in the editor.
 
 ### Aliases
 

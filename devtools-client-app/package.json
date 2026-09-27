@@ -3,7 +3,7 @@
   "name": "nuxt-backend-devtools-client",
   "type": "module",
   "scripts": {
-    "dev": "nuxt dev --port 3631",
+    "dev": "nuxt dev",
     "generate": "nuxt generate"
   },
   "devDependencies": {

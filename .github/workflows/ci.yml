@@ -138,6 +138,14 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm run typecheck:convex
 
+      # The DevTools panel ships inside the package (dist/devtools-client) and
+      # imports the module's RPC and bridge types directly, so a change on
+      # either side is checked against the other. `nuxt typecheck` prepares
+      # the panel's own .nuxt first.
+      - name: Type check (DevTools panel)
+        if: ${{ !cancelled() }}
+        run: pnpm run typecheck:devtools-client
+
       # Conventional Commits, on pull requests only. The local commit-msg hook
       # is faster, but `--no-verify` skips it, so this is the check that holds.
       # Pushes to main are skipped: those commits were checked on their PR.
