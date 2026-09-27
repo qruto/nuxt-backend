@@ -54,17 +54,26 @@ SaaS pages use redirect checkout (`billing.checkout(id, { redirect: true })`) �
 6. **Change email** (profile) → confirm link to OLD address, verify link to NEW address → updated + verified. Covers `changeEmail` + `verify` templates.
 7. **Security page** → sessions list (current marked), passkey list/add/rename/remove.
 8. **Email outcomes** (platform/email) → bounced flips status; **complained is a flag on top of `delivered`** (shown as a warn pill), events may arrive out of order.
-9. **Cancel** → `cancelAtPeriodEnd` warning. **Delete account** → confirmation link → user row gone (`npx convex data user --component auth`).
+9. **Cancel** → `cancelAtPeriodEnd` warning. **Delete account** → confirmation link → user row gone (`npx convex data user --component backend`).
 10. **Workspaces** (settings) → create auto-activates → billing shows Free/0 for the new workspace; switch back → plan/credits return. Billing entity = active workspace (`billTo: 'organization'`).
 
 ## Inspecting component state
 
 ```sh
 npx convex data <table> --component polar            # customers, products, subscriptions
-npx convex data <table> --component auth             # user, organization, session, passkey, ...
-npx convex data <table> --component billing          # billingEntitlements (entitlement cache)
-npx convex data <table> --component email/resend     # emails, deliveryEvents
+npx convex data <table> --component backend          # auth tables (user, organization, session, passkey, ...), billing entitlements, gifts
+npx convex data <table> --component backend/resend   # emails, deliveryEvents
 ```
+
+## Production (nuxt-backend.dev)
+
+The live playground runs on the production deployment `determined-horse-300`, deployed by Vercel's production build (`website/vercel-build.sh`). A pass there differs from a dev pass:
+
+- Every `npx convex …` needs the production deploy key, **prefixed per command** (`CONVEX_DEPLOY_KEY=… npx convex …`) — never exported into the shell you test from. Check it first: `echo "${CONVEX_DEPLOY_KEY%%|*}"` prints `prod:determined-horse-300`.
+- **Never run `pnpm db:reset` or `db:seed` against it.** They drop the key and refuse one kept in `.env.local`, so they always reach the dev deployment — keep it that way.
+- Test through `https://nuxt-backend.dev`; the OTP trick below works unchanged with a unique `delivered+<label>@resend.dev` address.
+- Admin checks need `functions:setUserRole` run against production with the key.
+- `pnpm cli doctor --prod` (after `pnpm build`) checks production: env names, the function contract, and the webhook routes on the deployment's own site URL.
 
 ## Known limitations & gotchas
 
