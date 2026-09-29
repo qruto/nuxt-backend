@@ -32,6 +32,17 @@ The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR
 
 ## Quick start
 
+Starting a new app? Create it from the starter template, then skip to step 3 (`npm run dev:convex` is its `npx convex dev`):
+
+```bash
+pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/templates/starter
+npm create nuxt@latest my-app -- -t gh:qruto/nuxt-backend/templates/starter
+```
+
+> Until `0.2.0` is published, the template's `nuxt-backend: latest` installs `0.1.0`, a throwaway test publish. Install a [preview build](https://nuxt-backend.dev/getting-started/templates#preview-builds-pkgprnew) over it in the meantime.
+
+Adding it to an existing app:
+
 ### 1. Install
 
 ```bash
@@ -169,7 +180,7 @@ Everything is on [nuxt-backend.dev](https://nuxt-backend.dev) — the site (docs
 
 | Section | What's inside |
 |---|---|
-| [Getting Started](https://nuxt-backend.dev/getting-started/introduction) | Introduction, quickstart, installation, configuration, architecture, examples |
+| [Getting Started](https://nuxt-backend.dev/getting-started/introduction) | Introduction, quickstart, installation, configuration, architecture, templates & examples |
 | [Client Guide](https://nuxt-backend.dev/guide/authentication) | Auth, queries & mutations, server & SSR, file storage, aliases, customization |
 | [Platform](https://nuxt-backend.dev/platform/overview) | Auth, workspaces, authorization, billing & credits, AI, email, webhooks, workflows, rate limiting, migrations, aggregates, search |
 | [Agents](https://nuxt-backend.dev/agents/mcp-server) | The OAuth-protected MCP endpoint, built-in and custom tools, consent, connecting a client |
@@ -177,9 +188,11 @@ Everything is on [nuxt-backend.dev](https://nuxt-backend.dev) — the site (docs
 | [Developer Experience](https://nuxt-backend.dev/tooling/cli) | CLI, DevTools, testing, local installation |
 | [Production](https://nuxt-backend.dev/production/deployment) | Deployment, launch checklist, security, troubleshooting |
 
-## Examples
+## Templates & examples
 
-- [`examples/minimal`](./examples/minimal) — the exact `nuxt-backend init` scaffold, zero custom backend code: passwordless auth, workspace invitations, billing, credits, and gifts out of the box
+Each one is created with `create nuxt` (`pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/<path>`) and runs against a Convex deployment of your own — see [Templates & Examples](https://nuxt-backend.dev/getting-started/templates).
+
+- [`templates/starter`](./templates/starter) — the app to build on: the exact `nuxt-backend init` scaffold, zero custom backend code: passwordless auth, workspace invitations, billing, credits, and gifts out of the box
 - [`examples/advanced`](./examples/advanced) — every customization point in one app: local component install, custom email templates, custom webhook paths and hooks, a customized `convex.config.ts` (extra env, an unmounted component), and a custom invitation accept page
 
 ## Contributing

@@ -1,0 +1,36 @@
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node dependencies
+node_modules
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+.fleet
+.idea
+
+# Local env files: `convex dev` writes CONVEX_DEPLOYMENT to .env.local
+.env
+.env.*
+!.env.example
+
+# Convex: the local deployment's state, and the codegen `convex dev` writes
+# against the installed package
+.convex
+backend/_generated
+
+# A lockfile pins one package manager's tree; the template installs with any
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+bun.lockb

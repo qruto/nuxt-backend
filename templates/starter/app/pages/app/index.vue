@@ -13,10 +13,11 @@ const inviteEmail = ref('')
 const giftEmail = ref('')
 const notice = ref('')
 
-// Product keys come from setupBilling's `products` map — unconfigured, the
-// billing panels just show their empty states.
+// Product keys are the plan and pack keys in backend/billing.catalog.ts. Until
+// you fill the catalog and run `npx nuxt-backend billing sync`, the billing
+// panels show their empty states.
 const planId = computed(() => billing.products.value?.pro?.id)
-const packId = computed(() => billing.products.value?.credits100?.id)
+const packId = computed(() => billing.products.value?.credits500?.id)
 
 async function addWorkspace() {
   const name = workspaceName.value.trim()
@@ -54,7 +55,7 @@ async function logout() {
 <template>
   <main>
     <nav>
-      <strong>Minimal example</strong>
+      <strong>Your app</strong>
       <span class="spacer" />
       <span class="muted">{{ user?.email }}</span>
       <button @click="logout">
@@ -134,12 +135,12 @@ async function logout() {
           Manage billing
         </button>
       </div>
-      <!-- FeatureBoundary gates on a granted benefit (metadata key 'premium'). -->
-      <FeatureBoundary feature="premium">
-        <p>✨ Premium features unlocked.</p>
+      <!-- FeatureBoundary gates on a feature key from billing.catalog.ts. -->
+      <FeatureBoundary feature="priority_support">
+        <p>Priority support is on.</p>
         <template #fallback>
           <p class="muted">
-            Premium features are locked — upgrade to unlock.
+            Priority support comes with Pro.
           </p>
         </template>
       </FeatureBoundary>
@@ -156,7 +157,7 @@ async function logout() {
           v-if="packId"
           @click="credits.topUp(packId)"
         >
-          Buy 100 credits
+          Buy 500 credits
         </button>
         <button @click="credits.refresh()">
           Refresh
@@ -175,7 +176,7 @@ async function logout() {
           type="submit"
           :disabled="!packId"
         >
-          Gift 100 credits
+          Gift 500 credits
         </button>
       </form>
     </section>

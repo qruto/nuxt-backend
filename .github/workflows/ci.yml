@@ -86,6 +86,7 @@ jobs:
               - 'test/**'
               - 'scripts/**'
               - 'examples/**'
+              - 'templates/**'
               - 'vitest.config.ts'
               - 'build.config.ts'
 
@@ -406,8 +407,8 @@ jobs:
 
   # Checks the package a consumer would actually get. Builds the real tarball
   # (`pnpm pack` rewrites `catalog:` ranges exactly like `pnpm publish` does),
-  # checks its shape, then installs it into the examples with plain npm and,
-  # once more, with strict pnpm. That last part — a registry-style install,
+  # checks its shape, then installs it into the template and the examples with
+  # plain npm and pnpm, and once more into a blank app with strict pnpm. That last part — a registry-style install,
   # lifecycle scripts, engines, an isolated node_modules — is what no other job
   # here exercises.
   pack:
@@ -454,21 +455,21 @@ jobs:
       # about this package — a bare `npm install` of the example hits it too.
       # Pinning also keeps this job reproducible when the runner image moves.
       #
-      # The examples are standalone apps of the published package
-      # (`nuxt-backend: latest`); installing the tarball over that dependency
-      # is exactly what a user who clones one and installs gets, minus the
-      # registry.
+      # The template and the examples are standalone apps of the published
+      # package (`nuxt-backend: latest`); installing the tarball over that
+      # dependency is exactly what a user who creates one with `create nuxt`
+      # gets, minus the registry.
       - name: Consumer smoke test (npm install + build)
         if: ${{ !cancelled() }}
         env:
           NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
         run: | # zizmor: ignore[adhoc-packages]
           TARBALL="$PWD/$(ls nuxt-backend-*.tgz)"
-          for example in minimal advanced; do
-            SMOKE="$RUNNER_TEMP/smoke-$example"
-            cp -R "examples/$example" "$SMOKE"
+          for app in templates/starter examples/advanced; do
+            SMOKE="$RUNNER_TEMP/smoke-$(basename "$app")"
+            cp -R "$app" "$SMOKE"
             rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output" "$SMOKE/backend/_generated"
-            echo "::group::examples/$example"
+            echo "::group::$app"
             (cd "$SMOKE" && npx --yes npm@11.17.0 install --no-audit --no-fund "$TARBALL" && npx --yes npm@11.17.0 run build)
             echo "::endgroup::"
           done
@@ -487,7 +488,7 @@ jobs:
       # gates on.
       - name: Consumer codegen (Convex component from the tarball)
         if: ${{ !cancelled() }}
-        working-directory: ${{ runner.temp }}/smoke-minimal
+        working-directory: ${{ runner.temp }}/smoke-starter
         env:
           CONVEX_AGENT_MODE: anonymous
         run: |
@@ -512,7 +513,7 @@ jobs:
       # product is its types.
       - name: Consumer type check (built package)
         if: ${{ !cancelled() }}
-        run: pnpm run check:consumer-types "$RUNNER_TEMP/smoke-minimal"
+        run: pnpm run check:consumer-types "$RUNNER_TEMP/smoke-starter"
 
       # Checks the registry signature and provenance of every dependency the
       # install above pulled in. pnpm's `trustPolicy: no-downgrade` refuses a
@@ -521,9 +522,39 @@ jobs:
       - name: Verify dependency signatures
         if: ${{ !cancelled() }}
         run: | # zizmor: ignore[adhoc-packages]
-          for example in minimal advanced; do
-            (cd "$RUNNER_TEMP/smoke-$example" && npx --yes npm@11.17.0 audit signatures)
+          for app in starter advanced; do
+            (cd "$RUNNER_TEMP/smoke-$app" && npx --yes npm@11.17.0 audit signatures)
           done
+
+      # The template and the examples under pnpm's defaults, with only what each
+      # one carries: its `.pnpmfile.mjs` approves the esbuild build script
+      # (pnpm 11 stops the first install until every build script is approved)
+      # and hoists `@convex-dev/*` so Convex's bundler reaches the component
+      # definitions the scaffold imports. A template can't ship a
+      # pnpm-workspace.yaml (`create nuxt` treats one that has it as
+      # pnpm-only), so the codegen assertion below is what proves the hook
+      # works. No lockfile, as above; the release age is zeroed for the same
+      # reason the strict-pnpm step below zeroes it.
+      - name: Consumer smoke test (pnpm, templates)
+        if: ${{ !cancelled() }}
+        env:
+          CONVEX_AGENT_MODE: anonymous
+          pnpm_config_minimum_release_age: '0'
+        run: | # zizmor: ignore[adhoc-packages]
+          TARBALL="$PWD/$(ls nuxt-backend-*.tgz)"
+          for app in templates/starter examples/advanced; do
+            SMOKE="$RUNNER_TEMP/smoke-pnpm-$(basename "$app")"
+            cp -R "$app" "$SMOKE"
+            rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output" "$SMOKE/backend/_generated"
+            echo "::group::$app"
+            (cd "$SMOKE" && pnpm add "$TARBALL")
+            echo "::endgroup::"
+          done
+          cd "$RUNNER_TEMP/smoke-pnpm-starter"
+          pnpm exec convex dev --once --typecheck disable || echo "convex dev --once exited $? (expected: the push needs env vars this deployment does not have)"
+          if ! grep -q 'nuxt-backend/component/_generated/component' backend/_generated/api.d.ts; then
+            echo "::error::under pnpm the template's .pnpmfile.mjs did not make the component definitions resolvable"; exit 1
+          fi
 
       # The same consumer path under pnpm's default isolated linker, which
       # hides everything a package does not declare — the one layout the

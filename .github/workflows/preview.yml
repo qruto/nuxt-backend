@@ -4,7 +4,7 @@ name: Preview
 # push to main gets an installable build —
 #   npm i https://pkg.pr.new/qruto/nuxt-backend@<sha>
 # — and a runnable one, as a StackBlitz playground built from
-# `examples/minimal` with that same build wired in, so a change can be tried
+# `templates/starter` with that same build wired in, so a change can be tried
 # in a real Nuxt app straight from the PR comment.
 # Auth is handled by the pkg.pr.new GitHub App installed on the repository;
 # the workflow token needs no extra permissions.
@@ -55,7 +55,7 @@ jobs:
         with:
           prepare: lib
 
-      # The template is uploaded as-is: examples/minimal is a standalone app of
+      # The template is uploaded as-is: templates/starter is a standalone app of
       # the published package (`nuxt-backend: latest`, no workspace or catalog
       # ranges, no lockfile), and pkg.pr.new rewrites that one dependency to
       # the preview URL. Its own .gitignore is the upload filter.
@@ -72,14 +72,14 @@ jobs:
       # "default" template when an explicit one is given, and that default is an
       # empty index.js beside a package.json whose sole dependency is the
       # tarball — no nuxt, no vue, no convex — so the "Open in StackBlitz" link
-      # opened something that could not run. `examples/minimal` replaces it
-      # with a real app. The path is explicit rather than './examples/*' so a
-      # new example cannot start appearing in public PR comments before it is
-      # ready.
+      # opened something that could not run. `templates/starter` replaces it
+      # with a real app. The path is explicit rather than a glob so a new
+      # template or example cannot start appearing in public PR comments before
+      # it is ready.
       #
       # Note this step runs on pull_request, forks included: what the template
       # contains, and the name it is linked under, are PR-authored. Sandboxed
-      # and plainly a PR artifact, but `examples/minimal` is review surface in
+      # and plainly a PR artifact, but `templates/starter` is review surface in
       # fork PRs the way workflow files already are.
       - name: Publish preview
-        run: pnpm exec pkg-pr-new publish --pnpm --comment=update --template './examples/minimal'
+        run: pnpm exec pkg-pr-new publish --pnpm --comment=update --template './templates/starter'

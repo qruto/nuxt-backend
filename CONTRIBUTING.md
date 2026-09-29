@@ -117,29 +117,33 @@ directory to get the dev server back.
 ```
 src/                  # Module source (Nuxt module + Convex component)
 devtools-client-app/  # Nuxt DevTools panel app (served in the DevTools iframe)
+templates/            # `create nuxt` templates: standalone apps of the published package
 examples/             # Standalone apps of the published package — outside the pnpm workspace
 test/                 # Vitest unit, Convex component, Nuxt and end-to-end tests
 website/              # Nuxt app: product homepage · docs (Docus) · interactive playground
 ```
 
-`examples/` are **standalone apps of the published package**, deliberately outside the pnpm
-workspace (`pnpm-workspace.yaml` excludes them): each depends on `nuxt-backend: latest` and
-on plain version ranges — no `workspace:*`, no `catalog:` — so cloning one and running
-`npm install` is exactly what a user gets. They stay linted, but are excluded from the root
-tsconfig and from fallow (they resolve against the *published* package, not `src/`). Both have
-a job beyond being documentation:
+`templates/` and `examples/` are **standalone apps of the published package**, deliberately
+outside the pnpm workspace (`pnpm-workspace.yaml` excludes them): each depends on
+`nuxt-backend: latest` and on plain version ranges — no `workspace:*`, no `catalog:` — so
+`pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/<path>` is exactly what a user gets.
+They stay linted, but are excluded from the root tsconfig and from fallow (they resolve against
+the *published* package, not `src/`). Each has a job beyond being documentation:
 
-- **[`examples/minimal/`](./examples/minimal)** — the smallest thing that works. Its `backend/`
-  is byte-identical to what `npx nuxt-backend init` scaffolds (a unit test enforces it), and it
-  is the app behind the **Open in StackBlitz** link on every pull request: `preview.yml` hands
-  it to pkg.pr.new as `--template` with the PR's package build wired in.
+- **[`templates/starter/`](./templates/starter)** — the app to build on. Its `backend/` is
+  byte-identical to what `npx nuxt-backend init` scaffolds (a unit test enforces it), the e2e
+  suites build it against a stub deployment, and it is the app behind the **Open in StackBlitz**
+  link on every pull request: `preview.yml` hands it to pkg.pr.new as `--template` with the
+  PR's package build wired in.
 - **[`examples/advanced/`](./examples/advanced)** — every customization seam at once (local
   component install, custom pages, overridden auth).
 
-The `pack` CI job copies both, installs the packed tarball over the `latest` dependency with
-plain `npm` and builds: the only place a registry-shaped install (lifecycle scripts, engines,
-export maps) is exercised at all. Keep them self-contained — no import that only resolves from
-the repository root, no undeclared dependency, no committed lockfile.
+The `pack` CI job copies both and installs the packed tarball over the `latest` dependency
+twice: with plain `npm`, then builds, and with pnpm, which proves each app's `.pnpmfile.mjs`
+(the only pnpm setting a template can carry: a `pnpm-workspace.yaml` makes `create nuxt`
+treat it as pnpm-only). That is the only place a registry-shaped install (lifecycle scripts,
+engines, export maps) is exercised at all. Keep them self-contained — no import that only
+resolves from the repository root, no undeclared dependency, no committed lockfile.
 
 ## Submitting Changes
 

@@ -1,7 +1,7 @@
 # Advanced example
 
 Every [`nuxt-backend`](../../README.md) customization point, exercised in one
-app. Start from [`examples/minimal`](../minimal/README.md) to see the
+app. Start from [`templates/starter`](../../templates/starter/README.md) to see the
 zero-config defaults; each file here changes exactly one thing from them.
 
 ## The customization map
@@ -22,15 +22,15 @@ zero-config defaults; each file here changes exactly one thing from them.
 
 ## Run it
 
-Same flow as the minimal example (see its README for the env list), plus:
-the local component imports `@convex-dev/resend` directly, which is why it is
-a direct dependency in `package.json`.
+Same flow as the starter (see its README for the env list), plus: the local
+component imports `@convex-dev/better-auth` and `@convex-dev/resend` directly,
+which is why both are direct dependencies in `package.json`.
 
 ```bash
-npx nuxi init -t gh:qruto/nuxt-backend/examples/advanced my-app   # or clone this directory
+pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/examples/advanced
+# or: npm create nuxt@latest my-app -- -t gh:qruto/nuxt-backend/examples/advanced
 cd my-app
-npm install
 cp .env.example .env.local
-npx convex dev        # terminal 1
+npm run dev:convex    # terminal 1
 npm run dev           # terminal 2
 ```

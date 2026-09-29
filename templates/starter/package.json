@@ -1,16 +1,19 @@
 {
-  "name": "example-minimal",
-  "private": true,
+  "name": "nuxt-backend-starter",
   "type": "module",
+  "private": true,
   "scripts": {
+    "build": "nuxt build",
     "dev": "nuxt dev",
     "dev:convex": "convex dev",
-    "build": "nuxt build",
+    "preview": "nuxt preview",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
     "convex": "^1.46.0",
     "nuxt": "^4.5.2",
-    "nuxt-backend": "latest"
+    "nuxt-backend": "latest",
+    "vue": "^3.5.42",
+    "vue-router": "^5.3.1"
   }
 }

@@ -105,27 +105,30 @@ reviews:
         (`pnpm templates:generate`; CI fails on drift), so a missing function
         is a generator problem, not a template edit.
 
-    - path: 'examples/**'
+    - path: '{templates,examples}/**'
       instructions: >-
         Standalone apps of the published package, deliberately outside the
         pnpm workspace: they depend on `nuxt-backend: latest` and plain
         version ranges — no `workspace:*`, `catalog:` or `link:` — so
-        `npx nuxi init -t gh:qruto/nuxt-backend/examples/minimal` followed by
-        `npm install` is exactly what a user gets. They are linted but sit
-        outside the root tsconfig and fallow. Two jobs beyond documentation:
-        the `pack` CI job copies both, installs the packed tarball over
-        `latest` with plain npm and builds — the only registry-shaped install
-        in the pipeline — and `examples/minimal` is the StackBlitz template
-        pkg.pr.new ships for every pull request. Flag anything that breaks a
-        cold install: an import that only resolves from the repository root,
-        a dependency the example does not declare, a committed lockfile.
-        Both `backend/` directories are parity-tested
-        (test/unit/local-install-parity.test.ts): `examples/minimal/backend`
-        is byte-identical to what `nuxt-backend init` scaffolds, and
-        `examples/advanced` matches the local-install templates except its
-        marked customizations — so an edit there is really an edit to
-        `src/templates.ts`, and a change to one half without the other fails
-        CI.
+        `pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/templates/starter`
+        is exactly what a user gets. They are linted but sit outside the root
+        tsconfig and fallow. Jobs beyond documentation: the `pack` CI job
+        copies `templates/starter` and `examples/advanced`, installs the
+        packed tarball over `latest` with plain npm (then builds) and with
+        pnpm — the only registry-shaped installs in the pipeline — and
+        `templates/starter` is the StackBlitz template pkg.pr.new ships for
+        every pull request and the app the e2e suites build. Each app's
+        `.pnpmfile.mjs` is the only pnpm setting it may carry (a
+        pnpm-workspace.yaml makes `create nuxt` treat a template as
+        pnpm-only). Flag anything that breaks a cold install: an import that
+        only resolves from the repository root, a dependency the app does not
+        declare, a committed lockfile. Both `backend/` directories are
+        parity-tested (test/unit/local-install-parity.test.ts):
+        `templates/starter/backend` is byte-identical to what
+        `nuxt-backend init` scaffolds, and `examples/advanced` matches the
+        local-install templates except its marked customizations — so an edit
+        there is really an edit to `src/templates.ts`, and a change to one
+        half without the other fails CI.
 
     - path: 'website/backend/**'
       instructions: >-

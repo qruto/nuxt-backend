@@ -362,7 +362,7 @@ the June test publish satisfies that, so nothing has to be published by hand.
 
 2. **Install the [pkg.pr.new GitHub App](https://github.com/apps/pkg-pr-new)** so the `preview`
    workflow can publish per-commit builds (`npm i https://pkg.pr.new/qruto/nuxt-backend@<sha>`).
-   That same step ships `examples/minimal` as a StackBlitz template via `--template`, which is
+   That same step ships `templates/starter` as a StackBlitz template via `--template`, which is
    what the **Open in StackBlitz** link in each PR comment opens. Without the flag pkg.pr.new
    quietly substitutes a generated template that can't run — see the comment in `preview.yml`.
 
@@ -383,7 +383,9 @@ the June test publish satisfies that, so nothing has to be published by hand.
   rather than redirecting to `/playground/offline` (it needs `CONVEX_DEPLOY_KEY` in the Vercel production
   environment; the build injects `NUXT_PUBLIC_BACKEND_URL` — see website/README.md).
 - **Deprecate the test publish.** `npm deprecate nuxt-backend@0.1.0 "Test publish — use >=0.2.0"`
-  (see *Version numbers* above), then close the issues the release fixes.
+  (see *Version numbers* above), then close the issues the release fixes. Only after the 0.2.0
+  publish: the templates depend on `nuxt-backend: latest`, and until then `latest` is 0.1.0.
+  Then drop the pre-release note from the [templates page](./website/content/1.getting-started/6.templates.md).
 - **Registry.** The package is listed on [nuxt.com/modules](https://nuxt.com/modules) through
   [nuxt/modules](https://github.com/nuxt/modules): `modules/backend.yml` there, kept in sync weekly
   from this repository's `package.json` and the published `dist/module.json` (its `docs` field is
@@ -394,4 +396,8 @@ the June test publish satisfies that, so nothing has to be published by hand.
 - **Smoke from the registry, not the tarball.** `npx nuxi@latest init smoke`, `npx nuxi module add
   nuxt-backend`, `npx nuxt-backend init`, `npx convex dev --once` against an anonymous local
   deployment, `npm run build`, `npx nuxt-backend doctor` — under npm, and once more under strict
-  pnpm with the `publicHoistPattern` the installation docs give.
+  pnpm with the `publicHoistPattern` the installation docs give. Then the template path:
+  `pnpm create nuxt@latest smoke-template -t gh:qruto/nuxt-backend/templates/starter` and
+  `npm create nuxt@latest smoke-template-npm -- -t gh:qruto/nuxt-backend/templates/starter`, then
+  `pnpm exec convex dev --once` and `pnpm build` in the first, `npx convex dev --once` and
+  `npm run build` in the second.

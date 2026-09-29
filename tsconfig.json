@@ -24,6 +24,7 @@
     "devtools-client-app",
     "src/convex",
     "examples",
+    "templates",
     // The type tests have their own program (test/types/tsconfig.json): it
     // maps `nuxt-backend/*` to the sources, which reach into `src/convex` —
     // the world this config excludes and `tsconfig.convex.json` owns.

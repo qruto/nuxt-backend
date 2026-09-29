@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
-// Verbatim copy of examples/minimal/backend, present so the scaffolder finds
+// Verbatim copy of templates/starter/backend, present so the scaffolder finds
 // every default file in place. Never built or typechecked (no codegen here).
 import { registerBackendRoutes } from 'nuxt-backend/http'
 import { httpRouter } from 'convex/server'

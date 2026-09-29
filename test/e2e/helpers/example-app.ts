@@ -39,9 +39,10 @@ function linkLocalPackage(rootDir: string): () => void {
  *
  * - `node_modules/nuxt-backend`, a symlink to this checkout (see
  *   {@link linkLocalPackage}).
- * - `.nuxt/tsconfig.json` (via `nuxt prepare`, ~1s): the example's
- *   `tsconfig.json` extends it, and Vite refuses to transform `.vue` files
- *   when the extended file is missing. Skipped when it already exists — and
+ * - `.nuxt/tsconfig*.json` (via `nuxt prepare`, ~1s): the app's
+ *   `tsconfig.json` extends or references them, and Vite refuses to transform
+ *   `.vue` files when one is missing. Skipped when `.nuxt/tsconfig.json`
+ *   (written by every `nuxt prepare`) already exists — and
  *   left in place afterwards; `.nuxt` is the standard, gitignored artifact.
  * - `<functionsDir>/_generated` (via the Convex CLI's local codegen): the
  *   module aliases `#backend/api` to it, so the bundle needs the module even

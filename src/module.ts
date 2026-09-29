@@ -198,6 +198,15 @@ export default defineNuxtModule<ModuleOptions>({
           // docs promise; a user's `convex.security: false` still wins over
           // this default.
           security: true,
+          // The base module rewrites a plain `nuxt dev` script to
+          // `convex dev --start 'nuxt dev'` on `nuxt dev` and `nuxt prepare`.
+          // Here that command never starts Nuxt on a new deployment: the
+          // scaffold's `backendEnv` requires AUTH_SECRET and SITE_URL, the
+          // first push fails without them, Convex only starts the child after a
+          // successful push, and the values come from this module's env
+          // auto-provisioning, which runs inside Nuxt. So the scripts stay the
+          // app's own; a user's `convex.devScript: true` still wins.
+          devScript: false,
         },
         overrides: {
           // Better Auth with this package's passwordless client (OTP +
