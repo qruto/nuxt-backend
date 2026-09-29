@@ -194,7 +194,7 @@ export interface SetupEmailOptions {
   onUnknownEvent?: (ctx: AnyActionCtx, event: { type?: string, payload: unknown }) => Promise<void>
   /**
    * Record inbound webhook deliveries in the component's capped ring buffer
-   * (dedupe + doctor + DevTools feed). `false` disables the log and dedupe.
+   * (dedupe + the DevTools Webhooks page). `false` disables the log and dedupe.
    */
   deliveryLog?: boolean
 }

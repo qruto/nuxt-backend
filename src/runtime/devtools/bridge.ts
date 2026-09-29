@@ -1,4 +1,4 @@
-import type { BackendDevtoolsBridgeHost, BackendDevtoolsSnapshot } from './types'
+import type { BackendDevtoolsBridgeHost, BackendDevtoolsSnapshot, DevtoolsBridgeRequests } from './types'
 
 /**
  * Create the in-page bridge the DevTools panel reads. Unlike the base
@@ -8,15 +8,17 @@ import type { BackendDevtoolsBridgeHost, BackendDevtoolsSnapshot } from './types
  * one `snapshot` event per microtask no matter how many sections change in
  * a reactive flush.
  */
-export function createBackendDevtoolsBridge(): BackendDevtoolsBridgeHost {
+export function createBackendDevtoolsBridge(requests: Partial<DevtoolsBridgeRequests> = {}): BackendDevtoolsBridgeHost {
   let snapshot: BackendDevtoolsSnapshot = {
     identity: { available: false },
-    billing: { isLoading: true },
-    features: { isLoading: true, keys: [] },
+    billing: { isLoading: true, cancelAtPeriodEnd: false, isPaused: false },
+    entitlements: { isLoading: true, features: [], plans: [] },
     credits: [],
     workspace: { available: false },
     webhooks: [],
-    convexConnected: null,
+    config: { brand: {}, plans: [], packs: [] },
+    missingNamespaces: [],
+    connection: null,
   }
 
   const handlers = new Set<(snapshot: BackendDevtoolsSnapshot) => void>()
@@ -32,8 +34,10 @@ export function createBackendDevtoolsBridge(): BackendDevtoolsBridgeHost {
   }
 
   return {
-    version: 1,
+    version: 2,
     getSnapshot: () => snapshot,
+    request: section => requests.request?.(section),
+    lookupEmail: emailId => requests.lookupEmail?.(emailId),
     on(_event, callback) {
       handlers.add(callback)
       return () => {

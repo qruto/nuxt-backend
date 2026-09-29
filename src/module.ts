@@ -7,7 +7,7 @@ import { moduleDir } from './dirs'
 import { backendAppConfigDefaults, type BackendAppConfigInput } from './runtime/config'
 import { BACKEND_MCP_SCOPES, DEFAULT_MCP_EXCHANGE_PATH } from './convex/constants'
 import { deriveDeploymentUrls, resolveSiteUrl, isDevDeploymentId } from './deployment'
-import { isEnvProvisioned, markEnvProvisioned, readEnvFiles, runEnvPush } from './env-push'
+import { isEnvProvisioned, markEnvProvisioned, provisionedEnvNames, readEnvFiles, runEnvPush } from './env-push'
 import { scaffoldBackendFiles, appComponentIsStarter } from './scaffold'
 import { registerBackendAliases, backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from './aliases'
 import { collectPreflightFindings, formatPreflightSummary } from './preflight'
@@ -114,9 +114,9 @@ export interface ModuleOptions {
    */
   mcp?: boolean | ModuleMcpOptions
   /**
-   * The Backend panel in Nuxt DevTools (dev only): preflight findings, env
-   * presence, mounted pages, the agent surface, and live identity/billing/
-   * credits/workspace state with recent webhook deliveries. Enabled by
+   * The Backend tab in Nuxt DevTools (dev only): the deployment and its env
+   * names, live checks and doctor on demand, the signed-in account, billing,
+   * email, the webhook delivery log and the agent endpoint. Enabled by
    * default whenever Nuxt DevTools is; set `false` to disable just the
    * Backend tab.
    */
@@ -298,20 +298,24 @@ export default defineNuxtModule<ModuleOptions>({
       const mcp = resolveMcpOptions(options.mcp)
       const siteUrlConfigured = isSiteUrlConfigured(options, nuxt)
       const versions = readPackageVersions(nuxt.options.rootDir)
+      const rootDir = nuxt.options.rootDir
       setupDevtools(resolver, nuxt, {
-        rootDir: nuxt.options.rootDir,
+        rootDir,
         functionsDir,
         // Rebuilt per RPC call so preflight findings (and the shadowed-page
-        // list `extendPages` fills during build) stay live in the panel.
-        getInfo: () => buildDevtoolsInfo({
-          env: process.env,
+        // list `extendPages` fills during build) stay live in the panel. The
+        // env is what the dev server sees: its env files under its process env.
+        getInfo: deploymentEnv => buildDevtoolsInfo({
+          rootDir,
+          env: { ...readEnvFiles(rootDir), ...process.env },
           siteUrlConfigured,
           options,
           pages: pagesInfo.list,
-          appConfig: nuxt.options.appConfig.backend as BackendAppConfigInput | undefined,
           mcp: mcp ? { route: mcp.route, builtin: mcp.tools?.builtin } : null,
           versions,
           functionsDir,
+          deploymentEnv,
+          provisionedNames: provisionedEnvNames(rootDir),
         }),
       })
       // Appended so it runs after the plugins that provide the Convex client
@@ -813,6 +817,7 @@ function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
     env: process.env,
     siteUrlConfigured,
     ...(mcp ? { mcp: { route: mcp.route } } : {}),
+    deployedNames: provisionedEnvNames(nuxt.options.rootDir),
   })
 
   // A `nuxi init` starter renders <NuxtWelcome /> and no <NuxtPage />: the

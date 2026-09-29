@@ -4,9 +4,9 @@ import { mutation, query } from './_generated/server.js'
 /**
  * Webhook delivery log — a capped ring buffer (never a source of truth):
  * every inbound delivery on `/billing/events` and `/email/events` records one
- * row with its outcome, which powers redelivery dedupe (`find`), the doctor's
- * "last webhook received", the DevTools feed, and the playground's webhook
- * page. Rows are pruned oldest-first past {@link RING_CAP}.
+ * row with its outcome, which powers redelivery dedupe (`find`), the DevTools
+ * Webhooks page (the delivery log and the last event per service), and the
+ * playground's webhook page. Rows are pruned oldest-first past {@link RING_CAP}.
  */
 
 const RING_CAP = 200

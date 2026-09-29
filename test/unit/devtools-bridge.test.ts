@@ -6,15 +6,17 @@ const nextMicrotask = () => new Promise<void>(resolve => queueMicrotask(resolve)
 describe('createBackendDevtoolsBridge', () => {
   it('starts with an empty-but-shaped snapshot', () => {
     const bridge = createBackendDevtoolsBridge()
-    expect(bridge.version).toBe(1)
+    expect(bridge.version).toBe(2)
     expect(bridge.getSnapshot()).toEqual({
       identity: { available: false },
-      billing: { isLoading: true },
-      features: { isLoading: true, keys: [] },
+      billing: { isLoading: true, cancelAtPeriodEnd: false, isPaused: false },
+      entitlements: { isLoading: true, features: [], plans: [] },
       credits: [],
       workspace: { available: false },
       webhooks: [],
-      convexConnected: null,
+      config: { brand: {}, plans: [], packs: [] },
+      missingNamespaces: [],
+      connection: null,
     })
   })
 
@@ -37,14 +39,14 @@ describe('createBackendDevtoolsBridge', () => {
     const handler = vi.fn()
     bridge.on('snapshot', handler)
 
-    bridge.patch('convexConnected', true)
+    bridge.patch('connection', 'connected')
     bridge.patch('credits', [{ meterId: 'm', balance: 3, credited: 5, consumed: 2 }])
     expect(handler).not.toHaveBeenCalled()
 
     await nextMicrotask()
     expect(handler).toHaveBeenCalledTimes(1)
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({
-      convexConnected: true,
+      connection: 'connected',
       credits: [{ meterId: 'm', balance: 3, credited: 5, consumed: 2 }],
     }))
   })
@@ -54,12 +56,12 @@ describe('createBackendDevtoolsBridge', () => {
     const handler = vi.fn()
     const off = bridge.on('snapshot', handler)
 
-    bridge.patch('convexConnected', false)
+    bridge.patch('connection', 'reconnecting')
     await nextMicrotask()
     expect(handler).toHaveBeenCalledTimes(1)
 
     off()
-    bridge.patch('convexConnected', true)
+    bridge.patch('connection', 'connected')
     await nextMicrotask()
     expect(handler).toHaveBeenCalledTimes(1)
   })

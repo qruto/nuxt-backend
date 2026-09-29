@@ -1,12 +1,15 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
+import { BACKEND_MCP_SCOPES, DEFAULT_MCP_EXCHANGE_PATH, type BackendMcpScope } from '../convex/constants'
+import { deriveDeploymentUrls, resolveSiteUrl } from '../deployment'
 import { collectPreflightFindings, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from '../preflight'
 import { BACKEND_PAGE_DEFS, type BackendPageKey } from '../pages'
-import type { BackendAppConfigInput } from '../runtime/config'
 import type { BackendMcpToolName } from '../runtime/server/mcp/builtin'
 import type {
-  DevtoolsEnvPresence,
+  DevtoolsDeployment,
+  DevtoolsDeploymentEnv,
+  DevtoolsEnvTier,
   DevtoolsMcpStatus,
   DevtoolsPageInfo,
   DevtoolsServerInfo,
@@ -24,6 +27,7 @@ export interface DevtoolsOptionsInput {
   authRoute?: string
   loginPath?: string
   pages?: unknown
+  workspaces?: boolean
 }
 
 /** The resolved `backend.mcp` facts the panel needs (`null` = disabled). */
@@ -33,15 +37,22 @@ export interface DevtoolsMcpInput {
 }
 
 export interface BuildDevtoolsInfoInput {
-  /** Environment to inspect — reduced to presence booleans, never values. */
+  rootDir: string
+  /**
+   * What the dev server sees: `.env`, `.env.local` and its process env,
+   * merged. Reduced to presence booleans, never values.
+   */
   env: Record<string, string | undefined>
   siteUrlConfigured: boolean
   options: DevtoolsOptionsInput
   pages: DevtoolsPageInfo[]
-  appConfig: BackendAppConfigInput | undefined
   mcp: DevtoolsMcpInput | null
   versions: Record<string, string>
   functionsDir: string
+  /** The last read of the deployment's env names (`null` until one ran). */
+  deploymentEnv: DevtoolsDeploymentEnv | null
+  /** The required names a clean `env push` put on the deployment, when known. */
+  provisionedNames: ReadonlySet<string> | undefined
 }
 
 /**
@@ -62,39 +73,72 @@ export function computeDevtoolsPages(
 }
 
 /**
- * Presence booleans over the two-tier deployment env contract. Only names
- * cross the RPC — the values (secrets among them) never leave the process.
+ * Presence booleans over the two-tier deployment env contract, for a set of
+ * names. Only names cross the RPC — the values (secrets among them) never
+ * leave the process.
  */
-export function collectEnvPresence(env: Record<string, string | undefined>): DevtoolsEnvPresence {
+export function envTier(isSet: (name: string) => boolean): DevtoolsEnvTier {
   return {
-    required: Object.fromEntries(REQUIRED_DEPLOYMENT_ENV.map(name => [name, Boolean(env[name])])),
-    optional: Object.fromEntries(Object.keys(OPTIONAL_DEPLOYMENT_ENV).map(name => [name, Boolean(env[name])])),
+    required: Object.fromEntries(REQUIRED_DEPLOYMENT_ENV.map(name => [name, isSet(name)])),
+    optional: Object.fromEntries(Object.keys(OPTIONAL_DEPLOYMENT_ENV).map(name => [name, isSet(name)])),
   }
 }
 
-// Exhaustiveness pin: adding a tool to `BackendMcpToolName` without listing it
-// here fails compilation, so the panel's tool count can't silently go stale.
-const BUILTIN_TOOL_NAMES: Record<BackendMcpToolName, true> = {
-  'profile-get': true,
-  'profile-update': true,
-  'billing-plans': true,
-  'billing-subscription': true,
-  'credits-balance': true,
-  'billing-checkout-link': true,
-  'billing-portal-link': true,
-  'workspace-list': true,
-  'workspace-members': true,
+/**
+ * The deployment the app talks to, from what the dev server sees. The id and
+ * URLs are not secrets (the client URL reaches every browser); deploy keys are
+ * never read.
+ */
+export function computeDeployment(rootDir: string, env: Record<string, string | undefined>): DevtoolsDeployment {
+  const derived = deriveDeploymentUrls(rootDir, env)
+  const id = env.CONVEX_DEPLOYMENT ?? derived?.deployment
+  const url = env.NUXT_PUBLIC_BACKEND_URL ?? env.NUXT_PUBLIC_CONVEX_URL ?? derived?.url
+  const siteUrl = resolveSiteUrl({ env, derived })
+  const urls = { ...(url ? { url } : {}), ...(siteUrl ? { siteUrl } : {}) }
+  if (derived?.source === 'self-hosted') return { kind: 'self-hosted', ...urls }
+  if (!id) return { kind: 'none', ...urls }
+  const prefix = id.includes(':') ? id.slice(0, id.indexOf(':')) : ''
+  const kind = ({ dev: 'cloud-dev', local: 'local', anonymous: 'anonymous', prod: 'production', preview: 'preview' } as const)[prefix] ?? 'cloud-dev'
+  const name = id.slice(id.lastIndexOf(':') + 1)
+  const cloud = kind === 'cloud-dev' || kind === 'production' || kind === 'preview'
+  return {
+    kind,
+    id,
+    ...urls,
+    ...(cloud && /^[a-z0-9-]+$/.test(name) ? { dashboardUrl: `https://dashboard.convex.dev/d/${name}` } : {}),
+  }
+}
+
+// The OAuth scope each built-in tool asks for (the `scope` in its tool file;
+// a unit test pins the two together). Exhaustive: adding a tool to
+// `BackendMcpToolName` without listing it here fails compilation, so the
+// panel's tool list can't silently go stale.
+const BUILTIN_TOOL_SCOPES: Record<BackendMcpToolName, BackendMcpScope> = {
+  'profile-get': 'profile',
+  'profile-update': 'profile:write',
+  'billing-plans': 'billing:read',
+  'billing-subscription': 'billing:read',
+  'credits-balance': 'billing:read',
+  'billing-checkout-link': 'billing:checkout',
+  'billing-portal-link': 'billing:checkout',
+  'workspace-list': 'workspace:read',
+  'workspace-members': 'workspace:read',
 }
 
 /** The agent surface as the panel reports it, per-tool disables applied. */
 export function computeMcpStatus(mcp: DevtoolsMcpInput | null): DevtoolsMcpStatus {
-  if (!mcp) return { enabled: false, builtinTools: [] }
-  if (mcp.builtin === false) return { enabled: true, route: mcp.route, builtinTools: [] }
+  if (!mcp) return { enabled: false, tools: [], scopes: [] }
   const disabled = mcp.builtin
   return {
     enabled: true,
     route: mcp.route,
-    builtinTools: Object.keys(BUILTIN_TOOL_NAMES).filter(name => disabled?.[name] !== false),
+    exchangePath: DEFAULT_MCP_EXCHANGE_PATH,
+    tools: Object.entries(BUILTIN_TOOL_SCOPES).map(([name, scope]) => ({
+      name,
+      scope,
+      enabled: disabled !== false && disabled?.[name] !== false,
+    })),
+    scopes: [...BACKEND_MCP_SCOPES],
   }
 }
 
@@ -105,7 +149,14 @@ export function computeMcpStatus(mcp: DevtoolsMcpInput | null): DevtoolsMcpStatu
  * appears in the result.
  */
 export function buildDevtoolsInfo(input: BuildDevtoolsInfoInput): DevtoolsServerInfo {
-  const { options } = input
+  const { options, deploymentEnv } = input
+  const deployedNames = new Set(input.provisionedNames)
+  const read = deploymentEnv?.names
+  if (read) {
+    for (const tier of [read.required, read.optional]) {
+      for (const [name, set] of Object.entries(tier)) if (set) deployedNames.add(name)
+    }
+  }
   return {
     functionsDir: input.functionsDir,
     options: {
@@ -113,26 +164,22 @@ export function buildDevtoolsInfo(input: BuildDevtoolsInfoInput): DevtoolsServer
       scaffold: options.scaffold !== false,
       css: options.css !== false,
       autoEnv: options.autoEnv !== false,
+      workspaces: options.workspaces !== false,
       authRoute: options.authRoute ?? '/api/auth',
       loginPath: options.loginPath ?? null,
       pagesEnabled: options.pages !== false,
     },
+    deployment: computeDeployment(input.rootDir, input.env),
     pages: input.pages,
     findings: collectPreflightFindings({
       env: input.env,
       siteUrlConfigured: input.siteUrlConfigured,
       ...(input.mcp ? { mcp: { route: input.mcp.route } } : {}),
+      deployedNames,
     }),
-    env: collectEnvPresence(input.env),
-    appConfig: {
-      billing: {
-        plans: [...(input.appConfig?.billing?.plans ?? [])],
-        packs: [...(input.appConfig?.billing?.packs ?? [])],
-      },
-      brand: {
-        name: input.appConfig?.brand?.name,
-        logo: input.appConfig?.brand?.logo,
-      },
+    env: {
+      visible: envTier(name => Boolean(input.env[name])),
+      deployment: deploymentEnv,
     },
     mcp: computeMcpStatus(input.mcp),
     versions: input.versions,

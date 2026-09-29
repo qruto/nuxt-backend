@@ -103,14 +103,32 @@ The Backend tab in Nuxt DevTools is its own Nuxt app,
 instead. Start it beside `pnpm dev`:
 
 ```bash
-pnpm run dev:devtools-client   # port 3631 — the port the module's proxy expects
+pnpm dev:panel   # port 3631 — the port the module's proxy expects
 ```
 
-The port is `DEVTOOLS_UI_LOCAL_PORT` in `src/devtools/rpc-types.ts` (3630 belongs to the base
+The route and the port are `DEVTOOLS_UI_ROUTE` and `DEVTOOLS_UI_LOCAL_PORT` in
+`src/devtools/rpc-types.ts`, which the panel's `nuxt.config.ts` imports (3630 belongs to the base
 module's Convex tab). The panel hot-reloads over its own HMR socket, which the module's proxy
 cannot carry — that is why it has a port of its own. A full `pnpm build` leaves a built copy in
 `dist/devtools-client`, and the module serves that in preference to the proxy: delete the
 directory to get the dev server back.
+
+How it fits together:
+
+- **Every DevTools-kit call** (serving, the tab, the RPC) is in `src/devtools/register.ts`, so the
+  move to DevTools 4 (Vite DevTools docks) is one file. The RPC's handlers are in
+  `src/devtools/rpc.ts`, its types in `src/devtools/rpc-types.ts`, shared with the panel.
+- **Live app state** comes from `src/runtime/devtools/`: a dev-only plugin mirrors the
+  composables into a versioned bridge (`version: 2`), and `on-demand.ts` loads what a page asks
+  for. Nothing secret crosses: env names only, never values; no session token or passkey
+  credential (tests pin both).
+- **Colour is a signal**: `app/utils/signal.ts` maps every status to ok (green), warn (amber),
+  err (red) or off (grey), and a unit test rejects any other badge colour or a provider name in
+  a label. The UI kit's own green is overridden to grey in the panel's config.
+- **Checks**: `pnpm typecheck:devtools-client` (part of `pnpm test:types` and CI), the
+  `devtools-*` unit tests, and `test/nuxt/devtools-plugin.test.ts` for the bridge.
+- **Icons**: UnoCSS's icon preset skips its loader inside VS Code's terminal; the panel config
+  clears that flag, so a build from any terminal ships its icons.
 
 ## Project Structure
 

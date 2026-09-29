@@ -1,24 +1,20 @@
 import { existsSync } from 'node:fs'
 import type { Nuxt } from '@nuxt/schema'
 import type { Resolver } from '@nuxt/kit'
-import { addCustomTab, extendServerRpc, onDevToolsInitialized } from '@nuxt/devtools-kit'
-import {
-  DEVTOOLS_UI_LOCAL_PORT,
-  DEVTOOLS_UI_ROUTE,
-  RPC_NAMESPACE,
-  type ClientFunctions,
-  type DevtoolsServerInfo,
-  type ServerFunctions,
-} from './rpc-types'
-import { resolveBackendSource } from './info'
+import { registerDevtools } from './register'
+import { createDevtoolsRpc } from './rpc'
+import { DEVTOOLS_UI_LOCAL_PORT, DEVTOOLS_UI_ROUTE, RPC_NAMESPACE, type DevtoolsDeploymentEnv, type DevtoolsServerInfo } from './rpc-types'
 
 /** What the module hands the DevTools RPC — build-time facts, re-read live. */
 export interface DevtoolsServerContext {
   rootDir: string
   functionsDir: string
-  /** Called per RPC request, so preflight findings stay live. */
-  getInfo(): DevtoolsServerInfo
+  /** Called per request, so findings stay live; given the last deployment env read. */
+  getInfo(deploymentEnv: DevtoolsDeploymentEnv | null): DevtoolsServerInfo
 }
+
+/** Env files and codegen: the dev-server facts the panel shows. */
+const INFO_SOURCES = /(?:^|\/)(?:\.env(?:\.local)?|_generated\/api\.(?:d\.ts|js))$/
 
 /**
  * Wire the Backend panel into Nuxt DevTools (dev-only; lazily imported so
@@ -30,48 +26,39 @@ export interface DevtoolsServerContext {
  *   next to the stub);
  * - register the iframe tab (a sibling of the base module's Convex tab —
  *   connection/queries/auth state stay over there);
- * - expose the server-side RPC (build-time info + backend-source lookup —
- *   live app state reaches the panel through the in-page bridge instead).
+ * - expose the server-side RPC, and push fresh facts to an open panel when an
+ *   env file or the codegen changes — live app state reaches the panel
+ *   through the in-page bridge instead.
  */
 export function setupDevtools(resolver: Resolver, nuxt: Nuxt, context: DevtoolsServerContext): void {
-  const devtoolsClientPath = resolver.resolve('./devtools-client')
+  const staticDir = resolver.resolve('./devtools-client')
 
-  if (existsSync(devtoolsClientPath)) {
-    nuxt.hook('vite:serverCreated', async (server) => {
-      const sirv = (await import('sirv')).default
-      server.middlewares.use(DEVTOOLS_UI_ROUTE, sirv(devtoolsClientPath, { dev: true, single: true }))
-    })
-  }
-  else {
-    nuxt.hook('vite:extendConfig', (config) => {
-      // `server` is typed readonly on the resolved Vite config, but mutating it
-      // in this hook is the established pattern (nuxt/fonts does the same).
-      const mutable = config as { server?: { proxy?: Record<string, unknown> } }
-      mutable.server ||= {}
-      mutable.server.proxy ||= {}
-      mutable.server.proxy[DEVTOOLS_UI_ROUTE] = {
-        target: `http://localhost:${DEVTOOLS_UI_LOCAL_PORT}${DEVTOOLS_UI_ROUTE}`,
-        changeOrigin: true,
-        followRedirects: true,
-        rewrite: (path: string) => path.replace(DEVTOOLS_UI_ROUTE, ''),
-      }
-    })
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const pushInfo = () => {
+    clearTimeout(timer)
+    timer = setTimeout(() => handle.broadcast.onInfo(rpc.functions.getInfo()), 300)
+    timer.unref?.()
   }
 
-  onDevToolsInitialized(() => {
-    extendServerRpc<ClientFunctions, ServerFunctions>(RPC_NAMESPACE, {
-      getInfo: () => context.getInfo(),
-      resolveBackendSource: file => resolveBackendSource(context.rootDir, context.functionsDir, file),
-    })
+  const rpc = createDevtoolsRpc({
+    rootDir: context.rootDir,
+    functionsDir: context.functionsDir,
+    buildInfo: context.getInfo,
+    onDeploymentEnvRead: pushInfo,
   })
 
-  addCustomTab({
-    name: 'nuxt-backend',
-    title: 'Backend',
-    icon: `${DEVTOOLS_UI_ROUTE}/icon.svg`,
-    view: {
-      type: 'iframe',
-      src: DEVTOOLS_UI_ROUTE,
-    },
+  const handle = registerDevtools(nuxt, {
+    tab: { name: 'nuxt-backend', title: 'Backend', icon: `${DEVTOOLS_UI_ROUTE}/icon.svg` },
+    route: DEVTOOLS_UI_ROUTE,
+    staticDir: existsSync(staticDir) ? staticDir : null,
+    proxyPort: DEVTOOLS_UI_LOCAL_PORT,
+    rpc: { namespace: RPC_NAMESPACE, functions: rpc.functions },
+  })
+
+  nuxt.hook('builder:watch', (_event, path) => {
+    const normalized = path.replace(/\\/g, '/')
+    if (!INFO_SOURCES.test(normalized)) return
+    if (normalized.includes('.env')) rpc.invalidate()
+    pushInfo()
   })
 }

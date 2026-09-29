@@ -126,3 +126,29 @@ describe('formatPreflightSummary', () => {
     expect(formatPreflightSummary(findings)).toContain('auth-secret')
   })
 })
+
+describe('names set on the deployment', () => {
+  const finding = (findings: ReturnType<typeof collectPreflightFindings>, id: string) => findings.find(entry => entry.id === id)
+
+  it('count as set when they are not visible here', () => {
+    const findings = collectPreflightFindings({
+      env: {},
+      siteUrlConfigured: true,
+      deployedNames: new Set(['AUTH_SECRET', 'SITE_URL', 'BILLING_ACCESS_TOKEN']),
+    })
+    expect(finding(findings, 'auth-secret')).toMatchObject({ status: 'pass', message: expect.stringContaining('set on the deployment') })
+    expect(finding(findings, 'site-url')?.status).toBe('pass')
+    expect(finding(findings, 'billing-access')).toMatchObject({ status: 'pass', message: expect.stringContaining('set on the deployment') })
+    expect(finding(findings, 'email-transport')?.status).toBe('warn')
+  })
+
+  it('never hide a bad value that is visible here', () => {
+    const findings = collectPreflightFindings({
+      env: { AUTH_SECRET: 'secret', SITE_URL: 'not a url' },
+      siteUrlConfigured: true,
+      deployedNames: new Set(['AUTH_SECRET', 'SITE_URL']),
+    })
+    expect(finding(findings, 'auth-secret')?.status).toBe('fail')
+    expect(finding(findings, 'site-url')?.status).toBe('fail')
+  })
+})

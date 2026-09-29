@@ -1,17 +1,27 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, watchEffect } from 'vue'
-import { defineNuxtPlugin, useRuntimeConfig } from '#app'
+import { defineNuxtPlugin, useAppConfig, useRuntimeConfig } from '#app'
 import { useConvexNamespace, useQuery } from 'nuxt-convex-module/client'
 import { useAuth } from '../vue/composables/use-auth'
 import { useBilling, type BillingApi } from '../vue/composables/use-billing'
 import { useFeatures } from '../vue/composables/use-features'
 import { useOrganization } from '../vue/composables/use-organization'
+import type { BackendAppConfigInput } from '../config'
 import { createBackendDevtoolsBridge } from './bridge'
+import { createOnDemandSections } from './on-demand'
 import type {
   BackendDevtoolsBridge,
   BackendDevtoolsBridgeHost,
+  DevtoolsBridgeRequests,
+  DevtoolsConnectionState,
   DevtoolsWebhookDeliverySnapshot,
 } from './types'
+
+/** The scaffolded function modules the composables bind to by name. */
+const SCAFFOLDED_NAMESPACES = ['auth', 'billing', 'email'] as const
+
+/** How many recent webhook deliveries the panel lists. */
+const DELIVERY_LIMIT = 50
 
 declare global {
   interface Window {
@@ -38,7 +48,15 @@ interface ConvexBridgeLike {
 }
 
 interface ConvexConnectionLike {
+  status?: 'idle' | 'active' | 'closed'
   state?: { isWebSocketConnected: boolean }
+}
+
+/** The base module's connection snapshot, as one of four states. */
+function connectionState(connection: ConvexConnectionLike): DevtoolsConnectionState {
+  if (connection.status === 'closed') return 'closed'
+  if (connection.status === 'idle') return 'idle'
+  return connection.state?.isWebSocketConnected ? 'connected' : 'reconnecting'
 }
 
 function readConvexBridge(): ConvexBridgeLike | undefined {
@@ -57,7 +75,9 @@ export default defineNuxtPlugin({
     const attach = (): BackendDevtoolsBridgeHost | null => {
       try {
         return nuxtApp.vueApp.runWithContext(() => {
-          const bridge = createBackendDevtoolsBridge()
+          const requests: Partial<DevtoolsBridgeRequests> = {}
+          const bridge = createBackendDevtoolsBridge(requests)
+          Object.assign(requests, createOnDemandSections(fn => nuxtApp.vueApp.runWithContext(fn), bridge.patch))
 
           const auth = useAuth()
           const billing = useBilling()
@@ -66,6 +86,8 @@ export default defineNuxtPlugin({
           // endpoints do not exist — never ask for them.
           const workspacesOn = (useRuntimeConfig().public.backend as { workspaces?: boolean } | undefined)?.workspaces !== false
           const workspace = workspacesOn ? useOrganization() : null
+          const appConfig = useAppConfig() as { backend?: BackendAppConfigInput }
+          bridge.patch('missingNamespaces', SCAFFOLDED_NAMESPACES.filter(name => useConvexNamespace(name) === undefined))
 
           // All meters (useCredits narrows to a single one) and the delivery
           // feed come straight from the injected billing namespace — resolved
@@ -75,7 +97,7 @@ export default defineNuxtPlugin({
             ? useQuery(namespace.getCredits)
             : computed(() => undefined)
           const deliveries = namespace?.getWebhookDeliveries
-            ? useQuery(namespace.getWebhookDeliveries, { limit: 25 })
+            ? useQuery(namespace.getWebhookDeliveries, { limit: DELIVERY_LIMIT })
             : computed(() => undefined)
 
           // Every read is optional-chained: a missing namespace or a signed-out
@@ -94,19 +116,29 @@ export default defineNuxtPlugin({
 
           watchEffect(() => {
             const subscription = billing.subscription.value
+            const productId = subscription?.productId
+            const product = productId
+              ? Object.values(billing.products.value ?? {}).find(entry => entry?.id === productId)
+              : undefined
             bridge.patch('billing', {
               isLoading: billing.isLoading.value,
               status: subscription?.status,
-              productId: subscription?.productId,
-              plans: features.plans.value ? [...features.plans.value] : undefined,
+              productId,
+              productName: product?.name,
+              cancelAtPeriodEnd: billing.cancelAtPeriodEnd.value,
+              isPaused: billing.isPaused.value,
+              trialEnd: billing.trialEnd.value?.getTime(),
+              pendingProductId: billing.pendingUpdate.value?.productId ?? undefined,
+              subscriptions: billing.subscriptions.value?.length,
             })
           })
 
           watchEffect(() => {
-            bridge.patch('features', {
+            bridge.patch('entitlements', {
               isLoading: features.isLoading.value,
-              keys: (features.benefits.value ?? []).map(benefit =>
+              features: (features.benefits.value ?? []).map(benefit =>
                 String(benefit.metadata?.key ?? benefit.type ?? benefit.benefitId)),
+              plans: [...(features.plans.value ?? [])],
             })
           })
 
@@ -127,6 +159,8 @@ export default defineNuxtPlugin({
                   available: true,
                   id: current.id,
                   name: current.name,
+                  role: workspace.role.value ?? undefined,
+                  workspaces: workspace.organizations.value.length,
                   members: workspace.members.value.length,
                   pendingInvitations: (current.invitations ?? [])
                     .filter(invitation => invitation.status === 'pending').length,
@@ -145,6 +179,16 @@ export default defineNuxtPlugin({
             })))
           })
 
+          // The content layer, read from app config so HMR edits show up.
+          watchEffect(() => {
+            const backend = appConfig.backend
+            bridge.patch('config', {
+              brand: { name: backend?.brand?.name, logo: backend?.brand?.logo },
+              plans: (backend?.billing?.plans ?? []).map(plan => plan.key),
+              packs: (backend?.billing?.packs ?? []).map(pack => pack.key),
+            })
+          })
+
           return bridge
         })
       }
@@ -156,15 +200,14 @@ export default defineNuxtPlugin({
     }
 
     // The base module's bridge attaches after ours (its plugin is appended by
-    // a module that sets up later) — poll it at mount for the "Convex
-    // connected" chip instead of assuming order.
-    const attachConvexChip = (bridge: BackendDevtoolsBridgeHost): boolean => {
-      const convex = readConvexBridge()
-      if (!convex) return false
-      const push = (connection: ConvexConnectionLike) =>
-        bridge.patch('convexConnected', connection.state?.isWebSocketConnected === true)
-      push(convex.getSnapshot().connection)
-      convex.on('connection', push)
+    // a module that sets up later) — read it at mount for the connection
+    // light instead of assuming order.
+    const attachConnection = (bridge: BackendDevtoolsBridgeHost): boolean => {
+      const base = readConvexBridge()
+      if (!base) return false
+      const push = (connection: ConvexConnectionLike) => bridge.patch('connection', connectionState(connection))
+      push(base.getSnapshot().connection)
+      base.on('connection', push)
       return true
     }
 
@@ -173,9 +216,9 @@ export default defineNuxtPlugin({
       // `client.host.nuxt.$backendDevtools`, with the window global as fallback.
       nuxtApp.provide('backendDevtools', bridge)
       window.__NUXT_BACKEND_DEVTOOLS__ = bridge
-      if (!attachConvexChip(bridge)) {
+      if (!attachConnection(bridge)) {
         nuxtApp.hook('app:mounted', () => {
-          attachConvexChip(bridge)
+          attachConnection(bridge)
         })
       }
     }

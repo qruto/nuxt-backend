@@ -74,6 +74,8 @@ for (const required of [
   'dist/cli.mjs',
   // The DevTools panel, prebuilt (see below for its assets).
   'dist/devtools-client/index.html',
+  // The DevTools tab icon, served from the panel: a missing file is a broken image in every app's DevTools.
+  'dist/devtools-client/icon.svg',
   // The Convex component: what `app.use(backend)` imports, and the
   // ComponentApi a consumer's codegen types `components.backend.*` against.
   'dist/convex/components/backend/convex.config.js',

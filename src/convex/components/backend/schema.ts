@@ -368,9 +368,8 @@ export const aiTables = {
 
 /**
  * Webhook delivery ring buffer (see `webhooks.ts`): one row per inbound
- * delivery with its outcome — powers redelivery dedupe, doctor's "last
- * webhook received", and the DevTools feed. Capped, prunable, never a source
- * of truth.
+ * delivery with its outcome — powers redelivery dedupe and the DevTools
+ * Webhooks page. Capped, prunable, never a source of truth.
  */
 export const webhookTables = {
   webhookDeliveries: defineTable({

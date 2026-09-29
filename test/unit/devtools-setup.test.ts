@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DevtoolsServerInfo } from '../../src/devtools/rpc-types'
 import { DEVTOOLS_UI_ROUTE, RPC_NAMESPACE } from '../../src/devtools/rpc-types'
 
@@ -36,15 +36,16 @@ const info: DevtoolsServerInfo = {
     scaffold: true,
     css: true,
     autoEnv: true,
+    workspaces: true,
     authRoute: '/api/auth',
     loginPath: null,
     pagesEnabled: true,
   },
+  deployment: { kind: 'none' },
   pages: [],
   findings: [],
-  env: { required: {}, optional: {} },
-  appConfig: { billing: { plans: [], packs: [] }, brand: {} },
-  mcp: { enabled: false, builtinTools: [] },
+  env: { visible: { required: {}, optional: {} }, deployment: null },
+  mcp: { enabled: false, tools: [], scopes: [] },
   versions: {},
 }
 
@@ -54,6 +55,10 @@ function contextFor(rootDir: string) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('setupDevtools', () => {
@@ -118,5 +123,28 @@ describe('setupDevtools', () => {
       resolveBackendSource: expect.any(Function),
     }))
     expect(extendServerRpc.mock.calls[0]![1].getInfo()).toBe(info)
+  })
+
+  it('tells an open panel when an env file or the codegen changes, once per burst', () => {
+    vi.useFakeTimers()
+    const asEvent = vi.fn()
+    extendServerRpc.mockReturnValue({ broadcast: { onInfo: { asEvent } } })
+    const { hooks, nuxt, resolver } = fakeEnv(join(base, 'stub-build'))
+
+    setupDevtools(resolver as never, nuxt as never, contextFor(base))
+    const watch = hooks.get('builder:watch') as (event: string, path: string) => void
+
+    // Before DevTools initializes there is no panel to tell.
+    watch('change', '.env.local')
+    vi.advanceTimersByTime(400)
+    expect(asEvent).not.toHaveBeenCalled()
+
+    onDevToolsInitialized.mock.calls[0]![0]()
+    watch('change', '.env.local')
+    watch('change', 'backend/_generated/api.d.ts')
+    watch('change', 'app/pages/index.vue')
+    vi.advanceTimersByTime(400)
+    expect(asEvent).toHaveBeenCalledTimes(1)
+    expect(asEvent).toHaveBeenCalledWith(info)
   })
 })

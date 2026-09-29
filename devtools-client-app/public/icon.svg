@@ -1,9 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <!-- Neutral backend mark: a stacked service with a status dot -->
-  <rect x="4" y="5" width="24" height="9" rx="2.5" fill="#00DC82"/>
-  <rect x="4" y="18" width="24" height="9" rx="2.5" fill="#00DC82" opacity="0.55"/>
-  <circle cx="9.5" cy="9.5" r="1.8" fill="#003C26"/>
-  <circle cx="9.5" cy="22.5" r="1.8" fill="#003C26" opacity="0.85"/>
-  <rect x="14" y="8.4" width="10" height="2.2" rx="1.1" fill="#003C26" opacity="0.55"/>
-  <rect x="14" y="21.4" width="10" height="2.2" rx="1.1" fill="#003C26" opacity="0.45"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44" role="img" aria-labelledby="nb-title">
+  <title id="nb-title">Nuxt backend</title>
+  <!-- Flat mark for the tab strip, and the source of the whole raster set (scripts/generate-icons.mjs
+       renders every PNG and the ICO from this file): a solid plate and the three signal bars, solid,
+       at the slots' footprint. No gradients and no filters (they rasterise badly at 16px), and no
+       prefers-color-scheme (the tab icon must never vanish on a light tab strip). -->
+  <rect width="44" height="44" rx="11" fill="#26292e"/>
+  <rect x="11" y="12" width="22" height="5" rx="2.5" fill="#4ade80"/>
+  <rect x="11" y="19.5" width="22" height="5" rx="2.5" fill="#facc15"/>
+  <rect x="11" y="27" width="22" height="5" rx="2.5" fill="#f87171"/>
 </svg>

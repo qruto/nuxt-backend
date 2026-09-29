@@ -883,18 +883,17 @@ const webhookTables: {
 };
 ```
 
-Defined in: [src/convex/components/backend/schema.ts:375](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L375)
+Defined in: [src/convex/components/backend/schema.ts:374](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L374)
 
 Webhook delivery ring buffer (see `webhooks.ts`): one row per inbound
-delivery with its outcome — powers redelivery dedupe, doctor's "last
-webhook received", and the DevTools feed. Capped, prunable, never a source
-of truth.
+delivery with its outcome — powers redelivery dedupe and the DevTools
+Webhooks page. Capped, prunable, never a source of truth.
 
 #### Type Declaration
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="property-webhookdeliveries"></a> `webhookDeliveries` | `TableDefinition`\<`VObject`\<\{ `type?`: `string`; `note?`: `string`; `service`: `string`; `deliveryId`: `string`; `outcome`: \| `"duplicate"` \| `"ok"` \| `"invalid_signature"` \| `"unknown_type"` \| `"handler_error"` \| `"oversized"` \| `"missing_secret"`; `receivedAt`: `number`; \}, \{ `service`: `VString`\<`string`, `"required"`\>; `deliveryId`: `VString`\<`string`, `"required"`\>; `type`: `VString`\<`string` \| `undefined`, `"optional"`\>; `outcome`: `VUnion`\< \| `"duplicate"` \| `"ok"` \| `"invalid_signature"` \| `"unknown_type"` \| `"handler_error"` \| `"oversized"` \| `"missing_secret"`, \[`VLiteral`\<`"ok"`, `"required"`\>, `VLiteral`\<`"invalid_signature"`, `"required"`\>, `VLiteral`\<`"unknown_type"`, `"required"`\>, `VLiteral`\<`"handler_error"`, `"required"`\>, `VLiteral`\<`"duplicate"`, `"required"`\>, `VLiteral`\<`"oversized"`, `"required"`\>, `VLiteral`\<`"missing_secret"`, `"required"`\>\], `"required"`, `never`\>; `note`: `VString`\<`string` \| `undefined`, `"optional"`\>; `receivedAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, `"type"` \| `"service"` \| `"deliveryId"` \| `"outcome"` \| `"note"` \| `"receivedAt"`\>, \{ `receivedAt`: \[`"receivedAt"`, `"_creationTime"`\]; `service_deliveryId`: \[`"service"`, `"deliveryId"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:376](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L376) |
+| <a id="property-webhookdeliveries"></a> `webhookDeliveries` | `TableDefinition`\<`VObject`\<\{ `type?`: `string`; `note?`: `string`; `service`: `string`; `deliveryId`: `string`; `outcome`: \| `"duplicate"` \| `"ok"` \| `"invalid_signature"` \| `"unknown_type"` \| `"handler_error"` \| `"oversized"` \| `"missing_secret"`; `receivedAt`: `number`; \}, \{ `service`: `VString`\<`string`, `"required"`\>; `deliveryId`: `VString`\<`string`, `"required"`\>; `type`: `VString`\<`string` \| `undefined`, `"optional"`\>; `outcome`: `VUnion`\< \| `"duplicate"` \| `"ok"` \| `"invalid_signature"` \| `"unknown_type"` \| `"handler_error"` \| `"oversized"` \| `"missing_secret"`, \[`VLiteral`\<`"ok"`, `"required"`\>, `VLiteral`\<`"invalid_signature"`, `"required"`\>, `VLiteral`\<`"unknown_type"`, `"required"`\>, `VLiteral`\<`"handler_error"`, `"required"`\>, `VLiteral`\<`"duplicate"`, `"required"`\>, `VLiteral`\<`"oversized"`, `"required"`\>, `VLiteral`\<`"missing_secret"`, `"required"`\>\], `"required"`, `never`\>; `note`: `VString`\<`string` \| `undefined`, `"optional"`\>; `receivedAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, `"type"` \| `"service"` \| `"deliveryId"` \| `"outcome"` \| `"note"` \| `"receivedAt"`\>, \{ `receivedAt`: \[`"receivedAt"`, `"_creationTime"`\]; `service_deliveryId`: \[`"service"`, `"deliveryId"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:375](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L375) |
 
 ***
 
@@ -922,7 +921,7 @@ const emailTables: {
 };
 ```
 
-Defined in: [src/convex/components/backend/schema.ts:404](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L404)
+Defined in: [src/convex/components/backend/schema.ts:403](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L403)
 
 The sandbox inbox (see `email.ts`): while email runs in test mode, a copy of
 every message sent to one of the provider's sandbox addresses, so a demo,
@@ -934,7 +933,7 @@ record of what was sent.
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="property-sandboxinbox"></a> `sandboxInbox` | `TableDefinition`\<`VObject`\<\{ `html?`: `string`; `text?`: `string`; `to`: `string`; `from`: `string`; `subject`: `string`; \}, \{ `to`: `VString`\<`string`, `"required"`\>; `from`: `VString`\<`string`, `"required"`\>; `subject`: `VString`\<`string`, `"required"`\>; `text`: `VString`\<`string` \| `undefined`, `"optional"`\>; `html`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"html"` \| `"text"` \| `"to"` \| `"from"` \| `"subject"`\>, \{ `to`: \[`"to"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:405](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L405) |
+| <a id="property-sandboxinbox"></a> `sandboxInbox` | `TableDefinition`\<`VObject`\<\{ `html?`: `string`; `text?`: `string`; `to`: `string`; `from`: `string`; `subject`: `string`; \}, \{ `to`: `VString`\<`string`, `"required"`\>; `from`: `VString`\<`string`, `"required"`\>; `subject`: `VString`\<`string`, `"required"`\>; `text`: `VString`\<`string` \| `undefined`, `"optional"`\>; `html`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"html"` \| `"text"` \| `"to"` \| `"from"` \| `"subject"`\>, \{ `to`: \[`"to"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:404](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L404) |
 
 ***
 
@@ -1322,7 +1321,7 @@ const authSchema: SchemaDefinition<{
 }, true>;
 ```
 
-Defined in: [src/convex/components/backend/schema.ts:417](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L417)
+Defined in: [src/convex/components/backend/schema.ts:416](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L416)
 
 Auth-only schema — passed to Better Auth's `createApi` in `adapter.ts`.
 
@@ -1980,6 +1979,6 @@ default: SchemaDefinition<{
 }, true>;
 ```
 
-Defined in: [src/convex/components/backend/schema.ts:420](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L420)
+Defined in: [src/convex/components/backend/schema.ts:419](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L419)
 
 Full component schema: auth + billing cache + AI plumbing + webhook log + sandbox inbox.
