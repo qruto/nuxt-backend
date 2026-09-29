@@ -306,6 +306,69 @@ describe('workspace invitation email', () => {
       }
     })
 
+    // The component keeps test-mode mail to a sandbox address in the sandbox
+    // inbox, key or not: that copy is the code for a keyless demo or e2e run.
+    it('hands a sandbox address to the component, which keeps it for the sandbox inbox', async () => {
+      vi.stubEnv('EMAIL_API_KEY', '')
+      try {
+        const ctx = mutationCtx()
+        await expect(otpOver(ctx)({ email: 'Delivered+e2e@resend.dev', otp: '123456', type: 'sign-in' })).resolves.toBeUndefined()
+        expect((ctx as { runMutation: ReturnType<typeof vi.fn> }).runMutation)
+          .toHaveBeenCalledWith('backend/email:send', expect.objectContaining({ to: 'Delivered+e2e@resend.dev' }))
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
+    })
+
+    it('still echoes a sandbox address\'s code with NUXT_BACKEND_LOG_OTP=1', async () => {
+      vi.stubEnv('EMAIL_API_KEY', '')
+      vi.stubEnv('NUXT_BACKEND_LOG_OTP', '1')
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      try {
+        const ctx = mutationCtx()
+        await otpOver(ctx)({ email: 'delivered+e2e@resend.dev', otp: '123456', type: 'sign-in' })
+        expect(warn.mock.calls.flat().join('\n')).toContain('123456')
+        expect((ctx as { runMutation: ReturnType<typeof vi.fn> }).runMutation).toHaveBeenCalledWith('backend/email:send', expect.anything())
+      }
+      finally {
+        warn.mockRestore()
+        vi.unstubAllEnvs()
+      }
+    })
+
+    it('logs codes only for NUXT_BACKEND_LOG_OTP=1, never for another value', async () => {
+      vi.stubEnv('EMAIL_API_KEY', '')
+      vi.stubEnv('NUXT_BACKEND_LOG_OTP', 'false')
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      try {
+        await expect(otpOver(mutationCtx())({ email: 'a@b.com', otp: '123456', type: 'sign-in' }))
+          .rejects.toThrow('EMAIL_API_KEY is not set on this deployment')
+        const ctx = mutationCtx()
+        await otpOver(ctx)({ email: 'delivered+e2e@resend.dev', otp: '654321', type: 'sign-in' })
+        expect((ctx as { runMutation: ReturnType<typeof vi.fn> }).runMutation).toHaveBeenCalledWith('backend/email:send', expect.anything())
+        expect(warn.mock.calls.flat().join('\n')).not.toMatch(/123456|654321/)
+      }
+      finally {
+        warn.mockRestore()
+        vi.unstubAllEnvs()
+      }
+    })
+
+    it('treats a sandbox address like any other once test mode is off', async () => {
+      vi.stubEnv('EMAIL_API_KEY', '')
+      vi.stubEnv('EMAIL_TEST_MODE', 'false')
+      try {
+        const ctx = mutationCtx()
+        await expect(otpOver(ctx)({ email: 'delivered+e2e@resend.dev', otp: '123456', type: 'sign-in' }))
+          .rejects.toThrow('EMAIL_API_KEY is not set on this deployment')
+        expect((ctx as { runMutation: ReturnType<typeof vi.fn> }).runMutation).not.toHaveBeenCalled()
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
+    })
+
     it('sends through the component once the key is set, whatever NUXT_BACKEND_LOG_OTP says', async () => {
       vi.stubEnv('EMAIL_API_KEY', 're_test')
       vi.stubEnv('NUXT_BACKEND_LOG_OTP', '1')

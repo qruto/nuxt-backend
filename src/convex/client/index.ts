@@ -342,6 +342,31 @@ function resolveTemplates<DM extends GenericDataModel>(runtime?: AuthRuntime<DM>
   return { ...defaultEmailTemplates, ...runtime?.emailTemplates }
 }
 
+/**
+ * The email provider's sandbox inboxes, `+label` aliases included — the same
+ * pattern the component's sandbox inbox captures (components/backend/email.ts).
+ */
+const SANDBOX_ADDRESS = /^(?:delivered|bounced|complained)(?:\+[^@\s]+)?@resend\.dev$/
+
+/**
+ * Whether the component keeps a copy of mail to this address: a sandbox
+ * address, in test mode (the default). It does so with or without
+ * EMAIL_API_KEY, which is how a keyless demo, preview or e2e run reads a
+ * sign-in code (`useSandboxInbox`).
+ */
+function reachesSandboxInbox(email: string): boolean {
+  return readEnv('EMAIL_TEST_MODE') !== 'false' && SANDBOX_ADDRESS.test(email.trim().toLowerCase())
+}
+
+/**
+ * Whether the deployment opted in to printing sign-in codes to its logs: only
+ * `NUXT_BACKEND_LOG_OTP=1`, the value `env push` provisions. Any other value,
+ * `false` included, keeps a live credential out of the logs.
+ */
+function logsOtp(): boolean {
+  return readEnv('NUXT_BACKEND_LOG_OTP') === '1'
+}
+
 /** Build the emailOTP `sendVerificationOTP` handler, routed through the integrations. */
 function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRuntime<DM>) {
   return async (data: { email: string, otp: string, type: OtpPurpose }): Promise<void> => {
@@ -352,10 +377,13 @@ function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRunt
     // sign-in UI waits for it. That is the "no transport" case too. A custom
     // sender is the consumer's own and is trusted as is.
     const unconfigured = runtime?.email !== undefined && isAutomaticEmailSender(runtime.email) && !readEnv('EMAIL_API_KEY')
-    if (!runtime?.email || !ctx || unconfigured) {
+    // Except for a sandbox address: the module skips the provider but keeps
+    // the message in the sandbox inbox, so the code is not gone.
+    const sandboxOnly = unconfigured && reachesSandboxInbox(data.email)
+    if (!runtime?.email || !ctx || (unconfigured && !sandboxOnly)) {
       // The OTP is a live credential and Convex logs are durable — never echo it
       // to logs unless a deployment explicitly opts in (local dev without email).
-      if (readEnv('NUXT_BACKEND_LOG_OTP')) {
+      if (logsOtp()) {
         console.warn(
           `[nuxt-backend] No email transport configured. Email OTP (${data.type}) for ${data.email}: ${data.otp}`,
         )
@@ -367,6 +395,10 @@ function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRunt
         `[nuxt-backend] OTP not delivered — ${unconfigured ? 'EMAIL_API_KEY is not set on this deployment' : 'the backend component has no email transport'}. `
         + `Set the required EMAIL_API_KEY env var to send email, or NUXT_BACKEND_LOG_OTP=1 to echo codes to the console during local dev.`,
       )
+    }
+    if (sandboxOnly && logsOtp()) {
+      // Local dev keeps its terminal echo; the inbox copy is for the page.
+      console.warn(`[nuxt-backend] No email transport configured. Email OTP (${data.type}) for ${data.email}: ${data.otp}`)
     }
     // Every limit and the sign-in gate already ran on the request (see
     // assertOtpRequestAllowed): Better Auth runs this sender through
