@@ -32,21 +32,29 @@ components resolvable for Convex; npm, Yarn and Bun ignore it.
 
 ## Development Server
 
-Start Convex and Nuxt, in two terminals, in either order:
+Start Convex and Nuxt on `http://localhost:3000`:
 
 ```bash
-# terminal 1: logs you in, creates or attaches your dev deployment,
-# writes CONVEX_DEPLOYMENT to .env.local and generates backend/_generated
-npm run dev:convex
-
-# terminal 2: Nuxt on http://localhost:3000; provisions the dev deployment's
-# env (AUTH_SECRET, SITE_URL) as soon as CONVEX_DEPLOYMENT exists
+# npm
 npm run dev
+
+# pnpm
+pnpm dev
+
+# yarn
+yarn dev
+
+# bun
+bun run dev
 ```
 
+`dev` runs `nuxt-backend dev`. The first run logs you in to Convex, creates or attaches your dev
+deployment, writes `CONVEX_DEPLOYMENT` to `.env.local` and provisions the deployment's env
+(`AUTH_SECRET`, `SITE_URL`); then Convex and Nuxt run side by side in that terminal.
+
 Open `/login` and sign in. With no email provider configured yet, the one-time code prints in the
-`dev:convex` terminal. Until the first `dev:convex` run writes `backend/_generated`, the
-`#backend/*` imports are typed `any`.
+same terminal. Until the first run writes `backend/_generated`, the `#backend/*` imports are
+typed `any`.
 
 ## Connect services
 

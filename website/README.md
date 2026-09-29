@@ -79,7 +79,7 @@ exporting it into a shell you keep using.
 | Preview | What it shows | Convex |
 | --- | --- | --- |
 | **Vercel** — `nuxt-backend-git-<branch>-razum.vercel.app` | The website as that branch would ship it: docs, landing, API reference | none — the playground renders its offline state |
-| **StackBlitz** — from the pkg.pr.new comment | `templates/starter`, a real Nuxt app running the PR's *package build* | **yours** — `npm run dev:convex` in the StackBlitz terminal |
+| **StackBlitz** — from the pkg.pr.new comment | `templates/starter`, a real Nuxt app running the PR's *package build* | **yours** — `npm run dev` logs you in to Convex in the StackBlitz terminal |
 
 ## The playground is a sandbox
 
