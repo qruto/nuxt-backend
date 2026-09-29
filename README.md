@@ -147,6 +147,10 @@ An OAuth-protected `/mcp` endpoint (Better Auth's OIDC provider + `@nuxtjs/mcp-t
 
 A **Backend** tab in Nuxt DevTools, six pages: the deployment you're talking to and every env name set here and on it, live checks with a copyable fix and `doctor` on demand, the signed-in account with its workspace, sessions and passkeys, the subscription, credits and catalog sync, email transport and delivery status, the webhook delivery log, and the agent endpoint. File buttons open your backend functions in the editor.
 
+### Linting
+
+`nuxt-backend/eslint` adds Convex's official lint rules for `backend/` to the `@nuxt/eslint` config: `export default withNuxt(backendEslint())`.
+
 ### Aliases
 
 `#backend`, `#backend/api`, `#backend/server`, `#backend/dataModel`, `#backend/_generated` — typed imports for your Convex functions dir (fallback types keep a fresh project compiling before the first `convex dev`).
@@ -185,7 +189,7 @@ Everything is on [nuxt-backend.dev](https://nuxt-backend.dev) — the site (docs
 | [Platform](https://nuxt-backend.dev/platform/overview) | Auth, workspaces, authorization, billing & credits, AI, email, webhooks, workflows, rate limiting, migrations, aggregates, search |
 | [Agents](https://nuxt-backend.dev/agents/mcp-server) | The OAuth-protected MCP endpoint, built-in and custom tools, consent, connecting a client |
 | [API Reference](https://nuxt-backend.dev/api-reference/composables) | Composables, server utilities, client, entrypoints, module options |
-| [Developer Experience](https://nuxt-backend.dev/tooling/cli) | CLI, DevTools, testing, local installation |
+| [Developer Experience](https://nuxt-backend.dev/tooling/cli) | CLI, DevTools, testing, local installation, linting |
 | [Production](https://nuxt-backend.dev/production/deployment) | Deployment, launch checklist, security, troubleshooting |
 
 ## Templates & examples

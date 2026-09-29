@@ -51,7 +51,8 @@
     "src/convex/components/backend/billing.ts",
     "src/convex/components/backend/gifts.ts",
     "src/convex/components/backend/ai.ts",
-    "src/convex/components/backend/webhooks.ts"
+    "src/convex/components/backend/webhooks.ts",
+    "src/eslint.ts"
   ],
   "entryPointStrategy": "resolve",
 

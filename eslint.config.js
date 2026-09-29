@@ -1,6 +1,6 @@
 // @ts-check
 import { createConfigForNuxt } from '@nuxt/eslint-config/flat'
-import convexPlugin from '@convex-dev/eslint-plugin'
+import { backendEslint } from './src/eslint.ts'
 
 // Rules that need type information — each catches a bug nothing else here can
 // see. `@nuxt/eslint-config` only builds the TypeScript program when
@@ -90,22 +90,18 @@ export default createConfigForNuxt({
       },
       rules: typeAwareRules,
     },
-    // Official Convex lint rules (same set the component template enables via
-    // `@convex-dev/eslint-plugin` recommended — it only ships a legacy-format
-    // preset, so the rules are registered here in flat-config form).
+    // The package's own ESLint preset (`nuxt-backend/eslint`) over its own
+    // Convex code, so the rule set consumers get is the one this code passes.
+    // Imported from source: CI lints before anything is built, and Node strips
+    // the types.
+    ...backendEslint({ functionsDir: 'src/convex' }),
+    // The component schema mirrors the Better Auth adapter's schema. When the
+    // adapter sorts by creation time it needs an index of exactly the queried
+    // fields, so an index that prefixes a longer one is not redundant there.
     {
-      files: ['src/convex/**/*.ts'],
-      ignores: ['**/_generated/**', '**/*.test.ts'],
-      plugins: {
-        // The plugin's rule typings target typescript-eslint 8 / ESLint 9 and
-        // clash with ESLint 10's config types; the rules themselves run fine.
-        '@convex-dev': /** @type {any} */ (convexPlugin),
-      },
+      files: ['src/convex/components/backend/schema.ts'],
       rules: {
-        '@convex-dev/no-old-registered-function-syntax': 'error',
-        '@convex-dev/require-args-validator': 'error',
-        '@convex-dev/explicit-table-ids': 'error',
-        '@convex-dev/no-filter-in-query': 'warn',
+        '@convex-dev/no-duplicate-indexes': 'off',
       },
     },
     // Convex component test files use `any` for generic adapters

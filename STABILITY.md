@@ -21,6 +21,7 @@ Every `nuxt-backend/<subpath>` in the package `exports` map, and every value and
 - `nuxt-backend/ai` and `nuxt-backend/mcp` — experimental, see below
 - `nuxt-backend/component/convex.config` · `nuxt-backend/component/schema` · `nuxt-backend/component/_generated/component` · `nuxt-backend/component/email` · `nuxt-backend/component/billing` · `nuxt-backend/component/gifts` · `nuxt-backend/component/ai` · `nuxt-backend/component/webhooks` — the all-in-one `backend` component and its function modules (the local-install scaffold re-exports them)
 - `nuxt-backend/test` — the convex-test registration helper
+- `nuxt-backend/eslint` — the ESLint preset (`backendEslint`, `BACKEND_ESLINT_RULES`); its rule list and levels follow the upstream recommended set, so an upstream change to that set lands here in a minor release
 - `nuxt-backend/ui.css` · `nuxt-backend/auth.css` · `nuxt-backend/*.css` — the neutral stylesheets and their `data-*` hooks
 
 Anything tagged `@internal` in the source is stripped from the published declarations and is not part of this surface; the surface test (`test/nuxt/public-surface.test.ts`) keeps the tag off everything an entry re-exports and freezes each entry's export list.
@@ -75,7 +76,7 @@ A public name is never removed in the release that replaces it. It is marked `@d
 
 - A **breaking change in a `better-auth` or `@convex-dev/*` minor** — an API that consumers of this package touch (auth plugin options, component function signatures, schema shape) — is a **major here** (a minor on the 0.x line, announced as breaking). The dependency ranges stay pinned to the last compatible line until then.
 - A non-breaking upstream update is a patch here.
-- `convex` follows its peer range (`>=1.43.0 <2` — the floor is the lowest version every bundled `@convex-dev/*` component and `convex-helpers` accept, which `check:manifest` verifies against the installed tree); a Convex major is a major here. `vue` is a peer too (`^3.5.41`, the floor the bundled MCP toolkit needs), satisfied by any Nuxt 4.1+ app.
+- `convex` follows its peer range (`>=1.43.0 <2` — the floor is the lowest version every bundled `@convex-dev/*` component and `convex-helpers` accept, which `check:manifest` verifies against the installed tree); a Convex major is a major here. `vue` is a peer too (`^3.5.41`, the floor the bundled MCP toolkit needs), satisfied by any Nuxt 4.1+ app. `@convex-dev/eslint-plugin` (`^5.0.0`) and `eslint` (`^9.0.0 || ^10.0.0`) are optional peers, needed only by `nuxt-backend/eslint`; a major of either is a minor here.
 - Nuxt majors are majors here. `nuxt-convex-module` is a true dependency, installed and configured for you; its own stability policy applies to the core composables it registers.
 
 `test/unit/peer-ranges.test.ts` keeps the declared ranges honest against the installed versions and against what the upstreams declare for each other.
