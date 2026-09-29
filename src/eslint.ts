@@ -48,6 +48,13 @@ export interface BackendEslintOptions {
   rules?: Linter.RulesRecord
 }
 
+/** `./backend/` → `backend`: the glob prefix, without a leading `./` or trailing slashes. */
+function normalizeDir(dir: string): string {
+  let end = dir.length
+  while (end > 0 && dir[end - 1] === '/') end--
+  return dir.slice(dir.startsWith('./') ? 2 : 0, end)
+}
+
 /**
  * Two flat-config entries: `nuxt-backend:convex` applies the Convex rules to
  * the functions directory (tests excluded), and `nuxt-backend:generated`
@@ -58,7 +65,7 @@ export interface BackendEslintOptions {
  * a standalone config adds `typescript-eslint`'s parser for `.ts` files.
  */
 export function backendEslint(options: BackendEslintOptions = {}): Linter.Config[] {
-  const dir = (options.functionsDir ?? 'backend').replace(/^\.\//, '').replace(/\/+$/, '')
+  const dir = normalizeDir(options.functionsDir ?? 'backend')
   return [
     {
       name: 'nuxt-backend:generated',

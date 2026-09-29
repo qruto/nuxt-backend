@@ -62,7 +62,7 @@ recommended config. It leaves out what that config leaves out:
 function backendEslint(options?): Config<RulesConfig>[];
 ```
 
-Defined in: [src/eslint.ts:60](https://github.com/qruto/nuxt-backend/blob/main/src/eslint.ts#L60)
+Defined in: [src/eslint.ts:67](https://github.com/qruto/nuxt-backend/blob/main/src/eslint.ts#L67)
 
 Two flat-config entries: `nuxt-backend:convex` applies the Convex rules to
 the functions directory (tests excluded), and `nuxt-backend:generated`
