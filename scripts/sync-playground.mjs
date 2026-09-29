@@ -165,15 +165,29 @@ export function expected() {
   return new Map(files.map(file => [file, transform(file, readFileSync(join(SOURCE, file)).toString('utf8'))]))
 }
 
+/**
+ * A file's text, or `undefined` when it does not exist. One read instead of an
+ * exists-then-read pair, so nothing can change between the two.
+ */
+function readIfExists(path) {
+  try {
+    return readFileSync(path, 'utf8')
+  }
+  catch (error) {
+    if (error.code === 'ENOENT') return undefined
+    throw error
+  }
+}
+
 /** Differences between the example and the website: missing, changed, and stale files. */
 export function drift() {
   const want = expected()
   const missing = []
   const changed = []
   for (const [file, content] of want) {
-    const target = join(TARGET, file)
-    if (!existsSync(target)) missing.push(file)
-    else if (readFileSync(target, 'utf8') !== content) changed.push(file)
+    const current = readIfExists(join(TARGET, file))
+    if (current === undefined) missing.push(file)
+    else if (current !== content) changed.push(file)
   }
   // The walk skips codegen folders; the files of backend/_generated count.
   const codegen = join(TARGET, 'backend/_generated')
@@ -189,7 +203,7 @@ function write() {
   let written = 0
   for (const [file, content] of want) {
     const target = join(TARGET, file)
-    if (existsSync(target) && readFileSync(target, 'utf8') === content) continue
+    if (readIfExists(target) === content) continue
     mkdirSync(dirname(target), { recursive: true })
     writeFileSync(target, content)
     written++
