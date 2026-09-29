@@ -76,6 +76,20 @@ export function resolvedBackendPages(pages: ModulePagesOptions | false | undefin
   ) as Record<BackendPageKey, string>
 }
 
+/**
+ * The mount paths of the enabled pages that sit behind the `auth` middleware
+ * (settings, profile, security, invitation accept): what the module keeps out
+ * of search indexes and sitemaps.
+ *
+ * @internal
+ */
+export function privatePagePaths(pages: ModulePagesOptions | false | undefined): string[] {
+  return BACKEND_PAGE_DEFS
+    .filter(def => def.auth)
+    .map(def => resolvePagePath(pages, def.key))
+    .filter((path): path is string => Boolean(path))
+}
+
 interface PageLike {
   path: string
   children?: PageLike[]

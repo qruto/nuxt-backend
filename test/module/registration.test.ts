@@ -470,6 +470,38 @@ describe('mcp: false', () => {
   })
 })
 
+describe('private pages stay out of search indexes and sitemaps', () => {
+  const noindex = { robots: false, sitemap: false }
+
+  describe('with the defaults', () => {
+    const getNuxt = useBoot()
+
+    it('marks the four private pages, and neither public one', () => {
+      const routeRules = getNuxt().options.routeRules ?? {}
+      for (const path of ['/settings', '/profile', '/security', '/accept-invitation']) {
+        expect(routeRules[path], path).toEqual(noindex)
+      }
+      expect(routeRules['/login']).toBeUndefined()
+      expect(routeRules['/pricing']).toBeUndefined()
+    })
+  })
+
+  describe('with custom paths and a rule of the app\'s own', () => {
+    const getNuxt = useBoot({
+      backend: { pages: { profile: '/me', settings: false } },
+      routeRules: { '/security': { robots: true } },
+    })
+
+    it('follows the resolved paths, skips a disabled page, and lets the app\'s keys win', () => {
+      const routeRules = getNuxt().options.routeRules ?? {}
+      expect(routeRules['/me']).toEqual(noindex)
+      expect(routeRules['/profile']).toBeUndefined()
+      expect(routeRules['/settings']).toBeUndefined()
+      expect(routeRules['/security']).toEqual({ robots: true, sitemap: false })
+    })
+  })
+})
+
 describe('pages: false', () => {
   const getNuxt = useBoot({ backend: { pages: false } })
 
@@ -480,6 +512,7 @@ describe('pages: false', () => {
       workspaces: true,
     })
     expect(await extendPages(nuxt)).toEqual([])
+    expect(nuxt.options.routeRules?.['/settings']).toBeUndefined()
     // Nothing else in the fixture registers a page, so Nuxt routing stays off.
     expect(pagesEnabled(nuxt)).toBe(false)
   })
