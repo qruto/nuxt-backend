@@ -1,0 +1,250 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import {
+  isSandboxIdentity,
+  newSandboxIdentity,
+  normalizeTestEmail,
+  SANDBOX_IDENTITY_HELP,
+} from '../utils/testEmail'
+
+// Standalone full-screen page: no layout, and no Docus chrome (the docs
+// header/footer render from app.vue, so they must be disabled via meta too).
+//
+// This app page shadows the module's built-in /login route (the module
+// detects it and skips its own) — the whole flow is the packaged <AuthForm>;
+// the site adds only the Strata shell and the sandbox: a generated identity,
+// and its sign-in code read from the sandbox inbox (<SandboxInbox>).
+definePageMeta({ layout: false, header: false, footer: false })
+
+const STORAGE_KEY = 'nuxt-backend:sandbox-identities'
+
+/** How many identities this device remembers, newest first. */
+const MAX_IDENTITIES = 5
+
+// The visitor's sandbox identities, remembered on this device only — a new
+// one never replaces the others, since an address is the only way back into
+// its account. Storage can be unavailable (a private window, blocked site
+// data): the identities then last this visit.
+const identities = ref<string[]>([])
+
+onMounted(() => {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+    if (Array.isArray(saved)) {
+      identities.value = saved.filter((item): item is string => typeof item === 'string' && isSandboxIdentity(item))
+        .slice(0, MAX_IDENTITIES)
+    }
+  }
+  catch { /* storage unavailable or unreadable */ }
+})
+
+function validateEmail(value: string): boolean | string {
+  // The server's canSignIn admits the same addresses (backend/auth.ts).
+  return isSandboxIdentity(value) || SANDBOX_IDENTITY_HELP
+}
+
+function done() {
+  const redirect = useRoute().query.redirect
+  const target = typeof redirect === 'string' && /^\/(?!\/)/.test(redirect) ? redirect : '/playground'
+  return navigateTo(target)
+}
+
+type Flow = { email: { value: string }, error: { value: string | null } }
+
+function fillIdentity(flow: Flow, address: string) {
+  flow.email.value = address
+  flow.error.value = null
+}
+
+function createIdentity(flow: Flow) {
+  const address = newSandboxIdentity()
+  identities.value = [address, ...identities.value].slice(0, MAX_IDENTITIES)
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(identities.value))
+  }
+  catch { /* storage unavailable */ }
+  fillIdentity(flow, address)
+}
+</script>
+
+<template>
+  <main class="page bk-depth">
+    <div class="auth-card">
+      <AuthForm
+        title="Sign in"
+        :validate-email="validateEmail"
+        @success="done"
+      >
+        <template #header="flow">
+          <div class="auth-brand">
+            <span
+              class="mark"
+              aria-hidden="true"
+            >▲</span>
+            <div class="auth-brandtext">
+              <span class="auth-name">Nuxt backend</span>
+              <span class="auth-sub">access</span>
+            </div>
+          </div>
+          <div class="testmail">
+            <span class="lab-label">sandbox identity</span>
+            <div class="presets">
+              <button
+                v-for="address in identities"
+                :key="address"
+                type="button"
+                class="preset identity"
+                :class="{ on: normalizeTestEmail(flow.email.value) === address }"
+                @click="fillIdentity(flow, address)"
+              >
+                {{ address }}
+              </button>
+              <button
+                type="button"
+                class="preset"
+                @click="createIdentity(flow)"
+              >
+                {{ identities.length ? 'New identity' : 'Create a sandbox identity' }}
+              </button>
+            </div>
+            <p class="hint">
+              The playground is a sandbox: an account is a generated address,
+              and its sign-in code shows up right here. This device remembers
+              your last {{ MAX_IDENTITIES }}. Anyone who knows an address can sign in
+              as it, so keep it to yourself and keep nothing real in the
+              account.
+            </p>
+          </div>
+        </template>
+        <template #footer="flow">
+          <SandboxInbox
+            v-if="flow.step.value === 'verify-code'"
+            :email="flow.email.value"
+            @fill="code => flow.otp.value = code"
+          />
+        </template>
+      </AuthForm>
+    </div>
+  </main>
+</template>
+
+<style scoped>
+.page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+}
+
+.auth-card {
+  width: min(26rem, 100%);
+  padding: 1.6rem;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--raise-lg);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 1.1rem;
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: var(--r-sm);
+  /* Neutral anodised plate — same recipe as the docs header mark
+     (AppHeaderLogo.vue): ink gradient, glyph in canvas tone. No signal. */
+  color: var(--bg);
+  font-size: 0.9rem;
+  background: linear-gradient(135deg, var(--ink-dim), var(--ink) 70%);
+  box-shadow: var(--elev-1), inset 1px 1px 0 light-dark(rgb(255 255 255 / 0.28), rgb(255 255 255 / 0.55));
+}
+
+.auth-brandtext {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.auth-name {
+  font-family: var(--display);
+  font-weight: 700;
+}
+
+.auth-sub {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.testmail {
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.preset {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+/* A generated address is one long token: let it break anywhere. */
+.preset.identity {
+  word-break: break-all;
+  text-align: left;
+}
+
+/* Selected preset = the green "go" ring; the text is the crisp signal. */
+.preset.on {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+/* The packaged form inherits the depth palette via .bk-depth; only sizing
+   tweaks live here. */
+.auth-card :deep([data-auth='form']) {
+  max-width: none;
+}
+
+.auth-card :deep([data-auth='title']) {
+  font-family: var(--display);
+  font-size: 1.35rem;
+}
+
+/* The primary submit is green enamel with the site's depth. The `.bk-depth`
+   bridge already maps `--bk-accent` → `--ok`; this adds the raised recipe. */
+.auth-card :deep([data-auth='submit']) {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: var(--on-ok);
+  box-shadow: var(--elev-1), var(--glow-ok-soft);
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.auth-card :deep([data-auth='submit']:not(:disabled):hover) {
+  background: var(--ok-press);
+  box-shadow: var(--elev-2), var(--glow-ok-soft);
+}
+</style>

@@ -167,7 +167,7 @@ describe('.env.example in the templates and examples', () => {
   // The file an app created from a template ships is the file
   // `nuxt-backend init` would write: one template, quoted verbatim, so the two
   // can never describe the environment differently.
-  it.each(['templates/starter', 'examples/advanced'])('%s ships the template init writes', (app) => {
+  it.each(['templates/starter', 'examples/advanced', 'examples/playground'])('%s ships the template init writes', (app) => {
     expect(readFileSync(join(rootDir, app, '.env.example'), 'utf-8')).toBe(ENV_EXAMPLE)
   })
 })

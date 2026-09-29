@@ -153,10 +153,18 @@ the *published* package, not `src/`). Each has a job beyond being documentation:
   suites build it against a stub deployment, and it is the app behind the **Open in StackBlitz**
   link on every pull request: `preview.yml` hands it to pkg.pr.new as `--template` with the
   PR's package build wired in.
+- **[`examples/playground/`](./examples/playground)** — the website's playground as a
+  standalone app. **Edit the playground in `website/`, then run `pnpm playground:sync`**:
+  `scripts/sync-playground.mjs` copies every file the playground reaches (it follows imports
+  and component tags from the playground's pages, layout, middleware, server routes and
+  `backend/`) byte for byte, and rewrites only `app.css`'s Tailwind `@theme static` blocks as
+  `:root`. The files the example writes for itself are listed in the script's `OWNED`. CI runs
+  `node scripts/sync-playground.mjs --check`, and `test/unit/playground-parity.test.ts` pins the
+  routes, the nav, the links out, the catalog and the dependency ranges.
 - **[`examples/advanced/`](./examples/advanced)** — every customization seam at once (local
   component install, custom pages, overridden auth).
 
-The `pack` CI job copies both and installs the packed tarball over the `latest` dependency
+The `pack` CI job copies all three and installs the packed tarball over the `latest` dependency
 twice: with plain `npm`, then builds, and with pnpm, which proves each app's `.pnpmfile.mjs`
 (the only pnpm setting a template can carry: a `pnpm-workspace.yaml` makes `create nuxt`
 treat it as pnpm-only). That is the only place a registry-shaped install (lifecycle scripts,

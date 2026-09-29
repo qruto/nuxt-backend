@@ -263,6 +263,7 @@
     "check:rulesets": "node scripts/check-rulesets.mjs",
     "check:consumer-types": "node scripts/check-consumer-types.mjs",
     "templates:generate": "node scripts/generate-templates.mjs",
+    "playground:sync": "node scripts/sync-playground.mjs",
     "docs:reference": "typedoc && node scripts/typedoc-postprocess.mjs",
     "icons:generate": "node scripts/generate-icons.mjs",
     "docs:reference:check": "pnpm run docs:reference && git diff --exit-code -- website/content/7.api-reference/9.reference && git ls-files --others --exclude-standard -- website/content/7.api-reference/9.reference | (! grep .)",

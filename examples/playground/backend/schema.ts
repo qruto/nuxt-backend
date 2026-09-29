@@ -1,0 +1,75 @@
+import { defineSchema, defineTable } from 'convex/server'
+import { v } from 'convex/values'
+
+/**
+ * Log levels defined as value (source of truth).
+ * Type and validator are *derived* from it per TS best practices
+ * (see https://github.com/AllThingsSmitty/typescript-tips-everyone-should-know#derive-types-from-values-instead-of-duplicating-them).
+ * This avoids duplicating the 'info' | 'warn' | 'error' list in the table schema,
+ * the logs mutation args, and demo UI types.
+ */
+export const LOG_LEVELS = ['info', 'warn', 'error'] as const
+export type LogLevel = (typeof LOG_LEVELS)[number]
+export const logLevelValidator = v.union(
+  v.literal(LOG_LEVELS[0]),
+  v.literal(LOG_LEVELS[1]),
+  v.literal(LOG_LEVELS[2]),
+)
+
+export default defineSchema({
+  todos: defineTable({
+    text: v.string(),
+    completed: v.boolean(),
+    userId: v.string(),
+  }).index('userId', ['userId']),
+
+  messages: defineTable({
+    userId: v.string(),
+    author: v.string(),
+    text: v.string(),
+  })
+    .index('userId', ['userId'])
+    .searchIndex('search_text', { searchField: 'text', filterFields: ['userId'] }),
+
+  counters: defineTable({
+    userId: v.string(),
+    name: v.string(),
+    value: v.number(),
+  }).index('userId_name', ['userId', 'name']),
+
+  logs: defineTable({
+    userId: v.string(),
+    level: logLevelValidator,
+    message: v.string(),
+  }).index('userId', ['userId']),
+
+  files: defineTable({
+    userId: v.string(),
+    storageId: v.id('_storage'),
+    name: v.string(),
+    contentType: v.optional(v.string()),
+    size: v.optional(v.number()),
+  }).index('userId', ['userId']).index('storageId', ['storageId']),
+
+  // Note: the Polar feature/credit cache (`billingEntitlements`) now lives inside
+  // the bundled `auth` / `billing` components — nothing to declare here. useFeatures() /
+  // useCredits() read it reactively via api.billing.getFeatures / getCredits.
+
+  // Transactional emails sent from the app, so the showcase can show a feed with
+  // live delivery status (via useEmailStatus per row).
+  sentEmails: defineTable({
+    userId: v.string(),
+    emailId: v.string(),
+    to: v.string(),
+    subject: v.string(),
+    createdAt: v.number(),
+  }).index('userId', ['userId']),
+
+  // Recent Polar webhook events, for the showcase activity feed.
+  webhookEvents: defineTable({
+    source: v.string(),
+    type: v.string(),
+    summary: v.string(),
+    createdAt: v.number(),
+  }).index('createdAt', ['createdAt']),
+})

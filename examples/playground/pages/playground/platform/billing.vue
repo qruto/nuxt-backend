@@ -1,0 +1,197 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { api } from '#backend/api'
+
+definePageMeta({ middleware: 'auth' })
+
+const billing = useBilling()
+const products = computed(() => Object.entries(billing.products.value ?? {}))
+// Subscription plans exclude the one-time credit packs (keys `credits*`).
+const subscribable = computed(() => products.value.filter(([key]) => !key.startsWith('credits')))
+const plan = computed(() => (billing.isSubscribed.value ? 'Pro' : 'Free'))
+const planHint = computed(() =>
+  billing.subscription.value === undefined
+    ? 'loading…'
+    : billing.isSubscribed.value ? 'active subscription' : 'no active subscription')
+
+const syncEntitlements = useAction(api.billing.syncEntitlements)
+
+// Admin-only (admin.action on the backend, RoleBoundary in the template).
+const createDiscount = useAction(api.billing.createDiscountAsAdmin)
+const discountPercent = ref(20)
+const discountCode = ref<string | null>(null)
+const discountPending = ref(false)
+async function makeDiscount() {
+  discountPending.value = true
+  try {
+    const d = await createDiscount({ name: `Launch ${discountPercent.value}%`, percent: discountPercent.value })
+    discountCode.value = d.code ?? d.id
+  }
+  finally { discountPending.value = false }
+}
+</script>
+
+<template>
+  <div class="stack">
+    <PageHeader
+      tag="useBilling · CheckoutLink · CustomerPortalLink"
+      title="Billing"
+      live
+    >
+      Polar subscriptions linked to the Better Auth user automatically.
+      <code>&lt;CheckoutLink&gt;</code> opens the embedded checkout,
+      <code>&lt;CustomerPortalLink&gt;</code> manages the subscription, and
+      everything is webhook-synced into a reactive cache.
+    </PageHeader>
+
+    <div class="grid-auto">
+      <MetricCard
+        label="current plan"
+        :value="plan"
+        :tone="billing.isSubscribed.value ? 'ok' : 'neutral'"
+        :hint="planHint"
+      />
+      <MetricCard
+        label="products configured"
+        :value="products.length"
+        hint="from your Polar org"
+      />
+    </div>
+
+    <LabPanel
+      label="checkout · polar"
+      title="Plans"
+      tone="ok"
+    >
+      <p
+        v-if="products.length === 0"
+        class="hint"
+      >
+        No products — set <code>BILLING_ACCESS_TOKEN</code> and create products in Polar.
+      </p>
+      <template v-else>
+        <div class="plans">
+          <div
+            v-for="[key, product] in subscribable"
+            :key="key"
+            class="plan well"
+          >
+            <div class="plan-name">
+              {{ product?.name ?? key }}
+            </div>
+            <CheckoutLink
+              :product-ids="product ? [product.id] : []"
+              :trial-interval-count="7"
+              trial-interval="day"
+              class="checkout-btn"
+            >
+              Start 7-day trial
+            </CheckoutLink>
+          </div>
+        </div>
+        <div
+          class="row"
+          style="margin-top: 1rem"
+        >
+          <!-- The portal needs a Polar customer; only subscribers have one, so
+               gate it (rendering it for a free user throws "Customer not found"
+               in its mount hook). -->
+          <template v-if="billing.isSubscribed.value">
+            <CustomerPortalLink class="portal-btn">
+              Manage subscription
+            </CustomerPortalLink>
+            <!-- Same portal via the composable — a same-tab redirect instead
+                 of the component's link. -->
+            <LabButton
+              variant="secondary"
+              @click="billing.portal({ redirect: true })"
+            >
+              Open portal (composable)
+            </LabButton>
+            <LabButton
+              variant="danger"
+              @click="billing.cancel()"
+            >
+              Cancel
+            </LabButton>
+          </template>
+          <LabButton
+            variant="secondary"
+            @click="syncEntitlements({})"
+          >
+            Sync entitlements
+          </LabButton>
+        </div>
+      </template>
+    </LabPanel>
+
+    <LabPanel
+      label="discounts · polar"
+      title="Create a coupon (admin)"
+    >
+      <p
+        class="hint"
+        style="margin-bottom: 0.85rem"
+      >
+        Create a percentage discount via the Polar SDK. Customers apply codes at
+        checkout — also the card-free path for sandbox testing. The action is
+        an <code>admin.action</code>, so the form only renders for the admin role.
+      </p>
+      <RoleBoundary role="admin">
+        <div class="row">
+          <LabField label="percent off">
+            <input
+              v-model.number="discountPercent"
+              class="input"
+              type="number"
+              min="1"
+              max="100"
+              style="width: 7rem"
+            >
+          </LabField>
+          <LabButton
+            variant="primary"
+            :loading="discountPending"
+            @click="makeDiscount"
+          >
+            Create {{ discountPercent }}% off
+          </LabButton>
+        </div>
+        <p
+          v-if="discountCode"
+          class="code-out mono"
+        >
+          code / id: {{ discountCode }}
+        </p>
+        <template #fallback>
+          <p class="hint">
+            Not an admin here. Sandbox checkout takes the usual test card
+            (<code>4242 4242 4242 4242</code>), so no coupon is needed to try a
+            plan — the guards page shows how <code>RoleBoundary</code> and
+            <code>admin.*</code> decide.
+          </p>
+        </template>
+      </RoleBoundary>
+    </LabPanel>
+  </div>
+</template>
+
+<style scoped>
+.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.85rem; }
+.plan { padding: 1rem; display: flex; flex-direction: column; gap: 0.85rem; }
+.plan-name { font-family: var(--display); font-size: 1.05rem; font-weight: 600; }
+
+.checkout-btn, .portal-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0.5rem 0.9rem; border-radius: var(--r-sm);
+  font-size: 0.82rem; font-weight: 600; text-decoration: none; cursor: pointer;
+  background: var(--ok); color: var(--on-ok); box-shadow: var(--elev-1), var(--glow-ok-soft);
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.checkout-btn:hover { background: var(--ok-press); }
+.portal-btn:hover { background: var(--surface-hi); color: var(--ok); }
+.checkout-btn:active, .portal-btn:active { box-shadow: var(--inset-sm); }
+.portal-btn { background: var(--surface); color: var(--ink); box-shadow: var(--raise-sm); }
+
+.code-out { margin: 0.85rem 0 0; font-size: 0.78rem; color: var(--ok); word-break: break-all; }
+</style>
