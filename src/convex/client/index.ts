@@ -358,6 +358,15 @@ function reachesSandboxInbox(email: string): boolean {
   return readEnv('EMAIL_TEST_MODE') !== 'false' && SANDBOX_ADDRESS.test(email.trim().toLowerCase())
 }
 
+/**
+ * Whether the deployment opted in to printing sign-in codes to its logs: only
+ * `NUXT_BACKEND_LOG_OTP=1`, the value `env push` provisions. Any other value,
+ * `false` included, keeps a live credential out of the logs.
+ */
+function logsOtp(): boolean {
+  return readEnv('NUXT_BACKEND_LOG_OTP') === '1'
+}
+
 /** Build the emailOTP `sendVerificationOTP` handler, routed through the integrations. */
 function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRuntime<DM>) {
   return async (data: { email: string, otp: string, type: OtpPurpose }): Promise<void> => {
@@ -374,7 +383,7 @@ function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRunt
     if (!runtime?.email || !ctx || (unconfigured && !sandboxOnly)) {
       // The OTP is a live credential and Convex logs are durable — never echo it
       // to logs unless a deployment explicitly opts in (local dev without email).
-      if (readEnv('NUXT_BACKEND_LOG_OTP')) {
+      if (logsOtp()) {
         console.warn(
           `[nuxt-backend] No email transport configured. Email OTP (${data.type}) for ${data.email}: ${data.otp}`,
         )
@@ -387,7 +396,7 @@ function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: AuthRunt
         + `Set the required EMAIL_API_KEY env var to send email, or NUXT_BACKEND_LOG_OTP=1 to echo codes to the console during local dev.`,
       )
     }
-    if (sandboxOnly && readEnv('NUXT_BACKEND_LOG_OTP')) {
+    if (sandboxOnly && logsOtp()) {
       // Local dev keeps its terminal echo; the inbox copy is for the page.
       console.warn(`[nuxt-backend] No email transport configured. Email OTP (${data.type}) for ${data.email}: ${data.otp}`)
     }

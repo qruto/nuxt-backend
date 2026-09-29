@@ -337,6 +337,24 @@ describe('workspace invitation email', () => {
       }
     })
 
+    it('logs codes only for NUXT_BACKEND_LOG_OTP=1, never for another value', async () => {
+      vi.stubEnv('EMAIL_API_KEY', '')
+      vi.stubEnv('NUXT_BACKEND_LOG_OTP', 'false')
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      try {
+        await expect(otpOver(mutationCtx())({ email: 'a@b.com', otp: '123456', type: 'sign-in' }))
+          .rejects.toThrow('EMAIL_API_KEY is not set on this deployment')
+        const ctx = mutationCtx()
+        await otpOver(ctx)({ email: 'delivered+e2e@resend.dev', otp: '654321', type: 'sign-in' })
+        expect((ctx as { runMutation: ReturnType<typeof vi.fn> }).runMutation).toHaveBeenCalledWith('backend/email:send', expect.anything())
+        expect(warn.mock.calls.flat().join('\n')).not.toMatch(/123456|654321/)
+      }
+      finally {
+        warn.mockRestore()
+        vi.unstubAllEnvs()
+      }
+    })
+
     it('treats a sandbox address like any other once test mode is off', async () => {
       vi.stubEnv('EMAIL_API_KEY', '')
       vi.stubEnv('EMAIL_TEST_MODE', 'false')
