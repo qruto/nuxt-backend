@@ -341,6 +341,13 @@ export default defineNuxtConfig({
       security: false,
     },
   },
+  // The consumer agent skill lives at the repository root (skills/), where
+  // `npx skills add qruto/nuxt-backend -s nuxt-backend` finds it. Docus
+  // serves the same folder at /.well-known/skills, so
+  // `npx skills add https://nuxt-backend.dev -s nuxt-backend` works too.
+  docus: {
+    skills: { dir: '../skills' },
+  },
   // Self-hosted webfonts. Families are declared in app.css's `@theme` block as
   // `--font-sans` (Nunito), `--font-display` (Bai Jamjuree) and `--font-mono`
   // (JetBrains Mono); @nuxt/fonts scans those declarations, downloads the
@@ -416,6 +423,19 @@ export default defineNuxtConfig({
             title: 'Playground',
             description: 'The interactive demo — every backend surface, live.',
             href: `${siteUrl}/playground`,
+          },
+        ],
+      },
+      {
+        title: 'Agent skill',
+        description:
+          'The nuxt-backend skill for coding agents: the rules, commands, env and customization steps '
+          + `of an app built on the package. Install it with \`npx skills add ${siteUrl} -s nuxt-backend\`.`,
+        links: [
+          {
+            title: 'SKILL.md',
+            description: 'The skill itself, served from /.well-known/skills.',
+            href: `${siteUrl}/.well-known/skills/nuxt-backend/SKILL.md`,
           },
         ],
       },
