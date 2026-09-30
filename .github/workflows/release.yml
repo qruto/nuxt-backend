@@ -4,7 +4,7 @@ name: Release
 # main, builds the tarball, and sends it to npm — where it waits for a 2FA
 # approval before anyone can install it. Run it from the Actions tab.
 #
-#   tag      waits for CI · checks HEAD bumped the version · pushes the tag  contents: write
+#   tag      waits for CI · checks HEAD is the release commit · pushes tag  contents: write
 #            installs nothing                                               environment: Release
 #   build    checks out the tag · pnpm pack · check:tarball · pnpm sbom      no credentials
 #   publish  attests the tarball · creates the GitHub Release with the      contents: write
@@ -17,8 +17,10 @@ name: Release
 #   1. It never bumps the version. `Release Prepare` does that, and this reads
 #      the result out of the merged package.json. Bumping in both places would
 #      tag v0.1.1 for a 0.1.0 release.
-#   2. It refuses a HEAD that did not change the version, so an unrelated merge
-#      can never take the tag.
+#   2. It refuses a HEAD that is not Release Prepare's merged pull request —
+#      it must bump the version, under that PR's subject, merged from its
+#      release/vX.Y.Z branch by github-actions[bot] — so no other merge can
+#      take the tag.
 #   3. Credentials never sit next to dependency code. No job holding one
 #      installs anything, and all of them run behind an egress allowlist.
 #
@@ -68,6 +70,7 @@ jobs:
     permissions:
       contents: write # push the tag
       actions: read # `gh run list` / `gh run watch` read this repository's workflow runs
+      pull-requests: read # the merged pull request behind HEAD, in the release-commit check
     outputs:
       version: ${{ steps.version.outputs.version }}
       ref: ${{ steps.version.outputs.ref }}
@@ -124,30 +127,51 @@ jobs:
           fetch-depth: 0 # full history + tags: `HEAD~1` below, and `re-stage` resolving a tag
           persist-credentials: false
 
-      # HEAD has to be the merged release commit: the one whose package.json
-      # version differs from its parent's.
+      # HEAD has to be the merged release commit: Release Prepare's pull
+      # request, squash-merged. It bumps package.json's version over its
+      # parent's, under the subject that workflow gives it —
+      # `chore(release): vX.Y.Z`, with the ` (#N)` GitHub appends — and GitHub
+      # records it as merged from `release/vX.Y.Z` into main, opened by
+      # github-actions[bot]: only Release Prepare opens that pull request.
       #
-      # Without this check, an ordinary pull request merging between the release
-      # PR and this dispatch takes the tag instead. The tag-versus-manifest check
-      # in `build` still passes, because package.json is unchanged, so v1.2.0
-      # would ship pointing at a commit nobody reviewed as a release. Nothing
-      # downstream can spot that afterwards.
+      # Without the bump check, an ordinary pull request merging between the
+      # release PR and this dispatch takes the tag instead. The tag-versus-
+      # manifest check in `build` still passes, because package.json is
+      # unchanged, so v1.2.0 would ship pointing at a commit nobody reviewed as
+      # a release. Nothing downstream can spot that afterwards. The subject
+      # and provenance checks close the rest: a pull request that changed the
+      # version any other way (a hand edit, a bad rebase, a copied title) is
+      # not a release either.
       - name: Verify HEAD is the release commit
         if: env.RE_STAGE == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           current=$(jq -r .version package.json)
           previous=$(git show 'HEAD~1:package.json' | jq -r .version)
+          subject=$(git log -1 --format=%s)
+          expected="chore(release): v$current"
+          problem=''
           if [ "$current" = "$previous" ]; then
-            if [ "$DRY_RUN" = "true" ]; then
-              echo "::warning::HEAD does not bump the version (package.json says $current on this commit and its parent)."
-              echo "::warning::A real release would stop here. Continuing: a rehearsal must run on an ordinary main."
-            else
-              echo "::error::HEAD ($GITHUB_SHA) does not bump the version — package.json says $current on both this commit and its parent."
-              echo "::error::Run 'Release Prepare' and merge its pull request, then dispatch this workflow on the merge commit."
-              exit 1
-            fi
+            problem="HEAD ($GITHUB_SHA) does not bump the version — package.json says $current on both this commit and its parent."
+          elif [ "$subject" != "$expected" ] && ! [[ "$subject" =~ ^"$expected"\ \(#[0-9]+\)$ ]]; then
+            problem="HEAD ($GITHUB_SHA) bumps $previous -> $current, but its subject is not '$expected' — only Release Prepare's pull request is a release."
           else
-            echo "HEAD bumps $previous -> $current."
+            origin=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+              --jq '[.[] | select(.merged_at != null and .base.ref == "main")] | .[0] | "\(.head.ref) \(.user.login)"')
+            if [ "$origin" != "release/v$current github-actions[bot]" ]; then
+              problem="HEAD ($GITHUB_SHA) was not merged from Release Prepare's pull request (release/v$current by github-actions[bot]); GitHub reports '$origin'."
+            fi
+          fi
+          if [ -z "$problem" ]; then
+            echo "HEAD is the release commit: $previous -> $current."
+          elif [ "$DRY_RUN" = "true" ]; then
+            echo "::warning::$problem"
+            echo "::warning::A real release would stop here. Continuing: a rehearsal must run on an ordinary main."
+          else
+            echo "::error::$problem"
+            echo "::error::Run 'Release Prepare' and squash-merge its pull request under the title it opened with, then dispatch this workflow on the merge commit."
+            exit 1
           fi
 
       # What the rest of the run builds from. A real release uses the tag just

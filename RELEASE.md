@@ -31,7 +31,8 @@ environment can do.
    body is the changelog the GitHub Release will carry. Edit `CHANGELOG.md` on the release branch
    first if a line needs rewording — the notes are read from the tag, so the edit ships. Give that
    edit a Conventional Commit message (`docs(changelog): curate v0.2.0`): CI lints every commit on
-   the pull request, and the web editor's default "Update CHANGELOG.md" fails it.
+   the pull request, and the web editor's default "Update CHANGELOG.md" fails it. Keep the
+   squash title as it is, `chore(release): vX.Y.Z`: `Release` checks it.
 
    Expect `CI` to wait for **Approve and run**: the pull request is authored by
    `github-actions[bot]`, and the repository's approval policy for first-time contributors holds
@@ -81,7 +82,7 @@ flowchart TD
     M(["<b>you read the changelog and squash-merge</b>"])
 
     D(["<b>2 · you run Release</b> · approve the <b>Release</b> environment"])
-    C["<b>tag</b> · <i>contents: write · no OIDC</i><br/>installs nothing · can only reach GitHub<br/>stops unless CI is green and HEAD bumped the version<br/>pushes a tag, never a commit"]
+    C["<b>tag</b> · <i>contents: write · no OIDC</i><br/>installs nothing · can only reach GitHub<br/>stops unless CI is green and HEAD is the release commit<br/>pushes a tag, never a commit"]
     E["<b>build</b> · <i>no credentials at all</i><br/>checks out the tag, not the tree that made it<br/>pnpm pack (module + Convex component + DevTools panel) · check:tarball · pnpm sbom · uploads the artifacts"]
     G2(["approve the <b>Release</b> environment again"])
     F["<b>publish</b> · <i>contents + id-token + attestations: write</i><br/>no checkout, no install · can only reach GitHub, npm, Sigstore<br/>attests the tarball · GitHub Release with tarball, bundle, SBOM<br/>then pnpm stage publish --provenance"]
@@ -204,9 +205,13 @@ Two things follow from the split, and both are enforced in `release.yml`:
 
 - **`Release` never bumps the version.** It reads it from the merged `package.json`. Running
   `changelogen --release` in both halves would bump twice and tag `v0.1.1` for a `0.1.0` release.
-- **`Release` refuses a `HEAD` that didn't change the version.** Otherwise an ordinary PR merging
-  between the release PR and the dispatch takes the tag instead, and nothing downstream notices:
-  `build` compares the tag to `package.json`, which is unchanged, so it still passes.
+- **`Release` refuses a `HEAD` that isn't the release commit**: it must bump the version, under
+  the `chore(release): vX.Y.Z` subject `Release Prepare` gives its pull request, and GitHub must
+  record it as merged from that pull request — `release/vX.Y.Z` into `main`, opened by
+  `github-actions[bot]`. Otherwise an
+  ordinary PR merging between the release PR and the dispatch takes the tag instead, and nothing
+  downstream notices: `build` compares the tag to `package.json`, which is unchanged, so it still
+  passes. The subject and the pull request rule out a PR that changed the version some other way.
 
 ### Credentials never sit next to dependency code
 
