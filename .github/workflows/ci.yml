@@ -262,7 +262,7 @@ jobs:
       # report on old commit subjects.
       - name: Spelling (typos)
         if: ${{ !cancelled() }}
-        uses: crate-ci/typos@512fc24f32f44ab01972217aaaf3dc86ec234d53 # v1.50.2
+        uses: crate-ci/typos@00f422f3b19c57bc6338715ebfe3316d38768461 # v1.50.3
 
       # ── fallow runs last, and nothing runs after it ──────────────────────
       #
@@ -314,7 +314,7 @@ jobs:
       # graph.
       - name: Quality (fallow)
         if: ${{ !cancelled() }}
-        uses: fallow-rs/fallow@adff2c9f20fe769e2e093b2e99ee09723f6310bd # v3.27.0
+        uses: fallow-rs/fallow@71369f80d099e25726ad04382f15aef14a251abc # v3.31.0
         with:
           command: ${{ github.event_name == 'pull_request' && 'audit' || '' }}
 
@@ -324,7 +324,7 @@ jobs:
       # fails the job.
       - name: Security candidates (fallow)
         if: ${{ !cancelled() }}
-        uses: fallow-rs/fallow@adff2c9f20fe769e2e093b2e99ee09723f6310bd # v3.27.0
+        uses: fallow-rs/fallow@71369f80d099e25726ad04382f15aef14a251abc # v3.31.0
         with:
           command: security
           auto-changed-since: false
