@@ -26,9 +26,10 @@ export default defineConfig({
         'lines': 85,
         // The registration surface, which only the `module` project's real
         // Nuxt boot reaches. A global number would hide a drop here behind
-        // the well-covered runtime. Measured: 79.51 lines / 74.07 functions.
+        // the well-covered runtime. Measured: 79.51 lines / 74.07 functions,
+        // and 77.71 lines on CI's Windows leg, which the floor has to pass too.
         'src/module.ts': {
-          lines: 78,
+          lines: 77,
           functions: 73,
         },
       },

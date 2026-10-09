@@ -14,7 +14,9 @@ import { at, contentRoute, frontmatter, read, walk } from './helpers'
 // change to the skill alone is checked too.
 
 const SKILLS_DIR = 'skills'
-const SITE = 'https://nuxt-backend.dev'
+// A pattern rather than a substring: CodeQL reads `includes(url)` as URL
+// validation, and the check here is only that the skill points at the site.
+const SITE = /https:\/\/nuxt-backend\.dev(?:\/|\b)/
 const skills = readdirSync(at(SKILLS_DIR))
 const skillFiles = walk(SKILLS_DIR, ['.md']).map(file => file.slice(file.indexOf(`${SKILLS_DIR}/`)))
 const texts: Array<[string, string]> = [['AGENTS section', AGENTS_SECTION], ...skillFiles.map(file => [file, read(file)] as [string, string])]
@@ -122,6 +124,6 @@ describe('the nuxt-backend skill', () => {
   })
 
   it('links the docs site it is published on', () => {
-    expect(files.some(file => read(file).includes(SITE))).toBe(true)
+    expect(files.some(file => SITE.test(read(file)))).toBe(true)
   })
 })
