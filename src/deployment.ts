@@ -3,11 +3,13 @@
  * writes. Convex's CLI has no Nuxt detection — for a Nuxt app it records
  * `CONVEX_DEPLOYMENT=dev:<slug>` in `.env.local`, and for a local backend
  * (`local:` / `anonymous:`) also the `CONVEX_URL` / `CONVEX_SITE_URL` it
- * listens on — none of which Nuxt reads without `--dotenv`. So without
- * derivation the user must copy both `https://<slug>.convex.cloud` / `.site`
- * URLs by hand before anything works. The written URLs are taken as they
- * are; cloud deployment URLs are otherwise a pure function of the slug, so we
- * derive them and the copy-paste step disappears.
+ * listens on — none of which Nuxt itself reads without `--dotenv`
+ * (nuxt-convex-module 0.11+ reads the written URLs from `.env.local`, but in
+ * development only, and it never derives them from `CONVEX_DEPLOYMENT`). So
+ * without derivation the user must copy both `https://<slug>.convex.cloud` /
+ * `.site` URLs by hand before anything works. The written URLs are taken as
+ * they are; cloud deployment URLs are otherwise a pure function of the slug,
+ * so we derive them and the copy-paste step disappears.
  *
  * Pure and injectable for tests: pass `env` and read files under `rootDir`.
  */

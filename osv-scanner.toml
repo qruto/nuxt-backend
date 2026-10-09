@@ -1,0 +1,48 @@
+# What the weekly OSV scan (.github/workflows/weekly.yml) may skip, and why.
+#
+# Only advisories that have no fixed version inside the ranges our dependencies
+# accept, and that reach nothing but build or dev tooling: never the package's
+# runtime, never a consumer's production server. Anything with a fix gets fixed
+# in the lockfile instead. Every entry expires: when it does, the scan fails
+# again and the entry is either removed (fixed upstream) or renewed with a
+# fresh look at the paths (`pnpm why <package>`).
+
+# braces <=3.0.3 — no fixed release. Reached only through glob matching at
+# build and dev time: micromatch under chokidar-cli (this repo's dev watcher),
+# nitropack's globby, @nuxt/content, and vite-plugin-singlefile (the MCP
+# inspector build inside @nuxtjs/mcp-toolkit).
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2027-01-09
+reason = "braces 3.0.3: no fixed version; build/dev glob matching only (micromatch via chokidar-cli, nitropack, @nuxt/content, vite-plugin-singlefile)"
+
+# node-forge <=1.4.0 — no fixed release. listhen uses it to mint the dev
+# server's self-signed certificate (@nuxt/cli), which production never runs.
+[[IgnoredVulns]]
+id = "GHSA-86w9-cpqp-85rv"
+ignoreUntil = 2027-01-09
+reason = "node-forge 1.4.0: no fixed version; dev-server HTTPS certificates only (listhen via @nuxt/cli)"
+
+# simple-git 3.x — fixed only in the 4.x major, which @nuxt/devtools 3 (what
+# Nuxt 4.5 and 4.6 install) does not accept (^3.36.0). DevTools runs in
+# development only, and DevTools 4 drops the dependency. Remove these when
+# Nuxt ships a DevTools without simple-git 3.
+[[IgnoredVulns]]
+id = "GHSA-x6jw-m9v5-85vh"
+ignoreUntil = 2027-01-09
+reason = "simple-git 3.36.0: fixed in 4.x only; @nuxt/devtools 3 pins ^3.36.0; development only"
+
+[[IgnoredVulns]]
+id = "GHSA-g4wm-2vf7-vfgr"
+ignoreUntil = 2027-01-09
+reason = "simple-git 3.36.0: fixed in 4.x only; @nuxt/devtools 3 pins ^3.36.0; development only"
+
+[[IgnoredVulns]]
+id = "GHSA-858h-whjf-mvg5"
+ignoreUntil = 2027-01-09
+reason = "simple-git 3.36.0: fixed in 4.x only; @nuxt/devtools 3 pins ^3.36.0; development only"
+
+[[IgnoredVulns]]
+id = "GHSA-v5rq-49vh-5v5c"
+ignoreUntil = 2027-01-09
+reason = "@simple-git/argv-parser 1.1.1: comes with simple-git 3.x; same path and fix as the simple-git entries"

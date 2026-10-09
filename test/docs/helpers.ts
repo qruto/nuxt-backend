@@ -26,6 +26,54 @@ export function walk(dir: string, exts: string[], skip: (path: string) => boolea
 }
 
 /**
+ * The site route a content file is served at: numeric `1.` prefixes dropped
+ * from every segment, `.md` dropped, `index` folded into its directory —
+ * `website/content/1.getting-started/4.configuration.md` →
+ * `/getting-started/configuration`.
+ */
+export function contentRoute(file: string): string {
+  const relative = file.slice(file.indexOf('website/content/') + 'website/content/'.length)
+  const segments = relative.replace(/\.md$/, '').split('/').map(s => s.replace(/^\d+\./, ''))
+  if (segments.at(-1) === 'index') segments.pop()
+  return `/${segments.join('/')}`
+}
+
+/**
+ * The content file behind a site route, as a repo-relative path. Tests name
+ * pages by route, so renumbering a page (the prefix only sets its order in
+ * the sidebar) never breaks them.
+ */
+export function contentFile(route: string): string {
+  const file = walk('website/content', ['.md']).find(f => contentRoute(f) === route)
+  if (!file) throw new Error(`no page under website/content is served at ${route}`)
+  return file.slice(file.indexOf('website/content/'))
+}
+
+/**
+ * The YAML frontmatter of a markdown file as flat `key → value` pairs:
+ * enough for SKILL.md's scalar keys, `>-` folded blocks included. Nested maps
+ * keep their key with an empty value.
+ */
+export function frontmatter(markdown: string): Record<string, string> {
+  const block = markdown.match(/^---\n([\s\S]*?)\n---\n/)?.[1]
+  if (block === undefined) return {}
+  const out: Record<string, string> = {}
+  let key: string | undefined
+  for (const line of block.split('\n')) {
+    const entry = line.match(/^([\w-]+):(.*)$/)
+    if (entry) {
+      key = entry[1]!
+      const value = entry[2]!.trim()
+      out[key] = /^[>|]-?$/.test(value) ? '' : value.replace(/^(['"])(.*)\1$/, '$2')
+    }
+    else if (key && /^\s+\S/.test(line)) {
+      out[key] = `${out[key]} ${line.trim()}`.trim()
+    }
+  }
+  return out
+}
+
+/**
  * The option names documented under `heading`: the first cell of every
  * markdown-table row, the `name` of every `::field{name="…"}` block, and the
  * keys of an `interface … {` code block.

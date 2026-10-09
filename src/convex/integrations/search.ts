@@ -42,14 +42,19 @@ class SearchExecutable<
   I extends IndexName<DM, T>,
 > {
   private readonly refinements: Array<(q: Finalizer<DM, T, I>) => Finalizer<DM, T, I>> = []
+  private readonly db: GenericDatabaseReader<DM>
+  private readonly table: T
+  private readonly index: I
+  private readonly field: SearchField<DM, T, I>
+  private readonly term: string
 
-  constructor(
-    private readonly db: GenericDatabaseReader<DM>,
-    private readonly table: T,
-    private readonly index: I,
-    private readonly field: SearchField<DM, T, I>,
-    private readonly term: string,
-  ) {}
+  constructor(db: GenericDatabaseReader<DM>, table: T, index: I, field: SearchField<DM, T, I>, term: string) {
+    this.db = db
+    this.table = table
+    this.index = index
+    this.field = field
+    this.term = term
+  }
 
   /** Restrict results by an `eq` on a filter field declared on the search index. */
   eq(...args: Parameters<Finalizer<DM, T, I>['eq']>): this {
@@ -89,11 +94,15 @@ class SearchIndexBound<
   T extends TableNamesInDataModel<DM>,
   I extends IndexName<DM, T>,
 > {
-  constructor(
-    private readonly db: GenericDatabaseReader<DM>,
-    private readonly table: T,
-    private readonly index: I,
-  ) {}
+  private readonly db: GenericDatabaseReader<DM>
+  private readonly table: T
+  private readonly index: I
+
+  constructor(db: GenericDatabaseReader<DM>, table: T, index: I) {
+    this.db = db
+    this.table = table
+    this.index = index
+  }
 
   /** Set the search field and the user's term to match against it. */
   search(field: SearchField<DM, T, I>, term: string): SearchExecutable<DM, T, I> {

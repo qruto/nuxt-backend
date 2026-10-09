@@ -1,4 +1,4 @@
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type { FunctionArgs, FunctionReference, FunctionReference_future, FunctionReturnType } from 'convex/server'
 import { computed, toValue, type ComputedRef, type MaybeRefOrGetter } from 'vue'
 import { useQuery } from 'nuxt-convex-module/client'
 
@@ -22,7 +22,7 @@ import { useQuery } from 'nuxt-convex-module/client'
  * @experimental Tracks the upstream workflow component's status shape, which
  * is still pre-1.0; may change in a minor release (see STABILITY.md).
  */
-export function useWorkflowStatus<Query extends FunctionReference<'query'>>(
+export function useWorkflowStatus<Query extends FunctionReference<'query'> | FunctionReference_future<'query'>>(
   query: Query,
   workflowId: MaybeRefOrGetter<string | null | undefined>,
 ): ComputedRef<FunctionReturnType<Query> | undefined> {

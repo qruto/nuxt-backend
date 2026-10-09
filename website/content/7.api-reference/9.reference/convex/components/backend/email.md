@@ -16,8 +16,8 @@ navigation:
 ```ts
 const send: RegisteredMutation<"public", {
   headers?: {
-     value: string;
      name: string;
+     value: string;
   }[];
   html?: string;
   text?: string;

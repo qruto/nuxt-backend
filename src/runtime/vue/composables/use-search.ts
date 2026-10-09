@@ -1,15 +1,15 @@
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type { FunctionArgs, FunctionReference, FunctionReference_future, FunctionReturnType } from 'convex/server'
 import { computed, onScopeDispose, ref, toValue, watch, type ComputedRef, type MaybeRefOrGetter } from 'vue'
 import { useQuery } from 'nuxt-convex-module/client'
 
-export interface UseSearchOptions<Query extends FunctionReference<'query'>> {
+export interface UseSearchOptions<Query extends FunctionReference<'query'> | FunctionReference_future<'query'>> {
   /** Debounce, in milliseconds, before the term is sent to the server (default 200). */
   debounce?: number
   /** Extra arguments merged with `{ query }` (e.g. `{ limit }` or filter fields). */
   args?: MaybeRefOrGetter<Omit<FunctionArgs<Query>, 'query'>>
 }
 
-export interface UseSearchResult<Query extends FunctionReference<'query'>> {
+export interface UseSearchResult<Query extends FunctionReference<'query'> | FunctionReference_future<'query'>> {
   /** The matching documents (empty array while loading or when the term is blank). */
   results: ComputedRef<FunctionReturnType<Query>>
   /** True while a non-empty term is in flight and no result has arrived yet. */
@@ -35,7 +35,7 @@ export interface UseSearchResult<Query extends FunctionReference<'query'>> {
  * </script>
  * ```
  */
-export function useSearch<Query extends FunctionReference<'query'>>(
+export function useSearch<Query extends FunctionReference<'query'> | FunctionReference_future<'query'>>(
   query: Query,
   term: MaybeRefOrGetter<string>,
   options: UseSearchOptions<Query> = {},

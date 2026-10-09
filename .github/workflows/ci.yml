@@ -19,13 +19,23 @@ on:
   # branch below it, and each layer is checked on its own before it reaches
   # main. The steps that compare against a base read the pull request's own.
   pull_request:
+  # Weekly, and by hand from the Actions tab (say, right before a release): the
+  # same checks on main with nothing changed here, so a new Nuxt or Convex
+  # release that breaks a fresh app shows up without waiting for a pull
+  # request. The consumer smoke tests in `pack` install the newest of each.
+  schedule:
+    - cron: '41 5 * * 1' # Mondays
+  workflow_dispatch:
 
 # Cancel superseded runs on a pull request, never on main. `head_ref` is empty on
 # a push, so cancelling there would put every merge in one group, and two merges
 # in quick succession would kill the first run. `Release` will not tag a commit
-# whose CI run was cancelled, so that commit could never be released.
+# whose CI run was cancelled, so that commit could never be released. The weekly
+# and manual runs get a group of their own: a group holds one pending run and a
+# newer one cancels it, so sharing main's would let a Monday run cancel a
+# merge's.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || (github.event_name == 'push' && github.ref) || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # No permissions by default. Each job asks for what it needs.
@@ -38,9 +48,9 @@ env:
   NUXT_TELEMETRY_DISABLED: '1'
 
 jobs:
-  # Works out which of the expensive jobs this change needs. On a push to main
-  # they all run anyway: that costs one full run per merge, and a green main is
-  # worth the minutes.
+  # Works out which of the expensive jobs a pull request needs. Anywhere else —
+  # a push to main, the weekly run, a run by hand — they all run anyway: that
+  # costs one full run per merge, and a green main is worth the minutes.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -56,6 +66,7 @@ jobs:
           persist-credentials: false
 
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        if: github.event_name == 'pull_request'
         id: filter
         with:
           # `&shared` / `*shared` is a YAML anchor, and this action resolves
@@ -73,6 +84,9 @@ jobs:
             website:
               - *shared
               - 'website/**'
+              # The consumer agent skill, which the site serves from ../skills
+              # (the static job checks its content on every pull request).
+              - 'skills/**'
               # The two scripts the website job runs on its own output.
               - 'scripts/typecheck-website.mjs'
               - 'scripts/check-website-css.mjs'
@@ -107,7 +121,7 @@ jobs:
       # harden-runner is itself a third-party action, so it is worth adding
       # where there is untrusted code to watch, and nowhere else.
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
         with:
           egress-policy: audit
 
@@ -262,7 +276,7 @@ jobs:
       # report on old commit subjects.
       - name: Spelling (typos)
         if: ${{ !cancelled() }}
-        uses: crate-ci/typos@512fc24f32f44ab01972217aaaf3dc86ec234d53 # v1.50.2
+        uses: crate-ci/typos@00f422f3b19c57bc6338715ebfe3316d38768461 # v1.50.3
 
       # ── fallow runs last, and nothing runs after it ──────────────────────
       #
@@ -304,17 +318,19 @@ jobs:
       # on a job that runs code from the pull request, and a failing job with the
       # findings in its log already says the same thing.
       #
-      # On a pull request it looks only at the changed files, and fails only on
-      # findings the change introduces. On a push to main it runs over
-      # everything, because a scoped audit passes on a config edit that strands
-      # a file elsewhere.
+      # On a pull request it looks only at the changed files, and fails on any
+      # finding in them (`audit.gate` in .fallowrc.jsonc): a finding fallow
+      # counts as inherited still fails the run over everything on main, so
+      # letting it through here only moves the failure there. Anywhere else it
+      # runs over everything, because a scoped audit passes on a config edit
+      # that strands a file elsewhere.
       #
       # Must run after the setup step's `dev:prepare`: without `dist/` the
       # tsconfig chain does not resolve and fallow sees a different module
       # graph.
       - name: Quality (fallow)
         if: ${{ !cancelled() }}
-        uses: fallow-rs/fallow@adff2c9f20fe769e2e093b2e99ee09723f6310bd # v3.27.0
+        uses: fallow-rs/fallow@aaaec796f5449810b9ecf82ed7e62b775d4d1ef3 # v3.32.0
         with:
           command: ${{ github.event_name == 'pull_request' && 'audit' || '' }}
 
@@ -324,14 +340,14 @@ jobs:
       # fails the job.
       - name: Security candidates (fallow)
         if: ${{ !cancelled() }}
-        uses: fallow-rs/fallow@adff2c9f20fe769e2e093b2e99ee09723f6310bd # v3.27.0
+        uses: fallow-rs/fallow@aaaec796f5449810b9ecf82ed7e62b775d4d1ef3 # v3.32.0
         with:
           command: security
           auto-changed-since: false
 
   test:
     needs: changes
-    if: ${{ github.event_name == 'push' || needs.changes.outputs.src == 'true' }}
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.src == 'true' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     permissions:
@@ -350,7 +366,7 @@ jobs:
       # On the Windows leg too: the action supports every GitHub-hosted image,
       # and `audit` blocks nothing on any of them.
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
         with:
           egress-policy: audit
 
@@ -388,14 +404,14 @@ jobs:
   # auth middleware's redirect, the MCP surface, the Convex-aware CSP.
   e2e:
     needs: changes
-    if: ${{ github.event_name == 'push' || needs.changes.outputs.src == 'true' }}
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.src == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
       contents: read
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
         with:
           egress-policy: audit
 
@@ -424,14 +440,14 @@ jobs:
   # here exercises.
   pack:
     needs: changes
-    if: ${{ github.event_name == 'push' || needs.changes.outputs.src == 'true' }}
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.src == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
       contents: read
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
         with:
           egress-policy: audit
 
@@ -470,12 +486,34 @@ jobs:
       # package (`nuxt-backend: latest`); installing the tarball over that
       # dependency is exactly what a user who creates one with `create nuxt`
       # gets, minus the registry.
-      - name: Consumer smoke test (npm install + build)
+      #
+      # Each built app is then started and asked for its home page. A build can
+      # succeed and still not serve: Nuxt 4.6's production build left the
+      # Convex client with an import pointing outside `.output`, so every
+      # request failed with ERR_MODULE_NOT_FOUND while `nuxt build` passed. No
+      # lockfile means the newest Nuxt, so this is where a new Nuxt release
+      # meets the package first. The page asked for is `/login`, the module's own
+      # page, which every app mounts and which renders although nothing answers
+      # at the placeholder backend URL (the playground's home redirects to its
+      # offline page then).
+      - name: Consumer smoke test (npm install, build, serve)
         if: ${{ !cancelled() }}
         env:
           NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
         run: | # zizmor: ignore[adhoc-packages]
           TARBALL="$PWD/$(ls nuxt-backend-*.tgz)"
+          serve() {
+            PORT=3000 node .output/server/index.mjs > server.log 2>&1 &
+            local server=$! code
+            code=$(curl -s -o /dev/null -w '%{http_code}' --retry 30 --retry-connrefused --retry-delay 1 http://localhost:3000/login || true)
+            kill "$server"
+            wait "$server" || true # the next app needs the port
+            if [ "$code" != 200 ] || grep -q 'Cannot find module' server.log; then
+              echo "::error::The built $(basename "$PWD") answered HTTP $code for /login"
+              cat server.log
+              return 1
+            fi
+          }
           for app in templates/starter examples/advanced examples/playground; do
             SMOKE="$RUNNER_TEMP/smoke-$(basename "$app")"
             cp -R "$app" "$SMOKE"
@@ -484,9 +522,40 @@ jobs:
             # because its pages import the generated API at build time.
             git ls-files --error-unmatch "$app/backend/_generated/api.d.ts" >/dev/null 2>&1 || rm -rf "$SMOKE/backend/_generated"
             echo "::group::$app"
-            (cd "$SMOKE" && npx --yes npm@11.17.0 install --no-audit --no-fund "$TARBALL" && npx --yes npm@11.17.0 run build)
+            (cd "$SMOKE" \
+              && npx --yes npm@11.17.0 install --no-audit --no-fund "$TARBALL" \
+              && npx --yes npm@11.17.0 run build \
+              && serve)
             echo "::endgroup::"
           done
+          # The starter once more, at the lowest versions this package
+          # declares: the Nuxt floor in `meta.compatibility` and the floors of
+          # the convex and vue peer ranges. The loop above proves the newest of
+          # each; this keeps the bottom of each range honest. If it fails, the
+          # floor has moved: raise it in src/module.ts or package.json (and
+          # STABILITY.md) rather than working around it here.
+          SMOKE="$RUNNER_TEMP/smoke-floors"
+          cp -R templates/starter "$SMOKE"
+          rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output" "$SMOKE/backend/_generated"
+          node -e '
+            const fs = require("node:fs")
+            const floor = range => range.match(/\d+\.\d+\.\d+/)[0]
+            const peers = JSON.parse(fs.readFileSync("package.json", "utf8")).peerDependencies
+            const nuxt = fs.readFileSync("src/module.ts", "utf8").match(/compatibility: \{ nuxt: .(.+?). \}/)[1]
+            const pins = { nuxt: floor(nuxt), convex: floor(peers.convex), vue: floor(peers.vue) }
+            const file = process.argv[1]
+            const app = JSON.parse(fs.readFileSync(file, "utf8"))
+            app.dependencies = { ...app.dependencies, ...pins }
+            app.overrides = { ...app.overrides, ...pins }
+            fs.writeFileSync(file, JSON.stringify(app, null, 2))
+            console.log("floors:", JSON.stringify(pins))
+          ' "$SMOKE/package.json"
+          echo "::group::templates/starter at the declared floors"
+          (cd "$SMOKE" \
+            && npx --yes npm@11.17.0 install --no-audit --no-fund "$TARBALL" \
+            && npx --yes npm@11.17.0 run build \
+            && serve)
+          echo "::endgroup::"
 
       # The other product of this package: the Convex component. A consumer's
       # `convex dev` resolves `nuxt-backend/component/convex.config` from the
@@ -533,22 +602,41 @@ jobs:
       # install above pulled in. pnpm's `trustPolicy: no-downgrade` refuses a
       # package whose evidence gets weaker between versions; this checks that
       # the evidence is valid at all, on the npm path a consumer uses.
+      #
+      # unimport@7.0.2, which Nuxt 4.6 pulls in, lists an attestation the
+      # registry answers with 404, and `npm audit signatures` stops at the first
+      # 404 — nothing after it would be checked. Until npm serves it
+      # (unjs/unimport#568) each app pins 7.0.1 for this check; any answer but
+      # 200, a network failure included, keeps the pin.
       - name: Verify dependency signatures
         if: ${{ !cancelled() }}
         run: | # zizmor: ignore[adhoc-packages]
+          attested=$(curl -s -o /dev/null -w '%{http_code}' https://registry.npmjs.org/-/npm/v1/attestations/unimport@7.0.2 || true)
+          if [ "$attested" = 200 ]; then
+            echo "::warning::npm now serves unimport@7.0.2's attestation — remove the pin in this step (unjs/unimport#568)."
+          fi
           for app in starter advanced playground; do
-            (cd "$RUNNER_TEMP/smoke-$app" && npx --yes npm@11.17.0 audit signatures)
+            (
+              cd "$RUNNER_TEMP/smoke-$app"
+              if [ "$attested" != 200 ]; then
+                node -e "const fs = require('fs'); const p = JSON.parse(fs.readFileSync('package.json')); p.overrides = { ...p.overrides, 'unimport@7.0.2': '7.0.1' }; fs.writeFileSync('package.json', JSON.stringify(p, null, 2))"
+                npx --yes npm@11.17.0 install --no-audit --no-fund
+              fi
+              npx --yes npm@11.17.0 audit signatures
+            )
           done
 
       # The template and the examples under pnpm's defaults, with only what each
-      # one carries: its `.pnpmfile.mjs` approves the esbuild build script
-      # (pnpm 11 stops the first install until every build script is approved)
-      # and hoists `@convex-dev/*` so Convex's bundler reaches the component
-      # definitions the scaffold imports. A template can't ship a
+      # one carries: its `.pnpmfile.mjs` answers the dependency build scripts
+      # (pnpm 11 stops the first install until every one is answered — here,
+      # declined) and hoists `@convex-dev/*` so Convex's bundler reaches the
+      # component definitions the scaffold imports. A template can't ship a
       # pnpm-workspace.yaml (`create nuxt` treats one that has it as
       # pnpm-only), so the codegen assertion below is what proves the hook
-      # works. No lockfile, as above; the release age is zeroed for the same
-      # reason the strict-pnpm step below zeroes it.
+      # works — and that Convex bundles without esbuild's install script. The
+      # last command adds the official modules `create nuxt` offers, whose
+      # build scripts the hook answers too. No lockfile, as above; the release
+      # age is zeroed for the same reason the strict-pnpm step below zeroes it.
       - name: Consumer smoke test (pnpm, templates)
         if: ${{ !cancelled() }}
         env:
@@ -572,6 +660,10 @@ jobs:
           if ! grep -q 'nuxt-backend/component/_generated/component' backend/_generated/api.d.ts; then
             echo "::error::under pnpm the template's .pnpmfile.mjs did not make the component definitions resolvable"; exit 1
           fi
+          # The official modules `create nuxt` offers, and the better-sqlite3
+          # @nuxt/content installs on its first run.
+          pnpm add @nuxt/a11y @nuxt/content @nuxt/eslint @nuxt/fonts @nuxt/hints \
+            @nuxt/icon @nuxt/image @nuxt/scripts @nuxt/test-utils @nuxt/ui better-sqlite3
 
       # The same consumer path under pnpm's default isolated linker, which
       # hides everything a package does not declare — the one layout the
@@ -595,7 +687,7 @@ jobs:
           printf '%s\n' '{ "name": "smoke-strict-pnpm", "private": true, "type": "module" }' > package.json
           printf '%s\n' "export default defineNuxtConfig({ modules: ['nuxt-backend'], telemetry: false })" > nuxt.config.ts
           printf '%s\n' '<template><div>smoke</div></template>' > app/app.vue
-          printf '%s\n' 'publicHoistPattern:' "  - '@convex-dev/*'" 'allowBuilds:' '  esbuild: true' 'minimumReleaseAge: 0' > pnpm-workspace.yaml
+          printf '%s\n' 'publicHoistPattern:' "  - '@convex-dev/*'" 'allowBuilds:' '  esbuild: false' 'minimumReleaseAge: 0' > pnpm-workspace.yaml
           pnpm add nuxt convex "$TARBALL"
           pnpm exec nuxt-backend init
           pnpm exec nuxt build
@@ -608,14 +700,14 @@ jobs:
   # it. `full` prepare, because both read website/.nuxt.
   website:
     needs: changes
-    if: ${{ github.event_name == 'push' || needs.changes.outputs.website == 'true' }}
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.website == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
         with:
           egress-policy: audit
 

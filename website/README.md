@@ -34,6 +34,15 @@ The steps live in `vercel-build.sh`, which `vercel.json` runs: Vercel caps `buil
 characters, and `vercel.json` allows no comments — its schema rejects unknown properties,
 including `$comment`. That's what this file and the script's comments are for.
 
+## Only `main` deploys
+
+`vercel.json` turns deployments off for every branch but `main` (`git.deploymentEnabled`), as
+`nuxt-convex-module` does. CI's `website` job already type-checks and builds the site on every
+pull request, and a preview could only show the playground offline, so a preview deployment
+repeated that work on every push to a pull request. Keeping the rule in `vercel.json` rather
+than in the dashboard's Ignored Build Step keeps it reviewed with the code; leave that dashboard
+setting on Automatic.
+
 ## Settings that live in Vercel, not here
 
 | Setting | Value | Why |

@@ -15,18 +15,22 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**'],
       reporter: ['text', 'json', 'lcov'],
-      // Lock in the current baseline (a small margin below the measured numbers)
-      // so a regression fails CI without being brittle. Raise these as coverage
-      // climbs; the harder build-time/runtime files (auth plugins/middleware,
-      // the scaffold writer) keep the global ceiling modest for now.
-      // Rebaselined with the `module` project, which boots real Nuxt through
-      // src/module.ts — the registration surface unit tests could not reach.
-      // Measured over `--project "!e2e"`: 73.37 / 65.21 / 72.24 / 75.20.
+      // A ratchet: one point below the measured numbers, so a regression fails
+      // CI without being brittle. Raise them whenever coverage climbs — never
+      // lower them to make a change pass.
+      // Measured over `--project "!e2e"`: 84.59 / 77.37 / 83.45 / 86.43.
       thresholds: {
-        statements: 72,
-        branches: 64,
-        functions: 71,
-        lines: 74,
+        'statements': 83,
+        'branches': 76,
+        'functions': 82,
+        'lines': 85,
+        // The registration surface, which only the `module` project's real
+        // Nuxt boot reaches. A global number would hide a drop here behind
+        // the well-covered runtime. Measured: 79.51 lines / 74.07 functions.
+        'src/module.ts': {
+          lines: 78,
+          functions: 73,
+        },
       },
     },
     projects: [

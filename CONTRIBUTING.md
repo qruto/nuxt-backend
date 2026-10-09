@@ -211,6 +211,11 @@ findings out of the default run) both pass, and both gate every pull request and
 in the policy at their current values, each with the reason it is where it is — so the gate
 fails on growth, not on history; shrinking one is always welcome.
 
+On a pull request (and in the `pre-commit` hook) fallow audits only the files the branch
+changed, and fails on **every** finding in them — `audit.gate: "all"` in the policy — not only on
+the ones it attributes to the change. A finding it reads as inherited would otherwise pass the
+pull request and then fail the whole-repository run on `main`. Touch a file, own its findings.
+
 The other gates: ESLint (`pnpm lint`), both type checks (`pnpm test:types:lib` — the Nuxt
 module and the Convex code have separate tsconfigs), the manifest ranges
 (`pnpm check:manifest`: no peer range wider than what the dependency itself accepts), the test
@@ -350,6 +355,14 @@ pages against the code: every module option appears in the API reference, the co
 and STABILITY.md; every middleware a page names is registered; every CLI command has its section;
 this file and the hooks cite real CI job names. It runs in the `static` job, which a docs-only
 change still gets. Add a case there when a page starts promising something the code has to keep.
+
+**The agent skill.** [`skills/nuxt-backend/`](./skills/nuxt-backend/SKILL.md) is what users' coding
+agents read about this package (the docs site publishes it at `/.well-known/skills/`), and an agent
+follows it to the letter. It follows the public API: when you rename a composable or a component,
+change the install flow or move a docs page, update the skill in the same change.
+[`test/docs/agent-skill.test.ts`](./test/docs/agent-skill.test.ts) fails on a CLI command, import
+path, env var, docs link or API name in it that the package doesn't have, and on frontmatter the
+Agent Skills spec rejects.
 
 ## Releasing
 

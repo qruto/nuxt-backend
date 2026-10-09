@@ -14,7 +14,9 @@ setup every agent here runs with.
 | [`.agents/skills/`](./.agents/skills/) | The skills themselves — canonical, agent-neutral, committed |
 | [`.claude/skills/`](./.claude/skills/) | Symlinks into `.agents/skills/`, so Claude Code sees them |
 | [`skills-lock.json`](./skills-lock.json) | Upstream source + content hash for every skill |
+| [`skills/nuxt-backend/`](./skills/nuxt-backend/SKILL.md) | What users' agents are told about this package — update it with any public API, install-flow or docs-URL change (`test/docs/agent-skill.test.ts` holds its names, commands and links to the code) |
 | [`.mcp.json`](./.mcp.json) | MCP servers for this project |
+| [`.claude/settings.json`](./.claude/settings.json) | Shared Claude Code settings: read-only MCP tools allowed, writes (`convex run`, env changes, sending email, Polar actions, fallow fixes) ask first; `settings.local.json` stays yours |
 
 Managed with the [`skills`](https://skills.sh) CLI:
 
@@ -30,9 +32,13 @@ rather than symlinking:
 - After any `add` or `update`, move new folders from `.claude/skills/` into
   `.agents/skills/` and replace them with symlinks. Only `.agents/skills/` is
   committed as content.
-- `skills-lock.json` must list every folder in `.agents/skills/` and nothing else.
-  `depth-design` and `test-nuxt-backend` are `sourceType: "local"` — they have no
-  upstream, so they live and die with this repo.
+- `skills-lock.json` must list every folder in `.agents/skills/` and nothing else,
+  with one exception below. `depth-design` and `test-nuxt-backend` are
+  `sourceType: "local"` — they have no upstream, so they live and die with this repo.
+- `.agents/skills/nuxt-backend` is a symlink to the consumer skill in `skills/`
+  (where the docs site publishes it), so agents working here load what users'
+  agents load. It stays out of the lock: its content hash would go stale with
+  every edit, and the skills CLI has nothing to restore it from.
 
 MCP servers `github` and `vercel` need an interactive OAuth sign-in (`/mcp`) before
 their tools work.

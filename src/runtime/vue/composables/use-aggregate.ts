@@ -1,4 +1,4 @@
-import type { FunctionReference } from 'convex/server'
+import type { FunctionReference, FunctionReference_future } from 'convex/server'
 import { computed, type ComputedRef } from 'vue'
 import { useQuery, type OptionalRestArgsOrSkip } from 'nuxt-convex-module/client'
 
@@ -18,7 +18,7 @@ import { useQuery, type OptionalRestArgsOrSkip } from 'nuxt-convex-module/client
  * </script>
  * ```
  */
-export function useAggregate<Query extends FunctionReference<'query'>>(
+export function useAggregate<Query extends FunctionReference<'query'> | FunctionReference_future<'query'>>(
   query: Query,
   ...args: OptionalRestArgsOrSkip<Query>
 ): ComputedRef<number> {

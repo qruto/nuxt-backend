@@ -138,10 +138,10 @@ const tables: {
    }, {
   }>;
   verification: TableDefinition<VObject<{
-     value: string;
      createdAt: number;
      updatedAt: number;
      expiresAt: number;
+     value: string;
      identifier: string;
    }, {
      identifier: VString<string, "required">;
@@ -149,7 +149,7 @@ const tables: {
      expiresAt: VFloat64<number, "required">;
      createdAt: VFloat64<number, "required">;
      updatedAt: VFloat64<number, "required">;
-   }, "required", "value" | "createdAt" | "updatedAt" | "expiresAt" | "identifier">, {
+   }, "required", "createdAt" | "updatedAt" | "expiresAt" | "value" | "identifier">, {
      expiresAt: ["expiresAt", "_creationTime"];
      identifier: ["identifier", "_creationTime"];
    }, {
@@ -404,7 +404,7 @@ Defined in: [src/convex/components/backend/schema.ts:16](https://github.com/qrut
 | <a id="property-user"></a> `user` | `TableDefinition`\<`VObject`\<\{ `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banReason?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banExpires?`: `number` \| `null`; `createdAt`: `number`; `updatedAt`: `number`; `email`: `string`; `emailVerified`: `boolean`; `name`: `string`; \}, \{ `name`: `VString`\<`string`, `"required"`\>; `email`: `VString`\<`string`, `"required"`\>; `emailVerified`: `VBoolean`\<`boolean`, `"required"`\>; `image`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; `createdAt`: `VFloat64`\<`number`, `"required"`\>; `updatedAt`: `VFloat64`\<`number`, `"required"`\>; `role`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; `banned`: `VUnion`\<`boolean` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VBoolean`\<`boolean`, `"required"`\>\], `"optional"`, `never`\>; `banReason`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; `banExpires`: `VUnion`\<`number` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VFloat64`\<`number`, `"required"`\>\], `"optional"`, `never`\>; \}, `"required"`, \| `"createdAt"` \| `"updatedAt"` \| `"email"` \| `"emailVerified"` \| `"name"` \| `"image"` \| `"role"` \| `"banReason"` \| `"banned"` \| `"banExpires"`\>, \{ `email_name`: \[`"email"`, `"name"`, `"_creationTime"`\]; `name`: \[`"name"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:17](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L17) |
 | <a id="property-session"></a> `session` | `TableDefinition`\<`VObject`\<\{ `ipAddress?`: `string` \| `null`; `userAgent?`: `string` \| `null`; `activeOrganizationId?`: `string` \| `null`; `impersonatedBy?`: `string` \| `null`; `createdAt`: `number`; `updatedAt`: `number`; `userId`: `string`; `expiresAt`: `number`; `token`: `string`; \}, \{ `expiresAt`: `VFloat64`\<`number`, `"required"`\>; `token`: `VString`\<`string`, `"required"`\>; `createdAt`: `VFloat64`\<`number`, `"required"`\>; `updatedAt`: `VFloat64`\<`number`, `"required"`\>; `ipAddress`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; `userAgent`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; `userId`: `VString`\<`string`, `"required"`\>; `impersonatedBy`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; `activeOrganizationId`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; \}, `"required"`, \| `"createdAt"` \| `"updatedAt"` \| `"userId"` \| `"expiresAt"` \| `"token"` \| `"ipAddress"` \| `"userAgent"` \| `"activeOrganizationId"` \| `"impersonatedBy"`\>, \{ `expiresAt`: \[`"expiresAt"`, `"_creationTime"`\]; `expiresAt_userId`: \[`"expiresAt"`, `"userId"`, `"_creationTime"`\]; `token`: \[`"token"`, `"_creationTime"`\]; `userId`: \[`"userId"`, `"_creationTime"`\]; `userId_expiresAt`: \[`"userId"`, `"expiresAt"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:32](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L32) |
 | <a id="property-account"></a> `account` | `TableDefinition`\<`VObject`\<\{ `password?`: `string` \| `null`; `accessToken?`: `string` \| `null`; `refreshToken?`: `string` \| `null`; `idToken?`: `string` \| `null`; `accessTokenExpiresAt?`: `number` \| `null`; `refreshTokenExpiresAt?`: `number` \| `null`; `scope?`: `string` \| `null`; `createdAt`: `number`; `updatedAt`: `number`; `userId`: `string`; `accountId`: `string`; `providerId`: `string`; \}, \{ `accountId`: `VString`\<`string`, `"required"`\>; `providerId`: `VString`\<`string`, `"required"`\>; `userId`: `VString`\<`string`, `"required"`\>; `accessToken`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; `refreshToken`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; `idToken`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; `accessTokenExpiresAt`: `VUnion`\<`number` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VFloat64`\<`number`, `"required"`\>\], `"optional"`, `never`\>; `refreshTokenExpiresAt`: `VUnion`\<`number` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VFloat64`\<`number`, `"required"`\>\], `"optional"`, `never`\>; `scope`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; `password`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; `createdAt`: `VFloat64`\<`number`, `"required"`\>; `updatedAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, \| `"createdAt"` \| `"updatedAt"` \| `"userId"` \| `"password"` \| `"accountId"` \| `"providerId"` \| `"accessToken"` \| `"refreshToken"` \| `"idToken"` \| `"accessTokenExpiresAt"` \| `"refreshTokenExpiresAt"` \| `"scope"`\>, \{ `accountId`: \[`"accountId"`, `"_creationTime"`\]; `accountId_providerId`: \[`"accountId"`, `"providerId"`, `"_creationTime"`\]; `providerId_userId`: \[`"providerId"`, `"userId"`, `"_creationTime"`\]; `userId`: \[`"userId"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:51](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L51) |
-| <a id="property-verification"></a> `verification` | `TableDefinition`\<`VObject`\<\{ `value`: `string`; `createdAt`: `number`; `updatedAt`: `number`; `expiresAt`: `number`; `identifier`: `string`; \}, \{ `identifier`: `VString`\<`string`, `"required"`\>; `value`: `VString`\<`string`, `"required"`\>; `expiresAt`: `VFloat64`\<`number`, `"required"`\>; `createdAt`: `VFloat64`\<`number`, `"required"`\>; `updatedAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, `"value"` \| `"createdAt"` \| `"updatedAt"` \| `"expiresAt"` \| `"identifier"`\>, \{ `expiresAt`: \[`"expiresAt"`, `"_creationTime"`\]; `identifier`: \[`"identifier"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:69](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L69) |
+| <a id="property-verification"></a> `verification` | `TableDefinition`\<`VObject`\<\{ `createdAt`: `number`; `updatedAt`: `number`; `expiresAt`: `number`; `value`: `string`; `identifier`: `string`; \}, \{ `identifier`: `VString`\<`string`, `"required"`\>; `value`: `VString`\<`string`, `"required"`\>; `expiresAt`: `VFloat64`\<`number`, `"required"`\>; `createdAt`: `VFloat64`\<`number`, `"required"`\>; `updatedAt`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, `"createdAt"` \| `"updatedAt"` \| `"expiresAt"` \| `"value"` \| `"identifier"`\>, \{ `expiresAt`: \[`"expiresAt"`, `"_creationTime"`\]; `identifier`: \[`"identifier"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:69](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L69) |
 | <a id="property-ratelimit"></a> `rateLimit` | `TableDefinition`\<`VObject`\<\{ `key`: `string`; `count`: `number`; `lastRequest`: `number`; \}, \{ `key`: `VString`\<`string`, `"required"`\>; `count`: `VFloat64`\<`number`, `"required"`\>; `lastRequest`: `VFloat64`\<`number`, `"required"`\>; \}, `"required"`, `"key"` \| `"count"` \| `"lastRequest"`\>, \{ `key`: \[`"key"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:78](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L78) |
 | <a id="property-passkey"></a> `passkey` | `TableDefinition`\<`VObject`\<\{ `createdAt?`: `number` \| `null`; `name?`: `string` \| `null`; `transports?`: `string` \| `null`; `aaguid?`: `string` \| `null`; `userId`: `string`; `publicKey`: `string`; `credentialID`: `string`; `counter`: `number`; `deviceType`: `string`; `backedUp`: `boolean`; \}, \{ `name`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; `publicKey`: `VString`\<`string`, `"required"`\>; `userId`: `VString`\<`string`, `"required"`\>; `credentialID`: `VString`\<`string`, `"required"`\>; `counter`: `VFloat64`\<`number`, `"required"`\>; `deviceType`: `VString`\<`string`, `"required"`\>; `backedUp`: `VBoolean`\<`boolean`, `"required"`\>; `transports`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; `createdAt`: `VUnion`\<`number` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VFloat64`\<`number`, `"required"`\>\], `"optional"`, `never`\>; `aaguid`: `VUnion`\<`string` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VString`\<`string`, `"required"`\>\], `"optional"`, `never`\>; \}, `"required"`, \| `"createdAt"` \| `"name"` \| `"userId"` \| `"publicKey"` \| `"credentialID"` \| `"counter"` \| `"deviceType"` \| `"backedUp"` \| `"transports"` \| `"aaguid"`\>, \{ `credentialID`: \[`"credentialID"`, `"_creationTime"`\]; `userId`: \[`"userId"`, `"_creationTime"`\]; \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:85](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L85) |
 | <a id="property-jwks"></a> `jwks` | `TableDefinition`\<`VObject`\<\{ `expiresAt?`: `number` \| `null`; `createdAt`: `number`; `publicKey`: `string`; `privateKey`: `string`; \}, \{ `publicKey`: `VString`\<`string`, `"required"`\>; `privateKey`: `VString`\<`string`, `"required"`\>; `createdAt`: `VFloat64`\<`number`, `"required"`\>; `expiresAt`: `VUnion`\<`number` \| `null` \| `undefined`, \[`VNull`\<`null`, `"required"`\>, `VFloat64`\<`number`, `"required"`\>\], `"optional"`, `never`\>; \}, `"required"`, `"createdAt"` \| `"expiresAt"` \| `"publicKey"` \| `"privateKey"`\>, \{ \}, \{ \}, \{ \}\> | [src/convex/components/backend/schema.ts:100](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/schema.ts#L100) |
@@ -1064,10 +1064,10 @@ const authSchema: SchemaDefinition<{
    }, {
   }>;
   verification: TableDefinition<VObject<{
-     value: string;
      createdAt: number;
      updatedAt: number;
      expiresAt: number;
+     value: string;
      identifier: string;
    }, {
      identifier: VString<string, "required">;
@@ -1075,7 +1075,7 @@ const authSchema: SchemaDefinition<{
      expiresAt: VFloat64<number, "required">;
      createdAt: VFloat64<number, "required">;
      updatedAt: VFloat64<number, "required">;
-   }, "required", "value" | "createdAt" | "updatedAt" | "expiresAt" | "identifier">, {
+   }, "required", "createdAt" | "updatedAt" | "expiresAt" | "value" | "identifier">, {
      expiresAt: ["expiresAt", "_creationTime"];
      identifier: ["identifier", "_creationTime"];
    }, {
@@ -1454,10 +1454,10 @@ default: SchemaDefinition<{
    }, {
   }>;
   verification: TableDefinition<VObject<{
-     value: string;
      createdAt: number;
      updatedAt: number;
      expiresAt: number;
+     value: string;
      identifier: string;
    }, {
      identifier: VString<string, "required">;
@@ -1465,7 +1465,7 @@ default: SchemaDefinition<{
      expiresAt: VFloat64<number, "required">;
      createdAt: VFloat64<number, "required">;
      updatedAt: VFloat64<number, "required">;
-   }, "required", "value" | "createdAt" | "updatedAt" | "expiresAt" | "identifier">, {
+   }, "required", "createdAt" | "updatedAt" | "expiresAt" | "value" | "identifier">, {
      expiresAt: ["expiresAt", "_creationTime"];
      identifier: ["identifier", "_creationTime"];
    }, {
