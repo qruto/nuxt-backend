@@ -16,7 +16,7 @@ setup every agent here runs with.
 | [`skills-lock.json`](./skills-lock.json) | Upstream source + content hash for every skill |
 | [`skills/nuxt-backend/`](./skills/nuxt-backend/SKILL.md) | What users' agents are told about this package — update it with any public API, install-flow or docs-URL change (`test/docs/agent-skill.test.ts` holds its names, commands and links to the code) |
 | [`.mcp.json`](./.mcp.json) | MCP servers for this project |
-| [`.claude/settings.json`](./.claude/settings.json) | Shared Claude Code settings: read-only MCP tools allowed, writes (`convex run`, env changes, sending email, Polar actions, fallow fixes) ask first; `settings.local.json` stays yours |
+| [`.claude/settings.json`](./.claude/settings.json) | Shared Claude Code settings: read-only MCP tools allowed, writes (`convex run`, env changes, sending email, Polar actions, fallow fixes, anything that drives the browser) ask first; `settings.local.json` stays yours |
 
 Managed with the [`skills`](https://skills.sh) CLI:
 
