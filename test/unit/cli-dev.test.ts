@@ -75,6 +75,21 @@ describe('runDev', () => {
     expect(isEnvProvisioned(rootDir, 'dev:brave-fox-123')).toBe(true)
   })
 
+  it('stops when the first run was interrupted, even if it got as far as a deployment', async () => {
+    mkdirSync(join(rootDir, 'backend'))
+    const { steps, convexCalls } = recordingSteps({
+      convex: async (args, env) => {
+        convexCalls.push({ args, env })
+        configureDeployment('dev:brave-fox-123')
+        return 130
+      },
+    })
+
+    expect(await runDev(rootDir, [], steps)).toBe(130)
+    expect(convexCalls.map(call => call.args)).toEqual([['dev', '--once', '--typecheck', 'disable']])
+    expect(steps.envPush).not.toHaveBeenCalled()
+  })
+
   it('stops when no deployment was configured', async () => {
     mkdirSync(join(rootDir, 'backend'))
     const { steps, convexCalls, lines } = recordingSteps()

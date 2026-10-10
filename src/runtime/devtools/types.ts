@@ -212,6 +212,6 @@ export type DevtoolsPatchableSection = Exclude<keyof BackendDevtoolsSnapshot, 'a
 export interface BackendDevtoolsBridgeHost extends BackendDevtoolsBridge {
   /** Replace one section of the snapshot (plugin-side, from `watchEffect`s). */
   patch<K extends DevtoolsPatchableSection>(key: K, value: BackendDevtoolsSnapshot[K]): void
-  /** Called with every new activity entry (the Vue DevTools timeline listens). */
+  /** Called with every activity entry kept so far, then with each new one (the Vue DevTools timeline listens). */
   onActivity(callback: (event: DevtoolsActivityEvent) => void): () => void
 }

@@ -57,8 +57,19 @@ describe('createBackendDevtoolsBridge', () => {
     off()
     bridge.patch('identity', { available: true, isLoading: false, isAuthenticated: true, email: 'ada@example.com', id: 'u1' })
     expect(bridge.getSnapshot().activity).toHaveLength(2)
-    expect(gone).not.toHaveBeenCalled()
+    expect(gone).toHaveBeenCalledOnce() // the entry kept from before it subscribed
     expect(listener).toHaveBeenCalledTimes(2)
+  })
+
+  it('replays what it kept to a listener that subscribes late', () => {
+    const bridge = createBackendDevtoolsBridge()
+    bridge.patch('connection', 'connected')
+    bridge.patch('connection', 'reconnecting')
+    const late = vi.fn()
+    bridge.onActivity(late)
+    expect(late).toHaveBeenCalledWith(expect.objectContaining({ title: 'Connection lost, reconnecting' }))
+    bridge.patch('connection', 'connected')
+    expect(late).toHaveBeenCalledTimes(2)
   })
 
   it('compares with the last settled value, so a change made through a loading state is told', () => {

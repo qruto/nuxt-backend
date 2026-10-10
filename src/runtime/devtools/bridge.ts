@@ -77,6 +77,9 @@ export function createBackendDevtoolsBridge(requests: Partial<DevtoolsBridgeRequ
     },
     onActivity(callback) {
       activityHandlers.add(callback)
+      // A listener that attaches late (the timeline waits on a dynamic
+      // import) still gets what happened before it did.
+      for (const event of snapshot.activity) callback(event)
       return () => {
         activityHandlers.delete(callback)
       }
