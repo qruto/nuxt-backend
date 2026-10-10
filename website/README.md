@@ -56,10 +56,13 @@ must print `prod:determined-horse-300`. Then, from the repository root, after `p
    the local origin. Generate the secret **only when the deployment has none**: a new one signs every
    user and agent out and leaves the stored JWKS keys undecryptable
    ([troubleshooting](https://nuxt-backend.dev/production/troubleshooting#sessions-or-agent-tokens-fail-after-rotating-auth_secret)).
+   The names are read first, and nothing is set if that read fails: a failed read piped straight
+   into `grep` would look like a missing secret and replace the real one.
 
    ```sh
-   npx convex env list --names-only | grep -qx AUTH_SECRET \
-     || npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"
+   names=$(npx convex env list --names-only) \
+     && { printf '%s\n' "$names" | grep -qx AUTH_SECRET \
+       || npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"; }
    npx convex env set SITE_URL https://nuxt-backend.dev
    ```
 2. The rest from `.env.local` — `pnpm cli env push --prod`. It never replaces a value already set,
