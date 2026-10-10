@@ -14,7 +14,7 @@ import type { ComponentApi } from '../../src/convex/components/backend/_generate
 //
 // `componentsGeneric()` is exactly what an app's generated `api.js` exports;
 // the type is the component's own generated `ComponentApi`, as the app's
-// `api.d.ts` imports it from `nuxt-backend/component/_generated/component`.
+// `api.d.ts` imports it from `nuxt-backend/_generated/component`.
 const appSchema = defineSchema({})
 // convex-test locates an app's functions root from a `_generated/` entry in
 // its module glob; this app has no functions, so the one entry is a stub.

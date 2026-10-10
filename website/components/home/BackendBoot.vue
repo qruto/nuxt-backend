@@ -29,7 +29,7 @@ const MODULES: Module[] = [
   { id: 'email', desc: 'Resend transactional · webhooks', mode: 'idle' },
 ]
 
-const COMMAND = '$ npx nuxi module add nuxt-backend'
+const COMMAND = '$ npx nuxt module add nuxt-backend'
 const readyCount = MODULES.filter(m => m.mode === 'ready').length
 
 // Initial = finished state, so SSR and first client render agree.

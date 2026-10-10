@@ -1,5 +1,6 @@
 import type { ComputedRef } from 'vue'
-import type { AuthConfig, HttpRouter } from 'convex/server'
+import type { AuthConfig, FunctionReturnType, HttpRouter } from 'convex/server'
+import type { Infer } from 'convex/values'
 import type { WorkflowManager } from '@convex-dev/workflow'
 import { describe, expectTypeOf, test } from 'vitest'
 import type pkg from '../../package.json'
@@ -20,7 +21,7 @@ import { defineSearch, search } from 'nuxt-backend/search'
 import { defineEmailSequence, setupWorkflows } from 'nuxt-backend/workflows'
 import { priceTokens, setupAi } from 'nuxt-backend/ai'
 import { BACKEND_MCP_FUNCTION_DEFAULTS, defineBackendMcpTool, useBackendMcp } from 'nuxt-backend/mcp'
-import backendComponent from 'nuxt-backend/component/convex.config'
+import backendComponent from 'nuxt-backend/convex.config'
 import schema, { vGift } from 'nuxt-backend/component/schema'
 import { handleWebhook, send, status } from 'nuxt-backend/component/email'
 import { debit, getByUser } from 'nuxt-backend/component/billing'
@@ -32,6 +33,9 @@ import backendTest, { register } from 'nuxt-backend/test'
 import { BACKEND_ESLINT_RULES, backendEslint } from 'nuxt-backend/eslint'
 import type { Linter } from 'eslint'
 import { useCredits } from '../../src/runtime/vue/composables/use-credits'
+// The ComponentApi has no typed subpath of its own (Convex codegen output, see
+// `Untyped`), so it is read from the committed source.
+import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 
 // The typed subpaths are the product. Every runtime test imports a source file
 // by path; nothing else imports `nuxt-backend/<subpath>` the way a consumer
@@ -48,9 +52,9 @@ type Untyped
     | './auth.css'
     | './ui.css'
     | './*.css'
-    | './component/_generated/component'
-    | './component/_generated/component.js'
-    | './component/convex.config.js'
+    | './_generated/component'
+    | './_generated/component.js'
+    | './convex.config.js'
 
 type Tested
   = | '.'
@@ -68,7 +72,7 @@ type Tested
     | './workflows'
     | './ai'
     | './mcp'
-    | './component/convex.config'
+    | './convex.config'
     | './component/schema'
     | './component/email'
     | './component/billing'
@@ -216,7 +220,7 @@ test('nuxt-backend/mcp', () => {
 // The component's own definition, schema and registered functions, exactly as
 // `app.use()` and `convex-test` see them.
 describe('component', () => {
-  test('nuxt-backend/component/convex.config', () => {
+  test('nuxt-backend/convex.config', () => {
     expectTypeOf(backendComponent).toHaveProperty('use')
   })
 
@@ -255,6 +259,18 @@ describe('component', () => {
     expectTypeOf(record.isMutation).toEqualTypeOf<true>()
     expectTypeOf(find.isQuery).toEqualTypeOf<true>()
     expectTypeOf(vDeliveryOutcome.kind).toEqualTypeOf<'union'>()
+  })
+
+  // What a consumer's `components.backend.*` is typed against. A public
+  // component function without a return validator surfaces there as `any` —
+  // these three once did.
+  test('the ComponentApi types every query result', () => {
+    type Api = ComponentApi
+    expectTypeOf<FunctionReturnType<Api['email']['status']>>().not.toBeAny()
+    expectTypeOf<FunctionReturnType<Api['email']['status']>>().toEqualTypeOf<NonNullable<FunctionReturnType<Api['email']['status']>> | null>()
+    expectTypeOf<NonNullable<FunctionReturnType<Api['email']['get']>>>().toHaveProperty('finalizedAt').toEqualTypeOf<number>()
+    expectTypeOf<NonNullable<FunctionReturnType<Api['email']['get']>>>().not.toHaveProperty('resendId')
+    expectTypeOf<FunctionReturnType<Api['webhooks']['listRecent']>[number]['outcome']>().toEqualTypeOf<Infer<typeof vDeliveryOutcome>>()
   })
 })
 

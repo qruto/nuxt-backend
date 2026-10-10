@@ -78,8 +78,8 @@ const ENTRIES: Record<string, Entry> = {
   './workflows': { source: 'src/convex/integrations/workflows.ts', kind: 'convex' },
   './ai': { source: 'src/convex/integrations/ai.ts', kind: 'convex' },
   './mcp': { source: 'src/runtime/server/mcp/index.ts', kind: 'runtime' },
-  './component/convex.config': { source: 'src/convex/components/backend/convex.config.ts', kind: 'convex' },
-  './component/_generated/component': { source: 'src/convex/components/backend/_generated/component.ts', kind: 'convex', typesOnly: true },
+  './convex.config': { source: 'src/convex/components/backend/convex.config.ts', kind: 'convex' },
+  './_generated/component': { source: 'src/convex/components/backend/_generated/component.ts', kind: 'convex', typesOnly: true },
   './component/schema': { source: 'src/convex/components/backend/schema.ts', kind: 'convex' },
   './component/email': { source: 'src/convex/components/backend/email.ts', kind: 'convex' },
   './component/billing': { source: 'src/convex/components/backend/billing.ts', kind: 'convex' },
@@ -97,7 +97,7 @@ const ENTRIES: Record<string, Entry> = {
  * spelling — the historically documented Convex import style — as exact
  * duplicates of the extensionless entry. Nothing else gets a dual.
  */
-const COMPONENT_DUALS = ['./component/convex.config', './component/_generated/component']
+const COMPONENT_DUALS = ['./convex.config', './_generated/component']
 
 /** Subpaths with no source file: `exports` self-reference only. */
 const SELF_REFERENCES = ['./package.json']
@@ -364,7 +364,7 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './workflows': ['defineEmailSequence', 'setupWorkflows'],
   './ai': ['priceTokens', 'setupAi'],
   './mcp': ['BACKEND_MCP_FUNCTION_DEFAULTS', 'EXCHANGE_CACHE_MARGIN_MS', 'backendMcpFunction', 'builtinToolEnabled', 'createExchangeCache', 'defineBackendMcpTool', 'useBackendMcp'],
-  './component/convex.config': ['default'],
+  './convex.config': ['default'],
   './component/schema': ['aiTables', 'authSchema', 'billingTables', 'default', 'emailTables', 'tables', 'vEntitlementBenefit', 'vEntitlementMeter', 'vGift', 'vPendingSpend', 'webhookTables'],
   './component/email': ['cancel', 'cleanup', 'cleanupAbandoned', 'expireSandboxMessage', 'get', 'handleWebhook', 'inbox', 'send', 'status'],
   './component/billing': ['attachReleaseJob', 'clear', 'clearPendingSpends', 'credit', 'debit', 'deleteByUser', 'finalize', 'getBenefitMetadata', 'getByUser', 'release', 'settle', 'upsert', 'upsertBenefitMetadata', 'userByCustomer'],
@@ -382,7 +382,7 @@ const EXPORT_NAMES: Record<string, string[]> = {
  * injects, so importing `convex.config.ts` here throws. Their names are read
  * statically (oxc-parser) instead of observed through `import()`.
  */
-const STATIC_ONLY = ['./component/convex.config']
+const STATIC_ONLY = ['./convex.config']
 
 describe('entry export names', () => {
   it('freezes one literal array per JavaScript entry', () => {
@@ -571,7 +571,7 @@ describe('the surface as documented', () => {
     // convex subpath is an entry point, and the only entry points that carry no
     // subpath are the auto-imported composables — reached by name rather than
     // by import path, so they have a page but never an `exports` key.
-    // `./component/_generated/component` is the one subpath left out: Convex
+    // `./_generated/component` is the one subpath left out: Convex
     // generates it and it ships types only, so it is not hand-documented.
     const typedoc = JSON.parse(stripJsonComments(read('typedoc.json'))) as { entryPoints: string[] }
     const COMPOSABLES = 'src/runtime/vue/composables/'

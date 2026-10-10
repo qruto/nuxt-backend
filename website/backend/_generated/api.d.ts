@@ -91,7 +91,7 @@ export declare const internal: FilterApi<
 >;
 
 export declare const components: {
-  backend: import("nuxt-backend/component/_generated/component.js").ComponentApi<"backend">;
+  backend: import("nuxt-backend/_generated/component.js").ComponentApi<"backend">;
   aggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"aggregate">;
   migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
   persistentTextStreaming: import("@convex-dev/persistent-text-streaming/_generated/component.js").ComponentApi<"persistentTextStreaming">;

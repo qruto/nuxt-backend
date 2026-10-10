@@ -70,13 +70,27 @@ export const find = query({
 /** Recent deliveries, newest first (the DevTools / playground feed). */
 export const listRecent = query({
   args: { limit: v.optional(v.number()) },
+  returns: v.array(v.object({
+    service: v.string(),
+    deliveryId: v.string(),
+    type: v.optional(v.string()),
+    outcome: vDeliveryOutcome,
+    note: v.optional(v.string()),
+    receivedAt: v.number(),
+  })),
   handler: async (ctx, { limit }) => {
     const rows = await ctx.db
       .query('webhookDeliveries')
       .withIndex('receivedAt')
       .order('desc')
       .take(Math.min(limit ?? 50, RING_CAP))
-    return rows.map(({ service, deliveryId, type, outcome, note, receivedAt }) =>
-      ({ service, deliveryId, type, outcome, note, receivedAt }))
+    return rows.map(({ service, deliveryId, type, outcome, note, receivedAt }) => ({
+      service,
+      deliveryId,
+      outcome,
+      receivedAt,
+      ...(type === undefined ? {} : { type }),
+      ...(note === undefined ? {} : { note }),
+    }))
   },
 })

@@ -19,7 +19,7 @@ Every `nuxt-backend/<subpath>` in the package `exports` map, and every value and
 - `nuxt-backend` — the Nuxt module (default export) and its `ModuleOptions`
 - `nuxt-backend/app` · `nuxt-backend/auth` · `nuxt-backend/auth.config` · `nuxt-backend/authorization` · `nuxt-backend/http` · `nuxt-backend/functions` · `nuxt-backend/billing` · `nuxt-backend/email` · `nuxt-backend/rate-limit` · `nuxt-backend/migrations` · `nuxt-backend/aggregate` · `nuxt-backend/search` · `nuxt-backend/workflows` — the Convex-side setup helpers
 - `nuxt-backend/ai` and `nuxt-backend/mcp` — experimental, see below
-- `nuxt-backend/component/convex.config` · `nuxt-backend/component/schema` · `nuxt-backend/component/_generated/component` · `nuxt-backend/component/email` · `nuxt-backend/component/billing` · `nuxt-backend/component/gifts` · `nuxt-backend/component/ai` · `nuxt-backend/component/webhooks` — the all-in-one `backend` component and its function modules (the local-install scaffold re-exports them)
+- `nuxt-backend/convex.config` · `nuxt-backend/component/schema` · `nuxt-backend/_generated/component` · `nuxt-backend/component/email` · `nuxt-backend/component/billing` · `nuxt-backend/component/gifts` · `nuxt-backend/component/ai` · `nuxt-backend/component/webhooks` — the all-in-one `backend` component and its function modules (the local-install scaffold re-exports them)
 - `nuxt-backend/test` — the convex-test registration helper
 - `nuxt-backend/eslint` — the ESLint preset (`backendEslint`, `BACKEND_ESLINT_RULES`); its rule list and levels follow the upstream recommended set, so an upstream change to that set lands here in a minor release
 - `nuxt-backend/ui.css` · `nuxt-backend/auth.css` · `nuxt-backend/*.css` — the neutral stylesheets and their `data-*` hooks

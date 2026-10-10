@@ -1,4 +1,10 @@
-# feat: add nuxt-backend
+<!--
+The nuxt/modules "Module Listing Request" issue form, field by field.
+Title: [Module Listing Request]: `nuxt-backend`
+https://github.com/nuxt/modules/issues/new?template=module_request.yml
+-->
+
+### Description
 
 `nuxt-backend` is an all-in-one SaaS backend for Nuxt on Convex: one module, one Convex component,
 scaffolded into the app by `npx nuxt-backend init`.
@@ -12,9 +18,18 @@ project and the deployment, and a Nuxt DevTools tab. Every public name is brand-
 (`nuxt-backend/billing`, `useCredits`, `<PricingTable>`); the providers underneath are Convex,
 Better Auth, Polar and Resend.
 
-- Docs: https://nuxt-backend.dev (live playground at /playground)
-- Repository: https://github.com/qruto/nuxt-backend — MIT, signed releases with npm provenance
-- Compatibility: Nuxt >= 4.1, Node >= 24.11, Convex >= 1.43
-- First real release: 0.2.0 (`0.1.0` was a test publish, deprecated on npm)
+Docs: https://nuxt-backend.dev (live playground at /playground). MIT, signed releases with npm
+provenance. I maintain it; the entry for `modules/` is ready to copy if a pull request is easier
+for you: https://github.com/qruto/nuxt-backend/blob/main/.github/registry/backend.yml
 
-I maintain it and will keep the entry current.
+### Repository
+
+https://github.com/qruto/nuxt-backend
+
+### npm
+
+https://www.npmjs.com/package/nuxt-backend
+
+### Nuxt Compatibility
+
+Nuxt 4 (`^4.1.0`), Node >= 24.11, Convex >= 1.46.

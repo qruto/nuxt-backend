@@ -75,9 +75,15 @@ export default defineConfig({
         },
       }),
       {
-        // Docs ↔ code contract: reads markdown and source, imports nothing
-        // from src at runtime. Runs in CI's `static` job, which every PR
-        // gets — the `test` job is skipped for docs-only changes.
+        // Docs ↔ code contract: reads markdown and source, and imports only
+        // the plain modules that hold names, commands and the install prompt.
+        // Runs in CI's `static` job, which every PR gets — the `test` job is
+        // skipped for docs-only changes.
+        //
+        // Every file, the website's included, compiles with the root
+        // tsconfig: the website's extends a `.nuxt/` only its own job
+        // generates, and without it nothing under website/ would transform.
+        tsconfig: 'tsconfig.json',
         test: {
           name: 'docs',
           include: ['test/docs/**/*.{test,spec}.ts'],

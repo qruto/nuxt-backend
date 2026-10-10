@@ -1,5 +1,5 @@
-import { type EmailId, Resend, type SendEmailOptions } from '@convex-dev/resend'
-import { v } from 'convex/values'
+import { type EmailId, Resend, type SendEmailOptions, vStatus } from '@convex-dev/resend'
+import { type Infer, v } from 'convex/values'
 import { Webhook } from 'svix'
 import { sendArgs } from '../../email-validators.js'
 import { components, internal } from './_generated/api.js'
@@ -149,19 +149,105 @@ export const expireSandboxMessage = internalMutation({
   },
 })
 
+/**
+ * A sent email's delivery state — what `status` returns and `get` includes.
+ * Picked field by field rather than passed through from the provider
+ * component, so a field it adds later cannot break these return validators,
+ * and the provider's own identifiers stay behind this boundary.
+ */
+const deliveryFields = {
+  status: vStatus,
+  errorMessage: v.union(v.string(), v.null()),
+  bounced: v.boolean(),
+  complained: v.boolean(),
+  failed: v.boolean(),
+  deliveryDelayed: v.boolean(),
+  opened: v.boolean(),
+  clicked: v.boolean(),
+}
+
+interface ProviderDelivery {
+  status: Infer<typeof vStatus>
+  errorMessage?: string | null
+  bounced?: boolean
+  complained: boolean
+  failed?: boolean
+  deliveryDelayed?: boolean
+  opened?: boolean
+  clicked?: boolean
+}
+
+function delivery(email: ProviderDelivery) {
+  return {
+    status: email.status,
+    errorMessage: email.errorMessage ?? null,
+    bounced: email.bounced ?? false,
+    complained: email.complained,
+    failed: email.failed ?? false,
+    deliveryDelayed: email.deliveryDelayed ?? false,
+    opened: email.opened ?? false,
+    clicked: email.clicked ?? false,
+  }
+}
+
 /** Delivery status for a sent email (waiting → queued → sent → delivered/bounced/…). */
 export const status = query({
   args: { emailId: v.string() },
+  returns: v.union(v.object(deliveryFields), v.null()),
   handler: async (ctx, args) => {
-    return resendClient().status(ctx, args.emailId as EmailId)
+    const email = await resendClient().status(ctx, args.emailId as EmailId)
+    return email && delivery(email)
   },
 })
 
-/** Full stored email record (recipients, subject, status, timestamps, …). */
+/** Every entry of `fields` that is not `undefined` — a return value carries no undefined fields. */
+function defined<T extends Record<string, unknown>>(fields: T): Partial<T> {
+  return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) as Partial<T>
+}
+
+/**
+ * A sent email's record: what was sent (the same fields `send` takes, with
+ * the recipients normalised to lists), its delivery state and its timestamps.
+ */
 export const get = query({
   args: { emailId: v.string() },
+  returns: v.union(v.object({
+    from: v.string(),
+    to: v.array(v.string()),
+    cc: v.optional(v.array(v.string())),
+    bcc: v.optional(v.array(v.string())),
+    subject: sendArgs.subject,
+    replyTo: v.array(v.string()),
+    html: sendArgs.html,
+    text: sendArgs.text,
+    template: sendArgs.template,
+    headers: sendArgs.headers,
+    ...deliveryFields,
+    createdAt: v.number(),
+    finalizedAt: v.number(),
+  }), v.null()),
   handler: async (ctx, args) => {
-    return resendClient().get(ctx, args.emailId as EmailId)
+    const email = await resendClient().get(ctx, args.emailId as EmailId)
+    if (!email) return null
+    // The provider stores cc/bcc but leaves them out of its declared type.
+    const copies = email as { cc?: string[], bcc?: string[] }
+    return {
+      from: email.from,
+      to: email.to,
+      replyTo: email.replyTo,
+      ...delivery(email),
+      createdAt: email.createdAt,
+      finalizedAt: email.finalizedAt,
+      ...defined({
+        cc: copies.cc,
+        bcc: copies.bcc,
+        subject: email.subject,
+        html: email.html,
+        text: email.text,
+        template: email.template,
+        headers: email.headers,
+      }),
+    }
   },
 })
 

@@ -8,7 +8,7 @@
   // One entry point per public module — the sources behind every runtime/convex
   // `exports` subpath, plus the auto-imported composables (which have no subpath
   // of their own). `test/nuxt/public-surface.test.ts` checks both directions.
-  // The only subpath left out is `./component/_generated/component`: Convex
+  // The only subpath left out is `./_generated/component`: Convex
   // generates it, and it ships types only.
   "entryPoints": [
     "src/module.ts",

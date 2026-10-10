@@ -7,9 +7,9 @@ github: https://github.com/qruto/nuxt-backend
 website: https://nuxt-backend.dev
 learn_more: https://nuxt-backend.dev/getting-started/introduction
 category: Database
-type: community
+type: 3rd-party
 maintainers:
   - name: Slava Razum
     github: slavarazum
 compatibility:
-  nuxt: '>=4.1.0'
+  nuxt: '^4.1.0'

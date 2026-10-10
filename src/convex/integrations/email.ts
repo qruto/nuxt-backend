@@ -24,7 +24,7 @@ export interface EmailComponents {
       // are registered inside the component.
       send: FunctionReference<'mutation', 'internal', SendEmailOptions, string | null>
       status: FunctionReference<'query', 'internal', { emailId: string }, EmailStatus | null>
-      get: FunctionReference<'query', 'internal', { emailId: string }, unknown>
+      get: FunctionReference<'query', 'internal', { emailId: string }, EmailRecord | null>
       cancel: FunctionReference<'mutation', 'internal', { emailId: string }, null>
       /**
        * Retention pruning of the provider component's email records. Optional
@@ -60,7 +60,7 @@ export interface SandboxMessage {
   receivedAt: number
 }
 
-/** Resend delivery status, as returned by the component `status` query. */
+/** A sent email's delivery state, as the component `status` query returns it. */
 export interface EmailStatus {
   status: string
   errorMessage: string | null
@@ -70,6 +70,27 @@ export interface EmailStatus {
   deliveryDelayed: boolean
   opened: boolean
   clicked: boolean
+}
+
+/** A sent email's record, as the component `get` query returns it. */
+export interface EmailRecord extends EmailStatus {
+  from: string
+  to: string[]
+  cc?: string[]
+  bcc?: string[]
+  subject?: string
+  replyTo: string[]
+  html?: string
+  text?: string
+  template?: { id: string, variables?: Record<string, string | number> }
+  headers?: Array<{ name: string, value: string }>
+  /** When it was queued, as epoch ms. */
+  createdAt: number
+  /**
+   * When it reached a final state (delivered, bounced, failed, cancelled), as
+   * epoch ms — a far-future sentinel while it is still in flight.
+   */
+  finalizedAt: number
 }
 
 /** Options for a transactional send (mirrors the component `send` mutation). */

@@ -1,6 +1,6 @@
 ---
 name: nuxt-backend
-description: Build and change Nuxt apps that use nuxt-backend, the all-in-one SaaS backend on Convex (passwordless auth, workspaces and invitations, billing with plans, credits and gifts, transactional email, webhooks, metered AI, an OAuth-protected agent endpoint). Use when a project depends on nuxt-backend or has a backend/ folder with convex.json pointing at it, when adding pages or Convex functions to such an app, when wiring sign-in, pricing, credits, workspaces or email, when a user asks about `npx nuxt-backend` commands, env vars, the billing catalog or doctor findings, and when customizing the packaged pages.
+description: Build and change Nuxt apps that use nuxt-backend, the all-in-one SaaS backend on Convex (passwordless auth, workspaces and invitations, billing with plans, credits and gifts, transactional email, webhooks, metered AI, an OAuth-protected agent endpoint). Use when installing nuxt-backend or starting a new app with it, when a project depends on nuxt-backend or has a backend/ folder with convex.json pointing at it, when adding pages or Convex functions to such an app, when wiring sign-in, pricing, credits, workspaces or email, when a user asks about `npx nuxt-backend` commands, env vars, the billing catalog or doctor findings, and when customizing the packaged pages.
 ---
 
 # nuxt-backend
@@ -13,6 +13,12 @@ description: Build and change Nuxt apps that use nuxt-backend, the all-in-one Sa
 
 The app's own Convex functions live in `backend/`, and each scaffolded file there re-exports the
 package's setup. Docs: https://nuxt-backend.dev, and for agents https://nuxt-backend.dev/llms.txt.
+
+## Not installed yet?
+
+No `nuxt-backend` in `package.json`, or no Nuxt app at all: follow
+[references/install.md](references/install.md) first. It covers a new app from the starter and an
+existing one, the first deployment (a local one needs no account), and how to check the result.
 
 ## Ground rules
 

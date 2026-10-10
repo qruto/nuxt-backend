@@ -558,10 +558,10 @@ jobs:
           echo "::endgroup::"
 
       # The other product of this package: the Convex component. A consumer's
-      # `convex dev` resolves `nuxt-backend/component/convex.config` from the
+      # `convex dev` resolves `nuxt-backend/convex.config` from the
       # scaffolded config, bundles the component and generates
       # `components.backend.*` typed against
-      # `nuxt-backend/component/_generated/component.js` — the exports map has
+      # `nuxt-backend/_generated/component.js` — the exports map has
       # to make both reachable, and only a real codegen from an installed copy
       # proves it. `convex codegen` refuses to run without a deployment, so this
       # creates an anonymous local one (no account, no credentials) and lets
@@ -584,7 +584,7 @@ jobs:
           if grep -q 'AnyApi' backend/_generated/api.d.ts; then
             echo "::error::backend/_generated/api.d.ts is the untyped placeholder — the component-aware codegen phase did not run"; exit 1
           fi
-          if ! grep -q 'nuxt-backend/component/_generated/component' backend/_generated/api.d.ts; then
+          if ! grep -q 'nuxt-backend/_generated/component' backend/_generated/api.d.ts; then
             echo "::error::backend/_generated/api.d.ts does not type components.backend against the package's ComponentApi"; exit 1
           fi
 
@@ -657,7 +657,7 @@ jobs:
           done
           cd "$RUNNER_TEMP/smoke-pnpm-starter"
           pnpm exec convex dev --once --typecheck disable || echo "convex dev --once exited $? (expected: the push needs env vars this deployment does not have)"
-          if ! grep -q 'nuxt-backend/component/_generated/component' backend/_generated/api.d.ts; then
+          if ! grep -q 'nuxt-backend/_generated/component' backend/_generated/api.d.ts; then
             echo "::error::under pnpm the template's .pnpmfile.mjs did not make the component definitions resolvable"; exit 1
           fi
           # The official modules `create nuxt` offers, and the better-sqlite3
@@ -692,7 +692,7 @@ jobs:
           pnpm exec nuxt-backend init
           pnpm exec nuxt build
           pnpm exec convex dev --once --typecheck disable || echo "convex dev --once exited $? (expected: the push needs env vars this deployment does not have)"
-          if ! grep -q 'nuxt-backend/component/_generated/component' backend/_generated/api.d.ts; then
+          if ! grep -q 'nuxt-backend/_generated/component' backend/_generated/api.d.ts; then
             echo "::error::under strict pnpm the codegen did not type components.backend against the package's ComponentApi"; exit 1
           fi
 
