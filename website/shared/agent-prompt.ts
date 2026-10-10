@@ -5,7 +5,7 @@
 // .agents/skills/.
 export const AGENT_PROMPT = [
   'Install nuxt-backend, the all-in-one SaaS backend for Nuxt on Convex, in this project:',
-  'run `npx skills add https://nuxt-backend.dev --skill nuxt-backend -y`,',
+  'run `npx -y skills@1.7.0 add https://nuxt-backend.dev --skill nuxt-backend -y`,',
   'then follow .agents/skills/nuxt-backend/references/install.md.',
 ].join('\n')
 

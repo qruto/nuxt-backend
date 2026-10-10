@@ -54,7 +54,7 @@ bun create nuxt@latest my-app --template=gh:qruto/nuxt-backend/templates/starter
 
 Use the user's name for the app instead of `my-app`, and pass `--gitInit=false` when the folder
 is already inside a git repository. npm needs the `--` before `-t`; Bun rejects `-t`, so it takes
-`--template=`. Then `cd` into the new folder and run the `npx skills add` command from the prompt
+`--template=`. Then `cd` into the new folder and run the `npx -y skills@1.7.0 add` command from the prompt
 there too: it installed the skill in the folder you started in, and the app needs its own copy
 for later tasks. Go to step 2.
 
@@ -76,8 +76,8 @@ Check what `init` printed:
 
 - `nuxt.config.ts` lists `'nuxt-backend'` in `modules`.
 - `package.json`'s `dev` script is `nuxt-backend dev`. A `dev` script that was not plain
-  `nuxt dev` (one that chains commands, say) is left alone: tell the user, and use
-  `npx nuxt-backend dev` below instead of the script.
+  `nuxt dev` (one that chains commands, say) is left alone: tell the user. The commands below
+  run `npx nuxt-backend dev` directly, so they work either way.
 - When it says it added `convex` to the dependencies, run the install once more.
 - When it says `CLAUDE.md does not mention AGENTS.md`, tell the user; don't edit `CLAUDE.md`
   yourself.
@@ -101,7 +101,7 @@ pnpm notes:
 
 ## 2. Start it: the deployment, its env, the generated code
 
-The `dev` script runs `nuxt-backend dev`. On its first run it sets up a Convex deployment when
+`npx nuxt-backend dev` (what the `dev` script runs once `init` has set it). On its first run it sets up a Convex deployment when
 none is configured (writing `CONVEX_DEPLOYMENT` to `.env.local`), provisions that deployment's
 required env (`AUTH_SECRET` is generated, `SITE_URL` defaults to `http://localhost:3000`), then
 runs Convex and Nuxt together: Convex pushes `backend/` and generates `backend/_generated/`
@@ -113,17 +113,17 @@ before Nuxt starts. Start it in the background; it keeps running.
   functions to it and sets `AUTH_SECRET` and `SITE_URL` there, so ask before starting it.
 
   ```bash
-  npm run dev
+  npx nuxt-backend dev
   ```
 
 - **No deployment yet.** Create a local one. It needs no account, runs on this machine, and
   creates nothing in the cloud:
 
   ```bash
-  CONVEX_AGENT_MODE=anonymous npm run dev
+  CONVEX_AGENT_MODE=anonymous npx nuxt-backend dev
   ```
 
-  In PowerShell: `$env:CONVEX_AGENT_MODE='anonymous'; npm run dev`.
+  In PowerShell: `$env:CONVEX_AGENT_MODE='anonymous'; npx nuxt-backend dev`.
 
 - **The user wants a cloud deployment.** That needs their Convex login in a browser. Ask them to
   run the `dev` script in their own terminal and pick or create a project, then continue once
