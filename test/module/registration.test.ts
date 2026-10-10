@@ -669,6 +669,17 @@ describe('dev boot under nuxi prepare (_prepare: true, test: false)', () => {
   })
 })
 
+describe('dev boot under a test runner (test: true), DevTools left on', () => {
+  const getNuxt = useBoot({ test: true }, { dev: true })
+
+  it('skips the DevTools bridge: nothing opens a panel under a test runner', () => {
+    const nuxt = getNuxt()
+    expect(nuxt.options.dev).toBe(true)
+    expect(nuxt.options.test).toBe(true)
+    expect(ourPlugins(nuxt)).toEqual([])
+  })
+})
+
 describe('dev boot under a test runner (test: true) with devtools: false', () => {
   const getNuxt = useBoot({ test: true, backend: { devtools: false } }, { dev: true })
 

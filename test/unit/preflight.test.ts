@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { backendEnv } from '../../src/convex/app'
-import { collectPreflightFindings, DEV_ONLY_DEPLOYMENT_ENV, formatPreflightSummary, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../../src/preflight'
+import { collectPreflightFindings, DEV_ONLY_DEPLOYMENT_ENV, formatPreflightSummary, needsSetup, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../../src/preflight'
 
 function byId(findings: PreflightFinding[], id: string): PreflightFinding {
   const finding = findings.find(f => f.id === id)
@@ -124,6 +124,15 @@ describe('formatPreflightSummary', () => {
     const findings = collectPreflightFindings({ env: { ...fullEnv, AUTH_SECRET: 'weak' }, siteUrlConfigured: false })
     expect(formatPreflightSummary(findings)).toContain('2 findings')
     expect(formatPreflightSummary(findings)).toContain('auth-secret')
+  })
+})
+
+describe('needsSetup', () => {
+  it('is about the required tier only: unset optional services are a designed state', () => {
+    const optionalOnly = { AUTH_SECRET: fullEnv.AUTH_SECRET, SITE_URL: fullEnv.SITE_URL }
+    expect(needsSetup(collectPreflightFindings({ env: optionalOnly, siteUrlConfigured: true }))).toBe(false)
+    expect(needsSetup(collectPreflightFindings({ env: { SITE_URL: fullEnv.SITE_URL }, siteUrlConfigured: true }))).toBe(true)
+    expect(needsSetup(collectPreflightFindings({ env: fullEnv, siteUrlConfigured: false }))).toBe(true)
   })
 })
 

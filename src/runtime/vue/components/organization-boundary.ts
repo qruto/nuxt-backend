@@ -14,7 +14,7 @@ import { useOrganization } from '../composables/use-organization'
  *
  * The default slot receives the active workspace: `v-slot="{ workspace }"`.
  */
-export const OrganizationBoundary = defineComponent({
+export const OrganizationBoundary = /* @__PURE__ */ defineComponent({
   name: 'OrganizationBoundary',
   setup(_, { slots }) {
     const auth = useAuth()

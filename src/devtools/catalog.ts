@@ -1,15 +1,20 @@
 import { existsSync } from 'node:fs'
+import { stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { BillingCatalog } from '../convex/catalog'
 import { resolveFunctionsDir } from '../scaffold'
 import type { DevtoolsCatalogSummary } from './rpc-types'
 
-let imports = 0
-
-/** Import a module of the app afresh: the file changes while the dev server runs. */
+/**
+ * Import a module of the app as it is now. Node keeps every module URL it has
+ * loaded for the life of the dev server, so the URL is keyed on the file's
+ * modification time and size: an edit loads afresh, and opening the Billing
+ * page again reuses the module already loaded instead of adding another.
+ */
 async function importFresh<T>(path: string): Promise<T> {
-  return await import(`${pathToFileURL(path).href}?t=${Date.now()}-${++imports}`) as T
+  const { mtimeMs, size } = await stat(path)
+  return await import(`${pathToFileURL(path).href}?v=${mtimeMs}-${size}`) as T
 }
 
 /**

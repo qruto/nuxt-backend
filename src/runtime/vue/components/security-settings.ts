@@ -35,7 +35,7 @@ function formatDate(value: string | Date): string {
  * each slot receives {@link SecuritySlotContext}. Destructive actions go
  * through the `confirm` prop (default: `window.confirm`).
  */
-export const SecuritySettings = defineComponent({
+export const SecuritySettings = /* @__PURE__ */ defineComponent({
   name: 'SecuritySettings',
   props: {
     sections: {

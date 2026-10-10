@@ -165,13 +165,13 @@ try {
   // ── Size ─────────────────────────────────────────────────────────────────────
   //
   // A little above what this package measured when the ceiling was last set
-  // (3,622,585 bytes in 345 files, unpacked). Everything a consumer installs
+  // (3,582,087 bytes in 319 files, unpacked). Everything a consumer installs
   // is counted, so a stray build output or a dependency bundled by mistake
   // fails here instead of shipping. Raise the ceiling in the change that
   // explains the growth; lower it when a change shrinks the package.
   console.log('── Size ───────────────────────────────────────')
-  const MAX_BYTES = 3_800_000
-  const MAX_FILES = 365
+  const MAX_BYTES = 3_760_000
+  const MAX_FILES = 335
   let bytes = 0
   let count = 0
   for (const entry of readdirSync(pkgRoot, { recursive: true, withFileTypes: true })) {

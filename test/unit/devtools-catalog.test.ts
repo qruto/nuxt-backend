@@ -44,6 +44,18 @@ describe('readCatalogSummary', () => {
     expect((await readCatalogSummary(rootDir)).plans).toEqual(['pro', 'team'])
   })
 
+  it('imports an unchanged file once, however often the panel asks', async () => {
+    const path = join(rootDir, 'backend/billing.catalog.ts')
+    const counter = '__nuxtBackendCatalogLoads'
+    writeFileSync(path, `globalThis.${counter} = (globalThis.${counter} ?? 0) + 1\nexport default { plans: { pro: {} } }\n`)
+    const loads = () => (globalThis as Record<string, unknown>)[counter]
+    await readCatalogSummary(rootDir)
+    await readCatalogSummary(rootDir)
+    await readCatalogSummary(rootDir)
+    expect(loads()).toBe(1)
+    Reflect.deleteProperty(globalThis, counter)
+  })
+
   it('says when there is no catalog, or when it does not load', async () => {
     expect(await readCatalogSummary(rootDir)).toMatchObject({ status: 'missing', plans: [] })
     writeFileSync(join(rootDir, 'backend/billing.catalog.ts'), 'throw new Error(\'broken catalog\')\n')

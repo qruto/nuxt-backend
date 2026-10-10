@@ -20,7 +20,7 @@ function toMs(value: string | Date | number | undefined): number | undefined {
  * mirrored into the bridge from then on. Only what the panel shows is copied:
  * a session's token and a passkey's credential stay in the app.
  */
-export function createOnDemandSections(run: <T>(fn: () => T) => T, patch: Patch): DevtoolsBridgeRequests {
+export function createOnDemandSections(run: <T>(fn: () => T) => T, patch: Patch): Omit<DevtoolsBridgeRequests, 'activate'> {
   let sessions: UseSessionsReturn | undefined
   let passkeys: UsePasskeysReturn | undefined
   let gifts: UseGiftsReturn | undefined

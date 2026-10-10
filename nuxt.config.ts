@@ -1,9 +1,17 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: [
-    '@nuxt/eslint',
     '@nuxt/test-utils',
   ],
+  // The published runtime runs inside other people's apps, so it imports
+  // everything it uses explicitly (`#imports`, `vue`, `#app`) — an app may
+  // turn auto-imports off. With them off in this root app, the one the type
+  // check and the `nuxt` test project run in, a runtime file that leans on an
+  // auto-import fails `pnpm typecheck` instead of a consumer's build. The
+  // Nuxt module starter guards its runtime the same way.
+  imports: {
+    autoImport: false,
+  },
   typescript: {
     tsConfig: {
       compilerOptions: {
@@ -19,12 +27,4 @@ export default defineNuxtConfig({
   // The module's own root app exists for typechecking and the test
   // environment only — no usage analytics from it.
   telemetry: false,
-  eslint: {
-    config: {
-      stylistic: {
-        commaDangle: 'only-multiline',
-        braceStyle: '1tbs',
-      },
-    },
-  },
 })

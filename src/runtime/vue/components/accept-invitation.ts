@@ -21,7 +21,7 @@ type InvitationState = 'loading' | 'ready' | 'accepted' | 'declined' | 'missing'
  * <AcceptInvitation @accepted="navigateTo('/')" />
  * ```
  */
-export const AcceptInvitation = defineComponent({
+export const AcceptInvitation = /* @__PURE__ */ defineComponent({
   name: 'AcceptInvitation',
   props: {
     /** Invitation id. Defaults to the `id` query parameter of the current URL. */

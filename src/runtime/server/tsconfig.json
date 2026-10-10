@@ -1,0 +1,6 @@
+{
+  // Editors type the server runtime in Nitro's context (server auto-imports,
+  // `event`, no DOM), as the Nuxt module starter sets it up. The repository's
+  // own type check still covers these files from the root config.
+  "extends": "../../../.nuxt/tsconfig.server.json"
+}

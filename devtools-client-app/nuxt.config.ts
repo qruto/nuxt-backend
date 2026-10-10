@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { DEVTOOLS_UI_LOCAL_PORT, DEVTOOLS_UI_ROUTE } from '../src/devtools/rpc-types'
-import { PANEL_PAGES } from './app/nav'
+import { PANEL_TABS } from './app/nav'
 import { SIGNAL_SAFELIST } from './app/utils/signal'
 
 // UnoCSS's icon preset skips its Node loader when it believes it runs inside
@@ -10,13 +10,15 @@ import { SIGNAL_SAFELIST } from './app/utils/signal'
 delete process.env.VSCODE_CWD
 
 // The DevTools panel app. Served inside the Nuxt DevTools iframe at
-// /__nuxt-backend — via sirv from dist/devtools-client in the published
-// package, or via the Vite dev proxy (`pnpm dev:devtools-client`) while
-// developing this module. The route and port come from the file the module
+// /__nuxt-backend — by a dev-server handler from dist/devtools-client in the
+// published package, or via the Vite dev proxy (`pnpm dev:devtools-client`)
+// while developing this module. The route and port come from the file the module
 // reads them from, so the two can't disagree.
 export default defineNuxtConfig({
   modules: ['@nuxt/devtools-ui-kit'],
   ssr: false,
+  // One page with tabs (app/nav.ts), so no vue-router in the bundle.
+  pages: false,
   devtools: { enabled: false },
   app: {
     baseURL: DEVTOOLS_UI_ROUTE,
@@ -24,11 +26,16 @@ export default defineNuxtConfig({
   devServer: {
     port: DEVTOOLS_UI_LOCAL_PORT,
   },
+  // The panel ships inside the package; there is no deployment to poll for
+  // newer builds of.
+  experimental: { appManifest: false },
   compatibilityDate: 'latest',
   nitro: {
     output: {
       publicDir: fileURLToPath(new URL('../dist/devtools-client', import.meta.url)),
     },
+    // Static-host SPA fallbacks; the module's handler serves index.html itself.
+    prerender: { ignore: ['/200.html', '/404.html'] },
   },
   vite: {
     server: {
@@ -52,6 +59,6 @@ export default defineNuxtConfig({
         primary: '#4b5563',
       },
     },
-    safelist: [...SIGNAL_SAFELIST, ...PANEL_PAGES.map(page => page.icon)],
+    safelist: [...SIGNAL_SAFELIST, ...PANEL_TABS.map(tab => tab.icon)],
   },
 })

@@ -9,7 +9,7 @@
  * Everything here is copy taken verbatim from the code it describes:
  * finding titles/messages/fix hints from `src/preflight.ts` + `src/cli/main.ts`,
  * the summary line from `formatPreflightSummary`, the panel/card labels from
- * `devtools-client-app/app/pages/*.vue`, and the scaffold tree from
+ * `devtools-client-app/app/components/panel/*.vue`, and the scaffold tree from
  * `BACKEND_FILE_TEMPLATES` in `src/templates.ts`. Static and prerender-safe —
  * no live reads, so there is nothing to degrade.
  *
@@ -82,7 +82,7 @@ const TREE: { file: string, note?: string }[] = [
   { file: 'search.ts' },
 ]
 
-/** The panel's six pages — PANEL_PAGES in devtools-client-app/app/nav.ts (a unit test pins the labels). */
+/** The panel's tabs — PANEL_TABS in devtools-client-app/app/nav.ts (a unit test pins the labels). */
 const TABS = [
   { label: 'Overview', icon: 'i-lucide-layout-dashboard', active: true },
   { label: 'Account', icon: 'i-lucide-circle-user', active: false },
@@ -90,9 +90,10 @@ const TABS = [
   { label: 'Email', icon: 'i-lucide-mail', active: false },
   { label: 'Webhooks', icon: 'i-lucide-webhook', active: false },
   { label: 'Agents', icon: 'i-lucide-bot', active: false },
+  { label: 'Activity', icon: 'i-lucide-activity', active: false },
 ]
 
-/** What each page holds — devtools-client-app/app/pages/*.vue. */
+/** What each tab holds — devtools-client-app/app/components/panel/*.vue. */
 const PANELS = [
   {
     name: 'Overview',
@@ -117,6 +118,10 @@ const PANELS = [
   {
     name: 'Agents',
     body: 'The endpoint, the command that connects a client, every built-in tool with its scope, and the discovery URLs.',
+  },
+  {
+    name: 'Activity',
+    body: 'Sign-ins, plan and feature changes, credits spent, webhook deliveries and refusals as they happen, also on the Vue DevTools timeline.',
   },
 ]
 
@@ -304,7 +309,7 @@ const DELIVERIES = [
             <div
               class="dx__screen slot"
               role="img"
-              aria-label="The Backend tab: a rail of six pages beside the Overview pane's checks, env and webhook delivery cards."
+              aria-label="The Backend tab: a rail of seven tabs beside the Overview pane's checks, env and webhook delivery cards."
             >
               <nav
                 class="dx__rail"

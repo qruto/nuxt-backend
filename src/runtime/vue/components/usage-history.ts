@@ -40,7 +40,7 @@ function formatTimestamp(value: unknown): string {
  * <UsageHistory meter="credits" :limit="20" />
  * ```
  */
-export const UsageHistory = defineComponent({
+export const UsageHistory = /* @__PURE__ */ defineComponent({
   name: 'UsageHistory',
   props: {
     /** Credit-meter name (or raw meter id). Omit for every metered event. */

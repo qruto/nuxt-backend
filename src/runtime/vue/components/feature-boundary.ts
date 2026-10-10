@@ -21,7 +21,7 @@ import { useFeatures } from '../composables/use-features'
  * </FeatureBoundary>
  * ```
  */
-export const FeatureBoundary = defineComponent({
+export const FeatureBoundary = /* @__PURE__ */ defineComponent({
   name: 'FeatureBoundary',
   props: {
     /** Required feature(s) — any granted benefit match passes. */

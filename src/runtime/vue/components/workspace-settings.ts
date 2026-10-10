@@ -45,7 +45,7 @@ function slugify(value: string): string {
  * Headless markup on `data-settings` hooks; replace any region via its slot —
  * each slot receives {@link WorkspaceSettingsSlotContext}.
  */
-export const WorkspaceSettings = defineComponent({
+export const WorkspaceSettings = /* @__PURE__ */ defineComponent({
   name: 'WorkspaceSettings',
   props: {
     sections: {

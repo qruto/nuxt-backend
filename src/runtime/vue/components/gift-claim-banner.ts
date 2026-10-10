@@ -19,7 +19,7 @@ import { useGifts } from '../composables/use-gifts'
  * <GiftClaimBanner />
  * ```
  */
-export const GiftClaimBanner = defineComponent({
+export const GiftClaimBanner = /* @__PURE__ */ defineComponent({
   name: 'GiftClaimBanner',
   props: {
     /** Claim gifts automatically instead of waiting for a click. Default `false`. */

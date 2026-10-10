@@ -24,6 +24,8 @@ export interface PanelState {
   doctor: DevtoolsDoctorRun | null
   doctorRunning: boolean
   catalog: DevtoolsCatalogSummary | null
+  /** The newest activity entry the Activity tab has shown (0: none yet). */
+  activitySeen: number
 }
 
 /** The dev server functions the panel calls (each over the RPC, so async). */
@@ -50,6 +52,7 @@ export function createPanelStore() {
     doctor: null,
     doctorRunning: false,
     catalog: null,
+    activitySeen: 0,
   })
   let rpc: PanelRpc | null = null
   let bridge: BackendDevtoolsBridge | null = null
@@ -65,9 +68,11 @@ export function createPanelStore() {
       state.info = info
     },
     attachBridge(candidate: { version?: number }) {
+      // DevTools hands the panel its client again on some host updates.
+      if (candidate === bridge) return
       // A bridge from another version of the package: the inspected page was
       // loaded before an upgrade.
-      if (candidate.version !== 2) {
+      if (candidate.version !== 3) {
         state.bridge = 'outdated'
         return
       }
@@ -77,6 +82,13 @@ export function createPanelStore() {
       bridge.on('snapshot', (snapshot) => {
         state.snapshot = snapshot
       })
+      // The page starts its own queries (subscription, credits, deliveries…)
+      // only now that someone is looking; a second call is a no-op.
+      bridge.activate()
+    },
+    /** The Activity tab is in view: everything recorded so far counts as seen. */
+    markActivitySeen() {
+      state.activitySeen = state.snapshot?.activity.at(-1)?.id ?? state.activitySeen
     },
     bridgeMissing() {
       state.bridge = 'missing'

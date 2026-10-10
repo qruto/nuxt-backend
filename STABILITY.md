@@ -83,7 +83,7 @@ A public name is never removed in the release that replaces it. It is marked `@d
 
 ## Supported versions
 
-Nuxt `>=4.1.0` and Node `>=24.11.0`, plus these `peerDependencies` ranges — `vue` and `convex` are required, the rest optional, needed only by the subpath that uses them:
+Nuxt `^4.1.0` (Nuxt 4 from 4.1; not yet Nuxt 5, whose Nitro 3 the server handlers do not run on) and Node `>=24.11.0`, plus these `peerDependencies` ranges — `vue` and `convex` are required, the rest optional, needed only by the subpath that uses them:
 
 | Package | Range | Needed by |
 |---|---|---|

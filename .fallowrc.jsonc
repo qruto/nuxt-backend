@@ -100,7 +100,8 @@
     "publint",
     "@arethetypeswrong/cli",
     "typedoc-plugin-frontmatter", // both listed as plain strings in typedoc.json "plugin"
-    "typedoc-plugin-markdown"
+    "typedoc-plugin-markdown",
+    "@iconify-json/carbon" // the DevTools panel's icons; UnoCSS loads the set by name at build time
   ],
 
   "ignoreExportsUsedInFile": true,
@@ -220,10 +221,10 @@
       },
       {
         "files": ["src/module.ts"],
-        "functions": ["moduleDependencies", "runPreflight"],
+        "functions": ["moduleDependencies"],
         "maxCyclomatic": 21,
         "maxCognitive": 22,
-        "reason": "Option forwarding to the base module and the startup preflight: one branch per option and per finding."
+        "reason": "Option forwarding to the base module: one branch per forwarded option."
       },
       {
         "files": ["scripts/generate-templates.mjs"],

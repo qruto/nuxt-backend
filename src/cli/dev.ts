@@ -139,19 +139,24 @@ export function devScriptFinding(rootDir: string): PreflightFinding[] {
   }]
 }
 
+/** What `convex` exits with when SIGINT stopped it: a Ctrl-C, or a stop this process passed on. */
+const INTERRUPTED = 130
+
 /**
  * The configured deployment, set up with `convex dev --once` when there is
  * none yet (the login and project prompts happen there). `null` when that
- * run ended without one.
+ * run ended without one, `INTERRUPTED` when it was stopped.
  */
-async function attachDeployment(rootDir: string, env: NodeJS.ProcessEnv, steps: DevSteps): Promise<string | null> {
+async function attachDeployment(rootDir: string, env: NodeJS.ProcessEnv, steps: DevSteps): Promise<string | null | typeof INTERRUPTED> {
   const configured = configuredDeployment(rootDir)
   if (configured) return configured
   steps.log('No Convex deployment yet: `convex dev --once` sets one up. Log in and pick a project when it asks.')
   // On a new deployment this push fails on the env it has not been given
   // yet. That is expected: the deployment exists and CONVEX_DEPLOYMENT is in
   // .env.local by then, which is all this step is for.
-  await steps.convex(['dev', '--once', '--typecheck', 'disable'], env)
+  const code = await steps.convex(['dev', '--once', '--typecheck', 'disable'], env)
+  // Asked to stop: provisioning and starting now would undo that.
+  if (code === INTERRUPTED) return INTERRUPTED
   return configuredDeployment(rootDir)
 }
 
@@ -181,6 +186,7 @@ export async function runDev(rootDir: string, nuxtArgs: readonly string[], steps
   }
 
   const deployment = await attachDeployment(rootDir, env, steps)
+  if (deployment === INTERRUPTED) return INTERRUPTED
   if (!deployment) {
     steps.log('No deployment is configured, so there is nothing to start against. Run `npx convex dev` once to set one up, then run this again.')
     return 1
@@ -200,9 +206,11 @@ export const dev = defineCommand({
   async run({ rawArgs }) {
     const { cwd, nuxtArgs } = splitDevArgs(rawArgs)
     const rootDir = resolve(process.cwd(), cwd)
-    // The terminal's Ctrl-C reaches Convex, and through it Nuxt, on its own;
-    // this process only waits for them and passes the exit code on.
-    process.on('SIGINT', () => {})
+    // While Convex runs, a stop signal sent here is passed on to it and this
+    // process waits for it to clean up (spawnConvex). On Windows a console
+    // Ctrl-C reaches Convex, and through it Nuxt, on its own, and the child
+    // cannot be stopped gracefully from here, so this process only waits.
+    if (process.platform === 'win32') process.on('SIGINT', () => {})
     process.exitCode = await runDev(rootDir, nuxtArgs, {
       convex: (args, env) => spawnConvex(rootDir, args, { env }),
       envPush: () => runEnvPush(rootDir, {}),

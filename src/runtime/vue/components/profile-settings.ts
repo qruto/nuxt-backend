@@ -29,7 +29,7 @@ export interface ProfileSlotContext {
  * Headless markup on `data-profile` hooks; replace any region via its slot —
  * each slot receives {@link ProfileSlotContext}.
  */
-export const ProfileSettings = defineComponent({
+export const ProfileSettings = /* @__PURE__ */ defineComponent({
   name: 'ProfileSettings',
   props: {
     /** Gate the new email before submitting (`true` | `false` | custom message). */
