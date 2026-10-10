@@ -398,6 +398,12 @@ the June test publish satisfies that, so nothing has to be published by hand.
   it takes for machine-written, so the entry and the description are kept ready in
   [`.github/registry/`](./.github/registry/) — copy `backend.yml` in, paste `PULL_REQUEST.md` as the
   body, and read both once more before opening it.
+- **Beyond this repository.** Once the release is on npm, take the package to the places people look:
+  - submit `examples/playground` to [convex.dev/templates](https://www.convex.dev/templates), which has a Nuxt filter and no Nuxt template yet;
+  - answer [get-convex/convex-backend#147](https://github.com/get-convex/convex-backend/issues/147), which asks for a Nuxt SaaS starter;
+  - list the `backend` component in the [Convex components directory](https://www.convex.dev/components);
+  - offer the starter as a Vercel template.
+  Update the [Ecosystem](https://nuxt-backend.dev/getting-started/ecosystem) page when a listing lands.
 - **Smoke from the registry, not the tarball.** `npx nuxi@latest init smoke`, `npx nuxi module add
   nuxt-backend`, `npx nuxt-backend init`, then `CONVEX_AGENT_MODE=anonymous npm run dev` until Nuxt
   serves `/login` (the `dev` script `init` wrote sets up the deployment and provisions its env
