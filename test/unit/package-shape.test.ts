@@ -13,16 +13,16 @@ const websiteBackendTsconfig = readFileSync(websiteBackendTsconfigPath, 'utf-8')
 describe('package exports', () => {
   it('exposes the all-in-one backend component through neutral subpaths', () => {
     expect(packageJson.exports).toHaveProperty('./auth')
-    expect(packageJson.exports).toHaveProperty('./component/convex.config')
+    expect(packageJson.exports).toHaveProperty('./convex.config')
     // The component template (and every @convex-dev component) exports the
     // required component entries both extensionless and `.js`-suffixed — the
     // suffixed form is the historically documented Convex import style and
     // what NodeNext-resolution consumers write. Both must resolve identically.
-    expect(packageJson.exports['./component/convex.config.js'])
-      .toEqual(packageJson.exports['./component/convex.config'])
-    expect(packageJson.exports).toHaveProperty('./component/_generated/component')
-    expect(packageJson.exports['./component/_generated/component.js'])
-      .toEqual(packageJson.exports['./component/_generated/component'])
+    expect(packageJson.exports['./convex.config.js'])
+      .toEqual(packageJson.exports['./convex.config'])
+    expect(packageJson.exports).toHaveProperty('./_generated/component')
+    expect(packageJson.exports['./_generated/component.js'])
+      .toEqual(packageJson.exports['./_generated/component'])
     expect(packageJson.exports).toHaveProperty('./component/schema')
     // Only the required component entries get the `.js` alias — the function
     // modules and schema stay extensionless-only, like the template.
@@ -36,9 +36,10 @@ describe('package exports', () => {
     expect(packageJson.exports).toHaveProperty('./email')
     expect(packageJson.exports).toHaveProperty('./test')
     // The brand-named `./convex/*` subpaths are gone — the public surface is
-    // service-neutral.
+    // service-neutral. `./convex.config` is not one of them: it is the
+    // platform's own entry-point name, the one every Convex component exports.
     for (const key of Object.keys(packageJson.exports)) {
-      expect(key, `brand-named export subpath ${key}`).not.toMatch(/^\.\/convex/)
+      expect(key, `brand-named export subpath ${key}`).not.toMatch(/^\.\/convex\//)
     }
     expect(packageJson.exports).not.toHaveProperty('./client')
     expect(packageJson.exports).not.toHaveProperty('./auth-config')
@@ -50,7 +51,7 @@ describe('package exports', () => {
       types: './dist/convex/client/index.d.ts',
       default: './dist/convex/client/index.js',
     })
-    expect(packageJson.exports['./component/convex.config']).toEqual({
+    expect(packageJson.exports['./convex.config']).toEqual({
       types: './dist/convex/components/backend/convex.config.d.ts',
       default: './dist/convex/components/backend/convex.config.js',
     })
@@ -75,7 +76,7 @@ describe('scaffold templates', () => {
     const config = BACKEND_FILE_TEMPLATES['convex.config.ts']!
     expect(config).toContain(`import { defineApp } from 'convex/server'`)
     expect(config).toContain(`import { backendEnv } from 'nuxt-backend/app'`)
-    expect(config).toContain(`import backend from 'nuxt-backend/component/convex.config'`)
+    expect(config).toContain(`import backend from 'nuxt-backend/convex.config'`)
     expect(config).toContain(`const app = defineApp({ env: backendEnv })`)
     expect(config).toContain(`EMAIL_WEBHOOK_SECRET: app.env.EMAIL_WEBHOOK_SECRET`)
     for (const name of ['aggregate', 'migrations', 'persistentTextStreaming', 'polar', 'rateLimiter', 'workflow']) {
@@ -103,7 +104,7 @@ describe('scaffold templates', () => {
       `import backend from './components/backend/convex.config'`,
     )
     expect(LOCAL_BACKEND_FILE_TEMPLATES['convex.config.ts']).not.toContain(
-      `nuxt-backend/component/convex.config`,
+      `nuxt-backend/convex.config`,
     )
     // Same explicit shape as the default scaffold — only the `backend` import
     // differs.

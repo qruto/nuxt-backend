@@ -152,6 +152,7 @@ describe('retention cleanup (scheduled into the nested provider component)', () 
     await t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(0))
 
     expect(await t.query(api.email.get, { emailId: finalized })).toBeNull()
+    expect(await t.query(api.email.status, { emailId: finalized })).toBeNull()
     expect(await t.query(api.email.get, { emailId: waiting })).toMatchObject({ status: 'waiting' })
   })
 
@@ -300,6 +301,13 @@ describe('handleWebhook (component, real svix crypto, nested status tracking)', 
     expect(await t.query(api.email.status, { emailId })).toMatchObject({
       status: 'bounced', bounced: true, errorMessage: 'Mailbox full',
     })
+    // The full record carries the same delivery state beside what was sent,
+    // and none of the provider's own identifiers.
+    const record = await t.query(api.email.get, { emailId })
+    expect(record).toMatchObject({
+      to: [TEST_RECIPIENT], status: 'bounced', bounced: true, errorMessage: 'Mailbox full', failed: false,
+    })
+    expect(record).not.toHaveProperty('resendId')
   })
 
   test('a verified event for a provider id this deployment never sent is acknowledged without side effects', async () => {

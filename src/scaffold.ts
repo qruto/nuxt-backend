@@ -119,7 +119,7 @@ export function resolveAppComponent(rootDir: string): { name: string, path: stri
 }
 
 /**
- * Whether the app's root component is still the `nuxi init` starter: it
+ * Whether the app's root component is still the `create nuxt` starter: it
  * renders `<NuxtWelcome />` and no `<NuxtPage />`, so every page this module
  * registers (`/login`, `/pricing`, …) resolves but never renders.
  */

@@ -1,4 +1,5 @@
 import Sonda from 'sonda/nuxt'
+import { expandForAgents } from './shared/agent-markdown'
 
 // Bundle analysis is opt-in: `pnpm analyze` sets ANALYZE=true. Normal builds
 // stay clean (no source maps, no report).
@@ -185,6 +186,16 @@ export default defineNuxtConfig({
     '@nuxt/fonts',
     'nuxt-backend',
     Sonda({ enabled: analyze }),
+    // Keeps `onServerPrefetch` in the client build, where Nuxt strips it by
+    // default. Vue numbers useId() past every component that registers one,
+    // and Nuxt Icon registers one per icon, so with the calls gone from the
+    // client every id after the header's icons differed from the server's,
+    // and a tab's or an accordion's aria-controls pointed at nothing. A
+    // module, because the default list is merged with defu, which appends.
+    (_options, nuxt) => {
+      const { client } = nuxt.options.optimization.treeShake.composables
+      if (client.vue) client.vue = client.vue.filter(name => name !== 'onServerPrefetch')
+    },
   ],
   devtools: { enabled: true },
   app: {
@@ -309,6 +320,14 @@ export default defineNuxtConfig({
   // of layouts entirely (`layout: false` in login.vue) — wrapping it in the
   // playground layout would squeeze its centered card into the sidebar column.
   hooks: {
+    // Agents read the pages as Markdown (`/raw/*.md`, `/llms-full.txt`), where
+    // a block a Vue component draws (`::playground-link`, the agent links)
+    // prints as an empty tag. This writes its text into it; see
+    // shared/agent-markdown.ts. Parsed pages are cached by content, not by
+    // hook: after changing this, `rm -rf .data/content` before checking locally.
+    'content:file:afterParse'({ content }) {
+      expandForAgents(content.body)
+    },
     'pages:extend'(pages) {
       // `/playground/offline` is the standalone page a build without a
       // deployment redirects to (middleware/playground-offline.global.ts);
@@ -388,6 +407,16 @@ export default defineNuxtConfig({
       { name: 'Nunito', provider: 'google', weights: [400, 500, 600, 700, 800], styles: ['normal', 'italic'] },
       { name: 'JetBrains Mono', provider: 'google', weights: [400, 500, 600, 700], styles: ['normal'], global: true },
     ],
+  },
+  // Docus bundles every icon the client may draw, found by scanning sources —
+  // but Nuxt Icon's scan skips `.ts`, and the agent links name their brand
+  // icons in shared/agent-prompt.ts. Unbundled, an icon the client drew first
+  // (a tab switch, a client-side page change) stayed blank until it was
+  // fetched.
+  icon: {
+    clientBundle: {
+      scan: { globInclude: ['**/*.{vue,jsx,tsx,md,mdc,mdx,yml,yaml,ts}'] },
+    },
   },
   // llms.txt / llms-full.txt (nuxt-llms, registered by Docus). Docus defaults
   // `domain`/`title`/`description` from the site config, but a missing domain

@@ -8,7 +8,7 @@ import { onBeforeUnmount, ref } from 'vue'
  * strongest depth statement on the page).
  */
 
-const INSTALL = 'npx nuxi module add nuxt-backend'
+const INSTALL = 'npx nuxt module add nuxt-backend'
 const copied = ref(false)
 let copyTimer: ReturnType<typeof setTimeout> | undefined
 async function copyInstall() {

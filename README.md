@@ -12,6 +12,7 @@
 [![Tests][tests-src]][tests-href]
 [![Coverage][coverage-src]][coverage-href]
 [![License][license-src]][license-href]
+[![OpenSSF Scorecard][scorecard-src]][scorecard-href]
 
 The all-in-one SaaS backend for [Nuxt](https://nuxt.com) on [Convex](https://convex.dev) — **auth** ([Better Auth](https://www.better-auth.com), passwordless: OTP + passkeys), workspaces with **emailed invitations** end-to-end, **billing** ([Polar](https://polar.sh)) with feature gating, prepaid credits, and **gift purchases**, **transactional email** ([Resend](https://resend.com)) with delivery tracking, one-call **webhook wiring**, **metered AI** actions and persisted streams, an OAuth-protected **MCP endpoint** where agents act as the signed-in user, rate limiting, durable workflows, migrations, aggregates, and full-text search. One module, great defaults, every setting customizable.
 
@@ -28,11 +29,21 @@ The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR
 
 **Requirements:** Nuxt ≥ 4.1 (Nuxt 4; not yet Nuxt 5) and Node ≥ 24.11.
 
-**Stability:** [STABILITY.md](./STABILITY.md) — what the 0.x line promises, the experimental tier, and how upstream releases map to this package's versions.
+**Stability:** [STABILITY.md](./STABILITY.md) — what the 0.x line promises, the experimental tier, and how upstream releases map to this package's versions. **Release notes:** [CHANGELOG.md](./CHANGELOG.md).
+
+<!-- START: Include on https://convex.dev/components -->
 
 ## Quick start
 
-Starting a new app? Create it from the starter template, then skip to step 3 (its `npm run dev` is the command there):
+**With an AI agent:** paste this into Claude Code, Cursor, Codex or any agent that runs commands in your project. It installs the package's skill and follows its install guide, which starts the app on a local Convex deployment that needs no account; the agent asks before it logs in to Convex or touches your accounts.
+
+```text
+Install nuxt-backend, the all-in-one SaaS backend for Nuxt on Convex, in this project:
+run `npx -y skills@1.7.0 add https://nuxt-backend.dev --skill nuxt-backend -y`,
+then follow .agents/skills/nuxt-backend/references/install.md.
+```
+
+**By hand:** starting a new app? Create it from the starter template, then skip to step 3 (its `npm run dev` is the command there):
 
 ```bash
 pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/templates/starter
@@ -46,7 +57,7 @@ Adding it to an existing app:
 ### 1. Install
 
 ```bash
-npx nuxi@latest module add nuxt-backend
+npx nuxt module add nuxt-backend
 npm install convex
 ```
 
@@ -63,7 +74,7 @@ export default defineNuxtConfig({
 })
 ```
 
-A fresh `nuxi init` app renders `<NuxtWelcome />` and no `<NuxtPage />` — swap them in `app/app.vue` so the module's pages (`/login`, `/pricing`, …) render. `npx nuxt-backend init` does it for you.
+A fresh `create nuxt` app renders `<NuxtWelcome />` and no `<NuxtPage />` — swap them in `app/app.vue` so the module's pages (`/login`, `/pricing`, …) render. `npx nuxt-backend init` does it for you.
 
 ### 3. Run it — no configuration
 
@@ -141,7 +152,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 
 ### Agents (MCP)
 
-An OAuth-protected `/mcp` endpoint (Better Auth's OIDC provider + `@nuxtjs/mcp-toolkit`), on by default: an agent signs in through the normal consent flow and every tool call runs your Convex functions **as that signed-in user** — `ctx.auth`, workspace, and billing entity resolve exactly like a web session. Built-in tools cover profile, billing (reads and checkout links — never payments), and workspaces; `defineBackendMcpTool` adds your own. `backend.mcp: false` turns the whole surface off. **Experimental**: the MCP authorization profile and the toolkit are still moving, so this surface may change shape in a 0.x minor (see [STABILITY.md](./STABILITY.md)).
+An OAuth-protected `/mcp` endpoint (Better Auth's OIDC provider + `@nuxtjs/mcp-toolkit`), on by default: an agent signs in through the normal consent flow and every tool call runs your Convex functions **as that signed-in user** — `ctx.auth`, workspace, and billing entity resolve exactly like a web session. Built-in tools cover profile, billing (reads and checkout links — never payments), and workspaces; `defineBackendMcpTool` adds your own. `backend.mcp: false` turns the whole surface off. **Experimental**: the MCP authorization profile and the toolkit are still moving, so this surface may change shape in a 0.x minor (see [STABILITY.md](https://github.com/qruto/nuxt-backend/blob/main/STABILITY.md)).
 
 ### Nuxt DevTools
 
@@ -177,6 +188,8 @@ The scaffolded `backend/` files compose the backend from `nuxt-backend/*`:
 ### CLI
 
 `npx nuxt-backend <command>` — `init` scaffolds the backend files, `.env.example`, the `nuxt.config` wiring and the agent files, `AGENTS.md` and `.mcp.json` (re-run to restore missing files); `dev` runs Convex and Nuxt together; `doctor` checks the project and deployment configuration (`--fix` repairs what it can); `env push` syncs `.env.local` to the Convex deployment; `billing sync` pushes your `billing.catalog.ts` to the billing provider and writes the id map.
+
+<!-- END: Include on https://convex.dev/components -->
 
 ## Documentation
 
@@ -238,3 +251,6 @@ Found a vulnerability? Report it privately via [GitHub Security Advisories](http
 
 [convex-src]: https://img.shields.io/badge/Convex-020420?logo=convex&style=plastic
 [convex-href]: https://convex.dev
+
+[scorecard-src]: https://api.scorecard.dev/projects/github.com/qruto/nuxt-backend/badge
+[scorecard-href]: https://scorecard.dev/viewer/?uri=github.com/qruto/nuxt-backend

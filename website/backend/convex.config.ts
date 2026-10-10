@@ -1,6 +1,6 @@
 import { defineApp } from 'convex/server'
 import { backendEnv } from 'nuxt-backend/app'
-import backend from 'nuxt-backend/component/convex.config'
+import backend from 'nuxt-backend/convex.config'
 import aggregate from '@convex-dev/aggregate/convex.config'
 import migrations from '@convex-dev/migrations/convex.config'
 import persistentTextStreaming from '@convex-dev/persistent-text-streaming/convex.config'

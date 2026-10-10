@@ -89,10 +89,28 @@ Removes one sandbox inbox message; scheduled when it is written.
 ```ts
 const status: RegisteredQuery<"public", {
   emailId: string;
-}, Promise<EmailStatus | null>>;
+}, Promise<
+  | {
+  status:   | "sent"
+     | "delivered"
+     | "delivery_delayed"
+     | "bounced"
+     | "failed"
+     | "waiting"
+     | "queued"
+     | "cancelled";
+  errorMessage: string | null;
+  bounced: boolean;
+  complained: boolean;
+  failed: boolean;
+  deliveryDelayed: boolean;
+  opened: boolean;
+  clicked: boolean;
+}
+| null>>;
 ```
 
-Defined in: [src/convex/components/backend/email.ts:153](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/email.ts#L153)
+Defined in: [src/convex/components/backend/email.ts:194](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/email.ts#L194)
 
 Delivery status for a sent email (waiting → queued → sent → delivered/bounced/…).
 
@@ -105,14 +123,6 @@ const get: RegisteredQuery<"public", {
   emailId: string;
 }, Promise<
   | {
-  from: string;
-  to: string[];
-  subject?: string;
-  replyTo: string[];
-  headers?: {
-     name: string;
-     value: string;
-  }[];
   status:   | "sent"
      | "delivered"
      | "delivery_delayed"
@@ -121,29 +131,39 @@ const get: RegisteredQuery<"public", {
      | "waiting"
      | "queued"
      | "cancelled";
-  errorMessage?: string;
-  bounced?: boolean;
+  errorMessage: string | null;
+  bounced: boolean;
   complained: boolean;
-  failed?: boolean;
-  deliveryDelayed?: boolean;
-  opened?: boolean;
-  clicked?: boolean;
-  resendId?: string;
-  finalizedAt: number;
+  failed: boolean;
+  deliveryDelayed: boolean;
+  opened: boolean;
+  clicked: boolean;
+  from: string;
+  to: string[];
+  replyTo: string[];
   createdAt: number;
+  finalizedAt: number;
+  cc?: string[];
+  bcc?: string[];
+  subject?: string;
   html?: string;
   text?: string;
   template?: {
      variables?: Record<string, string | number>;
      id: string;
   };
+  headers?: {
+     name: string;
+     value: string;
+  }[];
 }
 | null>>;
 ```
 
-Defined in: [src/convex/components/backend/email.ts:161](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/email.ts#L161)
+Defined in: [src/convex/components/backend/email.ts:212](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/email.ts#L212)
 
-Full stored email record (recipients, subject, status, timestamps, …).
+A sent email's record: what was sent (the same fields `send` takes, with
+the recipients normalised to lists), its delivery state and its timestamps.
 
 ***
 
@@ -155,7 +175,7 @@ const cancel: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [src/convex/components/backend/email.ts:169](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/email.ts#L169)
+Defined in: [src/convex/components/backend/email.ts:255](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/email.ts#L255)
 
 Cancel a not-yet-sent email (no-op once Resend has sent it).
 
@@ -169,7 +189,7 @@ const cleanup: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [src/convex/components/backend/email.ts:201](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/email.ts#L201)
+Defined in: [src/convex/components/backend/email.ts:287](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/email.ts#L287)
 
 Prune finalized emails (delivered, bounced, cancelled, failed …) older than
 `olderThanMs` (the nested provider's default: 7 days) from the provider
@@ -187,7 +207,7 @@ const cleanupAbandoned: RegisteredMutation<"public", {
 }, Promise<null>>;
 ```
 
-Defined in: [src/convex/components/backend/email.ts:209](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/email.ts#L209)
+Defined in: [src/convex/components/backend/email.ts:295](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/email.ts#L295)
 
 Prune abandoned emails — created more than `olderThanMs` ago (the nested
 provider's default: 30 days) and never finalized, e.g. because a delivery
@@ -215,7 +235,7 @@ const handleWebhook: RegisteredAction<"public", {
 }>>;
 ```
 
-Defined in: [src/convex/components/backend/email.ts:242](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/email.ts#L242)
+Defined in: [src/convex/components/backend/email.ts:328](https://github.com/qruto/nuxt-backend/blob/main/src/convex/components/backend/email.ts#L328)
 
 Verify and process an email-provider event webhook. The mounting app routes
 its public `/email/events` endpoint here (via `setupEmail().webhookHandler`),

@@ -95,6 +95,11 @@ describe('stability', () => {
     expect(section).toContain(`Node \`${manifest.engines.node}\``)
   })
 
+  it('offers the registry the Nuxt range the module declares', () => {
+    const nuxtRange = read('src/module.ts').match(/compatibility: \{ nuxt: '([^']+)' \}/)?.[1]
+    expect(read('.github/registry/backend.yml')).toContain(`nuxt: '${nuxtRange}'`)
+  })
+
   it('names the 0.x line, not a version that never shipped', () => {
     expect(STABILITY).toContain('## The 0.x line')
     expect(STABILITY).not.toMatch(/0\.1 line/)
@@ -150,6 +155,9 @@ describe('nothing describes the repository as it no longer is', () => {
     ['public-hoist-pattern[]', 'pnpm 11 reads publicHoistPattern from pnpm-workspace.yaml'],
     ['examples/minimal', 'the starter app is templates/starter'],
     ['nuxi init -t', 'templates are created with `create nuxt`'],
+    ['nuxi module add', 'the Nuxt CLI is `nuxt` now: `npx nuxt module add`'],
+    ['nuxi init', 'apps are created with `create nuxt`'],
+    ['nuxt-backend/component/convex.config', 'the component is `nuxt-backend/convex.config`, the name every Convex component uses'],
   ])('no file still says %s (%s)', (needle) => {
     const offenders = files.filter(file => read(file).includes(needle)).map(file => file.replace(`${process.cwd()}/`, ''))
     expect(offenders).toEqual([])

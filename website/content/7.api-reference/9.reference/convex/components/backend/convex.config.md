@@ -1,6 +1,6 @@
 ---
 title: "convex/components/backend/convex.config"
-description: "API reference for nuxt-backend/component/convex.config."
+description: "API reference for nuxt-backend/convex.config."
 navigation:
   title: "convex.config"
   icon: i-lucide-box

@@ -84,7 +84,6 @@ const listRecent: RegisteredQuery<"public", {
 }, Promise<{
   service: string;
   deliveryId: string;
-  type: string | undefined;
   outcome:   | "duplicate"
      | "ok"
      | "invalid_signature"
@@ -92,8 +91,9 @@ const listRecent: RegisteredQuery<"public", {
      | "handler_error"
      | "oversized"
      | "missing_secret";
-  note: string | undefined;
   receivedAt: number;
+  type?: string;
+  note?: string;
 }[]>>;
 ```
 

@@ -38,7 +38,7 @@
       "nuxt-backend/workflows": ["../../src/convex/integrations/workflows.ts"],
       "nuxt-backend/ai": ["../../src/convex/integrations/ai.ts"],
       "nuxt-backend/mcp": ["../../src/runtime/server/mcp/index.ts"],
-      "nuxt-backend/component/convex.config": ["../../src/convex/components/backend/convex.config.ts"],
+      "nuxt-backend/convex.config": ["../../src/convex/components/backend/convex.config.ts"],
       "nuxt-backend/component/schema": ["../../src/convex/components/backend/schema.ts"],
       "nuxt-backend/component/email": ["../../src/convex/components/backend/email.ts"],
       "nuxt-backend/component/billing": ["../../src/convex/components/backend/billing.ts"],

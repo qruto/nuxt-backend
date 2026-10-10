@@ -2602,7 +2602,39 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "query",
         "internal",
         { emailId: string },
-        any,
+        {
+          bcc?: Array<string>;
+          bounced: boolean;
+          cc?: Array<string>;
+          clicked: boolean;
+          complained: boolean;
+          createdAt: number;
+          deliveryDelayed: boolean;
+          errorMessage: string | null;
+          failed: boolean;
+          finalizedAt: number;
+          from: string;
+          headers?: Array<{ name: string; value: string }>;
+          html?: string;
+          opened: boolean;
+          replyTo: Array<string>;
+          status:
+            | "waiting"
+            | "queued"
+            | "cancelled"
+            | "sent"
+            | "delivered"
+            | "delivery_delayed"
+            | "bounced"
+            | "failed";
+          subject?: string;
+          template?: {
+            id: string;
+            variables?: Record<string, string | number>;
+          };
+          text?: string;
+          to: Array<string>;
+        } | null,
         Name
       >;
       handleWebhook: FunctionReference<
@@ -2650,7 +2682,24 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "query",
         "internal",
         { emailId: string },
-        any,
+        {
+          bounced: boolean;
+          clicked: boolean;
+          complained: boolean;
+          deliveryDelayed: boolean;
+          errorMessage: string | null;
+          failed: boolean;
+          opened: boolean;
+          status:
+            | "waiting"
+            | "queued"
+            | "cancelled"
+            | "sent"
+            | "delivered"
+            | "delivery_delayed"
+            | "bounced"
+            | "failed";
+        } | null,
         Name
       >;
     };
@@ -2769,7 +2818,21 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "query",
         "internal",
         { limit?: number },
-        any,
+        Array<{
+          deliveryId: string;
+          note?: string;
+          outcome:
+            | "ok"
+            | "invalid_signature"
+            | "unknown_type"
+            | "handler_error"
+            | "duplicate"
+            | "oversized"
+            | "missing_secret";
+          receivedAt: number;
+          service: string;
+          type?: string;
+        }>,
         Name
       >;
       record: FunctionReference<
