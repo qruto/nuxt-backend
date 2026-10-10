@@ -34,7 +34,7 @@ export function resolveAuthTitle(config: BackendAppConfig, override?: string): s
  * </AuthForm>
  * ```
  */
-export const AuthForm = defineComponent({
+export const AuthForm = /* @__PURE__ */ defineComponent({
   name: 'AuthForm',
   props: {
     /**

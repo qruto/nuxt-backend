@@ -171,6 +171,17 @@ const OPTIONAL_GATES = [
   },
 ] as const satisfies ReadonlyArray<{ id: string, title: string, name: keyof typeof OPTIONAL_DEPLOYMENT_ENV, on: string, fixHint: string }>
 
+const OPTIONAL_GATE_IDS: ReadonlySet<string> = new Set(OPTIONAL_GATES.map(gate => gate.id))
+
+/**
+ * Whether the required tier still needs attention: the backend URL,
+ * AUTH_SECRET or SITE_URL, which `init` and `dev` take care of. An unset
+ * optional service does not count; the app runs without it by design.
+ */
+export function needsSetup(findings: readonly PreflightFinding[]): boolean {
+  return findings.some(finding => finding.status !== 'pass' && !OPTIONAL_GATE_IDS.has(finding.id))
+}
+
 function optionalGateFinding(gate: (typeof OPTIONAL_GATES)[number], env: PreflightInput['env'], onDeployment: OnDeployment): PreflightFinding {
   const where = env[gate.name] ? 'visible' : onDeployment(gate.name) ? 'set on the deployment' : null
   return where

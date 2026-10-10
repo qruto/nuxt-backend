@@ -1,3 +1,5 @@
+import { spawn } from 'node:child_process'
+import { EventEmitter } from 'node:events'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { createRequire } from 'node:module'
@@ -28,8 +30,8 @@ vi.mock('node:module', async (importOriginal) => {
  * A stand-in for the `convex` package inside a throwaway project. Its
  * `bin/main.js` is a real Node script, so `runConvex` is exercised end to end
  * — a genuine `process.execPath` spawn, no shell — without a deployment or
- * the network: it reports how it was invoked, exits non-zero on request, or
- * hangs until killed.
+ * the network: it reports how it was invoked, exits non-zero on request,
+ * hangs until killed, or, like `convex dev`, cleans up on SIGINT.
  */
 const FAKE_CLI = `
 const args = process.argv.slice(2)
@@ -38,6 +40,14 @@ if (args[0] === 'fail') {
   process.exitCode = 2
 }
 else if (args[0] === 'hang') {
+  setTimeout(() => {}, 30_000)
+}
+else if (args[0] === 'until-sigint') {
+  process.on('SIGINT', () => {
+    process.stdout.write(' cleaned up')
+    process.exit(130)
+  })
+  process.stdout.write('ready')
   setTimeout(() => {}, 30_000)
 }
 else {
@@ -118,5 +128,37 @@ describe('runConvex', () => {
     const { runConvex } = await import('../../src/convex-cli')
     resolver.absent = true
     await expect(runConvex(rootDir, ['env', 'list'])).rejects.toThrow('The `convex` package is not installed')
+  })
+})
+
+describe('forwardStopSignals', () => {
+  it.skipIf(process.platform === 'win32')('passes SIGINT and SIGTERM on to the child as SIGINT, the signal convex dev cleans up on', async () => {
+    const { forwardStopSignals } = await import('../../src/convex-cli')
+    const cli = installFakeConvex()
+    const child = spawn(process.execPath, [cli, 'until-sigint'], { stdio: ['ignore', 'pipe', 'inherit'] })
+    let out = ''
+    child.stdout.on('data', (chunk: Buffer) => out += chunk.toString())
+    const exited = new Promise<number | null>(resolve => child.on('exit', resolve))
+    await vi.waitFor(() => expect(out).toBe('ready'))
+
+    // What an agent's `kill <pid>` delivers to nuxt-backend dev alone.
+    const target = new EventEmitter()
+    const stop = forwardStopSignals(child, target, process.platform)
+    target.emit('SIGTERM')
+
+    expect(await exited).toBe(130)
+    expect(out).toBe('ready cleaned up')
+    stop()
+    expect([target.listenerCount('SIGINT'), target.listenerCount('SIGTERM')]).toEqual([0, 0])
+  })
+
+  it('stays out of the way on Windows, where kill() would end the child before its cleanup', async () => {
+    const { forwardStopSignals } = await import('../../src/convex-cli')
+    const child = { kill: vi.fn() }
+    const target = new EventEmitter()
+    forwardStopSignals(child, target, 'win32')
+    target.emit('SIGINT')
+    expect(child.kill).not.toHaveBeenCalled()
+    expect(target.listenerCount('SIGINT')).toBe(0)
   })
 })

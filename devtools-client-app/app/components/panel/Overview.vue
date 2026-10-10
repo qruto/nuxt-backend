@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { DevtoolsPreflightFinding } from '../../../src/devtools/rpc-types'
+import type { DevtoolsPreflightFinding } from '../../../../src/devtools/rpc-types'
 import { connectionLabel, connectionSignal, findingSignal, type Signal } from '~/utils/signal'
 
 const state = usePanelState()
@@ -188,7 +188,7 @@ function refreshAll() {
           v-if="finding.fixHint"
           class="flex items-center gap-2 pl2"
         >
-          <code class="font-mono text-xs op65 bg-active rounded px2 py0.5">{{ finding.fixHint }}</code>
+          <code class="font-mono text-xs op65 n-bg-active rounded px2 py0.5">{{ finding.fixHint }}</code>
           <NButton
             n="xs"
             :icon="copied === finding.id ? 'carbon-checkmark' : 'carbon-copy'"

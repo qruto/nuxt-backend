@@ -26,7 +26,7 @@ The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR
 
 > 📖 **Full documentation:** **[nuxt-backend.dev](https://nuxt-backend.dev)** (docs · playground) covers installation, every composable, the bundled backend components, and the complete API reference.
 
-**Requirements:** Nuxt ≥ 4.1 and Node ≥ 24.11.
+**Requirements:** Nuxt ≥ 4.1 (Nuxt 4; not yet Nuxt 5) and Node ≥ 24.11.
 
 **Stability:** [STABILITY.md](./STABILITY.md) — what the 0.x line promises, the experimental tier, and how upstream releases map to this package's versions.
 
@@ -145,7 +145,7 @@ An OAuth-protected `/mcp` endpoint (Better Auth's OIDC provider + `@nuxtjs/mcp-t
 
 ### Nuxt DevTools
 
-A **Backend** tab in Nuxt DevTools, six pages: the deployment you're talking to and every env name set here and on it, live checks with a copyable fix and `doctor` on demand, the signed-in account with its workspace, sessions and passkeys, the subscription, credits and catalog sync, email transport and delivery status, the webhook delivery log, and the agent endpoint. File buttons open your backend functions in the editor.
+A **Backend** tab in Nuxt DevTools: the deployment you're talking to and every env name set here and on it, live checks with a copyable fix and `doctor` on demand, the signed-in account with its workspace, sessions and passkeys, the subscription, credits and catalog sync, email transport and delivery status, the webhook delivery log, the agent endpoint, and an activity log of sign-ins, plan changes, credit spend and webhook deliveries that also lands on the Vue DevTools timeline. File buttons open your backend functions in the editor.
 
 ### Linting
 

@@ -133,7 +133,7 @@ describe('README', () => {
   })
 
   it('states the Nuxt and Node floors the module enforces', () => {
-    const nuxtFloor = read('src/module.ts').match(/nuxt: '>=(\d+\.\d+)/)?.[1]
+    const nuxtFloor = read('src/module.ts').match(/nuxt: '(?:>=|\^)(\d+\.\d+)/)?.[1]
     const nodeFloor = manifest.engines.node.match(/>=(\d+\.\d+)/)?.[1]
     expect(nuxtFloor && nodeFloor).toBeTruthy()
     expect(README).toMatch(new RegExp(`Nuxt\\s*(>=|≥)\\s*${nuxtFloor!.replace('.', '\\.')}`))
@@ -180,13 +180,13 @@ describe('templates', () => {
 })
 
 describe('DevTools panel', () => {
-  // The panel's pages, read as text from its nav (this project imports
+  // The panel's tabs, read as text from its nav (this project imports
   // nothing from the app): the DevTools docs page describes each one, and
-  // the homepage drawing of the panel lists the same six.
+  // the homepage drawing of the panel lists the same ones.
   const labels = [...read('devtools-client-app/app/nav.ts').matchAll(/label: '([^']+)'/g)].map(m => m[1]!)
   const page = read(contentFile('/tooling/devtools'))
 
-  it('reads the pages', () => {
+  it('reads the tabs', () => {
     expect(labels).toContain('Overview')
     expect(labels.length).toBeGreaterThan(4)
   })
@@ -195,7 +195,7 @@ describe('DevTools panel', () => {
     expect(page).toContain(`\n## ${label}\n`)
   })
 
-  it('the homepage drawing lists the same pages', () => {
+  it('the homepage drawing lists the same tabs', () => {
     const tabs = read('website/components/home/DevX.vue').match(/const TABS = \[([\s\S]*?)\n\]/)?.[1] ?? ''
     expect([...tabs.matchAll(/label: '([^']+)'/g)].map(m => m[1])).toEqual(labels)
   })

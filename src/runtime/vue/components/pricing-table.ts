@@ -93,7 +93,7 @@ function trialOf(product?: BillingProduct): PlanTrial | undefined {
  * Signed-out visitors get a sign-in link (with a return redirect) instead of
  * checkout actions.
  */
-export const PricingTable = defineComponent({
+export const PricingTable = /* @__PURE__ */ defineComponent({
   name: 'PricingTable',
   props: {
     /** Plan catalog. Default: `appConfig.backend.billing.plans`. */

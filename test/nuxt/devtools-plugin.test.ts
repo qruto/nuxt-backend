@@ -1,6 +1,6 @@
-import { computed, reactive, ref } from 'vue'
+import { computed, nextTick, reactive, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { BackendDevtoolsBridge } from '../../src/runtime/devtools/types'
+import type { BackendDevtoolsBridge, BackendDevtoolsBridgeHost } from '../../src/runtime/devtools/types'
 
 // The dev-only plugin that mirrors the package's composables into the bridge
 // the DevTools panel reads. Every composable is a stand-in here, so what is
@@ -96,6 +96,16 @@ vi.mock('../../src/runtime/vue/composables/use-email-status', () => ({
   }),
 }))
 
+// A Vue DevTools that is listening: the plugin's setup runs at once.
+const timeline = vi.hoisted(() => ({ layers: [] as unknown[], events: [] as unknown[] }))
+vi.mock('@vue/devtools-api', () => ({
+  setupDevtoolsPlugin: (_descriptor: unknown, setup: (api: unknown) => void) => setup({
+    now: () => 42,
+    addTimelineLayer: (layer: unknown) => timeline.layers.push(layer),
+    addTimelineEvent: (event: unknown) => timeline.events.push(event),
+  }),
+}))
+
 const plugin = (await import('../../src/runtime/devtools/plugin.client')).default as unknown as {
   setup: (nuxtApp: unknown) => void
 }
@@ -133,16 +143,69 @@ afterEach(() => {
 })
 
 describe('the DevTools bridge plugin', () => {
-  it('publishes a version 2 bridge with every section filled', () => {
-    const snapshot = install().getSnapshot()
+  it('publishes a version 3 bridge: what the app holds at once, the rest on the panel\'s first visit', () => {
+    const bridge = install()
+    expect(bridge.version).toBe(3)
 
-    expect(snapshot.identity).toEqual({ available: true, isLoading: false, isAuthenticated: true, email: 'a@example.com', name: 'Ada', id: 'u1' })
+    const atLoad = bridge.getSnapshot()
+    expect(atLoad.identity).toEqual({ available: true, isLoading: false, isAuthenticated: true, email: 'a@example.com', name: 'Ada', id: 'u1' })
+    expect(atLoad.config).toEqual({ brand: { name: 'Acme', logo: undefined }, plans: ['pro'], packs: ['credits500'] })
+    // Nothing that needs a query of its own has started yet.
+    expect(atLoad.active).toBe(false)
+    expect(atLoad.billing).toMatchObject({ isLoading: true })
+    expect(atLoad.credits).toEqual([])
+    expect(atLoad.workspace).toEqual({ available: false })
+    expect(atLoad.webhooks).toEqual([])
+
+    bridge.activate()
+    const snapshot = bridge.getSnapshot()
+    expect(snapshot.active).toBe(true)
     expect(snapshot.billing).toMatchObject({ isLoading: false, status: 'active', productId: 'prod_pro', productName: 'Pro', cancelAtPeriodEnd: false, isPaused: false, subscriptions: 2 })
     expect(snapshot.entitlements).toEqual({ isLoading: false, features: ['priority_support'], plans: ['prod_pro'] })
     expect(snapshot.credits).toEqual([{ meterId: 'm1', name: 'credits', balance: 7, credited: 10, consumed: 3 }])
     expect(snapshot.workspace).toEqual({ available: true, id: 'w1', name: 'Acme', role: 'owner', workspaces: 2, members: 3, pendingInvitations: 1 })
     expect(snapshot.webhooks).toEqual([{ service: 'billing', deliveryId: 'd1', type: 'order.paid', outcome: 'ok', note: undefined, receivedAt: 5 }])
-    expect(snapshot.config).toEqual({ brand: { name: 'Acme', logo: undefined }, plans: ['pro'], packs: ['credits500'] })
+    // Loading what was already true is not activity.
+    expect(snapshot.activity).toEqual([])
+  })
+
+  it('names who signed in and out: a session whose user is still loading has not settled', async () => {
+    const bridge = install()
+    try {
+      auth.isAuthenticated.value = false
+      auth.user.value = null
+      await nextTick()
+      auth.isAuthenticated.value = true
+      await nextTick()
+      expect(bridge.getSnapshot().identity).toMatchObject({ isLoading: true, isAuthenticated: true })
+      auth.user.value = { id: 'u1', email: 'a@example.com', name: 'Ada' }
+      await nextTick()
+      expect(bridge.getSnapshot().activity.map(event => [event.title, event.detail])).toEqual([
+        ['Signed out', 'a@example.com'],
+        ['Signed in', 'a@example.com'],
+      ])
+    }
+    finally {
+      auth.isAuthenticated.value = true
+      auth.user.value = { id: 'u1', email: 'a@example.com', name: 'Ada' }
+    }
+  })
+
+  it('mirrors each activity entry into a Backend layer of the Vue DevTools timeline', async () => {
+    timeline.layers.length = 0
+    timeline.events.length = 0
+    const bridge = install() as BackendDevtoolsBridgeHost
+    await vi.waitFor(() => expect(timeline.layers).toEqual([{ id: 'nuxt-backend', label: 'Backend', color: 0x22C55E }]))
+
+    bridge.patch('connection', 'connected')
+    bridge.patch('connection', 'reconnecting')
+    bridge.patch('connection', 'closed')
+    expect(timeline.events).toEqual([
+      { layerId: 'nuxt-backend', event: { time: 42, title: 'Connection lost, reconnecting', subtitle: undefined, data: { kind: 'connection' }, logType: 'warning' } },
+      { layerId: 'nuxt-backend', event: { time: 42, title: 'Connection closed', subtitle: undefined, data: { kind: 'connection' }, logType: 'error' } },
+    ])
+    bridge.patch('identity', { available: true, isLoading: false, isAuthenticated: false })
+    expect(timeline.events.at(-1)).toMatchObject({ event: { title: 'Signed out', subtitle: 'a@example.com', data: { kind: 'auth', detail: 'a@example.com' }, logType: 'default' } })
   })
 
   it('names the scaffolded function modules the app is missing', () => {
@@ -163,6 +226,13 @@ describe('the DevTools bridge plugin', () => {
     const bridge = install()
     expect(bridge.getSnapshot().connection).toBe('connected')
 
+    // Restarted on purpose (a fresh auth token): no attempt has failed.
+    emit({ status: 'active', state: { isWebSocketConnected: false, hasEverConnected: true, connectionRetries: 0 } })
+    expect(bridge.getSnapshot().connection).toBe('connected')
+    emit({ status: 'active', state: { isWebSocketConnected: false, hasEverConnected: true, connectionRetries: 1 } })
+    expect(bridge.getSnapshot().connection).toBe('reconnecting')
+    emit({ status: 'active', state: { isWebSocketConnected: false, hasEverConnected: false, connectionRetries: 0 } })
+    expect(bridge.getSnapshot().connection).toBe('idle')
     emit({ status: 'active', state: { isWebSocketConnected: false } })
     expect(bridge.getSnapshot().connection).toBe('reconnecting')
     emit({ status: 'closed' })

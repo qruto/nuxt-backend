@@ -18,7 +18,7 @@ import { useAuth } from '../composables/use-auth'
  * </RoleBoundary>
  * ```
  */
-export const RoleBoundary = defineComponent({
+export const RoleBoundary = /* @__PURE__ */ defineComponent({
   name: 'RoleBoundary',
   props: {
     /** Required app-wide role(s) — any match passes. */

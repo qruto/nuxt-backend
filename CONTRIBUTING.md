@@ -115,16 +115,23 @@ directory to get the dev server back.
 
 How it fits together:
 
-- **Every DevTools-kit call** (serving, the tab, the RPC) is in `src/devtools/register.ts`, so the
-  move to DevTools 4 (Vite DevTools docks) is one file. The RPC's handlers are in
-  `src/devtools/rpc.ts`, its types in `src/devtools/rpc-types.ts`, shared with the panel.
+- **Every DevTools hook** (the tab, the RPC) is in `src/devtools/register.ts` and the serving
+  (a dev-server handler, or the proxy above) in `src/devtools/serve.ts`, so the move to
+  DevTools 4 (Vite DevTools docks) stays in those two files. The kit is imported for types only.
+  The RPC's handlers are in `src/devtools/rpc.ts`, its types in `src/devtools/rpc-types.ts`,
+  shared with the panel.
 - **Live app state** comes from `src/runtime/devtools/`: a dev-only plugin mirrors the
-  composables into a versioned bridge (`version: 2`), and `on-demand.ts` loads what a page asks
-  for. Nothing secret crosses: env names only, never values; no session token or passkey
+  composables into a versioned bridge (`version: 3`; bump it with any change to its shape). The
+  panel's first `activate()` starts the queries a page would not run anyway, and `on-demand.ts`
+  loads what a tab asks for. `events.ts` turns two snapshots into activity entries; the bridge
+  keeps the last 200 and the plugin mirrors them to the Vue DevTools timeline. Nothing secret crosses: env names only, never values; no session token or passkey
   credential (tests pin both).
 - **Colour is a signal**: `app/utils/signal.ts` maps every status to ok (green), warn (amber),
   err (red) or off (grey), and a unit test rejects any other badge colour or a provider name in
   a label. The UI kit's own green is overridden to grey in the panel's config.
+- **One page, tabs**: `app/nav.ts` lists the tabs, `app/components/panel/` holds one component
+  per tab, and `app.vue` switches between them, so the panel ships without vue-router. The
+  DevTools docs page and the homepage drawing list the same tabs (the docs contract checks both).
 - **Checks**: `pnpm typecheck:devtools-client` (part of `pnpm test:types` and CI), the
   `devtools-*` unit tests, and `test/nuxt/devtools-plugin.test.ts` for the bridge.
 - **Icons**: UnoCSS's icon preset skips its loader inside VS Code's terminal; the panel config

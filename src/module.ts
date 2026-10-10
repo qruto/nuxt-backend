@@ -2,15 +2,17 @@ import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { defineNuxtModule, addComponent, addImports, addPlugin, addRouteMiddleware, addServerHandler, addServerImports, addTypeTemplate, createResolver, extendPages, extendRouteRules, resolveModule, useLogger, updateTemplates, type Resolver } from '@nuxt/kit'
 import { defu } from 'defu'
+import { detectAgent } from 'std-env'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
-import { moduleDir } from './dirs'
+import { dependencyRange, moduleDir, packageVersion } from './dirs'
 import { backendAppConfigDefaults, type BackendAppConfigInput } from './runtime/config'
 import { BACKEND_MCP_SCOPES, DEFAULT_MCP_EXCHANGE_PATH } from './convex/constants'
 import { deriveDeploymentUrls, resolveSiteUrl, isDevDeploymentId } from './deployment'
 import { isEnvProvisioned, markEnvProvisioned, provisionedEnvNames, readEnvFiles, runEnvPush } from './env-push'
 import { scaffoldBackendFiles, appComponentIsStarter } from './scaffold'
+import { AGENT_HINT } from './agents'
 import { registerBackendAliases, backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from './aliases'
-import { collectPreflightFindings, formatPreflightSummary } from './preflight'
+import { collectPreflightFindings, formatPreflightSummary, needsSetup, type PreflightFinding } from './preflight'
 import { BACKEND_PAGE_DEFS, collectExistingPagePaths, privatePagePaths, resolvePagePath, resolvedBackendPages, type BackendPageKey, type ModulePagesOptions } from './pages'
 import { buildDevtoolsInfo, computeDevtoolsPages, readPackageVersions } from './devtools/info'
 import type { DevtoolsPageInfo } from './devtools/rpc-types'
@@ -133,12 +135,16 @@ export interface ModuleOptions {
 export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: 'nuxt-backend',
+    version: packageVersion(),
     configKey: 'backend',
     // Surfaced by Nuxt DevTools and the nuxt/modules registry (which reads it
     // from dist/module.json and uses it as the listing's website).
     docs: 'https://nuxt-backend.dev',
-    // moduleDependencies with option forwarding is a Nuxt 4.1 feature.
-    compatibility: { nuxt: '>=4.1.0' },
+    // From 4.1, where moduleDependencies with option forwarding arrived. Not
+    // Nuxt 5 yet: every server handler here is written for Nitro 2 and h3 1,
+    // and Nuxt 5 runs Nitro 3 — on it Nuxt disables the module with its own
+    // incompatibility warning instead of letting it fail at runtime.
+    compatibility: { nuxt: '^4.1.0' },
   },
   defaults: {
     installation: 'default',
@@ -153,7 +159,9 @@ export default defineNuxtModule<ModuleOptions>({
   // lists it too, and so its own dependencies (nuxt-security with the
   // Convex-aware CSP) chain through. `defaults` forward the `backend.*`
   // options (user `convex.*` config wins over them); `overrides` force-enable
-  // the integrations this package bundles.
+  // the integrations this package bundles. Each `version` is the range this
+  // package declares for that module, so a second, mismatched copy the app
+  // installs fails with Nuxt's own error instead of half-working.
   moduleDependencies: (nuxt): ModuleDependencies => {
     const rawOptions = nuxt.options as unknown as Record<string, unknown>
     const backend = (rawOptions.backend ?? {}) as ModuleOptions
@@ -183,8 +191,9 @@ export default defineNuxtModule<ModuleOptions>({
       // nuxt-security that was never installed. First in the list, so it is
       // set up before the base module looks for it. `security: false` in
       // nuxt.config still disables it outright (nuxt-security's own switch).
-      ...(nuxt.options.security === false ? {} : { 'nuxt-security': {} }),
+      ...(nuxt.options.security === false ? {} : { 'nuxt-security': { version: dependencyRange('nuxt-security') } }),
       'nuxt-convex-module': {
+        version: dependencyRange('nuxt-convex-module'),
         defaults: {
           url: backend.url ?? process.env.NUXT_PUBLIC_BACKEND_URL ?? derived?.url,
           // A platform build that knows only the client URL still gets its
@@ -235,6 +244,7 @@ export default defineNuxtModule<ModuleOptions>({
       ...(mcp
         ? {
             '@nuxtjs/mcp-toolkit': {
+              version: dependencyRange('@nuxtjs/mcp-toolkit'),
               defaults: {
                 route: mcp.route,
                 ...(mcp.name !== undefined ? { name: mcp.name } : {}),
@@ -291,8 +301,10 @@ export default defineNuxtModule<ModuleOptions>({
 
     runDevAutoEnv(options, nuxt)
 
-    if (nuxt.options.dev && options.devtools !== false && isDevtoolsUiEnabled(nuxt)) {
-      // Lazy import keeps @nuxt/devtools-kit out of production module evaluation.
+    // Only where a panel can be opened: in dev, with the DevTools UI on, and
+    // never under a test runner, where nothing ever opens one.
+    if (nuxt.options.dev && !nuxt.options.test && options.devtools !== false && isDevtoolsUiEnabled(nuxt)) {
+      // Lazy import keeps the DevTools wiring out of production module evaluation.
       const { setupDevtools } = await import('./devtools/index')
       const functionsDir = resolveFunctionsDir(nuxt.options.rootDir)
       const mcp = resolveMcpOptions(options.mcp)
@@ -762,7 +774,10 @@ function registerBackendTypeFallback(nuxt: Nuxt): void {
 // Typed `appConfig.backend` (content layer) and
 // `runtimeConfig.public.backend.pages` (resolved default-page paths, `''`
 // when a page is disabled) for consumers. Same augmentation target as the
-// base module's runtime-config typing (`@nuxt/schema`).
+// base module's runtime-config typing (`@nuxt/schema`), not `nuxt/schema`,
+// which only re-exports it: augmented through the re-export, this
+// `AppConfigInput` did not merge with the other modules' and the website's
+// `app.config.ts` (Nuxt UI keys) stopped type-checking.
 declare module '@nuxt/schema' {
   interface AppConfigInput {
     backend?: BackendAppConfigInput
@@ -820,7 +835,7 @@ function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
     deployedNames: provisionedEnvNames(nuxt.options.rootDir),
   })
 
-  // A `nuxi init` starter renders <NuxtWelcome /> and no <NuxtPage />: the
+  // A `create nuxt` starter renders <NuxtWelcome /> and no <NuxtPage />: the
   // module's pages resolve (the auth guard even redirects to /login) but the
   // welcome screen is all anyone sees. Say so once, with the one-line fix.
   if (appComponentIsStarter(nuxt.options.rootDir)) {
@@ -839,6 +854,11 @@ function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
     )
   }
 
+  reportPreflight(findings)
+}
+
+/** Each finding at its level, the summary line, and what a coding agent should run. */
+function reportPreflight(findings: PreflightFinding[]): void {
   for (const finding of findings) {
     if (finding.status === 'fail') {
       logger.error(`${finding.title}: ${finding.message}${finding.fixHint ? `\n  ↳ ${finding.fixHint}` : ''}`)
@@ -848,4 +868,10 @@ function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
     }
   }
   logger.info(`backend preflight: ${formatPreflightSummary(findings)}`)
+
+  // A coding agent reads this output to decide what to run next; say what
+  // applies here while setup still needs attention.
+  if (needsSetup(findings) && detectAgent().name) {
+    logger.info(AGENT_HINT)
+  }
 }

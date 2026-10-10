@@ -200,9 +200,11 @@ export const dev = defineCommand({
   async run({ rawArgs }) {
     const { cwd, nuxtArgs } = splitDevArgs(rawArgs)
     const rootDir = resolve(process.cwd(), cwd)
-    // The terminal's Ctrl-C reaches Convex, and through it Nuxt, on its own;
-    // this process only waits for them and passes the exit code on.
-    process.on('SIGINT', () => {})
+    // While Convex runs, a stop signal sent here is passed on to it and this
+    // process waits for it to clean up (spawnConvex). On Windows a console
+    // Ctrl-C reaches Convex, and through it Nuxt, on its own, and the child
+    // cannot be stopped gracefully from here, so this process only waits.
+    if (process.platform === 'win32') process.on('SIGINT', () => {})
     process.exitCode = await runDev(rootDir, nuxtArgs, {
       convex: (args, env) => spawnConvex(rootDir, args, { env }),
       envPush: () => runEnvPush(rootDir, {}),

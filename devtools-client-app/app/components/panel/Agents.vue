@@ -40,8 +40,18 @@ async function copy(text: string) {
     </NCard>
 
     <PanelCard title="Connect a client">
+      <template #actions>
+        <NButton
+          n="xs"
+          icon="carbon-debug"
+          title="Call the endpoint's tools by hand, signed in through the same consent flow"
+          @click="openMcpInspector()"
+        >
+          MCP Inspector
+        </NButton>
+      </template>
       <div class="flex items-center gap-2">
-        <code class="font-mono text-xs op65 bg-active rounded px2 py0.5 flex-1">{{ connect }}</code>
+        <code class="font-mono text-xs op65 n-bg-active rounded px2 py0.5 flex-1">{{ connect }}</code>
         <NButton
           n="xs"
           :icon="copied === connect ? 'carbon-checkmark' : 'carbon-copy'"

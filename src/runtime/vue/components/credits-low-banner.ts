@@ -41,7 +41,7 @@ export interface CreditsLowBannerSlotContext {
  * <CreditsLowBanner meter="credits" pack="credits100" :threshold="25" />
  * ```
  */
-export const CreditsLowBanner = defineComponent({
+export const CreditsLowBanner = /* @__PURE__ */ defineComponent({
   name: 'CreditsLowBanner',
   props: {
     /** Credit-meter name (or raw meter id). Defaults to the primary meter. */

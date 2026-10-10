@@ -45,7 +45,7 @@ function formatDate(value: unknown): string {
  * <BillingHistory :limit="10" />
  * ```
  */
-export const BillingHistory = defineComponent({
+export const BillingHistory = /* @__PURE__ */ defineComponent({
   name: 'BillingHistory',
   props: {
     title: { type: String, default: undefined },

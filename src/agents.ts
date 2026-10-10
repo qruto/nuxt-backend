@@ -63,6 +63,18 @@ export function mergeAgentsMd(existing: string | undefined, { force = false } = 
 /** The Convex MCP server: the app's own `convex` CLI, reading this project's deployment. */
 export const CONVEX_MCP_SERVER = { command: 'npx', args: ['convex', 'mcp', 'start'] } as const
 
+/**
+ * What the dev server tells a coding agent while setup still needs attention.
+ * nuxt-convex-module prints a hint of its own that points agents at
+ * `convex dev --once`, which cannot finish a first push here: the deployment
+ * needs AUTH_SECRET and SITE_URL before it, and `nuxt-backend dev`
+ * provisions them.
+ */
+export const AGENT_HINT = 'A coding agent is running this app, which runs on nuxt-backend. '
+  + 'Set it up with `npx nuxt-backend init`, then start it with `npx nuxt-backend dev`: it provisions AUTH_SECRET and SITE_URL on the deployment before `convex dev` (a bare `convex dev --once` cannot finish its first push here). '
+  + 'Check the setup with `npx nuxt-backend doctor`. '
+  + 'The package\'s agent skill: `npx skills add https://nuxt-backend.dev --skill nuxt-backend`.'
+
 export type McpJsonAction = 'created' | 'added' | 'unchanged' | 'invalid'
 
 /**

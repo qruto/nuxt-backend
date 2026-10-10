@@ -19,7 +19,27 @@ export const moduleDir = basename(here) === 'shared' || basename(here) === 'chun
  */
 export const packageDir = dirname(moduleDir)
 
-/** This package's own manifest version, read once from the package root. */
+interface PackageManifest {
+  version: string
+  dependencies: Record<string, string>
+}
+
+let manifest: PackageManifest | undefined
+
+/** This package's own manifest, read once from the package root. */
+function packageManifest(): PackageManifest {
+  manifest ??= JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8')) as PackageManifest
+  return manifest
+}
+
+/** This package's own manifest version. */
 export function packageVersion(): string {
-  return (JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8')) as { version: string }).version
+  return packageManifest().version
+}
+
+/** The range this package declares for one of its own dependencies. */
+export function dependencyRange(name: string): string {
+  const range = packageManifest().dependencies[name]
+  if (!range) throw new Error(`nuxt-backend does not depend on ${name}`)
+  return range
 }

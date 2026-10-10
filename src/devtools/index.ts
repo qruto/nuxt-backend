@@ -17,13 +17,12 @@ export interface DevtoolsServerContext {
 const INFO_SOURCES = /(?:^|\/)(?:\.env(?:\.local)?|_generated\/api\.(?:d\.ts|js))$/
 
 /**
- * Wire the Backend panel into Nuxt DevTools (dev-only; lazily imported so
- * `@nuxt/devtools-kit` never loads in production builds):
+ * Wire the Backend panel into Nuxt DevTools (dev-only, and lazily imported):
  *
- * - serve the panel app — from `dist/devtools-client` via sirv in the
- *   published package, or proxied to the `pnpm dev:devtools-client` dev server
- *   while developing this module (the `./devtools-client` dir doesn't exist
- *   next to the stub);
+ * - serve the panel app — from `dist/devtools-client` through a dev-server
+ *   handler in the published package, or proxied to the
+ *   `pnpm dev:devtools-client` dev server while developing this module (the
+ *   `./devtools-client` dir doesn't exist next to the stub);
  * - register the iframe tab (a sibling of the base module's Convex tab —
  *   connection/queries/auth state stay over there);
  * - expose the server-side RPC, and push fresh facts to an open panel when an

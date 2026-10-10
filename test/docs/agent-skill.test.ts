@@ -1,6 +1,6 @@
 import { lstatSync, readdirSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { AGENTS_SECTION } from '../../src/agents'
+import { AGENT_HINT, AGENTS_SECTION } from '../../src/agents'
 import { main } from '../../src/cli/main'
 import { BACKEND_ENV_NAMES } from '../../src/env-push'
 import { at, contentRoute, frontmatter, read, walk } from './helpers'
@@ -19,7 +19,7 @@ const SKILLS_DIR = 'skills'
 const SITE = /https:\/\/nuxt-backend\.dev(?:\/|\b)/
 const skills = readdirSync(at(SKILLS_DIR))
 const skillFiles = walk(SKILLS_DIR, ['.md']).map(file => file.slice(file.indexOf(`${SKILLS_DIR}/`)))
-const texts: Array<[string, string]> = [['AGENTS section', AGENTS_SECTION], ...skillFiles.map(file => [file, read(file)] as [string, string])]
+const texts: Array<[string, string]> = [['AGENTS section', AGENTS_SECTION], ['dev-server agent hint', AGENT_HINT], ...skillFiles.map(file => [file, read(file)] as [string, string])]
 const docsRoutes = new Set(walk('website/content', ['.md']).map(contentRoute))
 
 describe('published skills', () => {
