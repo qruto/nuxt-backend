@@ -100,7 +100,7 @@ export default defineAppConfig({
         'yarn': 'i-simple-icons-yarn',
         'bun': 'i-simple-icons-bun',
         'nuxt': 'i-simple-icons-nuxt',
-        'nuxi': 'i-simple-icons-nuxt',
+        'nuxt': 'i-simple-icons-nuxt',
         'nuxt.config.ts': 'i-simple-icons-nuxt',
         'nuxt.config.js': 'i-simple-icons-nuxt',
         'nuxt.schema.ts': 'i-simple-icons-nuxt',

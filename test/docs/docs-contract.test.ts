@@ -95,6 +95,11 @@ describe('stability', () => {
     expect(section).toContain(`Node \`${manifest.engines.node}\``)
   })
 
+  it('offers the registry the Nuxt range the module declares', () => {
+    const nuxtRange = read('src/module.ts').match(/compatibility: \{ nuxt: '([^']+)' \}/)?.[1]
+    expect(read('.github/registry/backend.yml')).toContain(`nuxt: '${nuxtRange}'`)
+  })
+
   it('names the 0.x line, not a version that never shipped', () => {
     expect(STABILITY).toContain('## The 0.x line')
     expect(STABILITY).not.toMatch(/0\.1 line/)

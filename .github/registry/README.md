@@ -11,7 +11,7 @@ with the code it describes, not written in a browser on release day.
 - `backend.yml` — the entry itself, for `modules/backend.yml` in that repository, offered in the
   issue in case a pull request suits the maintainers better. The registry re-reads `description`,
   `compatibility` and the docs URL from `package.json` / `dist/module.json` weekly, so those must
-  agree with the published package (the docs contract test checks the Nuxt range). `type` is
+  agree with the published package (the docs contract test holds this entry's Nuxt range to `src/module.ts`). `type` is
   `3rd-party`: the sync sets it for every repository outside the nuxt and nuxt-modules
   organizations. `icon` names a file to add under that repository's `icons/` — the house mark from
   `website/public/logo.svg`, exported square.

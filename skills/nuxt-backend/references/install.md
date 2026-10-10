@@ -34,7 +34,8 @@ signs everybody out. `npx nuxt-backend dev` generates it on a dev deployment; le
      configures itself. Leave the entry and its options alone.
    - A `convex/` or `backend/` folder, or a `convex.json`: the project already has Convex
      functions. nuxt-backend writes its files into that folder and never replaces one that
-     exists, so keep them. Tell the user which files were added.
+     exists, so keep them. Tell the user which files were added, and see "Existing Convex files"
+     in step 1b.
    - `CONVEX_DEPLOYMENT` in `.env.local`: a deployment is already configured. Use it.
    - No `package.json` with `nuxt` at all: there is no Nuxt app here, go to step 1a.
 
@@ -78,8 +79,16 @@ Check what `init` printed:
   `nuxt dev` (one that chains commands, say) is left alone: tell the user, and use
   `npx nuxt-backend dev` below instead of the script.
 - When it says it added `convex` to the dependencies, run the install once more.
-- When it says `CLAUDE.md` does not import `AGENTS.md`, tell the user; don't edit `CLAUDE.md`
+- When it says `CLAUDE.md does not mention AGENTS.md`, tell the user; don't edit `CLAUDE.md`
   yourself.
+
+Existing Convex files: `init` keeps a `convex.config.ts`, `http.ts`, `schema.ts` or
+`auth.config.ts` that was already in the functions folder, and says nothing about it. The backend
+does not run until those four carry its parts: `app.use(backend)` and `env: backendEnv` in
+`convex.config.ts`, `registerBackendRoutes` in `http.ts`, the auth tables in `schema.ts` and the
+auth provider in `auth.config.ts`. Compare each kept file with the
+[scaffolded files](https://nuxt-backend.dev/raw/platform/auth/setup.md) and propose the merge to
+the user before editing it; don't overwrite their code.
 
 pnpm notes:
 
@@ -98,7 +107,10 @@ required env (`AUTH_SECRET` is generated, `SITE_URL` defaults to `http://localho
 runs Convex and Nuxt together: Convex pushes `backend/` and generates `backend/_generated/`
 before Nuxt starts. Start it in the background; it keeps running.
 
-- **A deployment is already configured** (`CONVEX_DEPLOYMENT` in `.env.local`):
+- **A deployment is already configured** (`CONVEX_DEPLOYMENT` in `.env.local`). A `local:` or
+  `anonymous:` one lives on this machine; start right away. A `dev:` one is a cloud deployment in
+  the user's account, possibly shared with a team: the first run pushes the backend's tables and
+  functions to it and sets `AUTH_SECRET` and `SITE_URL` there, so ask before starting it.
 
   ```bash
   npm run dev
