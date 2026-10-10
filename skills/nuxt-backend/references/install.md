@@ -76,8 +76,10 @@ Check what `init` printed:
 
 - `nuxt.config.ts` lists `'nuxt-backend'` in `modules`.
 - `package.json`'s `dev` script is `nuxt-backend dev`. A `dev` script that was not plain
-  `nuxt dev` (one that chains commands, say) is left alone: tell the user. The commands below
-  run `npx nuxt-backend dev` directly, so they work either way.
+  `nuxt dev` (one that chains commands, say) is left alone: tell the user, and suggest replacing
+  its `nuxt dev` part with `nuxt-backend dev`. The commands below run `npx nuxt-backend dev`
+  directly, which starts Convex and Nuxt but not the rest of that script; ask the user before
+  starting anything else it runs.
 - When it says it added `convex` to the dependencies, run the install once more.
 - When it says `CLAUDE.md does not mention AGENTS.md`, tell the user; don't edit `CLAUDE.md`
   yourself.
