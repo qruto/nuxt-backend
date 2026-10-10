@@ -49,6 +49,11 @@ exclude = [
   # GitHub settings pages answer a logged-out client with 404, not 403, so
   # `accept` below cannot cover them (RELEASE.md links the Actions settings).
   "^https?://github\\.com/.*/settings(/|$)",
+  # The API reference's "Defined in" links, about 1,400 of them. TypeDoc
+  # writes each from the file and line it read in this checkout, and
+  # `docs:reference:check` fails when they drift, so none can be dead. Asking
+  # github.com for all of them in one run is what got answered with 503s.
+  "^https://github\\.com/qruto/nuxt-backend/blob/main/src/",
 ]
 
 # A link that needs a login is not a broken link.
