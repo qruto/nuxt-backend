@@ -13,6 +13,10 @@ environment can do.
 
 - **Production is what you release.** `main` deploys nuxt-backend.dev on every merge: check the
   playground there before cutting the release.
+- **Run CI on `main` if nothing merged for a while** — Actions → CI → Run workflow. Its `pack`
+  job installs the packed module into the starter and both examples with the newest Nuxt and
+  Convex, builds each and requests a page from the built server, so a breaking upstream release
+  shows up before yours does. It also runs every Monday on its own.
 - **Run the free deepsec scan** — see [SECURITY.md](./SECURITY.md#deeper-review-with-deepsec).
 - **Freeze `main` until the tag exists.** Merge nothing else between the release pull request and
   step 3, Dependabot included. `Release` refuses unless `HEAD` is the release commit, and a newer

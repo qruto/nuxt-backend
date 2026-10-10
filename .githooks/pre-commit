@@ -18,8 +18,8 @@ if [ -n "$CI" ]; then exit 0; fi
 set -e
 
 # `static` job's Quality step. Scoped to the files this branch changed — fallow
-# derives the merge-base with the branch upstream itself — and its `new-only`
-# gate fails only on findings the change introduces.
+# derives the merge-base with the branch upstream itself — and gated on every
+# finding in those files (`audit.gate` in .fallowrc.jsonc).
 pnpm exec fallow audit --gate-marker pre-commit
 
 # `static` job's Lint step, scoped to what this commit stages. The paths go to

@@ -4,17 +4,16 @@
   "compilerOptions": {
     // Nuxt's generated config already sets `strict`, `noUncheckedIndexedAccess`,
     // `noImplicitOverride` and `verbatimModuleSyntax`, and nuxt.config.ts adds
-    // `stripInternal`. It does not set this one.
+    // `stripInternal`. It sets neither of the two below.
     //
     // A bare `import './thing'` that resolves to nothing is silent by default.
     // The runtime has side-effect imports — plugins, stylesheets — where a typo
     // means missing behaviour at runtime and nothing else catches it.
-    //
-    // `erasableSyntaxOnly` stays off for now: this program reaches
-    // `src/convex/integrations/search.ts` through the unit tests, and its two
-    // query-builder classes declare parameter properties. Rewrite those
-    // constructors, then turn the flag on.
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+    // Only TypeScript that type stripping can erase: no enums, namespaces or
+    // parameter properties, so every source runs the same under Node's
+    // built-in stripping, esbuild and tsc.
+    "erasableSyntaxOnly": true
   },
   "exclude": [
     "dist",
@@ -28,6 +27,8 @@
     // The type tests have their own program (test/types/tsconfig.json): it
     // maps `nuxt-backend/*` to the sources, which reach into `src/convex` —
     // the world this config excludes and `tsconfig.convex.json` owns.
-    "test/types"
+    "test/types",
+    // A local scan workspace (SECURITY.md), never part of the build.
+    ".deepsec"
   ]
 }

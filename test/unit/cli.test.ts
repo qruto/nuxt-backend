@@ -213,7 +213,7 @@ describe('doctor', () => {
   })
 
   it('warns about the base module\'s convex dev --start script', async () => {
-    writeFileSync(join(rootDir, 'package.json'), JSON.stringify({ name: 'app', scripts: { dev: `convex dev --start 'nuxt dev'` } }))
+    writeFileSync(join(rootDir, 'package.json'), JSON.stringify({ name: 'app', scripts: { dev: `convex dev --start "nuxt dev"` } }))
 
     await run(['doctor', '--json'])
 

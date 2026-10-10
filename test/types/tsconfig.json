@@ -18,6 +18,9 @@
       "#imports": ["../../.nuxt/imports"],
       "#app": ["../../node_modules/nuxt/dist/app"],
       "#app/*": ["../../node_modules/nuxt/dist/app/*"],
+      // nuxt-convex-module types the Better Auth session from the app's auth
+      // client (`BetterAuthSession`, 0.11+); unresolved, it is `unknown`.
+      "#convex/auth-client": ["../../src/runtime/vue/auth-client.ts"],
       "#backend/api": ["../../website/backend/_generated/api"],
       "#backend/_generated/api": ["../../website/backend/_generated/api"],
       "nuxt-backend": ["../../src/module.ts"],

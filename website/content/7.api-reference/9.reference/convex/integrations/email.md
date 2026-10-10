@@ -310,16 +310,16 @@ const sendArgs: {
   replyTo: VArray<string[] | undefined, VString<string, "required">, "optional">;
   headers: VArray<
      | {
-     value: string;
      name: string;
+     value: string;
    }[]
      | undefined, VObject<{
-     value: string;
      name: string;
+     value: string;
    }, {
      name: VString<string, "required">;
      value: VString<string, "required">;
-  }, "required", "value" | "name">, "optional">;
+  }, "required", "name" | "value">, "optional">;
   template: VObject<
      | {
      variables?: Record<string, string | number>;
@@ -351,7 +351,7 @@ one definition keeps the two from drifting.
 | <a id="property-cc"></a> `cc` | `VUnion`\<`string` \| `string`[] \| `undefined`, \[`VString`\<`string`, `"required"`\>, `VArray`\<`string`[], `VString`\<`string`, `"required"`\>, `"required"`\>\], `"optional"`, `never`\> | - | [src/convex/email-validators.ts:18](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts#L18) |
 | <a id="property-bcc"></a> `bcc` | `VUnion`\<`string` \| `string`[] \| `undefined`, \[`VString`\<`string`, `"required"`\>, `VArray`\<`string`[], `VString`\<`string`, `"required"`\>, `"required"`\>\], `"optional"`, `never`\> | - | [src/convex/email-validators.ts:19](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts#L19) |
 | <a id="property-replyto"></a> `replyTo` | `VArray`\<`string`[] \| `undefined`, `VString`\<`string`, `"required"`\>, `"optional"`\> | - | [src/convex/email-validators.ts:20](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts#L20) |
-| <a id="property-headers"></a> `headers` | `VArray`\< \| \{ `value`: `string`; `name`: `string`; \}[] \| `undefined`, `VObject`\<\{ `value`: `string`; `name`: `string`; \}, \{ `name`: `VString`\<`string`, `"required"`\>; `value`: `VString`\<`string`, `"required"`\>; \}, `"required"`, `"value"` \| `"name"`\>, `"optional"`\> | - | [src/convex/email-validators.ts:21](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts#L21) |
+| <a id="property-headers"></a> `headers` | `VArray`\< \| \{ `name`: `string`; `value`: `string`; \}[] \| `undefined`, `VObject`\<\{ `name`: `string`; `value`: `string`; \}, \{ `name`: `VString`\<`string`, `"required"`\>; `value`: `VString`\<`string`, `"required"`\>; \}, `"required"`, `"name"` \| `"value"`\>, `"optional"`\> | - | [src/convex/email-validators.ts:21](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts#L21) |
 | <a id="property-template"></a> `template` | `VObject`\< \| \{ `variables?`: `Record`\<`string`, `string` \| `number`\>; `id`: `string`; \} \| `undefined`, \{ `id`: `VString`\<`string`, `"required"`\>; `variables`: `VRecord`\<`Record`\<`string`, `string` \| `number`\> \| `undefined`, `VString`\<`string`, `"required"`\>, `VUnion`\<`string` \| `number`, \[`VString`\<`string`, `"required"`\>, `VFloat64`\<`number`, `"required"`\>\], `"required"`, `never`\>, `"optional"`, `string`\>; \}, `"optional"`, `"id"` \| `"variables"` \| `` `variables.${string}` ``\> | - | [src/convex/email-validators.ts:22](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts#L22) |
 
 ***

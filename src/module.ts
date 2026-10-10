@@ -199,7 +199,7 @@ export default defineNuxtModule<ModuleOptions>({
           // this default.
           security: true,
           // The base module rewrites a plain `nuxt dev` script to
-          // `convex dev --start 'nuxt dev'` on `nuxt dev` and `nuxt prepare`.
+          // `convex dev --start "nuxt dev"` on `nuxt dev` and `nuxt prepare`.
           // Here that command never starts Nuxt on a new deployment: the
           // scaffold's `backendEnv` requires AUTH_SECRET and SITE_URL, the
           // first push fails without them, Convex only starts the child after a

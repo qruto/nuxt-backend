@@ -15,6 +15,9 @@
   // check.
   "entry": [
     "build.config.ts",
+    // The `nuxt-backend` bin's source: build.config.ts names it as a build
+    // entry (dist/cli.mjs), which fallow does not read as a reference.
+    "src/cli.ts",
     "nuxt.config.ts",
     "vitest.config.ts",
     "eslint.config.js",
@@ -101,6 +104,13 @@
   ],
 
   "ignoreExportsUsedInFile": true,
+
+  // A pull request's audit (CI's Quality step, the pre-commit hook) fails on
+  // every finding in the files it touches, not only on the ones fallow
+  // attributes to the change. Under the default `new-only` gate a finding read
+  // as inherited passes the pull request and then fails the full run on main —
+  // nuxt-convex-module's main stayed red for two weeks that way.
+  "audit": { "gate": "all" },
 
   // Codegen is not ours to deduplicate; the composables mirror upstream shapes
   // on purpose; tests repeat setup by design; the scaffold templates and the

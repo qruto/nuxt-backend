@@ -29,7 +29,7 @@ bind directly.
 
 | Type Parameter |
 | ------ |
-| `Query` *extends* [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`\> |
+| `Query` *extends* \| [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`\> \| `FunctionReference_future`\<`"query"`\> |
 
 #### Parameters
 
@@ -71,7 +71,7 @@ bind directly.
 
 | Type Parameter |
 | ------ |
-| `Query` *extends* [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`\> |
+| `Query` *extends* \| [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`\> \| `FunctionReference_future`\<`"query"`\> |
 
 #### Parameters
 

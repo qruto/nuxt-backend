@@ -2,7 +2,7 @@
  * `nuxt-backend dev` — Convex and Nuxt from one command.
  *
  * The scaffold's `convex.config.ts` requires AUTH_SECRET and SITE_URL on the
- * deployment. `convex dev --start 'nuxt dev'` alone never starts Nuxt on a new
+ * deployment. `convex dev --start "nuxt dev"` alone never starts Nuxt on a new
  * deployment: its first push fails without them, Convex starts the child only
  * after a successful push, and the values come from this package's env
  * provisioning, which otherwise runs inside Nuxt. So this command puts them
@@ -61,13 +61,16 @@ export function splitDevArgs(rawArgs: readonly string[]): { cwd: string, nuxtArg
 
 /** A plain `nuxt dev` script, the one the Nuxt starter ships, and its arguments. */
 const PLAIN_NUXT_DEV = /^(?:npx )?(?:nuxt|nuxi) dev(?<args>(?: [^&|;'"]*)?)$/
-/** What the base module rewrites that script to: `convex dev --start 'nuxt dev …'`. */
+/**
+ * What the base module rewrites that script to: `convex dev --start "nuxt dev …"`
+ * (single quotes before nuxt-convex-module 0.11, so both match).
+ */
 const COMBINED_NUXT_DEV = /^convex dev --start (['"])(?:npx )?(?:nuxt|nuxi) dev(?<args>(?: [^&|;'"]*)?)\1$/
 
 /**
  * The `dev` script this command should replace, as `nuxt-backend dev` with the
  * same arguments: a missing one, a plain `nuxt dev`, or the base module's
- * `convex dev --start 'nuxt dev'`, which never starts Nuxt on a new
+ * `convex dev --start "nuxt dev"`, which never starts Nuxt on a new
  * deployment. `null` for any other script: one the app wrote stays its own.
  */
 export function backendDevScript(script: string | undefined): string | null {
@@ -91,7 +94,7 @@ function readManifest(rootDir: string): Manifest | null {
   }
 }
 
-/** Whether a `dev` script is the base module's `convex dev --start 'nuxt dev'`. */
+/** Whether a `dev` script is the base module's `convex dev --start "nuxt dev"`. */
 function isCombinedDevScript(script: string | undefined): script is string {
   return script !== undefined && COMBINED_NUXT_DEV.test(script.trim())
 }
@@ -120,7 +123,7 @@ export function adoptBackendDevScript(rootDir: string, { onlyCombined = false } 
 
 /**
  * `doctor`'s check of the `dev` script: the base module's
- * `convex dev --start 'nuxt dev'` works only once AUTH_SECRET and SITE_URL
+ * `convex dev --start "nuxt dev"` works only once AUTH_SECRET and SITE_URL
  * are on the deployment, and on a new one it waits for them forever. Empty for
  * any other script.
  */

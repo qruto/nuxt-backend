@@ -76,7 +76,29 @@ A public name is never removed in the release that replaces it. It is marked `@d
 
 - A **breaking change in a `better-auth` or `@convex-dev/*` minor** — an API that consumers of this package touch (auth plugin options, component function signatures, schema shape) — is a **major here** (a minor on the 0.x line, announced as breaking). The dependency ranges stay pinned to the last compatible line until then.
 - A non-breaking upstream update is a patch here.
-- `convex` follows its peer range (`>=1.43.0 <2` — the floor is the lowest version every bundled `@convex-dev/*` component and `convex-helpers` accept, which `check:manifest` verifies against the installed tree); a Convex major is a major here. `vue` is a peer too (`^3.5.41`, the floor the bundled MCP toolkit needs), satisfied by any Nuxt 4.1+ app. `@convex-dev/eslint-plugin` (`^5.0.0`) and `eslint` (`^9.0.0 || ^10.0.0`) are optional peers, needed only by `nuxt-backend/eslint`; a major of either is a minor here.
+- `convex` follows its peer range (`>=1.46.0 <2` — the floor is what `nuxt-convex-module` 0.11 needs for `FunctionReference_future`, above the lowest version every bundled `@convex-dev/*` component and `convex-helpers` accept; `check:manifest` verifies it against the installed tree); a Convex major is a major here. `vue` is a peer too (`^3.5.41`, the floor the bundled MCP toolkit needs), satisfied by any Nuxt 4.1+ app. `@convex-dev/eslint-plugin` (`^5.0.0`) and `eslint` (`^9.0.0 || ^10.0.0`) are optional peers, needed only by `nuxt-backend/eslint`; a major of either is a minor here.
 - Nuxt majors are majors here. `nuxt-convex-module` is a true dependency, installed and configured for you; its own stability policy applies to the core composables it registers.
 
 `test/unit/peer-ranges.test.ts` keeps the declared ranges honest against the installed versions and against what the upstreams declare for each other. [Ecosystem](https://nuxt-backend.dev/getting-started/ecosystem) lists every upstream package this one ships, bundles, supports or plans, and the docs contract keeps that page in step with `package.json`.
+
+## Supported versions
+
+Nuxt `>=4.1.0` and Node `>=24.11.0`, plus these `peerDependencies` ranges — `vue` and `convex` are required, the rest optional, needed only by the subpath that uses them:
+
+| Package | Range | Needed by |
+|---|---|---|
+| `vue` | `^3.5.41` | every app |
+| `convex` | `>=1.46.0 <2` | every app (the Convex CLI and client) |
+| `convex-test` | `>=0.0.54` | `nuxt-backend/test` |
+| `eslint` | `^9.0.0 \|\| ^10.0.0` | `nuxt-backend/eslint` |
+| `@convex-dev/eslint-plugin` | `^5.0.0` | `nuxt-backend/eslint` |
+
+The Backend tab works with the Nuxt DevTools that Nuxt 4 installs (3.x). CI installs the packed package into the starter and both examples with the newest Nuxt and Convex every week, builds them and serves a page from each, so the newest release in every range above is one this package has run on.
+
+## Not covered
+
+- The wording of the module's warnings, errors and preflight findings — documented on [Troubleshooting](https://nuxt-backend.dev/production/troubleshooting) — and of the CLI's output may change in any release.
+- The DevTools panel: its UI, its RPC and the in-page bridge it reads are internal to the panel.
+- The layout of `dist/` beyond the files the `exports` map names.
+- Generated template filenames and Nuxt payload keys.
+- The docs site and the generated API reference's formatting.

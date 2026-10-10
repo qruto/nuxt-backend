@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { at, documentedKeys, interfaceKeys, read, walk } from './helpers'
+import { at, contentFile, documentedKeys, interfaceKeys, read, walk } from './helpers'
 
 // The hand-written docs against the code, in both directions: every module
 // option is documented where the docs list options, every registry name the
@@ -19,8 +19,8 @@ const prose = [at('README.md'), ...handWritten]
 
 describe('module options', () => {
   const keys = interfaceKeys(at('src/module.ts'), 'ModuleOptions')
-  const reference = read('website/content/7.api-reference/5.module-options.md')
-  const configuration = read('website/content/1.getting-started/4.configuration.md')
+  const reference = read(contentFile('/api-reference/module-options'))
+  const configuration = read(contentFile('/getting-started/configuration'))
 
   it('reads the interface', () => {
     expect(keys).toContain('workspaces')
@@ -47,7 +47,7 @@ describe('route middleware', () => {
 
 describe('CLI', () => {
   const commands = [...read('src/cli/main.ts').matchAll(/subCommands: \{([^}]+)\}/g)].flatMap(m => m[1]!.split(',').map(s => s.trim().split(':')[0]!.trim()).filter(Boolean))
-  const page = read('website/content/5.tooling/1.cli.md')
+  const page = read(contentFile('/tooling/cli'))
 
   it('reads the commands', () => {
     expect(commands).toEqual(expect.arrayContaining(['init', 'doctor', 'env', 'billing']))
@@ -76,6 +76,23 @@ describe('stability', () => {
       if (pkg === 'convex-test') continue
       expect(STABILITY, `STABILITY.md does not state the ${pkg} peer range ${range}`).toContain(`\`${range}\``)
     }
+  })
+
+  it('lists every peer with its declared range under Supported versions', () => {
+    const section = STABILITY.slice(STABILITY.indexOf('## Supported versions'))
+    for (const [pkg, range] of Object.entries(manifest.peerDependencies)) {
+      // A pipe inside a table cell is written `\|`.
+      const cell = range.replaceAll('|', '\\|')
+      expect(section, `STABILITY.md's Supported versions table lacks ${pkg} ${range}`).toContain(`| \`${pkg}\` | \`${cell}\` |`)
+    }
+  })
+
+  it('states the Nuxt and Node floors under Supported versions', () => {
+    const section = STABILITY.slice(STABILITY.indexOf('## Supported versions'))
+    const nuxtRange = read('src/module.ts').match(/compatibility: \{ nuxt: '([^']+)' \}/)?.[1]
+    expect(nuxtRange).toBeTruthy()
+    expect(section).toContain(`Nuxt \`${nuxtRange}\``)
+    expect(section).toContain(`Node \`${manifest.engines.node}\``)
   })
 
   it('names the 0.x line, not a version that never shipped', () => {
@@ -167,7 +184,7 @@ describe('DevTools panel', () => {
   // nothing from the app): the DevTools docs page describes each one, and
   // the homepage drawing of the panel lists the same six.
   const labels = [...read('devtools-client-app/app/nav.ts').matchAll(/label: '([^']+)'/g)].map(m => m[1]!)
-  const page = read('website/content/5.tooling/2.devtools.md')
+  const page = read(contentFile('/tooling/devtools'))
 
   it('reads the pages', () => {
     expect(labels).toContain('Overview')

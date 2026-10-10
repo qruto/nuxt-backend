@@ -144,6 +144,7 @@ describe('the dev script', () => {
     expect(backendDevScript('nuxt dev')).toBe('nuxt-backend dev')
     expect(backendDevScript('nuxi dev --port 3001')).toBe('nuxt-backend dev --port 3001')
     expect(backendDevScript(`convex dev --start 'nuxt dev'`)).toBe('nuxt-backend dev')
+    expect(backendDevScript(`convex dev --start "nuxt dev"`)).toBe('nuxt-backend dev')
     expect(backendDevScript(`convex dev --start "nuxt dev --host"`)).toBe('nuxt-backend dev --host')
     expect(backendDevScript(undefined)).toBe('nuxt-backend dev')
   })
@@ -168,12 +169,18 @@ describe('the dev script', () => {
 
     writeManifest({ dev: `convex dev --start 'nuxt dev'` })
     expect(adoptBackendDevScript(rootDir, { onlyCombined: true })).toEqual({ script: 'nuxt-backend dev', changed: true })
+
+    // What nuxt-convex-module 0.11+ writes.
+    writeManifest({ dev: `convex dev --start "nuxt dev"` })
+    expect(adoptBackendDevScript(rootDir, { onlyCombined: true })).toEqual({ script: 'nuxt-backend dev', changed: true })
   })
 
   it('doctor warns about the combined script only', () => {
     writeManifest({ dev: 'nuxt dev' })
     expect(devScriptFinding(rootDir)).toEqual([])
     writeManifest({ dev: `convex dev --start 'nuxt dev'` })
+    expect(devScriptFinding(rootDir)).toMatchObject([{ id: 'dev-script', status: 'warn' }])
+    writeManifest({ dev: `convex dev --start "nuxt dev"` })
     expect(devScriptFinding(rootDir)).toMatchObject([{ id: 'dev-script', status: 'warn' }])
   })
 })

@@ -13,7 +13,7 @@ navigation:
 
 ### SearchConfig
 
-Defined in: [src/convex/integrations/search.ts:130](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L130)
+Defined in: [src/convex/integrations/search.ts:139](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L139)
 
 #### Type Parameters
 
@@ -27,10 +27,10 @@ Defined in: [src/convex/integrations/search.ts:130](https://github.com/qruto/nux
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="table"></a> `table` | `T` | The table to search. | [src/convex/integrations/search.ts:136](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L136) |
-| <a id="index"></a> `index` | `I` | The `searchIndex` name on that table. | [src/convex/integrations/search.ts:138](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L138) |
-| <a id="searchfield"></a> `searchField` | `NamedSearchIndex`\<`TableInfo`\<`DM`, `T`\>, `I`\>\[`"searchField"`\] | The search field declared on the index. | [src/convex/integrations/search.ts:140](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L140) |
-| <a id="defaultlimit"></a> `defaultLimit?` | `number` | Default number of results when the caller omits `limit` (default 20). | [src/convex/integrations/search.ts:142](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L142) |
+| <a id="table"></a> `table` | `T` | The table to search. | [src/convex/integrations/search.ts:145](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L145) |
+| <a id="index"></a> `index` | `I` | The `searchIndex` name on that table. | [src/convex/integrations/search.ts:147](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L147) |
+| <a id="searchfield"></a> `searchField` | `NamedSearchIndex`\<`TableInfo`\<`DM`, `T`\>, `I`\>\[`"searchField"`\] | The search field declared on the index. | [src/convex/integrations/search.ts:149](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L149) |
+| <a id="defaultlimit"></a> `defaultLimit?` | `number` | Default number of results when the caller omits `limit` (default 20). | [src/convex/integrations/search.ts:151](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L151) |
 
 ## Functions
 
@@ -42,7 +42,7 @@ function search<DM, T>(ctx, table): {
 };
 ```
 
-Defined in: [src/convex/integrations/search.ts:118](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L118)
+Defined in: [src/convex/integrations/search.ts:127](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L127)
 
 A fluent, type-safe builder over Convex's native full-text search. Index
 names, search fields, and `eq` filter fields are all checked against your
@@ -67,7 +67,7 @@ schema's `searchIndex` definitions.
 
 | Name | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| `withSearchIndex()` | (`index`) => `SearchIndexBound`\<`DM`, `T`, `I`\> | Pick the `searchIndex` (by name) to query. | [src/convex/integrations/search.ts:124](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L124) |
+| `withSearchIndex()` | (`index`) => `SearchIndexBound`\<`DM`, `T`, `I`\> | Pick the `searchIndex` (by name) to query. | [src/convex/integrations/search.ts:133](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L133) |
 
 #### Example
 
@@ -90,7 +90,7 @@ function defineSearch<DM, T, I>(query, config): RegisteredQuery<"public", {
 }, Promise<Doc<DM, T>[]>>;
 ```
 
-Defined in: [src/convex/integrations/search.ts:162](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L162)
+Defined in: [src/convex/integrations/search.ts:171](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/search.ts#L171)
 
 Define a ready-to-call Convex search query from a search-index config. The
 generated query takes `{ query: string, limit?: number }` and returns the

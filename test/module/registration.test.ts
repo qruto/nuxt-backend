@@ -305,6 +305,12 @@ describe('module registration (defaults)', () => {
     expect(getNuxt().options.nitro.experimental).toMatchObject({ asyncContext: true })
   })
 
+  it('gets the base module\'s Nuxt 4.6 build fix: one Convex copy for Vite', () => {
+    // nuxt-convex-module 0.11+ dedupes `convex`, without which a Nuxt 4.6
+    // production server fails every request with ERR_MODULE_NOT_FOUND.
+    expect(getNuxt().options.vite.resolve?.dedupe).toContain('convex')
+  })
+
   it('forwards the auth wiring to nuxt-convex-module and the route to @nuxtjs/mcp-toolkit', () => {
     const { convex, mcp } = dependencyOptions(getNuxt())
     const authClient = join(runtimeDir, 'vue/auth-client')

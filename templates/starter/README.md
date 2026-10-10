@@ -27,8 +27,9 @@ yarn install
 bun install
 ```
 
-With pnpm, `.pnpmfile.mjs` approves the one build script this app has and makes the backend
-components resolvable for Convex; npm, Yarn and Bun ignore it.
+With pnpm, `.pnpmfile.mjs` answers pnpm's build-script question (no dependency needs its script
+here, so none runs) and makes the backend components resolvable for Convex; npm, Yarn and Bun
+ignore it.
 
 ## Development Server
 

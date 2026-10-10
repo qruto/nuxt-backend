@@ -7,7 +7,7 @@
 // second file and the glob would silently hand two arguments to publint.
 import { execFileSync } from 'node:child_process'
 import { builtinModules } from 'node:module'
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { step } from './lib/step.mjs'
@@ -148,11 +148,42 @@ try {
     if (manifest.scripts?.[script]) problems.push(`package.json ships a \`${script}\` script — consumers would run it: ${manifest.scripts[script]}`)
   }
 
+  // UnoCSS writes an icon's rule only when it can load the icon set while the
+  // panel builds. Without it the panel still builds, with every icon blank —
+  // nuxt-convex-module 0.10.0 shipped that way. The Overview tab's icon stands
+  // for all of them.
+  const panelAssets = join(pkgRoot, 'dist/devtools-client/_nuxt')
+  const panelCss = readdirSync(panelAssets).filter(f => f.endsWith('.css')).map(f => readFileSync(join(panelAssets, f), 'utf8')).join('')
+  if (!/\.carbon-dashboard\b/.test(panelCss)) problems.push('the DevTools panel stylesheet has no icon rules — @iconify-json/carbon did not load when it was built')
+
   if (problems.length > 0) {
     for (const p of problems) console.error(`  ✗ ${p}`)
     process.exit(1)
   }
-  console.log(`  ✓ ${files.length} entries · sources only under src/convex · maps only under dist/convex · no tests, no lifecycle scripts · devtools-client built (${devtools.length} assets)\n`)
+  console.log(`  ✓ ${files.length} entries · sources only under src/convex · maps only under dist/convex · no tests, no lifecycle scripts · devtools-client built (${devtools.length} assets, icons included)\n`)
+
+  // ── Size ─────────────────────────────────────────────────────────────────────
+  //
+  // A little above what this package measured when the ceiling was last set
+  // (3,622,585 bytes in 345 files, unpacked). Everything a consumer installs
+  // is counted, so a stray build output or a dependency bundled by mistake
+  // fails here instead of shipping. Raise the ceiling in the change that
+  // explains the growth; lower it when a change shrinks the package.
+  console.log('── Size ───────────────────────────────────────')
+  const MAX_BYTES = 3_800_000
+  const MAX_FILES = 365
+  let bytes = 0
+  let count = 0
+  for (const entry of readdirSync(pkgRoot, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile()) continue
+    count += 1
+    bytes += statSync(join(entry.parentPath, entry.name)).size
+  }
+  if (bytes > MAX_BYTES || count > MAX_FILES) {
+    console.error(`  ✗ ${bytes.toLocaleString('en')} bytes in ${count} files — the ceiling is ${MAX_BYTES.toLocaleString('en')} bytes in ${MAX_FILES} files`)
+    process.exit(1)
+  }
+  console.log(`  ✓ ${bytes.toLocaleString('en')} bytes in ${count} files (ceiling ${MAX_BYTES.toLocaleString('en')} / ${MAX_FILES})\n`)
 
   // ── Phantom dependencies ───────────────────────────────────────────────────
   //
@@ -180,6 +211,14 @@ try {
   // What only the Vite-only `./test` helper may reach.
   const testOnly = new Set(['convex-test', 'vite'])
   const builtins = new Set(builtinModules)
+  // Optional peers are declared, so the check below would let them through —
+  // but a consumer who skipped one gets ERR_MODULE_NOT_FOUND from any code
+  // path that reaches it. Only the subpath that exists for it may.
+  const optionalPeers = new Set(Object.entries(manifest.peerDependenciesMeta ?? {}).filter(([, meta]) => meta?.optional).map(([name]) => name))
+  const optionalPeerHomes = {
+    './eslint': ['eslint', '@convex-dev/eslint-plugin'],
+    './test': ['convex-test'],
+  }
 
   // `from '…'`, `import '…'`, `import('…')`, `export … from '…'`.
   const SPECIFIER = /(?:\bexport\s*\*\s*from|\bfrom|\bimport\s*\(|\bimport)\s*['"]([^'"]+)['"]/g
@@ -262,6 +301,10 @@ try {
   const phantoms = []
   const check = (label, entry, allowTestOnly = false) => {
     for (const [name, importer] of reachable(entry)) {
+      if (optionalPeers.has(name) && !(optionalPeerHomes[label] ?? []).includes(name)) {
+        phantoms.push(`${label} reaches the optional peer "${name}" (via ${importer}) — a consumer without it gets ERR_MODULE_NOT_FOUND`)
+        continue
+      }
       if (declared.has(name) || provided.has(name)) continue
       if (allowTestOnly && testOnly.has(name)) continue
       phantoms.push(`${label} reaches "${name}" (via ${importer}), which is neither a dependency nor a peer`)

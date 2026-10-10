@@ -32,15 +32,40 @@ updates:
     # propose one that the add-on rejects at install time. Drop both entries
     # when @convex-dev/better-auth ships better-auth 1.7 support (and widen the
     # two ranges in package.json with it).
+    #
+    # h3 2.x needs Nitro 3, which Nuxt 4 does not run on, and every server
+    # handler here is written against h3 1. Drop the entry with the move to
+    # Nuxt 5.
+    #
+    # Nuxt 4.6 (2026-10-05) is held back, as in nuxt-convex-module: it pulls in
+    # cssnano 9, which fails `trustPolicy: no-downgrade` (pnpm-workspace.yaml)
+    # until about thirty cssnano packages are listed in `trustPolicyExclude`.
+    # Lift the three entries together. They hold by update type, not by
+    # version range, so 4.5.x patches and security updates still come through.
+    # Consumer apps get 4.6 anyway — CI's `pack` job serves them on it.
     ignore:
       - dependency-name: better-auth
         versions: ['>=1.7.0']
       - dependency-name: '@better-auth/passkey'
         versions: ['>=1.7.0']
+      - dependency-name: h3
+        update-types: ['version-update:semver-major']
+      - dependency-name: nuxt
+        update-types: ['version-update:semver-minor']
+      - dependency-name: '@nuxt/kit'
+        update-types: ['version-update:semver-minor']
+      - dependency-name: '@nuxt/schema'
+        update-types: ['version-update:semver-minor']
+    # Groups apply only to the kind of update named in `applies-to`, which
+    # defaults to version updates. Without the second group every CVE fix
+    # opens a pull request of its own.
     groups:
       all-non-major:
         patterns: ['*']
         update-types: [minor, patch]
+      security:
+        applies-to: security-updates
+        patterns: ['*']
     commit-message:
       prefix: chore
       include: scope

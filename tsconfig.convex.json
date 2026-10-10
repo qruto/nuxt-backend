@@ -22,6 +22,8 @@
     "rootDir": "./src",
     "outDir": "./dist",
     "verbatimModuleSyntax": true,
+    // As in the root config: only syntax type stripping can erase.
+    "erasableSyntaxOnly": true,
     "skipLibCheck": true
   },
   "include": ["./src/convex/**/*"]

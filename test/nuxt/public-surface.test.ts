@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { REQUIRED_FUNCTION_EXPORTS } from '../../src/contract'
 import { BACKEND_APP_CONFIG_KEYS } from '../../src/runtime/config'
 import { BACKEND_FILE_TEMPLATES, LOCAL_BACKEND_FILE_TEMPLATES } from '../../src/templates'
+import { contentFile } from '../docs/helpers'
 
 // The public surface, frozen. STABILITY.md promises the 0.x line keeps every
 // `nuxt-backend/<subpath>` and every value/type reachable from one; this file
@@ -542,7 +543,7 @@ describe('the surface as documented', () => {
   it('documents every appConfig.backend key on the customization page', () => {
     // The "full shape" field-group is the reference for surface 2's content
     // layer: one `::field{name="<key>"}` per frozen key, no more and no fewer.
-    const page = read('website/content/2.guide/7.customization.md')
+    const page = read(contentFile('/guide/customization'))
     const documented = [...page.matchAll(/:::field\{name="([\w.]+)"/g)].map(([, name]) => name!)
     expect(documented.sort()).toEqual([...BACKEND_APP_CONFIG_KEYS].sort())
   })
