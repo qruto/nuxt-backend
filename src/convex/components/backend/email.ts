@@ -181,12 +181,12 @@ function delivery(email: ProviderDelivery) {
   return {
     status: email.status,
     errorMessage: email.errorMessage ?? null,
-    bounced: email.bounced ?? false,
+    bounced: Boolean(email.bounced),
     complained: email.complained,
-    failed: email.failed ?? false,
-    deliveryDelayed: email.deliveryDelayed ?? false,
-    opened: email.opened ?? false,
-    clicked: email.clicked ?? false,
+    failed: Boolean(email.failed),
+    deliveryDelayed: Boolean(email.deliveryDelayed),
+    opened: Boolean(email.opened),
+    clicked: Boolean(email.clicked),
   }
 }
 
