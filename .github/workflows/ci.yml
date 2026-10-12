@@ -330,7 +330,7 @@ jobs:
       # graph.
       - name: Quality (fallow)
         if: ${{ !cancelled() }}
-        uses: fallow-rs/fallow@aaaec796f5449810b9ecf82ed7e62b775d4d1ef3 # v3.32.0
+        uses: fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1
         with:
           command: ${{ github.event_name == 'pull_request' && 'audit' || '' }}
 
@@ -340,7 +340,7 @@ jobs:
       # fails the job.
       - name: Security candidates (fallow)
         if: ${{ !cancelled() }}
-        uses: fallow-rs/fallow@aaaec796f5449810b9ecf82ed7e62b775d4d1ef3 # v3.32.0
+        uses: fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1
         with:
           command: security
           auto-changed-since: false
