@@ -17,8 +17,8 @@ extend-exclude = [
   "src/templates.generated.ts",
   "**/billing.generated.ts",
   "skills-lock.json",
-  # Scanner and AI-tooling workspaces (gitignored, but listed so a local run
-  # matches CI whether or not they exist).
+  # Scanner workspaces (gitignored) and vendored AI tooling: .agents/ and
+  # .claude/ hold third-party skills committed as-is, whose wording is theirs.
   ".deepsec/",
   ".agents/",
   ".claude/",

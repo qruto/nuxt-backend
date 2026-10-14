@@ -51,10 +51,9 @@ setting on Automatic.
 | Include source files outside the Root Directory | **on** | The package is built from the repo root |
 | Node.js version | 24.x | `engines.node` |
 | `ENABLE_EXPERIMENTAL_COREPACK` | `1` | Uses the `packageManager` pin instead of Vercel's own pnpm |
-| `VERCEL_FORCE_NO_BUILD_CACHE` | `1` (preview + production) | No restored `node_modules`: with the hoisted linker, a cached tree plus a changed lockfile fails `pnpm install` with `ERR_PNPM_EEXIST` on the nested `node_modules` it tries to rename — every dependency PR's preview was red for that alone. The install costs a minute more and is deterministic |
+| `VERCEL_FORCE_NO_BUILD_CACHE` | `1` | No restored `node_modules`: with the hoisted linker, a cached tree plus a changed lockfile fails `pnpm install` with `ERR_PNPM_EEXIST` on the nested `node_modules` it tries to rename. The install costs a minute more and is deterministic |
 | Production env | `CONVEX_DEPLOY_KEY` (the playground's production deployment — the Convex integration sets it), `NUXT_SITE_URL=https://nuxt-backend.dev` | The live playground's Convex project and the canonical origin. `NUXT_PUBLIC_BACKEND_URL` is not set here: the build injects the deployment's URL (the `.convex.site` twin is derived from it — `NUXT_PUBLIC_BACKEND_SITE_URL` only for a custom domain) |
-| Preview env | **nothing Convex-related** — remove the `CONVEX_DEPLOY_KEY` the integration adds to Preview and Development | A preview renders the docs and the playground's offline state. The build command ignores a key outside production anyway; removing it keeps the key where it is needed |
-| Deployment Protection → Vercel Authentication | **off** | A preview nobody can open isn't a preview; this is a public docs site |
+| Preview and Development env | **nothing Convex-related** — remove the `CONVEX_DEPLOY_KEY` the integration adds to them | Nothing but `main` builds, and the build command ignores a key outside production anyway; removing it keeps the production key where it is needed |
 
 The playground's production deployment (`determined-horse-300`, created by the Convex integration)
 is configured from a checkout, with its production deploy key — Vercel → Settings → Environment
@@ -86,12 +85,12 @@ must print `prod:determined-horse-300`. Then, from the repository root, after `p
 Every `npx convex` above runs with the key in the environment; prefix it per command rather than
 exporting it into a shell you keep using.
 
-## The two previews on a pull request
+## The preview on a pull request
 
-| Preview | What it shows | Convex |
-| --- | --- | --- |
-| **Vercel** — `nuxt-backend-git-<branch>-razum.vercel.app` | The website as that branch would ship it: docs, landing, API reference | none — the playground renders its offline state |
-| **StackBlitz** — from the pkg.pr.new comment | `templates/starter`, a real Nuxt app running the PR's *package build* | **yours** — `npm run dev` logs you in to Convex in the StackBlitz terminal |
+Vercel builds `main` only, so the website has no per-branch preview: CI's `website` job builds
+and type-checks it instead. The one preview is the package itself: the pkg.pr.new comment opens
+`templates/starter` on StackBlitz, a real Nuxt app running the pull request's *package build*,
+with **your** Convex (`npm run dev` logs you in to Convex in the StackBlitz terminal).
 
 ## The playground is a sandbox
 

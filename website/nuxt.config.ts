@@ -6,24 +6,10 @@ import { expandForAgents } from './shared/agent-markdown'
 const analyze = process.env.ANALYZE === 'true'
 
 // The canonical origin. Everything that needs an absolute URL — canonicals,
-// OG image URLs, llms.txt — reads it from here (via `site.url`), so a preview
-// deployment only has to set `NUXT_SITE_URL`.
-// A Vercel preview is its own origin: canonical URLs, OG images and llms.txt
-// on `*-git-<branch>-razum.vercel.app` must not point at the production site.
-const siteUrl = process.env.NUXT_SITE_URL
-  || (process.env.VERCEL_ENV === 'preview' && (process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL)
-    ? `https://${process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL}`
-    : 'https://nuxt-backend.dev')
-
-// …except the sitemap. @nuxtjs/sitemap is not installed; /sitemap.xml is
-// Docus's own route, and it builds each `<loc>` as `siteUrl ? siteUrl + loc :
-// loc` where `siteUrl` comes from `inferSiteURL()` — which reads ONLY env vars
-// (NUXT_PUBLIC_SITE_URL, NUXT_SITE_URL, VERCEL_*, URL, CI_PAGES_URL,
-// CF_PAGES_URL) and never consults nuxt-site-config. So a deploy that relies
-// on the fallback above shipped a sitemap of bare paths — invalid per the
-// protocol, and easy to miss because canonical and og:url were absolute.
-// Publishing the one canonical string back into the env closes that gap.
-process.env.NUXT_SITE_URL ||= siteUrl
+// OG image URLs, llms.txt and the sitemap (@nuxtjs/sitemap, which Docus
+// registers) — reads it from here through `site.url`. Vercel builds `main`
+// only (website/vercel.json), so there is no preview origin to account for.
+const siteUrl = process.env.NUXT_SITE_URL || 'https://nuxt-backend.dev'
 
 // ── Code colour ───────────────────────────────────────────────────────────
 // The site has three colours and no brand hue, so the code blocks get the
@@ -273,7 +259,7 @@ export default defineNuxtConfig({
     // Permanent redirects for the pre-`platform/` docs tree (see `movedRoutes`).
     ...movedRouteRules,
     // The site-wide default OG template — the machined plate. Explicit
-    // `defineOgImage()` calls win over it (see the `ogImage` note above).
+    // `defineOgImage()` calls win over it (see the `ogImage` note below).
     '/**': { ogImage: { component: 'Plate' } },
     // The product homepage and docs prerender to static HTML. The playground and
     // login are interactive, authenticated pages backed by live Convex queries —
@@ -306,12 +292,7 @@ export default defineNuxtConfig({
   // after Tailwind + Nuxt UI), so it isn't listed in `css` to avoid a double import.
   // Sonda reads source maps to report true post-minify/tree-shake sizes.
   sourcemap: { client: analyze },
-  compatibilityDate: 'latest',
-  nitro: {
-    prerender: {
-      ignore: ['/playground', '/login'],
-    },
-  },
+  compatibilityDate: '2026-10-14',
   telemetry: false,
   // The playground section uses its own depth-design shell, not the Docus docs
   // chrome. Set the layout + hide the Docus header/footer for those routes
@@ -345,9 +326,14 @@ export default defineNuxtConfig({
       walk(pages)
     },
   },
+  // The consumer agent skill lives at the repository root (skills/), where
+  // `npx skills add qruto/nuxt-backend -s nuxt-backend` finds it. Docus
+  // serves the same folder at /.well-known/skills, so
+  // `npx skills add https://nuxt-backend.dev -s nuxt-backend` works too.
+  agentDiscovery: {
+    skills: { dir: '../skills' },
+  },
   backend: {
-    // url: 'http://127.0.0.1:3210',
-    // siteUrl: 'http://127.0.0.1:3211',
     // The playground mounts the SaaS page components under its own chrome
     // (/playground/saas/*) and the vanilla group shows the zero-config look
     // (/playground/vanilla/*) — so the root-level default pages stay off.
@@ -359,13 +345,6 @@ export default defineNuxtConfig({
       profile: false,
       security: false,
     },
-  },
-  // The consumer agent skill lives at the repository root (skills/), where
-  // `npx skills add qruto/nuxt-backend -s nuxt-backend` finds it. Docus
-  // serves the same folder at /.well-known/skills, so
-  // `npx skills add https://nuxt-backend.dev -s nuxt-backend` works too.
-  docus: {
-    skills: { dir: '../skills' },
   },
   // Self-hosted webfonts. Families are declared in app.css's `@theme` block as
   // `--font-sans` (Nunito), `--font-display` (Bai Jamjuree) and `--font-mono`
@@ -436,7 +415,7 @@ export default defineNuxtConfig({
     },
     sections: [
       { title: 'Getting Started', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/getting-started/%' }] },
-      { title: 'Client', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/guide/%' }] },
+      { title: 'Guide', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/guide/%' }] },
       { title: 'Platform', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/platform/%' }] },
       { title: 'Agents', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/agents/%' }] },
       { title: 'Developer Experience', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/tooling/%' }] },
@@ -500,7 +479,7 @@ export default defineNuxtConfig({
     dir: 'agent',
   },
   // OG images (nuxt-og-image, registered by Docus and running its Takumi
-  // renderer). Two notes on this version (6.7):
+  // renderer). Two notes that still hold on 6.9:
   //   • the module-level `fonts` option is gone — font data now comes from
   //     @nuxt/fonts, so the plate's "Bai Jamjuree" 600 and "JetBrains Mono"
   //     500 are the faces declared above. `fontSubsets` only covers families

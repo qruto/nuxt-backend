@@ -139,14 +139,16 @@ the release branch** into what a first-time reader needs before merging the rele
 With `release-type: auto`, the bump comes from the
 [Conventional Commits](https://www.conventionalcommits.org/) since the last tag:
 
-| Commit type                          | Release |
-| ------------------------------------ | ------- |
-| `fix:`                               | patch   |
-| `feat:`                              | minor   |
-| `feat!:` / `BREAKING CHANGE:` footer | major   |
+| Commit type                                        | Release |
+| -------------------------------------------------- | ------- |
+| `fix:`                                             | patch   |
+| `feat:`                                            | minor   |
+| `feat!:` / `BREAKING CHANGE:` footer               | major   |
+| `perf:`, `refactor:`, `docs:`, `build:`, `revert:` | patch   |
 
-`chore:`, `docs:`, `refactor:`, `test:`, `ci:`, `build:` and `perf:` show up in the changelog but
-don't move the version. Two kinds of commit never do: `ai:` (the agent tooling — skills and MCP
+`revert:` is a patch through the `revert` type in `changelog.types`; the rest of the table is
+changelogen's defaults. `chore:`, `test:`, `ci:` and `style:` show up in the changelog but don't move
+the version. Two kinds of commit never show up at all: `ai:` (the agent tooling — skills and MCP
 servers — which is not part of the package), and Dependabot's `chore(deps)` / `chore(deps-dev)`
 bumps. changelogen drops `chore(deps)` itself, after applying `changelog.scopeMap` — which is why
 the map sends `deps-dev` to `deps` and gives `deps` no display name. `ci(deps)` action bumps
@@ -296,8 +298,9 @@ instead.
 ## Dependencies
 
 Updates are handled by [Dependabot](./.github/dependabot.yml): npm versions, GitHub Actions digest
-bumps (keeping the `@<sha> # vX.Y.Z` convention), and CVE security updates. It is one of four
-GitHub Apps installed here — pkg.pr.new, CodeRabbit and the Copilot cloud agent are the others —
+bumps (keeping the `@<sha> # vX.Y.Z` convention), and CVE security updates. It is one of the
+GitHub Apps installed here — pkg.pr.new, CodeRabbit, Socket Security, Codecov, Vercel and the
+Copilot cloud agent are the others —
 and [SECURITY.md](./SECURITY.md#installed-apps) lists what each can write. None of them can push
 to `main` (the rulesets below) or publish to npm (only a job in the `Release` environment can).
 
