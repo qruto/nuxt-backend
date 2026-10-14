@@ -16,17 +16,17 @@ pnpm run check:rulesets     # needs `gh auth` or GH_TOKEN
 
 | File | State | What it does |
 | --- | --- | --- |
-| `main-guard.json` | active | Blocks deletion and force-pushes on `main` |
-| `main-pr-gate.json` | active | Makes CI actually gate a merge — see below |
+| `main-pr-gate.json` | active | Blocks deletion and force-pushes on `main`, and makes CI actually gate a merge — see below |
 | `tag-guard.json` | active | Freezes `v*` tags: no update, delete or force-push |
 
 ## `main-pr-gate`
 
-With only `main-guard` in place, a plain `git push` to `main` skips every check in the repository.
-This is the ruleset that stops that.
+Without it, a plain `git push` to `main` skips every check in the repository, and `main` can be
+deleted or rewritten.
 
 | Rule | Why |
 | --- | --- |
+| `deletion`, `non_fast_forward` | `main` can't be deleted or force-pushed: history can be added to, never rewritten. The break-glass bypass below doesn't loosen this, because a pull request merge can do neither. |
 | `pull_request`, **0 reviewers** | There is one maintainer here, so the gate is CI, not review. What matters is that the change exists as a PR at all, so the checks run and the diff is readable. Zero reviewers makes that free. |
 | `required_status_checks: ["All checks passed"]` | One aggregate check. Adding, renaming or splitting a CI job never means touching this file. |
 | `required_signatures` | Every commit on `main` is already signed. Squash is the only merge method: GitHub re-creates and signs the squash commit, while a rebase merge would carry the PR's own commits onto `main` unchanged and unsigned. GitHub also checks the pull request's own commits before merging — an unsigned one blocks even a squash — so contributors sign theirs (CONTRIBUTING.md). `Release Prepare` creates its commit through the API instead of `git commit` for the same reason — a commit made on a runner is unverified. |
@@ -34,9 +34,9 @@ This is the ruleset that stops that.
 | `require_extra_approval_for_unattributed_changes` | GitHub's default. Written down rather than left implicit: a commit whose author isn't a GitHub account is worth a second look. |
 | `bypass_actors: OrganizationAdmin`, `pull_request` mode | Break-glass. Without it `current_user_can_bypass` is `"never"`, so one flaky Windows job locks the maintainer out of their own repository. `pull_request` mode, not `always`: it allows merging a PR past a stuck check, never a direct push. |
 
-**Why this is separate from `main-guard`.** Evaluate mode applies to a whole ruleset, and this one
-spent a week in it. Folding these rules into `main-guard` would have put its live deletion and
-force-push protection into evaluate mode too.
+**Why it was once two rulesets.** Evaluate mode applies to a whole ruleset, and the merge gate spent
+a week in it, so deletion and force-push protection lived in a separate `main-guard` that stayed
+active. With both active, they are one ruleset again.
 
 **Why no bot needs a bypass.** `Release Prepare` pushes to `release/vX.Y.Z` and `Release` pushes
 only a tag. Neither writes to `main`. That's why the release had to be split first.
@@ -61,8 +61,6 @@ relaxation.
 
 ## Still to do
 
-- **Fold `main-guard` into `main-pr-gate`.** Both are active now, so the reason they were separate
-  is gone.
 - **Add a `code_scanning` rule**, last of all. GitHub treats "analysis in progress" and "tool not
   configured" as blocking, so it can stall a pull request that never touched code. Try it on a
   docs-only PR first.

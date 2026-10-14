@@ -35,13 +35,29 @@ updates:
     #
     # h3 2.x needs Nitro 3, which Nuxt 4 does not run on, and every server
     # handler here is written against h3 1. Drop the entry with the move to
-    # Nuxt 5.
+    # Nuxt 5, when Nuxt's own server package moves to h3 2.
+    #
+    # @polar-sh/sdk 1.x is a rewrite that @convex-dev/polar has not moved to
+    # (it still develops against 0.x), and the billing integration shares its
+    # types. typescript 7 is beyond typedoc's peer range. The DevTools kit and
+    # UI kit move together with Nuxt DevTools' own major, which arrives when
+    # Nuxt ships it. Weekly's upstream watch (.github/upstream.json) reports
+    # when each of these unblocks, one watch per entry; drop the entry in the
+    # pull request that adopts it.
     ignore:
       - dependency-name: better-auth
         versions: ['>=1.7.0']
       - dependency-name: '@better-auth/passkey'
         versions: ['>=1.7.0']
       - dependency-name: h3
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@polar-sh/sdk'
+        versions: ['>=1.0.0']
+      - dependency-name: typescript
+        versions: ['>=7.0.0']
+      - dependency-name: '@nuxt/devtools-kit'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@nuxt/devtools-ui-kit'
         update-types: ['version-update:semver-major']
     # Groups apply only to the kind of update named in `applies-to`, which
     # defaults to version updates. Without the second group every CVE fix

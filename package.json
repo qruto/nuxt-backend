@@ -286,7 +286,7 @@
     "typecheck:convex": "tsc --noEmit -p tsconfig.convex.json",
     "typecheck:devtools-client": "nuxt typecheck devtools-client-app",
     "test": "vitest --run --project \"!e2e\"",
-    "test:coverage": "vitest --run --coverage --project \"!e2e\"",
+    "test:coverage": "vitest --run --coverage --project \"!e2e\" --project \"!docs\" --project \"!types\"",
     "test:watch": "vitest --watch --project \"!e2e\"",
     "test:types": "pnpm run test:types:lib && node scripts/typecheck-website.mjs && pnpm run typecheck:devtools-client",
     "test:types:lib": "pnpm run dev:prepare:lib && pnpm run typecheck && pnpm run typecheck:convex",
@@ -304,6 +304,8 @@
     "db:reset": "node scripts/db-reset.mjs",
     "db:seed": "node scripts/db-seed.mjs",
     "test:docs": "vitest --project docs --run",
+    "typecheck:subpaths": "vitest --project types --run",
+    "upstream:check": "node scripts/check-upstream.mjs",
     "cli": "node dist/cli.mjs"
   },
   "dependencies": {

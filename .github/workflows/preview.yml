@@ -35,6 +35,9 @@ env:
 
 jobs:
   preview:
+    # Not for bots: a Dependabot pull request has nothing to try in a
+    # playground, and each one would add a pkg.pr.new comment and a build.
+    if: ${{ !endsWith(github.actor, '[bot]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

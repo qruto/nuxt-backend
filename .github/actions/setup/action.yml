@@ -1,8 +1,9 @@
 name: Setup
 description: >-
   Install pnpm, the Node runtime and the project's dependencies — the one place
-  those versions and their action pin are defined. Every job in every workflow
-  calls this instead of repeating the block.
+  those versions and their action pin are defined. Every job that installs
+  dependencies calls this instead of repeating the block; the jobs that only
+  read the repository or call an API install nothing.
 
 inputs:
   runtime:

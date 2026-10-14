@@ -113,9 +113,11 @@ reviews:
         `pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/templates/starter`
         is exactly what a user gets. They are linted but sit outside the root
         tsconfig and fallow. Jobs beyond documentation: the `pack` CI job
-        copies `templates/starter` and `examples/advanced`, installs the
-        packed tarball over `latest` with plain npm (then builds) and with
-        pnpm — the only registry-shaped installs in the pipeline — and
+        copies `templates/starter`, `examples/advanced` and
+        `examples/playground`, installs the packed tarball over `latest`
+        with plain npm (then builds) and with pnpm, then once more into a
+        blank app under strict pnpm — the only registry-shaped installs in
+        the pipeline — and
         `templates/starter` is the StackBlitz template pkg.pr.new ships for
         every pull request and the app the e2e suites build. Each app's
         `.pnpmfile.mjs` is the only pnpm setting it may carry (a

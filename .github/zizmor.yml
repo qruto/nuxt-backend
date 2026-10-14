@@ -18,6 +18,7 @@ rules:
       # trigger is ever added.
       - ci.yml
       - preview.yml
+      - weekly.yml
   use-trusted-publishing:
     ignore:
       # pkg.pr.new authenticates via its GitHub App, not a registry token —

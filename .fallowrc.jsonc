@@ -95,6 +95,7 @@
     "@edge-runtime/vm", // vitest `environment: 'edge-runtime'` for the convex-component project
     "@vue/test-utils", // reached through @nuxt/test-utils' mountSuspended
     "oxc-parser", // scripts/generate-templates.mjs parses the component sources with it
+    "semver", // scripts/check-upstream.mjs matches the watched releases against upstream ranges
     // Invoked as subprocesses by scripts/check-tarball.mjs (`pnpm exec publint`,
     // `pnpm exec attw`) rather than imported, so no static reference exists.
     "publint",
