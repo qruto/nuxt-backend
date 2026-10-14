@@ -4,7 +4,7 @@
 // TypeDoc names a module after its source file (`convex/integrations/billing`)
 // and nests the output the same way. Readers import it as
 // `nuxt-backend/billing`, so each page is titled by its import path and moved
-// to one flat, dot-free slug (`billing.md`, `component-schema.md`,
+// to one flat, dot-free slug (`billing.md`, `convex-config.md`,
 // `auth-config.md`); an auto-imported composable keeps its file name
 // (`use-sessions.md`). Links between pages follow the move.
 //

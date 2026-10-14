@@ -31,18 +31,9 @@ if [ -n "$staged" ]; then
   printf '%s\n' "$staged" | tr '\n' '\0' | xargs -0 pnpm exec eslint --no-warn-ignored
 fi
 
-# `static` job's Template drift step. `src/templates.generated.ts` is derived
-# from the component's function modules; regenerating must produce no diff, or
-# the local-install scaffold and the component have diverged. This one rewrites
-# the file: if it fails, the regenerated output is already in your working
-# tree, ready to stage.
-pnpm run templates:generate
-if ! git diff --quiet -- src/templates.generated.ts; then
-  echo >&2
-  echo "pre-commit: src/templates.generated.ts drifted — stage the regenerated file." >&2
-  git --no-pager diff --stat -- src/templates.generated.ts >&2
-  exit 1
-fi
+# `static` job's Playground drift step: examples/playground is the website's
+# playground, copied. If it fails, run `pnpm playground:sync` and stage the copy.
+node scripts/sync-playground.mjs --check
 
 # Claude Code reads `.claude/skills`, where `npx skills add --agent claude-code`
 # writes a symlink to the canonical `.agents/skills` copy. A skill installed

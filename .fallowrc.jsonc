@@ -94,7 +94,6 @@
     "nuxt-security", // installed into every app through moduleDependencies in src/module.ts, by name
     "@edge-runtime/vm", // vitest `environment: 'edge-runtime'` for the convex-component project
     "@vue/test-utils", // reached through @nuxt/test-utils' mountSuspended
-    "oxc-parser", // scripts/generate-templates.mjs parses the component sources with it
     "semver", // scripts/check-upstream.mjs matches the watched releases against upstream ranges
     // Invoked as subprocesses by scripts/check-tarball.mjs (`pnpm exec publint`,
     // `pnpm exec attw`) rather than imported, so no static reference exists.
@@ -117,7 +116,7 @@
   // Codegen is not ours to deduplicate; the composables mirror upstream shapes
   // on purpose; tests repeat setup by design; the scaffold templates and the
   // website's functions are copies of each other by contract
-  // (test/unit/local-install-parity.test.ts).
+  // (test/unit/scaffold-parity.test.ts).
   "duplicates": {
     "ignore": [
       "**/_generated/**",
@@ -226,13 +225,6 @@
         "maxCyclomatic": 21,
         "maxCognitive": 22,
         "reason": "Option forwarding to the base module: one branch per forwarded option."
-      },
-      {
-        "files": ["scripts/generate-templates.mjs"],
-        "functions": ["exportedNames"],
-        "maxCyclomatic": 18,
-        "maxCognitive": 23,
-        "reason": "Walks every export form the component modules use (const, function, re-export, factory call) to derive the scaffold's re-export list."
       }
     ]
   }

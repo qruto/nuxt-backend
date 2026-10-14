@@ -95,7 +95,6 @@ export interface DevtoolsMcpStatus {
 
 /** Redacted module-options snapshot — wiring flags only, no env values. */
 export interface DevtoolsOptionsSnapshot {
-  installation: string
   /** Auto-scaffold missing backend files on dev startup (`backend.scaffold`). */
   scaffold: boolean
   /** Default stylesheet registered (`backend.css`). */

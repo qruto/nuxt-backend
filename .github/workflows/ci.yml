@@ -214,18 +214,12 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm run check:manifest
 
-      # `src/templates.generated.ts` — the export lists the local-install
-      # scaffold re-exports — is derived from the component's function modules
-      # and committed. Regenerating must produce no diff, otherwise a function
-      # was added to the component without reaching the scaffold. The playground
-      # example is the website's playground copied by scripts/sync-playground.mjs;
-      # a website change that was not synced into it fails here.
-      - name: Template drift
+      # The playground example is the website's playground copied by
+      # scripts/sync-playground.mjs; a website change that was not synced into
+      # it fails here.
+      - name: Playground drift
         if: ${{ !cancelled() }}
-        run: |
-          pnpm run templates:generate
-          git diff --exit-code -- src/templates.generated.ts
-          node scripts/sync-playground.mjs --check
+        run: node scripts/sync-playground.mjs --check
 
       # Regenerating the TypeDoc reference must produce no diff (and leave no
       # untracked file under the reference tree). A diff means the doc comments

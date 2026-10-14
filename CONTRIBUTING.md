@@ -248,9 +248,8 @@ pull request and then fail the whole-repository run on `main`. Touch a file, own
 The other gates: ESLint (`pnpm lint`), both type checks (`pnpm test:types:lib` — the Nuxt
 module and the Convex code have separate tsconfigs), the manifest ranges
 (`pnpm check:manifest`: no peer range wider than what the dependency itself accepts), the test
-suite (`pnpm test`), the two drift checks — the generated template lists
-(`pnpm templates:generate`) and the API reference (`pnpm docs:reference:check`) must produce no
-diff — and the package shape (`pnpm check:tarball` after `pnpm pack`: [publint](https://publint.dev),
+suite (`pnpm test`), the two drift checks — the playground copy (`pnpm playground:sync --check`) and the API
+reference (`pnpm docs:reference:check`) must produce no diff — and the package shape (`pnpm check:tarball` after `pnpm pack`: [publint](https://publint.dev),
 [arethetypeswrong](https://arethetypeswrong.github.io), the content rules and the
 phantom-dependency walk in `scripts/check-tarball.mjs`).
 
@@ -317,13 +316,12 @@ They mirror CI, split by how often each check can afford to run:
 
 | Hook | Runs | Mirrors | Cost |
 |---|---|---|---|
-| [`pre-commit`](./.githooks/pre-commit) | `fallow audit` on the branch's changed files, ESLint on the staged files, `templates:generate` drift, the skills mirror | `static` | ~8s |
+| [`pre-commit`](./.githooks/pre-commit) | `fallow audit` on the branch's changed files, ESLint on the staged files, playground drift, the skills mirror | `static` | ~8s |
 | [`commit-msg`](./.githooks/commit-msg) | `commitlint` | `static` (commit messages) | instant |
 | [`pre-push`](./.githooks/pre-push) | `test:quality`, `test:security`, `check:manifest`, `test:types:lib`, `pnpm test`, `docs:reference` drift | `static` (quality, security, manifest, type checks, API reference), `test` | ~1 min |
 
 `pre-commit` stays cheap enough to run on every commit: fallow looks only at what the branch
-changed, ESLint only at what the commit stages, and the template lists must regenerate without a
-diff. `pre-push` runs once per push and can afford the whole-project runs, both type checks and
+changed, ESLint only at what the commit stages, and the playground copy is a file comparison. `pre-push` runs once per push and can afford the whole-project runs, both type checks and
 the whole test suite (`unit`, `convex-component`, `nuxt`, `module` — the `e2e` project stays in
 CI). A delete-only push skips it.
 

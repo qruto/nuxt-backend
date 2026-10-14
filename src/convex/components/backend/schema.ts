@@ -10,9 +10,7 @@ import { v } from 'convex/values'
 // back the agent OAuth surface.
 // No 2FA, no social OAuth, no extra user fields (username/phone/anon/etc), no
 // email/password specific beyond core account.
-// For hybrid/local installs, users get only these tables (spread in their schema).
 // Verified against `createSchema` from @convex-dev/better-auth with this plugin set.
-// See: https://labs.convex.dev/better-auth/features/local-install
 export const tables = {
   user: defineTable({
     name: v.string(),
@@ -198,8 +196,8 @@ export const tables = {
  * validators are shared with the component's billing functions (`billing.ts`) and
  * the app-level cache mutation, so the shape is defined once.
  *
- * Intentionally NOT part of the auth-only `tables` export above (which is spread
- * into consumer schemas for local installs) — billing data is the component's own.
+ * Intentionally NOT part of the auth-only `tables` export above, which is the
+ * Better Auth adapter's schema — billing data is the component's own.
  */
 export const vEntitlementBenefit = v.object({
   id: v.string(),

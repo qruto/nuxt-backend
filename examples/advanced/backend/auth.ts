@@ -1,7 +1,6 @@
 import { setupAuth } from 'nuxt-backend/auth'
 import { components, internal } from './_generated/api'
 import { query } from './_generated/server'
-import { authSchema } from './components/backend/schema'
 import { rateLimiter } from './rateLimiter'
 import { workflow } from './workflows'
 
@@ -20,14 +19,9 @@ export const {
   // The agent token exchange (mounted at /mcp/exchange by http.ts).
   mcp,
 } = setupAuth(components, query, {
-  // CUSTOMIZATION: the locally installed component's schema (see
-  // components/backend/schema.ts) drives the Better Auth adapter.
-  schema: authSchema,
   // CUSTOMIZATION: workspace invitations link to a custom page (/join, see
-  // app/pages/join.vue + `backend: { pages: { acceptInvitation: false } }` in nuxt.config),
-  // and workspaces are NOT auto-created per user.
+  // app/pages/join.vue + `backend: { pages: { acceptInvitation: false } }` in nuxt.config).
   organization: {
-    personal: true,
     invitationPath: '/join',
   },
   integrations: {

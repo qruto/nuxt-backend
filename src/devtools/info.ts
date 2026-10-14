@@ -20,7 +20,6 @@ import type {
  * `ModuleOptions`) so this file never imports the module entry.
  */
 export interface DevtoolsOptionsInput {
-  installation?: string
   scaffold?: 'auto' | false
   css?: boolean
   autoEnv?: boolean
@@ -160,7 +159,6 @@ export function buildDevtoolsInfo(input: BuildDevtoolsInfoInput): DevtoolsServer
   return {
     functionsDir: input.functionsDir,
     options: {
-      installation: options.installation ?? 'default',
       scaffold: options.scaffold !== false,
       css: options.css !== false,
       autoEnv: options.autoEnv !== false,

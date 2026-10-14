@@ -1,11 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { getBackendFileTemplates, type BackendTemplateOptions } from './templates'
+import { BACKEND_FILE_TEMPLATES } from './templates'
 
 const DEFAULT_FUNCTIONS_DIR = 'backend'
 const STANDARD_FUNCTIONS_DIR = 'convex'
 
-export interface ScaffoldOptions extends BackendTemplateOptions {
+export interface ScaffoldOptions {
   /** Only scaffold these template files (e.g. `['billing.ts']`). Default: all. */
   files?: string[]
   /** Overwrite existing files. Default `false` (existing files are never touched). */
@@ -29,7 +29,7 @@ export function scaffoldBackendFiles(rootDir: string, options: ScaffoldOptions =
     log(`[nuxt-backend] Created ${functionsDir}/ directory`)
   }
 
-  const templates = Object.entries(getBackendFileTemplates(options))
+  const templates = Object.entries(BACKEND_FILE_TEMPLATES)
     .filter(([file]) => !options.files || options.files.includes(file))
 
   for (const [file, contents] of templates) {

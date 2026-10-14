@@ -1,6 +1,5 @@
 import type { ComputedRef } from 'vue'
 import type { AuthConfig, FunctionReturnType, HttpRouter } from 'convex/server'
-import type { Infer } from 'convex/values'
 import type { WorkflowManager } from '@convex-dev/workflow'
 import { describe, expectTypeOf, test } from 'vitest'
 import type pkg from '../../package.json'
@@ -22,12 +21,6 @@ import { defineEmailSequence, setupWorkflows } from 'nuxt-backend/workflows'
 import { priceTokens, setupAi } from 'nuxt-backend/ai'
 import { BACKEND_MCP_FUNCTION_DEFAULTS, defineBackendMcpTool, useBackendMcp } from 'nuxt-backend/mcp'
 import backendComponent from 'nuxt-backend/convex.config'
-import schema, { vGift } from 'nuxt-backend/component/schema'
-import { handleWebhook, send, status } from 'nuxt-backend/component/email'
-import { debit, getByUser } from 'nuxt-backend/component/billing'
-import { create, get } from 'nuxt-backend/component/gifts'
-import { createRequest, getByStream } from 'nuxt-backend/component/ai'
-import { find, record, vDeliveryOutcome } from 'nuxt-backend/component/webhooks'
 import authConfig, { defineBackendAuthConfig } from 'nuxt-backend/auth.config'
 import backendTest, { register } from 'nuxt-backend/test'
 import { BACKEND_ESLINT_RULES, backendEslint } from 'nuxt-backend/eslint'
@@ -73,12 +66,6 @@ type Tested
     | './ai'
     | './mcp'
     | './convex.config'
-    | './component/schema'
-    | './component/email'
-    | './component/billing'
-    | './component/gifts'
-    | './component/ai'
-    | './component/webhooks'
     | './auth.config'
     | './test'
     | './eslint'
@@ -217,48 +204,11 @@ test('nuxt-backend/mcp', () => {
   expectTypeOf(BACKEND_MCP_FUNCTION_DEFAULTS).toBeObject()
 })
 
-// The component's own definition, schema and registered functions, exactly as
-// `app.use()` and `convex-test` see them.
+// The component's definition and the API an app reaches it through, exactly as
+// `app.use()` and `components.backend` see them.
 describe('component', () => {
   test('nuxt-backend/convex.config', () => {
     expectTypeOf(backendComponent).toHaveProperty('use')
-  })
-
-  test('nuxt-backend/component/schema', () => {
-    expectTypeOf(schema.tables).toHaveProperty('user')
-    expectTypeOf(schema.tables).toHaveProperty('billingGifts')
-    expectTypeOf(schema.tables).toHaveProperty('aiRequests')
-    expectTypeOf(schema.tables).toHaveProperty('webhookDeliveries')
-    expectTypeOf(vGift.kind).toEqualTypeOf<'object'>()
-  })
-
-  // Each registered with the right builder and public to the app that mounts it.
-  test('nuxt-backend/component/email', () => {
-    expectTypeOf(send.isMutation).toEqualTypeOf<true>()
-    expectTypeOf(send.isPublic).toEqualTypeOf<true>()
-    expectTypeOf(status.isQuery).toEqualTypeOf<true>()
-    expectTypeOf(handleWebhook.isAction).toEqualTypeOf<true>()
-  })
-
-  test('nuxt-backend/component/billing', () => {
-    expectTypeOf(debit.isMutation).toEqualTypeOf<true>()
-    expectTypeOf(getByUser.isQuery).toEqualTypeOf<true>()
-  })
-
-  test('nuxt-backend/component/gifts', () => {
-    expectTypeOf(create.isMutation).toEqualTypeOf<true>()
-    expectTypeOf(get.isQuery).toEqualTypeOf<true>()
-  })
-
-  test('nuxt-backend/component/ai', () => {
-    expectTypeOf(createRequest.isMutation).toEqualTypeOf<true>()
-    expectTypeOf(getByStream.isQuery).toEqualTypeOf<true>()
-  })
-
-  test('nuxt-backend/component/webhooks', () => {
-    expectTypeOf(record.isMutation).toEqualTypeOf<true>()
-    expectTypeOf(find.isQuery).toEqualTypeOf<true>()
-    expectTypeOf(vDeliveryOutcome.kind).toEqualTypeOf<'union'>()
   })
 
   // What a consumer's `components.backend.*` is typed against. A public
@@ -270,7 +220,7 @@ describe('component', () => {
     expectTypeOf<FunctionReturnType<Api['email']['status']>>().toEqualTypeOf<NonNullable<FunctionReturnType<Api['email']['status']>> | null>()
     expectTypeOf<NonNullable<FunctionReturnType<Api['email']['get']>>>().toHaveProperty('finalizedAt').toEqualTypeOf<number>()
     expectTypeOf<NonNullable<FunctionReturnType<Api['email']['get']>>>().not.toHaveProperty('resendId')
-    expectTypeOf<FunctionReturnType<Api['webhooks']['listRecent']>[number]['outcome']>().toEqualTypeOf<Infer<typeof vDeliveryOutcome>>()
+    expectTypeOf<FunctionReturnType<Api['webhooks']['listRecent']>[number]['outcome']>().toEqualTypeOf<'ok' | 'invalid_signature' | 'unknown_type' | 'handler_error' | 'duplicate' | 'oversized' | 'missing_secret'>()
   })
 })
 

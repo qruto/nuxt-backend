@@ -1,15 +1,12 @@
 import { defineApp } from 'convex/server'
 import { backendEnv } from 'nuxt-backend/app'
 import { v } from 'convex/values'
+import backend from 'nuxt-backend/convex.config'
 import migrations from '@convex-dev/migrations/convex.config'
 import persistentTextStreaming from '@convex-dev/persistent-text-streaming/convex.config'
 import polar from '@convex-dev/polar/convex.config'
 import rateLimiter from '@convex-dev/rate-limiter/convex.config'
 import workflow from '@convex-dev/workflow/convex.config'
-// CUSTOMIZATION: the LOCALLY installed backend component — its schema is
-// extended (see components/backend/schema.ts) — instead of the packaged
-// 'nuxt-backend/convex.config'.
-import backend from './components/backend/convex.config'
 
 // The same explicit app definition the scaffold generates (compare
 // templates/starter/backend/convex.config.ts): every component is imported and

@@ -340,12 +340,12 @@ export function setupEmail(components: EmailComponents, options: SetupEmailOptio
   }
 
   const cleanup: Email['cleanup'] = async (ctx, options = {}) => {
-    if (!refs.cleanup) throw new Error('[nuxt-backend] components.backend.email.cleanup is missing — redeploy the backend component (or update the local install) to prune emails.')
+    if (!refs.cleanup) throw new Error('[nuxt-backend] components.backend.email.cleanup is missing — redeploy the backend component to prune emails.')
     await ctx.runMutation(refs.cleanup, options)
   }
 
   const cleanupAbandoned: Email['cleanupAbandoned'] = async (ctx, options = {}) => {
-    if (!refs.cleanupAbandoned) throw new Error('[nuxt-backend] components.backend.email.cleanupAbandoned is missing — redeploy the backend component (or update the local install) to prune emails.')
+    if (!refs.cleanupAbandoned) throw new Error('[nuxt-backend] components.backend.email.cleanupAbandoned is missing — redeploy the backend component to prune emails.')
     await ctx.runMutation(refs.cleanupAbandoned, options)
   }
 

@@ -16,7 +16,6 @@ import { collectPreflightFindings, formatPreflightSummary, needsSetup, type Pref
 import { BACKEND_PAGE_DEFS, collectExistingPagePaths, privatePagePaths, resolvePagePath, resolvedBackendPages, type BackendPageKey, type ModulePagesOptions } from './pages'
 import { buildDevtoolsInfo, computeDevtoolsPages, readPackageVersions } from './devtools/info'
 import type { DevtoolsPageInfo } from './devtools/rpc-types'
-import type { BackendInstallationMode } from './templates'
 import type { BackendMcpFunctionKey, BackendMcpToolName } from './runtime/server/mcp/builtin'
 
 const logger = useLogger('nuxt-backend')
@@ -73,7 +72,6 @@ export interface ModuleOptions {
   url?: string
   siteUrl?: string
   authRoute?: string
-  installation?: BackendInstallationMode
   /**
    * Auto-scaffold missing Convex backend files on dev startup. Set `false`
    * when you scaffold explicitly with `npx nuxt-backend init`.
@@ -147,7 +145,6 @@ export default defineNuxtModule<ModuleOptions>({
     compatibility: { nuxt: '^4.1.0' },
   },
   defaults: {
-    installation: 'default',
     scaffold: 'auto',
     css: true,
     autoEnv: true,
@@ -264,7 +261,7 @@ export default defineNuxtModule<ModuleOptions>({
     // registration) on the first dev run. Dev-boot only: `nuxt build`,
     // `nuxt prepare`, and test boots must never write into the app.
     if (options.scaffold !== false && nuxt.options.dev && !nuxt.options._prepare && !nuxt.options.test) {
-      scaffoldBackendFiles(nuxt.options.rootDir, { installation: options.installation })
+      scaffoldBackendFiles(nuxt.options.rootDir)
     }
 
     // `#backend/*` — the backend-branded aliases for the Convex functions

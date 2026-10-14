@@ -3,7 +3,7 @@ import { Linter } from 'eslint'
 import { describe, expect, it } from 'vitest'
 import rootConfig from '../../eslint.config.js'
 import { BACKEND_ESLINT_RULES, backendEslint } from '../../src/eslint'
-import { BACKEND_FILE_TEMPLATES, LOCAL_BACKEND_FILE_TEMPLATES } from '../../src/templates'
+import { BACKEND_FILE_TEMPLATES } from '../../src/templates'
 
 const PREFIX = '@convex-dev/'
 
@@ -81,7 +81,7 @@ describe('this repository', () => {
     expect(convex?.rules).toEqual(BACKEND_ESLINT_RULES)
   })
 
-  it('passes a freshly scaffolded app, in both installations', async () => {
+  it('passes a freshly scaffolded app', async () => {
     // The parser the Nuxt config sets for TypeScript, so the scaffold is read
     // the way an app's own `withNuxt(backendEslint())` run reads it. Only the
     // preset's findings and parse errors count: the rest is the app's config.
@@ -92,12 +92,10 @@ describe('this repository', () => {
     const linter = new Linter({ configType: 'flat' })
     const findings: string[] = []
     let linted = 0
-    for (const templates of [BACKEND_FILE_TEMPLATES, LOCAL_BACKEND_FILE_TEMPLATES]) {
-      for (const [file, source] of Object.entries(templates)) {
-        linted++
-        for (const message of linter.verify(source, config, { filename: `backend/${file}` })) {
-          if (message.fatal || message.ruleId?.startsWith(PREFIX)) findings.push(`backend/${file}:${message.line} ${message.ruleId ?? 'parse'}: ${message.message}`)
-        }
+    for (const [file, source] of Object.entries(BACKEND_FILE_TEMPLATES)) {
+      linted++
+      for (const message of linter.verify(source, config, { filename: `backend/${file}` })) {
+        if (message.fatal || message.ruleId?.startsWith(PREFIX)) findings.push(`backend/${file}:${message.line} ${message.ruleId ?? 'parse'}: ${message.message}`)
       }
     }
     expect(linted).toBeGreaterThan(10)

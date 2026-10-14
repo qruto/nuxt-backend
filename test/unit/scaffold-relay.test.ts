@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BACKEND_FILE_TEMPLATES, LOCAL_BACKEND_FILE_TEMPLATES } from '../../src/templates'
+import { BACKEND_FILE_TEMPLATES } from '../../src/templates'
 
 /**
  * No function a browser can call takes its recipient from the caller. A
@@ -70,7 +70,6 @@ describe('the relay probe', () => {
 
 describe.each([
   ['default', BACKEND_FILE_TEMPLATES],
-  ['local-install', LOCAL_BACKEND_FILE_TEMPLATES],
 ])('the %s scaffold', (_, templates) => {
   const declared = declarations(templates)
   const reachable = declared.filter(fn => !PRIVILEGED.test(fn.builder))

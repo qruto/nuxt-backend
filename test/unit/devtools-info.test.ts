@@ -116,7 +116,7 @@ describe('buildDevtoolsInfo', () => {
     rootDir,
     env,
     siteUrlConfigured: true,
-    options: { installation: 'default', scaffold: 'auto', authRoute: '/api/auth' },
+    options: { scaffold: 'auto', authRoute: '/api/auth' },
     pages: [{ key: 'login', path: '/login', auth: false, shadowed: false }],
     mcp: { route: '/mcp' },
     versions: { 'nuxt-backend': '0.1.0' },
@@ -174,7 +174,6 @@ describe('buildDevtoolsInfo', () => {
   it('snapshots options as wiring flags, and the deployment', () => {
     const info = buildDevtoolsInfo(input({ CONVEX_DEPLOYMENT: 'dev:brave-fox-123' }))
     expect(info.options).toEqual({
-      installation: 'default',
       scaffold: true,
       css: true,
       autoEnv: true,
