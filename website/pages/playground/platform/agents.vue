@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type { BackendMcpToolName } from 'nuxt-backend'
+// The source of this site's own tool, shown as it ships.
+import todoListTool from '~~/server/agent/tools/todo-list.ts?raw'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -283,6 +285,31 @@ async function copySnippet() {
     </LabPanel>
 
     <LabPanel
+      label="app tool · defineBackendMcpTool"
+      title="A tool this site adds"
+    >
+      <div class="tools">
+        <div class="tool">
+          <span class="mono tool-name">todo-list</span>
+          <StatusPill
+            tone="muted"
+            :dot="false"
+          >
+            no scope
+          </StatusPill>
+          <span class="tool-does">Your playground todos, newest first, done or not.</span>
+        </div>
+      </div>
+      <pre class="snippet mono tool-source">{{ todoListTool }}</pre>
+      <p class="hint">
+        Any agent you connect sees it next to the built-ins. It lives in
+        <code>server/agent/tools/</code> because this app sets
+        <code>mcp.dir</code> to <code>agent</code>; the toolkit's default is
+        <code>server/mcp/tools/</code>.
+      </p>
+    </LabPanel>
+
+    <LabPanel
       label="connect"
       title="Point a client at this site"
       tone="ok"
@@ -313,6 +340,7 @@ async function copySnippet() {
 </template>
 
 <style scoped>
+.tool-source { margin-top: 0.85rem; max-height: 22rem; overflow: auto; }
 .rows { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.9rem; }
 .probe-row {
   display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;

@@ -11,6 +11,11 @@ const billing = useBilling()
 const credits = useCredits()
 const features = useFeatures()
 const events = useQuery(api.billing.listWebhookEvents)
+// What the packaged components read: app.config.ts's `backend` key with the
+// package defaults merged in, so `lowCreditsThreshold` shows up although this
+// app never sets it.
+const config = useBackendConfig()
+const labelGroups = computed(() => Object.keys(config.labels))
 
 const planLabel = computed(() => {
   if (billing.isLoading.value) return '…'
@@ -31,7 +36,7 @@ function timeAgo(ts: number): string {
 <template>
   <div class="stack bk-depth">
     <PageHeader
-      tag="PricingTable · useBilling · useCredits"
+      tag="PricingTable · useBackendConfig · useBilling"
       title="Pricing"
       live
     >
@@ -91,6 +96,64 @@ function timeAgo(ts: number): string {
     </LabPanel>
 
     <LabPanel
+      label="app.config · useBackendConfig"
+      title="The catalog the components read"
+      variant="well"
+    >
+      <div class="config-rows">
+        <div
+          v-for="plan in config.billing.plans"
+          :key="plan.key"
+          class="config-row"
+        >
+          <span class="mono config-key">plan · {{ plan.key }}</span>
+          <span class="config-value">{{ plan.credits ?? 0 }} credits</span>
+          <StatusPill
+            v-for="feature in plan.features ?? []"
+            :key="feature"
+            tone="muted"
+            :dot="false"
+          >
+            {{ feature }}
+          </StatusPill>
+          <StatusPill
+            v-if="plan.highlight"
+            tone="ok"
+            :dot="false"
+          >
+            highlight
+          </StatusPill>
+        </div>
+        <div
+          v-for="pack in config.billing.packs"
+          :key="pack.key"
+          class="config-row"
+        >
+          <span class="mono config-key">pack · {{ pack.key }}</span>
+          <span class="config-value">{{ pack.credits }} credits</span>
+        </div>
+        <div class="config-row">
+          <span class="mono config-key">lowCreditsThreshold</span>
+          <span class="config-value">{{ config.billing.lowCreditsThreshold }} (not set here: the package default)</span>
+        </div>
+        <div class="config-row">
+          <span class="mono config-key">brand.name</span>
+          <span class="config-value">{{ config.brand.name ?? '—' }}</span>
+        </div>
+        <div class="config-row">
+          <span class="mono config-key">labels</span>
+          <span class="config-value">{{ labelGroups.length ? labelGroups.join(' · ') : 'package defaults' }}</span>
+        </div>
+      </div>
+      <p class="hint">
+        Keys match the products in <code>backend/billing.ts</code>; names and
+        prices resolve live from the billing provider. Change
+        <code>app.config.ts</code> in dev and this panel and the table above
+        update together.
+      </p>
+    </LabPanel>
+
+    <LabPanel
       label="webhooks · live"
       title="Billing activity"
       variant="well"
@@ -126,6 +189,11 @@ function timeAgo(ts: number): string {
 
 <style scoped>
 .footer-row { margin-top: 1rem; }
+
+.config-rows { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 0.75rem; }
+.config-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: 0.78rem; }
+.config-key { color: var(--ink); font-size: 0.72rem; min-width: 11rem; }
+.config-value { color: var(--ink-dim); }
 
 .feed { display: flex; flex-direction: column; gap: 0.45rem; }
 .feed-row { display: flex; align-items: center; gap: 0.6rem; font-size: 0.78rem; }

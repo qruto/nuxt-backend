@@ -4,7 +4,7 @@ import { components, internal } from './_generated/api'
 import { query } from './_generated/server'
 import schema from './schema'
 import { messagesCount, messagesSize } from './aggregates'
-import { authed } from './functions'
+import { admin } from './functions'
 
 // Online, batched schema migrations. Passing the schema gives migrateOne typed
 // table access. Define migrations with migrations.define({ table, migrateOne }),
@@ -34,8 +34,11 @@ export const status = query({
   handler: ctx => migrations.getStatus(ctx, { limit: 10 }),
 })
 
-/** Kick a backfill from the playground UI (CLI remains the ops path). */
-export const runBackfill = authed.action({
+/**
+ * Kick a backfill from the playground UI (CLI remains the ops path). Admins
+ * only: a backfill walks every message on the deployment.
+ */
+export const runBackfill = admin.action({
   args: { name: v.union(v.literal('backfillMessagesCount'), v.literal('backfillMessagesSize')), dryRun: v.optional(v.boolean()) },
   handler: async (ctx, { name, dryRun }) => {
     await migrations.runOne(ctx, internal.migrations[name], { dryRun: dryRun ?? false })

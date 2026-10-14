@@ -62,4 +62,9 @@ export default defineNuxtConfig({
       security: false,
     },
   },
+  // The app's own agent tools live in server/agent/tools/, as on the site
+  // (whose docs theme keeps tools of its own in the default server/mcp/).
+  mcp: {
+    dir: 'agent',
+  },
 })

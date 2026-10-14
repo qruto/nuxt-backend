@@ -1,13 +1,20 @@
 import { paginationOptsValidator } from 'convex/server'
-import { v } from 'convex/values'
-import { action, mutation, query } from './_generated/server'
+import { ConvexError, v } from 'convex/values'
+import { internal } from './_generated/api'
+import { action, query } from './_generated/server'
+import { mutation } from './aggregates'
 import { paginateUserLogs } from './lib'
+import { throttle } from './rateLimiter'
+import { clearAppData } from './retention'
+
+/** The longest text the demo action echoes back. */
+const MAX_ECHO = 500
 
 /**
  * A pretend "slow" action that simulates a network round-trip on the server
  * (which itself might be calling a third-party API). Useful for demoing
  * `useAction` from the client: you can show a pending spinner, errors, and
- * non-reactive results.
+ * non-reactive results. Signed-in callers only, throttled per user.
  */
 export const echo = action({
   args: {
@@ -15,7 +22,12 @@ export const echo = action({
     delayMs: v.optional(v.number()),
     failRate: v.optional(v.number()),
   },
-  handler: async (_ctx, { text, delayMs, failRate }) => {
+  handler: async (ctx, { text, delayMs, failRate }) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new ConvexError('Sign in to run the demo action.')
+    if (text.length > MAX_ECHO) throw new ConvexError(`Up to ${MAX_ECHO} characters.`)
+    await throttle(ctx, [{ name: 'playgroundAction', key: identity.subject }])
+
     const delay = Math.min(Math.max(delayMs ?? 800, 0), 5000)
     await new Promise(resolve => setTimeout(resolve, delay))
 
@@ -69,8 +81,10 @@ export const flakyPaginated = query({
 })
 
 /**
- * Demo helper: clear all app data for the current authenticated user.
- * Exposed so the playground UI can offer a "reset data" control for clean test runs.
+ * Demo helper: clear all app data for the current authenticated user — todos,
+ * messages, counters, logs, files and the sent-email feed. Exposed so the
+ * playground UI can offer a "reset data" control for clean test runs. A large
+ * library finishes in the background (retention.clearUser).
  */
 export const clearUserData = mutation({
   args: {},
@@ -78,29 +92,8 @@ export const clearUserData = mutation({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) return { deleted: 0 }
 
-    // Explicit per-table queries keep `withIndex` names statically correct.
-    const tables = await Promise.all([
-      ctx.db
-        .query('todos')
-        .withIndex('userId', q => q.eq('userId', identity.subject))
-        .collect(),
-      ctx.db
-        .query('messages')
-        .withIndex('userId', q => q.eq('userId', identity.subject))
-        .collect(),
-      ctx.db
-        .query('counters')
-        .withIndex('userId_name', q => q.eq('userId', identity.subject))
-        .collect(),
-      ctx.db
-        .query('logs')
-        .withIndex('userId', q => q.eq('userId', identity.subject))
-        .collect(),
-    ])
-
-    const rows = tables.flat()
-    await Promise.all(rows.map(r => ctx.db.delete(r._id)))
-
-    return { deleted: rows.length }
+    const { deleted, done } = await clearAppData(ctx, identity.subject)
+    if (!done) await ctx.scheduler.runAfter(0, internal.retention.clearUser, { userId: identity.subject })
+    return { deleted }
   },
 })

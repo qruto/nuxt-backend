@@ -473,7 +473,7 @@ export default defineNuxtConfig({
   // (which the Docus layer has no copy of) instead of `server/mcp/`. The
   // package's own built-in tools are unaffected — it contributes them by
   // absolute path through the toolkit's `mcp:definitions:paths` hook — and
-  // this app's future tools belong in `server/agent/tools/`.
+  // this app's own tools live in `server/agent/tools/` (`todo-list`).
   // Docs agents read the site through /llms.txt and /llms-full.txt instead.
   mcp: {
     dir: 'agent',

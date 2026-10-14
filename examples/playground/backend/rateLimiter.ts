@@ -15,9 +15,13 @@ export const rateLimiter = setupRateLimiter(components, {
   playgroundEmailGlobal: { kind: 'fixed window', rate: 100, period: HOUR },
   // Bulk writes (the log seeder), per user.
   playgroundSeed: { kind: 'token bucket', rate: 3, period: MINUTE, capacity: 3 },
+  // Upload URLs (each one lets a visitor stream a file into storage) and the
+  // demo action, per user.
+  playgroundUpload: { kind: 'token bucket', rate: 10, period: MINUTE, capacity: 10 },
+  playgroundAction: { kind: 'token bucket', rate: 20, period: MINUTE, capacity: 20 },
 })
 
-type PlaygroundLimit = 'playgroundEmail' | 'playgroundEmailGlobal' | 'playgroundSeed'
+type PlaygroundLimit = 'playgroundEmail' | 'playgroundEmailGlobal' | 'playgroundSeed' | 'playgroundUpload' | 'playgroundAction'
 
 /**
  * Take one token from each limit in turn (keyed ones per user), or refuse with

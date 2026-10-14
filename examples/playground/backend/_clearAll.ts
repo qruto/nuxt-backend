@@ -1,16 +1,17 @@
 import { internalMutation } from './_generated/server'
+import { messagesCount, messagesSize } from './aggregates'
 
-const TABLES = ['todos', 'messages', 'counters', 'logs'] as const
-
+/**
+ * The part of `pnpm db:reset` an empty table import cannot do. The reset
+ * clears the app tables with `convex import --replace`, which bypasses the
+ * triggers that keep the message aggregates in step, so they are emptied here
+ * through the aggregate's own `clear`.
+ */
 export const run = internalMutation({
   args: {},
   handler: async (ctx) => {
-    let deleted = 0
-    for (const table of TABLES) {
-      const rows = await ctx.db.query(table).collect()
-      await Promise.all(rows.map(r => ctx.db.delete(r._id)))
-      deleted += rows.length
-    }
-    return { deleted }
+    await messagesCount.clear(ctx)
+    await messagesSize.clear(ctx, { namespace: 'size' })
+    return null
   },
 })

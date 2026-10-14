@@ -36,6 +36,8 @@ const ENTRIES = [
   'layouts/playground.vue',
   'middleware/playground-offline.global.ts',
   'server/api',
+  // The app's own agent tools (mcp.dir is 'agent' in both configs).
+  'server/agent',
   'backend',
   // The codegen the website commits: the playground pages import the
   // generated API at runtime, so the app builds only with it in place.
@@ -98,8 +100,9 @@ function walkDir(dir, base = dir) {
 const IMPORT = /\b(?:from|import)(?:\s*\(\s*|\s+)['"]((?:\.{1,2}|~~?)\/[^'"]+)['"]/g
 const TAG = /<([A-Z][A-Za-z0-9]+)[\s/>]/g
 
-/** A relative or `~`/`~~` import of `file`, as a website-relative path. */
-function resolveImport(file, request) {
+/** A relative or `~`/`~~` import of `file`, as a website-relative path (a `?raw`-style query dropped). */
+function resolveImport(file, specifier) {
+  const request = specifier.replace(/\?.*$/, '')
   const base = request.startsWith('~')
     ? request.replace(/^~~?\//, '')
     : posix.normalize(posix.join(posix.dirname(file), request))

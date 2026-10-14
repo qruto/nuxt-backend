@@ -57,7 +57,7 @@ const groups: NavGroup[] = [
     label: 'SaaS demo',
     hint: 'The packaged pages, site-styled',
     items: [
-      { to: '/playground/saas/pricing', label: 'Pricing', icon: 'billing', api: 'PricingTable', live: true },
+      { to: '/playground/saas/pricing', label: 'Pricing', icon: 'billing', api: 'PricingTable · useBackendConfig', live: true },
       { to: '/playground/saas/profile', label: 'Profile', icon: 'account', api: 'ProfileSettings' },
       { to: '/playground/saas/settings', label: 'Settings', icon: 'bolt', api: 'WorkspaceSettings' },
       { to: '/playground/saas/security', label: 'Privacy & security', icon: 'key', api: 'SecuritySettings' },
@@ -80,7 +80,7 @@ const groups: NavGroup[] = [
       { to: '/playground/platform/account', label: 'Account & auth', icon: 'account', api: 'useAuth · Authenticated' },
       { to: '/playground/platform/workspaces', label: 'Workspaces', icon: 'account', api: 'useOrganization', live: true },
       { to: '/playground/platform/authorization', label: 'Roles & permissions', icon: 'shield', api: 'hasRole · RoleBoundary' },
-      { to: '/playground/platform/billing', label: 'Billing', icon: 'billing', api: 'useBilling · CheckoutLink' },
+      { to: '/playground/platform/billing', label: 'Billing', icon: 'billing', api: 'useBilling · BillingCheckoutLink' },
       { to: '/playground/platform/features', label: 'Feature gates', icon: 'features', api: 'useFeatures · FeatureBoundary' },
       { to: '/playground/platform/credits', label: 'Credits', icon: 'credits', api: 'useCredits · useAiStream', live: true },
       { to: '/playground/platform/history', label: 'Billing history', icon: 'pagination', api: 'useOrders · useUsage', live: true },

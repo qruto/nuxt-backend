@@ -94,6 +94,27 @@ production. Prefix the one command that needs it (`CONVEX_DEPLOY_KEY=… npx con
 `pnpm db:reset` and `pnpm db:seed` drop the key before calling Convex, and `env push --prod` /
 `doctor --prod` refuse a dev or preview key.
 
+**Resetting data.** `pnpm db:reset` empties the dev deployment. It reads every table from the
+schemas themselves and clears each one with an empty `convex import --replace`. Pass scopes to
+narrow it:
+
+- `app`: the website's tables, uploads and message aggregates.
+- `backend`: the backend component (accounts, sessions, workspaces, the billing cache, gifts).
+- `email`: the email provider's component.
+- `polar`: the billing provider's component. Refill its products with
+  `npx convex run billing:syncProducts '{}'`.
+
+For example, `pnpm db:reset backend polar`. `pnpm db:seed` loads the demo data again.
+
+**The playground deploy rule.** Every merge to `main` deploys nuxt-backend.dev, so a pull request
+must leave production working:
+
+- **Schema changes are additive** (new tables, optional fields), or the pull request names the
+  reset it needs, and the maintainer runs it on production just before merging:
+  `pnpm db:reset --prod --yes <scopes>`. Without `--yes` it only lists what it would empty.
+- **New environment variables** are optional or derived from `AUTH_SECRET`, and are set on
+  production before merge.
+
 ### The DevTools panel
 
 The Backend tab in Nuxt DevTools is its own Nuxt app,

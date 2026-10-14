@@ -27,6 +27,7 @@ import type * as logs from "../logs.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
 import type * as rateLimiter from "../rateLimiter.js";
+import type * as retention from "../retention.js";
 import type * as search from "../search.js";
 import type * as seed from "../seed.js";
 import type * as todos from "../todos.js";
@@ -58,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   migrations: typeof migrations;
   rateLimiter: typeof rateLimiter;
+  retention: typeof retention;
   search: typeof search;
   seed: typeof seed;
   todos: typeof todos;
