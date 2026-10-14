@@ -14,7 +14,7 @@ export const onSignup = workflow.define({
     await step.runMutation(components.backend.email.send, {
       to: email,
       subject: 'Welcome!',
-      html: `<p>Welcome aboard, ${name}! We're glad you're here.</p>`,
+      text: `Welcome aboard, ${name}! We're glad you're here.`,
     })
   },
 })
