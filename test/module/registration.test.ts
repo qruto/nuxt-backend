@@ -122,13 +122,14 @@ function existsWithExtension(path: string): boolean {
 
 /**
  * Every file under the fixture with its size and mtime — the zero-write
- * sentinel. `node_modules/` is Nuxt's own territory (the jiti transform
- * cache and the chrome-workspace id land there on every boot), so it is the
- * one subtree the comparison ignores.
+ * sentinel. `node_modules/` and `.nuxt/` are Nuxt's own territory (the jiti
+ * transform cache and the chrome-workspace id land in the first on every
+ * boot, and since Nuxt 4.6 a dev boot writes its generated `app-secret` into
+ * the second), so they are the subtrees the comparison ignores.
  */
 function snapshotFixture(dir = fixtureDir): string[] {
   return readdirSync(dir, { withFileTypes: true })
-    .filter(entry => entry.name !== 'node_modules')
+    .filter(entry => entry.name !== 'node_modules' && entry.name !== '.nuxt')
     .sort((a, b) => a.name.localeCompare(b.name))
     .flatMap((entry) => {
       const path = join(dir, entry.name)
