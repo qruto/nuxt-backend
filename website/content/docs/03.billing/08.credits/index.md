@@ -1,0 +1,141 @@
+---
+title: Credits & Top-ups
+description: Prepaid credits on provider meters — useCredits, top-ups, and the reserve → run → settle spend that never charges for a failed run.
+navigation:
+  icon: i-lucide-coins
+---
+
+Credits are the provider's native model: a **credit pack** is a one-time product whose meter-credit benefit tops up a **meter balance**; a **plan** can grant credits every cycle the same way. Both are declared in the [catalog](/docs/billing/catalog). The balance is drawn down by server-side spends, and the reactive cache inside the `backend` component keeps every balance live in the app.
+
+## Reading and buying credits
+
+```vue
+<script setup lang="ts">
+const { products } = useBilling()
+const credits = useCredits('credits')   // a catalog meter key (or a raw meter id); default: the entity's first meter
+</script>
+
+<template>
+  <p>{{ credits.balance.value ?? '—' }} left · {{ credits.credited.value }} credited · {{ credits.consumed.value }} consumed</p>
+  <button v-if="products?.credits500" @click="credits.topUp(products.credits500.id)">Buy 500 credits</button>
+  <button @click="credits.refresh()">Refresh</button>
+</template>
+```
+
+::field-group
+  :::field{name="balance / credited / consumed" type="ComputedRef<number | undefined>"}
+  The meter's remaining, granted, and consumed units — `undefined` while loading, `0` when the meter has no grants yet.
+  :::
+
+  :::field{name="overage" type="ComputedRef<number | undefined>"}
+  Units consumed past what was credited — what a pay-as-you-go meter has run up this cycle and the provider will invoice. `0` for a meter still in prepaid credit.
+  :::
+
+  :::field{name="cycle" type="ComputedRef<{ start?, end? } | null | undefined>"}
+  The billing period the credited units belong to — the granting subscription's current period, since a meter has no period of its own in the provider's model. `null` for credits bought as a one-time pack, which have no cycle at all.
+  :::
+
+  :::field{name="expiresAtCycleEnd" type="ComputedRef<boolean | undefined>"}
+  Whether the remaining balance is lost at `cycle.end`. Only `true` when the granting meter-credit benefit is known **not** to roll over — the provider reports rollover on the benefit, which is read on the syncs that refresh benefit metadata, so an unknown rollover reads as `false` rather than a guess.
+  :::
+
+  :::field{name="meterId" type="ComputedRef<string | undefined>"}
+  The resolved provider meter id — pass it to a raw `spendCredits({ meterId })` if you don't name meters.
+  :::
+
+  :::field{name="isLoading" type="ComputedRef<boolean>"}
+  `true` until the balances have loaded.
+  :::
+
+  :::field{name="topUp(productIds, options?)"}
+  A checkout for the pack(s) — the same `CheckoutOptions` as `useBilling().checkout`; opens in a new tab unless `redirect: true`.
+  :::
+
+  :::field{name="gift(productIds, { recipientEmail, message? })"}
+  Buy a pack for someone else — see [Gifts](/docs/billing/credits/gifts).
+  :::
+::
+
+Two shipped components sit on top of it: `<CreditsLowBanner>` nudges a top-up once the balance falls under `appConfig.backend.billing.lowCreditsThreshold` (or its own `threshold` prop), and `<UsageHistory meter="credits" />` renders the consumption history from `useUsage()` — the provider's own event log, since this package keeps no local usage ledger.
+
+::field-group
+
+  :::field{name="refresh()"}
+  Runs `syncEntitlements` to re-read the provider state (throttled by the `billingSync` limit when a `rateLimiter` is configured).
+  :::
+::
+
+Balances arrive through the `benefit_grant.*` / `customer.state_changed` webhooks, so after a top-up the balance updates on its own; `refresh()` is the on-demand fallback (and what makes a mid-configuration deployment without `BILLING_WEBHOOK_SECRET` still usable).
+
+## Spending on the server
+
+Spend from your **own** server code when a metered feature is used — never from the client:
+
+```ts [backend/generate.ts]
+import { v } from 'convex/values'
+import { action } from './_generated/server'
+import { billing } from './billing'
+
+export const generate = action({
+  args: { prompt: v.string() },
+  handler: async (ctx, { prompt }) => {
+    // The billing entity (active workspace, or user with billTo: 'user') resolves from identity.
+    await billing.spendCredits(ctx, { meter: 'credits', value: 1, name: 'credits' })
+    return runModel(prompt)
+  },
+})
+```
+
+`spendCredits(ctx, event)` takes a `SpendCreditsEvent`: `meter` (catalog key) or a raw `meterId`, `value` (default `1`), `name` (the provider event name — defaults to the meter's `eventName` / key), optional `userId` to spend for a specific entity, `allowOverage` (let the balance go negative — the pay-as-you-go case below; off by default), `metadata`, `timestamp`, `externalId` (the idempotency key — a random UUID by default).
+
+::note
+The scaffolded [`ai.ts`](/docs/ai/metered-actions) wraps exactly this into `ai.meteredAction` and `ai.stream`, adding rate limiting and `ctx.usage` — reach for those before hand-rolling spends.
+::
+
+## Reserve → run → settle
+
+A spend is three steps, and `spendCredits` is the one-call form of them:
+
+1. **`reserveCredits`** — an atomic conditional decrement of the **cached** balance inside the component. Convex mutations serialize, so two concurrent spends can never both pass, and there is no live provider read on the spend path. An insufficient balance **throws** (`Insufficient credits — balance N, need M. Top up to continue.`), so credits are strictly prepaid — never billed as overage, unless the spend opts in with `allowOverage: true` (the pay-as-you-go case: a meter with no credit benefit behind it has nothing prepaid to draw down, so every unit is overage the provider invoices at the end of the cycle). A cold cache (granted but never synced) self-heals once from an action ctx (`allowRefresh: false` skips that from a mutation).
+2. **`settleSpend`** — ingests the provider usage event (the only durable record, visible per customer in the provider's portal) and finalizes the reservation. Pass `finalAmount` when the actual cost came in under the estimate and the remainder goes back to the balance in the same transaction; it is clamped to the reservation, because settling above it would be a second, unguarded debit. A failed ingest releases the whole reservation.
+3. **`releaseSpend`** — undoes a reservation whose work failed. Nothing is charged.
+
+Split like this so work can run *between* the guard and the charge — `setupAi` reserves before running a model and settles only after success; the streaming endpoint even settles in a different function than the one that reserved:
+
+```ts
+const reservation = await billing.reserveCredits(ctx, { meter: 'credits', value: 5 })
+try {
+  const result = await runModel(prompt)
+  await billing.settleSpend(ctx, reservation)
+  return result
+}
+catch (error) {
+  await billing.releaseSpend(ctx, reservation)
+  throw error
+}
+```
+
+A `SpendReservation` is plain serializable data (`entityId`, `externalId`, `reserved`, `meter`, `meterId`, `value`), so it can cross function boundaries.
+
+## Sum meters vs count meters
+
+| | `aggregation: 'sum'` (default) | `aggregation: 'count'` |
+|---|---|---|
+| One event means | `metadata[property]` credits (default property `amount`) | exactly 1 credit |
+| Multi-credit spends | `value: 5` in one event | throws — spend `1` per event |
+| Refunds | `refundCredits` ingests a compensating negative event | not possible |
+
+```ts
+// Give credits back on a sum meter (e.g. a generation the user rejected)
+await billing.refundCredits(ctx, { meter: 'credits', value: 5 })
+```
+
+## The settings page
+
+`<WorkspaceSettings>` (the `/settings` page) renders the credits section — balance, the packs from `appConfig.backend.billing.packs`, and a top-up button per pack — over exactly these composables; replace it through its `credits` slot.
+
+::playground-link{to="/playground/platform/credits" label="credits"}
+::
+
+::playground-link{to="/playground/platform/history" label="usage history and the low-credits banner"}
+::

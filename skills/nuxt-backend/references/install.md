@@ -89,7 +89,7 @@ Existing Convex files: `init` keeps a `convex.config.ts`, `http.ts`, `schema.ts`
 does not run until those four carry its parts: `app.use(backend)` and `env: backendEnv` in
 `convex.config.ts`, `registerBackendRoutes` in `http.ts`, the auth tables in `schema.ts` and the
 auth provider in `auth.config.ts`. Compare each kept file with the
-[scaffolded files](https://nuxt-backend.dev/raw/platform/auth/setup.md) and propose the merge to
+[scaffolded files](https://nuxt-backend.dev/raw/docs/auth/setup.md) and propose the merge to
 the user before editing it; don't overwrite their code.
 
 pnpm notes:

@@ -27,19 +27,27 @@ export const REFERENCE_DIR = 'docs/10.reference/10.api'
  * with the numeric `N.` ordering prefixes dropped.
  */
 export const DOCS_SOURCES: Array<{ include: string, exclude?: string[], prefix: string }> = [
-  { include: '**', exclude: ['index.md', 'docs/**'], prefix: '/' },
+  // The generated reference stays at its route until its tab moves (D2b).
   { include: `${REFERENCE_DIR}/**`, prefix: REFERENCE_ROUTE },
+  // The tabs that have moved under /docs.
+  { include: 'docs/**', exclude: ['docs/10.reference/**'], prefix: '/docs' },
+  // The 0.1 tree, until the rest of the tabs move (D2b).
+  { include: '**', exclude: ['index.md', 'docs/**'], prefix: '/' },
 ]
 
 /** The top-level sections, in order: llms.txt has one section per tab. */
 export const DOCS_TABS: Array<{ title: string, path: string, exclude?: string }> = [
+  { title: 'Start', path: '/docs/start' },
+  { title: 'Auth', path: '/docs/auth' },
+  { title: 'Billing', path: '/docs/billing' },
+  { title: 'Email', path: '/docs/email' },
+  { title: 'AI', path: '/docs/ai' },
+  { title: 'Agents', path: '/docs/agents' },
   { title: 'Getting Started', path: '/getting-started' },
   { title: 'Guide', path: '/guide' },
   { title: 'Platform', path: '/platform' },
-  { title: 'Agents', path: '/agents' },
   { title: 'Developer Experience', path: '/tooling' },
   { title: 'Production', path: '/production' },
-  // The generated reference is too long for the index; llms-full.txt has it.
   { title: 'API Reference', path: '/api-reference', exclude: REFERENCE_ROUTE },
 ]
 
@@ -59,37 +67,74 @@ const reference = (from: string, to: string): DocsRedirect =>
   ({ from: `${REFERENCE_ROUTE}/${from}`, to: `${REFERENCE_ROUTE}/${to}` })
 
 export const DOCS_REDIRECTS: DocsRedirect[] = [
-  // The pre-`platform/` docs tree, and pages renamed since.
-  { from: '/backend-components/overview', to: '/platform/overview' },
-  { from: '/backend-components/email', to: '/platform/email/sending' },
-  { from: '/backend-components/billing', to: '/platform/billing/subscriptions' },
+  // The 0.1 pages that moved under /docs, the legacy moves, the 0.1 section roots.
+  { from: '/agents/built-in-tools', to: '/docs/agents/mcp/built-in-tools' },
+  { from: '/agents/connect-a-client', to: '/docs/agents/mcp/connect-a-client' },
+  { from: '/agents/custom-tools', to: '/docs/agents/mcp/custom-tools' },
+  { from: '/agents/mcp-server', to: '/docs/agents/mcp' },
+  { from: '/agents/oauth-and-consent', to: '/docs/agents/mcp/oauth-and-consent' },
+  { from: '/agents/skills-and-agent-files', to: '/docs/agents/coding' },
+  { from: '/getting-started/architecture', to: '/docs/start/concepts/how-it-works' },
+  { from: '/getting-started/installation', to: '/docs/start/installation' },
+  { from: '/getting-started/introduction', to: '/docs/start' },
+  { from: '/getting-started/quickstart', to: '/docs/start/quickstart' },
+  { from: '/getting-started/templates', to: '/docs/start/templates' },
+  { from: '/guide/authentication', to: '/docs/auth/sign-in' },
+  { from: '/platform/ai/metered-actions', to: '/docs/ai/metered-actions' },
+  { from: '/platform/ai/streaming', to: '/docs/ai/streaming' },
+  { from: '/platform/auth/customizing', to: '/docs/auth/setup#auth-route-and-options' },
+  { from: '/platform/auth/setup', to: '/docs/auth/setup' },
+  { from: '/platform/authorization', to: '/docs/auth/access/roles' },
+  { from: '/platform/billing/catalog-as-code', to: '/docs/billing/catalog' },
+  { from: '/platform/billing/credits-and-top-ups', to: '/docs/billing/credits' },
+  { from: '/platform/billing/feature-gating', to: '/docs/billing/feature-gating' },
+  { from: '/platform/billing/gifts', to: '/docs/billing/credits/gifts' },
+  { from: '/platform/billing/subscriptions', to: '/docs/billing/subscriptions' },
+  { from: '/platform/email/delivery-tracking', to: '/docs/email/delivery-tracking' },
+  { from: '/platform/email/sending', to: '/docs/email/sending' },
+  { from: '/platform/email/templates', to: '/docs/email/templates' },
+  { from: '/platform/overview', to: '/docs/start/concepts/how-it-works' },
+  { from: '/platform/workspaces', to: '/docs/auth/workspaces' },
+  { from: '/tooling/devtools', to: '/docs/start/develop/devtools' },
+  { from: '/backend-components/overview', to: '/docs/start/concepts/how-it-works' },
+  { from: '/backend-components/email', to: '/docs/email/sending' },
+  { from: '/backend-components/billing', to: '/docs/billing/subscriptions' },
   { from: '/backend-components/webhooks', to: '/platform/webhooks' },
   { from: '/backend-components/rate-limiting', to: '/platform/rate-limiting' },
   { from: '/backend-components/workflows', to: '/platform/workflows' },
   { from: '/backend-components/migrations', to: '/platform/migrations' },
   { from: '/backend-components/aggregates', to: '/platform/aggregates' },
   { from: '/backend-components/search', to: '/platform/search' },
-  { from: '/backend-components', to: '/platform/overview' },
-  { from: '/backend/auth-setup', to: '/platform/auth/setup' },
-  { from: '/backend/customizing-auth', to: '/platform/auth/customizing' },
+  { from: '/backend-components', to: '/docs/start/concepts/how-it-works' },
+  { from: '/backend/auth-setup', to: '/docs/auth/setup' },
+  { from: '/backend/customizing-auth', to: '/docs/auth/setup#auth-route-and-options' },
   { from: '/backend/local-installation', to: '/tooling/local-installation' },
   { from: '/backend/testing', to: '/tooling/testing' },
-  { from: '/backend', to: '/platform/auth/setup' },
+  { from: '/backend', to: '/docs/auth/setup' },
   { from: '/api-reference/theming', to: '/guide/customization' },
-  { from: '/getting-started/examples-and-templates', to: '/getting-started/templates' },
+  { from: '/getting-started/examples-and-templates', to: '/docs/start/templates' },
+  { from: '/getting-started', to: '/docs/start' },
+  { from: '/guide', to: '/docs/auth/sign-in', pending: 'D3 (landings)' },
+  { from: '/platform', to: '/docs/start/concepts/how-it-works' },
+  { from: '/platform/auth', to: '/docs/auth/setup', pending: 'D3 (landings)' },
+  { from: '/platform/billing', to: '/docs/billing/subscriptions', pending: 'D3 (landings)' },
+  { from: '/platform/ai', to: '/docs/ai/metered-actions', pending: 'D3 (landings)' },
+  { from: '/platform/email', to: '/docs/email/sending', pending: 'D3 (landings)' },
+  { from: '/agents', to: '/docs/agents/mcp', pending: 'D3 (landings)' },
+  { from: '/tooling', to: '/tooling/cli', pending: 'D3 (landings)' },
+  { from: '/production', to: '/production/deployment', pending: 'D3 (landings)' },
+  { from: '/api-reference', to: '/api-reference/composables', pending: 'D3 (landings)' },
 
-  // Section roots answer with their first page until each tab gets a landing.
-  { from: '/getting-started', to: '/getting-started/introduction', pending: 'D3 (tab landings)' },
-  { from: '/guide', to: '/guide/authentication', pending: 'D3 (tab landings)' },
-  { from: '/platform', to: '/platform/overview', pending: 'D3 (tab landings)' },
-  { from: '/platform/auth', to: '/platform/auth/setup', pending: 'D3 (tab landings)' },
-  { from: '/platform/billing', to: '/platform/billing/subscriptions', pending: 'D3 (tab landings)' },
-  { from: '/platform/ai', to: '/platform/ai/metered-actions', pending: 'D3 (tab landings)' },
-  { from: '/platform/email', to: '/platform/email/sending', pending: 'D3 (tab landings)' },
-  { from: '/agents', to: '/agents/mcp-server', pending: 'D3 (tab landings)' },
-  { from: '/tooling', to: '/tooling/cli', pending: 'D3 (tab landings)' },
-  { from: '/production', to: '/production/deployment', pending: 'D3 (tab landings)' },
-  { from: '/api-reference', to: '/api-reference/composables', pending: 'D3 (tab landings)' },
+  // Folder routes under /docs, until each gets its landing.
+  { from: '/docs', to: '/docs/start' },
+  { from: '/docs/agents', to: '/docs/agents/mcp', pending: 'D3 (landings)' },
+  { from: '/docs/ai', to: '/docs/ai/metered-actions', pending: 'D3 (landings)' },
+  { from: '/docs/auth', to: '/docs/auth/setup', pending: 'D3 (landings)' },
+  { from: '/docs/auth/access', to: '/docs/auth/access/roles', pending: 'D3 (landings)' },
+  { from: '/docs/billing', to: '/docs/billing/catalog', pending: 'D3 (landings)' },
+  { from: '/docs/email', to: '/docs/email/sending', pending: 'D3 (landings)' },
+  { from: '/docs/start/concepts', to: '/docs/start/concepts/how-it-works', pending: 'D3 (landings)' },
+  { from: '/docs/start/develop', to: '/docs/start/develop/devtools', pending: 'D3 (landings)' },
 
   // The reference, renamed from source paths to import paths.
   reference('convex/app', 'app'),
@@ -136,8 +181,8 @@ export const DOCS_REDIRECTS: DocsRedirect[] = [
 
 /** Guessable short URLs, always temporary: a page they name can move. */
 export const DOCS_ALIASES: Record<string, string> = {
-  '/install': '/getting-started/installation',
-  '/quickstart': '/getting-started/quickstart',
+  '/install': '/docs/start/installation',
+  '/quickstart': '/docs/start/quickstart',
   '/cli': '/tooling/cli',
   '/doctor': '/tooling/cli#doctor',
   '/reference': REFERENCE_ROUTE,

@@ -37,7 +37,7 @@ const specs = ['Auth', 'Real-time', 'Billing', 'Email', 'Workflows', 'Search', '
 
     <div class="hero__row">
       <NuxtLink
-        to="/getting-started/introduction"
+        to="/docs/start"
         class="hbtn hbtn--primary"
       >
         <UIcon name="i-lucide-arrow-right" />

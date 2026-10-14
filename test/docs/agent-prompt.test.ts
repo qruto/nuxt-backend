@@ -12,7 +12,7 @@ describe('the agent install prompt', () => {
   const fence = `\`\`\`text\n${AGENT_PROMPT}\n\`\`\``
 
   it.each([
-    ['the Installation page', contentFile('/getting-started/installation')],
+    ['the Installation page', contentFile('/docs/start/installation')],
     ['the README', 'README.md'],
   ])('is the prompt %s shows', (_, file) => {
     expect(read(file)).toContain(fence)

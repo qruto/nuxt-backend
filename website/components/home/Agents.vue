@@ -282,14 +282,14 @@ onBeforeUnmount(() => {
             </div>
             <p class="connect__links">
               <NuxtLink
-                to="/agents/mcp-server"
+                to="/docs/agents/mcp"
                 class="alink"
               >
                 <UIcon name="i-lucide-server" />
                 How the endpoint works
               </NuxtLink>
               <NuxtLink
-                to="/agents/built-in-tools"
+                to="/docs/agents/mcp/built-in-tools"
                 class="alink"
               >
                 <UIcon name="i-lucide-wrench" />

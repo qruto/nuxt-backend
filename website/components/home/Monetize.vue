@@ -263,14 +263,14 @@ function segments(md: string) {
 
       <div class="sell__links">
         <NuxtLink
-          to="/platform/billing/credits-and-top-ups"
+          to="/docs/billing/credits"
           class="hbtn sell__link"
         >
           <UIcon name="i-lucide-coins" />
           Credits &amp; top-ups
         </NuxtLink>
         <NuxtLink
-          to="/platform/ai/metered-actions"
+          to="/docs/ai/metered-actions"
           class="hbtn sell__link"
         >
           <UIcon name="i-lucide-sparkles" />

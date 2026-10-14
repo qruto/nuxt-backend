@@ -23,7 +23,10 @@ function frontmatterOf(file: string): Record<string, unknown> {
   return block === undefined ? {} : parse(block) as Record<string, unknown>
 }
 
-/** The anchors a page's headings get: lower-cased text, markup and punctuation dropped, spaces as `-`. */
+/**
+ * The anchors a page's headings get: lower-cased text, markup and punctuation
+ * dropped, spaces as `-`, and a `_` before an id that would start with a digit.
+ */
 function anchorsOf(file: string): Set<string> {
   const headings = [...read(file).matchAll(/^#{1,6} (.+)$/gm)].map(([, text]) => text!)
   return new Set(headings.map(text => text
@@ -31,7 +34,8 @@ function anchorsOf(file: string): Set<string> {
     .toLowerCase()
     .replace(/[^\w\s-]/g, '')
     .trim()
-    .replace(/\s+/g, '-')))
+    .replace(/\s+/g, '-')
+    .replace(/^(\d)/, '_$1')))
 }
 
 /** Whether `target` (a route with an optional `#anchor`) is a page, and the anchor one of its headings. */
@@ -91,9 +95,38 @@ describe('the route table', () => {
     const rules = docsRedirectRules()
     const pending = [...DOCS_REDIRECTS.filter(redirect => redirect.pending), ...DOCS_SHORT_LINKS]
     for (const { from } of pending) expect(rules[from]?.redirect.statusCode, from).toBe(302)
-    // A ratchet: lower it as each pending home lands; the 0.2.0 docs pass
-    // (D11) brings it to zero.
-    expect(pending.length).toBeLessThanOrEqual(13)
+    // A ratchet: lower it as each pending home lands — the tab and group
+    // landings (D3), split pages (D3c), the Diagnostics and Errors pages (D6),
+    // the local installation's removal (C1); the 0.2.0 docs pass (D11) brings
+    // it to zero.
+    expect(pending.length).toBeLessThanOrEqual(19)
+  })
+})
+
+describe('links', () => {
+  it('answers every folder route under /docs, as a page or a redirect', () => {
+    const folders = new Set<string>()
+    for (const route of pages.keys()) {
+      const parts = route.split('/')
+      for (let i = 2; i < parts.length; i++) folders.add(parts.slice(0, i).join('/'))
+    }
+    expect([...folders].filter(folder => !pages.has(folder) && !redirectSources.has(folder))).toEqual([])
+  })
+
+  it('lands every docs link in the content on a page, never on a redirect', () => {
+    const broken: string[] = []
+    for (const [route, file] of pages) {
+      if (file.includes('/10.reference/10.api/')) continue
+      for (const [, target] of read(file).matchAll(/\]\((\/[^)\s]*)\)/g)) {
+        const path = target!.split('#')[0]!
+        // A route the table redirects is a stale link, wherever it points.
+        if (redirectSources.has(path)) broken.push(`${route} → ${target} (redirected)`)
+        // Docs pages only below: the app's own pages (/login, /playground) and files are not in this collection.
+        else if (pages.has(path) && !resolves(target!)) broken.push(`${route} → ${target} (no such heading)`)
+        else if (path.startsWith('/docs') && !pages.has(path) && !/\.\w+$/.test(path)) broken.push(`${route} → ${target}`)
+      }
+    }
+    expect(broken).toEqual([])
   })
 })
 
