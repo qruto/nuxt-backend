@@ -12,7 +12,7 @@ extend-exclude = [
   # Generated or vendored, and not ours to correct.
   "pnpm-lock.yaml",
   "CHANGELOG.md",
-  "website/content/7.api-reference/9.reference/**",
+  "website/content/docs/10.reference/10.api/**",
   "**/_generated/**",
   "src/templates.generated.ts",
   "**/billing.generated.ts",

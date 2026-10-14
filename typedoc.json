@@ -70,8 +70,11 @@
   // A symbol that lives in a dependency gets a link that climbs out of `src/`
   // into `node_modules/`, which points at nothing on GitHub —
   // scripts/typedoc-postprocess.mjs keeps its path text and drops the link.
+  // No `#L{line}` either: a line number moves with every edit above it, so
+  // the reference would change when the API had not. The post-processor drops
+  // the `:line` from the link text for the same reason.
   "disableGit": true,
-  "sourceLinkTemplate": "https://github.com/qruto/nuxt-backend/blob/main/src/{path}#L{line}",
+  "sourceLinkTemplate": "https://github.com/qruto/nuxt-backend/blob/main/src/{path}",
 
   // The reference is a release gate: a JSDoc `{@link}` that does not resolve
   // renders as a bare word, and a public type that references an unexported one
@@ -155,7 +158,7 @@
 
   // Emit Markdown straight into the Docus content tree so it renders with the
   // site theme, sidebar, and search instead of TypeDoc's standalone HTML.
-  "out": "website/content/7.api-reference/9.reference",
+  "out": "website/content/docs/10.reference/10.api",
   "readme": "none",
   "githubPages": false,
   "hideGenerator": true,

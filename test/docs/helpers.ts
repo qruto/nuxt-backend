@@ -1,8 +1,12 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join, resolve, sep } from 'node:path'
+import { join, posix, resolve, sep } from 'node:path'
 import ts from 'typescript'
+import { DOCS_SOURCES, REFERENCE_DIR } from '../../website/shared/docs-routes'
 
 const root = process.cwd()
+
+/** The generated API reference, as a repo-relative folder: not prose written by hand. */
+export const GENERATED_REFERENCE = `website/content/${REFERENCE_DIR}/`
 export const at = (file: string) => resolve(root, file)
 export const read = (file: string) => readFileSync(at(file), 'utf8')
 
@@ -26,16 +30,26 @@ export function walk(dir: string, exts: string[], skip: (path: string) => boolea
 }
 
 /**
- * The site route a content file is served at: numeric `1.` prefixes dropped
- * from every segment, `.md` dropped, `index` folded into its directory —
+ * The site route a content file is served at, by the collection sources in
+ * website/shared/docs-routes.ts: the source's prefix plus the path below its
+ * include's fixed part, numeric `1.` prefixes dropped from every segment,
+ * `.md` dropped, `index` folded into its directory —
  * `website/content/1.getting-started/4.configuration.md` →
- * `/getting-started/configuration`.
+ * `/getting-started/configuration`, and
+ * `website/content/docs/10.reference/10.api/auth.md` → `/api-reference/reference/auth`.
  */
 export function contentRoute(file: string): string {
   const relative = file.slice(file.indexOf('website/content/') + 'website/content/'.length)
-  const segments = relative.replace(/\.md$/, '').split('/').map(s => s.replace(/^\d+\./, ''))
+  const source = DOCS_SOURCES.find(({ include, exclude = [] }) => {
+    const fixed = include.slice(0, include.indexOf('*'))
+    return relative.startsWith(fixed) && !exclude.some(pattern => pattern.endsWith('/**')
+      ? relative.startsWith(pattern.slice(0, -2))
+      : relative === pattern)
+  })
+  const below = source ? relative.slice(source.include.indexOf('*')) : relative
+  const segments = below.replace(/\.md$/, '').split('/').map(s => s.replace(/^\d+\./, ''))
   if (segments.at(-1) === 'index') segments.pop()
-  return `/${segments.join('/')}`
+  return posix.join(source?.prefix ?? '/', ...segments)
 }
 
 /**

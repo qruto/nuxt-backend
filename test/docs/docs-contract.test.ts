@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { at, contentFile, documentedKeys, interfaceKeys, read, walk } from './helpers'
+import { at, contentFile, documentedKeys, GENERATED_REFERENCE, interfaceKeys, read, walk } from './helpers'
 
 // The hand-written docs against the code, in both directions: every module
 // option is documented where the docs list options, every registry name the
@@ -14,7 +14,7 @@ const README = read('README.md')
 const STABILITY = read('STABILITY.md')
 const CONTRIBUTING = read('CONTRIBUTING.md')
 const manifest = JSON.parse(read('package.json')) as { engines: { node: string }, peerDependencies: Record<string, string> }
-const handWritten = walk('website/content', ['.md'], path => path.includes('/9.reference/'))
+const handWritten = walk('website/content', ['.md'], path => `${path}/`.includes(GENERATED_REFERENCE))
 const prose = [at('README.md'), ...handWritten]
 
 describe('module options', () => {

@@ -474,7 +474,7 @@ describe('the registry', () => {
 // ---------------------------------------------------------------------------
 // Docs, TypeDoc, scaffold contract — the surface as it is described elsewhere.
 
-const GENERATED_REFERENCE = join(root, 'website/content/7.api-reference/9.reference')
+const GENERATED_REFERENCE = join(root, 'website/content/docs/10.reference/10.api')
 
 /** `a/{b,c}` → `a/b`, `a/c`; `…` (prose ellipsis) is a wildcard. */
 function expandSubpath(subpath: string): string[] {

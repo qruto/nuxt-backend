@@ -1,0 +1,111 @@
+import { describe, expect, it } from 'vitest'
+import { parse } from 'yaml'
+import {
+  DOCS_ALIASES,
+  DOCS_REDIRECTS,
+  DOCS_SHORT_LINKS,
+  DOCS_TABS,
+  docsRedirectRules,
+} from '../../website/shared/docs-routes'
+import { contentRoute, read, walk } from './helpers'
+import snapshot from './routes-0.1.json'
+
+// The docs' structure against its route table (website/shared/docs-routes.ts):
+// pages that parse and describe themselves, a redirect for every route the
+// site ever published, and targets that exist — with no redirect leading to
+// another, so a reader lands in one hop.
+
+const pages = new Map(walk('website/content', ['.md']).map(file => [contentRoute(file), file.slice(file.indexOf('website/content/'))]))
+
+/** A page's frontmatter, parsed as YAML: a stray `#` or `:` shows up here, not in production. */
+function frontmatterOf(file: string): Record<string, unknown> {
+  const block = read(file).match(/^---\n([\s\S]*?)\n---\n/)?.[1]
+  return block === undefined ? {} : parse(block) as Record<string, unknown>
+}
+
+/** The anchors a page's headings get: lower-cased text, markup and punctuation dropped, spaces as `-`. */
+function anchorsOf(file: string): Set<string> {
+  const headings = [...read(file).matchAll(/^#{1,6} (.+)$/gm)].map(([, text]) => text!)
+  return new Set(headings.map(text => text
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')))
+}
+
+/** Whether `target` (a route with an optional `#anchor`) is a page, and the anchor one of its headings. */
+function resolves(target: string): boolean {
+  const [route, anchor] = target.split('#') as [string, string | undefined]
+  const file = pages.get(route)
+  return Boolean(file) && (!anchor || anchorsOf(file!).has(anchor))
+}
+
+const redirectSources = new Set([
+  ...DOCS_REDIRECTS.map(redirect => redirect.from),
+  ...Object.keys(DOCS_ALIASES),
+])
+
+describe('pages', () => {
+  it.each([...pages])('%s has a title and a description of at least 40 characters', (route, file) => {
+    const meta = frontmatterOf(file)
+    // The landing page speaks through `seo`, which Docus reads first.
+    const { title, description } = route === '/' ? meta.seo as Record<string, unknown> : meta
+    expect(typeof title === 'string' && title.length > 0, `${file}: title`).toBe(true)
+    expect(typeof description === 'string' && description.length >= 40, `${file}: description ${JSON.stringify(description)}`).toBe(true)
+  })
+})
+
+describe('the route table', () => {
+  it('answers every route the site served in 0.1, as a page or a redirect', () => {
+    const served = [...snapshot.handWritten, ...snapshot.generated, ...snapshot.legacy, ...snapshot.sectionRoots]
+    expect(served.length).toBeGreaterThan(120)
+    expect(served.filter(route => !pages.has(route) && !redirectSources.has(route))).toEqual([])
+  })
+
+  it('points every redirect, alias and short link at a page and a heading that exist', () => {
+    const targets = [
+      ...DOCS_REDIRECTS.map(({ from, to }) => [from, to]),
+      ...Object.entries(DOCS_ALIASES),
+      ...DOCS_SHORT_LINKS.map(({ from, to }) => [from, to]),
+    ]
+    expect(targets.filter(([, to]) => !resolves(to!)).map(([from, to]) => `${from} → ${to}`)).toEqual([])
+  })
+
+  it('lands in one hop: no target is redirected again, no redirect shadows a page', () => {
+    const targets = [...DOCS_REDIRECTS.map(({ to }) => to), ...Object.values(DOCS_ALIASES)]
+    expect(targets.filter(to => redirectSources.has(to.split('#')[0]!))).toEqual([])
+    expect([...redirectSources].filter(from => pages.has(from))).toEqual([])
+  })
+
+  it('redirects both Markdown twins of every route it redirects', () => {
+    const rules = docsRedirectRules()
+    for (const from of redirectSources) {
+      expect(rules[from], from).toBeDefined()
+      expect(rules[`${from}.md`], `${from}.md`).toBeDefined()
+      expect(rules[`/raw${from}.md`], `/raw${from}.md`).toBeDefined()
+    }
+  })
+
+  it('keeps temporary redirects temporary, and the pending list only shrinks', () => {
+    const rules = docsRedirectRules()
+    const pending = [...DOCS_REDIRECTS.filter(redirect => redirect.pending), ...DOCS_SHORT_LINKS]
+    for (const { from } of pending) expect(rules[from]?.redirect.statusCode, from).toBe(302)
+    // A ratchet: lower it as each pending home lands; the 0.2.0 docs pass
+    // (D11) brings it to zero.
+    expect(pending.length).toBeLessThanOrEqual(13)
+  })
+})
+
+describe('the tabs', () => {
+  it('place every page in exactly one tab, and nothing else under a tab\'s prefix', () => {
+    const owners = (route: string) => DOCS_TABS.filter(tab => route === tab.path || route.startsWith(`${tab.path}/`))
+    const strays = [...pages.keys()].filter(route => route !== '/' && owners(route).length !== 1)
+    expect(strays).toEqual([])
+    // llms.txt filters a tab with `LIKE '/tab%'`: a route that starts with a
+    // tab's path without being under it would land in the wrong section.
+    const ambiguous = [...pages.keys()].filter(route => DOCS_TABS.some(tab =>
+      route.startsWith(tab.path) && route !== tab.path && !route.startsWith(`${tab.path}/`)))
+    expect(ambiguous).toEqual([])
+  })
+})

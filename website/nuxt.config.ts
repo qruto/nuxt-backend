@@ -1,5 +1,7 @@
 import Sonda from 'sonda/nuxt'
 import { expandForAgents } from './shared/agent-markdown'
+import { DOCS_TABS, docsRedirectRules } from './shared/docs-routes'
+import { DOCS_VERSION } from './shared/docs-version'
 
 // Bundle analysis is opt-in: `pnpm analyze` sets ANALYZE=true. Normal builds
 // stay clean (no source maps, no report).
@@ -130,34 +132,6 @@ const siteDescription
     + 'credits, transactional email, webhooks and an agent (MCP) surface from a '
     + 'single package.'
 
-// OLD → NEW documentation routes: the pre-`platform/` content tree, and pages
-// renamed since. Every pair becomes a permanent (301) redirect below, so links
-// published against the old structure — and search-engine indexes — keep
-// landing on the live page.
-const movedRoutes: Record<string, string> = {
-  '/backend-components/overview': '/platform/overview',
-  '/backend-components/email': '/platform/email/sending',
-  '/backend-components/billing': '/platform/billing/subscriptions',
-  '/backend-components/webhooks': '/platform/webhooks',
-  '/backend-components/rate-limiting': '/platform/rate-limiting',
-  '/backend-components/workflows': '/platform/workflows',
-  '/backend-components/migrations': '/platform/migrations',
-  '/backend-components/aggregates': '/platform/aggregates',
-  '/backend-components/search': '/platform/search',
-  '/backend-components': '/platform/overview',
-  '/backend/auth-setup': '/platform/auth/setup',
-  '/backend/customizing-auth': '/platform/auth/customizing',
-  '/backend/local-installation': '/tooling/local-installation',
-  '/backend/testing': '/tooling/testing',
-  '/backend': '/platform/auth/setup',
-  '/api-reference/theming': '/guide/customization',
-  '/getting-started/examples-and-templates': '/getting-started/templates',
-}
-
-const movedRouteRules = Object.fromEntries(
-  Object.entries(movedRoutes).map(([from, to]) => [from, { redirect: { to, statusCode: 301 as const } }]),
-)
-
 // The whole site — product homepage, docs, and the interactive playground — is
 // one Nuxt app. Docus (extended as a layer) provides the docs theme, Nuxt
 // Content, search, and SEO; `nuxt-backend` powers the live demos & playground.
@@ -255,9 +229,17 @@ export default defineNuxtConfig({
       } as unknown as Record<string, string>,
     },
   },
+  // Docus serves this as the version in /openapi.json; it would otherwise read
+  // website/package.json, which has none, and say 0.0.0.
+  runtimeConfig: {
+    public: {
+      docus: { version: DOCS_VERSION.line },
+    },
+  },
   routeRules: {
-    // Permanent redirects for the pre-`platform/` docs tree (see `movedRoutes`).
-    ...movedRouteRules,
+    // Every route the docs ever published, its Markdown twins, the aliases
+    // and the short links the CLI prints (shared/docs-routes.ts).
+    ...docsRedirectRules(),
     // The site-wide default OG template — the machined plate. Explicit
     // `defineOgImage()` calls win over it (see the `ogImage` note below).
     '/**': { ogImage: { component: 'Plate' } },
@@ -414,13 +396,16 @@ export default defineNuxtConfig({
       description: 'Every documentation page of nuxt-backend, concatenated as one markdown document.',
     },
     sections: [
-      { title: 'Getting Started', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/getting-started/%' }] },
-      { title: 'Guide', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/guide/%' }] },
-      { title: 'Platform', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/platform/%' }] },
-      { title: 'Agents', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/agents/%' }] },
-      { title: 'Developer Experience', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/tooling/%' }] },
-      { title: 'Production', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/production/%' }] },
-      { title: 'API Reference', contentCollection: 'docs', contentFilters: [{ field: 'path', operator: 'LIKE', value: '/api-reference/%' }, { field: 'path', operator: 'NOT LIKE', value: '/api-reference/reference/%' }] },
+      // One section per tab (shared/docs-routes.ts); `LIKE '/tab%'` takes the
+      // tab's own landing as well as the pages below it.
+      ...DOCS_TABS.map(tab => ({
+        title: tab.title,
+        contentCollection: 'docs' as const,
+        contentFilters: [
+          { field: 'path', operator: 'LIKE' as const, value: `${tab.path}%` },
+          ...(tab.exclude ? [{ field: 'path', operator: 'NOT LIKE' as const, value: `${tab.exclude}%` }] : []),
+        ],
+      })),
       {
         title: 'Live playground',
         description:
@@ -450,6 +435,9 @@ export default defineNuxtConfig({
     ],
     notes: [
       'The docs describe `nuxt-backend`: one npm package that installs a Nuxt module and an all-in-one Convex backend component.',
+      DOCS_VERSION.released
+        ? `They describe the ${DOCS_VERSION.line} line, the current release on npm.`
+        : `They describe the ${DOCS_VERSION.line} line, which is not on npm yet: until it is, install the pkg.pr.new build of main.`,
       'Routes under /playground require a signed-in session and run against a live Convex deployment — they are demos, not documentation.',
       'The site exposes an OAuth-protected MCP endpoint at /mcp; agents authenticate as a real user before any tool is listed.',
     ],

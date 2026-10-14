@@ -69,6 +69,10 @@ export default defineConfig({
         },
       },
       await defineVitestProject({
+        // The root tsconfig, as for docs below: the docs helpers some tests
+        // import read website/shared/, whose tsconfig extends a `.nuxt/`
+        // this job never generates.
+        tsconfig: 'tsconfig.json',
         test: {
           name: 'nuxt',
           include: ['test/nuxt/**/*.{test,spec}.ts'],
