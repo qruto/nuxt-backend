@@ -43,10 +43,10 @@ describe('component tokens', () => {
 
   it('speaks the three-signal vocabulary: the accent is the ok green', () => {
     expect(defaults['--bk-accent']).toBe(defaults['--bk-ok'])
-    expect(defaults['--bk-accent']).toBe('light-dark(#136d36, #49b567)')
-    expect(defaults['--bk-on-accent']).toBe('light-dark(#ffffff, #06150b)')
-    expect(defaults['--bk-warn']).toBe('light-dark(#845007, #ce9622)')
-    expect(defaults['--bk-error']).toBe('light-dark(#a1302d, #ee6d69)')
+    expect(defaults['--bk-accent']).toBe('light-dark(#116632, #4ade80)')
+    expect(defaults['--bk-on-accent']).toBe('light-dark(#ffffff, #052912)')
+    expect(defaults['--bk-warn']).toBe('light-dark(#6d5600, #facc15)')
+    expect(defaults['--bk-error']).toBe('light-dark(#a1302d, #f87171)')
   })
 
   it('takes each signal pair from the website house ramps (500 on light, 400 on dark)', () => {

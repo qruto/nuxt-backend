@@ -2,6 +2,7 @@ import Sonda from 'sonda/nuxt'
 import { expandForAgents } from './shared/agent-markdown'
 import { DOCS_TABS, docsRedirectRules } from './shared/docs-routes'
 import { DOCS_VERSION } from './shared/docs-version'
+import { codeThemeDark, codeThemeLight } from './shiki-themes'
 
 // Bundle analysis is opt-in: `pnpm analyze` sets ANALYZE=true. Normal builds
 // stay clean (no source maps, no report).
@@ -12,118 +13,6 @@ const analyze = process.env.ANALYZE === 'true'
 // registers) — reads it from here through `site.url`. Vercel builds `main`
 // only (website/vercel.json), so there is no preview origin to account for.
 const siteUrl = process.env.NUXT_SITE_URL || 'https://nuxt-backend.dev'
-
-// ── Code colour ───────────────────────────────────────────────────────────
-// The site has three colours and no brand hue, so the code blocks get the
-// same three. Shiki's default here was @nuxt/ui's Material pair
-// (material-theme-lighter / -palenight), which paints comments violet,
-// strings lime and numbers orange — five hues that design.md explicitly
-// rules out ("no brand accent, no blue, no violet").
-//
-// The two themes below are built from the ramps in app.css and nothing else:
-// a titanium grey ramp carries structure (identifiers, punctuation,
-// comments), amber marks the language's own machinery (keywords, storage,
-// tags — "look here"), green marks values (strings, numbers, insertions —
-// "go"), red marks what is wrong (invalid, deleted). Every colour clears
-// 4.5:1 on the ground code sits on (`--sink`: #dadada light, #151515 dark);
-// the ratios are in the comments.
-//
-// `theme` is typed `string | Record<string, string>` by @nuxtjs/mdc, but both
-// consumers resolve a ThemeRegistration object at build time (@nuxt/content's
-// `_getHighlightPlugin` passes non-strings straight through; @nuxtjs/mdc
-// inlines them into its bundled-themes map keyed by `name`). Naming them as
-// strings instead would make @nuxtjs/mdc emit an
-// `import('@shikijs/themes/<name>')` that cannot resolve, so the objects are
-// passed directly and the narrower type is cast away here.
-//
-// All THREE keys are set on purpose: the emitted CSS is
-// `html .shiki span { color: var(--shiki-default) }` with `html.dark …`
-// overriding it, so `default` is what light mode actually paints. Leaving any
-// key unset lets @nuxt/ui's Material default survive the merge.
-const codeInk = {
-  light: {
-    fg: '#1c1c1c', //  12.19:1 on #dadada — --ink
-    dim: '#333333', //   9.04:1 — identifiers
-    punct: '#4a4a4a', // 6.34:1 — punctuation & operators
-    faint: '#5c5c5c', // 4.78:1 — comments
-    warn: '#723e04', //  6.24:1 — --color-amber-600
-    ok: '#065d2b', //    5.76:1 — --color-green-600
-    okAlt: '#136d36', // 4.60:1 — --color-green-500
-    err: '#8b1e1e', //   6.52:1 — --color-red-600
-  },
-  dark: {
-    fg: '#ededed', //   15.60:1 on #151515 — --ink
-    dim: '#c8c8c8', //  10.91:1 — --color-zinc-300
-    punct: '#a8a8a8', //  7.68:1 — --ink-dim
-    faint: '#8a8a8a', //  5.29:1 — comments
-    warn: '#ce9622', //   6.97:1 — --color-amber-400
-    ok: '#49b567', //     7.03:1 — --color-green-400
-    okAlt: '#7dd296', // 10.03:1 — --color-green-300
-    err: '#ee6d69', //    6.11:1 — --color-red-400
-  },
-} as const
-
-function machinedTheme(name: string, type: 'light' | 'dark', bg: string) {
-  const c = codeInk[type]
-  return {
-    name,
-    type,
-    bg,
-    fg: c.fg,
-    settings: [
-      { settings: { foreground: c.fg, background: bg } },
-      {
-        scope: ['comment', 'punctuation.definition.comment', 'string.comment'],
-        settings: { foreground: c.faint, fontStyle: 'italic' },
-      },
-      {
-        scope: ['punctuation', 'meta.brace', 'meta.delimiter', 'keyword.operator', 'punctuation.definition.tag'],
-        settings: { foreground: c.punct },
-      },
-      {
-        scope: [
-          'keyword', 'keyword.control', 'storage', 'storage.type', 'storage.modifier',
-          'variable.language', 'constant.language', 'support.type.primitive',
-          'entity.name.tag', 'markup.heading', 'keyword.other.unit',
-        ],
-        settings: { foreground: c.warn },
-      },
-      {
-        scope: [
-          'string', 'string.template', 'constant.character', 'punctuation.definition.string',
-          'markup.inline.raw', 'markup.fenced_code', 'markup.inserted',
-        ],
-        settings: { foreground: c.ok },
-      },
-      {
-        scope: ['constant.numeric', 'constant.language.boolean', 'constant.other', 'support.constant'],
-        settings: { foreground: c.okAlt },
-      },
-      {
-        scope: [
-          'entity.name.function', 'support.function', 'meta.function-call',
-          'entity.name.class', 'entity.name.type', 'support.class', 'support.type',
-        ],
-        settings: { foreground: c.fg },
-      },
-      {
-        scope: [
-          'variable', 'variable.other', 'support.variable', 'meta.object-literal.key',
-          'entity.other.attribute-name', 'meta.attribute', 'meta.property-name',
-        ],
-        settings: { foreground: c.dim },
-      },
-      {
-        scope: ['invalid', 'invalid.illegal', 'markup.deleted', 'message.error'],
-        settings: { foreground: c.err },
-      },
-    ],
-  }
-}
-
-// `--sink` in app.css: the ground `pre.slot` and the inline code chips sit on.
-const codeThemeLight = machinedTheme('nuxt-backend-light', 'light', '#dadada')
-const codeThemeDark = machinedTheme('nuxt-backend-dark', 'dark', '#151515')
 
 // One sentence, used in three places that each want their own copy: the site
 // config (meta description fallback), the SEO app config, and llms.txt.
@@ -157,13 +46,18 @@ export default defineNuxtConfig({
       if (client.vue) client.vue = client.vue.filter(name => name !== 'onServerPrefetch')
     },
   ],
+  // pages/__parts.vue is the parts gallery (design.md §Parts): a dev tool,
+  // so a production build never sees it.
+  $production: {
+    ignore: ['pages/__parts.vue'],
+  },
   devtools: { enabled: true },
   app: {
     head: {
       meta: [
         { name: 'color-scheme', content: 'light dark' },
-        { name: 'theme-color', content: '#161616', media: '(prefers-color-scheme: dark)' },
-        { name: 'theme-color', content: '#e8e8e8', media: '(prefers-color-scheme: light)' },
+        { name: 'theme-color', content: '#26292e', media: '(prefers-color-scheme: dark)' },
+        { name: 'theme-color', content: '#dcdee2', media: '(prefers-color-scheme: light)' },
         { name: 'apple-mobile-web-app-title', content: 'Nuxt backend' },
       ],
       // The favicon set generated from the house mark (`pnpm run icons:generate`
@@ -216,10 +110,14 @@ export default defineNuxtConfig({
       },
     },
   },
-  // Syntax highlighting — the two house themes defined above. See the note
-  // there for why the objects are passed directly and why all three keys are
-  // set. The cast is the documented gap between @nuxtjs/mdc's `theme` type
-  // (strings only) and what both build-time consumers actually accept.
+  // Syntax highlighting: the two house themes from shiki-themes.ts. See the
+  // note there for why the objects are passed directly. All three keys are set
+  // on purpose: the emitted CSS is `html .shiki span { color:
+  // var(--shiki-default) }` with `html.dark …` overriding it, so `default` is
+  // what light mode actually paints, and a key left unset lets @nuxt/ui's
+  // Material default survive the merge. The cast is the documented gap
+  // between @nuxtjs/mdc's `theme` type (strings only) and what both
+  // build-time consumers actually accept.
   mdc: {
     highlight: {
       theme: {
@@ -329,18 +227,22 @@ export default defineNuxtConfig({
     },
   },
   // Self-hosted webfonts. Families are declared in app.css's `@theme` block as
-  // `--font-sans` (Nunito), `--font-display` (Bai Jamjuree) and `--font-mono`
-  // (JetBrains Mono); @nuxt/fonts scans those declarations, downloads the
-  // faces at build time and serves them from `/_fonts/`.
+  // `--font-sans` and `--font-display` (Anybody), `--font-mono` (Martian Mono)
+  // and `--font-lcd` (Handjet); @nuxt/fonts scans those declarations,
+  // downloads the faces at build time and serves them from `/_fonts/`.
   //
   // Providers are pinned rather than discovered: @nuxt/fonts walks its
   // provider list per family, so naming `google` keeps a cold cache from
   // resolving a family somewhere else. Nothing sits in `public/fonts`: the
   // social cards read the same faces as the pages (see `global` below).
   //
-  // Weights are the ones the site actually sets. Nunito carries body copy in
-  // both slopes (the italic is used at 400); Bai Jamjuree is display-only;
-  // JetBrains Mono is code and the engraved mono labels.
+  // Anybody and Martian Mono are variable in weight and width: display runs
+  // Anybody wide, prose at its normal width, and code and labels take Martian
+  // Mono's narrower cuts. Google serves the width axis only when it is asked
+  // for, through unifont's `experimental.variableAxis` (a family-level
+  // `experimental` key is not forwarded; `providerOptions.google` is).
+  // scripts/check-website-css.mjs fails the build when the built faces lose
+  // the axis. Handjet is the LCD's face and nothing else.
   //
   // No `<link rel="preload" as="font">`. nuxt-security computes its SRI
   // hashes in `nitro:build:before`, but @nuxt/fonts writes the real font
@@ -350,7 +252,7 @@ export default defineNuxtConfig({
   // would reject the response, and the face would silently fall back.
   // `@font-face` URLs carry no integrity, so without the preload they load.
   //
-  // `global: true` on the two display/mono families is what the OG renderer
+  // `global: true` on the two text families is what the OG renderer
   // needs: nuxt-og-image reads its font data out of @nuxt/fonts' generated
   // `nuxt-fonts-global.css`, and a family that only ever arrives through CSS
   // scanning (a Tailwind v4 `@theme --font-*` var, which is how app.css
@@ -364,9 +266,23 @@ export default defineNuxtConfig({
   fonts: {
     defaults: { subsets: ['latin', 'latin-ext'], preload: false },
     families: [
-      { name: 'Bai Jamjuree', provider: 'google', weights: [500, 600], styles: ['normal'], global: true },
-      { name: 'Nunito', provider: 'google', weights: [400, 500, 600, 700, 800], styles: ['normal', 'italic'] },
-      { name: 'JetBrains Mono', provider: 'google', weights: [400, 500, 600, 700], styles: ['normal'], global: true },
+      {
+        name: 'Anybody',
+        provider: 'google',
+        weights: ['100 900'],
+        styles: ['normal', 'italic'],
+        global: true,
+        providerOptions: { google: { experimental: { variableAxis: { wdth: [['50', '150']] } } } },
+      },
+      {
+        name: 'Martian Mono',
+        provider: 'google',
+        weights: ['100 800'],
+        styles: ['normal'],
+        global: true,
+        providerOptions: { google: { experimental: { variableAxis: { wdth: [['75', '112.5']] } } } },
+      },
+      { name: 'Handjet', provider: 'google', weights: [500, 700], styles: ['normal'] },
     ],
   },
   // Docus bundles every icon the client may draw, found by scanning sources —

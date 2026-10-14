@@ -100,7 +100,7 @@ const online = useExternalValue({
       >
         <ClientOnly fallback="…">
           <div class="online-row">
-            <SignalDot
+            <Led
               :tone="online ? 'ok' : 'err'"
               :pulse="online"
             />

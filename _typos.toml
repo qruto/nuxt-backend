@@ -26,6 +26,8 @@ extend-exclude = [
 ]
 
 [default.extend-words]
+# `wdth` — the OpenType width-axis tag (nuxt.config.ts `fonts`, Google's css2 URLs).
+wdth = "wdth"
 # `mis-group` — a hyphenated prefix, not a truncated "miss" (the tailwind-merge
 # notes in the website).
 mis = "mis"

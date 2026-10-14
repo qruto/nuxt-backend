@@ -14,6 +14,9 @@
 //
 // - app.css: Tailwind's `@theme static { … }` blocks become `:root { … }`.
 //   They only declare custom properties, and the example has no Tailwind.
+// - The parts (assets/css/depth.css, console.css): each `@utility name { … }`
+//   becomes `.name { … }`, a plain class with the same body. No part uses
+//   `@apply`, so the body is plain CSS (with native nesting) either way.
 // - OWNED files: what differs between a docs site and a standalone app
 //   (config, manifest, the offline page, a stand-in for the one Nuxt UI
 //   component the layout uses). They are written by hand and never touched
@@ -48,6 +51,11 @@ const ENTRIES = [
   'backend/_generated/server.d.ts',
   'backend/_generated/server.js',
   'app.css',
+  // app.css imports its tokens and parts; a CSS @import is not followed by
+  // the walk.
+  'assets/css/tokens.css',
+  'assets/css/depth.css',
+  'assets/css/console.css',
   // The layout's logo (light and dark) and the tab icon.
   'public/logo-light.svg',
   'public/logo-dark.svg',
@@ -152,8 +160,22 @@ const APP_CSS_HEADER = `/* Generated from website/app.css by scripts/sync-playgr
 
 `
 
+const PARTS_HEADER = file => `/* Generated from website/${file} by scripts/sync-playground.mjs. Edit that
+   file, then run \`pnpm playground:sync\`. Each Tailwind \`@utility\` is a plain
+   class here: this app has no Tailwind. */
+
+`
+
+/** The parts files: Tailwind utilities on the site, plain classes in the example. */
+const PARTS = ['assets/css/depth.css', 'assets/css/console.css']
+
 /** The content a synced file must have in the example. */
 function transform(file, source) {
+  if (PARTS.includes(file)) {
+    if (!/^@utility [\w-]+ \{$/m.test(source)) throw new Error(`website/${file} has no \`@utility\` block — update the transform`)
+    if (/^\s*@apply\b/m.test(source)) throw new Error(`website/${file} uses @apply, which plain CSS cannot resolve`)
+    return PARTS_HEADER(file) + source.replace(/^@utility ([\w-]+) \{$/gm, '.$1 {')
+  }
   if (file !== 'app.css') return source
   const blocks = source.split('@theme static {').length - 1
   if (blocks === 0) throw new Error('website/app.css has no `@theme static` block — update the transform')

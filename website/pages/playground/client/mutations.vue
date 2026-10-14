@@ -153,10 +153,7 @@ function clock(at: number) {
             :key="i"
             class="event fade-up"
           >
-            <SignalDot
-              :tone="ev.type === 'optimistic' ? 'warn' : ev.type === 'confirmed' ? 'ok' : 'muted'"
-              :pulse="false"
-            />
+            <Led :tone="ev.type === 'optimistic' ? 'warn' : ev.type === 'confirmed' ? 'ok' : 'off'" />
             <span
               class="event-label"
               :class="ev.type"

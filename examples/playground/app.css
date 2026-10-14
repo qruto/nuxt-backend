@@ -4,263 +4,134 @@
    Tailwind. */
 
 /* ════════════════════════════════════════════════════════════════
-   Nuxt backend — playground depth-design system
+   nuxt-backend.dev: the site's stylesheet
    ----------------------------------------------------------------
-   Restrained, premium depth — NOT puffy neumorphism. Surfaces sit a
-   hair ABOVE the canvas and lift with a single soft directional
-   drop-shadow + a hairline edge + a 1px top highlight; wells recess
-   gently. Depth still ENCODES STATE, but it whispers.
+   Gunmetal with three signals and no brand colour (design.md). The
+   tokens (grounds, inks, signals, depth ladders) live in
+   assets/css/tokens.css; this file holds the ramps Tailwind and Nuxt
+   UI read, the bridges into Docus's chrome, and the shared utilities
+   the homepage, the docs and the playground are built from.
 
-     • RAISED  (--raise / --raise-sm)  → active/selected, primary
-       buttons, hoverable cards, the live tiles. A clean lifted card.
-     • INSET   (--inset / --inset-sm)  → text inputs, code/state
-       readouts, toggle tracks, the PRESSED state. A subtle recess.
-     • STATUS  → colored rings (border + inner dot), never flat fills.
-
-   One neutral palette + three status signals (green / amber / red;
-   there is no brand accent). Dual light/dark via `color-scheme: light
-   dark`: the OS preference by default, overridden by Docus's color-mode
-   toggle through the `html.dark` / `html.light` bridge below, so the
-   header switch drives the playground too. LIGHT leans on a soft
-   drop-shadow + hairline + white top highlight; DARK is near-flat,
-   structured by a hairline rim + a faint shadow. Multi-layer shadows
-   can't live in `light-dark()` (no comma lists) → dark variants in a
-   `prefers-color-scheme` block, repeated under `html.dark`, and
-   `html.light` forces light back on a dark system.
+   Depth encodes state: a raised face is at rest or selected, a well
+   holds input or a readout, a pressed key is in. Light comes from the
+   top-left. Docus's color-mode toggle drives the scheme through the
+   `html.dark` / `html.light` bridge below; every token follows it.
    ════════════════════════════════════════════════════════════════ */
+@import "./assets/css/tokens.css";
+@import "./assets/css/depth.css";
+@import "./assets/css/console.css";
 
 /* ════════════════════════════════════════════════════════════════
-   PALETTE — Titanium + three signals, no primary
+   RAMPS AND TYPE: what Tailwind and Nuxt UI read
    ----------------------------------------------------------------
-   One palette across the whole app. The `@theme` blocks re-tone Nuxt
-   UI / Tailwind (the docs + homepage rendered by Docus); the `:root`
-   tokens further down drive the playground's depth-design. Machined
-   titanium carries ALL the structure; the only chroma on the slab is
-   the three universal status colours — green (go / ok / live / the
-   primary action), amber (attention / idle / secondary / experimental)
-   and red (danger / error / destructive) — enamel fired onto metal,
-   a step desaturated, never engraved. See design.md §Palette.
+   One `@theme static` block. Nuxt UI binds its aliases to these ramps
+   (app.config.ts: primary and success green, secondary, info and
+   warning amber, error red, neutral zinc) through runtime
+   `var(--color-<ramp>-<shade>)` references that Tailwind's usage scan
+   cannot see, so the block is `static`: every shade is emitted.
+   scripts/check-website-css.mjs fails the build if the built CSS loses
+   one.
 
-   `static`, like the signal ramps below: Nuxt UI reads the neutral ramp
-   through runtime `var(--color-zinc-<shade>)` references that Tailwind's
-   usage scan cannot see. Plain `@theme` emits only the shades the scan
-   finds, and every other `--ui-color-neutral-*` silently falls back to
-   stock Tailwind zinc — a blue-violet grey that is not the house titanium.
-   scripts/check-website-css.mjs fails CI if the built CSS loses the ramp.
+   - zinc is the gunmetal: the light grounds at 50–300, the dark ones
+     at 700–950. Anchors: 100 = the light face, 200 = between the
+     light ground and its wells, 800 = the dark face, 900 = the dark
+     ground, 950 = the dark well.
+   - green, amber and red are the signals. 400 is the lit signal and
+     the dark theme's text; 500 is the light theme's text, deep enough
+     to clear 4.5:1 on the light ground, its faces and its wells. The
+     steps above 400 are the soft shades, the steps below 500 the
+     press and soft-text shades. "amber" is the yellow signal; the name
+     is the Nuxt UI alias it backs.
    ════════════════════════════════════════════════════════════════ */
 :root {
-  /* Type system: Bai Jamjuree (squared technical display — the engraved face)
-     + Nunito (sans/body) + JetBrains Mono. `--font-sans` drives the
-     Docus/Nuxt UI docs chrome; `--font-display` generates the `font-display`
-     utility injected through app.config `ui.*` slots. */
-  --font-sans: "Nunito", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Bai Jamjuree", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Anybody for display and prose, Martian Mono for code and labels,
+     Handjet for the LCD only. `--font-sans` drives the Docus and Nuxt UI
+     chrome; `--font-display` generates the `font-display` utility the
+     app.config `ui.*` slots use. @nuxt/fonts self-hosts each family. */
+  --font-sans: "Anybody", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Anybody", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Martian Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-lcd: "Handjet", "Martian Mono", ui-monospace, monospace;
 
-  /* Titanium — re-tones Tailwind `zinc` (the Nuxt UI neutral). Nuxt UI emits
-     `--ui-color-neutral-<shade>: var(--color-zinc-<shade>)`, so this one ramp
-     lands every Nuxt UI surface/border/text token on the house palette.
-     Anchors: 50 = --surface light, 800 = --surface dark, 900 = --bg dark. */
-  --color-zinc-50:  #fafafa;
-  --color-zinc-100: #f1f1f1;
-  --color-zinc-200: #dfdfdf;
-  --color-zinc-300: #c8c8c8;
-  --color-zinc-400: #949494;
-  --color-zinc-500: #6b6b6b;
-  --color-zinc-600: #565656;
-  --color-zinc-700: #333333;
-  --color-zinc-800: #232323;
-  --color-zinc-900: #161616;
-  --color-zinc-950: #0d0d0d;
+  --color-zinc-50:  #f6f7f9;
+  --color-zinc-100: #ebedef;
+  --color-zinc-200: #d3d6da;
+  --color-zinc-300: #b7bac0;
+  --color-zinc-400: #9fa3ad;
+  --color-zinc-500: #70747d;
+  --color-zinc-600: #575b62;
+  --color-zinc-700: #42464e;
+  --color-zinc-800: #33373e;
+  --color-zinc-900: #26292e;
+  --color-zinc-950: #1c1e22;
+
+  --color-green-50:  #f0fdf4;
+  --color-green-100: #dcfce7;
+  --color-green-200: #bbf7d0;
+  --color-green-300: #86efac;
+  --color-green-400: #4ade80;   /* the lit signal, dark text */
+  --color-green-500: #116632;   /* light text */
+  --color-green-600: #025727;
+  --color-green-700: #00481c;
+  --color-green-800: #003a12;
+  --color-green-900: #012c0b;
+  --color-green-950: #011c07;
+
+  --color-amber-50:  #fefce8;
+  --color-amber-100: #fef9c3;
+  --color-amber-200: #fef08a;
+  --color-amber-300: #fde68a;
+  --color-amber-400: #facc15;   /* the lit signal, dark text */
+  --color-amber-500: #6d5600;   /* light text: a text-safe yellow on a light ground is olive */
+  --color-amber-600: #5e4800;
+  --color-amber-700: #4f3b00;
+  --color-amber-800: #402e00;
+  --color-amber-900: #322200;
+  --color-amber-950: #1f1500;
+
+  --color-red-50:  #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-200: #fecaca;
+  --color-red-300: #fca5a5;
+  --color-red-400: #f87171;     /* the lit signal, dark text */
+  --color-red-500: #a1302d;     /* light text */
+  --color-red-600: #8d2423;
+  --color-red-700: #791919;
+  --color-red-800: #660c0f;
+  --color-red-900: #540005;
+  --color-red-950: #3b0000;
 }
 
-/* Signal ramps — re-tone Tailwind `green` / `amber` / `red` (50…950) so
-   Nuxt UI's `primary` + `success` (green), `secondary` + `info` +
-   `warning` (amber) and `error` (red) aliases land on the house palette
-   natively. Hand-picked in OKLCH with the chroma held a hair inside
-   sRGB — "enamel on metal", a step less saturated than stock Tailwind.
-   Anchors: 500 = the LIGHT signal (text-safe ≥ 4.5:1 on #e8e8e8, #fafafa
-   and the #dadada sink), 400 = the DARK signal (≥ 5.2:1 on #161616 /
-   #232323) — exactly the steps Nuxt UI binds every alias to (500 light,
-   400 dark), so docs chrome and playground read one signal. 600 / 300
-   are the press shades, 600 / 200 the soft text shades. `static`: Nuxt
-   UI reads these through a runtime `var(--color-green-500, …)` that
-   Tailwind's usage scan cannot see — emit the whole ramp. */
+/* Nuxt UI's own tokens, bridged onto ours. Nuxt UI declares them in a
+   cascade layer (white for light `--ui-bg`, neutral shades for text);
+   these unlayered declarations win in both schemes, so the docs chrome
+   sits on the gunmetal ground and reads in the site's inks. */
 :root {
-  --color-green-50:  #ebf9ef;
-  --color-green-100: #d3f3dd;
-  --color-green-200: #afe8c0;
-  --color-green-300: #7dd296;
-  --color-green-400: #49b567;   /* dark signal   · Y .354 */
-  --color-green-500: #136d36;   /* light signal  · Y .113 */
-  --color-green-600: #065d2b;   /* light press / soft */
-  --color-green-700: #044d23;
-  --color-green-800: #023e1b;
-  --color-green-900: #013013;
-  --color-green-950: #021c09;
-
-  --color-amber-50:  #faf5e6;
-  --color-amber-100: #f7e8c4;
-  --color-amber-200: #f6d389;
-  --color-amber-300: #e7b349;
-  --color-amber-400: #ce9622;   /* dark signal   · Y .350 */
-  --color-amber-500: #845007;   /* light signal  · Y .107 — a text-safe yellow on #e8e8e8 is a burnt amber */
-  --color-amber-600: #723e04;   /* light press / soft */
-  --color-amber-700: #623103;
-  --color-amber-800: #512501;
-  --color-amber-900: #401a02;
-  --color-amber-950: #270e02;
-
-  --color-red-50:  #fdf2f2;
-  --color-red-100: #fde2e1;
-  --color-red-200: #fdc9c5;
-  --color-red-300: #f6a39d;
-  --color-red-400: #ee6d69;     /* dark signal   · Y .301 */
-  --color-red-500: #a1302d;     /* light signal  · Y .099 */
-  --color-red-600: #8b1e1e;     /* light press / soft */
-  --color-red-700: #761617;
-  --color-red-800: #610e0f;
-  --color-red-900: #4b0a0b;
-  --color-red-950: #2e0505;
-}
-
-:root {
-  /* Rounded corners for Nuxt UI / Docus components (depth design wants soft,
-     pill-friendly radii everywhere). */
   --ui-radius: 0.5rem;
-  /* Canvas bridge: Nuxt UI's light `--ui-bg` is a hard-coded #fff in the layered
-     theme; this unlayered definition wins in both schemes (light-dark() resolves
-     per color-scheme) so all docs chrome sits on the titanium canvas. */
   --ui-bg: var(--bg);
+  --ui-text: var(--ink);
+  --ui-text-highlighted: light-dark(#0b0d10, #ffffff);
+  --ui-text-toned: light-dark(var(--color-zinc-700), var(--color-zinc-200));
+  --ui-text-muted: var(--ink-dim);
+  --ui-text-dimmed: var(--ink-faint);
 }
 
-/* Bridge: make the playground's `light-dark()` tokens follow Docus's
-   color-mode toggle (the `.dark` / `.light` class on <html>), not just the OS
-   preference — so the header switch drives the whole app. */
+/* Bridge: make the `light-dark()` tokens follow Docus's color-mode
+   toggle (the `.dark` / `.light` class on <html>), not just the OS
+   preference, so the header switch drives the whole site. */
 html.dark { color-scheme: dark; }
 html.light { color-scheme: light; }
 
 :root {
-  /* MANDATORY: adapt native UI (scrollbars, form controls) to scheme. */
-  color-scheme: light dark;
-
-  /* ── Type — machined display over a soft body ──────────────
-     Bai Jamjuree (squared TECHNICAL display — the face the engraved
-     headings are cut in), Nunito (rounded-terminal body), JetBrains
-     Mono for data/labels/code. Loaded via <link> in nuxt.config.
-     The squared display wants a touch of positive tracking — never
-     the old rounded-negative tracking. */
-  --display: "Bai Jamjuree", system-ui, sans-serif;
-  --font: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-
-  /* ── Surfaces — TITANIUM neutral grays (no blue, no warm cast) ──
-     Pure neutral so the three signals are the only chroma on the slab. The
-     near-white `--surface` lifts off the slightly darker canvas; the
-     `--sink` well sits a hair below for inputs & readouts. */
-  --bg:         light-dark(#e8e8e8, #161616);
-  --surface:    light-dark(#fafafa, #232323);
-  --surface-hi: light-dark(#ffffff, #2b2b2b);
-  /* `--sink` (recessed wells) sits clearly below the surface so nested wells,
-     readouts and inputs read as carved, not washed-out. */
-  --sink:       light-dark(#dadada, #151515);
-
-  /* ── Ink — neutral, AA-checked on the titanium grays ───────── */
-  --ink:       light-dark(#1c1c1c, #ededed);
-  --ink-dim:   light-dark(#565656, #a8a8a8);
-  /* `--ink-faint` carries real labels (placeholders, prompts, sub-captions),
-     so it is held to the 4.5:1 small-text bar, not to a decorative one. The
-     values below clear it on `--bg` (light 4.69:1, dark 4.90:1); the darker
-     `--sink` and the lighter dark plaque faces get their own value in the
-     surface-aware block further down — one ink per ground, never one global
-     ink measured against a single surface. */
-  --ink-faint: light-dark(#666666, #858585);
-
-  /* ── Signals — three enamel status colours, no brand accent ──
-     Green = go / ok / live / the primary action. Amber = attention /
-     idle / secondary / experimental. Red = danger / error / destructive.
-     Each family: the signal itself (text-safe ≥ 4.5:1 on --bg, --surface
-     AND --sink in both themes, so one token serves label, LED, hairline
-     and fill), -press (hover/active fill), -soft (the readable text
-     shade for wells and chips), -dim (faint tint fill), -glow (the
-     translucent glow colour), -on (lettering on a filled control).
-     Light runs the ramp's 500 / 600 / 600 steps — deep enamel under
-     white lettering; dark runs 400 / 300 / 200 — lit enamel under
-     near-black lettering. Values live in the @theme ramps above; the
-     mid steps are the ones Nuxt UI binds its aliases to, so docs
-     chrome = playground. Glow colour is mixed from the ramp's 400 step
-     (the lit one) in BOTH schemes, dark dialed down. */
-  --ok:         light-dark(var(--color-green-500), var(--color-green-400));
-  --ok-press:   light-dark(var(--color-green-600), var(--color-green-300));
-  --ok-soft:    light-dark(var(--color-green-600), var(--color-green-200));
-  --ok-dim:     light-dark(color-mix(in srgb, var(--color-green-500) 12%, transparent),
-                           color-mix(in srgb, var(--color-green-400) 16%, transparent));
-  --ok-glow:    light-dark(color-mix(in srgb, var(--color-green-400) 34%, transparent),
-                           color-mix(in srgb, var(--color-green-400) 26%, transparent));
-  --on-ok:      light-dark(#ffffff, #06150b);
-
-  --warn:       light-dark(var(--color-amber-500), var(--color-amber-400));
-  --warn-press: light-dark(var(--color-amber-600), var(--color-amber-300));
-  --warn-soft:  light-dark(var(--color-amber-600), var(--color-amber-200));
-  --warn-dim:   light-dark(color-mix(in srgb, var(--color-amber-500) 12%, transparent),
-                           color-mix(in srgb, var(--color-amber-400) 16%, transparent));
-  --warn-glow:  light-dark(color-mix(in srgb, var(--color-amber-400) 34%, transparent),
-                           color-mix(in srgb, var(--color-amber-400) 26%, transparent));
-  --on-warn:    light-dark(#ffffff, #1a1200);
-
-  --err:        light-dark(var(--color-red-500), var(--color-red-400));
-  --err-press:  light-dark(var(--color-red-600), var(--color-red-300));
-  --err-soft:   light-dark(var(--color-red-600), var(--color-red-200));
-  --err-dim:    light-dark(color-mix(in srgb, var(--color-red-500) 10%, transparent),
-                           color-mix(in srgb, var(--color-red-400) 16%, transparent));
-  --err-glow:   light-dark(color-mix(in srgb, var(--color-red-400) 34%, transparent),
-                           color-mix(in srgb, var(--color-red-400) 26%, transparent));
-  --on-err:     light-dark(#ffffff, #1c0707);
-
-  /* Focus is green — "go here". Gradient type is a green ramp. */
-  --focus:      var(--ok);
-  --text-grad:  linear-gradient(135deg, var(--ok-soft), var(--ok) 55%, var(--ok-press));
-
-  /* Neutral hairline — separates busy lists / table rows / headers. */
-  --edge:    light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.07));
-  --edge-hi: light-dark(rgb(0 0 0 / 0.14), rgb(255 255 255 / 0.12));
-
-  /* ── Geometry — rounder for the depth-design refresh ───────── */
-  --r-xs: 6px;
-  --r-sm: 10px;
-  --r:    16px;
-  --r-lg: 22px;
-
-  /* ── Motion ────────────────────────────────────────────────── */
-  --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
-  --press:       130ms;
-  --transition:  180ms var(--ease-out);
-
-  /* ── Depth — legacy names, aliased onto the canonical ladder ──
-     The base components (.btn, .card, .well, .input, .pill and the
-     playground's Lab* components) predate the --elev-* ladder defined
-     further down. Rather than keep a SECOND shadow family lit from a
-     different direction (these used a straight-down cast; the ladder
-     casts down-right from the top-left sun), every legacy name now
-     ALIASES the ladder. One light source across homepage, docs AND
-     playground — and, because the ladder carries html.dark/html.light
-     overrides, the playground's depth now follows the theme toggle too
-     (it previously only tracked the OS preference). See design.md §3. */
-  --raise:        var(--elev-1);   /* resting card / panel            */
-  --raise-sm:     var(--elev-1);   /* resting control (button, pill)  */
-  --raise-lg:     var(--elev-3);   /* popover / large lifted surface  */
-  --inset:        var(--inset-2);  /* deep well (panel.well, tracks)  */
-  --inset-sm:     var(--inset-1);  /* shallow well (input, chip)      */
-
-  /* Custom UI hooks */
   accent-color: var(--ok);
   scrollbar-color: var(--edge-hi) transparent;
   scrollbar-width: thin;
 }
 
-/* (Legacy --raise/--inset dark overrides removed — they now alias the
-   --elev-* ladder, which carries its own dark + html.dark/html.light
-   variants below.) */
+/* Display type runs wide; prose stays at the face's normal width. */
+:where(h1, h2, h3, .font-display) { font-stretch: 112%; }
+/* Martian Mono is a wide mono; code and labels take a narrower cut. */
+:where(code, pre, kbd, samp) { font-stretch: 87.5%; }
 
 /* ════════════════════════════════════════════════════════════════
    Keyframes
@@ -283,13 +154,11 @@ html.light { color-scheme: light; }
 
 html { scrollbar-color: var(--edge-hi) transparent; scrollbar-width: thin; }
 
-/* The whole site sits on one machined matte slab: light ray anchored at the
-   document top (no background-attachment: fixed — it janks on iOS) + fine
-   machining grain, blended soft-light over the titanium base. */
+/* The whole site sits on one gunmetal ground: a light ray from the top-left
+   and a fine grain over `--bg` (tokens.css `--matte-bg`). */
 body {
   margin: 0;
   background: var(--matte-bg);
-  background-blend-mode: soft-light, normal, normal, normal;
 }
 
 /* The playground canvas is scoped to the playground shell so the Docus docs and
@@ -297,9 +166,8 @@ body {
 .pg-shell {
   min-height: 100dvh;
   color: var(--ink);
-  /* The same machined matte slab as the rest of the site. */
+  /* The same ground as the rest of the site. */
   background: var(--matte-bg);
-  background-blend-mode: soft-light, normal, normal, normal;
   font-family: var(--font);
   font-size: 15px;
   line-height: 1.55;
@@ -507,308 +375,6 @@ details.dev > summary::before {
 details.dev[open] > summary::before { content: '−'; }
 details.dev > .dev-body { padding: 0.25rem 0.85rem 0.85rem; }
 
-/* ════════════════════════════════════════════════════════════════
-   DEPTH SYSTEM  (see design.md)
-   ----------------------------------------------------------------
-   Light from the TOP-LEFT, tiny elevation. A 5-step raised ladder
-   (--elev-*) + inset wells (--inset-1/2) + glows. Every raised step
-   = a hand-picked rim highlight on the top-left edge, a tight ambient
-   contact shadow, and a soft cast offset down-right; the ambient part
-   fades as elevation grows while the cast grows (RefactoringUI: two-
-   part shadows). Box-shadow tokens can't use light-dark() (no comma
-   lists), so dark is redefined for BOTH the system pref and the
-   `html.dark` toggle; `html.light` forces light on a dark system.
-   ════════════════════════════════════════════════════════════════ */
-:root {
-  --elev-0:
-    inset 1px 1px 0 rgb(255 255 255 / 0.6),
-    0 0 0 1px rgb(0 0 0 / 0.04);
-  --elev-1:
-    inset 1px 1px 0 rgb(255 255 255 / 0.85),
-    inset -1px -1px 0 rgb(0 0 0 / 0.04),
-    1px 1px 1px rgb(0 0 0 / 0.05),
-    2px 4px 8px rgb(0 0 0 / 0.07);
-  --elev-2:
-    inset 1px 1px 0 rgb(255 255 255 / 0.9),
-    1px 2px 2px rgb(0 0 0 / 0.05),
-    3px 6px 14px rgb(0 0 0 / 0.09);
-  --elev-3:
-    inset 1px 1px 0 rgb(255 255 255 / 0.9),
-    2px 4px 6px rgb(0 0 0 / 0.04),
-    5px 12px 24px rgb(0 0 0 / 0.11);
-  --elev-4:
-    inset 1px 1px 0 rgb(255 255 255 / 0.95),
-    8px 20px 48px rgb(0 0 0 / 0.16);
-  --inset-1:
-    inset 1px 1px 2px rgb(0 0 0 / 0.10),
-    inset -1px -1px 0 rgb(255 255 255 / 0.6);
-  --inset-2:
-    inset 2px 2px 5px rgb(0 0 0 / 0.14),
-    inset -1px -1px 0 rgb(255 255 255 / 0.5);
-
-  /* Glows — one family per signal, three strengths: the bare glow is an
-     LED (live dot, doctor finding, delivery outcome), -soft a resting
-     primary control, -ring an active control (1px ring + cast). Colour
-     is mixed from the ramp's lit 400 step in both schemes (--*-glow is
-     light-dark); the dark blocks pull radii and alpha in — lit enamel
-     already reads bright on dark steel. Glows obey §Palette: one per
-     element, on a control or an LED, never on a panel. */
-  --glow-ok:        0 0 9px color-mix(in srgb, var(--color-green-400) 55%, transparent);
-  --glow-ok-soft:   0 0 14px var(--ok-glow);
-  --glow-ok-ring:   0 0 0 1px var(--ok-glow), 0 4px 16px var(--ok-glow);
-  --glow-warn:      0 0 9px color-mix(in srgb, var(--color-amber-400) 55%, transparent);
-  --glow-warn-soft: 0 0 14px var(--warn-glow);
-  --glow-warn-ring: 0 0 0 1px var(--warn-glow), 0 4px 16px var(--warn-glow);
-  --glow-err:       0 0 9px color-mix(in srgb, var(--color-red-400) 55%, transparent);
-  --glow-err-soft:  0 0 14px var(--err-glow);
-  --glow-err-ring:  0 0 0 1px var(--err-glow), 0 4px 16px var(--err-glow);
-
-  /* Lit surface gradient + the light-top-left → dark-bottom-right bevel
-     used by .depth-border. Colors follow color-scheme via light-dark(). */
-  --grad-surface: linear-gradient(135deg, var(--surface-hi), var(--surface) 58%,
-    color-mix(in srgb, var(--surface), #000 5%) 150%);
-  --grad-bevel: linear-gradient(135deg,
-    rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.12) 45%, rgb(0 0 0 / 0.14));
-
-  /* ── MATTE MATERIAL — carved type + plaques/slots (design.md §2.5) ──
-     One sun, top-left (ray ≈330°). Engraving is SUBTRACTIVE: the near
-     wall (up-left) falls into shadow, the far wall (down-right) catches
-     light. Embossing flips the offsets. */
-  /* These two are the CANVAS calibration (`--bg` = #e8e8e8). Engraving is
-     applied on plaques and in slots too, and an ink measured against one
-     ground does not hold on another — so `.plaque`/`.slot` re-derive both
-     inks against their own face in the surface-aware block below. */
-  --engrave-ink: #7a7a7a;                          /* 3.50:1 on #e8e8e8 — WCAG large-text bar; shadows do not count */
-  --engrave-ink-sm: #686868;                       /* 4.55:1 on #e8e8e8 — small labels need the 4.5:1 bar */
-  --engrave:
-    -0.8px -1.39px 0.8px  rgb(0 0 0 / 0.50),       /* near wall shadow, up-left  */
-    -1.7px -2.94px 4.95px rgb(0 0 0 / 0.19),       /* soft ambient               */
-     1px    1.73px 0.94px rgb(255 255 255 / 0.92), /* lit far wall, down-right   */
-     1.8px  3.12px 4.5px  rgb(255 255 255 / 0.30); /* wide bounce                */
-  --engrave-sm:                                    /* body-size labels: 2 layers */
-    -0.4px -0.7px 0.45px rgb(0 0 0 / 0.45),
-     0.5px  0.9px 0.5px  rgb(255 255 255 / 0.90);
-  --emboss:                                        /* convex: offsets flipped    */
-    -0.8px -1.39px 0.8px  rgb(255 255 255 / 0.90),
-    -1.7px -2.94px 4.95px rgb(255 255 255 / 0.35),
-     1px    1.73px 0.94px rgb(0 0 0 / 0.30),
-     1.8px  3.12px 4.5px  rgb(0 0 0 / 0.12);
-  --emboss-sm:
-    -0.5px -0.87px 0.47px rgb(255 255 255 / 0.90),
-     0.5px  0.87px 0.47px rgb(0 0 0 / 0.28);
-  /* Icon glyphs emboss with two chained drop-shadows (same offsets) — a token
-     so the contrast kill-switch can zero it. light-dark() follows the
-     element's color-scheme, so this one definition serves both themes (no
-     html.dark / html.light override needed). */
-  --emboss-icon:
-    drop-shadow(-0.5px -0.87px 0.4px light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.1)))
-    drop-shadow(0.5px 0.87px 0.4px light-dark(rgb(0 0 0 / 0.25), rgb(0 0 0 / 0.6)));
-
-  /* Convex plaque — paired inner bevels at two scales + up-left bounce
-     light + down-right cast. The premium raised panel. */
-  --plaque:
-    inset  1.2px   2.08px 2.68px rgb(255 255 255 / 0.92),
-    inset -1.2px  -2.08px 2.68px rgb(0 0 0 / 0.10),
-    inset  0.5px   0.78px 1.25px rgb(255 255 255 / 0.92),
-    inset -0.5px  -0.78px 1.25px rgb(0 0 0 / 0.10),
-    -3px -5.2px 16.2px rgb(255 255 255 / 0.55),
-     0.18px 0.31px 0.43px rgb(0 0 0 / 0.38),
-     1.5px  2.6px  3.6px  rgb(0 0 0 / 0.10),
-     4px    7px   14px    rgb(0 0 0 / 0.08);
-  --plaque-hi:                                     /* hover: casts grow one step */
-    inset  1.2px   2.08px 2.68px rgb(255 255 255 / 0.92),
-    inset -1.2px  -2.08px 2.68px rgb(0 0 0 / 0.10),
-    inset  0.5px   0.78px 1.25px rgb(255 255 255 / 0.92),
-    inset -0.5px  -0.78px 1.25px rgb(0 0 0 / 0.10),
-    -3px -5.2px 16.2px rgb(255 255 255 / 0.55),
-     0.18px 0.31px 0.43px rgb(0 0 0 / 0.38),
-     2px    3.5px  5px    rgb(0 0 0 / 0.12),
-     6px   11px   22px    rgb(0 0 0 / 0.10);
-
-  /* Concave slot — a machined well, deeper than --inset-2; lit lower lip. */
-  --slot:
-    inset  1.2px  2.08px 3px    rgb(0 0 0 / 0.16),
-    inset  0.5px  0.87px 1.25px rgb(0 0 0 / 0.20),
-    inset -1px   -1.73px 2px    rgb(255 255 255 / 0.55),
-    0 1px 0 rgb(255 255 255 / 0.55);
-
-  /* Plaque face: two diagonal sheens + fine grain over --surface. Matte. */
-  --grad-plaque:
-    linear-gradient(135deg, rgb(255 255 255 / 0.50), rgb(255 255 255 / 0) 40%),
-    linear-gradient(315deg, rgb(0 0 0 / 0.045), rgb(0 0 0 / 0) 45%),
-    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.02) 0 1px, transparent 1px 3px),
-    linear-gradient(var(--surface), var(--surface));
-
-  /* Canvas: light ray + machining grain over --bg ("carved stone · matte"). */
-  --matte-bg:
-    radial-gradient(130vmax 90vmax at 21% -4%, rgb(255 255 255 / 0.27), rgb(255 255 255 / 0.11) 42%, transparent 115%),
-    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.024) 0 1px, transparent 1px 3px),
-    repeating-linear-gradient(0deg, rgb(0 0 0 / 0.02) 0 1px, transparent 1px 7px),
-    linear-gradient(var(--bg), var(--bg));
-}
-
-/* Dark tokens — system pref + explicit toggle. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --elev-0:
-      inset 1px 1px 0 rgb(255 255 255 / 0.05),
-      0 0 0 1px rgb(255 255 255 / 0.05);
-    --elev-1:
-      inset 1px 1px 0 rgb(255 255 255 / 0.06),
-      1px 1px 2px rgb(0 0 0 / 0.4),
-      2px 5px 12px rgb(0 0 0 / 0.4);
-    --elev-2:
-      inset 1px 1px 0 rgb(255 255 255 / 0.07),
-      2px 4px 6px rgb(0 0 0 / 0.45),
-      3px 8px 18px rgb(0 0 0 / 0.5);
-    --elev-3:
-      inset 1px 1px 0 rgb(255 255 255 / 0.08),
-      5px 12px 26px rgb(0 0 0 / 0.55);
-    --elev-4:
-      inset 1px 1px 0 rgb(255 255 255 / 0.1),
-      10px 24px 56px rgb(0 0 0 / 0.68);
-    --inset-1:
-      inset 1px 1px 3px rgb(0 0 0 / 0.5),
-      inset -1px -1px 0 rgb(255 255 255 / 0.05);
-    --inset-2:
-      inset 2px 2px 6px rgb(0 0 0 / 0.6),
-      inset -1px -1px 0 rgb(255 255 255 / 0.04);
-    --grad-bevel: linear-gradient(135deg,
-      rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.03) 45%, rgb(0 0 0 / 0.5));
-
-    /* Signal glows — dialed down: lit enamel already reads bright. */
-    --glow-ok:        0 0 8px color-mix(in srgb, var(--color-green-400) 45%, transparent);
-    --glow-ok-soft:   0 0 12px var(--ok-glow);
-    --glow-ok-ring:   0 0 0 1px var(--ok-glow), 0 4px 14px var(--ok-glow);
-    --glow-warn:      0 0 8px color-mix(in srgb, var(--color-amber-400) 45%, transparent);
-    --glow-warn-soft: 0 0 12px var(--warn-glow);
-    --glow-warn-ring: 0 0 0 1px var(--warn-glow), 0 4px 14px var(--warn-glow);
-    --glow-err:       0 0 8px color-mix(in srgb, var(--color-red-400) 45%, transparent);
-    --glow-err-soft:  0 0 12px var(--err-glow);
-    --glow-err-ring:  0 0 0 1px var(--err-glow), 0 4px 14px var(--err-glow);
-
-    /* Matte material — machined dark steel: highlights faint, shadows deep.
-       Ink sits well ABOVE the steel: #6d6d6d clears 3:1 on #161616 AND on the
-       #232323 plaque face (engraving must survive on plaques too) — text-shadow
-       never counts toward contrast, so the ink carries legibility alone and
-       the dark carve shadows up-left only read the letters as cut in. Small
-       labels take #8a8a8a for the 4.5:1 bar. Both are the CANVAS values —
-       #6d6d6d only reaches 3.04:1 on the #232323 plaque face and 2.74:1 on
-       #2b2b2b, so plaques re-derive them (surface-aware block below). */
-    --engrave-ink: #6d6d6d;                        /* 3.50:1 on #161616 */
-    --engrave-ink-sm: #8a8a8a;                     /* 5.24:1 on #161616 */
-    --engrave:
-      -0.8px -1.39px 1px    rgb(0 0 0 / 0.85),
-      -1.7px -2.94px 4.95px rgb(0 0 0 / 0.45),
-       1px    1.73px 0.94px rgb(255 255 255 / 0.18),
-       1.8px  3.12px 4.5px  rgb(255 255 255 / 0.05);
-    --engrave-sm:
-      -0.4px -0.7px 0.5px rgb(0 0 0 / 0.80),
-       0.5px  0.9px 0.5px rgb(255 255 255 / 0.16);
-    --emboss:
-      -0.8px -1.39px 0.8px  rgb(255 255 255 / 0.10),
-      -1.7px -2.94px 4.95px rgb(255 255 255 / 0.04),
-       1px    1.73px 0.94px rgb(0 0 0 / 0.70),
-       1.8px  3.12px 4.5px  rgb(0 0 0 / 0.35);
-    --emboss-sm:
-      -0.5px -0.87px 0.47px rgb(255 255 255 / 0.10),
-       0.5px  0.87px 0.47px rgb(0 0 0 / 0.60);
-    --plaque:
-      inset  1.2px   2.08px 2.68px rgb(255 255 255 / 0.07),
-      inset -1.2px  -2.08px 2.68px rgb(0 0 0 / 0.55),
-      inset  0.5px   0.78px 1.25px rgb(255 255 255 / 0.06),
-      inset -0.5px  -0.78px 1.25px rgb(0 0 0 / 0.45),
-      -3px -5.2px 16.2px rgb(255 255 255 / 0.03),
-       0.18px 0.31px 0.43px rgb(0 0 0 / 0.80),
-       2px    4px   8px     rgb(0 0 0 / 0.45),
-       5px    9px  18px     rgb(0 0 0 / 0.40);
-    --plaque-hi:
-      inset  1.2px   2.08px 2.68px rgb(255 255 255 / 0.07),
-      inset -1.2px  -2.08px 2.68px rgb(0 0 0 / 0.55),
-      inset  0.5px   0.78px 1.25px rgb(255 255 255 / 0.06),
-      inset -0.5px  -0.78px 1.25px rgb(0 0 0 / 0.45),
-      -3px -5.2px 16.2px rgb(255 255 255 / 0.03),
-       0.18px 0.31px 0.43px rgb(0 0 0 / 0.80),
-       3px    5px  10px     rgb(0 0 0 / 0.50),
-       7px   13px  26px     rgb(0 0 0 / 0.45);
-    --slot:
-      inset  1.2px  2.08px 4px   rgb(0 0 0 / 0.60),
-      inset  0.5px  0.87px 1.5px rgb(0 0 0 / 0.55),
-      inset -1px   -1.73px 2px   rgb(255 255 255 / 0.05),
-      0 1px 0 rgb(255 255 255 / 0.05);
-    --grad-plaque:
-      linear-gradient(135deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0) 40%),
-      linear-gradient(315deg, rgb(0 0 0 / 0.25), rgb(0 0 0 / 0) 45%),
-      repeating-linear-gradient(0deg, rgb(255 255 255 / 0.012) 0 1px, transparent 1px 3px),
-      linear-gradient(var(--surface), var(--surface));
-    --matte-bg:
-      radial-gradient(130vmax 90vmax at 21% -4%, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.02) 42%, transparent 115%),
-      repeating-linear-gradient(0deg, rgb(255 255 255 / 0.012) 0 1px, transparent 1px 3px),
-      repeating-linear-gradient(0deg, rgb(0 0 0 / 0.05) 0 1px, transparent 1px 7px),
-      linear-gradient(var(--bg), var(--bg));
-  }
-}
-html.dark {
-  --elev-0: inset 1px 1px 0 rgb(255 255 255 / 0.05), 0 0 0 1px rgb(255 255 255 / 0.05);
-  --elev-1: inset 1px 1px 0 rgb(255 255 255 / 0.06), 1px 1px 2px rgb(0 0 0 / 0.4), 2px 5px 12px rgb(0 0 0 / 0.4);
-  --elev-2: inset 1px 1px 0 rgb(255 255 255 / 0.07), 2px 4px 6px rgb(0 0 0 / 0.45), 3px 8px 18px rgb(0 0 0 / 0.5);
-  --elev-3: inset 1px 1px 0 rgb(255 255 255 / 0.08), 5px 12px 26px rgb(0 0 0 / 0.55);
-  --elev-4: inset 1px 1px 0 rgb(255 255 255 / 0.1), 10px 24px 56px rgb(0 0 0 / 0.68);
-  --inset-1: inset 1px 1px 3px rgb(0 0 0 / 0.5), inset -1px -1px 0 rgb(255 255 255 / 0.05);
-  --inset-2: inset 2px 2px 6px rgb(0 0 0 / 0.6), inset -1px -1px 0 rgb(255 255 255 / 0.04);
-  --grad-bevel: linear-gradient(135deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.03) 45%, rgb(0 0 0 / 0.5));
-  --glow-ok: 0 0 8px color-mix(in srgb, var(--color-green-400) 45%, transparent);
-  --glow-ok-soft: 0 0 12px var(--ok-glow);
-  --glow-ok-ring: 0 0 0 1px var(--ok-glow), 0 4px 14px var(--ok-glow);
-  --glow-warn: 0 0 8px color-mix(in srgb, var(--color-amber-400) 45%, transparent);
-  --glow-warn-soft: 0 0 12px var(--warn-glow);
-  --glow-warn-ring: 0 0 0 1px var(--warn-glow), 0 4px 14px var(--warn-glow);
-  --glow-err: 0 0 8px color-mix(in srgb, var(--color-red-400) 45%, transparent);
-  --glow-err-soft: 0 0 12px var(--err-glow);
-  --glow-err-ring: 0 0 0 1px var(--err-glow), 0 4px 14px var(--err-glow);
-  --engrave-ink: #6d6d6d;
-  --engrave-ink-sm: #8a8a8a;
-  --engrave: -0.8px -1.39px 1px rgb(0 0 0 / 0.85), -1.7px -2.94px 4.95px rgb(0 0 0 / 0.45), 1px 1.73px 0.94px rgb(255 255 255 / 0.18), 1.8px 3.12px 4.5px rgb(255 255 255 / 0.05);
-  --engrave-sm: -0.4px -0.7px 0.5px rgb(0 0 0 / 0.80), 0.5px 0.9px 0.5px rgb(255 255 255 / 0.16);
-  --emboss: -0.8px -1.39px 0.8px rgb(255 255 255 / 0.10), -1.7px -2.94px 4.95px rgb(255 255 255 / 0.04), 1px 1.73px 0.94px rgb(0 0 0 / 0.70), 1.8px 3.12px 4.5px rgb(0 0 0 / 0.35);
-  --emboss-sm: -0.5px -0.87px 0.47px rgb(255 255 255 / 0.10), 0.5px 0.87px 0.47px rgb(0 0 0 / 0.60);
-  --plaque: inset 1.2px 2.08px 2.68px rgb(255 255 255 / 0.07), inset -1.2px -2.08px 2.68px rgb(0 0 0 / 0.55), inset 0.5px 0.78px 1.25px rgb(255 255 255 / 0.06), inset -0.5px -0.78px 1.25px rgb(0 0 0 / 0.45), -3px -5.2px 16.2px rgb(255 255 255 / 0.03), 0.18px 0.31px 0.43px rgb(0 0 0 / 0.80), 2px 4px 8px rgb(0 0 0 / 0.45), 5px 9px 18px rgb(0 0 0 / 0.40);
-  --plaque-hi: inset 1.2px 2.08px 2.68px rgb(255 255 255 / 0.07), inset -1.2px -2.08px 2.68px rgb(0 0 0 / 0.55), inset 0.5px 0.78px 1.25px rgb(255 255 255 / 0.06), inset -0.5px -0.78px 1.25px rgb(0 0 0 / 0.45), -3px -5.2px 16.2px rgb(255 255 255 / 0.03), 0.18px 0.31px 0.43px rgb(0 0 0 / 0.80), 3px 5px 10px rgb(0 0 0 / 0.50), 7px 13px 26px rgb(0 0 0 / 0.45);
-  --slot: inset 1.2px 2.08px 4px rgb(0 0 0 / 0.60), inset 0.5px 0.87px 1.5px rgb(0 0 0 / 0.55), inset -1px -1.73px 2px rgb(255 255 255 / 0.05), 0 1px 0 rgb(255 255 255 / 0.05);
-  --grad-plaque: linear-gradient(135deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0) 40%), linear-gradient(315deg, rgb(0 0 0 / 0.25), rgb(0 0 0 / 0) 45%), repeating-linear-gradient(0deg, rgb(255 255 255 / 0.012) 0 1px, transparent 1px 3px), linear-gradient(var(--surface), var(--surface));
-  --matte-bg: radial-gradient(130vmax 90vmax at 21% -4%, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.02) 42%, transparent 115%), repeating-linear-gradient(0deg, rgb(255 255 255 / 0.012) 0 1px, transparent 1px 3px), repeating-linear-gradient(0deg, rgb(0 0 0 / 0.05) 0 1px, transparent 1px 7px), linear-gradient(var(--bg), var(--bg));
-}
-html.light {
-  --elev-0: inset 1px 1px 0 rgb(255 255 255 / 0.6), 0 0 0 1px rgb(0 0 0 / 0.04);
-  --elev-1: inset 1px 1px 0 rgb(255 255 255 / 0.85), inset -1px -1px 0 rgb(0 0 0 / 0.04), 1px 1px 1px rgb(0 0 0 / 0.05), 2px 4px 8px rgb(0 0 0 / 0.07);
-  --elev-2: inset 1px 1px 0 rgb(255 255 255 / 0.9), 1px 2px 2px rgb(0 0 0 / 0.05), 3px 6px 14px rgb(0 0 0 / 0.09);
-  --elev-3: inset 1px 1px 0 rgb(255 255 255 / 0.9), 2px 4px 6px rgb(0 0 0 / 0.04), 5px 12px 24px rgb(0 0 0 / 0.11);
-  --elev-4: inset 1px 1px 0 rgb(255 255 255 / 0.95), 8px 20px 48px rgb(0 0 0 / 0.16);
-  --inset-1: inset 1px 1px 2px rgb(0 0 0 / 0.10), inset -1px -1px 0 rgb(255 255 255 / 0.6);
-  --inset-2: inset 2px 2px 5px rgb(0 0 0 / 0.14), inset -1px -1px 0 rgb(255 255 255 / 0.5);
-  --grad-bevel: linear-gradient(135deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.12) 45%, rgb(0 0 0 / 0.14));
-  --glow-ok: 0 0 9px color-mix(in srgb, var(--color-green-400) 55%, transparent);
-  --glow-ok-soft: 0 0 14px var(--ok-glow);
-  --glow-ok-ring: 0 0 0 1px var(--ok-glow), 0 4px 16px var(--ok-glow);
-  --glow-warn: 0 0 9px color-mix(in srgb, var(--color-amber-400) 55%, transparent);
-  --glow-warn-soft: 0 0 14px var(--warn-glow);
-  --glow-warn-ring: 0 0 0 1px var(--warn-glow), 0 4px 16px var(--warn-glow);
-  --glow-err: 0 0 9px color-mix(in srgb, var(--color-red-400) 55%, transparent);
-  --glow-err-soft: 0 0 14px var(--err-glow);
-  --glow-err-ring: 0 0 0 1px var(--err-glow), 0 4px 16px var(--err-glow);
-  --engrave-ink: #7a7a7a;
-  --engrave-ink-sm: #686868;
-  --engrave: -0.8px -1.39px 0.8px rgb(0 0 0 / 0.50), -1.7px -2.94px 4.95px rgb(0 0 0 / 0.19), 1px 1.73px 0.94px rgb(255 255 255 / 0.92), 1.8px 3.12px 4.5px rgb(255 255 255 / 0.30);
-  --engrave-sm: -0.4px -0.7px 0.45px rgb(0 0 0 / 0.45), 0.5px 0.9px 0.5px rgb(255 255 255 / 0.90);
-  --emboss: -0.8px -1.39px 0.8px rgb(255 255 255 / 0.90), -1.7px -2.94px 4.95px rgb(255 255 255 / 0.35), 1px 1.73px 0.94px rgb(0 0 0 / 0.30), 1.8px 3.12px 4.5px rgb(0 0 0 / 0.12);
-  --emboss-sm: -0.5px -0.87px 0.47px rgb(255 255 255 / 0.90), 0.5px 0.87px 0.47px rgb(0 0 0 / 0.28);
-  --plaque: inset 1.2px 2.08px 2.68px rgb(255 255 255 / 0.92), inset -1.2px -2.08px 2.68px rgb(0 0 0 / 0.10), inset 0.5px 0.78px 1.25px rgb(255 255 255 / 0.92), inset -0.5px -0.78px 1.25px rgb(0 0 0 / 0.10), -3px -5.2px 16.2px rgb(255 255 255 / 0.55), 0.18px 0.31px 0.43px rgb(0 0 0 / 0.38), 1.5px 2.6px 3.6px rgb(0 0 0 / 0.10), 4px 7px 14px rgb(0 0 0 / 0.08);
-  --plaque-hi: inset 1.2px 2.08px 2.68px rgb(255 255 255 / 0.92), inset -1.2px -2.08px 2.68px rgb(0 0 0 / 0.10), inset 0.5px 0.78px 1.25px rgb(255 255 255 / 0.92), inset -0.5px -0.78px 1.25px rgb(0 0 0 / 0.10), -3px -5.2px 16.2px rgb(255 255 255 / 0.55), 0.18px 0.31px 0.43px rgb(0 0 0 / 0.38), 2px 3.5px 5px rgb(0 0 0 / 0.12), 6px 11px 22px rgb(0 0 0 / 0.10);
-  --slot: inset 1.2px 2.08px 3px rgb(0 0 0 / 0.16), inset 0.5px 0.87px 1.25px rgb(0 0 0 / 0.20), inset -1px -1.73px 2px rgb(255 255 255 / 0.55), 0 1px 0 rgb(255 255 255 / 0.55);
-  --grad-plaque: linear-gradient(135deg, rgb(255 255 255 / 0.50), rgb(255 255 255 / 0) 40%), linear-gradient(315deg, rgb(0 0 0 / 0.045), rgb(0 0 0 / 0) 45%), repeating-linear-gradient(0deg, rgb(255 255 255 / 0.02) 0 1px, transparent 1px 3px), linear-gradient(var(--surface), var(--surface));
-  --matte-bg: radial-gradient(130vmax 90vmax at 21% -4%, rgb(255 255 255 / 0.27), rgb(255 255 255 / 0.11) 42%, transparent 115%), repeating-linear-gradient(0deg, rgb(255 255 255 / 0.024) 0 1px, transparent 1px 3px), repeating-linear-gradient(0deg, rgb(0 0 0 / 0.02) 0 1px, transparent 1px 7px), linear-gradient(var(--bg), var(--bg));
-}
-
 /* ── Depth utilities ─────────────────────────────────────────────
    Reusable building blocks for the marketing homepage. */
 .depth-surface {
@@ -859,63 +425,22 @@ html.light {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* ── Matte-material utilities ────────────────────────────────────
-   Carved & raised type + plaques/slots (design.md §2.5). Bare names
-   on purpose: these classes travel through app.config `ui.*` slots and
-   tailwind-merge mis-groups unknown `text-*`-prefixed classes. */
+/* ── Matte-material utilities (legacy) ───────────────────────────
+   Carved and raised type from before the parts vocabulary
+   (assets/css/depth.css, design.md §Parts), which replaces them as R3–R5
+   rebuild the chrome, homepage and playground; test/docs/design-parts.test.ts
+   counts their uses down. Plaques, slots, `carved` and `code-plate` are
+   parts now. */
 .engraved    { color: var(--engrave-ink); text-shadow: var(--engrave); }
 .engraved-sm { color: var(--engrave-ink-sm); text-shadow: var(--engrave-sm); }
 .embossed    { text-shadow: var(--emboss); }
 .embossed-sm { text-shadow: var(--emboss-sm); }
 
-/* Convex raised panel — the premium plaque. */
-.plaque {
-  background: var(--grad-plaque);
-  border-radius: var(--r-lg);
-  box-shadow: var(--plaque);
-}
-a.plaque, button.plaque { transition: box-shadow var(--transition); }
-a.plaque:hover, button.plaque:hover { box-shadow: var(--plaque-hi); }
-
-/* Concave machined well. `.carved` is the shadow alone — for tinted
-   wells (callouts) that must keep their own background. */
-.slot   { background: var(--sink); border-radius: var(--r); box-shadow: var(--slot); }
-.carved { box-shadow: var(--slot); }
-
-/* ── Surface-aware inks ──────────────────────────────────────────
-   A text-shadow never counts toward contrast, so an engraved (or faint)
-   label is carried by its ink alone — and an ink calibrated against the
-   canvas does NOT survive being moved onto a raised plaque or down into a
-   milled slot. Each ground therefore re-derives the three inks that carry
-   real text, so every one of them holds 3:1 (large / `.engraved`) and
-   4.5:1 (small / `.engraved-sm`, `--ink-faint`) on the face it sits on.
-   Ratios are WCAG sRGB, measured light / dark against that block's own
-   `--surface`+`--surface-hi` or `--sink`.
-
-   Raised faces — `--surface` #fafafa / #232323, `--surface-hi` #ffffff /
-   #2b2b2b. The dark side is the tight one: the canvas ink would land at
-   2.74:1 on #2b2b2b, below even the large-text floor. */
-.plaque, .card, .code-plate {
-  --engrave-ink:    light-dark(#7a7a7a, #787878); /* 4.11 / 4.29 · 3.56 / 3.21 */
-  --engrave-ink-sm: light-dark(#686868, #969696); /* 5.34 / 5.57 · 5.31 / 4.79 */
-  --ink-faint:      light-dark(#666666, #949494); /* 5.50 / 5.74 · 5.18 / 4.67 */
-}
-/* Milled wells — `--sink` #dadada / #151515. Here the LIGHT side is tight:
-   the canvas small ink drops to 3.99:1 on #dadada. */
-.slot, .well, .input, .pill, .search-slot, details.dev {
-  --engrave-ink:    light-dark(#767676, #6d6d6d); /* 3.25 · 3.53 */
-  --engrave-ink-sm: light-dark(#5f5f5f, #8a8a8a); /* 4.57 · 5.29 */
-  --ink-faint:      light-dark(#5e5e5e, #858585); /* 4.64 · 4.95 */
-}
-
 .surface-matte {
   background: var(--matte-bg);
-  background-blend-mode: soft-light, normal, normal, normal;
 }
 
-/* A machined groove — section rule under h2. Single-shadow rules may use
-   light-dark() in the color position (only multi-layer LISTS need the
-   triple-definition blocks above). */
+/* A machined groove — section rule under h2. */
 .rule-carved {
   border-bottom: 1px solid var(--edge-hi);
   box-shadow: 0 1px 0 light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.06));
@@ -944,12 +469,6 @@ a.plaque:hover, button.plaque:hover { box-shadow: var(--plaque-hi); }
   transition: box-shadow var(--transition);
 }
 .search-slot:hover { box-shadow: var(--slot); }
-/* Code-block filename bar: a flush plate on the slot's upper lip. */
-.code-plate {
-  background: var(--surface);
-  border-radius: var(--r) var(--r) 0 0;
-  box-shadow: var(--elev-0);
-}
 
 /* The copy button is absolutely positioned at the block's top-right corner
    with no gutter reserved for it, and below `lg` it is permanently visible
@@ -962,14 +481,15 @@ div.code-plate { padding-right: 3.25rem; }
 div:not(:has(> .code-plate)) > pre.slot { padding-right: 3.25rem; }
 
 /* Depth is decoration — on request, give back plain ink. Reaches every site
-   that carves or raises type: the four utilities, `kbd`, and the icon-emboss
-   token. Components must apply depth through those (never a hand-written
-   text-shadow / drop-shadow in scoped CSS, which out-specifies these rules),
-   or this switch cannot reach them. */
+   that carves or raises type: the relief parts, the legacy utilities, `kbd`,
+   and the icon-emboss token. Components must apply depth through those
+   (never a hand-written text-shadow / drop-shadow in scoped CSS, which
+   out-specifies these rules), or this switch cannot reach them. */
 @media (prefers-contrast: more) {
   :root { --emboss-icon: none; }
-  .engraved, .engraved-sm { color: var(--ink); text-shadow: none; }
-  .embossed, .embossed-sm, kbd { text-shadow: none; }
+  .engraved, .engraved-sm, .cut, .cut-sm, .engr, .engr-lt { color: var(--ink); text-shadow: none; }
+  .cut::after { content: none; }
+  .embossed, .embossed-sm, .emb, .emb-sm, kbd { text-shadow: none; }
 }
 /* QA hooks (plugins/qa.client.ts): `?qa=contrast` stamps `html.qa-contrast`
    so the kill-switch above can be exercised without flipping an OS setting —
@@ -977,8 +497,9 @@ div:not(:has(> .code-plate)) > pre.slot { padding-right: 3.25rem; }
    for components that read it; there is no global rule for it here (reduced
    motion stays on `prefers-reduced-motion` above). */
 html.qa-contrast { --emboss-icon: none; }
-html.qa-contrast .engraved, html.qa-contrast .engraved-sm { color: var(--ink); text-shadow: none; }
-html.qa-contrast .embossed, html.qa-contrast .embossed-sm, html.qa-contrast kbd { text-shadow: none; }
+html.qa-contrast :is(.engraved, .engraved-sm, .cut, .cut-sm, .engr, .engr-lt) { color: var(--ink); text-shadow: none; }
+html.qa-contrast .cut::after { content: none; }
+html.qa-contrast :is(.embossed, .embossed-sm, .emb, .emb-sm, kbd) { text-shadow: none; }
 
 /* Landing CTA buttons — a convex machined pill (shared by the home
    sections; scoped styles only add layout, never re-declare the recipe). */
@@ -1048,6 +569,10 @@ aside a.text-primary::before {
   background: var(--sink);
   box-shadow: var(--inset-sm);
 }
+/* Martian Mono is wide: a long name (`runtimeConfig.public.backend.authRoute`)
+   is wider than a phone's column, so inline code may break anywhere rather
+   than push the page sideways. */
+:where(p, li, td, th, dd) > code { overflow-wrap: anywhere; }
 kbd { box-shadow: var(--elev-0); text-shadow: var(--emboss-sm); }
 
 /* ── nuxt-backend components: depth-palette bridge ──────────────────────────
