@@ -55,18 +55,14 @@ vi.mock('../../src/runtime/vue/composables/use-billing', () => ({ useBilling: ()
 vi.mock('../../src/runtime/vue/composables/use-features', () => ({ useFeatures: () => features }))
 vi.mock('../../src/runtime/vue/composables/use-organization', () => ({ useOrganization: () => organization }))
 
-const sessionRows = ref<Array<{ token: string, userAgent?: string, createdAt: string }> | undefined>(undefined)
+// A live query in the real composable: the rows are there as soon as it is created.
 const sessions = {
-  sessions: sessionRows,
-  current: computed(() => sessionRows.value?.[0]),
+  sessions: ref([
+    { id: 'sentinel-session-id-1', userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36', createdAt: Date.parse('2026-09-01T00:00:00.000Z'), current: true },
+    { id: 'sentinel-session-id-2', userAgent: null, createdAt: Date.parse('2026-09-02T00:00:00.000Z'), current: false },
+  ]),
   isLoading: ref(false),
   error: ref<string | null>(null),
-  refresh: vi.fn(async () => {
-    sessionRows.value = [
-      { token: 'sentinel-session-token-1', userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36', createdAt: '2026-09-01T00:00:00.000Z' },
-      { token: 'sentinel-session-token-2', createdAt: '2026-09-02T00:00:00.000Z' },
-    ]
-  }),
 }
 const emailStatus = ref<{ status: string } | null | undefined>(undefined)
 vi.mock('../../src/runtime/vue/composables/use-sessions', async importOriginal => ({
@@ -258,7 +254,7 @@ describe('the DevTools bridge plugin', () => {
     expect(loaded!.items[1]).toMatchObject({ current: false, createdAt: Date.parse('2026-09-02T00:00:00.000Z') })
     expect(passkeys!.items).toEqual([{ name: 'Laptop', deviceType: 'multiDevice', backedUp: true, createdAt: Date.parse('2026-09-03T00:00:00.000Z') }])
     const serialized = JSON.stringify(bridge.getSnapshot())
-    for (const secret of ['sentinel-session-token-1', 'sentinel-session-token-2', 'sentinel-passkey-id']) {
+    for (const secret of ['sentinel-session-id-1', 'sentinel-session-id-2', 'sentinel-passkey-id']) {
       expect(serialized).not.toContain(secret)
     }
   })

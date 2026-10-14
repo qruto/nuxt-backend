@@ -38,15 +38,18 @@ describe('Convex component client bridge', () => {
 
     const authApi = clientBridge.makeAuthApi({ backend: fakeAppComponent }, queryBuilder as never)
 
-    // One query per api member: getAuthUser, the authConfig diagnostics, and
-    // the workspace reads (updateProfile is a mutationGeneric, not built here).
-    expect(queryBuilder).toHaveBeenCalledTimes(4)
+    // One query per api member: getAuthUser, the authConfig diagnostics, the
+    // workspace reads and the session list (updateProfile and revokeSession
+    // are mutationGeneric, not built here).
+    expect(queryBuilder).toHaveBeenCalledTimes(5)
     expect(queryBuilder).toHaveBeenCalledWith(expect.objectContaining({ args: {} }))
     expect(authApi).toHaveProperty('getAuthUser')
     expect(authApi).toHaveProperty('authConfig')
     expect(authApi).toHaveProperty('listWorkspaces')
     expect(authApi).toHaveProperty('listWorkspaceMembers')
     expect(authApi).toHaveProperty('updateProfile')
+    expect(authApi).toHaveProperty('listSessions')
+    expect(authApi).toHaveProperty('revokeSession')
     // The diagnostics query reports the resolved invitation path for doctor.
     const config = await (authApi.authConfig as unknown as { handler: () => Promise<{ invitationPath: string | null }> }).handler()
     expect(config).toEqual({ invitationPath: '/accept-invitation' })

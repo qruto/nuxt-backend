@@ -53,7 +53,7 @@ SaaS pages use redirect checkout (`billing.checkout(id, { redirect: true })`) �
 4. **Top-up packs** → balance += pack units.
 5. **Switch plan** (`changePlan`, no checkout) → old plan's monthly grant revoked, new granted (e.g. 148−50+200=298).
 6. **Change email** (profile, to another sandbox identity) → confirm link to OLD address, verify link to NEW address (read both on the Email page's sandbox inbox) → updated + verified. A non-sandbox address is refused. Covers `changeEmail` + `verify` templates.
-7. **Security page** → sessions list (current marked), passkey list/add/rename/remove.
+7. **Security page** → sessions list (current marked), passkey list/add/rename/remove. Sign in on a second browser, revoke it from the first → its row drops off live and the second browser is signed out. The list must also load for a session over a day old (Better Auth's `/list-sessions` refuses those with `SESSION_NOT_FRESH`; ours reads the session table).
 8. **Email outcomes** (platform/email) → bounced flips status; **complained is a flag on top of `delivered`** (shown as a warn pill), events may arrive out of order.
 9. **Cancel** → `cancelAtPeriodEnd` warning. **Delete account** → confirmation link → user row gone (`npx convex data user --component backend`).
 10. **Workspaces** (settings) → create auto-activates → billing shows Free/0 for the new workspace; switch back → plan/credits return. Billing entity = active workspace (`billTo: 'organization'`).

@@ -20,7 +20,7 @@ export interface SecuritySlotContext {
   signOut: () => Promise<void>
 }
 
-function formatDate(value: string | Date): string {
+function formatDate(value: string | number | Date): string {
   return new Date(value).toLocaleString()
 }
 
@@ -51,7 +51,7 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
     'verification-sent': () => true,
     'passkey-added': () => true,
     'passkey-removed': (_id: string) => true,
-    'session-revoked': (_token: string) => true,
+    'session-revoked': (_id: string) => true,
     'sessions-revoked': () => true,
     'delete-requested': () => true,
     'signed-out': () => true,
@@ -124,9 +124,9 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
       editing.value = null
     })
 
-    const revokeSession = (row: SessionInfo) => run(`session:${row.token}`, async () => {
-      await sessions.revoke(row.token)
-      emit('session-revoked', row.token)
+    const revokeSession = (row: SessionInfo) => run(`session:${row.id}`, async () => {
+      await sessions.revoke(row.id)
+      emit('session-revoked', row.id)
     })
 
     const revokeOthers = () => run('sessions:others', async () => {
@@ -242,8 +242,8 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
     const sessionRow = (row: SessionInfo): VNodeChild => {
       const ctx = { ...context(), entry: row }
       if (slots.session) return slots.session(ctx)
-      const isCurrent = row.token === sessions.current.value?.token
-      return h('li', { 'data-security': 'session', 'data-current': isCurrent || undefined, 'key': row.token }, [
+      const isCurrent = row.current
+      return h('li', { 'data-security': 'session', 'data-current': isCurrent || undefined, 'key': row.id }, [
         h('span', { 'data-security': 'session-name' }, describeUserAgent(row.userAgent)),
         h('span', { 'data-security': 'session-meta' }, formatDate(row.createdAt)),
         isCurrent
@@ -251,7 +251,7 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
           : h('button', {
               'data-security': 'revoke',
               'type': 'button',
-              'disabled': pending.value === `session:${row.token}`,
+              'disabled': pending.value === `session:${row.id}`,
               'onClick': () => revokeSession(row),
             }, labels.revoke ?? 'Revoke'),
       ])

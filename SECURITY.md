@@ -230,5 +230,12 @@ what was decided:
   module's, registered under the neutral name: server-side on direct loads, fails closed without
   a request event. The built-in `/accept-invitation` page sits behind it, so an invitation link
   cannot be accepted by a visitor who is not signed in. **No change.**
+- **Device sessions** (`auth:listSessions`, `auth:revokeSession`; 2026-10-14). The list and the
+  revoke work from the Convex identity, so a session of any age can manage the others. Better
+  Auth's `/list-sessions` refused any session over a day old, which broke `/security`. Rows carry
+  ids, never tokens. A revoke resolves the id among the caller's own sessions only, and then
+  runs through Better Auth's `/revoke-session`, whose ownership check, database hooks and
+  secondary storage apply. Agent tokens carry no session, so they read `null` and cannot revoke.
+  **Fixed.** Pinned by `test/convex-component/sessions.test.ts`.
 - **DevTools** (2026-09-17). The Backend tab and its RPC run only under `nuxt dev`, on Vite's
   middleware — reachable exactly as far as Nuxt DevTools itself. **Accepted.**

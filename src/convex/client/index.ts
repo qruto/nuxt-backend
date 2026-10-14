@@ -4,8 +4,8 @@ import { passkey } from '@better-auth/passkey'
 import { APIError, createAuthMiddleware, getSessionFromCtx } from 'better-auth/api'
 import { betterAuth, type BetterAuthOptions } from 'better-auth/minimal'
 import { admin, emailOTP, jwt, mcp, organization } from 'better-auth/plugins'
-import { mutationGeneric, type AnyComponents, type AuthConfig, type FunctionReference, type GenericActionCtx, type GenericDataModel, type GenericMutationCtx, type GenericSchema, type QueryBuilder, type SchemaDefinition } from 'convex/server'
-import { v } from 'convex/values'
+import { mutationGeneric, type AnyComponents, type AuthConfig, type FunctionReference, type GenericActionCtx, type GenericDataModel, type GenericMutationCtx, type GenericQueryCtx, type GenericSchema, type QueryBuilder, type SchemaDefinition } from 'convex/server'
+import { ConvexError, v } from 'convex/values'
 import authConfig from '../auth.config.js'
 import { BACKEND_MCP_SCOPES, DEFAULT_AUTH_ROUTE, DEFAULT_INVITATION_PATH, DEFAULT_LOGIN_PATH } from '../constants.js'
 import { authSchema } from '../components/backend/schema.js'
@@ -1284,6 +1284,7 @@ type AdapterFindOneRef = FunctionReference<'query', 'internal', { model: string,
 type AdapterFindManyRef = FunctionReference<'query', 'internal', {
   model: string
   where?: AdapterWhere
+  sortBy?: { field: string, direction: 'asc' | 'desc' }
   paginationOpts: { numItems: number, cursor: string | null }
 }, { page: unknown[], isDone: boolean, continueCursor: string }>
 type AdapterUpdateOneRef = FunctionReference<'mutation', 'internal', {
@@ -1307,6 +1308,61 @@ function componentAdapterRefs(components: AuthSetupComponents): AdapterRefs {
 
 /** More memberships than any real account holds; a bound, not pagination. */
 const WORKSPACE_PAGE_SIZE = 100
+
+/** More device sessions than any real account holds; a bound, not pagination. */
+const SESSION_PAGE_SIZE = 100
+
+/** A session row as the component stores it. */
+interface SessionRow {
+  _id: string
+  token: string
+  userId: string
+  userAgent?: string | null
+  createdAt: number
+  updatedAt: number
+  expiresAt: number
+  impersonatedBy?: string | null
+}
+
+/** One of the caller's device sessions, as `listSessions` returns it. */
+export interface DeviceSession {
+  id: string
+  userAgent: string | null
+  createdAt: number
+  updatedAt: number
+  /** Epoch ms; a session past it no longer signs anyone in. */
+  expiresAt: number
+  /** Whether this is the session the caller is signed in with. */
+  current: boolean
+}
+
+/**
+ * The Better Auth session behind a Convex identity. Session JWTs carry it as
+ * `sessionId`; agent tokens from the MCP exchange carry none.
+ */
+function identitySessionId(identity: unknown): string | null {
+  const sessionId = (identity as { sessionId?: unknown } | null)?.sessionId
+  return typeof sessionId === 'string' ? sessionId : null
+}
+
+/**
+ * A user's sessions, latest expiry first, without the ones an admin opened by
+ * impersonating them (Better Auth's /list-sessions hides those too). Expired
+ * rows are left in: a query must not read the clock, so callers drop them.
+ */
+async function userSessions(
+  ctx: Pick<GenericQueryCtx<GenericDataModel>, 'runQuery'>,
+  adapter: AdapterRefs,
+  userId: string,
+): Promise<SessionRow[]> {
+  const result = await ctx.runQuery(adapter.findMany, {
+    model: 'session',
+    where: [{ field: 'userId', value: userId }],
+    sortBy: { field: 'expiresAt', direction: 'desc' },
+    paginationOpts: { numItems: SESSION_PAGE_SIZE, cursor: null },
+  })
+  return (result.page as SessionRow[]).filter(row => !row.impersonatedBy)
+}
 
 /**
  * Ready-made app query wrappers for re-exporting component functionality.
@@ -1445,12 +1501,59 @@ export function makeAuthApi<
     },
   })
 
+  // The caller's device sessions, read from the session table the way
+  // upstream's `safeGetAuthUser` reads it. Better Auth's /list-sessions is no
+  // use here: it refuses any session older than `freshAge` (a day by default),
+  // so a settings page would break for everyone signed in since yesterday.
+  // Rows carry ids, never tokens. `null` for signed-out callers and for agent
+  // tokens, which belong to no session.
+  const listSessions = queryBuilder({
+    args: {},
+    handler: async (ctx): Promise<DeviceSession[] | null> => {
+      const identity = await ctx.auth.getUserIdentity()
+      const sessionId = identitySessionId(identity)
+      if (!identity || !sessionId) return null
+      const rows = await userSessions(ctx, adapter, identity.subject)
+      return rows.map(row => ({
+        id: row._id,
+        userAgent: row.userAgent ?? null,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        expiresAt: row.expiresAt,
+        current: row._id === sessionId,
+      }))
+    },
+  })
+
+  // Sign one of the caller's sessions out, by id. The id is looked up among
+  // the caller's own sessions, then Better Auth's /revoke-session does the
+  // rest with headers built from the caller's session (`getAuth`), so its
+  // ownership check, database hooks and secondary storage all apply. The
+  // token never reaches the browser.
+  const revokeSession = mutationGeneric({
+    args: { sessionId: v.string() },
+    handler: async (ctx, { sessionId }) => {
+      const identity = await ctx.auth.getUserIdentity()
+      if (!identity || !identitySessionId(identity)) throw new ConvexError('Sign in to manage your sessions.')
+      const target = (await userSessions(ctx, adapter, identity.subject)).find(row => row._id === sessionId)
+      if (!target) throw new ConvexError('Session not found.')
+      const { auth, headers } = await authComponent.getAuth(
+        (authCtx: GenericCtx<DM>) => createAuth<DM, Schema>(authCtx, components, options),
+        ctx as unknown as GenericCtx<DM>,
+      )
+      await auth.api.revokeSession({ body: { token: target.token }, headers })
+      return null
+    },
+  })
+
   return {
     getAuthUser,
     authConfig,
     listWorkspaces,
     listWorkspaceMembers,
     updateProfile,
+    listSessions,
+    revokeSession,
   }
 }
 
@@ -1480,7 +1583,7 @@ export function setupAuth<
   options?: SetupAuthOptions<DM, Schema>,
 ) {
   const authComponent = createAuthComponent<DM, Schema>(components.backend, options)
-  const { getAuthUser, authConfig, listWorkspaces, listWorkspaceMembers, updateProfile } = makeAuthApi(components, queryBuilder, options)
+  const { getAuthUser, authConfig, listWorkspaces, listWorkspaceMembers, updateProfile, listSessions, revokeSession } = makeAuthApi(components, queryBuilder, options)
 
   const resolvedIntegrations = resolveIntegrations(components, options?.integrations)
 
@@ -1537,6 +1640,8 @@ export function setupAuth<
     listWorkspaces,
     listWorkspaceMembers,
     updateProfile,
+    listSessions,
+    revokeSession,
     mcp: mcpExchange,
   }
 }

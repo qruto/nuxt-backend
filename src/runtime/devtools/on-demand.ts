@@ -18,7 +18,7 @@ function toMs(value: string | Date | number | undefined): number | undefined {
  * received gifts, and one email's delivery status. Each composable is created
  * the first time it is asked for (inside the app context `run` provides) and
  * mirrored into the bridge from then on. Only what the panel shows is copied:
- * a session's token and a passkey's credential stay in the app.
+ * a passkey's credential stays in the app.
  */
 export function createOnDemandSections(run: <T>(fn: () => T) => T, patch: Patch): Omit<DevtoolsBridgeRequests, 'activate'> {
   let sessions: UseSessionsReturn | undefined
@@ -29,21 +29,19 @@ export function createOnDemandSections(run: <T>(fn: () => T) => T, patch: Patch)
 
   const loaders: Record<DevtoolsOnDemandSection, () => void> = {
     sessions() {
-      if (!sessions) {
-        const list = useSessions({ immediate: false })
-        sessions = list
-        watchEffect(() => patch('sessions', {
-          isLoading: list.isLoading.value,
-          ...(list.error.value ? { error: list.error.value } : {}),
-          items: (list.sessions.value ?? []).map(session => ({
-            device: describeUserAgent(session.userAgent),
-            current: session.token === list.current.value?.token,
-            createdAt: toMs(session.createdAt),
-          })),
-        }))
-      }
-      // A failed load is mirrored into `error`, which the watcher above copies.
-      sessions.refresh().catch(() => {})
+      // A live query: created once, it keeps the panel current on its own.
+      if (sessions) return
+      const list = useSessions()
+      sessions = list
+      watchEffect(() => patch('sessions', {
+        isLoading: list.isLoading.value,
+        ...(list.error.value ? { error: list.error.value } : {}),
+        items: (list.sessions.value ?? []).map(session => ({
+          device: describeUserAgent(session.userAgent),
+          current: session.current,
+          createdAt: toMs(session.createdAt),
+        })),
+      }))
     },
     passkeys() {
       if (!passkeys) {
