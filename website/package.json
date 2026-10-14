@@ -14,7 +14,7 @@
     "@convex-dev/polar": "^0.9.2",
     "@convex-dev/rate-limiter": "^0.4.2",
     "@convex-dev/workflow": "^0.4.10",
-    "@nuxt/content": "^3.16.1",
+    "@nuxt/content": "^3.16.2",
     "@nuxt/fonts": "^0.14.0",
     "convex": "^1.46.0",
     "docus": "^5.14.0",
