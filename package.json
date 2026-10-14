@@ -353,7 +353,7 @@
     "@convex-dev/eslint-plugin": "^5.0.0",
     "@edge-runtime/vm": "^5.0.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "@nuxt/devtools": "^3.4.2",
+    "@nuxt/devtools": "^3.4.3",
     "@nuxt/devtools-kit": "^3.4.2",
     "@nuxt/eslint-config": "^1.17.0",
     "@nuxt/module-builder": "^1.0.3",
