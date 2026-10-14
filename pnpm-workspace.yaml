@@ -14,7 +14,7 @@ packages:
 # Reference with `"nuxt": "catalog:"` in package.json so the root module and the
 # website can never drift onto different Nuxt majors. https://pnpm.io/catalogs
 catalog:
-  nuxt: ^4.5.2
+  nuxt: ^4.6.1
 
 # --- Node module layout ------------------------------------------------------
 # Deviation from nuxt-convex-module (which runs pnpm's default isolated linker):
@@ -86,6 +86,42 @@ trustPolicyExclude:
   # semver 7.x was already publishing with provenance via CI by then. Pulled in
   # by @babel/core and two @babel/helper-* packages, which pin semver ^6.
   - semver@6.3.1
+  # The cssnano 9 family, which Nuxt 4.6 pulls in through @nuxt/vite-builder.
+  # An earlier cssnano release went out as a staged publish, which
+  # `no-downgrade` ranks above the trusted-publisher provenance these carry. Each
+  # entry pins the exact version the lockfile resolves, so a new release is
+  # checked again rather than waved through. Remove the block once cssnano
+  # publishes staged again (`npm view cssnano dist.attestations`) or Nuxt
+  # moves off cssnano 9; `pnpm install` names any entry still needed.
+  - cssnano-preset-default@9.8.0
+  - cssnano-utils@9.0.0
+  - cssnano@9.4.0
+  - postcss-colormin@9.0.8
+  - postcss-convert-values@9.1.0
+  - postcss-discard-comments@9.0.8
+  - postcss-discard-duplicates@9.0.7
+  - postcss-discard-empty@9.0.8
+  - postcss-discard-overridden@9.0.6
+  - postcss-merge-longhand@9.4.0
+  - postcss-merge-rules@9.1.5
+  - postcss-minify-font-values@9.0.9
+  - postcss-minify-gradients@9.0.8
+  - postcss-minify-params@9.1.0
+  - postcss-minify-selectors@9.0.8
+  - postcss-normalize-charset@9.0.6
+  - postcss-normalize-display-values@9.0.7
+  - postcss-normalize-positions@9.0.8
+  - postcss-normalize-repeat-style@9.0.7
+  - postcss-normalize-string@9.0.7
+  - postcss-normalize-timing-functions@9.0.7
+  - postcss-normalize-unicode@9.1.1
+  - postcss-normalize-url@10.0.0
+  - postcss-normalize-whitespace@9.0.8
+  - postcss-ordered-values@9.0.9
+  - postcss-reduce-initial@9.0.7
+  - postcss-reduce-transforms@9.0.6
+  - postcss-unique-selectors@9.0.6
+  - stylehacks@9.0.8
 
 # --- Security overrides ------------------------------------------------------
 # Pin transitive deps whose parents still request vulnerable ranges. Each entry

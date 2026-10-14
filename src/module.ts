@@ -191,7 +191,7 @@ export default defineNuxtModule<ModuleOptions>({
       // nuxt-security that was never installed. First in the list, so it is
       // set up before the base module looks for it. `security: false` in
       // nuxt.config still disables it outright (nuxt-security's own switch).
-      ...(nuxt.options.security === false ? {} : { 'nuxt-security': { version: dependencyRange('nuxt-security') } }),
+      ...(securityDisabled(nuxt) ? {} : { 'nuxt-security': { version: dependencyRange('nuxt-security') } }),
       'nuxt-convex-module': {
         version: dependencyRange('nuxt-convex-module'),
         defaults: {
@@ -337,6 +337,15 @@ export default defineNuxtModule<ModuleOptions>({
   },
 })
 
+/**
+ * Whether the app set `security: false` (nuxt-security's own switch). Nuxt 4.6
+ * types the resolved option as the module's options object, but the value is
+ * still whatever nuxt.config wrote.
+ */
+function securityDisabled(nuxt: Nuxt): boolean {
+  return (nuxt.options.security as unknown) === false
+}
+
 /** Whether the Nuxt DevTools UI itself is enabled for this app. */
 function isDevtoolsUiEnabled(nuxt: Nuxt): boolean {
   const devtools = nuxt.options.devtools as boolean | { enabled?: boolean } | undefined
@@ -428,7 +437,7 @@ function registerMcp(options: ModuleOptions, resolver: Resolver, nuxt: Nuxt): vo
   // (xssValidator), and take over CORS on the discovery documents — the MCP
   // surface has its own guards (OAuth + the deployment's `mcp` limit). Inert
   // when nuxt-security isn't installed.
-  const routeRules = (nuxt.options.nitro.routeRules ??= {})
+  const routeRules = (nuxt.options.routeRules ??= {})
   const relax = { security: { rateLimiter: false as const, xssValidator: false as const, corsHandler: false as const } }
   for (const route of [mcp.route, `${mcp.route}/**`]) {
     routeRules[route] = defu(routeRules[route], relax)
