@@ -331,9 +331,9 @@ async function copySnippet() {
         Connectors. Any client that speaks streamable HTTP with OAuth 2.1 and
         dynamic registration works — the walkthrough, the tunnel local dev
         needs, and what a stubborn 401 means are in
-        <NuxtLink to="/agents/connect-a-client">Connect a client</NuxtLink>;
+        <NuxtLink to="/docs/agents/mcp/connect-a-client">Connect a client</NuxtLink>;
         the flow itself is in
-        <NuxtLink to="/agents/oauth-and-consent">OAuth &amp; consent</NuxtLink>.
+        <NuxtLink to="/docs/agents/mcp/oauth-and-consent">OAuth &amp; consent</NuxtLink>.
       </p>
     </LabPanel>
   </div>

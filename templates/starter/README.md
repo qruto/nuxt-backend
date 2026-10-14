@@ -7,7 +7,12 @@ own. Every file in `backend/` is what `npx nuxt-backend init` generates, so the 
 backend code yet.
 
 Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) and the
-[nuxt-backend documentation](https://nuxt-backend.dev/getting-started/introduction) to learn more.
+[nuxt-backend documentation](https://nuxt-backend.dev/docs/start) to learn more.
+
+> [!NOTE]
+> Until `0.2.0` is published, `nuxt-backend: latest` installs `0.1.0`, a throwaway test
+> publish. Install the [preview build of `main`](https://nuxt-backend.dev/docs/start/templates#preview-builds-pkgprnew)
+> over it: `npm install https://pkg.pr.new/qruto/nuxt-backend@main`.
 
 ## Setup
 
@@ -116,5 +121,5 @@ it, in one command on your host (with a production `CONVEX_DEPLOY_KEY` in its en
 npx convex deploy --cmd 'npm run build' --cmd-url-env-var-name NUXT_PUBLIC_BACKEND_URL
 ```
 
-See [Deployment](https://nuxt-backend.dev/production/deployment) for the production env vars, and
+See [Deployment](https://nuxt-backend.dev/docs/ship/deploy) for the production env vars, and
 the [Nuxt deployment documentation](https://nuxt.com/docs/getting-started/deployment) for hosts.

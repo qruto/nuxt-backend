@@ -23,7 +23,7 @@ It even ships the pages: `/login`, `/pricing`, `/settings`, `/profile`, `/securi
 - a **Nuxt module** — the SaaS composables, scaffolding, env preflight, and `#backend/*` aliases; and
 - a **Convex backend** — a scaffolded `convex.config.ts` that mounts the package's all-in-one `backend` component (auth tables + adapter, email with the provider component nested inside, the billing entitlement cache, and gifts) plus the upstream Polar, rate limiter, workflow, migrations, aggregate, and persistent-text-streaming components, with a `nuxt-backend/*` setup helper for each.
 
-The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR, auth plumbing, DevTools, Convex-aware CSP) comes from [`nuxt-convex-module`](https://github.com/qruto/nuxt-convex-module) — installed and configured automatically. Use that package directly if you only want Convex bindings without the SaaS layer. [Ecosystem](https://nuxt-backend.dev/getting-started/ecosystem) says which other Nuxt modules and Convex components ship with the package, work beside it, or are planned.
+The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR, auth plumbing, DevTools, Convex-aware CSP) comes from [`nuxt-convex-module`](https://github.com/qruto/nuxt-convex-module) — installed and configured automatically. Use that package directly if you only want Convex bindings without the SaaS layer. [Ecosystem](https://nuxt-backend.dev/docs/reference/ecosystem) says which other Nuxt modules and Convex components ship with the package, work beside it, or are planned.
 
 > 📖 **Full documentation:** **[nuxt-backend.dev](https://nuxt-backend.dev)** (docs · playground) covers installation, every composable, the bundled backend components, and the complete API reference.
 
@@ -50,7 +50,7 @@ pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/templates/starter
 npm create nuxt@latest my-app -- -t gh:qruto/nuxt-backend/templates/starter
 ```
 
-> Until `0.2.0` is published, the template's `nuxt-backend: latest` installs `0.1.0`, a throwaway test publish. Install a [preview build](https://nuxt-backend.dev/getting-started/templates#preview-builds-pkgprnew) over it in the meantime.
+> Until `0.2.0` is published, the template's `nuxt-backend: latest` installs `0.1.0`, a throwaway test publish. Install the [preview build](https://nuxt-backend.dev/docs/start/templates#preview-builds-pkgprnew) of `main` over it in the meantime: `npm install https://pkg.pr.new/qruto/nuxt-backend@main`.
 
 Adding it to an existing app:
 
@@ -63,7 +63,7 @@ npm install convex
 
 Two packages: `nuxt-backend` brings the Convex integration and every bundled component as its own dependencies; `convex` is its peer and the CLI you run (`npx convex dev` only runs when the app itself declares it — `npx nuxt-backend init` adds the line if it is missing).
 
-> Using **strict** pnpm? Add `publicHoistPattern: ['@convex-dev/*']` to `pnpm-workspace.yaml` (or set `nodeLinker: hoisted`) so Convex can resolve the bundled component definitions. See the [installation docs](https://nuxt-backend.dev/getting-started/installation#using-strict-pnpm).
+> Using **strict** pnpm? Add `publicHoistPattern: ['@convex-dev/*']` to `pnpm-workspace.yaml` (or set `nodeLinker: hoisted`) so Convex can resolve the bundled component definitions. See the [installation docs](https://nuxt-backend.dev/docs/start/installation#using-strict-pnpm).
 
 ### 2. Add the module
 
@@ -195,19 +195,22 @@ The scaffolded `backend/` files compose the backend from `nuxt-backend/*`:
 
 Everything is on [nuxt-backend.dev](https://nuxt-backend.dev) — the site (docs · playground) is the [`website/`](./website) app of this repository, and `pnpm dev` at the root serves it.
 
-| Section | What's inside |
+| Tab | What's inside |
 |---|---|
-| [Getting Started](https://nuxt-backend.dev/getting-started/introduction) | Introduction, quickstart, installation, configuration, architecture, templates & examples |
-| [Client Guide](https://nuxt-backend.dev/guide/authentication) | Auth, queries & mutations, server & SSR, file storage, aliases, customization |
-| [Platform](https://nuxt-backend.dev/platform/overview) | Auth, workspaces, authorization, billing & credits, AI, email, webhooks, workflows, rate limiting, migrations, aggregates, search |
-| [Agents](https://nuxt-backend.dev/agents/mcp-server) | The OAuth-protected MCP endpoint, built-in and custom tools, consent, connecting a client, the agent skill and agent files |
-| [API Reference](https://nuxt-backend.dev/api-reference/composables) | Composables, server utilities, client, entrypoints, module options |
-| [Developer Experience](https://nuxt-backend.dev/tooling/cli) | CLI, DevTools, testing, local installation, linting |
-| [Production](https://nuxt-backend.dev/production/deployment) | Deployment, launch checklist, security, troubleshooting |
+| [Start](https://nuxt-backend.dev/docs/start) | Introduction, quickstart, installation, templates, how it works, DevTools |
+| [Auth](https://nuxt-backend.dev/docs/auth) | Auth setup, sign-in, roles and permissions, workspaces and invitations |
+| [Billing](https://nuxt-backend.dev/docs/billing) | Catalog as code, subscriptions, feature gating, prepaid credits, gifts |
+| [Email](https://nuxt-backend.dev/docs/email) | Sending, templates, delivery tracking |
+| [AI](https://nuxt-backend.dev/docs/ai) | Metered actions, streaming |
+| [Agents](https://nuxt-backend.dev/docs/agents) | The OAuth-protected MCP endpoint, built-in and custom tools, consent, connecting a client, the agent skill |
+| [Data](https://nuxt-backend.dev/docs/data) | Queries and mutations, server rendering, search, aggregates, files, workflows, migrations |
+| [UI](https://nuxt-backend.dev/docs/ui) | The packaged pages and the customization ladder |
+| [Ship](https://nuxt-backend.dev/docs/ship) | Testing, deployment, the launch checklist, security, rate limits, webhooks, troubleshooting |
+| [Reference](https://nuxt-backend.dev/docs/reference) | Configuration, the Nuxt app, entrypoints, the CLI, the generated API reference |
 
 ## Templates & examples
 
-Each one is created with `create nuxt` (`pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/<path>`) and runs against a Convex deployment of your own — see [Templates & Examples](https://nuxt-backend.dev/getting-started/templates).
+Each one is created with `create nuxt` (`pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/<path>`) and runs against a Convex deployment of your own — see [Templates & Examples](https://nuxt-backend.dev/docs/start/templates).
 
 - [`templates/starter`](./templates/starter) — the app to build on: the exact `nuxt-backend init` scaffold, zero custom backend code: passwordless auth, workspace invitations, billing, credits, and gifts out of the box
 - [`examples/playground`](./examples/playground) — the [live playground](https://nuxt-backend.dev/playground) as an app of your own: 33 pages exercising the client, the packaged pages, auth, workspaces, billing, credits, AI, email, webhooks, workflows and agents against your deployment

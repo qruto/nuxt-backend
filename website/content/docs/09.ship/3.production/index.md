@@ -1,5 +1,5 @@
 ---
-title: Checklist
+title: Prepare for launch
 description: What `doctor --prod` fails on and what it can't see — the pre-launch list for auth, email, billing, webhooks, SITE_URL, and the agent surface.
 navigation:
   icon: i-lucide-list-checks

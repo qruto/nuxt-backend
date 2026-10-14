@@ -205,7 +205,7 @@ The `<PricingTable>` component behind the `/pricing` page renders the plan catal
 | `BILLING_WEBHOOK_SECRET` | Verifies webhooks on `/billing/events` — unset, events are rejected (503) and entitlements refresh only on demand |
 | `BILLING_ENVIRONMENT` | `sandbox` (the default) or `production` |
 
-All three are optional at deploy time and forwarded from `.env.local` by `npx nuxt-backend env push`; see the [configuration reference](/docs/reference/configuration#convex-deployment-variables).
+All three are optional at deploy time and forwarded from `.env.local` by `npx nuxt-backend env push`; see the [configuration reference](/docs/reference/configuration/environment-variables#convex-deployment-variables).
 
 ::playground-link{to="/playground/platform/billing" label="billing"}
 ::

@@ -3,7 +3,7 @@
 # because a website changed, not because someone's branch did.
 
 # External links only. Links inside the docs are Nuxt Content routes, not paths
-# on disk — `/guide/queries` is `website/content/2.guide/1.queries.md` once Docus
+# on disk — `/docs/data/search` is `website/content/docs/07.data/5.search.md` once Docus
 # strips the ordering prefixes — so lychee cannot judge them, and the docs build
 # already fails on a broken one.
 #

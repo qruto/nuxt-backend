@@ -185,36 +185,29 @@ export const DOCS_REDIRECTS: DocsRedirect[] = [
   { from: '/backend', to: '/docs/auth/setup' },
   { from: '/api-reference/theming', to: '/docs/ui/customize', pending: 'D3c (one task per page)' },
   { from: '/getting-started/examples-and-templates', to: '/docs/start/templates' },
-  { from: '/agents', to: '/docs/agents/mcp', pending: 'D3 (landings)' },
-  { from: '/api-reference', to: '/docs/reference/nuxt/composables', pending: 'D3 (landings)' },
+  { from: '/agents', to: '/docs/agents' },
+  { from: '/api-reference', to: '/docs/reference' },
   { from: '/getting-started', to: '/docs/start' },
-  { from: '/guide', to: '/docs/auth/sign-in', pending: 'D3 (landings)' },
+  { from: '/guide', to: '/docs/data' },
   { from: '/platform', to: '/docs/start/concepts/how-it-works' },
-  { from: '/platform/ai', to: '/docs/ai/metered-actions', pending: 'D3 (landings)' },
-  { from: '/platform/auth', to: '/docs/auth/setup', pending: 'D3 (landings)' },
-  { from: '/platform/billing', to: '/docs/billing/subscriptions', pending: 'D3 (landings)' },
-  { from: '/platform/email', to: '/docs/email/sending', pending: 'D3 (landings)' },
-  { from: '/production', to: '/docs/ship/deploy', pending: 'D3 (landings)' },
-  { from: '/tooling', to: '/docs/reference/cli', pending: 'D3 (landings)' },
+  { from: '/platform/ai', to: '/docs/ai' },
+  { from: '/platform/auth', to: '/docs/auth' },
+  { from: '/platform/billing', to: '/docs/billing' },
+  { from: '/platform/email', to: '/docs/email' },
+  { from: '/production', to: '/docs/ship' },
+  { from: '/tooling', to: '/docs/start/develop/devtools', pending: 'a landing page of its own' },
 
   // Folder routes under /docs, until each gets its landing.
   { from: '/docs', to: '/docs/start' },
-  { from: '/docs/agents', to: '/docs/agents/mcp', pending: 'D3 (landings)' },
-  { from: '/docs/ai', to: '/docs/ai/metered-actions', pending: 'D3 (landings)' },
-  { from: '/docs/auth', to: '/docs/auth/setup', pending: 'D3 (landings)' },
-  { from: '/docs/auth/access', to: '/docs/auth/access/roles', pending: 'D3 (landings)' },
-  { from: '/docs/billing', to: '/docs/billing/catalog', pending: 'D3 (landings)' },
-  { from: '/docs/data', to: '/docs/data/queries-and-mutations', pending: 'D3 (landings)' },
-  { from: '/docs/data/jobs', to: '/docs/data/jobs/workflows', pending: 'D3 (landings)' },
-  { from: '/docs/email', to: '/docs/email/sending', pending: 'D3 (landings)' },
-  { from: '/docs/reference', to: '/docs/reference/ecosystem', pending: 'D3 (landings)' },
-  { from: '/docs/reference/nuxt', to: '/docs/reference/nuxt/composables', pending: 'D3 (landings)' },
-  { from: '/docs/ship', to: '/docs/ship/test', pending: 'D3 (landings)' },
-  { from: '/docs/ship/migrate', to: '/docs/ship/migrate/local-installation', pending: 'D3 (landings)' },
-  { from: '/docs/ship/operate', to: '/docs/ship/operate/troubleshooting', pending: 'D3 (landings)' },
-  { from: '/docs/start/concepts', to: '/docs/start/concepts/how-it-works', pending: 'D3 (landings)' },
-  { from: '/docs/start/develop', to: '/docs/start/develop/devtools', pending: 'D3 (landings)' },
-  { from: '/docs/ui', to: '/docs/ui/pages', pending: 'D3 (landings)' },
+  { from: '/docs/auth/access', to: '/docs/auth/access/roles', pending: 'a landing page of its own' },
+  { from: '/docs/data/jobs', to: '/docs/data/jobs/workflows', pending: 'a landing page of its own' },
+  { from: '/docs/reference/backend', to: '/docs/reference/backend/component', pending: 'a landing page of its own' },
+  { from: '/docs/reference/nuxt', to: '/docs/reference/nuxt/composables', pending: 'a landing page of its own' },
+  { from: '/docs/ship/migrate', to: '/docs/ship/migrate/upgrade', pending: 'a landing page of its own' },
+  { from: '/docs/ship/operate', to: '/docs/ship/operate/troubleshooting', pending: 'a landing page of its own' },
+  { from: '/docs/ship/releases', to: '/docs/ship/releases/changelog', pending: 'a landing page of its own' },
+  { from: '/docs/start/concepts', to: '/docs/start/concepts/how-it-works', pending: 'a landing page of its own' },
+  { from: '/docs/start/develop', to: '/docs/start/develop/devtools', pending: 'a landing page of its own' },
 
   // The generated reference.
   { from: OLD_REFERENCE, to: REFERENCE_ROUTE },
@@ -241,6 +234,10 @@ export const DOCS_ALIASES: Record<string, string> = {
   '/docs/testing': '/docs/ship/test',
   '/docs/deploy': '/docs/ship/deploy',
   '/docs/api': REFERENCE_ROUTE,
+  '/docs/upgrade': '/docs/ship/migrate/upgrade',
+  '/docs/changelog': '/docs/ship/releases/changelog',
+  '/changelog': '/docs/ship/releases/changelog',
+  '/docs/stability': '/docs/ship/releases/stability',
 }
 
 /**
@@ -257,9 +254,18 @@ export const DOCS_SHORT_LINKS: Array<{ from: string, to: string, pending: string
  * Old anchors whose section moved to another page, keyed by the page the old
  * route now redirects to: `<page>#<old anchor>` → `<new page>#<anchor>`.
  * A redirect keeps the fragment, so the moved page loads with the old anchor
- * and the client plugin finishes the trip. Splitting pages (D3c) fills it.
+ * and the client plugin finishes the trip.
  */
-export const DOCS_FRAGMENT_MOVES: Record<string, string> = {}
+export const DOCS_FRAGMENT_MOVES: Record<string, string> = {
+  // Configuration became an orientation page: its sections have pages of their own.
+  '/docs/reference/configuration#module-options': '/docs/reference/configuration/module-options#options',
+  '/docs/reference/configuration#runtime-config': '/docs/reference/configuration/module-options#runtime-config',
+  '/docs/reference/configuration#environment-variables': '/docs/reference/configuration/environment-variables',
+  '/docs/reference/configuration#app-variables': '/docs/reference/configuration/environment-variables#app-variables',
+  '/docs/reference/configuration#convex-deployment-variables': '/docs/reference/configuration/environment-variables#convex-deployment-variables',
+  '/docs/reference/configuration#setting-them': '/docs/reference/configuration/environment-variables#setting-them',
+  '/docs/reference/configuration#changing-the-auth-route': '/docs/auth/setup#auth-route-and-options',
+}
 
 type RedirectRule = { redirect: { to: string, statusCode: 301 | 302 } }
 

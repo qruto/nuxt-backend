@@ -20,16 +20,15 @@ const prose = [at('README.md'), ...handWritten]
 describe('module options', () => {
   const keys = interfaceKeys(at('src/module.ts'), 'ModuleOptions')
   const reference = read(contentFile('/docs/reference/configuration/module-options'))
-  const configuration = read(contentFile('/docs/reference/configuration'))
 
   it('reads the interface', () => {
     expect(keys).toContain('workspaces')
     expect(keys.length).toBeGreaterThan(8)
   })
 
-  it.each(keys)('`%s` is in the API reference, the configuration page and STABILITY.md', (key) => {
-    expect(documentedKeys(reference, 'interface ModuleOptions {'), `5.module-options.md's interface block lacks ${key}`).toContain(key)
-    expect(documentedKeys(configuration, '## Module options'), `4.configuration.md's field group lacks ${key}`).toContain(key)
+  it.each(keys)('`%s` is in the module options page (fields and interface) and STABILITY.md', (key) => {
+    expect(documentedKeys(reference, 'interface ModuleOptions {'), `the module options interface block lacks ${key}`).toContain(key)
+    expect(documentedKeys(reference, '## Options'), `the module options field group lacks ${key}`).toContain(key)
     expect(STABILITY, `STABILITY.md's configuration surface lacks \`${key}\``).toContain(`\`${key}\``)
   })
 })

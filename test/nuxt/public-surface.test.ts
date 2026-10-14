@@ -509,6 +509,8 @@ describe('the surface as documented', () => {
     let mentions = 0
     for (const file of files) {
       for (const [, raw] of readFileSync(file, 'utf8').matchAll(/['"`]nuxt-backend\/([^'"`\s]+)['"`]/g)) {
+        // A placeholder (`nuxt-backend/<subpath>`) names no subpath.
+        if (raw!.includes('<')) continue
         for (const subpath of expandSubpath(raw!)) {
           mentions++
           if (!isPublished(subpath)) unpublished.push(`${relative(root, file)}: nuxt-backend/${subpath}`)

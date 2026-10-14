@@ -3,8 +3,8 @@
 // match the live playground byte for byte; this config is one of the few that
 // are written for the example (see README.md).
 
-// Docs pages the playground links to live on the docs site.
-const DOCS_SECTIONS = ['getting-started', 'guide', 'platform', 'agents', 'tooling', 'production', 'api-reference']
+// Docs pages the playground links to live on the docs site, all under /docs.
+const DOCS_SECTIONS = ['docs']
 
 export default defineNuxtConfig({
   modules: ['nuxt-backend'],
