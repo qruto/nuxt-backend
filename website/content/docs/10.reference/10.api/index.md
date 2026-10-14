@@ -31,6 +31,7 @@ navigation:
 | [nuxt-backend/search](/docs/reference/api/search) | - |
 | [nuxt-backend/workflows](/docs/reference/api/workflows) | - |
 | [nuxt-backend](/docs/reference/api/module) | - |
+| [useAgentConsent](/docs/reference/api/use-agent-consent) | - |
 | [useAggregate · useCount](/docs/reference/api/use-aggregate) | - |
 | [useAiStream](/docs/reference/api/use-ai-stream) | - |
 | [useAuth](/docs/reference/api/use-auth) | - |

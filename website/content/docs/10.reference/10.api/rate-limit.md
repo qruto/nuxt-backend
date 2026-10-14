@@ -140,6 +140,11 @@ const DEFAULT_LIMITS: {
      rate: 200;
      period: number;
   };
+  agentRegistrationGlobal: {
+     kind: "fixed window";
+     rate: 100;
+     period: number;
+  };
 };
 ```
 
@@ -227,6 +232,10 @@ count per identity and are enforced before the route runs.
 | `invitationGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `invitationGlobal.rate` | `200` | `200` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `invitationGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-agentregistrationglobal"></a> `agentRegistrationGlobal` | \{ `kind`: `"fixed window"`; `rate`: `100`; `period`: `number`; \} | - | Agent client registrations across the whole deployment — 100 per hour, a fixed window. Registration is anonymous by design (OAuth dynamic client registration), so there is no caller to key on: this ceiling bounds how fast anyone can fill the client table. An agent registers once per install, so a real launch stays far below it. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `agentRegistrationGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `agentRegistrationGlobal.rate` | `100` | `100` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `agentRegistrationGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 
 ## Functions
 
@@ -283,6 +292,11 @@ function setupRateLimiter<Limits>(components, limits?): RateLimiter<{
   invitationGlobal: {
      kind: "fixed window";
      rate: 200;
+     period: number;
+  };
+  agentRegistrationGlobal: {
+     kind: "fixed window";
+     rate: 100;
      period: number;
   };
 } & Limits>;
@@ -359,6 +373,11 @@ named limits to cover your own application functions; they are merged with
   `invitationGlobal`: \{
      `kind`: `"fixed window"`;
      `rate`: `200`;
+     `period`: `number`;
+  \};
+  `agentRegistrationGlobal`: \{
+     `kind`: `"fixed window"`;
+     `rate`: `100`;
      `period`: `number`;
   \};
 \} & `Limits`\>

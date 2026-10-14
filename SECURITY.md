@@ -246,5 +246,15 @@ what was decided:
   (`admin.action`, plain text only), and the welcome step sends plain text, so a display name
   is never markup. **Fixed.** Pinned by `test/unit/scaffold-relay.test.ts`, which fails when a
   function a browser can call takes a recipient, commented examples included.
+- **Agent authorization** (`/mcp/authorize`, `/mcp/token`, `/oauth2/consent`, `/mcp/register`;
+  2026-10-14). An anonymously registered client received an authorization code at once: the
+  provider skipped consent unless the agent itself asked for it, did not require PKCE, and its
+  token endpoint would trade a code still waiting for consent. Every authorization now stops at
+  the consent page (`prompt=consent` forced on the request), PKCE is required, `/mcp/token`
+  refuses an unconsented code, `/oauth2/consent` answers only the account the request was made
+  for and refuses approval while impersonating, and registration has a deployment-wide ceiling.
+  The consent page reads the request from the server, keeps the code out of its URL, cannot be
+  framed, and opens no callback with a script-capable scheme (registration already refuses one). **Fixed.** Pinned by `test/unit/agent-consent-flow.test.ts`, which runs the real
+  provider on Better Auth's memory adapter.
 - **DevTools** (2026-09-17). The Backend tab and its RPC run only under `nuxt dev`, on Vite's
   middleware — reachable exactly as far as Nuxt DevTools itself. **Accepted.**

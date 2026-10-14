@@ -1,4 +1,4 @@
-import { DEFAULT_INVITATION_PATH, DEFAULT_LOGIN_PATH, DEFAULT_PRICING_PATH, DEFAULT_PROFILE_PATH, DEFAULT_SECURITY_PATH, DEFAULT_SETTINGS_PATH } from './convex/constants'
+import { DEFAULT_AGENT_CONSENT_PATH, DEFAULT_INVITATION_PATH, DEFAULT_LOGIN_PATH, DEFAULT_PRICING_PATH, DEFAULT_PROFILE_PATH, DEFAULT_SECURITY_PATH, DEFAULT_SETTINGS_PATH } from './convex/constants'
 
 /**
  * Ready-made pages the module mounts by default. Each key is `true` (mount at
@@ -19,6 +19,8 @@ export interface ModulePagesOptions {
   security?: boolean | string
   /** Invitation accept page (auth). Default path `/accept-invitation` — keep in sync with the Convex-side `organization.invitationPath`. */
   acceptInvitation?: boolean | string
+  /** Where a person approves or denies an agent's request for access (auth). Default path `/oauth/consent` — keep in sync with the Convex-side `mcp.consentPath`. */
+  agentConsent?: boolean | string
 }
 
 export type BackendPageKey = keyof ModulePagesOptions
@@ -39,6 +41,7 @@ export const BACKEND_PAGE_DEFS: readonly BackendPageDef[] = [
   { key: 'profile', defaultPath: DEFAULT_PROFILE_PATH, file: 'profile', auth: true },
   { key: 'security', defaultPath: DEFAULT_SECURITY_PATH, file: 'security', auth: true },
   { key: 'acceptInvitation', defaultPath: DEFAULT_INVITATION_PATH, file: 'accept-invitation', auth: true },
+  { key: 'agentConsent', defaultPath: DEFAULT_AGENT_CONSENT_PATH, file: 'agent-consent', auth: true },
 ]
 
 /**

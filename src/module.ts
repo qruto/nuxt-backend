@@ -6,7 +6,7 @@ import { detectAgent } from 'std-env'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
 import { dependencyRange, moduleDir, packageVersion } from './dirs'
 import { backendAppConfigDefaults, type BackendAppConfigInput } from './runtime/config'
-import { BACKEND_MCP_SCOPES, DEFAULT_MCP_EXCHANGE_PATH } from './convex/constants'
+import { BACKEND_MCP_SCOPES, DEFAULT_AUTH_ROUTE, DEFAULT_MCP_EXCHANGE_PATH } from './convex/constants'
 import { deriveDeploymentUrls, resolveSiteUrl, isDevDeploymentId } from './deployment'
 import { isEnvProvisioned, markEnvProvisioned, provisionedEnvNames, readEnvFiles, runEnvPush } from './env-push'
 import { scaffoldBackendFiles, appComponentIsStarter } from './scaffold'
@@ -477,6 +477,7 @@ function registerModulePages(options: ModuleOptions, resolver: Resolver, nuxt: N
   runtimeConfig.public.backend = {
     ...(runtimeConfig.public.backend as Record<string, unknown> | undefined),
     pages: resolved,
+    authRoute: options.authRoute ?? DEFAULT_AUTH_ROUTE,
   }
 
   if (options.pages === false) return info
@@ -489,6 +490,23 @@ function registerModulePages(options: ModuleOptions, resolver: Resolver, nuxt: N
   // path gets them too, and a rule the app sets for that path wins key by key.
   for (const path of privatePagePaths(options.pages)) {
     extendRouteRules(path, { robots: false, sitemap: false } as Parameters<typeof extendRouteRules>[1])
+  }
+  // The consent page decides what an agent may do as this person: no page may
+  // frame it (a clickjacked "Approve"), and nothing it loads learns its URL.
+  // Plain headers for apps without nuxt-security, the same values through
+  // nuxt-security's per-route config for apps with it (it sets these headers
+  // itself, so a plain header alone would be overwritten).
+  if (resolved.agentConsent) {
+    extendRouteRules(resolved.agentConsent, {
+      headers: { 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY' },
+      security: {
+        headers: {
+          referrerPolicy: 'no-referrer',
+          xFrameOptions: 'DENY',
+          contentSecurityPolicy: { 'frame-ancestors': '\'none\'' },
+        },
+      },
+    } as Parameters<typeof extendRouteRules>[1])
   }
 
   extendPages((pages) => {
@@ -552,6 +570,11 @@ function registerSaasComposables(resolver: Resolver): void {
     filePath: resolver.resolve('./runtime/vue/components/accept-invitation'),
   })
   addComponent({
+    name: 'AgentConsent',
+    export: 'AgentConsent',
+    filePath: resolver.resolve('./runtime/vue/components/agent-consent'),
+  })
+  addComponent({
     name: 'GiftClaimBanner',
     export: 'GiftClaimBanner',
     filePath: resolver.resolve('./runtime/vue/components/gift-claim-banner'),
@@ -609,6 +632,7 @@ function registerSaasComposables(resolver: Resolver): void {
     { name: 'useGifts', from: resolver.resolve('./runtime/vue/composables/use-gifts') },
     { name: 'usePasskeys', from: resolver.resolve('./runtime/vue/composables/use-passkeys') },
     { name: 'useSessions', from: resolver.resolve('./runtime/vue/composables/use-sessions') },
+    { name: 'useAgentConsent', from: resolver.resolve('./runtime/vue/composables/use-agent-consent') },
     { name: 'describeUserAgent', from: resolver.resolve('./runtime/vue/composables/use-sessions') },
     { name: 'unwrapAuth', from: resolver.resolve('./runtime/vue/utils/auth-result') },
     { name: 'useBackendConfig', from: resolver.resolve('./runtime/vue/composables/use-backend-config') },
@@ -754,6 +778,8 @@ declare module '@nuxt/schema' {
   interface PublicRuntimeConfig {
     backend: {
       pages: Record<BackendPageKey, string>
+      /** The same-origin auth proxy route (`backend.authRoute`). */
+      authRoute: string
     }
   }
 }

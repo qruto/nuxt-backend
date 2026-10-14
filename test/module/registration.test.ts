@@ -55,6 +55,7 @@ const COMPONENT_NAMES = [
   'OrganizationBoundary',
   'FeatureBoundary',
   'AcceptInvitation',
+  'AgentConsent',
   'GiftClaimBanner',
   'PricingTable',
   'BillingHistory',
@@ -82,6 +83,7 @@ const COMPOSABLE_NAMES = [
   'useGifts',
   'usePasskeys',
   'useSessions',
+  'useAgentConsent',
   'describeUserAgent',
   'unwrapAuth',
   'useBackendConfig',
@@ -98,6 +100,7 @@ const DEFAULT_PAGES = [
   { name: 'backend-profile', path: '/profile', file: 'vue/pages/profile', meta: { middleware: 'auth' } },
   { name: 'backend-security', path: '/security', file: 'vue/pages/security', meta: { middleware: 'auth' } },
   { name: 'backend-accept-invitation', path: '/accept-invitation', file: 'vue/pages/accept-invitation', meta: { middleware: 'auth' } },
+  { name: 'backend-agent-consent', path: '/oauth/consent', file: 'vue/pages/agent-consent', meta: { middleware: 'auth' } },
 ].map(page => ({ ...page, file: join(runtimeDir, page.file) }))
 
 const MCP_RELAXATION = { security: { rateLimiter: false, xssValidator: false, corsHandler: false } }
@@ -268,7 +271,9 @@ describe('module registration (defaults)', () => {
         profile: '/profile',
         security: '/security',
         acceptInvitation: '/accept-invitation',
+        agentConsent: '/oauth/consent',
       },
+      authRoute: '/api/auth',
     })
     expect(runtimeConfig.backendMcp).toEqual({
       route: '/mcp',
@@ -401,7 +406,7 @@ describe('module registration (defaults)', () => {
     expect(existsWithExtension(backendAuth!.from), backendAuth!.from).toBe(true)
   })
 
-  it('mounts the six pages, the private ones behind the auth middleware', async () => {
+  it('mounts the seven pages, the private ones behind the auth middleware', async () => {
     const nuxt = getNuxt()
     // No `pages/` dir in the fixture: the module's pages alone switch routing on.
     expect(pagesEnabled(nuxt)).toBe(true)
@@ -445,13 +450,21 @@ describe('private pages stay out of search indexes and sitemaps', () => {
   describe('with the defaults', () => {
     const getNuxt = useBoot()
 
-    it('marks the four private pages, and neither public one', () => {
+    it('marks the five private pages, and neither public one', () => {
       const routeRules = getNuxt().options.routeRules ?? {}
       for (const path of ['/settings', '/profile', '/security', '/accept-invitation']) {
         expect(routeRules[path], path).toEqual(noindex)
       }
+      expect(routeRules['/oauth/consent']).toMatchObject(noindex)
       expect(routeRules['/login']).toBeUndefined()
       expect(routeRules['/pricing']).toBeUndefined()
+    })
+
+    it('keeps the consent page out of frames and its URL out of referrers, with or without nuxt-security', () => {
+      expect(getNuxt().options.routeRules?.['/oauth/consent']).toMatchObject({
+        headers: { 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY' },
+        security: { headers: { referrerPolicy: 'no-referrer', xFrameOptions: 'DENY', contentSecurityPolicy: { 'frame-ancestors': '\'none\'' } } },
+      })
     })
   })
 
@@ -477,7 +490,8 @@ describe('pages: false', () => {
   it('publishes every page path as empty and mounts nothing', async () => {
     const nuxt = getNuxt()
     expect(nuxt.options.runtimeConfig.public.backend).toEqual({
-      pages: { login: '', pricing: '', settings: '', profile: '', security: '', acceptInvitation: '' },
+      pages: { login: '', pricing: '', settings: '', profile: '', security: '', acceptInvitation: '', agentConsent: '' },
+      authRoute: '/api/auth',
     })
     expect(await extendPages(nuxt)).toEqual([])
     expect(nuxt.options.routeRules?.['/settings']).toBeUndefined()
@@ -501,7 +515,7 @@ describe('loginPath with a disabled login page and a custom pricing path', () =>
     const nuxt = getNuxt()
     expect(nuxt.options.runtimeConfig.public.backend).toMatchObject({ pages: { login: '', pricing: '/plans' } })
     const pages = await extendPages(nuxt)
-    expect(pages.map(page => page.path)).toEqual(['/plans', '/settings', '/profile', '/security', '/accept-invitation'])
+    expect(pages.map(page => page.path)).toEqual(['/plans', '/settings', '/profile', '/security', '/accept-invitation', '/oauth/consent'])
     expect(pages.find(page => page.path === '/plans')).toMatchObject({ name: 'backend-pricing', file: join(runtimeDir, 'vue/pages/pricing') })
   })
 })

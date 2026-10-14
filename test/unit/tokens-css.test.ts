@@ -79,6 +79,7 @@ describe('component tokens', () => {
     for (const root of [
       '[data-auth=\'form\']',
       '[data-invitation]',
+      '[data-consent]',
       '[data-gift=\'banner\']',
       '[data-credits=\'banner\']',
       '[data-history=\'root\']',
@@ -100,6 +101,21 @@ describe('component tokens', () => {
     // flex-direction: column) stacks the words of a message one per line.
     for (const [name, css] of stylesheets) {
       expect(css.match(/^\[data-[a-z]+\]\s*[,{]/m), name).toBeNull()
+    }
+  })
+
+  it('gives every component family the shared tokens', () => {
+    // Each family has a stylesheet named after it (consent.css styles
+    // [data-consent]) that reads --bk-* from the family root. A root missing
+    // from the token layer renders with undefined tokens: no accent, no
+    // focus ring.
+    const families = stylesheets
+      .map(([name]) => name.replace(/\.css$/, ''))
+      .filter(name => !['tokens', 'ui'].includes(name))
+    expect(families.length).toBeGreaterThan(8)
+    for (const family of families) {
+      expect(stylesheets.find(([name]) => name === `${family}.css`)![1], family).toContain(`[data-${family}`)
+      expect(tokens, family).toContain(`[data-${family}`)
     }
   })
 })

@@ -28,17 +28,17 @@ Anything tagged `@internal` in the source is stripped from the published declara
 
 ### 2. Configuration names
 
-- `ModuleOptions` (`backend` in `nuxt.config`): `url`, `siteUrl`, `authRoute`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools` — and the page keys under `pages`: `login`, `pricing`, `settings`, `profile`, `security`, `acceptInvitation`
+- `ModuleOptions` (`backend` in `nuxt.config`): `url`, `siteUrl`, `authRoute`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools` — and the page keys under `pages`: `login`, `pricing`, `settings`, `profile`, `security`, `acceptInvitation`, `agentConsent`
 - `appConfig.backend` — the content layer: `billing.plans`, `billing.packs`, `billing.lowCreditsThreshold`, `brand.name`, `brand.logo`, `labels.auth`, `labels.pricing`, `labels.settings`, `labels.profile`, `labels.security`, `labels.history`, `labels.usage`, `labels.credits`
-- `runtimeConfig.public.backend` — `pages`, the resolved mount path per page key (`''` when disabled)
+- `runtimeConfig.public.backend` — `pages`, the resolved mount path per page key (`''` when disabled), and `authRoute`, the same-origin auth route
 - the `#backend/*` aliases: `#backend`, `#backend/api`, `#backend/server`, `#backend/dataModel`, `#backend/_generated`
 
 ### 3. The auto-import and component registry
 
 The names the module registers, exactly as `src/module.ts` installs them:
 
-- **Composables** — `useAuth`, `useAuthState`, `useConnectionState`, `useLoginFlow`, `useOrganization`, `useSearch`, `useAggregate`, `useCount`, `useBilling`, `useFeatures`, `useCredits`, `useOrders`, `useUsage`, `useGifts`, `usePasskeys`, `useSessions`, `describeUserAgent`, `unwrapAuth`, `useBackendConfig`, `useEmailStatus`, `useSandboxInbox`, `useWorkflowStatus`, `useAiStream`
-- **Components** — `AuthForm`, `RoleBoundary`, `OrganizationBoundary`, `FeatureBoundary`, `AcceptInvitation`, `GiftClaimBanner`, `PricingTable`, `BillingHistory`, `UsageHistory`, `CreditsLowBanner`, `WorkspaceSettings`, `ProfileSettings`, `SecuritySettings`, and `BillingCheckoutLink` / `BillingPortalLink` — the neutral names of the base module's `CheckoutLink` / `CustomerPortalLink`, which stay registered too
+- **Composables** — `useAuth`, `useAuthState`, `useConnectionState`, `useLoginFlow`, `useOrganization`, `useSearch`, `useAggregate`, `useCount`, `useBilling`, `useFeatures`, `useCredits`, `useOrders`, `useUsage`, `useGifts`, `usePasskeys`, `useSessions`, `useAgentConsent`, `describeUserAgent`, `unwrapAuth`, `useBackendConfig`, `useEmailStatus`, `useSandboxInbox`, `useWorkflowStatus`, `useAiStream`
+- **Components** — `AuthForm`, `RoleBoundary`, `OrganizationBoundary`, `FeatureBoundary`, `AcceptInvitation`, `AgentConsent`, `GiftClaimBanner`, `PricingTable`, `BillingHistory`, `UsageHistory`, `CreditsLowBanner`, `WorkspaceSettings`, `ProfileSettings`, `SecuritySettings`, and `BillingCheckoutLink` / `BillingPortalLink` — the neutral names of the base module's `CheckoutLink` / `CustomerPortalLink`, which stay registered too
 - **Server (Nitro) imports** — `backendAuth`, `useBackendMcp`, `defineBackendMcpTool`
 - **Route middleware** — `auth` (`definePageMeta({ middleware: 'auth' })`): the neutral name for the base module's guard, which it registers as `convex-auth`; both stay registered and point at the same file
 

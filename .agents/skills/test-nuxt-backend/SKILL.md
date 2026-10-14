@@ -96,6 +96,7 @@ The live playground runs on the production deployment `determined-horse-300`, de
 - **Webhooks**: `/playground/platform/webhooks` — send a test email, expect an `email.delivered` row in the unified feed (billing rows come from checkout flows). The feed is for signed-in visitors, and its rows name ids, never addresses.
 - **Gifts**: `/playground/platform/credits` — the "Received gifts" panel lists and manually claims (`useGifts({ autoClaim: false })`).
 - **Server guards**: `/playground/platform/authorization` — the four guard buttons show real allow/deny per role; the admin panel bans/unbans (admin role required).
+- **Agent consent**: connect a client (`claude mcp add --transport http …/mcp`, or the MCP Inspector from the DevTools Agents page) — it must land on `/oauth/consent` after sign-in, never straight back to the agent. The page names the agent (marked Unverified), the redirect host and every scope; Approve completes the connection; Deny returns `access_denied` to the agent. Edit the `consent_code` in the address bar to another value: the page says the request expired. Signed in as an admin impersonating someone, Approve is refused.
 - **Auth rate limits**: `/playground/platform/rate-limit` — the `emailOtp` meter drains when requesting codes from `/login` in a second tab.
 - **Portal**: `/playground/platform/billing` — "Open portal (composable)" redirects a subscriber to the customer portal.
 - **Branded OTP**: request a sign-in code and assert the subject contains "nuxt-backend playground" (custom template from `backend/auth.ts`).

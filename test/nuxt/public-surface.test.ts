@@ -429,9 +429,9 @@ describe('@internal', () => {
 // installs (STABILITY.md surface 3), frozen the same way as the export names.
 
 const REGISTRY = {
-  composables: ['useAuth', 'useAuthState', 'useConnectionState', 'useLoginFlow', 'useOrganization', 'useSearch', 'useAggregate', 'useCount', 'useBilling', 'useFeatures', 'useCredits', 'useOrders', 'useUsage', 'useGifts', 'usePasskeys', 'useSessions', 'describeUserAgent', 'unwrapAuth', 'useBackendConfig', 'useEmailStatus', 'useSandboxInbox', 'useWorkflowStatus', 'useAiStream'],
+  composables: ['useAuth', 'useAuthState', 'useConnectionState', 'useLoginFlow', 'useOrganization', 'useSearch', 'useAggregate', 'useCount', 'useBilling', 'useFeatures', 'useCredits', 'useOrders', 'useUsage', 'useGifts', 'usePasskeys', 'useSessions', 'useAgentConsent', 'describeUserAgent', 'unwrapAuth', 'useBackendConfig', 'useEmailStatus', 'useSandboxInbox', 'useWorkflowStatus', 'useAiStream'],
   // The last two alias the base module's `CheckoutLink` / `CustomerPortalLink`.
-  components: ['AuthForm', 'RoleBoundary', 'OrganizationBoundary', 'FeatureBoundary', 'AcceptInvitation', 'GiftClaimBanner', 'PricingTable', 'BillingHistory', 'UsageHistory', 'CreditsLowBanner', 'WorkspaceSettings', 'ProfileSettings', 'SecuritySettings', 'BillingCheckoutLink', 'BillingPortalLink'],
+  components: ['AuthForm', 'RoleBoundary', 'OrganizationBoundary', 'FeatureBoundary', 'AcceptInvitation', 'AgentConsent', 'GiftClaimBanner', 'PricingTable', 'BillingHistory', 'UsageHistory', 'CreditsLowBanner', 'WorkspaceSettings', 'ProfileSettings', 'SecuritySettings', 'BillingCheckoutLink', 'BillingPortalLink'],
   server: ['backendAuth', 'useBackendMcp', 'defineBackendMcpTool'],
   // Route middleware: the neutral name over the base module's guard file.
   middleware: ['auth'],

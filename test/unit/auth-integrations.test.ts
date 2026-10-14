@@ -831,6 +831,16 @@ describe('privileged route rate limits', () => {
     expect(limit).not.toHaveBeenCalled()
   })
 
+  it('bounds anonymous agent registration by the deployment ceiling alone, with no session lookup', async () => {
+    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: false, retryAfter: 120_000 }))
+    const ctx = mutationCtx()
+    const guard = routeGuard({ ctx, rateLimiter: { limit } })
+
+    await expect(guard({ path: '/mcp/register', context: {} }))
+      .rejects.toEqual(new APIError('TOO_MANY_REQUESTS', { message: 'Too many agents are registering right now. Please try again later.', retryAfter: 120_000 }))
+    expect(limit.mock.calls).toEqual([[ctx, 'agentRegistrationGlobal']])
+  })
+
   it('does nothing when the deployment configured no rate limiter', async () => {
     await expect(routeGuard({ ctx: mutationCtx() })(admin)).resolves.toBeUndefined()
   })

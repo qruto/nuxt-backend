@@ -50,9 +50,9 @@ describe('Convex component client bridge', () => {
     expect(authApi).toHaveProperty('updateProfile')
     expect(authApi).toHaveProperty('listSessions')
     expect(authApi).toHaveProperty('revokeSession')
-    // The diagnostics query reports the resolved invitation path for doctor.
-    const config = await (authApi.authConfig as unknown as { handler: () => Promise<{ invitationPath: string | null }> }).handler()
-    expect(config).toEqual({ invitationPath: '/accept-invitation' })
+    // The diagnostics query reports the resolved paths for doctor to compare.
+    const config = await (authApi.authConfig as unknown as { handler: () => Promise<Record<string, string>> }).handler()
+    expect(config).toEqual({ invitationPath: '/accept-invitation', agentLoginPath: '/login', agentConsentPath: '/oauth/consent' })
   })
 
   it('keeps setupAuth as the convenience composition of the client patterns', () => {
@@ -102,6 +102,21 @@ describe('admin + organization defaults', () => {
       expect(oidcConfig?.scopes).toContain(scope)
       expect(oidcConfig?.metadata?.scopes_supported).toContain(scope)
     }
+  })
+
+  it('requires PKCE and names the login and consent pages, defaults or given paths', () => {
+    const oidcConfigOf = (options: ReturnType<typeof clientBridge.createBetterAuthOptions>) => ((options.plugins ?? [])
+      .find(plugin => plugin.id === 'mcp') as unknown as { options?: { loginPage?: string, oidcConfig?: Record<string, unknown> } }).options
+    const defaults = oidcConfigOf(clientBridge.createBetterAuthOptions({} as never))
+    expect(defaults).toMatchObject({ loginPage: '/login', oidcConfig: { requirePKCE: true, consentPage: '/oauth/consent' } })
+
+    const moved = oidcConfigOf(clientBridge.createBetterAuthOptions({} as never, { mcp: { loginPath: '/sign-in', consentPath: '/agents/approve' } }))
+    expect(moved).toMatchObject({ loginPage: '/sign-in', oidcConfig: { consentPage: '/agents/approve' } })
+  })
+
+  it('wraps the provider in the consent plugin, after it', () => {
+    const ids = pluginIds(clientBridge.createBetterAuthOptions({} as never))
+    expect(ids.indexOf('agent-consent')).toBeGreaterThan(ids.indexOf('mcp'))
   })
 
   it('dedupes against a consumer-supplied plugin of the same id', async () => {

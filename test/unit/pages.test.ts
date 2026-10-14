@@ -31,6 +31,7 @@ describe('resolvedBackendPages', () => {
       profile: '',
       security: '/security',
       acceptInvitation: '/accept-invitation',
+      agentConsent: '/oauth/consent',
     })
     expect(Object.keys(resolved)).toHaveLength(BACKEND_PAGE_DEFS.length)
   })
@@ -42,8 +43,8 @@ describe('resolvedBackendPages', () => {
 
 describe('privatePagePaths', () => {
   it('lists the enabled pages behind the auth middleware, at their resolved paths', () => {
-    expect(privatePagePaths(undefined)).toEqual(['/settings', '/profile', '/security', '/accept-invitation'])
-    expect(privatePagePaths({ profile: '/me/', security: false })).toEqual(['/settings', '/me', '/accept-invitation'])
+    expect(privatePagePaths(undefined)).toEqual(['/settings', '/profile', '/security', '/accept-invitation', '/oauth/consent'])
+    expect(privatePagePaths({ profile: '/me/', security: false })).toEqual(['/settings', '/me', '/accept-invitation', '/oauth/consent'])
   })
 
   it('never lists the public pages, and nothing when pages are off', () => {

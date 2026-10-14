@@ -172,6 +172,26 @@ describe('AuthForm', () => {
     await vi.waitFor(() => expect(wrapper.emitted('success')).toHaveLength(1))
   })
 
+  it('resumes an agent\'s paused authorization instead of emitting success', async () => {
+    const assign = vi.fn()
+    vi.stubGlobal('location', { ...window.location, search: '?client_id=agent-1&response_type=code&state=s', assign })
+    try {
+      const wrapper = mount(AuthForm, { props: { passkeys: false } })
+      await wrapper.find('[data-auth="otp-start"]').trigger('click')
+      await wrapper.find('[data-auth="input-email"]').setValue('ada@example.com')
+      await wrapper.find('[data-auth="step-request-code"]').trigger('submit')
+      await vi.waitFor(() => expect(wrapper.find('[data-auth="step-verify-code"]').exists()).toBe(true))
+      await wrapper.find('[data-auth="input-otp"]').setValue('123456')
+      await wrapper.find('[data-auth="step-verify-code"]').trigger('submit')
+
+      await vi.waitFor(() => expect(assign).toHaveBeenCalledWith('/api/auth/mcp/authorize?client_id=agent-1&response_type=code&state=s'))
+      expect(wrapper.emitted('success')).toBeUndefined()
+    }
+    finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('slot overrides receive the flow object', async () => {
     const wrapper = mount(AuthForm, {
       slots: {

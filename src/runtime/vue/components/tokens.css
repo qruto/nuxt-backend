@@ -12,6 +12,7 @@
   [data-auth='form'],
   [data-auth='page'],
   [data-invitation],
+  [data-consent],
   [data-gift='banner'],
   [data-credits='banner'],
   [data-history='root'],
@@ -55,7 +56,7 @@
 
 /* ── Shared element defaults across all families ─────────────────────────── */
 
-:where([data-pricing='table'], [data-settings='root'], [data-profile='root'], [data-security='root'], [data-invitation], [data-gift='banner'], [data-history='root'], [data-usage='root'], [data-credits='banner']) :where(button) {
+:where([data-pricing='table'], [data-settings='root'], [data-profile='root'], [data-security='root'], [data-invitation], [data-consent], [data-gift='banner'], [data-history='root'], [data-usage='root'], [data-credits='banner']) :where(button) {
   padding: 0.55rem 0.9rem;
   border: 1px solid var(--bk-edge);
   border-radius: var(--bk-radius);
@@ -66,7 +67,7 @@
   cursor: pointer;
 }
 
-:where([data-pricing='table'], [data-settings='root'], [data-profile='root'], [data-security='root'], [data-invitation], [data-gift='banner'], [data-history='root'], [data-usage='root'], [data-credits='banner']) :where(button:disabled) {
+:where([data-pricing='table'], [data-settings='root'], [data-profile='root'], [data-security='root'], [data-invitation], [data-consent], [data-gift='banner'], [data-history='root'], [data-usage='root'], [data-credits='banner']) :where(button:disabled) {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -92,6 +93,7 @@
   [data-auth='form'],
   [data-auth='page'],
   [data-invitation],
+  [data-consent],
   [data-gift='banner'],
   [data-credits='banner'],
   [data-history='root'],
@@ -137,7 +139,7 @@
 
 /* ── Default page headings (module-mounted routes) ───────────────────────── */
 
-:where([data-settings='title'], [data-profile='title'], [data-security='title'], [data-invitation='title'], [data-pricing='page'] [data-pricing='header']) {
+:where([data-settings='title'], [data-profile='title'], [data-security='title'], [data-invitation='title'], [data-consent='title'], [data-pricing='page'] [data-pricing='header']) {
   margin: 0 0 1.5rem;
   font-size: 1.6rem;
   letter-spacing: -0.02em;
@@ -145,7 +147,7 @@
 
 /* ── Default page wrappers (module-mounted routes) ───────────────────────── */
 
-:where([data-auth='page'], [data-pricing='page'], [data-settings='page'], [data-profile='page'], [data-security='page'], [data-invitation='page']) {
+:where([data-auth='page'], [data-pricing='page'], [data-settings='page'], [data-profile='page'], [data-security='page'], [data-invitation='page'], [data-consent='page']) {
   display: block;
   max-width: 52rem;
   margin: 0 auto;

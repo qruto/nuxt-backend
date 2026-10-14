@@ -14,7 +14,7 @@ import { deploymentEnvNames, deploymentFlags, isDevDeployment, readEnvFiles } fr
 import { collectPreflightFindings, DEV_ONLY_DEPLOYMENT_ENV, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from './preflight'
 import { resolveFunctionsDir } from './scaffold'
 import { missingContractFunctions } from './contract'
-import { resolvePagePath, type ModulePagesOptions } from './pages'
+import { resolvePagePath, type BackendPageKey, type ModulePagesOptions } from './pages'
 import type { BillingCatalog } from './convex/catalog'
 import { collectBillingFindings, loadCatalog, readBillingOrganizationState } from './cli/billing'
 import { devScriptFinding } from './cli/dev'
@@ -66,16 +66,23 @@ async function readDeployment(rootDir: string, options: { prod: boolean, reachab
   return { identifiers: spec?.identifiers ?? null, authConfig, probeSiteUrl }
 }
 
+/** The page paths the deployment links to, as `auth:authConfig` reports them. */
+type DeployedAuthConfig = Partial<Record<'invitationPath' | 'agentLoginPath' | 'agentConsentPath', string>>
+
 /**
- * The deployment's view of the auth config (`auth:authConfig`): the
- * invitation path. Null when unreadable.
+ * The deployment's view of the auth config (`auth:authConfig`): the paths
+ * of the pages it sends people to. Null when unreadable.
  */
-async function deployedAuthConfig(rootDir: string, prod: boolean): Promise<{ invitationPath: string } | null> {
+async function deployedAuthConfig(rootDir: string, prod: boolean): Promise<DeployedAuthConfig | null> {
   const stdout = await convexCli(rootDir, ['run', ...deploymentFlags({ prod }), 'auth:authConfig'])
   if (stdout === null) return null
   try {
-    const { invitationPath } = JSON.parse(stdout) as { invitationPath?: unknown }
-    return typeof invitationPath === 'string' ? { invitationPath } : null
+    const parsed = JSON.parse(stdout) as Record<string, unknown>
+    const config: DeployedAuthConfig = {}
+    for (const field of ['invitationPath', 'agentLoginPath', 'agentConsentPath'] as const) {
+      if (typeof parsed[field] === 'string') config[field] = parsed[field]
+    }
+    return Object.keys(config).length > 0 ? config : null
   }
   catch {
     return null
@@ -107,38 +114,71 @@ function functionContractFindings(identifiers: ReadonlySet<string>): PreflightFi
 }
 
 /**
- * Cross-check the invitation route: the Convex-side `invitationPath` (what
- * invitation emails link to) and the Nuxt-side `pages.acceptInvitation`
- * (where the page mounts) are declared in two places only doctor can see
- * together.
+ * The pages the deployment sends people to, each declared twice: the path
+ * the Convex side links to and the page the Nuxt side mounts.
  */
-async function invitationPathFindings(rootDir: string, deployedPath: string): Promise<PreflightFinding[]> {
-  let pagesOption: ModulePagesOptions | false | undefined
+const PAGE_PATH_CHECKS = [
+  {
+    id: 'invitation-path',
+    title: 'Invitation route',
+    field: 'invitationPath',
+    page: 'acceptInvitation',
+    sender: 'Invitation emails link to',
+    agree: 'Invitation emails and the mounted page agree on',
+    broken: 'invitees get a 404',
+    fixHint: 'Align `organization.invitationPath` (backend/auth.ts) with `backend.pages.acceptInvitation` (nuxt.config).',
+  },
+  {
+    id: 'agent-login-path',
+    title: 'Agent sign-in route',
+    field: 'agentLoginPath',
+    page: 'login',
+    sender: 'An agent\'s authorization sends people to sign in at',
+    agree: 'Agent authorizations and the sign-in page agree on',
+    broken: 'nobody can authorize an agent',
+    fixHint: 'Align `mcp.loginPath` (backend/auth.ts) with `backend.pages.login` (nuxt.config).',
+  },
+  {
+    id: 'agent-consent-path',
+    title: 'Agent consent route',
+    field: 'agentConsentPath',
+    page: 'agentConsent',
+    sender: 'An agent\'s authorization asks for consent at',
+    agree: 'Agent authorizations and the consent page agree on',
+    broken: 'nobody can approve an agent',
+    fixHint: 'Align `mcp.consentPath` (backend/auth.ts) with `backend.pages.agentConsent` (nuxt.config).',
+  },
+] as const satisfies ReadonlyArray<{ field: keyof DeployedAuthConfig, page: BackendPageKey } & Record<string, string>>
+
+/**
+ * Cross-check each path the deployment links to against the page the Nuxt
+ * side mounts there — declared in two places only doctor can see together.
+ * The sign-in page falls back to `backend.loginPath` when the built-in one is
+ * off. A path the deployment does not report is not checked.
+ */
+async function pagePathFindings(rootDir: string, deployed: DeployedAuthConfig): Promise<PreflightFinding[]> {
+  let backend: { pages?: ModulePagesOptions | false, loginPath?: string } | undefined
   try {
     const { loadNuxtConfig } = await import('@nuxt/kit')
-    const config = await loadNuxtConfig({ cwd: rootDir })
-    pagesOption = (config as { backend?: { pages?: ModulePagesOptions | false } }).backend?.pages
+    backend = (await loadNuxtConfig({ cwd: rootDir }) as { backend?: typeof backend }).backend
   }
   catch {
     return []
   }
-  const nuxtPath = resolvePagePath(pagesOption, 'acceptInvitation')
-
-  return [nuxtPath === deployedPath
-    ? {
-        id: 'invitation-path',
-        title: 'Invitation route',
-        status: 'pass',
-        message: `Invitation emails and the mounted page agree on ${deployedPath}.`,
-        fixHint: '',
-      }
-    : {
-        id: 'invitation-path',
-        title: 'Invitation route',
-        status: 'fail',
-        message: `Invitation emails link to ${deployedPath}, but the page mounts at ${nuxtPath ?? 'nowhere (disabled)'} — invitees get a 404.`,
-        fixHint: 'Align `organization.invitationPath` (backend/auth.ts) with `backend.pages.acceptInvitation` (nuxt.config).',
-      }]
+  return PAGE_PATH_CHECKS.flatMap((check): PreflightFinding[] => {
+    const deployedPath = deployed[check.field]
+    if (!deployedPath) return []
+    const nuxtPath = resolvePagePath(backend?.pages, check.page) ?? (check.page === 'login' ? backend?.loginPath ?? null : null)
+    return [nuxtPath === deployedPath
+      ? { id: check.id, title: check.title, status: 'pass', message: `${check.agree} ${deployedPath}.`, fixHint: '' }
+      : {
+          id: check.id,
+          title: check.title,
+          status: 'fail',
+          message: `${check.sender} ${deployedPath}, but the page mounts at ${nuxtPath ?? 'nowhere (disabled)'} — ${check.broken}.`,
+          fixHint: check.fixHint,
+        }]
+  })
 }
 
 /**
@@ -358,7 +398,7 @@ async function deployedSurfaceFindings(rootDir: string, { prod, reachable, siteU
     findings.push(...functionContractFindings(identifiers))
   }
   if (authConfig) {
-    findings.push(...await invitationPathFindings(rootDir, authConfig.invitationPath))
+    findings.push(...await pagePathFindings(rootDir, authConfig))
   }
   return findings
 }
