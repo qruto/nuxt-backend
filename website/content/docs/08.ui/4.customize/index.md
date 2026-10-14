@@ -1,0 +1,248 @@
+---
+title: Customization
+description: The customization ladder in depth — the --bk-* token layer and data-* hooks, the appConfig.backend content layer, component slots, and route shadowing.
+navigation:
+  icon: i-lucide-palette
+---
+
+Everything the module mounts is progressively replaceable, and no rung requires ejecting: override CSS tokens, edit `appConfig.backend` content, fill a component slot, or shadow a route with your own page built on the same composables. [Default Pages](/docs/ui/pages) introduces the ladder; this page is the reference for each rung.
+
+## 1. CSS tokens
+
+Every shipped component renders semantic, class-free markup where each element carries a `data-*` attribute, and every color/radius resolves through custom properties. Styling is therefore three independent layers you can mix:
+
+1. **`--bk-*` tokens** — one override re-themes every component.
+2. **Per-family tokens** (`--auth-*`) — scope a change to one component family.
+3. **`data-*` hooks** — style the markup directly (optionally with `backend: { css: false }` to drop the neutral stylesheet entirely).
+
+### The `--bk-*` tokens
+
+Defined at zero specificity (`:where(...)`) on every component root, so any app selector wins:
+
+| Token | Role | Default |
+|---|---|---|
+| `--bk-accent` | Primary actions, links, focus | `light-dark(#136d36, #49b567)` |
+| `--bk-on-accent` | Text on accent surfaces | `light-dark(#ffffff, #06150b)` |
+| `--bk-ink` | Body text | `inherit` |
+| `--bk-muted` | Secondary text | `color-mix(currentColor 55%)` |
+| `--bk-edge` | Borders | `color-mix(currentColor 18%)` |
+| `--bk-surface` | Card backgrounds | `color-mix(currentColor 5%)` |
+| `--bk-error` | Error messages | `light-dark(#a1302d, #ee6d69)` |
+| `--bk-ok` | Success messages | `light-dark(#136d36, #49b567)` |
+| `--bk-warn` | Warnings | `light-dark(#845007, #ce9622)` |
+| `--bk-radius` | Corner radius | `8px` |
+
+The defaults carry no brand colour: green means go (the accent and the ok tone), amber warns, red is an error. Each fixed colour is a `light-dark()` pair, a darker shade for light pages and a lighter one for dark pages, so the same signal stays readable as text on either background. The derived tokens mix from `currentColor`, so they follow your text colour.
+
+The components never set `color-scheme`; your app owns it. Declare `color-scheme: light dark` (or `dark`) on the root and every pair follows the page. With no scheme declared, `light-dark()` resolves to its light value.
+
+```css
+/* app.css — every nuxt-backend surface picks this up */
+:root {
+  --brand: #6d5dfc;
+}
+
+[data-auth], [data-invitation], [data-gift], [data-pricing],
+[data-history], [data-usage], [data-credits],
+[data-settings], [data-profile], [data-security] {
+  --bk-accent: var(--brand);
+  --bk-on-accent: white;
+  --bk-radius: 10px;
+}
+```
+
+### `data-*` families
+
+| Family | Component / page | Root |
+|---|---|---|
+| `data-auth` | `<AuthForm>` + login page | `[data-auth='form']`, `[data-auth='page']` |
+| `data-invitation` | `<AcceptInvitation>` + page | state-valued root (`loading`/`ready`/…) |
+| `data-gift` | `<GiftClaimBanner>` | `[data-gift='banner']` |
+| `data-pricing` | `<PricingTable>` + page | `[data-pricing='table']` |
+| `data-history` | `<BillingHistory>` | `[data-history='root']` |
+| `data-usage` | `<UsageHistory>` | `[data-usage='root']` |
+| `data-credits` | `<CreditsLowBanner>` | `[data-credits='banner']` |
+| `data-settings` | `<WorkspaceSettings>` + page | `[data-settings='root']` |
+| `data-profile` | `<ProfileSettings>` + page | `[data-profile='root']` |
+| `data-security` | `<SecuritySettings>` + page | `[data-security='root']` |
+
+Families use prefix selectors for groups (`[data-auth^='step-']`, `[data-settings^='section-']`, `[data-auth^='input-']`) and state attributes for variants: `[data-pricing='plan'][data-current]`, `[data-current]` on sessions, `[data-editing]` on passkey rows, `[data-tone='ok'|'error'|'warn']` on messages and badges, `[data-intent='subscribe'|'upgrade'|'downgrade'|'switch'|'cancel'|'uncancel'|'sign-in']` on pricing actions (`upgrade`/`downgrade` when both prices are known, `switch` otherwise), `[data-status]` on billing-history orders (the provider's order status — `paid`, `refunded`, …).
+
+Form fields are wrapped in real labels, never placeholder-only: `[data-auth^='label-']` on the sign-in form, `[data-settings='label-create']` around the create-workspace input.
+
+Messages take their accessibility role from their tone. Errors are `role="alert"`, announced at once; success and notice messages (a settings confirmation, the low-credits banner) are `role="status"` with `aria-live="polite"`. A component that is loading or submitting carries `aria-busy="true"`. Style on `data-tone` or the element's `data-*` name, not on the role, and keep the role if you replace a message through a slot. Every button and link the components render gets a `:focus-visible` ring in `--bk-accent`.
+
+The exhaustive per-element vocabulary is the stylesheet itself — each family has one file (`auth.css`, `invitation.css`, `gift.css`, `pricing.css`, `history.css`, `usage.css`, `credits.css`, `settings.css`, `profile.css`, `security.css`) barreled, after the shared `tokens.css`, into `ui.css`.
+
+### Packaging
+
+- The module auto-adds `nuxt-backend/ui.css` — opt out with `backend: { css: false }` and style the `data-*` hooks from scratch.
+- `nuxt-backend/auth.css` remains importable alone (just the sign-in form).
+- Back-compat: `--auth-*` properties still theme `<AuthForm>` and derive from `--bk-*` (`--auth-accent: var(--bk-accent, light-dark(#136d36, #49b567))`).
+
+The playground demonstrates exactly this: the [SaaS demo pages](/playground/saas/pricing) are the packaged components under the site's own palette (one token bridge in its `app.css`), while the [Vanilla pages](/playground/vanilla/pricing) show the untouched defaults.
+
+## 2. `app.config` content
+
+Module options own *wiring* (paths, the page set, css, scaffold); `appConfig.backend` owns *content* — the plan catalog, copy, and brand. It is reactive, HMR-friendly, and typed (`AppConfigInput.backend`). Components resolve `props ?? appConfig.backend.* ?? built-in default`.
+
+```ts [app.config.ts]
+export default defineAppConfig({
+  backend: {
+    billing: {
+      // `key` matches a key of your billing catalog / products map — names and
+      // prices always resolve live from billing, so the catalog can't drift.
+      plans: [
+        { key: 'starter', credits: 50, blurb: 'For trying things out.' },
+        { key: 'pro', credits: 200, blurb: 'For products finding their feet.', features: ['premium'], highlight: true },
+      ],
+      packs: [
+        { key: 'credits100', credits: 100 },
+        { key: 'credits500', credits: 500 },
+      ],
+    },
+    brand: { name: 'Acme', logo: '/logo.svg' },
+    labels: {
+      auth: { title: 'Sign in to Acme' },
+      pricing: { subscribe: 'Get started', topUp: 'Add credits' },
+      settings: { viewPlans: 'Compare plans' },
+    },
+  },
+})
+```
+
+The full shape:
+
+::field-group
+  :::field{name="billing.plans" type="PricingPlan[]"}
+  Plan cards for `<PricingTable>`: `key` (required), `credits` (display only), `blurb`, `features` (display only — grants come from billing), `highlight`.
+  :::
+
+  :::field{name="billing.packs" type="CreditPack[]"}
+  One-time credit packs for `<PricingTable>` and `<WorkspaceSettings>`: `key`, `credits`, `blurb`.
+  :::
+
+  :::field{name="billing.lowCreditsThreshold" type="number" default="10"}
+  The balance under which `<CreditsLowBanner>` appears — one number for the whole app; the component's `threshold` prop overrides it per placement.
+  :::
+
+  :::field{name="brand.name" type="string"}
+  Product name in shipped copy: the sign-in heading becomes "Sign in to {name}" unless `labels.auth.title` sets it outright.
+  :::
+
+  :::field{name="brand.logo" type="string"}
+  Logo URL. `<AuthForm>` renders it above its heading (`[data-auth='logo']`).
+  :::
+
+  :::field{name="labels.auth" type="{ title? }"}
+  The sign-in heading, also the login page's document title.
+  :::
+
+  :::field{name="labels.pricing" type="{ title?, subscribe?, switch?, upgrade?, downgrade?, cancel?, uncancel?, trial?, current?, signIn?, topUp? }"}
+  `<PricingTable>` copy. `title` is also the shipped pricing page's heading and document title; `trial` is a template (`{count}`, `{interval}`).
+  :::
+
+  :::field{name="labels.settings" type="{ title?, create?, switch?, viewPlans?, cancel? }"}
+  `<WorkspaceSettings>` copy; `title` is the shipped settings page's heading and document title.
+  :::
+
+  :::field{name="labels.profile" type="{ title?, save?, changeEmail? }"}
+  `<ProfileSettings>` copy; `title` is the shipped profile page's heading and document title.
+  :::
+
+  :::field{name="labels.security" type="{ title?, addPasskey?, revoke?, revokeOthers?, deleteAccount?, signOut? }"}
+  `<SecuritySettings>` copy; `title` is the shipped security page's heading and document title.
+  :::
+
+  :::field{name="labels.history" type="{ title?, invoice?, empty?, loading?, newer?, older? }"}
+  `<BillingHistory>` — past charges and their invoice links.
+  :::
+
+  :::field{name="labels.usage" type="{ title?, units?, empty?, loading?, newer?, older? }"}
+  `<UsageHistory>` — metered consumption. `units` is a template (`{units}`).
+  :::
+
+  :::field{name="labels.credits" type="{ low?, topUp?, dismiss? }"}
+  `<CreditsLowBanner>`. `low` is a template (`{balance}`).
+  :::
+::
+
+The three templates' defaults: `pricing.trial` is `'{count}-{interval} free trial'`, `usage.units` is `'{units} credits'`, and `credits.low` is `'{balance} credits left.'`.
+
+Read it from your own components with the auto-imported `useBackendConfig()`.
+
+## 3. Slots
+
+Create your own page at the same route (it wins automatically — see the next rung) and keep the packaged component, replacing only the regions you care about. Every slot receives the full composable state the component runs on:
+
+```vue [app/pages/pricing.vue]
+<template>
+  <PricingTable>
+    <template #plan-action="{ plan, subscribe, pending }">
+      <MyButton :loading="pending === plan.key" @click="subscribe(plan.key)">
+        Start with {{ plan.product?.name }}
+      </MyButton>
+    </template>
+  </PricingTable>
+</template>
+```
+
+| Component | Slots |
+|---|---|
+| `<AuthForm>` | `header`, `error`, `footer`, and one per step — `choose`, `request-code`, `verify-code`, `add-passkey` — each receiving the `useLoginFlow()` object |
+| `<AcceptInvitation>` | one per state — `loading`, `ready`, `accepted`, `declined`, `missing`, `error` — each receiving `{ invitation, accept, decline, pending, error }` |
+| `<GiftClaimBanner>` | `default` (`{ gifts, claim, isClaiming }`) |
+| `<PricingTable>` | `header`, `plan`, `plan-action`, `packs`, `pack`, `portal`, `empty`, `error`, `footer` |
+| `<BillingHistory>` | `header`, `loading`, `empty`, `error`, `order`, `pager`, `footer` |
+| `<UsageHistory>` | `header`, `loading`, `empty`, `error`, `event`, `pager`, `footer` |
+| `<CreditsLowBanner>` | `default`, `message`, `action`, `dismiss` |
+| `<WorkspaceSettings>` | `workspaces`, `workspace`, `create`, `billing`, `credits`, `footer` |
+| `<ProfileSettings>` | `identity`, `name`, `email`, `footer` |
+| `<SecuritySettings>` | `verification`, `passkeys`, `passkey`, `sessions`, `session`, `danger`, `footer` |
+| `<RoleBoundary>`, `<FeatureBoundary>` | `default`, `fallback` (the check failed), `placeholder` (still loading) |
+| `<OrganizationBoundary>` | `default` (`{ workspace }`), `fallback` (no active workspace), `placeholder` (still loading) |
+
+### Props and emits
+
+Every prop is optional; the default is in parentheses. Components resolve `props ?? appConfig.backend.* ?? built-in default`.
+
+| Component | Props | Emits |
+|---|---|---|
+| `<AuthForm>` | `title` (`'Sign in'`), `passkeys` (`true`), `otp` (`true`), `requireName` (`true`), `validateEmail` | `success`, `error(message)`, `step(step)` |
+| `<AcceptInvitation>` | `invitationId` (the `?id=` query parameter), `activate` (`true`) | `accepted(invitation)`, `declined(invitation)`, `error(message)` |
+| `<GiftClaimBanner>` | `autoClaim` (`false`) | `claimed(count)`, `error(message)` |
+| `<PricingTable>` | `plans`, `packs` (`appConfig.backend.billing`), `title`, `period` (`'/mo'`), `showPacks` (`true`), `showPortal` (`true`), `redirect` (`true`) | `checkout(url)` (only with `redirect: false`), `plan-changed(key)`, `canceled`, `uncanceled`, `topped-up(key)`, `error(message)` |
+| `<BillingHistory>` | `title`, `limit` (the provider's page size), `invoices` (`true`), `redirect` (`false` — invoices open in a new tab) | `invoice(url)`, `error(message)` |
+| `<UsageHistory>` | `meter` (every metered event), `title`, `limit` (the provider's page size) | — |
+| `<CreditsLowBanner>` | `meter` (the primary meter), `threshold` (`appConfig.backend.billing.lowCreditsThreshold`), `pack` (a credit-pack key — turns the action into a top-up checkout), `dismissible` (`true`), `redirect` (`true`) | `dismissed`, `topped-up(url)`, `error(message)` |
+| `<WorkspaceSettings>` | `sections` (`['workspaces', 'billing', 'credits']`), `pricingPath` (the mounted pricing page) | `workspace-created(workspace)`, `workspace-switched(id)`, `plan-canceled`, `topped-up(key)`, `error(message)` |
+| `<ProfileSettings>` | `validateEmail`, `callbackPath` (the current path), `showIdentity` (`true`) | `name-saved(name)`, `email-change-requested(email)`, `error(message)` |
+| `<SecuritySettings>` | `sections` (`['verification', 'passkeys', 'sessions', 'danger']`), `confirm` (`window.confirm`), `callbackPath` (the current path) | `verification-sent`, `passkey-added`, `passkey-removed(id)`, `session-revoked(id)`, `sessions-revoked`, `delete-requested`, `signed-out`, `error(message)` |
+| `<RoleBoundary>` | `role` (a role or an array — any match passes), `permission` (statements such as `{ user: ['ban'] }`) | — |
+| `<OrganizationBoundary>` | — | — |
+| `<FeatureBoundary>` | `feature`, `plan` (a key or an array — any match passes) | — |
+
+## 4. Route shadowing
+
+The [`pages` module option](/docs/reference/configuration/module-options) sets the mounted paths; **an app page at the same path always wins** — the module detects it, skips its own, and logs the override, so you never fight the router:
+
+```ts [nuxt.config.ts]
+export default defineNuxtConfig({
+  modules: ['nuxt-backend'],
+  backend: {
+    pages: {
+      pricing: '/plans',   // custom path
+      profile: false,      // bring your own
+    },
+    // With `pages.login` disabled, tell the `auth` middleware where to send
+    // signed-out visitors instead of the built-in page:
+    // loginPath: '/auth/sign-in',
+  },
+})
+```
+
+The resolved path per page key is published to `runtimeConfig.public.backend.pages` (`''` when disabled) — that is how the shipped components cross-link (settings → pricing, pricing → login), and how your own components can, too.
+
+## 5. Composables
+
+For a fully custom page, drop the component and build on the same composables the packaged one uses — `useLoginFlow()`, `useBilling()`, `useCredits()`, `useGifts()`, `useOrganization()`, `usePasskeys()`, `useSessions()`. The playground's own [/login](/login) page is a worked example: full custom markup on `useLoginFlow`, shadowing the module's login page.

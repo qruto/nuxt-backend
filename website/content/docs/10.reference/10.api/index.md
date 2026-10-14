@@ -13,45 +13,45 @@ navigation:
 
 | Module | Description |
 | ------ | ------ |
-| [nuxt-backend/aggregate](/api-reference/reference/aggregate) | - |
-| [nuxt-backend/ai](/api-reference/reference/ai) | The rails for selling metered AI features — `nuxt-backend/ai`: wrap any Convex action so it is rate-limited, prepaid-credit-metered (reserve → run → settle — a failed run consumes nothing), and optionally token-streamed to the browser with the text persisted server-side (reload mid-stream and it continues). |
-| [nuxt-backend/app](/api-reference/reference/app) | - |
-| [nuxt-backend/auth.config](/api-reference/reference/auth-config) | - |
-| [nuxt-backend/auth](/api-reference/reference/auth) | - |
-| [nuxt-backend/authorization](/api-reference/reference/authorization) | - |
-| [nuxt-backend/billing](/api-reference/reference/billing) | - |
-| [nuxt-backend/component/ai](/api-reference/reference/component-ai) | - |
-| [nuxt-backend/component/billing](/api-reference/reference/component-billing) | - |
-| [nuxt-backend/component/email](/api-reference/reference/component-email) | - |
-| [nuxt-backend/component/gifts](/api-reference/reference/component-gifts) | - |
-| [nuxt-backend/component/schema](/api-reference/reference/component-schema) | - |
-| [nuxt-backend/component/webhooks](/api-reference/reference/component-webhooks) | - |
-| [nuxt-backend/convex.config](/api-reference/reference/convex-config) | - |
-| [nuxt-backend/email](/api-reference/reference/email) | - |
-| [nuxt-backend/eslint](/api-reference/reference/eslint) | The ESLint preset for a `nuxt-backend` app: the official Convex lint rules, scoped to the functions directory, with Convex's generated code ignored. |
-| [nuxt-backend/functions](/api-reference/reference/functions) | - |
-| [nuxt-backend/http](/api-reference/reference/http) | - |
-| [nuxt-backend/mcp](/api-reference/reference/mcp) | The agent (MCP) surface's Nitro utilities — `nuxt-backend/mcp`, also auto-imported in `server/`: [useBackendMcp](/api-reference/reference/mcp#usebackendmcp) for the signed-in agent session behind a tool call, [defineBackendMcpTool](/api-reference/reference/mcp#definebackendmcptool) for your own tools. |
-| [nuxt-backend/migrations](/api-reference/reference/migrations) | - |
-| [nuxt-backend/rate-limit](/api-reference/reference/rate-limit) | - |
-| [nuxt-backend/search](/api-reference/reference/search) | - |
-| [nuxt-backend/workflows](/api-reference/reference/workflows) | - |
-| [nuxt-backend](/api-reference/reference/module) | - |
-| [useAggregate · useCount](/api-reference/reference/use-aggregate) | - |
-| [useAiStream](/api-reference/reference/use-ai-stream) | - |
-| [useAuth](/api-reference/reference/use-auth) | - |
-| [useBackendConfig](/api-reference/reference/use-backend-config) | - |
-| [useBilling](/api-reference/reference/use-billing) | - |
-| [useCredits](/api-reference/reference/use-credits) | - |
-| [useEmailStatus](/api-reference/reference/use-email-status) | - |
-| [useFeatures](/api-reference/reference/use-features) | - |
-| [useGifts](/api-reference/reference/use-gifts) | - |
-| [useLoginFlow](/api-reference/reference/use-login-flow) | - |
-| [useOrders](/api-reference/reference/use-orders) | - |
-| [useOrganization](/api-reference/reference/use-organization) | - |
-| [usePasskeys](/api-reference/reference/use-passkeys) | - |
-| [useSandboxInbox](/api-reference/reference/use-sandbox-inbox) | - |
-| [useSearch](/api-reference/reference/use-search) | - |
-| [useSessions](/api-reference/reference/use-sessions) | - |
-| [useUsage](/api-reference/reference/use-usage) | - |
-| [useWorkflowStatus](/api-reference/reference/use-workflow) | - |
+| [nuxt-backend/aggregate](/docs/reference/api/aggregate) | - |
+| [nuxt-backend/ai](/docs/reference/api/ai) | The rails for selling metered AI features — `nuxt-backend/ai`: wrap any Convex action so it is rate-limited, prepaid-credit-metered (reserve → run → settle — a failed run consumes nothing), and optionally token-streamed to the browser with the text persisted server-side (reload mid-stream and it continues). |
+| [nuxt-backend/app](/docs/reference/api/app) | - |
+| [nuxt-backend/auth.config](/docs/reference/api/auth-config) | - |
+| [nuxt-backend/auth](/docs/reference/api/auth) | - |
+| [nuxt-backend/authorization](/docs/reference/api/authorization) | - |
+| [nuxt-backend/billing](/docs/reference/api/billing) | - |
+| [nuxt-backend/component/ai](/docs/reference/api/component-ai) | - |
+| [nuxt-backend/component/billing](/docs/reference/api/component-billing) | - |
+| [nuxt-backend/component/email](/docs/reference/api/component-email) | - |
+| [nuxt-backend/component/gifts](/docs/reference/api/component-gifts) | - |
+| [nuxt-backend/component/schema](/docs/reference/api/component-schema) | - |
+| [nuxt-backend/component/webhooks](/docs/reference/api/component-webhooks) | - |
+| [nuxt-backend/convex.config](/docs/reference/api/convex-config) | - |
+| [nuxt-backend/email](/docs/reference/api/email) | - |
+| [nuxt-backend/eslint](/docs/reference/api/eslint) | The ESLint preset for a `nuxt-backend` app: the official Convex lint rules, scoped to the functions directory, with Convex's generated code ignored. |
+| [nuxt-backend/functions](/docs/reference/api/functions) | - |
+| [nuxt-backend/http](/docs/reference/api/http) | - |
+| [nuxt-backend/mcp](/docs/reference/api/mcp) | The agent (MCP) surface's Nitro utilities — `nuxt-backend/mcp`, also auto-imported in `server/`: [useBackendMcp](/docs/reference/api/mcp#usebackendmcp) for the signed-in agent session behind a tool call, [defineBackendMcpTool](/docs/reference/api/mcp#definebackendmcptool) for your own tools. |
+| [nuxt-backend/migrations](/docs/reference/api/migrations) | - |
+| [nuxt-backend/rate-limit](/docs/reference/api/rate-limit) | - |
+| [nuxt-backend/search](/docs/reference/api/search) | - |
+| [nuxt-backend/workflows](/docs/reference/api/workflows) | - |
+| [nuxt-backend](/docs/reference/api/module) | - |
+| [useAggregate · useCount](/docs/reference/api/use-aggregate) | - |
+| [useAiStream](/docs/reference/api/use-ai-stream) | - |
+| [useAuth](/docs/reference/api/use-auth) | - |
+| [useBackendConfig](/docs/reference/api/use-backend-config) | - |
+| [useBilling](/docs/reference/api/use-billing) | - |
+| [useCredits](/docs/reference/api/use-credits) | - |
+| [useEmailStatus](/docs/reference/api/use-email-status) | - |
+| [useFeatures](/docs/reference/api/use-features) | - |
+| [useGifts](/docs/reference/api/use-gifts) | - |
+| [useLoginFlow](/docs/reference/api/use-login-flow) | - |
+| [useOrders](/docs/reference/api/use-orders) | - |
+| [useOrganization](/docs/reference/api/use-organization) | - |
+| [usePasskeys](/docs/reference/api/use-passkeys) | - |
+| [useSandboxInbox](/docs/reference/api/use-sandbox-inbox) | - |
+| [useSearch](/docs/reference/api/use-search) | - |
+| [useSessions](/docs/reference/api/use-sessions) | - |
+| [useUsage](/docs/reference/api/use-usage) | - |
+| [useWorkflowStatus](/docs/reference/api/use-workflow) | - |

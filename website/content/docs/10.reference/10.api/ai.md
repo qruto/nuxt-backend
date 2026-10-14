@@ -67,11 +67,11 @@ Defined in: [src/convex/integrations/ai.ts](https://github.com/qruto/nuxt-backen
 | ------ | ------ |
 | `ctx` | `RunWriteCtx` & \{ `auth?`: `Auth`; \} |
 | `name` | `"ai"` \| `"aiBudget"` |
-| `options?` | \{ `key?`: `string`; `throws?`: `boolean`; `count?`: `number`; `config?`: [`RateLimitConfig`](/api-reference/reference/rate-limit#ratelimitconfig); \} |
+| `options?` | \{ `key?`: `string`; `throws?`: `boolean`; `count?`: `number`; `config?`: [`RateLimitConfig`](/docs/reference/api/rate-limit#ratelimitconfig); \} |
 | `options.key?` | `string` |
 | `options.throws?` | `boolean` |
 | `options.count?` | `number` |
-| `options.config?` | [`RateLimitConfig`](/api-reference/reference/rate-limit#ratelimitconfig) |
+| `options.config?` | [`RateLimitConfig`](/docs/reference/api/rate-limit#ratelimitconfig) |
 
 ###### Returns
 
@@ -198,7 +198,7 @@ Defined in: [src/convex/integrations/ai.ts](https://github.com/qruto/nuxt-backen
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="billing"></a> `billing` | [`Billing`](/api-reference/reference/billing#billing) | **`Experimental`** The `setupBilling(...)` instance — supplies entity resolution + the credit spend. | [src/convex/integrations/ai.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai.ts) |
+| <a id="billing"></a> `billing` | [`Billing`](/docs/reference/api/billing#billing) | **`Experimental`** The `setupBilling(...)` instance — supplies entity resolution + the credit spend. | [src/convex/integrations/ai.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai.ts) |
 | <a id="ratelimiter"></a> `rateLimiter?` | [`AiRateLimiter`](#airatelimiter) | **`Experimental`** Your `setupRateLimiter(...)` instance. Metered actions/streams check their named limit (default `'ai'`) per billing entity before reserving. Omit to leave them unthrottled. | [src/convex/integrations/ai.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai.ts) |
 | <a id="cors"></a> `cors?` | \{ `origin?`: `string`; \} | **`Experimental`** CORS origin for the stream endpoint. Defaults to the `SITE_URL` env var. | [src/convex/integrations/ai.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai.ts) |
 | `cors.origin?` | `string` | - | [src/convex/integrations/ai.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai.ts) |

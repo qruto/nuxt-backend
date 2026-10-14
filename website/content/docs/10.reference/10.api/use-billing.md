@@ -801,7 +801,7 @@ Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qrut
 
 Build a `checkout(productIds, options)` action over a billing namespace —
 shared by [useBilling](#usebilling) (subscriptions) and
-["runtime/vue/composables/use-credits"!useCredits](/api-reference/reference/use-credits#usecredits) (top-ups),
+["runtime/vue/composables/use-credits"!useCredits](/docs/reference/api/use-credits#usecredits) (top-ups),
 since a credit-pack top-up is just a checkout for a one-time product. Must be
 called during component setup (it sets up the underlying action).
 
@@ -864,7 +864,7 @@ Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qrut
 
 Build a `gift(productIds, { recipientEmail, ... })` action over a billing
 namespace — shared by [useBilling](#usebilling) and
-["runtime/vue/composables/use-credits"!useCredits](/api-reference/reference/use-credits#usecredits) (gifting a credit
+["runtime/vue/composables/use-credits"!useCredits](/docs/reference/api/use-credits#usecredits) (gifting a credit
 pack is just a gift checkout of a one-time product). The purchaser
 pays; the recipient (by email) receives the entitlement — attached
 automatically if they have an account, claimable on first sign-in otherwise.

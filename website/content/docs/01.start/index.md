@@ -40,18 +40,18 @@ The intended integration shape:
 Adding `modules: ['nuxt-backend']` registers the following surface:
 
 - **Configuration** — a `backend` config key (`url`, `siteUrl`, `authRoute`, `installation`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools`, `workspaces`) plus public/private runtime config, all falling back to env vars, and the typed `appConfig.backend` content layer (plan catalog, labels, brand).
-- **Default pages** — `/login`, `/pricing`, `/settings`, `/profile`, `/security`, and `/accept-invitation` mount out of the box; each is opt-out, path-configurable, and automatically shadowed by an app page at the same route. See [Default Pages](/guide/default-pages).
+- **Default pages** — `/login`, `/pricing`, `/settings`, `/profile`, `/security`, and `/accept-invitation` mount out of the box; each is opt-out, path-configurable, and automatically shadowed by an app page at the same route. See [Default Pages](/docs/ui/pages).
 - **App runtime (Vue)** — a client Convex plugin and an SSR auth-token prefetch plugin (injects `$convex`); auto-imported composables (`useQuery`, `useMutation`, `useAuth`, `useBilling`, `usePasskeys`, …); auto-registered components (`<AuthForm>`, `<PricingTable>`, `<WorkspaceSettings>`, `<ProfileSettings>`, `<SecuritySettings>`, `<Authenticated>`, …); and an opt-in `auth` route middleware.
-- **Styling** — the neutral `ui.css` stylesheet, auto-added and themeable through `--bk-*` tokens (see [Theming](/guide/customization)); `css: false` to bring your own.
+- **Styling** — the neutral `ui.css` stylesheet, auto-added and themeable through `--bk-*` tokens (see [Theming](/docs/ui/customize)); `css: false` to bring your own.
 - **Server (Nitro)** — a same-origin Better Auth proxy at `authRoute/**`, plus server auto-imports (`fetchQuery`, `preloadQuery`, `backendAuth`, …).
 - **Agent surface** — an OAuth-protected MCP endpoint at `/mcp` and its two `/.well-known` discovery documents, on by default in dev and production; `mcp: false` removes it. See [MCP server](/docs/agents/mcp).
-- **Security headers** — `nuxt-security`, installed by the module from its own dependency tree, with a Content Security Policy the Convex integration extends with the deployment origins; `security: false` in `nuxt.config` still switches it off. See [Security](/production/security).
+- **Security headers** — `nuxt-security`, installed by the module from its own dependency tree, with a Content Security Policy the Convex integration extends with the deployment origins; `security: false` in `nuxt.config` still switches it off. See [Security](/docs/ship/production/security).
 - **Project wiring & types** — `#backend` import aliases for both Vite and Nitro, first-run scaffolded backend files, and full type augmentation.
 - **Backend bridge** — package entrypoints you import inside your backend functions (`nuxt-backend/auth`, `nuxt-backend/app`, `nuxt-backend/billing`, `nuxt-backend/email`, …).
 - **Backend components** — the all-in-one `backend` component (auth, email, billing cache, gifts, AI metering records, the webhook delivery log) plus bundled upstream [Convex components](https://www.convex.dev/components) (billing provider, rate limiting, workflows, migrations, aggregates) and native full-text search, wired into Better Auth and configured by the required env vars.
 
 ::tip
-Everything the module mounts is progressively replaceable — the [customization ladder](/guide/customization): CSS tokens → `app.config` content → component slots → route shadowing → your own page built on the same composables. All-in-one defaults, zero lock-in, no eject step.
+Everything the module mounts is progressively replaceable — the [customization ladder](/docs/ui/customize): CSS tokens → `app.config` content → component slots → route shadowing → your own page built on the same composables. All-in-one defaults, zero lock-in, no eject step.
 ::
 
 ## Official integration parity
@@ -78,7 +78,7 @@ The goal is API parity where it matters, with less setup: Nuxt owns route regist
   Install the package, add the module, set env vars, and scaffold the Convex files.
   :::
 
-  :::card{icon="i-lucide-settings-2" title="Configuration" to="/getting-started/configuration"}
+  :::card{icon="i-lucide-settings-2" title="Configuration" to="/docs/reference/configuration"}
   Module options, runtime config, and the full environment-variable reference.
   :::
 

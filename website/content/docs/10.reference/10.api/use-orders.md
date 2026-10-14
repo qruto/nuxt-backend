@@ -20,7 +20,7 @@ Defined in: [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="api"></a> `api?` | [`BillingApi`](/api-reference/reference/use-billing#billingapi) | Override the injected `api.billing` namespace. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
+| <a id="api"></a> `api?` | [`BillingApi`](/docs/reference/api/use-billing#billingapi) | Override the injected `api.billing` namespace. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 | <a id="limit"></a> `limit?` | `MaybeRefOrGetter`\<`number` \| `undefined`\> | Orders per page (reactive). Defaults to the provider's own page size. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 | <a id="immediate"></a> `immediate?` | `boolean` | Load the first page on mount. Default `true`. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 
@@ -49,7 +49,7 @@ Defined in: [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="orders"></a> `orders` | `Ref`\<[`BillingOrder`](/api-reference/reference/use-billing#billingorder)[] \| `undefined`\> | The current page of past charges — `undefined` until the first load. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
+| <a id="orders"></a> `orders` | `Ref`\<[`BillingOrder`](/docs/reference/api/use-billing#billingorder)[] \| `undefined`\> | The current page of past charges — `undefined` until the first load. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 | <a id="page"></a> `page` | `Ref`\<`number`\> | The page being shown; provider page numbers start at 1. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 | <a id="total"></a> `total` | `ComputedRef`\<`number` \| `undefined`\> | Total orders across all pages, when the provider reported it. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 | <a id="pagecount"></a> `pageCount` | `ComputedRef`\<`number` \| `undefined`\> | Number of pages, when the provider reported it. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |

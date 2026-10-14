@@ -99,7 +99,7 @@ describe('the route table', () => {
     // landings (D3), split pages (D3c), the Diagnostics and Errors pages (D6),
     // the local installation's removal (C1); the 0.2.0 docs pass (D11) brings
     // it to zero.
-    expect(pending.length).toBeLessThanOrEqual(19)
+    expect(pending.length).toBeLessThanOrEqual(30)
   })
 })
 

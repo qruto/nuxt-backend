@@ -156,8 +156,8 @@ push of a new deployment fails until `AUTH_SECRET` and `SITE_URL` are on it, and
    ends it with the processes it started.
 
 If something fails, every message the package prints is listed with its fix in
-[Troubleshooting](https://nuxt-backend.dev/raw/production/troubleshooting.md), and the CLI's
-findings in [CLI](https://nuxt-backend.dev/raw/tooling/cli.md).
+[Troubleshooting](https://nuxt-backend.dev/raw/docs/ship/operate/troubleshooting.md), and the CLI's
+findings in [CLI](https://nuxt-backend.dev/raw/docs/reference/cli.md).
 
 ## 4. Tell the user
 
@@ -168,9 +168,9 @@ findings in [CLI](https://nuxt-backend.dev/raw/tooling/cli.md).
   run `npx convex login` in their own terminal; it offers to link the existing deployment.
 - What turns on the rest: an email provider key (`EMAIL_API_KEY`, then `EMAIL_FROM`) and a
   billing token (`BILLING_ACCESS_TOKEN`), each put into `.env.local` by the user and pushed with
-  `npx nuxt-backend env push`. [Configuration](https://nuxt-backend.dev/getting-started/configuration)
+  `npx nuxt-backend env push`. [Configuration](https://nuxt-backend.dev/docs/reference/configuration)
   lists every value and what its absence does.
 - For production: `npx nuxt-backend doctor --prod` checks the production deployment, and
-  [Deployment](https://nuxt-backend.dev/production/deployment) covers the build.
+  [Deployment](https://nuxt-backend.dev/docs/ship/deploy) covers the build.
 - Convex's own guidelines for writing backend functions: `npx convex ai-files install` writes
   them and points `AGENTS.md` and `CLAUDE.md` at them. Offer it; it edits those two files.

@@ -21,7 +21,7 @@ Defined in: [src/runtime/vue/composables/use-usage.ts](https://github.com/qruto/
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="meter"></a> `meter?` | `MaybeRefOrGetter`\<`string` \| `undefined`\> | Which meter's history to read (reactive): a configured credit-meter name (`'credits'`) or a raw meter id. Omit for every metered event. | [src/runtime/vue/composables/use-usage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-usage.ts) |
-| <a id="api"></a> `api?` | [`BillingApi`](/api-reference/reference/use-billing#billingapi) | Override the injected `api.billing` namespace. | [src/runtime/vue/composables/use-usage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-usage.ts) |
+| <a id="api"></a> `api?` | [`BillingApi`](/docs/reference/api/use-billing#billingapi) | Override the injected `api.billing` namespace. | [src/runtime/vue/composables/use-usage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-usage.ts) |
 | <a id="limit"></a> `limit?` | `MaybeRefOrGetter`\<`number` \| `undefined`\> | Events per page (reactive). Defaults to the provider's own page size. | [src/runtime/vue/composables/use-usage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-usage.ts) |
 | <a id="immediate"></a> `immediate?` | `boolean` | Load the first page on mount. Default `true`. | [src/runtime/vue/composables/use-usage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-usage.ts) |
 
@@ -35,7 +35,7 @@ Defined in: [src/runtime/vue/composables/use-usage.ts](https://github.com/qruto/
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="events"></a> `events` | `Ref`\<[`UsageEvent`](/api-reference/reference/use-billing#usageevent)[] \| `undefined`\> | The current page of usage events — `undefined` until the first load. | [src/runtime/vue/composables/use-usage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-usage.ts) |
+| <a id="events"></a> `events` | `Ref`\<[`UsageEvent`](/docs/reference/api/use-billing#usageevent)[] \| `undefined`\> | The current page of usage events — `undefined` until the first load. | [src/runtime/vue/composables/use-usage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-usage.ts) |
 | <a id="page"></a> `page` | `Ref`\<`number`\> | The page being shown; provider page numbers start at 1. | [src/runtime/vue/composables/use-usage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-usage.ts) |
 | <a id="total"></a> `total` | `ComputedRef`\<`number` \| `undefined`\> | Total events across all pages, when the provider reported it. | [src/runtime/vue/composables/use-usage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-usage.ts) |
 | <a id="pagecount"></a> `pageCount` | `ComputedRef`\<`number` \| `undefined`\> | Number of pages, when the provider reported it. | [src/runtime/vue/composables/use-usage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-usage.ts) |

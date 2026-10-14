@@ -91,7 +91,7 @@ sign-in codes print in the terminal that runs `dev`.
   (`backendTest.register(t)`).
 - **Linting:** `backendEslint()` from `nuxt-backend/eslint` applies Convex's lint rules to
   `backend/`: `export default withNuxt(backendEslint())`. It needs `@convex-dev/eslint-plugin`
-  installed. See https://nuxt-backend.dev/tooling/linting.
+  installed. See https://nuxt-backend.dev/docs/ship/test/linting.
 
 ## Customizing, in order of reach
 
@@ -106,14 +106,14 @@ sign-in codes print in the terminal that runs `dev`.
 6. **Local installation**: `init --installation local` copies the component into
    `backend/components/backend/` for schema-level changes.
 
-Details: https://nuxt-backend.dev/guide/customization and
-https://nuxt-backend.dev/tooling/local-installation.
+Details: https://nuxt-backend.dev/docs/ui/customize and
+https://nuxt-backend.dev/docs/ship/migrate/local-installation.
 
 ## Where to look
 
-- Composables and components: https://nuxt-backend.dev/api-reference/composables
-- Every import path: https://nuxt-backend.dev/api-reference/entrypoints
-- Module options: https://nuxt-backend.dev/api-reference/module-options
-- CLI and doctor findings: https://nuxt-backend.dev/tooling/cli
-- Deploying: https://nuxt-backend.dev/production/deployment
-- Troubleshooting: https://nuxt-backend.dev/production/troubleshooting
+- Composables and components: https://nuxt-backend.dev/docs/reference/nuxt/composables
+- Every import path: https://nuxt-backend.dev/docs/reference/entrypoints
+- Module options: https://nuxt-backend.dev/docs/reference/configuration/module-options
+- CLI and doctor findings: https://nuxt-backend.dev/docs/reference/cli
+- Deploying: https://nuxt-backend.dev/docs/ship/deploy
+- Troubleshooting: https://nuxt-backend.dev/docs/ship/operate/troubleshooting

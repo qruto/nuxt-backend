@@ -110,7 +110,7 @@ Config is optional — every option overrides a default:
   :::
 
   :::field{name="webhookEvents / webhookHandler"}
-  Typed handlers over the provider's full event catalog that keep the cache fresh (subscriptions, benefit grants, credit balances), patch benefit metadata, and fulfil gifts — and the guarded endpoint [`registerBackendRoutes`](/platform/webhooks) mounts at `/billing/events`.
+  Typed handlers over the provider's full event catalog that keep the cache fresh (subscriptions, benefit grants, credit balances), patch benefit metadata, and fulfil gifts — and the guarded endpoint [`registerBackendRoutes`](/docs/ship/production/webhooks) mounts at `/billing/events`.
   :::
 
   :::field{name="spendCredits · reserveCredits · settleSpend · releaseSpend · refundCredits"}
@@ -195,7 +195,7 @@ const { orders, invoice, next, previous, hasMore } = useOrders({ limit: 10 })
 
 `useOrders({ limit?, immediate?, api? })` returns `orders` (`undefined` until the first load), `page`, `total` / `pageCount` (when the provider reports them), `hasMore` / `hasPrevious`, `isLoading`, `error` (the last failed load's message — loads never reject), `refresh()`, `next()`, `previous()`, `goTo(page)` and `invoice(orderId, options?)`. Signed-out visitors, and backends that have not deployed `getOrders`, get an empty list rather than an error.
 
-The `<PricingTable>` component behind the `/pricing` page renders the plan catalog from `appConfig.backend.billing.plans` with names and prices resolved live (see [Customization](/guide/customization#_2-appconfig-content)).
+The `<PricingTable>` component behind the `/pricing` page renders the plan catalog from `appConfig.backend.billing.plans` with names and prices resolved live (see [Customization](/docs/ui/customize#_2-appconfig-content)).
 
 ## Environment
 
@@ -205,7 +205,7 @@ The `<PricingTable>` component behind the `/pricing` page renders the plan catal
 | `BILLING_WEBHOOK_SECRET` | Verifies webhooks on `/billing/events` — unset, events are rejected (503) and entitlements refresh only on demand |
 | `BILLING_ENVIRONMENT` | `sandbox` (the default) or `production` |
 
-All three are optional at deploy time and forwarded from `.env.local` by `npx nuxt-backend env push`; see the [configuration reference](/getting-started/configuration#convex-deployment-variables).
+All three are optional at deploy time and forwarded from `.env.local` by `npx nuxt-backend env push`; see the [configuration reference](/docs/reference/configuration#convex-deployment-variables).
 
 ::playground-link{to="/playground/platform/billing" label="billing"}
 ::

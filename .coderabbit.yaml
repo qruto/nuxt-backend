@@ -87,7 +87,7 @@ reviews:
         the Convex CLI writes it (`CONVEX_DEPLOYMENT=dev:<slug> # team: …`,
         `CONVEX_URL` beside a `local:` or `anonymous:` id) and never asks a
         user to author a `CONVEX_*` name. Every finding id it can emit
-        belongs in the findings table of `website/content/5.tooling/1.cli.md`
+        belongs in the findings table of `website/content/docs/10.reference/09.cli/index.md`
         with its fix hint, and a finding that only matters in production
         escalates under `--prod` instead of failing every fresh dev
         deployment. The unit tests run on Windows in CI: paths in messages
@@ -165,7 +165,7 @@ reviews:
         (`NUXT_PUBLIC_BACKEND_*`, `EMAIL_*`, `BILLING_*`, `AUTH_SECRET`,
         `SITE_URL`); a `CONVEX_*` name belongs to the platform and is only
         ever read. Every `doctor` and preflight finding id is in the findings
-        table of `5.tooling/1.cli.md`, and a warning or error the package
+        table of the CLI reference page (`docs/10.reference/09.cli/index.md`), and a warning or error the package
         logs is quoted verbatim in `6.production/4.troubleshooting.md`, so a
         search for the message lands.
 

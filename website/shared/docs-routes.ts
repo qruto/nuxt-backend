@@ -6,36 +6,34 @@
  * - `nuxt.config.ts` turns DOCS_REDIRECTS into redirects for the HTML route
  *   and both Markdown twins (`<from>.md`, `/raw<from>.md`), adds the
  *   aliases and short links, and builds the llms.txt sections from DOCS_TABS.
+ * - `plugins/docs-fragments.client.ts` sends the old anchors in
+ *   DOCS_FRAGMENT_MOVES to the page their section moved to.
  * - The TypeDoc post-processor (scripts/typedoc-postprocess.mjs) writes the
  *   reference at REFERENCE_DIR and links it at REFERENCE_ROUTE.
  * - test/docs/docs-structure.test.ts holds it to its promises: every route
  *   the site served in 0.1 answers, every target exists, no redirect leads to
- *   another, and the pending list only shrinks.
+ *   another, every folder route answers, and the pending list only shrinks.
  *
  * No imports, so plain Node (the post-processor) can load it as well as Nuxt.
  */
 
-/** Where the generated API reference is served, until the docs move under /docs. */
-export const REFERENCE_ROUTE = '/api-reference/reference'
+/** Where the generated API reference is served. */
+export const REFERENCE_ROUTE = '/docs/reference/api'
 
-/** The folder TypeDoc writes it to, under website/content: already its final place. */
+/** The folder TypeDoc writes it to, under website/content. */
 export const REFERENCE_DIR = 'docs/10.reference/10.api'
 
 /**
  * The `docs` collection's sources, relative to website/content. A file's
  * route is the source prefix plus its path below the include's fixed part,
- * with the numeric `N.` ordering prefixes dropped.
+ * with the numeric `N.` ordering prefixes dropped. (The homepage,
+ * content/index.md, is Docus's `landing` collection.)
  */
 export const DOCS_SOURCES: Array<{ include: string, exclude?: string[], prefix: string }> = [
-  // The generated reference stays at its route until its tab moves (D2b).
-  { include: `${REFERENCE_DIR}/**`, prefix: REFERENCE_ROUTE },
-  // The tabs that have moved under /docs.
-  { include: 'docs/**', exclude: ['docs/10.reference/**'], prefix: '/docs' },
-  // The 0.1 tree, until the rest of the tabs move (D2b).
-  { include: '**', exclude: ['index.md', 'docs/**'], prefix: '/' },
+  { include: 'docs/**', prefix: '/docs' },
 ]
 
-/** The top-level sections, in order: llms.txt has one section per tab. */
+/** The ten tabs, in order: the header shows them, and llms.txt has one section each. */
 export const DOCS_TABS: Array<{ title: string, path: string, exclude?: string }> = [
   { title: 'Start', path: '/docs/start' },
   { title: 'Auth', path: '/docs/auth' },
@@ -43,12 +41,11 @@ export const DOCS_TABS: Array<{ title: string, path: string, exclude?: string }>
   { title: 'Email', path: '/docs/email' },
   { title: 'AI', path: '/docs/ai' },
   { title: 'Agents', path: '/docs/agents' },
-  { title: 'Getting Started', path: '/getting-started' },
-  { title: 'Guide', path: '/guide' },
-  { title: 'Platform', path: '/platform' },
-  { title: 'Developer Experience', path: '/tooling' },
-  { title: 'Production', path: '/production' },
-  { title: 'API Reference', path: '/api-reference', exclude: REFERENCE_ROUTE },
+  { title: 'Data', path: '/docs/data' },
+  { title: 'UI', path: '/docs/ui' },
+  { title: 'Ship', path: '/docs/ship' },
+  // The generated API reference is too long for the index; llms-full.txt has it.
+  { title: 'Reference', path: '/docs/reference', exclude: REFERENCE_ROUTE },
 ]
 
 export interface DocsRedirect {
@@ -62,24 +59,86 @@ export interface DocsRedirect {
   pending?: string
 }
 
-/** What a reference page was called before it was named by its import path. */
-const reference = (from: string, to: string): DocsRedirect =>
-  ({ from: `${REFERENCE_ROUTE}/${from}`, to: `${REFERENCE_ROUTE}/${to}` })
+/**
+ * The reference pages by their 0.1 source path, and the import-path slug
+ * each is published under. Both routes it was served at before /docs (the
+ * 0.1 nested one, and the flat one by import path) redirect.
+ */
+const REFERENCE_SLUGS: Record<string, string> = {
+  'convex/app': 'app',
+  'convex/auth.config': 'auth-config',
+  'convex/client': 'auth',
+  'convex/components/backend/ai': 'component-ai',
+  'convex/components/backend/billing': 'component-billing',
+  'convex/components/backend/convex.config': 'convex-config',
+  'convex/components/backend/email': 'component-email',
+  'convex/components/backend/gifts': 'component-gifts',
+  'convex/components/backend/schema': 'component-schema',
+  'convex/components/backend/webhooks': 'component-webhooks',
+  'convex/integrations/aggregate': 'aggregate',
+  'convex/integrations/ai': 'ai',
+  'convex/integrations/authorization': 'authorization',
+  'convex/integrations/billing': 'billing',
+  'convex/integrations/email': 'email',
+  'convex/integrations/functions': 'functions',
+  'convex/integrations/http': 'http',
+  'convex/integrations/migrations': 'migrations',
+  'convex/integrations/rate-limit': 'rate-limit',
+  'convex/integrations/search': 'search',
+  'convex/integrations/workflows': 'workflows',
+  'runtime/server/mcp': 'mcp',
+  'runtime/vue/composables/use-aggregate': 'use-aggregate',
+  'runtime/vue/composables/use-ai-stream': 'use-ai-stream',
+  'runtime/vue/composables/use-auth': 'use-auth',
+  'runtime/vue/composables/use-backend-config': 'use-backend-config',
+  'runtime/vue/composables/use-billing': 'use-billing',
+  'runtime/vue/composables/use-credits': 'use-credits',
+  'runtime/vue/composables/use-email-status': 'use-email-status',
+  'runtime/vue/composables/use-features': 'use-features',
+  'runtime/vue/composables/use-gifts': 'use-gifts',
+  'runtime/vue/composables/use-login-flow': 'use-login-flow',
+  'runtime/vue/composables/use-orders': 'use-orders',
+  'runtime/vue/composables/use-organization': 'use-organization',
+  'runtime/vue/composables/use-passkeys': 'use-passkeys',
+  'runtime/vue/composables/use-sandbox-inbox': 'use-sandbox-inbox',
+  'runtime/vue/composables/use-search': 'use-search',
+  'runtime/vue/composables/use-sessions': 'use-sessions',
+  'runtime/vue/composables/use-usage': 'use-usage',
+  'runtime/vue/composables/use-workflow': 'use-workflow',
+  'eslint': 'eslint',
+  'module': 'module',
+}
+
+const OLD_REFERENCE = '/api-reference/reference'
 
 export const DOCS_REDIRECTS: DocsRedirect[] = [
-  // The 0.1 pages that moved under /docs, the legacy moves, the 0.1 section roots.
+  // Every 0.1 page, the legacy moves before it, and the 0.1 section roots.
   { from: '/agents/built-in-tools', to: '/docs/agents/mcp/built-in-tools' },
   { from: '/agents/connect-a-client', to: '/docs/agents/mcp/connect-a-client' },
   { from: '/agents/custom-tools', to: '/docs/agents/mcp/custom-tools' },
   { from: '/agents/mcp-server', to: '/docs/agents/mcp' },
   { from: '/agents/oauth-and-consent', to: '/docs/agents/mcp/oauth-and-consent' },
   { from: '/agents/skills-and-agent-files', to: '/docs/agents/coding' },
+  { from: '/api-reference/client', to: '/docs/reference/nuxt/client' },
+  { from: '/api-reference/composables', to: '/docs/reference/nuxt/composables' },
+  { from: '/api-reference/entrypoints', to: '/docs/reference/entrypoints' },
+  { from: '/api-reference/module-options', to: '/docs/reference/configuration/module-options' },
+  { from: '/api-reference/server-utilities', to: '/docs/reference/nuxt/server-utilities' },
   { from: '/getting-started/architecture', to: '/docs/start/concepts/how-it-works' },
+  { from: '/getting-started/configuration', to: '/docs/reference/configuration' },
+  { from: '/getting-started/ecosystem', to: '/docs/reference/ecosystem' },
   { from: '/getting-started/installation', to: '/docs/start/installation' },
   { from: '/getting-started/introduction', to: '/docs/start' },
   { from: '/getting-started/quickstart', to: '/docs/start/quickstart' },
   { from: '/getting-started/templates', to: '/docs/start/templates' },
   { from: '/guide/authentication', to: '/docs/auth/sign-in' },
+  { from: '/guide/customization', to: '/docs/ui/customize' },
+  { from: '/guide/default-pages', to: '/docs/ui/pages' },
+  { from: '/guide/file-storage', to: '/docs/data/files' },
+  { from: '/guide/import-aliases', to: '/docs/reference/nuxt/import-aliases' },
+  { from: '/guide/queries-and-mutations', to: '/docs/data/queries-and-mutations' },
+  { from: '/guide/server-and-ssr', to: '/docs/data/server-rendering' },
+  { from: '/platform/aggregates', to: '/docs/data/aggregates' },
   { from: '/platform/ai/metered-actions', to: '/docs/ai/metered-actions' },
   { from: '/platform/ai/streaming', to: '/docs/ai/streaming' },
   { from: '/platform/auth/customizing', to: '/docs/auth/setup#auth-route-and-options' },
@@ -93,37 +152,50 @@ export const DOCS_REDIRECTS: DocsRedirect[] = [
   { from: '/platform/email/delivery-tracking', to: '/docs/email/delivery-tracking' },
   { from: '/platform/email/sending', to: '/docs/email/sending' },
   { from: '/platform/email/templates', to: '/docs/email/templates' },
+  { from: '/platform/migrations', to: '/docs/data/jobs/migrations' },
   { from: '/platform/overview', to: '/docs/start/concepts/how-it-works' },
+  { from: '/platform/rate-limiting', to: '/docs/ship/production/rate-limits' },
+  { from: '/platform/search', to: '/docs/data/search' },
+  { from: '/platform/webhooks', to: '/docs/ship/production/webhooks' },
+  { from: '/platform/workflows', to: '/docs/data/jobs/workflows' },
   { from: '/platform/workspaces', to: '/docs/auth/workspaces' },
+  { from: '/production/checklist', to: '/docs/ship/production' },
+  { from: '/production/deployment', to: '/docs/ship/deploy' },
+  { from: '/production/security', to: '/docs/ship/production/security' },
+  { from: '/production/troubleshooting', to: '/docs/ship/operate/troubleshooting' },
+  { from: '/tooling/cli', to: '/docs/reference/cli' },
   { from: '/tooling/devtools', to: '/docs/start/develop/devtools' },
+  { from: '/tooling/linting', to: '/docs/ship/test/linting' },
+  { from: '/tooling/local-installation', to: '/docs/ship/migrate/local-installation', pending: 'C1 (drops the local installation)' },
+  { from: '/tooling/testing', to: '/docs/ship/test' },
   { from: '/backend-components/overview', to: '/docs/start/concepts/how-it-works' },
   { from: '/backend-components/email', to: '/docs/email/sending' },
   { from: '/backend-components/billing', to: '/docs/billing/subscriptions' },
-  { from: '/backend-components/webhooks', to: '/platform/webhooks' },
-  { from: '/backend-components/rate-limiting', to: '/platform/rate-limiting' },
-  { from: '/backend-components/workflows', to: '/platform/workflows' },
-  { from: '/backend-components/migrations', to: '/platform/migrations' },
-  { from: '/backend-components/aggregates', to: '/platform/aggregates' },
-  { from: '/backend-components/search', to: '/platform/search' },
+  { from: '/backend-components/webhooks', to: '/docs/ship/production/webhooks' },
+  { from: '/backend-components/rate-limiting', to: '/docs/ship/production/rate-limits' },
+  { from: '/backend-components/workflows', to: '/docs/data/jobs/workflows' },
+  { from: '/backend-components/migrations', to: '/docs/data/jobs/migrations' },
+  { from: '/backend-components/aggregates', to: '/docs/data/aggregates' },
+  { from: '/backend-components/search', to: '/docs/data/search' },
   { from: '/backend-components', to: '/docs/start/concepts/how-it-works' },
   { from: '/backend/auth-setup', to: '/docs/auth/setup' },
   { from: '/backend/customizing-auth', to: '/docs/auth/setup#auth-route-and-options' },
-  { from: '/backend/local-installation', to: '/tooling/local-installation' },
-  { from: '/backend/testing', to: '/tooling/testing' },
+  { from: '/backend/local-installation', to: '/docs/ship/migrate/local-installation', pending: 'C1 (drops the local installation)' },
+  { from: '/backend/testing', to: '/docs/ship/test' },
   { from: '/backend', to: '/docs/auth/setup' },
-  { from: '/api-reference/theming', to: '/guide/customization' },
+  { from: '/api-reference/theming', to: '/docs/ui/customize', pending: 'D3c (one task per page)' },
   { from: '/getting-started/examples-and-templates', to: '/docs/start/templates' },
+  { from: '/agents', to: '/docs/agents/mcp', pending: 'D3 (landings)' },
+  { from: '/api-reference', to: '/docs/reference/nuxt/composables', pending: 'D3 (landings)' },
   { from: '/getting-started', to: '/docs/start' },
   { from: '/guide', to: '/docs/auth/sign-in', pending: 'D3 (landings)' },
   { from: '/platform', to: '/docs/start/concepts/how-it-works' },
+  { from: '/platform/ai', to: '/docs/ai/metered-actions', pending: 'D3 (landings)' },
   { from: '/platform/auth', to: '/docs/auth/setup', pending: 'D3 (landings)' },
   { from: '/platform/billing', to: '/docs/billing/subscriptions', pending: 'D3 (landings)' },
-  { from: '/platform/ai', to: '/docs/ai/metered-actions', pending: 'D3 (landings)' },
   { from: '/platform/email', to: '/docs/email/sending', pending: 'D3 (landings)' },
-  { from: '/agents', to: '/docs/agents/mcp', pending: 'D3 (landings)' },
-  { from: '/tooling', to: '/tooling/cli', pending: 'D3 (landings)' },
-  { from: '/production', to: '/production/deployment', pending: 'D3 (landings)' },
-  { from: '/api-reference', to: '/api-reference/composables', pending: 'D3 (landings)' },
+  { from: '/production', to: '/docs/ship/deploy', pending: 'D3 (landings)' },
+  { from: '/tooling', to: '/docs/reference/cli', pending: 'D3 (landings)' },
 
   // Folder routes under /docs, until each gets its landing.
   { from: '/docs', to: '/docs/start' },
@@ -132,60 +204,43 @@ export const DOCS_REDIRECTS: DocsRedirect[] = [
   { from: '/docs/auth', to: '/docs/auth/setup', pending: 'D3 (landings)' },
   { from: '/docs/auth/access', to: '/docs/auth/access/roles', pending: 'D3 (landings)' },
   { from: '/docs/billing', to: '/docs/billing/catalog', pending: 'D3 (landings)' },
+  { from: '/docs/data', to: '/docs/data/queries-and-mutations', pending: 'D3 (landings)' },
+  { from: '/docs/data/jobs', to: '/docs/data/jobs/workflows', pending: 'D3 (landings)' },
   { from: '/docs/email', to: '/docs/email/sending', pending: 'D3 (landings)' },
+  { from: '/docs/reference', to: '/docs/reference/ecosystem', pending: 'D3 (landings)' },
+  { from: '/docs/reference/nuxt', to: '/docs/reference/nuxt/composables', pending: 'D3 (landings)' },
+  { from: '/docs/ship', to: '/docs/ship/test', pending: 'D3 (landings)' },
+  { from: '/docs/ship/migrate', to: '/docs/ship/migrate/local-installation', pending: 'D3 (landings)' },
+  { from: '/docs/ship/operate', to: '/docs/ship/operate/troubleshooting', pending: 'D3 (landings)' },
   { from: '/docs/start/concepts', to: '/docs/start/concepts/how-it-works', pending: 'D3 (landings)' },
   { from: '/docs/start/develop', to: '/docs/start/develop/devtools', pending: 'D3 (landings)' },
+  { from: '/docs/ui', to: '/docs/ui/pages', pending: 'D3 (landings)' },
 
-  // The reference, renamed from source paths to import paths.
-  reference('convex/app', 'app'),
-  reference('convex/auth.config', 'auth-config'),
-  reference('convex/client', 'auth'),
-  reference('convex/components/backend/ai', 'component-ai'),
-  reference('convex/components/backend/billing', 'component-billing'),
-  reference('convex/components/backend/convex.config', 'convex-config'),
-  reference('convex/components/backend/email', 'component-email'),
-  reference('convex/components/backend/gifts', 'component-gifts'),
-  reference('convex/components/backend/schema', 'component-schema'),
-  reference('convex/components/backend/webhooks', 'component-webhooks'),
-  reference('convex/integrations/aggregate', 'aggregate'),
-  reference('convex/integrations/ai', 'ai'),
-  reference('convex/integrations/authorization', 'authorization'),
-  reference('convex/integrations/billing', 'billing'),
-  reference('convex/integrations/email', 'email'),
-  reference('convex/integrations/functions', 'functions'),
-  reference('convex/integrations/http', 'http'),
-  reference('convex/integrations/migrations', 'migrations'),
-  reference('convex/integrations/rate-limit', 'rate-limit'),
-  reference('convex/integrations/search', 'search'),
-  reference('convex/integrations/workflows', 'workflows'),
-  reference('runtime/server/mcp', 'mcp'),
-  reference('runtime/vue/composables/use-aggregate', 'use-aggregate'),
-  reference('runtime/vue/composables/use-ai-stream', 'use-ai-stream'),
-  reference('runtime/vue/composables/use-auth', 'use-auth'),
-  reference('runtime/vue/composables/use-backend-config', 'use-backend-config'),
-  reference('runtime/vue/composables/use-billing', 'use-billing'),
-  reference('runtime/vue/composables/use-credits', 'use-credits'),
-  reference('runtime/vue/composables/use-email-status', 'use-email-status'),
-  reference('runtime/vue/composables/use-features', 'use-features'),
-  reference('runtime/vue/composables/use-gifts', 'use-gifts'),
-  reference('runtime/vue/composables/use-login-flow', 'use-login-flow'),
-  reference('runtime/vue/composables/use-orders', 'use-orders'),
-  reference('runtime/vue/composables/use-organization', 'use-organization'),
-  reference('runtime/vue/composables/use-passkeys', 'use-passkeys'),
-  reference('runtime/vue/composables/use-sandbox-inbox', 'use-sandbox-inbox'),
-  reference('runtime/vue/composables/use-search', 'use-search'),
-  reference('runtime/vue/composables/use-sessions', 'use-sessions'),
-  reference('runtime/vue/composables/use-usage', 'use-usage'),
-  reference('runtime/vue/composables/use-workflow', 'use-workflow'),
+  // The generated reference.
+  { from: OLD_REFERENCE, to: REFERENCE_ROUTE },
+  ...Object.entries(REFERENCE_SLUGS).flatMap(([source, slug]) => [
+    { from: `${OLD_REFERENCE}/${source}`, to: `${REFERENCE_ROUTE}/${slug}` },
+    ...(source === slug ? [] : [{ from: `${OLD_REFERENCE}/${slug}`, to: `${REFERENCE_ROUTE}/${slug}` }]),
+  ]),
 ]
 
 /** Guessable short URLs, always temporary: a page they name can move. */
 export const DOCS_ALIASES: Record<string, string> = {
   '/install': '/docs/start/installation',
   '/quickstart': '/docs/start/quickstart',
-  '/cli': '/tooling/cli',
-  '/doctor': '/tooling/cli#doctor',
+  '/cli': '/docs/reference/cli',
+  '/doctor': '/docs/reference/cli#doctor',
   '/reference': REFERENCE_ROUTE,
+  '/docs/workspaces': '/docs/auth/workspaces',
+  '/docs/credits': '/docs/billing/credits',
+  '/docs/files': '/docs/data/files',
+  '/docs/mcp': '/docs/agents/mcp',
+  '/docs/composables': '/docs/reference/nuxt/composables',
+  '/docs/cli': '/docs/reference/cli',
+  '/docs/devtools': '/docs/start/develop/devtools',
+  '/docs/testing': '/docs/ship/test',
+  '/docs/deploy': '/docs/ship/deploy',
+  '/docs/api': REFERENCE_ROUTE,
 }
 
 /**
@@ -194,9 +249,17 @@ export const DOCS_ALIASES: Record<string, string> = {
  * has one anchor per id.
  */
 export const DOCS_SHORT_LINKS: Array<{ from: string, to: string, pending: string }> = [
-  { from: '/d/**', to: '/tooling/cli#findings', pending: 'D6 (a Diagnostics page, one anchor per finding)' },
-  { from: '/e/**', to: '/production/troubleshooting', pending: 'D6 (an Errors page, one anchor per code)' },
+  { from: '/d/**', to: '/docs/reference/cli#findings', pending: 'D6 (a Diagnostics page, one anchor per finding)' },
+  { from: '/e/**', to: '/docs/ship/operate/troubleshooting', pending: 'D6 (an Errors page, one anchor per code)' },
 ]
+
+/**
+ * Old anchors whose section moved to another page, keyed by the page the old
+ * route now redirects to: `<page>#<old anchor>` → `<new page>#<anchor>`.
+ * A redirect keeps the fragment, so the moved page loads with the old anchor
+ * and the client plugin finishes the trip. Splitting pages (D3c) fills it.
+ */
+export const DOCS_FRAGMENT_MOVES: Record<string, string> = {}
 
 type RedirectRule = { redirect: { to: string, statusCode: 301 | 302 } }
 
