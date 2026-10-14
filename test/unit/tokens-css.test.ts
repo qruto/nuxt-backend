@@ -93,4 +93,13 @@ describe('component tokens', () => {
     expect(body).toContain('outline: 2px solid var(--bk-accent)')
     expect(body).toContain('outline-offset: 2px')
   })
+
+  it('never lays out a whole family: a bare [data-<family>] rule also matches its text', () => {
+    // The attribute marks a component's message, actions and buttons as well
+    // as its root, so a layout rule on the bare attribute (display: flex,
+    // flex-direction: column) stacks the words of a message one per line.
+    for (const [name, css] of stylesheets) {
+      expect(css.match(/^\[data-[a-z]+\]\s*[,{]/m), name).toBeNull()
+    }
+  })
 })
