@@ -69,7 +69,6 @@ const { step, email, name, otp, pending, error, sendCode, verifyCode, addPasskey
 |---|---|---|
 | `requireName` | `true` | UI hint read by `<AuthForm>`: show a name field on the email step. `verifyCode()` sends `name` with the code whenever it is non-empty — on a custom page, keep it bound through the verify step, not only the request step. |
 | `validateEmail` | a basic shape check | `(email) => boolean \| string` — gates the email before `sendCode`. Return `false` for the default message, or a string for a custom one. |
-| `offerPasskey` | `true` | Enter `add-passkey` after the code is verified. `false` finishes right away. |
 | `onSuccess` | — | Called once the user is signed in and the flow is complete (e.g. `navigateTo`). |
 
 It returns:

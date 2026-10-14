@@ -12,17 +12,14 @@ export const workflow = setupWorkflows(components)
 export const onSignup = defineEmailSequence(workflow, components, {
   args: { userId: v.string(), email: v.string(), name: v.string() },
   steps: [
+    // The packaged welcome email goes out at signup; the sequence follows up.
     {
-      after: 0,
+      after: 3 * 24 * 60 * 60 * 1000, // three days later
       email: ({ email, name }) => ({
         to: email,
-        subject: 'Welcome!',
-        text: `Welcome aboard, ${name}! We're glad you're here.`,
+        subject: 'How is it going?',
+        text: `Hi ${name}, you signed up three days ago. Reply to this email if anything is in your way.`,
       }),
     },
-    // {
-    //   after: 3 * 24 * 60 * 60 * 1000, // three days later
-    //   email: ({ email, name }) => ({ to: email, subject: 'Getting the most out of it', text: '…' }),
-    // },
   ],
 })

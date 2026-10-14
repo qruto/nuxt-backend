@@ -19,8 +19,6 @@ export interface UseLoginFlowOptions {
    * default message, or a string for a custom one. Default: a basic shape check.
    */
   validateEmail?: (email: string) => boolean | string
-  /** Skip the post-OTP "save a passkey" step. Default `true` (offer it). */
-  offerPasskey?: boolean
   /** Called once the user is signed in and the flow is complete (e.g. `navigateTo`). */
   onSuccess?: () => unknown | Promise<unknown>
 }
@@ -43,7 +41,7 @@ export interface UseLoginFlowReturn {
   signInWithPasskey: () => Promise<void>
   /** Email an OTP code to `email` → `verify-code`. */
   sendCode: () => Promise<void>
-  /** Verify the entered code (signs in / signs up) → `add-passkey` or done. */
+  /** Verify the entered code (signs in / signs up) → `add-passkey`. */
   verifyCode: () => Promise<void>
   /** Save a passkey on the current account (post-OTP step) → done. */
   addPasskey: () => Promise<void>
@@ -94,7 +92,6 @@ function defaultValidateEmail(email: string): boolean {
  */
 export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowReturn {
   const auth = useAuth()
-  const offerPasskey = options.offerPasskey ?? true
 
   const step = ref<LoginStep>('choose')
   const email = ref('')
@@ -182,12 +179,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
       'Invalid code',
     )
     await refreshSession()
-    if (offerPasskey) {
-      step.value = 'add-passkey'
-    }
-    else {
-      await complete()
-    }
+    step.value = 'add-passkey'
   })
 
   const addPasskey = () => run('Passkey registration failed', async () => {

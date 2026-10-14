@@ -48,10 +48,6 @@ export const AuthForm = /* @__PURE__ */ defineComponent({
      * "Sign in to {brand.name}", then "Sign in"; an empty string hides it.
      */
     title: { type: String, default: undefined },
-    /** Offer passkey sign-in and post-OTP passkey enrolment. Default `true`. */
-    passkeys: { type: Boolean, default: true },
-    /** Offer the email-OTP flow. Default `true`. */
-    otp: { type: Boolean, default: true },
     /** Require a name on registration steps. Default `true`. */
     requireName: { type: Boolean, default: true },
     /** Gate emails before sending (`true` | `false` | custom message). */
@@ -69,7 +65,6 @@ export const AuthForm = /* @__PURE__ */ defineComponent({
     const flow = useLoginFlow({
       requireName: props.requireName,
       validateEmail: props.validateEmail,
-      offerPasskey: props.passkeys,
       onSuccess: () => {
         const resume = typeof window === 'undefined' ? null : agentAuthorizationUrl(window.location.search, authRoute)
         // fallow-ignore-next-line security-sink -- always `${authRoute}/mcp/authorize?…`: the published same-origin auth route plus this page's own query; verified 2026-10-14
@@ -113,13 +108,9 @@ export const AuthForm = /* @__PURE__ */ defineComponent({
 
     const steps: Record<LoginStep, () => VNodeChild> = {
       'choose': () => h('section', { 'data-auth': 'step-choose' }, [
-        ...(props.passkeys
-          ? [h('button', { 'data-auth': 'passkey-sign-in', 'type': 'button', 'disabled': flow.pending.value, 'onClick': flow.signInWithPasskey }, flow.pending.value ? 'Waiting…' : 'Sign in with passkey')]
-          : []),
-        ...(props.passkeys && props.otp ? [h('div', { 'data-auth': 'divider' }, 'or')] : []),
-        ...(props.otp
-          ? [h('button', { 'data-auth': 'otp-start', 'type': 'button', 'disabled': flow.pending.value, 'onClick': () => flow.goTo('request-code') }, 'Continue with email code')]
-          : []),
+        h('button', { 'data-auth': 'passkey-sign-in', 'type': 'button', 'disabled': flow.pending.value, 'onClick': flow.signInWithPasskey }, flow.pending.value ? 'Waiting…' : 'Sign in with passkey'),
+        h('div', { 'data-auth': 'divider' }, 'or'),
+        h('button', { 'data-auth': 'otp-start', 'type': 'button', 'disabled': flow.pending.value, 'onClick': () => flow.goTo('request-code') }, 'Continue with email code'),
       ]),
       'request-code': () => h('form', {
         'data-auth': 'step-request-code',

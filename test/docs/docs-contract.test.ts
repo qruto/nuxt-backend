@@ -188,6 +188,8 @@ describe('nothing names what 0.2 removed', () => {
     ['nuxt-backend/auth.css', 'the module adds the stylesheet'],
     ['deliveryLog', 'every webhook delivery is logged'],
     ['benefitMetadataTtlMs', 'the benefit metadata TTL is fixed'],
+    ['offerPasskey', 'the passkey step is always offered'],
+    ['welcomeEmail', 'the packaged welcome always sends'],
   ])('no file still offers %s (%s)', (needle) => {
     const offenders = files.filter(file => read(file).includes(needle)).map(file => file.replace(`${process.cwd()}/`, ''))
     expect(offenders).toEqual([])

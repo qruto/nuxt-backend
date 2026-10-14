@@ -191,7 +191,7 @@ email. Cancel a started sequence with the workflow manager's own
 export const onboardingSequence = defineEmailSequence(workflow, components, {
   args: { email: v.string(), name: v.string() },
   steps: [
-    { after: 0, email: ({ email, name }) => ({ to: email, subject: `Welcome, ${name}!`, text: '…' }) },
+    { after: 24 * 60 * 60 * 1000, email: ({ email, name }) => ({ to: email, subject: `Your first day, ${name}`, text: '…' }) },
     { after: 3 * 24 * 60 * 60 * 1000, email: ({ email }) => ({ to: email, subject: 'Getting the most out of it', text: '…' }) },
   ],
 })

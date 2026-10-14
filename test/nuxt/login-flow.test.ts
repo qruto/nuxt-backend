@@ -80,17 +80,6 @@ describe('useLoginFlow', () => {
     expect(onSuccess).toHaveBeenCalledOnce()
   })
 
-  it('completes directly after OTP when offerPasskey is false', async () => {
-    const onSuccess = vi.fn()
-    const flow = inSetup(() => useLoginFlow({ onSuccess, offerPasskey: false }))
-    flow.email.value = 'ada@example.com'
-    await flow.sendCode()
-    flow.otp.value = '123456'
-    await flow.verifyCode()
-    expect(onSuccess).toHaveBeenCalledOnce()
-    expect(flow.step.value).toBe('verify-code')
-  })
-
   it('gates emails with validateEmail (custom message)', async () => {
     const flow = inSetup(() => useLoginFlow({
       validateEmail: value => value.endsWith('@resend.dev') || 'Use a test inbox.',
@@ -146,15 +135,6 @@ describe('AuthForm', () => {
     expect(wrapper.find('[data-auth="title"]').text()).toBe('Sign in')
   })
 
-  it('hides flows per props', () => {
-    const noPasskeys = mount(AuthForm, { props: { passkeys: false } })
-    expect(noPasskeys.find('[data-auth="passkey-sign-in"]').exists()).toBe(false)
-    expect(noPasskeys.find('[data-auth="divider"]').exists()).toBe(false)
-
-    const noOtp = mount(AuthForm, { props: { otp: false } })
-    expect(noOtp.find('[data-auth="otp-start"]').exists()).toBe(false)
-  })
-
   it('walks to the OTP step and emits step + success', async () => {
     const wrapper = mount(AuthForm)
     await wrapper.find('[data-auth="otp-start"]').trigger('click')
@@ -176,13 +156,15 @@ describe('AuthForm', () => {
     const assign = vi.fn()
     vi.stubGlobal('location', { ...window.location, search: '?client_id=agent-1&response_type=code&state=s', assign })
     try {
-      const wrapper = mount(AuthForm, { props: { passkeys: false } })
+      const wrapper = mount(AuthForm)
       await wrapper.find('[data-auth="otp-start"]').trigger('click')
       await wrapper.find('[data-auth="input-email"]').setValue('ada@example.com')
       await wrapper.find('[data-auth="step-request-code"]').trigger('submit')
       await vi.waitFor(() => expect(wrapper.find('[data-auth="step-verify-code"]').exists()).toBe(true))
       await wrapper.find('[data-auth="input-otp"]').setValue('123456')
       await wrapper.find('[data-auth="step-verify-code"]').trigger('submit')
+      await vi.waitFor(() => expect(wrapper.find('[data-auth="step-add-passkey"]').exists()).toBe(true))
+      await wrapper.find('[data-auth="skip"]').trigger('click')
 
       await vi.waitFor(() => expect(assign).toHaveBeenCalledWith('/api/auth/mcp/authorize?client_id=agent-1&response_type=code&state=s'))
       expect(wrapper.emitted('success')).toBeUndefined()
