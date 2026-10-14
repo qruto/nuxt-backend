@@ -10,7 +10,7 @@ zero-config defaults; each file here changes exactly one thing from them.
 |---|---|
 | **Customized app definition** — the scaffolded explicit `defineApp` with the `backendEnv` contract extended by an extra env var and `aggregate` left unmounted | `backend/convex.config.ts` |
 | **Custom email templates** (OTP + invitation) without replacing the transport | `backend/auth.ts` → `integrations.emailTemplates` |
-| **Custom invitation path** — emails link to `/join`, the built-in page is disabled | `backend/auth.ts` (`invitationPath`), `nuxt.config.ts` (`pages: { acceptInvitation: false }`), `app/pages/join.vue` |
+| **Custom invitation path** — emails link to `/join`, where the app's own page replaces the built-in one | `backend/auth.ts` (`invitationPath`), `nuxt.config.ts` (`pages: { acceptInvitation: '/join' }`), `app/pages/join.vue` |
 | **Explicit billing config** instead of env-var defaults | `backend/billing.ts` (`accessToken` / `environment` / `webhookSecret`) |
 | **Billing webhook hook** — `order.paid` writes to an app table, after the built-in refresh + gift fulfilment | `backend/billing.ts` (`events`) + `backend/schema.ts` |
 | **Custom gift email** | `backend/billing.ts` (`giftEmail`) |

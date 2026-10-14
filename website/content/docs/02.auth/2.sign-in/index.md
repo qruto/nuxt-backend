@@ -127,7 +127,7 @@ definePageMeta({ middleware: 'auth' })
 </script>
 ```
 
-Unauthenticated users are redirected to `/login` (the [`loginPath`](/docs/reference/configuration/module-options) option, when the built-in page is replaced) with the original destination in `?redirect=`. The guard runs on the server for direct loads and in the browser for client-side navigation.
+Unauthenticated users are redirected to the sign-in page (`/login`, or wherever [`pages.login`](/docs/reference/configuration/module-options) puts it) with the original destination in `?redirect=`. The guard runs on the server for direct loads and in the browser for client-side navigation.
 
 `auth` is this package's name for the guard `nuxt-convex-module` registers as `convex-auth` — both stay registered and point at the same middleware, so code written against the base module keeps working.
 

@@ -20,7 +20,7 @@ export const {
   mcp,
 } = setupAuth(components, query, {
   // CUSTOMIZATION: workspace invitations link to a custom page (/join, see
-  // app/pages/join.vue + `backend: { pages: { acceptInvitation: false } }` in nuxt.config).
+  // app/pages/join.vue + `backend: { pages: { acceptInvitation: '/join' } }` in nuxt.config).
   organization: {
     invitationPath: '/join',
   },

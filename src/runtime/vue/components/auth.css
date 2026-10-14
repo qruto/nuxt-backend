@@ -1,20 +1,17 @@
 /*
  * Neutral default styles for <AuthForm>, hooked on its data-auth attributes.
- * Part of `nuxt-backend/ui.css` (auto-added by the module) and importable
- * alone: css: ['nuxt-backend/auth.css'].
- * Theme via the shared `--bk-*` tokens (all components at once), the
- * `--auth-*` properties below (this form only), or skip the stylesheet and
- * style the data-auth hooks yourself.
+ * Part of the module's stylesheet (ui.css). Theme via the shared `--bk-*`
+ * tokens (all components at once), the `--auth-*` properties below (this
+ * form only), or the data-auth hooks themselves.
  */
 [data-auth='form'] {
-  /* Fallbacks mirror tokens.css for apps that import auth.css alone. */
-  --auth-accent: var(--bk-accent, light-dark(#116632, #4ade80));
-  --auth-on-accent: var(--bk-on-accent, light-dark(#ffffff, #052912));
-  --auth-ink: var(--bk-ink, inherit);
-  --auth-muted: var(--bk-muted, color-mix(in srgb, currentColor 55%, transparent));
-  --auth-edge: var(--bk-edge, color-mix(in srgb, currentColor 18%, transparent));
-  --auth-error: var(--bk-error, light-dark(#a1302d, #f87171));
-  --auth-radius: var(--bk-radius, 8px);
+  --auth-accent: var(--bk-accent);
+  --auth-on-accent: var(--bk-on-accent);
+  --auth-ink: var(--bk-ink);
+  --auth-muted: var(--bk-muted);
+  --auth-edge: var(--bk-edge);
+  --auth-error: var(--bk-error);
+  --auth-radius: var(--bk-radius);
 
   display: flex;
   flex-direction: column;

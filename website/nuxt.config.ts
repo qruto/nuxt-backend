@@ -1,6 +1,7 @@
 import Sonda from 'sonda/nuxt'
 import { expandForAgents } from './shared/agent-markdown'
 import { DOCS_TABS, docsRedirectRules } from './shared/docs-routes'
+import { BACKEND_PAGE_DEFS } from '../src/pages'
 import { DOCS_VERSION } from './shared/docs-version'
 import { codeThemeDark, codeThemeLight } from './shiki-themes'
 
@@ -13,6 +14,16 @@ const analyze = process.env.ANALYZE === 'true'
 // registers) — reads it from here through `site.url`. Vercel builds `main`
 // only (website/vercel.json), so there is no preview origin to account for.
 const siteUrl = process.env.NUXT_SITE_URL || 'https://nuxt-backend.dev'
+
+// Where the module's pages mount on this site. The pages an email or an agent
+// links to stay at the root (`/login` is the site's own page); every other
+// one mounts in the playground's vanilla group, the untouched zero-config
+// look, so the site serves no indexable `/pricing`. A page the module adds
+// later lands there without an edit here.
+const ROOT_PAGES = new Set(['login', 'acceptInvitation', 'agentConsent'])
+const MODULE_PAGES = Object.fromEntries(BACKEND_PAGE_DEFS
+  .filter(def => !ROOT_PAGES.has(def.key))
+  .map(def => [def.key, `/playground/vanilla${def.defaultPath}`]))
 
 // One sentence, used in three places that each want their own copy: the site
 // config (meta description fallback), the SEO app config, and llms.txt.
@@ -189,7 +200,9 @@ export default defineNuxtConfig({
     'content:file:afterParse'({ content }) {
       expandForAgents(content.body)
     },
-    'pages:extend'(pages) {
+    // After every module has added its pages, so the ones the module mounts
+    // under /playground/vanilla get the shell too.
+    'pages:resolved'(pages) {
       // `/playground/offline` is the standalone page a build without a
       // deployment redirects to (middleware/playground-offline.global.ts);
       // like /login it opts out of layouts itself.
@@ -214,17 +227,7 @@ export default defineNuxtConfig({
     skills: { dir: '../skills' },
   },
   backend: {
-    // The playground mounts the SaaS page components under its own chrome
-    // (/playground/saas/*) and the vanilla group shows the zero-config look
-    // (/playground/vanilla/*) — so the root-level default pages stay off.
-    // `login` stays default-but-shadowed by app/pages/login.vue (route
-    // override demo); the accept-invitation page stays module-mounted.
-    pages: {
-      pricing: false,
-      settings: false,
-      profile: false,
-      security: false,
-    },
+    pages: MODULE_PAGES,
   },
   // Self-hosted webfonts. Families are declared in app.css's `@theme` block as
   // `--font-sans` and `--font-display` (Anybody), `--font-mono` (Martian Mono)

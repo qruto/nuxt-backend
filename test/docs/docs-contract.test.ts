@@ -23,7 +23,7 @@ describe('module options', () => {
 
   it('reads the interface', () => {
     expect(keys).toContain('devtools')
-    expect(keys.length).toBeGreaterThan(8)
+    expect(keys.length).toBeGreaterThanOrEqual(8)
   })
 
   it.each(keys)('`%s` is in the module options page (fields and interface) and STABILITY.md', (key) => {
@@ -181,6 +181,13 @@ describe('nothing names what 0.2 removed', () => {
     ['personal: false', 'every user gets a personal workspace'],
     ['tools.builtin', 'every built-in tool ships, gated by its scope'],
     ['builtinToolEnabled', 'every built-in tool ships, gated by its scope'],
+    ['pages: false', 'every module page mounts'],
+    ['backend.loginPath', 'the auth middleware follows pages.login'],
+    ['css: false', 'the stylesheet always loads, layered'],
+    ['nuxt-backend/ui.css', 'the module adds the stylesheet'],
+    ['nuxt-backend/auth.css', 'the module adds the stylesheet'],
+    ['deliveryLog', 'every webhook delivery is logged'],
+    ['benefitMetadataTtlMs', 'the benefit metadata TTL is fixed'],
   ])('no file still offers %s (%s)', (needle) => {
     const offenders = files.filter(file => read(file).includes(needle)).map(file => file.replace(`${process.cwd()}/`, ''))
     expect(offenders).toEqual([])

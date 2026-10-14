@@ -117,7 +117,7 @@
     "src/convex/integrations/search.ts:TableInfo",
     "src/convex/integrations/webhook-guard.ts:WebhookLogRefs",
     "src/convex/integrations/workflows.ts:SequenceEmailComponents",
-    "src/pages.ts:ModulePagesOptions",
+    "src/pages/registry.ts:ModulePagesOptions",
     "src/runtime/config.ts:BackendAppConfig",
     "src/runtime/vue/composables/use-billing.ts:EmptyArgs",
     "src/runtime/vue/composables/use-billing.ts:Query"

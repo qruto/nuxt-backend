@@ -39,12 +39,9 @@ import type { ComponentApi } from '../../src/convex/components/backend/_generate
 // test/nuxt/public-surface.test.ts; this file pins the types behind the names
 // a scaffolded app calls first.
 
-/** `exports` keys that carry no TypeScript: self-reference, stylesheets, the Convex codegen output and its `.js` twins. */
+/** `exports` keys that carry no TypeScript: self-reference, the Convex codegen output and its `.js` twins. */
 type Untyped
   = | './package.json'
-    | './auth.css'
-    | './ui.css'
-    | './*.css'
     | './_generated/component'
     | './_generated/component.js'
     | './convex.config.js'
@@ -82,10 +79,10 @@ test('every typed subpath in package.json exports is covered here', () => {
 
 test('nuxt-backend', () => {
   expectTypeOf(backendModule).toBeFunction()
-  // `pages: false` is the documented way to keep the shipped pages out of an app.
-  expectTypeOf<false>().toExtend<ModuleOptions['pages']>()
-  expectTypeOf<ModuleOptions['mcp']>().toExtend<boolean | object | undefined>()
-  expectTypeOf<ModuleOptions['css']>().toEqualTypeOf<boolean | undefined>()
+  // Pages take paths only: every page mounts, a string moves it.
+  expectTypeOf<{ pricing: '/plans' }>().toExtend<NonNullable<ModuleOptions['pages']>>()
+  expectTypeOf<false>().not.toExtend<ModuleOptions['pages']>()
+  expectTypeOf<ModuleOptions['mcp']>().toExtend<object | undefined>()
 })
 
 // The Convex integrations — what a scaffolded `backend/*.ts` calls.

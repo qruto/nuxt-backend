@@ -93,14 +93,15 @@ const COMPOSABLE_NAMES = [
   'useAiStream',
 ]
 
+/** In the registry's order: its page files sorted by name. */
 const DEFAULT_PAGES = [
-  { name: 'backend-login', path: '/login', file: 'vue/pages/login', meta: undefined },
-  { name: 'backend-pricing', path: '/pricing', file: 'vue/pages/pricing', meta: undefined },
-  { name: 'backend-settings', path: '/settings', file: 'vue/pages/settings', meta: { middleware: 'auth' } },
-  { name: 'backend-profile', path: '/profile', file: 'vue/pages/profile', meta: { middleware: 'auth' } },
-  { name: 'backend-security', path: '/security', file: 'vue/pages/security', meta: { middleware: 'auth' } },
   { name: 'backend-accept-invitation', path: '/accept-invitation', file: 'vue/pages/accept-invitation', meta: { middleware: 'auth' } },
   { name: 'backend-agent-consent', path: '/oauth/consent', file: 'vue/pages/agent-consent', meta: { middleware: 'auth' } },
+  { name: 'backend-login', path: '/login', file: 'vue/pages/login', meta: undefined },
+  { name: 'backend-pricing', path: '/pricing', file: 'vue/pages/pricing', meta: undefined },
+  { name: 'backend-profile', path: '/profile', file: 'vue/pages/profile', meta: { middleware: 'auth' } },
+  { name: 'backend-security', path: '/security', file: 'vue/pages/security', meta: { middleware: 'auth' } },
+  { name: 'backend-settings', path: '/settings', file: 'vue/pages/settings', meta: { middleware: 'auth' } },
 ].map(page => ({ ...page, file: join(runtimeDir, page.file) }))
 
 const MCP_RELAXATION = { security: { rateLimiter: false, xssValidator: false, corsHandler: false } }
@@ -289,9 +290,12 @@ describe('module registration (defaults)', () => {
     expect(getNuxt().options.appConfig.backend).toEqual(backendAppConfigDefaults)
   })
 
-  it('adds the neutral stylesheet exactly once', () => {
+  it('adds the neutral stylesheet first, exactly once', () => {
+    // First in line, so its `@layer` order statement leads (ui.css), and an
+    // app's own rules come after it.
     const uiCss = join(runtimeDir, 'vue/components/ui.css')
     expect(existsSync(uiCss)).toBe(true)
+    expect(getNuxt().options.css[0]).toBe(uiCss)
     expect(getNuxt().options.css.filter(entry => entry === uiCss)).toHaveLength(1)
   })
 
@@ -444,20 +448,28 @@ describe('module registration (defaults)', () => {
   })
 })
 
-describe('private pages stay out of search indexes and sitemaps', () => {
-  const noindex = { robots: false, sitemap: false }
+describe('page route rules', () => {
+  const privateRules = {
+    prerender: false,
+    cache: false,
+    swr: false,
+    isr: false,
+    robots: false,
+    sitemap: false,
+    headers: { 'cache-control': 'private, no-store' },
+  }
 
   describe('with the defaults', () => {
     const getNuxt = useBoot()
 
-    it('marks the five private pages, and neither public one', () => {
+    it('keeps the private pages out of indexes, sitemaps and caches, and prerenders no page', () => {
       const routeRules = getNuxt().options.routeRules ?? {}
       for (const path of ['/settings', '/profile', '/security', '/accept-invitation']) {
-        expect(routeRules[path], path).toEqual(noindex)
+        expect(routeRules[path], path).toEqual(privateRules)
       }
-      expect(routeRules['/oauth/consent']).toMatchObject(noindex)
-      expect(routeRules['/login']).toBeUndefined()
-      expect(routeRules['/pricing']).toBeUndefined()
+      expect(routeRules['/oauth/consent']).toMatchObject({ ...privateRules, headers: { 'cache-control': 'private, no-store' } })
+      expect(routeRules['/login']).toEqual({ prerender: false })
+      expect(routeRules['/pricing']).toEqual({ prerender: false })
     })
 
     it('keeps the consent page out of frames and its URL out of referrers, with or without nuxt-security', () => {
@@ -468,54 +480,33 @@ describe('private pages stay out of search indexes and sitemaps', () => {
     })
   })
 
-  describe('with custom paths and a rule of the app\'s own', () => {
+  describe('with a custom path and a rule of the app\'s own', () => {
     const getNuxt = useBoot({
-      backend: { pages: { profile: '/me', settings: false } },
+      backend: { pages: { profile: '/me' } },
       routeRules: { '/security': { robots: true } },
     })
 
-    it('follows the resolved paths, skips a disabled page, and lets the app\'s keys win', () => {
+    it('follows the path and lets the app\'s keys win', () => {
       const routeRules = getNuxt().options.routeRules ?? {}
-      expect(routeRules['/me']).toEqual(noindex)
+      expect(routeRules['/me']).toEqual(privateRules)
       expect(routeRules['/profile']).toBeUndefined()
-      expect(routeRules['/settings']).toBeUndefined()
-      expect(routeRules['/security']).toEqual({ robots: true, sitemap: false })
+      expect(routeRules['/security']).toEqual({ ...privateRules, robots: true })
     })
   })
 })
 
-describe('pages: false', () => {
-  const getNuxt = useBoot({ backend: { pages: false } })
+describe('custom login and pricing paths', () => {
+  const getNuxt = useBoot({ backend: { pages: { login: '/signin', pricing: '/plans/' } } })
 
-  it('publishes every page path as empty and mounts nothing', async () => {
-    const nuxt = getNuxt()
-    expect(nuxt.options.runtimeConfig.public.backend).toEqual({
-      pages: { login: '', pricing: '', settings: '', profile: '', security: '', acceptInvitation: '', agentConsent: '' },
-      authRoute: '/api/auth',
-    })
-    expect(await extendPages(nuxt)).toEqual([])
-    expect(nuxt.options.routeRules?.['/settings']).toBeUndefined()
-    // Nothing else in the fixture registers a page, so Nuxt routing stays off.
-    expect(pagesEnabled(nuxt)).toBe(false)
-  })
-
-  it('forwards no login path to the auth middleware (the app must provide one)', () => {
-    expect(dependencyOptions(getNuxt()).convex?.betterAuth?.loginPath).toBeUndefined()
-  })
-})
-
-describe('loginPath with a disabled login page and a custom pricing path', () => {
-  const getNuxt = useBoot({ backend: { loginPath: '/signin', pages: { login: false, pricing: '/plans/' } } })
-
-  it('forwards the explicit login path to the auth middleware', () => {
+  it('sends the auth middleware to the sign-in page\'s path', () => {
     expect(dependencyOptions(getNuxt()).convex?.betterAuth?.loginPath).toBe('/signin')
   })
 
-  it('mounts the remaining pages, the string path normalized', async () => {
+  it('mounts every page, the string paths normalized', async () => {
     const nuxt = getNuxt()
-    expect(nuxt.options.runtimeConfig.public.backend).toMatchObject({ pages: { login: '', pricing: '/plans' } })
+    expect(nuxt.options.runtimeConfig.public.backend).toMatchObject({ pages: { login: '/signin', pricing: '/plans' } })
     const pages = await extendPages(nuxt)
-    expect(pages.map(page => page.path)).toEqual(['/plans', '/settings', '/profile', '/security', '/accept-invitation', '/oauth/consent'])
+    expect(pages.map(page => page.path).sort()).toEqual(['/accept-invitation', '/oauth/consent', '/plans', '/profile', '/security', '/settings', '/signin'])
     expect(pages.find(page => page.path === '/plans')).toMatchObject({ name: 'backend-pricing', file: join(runtimeDir, 'vue/pages/pricing') })
   })
 })
@@ -574,16 +565,6 @@ describe('a user betterAuth object without an authClient', () => {
       loginPath: '/login',
       crossDomainCallbackRoute: '/cb',
     })
-  })
-})
-
-describe('css: false', () => {
-  const getNuxt = useBoot({ backend: { css: false } })
-
-  it('leaves the stylesheet out and the rest in', async () => {
-    const nuxt = getNuxt()
-    expect(nuxt.options.css.filter(entry => entry.startsWith(runtimeDir))).toEqual([])
-    expect((await extendComponents(nuxt)).map(component => component.pascalName).sort()).toEqual([...COMPONENT_NAMES].sort())
   })
 })
 

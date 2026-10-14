@@ -1,6 +1,6 @@
 /*
  * Neutral default styles for <WorkspaceSettings>, hooked on data-settings
- * attributes. Part of `nuxt-backend/ui.css`; theme via the `--bk-*` tokens.
+ * attributes. Part of the module's stylesheet (ui.css); theme via the `--bk-*` tokens.
  */
 [data-settings='root'] {
   display: flex;

@@ -50,9 +50,6 @@
       "types": "./dist/types.d.ts",
       "default": "./dist/module.js"
     },
-    "./auth.css": "./dist/runtime/vue/components/auth.css",
-    "./ui.css": "./dist/runtime/vue/components/ui.css",
-    "./*.css": "./dist/runtime/vue/components/*.css",
     "./auth": {
       "types": "./dist/convex/client/index.d.ts",
       "default": "./dist/convex/client/index.js"
@@ -155,7 +152,7 @@
     "check:manifest": "installed-check -d --no-workspaces",
     "check:rulesets": "node scripts/check-rulesets.mjs",
     "check:consumer-types": "node scripts/check-consumer-types.mjs",
-    "generate": "pnpm run docs:reference && pnpm run docs:includes && pnpm run docs:style && pnpm run design:contrast && pnpm run playground:sync",
+    "generate": "pnpm run pages:registry && pnpm run docs:reference && pnpm run docs:includes && pnpm run docs:style && pnpm run design:contrast && pnpm run playground:sync",
     "docs:includes": "node scripts/docs-includes.mjs",
     "playground:sync": "node scripts/sync-playground.mjs",
     "docs:reference": "typedoc && node scripts/typedoc-postprocess.mjs",
@@ -203,7 +200,8 @@
     "cli": "node dist/cli.mjs",
     "qa:screenshots": "vitest --project e2e --run test/e2e/screenshots.test.ts",
     "docs:style": "node scripts/docs-style.mjs",
-    "design:contrast": "node scripts/design-contrast.mjs --write"
+    "design:contrast": "node scripts/design-contrast.mjs --write",
+    "pages:registry": "node scripts/pages-registry.mjs"
   },
   "dependencies": {
     "@better-auth/passkey": ">=1.6.25 <1.7.0",

@@ -24,8 +24,8 @@ export function resolveAuthTitle(config: BackendAppConfig, override?: string): s
  * `data-auth` attribute for styling — or replace any step wholesale via its
  * slot (each slot receives the full {@link UseLoginFlowReturn} flow object).
  *
- * Style it yourself against the `data-auth` hooks, or add the neutral default
- * stylesheet: `css: ['nuxt-backend/auth.css']` in `nuxt.config.ts`.
+ * The module's neutral stylesheet styles it; restyle it through the `--bk-*`
+ * and `--auth-*` tokens or the `data-auth` hooks.
  *
  * When an agent's authorization sent the person here to sign in, signing in
  * resumes it with a full navigation to the consent page instead of emitting

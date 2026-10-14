@@ -1,6 +1,6 @@
 /*
  * Neutral default styles for <GiftClaimBanner>, hooked on data-gift
- * attributes. Part of `nuxt-backend/ui.css`; theme via the `--bk-*` tokens.
+ * attributes. Part of the module's stylesheet (ui.css); theme via the `--bk-*` tokens.
  */
 [data-gift='banner'] {
   display: flex;

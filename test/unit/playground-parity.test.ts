@@ -3,6 +3,7 @@ import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { drift, OWNED, SOURCE, TARGET } from '../../scripts/sync-playground.mjs'
+import { BACKEND_PAGE_DEFS } from '../../src/pages'
 
 // examples/playground is the website's playground as a standalone app. The
 // sync script copies what it can byte for byte; these tests pin the rest: the
@@ -43,7 +44,9 @@ function backendBlock(path: string): unknown {
 }
 
 const examplePages = listFiles(join(TARGET, 'pages'))
-const exampleRoutes = new Set(examplePages.map(routeOf))
+// The module's own pages the example mounts in the playground (backend.pages).
+const exampleModulePages = (backendBlock('examples/playground/nuxt.config.ts') as { pages: Record<string, string> }).pages
+const exampleRoutes = new Set([...examplePages.map(routeOf), ...Object.values(exampleModulePages)])
 const exampleVue = listFiles(TARGET).filter(file => file.endsWith('.vue'))
 
 describe('the sync', () => {
@@ -68,6 +71,15 @@ describe('routes', () => {
 
   it('has its own login page', () => {
     expect(examplePages).toContain('login.vue')
+  })
+
+  it('mounts the module\'s account pages where the site does', () => {
+    // website/nuxt.config.ts computes them: every page but the three an email
+    // or an agent links to, under /playground/vanilla.
+    const root = new Set(['login', 'acceptInvitation', 'agentConsent'])
+    const site = Object.fromEntries(BACKEND_PAGE_DEFS.filter(def => !root.has(def.key)).map(def => [def.key, `/playground/vanilla${def.defaultPath}`]))
+    expect(exampleModulePages).toEqual(site)
+    expect(read('website/nuxt.config.ts')).toContain('const ROOT_PAGES = new Set([\'login\', \'acceptInvitation\', \'agentConsent\'])')
   })
 
   it('lists every playground page in the nav, and every nav entry has a page', () => {

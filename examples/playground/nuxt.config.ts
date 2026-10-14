@@ -23,10 +23,9 @@ export default defineNuxtConfig({
       ],
     },
   },
-  // The site's order: the reset Tailwind gives it, the package's neutral
-  // stylesheet, then the site's own layer on top. `backend.css: false` keeps
-  // the module from appending ui.css after app.css.
-  css: ['~/assets/reset.css', 'nuxt-backend/ui.css', '~/app.css'],
+  // The reset Tailwind gives the site, then the site's own stylesheet. The
+  // module puts its neutral, layered stylesheet ahead of both.
+  css: ['~/assets/reset.css', '~/app.css'],
   routeRules: {
     '/': { redirect: '/playground' },
     ...Object.fromEntries(DOCS_SECTIONS.map(section => [
@@ -36,9 +35,10 @@ export default defineNuxtConfig({
   },
   compatibilityDate: '2026-09-01',
   // Every playground page renders in the playground shell, set here once like
-  // the site does. /login and /playground/offline opt out themselves.
+  // the site does, after the module has added the pages it mounts under
+  // /playground/vanilla. /login and /playground/offline opt out themselves.
   hooks: {
-    'pages:extend'(pages) {
+    'pages:resolved'(pages) {
       const isPlaygroundRoute = (path: string) =>
         (path === '/playground' || path.startsWith('/playground/')) && path !== '/playground/offline'
       const walk = (list: typeof pages) => {
@@ -51,15 +51,15 @@ export default defineNuxtConfig({
     },
   },
   backend: {
-    css: false,
-    // The playground mounts the packaged pages under its own shell
-    // (/playground/saas/*, /playground/vanilla/*), so the root-level ones stay
-    // off. /login is this app's own page, which the module detects.
+    // The account pages mount in the playground's vanilla group, the
+    // zero-config look. /login is this app's own page, which the module
+    // detects; the invitation and consent pages stay at the root, where
+    // emails and agents link.
     pages: {
-      pricing: false,
-      settings: false,
-      profile: false,
-      security: false,
+      pricing: '/playground/vanilla/pricing',
+      settings: '/playground/vanilla/settings',
+      profile: '/playground/vanilla/profile',
+      security: '/playground/vanilla/security',
     },
   },
   // The app's own agent tools live in server/agent/tools/, as on the site

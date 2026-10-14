@@ -1,5 +1,8 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { BACKEND_PAGE_DEFS, collectExistingPagePaths, normalizePagePath, privatePagePaths, resolvePagePath, resolvedBackendPages } from '../../src/pages'
+import { registryText } from '../../scripts/pages-registry.mjs'
+import { BACKEND_PAGE_DEFS, collectExistingPagePaths, normalizePagePath, pageRouteRules, privatePagePaths, resolvePagePath, resolvedBackendPages } from '../../src/pages'
 
 describe('resolvePagePath', () => {
   it('returns default paths when nothing is configured', () => {
@@ -11,45 +14,74 @@ describe('resolvePagePath', () => {
   it('honors custom paths, normalized', () => {
     expect(resolvePagePath({ login: '/sign-in' }, 'login')).toBe('/sign-in')
     expect(resolvePagePath({ settings: 'account/' }, 'settings')).toBe('/account')
-    expect(resolvePagePath({ security: true }, 'security')).toBe('/security')
   })
 
-  it('disables per key, per empty path, and for the whole set', () => {
-    expect(resolvePagePath({ pricing: false }, 'pricing')).toBeNull()
-    expect(resolvePagePath({ pricing: '  ' }, 'pricing')).toBeNull()
-    expect(resolvePagePath(false, 'login')).toBeNull()
+  it('keeps the default path for a blank one: a page is always mounted', () => {
+    expect(resolvePagePath({ pricing: '  ' }, 'pricing')).toBe('/pricing')
   })
 })
 
 describe('resolvedBackendPages', () => {
-  it('maps every page key, with empty strings for disabled pages', () => {
-    const resolved = resolvedBackendPages({ profile: false, login: '/sign-in' })
+  it('maps every page key to its path', () => {
+    const resolved = resolvedBackendPages({ login: '/sign-in' })
     expect(resolved).toEqual({
       login: '/sign-in',
       pricing: '/pricing',
       settings: '/settings',
-      profile: '',
+      profile: '/profile',
       security: '/security',
       acceptInvitation: '/accept-invitation',
       agentConsent: '/oauth/consent',
     })
     expect(Object.keys(resolved)).toHaveLength(BACKEND_PAGE_DEFS.length)
   })
-
-  it('is all-empty when the page set is off', () => {
-    expect(Object.values(resolvedBackendPages(false)).every(path => path === '')).toBe(true)
-  })
 })
 
 describe('privatePagePaths', () => {
-  it('lists the enabled pages behind the auth middleware, at their resolved paths', () => {
-    expect(privatePagePaths(undefined)).toEqual(['/settings', '/profile', '/security', '/accept-invitation', '/oauth/consent'])
-    expect(privatePagePaths({ profile: '/me/', security: false })).toEqual(['/settings', '/me', '/accept-invitation', '/oauth/consent'])
+  it('lists the pages behind the auth middleware, at their paths', () => {
+    expect(privatePagePaths(undefined).sort()).toEqual(['/accept-invitation', '/oauth/consent', '/profile', '/security', '/settings'])
+    expect(privatePagePaths({ profile: '/me/' })).toContain('/me')
   })
 
-  it('never lists the public pages, and nothing when pages are off', () => {
+  it('never lists the public pages', () => {
     expect(privatePagePaths({ login: '/sign-in', pricing: '/plans' })).not.toEqual(expect.arrayContaining(['/sign-in', '/plans']))
-    expect(privatePagePaths(false)).toEqual([])
+  })
+})
+
+describe('pageRouteRules', () => {
+  it('prerenders no page', () => {
+    for (const def of BACKEND_PAGE_DEFS) expect(pageRouteRules(def), def.key).toMatchObject({ prerender: false })
+  })
+
+  it('keeps a private page out of indexes, sitemaps and every cache', () => {
+    expect(pageRouteRules({ auth: true })).toStrictEqual({
+      prerender: false,
+      cache: false,
+      swr: false,
+      isr: false,
+      robots: false,
+      sitemap: false,
+      headers: { 'cache-control': 'private, no-store' },
+    })
+  })
+
+  it('leaves a public page cacheable and indexable', () => {
+    expect(pageRouteRules({ auth: false })).toStrictEqual({ prerender: false })
+  })
+})
+
+describe('the page registry', () => {
+  it('lists every page file (pnpm generate)', () => {
+    expect(readFileSync(fileURLToPath(new URL('../../src/pages/registry.ts', import.meta.url)), 'utf8')).toBe(registryText())
+  })
+
+  it('gives each page a key, a component and an absolute default path', () => {
+    const keys = BACKEND_PAGE_DEFS.map(def => def.key)
+    expect(new Set(keys).size).toBe(keys.length)
+    for (const def of BACKEND_PAGE_DEFS) {
+      expect(def.defaultPath, def.key).toMatch(/^\/[a-z0-9/-]+$/)
+      expect(existsSync(fileURLToPath(new URL(`../../src/runtime/vue/pages/${def.file}.ts`, import.meta.url))), def.file).toBe(true)
+    }
   })
 })
 

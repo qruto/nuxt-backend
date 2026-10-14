@@ -138,7 +138,7 @@ const {
 
 - **Email** — override `invite` in `integrations.emailTemplates` to restyle without replacing the transport, or supply the plugin's own `organization.sendInvitationEmail` to take over delivery entirely.
 - **Link path** — `organization: { invitationPath: '/join' }` changes where emailed links point.
-- **Page** — the module option `pages.acceptInvitation`: `true` (default) mounts `/accept-invitation`, a string mounts a custom path, `false` disables it.
+- **Page** — the module mounts it at `/accept-invitation`; the module option `pages.acceptInvitation` moves it, and an app page at its path replaces it.
 
 A custom accept page is the component behind the `auth` middleware — it reads `?id=` from the URL itself:
 
@@ -155,7 +155,7 @@ definePageMeta({ middleware: 'auth' })
 ```ts [nuxt.config.ts]
 export default defineNuxtConfig({
   modules: ['nuxt-backend'],
-  backend: { pages: { acceptInvitation: false } },
+  backend: { pages: { acceptInvitation: '/join' } },
 })
 ```
 

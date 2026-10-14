@@ -5,9 +5,9 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-10-14',
   telemetry: false,
   backend: {
-    // CUSTOMIZATION: the built-in /accept-invitation page is disabled — this
-    // app ships its own at /join (see app/pages/join.vue), matching the
-    // Convex-side `organization.invitationPath` in backend/auth.ts.
-    pages: { acceptInvitation: false },
+    // CUSTOMIZATION: the invitation page lives at /join, matching the
+    // Convex-side `organization.invitationPath` in backend/auth.ts. The app's
+    // own page there (app/pages/join.vue) replaces the built-in one.
+    pages: { acceptInvitation: '/join' },
   },
 })

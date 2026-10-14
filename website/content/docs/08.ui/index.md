@@ -7,7 +7,7 @@ navigation:
   icon: i-lucide-compass
 ---
 
-Install the module and six pages exist with no files to write: `/login`, `/pricing`, `/settings`, `/profile`, `/security` and `/accept-invitation`. Each one is a thin wrapper around a single auto-imported component, such as `<AuthForm>` or `<PricingTable>`, styled by the neutral `nuxt-backend/ui.css` stylesheet. This section covers which pages mount and how the `pages` module option moves or removes them, then how to change what they look like and say, up to replacing a page outright.
+Install the module and seven pages exist with no files to write: `/login`, `/pricing`, `/settings`, `/profile`, `/security`, `/accept-invitation` and `/oauth/consent`. Each one is a thin wrapper around a single auto-imported component, such as `<AuthForm>` or `<PricingTable>`, styled by the module's neutral stylesheet. This section covers which pages mount and how the `pages` module option moves them, then how to change what they look like and say, up to replacing a page outright.
 
 ## How it fits together
 

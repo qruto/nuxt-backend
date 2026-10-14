@@ -30,7 +30,7 @@ import {
   queryGeneric,
   type RegisteredAction,
 } from 'convex/server'
-import { guardDelivery, parseSecretList, translateStandardSignature, type WebhookLogRefs, WEBHOOK_BODY_LIMIT } from './webhook-guard.js'
+import { guardDelivery, parseSecretList, translateStandardSignature, type WebhookLogRefs } from './webhook-guard.js'
 import { ConvexError, v } from 'convex/values'
 import type { SendEmailOptions } from './email.js'
 
@@ -676,7 +676,7 @@ export interface BillingComponents {
     email?: {
       send: FunctionReference<'mutation', 'internal', SendEmailOptions, string | null>
     }
-    webhooks?: WebhookLogRefs
+    webhooks: WebhookLogRefs
   }
 }
 
@@ -792,25 +792,20 @@ export type SetupBillingConfig = Omit<PolarConfig, 'getUserInfo' | 'organization
    */
   catalog?: Partial<Record<'sandbox' | 'production', BillingCatalogIds | undefined>>
   /**
-   * Maximum age of a cached benefit-metadata snapshot before an entitlement
-   * sync re-reads it live (ms, default 15 minutes). The `benefit.updated`
-   * webhook patches snapshots immediately regardless.
-   */
-  benefitMetadataTtlMs?: number
-  /**
    * Called for an **authentic** (signature-verified) webhook event whose type
    * this package's provider SDK cannot parse — e.g. an event newer than the
    * installed package. The delivery is acknowledged with 202 either way, so
    * unknown types can never put the endpoint into a retry loop.
    */
   onUnknownEvent?: (ctx: RunWriteCtx, event: { type?: string, payload: unknown }) => Promise<void>
-  /**
-   * Record every inbound webhook delivery in the component's capped ring
-   * buffer (powers redelivery dedupe and the DevTools Webhooks page).
-   * `false` disables the log — and with it dedupe.
-   */
-  deliveryLog?: boolean
 }
+
+/**
+ * The longest a cached benefit-metadata snapshot serves an entitlement sync
+ * before the sync re-reads it live. The `benefit.updated` webhook patches
+ * snapshots immediately regardless.
+ */
+const BENEFIT_METADATA_TTL_MS = 15 * 60 * 1000
 
 /** Webhook events that signal a customer's plans / benefits / credits may have changed. */
 // Catalog-as-code authoring surface (billing.catalog.ts / `billing sync`).
@@ -950,16 +945,6 @@ function safeJsonParse(body: string): unknown {
   catch {
     return body
   }
-}
-
-/** Guard stand-in when the delivery log is disabled — statuses stay fail-closed. */
-function noopGuard(secretsConfigured: boolean, bodyLength: number): { rejection: Response | null, record: () => Promise<void> } {
-  const rejection = !secretsConfigured
-    ? new Response('Webhook secret not configured', { status: 503 })
-    : bodyLength > WEBHOOK_BODY_LIMIT
-      ? new Response('Payload too large', { status: 413 })
-      : null
-  return { rejection, record: async () => {} }
 }
 
 /**
@@ -1377,7 +1362,7 @@ export function setupBilling(
       ? await ctx.runQuery(cache.getBenefitMetadata, { benefitIds: distinctBenefitIds })
       : []
     const now = Date.now()
-    const ttl = config.benefitMetadataTtlMs ?? 15 * 60 * 1000
+    const ttl = BENEFIT_METADATA_TTL_MS
     const metadataByBenefit = new Map<string, Record<string, string | number | boolean>>(
       snapshots.filter(s => now - s.updatedAt < ttl).map(s => [s.benefitId, s.metadata]),
     )
@@ -2557,15 +2542,12 @@ export function setupBilling(
 
   const webhookHandler = async (ctx: RunWriteCtx, request: Request): Promise<Response> => {
     const body = await request.text()
-    const logRefs = config.deliveryLog === false ? undefined : webhookLog
-    const guard = logRefs
-      ? await guardDelivery(ctx as never, logRefs, {
-          service: 'billing',
-          deliveryId: request.headers.get('webhook-id'),
-          bodyLength: body.length,
-          secretsConfigured: webhookSecrets.length > 0,
-        })
-      : noopGuard(webhookSecrets.length > 0, body.length)
+    const guard = await guardDelivery(ctx as never, webhookLog, {
+      service: 'billing',
+      deliveryId: request.headers.get('webhook-id'),
+      bodyLength: body.length,
+      secretsConfigured: webhookSecrets.length > 0,
+    })
     if (guard.rejection) return guard.rejection
 
     const parsedType = ((): string | undefined => {
