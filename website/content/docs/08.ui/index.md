@@ -13,11 +13,11 @@ Install the module and six pages exist with no files to write: `/login`, `/prici
 
 When a page no longer fits, you climb the customization ladder one rung at a time. Every rung keeps the packaged behavior, so you replace only what you outgrow and there is nothing to eject.
 
-1. **[CSS tokens](/docs/ui/customize#_1-css-tokens)**: override the shared `--bk-*` custom properties to re-theme every component at once, or style the `data-*` hooks on each element directly.
-2. **[`app.config` content](/docs/ui/customize#_2-appconfig-content)**: set the plan catalog, brand and labels in `appConfig.backend`. It is typed and reactive, and names and prices still resolve live from billing.
-3. **[Slots](/docs/ui/customize#_3-slots)**: keep the packaged component and replace only the regions you care about. Every slot receives the composable state the component runs on.
-4. **[Route shadowing](/docs/ui/customize#_4-route-shadowing)**: put an app page at the same path. The module detects it, skips its own page and logs the override.
-5. **[Composables](/docs/ui/customize#_5-composables)**: drop the component and build a fully custom page on the same composables the packaged one uses.
+1. **[CSS tokens](/docs/ui/customize/theming)**: override the shared `--bk-*` custom properties to re-theme every component at once, or style the `data-*` hooks on each element directly.
+2. **[`app.config` content](/docs/ui/customize/labels)**: set the plan catalog, brand and labels in `appConfig.backend`. It is typed and reactive, and names and prices still resolve live from billing.
+3. **[Slots](/docs/ui/customize/slots)**: keep the packaged component and replace only the regions you care about. Every slot receives the composable state the component runs on.
+4. **[Route shadowing](/docs/ui/customize/replace-pages)**: put an app page at the same path. The module detects it, skips its own page and logs the override.
+5. **[Composables](/docs/ui/customize/replace-pages#build-from-composables)**: drop the component and build a fully custom page on the same composables the packaged one uses.
 
 Props, emits and slots for every component the module registers are listed in [Composables › Auto-registered components](/docs/reference/nuxt/composables#auto-registered-components).
 

@@ -1,6 +1,7 @@
 ---
 title: Workspaces
 description: Multi-tenant workspaces (the organization plugin) — the active workspace as a JWT claim, useOrganization, WorkspaceSettings, invitations end-to-end, and the personal workspace.
+kind: how-to
 navigation:
   icon: i-lucide-users
 ---
@@ -128,7 +129,7 @@ const {
   acceptInvitation,        // (invitationId, { activate? }) — join, optionally set active
   declineInvitation,       // (invitationId)
   cancelInvitation,        // (invitationId) — inviter side, revoke a pending invite
-  getInvitation,           // (invitationId) — details for a custom accept page
+  getInvitation,           // (invitationId) — details for a custom accept page, or null once it is gone
   listReceivedInvitations, // invitations addressed to the signed-in user
 } = useOrganization()
 ```

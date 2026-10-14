@@ -24,7 +24,7 @@ export default defineContentConfig({
           target: z.string().optional(),
         })).optional(),
         /** What the page is for: the docs keep one kind per page. */
-        kind: z.enum(['landing', 'tutorial', 'how-to', 'concept', 'recipe', 'reference']).optional(),
+        kind: z.enum(['landing', 'tutorial', 'how-to', 'concept', 'recipe', 'reference']),
         /** The STABILITY.md tier of what the page documents. */
         status: z.enum(['stable', 'experimental', 'deprecated']).optional(),
         /** The capability the page belongs to (`auth`, `billing`, `email`, …). */

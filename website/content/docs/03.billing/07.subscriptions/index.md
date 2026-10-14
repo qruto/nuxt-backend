@@ -1,6 +1,7 @@
 ---
 title: Subscriptions
 description: Plans, checkout, the customer portal, and plan changes — powered by the Polar component and linked to your auth users, with the reactive entitlement cache inside the backend component.
+kind: how-to
 navigation:
   icon: i-lucide-credit-card
 ---
@@ -150,53 +151,6 @@ const billing = useBilling()
 
 Signed-out visitors are simply on the free plan: the user-scoped queries are skipped and `subscription` resolves to `null`.
 
-## Checkout, portal, plan changes
-
-```vue
-<script setup lang="ts">
-const { products, checkout, portal, changePlan, cancel } = useBilling()
-
-// Subscribe (opens checkout in a new tab; `redirect: true` for same-tab)
-await checkout(products.value!.pro!.id, { trialInterval: 'day', trialIntervalCount: 7 })
-
-// Manage payment methods, invoices, the subscription
-await portal({ returnUrl: window.location.href })
-
-// Upgrade / downgrade the active subscription
-await changePlan(products.value!.ultra!.id, { proration: 'invoice' })
-
-// Cancel at the end of the paid period (the default) — `atPeriodEnd: false`
-// revokes on the spot, with no refund implied either way.
-await cancel({ atPeriodEnd: true, reason: 'too_expensive' })
-</script>
-```
-
-The rest of the lifecycle sits on the same composable: `uncancel()` undoes a scheduled cancellation, `pause({ resumesAt })` pauses at the end of the period, and `resume()` restarts a paused subscription immediately. Each takes an optional `subscriptionId` — needed only with `setupBilling({ multipleSubscriptions: true })`, when one entity can hold several at once (the ids are on `billing.subscriptions`).
-
-`checkout(productIds, options)` accepts `subscriptionId`, `metadata`, `trialInterval` / `trialIntervalCount`, `locale`, `successUrl` (defaults to the current URL), `redirect`, and the checkout-form options `prefill`, `customFields`, `requireBillingAddress`, `allowDiscountCodes` and `discountId`. Discount **codes** are typed by the customer into the provider's own checkout (`allowDiscountCodes`, on by default): the provider's payload takes ids only and its API has no code→id lookup, so a campaign resolves its code once with `billing.discounts.list()` and stores the id. After checkout returns, the `subscription.*` / `order.paid` webhooks refresh the cache — or call `syncEntitlements` (`useCredits().refresh()`) to pull immediately.
-
-## Order history and invoices
-
-`useOrders()` pages the entity's past charges straight from the provider (no local order table), and `<BillingHistory>` renders them with invoice links:
-
-```vue
-<script setup lang="ts">
-const { orders, invoice, next, previous, hasMore } = useOrders({ limit: 10 })
-// invoice(orderId) opens the invoice in a new tab and resolves with its URL —
-// null while the provider is still generating the PDF, so offer a retry.
-// `{ open: false }` hands the URL back without opening it (a download link);
-// `{ redirect: true }` opens it in the same tab.
-</script>
-
-<template>
-  <BillingHistory :limit="10" />
-</template>
-```
-
-`useOrders({ limit?, immediate?, api? })` returns `orders` (`undefined` until the first load), `page`, `total` / `pageCount` (when the provider reports them), `hasMore` / `hasPrevious`, `isLoading`, `error` (the last failed load's message — loads never reject), `refresh()`, `next()`, `previous()`, `goTo(page)` and `invoice(orderId, options?)`. Signed-out visitors, and backends that have not deployed `getOrders`, get an empty list rather than an error.
-
-The `<PricingTable>` component behind the `/pricing` page renders the plan catalog from `appConfig.backend.billing.plans` with names and prices resolved live (see [Customization](/docs/ui/customize#_2-appconfig-content)).
-
 ## Environment
 
 | Variable | Purpose |
@@ -207,8 +161,21 @@ The `<PricingTable>` component behind the `/pricing` page renders the plan catal
 
 All three are optional at deploy time and forwarded from `.env.local` by `npx nuxt-backend env push`; see the [configuration reference](/docs/reference/configuration/environment-variables#convex-deployment-variables).
 
-::playground-link{to="/playground/platform/billing" label="billing"}
+## Next
+
+::card-group
+  :::card{icon="i-lucide-shopping-cart" title="Open checkout and the portal" to="/docs/billing/subscriptions/checkout"}
+  Subscribe, top up, change or cancel a plan.
+  :::
+
+  :::card{icon="i-lucide-ticket-percent" title="Offer discounts" to="/docs/billing/subscriptions/discounts"}
+  Mint discounts on the server; customers type codes at checkout.
+  :::
+
+  :::card{icon="i-lucide-receipt" title="Show orders, invoices and usage" to="/docs/billing/subscriptions/orders"}
+  Past charges, invoice links, metered consumption and refunds.
+  :::
 ::
 
-::playground-link{to="/playground/platform/history" label="orders and usage history"}
+::playground-link{to="/playground/platform/billing" label="billing"}
 ::

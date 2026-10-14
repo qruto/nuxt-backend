@@ -1,6 +1,7 @@
 ---
-title: File Storage
+title: File storage
 description: Reactive uploads with progress, cancellation, and queueing over Convex file storage.
+kind: how-to
 navigation:
   icon: i-lucide-upload
 ---

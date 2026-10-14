@@ -1,6 +1,7 @@
 ---
-title: Skills & Agent Files
+title: Skills & agent files
 description: Give coding agents the rules of a nuxt-backend app — the agent skill, the AGENTS.md section and .mcp.json that init writes, and Convex's own agent tooling.
+kind: how-to
 navigation:
   icon: i-lucide-sparkles
 ---
