@@ -43,14 +43,8 @@ pnpm run test:types:lib
 # `test` job, minus the Windows leg and coverage thresholds, which need CI.
 pnpm run test
 
-# `static` job's API reference drift step. Regenerating must produce no diff,
-# or the committed reference and the source doc-comments have diverged. This
-# one rewrites files: if it fails, the regenerated reference is already in your
-# working tree, ready to commit.
-pnpm run docs:reference
-if ! git diff --quiet -- website/content/7.api-reference/9.reference; then
-  echo >&2
-  echo "pre-push: the API reference drifted — commit the regenerated files below." >&2
-  git --no-pager diff --stat -- website/content/7.api-reference/9.reference >&2
-  exit 1
-fi
+# `static` job's API reference drift step, through the same script CI runs:
+# regenerating must leave no diff and no untracked page. It rewrites files: if
+# it fails, the regenerated reference is already in your working tree, ready to
+# commit.
+pnpm run docs:reference:check

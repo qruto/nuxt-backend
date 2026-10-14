@@ -16,7 +16,7 @@ export interface ScaffoldOptions extends BackendTemplateOptions {
 
 /**
  * Scaffold the backend files that don't exist yet (idempotent). Used by the
- * module's first-run auto-scaffold and by the CLI's `init` / `add` commands.
+ * module's first-run auto-scaffold and by the CLI's `init`, `dev` and `doctor --fix`.
  */
 export function scaffoldBackendFiles(rootDir: string, options: ScaffoldOptions = {}) {
   const log = options.log ?? console.log

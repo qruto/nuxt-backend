@@ -2,6 +2,7 @@ export default defineNuxtConfig({
   modules: ['nuxt-backend'],
   devtools: { enabled: true },
   css: ['~/assets/main.css'],
+  compatibilityDate: '2026-10-14',
   telemetry: false,
   backend: {
     // CUSTOMIZATION: the built-in /accept-invitation page is disabled — this

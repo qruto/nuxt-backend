@@ -139,7 +139,7 @@ Dependabot owns every dependency PR — npm versions and GitHub Actions digests 
 
 ### Installed apps
 
-Four GitHub Apps are installed on the repository, and this is everything each one can write.
+Seven GitHub Apps are installed on the repository, and this is everything each one can write.
 None of them can push to `main`: the `main-pr-gate` ruleset takes pull requests only, and its
 bypass list names no app. None can publish to npm: the only credential npm accepts is the OIDC
 token of a job running in the `Release` environment, from `main`, in `release.yml`.
@@ -150,6 +150,9 @@ token of a job running in the `Release` environment, from `main`, in `release.ym
 | [CodeRabbit](https://github.com/apps/coderabbitai) | Reviews and comments on pull requests | `.coderabbit.yaml`, and its reviews |
 | Copilot cloud agent | A branch and a pull request, only when a maintainer assigns it an issue or invokes it | its workflow in the Actions tab (`gh workflow list`) |
 | Dependabot | Branches and pull requests for dependency updates | `.github/dependabot.yml`, and its workflow in the Actions tab |
+| [Socket Security](https://github.com/apps/socket-security) | Check runs and one comment per pull request on dependency changes | `socket.yml`, and its checks on any pull request |
+| [Codecov](https://github.com/apps/codecov) | Coverage check runs and a comment per pull request | the coverage upload step in `ci.yml`, and the `codecov/*` checks |
+| [Vercel](https://github.com/apps/vercel) | Deployments and deployment statuses for `main` (the website); never a commit | `website/vercel.json`, and the Deployments tab |
 
 ### CI and release hardening
 

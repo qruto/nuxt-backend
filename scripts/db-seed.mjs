@@ -10,7 +10,7 @@
  * accounts that predate it (or a fresh sign-in after `db:reset`).
  *
  * Usage:
- *   node scripts/db-seed.js
+ *   node scripts/db-seed.mjs
  *   pnpm run db:seed
  */
 

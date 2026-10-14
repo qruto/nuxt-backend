@@ -70,9 +70,9 @@ describe('mergeMcpJson', () => {
   })
 })
 
-describe('the starter template', () => {
-  it('ships the agent files exactly as init writes them', () => {
-    expect(read('templates/starter/AGENTS.md')).toBe(mergeAgentsMd(undefined).content)
-    expect(read('templates/starter/.mcp.json')).toBe(mergeMcpJson(undefined).content)
+describe('the template apps', () => {
+  it.each(['templates/starter', 'examples/advanced'])('%s ships the agent files exactly as init writes them', (app) => {
+    expect(read(`${app}/AGENTS.md`)).toBe(mergeAgentsMd(undefined).content)
+    expect(read(`${app}/.mcp.json`)).toBe(mergeMcpJson(undefined).content)
   })
 })

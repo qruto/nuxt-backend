@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "nuxt dev",
-    "build": "nuxt build",
-    "generate": "nuxt generate"
+    "build": "nuxt build"
   },
   "dependencies": {
     "@convex-dev/aggregate": "^0.3.2",

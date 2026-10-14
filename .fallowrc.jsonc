@@ -150,7 +150,7 @@
     ],
     // Ceilings set at today's values, so the gate holds the line while these
     // are worked down — each carries the reason it is where it is, and a
-    // bigger function fails the build. Tracked in the release plan's follow-ups.
+    // bigger function fails the build.
     "thresholdOverrides": [
       {
         "files": ["src/cli/main.ts"],

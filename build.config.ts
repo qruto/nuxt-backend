@@ -1,6 +1,6 @@
 export default {
   // The build has three steps (package.json `build`): this one, then
-  // scripts/normalize-module-ext.js renames its `.mjs`/`.d.mts` output to the
+  // scripts/normalize-module-ext.mjs renames its `.mjs`/`.d.mts` output to the
   // `.js`/`.d.ts` names the exports map uses, then the Convex component build
   // writes `dist/convex/`. unbuild checks the exports map at the end of this
   // first step, before either has run, and warns about every one of those

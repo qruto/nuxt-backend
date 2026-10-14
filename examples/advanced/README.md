@@ -1,7 +1,7 @@
 # Advanced example
 
-Every [`nuxt-backend`](../../README.md) customization point, exercised in one
-app. Start from [`templates/starter`](../../templates/starter/README.md) to see the
+Every [`nuxt-backend`](https://github.com/qruto/nuxt-backend#readme) customization point, exercised in one
+app. Start from [`templates/starter`](https://github.com/qruto/nuxt-backend/tree/main/templates/starter) to see the
 zero-config defaults; each file here changes exactly one thing from them.
 
 ## The customization map
