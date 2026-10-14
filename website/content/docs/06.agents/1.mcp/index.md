@@ -7,7 +7,7 @@ navigation:
 
 Every app built on `nuxt-backend` exposes an **MCP endpoint** at `/mcp`, served by Nitro through [`@nuxtjs/mcp-toolkit`](https://mcp-toolkit.nuxt.dev) (a declared module dependency — you never install or configure it yourself). An agent that connects there signs in through OAuth as one of **your users** and can call the [built-in tools](/docs/agents/mcp/built-in-tools) — and [your own](/docs/agents/mcp/custom-tools) — with the scopes that user consented to.
 
-It is **on by default**, in dev and in production: everything the built-in tools expose is already reachable through the product UI under the same user auth, and OAuth adds per-client consent on top. `backend: { mcp: false }` removes the whole surface.
+It is always there, in dev and in production: everything the built-in tools expose is already reachable through the product UI under the same user auth, and OAuth adds per-client consent on top.
 
 ## What an agent connects to
 
@@ -51,12 +51,11 @@ runtimeConfig.backendMcp = {
     'openid', 'profile', 'email',
     'profile:write', 'billing:read', 'billing:checkout', 'workspace:read',
   ],
-  tools: {},                        // per-tool disables from `mcp.tools.builtin`
   functions: {},                    // Convex function overrides from `mcp.functions`
 }
 ```
 
-Nothing of it reaches the client bundle. When the surface is disabled the key is absent, and every reader (gate, discovery documents, tool guards) is inert.
+Nothing of it reaches the client bundle.
 
 ### nuxt-security relaxations
 
@@ -100,14 +99,13 @@ export default defineNuxtConfig({
       description: 'Acme account agent',   //   forwarded to the MCP toolkit
       instructions: 'Prefer billing-plans before creating a checkout link.',
       sessions: false,                     // stateful transport sessions, default off
-      tools: { builtin: { 'billing-portal-link': false } },
       functions: { getCredits: 'myBilling:getCredits' },
     },
   },
 })
 ```
 
-`name`, `description`, `instructions`, `sessions` and `route` are forwarded to `@nuxtjs/mcp-toolkit` as **defaults** — your own top-level `mcp` config in `nuxt.config.ts` wins over them, the same contract as the `convex.*` forwarding. `tools.builtin` and `functions` are read by this package: see [Built-in tools](/docs/agents/mcp/built-in-tools). The full option types are in [Module options](/docs/reference/configuration/module-options).
+`name`, `description`, `instructions`, `sessions` and `route` are forwarded to `@nuxtjs/mcp-toolkit` as **defaults** — your own top-level `mcp` config in `nuxt.config.ts` wins over them, the same contract as the `convex.*` forwarding. `functions` is read by this package: see [Built-in tools](/docs/agents/mcp/built-in-tools). The full option types are in [Module options](/docs/reference/configuration/module-options).
 
 `name` and `description` are what the server reports in the MCP `initialize` handshake (a client shows them in its server list); `instructions` is the guidance a client typically injects into the model's system prompt. `sessions` turns on the toolkit's **stateful transport** — session ids, SSE streaming and server-to-client notifications; off, every request stands alone and the OAuth gate is the only state. `true` takes the defaults, an object sizes it:
 
@@ -128,18 +126,6 @@ backend: { mcp: { route: '/agent' } }
 The gate follows the route, and so do the toolkit's conveniences (`/agent/deeplink`, `/agent/badge.svg`). The discovery documents stay on their `/.well-known/…` paths — `resource` is the **origin**, not the endpoint URL, so a client requesting any path under it (the moved endpoint included) passes its sub-path resource check.
 
 ::playground-link{to="/playground/platform/agents" label="the agent endpoint"}
-::
-
-### Turning it off
-
-```ts
-backend: { mcp: false }   // or: backend: { mcp: { enabled: false } }
-```
-
-No MCP endpoint, no OAuth discovery routes, no built-in tools, no runtime config. `defineBackendMcpTool` / `useBackendMcp` stay importable and auto-imported, so your own tool files keep compiling — they simply never authenticate anything.
-
-::warning
-Disabling the Nuxt side leaves the OAuth provider and `POST /mcp/exchange` mounted in Convex. For the conservative posture, also pass `setupAuth(…, { mcp: false })` — the provider is dropped and the exchange route answers `404 mcp_disabled`.
 ::
 
 ::note

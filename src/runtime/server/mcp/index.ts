@@ -21,7 +21,7 @@ import type { BackendMcpSession } from './session'
 
 export type { BackendMcpSession } from './session'
 export { createExchangeCache, EXCHANGE_CACHE_MARGIN_MS, type ExchangeCache } from './cache'
-export { BACKEND_MCP_FUNCTION_DEFAULTS, backendMcpFunction, builtinToolEnabled, type BackendMcpFunctionKey, type BackendMcpToolName } from './builtin'
+export { BACKEND_MCP_FUNCTION_DEFAULTS, backendMcpFunction, type BackendMcpFunctionKey, type BackendMcpToolName } from './builtin'
 
 declare module 'h3' {
   interface H3EventContext {

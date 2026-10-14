@@ -102,11 +102,6 @@ describe('Better Auth cross-component integrations', () => {
     expect(options.databaseHooks?.user).toBeUndefined()
     expect(options.databaseHooks?.session?.create?.before).toBeTypeOf('function')
   })
-
-  it('has no database hooks at all when organizations are disabled and no integrations given', () => {
-    const options = createBetterAuthOptions(fakeDb, { organization: false })
-    expect(options.databaseHooks).toBeUndefined()
-  })
 })
 
 describe('workspace invitation email', () => {
@@ -591,17 +586,9 @@ describe('sign-in gate (canSignIn)', () => {
     await expect(before({ userId: 'u1' } as never, hookCtx({ member: { organizationId: 'org-1' } }) as never)).rejects.toEqual(forbidden('Sign-in is by invitation right now.'))
   })
 
-  it('still consults the gate on sessions when organizations are disabled', async () => {
-    const email = vi.fn(async () => 'email_1')
-    const options = createBetterAuthOptions(fakeDb, { organization: false }, { ctx: mutationCtx(), email, canSignIn: inviteOnly })
-    const before = options.databaseHooks!.session!.create!.before!
-    await expect(before({ userId: 'u1' } as never, hookCtx({ user: { email: 'ada@example.com' } }) as never)).resolves.toBeUndefined()
-    expect(options.databaseHooks!.user!.create!.before).toBeTypeOf('function')
-  })
-
-  it('adds no hooks without a request ctx (the static options object)', () => {
-    const options = createBetterAuthOptions(fakeDb, { organization: false }, { canSignIn: inviteOnly } as never)
-    expect(options.databaseHooks).toBeUndefined()
+  it('adds no gate hooks without a request ctx (the static options object)', () => {
+    const options = createBetterAuthOptions(fakeDb, {}, { canSignIn: inviteOnly } as never)
+    expect(options.databaseHooks?.user).toBeUndefined()
   })
 })
 

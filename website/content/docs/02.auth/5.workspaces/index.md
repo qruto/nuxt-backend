@@ -5,7 +5,7 @@ navigation:
   icon: i-lucide-users
 ---
 
-Workspaces are Better Auth's organization plugin, on by default in `setupAuth`. Every signed-in user gets a **personal workspace** on first sign-in and set active, so the session always has an active workspace — and because billing follows the tenant (`billTo: 'organization'` is the default), the active workspace is what owns the subscription and credits.
+Workspaces are Better Auth's organization plugin, built into `setupAuth`. Every signed-in user gets a **personal workspace** on first sign-in and set active, so the session always has an active workspace — and because billing follows the tenant (`billTo: 'organization'` is the default), the active workspace is what owns the subscription and credits.
 
 ## The active workspace is a claim
 
@@ -13,12 +13,10 @@ The active workspace rides on the Convex JWT as `activeOrganizationId`. Server-s
 
 ```ts [backend/auth.ts]
 export const { authComponent, createAuth, getAuthUser, listWorkspaces, listWorkspaceMembers } = setupAuth(components, query, {
-  // Workspaces are on by default. Options are the organization plugin's, plus:
+  // Options are the organization plugin's, plus:
   organization: {
-    personal: true,                       // auto-create + activate a personal workspace per user (default true)
     invitationPath: '/accept-invitation', // where emailed invitation links land (default)
   },
-  // organization: false — disable workspaces entirely
 })
 ```
 

@@ -46,25 +46,15 @@ export const REQUIRED_FUNCTION_EXPORTS = {
 } as const satisfies Record<string, readonly string[]>
 
 /**
- * Contract names that exist only while the organization plugin is on —
- * `setupAuth(components, query, { organization: false })` drops them, so
- * doctor skips them when the deployment reports workspaces disabled.
- *
- * @internal
- */
-export const WORKSPACE_FUNCTION_EXPORTS: readonly string[] = ['listWorkspaces', 'listWorkspaceMembers']
-
-/**
  * The contract names a deployment lacks, given its function identifiers
- * (`module:name`) and whether workspaces are on.
+ * (`module:name`).
  *
  * @internal
  */
-export function missingContractFunctions(identifiers: ReadonlySet<string>, { workspaces }: { workspaces: boolean }): string[] {
+export function missingContractFunctions(identifiers: ReadonlySet<string>): string[] {
   const missing: string[] = []
   for (const [module, names] of Object.entries(REQUIRED_FUNCTION_EXPORTS)) {
     for (const name of names) {
-      if (!workspaces && WORKSPACE_FUNCTION_EXPORTS.includes(name)) continue
       if (!identifiers.has(`${module}:${name}`)) missing.push(`${module}:${name}`)
     }
   }

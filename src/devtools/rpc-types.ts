@@ -79,15 +79,13 @@ export interface DevtoolsDeployment {
 export interface DevtoolsMcpTool {
   name: string
   scope: string
-  enabled: boolean
 }
 
 /** The agent (MCP) surface as configured. */
 export interface DevtoolsMcpStatus {
-  enabled: boolean
-  route?: string
+  route: string
   /** Where the endpoint exchanges an agent's OAuth token for a deployment token. */
-  exchangePath?: string
+  exchangePath: string
   tools: DevtoolsMcpTool[]
   /** Every scope an agent can be granted. */
   scopes: string[]
@@ -101,8 +99,6 @@ export interface DevtoolsOptionsSnapshot {
   css: boolean
   /** Dev-deployment env auto-provision (`backend.autoEnv`). */
   autoEnv: boolean
-  /** The organization plugin runs (`backend.workspaces`). */
-  workspaces: boolean
   authRoute: string
   /** Explicit `backend.loginPath` (`null` = resolved from the login page). */
   loginPath: string | null

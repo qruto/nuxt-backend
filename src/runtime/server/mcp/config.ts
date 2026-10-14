@@ -3,8 +3,7 @@ import { useRuntimeConfig } from 'nitropack/runtime'
 
 /**
  * Server-side runtime config the module publishes under
- * `runtimeConfig.backendMcp` when the agent surface is enabled. Absent (and
- * every reader inert) when `backend.mcp: false`.
+ * `runtimeConfig.backendMcp`.
  */
 export interface BackendMcpRuntimeConfig {
   /** The MCP endpoint route the gate owns. */
@@ -15,8 +14,6 @@ export interface BackendMcpRuntimeConfig {
   exchangePath: string
   /** Scopes advertised by the protected-resource metadata. */
   scopes: string[]
-  /** Per-tool disables for the built-in set (`{ 'tool-name': false }`). */
-  tools: Partial<Record<string, boolean>>
   /** Convex function-ref overrides for the built-in tools. */
   functions: Partial<Record<string, string>>
 }

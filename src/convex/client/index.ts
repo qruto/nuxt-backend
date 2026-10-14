@@ -590,11 +590,10 @@ async function hashKey(value: string): Promise<string> {
 export type AdminPluginOptions = Parameters<typeof admin>[0]
 
 /**
- * Options for the bundled organization plugin (workspaces), plus:
+ * Options for the bundled organization plugin (workspaces). Every user gets a
+ * personal workspace on first sign-in, set active, so `activeOrganizationId`
+ * is never null. Beyond the plugin's own options:
  *
- * - `personal` — when `true` (the default), a personal workspace is
- *   auto-created on a user's first sign-in and set active, so
- *   `activeOrganizationId` is never null.
  * - `invitationPath` — the app page invitation emails link to (default
  *   `/accept-invitation`, registered automatically by the Nuxt module). The
  *   emailed URL is `{SITE_URL}{invitationPath}?id=<invitationId>`.
@@ -603,7 +602,6 @@ export type AdminPluginOptions = Parameters<typeof admin>[0]
  *   invitees, and `nuxt-backend doctor` cross-checks both.
  */
 export type OrganizationPluginOptions = Parameters<typeof organization>[0] & {
-  personal?: boolean
   invitationPath?: string
 }
 
@@ -644,30 +642,20 @@ export interface CreateBetterAuthOptions {
   authOptions?: BetterAuthOptions
   /** Override Better Auth basePath and matching Convex auth route */
   basePath?: string
+  /** Admin plugin options: roles via `adminRoles`/`ac`, ban, impersonation. */
+  admin?: AdminPluginOptions
+  /** Organization (workspace) plugin options. */
+  organization?: OrganizationPluginOptions
   /**
-   * Admin plugin options (roles via `adminRoles`/`ac`, ban, impersonation).
-   * Enabled by default; pass `false` to disable — a disabled plugin still
-   * leaves its (optional) schema fields in place.
+   * Agent (MCP) OAuth provider options: the provider behind the app's
+   * OAuth-protected MCP endpoint and the `/mcp/exchange` token mint.
    */
-  admin?: AdminPluginOptions | false
-  /**
-   * Organization (workspace) plugin options. Enabled by default with a
-   * personal workspace per user (`personal: true`); pass `false` to disable.
-   */
-  organization?: OrganizationPluginOptions | false
-  /**
-   * Agent (MCP) OAuth provider options. Enabled by default — apps built on
-   * this package expose an OAuth-protected MCP endpoint out of the box; pass
-   * `false` to disable the provider (and the `/mcp/exchange` token mint).
-   */
-  mcp?: McpAuthOptions | false
+  mcp?: McpAuthOptions
 }
 
 export interface SetupAuthOptions<
   DM extends GenericDataModel = GenericDataModel,
 > extends CreateBetterAuthOptions {
-  /** Enable verbose logs in the Better Auth Convex component client */
-  verbose?: boolean
   /**
    * Cross-component wiring: an email transport for auth emails, a rate limiter
    * for OTP sends, a `canSignIn` gate, and the `onUserCreated` /
@@ -792,18 +780,10 @@ function readEnv(name: string) {
   return (globalThis as EnvHost).process?.env?.[name]
 }
 
-function createAuthComponent<DM extends GenericDataModel>(
-  componentRef: PublicAuthComponentRef,
-  options?: SetupAuthOptions<DM>,
-) {
-  const config = {
-    local: { schema: authSchema },
-    ...(options?.verbose !== undefined ? { verbose: options.verbose } : {}),
-  }
-
+function createAuthComponent<DM extends GenericDataModel>(componentRef: PublicAuthComponentRef) {
   return createClient<DM, DefaultAuthSchema>(
     toAuthComponentApi(componentRef),
-    config as never,
+    { local: { schema: authSchema } } as never,
   )
 }
 
@@ -920,16 +900,10 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
     ?? readEnv('CONVEX_SITE_URL')
   const secret = resolvedAuthOptions.secret ?? readEnv('AUTH_SECRET')
 
-  const adminOptions = options.admin
-  const organizationOptions = options.organization
-  const organizationEnabled = organizationOptions !== false
   const {
-    personal: personalWorkspace = true,
     invitationPath = DEFAULT_INVITATION_PATH,
     ...organizationPluginOptions
-  } = typeof organizationOptions === 'object' ? organizationOptions : {}
-  const mcpOptions = options.mcp
-  const mcpEnabled = mcpOptions !== false
+  } = options.organization ?? {}
 
   // When an email transport is wired, deliver verification, email-change,
   // delete-account, welcome, and workspace-invitation emails through it (with
@@ -980,18 +954,16 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
   const defaultPlugins = [
     emailOTP({ sendVerificationOTP: makeSendVerificationOTP(runtime) }),
     defaultPasskey(),
-    ...(adminOptions === false ? [] : [admin(adminOptions)]),
-    ...(organizationEnabled
-      ? [organization({
-          ...organizationPluginOptions,
-          ...(sendInvitationEmail ? { sendInvitationEmail } : {}),
-        })]
-      : []),
+    admin(options.admin),
+    organization({
+      ...organizationPluginOptions,
+      ...(sendInvitationEmail ? { sendInvitationEmail } : {}),
+    }),
     // No top-level jwt() here: better-auth dedupes plugins by id, and a
     // second jwt displaces the convex plugin's internal custom-path jwt —
     // 404ing /convex/token (the client token bridge). The exchange's signJWT
     // lives on a separate sign-only instance instead (setupAuth).
-    ...(mcpEnabled ? [defaultMcp(mcpOptions)] : []),
+    defaultMcp(options.mcp),
   ].filter(plugin => !userPluginIds.has(plugin.id))
 
   const sendVerificationEmail = canSendEmail
@@ -1040,41 +1012,34 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
       await gate({ email: user.email, isNewUser: true, purpose: 'user-create' })
     }
     : undefined
-  const sessionBeforeHook = organizationEnabled || gate
-    ? async (session: { userId: string } & Record<string, unknown>, hookCtx: unknown) => {
-      // Every new session gets an active workspace: the user's first
-      // membership, or (with `personal`) a workspace auto-created on first
-      // sign-in.
-      const activeOrganizationId = organizationEnabled
-        ? await ensureActiveOrganization(session.userId, hookCtx, personalWorkspace)
-        : undefined
-      if (gate) {
-        const user = await hookAdapter(hookCtx)?.findOne({
-          model: 'user',
-          where: [{ field: 'id', value: session.userId }],
-        }) as { email?: string } | null | undefined
-        // Fail closed: a gate that cannot see the account refuses the session.
-        if (!user?.email) throw new APIError('FORBIDDEN', { message: DEFAULT_REFUSAL })
-        await gate({ email: user.email, isNewUser: false, purpose: 'session' })
-      }
-      return activeOrganizationId ? { data: { ...session, activeOrganizationId } } : undefined
+  const sessionBeforeHook = async (session: { userId: string } & Record<string, unknown>, hookCtx: unknown) => {
+    // Every new session gets an active workspace: the user's first
+    // membership, or a personal workspace created on first sign-in.
+    const activeOrganizationId = await ensureActiveOrganization(session.userId, hookCtx)
+    if (gate) {
+      const user = await hookAdapter(hookCtx)?.findOne({
+        model: 'user',
+        where: [{ field: 'id', value: session.userId }],
+      }) as { email?: string } | null | undefined
+      // Fail closed: a gate that cannot see the account refuses the session.
+      if (!user?.email) throw new APIError('FORBIDDEN', { message: DEFAULT_REFUSAL })
+      await gate({ email: user.email, isNewUser: false, purpose: 'session' })
     }
-    : undefined
-  const packageHooks: DatabaseHooks | undefined = createBeforeHook || createAfterHook || sessionBeforeHook
-    ? {
-        ...(createBeforeHook || createAfterHook
-          ? {
-              user: {
-                create: {
-                  ...(createBeforeHook ? { before: createBeforeHook } : {}),
-                  ...(createAfterHook ? { after: createAfterHook } : {}),
-                },
-              },
-            }
-          : {}),
-        ...(sessionBeforeHook ? { session: { create: { before: sessionBeforeHook } } } : {}),
-      }
-    : undefined
+    return activeOrganizationId ? { data: { ...session, activeOrganizationId } } : undefined
+  }
+  const packageHooks: DatabaseHooks = {
+    ...(createBeforeHook || createAfterHook
+      ? {
+          user: {
+            create: {
+              ...(createBeforeHook ? { before: createBeforeHook } : {}),
+              ...(createAfterHook ? { after: createAfterHook } : {}),
+            },
+          },
+        }
+      : {}),
+    session: { create: { before: sessionBeforeHook } },
+  }
 
   // Account deletion: on by default (confirmed via email when a transport is
   // wired), merged with the consumer's own `deleteUser` options — theirs win
@@ -1160,7 +1125,6 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
           // Convex functions read org context straight from identity claims.
           definePayload: ({ user, session }) => {
             const { id: _id, image: _image, ...claims } = user
-            if (!organizationEnabled) return claims
             const activeOrganizationId = (session as { activeOrganizationId?: string | null }).activeOrganizationId
             return activeOrganizationId ? { ...claims, activeOrganizationId } : claims
           },
@@ -1185,13 +1149,12 @@ function hookAdapter(hookCtx: unknown): AuthHookAdapter | undefined {
 
 /**
  * Resolve the workspace a new session should activate: the user's first
- * membership, or — when `createPersonal` — a personal workspace created on the
- * spot (organization + owner membership rows via the Better Auth adapter).
+ * membership, or a personal workspace created on the spot (organization +
+ * owner membership rows via the Better Auth adapter).
  */
 async function ensureActiveOrganization(
   userId: string,
   hookCtx: unknown,
-  createPersonal: boolean,
 ): Promise<string | undefined> {
   const adapter = hookAdapter(hookCtx)
   if (!adapter) return undefined
@@ -1201,7 +1164,6 @@ async function ensureActiveOrganization(
     where: [{ field: 'userId', value: userId }],
   }) as { organizationId?: string } | null
   if (membership?.organizationId) return membership.organizationId
-  if (!createPersonal) return undefined
 
   const user = await adapter.findOne({
     model: 'user',
@@ -1243,7 +1205,7 @@ export function createAuthOptions<
   components: AuthSetupComponents,
   options?: SetupAuthOptions<DM>,
 ) {
-  const authComponent = createAuthComponent<DM>(components.backend, options)
+  const authComponent = createAuthComponent<DM>(components.backend)
   return createBetterAuthOptions(authComponent.adapter(ctx), {
     authConfig: options?.authConfig,
     authOptions: options?.authOptions,
@@ -1370,7 +1332,7 @@ export function makeAuthApi<
   queryBuilder: QueryBuilder<DM, 'public'>,
   options?: SetupAuthOptions<DM>,
 ) {
-  const authComponent = createAuthComponent<DM>(components.backend, options)
+  const authComponent = createAuthComponent<DM>(components.backend)
   const adapter = componentAdapterRefs(components)
 
   const getAuthUser = queryBuilder({
@@ -1384,10 +1346,7 @@ export function makeAuthApi<
   // Convex-side `invitationPath` and the Nuxt-side `pages.acceptInvitation`
   // must point at the same route, and only `nuxt-backend doctor` can see both
   // sides to compare them.
-  const organizationOptions = options?.organization
-  const invitationPath = organizationOptions === false
-    ? null
-    : (typeof organizationOptions === 'object' ? organizationOptions.invitationPath : undefined) ?? DEFAULT_INVITATION_PATH
+  const invitationPath = options?.organization?.invitationPath ?? DEFAULT_INVITATION_PATH
   const authConfig = queryBuilder({
     args: {},
     handler: async () => ({ invitationPath }),
@@ -1574,7 +1533,7 @@ export function setupAuth<
   queryBuilder: QueryBuilder<DM, 'public'>,
   options?: SetupAuthOptions<DM>,
 ) {
-  const authComponent = createAuthComponent<DM>(components.backend, options)
+  const authComponent = createAuthComponent<DM>(components.backend)
   const { getAuthUser, authConfig, listWorkspaces, listWorkspaceMembers, updateProfile, listSessions, revokeSession } = makeAuthApi(components, queryBuilder, options)
 
   const resolvedIntegrations = resolveIntegrations(components, options?.integrations)
@@ -1614,12 +1573,11 @@ export function setupAuth<
   // The agent token exchange (`POST /mcp/exchange`, mounted by
   // `registerBackendRoutes`): trades an MCP OAuth Bearer for a short-lived
   // Convex JWT. Wired here because it needs the same auth instance and rate
-  // limiter; answers 404 when the mcp provider is disabled.
+  // limiter.
   const mcpExchange: McpExchange = setupMcp({
     createAuth: ctx => createAuthForContext(ctx as GenericCtx<DM>),
     createSignerAuth: ctx => createSignerAuthForContext(ctx as GenericCtx<DM>),
     rateLimiter: resolvedIntegrations.rateLimiter,
-    enabled: options?.mcp !== false,
   })
 
   return {

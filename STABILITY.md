@@ -28,9 +28,9 @@ Anything tagged `@internal` in the source is stripped from the published declara
 
 ### 2. Configuration names
 
-- `ModuleOptions` (`backend` in `nuxt.config`): `url`, `siteUrl`, `authRoute`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools`, `workspaces` — and the page keys under `pages`: `login`, `pricing`, `settings`, `profile`, `security`, `acceptInvitation`
+- `ModuleOptions` (`backend` in `nuxt.config`): `url`, `siteUrl`, `authRoute`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools` — and the page keys under `pages`: `login`, `pricing`, `settings`, `profile`, `security`, `acceptInvitation`
 - `appConfig.backend` — the content layer: `billing.plans`, `billing.packs`, `billing.lowCreditsThreshold`, `brand.name`, `brand.logo`, `labels.auth`, `labels.pricing`, `labels.settings`, `labels.profile`, `labels.security`, `labels.history`, `labels.usage`, `labels.credits`
-- `runtimeConfig.public.backend` — `pages`, the resolved mount path per page key (`''` when disabled), and `workspaces`, whether the deployment runs the organization plugin
+- `runtimeConfig.public.backend` — `pages`, the resolved mount path per page key (`''` when disabled)
 - the `#backend/*` aliases: `#backend`, `#backend/api`, `#backend/server`, `#backend/dataModel`, `#backend/_generated`
 
 ### 3. The auto-import and component registry

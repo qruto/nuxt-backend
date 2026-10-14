@@ -63,7 +63,6 @@ Defined in: [src/convex/integrations/mcp.ts](https://github.com/qruto/nuxt-backe
 | <a id="createauth"></a> `createAuth` | (`ctx`) => `unknown` | From `setupAuth`: builds the per-request better-auth instance. Typed `unknown` because the concrete instance's generics reference option types better-auth doesn't export — it is read structurally (same trade as `registerBackendRoutes`'s never-typed auth params). | [src/convex/integrations/mcp.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts) |
 | <a id="createsignerauth"></a> `createSignerAuth` | (`ctx`) => `unknown` | Builds the sign-only instance whose `auth.api.signJWT` mints the Convex JWT (the aligned jwt plugin cannot live on the main instance — see the client bridge). | [src/convex/integrations/mcp.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts) |
 | <a id="ratelimiter"></a> `rateLimiter?` | `McpRateLimiter` | Throttles exchanges per client+user (the `mcp` named limit). | [src/convex/integrations/mcp.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts) |
-| <a id="enabled"></a> `enabled?` | `boolean` | `false` turns the mounted route into a 404 (provider disabled). | [src/convex/integrations/mcp.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts) |
 
 ***
 

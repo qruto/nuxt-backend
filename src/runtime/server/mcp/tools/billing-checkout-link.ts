@@ -2,7 +2,7 @@ import { makeFunctionReference } from 'convex/server'
 import { getRequestURL } from 'h3'
 import { useEvent } from 'nitropack/runtime'
 import { z } from 'zod'
-import { backendMcpFunction, builtinToolEnabled } from '../builtin'
+import { backendMcpFunction } from '../builtin'
 import { defineBackendMcpTool, useBackendMcp } from '../index'
 
 export default defineBackendMcpTool({
@@ -17,7 +17,6 @@ export default defineBackendMcpTool({
     successPath: z.string().regex(/^\//, 'Must be an app-relative path.').optional()
       .describe('App path to land on after payment (default "/").'),
   },
-  enabled: event => builtinToolEnabled('billing-checkout-link', event),
   handler: async ({ productIds, successPath }) => {
     const { fetchAction } = useBackendMcp()
     // App-relative success paths only — an absolute successUrl would let a

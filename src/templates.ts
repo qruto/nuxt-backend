@@ -485,14 +485,13 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
       listSessions,
       revokeSession,
       // The agent token exchange (mounted at /mcp/exchange by http.ts) — the
-      // app's OAuth-protected MCP endpoint calls Convex through it. Disable
-      // the whole agent surface with \`mcp: false\`.
+      // app's OAuth-protected MCP endpoint calls Convex through it.
       mcp,
     } = setupAuth(components, query, {
       // Roles/permissions (admin plugin) and workspaces (organization plugin)
-      // are on by default, including a personal workspace per user and emailed
-      // workspace invitations with an /accept-invitation page. Customize or
-      // disable: \`admin: false\`, \`organization: { personal: false }\`, ...
+      // come built in, with a personal workspace per user and emailed
+      // workspace invitations with an /accept-invitation page. Customize them
+      // with \`admin: { … }\` and \`organization: { … }\`.
       integrations: {
         // Email (OTP / verification / invitations) is delivered automatically
         // through the backend component — configured by the EMAIL_* env vars.

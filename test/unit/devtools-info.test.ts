@@ -83,9 +83,8 @@ describe('computeDeployment', () => {
 describe('computeMcpStatus', () => {
   it('lists every built-in tool with its scope, and every scope', () => {
     const status = computeMcpStatus({ route: '/mcp' })
-    expect(status).toMatchObject({ enabled: true, route: '/mcp', exchangePath: '/mcp/exchange' })
+    expect(status).toMatchObject({ route: '/mcp', exchangePath: '/mcp/exchange' })
     expect(status.tools).toHaveLength(9)
-    expect(status.tools.every(tool => tool.enabled)).toBe(true)
     expect(status.scopes).toContain('billing:checkout')
   })
 
@@ -95,16 +94,6 @@ describe('computeMcpStatus', () => {
       const source = readFileSync(join(toolsDir, `${tool.name}.ts`), 'utf-8')
       expect(source, tool.name).toContain(`scope: '${tool.scope}'`)
     }
-  })
-
-  it('applies per-tool disables and the builtin:false wipe', () => {
-    const trimmed = computeMcpStatus({ route: '/mcp', builtin: { 'billing-portal-link': false } })
-    expect(trimmed.tools.filter(tool => !tool.enabled).map(tool => tool.name)).toEqual(['billing-portal-link'])
-    expect(computeMcpStatus({ route: '/mcp', builtin: false }).tools.every(tool => !tool.enabled)).toBe(true)
-  })
-
-  it('is fully off when the surface is disabled', () => {
-    expect(computeMcpStatus(null)).toEqual({ enabled: false, tools: [], scopes: [] })
   })
 })
 
@@ -177,31 +166,27 @@ describe('buildDevtoolsInfo', () => {
       scaffold: true,
       css: true,
       autoEnv: true,
-      workspaces: true,
       authRoute: '/api/auth',
       loginPath: null,
       pagesEnabled: true,
     })
     expect(info.deployment).toMatchObject({ kind: 'cloud-dev', id: 'dev:brave-fox-123' })
-    expect(info.mcp).toMatchObject({ enabled: true, route: '/mcp' })
+    expect(info.mcp).toMatchObject({ route: '/mcp' })
+    expect(info.findings.some(finding => finding.id === 'mcp')).toBe(true)
   })
 
   it('reflects disabled wiring in the snapshot', () => {
     const info = buildDevtoolsInfo({
       ...input({}),
-      options: { scaffold: false, css: false, autoEnv: false, loginPath: '/signin', pages: false, workspaces: false },
-      mcp: null,
+      options: { scaffold: false, css: false, autoEnv: false, loginPath: '/signin', pages: false },
     })
     expect(info.options).toMatchObject({
       scaffold: false,
       css: false,
       autoEnv: false,
-      workspaces: false,
       loginPath: '/signin',
       pagesEnabled: false,
     })
-    expect(info.mcp.enabled).toBe(false)
-    expect(info.findings.some(finding => finding.id === 'mcp')).toBe(false)
   })
 })
 

@@ -197,8 +197,8 @@ export function collectPreflightFindings({ env, siteUrlConfigured, mcp, deployed
     siteUrlFinding(env.SITE_URL, onDeployment),
     ...OPTIONAL_GATES.map(gate => optionalGateFinding(gate, env, onDeployment)),
   ]
-  // Skipped entirely when the agent surface is disabled (`backend.mcp: false`)
-  // — a finding about a removed endpoint would be noise.
+  // Only where the route is known: the module and the DevTools panel read it
+  // from nuxt.config, the CLI does not.
   if (mcp) {
     findings.push({
       id: 'mcp',

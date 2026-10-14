@@ -104,14 +104,6 @@ describe('admin + organization defaults', () => {
     }
   })
 
-  it('can disable each plugin with false', () => {
-    const options = clientBridge.createBetterAuthOptions({} as never, { admin: false, organization: false, mcp: false })
-    const ids = pluginIds(options)
-    expect(ids).not.toContain('admin')
-    expect(ids).not.toContain('organization')
-    expect(ids).not.toContain('mcp')
-  })
-
   it('dedupes against a consumer-supplied plugin of the same id', async () => {
     const { admin } = await import('better-auth/plugins')
     const options = clientBridge.createBetterAuthOptions({} as never, {
@@ -260,20 +252,5 @@ describe('workspace session hook', () => {
     expect(created[0]!.data).toMatchObject({ name: 'Ada\'s workspace', slug: 'personal-user-1' })
     expect(created[1]!.data).toMatchObject({ organizationId: 'organization-1', userId: 'user-1', role: 'owner' })
     expect(result?.data.activeOrganizationId).toBe('organization-1')
-  })
-
-  it('skips workspace creation when personal is disabled', async () => {
-    const adapter = { findOne: vi.fn(async () => null), create: vi.fn() }
-    const result = await sessionBefore(clientBridge.createBetterAuthOptions({} as never, { organization: { personal: false } }))(
-      { userId: 'user-1' }, hookCtx(adapter),
-    )
-    expect(result).toBeUndefined()
-    expect(adapter.create).not.toHaveBeenCalled()
-  })
-
-  it('is absent when the organization plugin is disabled', () => {
-    const options = clientBridge.createBetterAuthOptions({} as never, { organization: false })
-    const hook = (options.databaseHooks as { session?: { create?: { before?: unknown } } } | undefined)?.session?.create?.before
-    expect(hook).toBeUndefined()
   })
 })

@@ -4,13 +4,11 @@ const state = usePanelState()
 const mcp = computed(() => state.info?.mcp)
 const origin = window.location.origin
 
-const discovery = computed(() => mcp.value?.enabled
-  ? [
-      `${origin}/.well-known/oauth-protected-resource`,
-      `${origin}/.well-known/oauth-authorization-server`,
-    ]
-  : [])
-const connect = computed(() => mcp.value?.enabled ? `claude mcp add --transport http nuxt-backend ${origin}${mcp.value.route}` : '')
+const discovery = [
+  `${origin}/.well-known/oauth-protected-resource`,
+  `${origin}/.well-known/oauth-authorization-server`,
+]
+const connect = computed(() => mcp.value ? `claude mcp add --transport http nuxt-backend ${origin}${mcp.value.route}` : '')
 
 const copied = ref<string | null>(null)
 async function copy(text: string) {
@@ -21,16 +19,7 @@ async function copy(text: string) {
 </script>
 
 <template>
-  <PanelCard
-    v-if="!mcp?.enabled"
-    title="Agent endpoint"
-  >
-    <div class="op50">
-      Off (<code>backend.mcp: false</code>): no MCP endpoint and no OAuth discovery routes.
-    </div>
-  </PanelCard>
-
-  <template v-else>
+  <template v-if="mcp">
     <NCard class="p4 flex items-center gap-3 flex-wrap">
       <SignalBadge signal="ok">
         endpoint on
@@ -72,11 +61,8 @@ async function copy(text: string) {
             <th class="py1 pr4 font-normal">
               Tool
             </th>
-            <th class="py1 pr4 font-normal">
-              Scope
-            </th>
             <th class="py1 font-normal">
-              State
+              Scope
             </th>
           </tr>
         </thead>
@@ -88,13 +74,8 @@ async function copy(text: string) {
             <td class="py1 pr4 font-mono">
               {{ tool.name }}
             </td>
-            <td class="py1 pr4 font-mono op65">
+            <td class="py1 font-mono op65">
               {{ tool.scope }}
-            </td>
-            <td class="py1">
-              <span class="flex items-center gap-1.5">
-                <Led :signal="tool.enabled ? 'ok' : 'off'" />{{ tool.enabled ? 'on' : 'off in backend.mcp.tools.builtin' }}
-              </span>
             </td>
           </tr>
         </tbody>

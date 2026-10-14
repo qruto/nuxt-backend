@@ -97,7 +97,7 @@ Each finding has an `id`, a status (`pass` / `warn` / `fail`), a message, and a 
 | `function-contract` | Every function the composables bind to (`auth:getAuthUser`, `billing:getCredits`, `email:getEmailStatus`, …) exists in `npx convex function-spec` | any missing |
 | `invitation-path` | `organization.invitationPath` (deployed `auth:authConfig`) matches `backend.pages.acceptInvitation` (nuxt.config) | mismatch — invitees would 404 |
 
-The route probes, `function-contract` and `invitation-path` need the deployment (and `nuxt.config`) to be reachable and produce no finding otherwise; the `billing-*` catalog checks need a `billing.catalog.ts` and run the provider half only with a token visible locally. The same preflight (`backend-site-url` … `billing-webhook-secret`) runs on every dev-server start and in the [DevTools tab](/docs/start/develop/devtools); those two also report an `mcp` finding — the OAuth-protected agent endpoint's route, always `pass`, omitted when `backend.mcp: false` — which `doctor` itself does not emit.
+The route probes, `function-contract` and `invitation-path` need the deployment (and `nuxt.config`) to be reachable and produce no finding otherwise; the `billing-*` catalog checks need a `billing.catalog.ts` and run the provider half only with a token visible locally. The same preflight (`backend-site-url` … `billing-webhook-secret`) runs on every dev-server start and in the [DevTools tab](/docs/start/develop/devtools); those two also report an `mcp` finding — the OAuth-protected agent endpoint's route, always `pass` — which `doctor` itself does not emit.
 
 ## `env push`
 

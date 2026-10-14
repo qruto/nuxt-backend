@@ -1,6 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 import { type App, computed, effectScope, watchEffect } from 'vue'
-import { defineNuxtPlugin, useAppConfig, useRuntimeConfig } from '#app'
+import { defineNuxtPlugin, useAppConfig } from '#app'
 import { useConvexNamespace, useQuery } from 'nuxt-convex-module/client'
 import { useAuth } from '../vue/composables/use-auth'
 import { useBilling, type BillingApi } from '../vue/composables/use-billing'
@@ -158,7 +158,7 @@ export default defineNuxtPlugin({
 
           // Detached: these live as long as the page, not as long as the call.
           const scope = effectScope(true)
-          requests.activate = () => runInApp(() => scope.run(() => watchActiveSections(bridge.patch, useRuntimeConfig())))
+          requests.activate = () => runInApp(() => scope.run(() => watchActiveSections(bridge.patch)))
 
           return bridge
         })
@@ -215,13 +215,10 @@ export default defineNuxtPlugin({
  * delivery feed. Called once, when the panel first opens, inside the app
  * context and a detached effect scope.
  */
-function watchActiveSections(patch: BackendDevtoolsBridgeHost['patch'], runtimeConfig: ReturnType<typeof useRuntimeConfig>): void {
+function watchActiveSections(patch: BackendDevtoolsBridgeHost['patch']): void {
   const billing = useBilling()
   const features = useFeatures()
-  // With workspaces off (`backend.workspaces: false`) the organization
-  // endpoints do not exist — never ask for them.
-  const workspacesOn = (runtimeConfig.public.backend as { workspaces?: boolean } | undefined)?.workspaces !== false
-  const workspace = workspacesOn ? useOrganization() : null
+  const workspace = useOrganization()
 
   // All meters (useCredits narrows to a single one) and the delivery feed
   // come straight from the injected billing namespace — resolved the same way
@@ -273,8 +270,8 @@ function watchActiveSections(patch: BackendDevtoolsBridgeHost['patch'], runtimeC
   })
 
   watchEffect(() => {
-    const current = workspace?.current.value
-    patch('workspace', workspace && current
+    const current = workspace.current.value
+    patch('workspace', current
       ? {
           available: true,
           id: current.id,

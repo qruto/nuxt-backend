@@ -16,7 +16,7 @@ import { collectPreflightFindings, formatPreflightSummary, needsSetup, type Pref
 import { BACKEND_PAGE_DEFS, collectExistingPagePaths, privatePagePaths, resolvePagePath, resolvedBackendPages, type BackendPageKey, type ModulePagesOptions } from './pages'
 import { buildDevtoolsInfo, computeDevtoolsPages, readPackageVersions } from './devtools/info'
 import type { DevtoolsPageInfo } from './devtools/rpc-types'
-import type { BackendMcpFunctionKey, BackendMcpToolName } from './runtime/server/mcp/builtin'
+import type { BackendMcpFunctionKey } from './runtime/server/mcp/builtin'
 
 const logger = useLogger('nuxt-backend')
 
@@ -36,15 +36,12 @@ export type { BackendMcpFunctionKey, BackendMcpToolName } from './runtime/server
 /**
  * The agent (MCP) surface: an OAuth-protected MCP endpoint served by Nitro
  * via `@nuxtjs/mcp-toolkit`, with ready-made account/billing/workspace tools
- * that call Convex as the signed-in user. On by default — everything the
- * tools expose is already reachable through the product UI under the same
- * user auth; OAuth adds per-client consent and the deployment's `mcp` rate
- * limit guards the token exchange. Set `backend.mcp: false` for the
- * conservative posture (no MCP endpoint, no OAuth discovery routes).
+ * that call Convex as the signed-in user. Everything the tools expose is
+ * already reachable through the product UI under the same user auth; OAuth
+ * adds per-client consent and the deployment's `mcp` rate limit guards the
+ * token exchange.
  */
 export interface ModuleMcpOptions {
-  /** Master switch (same as `backend.mcp: false`). */
-  enabled?: boolean
   /** MCP endpoint route. Default `/mcp` (the toolkit's default). */
   route?: string
   /** Server name/description/instructions forwarded to the toolkit. */
@@ -53,13 +50,6 @@ export interface ModuleMcpOptions {
   instructions?: string
   /** Stateful transport sessions, forwarded to the toolkit. Default off. */
   sessions?: boolean | { enabled?: boolean, maxDuration?: number, maxSessions?: number }
-  tools?: {
-    /**
-     * The built-in tool set: `false` removes all of them from the build;
-     * a map hides individual tools (`{ 'billing-portal-link': false }`).
-     */
-    builtin?: false | Partial<Record<BackendMcpToolName, boolean>>
-  }
   /**
    * Override the Convex functions the built-in tools call — needed only when
    * the scaffolded `auth.ts`/`billing.ts` files were renamed. Values are
@@ -109,10 +99,9 @@ export interface ModuleOptions {
   autoEnv?: boolean
   /**
    * The agent (MCP) surface — an OAuth-protected `/mcp` endpoint with
-   * built-in account/billing/workspace tools. Enabled by default (dev and
-   * production); `false` disables it. See {@link ModuleMcpOptions}.
+   * built-in account/billing/workspace tools. See {@link ModuleMcpOptions}.
    */
-  mcp?: boolean | ModuleMcpOptions
+  mcp?: ModuleMcpOptions
   /**
    * The Backend tab in Nuxt DevTools (dev only): the deployment and its env
    * names, live checks and doctor on demand, the signed-in account, billing,
@@ -121,13 +110,6 @@ export interface ModuleOptions {
    * Backend tab.
    */
   devtools?: boolean
-  /**
-   * Whether the deployment runs the organization plugin (workspaces). Set
-   * `false` alongside `setupAuth(…, { organization: false })` so nothing on
-   * the Nuxt side — the DevTools bridge in particular — calls the
-   * organization endpoints that no longer exist. Defaults to `true`.
-   */
-  workspaces?: boolean
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -149,7 +131,6 @@ export default defineNuxtModule<ModuleOptions>({
     css: true,
     autoEnv: true,
     devtools: true,
-    workspaces: true,
   },
   // The Convex + Better Auth + Polar framework integration. Declared as a
   // module dependency (not `installModule`) so Nuxt dedupes it when the app
@@ -222,9 +203,7 @@ export default defineNuxtModule<ModuleOptions>({
           // (`crossDomainCallbackRoute`, …) keeps the bundled client. Only a
           // disable is overridden outright.
           betterAuth: {
-            // Without workspaces the client drops the organization plugin, so
-            // nothing on the page asks for /organization/* routes that do not exist.
-            authClient: resolver.resolve(backend.workspaces === false ? './runtime/vue/auth-client-solo' : './runtime/vue/auth-client'),
+            authClient: resolver.resolve('./runtime/vue/auth-client'),
             loginPath,
             ...(typeof convex.betterAuth === 'object' && convex.betterAuth !== null ? convex.betterAuth : {}),
           },
@@ -237,21 +216,17 @@ export default defineNuxtModule<ModuleOptions>({
       },
       // The MCP endpoint host. `defaults` forward `backend.mcp.*` — a user's
       // own top-level `mcp` config wins over them (same contract as the
-      // `convex.*` forwarding above). Dropped entirely when disabled.
-      ...(mcp
-        ? {
-            '@nuxtjs/mcp-toolkit': {
-              version: dependencyRange('@nuxtjs/mcp-toolkit'),
-              defaults: {
-                route: mcp.route,
-                ...(mcp.name !== undefined ? { name: mcp.name } : {}),
-                ...(mcp.description !== undefined ? { description: mcp.description } : {}),
-                ...(mcp.instructions !== undefined ? { instructions: mcp.instructions } : {}),
-                ...(mcp.sessions !== undefined ? { sessions: mcp.sessions } : {}),
-              },
-            },
-          }
-        : {}),
+      // `convex.*` forwarding above).
+      '@nuxtjs/mcp-toolkit': {
+        version: dependencyRange('@nuxtjs/mcp-toolkit'),
+        defaults: {
+          route: mcp.route,
+          ...(mcp.name !== undefined ? { name: mcp.name } : {}),
+          ...(mcp.description !== undefined ? { description: mcp.description } : {}),
+          ...(mcp.instructions !== undefined ? { instructions: mcp.instructions } : {}),
+          ...(mcp.sessions !== undefined ? { sessions: mcp.sessions } : {}),
+        },
+      },
     }
   },
   async setup(options, nuxt) {
@@ -320,7 +295,7 @@ export default defineNuxtModule<ModuleOptions>({
           siteUrlConfigured,
           options,
           pages: pagesInfo.list,
-          mcp: mcp ? { route: mcp.route, builtin: mcp.tools?.builtin } : null,
+          mcp: { route: mcp.route },
           versions,
           functionsDir,
           deploymentEnv,
@@ -349,11 +324,8 @@ function isDevtoolsUiEnabled(nuxt: Nuxt): boolean {
   return typeof devtools === 'boolean' ? devtools : devtools?.enabled !== false
 }
 
-/** Resolve `backend.mcp` into effective options, or `null` when disabled. */
-function resolveMcpOptions(raw: ModuleOptions['mcp']): (ModuleMcpOptions & { route: string }) | null {
-  if (raw === false) return null
-  const options = typeof raw === 'object' ? raw : {}
-  if (options.enabled === false) return null
+/** Resolve `backend.mcp` into effective options. */
+function resolveMcpOptions(options: ModuleMcpOptions = {}): ModuleMcpOptions & { route: string } {
   return { ...options, route: options.route?.replace(/\/+$/, '') || '/mcp' }
 }
 
@@ -366,16 +338,11 @@ function resolveMcpOptions(raw: ModuleOptions['mcp']): (ModuleMcpOptions & { rou
  */
 function registerMcp(options: ModuleOptions, resolver: Resolver, nuxt: Nuxt): void {
   const mcp = resolveMcpOptions(options.mcp)
-  // The server utils stay importable (and auto-imported) even when disabled,
-  // so consumer tool files keep compiling; without runtime config the gate
-  // never authenticates anything and every backend tool stays hidden.
   addServerImports([
     { name: 'useBackendMcp', from: resolver.resolve('./runtime/server/mcp/index') },
     { name: 'defineBackendMcpTool', from: resolver.resolve('./runtime/server/mcp/index') },
   ])
-  if (!mcp) return
 
-  const builtin = mcp.tools?.builtin
   // The toolkit's `useEvent`-based helpers — and our `useBackendMcp()` inside
   // tool handlers — read the current request through Nitro's async context.
   nuxt.options.nitro.experimental = defu(
@@ -384,7 +351,7 @@ function registerMcp(options: ModuleOptions, resolver: Resolver, nuxt: Nuxt): vo
   )
 
   // Everything the Nitro runtime needs (the gate, the discovery documents,
-  // and the built-in tools' enabled/function lookups). Server-side only —
+  // and the built-in tools' function lookups). Server-side only —
   // never exposed to the client bundle.
   nuxt.options.runtimeConfig.backendMcp = defu(
     nuxt.options.runtimeConfig.backendMcp as Record<string, unknown> | undefined,
@@ -393,21 +360,18 @@ function registerMcp(options: ModuleOptions, resolver: Resolver, nuxt: Nuxt): vo
       authBase: options.authRoute ?? '/api/auth',
       exchangePath: DEFAULT_MCP_EXCHANGE_PATH,
       scopes: [...BACKEND_MCP_SCOPES],
-      tools: builtin === false ? {} : { ...builtin },
       functions: { ...mcp.functions },
     },
   )
 
   // Contribute the built-in tool files to the toolkit's definition scan
   // (absolute paths pass through its layer-relative resolution).
-  if (builtin !== false) {
-    // The hook is declared by the toolkit's runtime types, which Nuxt's hook
-    // map doesn't know at module-build time.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(nuxt.hook as any)('mcp:definitions:paths', (paths: { tools: string[] }) => {
-      paths.tools.push(resolver.resolve('./runtime/server/mcp/tools'))
-    })
-  }
+  // The hook is declared by the toolkit's runtime types, which Nuxt's hook
+  // map doesn't know at module-build time.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(nuxt.hook as any)('mcp:definitions:paths', (paths: { tools: string[] }) => {
+    paths.tools.push(resolver.resolve('./runtime/server/mcp/tools'))
+  })
 
   // Global middleware, matched in-handler: the OAuth gate owns the MCP route;
   // the discovery documents own their `/.well-known` prefixes (including the
@@ -513,7 +477,6 @@ function registerModulePages(options: ModuleOptions, resolver: Resolver, nuxt: N
   runtimeConfig.public.backend = {
     ...(runtimeConfig.public.backend as Record<string, unknown> | undefined),
     pages: resolved,
-    workspaces: options.workspaces !== false,
   }
 
   if (options.pages === false) return info
@@ -791,8 +754,6 @@ declare module '@nuxt/schema' {
   interface PublicRuntimeConfig {
     backend: {
       pages: Record<BackendPageKey, string>
-      /** False when the deployment runs without the organization plugin. */
-      workspaces: boolean
     }
   }
 }
@@ -837,7 +798,7 @@ function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
   const findings = collectPreflightFindings({
     env: process.env,
     siteUrlConfigured,
-    ...(mcp ? { mcp: { route: mcp.route } } : {}),
+    mcp: { route: mcp.route },
     deployedNames: provisionedEnvNames(nuxt.options.rootDir),
   })
 

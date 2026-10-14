@@ -68,14 +68,14 @@ async function readDeployment(rootDir: string, options: { prod: boolean, reachab
 
 /**
  * The deployment's view of the auth config (`auth:authConfig`): the
- * invitation path, null when workspaces are off. Null when unreadable.
+ * invitation path. Null when unreadable.
  */
-async function deployedAuthConfig(rootDir: string, prod: boolean): Promise<{ invitationPath: string | null } | null> {
+async function deployedAuthConfig(rootDir: string, prod: boolean): Promise<{ invitationPath: string } | null> {
   const stdout = await convexCli(rootDir, ['run', ...deploymentFlags({ prod }), 'auth:authConfig'])
   if (stdout === null) return null
   try {
-    const { invitationPath } = JSON.parse(stdout) as { invitationPath?: string | null }
-    return invitationPath === undefined ? null : { invitationPath }
+    const { invitationPath } = JSON.parse(stdout) as { invitationPath?: unknown }
+    return typeof invitationPath === 'string' ? { invitationPath } : null
   }
   catch {
     return null
@@ -85,11 +85,10 @@ async function deployedAuthConfig(rootDir: string, prod: boolean): Promise<{ inv
 /**
  * Verify the composable↔scaffold function contract against the deployment:
  * every name in the contract must exist as a deployed function, or the
- * matching composable silently degrades to undefineds. Workspace functions
- * are only expected while workspaces are on.
+ * matching composable silently degrades to undefineds.
  */
-function functionContractFindings(identifiers: ReadonlySet<string>, options: { workspaces: boolean }): PreflightFinding[] {
-  const missing = missingContractFunctions(identifiers, options)
+function functionContractFindings(identifiers: ReadonlySet<string>): PreflightFinding[] {
+  const missing = missingContractFunctions(identifiers)
   return [missing.length === 0
     ? {
         id: 'function-contract',
@@ -113,7 +112,7 @@ function functionContractFindings(identifiers: ReadonlySet<string>, options: { w
  * (where the page mounts) are declared in two places only doctor can see
  * together.
  */
-async function invitationPathFindings(rootDir: string, deployedPath: string | null): Promise<PreflightFinding[]> {
+async function invitationPathFindings(rootDir: string, deployedPath: string): Promise<PreflightFinding[]> {
   let pagesOption: ModulePagesOptions | false | undefined
   try {
     const { loadNuxtConfig } = await import('@nuxt/kit')
@@ -125,15 +124,12 @@ async function invitationPathFindings(rootDir: string, deployedPath: string | nu
   }
   const nuxtPath = resolvePagePath(pagesOption, 'acceptInvitation')
 
-  const aligned = deployedPath === null ? true : nuxtPath === deployedPath
-  return [aligned
+  return [nuxtPath === deployedPath
     ? {
         id: 'invitation-path',
         title: 'Invitation route',
         status: 'pass',
-        message: deployedPath === null
-          ? 'Workspaces are disabled — no invitation route to check.'
-          : `Invitation emails and the mounted page agree on ${deployedPath}.`,
+        message: `Invitation emails and the mounted page agree on ${deployedPath}.`,
         fixHint: '',
       }
     : {
@@ -359,7 +355,7 @@ async function deployedSurfaceFindings(rootDir: string, { prod, reachable, siteU
   // The composable function contract and the invitation-route cross-check
   // (no finding when nuxt.config is unreadable).
   if (identifiers) {
-    findings.push(...functionContractFindings(identifiers, { workspaces: authConfig ? authConfig.invitationPath !== null : true }))
+    findings.push(...functionContractFindings(identifiers))
   }
   if (authConfig) {
     findings.push(...await invitationPathFindings(rootDir, authConfig.invitationPath))

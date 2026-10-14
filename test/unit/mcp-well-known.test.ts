@@ -14,7 +14,6 @@ const RUNTIME_CONFIG = {
     authBase: '/api/auth',
     exchangePath: '/mcp/exchange',
     scopes: ['openid', 'profile'],
-    tools: {},
     functions: {},
   },
   public: { convex: { siteUrl: 'https://deployment.test.site' } },

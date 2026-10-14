@@ -26,13 +26,11 @@ export interface DevtoolsOptionsInput {
   authRoute?: string
   loginPath?: string
   pages?: unknown
-  workspaces?: boolean
 }
 
 /** The resolved `backend.mcp` facts the panel needs (`null` = disabled). */
 export interface DevtoolsMcpInput {
   route: string
-  builtin?: false | Partial<Record<string, boolean>>
 }
 
 export interface BuildDevtoolsInfoInput {
@@ -45,7 +43,7 @@ export interface BuildDevtoolsInfoInput {
   siteUrlConfigured: boolean
   options: DevtoolsOptionsInput
   pages: DevtoolsPageInfo[]
-  mcp: DevtoolsMcpInput | null
+  mcp: DevtoolsMcpInput
   versions: Record<string, string>
   functionsDir: string
   /** The last read of the deployment's env names (`null` until one ran). */
@@ -124,19 +122,12 @@ const BUILTIN_TOOL_SCOPES: Record<BackendMcpToolName, BackendMcpScope> = {
   'workspace-members': 'workspace:read',
 }
 
-/** The agent surface as the panel reports it, per-tool disables applied. */
-export function computeMcpStatus(mcp: DevtoolsMcpInput | null): DevtoolsMcpStatus {
-  if (!mcp) return { enabled: false, tools: [], scopes: [] }
-  const disabled = mcp.builtin
+/** The agent surface as the panel reports it. */
+export function computeMcpStatus(mcp: DevtoolsMcpInput): DevtoolsMcpStatus {
   return {
-    enabled: true,
     route: mcp.route,
     exchangePath: DEFAULT_MCP_EXCHANGE_PATH,
-    tools: Object.entries(BUILTIN_TOOL_SCOPES).map(([name, scope]) => ({
-      name,
-      scope,
-      enabled: disabled !== false && disabled?.[name] !== false,
-    })),
+    tools: Object.entries(BUILTIN_TOOL_SCOPES).map(([name, scope]) => ({ name, scope })),
     scopes: [...BACKEND_MCP_SCOPES],
   }
 }
@@ -162,7 +153,6 @@ export function buildDevtoolsInfo(input: BuildDevtoolsInfoInput): DevtoolsServer
       scaffold: options.scaffold !== false,
       css: options.css !== false,
       autoEnv: options.autoEnv !== false,
-      workspaces: options.workspaces !== false,
       authRoute: options.authRoute ?? '/api/auth',
       loginPath: options.loginPath ?? null,
       pagesEnabled: options.pages !== false,
@@ -172,7 +162,7 @@ export function buildDevtoolsInfo(input: BuildDevtoolsInfoInput): DevtoolsServer
     findings: collectPreflightFindings({
       env: input.env,
       siteUrlConfigured: input.siteUrlConfigured,
-      ...(input.mcp ? { mcp: { route: input.mcp.route } } : {}),
+      mcp: { route: input.mcp.route },
       deployedNames,
     }),
     env: {

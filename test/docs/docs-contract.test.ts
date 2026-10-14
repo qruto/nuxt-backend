@@ -22,7 +22,7 @@ describe('module options', () => {
   const reference = read(contentFile('/docs/reference/configuration/module-options'))
 
   it('reads the interface', () => {
-    expect(keys).toContain('workspaces')
+    expect(keys).toContain('devtools')
     expect(keys.length).toBeGreaterThan(8)
   })
 
@@ -174,6 +174,13 @@ describe('nothing names what 0.2 removed', () => {
     ['--installation', 'the local installation'],
     ['nuxt-backend/component/', 'the component\'s schema and function modules as subpaths'],
     ['templates:generate', 'the generated re-export lists of the local installation'],
+    ['mcp: false', 'the agent surface is always on'],
+    ['workspaces: false', 'workspaces are always on'],
+    ['organization: false', 'workspaces are always on'],
+    ['admin: false', 'roles are always on'],
+    ['personal: false', 'every user gets a personal workspace'],
+    ['tools.builtin', 'every built-in tool ships, gated by its scope'],
+    ['builtinToolEnabled', 'every built-in tool ships, gated by its scope'],
   ])('no file still offers %s (%s)', (needle) => {
     const offenders = files.filter(file => read(file).includes(needle)).map(file => file.replace(`${process.cwd()}/`, ''))
     expect(offenders).toEqual([])

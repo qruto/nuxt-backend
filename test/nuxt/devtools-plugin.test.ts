@@ -44,7 +44,6 @@ vi.mock('#app', async importOriginal => ({
   ...(await importOriginal<Record<string, unknown>>()),
   defineNuxtPlugin: (plugin: unknown) => plugin,
   useAppConfig: () => appConfig,
-  useRuntimeConfig: () => ({ public: { backend: { workspaces: true } } }),
 }))
 vi.mock('nuxt-convex-module/client', () => ({
   useConvexNamespace: (name: string) => namespaces.get(name),

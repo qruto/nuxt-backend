@@ -114,16 +114,6 @@ describe('setupMcp token exchange', () => {
     expect(response.status).toBe(429)
     expect(response.headers.get('Retry-After')).toBe('3')
   })
-
-  it('answers 404 when the provider is disabled', async () => {
-    const { auth } = fakeAuth(validState)
-    const { exchangeHandler } = setupMcp({ createAuth: () => auth, createSignerAuth: () => auth, enabled: false })
-
-    const response = await exchangeHandler(ctx, exchangeRequest('opaque'))
-
-    expect(response.status).toBe(404)
-    expect(await response.json()).toEqual({ error: 'mcp_disabled' })
-  })
 })
 
 describe('oidc provider tables parity', () => {

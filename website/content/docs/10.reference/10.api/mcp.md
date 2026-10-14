@@ -196,31 +196,6 @@ Resolve a built-in tool's Convex function ref (`backend.mcp.functions` wins).
 
 ***
 
-### builtinToolEnabled()
-
-```ts
-function builtinToolEnabled(name, event): boolean;
-```
-
-Defined in: [src/runtime/server/mcp/builtin.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts)
-
-**`Experimental`**
-
-Whether a built-in tool survived `backend.mcp.tools.builtin` config.
-
-#### Parameters
-
-| Parameter | Type |
-| ------ | ------ |
-| `name` | [`BackendMcpToolName`](/docs/reference/api/module#backendmcptoolname) |
-| `event` | `H3Event` |
-
-#### Returns
-
-`boolean`
-
-***
-
 ### createExchangeCache()
 
 ```ts

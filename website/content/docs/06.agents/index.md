@@ -11,17 +11,17 @@ Agents meet a `nuxt-backend` app through three doors. An agent can **use your ap
 
 ## Your app as tools
 
-The MCP endpoint lives at `/mcp` on your app origin and is on by default, in dev and in production. An agent that connects gets a `401` challenge, follows two discovery documents, registers itself and sends a person to your login page. The person approves a set of scopes, and from then on every tool call runs as that person, through a Convex JWT that lives five minutes. There is no API key to issue.
+The MCP endpoint lives at `/mcp` on your app origin and is always there, in dev and in production. An agent that connects gets a `401` challenge, follows two discovery documents, registers itself and sends a person to your login page. The person approves a set of scopes, and from then on every tool call runs as that person, through a Convex JWT that lives five minutes. There is no API key to issue.
 
-Nine built-in tools cover the profile, billing, credits and workspaces, each behind a scope. Your own tools go in `server/mcp/tools/` and get the same session. `backend: { mcp: false }` removes the endpoint. The agent surface is experimental and may change shape in a minor release.
+Nine built-in tools cover the profile, billing, credits and workspaces, each behind a scope. Your own tools go in `server/mcp/tools/` and get the same session. The agent surface is experimental and may change shape in a minor release.
 
 ::card-group
   :::card{icon="i-lucide-server" title="MCP Server" to="/docs/agents/mcp"}
-  What an agent connects to, what the module mounts, and the options that move or remove the endpoint.
+  What an agent connects to, what the module mounts, and the options that move the endpoint.
   :::
 
   :::card{icon="i-lucide-wrench" title="Built-in Tools" to="/docs/agents/mcp/built-in-tools"}
-  The nine tools, their scopes and return values, and how to disable or repoint them.
+  The nine tools, their scopes and return values, and how to repoint them.
   :::
 
   :::card{icon="i-lucide-puzzle" title="Custom Tools" to="/docs/agents/mcp/custom-tools"}
