@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { api } from '#backend/api'
 
 definePageMeta({ middleware: 'auth' })
@@ -10,6 +10,10 @@ const status = useQuery(api.migrations.status)
 const messageCount = useCount(api.aggregates.countMessages)
 const totalCharacters = useAggregate(api.aggregates.totalCharacters)
 const runBackfill = useAction(api.migrations.runBackfill)
+// A backfill walks every message on the deployment, so starting one is for
+// admins; the status below is live for everyone.
+const { hasRole } = useAuth()
+const isAdmin = computed(() => hasRole('admin'))
 
 const MIGRATIONS = ['backfillMessagesCount', 'backfillMessagesSize'] as const
 const pending = ref<string | null>(null)
@@ -78,6 +82,7 @@ function stateTone(state: string): 'ok' | 'warn' | 'err' {
         <LabButton
           variant="primary"
           size="sm"
+          :disabled="!isAdmin"
           :loading="pending === name"
           @click="run(name)"
         >
@@ -86,12 +91,21 @@ function stateTone(state: string): 'ok' | 'warn' | 'err' {
         <LabButton
           variant="secondary"
           size="sm"
+          :disabled="!isAdmin"
           :loading="pending === `${name}:dry`"
           @click="run(name, true)"
         >
           Dry run
         </LabButton>
       </div>
+      <p
+        v-if="!isAdmin"
+        class="hint"
+      >
+        Starting a backfill takes the <code>admin</code> role: the action is
+        built with <code>admin.action</code>, so the server refuses anyone
+        else. The status below stays live for every visitor.
+      </p>
       <p class="hint">
         The ops path works too:
         <code>npx convex run migrations:run '{"fn":"migrations:backfillMessagesCount"}'</code>

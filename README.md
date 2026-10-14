@@ -144,7 +144,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 
 ### Components
 
-`<Authenticated>` / `<Unauthenticated>` / `<AuthLoading>` / `<AuthBoundary>` — render by auth state · `<RoleBoundary>` / `<FeatureBoundary>` — gate UI by role or billing entitlement · `<AcceptInvitation>` — the workspace-invitation accept/decline UI (also served by the auto-registered `/accept-invitation` page) · `<GiftClaimBanner>` — surface unclaimed gifts · `<CheckoutLink>` / `<CustomerPortalLink>` — billing links
+`<Authenticated>` / `<Unauthenticated>` / `<AuthLoading>` / `<AuthBoundary>` — render by auth state · `<RoleBoundary>` / `<FeatureBoundary>` — gate UI by role or billing entitlement · `<AcceptInvitation>` — the workspace-invitation accept/decline UI (also served by the auto-registered `/accept-invitation` page) · `<GiftClaimBanner>` — surface unclaimed gifts · `<BillingCheckoutLink>` / `<BillingPortalLink>` — billing links
 
 ### Server (Nitro)
 

@@ -54,6 +54,10 @@ export default defineConfig({
         },
       },
       {
+        // One tsconfig for every file: the playground guards test runs the
+        // website's functions, and website/tsconfig.json extends a .nuxt/ that
+        // only exists after `nuxt prepare website`, which this job skips.
+        tsconfig: 'tsconfig.convex.json',
         test: {
           name: 'convex-component',
           include: ['test/convex-component/**/*.test.ts'],

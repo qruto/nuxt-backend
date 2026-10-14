@@ -1,9 +1,12 @@
 import { paginationOptsValidator } from 'convex/server'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { LOG_LEVELS as LEVELS, logLevelValidator } from './schema'
 import { paginateUserLogs, requireIdentity } from './lib'
 import { throttle } from './rateLimiter'
+
+/** The longest log message the playground keeps. */
+const MAX_MESSAGE = 500
 
 const SAMPLES = [
   'User signed in',
@@ -30,6 +33,7 @@ export const add = mutation({
   },
   handler: async (ctx, { level, message }) => {
     const identity = await requireIdentity(ctx)
+    if (message.length > MAX_MESSAGE) throw new ConvexError(`Log messages are up to ${MAX_MESSAGE} characters.`)
 
     await ctx.db.insert('logs', {
       userId: identity.subject,

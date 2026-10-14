@@ -1,8 +1,17 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import type { MutationCtx } from './_generated/server'
 import { mutation, query } from './_generated/server'
 
 const DEFAULT_NAME = 'demo'
+
+/** Bounds on what a visitor writes: a short name, a modest step. */
+const MAX_NAME = 64
+const MAX_STEP = 1000
+
+function checkName(name: string): string {
+  if (!name || name.length > MAX_NAME) throw new ConvexError(`Counter names are 1–${MAX_NAME} characters.`)
+  return name
+}
 
 async function getOrCreate(ctx: MutationCtx, userId: string, name: string) {
   const existing = await ctx.db
@@ -40,8 +49,10 @@ export const increment = mutation({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw new Error('Not authenticated')
 
-    const counter = await getOrCreate(ctx, identity.subject, name ?? DEFAULT_NAME)
-    await ctx.db.patch(counter._id, { value: counter.value + (by ?? 1) })
+    const step = by ?? 1
+    if (!Number.isInteger(step) || Math.abs(step) > MAX_STEP) throw new ConvexError(`Steps are whole numbers up to ±${MAX_STEP}.`)
+    const counter = await getOrCreate(ctx, identity.subject, checkName(name ?? DEFAULT_NAME))
+    await ctx.db.patch(counter._id, { value: counter.value + step })
   },
 })
 
@@ -51,7 +62,7 @@ export const reset = mutation({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw new Error('Not authenticated')
 
-    const counter = await getOrCreate(ctx, identity.subject, name ?? DEFAULT_NAME)
+    const counter = await getOrCreate(ctx, identity.subject, checkName(name ?? DEFAULT_NAME))
     await ctx.db.patch(counter._id, { value: 0 })
   },
 })

@@ -1,0 +1,160 @@
+/// <reference types="vite/client" />
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { convexTest, type TestConvex } from 'convex-test'
+import { componentsGeneric, makeFunctionReference } from 'convex/server'
+import aggregate from '@convex-dev/aggregate/test'
+import rateLimiter from '@convex-dev/rate-limiter/test'
+import component from '../../src/convex/test'
+import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
+import schema from '../../website/backend/schema'
+
+// The public playground's guards, run on the website's own functions. The
+// daily sweep clears the app data of sandbox accounts idle for a week, and
+// nobody else's; messages go through the aggregate triggers, so the live count
+// must still match the table afterwards. The abuse limits refuse what a
+// visitor should not be able to do or repeat.
+
+const modules = import.meta.glob(['../../website/backend/**/*.ts', '../../website/backend/_generated/*.js', '!**/*.d.ts'])
+const components = componentsGeneric() as unknown as { backend: ComponentApi<'backend'> }
+const clearIdleAccounts = makeFunctionReference<'mutation'>('retention:clearIdleAccounts')
+const clearUserData = makeFunctionReference<'mutation'>('demo:clearUserData')
+const sendMessage = makeFunctionReference<'mutation'>('messages:send')
+const countMessages = makeFunctionReference<'query'>('aggregates:countMessages')
+const echo = makeFunctionReference<'action'>('demo:echo')
+const generateUploadUrl = makeFunctionReference<'mutation'>('files:generateUploadUrl')
+const createTodo = makeFunctionReference<'mutation'>('todos:create')
+const increment = makeFunctionReference<'mutation'>('counter:increment')
+const runBackfill = makeFunctionReference<'action'>('migrations:runBackfill')
+
+const DAY = 86_400_000
+
+let t: TestConvex<typeof schema>
+
+beforeEach(() => {
+  vi.useFakeTimers()
+  t = convexTest(schema, modules)
+  component.register(t)
+  aggregate.register(t, 'aggregate')
+  rateLimiter.register(t, 'rateLimiter')
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+async function account(email: string, options: { idleDays: number, role?: string }): Promise<string> {
+  const now = Date.now()
+  const user = await t.mutation(components.backend.adapter.create, {
+    input: { model: 'user', data: { name: email, email, emailVerified: true, createdAt: now - DAY * 30, updatedAt: now - DAY * 30, ...(options.role ? { role: options.role } : {}) } },
+  } as never) as { _id: string }
+  const lastSeen = now - DAY * options.idleDays
+  await t.mutation(components.backend.adapter.create, {
+    input: { model: 'session', data: { userId: user._id, token: `token-${email}`, createdAt: lastSeen, updatedAt: lastSeen, expiresAt: lastSeen + DAY * 7 } },
+  } as never)
+  return user._id
+}
+
+/** One row in every per-user table, a stored upload, and a message through the triggers. */
+async function fill(userId: string, extraLogs = 0): Promise<string> {
+  await t.withIdentity({ subject: userId, name: 'Visitor' }).mutation(sendMessage, { text: 'hello' })
+  return await t.run(async (ctx) => {
+    await ctx.db.insert('todos', { userId, text: 'todo', completed: false })
+    await ctx.db.insert('counters', { userId, name: 'demo', value: 3 })
+    for (let i = 0; i <= extraLogs; i++) await ctx.db.insert('logs', { userId, level: 'info', message: `log ${i}` })
+    await ctx.db.insert('sentEmails', { userId, emailId: 'email_1', to: 'x@resend.dev', subject: 'Hi', createdAt: Date.now() })
+    const storageId = await ctx.storage.store(new Blob(['file']))
+    await ctx.db.insert('files', { userId, storageId, name: 'file.txt' })
+    return storageId
+  })
+}
+
+async function rowsOf(userId: string): Promise<number> {
+  return await t.run(async (ctx) => {
+    const counts = await Promise.all([
+      ctx.db.query('todos').withIndex('userId', q => q.eq('userId', userId)).collect(),
+      ctx.db.query('messages').withIndex('userId', q => q.eq('userId', userId)).collect(),
+      ctx.db.query('counters').withIndex('userId_name', q => q.eq('userId', userId)).collect(),
+      ctx.db.query('logs').withIndex('userId', q => q.eq('userId', userId)).collect(),
+      ctx.db.query('files').withIndex('userId', q => q.eq('userId', userId)).collect(),
+      ctx.db.query('sentEmails').withIndex('userId', q => q.eq('userId', userId)).collect(),
+    ])
+    return counts.flat().length
+  })
+}
+
+const sandbox = (label: string) => `delivered+${label.padEnd(16, '0')}@resend.dev`
+
+describe('the idle-account sweep', () => {
+  test('clears idle sandbox accounts only, in batches, and keeps the message count right', async () => {
+    const idle = await account(sandbox('idle'), { idleDays: 9 })
+    const active = await account(sandbox('active'), { idleDays: 1 })
+    const admin = await account(sandbox('admin'), { idleDays: 30, role: 'admin' })
+    const outsider = await account('ada@example.com', { idleDays: 30 })
+    // More rows than one batch, so the clear has to continue in a second run.
+    const idleUpload = await fill(idle, 600)
+    for (const userId of [active, admin, outsider]) await fill(userId)
+
+    // Two accounts a page, so the walk continues across pages too.
+    await t.mutation(clearIdleAccounts, { paginationOpts: { numItems: 2, cursor: null } })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    expect(await rowsOf(idle)).toBe(0)
+    expect(await t.run(ctx => ctx.storage.get(idleUpload))).toBeNull()
+    for (const userId of [active, admin, outsider]) expect(await rowsOf(userId)).toBe(6)
+    expect(await t.query(countMessages, {})).toBe(3)
+  })
+})
+
+describe('clearUserData', () => {
+  test('clears the caller\'s files and sent emails too, and nobody else\'s data', async () => {
+    const me = await account(sandbox('me'), { idleDays: 0 })
+    const other = await account(sandbox('other'), { idleDays: 0 })
+    const upload = await fill(me)
+    await fill(other)
+
+    await t.withIdentity({ subject: me }).mutation(clearUserData, {})
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    expect(await rowsOf(me)).toBe(0)
+    expect(await t.run(ctx => ctx.storage.get(upload))).toBeNull()
+    expect(await rowsOf(other)).toBe(6)
+    expect(await t.query(countMessages, {})).toBe(1)
+  })
+})
+
+describe('abuse limits', () => {
+  test('the demo action needs a sign-in and a short text', async () => {
+    const me = await account(sandbox('echo'), { idleDays: 0 })
+    await expect(t.action(echo, { text: 'hi', delayMs: 0 })).rejects.toThrow('Sign in to run the demo action.')
+    await expect(t.withIdentity({ subject: me }).action(echo, { text: 'x'.repeat(501), delayMs: 0 })).rejects.toThrow('Up to 500 characters.')
+  })
+
+  test('upload URLs are rationed per user and refused to a full library', async () => {
+    const me = t.withIdentity({ subject: await account(sandbox('upload'), { idleDays: 0 }) })
+    for (let i = 0; i < 10; i++) await me.mutation(generateUploadUrl, {})
+    await expect(me.mutation(generateUploadUrl, {})).rejects.toThrow('Too many requests')
+
+    const full = await account(sandbox('full'), { idleDays: 0 })
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 50; i++) {
+        await ctx.db.insert('files', { userId: full, storageId: await ctx.storage.store(new Blob([String(i)])), name: `${i}.txt` })
+      }
+    })
+    await expect(t.withIdentity({ subject: full }).mutation(generateUploadUrl, {})).rejects.toThrow('50 files per account')
+  })
+
+  test('todos and counters take bounded input', async () => {
+    const me = t.withIdentity({ subject: await account(sandbox('input'), { idleDays: 0 }) })
+    await expect(me.mutation(createTodo, { text: ' ' })).rejects.toThrow('A todo needs some text.')
+    await expect(me.mutation(createTodo, { text: 'x'.repeat(201) })).rejects.toThrow('up to 200 characters')
+    await expect(me.mutation(increment, { name: 'x'.repeat(65) })).rejects.toThrow('Counter names')
+    await expect(me.mutation(increment, { by: 1001 })).rejects.toThrow('Steps are whole numbers')
+    await expect(me.mutation(increment, { by: 0.5 })).rejects.toThrow('Steps are whole numbers')
+  })
+
+  test('a backfill needs the admin role', async () => {
+    const visitor = await account(sandbox('visitor'), { idleDays: 0 })
+    await expect(t.withIdentity({ subject: visitor }).action(runBackfill, { name: 'backfillMessagesCount', dryRun: true }))
+      .rejects.toThrow('Forbidden')
+  })
+})

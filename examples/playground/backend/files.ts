@@ -2,6 +2,7 @@ import { paginationOptsValidator } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 import { internal } from './_generated/api'
 import { internalMutation, mutation, query } from './_generated/server'
+import { throttle } from './rateLimiter'
 
 /** A library holds this many files at most. */
 const MAX_FILES = 50
@@ -12,12 +13,21 @@ const MAX_BYTES = 5 * 1024 * 1024
 /** An upload nobody saved within this long is an orphan, removed by `cleanupOrphanUploads`. */
 const ORPHAN_AFTER_MS = 60 * 60 * 1000
 
-/** Issue a one-time upload URL for an authenticated user. */
+/**
+ * Issue a one-time upload URL for an authenticated user. Each URL accepts a
+ * file of any size, so they are rationed per user, and a full library gets
+ * none (`save` would refuse the file anyway).
+ */
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error('Not authenticated')
+    if (!identity) throw new ConvexError('Not authenticated')
+    const library = await ctx.db.query('files').withIndex('userId', q => q.eq('userId', identity.subject)).take(MAX_FILES)
+    if (library.length >= MAX_FILES) {
+      throw new ConvexError(`The playground keeps ${MAX_FILES} files per account — delete one first.`)
+    }
+    await throttle(ctx, [{ name: 'playgroundUpload', key: identity.subject }])
     return await ctx.storage.generateUploadUrl()
   },
 })

@@ -145,13 +145,13 @@ async function sendGift() {
       tone="ok"
     >
       <div class="row">
-        <CheckoutLink
+        <BillingCheckoutLink
           v-if="creditPackId"
           :product-ids="[creditPackId]"
           class="buy-btn"
         >
           Buy credit pack
-        </CheckoutLink>
+        </BillingCheckoutLink>
         <span
           v-else
           class="hint"

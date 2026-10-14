@@ -34,13 +34,13 @@ async function makeDiscount() {
 <template>
   <div class="stack">
     <PageHeader
-      tag="useBilling · CheckoutLink · CustomerPortalLink"
+      tag="useBilling · BillingCheckoutLink · BillingPortalLink"
       title="Billing"
       live
     >
       Polar subscriptions linked to the Better Auth user automatically.
-      <code>&lt;CheckoutLink&gt;</code> opens the embedded checkout,
-      <code>&lt;CustomerPortalLink&gt;</code> manages the subscription, and
+      <code>&lt;BillingCheckoutLink&gt;</code> opens the embedded checkout,
+      <code>&lt;BillingPortalLink&gt;</code> manages the subscription, and
       everything is webhook-synced into a reactive cache.
     </PageHeader>
 
@@ -59,7 +59,7 @@ async function makeDiscount() {
     </div>
 
     <LabPanel
-      label="checkout · polar"
+      label="checkout"
       title="Plans"
       tone="ok"
     >
@@ -79,14 +79,14 @@ async function makeDiscount() {
             <div class="plan-name">
               {{ product?.name ?? key }}
             </div>
-            <CheckoutLink
+            <BillingCheckoutLink
               :product-ids="product ? [product.id] : []"
               :trial-interval-count="7"
               trial-interval="day"
               class="checkout-btn"
             >
               Start 7-day trial
-            </CheckoutLink>
+            </BillingCheckoutLink>
           </div>
         </div>
         <div
@@ -97,9 +97,9 @@ async function makeDiscount() {
                gate it (rendering it for a free user throws "Customer not found"
                in its mount hook). -->
           <template v-if="billing.isSubscribed.value">
-            <CustomerPortalLink class="portal-btn">
+            <BillingPortalLink class="portal-btn">
               Manage subscription
-            </CustomerPortalLink>
+            </BillingPortalLink>
             <!-- Same portal via the composable — a same-tab redirect instead
                  of the component's link. -->
             <LabButton
@@ -126,7 +126,7 @@ async function makeDiscount() {
     </LabPanel>
 
     <LabPanel
-      label="discounts · polar"
+      label="discounts"
       title="Create a coupon (admin)"
     >
       <p

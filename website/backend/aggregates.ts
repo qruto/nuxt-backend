@@ -1,6 +1,6 @@
 import { TableAggregate, Triggers, withTriggers } from 'nuxt-backend/aggregate'
 import { components } from './_generated/api'
-import { mutation as rawMutation, query } from './_generated/server'
+import { internalMutation as rawInternalMutation, mutation as rawMutation, query } from './_generated/server'
 import type { DataModel } from './_generated/dataModel'
 
 // A live count of all messages, kept in sync by a trigger on the messages table.
@@ -28,9 +28,11 @@ const triggers = new Triggers<DataModel>()
 triggers.register('messages', messagesCount.trigger())
 triggers.register('messages', messagesSize.trigger())
 
-// Use this trigger-wrapped `mutation` for any table covered by an aggregate so
-// inserts/deletes stay in sync automatically (messages.ts imports it).
+// Use these trigger-wrapped builders for any table covered by an aggregate so
+// inserts/deletes stay in sync automatically (messages.ts imports `mutation`,
+// retention.ts `internalMutation`).
 export const mutation = withTriggers(rawMutation, triggers)
+export const internalMutation = withTriggers(rawInternalMutation, triggers)
 
 export const countMessages = query({
   args: {},
