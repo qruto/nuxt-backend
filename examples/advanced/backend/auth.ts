@@ -15,6 +15,8 @@ export const {
   listWorkspaces,
   listWorkspaceMembers,
   updateProfile,
+  listSessions,
+  revokeSession,
   // The agent token exchange (mounted at /mcp/exchange by http.ts).
   mcp,
 } = setupAuth(components, query, {

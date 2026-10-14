@@ -14,7 +14,7 @@
  * @internal
  */
 export const REQUIRED_FUNCTION_EXPORTS = {
-  auth: ['getAuthUser', 'authConfig', 'listWorkspaces', 'listWorkspaceMembers', 'updateProfile'],
+  auth: ['getAuthUser', 'authConfig', 'listWorkspaces', 'listWorkspaceMembers', 'updateProfile', 'listSessions', 'revokeSession'],
   billing: [
     'generateCheckoutLink',
     'generateCustomerPortalUrl',

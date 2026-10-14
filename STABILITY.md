@@ -50,7 +50,7 @@ The core data composables and components (`useQuery`, `useMutation`, `<Authentic
 
 The composables bind to deployment functions by name, so the scaffolded `backend/` files must keep exporting them. `src/contract.ts` is that contract — `nuxt-backend doctor` verifies it against the deployment, and the tests pin it to the scaffold templates:
 
-- `auth.ts` — `getAuthUser`, `authConfig`, `listWorkspaces`, `listWorkspaceMembers`, `updateProfile`
+- `auth.ts` — `getAuthUser`, `authConfig`, `listWorkspaces`, `listWorkspaceMembers`, `updateProfile`, `listSessions`, `revokeSession`
 - `billing.ts` — `generateCheckoutLink`, `generateCustomerPortalUrl`, `getConfiguredProducts`, `listAllProducts`, `listAllSubscriptions`, `changeCurrentSubscription`, `cancelCurrentSubscription`, `giftCheckout`, `getCurrentSubscription`, `getFeatures`, `getCredits`, `syncEntitlements`, `syncProducts` (internal — ops), `getReceivedGifts`, `claimGift`, `getWebhookDeliveries`, `updateSubscription`, `cancelSubscription`, `uncancelSubscription`, `pauseSubscription`, `resumeSubscription`, `getOrders`, `getInvoiceUrl`, `getUsageHistory`, `refundOrder`
 - `email.ts` — `getEmailStatus`
 

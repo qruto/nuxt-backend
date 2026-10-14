@@ -103,13 +103,12 @@ const passkeys = {
 
 const sessions = {
   sessions: ref([
-    { token: 'tok-current', userAgent: 'Chrome Mac OS X', createdAt: '2026-01-01' },
-    { token: 'tok-other', userAgent: 'Firefox Windows', createdAt: '2026-01-02' },
+    { id: 's-current', userAgent: 'Chrome Mac OS X', createdAt: Date.parse('2026-01-01'), current: true },
+    { id: 's-other', userAgent: 'Firefox Windows', createdAt: Date.parse('2026-01-02'), current: false },
   ]),
-  current: computed(() => ({ token: 'tok-current', userAgent: 'Chrome Mac OS X', createdAt: '2026-01-01' })),
+  current: computed(() => ({ id: 's-current', userAgent: 'Chrome Mac OS X', createdAt: Date.parse('2026-01-01'), current: true })),
   isLoading: computed(() => false),
   error: ref<string | null>(null),
-  refresh: vi.fn(async () => {}),
   revoke: vi.fn(async () => {}),
   revokeOthers: vi.fn(async () => {}),
 }
@@ -822,7 +821,8 @@ describe('SecuritySettings', () => {
     await flushPromises()
     await wrapper.find('[data-security="revoke"]').trigger('click')
     await flushPromises()
-    expect(sessions.revoke).toHaveBeenCalledWith('tok-other')
+    expect(sessions.revoke).toHaveBeenCalledWith('s-other')
+    expect(wrapper.emitted('session-revoked')?.[0]).toEqual(['s-other'])
 
     await wrapper.find('[data-security="send-verification"]').trigger('click')
     await flushPromises()

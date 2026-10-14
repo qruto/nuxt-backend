@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, defineComponent, h, ref } from 'vue'
+import { computed, defineComponent, h, ref, toValue, type MaybeRefOrGetter } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 
 const user = ref<Record<string, unknown> | null>({ email: 'ada@example.com', emailVerified: false })
@@ -11,13 +11,6 @@ const client = {
     updatePasskey: vi.fn(async () => ({})),
     deletePasskey: vi.fn(async () => ({})),
   },
-  listSessions: vi.fn(async () => ({
-    data: [
-      { token: 'current-token', userAgent: 'Chrome Mac OS X', createdAt: '2026-01-01' },
-      { token: 'other-token', userAgent: 'Firefox Windows', createdAt: '2026-01-02' },
-    ],
-  })),
-  revokeSession: vi.fn(async () => ({})),
   revokeOtherSessions: vi.fn(async () => ({})),
   updateUser: vi.fn(async () => ({})),
   sendVerificationEmail: vi.fn(async () => ({})),
@@ -28,6 +21,20 @@ const client = {
   signIn: { emailOtp: vi.fn(async () => ({})), passkey: vi.fn(async () => ({})) },
   admin: { checkRolePermission: vi.fn(() => false) },
 }
+
+// The live session list: what the `listSessions` query returns, and the
+// `revokeSession` mutation. Everything else in the client module stays real.
+const DAY = 86_400_000
+const sessionRows = ref<Array<Record<string, unknown>> | null | undefined>()
+const revokeSessionMutation = vi.fn(async (_args: { sessionId: string }): Promise<null> => null)
+const sessionsApi = { listSessions: 'auth:listSessions', revokeSession: 'auth:revokeSession' } as never
+
+vi.mock('nuxt-convex-module/client', async original => ({
+  ...await original<Record<string, unknown>>(),
+  useQuery: (_ref: unknown, args: MaybeRefOrGetter<unknown>) =>
+    computed(() => (toValue(args) === 'skip' ? undefined : sessionRows.value)),
+  useMutation: () => revokeSessionMutation,
+}))
 
 vi.mock('nuxt-convex-module/better-auth/client', () => ({
   useBetterAuth: () => ({
@@ -45,6 +52,7 @@ const { useAuth } = await import('../../src/runtime/vue/composables/use-auth')
 const { usePasskeys } = await import('../../src/runtime/vue/composables/use-passkeys')
 const { useSessions, describeUserAgent } = await import('../../src/runtime/vue/composables/use-sessions')
 const { unwrapAuth } = await import('../../src/runtime/vue/utils/auth-result')
+const { ConvexAuthStateKey } = await import('nuxt-convex-module/client')
 
 function inSetup<T>(runner: () => T): T {
   let result: T
@@ -106,17 +114,76 @@ describe('usePasskeys', () => {
 })
 
 describe('useSessions', () => {
-  it('loads on mount and marks the current session', async () => {
-    const sessions = inSetup(() => useSessions())
-    await flushPromises()
-    expect(sessions.sessions.value).toHaveLength(2)
-    expect(sessions.current.value?.token).toBe('current-token')
+  const now = Date.now()
+  const rows = [
+    { id: 's-current', userAgent: 'Chrome Mac OS X', createdAt: now - DAY * 3, updatedAt: now - DAY, expiresAt: now + DAY * 6, current: true },
+    { id: 's-other', userAgent: 'Firefox Windows', createdAt: now - DAY * 2, updatedAt: now - DAY, expiresAt: now + DAY * 5, current: false },
+    { id: 's-expired', userAgent: 'Safari iPhone', createdAt: now - DAY * 30, updatedAt: now - DAY * 23, expiresAt: now - DAY * 16, current: false },
+  ]
+
+  function withSessions() {
+    let result!: ReturnType<typeof useSessions>
+    mount(defineComponent({
+      setup() {
+        result = useSessions({ api: sessionsApi })
+        return () => h('div')
+      },
+    }), {
+      global: {
+        provide: {
+          [ConvexAuthStateKey as symbol]: {
+            isLoading: computed(() => false),
+            isAuthenticated: computed(() => user.value !== null),
+            isRefreshing: computed(() => false),
+          },
+        },
+      },
+    })
+    return result
+  }
+
+  beforeEach(() => {
+    sessionRows.value = rows
   })
 
-  it('revoke and revokeOthers unwrap, refresh, and throw on failure', async () => {
-    const sessions = inSetup(() => useSessions({ immediate: false }))
-    await sessions.revoke('other-token')
-    expect(client.revokeSession).toHaveBeenCalledWith({ token: 'other-token' })
+  it('lists live sessions of any age, drops expired ones and marks the current one', () => {
+    const sessions = withSessions()
+    expect(sessions.sessions.value?.map(session => session.id)).toEqual(['s-current', 's-other'])
+    expect(sessions.current.value?.id).toBe('s-current')
+    expect(sessions.isLoading.value).toBe(false)
+    expect(sessions.sessions.value?.[0]).not.toHaveProperty('token')
+  })
+
+  it('is loading until the first read, and empty for a claimless reply', () => {
+    sessionRows.value = undefined
+    const sessions = withSessions()
+    expect(sessions.isLoading.value).toBe(true)
+    sessionRows.value = null
+    expect(sessions.sessions.value).toEqual([])
+    expect(sessions.isLoading.value).toBe(false)
+  })
+
+  it('is empty without querying when signed out', () => {
+    user.value = null
+    const sessions = withSessions()
+    expect(sessions.sessions.value).toEqual([])
+    expect(sessions.isLoading.value).toBe(false)
+  })
+
+  it('revokes by id and surfaces the message of a refusal', async () => {
+    const sessions = withSessions()
+    await sessions.revoke('s-other')
+    expect(revokeSessionMutation).toHaveBeenCalledWith({ sessionId: 's-other' })
+
+    revokeSessionMutation.mockRejectedValueOnce(Object.assign(new Error('[CONVEX M(auth:revokeSession)] Uncaught ConvexError'), { data: 'Session not found.' }))
+    await expect(sessions.revoke('s-gone')).rejects.toThrow('Session not found.')
+    expect(sessions.error.value).toBe('Session not found.')
+  })
+
+  it('revokeOthers goes through the auth client and throws on failure', async () => {
+    const sessions = withSessions()
+    await sessions.revokeOthers()
+    expect(client.revokeOtherSessions).toHaveBeenCalled()
 
     client.revokeOtherSessions.mockResolvedValueOnce({ error: { message: 'nope' } })
     await expect(sessions.revokeOthers()).rejects.toThrow('nope')

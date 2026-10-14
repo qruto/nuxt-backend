@@ -529,6 +529,8 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
       listWorkspaces,
       listWorkspaceMembers,
       updateProfile,
+      listSessions,
+      revokeSession,
       // The agent token exchange (mounted at /mcp/exchange by http.ts) — the
       // app's OAuth-protected MCP endpoint calls Convex through it. Disable
       // the whole agent surface with \`mcp: false\`.
@@ -687,6 +689,8 @@ export const LOCAL_BACKEND_FILE_TEMPLATES: Record<string, string> = {
       listWorkspaces,
       listWorkspaceMembers,
       updateProfile,
+      listSessions,
+      revokeSession,
       // The agent token exchange (mounted at /mcp/exchange by http.ts).
       mcp,
     } = setupAuth(components, query, {

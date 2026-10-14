@@ -13,48 +13,64 @@ navigation:
 
 ### SessionInfo
 
-Defined in: [src/runtime/vue/composables/use-sessions.ts:6](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L6)
+Defined in: [src/runtime/vue/composables/use-sessions.ts:9](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L9)
 
-An active device session (loose — the full shape is Better Auth's).
+One of the signed-in user's device sessions (mirrors the `listSessions` query).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id"></a> `id` | `string` | - | [src/runtime/vue/composables/use-sessions.ts:10](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L10) |
+| <a id="useragent"></a> `userAgent` | `string` \| `null` | - | [src/runtime/vue/composables/use-sessions.ts:11](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L11) |
+| <a id="createdat"></a> `createdAt` | `number` | When the device signed in, as epoch ms. | [src/runtime/vue/composables/use-sessions.ts:13](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L13) |
+| <a id="updatedat"></a> `updatedAt` | `number` | When the session was last extended, as epoch ms. | [src/runtime/vue/composables/use-sessions.ts:15](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L15) |
+| <a id="expiresat"></a> `expiresAt` | `number` | When the session stops signing anyone in, as epoch ms. | [src/runtime/vue/composables/use-sessions.ts:17](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L17) |
+| <a id="current"></a> `current` | `boolean` | Whether this is the session this browser is signed in with. | [src/runtime/vue/composables/use-sessions.ts:19](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L19) |
+
+***
+
+### SessionsApi
+
+Defined in: [src/runtime/vue/composables/use-sessions.ts:23](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L23)
+
+The session functions re-exported from your `backend/auth.ts`.
 
 #### Properties
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="token"></a> `token` | `string` | [src/runtime/vue/composables/use-sessions.ts:7](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L7) |
-| <a id="useragent"></a> `userAgent?` | `string` \| `null` | [src/runtime/vue/composables/use-sessions.ts:8](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L8) |
-| <a id="ipaddress"></a> `ipAddress?` | `string` \| `null` | [src/runtime/vue/composables/use-sessions.ts:9](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L9) |
-| <a id="createdat"></a> `createdAt` | `string` \| `Date` | [src/runtime/vue/composables/use-sessions.ts:10](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L10) |
+| <a id="listsessions"></a> `listSessions?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"public"`, `Record`\<`string`, `never`\>, [`SessionInfo`](#sessioninfo)[] \| `null`\> | [src/runtime/vue/composables/use-sessions.ts:24](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L24) |
+| <a id="revokesession"></a> `revokeSession?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"public"`, \{ `sessionId`: `string`; \}, `null`\> | [src/runtime/vue/composables/use-sessions.ts:25](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L25) |
 
 ***
 
 ### UseSessionsOptions
 
-Defined in: [src/runtime/vue/composables/use-sessions.ts:13](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L13)
+Defined in: [src/runtime/vue/composables/use-sessions.ts:28](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L28)
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="immediate"></a> `immediate?` | `boolean` | Load the session list on mount. Default `true`. | [src/runtime/vue/composables/use-sessions.ts:15](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L15) |
+| <a id="api"></a> `api?` | [`SessionsApi`](#sessionsapi) | Override the injected `api.auth` namespace. | [src/runtime/vue/composables/use-sessions.ts:30](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L30) |
 
 ***
 
 ### UseSessionsReturn
 
-Defined in: [src/runtime/vue/composables/use-sessions.ts:18](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L18)
+Defined in: [src/runtime/vue/composables/use-sessions.ts:33](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L33)
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="sessions"></a> `sessions` | `Ref`\<[`SessionInfo`](#sessioninfo)[] \| `undefined`\> | Active sessions — `undefined` until the first (client-only) load. | [src/runtime/vue/composables/use-sessions.ts:20](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L20) |
-| <a id="current"></a> `current` | `ComputedRef`\<[`SessionInfo`](#sessioninfo) \| `undefined`\> | The session belonging to this browser, once the list is loaded. | [src/runtime/vue/composables/use-sessions.ts:22](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L22) |
-| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | Whether a list load is in flight. | [src/runtime/vue/composables/use-sessions.ts:24](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L24) |
-| <a id="error"></a> `error` | `Ref`\<`string` \| `null`\> | Message of the last failed call; cleared when the next call starts. | [src/runtime/vue/composables/use-sessions.ts:26](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L26) |
-| <a id="refresh"></a> `refresh` | () => `Promise`\<`void`\> | Reload the list. | [src/runtime/vue/composables/use-sessions.ts:28](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L28) |
-| <a id="revoke"></a> `revoke` | (`token`) => `Promise`\<`void`\> | Sign a session out by token, then reload. Throws on failure. | [src/runtime/vue/composables/use-sessions.ts:30](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L30) |
-| <a id="revokeothers"></a> `revokeOthers` | () => `Promise`\<`void`\> | Sign out every session except this one, then reload. Throws on failure. | [src/runtime/vue/composables/use-sessions.ts:32](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L32) |
+| <a id="sessions"></a> `sessions` | `ComputedRef`\<[`SessionInfo`](#sessioninfo)[] \| `undefined`\> | Active sessions, live — `undefined` until the first read (and during SSR). | [src/runtime/vue/composables/use-sessions.ts:35](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L35) |
+| <a id="current-1"></a> `current` | `ComputedRef`\<[`SessionInfo`](#sessioninfo) \| `undefined`\> | The session belonging to this browser, once the list is loaded. | [src/runtime/vue/composables/use-sessions.ts:37](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L37) |
+| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until the first read lands (always `false` when signed out). | [src/runtime/vue/composables/use-sessions.ts:39](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L39) |
+| <a id="error"></a> `error` | `Ref`\<`string` \| `null`\> | Message of the last failed action; cleared when the next one starts. | [src/runtime/vue/composables/use-sessions.ts:41](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L41) |
+| <a id="revoke"></a> `revoke` | (`id`) => `Promise`\<`void`\> | Sign a session out by id. The list updates on its own. Throws on failure. | [src/runtime/vue/composables/use-sessions.ts:43](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L43) |
+| <a id="revokeothers"></a> `revokeOthers` | () => `Promise`\<`void`\> | Sign out every session except this one. The list updates on its own. Throws on failure. | [src/runtime/vue/composables/use-sessions.ts:45](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L45) |
 
 ## Functions
 
@@ -64,13 +80,14 @@ Defined in: [src/runtime/vue/composables/use-sessions.ts:18](https://github.com/
 function useSessions(options?): UseSessionsReturn;
 ```
 
-Defined in: [src/runtime/vue/composables/use-sessions.ts:42](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L42)
+Defined in: [src/runtime/vue/composables/use-sessions.ts:63](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L63)
 
-Device-session management over the Better Auth client — list, revoke one,
-revoke the rest. Every method unwraps the client's `{ data, error }`
-envelope and throws a plain `Error` on failure (mirrored into `error`).
-The list only loads in the browser (it needs the session cookie), starting
-as `undefined` during SSR.
+Device-session management — list, revoke one, revoke the rest. The list is
+a live query over `listSessions` from `backend/auth.ts`, so a session
+signed out anywhere drops off without a reload; it works for sessions of
+any age (Better Auth's own `/list-sessions` demands a sign-in from the
+last day). Rows carry ids, never session tokens. Actions throw a plain
+`Error` on failure and mirror its message into `error`.
 
 #### Parameters
 
@@ -90,7 +107,7 @@ as `undefined` during SSR.
 function describeUserAgent(userAgent?): string;
 ```
 
-Defined in: [src/runtime/vue/composables/use-sessions.ts:100](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L100)
+Defined in: [src/runtime/vue/composables/use-sessions.ts:118](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts#L118)
 
 'Chrome · macOS'-style label from a user-agent string.
 
