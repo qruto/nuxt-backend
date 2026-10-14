@@ -410,8 +410,9 @@ jobs:
   # Full-app end-to-end: builds `templates/starter` with @nuxt/test-utils/e2e
   # and serves it on a real Nitro server against a stub deployment — SSR
   # pages, the auth middleware's redirect, the MCP surface, the Convex-aware
-  # CSP — with a browser leg for the sign-in form and a live query. The other
-  # apps are installed and built in `pack`.
+  # CSP — with a browser leg for the sign-in form and a live query, and a
+  # screenshot of every module page. The other apps are installed and built
+  # in `pack`.
   e2e:
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.src == 'true' }}
@@ -441,6 +442,18 @@ jobs:
 
       - name: End-to-end tests
         run: pnpm run test:e2e
+
+      # Every page the module mounts, at 390 and 1280 px in both schemes, from
+      # test/e2e/screenshots.test.ts: compare a pull request's set with main's
+      # to see what a change does to the packaged pages.
+      - name: Upload module-page screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: module-page-screenshots
+          path: .qa/module-pages/
+          retention-days: 14
+          if-no-files-found: warn
 
   # Checks the package a consumer would actually get. Builds the real tarball
   # (`pnpm pack` rewrites `catalog:` ranges exactly like `pnpm publish` does),

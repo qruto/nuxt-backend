@@ -337,7 +337,8 @@ never see it.
 
 **What the hooks cannot cover.** These stay CI's alone, so a green push is not a promise of a
 green pipeline: the `e2e` job (builds the example apps and drives them with Playwright,
-minutes), `pack` (the tarball gate, a real npm and a strict-pnpm consumer install, a Convex
+minutes, and uploads a screenshot of every module page as the `module-page-screenshots`
+artifact; `pnpm qa:screenshots` takes the same set locally into `.qa/module-pages/`), `pack` (the tarball gate, a real npm and a strict-pnpm consumer install, a Convex
 codegen from the installed copy, the consumer type check, `npm audit signatures`), `website`
 (the docs site's codegen, the component's generated bindings, type check and build),
 `dependency-review`, the workflow lint (zizmor, actionlint) and the spell check, which need
