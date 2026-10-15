@@ -2,9 +2,10 @@
 /**
  * Renders .github/upstream.json as the body of the "ci: upstream watch"
  * issue, checking each watch against the npm registry: does the range the
- * upstream package now declares admit the version we wait for, or a later
- * one? (`^1.1.0` supports the 1.x line a watch for 1.0.0 waits on, though
- * 1.0.0 itself is outside it.)
+ * upstream package now declares admit any version on the line we wait for,
+ * from that version up to the next major? (`^1.1.0` supports the 1.x line a
+ * watch for 1.0.0 waits on, though 1.0.0 itself is outside it; `^2.0.0`
+ * does not.)
  *
  * Prints the Markdown body on stdout. Under GitHub Actions it also writes
  * `ready` (the ids of the watches that are met, comma-separated) to
@@ -38,7 +39,8 @@ const ready = []
 for (const watch of config.watches) {
   const manifest = await latest(watch.package)
   const range = manifest[watch.field]?.[watch.dependency]
-  const met = typeof range === 'string' && semver.validRange(range) !== null && semver.intersects(range, `>=${watch.version}`)
+  const line = `>=${watch.version} <${semver.inc(watch.version, 'major')}-0`
+  const met = typeof range === 'string' && semver.validRange(range) !== null && semver.intersects(range, line)
   if (met) ready.push(watch.id)
   rows.push(`| ${met ? '✅ ready' : '⏳ waiting'} | ${watch.title} | \`${watch.package}@${manifest.version}\` ${watch.field.replace('Dependencies', '')}: \`${cell(`${watch.dependency} ${range ?? '—'}`)}\` | ${watch.unblocks} |`)
 }

@@ -55,6 +55,10 @@ fi
 if ! grep -q 'nuxt-backend/_generated/component' backend/_generated/api.d.ts; then
   echo "::error::backend/_generated/api.d.ts does not type components.backend against the package's ComponentApi"; exit 1
 fi
-if [ "${1:-}" = '--committed' ]; then
-  git diff --exit-code -- backend/_generated
+# A new file codegen wrote counts as a difference too: `git diff` alone only
+# sees the tracked ones.
+if [ "${1:-}" = '--committed' ] && [ -n "$(git status --porcelain -- backend/_generated)" ]; then
+  git status --short -- backend/_generated
+  git diff -- backend/_generated
+  echo "::error::backend/_generated differs from what git has: commit the regenerated files"; exit 1
 fi
