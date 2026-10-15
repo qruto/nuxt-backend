@@ -12,10 +12,11 @@ import { BACKEND_FILE_TEMPLATES, LOCAL_BACKEND_FILE_TEMPLATES } from '../../src/
 /** `export const name = builder({ ... args: { ... } })`, with the builder as written. */
 const DECLARATION = /export const (\w+) = ([\w.]+(?:\([^)]*\))?(?:\.\w+)?)\(\{([\s\S]*?)\n\}\)/g
 const ARGS = /args: \{([^}]*)\}/
-const ADDRESS = /\b(?:to|email|recipient|recipients|recipientEmail|address|cc|bcc|replyTo)\s*:/
+/** An argument named like an address: `to`, or any name ending in one (`toAddress`, `ownerEmail`, `recipients`). */
+const ADDRESS = /\b(?:to|\w*(?:email|address|recipients?|cc|bcc|replyto))\s*:/i
 const PRIVILEGED = /^(?:internal\w+|admin\.\w+)$/
 
-interface Declared { id: string, builder: string, args: string }
+interface Declared { id: string, builder: string, args: string, body: string }
 
 function declarations(templates: Record<string, string>): Declared[] {
   return Object.entries(templates).flatMap(([file, source]) =>
@@ -23,8 +24,44 @@ function declarations(templates: Record<string, string>): Declared[] {
       id: `${file}:${name}`,
       builder: builder!,
       args: ARGS.exec(body!)?.[1] ?? '',
+      body: body!,
     })))
 }
+
+/**
+ * Whatever the argument is called: a send whose `to` is an argument, read
+ * as `args.<name>` or destructured.
+ */
+function sendsToAnArgument(fn: Declared): boolean {
+  if (!/\bsend\w*\s*\(/.test(fn.body)) return false
+  const names = [...fn.args.matchAll(/(\w+)\s*:/g)].map(match => match[1]!)
+  return [...fn.body.matchAll(/\bto\s*:\s*([\w.]+)/g)].some(([, value]) => value!.startsWith('args.') || names.includes(value!))
+}
+
+/** The functions a browser can call that would take their recipient from it. */
+function relays(templates: Record<string, string>): string[] {
+  return declarations(templates)
+    .filter(fn => !PRIVILEGED.test(fn.builder))
+    .filter(fn => ADDRESS.test(fn.args) || sendsToAnArgument(fn))
+    .map(fn => fn.id)
+}
+
+describe('the relay probe', () => {
+  const relay = (args: string, handler: string) => ({ 'x.ts': `export const relay = action({\n  args: { ${args} },\n  handler: async (ctx, args) => {\n    ${handler}\n  },\n})` })
+
+  it('catches a recipient argument under any address-like name', () => {
+    expect(relays(relay('toAddress: v.string()', ''))).toEqual(['x.ts:relay'])
+    expect(relays(relay('ownerEmail: v.string()', ''))).toEqual(['x.ts:relay'])
+  })
+
+  it('catches a send whose recipient is an argument, whatever it is called', () => {
+    expect(relays(relay('target: v.string()', 'await email.send(ctx, { to: args.target, subject: \'Hi\' })'))).toEqual(['x.ts:relay'])
+  })
+
+  it('lets a public function send to an address it looked up itself', () => {
+    expect(relays(relay('message: v.string()', 'await email.send(ctx, { to: user.email, subject: args.message })'))).toEqual([])
+  })
+})
 
 describe.each([
   ['default', BACKEND_FILE_TEMPLATES],
@@ -38,7 +75,7 @@ describe.each([
   })
 
   it('takes no recipient from a public caller', () => {
-    expect(reachable.filter(fn => ADDRESS.test(fn.args)).map(fn => fn.id)).toEqual([])
+    expect(relays(templates)).toEqual([])
   })
 
   it('keeps send internal and puts the any-address send behind the admin role', () => {
