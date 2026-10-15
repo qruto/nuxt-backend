@@ -1,0 +1,17 @@
+# Codecov's status checks. The gate that holds coverage up is vitest's own
+# thresholds (vitest.config.ts), which fail the `coverage` job; these checks
+# report the trend on each pull request.
+#
+# Without a threshold the project check fails on any drop at all, and an
+# update to the coverage tool alone moves the count by a few lines: a
+# dependency bump that touches no source turned the check red. A quarter
+# point absorbs that and still flags a change that leaves code untested.
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 0.25%
+    patch:
+      default:
+        target: auto
