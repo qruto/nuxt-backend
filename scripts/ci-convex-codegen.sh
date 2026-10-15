@@ -33,10 +33,18 @@ if [ -z "$convex" ]; then
   echo "::error::no convex CLI installed at or above $PWD"; exit 1
 fi
 
+# Start without the generated files, so every check below is about what this
+# run wrote: a push that fails before codegen must not pass on files already
+# on disk (the website commits them).
+generated_files=(api.d.ts api.js dataModel.d.ts server.d.ts server.js)
+for generated in "${generated_files[@]}"; do
+  rm -f "backend/_generated/$generated"
+done
+
 CONVEX_AGENT_MODE=anonymous "$convex" dev --once --typecheck disable \
   || echo "convex dev --once exited $? (expected: the push needs env vars this deployment does not have)"
 
-for generated in api.d.ts api.js dataModel.d.ts server.d.ts server.js; do
+for generated in "${generated_files[@]}"; do
   if [ ! -f "backend/_generated/$generated" ]; then
     echo "::error::codegen did not write backend/_generated/$generated"; exit 1
   fi

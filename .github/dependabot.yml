@@ -44,6 +44,12 @@ updates:
     # Nuxt ships it. Weekly's upstream watch (.github/upstream.json) reports
     # when each of these unblocks, one watch per entry; drop the entry in the
     # pull request that adopts it.
+    #
+    # A major is held with `update-types`, which filters version updates only:
+    # a security fix released only in the next major still opens a pull
+    # request, and fails CI where the upstream blocker bites, in view. A
+    # `versions` range filters security updates too, so it holds only what
+    # no update type can name: Better Auth's minor line.
     ignore:
       - dependency-name: better-auth
         versions: ['>=1.7.0']
@@ -52,9 +58,9 @@ updates:
       - dependency-name: h3
         update-types: ['version-update:semver-major']
       - dependency-name: '@polar-sh/sdk'
-        versions: ['>=1.0.0']
+        update-types: ['version-update:semver-major']
       - dependency-name: typescript
-        versions: ['>=7.0.0']
+        update-types: ['version-update:semver-major']
       - dependency-name: '@nuxt/devtools-kit'
         update-types: ['version-update:semver-major']
       - dependency-name: '@nuxt/devtools-ui-kit'
