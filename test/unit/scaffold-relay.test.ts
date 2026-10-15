@@ -30,12 +30,12 @@ function declarations(templates: Record<string, string>): Declared[] {
 
 /**
  * Whatever the argument is called: a send whose `to` is an argument, read
- * as `args.<name>` or destructured.
+ * as `args.<name>`, `args['<name>']` or destructured.
  */
 function sendsToAnArgument(fn: Declared): boolean {
   if (!/\bsend\w*\s*\(/.test(fn.body)) return false
   const names = [...fn.args.matchAll(/(\w+)\s*:/g)].map(match => match[1]!)
-  return [...fn.body.matchAll(/\bto\s*:\s*([\w.]+)/g)].some(([, value]) => value!.startsWith('args.') || names.includes(value!))
+  return [...fn.body.matchAll(/\bto\s*:\s*(args\[|[\w.]+)/g)].some(([, value]) => /^args[.[]/.test(value!) || names.includes(value!))
 }
 
 /** The functions a browser can call that would take their recipient from it. */
@@ -56,6 +56,11 @@ describe('the relay probe', () => {
 
   it('catches a send whose recipient is an argument, whatever it is called', () => {
     expect(relays(relay('target: v.string()', 'await email.send(ctx, { to: args.target, subject: \'Hi\' })'))).toEqual(['x.ts:relay'])
+  })
+
+  it('catches a recipient argument read with brackets', () => {
+    expect(relays(relay('target: v.string()', 'await email.send(ctx, { to: args[\'target\'], subject: \'Hi\' })'))).toEqual(['x.ts:relay'])
+    expect(relays(relay('target: v.string()', 'await email.send(ctx, { to: args["target"], subject: \'Hi\' })'))).toEqual(['x.ts:relay'])
   })
 
   it('lets a public function send to an address it looked up itself', () => {
