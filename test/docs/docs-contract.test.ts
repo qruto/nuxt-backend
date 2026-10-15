@@ -192,7 +192,7 @@ describe('DevTools panel', () => {
   // nothing from the app): the DevTools docs page describes each one, and
   // the homepage drawing of the panel lists the same ones.
   const labels = [...read('devtools-client-app/app/nav.ts').matchAll(/label: '([^']+)'/g)].map(m => m[1]!)
-  const page = read(contentFile('/tooling/devtools'))
+  const page = read(contentFile('/docs/start/develop/devtools'))
 
   it('reads the tabs', () => {
     expect(labels).toContain('Overview')

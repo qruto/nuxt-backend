@@ -438,7 +438,7 @@ const DELIVERIES = [
           CLI reference
         </NuxtLink>
         <NuxtLink
-          to="/tooling/devtools"
+          to="/docs/start/develop/devtools"
           class="hbtn"
         >
           <UIcon name="i-lucide-panel-right-open" />

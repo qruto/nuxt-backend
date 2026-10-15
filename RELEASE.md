@@ -395,7 +395,7 @@ the June test publish satisfies that, so nothing has to be published by hand.
 - **Deprecate the test publish.** `npm deprecate nuxt-backend@0.1.0 "Test publish — use >=0.2.0"`
   (see *Version numbers* above), then close the issues the release fixes. Only after the 0.2.0
   publish: the templates depend on `nuxt-backend: latest`, and until then `latest` is 0.1.0.
-  Then drop the pre-release note from the [templates page](./website/content/1.getting-started/6.templates.md).
+  Then drop the pre-release note from the [templates page](./website/content/docs/01.start/4.templates.md).
 - **Registry.** The package is listed on [nuxt.com/modules](https://nuxt.com/modules) through
   [nuxt/modules](https://github.com/nuxt/modules): `modules/backend.yml` there, kept in sync weekly
   from this repository's `package.json` and the published `dist/module.json` (its `docs` field is

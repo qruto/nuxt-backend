@@ -23,7 +23,7 @@
       <HomeCommandSlot class="cta__cmd" />
       <div class="cta__row">
         <NuxtLink
-          to="/getting-started/introduction"
+          to="/docs/start"
           class="hbtn hbtn--primary"
         >
           <UIcon name="i-lucide-arrow-right" />

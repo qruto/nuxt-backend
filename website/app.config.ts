@@ -123,6 +123,12 @@ export default defineAppConfig({
       'The all-in-one SaaS backend for Nuxt on Convex — authentication, billing, credits, transactional email, webhooks and an agent (MCP) surface from a single package.',
   },
 
+  // The ten docs tabs ride in the header (Docus's sub-navigation), and the
+  // sidebar shows only the current tab's groups.
+  navigation: {
+    sub: 'header',
+  },
+
   header: {
     title: 'Nuxt backend',
     logo: {
