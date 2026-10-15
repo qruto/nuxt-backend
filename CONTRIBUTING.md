@@ -91,8 +91,9 @@ one. When the deployment changes, check the URLs pinned in `.env.local` (`CONVEX
 **Never export a production deploy key in a shell you develop in.** The Convex CLI follows
 `CONVEX_DEPLOY_KEY` over `.env.local`, so every `npx convex …` in that shell acts on
 production. Prefix the one command that needs it (`CONVEX_DEPLOY_KEY=… npx convex env set …`).
-`pnpm db:reset` and `pnpm db:seed` drop the key before calling Convex, and `env push --prod` /
-`doctor --prod` refuse a dev or preview key.
+`pnpm db:reset` and `pnpm db:seed` drop a key exported in the shell before calling Convex, and
+stop when `.env.local` holds one (remove it by hand). Only `db:reset --prod` keeps the shell's
+key, for the deploy rule below. `env push --prod` / `doctor --prod` refuse a dev or preview key.
 
 **Resetting data.** `pnpm db:reset` empties the dev deployment. It reads every table from the
 schemas themselves and clears each one with an empty `convex import --replace`. Pass scopes to

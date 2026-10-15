@@ -1,5 +1,5 @@
 # Codecov's status checks. The gate that holds coverage up is vitest's own
-# thresholds (vitest.config.ts), which fail the `coverage` job; these checks
+# thresholds (vitest.config.ts), which fail the `test` job; these checks
 # report the trend on each pull request.
 #
 # Without a threshold the project check fails on any drop at all, and an

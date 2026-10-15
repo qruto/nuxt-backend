@@ -24,9 +24,12 @@ export const messagesSize = new TableAggregate<{ Namespace: typeof SIZE, Key: nu
   { namespace: () => SIZE, sortKey: () => null, sumValue: message => message.text.length },
 )
 
+// Idempotent: messages seeded before seed.ts used the trigger-wrapped
+// builder were never counted, and a plain trigger throws DELETE_MISSING_KEY
+// on one, rolling back the whole delete (Reset data, the idle sweep).
 const triggers = new Triggers<DataModel>()
-triggers.register('messages', messagesCount.trigger())
-triggers.register('messages', messagesSize.trigger())
+triggers.register('messages', messagesCount.idempotentTrigger())
+triggers.register('messages', messagesSize.idempotentTrigger())
 
 // Use these trigger-wrapped builders for any table covered by an aggregate so
 // inserts/deletes stay in sync automatically (messages.ts imports `mutation`,

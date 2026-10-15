@@ -60,15 +60,25 @@ function isAdmin(user: UserRow): boolean {
   return (user.role ?? '').split(',').some(role => role.trim() === 'admin')
 }
 
-/** When the account was last used: its latest session refresh, else its own last update. */
-async function lastActive(ctx: MutationCtx, user: UserRow): Promise<number> {
+/**
+ * Whether the account was used since `cutoff`: a session refreshed, the
+ * account updated (signing in and signing out stamp it, utils/activity.ts), or
+ * app data written. The rows cover an account whose session outlived its
+ * sign-in by more than a week and then ended without a sign-out.
+ */
+async function activeSince(ctx: MutationCtx, user: UserRow, cutoff: number): Promise<boolean> {
   const sessions = await ctx.runQuery(components.backend.adapter.findMany, {
     model: 'session',
     where: [{ field: 'userId', value: user._id }],
     sortBy: { field: 'expiresAt', direction: 'desc' },
     paginationOpts: { numItems: 1, cursor: null },
   }) as { page: Array<{ updatedAt: number }> }
-  return sessions.page[0]?.updatedAt ?? user.updatedAt ?? user.createdAt
+  if (Math.max(sessions.page[0]?.updatedAt ?? 0, user.updatedAt ?? 0, user.createdAt) >= cutoff) return true
+  for (const table of ['todos', 'messages', 'logs', 'files', 'sentEmails'] as const) {
+    const newest = await ctx.db.query(table).withIndex('userId', q => q.eq('userId', user._id)).order('desc').first()
+    if (newest && newest._creationTime >= cutoff) return true
+  }
+  return false
 }
 
 /**
@@ -87,7 +97,7 @@ export const clearIdleAccounts = internalMutation({
     }) as { page: UserRow[], isDone: boolean, continueCursor: string }
     for (const user of users.page) {
       if (isAdmin(user) || !isSandboxIdentity(user.email)) continue
-      if (await lastActive(ctx, user) < cutoff) {
+      if (!(await activeSince(ctx, user, cutoff))) {
         await ctx.scheduler.runAfter(0, internal.retention.clearUser, { userId: user._id })
       }
     }

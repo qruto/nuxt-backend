@@ -5,6 +5,9 @@ import { getOwnedTodo, requireIdentity } from './lib'
 /** The longest todo the playground keeps. */
 const MAX_TEXT = 200
 
+/** The most todos one account keeps: the list and the agent tool read them all. */
+const MAX_TODOS = 200
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -15,7 +18,7 @@ export const list = query({
       .query('todos')
       .withIndex('userId', q => q.eq('userId', identity.subject))
       .order('desc')
-      .collect()
+      .take(MAX_TODOS)
   },
 })
 
@@ -26,6 +29,8 @@ export const create = mutation({
     const trimmed = text.trim()
     if (!trimmed) throw new ConvexError('A todo needs some text.')
     if (trimmed.length > MAX_TEXT) throw new ConvexError(`Todos are up to ${MAX_TEXT} characters.`)
+    const kept = await ctx.db.query('todos').withIndex('userId', q => q.eq('userId', identity.subject)).take(MAX_TODOS)
+    if (kept.length >= MAX_TODOS) throw new ConvexError(`The playground keeps up to ${MAX_TODOS} todos per account. Delete some first.`)
 
     await ctx.db.insert('todos', {
       text: trimmed,

@@ -1,6 +1,7 @@
 import { APIError, setupAuth } from 'nuxt-backend/auth'
 import { isSandboxIdentity, SANDBOX_IDENTITY_HELP } from '../utils/testEmail'
 import { components, internal } from './_generated/api'
+import { markActive } from '../utils/activity'
 import { query } from './_generated/server'
 import { rateLimiter } from './rateLimiter'
 import { workflow } from './workflows'
@@ -33,6 +34,11 @@ export const {
   // in: an email change, and an invitation.
   authOptions: {
     databaseHooks: {
+      // Signing in and out keep an account off the idle sweep (utils/activity.ts).
+      session: {
+        create: { after: async (session, ctx) => markActive(session.userId, ctx) },
+        delete: { after: async (session, ctx) => markActive(session.userId, ctx) },
+      },
       user: {
         update: {
           before: async (user) => {
