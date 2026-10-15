@@ -347,13 +347,16 @@ GitHub, the Windows leg of the test matrix, and the coverage thresholds.
 
 ## Writing Documentation
 
-The docs are the [`website/content/`](./website/content) tree, rendered by
-[Docus](https://docus.dev) (Nuxt Content + Nuxt UI). Two kinds of file live there, and only one
-is edited by hand.
+The docs are the [`website/content/docs/`](./website/content/docs) tree, rendered by
+[Docus](https://docus.dev) (Nuxt Content + Nuxt UI) under `/docs`, one folder per header tab
+(`01.start` … `10.reference`). `website/shared/docs-routes.ts` is the route table: the tabs, the
+redirect for every route the site ever published, the aliases and short links. Two kinds of file
+live under the tree, and only one is edited by hand.
 
 **Hand-written pages.** Folders and files carry a numeric prefix that orders the sidebar and is
-stripped from the route: `2.guide/3.server-and-ssr.md` is `/guide/server-and-ssr`. Each folder's
-`.navigation.yml` names the section and its icon, and each page opens with the frontmatter every
+stripped from the route: `docs/07.data/3.server-rendering.md` is `/docs/data/server-rendering`.
+A folder with ten or more children pads the prefix (`03.catalog`), because the sidebar sorts
+the names as strings. Each folder's `.navigation.yml` names the tab or group (and a tab's icon), and each page opens with the frontmatter every
 page here has:
 
 ```md
@@ -372,11 +375,13 @@ adding new ones: `::note`, `::tip` and `::warning` for callouts; `::field-group`
 field group on the configuration page); `::code-group` for one snippet under several package
 managers or files; and `::playground-link{to="/playground/…" label="…"}`, this site's own
 component (`website/components/PlaygroundLink.vue`), for a link into the live playground. Links
-between pages are root-relative routes (`/guide/authentication`), not paths on disk: the docs
-build fails on a broken one, and the weekly link check covers the external URLs.
+between pages are root-relative routes (`/docs/auth/sign-in`), not paths on disk: the docs
+build fails on a broken one, `test/docs/docs-structure.test.ts` fails on a link to a redirect
+source, and the weekly link check covers the external URLs. Moving a page means a row in the
+route table, so its old route keeps answering.
 
 **Generated reference.** `website/content/docs/10.reference/10.api/` is TypeDoc output, served at
-`/api-reference/reference` (`website/shared/docs-routes.ts` maps the folder to its route).
+`/docs/reference/api`.
 `pnpm run docs:reference` regenerates it from the doc comments in `src/`, and nothing under it is
 edited by hand: fix the doc comment, regenerate, commit both. CI's `API reference drift` step
 (`pnpm run docs:reference:check`) fails on a diff, and the `pre-push` hook runs the same check.

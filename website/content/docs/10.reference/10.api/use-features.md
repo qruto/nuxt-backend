@@ -20,7 +20,7 @@ Defined in: [src/runtime/vue/composables/use-features.ts](https://github.com/qru
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="api"></a> `api?` | [`BillingApi`](/api-reference/reference/use-billing#billingapi) | Override the injected `api.billing` namespace (or the `getFeatures` ref). | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
+| <a id="api"></a> `api?` | [`BillingApi`](/docs/reference/api/use-billing#billingapi) | Override the injected `api.billing` namespace (or the `getFeatures` ref). | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
 
 ***
 
@@ -33,7 +33,7 @@ Defined in: [src/runtime/vue/composables/use-features.ts](https://github.com/qru
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="plans"></a> `plans` | `ComputedRef`\<`string`[] \| `undefined`\> | Active product ids the user is subscribed to, or `undefined` while loading. | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
-| <a id="benefits"></a> `benefits` | `ComputedRef`\<[`EntitlementBenefit`](/api-reference/reference/use-billing#entitlementbenefit)[] \| `undefined`\> | Granted benefits (entitlements), or `undefined` while loading. | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
+| <a id="benefits"></a> `benefits` | `ComputedRef`\<[`EntitlementBenefit`](/docs/reference/api/use-billing#entitlementbenefit)[] \| `undefined`\> | Granted benefits (entitlements), or `undefined` while loading. | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
 | <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until features have loaded. | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
 | <a id="has"></a> `has` | (`feature`) => `boolean` | Whether the user has the given benefit (matched by `benefitId`, grant `id`, `type`, or any metadata value). | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
 | <a id="hasplan"></a> `hasPlan` | (`productId`) => `boolean` | Whether the user has an active subscription to the given product id. | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |

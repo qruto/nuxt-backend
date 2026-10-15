@@ -19,8 +19,8 @@ const prose = [at('README.md'), ...handWritten]
 
 describe('module options', () => {
   const keys = interfaceKeys(at('src/module.ts'), 'ModuleOptions')
-  const reference = read(contentFile('/api-reference/module-options'))
-  const configuration = read(contentFile('/getting-started/configuration'))
+  const reference = read(contentFile('/docs/reference/configuration/module-options'))
+  const configuration = read(contentFile('/docs/reference/configuration'))
 
   it('reads the interface', () => {
     expect(keys).toContain('workspaces')
@@ -47,7 +47,7 @@ describe('route middleware', () => {
 
 describe('CLI', () => {
   const commands = [...read('src/cli/main.ts').matchAll(/subCommands: \{([^}]+)\}/g)].flatMap(m => m[1]!.split(',').map(s => s.trim().split(':')[0]!.trim()).filter(Boolean))
-  const page = read(contentFile('/tooling/cli'))
+  const page = read(contentFile('/docs/reference/cli'))
 
   it('reads the commands', () => {
     expect(commands).toEqual(expect.arrayContaining(['init', 'doctor', 'env', 'billing']))
@@ -219,7 +219,7 @@ describe('the ecosystem page', () => {
   // Each table row names one package and where it stands. The manifest is the
   // truth for what ships: a component added without its row, or a row that
   // claims a package the manifest lacks, fails here.
-  const page = read('website/content/1.getting-started/7.ecosystem.md')
+  const page = read(contentFile('/docs/reference/ecosystem'))
   const STATUSES = ['Shipped', 'Bundled', 'Supported', 'Planned', 'Recipe', 'Not planned']
   const rows = [...page.matchAll(/^\| `((?:@[\w.-]+\/)?[\w.-]+)` \| ([^|]+?) \|/gm)].map(([, name, status]) => ({ name: name!, status: status!.trim() }))
   const statusOf = (name: string) => rows.find(row => row.name === name)?.status

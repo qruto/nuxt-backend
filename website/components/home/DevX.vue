@@ -431,7 +431,7 @@ const DELIVERIES = [
 
       <div class="dx__links">
         <NuxtLink
-          to="/tooling/cli"
+          to="/docs/reference/cli"
           class="hbtn"
         >
           <UIcon name="i-lucide-terminal" />

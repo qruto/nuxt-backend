@@ -86,7 +86,7 @@ registerBackendRoutes(http, {
 })
 ```
 
-Both are in the scaffolded files already — see [auth setup](/docs/auth/setup) and [webhooks & routes](/platform/webhooks). Without the exchange route, the gate answers `502`.
+Both are in the scaffolded files already — see [auth setup](/docs/auth/setup) and [webhooks & routes](/docs/ship/production/webhooks). Without the exchange route, the gate answers `502`.
 
 ## Configuration
 
@@ -107,7 +107,7 @@ export default defineNuxtConfig({
 })
 ```
 
-`name`, `description`, `instructions`, `sessions` and `route` are forwarded to `@nuxtjs/mcp-toolkit` as **defaults** — your own top-level `mcp` config in `nuxt.config.ts` wins over them, the same contract as the `convex.*` forwarding. `tools.builtin` and `functions` are read by this package: see [Built-in tools](/docs/agents/mcp/built-in-tools). The full option types are in [Module options](/api-reference/module-options).
+`name`, `description`, `instructions`, `sessions` and `route` are forwarded to `@nuxtjs/mcp-toolkit` as **defaults** — your own top-level `mcp` config in `nuxt.config.ts` wins over them, the same contract as the `convex.*` forwarding. `tools.builtin` and `functions` are read by this package: see [Built-in tools](/docs/agents/mcp/built-in-tools). The full option types are in [Module options](/docs/reference/configuration/module-options).
 
 `name` and `description` are what the server reports in the MCP `initialize` handshake (a client shows them in its server list); `instructions` is the guidance a client typically injects into the model's system prompt. `sessions` turns on the toolkit's **stateful transport** — session ids, SSE streaming and server-to-client notifications; off, every request stands alone and the OAuth gate is the only state. `true` takes the defaults, an object sizes it:
 

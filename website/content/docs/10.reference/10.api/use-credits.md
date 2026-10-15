@@ -35,7 +35,7 @@ Defined in: [src/runtime/vue/composables/use-credits.ts](https://github.com/qrut
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="api"></a> `api?` | [`BillingApi`](/api-reference/reference/use-billing#billingapi) | Override the injected `api.billing` namespace. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
+| <a id="api"></a> `api?` | [`BillingApi`](/docs/reference/api/use-billing#billingapi) | Override the injected `api.billing` namespace. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
 
 ***
 

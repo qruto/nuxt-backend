@@ -212,7 +212,7 @@ Whether a built-in tool survived `backend.mcp.tools.builtin` config.
 
 | Parameter | Type |
 | ------ | ------ |
-| `name` | [`BackendMcpToolName`](/api-reference/reference/module#backendmcptoolname) |
+| `name` | [`BackendMcpToolName`](/docs/reference/api/module#backendmcptoolname) |
 | `event` | `H3Event` |
 
 #### Returns
@@ -320,10 +320,10 @@ via the standard `enabled` guard — it runs after the session/scope gate.
 
 ### BackendMcpFunctionKey
 
-Re-exports [BackendMcpFunctionKey](/api-reference/reference/module#backendmcpfunctionkey)
+Re-exports [BackendMcpFunctionKey](/docs/reference/api/module#backendmcpfunctionkey)
 
 ***
 
 ### BackendMcpToolName
 
-Re-exports [BackendMcpToolName](/api-reference/reference/module#backendmcptoolname)
+Re-exports [BackendMcpToolName](/docs/reference/api/module#backendmcptoolname)

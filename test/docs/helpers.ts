@@ -34,9 +34,8 @@ export function walk(dir: string, exts: string[], skip: (path: string) => boolea
  * website/shared/docs-routes.ts: the source's prefix plus the path below its
  * include's fixed part, numeric `1.` prefixes dropped from every segment,
  * `.md` dropped, `index` folded into its directory —
- * `website/content/1.getting-started/4.configuration.md` →
- * `/getting-started/configuration`, and
- * `website/content/docs/10.reference/10.api/auth.md` → `/api-reference/reference/auth`.
+ * `website/content/docs/07.data/3.server-rendering.md` → `/docs/data/server-rendering`, and
+ * `website/content/docs/10.reference/10.api/auth.md` → `/docs/reference/api/auth`.
  */
 export function contentRoute(file: string): string {
   const relative = file.slice(file.indexOf('website/content/') + 'website/content/'.length)

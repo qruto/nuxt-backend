@@ -89,7 +89,7 @@ It returns:
 | `goTo(step)` | jump to a step, clearing `otp` and `error` |
 | `reset()` | back to `choose` with every field cleared |
 
-A refused request (HTTP 429) leaves the flow on its current step. `error` reads *"Too many attempts. Try again in 30 seconds."* and `retryAfter` holds the `30`, so a custom page can count down or disable its button until then. When the wait is unknown, the message says *"…Try again in a moment."* and `retryAfter` stays `null`. See [rate limiting](/platform/rate-limiting#what-the-user-sees) for which refusals carry a wait.
+A refused request (HTTP 429) leaves the flow on its current step. `error` reads *"Too many attempts. Try again in 30 seconds."* and `retryAfter` holds the `30`, so a custom page can count down or disable its button until then. When the wait is unknown, the message says *"…Try again in a moment."* and `retryAfter` stays `null`. See [rate limiting](/docs/ship/production/rate-limits#what-the-user-sees) for which refusals carry a wait.
 
 Every step is also available one level down on `useAuth()` — `sendOtp`, `signInWithOtp`, `signInWithPasskey`, `registerPasskey` — when a page needs a shape the composable does not model.
 
@@ -126,7 +126,7 @@ definePageMeta({ middleware: 'auth' })
 </script>
 ```
 
-Unauthenticated users are redirected to `/login` (the [`loginPath`](/api-reference/module-options) option, when the built-in page is replaced) with the original destination in `?redirect=`. The guard runs on the server for direct loads and in the browser for client-side navigation.
+Unauthenticated users are redirected to `/login` (the [`loginPath`](/docs/reference/configuration/module-options) option, when the built-in page is replaced) with the original destination in `?redirect=`. The guard runs on the server for direct loads and in the browser for client-side navigation.
 
 `auth` is this package's name for the guard `nuxt-convex-module` registers as `convex-auth` — both stay registered and point at the same middleware, so code written against the base module keeps working.
 

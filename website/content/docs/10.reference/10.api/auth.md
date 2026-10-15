@@ -6085,7 +6085,7 @@ patterns exported from this module.
 | `updateProfile` | `RegisteredMutation`\<`"public"`, \{ `name`: `string`; \}, `Promise`\<`null`\>\> | - | - | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
 | `listSessions` | `RegisteredQuery`\<`"public"`, \{ \}, `Promise`\<[`DeviceSession`](#devicesession)[] \| `null`\>\> | - | - | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
 | `revokeSession` | `RegisteredMutation`\<`"public"`, \{ `sessionId`: `string`; \}, `Promise`\<`null`\>\> | - | - | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
-| `mcp` | [`McpExchange`](/api-reference/reference/http#mcpexchange) | `mcpExchange` | - | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
+| `mcp` | [`McpExchange`](/docs/reference/api/http#mcpexchange) | `mcpExchange` | - | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
 
 #### Example
 
