@@ -14,6 +14,7 @@ import { isDevtoolsUiEnabled, isSiteUrlConfigured, runDevAutoEnv, runPreflight }
 import { registerMcp, resolveMcpOptions } from './nuxt/mcp'
 import { registerModulePages } from './nuxt/pages'
 import { registerAuthMiddleware, registerBackendTypeFallback, registerBillingLinkComponents, registerSaasComposables } from './nuxt/registry'
+import { registerThemeBridge } from './nuxt/theme'
 
 // The module definition; the helpers setup calls live in nuxt/, one file
 // per concern.
@@ -241,8 +242,12 @@ export default defineNuxtModule<ModuleOptions>({
     registerSaasComposables(resolver)
 
     // The neutral stylesheet for every shipped component and page, first in
-    // line and layered (ui.css), so every app rule wins over it.
-    nuxt.options.css.unshift(resolver.resolve('./runtime/vue/components/ui.css'))
+    // line and layered (ui.css), so every app rule wins over it. Right after
+    // it, the bridge onto @nuxt/ui's tokens and @nuxtjs/color-mode's class,
+    // when the app has them (src/nuxt/theme.ts).
+    const uiCss = resolver.resolve('./runtime/vue/components/ui.css')
+    nuxt.options.css.unshift(uiCss)
+    registerThemeBridge(nuxt, uiCss)
 
     registerAuthMiddleware()
     registerBillingLinkComponents()

@@ -98,7 +98,8 @@ sign-in codes print in the terminal that runs `dev`.
 ## Customizing, in order of reach
 
 1. **CSS tokens**: the `--bk-*` custom properties and `data-*` hooks restyle every packaged
-   component.
+   component. With `@nuxt/ui` installed, the tokens already follow its neutrals, borders, card
+   radius and dark mode: theme those through Nuxt UI's own variables, don't map them by hand.
 2. **Content**: `appConfig.backend` holds the brand, labels and the plan catalog copy.
 3. **Slots**: keep a packaged component and replace only some regions, such as
    `<PricingTable>`'s `plan-action` or `<AuthForm>`'s `verify-code` step.

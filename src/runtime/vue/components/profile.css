@@ -97,7 +97,7 @@
   align-self: flex-start;
   padding: 0.55rem 0.9rem;
   border: 1px solid var(--bk-accent);
-  border-radius: var(--bk-radius);
+  border-radius: var(--bk-radius-control);
   background: var(--bk-accent);
   color: var(--bk-on-accent);
   font: inherit;

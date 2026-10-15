@@ -153,7 +153,7 @@
     "check:manifest": "installed-check -d --no-workspaces",
     "check:rulesets": "node scripts/check-rulesets.mjs",
     "check:consumer-types": "node scripts/check-consumer-types.mjs",
-    "generate": "pnpm run pages:registry && pnpm run styles:imports && pnpm run docs:reference && pnpm run docs:includes && pnpm run docs:style && pnpm run design:contrast && pnpm run playground:sync",
+    "generate": "pnpm run pages:registry && pnpm run styles:imports && pnpm run design:gamut && pnpm run docs:reference && pnpm run docs:includes && pnpm run docs:style && pnpm run design:contrast && pnpm run playground:sync",
     "docs:includes": "node scripts/docs-includes.mjs",
     "playground:sync": "node scripts/sync-playground.mjs",
     "docs:reference": "typedoc && node scripts/typedoc-postprocess.mjs",
@@ -202,6 +202,7 @@
     "qa:screenshots": "vitest --project e2e --run test/e2e/screenshots.test.ts",
     "docs:style": "node scripts/docs-style.mjs",
     "design:contrast": "node scripts/design-contrast.mjs --write",
+    "design:gamut": "node scripts/wide-gamut.mjs",
     "pages:registry": "node scripts/pages-registry.mjs",
     "styles:imports": "node scripts/stylesheet-imports.mjs"
   },
