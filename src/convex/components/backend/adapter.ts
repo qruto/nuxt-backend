@@ -14,7 +14,7 @@ import { authSchema as schema } from './schema.js'
  * pattern (see their auth-options.ts + adapter.ts) but limited to plugins we
  * enable by default (convex + emailOTP + passkey + admin + organization +
  * mcp + agent consent + jwt) for minimal surface. ⚠ Keep this plugin set aligned with the
- * default set `createBetterAuthOptions` builds (src/convex/client/index.ts) —
+ * default set `createBetterAuthOptions` builds (src/convex/client/better-auth-options.ts) —
  * a plugin enabled there but missing here leaves its tables out of the
  * adapter's derived schema.
  */

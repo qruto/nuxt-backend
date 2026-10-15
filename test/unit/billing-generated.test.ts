@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
  * `@stylistic` rules this repo and most Nuxt projects run.
  */
 const root = join(import.meta.dirname, '../..')
-const source = readFileSync(join(root, 'src/cli/billing.ts'), 'utf8')
+const source = readFileSync(join(root, 'src/cli/billing/generated.ts'), 'utf8')
 
 describe('generated catalog file', () => {
   it('renders values as lint-clean TypeScript, not JSON', () => {

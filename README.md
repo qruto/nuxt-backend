@@ -128,27 +128,35 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 
 **SaaS layer (this package)**
 
-- `useAuth` — session + the passwordless flows: `signOut`, `sendOtp`, `signInWithOtp`, `signInWithPasskey`, `registerPasskey`, `changeEmail`, `deleteAccount`; the fully-typed Better Auth `client` for everything else
-- `useOrganization` — workspaces + the full invitation flow: `invite`, `acceptInvitation`, `declineInvitation`, `cancelInvitation`, `getInvitation`, `listReceivedInvitations`
-- `useBilling` — subscription state, `checkout`, `gift`, `portal`, `changePlan`, `cancel`
-- `useFeatures` — entitlement / feature flags from active subscriptions
-- `useCredits` — prepaid credit balances + `topUp` and `gift`
-- `useGifts` — gifts addressed to the signed-in user, auto-claimed on first sign-in (or explicit `claim`)
-- `useEmailStatus` — live email delivery status
-- `useWorkflowStatus` — workflow run status
-- `useAiStream` — drive a metered, persisted AI token stream (reload mid-stream and the text keeps flowing)
-- `useSearch` — debounced full-text search
 - `useAggregate` / `useCount` — aggregate-component reads
+- `useAiStream` — drive a metered, persisted AI token stream (reload mid-stream and the text keeps flowing)
+- `useAuth` — session + the passwordless flows: `signOut`, `sendOtp`, `signInWithOtp`, `signInWithPasskey`, `registerPasskey`, `changeEmail`, `deleteAccount`; the fully-typed Better Auth `client` for everything else
+- `useBilling` — subscription state, `checkout`, `gift`, `portal`, `changePlan`, `cancel`
+- `useCredits` — prepaid credit balances + `topUp` and `gift`
+- `useEmailStatus` — live email delivery status
+- `useFeatures` — entitlement / feature flags from active subscriptions
+- `useGifts` — gifts addressed to the signed-in user, auto-claimed on first sign-in (or explicit `claim`)
+- `useOrganization` — workspaces + the full invitation flow: `invite`, `acceptInvitation`, `declineInvitation`, `cancelInvitation`, `getInvitation`, `listReceivedInvitations`
+- `useSearch` — debounced full-text search
+- `useWorkflowStatus` — workflow run status
 
 **Core (from `nuxt-convex-module`)** — `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `useConvexAuth`, `useConvexConnectionState`, `useUpload`, `useUploadQueue`, `useStorageUrl`, `useConvex`, and friends.
 
 ### Components
 
-`<Authenticated>` / `<Unauthenticated>` / `<AuthLoading>` / `<AuthBoundary>` — render by auth state · `<RoleBoundary>` / `<FeatureBoundary>` — gate UI by role or billing entitlement · `<AcceptInvitation>` — the workspace-invitation accept/decline UI (also served by the auto-registered `/accept-invitation` page) · `<GiftClaimBanner>` — surface unclaimed gifts · `<BillingCheckoutLink>` / `<BillingPortalLink>` — billing links
+- `<AcceptInvitation>` — the workspace-invitation accept/decline UI (also served by the auto-registered `/accept-invitation` page)
+- `<Authenticated>` / `<Unauthenticated>` / `<AuthLoading>` / `<AuthBoundary>` — render by auth state
+- `<BillingCheckoutLink>` / `<BillingPortalLink>` — billing links
+- `<GiftClaimBanner>` — surface unclaimed gifts
+- `<RoleBoundary>` / `<FeatureBoundary>` — gate UI by role or billing entitlement
 
 ### Server (Nitro)
 
-`fetchQuery` / `fetchMutation` / `fetchAction` · `preloadQuery` / `preloadedQueryResult` · `convexAuth(event)` — an authenticated, request-scoped Convex client. Plus the same-origin `/api/auth/**` Better Auth proxy and the opt-in `auth` route middleware.
+- `backendAuth(event)` — an authenticated, request-scoped Convex client
+- `fetchQuery` / `fetchMutation` / `fetchAction`
+- `preloadQuery` / `preloadedQueryResult`
+
+Plus the same-origin `/api/auth/**` Better Auth proxy and the opt-in `auth` route middleware.
 
 ### Agents (MCP)
 
@@ -214,7 +222,7 @@ Each one is created with `create nuxt` (`pnpm create nuxt@latest my-app -t gh:qr
 
 - [`templates/starter`](./templates/starter) — the app to build on: the exact `nuxt-backend init` scaffold, zero custom backend code: passwordless auth, workspace invitations, billing, credits, and gifts out of the box
 - [`examples/playground`](./examples/playground) — the [live playground](https://nuxt-backend.dev/playground) as an app of your own: 33 pages exercising the client, the packaged pages, auth, workspaces, billing, credits, AI, email, webhooks, workflows and agents against your deployment
-- [`examples/advanced`](./examples/advanced) — every customization point in one app: local component install, custom email templates, custom webhook paths and hooks, a customized `convex.config.ts` (extra env, an unmounted component), and a custom invitation accept page
+- [`examples/advanced`](./examples/advanced) — every customization point in one app: a customized `convex.config.ts` (extra env, an unmounted component), custom email templates, a custom invitation page, explicit billing config, custom webhook paths and hooks, a hand-rolled signup workflow and explicit gift claiming
 
 ## Contributing
 

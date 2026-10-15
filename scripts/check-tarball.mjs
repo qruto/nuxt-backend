@@ -7,9 +7,10 @@
 // second file and the glob would silently hand two arguments to publint.
 import { execFileSync } from 'node:child_process'
 import { builtinModules } from 'node:module'
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
+import { measure, overBudget, readBudgets } from './budgets.mjs'
 import { step } from './lib/step.mjs'
 
 const root = process.cwd()
@@ -159,26 +160,19 @@ try {
 
   // ── Size ─────────────────────────────────────────────────────────────────────
   //
-  // A little above what this package measured when the ceiling was last set
-  // (3,582,087 bytes in 319 files, unpacked). Everything a consumer installs
-  // is counted, so a stray build output or a dependency bundled by mistake
-  // fails here instead of shipping. Raise the ceiling in the change that
-  // explains the growth; lower it when a change shrinks the package.
+  // Everything a consumer installs is counted, against the `tarball` budget in
+  // budgets.json (5% above its last measurement), so a stray build output or a
+  // dependency bundled by mistake fails here instead of shipping. A change that
+  // grows the package on purpose moves the budget: `pnpm budgets:update`.
   console.log('── Size ───────────────────────────────────────')
-  const MAX_BYTES = 3_760_000
-  const MAX_FILES = 335
-  let bytes = 0
-  let count = 0
-  for (const entry of readdirSync(pkgRoot, { recursive: true, withFileTypes: true })) {
-    if (!entry.isFile()) continue
-    count += 1
-    bytes += statSync(join(entry.parentPath, entry.name)).size
-  }
-  if (bytes > MAX_BYTES || count > MAX_FILES) {
-    console.error(`  ✗ ${bytes.toLocaleString('en')} bytes in ${count} files — the ceiling is ${MAX_BYTES.toLocaleString('en')} bytes in ${MAX_FILES} files`)
+  const { ceiling } = readBudgets().tarball
+  const size = measure(pkgRoot)
+  const over = overBudget(size, ceiling)
+  if (over.length > 0) {
+    console.error(`  ✗ over the tarball budget: ${over.join('; ')}. If the growth is intended, run \`pnpm budgets:update\` and say why in the change.`)
     process.exit(1)
   }
-  console.log(`  ✓ ${bytes.toLocaleString('en')} bytes in ${count} files (ceiling ${MAX_BYTES.toLocaleString('en')} / ${MAX_FILES})\n`)
+  console.log(`  ✓ ${size.bytes.toLocaleString('en')} bytes in ${size.files} files (ceiling ${ceiling.bytes.toLocaleString('en')} / ${ceiling.files})\n`)
 
   // ── Phantom dependencies ───────────────────────────────────────────────────
   //

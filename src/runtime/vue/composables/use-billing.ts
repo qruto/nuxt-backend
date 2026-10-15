@@ -1,8 +1,19 @@
 import type { FunctionReference } from 'convex/server'
-import { computed, getCurrentInstance, inject, onMounted, ref, toValue, watch, type ComputedRef, type MaybeRefOrGetter, type Ref } from 'vue'
+import { computed, inject, type ComputedRef, type MaybeRefOrGetter, type Ref } from 'vue'
 import { useAction, useQuery, ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { useBackendNamespace } from '../utils/namespace'
 import { openProviderUrl } from '../utils/open-url'
+import { toBillingDate } from './billing-format'
+import { createCheckout, createGiftCheckout, notConfigured } from './billing-provider'
+
+// The helpers the billing composables and components share live in
+// billing-format.ts and billing-provider.ts, re-exported here and documented
+// on this module's reference page. TypeDoc lists a page's symbols by
+// declaring file, then position, and `useBilling` is the page's last
+// function: the functions moved to files that sort before this one (a
+// file under utils/ would sort after it), and every type stayed.
+export { formatBillingAmount, toBillingDate } from './billing-format'
+export { createCheckout, createProviderPager, createGiftCheckout } from './billing-provider'
 
 /** A billing-provider product (loose — the provider owns the full shape; cast as needed). */
 export type BillingProduct = { id: string, name: string } & Record<string, unknown>
@@ -401,93 +412,6 @@ export interface UseBillingReturn {
   resume: (options?: SubscriptionTargetOptions) => Promise<void>
 }
 
-function notConfigured(action: string): never {
-  throw new Error(
-    `[nuxt-backend] Billing ${action} is unavailable — ensure \`billing.ts\` re-exports the `
-    + `setupBilling api and the required BILLING_ACCESS_TOKEN env var is set, or pass \`{ api }\` to useBilling().`,
-  )
-}
-
-/**
- * Provider timestamps reach the client as ISO strings (the component's cache
- * stores them that way) but as epoch numbers when an action forwards the SDK's
- * `Date` through Convex's JSON wire. Accept both, and never hand a component an
- * `Invalid Date`.
- */
-export function toBillingDate(value: unknown): Date | null {
-  if (value == null) return null
-  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
-  if (typeof value !== 'string' && typeof value !== 'number') return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
-/**
- * Money the way the provider states it — a minor-unit integer plus an ISO
- * currency code — rendered in the visitor's own locale. Unknown currency codes
- * fall back to the bare amount rather than throwing mid-render.
- */
-export function formatBillingAmount(amount: number, currency?: string | null): string {
-  const value = amount / 100
-  if (currency) {
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency,
-        maximumFractionDigits: value % 1 ? 2 : 0,
-      }).format(value)
-    }
-    catch {
-      // Unknown currency code — fall through to the bare amount.
-    }
-  }
-  return value % 1 ? value.toFixed(2) : String(value)
-}
-
-/**
- * Build a `checkout(productIds, options)` action over a billing namespace —
- * shared by {@link useBilling} (subscriptions) and
- * {@link "runtime/vue/composables/use-credits"!useCredits} (top-ups),
- * since a credit-pack top-up is just a checkout for a one-time product. Must be
- * called during component setup (it sets up the underlying action).
- */
-export function createCheckout(billing: BillingApi) {
-  const runCheckout = billing.generateCheckoutLink ? useAction(billing.generateCheckoutLink) : null
-  return async (productIds: string | string[], opts: CheckoutOptions = {}): Promise<string> => {
-    if (!runCheckout) notConfigured('checkout')
-    const origin = typeof window !== 'undefined' ? window.location.origin : ''
-    const successUrl = opts.successUrl ?? (typeof window !== 'undefined' ? window.location.href : '')
-    const { url } = await runCheckout({
-      productIds: Array.isArray(productIds) ? productIds : [productIds],
-      origin,
-      successUrl,
-      subscriptionId: opts.subscriptionId,
-      metadata: opts.metadata,
-      trialInterval: opts.trialInterval,
-      trialIntervalCount: opts.trialIntervalCount,
-      locale: opts.locale,
-      prefill: opts.prefill,
-      customFields: opts.customFields,
-      requireBillingAddress: opts.requireBillingAddress,
-      allowDiscountCodes: opts.allowDiscountCodes,
-      discountId: opts.discountId,
-    })
-    openProviderUrl(url, opts.redirect)
-    return url
-  }
-}
-
-/**
- * One page of provider history, however the deployed function spells it: a
- * bare array (a backend that dropped the envelope) reads as a single page with
- * unknown totals.
- */
-function normalizePage<Item>(result: BillingPage<Item> | Item[] | null | undefined): BillingPage<Item> {
-  if (!result) return { items: [] }
-  if (Array.isArray(result)) return { items: result }
-  return { items: result.items ?? [], pagination: result.pagination }
-}
-
 /** Fetches one page from a provider-history action. */
 export type PageFetcher<Item> = (args: { page: number, limit?: number }) => Promise<BillingPage<Item> | Item[] | null>
 
@@ -531,100 +455,6 @@ export interface ProviderPagerOptions {
   watchSources?: () => unknown
 }
 
-/**
- * The reactive paging both provider-history composables need — `useOrders`
- * and `useUsage` differ only in what they fetch. Provider history lives behind
- * page numbers rather than a cursor, so this tracks a page and its totals.
- *
- * Loads run in the browser only (they need a Convex client and the signed-in
- * identity), never reject — a failure lands in `error` so a permanently
- * mounted history panel cannot break a page — and stay put when `fetchPage` is
- * `null`, which is how an undeployed backend function degrades. Must be called
- * during component setup.
- */
-export function createProviderPager<Item>(
-  fetchPage: PageFetcher<Item> | null,
-  options: ProviderPagerOptions = {},
-): ProviderPager<Item> {
-  const items = ref<Item[] | undefined>() as Ref<Item[] | undefined>
-  const page = ref(1)
-  const total = ref<number | undefined>()
-  const pageCount = ref<number | undefined>()
-  const error = ref<string | null>(null)
-
-  const instance = getCurrentInstance()
-  const immediate = (options.immediate ?? true) && instance != null
-  // A mount-time load starts the state as loading, so the first paint is the
-  // loading state rather than a flash of "nothing here" that immediately fills
-  // in — and so a server render matches the client's first frame.
-  const loading = ref(Boolean(fetchPage) && immediate)
-
-  const enabled = () => (options.enabled ? options.enabled() : true)
-
-  async function load(target: number): Promise<void> {
-    if (!fetchPage || !enabled()) {
-      items.value = []
-      total.value = undefined
-      pageCount.value = undefined
-      loading.value = false
-      return
-    }
-    loading.value = true
-    error.value = null
-    try {
-      const result = normalizePage(await fetchPage({ page: target, limit: toValue(options.limit) }))
-      items.value = result.items
-      total.value = result.pagination?.totalCount
-      pageCount.value = result.pagination?.maxPage
-      page.value = target
-    }
-    catch (failure) {
-      error.value = failure instanceof Error ? failure.message : 'Could not load billing history'
-      items.value ??= []
-    }
-    finally {
-      loading.value = false
-    }
-  }
-
-  if (instance) {
-    if (immediate) onMounted(() => load(page.value))
-    // A page size or filter change invalidates the position, not just the data.
-    watch(
-      () => [toValue(options.limit), options.watchSources?.(), enabled()],
-      () => load(1),
-      { flush: 'post' },
-    )
-  }
-
-  return {
-    items,
-    page,
-    total: computed(() => total.value),
-    pageCount: computed(() => pageCount.value),
-    // Without provider totals, a full page is the only "there may be more"
-    // signal there is; a short page is certainly the last one.
-    hasMore: computed(() => {
-      if (pageCount.value != null) return page.value < pageCount.value
-      const limit = toValue(options.limit)
-      return limit != null && (items.value?.length ?? 0) >= limit
-    }),
-    hasPrevious: computed(() => page.value > 1),
-    isLoading: computed(() => loading.value),
-    error,
-    refresh: () => load(page.value),
-    next: async () => {
-      if (pageCount.value != null && page.value >= pageCount.value) return
-      await load(page.value + 1)
-    },
-    previous: async () => {
-      if (page.value <= 1) return
-      await load(page.value - 1)
-    },
-    goTo: target => load(Math.max(1, Math.trunc(target))),
-  }
-}
-
 /** Per-call options for {@link UseBillingReturn.gift}. */
 export interface GiftOptions {
   /** A note shown to the recipient in the gift email. */
@@ -634,37 +464,6 @@ export interface GiftOptions {
   successUrl?: string
   /** Open in the same tab instead of a new one (redirect checkout). */
   redirect?: boolean
-}
-
-/**
- * Build a `gift(productIds, { recipientEmail, ... })` action over a billing
- * namespace — shared by {@link useBilling} and
- * {@link "runtime/vue/composables/use-credits"!useCredits} (gifting a credit
- * pack is just a gift checkout of a one-time product). The purchaser
- * pays; the recipient (by email) receives the entitlement — attached
- * automatically if they have an account, claimable on first sign-in otherwise.
- * Must be called during component setup.
- */
-export function createGiftCheckout(billing: BillingApi) {
-  const runGiftCheckout = billing.giftCheckout ? useAction(billing.giftCheckout) : null
-  return async (
-    productIds: string | string[],
-    opts: GiftOptions & { recipientEmail: string },
-  ): Promise<string> => {
-    if (!runGiftCheckout) notConfigured('gift')
-    const origin = typeof window !== 'undefined' ? window.location.origin : ''
-    const successUrl = opts.successUrl ?? (typeof window !== 'undefined' ? window.location.href : '')
-    const { url } = await runGiftCheckout({
-      productIds: Array.isArray(productIds) ? productIds : [productIds],
-      recipientEmail: opts.recipientEmail,
-      message: opts.message,
-      origin,
-      successUrl,
-      metadata: opts.metadata,
-    })
-    openProviderUrl(url, opts.redirect)
-    return url
-  }
 }
 
 /**

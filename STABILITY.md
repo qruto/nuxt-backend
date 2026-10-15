@@ -17,7 +17,20 @@ Everything not listed here — file layout under `dist/`, the internals reachabl
 Every `nuxt-backend/<subpath>` in the package `exports` map, and every value and type reachable from one, is public API:
 
 - `nuxt-backend` — the Nuxt module (default export) and its `ModuleOptions`
-- `nuxt-backend/app` · `nuxt-backend/auth` · `nuxt-backend/auth.config` · `nuxt-backend/authorization` · `nuxt-backend/http` · `nuxt-backend/functions` · `nuxt-backend/billing` · `nuxt-backend/email` · `nuxt-backend/rate-limit` · `nuxt-backend/migrations` · `nuxt-backend/aggregate` · `nuxt-backend/search` · `nuxt-backend/workflows` — the Convex-side setup helpers
+- the Convex-side setup helpers:
+  - `nuxt-backend/aggregate`
+  - `nuxt-backend/app`
+  - `nuxt-backend/auth`
+  - `nuxt-backend/auth.config`
+  - `nuxt-backend/authorization`
+  - `nuxt-backend/billing`
+  - `nuxt-backend/email`
+  - `nuxt-backend/functions`
+  - `nuxt-backend/http`
+  - `nuxt-backend/migrations`
+  - `nuxt-backend/rate-limit`
+  - `nuxt-backend/search`
+  - `nuxt-backend/workflows`
 - `nuxt-backend/ai` and `nuxt-backend/mcp` — experimental, see below
 - `nuxt-backend/convex.config` · `nuxt-backend/_generated/component` — the all-in-one `backend` component and the types of its API
 - `nuxt-backend/test` — the convex-test registration helper
@@ -28,18 +41,95 @@ Anything tagged `@internal` in the source is stripped from the published declara
 
 ### 2. Configuration names
 
-- `ModuleOptions` (`backend` in `nuxt.config`): `url`, `siteUrl`, `authRoute`, `scaffold`, `pages`, `autoEnv`, `mcp`, `devtools` — and the page keys under `pages`: `login`, `pricing`, `settings`, `profile`, `security`, `acceptInvitation`, `agentConsent`
-- `appConfig.backend` — the content layer: `billing.plans`, `billing.packs`, `billing.lowCreditsThreshold`, `brand.name`, `brand.logo`, `labels.auth`, `labels.pricing`, `labels.settings`, `labels.profile`, `labels.security`, `labels.history`, `labels.usage`, `labels.credits`
+- `ModuleOptions` (`backend` in `nuxt.config`):
+  - `authRoute`
+  - `autoEnv`
+  - `devtools`
+  - `mcp`
+  - `pages`
+  - `scaffold`
+  - `siteUrl`
+  - `url`
+- the page keys under `pages`:
+  - `acceptInvitation`
+  - `agentConsent`
+  - `login`
+  - `pricing`
+  - `profile`
+  - `security`
+  - `settings`
+- `appConfig.backend`, the content layer:
+  - `billing.lowCreditsThreshold`
+  - `billing.packs`
+  - `billing.plans`
+  - `brand.logo`
+  - `brand.name`
+  - `labels.auth`
+  - `labels.credits`
+  - `labels.history`
+  - `labels.pricing`
+  - `labels.profile`
+  - `labels.security`
+  - `labels.settings`
+  - `labels.usage`
 - `runtimeConfig.public.backend` — `pages`, the mount path per page key, and `authRoute`, the same-origin auth route
-- the `#backend/*` aliases: `#backend`, `#backend/api`, `#backend/server`, `#backend/dataModel`, `#backend/_generated`
+- the `#backend/*` aliases:
+  - `#backend`
+  - `#backend/_generated`
+  - `#backend/api`
+  - `#backend/dataModel`
+  - `#backend/server`
 
 ### 3. The auto-import and component registry
 
-The names the module registers, exactly as `src/module.ts` installs them:
+The names the module registers, exactly as `src/nuxt/registry.ts` writes them:
 
-- **Composables** — `useAuth`, `useAuthState`, `useConnectionState`, `useLoginFlow`, `useOrganization`, `useSearch`, `useAggregate`, `useCount`, `useBilling`, `useFeatures`, `useCredits`, `useOrders`, `useUsage`, `useGifts`, `usePasskeys`, `useSessions`, `useAgentConsent`, `describeUserAgent`, `unwrapAuth`, `useBackendConfig`, `useEmailStatus`, `useSandboxInbox`, `useWorkflowStatus`, `useAiStream`
-- **Components** — `AuthForm`, `RoleBoundary`, `OrganizationBoundary`, `FeatureBoundary`, `AcceptInvitation`, `AgentConsent`, `GiftClaimBanner`, `PricingTable`, `BillingHistory`, `UsageHistory`, `CreditsLowBanner`, `WorkspaceSettings`, `ProfileSettings`, `SecuritySettings`, and `BillingCheckoutLink` / `BillingPortalLink` — the neutral names of the base module's `CheckoutLink` / `CustomerPortalLink`, which stay registered too
-- **Server (Nitro) imports** — `backendAuth`, `useBackendMcp`, `defineBackendMcpTool`
+- **Composables**:
+  - `describeUserAgent`
+  - `unwrapAuth`
+  - `useAgentConsent`
+  - `useAggregate`
+  - `useAiStream`
+  - `useAuth`
+  - `useAuthState`
+  - `useBackendConfig`
+  - `useBilling`
+  - `useConnectionState`
+  - `useCount`
+  - `useCredits`
+  - `useEmailStatus`
+  - `useFeatures`
+  - `useGifts`
+  - `useLoginFlow`
+  - `useOrders`
+  - `useOrganization`
+  - `usePasskeys`
+  - `useSandboxInbox`
+  - `useSearch`
+  - `useSessions`
+  - `useUsage`
+  - `useWorkflowStatus`
+- **Components**:
+  - `AcceptInvitation`
+  - `AgentConsent`
+  - `AuthForm`
+  - `BillingCheckoutLink` — the neutral name of the base module's `CheckoutLink`, which stays registered too
+  - `BillingHistory`
+  - `BillingPortalLink` — the neutral name of the base module's `CustomerPortalLink`, which stays registered too
+  - `CreditsLowBanner`
+  - `FeatureBoundary`
+  - `GiftClaimBanner`
+  - `OrganizationBoundary`
+  - `PricingTable`
+  - `ProfileSettings`
+  - `RoleBoundary`
+  - `SecuritySettings`
+  - `UsageHistory`
+  - `WorkspaceSettings`
+- **Server (Nitro) imports**:
+  - `backendAuth`
+  - `defineBackendMcpTool`
+  - `useBackendMcp`
 - **Route middleware** — `auth` (`definePageMeta({ middleware: 'auth' })`): the neutral name for the base module's guard, which it registers as `convex-auth`; both stay registered and point at the same file
 
 The billing-history surface — `useOrders`, `useUsage`, `<BillingHistory>`, `<UsageHistory>`, `<CreditsLowBanner>` — ships **stable**, deliberately, not in the experimental tier: each one binds to a deployment function named in the scaffold contract below, which `nuxt-backend doctor` verifies, and each degrades to an empty state rather than an error when the backend has not deployed its half.
@@ -50,9 +140,42 @@ The core data composables and components (`useQuery`, `useMutation`, `<Authentic
 
 The composables bind to deployment functions by name, so the scaffolded `backend/` files must keep exporting them. `src/contract.ts` is that contract — `nuxt-backend doctor` verifies it against the deployment, and the tests pin it to the scaffold templates:
 
-- `auth.ts` — `getAuthUser`, `authConfig`, `listWorkspaces`, `listWorkspaceMembers`, `updateProfile`, `listSessions`, `revokeSession`
-- `billing.ts` — `generateCheckoutLink`, `generateCustomerPortalUrl`, `getConfiguredProducts`, `listAllProducts`, `listAllSubscriptions`, `changeCurrentSubscription`, `cancelCurrentSubscription`, `giftCheckout`, `getCurrentSubscription`, `getFeatures`, `getCredits`, `syncEntitlements`, `syncProducts` (internal — ops), `getReceivedGifts`, `claimGift`, `getWebhookDeliveries`, `updateSubscription`, `cancelSubscription`, `uncancelSubscription`, `pauseSubscription`, `resumeSubscription`, `getOrders`, `getInvoiceUrl`, `getUsageHistory`, `refundOrder`
-- `email.ts` — `getEmailStatus`
+- `auth.ts`:
+  - `authConfig`
+  - `getAuthUser`
+  - `listSessions`
+  - `listWorkspaceMembers`
+  - `listWorkspaces`
+  - `revokeSession`
+  - `updateProfile`
+- `billing.ts`:
+  - `cancelCurrentSubscription`
+  - `cancelSubscription`
+  - `changeCurrentSubscription`
+  - `claimGift`
+  - `generateCheckoutLink`
+  - `generateCustomerPortalUrl`
+  - `getConfiguredProducts`
+  - `getCredits`
+  - `getCurrentSubscription`
+  - `getFeatures`
+  - `getInvoiceUrl`
+  - `getOrders`
+  - `getReceivedGifts`
+  - `getUsageHistory`
+  - `getWebhookDeliveries`
+  - `giftCheckout`
+  - `listAllProducts`
+  - `listAllSubscriptions`
+  - `pauseSubscription`
+  - `refundOrder`
+  - `resumeSubscription`
+  - `syncEntitlements`
+  - `syncProducts` (internal: for operations)
+  - `uncancelSubscription`
+  - `updateSubscription`
+- `email.ts`:
+  - `getEmailStatus`
 
 A name is only ever added to this contract in a minor release, and the scaffold ships it in the same release, so `doctor` never fails a project that keeps its scaffolded files current.
 
@@ -97,7 +220,7 @@ The Backend tab works with the Nuxt DevTools that Nuxt 4 installs (3.x). CI inst
 
 ## Not covered
 
-- The wording of the module's warnings, errors and preflight findings — documented on [Troubleshooting](https://nuxt-backend.dev/docs/ship/operate/troubleshooting) — and of the CLI's output may change in any release.
+- The wording of the module's warnings, errors and preflight findings, of the deployment's log lines, and of the CLI's output may change in any release. [Troubleshooting](https://nuxt-backend.dev/docs/ship/operate/troubleshooting) documents them, with the code each log line starts with.
 - The DevTools panel: its UI, its RPC and the in-page bridge it reads are internal to the panel.
 - The layout of `dist/` beyond the files the `exports` map names.
 - Generated template filenames and Nuxt payload keys.

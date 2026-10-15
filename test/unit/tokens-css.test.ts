@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { uiCssText } from '../../scripts/stylesheet-imports.mjs'
 
 // The shipped stylesheets are data, not code: nothing imports them at test
 // time, so the contract is checked on the files themselves.
@@ -74,6 +75,11 @@ describe('component tokens', () => {
     expect(rules[0]).toBe('@layer theme, base, components, utilities;')
     const pieces = stylesheets.map(([name]) => name).filter(name => name !== 'ui.css')
     expect(rules.slice(1).sort()).toStrictEqual(pieces.map(name => `@import './${name}' layer(components.backend);`).sort())
+  })
+
+  it('imports what scripts/stylesheet-imports.mjs writes: tokens first (pnpm generate)', () => {
+    expect(ui).toBe(uiCssText())
+    expect(ui).toContain('@layer theme, base, components, utilities;\n\n@import \'./tokens.css\' layer(components.backend);')
   })
 
   it('draws a keyboard focus ring on every button and link the components render', () => {

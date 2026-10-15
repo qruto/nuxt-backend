@@ -747,7 +747,7 @@ Fetches one page from a provider-history action.
 function toBillingDate(value): Date | null;
 ```
 
-Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
+Defined in: [src/runtime/vue/composables/billing-format.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/billing-format.ts)
 
 Provider timestamps reach the client as ISO strings (the component's cache
 stores them that way) but as epoch numbers when an action forwards the SDK's
@@ -772,7 +772,7 @@ stores them that way) but as epoch numbers when an action forwards the SDK's
 function formatBillingAmount(amount, currency?): string;
 ```
 
-Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
+Defined in: [src/runtime/vue/composables/billing-format.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/billing-format.ts)
 
 Money the way the provider states it — a minor-unit integer plus an ISO
 currency code — rendered in the visitor's own locale. Unknown currency codes
@@ -797,7 +797,7 @@ fall back to the bare amount rather than throwing mid-render.
 function createCheckout(billing): (productIds, opts) => Promise<string>;
 ```
 
-Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
+Defined in: [src/runtime/vue/composables/billing-provider.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/billing-provider.ts)
 
 Build a `checkout(productIds, options)` action over a billing namespace —
 shared by [useBilling](#usebilling) (subscriptions) and
@@ -823,7 +823,7 @@ called during component setup (it sets up the underlying action).
 function createProviderPager<Item>(fetchPage, options?): ProviderPager<Item>;
 ```
 
-Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
+Defined in: [src/runtime/vue/composables/billing-provider.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/billing-provider.ts)
 
 The reactive paging both provider-history composables need — `useOrders`
 and `useUsage` differ only in what they fetch. Provider history lives behind
@@ -860,7 +860,7 @@ during component setup.
 function createGiftCheckout(billing): (productIds, opts) => Promise<string>;
 ```
 
-Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
+Defined in: [src/runtime/vue/composables/billing-provider.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/billing-provider.ts)
 
 Build a `gift(productIds, { recipientEmail, ... })` action over a billing
 namespace — shared by [useBilling](#usebilling) and

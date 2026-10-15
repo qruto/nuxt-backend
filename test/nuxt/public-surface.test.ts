@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { REQUIRED_FUNCTION_EXPORTS } from '../../src/contract'
 import { BACKEND_APP_CONFIG_KEYS } from '../../src/runtime/config'
 import { BACKEND_FILE_TEMPLATES } from '../../src/templates'
-import { contentFile } from '../docs/helpers'
+import { contentFile, readModuleSources } from '../docs/helpers'
 
 // The public surface, frozen. STABILITY.md promises the 0.x line keeps every
 // `nuxt-backend/<subpath>` and every value/type reachable from one; this file
@@ -423,12 +423,56 @@ describe('@internal', () => {
 
 // ---------------------------------------------------------------------------
 // The registry — the auto-import and component names `src/module.ts`
-// installs (STABILITY.md surface 3), frozen the same way as the export names.
+// installs through its `src/nuxt/` helpers (STABILITY.md surface 3), frozen
+// the same way as the export names.
 
 const REGISTRY = {
-  composables: ['useAuth', 'useAuthState', 'useConnectionState', 'useLoginFlow', 'useOrganization', 'useSearch', 'useAggregate', 'useCount', 'useBilling', 'useFeatures', 'useCredits', 'useOrders', 'useUsage', 'useGifts', 'usePasskeys', 'useSessions', 'useAgentConsent', 'describeUserAgent', 'unwrapAuth', 'useBackendConfig', 'useEmailStatus', 'useSandboxInbox', 'useWorkflowStatus', 'useAiStream'],
-  // The last two alias the base module's `CheckoutLink` / `CustomerPortalLink`.
-  components: ['AuthForm', 'RoleBoundary', 'OrganizationBoundary', 'FeatureBoundary', 'AcceptInvitation', 'AgentConsent', 'GiftClaimBanner', 'PricingTable', 'BillingHistory', 'UsageHistory', 'CreditsLowBanner', 'WorkspaceSettings', 'ProfileSettings', 'SecuritySettings', 'BillingCheckoutLink', 'BillingPortalLink'],
+  composables: [
+    'describeUserAgent',
+    'unwrapAuth',
+    'useAgentConsent',
+    'useAggregate',
+    'useAiStream',
+    'useAuth',
+    'useAuthState',
+    'useBackendConfig',
+    'useBilling',
+    'useConnectionState',
+    'useCount',
+    'useCredits',
+    'useEmailStatus',
+    'useFeatures',
+    'useGifts',
+    'useLoginFlow',
+    'useOrders',
+    'useOrganization',
+    'usePasskeys',
+    'useSandboxInbox',
+    'useSearch',
+    'useSessions',
+    'useUsage',
+    'useWorkflowStatus',
+  ],
+  // `BillingCheckoutLink` and `BillingPortalLink` alias the base module's
+  // `CheckoutLink` / `CustomerPortalLink`.
+  components: [
+    'AcceptInvitation',
+    'AgentConsent',
+    'AuthForm',
+    'BillingCheckoutLink',
+    'BillingHistory',
+    'BillingPortalLink',
+    'CreditsLowBanner',
+    'FeatureBoundary',
+    'GiftClaimBanner',
+    'OrganizationBoundary',
+    'PricingTable',
+    'ProfileSettings',
+    'RoleBoundary',
+    'SecuritySettings',
+    'UsageHistory',
+    'WorkspaceSettings',
+  ],
   server: ['backendAuth', 'useBackendMcp', 'defineBackendMcpTool'],
   // Route middleware: the neutral name over the base module's guard file.
   middleware: ['auth'],
@@ -438,10 +482,10 @@ const REGISTRY = {
 const EXPERIMENTAL = ['./mcp', './ai', 'useAiStream', 'useWorkflowStatus', 'useSandboxInbox']
 
 describe('the registry', () => {
-  it('matches every name src/module.ts registers', () => {
+  it('matches every name src/module.ts and src/nuxt/ register', () => {
     // Registrations are `{ name: 'x' }` / `{ name: 'x', as: 'y' }` literals;
     // the module meta (`name: 'nuxt-backend'`) is the only other `name:`.
-    const registered = [...read('src/module.ts').matchAll(/\bname: '(\w[\w-]*)'(?:, as: '(\w+)')?/g)]
+    const registered = [...readModuleSources().matchAll(/\bname: '(\w[\w-]*)'(?:, as: '(\w+)')?/g)]
       .map(([, name, alias]) => alias ?? name!)
       .filter(name => name !== packageJson.name)
     expect(registered.sort()).toEqual(Object.values(REGISTRY).flat().sort())

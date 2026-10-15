@@ -55,9 +55,9 @@
     "templates/**"
   ],
 
-  // Registered from src/module.ts by path (addServerHandler, addPlugin, the
-  // MCP toolkit's `mcp:definitions:paths` hook, the stylesheet) — the static graph cannot
-  // follow a resolver.resolve() string.
+  // Registered by path from src/module.ts (addPlugin, the stylesheet) and
+  // src/nuxt/mcp.ts (addServerHandler, the MCP toolkit's `mcp:definitions:paths`
+  // hook) — the static graph cannot follow a resolver.resolve() string.
   "dynamicallyLoaded": [
     "src/runtime/devtools/plugin.client.ts",
     "src/runtime/server/mcp/gate.ts",
@@ -83,7 +83,7 @@
     { "file": "src/runtime/vue/auth-client.ts", "exports": ["AuthClient"] },
     { "file": "src/runtime/vue/auth-client-solo.ts", "exports": ["AuthClient"] },
     // Auto-imports registered by name (addImports / addComponent in
-    // src/module.ts, frozen by test/nuxt/public-surface.test.ts): the app
+    // src/nuxt/registry.ts, frozen by test/nuxt/public-surface.test.ts): the app
     // reaches them through the auto-import, never by importing the file.
     { "file": "src/runtime/vue/composables/base-aliases.ts", "exports": ["useAuthState", "useConnectionState"] },
     { "file": "src/runtime/vue/composables/use-ai-stream.ts", "exports": ["useAiStream"] },
@@ -168,21 +168,21 @@
         "reason": "Renders one env-push plan in both json and text with per-outcome wording; a decision table, not a flow."
       },
       {
-        "files": ["src/cli/billing.ts"],
+        "files": ["src/cli/billing/sync.ts"],
         "functions": ["syncBillingCatalog"],
         "maxCyclomatic": 49,
         "maxCognitive": 72,
         "reason": "Find-or-create over meters, benefits, products and prices against the provider API, never deleting: the branching is the sync's contract (docs: catalog-as-code). Split by catalog entity is the planned refactor."
       },
       {
-        "files": ["src/cli/billing.ts"],
+        "files": ["src/cli/billing.ts", "src/cli/billing/doctor.ts"],
         "functions": ["collectBillingFindings", "run"],
         "maxCyclomatic": 34,
         "maxCognitive": 49,
         "reason": "The billing half of `doctor`: one finding per catalog entity state, each with its own fix hint."
       },
       {
-        "files": ["src/convex/client/index.ts"],
+        "files": ["src/convex/client/better-auth-options.ts"],
         "functions": ["createBetterAuthOptions"],
         "maxCyclomatic": 60,
         "maxCognitive": 56,
@@ -211,8 +211,9 @@
       },
       {
         "files": [
-          "src/convex/integrations/ai.ts",
-          "src/convex/integrations/billing.ts",
+          "src/convex/integrations/ai/metering.ts",
+          "src/convex/integrations/billing/gifts.ts",
+          "src/convex/integrations/billing/webhooks.ts",
           "src/convex/integrations/email.ts",
           "src/convex/integrations/mcp.ts"
         ],

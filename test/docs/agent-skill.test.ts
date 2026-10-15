@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { AGENT_HINT, AGENTS_SECTION } from '../../src/agents'
 import { main } from '../../src/cli/main'
 import { BACKEND_ENV_NAMES } from '../../src/env-push'
-import { at, contentRoute, frontmatter, read, walk } from './helpers'
+import { at, contentRoute, frontmatter, read, readModuleSources, walk } from './helpers'
 
 // What coding agents are told about the package: the consumer skill under
 // skills/ (published by the docs site at /.well-known/skills/ and installable
@@ -101,7 +101,7 @@ describe('the nuxt-backend skill', () => {
   const API_TAG = /<((?:Auth|Pricing|Billing|Credit|Organization|Role|Workspace|Gift|Passkey|Session|Account|Usage|Plan|Feature|Convex|Checkout|Invitation|Profile|Security|Sandbox|Member|Admin)\w*)\b/g
   const registered = new Set([
     // This module: addImports / addComponent entries and server import aliases.
-    ...[...read('src/module.ts').matchAll(/\b(?:name|as): '(\w+)'/g)].map(m => m[1]!),
+    ...[...readModuleSources().matchAll(/\b(?:name|as): '(\w+)'/g)].map(m => m[1]!),
     // The base module's auto-imports and components, which every app gets too.
     ...[...read('node_modules/nuxt-convex-module/dist/module.mjs').matchAll(/\bname: "(\w+)"/g)].map(m => m[1]!),
   ])

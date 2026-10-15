@@ -1,0 +1,143 @@
+import { eventsIngest } from '@polar-sh/sdk/funcs/eventsIngest.js'
+import type { Auth } from 'convex/server'
+import type { BillingContext } from './context.js'
+import type { BillingEntitlements } from './entitlements.js'
+import type { EventsIngestRequest, PolarRunQueryCtx, RunWriteCtx } from './types/base.js'
+import type { Billing } from './types/surface.js'
+
+/** Prepaid credits: reserve, settle, release, spend and refund. */
+export function createCredits(
+  { provider, cache, resolveMeter, entityFromIdentity }: BillingContext,
+  { refreshEntitlements }: BillingEntitlements,
+) {
+  // Reserve → ingest → settle. The cached balance is the guard: `debit` is an
+  // atomic conditional decrement (Convex mutations serialize), so two
+  // concurrent spends can never both pass, and there is no live provider read
+  // on the spend path at all. The provider event remains the only durable
+  // record; a failed ingest releases the reservation, so a failed run never
+  // consumes credits. Split into reserve/settle/release so `setupAi` (and the
+  // streaming HTTP dispatcher, which settles in a different function than it
+  // reserved in) compose the same semantics — `spendCredits` is the one-call
+  // form.
+  const reserveCredits: Billing['reserveCredits'] = async (ctx, event) => {
+    const entityId = event.userId
+      ?? (await entityFromIdentity(ctx as { auth?: Auth }))?.userId
+    if (!entityId) {
+      throw new Error('[nuxt-backend] spendCredits: no billing entity — pass `userId` or call from an authenticated context.')
+    }
+    const meter = resolveMeter(event)
+    const value = event.value ?? 1
+    const externalId = event.externalId ?? crypto.randomUUID()
+
+    if (!meter) {
+      return { entityId, externalId, reserved: false, value }
+    }
+    // Configured count meters count events — one event is one credit, so a
+    // multi-credit spend has no representable event shape. Raw `meterId`
+    // spends skip this: the caller owns the event shape there.
+    if (meter.key && !meter.property && value !== 1) {
+      throw new Error(
+        `[nuxt-backend] spendCredits: meter '${meter.key}' counts events (no \`property\` configured) — `
+        + 'spend value must be 1 per event, or configure a sum meter with a `property`.',
+      )
+    }
+    const debitArgs = { userId: entityId, meterId: meter.meterId, amount: value, externalId, allowOverage: event.allowOverage }
+    let result = await ctx.runMutation(cache.debit, debitArgs)
+    if (!result.ok && (result.reason === 'no-row' || result.reason === 'no-meter') && event.allowRefresh !== false) {
+      // Cold cache (granted but never synced) — self-heal once, then retry.
+      // Needs an action ctx (the provider read fetches); mutation callers pass
+      // `allowRefresh: false` and surface the sync hint instead.
+      await refreshEntitlements(ctx as RunWriteCtx, entityId)
+      result = await ctx.runMutation(cache.debit, debitArgs)
+    }
+    if (!result.ok) {
+      throw new Error(
+        result.reason === 'insufficient'
+          ? `[nuxt-backend] Insufficient credits — balance ${result.balance}, need ${value}. Top up to continue.`
+          : `[nuxt-backend] Credit balance not synced yet for ${entityId} — call syncEntitlements (or open a billing view) and retry.`,
+      )
+    }
+    return { entityId, externalId, reserved: true, meter: meter.key, meterId: meter.meterId, value }
+  }
+
+  const settleSpend: Billing['settleSpend'] = async (ctx, reservation, options = {}) => {
+    const meter = resolveMeter(reservation)
+    const name = options.name ?? meter?.eventName ?? meter?.key
+    if (!name) {
+      throw new Error('[nuxt-backend] settleSpend: pass `name`, or a configured `meter` whose key/eventName names the event.')
+    }
+    // The estimate is the ceiling: settling above it would be a second,
+    // unguarded debit — the reservation is what made the spend safe against a
+    // concurrent one.
+    const value = Math.min(Math.max(options.finalAmount ?? reservation.value, 0), reservation.value)
+    try {
+      const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, reservation.entityId)
+      if (!customer) {
+        throw new Error(`[nuxt-backend] No billing customer for ${reservation.entityId}. Start a checkout first.`)
+      }
+      const metadata = meter?.property
+        ? { ...options.metadata, [meter.property]: value }
+        : options.metadata
+      const events: EventsIngestRequest['events'] = [{
+        name,
+        customerId: customer.id,
+        metadata,
+        externalId: reservation.externalId,
+        timestamp: options.timestamp,
+      }]
+      const result = await eventsIngest(provider.polar, { events })
+      if (!result.ok) throw result.error
+    }
+    catch (error) {
+      if (reservation.reserved) await ctx.runMutation(cache.release, { userId: reservation.entityId, externalId: reservation.externalId })
+      throw error
+    }
+    if (reservation.reserved) await ctx.runMutation(cache.settle, { userId: reservation.entityId, externalId: reservation.externalId, finalAmount: value })
+  }
+
+  const releaseSpend: Billing['releaseSpend'] = async (ctx, reservation) => {
+    if (!reservation.reserved) return
+    await ctx.runMutation(cache.release, { userId: reservation.entityId, externalId: reservation.externalId })
+  }
+
+  const spendCredits: Billing['spendCredits'] = async (ctx, event) => {
+    const reservation = await reserveCredits(ctx, event)
+    await settleSpend(ctx, reservation, { name: event.name, metadata: event.metadata, timestamp: event.timestamp })
+  }
+
+  /**
+   * Give credits back on a sum meter (e.g. a generation the user rejected):
+   * ingests a compensating negative-value event, then optimistically
+   * re-credits the cache. Count meters cannot be compensated — their events
+   * only count up.
+   */
+  const refundCredits: Billing['refundCredits'] = async (ctx, event) => {
+    const entityId = event.userId
+      ?? (await entityFromIdentity(ctx as { auth?: Auth }))?.userId
+    if (!entityId) {
+      throw new Error('[nuxt-backend] refundCredits: no billing entity — pass `userId` or call from an authenticated context.')
+    }
+    const meter = resolveMeter({ meter: event.meter })
+    if (!meter?.property) {
+      throw new Error(
+        `[nuxt-backend] refundCredits: meter '${event.meter}' has no \`property\` (count meter) — only sum meters can be refunded.`,
+      )
+    }
+    const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, entityId)
+    if (!customer) {
+      throw new Error(`[nuxt-backend] No billing customer for ${entityId}.`)
+    }
+    const result = await eventsIngest(provider.polar, {
+      events: [{
+        name: meter.eventName ?? meter.key ?? event.meter,
+        customerId: customer.id,
+        metadata: { ...event.metadata, [meter.property]: -event.value },
+        externalId: event.externalId ?? crypto.randomUUID(),
+      }],
+    })
+    if (!result.ok) throw result.error
+    await ctx.runMutation(cache.credit, { userId: entityId, meterId: meter.meterId, amount: event.value })
+  }
+
+  return { reserveCredits, settleSpend, releaseSpend, spendCredits, refundCredits }
+}

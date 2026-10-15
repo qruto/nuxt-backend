@@ -2,7 +2,7 @@ import { readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { sentenceCase, styled, styledFiles } from '../../scripts/docs-style.mjs'
-import { at, contentFile, contentRoute, frontmatter, GENERATED_REFERENCE, read, walk } from './helpers'
+import { at, contentFile, contentRoute, frontmatter, GENERATED_REFERENCE, read, readModuleSources, walk } from './helpers'
 
 // The page contract: what every docs page owes a reader whatever it covers —
 // the house style, a kind, a stability chip where the surface is experimental,
@@ -103,9 +103,9 @@ const NUXT_NAMES = new Set(['NuxtPage', 'NuxtLayout', 'NuxtLink', 'NuxtWelcome',
 const NAME_EXEMPT = ['/docs/ship/migrate/upgrade', '/docs/ship/releases/changelog', '/docs/ship/releases/stability', '/docs/reference/ecosystem']
 
 describe('API names', () => {
-  // The names src/module.ts registers, and those the base module registers
-  // under the same Nuxt app.
-  const ours = new Set([...read('src/module.ts').matchAll(/name: '(\w+)'/g)].map(([, name]) => name!))
+  // The names the module registers (src/module.ts and its src/nuxt/
+  // helpers), and those the base module registers under the same Nuxt app.
+  const ours = new Set([...readModuleSources().matchAll(/name: '(\w+)'/g)].map(([, name]) => name!))
   const base = new Set([...read('node_modules/nuxt-convex-module/dist/module.mjs').matchAll(/"(use[A-Z]\w*|[A-Z][A-Za-z]+)"/g)].map(([, name]) => name!))
   const known = (name: string) => ours.has(name) || base.has(name) || NUXT_NAMES.has(name)
   const commands = new Set(['init', 'dev', 'doctor', 'env', 'billing'])

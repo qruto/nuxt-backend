@@ -20,26 +20,30 @@ export default defineConfig({
       // A ratchet: one point below the measured numbers, so a regression fails
       // CI without being brittle. Raise them whenever coverage climbs — never
       // lower them to make a change pass.
-      // Measured over `--project "!e2e"`: 84.59 / 77.37 / 83.45 / 86.43.
+      // Measured over `--project "!e2e"`: 85.89 / 78.53 / 84.37 / 87.63.
       thresholds: {
-        'statements': 83,
-        'branches': 76,
-        'functions': 82,
-        'lines': 85,
-        // The registration surface, which only the `module` project's real
-        // Nuxt boot reaches. A global number would hide a drop here behind
-        // the well-covered runtime. It reads low: Nuxt's own loader (jiti)
-        // transpiles this file in that project, and the mapping back to source
-        // drops statements that run on every boot (the first line of
-        // registerBackendTypeFallback reads as never run), so edits move it.
+        'statements': 84,
+        'branches': 77,
+        'functions': 83,
+        'lines': 86,
+        // The module definition and the registration helpers it calls in
+        // src/nuxt/, which only the `module` project's real Nuxt boot reaches.
+        // A global number would hide a drop here behind the well-covered
+        // runtime. Nuxt's own loader (jiti) transpiles them in that project,
+        // and the mapping back to source credits counts to the wrong
+        // statements, so edits move these numbers more than the code does.
         // Watcher callbacks count only when a test fires their hook: one that
         // relies on a stray watch event landing mid-run passes on one leg and
-        // fails on the next. Measured: 79 lines / 82 functions; CI's Windows
-        // leg reads about two points lower on lines, which the floor leaves
-        // room for.
+        // fails on the next. Measured: module.ts 93.93 lines / 100 functions,
+        // src/nuxt/ 64.06 / 52 together; CI's Windows leg reads about two
+        // points lower on lines, which the floors leave room for.
         'src/module.ts': {
-          lines: 72,
-          functions: 73,
+          lines: 90,
+          functions: 97,
+        },
+        'src/nuxt/**/*.ts': {
+          lines: 61,
+          functions: 50,
         },
       },
     },

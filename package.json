@@ -149,10 +149,11 @@
     "build:devtools-client": "nuxt generate devtools-client-app",
     "build:convex-component": "node scripts/build-convex-component.mjs",
     "check:tarball": "node scripts/check-tarball.mjs",
+    "budgets:update": "node scripts/budgets.mjs",
     "check:manifest": "installed-check -d --no-workspaces",
     "check:rulesets": "node scripts/check-rulesets.mjs",
     "check:consumer-types": "node scripts/check-consumer-types.mjs",
-    "generate": "pnpm run pages:registry && pnpm run docs:reference && pnpm run docs:includes && pnpm run docs:style && pnpm run design:contrast && pnpm run playground:sync",
+    "generate": "pnpm run pages:registry && pnpm run styles:imports && pnpm run docs:reference && pnpm run docs:includes && pnpm run docs:style && pnpm run design:contrast && pnpm run playground:sync",
     "docs:includes": "node scripts/docs-includes.mjs",
     "playground:sync": "node scripts/sync-playground.mjs",
     "docs:reference": "typedoc && node scripts/typedoc-postprocess.mjs",
@@ -201,7 +202,8 @@
     "qa:screenshots": "vitest --project e2e --run test/e2e/screenshots.test.ts",
     "docs:style": "node scripts/docs-style.mjs",
     "design:contrast": "node scripts/design-contrast.mjs --write",
-    "pages:registry": "node scripts/pages-registry.mjs"
+    "pages:registry": "node scripts/pages-registry.mjs",
+    "styles:imports": "node scripts/stylesheet-imports.mjs"
   },
   "dependencies": {
     "@better-auth/passkey": ">=1.6.25 <1.7.0",

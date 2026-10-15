@@ -30,6 +30,15 @@ export function walk(dir: string, exts: string[], skip: (path: string) => boolea
 }
 
 /**
+ * The module's own source as one text: `src/module.ts` and the `src/nuxt/`
+ * helpers its setup calls, which between them register every auto-import,
+ * component, server import and route middleware the module installs.
+ */
+export function readModuleSources(): string {
+  return ['src/module.ts', ...walk('src/nuxt', ['.ts'])].map(read).join('\n')
+}
+
+/**
  * The site route a content file is served at, by the collection sources in
  * website/shared/docs-routes.ts: the source's prefix plus the path below its
  * include's fixed part, numeric `1.` prefixes dropped from every segment,

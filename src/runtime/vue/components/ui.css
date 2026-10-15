@@ -11,18 +11,21 @@
  *
  * Theming ladder: override the shared `--bk-*` tokens (everything at once)
  * → per-family tokens (`--auth-*`) → style the `data-*` hooks directly.
+ *
+ * The @import list is generated from the stylesheets in this folder, tokens
+ * first: add a family's stylesheet, then run `pnpm generate`.
  */
 @layer theme, base, components, utilities;
 
 @import './tokens.css' layer(components.backend);
 @import './auth.css' layer(components.backend);
-@import './invitation.css' layer(components.backend);
 @import './consent.css' layer(components.backend);
-@import './gift.css' layer(components.backend);
-@import './pricing.css' layer(components.backend);
-@import './history.css' layer(components.backend);
-@import './usage.css' layer(components.backend);
 @import './credits.css' layer(components.backend);
-@import './settings.css' layer(components.backend);
+@import './gift.css' layer(components.backend);
+@import './history.css' layer(components.backend);
+@import './invitation.css' layer(components.backend);
+@import './pricing.css' layer(components.backend);
 @import './profile.css' layer(components.backend);
 @import './security.css' layer(components.backend);
+@import './settings.css' layer(components.backend);
+@import './usage.css' layer(components.backend);

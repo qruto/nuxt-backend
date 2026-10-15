@@ -75,10 +75,10 @@
       "fallback": "The package's own middleware resolves the localized path"
     },
     {
-      "ask": "A webhook handler factory with per-event hooks",
+      "ask": "A webhook handler factory with per-event hooks: an exported (ctx, request) => Response, not only registerRoutes",
       "owner": "get-convex/polar",
-      "blocks": "C6 (one webhook edge)",
-      "fallback": "Verify and dispatch in the package's own route"
+      "blocks": "C6 (one webhook edge); dropping the _handler capture in src/convex/integrations/billing/webhooks.ts",
+      "fallback": "Capture the registered handlers through a shim router, pinned by test/unit/billing-webhook-edge.test.ts"
     },
     {
       "ask": "Trial and cancellation columns on the subscriptions table",
