@@ -5,11 +5,8 @@ import type { AnyComponents, AuthConfig, GenericActionCtx, GenericDataModel, Gen
 
 // The public types of `nuxt-backend/auth`, which the entry re-exports, plus
 // the unexported helper types a public signature mentions (`OtpPurpose`,
-// `PublicAuthComponentRef`). One file, in the order the API reference has
-// always listed them: TypeDoc orders a page by declaring file, then position,
-// and hands out heading anchors in that order too — this file sorts ahead of
-// better-auth-options.ts so the `CreateBetterAuthOptions` interface keeps the
-// anchor its links use, ahead of the `createBetterAuthOptions` function.
+// `PublicAuthComponentRef`). One file, in the order the API reference lists
+// them: TypeDoc orders a page by declaring file, then position.
 
 /**
  * A DataModel-independent Convex context that can run mutations / queries and
@@ -35,8 +32,8 @@ export interface AuthEmailMessage {
 /**
  * Sends an auth-related email. By default this is wired automatically to the
  * `backend` component's email module (`components.backend.email.send`), so
- * auth OTP and verification email work out of the box — but any
- * compatible function can be supplied via `integrations.email` to override it.
+ * auth codes and emails work out of the box — but any compatible function can
+ * be supplied as `setupAuth`'s `email` option to override it.
  */
 export type AuthEmailSender = (ctx: AuthMutationCtx, message: AuthEmailMessage) => Promise<unknown>
 
@@ -44,13 +41,14 @@ export type AuthEmailSender = (ctx: AuthMutationCtx, message: AuthEmailMessage) 
  * The named rate limits the auth flows consult (a subset of the defaults):
  * OTP sends — per email (`emailOtp`, keyed by a SHA-256 of the address) and
  * deployment-wide (`emailOtpGlobal`, the backstop against mass probing) —
- * the agent token exchange `setupAuth` wires from the same integrations, and
- * the two privileged routes `ROUTE_LIMITS` throttles per caller (`admin`,
- * `invitation`) with the deployment-wide invitation ceiling behind the second
- * (`invitationGlobal`), and the anonymous agent registration route
- * (`agentRegistrationGlobal`).
+ * the agent token exchange `setupAuth` wires from the same options, the
+ * privileged routes `ROUTE_LIMITS` throttles per caller (`admin`,
+ * `invitation`, and `emailChange` for the code an email change sends to the
+ * new address) with a deployment-wide ceiling behind the last two
+ * (`invitationGlobal`, `emailOtpGlobal`), and the anonymous agent
+ * registration route (`agentRegistrationGlobal`).
  */
-export type AuthRateLimitName = 'emailOtp' | 'emailOtpGlobal' | 'mcp' | 'admin' | 'invitation' | 'invitationGlobal' | 'agentRegistrationGlobal'
+export type AuthRateLimitName = 'emailOtp' | 'emailOtpGlobal' | 'emailChange' | 'mcp' | 'admin' | 'invitation' | 'invitationGlobal' | 'agentRegistrationGlobal'
 
 /**
  * Guards auth-sensitive flows. Satisfied by `setupRateLimiter(...)` from
@@ -138,13 +136,14 @@ export type CanSignIn<DM extends GenericDataModel = GenericDataModel>
   = (ctx: GenericMutationCtx<DM> | GenericActionCtx<DM>, input: CanSignInInput) => Promise<CanSignInVerdict>
 
 /**
- * Cross-component wiring for Better Auth. All optional: with no `email`
- * transport, OTP requests fail loudly (set `NUXT_BACKEND_LOG_OTP=1` to echo
- * codes to the console during local dev instead). Provide an `email` transport
- * to deliver OTP and verification emails, a `rateLimiter` to throttle
- * OTP sends, `canSignIn` to gate who may sign in or sign up, and
- * `onUserCreated` / `onUserDeleted` to run side effects (durable workflows,
- * analytics, erasure) around the account lifecycle.
+ * The cross-component part of {@link SetupAuthOptions}. All optional: the
+ * `backend` component's email module is the default transport, and without
+ * one, code requests fail loudly (set `NUXT_BACKEND_LOG_OTP=1` to echo codes
+ * to the console during local dev instead). Provide an `email` transport to
+ * deliver through something else, a `rateLimiter` to throttle code sends,
+ * `canSignIn` to gate who may sign in or sign up, and `onUserCreated` /
+ * `onUserDeleted` to run side effects (durable workflows, analytics,
+ * erasure) around the account lifecycle.
  */
 export interface AuthIntegrations<DM extends GenericDataModel = GenericDataModel> {
   email?: AuthEmailSender
@@ -154,26 +153,28 @@ export interface AuthIntegrations<DM extends GenericDataModel = GenericDataModel
   canSignIn?: CanSignIn<DM>
   /** Fired after an account is deleted, after any consumer `afterDelete`. See {@link OnUserDeleted}. */
   onUserDeleted?: OnUserDeleted<DM>
-  /** Override any of the default auth-email templates (welcome/otp/verify/change/delete/invite). */
-  emailTemplates?: Partial<AuthEmailTemplates>
+  /** Override any of the default auth-email templates (`otp`, `welcome`, `deleteAccount`, `invite`). */
+  emailTemplates?: AuthEmailTemplateOverrides
 }
 
 export type OtpPurpose = 'sign-in' | 'email-verification' | 'forget-password' | 'change-email'
 
 /**
  * The default transactional auth-email templates, all delivered through the
- * nested Resend component. Override any of them via
- * `integrations.emailTemplates` to restyle without replacing the transport.
+ * `backend` component's email module. Override any of them through
+ * `setupAuth`'s `emailTemplates` option to restyle without replacing the
+ * transport.
  */
 export interface AuthEmailTemplates {
-  /** OTP code email (sign-in / email-verification / change-email). */
+  /**
+   * A one-time code: for sign-in, for verifying an address
+   * (`email-verification`, which also confirms the current address at the
+   * start of an email change), and for the new address of an email change
+   * (`change-email`).
+   */
   otp: (data: { email: string, otp: string, type: OtpPurpose }) => AuthEmailMessage
   /** Welcome email sent once, right after a user is created. */
   welcome: (data: { email: string, name: string }) => AuthEmailMessage
-  /** Email-verification link (when verification is enabled). */
-  verify: (data: { email: string, url: string }) => AuthEmailMessage
-  /** Confirmation sent to the current address when changing email. */
-  changeEmail: (data: { email: string, newEmail: string, url: string }) => AuthEmailMessage
   /** Confirmation link for account deletion. */
   deleteAccount: (data: { email: string, url: string }) => AuthEmailMessage
   /** Workspace invitation with an accept link (organization plugin). */
@@ -185,6 +186,19 @@ export interface AuthEmailTemplates {
     organizationName: string
     role: string
   }) => AuthEmailMessage
+}
+
+/**
+ * Overrides for any of {@link AuthEmailTemplates}. Each receives the same
+ * data as the default, and the default itself, so an override can keep the
+ * packaged body and change only what it needs:
+ * `invite: (data, byDefault) => ({ ...byDefault(data), subject: 'Join us' })`.
+ */
+export type AuthEmailTemplateOverrides = {
+  [K in keyof AuthEmailTemplates]?: (
+    data: Parameters<AuthEmailTemplates[K]>[0],
+    byDefault: AuthEmailTemplates[K],
+  ) => AuthEmailMessage
 }
 
 /** Options for the bundled admin plugin (roles, permissions, ban, impersonation). */
@@ -234,7 +248,13 @@ export interface McpAuthOptions {
   consentPath?: string
 }
 
-export interface CreateBetterAuthOptions {
+/**
+ * Everything `setupAuth` takes: the auth library's own options, the bundled
+ * plugins' options, and the cross-component wiring of {@link AuthIntegrations}.
+ */
+export interface SetupAuthOptions<
+  DM extends GenericDataModel = GenericDataModel,
+> extends AuthIntegrations<DM> {
   /** Override the default auth config (e.g. to add custom providers) */
   authConfig?: AuthConfig
   /** Override Better Auth options (merged with defaults) */
@@ -252,16 +272,13 @@ export interface CreateBetterAuthOptions {
   mcp?: McpAuthOptions
 }
 
-export interface SetupAuthOptions<
-  DM extends GenericDataModel = GenericDataModel,
-> extends CreateBetterAuthOptions {
-  /**
-   * Cross-component wiring: an email transport for auth emails, a rate limiter
-   * for OTP sends, a `canSignIn` gate, and the `onUserCreated` /
-   * `onUserDeleted` lifecycle hooks. See {@link AuthIntegrations}.
-   */
-  integrations?: AuthIntegrations<DM>
-}
+/**
+ * The options `setupAuth` builds the auth instance from, apart from the
+ * cross-component wiring it resolves separately.
+ *
+ * @internal
+ */
+export type AuthBuildOptions = Omit<SetupAuthOptions, keyof AuthIntegrations>
 
 /** Component API shape expected by the Better Auth client. */
 export type AuthComponentApi = Parameters<typeof createClient>[0]
@@ -273,9 +290,9 @@ export type PublicAuthComponentRef = AuthComponentApi | AnyComponents[string]
  *
  * `backend` is the package's all-in-one component: its `adapter` module is the
  * Better Auth CRUD surface, and its `email` module (when present in the
- * component build) delivers auth OTP / verification / welcome / invitation
- * emails automatically via `components.backend.email.send`. Without an email
- * module, OTP delivery no-ops (see {@link AuthIntegrations}).
+ * component build) delivers auth codes and the welcome, deletion and
+ * invitation emails automatically via `components.backend.email.send`.
+ * Without an email module, code delivery no-ops (see {@link AuthIntegrations}).
  */
 export interface AuthSetupComponents {
   backend: PublicAuthComponentRef

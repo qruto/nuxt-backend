@@ -1,29 +1,32 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 definePageMeta({ middleware: 'auth' })
 
 // Passwordless Better Auth: the user is also the billing customer.
-const { user, changeEmail, deleteAccount, registerPasskey, signOut } = useAuth()
+const { user, deleteAccount, registerPasskey, signOut } = useAuth()
 const auth = useAuthState()
 
-const newEmail = ref('')
 const accountMsg = ref<{ text: string, ok: boolean } | null>(null)
-const busy = ref(false)
 
-async function doChangeEmail() {
-  accountMsg.value = null
-  busy.value = true
-  try {
-    await changeEmail(newEmail.value.trim())
-    accountMsg.value = { text: `Confirmation sent to ${user.value?.email}.`, ok: true }
-    newEmail.value = ''
-  }
-  catch (e) {
-    accountMsg.value = { text: e instanceof Error ? e.message : 'Failed', ok: false }
-  }
-  finally { busy.value = false }
-}
+// The email change, by a code from each address: the playground's sandbox
+// rule gates the new address before any code goes out.
+const emailChange = useEmailChange({
+  validateEmail: value => isSandboxIdentity(value) || SANDBOX_IDENTITY_HELP,
+  onChanged: (email) => {
+    accountMsg.value = { text: `Your email address is now ${email}.`, ok: true }
+    emailChange.reset()
+  },
+})
+watch(emailChange.error, (text) => {
+  if (text) accountMsg.value = { text, ok: false }
+})
+const emailStep = computed(() => ({
+  'enter-email': { hint: 'a code from each address', action: 'Change', run: emailChange.start },
+  'confirm-current': { hint: `code sent to ${user.value?.email}`, action: 'Confirm', run: emailChange.confirmCurrent },
+  'verify-new': { hint: `code sent to ${emailChange.newEmail.value.trim()}`, action: 'Change', run: emailChange.verifyNew },
+  'done': { hint: '', action: 'Change', run: emailChange.reset },
+}[emailChange.step.value]))
 async function doRegisterPasskey() {
   accountMsg.value = null
   try {
@@ -59,8 +62,9 @@ const initials = computed(() =>
       title="Account & auth"
     >
       Better Auth, passwordless (passkey + email OTP). The signed-in user is the
-      source of truth across the whole platform — change-email and delete-account
-      are confirmed via Resend. The gate components render purely by auth state.
+      source of truth across the whole platform — an email change takes a code
+      from each address, and deletion is confirmed by email. The gate
+      components render purely by auth state.
     </PageHeader>
 
     <LabPanel
@@ -82,24 +86,33 @@ const initials = computed(() =>
       >
         <LabField
           label="change email"
-          hint="confirmed via Resend"
+          :hint="emailStep.hint"
         >
           <div class="row">
             <input
-              v-model="newEmail"
+              v-if="emailChange.step.value === 'enter-email'"
+              v-model="emailChange.newEmail.value"
               class="input"
               placeholder="new@email.com"
               autocomplete="off"
               spellcheck="false"
               style="flex: 1"
             >
+            <input
+              v-else
+              v-model="emailChange.otp.value"
+              class="input"
+              placeholder="123456"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              style="flex: 1"
+            >
             <LabButton
               variant="primary"
-              :loading="busy"
-              :disabled="!newEmail.trim()"
-              @click="doChangeEmail"
+              :loading="emailChange.pending.value"
+              @click="emailStep.run()"
             >
-              Change
+              {{ emailStep.action }}
             </LabButton>
           </div>
         </LabField>

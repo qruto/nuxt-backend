@@ -47,4 +47,4 @@ The emails sign-in sends, from the one-time code to the workspace invitation, ar
 ## Not covered here
 
 - **Passwords.** Email and password sign-in is off, and `<AuthForm>` offers only email codes and passkeys. You can turn passwords on through `authOptions`, but the form and per-identity rate limits for them are yours to build. See [Extend Better Auth options](/docs/auth/setup#extend-better-auth-options).
-- **Changing an email address through a profile update.** `updateProfile` takes the display name only; a new address goes through the verified change-email flow.
+- **Changing an email address through a profile update.** `updateProfile` takes the display name only; a new address takes a code from each address (`useEmailChange()`).

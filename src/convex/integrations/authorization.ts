@@ -1,14 +1,15 @@
 import type { Auth, FunctionReference, GenericActionCtx, GenericDataModel, MutationBuilder, RegisteredMutation } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 import { defaultRoles } from 'better-auth/plugins/admin/access'
+import { IMPERSONATED_BY_CLAIM } from '../constants.js'
 
 /**
  * Authorization over the bundled Better Auth setup: role checks (admin
  * plugin), permission-statement checks (access control), and workspace
  * membership checks (organization plugin).
  *
- * Reads are claims-first — `role`, `banned`, and `activeOrganizationId` ride
- * on the Convex JWT (see `createBetterAuthOptions`'s `definePayload`), so most
+ * Reads are claims-first — `role`, `banned`, `activeOrganizationId` and
+ * `impersonatedBy` ride on the Convex JWT (see `setupAuth`), so most
  * checks cost no database read. Claims can lag role changes by up to the JWT
  * lifetime (15 min); pass `{ fresh: true }` where that matters.
  */
@@ -24,6 +25,11 @@ export interface AuthorizationUser {
   banned: boolean
   /** The session's active workspace, or `null` when none. */
   activeOrganizationId: string | null
+  /**
+   * The admin impersonating this user, or `null` for the user's own session.
+   * Refuse what an impersonating admin must not do: `if (user.impersonatedBy) throw …`.
+   */
+  impersonatedBy: string | null
   /** All identity claims, for anything not surfaced above. */
   claims: Record<string, unknown>
 }
@@ -143,6 +149,7 @@ export function setupAuthorization<DM extends GenericDataModel = GenericDataMode
       role: typeof claims.role === 'string' && claims.role ? claims.role : 'user',
       banned: claims.banned === true,
       activeOrganizationId: typeof claims.activeOrganizationId === 'string' ? claims.activeOrganizationId : null,
+      impersonatedBy: typeof claims[IMPERSONATED_BY_CLAIM] === 'string' ? claims[IMPERSONATED_BY_CLAIM] : null,
       claims,
     }
   }

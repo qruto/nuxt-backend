@@ -10,7 +10,8 @@ import { v } from 'convex/values'
 // back the agent OAuth surface.
 // No 2FA, no social OAuth, no extra user fields (username/phone/anon/etc), no
 // email/password specific beyond core account.
-// Verified against `createSchema` from @convex-dev/better-auth with this plugin set.
+// Verified against `createSchema` from @convex-dev/better-auth with this plugin set,
+// and held to the runtime plugins' fields by test/unit/adapter-plugins.test.ts.
 export const tables = {
   user: defineTable({
     name: v.string(),
@@ -24,6 +25,11 @@ export const tables = {
     banned: v.optional(v.union(v.null(), v.boolean())),
     banReason: v.optional(v.union(v.null(), v.string())),
     banExpires: v.optional(v.union(v.null(), v.number())),
+    // The convex plugin's own field (a legacy link to an app users table).
+    // Nothing here writes it, but the plugin declares it, so the schema does:
+    // test/unit/adapter-plugins.test.ts holds every table's fields to the
+    // runtime plugins'.
+    userId: v.optional(v.union(v.null(), v.string())),
   })
     .index('email_name', ['email', 'name'])
     .index('name', ['name']),

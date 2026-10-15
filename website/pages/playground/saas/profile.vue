@@ -25,11 +25,11 @@ function validateEmail(value: string): boolean | string {
 <template>
   <div class="stack bk-depth">
     <PageHeader
-      tag="ProfileSettings · useAuth"
+      tag="ProfileSettings · useEmailChange"
       title="Profile"
     >
       The packaged <code>&lt;ProfileSettings&gt;</code> — identity, display
-      name, and the two-step confirmed change-email flow. The playground's
+      name, and the email change, by a code from each address. The playground's
       sandbox rule plugs in via the <code>validate-email</code> prop.
       Untouched version under
       <NuxtLink to="/playground/vanilla/profile">Vanilla</NuxtLink>.
@@ -40,10 +40,7 @@ function validateEmail(value: string): boolean | string {
       title="Your account"
       tone="ok"
     >
-      <ProfileSettings
-        :validate-email="validateEmail"
-        callback-path="/playground/saas/profile"
-      />
+      <ProfileSettings :validate-email="validateEmail" />
     </LabPanel>
 
     <LabPanel

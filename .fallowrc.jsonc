@@ -183,7 +183,7 @@
       },
       {
         "files": ["src/convex/client/better-auth-options.ts"],
-        "functions": ["createBetterAuthOptions"],
+        "functions": ["buildAuthOptions"],
         "maxCyclomatic": 60,
         "maxCognitive": 56,
         "reason": "Assembles the Better Auth options object from every backend option in one place, so the auth configuration is readable top to bottom as one document. Extracting the plugin list is the planned refactor."

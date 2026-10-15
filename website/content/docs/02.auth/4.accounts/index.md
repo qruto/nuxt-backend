@@ -14,6 +14,6 @@ Two packaged pages cover a person's own account, each a component you can place 
   :::
 
   :::card{icon="i-lucide-shield-check" title="Manage passkeys and sessions" to="/docs/auth/accounts/security"}
-  Email verification, passkeys, signed-in devices, and deleting the account.
+  Passkeys, signed-in devices, and deleting the account.
   :::
 ::

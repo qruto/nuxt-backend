@@ -12,12 +12,13 @@ const previews = useQuery(api.emailTemplates.previews)
 <template>
   <div class="stack">
     <PageHeader
-      tag="defaultEmailTemplates · defaultGiftEmail"
+      tag="setupAuth · defaultGiftEmail"
       title="Email templates"
     >
-      The transactional emails the backend sends out of the box — OTP codes
-      (one template, four purposes), welcome, verification, email change,
-      account deletion, workspace invitations, and the gift notification.
+      The transactional emails the backend sends out of the box — one-time
+      codes (one template for sign-in, verification and email change),
+      welcome, account deletion, workspace invitations, and the gift
+      notification.
       Override any of them without touching the transport.
     </PageHeader>
 
@@ -27,13 +28,14 @@ const previews = useQuery(api.emailTemplates.previews)
       tone="ok"
     >
       <p class="hint">
-        Auth emails: <code>integrations.emailTemplates</code> in
+        Auth emails: <code>emailTemplates</code> in
         <code>backend/auth.ts</code> — this playground overrides
         <code>otp</code> that way (see
         <NuxtLink to="/playground/platform/email">Email</NuxtLink> for the
         snippet and live delivery tracking). The gift email:
         <code>giftEmail</code> in <code>setupBilling</code>. Below are the
-        packaged defaults, rendered with sample data.
+        templates in effect, rendered with sample data: the playground's
+        <code>otp</code>, and the packaged defaults for the rest.
       </p>
     </LabPanel>
 

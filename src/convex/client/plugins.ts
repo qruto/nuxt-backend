@@ -6,14 +6,14 @@ import type { McpAuthOptions } from './auth-types.js'
 import { readEnv } from './runtime.js'
 
 // How the packaged default plugins are built. The order they join the plugin
-// list in, which matters, is `createBetterAuthOptions`' concern
+// list in, which matters, is `buildAuthOptions`' concern
 // (better-auth-options.ts).
 
 /**
  * The plugin element type of `BetterAuthOptions.plugins`. The mcp/jwt default
  * plugins are widened to it because their concrete return types reference
  * option types better-auth doesn't export (`MCPOptions`) — declaration emit
- * of `createBetterAuthOptions` would fail on the unnameable type. Their
+ * of `buildAuthOptions` would fail on the unnameable type. Their
  * endpoints stay callable (the exchange reads them structurally).
  */
 export type DefaultAuthPlugin = NonNullable<BetterAuthOptions['plugins']>[number]

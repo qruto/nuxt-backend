@@ -28,6 +28,7 @@ The signed-in user, as read from identity claims.
 | <a id="role"></a> `role` | `string` | App-wide role from the admin plugin; `'user'` when unset. | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
 | <a id="banned"></a> `banned` | `boolean` | - | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
 | <a id="activeorganizationid"></a> `activeOrganizationId` | `string` \| `null` | The session's active workspace, or `null` when none. | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| <a id="impersonatedby"></a> `impersonatedBy` | `string` \| `null` | The admin impersonating this user, or `null` for the user's own session. Refuse what an impersonating admin must not do: `if (user.impersonatedBy) throw …`. | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
 | <a id="claims"></a> `claims` | `Record`\<`string`, `unknown`\> | All identity claims, for anything not surfaced above. | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
 
 ***

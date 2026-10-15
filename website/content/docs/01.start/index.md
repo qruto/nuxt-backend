@@ -63,7 +63,7 @@ Everything the module mounts is progressively replaceable — the [customization
 |---|---|
 | Manual Better Auth Convex component files | The packaged `nuxt-backend/convex.config`, mounted by the scaffolded `backend/convex.config.ts` |
 | `auth.config.ts` using the Better Auth Convex provider | `nuxt-backend/auth.config`, scaffolded as `backend/auth.config.ts` |
-| `auth.ts` with `authComponent`, `createAuthOptions`, `options`, `createAuth` | Scaffolded `backend/auth.ts` using `setupAuth(...)` |
+| `auth.ts` with `authComponent`, `createAuth` and the auth queries | Scaffolded `backend/auth.ts` using `setupAuth(...)` |
 | Better Auth client with `convexClient()` | Auto-created Vue Better Auth client exposed through `useAuth()` |
 | `ConvexBetterAuthProvider` | Nuxt client plugin plus `useAuthState()` / `provideConvexAuth()` state |
 | Next route handler proxy | Nuxt server proxy at `backend.authRoute` (default `/api/auth`) |

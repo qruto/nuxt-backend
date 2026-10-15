@@ -100,6 +100,12 @@ const DEFAULT_LIMITS: {
      rate: 300;
      period: number;
   };
+  emailChange: {
+     kind: "token bucket";
+     rate: 5;
+     period: number;
+     capacity: 5;
+  };
   billingSync: {
      kind: "token bucket";
      rate: 10;
@@ -151,10 +157,11 @@ const DEFAULT_LIMITS: {
 Defined in: [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts)
 
 The package's default rate limits — `emailOtp`, `emailOtpGlobal`,
-`billingSync`, `ai`, `aiBudget`, `mcp`, `admin`, `invitation` and
-`invitationGlobal` — guarding the flows the package itself drives. Keyed per
+`emailChange`, `billingSync`, `ai`, `aiBudget`, `mcp`, `admin`,
+`invitation`, `invitationGlobal` and `agentRegistrationGlobal` — guarding
+the flows the package itself drives. Keyed per
 email/entity/caller at the call site (e.g. `limit(ctx, 'emailOtp', { key:
-hash })`); `emailOtpGlobal` and `invitationGlobal` are unkeyed. Extend or override any of them by
+hash })`); the `*Global` ones are unkeyed. Extend or override any of them by
 passing your own limits to [setupRateLimiter](#setupratelimiter).
 
 Deliberately small: `emailOtp` throttles code *sends* (per-code brute force
@@ -162,20 +169,22 @@ is Better Auth's own `allowedAttempts` guard, and this package is
 passwordless — there are no password flows to limit), `emailOtpGlobal`
 caps sends deployment-wide, `billingSync` guards the live provider
 fan-out, `ai`/`aiBudget`/`mcp` back the metered-action, credit-budget and
-agent surfaces, and `admin`/`invitation`/`invitationGlobal` cover the two
-signed-in routes where one caller acts on *other* people — see `setupAuth`'s
-route limits.
+agent surfaces, and `admin`/`invitation`/`emailChange` cover the
+signed-in routes where one caller acts on *other* people or addresses —
+see `setupAuth`'s route limits.
 
 ## Covering other auth routes
 
-These names throttle the routes the package wires itself. Every *other*
-Better Auth route is throttled by Better Auth's own per-path limiter, which
-takes its rules — and a durable storage — straight from your auth options:
+These names throttle the routes the package wires itself. Better Auth's own
+per-path limiter is off by default: it counts in memory, which on Convex
+lasts one function call. To throttle another route through it, turn it on
+with a durable storage, straight from your auth options:
 
 ```ts
 setupAuth(components, query, {
   authOptions: {
     rateLimit: {
+      enabled: true,
       storage: 'database',
       customRules: { '/organization/create': { window: 60, max: 5 } },
     },
@@ -199,6 +208,11 @@ count per identity and are enforced before the route runs.
 | `emailOtpGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `emailOtpGlobal.rate` | `300` | `300` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `emailOtpGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-emailchange"></a> `emailChange` | \{ `kind`: `"token bucket"`; `rate`: `5`; `period`: `number`; `capacity`: `5`; \} | - | Email changes — 5 per hour per account. The code an email change sends to the new address goes where the caller chose, so it is bounded per account and then by `emailOtpGlobal`, like every other code. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `emailChange.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `emailChange.rate` | `5` | `5` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `emailChange.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `emailChange.capacity` | `5` | `5` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | <a id="property-billingsync"></a> `billingSync` | \{ `kind`: `"token bucket"`; `rate`: `10`; `period`: `number`; `capacity`: `5`; \} | - | Entitlement syncs — 10 per minute per billing entity, small burst for the back-to-back syncs after checkout / top-up. Guards the live provider fan-out `syncEntitlements` performs (see `setupBilling`'s `rateLimiter`). | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `billingSync.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `billingSync.rate` | `10` | `10` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
@@ -253,6 +267,12 @@ function setupRateLimiter<Limits>(components, limits?): RateLimiter<{
      kind: "fixed window";
      rate: 300;
      period: number;
+  };
+  emailChange: {
+     kind: "token bucket";
+     rate: 5;
+     period: number;
+     capacity: 5;
   };
   billingSync: {
      kind: "token bucket";
@@ -334,6 +354,12 @@ named limits to cover your own application functions; they are merged with
      `kind`: `"fixed window"`;
      `rate`: `300`;
      `period`: `number`;
+  \};
+  `emailChange`: \{
+     `kind`: `"token bucket"`;
+     `rate`: `5`;
+     `period`: `number`;
+     `capacity`: `5`;
   \};
   `billingSync`: \{
      `kind`: `"token bucket"`;

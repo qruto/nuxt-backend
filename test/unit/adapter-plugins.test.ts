@@ -2,13 +2,13 @@ import { describe, expect, it, vi } from 'vitest'
 import { getAuthTables } from 'better-auth/db'
 import type { BetterAuthOptions } from 'better-auth/minimal'
 import { jwt } from 'better-auth/plugins'
-import { createBetterAuthOptions } from '../../src/convex/client'
+import { buildAuthOptions } from '../../src/convex/client/better-auth-options'
 import { authSchema } from '../../src/convex/components/backend/schema'
 import '../../src/convex/components/backend/adapter'
 
 // The component adapter derives its Better Auth table map from a private,
 // hand-maintained plugin list (`options` in adapter.ts), while the runtime
-// instances are built by `createBetterAuthOptions`. The two are only kept in
+// instances are built by `buildAuthOptions`. The two are only kept in
 // sync by convention — this test makes the convention executable by capturing
 // the adapter's options getter at the `createApi` seam (the real
 // implementation still runs) and comparing plugin ids and derived tables.
@@ -42,13 +42,13 @@ function adapterOptions(): BetterAuthOptions {
 
 /**
  * The runtime plugin surface is split across two instances (see `setupAuth`):
- * the main instance from `createBetterAuthOptions`, and a sign-only instance
+ * the main instance from `buildAuthOptions`, and a sign-only instance
  * that carries the jwt plugin (it cannot sit on the main instance — Better
  * Auth dedupes plugins by id and a top-level jwt would displace the convex
  * plugin's internal one). The adapter schema must cover both.
  */
-function runtimeOptions(config: Parameters<typeof createBetterAuthOptions>[1] = {}): BetterAuthOptions {
-  const main = createBetterAuthOptions({} as never, config) as BetterAuthOptions
+function runtimeOptions(config: Parameters<typeof buildAuthOptions>[1] = {}): BetterAuthOptions {
+  const main = buildAuthOptions({} as never, config) as BetterAuthOptions
   return { ...main, plugins: [...(main.plugins ?? []), jwt()] }
 }
 
@@ -75,9 +75,9 @@ describe('adapter schema plugins ⇄ runtime plugins', () => {
 
   it('the only table beyond the default runtime set is the opt-in database rate-limit store', () => {
     // Better Auth adds `rateLimit` to its schema only when
-    // `rateLimit.storage === 'database'`. The runtime default leaves Better
-    // Auth's own limiter on memory storage (the package's `setupRateLimiter`
-    // guards OTP / agent flows instead), while the adapter declares database
+    // `rateLimit.storage === 'database'`. The runtime default turns Better
+    // Auth's own limiter off (the package's `setupRateLimiter` guards code /
+    // agent flows instead), while the adapter declares database
     // storage so the table stays mappable for consumers who opt in through
     // `authOptions.rateLimit` — at which point both sides agree exactly.
     const adapterTables = tableNames(adapterOptions())
@@ -87,5 +87,19 @@ describe('adapter schema plugins ⇄ runtime plugins', () => {
     expect(adapterTables.filter(table => !runtimeTables.includes(table))).toStrictEqual(['rateLimit'])
     expect(tableNames(runtimeOptions({ authOptions: { rateLimit: { storage: 'database' } } })))
       .toStrictEqual(adapterTables)
+  })
+
+  it('declares in schema.ts exactly the fields the runtime plugins write, table by table', () => {
+    // A plugin option that adds a field (lastLoginMethod's `storeInDatabase`,
+    // say) must land in the component schema too, or every write fails
+    // validation; a field nothing writes is dead weight. Better Auth's `id`
+    // is Convex's `_id`, so it never appears on either side.
+    const options = runtimeOptions({ authOptions: { rateLimit: { storage: 'database' } } })
+    const schemaTables = authSchema.tables as unknown as Record<string, { validator: { fields: Record<string, unknown> } }>
+    for (const table of Object.values(getAuthTables(options))) {
+      const runtimeFields = Object.entries(table.fields).map(([key, field]) => field.fieldName ?? key).sort()
+      const schemaFields = Object.keys(schemaTables[table.modelName]!.validator.fields).sort()
+      expect(schemaFields, `schema.ts "${table.modelName}"`).toStrictEqual(runtimeFields)
+    }
   })
 })

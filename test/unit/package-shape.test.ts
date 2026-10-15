@@ -88,8 +88,11 @@ describe('scaffold templates', () => {
     expect(BACKEND_FILE_TEMPLATES['auth.ts']).toContain(
       `import { setupAuth } from 'nuxt-backend/auth'`,
     )
-    expect(BACKEND_FILE_TEMPLATES['auth.ts']).toContain('createAuthOptions')
-    expect(BACKEND_FILE_TEMPLATES['auth.ts']).toContain('options')
+    // setupAuth is the one factory: the scaffold exports createAuth, never a
+    // second way to build the options, and passes its wiring at the top level.
+    expect(BACKEND_FILE_TEMPLATES['auth.ts']).toContain('createAuth,')
+    expect(BACKEND_FILE_TEMPLATES['auth.ts']).not.toContain('createAuthOptions')
+    expect(BACKEND_FILE_TEMPLATES['auth.ts']).not.toContain('integrations')
   })
 })
 

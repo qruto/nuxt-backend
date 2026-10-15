@@ -17,7 +17,6 @@ const client = {
   emailOtp: { sendVerificationOtp: vi.fn(async () => ({})) },
   signIn: { emailOtp: vi.fn(async () => ({})), passkey: vi.fn(async () => ({})) },
   passkey: { addPasskey: vi.fn(async () => ({})) },
-  changeEmail: vi.fn(async () => ({})),
   deleteUser: vi.fn(async () => ({})),
   admin: {
     checkRolePermission: vi.fn(({ role }: { role: string }) => role === 'admin'),
@@ -86,7 +85,6 @@ describe('extended useAuth', () => {
     expect(client.signIn.passkey).toHaveBeenCalled()
     await auth.registerPasskey('ctx')
     expect(client.passkey.addPasskey).toHaveBeenCalledWith({ context: 'ctx' })
-    await auth.changeEmail('new@example.com')
     await auth.deleteAccount()
     await auth.signOut()
     expect(client.signOut).toHaveBeenCalled()

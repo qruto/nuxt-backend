@@ -1,4 +1,10 @@
 export const DEFAULT_AUTH_ROUTE = '/api/auth'
+/**
+ * The session-token claim naming the admin who is impersonating the session's
+ * user, present only while one is. Convex functions read it to refuse what an
+ * impersonating admin must not do (`Authorization.requireUser` surfaces it).
+ */
+export const IMPERSONATED_BY_CLAIM = 'impersonatedBy'
 export const COMPONENT_AUTH_ROUTE = '/'
 /**
  * App page that handles workspace-invitation accept links

@@ -3,7 +3,7 @@ import { v } from 'convex/values'
 import type { AdapterRefs } from './component.js'
 
 // Workspaces (the organization plugin's organizations): the one every new
-// session activates, and the workspace queries `makeAuthApi` remounts.
+// session activates, and the workspace queries `setupAuth` remounts.
 
 /** The minimal Better Auth adapter surface the session hooks need. */
 interface AuthHookAdapter {
@@ -58,7 +58,7 @@ export async function ensureActiveOrganization(
 const WORKSPACE_PAGE_SIZE = 100
 
 /**
- * The caller's workspaces and the members of one of them, for `makeAuthApi`:
+ * The caller's workspaces and the members of one of them, for `setupAuth`:
  * identity-gated reads over the component adapter.
  */
 export function workspaceQueries<

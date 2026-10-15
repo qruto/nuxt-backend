@@ -38,6 +38,7 @@ navigation:
 | [useBackendConfig](/docs/reference/api/use-backend-config) | - |
 | [useBilling](/docs/reference/api/use-billing) | - |
 | [useCredits](/docs/reference/api/use-credits) | - |
+| [useEmailChange](/docs/reference/api/use-email-change) | - |
 | [useEmailStatus](/docs/reference/api/use-email-status) | - |
 | [useFeatures](/docs/reference/api/use-features) | - |
 | [useGifts](/docs/reference/api/use-gifts) | - |

@@ -1,5 +1,4 @@
-import { defineComponent, h, onMounted, ref, type PropType, type Ref, type VNodeChild } from 'vue'
-import { useRoute } from '#imports'
+import { defineComponent, h, ref, type PropType, type Ref, type VNodeChild } from 'vue'
 import { useAuth } from '../composables/use-auth'
 import { usePasskeys, type UsePasskeysReturn, type Passkey } from '../composables/use-passkeys'
 import { useSessions, describeUserAgent, type UseSessionsReturn, type SessionInfo } from '../composables/use-sessions'
@@ -7,7 +6,7 @@ import { useBackendConfig } from '../composables/use-backend-config'
 import { unwrapAuth } from '../utils/auth-result'
 import type { SettingsMessage } from './workspace-settings'
 
-export type SecuritySection = 'verification' | 'passkeys' | 'sessions' | 'danger'
+export type SecuritySection = 'passkeys' | 'sessions' | 'danger'
 
 export interface SecuritySlotContext {
   user: Record<string, unknown> | null | undefined
@@ -15,7 +14,6 @@ export interface SecuritySlotContext {
   sessions: UseSessionsReturn
   message: SettingsMessage | null
   pending: string | null
-  sendVerification: () => Promise<void>
   requestDeletion: () => Promise<void>
   signOut: () => Promise<void>
 }
@@ -25,8 +23,8 @@ function formatDate(value: string | number | Date): string {
 }
 
 /**
- * Everything that guards the account, as one headless component: email
- * verification, passkey management (add / inline rename / remove), active
+ * Everything that guards the account, as one headless component: passkey
+ * management (add / inline rename / remove), active
  * device sessions (revoke one / revoke others), and the confirmed-by-email
  * account-deletion danger zone. Built entirely on `useAuth`, `usePasskeys`
  * and `useSessions` — no raw auth-client calls.
@@ -40,15 +38,12 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
   props: {
     sections: {
       type: Array as PropType<SecuritySection[]>,
-      default: () => ['verification', 'passkeys', 'sessions', 'danger'] as SecuritySection[],
+      default: () => ['passkeys', 'sessions', 'danger'] as SecuritySection[],
     },
     /** Confirm destructive actions; return `false` to abort. Default: `window.confirm`. */
     confirm: { type: Function as PropType<(message: string) => boolean | Promise<boolean>>, default: undefined },
-    /** Where the verification email returns to. Default: the current path. */
-    callbackPath: { type: String, default: undefined },
   },
   emits: {
-    'verification-sent': () => true,
     'passkey-added': () => true,
     'passkey-removed': (_id: string) => true,
     'session-revoked': (_id: string) => true,
@@ -63,14 +58,6 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
     const sessions = useSessions()
     const config = useBackendConfig()
     const labels = { ...config.labels.security }
-    const route = useRoute()
-
-    // Session state differs between SSR and hydration — verification status
-    // renders after mount.
-    const mounted = ref(false)
-    onMounted(() => {
-      mounted.value = true
-    })
 
     const message: Ref<SettingsMessage | null> = ref(null)
     const pending: Ref<string | null> = ref(null)
@@ -99,11 +86,6 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
         pending.value = null
       }
     }
-
-    const sendVerification = () => run('verify', async () => {
-      unwrapAuth(await auth.sendVerificationEmail(props.callbackPath ?? route.path))
-      emit('verification-sent')
-    }, `Verification email sent to ${auth.user.value?.email}.`)
 
     const addPasskey = () => run('passkey:add', async () => {
       await passkeys.add()
@@ -153,30 +135,9 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
       sessions,
       message: message.value,
       pending: pending.value,
-      sendVerification,
       requestDeletion,
       signOut,
     })
-
-    const verificationSection = (): VNodeChild => {
-      const ctx = context()
-      if (slots.verification) return slots.verification(ctx)
-      const user = mounted.value ? auth.user.value : null
-      // Busy until mount: the verified flag is session state, unknown on the server.
-      return h('section', { 'data-security': 'section-verification', 'aria-busy': mounted.value ? undefined : 'true' }, [
-        h('h3', { 'data-security': 'section-title' }, 'Email verification'),
-        h('p', { 'data-security': 'status', 'data-verified': user?.emailVerified === true || undefined },
-          !mounted.value ? 'Checking…' : user?.emailVerified ? 'Address verified.' : 'Address unverified — only passkey-first accounts start unverified.'),
-        user && user.emailVerified === false
-          ? h('button', {
-              'data-security': 'send-verification',
-              'type': 'button',
-              'disabled': pending.value === 'verify',
-              'onClick': sendVerification,
-            }, pending.value === 'verify' ? '…' : 'Send verification email')
-          : null,
-      ])
-    }
 
     const passkeyRow = (row: Passkey): VNodeChild => {
       const ctx = { ...context(), entry: row }
@@ -295,7 +256,6 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
     }
 
     const sectionRenderers: Record<SecuritySection, () => VNodeChild> = {
-      verification: verificationSection,
       passkeys: passkeysSection,
       sessions: sessionsSection,
       danger: dangerSection,

@@ -79,7 +79,7 @@ The Nuxt endpoint is only half of it. The OAuth provider and the token mint live
 
 ```ts [backend/auth.ts]
 export const { authComponent, createAuth, getAuthUser, mcp /* … */ } = setupAuth(components, query, {
-  integrations: { rateLimiter },   // seeds the `mcp` limit that guards the exchange
+  rateLimiter,   // seeds the `mcp` limit that guards the exchange
 })
 ```
 

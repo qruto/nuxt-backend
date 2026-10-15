@@ -97,6 +97,7 @@ The names the module registers, exactly as `src/nuxt/registry.ts` writes them:
   - `useConnectionState`
   - `useCount`
   - `useCredits`
+  - `useEmailChange`
   - `useEmailStatus`
   - `useFeatures`
   - `useGifts`

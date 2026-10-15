@@ -261,5 +261,15 @@ what was decided:
   transcripts. It is stored on the deployment through the `env push` engine now and never
   printed, `--json` included; `--env production` refuses a dev or preview deploy key, which would
   put it on the wrong deployment. **Fixed.** Pinned by `test/unit/billing-sync-command.test.ts`.
+- **Codes and email change** (`/email-otp/*`, `/change-email`; 2026-10-15). Codes were stored
+  in plain text, so a read of the database yielded working sign-in codes, and an email change
+  sent links: following the one at the new address moved the account and signed in whoever
+  opened it. Codes are stored as hashes now, and every proof of a mailbox is a code: an email
+  change takes one from the current address, then one from the new address (the core link
+  route is off), and a verification is a code too. The code to the new address is limited per
+  account and counts against the deployment-wide ceiling. Session tokens carry the
+  impersonating admin's id, so functions can refuse an impersonated session. **Fixed.** Pinned
+  by `test/unit/email-change-flow.test.ts`, which runs the real flow on Better Auth's memory
+  adapter.
 - **DevTools** (2026-09-17). The Backend tab and its RPC run only under `nuxt dev`, on Vite's
   middleware — reachable exactly as far as Nuxt DevTools itself. **Accepted.**

@@ -81,11 +81,15 @@ const auth = {
   user: computed(() => user.value),
   role: computed(() => 'user'),
   banned: computed(() => false),
-  client: {},
+  client: {
+    emailOtp: {
+      requestEmailChange: vi.fn(async () => ({})),
+      changeEmail: vi.fn(async () => ({})),
+    },
+  },
   session: ref({ data: null, isPending: false }),
   updateUser: vi.fn(async () => ({})),
-  changeEmail: vi.fn(async () => ({})),
-  sendVerificationEmail: vi.fn(async () => ({})),
+  sendOtp: vi.fn(async () => ({})),
   deleteAccount: vi.fn(async () => ({})),
   signOut: vi.fn(async () => ({})),
   registerPasskey: vi.fn(async () => ({})),
@@ -723,17 +727,43 @@ describe('ProfileSettings', () => {
     await wrapper.find('[data-profile="input-email"]').setValue('stranger@example.com')
     await wrapper.find('[data-profile="section-email"]').trigger('submit')
     await flushPromises()
-    expect(auth.changeEmail).not.toHaveBeenCalled()
+    expect(auth.sendOtp).not.toHaveBeenCalled()
     expect(wrapper.find('[data-profile="message"]').text()).toBe('Test inboxes only.')
   })
 
-  it('requests the two-step email change when allowed', async () => {
-    const wrapper = mount(ProfileSettings, { props: { callbackPath: '/profile' } })
+  it('changes the email with a code from the current address, then one from the new address', async () => {
+    const wrapper = mount(ProfileSettings)
+    const submit = async () => {
+      await wrapper.find('[data-profile="section-email"]').trigger('submit')
+      await flushPromises()
+    }
+    await wrapper.find('[data-profile="input-email"]').setValue('new@example.com')
+    await submit()
+    expect(auth.sendOtp).toHaveBeenCalledWith(user.value!.email, 'email-verification')
+    expect(wrapper.find('[data-profile="section-email"]').attributes('data-step')).toBe('confirm-current')
+
+    await wrapper.find('[data-profile="input-code"]').setValue('111111')
+    await submit()
+    expect(auth.client.emailOtp.requestEmailChange).toHaveBeenCalledWith({ newEmail: 'new@example.com', otp: '111111' })
+    expect(wrapper.find('[data-profile="label-code"]').text()).toContain('new@example.com')
+
+    await wrapper.find('[data-profile="input-code"]').setValue('222222')
+    await submit()
+    expect(auth.client.emailOtp.changeEmail).toHaveBeenCalledWith({ newEmail: 'new@example.com', otp: '222222' })
+    expect(wrapper.emitted('email-changed')).toEqual([['new@example.com']])
+    expect(wrapper.find('[data-profile="message"]').text()).toBe('Your email address is now new@example.com.')
+    // Ready for another change.
+    expect(wrapper.find('[data-profile="input-email"]').exists()).toBe(true)
+  })
+
+  it('backs out of a code step with cancel', async () => {
+    const wrapper = mount(ProfileSettings)
     await wrapper.find('[data-profile="input-email"]').setValue('new@example.com')
     await wrapper.find('[data-profile="section-email"]').trigger('submit')
     await flushPromises()
-    expect(auth.changeEmail).toHaveBeenCalledWith('new@example.com', '/profile')
-    expect(wrapper.emitted('email-change-requested')).toEqual([['new@example.com']])
+    await wrapper.find('[data-profile="cancel"]').trigger('click')
+    expect(wrapper.find('[data-profile="input-email"]').exists()).toBe(true)
+    expect(auth.client.emailOtp.requestEmailChange).not.toHaveBeenCalled()
   })
 
   it('marks the identity chrome busy until it mounts', async () => {
@@ -816,25 +846,20 @@ describe('SecuritySettings', () => {
     expect(wrapper.emitted('delete-requested')).toBeTruthy()
   })
 
-  it('revokes the other session and offers verification for unverified emails', async () => {
+  it('revokes the other session, and has nothing left to verify', async () => {
     const wrapper = mount(SecuritySettings)
     await flushPromises()
     await wrapper.find('[data-security="revoke"]').trigger('click')
     await flushPromises()
     expect(sessions.revoke).toHaveBeenCalledWith('s-other')
     expect(wrapper.emitted('session-revoked')?.[0]).toEqual(['s-other'])
-
-    await wrapper.find('[data-security="send-verification"]').trigger('click')
-    await flushPromises()
-    expect(auth.sendVerificationEmail).toHaveBeenCalled()
-    expect(wrapper.emitted('verification-sent')).toBeTruthy()
+    // The code that signs a person in verifies their address.
+    expect(wrapper.find('[data-security="section-verification"]').exists()).toBe(false)
   })
 
-  it('names the inline rename field and marks verification busy until mount', async () => {
+  it('names the inline rename field', async () => {
     const wrapper = mount(SecuritySettings)
-    expect(wrapper.find('[data-security="section-verification"]').attributes('aria-busy')).toBe('true')
     await flushPromises()
-    expect(wrapper.find('[data-security="section-verification"]').attributes('aria-busy')).toBeUndefined()
     await wrapper.find('[data-security="rename"]').trigger('click')
     // The field replaces the name it edits — no room for a visible label in the row.
     expect(wrapper.find('[data-security="input-passkey-name"]').attributes('aria-label')).toBe('Passkey name')

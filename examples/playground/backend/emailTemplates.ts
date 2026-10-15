@@ -1,12 +1,14 @@
-import { defaultEmailTemplates } from 'nuxt-backend/auth'
 import { defaultGiftEmail } from 'nuxt-backend/billing'
 import { query } from './_generated/server'
+import { emailTemplates } from './auth'
 
 /**
- * Render every packaged default email template with representative sample data
- * for the /playground/platform/email-templates page. Server-side so the page
- * never bundles the auth/billing server modules; ungated because the payload
- * is static sample content — nothing user-specific.
+ * Render every email template in effect with representative sample data for
+ * the /playground/platform/email-templates page: the auth templates as
+ * `setupAuth` resolved them (the playground overrides `otp`), and the gift
+ * email. Server-side so the page never bundles the auth/billing server
+ * modules; ungated because the payload is static sample content — nothing
+ * user-specific.
  */
 
 const SAMPLE = {
@@ -16,7 +18,7 @@ const SAMPLE = {
   url: 'https://app.example.com/verify?token=sample',
 }
 
-const OTP_PURPOSES = ['sign-in', 'email-verification', 'forget-password', 'change-email'] as const
+const OTP_PURPOSES = ['sign-in', 'email-verification', 'change-email'] as const
 
 type Preview = {
   key: string
@@ -32,7 +34,7 @@ type Preview = {
 export const previews = query({
   args: {},
   handler: async (): Promise<Preview[]> => {
-    const templates = defaultEmailTemplates
+    const templates = emailTemplates
     const render = (
       key: string,
       label: string,
@@ -54,7 +56,7 @@ export const previews = query({
       ...OTP_PURPOSES.map(purpose => render(
         `otp-${purpose}`,
         'otp',
-        'One code template covers every OTP purpose — the subject follows it.',
+        'One code template covers sign-in, verification and both codes of an email change — the subject follows the purpose.',
         templates.otp({ email: SAMPLE.email, otp: SAMPLE.otp, type: purpose }),
         purpose,
       )),
@@ -63,18 +65,6 @@ export const previews = query({
         'welcome',
         'Sent once, right after the account is created.',
         templates.welcome({ email: SAMPLE.email, name: SAMPLE.name }),
-      ),
-      render(
-        'verify',
-        'verify',
-        'Email-verification link (when verification is enabled).',
-        templates.verify({ email: SAMPLE.email, url: SAMPLE.url }),
-      ),
-      render(
-        'changeEmail',
-        'changeEmail',
-        'Confirmation sent to the current address before an email change.',
-        templates.changeEmail({ email: SAMPLE.email, newEmail: 'ada@newdomain.example', url: SAMPLE.url }),
       ),
       render(
         'deleteAccount',

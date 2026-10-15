@@ -139,7 +139,7 @@ const {
 
 ### Customizing the flow
 
-- **Email** — override `invite` in `integrations.emailTemplates` to restyle without replacing the transport, or supply the plugin's own `organization.sendInvitationEmail` to take over delivery entirely.
+- **Email** — override `invite` in `setupAuth`'s `emailTemplates` to restyle without replacing the transport, or supply the plugin's own `organization.sendInvitationEmail` to take over delivery entirely.
 - **Link path** — `organization: { invitationPath: '/join' }` changes where emailed links point.
 - **Page** — the module mounts it at `/accept-invitation`; the module option `pages.acceptInvitation` moves it, and an app page at its path replaces it.
 
