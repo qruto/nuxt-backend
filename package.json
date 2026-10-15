@@ -306,7 +306,8 @@
     "test:docs": "vitest --project docs --run",
     "typecheck:subpaths": "vitest --project types --run",
     "upstream:check": "node scripts/check-upstream.mjs",
-    "cli": "node dist/cli.mjs"
+    "cli": "node dist/cli.mjs",
+    "qa:screenshots": "vitest --project e2e --run test/e2e/screenshots.test.ts"
   },
   "dependencies": {
     "@better-auth/passkey": ">=1.6.25 <1.7.0",
