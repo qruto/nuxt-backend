@@ -21,7 +21,8 @@ Everything runs against **testing environments only**: Polar **sandbox** (`BILLI
 ## Reset & prep
 
 ```sh
-pnpm run db:reset        # clears app tables + auth component (NOT Polar sandbox — that's fine)
+pnpm run db:reset        # empties every scope: app tables, the backend component, email, and the Polar component's cache
+npx convex run billing:syncProducts '{}'   # refill the plan catalog the reset emptied (Polar itself is untouched)
 npx convex run billing:createDiscount '{"name":"E2E","percent":100,"code":"E2E100","duration":"forever"}'
 ```
 
@@ -71,7 +72,7 @@ npx convex data <table> --component backend/resend   # emails, deliveryEvents
 The live playground runs on the production deployment `determined-horse-300`, deployed by Vercel's production build (`website/vercel-build.sh`). A pass there differs from a dev pass:
 
 - Every `npx convex …` needs the production deploy key, **prefixed per command** (`CONVEX_DEPLOY_KEY=… npx convex …`) — never exported into the shell you test from. Check it first: `echo "${CONVEX_DEPLOY_KEY%%|*}"` prints `prod:determined-horse-300`.
-- **Never run `pnpm db:reset` or `db:seed` against it.** They drop the key and refuse one kept in `.env.local`, so they always reach the dev deployment — keep it that way.
+- **Never run `pnpm db:reset` or `db:seed` against it for a test.** Without `--prod` they drop the key and refuse one kept in `.env.local`, so they reach the dev deployment. `pnpm db:reset --prod --yes <scopes>` is the maintainer's step before merging a pull request that names a reset (CONTRIBUTING, the playground deploy rule), never part of a test pass.
 - Test through `https://nuxt-backend.dev` with a sandbox identity (see Sign-in above): the code shows up in the sandbox inbox on `/login`, as on dev.
 - Admin checks need `functions:setUserRole` run against production, from the Convex dashboard or with the key, on a sandbox identity. Keep that address private: whoever knows it can read its codes.
 - `pnpm cli doctor --prod` (after `pnpm build`) checks production: env names, the function contract, and the webhook routes on the deployment's own site URL.
@@ -81,7 +82,7 @@ The live playground runs on the production deployment `determined-horse-300`, de
 - **Passkeys can't be automated** — chrome-devtools MCP has no WebAuthn virtual authenticator; the ceremony fails with a focus/NotAllowed error (the UI must surface it). Manual test: real DevTools → WebAuthn panel → virtual authenticator (ctap2/internal/resident-key) → add passkey → rename/remove → passkey sign-in from `/login`. Pre-auth passkey signup is also the only path to an `emailVerified: false` account (exercises "Send verification email").
 - **Better Auth client calls do NOT throw** — they resolve `{ data, error }`. Demo pages unwrap with `unwrapAuth()` (`website/utils/authResult.ts`); forgetting it = silent failures.
 - **Marketing broadcasts** require a verified domain — Resend rejects broadcasts from `resend.dev` senders. Expect the surfaced error in test mode. The marketing actions are admin-only, and contacts must be Resend test inboxes.
-- **Playground throttles** (`website/backend/rateLimiter.ts`): the test email and the demo workflow share 5 sends a minute per user and 100 an hour for the deployment; the log seeder runs 3 times a minute; upload URLs 10 a minute and the demo action 20 a minute per user. Uploads stop at 5 MB and 50 files (a full library gets no upload URL). Todos are capped at 200 characters, log messages and the echo text at 500, counter names at 64 with steps up to ±1000. The demo action needs a sign-in, and a migration backfill needs the `admin` role. Crons (`website/backend/crons.ts`) prune email records and the event feed after a week, remove uploads nobody saved (daily, once an hour old), and clear the app data of sandbox accounts idle for a week (admins skipped; the accounts themselves stay).
+- **Playground throttles** (`website/backend/rateLimiter.ts`): the test email and the demo workflow share 5 sends a minute per user and 100 an hour for the deployment; the log seeder runs 3 times a minute; upload URLs 10 a minute and the demo action 20 a minute per user. Uploads stop at 5 MB and 50 files (a full library gets no upload URL). Todos are capped at 200 characters and 200 per account, log messages and the echo text at 500, counter names at 64 with steps up to ±1000. The demo action needs a sign-in, and a migration backfill needs the `admin` role. Crons (`website/backend/crons.ts`) prune email records and the event feed after a week, remove uploads nobody saved (daily, once an hour old), and clear the app data of sandbox accounts idle for a week: no session, sign-in or new row in that time (admins skipped; the accounts themselves stay).
 - **Resetting data**: `pnpm db:reset [app|backend|email|polar]` empties the dev deployment table by table from the schemas; `pnpm db:seed` refills it. On production only with `--prod --yes`, and only when a pull request names the reset (CONTRIBUTING, the playground deploy rule).
 - **`spendCredits`**: omit `userId` so the billing entity resolves from identity claims (org mode); passing the auth user id breaks the Polar customer lookup.
 - **Session-dependent UI needs `<ClientOnly>`** — SSR has no session while hydration does; class mismatches silently persist (Vue hydration is check-only for classes).

@@ -47,6 +47,10 @@ export default defineConfig({
             '#imports': nuxtImportsTestAlias,
           },
         },
+        // The root tsconfig, as for docs below: a unit test that imports a
+        // website/ module would otherwise read website/tsconfig.json, which
+        // extends a `.nuxt/` this job never generates.
+        tsconfig: 'tsconfig.json',
         test: {
           name: 'unit',
           include: ['test/unit/**/*.{test,spec}.ts'],

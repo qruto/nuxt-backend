@@ -18,6 +18,7 @@ const modules = import.meta.glob(['../../website/backend/**/*.ts', '../../websit
 const components = componentsGeneric() as unknown as { backend: ComponentApi<'backend'> }
 const clearIdleAccounts = makeFunctionReference<'mutation'>('retention:clearIdleAccounts')
 const clearUserData = makeFunctionReference<'mutation'>('demo:clearUserData')
+const seedForUser = makeFunctionReference<'mutation'>('seed:seedForUser')
 const sendMessage = makeFunctionReference<'mutation'>('messages:send')
 const countMessages = makeFunctionReference<'query'>('aggregates:countMessages')
 const echo = makeFunctionReference<'action'>('demo:echo')
@@ -42,11 +43,13 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-async function account(email: string, options: { idleDays: number, role?: string }): Promise<string> {
+async function account(email: string, options: { idleDays: number | null, role?: string }): Promise<string> {
   const now = Date.now()
   const user = await t.mutation(components.backend.adapter.create, {
     input: { model: 'user', data: { name: email, email, emailVerified: true, createdAt: now - DAY * 30, updatedAt: now - DAY * 30, ...(options.role ? { role: options.role } : {}) } },
   } as never) as { _id: string }
+  // No session: the account signed out (Better Auth deletes the row).
+  if (options.idleDays === null) return user._id
   const lastSeen = now - DAY * options.idleDays
   await t.mutation(components.backend.adapter.create, {
     input: { model: 'session', data: { userId: user._id, token: `token-${email}`, createdAt: lastSeen, updatedAt: lastSeen, expiresAt: lastSeen + DAY * 7 } },
@@ -91,7 +94,11 @@ describe('the idle-account sweep', () => {
     const admin = await account(sandbox('admin'), { idleDays: 30, role: 'admin' })
     const outsider = await account('ada@example.com', { idleDays: 30 })
     // More rows than one batch, so the clear has to continue in a second run.
+    // Written nine days ago: fresh rows would count as activity.
+    const now = Date.now()
+    vi.setSystemTime(now - DAY * 9)
     const idleUpload = await fill(idle, 600)
+    vi.setSystemTime(now)
     for (const userId of [active, admin, outsider]) await fill(userId)
 
     // Two accounts a page, so the walk continues across pages too.
@@ -102,6 +109,43 @@ describe('the idle-account sweep', () => {
     expect(await t.run(ctx => ctx.storage.get(idleUpload))).toBeNull()
     for (const userId of [active, admin, outsider]) expect(await rowsOf(userId)).toBe(6)
     expect(await t.query(countMessages, {})).toBe(3)
+  })
+
+  test('clears a seeded account, and judges a signed-out one by what it last wrote', async () => {
+    const now = Date.now()
+    const seeded = await account(sandbox('seeded'), { idleDays: 9 })
+    const recent = await account(sandbox('recent'), { idleDays: null })
+    const gone = await account(sandbox('gone'), { idleDays: null })
+    vi.setSystemTime(now - DAY * 9)
+    await t.mutation(seedForUser, { userId: seeded, email: sandbox('seeded') })
+    await fill(gone)
+    vi.setSystemTime(now - DAY)
+    await fill(recent)
+    vi.setSystemTime(now)
+
+    await t.mutation(clearIdleAccounts, { paginationOpts: { numItems: 10, cursor: null } })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    expect(await rowsOf(seeded)).toBe(0)
+    expect(await rowsOf(gone)).toBe(0)
+    expect(await rowsOf(recent)).toBe(6)
+  })
+
+  test('keeps a signed-out account that signed in this week, whatever it wrote', async () => {
+    const now = Date.now()
+    vi.setSystemTime(now - DAY * 9)
+    const reader = await account(sandbox('reader'), { idleDays: null })
+    await fill(reader)
+    vi.setSystemTime(now)
+    // Signing in and out stamp updatedAt (website/utils/activity.ts).
+    await t.mutation(components.backend.adapter.updateOne, {
+      input: { model: 'user', where: [{ field: '_id', value: reader }], update: { updatedAt: now - DAY } },
+    } as never)
+
+    await t.mutation(clearIdleAccounts, { paginationOpts: { numItems: 10, cursor: null } })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    expect(await rowsOf(reader)).toBe(6)
   })
 })
 
@@ -119,6 +163,19 @@ describe('clearUserData', () => {
     expect(await t.run(ctx => ctx.storage.get(upload))).toBeNull()
     expect(await rowsOf(other)).toBe(6)
     expect(await t.query(countMessages, {})).toBe(1)
+  })
+
+  test('clears a seeded account, and messages the counts never saw', async () => {
+    const me = await account(sandbox('seed'), { idleDays: 0 })
+    await t.mutation(seedForUser, { userId: me, email: sandbox('seed') })
+    // A message written before the seed was counted, as production still holds.
+    await t.run(ctx => ctx.db.insert('messages', { userId: me, author: 'Visitor', text: 'uncounted' }))
+
+    await t.withIdentity({ subject: me }).mutation(clearUserData, {})
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    expect(await rowsOf(me)).toBe(0)
+    expect(await t.query(countMessages, {})).toBe(0)
   })
 })
 
@@ -150,6 +207,14 @@ describe('abuse limits', () => {
     await expect(me.mutation(increment, { name: 'x'.repeat(65) })).rejects.toThrow('Counter names')
     await expect(me.mutation(increment, { by: 1001 })).rejects.toThrow('Steps are whole numbers')
     await expect(me.mutation(increment, { by: 0.5 })).rejects.toThrow('Steps are whole numbers')
+  })
+
+  test('an account keeps up to 200 todos', async () => {
+    const userId = await account(sandbox('todos'), { idleDays: 0 })
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 200; i++) await ctx.db.insert('todos', { userId, text: `todo ${i}`, completed: false })
+    })
+    await expect(t.withIdentity({ subject: userId }).mutation(createTodo, { text: 'one more' })).rejects.toThrow('up to 200 todos per account')
   })
 
   test('a backfill needs the admin role', async () => {

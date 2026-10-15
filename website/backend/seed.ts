@@ -1,6 +1,8 @@
 import { v } from 'convex/values'
 import { components } from './_generated/api'
-import { type MutationCtx, internalMutation } from './_generated/server'
+import type { MutationCtx } from './_generated/server'
+// Trigger-wrapped, so the seeded messages are counted like any others.
+import { internalMutation } from './aggregates'
 
 /**
  * Self-seeding: give a fresh account something to look at, so every playground
