@@ -5,27 +5,26 @@ const AUTH_CONFIG_TEMPLATE = `export { default } from 'nuxt-backend/auth.config'
 const HTTP_TEMPLATE = dedent`
   import { registerBackendRoutes } from 'nuxt-backend/http'
   import { httpRouter } from 'convex/server'
+  import { ai } from './ai'
   import { authComponent, createAuth, mcp } from './auth'
   import { billing } from './billing'
   import { email } from './email'
-  import { ai } from './ai'
 
-  // Mounts every inbound route the backend handles: the auth routes, the
+  // Mounts every inbound route the backend handles: the auth routes and the
+  // agent token exchange (/mcp/exchange) behind the app's MCP endpoint, the
   // billing events endpoint (/billing/events, BILLING_WEBHOOK_SECRET) that
   // keeps the reactive feature/credit cache fresh and fulfils gifts, the
   // email events endpoint (/email/events, EMAIL_WEBHOOK_SECRET) that makes
-  // useEmailStatus reactive, the metered AI stream endpoint (/ai/stream),
-  // and the agent token exchange (/mcp/exchange) behind the app's MCP
-  // endpoint. Every webhook delivery is signature-verified, deduped, logged,
-  // and fail-closed (503 until its secret is set). React to events via
+  // useEmailStatus reactive, and the metered AI stream endpoint (/ai/stream).
+  // Every webhook delivery is signature-verified, deduped, logged, and
+  // fail-closed (503 until its secret is set). React to events via
   // \`setupBilling({ events })\` / \`setupEmail({ events })\`.
   const http = httpRouter()
   registerBackendRoutes(http, {
-    auth: { authComponent, createAuth },
+    auth: { authComponent, createAuth, mcp },
     billing,
     email,
     ai,
-    mcp,
   })
 
   export default http
@@ -150,6 +149,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     import { components } from './_generated/api'
     import { internalAction } from './_generated/server'
     import { catalog } from './billing.generated'
+    import { email } from './email'
 
     // Subscriptions, discounts, prepaid credits & gift purchases. Billing
     // follows the tenant: with the default \`billTo: 'organization'\` the active
@@ -161,8 +161,10 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // nothing to add to your schema. The catalog (plans, packs, credit meters)
     // is declared in billing.catalog.ts and pushed with
     // \`npx nuxt-backend billing sync\`, which fills billing.generated.ts.
-    // The instance is exported for ai.ts (metered actions spend through it).
-    export const billing = setupBilling(components, { catalog })
+    // A gift's recipient hears of it through \`email\` (email.ts), which holds
+    // the template. The instance is exported for ai.ts (metered actions spend
+    // through it).
+    export const billing = setupBilling(components, { catalog, email })
 
     export const { provider } = billing
     // Checkout / portal / subscription / gift functions for \`useBilling\`.
@@ -186,6 +188,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
       syncProducts,
       getReceivedGifts,
       claimGift,
+      // The webhook delivery log, for DevTools: admins only, null for anyone else.
       getWebhookDeliveries,
       // Subscription lifecycle — upgrade/downgrade, cancel, uncancel,
       // pause/resume. Each resolves the caller's own billing entity, so a
@@ -247,7 +250,11 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
 
     // Transactional + marketing email over the backend component's email module.
     // Delivery uses the EMAIL_* env vars (optional — sends no-op until
-    // EMAIL_API_KEY is set). React to delivery events with
+    // EMAIL_API_KEY is set). It also holds the templates of every email the
+    // package sends (sign-in codes, welcome, invitations, gifts): auth.ts and
+    // billing.ts send through it. Restyle one, keeping the rest of its body:
+    //   templates: { welcome: (data, { byDefault }) => ({ ...byDefault(data), subject: 'Hi!' }) }
+    // React to delivery events with
     // \`setupEmail(components, { events: { 'email.bounced': async (ctx, event) => { ... } } })\`.
     export const email = setupEmail(components)
 
@@ -257,8 +264,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // Send a transactional email from your own server code: another action, a
     // scheduled function, or \`npx convex run email:send\`. Internal on purpose —
     // a public action that takes the recipient is an open relay on your verified
-    // domain for anyone who can sign in. The same transport powers auth OTP /
-    // verification / welcome / invitation email.
+    // domain for anyone who can sign in.
     export const send = internalAction({
       args: { to: v.string(), subject: v.string(), html: v.optional(v.string()), text: v.optional(v.string()) },
       returns: v.union(v.string(), v.null()),
@@ -327,7 +333,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
           email: ({ email, name }) => ({
             to: email,
             subject: 'How is it going?',
-            text: \`Hi \${name}, you signed up three days ago. Reply to this email if anything is in your way.\`,
+            text: \`Hi\${name ? \` \${name}\` : ''}, you signed up three days ago. Reply to this email if anything is in your way.\`,
           }),
         },
       ],
@@ -466,6 +472,7 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
     import { setupAuth } from 'nuxt-backend/auth'
     import { components, internal } from './_generated/api'
     import { query } from './_generated/server'
+    import { email } from './email'
     import { rateLimiter } from './rateLimiter'
     import { workflow } from './workflows'
 
@@ -488,9 +495,10 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
       // workspace invitations with an /accept-invitation page. Customize them
       // with \`admin: { … }\` and \`organization: { … }\`.
       //
-      // Email (sign-in and email-change codes, invitations) is delivered
-      // automatically through the backend component — configured by the
-      // EMAIL_* env vars. Throttle code sends and other auth-sensitive flows.
+      // Every auth email (sign-in and email-change codes, welcome,
+      // invitations) goes out through email.ts, which holds the templates.
+      email,
+      // Throttle code sends and other auth-sensitive flows.
       rateLimiter,
       // Start the onboarding sequence (workflows.ts) when a user signs up. The
       // packaged welcome email has already gone out.

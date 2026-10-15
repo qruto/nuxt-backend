@@ -9,7 +9,7 @@ definePageMeta({ middleware: 'auth' })
 // (verification, dedupe, size caps — the fail-closed edge), while the
 // consumer feed is the app's own `events` handlers reacting to a few
 // high-signal types (billing.ts / email.ts).
-const deliveries = useQuery(api.billing.getWebhookDeliveries, { limit: 15 })
+const deliveries = useQuery(api.billing.listWebhookDeliveries, { limit: 15 })
 const events = useQuery(api.billing.listWebhookEvents)
 const sendTest = useAction(api.email.sendTest)
 
@@ -129,10 +129,11 @@ function timeAgo(ts: number): string {
       variant="well"
     >
       <p class="hint">
-        The component's ring-buffer log behind
-        <code>billing.functions.getWebhookDeliveries</code> — the same feed
-        the doctor and DevTools read. Redeliver a webhook from the provider
-        dashboard and watch it land as <code>duplicate</code>.
+        The component's delivery log: the newest 200 verified deliveries, and
+        each kind of refused request counted on one row. Your app serves it to
+        admins through <code>getWebhookDeliveries</code>, which DevTools reads;
+        the playground shows it to every visitor. Redeliver a webhook from the
+        provider dashboard and watch it land as <code>duplicate</code>.
       </p>
       <p
         v-if="!deliveries?.length"
@@ -160,7 +161,7 @@ function timeAgo(ts: number): string {
             :tone="OUTCOME_TONES[delivery.outcome] ?? 'warn'"
             :dot="false"
           >
-            {{ delivery.outcome }}
+            {{ delivery.outcome }}{{ delivery.count && delivery.count > 1 ? ` ×${delivery.count}` : '' }}
           </StatusPill>
           <span
             v-if="delivery.note"

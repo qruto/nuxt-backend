@@ -269,6 +269,7 @@
     "fallow": "3.33.1",
     "happy-dom": "^20.14.6",
     "installed-check": "^11.0.0",
+    "lightningcss": "^1.33.0",
     "npm-run-all2": "^9.0.3",
     "nuxt": "catalog:",
     "oxc-parser": "^0.153.0",

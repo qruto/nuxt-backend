@@ -93,17 +93,22 @@ function creditsActivity(prev: BackendDevtoolsSnapshot['credits'], next: Backend
 }
 
 function webhookDraft(delivery: DevtoolsWebhookDeliverySnapshot): DevtoolsActivityDraft {
-  const detail = [delivery.service, delivery.type, delivery.note].filter(Boolean).join(' · ')
+  // A tally of several requests says how many it stands for by now.
+  const tally = delivery.count !== undefined && delivery.count > 1 ? `×${delivery.count}` : undefined
+  const detail = [delivery.service, delivery.type, tally, delivery.note].filter(Boolean).join(' · ')
   if (delivery.outcome === 'ok') return { kind: 'webhook', level: 'info', title: 'Webhook handled', detail }
   if (delivery.outcome === 'duplicate') return { kind: 'webhook', level: 'info', title: 'Webhook already handled', detail }
   if (delivery.outcome === 'unknown_type') return { kind: 'webhook', level: 'warn', title: 'Webhook of an unknown type', detail }
   return { kind: 'webhook', level: 'error', title: `Webhook refused: ${delivery.outcome.replaceAll('_', ' ')}`, detail }
 }
 
-function webhooksActivity(prev: BackendDevtoolsSnapshot['webhooks'], next: BackendDevtoolsSnapshot['webhooks']): DevtoolsActivityDraft[] {
-  const known = new Set(prev.map(delivery => `${delivery.service}:${delivery.deliveryId}:${delivery.receivedAt}`))
+function webhooksActivity(prev: BackendDevtoolsSnapshot, next: BackendDevtoolsSnapshot): DevtoolsActivityDraft[] {
+  // Rows that appear because the feed opened up (an admin signed in) are the
+  // log as it already stood, not deliveries that just arrived.
+  if (prev.webhookFeed !== next.webhookFeed) return []
+  const known = new Set(prev.webhooks.map(delivery => `${delivery.service}:${delivery.deliveryId}:${delivery.receivedAt}`))
   // The feed is newest first; the log reads oldest first.
-  return next
+  return next.webhooks
     .filter(delivery => !known.has(`${delivery.service}:${delivery.deliveryId}:${delivery.receivedAt}`))
     .reverse()
     .map(webhookDraft)
@@ -140,7 +145,7 @@ export function diffSection(key: DevtoolsPatchableSection, prev: BackendDevtools
     case 'billing': return billingActivity(prev.billing, next.billing)
     case 'entitlements': return featuresActivity(prev.entitlements, next.entitlements)
     case 'credits': return creditsActivity(prev.credits, next.credits)
-    case 'webhooks': return webhooksActivity(prev.webhooks, next.webhooks)
+    case 'webhooks': return webhooksActivity(prev, next)
     case 'emailLookup': return emailActivity(prev.emailLookup, next.emailLookup)
     case 'connection': return connectionActivity(prev.connection, next.connection)
     default: return []

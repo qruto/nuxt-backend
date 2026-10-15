@@ -8,7 +8,6 @@ import { setupMcp, type McpExchange } from '../integrations/mcp.js'
 import type { AuthBuildOptions, AuthIntegrations, AuthSetupComponents, DeviceSession, SetupAuthOptions } from './auth-types.js'
 import { buildAuthOptions } from './better-auth-options.js'
 import { componentAdapterRefs, createAuthComponent, resolveIntegrations } from './component.js'
-import { resolveTemplates } from './email.js'
 import { convexSignerJwt } from './plugins.js'
 import { identitySessionId, userSessions } from './sessions.js'
 import { workspaceQueries } from './workspaces.js'
@@ -28,8 +27,7 @@ export { APIError }
 // one responsibility per module.
 export type {
   AuthMutationCtx,
-  AuthEmailMessage,
-  AuthEmailSender,
+  AuthEmail,
   AuthRateLimitName,
   AuthRateLimiter,
   AuthCreatedUser,
@@ -41,8 +39,6 @@ export type {
   CanSignInVerdict,
   CanSignIn,
   AuthIntegrations,
-  AuthEmailTemplates,
-  AuthEmailTemplateOverrides,
   AdminPluginOptions,
   OrganizationPluginOptions,
   McpAuthOptions,
@@ -50,6 +46,8 @@ export type {
   AuthSetupComponents,
   DeviceSession,
 } from './auth-types.js'
+/** The agent token exchange `setupAuth` returns as `mcp`, for `registerBackendRoutes({ auth })`. */
+export type { McpExchange } from '../integrations/mcp.js'
 /** `setupAuth`'s `createAuth`: the auth instance for one request ctx. */
 type AuthFactory<DM extends GenericDataModel> = (ctx: GenericCtx<DM>) => { api: { revokeSession: (input: { body: { token: string }, headers: Headers }) => Promise<unknown> } }
 
@@ -164,26 +162,47 @@ function authApi<DM extends GenericDataModel>(
   }
 }
 
-/** The cross-component options, without the ones left unset. */
+/**
+ * Check what the types cannot: `email` is required, but an import cycle hands
+ * `setupAuth` `undefined` all the same, and then every code, invitation and
+ * welcome email stops without a word. A leftover 0.1 `integrations` key
+ * would leave the same hole.
+ */
+function assertSetupOptions(options: unknown): void {
+  const given = (options ?? {}) as { email?: { sendTemplate?: unknown }, integrations?: unknown }
+  if ('integrations' in given) {
+    throw new Error('[nuxt-backend] setupAuth no longer takes `integrations`: pass email, rateLimiter, canSignIn, onUserCreated and onUserDeleted at the top level of its options.')
+  }
+  if (typeof given.email?.sendTemplate !== 'function') {
+    throw new TypeError(
+      '[nuxt-backend] setupAuth needs `email`, the app\'s setupEmail instance, and got '
+      + `${given.email === undefined ? 'undefined' : 'something else'}. When backend/email.ts exports it, this is almost always an import cycle: `
+      + 'email.ts imports a module that imports auth.ts (functions.ts importing auth.ts while email.ts imports functions.ts, say), '
+      + 'so auth.ts runs before email.ts has exported `email`. Keep backend/email.ts free of imports that lead back to ./auth.',
+    )
+  }
+}
+
+/** The cross-component options. */
 function integrationsOf<DM extends GenericDataModel>(options: SetupAuthOptions<DM>): AuthIntegrations<DM> {
-  const { email, rateLimiter, onUserCreated, canSignIn, onUserDeleted, emailTemplates } = options
-  return Object.fromEntries(
-    Object.entries({ email, rateLimiter, onUserCreated, canSignIn, onUserDeleted, emailTemplates }).filter(([, value]) => value !== undefined),
-  ) as AuthIntegrations<DM>
+  const { email, rateLimiter, onUserCreated, canSignIn, onUserDeleted } = options
+  return { email, rateLimiter, onUserCreated, canSignIn, onUserDeleted }
 }
 
 /**
  * The app's auth, from one call: the auth instance factory, the functions the
- * scaffold re-exports, the agent token exchange, and the email templates in
- * effect.
+ * scaffold re-exports, and the agent token exchange. Every auth email goes
+ * out through the `email` instance, with the templates it holds.
  *
  * @example
  * ```ts
  * import { setupAuth } from 'nuxt-backend/auth'
  * import { components } from './_generated/api'
  * import { query } from './_generated/server'
+ * import { email } from './email'
  *
  * export const { authComponent, createAuth, getAuthUser } = setupAuth(components, query, {
+ *   email,
  *   canSignIn: async (ctx, { email }) => email.endsWith('@acme.com'),
  * })
  * ```
@@ -193,9 +212,10 @@ export function setupAuth<
 >(
   components: AuthSetupComponents,
   queryBuilder: QueryBuilder<DM, 'public'>,
-  options: SetupAuthOptions<DM> = {},
+  options: SetupAuthOptions<DM>,
 ) {
-  const { email: _email, rateLimiter: _rateLimiter, onUserCreated: _onUserCreated, canSignIn: _canSignIn, onUserDeleted: _onUserDeleted, emailTemplates: _emailTemplates, ...buildOptions } = options
+  assertSetupOptions(options)
+  const { email: _email, rateLimiter: _rateLimiter, onUserCreated: _onUserCreated, canSignIn: _canSignIn, onUserDeleted: _onUserDeleted, ...buildOptions } = options
   const authComponent = createAuthComponent<DM>(components.backend)
   const runtime = resolveIntegrations(components, integrationsOf(options))
 
@@ -233,7 +253,5 @@ export function setupAuth<
     createAuth,
     ...authApi(components, queryBuilder, buildOptions, createAuth),
     mcp,
-    /** The auth emails in effect, overrides included: what a preview page renders. */
-    emailTemplates: resolveTemplates(runtime),
   }
 }

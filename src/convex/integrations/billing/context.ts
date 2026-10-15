@@ -33,6 +33,43 @@ export function resolveLimit(limit: number | undefined): number {
   return Math.min(Math.max(Math.trunc(limit!), 1), 100)
 }
 
+/** What a refused provider request leaves in the deployment log — see {@link summarizeProviderError}. */
+interface ProviderErrorSummary {
+  name: string
+  status?: number
+  code?: string
+  message?: string
+  refused?: string[]
+}
+
+/**
+ * Reduce a provider SDK error to what may sit in the deployment log: its
+ * class, the HTTP status, the provider's error code, and for a validation
+ * refusal which fields were refused and by which rule. Never the error
+ * itself: the SDK's messages carry the raw response body, and the provider
+ * echoes rejected input back in it — emails, names, billing addresses —
+ * which Convex would keep.
+ */
+function summarizeProviderError(error: unknown): ProviderErrorSummary {
+  const fields = (typeof error === 'object' && error !== null ? error : {}) as Record<string, unknown>
+  const summary: ProviderErrorSummary = { name: error instanceof Error ? error.name : typeof error }
+  if (typeof fields.statusCode === 'number') summary.status = fields.statusCode
+  // The provider's own code for a typed refusal: `ResourceNotFound`, `NotPermitted`, …
+  if (typeof fields.error === 'string') summary.code = fields.error
+  // The SDK's fixed phrase for a payload it could not validate ("Input
+  // validation failed"); its full message appends the offending value.
+  if (typeof fields.rawMessage === 'string') summary.message = fields.rawMessage
+  if (Array.isArray(fields.detail)) summary.refused = fields.detail.slice(0, 10).map(describeRefusal)
+  return summary
+}
+
+/** One validation refusal as `body.email (value_error)`: where and which rule, never the value. */
+function describeRefusal(entry: unknown): string {
+  const { loc, type } = (typeof entry === 'object' && entry !== null ? entry : {}) as { loc?: unknown, type?: unknown }
+  const field = Array.isArray(loc) ? loc.join('.') : 'unknown field'
+  return typeof type === 'string' ? `${field} (${type})` : field
+}
+
 /**
  * What the billing modules share, resolved once per `setupBilling` call: the
  * configuration with its env-var fallbacks, the provider client, the component
@@ -58,6 +95,8 @@ export interface BillingContext {
   requireProviderAccess: (operation: string) => void
   unwrapProvider: <T>(result: { ok: true, value: T } | { ok: false, error: unknown }, operation: string) => T
   throttle: (ctx: RunWriteCtx, userId: string, what: string) => Promise<void>
+  customerOwner: (ctx: RunWriteCtx, customer: { id: string, metadata?: Record<string, unknown> | null }) => Promise<string | null>
+  requireAdmin: (ctx: { auth?: Auth }, what: string) => Promise<void>
 }
 
 export function createBillingContext(components: BillingComponents, config: SetupBillingConfig): BillingContext {
@@ -159,16 +198,17 @@ export function createBillingContext(components: BillingComponents, config: Setu
    * Unwrap a provider SDK result at the package boundary. Rethrowing the raw
    * SDK error would put the provider's own words — HTTP status, response body,
    * sometimes an expired-token hint — in front of a visitor: `<BillingHistory>`
-   * renders `orders.error` verbatim. The detail is logged instead, where it is
-   * a debugging aid rather than a leak, and the caller sees the same
-   * package-shaped message a missing token produces.
+   * renders `orders.error` verbatim. A summary is logged instead (class,
+   * status, provider code, refused fields — never the body, which echoes the
+   * request), and the caller sees the same package-shaped message a missing
+   * token produces.
    */
   const unwrapProvider = <T>(
     result: { ok: true, value: T } | { ok: false, error: unknown },
     operation: string,
   ): T => {
     if (result.ok) return result.value
-    logBackend('error', 'billing.provider_failed', `Billing ${operation} failed at the provider.`, result.error)
+    logBackend('error', 'billing.provider_failed', `Billing ${operation} failed at the provider.`, summarizeProviderError(result.error))
     throw new Error(
       `[nuxt-backend] Billing is temporarily unavailable — the provider refused the ${operation}. Try again shortly.`,
     )
@@ -183,6 +223,40 @@ export function createBillingContext(components: BillingComponents, config: Setu
     if (!config.rateLimiter) return
     const { ok } = await config.rateLimiter.limit(ctx, 'billingSync', { key: userId })
     if (!ok) throw new Error(`[nuxt-backend] Too many ${what} — try again shortly.`)
+  }
+
+  /**
+   * The billing entity a provider customer already pays for: the `userId` its
+   * metadata carries (every customer this package binds is tagged with it),
+   * else the entity the entitlement cache last synced it for. `null` for a
+   * customer no entity has claimed yet.
+   */
+  const customerOwner = async (
+    ctx: RunWriteCtx,
+    customer: { id: string, metadata?: Record<string, unknown> | null },
+  ): Promise<string | null> => {
+    const tagged = customer.metadata?.userId
+    if (typeof tagged === 'string' && tagged !== '') return tagged
+    const synced = await ctx.runQuery(cache.userByCustomer, { customerId: customer.id })
+    return typeof synced === 'string' && synced !== '' ? synced : null
+  }
+
+  /**
+   * The one gate of the admin-tier functions (`refundOrder`, the webhook
+   * log): `setupBilling`'s `requireAdmin` when given; otherwise an `admin`
+   * entry in the caller's `role` claim, which the admin plugin writes
+   * comma-separated, on an account that is not banned. Throws to refuse.
+   */
+  const requireAdmin = async (ctx: { auth?: Auth }, what: string): Promise<void> => {
+    if (config.requireAdmin) {
+      await config.requireAdmin(ctx)
+      return
+    }
+    const claims = await ctx.auth?.getUserIdentity() as unknown as { role?: unknown, banned?: unknown } | null | undefined
+    const roles = typeof claims?.role === 'string' ? claims.role.split(',').map(entry => entry.trim()) : []
+    if (!roles.includes('admin') || claims?.banned === true) {
+      throw new Error(`[nuxt-backend] ${what} is admin-only — sign in as an admin, or pass \`requireAdmin\` to setupBilling to define your own gate.`)
+    }
   }
 
   return {
@@ -205,5 +279,7 @@ export function createBillingContext(components: BillingComponents, config: Setu
     requireProviderAccess,
     unwrapProvider,
     throttle,
+    customerOwner,
+    requireAdmin,
   }
 }

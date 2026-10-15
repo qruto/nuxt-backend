@@ -22,6 +22,19 @@ function activePendings(pendings: PendingSpend[] | undefined, now: number): Pend
 }
 
 /**
+ * Refuse an amount the cache must never move: anything but a finite number
+ * above zero — or, for a settle's `finalAmount`, zero or more. `v.number()`
+ * admits `NaN` and the infinities, a negative debit is a credit, and a balance
+ * that once turns `NaN` compares false against every amount. The app layer
+ * checks first (`setupBilling`'s spends); this holds the same line for any
+ * other caller, before anything is written.
+ */
+function assertAmount(value: number, label: string, { orZero = false } = {}): void {
+  if (Number.isFinite(value) && (orZero ? value >= 0 : value > 0)) return
+  throw new Error(`[nuxt-backend] billing.${label} must be a finite number ${orZero ? 'of zero or more' : 'above zero'} (got ${value}).`)
+}
+
+/**
  * Reactive billing-entitlement cache served by the `backend` component itself
  * (the `billingEntitlements` table lives in this component's schema). Consumers
  * get feature-gating + credit balances out of the box without adding anything to
@@ -136,6 +149,7 @@ export const debit = mutation({
     reason: v.optional(v.union(v.literal('no-row'), v.literal('no-meter'), v.literal('insufficient'))),
   }),
   handler: async (ctx, { userId, meterId, amount, externalId, allowOverage }) => {
+    assertAmount(amount, 'debit: `amount`')
     const row = await ctx.db
       .query('billingEntitlements')
       .withIndex('userId', q => q.eq('userId', userId))
@@ -149,7 +163,9 @@ export const debit = mutation({
       return { ok: true, balance: row.meters[index]!.balance }
     }
     const meter = row.meters[index]!
-    if (meter.balance < amount && !allowOverage) {
+    // Written to fail closed: a balance that is not a number at all refuses
+    // the spend, where `balance < amount` would be false and let it through.
+    if (!(meter.balance >= amount) && !allowOverage) {
       return { ok: false, balance: meter.balance, reason: 'insufficient' as const }
     }
     const meters = [...row.meters]
@@ -184,9 +200,11 @@ const NOTHING_SETTLED: SettleOutcome = { settled: false, released: 0, balance: 0
  *
  * A token-priced call can only reserve an *estimate*, so the amount that
  * settles is usually lower than the amount that was debited. `finalAmount` is
- * clamped into `[0, reserved]` — settling MORE than was reserved would be a
+ * clamped to the reservation — settling MORE than was reserved would be a
  * second, unguarded debit, and the reservation is the only thing that made the
- * spend safe against a concurrent one.
+ * spend safe against a concurrent one. Below that it must be a finite number
+ * of zero or more: `settle` and `finalize` refuse anything else before this
+ * runs.
  *
  * `balanceBefore` is what the balance would be *without* this spend (what is
  * left plus what this reservation still holds), so a caller can tell whether
@@ -216,7 +234,7 @@ async function closeReservation(
     await ctx.db.patch('billingEntitlements', row._id, { pendingSpends: remaining, updatedAt: now })
     return NOTHING_SETTLED
   }
-  const final = Math.min(Math.max(finalAmount ?? entry.amount, 0), entry.amount)
+  const final = Math.min(finalAmount ?? entry.amount, entry.amount)
   const released = entry.amount - final
   const index = row.meters.findIndex(meter => meter.meterId === entry.meterId)
   const meter = index === -1 ? undefined : row.meters[index]!
@@ -253,6 +271,7 @@ export const settle = mutation({
   args: { userId: v.string(), externalId: v.string(), finalAmount: v.optional(v.number()) },
   returns: v.null(),
   handler: async (ctx, { userId, externalId, finalAmount }) => {
+    if (finalAmount !== undefined) assertAmount(finalAmount, 'settle: `finalAmount`', { orZero: true })
     await closeReservation(ctx, userId, externalId, finalAmount)
     return null
   },
@@ -280,6 +299,7 @@ export const finalize = mutation({
     releaseJobId: v.optional(v.string()),
   }),
   handler: async (ctx, { userId, externalId, finalAmount }) => {
+    if (finalAmount !== undefined) assertAmount(finalAmount, 'finalize: `finalAmount`', { orZero: true })
     return closeReservation(ctx, userId, externalId, finalAmount)
   },
 })
@@ -376,6 +396,7 @@ export const credit = mutation({
   args: { userId: v.string(), meterId: v.string(), amount: v.number() },
   returns: v.null(),
   handler: async (ctx, { userId, meterId, amount }) => {
+    assertAmount(amount, 'credit: `amount`')
     const row = await ctx.db
       .query('billingEntitlements')
       .withIndex('userId', q => q.eq('userId', userId))

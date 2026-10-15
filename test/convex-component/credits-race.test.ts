@@ -315,13 +315,23 @@ describe('settling at the actual amount (an estimate reserves, the run finalizes
     expect(await meter()).toMatchObject({ balance: 5, consumedUnits: 5 })
   })
 
-  test('a negative or zero final amount gives the whole reservation back', async () => {
+  test('a zero final amount gives the whole reservation back', async () => {
     await seed(10)
     await debit('free', 4)
 
-    expect(await t.mutation(api.billing.finalize, { userId: USER, externalId: 'free', finalAmount: -3 }))
+    expect(await t.mutation(api.billing.finalize, { userId: USER, externalId: 'free', finalAmount: 0 }))
       .toMatchObject({ settled: true, released: 4, balance: 10 })
     expect(await meter()).toMatchObject({ balance: 10, consumedUnits: 0 })
+  })
+
+  test('a negative final amount is refused, not read as zero — the reservation stays held', async () => {
+    await seed(10)
+    await debit('negative', 4)
+
+    await expect(t.mutation(api.billing.finalize, { userId: USER, externalId: 'negative', finalAmount: -3 }))
+      .rejects.toThrow(/`finalAmount` must be a finite number of zero or more/)
+    expect(await meter()).toMatchObject({ balance: 6, consumedUnits: 4 })
+    expect(await pendingIds()).toStrictEqual(['negative'])
   })
 
   test('without a final amount it settles the full reservation, as settle always did', async () => {

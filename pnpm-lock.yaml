@@ -180,6 +180,9 @@ importers:
       installed-check:
         specifier: ^11.0.0
         version: 11.0.0
+      lightningcss:
+        specifier: ^1.33.0
+        version: 1.33.0
       npm-run-all2:
         specifier: ^9.0.3
         version: 9.0.3

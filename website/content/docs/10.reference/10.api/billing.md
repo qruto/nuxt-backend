@@ -583,41 +583,6 @@ A gift purchase record, as stored by the `backend` component
 
 ***
 
-### GiftEmailMessage
-
-Defined in: [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts)
-
-The gift-notification email built by `giftEmail` ([SetupBillingConfig](#setupbillingconfig)).
-
-#### Properties
-
-| Property | Type | Defined in |
-| ------ | ------ | ------ |
-| <a id="to"></a> `to` | `string` | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="subject"></a> `subject` | `string` | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="html"></a> `html?` | `string` | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="text"></a> `text?` | `string` | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-
-***
-
-### GiftEmailData
-
-Defined in: [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts)
-
-The data available to the gift-notification email template.
-
-#### Properties
-
-| Property | Type | Description | Defined in |
-| ------ | ------ | ------ | ------ |
-| <a id="recipientemail-1"></a> `recipientEmail` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="purchasername-1"></a> `purchaserName?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="purchaseremail-1"></a> `purchaserEmail?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="message-1"></a> `message?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="claimurl"></a> `claimUrl` | `string` | The app URL where the recipient signs in (or up) to receive the gift. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-
-***
-
 ### BillingComponents
 
 Defined in: [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts)
@@ -636,7 +601,7 @@ object. Pass the whole object — each key is picked structurally:
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="polar"></a> `polar` | `ComponentApi` | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="backend"></a> `backend` | \{ `billing`: \{ `getByUser`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `CachedEntitlements` \| `null`\>; `upsert`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `customerId?`: `string`; `activeProductIds`: `string`[]; `benefits`: [`EntitlementBenefit`](#entitlementbenefit)[]; `meters`: [`EntitlementMeter`](#entitlementmeter)[]; \}, `null`\>; `userByCustomer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `customerId`: `string`; \}, `string` \| `null`\>; `debit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; `allowOverage?`: `boolean`; \}, \{ `ok`: `boolean`; `balance`: `number`; `reason?`: `"no-row"` \| `"no-meter"` \| `"insufficient"`; \}\>; `settle`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, `null`\>; `release`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; \}, `null`\>; `credit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; \}, `null`\>; `clearPendingSpends?`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\>; `deleteByUser?`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\>; `getBenefitMetadata`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `benefitIds`: `string`[]; \}, \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `updatedAt`: `number`; \}[]\>; `upsertBenefitMetadata`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entries`: \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; \}[]; \}, `null`\>; \}; `gifts`: \{ `create`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `recipientEmail`: `string`; `purchaserUserId`: `string`; `purchaserEmail?`: `string`; `purchaserName?`: `string`; `productIds`: `string`[]; `message?`: `string`; `billingCustomerId`: `string`; \}, `string`\>; `markPaid`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `billingOrderId?`: `string`; \}, `null`\>; `markNotified`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\>; `markClaimed`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; \}, `null`\>; `listByEmail`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; `status?`: `string`; \}, [`GiftRecord`](#giftrecord)[]\>; `get`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `giftId`: `string`; \}, [`GiftRecord`](#giftrecord) \| `null`\>; `resolveRecipient`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; \}, \| \{ `userId`: `string`; `organizationId`: `string` \| `null`; \} \| `null`\>; \}; `email?`: \{ `send`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, [`SendEmailOptions`](/docs/reference/api/email#sendemailoptions), `string` \| `null`\>; \}; `webhooks`: `WebhookLogRefs`; \} | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="backend"></a> `backend` | \{ `billing`: \{ `getByUser`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `CachedEntitlements` \| `null`\>; `upsert`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `customerId?`: `string`; `activeProductIds`: `string`[]; `benefits`: [`EntitlementBenefit`](#entitlementbenefit)[]; `meters`: [`EntitlementMeter`](#entitlementmeter)[]; \}, `null`\>; `userByCustomer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `customerId`: `string`; \}, `string` \| `null`\>; `debit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; `allowOverage?`: `boolean`; \}, \{ `ok`: `boolean`; `balance`: `number`; `reason?`: `"no-row"` \| `"no-meter"` \| `"insufficient"`; \}\>; `settle`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, `null`\>; `release`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; \}, `null`\>; `credit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; \}, `null`\>; `clearPendingSpends?`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\>; `deleteByUser?`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\>; `getBenefitMetadata`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `benefitIds`: `string`[]; \}, \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `updatedAt`: `number`; \}[]\>; `upsertBenefitMetadata`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entries`: \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; \}[]; \}, `null`\>; \}; `gifts`: \{ `create`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `recipientEmail`: `string`; `purchaserUserId`: `string`; `purchaserEmail?`: `string`; `purchaserName?`: `string`; `productIds`: `string`[]; `message?`: `string`; `billingCustomerId`: `string`; \}, `string`\>; `markPaid`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `billingOrderId?`: `string`; \}, `null`\>; `markNotified`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\>; `markClaimed`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; \}, `null`\>; `listByEmail`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; `status?`: `string`; \}, [`GiftRecord`](#giftrecord)[]\>; `get`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `giftId`: `string`; \}, [`GiftRecord`](#giftrecord) \| `null`\>; `resolveRecipient`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; \}, \| \{ `userId`: `string`; `organizationId`: `string` \| `null`; \} \| `null`\>; \}; `webhooks`: `WebhookLogRefs`; \} | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.billing` | \{ `getByUser`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `CachedEntitlements` \| `null`\>; `upsert`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `customerId?`: `string`; `activeProductIds`: `string`[]; `benefits`: [`EntitlementBenefit`](#entitlementbenefit)[]; `meters`: [`EntitlementMeter`](#entitlementmeter)[]; \}, `null`\>; `userByCustomer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `customerId`: `string`; \}, `string` \| `null`\>; `debit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; `allowOverage?`: `boolean`; \}, \{ `ok`: `boolean`; `balance`: `number`; `reason?`: `"no-row"` \| `"no-meter"` \| `"insufficient"`; \}\>; `settle`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, `null`\>; `release`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; \}, `null`\>; `credit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; \}, `null`\>; `clearPendingSpends?`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\>; `deleteByUser?`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\>; `getBenefitMetadata`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `benefitIds`: `string`[]; \}, \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `updatedAt`: `number`; \}[]\>; `upsertBenefitMetadata`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entries`: \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; \}[]; \}, `null`\>; \} | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.billing.getByUser` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `CachedEntitlements` \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.billing.upsert` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `customerId?`: `string`; `activeProductIds`: `string`[]; `benefits`: [`EntitlementBenefit`](#entitlementbenefit)[]; `meters`: [`EntitlementMeter`](#entitlementmeter)[]; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
@@ -657,8 +622,6 @@ object. Pass the whole object — each key is picked structurally:
 | `backend.gifts.listByEmail` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; `status?`: `string`; \}, [`GiftRecord`](#giftrecord)[]\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.gifts.get` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `giftId`: `string`; \}, [`GiftRecord`](#giftrecord) \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.gifts.resolveRecipient` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; \}, \| \{ `userId`: `string`; `organizationId`: `string` \| `null`; \} \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| `backend.email?` | \{ `send`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, [`SendEmailOptions`](/docs/reference/api/email#sendemailoptions), `string` \| `null`\>; \} | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| `backend.email.send` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, [`SendEmailOptions`](/docs/reference/api/email#sendemailoptions), `string` \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.webhooks` | `WebhookLogRefs` | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 
 ***
@@ -955,10 +918,23 @@ shape `registerBackendRoutes` mounts at `/billing/events`.
 
 ***
 
+### BillingEmail
+
+```ts
+type BillingEmail = Pick<Email, "sendTemplate">;
+```
+
+Defined in: [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts)
+
+What billing sends its email through: the app's `setupEmail` instance.
+
+***
+
 ### SetupBillingConfig
 
 ```ts
 type SetupBillingConfig = Omit<PolarConfig, "getUserInfo" | "organizationToken" | "server" | "webhookSecret"> & {
+  email: BillingEmail;
   accessToken?: string;
   environment?: "sandbox" | "production";
   webhookSecret?: string;
@@ -969,7 +945,6 @@ type SetupBillingConfig = Omit<PolarConfig, "getUserInfo" | "organizationToken" 
   multipleSubscriptions?: boolean;
   requireAdmin?: (ctx) => Promise<void>;
   events?: Partial<BillingWebhookEventHandlers>;
-  giftEmail?: (data) => GiftEmailMessage;
   canGift?: (ctx, input) => 
      | Promise<
      | true
@@ -993,8 +968,9 @@ Defined in: [src/convex/integrations/billing/types/setup.ts](https://github.com/
 Billing configuration. Service-neutral at the package boundary: the access
 token, environment, and webhook secret default to the required
 `BILLING_ACCESS_TOKEN` / `BILLING_ENVIRONMENT` / `BILLING_WEBHOOK_SECRET`
-env vars, so `setupBilling(components)` needs no env plumbing. Product maps
-and other provider passthrough config are accepted as-is, plus `billTo`.
+env vars, so `setupBilling(components, { email })` needs no env plumbing.
+Product maps and other provider passthrough config are accepted as-is,
+plus `billTo`.
 
 The billing entity resolves from identity claims out of the box — the
 active workspace (`billTo: 'organization'`, the default) or the signed-in
@@ -1005,6 +981,7 @@ overrides, not required wiring.
 
 | Name | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
+| `email` | [`BillingEmail`](#billingemail) | The app's `setupEmail` instance. A gift's recipient hears of it through its `gift` template once the purchase is paid; restyle it there, with `setupEmail(components, { templates: { gift } })`. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `accessToken?` | `string` | Provider access token. Defaults to the required `BILLING_ACCESS_TOKEN` env var. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `environment?` | `"sandbox"` \| `"production"` | Provider environment. Defaults to the required `BILLING_ENVIRONMENT` env var (`'sandbox'` otherwise). | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `webhookSecret?` | `string` | Webhook signature secret. Defaults to the required `BILLING_WEBHOOK_SECRET` env var. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
@@ -1015,7 +992,6 @@ overrides, not required wiring.
 | `multipleSubscriptions?` | `boolean` | Let one billing entity hold several live subscriptions at once (a plan plus add-ons, say). The upstream single-subscription read throws the moment a second one exists, so this switches `getCurrentSubscription` to the subscriptions-array-first shape ([CurrentSubscriptions](#currentsubscriptions)) and makes `subscriptionId` the way lifecycle actions pick their target. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `requireAdmin()?` | (`ctx`) => `Promise`\<`void`\> | Gate the admin-tier billing actions (`refundOrder` — moving real money). Throw from here to refuse. The default requires an `admin` role claim on the caller's identity (the admin plugin's role, carried on the JWT); supply your own to check permissions, a workspace role, or an allowlist. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `events?` | `Partial`\<[`BillingWebhookEventHandlers`](#billingwebhookeventhandlers)\> | React to billing webhook events, keyed by the provider's own event names (`'order.paid'`, `'subscription.active'`, …). Your handler runs **after** the built-in entitlement-cache refresh (and gift fulfilment), so features/credits read fresh inside it. Events outside the built-in refresh set are mounted too. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| `giftEmail()?` | (`data`) => [`GiftEmailMessage`](#giftemailmessage) | Restyle the gift-notification email sent to the recipient once their gift is paid. The default is a minimal, dependency-free template linking to `SITE_URL` (where signing in claims the gift automatically). | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `canGift()?` | (`ctx`, `input`) => \| `Promise`\< \| `true` \| \{ `allowed`: `false`; `message?`: `string`; \}\> \| `true` \| \{ `allowed`: `false`; `message?`: `string`; \} | Decide who may receive a gift, before `giftCheckout` creates a billing customer for the recipient — only addresses on your own domain, say, or only sandbox addresses on a public demo. Return `true` to allow, or a refusal whose `message` `giftCheckout` throws as a `ConvexError`, so it reaches the purchaser even where production redacts other errors (default: "This address can't receive gifts."). Called with the action ctx, so it can read your own tables; `recipientEmail` is lower-cased. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `credits?` | `Record`\<`string`, [`CreditMeterConfig`](#creditmeterconfig)\> | Named credit meters: spend by friendly name (`spendCredits({ meter: 'credits' })`, `useCredits('credits')`) instead of provider meter ids. Usually supplied via `catalog`; explicit entries here win. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `catalog?` | `Partial`\<`Record`\<`"sandbox"` \| `"production"`, [`BillingCatalogIds`](#billingcatalogids) \| `undefined`\>\> | The environment-keyed id map generated by `nuxt-backend billing sync` (`backend/billing.generated.ts`): fills `products` and `credits` for the active `BILLING_ENVIRONMENT`, so provider UUIDs live in exactly one generated file. Explicit `products`/`credits` config wins. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
@@ -1108,34 +1084,10 @@ export default defineBillingCatalog({
 
 ***
 
-### defaultGiftEmail()
-
-```ts
-function defaultGiftEmail(data): GiftEmailMessage;
-```
-
-Defined in: [src/convex/integrations/billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing.ts)
-
-The packaged default gift-notification email — minimal, dependency-free.
-Used when `giftEmail` ([SetupBillingConfig](#setupbillingconfig)) is not supplied; exported so
-apps can preview it or build their override on top of it.
-
-#### Parameters
-
-| Parameter | Type |
-| ------ | ------ |
-| `data` | [`GiftEmailData`](#giftemaildata) |
-
-#### Returns
-
-[`GiftEmailMessage`](#giftemailmessage)
-
-***
-
 ### setupBilling()
 
 ```ts
-function setupBilling(components, config?): Billing;
+function setupBilling(components, config): Billing;
 ```
 
 Defined in: [src/convex/integrations/billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing.ts)
@@ -1170,8 +1122,9 @@ the entity resolves from identity claims — zero wiring.
 ```ts
 import { setupBilling } from 'nuxt-backend/billing'
 import { components } from './_generated/api'
+import { email } from './email'
 
-const billing = setupBilling(components)
+const billing = setupBilling(components, { email })
 
 export const { provider } = billing
 export const { generateCheckoutLink, generateCustomerPortalUrl, giftCheckout } = billing.api

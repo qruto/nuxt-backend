@@ -28,10 +28,12 @@ afterEach(() => {
 
 describe('setupRateLimiter', () => {
   it('seeds only limits with a real consumer (no dead password/sign-in limits)', () => {
-    expect(Object.keys(DEFAULT_LIMITS)).toEqual(['emailOtp', 'emailOtpGlobal', 'emailChange', 'billingSync', 'ai', 'aiBudget', 'mcp', 'admin', 'invitation', 'invitationGlobal', 'agentRegistrationGlobal'])
+    expect(Object.keys(DEFAULT_LIMITS)).toEqual(['emailOtp', 'emailOtpGlobal', 'emailOtpAttempt', 'emailChange', 'billingSync', 'ai', 'aiBudget', 'mcp', 'admin', 'invitation', 'invitationGlobal', 'agentRegistrationGlobal'])
     expect(DEFAULT_LIMITS.emailOtp).toMatchObject({ kind: 'token bucket' })
     // The deployment-wide backstop is a fixed window: a ceiling per hour, not a smoothed rate.
     expect(DEFAULT_LIMITS.emailOtpGlobal).toMatchObject({ kind: 'fixed window', rate: 300 })
+    // Guesses at a code, per address, while one is waiting: ten an hour.
+    expect(DEFAULT_LIMITS.emailOtpAttempt).toMatchObject({ kind: 'token bucket', rate: 10, period: 60 * 60 * 1000, capacity: 10 })
     expect(DEFAULT_LIMITS.ai).toMatchObject({ kind: 'token bucket', rate: 30 })
     // The credit budget is a period allowance that resets, not a smoothed rate.
     expect(DEFAULT_LIMITS.aiBudget).toMatchObject({ kind: 'fixed window' })
@@ -70,6 +72,7 @@ describe('setup factories', () => {
 
   it('setupBilling exposes the provider client, ready-made functions, and SaaS helpers', () => {
     const billing = setupBilling(fakeComponents, {
+      email: { sendTemplate: async () => null },
       getUserInfo: async () => ({ userId: 'u1', email: 'a@b.com' }),
       currentUserId: async () => 'u1',
     })

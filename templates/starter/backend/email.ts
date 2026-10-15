@@ -6,7 +6,11 @@ import { admin } from './functions'
 
 // Transactional + marketing email over the backend component's email module.
 // Delivery uses the EMAIL_* env vars (optional — sends no-op until
-// EMAIL_API_KEY is set). React to delivery events with
+// EMAIL_API_KEY is set). It also holds the templates of every email the
+// package sends (sign-in codes, welcome, invitations, gifts): auth.ts and
+// billing.ts send through it. Restyle one, keeping the rest of its body:
+//   templates: { welcome: (data, { byDefault }) => ({ ...byDefault(data), subject: 'Hi!' }) }
+// React to delivery events with
 // `setupEmail(components, { events: { 'email.bounced': async (ctx, event) => { ... } } })`.
 export const email = setupEmail(components)
 
@@ -16,8 +20,7 @@ export const { getEmailStatus } = email.api
 // Send a transactional email from your own server code: another action, a
 // scheduled function, or `npx convex run email:send`. Internal on purpose —
 // a public action that takes the recipient is an open relay on your verified
-// domain for anyone who can sign in. The same transport powers auth OTP /
-// verification / welcome / invitation email.
+// domain for anyone who can sign in.
 export const send = internalAction({
   args: { to: v.string(), subject: v.string(), html: v.optional(v.string()), text: v.optional(v.string()) },
   returns: v.union(v.string(), v.null()),

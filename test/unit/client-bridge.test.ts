@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { AnyComponents } from 'convex/server'
 import * as clientBridge from '../../src/convex/client'
 import { buildAuthOptions } from '../../src/convex/client/better-auth-options'
+import { setupEmail } from '../../src/convex/integrations/email'
 
 const fakeComponent = {
   adapter: {
@@ -12,6 +13,7 @@ const fakeComponent = {
 } as never
 
 const fakeAppComponent = fakeComponent as unknown as AnyComponents[string]
+const email = setupEmail({ backend: { email: { send: 'backend/email:send' } } } as never)
 
 describe('Convex component client bridge', () => {
   it('creates Better Auth options without requiring runtime env at import time', () => {
@@ -41,7 +43,7 @@ describe('Convex component client bridge', () => {
   it('remounts the auth queries through setupAuth', async () => {
     const queryBuilder = vi.fn(definition => definition)
 
-    const authApi = clientBridge.setupAuth({ backend: fakeAppComponent }, queryBuilder as never)
+    const authApi = clientBridge.setupAuth({ backend: fakeAppComponent }, queryBuilder as never, { email })
 
     // One query per api member: getAuthUser, the authConfig diagnostics, the
     // workspace reads and the session list (updateProfile and revokeSession
@@ -63,17 +65,33 @@ describe('Convex component client bridge', () => {
   it('keeps setupAuth as the convenience composition of the client patterns', () => {
     const queryBuilder = vi.fn(definition => definition)
 
-    const authSetup = clientBridge.setupAuth({ backend: fakeAppComponent }, queryBuilder as never)
+    const authSetup = clientBridge.setupAuth({ backend: fakeAppComponent }, queryBuilder as never, { email })
 
     expect(typeof authSetup.createAuth).toBe('function')
     expect(authSetup).not.toHaveProperty('createAuthOptions')
     expect(authSetup).not.toHaveProperty('options')
     expect(authSetup).toHaveProperty('authComponent')
-    // The auth emails in effect, for a preview page.
-    expect(authSetup.emailTemplates.otp({ email: 'a@b.com', otp: '123456', type: 'change-email' }).subject).toBe('Confirm your new email')
+    // The templates live with the email instance, which renders previews.
+    expect(authSetup).not.toHaveProperty('emailTemplates')
     expect(authSetup).toHaveProperty('getAuthUser')
     // The agent token exchange rides along for http.ts to mount.
     expect(typeof authSetup.mcp.exchangeHandler).toBe('function')
+  })
+
+  // The types require `email`, but an import cycle hands setupAuth
+  // `undefined` all the same — and then every code, invitation and welcome
+  // email would stop without a word.
+  it('refuses to start without the email instance, naming the likely import cycle', () => {
+    const setup = (options: unknown) => () => clientBridge.setupAuth({ backend: fakeAppComponent }, vi.fn() as never, options as never)
+    expect(setup({ email: undefined })).toThrow('setupAuth needs `email`, the app\'s setupEmail instance, and got undefined')
+    expect(setup({ email: undefined })).toThrow('import cycle')
+    expect(setup({})).toThrow('got undefined')
+    expect(setup({ email: { send: vi.fn() } })).toThrow('got something else')
+  })
+
+  it('refuses the 0.1 integrations key instead of ignoring what it holds', () => {
+    const setup = () => clientBridge.setupAuth({ backend: fakeAppComponent }, vi.fn() as never, { email, integrations: { rateLimiter: {} } } as never)
+    expect(setup).toThrow('setupAuth no longer takes `integrations`')
   })
 })
 
@@ -141,7 +159,7 @@ describe('workspace + profile api', () => {
     const queryBuilder = vi.fn(definition => definition)
     // The queries come back as raw definitions (the fake builder is identity);
     // updateProfile is a real mutationGeneric, whose raw handler is `_handler`.
-    return clientBridge.setupAuth({ backend: fakeAppComponent }, queryBuilder as never) as unknown as {
+    return clientBridge.setupAuth({ backend: fakeAppComponent }, queryBuilder as never, { email }) as unknown as {
       listWorkspaces: { handler: Handler }
       listWorkspaceMembers: { handler: Handler }
       updateProfile: { _handler: Handler }

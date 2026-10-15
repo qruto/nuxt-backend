@@ -2,11 +2,14 @@ import { setupBilling, type DiscountInput } from 'nuxt-backend/billing'
 import { v } from 'convex/values'
 import { components, internal } from './_generated/api'
 import { env, internalAction, internalMutation } from './_generated/server'
+import { email } from './email'
 import { rateLimiter } from './rateLimiter'
 
-// CUSTOMIZATION: explicit billing config instead of the env-var defaults, a
-// consumer webhook hook composed after the built-ins, and a custom gift email.
+// CUSTOMIZATION: explicit billing config instead of the env-var defaults, and
+// a consumer webhook hook composed after the built-ins.
 export const billing = setupBilling(components, {
+  // The gift notification is restyled in email.ts.
+  email,
   // Explicit values win over the BILLING_* env defaults (same names here, but
   // any source works — a secrets manager, per-tenant config, …).
   accessToken: env.BILLING_ACCESS_TOKEN,
@@ -22,12 +25,6 @@ export const billing = setupBilling(components, {
       })
     },
   },
-  // CUSTOMIZATION: the gift notification the recipient receives.
-  giftEmail: ({ recipientEmail, purchaserName, message, claimUrl }) => ({
-    to: recipientEmail,
-    subject: `${purchaserName ?? 'Someone'} sent you a gift on Advanced example`,
-    text: `${message ? `“${message}”\n\n` : ''}Sign in to receive it: ${claimUrl}\n\n(Custom template from convex/billing.ts.)`,
-  }),
 })
 
 export const { provider } = billing
@@ -49,6 +46,7 @@ export const {
   syncProducts,
   getReceivedGifts,
   claimGift,
+  // The webhook delivery log, for DevTools: admins only, null for anyone else.
   getWebhookDeliveries,
   updateSubscription,
   cancelSubscription,

@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { BACKEND_PAGE_DEFS } from '../../src/pages'
 import { at, contentFile, documentedKeys, GENERATED_REFERENCE, interfaceKeys, read, walk } from './helpers'
 
 // The hand-written docs against the code, in both directions: every module
@@ -229,9 +230,73 @@ describe('nothing names what 0.2 removed', () => {
     ['sendVerificationEmail', 'every address is verified by code'],
     ['email-change-requested', 'an email change is by code: email-changed'],
     ['verification-sent', 'every address is verified by code'],
+    ['`emailTemplates`', 'the templates live on setupEmail'],
+    ['emailTemplates:', 'the templates live on setupEmail'],
+    ['giftEmail', 'the gift email is the gift template on setupEmail'],
+    ['AuthEmailSender', 'setupAuth sends through the setupEmail instance'],
+    ['AuthEmailTemplates', 'the templates live on setupEmail'],
+    ['gift_email_unsent', 'the gift email goes through the email instance'],
   ])('no file still offers %s (%s)', (needle) => {
     const offenders = files.filter(file => read(file).includes(needle)).map(file => file.replace(`${process.cwd()}/`, ''))
     expect(offenders).toEqual([])
+  })
+
+  // A page key takes a path; 0.1 also took `true` and `false`. A needle per
+  // spelling missed `profile: false` inside a `pages: { … }` sample, so every
+  // `pages: {` block is read as code, braces balanced, for a page key set to
+  // a boolean, and prose for a `pages.<key>:` one.
+  const pageKeys = new Set<string>(BACKEND_PAGE_DEFS.map(def => def.key))
+  function booleanPageValues(text: string): string[] {
+    const found = [...text.matchAll(/\bpages\.(?:<\w+>|\w+)\s*:\s*(?:true|false)\b/g)].map(([entry]) => entry)
+    for (const match of text.matchAll(/\bpages\s*:\s*\{/g)) {
+      const open = match.index + match[0].length - 1
+      let close = open
+      for (let depth = 0; close < text.length; close++) {
+        if (text[close] === '{') depth++
+        else if (text[close] === '}' && --depth === 0) break
+      }
+      const entries = [...text.slice(open, close).matchAll(/\b(\w+)\s*:\s*(?:true|false)\b/g)]
+      found.push(...entries.filter(([, key]) => pageKeys.has(key!)).map(([entry]) => entry))
+    }
+    return found
+  }
+
+  it('reads a boolean page value wherever docs could show one', () => {
+    expect(booleanPageValues('```ts\nbackend: {\n  pages: {\n    pricing: \'/plans\',\n    profile: false,      // bring your own\n  },\n}\n```')).toEqual(['profile: false'])
+    expect(booleanPageValues('A page disabled with `pages.<key>: false` gets no rule; `pages.login: true` mounts it.')).toEqual(['pages.<key>: false', 'pages.login: true'])
+    expect(booleanPageValues('pages: { acceptInvitation: true, agentConsent: \'/consent\' }')).toEqual(['acceptInvitation: true'])
+    expect(booleanPageValues('pages: { pricing: \'/plans\' }, devtools: { enabled: true }, autoClaim: false')).toEqual([])
+  })
+
+  it('no file shows a page turned on or off with a boolean (every page mounts)', () => {
+    const offenders = files.flatMap(file => booleanPageValues(read(file)).map(entry => `${file.replace(`${process.cwd()}/`, '')}: ${entry}`))
+    expect(offenders).toEqual([])
+  })
+})
+
+describe('the docs links the module prints', () => {
+  // An error or a warning links its docs section by URL: each one lands on a
+  // page that exists, at a heading it has.
+  const anchors = (markdown: string) => [...markdown.matchAll(/^#{1,6} (.+)$/gm)].map(([, text]) => text!
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/^(\d)/, '_$1'))
+  const links = [...new Set(walk('src', ['.ts', '.vue']).flatMap(file => [...read(file).matchAll(/https:\/\/nuxt-backend\.dev(\/docs\/[\w/-]*\w(?:#[\w-]+)?)/g)].map(([, target]) => target!)))]
+
+  it('finds them', () => {
+    expect(links).toEqual(expect.arrayContaining([
+      '/docs/ship/migrate/upgrade#pages-the-stylesheet-and-the-webhook-log-are-always-on',
+      '/docs/ui/pages#caches',
+    ]))
+  })
+
+  it.each(links)('%s', (target) => {
+    const [route, anchor] = target.split('#') as [string, string | undefined]
+    const page = read(contentFile(route))
+    if (anchor) expect(anchors(page), `${route} has no heading #${anchor}`).toContain(anchor)
   })
 })
 

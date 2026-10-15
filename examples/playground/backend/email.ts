@@ -3,7 +3,6 @@ import { ConvexError, v } from 'convex/values'
 import { isAllowedTestEmail, normalizeTestEmail, TEST_EMAIL_HELP } from '../utils/testEmail'
 import { api, components, internal } from './_generated/api'
 import { action, internalMutation, query } from './_generated/server'
-import { authComponent } from './auth'
 import { admin } from './functions'
 import { emailLimits, throttle } from './rateLimiter'
 
@@ -14,6 +13,19 @@ import { emailLimits, throttle } from './rateLimiter'
 // address nor the email id: the feed is shared, an address is the key to its
 // account, and an id opens that email's delivery status (getEmailStatus).
 export const email = setupEmail(components, {
+  // Branded OTP subject: a template override changes the message body while
+  // the transport stays the packaged one (demoed on /playground/platform/email).
+  // Auth sends its codes through this instance.
+  templates: {
+    // The first code of an email change keeps the packaged words and warning.
+    otp: (data, { byDefault }) => data.reason === 'email-change'
+      ? byDefault(data)
+      : {
+          to: data.email,
+          subject: `Your nuxt-backend playground ${data.type === 'sign-in' ? 'sign-in' : data.type} code`,
+          text: `Your code: ${data.otp}\n\nSent by the nuxt-backend playground with a custom template from backend/email.ts.`,
+        },
+  },
   events: {
     'email.delivered': async (ctx, event) => {
       await ctx.runMutation(internal.billing.recordWebhookEvent, {
@@ -120,10 +132,11 @@ export const listSentEmails = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) return []
-    const user = await authComponent.getAuthUser(ctx)
+    // The subject is the user id. Reading it from the identity keeps this
+    // file free of auth.ts, which sends its email through this one.
     return ctx.db
       .query('sentEmails')
-      .withIndex('userId', q => q.eq('userId', user._id))
+      .withIndex('userId', q => q.eq('userId', identity.subject))
       .order('desc')
       .take(10)
   },

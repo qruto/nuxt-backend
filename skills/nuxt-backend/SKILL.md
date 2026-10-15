@@ -79,7 +79,8 @@ sign-in codes print in the terminal that runs `dev`.
   with `<FeatureBoundary>`, and render plans with `<PricingTable>`. Plan copy comes from
   `appConfig.backend.billing.plans` and `packs`.
 - **Email:** transactional mail goes through `backend/email.ts` (`setupEmail`), and
-  `useEmailStatus(id)` tracks delivery. Test mode is on until `EMAIL_TEST_MODE=false`.
+  `useEmailStatus(id)` tracks delivery. The package's own emails (sign-in codes, welcome,
+  invitations, gifts) go through it too: restyle them with `setupEmail(components, { templates })`. Test mode is on until `EMAIL_TEST_MODE=false`.
   Never expose a public function that takes a recipient: the scaffolded `send` is an
   `internalAction`. Call it from server code with an address you trust, or use
   `admin.action` (like `sendAsAdmin`) when a person types the address.

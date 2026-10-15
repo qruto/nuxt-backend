@@ -27,7 +27,7 @@ Props, emits and slots for every component the module registers are listed in [C
 
 ::card-group
   :::card{icon="i-lucide-layout-template" title="Default Pages" to="/docs/ui/pages"}
-  Which routes the module mounts, who can open them, the component behind each, and how search engines treat them.
+  Which routes the module mounts, who can open them, the component behind each, and how search engines and caches treat them.
   :::
 
   :::card{icon="i-lucide-palette" title="Customization" to="/docs/ui/customize"}

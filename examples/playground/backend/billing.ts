@@ -5,6 +5,7 @@ import { isSandboxIdentity, SANDBOX_IDENTITY_HELP } from '../utils/testEmail'
 import { catalog } from './billing.generated'
 import { internalAction, internalMutation, query } from './_generated/server'
 import { authComponent } from './auth'
+import { email } from './email'
 import { admin } from './functions'
 import { rateLimiter } from './rateLimiter'
 
@@ -13,6 +14,8 @@ import { rateLimiter } from './rateLimiter'
 // feature/credit cache lives inside the backend component, so there's nothing
 // to add to this schema.
 export const billing = setupBilling(components, {
+  // A gift's recipient hears of it through email.ts, which holds the template.
+  email,
   // Throttle syncEntitlements per billing entity (guards the live provider fan-out).
   rateLimiter,
   // The catalog — plans, packs, the credit meter and feature benefits — is
@@ -37,9 +40,10 @@ export const billing = setupBilling(components, {
     isSandboxIdentity(recipientEmail) || { allowed: false, message: SANDBOX_IDENTITY_HELP },
   // The consumer events map: react to verified webhook events after the
   // built-in cache refresh ran. The showcase logs a few high-signal types into
-  // its own feed table — the packaged delivery log (getWebhookDeliveries,
-  // shown on /playground/platform/webhooks) already records *every* delivery
-  // and its outcome, so consumer handlers are for app reactions, not auditing.
+  // its own feed table — the packaged delivery log (listWebhookDeliveries
+  // below, shown on /playground/platform/webhooks) already records *every*
+  // delivery and its outcome, so consumer handlers are for app reactions, not
+  // auditing.
   events: {
     'order.paid': async (ctx, event) => {
       await ctx.runMutation(internal.billing.recordWebhookEvent, {
@@ -91,6 +95,7 @@ export const {
   syncProducts,
   getReceivedGifts,
   claimGift,
+  // The webhook delivery log, for DevTools: admins only, null for anyone else.
   getWebhookDeliveries,
   // Subscription lifecycle — upgrade/downgrade, cancel, uncancel,
   // pause/resume. Each resolves the caller's own billing entity, so a
@@ -135,6 +140,20 @@ export const listWebhookEvents = query({
   handler: async (ctx) => {
     if (!(await ctx.auth.getUserIdentity())) return []
     return ctx.db.query('webhookEvents').withIndex('createdAt').order('desc').take(10)
+  },
+})
+
+/**
+ * The packaged delivery log, for every signed-in visitor. The package serves
+ * it to admins only (`getWebhookDeliveries`); the playground shows it to
+ * everyone, since its rows carry provider ids, event types and outcomes, never
+ * an address. A burst of refused requests is one row with a `count`.
+ */
+export const listWebhookDeliveries = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    if (!(await ctx.auth.getUserIdentity())) return []
+    return await ctx.runQuery(components.backend.webhooks.listRecent, { limit: Math.min(limit ?? 15, 50) })
   },
 })
 

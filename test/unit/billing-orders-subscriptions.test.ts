@@ -3,6 +3,7 @@ import { checkoutsCreate } from '@polar-sh/sdk/funcs/checkoutsCreate.js'
 import { customersCreate } from '@polar-sh/sdk/funcs/customersCreate.js'
 import { customersGetState } from '@polar-sh/sdk/funcs/customersGetState.js'
 import { customersList } from '@polar-sh/sdk/funcs/customersList.js'
+import { customersUpdate } from '@polar-sh/sdk/funcs/customersUpdate.js'
 import { discountsCreate } from '@polar-sh/sdk/funcs/discountsCreate.js'
 import { discountsDelete } from '@polar-sh/sdk/funcs/discountsDelete.js'
 import { discountsList } from '@polar-sh/sdk/funcs/discountsList.js'
@@ -27,6 +28,7 @@ vi.mock('@polar-sh/sdk/funcs/checkoutsCreate.js', () => ({ checkoutsCreate: vi.f
 vi.mock('@polar-sh/sdk/funcs/customersCreate.js', () => ({ customersCreate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/customersGetState.js', () => ({ customersGetState: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/customersList.js', () => ({ customersList: vi.fn() }))
+vi.mock('@polar-sh/sdk/funcs/customersUpdate.js', () => ({ customersUpdate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/discountsCreate.js', () => ({ discountsCreate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/discountsDelete.js', () => ({ discountsDelete: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/discountsList.js', () => ({ discountsList: vi.fn() }))
@@ -42,6 +44,7 @@ const mockCheckoutsCreate = vi.mocked(checkoutsCreate)
 const mockCustomersCreate = vi.mocked(customersCreate)
 const mockCustomersGetState = vi.mocked(customersGetState)
 const mockCustomersList = vi.mocked(customersList)
+const mockCustomersUpdate = vi.mocked(customersUpdate)
 const mockDiscountsCreate = vi.mocked(discountsCreate)
 const mockDiscountsDelete = vi.mocked(discountsDelete)
 const mockDiscountsList = vi.mocked(discountsList)
@@ -80,6 +83,9 @@ const components = {
   },
 } as never
 
+/** Nothing here pays a gift, so the email instance only has to be one. */
+const email = { sendTemplate: async () => null }
+
 /**
  * Bills the signed-in user with a configured provider token, so the billing
  * entity is whatever {@link makeCtx}'s identity claims say — the same
@@ -87,6 +93,7 @@ const components = {
  */
 function make(overrides: Partial<SetupBillingConfig> = {}) {
   return setupBilling(components, {
+    email,
     accessToken: 'oat_test',
     billTo: 'user',
     ...overrides,
@@ -270,16 +277,65 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
   it('reports a failed provider update in this package’s own words', async () => {
     const billing = make()
     withSubscriptions(billing)
-    const error = new Error('subscription locked')
+    const error = Object.assign(new Error('subscription locked'), { name: 'SubscriptionLocked', statusCode: 409, error: 'SubscriptionLocked' })
     mockSubscriptionsUpdate.mockResolvedValue({ ok: false, error } as never)
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     // The provider's own message can carry a status line and a response body,
     // and these failures render straight into the UI — so the caller sees a
-    // package-shaped message and the detail goes to the server log.
+    // package-shaped message and a summary goes to the server log.
     await expect(billing.resumeSubscription(makeCtx() as never))
       .rejects.toThrow(/\[nuxt-backend\] Billing is temporarily unavailable/)
-    expect(logged).toHaveBeenCalledWith(expect.stringContaining('failed at the provider'), error)
+    expect(logged).toHaveBeenCalledWith(
+      expect.stringContaining('failed at the provider'),
+      { name: 'SubscriptionLocked', status: 409, code: 'SubscriptionLocked' },
+    )
+    logged.mockRestore()
+  })
+
+  // A refused request comes back with the request echoed in it: the SDK puts
+  // the raw response body in the message, and a validation refusal lists each
+  // rejected value. Convex keeps logs, so none of that may reach them.
+  it('logs which fields the provider refused, never the values it echoed', async () => {
+    const billing = make()
+    withSubscriptions(billing)
+    const detail = [
+      { loc: ['body', 'customer_email'], msg: 'value is not a valid email address', type: 'value_error', input: 'ada@example.com' },
+      { loc: ['body', 'billing_address', 'line1'], msg: 'Field required', type: 'missing', input: { line2: '1 High St' } },
+    ]
+    const body = JSON.stringify({ detail })
+    const error = Object.assign(new Error(`API error occurred: ${body}`), { name: 'HTTPValidationError', statusCode: 422, body, detail })
+    mockSubscriptionsUpdate.mockResolvedValue({ ok: false, error } as never)
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(billing.resumeSubscription(makeCtx() as never)).rejects.toThrow(/temporarily unavailable/)
+
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining('billing.provider_failed'), {
+      name: 'HTTPValidationError',
+      status: 422,
+      refused: ['body.customer_email (value_error)', 'body.billing_address.line1 (missing)'],
+    })
+    const written = JSON.stringify(logged.mock.calls)
+    expect(written).not.toContain('ada@example.com')
+    expect(written).not.toContain('High St')
+    logged.mockRestore()
+  })
+
+  it('keeps the SDK’s fixed phrase for a payload it could not validate, not the value', async () => {
+    const billing = make()
+    withSubscriptions(billing)
+    const error = Object.assign(new Error('Input validation failed: expected an email, got "ada@example"'), {
+      name: 'SDKValidationError',
+      rawMessage: 'Input validation failed',
+      rawValue: { customerEmail: 'ada@example' },
+    })
+    mockSubscriptionsUpdate.mockResolvedValue({ ok: false, error } as never)
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(billing.resumeSubscription(makeCtx() as never)).rejects.toThrow(/temporarily unavailable/)
+
+    expect(logged).toHaveBeenCalledWith(expect.anything(), { name: 'SDKValidationError', message: 'Input validation failed' })
+    expect(JSON.stringify(logged.mock.calls)).not.toContain('ada@example')
     logged.mockRestore()
   })
 })
@@ -287,7 +343,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 describe('degradation without BILLING_ACCESS_TOKEN', () => {
   /** No `accessToken`, and the env var is unset in the test runner. */
   function unconfigured() {
-    return setupBilling(components, { billTo: 'user' } as SetupBillingConfig)
+    return setupBilling(components, { email, billTo: 'user' } as SetupBillingConfig)
   }
 
   it.each([
@@ -666,6 +722,7 @@ describe('order.refunded → pending spends', () => {
       },
     }
     const billing = setupBilling(older as never, {
+      email,
       accessToken: 'oat_test',
       billTo: 'user',
     } as SetupBillingConfig)
@@ -825,10 +882,14 @@ describe('checkout customization', () => {
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:insertCustomer', { id: 'cus_new', userId: 'u1' })
   })
 
-  it('reuses an existing provider customer found by email', async () => {
+  it('reuses an existing provider customer found by email, tagging it for the entity', async () => {
     const billing = make()
     primeCheckout(billing, null)
-    mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'cus_existing' }] } } } as never)
+    mockCustomersList.mockResolvedValue({
+      ok: true,
+      value: { result: { items: [{ id: 'cus_existing', metadata: { giftRecipient: 'true' } }] } },
+    } as never)
+    mockCustomersUpdate.mockResolvedValue({ ok: true, value: {} } as never)
     const ctx = makeCtx()
 
     await invoke(billing.api.generateCheckoutLink)(ctx, {
@@ -836,11 +897,101 @@ describe('checkout customization', () => {
     })
 
     expect(mockCustomersCreate).not.toHaveBeenCalled()
+    // Claimed the way a created customer is: the tag is what the next entity
+    // meeting this email is refused on, and what the first webhook resolves by.
+    expect(mockCustomersUpdate).toHaveBeenCalledWith(expect.anything(), {
+      id: 'cus_existing',
+      customerUpdate: { metadata: { giftRecipient: 'true', userId: 'u1' } },
+    })
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:insertCustomer', { id: 'cus_existing', userId: 'u1' })
     expect(mockCheckoutsCreate).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ customerId: 'cus_existing' }),
     )
+  })
+
+  it('adopts a customer already tagged for this entity without writing to it', async () => {
+    const billing = make()
+    primeCheckout(billing, null)
+    mockCustomersList.mockResolvedValue({
+      ok: true,
+      value: { result: { items: [{ id: 'cus_mine', metadata: { userId: 'u1' } }] } },
+    } as never)
+    const ctx = makeCtx()
+
+    await invoke(billing.api.generateCheckoutLink)(ctx, {
+      productIds: ['prod_a'], origin: 'https://app', successUrl: 'https://app/done',
+    })
+
+    expect(mockCustomersUpdate).not.toHaveBeenCalled()
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:insertCustomer', { id: 'cus_mine', userId: 'u1' })
+  })
+})
+
+// The provider keys customers by email, and in workspace mode one member's
+// email stands behind every workspace they check out for. Adopting the
+// customer another workspace already bills through would merge the two: one
+// set of benefits and credits, and a single-subscription read that throws.
+describe('checkout never adopts another entity’s customer', () => {
+  const args = { productIds: ['prod_a'], origin: 'https://app', successUrl: 'https://app/done' }
+
+  function workspaceBilling() {
+    const billing = make({ billTo: 'organization' })
+    vi.spyOn(billing.provider, 'getCustomerByUserId').mockResolvedValue(null as never)
+    mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout/1' } } as never)
+    return billing
+  }
+
+  function existingCustomer(metadata: Record<string, string>) {
+    mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'cus_personal', metadata }] } } } as never)
+  }
+
+  it('refuses a customer whose metadata names another workspace, with a message the UI can show', async () => {
+    const billing = workspaceBilling()
+    existingCustomer({ userId: 'org-personal' })
+    const ctx = makeCtx()
+
+    const refusal = await invoke(billing.api.generateCheckoutLink)(ctx, args).catch((error: unknown) => error)
+
+    // A ConvexError, so the words reach the member even where production
+    // redacts other errors: what happened, and what resolves it.
+    expect(refusal).toMatchObject({ data: expect.stringContaining('already pays for another workspace') })
+    expect((refusal as { data: string }).data).toMatch(/different email/)
+    expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:insertCustomer', expect.anything())
+    expect(mockCustomersUpdate).not.toHaveBeenCalled()
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
+
+  it('refuses a customer the entitlement cache ties to another workspace, tag or no tag', async () => {
+    const billing = workspaceBilling()
+    existingCustomer({})
+    const ctx = makeCtx()
+    ctx.runQuery.mockImplementation(async (ref?: unknown, query?: unknown) =>
+      ref === 'ref:userByCustomer' && (query as { customerId: string }).customerId === 'cus_personal' ? 'org-personal' : null)
+
+    await expect(invoke(billing.api.generateCheckoutLink)(ctx, args))
+      .rejects.toMatchObject({ data: expect.stringContaining('another workspace') })
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
+
+  it('checks out on the customer when it already belongs to this workspace', async () => {
+    const billing = workspaceBilling()
+    existingCustomer({ userId: 'org-1' })
+    const ctx = makeCtx()
+
+    await invoke(billing.api.generateCheckoutLink)(ctx, args)
+
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:insertCustomer', { id: 'cus_personal', userId: 'org-1' })
+    expect(mockCheckoutsCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ customerId: 'cus_personal' }))
+  })
+
+  it('says “account” when billing each user', async () => {
+    const billing = make()
+    vi.spyOn(billing.provider, 'getCustomerByUserId').mockResolvedValue(null as never)
+    existingCustomer({ userId: 'u-deleted' })
+
+    await expect(invoke(billing.api.generateCheckoutLink)(makeCtx(), args))
+      .rejects.toMatchObject({ data: expect.stringContaining('already pays for another account') })
   })
 })
 

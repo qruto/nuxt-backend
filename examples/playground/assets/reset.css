@@ -1,92 +1,102 @@
 /* The base the site's playground renders on. The site gets it from Tailwind's
    preflight; this app has no Tailwind, so these are the rules of that reset
-   the playground relies on. After Tailwind CSS preflight (MIT). */
-*,
-::before,
-::after,
-::backdrop {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  border: 0 solid;
-}
+   the playground relies on. After Tailwind CSS preflight (MIT).
 
-html {
-  line-height: 1.5;
-  -webkit-text-size-adjust: 100%;
-  tab-size: 4;
-  -webkit-tap-highlight-color: transparent;
-}
+   In the `base` cascade layer, where Tailwind keeps its preflight: the
+   module's stylesheet sits in `components.backend`, a later layer, so the
+   packaged buttons and inputs keep their look. Outside a layer, these rules
+   would beat it whatever their selectors. The order statement is the one the
+   module's stylesheet declares, so it holds whichever file loads first. */
+@layer theme, base, components, utilities;
 
-h1, h2, h3, h4, h5, h6 {
-  font-size: inherit;
-  font-weight: inherit;
-}
+@layer base {
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+  }
 
-a {
-  color: inherit;
-  text-decoration: inherit;
-}
+  html {
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    -webkit-tap-highlight-color: transparent;
+  }
 
-b, strong {
-  font-weight: bolder;
-}
+  h1, h2, h3, h4, h5, h6 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
 
-code, kbd, samp, pre {
-  font-size: 1em;
-}
+  a {
+    color: inherit;
+    text-decoration: inherit;
+  }
 
-small {
-  font-size: 80%;
-}
+  b, strong {
+    font-weight: bolder;
+  }
 
-table {
-  text-indent: 0;
-  border-color: inherit;
-  border-collapse: collapse;
-}
+  code, kbd, samp, pre {
+    font-size: 1em;
+  }
 
-ol, ul, menu {
-  list-style: none;
-}
+  small {
+    font-size: 80%;
+  }
 
-img, svg, video, canvas, audio, iframe, embed, object {
-  display: block;
-  vertical-align: middle;
-}
+  table {
+    text-indent: 0;
+    border-color: inherit;
+    border-collapse: collapse;
+  }
 
-img, video {
-  max-width: 100%;
-  height: auto;
-}
+  ol, ul, menu {
+    list-style: none;
+  }
 
-button, input, select, optgroup, textarea, ::file-selector-button {
-  font: inherit;
-  font-feature-settings: inherit;
-  font-variation-settings: inherit;
-  letter-spacing: inherit;
-  color: inherit;
-  border-radius: 0;
-  background-color: transparent;
-  opacity: 1;
-}
+  img, svg, video, canvas, audio, iframe, embed, object {
+    display: block;
+    vertical-align: middle;
+  }
 
-::placeholder {
-  opacity: 1;
-}
+  img, video {
+    max-width: 100%;
+    height: auto;
+  }
 
-textarea {
-  resize: vertical;
-}
+  button, input, select, optgroup, textarea, ::file-selector-button {
+    font: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    border-radius: 0;
+    background-color: transparent;
+    opacity: 1;
+  }
 
-button, input:where([type='button'], [type='reset'], [type='submit']), ::file-selector-button {
-  appearance: button;
-}
+  ::placeholder {
+    opacity: 1;
+  }
 
-:where(button, [role='button']):not(:disabled) {
-  cursor: pointer;
-}
+  textarea {
+    resize: vertical;
+  }
 
-[hidden]:where(:not([hidden='until-found'])) {
-  display: none !important;
+  button, input:where([type='button'], [type='reset'], [type='submit']), ::file-selector-button {
+    appearance: button;
+  }
+
+  :where(button, [role='button']):not(:disabled) {
+    cursor: pointer;
+  }
+
+  [hidden]:where(:not([hidden='until-found'])) {
+    display: none !important;
+  }
 }

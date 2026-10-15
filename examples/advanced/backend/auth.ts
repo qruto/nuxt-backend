@@ -1,6 +1,7 @@
 import { setupAuth } from 'nuxt-backend/auth'
 import { components, internal } from './_generated/api'
 import { query } from './_generated/server'
+import { email } from './email'
 import { rateLimiter } from './rateLimiter'
 import { workflow } from './workflows'
 
@@ -22,21 +23,9 @@ export const {
   organization: {
     invitationPath: '/join',
   },
+  // Restyled in email.ts, with the rest of the email this app sends.
+  email,
   rateLimiter,
-  // CUSTOMIZATION: restyled email templates — the transport stays the
-  // packaged one; only the message bodies change.
-  emailTemplates: {
-    otp: ({ email, otp, type }) => ({
-      to: email,
-      subject: `[Advanced example] Your ${type} code`,
-      text: `Your code: ${otp}\n\n(Custom template from convex/auth.ts.)`,
-    }),
-    invite: ({ email, url, inviterName, organizationName, role }) => ({
-      to: email,
-      subject: `${inviterName} wants you on ${organizationName}`,
-      text: `Join ${organizationName} as ${role}: ${url}\n\n(Custom template from convex/auth.ts.)`,
-    }),
-  },
   onUserCreated: async (ctx, user) => {
     await workflow.start(ctx, internal.workflows.onSignup, {
       userId: user.id,

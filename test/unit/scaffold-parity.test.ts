@@ -16,9 +16,10 @@ const starterBackend = join(rootDir, 'templates/starter/backend')
  */
 const CUSTOMIZED: Record<string, string> = {
   'convex.config.ts': 'extra APP_WEBHOOK_TAG env var, aggregate left unmounted',
-  'auth.ts': 'custom invitation path and email templates',
+  'auth.ts': 'custom invitation path',
+  'email.ts': 'restyled sign-in, invitation and gift emails',
   'http.ts': 'custom webhook paths (/hooks/*)',
-  'billing.ts': 'explicit billing config, an order.paid hook, a custom gift email',
+  'billing.ts': 'explicit billing config and an order.paid hook',
   'workflows.ts': 'hand-rolled workflow.define instead of defineEmailSequence',
 }
 

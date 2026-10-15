@@ -1,9 +1,10 @@
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { posix, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { loadNuxt } from '@nuxt/kit'
+import { loadNuxt, nuxtCtx } from '@nuxt/kit'
 import type { Nuxt, NuxtHooks, NuxtPage } from '@nuxt/schema'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { defu } from 'defu'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { BACKEND_MCP_SCOPES, DEFAULT_MCP_EXCHANGE_PATH } from '../../src/convex/constants'
 import { backendAppConfigDefaults } from '../../src/runtime/config'
 
@@ -46,8 +47,11 @@ interface NitroImport { name: string, as?: string, from: string }
 
 /** The Nitro instance `initNuxt` creates during `ready()` (config only, no build). */
 interface NitroView {
-  _nitro?: { options: { imports: { imports: NitroImport[] } } }
+  _nitro?: { options: { imports: { imports: NitroImport[] }, routeRules: Record<string, Record<string, unknown>> } }
 }
+
+/** The private pages' default paths: behind the `auth` middleware, out of indexes and caches. */
+const PRIVATE_PATHS = ['/accept-invitation', '/oauth/consent', '/profile', '/security', '/settings']
 
 const COMPONENT_NAMES = [
   'AuthForm',
@@ -151,6 +155,36 @@ function nitroImports(nuxt: Nuxt): NitroImport[] {
   const { _nitro } = nuxt as unknown as NitroView
   expect(_nitro, 'Nitro is initialised during ready()').toBeDefined()
   return _nitro!.options.imports.imports
+}
+
+/** The route rules as Nitro normalized them (`swr: 60` also reads `cache: { swr: true, maxAge: 60 }`). */
+function nitroRouteRules(nuxt: Nuxt): Record<string, Record<string, unknown>> {
+  const { _nitro } = nuxt as unknown as NitroView
+  expect(_nitro, 'Nitro is initialised during ready()').toBeDefined()
+  return _nitro!.options.routeRules
+}
+
+/** The text of a template a module added, as Nuxt would write it. */
+async function templateContents(nuxt: Nuxt, filename: string): Promise<string> {
+  const template = nuxt.options.build.templates.find(entry => entry.filename === filename)
+  expect(template?.getContents, filename).toBeDefined()
+  return template!.getContents!({ nuxt, app: {} as never, options: template!.options ?? {} })
+}
+
+/**
+ * The error a boot with these overrides stops with. The half-made instance
+ * holds Nuxt's global context until it is closed, so close it.
+ */
+async function bootError(overrides: Record<string, unknown>): Promise<Error> {
+  try {
+    const nuxt = await loadNuxt({ cwd: fixtureDir, dev: false, ready: true, overrides: { telemetry: false, ...overrides } as Overrides })
+    await nuxt.close()
+  }
+  catch (error) {
+    await nuxtCtx.tryUse()?.close()
+    return error as Error
+  }
+  throw new Error(`booted with ${JSON.stringify(overrides)}`)
 }
 
 function installedModuleNames(nuxt: Nuxt): string[] {
@@ -298,6 +332,16 @@ describe('module registration (defaults)', () => {
     expect(existsSync(uiCss)).toBe(true)
     expect(getNuxt().options.css[0]).toBe(uiCss)
     expect(getNuxt().options.css.filter(entry => entry === uiCss)).toHaveLength(1)
+  })
+
+  it('adds the generated theme stylesheet right after it, with the light-dark default', async () => {
+    // An app with neither Nuxt UI nor color-mode gets it too: the default
+    // keeps every rewritten light-dark() valid in a production build.
+    const nuxt = getNuxt()
+    expect(nuxt.options.css[1]).toMatch(/[\\/]nuxt-backend[\\/]theme-bridge\.css$/)
+    const css = await templateContents(nuxt, 'nuxt-backend/theme-bridge.css')
+    expect(css).toContain('@layer theme.backend {\n  :where(:root) {\n    --lightningcss-light: initial;\n    --lightningcss-dark: ;\n  }\n}')
+    expect(css).not.toContain('@layer components.backend')
   })
 
   it('relaxes nuxt-security on the MCP route and the OAuth discovery documents', () => {
@@ -493,6 +537,87 @@ describe('page route rules', () => {
       expect(routeRules['/profile']).toBeUndefined()
       expect(routeRules['/security']).toEqual({ ...privateRules, robots: true })
     })
+  })
+
+  describe('with an app-wide cache rule', () => {
+    // The module logs through consola, which writes to the process streams.
+    const written: string[] = []
+    const streams: Array<{ mockRestore: () => void }> = []
+    beforeAll(() => {
+      for (const stream of [process.stdout, process.stderr]) {
+        streams.push(vi.spyOn(stream, 'write').mockImplementation((chunk: string | Uint8Array) => {
+          written.push(String(chunk))
+          return true
+        }))
+      }
+    })
+    const getNuxt = useBoot({ routeRules: { '/**': { swr: 60, isr: 60 } } })
+    afterAll(() => {
+      for (const stream of streams) stream.mockRestore()
+    })
+
+    it('keeps every private page out of the caches, as Nitro applies the normalized rules', () => {
+      const rules = nitroRouteRules(getNuxt())
+      // The app's rule as Nitro reads it: `swr` became a cache entry.
+      expect(rules['/**']).toMatchObject({ swr: 60, isr: 60, cache: { swr: true, maxAge: 60 } })
+      for (const path of PRIVATE_PATHS) {
+        // At a request, Nitro merges every rule that matches the path, the
+        // most specific first (defu); at build time, a path whose `cache` is
+        // off under a cached wildcard gets a renderer of its own, uncached.
+        expect(defu({}, rules[path], rules['/**']), path).toMatchObject({
+          cache: false,
+          swr: false,
+          isr: false,
+          headers: { 'cache-control': 'private, no-store' },
+        })
+      }
+      // A public page keeps the app's cache.
+      expect(defu({}, rules['/pricing'], rules['/**'])).toMatchObject({ cache: { swr: true, maxAge: 60 }, isr: 60 })
+    })
+
+    it('warns once that the rule reaches the private pages, which are exempt at their exact paths only', () => {
+      const warnings = written.join('').split('\n').filter(line => line.includes('A wildcard cache rule covers the private pages'))
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toContain(`\`routeRules['/**']\` (swr, isr) covers ${PRIVATE_PATHS.join(', ')}`)
+    })
+  })
+})
+
+describe('options 0.2 removed', () => {
+  // Refused in `moduleDependencies`, which Nuxt runs before any module's
+  // setup: nothing reads them, and nothing is written.
+  it.each([
+    ['pages turned off', { pages: false }, '`backend.pages` is `false`.'],
+    ['a page turned off', { pages: { profile: false } }, '`backend.pages.profile` is `false`.'],
+    ['a page turned on', { pages: { pricing: true } }, '`backend.pages.pricing` is `true`.'],
+    ['loginPath', { loginPath: '/sign-in' }, '`loginPath` is gone.'],
+    ['css', { css: false }, '`css` is gone.'],
+  ])('stop the boot with a named error: %s', async (_name, backend, problem) => {
+    const before = snapshotFixture()
+    const error = await bootError({ backend })
+    expect(error.name).toBe('BackendOptionsError')
+    expect(error.message).toContain(problem)
+    expect(error.message).toContain('https://nuxt-backend.dev/docs/ship/migrate/upgrade#pages-the-stylesheet-and-the-webhook-log-are-always-on')
+    expect(snapshotFixture()).toEqual(before)
+  })
+})
+
+describe('with @nuxtjs/color-mode installed with options of its own', () => {
+  // Passed inline, as Nuxt UI 3 passes `classSuffix: ''`: they never show in
+  // `nuxt.options.colorMode`, only in the options color-mode renders for its
+  // runtime, which is where the theme stylesheet reads its class.
+  const getNuxt = useBoot({ modules: [['@nuxtjs/color-mode', { classSuffix: '-theme' }]] })
+
+  it('follows the class it puts on <html>, and the nearest one around the components', async () => {
+    const nuxt = getNuxt()
+    expect((nuxt.options as { colorMode?: { classSuffix?: string } }).colorMode?.classSuffix).toBeUndefined()
+    const css = await templateContents(nuxt, 'nuxt-backend/theme-bridge.css')
+    expect(css).toContain(':where(html.dark-theme) :where(')
+    expect(css).toContain('@scope (.dark-theme) {')
+    expect(css).toContain(':where(html.light-theme) :where(')
+    expect(css).toContain('@scope (.light-theme) {')
+    // No Nuxt UI here: the neutrals stay the package's.
+    expect(css).not.toContain('--bk-muted')
   })
 })
 

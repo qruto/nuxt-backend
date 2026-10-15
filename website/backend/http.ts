@@ -5,20 +5,19 @@ import { authComponent, createAuth, mcp } from './auth'
 import { billing } from './billing'
 import { email } from './email'
 
-// Mounts every inbound route the backend handles: the auth routes, the
+// Mounts every inbound route the backend handles: the auth routes and the
+// agent token exchange (/mcp/exchange) behind the app's MCP endpoint, the
 // billing events endpoint (/billing/events, BILLING_WEBHOOK_SECRET) — the
 // consumer `events` handlers in billing.ts also log into the showcase feed —
 // the email events endpoint (/email/events, EMAIL_WEBHOOK_SECRET) that makes
-// useEmailStatus reactive, the metered AI stream endpoint (/ai/stream) that
-// `useAiStream` drives, and the agent token exchange (/mcp/exchange) behind
-// the app's MCP endpoint.
+// useEmailStatus reactive, and the metered AI stream endpoint (/ai/stream)
+// that `useAiStream` drives.
 const http = httpRouter()
 registerBackendRoutes(http, {
-  auth: { authComponent, createAuth },
+  auth: { authComponent, createAuth, mcp },
   billing,
   email,
   ai,
-  mcp,
 })
 
 export default http

@@ -4,7 +4,6 @@ import { ordersGet } from '@polar-sh/sdk/funcs/ordersGet.js'
 import { ordersInvoice } from '@polar-sh/sdk/funcs/ordersInvoice.js'
 import { ordersList } from '@polar-sh/sdk/funcs/ordersList.js'
 import { refundsCreate } from '@polar-sh/sdk/funcs/refundsCreate.js'
-import type { Auth } from 'convex/server'
 import { type BillingContext, resolveLimit, resolvePage } from './context.js'
 import type { PolarRunQueryCtx } from './types/base.js'
 import type { BillingOrder, UsageEvent } from './types/options.js'
@@ -32,7 +31,6 @@ function toConvexValue<T>(value: T): T {
 
 /** Orders, invoices, usage and refunds: live provider reads — no local ledger. */
 export function createHistory({
-  config,
   accessToken,
   creditMeters,
   provider,
@@ -41,6 +39,7 @@ export function createHistory({
   requireProviderAccess,
   unwrapProvider,
   throttle,
+  requireAdmin,
 }: BillingContext) {
   /**
    * How many credits one ingested event represents, for the history read: the
@@ -147,30 +146,9 @@ export function createHistory({
     }
   }
 
-  /**
-   * The default admin gate for `refundOrder`: an `admin` role claim on the
-   * caller's identity. Better Auth's admin plugin stores roles as a
-   * comma-separated string, so the claim is split before matching.
-   */
-  const requireAdmin = async (ctx: { auth?: Auth }): Promise<void> => {
-    if (config.requireAdmin) {
-      await config.requireAdmin(ctx)
-      return
-    }
-    const identity = await ctx.auth?.getUserIdentity()
-    const role = (identity as unknown as { role?: unknown } | null)?.role
-    const roles = typeof role === 'string' ? role.split(',').map(entry => entry.trim()) : []
-    if (!roles.includes('admin')) {
-      throw new Error(
-        '[nuxt-backend] refundOrder is admin-only — sign in as an admin, '
-        + 'or pass `requireAdmin` to setupBilling to define your own gate.',
-      )
-    }
-  }
-
   const refundOrder: Billing['refundOrder'] = async (ctx, options) => {
     requireProviderAccess('refund')
-    await requireAdmin(ctx)
+    await requireAdmin(ctx, 'refundOrder')
     const order = unwrapProvider(await ordersGet(provider.polar, { id: options.orderId }), 'refund')
     // The provider requires an explicit amount; default to everything still
     // refundable rather than making every caller read the order first.

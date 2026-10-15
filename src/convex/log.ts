@@ -18,7 +18,6 @@ export const LOG_CODES = {
   'webhook.log_write_failed': 'A webhook delivery was handled but its row in the delivery log could not be written.',
   'billing.provider_failed': 'The billing provider refused a request; the caller sees "Billing is temporarily unavailable".',
   'billing.gift_attach_failed': 'A paid gift could not be attached to the recipient automatically; they can still claim it after signing in.',
-  'billing.gift_email_unsent': 'A gift notification was not sent because the components passed to setupBilling lack backend.email (stale codegen).',
   'ai.cost_over_reservation': 'A metered action finished above the credits it reserved; the reservation was charged.',
   'ai.balance_hook_failed': 'An onCreditsLow or onCreditsExhausted hook threw; the spend itself settled.',
   'ai.reservation_close_failed': 'A spend was recorded at the provider but its reservation could not be closed; the balance re-syncs on the next refresh.',

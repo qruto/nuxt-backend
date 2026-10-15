@@ -95,6 +95,8 @@ export const send = mutation({
       bcc: args.bcc,
       replyTo: args.replyTo,
       headers: args.headers,
+      // A repeated key returns the first send's id instead of a second email.
+      ...(args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {}),
     }
     const options = (args.template
       ? { ...common, subject: args.subject, template: args.template }

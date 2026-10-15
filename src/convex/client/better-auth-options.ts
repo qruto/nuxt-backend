@@ -8,7 +8,7 @@ import authConfig from '../auth.config.js'
 import { DEFAULT_AUTH_ROUTE, DEFAULT_INVITATION_PATH, IMPERSONATED_BY_CLAIM } from '../constants.js'
 import { agentConsent } from './agent-consent.js'
 import type { AuthBuildOptions, CanSignInInput } from './auth-types.js'
-import { makeSendVerificationOTP, resolveTemplates } from './email.js'
+import { makeSendVerificationOTP } from './email.js'
 import { assertCanSignIn, DEFAULT_REFUSAL, makeRequestHooks } from './guards.js'
 import { type DatabaseHooks, mergeDatabaseHooks } from './hooks.js'
 import { type DefaultAuthPlugin, defaultMcp, defaultPasskey } from './plugins.js'
@@ -45,15 +45,14 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
     ...organizationPluginOptions
   } = options.organization ?? {}
 
-  // When an email transport is wired, deliver the sign-in, verification and
-  // email-change codes, and the delete-account, welcome and
-  // workspace-invitation emails through it (default templates, overridable
-  // through `emailTemplates`). User-supplied options win.
+  // Deliver the sign-in, verification and email-change codes, and the
+  // delete-account, welcome and workspace-invitation emails through the app's
+  // email instance, which holds the templates (`setupEmail({ templates })`).
+  // User-supplied options win.
   // Note: this package is passwordless (passkey + OTP) — no password-reset flow.
-  const emailSender = runtime?.email
+  const email = runtime?.email
   const emailCtx = asMutationCtx(runtime?.ctx)
-  const canSendEmail = Boolean(emailSender && emailCtx)
-  const templates = resolveTemplates(runtime)
+  const canSendEmail = Boolean(email && emailCtx)
 
   // Workspace invitations: email the invitee an accept link pointing at the
   // app's invitation page. A consumer-supplied `sendInvitationEmail` wins.
@@ -63,6 +62,7 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
       role: string
       email: string
       organization: { name: string }
+      invitation: { expiresAt: Date }
       inviter: { user: { name: string, email: string } }
     }) => {
       // Accept links must open the app (SITE_URL), never the Convex site URL —
@@ -73,14 +73,18 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
       const explicitUrl = resolvedAuthOptions.baseURL
       const appUrl = readEnv('SITE_URL') ?? (typeof explicitUrl === 'string' ? explicitUrl : explicitUrl?.fallback) ?? ''
       const url = `${appUrl}${invitationPath}?id=${data.id}`
-      await emailSender!(emailCtx!, templates.invite({
+      await email!.sendTemplate(emailCtx!, 'invite', {
         email: data.email,
         url,
         inviterName: data.inviter.user.name,
         inviterEmail: data.inviter.user.email,
         organizationName: data.organization.name,
         role: data.role,
-      }))
+      }, {
+        // One email per issuance: a resend moves the expiry, so it goes out;
+        // a repeat of the same request does not.
+        idempotencyKey: `invitation:${data.id}:${new Date(data.invitation.expiresAt).getTime()}`,
+      })
     }
     : undefined
 
@@ -118,7 +122,7 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
 
   const sendDeleteAccountVerification = canSendEmail
     ? async ({ user, url }: { user: { email: string }, url: string }) => {
-      await emailSender!(emailCtx!, templates.deleteAccount({ email: user.email, url }))
+      await email!.sendTemplate(emailCtx!, 'deleteAccount', { email: user.email, url })
     }
     : undefined
 
@@ -128,7 +132,7 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
   const createAfterHook = emailCtx
     ? async (user: { id: string, email: string, name: string }) => {
       if (canSendEmail) {
-        await emailSender!(emailCtx, templates.welcome({ email: user.email, name: user.name }))
+        await email!.sendTemplate(emailCtx, 'welcome', { email: user.email, name: user.name })
       }
       if (onUserCreated) {
         await onUserCreated(emailCtx, { id: user.id, email: user.email, name: user.name })

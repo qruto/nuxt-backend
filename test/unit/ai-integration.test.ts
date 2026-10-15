@@ -159,7 +159,7 @@ describe('setupAi().meteredAction', () => {
     expect(billing.settleSpend).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
-      { metadata: { userId: 'user_1' } },
+      { finalAmount: 1, metadata: { userId: 'user_1' } },
     )
   })
 
@@ -199,16 +199,59 @@ describe('setupAi() finalized cost — reserve an estimate, settle the actual', 
 
     // Reserved the ceiling…
     expect(billing.reserveCredits).toHaveBeenCalledWith(expect.anything(), { meter: 'credits', value: 500 })
-    // …ingested what was actually spent…
+    // …ingested what was actually spent, against the reservation as reserved…
     expect(billing.settleSpend).toHaveBeenCalledWith(
       expect.objectContaining({}),
-      expect.objectContaining({ value: 120, reserved: false }),
-      expect.anything(),
+      expect.objectContaining({ value: 500, reserved: false }),
+      expect.objectContaining({ finalAmount: 120 }),
     )
     // …and the component settles at 120, handing the other 380 back.
     expect(finalizeCall(ctx)).toEqual({ userId: 'org_1', externalId: 'ext_1', finalAmount: 120 })
   })
 
+  it('settles at zero when the run cost nothing: the whole reservation goes back', async () => {
+    const { billing, ai } = finalizedAi()
+    const action = ai.meteredAction({
+      meter: 'credits',
+      cost: { estimate: 500, finalize: () => 0 },
+      args: {},
+      handler: async () => ({}),
+    })
+    const ctx = identityCtx()
+
+    await invoke(action, ctx, {})
+
+    expect(billing.settleSpend).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ finalAmount: 0 }))
+    expect(finalizeCall(ctx)).toEqual({ userId: 'org_1', externalId: 'ext_1', finalAmount: 0 })
+  })
+
+  // `finalize` is the app's code. A cost that is no amount at all must never
+  // reach the balance (a NaN there makes every later guard pass), and the work
+  // is done — so the reservation, the agreed ceiling, is charged and the bug
+  // logged rather than the caller losing a result it already has.
+  it.each([
+    ['NaN', Number.NaN],
+    ['negative', -3],
+    ['negative infinity', Number.NEGATIVE_INFINITY],
+    ['infinite', Number.POSITIVE_INFINITY],
+  ])('charges the reservation when finalize returns a %s cost', async (_label, cost) => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { billing, ai } = finalizedAi()
+    const action = ai.meteredAction({
+      meter: 'credits',
+      cost: { estimate: 500, finalize: () => cost },
+      args: {},
+      handler: async () => 'done',
+    })
+    const ctx = identityCtx()
+
+    await expect(invoke(action, ctx, {})).resolves.toBe('done')
+
+    expect(billing.settleSpend).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ finalAmount: 500 }))
+    expect(finalizeCall(ctx)?.finalAmount).toBe(500)
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('is not an amount of zero or more — charging the 500 credits reserved'))
+    error.mockRestore()
+  })
   it('clamps a final amount above the reservation — the estimate is the ceiling', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { ai } = finalizedAi()
@@ -254,6 +297,62 @@ describe('setupAi() finalized cost — reserve an estimate, settle the actual', 
     await expect(invoke(action, ctx, {})).rejects.toThrow('provider down')
     expect(billing.releaseSpend).toHaveBeenCalledWith(expect.anything(), reservation)
     expect(finalizeCall(ctx)).toBeUndefined()
+  })
+})
+
+// A metered call's cost is counted against the budget window and reserved
+// against the balance. A negative one would hand window tokens back and credit
+// the balance; a NaN would slip past both comparisons. Refused up front.
+describe('setupAi() refuses a metered cost that is not a positive amount', () => {
+  it.each([
+    ['negative', -1],
+    ['zero', 0],
+    ['NaN', Number.NaN],
+    ['infinite', Number.POSITIVE_INFINITY],
+  ])('a %s cost throws before the rate limit, the budget or the reservation', async (_label, cost) => {
+    const billing = makeBilling()
+    const limiter = { limit: vi.fn(async () => ({ ok: true })) }
+    const ai = setupAi(components, { billing, rateLimiter: limiter as never, budget: { units: 100, period: 60_000 } })
+    const action = ai.meteredAction({ meter: 'credits', cost: () => cost, args: {}, handler: async () => 'ran' })
+
+    await expect(invoke(action, identityCtx(), {})).rejects.toThrow(/setupAi: a metered call's `cost` must be a finite number above zero/)
+    expect(limiter.limit).not.toHaveBeenCalled()
+    expect(billing.reserveCredits).not.toHaveBeenCalled()
+  })
+
+  it('a stream start refuses the same way, before it creates a stream', async () => {
+    const billing = makeBilling()
+    const ai = setupAi(components, { billing })
+    const { start } = ai.stream({ name: 'negative', meter: 'credits', cost: -5, args: {}, handler: async () => {} })
+    const ctx = identityCtx()
+
+    await expect(invoke(start, ctx, {})).rejects.toThrow(/must be a finite number above zero/)
+    expect(billing.reserveCredits).not.toHaveBeenCalled()
+    expect(ctx.runMutation).not.toHaveBeenCalled()
+  })
+
+  it('leaves an unmetered call’s cost alone — it moves no credits', async () => {
+    const ai = setupAi(components, { billing: makeBilling() })
+    const action = ai.meteredAction({ meter: false, cost: 0, args: {}, handler: async () => 'ran' })
+
+    await expect(invoke(action, identityCtx(), {})).resolves.toBe('ran')
+  })
+})
+
+describe('setupAi() finalized cost — the reservation is checked again at settle', () => {
+  it('passes the reservation unchanged and the amount spent as finalAmount', async () => {
+    const reservation: SpendReservation = { entityId: 'org_1', externalId: 'ext_1', reserved: true, meter: 'credits', meterId: 'm1', value: 40 }
+    const billing = makeBilling({ reserveCredits: vi.fn(async () => reservation) as never })
+    const ai = setupAi(components, { billing })
+    const action = ai.meteredAction({ meter: 'credits', cost: { estimate: 40, finalize: () => 25 }, args: {}, handler: async () => ({}) })
+
+    await invoke(action, identityCtx(), {})
+
+    expect(billing.settleSpend).toHaveBeenCalledWith(
+      expect.anything(),
+      { ...reservation, reserved: false },
+      { finalAmount: 25, metadata: { userId: 'user_1' } },
+    )
   })
 })
 

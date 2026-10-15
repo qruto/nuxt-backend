@@ -9,6 +9,7 @@ import { useOrganization } from '../vue/composables/use-organization'
 import type { BackendAppConfigInput } from '../config'
 import { createBackendDevtoolsBridge } from './bridge'
 import { createOnDemandSections } from './on-demand'
+import { patchWebhookFeed } from './webhook-feed'
 import type {
   BackendDevtoolsBridge,
   BackendDevtoolsBridgeHost,
@@ -30,7 +31,8 @@ declare global {
 }
 
 // The delivery feed rides the billing namespace (scaffolded `billing.ts`
-// re-exports it) but isn't part of the composable-facing `BillingApi`.
+// re-exports it) but isn't part of the composable-facing `BillingApi`. It is
+// admin-only: `null` for anyone else.
 type DevtoolsBillingNamespace = BillingApi & {
   getWebhookDeliveries?: FunctionReference<
     'query',
@@ -229,7 +231,7 @@ function watchActiveSections(patch: BackendDevtoolsBridgeHost['patch']): void {
     : computed(() => undefined)
   const deliveries = namespace?.getWebhookDeliveries
     ? useQuery(namespace.getWebhookDeliveries, { limit: DELIVERY_LIMIT })
-    : computed(() => undefined)
+    : undefined
 
   watchEffect(() => {
     const subscription = billing.subscription.value
@@ -285,18 +287,14 @@ function watchActiveSections(patch: BackendDevtoolsBridgeHost['patch']): void {
       : { available: false })
   })
 
+  if (!deliveries) {
+    patch('webhookFeed', 'unavailable')
+    return
+  }
   watchEffect(() => {
-    // Only once the feed has loaded: its first value is the baseline the
+    // Only once the feed has answered: its first value is the baseline the
     // activity log compares later deliveries against.
     const rows = deliveries.value
-    if (rows === undefined) return
-    patch('webhooks', (rows ?? []).map(row => ({
-      service: row.service,
-      deliveryId: row.deliveryId,
-      type: row.type,
-      outcome: row.outcome,
-      note: row.note,
-      receivedAt: row.receivedAt,
-    })))
+    if (rows !== undefined) patchWebhookFeed(patch, rows)
   })
 }

@@ -225,6 +225,13 @@ describe('transactional send → status → cancel (nested provider component)',
     expect(record?.text).toBeUndefined()
   })
 
+  test('a repeated idempotency key returns the first email and enqueues no second one', async () => {
+    const send = { to: TEST_RECIPIENT, subject: 'Your gift', text: 'hi', idempotencyKey: 'gift:gift-1' }
+    const first = await t.mutation(api.email.send, send)
+    expect(await t.mutation(api.email.send, send)).toBe(first)
+    expect(await t.mutation(api.email.send, { ...send, idempotencyKey: 'gift:gift-2' })).not.toBe(first)
+  })
+
   test('cancel marks a not-yet-sent email cancelled', async () => {
     const emailId = await sendOne()
 

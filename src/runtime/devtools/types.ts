@@ -67,7 +67,7 @@ export interface DevtoolsWorkspaceSnapshot {
   workspaces?: number
 }
 
-/** One recent webhook delivery (the identity-gated `getWebhookDeliveries` row). */
+/** One recent webhook delivery (the admin-only `getWebhookDeliveries` row). */
 export interface DevtoolsWebhookDeliverySnapshot {
   service: string
   deliveryId: string
@@ -75,7 +75,22 @@ export interface DevtoolsWebhookDeliverySnapshot {
   outcome: string
   note?: string
   receivedAt: number
+  /**
+   * Set on a tally of requests answered before their signature verified
+   * (refused, or a duplicate): how many it stands for. The row's id and time
+   * are the latest one's.
+   */
+  count?: number
 }
+
+/**
+ * What the delivery feed answered. `readable`: the caller is an admin and
+ * `webhooks` holds the log. `admins-only`: it answered `null`, as it does for
+ * anyone `requireAdmin` does not admit (signed out included), so `webhooks`
+ * stays empty. `unavailable`: the app's billing module does not export
+ * `getWebhookDeliveries`.
+ */
+export type DevtoolsWebhookFeed = 'readable' | 'admins-only' | 'unavailable'
 
 /** The content layer (`appConfig.backend`) the shipped pages render from. */
 export interface DevtoolsConfigSnapshot {
@@ -168,6 +183,8 @@ export interface BackendDevtoolsSnapshot {
   credits: DevtoolsCreditMeterSnapshot[]
   workspace: DevtoolsWorkspaceSnapshot
   webhooks: DevtoolsWebhookDeliverySnapshot[]
+  /** Absent until the panel first opens and the feed answers. */
+  webhookFeed?: DevtoolsWebhookFeed
   config: DevtoolsConfigSnapshot
   /** Scaffolded function modules (`backend/<name>.ts`) the composables bind to and the app lacks. */
   missingNamespaces: string[]

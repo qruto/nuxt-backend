@@ -16,11 +16,11 @@ Email goes through [Resend](https://resend.com), nested inside the `backend` com
 
 | Email | Sent by | Customize with |
 |---|---|---|
-| Sign-in, verification and email-change codes, welcome, delete-account, workspace invitation | The package, from the auth flow | `emailTemplates` on `setupAuth` |
-| Gift notification | The package, when a gift is paid | `giftEmail` on `setupBilling` |
+| Sign-in, verification and email-change codes, welcome, delete-account, workspace invitation | The package, from the auth flow | [`templates`](/docs/email/templates) on `setupEmail` |
+| Gift notification | The package, when a gift is paid | [`templates`](/docs/email/templates) on `setupEmail` |
 | Everything else | Your server code, through `email.send` | Your own HTML or text, or a provider-hosted template |
 
-Auth emails need no `email` integration: they go through the component automatically. For drips, [`defineEmailSequence`](/docs/email/engagement/sequences) sends delivery-tracked steps from a durable workflow. For marketing, the scaffolded `email.ts` ships segments, contacts and broadcasts as internal actions.
+The package's own emails go out through the same `setupEmail` instance: `setupAuth` and `setupBilling` take it as their `email` option, so its templates restyle them all. For drips, [`defineEmailSequence`](/docs/email/engagement/sequences) sends delivery-tracked steps from a durable workflow. For marketing, the scaffolded `email.ts` ships segments, contacts and broadcasts as internal actions.
 
 ## How it fits together
 
@@ -37,7 +37,7 @@ Auth emails need no `email` integration: they go through the component automatic
   :::
 
   :::card{icon="i-lucide-layout-template" title="Templates" to="/docs/email/templates"}
-  The packaged auth-email templates, how to override any of them, and how to take over delivery.
+  Every email the package sends, how to restyle any of them in one place, and how to preview them.
   :::
 
   :::card{icon="i-lucide-mail-check" title="Delivery tracking" to="/docs/email/delivery-tracking"}

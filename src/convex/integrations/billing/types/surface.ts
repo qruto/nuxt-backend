@@ -65,6 +65,11 @@ export interface Billing {
     syncProducts: ReturnType<typeof internalActionGeneric>
     getReceivedGifts: ReturnType<typeof queryGeneric>
     claimGift: ReturnType<typeof actionGeneric>
+    /**
+     * The webhook delivery log, newest first — admin-tier, like `refundOrder`
+     * (see `requireAdmin` on {@link SetupBillingConfig}): `null` for anyone
+     * else, signed out included.
+     */
     getWebhookDeliveries: ReturnType<typeof queryGeneric>
     /** Switch the caller's subscription to another product. */
     updateSubscription: ReturnType<typeof actionGeneric>
@@ -96,7 +101,7 @@ export interface Billing {
    * fail-closed (503 while the secret is unset, 413 over the size cap,
    * 403 on bad signatures across the rotation list, 200 on redeliveries of
    * processed ids, 202 for authentic-but-unknown types) with every delivery
-   * outcome recorded in the component's ring buffer.
+   * outcome recorded in the component's delivery log.
    */
   webhookHandler: (ctx: RunWriteCtx, request: Request) => Promise<Response>
   /**

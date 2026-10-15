@@ -27,6 +27,16 @@ function safeJsonParse(body: string): unknown {
   }
 }
 
+/**
+ * Why `/billing/events` refuses every delivery when the upstream handlers
+ * could not be captured — thrown, so the deployment log carries it, and kept
+ * short enough to fit the delivery log's note as well.
+ */
+const HANDLERS_NOT_CAPTURED = '[nuxt-backend] /billing/events cannot verify any delivery: the billing provider\'s webhook handlers '
+  + 'were not captured, because the installed `convex` release no longer exposes a registered http action\'s '
+  + 'implementation as `_handler`. This is not a signature problem. Pin `convex` to a release nuxt-backend supports, '
+  + 'or upgrade nuxt-backend.'
+
 /** The `/billing/events` edge: the per-event handler map and the guarded handler that runs it. */
 export function createWebhooks(
   { components, config, products, accessToken, environment, webhookSecret, webhookLog, provider, cache, getUserInfo }: BillingContext,
@@ -134,14 +144,21 @@ export function createWebhooks(
         // Registered http actions carry their implementation on `_handler`
         // (the same seam convex-test drives) — pinned by
         // test/unit/billing-webhook-edge.test.ts. Nothing falls back if it
-        // moves: no handler is captured and every delivery answers 403. An
-        // exported handler factory is asked upstream (.github/upstream.json).
+        // moves; `handlersMissing` below turns that into a loud 500 rather
+        // than a 403 per delivery. An exported handler factory is asked
+        // upstream (.github/upstream.json).
         const handler = (spec.handler as { _handler?: (ctx: RunWriteCtx, request: Request) => Promise<Response> })._handler
-        if (handler) capturedHandlers.push(handler)
+        if (typeof handler === 'function') capturedHandlers.push(handler)
       },
     }
     handlerProvider.registerRoutes(shim as never, { path: '/billing/events', events: webhookEvents })
   }
+  // One captured handler per accepted secret, or the edge cannot verify. Left
+  // alone, a seam that captured nothing would answer every genuine delivery
+  // 403 and log it `invalid_signature` — pointing operators at the secret.
+  // Not a throw here: `setupBilling` runs at module load, and the modules that
+  // import billing (http.ts with every auth route, ai.ts) would fail with it.
+  const handlersMissing = capturedHandlers.length < webhookSecrets.length
 
   const webhookHandler = async (ctx: RunWriteCtx, request: Request): Promise<Response> => {
     const body = await request.text()
@@ -152,6 +169,14 @@ export function createWebhooks(
       secretsConfigured: webhookSecrets.length > 0,
     })
     if (guard.rejection) return guard.rejection
+
+    if (handlersMissing) {
+      // 500, so the provider keeps retrying until a fixed deployment can
+      // verify the delivery; logged as a handler error with the cause. No
+      // event type: nothing about an unverified body goes in the log.
+      await guard.record('handler_error', { note: HANDLERS_NOT_CAPTURED })
+      throw new Error(HANDLERS_NOT_CAPTURED)
+    }
 
     const parsedType = ((): string | undefined => {
       try {

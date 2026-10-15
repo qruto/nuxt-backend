@@ -5,6 +5,19 @@ import type { BillingEntitlements } from './entitlements.js'
 import type { EventsIngestRequest, PolarRunQueryCtx, RunWriteCtx } from './types/base.js'
 import type { Billing } from './types/surface.js'
 
+/**
+ * Refuse a credit amount that is not a finite number above zero (`orZero`:
+ * zero or more), before it reaches the cached balance or the provider. A
+ * negative spend would credit the balance and ingest a usage event that
+ * grants credits; a `NaN` would leave the balance `NaN`, and every guard
+ * comparison after that passes. `setupAi` checks a call's cost with it too,
+ * before the budget window counts it.
+ */
+export function requireCreditAmount(value: unknown, label: string, { orZero = false } = {}): number {
+  if (typeof value === 'number' && Number.isFinite(value) && (orZero ? value >= 0 : value > 0)) return value
+  throw new Error(`[nuxt-backend] ${label} must be a finite number ${orZero ? 'of zero or more' : 'above zero'} — got ${String(value)}.`)
+}
+
 /** Prepaid credits: reserve, settle, release, spend and refund. */
 export function createCredits(
   { provider, cache, resolveMeter, entityFromIdentity }: BillingContext,
@@ -20,13 +33,13 @@ export function createCredits(
   // reserved in) compose the same semantics — `spendCredits` is the one-call
   // form.
   const reserveCredits: Billing['reserveCredits'] = async (ctx, event) => {
+    const value = requireCreditAmount(event.value ?? 1, 'spendCredits: `value`')
     const entityId = event.userId
       ?? (await entityFromIdentity(ctx as { auth?: Auth }))?.userId
     if (!entityId) {
       throw new Error('[nuxt-backend] spendCredits: no billing entity — pass `userId` or call from an authenticated context.')
     }
     const meter = resolveMeter(event)
-    const value = event.value ?? 1
     const externalId = event.externalId ?? crypto.randomUUID()
 
     if (!meter) {
@@ -61,6 +74,12 @@ export function createCredits(
   }
 
   const settleSpend: Billing['settleSpend'] = async (ctx, reservation, options = {}) => {
+    // A reservation is plain data that crosses function boundaries, so it is
+    // checked like any other input before an event is ingested on its word.
+    const reserved = requireCreditAmount(reservation.value, 'settleSpend: the reservation\'s `value`')
+    const final = options.finalAmount === undefined
+      ? reserved
+      : requireCreditAmount(options.finalAmount, 'settleSpend: `finalAmount`', { orZero: true })
     const meter = resolveMeter(reservation)
     const name = options.name ?? meter?.eventName ?? meter?.key
     if (!name) {
@@ -69,7 +88,13 @@ export function createCredits(
     // The estimate is the ceiling: settling above it would be a second,
     // unguarded debit — the reservation is what made the spend safe against a
     // concurrent one.
-    const value = Math.min(Math.max(options.finalAmount ?? reservation.value, 0), reservation.value)
+    const value = Math.min(final, reserved)
+    if (value === 0) {
+      // Nothing was spent, so there is no event to ingest (on a count meter
+      // one would bill a credit); closing at zero hands the reservation back.
+      if (reservation.reserved) await ctx.runMutation(cache.settle, { userId: reservation.entityId, externalId: reservation.externalId, finalAmount: 0 })
+      return
+    }
     try {
       const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, reservation.entityId)
       if (!customer) {
@@ -112,6 +137,8 @@ export function createCredits(
    * only count up.
    */
   const refundCredits: Billing['refundCredits'] = async (ctx, event) => {
+    // A negative refund would ingest a positive event: a charge, not a refund.
+    const value = requireCreditAmount(event.value, 'refundCredits: `value`')
     const entityId = event.userId
       ?? (await entityFromIdentity(ctx as { auth?: Auth }))?.userId
     if (!entityId) {
@@ -131,12 +158,12 @@ export function createCredits(
       events: [{
         name: meter.eventName ?? meter.key ?? event.meter,
         customerId: customer.id,
-        metadata: { ...event.metadata, [meter.property]: -event.value },
+        metadata: { ...event.metadata, [meter.property]: -value },
         externalId: event.externalId ?? crypto.randomUUID(),
       }],
     })
     if (!result.ok) throw result.error
-    await ctx.runMutation(cache.credit, { userId: entityId, meterId: meter.meterId, amount: event.value })
+    await ctx.runMutation(cache.credit, { userId: entityId, meterId: meter.meterId, amount: value })
   }
 
   return { reserveCredits, settleSpend, releaseSpend, spendCredits, refundCredits }

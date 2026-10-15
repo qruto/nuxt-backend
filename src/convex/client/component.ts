@@ -2,7 +2,6 @@ import { createClient } from '@convex-dev/better-auth'
 import type { FunctionReference, GenericDataModel } from 'convex/server'
 import { authSchema } from '../components/backend/schema.js'
 import type { AuthComponentApi, AuthIntegrations, AuthSetupComponents, PublicAuthComponentRef } from './auth-types.js'
-import { componentEmailSender } from './email.js'
 import type { AuthRuntime, UserExists } from './runtime.js'
 
 // The `backend` component as auth setup reads it: the Better Auth client over
@@ -42,9 +41,8 @@ export interface AdapterRefs {
 }
 
 /**
- * Read the component's adapter function refs structurally (the loose
- * component-ref type doesn't surface them) — same technique as
- * {@link componentEmailSender}.
+ * Read the component's adapter function refs structurally: the loose
+ * component-ref type doesn't surface them.
  */
 export function componentAdapterRefs(components: AuthSetupComponents): AdapterRefs {
   return (components.backend as unknown as { adapter: AdapterRefs }).adapter
@@ -53,7 +51,7 @@ export function componentAdapterRefs(components: AuthSetupComponents): AdapterRe
 /**
  * The account-exists read behind `canSignIn`'s `isNewUser`, over the
  * `backend` component's adapter (`components.backend.adapter.findOne`, read
- * structurally like {@link componentEmailSender}). `undefined` without an
+ * structurally like {@link componentAdapterRefs}). `undefined` without an
  * adapter module, in which case every sign-in request counts as a new user.
  */
 function componentUserExists(components: AuthSetupComponents): UserExists | undefined {
@@ -68,19 +66,13 @@ function componentUserExists(components: AuthSetupComponents): UserExists | unde
   }
 }
 
-/**
- * Merge the auto component-email transport (and the adapter-backed account
- * lookup) with consumer-provided integrations. A consumer-supplied `email`
- * wins, so custom transports still override the built-in one.
- */
+/** The consumer's integrations, plus the adapter-backed account lookup. */
 export function resolveIntegrations<DM extends GenericDataModel>(
   components: AuthSetupComponents,
-  integrations?: AuthIntegrations<DM>,
+  integrations: AuthIntegrations<DM>,
 ): Omit<AuthRuntime<DM>, 'ctx'> {
-  const email = componentEmailSender(components)
   const userExists = componentUserExists(components)
   return {
-    ...(email ? { email } : {}),
     ...(userExists ? { userExists } : {}),
     ...integrations,
   }

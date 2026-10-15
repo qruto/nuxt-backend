@@ -1,6 +1,6 @@
 import type { Polar, WebhookEventHandlers } from '@convex-dev/polar'
 import type { Auth, FunctionReference, GenericActionCtx, GenericDataModel } from 'convex/server'
-import type { SendEmailOptions } from '../../email.js'
+import type { Email } from '../../email.js'
 import type { WebhookLogRefs } from '../../webhook-guard.js'
 import type { AnyQueryCtx, BillingRateLimiter, PolarComponent, RunWriteCtx } from './base.js'
 import type {
@@ -9,8 +9,6 @@ import type {
   CreditMeterConfig,
   EntitlementBenefit,
   EntitlementMeter,
-  GiftEmailData,
-  GiftEmailMessage,
   GiftRecord,
 } from './records.js'
 
@@ -92,15 +90,12 @@ export interface BillingComponents {
         message?: string
         billingCustomerId: string
       }, string>
-      markPaid: FunctionReference<'mutation', 'internal', { giftId: string, billingOrderId?: string }, null>
+      markPaid: FunctionReference<'mutation', 'internal', { giftId: string, billingOrderId?: string, billingCustomerId?: string }, null>
       markNotified: FunctionReference<'mutation', 'internal', { giftId: string }, boolean>
       markClaimed: FunctionReference<'mutation', 'internal', { giftId: string, userId: string, entityId: string }, null>
       listByEmail: FunctionReference<'query', 'internal', { email: string, status?: string }, GiftRecord[]>
       get: FunctionReference<'query', 'internal', { giftId: string }, GiftRecord | null>
       resolveRecipient: FunctionReference<'query', 'internal', { email: string }, { userId: string, organizationId: string | null } | null>
-    }
-    email?: {
-      send: FunctionReference<'mutation', 'internal', SendEmailOptions, string | null>
     }
     webhooks: WebhookLogRefs
   }
@@ -115,12 +110,16 @@ export interface ProviderLibRefs {
 
 export type PolarConfig = ConstructorParameters<typeof Polar>[1]
 
+/** What billing sends its email through: the app's `setupEmail` instance. */
+export type BillingEmail = Pick<Email, 'sendTemplate'>
+
 /**
  * Billing configuration. Service-neutral at the package boundary: the access
  * token, environment, and webhook secret default to the required
  * `BILLING_ACCESS_TOKEN` / `BILLING_ENVIRONMENT` / `BILLING_WEBHOOK_SECRET`
- * env vars, so `setupBilling(components)` needs no env plumbing. Product maps
- * and other provider passthrough config are accepted as-is, plus `billTo`.
+ * env vars, so `setupBilling(components, { email })` needs no env plumbing.
+ * Product maps and other provider passthrough config are accepted as-is,
+ * plus `billTo`.
  *
  * The billing entity resolves from identity claims out of the box — the
  * active workspace (`billTo: 'organization'`, the default) or the signed-in
@@ -128,6 +127,15 @@ export type PolarConfig = ConstructorParameters<typeof Polar>[1]
  * overrides, not required wiring.
  */
 export type SetupBillingConfig = Omit<PolarConfig, 'getUserInfo' | 'organizationToken' | 'server' | 'webhookSecret'> & {
+  /**
+   * The app's `setupEmail` instance. A gift's recipient hears of it through
+   * its `gift` template once the purchase is paid; restyle it there, with
+   * `setupEmail(components, { templates: { gift } })`. Checked when
+   * `setupBilling` runs: an import cycle through `email.ts` can hand it over
+   * as `undefined` despite the type, and that fails the deploy instead of the
+   * first paid gift.
+   */
+  email: BillingEmail
   /** Provider access token. Defaults to the required `BILLING_ACCESS_TOKEN` env var. */
   accessToken?: string
   /** Provider environment. Defaults to the required `BILLING_ENVIRONMENT` env var (`'sandbox'` otherwise). */
@@ -159,7 +167,8 @@ export type SetupBillingConfig = Omit<PolarConfig, 'getUserInfo' | 'organization
    * actions, order history and invoices. Pass your `setupRateLimiter(...)`
    * limiter and each authenticated call is checked against the `billingSync`
    * limit (10/min, keyed by the workspace/user), so a caller can't loop one to
-   * amplify the provider fan-out. Omit to leave them unthrottled.
+   * amplify the provider fan-out. `giftCheckout` burns the same limit keyed by
+   * the purchaser. Omit to leave them unthrottled.
    */
   rateLimiter?: BillingRateLimiter
   /**
@@ -185,12 +194,6 @@ export type SetupBillingConfig = Omit<PolarConfig, 'getUserInfo' | 'organization
    * set are mounted too.
    */
   events?: Partial<BillingWebhookEventHandlers>
-  /**
-   * Restyle the gift-notification email sent to the recipient once their gift
-   * is paid. The default is a minimal, dependency-free template linking to
-   * `SITE_URL` (where signing in claims the gift automatically).
-   */
-  giftEmail?: (data: GiftEmailData) => GiftEmailMessage
   /**
    * Decide who may receive a gift, before `giftCheckout` creates a billing
    * customer for the recipient — only addresses on your own domain, say, or

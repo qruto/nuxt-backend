@@ -1,13 +1,39 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APIError } from 'better-auth/api'
 import { buildAuthOptions } from '../../src/convex/client/better-auth-options'
-import { resolveIntegrations } from '../../src/convex/client/component'
+import type { EmailMessage } from '../../src/convex/email-templates'
+import { setupEmail } from '../../src/convex/integrations/email'
 
 const fakeDb = {} as never
 
 function mutationCtx() {
   return { runMutation: vi.fn(), runQuery: vi.fn(), scheduler: { runAfter: vi.fn() } } as never
 }
+
+/** An email instance over a stub component: each send is `ctx.runMutation('backend/email:send', message)`. */
+const componentEmail = () => setupEmail({ backend: { email: { send: 'backend/email:send' } } } as never)
+
+/**
+ * The email instance as setupAuth receives it, with the packaged templates,
+ * that records each send as a call: `(ctx, message, options)`.
+ */
+function emailSpy() {
+  const templates = componentEmail()
+  const sent = vi.fn(async (_ctx: unknown, _message: EmailMessage, _options?: { idempotencyKey?: string }) => 'email_1')
+  return Object.assign(sent, {
+    sendTemplate: (async (ctx: unknown, name: 'otp', data: never, options?: { idempotencyKey?: string }) =>
+      options ? sent(ctx, templates.render(name, data), options) : sent(ctx, templates.render(name, data))) as ReturnType<typeof setupEmail>['sendTemplate'],
+  })
+}
+
+// Sign-in codes go out only with a key on the deployment (or to a sandbox
+// address); the tests that drop it say so.
+beforeEach(() => {
+  vi.stubEnv('EMAIL_API_KEY', 're_test')
+})
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
 
 type OtpSender = (data: { email: string, otp: string, type: string }) => Promise<void>
 
@@ -80,7 +106,7 @@ describe('codes, never links', () => {
 
 describe('Better Auth cross-component integrations', () => {
   it('wires email + lifecycle hooks when integrations are provided', async () => {
-    const email = vi.fn(async () => 'email_1')
+    const email = emailSpy()
     const onUserCreated = vi.fn(async () => {})
     const rateLimiter = { limit: vi.fn(async () => ({ ok: true })) }
     const ctx = mutationCtx()
@@ -141,13 +167,14 @@ describe('workspace invitation email', () => {
     role: 'member',
     email: 'invitee@example.com',
     organization: { name: 'Acme' },
+    invitation: { expiresAt: new Date('2026-10-20T00:00:00Z') },
     inviter: { user: { name: 'Ada', email: 'ada@example.com' } },
   }
 
   it('wires sendInvitationEmail through the transport with a SITE_URL accept link', async () => {
     vi.stubEnv('SITE_URL', 'https://app.example.com')
     try {
-      const email = vi.fn(async () => 'email_1')
+      const email = emailSpy()
       const ctx = mutationCtx()
       const options = buildAuthOptions(fakeDb, {}, { ctx, email })
 
@@ -158,7 +185,7 @@ describe('workspace invitation email', () => {
       expect(email).toHaveBeenCalledWith(ctx, expect.objectContaining({
         to: 'invitee@example.com',
         subject: 'Join Acme',
-      }))
+      }), expect.anything())
       const message = (email.mock.calls[0] as unknown[])[1] as { text: string }
       expect(message.text).toContain('https://app.example.com/accept-invitation?id=inv-1')
       expect(message.text).toContain('Ada invited you to join Acme as member.')
@@ -171,7 +198,7 @@ describe('workspace invitation email', () => {
   it('uses a dynamic baseURL\'s fallback when SITE_URL is unset, never the config object', async () => {
     // Better Auth's multi-domain form has no single origin; stringifying it
     // would email a link that starts with "[object Object]".
-    const email = vi.fn(async () => 'email_1')
+    const email = emailSpy()
     const options = buildAuthOptions(
       fakeDb,
       { authOptions: { baseURL: { allowedHosts: ['app.example.com', '*.vercel.app'], fallback: 'https://app.example.com' } } },
@@ -185,7 +212,7 @@ describe('workspace invitation email', () => {
   })
 
   it('uses an explicit string baseURL when SITE_URL is unset', async () => {
-    const email = vi.fn(async () => 'email_1')
+    const email = emailSpy()
     const options = buildAuthOptions(fakeDb, { authOptions: { baseURL: 'https://app.example.com' } }, { ctx: mutationCtx(), email })
 
     await orgPluginOptions(options)!.sendInvitationEmail!(invitationData)
@@ -197,7 +224,7 @@ describe('workspace invitation email', () => {
     // CONVEX_SITE_URL is Better Auth's own fallback origin (the proxied API),
     // not the app: the invitation page is not served there.
     vi.stubEnv('CONVEX_SITE_URL', 'https://happy-otter-123.convex.site')
-    const email = vi.fn(async () => 'email_1')
+    const email = emailSpy()
     const options = buildAuthOptions(fakeDb, {}, { ctx: mutationCtx(), email })
 
     await orgPluginOptions(options)!.sendInvitationEmail!(invitationData)
@@ -206,37 +233,32 @@ describe('workspace invitation email', () => {
     expect(message.text).toContain('/accept-invitation?id=inv-1')
   })
 
-  it('honors a custom invitationPath and the emailTemplates.invite override', async () => {
+  it('honors a custom invitationPath', async () => {
     vi.stubEnv('SITE_URL', 'https://app.example.com')
-    try {
-      const email = vi.fn(async () => 'email_1')
-      const invite = vi.fn((_data: unknown, _byDefault: unknown) => ({ to: 'invitee@example.com', subject: 'custom', text: 'custom body' }))
-      const options = buildAuthOptions(
-        fakeDb,
-        { organization: { invitationPath: '/join' } },
-        { ctx: mutationCtx(), email, emailTemplates: { invite } },
-      )
+    const email = emailSpy()
+    const options = buildAuthOptions(fakeDb, { organization: { invitationPath: '/join' } }, { ctx: mutationCtx(), email })
 
-      await orgPluginOptions(options)!.sendInvitationEmail!(invitationData)
-      expect(invite).toHaveBeenCalledWith(expect.objectContaining({
-        url: 'https://app.example.com/join?id=inv-1',
-        organizationName: 'Acme',
-        inviterName: 'Ada',
-        role: 'member',
-      }), expect.any(Function))
-      expect(email).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ subject: 'custom' }))
-      // The second argument is the packaged default, so an override can keep its body.
-      const byDefault = (invite.mock.calls[0] as unknown[])[1] as (data: unknown) => { subject: string }
-      expect(byDefault(invite.mock.calls[0]![0]).subject).toBe('Join Acme')
-    }
-    finally {
-      vi.unstubAllEnvs()
-    }
+    await orgPluginOptions(options)!.sendInvitationEmail!(invitationData)
+    const message = (email.mock.calls[0] as unknown[])[1] as { text: string }
+    expect(message.text).toContain('https://app.example.com/join?id=inv-1')
+  })
+
+  it('sends one email per issuance: a repeat dedupes, a resend (new expiry) goes out', async () => {
+    const email = emailSpy()
+    const options = buildAuthOptions(fakeDb, {}, { ctx: mutationCtx(), email })
+    const send = orgPluginOptions(options)!.sendInvitationEmail!
+
+    await send(invitationData)
+    await send({ ...invitationData, invitation: { expiresAt: new Date('2026-10-22T00:00:00Z') } })
+    expect(email.mock.calls.map(call => call[2])).toEqual([
+      { idempotencyKey: `invitation:inv-1:${Date.parse('2026-10-20T00:00:00Z')}` },
+      { idempotencyKey: `invitation:inv-1:${Date.parse('2026-10-22T00:00:00Z')}` },
+    ])
   })
 
   it('a consumer-supplied sendInvitationEmail wins over the built-in one', async () => {
     const custom = vi.fn(async () => {})
-    const email = vi.fn(async () => 'email_1')
+    const email = emailSpy()
     const options = buildAuthOptions(
       fakeDb,
       { organization: { sendInvitationEmail: custom as never } },
@@ -275,7 +297,7 @@ describe('workspace invitation email', () => {
     })
 
     it('delivers through the transport when one is wired', async () => {
-      const email = vi.fn(async () => 'email_1')
+      const email = emailSpy()
       const ctx = mutationCtx()
       const send = otpSender(buildAuthOptions(fakeDb, {}, { ctx, email }))
       await send({ email: 'a@b.com', otp: '654321', type: 'sign-in' })
@@ -283,14 +305,13 @@ describe('workspace invitation email', () => {
     })
   })
 
-  // The scaffold always has the component's email module, so the automatic
-  // transport is always wired — the question is whether the deployment has
-  // the key it needs. Without it the module sends nothing, and the OTP must
-  // take the no-transport path instead of vanishing behind "we sent a code".
-  describe('OTP delivery over the automatic transport without EMAIL_API_KEY', () => {
-    const components = { backend: { adapter: {}, email: { send: 'backend/email:send' } } } as never
-    // What setupAuth builds per request: the component's automatic transport.
-    const otpOver = (ctx: unknown) => otpSender(buildAuthOptions(fakeDb, {}, { ctx: ctx as never, ...resolveIntegrations(components) }))
+  // Every send goes through the component's email module, so the question is
+  // whether the deployment has the key it needs. Without it the module sends
+  // nothing, and the OTP must take the no-transport path instead of vanishing
+  // behind "we sent a code".
+  describe('OTP delivery without EMAIL_API_KEY', () => {
+    // What setupAuth builds per request, with the app's email instance.
+    const otpOver = (ctx: unknown) => otpSender(buildAuthOptions(fakeDb, {}, { ctx: ctx as never, email: componentEmail() }))
 
     it('throws loudly, naming the missing key', async () => {
       vi.stubEnv('EMAIL_API_KEY', '')
@@ -397,19 +418,6 @@ describe('workspace invitation email', () => {
         vi.unstubAllEnvs()
       }
     })
-
-    it('leaves a custom transport alone — its key is its own business', async () => {
-      vi.stubEnv('EMAIL_API_KEY', '')
-      try {
-        const email = vi.fn(async () => 'email_1')
-        const ctx = mutationCtx()
-        await otpSender(buildAuthOptions(fakeDb, {}, { ctx, email }))({ email: 'a@b.com', otp: '654321', type: 'sign-in' })
-        expect(email).toHaveBeenCalled()
-      }
-      finally {
-        vi.unstubAllEnvs()
-      }
-    })
   })
 })
 
@@ -420,7 +428,7 @@ describe('OTP rate limits', () => {
     // The sender runs inside runInBackgroundOrAwait, which catches whatever it
     // throws and still answers success: a limit here would mean "code sent"
     // with no code. Every limit lives on the request instead.
-    const email = vi.fn(async () => 'email_1')
+    const email = emailSpy()
     const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: false }))
     await otpSender(buildAuthOptions(fakeDb, {}, { ctx: mutationCtx(), email, rateLimiter: { limit } }))(otp)
 
@@ -499,7 +507,7 @@ describe('sign-in gate (canSignIn)', () => {
     input.isNewUser ? { allowed: false as const, message: 'Invite only' } : true as const)
 
   function setup(overrides: { canSignIn?: typeof inviteOnly, userExists?: boolean, rateLimiter?: { limit: ReturnType<typeof vi.fn> } } = {}) {
-    const email = vi.fn(async () => 'email_1')
+    const email = emailSpy()
     const ctx = mutationCtx()
     const canSignIn = overrides.canSignIn ?? vi.fn(async () => true as const)
     const options = buildAuthOptions(fakeDb, {}, {
@@ -547,7 +555,7 @@ describe('sign-in gate (canSignIn)', () => {
 
   it('refuses an uninvited sign-in on the request itself, before any code exists', async () => {
     const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: true }))
-    const runtime = { ctx: mutationCtx(), email: vi.fn(), rateLimiter: { limit }, canSignIn: inviteOnly, userExists: async () => false }
+    const runtime = { ctx: mutationCtx(), email: emailSpy(), rateLimiter: { limit }, canSignIn: inviteOnly, userExists: async () => false }
     const request = { path: '/email-otp/send-verification-otp', body: signIn }
 
     await expect(otpGuard(runtime)(request)).rejects.toEqual(forbidden('Invite only'))
@@ -560,7 +568,7 @@ describe('sign-in gate (canSignIn)', () => {
   it('wires the guard as the before-hook, ahead of a consumer hook', async () => {
     const consumerBefore = vi.fn(async () => 'consumer')
     const options = buildAuthOptions(fakeDb, { authOptions: { hooks: { before: consumerBefore as never } } }, {
-      ctx: mutationCtx(), email: vi.fn(), canSignIn: inviteOnly, userExists: async () => false,
+      ctx: mutationCtx(), email: emailSpy(), canSignIn: inviteOnly, userExists: async () => false,
     } as never)
     const before = options.hooks!.before as unknown as (ctx: unknown) => Promise<unknown>
 
@@ -625,7 +633,7 @@ describe('account deletion', () => {
     const options = buildAuthOptions(
       fakeDb,
       { authOptions: { user: { deleteUser: { afterDelete } } } },
-      { ctx, email: vi.fn(async () => 'email_1'), onUserDeleted },
+      { ctx, email: emailSpy(), onUserDeleted },
     )
 
     const request = new Request('https://app.example.com/api/auth/delete-user')
@@ -642,7 +650,7 @@ describe('account deletion', () => {
     const options = buildAuthOptions(
       fakeDb,
       { authOptions: { user: { deleteUser: { beforeDelete } } } },
-      { ctx: mutationCtx(), email: vi.fn(async () => 'email_1') },
+      { ctx: mutationCtx(), email: emailSpy() },
     )
     expect(options.user!.deleteUser).toMatchObject({ enabled: true, beforeDelete })
     expect(options.user!.deleteUser!.sendDeleteAccountVerification).toBeTypeOf('function')
@@ -669,8 +677,10 @@ describe('account deletion', () => {
 describe('consumer databaseHooks compose with the package hooks', () => {
   it('runs a consumer user.create.after after the welcome email and onUserCreated', async () => {
     const order: string[] = []
-    const email = vi.fn(async () => {
+    const email = emailSpy()
+    email.mockImplementation(async () => {
       order.push('welcome')
+      return 'email_1'
     })
     const onUserCreated = vi.fn(async () => {
       order.push('onUserCreated')
