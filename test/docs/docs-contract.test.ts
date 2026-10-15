@@ -274,9 +274,8 @@ describe('DevTools panel', () => {
     expect(page).toContain(`\n## ${label}\n`)
   })
 
-  it('the homepage drawing lists the same tabs', () => {
-    const tabs = read('website/components/home/DevX.vue').match(/const TABS = \[([\s\S]*?)\n\]/)?.[1] ?? ''
-    expect([...tabs.matchAll(/label: '([^']+)'/g)].map(m => m[1])).toEqual(labels)
+  it('lists them in the order of the panel', () => {
+    expect(labels.map(label => page.indexOf(`\n## ${label}\n`))).toEqual(labels.map(label => page.indexOf(`\n## ${label}\n`)).sort((a, b) => a - b))
   })
 })
 

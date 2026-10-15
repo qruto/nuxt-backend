@@ -2,9 +2,10 @@
  * `env push` — sync the backend env contract onto the Convex deployment.
  *
  * `.env.local` is the single write-once place for provider keys; this engine
- * forwards them to the deployment (values pass as argv, never through a
- * shell), and on `dev:` deployments fills the required gaps so the
- * three-command onboarding needs zero manual `convex env set`:
+ * forwards them to the deployment (each value on `convex env set`'s stdin —
+ * never an argument, never through a shell), and on `dev:` deployments fills
+ * the required gaps so the three-command onboarding needs zero manual
+ * `convex env set`:
  * AUTH_SECRET is generated, SITE_URL defaults to localhost, and OTP codes are
  * echoed to the convex dev console until a real email transport exists.
  *
@@ -154,6 +155,23 @@ export function deploymentFlags(options: { prod?: boolean } = {}): string[] {
 }
 
 /**
+ * The deployment type of the deploy key the Convex CLI would use, from `env`
+ * (`CONVEX_DEPLOY_KEY`, else `CONVEX_DEPLOYMENT_TOKEN`): `prod`, `dev`,
+ * `preview` or `project`. A legacy key with no type prefix is a production
+ * key. Null when no key is set.
+ *
+ * Only the prefix before the first `:` is read — the same parse as the
+ * Convex CLI's `deploymentTypeFromAdminKey`; the secret after `|` is not.
+ */
+export function deployKeyType(env: Record<string, string | undefined> = process.env): string | null {
+  const key = env.CONVEX_DEPLOY_KEY || env.CONVEX_DEPLOYMENT_TOKEN
+  // The Convex CLI's own "no key here" placeholder.
+  if (!key || key === '<ignore_deploy_key>') return null
+  const separator = key.indexOf(':')
+  return separator === -1 ? 'prod' : key.slice(0, separator)
+}
+
+/**
  * The deployment type of the deploy key in `env`, when it is one a
  * production command must not act on. The Convex CLI follows
  * `CONVEX_DEPLOY_KEY` and ignores `--prod`, so with a dev or preview key a
@@ -161,16 +179,9 @@ export function deploymentFlags(options: { prod?: boolean } = {}): string[] {
  * no key is set, or the key can reach production: a `prod:` key, a
  * `project:` key (`--prod` then picks the project's production), or a
  * legacy key with no type prefix.
- *
- * Only the prefix before the first `:` is read — the same parse as the
- * Convex CLI's `deploymentTypeFromAdminKey`; the secret after `|` is not.
  */
 export function nonProductionDeployKey(env: Record<string, string | undefined> = process.env): string | null {
-  const key = env.CONVEX_DEPLOY_KEY || env.CONVEX_DEPLOYMENT_TOKEN
-  if (!key) return null
-  const separator = key.indexOf(':')
-  if (separator === -1) return null
-  const type = key.slice(0, separator)
+  const type = deployKeyType(env)
   return type === 'prod' || type === 'project' ? null : type
 }
 
@@ -178,7 +189,7 @@ export function nonProductionDeployKey(env: Record<string, string | undefined> =
  * Read deployment env var NAMES via `convex env list --names-only`: the
  * values are never requested, so a production secret never reaches this
  * process. (`--names-only` arrived in convex 1.42; the peer range starts
- * at 1.43.)
+ * at 1.46.)
  */
 export async function deploymentEnvNames(rootDir: string, options: { prod?: boolean } = {}): Promise<string[] | null> {
   try {
@@ -191,6 +202,40 @@ export async function deploymentEnvNames(rootDir: string, options: { prod?: bool
   catch {
     return null
   }
+}
+
+/**
+ * The deployment's function spec (`convex function-spec`, with the same
+ * selection as every other call here): its client URL — which deployment the
+ * Convex CLI acts on — and the deployed function identifiers (`module:name`).
+ * Null when the CLI cannot read it.
+ */
+export async function deploymentFunctionSpec(rootDir: string, options: { prod?: boolean } = {}): Promise<{ url: string | null, identifiers: Set<string> } | null> {
+  try {
+    const { stdout } = await runConvex(rootDir, ['function-spec', ...deploymentFlags(options)])
+    const parsed = JSON.parse(stdout) as { url?: string, functions?: Array<{ identifier?: string }> } | Array<{ identifier?: string }>
+    const list = Array.isArray(parsed) ? parsed : parsed.functions ?? []
+    return {
+      url: Array.isArray(parsed) ? null : parsed.url ?? null,
+      identifiers: new Set(list
+        .map(fn => fn.identifier ?? '')
+        .map(id => id.replace(/\.[jt]s:/, ':'))),
+    }
+  }
+  catch {
+    return null
+  }
+}
+
+/**
+ * `convex env set [--prod] NAME`, the value written to its stdin. A value is
+ * never an argument: a process's arguments are visible to every user of the
+ * machine (`ps`) for as long as it runs, and a failed command's error would
+ * quote them. The Convex CLI reads a value it was not given from stdin when
+ * stdin is not a terminal (since convex 1.27).
+ */
+export async function setDeploymentEnv(rootDir: string, name: string, value: string, options: { prod?: boolean } = {}): Promise<void> {
+  await runConvex(rootDir, ['env', 'set', ...deploymentFlags(options), name], { input: value })
 }
 
 export interface EnvPushResult {
@@ -207,21 +252,18 @@ export interface ExecuteEnvPushOptions {
   setEnv?: (rootDir: string, name: string, value: string) => Promise<void>
 }
 
-/** Values pass as argv with no shell, on every platform. */
-async function defaultSetEnv(rootDir: string, name: string, value: string, prod: boolean): Promise<void> {
-  await runConvex(rootDir, ['env', 'set', ...deploymentFlags({ prod }), name, value])
-}
-
 /**
  * Apply a plan (`planEnvPush`) to the deployment. Exported for tests (the
- * `convex env set` spawner is injectable).
+ * `convex env set` spawner is injectable). A failure is reported by the
+ * error's message, which never carries the value: the default spawner passes
+ * it on stdin (`setDeploymentEnv`).
  *
  * @internal
  */
 export async function executeEnvPush(
   rootDir: string,
   actions: EnvPushAction[],
-  { dryRun = false, prod = false, setEnv = (dir, name, value) => defaultSetEnv(dir, name, value, prod) }: ExecuteEnvPushOptions = {},
+  { dryRun = false, prod = false, setEnv = (dir, name, value) => setDeploymentEnv(dir, name, value, { prod }) }: ExecuteEnvPushOptions = {},
 ): Promise<EnvPushResult[]> {
   const results: EnvPushResult[] = []
   for (const action of actions) {
@@ -247,6 +289,8 @@ export async function executeEnvPush(
 export interface EnvPushRunResult {
   deployment: string | null
   dev: boolean
+  /** The names the deployment held before the push (`convex env list`). */
+  deployedNames: string[]
   results: EnvPushResult[]
   /** Required vars with no source on a non-dev push. */
   missingRequired: string[]
@@ -321,6 +365,7 @@ export async function runEnvPush(rootDir: string, options: { prod?: boolean, dry
   return {
     deployment,
     dev,
+    deployedNames,
     results,
     missingRequired: actions.filter(action => action.action === 'missing').map(action => action.name),
   }

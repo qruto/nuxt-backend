@@ -7,10 +7,13 @@ import { pageKeys, type PageKeyFields } from './page-keys'
 // `<agent-prompt-links></agent-prompt-links>` and never the links. And the
 // page header's keys come from the frontmatter, which the twin leaves out.
 //
-// modules/docs-pages.ts runs this over every page: each such block gets the
-// text it stands for as children, and the header's keys close the page in a
-// `page-keys` block. The components render no slot (PageKeys renders
-// nothing at all), so the site itself does not change.
+// modules/docs-pages.ts runs `expandForAgents` over every page as it is
+// parsed: each such block gets the text it stands for as children, which its
+// component does not render as a slot, so the site itself does not change.
+// The header's keys close the page in a `page-keys` block, added only to the
+// copy agents read (`appendPageKeys`, server/plugins/agent-page-keys.ts):
+// in the stored page, the site's search would index text the page never
+// shows.
 
 /** A minimark node: `[tag, props, ...children]`, or a text string. */
 type MinimarkNode = string | [string, Record<string, unknown>, ...MinimarkNode[]]

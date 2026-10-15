@@ -6,7 +6,7 @@ navigation:
   icon: i-lucide-terminal
 ---
 
-`npx nuxt-backend <command>` ships with the package. Every command takes `--cwd <dir>` (default `.`, the project directory) and reads `.env` + `.env.local` from it; deployment env **values** are never read — only names, via `npx convex env list`.
+`npx nuxt-backend <command>` ships with the package. Every command takes `--cwd <dir>` (default `.`, the project directory) and reads `.env` + `.env.local` from it. Deployment env **values** are never read — only names, via `npx convex env list` — with one exception: `billing sync` reads `BILLING_ENVIRONMENT`, the sandbox/production switch, to compare it with the environment it syncs. A value the CLI sets reaches `npx convex env set` on its stdin, never as an argument.
 
 ## `init`
 
@@ -75,7 +75,7 @@ npx nuxt-backend doctor --only billing,email
 | `--prod` | Production posture: checks the project's **production** deployment (`convex … --prod`), and the optional tier's designed degradations become failures (see below). Refuses a dev or preview `CONVEX_DEPLOY_KEY`, which would point the checks at that deployment. |
 | `--fix` | Repair what doctor can: restore missing scaffold files (existing files untouched), point a `convex dev --start "nuxt dev"` dev script at `nuxt-backend dev`, then run the `env push` engine — never with `--force`. |
 | `--json` | Machine-readable output, described by [its JSON Schema](https://nuxt-backend.dev/schemas/doctor.json). With `--fix`, the repair's progress goes to stderr, so stdout stays one JSON document. |
-| `--only <services>` | Run only the checks of these services, comma-separated: `deployment`, `auth`, `email`, `billing`, `agents`, `ai`, `scaffold`. The other checks never run, so their deployment reads, route probes and provider calls are skipped too. |
+| `--only <services>` | Run only the checks of these services, comma-separated: `deployment`, `auth`, `workspaces`, `email`, `billing`, `agents`, `ai`, `scaffold`. The other checks never run, so their deployment reads, route probes and provider calls are skipped too. |
 
 ### Findings
 
@@ -134,7 +134,7 @@ The plan, per variable of the contract (`AUTH_SECRET`, `SITE_URL`, `AUTH_TRUST_L
 | `MISSING` | Required and missing on a non-dev push — blocks with exit 1 |
 | `unset` | Optional and absent — informational, with the designed degradation; dev-only vars are never forwarded to a non-dev deployment |
 
-Values pass to `npx convex env set` as argv (never through a shell). The deployment is whatever the Convex CLI targets — `CONVEX_DEPLOYMENT` from `.env.local` in dev, or a `CONVEX_DEPLOY_KEY` in the environment for production. Without a reachable deployment the command exits 1 (`run npx convex dev once, then push again`).
+Each value reaches `npx convex env set NAME` on its stdin — never as an argument, where every process on the machine could read it (`ps`), and never through a shell. A set that fails is reported as the command, its exit code and the last lines of its stderr, never with the value. The deployment is whatever the Convex CLI targets — `CONVEX_DEPLOYMENT` from `.env.local` in dev, or a `CONVEX_DEPLOY_KEY` in the environment for production. Without a reachable deployment the command exits 1 (`run npx convex dev once, then push again`).
 
 ::note
 `backend.autoEnv` (default `true`) runs this same engine once per dev deployment on dev-server startup, stamped under `node_modules/.cache/nuxt-backend`, and watches `.env.local` for `CONVEX_DEPLOYMENT` to appear so the two first-run terminals can start in any order. It never touches non-dev deployments.
@@ -142,9 +142,9 @@ Values pass to `npx convex env set` as argv (never through a shell). The deploym
 
 ## `billing sync`
 
-Push `backend/billing.catalog.ts` to the billing provider and write `backend/billing.generated.ts` — find-or-create, never deletes. A new webhook endpoint's secret is stored on the deployment as `BILLING_WEBHOOK_SECRET`, never printed, and `billing:syncProducts` runs on the deployment so pricing renders at once. Sandbox writes the deployment `.env.local` names; `--env production` writes the production deployment.
+Push `backend/billing.catalog.ts` to the billing provider and write `backend/billing.generated.ts` — find-or-create, never deletes. It provisions the `/billing/events` webhook endpoint of the deployment it writes, stores the endpoint's secret there as `BILLING_WEBHOOK_SECRET` — never printed — and runs `billing:syncProducts` on that deployment so pricing renders at once. Sandbox writes the deployment `.env.local` names; `--env production` writes the production deployment.
 
-**Side effects:** writes provider accounts, project files (`billing.generated.ts`), and the dev or production deployment. **Exit codes:** `0` synced (a product refresh that couldn't run is reported, not fatal) or a dry run; `1` refused or failed: an unknown environment, no access token or catalog, a dev or preview `CONVEX_DEPLOY_KEY` with `--env production`, a provider error, or a new webhook secret that couldn't be stored.
+**Side effects:** writes provider accounts, project files (`billing.generated.ts`), and the dev or production deployment. **Exit codes:** `0` synced, or a dry run — a webhook or product step that could not run is reported, not fatal; `1` refused or failed: an unknown environment, no access token or catalog, a deploy key for the other kind of deployment, a production webhook URL that cannot be derived, a webhook URL on a deployment other than the one written, a provider error, or a webhook secret that belongs on the deployment and could not be stored.
 
 ```bash
 npx nuxt-backend billing sync
@@ -158,8 +158,16 @@ npx nuxt-backend billing sync --adopt pro=prod_123,credits=meter_456
 |---|---|
 | `--env sandbox\|production` | Target environment (default `BILLING_ENVIRONMENT`, else `sandbox`). |
 | `--dry-run` | Print the plan without creating anything. |
-| `--webhook <url>` | Provision the webhook endpoint at this URL (default: derived `<site>/billing/events`; `off` to skip). |
+| `--webhook <url>` | Provision the webhook endpoint at this URL (default: `<site>/billing/events` of the deployment written; `off` to leave the webhook alone). |
+| `--force` | Store the endpoint's secret even over a `BILLING_WEBHOOK_SECRET` the deployment already holds, and create a missing endpoint in that case. |
 | `--adopt key=<id>[,…]` | Record existing provider objects under catalog keys — recorded as-is, benefits untouched. |
-| `--json` | Print the outcome as one JSON document (`{ environment, dryRun, log, generated, webhook, products }`, the secret never in it); progress goes to stderr. |
+| `--json` | Print the outcome as one JSON document (`{ environment, dryRun, deployment, log, generated, webhook, products }`, the secret never in it); progress goes to stderr. |
+
+Before it writes anything, it reads the deployment the Convex CLI will write — `npx convex function-spec` and `npx convex env list`, with `--prod` under production — and works from there:
+
+- **Which deployment.** A deploy key decides it, whatever the flags say, so a key for the other kind of deployment is refused: a dev or preview `CONVEX_DEPLOY_KEY` under `--env production`; a production key (a legacy key without a type is one) or a project key under sandbox. The deployment written is named in the output and in `--json`'s `deployment`.
+- **The webhook URL.** `--webhook <url>` as given; otherwise `<site>/billing/events`, where the site is `NUXT_PUBLIC_BACKEND_SITE_URL` when set (a custom domain) or the deployment's own `.convex.site` origin. Under production only the shell's site URL counts — `.env.local`'s is the dev deployment's. An endpoint on one deployment whose secret would land on another is refused. When the URL cannot be had — the deployment is unreadable, or it runs on this machine where the provider cannot deliver — a sandbox sync leaves the webhook alone and says why; a production sync stops and asks for `--webhook`.
+- **The secret.** A new endpoint's secret is stored on the deployment. An endpoint that already exists has its secret stored when the deployment has none — the provider reports it on every read, so a secret one run could not store is stored by the next. A `BILLING_WEBHOOK_SECRET` the deployment already holds is kept unless `--force`; without it, an endpoint missing at the URL is not created, since its secret would replace that one. To set the secret by hand, `npx convex env set BILLING_WEBHOOK_SECRET` (with `--prod` for production) asks for it — never put it on the command line.
+- **The products.** `billing:syncProducts` runs only when the deployment can load the catalog synced: it holds `BILLING_ACCESS_TOKEN`, and its `BILLING_ENVIRONMENT` (sandbox when unset) is the environment synced. Otherwise it is skipped with the command to run once that is set; a run that fails reports the deployment's error.
 
 Needs `BILLING_ACCESS_TOKEN` (env or `.env.local`) and a `billing.catalog.ts`. The full semantics — tagging, drift, adopted products, the generated map — are in [Catalog as code](/docs/billing/catalog).

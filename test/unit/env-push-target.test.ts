@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runConvex } from '../../src/convex-cli'
-import { nonProductionDeployKey, runEnvPush } from '../../src/env-push'
+import { deployKeyType, nonProductionDeployKey, runEnvPush } from '../../src/env-push'
 
 // Which deployment a push acts on is decided by the flags handed to the Convex
 // CLI. `.env.local` names a dev deployment, so a production push that does
@@ -41,13 +41,30 @@ describe('nonProductionDeployKey', () => {
   })
 })
 
+describe('deployKeyType', () => {
+  // The deployment kind a key names, read the way the Convex CLI reads it.
+  it.each([
+    ['no key', {}, null],
+    ['a prod key', { CONVEX_DEPLOY_KEY: 'prod:happy-otter-123|secret' }, 'prod'],
+    ['a legacy key with no type, which is a production one', { CONVEX_DEPLOY_KEY: 'secret' }, 'prod'],
+    ['a project key', { CONVEX_DEPLOY_KEY: 'project:team:app|secret' }, 'project'],
+    ['a dev key', { CONVEX_DEPLOY_KEY: 'dev:happy-otter-123|secret' }, 'dev'],
+    ['a preview key', { CONVEX_DEPLOY_KEY: 'preview:team:app|secret' }, 'preview'],
+    ['a deployment token, when no deploy key is set', { CONVEX_DEPLOYMENT_TOKEN: 'dev:happy-otter-123|secret' }, 'dev'],
+    ['the Convex CLI\'s placeholder for none', { CONVEX_DEPLOY_KEY: '<ignore_deploy_key>' }, null],
+  ])('%s', (_label, env, expected) => {
+    expect(deployKeyType(env)).toBe(expected)
+  })
+})
+
 describe('env push target', () => {
   it('--prod reads and writes the production deployment', async () => {
     const run = await runEnvPush(rootDir, { prod: true })
 
     const calls = vi.mocked(runConvex).mock.calls.map(([, args]) => args)
     expect(calls[0]).toStrictEqual(['env', 'list', '--names-only', '--prod'])
-    expect(calls).toContainEqual(['env', 'set', '--prod', 'EMAIL_FROM', 'Acme <hello@example.com>'])
+    // The value goes on stdin, never into argv.
+    expect(vi.mocked(runConvex).mock.calls).toContainEqual([rootDir, ['env', 'set', '--prod', 'EMAIL_FROM'], { input: 'Acme <hello@example.com>' }])
     expect(calls.every(args => args.includes('--prod'))).toBe(true)
     // Reported as production, not as the dev deployment .env.local names.
     expect(run?.deployment).toBe('production')

@@ -361,6 +361,19 @@ describe('doctor --fix', () => {
 
     expect(logged()).toContain('doctor --fix: no deployment reachable — env not pushed.')
   })
+
+  it('keeps stdout one JSON document with --json: the files it restores are reported on stderr', async () => {
+    scaffoldBackendFiles(rootDir, { log: () => {} })
+    rmSync(join(rootDir, 'backend/billing.ts'))
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await run(['doctor', '--fix', '--json'])
+
+    const report = JSON.parse(logged()) as { findings: Array<{ id: string }> }
+    expect(report.findings.length).toBeGreaterThan(0)
+    expect(error.mock.calls.flat().join('\n')).toContain('Created backend/billing.ts')
+    expect(existsSync(join(rootDir, 'backend/billing.ts'))).toBe(true)
+  })
 })
 
 describe('doctor — billing catalog', () => {

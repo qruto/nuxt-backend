@@ -12,7 +12,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { runConvex } from './convex-cli'
 import { deriveDeploymentUrls, resolveSiteUrl } from './deployment'
-import { deploymentEnvNames, deploymentFlags, isDevDeployment, readEnvFiles } from './env-push'
+import { deploymentEnvNames, deploymentFlags, deploymentFunctionSpec, isDevDeployment, readEnvFiles } from './env-push'
 import { DEV_ONLY_DEPLOYMENT_ENV, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './env-registry'
 import { applyProductionPosture, deploymentEnvId, finding, type FindingService, type PreflightFinding } from './findings'
 import { collectPreflightFindings } from './preflight'
@@ -23,47 +23,19 @@ import type { BillingCatalog } from './convex/catalog'
 import { collectBillingFindings, loadCatalog, readBillingOrganizationState } from './cli/billing'
 import { devScriptFinding } from './cli/dev'
 
-async function convexCli(rootDir: string, args: string[]): Promise<string | null> {
-  try {
-    return (await runConvex(rootDir, args)).stdout
-  }
-  catch {
-    return null
-  }
-}
-
-/**
- * The deployment's function spec: its client URL and the deployed function
- * identifiers (`module:name`). Null when the CLI is unreachable.
- */
-async function deployedFunctionSpec(rootDir: string, prod: boolean): Promise<{ url: string | null, identifiers: Set<string> } | null> {
-  const stdout = await convexCli(rootDir, ['function-spec', ...deploymentFlags({ prod })])
-  if (stdout === null) return null
-  try {
-    const parsed = JSON.parse(stdout) as { url?: string, functions?: Array<{ identifier?: string }> } | Array<{ identifier?: string }>
-    const list = Array.isArray(parsed) ? parsed : parsed.functions ?? []
-    return {
-      url: Array.isArray(parsed) ? null : parsed.url ?? null,
-      identifiers: new Set(list
-        .map(fn => fn.identifier ?? '')
-        .map(id => id.replace(/\.[jt]s:/, ':'))),
-    }
-  }
-  catch {
-    return null
-  }
-}
-
 /**
  * What doctor reads from the deployment it checks, beyond env names: the
  * deployed functions, the auth config, and the site URL whose routes it
  * probes. Locally that site is the one .env.local names; under --prod it is
  * production's, which the function spec reports — an explicit site URL in the
  * process env (a custom domain) still wins, while .env.local's points at dev.
+ * The two reads are independent, so they run side by side.
  */
 async function readDeployment(rootDir: string, options: { prod: boolean, reachable: boolean, localSiteUrl: string | undefined, spec: boolean, authConfig: boolean }) {
-  const spec = options.reachable && options.spec ? await deployedFunctionSpec(rootDir, options.prod) : null
-  const authConfig = options.reachable && options.authConfig ? await deployedAuthConfig(rootDir, options.prod) : null
+  const [spec, authConfig] = await Promise.all([
+    options.reachable && options.spec ? deploymentFunctionSpec(rootDir, { prod: options.prod }) : null,
+    options.reachable && options.authConfig ? deployedAuthConfig(rootDir, options.prod) : null,
+  ])
   const probeSiteUrl = options.prod
     ? resolveSiteUrl({ env: process.env, derived: null, ...(spec?.url ? { url: spec.url } : {}) })
     : options.localSiteUrl
@@ -78,9 +50,8 @@ type DeployedAuthConfig = Partial<Record<'invitationPath' | 'agentLoginPath' | '
  * of the pages it sends people to. Null when unreadable.
  */
 async function deployedAuthConfig(rootDir: string, prod: boolean): Promise<DeployedAuthConfig | null> {
-  const stdout = await convexCli(rootDir, ['run', ...deploymentFlags({ prod }), 'auth:authConfig'])
-  if (stdout === null) return null
   try {
+    const { stdout } = await runConvex(rootDir, ['run', ...deploymentFlags({ prod }), 'auth:authConfig'])
     const parsed = JSON.parse(stdout) as Record<string, unknown>
     const config: DeployedAuthConfig = {}
     for (const field of ['invitationPath', 'agentLoginPath', 'agentConsentPath'] as const) {
@@ -117,7 +88,7 @@ function functionContractFindings(identifiers: ReadonlySet<string>): PreflightFi
 const PAGE_PATH_CHECKS = [
   {
     id: 'invitation-path',
-    service: 'auth',
+    service: 'workspaces',
     field: 'invitationPath',
     page: 'acceptInvitation',
     sender: 'Invitation emails link to',
@@ -169,7 +140,7 @@ async function pagePathFindings(rootDir: string, deployed: DeployedAuthConfig, w
     const nuxtPath = resolvePagePath(backend?.pages, check.page)
     return [nuxtPath === deployedPath
       ? finding(check.id, 'pass', `${check.agree} ${deployedPath}.`)
-      : finding(check.id, 'fail', `${check.sender} ${deployedPath}, but the page mounts at ${nuxtPath ?? 'nowhere (disabled)'} — ${check.broken}.`, check.fixHint)]
+      : finding(check.id, 'fail', `${check.sender} ${deployedPath}, but the page mounts at ${nuxtPath} — ${check.broken}.`, check.fixHint)]
   })
 }
 
@@ -248,10 +219,23 @@ function codegenFinding(rootDir: string): PreflightFinding {
     : finding('convex-codegen', 'warn', `${functionsDir}/_generated missing — Convex features no-op until codegen runs.`, 'Run: npx convex dev')
 }
 
-function requiredDeploymentEnvFinding(name: string, isSet: boolean): PreflightFinding {
-  return isSet
-    ? finding(deploymentEnvId(name), 'pass', `${name} is set on the deployment.`)
-    : finding(deploymentEnvId(name), 'fail', `${name} is not set on the Convex deployment (required — a deploy fails without it).`, `Run \`npx nuxt-backend env push\` (dev fills it in), or: npx convex env set ${name} ...`)
+/**
+ * A required var's presence. Set by hand, a generated secret is piped in, so
+ * it never sits in the process list or the shell history; under --prod every
+ * command names production.
+ */
+function requiredDeploymentEnvFinding(name: string, isSet: boolean, prod: boolean): PreflightFinding {
+  if (isSet) return finding(deploymentEnvId(name), 'pass', `${name} is set on the deployment.`)
+  const flag = prod ? ' --prod' : ''
+  const byHand = name === 'AUTH_SECRET'
+    ? `openssl rand -base64 32 | npx convex env set${flag} AUTH_SECRET`
+    : `npx convex env set${flag} ${name} ...`
+  return finding(
+    deploymentEnvId(name),
+    'fail',
+    `${name} is not set on the Convex deployment (required — a deploy fails without it).`,
+    prod ? `Add it to .env.local and run \`npx nuxt-backend env push --prod\`, or: ${byHand}` : `Run \`npx nuxt-backend env push\` (dev fills it in), or: ${byHand}`,
+  )
 }
 
 /**
@@ -259,17 +243,18 @@ function requiredDeploymentEnvFinding(name: string, isSet: boolean): PreflightFi
  * a misconfiguration worth flagging. Every other optional var reports its
  * designed degradation when unset.
  */
-function optionalDeploymentEnvFinding(name: string, degradation: string, isSet: boolean, devDeployment: boolean): PreflightFinding {
+function optionalDeploymentEnvFinding(name: string, degradation: string, isSet: boolean, { devDeployment, prod }: { devDeployment: boolean, prod: boolean }): PreflightFinding {
   const id = deploymentEnvId(name)
+  const flag = prod ? ' --prod' : ''
   if (DEV_ONLY_DEPLOYMENT_ENV.has(name)) {
     if (isSet && !devDeployment) {
-      return finding(id, 'warn', `${name} is set on a non-dev deployment — loopback origins are trusted there.`, `Remove it: npx convex env remove ${name}`)
+      return finding(id, 'warn', `${name} is set on a non-dev deployment — loopback origins are trusted there.`, `Remove it: npx convex env remove${flag} ${name}`)
     }
     return finding(id, 'pass', isSet ? `${name} is set on the dev deployment.` : `${name} is not set (dev-only): ${degradation}.`)
   }
   return isSet
     ? finding(id, 'pass', `${name} is set on the deployment.`)
-    : finding(id, 'warn', `${name} is not set (optional): ${degradation}.`, `Add ${name} to .env.local and run \`npx nuxt-backend env push\`.`)
+    : finding(id, 'warn', `${name} is not set (optional): ${degradation}.`, `Add ${name} to .env.local and run \`npx nuxt-backend env push${flag}\`.`)
 }
 
 /**
@@ -285,9 +270,9 @@ function deploymentEnvFindings(rootDir: string, deployed: string[] | null, prod:
   // .env.local names.
   const devDeployment = !prod && isDevDeployment(rootDir)
   return [
-    ...REQUIRED_DEPLOYMENT_ENV.map(name => requiredDeploymentEnvFinding(name, deployed.includes(name))),
+    ...REQUIRED_DEPLOYMENT_ENV.map(name => requiredDeploymentEnvFinding(name, deployed.includes(name), prod)),
     ...Object.entries(OPTIONAL_DEPLOYMENT_ENV).map(([name, degradation]) =>
-      optionalDeploymentEnvFinding(name, degradation, deployed.includes(name), devDeployment)),
+      optionalDeploymentEnvFinding(name, degradation, deployed.includes(name), { devDeployment, prod })),
   ]
 }
 
@@ -297,9 +282,7 @@ function deploymentEnvFindings(rootDir: string, deployed: string[] | null, prod:
  * A read only happens when a wanted check needs it.
  */
 async function deployedSurfaceFindings(rootDir: string, { prod, reachable, siteUrl, wants }: { prod: boolean, reachable: boolean, siteUrl: string | undefined, wants: (service: FindingService) => boolean }): Promise<PreflightFinding[]> {
-  const findings: PreflightFinding[] = []
   const probes = wants('billing') || wants('email') || wants('ai')
-  const pages = wants('auth') || wants('agents')
   const { identifiers, authConfig, probeSiteUrl } = await readDeployment(rootDir, {
     prod,
     reachable,
@@ -307,40 +290,58 @@ async function deployedSurfaceFindings(rootDir: string, { prod, reachable, siteU
     // The function spec names the deployed functions (the contract, and
     // whether `ai` is deployed) and, under --prod, the site to probe.
     spec: wants('scaffold') || probes,
-    authConfig: pages,
+    // The auth config reports the page paths; read only when a service
+    // whose page it checks is wanted.
+    authConfig: PAGE_PATH_CHECKS.some(check => wants(check.service)),
   })
   // Webhook routes must actually be mounted — a missing route silently
   // drops billing/email events. The site URL is derivable from the
   // deployment slug, so this probe usually needs no configuration at all.
-  if (probes && probeSiteUrl) {
-    const ai = identifiers ? [...identifiers].some(id => id.startsWith('ai:')) : true
-    findings.push(...await webhookRouteFindings(probeSiteUrl, { ai, wants }))
-  }
-  // The composable function contract and the page-path cross-checks (no
-  // finding when nuxt.config is unreadable).
-  if (identifiers && wants('scaffold')) {
-    findings.push(...functionContractFindings(identifiers))
-  }
-  if (authConfig) {
-    findings.push(...await pagePathFindings(rootDir, authConfig, wants))
-  }
-  return findings
+  // The probes and the page-path cross-checks (which load nuxt.config, and
+  // report nothing when it is unreadable) run side by side.
+  const [routes, pages] = await Promise.all([
+    probes && probeSiteUrl
+      ? webhookRouteFindings(probeSiteUrl, { ai: identifiers ? [...identifiers].some(id => id.startsWith('ai:')) : true, wants })
+      : [],
+    authConfig ? pagePathFindings(rootDir, authConfig, wants) : [],
+  ])
+  return [
+    ...routes,
+    // The composable function contract.
+    ...identifiers && wants('scaffold') ? functionContractFindings(identifiers) : [],
+    ...pages,
+  ]
 }
 
 /**
  * Run the doctor checks against the project in `rootDir` and its deployment
  * (production with `prod`), returning the findings with production posture
- * applied. `only` limits the run to those services.
+ * applied. `only` limits the run to those services. `deployedNames` is the
+ * deployment's env names when the caller has just listed them — `doctor --fix`
+ * after its push; `null` when that listing failed — so they are not listed
+ * twice.
  */
-export async function runDoctorChecks(rootDir: string, { prod, only }: { prod: boolean, only?: readonly FindingService[] }): Promise<PreflightFinding[]> {
+export async function runDoctorChecks(rootDir: string, { prod, only, deployedNames }: { prod: boolean, only?: readonly FindingService[], deployedNames?: string[] | null }): Promise<PreflightFinding[]> {
   const wants = (service: FindingService) => !only || only.length === 0 || only.includes(service)
   const env = { ...readEnvFiles(rootDir), ...process.env } as Record<string, string | undefined>
 
   const siteUrl = resolveSiteUrl({ env, derived: deriveDeploymentUrls(rootDir, env) })
-  // The deployment's env names (never values) first, so a variable set there
-  // but not visible here counts as set instead of warning next to the
-  // deployment-side finding that says it is.
-  const deployed = await deploymentEnvNames(rootDir, { prod })
+  const [{ deployed, surface }, catalog] = await Promise.all([
+    (async () => {
+      // The deployment's env names (never values) first, so a variable set
+      // there but not visible here counts as set instead of warning next to
+      // the deployment-side finding that says it is.
+      const names = deployedNames !== undefined ? deployedNames : await deploymentEnvNames(rootDir, { prod })
+      return { deployed: names, surface: await deployedSurfaceFindings(rootDir, { prod, reachable: names !== null, siteUrl, wants }) }
+    })(),
+    // Billing catalog cross-checks: what backend/billing.catalog.ts declares
+    // against the organization's own subscription + portal settings. Every
+    // half degrades on its own — no catalog file, no findings; no readable
+    // provider, only the catalog-only checks (see collectBillingFindings).
+    // Local files and the provider only, so they run beside the deployment
+    // reads.
+    wants('billing') ? billingCatalogFindings(rootDir, env) : [],
+  ])
   const findings: PreflightFinding[] = [
     ...collectPreflightFindings({
       env,
@@ -349,12 +350,8 @@ export async function runDoctorChecks(rootDir: string, { prod, only }: { prod: b
     }),
     ...wants('scaffold') ? [codegenFinding(rootDir), ...devScriptFinding(rootDir)] : [],
     ...deploymentEnvFindings(rootDir, deployed, prod),
-    ...await deployedSurfaceFindings(rootDir, { prod, reachable: deployed !== null, siteUrl, wants }),
-    // Billing catalog cross-checks: what backend/billing.catalog.ts declares
-    // against the organization's own subscription + portal settings. Every
-    // half degrades on its own — no catalog file, no findings; no readable
-    // provider, only the catalog-only checks (see collectBillingFindings).
-    ...wants('billing') ? await billingCatalogFindings(rootDir, env) : [],
+    ...surface,
+    ...catalog,
   ].filter(reported => wants(reported.service))
   return prod ? applyProductionPosture(findings) : findings
 }

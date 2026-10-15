@@ -1,5 +1,5 @@
 /** The part of the app a finding is about: what `doctor --only` selects. */
-export type FindingService = 'deployment' | 'auth' | 'email' | 'billing' | 'agents' | 'ai' | 'scaffold'
+export type FindingService = 'deployment' | 'auth' | 'workspaces' | 'email' | 'billing' | 'agents' | 'ai' | 'scaffold'
 
 /** What the registry knows about one finding id, apart from its service. */
 export interface FindingEntry {

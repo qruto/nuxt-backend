@@ -36,9 +36,10 @@ catches the light and its bottom lip is dark, as a key on a panel would be.
 The whole product sits on **one machined slab**: gunmetal in dark (the
 reference), a light gunmetal in light, both at the same cool, nearly grey hue.
 
-- **The ground** (`--bg`, painted by `--matte-bg`): a top-left light ray over a
-  135° hairline grain (2px lines every 6px, under 1 % alpha: half the
-  reference's, which hatched visibly at 1x).
+- **The ground** (`--bg`, painted by `--matte-bg`): a top-left light ray
+  (`--ray`) over a 135° hairline grain (2px lines every 6px, under 1 % alpha:
+  half the reference's, which hatched visibly at 1x). In dark the ray peaks at
+  half strength: any brighter and red text on it drops under 4.5:1.
 - **Faces** are milled out of it and sit lighter: `--surface`, `--surface-hi`.
 - **Wells** are cut into it and sit darker: `--sink`, with `--seam` the dark
   line between two machined parts.
@@ -68,8 +69,10 @@ Each family reads the same way:
 - **the signal** (`--ok`): text-safe on the ground, the faces and the wells in
   both themes, so one token is the label, the hairline and the button fill;
 - **`-lit`** the lit LED, strip, glyph or fill: the reference value (`#4ade80`,
-  `#facc15`, `#f87171`, display-p3 where the screen has it) in **both** themes,
-  because a light is a light whatever the page around it;
+  `#facc15`, `#f87171`, display-p3 on a screen that shows it:
+  `@media (color-gamut: p3)`) in **both** themes, because a light is a light
+  whatever the page around it. A red glyph on the LCD is lettered in the
+  lighter `--err-glyph`: the lit red is a lamp, too dark to read as text;
 - **`-press`** the hover fill · **`-soft`** text on a tinted chip · **`-dim`** a
   faint tint *behind* a pill or a row · **`-glow`** the translucent colour of
   the `--glow-*` shadows · **`-on`** lettering on a filled control.
@@ -86,7 +89,7 @@ for the alias it backs.
 | Token | Light | Dark |
 | --- | --- | --- |
 | `--bg` · `--surface` · `--surface-hi` · `--sink` · `--seam` | `#dcdee2` · `#ebedef` · `#f6f7f9` · `#ced1d6` · `#b7bac0` | `#26292e` · `#33373e` · `#3b3f46` · `#1c1e22` · `#101216` |
-| `--ink` · `--ink-dim` · `--ink-faint` | `#1f2226` · `#575b62` · `#5b5f67` | `#e6e8ec` · `#9fa3ad` · `#9498a3` |
+| `--ink` · `--ink-dim` · `--ink-faint` | `#1f2226` · `#575b62` · `#5b5f67` | `#e6e8ec` · `#9fa3ad` · `#989ca7` |
 | `--ok` · `--warn` · `--err` | `#116632` · `#6d5600` · `#a1302d` (500) | `#4ade80` · `#facc15` · `#f87171` (400) |
 | `--on-ok` · `--on-warn` · `--on-err` | `#fff` | `#052912` · `#1a1200` · `#1c0707` |
 | `--trim` (never text) | `#9a9ea7` | `#666a75` |
@@ -104,51 +107,73 @@ gradient that differs by theme composes per-stop tokens (`--key-face` from
 A raised face is lighter than the ground in both themes and a well is darker,
 so an ink that clears its bar on the ground can miss it on either. The blocks at
 the end of tokens.css re-derive the text inks per ground, and small red on a
-dark plate takes the soft red. Every pair, measured on the declared values by
-`scripts/design-contrast.mjs` (worst ground per row; `test/docs/design-tokens.test.ts`
-fails when one drops below its bar or this table is stale; `pnpm generate`
-rewrites it):
+dark plate takes the soft red. A property that reads one of these inks resolves
+it where it is declared, so Nuxt UI's `--ui-text-muted` and `--ui-text-dimmed`
+bridges are re-declared in each block too, or `text-muted` on a plaque would
+read the ground's ink.
+
+Each row is the worst ground of its scope, with every translucent layer the
+stylesheet paints composited where it is strongest: **ground** is `--bg` and the
+ray at its peak; **raised** is `--surface`, `--surface-hi`, `--unit-lo` and a
+plaque at its top-left sheen and its bottom-right shade; **well** is `--sink`.
+The LCD's glyphs are measured under the glass's sheen, which lies over the text
+as well as the glass, in sRGB and on a P3 screen. A focus ring is a UI
+component: 3:1 (WCAG 1.4.11). Every pair, measured on the declared values by
+`scripts/design-contrast.mjs` (`test/docs/design-tokens.test.ts` fails when one
+drops below its bar, when this table is stale, or when a `:root` property that
+reads a per-ground ink is not re-declared in every block; `pnpm generate`
+rewrites the table):
 
 <!-- contrast:start -->
 | Ink | On | Light | Dark | Bar |
 | --- | --- | --- | --- | --- |
-| `--ink` | ground | 11.85:1 | 11.90:1 | 4.5:1 |
-| `--ink` | raised | 13.61:1 | 8.62:1 | 4.5:1 |
+| `--ink` | ground | 11.85:1 | 10.15:1 | 4.5:1 |
+| `--ink` | raised | 12.20:1 | 7.58:1 | 4.5:1 |
 | `--ink` | well | 10.43:1 | 13.61:1 | 4.5:1 |
-| `--ink-dim` | ground | 5.06:1 | 5.78:1 | 4.5:1 |
-| `--ink-dim` | raised | 5.81:1 | 4.60:1 | 4.5:1 |
+| `--ink-dim` | ground | 5.06:1 | 4.93:1 | 4.5:1 |
+| `--ink-dim` | raised | 5.21:1 | 4.53:1 | 4.5:1 |
 | `--ink-dim` | well | 4.67:1 | 6.61:1 | 4.5:1 |
-| `--ink-faint` | ground | 4.76:1 | 5.06:1 | 4.5:1 |
-| `--ink-faint` | raised | 5.46:1 | 4.61:1 | 4.5:1 |
+| `--ink-faint` | ground | 4.76:1 | 4.53:1 | 4.5:1 |
+| `--ink-faint` | raised | 4.89:1 | 4.53:1 | 4.5:1 |
 | `--ink-faint` | well | 4.65:1 | 5.79:1 | 4.5:1 |
-| `--ok` | ground | 5.25:1 | 8.37:1 | 4.5:1 |
-| `--ok` | raised | 6.02:1 | 6.07:1 | 4.5:1 |
+| `--ok` | ground | 5.25:1 | 7.15:1 | 4.5:1 |
+| `--ok` | raised | 5.40:1 | 5.33:1 | 4.5:1 |
 | `--ok` | well | 4.62:1 | 9.58:1 | 4.5:1 |
-| `--warn` | ground | 5.23:1 | 9.53:1 | 4.5:1 |
-| `--warn` | raised | 6.00:1 | 6.91:1 | 4.5:1 |
+| `--warn` | ground | 5.23:1 | 8.13:1 | 4.5:1 |
+| `--warn` | raised | 5.38:1 | 6.07:1 | 4.5:1 |
 | `--warn` | well | 4.60:1 | 10.90:1 | 4.5:1 |
-| `--err` | ground | 5.24:1 | 5.28:1 | 4.5:1 |
-| `--err` | raised | 6.01:1 | 5.57:1 | 4.5:1 |
+| `--err` | ground | 5.24:1 | 4.50:1 | 4.5:1 |
+| `--err` | raised | 5.39:1 | 4.90:1 | 4.5:1 |
 | `--err` | well | 4.61:1 | 6.03:1 | 4.5:1 |
-| `--engrave-ink-sm` | ground | 4.69:1 | 5.06:1 | 4.5:1 |
-| `--engrave-ink-sm` | raised | 5.39:1 | 4.61:1 | 4.5:1 |
+| `--engrave-ink-sm` | ground | 4.69:1 | 4.53:1 | 4.5:1 |
+| `--engrave-ink-sm` | raised | 4.83:1 | 4.53:1 | 4.5:1 |
 | `--engrave-ink-sm` | well | 4.60:1 | 5.79:1 | 4.5:1 |
-| `--engrave-ink` | ground | 4.69:1 | 3.59:1 | 3:1 (24px and up) |
-| `--engrave-ink` | raised | 5.39:1 | 3.10:1 | 3:1 (24px and up) |
+| `--engrave-ink` | ground | 4.69:1 | 3.07:1 | 3:1 (24px and up) |
+| `--engrave-ink` | raised | 4.83:1 | 3.03:1 | 3:1 (24px and up) |
 | `--engrave-ink` | well | 4.13:1 | 4.11:1 | 3:1 (24px and up) |
-| `--emb-ink` | ground | 11.85:1 | 12.79:1 | 4.5:1 (embossed titles) |
-| `--emb-ink` | raised | 13.61:1 | 9.27:1 | 4.5:1 (embossed titles) |
+| the `cut` floor | ground | 3.53:1 | 3.95:1 | 3:1 (24px and up) |
+| the `cut` floor | raised | 3.63:1 | 3.65:1 | 3:1 (24px and up) |
+| the `cut` floor | well | 3.11:1 | 5.30:1 | 3:1 (24px and up) |
+| `--emb-ink` | ground | 11.85:1 | 10.91:1 | 4.5:1 (embossed titles) |
+| `--emb-ink` | raised | 12.20:1 | 8.15:1 | 4.5:1 (embossed titles) |
+| `--focus` | ground | 5.25:1 | 7.15:1 | 3:1 (focus ring) |
+| `--focus` | raised | 5.40:1 | 5.33:1 | 3:1 (focus ring) |
+| `--focus` | well | 4.62:1 | 9.58:1 | 3:1 (focus ring) |
 | `--key-ink` | `--key-hi`, `--key-mid`, `--key-lo` | 10.39:1 | 6.76:1 | 4.5:1 |
+| `--key-ink` | `--key-down-hi`, `--key-down-lo` | 8.89:1 | 9.18:1 | 4.5:1 |
 | `--ok` | `--key-down-hi`, `--key-down-lo` | 4.62:1 | 7.37:1 | 4.5:1 |
-| `--key-warn-ink` | `--key-hi`, `--key-mid`, `--key-lo` | 6.67:1 | 7.60:1 | 4.5:1 |
-| `--key-err-ink` | `--key-hi`, `--key-mid`, `--key-lo` | 6.66:1 | 4.99:1 | 4.5:1 |
+| `--key-warn-ink` | `--key-hi`, `--key-mid`, `--key-lo`, `--key-down-hi`, `--key-down-lo` | 5.71:1 | 7.60:1 | 4.5:1 |
+| `--key-err-ink` | `--key-hi`, `--key-mid`, `--key-lo`, `--key-down-hi`, `--key-down-lo` | 5.69:1 | 4.99:1 | 4.5:1 |
 | `--go-ink` | `--go-hi`, `--go-lo`, `--ok-lit` | 6.07:1 | 6.07:1 | 4.5:1 |
-| `--on-ok` | `--ok` | 7.07:1 | 9.05:1 | 4.5:1 |
+| `--go-ink` | `--go-down-hi`, `--go-down-lo` | 4.60:1 | 4.60:1 | 4.5:1 |
+| `--on-ok` | `--ok` | 7.07:1 | 9.04:1 | 4.5:1 |
 | `--on-warn` | `--warn` | 7.04:1 | 12.13:1 | 4.5:1 |
 | `--on-err` | `--err` | 7.06:1 | 7.01:1 | 4.5:1 |
-| `--ok-lit` | `--lcd-ground` | 9.71:1 | 9.71:1 | 4.5:1 |
-| `--warn-lit` | `--lcd-ground` | 11.05:1 | 11.05:1 | 4.5:1 |
-| `--err-lit` | `--lcd-ground` | 6.12:1 | 6.12:1 | 4.5:1 |
+| `--ok-lit` | `--lcd-ground`, `--lcd-lit` under `--lcd-sheen` | 4.79:1 | 4.79:1 | 4.5:1 |
+| `--warn-lit` | `--lcd-ground`, `--lcd-lit` under `--lcd-sheen` | 5.37:1 | 5.37:1 | 4.5:1 |
+| `--err-glyph` | `--lcd-ground`, `--lcd-lit` under `--lcd-sheen` | 4.50:1 | 4.50:1 | 4.5:1 |
+| `--ok-lit` (display-p3) | `--lcd-ground`, `--lcd-lit` under `--lcd-sheen` | 5.72:1 | 5.72:1 | 4.5:1 |
+| `--warn-lit` (display-p3) | `--lcd-ground`, `--lcd-lit` under `--lcd-sheen` | 5.77:1 | 5.77:1 | 4.5:1 |
 <!-- contrast:end -->
 
 The code inks (`shiki-themes.ts`) are measured against their well in the same
@@ -181,7 +206,19 @@ test.
 
 These three are the only families on the site (the design-parts test holds
 it). @nuxt/fonts self-hosts them with their width axis; `check-website-css`
-fails the build when the axis goes missing.
+fails the build when the axis goes missing. The widths of h1–h3 and of code
+are element defaults in Tailwind's base layer (app.css), so a part or a
+utility that sets its own width wins: `stamp` and `k` at 100 %, the hero's
+118 %.
+
+While a face loads, each stack falls back on a metric-matched local face: a
+system face scaled to the web font's average glyph width at that width and
+weight (on capitals for the uppercase 118 %), with the web font's ascent and descent, so a line keeps its length and
+its height and the page does not reflow when the font lands. app.css writes
+`Anybody Fallback` and `Martian Mono Fallback`, one face per width the site
+sets and per weight band (@nuxt/fonts writes none for a global family);
+@nuxt/fonts writes Handjet's. `check-website-css` fails the build when one goes
+missing.
 
 - Prose: Anybody 400/500, sentence case, about 68 characters to a line.
 - Headings h1–h3: sentence case (`pnpm docs:style`), Anybody wide.
@@ -231,20 +268,21 @@ properties its part reads, so parts and modifiers compose in any order
 
 | Part | What it is | Modifiers |
 | --- | --- | --- |
-| `plaque` | the raised panel; a link or button plaque lifts on hover | — |
+| `plaque` | the raised panel; a link or button plaque lifts on hover and rings green on focus | — |
 | `unit` | the console slab, with a bevelled rim | — |
-| `slot` | a milled well: inputs, readouts, code | `slot-pill` (fully round), `slot-xs` (shallow, small radius) |
+| `slot` | a milled well: inputs, readouts, code; rings green on focus (a code block that scrolls takes focus) | `slot-pill` (fully round), `slot-xs` (shallow, small radius) |
 | `carved` | the slot's shadow alone, for a tinted well | — |
 | `bar` | the header: opaque, a lit top edge, a seam below | — |
 | `seam` | the footer's cut | — |
 | `code-plate` | a code block's filename plate | — |
-| `k` | a key: 40px, mono uppercase lettering; down when `:active`, `.k-down`, `aria-pressed` or `aria-current="page"` (then lettered green) | `k-nav` (34px, 44px on touch), `k-xs` (28px), `k-go` (lit green, the one primary), `k-warn`, `k-err` |
+| `k` | a key: 40px, mono uppercase lettering; down when `:active`, `.k-down`, `aria-pressed` or `aria-current` (then lettered green, or in its signal's ink: `--k-ink-current`) | `k-nav` (34px, 44px on touch), `k-xs` (28px), `k-go` (lit green, the one primary), `k-warn`, `k-err` |
 | `led` | an LED | `led-ok`, `led-warn`, `led-err`, `led-off`, `led-lg`, `led-pulse` |
 | `strip` | a tritium strip, lying flat | `strip-v` (standing), `strip-ok`, `strip-warn`, `strip-err` |
-| `lcd` | backlit glass in a bezel, with scanlines | — |
+| `lcd` | backlit glass in a bezel, with scanlines; anything on it that is not a glyph is lit green | — |
 | `lcd-row` | one line of the LCD | — |
-| `px` | lit Handjet glyphs | the LED signals (`px led-warn`) |
+| `px` | lit Handjet glyphs, in each signal's `--glyph` (the lit value; `--err-glyph` for red) | the LED signals (`px led-warn`) |
 | `pxled` | a square pixel LED | the LED signals |
+| `dial` | a ridged knob with a lit pointer; the pointer and the ridges turn to `--dial-angle` (a registered property, so it transitions), while the face, its highlight and its shadow stay lit from the top-left | — |
 
 The relief parts are in §7. The components wrap the parts that take props:
 
@@ -252,17 +290,24 @@ The relief parts are in §7. The components wrap the parts that take props:
 | --- | --- | --- |
 | `<Led>` | `led` | `tone`, `size`, `pulse`, `label` (its accessible name; decorative without) |
 | `<Strip>` | `strip` | `tone`, `vertical` |
-| `<Key>` | `k` | `to` (a link) or a button's `type`; `size`, `signal`, `pressed`, `disabled` |
+| `<Key>` | `k` | `to` (a link) or a button's `type`; `size`, `signal`, `pressed` (a button's toggle state; a link's `aria-current="true"`), `disabled` (a link loses its `href`) |
 | `<Lcd>` | `lcd` | `label`, `live` |
 | `<Console>` | `unit` | slots `display`, `dial`, `keys` |
+| `<Dial>` | `dial` | `options`, `label`, `v-model`: a radio group of detents around the knob |
 | `<EngravedTitle>` | `cut` / `cut-sm` | `text`, `as`, `size` |
 
 **In Nuxt UI slot strings** a part replaces the component's own background,
-ring, border, radius and shadow, and a relief part its text colour and shadow:
-`app.config.ts` gives the parts tailwind-merge class groups that conflict with
-what they draw, so the part named last wins instead of losing to the
-stylesheet's order. `carved` and `seam` draw only an edge and keep a tinted
-background. The design-parts test keeps the groups equal to the parts declared.
+ring, shadow, and border and radius on every side and corner, and a relief
+part its text colour and shadow: `app.config.ts` gives the parts
+tailwind-merge class groups that conflict with what they draw, so the part
+named last wins instead of losing to the stylesheet's order. It replaces only
+the classes named before it: tailwind-variants appends a component's variant
+classes after an app.config `base`, so a part that has to replace them goes in
+the variant. A face or a well that takes the component's border away draws its
+own focus ring (`--focus`, which clears 3:1 on every ground). `carved` and
+`seam` draw only an edge and keep a tinted background. The design-parts test
+keeps the groups equal to the parts declared; the design-merge test holds the
+border and radius lists to tailwind-merge's own groups.
 
 **Dynamic classes** are spelled out in full (`{ ok: 'led-ok', … }`), so
 Tailwind's scan finds every part it must emit.
@@ -273,7 +318,7 @@ Tailwind's scan finds every part it must emit.
 
 | Part | Use | Ink |
 | --- | --- | --- |
-| `cut` | engraved display type, 24px and up; with `data-text` repeating the text (`<EngravedTitle>` sets it), each letter's lower half takes a lighter floor | `--engrave-ink` (3:1, large text) |
+| `cut` | engraved display type, 24px and up; with `data-text` repeating the text (`<EngravedTitle>` sets it), the lower half of every line takes a lighter floor: toward white on a light page, toward the ink on a dark one | `--engrave-ink`, and the floor (3:1, large text) |
 | `cut-sm` | engraved page and prose titles, which cannot carry `data-text` | `--engrave-ink` |
 | `emb` · `emb-sm` | a title lifted off the metal in stepped layers | `--emb-ink` |
 | `engr` | an engraved label at any size | `--engrave-ink-sm` (4.5:1) |
@@ -283,7 +328,8 @@ Tailwind's scan finds every part it must emit.
 - **A text-shadow never counts toward contrast.** Each relief part sets an ink
   that clears its bar on its own, re-derived on faces and in wells.
 - The `cut` floor repeats the text visually only (`content: attr(data-text) / ""`),
-  so a screen reader reads a heading once.
+  so a screen reader reads a heading once. A mask one line (`lh`) tall repeats
+  it per line, so a title that wraps on a phone keeps a floor on every line.
 - **`prefers-contrast: more`** (and `?qa=contrast`) strips every relief part to
   plain `--ink` with no shadow. Apply relief through the parts only: a
   hand-written `text-shadow` in scoped CSS out-specifies the switch.
@@ -366,7 +412,8 @@ playground pages use the parts from the start.
 ## 11. QA hooks
 
 - **`/__parts`** (dev only) shows every part in both themes; the design-parts
-  test fails when a declared part is missing from it.
+  test fails when a declared part is not written as a class there or in the
+  part components it renders (a tag or a comment does not count).
 - **`?qa=dark`, `light`, `contrast`, `reduced`** (comma-separated,
   `plugins/qa.client.ts`) stamp `html.dark` / `html.light` / `html.qa-contrast`
   / `html.qa-reduced` without touching OS settings.
@@ -375,11 +422,12 @@ playground pages use the parts from the start.
   page's initial scripts reach the backend client or motion-v, or pass the
   size ceiling.
 - **Build**: `scripts/check-website-css.mjs` fails when the ramps, the tokens
-  import or a font's width axis go missing from the built CSS.
+  import, a font's width axis or a fallback face go missing from the built CSS,
+  or an element default lands outside the base layer.
 - **The ratchet** (`test/docs/design-parts.test.ts`): scoped `<style>` blocks
   and hand-rolled uppercase labels in the site's components only go down; the
   site uses three font families; the parts files hold nothing but `@utility`
-  parts and keyframes.
+  parts, keyframes and registered properties.
 - **Screenshots**: a website PR carries 390 and 1280 px, light and dark.
 
 ---

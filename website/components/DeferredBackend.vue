@@ -3,9 +3,12 @@
  * A live block outside the playground: it renders its slot once the backend
  * client has loaded, which it asks for when it scrolls into view (at once on
  * a route that already has the client). Until then, and on the server, it
- * renders `#fallback`, which gets `failed` when the client could not load.
+ * renders `#fallback`, which gets `failed` when the client could not load
+ * (a build without a backend URL, or a chunk that would not fetch).
  * On the docs only pages with `demo: true` may hold one
- * (test/docs/page-contract.test.ts); see modules/deferred-backend-client.
+ * (test/docs/page-header.test.ts), and the homepage none; see
+ * modules/deferred-backend-client. `data-deferred-backend` marks the block
+ * in the prerendered page for scripts/check-website-bundle.mjs.
  */
 const props = withDefaults(defineProps<{ as?: string }>(), { as: 'div' })
 
@@ -34,6 +37,7 @@ onBeforeUnmount(() => observer?.disconnect())
   <component
     :is="props.as"
     ref="root"
+    data-deferred-backend
   >
     <slot v-if="ready" />
     <slot

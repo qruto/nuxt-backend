@@ -17,10 +17,10 @@
         </span>
         <code class="text-xs text-muted">useConnectionState()</code>
       </LazyLiveConnection>
-      <template #fallback>
+      <template #fallback="{ failed }">
         <span class="flex items-center gap-2 font-medium">
-          <Led tone="off" />
-          Connecting…
+          <Led :tone="failed ? 'err' : 'off'" />
+          {{ failed ? 'Offline' : 'Connecting…' }}
         </span>
         <code class="text-xs text-muted">useConnectionState()</code>
       </template>

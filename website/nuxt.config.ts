@@ -2,6 +2,7 @@ import Sonda from 'sonda/nuxt'
 import { DOCS_TABS, docsRedirectRules } from './shared/docs-routes'
 import { BACKEND_PAGE_DEFS } from '../src/pages'
 import { DOCS_VERSION } from './shared/docs-version'
+import { SITE } from './shared/site'
 import { THEME_COLOR } from './shared/theme-color'
 import { codeThemeDark, codeThemeLight } from './shiki-themes'
 
@@ -24,13 +25,16 @@ const ROOT_PAGES = new Set(['login', 'acceptInvitation', 'agentConsent'])
 const MODULE_PAGES = Object.fromEntries(BACKEND_PAGE_DEFS
   .filter(def => !ROOT_PAGES.has(def.key))
   .map(def => [def.key, `/playground/vanilla${def.defaultPath}`]))
+// The module pages left at the root render their own <main>, which Docus's
+// default layout would wrap in a second (UMain): like /login, they go bare.
+const BARE_MODULE_PATHS = new Set(BACKEND_PAGE_DEFS
+  .filter(def => ROOT_PAGES.has(def.key) && def.key !== 'login')
+  .map(def => def.defaultPath))
 
-// One sentence, used in three places that each want their own copy: the site
-// config (meta description fallback), the SEO app config, and llms.txt.
-const siteDescription
-  = 'The all-in-one SaaS backend for Nuxt on Convex — authentication, billing, '
-    + 'credits, transactional email, webhooks and an agent (MCP) surface from a '
-    + 'single package.'
+// One sentence for the site config (the meta description fallback) and
+// llms.txt, from shared/site.ts; app.config.ts, the web manifest and the
+// homepage repeat it, and test/docs/homepage.test.ts keeps them equal.
+const siteDescription = SITE.description
 
 // The whole site — product homepage, docs, and the interactive playground — is
 // one Nuxt app. Docus (extended as a layer) provides the docs theme, Nuxt
@@ -213,6 +217,9 @@ export default defineNuxtConfig({
           if (page.path && isPlaygroundRoute(page.path)) {
             page.meta = { ...page.meta, layout: 'playground', header: false, footer: false }
           }
+          else if (page.path && BARE_MODULE_PATHS.has(page.path)) {
+            page.meta = { ...page.meta, layout: false, header: false, footer: false }
+          }
           if (page.children?.length) walk(page.children)
         }
       }
@@ -261,7 +268,9 @@ export default defineNuxtConfig({
   // scanning (a Tailwind v4 `@theme --font-*` var, which is how app.css
   // declares them) never lands there. Global emission adds the `@font-face`
   // rules to a stylesheet every page already loads; the files themselves stay
-  // lazy.
+  // lazy. It also skips the metric-matched fallback faces @nuxt/fonts writes
+  // for an injected family, so app.css writes Anybody's and Martian Mono's by
+  // hand (scripts/check-website-css.mjs holds them in the build).
   //
   // That only works when og-image can see @nuxt/fonts at all, which is why
   // the module is listed first in `modules`. Probe a card by requesting its
@@ -388,9 +397,9 @@ export default defineNuxtConfig({
   // OG images (nuxt-og-image, registered by Docus and running its Takumi
   // renderer). Two notes that still hold on 6.9:
   //   • the module-level `fonts` option is gone — font data now comes from
-  //     @nuxt/fonts, so the plate's "Bai Jamjuree" 600 and "JetBrains Mono"
-  //     500 are the faces declared above. `fontSubsets` only covers families
-  //     that @nuxt/fonts does NOT resolve.
+  //     @nuxt/fonts, so the plate's Anybody (700 and 400) and Martian Mono
+  //     (500) are the faces declared above. `fontSubsets` only covers
+  //     families that @nuxt/fonts does NOT resolve.
   //   • `defaults.component` is gone too (the documented replacements are
   //     naming a component `OgImage/Default.<renderer>.vue`, or a route rule).
   //     The `/**` rule below is the route-rule form: it sits *under* an

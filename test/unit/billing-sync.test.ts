@@ -274,12 +274,39 @@ describe('syncBillingCatalog', () => {
       format: 'raw',
       events: [...BILLING_WEBHOOK_PROVISION_EVENTS],
     }))
-    expect(first.webhookSecret).toBe('whsec_new')
+    expect(first.webhook).toEqual({ id: 'wh_1', secret: 'whsec_new', created: true })
 
-    vi.mocked(webhooksListWebhookEndpoints).mockResolvedValue(page([{ id: 'wh_1', url }]) as never)
+    // Found by URL the next time — with the secret the provider reports on
+    // every read, so a secret the first run could not store is not lost.
+    vi.mocked(webhooksListWebhookEndpoints).mockResolvedValue(page([{ id: 'wh_1', url, secret: 'whsec_new', enabled: true }]) as never)
     const second = await syncBillingCatalog(catalog, { ...options, webhookUrl: url }, fakeClient)
-    expect(second.webhookSecret).toBeUndefined()
+    expect(second.webhook).toEqual({ id: 'wh_1', secret: 'whsec_new', created: false })
+    expect(second.log).toContainEqual({ action: 'exists', kind: 'webhook', key: url, id: 'wh_1' })
     expect(webhooksCreateWebhookEndpoint).toHaveBeenCalledTimes(1)
+  })
+
+  it('says when the endpoint it found is disabled, and holds no secret on a dry run', async () => {
+    const url = 'https://x.convex.site/billing/events'
+    vi.mocked(webhooksListWebhookEndpoints).mockResolvedValue(page([{ id: 'wh_1', url, secret: 'whsec_1', enabled: false }]) as never)
+
+    const result = await syncBillingCatalog(catalog, { ...options, dryRun: true, webhookUrl: url }, fakeClient)
+
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'exists', kind: 'webhook', note: expect.stringContaining('disabled') }))
+    expect(result.webhook).toBeUndefined()
+  })
+
+  it('creates no endpoint when told not to, and logs why in its place', async () => {
+    vi.mocked(metersCreate).mockResolvedValue({ ok: true, value: { id: 'mtr_1' } } as never)
+    vi.mocked(benefitsCreate).mockResolvedValue({ ok: true, value: { id: 'ben_x' } } as never)
+    vi.mocked(productsCreate).mockResolvedValue({ ok: true, value: { id: 'prod_x' } } as never)
+    vi.mocked(productsUpdateBenefits).mockResolvedValue({ ok: true, value: {} } as never)
+    const url = 'https://x.convex.site/billing/events'
+
+    const result = await syncBillingCatalog(catalog, { ...options, webhookUrl: url, webhookBlocked: 'not created: a secret is already there' }, fakeClient)
+
+    expect(webhooksCreateWebhookEndpoint).not.toHaveBeenCalled()
+    expect(result.webhook).toBeUndefined()
+    expect(result.log).toContainEqual({ action: 'warn', kind: 'webhook', key: url, note: 'not created: a secret is already there' })
   })
 })
 

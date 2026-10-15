@@ -30,14 +30,30 @@ vi.mock('node:module', async (importOriginal) => {
  * A stand-in for the `convex` package inside a throwaway project. Its
  * `bin/main.js` is a real Node script, so `runConvex` is exercised end to end
  * — a genuine `process.execPath` spawn, no shell — without a deployment or
- * the network: it reports how it was invoked, exits non-zero on request,
- * hangs until killed, or, like `convex dev`, cleans up on SIGINT.
+ * the network: it reports how it was invoked and what reached its stdin,
+ * exits non-zero on request (echoing its stdin into stderr, as no real CLI
+ * should), hangs until killed, or, like `convex dev`, cleans up on SIGINT.
  */
 const FAKE_CLI = `
 const args = process.argv.slice(2)
+const readStdin = (then) => {
+  let stdin = ''
+  process.stdin.setEncoding('utf8')
+  process.stdin.on('data', chunk => { stdin += chunk })
+  process.stdin.on('end', () => then(stdin))
+}
 if (args[0] === 'fail') {
-  process.stderr.write('deployment says no\\n')
+  process.stderr.write('a header line\\nfirst line\\nsecond line\\n\\n\\u001B[31m✖\\u001B[39m deployment says no\\n')
   process.exitCode = 2
+}
+else if (args[0] === 'echo-stdin') {
+  readStdin(stdin => process.stdout.write(JSON.stringify({ args, stdin })))
+}
+else if (args[0] === 'echo-stdin-and-fail') {
+  readStdin((stdin) => {
+    process.stderr.write('rejected value ' + stdin)
+    process.exitCode = 1
+  })
 }
 else if (args[0] === 'hang') {
   setTimeout(() => {}, 30_000)
@@ -112,16 +128,80 @@ describe('runConvex', () => {
     expect(stderr).toBe('')
   })
 
-  it('rejects when the CLI exits non-zero, carrying its stderr', async () => {
-    const { runConvex } = await import('../../src/convex-cli')
+  it('rejects with the command, its exit code and the tail of its stderr — never its arguments', async () => {
+    const { ConvexCliError, runConvex } = await import('../../src/convex-cli')
     installFakeConvex()
-    await expect(runConvex(rootDir, ['fail'])).rejects.toMatchObject({ code: 2, stderr: 'deployment says no\n' })
+    // Node's own `execFile` error would read `Command failed: … fail SOME_NAME a-value-in-argv`.
+    const failure = runConvex(rootDir, ['fail', '--prod', 'SOME_NAME', 'a-value-in-argv'])
+
+    await expect(failure).rejects.toBeInstanceOf(ConvexCliError)
+    // The last three lines, on one, without the colour codes.
+    await expect(failure).rejects.toMatchObject({
+      message: 'convex fail exited with code 2: first line second line ✖ deployment says no',
+      code: 2,
+      timedOut: false,
+      stderrTail: 'first line second line ✖ deployment says no',
+    })
   })
 
-  it('kills a hung CLI once the timeout passes', async () => {
+  it('kills a hung CLI once the timeout passes, and says so', async () => {
     const { runConvex } = await import('../../src/convex-cli')
     installFakeConvex()
-    await expect(runConvex(rootDir, ['hang'], { timeout: 250 })).rejects.toMatchObject({ killed: true })
+    await expect(runConvex(rootDir, ['hang'], { timeout: 250 })).rejects.toMatchObject({ timedOut: true, message: 'convex hang timed out after 0.25s' })
+  })
+
+  it('names only the subcommand: env set, never the name or the value after it', async () => {
+    const { runConvex } = await import('../../src/convex-cli')
+    // A working directory that is gone: the spawn itself fails, and Node's
+    // spawn error carries every argument (`spawnargs`).
+    const failure = runConvex(join(rootDir, 'gone'), ['env', 'set', '--prod', 'EMAIL_API_KEY', 're_value_in_argv'])
+    await expect(failure).rejects.toMatchObject({ message: 'convex env set could not start (ENOENT)', code: null })
+    await expect(failure).rejects.not.toHaveProperty('spawnargs')
+  })
+})
+
+describe('runConvex input', () => {
+  // The value `convex env set NAME` reads when it is not given one, so it
+  // never sits in argv: `ps` shows every process's arguments, and a failed
+  // command's error would quote them.
+  const SECRET = 're_"quoted" $HOME; echo owned && exit 1'
+
+  it('reaches the child on stdin, never in argv', async () => {
+    const { runConvex } = await import('../../src/convex-cli')
+    installFakeConvex()
+
+    const { stdout } = await runConvex(rootDir, ['echo-stdin', 'env', 'set', 'EMAIL_API_KEY'], { input: SECRET })
+
+    const seen = JSON.parse(stdout) as { args: string[], stdin: string }
+    expect(seen.args).toEqual(['echo-stdin', 'env', 'set', 'EMAIL_API_KEY'])
+    expect(seen.args.join(' ')).not.toContain(SECRET)
+    // One newline closes it; the Convex CLI drops exactly that one.
+    expect(seen.stdin).toBe(`${SECRET}\n`)
+  })
+
+  it('is an empty, closed stdin without one, so a CLI that reads it never waits', async () => {
+    const { runConvex } = await import('../../src/convex-cli')
+    installFakeConvex()
+    const { stdout } = await runConvex(rootDir, ['echo-stdin'], { timeout: 5_000 })
+    expect(JSON.parse(stdout)).toMatchObject({ stdin: '' })
+  })
+
+  it('is scrubbed from the stderr a failure quotes', async () => {
+    const { runConvex } = await import('../../src/convex-cli')
+    installFakeConvex()
+    const failure = runConvex(rootDir, ['echo-stdin-and-fail'], { input: SECRET })
+
+    await expect(failure).rejects.toMatchObject({ message: 'convex echo-stdin-and-fail exited with code 1: rejected value [redacted]' })
+    const error = await failure.catch((caught: unknown) => caught) as Error & { stderrTail: string }
+    expect(`${error.message} ${error.stderrTail} ${error.stack}`).not.toContain(SECRET)
+  })
+
+  it('never reaches the error of a run that times out', async () => {
+    const { runConvex } = await import('../../src/convex-cli')
+    installFakeConvex()
+    const error = await runConvex(rootDir, ['hang', 'env', 'set', 'EMAIL_API_KEY'], { input: SECRET, timeout: 250 }).catch((caught: unknown) => caught) as Error
+    expect(error.message).toBe('convex hang timed out after 0.25s')
+    expect(JSON.stringify({ ...error, message: error.message, stack: error.stack })).not.toContain(SECRET)
   })
 
   it('rejects up front, without spawning, when convex is not installed', async () => {

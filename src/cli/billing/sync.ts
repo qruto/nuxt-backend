@@ -28,12 +28,28 @@ export interface BillingSyncOptions {
   adopt: Record<string, string>
   /** Webhook endpoint URL to provision (skipped when absent). */
   webhookUrl?: string
+  /**
+   * Why a missing endpoint must not be created this run, logged in its
+   * place: `billing sync` sets it when the new endpoint's secret would
+   * replace one the deployment already holds.
+   */
+  webhookBlocked?: string
+}
+
+/** The webhook endpoint at `webhookUrl`, found or created. */
+export interface ProvisionedWebhook {
+  id: string
+  /** Its signing secret as the provider reports it — stored, never printed. */
+  secret: string | undefined
+  /** Created by this run, so the secret is new. */
+  created: boolean
 }
 
 export interface BillingSyncResult {
   log: SyncLogEntry[]
   ids: CatalogIds
-  webhookSecret?: string
+  /** The endpoint at `webhookUrl`; absent without one, on a dry run, or when it was not created. */
+  webhook?: ProvisionedWebhook
 }
 
 /**
@@ -348,27 +364,41 @@ export async function syncBillingCatalog(
   }
 
   // --- Webhook endpoint ---
-  let webhookSecret: string | undefined
-  if (options.webhookUrl) {
-    const endpoints = await listAllPages(page => webhooksListWebhookEndpoints(client, { limit: 100, page }))
-    const existing = endpoints.find(endpoint => endpoint.url === options.webhookUrl)
-    if (existing) {
-      log.push({ action: 'exists', kind: 'webhook', key: options.webhookUrl, id: existing.id })
-    }
-    else if (dryRun) {
-      log.push({ action: 'would-create', kind: 'webhook', key: options.webhookUrl })
-    }
-    else {
-      const created = await webhooksCreateWebhookEndpoint(client, {
-        url: options.webhookUrl,
-        format: 'raw',
-        events: [...BILLING_WEBHOOK_PROVISION_EVENTS],
-      })
-      if (!created.ok) throw created.error
-      webhookSecret = created.value.secret
-      log.push({ action: 'created', kind: 'webhook', key: options.webhookUrl, id: created.value.id })
-    }
-  }
+  const webhook = options.webhookUrl ? await ensureWebhookEndpoint(client, options.webhookUrl, options, log) : undefined
 
-  return { log, ids, webhookSecret }
+  return { log, ids, ...(webhook ? { webhook } : {}) }
+}
+
+/**
+ * The endpoint at `url`, found by URL or created. The provider reports an
+ * endpoint's secret on every read, so one found here can still have its
+ * secret stored — a run that created it but could not store the secret is
+ * recovered by the next. Nothing is created on a dry run, or when
+ * `webhookBlocked` says why not.
+ */
+async function ensureWebhookEndpoint(
+  client: Polar,
+  url: string,
+  { dryRun, webhookBlocked }: Pick<BillingSyncOptions, 'dryRun' | 'webhookBlocked'>,
+  log: SyncLogEntry[],
+): Promise<ProvisionedWebhook | undefined> {
+  const endpoints = await listAllPages(page => webhooksListWebhookEndpoints(client, { limit: 100, page }))
+  const existing = endpoints.find(endpoint => endpoint.url === url)
+  if (existing) {
+    const disabled = existing.enabled === false ? { note: 'disabled at the provider — it receives nothing until it is enabled again' } : {}
+    log.push({ action: 'exists', kind: 'webhook', key: url, id: existing.id, ...disabled })
+    return dryRun ? undefined : { id: existing.id, secret: existing.secret || undefined, created: false }
+  }
+  if (webhookBlocked) {
+    log.push({ action: 'warn', kind: 'webhook', key: url, note: webhookBlocked })
+    return undefined
+  }
+  if (dryRun) {
+    log.push({ action: 'would-create', kind: 'webhook', key: url })
+    return undefined
+  }
+  const created = await webhooksCreateWebhookEndpoint(client, { url, format: 'raw', events: [...BILLING_WEBHOOK_PROVISION_EVENTS] })
+  if (!created.ok) throw created.error
+  log.push({ action: 'created', kind: 'webhook', key: url, id: created.value.id })
+  return { id: created.value.id, secret: created.value.secret, created: true }
 }

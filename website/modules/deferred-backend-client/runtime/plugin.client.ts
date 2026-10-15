@@ -1,5 +1,6 @@
-import { addRouteMiddleware, defineNuxtPlugin, useRuntimeConfig } from '#app'
-import { needsBackendClient } from './routes'
+import { addRouteMiddleware, defineNuxtPlugin, type NuxtApp, reloadNuxtApp, useRuntimeConfig } from '#app'
+import { joinURL } from 'ufo'
+import { backendClientMiddleware, createBackendClientLoader } from './loader'
 
 /**
  * Stands in for nuxt-convex-module's client plugin (see ../index.ts): it
@@ -7,23 +8,29 @@ import { needsBackendClient } from './routes'
  * route that needs the client renders, and `$loadBackendClient` lets a
  * <DeferredBackend> block ask for it.
  */
+/**
+ * nuxt-convex-module's client plugin, as this one runs it. Typed here: its
+ * inferred type reads the app's provides, this plugin's among them, and
+ * TypeScript cannot infer through that loop.
+ */
+type ClientPlugin = (nuxtApp: NuxtApp) => unknown
+
 export default defineNuxtPlugin({
   name: 'website:deferred-backend-client',
-  setup(nuxtApp) {
-    let loading: Promise<void> | undefined
-    const loadBackendClient = (): Promise<void> => {
-      loading ??= import('#deferred-backend-client/plugin')
-        .then(({ default: plugin }) => nuxtApp.runWithContext(() => plugin(nuxtApp)))
-        .then(() => undefined, (error: unknown) => {
-          // A failed chunk load may succeed on the next navigation.
-          loading = undefined
-          throw error
-        })
-      return loading
-    }
+  setup(nuxtApp): { provide: { loadBackendClient: () => Promise<void> } } {
+    const config = useRuntimeConfig()
+    const url = config.public.convex?.url
+    const loadBackendClient = createBackendClientLoader<ClientPlugin>({
+      url,
+      load: () => import('#deferred-backend-client/plugin') as Promise<{ default: ClientPlugin }>,
+      run: plugin => nuxtApp.runWithContext(() => plugin(nuxtApp)),
+    })
 
-    const pages = Object.values((useRuntimeConfig().public.backend as { pages?: Record<string, string> } | undefined)?.pages ?? {})
-    addRouteMiddleware('backend-client', to => needsBackendClient(to.path, pages) ? loadBackendClient() : undefined, { global: true })
+    addRouteMiddleware('backend-client', backendClientMiddleware({
+      available: Boolean(url),
+      load: loadBackendClient,
+      reload: path => reloadNuxtApp({ path: joinURL(config.app.baseURL, path), persistState: true }),
+    }), { global: true })
 
     return { provide: { loadBackendClient } }
   },

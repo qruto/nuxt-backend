@@ -13,17 +13,18 @@
         Ready in one command
       </p>
       <h2 class="cta__title engraved">
-        Install the module.<br>Run convex dev. Ship.
+        Install the module.<br>Run nuxt-backend dev. Ship.
       </h2>
       <p class="cta__lead">
-        Add <code>nuxt-backend</code> to your modules, set two env vars, and the
-        first run scaffolds the Convex files for you — real-time data and Better
-        Auth, working.
+        Add <code>nuxt-backend</code> to your modules. The first
+        <code>nuxt-backend dev</code> scaffolds the Convex files and fills in
+        the environment for you, nothing to set by hand: real-time data and
+        Better Auth, working.
       </p>
       <HomeCommandSlot class="cta__cmd" />
       <div class="cta__row">
         <NuxtLink
-          to="/docs/start"
+          to="/docs/start/quickstart"
           class="hbtn hbtn--primary"
         >
           <UIcon name="i-lucide-arrow-right" />
@@ -31,6 +32,7 @@
         </NuxtLink>
         <NuxtLink
           to="/playground"
+          prefetch-on="interaction"
           class="hbtn"
         >
           <UIcon name="i-lucide-flask-conical" />

@@ -1,183 +1,57 @@
 <script setup lang="ts">
-/**
- * The first screen — the headline engraved straight into the matte titanium
- * slab. No window fiction, no props: the material IS the hero. Below the
- * carved wordmark: the install command milled into a slot, and a live proof
- * line driven by the real Convex connection this page runs on, which loads
- * the backend client once the line is on screen (<DeferredBackend>).
- */
+import { SITE } from '~~/shared/site'
 
-const specs = ['Auth', 'Real-time', 'Billing', 'Email', 'Workflows', 'Search', 'SSR']
+/**
+ * The first screen: the title engraved into the plate in two lines, what
+ * the package is, the one GO key on the page, and the install line. Nothing
+ * here is live: the homepage never loads the backend client
+ * (test/docs/homepage.test.ts), and its playground key prefetches on intent.
+ */
+const [first, second] = SITE.title.split(', ')
 </script>
 
 <template>
-  <section class="hero">
-    <p class="hero__eyebrow">
-      Real-time Convex backend for Nuxt
+  <section class="mx-auto grid w-full max-w-(--ui-container) justify-items-start gap-8 px-4 pt-16 pb-12 sm:px-6 lg:px-8 lg:pt-24">
+    <p class="flex items-center gap-3">
+      <Strip class="h-1.5 w-10" />
+      <span class="stamp">One module · every service · three signals</span>
     </p>
 
-    <h1 class="hero__title engraved">
-      The backend your<br>Nuxt app was missing.
+    <h1 class="grid gap-1 font-display text-[clamp(2.4rem,7vw,5.25rem)] leading-[1.02] font-bold [font-stretch:118%] uppercase">
+      <span
+        class="cut"
+        :data-text="`${first},`"
+      >{{ first }},</span>
+      <span
+        class="cut"
+        :data-text="second"
+      >{{ second }}</span>
     </h1>
 
-    <p class="hero__lead">
-      One package ships a Nuxt module and a Convex auth component with
-      <strong>Better Auth</strong> built in — real-time data, SSR-safe auth,
-      and batteries-included backend components.
+    <p class="max-w-[62ch] text-lg text-(--ink-dim) text-pretty">
+      One Nuxt module and one Convex component: passwordless sign-in,
+      workspaces, billing with credits, transactional email and an endpoint
+      your users' agents can call. One command checks every one of them.
     </p>
 
-    <div class="hero__row">
-      <NuxtLink
-        to="/docs/start"
-        class="hbtn hbtn--primary"
+    <div class="flex flex-wrap items-center gap-3">
+      <Key
+        to="/docs/start/quickstart"
+        signal="go"
       >
-        <UIcon name="i-lucide-arrow-right" />
         Get started
-      </NuxtLink>
-      <NuxtLink
+      </Key>
+      <Key to="/docs/start">
+        Read the docs
+      </Key>
+      <Key
         to="/playground"
-        class="hbtn"
+        prefetch-on="interaction"
       >
-        <UIcon name="i-lucide-flask-conical" />
         Open the playground
-      </NuxtLink>
-      <a
-        href="https://github.com/qruto/nuxt-backend"
-        target="_blank"
-        rel="noopener"
-        class="hbtn hbtn--ghost"
-      >
-        <UIcon name="i-simple-icons-github" />
-        GitHub
-      </a>
+      </Key>
     </div>
 
-    <HomeCommandSlot class="hero__cmd" />
-
-    <DeferredBackend
-      as="p"
-      class="hero__proof"
-      aria-live="polite"
-    >
-      <LazyLiveConnection v-slot="{ connected }">
-        <span
-          class="hero__led"
-          :class="{ on: connected }"
-        />
-        <span v-if="connected">Live on Convex · 0 servers to run</span>
-        <span v-else>Connecting to Convex…</span>
-      </LazyLiveConnection>
-      <template #fallback>
-        <span class="hero__led" />
-        <span>Connecting to Convex…</span>
-      </template>
-    </DeferredBackend>
-
-    <p class="hero__specs engraved-sm">
-      <template
-        v-for="(s, i) in specs"
-        :key="s"
-      >
-        <span
-          v-if="i"
-          class="hero__dot"
-          aria-hidden="true"
-        >·</span>
-        <span class="hero__spec">{{ s }}</span>
-      </template>
-    </p>
+    <HomeCommandSlot class="w-full max-w-md" />
   </section>
 </template>
-
-<style scoped>
-.hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  min-height: calc(100svh - 4rem);
-  padding: clamp(3.5rem, 8vw, 6rem) 1.25rem clamp(3rem, 6vw, 4.5rem);
-}
-
-/* Crisp, not engraved: 0.72rem sits under design.md §2.5's ≥0.8rem engraving
-   floor, so the eyebrow reads in plain dim ink. */
-.hero__eyebrow {
-  margin: 0 0 1.4rem;
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
-}
-
-.hero__title {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: clamp(2.6rem, 6.5vw, 4.75rem);
-  letter-spacing: -0.01em;
-  line-height: 1.06;
-}
-
-.hero__lead {
-  margin: 1.6rem auto 0;
-  max-width: 38rem;
-  font-size: 1.06rem;
-  line-height: 1.65;
-  color: var(--ink-dim);
-}
-.hero__lead strong { color: var(--ink); font-weight: 700; }
-
-.hero__row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.7rem;
-  margin-top: 2rem;
-}
-.hero__cmd { margin-top: 2.1rem; }
-
-/* The proof line swaps its text once the socket connects. Both strings are
-   kept short enough (≤ 33 chars at 0.74rem mono) to stay on one line down to
-   a 320px viewport, so the swap never adds a line — and the box is reserved
-   up front so the mount never shifts layout (CLS). */
-.hero__proof {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 1.3rem 0 0;
-  min-height: 1.5em;
-  font-family: var(--mono);
-  font-size: 0.74rem;
-  line-height: 1.5;
-  color: var(--ink-dim);
-}
-.hero__led {
-  flex: none; /* the flex algorithm must never squash the dot */
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--sink);
-  box-shadow: var(--inset-1);
-  transition: background var(--transition), box-shadow var(--transition);
-}
-.hero__led.on { background: var(--ok); box-shadow: var(--glow-ok); }
-
-/* The spec line — capabilities engraved straight into the slab. */
-.hero__specs {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  column-gap: 0.7rem;
-  row-gap: 0.3rem;
-  margin: clamp(2.4rem, 5vw, 3.6rem) 0 0;
-  font-family: var(--mono);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.hero__dot { user-select: none; }
-</style>

@@ -81,7 +81,10 @@ describe('Markdown for agents', () => {
     expect(body.value).toHaveLength(1)
   })
 
+  // What each hook does is held in test/docs/docs-pages.test.ts: the blocks
+  // are filled in the stored page, the keys only in what agents read.
   it('is run over every page by the site', () => {
-    expect(read('website/modules/docs-pages.ts')).toMatch(/'content:file:afterParse', \(\{ file, content: page \}\) => \{\s+expandForAgents\(page\.body\)\s+appendPageKeys\(page\.body, page\)/)
+    expect(read('website/modules/docs-pages.ts')).toMatch(/'content:file:afterParse', \(\{ file, content: page \}\) => enrichPage\(page, /)
+    expect(read('website/server/plugins/agent-page-keys.ts')).toMatch(/'agent-discovery:document', [^\n]+\n\s+appendPageKeys\(page\.body, page\)/)
   })
 })

@@ -51,7 +51,7 @@ The two-tier contract from `backendEnv` — the deploy **fails** until the requi
 | Tier | Variables | Absent |
 |---|---|---|
 | Required | `AUTH_SECRET`, `SITE_URL` | the push fails |
-| Optional — email | `EMAIL_API_KEY`, `EMAIL_FROM`, `EMAIL_TEST_MODE`, `EMAIL_WEBHOOK_SECRET` | sends no-op and OTP throws · onboarding sender · test mode stays **on** · delivery events rejected |
+| Optional — email | `EMAIL_API_KEY`, `EMAIL_FROM`, `EMAIL_TEST_MODE`, `EMAIL_WEBHOOK_SECRET` | sends no-op, and codes and invitations to real addresses are refused · onboarding sender · test mode stays **on** · delivery events rejected |
 | Optional — billing | `BILLING_ACCESS_TOKEN`, `BILLING_WEBHOOK_SECRET`, `BILLING_ENVIRONMENT` | billing empty, checkout fails · billing events rejected · **sandbox** |
 | Dev-only | `AUTH_TRUST_LOCAL_ORIGINS` | never set in production |
 
@@ -64,11 +64,21 @@ CONVEX_DEPLOY_KEY=prod:... npx nuxt-backend env push --prod --dry-run   # the pl
 CONVEX_DEPLOY_KEY=prod:... npx nuxt-backend env push --prod             # forward; fail on missing required vars
 ```
 
-`--prod` never invents values, never forwards the dev-only variable, and leaves what is already set alone unless you name it — `--force BILLING_WEBHOOK_SECRET` (or `--force all`) replaces a live value with the local one, which is how a rotated secret gets there (see [`env push`](/docs/reference/cli#env-push)). Or set them one by one: `npx convex env set --prod AUTH_SECRET "$(openssl rand -base64 32)"`.
+`--prod` never invents values, never forwards the dev-only variable, and leaves what is already set alone unless you name it — `--force BILLING_WEBHOOK_SECRET` (or `--force all`) replaces a live value with the local one, which is how a rotated secret gets there (see [`env push`](/docs/reference/cli#env-push)). Every value reaches the deployment on `convex env set`'s stdin, never as an argument. Or set them one by one, the same way: `openssl rand -base64 32 | npx convex env set --prod AUTH_SECRET`, and `npx convex env set --prod <NAME>` on its own asks for the value.
 
 ## Billing and email in production
 
-- Sync the catalog to the production billing environment — it is a separate object set with its own ids, kept side by side in `billing.generated.ts`: `npx nuxt-backend billing sync --env production`, which stores the new webhook's `BILLING_WEBHOOK_SECRET` on the production deployment and loads its products; then set `BILLING_ENVIRONMENT=production` there.
+The production billing environment is a separate object set with its own ids, kept beside the sandbox ones in `billing.generated.ts`. Give the production deployment its own token and environment first, then sync the catalog to it:
+
+```bash
+npx convex env set --prod BILLING_ACCESS_TOKEN            # asks for the production organization token
+npx convex env set --prod BILLING_ENVIRONMENT production
+read -rs BILLING_ACCESS_TOKEN && export BILLING_ACCESS_TOKEN   # the same token for billing sync, kept out of the shell history
+npx nuxt-backend billing sync --env production
+```
+
+The shell's `BILLING_ACCESS_TOKEN` wins over the sandbox one in `.env.local`. `billing sync --env production` reads the production deployment first (`convex function-spec --prod`), provisions the webhook endpoint at its `.convex.site` URL — or at `NUXT_PUBLIC_BACKEND_SITE_URL` when the shell sets one (a custom domain), never at the dev URL in `.env.local` — and stores the endpoint's `BILLING_WEBHOOK_SECRET` on that deployment. It then loads the products there. With the token or `BILLING_ENVIRONMENT=production` missing it skips that step and says what to run; it refuses a dev or preview `CONVEX_DEPLOY_KEY`, and stops when it cannot read production, unless `--webhook <url>` says where the endpoint goes.
+
 - Point the provider dashboards at the production site URL: `https://<slug>.convex.site/billing/events` and `/email/events` — see [Webhooks](/docs/ship/production/webhooks#point-the-provider-dashboards-at-them).
 - Set `EMAIL_TEST_MODE=false` once the sending domain is verified.
 

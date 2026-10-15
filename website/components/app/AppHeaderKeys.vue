@@ -2,7 +2,10 @@
 /**
  * The site's top-level keys: Docs, Playground with its status LED, Agents
  * and GitHub. A key is down (`aria-current`) while the reader is anywhere
- * in its section, not only on the page it links to.
+ * in its section, not only on the page it links to. The Playground key
+ * prefetches on intent (hover, focus, touch), not as soon as it is shown:
+ * the playground's chunks carry the backend client, which a page that does
+ * not use it never downloads (modules/deferred-backend-client).
  */
 const route = useRoute()
 const { github } = useAppConfig()
@@ -30,6 +33,7 @@ const SPOKEN = { live: ', live', down: ', unreachable', unknown: '' } as const
     <Key
       to="/playground"
       size="nav"
+      prefetch-on="interaction"
       v-bind="current(within('/playground'))"
     >
       <Led
