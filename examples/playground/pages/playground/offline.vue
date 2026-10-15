@@ -28,7 +28,7 @@ definePageMeta({ layout: false })
         <a href="https://nuxt-backend.dev/playground">
           <LabButton>Open the live playground</LabButton>
         </a>
-        <a href="https://nuxt-backend.dev/getting-started/introduction">
+        <a href="https://nuxt-backend.dev/docs/start">
           <LabButton variant="secondary">
             Read the docs
           </LabButton>

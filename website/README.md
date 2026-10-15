@@ -63,7 +63,7 @@ must print `prod:determined-horse-300`. Then, from the repository root, after `p
 1. `AUTH_SECRET` and `SITE_URL` directly — `.env.local` has no `AUTH_SECRET`, and its `SITE_URL` is
    the local origin. Generate the secret **only when the deployment has none**: a new one signs every
    user and agent out and leaves the stored JWKS keys undecryptable
-   ([troubleshooting](https://nuxt-backend.dev/production/troubleshooting#sessions-or-agent-tokens-fail-after-rotating-auth_secret)).
+   ([troubleshooting](https://nuxt-backend.dev/docs/ship/operate/troubleshooting#sessions-or-agent-tokens-fail-after-rotating-auth_secret)).
    The names are read first, and nothing is set if that read fails: a failed read piped straight
    into `grep` would look like a missing secret and replace the real one.
 

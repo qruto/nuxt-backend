@@ -409,7 +409,7 @@ the June test publish satisfies that, so nothing has to be published by hand.
   - answer [get-convex/convex-backend#147](https://github.com/get-convex/convex-backend/issues/147), which asks for a Nuxt SaaS starter;
   - list the `backend` component in the [Convex components directory](https://www.convex.dev/components);
   - offer the starter as a Vercel template.
-  Update the [Ecosystem](https://nuxt-backend.dev/getting-started/ecosystem) page when a listing lands.
+  Update the [Ecosystem](https://nuxt-backend.dev/docs/reference/ecosystem) page when a listing lands.
 - **Smoke from the registry, not the tarball.** `npm create nuxt@latest smoke`, `npx nuxt module add
   nuxt-backend`, `npx nuxt-backend init`, then `CONVEX_AGENT_MODE=anonymous npm run dev` until Nuxt
   serves `/login` (the `dev` script `init` wrote sets up the deployment and provisions its env

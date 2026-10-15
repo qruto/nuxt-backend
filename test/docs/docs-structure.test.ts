@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 import {
   DOCS_ALIASES,
+  DOCS_FRAGMENT_MOVES,
   DOCS_REDIRECTS,
   DOCS_SHORT_LINKS,
   DOCS_TABS,
@@ -82,6 +83,14 @@ describe('the route table', () => {
     expect([...redirectSources].filter(from => pages.has(from))).toEqual([])
   })
 
+  it('sends each moved anchor to a heading that exists, from one that no longer does', () => {
+    const entries = Object.entries(DOCS_FRAGMENT_MOVES)
+    // The plugin redirects only anchors a page has lost: a live heading must win.
+    expect(entries.filter(([from]) => resolves(from)).map(([from]) => from)).toEqual([])
+    expect(entries.filter(([from]) => !pages.has(from.split('#')[0]!)).map(([from]) => from)).toEqual([])
+    expect(entries.filter(([, to]) => !resolves(to)).map(([from, to]) => `${from} → ${to}`)).toEqual([])
+  })
+
   it('redirects both Markdown twins of every route it redirects', () => {
     const rules = docsRedirectRules()
     for (const from of redirectSources) {
@@ -95,11 +104,10 @@ describe('the route table', () => {
     const rules = docsRedirectRules()
     const pending = [...DOCS_REDIRECTS.filter(redirect => redirect.pending), ...DOCS_SHORT_LINKS]
     for (const { from } of pending) expect(rules[from]?.redirect.statusCode, from).toBe(302)
-    // A ratchet: lower it as each pending home lands — the tab and group
-    // landings (D3), split pages (D3c), the Diagnostics and Errors pages (D6),
-    // the local installation's removal (C1); the 0.2.0 docs pass (D11) brings
-    // it to zero.
-    expect(pending.length).toBeLessThanOrEqual(30)
+    // A ratchet: lower it as each pending home lands — the group landings,
+    // split pages (D3c), the Diagnostics and Errors pages (D6), the local
+    // installation's removal (C1); the 0.2.0 docs pass (D11) brings it to zero.
+    expect(pending.length).toBeLessThanOrEqual(15)
   })
 })
 
@@ -113,11 +121,12 @@ describe('links', () => {
     expect([...folders].filter(folder => !pages.has(folder) && !redirectSources.has(folder))).toEqual([])
   })
 
-  it('lands every docs link in the content on a page, never on a redirect', () => {
+  it('lands every docs link and card in the content on a page, never on a redirect', () => {
     const broken: string[] = []
     for (const [route, file] of pages) {
       if (file.includes('/10.reference/10.api/')) continue
-      for (const [, target] of read(file).matchAll(/\]\((\/[^)\s]*)\)/g)) {
+      // Markdown links, and the `to="…"` of MDC components (cards, playground links).
+      for (const [, target] of read(file).matchAll(/\]\((\/[^)\s]*)\)|\bto="(\/[^"]*)"/g).map(([, md, to]) => [undefined, md ?? to])) {
         const path = target!.split('#')[0]!
         // A route the table redirects is a stale link, wherever it points.
         if (redirectSources.has(path)) broken.push(`${route} → ${target} (redirected)`)
@@ -127,6 +136,33 @@ describe('links', () => {
       }
     }
     expect(broken).toEqual([])
+  })
+})
+
+describe('links from the apps', () => {
+  it('points the templates and examples at docs pages, never at a redirect', () => {
+    const files = ['templates', 'examples'].flatMap(dir => walk(dir, ['.md', '.vue', '.ts'], path =>
+      /\/(?:node_modules|_generated|\.nuxt|\.output)(?:\/|$)/.test(path)))
+    expect(files.length).toBeGreaterThan(20)
+    const broken: string[] = []
+    for (const file of files) {
+      for (const [, target] of read(file).matchAll(/https:\/\/nuxt-backend\.dev(\/[\w/#-]*)/g)) {
+        const path = target!.split('#')[0]!.replace(/\/$/, '')
+        if (!path || (!path.startsWith('/docs') && !redirectSources.has(path))) continue
+        if (redirectSources.has(path) || !resolves(target!.replace(/\/(?=#|$)/, ''))) broken.push(`${file.slice(file.indexOf('/', file.indexOf('nuxt-backend')) + 1)} → ${target}`)
+      }
+    }
+    expect(broken).toEqual([])
+  })
+})
+
+describe('repository config', () => {
+  it('names no folder of the 0.1 content tree', () => {
+    // Config that globs or links content by path (review instructions, CI
+    // filters, spelling exclusions, contributor docs) follows the tree.
+    const files = ['.coderabbit.yaml', 'package.json', 'typedoc.json', '_typos.toml', 'lychee.toml', 'CONTRIBUTING.md', 'AGENTS.md', 'RELEASE.md', 'README.md', 'STABILITY.md', 'SECURITY.md', 'vitest.config.ts', '.fallowrc.jsonc', ...walk('.github', ['.yml', '.yaml', '.md'])]
+    const stale = files.filter(file => /website\/content\/[1-7]\.|9\.reference/.test(read(file)))
+    expect(stale).toEqual([])
   })
 })
 

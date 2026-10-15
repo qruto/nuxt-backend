@@ -3,7 +3,7 @@
 <template>
   <div class="hidden items-center gap-1 sm:flex">
     <UButton
-      to="/getting-started/introduction"
+      to="/docs/start"
       color="neutral"
       variant="ghost"
       label="Docs"

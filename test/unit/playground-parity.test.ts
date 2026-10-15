@@ -82,7 +82,8 @@ describe('routes', () => {
   it('sends every other link to a page here or to the docs site', () => {
     const config = read('examples/playground/nuxt.config.ts')
     const sections = [...config.match(/const DOCS_SECTIONS = \[([^\]]+)\]/)![1]!.matchAll(/'([^']+)'/g)].map(([, section]) => section!)
-    expect(sections.length).toBeGreaterThan(3)
+    // Every docs page lives under /docs now: one section covers them all.
+    expect(sections).toEqual(['docs'])
     const unresolved: string[] = []
     for (const file of exampleVue) {
       const text = readFileSync(join(TARGET, file), 'utf8')

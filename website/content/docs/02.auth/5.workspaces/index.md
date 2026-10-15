@@ -123,6 +123,18 @@ Gate a page on having an active workspace. The default slot receives `{ workspac
 3. The link lands on the built-in `/accept-invitation` page (mounted behind the `auth` middleware, so signing in first is enforced), which renders `<AcceptInvitation>` — workspace + inviter details with accept / decline buttons.
 4. Accepting joins the workspace (optionally activating it); declining rejects the invitation.
 
+Beyond `invite`, `useOrganization()` covers both sides of the flow:
+
+```ts
+const {
+  acceptInvitation,        // (invitationId, { activate? }) — join, optionally set active
+  declineInvitation,       // (invitationId)
+  cancelInvitation,        // (invitationId) — inviter side, revoke a pending invite
+  getInvitation,           // (invitationId) — details for a custom accept page
+  listReceivedInvitations, // invitations addressed to the signed-in user
+} = useOrganization()
+```
+
 ### Customizing the flow
 
 - **Email** — override `invite` in `integrations.emailTemplates` to restyle without replacing the transport, or supply the plugin's own `organization.sendInvitationEmail` to take over delivery entirely.

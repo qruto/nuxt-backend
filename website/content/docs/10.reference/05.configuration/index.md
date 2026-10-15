@@ -1,6 +1,7 @@
 ---
 title: Configuration
-description: Module options, runtime config, and the full environment-variable reference for nuxt-backend.
+description: "Where each setting lives: the module options in nuxt.config.ts, the environment variables, and the app config content layer."
+kind: reference
 navigation:
   icon: i-lucide-settings-2
 ---
@@ -13,163 +14,21 @@ export default defineNuxtConfig({
 })
 ```
 
-## Module options
+Three places configure an app, each with one page:
 
-The `backend` options are optional. The module reads `url` and `siteUrl` from explicit module options first, then from this package's own environment variables, then derives both from the deployment slug the platform CLI writes to `.env.local` — so in practice neither is set by hand.
-
-```ts [nuxt.config.ts]
-export default defineNuxtConfig({
-  modules: ['nuxt-backend'],
-  backend: {
-    url: 'https://your-deployment.convex.cloud',
-    siteUrl: 'https://your-deployment.convex.site',
-    authRoute: '/api/auth',
-  },
-})
-```
-
-::field-group
-  :::field{name="url" type="string"}
-  Backend deployment URL (the `.convex.cloud` origin). Falls back to `NUXT_PUBLIC_BACKEND_URL`, then to the URL derived from the deployment slug.
+::card-group
+  :::card{icon="i-lucide-settings" title="Module options" to="/docs/reference/configuration/module-options"}
+  The `backend` key in `nuxt.config.ts`: every option, its default, and the runtime config the module publishes.
   :::
 
-  :::field{name="siteUrl" type="string"}
-  Backend site URL — the HTTP-routes origin the auth proxy, the AI stream, and the agent exchange talk to. Falls back to `NUXT_PUBLIC_BACKEND_SITE_URL`, then to the derived value.
+  :::card{icon="i-lucide-key-round" title="Environment variables" to="/docs/reference/configuration/environment-variables"}
+  What `.env.local` holds, the variables the deployment declares, and how `env push` sets them.
   :::
 
-  :::field{name="authRoute" type="string" defaultValue="'/api/auth'"}
-  Path of the same-origin Better Auth proxy. If you change it, keep `createAuthOptions` and the Convex auth config on the same path.
-  :::
-
-  :::field{name="installation" type="'default' | 'local'" defaultValue="'default'"}
-  Whether the first scaffold uses the packaged component defaults or creates a local hybrid component for schema ownership. See [Local installation](/docs/ship/migrate/local-installation).
-  :::
-
-  :::field{name="scaffold" type="'auto' | false" defaultValue="'auto'"}
-  Auto-scaffold missing Convex backend files on dev startup. Set `false` when you scaffold explicitly with `npx nuxt-backend init`.
-  :::
-
-  :::field{name="pages" type="ModulePagesOptions | false" defaultValue="all pages on"}
-  The ready-made pages — `login`, `pricing`, `settings`, `profile`, `security`, `acceptInvitation` — all mounted by default. Per key: `true` (default path), a string (custom path), or `false` (bring your own); `false` disables the whole set. An app page at the same path always wins. See [Default Pages](/docs/ui/pages).
-  :::
-
-  :::field{name="css" type="boolean" defaultValue="true"}
-  Auto-add the neutral `nuxt-backend/ui.css` stylesheet covering every shipped component and page. Set `false` to style the `data-*` hooks yourself. See [Theming](/docs/ui/customize).
-  :::
-
-  :::field{name="loginPath" type="string" defaultValue="the resolved pages.login path"}
-  Where the `auth` middleware sends signed-out visitors. Set it when you disable the built-in login page and serve your own route.
-  :::
-
-  :::field{name="autoEnv" type="boolean" defaultValue="true"}
-  On dev startup, provision the dev deployment's environment once (the `env push` engine: `AUTH_SECRET`, `SITE_URL`, the dev-only OTP log flag). Never touches a non-dev deployment. See the [CLI](/docs/reference/cli).
-  :::
-
-  :::field{name="mcp" type="boolean | ModuleMcpOptions" defaultValue="on at '/mcp'"}
-  The OAuth-protected agent surface. `false` turns the whole surface off; an object sets the route, the server metadata, sessions and which built-in tools ship. See [MCP server](/docs/agents/mcp).
-  :::
-
-  :::field{name="devtools" type="boolean" defaultValue="true"}
-  The Backend tab in Nuxt DevTools (dev only). See [DevTools](/docs/start/develop/devtools).
-  :::
-
-  :::field{name="workspaces" type="boolean" defaultValue="true"}
-  Whether the deployment runs the organization plugin. Set `false` alongside `setupAuth(…, { organization: false })` so nothing on the Nuxt side — the bundled auth client, the DevTools bridge — calls organization endpoints that no longer exist. See [Workspaces](/docs/auth/workspaces).
+  :::card{icon="i-lucide-palette" title="App config" to="/docs/ui/customize"}
+  `appConfig.backend`: the plan catalog, labels and brand the packaged pages read.
   :::
 ::
 
-Auth is always enabled by the module. The only installation choice is whether the first scaffold uses the packaged component defaults or a local hybrid component.
-
-## Runtime config
-
-The module publishes two keys under `runtimeConfig.public.backend`, typed through `@nuxt/schema`:
-
-- `runtimeConfig.public.backend.pages` — the resolved mount path per page key (`login`, `pricing`, `settings`, `profile`, `security`, `acceptInvitation`), `''` when a page is disabled. The shipped components cross-link through it; yours can too.
-- `runtimeConfig.public.backend.workspaces` — `false` when the deployment runs without the organization plugin (`workspaces: false`).
-
-The deployment URLs are not on `backend`: the module forwards `url` and `siteUrl` to the underlying Convex integration, which exposes them as `runtimeConfig.public.convex.url`, `runtimeConfig.public.convex.siteUrl` and, server-side, `runtimeConfig.convex.siteUrl`.
-
-## Environment variables
-
-### App variables
-
-`.env.local` is grouped by what each value is for — the shape `npx nuxt-backend init` writes. Nothing in it is required in dev:
-
-```bash [.env.local]
-# ── Backend ──────────────────────────────────────────────────────────────────
-# Normally derived. Set these only to point at another deployment.
-# NUXT_PUBLIC_BACKEND_URL=
-# NUXT_PUBLIC_BACKEND_SITE_URL=
-
-# ── Email ────────────────────────────────────────────────────────────────────
-# Unset: sends no-op and OTP codes print in the backend dev console.
-# EMAIL_API_KEY=
-# EMAIL_FROM=
-# EMAIL_TEST_MODE=
-# EMAIL_WEBHOOK_SECRET=
-
-# ── Billing ──────────────────────────────────────────────────────────────────
-# Unset: billing reads return empty and checkout fails on invocation.
-# BILLING_ACCESS_TOKEN=
-# BILLING_ENVIRONMENT=
-# BILLING_WEBHOOK_SECRET=
-
-# ── Dev only ─────────────────────────────────────────────────────────────────
-# Also trust the http://localhost:* origin the dev server runs on, in addition
-# to SITE_URL. `env push` forwards this to dev deployments, never to production.
-# AUTH_TRUST_LOCAL_ORIGINS=1
-
-# Deployment used by `npx convex dev`
-CONVEX_DEPLOYMENT=dev:your-deployment # team: your-team, project: your-project
-```
-
-Only the two `NUXT_PUBLIC_BACKEND_*` names are read by the Nuxt process. The `EMAIL_*` and `BILLING_*` values are staged here for `npx nuxt-backend env push` to forward to the deployment ([deployment variables](#convex-deployment-variables) below). `CONVEX_DEPLOYMENT` and the comment above it are appended after those groups by `npx convex dev`, which also reads them — the module only reads the slug, to derive the two URLs from it.
-
-::note
-The platform's own names still work. `NUXT_PUBLIC_CONVEX_URL` and `NUXT_PUBLIC_CONVEX_SITE_URL` are read directly by the underlying Convex module, and an explicitly set one wins over a derived default — `NUXT_PUBLIC_BACKEND_*` are simply this package's own names for them, and dev startup nudges you to the neutral name when only a platform name is set.
-::
-
-### Convex deployment variables
-
-The backend declares ten deployment variables in two tiers (plus one dev-only flag, below). The scaffolded `convex.config.ts` **declares** them via Convex's typed [`defineApp({ env })`](https://docs.convex.dev/production/environment-variables) (`backendEnv` from `nuxt-backend/app`), so they're validated at deploy and read type-safely through `env` from `_generated/server`. `AUTH_SECRET` and `SITE_URL` are **required** — a push fails until both are set. Everything else is **optional**: the deploy succeeds and the feature degrades in a designed, observable way until configured (`npx nuxt-backend doctor` reports each). The names are service-neutral on purpose: the package hides its underlying providers behind the general capability.
-
-| Variable | Feature | Description |
-|---|---|---|
-| `AUTH_SECRET` | Auth (required) | Secret used to sign auth tokens (e.g. `openssl rand -base64 32`) |
-| `SITE_URL` | Auth (required) | App URL such as `https://nuxt-backend.localhost` — the auth base URL, the only trusted browser origin, and the base of emailed invitation links |
-| `EMAIL_API_KEY` | Email (powered by Resend) | The provider API key — unset, email sends no-op and OTP sign-in throws (`NUXT_BACKEND_LOG_OTP=1` echoes codes to the `convex dev` console) |
-| `EMAIL_FROM` | Email | Sender address, e.g. `Acme <hello@yourdomain.com>` — defaults to the provider's onboarding sender |
-| `EMAIL_TEST_MODE` | Email | `true` (the default) delivers only to the provider's test addresses; set to `false` once your sending domain is verified |
-| `EMAIL_WEBHOOK_SECRET` | Email | Verifies delivery-event webhooks at `/email/events` — unset, events are rejected and `useEmailStatus` stays at `sent` |
-| `BILLING_ACCESS_TOKEN` | Billing (powered by Polar) | The provider organization access token — unset, billing queries return empty and checkout actions fail on invocation |
-| `BILLING_WEBHOOK_SECRET` | Billing | Verifies billing webhooks at `/billing/events` — unset, events are rejected and entitlements refresh only on demand (`syncEntitlements`) |
-| `BILLING_ENVIRONMENT` | Billing | `sandbox` (the default) or `production` |
-| `AUTH_TRUST_LOCAL_ORIGINS` | Auth (dev only) | Set to `1` on a **dev** deployment to also trust `http://localhost:*` / `http://127.0.0.1:*` as browser origins (the Nuxt dev server's own port). `env push` forwards it to dev deployments only; never set it in production |
-
-`NUXT_BACKEND_LOG_OTP` is the one deployment variable you may set that `backendEnv` does not declare (the platform itself provides `CONVEX_SITE_URL`), and it is dev-only: `npm run dev` (or `npx nuxt-backend env push`) sets it to `1` on a dev deployment that has no `EMAIL_API_KEY`, and while it is `1` the OTP sender prints each code to the `convex dev` console instead of throwing. Any other value, `false` included, leaves codes out of the logs. It is inert once `EMAIL_API_KEY` is set, and `env push` never sets it on a non-dev deployment.
-
-#### Setting them
-
-On a dev deployment `npm run dev` (or `npx nuxt-backend env push`) provisions the required pair and forwards whatever `.env.local` holds. Explicitly:
-
-```bash
-# Required
-npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"
-npx convex env set SITE_URL https://nuxt-backend.localhost
-# Optional — as you connect services
-npx convex env set EMAIL_API_KEY re_...
-npx convex env set EMAIL_FROM "Acme <hello@yourdomain.com>"
-npx convex env set EMAIL_TEST_MODE true
-npx convex env set EMAIL_WEBHOOK_SECRET whsec_...
-npx convex env set BILLING_ACCESS_TOKEN ...
-npx convex env set BILLING_WEBHOOK_SECRET ...
-npx convex env set BILLING_ENVIRONMENT sandbox
-```
-
-::note
-The `EMAIL_*` vars are forwarded to the `backend` component by reference, since [components can't read the app's env directly](https://docs.convex.dev/components). The scaffolded `convex.config.ts` handles this for you — see [Backend components overview](/docs/start/concepts/how-it-works).
-::
-
-## Changing the auth route
-
-If you change `backend.authRoute` from `/api/auth`, keep the same path everywhere — the Nuxt proxy route, Better Auth `basePath`, and `defineBackendAuthConfig({ basePath: ... })` must all match. See [Customizing auth](/docs/auth/setup#auth-route-and-options).
+The auth route is configured in [Auth setup](/docs/auth/setup#auth-route-and-options), where the
+three places it has to match are listed together.

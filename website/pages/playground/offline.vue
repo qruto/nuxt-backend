@@ -30,7 +30,7 @@ const live = 'https://nuxt-backend.dev/playground'
         <a :href="live">
           <LabButton>Open the live playground</LabButton>
         </a>
-        <NuxtLink to="/getting-started/introduction">
+        <NuxtLink to="/docs/start">
           <LabButton variant="secondary">
             Read the docs
           </LabButton>

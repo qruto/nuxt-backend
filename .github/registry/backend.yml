@@ -5,7 +5,7 @@ npm: nuxt-backend
 icon: nuxt-backend.svg
 github: https://github.com/qruto/nuxt-backend
 website: https://nuxt-backend.dev
-learn_more: https://nuxt-backend.dev/getting-started/introduction
+learn_more: https://nuxt-backend.dev/docs/start
 category: Database
 type: 3rd-party
 maintainers:

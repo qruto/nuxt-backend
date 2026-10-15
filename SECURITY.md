@@ -2,8 +2,8 @@
 
 > Looking for how to **secure an app built with this package** — the CSP, the auth proxy, the
 > webhook policy, the agent surface, and a production checklist? That's the
-> [security guide](https://nuxt-backend.dev/production/security) and the
-> [launch checklist](https://nuxt-backend.dev/production/checklist). This file covers reporting
+> [security guide](https://nuxt-backend.dev/docs/ship/production/security) and the
+> [launch checklist](https://nuxt-backend.dev/docs/ship/production). This file covers reporting
 > vulnerabilities *in* the package.
 
 ## Supported Versions
@@ -204,7 +204,7 @@ part of the repository's configuration, not its files; the weekly Scorecard run 
 Everything above protects *this repository*. What the package does for an application built on
 it — the fail-closed webhook policy, the OAuth-gated agent surface, the Convex-aware CSP, the
 passwordless flows and their rate limits — is documented in the
-[security guide](https://nuxt-backend.dev/production/security).
+[security guide](https://nuxt-backend.dev/docs/ship/production/security).
 
 ### Review notes
 
