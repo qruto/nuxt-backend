@@ -375,7 +375,8 @@ component (`website/components/PlaygroundLink.vue`), for a link into the live pl
 between pages are root-relative routes (`/guide/authentication`), not paths on disk: the docs
 build fails on a broken one, and the weekly link check covers the external URLs.
 
-**Generated reference.** `website/content/7.api-reference/9.reference/` is TypeDoc output.
+**Generated reference.** `website/content/docs/10.reference/10.api/` is TypeDoc output, served at
+`/api-reference/reference` (`website/shared/docs-routes.ts` maps the folder to its route).
 `pnpm run docs:reference` regenerates it from the doc comments in `src/`, and nothing under it is
 edited by hand: fix the doc comment, regenerate, commit both. CI's `API reference drift` step
 (`pnpm run docs:reference:check`) fails on a diff, and the `pre-push` hook runs the same check.
