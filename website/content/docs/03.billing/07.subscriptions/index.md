@@ -2,6 +2,9 @@
 title: Subscriptions
 description: Plans, checkout, the customer portal, and plan changes — powered by the Polar component and linked to your auth users, with the reactive entitlement cache inside the backend component.
 kind: how-to
+playground: /playground/platform/billing
+api: /docs/reference/api/use-billing
+source: src/convex/integrations/billing.ts
 navigation:
   icon: i-lucide-credit-card
 ---
@@ -173,7 +176,4 @@ All three are optional at deploy time and forwarded from `.env.local` by `npx nu
   :::card{icon="i-lucide-receipt" title="Show orders, invoices and usage" to="/docs/billing/subscriptions/orders"}
   Past charges, invoice links, metered consumption and refunds.
   :::
-::
-
-::playground-link{to="/playground/platform/billing" label="billing"}
 ::

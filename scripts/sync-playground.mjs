@@ -62,9 +62,13 @@ const ENTRIES = [
   'public/favicon.svg',
 ]
 
-/** Never copied: the site's offline page talks about the site. */
+/**
+ * Never copied: the site's offline page talks about the site, and the docs
+ * header's playground light asks a route the example has no header for.
+ */
 const EXCLUDED = [
   /^pages\/playground\/offline\.vue$/,
+  /^server\/api\/playground\/status\.get\.ts$/,
 ]
 
 /** Hand-written in the example; the sync neither writes nor removes them. */

@@ -294,23 +294,41 @@ Tailwind's scan finds every part it must emit.
 
 ## 8. Chrome map
 
-How the docs chrome maps onto parts. R3 applies the right-hand column through
-`app.config.ts` `ui.*` slot overrides; until then the left-hand utilities
-remain.
+How the docs chrome maps onto parts, through `app.config.ts` `ui.*` slot
+overrides where Nuxt UI has a slot:
 
-| Docus / Nuxt UI slot | Now | Target |
-| --- | --- | --- |
-| `header.root` | `mach-bar` | `bar`, with `k k-nav` keys |
-| `contentSearchButton.base` | `search-slot` | `slot slot-pill`, a `k k-xs` kbd |
-| `pageHeader.title` | `engraved` | `font-display cut-sm` |
-| `prose.h1` · `prose.h2` | `engraved` · `rule-carved` | `cut-sm` · `emb-sm` with a carved rule |
-| `prose.pre` | `slot` + `code-plate` | the same, a `k k-xs` copy key |
-| `prose.code` | the inline chip rule in app.css | `slot slot-xs` |
-| `prose.callout` | `carved` | `carved` with a `strip strip-v` rail |
-| `card` · `contentSurround.link` | `plaque` | `plaque` |
-| `contentToc.trigger` | `engraved-sm` | `engr` |
-| `contentNavigation` | the `aside a::before` rules | `engr` section stamps, a `slot slot-pill` active entry |
-| `footer.root` | `mach-seam` | `seam` |
+| Docus / Nuxt UI slot | Part |
+| --- | --- |
+| `header.root` | `bar` |
+| `contentSearchButton.base` | `slot slot-pill` |
+| `pageHeader.title` | `font-display cut-sm` |
+| `prose.h1` · `prose.h2` | `cut-sm` · `emb-sm` with a carved rule |
+| `prose.pre` | `slot` + `code-plate` |
+| `prose.code` | `slot slot-xs` |
+| `prose.callout` | `carved` |
+| `card` · `contentSurround.link` | `plaque` |
+| `contentToc.trigger` | `engr` |
+| `contentNavigation` | a `slot slot-pill` active entry (a group's name is a `stamp`, drawn by the sidebar) |
+| `footer.root` | `seam` |
+
+Where a slot is not enough, the site shadows the Docus component
+(`test/docs/docus-copies.test.ts` pins each upstream source):
+
+- **The header** carries the keys, `k k-nav`: Docs, Playground with its LED
+  (`ok` when the playground's deployment answers, `err` when it does not,
+  `off` until it is known), Agents and GitHub. A key is down while the
+  reader is anywhere in its section (`aria-current="true"`). The version
+  chip is a `k k-xs` with an amber light until the line is on npm. Below
+  `lg` a drawer carries the keys, the chip and the ten tabs; the menu
+  toggle folds its three bars in CSS.
+- **The page header** carries the trail, a `stamp` chip for the page's kind
+  and an amber-lit Experimental chip, then the `k k-xs` keys: Try live
+  (with the playground's LED), API, Source and Copy page.
+- **The sidebar** collapses its groups, with the page's group open; an amber
+  light marks where an experimental surface starts, and the tab row and the
+  drawer say "Experimental" in words.
+- **The aside** ends with the related pages, "Was this helpful?" (`k k-xs`
+  keys) and the last-updated date.
 
 Never override `commandPalette.slots.input` or `contentNavigation.slots.*`
 without copying Docus's own strings first: defu replaces same-key strings.
@@ -353,6 +371,9 @@ playground pages use the parts from the start.
   `plugins/qa.client.ts`) stamp `html.dark` / `html.light` / `html.qa-contrast`
   / `html.qa-reduced` without touching OS settings.
 - **Contrast**: `scripts/design-contrast.mjs` and the table in §3.
+- **Bundle**: `scripts/check-website-bundle.mjs` fails when a prerendered
+  page's initial scripts reach the backend client or motion-v, or pass the
+  size ceiling.
 - **Build**: `scripts/check-website-css.mjs` fails when the ramps, the tokens
   import or a font's width axis go missing from the built CSS.
 - **The ratchet** (`test/docs/design-parts.test.ts`): scoped `<style>` blocks

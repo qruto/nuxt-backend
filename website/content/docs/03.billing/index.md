@@ -2,6 +2,9 @@
 title: "Billing and credits"
 description: "Plans, credit packs and feature benefits declared as code and synced to Polar, with checkout, webhooks, a live entitlement cache, gates and credit spends."
 kind: landing
+playground: /playground/platform/billing
+api: /docs/reference/api/billing
+source: src/convex/integrations/billing.ts
 navigation:
   title: Overview
   icon: i-lucide-compass
@@ -44,9 +47,6 @@ For metered AI calls, [`ai.meteredAction`](/docs/ai/metered-actions) wraps the s
   :::card{icon="i-lucide-gift" title="Gifts" to="/docs/billing/credits/gifts"}
   Buy a plan or credits for someone else by email, and claim it on their first sign-in.
   :::
-::
-
-::playground-link{to="/playground/platform/billing" label="billing"}
 ::
 
 ## Not covered here

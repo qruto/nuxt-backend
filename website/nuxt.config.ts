@@ -1,8 +1,8 @@
 import Sonda from 'sonda/nuxt'
-import { expandForAgents } from './shared/agent-markdown'
 import { DOCS_TABS, docsRedirectRules } from './shared/docs-routes'
 import { BACKEND_PAGE_DEFS } from '../src/pages'
 import { DOCS_VERSION } from './shared/docs-version'
+import { THEME_COLOR } from './shared/theme-color'
 import { codeThemeDark, codeThemeLight } from './shiki-themes'
 
 // Bundle analysis is opt-in: `pnpm analyze` sets ANALYZE=true. Normal builds
@@ -64,11 +64,16 @@ export default defineNuxtConfig({
   },
   devtools: { enabled: true },
   app: {
+    // A cross-fade between pages. Nuxt skips it under
+    // `prefers-reduced-motion: reduce`.
+    viewTransition: true,
     head: {
       meta: [
         { name: 'color-scheme', content: 'light dark' },
-        { name: 'theme-color', content: '#26292e', media: '(prefers-color-scheme: dark)' },
-        { name: 'theme-color', content: '#dcdee2', media: '(prefers-color-scheme: light)' },
+        // The page ground per scheme; plugins/theme-color.client.ts follows
+        // the mode a visitor picks.
+        { key: 'theme-color-dark', name: 'theme-color', content: THEME_COLOR.dark, media: '(prefers-color-scheme: dark)' },
+        { key: 'theme-color-light', name: 'theme-color', content: THEME_COLOR.light, media: '(prefers-color-scheme: light)' },
         { name: 'apple-mobile-web-app-title', content: 'Nuxt backend' },
       ],
       // The favicon set generated from the house mark (`pnpm run icons:generate`
@@ -101,6 +106,9 @@ export default defineNuxtConfig({
     name: 'Nuxt backend',
     description: siteDescription,
   },
+  // The visitor's colour mode, under a key of this site's own: another
+  // Nuxt app on the same origin (localhost) keeps its choice.
+  colorMode: { storageKey: 'nuxt-backend-color-mode' },
   // Use Node's built-in `node:sqlite` for Nuxt Content's local DB instead of the
   // `better-sqlite3` native addon — no node-gyp compile, no prebuilds, no
   // `allowBuilds` entry. Requires Node >= 22.5 at build & runtime (we pin >=24).
@@ -192,14 +200,6 @@ export default defineNuxtConfig({
   // of layouts entirely (`layout: false` in login.vue) — wrapping it in the
   // playground layout would squeeze its centered card into the sidebar column.
   hooks: {
-    // Agents read the pages as Markdown (`/raw/*.md`, `/llms-full.txt`), where
-    // a block a Vue component draws (`::playground-link`, the agent links)
-    // prints as an empty tag. This writes its text into it; see
-    // shared/agent-markdown.ts. Parsed pages are cached by content, not by
-    // hook: after changing this, `rm -rf .data/content` before checking locally.
-    'content:file:afterParse'({ content }) {
-      expandForAgents(content.body)
-    },
     // After every module has added its pages, so the ones the module mounts
     // under /playground/vanilla get the shell too.
     'pages:resolved'(pages) {

@@ -2,6 +2,8 @@
 title: "Pages and components"
 description: "The pages the module mounts out of the box, the components they wrap, and the customization ladder from CSS tokens to your own page."
 kind: landing
+playground: /playground/vanilla/pricing
+source: src/runtime/vue/components
 navigation:
   title: Overview
   icon: i-lucide-compass
@@ -36,6 +38,3 @@ Props, emits and slots for every component the module registers are listed in [C
 ## See them running
 
 The playground's Vanilla pages show the packaged components with the untouched defaults. The [SaaS demo pages](/playground/saas/pricing) show the same components under the site's own palette, re-themed with one token bridge.
-
-::playground-link{to="/playground/vanilla/pricing" label="the default pages"}
-::

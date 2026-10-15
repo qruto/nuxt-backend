@@ -2,6 +2,9 @@
 title: Authentication
 description: Sign in from Nuxt, read reactive session state, protect routes, and gate UI with the auth components.
 kind: how-to
+playground: /playground/platform/account
+api: /docs/reference/api/use-login-flow
+source: src/runtime/vue/composables/use-login-flow.ts
 navigation:
   icon: i-lucide-shield-check
 ---
@@ -171,7 +174,4 @@ The three flags are computed refs — read `.value` in script (templates unwrap 
 
 ::tip{to="/docs/auth/setup"}
 To customize Better Auth itself — add providers, plugins, or change the auth route — see the Convex Backend section.
-::
-
-::playground-link{to="/playground/platform/account" label="authentication"}
 ::

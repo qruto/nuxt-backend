@@ -87,9 +87,10 @@ jobs:
               # The consumer agent skill, which the site serves from ../skills
               # (the static job checks its content on every pull request).
               - 'skills/**'
-              # The two scripts the website job runs on its own output.
+              # The scripts the website job runs on its own output.
               - 'scripts/typecheck-website.mjs'
               - 'scripts/check-website-css.mjs'
+              - 'scripts/check-website-bundle.mjs'
             src:
               - *shared
               # The DevTools panel ships with the package: `build` generates
@@ -762,6 +763,14 @@ jobs:
       - name: Check website CSS
         if: ${{ !cancelled() }}
         run: node scripts/check-website-css.mjs
+
+      # The docs and the home page defer the backend client to the blocks
+      # that use it (website/modules/deferred-backend-client); this reads
+      # each prerendered page's initial scripts and fails when they reach it
+      # again, or grow past the ceiling.
+      - name: Check website bundle
+        if: ${{ !cancelled() }}
+        run: node scripts/check-website-bundle.mjs
 
   # Looks at the dependencies a pull request adds or changes, and fails on a
   # known CVE or a package GitHub has flagged as malicious. pnpm's cooldown only

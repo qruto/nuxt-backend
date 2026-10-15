@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { contrast, designDoc, measure, readTokens, resolve, withTable } from '../../scripts/design-contrast.mjs'
 import { CODE_GROUND, codeInk } from '../../website/shiki-themes'
+import { THEME_COLOR } from '../../website/shared/theme-color'
 
 // The site's text contrast, measured on the values its stylesheets declare
 // (scripts/design-contrast.mjs). A token edit that drops a pair below its
@@ -18,6 +19,13 @@ describe('text contrast', () => {
   it('is what design.md says (node scripts/design-contrast.mjs --write)', () => {
     const doc = designDoc()
     expect(withTable(doc, rows)).toBe(doc)
+  })
+})
+
+describe('the browser chrome', () => {
+  it('takes the page ground as its theme-color in both schemes', () => {
+    expect(THEME_COLOR.light).toBe(resolve(tokens, '--bg', 'light'))
+    expect(THEME_COLOR.dark).toBe(resolve(tokens, '--bg', 'dark'))
   })
 })
 

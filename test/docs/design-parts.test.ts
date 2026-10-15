@@ -145,7 +145,7 @@ describe('type', () => {
  * replace as R3–R5 rebuild them. Both numbers only go down: when you remove
  * a style block or an uppercase label recipe, lower the number here.
  */
-const STYLE_BLOCKS = 57
+const STYLE_BLOCKS = 56
 const UPPERCASE_RECIPES = 51
 
 describe('the ratchet', () => {

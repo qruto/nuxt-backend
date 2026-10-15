@@ -2,6 +2,9 @@
 title: Workspaces
 description: Multi-tenant workspaces (the organization plugin) — the active workspace as a JWT claim, useOrganization, WorkspaceSettings, invitations end-to-end, and the personal workspace.
 kind: how-to
+playground: /playground/platform/workspaces
+api: /docs/reference/api/use-organization
+source: src/runtime/vue/composables/use-organization.ts
 navigation:
   icon: i-lucide-users
 ---
@@ -183,6 +186,3 @@ export const create = org.mutation({
     ctx.db.insert('projects', { name, organizationId: ctx.organization.id }),
 })
 ```
-
-::playground-link{to="/playground/platform/workspaces" label="workspaces"}
-::

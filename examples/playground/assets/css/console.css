@@ -20,8 +20,9 @@
 
 /* A machined key: a face lit from above, a dark bottom lip, mono
    uppercase lettering. Pressed (`:active`, `.k-down`, `aria-pressed`,
-   or `aria-current="page"`) it drops 2px into the plate; the current
-   page's key also lights its label green. */
+   or `aria-current`: `page` on its own page, `true` anywhere in its
+   section) it drops 2px into the plate; a current key also lights its
+   label green. */
 .k {
   position: relative;
   display: inline-flex;
@@ -51,13 +52,13 @@
     filter: brightness(1.06);
   }
 
-  &:is(:active, .k-down, [aria-pressed='true'], [aria-current='page']) {
+  &:is(:active, .k-down, [aria-pressed='true'], [aria-current='page'], [aria-current='true']) {
     transform: translateY(2px);
     background: var(--k-face-down, var(--key-down));
     box-shadow: var(--k-shadow-down, var(--key-shadow-down));
   }
 
-  &[aria-current='page'] {
+  &:is([aria-current='page'], [aria-current='true']) {
     color: var(--ok);
   }
 

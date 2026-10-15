@@ -71,29 +71,39 @@ export default defineAppConfig({
         },
       },
     },
-    // Matte machined coat — the docs chrome is themed by injecting the parts
-    // and the legacy utilities (.engraved, .plaque, .slot …) through Nuxt
-    // UI's slot system instead of CSS-selector archaeology. Classes are bare
-    // (not text-* prefixed) so tailwind-merge doesn't mis-group them. NOTE: never override
+    // The docs chrome on the parts (design.md §Chrome map), through Nuxt
+    // UI's slots rather than CSS selectors. NOTE: never override
     // `commandPalette.slots.input` or `contentNavigation.slots.*` without
     // copying Docus's own strings first — defu REPLACES same-key strings.
-    header: { slots: { root: 'mach-bar' } },
+    header: { slots: { root: 'bar' } },
     pageHeader: {
-      slots: { title: 'font-display font-semibold tracking-[0.015em] engraved' },
+      slots: { title: 'font-display font-semibold tracking-[0.015em] cut-sm' },
     },
     contentToc: {
-      slots: { trigger: 'engraved-sm uppercase tracking-[0.08em] text-xs' },
+      slots: { trigger: 'engr uppercase tracking-[0.08em] text-xs' },
     },
-    contentSearchButton: { slots: { base: 'search-slot' } },
+    contentSearchButton: { slots: { base: 'slot slot-pill' } },
+    contentNavigation: {
+      slots: {
+        // Docus's string, kept.
+        linkLeadingIcon: 'size-4 mx-0.5',
+        // Docus hides the trailing slot; the sidebar's groups collapse, so
+        // their chevrons show, and so does an Experimental badge.
+        linkTrailing: 'ms-auto inline-flex gap-1.5 items-center',
+      },
+      // The page you are on sits in a milled pill.
+      compoundVariants: [{ variant: 'link', active: true, class: { link: 'slot slot-pill' } }],
+    },
     contentSurround: { slots: { link: 'plaque' } },
-    // Docs-embedded demo cards (PlaygroundLink, DemoCounter, DemoConnection).
+    // Docs-embedded demo cards (DemoCounter, DemoConnection).
     card: { slots: { root: 'plaque' } },
-    footer: { slots: { root: 'mach-seam' } },
+    footer: { slots: { root: 'seam' } },
     prose: {
-      h1: { slots: { base: 'font-display font-semibold tracking-[0.015em] engraved' } },
-      h2: { slots: { base: 'font-display font-semibold tracking-[0.01em] pb-2 rule-carved' } },
+      h1: { slots: { base: 'font-display font-semibold tracking-[0.015em] cut-sm' } },
+      h2: { slots: { base: 'font-display font-semibold tracking-[0.01em] pb-2 rule-carved emb-sm' } },
       h3: { slots: { base: 'font-display font-medium tracking-[0.01em]' } },
       pre: { slots: { base: 'slot', header: 'code-plate' } },
+      code: { base: 'slot slot-xs' },
       card: { slots: { base: 'plaque', title: 'font-display font-semibold embossed-sm' } },
       // Shadow-only carve — the callout keeps its tinted bg → a pressed tinted well.
       callout: { slots: { base: 'carved rounded-[10px]' } },
@@ -158,17 +168,20 @@ export default defineAppConfig({
   },
 
   header: {
-    title: 'Nuxt backend',
+    title: 'nuxt-backend',
     logo: {
       light: '/logo-light.svg',
       dark: '/logo-dark.svg',
-      alt: 'Nuxt backend',
+      alt: 'nuxt-backend',
     },
   },
 
   // No `socials` block: Docus's footer renders `socials.*` AND `github.url`
   // side by side, so declaring the repo in both put two identical octocats
   // next to each other. `github` stays — it also powers "Edit this page".
+  // The same repository as REPOSITORY in shared/page-keys.ts (the Source
+  // keys); app config cannot import it, and test/docs/page-header.test.ts
+  // keeps the two equal.
   github: {
     url: 'https://github.com/qruto/nuxt-backend',
     branch: 'main',

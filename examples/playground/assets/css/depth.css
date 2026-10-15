@@ -7,9 +7,11 @@
    ----------------------------------------------------------------
    Every part is a Tailwind `@utility`: one class, one complete recipe,
    in the utilities layer. In a Nuxt UI slot string a part replaces the
-   component's own background, ring, border, radius and shadow, and a
-   relief part its text colour and shadow (app.config.ts
-   `ui.tv.twMergeConfig`), so the last part named wins.
+   component's own background, ring, radius, shadow and border, every
+   side and corner of them, and a relief part its text colour and shadow
+   (app.config.ts `ui.tv.twMergeConfig`), so the last part named wins. A
+   face or a well that takes the component's border away draws its own
+   focus ring.
 
    A modifier (`slot-pill`, `slot-xs`) never repeats a recipe: it sets
    the custom properties its part reads, so `slot slot-pill` composes.
@@ -36,6 +38,11 @@
   &:is(a, button):hover {
     box-shadow: var(--plaque-hi);
   }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
 }
 
 /* The console slab: heavier than a plaque, with a bevelled rim drawn by a
@@ -61,11 +68,17 @@
 
 /* ── Wells ──────────────────────────────────────────────────────── */
 
-/* A milled well: inputs, readouts, code. */
+/* A milled well: inputs, readouts, code. A code block that scrolls takes
+   keyboard focus, so the well rings like a face. */
 .slot {
   background: var(--sink);
   border-radius: var(--slot-r, var(--r));
   box-shadow: var(--slot-depth, var(--slot));
+
+  &:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
 }
 
 /* A pill-shaped slot: the search field, an active nav entry, the install line. */
@@ -127,15 +140,19 @@
   text-shadow: var(--cut);
 
   /* The floor repeats the text visually only: the `/ ""` alternative keeps
-     a screen reader from reading the heading twice. */
+     a screen reader from reading the heading twice. The mask repeats every
+     line (`lh`), so a title that wraps gets a floor on each line. The floor
+     is lighter in both themes: toward white on a light page, toward the
+     ink on a dark one, and it clears the large-text bar on its own
+     (design.md §Contrast). */
   &::after {
     content: attr(data-text);
     content: attr(data-text) / "";
     position: absolute;
     inset: 0;
-    color: color-mix(in srgb, var(--engrave-ink), var(--ink) 18%);
+    color: light-dark(color-mix(in srgb, var(--engrave-ink), #fff 12%), color-mix(in srgb, var(--engrave-ink), var(--ink) 18%));
     text-shadow: none;
-    clip-path: inset(55% 0 0 0);
+    mask: repeating-linear-gradient(transparent 0 0.55lh, #000 0.55lh 1lh);
     pointer-events: none;
   }
 }

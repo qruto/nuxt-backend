@@ -2,6 +2,9 @@
 title: "Agents"
 description: "Let agents use your app through its OAuth-protected MCP endpoint, give coding agents the package's rules, and read these docs as Markdown."
 kind: landing
+playground: /playground/platform/agents
+api: /docs/reference/api/mcp
+source: src/convex/integrations/mcp.ts
 navigation:
   title: Overview
   icon: i-lucide-compass
@@ -35,9 +38,6 @@ Nine built-in tools cover the profile, billing, credits and workspaces, each beh
   :::card{icon="i-lucide-plug" title="Connect a Client" to="/docs/agents/mcp/connect-a-client"}
   Point Claude Code, a claude.ai connector or any MCP client at your app, including a tunnel in local dev.
   :::
-::
-
-::playground-link{to="/playground/platform/agents" label="the agent endpoint"}
 ::
 
 ## Coding agents

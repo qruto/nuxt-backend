@@ -1,34 +1,30 @@
-<!-- Illustrative live demo embedded in the docs: the real Convex WebSocket state.
-     Styled with Nuxt UI so it matches the docs theme (not the playground shell). -->
-<script setup lang="ts">
-// Client-only: subscribing during SSR/prerender opens a Convex WebSocket (the
-// lazy `.sync` client) that keeps the build process alive. The chip reflects the
-// browser's live connection, so it only needs to run on the client.
-const conn = import.meta.client ? useConnectionState() : null
-const isConnected = computed(() => !!conn?.value.isWebSocketConnected)
-</script>
-
+<!-- Live demo on the docs (::demo-connection): the real Convex WebSocket
+     state of this page. The backend client loads when the card scrolls into
+     view; the page carries `demo: true`. -->
 <template>
   <UCard
     variant="subtle"
     class="my-4"
   >
-    <div class="flex items-center justify-between gap-4">
-      <div class="flex items-center gap-2">
-        <span class="relative flex size-2.5">
-          <span
-            v-if="isConnected"
-            class="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60"
+    <DeferredBackend class="flex items-center justify-between gap-4">
+      <LazyLiveConnection v-slot="{ connected }">
+        <span class="flex items-center gap-2 font-medium">
+          <Led
+            :tone="connected ? 'ok' : 'err'"
+            :pulse="connected"
           />
-          <span
-            class="relative inline-flex size-2.5 rounded-full"
-            :class="isConnected ? 'bg-success' : 'bg-error'"
-          />
+          {{ connected ? 'Convex live' : 'Offline' }}
         </span>
-        <span class="font-medium">{{ isConnected ? 'Convex live' : 'Offline' }}</span>
-      </div>
-      <code class="text-xs text-muted">useConnectionState()</code>
-    </div>
+        <code class="text-xs text-muted">useConnectionState()</code>
+      </LazyLiveConnection>
+      <template #fallback>
+        <span class="flex items-center gap-2 font-medium">
+          <Led tone="off" />
+          Connecting…
+        </span>
+        <code class="text-xs text-muted">useConnectionState()</code>
+      </template>
+    </DeferredBackend>
     <p class="mt-2 text-sm text-muted">
       This reflects the real WebSocket connection from your browser to Convex —
       toggle your network to watch it flip live.

@@ -130,14 +130,14 @@ import { components } from './_generated/api'
 
 export const workflow = setupWorkflows(components)
 
-export const onSignup = workflow.define({
-  args: { email: v.string(), name: v.string() },
-  handler: async (step, { email, name }) => {
+export const exportReady = workflow.define({
+  args: { email: v.string(), url: v.string() },
+  handler: async (step, { email, url }) => {
     // Email is sent through the `backend` component's email module.
     await step.runMutation(components.backend.email.send, {
       to: email,
-      subject: 'Welcome!',
-      text: `Welcome aboard, ${name}!`,
+      subject: 'Your export is ready',
+      text: `Download it here: ${url}`,
     })
   },
 })
@@ -163,6 +163,11 @@ and deploys via the workflow component), then sends through the backend
 component's email module — delivery-tracked like every other transactional
 email. Cancel a started sequence with the workflow manager's own
 `workflow.cancel(ctx, id)`.
+
+A sequence started with a `userId` follows the account: before each email
+it reads the user, ends the sequence when the account is gone (deleted
+since sign-up), and hands the step the account's current `email` and
+`name` in place of the ones captured when it started.
 
 #### Type Parameters
 
