@@ -5,7 +5,7 @@ import { Polar } from '@polar-sh/sdk'
 import { benefitsList } from '@polar-sh/sdk/funcs/benefitsList.js'
 import { organizationsListOrganizations } from '@polar-sh/sdk/funcs/organizationsListOrganizations.js'
 import type { BillingCatalog } from '../../convex/catalog'
-import type { PreflightFinding } from '../../preflight'
+import { finding, type PreflightFinding } from '../../findings'
 import { resolveFunctionsDir } from '../../scaffold'
 import { listAllPages, MANAGED_BY, type Environment } from './provider'
 
@@ -84,10 +84,6 @@ export async function readBillingOrganizationState(
   }
 }
 
-function billingFinding(id: string, title: string, status: PreflightFinding['status'], message: string, fixHint = ''): PreflightFinding {
-  return { id, title, status, message, fixHint }
-}
-
 /**
  * Doctor's billing findings: the code-declared catalog against the provider's
  * organization settings. Pure — `state` is `null` whenever the provider could
@@ -122,10 +118,9 @@ export function collectBillingFindings(
     ])
     const orphans = meters.filter(meter => !referenced.has(meter))
     findings.push(orphans.length === 0
-      ? billingFinding('billing-meter-usage', 'Billing meters', 'pass', `Every catalog meter is funded by a credit grant or billed by a usage price (${meters.join(', ')}).`)
-      : billingFinding(
+      ? finding('billing-meter-usage', 'pass', `Every catalog meter is funded by a credit grant or billed by a usage price (${meters.join(', ')}).`)
+      : finding(
           'billing-meter-usage',
-          'Billing meters',
           'warn',
           `No plan or pack grants credits on ${orphans.join(', ')}, and no plan prices usage against ${orphans.length === 1 ? 'it' : 'them'} — spends draw on a balance nothing funds and nothing invoices.`,
           'Give a plan or pack `credits: { meter: … }`, add a `usage` price for it, or drop the meter from billing.catalog.ts.',
@@ -137,9 +132,8 @@ export function collectBillingFindings(
     // reports — a second warning would be noise. A token that was refused is
     // worth its own finding: the checks below silently did not run.
     if (tokenPresent) {
-      findings.push(billingFinding(
+      findings.push(finding(
         'billing-organization',
-        'Billing organization',
         'warn',
         'BILLING_ACCESS_TOKEN is set here but the provider would not answer with it (expired, revoked, or issued for the other environment) — the catalog cross-checks were skipped.',
         'Issue a fresh organization access token for the active BILLING_ENVIRONMENT, put it in .env.local, and run `npx nuxt-backend env push`.',
@@ -149,72 +143,66 @@ export function collectBillingFindings(
   }
 
   findings.push(state.allowMultipleSubscriptions && plans.length > 1
-    ? billingFinding(
+    ? finding(
         'billing-multiple-subscriptions',
-        'Multiple subscriptions',
         'warn',
         `The organization lets a customer hold several subscriptions at once while the catalog offers ${plans.length} plans — someone can end up on two of them, and useBilling() reports only the first.`,
         'Turn multiple subscriptions off in the provider dashboard, or keep a single plan in billing.catalog.ts.',
       )
-    : billingFinding('billing-multiple-subscriptions', 'Multiple subscriptions', 'pass', state.allowMultipleSubscriptions
+    : finding('billing-multiple-subscriptions', 'pass', state.allowMultipleSubscriptions
         ? 'Multiple subscriptions are allowed, and the catalog offers at most one plan.'
         : 'A customer holds one subscription at a time.'))
 
   findings.push(plans.length > 1 && state.prorationBehavior === 'next_period'
-    ? billingFinding(
+    ? finding(
         'billing-proration',
-        'Plan change proration',
         'warn',
         `Plan changes are settled as '${state.prorationBehavior}' — an upgrade grants the new plan's credits and features immediately but is not charged until the next cycle.`,
         'Set the organization\'s proration behaviour to `invoice` or `prorate` if an upgrade should be charged when it happens.',
       )
-    : billingFinding('billing-proration', 'Plan change proration', 'pass', `Plan changes are settled as '${state.prorationBehavior}'.`))
+    : finding('billing-proration', 'pass', `Plan changes are settled as '${state.prorationBehavior}'.`))
 
   findings.push(state.benefitRevocationGracePeriod > 0 && (features.length > 0 || grantsCredits)
-    ? billingFinding(
+    ? finding(
         'billing-benefit-grace',
-        'Benefit revocation',
         'warn',
         `Benefits stay granted for a grace period (${state.benefitRevocationGracePeriod}) after a subscription ends — useFeatures().has() keeps returning true and granted credits stay spendable for that long.`,
         'Set the benefit revocation grace period to 0 in the provider dashboard if access must stop the moment a subscription ends.',
       )
-    : billingFinding('billing-benefit-grace', 'Benefit revocation', 'pass', state.benefitRevocationGracePeriod > 0
+    : finding('billing-benefit-grace', 'pass', state.benefitRevocationGracePeriod > 0
         ? `A benefit revocation grace period (${state.benefitRevocationGracePeriod}) is set, and the catalog grants no benefits.`
         : 'Benefits are revoked as soon as a subscription ends.'))
 
   const trialPlans = plans.filter(([, plan]) => plan.trial)
   findings.push(trialPlans.length > 0 && !state.preventTrialAbuse
-    ? billingFinding(
+    ? finding(
         'billing-trial-abuse',
-        'Trial abuse prevention',
         'warn',
         `${trialPlans.map(([key]) => key).join(', ')} offer${trialPlans.length === 1 ? 's' : ''} a trial but the organization does not prevent trial abuse — the same customer can start the trial again and again.`,
         'Turn on trial abuse prevention in the provider dashboard.',
       )
-    : billingFinding('billing-trial-abuse', 'Trial abuse prevention', 'pass', trialPlans.length === 0
+    : finding('billing-trial-abuse', 'pass', trialPlans.length === 0
         ? 'No plan declares a trial.'
         : 'Trials are limited to one per customer.'))
 
   const pause = `pause: ${state.portal.pause ? 'on' : 'off'}`
   findings.push(plans.length > 1 && !state.portal.updatePlan
-    ? billingFinding(
+    ? finding(
         'billing-portal',
-        'Customer portal',
         'warn',
         `The customer portal cannot change plan while the catalog offers ${plans.length} of them — upgrades and downgrades have to go through a fresh checkout (${pause}).`,
         'Enable plan updates in the provider\'s customer portal settings, or drive upgrades through your own checkout.',
       )
-    : billingFinding('billing-portal', 'Customer portal', 'pass', state.portal.updatePlan
+    : finding('billing-portal', 'pass', state.portal.updatePlan
         ? `The customer portal offers plan changes (${pause}).`
         : `The customer portal does not offer plan changes, and the catalog offers at most one plan (${pause}).`))
 
   if (features.length > 0) {
     const legacy = features.filter(key => state.benefitTypeByKey[key] === 'custom')
     findings.push(legacy.length === 0
-      ? billingFinding('billing-feature-benefits', 'Feature benefits', 'pass', 'Feature benefits use the provider\'s native feature-flag type.')
-      : billingFinding(
+      ? finding('billing-feature-benefits', 'pass', 'Feature benefits use the provider\'s native feature-flag type.')
+      : finding(
           'billing-feature-benefits',
-          'Feature benefits',
           'warn',
           `Feature benefit${legacy.length === 1 ? '' : 's'} ${legacy.join(', ')} still ${legacy.length === 1 ? 'is' : 'are'} the generic custom type — the customer portal lists ${legacy.length === 1 ? 'it' : 'them'} as a note rather than a feature.`,
           'Delete them in the provider dashboard (or drop their managed tag) and re-run `npx nuxt-backend billing sync` to recreate them as feature flags — gating matches on the metadata key either way, so useFeatures() keeps working meanwhile.',

@@ -9,13 +9,17 @@ export const DEVTOOLS_UI_ROUTE = '/__nuxt-backend'
 /** Port `pnpm dev:devtools-client` runs the panel dev server on (3630 is the base module's). */
 export const DEVTOOLS_UI_LOCAL_PORT = 3631
 
-/** A preflight finding as shown in the panel (same shape as `src/preflight.ts`). */
+/** A preflight finding as shown in the panel (same shape as `src/findings/types.ts`). */
 export interface DevtoolsPreflightFinding {
   id: string
+  /** The service `doctor --only` selects it by. */
+  service?: string
   title: string
   status: 'pass' | 'warn' | 'fail'
   message: string
   fixHint: string
+  /** The finding's entry in the docs. */
+  docsUrl?: string
 }
 
 /** One mounted (or app-shadowed) ready-made page. */
@@ -124,6 +128,8 @@ export interface DevtoolsServerInfo {
 export interface DevtoolsDoctorRun {
   ranAt: number
   findings: DevtoolsPreflightFinding[]
+  /** The run as `nuxt-backend doctor --json` prints it, to paste into an issue or an agent. */
+  report?: string
   /** Set when the run itself failed. */
   error?: string
 }
@@ -152,9 +158,10 @@ export interface ServerFunctions {
   getDeploymentEnv(options?: { refresh?: boolean }): Promise<DevtoolsDeploymentEnv>
   /**
    * Run `nuxt-backend doctor`'s checks in the dev server against the dev
-   * deployment. One run at a time; a second call joins the running one.
+   * deployment, all of them or `only` some services. One run per selection
+   * at a time; a second call for the same one joins it.
    */
-  runDoctor(): Promise<DevtoolsDoctorRun>
+  runDoctor(options?: { only?: string[] }): Promise<DevtoolsDoctorRun>
   /** Read `billing.catalog.ts` and `billing.generated.ts` afresh. */
   getCatalog(): Promise<DevtoolsCatalogSummary>
   /** Map a backend source file (`"billing.ts"`) to its path for open-in-editor. */

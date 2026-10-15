@@ -68,7 +68,7 @@ CONVEX_DEPLOY_KEY=prod:... npx nuxt-backend env push --prod             # forwar
 
 ## Billing and email in production
 
-- Sync the catalog to the production billing environment — it is a separate object set with its own ids, kept side by side in `billing.generated.ts`: `npx nuxt-backend billing sync --env production`, then set `BILLING_ENVIRONMENT=production` and the printed `BILLING_WEBHOOK_SECRET` on the deployment, and run `npx convex run --prod billing:syncProducts` once.
+- Sync the catalog to the production billing environment — it is a separate object set with its own ids, kept side by side in `billing.generated.ts`: `npx nuxt-backend billing sync --env production`, which stores the new webhook's `BILLING_WEBHOOK_SECRET` on the production deployment and loads its products; then set `BILLING_ENVIRONMENT=production` there.
 - Point the provider dashboards at the production site URL: `https://<slug>.convex.site/billing/events` and `/email/events` — see [Webhooks](/docs/ship/production/webhooks#point-the-provider-dashboards-at-them).
 - Set `EMAIL_TEST_MODE=false` once the sending domain is verified.
 

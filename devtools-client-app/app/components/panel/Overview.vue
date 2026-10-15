@@ -76,6 +76,12 @@ async function copyHint(id: string, hint: string) {
   setTimeout(() => copied.value = null, 1200)
 }
 
+async function copyReport(report: string) {
+  await copyText(report)
+  copied.value = 'doctor-json'
+  setTimeout(() => copied.value = null, 1200)
+}
+
 function refreshAll() {
   void panel.refresh()
   void panel.readDeploymentEnv(true)
@@ -159,6 +165,15 @@ function refreshAll() {
           @click="panel.runDoctor()"
         >
           {{ state.doctorRunning ? 'Running doctor…' : 'Run doctor' }}
+        </NButton>
+        <NButton
+          v-if="state.doctor?.report"
+          n="xs"
+          icon="carbon-copy"
+          title="Copy the run as nuxt-backend doctor --json prints it, for an issue or a coding agent"
+          @click="copyReport(state.doctor.report)"
+        >
+          {{ copied === 'doctor-json' ? 'Copied' : 'Copy doctor JSON' }}
         </NButton>
       </template>
       <NTip

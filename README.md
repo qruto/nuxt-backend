@@ -195,7 +195,7 @@ The scaffolded `backend/` files compose the backend from `nuxt-backend/*`:
 
 ### CLI
 
-`npx nuxt-backend <command>` — `init` scaffolds the backend files, `.env.example`, the `nuxt.config` wiring and the agent files, `AGENTS.md` and `.mcp.json` (re-run to restore missing files); `dev` runs Convex and Nuxt together; `doctor` checks the project and deployment configuration (`--fix` repairs what it can); `env push` syncs `.env.local` to the Convex deployment; `billing sync` pushes your `billing.catalog.ts` to the billing provider and writes the id map.
+`npx nuxt-backend <command>` — `init` scaffolds the backend files, `.env.example`, the `nuxt.config` wiring and the agent files, `AGENTS.md` and `.mcp.json` (re-run to restore missing files); `dev` runs Convex and Nuxt together; `doctor` checks the project and deployment configuration (`--fix` repairs what it can); `env push` syncs `.env.local` to the Convex deployment; `billing sync` pushes your `billing.catalog.ts` to the billing provider, writes the id map, and stores the webhook secret on the deployment.
 
 <!-- END: Include on https://convex.dev/components -->
 

@@ -20,9 +20,10 @@ CONVEX_DEPLOY_KEY=prod:... npx nuxt-backend doctor --prod
 | `email-webhook-secret` / `deployment-email-webhook-secret` | `/email/events` is fail-closed — delivery status never advances past `sent`. |
 | `billing-access` / `deployment-billing-access-token` | No `BILLING_ACCESS_TOKEN` — pricing renders empty, checkout fails. |
 | `billing-webhook-secret` / `deployment-billing-webhook-secret` | `/billing/events` is fail-closed — entitlements only refresh on demand. |
+| `email-webhook-route` / `billing-webhook-route` | The probe found the route mounted but fail-closed (`503`), unreachable, or answering an unexpected status. |
 | `deployment-auth-trust-local-origins` | The dev-only loopback trust flag is set on a non-dev deployment. Remove it: `npx convex env remove --prod AUTH_TRUST_LOCAL_ORIGINS`. |
 
-Everything else keeps its normal severity — `deployment-auth-secret` / `deployment-site-url` always fail when missing, the route probes fail on `404` (not mounted) and `503` (fail-closed), `function-contract` fails on a trimmed scaffold export, `invitation-path` on a Nuxt/Convex mismatch.
+Everything else keeps its normal severity: `deployment-auth-secret` / `deployment-site-url` always fail when missing, the route probes fail on `404` (not mounted) in any mode, `ai-stream-route` only ever warns on a `503`, `function-contract` fails on a trimmed scaffold export, and `invitation-path` on a Nuxt/Convex mismatch.
 
 ## The list
 
@@ -45,8 +46,8 @@ Everything else keeps its normal severity — `deployment-auth-secret` / `deploy
 
 - [ ] The catalog is synced to the production environment: `npx nuxt-backend billing sync --env production` (separate ids from sandbox; both live in `billing.generated.ts`).
 - [ ] `BILLING_ENVIRONMENT=production` and a **production** organization access token in `BILLING_ACCESS_TOKEN`.
-- [ ] The billing webhook points at `https://<slug>.convex.site/billing/events` and `BILLING_WEBHOOK_SECRET` matches (the sync provisions the endpoint and prints the secret once).
-- [ ] `npx convex run --prod billing:syncProducts` has run once, so pricing renders before the first `product.*` webhook.
+- [ ] The billing webhook points at `https://<slug>.convex.site/billing/events` and `BILLING_WEBHOOK_SECRET` matches (the sync provisions the endpoint and stores its secret on the production deployment).
+- [ ] Pricing lists the products: the sync ran `billing:syncProducts` on production (if it reported it couldn't, run `npx convex run --prod billing:syncProducts`).
 - [ ] `appConfig.backend.billing.plans` / `packs` keys match the catalog keys.
 
 ### Webhooks

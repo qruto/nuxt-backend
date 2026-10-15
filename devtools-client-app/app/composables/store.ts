@@ -32,7 +32,7 @@ export interface PanelState {
 export interface PanelRpc {
   getInfo(): Promise<DevtoolsServerInfo>
   getDeploymentEnv(options?: { refresh?: boolean }): Promise<DevtoolsDeploymentEnv>
-  runDoctor(): Promise<DevtoolsDoctorRun>
+  runDoctor(options?: { only?: string[] }): Promise<DevtoolsDoctorRun>
   getCatalog(): Promise<DevtoolsCatalogSummary>
   resolveBackendSource(file: string): Promise<{ filepath?: string }>
 }

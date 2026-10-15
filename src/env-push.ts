@@ -17,14 +17,12 @@
 import { randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { DEV_ONLY_DEPLOYMENT_ENV, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './preflight'
+import { CONTRACT_ENV_NAMES, DEV_ONLY_DEPLOYMENT_ENV, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './env-registry'
 import { deriveDeploymentUrls, isDevDeploymentId, parseEnvFile } from './deployment'
 import { runConvex } from './convex-cli'
 
-export const BACKEND_ENV_NAMES = [
-  ...REQUIRED_DEPLOYMENT_ENV,
-  ...Object.keys(OPTIONAL_DEPLOYMENT_ENV) as (keyof typeof OPTIONAL_DEPLOYMENT_ENV)[],
-] as const
+/** The names `env push` forwards: the deployment's contract, from src/env-registry.ts. */
+export const BACKEND_ENV_NAMES = CONTRACT_ENV_NAMES
 
 export interface EnvPushAction {
   name: string

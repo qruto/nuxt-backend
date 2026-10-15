@@ -2,7 +2,7 @@ import { lstatSync, readdirSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { AGENT_HINT, AGENTS_SECTION } from '../../src/agents'
 import { main } from '../../src/cli/main'
-import { BACKEND_ENV_NAMES } from '../../src/env-push'
+import { BACKEND_ENV } from '../../src/env-registry'
 import { at, contentRoute, frontmatter, read, readModuleSources, walk } from './helpers'
 
 // What coding agents are told about the package: the consumer skill under
@@ -61,7 +61,8 @@ describe('the agent guidance', () => {
   })
 
   it.each(texts)('%s names only env vars the package or the Convex CLI knows', (_, text) => {
-    const known = new Set<string>([...BACKEND_ENV_NAMES, 'NUXT_PUBLIC_BACKEND_URL', 'CONVEX_DEPLOYMENT', 'CONVEX_SITE_URL', 'CONVEX_SELF_HOSTED_URL'])
+    // The package's names (src/env-registry.ts) and the platform's own.
+    const known = new Set<string>([...Object.keys(BACKEND_ENV), 'CONVEX_DEPLOYMENT', 'CONVEX_SITE_URL', 'CONVEX_SELF_HOSTED_URL'])
     for (const [, name] of text.matchAll(/`([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)(?:=[^`]*)?`/g)) expect(known, name).toContain(name)
   })
 

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nuxt-backend.dev/schemas/doctor.json",
+  "title": "nuxt-backend doctor --json",
+  "description": "What `npx nuxt-backend doctor --json` prints, and the DevTools panel's Copy doctor JSON copies. The process exits 1 when any finding fails.",
+  "type": "object",
+  "required": ["$schema", "findings", "summary"],
+  "properties": {
+    "$schema": {
+      "description": "This schema's URL.",
+      "type": "string"
+    },
+    "findings": {
+      "description": "Every check that ran, in report order. `--only` limits them to some services.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "summary": {
+      "description": "One line: `auth ✓` when nothing needs attention, otherwise the count and the ids of the findings that warn or fail.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["id", "service", "title", "status", "message", "fixHint", "docsUrl"],
+      "properties": {
+        "id": {
+          "description": "Stable across releases: a removal or rename follows the deprecation cycle in STABILITY.md.",
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "service": {
+          "description": "The part of the app the finding is about, and the name `--only` selects it by.",
+          "enum": ["deployment", "auth", "email", "billing", "agents", "ai", "scaffold"]
+        },
+        "title": {
+          "description": "A short label. Its wording may change in any release.",
+          "type": "string"
+        },
+        "status": {
+          "description": "`fail` breaks the app or a deploy; `warn` is a designed degradation or an unreachable check; `pass` is healthy.",
+          "enum": ["pass", "warn", "fail"]
+        },
+        "message": {
+          "description": "What the check found. Its wording may change in any release.",
+          "type": "string"
+        },
+        "fixHint": {
+          "description": "What to do about it: a command when there is one. Empty for a pass.",
+          "type": "string"
+        },
+        "docsUrl": {
+          "description": "The finding's entry in the docs: https://nuxt-backend.dev/d/<id>.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
