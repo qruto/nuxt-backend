@@ -82,6 +82,9 @@ sign-in codes print in the terminal that runs `dev`.
   `appConfig.backend.billing.plans` and `packs`.
 - **Email:** transactional mail goes through `backend/email.ts` (`setupEmail`), and
   `useEmailStatus(id)` tracks delivery. Test mode is on until `EMAIL_TEST_MODE=false`.
+  Never expose a public function that takes a recipient: the scaffolded `send` is an
+  `internalAction`. Call it from server code with an address you trust, or use
+  `admin.action` (like `sendAsAdmin`) when a person types the address.
 - **Agents:** the app serves an OAuth-protected MCP endpoint at `/mcp`. Add tools with
   `defineBackendMcpTool` from `nuxt-backend/mcp`, one file each in `server/mcp/tools/`.
 - **Tests:** register the component in `convex-test` with `nuxt-backend/test`

@@ -49,7 +49,7 @@ const DEFAULT_WORKPOOL_OPTIONS = {
  *     await step.runMutation(components.backend.email.send, {
  *       to: email,
  *       subject: 'Welcome!',
- *       html: `<p>Welcome aboard, ${name}!</p>`,
+ *       text: `Welcome aboard, ${name}!`,
  *     })
  *   },
  * })

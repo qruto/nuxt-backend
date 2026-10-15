@@ -21,7 +21,7 @@ export const onSignup = defineEmailSequence(workflow, components, {
       email: ({ email, name }) => ({
         to: email,
         subject: 'Welcome!',
-        html: `<p>Welcome aboard, ${name}! We're glad you're here.</p>`,
+        text: `Welcome aboard, ${name}! We're glad you're here.`,
       }),
     },
     // {

@@ -240,5 +240,11 @@ what was decided:
   runs through Better Auth's `/revoke-session`, whose ownership check, database hooks and
   secondary storage apply. Agent tokens carry no session, so they read `null` and cannot revoke.
   **Fixed.** Pinned by `test/convex-component/sessions.test.ts`.
+- **Scaffolded email sending** (`email:send`; 2026-10-14). `send` was a public action gated
+  only on a sign-in, so any visitor who could sign in could mail any address from the app's
+  verified domain. It is an `internalAction` now. The any-address example is `sendAsAdmin`
+  (`admin.action`, plain text only), and the welcome step sends plain text, so a display name
+  is never markup. **Fixed.** Pinned by `test/unit/scaffold-relay.test.ts`, which fails when a
+  function a browser can call takes a recipient, commented examples included.
 - **DevTools** (2026-09-17). The Backend tab and its RPC run only under `nuxt dev`, on Vite's
   middleware — reachable exactly as far as Nuxt DevTools itself. **Accepted.**
