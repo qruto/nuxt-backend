@@ -39,12 +39,6 @@
       "nuxt-backend/ai": ["../../src/convex/integrations/ai.ts"],
       "nuxt-backend/mcp": ["../../src/runtime/server/mcp/index.ts"],
       "nuxt-backend/convex.config": ["../../src/convex/components/backend/convex.config.ts"],
-      "nuxt-backend/component/schema": ["../../src/convex/components/backend/schema.ts"],
-      "nuxt-backend/component/email": ["../../src/convex/components/backend/email.ts"],
-      "nuxt-backend/component/billing": ["../../src/convex/components/backend/billing.ts"],
-      "nuxt-backend/component/gifts": ["../../src/convex/components/backend/gifts.ts"],
-      "nuxt-backend/component/ai": ["../../src/convex/components/backend/ai.ts"],
-      "nuxt-backend/component/webhooks": ["../../src/convex/components/backend/webhooks.ts"],
       "nuxt-backend/auth.config": ["../../src/convex/auth.config.ts"],
       "nuxt-backend/test": ["../../src/convex/test.ts"],
       "nuxt-backend/eslint": ["../../src/eslint.ts"]

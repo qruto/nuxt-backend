@@ -67,8 +67,7 @@ Defined in: [src/eslint.ts](https://github.com/qruto/nuxt-backend/blob/main/src/
 
 Two flat-config entries: `nuxt-backend:convex` applies the Convex rules to
 the functions directory (tests excluded), and `nuxt-backend:generated`
-ignores every `_generated` folder in it, including the local install's
-component codegen.
+ignores every `_generated` folder in it.
 
 The rules parse TypeScript. Inside `withNuxt(…)` the parser is already set;
 a standalone config adds `typescript-eslint`'s parser for `.ts` files.

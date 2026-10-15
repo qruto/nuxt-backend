@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { BACKEND_FILE_TEMPLATES, LOCAL_BACKEND_FILE_TEMPLATES, getBackendFileTemplates } from '../../src/templates'
+import { BACKEND_FILE_TEMPLATES } from '../../src/templates'
 
 const packageJsonPath = fileURLToPath(new URL('../../package.json', import.meta.url))
 const websiteBackendTsconfigPath = fileURLToPath(new URL('../../website/backend/tsconfig.json', import.meta.url))
@@ -23,13 +23,10 @@ describe('package exports', () => {
     expect(packageJson.exports).toHaveProperty('./_generated/component')
     expect(packageJson.exports['./_generated/component.js'])
       .toEqual(packageJson.exports['./_generated/component'])
-    expect(packageJson.exports).toHaveProperty('./component/schema')
-    // Only the required component entries get the `.js` alias — the function
-    // modules and schema stay extensionless-only, like the template.
-    expect(packageJson.exports).not.toHaveProperty('./component/schema.js')
-    // Local-install re-export templates need every function module.
-    for (const name of ['ai', 'billing', 'email', 'gifts', 'webhooks']) {
-      expect(packageJson.exports).toHaveProperty(`./component/${name}`)
+    // The component's schema and function modules are not entry points: the
+    // app mounts the packaged component and reaches it as `components.backend`.
+    for (const key of Object.keys(packageJson.exports)) {
+      expect(key, `component internals exported as ${key}`).not.toMatch(/^\.\/component\//)
     }
     expect(packageJson.exports).toHaveProperty('./auth.config')
     expect(packageJson.exports).toHaveProperty('./billing')
@@ -54,10 +51,6 @@ describe('package exports', () => {
     expect(packageJson.exports['./convex.config']).toEqual({
       types: './dist/convex/components/backend/convex.config.d.ts',
       default: './dist/convex/components/backend/convex.config.js',
-    })
-    expect(packageJson.exports['./component/schema']).toEqual({
-      types: './dist/convex/components/backend/schema.d.ts',
-      default: './dist/convex/components/backend/schema.js',
     })
     expect(packageJson.exports['./auth.config']).toEqual({
       types: './dist/convex/auth.config.d.ts',
@@ -97,46 +90,6 @@ describe('scaffold templates', () => {
     )
     expect(BACKEND_FILE_TEMPLATES['auth.ts']).toContain('createAuthOptions')
     expect(BACKEND_FILE_TEMPLATES['auth.ts']).toContain('options')
-  })
-
-  it('provides whole-component local-install templates', () => {
-    expect(LOCAL_BACKEND_FILE_TEMPLATES['convex.config.ts']).toContain(
-      `import backend from './components/backend/convex.config'`,
-    )
-    expect(LOCAL_BACKEND_FILE_TEMPLATES['convex.config.ts']).not.toContain(
-      `nuxt-backend/convex.config`,
-    )
-    // Same explicit shape as the default scaffold — only the `backend` import
-    // differs.
-    expect(LOCAL_BACKEND_FILE_TEMPLATES['convex.config.ts']).toContain(`app.use(backend, {`)
-    expect(LOCAL_BACKEND_FILE_TEMPLATES['convex.config.ts']).toContain(`app.use(workflow)`)
-    expect(LOCAL_BACKEND_FILE_TEMPLATES['auth.ts']).toContain(
-      `import { authSchema } from './components/backend/schema'`,
-    )
-    expect(LOCAL_BACKEND_FILE_TEMPLATES['components/backend/adapter.ts']).toContain(
-      `createApi(authSchema, createAuthOptions)`,
-    )
-    // The re-export lists are generated from the component sources — see
-    // local-install-parity.test.ts for the exact-list checks.
-    expect(LOCAL_BACKEND_FILE_TEMPLATES['components/backend/schema.generated.ts']).toContain(
-      `} from 'nuxt-backend/component/schema'`,
-    )
-    // The local component nests the email provider child and re-exports the
-    // packaged function modules.
-    expect(LOCAL_BACKEND_FILE_TEMPLATES['components/backend/convex.config.ts']).toContain(
-      `component.use(resend)`,
-    )
-    for (const name of ['ai', 'billing', 'email', 'gifts', 'webhooks']) {
-      expect(LOCAL_BACKEND_FILE_TEMPLATES[`components/backend/${name}.ts`]).toContain(
-        `from 'nuxt-backend/component/${name}'`,
-      )
-    }
-  })
-
-  it('selects local templates through the installation scaffold option', () => {
-    expect(getBackendFileTemplates()).toBe(BACKEND_FILE_TEMPLATES)
-    expect(getBackendFileTemplates({ installation: 'default' })).toBe(BACKEND_FILE_TEMPLATES)
-    expect(getBackendFileTemplates({ installation: 'local' })).toBe(LOCAL_BACKEND_FILE_TEMPLATES)
   })
 })
 

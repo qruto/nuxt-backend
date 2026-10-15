@@ -57,7 +57,7 @@ Run this gate before opening a PR. It is the local core of CI's `static` and
 `test` jobs, not all of them — CI also lints commit messages, checks manifest
 ranges and workflow files, and runs typos. The git hooks overlap with it without
 mirroring it: `pre-commit` runs a fallow audit of the staged change, eslint on
-staged files and the template drift check; `pre-push` runs fallow, the manifest
+staged files and the playground drift check; `pre-push` runs fallow, the manifest
 check, `test:types:lib`, `test` and the reference drift check, but not
 `test:docs` — so run that one yourself when docs change.
 
@@ -67,7 +67,7 @@ pnpm test                    # vitest, every project but e2e
 pnpm test:types              # vue-tsc + tsc: module, Convex component, website
 pnpm test:docs               # the docs contract — hand-written docs against the code
 pnpm docs:reference:check    # TypeDoc regenerated with no diff
-pnpm templates:generate && git diff --exit-code -- src/templates.generated.ts
+pnpm playground:sync --check # examples/playground is the website's playground, copied
 pnpm test:quality            # fallow: dead code, duplication, complexity
 pnpm test:security           # fallow security candidates, kept out of the run above
 ```

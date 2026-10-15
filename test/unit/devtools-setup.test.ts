@@ -34,7 +34,6 @@ function fakeEnv(resolverBase: string) {
 const info: DevtoolsServerInfo = {
   functionsDir: 'backend',
   options: {
-    installation: 'default',
     scaffold: true,
     css: true,
     autoEnv: true,

@@ -40,7 +40,6 @@ interface DependencyOptions {
     devScript?: boolean
   }
   mcp?: { route?: string, name?: string }
-  backend?: { installation?: string }
 }
 
 interface NitroImport { name: string, as?: string, from: string }
@@ -611,21 +610,6 @@ describe('a user betterAuth object without an authClient', () => {
       loginPath: '/login',
       crossDomainCallbackRoute: '/cb',
     })
-  })
-})
-
-describe('installation: local', () => {
-  // The local template set has files the fixture lacks (components/backend/*),
-  // so a scaffold pass leaking into a non-dev boot would show up in the listing.
-  const getNuxt = useBoot({ backend: { installation: 'local' } })
-
-  it('changes nothing at registration time — the mode only steers scaffolding', async () => {
-    const nuxt = getNuxt()
-    expect(dependencyOptions(nuxt).backend?.installation).toBe('local')
-    expect(posixPath(nuxt.options.alias['#backend']!)).toBe(join(posixPath(nuxt.options.rootDir), 'backend'))
-    expect(existsSync(join(fixtureDir, 'backend/components'))).toBe(false)
-    expect((await extendPages(nuxt)).map(page => page.path)).toEqual(DEFAULT_PAGES.map(page => page.path))
-    expect(nuxt.options.runtimeConfig.backendMcp).toBeDefined()
   })
 })
 

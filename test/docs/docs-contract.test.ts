@@ -163,6 +163,23 @@ describe('nothing describes the repository as it no longer is', () => {
   })
 })
 
+describe('nothing names what 0.2 removed', () => {
+  // The Upgrade page names each removal to say what to do instead, and the
+  // changelog records it; nothing else may still offer it.
+  const record = [contentFile('/docs/ship/migrate/upgrade'), contentFile('/docs/ship/releases/changelog')]
+  const files = [...prose, at('AGENTS.md'), at('CONTRIBUTING.md'), at('STABILITY.md'), ...walk('src', ['.ts', '.vue']), ...walk('skills', ['.md'])]
+    .filter(file => !record.some(page => file.endsWith(page)))
+  it.each([
+    ['installation: \'local\'', 'the local installation'],
+    ['--installation', 'the local installation'],
+    ['nuxt-backend/component/', 'the component\'s schema and function modules as subpaths'],
+    ['templates:generate', 'the generated re-export lists of the local installation'],
+  ])('no file still offers %s (%s)', (needle) => {
+    const offenders = files.filter(file => read(file).includes(needle)).map(file => file.replace(`${process.cwd()}/`, ''))
+    expect(offenders).toEqual([])
+  })
+})
+
 describe('templates', () => {
   // Every `create nuxt` path the docs hand out is an app in this repository,
   // and so is the StackBlitz template the preview workflow publishes: a moved

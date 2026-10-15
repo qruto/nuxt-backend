@@ -105,9 +105,9 @@ describe('the route table', () => {
     const pending = [...DOCS_REDIRECTS.filter(redirect => redirect.pending), ...DOCS_SHORT_LINKS]
     for (const { from } of pending) expect(rules[from]?.redirect.statusCode, from).toBe(302)
     // A ratchet: lower it as each pending home lands — the group landings,
-    // split pages (D3c), the Diagnostics and Errors pages (D6), the local
-    // installation's removal (C1); the 0.2.0 docs pass (D11) brings it to zero.
-    expect(pending.length).toBeLessThanOrEqual(15)
+    // split pages (D3c), the Diagnostics and Errors pages (D6); the 0.2.0 docs
+    // pass (D11) brings it to zero.
+    expect(pending.length).toBeLessThanOrEqual(13)
   })
 })
 

@@ -123,30 +123,6 @@
     "./_generated/component.js": {
       "types": "./dist/convex/components/backend/_generated/component.d.ts"
     },
-    "./component/schema": {
-      "types": "./dist/convex/components/backend/schema.d.ts",
-      "default": "./dist/convex/components/backend/schema.js"
-    },
-    "./component/email": {
-      "types": "./dist/convex/components/backend/email.d.ts",
-      "default": "./dist/convex/components/backend/email.js"
-    },
-    "./component/billing": {
-      "types": "./dist/convex/components/backend/billing.d.ts",
-      "default": "./dist/convex/components/backend/billing.js"
-    },
-    "./component/gifts": {
-      "types": "./dist/convex/components/backend/gifts.d.ts",
-      "default": "./dist/convex/components/backend/gifts.js"
-    },
-    "./component/ai": {
-      "types": "./dist/convex/components/backend/ai.d.ts",
-      "default": "./dist/convex/components/backend/ai.js"
-    },
-    "./component/webhooks": {
-      "types": "./dist/convex/components/backend/webhooks.d.ts",
-      "default": "./dist/convex/components/backend/webhooks.js"
-    },
     "./auth.config": {
       "types": "./dist/convex/auth.config.d.ts",
       "default": "./dist/convex/auth.config.js"
@@ -157,91 +133,8 @@
       "default": "./dist/eslint.mjs"
     }
   },
-  "main": "./dist/module.js",
   "bin": {
     "nuxt-backend": "./dist/cli.mjs"
-  },
-  "typesVersions": {
-    "*": {
-      ".": [
-        "./dist/types.d.ts"
-      ],
-      "auth": [
-        "./dist/convex/client/index.d.ts"
-      ],
-      "authorization": [
-        "./dist/convex/integrations/authorization.d.ts"
-      ],
-      "http": [
-        "./dist/convex/integrations/http.d.ts"
-      ],
-      "functions": [
-        "./dist/convex/integrations/functions.d.ts"
-      ],
-      "app": [
-        "./dist/convex/app.d.ts"
-      ],
-      "billing": [
-        "./dist/convex/integrations/billing.d.ts"
-      ],
-      "email": [
-        "./dist/convex/integrations/email.d.ts"
-      ],
-      "rate-limit": [
-        "./dist/convex/integrations/rate-limit.d.ts"
-      ],
-      "migrations": [
-        "./dist/convex/integrations/migrations.d.ts"
-      ],
-      "aggregate": [
-        "./dist/convex/integrations/aggregate.d.ts"
-      ],
-      "search": [
-        "./dist/convex/integrations/search.d.ts"
-      ],
-      "workflows": [
-        "./dist/convex/integrations/workflows.d.ts"
-      ],
-      "ai": [
-        "./dist/convex/integrations/ai.d.ts"
-      ],
-      "mcp": [
-        "./dist/runtime/server/mcp/index.d.ts"
-      ],
-      "convex.config": [
-        "./dist/convex/components/backend/convex.config.d.ts"
-      ],
-      "_generated/component": [
-        "./dist/convex/components/backend/_generated/component.d.ts"
-      ],
-      "component/schema": [
-        "./dist/convex/components/backend/schema.d.ts"
-      ],
-      "component/email": [
-        "./dist/convex/components/backend/email.d.ts"
-      ],
-      "component/billing": [
-        "./dist/convex/components/backend/billing.d.ts"
-      ],
-      "component/gifts": [
-        "./dist/convex/components/backend/gifts.d.ts"
-      ],
-      "component/ai": [
-        "./dist/convex/components/backend/ai.d.ts"
-      ],
-      "component/webhooks": [
-        "./dist/convex/components/backend/webhooks.d.ts"
-      ],
-      "auth.config": [
-        "./dist/convex/auth.config.d.ts"
-      ],
-      "test": [
-        "./src/convex/test.ts"
-      ],
-      "eslint": [
-        "./dist/eslint.d.mts"
-      ]
-    }
   },
   "files": [
     "dist",
@@ -262,9 +155,8 @@
     "check:manifest": "installed-check -d --no-workspaces",
     "check:rulesets": "node scripts/check-rulesets.mjs",
     "check:consumer-types": "node scripts/check-consumer-types.mjs",
-    "generate": "pnpm run docs:reference && pnpm run docs:includes && pnpm run templates:generate && pnpm run playground:sync",
+    "generate": "pnpm run docs:reference && pnpm run docs:includes && pnpm run playground:sync",
     "docs:includes": "node scripts/docs-includes.mjs",
-    "templates:generate": "node scripts/generate-templates.mjs",
     "playground:sync": "node scripts/sync-playground.mjs",
     "docs:reference": "typedoc && node scripts/typedoc-postprocess.mjs",
     "icons:generate": "node scripts/generate-icons.mjs",

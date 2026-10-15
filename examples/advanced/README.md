@@ -8,9 +8,7 @@ zero-config defaults; each file here changes exactly one thing from them.
 
 | Customization | Where |
 |---|---|
-| **Customized app definition** — the scaffolded explicit `defineApp` with the `backendEnv` contract extended by an extra env var, the local `backend` component mounted, and `aggregate` left unmounted | `backend/convex.config.ts` |
-| **Locally installed backend component** (the `backend` import points at the local definition) | `backend/components/backend/` |
-| **Extended component schema** — an extra component-owned table beside the packaged auth/billing/AI/webhook tables | `backend/components/backend/schema.ts` |
+| **Customized app definition** — the scaffolded explicit `defineApp` with the `backendEnv` contract extended by an extra env var and `aggregate` left unmounted | `backend/convex.config.ts` |
 | **Custom email templates** (OTP + invitation) without replacing the transport | `backend/auth.ts` → `integrations.emailTemplates` |
 | **Custom invitation path** — emails link to `/join`, the built-in page is disabled | `backend/auth.ts` (`invitationPath`), `nuxt.config.ts` (`pages: { acceptInvitation: false }`), `app/pages/join.vue` |
 | **Explicit billing config** instead of env-var defaults | `backend/billing.ts` (`accessToken` / `environment` / `webhookSecret`) |
@@ -22,9 +20,7 @@ zero-config defaults; each file here changes exactly one thing from them.
 
 ## Run it
 
-Same flow as the starter (see its README for the env list), plus: the local
-component imports `@convex-dev/better-auth` and `@convex-dev/resend` directly,
-which is why both are direct dependencies in `package.json`.
+Same flow as the starter (see its README for the env list).
 
 ```bash
 pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/examples/advanced

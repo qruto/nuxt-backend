@@ -290,6 +290,47 @@ describe('doctor', () => {
   })
 })
 
+describe('doctor --fix', () => {
+  const logged = () => vi.mocked(console.log).mock.calls.flat().join('\n')
+
+  it('restores a deleted scaffold file', async () => {
+    scaffoldBackendFiles(rootDir, { log: () => {} })
+    const target = join(rootDir, 'backend/billing.ts')
+    const scaffolded = readFileSync(target, 'utf-8')
+    rmSync(target)
+
+    await run(['doctor', '--fix'])
+
+    expect(readFileSync(target, 'utf-8')).toBe(scaffolded)
+  })
+
+  it('never overwrites a file you changed', async () => {
+    scaffoldBackendFiles(rootDir, { log: () => {} })
+    const target = join(rootDir, 'backend/auth.ts')
+    writeFileSync(target, '// customized\n')
+
+    await run(['doctor', '--fix'])
+
+    expect(readFileSync(target, 'utf-8')).toBe('// customized\n')
+  })
+
+  it('points a dev script that stalls on a new deployment at nuxt-backend dev', async () => {
+    writeFileSync(join(rootDir, 'package.json'), JSON.stringify({ name: 'app', scripts: { dev: `convex dev --start "nuxt dev"` } }))
+
+    await run(['doctor', '--fix'])
+
+    const manifest = JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf-8')) as { scripts: { dev: string } }
+    expect(manifest.scripts.dev).toMatch(/^nuxt-backend dev/)
+    expect(logged()).toContain('doctor --fix: scripts.dev →')
+  })
+
+  it('says so when no deployment is reachable, and pushes nothing', async () => {
+    await run(['doctor', '--fix'])
+
+    expect(logged()).toContain('doctor --fix: no deployment reachable — env not pushed.')
+  })
+})
+
 describe('doctor — billing catalog', () => {
   // The catalog is imported for real (that is how `billing sync` reads it), so
   // the fixture stays import-free: `defineBillingCatalog` is identity anyway.

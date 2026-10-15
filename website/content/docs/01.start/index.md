@@ -39,7 +39,7 @@ The intended integration shape:
 
 Adding `modules: ['nuxt-backend']` registers the following surface:
 
-- **Configuration** — a `backend` config key (`url`, `siteUrl`, `authRoute`, `installation`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools`, `workspaces`) plus public/private runtime config, all falling back to env vars, and the typed `appConfig.backend` content layer (plan catalog, labels, brand).
+- **Configuration** — a `backend` config key (`url`, `siteUrl`, `authRoute`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools`, `workspaces`) plus public/private runtime config, all falling back to env vars, and the typed `appConfig.backend` content layer (plan catalog, labels, brand).
 - **Default pages** — `/login`, `/pricing`, `/settings`, `/profile`, `/security`, and `/accept-invitation` mount out of the box; each is opt-out, path-configurable, and automatically shadowed by an app page at the same route. See [Default Pages](/docs/ui/pages).
 - **App runtime (Vue)** — a client Convex plugin and an SSR auth-token prefetch plugin (injects `$convex`); auto-imported composables (`useQuery`, `useMutation`, `useAuth`, `useBilling`, `usePasskeys`, …); auto-registered components (`<AuthForm>`, `<PricingTable>`, `<WorkspaceSettings>`, `<ProfileSettings>`, `<SecuritySettings>`, `<Authenticated>`, …); and an opt-in `auth` route middleware.
 - **Styling** — the neutral `ui.css` stylesheet, auto-added and themeable through `--bk-*` tokens (see [Theming](/docs/ui/customize)); `css: false` to bring your own.
@@ -60,7 +60,7 @@ Everything the module mounts is progressively replaceable — the [customization
 
 | Official React/Next piece | Nuxt/Vue equivalent |
 |---|---|
-| Manual Better Auth Convex component files | Packaged `nuxt-backend/convex.config` by default, or local `backend/components/backend/*` with `installation: 'local'` |
+| Manual Better Auth Convex component files | The packaged `nuxt-backend/convex.config`, mounted by the scaffolded `backend/convex.config.ts` |
 | `auth.config.ts` using the Better Auth Convex provider | `nuxt-backend/auth.config`, scaffolded as `backend/auth.config.ts` |
 | `auth.ts` with `authComponent`, `createAuthOptions`, `options`, `createAuth` | Scaffolded `backend/auth.ts` using `setupAuth(...)` |
 | Better Auth client with `convexClient()` | Auto-created Vue Better Auth client exposed through `useAuth()` |

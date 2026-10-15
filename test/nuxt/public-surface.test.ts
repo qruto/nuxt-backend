@@ -4,13 +4,13 @@ import { parseSync } from 'oxc-parser'
 import { describe, expect, it, vi } from 'vitest'
 import { REQUIRED_FUNCTION_EXPORTS } from '../../src/contract'
 import { BACKEND_APP_CONFIG_KEYS } from '../../src/runtime/config'
-import { BACKEND_FILE_TEMPLATES, LOCAL_BACKEND_FILE_TEMPLATES } from '../../src/templates'
+import { BACKEND_FILE_TEMPLATES } from '../../src/templates'
 import { contentFile } from '../docs/helpers'
 
 // The public surface, frozen. STABILITY.md promises the 0.x line keeps every
 // `nuxt-backend/<subpath>` and every value/type reachable from one; this file
 // makes the promise mechanical. The ENTRY table below is the surface — package
-// `exports`, `typesVersions`, the per-entry export names, the docs, and the
+// `exports`, the per-entry export names, the docs, and the
 // TypeDoc entry points are all checked against it, so a subpath or an export
 // cannot appear, move, or vanish without a deliberate edit here.
 //
@@ -37,7 +37,6 @@ type ExportCondition = string | { types?: string, import?: string, default?: str
 const packageJson = JSON.parse(read('package.json')) as {
   name: string
   exports: Record<string, ExportCondition>
-  typesVersions: Record<string, Record<string, string[]>>
 }
 const { exports: packageExports } = packageJson
 
@@ -80,12 +79,6 @@ const ENTRIES: Record<string, Entry> = {
   './mcp': { source: 'src/runtime/server/mcp/index.ts', kind: 'runtime' },
   './convex.config': { source: 'src/convex/components/backend/convex.config.ts', kind: 'convex' },
   './_generated/component': { source: 'src/convex/components/backend/_generated/component.ts', kind: 'convex', typesOnly: true },
-  './component/schema': { source: 'src/convex/components/backend/schema.ts', kind: 'convex' },
-  './component/email': { source: 'src/convex/components/backend/email.ts', kind: 'convex' },
-  './component/billing': { source: 'src/convex/components/backend/billing.ts', kind: 'convex' },
-  './component/gifts': { source: 'src/convex/components/backend/gifts.ts', kind: 'convex' },
-  './component/ai': { source: 'src/convex/components/backend/ai.ts', kind: 'convex' },
-  './component/webhooks': { source: 'src/convex/components/backend/webhooks.ts', kind: 'convex' },
   './auth.config': { source: 'src/convex/auth.config.ts', kind: 'convex' },
   './test': { source: 'src/convex/test.ts', kind: 'raw' },
   './eslint': { source: 'src/eslint.ts', kind: 'entry' },
@@ -151,18 +144,11 @@ describe('package exports ↔ ENTRY table', () => {
     }
   })
 
-  it('mirrors exports in typesVersions, key for key', () => {
-    const typesVersions = packageJson.typesVersions['*']!
-    // CSS entries have no declarations; the duals are covered by their twins.
-    const expected = Object.entries(ENTRIES)
-      .filter(([, entry]) => entry.kind !== 'css')
-      .map(([key]) => (key === '.' ? '.' : key.slice('./'.length)))
-    expect(Object.keys(typesVersions).sort()).toEqual(expected.sort())
-    for (const [subpath, paths] of Object.entries(typesVersions)) {
-      const key = subpath === '.' ? '.' : `./${subpath}`
-      const condition = packageExports[key]!
-      expect(paths, subpath).toEqual([typeof condition === 'string' ? condition : condition.types])
-    }
+  it('resolves through exports alone', () => {
+    // Nuxt, Convex and TypeScript's bundler resolution all read `exports`, so
+    // there is no `main` or `typesVersions` to keep in step with it.
+    expect(packageJson).not.toHaveProperty('main')
+    expect(packageJson).not.toHaveProperty('typesVersions')
   })
 
   it('maps every source file to an existing file', () => {
@@ -365,12 +351,6 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './ai': ['priceTokens', 'setupAi'],
   './mcp': ['BACKEND_MCP_FUNCTION_DEFAULTS', 'EXCHANGE_CACHE_MARGIN_MS', 'backendMcpFunction', 'builtinToolEnabled', 'createExchangeCache', 'defineBackendMcpTool', 'useBackendMcp'],
   './convex.config': ['default'],
-  './component/schema': ['aiTables', 'authSchema', 'billingTables', 'default', 'emailTables', 'tables', 'vEntitlementBenefit', 'vEntitlementMeter', 'vGift', 'vPendingSpend', 'webhookTables'],
-  './component/email': ['cancel', 'cleanup', 'cleanupAbandoned', 'expireSandboxMessage', 'get', 'handleWebhook', 'inbox', 'send', 'status'],
-  './component/billing': ['attachReleaseJob', 'clear', 'clearPendingSpends', 'credit', 'debit', 'deleteByUser', 'finalize', 'getBenefitMetadata', 'getByUser', 'release', 'settle', 'upsert', 'upsertBenefitMetadata', 'userByCustomer'],
-  './component/gifts': ['create', 'get', 'listByEmail', 'markClaimed', 'markNotified', 'markPaid', 'resolveRecipient'],
-  './component/ai': ['clear', 'createRequest', 'getByStream', 'markReleased', 'markSettled'],
-  './component/webhooks': ['find', 'listRecent', 'record', 'vDeliveryOutcome'],
   './auth.config': ['default', 'defineBackendAuthConfig'],
   './test': ['default', 'register'],
   './eslint': ['BACKEND_ESLINT_RULES', 'backendEslint'],
@@ -499,7 +479,9 @@ function isPublished(subpath: string): boolean {
 describe('the surface as documented', () => {
   it('names only published subpaths in README.md and the docs', () => {
     const docs = walk(join(root, 'website/content'), '.md')
-    const files = [join(root, 'README.md'), ...docs.filter(file => !file.startsWith(GENERATED_REFERENCE))]
+    // The Upgrade page and the changelog name removed subpaths on purpose.
+    const record = ['/docs/09.ship/6.migrate/1.upgrade.md', '/docs/09.ship/5.releases/1.changelog.md']
+    const files = [join(root, 'README.md'), ...docs.filter(file => !file.startsWith(GENERATED_REFERENCE) && !record.some(page => file.split(sep).join('/').endsWith(page)))]
     // The generated reference is TypeDoc's output, not prose written by hand —
     // it must actually be excluded, or a rename of the content tree silently
     // turns this into a scan of generated files that always passes.
@@ -591,15 +573,12 @@ describe('the surface as documented', () => {
     for (const source of typedoc.entryPoints) expect(existsSync(join(root, source)), source).toBe(true)
   })
 
-  it.each(Object.entries(REQUIRED_FUNCTION_EXPORTS))('scaffolds every contract name of %s.ts, in both installations', (module, names) => {
+  it.each(Object.entries(REQUIRED_FUNCTION_EXPORTS))('scaffolds every contract name of %s.ts', (module, names) => {
     // The doctor contract (`src/contract.ts`) must be a subset of what the
     // scaffold writes, or a fresh project fails its own doctor.
-    for (const [installation, templates] of [['default', BACKEND_FILE_TEMPLATES], ['local', LOCAL_BACKEND_FILE_TEMPLATES]] as const) {
-      const template = templates[`${module}.ts`]
-      expect(template, `${installation} scaffold has ${module}.ts`).toBeDefined()
-      const exported = staticExportNames(`${installation}/${module}.ts`, template)
-      expect(exported, `${installation} ${module}.ts`).toEqual(expect.arrayContaining([...names]))
-    }
+    const template = BACKEND_FILE_TEMPLATES[`${module}.ts`]
+    expect(template, `the scaffold has ${module}.ts`).toBeDefined()
+    expect(staticExportNames(`${module}.ts`, template)).toEqual(expect.arrayContaining([...names]))
   })
 })
 

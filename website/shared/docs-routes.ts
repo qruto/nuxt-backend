@@ -68,13 +68,7 @@ const REFERENCE_SLUGS: Record<string, string> = {
   'convex/app': 'app',
   'convex/auth.config': 'auth-config',
   'convex/client': 'auth',
-  'convex/components/backend/ai': 'component-ai',
-  'convex/components/backend/billing': 'component-billing',
   'convex/components/backend/convex.config': 'convex-config',
-  'convex/components/backend/email': 'component-email',
-  'convex/components/backend/gifts': 'component-gifts',
-  'convex/components/backend/schema': 'component-schema',
-  'convex/components/backend/webhooks': 'component-webhooks',
   'convex/integrations/aggregate': 'aggregate',
   'convex/integrations/ai': 'ai',
   'convex/integrations/authorization': 'authorization',
@@ -108,6 +102,22 @@ const REFERENCE_SLUGS: Record<string, string> = {
   'eslint': 'eslint',
   'module': 'module',
 }
+
+/**
+ * Reference pages that are gone: the component's schema and function modules,
+ * public only while the local installation re-exported them. Both of their
+ * old routes land on the page that lists the component's functions.
+ */
+const RETIRED_REFERENCE_SLUGS: Record<string, string> = {
+  'convex/components/backend/ai': 'component-ai',
+  'convex/components/backend/billing': 'component-billing',
+  'convex/components/backend/email': 'component-email',
+  'convex/components/backend/gifts': 'component-gifts',
+  'convex/components/backend/schema': 'component-schema',
+  'convex/components/backend/webhooks': 'component-webhooks',
+}
+
+const COMPONENT_PAGE = '/docs/reference/backend/component'
 
 const OLD_REFERENCE = '/api-reference/reference'
 
@@ -166,7 +176,7 @@ export const DOCS_REDIRECTS: DocsRedirect[] = [
   { from: '/tooling/cli', to: '/docs/reference/cli' },
   { from: '/tooling/devtools', to: '/docs/start/develop/devtools' },
   { from: '/tooling/linting', to: '/docs/ship/test/linting' },
-  { from: '/tooling/local-installation', to: '/docs/ship/migrate/local-installation', pending: 'C1 (drops the local installation)' },
+  { from: '/tooling/local-installation', to: '/docs/ship/migrate/upgrade#local-installation-is-gone' },
   { from: '/tooling/testing', to: '/docs/ship/test' },
   { from: '/backend-components/overview', to: '/docs/start/concepts/how-it-works' },
   { from: '/backend-components/email', to: '/docs/email/sending' },
@@ -180,7 +190,7 @@ export const DOCS_REDIRECTS: DocsRedirect[] = [
   { from: '/backend-components', to: '/docs/start/concepts/how-it-works' },
   { from: '/backend/auth-setup', to: '/docs/auth/setup' },
   { from: '/backend/customizing-auth', to: '/docs/auth/setup#auth-route-and-options' },
-  { from: '/backend/local-installation', to: '/docs/ship/migrate/local-installation', pending: 'C1 (drops the local installation)' },
+  { from: '/backend/local-installation', to: '/docs/ship/migrate/upgrade#local-installation-is-gone' },
   { from: '/backend/testing', to: '/docs/ship/test' },
   { from: '/backend', to: '/docs/auth/setup' },
   { from: '/api-reference/theming', to: '/docs/ui/customize', pending: 'D3c (one task per page)' },
@@ -214,6 +224,10 @@ export const DOCS_REDIRECTS: DocsRedirect[] = [
   ...Object.entries(REFERENCE_SLUGS).flatMap(([source, slug]) => [
     { from: `${OLD_REFERENCE}/${source}`, to: `${REFERENCE_ROUTE}/${slug}` },
     ...(source === slug ? [] : [{ from: `${OLD_REFERENCE}/${slug}`, to: `${REFERENCE_ROUTE}/${slug}` }]),
+  ]),
+  ...Object.entries(RETIRED_REFERENCE_SLUGS).flatMap(([source, slug]) => [
+    { from: `${OLD_REFERENCE}/${source}`, to: COMPONENT_PAGE },
+    { from: `${OLD_REFERENCE}/${slug}`, to: COMPONENT_PAGE },
   ]),
 ]
 

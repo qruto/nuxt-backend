@@ -4,8 +4,7 @@ import { join, resolve } from 'node:path'
 import { defineCommand } from 'citty'
 import { writeAgentFiles } from '../agents'
 import { packageDir, packageVersion } from '../dirs'
-import { mountPagesInAppComponent, scaffoldBackendFiles, resolveFunctionsDir } from '../scaffold'
-import type { BackendInstallationMode } from '../templates'
+import { mountPagesInAppComponent, scaffoldBackendFiles } from '../scaffold'
 import { formatPreflightSummary } from '../preflight'
 import { BACKEND_ENV_NAMES, nonProductionDeployKey, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
 import { billing } from './billing'
@@ -28,8 +27,6 @@ function refuseNonProductionKey(prod: boolean, rootDir: string): boolean {
   return true
 }
 
-/** Run a read-only `convex <args>` returning stdout, or null on any failure (CLI absent, no deployment, …). */
-
 /**
  * `--force` for `env push`: which already-set deployment values may be
  * replaced by the local ones. Rotation has to be asked for — the plan reads
@@ -46,7 +43,7 @@ function parseForce(raw: unknown): ReadonlySet<string> | null {
 /**
  * The `.env.example` that `init` writes. Exported so the templates and
  * examples can be pinned to it byte for byte
- * (test/unit/local-install-parity.test.ts): the file an app created from a
+ * (test/unit/scaffold-parity.test.ts): the file an app created from a
  * template ships must be the file `init` would write.
  */
 export const ENV_EXAMPLE = `# Local environment, grouped by what each value is for. Names describe what
@@ -158,16 +155,12 @@ const init = defineCommand({
   meta: { name: 'init', description: 'Scaffold the backend files, .env.example, and nuxt.config wiring (re-run to restore missing files; --force to reset)' },
   args: {
     ...cwdArg,
-    installation: { type: 'string', description: 'Scaffold mode: default | local', default: 'default' },
     force: { type: 'boolean', description: 'Overwrite existing scaffold files', default: false },
     agents: { type: 'boolean', description: 'Write AGENTS.md and .mcp.json for coding agents (--no-agents skips both)', default: true },
   },
   run({ args }) {
     const rootDir = projectRoot(args)
-    scaffoldBackendFiles(rootDir, {
-      installation: args.installation as BackendInstallationMode,
-      force: args.force,
-    })
+    scaffoldBackendFiles(rootDir, { force: args.force })
 
     const envExamplePath = join(rootDir, '.env.example')
     if (args.force || !existsSync(envExamplePath)) {
@@ -202,9 +195,6 @@ const init = defineCommand({
       else {
         console.log('[nuxt-backend] Add the module yourself: modules: [\'nuxt-backend\'] in nuxt.config.ts')
       }
-      if (args.installation === 'local') {
-        console.log('[nuxt-backend] Local install: add \'@convex-dev/resend\' as a direct dependency (pnpm add @convex-dev/resend) so the local component config resolves it.')
-      }
       console.log(`
 Next steps:
 ${convexRange ? '  npm install              # links the convex dependency added above\n' : ''}  ${start.padEnd(24)} # the first run sets up your Convex dev deployment (log in
@@ -224,10 +214,7 @@ Later, as you connect services: add EMAIL_API_KEY / BILLING_ACCESS_TOKEN to
  * sync env with the same engine as `nuxt-backend env push`.
  */
 async function repairProject(rootDir: string, prod: boolean): Promise<void> {
-  const functionsDir = resolveFunctionsDir(rootDir)
-  const installation: BackendInstallationMode
-    = existsSync(join(rootDir, functionsDir, 'components/backend')) ? 'local' : 'default'
-  scaffoldBackendFiles(rootDir, { installation })
+  scaffoldBackendFiles(rootDir)
   const devScript = adoptBackendDevScript(rootDir, { onlyCombined: true })
   if (devScript?.changed) console.log(`[nuxt-backend] doctor --fix: scripts.dev → \`${devScript.script}\``)
   const run = await runEnvPush(rootDir, { prod })

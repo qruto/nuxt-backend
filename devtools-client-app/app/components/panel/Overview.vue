@@ -61,7 +61,6 @@ const wiring = computed(() => {
   const options = state.info?.options
   if (!options) return []
   return [
-    { label: `installation: ${options.installation}`, on: true },
     { label: 'scaffold on dev start', on: options.scaffold },
     { label: 'env auto-provision', on: options.autoEnv },
     { label: 'default stylesheet', on: options.css },

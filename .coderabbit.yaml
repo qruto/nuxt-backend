@@ -20,12 +20,9 @@ reviews:
     # Convex codegen — the packaged component's `_generated/component.d.ts`
     # and whatever `convex dev` emits under an app's `backend/_generated`.
     - '!**/_generated/**'
-    # The other two generators, for the same reason. `pnpm templates:generate`
-    # writes the component export lists the local-install scaffold re-exports
-    # (test/unit/templates-generated.test.ts fails on drift), and
-    # `nuxt-backend billing sync` writes the provider-issued catalog ids
-    # beside every `billing.catalog.ts`. Neither is edited by hand.
-    - '!src/templates.generated.ts'
+    # The other generator, for the same reason: `nuxt-backend billing sync`
+    # writes the provider-issued catalog ids beside every `billing.catalog.ts`.
+    # It is not edited by hand.
     - '!**/billing.generated.ts'
     # Machine-written, and Dependabot / the skills CLI are what open them.
     - '!pnpm-lock.yaml'
@@ -96,14 +93,11 @@ reviews:
     - path: 'src/templates.ts'
       instructions: >-
         The files `nuxt-backend` scaffolds into a consumer's `backend/`
-        directory (and the local-install variant that copies the component
-        in). Consumers read and edit these, so review the generated text as
+        directory. Consumers read and edit these, so review the generated text as
         documentation: comments must be true for the app that receives them,
         and every import must resolve from a consumer install — package
         subpaths that exist in `package.json#exports`, never repo-relative
-        paths. The re-export lists come from `src/templates.generated.ts`
-        (`pnpm templates:generate`; CI fails on drift), so a missing function
-        is a generator problem, not a template edit.
+        paths.
 
     - path: '{templates,examples}/**'
       instructions: >-
@@ -125,10 +119,10 @@ reviews:
         pnpm-only). Flag anything that breaks a cold install: an import that
         only resolves from the repository root, a dependency the app does not
         declare, a committed lockfile. Both `backend/` directories are
-        parity-tested (test/unit/local-install-parity.test.ts):
+        parity-tested (test/unit/scaffold-parity.test.ts):
         `templates/starter/backend` is byte-identical to what
         `nuxt-backend init` scaffolds, and `examples/advanced` matches the
-        local-install templates except its marked customizations — so an edit
+        same templates except its marked customizations — so an edit
         there is really an edit to `src/templates.ts`, and a change to one
         half without the other fails CI. `examples/playground` is the
         website's playground copied by `scripts/sync-playground.mjs`: review

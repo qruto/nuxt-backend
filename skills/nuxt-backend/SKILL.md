@@ -38,7 +38,7 @@ existing one, the first deployment (a local one needs no account), and how to ch
 
 | Command | What it does |
 |---|---|
-| `npx nuxt-backend init` | Scaffolds `backend/`, `convex.json`, `.env.example`, AGENTS.md and `.mcp.json`, and adds the module to `nuxt.config`. `--installation local` copies the component in; `--no-agents` skips the agent files |
+| `npx nuxt-backend init` | Scaffolds `backend/`, `convex.json`, `.env.example`, AGENTS.md and `.mcp.json`, and adds the module to `nuxt.config`. `--no-agents` skips the agent files |
 | `npx nuxt-backend dev` | The `dev` script: sets up a dev deployment on first run, provisions its env, then runs Convex and Nuxt together |
 | `npx nuxt-backend doctor` | Checks env, codegen, the function contract, webhook routes and the billing catalog. `--fix` repairs what it can, `--prod` checks production |
 | `npx nuxt-backend env push` | Syncs `.env` and `.env.local` to the deployment. Dev deployments also get `AUTH_SECRET` and `SITE_URL` generated |
@@ -103,11 +103,9 @@ sign-in codes print in the terminal that runs `dev`.
 4. **Route shadowing**: an app page at a module page's path replaces it, and the module skips
    its own.
 5. **Composables**: build your own UI on `useAuth`, `useBilling` and the rest.
-6. **Local installation**: `init --installation local` copies the component into
-   `backend/components/backend/` for schema-level changes.
 
-Details: https://nuxt-backend.dev/docs/ui/customize and
-https://nuxt-backend.dev/docs/ship/migrate/local-installation.
+The `backend` component owns its schema: keep app data in app tables keyed by
+the user id. Details: https://nuxt-backend.dev/docs/ui/customize.
 
 ## Where to look
 

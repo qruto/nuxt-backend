@@ -2617,7 +2617,7 @@ export function setupBilling(
   }
 
   const forgetEntity: Billing['forgetEntity'] = async (ctx, userId) => {
-    if (!cache.deleteByUser) throw new Error('[nuxt-backend] components.backend.billing.deleteByUser is missing — redeploy the backend component (or update the local install) to forget billing entities.')
+    if (!cache.deleteByUser) throw new Error('[nuxt-backend] components.backend.billing.deleteByUser is missing — redeploy the backend component to forget billing entities.')
     await ctx.runMutation(cache.deleteByUser, { userId })
   }
 

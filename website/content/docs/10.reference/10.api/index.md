@@ -20,12 +20,6 @@ navigation:
 | [nuxt-backend/auth](/docs/reference/api/auth) | - |
 | [nuxt-backend/authorization](/docs/reference/api/authorization) | - |
 | [nuxt-backend/billing](/docs/reference/api/billing) | - |
-| [nuxt-backend/component/ai](/docs/reference/api/component-ai) | - |
-| [nuxt-backend/component/billing](/docs/reference/api/component-billing) | - |
-| [nuxt-backend/component/email](/docs/reference/api/component-email) | - |
-| [nuxt-backend/component/gifts](/docs/reference/api/component-gifts) | - |
-| [nuxt-backend/component/schema](/docs/reference/api/component-schema) | - |
-| [nuxt-backend/component/webhooks](/docs/reference/api/component-webhooks) | - |
 | [nuxt-backend/convex.config](/docs/reference/api/convex-config) | - |
 | [nuxt-backend/email](/docs/reference/api/email) | - |
 | [nuxt-backend/eslint](/docs/reference/api/eslint) | The ESLint preset for a `nuxt-backend` app: the official Convex lint rules, scoped to the functions directory, with Convex's generated code ignored. |

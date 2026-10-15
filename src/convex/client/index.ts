@@ -4,7 +4,7 @@ import { passkey } from '@better-auth/passkey'
 import { APIError, createAuthMiddleware, getSessionFromCtx } from 'better-auth/api'
 import { betterAuth, type BetterAuthOptions } from 'better-auth/minimal'
 import { admin, emailOTP, jwt, mcp, organization } from 'better-auth/plugins'
-import { mutationGeneric, type AnyComponents, type AuthConfig, type FunctionReference, type GenericActionCtx, type GenericDataModel, type GenericMutationCtx, type GenericQueryCtx, type GenericSchema, type QueryBuilder, type SchemaDefinition } from 'convex/server'
+import { mutationGeneric, type AnyComponents, type AuthConfig, type FunctionReference, type GenericActionCtx, type GenericDataModel, type GenericMutationCtx, type GenericQueryCtx, type QueryBuilder } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 import authConfig from '../auth.config.js'
 import { BACKEND_MCP_SCOPES, DEFAULT_AUTH_ROUTE, DEFAULT_INVITATION_PATH, DEFAULT_LOGIN_PATH } from '../constants.js'
@@ -665,10 +665,7 @@ export interface CreateBetterAuthOptions {
 
 export interface SetupAuthOptions<
   DM extends GenericDataModel = GenericDataModel,
-  Schema extends SchemaDefinition<GenericSchema, true> = DefaultAuthSchema,
 > extends CreateBetterAuthOptions {
-  /** Local Better Auth schema for hybrid/local component installs */
-  schema?: Schema
   /** Enable verbose logs in the Better Auth Convex component client */
   verbose?: boolean
   /**
@@ -724,8 +721,8 @@ type ComponentEmailRef = FunctionReference<
  * work out of the box — the scaffolded `convex.config.ts` mounts `backend`,
  * and the consumer just sets `EMAIL_API_KEY`.
  *
- * Returns `undefined` if the component ref has no `email` module (e.g. a
- * stripped-down locally installed component), in which case OTP requests
+ * Returns `undefined` if the component ref has no `email` module (a test
+ * double, say), in which case OTP requests
  * throw unless `NUXT_BACKEND_LOG_OTP=1` is set (see {@link AuthIntegrations}).
  */
 function componentEmailSender(components: AuthSetupComponents): AuthEmailSender | undefined {
@@ -795,17 +792,16 @@ function readEnv(name: string) {
   return (globalThis as EnvHost).process?.env?.[name]
 }
 
-function createAuthComponent<DM extends GenericDataModel, Schema extends SchemaDefinition<GenericSchema, true> = DefaultAuthSchema>(
+function createAuthComponent<DM extends GenericDataModel>(
   componentRef: PublicAuthComponentRef,
-  options?: SetupAuthOptions<DM, Schema>,
+  options?: SetupAuthOptions<DM>,
 ) {
-  const schema = options?.schema ?? authSchema
   const config = {
-    local: { schema },
+    local: { schema: authSchema },
     ...(options?.verbose !== undefined ? { verbose: options.verbose } : {}),
   }
 
-  return createClient<DM, Schema>(
+  return createClient<DM, DefaultAuthSchema>(
     toAuthComponentApi(componentRef),
     config as never,
   )
@@ -1242,13 +1238,12 @@ export function createBetterAuth(
 
 export function createAuthOptions<
   DM extends GenericDataModel,
-  Schema extends SchemaDefinition<GenericSchema, true> = DefaultAuthSchema,
 >(
   ctx: GenericCtx<DM>,
   components: AuthSetupComponents,
-  options?: SetupAuthOptions<DM, Schema>,
+  options?: SetupAuthOptions<DM>,
 ) {
-  const authComponent = createAuthComponent<DM, Schema>(components.backend, options)
+  const authComponent = createAuthComponent<DM>(components.backend, options)
   return createBetterAuthOptions(authComponent.adapter(ctx), {
     authConfig: options?.authConfig,
     authOptions: options?.authOptions,
@@ -1269,11 +1264,10 @@ export function createAuthOptions<
  */
 export function createAuth<
   DM extends GenericDataModel,
-  Schema extends SchemaDefinition<GenericSchema, true> = DefaultAuthSchema,
 >(
   ctx: GenericCtx<DM>,
   components: AuthSetupComponents,
-  options?: SetupAuthOptions<DM, Schema>,
+  options?: SetupAuthOptions<DM>,
 ) {
   return betterAuth(createAuthOptions(ctx, components, options))
 }
@@ -1371,13 +1365,12 @@ async function userSessions(
  */
 export function makeAuthApi<
   DM extends GenericDataModel,
-  Schema extends SchemaDefinition<GenericSchema, true> = DefaultAuthSchema,
 >(
   components: AuthSetupComponents,
   queryBuilder: QueryBuilder<DM, 'public'>,
-  options?: SetupAuthOptions<DM, Schema>,
+  options?: SetupAuthOptions<DM>,
 ) {
-  const authComponent = createAuthComponent<DM, Schema>(components.backend, options)
+  const authComponent = createAuthComponent<DM>(components.backend, options)
   const adapter = componentAdapterRefs(components)
 
   const getAuthUser = queryBuilder({
@@ -1538,7 +1531,7 @@ export function makeAuthApi<
       const target = (await userSessions(ctx, adapter, identity.subject)).find(row => row._id === sessionId)
       if (!target) throw new ConvexError('Session not found.')
       const { auth, headers } = await authComponent.getAuth(
-        (authCtx: GenericCtx<DM>) => createAuth<DM, Schema>(authCtx, components, options),
+        (authCtx: GenericCtx<DM>) => createAuth<DM>(authCtx, components, options),
         ctx as unknown as GenericCtx<DM>,
       )
       await auth.api.revokeSession({ body: { token: target.token }, headers })
@@ -1576,13 +1569,12 @@ export function makeAuthApi<
  */
 export function setupAuth<
   DM extends GenericDataModel,
-  Schema extends SchemaDefinition<GenericSchema, true> = DefaultAuthSchema,
 >(
   components: AuthSetupComponents,
   queryBuilder: QueryBuilder<DM, 'public'>,
-  options?: SetupAuthOptions<DM, Schema>,
+  options?: SetupAuthOptions<DM>,
 ) {
-  const authComponent = createAuthComponent<DM, Schema>(components.backend, options)
+  const authComponent = createAuthComponent<DM>(components.backend, options)
   const { getAuthUser, authConfig, listWorkspaces, listWorkspaceMembers, updateProfile, listSessions, revokeSession } = makeAuthApi(components, queryBuilder, options)
 
   const resolvedIntegrations = resolveIntegrations(components, options?.integrations)
