@@ -152,6 +152,13 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm run typecheck:convex
 
+      # The typed public subpaths (`nuxt-backend/*`): the `types` vitest
+      # project hands test/types/*.test-d.ts to tsc. Here, once, rather than in
+      # every leg of the test matrix — types do not depend on the OS.
+      - name: Type check (public subpaths)
+        if: ${{ !cancelled() }}
+        run: pnpm run typecheck:subpaths
+
       # The DevTools panel ships inside the package (dist/devtools-client) and
       # imports the module's RPC and bridge types directly, so a change on
       # either side is checked against the other. `nuxt typecheck` prepares
@@ -261,8 +268,8 @@ jobs:
       # labels, malformed cron. It also runs shellcheck over every inline `run:`
       # block (ubuntu-latest ships shellcheck, and actionlint finds it on PATH).
       #
-      # Pinned for the same reason as zizmor. Accepted findings live in
-      # .github/actionlint.yaml.
+      # Pinned for the same reason as zizmor. It has no config file: nothing
+      # needs accepting yet.
       - name: Workflow correctness (actionlint)
         if: ${{ !cancelled() }}
         uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
@@ -381,8 +388,9 @@ jobs:
           runtime: node@${{ matrix.node }}
           prepare: lib
 
-      # `pnpm test` plus coverage: the same `!e2e` project set, and the
-      # thresholds in vitest.config.ts are enforced here.
+      # `pnpm test` plus coverage, without the projects `static` already
+      # runs once (`docs`, `types`): their results do not depend on the OS or
+      # the Node version. The thresholds in vitest.config.ts are enforced here.
       - name: Test
         run: pnpm run test:coverage
 
@@ -399,9 +407,11 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-  # Full-app end-to-end: builds the example apps with @nuxt/test-utils/e2e and
-  # drives them in a real browser against a real Nitro server — SSR pages, the
-  # auth middleware's redirect, the MCP surface, the Convex-aware CSP.
+  # Full-app end-to-end: builds `templates/starter` with @nuxt/test-utils/e2e
+  # and serves it on a real Nitro server against a stub deployment — SSR
+  # pages, the auth middleware's redirect, the MCP surface, the Convex-aware
+  # CSP — with a browser leg for the sign-in form and a live query. The other
+  # apps are installed and built in `pack`.
   e2e:
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.src == 'true' }}
@@ -563,30 +573,13 @@ jobs:
       # `components.backend.*` typed against
       # `nuxt-backend/_generated/component.js` — the exports map has
       # to make both reachable, and only a real codegen from an installed copy
-      # proves it. `convex codegen` refuses to run without a deployment, so this
-      # creates an anonymous local one (no account, no credentials) and lets
-      # `convex dev --once` push to it. The push itself fails at the end (the
-      # backend declares required env vars a throwaway deployment has no values
-      # for), but codegen is complete by then; the assertions are what the step
-      # gates on.
+      # proves it. How codegen runs without a deployment, and what it checks:
+      # scripts/ci-convex-codegen.sh.
       - name: Consumer codegen (Convex component from the tarball)
         if: ${{ !cancelled() }}
         working-directory: ${{ runner.temp }}/smoke-starter
-        env:
-          CONVEX_AGENT_MODE: anonymous
         run: |
-          npx --no-install convex dev --once --typecheck disable || echo "convex dev --once exited $? (expected: the push needs env vars this deployment does not have)"
-          for generated in api.d.ts api.js dataModel.d.ts server.d.ts server.js; do
-            if [ ! -f "backend/_generated/$generated" ]; then
-              echo "::error::codegen did not write backend/_generated/$generated"; exit 1
-            fi
-          done
-          if grep -q 'AnyApi' backend/_generated/api.d.ts; then
-            echo "::error::backend/_generated/api.d.ts is the untyped placeholder — the component-aware codegen phase did not run"; exit 1
-          fi
-          if ! grep -q 'nuxt-backend/_generated/component' backend/_generated/api.d.ts; then
-            echo "::error::backend/_generated/api.d.ts does not type components.backend against the package's ComponentApi"; exit 1
-          fi
+          "$GITHUB_WORKSPACE/scripts/ci-convex-codegen.sh"
 
       # The steps above prove the tarball installs, builds and codegens. This
       # one proves its type declarations compile inside an app — the Nuxt half
@@ -656,10 +649,7 @@ jobs:
             echo "::endgroup::"
           done
           cd "$RUNNER_TEMP/smoke-pnpm-starter"
-          pnpm exec convex dev --once --typecheck disable || echo "convex dev --once exited $? (expected: the push needs env vars this deployment does not have)"
-          if ! grep -q 'nuxt-backend/_generated/component' backend/_generated/api.d.ts; then
-            echo "::error::under pnpm the template's .pnpmfile.mjs did not make the component definitions resolvable"; exit 1
-          fi
+          "$GITHUB_WORKSPACE/scripts/ci-convex-codegen.sh"
           # The official modules `create nuxt` offers, and the better-sqlite3
           # @nuxt/content installs on its first run.
           pnpm add @nuxt/a11y @nuxt/content @nuxt/eslint @nuxt/fonts @nuxt/hints \
@@ -691,10 +681,7 @@ jobs:
           pnpm add nuxt convex "$TARBALL"
           pnpm exec nuxt-backend init
           pnpm exec nuxt build
-          pnpm exec convex dev --once --typecheck disable || echo "convex dev --once exited $? (expected: the push needs env vars this deployment does not have)"
-          if ! grep -q 'nuxt-backend/_generated/component' backend/_generated/api.d.ts; then
-            echo "::error::under strict pnpm the codegen did not type components.backend against the package's ComponentApi"; exit 1
-          fi
+          "$GITHUB_WORKSPACE/scripts/ci-convex-codegen.sh"
 
   # The docs site + playground: type-checked and built the way a deploy builds
   # it. `full` prepare, because both read website/.nuxt.
@@ -720,32 +707,13 @@ jobs:
           prepare: full
 
       # `website/backend/_generated` is Convex codegen, committed so a Vercel
-      # preview builds without a deployment. It must regenerate identically:
-      # `convex codegen` refuses to run without a deployment, and the component
-      # graph makes the API types depend on one, so this creates an anonymous
-      # *local* deployment (no account, no credentials: the CLI downloads the
-      # local backend and runs it for the duration of the command) and lets
-      # `convex dev --once` push to it. The push itself is expected to fail at
-      # the end — the backend declares required env vars (AUTH_SECRET,
-      # SITE_URL) a throwaway deployment has no values for — but codegen is
-      # complete by then, and the assertions below are what the step gates
-      # on: the typed `api.d.ts`, not the untyped placeholder the first codegen
-      # phase writes, and no diff against the committed files.
+      # build needs no deployment. It must regenerate identically
+      # (scripts/ci-convex-codegen.sh: an anonymous local deployment, the typed
+      # output, no diff against the committed files).
       - name: Convex codegen (anonymous local deployment)
         working-directory: website
-        env:
-          CONVEX_AGENT_MODE: anonymous
         run: |
-          pnpm exec convex dev --once --typecheck disable || echo "convex dev --once exited $? (expected: the push needs env vars this deployment does not have)"
-          for generated in api.d.ts api.js dataModel.d.ts server.d.ts server.js; do
-            if [ ! -f "backend/_generated/$generated" ]; then
-              echo "::error::codegen did not write backend/_generated/$generated"; exit 1
-            fi
-          done
-          if grep -q 'AnyApi' backend/_generated/api.d.ts; then
-            echo "::error::backend/_generated/api.d.ts is the untyped placeholder — the component-aware codegen phase did not run"; exit 1
-          fi
-          git diff --exit-code -- backend/_generated
+          "$GITHUB_WORKSPACE/scripts/ci-convex-codegen.sh" --committed
 
       # The packaged component's own `_generated/` (its ComponentApi, server
       # builders and data model) is committed and compiled into the tarball —

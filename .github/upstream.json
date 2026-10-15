@@ -1,0 +1,156 @@
+{
+  "$comment": "What this package waits on upstream, in one place. `watches` are checked against the npm registry every week (scripts/check-upstream.mjs, run by weekly.yml's `upstream` job); `asks` are requests to the projects we build on, each with the plan item it blocks and what we do until it lands. The weekly job keeps one issue, \"ci: upstream watch\", in step with this file.",
+  "watches": [
+    {
+      "id": "better-auth-1.7",
+      "title": "@convex-dev/better-auth accepts Better Auth 1.7",
+      "package": "@convex-dev/better-auth",
+      "field": "peerDependencies",
+      "dependency": "better-auth",
+      "version": "1.7.0",
+      "unblocks": "UP1 — Better Auth 1.7 (lift the better-auth and @better-auth/passkey holds in dependabot.yml)"
+    },
+    {
+      "id": "polar-sdk-1",
+      "title": "@convex-dev/polar develops against Polar SDK 1",
+      "package": "@convex-dev/polar",
+      "field": "devDependencies",
+      "dependency": "@polar-sh/sdk",
+      "version": "1.0.0",
+      "unblocks": "UP2 — Polar SDK 1.0 (lift the @polar-sh/sdk hold), and with it per-customer discount limits"
+    },
+    {
+      "id": "typescript-7",
+      "title": "TypeDoc accepts TypeScript 7",
+      "package": "typedoc",
+      "field": "peerDependencies",
+      "dependency": "typescript",
+      "version": "7.0.0",
+      "unblocks": "TypeScript 7 for the repository (lift the typescript hold)"
+    },
+    {
+      "id": "nuxt-devtools-4",
+      "title": "Nuxt ships Nuxt DevTools 4",
+      "package": "nuxt",
+      "field": "dependencies",
+      "dependency": "@nuxt/devtools",
+      "version": "4.0.0",
+      "unblocks": "The DevTools kit and UI kit majors (lift the @nuxt/devtools-kit and @nuxt/devtools-ui-kit holds in dependabot.yml)"
+    },
+    {
+      "id": "nuxt-h3-2",
+      "title": "Nuxt's server runs on h3 2",
+      "package": "@nuxt/nitro-server",
+      "field": "dependencies",
+      "dependency": "h3",
+      "version": "2.0.0",
+      "unblocks": "Nuxt 5 and h3 2 for the server handlers (lift the h3 hold in dependabot.yml)"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "A1s",
+      "title": "Agent OAuth on @better-auth/oauth-provider",
+      "state": "go after Better Auth 1.7",
+      "note": "Decided 2026-10-14: A1a folds into UP1. Better Auth 1.7 removes the mcp plugin and reshapes the provider again, so moving on 1.6 would migrate the OAuth tables twice; until then agents stay on the hardened mcp plugin."
+    }
+  ],
+  "asks": [
+    {
+      "ask": "Create the Convex client lazily, on first use",
+      "owner": "qruto/nuxt-convex-module",
+      "blocks": "R3, DEMO (docs pages that never open a socket)",
+      "fallback": "The site loads the client behind its own lazy plugin"
+    },
+    {
+      "ask": "No WebSocket during SSR or prerender",
+      "owner": "qruto/nuxt-convex-module",
+      "blocks": "C3, R3",
+      "fallback": "Client-only guards around the live parts"
+    },
+    {
+      "ask": "A locale-aware login path in the auth middleware",
+      "owner": "qruto/nuxt-convex-module",
+      "blocks": "C9a (i18n)",
+      "fallback": "The package's own middleware resolves the localized path"
+    },
+    {
+      "ask": "A webhook handler factory with per-event hooks",
+      "owner": "get-convex/polar",
+      "blocks": "C6 (one webhook edge)",
+      "fallback": "Verify and dispatch in the package's own route"
+    },
+    {
+      "ask": "Trial and cancellation columns on the subscriptions table",
+      "owner": "get-convex/polar",
+      "blocks": "A12 (subscription panel)",
+      "fallback": "Read them from the provider API on demand"
+    },
+    {
+      "ask": "Polar SDK 1.x support",
+      "owner": "get-convex/polar",
+      "blocks": "UP2",
+      "fallback": "Stay on @polar-sh/sdk 0.x"
+    },
+    {
+      "ask": "Better Auth 1.7 in the peer range",
+      "owner": "get-convex/better-auth",
+      "blocks": "UP1",
+      "fallback": "Stay on Better Auth 1.6"
+    },
+    {
+      "ask": "Forward the client IP to Better Auth (rate limits, session ipAddress)",
+      "owner": "get-convex/better-auth",
+      "blocks": "A3, F6",
+      "fallback": "Read the forwarded header in the package's proxy"
+    },
+    {
+      "ask": "A topicId on sends and broadcasts",
+      "owner": "get-convex/resend",
+      "blocks": "F11, ANN",
+      "fallback": "Call the provider SDK directly for topic-scoped sends"
+    },
+    {
+      "ask": "Optional React peers for presence",
+      "owner": "get-convex/presence",
+      "blocks": "F12",
+      "fallback": "Presence stays component-owned, behind the install-size budget"
+    },
+    {
+      "ask": "Restrict a discount to first-time customers",
+      "owner": "polarsource/polar",
+      "blocks": "PROMO, REF",
+      "fallback": "The server checks for an earlier paid order before applying it"
+    },
+    {
+      "ask": "A metadata filter and an external_id for discounts",
+      "owner": "polarsource/polar",
+      "blocks": "PROMO",
+      "fallback": "The catalog keys discounts by code"
+    },
+    {
+      "ask": "Enforce per-customer discount limits on subscription updates",
+      "owner": "polarsource/polar",
+      "blocks": "PROMO, A2b",
+      "fallback": "The server refuses a reused discount on plan changes"
+    },
+    {
+      "ask": "Trial-abuse matching for team customers",
+      "owner": "polarsource/polar",
+      "blocks": "A4, A7a",
+      "fallback": "One trial per owner, tracked by the package"
+    },
+    {
+      "ask": "Trial reminder emails that show the price",
+      "owner": "polarsource/polar",
+      "blocks": "A7a",
+      "fallback": "The package sends its own reminder"
+    },
+    {
+      "ask": "A discount redemption webhook",
+      "owner": "polarsource/polar",
+      "blocks": "PROMO, REF",
+      "fallback": "Read the discount off order.paid"
+    }
+  ]
+}

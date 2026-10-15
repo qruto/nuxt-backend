@@ -128,7 +128,68 @@ jobs:
             .
           fail: true
 
-  # The four jobs above are only useful if someone sees them fail. On their own
+  # What this package waits on upstream (.github/upstream.json): checks each
+  # watched release against the npm registry and renders the one issue that
+  # lists them, with the open asks and their fallbacks. Read-only; the job
+  # below writes the issue.
+  upstream:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      body: ${{ steps.check.outputs.body }}
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      - name: Check the watched releases
+        id: check
+        run: |
+          body=$(pnpm run --silent upstream:check)
+          {
+            echo 'body<<UPSTREAM_BODY'
+            printf '%s\n' "$body"
+            echo 'UPSTREAM_BODY'
+          } >> "$GITHUB_OUTPUT"
+
+  # Keeps "ci: upstream watch" in step with the file: one open issue, its body
+  # rewritten every week, and a comment only when the set of watches that are
+  # met changes, so a release that unblocks something notifies once.
+  upstream-report:
+    needs: upstream
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the upstream issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ needs.upstream.outputs.body }}
+          READY: ${{ needs.upstream.outputs.ready }}
+        run: |
+          title='ci: upstream watch'
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title,body \
+            --jq "[.[] | select(.title == \"$title\")][0] // empty")
+          if [ -z "$existing" ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$BODY"
+            exit 0
+          fi
+          number=$(jq -r .number <<<"$existing")
+          was=$(jq -r .body <<<"$existing" | tr -d '\r' | sed -n 's/^<!-- ready: \(.*\) -->$/\1/p')
+          gh issue edit --repo "$GITHUB_REPOSITORY" "$number" --body "$BODY"
+          if [ -n "$READY" ] && [ "$READY" != "$was" ]; then
+            gh issue comment --repo "$GITHUB_REPOSITORY" "$number" \
+              --body "Ready upstream now: \`$READY\` (was: \`${was:-none}\`). See the table above."
+          fi
+
+  # The checks above are only useful if someone sees them fail. On their own
   # they are not: a failed scheduled run just emails whoever last edited the
   # cron, which is the wrong person soon enough and nobody at all once the mail
   # gets filtered.
@@ -145,6 +206,7 @@ jobs:
       - osv
       - rulesets
       - links
+      - upstream
     if: ${{ always() && contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -159,6 +221,7 @@ jobs:
             osv=${{ needs.osv.result }}
             rulesets=${{ needs.rulesets.result }}
             links=${{ needs.links.result }}
+            upstream=${{ needs.upstream.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           body=$(printf '%s\n\n%s\n' "$RESULTS" "$RUN_URL")

@@ -276,8 +276,7 @@ The rules that protect `main` and the tags are committed under
 | Control | What it guarantees |
 | --- | --- |
 | `Release` environment | Required reviewer, `main` only. This is what npm trusts. |
-| `main-guard` ruleset | `main` can't be deleted or force-pushed. History can be added to, never rewritten. |
-| `main-pr-gate` ruleset | `main` takes pull requests only, requires `All checks passed`, and requires signed commits. Squash is the only merge method it allows. `Release Prepare` commits through GitHub's API instead of `git commit` because a commit made on a runner is unverified; one created through the API is signed from the start. |
+| `main-pr-gate` ruleset | `main` can't be deleted or force-pushed, so history can be added to, never rewritten. It takes pull requests only, requires `All checks passed`, and requires signed commits. Squash is the only merge method it allows. `Release Prepare` commits through GitHub's API instead of `git commit` because a commit made on a runner is unverified; one created through the API is signed from the start. |
 | `tag-guard` ruleset | `v*` tags can't be deleted, moved or force-updated. Release history stays pinned to its commit. |
 | Immutable releases | The Release that `publish` creates locks its tag and carries an attestation: `gh release verify vX.Y.Z`. |
 | `sha_pinning_required` | GitHub itself refuses a workflow that references a floating action tag, not just zizmor. |
@@ -348,8 +347,7 @@ Two more checks live outside this repo's workflow files:
   suite over `javascript-typescript` and `actions`.
 - **`CI`'s `static` job** runs [zizmor](https://docs.zizmor.sh) over the workflows for security
   problems and [actionlint](https://github.com/rhysd/actionlint) for correctness. Accepted
-  findings are listed in [.github/zizmor.yml](./.github/zizmor.yml) and
-  [.github/actionlint.yaml](./.github/actionlint.yaml).
+  zizmor findings are listed in [.github/zizmor.yml](./.github/zizmor.yml); actionlint has none.
 
 ## One-time setup
 
