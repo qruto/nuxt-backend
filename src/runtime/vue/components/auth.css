@@ -12,6 +12,7 @@
   --auth-edge: var(--bk-edge);
   --auth-error: var(--bk-error);
   --auth-radius: var(--bk-radius);
+  --auth-radius-control: var(--bk-radius-control);
 
   display: flex;
   flex-direction: column;
@@ -49,7 +50,7 @@
 [data-auth^='input-'] {
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--auth-edge);
-  border-radius: var(--auth-radius);
+  border-radius: var(--auth-radius-control);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -63,7 +64,7 @@
 [data-auth='form'] button {
   padding: 0.6rem 0.9rem;
   border: 1px solid var(--auth-edge);
-  border-radius: var(--auth-radius);
+  border-radius: var(--auth-radius-control);
   background: transparent;
   color: inherit;
   font: inherit;

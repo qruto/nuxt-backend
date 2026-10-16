@@ -4,6 +4,7 @@ import { Webhook } from 'svix'
 import { sendArgs } from '../../email-validators.js'
 import { components, internal } from './_generated/api.js'
 import { action, env, internalMutation, type MutationCtx, mutation, query } from './_generated/server.js'
+import { logBackend } from '../../log.js'
 
 /**
  * Email sending, served by the `backend` component itself via the nested Resend
@@ -83,10 +84,8 @@ export const send = mutation({
     const from = args.from ?? env.EMAIL_FROM ?? 'onboarding@resend.dev'
     await captureForSandboxInbox(ctx, { to: args.to, from, subject: args.subject, text: args.text, html: args.html })
     if (!env.EMAIL_API_KEY) {
-      console.warn(
-        `[nuxt-backend] Email skipped — the required EMAIL_API_KEY env var is missing on this deployment. `
-        + `To ${Array.isArray(args.to) ? args.to.join(', ') : args.to}: ${args.subject ?? '(template)'}`,
-      )
+      // No recipient or subject: logs are kept, and both can name a person.
+      logBackend('warn', 'email.skipped_no_api_key', 'Email skipped: the required EMAIL_API_KEY env var is missing on this deployment.')
       return null
     }
     const common = {

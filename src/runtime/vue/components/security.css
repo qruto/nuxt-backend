@@ -68,7 +68,7 @@
 [data-security='input-passkey-name'] {
   padding: 0.3rem 0.5rem;
   border: 1px solid var(--bk-edge);
-  border-radius: var(--bk-radius);
+  border-radius: var(--bk-radius-control);
   background: transparent;
   color: inherit;
   font: inherit;

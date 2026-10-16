@@ -1,5 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 import { Webhook } from 'standardwebhooks'
+import { logBackend } from '../log.js'
 
 /**
  * The shared fail-closed edge discipline for inbound webhook routes
@@ -109,15 +110,17 @@ export async function guardDelivery(
       } as never)
     }
     catch (error) {
-      console.error(`[nuxt-backend] webhook delivery log write failed (${input.service}):`, error)
+      logBackend('error', 'webhook.log_write_failed', `Webhook delivery log write failed (${input.service}).`, error)
     }
   }
 
   if (!input.secretsConfigured) {
     if (!warnedMissingSecret.has(input.service)) {
       warnedMissingSecret.add(input.service)
-      console.warn(
-        `[nuxt-backend] /${input.service}/events is mounted but its webhook secret is not set — `
+      logBackend(
+        'warn',
+        'webhook.secret_missing',
+        `/${input.service}/events is mounted but its webhook secret is not set — `
         + 'rejecting all deliveries (503) until it is. Add the secret to .env.local and run `npx nuxt-backend env push`.',
       )
     }

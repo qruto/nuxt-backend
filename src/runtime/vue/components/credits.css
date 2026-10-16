@@ -34,7 +34,7 @@
   justify-content: center;
   padding: 0.4rem 0.8rem;
   border: 1px solid var(--bk-accent);
-  border-radius: var(--bk-radius);
+  border-radius: var(--bk-radius-control);
   background: var(--bk-accent);
   color: var(--bk-on-accent);
   font-weight: 600;

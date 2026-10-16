@@ -40,11 +40,9 @@ existing one, the first deployment (a local one needs no account), and how to ch
 |---|---|
 | `npx nuxt-backend init` | Scaffolds `backend/`, `convex.json`, `.env.example`, AGENTS.md and `.mcp.json`, and adds the module to `nuxt.config`. `--no-agents` skips the agent files |
 | `npx nuxt-backend dev` | The `dev` script: sets up a dev deployment on first run, provisions its env, then runs Convex and Nuxt together |
-| `npx nuxt-backend doctor` | Checks env, codegen, the function contract, webhook routes and the billing catalog. `--fix` repairs what it can, `--prod` checks production |
+| `npx nuxt-backend doctor` | Checks env, codegen, the function contract, webhook routes and the billing catalog. `--fix` repairs what it can, `--prod` checks production, `--json` prints findings with a `service` and a `docsUrl`, `--only billing` checks one service |
 | `npx nuxt-backend env push` | Syncs `.env` and `.env.local` to the deployment. Dev deployments also get `AUTH_SECRET` and `SITE_URL` generated |
-| `npx nuxt-backend billing sync` | Creates the products in `backend/billing.catalog.ts` and writes `backend/billing.generated.ts` |
-
-After `billing sync`, `npx convex run billing:syncProducts` loads the products into the deployment.
+| `npx nuxt-backend billing sync` | Creates the products in `backend/billing.catalog.ts`, writes `backend/billing.generated.ts`, stores the webhook secret on the deployment and loads the products there. `--json` for a machine-readable outcome |
 
 ## Environment
 
@@ -98,7 +96,8 @@ sign-in codes print in the terminal that runs `dev`.
 ## Customizing, in order of reach
 
 1. **CSS tokens**: the `--bk-*` custom properties and `data-*` hooks restyle every packaged
-   component.
+   component. With `@nuxt/ui` installed, the tokens already follow its neutrals, borders, card
+   radius and dark mode: theme those through Nuxt UI's own variables, don't map them by hand.
 2. **Content**: `appConfig.backend` holds the brand, labels and the plan catalog copy.
 3. **Slots**: keep a packaged component and replace only some regions, such as
    `<PricingTable>`'s `plan-action` or `<AuthForm>`'s `verify-code` step.

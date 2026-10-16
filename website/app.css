@@ -109,6 +109,10 @@
   --ui-text-toned: light-dark(var(--color-zinc-700), var(--color-zinc-200));
   --ui-text-muted: var(--ink-dim);
   --ui-text-dimmed: var(--ink-faint);
+  /* The hairline Nuxt UI draws its borders with, and so do the packaged
+     components (the module maps `--bk-edge` onto it): the site's stronger
+     edge, so a control's outline stays visible on the gunmetal ground. */
+  --ui-border: var(--edge-hi);
 }
 
 /* Bridge: make the `light-dark()` tokens follow Docus's color-mode
@@ -549,7 +553,8 @@ kbd { box-shadow: var(--elev-0); text-shadow: var(--emboss-sm); }
 /* ── nuxt-backend components: depth-palette bridge ──────────────────────────
    Rung 2 of the customization ladder: one token override re-themes every
    packaged component. Scoped under `.bk-depth` so the vanilla playground
-   pages (/playground/vanilla/*) keep the untouched zero-config look. */
+   pages (/playground/vanilla/*) keep the zero-config look, which on this
+   Nuxt UI site is the module's own bridge onto Nuxt UI's tokens. */
 .bk-depth :where([data-auth='form'], [data-invitation], [data-gift='banner'],
                  [data-pricing='table'], [data-settings='root'],
                  [data-profile='root'], [data-security='root']) {

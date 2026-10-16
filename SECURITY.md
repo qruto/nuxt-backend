@@ -256,5 +256,10 @@ what was decided:
   The consent page reads the request from the server, keeps the code out of its URL, cannot be
   framed, and opens no callback with a script-capable scheme (registration already refuses one). **Fixed.** Pinned by `test/unit/agent-consent-flow.test.ts`, which runs the real
   provider on Better Auth's memory adapter.
+- **Billing webhook secret** (`billing sync`; 2026-10-15). A new endpoint's secret was printed
+  as a ready `convex env set` line, so it landed in terminal history, CI logs and coding-agent
+  transcripts. It is stored on the deployment through the `env push` engine now and never
+  printed, `--json` included; `--env production` refuses a dev or preview deploy key, which would
+  put it on the wrong deployment. **Fixed.** Pinned by `test/unit/billing-sync-command.test.ts`.
 - **DevTools** (2026-09-17). The Backend tab and its RPC run only under `nuxt dev`, on Vite's
   middleware — reachable exactly as far as Nuxt DevTools itself. **Accepted.**

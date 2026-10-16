@@ -23,7 +23,7 @@ import { defineCommand } from 'citty'
 import { spawnConvex } from '../convex-cli'
 import { isDevDeploymentId } from '../deployment'
 import { configuredDeployment, isEnvProvisioned, markEnvProvisioned, runEnvPush, type EnvPushRunResult } from '../env-push'
-import type { PreflightFinding } from '../preflight'
+import { finding, type PreflightFinding } from '../findings'
 import { resolveFunctionsDir, scaffoldBackendFiles } from '../scaffold'
 
 /** The side effects `runDev` performs, injectable for tests. */
@@ -130,13 +130,12 @@ export function adoptBackendDevScript(rootDir: string, { onlyCombined = false } 
 export function devScriptFinding(rootDir: string): PreflightFinding[] {
   const script = readManifest(rootDir)?.manifest.scripts?.dev
   if (!isCombinedDevScript(script)) return []
-  return [{
-    id: 'dev-script',
-    title: 'Dev script',
-    status: 'warn',
-    message: `\`dev\` runs \`${script}\`, which never starts Nuxt on a new deployment: its first push needs AUTH_SECRET and SITE_URL, and those are provisioned from inside Nuxt.`,
-    fixHint: 'Run: npx nuxt-backend doctor --fix (points dev at nuxt-backend dev)',
-  }]
+  return [finding(
+    'dev-script',
+    'warn',
+    `\`dev\` runs \`${script}\`, which never starts Nuxt on a new deployment: its first push needs AUTH_SECRET and SITE_URL, and those are provisioned from inside Nuxt.`,
+    'Run: npx nuxt-backend doctor --fix (points dev at nuxt-backend dev)',
+  )]
 }
 
 /** What `convex` exits with when SIGINT stopped it: a Ctrl-C, or a stop this process passed on. */

@@ -145,6 +145,35 @@ describe('README', () => {
   })
 })
 
+/** The first code span of each line in every run of `- \`name\`` list items at one indent. */
+function nameRuns(text: string, indent: string): string[][] {
+  const runs: string[][] = [[]]
+  for (const line of text.split('\n')) {
+    const name = line.startsWith(`${indent}- \``) ? line.slice(indent.length + 3).split('`')[0]! : undefined
+    if (name !== undefined) runs.at(-1)!.push(name)
+    else if (runs.at(-1)!.length > 0) runs.push([])
+  }
+  return runs.filter(run => run.length > 1)
+}
+
+describe('shared lists hold one name per line, sorted', () => {
+  // Most pull requests add a name to these lists. One per line, in order,
+  // two additions land on different lines instead of in a merge conflict.
+  const section = (heading: string) => README.slice(README.indexOf(heading), README.indexOf('\n### ', README.indexOf(heading) + 1))
+  const runs = [
+    ...nameRuns(STABILITY, '  ').map(run => ['STABILITY.md', run] as const),
+    ...['### Composables', '### Components', '### Server (Nitro)'].flatMap(heading => nameRuns(section(heading), '').map(run => [`README.md ${heading}`, run] as const)),
+  ]
+
+  it('finds the lists', () => {
+    expect(runs.length).toBeGreaterThanOrEqual(12)
+  })
+
+  it.each(runs.map(([file, run]) => [`${file}: ${run[0]} …`, run] as const))('%s', (_label, run) => {
+    expect(run).toEqual([...run].sort())
+  })
+})
+
 describe('nothing describes the repository as it no longer is', () => {
   const files = [...prose, at('CONTRIBUTING.md'), at('AGENTS.md'), at('RELEASE.md'), at('SECURITY.md'), at('commitlint.config.js'), ...walk('.github', ['.yml', '.yaml', '.md']), ...walk('scripts', ['.mjs', '.js']), ...walk('src', ['.ts'])]
   it.each([

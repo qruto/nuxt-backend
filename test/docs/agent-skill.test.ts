@@ -2,8 +2,8 @@ import { lstatSync, readdirSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { AGENT_HINT, AGENTS_SECTION } from '../../src/agents'
 import { main } from '../../src/cli/main'
-import { BACKEND_ENV_NAMES } from '../../src/env-push'
-import { at, contentRoute, frontmatter, read, walk } from './helpers'
+import { BACKEND_ENV } from '../../src/env-registry'
+import { at, contentRoute, frontmatter, read, readModuleSources, walk } from './helpers'
 
 // What coding agents are told about the package: the consumer skill under
 // skills/ (published by the docs site at /.well-known/skills/ and installable
@@ -61,7 +61,8 @@ describe('the agent guidance', () => {
   })
 
   it.each(texts)('%s names only env vars the package or the Convex CLI knows', (_, text) => {
-    const known = new Set<string>([...BACKEND_ENV_NAMES, 'NUXT_PUBLIC_BACKEND_URL', 'CONVEX_DEPLOYMENT', 'CONVEX_SITE_URL', 'CONVEX_SELF_HOSTED_URL'])
+    // The package's names (src/env-registry.ts) and the platform's own.
+    const known = new Set<string>([...Object.keys(BACKEND_ENV), 'CONVEX_DEPLOYMENT', 'CONVEX_SITE_URL', 'CONVEX_SELF_HOSTED_URL'])
     for (const [, name] of text.matchAll(/`([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)(?:=[^`]*)?`/g)) expect(known, name).toContain(name)
   })
 
@@ -101,7 +102,7 @@ describe('the nuxt-backend skill', () => {
   const API_TAG = /<((?:Auth|Pricing|Billing|Credit|Organization|Role|Workspace|Gift|Passkey|Session|Account|Usage|Plan|Feature|Convex|Checkout|Invitation|Profile|Security|Sandbox|Member|Admin)\w*)\b/g
   const registered = new Set([
     // This module: addImports / addComponent entries and server import aliases.
-    ...[...read('src/module.ts').matchAll(/\b(?:name|as): '(\w+)'/g)].map(m => m[1]!),
+    ...[...readModuleSources().matchAll(/\b(?:name|as): '(\w+)'/g)].map(m => m[1]!),
     // The base module's auto-imports and components, which every app gets too.
     ...[...read('node_modules/nuxt-convex-module/dist/module.mjs').matchAll(/\bname: "(\w+)"/g)].map(m => m[1]!),
   ])

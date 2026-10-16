@@ -105,12 +105,25 @@ describe('runDoctor', () => {
     const first = rpc.functions.runDoctor()
     const second = rpc.functions.runDoctor()
     finish([])
-    expect(await first).toEqual({ ranAt: 1_000, findings: [] })
+    // The report is what `doctor --json` prints, for the panel's copy button.
+    expect(await first).toEqual({ ranAt: 1_000, findings: [], report: JSON.stringify({ $schema: 'https://nuxt-backend.dev/schemas/doctor.json', findings: [], summary: 'auth ✓' }, null, 2) })
     expect(await second).toBe(await first)
     expect(checks).toHaveBeenCalledOnce()
 
     checks.mockRejectedValueOnce(new Error('boom'))
     expect(await rpc.functions.runDoctor()).toMatchObject({ findings: [], error: 'boom' })
+  })
+
+  it('runs only the services asked for, one run per selection', async () => {
+    writeFileSync(join(rootDir, '.env.local'), 'CONVEX_DEPLOYMENT=dev:brave-fox-123\n')
+    const checks = vi.fn(async () => [])
+    const rpc = createDevtoolsRpc({ rootDir, functionsDir: 'backend', buildInfo: () => ({}) as DevtoolsServerInfo, runDoctorChecks: checks })
+    const billing = rpc.functions.runDoctor({ only: ['billing'] })
+    const all = rpc.functions.runDoctor()
+    await Promise.all([billing, all])
+    expect(checks).toHaveBeenCalledTimes(2)
+    expect(checks).toHaveBeenCalledWith(rootDir, ['billing'])
+    expect(checks).toHaveBeenCalledWith(rootDir, undefined)
   })
 
   it('refuses a deployment that is not a dev one', async () => {

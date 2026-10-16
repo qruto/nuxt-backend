@@ -48,7 +48,7 @@ const ALL_TOOLS = [
 
 /**
  * What the deployment's better-auth mcp plugin advertises — the module builds
- * it in `defaultMcp()` (src/convex/client/index.ts) as the backend scopes plus
+ * it in `defaultMcp()` (src/convex/client/plugins.ts) as the backend scopes plus
  * the plugin's `offline_access`.
  */
 const DEPLOYMENT_SCOPES = [...new Set([...BACKEND_MCP_SCOPES, 'offline_access'])]

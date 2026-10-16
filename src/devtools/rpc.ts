@@ -1,4 +1,6 @@
 import { configuredDeployment, deploymentEnvNames, isDevDeployment } from '../env-push'
+import type { FindingService } from '../findings'
+import { doctorReport } from '../preflight'
 import { envTier, resolveBackendSource } from './info'
 import type { DevtoolsCatalogSummary, DevtoolsDeploymentEnv, DevtoolsDoctorRun, DevtoolsServerInfo, ServerFunctions } from './rpc-types'
 
@@ -15,7 +17,7 @@ export interface DevtoolsRpcContext {
   /** The Convex CLI's env name listing; injectable for tests. */
   listDeploymentEnvNames?(rootDir: string): Promise<string[] | null>
   /** The doctor checks and the catalog reader; injectable for tests. */
-  runDoctorChecks?(rootDir: string): Promise<DevtoolsDoctorRun['findings']>
+  runDoctorChecks?(rootDir: string, only?: string[]): Promise<DevtoolsDoctorRun['findings']>
   readCatalogSummary?(rootDir: string): Promise<DevtoolsCatalogSummary>
   now?(): number
 }
@@ -37,11 +39,11 @@ export function createDevtoolsRpc(context: DevtoolsRpcContext): DevtoolsRpc {
   const listNames = context.listDeploymentEnvNames ?? ((rootDir: string) => deploymentEnvNames(rootDir))
   let cached: DevtoolsDeploymentEnv | null = null
   let inflight: Promise<DevtoolsDeploymentEnv> | null = null
-  let doctorRun: Promise<DevtoolsDoctorRun> | null = null
+  const doctorRuns = new Map<string, Promise<DevtoolsDoctorRun>>()
   // Loaded on first use: the checks pull in the billing SDK, and the catalog
   // reader imports the app's own modules.
   const runChecks = context.runDoctorChecks
-    ?? (async (rootDir: string) => (await import('../doctor')).runDoctorChecks(rootDir, { prod: false }))
+    ?? (async (rootDir: string, only?: string[]) => (await import('../doctor')).runDoctorChecks(rootDir, { prod: false, ...(only ? { only: only as FindingService[] } : {}) }))
   const readCatalog = context.readCatalogSummary
     ?? (async (rootDir: string) => (await import('./catalog')).readCatalogSummary(rootDir))
 
@@ -78,19 +80,23 @@ export function createDevtoolsRpc(context: DevtoolsRpcContext): DevtoolsRpc {
         })
       return inflight
     },
-    runDoctor() {
+    runDoctor({ only } = {}) {
       // Doctor's reads are read-only, but the panel still never points them
       // at a deployment that is not a dev one.
       if (configuredDeployment(context.rootDir) && !isDevDeployment(context.rootDir)) {
         return Promise.resolve({ ranAt: now(), findings: [], error: 'The panel runs doctor against a dev deployment only. For production, run npx nuxt-backend doctor --prod.' })
       }
-      doctorRun ??= runChecks(context.rootDir)
-        .then(findings => ({ ranAt: now(), findings }))
+      const key = only?.join(',') ?? ''
+      const running = doctorRuns.get(key)
+      if (running) return running
+      const run = runChecks(context.rootDir, only)
+        .then(findings => ({ ranAt: now(), findings, report: JSON.stringify(doctorReport(findings), null, 2) }))
         .catch((error: unknown) => ({ ranAt: now(), findings: [], error: error instanceof Error ? error.message : String(error) }))
         .finally(() => {
-          doctorRun = null
+          doctorRuns.delete(key)
         })
-      return doctorRun
+      doctorRuns.set(key, run)
+      return run
     },
     getCatalog: () => readCatalog(context.rootDir),
     resolveBackendSource: file => resolveBackendSource(context.rootDir, context.functionsDir, file),

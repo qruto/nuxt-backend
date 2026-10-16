@@ -2,6 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { uiCssText } from '../../scripts/stylesheet-imports.mjs'
+import { hexToOklch, inGamut, SIGNALS, srgbPairs, tierLch, tokensCss } from '../../scripts/wide-gamut.mjs'
 
 // The shipped stylesheets are data, not code: nothing imports them at test
 // time, so the contract is checked on the files themselves.
@@ -14,12 +16,14 @@ const ui = readFileSync(join(componentsDir, 'ui.css'), 'utf-8')
 const site = readFileSync(fileURLToPath(new URL('../../website/app.css', import.meta.url)), 'utf-8')
 
 /**
- * Every `--bk-*` default declared in tokens.css, by name. Anchored to a
+ * Every `--bk-*` default declared in tokens.css's first block, by name: the
+ * sRGB values every browser reads, before the wide-gamut tiers. Anchored to a
  * declaration line so the prose in the comment block (which quotes
  * `--bk-accent: var(--ok)`) is not read as one.
  */
+const firstBlock = tokens.replace(/\/\*[\s\S]*?\*\//g, '').split('}')[0]!
 const defaults = Object.fromEntries(
-  [...tokens.matchAll(/^\s*(--bk-[\w-]+):([^;\n]+);/gm)].map(match => [match[1]!, match[2]!.trim()]),
+  [...firstBlock.matchAll(/^\s*(--bk-[\w-]+):([^;\n]+);/gm)].map(match => [match[1]!, match[2]!.trim()]),
 )
 const LIGHT_DARK_PAIR = /^light-dark\((#[0-9a-f]{6}), (#[0-9a-f]{6})\)$/
 const SIGNAL_TOKENS = ['--bk-accent', '--bk-on-accent', '--bk-ok', '--bk-warn', '--bk-error']
@@ -57,6 +61,31 @@ describe('component tokens', () => {
     }
   })
 
+  it('raises each signal to a wide gamut: what scripts/wide-gamut.mjs writes (pnpm generate)', () => {
+    expect(tokens).toBe(tokensCss(tokens))
+    expect(tokens).toContain('@media (color-gamut: p3)')
+    expect(tokens).toContain('@media (color-gamut: rec2020)')
+  })
+
+  it.each(SIGNALS.flatMap(name => (['display-p3', 'rec2020'] as const).map(gamut => [name, gamut] as const)))('%s in %s keeps its lightness, hue and contrast, and stays in gamut', (name, gamut) => {
+    const block = tokens.slice(tokens.indexOf(`@supports (color: color(${gamut}`))
+    const declared = block.match(new RegExp(`${name}: light-dark\\((color\\(${gamut} [^)]+\\)), (color\\(${gamut} [^)]+\\))\\);`))
+    expect(declared, `${name} has a ${gamut} tier`).not.toBeNull()
+    srgbPairs(tokens)[name]!.forEach((hex, index) => {
+      const [L, C, h] = hexToOklch(hex)
+      const channels = declared![index + 1]!.match(/[\d.]+/g)!.slice(-3).map(Number)
+      for (const channel of channels) expect(channel).toBeGreaterThanOrEqual(0)
+      for (const channel of channels) expect(channel).toBeLessThanOrEqual(1)
+      // The same lightness and hue, more vivid than sRGB, at a luminance
+      // within a tenth of it: the contrast measured on the sRGB pair holds.
+      const vivid = tierLch(hex, gamut)
+      expect(vivid[0]).toBeCloseTo(L, 6)
+      expect(vivid[2]).toBeCloseTo(h, 6)
+      expect(vivid[1]).toBeGreaterThan(C)
+      expect(Math.abs(inGamut(vivid, gamut).luminance / inGamut([L, C, h], gamut).luminance - 1)).toBeLessThan(0.1)
+    })
+  })
+
   it('leaves color-scheme to the app', () => {
     // `light-dark()` follows the scheme the app declares; a component that
     // set its own would override the host page's choice. Comments are
@@ -74,6 +103,11 @@ describe('component tokens', () => {
     expect(rules[0]).toBe('@layer theme, base, components, utilities;')
     const pieces = stylesheets.map(([name]) => name).filter(name => name !== 'ui.css')
     expect(rules.slice(1).sort()).toStrictEqual(pieces.map(name => `@import './${name}' layer(components.backend);`).sort())
+  })
+
+  it('imports what scripts/stylesheet-imports.mjs writes: tokens first (pnpm generate)', () => {
+    expect(ui).toBe(uiCssText())
+    expect(ui).toContain('@layer theme, base, components, utilities;\n\n@import \'./tokens.css\' layer(components.backend);')
   })
 
   it('draws a keyboard focus ring on every button and link the components render', () => {

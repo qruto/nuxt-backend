@@ -212,6 +212,38 @@ describe('doctor', () => {
     expect(report.findings.some(finding => finding.id === 'auth-secret')).toBe(true)
   })
 
+  it('names its schema and gives each finding a service and a docs link', async () => {
+    await run(['doctor', '--json'])
+
+    const report = JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { $schema: string, findings: Array<{ id: string, service: string, docsUrl: string }> }
+    expect(report.$schema).toBe('https://nuxt-backend.dev/schemas/doctor.json')
+    expect(report.findings.find(finding => finding.id === 'auth-secret')).toMatchObject({ service: 'auth', docsUrl: 'https://nuxt-backend.dev/d/auth-secret' })
+  })
+
+  it('checks only the services --only names', async () => {
+    const fetchMock = vi.fn(async (_url: string | URL) => new Response('', { status: 400 }))
+    vi.stubGlobal('fetch', fetchMock)
+    writeFileSync(join(rootDir, '.env.local'), 'NUXT_PUBLIC_CONVEX_SITE_URL=https://demo.convex.site\n')
+
+    await run(['doctor', '--json', '--only', 'email,auth'])
+
+    const report = JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { findings: Array<{ id: string, service: string }> }
+    expect(new Set(report.findings.map(finding => finding.service))).toEqual(new Set(['email', 'auth']))
+    // The billing route was never probed, and codegen never checked.
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(['https://demo.convex.site/email/events'])
+    expect(report.findings.some(finding => finding.id === 'convex-codegen')).toBe(false)
+    vi.unstubAllGlobals()
+  })
+
+  it('refuses a service --only does not know', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await run(['doctor', '--only', 'payments'])
+
+    expect(error.mock.calls.flat().join('\n')).toContain('payments is not a service')
+    error.mockRestore()
+    expect(process.exitCode).toBe(1)
+  })
+
   it('warns about the base module\'s convex dev --start script', async () => {
     writeFileSync(join(rootDir, 'package.json'), JSON.stringify({ name: 'app', scripts: { dev: `convex dev --start "nuxt dev"` } }))
 

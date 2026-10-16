@@ -5,7 +5,8 @@ import { defineCommand } from 'citty'
 import { writeAgentFiles } from '../agents'
 import { packageDir, packageVersion } from '../dirs'
 import { mountPagesInAppComponent, scaffoldBackendFiles } from '../scaffold'
-import { formatPreflightSummary } from '../preflight'
+import { FINDING_SERVICES, type FindingService } from '../findings'
+import { doctorReport, formatPreflightSummary } from '../preflight'
 import { BACKEND_ENV_NAMES, nonProductionDeployKey, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
 import { billing } from './billing'
 import { adoptBackendDevScript, dev } from './dev'
@@ -211,19 +212,20 @@ Later, as you connect services: add EMAIL_API_KEY / BILLING_ACCESS_TOKEN to
 /**
  * `doctor --fix`: restore missing scaffold files (existing files are never
  * touched), replace a `dev` script that stalls on a new deployment, then
- * sync env with the same engine as `nuxt-backend env push`.
+ * sync env with the same engine as `nuxt-backend env push`. `print` takes
+ * every progress line: stderr under `--json`, so stdout stays one document.
  */
-async function repairProject(rootDir: string, prod: boolean): Promise<void> {
+async function repairProject(rootDir: string, prod: boolean, print: (line: string) => void): Promise<void> {
   scaffoldBackendFiles(rootDir)
   const devScript = adoptBackendDevScript(rootDir, { onlyCombined: true })
-  if (devScript?.changed) console.log(`[nuxt-backend] doctor --fix: scripts.dev → \`${devScript.script}\``)
+  if (devScript?.changed) print(`[nuxt-backend] doctor --fix: scripts.dev → \`${devScript.script}\``)
   const run = await runEnvPush(rootDir, { prod })
   if (run) {
-    console.log(`[nuxt-backend] doctor --fix: env push → ${run.deployment ?? 'deployment'}`)
-    reportEnvPush(run, { json: false, dryRun: false })
+    print(`[nuxt-backend] doctor --fix: env push → ${run.deployment ?? 'deployment'}`)
+    reportEnvPush(run, { json: false, dryRun: false, print })
   }
   else {
-    console.log('[nuxt-backend] doctor --fix: no deployment reachable — env not pushed.')
+    print('[nuxt-backend] doctor --fix: no deployment reachable — env not pushed.')
   }
 }
 
@@ -231,7 +233,7 @@ async function repairProject(rootDir: string, prod: boolean): Promise<void> {
  * Print an env-push run as a summary table (values never printed), or JSON.
  * Returns whether anything failed / was missing.
  */
-function reportEnvPush(run: EnvPushRunResult, { json, dryRun }: { json: boolean, dryRun: boolean }): boolean {
+function reportEnvPush(run: EnvPushRunResult, { json, dryRun, print = console.log }: { json: boolean, dryRun: boolean, print?: (line: string) => void }): boolean {
   const failed = run.results.filter(result => result.outcome === 'failed')
   if (json) {
     console.log(JSON.stringify({
@@ -245,10 +247,10 @@ function reportEnvPush(run: EnvPushRunResult, { json, dryRun }: { json: boolean,
     const label = { set: dryRun ? 'would set' : 'set', planned: 'would set', skipped: '·', failed: '✗' } as const
     for (const { action, outcome, error } of run.results) {
       const verb = action.action === 'skip' ? 'skipped' : action.action === 'unset' ? 'unset' : action.action === 'missing' ? 'MISSING' : label[outcome]
-      console.log(`  ${verb.padEnd(9)} ${action.name.padEnd(24)} ${error ?? action.detail}`)
+      print(`  ${verb.padEnd(9)} ${action.name.padEnd(24)} ${error ?? action.detail}`)
     }
     if (run.missingRequired.length > 0) {
-      console.log(`\nRequired env missing: ${run.missingRequired.join(', ')} — add them to .env.local and push again.`)
+      print(`\nRequired env missing: ${run.missingRequired.join(', ')} — add them to .env.local and push again.`)
     }
   }
   return failed.length > 0 || run.missingRequired.length > 0
@@ -285,6 +287,22 @@ const env = defineCommand({
   subCommands: { push: envPush },
 })
 
+/**
+ * `--only billing,email`: the services to check, or `undefined` for all.
+ * Null (with the error printed) when a name isn't a service.
+ */
+function parseOnly(raw: unknown): FindingService[] | undefined | null {
+  if (typeof raw !== 'string' || raw.trim() === '') return undefined
+  const names = raw.split(',').map(name => name.trim().toLowerCase()).filter(Boolean)
+  const unknown = names.filter(name => !(FINDING_SERVICES as string[]).includes(name))
+  if (unknown.length > 0) {
+    console.error(`[nuxt-backend] doctor --only: ${unknown.join(', ')} is not a service. Services: ${FINDING_SERVICES.join(', ')}.`)
+    process.exitCode = 1
+    return null
+  }
+  return names as FindingService[]
+}
+
 const doctor = defineCommand({
   meta: { name: 'doctor', description: 'Check the project + deployment configuration' },
   args: {
@@ -292,17 +310,20 @@ const doctor = defineCommand({
     json: { type: 'boolean', description: 'Machine-readable output', default: false },
     fix: { type: 'boolean', description: 'Repair what doctor can: restore missing scaffold files, push env (`env push`)', default: false },
     prod: { type: 'boolean', description: 'Check the production deployment; missing email/billing config becomes a failure', default: false },
+    only: { type: 'string', description: `Check only these services, comma-separated: ${FINDING_SERVICES.join(', ')}` },
   },
   async run({ args }) {
     const rootDir = projectRoot(args)
+    const only = parseOnly(args.only)
+    if (only === null) return
     if (refuseNonProductionKey(args.prod, rootDir)) return
 
-    if (args.fix) await repairProject(rootDir, args.prod)
+    if (args.fix) await repairProject(rootDir, args.prod, args.json ? line => console.error(line) : line => console.log(line))
 
-    const reported = await runDoctorChecks(rootDir, { prod: args.prod })
+    const reported = await runDoctorChecks(rootDir, { prod: args.prod, ...(only ? { only } : {}) })
 
     if (args.json) {
-      console.log(JSON.stringify({ findings: reported, summary: formatPreflightSummary(reported) }, null, 2))
+      console.log(JSON.stringify(doctorReport(reported), null, 2))
     }
     else {
       const icon = { pass: '✓', warn: '⚠', fail: '✗' } as const
