@@ -7,9 +7,10 @@ import { admin, emailOTP, jwt, mcp, organization } from 'better-auth/plugins'
 import { mutationGeneric, type AnyComponents, type AuthConfig, type FunctionReference, type GenericActionCtx, type GenericDataModel, type GenericMutationCtx, type GenericQueryCtx, type QueryBuilder } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 import authConfig from '../auth.config.js'
-import { BACKEND_MCP_SCOPES, DEFAULT_AUTH_ROUTE, DEFAULT_INVITATION_PATH, DEFAULT_LOGIN_PATH } from '../constants.js'
+import { BACKEND_MCP_SCOPES, DEFAULT_AGENT_CONSENT_PATH, DEFAULT_AUTH_ROUTE, DEFAULT_INVITATION_PATH, DEFAULT_LOGIN_PATH } from '../constants.js'
 import { authSchema } from '../components/backend/schema.js'
 import { setupMcp, type McpExchange } from '../integrations/mcp.js'
+import { agentConsent } from './agent-consent.js'
 import { type DatabaseHooks, mergeDatabaseHooks } from './hooks.js'
 
 /**
@@ -78,9 +79,10 @@ export type AuthEmailSender = (ctx: AuthMutationCtx, message: AuthEmailMessage) 
  * the agent token exchange `setupAuth` wires from the same integrations, and
  * the two privileged routes `ROUTE_LIMITS` throttles per caller (`admin`,
  * `invitation`) with the deployment-wide invitation ceiling behind the second
- * (`invitationGlobal`).
+ * (`invitationGlobal`), and the anonymous agent registration route
+ * (`agentRegistrationGlobal`).
  */
-export type AuthRateLimitName = 'emailOtp' | 'emailOtpGlobal' | 'mcp' | 'admin' | 'invitation' | 'invitationGlobal'
+export type AuthRateLimitName = 'emailOtp' | 'emailOtpGlobal' | 'mcp' | 'admin' | 'invitation' | 'invitationGlobal' | 'agentRegistrationGlobal'
 
 /**
  * Guards auth-sensitive flows. Satisfied by `setupRateLimiter(...)` from
@@ -483,30 +485,38 @@ async function assertOtpRequestAllowed<DM extends GenericDataModel>(
  * bucket allowed the request, so one account's refused excess never eats it.
  * Invitations spend the deployment's sending reputation, which is exactly the
  * shape `emailOtpGlobal` already guards on the OTP path.
+ *
+ * A route anyone may call without a session (agent client registration) has
+ * no caller to key on, so its rule names only the `global` ceiling, checked
+ * before any session lookup.
  */
 const ROUTE_LIMITS: ReadonlyArray<{
-  limit: AuthRateLimitName
   matches: (path: string) => boolean
-  message: string
+  caller?: { limit: AuthRateLimitName, message: string }
   global?: { limit: AuthRateLimitName, message: string }
 }> = [
   {
-    limit: 'admin',
     // `stop-impersonating` is the way out of an impersonated session and must
     // never be throttled; `has-permission` is a read-only check the console
     // calls on render.
     matches: path => path.startsWith('/admin/')
       && path !== '/admin/stop-impersonating'
       && path !== '/admin/has-permission',
-    message: 'Too many administrator actions. Please try again in a moment.',
+    caller: { limit: 'admin', message: 'Too many administrator actions. Please try again in a moment.' },
   },
   {
-    limit: 'invitation',
     matches: path => path === '/organization/invite-member',
-    message: 'Too many invitations sent. Please try again later.',
+    caller: { limit: 'invitation', message: 'Too many invitations sent. Please try again later.' },
     global: {
       limit: 'invitationGlobal',
       message: 'Invitations are temporarily unavailable. Please try again later.',
+    },
+  },
+  {
+    matches: path => path === '/mcp/register',
+    global: {
+      limit: 'agentRegistrationGlobal',
+      message: 'Too many agents are registering right now. Please try again later.',
     },
   },
 ]
@@ -535,14 +545,16 @@ async function assertRouteLimitAllowed<DM extends GenericDataModel>(
   const ctx = asMutationCtx(runtime?.ctx)
   if (!runtime?.rateLimiter || !ctx) return
 
-  const session = await getSessionFromCtx(request as never).catch(() => null) as
-    { user?: { id?: unknown } } | null
-  const userId = session?.user?.id
-  if (typeof userId !== 'string' || userId === '') return
+  if (rule.caller) {
+    const session = await getSessionFromCtx(request as never).catch(() => null) as
+      { user?: { id?: unknown } } | null
+    const userId = session?.user?.id
+    if (typeof userId !== 'string' || userId === '') return
 
-  // Like the OTP refusals, each carries the limiter's wait (ms) in the body.
-  const { ok, retryAfter } = await runtime.rateLimiter.limit(ctx, rule.limit, { key: userId })
-  if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: rule.message, retryAfter })
+    // Like the OTP refusals, each carries the limiter's wait (ms) in the body.
+    const { ok, retryAfter } = await runtime.rateLimiter.limit(ctx, rule.caller.limit, { key: userId })
+    if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message: rule.caller.message, retryAfter })
+  }
 
   // The caller's own budget allowed this one, so it may spend the shared
   // ceiling — never the other way round (see ROUTE_LIMITS).
@@ -605,15 +617,13 @@ export type OrganizationPluginOptions = Parameters<typeof organization>[0] & {
   invitationPath?: string
 }
 
-/** The OIDC provider config accepted by the bundled mcp plugin. */
-type McpOidcConfig = NonNullable<NonNullable<Parameters<typeof mcp>[0]>['oidcConfig']>
-
 /**
- * Options for the agent (MCP) OAuth provider — better-auth's `mcp` plugin,
- * enabled by default. Agents obtain access via dynamic client registration +
- * the OAuth authorization-code flow (passwordless sign-in resumes through the
- * `oidc_login_prompt` cookie), all mounted under the auth base path and
- * reachable on the app origin through the base module's auth proxy.
+ * Options for the agent (MCP) OAuth provider — better-auth's `mcp` plugin.
+ * Agents obtain access via dynamic client registration + the OAuth
+ * authorization-code flow with PKCE, and every authorization goes through
+ * the consent page, where the person approves or denies. All of it is mounted
+ * under the auth base path and reachable on the app origin through the base
+ * module's auth proxy.
  */
 export interface McpAuthOptions {
   /**
@@ -622,17 +632,17 @@ export interface McpAuthOptions {
    */
   scopes?: string[]
   /**
-   * The app page agents' users sign in on mid-OAuth. Defaults to the built-in
-   * login page path; align with `backend.pages.login` / `backend.loginPath`
-   * when those are customized.
+   * The app page a person signs in on mid-authorization. Default `/login`;
+   * keep it equal to `backend.pages.login` (`nuxt-backend doctor` compares
+   * the two).
    */
-  loginPage?: string
-  /** Your own consent page path; the plugin's built-in screen when unset. */
-  consentPage?: McpOidcConfig['consentPage']
-  /** Pre-registered clients (e.g. first-party agents with `skipConsent`). */
-  trustedClients?: McpOidcConfig['trustedClients']
-  /** Advanced OIDC provider passthrough; the options above win over it. */
-  oidcConfig?: McpOidcConfig
+  loginPath?: string
+  /**
+   * The app page a person approves or denies an agent on. Default
+   * `/oauth/consent`; keep it equal to `backend.pages.agentConsent`
+   * (`nuxt-backend doctor` compares the two).
+   */
+  consentPath?: string
 }
 
 export interface CreateBetterAuthOptions {
@@ -800,19 +810,21 @@ type DefaultAuthPlugin = NonNullable<BetterAuthOptions['plugins']>[number]
 const OIDC_IDENTITY_SCOPES = ['openid', 'profile', 'email']
 
 /**
- * The agent OAuth provider: better-auth's mcp plugin over the built-in login
- * page, offering `BACKEND_MCP_SCOPES` (plus consumer extras) so agents
- * can request the built-in tools' scopes at consent time.
+ * The agent OAuth provider: better-auth's mcp plugin over the login and
+ * consent pages, requiring PKCE (S256), and offering `BACKEND_MCP_SCOPES`
+ * (plus consumer extras) so agents can request the built-in tools' scopes.
+ * `agentConsent()` makes the consent step unconditional.
  */
 function defaultMcp(options: McpAuthOptions | undefined): DefaultAuthPlugin {
-  const loginPage = options?.loginPage ?? DEFAULT_LOGIN_PATH
+  const loginPage = options?.loginPath ?? DEFAULT_LOGIN_PATH
   return mcp({
     loginPage,
     oidcConfig: {
-      ...options?.oidcConfig,
       // Overridden by the plugin with the top-level value; present because
       // the OIDC options type requires it.
       loginPage,
+      consentPage: options?.consentPath ?? DEFAULT_AGENT_CONSENT_PATH,
+      requirePKCE: true,
       // The plugin appends these to its identity-scope defaults
       // (openid/profile/email/offline_access).
       scopes: [
@@ -823,10 +835,7 @@ function defaultMcp(options: McpAuthOptions | undefined): DefaultAuthPlugin {
       // scopes on its own — mirror the full offer unless overridden.
       metadata: {
         scopes_supported: [...new Set([...BACKEND_MCP_SCOPES, 'offline_access', ...options?.scopes ?? []])],
-        ...options?.oidcConfig?.metadata,
       },
-      ...(options?.consentPage ? { consentPage: options.consentPage } : {}),
-      ...(options?.trustedClients ? { trustedClients: options.trustedClients } : {}),
     },
   }) as DefaultAuthPlugin
 }
@@ -964,6 +973,7 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
     // 404ing /convex/token (the client token bridge). The exchange's signJWT
     // lives on a separate sign-only instance instead (setupAuth).
     defaultMcp(options.mcp),
+    agentConsent() as DefaultAuthPlugin,
   ].filter(plugin => !userPluginIds.has(plugin.id))
 
   const sendVerificationEmail = canSendEmail
@@ -1342,14 +1352,17 @@ export function makeAuthApi<
     },
   })
 
-  // Deployment-side view of cross-boundary auth config, for diagnostics: the
-  // Convex-side `invitationPath` and the Nuxt-side `pages.acceptInvitation`
-  // must point at the same route, and only `nuxt-backend doctor` can see both
-  // sides to compare them.
+  // Deployment-side view of cross-boundary auth config, for diagnostics: each
+  // Convex-side path must equal the Nuxt page it points at (`invitationPath`
+  // and `pages.acceptInvitation`, the agent login and consent paths and
+  // `pages.login` / `pages.agentConsent`), and only `nuxt-backend doctor` can
+  // see both sides to compare them.
   const invitationPath = options?.organization?.invitationPath ?? DEFAULT_INVITATION_PATH
+  const agentLoginPath = options?.mcp?.loginPath ?? DEFAULT_LOGIN_PATH
+  const agentConsentPath = options?.mcp?.consentPath ?? DEFAULT_AGENT_CONSENT_PATH
   const authConfig = queryBuilder({
     args: {},
-    handler: async () => ({ invitationPath }),
+    handler: async () => ({ invitationPath, agentLoginPath, agentConsentPath }),
   })
 
   // The caller's workspaces (identity-gated adapter reads over member +

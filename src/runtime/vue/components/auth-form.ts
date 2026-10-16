@@ -1,7 +1,9 @@
 import { computed, defineComponent, h, watch, type PropType, type VNodeChild } from 'vue'
+import { useRuntimeConfig } from '#imports'
 import { useBackendConfig } from '../composables/use-backend-config'
 import { useLoginFlow, type LoginStep } from '../composables/use-login-flow'
 import type { BackendAppConfig } from '../../config'
+import { agentAuthorizationUrl, publishedAuthRoute } from '../utils/agent-authorization'
 
 /**
  * The sign-in heading: the `title` prop, else `appConfig.backend.labels.auth.title`,
@@ -24,6 +26,10 @@ export function resolveAuthTitle(config: BackendAppConfig, override?: string): s
  *
  * Style it yourself against the `data-auth` hooks, or add the neutral default
  * stylesheet: `css: ['nuxt-backend/auth.css']` in `nuxt.config.ts`.
+ *
+ * When an agent's authorization sent the person here to sign in, signing in
+ * resumes it with a full navigation to the consent page instead of emitting
+ * `success` — on any page that renders this form.
  *
  * @example
  * ```vue
@@ -58,12 +64,18 @@ export const AuthForm = /* @__PURE__ */ defineComponent({
   },
   setup(props, { slots, emit }) {
     const config = useBackendConfig()
+    const authRoute = publishedAuthRoute(useRuntimeConfig())
     const title = computed(() => resolveAuthTitle(config, props.title))
     const flow = useLoginFlow({
       requireName: props.requireName,
       validateEmail: props.validateEmail,
       offerPasskey: props.passkeys,
-      onSuccess: () => emit('success'),
+      onSuccess: () => {
+        const resume = typeof window === 'undefined' ? null : agentAuthorizationUrl(window.location.search, authRoute)
+        // fallow-ignore-next-line security-sink -- always `${authRoute}/mcp/authorize?…`: the published same-origin auth route plus this page's own query; verified 2026-10-14
+        if (resume) window.location.assign(resume)
+        else emit('success')
+      },
     })
 
     watch(flow.step, value => emit('step', value))

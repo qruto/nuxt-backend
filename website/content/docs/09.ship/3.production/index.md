@@ -57,7 +57,8 @@ Everything else keeps its normal severity — `deployment-auth-secret` / `deploy
 ### Agents (MCP)
 
 - [ ] Know the surface: an OAuth-protected `/mcp` endpoint where agents act as the signed-in user with consented scopes only.
-- [ ] `SITE_URL` is correct (the OAuth flow and discovery documents are built on the app origin), and `trustedClients` lists only first-party agents.
+- [ ] `SITE_URL` is correct: the OAuth flow, the consent page's redirects and the discovery documents are built on the app origin.
+- [ ] An agent you connect yourself stops at the consent page, and a denial returns `access_denied` to it.
 
 ### App
 

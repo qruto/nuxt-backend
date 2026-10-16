@@ -85,8 +85,10 @@ sign-in codes print in the terminal that runs `dev`.
   Never expose a public function that takes a recipient: the scaffolded `send` is an
   `internalAction`. Call it from server code with an address you trust, or use
   `admin.action` (like `sendAsAdmin`) when a person types the address.
-- **Agents:** the app serves an OAuth-protected MCP endpoint at `/mcp`. Add tools with
-  `defineBackendMcpTool` from `nuxt-backend/mcp`, one file each in `server/mcp/tools/`.
+- **Agents:** the app serves an OAuth-protected MCP endpoint at `/mcp`. Every agent uses PKCE
+  and stops at the consent page, `/oauth/consent`, where the person approves or denies; there
+  is no option to skip it. Add tools with `defineBackendMcpTool` from `nuxt-backend/mcp`, one
+  file each in `server/mcp/tools/`.
 - **Tests:** register the component in `convex-test` with `nuxt-backend/test`
   (`backendTest.register(t)`).
 - **Linting:** `backendEslint()` from `nuxt-backend/eslint` applies Convex's lint rules to

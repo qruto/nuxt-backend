@@ -73,6 +73,8 @@ stub
   .route('GET /api/auth/passkey/list-user-passkeys', () => ({ body: [] }))
   .route('GET /api/auth/list-sessions', () => ({ body: [SESSION] }))
   .route('GET /api/auth/organization/get-invitation', () => ({ body: { id: 'inv_1', organizationName: 'Acme', inviterEmail: 'grace@example.com', role: 'member', status: 'pending' } }))
+  // The agent consent page reads the request the server stored for it.
+  .route('POST /api/auth/agent-consent/request', () => ({ body: { clientId: 'client_claude', clientName: 'Claude Code', redirectHost: 'localhost:33418', scopes: ['openid', 'profile', 'email', 'billing:read', 'workspace:read'], expiresAt: Date.now() + 600_000 } }))
 
 const app = prepareExampleApp(rootDir)
 
@@ -103,6 +105,7 @@ const READY: Record<string, string> = {
   profile: '[data-profile="root"]',
   security: '[data-security="session"]',
   acceptInvitation: '[data-invitation="ready"]',
+  agentConsent: '[data-consent="ready"]',
 }
 const shots = BACKEND_PAGE_DEFS.flatMap(def => WIDTHS.flatMap(width => SCHEMES.map(scheme => ({ key: def.key, path: pages[def.key], width, scheme }))))
 

@@ -27,6 +27,7 @@
     "src/runtime/vue/composables/use-login-flow.ts",
     "src/runtime/vue/composables/use-passkeys.ts",
     "src/runtime/vue/composables/use-sessions.ts",
+    "src/runtime/vue/composables/use-agent-consent.ts",
     "src/runtime/vue/composables/use-orders.ts",
     "src/runtime/vue/composables/use-usage.ts",
     "src/runtime/vue/composables/use-backend-config.ts",

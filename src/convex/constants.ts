@@ -19,6 +19,12 @@ export const DEFAULT_SETTINGS_PATH = '/settings'
 export const DEFAULT_PROFILE_PATH = '/profile'
 export const DEFAULT_SECURITY_PATH = '/security'
 /**
+ * The page where a person approves or denies an agent's request for access
+ * (module option `pages.agentConsent`). The Convex side sends the OAuth
+ * provider's consent redirect here (`setupAuth`'s `mcp.consentPath`).
+ */
+export const DEFAULT_AGENT_CONSENT_PATH = '/oauth/consent'
+/**
  * Route the agent token exchange mounts at (`registerBackendRoutes`'s
  * `mcpExchangePath`). The Nuxt module's MCP gate POSTs the agent's OAuth
  * Bearer here to trade it for a short-lived Convex JWT.

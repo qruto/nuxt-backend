@@ -118,6 +118,14 @@ export const DEFAULT_LIMITS = {
    * legitimately invites more than that.
    */
   invitationGlobal: { kind: 'fixed window', rate: 200, period: HOUR },
+  /**
+   * Agent client registrations across the whole deployment — 100 per hour, a
+   * fixed window. Registration is anonymous by design (OAuth dynamic client
+   * registration), so there is no caller to key on: this ceiling bounds how
+   * fast anyone can fill the client table. An agent registers once per
+   * install, so a real launch stays far below it.
+   */
+  agentRegistrationGlobal: { kind: 'fixed window', rate: 100, period: HOUR },
 } as const satisfies Record<string, RateLimitConfig>
 
 /**

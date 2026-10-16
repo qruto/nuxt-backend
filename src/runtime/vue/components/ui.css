@@ -9,6 +9,7 @@
 @import './tokens.css';
 @import './auth.css';
 @import './invitation.css';
+@import './consent.css';
 @import './gift.css';
 @import './pricing.css';
 @import './history.css';
