@@ -5,8 +5,8 @@
  * finer-grained theming. `:where()` keeps specificity at zero, so any app
  * selector wins.
  *
- * Auto-added by the module (`backend.css: false` to opt out), or import
- * pieces yourself: `css: ['nuxt-backend/ui.css']`.
+ * Part of the module's stylesheet (ui.css), which the module adds to every
+ * app.
  */
 :where(
   [data-auth='form'],

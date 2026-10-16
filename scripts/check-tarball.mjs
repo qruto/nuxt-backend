@@ -35,18 +35,13 @@ const run = (label, file, args) => step(label, file, args, { cwd: root })
 // through one exports map, and a lax entry in either is a consumer's bug.
 run('Package shape (publint)', 'pnpm', ['exec', 'publint', 'run', '--strict', tarball])
 
-// Type resolution across every export subpath. The two stylesheet subpaths are
-// excluded: TypeScript cannot resolve a stylesheet, so attw reports them as
-// failed resolution on every target.
+// Type resolution across every export subpath.
 run('Type resolution (arethetypeswrong)', 'pnpm', [
   'exec',
   'attw',
   tarball,
   '--profile',
   'esm-only',
-  '--exclude-entrypoints',
-  './auth.css',
-  './ui.css',
 ])
 
 // ── Contents ─────────────────────────────────────────────────────────────────
@@ -313,7 +308,7 @@ try {
 
   let subpaths = 0
   for (const [subpath, entry] of Object.entries(manifest.exports ?? {})) {
-    if (subpath === './package.json' || subpath.endsWith('.css')) continue
+    if (subpath === './package.json') continue
     const target = typeof entry === 'string' ? entry : entry.default ?? entry.import
     if (!target) continue // types-only entries (the ComponentApi)
     subpaths += 1

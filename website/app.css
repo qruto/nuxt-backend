@@ -441,30 +441,6 @@ details.dev > .dev-body { padding: 0.25rem 0.85rem 0.85rem; }
   box-shadow: 0 1px 0 light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.06));
 }
 
-/* Header: a matte machined bar (translucent over the canvas, lit top rim). */
-.mach-bar {
-  background:
-    linear-gradient(180deg, light-dark(rgb(255 255 255 / 0.45), rgb(255 255 255 / 0.04)), transparent 55%),
-    color-mix(in srgb, var(--bg) 82%, transparent);
-  box-shadow:
-    inset 0 1px 0 light-dark(rgb(255 255 255 / 0.70), rgb(255 255 255 / 0.06)),
-    0 10px 26px -20px rgb(0 0 0 / 0.5);
-}
-/* Footer: a carved seam above. */
-.mach-seam {
-  border-top: 1px solid var(--edge);
-  box-shadow: inset 0 1px 0 light-dark(rgb(255 255 255 / 0.60), rgb(255 255 255 / 0.05));
-}
-/* Header search trigger: a shallow slot that deepens on hover. */
-.search-slot {
-  background: var(--sink);
-  border-radius: 999px;
-  box-shadow: var(--inset-1);
-  color: var(--ink-dim);
-  transition: box-shadow var(--transition);
-}
-.search-slot:hover { box-shadow: var(--slot); }
-
 /* The copy button is absolutely positioned at the block's top-right corner
    with no gutter reserved for it, and below `lg` it is permanently visible
    (Nuxt UI only fades it in on hover from `lg` up). On a phone it therefore
@@ -528,12 +504,12 @@ html.qa-contrast :is(.embossed, .embossed-sm, .emb, .emb-sm, kbd) { text-shadow:
 /* ════════════════════════════════════════════════════════════════
    DOCUS / NUXT UI — matte machined coat
    ----------------------------------------------------------------
-   The docs chrome is themed NATIVELY: the matte utilities above travel
-   through `app.config.ts` `ui.*` slot overrides (header → .mach-bar,
-   prose h1 → .engraved, pre → .slot, cards → .plaque, callouts →
-   .carved, search → .search-slot, footer → .mach-seam …). Raw CSS
-   selectors remain ONLY where Nuxt UI exposes no slot: the sidebar/TOC
-   link ::before layer, inline code chips, and kbd.
+   The docs chrome is themed NATIVELY: the parts travel through
+   `app.config.ts` `ui.*` slot overrides (design.md §Chrome map: header →
+   bar, search → slot slot-pill, pre → slot, cards → plaque, callouts →
+   carved, footer → seam …). Raw CSS selectors remain ONLY where Nuxt UI
+   exposes no slot: the TOC link ::before layer, inline code chips outside
+   the docs prose, and kbd.
    ════════════════════════════════════════════════════════════════ */
 
 /* Left sidebar + right TOC links. One metaphor: ACTIVE = pressed — the

@@ -35,11 +35,8 @@ const info: DevtoolsServerInfo = {
   functionsDir: 'backend',
   options: {
     scaffold: true,
-    css: true,
     autoEnv: true,
     authRoute: '/api/auth',
-    loginPath: null,
-    pagesEnabled: true,
   },
   deployment: { kind: 'none' },
   pages: [],

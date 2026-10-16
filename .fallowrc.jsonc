@@ -56,14 +56,16 @@
   ],
 
   // Registered from src/module.ts by path (addServerHandler, addPlugin, the
-  // MCP toolkit's `mcp:definitions:paths` hook) — the static graph cannot
+  // MCP toolkit's `mcp:definitions:paths` hook, the stylesheet) — the static graph cannot
   // follow a resolver.resolve() string.
   "dynamicallyLoaded": [
     "src/runtime/devtools/plugin.client.ts",
     "src/runtime/server/mcp/gate.ts",
     "src/runtime/server/mcp/protected-resource.ts",
     "src/runtime/server/mcp/authorization-server.ts",
-    "src/runtime/server/mcp/tools/*.ts"
+    "src/runtime/server/mcp/tools/*.ts",
+    // nuxt.options.css.unshift(); it @imports the rest of the stylesheets.
+    "src/runtime/vue/components/ui.css"
   ],
 
   // The website, the tests and the fixture import the package by its

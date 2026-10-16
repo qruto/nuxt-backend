@@ -1,20 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-
 /**
  * The first screen — the headline engraved straight into the matte titanium
  * slab. No window fiction, no props: the material IS the hero. Below the
  * carved wordmark: the install command milled into a slot, and a live proof
- * line driven by the real Convex connection this page runs on.
+ * line driven by the real Convex connection this page runs on, which loads
+ * the backend client once the line is on screen (<DeferredBackend>).
  */
-
-// Real Convex connection (client-only — no socket during prerender).
-const conn = import.meta.client ? useConvexConnectionState() : null
-const mounted = ref(false)
-const connected = computed(() => mounted.value && !!conn?.value.isWebSocketConnected)
-onMounted(() => {
-  mounted.value = true
-})
 
 const specs = ['Auth', 'Real-time', 'Billing', 'Email', 'Workflows', 'Search', 'SSR']
 </script>
@@ -63,17 +54,24 @@ const specs = ['Auth', 'Real-time', 'Billing', 'Email', 'Workflows', 'Search', '
 
     <HomeCommandSlot class="hero__cmd" />
 
-    <p
+    <DeferredBackend
+      as="p"
       class="hero__proof"
       aria-live="polite"
     >
-      <span
-        class="hero__led"
-        :class="{ on: connected }"
-      />
-      <span v-if="connected">Live on Convex · 0 servers to run</span>
-      <span v-else>Connecting to Convex…</span>
-    </p>
+      <LazyLiveConnection v-slot="{ connected }">
+        <span
+          class="hero__led"
+          :class="{ on: connected }"
+        />
+        <span v-if="connected">Live on Convex · 0 servers to run</span>
+        <span v-else>Connecting to Convex…</span>
+      </LazyLiveConnection>
+      <template #fallback>
+        <span class="hero__led" />
+        <span>Connecting to Convex…</span>
+      </template>
+    </DeferredBackend>
 
     <p class="hero__specs engraved-sm">
       <template

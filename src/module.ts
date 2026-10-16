@@ -13,7 +13,7 @@ import { scaffoldBackendFiles, appComponentIsStarter } from './scaffold'
 import { AGENT_HINT } from './agents'
 import { registerBackendAliases, backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from './aliases'
 import { collectPreflightFindings, formatPreflightSummary, needsSetup, type PreflightFinding } from './preflight'
-import { BACKEND_PAGE_DEFS, collectExistingPagePaths, privatePagePaths, resolvePagePath, resolvedBackendPages, type BackendPageKey, type ModulePagesOptions } from './pages'
+import { BACKEND_PAGE_DEFS, collectExistingPagePaths, pageRouteRules, resolvePagePath, resolvedBackendPages, type BackendPageKey, type ModulePagesOptions } from './pages'
 import { buildDevtoolsInfo, computeDevtoolsPages, readPackageVersions } from './devtools/info'
 import type { DevtoolsPageInfo } from './devtools/rpc-types'
 import type { BackendMcpFunctionKey } from './runtime/server/mcp/builtin'
@@ -68,25 +68,12 @@ export interface ModuleOptions {
    */
   scaffold?: 'auto' | false
   /**
-   * The ready-made pages — login, pricing, settings, profile, security, and
-   * the invitation accept page — all mounted by default. Per key: `true`
-   * (default path), a string (custom path), or `false` (bring your own).
-   * `false` disables the whole set. An app page at the same path always wins
-   * over the module's.
+   * Where the ready-made pages mount (sign-in, pricing, settings, profile,
+   * security, the invitation and agent-consent pages). Every page is on; give
+   * a key a path to move it. To replace a page, put an app page at its path:
+   * an app page always wins over the module's.
    */
-  pages?: ModulePagesOptions | false
-  /**
-   * Where the auth middleware sends signed-out visitors. Defaults to the
-   * resolved built-in login page path; set this when you disable
-   * `pages.login` and serve your own sign-in route somewhere else.
-   */
-  loginPath?: string
-  /**
-   * Auto-add the neutral default stylesheet (`nuxt-backend/ui.css`) covering
-   * every shipped component and page. `false` to opt out and style the
-   * `data-*` hooks yourself.
-   */
-  css?: boolean
+  pages?: ModulePagesOptions
   /**
    * On dev startup, provision the `dev:` deployment env automatically — the
    * same engine as `npx nuxt-backend env push`: forward `.env(.local)` values,
@@ -128,7 +115,6 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     scaffold: 'auto',
-    css: true,
     autoEnv: true,
     devtools: true,
   },
@@ -145,10 +131,9 @@ export default defineNuxtModule<ModuleOptions>({
     const backend = (rawOptions.backend ?? {}) as ModuleOptions
     const convex = (rawOptions.convex ?? {}) as Record<string, unknown>
     const resolver = createResolver(moduleDir)
-    // The auth middleware redirects to the resolved login page path; with the
-    // built-in page disabled, `backend.loginPath` points at the app's own
-    // sign-in route (else the app is expected to shadow `/login`).
-    const loginPath = backend.loginPath ?? resolvePagePath(backend.pages, 'login') ?? undefined
+    // The auth middleware redirects to the sign-in page's path, wherever it
+    // mounts (and whether the module's page or the app's own serves it).
+    const loginPath = resolvePagePath(backend.pages, 'login')
     // Both URLs are derivable from the deployment slug the platform CLI
     // writes to .env.local, so neither is required config. This package's own
     // env names are NUXT_PUBLIC_BACKEND_URL / NUXT_PUBLIC_BACKEND_SITE_URL;
@@ -257,10 +242,9 @@ export default defineNuxtModule<ModuleOptions>({
 
     registerSaasComposables(resolver)
 
-    // The neutral default stylesheet for every shipped component and page.
-    if (options.css !== false) {
-      nuxt.options.css.push(resolver.resolve('./runtime/vue/components/ui.css'))
-    }
+    // The neutral stylesheet for every shipped component and page, first in
+    // line and layered (ui.css), so every app rule wins over it.
+    nuxt.options.css.unshift(resolver.resolve('./runtime/vue/components/ui.css'))
 
     registerAuthMiddleware()
     registerBillingLinkComponents()
@@ -480,41 +464,32 @@ function registerModulePages(options: ModuleOptions, resolver: Resolver, nuxt: N
     authRoute: options.authRoute ?? DEFAULT_AUTH_ROUTE,
   }
 
-  if (options.pages === false) return info
-
-  // The private pages redirect a signed-out visitor to sign-in, so nothing on
-  // them is worth indexing. These rules keep them out of search results and
-  // sitemaps: @nuxtjs/robots answers `robots: false` with a noindex header and
-  // meta tag, @nuxtjs/sitemap drops the URL; without those modules they are
-  // inert. They follow the path, not the component, so an app page at the same
-  // path gets them too, and a rule the app sets for that path wins key by key.
-  for (const path of privatePagePaths(options.pages)) {
-    extendRouteRules(path, { robots: false, sitemap: false } as Parameters<typeof extendRouteRules>[1])
+  // Each page's path carries its route rules (pageRouteRules): never
+  // prerendered, and a private page never indexed or cached.
+  for (const def of BACKEND_PAGE_DEFS) {
+    extendRouteRules(resolved[def.key], pageRouteRules(def) as Parameters<typeof extendRouteRules>[1])
   }
   // The consent page decides what an agent may do as this person: no page may
   // frame it (a clickjacked "Approve"), and nothing it loads learns its URL.
   // Plain headers for apps without nuxt-security, the same values through
   // nuxt-security's per-route config for apps with it (it sets these headers
   // itself, so a plain header alone would be overwritten).
-  if (resolved.agentConsent) {
-    extendRouteRules(resolved.agentConsent, {
-      headers: { 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY' },
-      security: {
-        headers: {
-          referrerPolicy: 'no-referrer',
-          xFrameOptions: 'DENY',
-          contentSecurityPolicy: { 'frame-ancestors': '\'none\'' },
-        },
+  extendRouteRules(resolved.agentConsent, {
+    headers: { 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY' },
+    security: {
+      headers: {
+        referrerPolicy: 'no-referrer',
+        xFrameOptions: 'DENY',
+        contentSecurityPolicy: { 'frame-ancestors': '\'none\'' },
       },
-    } as Parameters<typeof extendRouteRules>[1])
-  }
+    },
+  } as Parameters<typeof extendRouteRules>[1])
 
   extendPages((pages) => {
     const taken = collectExistingPagePaths(pages)
     info.list = computeDevtoolsPages(resolved, taken)
     for (const def of BACKEND_PAGE_DEFS) {
       const path = resolved[def.key]
-      if (!path) continue
       if (taken.has(path)) {
         logger.info(`App page at \`${path}\` overrides the built-in ${def.key} page`)
         continue
@@ -835,15 +810,6 @@ function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
     logger.warn(
       'app.vue still renders <NuxtWelcome /> and no <NuxtPage />, so the pages this module registers (/login, /pricing, …) will not render. '
       + 'Replace <NuxtWelcome /> with <NuxtPage /> — `npx nuxt-backend init` does it for you.',
-    )
-  }
-
-  // The auth middleware always needs a login route. With the built-in page
-  // disabled and no explicit `backend.loginPath`, the app must shadow `/login`.
-  if (resolvePagePath(options.pages, 'login') === null && !options.loginPath) {
-    logger.warn(
-      'The built-in login page is disabled (`backend.pages.login: false`). '
-      + 'Provide your own page at `/login`, or point `backend.loginPath` at your sign-in route.',
     )
   }
 

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-
 /**
  * Homepage architecture diagram — how the two halves fit together.
  *
@@ -17,22 +15,8 @@ import { computed, onMounted, ref } from 'vue'
  * lands at roughly its authored size. Only one is ever displayed, so only
  * one is exposed to assistive tech (the other is `display: none`).
  */
-// The live chip is inherently client-only. Calling the composable during SSR /
-// prerender would open a Convex WebSocket (the lazy `.sync` client) and keep the
-// build process alive, so only subscribe on the client.
-const conn = import.meta.client ? useConvexConnectionState() : null
-const mounted = ref(false)
-onMounted(() => {
-  mounted.value = true
-})
-
-const connected = computed(() => mounted.value && !!conn?.value.isWebSocketConnected)
-const chip = computed(() => {
-  if (!mounted.value) return { text: 'connecting…', cls: 'idle' }
-  return connected.value
-    ? { text: 'this page is live on Convex', cls: 'on' }
-    : { text: 'reconnecting…', cls: 'off' }
-})
+// The live chip loads the backend client once it is on screen
+// (<DeferredBackend>); the server renders it connecting.
 </script>
 
 <template>
@@ -421,14 +405,25 @@ const chip = computed(() => {
           >Data · real-time</text>
         </svg>
 
-        <div
-          class="status"
-          :class="chip.cls"
-        >
-          <span class="led" />
-          {{ chip.text }}
-          <code>useConvexConnectionState()</code>
-        </div>
+        <DeferredBackend>
+          <LazyLiveConnection v-slot="{ connected }">
+            <div
+              class="status"
+              :class="connected ? 'on' : 'off'"
+            >
+              <span class="led" />
+              {{ connected ? 'this page is live on Convex' : 'reconnecting…' }}
+              <code>useConvexConnectionState()</code>
+            </div>
+          </LazyLiveConnection>
+          <template #fallback>
+            <div class="status idle">
+              <span class="led" />
+              connecting…
+              <code>useConvexConnectionState()</code>
+            </div>
+          </template>
+        </DeferredBackend>
       </div>
     </div>
   </section>

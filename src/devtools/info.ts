@@ -21,11 +21,8 @@ import type {
  */
 export interface DevtoolsOptionsInput {
   scaffold?: 'auto' | false
-  css?: boolean
   autoEnv?: boolean
   authRoute?: string
-  loginPath?: string
-  pages?: unknown
 }
 
 /** The resolved `backend.mcp` facts the panel needs (`null` = disabled). */
@@ -55,17 +52,15 @@ export interface BuildDevtoolsInfoInput {
 /**
  * The `shadowed` flag per resolved page: an app page already occupies the
  * path (the `taken` set `collectExistingPagePaths` produced inside
- * `extendPages` — the same check the module uses to skip mounting). Disabled
- * pages are omitted.
+ * `extendPages` — the same check the module uses to skip mounting).
  */
 export function computeDevtoolsPages(
   resolved: Record<BackendPageKey, string>,
   taken: ReadonlySet<string>,
 ): DevtoolsPageInfo[] {
-  return BACKEND_PAGE_DEFS.flatMap((def) => {
+  return BACKEND_PAGE_DEFS.map((def) => {
     const path = resolved[def.key]
-    if (!path) return []
-    return [{ key: def.key, path, auth: def.auth, shadowed: taken.has(path) }]
+    return { key: def.key, path, auth: def.auth, shadowed: taken.has(path) }
   })
 }
 
@@ -151,11 +146,8 @@ export function buildDevtoolsInfo(input: BuildDevtoolsInfoInput): DevtoolsServer
     functionsDir: input.functionsDir,
     options: {
       scaffold: options.scaffold !== false,
-      css: options.css !== false,
       autoEnv: options.autoEnv !== false,
       authRoute: options.authRoute ?? '/api/auth',
-      loginPath: options.loginPath ?? null,
-      pagesEnabled: options.pages !== false,
     },
     deployment: computeDeployment(input.rootDir, input.env),
     pages: input.pages,

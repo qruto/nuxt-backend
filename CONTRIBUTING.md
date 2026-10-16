@@ -376,7 +376,17 @@ navigation:
 `title` and `navigation.icon` are the sidebar entry; `description` is the meta tag and the OG
 card. `kind` says what the page is for, one of `landing`, `tutorial`, `how-to`, `concept`,
 `recipe` and `reference`; a page does one of those, so a how-to covering two tasks is two pages. A
-page documenting the experimental tier of STABILITY.md also sets `status: experimental`.
+page documenting the experimental tier of STABILITY.md also sets `status: experimental`, which
+draws the page's Experimental chip and the navigation's badge.
+
+The page header's keys come from three more fields, each optional: `playground` (the playground
+route that shows the feature running: **Try live**), `api` (its generated reference page) and
+`source` (the repository path of its code). `related` lists the routes the aside offers next. A
+page whose body holds a live demo block (`::demo-counter`, `::demo-connection`) sets `demo: true`:
+it is where the backend client may load, and nowhere else in the docs does. The aside's
+last-updated date comes from git at build time; no page writes it.
+[`test/docs/page-header.test.ts`](./test/docs/page-header.test.ts) holds each of these to a real
+target.
 
 [`test/docs/page-contract.test.ts`](./test/docs/page-contract.test.ts) holds every page to the
 contract:
@@ -398,8 +408,7 @@ The components in use are Docus's, written in MDC syntax — keep to these rathe
 adding new ones: `::note`, `::tip` and `::warning` for callouts; `::field-group` with
 `:::field{name="…" type="…"}` children for options and parameters (the docs contract reads the
 field group on the configuration page); `::code-group` for one snippet under several package
-managers or files; and `::playground-link{to="/playground/…" label="…"}`, this site's own
-component (`website/components/PlaygroundLink.vue`), for a link into the live playground. Links
+managers or files. A link into the live playground is the page's `playground` field, not a block. Links
 between pages are root-relative routes (`/docs/auth/sign-in`), not paths on disk: the docs
 build fails on a broken one, `test/docs/docs-structure.test.ts` fails on a link to a redirect
 source, and the weekly link check covers the external URLs. Moving a page means a row in the

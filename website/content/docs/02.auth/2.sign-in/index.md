@@ -2,6 +2,9 @@
 title: Authentication
 description: Sign in from Nuxt, read reactive session state, protect routes, and gate UI with the auth components.
 kind: how-to
+playground: /playground/platform/account
+api: /docs/reference/api/use-login-flow
+source: src/runtime/vue/composables/use-login-flow.ts
 navigation:
   icon: i-lucide-shield-check
 ---
@@ -69,7 +72,6 @@ const { step, email, name, otp, pending, error, sendCode, verifyCode, addPasskey
 |---|---|---|
 | `requireName` | `true` | UI hint read by `<AuthForm>`: show a name field on the email step. `verifyCode()` sends `name` with the code whenever it is non-empty — on a custom page, keep it bound through the verify step, not only the request step. |
 | `validateEmail` | a basic shape check | `(email) => boolean \| string` — gates the email before `sendCode`. Return `false` for the default message, or a string for a custom one. |
-| `offerPasskey` | `true` | Enter `add-passkey` after the code is verified. `false` finishes right away. |
 | `onSuccess` | — | Called once the user is signed in and the flow is complete (e.g. `navigateTo`). |
 
 It returns:
@@ -127,7 +129,7 @@ definePageMeta({ middleware: 'auth' })
 </script>
 ```
 
-Unauthenticated users are redirected to `/login` (the [`loginPath`](/docs/reference/configuration/module-options) option, when the built-in page is replaced) with the original destination in `?redirect=`. The guard runs on the server for direct loads and in the browser for client-side navigation.
+Unauthenticated users are redirected to the sign-in page (`/login`, or wherever [`pages.login`](/docs/reference/configuration/module-options) puts it) with the original destination in `?redirect=`. The guard runs on the server for direct loads and in the browser for client-side navigation.
 
 `auth` is this package's name for the guard `nuxt-convex-module` registers as `convex-auth` — both stay registered and point at the same middleware, so code written against the base module keeps working.
 
@@ -172,7 +174,4 @@ The three flags are computed refs — read `.value` in script (templates unwrap 
 
 ::tip{to="/docs/auth/setup"}
 To customize Better Auth itself — add providers, plugins, or change the auth route — see the Convex Backend section.
-::
-
-::playground-link{to="/playground/platform/account" label="authentication"}
 ::

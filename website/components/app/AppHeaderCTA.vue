@@ -1,19 +1,8 @@
-<!-- Overrides the (empty) Docus AppHeaderCTA slot to add top-level links to the
-     docs and the interactive playground. -->
+<!-- The right side of the header from lg up: the keys and the version chip.
+     Below lg the drawer (AppHeaderBody) carries them. -->
 <template>
-  <div class="hidden items-center gap-1 sm:flex">
-    <UButton
-      to="/docs/start"
-      color="neutral"
-      variant="ghost"
-      label="Docs"
-    />
-    <UButton
-      to="/playground"
-      color="neutral"
-      variant="ghost"
-      icon="i-lucide-flask-conical"
-      label="Playground"
-    />
+  <div class="hidden items-center gap-2 lg:flex">
+    <AppHeaderKeys />
+    <AppHeaderVersion />
   </div>
 </template>

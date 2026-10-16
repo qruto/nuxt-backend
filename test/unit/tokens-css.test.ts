@@ -10,7 +10,7 @@ const stylesheets = readdirSync(componentsDir)
   .filter(name => name.endsWith('.css'))
   .map(name => [name, readFileSync(join(componentsDir, name), 'utf-8')] as const)
 const tokens = readFileSync(join(componentsDir, 'tokens.css'), 'utf-8')
-const auth = readFileSync(join(componentsDir, 'auth.css'), 'utf-8')
+const ui = readFileSync(join(componentsDir, 'ui.css'), 'utf-8')
 const site = readFileSync(fileURLToPath(new URL('../../website/app.css', import.meta.url)), 'utf-8')
 
 /**
@@ -66,10 +66,14 @@ describe('component tokens', () => {
     }
   })
 
-  it('mirrors the defaults in the auth.css fallbacks for stand-alone imports', () => {
-    expect(auth).toContain(`--auth-accent: var(--bk-accent, ${defaults['--bk-accent']})`)
-    expect(auth).toContain(`--auth-on-accent: var(--bk-on-accent, ${defaults['--bk-on-accent']})`)
-    expect(auth).toContain(`--auth-error: var(--bk-error, ${defaults['--bk-error']})`)
+  it('layers every stylesheet between Tailwind\'s reset and its utilities', () => {
+    // The order statement Tailwind declares comes first, so the layer sits in
+    // the same place whichever stylesheet loads first; every piece goes into
+    // components.backend, and an app rule outside a layer always wins.
+    const rules = ui.replace(/\/\*[\s\S]*?\*\//g, '').trim().split('\n').filter(Boolean)
+    expect(rules[0]).toBe('@layer theme, base, components, utilities;')
+    const pieces = stylesheets.map(([name]) => name).filter(name => name !== 'ui.css')
+    expect(rules.slice(1).sort()).toStrictEqual(pieces.map(name => `@import './${name}' layer(components.backend);`).sort())
   })
 
   it('draws a keyboard focus ring on every button and link the components render', () => {

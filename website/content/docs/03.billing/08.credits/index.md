@@ -2,6 +2,9 @@
 title: Credits & top-ups
 description: Prepaid credits on provider meters — useCredits, top-ups, and the reserve → run → settle spend that never charges for a failed run.
 kind: how-to
+playground: /playground/platform/credits
+api: /docs/reference/api/use-credits
+source: src/runtime/vue/composables/use-credits.ts
 navigation:
   icon: i-lucide-coins
 ---
@@ -76,8 +79,4 @@ Credits are spent on the server, never from the browser: see [Spend credits in y
 
 `<WorkspaceSettings>` (the `/settings` page) renders the credits section — balance, the packs from `appConfig.backend.billing.packs`, and a top-up button per pack — over exactly these composables; replace it through its `credits` slot.
 
-::playground-link{to="/playground/platform/credits" label="credits"}
-::
-
-::playground-link{to="/playground/platform/history" label="usage history and the low-credits banner"}
-::
+The playground's [history page](/playground/platform/history) shows the usage history and the low-credits banner running.

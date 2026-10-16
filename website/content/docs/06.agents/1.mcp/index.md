@@ -3,6 +3,9 @@ title: MCP server
 description: The OAuth-protected MCP endpoint the module mounts — what an agent connects to, the two discovery documents, and the options that move or remove it.
 kind: concept
 status: experimental
+playground: /playground/platform/agents
+api: /docs/reference/api/mcp
+source: src/convex/integrations/mcp.ts
 navigation:
   icon: i-lucide-server
 ---
@@ -126,9 +129,6 @@ backend: { mcp: { route: '/agent' } }
 ```
 
 The gate follows the route, and so do the toolkit's conveniences (`/agent/deeplink`, `/agent/badge.svg`). The discovery documents stay on their `/.well-known/…` paths — `resource` is the **origin**, not the endpoint URL, so a client requesting any path under it (the moved endpoint included) passes its sub-path resource check.
-
-::playground-link{to="/playground/platform/agents" label="the agent endpoint"}
-::
 
 ::note
 The agent surface is **experimental**: the MCP authorization profile it implements (OAuth 2.1 + protected-resource metadata) and `@nuxtjs/mcp-toolkit` are both still moving, so `nuxt-backend/mcp` may change shape in a minor release. The rest of the package holds the stability promise.

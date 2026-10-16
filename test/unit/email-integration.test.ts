@@ -27,7 +27,9 @@ const refs = {
   cleanupAbandoned: 'ref:cleanupAbandoned',
   handleWebhook: 'ref:handleWebhook',
 }
-const component = { backend: { email: refs } } as unknown as EmailComponents
+// Every delivery goes through the webhook log, so the component carries it.
+const webhooks = { record: 'ref:webhooks.record', find: 'ref:webhooks.find', listRecent: 'ref:webhooks.listRecent' }
+const component = { backend: { email: refs, webhooks } } as unknown as EmailComponents
 
 // The guarded webhook edge fails closed (503) without a configured secret.
 beforeEach(() => {

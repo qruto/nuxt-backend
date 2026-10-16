@@ -22,15 +22,15 @@ Every `nuxt-backend/<subpath>` in the package `exports` map, and every value and
 - `nuxt-backend/convex.config` · `nuxt-backend/_generated/component` — the all-in-one `backend` component and the types of its API
 - `nuxt-backend/test` — the convex-test registration helper
 - `nuxt-backend/eslint` — the ESLint preset (`backendEslint`, `BACKEND_ESLINT_RULES`); its rule list and levels follow the upstream recommended set, so an upstream change to that set lands here in a minor release
-- `nuxt-backend/ui.css` · `nuxt-backend/auth.css` · `nuxt-backend/*.css` — the neutral stylesheets and their `data-*` hooks
+- the `data-*` hooks the neutral stylesheet styles, and the `--bk-*` tokens it reads (the module adds the stylesheet itself)
 
 Anything tagged `@internal` in the source is stripped from the published declarations and is not part of this surface; the surface test (`test/nuxt/public-surface.test.ts`) keeps the tag off everything an entry re-exports and freezes each entry's export list.
 
 ### 2. Configuration names
 
-- `ModuleOptions` (`backend` in `nuxt.config`): `url`, `siteUrl`, `authRoute`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools` — and the page keys under `pages`: `login`, `pricing`, `settings`, `profile`, `security`, `acceptInvitation`, `agentConsent`
+- `ModuleOptions` (`backend` in `nuxt.config`): `url`, `siteUrl`, `authRoute`, `scaffold`, `pages`, `autoEnv`, `mcp`, `devtools` — and the page keys under `pages`: `login`, `pricing`, `settings`, `profile`, `security`, `acceptInvitation`, `agentConsent`
 - `appConfig.backend` — the content layer: `billing.plans`, `billing.packs`, `billing.lowCreditsThreshold`, `brand.name`, `brand.logo`, `labels.auth`, `labels.pricing`, `labels.settings`, `labels.profile`, `labels.security`, `labels.history`, `labels.usage`, `labels.credits`
-- `runtimeConfig.public.backend` — `pages`, the resolved mount path per page key (`''` when disabled), and `authRoute`, the same-origin auth route
+- `runtimeConfig.public.backend` — `pages`, the mount path per page key, and `authRoute`, the same-origin auth route
 - the `#backend/*` aliases: `#backend`, `#backend/api`, `#backend/server`, `#backend/dataModel`, `#backend/_generated`
 
 ### 3. The auto-import and component registry

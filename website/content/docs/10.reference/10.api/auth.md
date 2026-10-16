@@ -266,7 +266,6 @@ analytics, erasure) around the account lifecycle.
 | <a id="cansignin-1"></a> `canSignIn?` | [`CanSignIn`](#cansignin)\<`DM`\> | Gate sign-in / sign-up (invite-only, allow-list, closed beta). See [CanSignIn](#cansignin). | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
 | <a id="onuserdeleted-1"></a> `onUserDeleted?` | [`OnUserDeleted`](#onuserdeleted)\<`DM`\> | Fired after an account is deleted, after any consumer `afterDelete`. See [OnUserDeleted](#onuserdeleted). | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
 | <a id="emailtemplates"></a> `emailTemplates?` | `Partial`\<[`AuthEmailTemplates`](#authemailtemplates)\> | Override any of the default auth-email templates (welcome/otp/verify/change/delete/invite). | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
-| <a id="welcomeemail"></a> `welcomeEmail?` | `boolean` | Send the packaged welcome email right after signup (default `true`). Set `false` when the app owns onboarding — e.g. a durable email sequence started from `onUserCreated` — so new users don't get two welcomes. | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
 
 ***
 

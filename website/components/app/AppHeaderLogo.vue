@@ -1,51 +1,24 @@
 <script setup lang="ts">
 /**
- * Header brand — overrides Docus's logo (which showed the bare favicon image).
- * The mark (/logo.svg — a machined titanium plate with the three tritium bars
- * engraved in and one green status LED) + the product name "Nuxt backend".
- * The parent AppHeaderLeft already wraps this in a NuxtLink to "/", so no
- * link here. The explicit light/dark marks follow the site's colour-mode
- * toggle (an SVG's own prefers-color-scheme would follow the OS instead).
+ * The header's mark and wordmark, in place of Docus's logo menu. The mark
+ * is the machined plate with its three tritium bars; the light and dark
+ * files follow the site's colour-mode toggle (an SVG's own
+ * prefers-color-scheme would follow the OS instead). AppHeaderLeft wraps
+ * this in the link home. The wordmark drops out on the narrowest phones.
  */
 </script>
 
 <template>
-  <span class="brand">
+  <span class="inline-flex h-full items-center gap-2.5">
     <UColorModeImage
       light="/logo-light.svg"
       dark="/logo-dark.svg"
       alt=""
       aria-hidden="true"
-      class="brand__mark h-8 w-8"
+      class="block size-8 flex-none"
       width="32"
       height="32"
     />
-    <span class="brand__text embossed-sm">Nuxt backend</span>
+    <span class="font-display text-[1.02rem] font-bold tracking-[0.01em] whitespace-nowrap text-(--ink) emb-sm [font-stretch:118%] max-[420px]:hidden">nuxt-backend</span>
   </span>
 </template>
-
-<style scoped>
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-  height: 100%;
-}
-.brand__mark {
-  display: block;
-  flex: none;
-}
-.brand__text {
-  font-family: var(--display);
-  font-size: 1.02rem;
-  font-weight: 600;
-  /* The squared display wants air, not the old rounded-negative tracking. */
-  letter-spacing: 0.02em;
-  color: var(--ink);
-  /* raised via the `.embossed-sm` utility (contrast kill-switch aware) */
-  white-space: nowrap;
-}
-@media (max-width: 420px) {
-  .brand__text { display: none; }
-}
-</style>

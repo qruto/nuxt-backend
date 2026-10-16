@@ -2,6 +2,9 @@
 title: "Email"
 description: "Auth emails sent for you, your own sends from server code, templates, test mode and live delivery tracking, through Resend inside the backend component."
 kind: landing
+playground: /playground/platform/email
+api: /docs/reference/api/email
+source: src/convex/integrations/email.ts
 navigation:
   title: Overview
   icon: i-lucide-compass
@@ -40,9 +43,6 @@ Auth emails need no `email` integration: they go through the component automatic
   :::card{icon="i-lucide-mail-check" title="Delivery tracking" to="/docs/email/delivery-tracking"}
   The `/email/events` webhook, `useEmailStatus`, and per-event hooks for bounces and complaints.
   :::
-::
-
-::playground-link{to="/playground/platform/email" label="email delivery"}
 ::
 
 ## Not covered here

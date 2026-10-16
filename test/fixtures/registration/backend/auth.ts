@@ -33,10 +33,8 @@ export const {
     // through the backend component — configured by the EMAIL_* env vars.
     // Throttle OTP sends and other auth-sensitive flows.
     rateLimiter,
-    // The onboarding sequence below sends its own welcome, so skip the
-    // packaged welcome email (new users would get two otherwise).
-    welcomeEmail: false,
-    // Kick off a durable welcome workflow when a user signs up.
+    // Start the onboarding sequence (workflows.ts) when a user signs up. The
+    // packaged welcome email has already gone out.
     onUserCreated: async (ctx, user) => {
       await workflow.start(ctx, internal.workflows.onSignup, {
         userId: user.id,

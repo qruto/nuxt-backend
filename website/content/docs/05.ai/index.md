@@ -3,6 +3,9 @@ title: "AI features"
 description: "Meter the AI features you sell: each call reserves prepaid credits, runs your model, then settles, and a failed run costs nothing."
 kind: landing
 status: experimental
+playground: /playground/platform/ai
+api: /docs/reference/api/ai
+source: src/convex/integrations/ai.ts
 navigation:
   title: Overview
   icon: i-lucide-compass
@@ -37,9 +40,6 @@ Both limits run through the rate limiter the scaffold already sets up. The `ai` 
   :::card{icon="i-lucide-audio-lines" title="Streaming" to="/docs/ai/streaming"}
   Stream a metered response that persists server-side, drive it with `useAiStream`, and resume it after a reload.
   :::
-::
-
-::playground-link{to="/playground/platform/ai" label="metered AI"}
 ::
 
 ## Not covered here

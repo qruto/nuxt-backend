@@ -321,18 +321,15 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     export const onSignup = defineEmailSequence(workflow, components, {
       args: { userId: v.string(), email: v.string(), name: v.string() },
       steps: [
+        // The packaged welcome email goes out at signup; the sequence follows up.
         {
-          after: 0,
+          after: 3 * 24 * 60 * 60 * 1000, // three days later
           email: ({ email, name }) => ({
             to: email,
-            subject: 'Welcome!',
-            text: \`Welcome aboard, \${name}! We're glad you're here.\`,
+            subject: 'How is it going?',
+            text: \`Hi \${name}, you signed up three days ago. Reply to this email if anything is in your way.\`,
           }),
         },
-        // {
-        //   after: 3 * 24 * 60 * 60 * 1000, // three days later
-        //   email: ({ email, name }) => ({ to: email, subject: 'Getting the most out of it', text: '…' }),
-        // },
       ],
     })
     ` + '\n',
@@ -497,10 +494,8 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
         // through the backend component — configured by the EMAIL_* env vars.
         // Throttle OTP sends and other auth-sensitive flows.
         rateLimiter,
-        // The onboarding sequence below sends its own welcome, so skip the
-        // packaged welcome email (new users would get two otherwise).
-        welcomeEmail: false,
-        // Kick off a durable welcome workflow when a user signs up.
+        // Start the onboarding sequence (workflows.ts) when a user signs up. The
+        // packaged welcome email has already gone out.
         onUserCreated: async (ctx, user) => {
           await workflow.start(ctx, internal.workflows.onSignup, {
             userId: user.id,

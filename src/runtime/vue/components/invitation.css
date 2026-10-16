@@ -1,6 +1,6 @@
 /*
  * Neutral default styles for <AcceptInvitation>, hooked on data-invitation
- * attributes. Part of `nuxt-backend/ui.css`; theme via the `--bk-*` tokens.
+ * attributes. Part of the module's stylesheet (ui.css); theme via the `--bk-*` tokens.
  */
 /* The state root only: the attribute also marks the message, the actions
    and the buttons, and a message laid out as a column would stack its words. */

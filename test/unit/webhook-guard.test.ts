@@ -271,19 +271,6 @@ describe('/email/events on the guard — the rows the route owns', () => {
     expect(delivered).toHaveBeenCalledWith(ctx, { type: 'email.delivered', data: { email_id: 're_1' } })
     expect(recorded(ctx).map(row => [row.outcome, row.type])).toStrictEqual([['ok', 'email.delivered']])
   })
-
-  it('deliveryLog: false keeps the 503 / 413 rows but touches no log', async () => {
-    delete process.env.EMAIL_WEBHOOK_SECRET
-    const ctx = makeCtx()
-    const email = setupEmail(components, { deliveryLog: false })
-
-    expect((await email.webhookHandler(asCtx(ctx), request('{}'))).status).toBe(503)
-    process.env.EMAIL_WEBHOOK_SECRET = 'whsec_test'
-    expect((await email.webhookHandler(asCtx(ctx), request('x'.repeat(WEBHOOK_BODY_LIMIT + 1)))).status).toBe(413)
-
-    expect(ctx.runQuery).not.toHaveBeenCalled()
-    expect(ctx.runMutation).not.toHaveBeenCalled()
-  })
 })
 
 describe('translateStandardSignature', () => {

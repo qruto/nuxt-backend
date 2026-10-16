@@ -95,15 +95,9 @@ export interface DevtoolsMcpStatus {
 export interface DevtoolsOptionsSnapshot {
   /** Auto-scaffold missing backend files on dev startup (`backend.scaffold`). */
   scaffold: boolean
-  /** Default stylesheet registered (`backend.css`). */
-  css: boolean
   /** Dev-deployment env auto-provision (`backend.autoEnv`). */
   autoEnv: boolean
   authRoute: string
-  /** Explicit `backend.loginPath` (`null` = resolved from the login page). */
-  loginPath: string | null
-  /** Whether the ready-made page set is enabled at all. */
-  pagesEnabled: boolean
 }
 
 /**

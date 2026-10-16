@@ -29,12 +29,24 @@ export default defineContentConfig({
         status: z.enum(['stable', 'experimental', 'deprecated']).optional(),
         /** The capability the page belongs to (`auth`, `billing`, `email`, …). */
         capability: z.string().optional(),
-        /** Routes of the pages a reader goes to next. */
+        /** Routes of the pages a reader goes to next: the aside's Related list. */
         related: z.array(z.string()).optional(),
-        /** The playground route that shows it running. */
-        demo: z.string().optional(),
+        /** The playground route that shows it running: the header's Try live key. */
+        playground: z.string().optional(),
+        /** The generated API page of what it documents: the header's API key. */
+        api: z.string().optional(),
+        /** The repository path of the code it documents: the header's Source key. */
+        source: z.string().optional(),
+        /**
+         * It runs live demo blocks, which load the backend client when they
+         * scroll into view; on every other docs page the client never loads
+         * (modules/deferred-backend-client).
+         */
+        demo: z.boolean().optional(),
         /** The release that introduced it. */
         since: z.string().optional(),
+        /** When the file last changed in git: set at build (modules/docs-last-updated.ts), never by hand. */
+        modifiedAt: z.string().optional(),
       }),
     }),
   },

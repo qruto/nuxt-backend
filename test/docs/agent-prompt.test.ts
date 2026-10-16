@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { expandForAgents } from '../../website/shared/agent-markdown'
+import { appendPageKeys, expandForAgents } from '../../website/shared/agent-markdown'
 import { AGENT_PROMPT, AGENT_PROVIDERS } from '../../website/shared/agent-prompt'
 import { contentFile, read } from './helpers'
 
 // The one-paste install prompt (website/shared/agent-prompt.ts), the links
 // that hand it to an agent, and the content hook that writes what a Vue-drawn
-// block stands for into the Markdown agents read (`/raw/*.md`,
-// `/llms-full.txt`).
+// block and the page header's keys stand for into the Markdown agents read
+// (`/raw/*.md`, `/llms-full.txt`).
 
 describe('the agent install prompt', () => {
   const fence = `\`\`\`text\n${AGENT_PROMPT}\n\`\`\``
@@ -47,14 +47,6 @@ describe('Markdown for agents', () => {
   type Node = string | [string, Record<string, unknown>, ...Node[]]
   const page = (...value: Node[]) => ({ type: 'minimark', value })
 
-  it('writes the link a `::playground-link` stands for into it, nested or not', () => {
-    const body = page(['note', {}, ['playground-link', { to: '/playground/platform/email', label: 'email delivery' }]])
-    expandForAgents(body)
-    expect((body.value[0] as Node[])[2]).toEqual(['playground-link', { to: '/playground/platform/email', label: 'email delivery' },
-      ['p', {}, 'Try email delivery live in the playground: ', ['a', { href: '/playground/platform/email' }, '/playground/platform/email']],
-    ])
-  })
-
   it('writes the open-in-agent links into `:agent-prompt-links`', () => {
     const body = page(['agent-prompt-links', {}])
     expandForAgents(body)
@@ -63,14 +55,33 @@ describe('Markdown for agents', () => {
   })
 
   it('runs once per block, and leaves other blocks alone', () => {
-    const body = page(['playground-link', { to: '/playground' }], ['card', { title: 'x' }])
+    const body = page(['agent-prompt-links', {}], ['card', { title: 'x' }])
     expandForAgents(body)
     expandForAgents(body)
-    expect(body.value[0]).toHaveLength(3)
+    expect(body.value[0]).toHaveLength(4)
     expect(body.value[1]).toEqual(['card', { title: 'x' }])
   })
 
-  it('is used by the site', () => {
-    expect(read('website/nuxt.config.ts')).toMatch(/'content:file:afterParse'\(\{ content \}\) \{\s+expandForAgents\(content\.body\)/)
+  it('closes the page with its header keys, once, as links an agent can follow', () => {
+    const body = page(['p', {}, 'Text.'])
+    const fields = { playground: '/playground/platform/email', api: '/docs/reference/api/email', source: 'src/convex/integrations/email.ts' }
+    appendPageKeys(body, fields)
+    appendPageKeys(body, fields)
+    expect(body.value).toHaveLength(2)
+    expect(body.value[1]).toEqual(['page-keys', {}, ['ul', {},
+      ['li', {}, 'Try it live in the playground: ', ['a', { href: '/playground/platform/email' }, '/playground/platform/email']],
+      ['li', {}, 'API reference: ', ['a', { href: '/docs/reference/api/email' }, '/docs/reference/api/email']],
+      ['li', {}, 'Source: ', ['a', { href: 'https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts' }, 'https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts']],
+    ]])
+  })
+
+  it('adds nothing to a page without keys', () => {
+    const body = page(['p', {}, 'Text.'])
+    appendPageKeys(body, { title: 'No keys' })
+    expect(body.value).toHaveLength(1)
+  })
+
+  it('is run over every page by the site', () => {
+    expect(read('website/modules/docs-pages.ts')).toMatch(/'content:file:afterParse', \(\{ file, content: page \}\) => \{\s+expandForAgents\(page\.body\)\s+appendPageKeys\(page\.body, page\)/)
   })
 })

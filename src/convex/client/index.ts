@@ -188,12 +188,6 @@ export interface AuthIntegrations<DM extends GenericDataModel = GenericDataModel
   onUserDeleted?: OnUserDeleted<DM>
   /** Override any of the default auth-email templates (welcome/otp/verify/change/delete/invite). */
   emailTemplates?: Partial<AuthEmailTemplates>
-  /**
-   * Send the packaged welcome email right after signup (default `true`).
-   * Set `false` when the app owns onboarding — e.g. a durable email sequence
-   * started from `onUserCreated` — so new users don't get two welcomes.
-   */
-  welcomeEmail?: boolean
 }
 
 /** Whether an account exists for an email — the adapter read behind `canSignIn`'s `isNewUser`. */
@@ -209,7 +203,6 @@ interface AuthRuntime<DM extends GenericDataModel = GenericDataModel> {
   onUserDeleted?: OnUserDeleted<DM>
   userExists?: UserExists
   emailTemplates?: Partial<AuthEmailTemplates>
-  welcomeEmail?: boolean
 }
 
 type OtpPurpose = 'sign-in' | 'email-verification' | 'forget-password' | 'change-email'
@@ -999,7 +992,7 @@ export function createBetterAuthOptions<DM extends GenericDataModel = GenericDat
   // and run the consumer's onUserCreated hook (workflows, analytics).
   const createAfterHook = emailCtx
     ? async (user: { id: string, email: string, name: string }) => {
-      if (canSendEmail && runtime?.welcomeEmail !== false) {
+      if (canSendEmail) {
         await emailSender!(emailCtx, templates.welcome({ email: user.email, name: user.name }))
       }
       if (onUserCreated) {

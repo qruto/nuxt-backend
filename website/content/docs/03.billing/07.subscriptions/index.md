@@ -2,6 +2,9 @@
 title: Subscriptions
 description: Plans, checkout, the customer portal, and plan changes — powered by the Polar component and linked to your auth users, with the reactive entitlement cache inside the backend component.
 kind: how-to
+playground: /playground/platform/billing
+api: /docs/reference/api/use-billing
+source: src/convex/integrations/billing.ts
 navigation:
   icon: i-lucide-credit-card
 ---
@@ -91,9 +94,7 @@ Config is optional — every option overrides a default:
 | `requireAdmin` | Gate for the admin-tier actions (`refundOrder` — moving real money): throw to refuse. The default requires an `admin` role claim on the caller's identity; supply your own to check permissions, a workspace role, or an allowlist. |
 | `events` | Webhook handlers keyed by the provider's own event names (`'order.paid'`, `'subscription.active'`, …). They run **after** the built-in entitlement-cache refresh and gift fulfilment, so features and credits read fresh inside them; events outside the built-in refresh set are mounted too. |
 | `giftEmail` | Restyle the gift-notification email — see [Gifts](/docs/billing/credits/gifts). |
-| `benefitMetadataTtlMs` | Maximum age of a cached benefit-metadata snapshot before an entitlement sync re-reads it live. Default 15 minutes; the `benefit.updated` webhook patches snapshots immediately regardless. |
 | `onUnknownEvent` | Called for an **authentic** (signature-verified) webhook event whose type the installed provider SDK cannot parse — one newer than the package, say. The delivery is acknowledged with 202 either way, so an unknown type never puts the endpoint into a retry loop. |
-| `deliveryLog` | Record every inbound webhook delivery in the component's capped ring buffer — it powers redelivery dedupe and the [DevTools](/docs/start/develop/devtools#webhooks) Webhooks page. On by default; `false` disables the log, and with it dedupe. |
 
 `setupBilling(...)` returns:
 
@@ -175,7 +176,4 @@ All three are optional at deploy time and forwarded from `.env.local` by `npx nu
   :::card{icon="i-lucide-receipt" title="Show orders, invoices and usage" to="/docs/billing/subscriptions/orders"}
   Past charges, invoice links, metered consumption and refunds.
   :::
-::
-
-::playground-link{to="/playground/platform/billing" label="billing"}
 ::

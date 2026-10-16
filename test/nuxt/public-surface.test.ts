@@ -60,9 +60,6 @@ interface Entry {
 /** Every `exports` subpath → its source file. Literal on purpose: this is the freeze. */
 const ENTRIES: Record<string, Entry> = {
   '.': { source: 'src/module.ts', kind: 'runtime' },
-  './auth.css': { source: 'src/runtime/vue/components/auth.css', kind: 'css' },
-  './ui.css': { source: 'src/runtime/vue/components/ui.css', kind: 'css' },
-  './*.css': { source: 'src/runtime/vue/components/*.css', kind: 'css' },
   './auth': { source: 'src/convex/client/index.ts', kind: 'convex' },
   './authorization': { source: 'src/convex/integrations/authorization.ts', kind: 'convex' },
   './http': { source: 'src/convex/integrations/http.ts', kind: 'convex' },

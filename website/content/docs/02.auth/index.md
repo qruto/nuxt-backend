@@ -2,6 +2,9 @@
 title: "Auth, accounts and workspaces"
 description: "Passwordless sign-in with email codes and passkeys, session state, route and function guards, roles, and multi-tenant workspaces with invitations."
 kind: landing
+playground: /playground/platform/account
+api: /docs/reference/api/auth
+source: src/convex/client/index.ts
 navigation:
   title: Overview
   icon: i-lucide-compass
@@ -40,9 +43,6 @@ Roles, permissions and workspaces are Better Auth's admin and organization plugi
 ::
 
 The emails sign-in sends, from the one-time code to the workspace invitation, are covered under [Templates](/docs/email/templates).
-
-::playground-link{to="/playground/platform/account" label="authentication"}
-::
 
 ## Not covered here
 

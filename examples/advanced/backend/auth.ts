@@ -20,15 +20,12 @@ export const {
   mcp,
 } = setupAuth(components, query, {
   // CUSTOMIZATION: workspace invitations link to a custom page (/join, see
-  // app/pages/join.vue + `backend: { pages: { acceptInvitation: false } }` in nuxt.config).
+  // app/pages/join.vue + `backend: { pages: { acceptInvitation: '/join' } }` in nuxt.config).
   organization: {
     invitationPath: '/join',
   },
   integrations: {
     rateLimiter,
-    // The onboarding workflow (workflows.ts) sends its own welcome, so skip
-    // the packaged welcome email (new users would get two otherwise).
-    welcomeEmail: false,
     // CUSTOMIZATION: restyled email templates — the transport stays the
     // packaged one; only the message bodies change.
     emailTemplates: {

@@ -153,11 +153,10 @@ const PAGE_PATH_CHECKS = [
 /**
  * Cross-check each path the deployment links to against the page the Nuxt
  * side mounts there — declared in two places only doctor can see together.
- * The sign-in page falls back to `backend.loginPath` when the built-in one is
- * off. A path the deployment does not report is not checked.
+ * A path the deployment does not report is not checked.
  */
 async function pagePathFindings(rootDir: string, deployed: DeployedAuthConfig): Promise<PreflightFinding[]> {
-  let backend: { pages?: ModulePagesOptions | false, loginPath?: string } | undefined
+  let backend: { pages?: ModulePagesOptions } | undefined
   try {
     const { loadNuxtConfig } = await import('@nuxt/kit')
     backend = (await loadNuxtConfig({ cwd: rootDir }) as { backend?: typeof backend }).backend
@@ -168,7 +167,7 @@ async function pagePathFindings(rootDir: string, deployed: DeployedAuthConfig): 
   return PAGE_PATH_CHECKS.flatMap((check): PreflightFinding[] => {
     const deployedPath = deployed[check.field]
     if (!deployedPath) return []
-    const nuxtPath = resolvePagePath(backend?.pages, check.page) ?? (check.page === 'login' ? backend?.loginPath ?? null : null)
+    const nuxtPath = resolvePagePath(backend?.pages, check.page)
     return [nuxtPath === deployedPath
       ? { id: check.id, title: check.title, status: 'pass', message: `${check.agree} ${deployedPath}.`, fixHint: '' }
       : {

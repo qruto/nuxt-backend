@@ -2,6 +2,9 @@
 title: "Data, files and jobs"
 description: "Read and write live Convex data from Vue and Nitro, search and count it, store files, and run durable workflows and migrations."
 kind: landing
+playground: /playground/client/queries
+api: /docs/reference/api/functions
+source: src/convex/integrations/functions.ts
 navigation:
   title: Overview
   icon: i-lucide-compass
@@ -66,9 +69,6 @@ The `backend` component keeps tables of its own: the Better Auth tables, the bil
   :::card{icon="i-lucide-arrow-right-left" title="Migrations" to="/docs/data/jobs/migrations"}
   Change existing documents in batches, dry-run first, and resume where a run stopped.
   :::
-::
-
-::playground-link{to="/playground/client/queries" label="queries and mutations"}
 ::
 
 ## Not covered here

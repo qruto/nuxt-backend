@@ -1,20 +1,28 @@
 /*
  * The complete neutral stylesheet for every nuxt-backend component and
- * default page. Auto-added by the module — set `backend: { css: false }` in
- * nuxt.config.ts to opt out, then import any piece you want to keep.
+ * default page, added by the module ahead of the app's own CSS.
  *
- * Theming ladder: override the shared `--bk-*` tokens (everything at once) →
- * per-family tokens (`--auth-*`) → style the `data-*` hooks directly.
+ * Every rule sits in the `components.backend` cascade layer, after the
+ * `@layer` order statement Tailwind itself declares. On a Tailwind app that
+ * places it above Tailwind's reset (the `base` layer, which would otherwise
+ * strip the buttons and inputs) and below its utilities; on any app, CSS
+ * outside a layer wins over it without a specificity fight. Declaring the
+ * order here makes it hold whichever stylesheet loads first.
+ *
+ * Theming ladder: override the shared `--bk-*` tokens (everything at once)
+ * → per-family tokens (`--auth-*`) → style the `data-*` hooks directly.
  */
-@import './tokens.css';
-@import './auth.css';
-@import './invitation.css';
-@import './consent.css';
-@import './gift.css';
-@import './pricing.css';
-@import './history.css';
-@import './usage.css';
-@import './credits.css';
-@import './settings.css';
-@import './profile.css';
-@import './security.css';
+@layer theme, base, components, utilities;
+
+@import './tokens.css' layer(components.backend);
+@import './auth.css' layer(components.backend);
+@import './invitation.css' layer(components.backend);
+@import './consent.css' layer(components.backend);
+@import './gift.css' layer(components.backend);
+@import './pricing.css' layer(components.backend);
+@import './history.css' layer(components.backend);
+@import './usage.css' layer(components.backend);
+@import './credits.css' layer(components.backend);
+@import './settings.css' layer(components.backend);
+@import './profile.css' layer(components.backend);
+@import './security.css' layer(components.backend);

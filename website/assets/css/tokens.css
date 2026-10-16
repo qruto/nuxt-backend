@@ -357,7 +357,7 @@
   /* Small red on a gunmetal plate drops under 4.5:1; the soft red holds. */
   --err:            light-dark(var(--color-red-500), var(--color-red-300));
 }
-.slot, .well, .input, .pill, .search-slot, details.dev {
+.slot, .well, .input, .pill, details.dev {
   --ink-dim:        light-dark(#54585f, #9fa3ad);
   --ink-faint:      light-dark(#555860, #9498a3);
   --engrave-ink:    light-dark(#5b6069, #7a7e89);

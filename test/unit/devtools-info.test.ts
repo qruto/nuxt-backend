@@ -26,16 +26,12 @@ describe('computeDevtoolsPages', () => {
     expect(pages.find(page => page.key === 'pricing')).toMatchObject({ path: '/pricing', shadowed: false })
   })
 
-  it('omits disabled pages and honors custom paths', () => {
-    const resolved = resolvedBackendPages({ profile: false, login: '/sign-in' })
+  it('lists every page at its path', () => {
+    const resolved = resolvedBackendPages({ login: '/sign-in' })
     const pages = computeDevtoolsPages(resolved, new Set(['/sign-in']))
 
-    expect(pages.some(page => page.key === 'profile')).toBe(false)
+    expect(pages).toHaveLength(Object.keys(resolved).length)
     expect(pages.find(page => page.key === 'login')).toMatchObject({ path: '/sign-in', shadowed: true })
-  })
-
-  it('is empty when the whole page set is off', () => {
-    expect(computeDevtoolsPages(resolvedBackendPages(false), new Set())).toEqual([])
   })
 })
 
@@ -164,11 +160,8 @@ describe('buildDevtoolsInfo', () => {
     const info = buildDevtoolsInfo(input({ CONVEX_DEPLOYMENT: 'dev:brave-fox-123' }))
     expect(info.options).toEqual({
       scaffold: true,
-      css: true,
       autoEnv: true,
       authRoute: '/api/auth',
-      loginPath: null,
-      pagesEnabled: true,
     })
     expect(info.deployment).toMatchObject({ kind: 'cloud-dev', id: 'dev:brave-fox-123' })
     expect(info.mcp).toMatchObject({ route: '/mcp' })
@@ -178,14 +171,11 @@ describe('buildDevtoolsInfo', () => {
   it('reflects disabled wiring in the snapshot', () => {
     const info = buildDevtoolsInfo({
       ...input({}),
-      options: { scaffold: false, css: false, autoEnv: false, loginPath: '/signin', pages: false },
+      options: { scaffold: false, autoEnv: false },
     })
     expect(info.options).toMatchObject({
       scaffold: false,
-      css: false,
       autoEnv: false,
-      loginPath: '/signin',
-      pagesEnabled: false,
     })
   })
 })

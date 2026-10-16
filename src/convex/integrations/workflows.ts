@@ -42,14 +42,14 @@ const DEFAULT_WORKPOOL_OPTIONS = {
  *
  * export const workflow = setupWorkflows(components)
  *
- * export const onSignup = workflow.define({
- *   args: { email: v.string(), name: v.string() },
- *   handler: async (step, { email, name }) => {
+ * export const exportReady = workflow.define({
+ *   args: { email: v.string(), url: v.string() },
+ *   handler: async (step, { email, url }) => {
  *     // Email is sent through the `backend` component's email module.
  *     await step.runMutation(components.backend.email.send, {
  *       to: email,
- *       subject: 'Welcome!',
- *       text: `Welcome aboard, ${name}!`,
+ *       subject: 'Your export is ready',
+ *       text: `Download it here: ${url}`,
  *     })
  *   },
  * })
@@ -75,12 +75,50 @@ export interface EmailSequenceStep<Data> {
   email: (data: Data) => { to: string, subject: string, html?: string, text?: string } | null
 }
 
-/** The email transport shape (`components.backend.email.send`, structurally). */
+/**
+ * The `backend` component's parts a sequence uses, structurally: the email
+ * transport, and the auth adapter a sequence with a `userId` reads the
+ * account through.
+ */
 interface SequenceEmailComponents {
   backend: {
     email: {
       send: unknown
     }
+    adapter?: {
+      findOne?: unknown
+    }
+  }
+}
+
+/** The account a step is sent for, as the auth tables hold it now. */
+interface SequenceRecipient {
+  email: string
+  name: string
+}
+
+/**
+ * What a step renders with: the data as started, or for a sequence that
+ * carries a `userId`, the account's current `email` and `name` over it.
+ * `null` once the account is gone (deleted since the sequence started), so
+ * nobody is written to.
+ */
+async function currentRecipient<Data extends Record<string, unknown>>(
+  step: { runQuery: (query: never, args: never) => Promise<unknown> },
+  findUser: unknown,
+  data: Data,
+): Promise<Data | null> {
+  const userId = data.userId
+  if (typeof userId !== 'string' || !findUser) return data
+  const user = await step.runQuery(findUser as never, {
+    model: 'user',
+    where: [{ field: '_id', value: userId }],
+  } as never) as SequenceRecipient | null
+  if (!user) return null
+  return {
+    ...data,
+    ...('email' in data ? { email: user.email } : {}),
+    ...('name' in data ? { name: user.name } : {}),
   }
 }
 
@@ -92,13 +130,18 @@ interface SequenceEmailComponents {
  * email. Cancel a started sequence with the workflow manager's own
  * `workflow.cancel(ctx, id)`.
  *
+ * A sequence started with a `userId` follows the account: before each email
+ * it reads the user, ends the sequence when the account is gone (deleted
+ * since sign-up), and hands the step the account's current `email` and
+ * `name` in place of the ones captured when it started.
+ *
  * @example
  * ```ts
  * // backend/workflows.ts
  * export const onboardingSequence = defineEmailSequence(workflow, components, {
  *   args: { email: v.string(), name: v.string() },
  *   steps: [
- *     { after: 0, email: ({ email, name }) => ({ to: email, subject: `Welcome, ${name}!`, text: '…' }) },
+ *     { after: 24 * 60 * 60 * 1000, email: ({ email, name }) => ({ to: email, subject: `Your first day, ${name}`, text: '…' }) },
  *     { after: 3 * 24 * 60 * 60 * 1000, email: ({ email }) => ({ to: email, subject: 'Getting the most out of it', text: '…' }) },
  *   ],
  * })
@@ -115,6 +158,7 @@ export function defineEmailSequence<Args extends PropertyValidators>(
   },
 ) {
   const send = components.backend.email.send
+  const findUser = components.backend.adapter?.findOne
   return workflow.define({
     args: options.args,
     handler: async (step, data) => {
@@ -122,7 +166,9 @@ export function defineEmailSequence<Args extends PropertyValidators>(
         if (sequenceStep.after > 0) {
           await step.sleep(sequenceStep.after, { name: `email-sequence-wait-${index}` })
         }
-        const message = sequenceStep.email(data)
+        const current = await currentRecipient(step, findUser, data)
+        if (!current) return
+        const message = sequenceStep.email(current)
         if (!message) continue
         await step.runMutation(send as never, message as never)
       }

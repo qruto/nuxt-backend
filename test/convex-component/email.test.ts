@@ -447,13 +447,4 @@ describe('/email/events route: guard → component → delivery log (end to end)
     expect(attempts).toBe(2)
     expect(await outcomes()).toStrictEqual([['ok', 'email.delivered'], ['handler_error', 'email.delivered']])
   })
-
-  test('deliveryLog: false keeps the fail-closed statuses but writes no log rows', async () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const post = route({ deliveryLog: false })
-    expect((await post('{}', { 'svix-id': 'msg_1' })).status).toBe(503)
-    process.env.EMAIL_WEBHOOK_SECRET = SECRET
-    expect((await post('x'.repeat(WEBHOOK_BODY_LIMIT + 1), { 'svix-id': 'msg_2' })).status).toBe(413)
-    expect(await outcomes()).toStrictEqual([])
-  })
 })

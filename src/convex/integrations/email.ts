@@ -6,7 +6,7 @@ import {
 } from 'convex/server'
 import { v } from 'convex/values'
 import { Resend, type CreateContactOptions } from 'resend'
-import { guardDelivery, parseSecretList, WEBHOOK_BODY_LIMIT, type WebhookLogRefs } from './webhook-guard.js'
+import { guardDelivery, parseSecretList, type WebhookLogRefs } from './webhook-guard.js'
 import { sendArgs } from '../email-validators.js'
 
 /**
@@ -42,7 +42,7 @@ export interface EmailComponents {
        */
       inbox?: FunctionReference<'query', 'internal', { address: string }, SandboxMessage[]>
     }
-    webhooks?: WebhookLogRefs
+    webhooks: WebhookLogRefs
   }
 }
 
@@ -213,11 +213,6 @@ export interface SetupEmailOptions {
    * (a provider newer than this package). Acknowledged 202 either way.
    */
   onUnknownEvent?: (ctx: AnyActionCtx, event: { type?: string, payload: unknown }) => Promise<void>
-  /**
-   * Record inbound webhook deliveries in the component's capped ring buffer
-   * (dedupe + the DevTools Webhooks page). `false` disables the log and dedupe.
-   */
-  deliveryLog?: boolean
 }
 
 async function unwrap<T>(promise: Promise<{ data: T | null, error: { message: string } | null }>): Promise<T> {
@@ -359,21 +354,13 @@ export function setupEmail(components: EmailComponents, options: SetupEmailOptio
     // Shared fail-closed edge (size cap, dedupe, delivery logging). The secret
     // itself lives on the component env; the app-declared copy of the same
     // deployment var answers "configured?" without invoking the component.
-    const logRefs = options.deliveryLog === false ? undefined : components.backend.webhooks
     const secretsConfigured = parseSecretList(readProcessEnv('EMAIL_WEBHOOK_SECRET')).length > 0
-    const guard = logRefs
-      ? await guardDelivery(ctx as never, logRefs, {
-          service: 'email',
-          deliveryId: headers['svix-id'] ?? null,
-          bodyLength: body.length,
-          secretsConfigured,
-        })
-      : {
-          rejection: !secretsConfigured
-            ? new Response('Webhook secret not configured', { status: 503 })
-            : body.length > WEBHOOK_BODY_LIMIT ? new Response('Payload too large', { status: 413 }) : null,
-          record: async () => {},
-        }
+    const guard = await guardDelivery(ctx as never, components.backend.webhooks, {
+      service: 'email',
+      deliveryId: headers['svix-id'] ?? null,
+      bodyLength: body.length,
+      secretsConfigured,
+    })
     if (guard.rejection) return guard.rejection
 
     const result = await ctx.runAction(refs.handleWebhook, { body, headers })

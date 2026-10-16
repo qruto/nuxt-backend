@@ -63,8 +63,6 @@ const wiring = computed(() => {
   return [
     { label: 'scaffold on dev start', on: options.scaffold },
     { label: 'env auto-provision', on: options.autoEnv },
-    { label: 'default stylesheet', on: options.css },
-    { label: 'ready-made pages', on: options.pagesEnabled },
     { label: `auth route: ${options.authRoute}`, on: true },
   ]
 })
@@ -280,16 +278,7 @@ function refreshAll() {
     </PanelCard>
 
     <PanelCard title="Pages">
-      <div
-        v-if="!state.info.options.pagesEnabled"
-        class="op50"
-      >
-        The ready-made pages are off (<code>backend.pages: false</code>).
-      </div>
-      <table
-        v-else
-        class="text-left text-xs"
-      >
+      <table class="text-left text-xs">
         <thead class="op50">
           <tr>
             <th class="py1 pr4 font-normal">
