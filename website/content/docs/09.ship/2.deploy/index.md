@@ -1,6 +1,7 @@
 ---
 title: Deployment
 description: Ship the Convex backend and the Nuxt app together — `npx convex deploy --cmd`, the env split between the host and the deployment, and preview deployments.
+kind: how-to
 navigation:
   icon: i-lucide-rocket
 ---

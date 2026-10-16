@@ -1,6 +1,7 @@
 ---
-title: Credits & Top-ups
+title: Credits & top-ups
 description: Prepaid credits on provider meters — useCredits, top-ups, and the reserve → run → settle spend that never charges for a failed run.
+kind: how-to
 navigation:
   icon: i-lucide-coins
 ---
@@ -67,68 +68,9 @@ Two shipped components sit on top of it: `<CreditsLowBanner>` nudges a top-up on
 
 Balances arrive through the `benefit_grant.*` / `customer.state_changed` webhooks, so after a top-up the balance updates on its own; `refresh()` is the on-demand fallback (and what makes a mid-configuration deployment without `BILLING_WEBHOOK_SECRET` still usable).
 
-## Spending on the server
+## Spending
 
-Spend from your **own** server code when a metered feature is used — never from the client:
-
-```ts [backend/generate.ts]
-import { v } from 'convex/values'
-import { action } from './_generated/server'
-import { billing } from './billing'
-
-export const generate = action({
-  args: { prompt: v.string() },
-  handler: async (ctx, { prompt }) => {
-    // The billing entity (active workspace, or user with billTo: 'user') resolves from identity.
-    await billing.spendCredits(ctx, { meter: 'credits', value: 1, name: 'credits' })
-    return runModel(prompt)
-  },
-})
-```
-
-`spendCredits(ctx, event)` takes a `SpendCreditsEvent`: `meter` (catalog key) or a raw `meterId`, `value` (default `1`), `name` (the provider event name — defaults to the meter's `eventName` / key), optional `userId` to spend for a specific entity, `allowOverage` (let the balance go negative — the pay-as-you-go case below; off by default), `metadata`, `timestamp`, `externalId` (the idempotency key — a random UUID by default).
-
-::note
-The scaffolded [`ai.ts`](/docs/ai/metered-actions) wraps exactly this into `ai.meteredAction` and `ai.stream`, adding rate limiting and `ctx.usage` — reach for those before hand-rolling spends.
-::
-
-## Reserve → run → settle
-
-A spend is three steps, and `spendCredits` is the one-call form of them:
-
-1. **`reserveCredits`** — an atomic conditional decrement of the **cached** balance inside the component. Convex mutations serialize, so two concurrent spends can never both pass, and there is no live provider read on the spend path. An insufficient balance **throws** (`Insufficient credits — balance N, need M. Top up to continue.`), so credits are strictly prepaid — never billed as overage, unless the spend opts in with `allowOverage: true` (the pay-as-you-go case: a meter with no credit benefit behind it has nothing prepaid to draw down, so every unit is overage the provider invoices at the end of the cycle). A cold cache (granted but never synced) self-heals once from an action ctx (`allowRefresh: false` skips that from a mutation).
-2. **`settleSpend`** — ingests the provider usage event (the only durable record, visible per customer in the provider's portal) and finalizes the reservation. Pass `finalAmount` when the actual cost came in under the estimate and the remainder goes back to the balance in the same transaction; it is clamped to the reservation, because settling above it would be a second, unguarded debit. A failed ingest releases the whole reservation.
-3. **`releaseSpend`** — undoes a reservation whose work failed. Nothing is charged.
-
-Split like this so work can run *between* the guard and the charge — `setupAi` reserves before running a model and settles only after success; the streaming endpoint even settles in a different function than the one that reserved:
-
-```ts
-const reservation = await billing.reserveCredits(ctx, { meter: 'credits', value: 5 })
-try {
-  const result = await runModel(prompt)
-  await billing.settleSpend(ctx, reservation)
-  return result
-}
-catch (error) {
-  await billing.releaseSpend(ctx, reservation)
-  throw error
-}
-```
-
-A `SpendReservation` is plain serializable data (`entityId`, `externalId`, `reserved`, `meter`, `meterId`, `value`), so it can cross function boundaries.
-
-## Sum meters vs count meters
-
-| | `aggregation: 'sum'` (default) | `aggregation: 'count'` |
-|---|---|---|
-| One event means | `metadata[property]` credits (default property `amount`) | exactly 1 credit |
-| Multi-credit spends | `value: 5` in one event | throws — spend `1` per event |
-| Refunds | `refundCredits` ingests a compensating negative event | not possible |
-
-```ts
-// Give credits back on a sum meter (e.g. a generation the user rejected)
-await billing.refundCredits(ctx, { meter: 'credits', value: 5 })
-```
+Credits are spent on the server, never from the browser: see [Spend credits in your functions](/docs/billing/credits/spending).
 
 ## The settings page
 

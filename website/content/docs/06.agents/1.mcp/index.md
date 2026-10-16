@@ -1,6 +1,8 @@
 ---
-title: MCP Server
+title: MCP server
 description: The OAuth-protected MCP endpoint the module mounts — what an agent connects to, the two discovery documents, and the options that move or remove it.
+kind: concept
+status: experimental
 navigation:
   icon: i-lucide-server
 ---

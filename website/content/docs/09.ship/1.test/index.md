@@ -1,6 +1,7 @@
 ---
 title: Testing
 description: Register the packaged backend component in convex-test.
+kind: how-to
 navigation:
   icon: i-lucide-flask-conical
 ---

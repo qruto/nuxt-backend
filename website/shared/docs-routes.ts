@@ -193,7 +193,7 @@ export const DOCS_REDIRECTS: DocsRedirect[] = [
   { from: '/backend/local-installation', to: '/docs/ship/migrate/upgrade#local-installation-is-gone' },
   { from: '/backend/testing', to: '/docs/ship/test' },
   { from: '/backend', to: '/docs/auth/setup' },
-  { from: '/api-reference/theming', to: '/docs/ui/customize', pending: 'D3c (one task per page)' },
+  { from: '/api-reference/theming', to: '/docs/ui/customize/theming' },
   { from: '/getting-started/examples-and-templates', to: '/docs/start/templates' },
   { from: '/agents', to: '/docs/agents' },
   { from: '/api-reference', to: '/docs/reference' },
@@ -209,7 +209,6 @@ export const DOCS_REDIRECTS: DocsRedirect[] = [
 
   // Folder routes under /docs, until each gets its landing.
   { from: '/docs', to: '/docs/start' },
-  { from: '/docs/auth/access', to: '/docs/auth/access/roles', pending: 'a landing page of its own' },
   { from: '/docs/data/jobs', to: '/docs/data/jobs/workflows', pending: 'a landing page of its own' },
   { from: '/docs/reference/backend', to: '/docs/reference/backend/component', pending: 'a landing page of its own' },
   { from: '/docs/reference/nuxt', to: '/docs/reference/nuxt/composables', pending: 'a landing page of its own' },
@@ -271,6 +270,31 @@ export const DOCS_SHORT_LINKS: Array<{ from: string, to: string, pending: string
  * and the client plugin finishes the trip.
  */
 export const DOCS_FRAGMENT_MOVES: Record<string, string> = {
+  // AI: limits and budgets have a page of their own.
+  '/docs/ai/metered-actions#rate-limits': '/docs/ai/costs#limit-calls',
+  // Auth › Access: the function builders have a page of their own.
+  '/docs/auth/access/roles#pre-authorized-function-builders': '/docs/auth/access/functions',
+  // Email: one task per page.
+  '/docs/email/sending#sandbox-inbox': '/docs/email/sandbox-inbox',
+  '/docs/email/sending#sequences-and-workflows': '/docs/email/engagement/sequences',
+  '/docs/email/sending#marketing': '/docs/email/engagement/marketing',
+  '/docs/data/jobs/workflows#welcome-email-flow': '/docs/email/engagement/sequences#start-it-on-sign-up',
+  // Billing: one task per page.
+  '/docs/billing/subscriptions#checkout-portal-plan-changes': '/docs/billing/subscriptions/checkout',
+  '/docs/billing/subscriptions#order-history-and-invoices': '/docs/billing/subscriptions/orders',
+  '/docs/billing/credits#spending-on-the-server': '/docs/billing/credits/spending',
+  '/docs/billing/credits#reserve-run-settle': '/docs/billing/credits/spending#reserve-run-settle',
+  '/docs/billing/credits#sum-meters-vs-count-meters': '/docs/billing/credits/spending#sum-meters-vs-count-meters',
+  // UI › Customize became one page per rung.
+  '/docs/ui/customize#_1-css-tokens': '/docs/ui/customize/theming',
+  '/docs/ui/customize#the---bk--tokens': '/docs/ui/customize/theming#the---bk--tokens',
+  '/docs/ui/customize#data--families': '/docs/ui/customize/theming#data--families',
+  '/docs/ui/customize#packaging': '/docs/ui/customize/theming#packaging',
+  '/docs/ui/customize#_2-appconfig-content': '/docs/ui/customize/labels',
+  '/docs/ui/customize#_3-slots': '/docs/ui/customize/slots',
+  '/docs/ui/customize#props-and-emits': '/docs/ui/customize/slots#props-and-emits',
+  '/docs/ui/customize#_4-route-shadowing': '/docs/ui/customize/replace-pages',
+  '/docs/ui/customize#_5-composables': '/docs/ui/customize/replace-pages#build-from-composables',
   // Configuration became an orientation page: its sections have pages of their own.
   '/docs/reference/configuration#module-options': '/docs/reference/configuration/module-options#options',
   '/docs/reference/configuration#runtime-config': '/docs/reference/configuration/module-options#runtime-config',

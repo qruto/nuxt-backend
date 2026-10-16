@@ -107,7 +107,7 @@ describe('the route table', () => {
     // A ratchet: lower it as each pending home lands — the group landings,
     // split pages (D3c), the Diagnostics and Errors pages (D6); the 0.2.0 docs
     // pass (D11) brings it to zero.
-    expect(pending.length).toBeLessThanOrEqual(13)
+    expect(pending.length).toBeLessThanOrEqual(11)
   })
 })
 

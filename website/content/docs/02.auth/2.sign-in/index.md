@@ -1,6 +1,7 @@
 ---
 title: Authentication
 description: Sign in from Nuxt, read reactive session state, protect routes, and gate UI with the auth components.
+kind: how-to
 navigation:
   icon: i-lucide-shield-check
 ---

@@ -1,6 +1,7 @@
 ---
 title: CLI
 description: npx nuxt-backend — init, dev, doctor, env push, and billing sync, with every flag and every finding.
+kind: reference
 navigation:
   icon: i-lucide-terminal
 ---

@@ -524,10 +524,10 @@ describe('the surface as documented', () => {
     expect(missing).toEqual([])
   })
 
-  it('documents every appConfig.backend key on the customization page', () => {
+  it('documents every appConfig.backend key on the labels page', () => {
     // The "full shape" field-group is the reference for surface 2's content
     // layer: one `::field{name="<key>"}` per frozen key, no more and no fewer.
-    const page = read(contentFile('/docs/ui/customize'))
+    const page = read(contentFile('/docs/ui/customize/labels'))
     const documented = [...page.matchAll(/:::field\{name="([\w.]+)"/g)].map(([, name]) => name!)
     expect(documented.sort()).toEqual([...BACKEND_APP_CONFIG_KEYS].sort())
   })

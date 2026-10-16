@@ -77,6 +77,12 @@ npx convex env set BETTER_AUTH_TRUSTED_ORIGINS https://nuxt-backend.local
 Devices also need the portless CA trusted (or they'll see a certificate
 warning); `portless trust` covers this machine only.
 
+**A public URL for remote agents.** `pnpm dev:website:share` runs the same dev server behind an
+ngrok tunnel and prints the public URL — what claude.ai's custom connectors and other remote MCP
+clients need, since they cannot reach `localhost`. Append `/mcp` and hand that to the client, and
+set the deployment's `SITE_URL` to the tunnel's origin while you test (the OAuth flow trusts no
+other browser origin).
+
 **Running the CLI from this repository.** Use `pnpm cli <command>` (after `pnpm build`), not
 `npx nuxt-backend`: the repository root has no `node_modules/.bin/nuxt-backend`, so `npx` fetches
 the published package from npm instead of running your checkout.
@@ -361,13 +367,34 @@ page here has:
 ---
 title: Configuration
 description: Module options, runtime config, and the environment-variable reference.
+kind: reference
 navigation:
   icon: i-lucide-settings-2
 ---
 ```
 
 `title` and `navigation.icon` are the sidebar entry; `description` is the meta tag and the OG
-card. The components in use are Docus's, written in MDC syntax — keep to these rather than
+card. `kind` says what the page is for, one of `landing`, `tutorial`, `how-to`, `concept`,
+`recipe` and `reference`; a page does one of those, so a how-to covering two tasks is two pages. A
+page documenting the experimental tier of STABILITY.md also sets `status: experimental`.
+
+[`test/docs/page-contract.test.ts`](./test/docs/page-contract.test.ts) holds every page to the
+contract:
+
+- **Sentence case** for titles and h1–h3 headings, with proper nouns, acronyms and code kept as
+  they are. `pnpm docs:style` (part of `pnpm generate`) applies it; add a name to
+  `PROPER_NOUNS` in `scripts/docs-style.mjs` when it lowercases one.
+- **A kind** on every page, and the chip exactly where the surface is experimental.
+- **A short sidebar:** at most seven entries in a group, order prefixes of one width per folder,
+  routes of plain words, and no provider's name in a navigation title.
+- **Real names:** every composable, component and CLI command a page shows exists, in this
+  package's registry, the base module's, or Nuxt's. The Upgrade page, the release pages and the
+  ecosystem page are exempt, since naming what is gone or upstream is their job.
+- **Each kind's template**, reduced to one marker (a how-to's `## Related`, a landing's cards…).
+  Pages still missing theirs are listed in `KIND_TEMPLATE_RATCHET`, which only shrinks: take a
+  page off when you give it the marker.
+
+The components in use are Docus's, written in MDC syntax — keep to these rather than
 adding new ones: `::note`, `::tip` and `::warning` for callouts; `::field-group` with
 `:::field{name="…" type="…"}` children for options and parameters (the docs contract reads the
 field group on the configuration page); `::code-group` for one snippet under several package
