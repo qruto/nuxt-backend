@@ -26,6 +26,7 @@ const configureDeployment = (deployment: string) => writeFileSync(join(rootDir, 
 const cleanPush: EnvPushRunResult = {
   deployment: 'dev:brave-fox-123',
   dev: true,
+  deployedNames: [],
   missingRequired: [],
   results: [{ action: { name: 'AUTH_SECRET', action: 'provision', detail: 'generated' }, outcome: 'set' }],
 }

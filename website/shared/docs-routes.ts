@@ -87,6 +87,7 @@ const REFERENCE_SLUGS: Record<string, string> = {
   'runtime/vue/composables/use-backend-config': 'use-backend-config',
   'runtime/vue/composables/use-billing': 'use-billing',
   'runtime/vue/composables/use-credits': 'use-credits',
+  'runtime/vue/composables/use-email-change': 'use-email-change',
   'runtime/vue/composables/use-email-status': 'use-email-status',
   'runtime/vue/composables/use-features': 'use-features',
   'runtime/vue/composables/use-gifts': 'use-gifts',

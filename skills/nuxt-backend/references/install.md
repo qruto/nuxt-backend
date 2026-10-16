@@ -86,9 +86,13 @@ Check what `init` printed:
 
 Existing Convex files: `init` keeps a `convex.config.ts`, `http.ts`, `schema.ts` or
 `auth.config.ts` that was already in the functions folder, and says nothing about it. The backend
-does not run until those four carry its parts: `app.use(backend)` and `env: backendEnv` in
-`convex.config.ts`, `registerBackendRoutes` in `http.ts`, the auth tables in `schema.ts` and the
-auth provider in `auth.config.ts`. Compare each kept file with the
+does not run until those four carry its parts: `env: backendEnv` in `defineApp` and
+`app.use(backend, { env: { … } })` forwarding the four email variables (`EMAIL_API_KEY`,
+`EMAIL_FROM`, `EMAIL_TEST_MODE`, `EMAIL_WEBHOOK_SECRET`, each as `app.env.<NAME>`) in
+`convex.config.ts` (a bare `app.use(backend)` leaves the component without them, and it sends no
+email, sign-in codes included, even with `EMAIL_API_KEY` on the deployment), `registerBackendRoutes`
+in `http.ts`, the auth tables in `schema.ts` and the auth provider in `auth.config.ts`. Compare
+each kept file with the
 [scaffolded files](https://nuxt-backend.dev/raw/docs/auth/setup.md) and propose the merge to
 the user before editing it; don't overwrite their code.
 

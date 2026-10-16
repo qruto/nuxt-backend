@@ -4,7 +4,7 @@ import { convexTest } from 'convex-test'
 import { componentsGeneric, defineSchema, makeFunctionReference, queryGeneric } from 'convex/server'
 import component from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
-import { makeAuthApi } from '../../src/convex/client'
+import { setupAuth } from '../../src/convex/client'
 
 // The device-session functions, end to end: the app's `listSessions` and
 // `revokeSession` (as `backend/auth.ts` re-exports them) over the mounted
@@ -12,7 +12,7 @@ import { makeAuthApi } from '../../src/convex/client'
 // are days old on purpose — Better Auth's own /list-sessions refuses those.
 
 const components = componentsGeneric() as unknown as { backend: ComponentApi<'backend'> }
-const { listSessions, revokeSession } = makeAuthApi(components as never, queryGeneric)
+const { listSessions, revokeSession } = setupAuth(components as never, queryGeneric)
 
 const appModules = {
   './_generated/api.js': () => Promise.resolve({}),

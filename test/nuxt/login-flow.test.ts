@@ -114,6 +114,33 @@ describe('useLoginFlow', () => {
     expect(client.signOut).not.toHaveBeenCalled()
   })
 
+  // A double click on Skip, or a passkey prompt that resolves after it, must
+  // not hand the person on twice.
+  it('finishes once, however often the last step is reached', async () => {
+    const onSuccess = vi.fn()
+    const flow = inSetup(() => useLoginFlow({ onSuccess }))
+    flow.goTo('add-passkey')
+    await Promise.all([flow.skipPasskey(), flow.skipPasskey()])
+    await flow.addPasskey()
+    expect(onSuccess).toHaveBeenCalledOnce()
+
+    // A new sign-in after reset finishes again.
+    flow.reset()
+    flow.goTo('add-passkey')
+    await flow.skipPasskey()
+    expect(onSuccess).toHaveBeenCalledTimes(2)
+  })
+
+  it('counts a passkey this device already holds as saved', async () => {
+    const onSuccess = vi.fn()
+    const flow = inSetup(() => useLoginFlow({ onSuccess }))
+    flow.goTo('add-passkey')
+    client.passkey.addPasskey.mockResolvedValueOnce({ error: { code: 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED', message: 'Already registered' } })
+    await flow.addPasskey()
+    expect(flow.error.value).toBeNull()
+    expect(onSuccess).toHaveBeenCalledOnce()
+  })
+
   it('reset returns to a clean choose step', async () => {
     const flow = inSetup(() => useLoginFlow())
     flow.goTo('request-code')

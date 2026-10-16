@@ -2,7 +2,7 @@ import type { GenericDataModel, GenericQueryCtx } from 'convex/server'
 import type { AdapterRefs } from './component.js'
 
 // The caller's device sessions, read from the component's session table for
-// `makeAuthApi`'s `listSessions` and `revokeSession`.
+// `setupAuth`'s `listSessions` and `revokeSession`.
 
 /** More device sessions than any real account holds; a bound, not pagination. */
 const SESSION_PAGE_SIZE = 100

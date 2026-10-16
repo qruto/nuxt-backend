@@ -12,6 +12,10 @@ into `node_modules`, but that link points at a package whose `dist/` is gitignor
 clone the build dies before rendering anything (`Failed to load tsconfig '../.nuxt/tsconfig.json'`,
 then `Cannot resolve module "nuxt-backend"`). So the command builds the package first:
 
+- On a shallow clone, which Vercel's is, it first fetches the rest of the history from the
+  public repository. The docs date each page by its last commit, and the sitemap's `lastmod`
+  comes from that date, so a page last changed before the clone would go undated. If the fetch
+  fails, those pages go undated, never wrongly dated, and the build goes on.
 - `dev:prepare:lib` generates the repository root's `.nuxt/tsconfig.json`, the module stub and
   the Convex component. Without it `nuxt-module-build` can't resolve compiler options.
 - `build` then replaces the stub with a real build — the module, the component and the DevTools

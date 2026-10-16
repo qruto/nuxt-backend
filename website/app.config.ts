@@ -1,3 +1,14 @@
+// A border and a radius, every side and corner of them, as tailwind-merge
+// groups them: a part that replaces a component's border or radius has to
+// replace all of it, or a `border-b` or `rounded-t-md` the component also
+// names outlives the part (a currentColor line under the header, a 12px
+// corner on a 16px code plate). test/docs/design-merge.test.ts holds these
+// lists to the groups tailwind-merge declares.
+const SIDES = ['x', 'y', 's', 'e', 'bs', 'be', 't', 'r', 'b', 'l']
+const CORNERS = ['s', 'e', 't', 'r', 'b', 'l', 'ss', 'se', 'ee', 'es', 'tl', 'tr', 'br', 'bl']
+const BORDER = ['border-w', 'border-color', ...SIDES.flatMap(side => [`border-w-${side}`, `border-color-${side}`])]
+const RADIUS = ['rounded', ...CORNERS.map(corner => `rounded-${corner}`)]
+
 export default defineAppConfig({
   // The nuxt-backend content layer: the plan catalog rendered by
   // <PricingTable> / <WorkspaceSettings>. Keys match the products map in
@@ -46,9 +57,11 @@ export default defineAppConfig({
     // The parts (assets/css/depth.css, console.css) are Tailwind utilities,
     // so in a Nuxt UI slot string they meet the component's own classes. A
     // part's class group conflicts with what the part draws, so the part,
-    // named last, replaces the component's background, ring, border, radius
-    // and shadow (or text colour and shadow, for relief) instead of losing to
-    // them in the stylesheet's order. `carved` and `seam` draw only an edge,
+    // named last, replaces the component's background, ring, shadow, and
+    // border and radius on every side (or text colour and shadow, for
+    // relief) instead of losing to them in the stylesheet's order. It
+    // replaces only what is named before it: a class that follows the part
+    // in the slot string survives. `carved` and `seam` draw only an edge,
     // so they keep a tinted background; `stamp` sets a whole label's type.
     // Modifiers (`k-xs`, `slot-pill`, `led-warn` …) only set custom
     // properties and belong to no group. test/docs/design-parts.test.ts keeps
@@ -63,7 +76,7 @@ export default defineAppConfig({
             'label': ['stamp'],
           },
           conflictingClassGroups: {
-            'depth': ['bg-color', 'bg-image', 'rounded', 'shadow', 'shadow-color', 'inset-shadow', 'inset-shadow-color', 'ring-w', 'ring-color', 'inset-ring-w', 'border-w', 'border-color', 'backdrop-blur'],
+            'depth': ['bg-color', 'bg-image', 'shadow', 'shadow-color', 'inset-shadow', 'inset-shadow-color', 'ring-w', 'ring-color', 'inset-ring-w', 'backdrop-blur', ...RADIUS, ...BORDER],
             'depth-edge': ['shadow', 'shadow-color', 'inset-shadow', 'inset-shadow-color', 'ring-w', 'ring-color', 'inset-ring-w'],
             'relief': ['text-color', 'text-shadow', 'text-shadow-color'],
             'label': ['font-family', 'font-size', 'font-weight', 'font-stretch', 'tracking', 'text-transform', 'text-color', 'leading'],
@@ -103,7 +116,10 @@ export default defineAppConfig({
       h2: { slots: { base: 'font-display font-semibold tracking-[0.01em] pb-2 rule-carved emb-sm' } },
       h3: { slots: { base: 'font-display font-medium tracking-[0.01em]' } },
       pre: { slots: { base: 'slot', header: 'code-plate' } },
-      code: { base: 'slot slot-xs' },
+      // On the colour variant, not `base`: tailwind-variants appends the
+      // variant's border and background after a `base` override, so only a
+      // variant entry lets the part replace them.
+      code: { variants: { color: { neutral: 'slot slot-xs' } } },
       card: { slots: { base: 'plaque', title: 'font-display font-semibold embossed-sm' } },
       // Shadow-only carve — the callout keeps its tinted bg → a pressed tinted well.
       callout: { slots: { base: 'carved rounded-[10px]' } },
@@ -151,9 +167,12 @@ export default defineAppConfig({
     },
   },
 
-  // Keep `description` in sync with `site.description` in nuxt.config.ts —
-  // that one string is the meta description, the OG/Twitter description and
-  // the llms.txt summary, so the product says the same sentence everywhere.
+  // `description` is SITE.description (shared/site.ts), which app config
+  // cannot import; test/docs/homepage.test.ts keeps the two equal. No
+  // `schema`: Docus would describe the homepage as a SoftwareApplication,
+  // and Google lists that node as an invalid Software App item without the
+  // `aggregateRating` or `review` an npm package has nobody to give. The
+  // homepage's JSON-LD is the WebSite node.
   seo: {
     titleTemplate: '%s · Nuxt backend',
     title: 'Nuxt backend',

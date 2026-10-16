@@ -110,3 +110,9 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Backs out of an email change's code step: quiet, beside the submit. */
+[data-profile='cancel'] {
+  align-self: flex-start;
+  color: var(--bk-muted);
+}

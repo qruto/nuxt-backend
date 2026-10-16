@@ -104,6 +104,14 @@ async function signOut() {
 
 const route = useRoute()
 const isLogin = computed(() => route.path === '/login')
+
+// One main landmark per route. The module's own pages (the vanilla group)
+// render their own <main>, as a page does in an app without layouts, so
+// around one of them the shell's wrapper is a plain container. A role
+// rather than a second element type: the page under the wrapper is not
+// remounted when a navigation crosses between the two kinds of page.
+const modulePages = new Set(Object.values(useRuntimeConfig().public.backend.pages))
+const pageHasMain = computed(() => modulePages.has(route.path.replace(/(.)\/+$/, '$1')))
 </script>
 
 <template>
@@ -236,7 +244,7 @@ const isLogin = computed(() => route.path === '/login')
               <Led
                 v-else-if="item.xp"
                 tone="warn"
-                title="experimental"
+                label="Experimental"
               />
             </NuxtLink>
           </div>
@@ -250,11 +258,14 @@ const isLogin = computed(() => route.path === '/login')
         </div>
       </aside>
 
-      <main class="content">
+      <div
+        class="content"
+        :role="pageHasMain ? undefined : 'main'"
+      >
         <div class="content-inner fade-up">
           <slot />
         </div>
-      </main>
+      </div>
     </div>
   </div>
 </template>

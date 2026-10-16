@@ -97,6 +97,7 @@ The names the module registers, exactly as `src/nuxt/registry.ts` writes them:
   - `useConnectionState`
   - `useCount`
   - `useCredits`
+  - `useEmailChange`
   - `useEmailStatus`
   - `useFeatures`
   - `useGifts`
@@ -194,7 +195,6 @@ A name is only ever added to this contract in a minor release, and the scaffold 
   - `deployment-auth-secret`
   - `deployment-auth-trust-local-origins`
   - `deployment-site-url`
-  - `invitation-path`
   - `site-url`
 - `billing`:
   - `billing-access`
@@ -226,6 +226,8 @@ A name is only ever added to this contract in a minor release, and the scaffold 
   - `convex-codegen`
   - `dev-script`
   - `function-contract`
+- `workspaces`:
+  - `invitation-path`
 
 The environment variables the package reads, by name: the keys of `backendEnv` (`nuxt-backend/app`), `NUXT_BACKEND_LOG_OTP`, which dev tooling sets, and the Nuxt app's `NUXT_PUBLIC_BACKEND_*`:
 

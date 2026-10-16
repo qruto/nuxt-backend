@@ -1,9 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { betterAuth } from 'better-auth'
 import { memoryAdapter } from 'better-auth/adapters/memory'
 import { testUtils } from 'better-auth/plugins'
-import { createBetterAuthOptions } from '../../src/convex/client'
+import { buildAuthOptions } from '../../src/convex/client/better-auth-options'
 import { tables } from '../../src/convex/components/backend/schema'
 
 // The agent OAuth flow end to end, on Better Auth's memory adapter with the
@@ -34,7 +34,7 @@ beforeEach(async () => {
     adapter.options = { ...adapter.options, isRunMutationCtx: true }
     return adapter
   }) as never
-  auth = betterAuth(createBetterAuthOptions(database, {
+  auth = betterAuth(buildAuthOptions(database, {
     authOptions: { baseURL: ORIGIN, secret: 'a-test-secret-that-is-long-enough-1234', plugins: [testUtils({ captureOTP: true })] },
   }) as never)
   helpers = (await auth.$context as unknown as { test: TestHelpers }).test
@@ -204,8 +204,13 @@ describe('signing in mid-authorization', () => {
     const signedOut = await authorize(clientId, '', { code_challenge: challenge, code_challenge_method: 'S256' })
     expect(signedOut.headers.get('location')).toMatch(/^\/login\?/)
 
+    // Codes are stored hashed, so the database holds nothing to read back: take
+    // the code from the dev echo (NUXT_BACKEND_LOG_OTP), as a developer would.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     await post('/email-otp/send-verification-otp', '', { email: 'ada@example.com', type: 'sign-in' })
-    const signIn = await post('/sign-in/email-otp', cookiesOf(signedOut), { email: 'ada@example.com', otp: helpers.getOTP('ada@example.com') })
+    const otp = warn.mock.calls.flat().join('\n').match(/for ada@example\.com: (\d{6})/)?.[1]
+    warn.mockRestore()
+    const signIn = await post('/sign-in/email-otp', cookiesOf(signedOut), { email: 'ada@example.com', otp })
 
     expect(new URL(signIn.headers.get('location')!, ORIGIN).pathname).toBe('/oauth/consent')
   })

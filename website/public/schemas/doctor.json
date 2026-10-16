@@ -16,7 +16,7 @@
       "items": { "$ref": "#/$defs/finding" }
     },
     "summary": {
-      "description": "One line: `auth ✓` when nothing needs attention, otherwise the count and the ids of the findings that warn or fail.",
+      "description": "One line: `<n> checks ✓` (`1 check ✓` for one) when every check passes, the count and the ids of the findings that warn or fail when some do (`2 findings: auth-secret, site-url`), and `no checks ran` when none did.",
       "type": "string"
     }
   },
@@ -33,7 +33,7 @@
         },
         "service": {
           "description": "The part of the app the finding is about, and the name `--only` selects it by.",
-          "enum": ["deployment", "auth", "email", "billing", "agents", "ai", "scaffold"]
+          "enum": ["deployment", "auth", "workspaces", "email", "billing", "agents", "ai", "scaffold"]
         },
         "title": {
           "description": "A short label. Its wording may change in any release.",

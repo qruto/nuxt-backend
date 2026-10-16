@@ -1,4 +1,5 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
+import { DEFAULT_EMAIL_MESSAGE, defaultValidateEmail, ensureOk, stepRunner } from '../utils/auth-steps'
 import { useAuth } from './use-auth'
 
 /**
@@ -51,40 +52,6 @@ export interface UseLoginFlowReturn {
   reset: () => void
 }
 
-/** What the auth client hands back: the response JSON spread next to its status. */
-type AuthResult = { error?: { message?: string, status?: number, retryAfter?: number } | null }
-
-const DEFAULT_EMAIL_MESSAGE = 'Enter a valid email address.'
-
-/**
- * A 429 on its way up `run()`'s error path, with when to retry. The package's
- * own limits answer with `retryAfter` in milliseconds in the body, which the
- * client's fetch spreads into `error` next to `status` — the only wait that
- * reaches this composable: Better Auth's built-in limiter sets an
- * `X-Retry-After` header (seconds) that the `{ data, error }` result drops,
- * so its refusals read as "in a moment".
- */
-class RateLimitedError extends Error {
-  /** Seconds, rounded up so a countdown never lets the user retry early. */
-  readonly retryAfter: number | null
-
-  constructor(retryAfterMs: number | undefined) {
-    const seconds = typeof retryAfterMs === 'number' && Number.isFinite(retryAfterMs)
-      ? Math.max(1, Math.ceil(retryAfterMs / 1000))
-      : null
-    super(seconds === null
-      ? 'Too many attempts. Try again in a moment.'
-      : `Too many attempts. Try again in ${seconds} ${seconds === 1 ? 'second' : 'seconds'}.`)
-    this.retryAfter = seconds
-  }
-}
-
-function defaultValidateEmail(email: string): boolean {
-  const value = email.trim()
-  const at = value.indexOf('@')
-  return at > 0 && value.indexOf('.', at) > at + 1 && !value.includes(' ') && at === value.lastIndexOf('@')
-}
-
 /**
  * The headless login flow behind `<AuthForm>` — bring your own markup and wire
  * these refs/actions to it. Encodes the proven passwordless sequencing:
@@ -111,40 +78,18 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   const trimmedEmail = () => email.value.trim()
   const trimmedName = () => name.value.trim()
 
-  const clearError = () => {
-    error.value = null
-    retryAfter.value = null
-  }
-
-  function ensureOk(result: unknown, fallback: string) {
-    const { error: resultError } = (result ?? {}) as AuthResult
-    if (!resultError) return
-    if (resultError.status === 429) throw new RateLimitedError(resultError.retryAfter)
-    throw new Error(resultError.message ?? fallback)
-  }
-
-  async function run(fallback: string, action: () => Promise<void>): Promise<void> {
-    pending.value = true
-    clearError()
-    try {
-      await action()
-    }
-    catch (cause) {
-      // The step only advances on success, so a refusal leaves the user where
-      // they were — with the wait beside the message for a countdown.
-      if (cause instanceof RateLimitedError) retryAfter.value = cause.retryAfter
-      error.value = cause instanceof Error ? cause.message : fallback
-    }
-    finally {
-      pending.value = false
-    }
-  }
+  const { run, clearError } = stepRunner({ pending, error, retryAfter })
 
   async function refreshSession() {
     await (auth.session.value as unknown as { refetch: () => Promise<unknown> }).refetch()
   }
 
+  // The hand-off runs once, however the last step is reached: a double click
+  // on "Skip", or a passkey prompt that resolves after it.
+  let completed = false
   async function complete() {
+    if (completed) return
+    completed = true
     await options.onSuccess?.()
   }
 
@@ -183,13 +128,13 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   })
 
   const addPasskey = () => run('Passkey registration failed', async () => {
-    ensureOk(await auth.registerPasskey(), 'Failed to register passkey')
+    const result = await auth.registerPasskey() as { error?: { code?: string } | null } | undefined
+    // This device already holds a passkey for the account: nothing to save.
+    if (result?.error?.code !== 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED') ensureOk(result, 'Failed to register passkey')
     await complete()
   })
 
-  const skipPasskey = async () => {
-    await complete()
-  }
+  const skipPasskey = () => run('Could not continue', complete)
 
   const goTo = (target: LoginStep) => {
     clearError()
@@ -198,6 +143,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   }
 
   const reset = () => {
+    completed = false
     goTo('choose')
     email.value = ''
     name.value = ''

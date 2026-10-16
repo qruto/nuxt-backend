@@ -15,16 +15,6 @@
   gap: 0.6rem;
 }
 
-[data-security='status'] {
-  margin: 0;
-  font-size: 0.88rem;
-  color: var(--bk-warn);
-}
-
-[data-security='status'][data-verified] {
-  color: var(--bk-ok);
-}
-
 [data-security='passkey-list'],
 [data-security='session-list'] {
   list-style: none;
@@ -99,8 +89,7 @@
   color: var(--bk-error);
 }
 
-[data-security='add-passkey'],
-[data-security='send-verification'] {
+[data-security='add-passkey'] {
   align-self: flex-start;
   background: var(--bk-accent);
   border-color: var(--bk-accent);

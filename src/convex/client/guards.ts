@@ -64,7 +64,9 @@ async function assertOtpRequestAllowed<DM extends GenericDataModel>(
  * `/admin/*`, only a member with the invite permission passes
  * `invite-member`) but does not bound how fast an authorized caller may go —
  * these limits do, so one compromised admin session or one runaway script
- * cannot ban a thousand accounts or send a thousand invitations.
+ * cannot ban a thousand accounts or send a thousand invitations. An email
+ * change is the same shape: its second code goes to an address the caller
+ * typed.
  *
  * Keyed by user id, not by session: opening more sessions must not multiply
  * the budget. A caller with no session is left alone — the route itself
@@ -101,6 +103,14 @@ const ROUTE_LIMITS: ReadonlyArray<{
     global: {
       limit: 'invitationGlobal',
       message: 'Invitations are temporarily unavailable. Please try again later.',
+    },
+  },
+  {
+    matches: path => path === '/email-otp/request-email-change',
+    caller: { limit: 'emailChange', message: 'Too many email changes. Please try again later.' },
+    global: {
+      limit: 'emailOtpGlobal',
+      message: 'Verification codes are temporarily unavailable. Please try again later.',
     },
   },
   {

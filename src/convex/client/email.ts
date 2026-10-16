@@ -16,7 +16,8 @@ function escapeHtml(value: string): string {
 
 const OTP_SUBJECTS: Record<OtpPurpose, string> = {
   'sign-in': 'Your sign-in code',
-  'email-verification': 'Verify your email',
+  // Also the code an email change sends to the current address first.
+  'email-verification': 'Confirm your email address',
   'forget-password': 'Reset your password',
   'change-email': 'Confirm your new email',
 }
@@ -52,13 +53,13 @@ function linkEmail(to: string, subject: string, intro: string, url: string, cta:
 }
 
 /**
- * The packaged default auth-email templates (OTP, welcome, verify,
- * change-email, delete-account, invite) — minimal, dependency-free HTML/text.
- * Exported so apps can preview them (e.g. the playground's email-templates
- * page) or reuse individual builders inside `integrations.emailTemplates`
- * overrides.
+ * The packaged default auth-email templates (OTP, welcome, delete-account,
+ * invite) — minimal, dependency-free HTML/text. `setupAuth` returns the
+ * resolved set, overrides included, as `emailTemplates`, for previews.
+ *
+ * @internal
  */
-export const defaultEmailTemplates: AuthEmailTemplates = {
+export const PACKAGED_EMAIL_TEMPLATES: AuthEmailTemplates = {
   otp: otpEmail,
   welcome: ({ email, name }) => ({
     to: email,
@@ -69,20 +70,6 @@ export const defaultEmailTemplates: AuthEmailTemplates = {
       + `<p>Your account is ready — thanks for joining us.</p>`
       + `</div>`,
   }),
-  verify: ({ email, url }) => linkEmail(
-    email,
-    'Verify your email',
-    'Confirm your email address to finish setting up your account.',
-    url,
-    'Verify email',
-  ),
-  changeEmail: ({ email, newEmail, url }) => linkEmail(
-    email,
-    'Confirm your new email',
-    `Confirm changing your account email to ${newEmail}.`,
-    url,
-    'Confirm change',
-  ),
   deleteAccount: ({ email, url }) => linkEmail(
     email,
     'Confirm account deletion',
@@ -99,9 +86,18 @@ export const defaultEmailTemplates: AuthEmailTemplates = {
   ),
 }
 
-/** Resolve the active template set (defaults overlaid with consumer overrides). */
+/**
+ * The active template set: each override in place of its default, called
+ * with the data and the default it replaces.
+ */
 export function resolveTemplates<DM extends GenericDataModel>(runtime?: AuthRuntime<DM>): AuthEmailTemplates {
-  return { ...defaultEmailTemplates, ...runtime?.emailTemplates }
+  const resolved: Record<string, unknown> = { ...PACKAGED_EMAIL_TEMPLATES }
+  for (const [key, override] of Object.entries(runtime?.emailTemplates ?? {})) {
+    if (!override) continue
+    const byDefault = PACKAGED_EMAIL_TEMPLATES[key as keyof AuthEmailTemplates]
+    resolved[key] = (data: never) => (override as (data: never, byDefault: unknown) => AuthEmailMessage)(data, byDefault)
+  }
+  return resolved as unknown as AuthEmailTemplates
 }
 
 /**

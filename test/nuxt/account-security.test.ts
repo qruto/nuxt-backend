@@ -13,11 +13,13 @@ const client = {
   },
   revokeOtherSessions: vi.fn(async () => ({})),
   updateUser: vi.fn(async () => ({})),
-  sendVerificationEmail: vi.fn(async () => ({})),
-  changeEmail: vi.fn(async () => ({})),
   deleteUser: vi.fn(async () => ({})),
   signOut: vi.fn(async () => ({})),
-  emailOtp: { sendVerificationOtp: vi.fn(async () => ({})) },
+  emailOtp: {
+    sendVerificationOtp: vi.fn(async (): Promise<Record<string, unknown>> => ({})),
+    requestEmailChange: vi.fn(async (): Promise<Record<string, unknown>> => ({})),
+    changeEmail: vi.fn(async (): Promise<Record<string, unknown>> => ({})),
+  },
   signIn: { emailOtp: vi.fn(async () => ({})), passkey: vi.fn(async () => ({})) },
   admin: { checkRolePermission: vi.fn(() => false) },
 }
@@ -49,6 +51,7 @@ vi.mock('nuxt-convex-module/better-auth/client', () => ({
 }))
 
 const { useAuth } = await import('../../src/runtime/vue/composables/use-auth')
+const { useEmailChange } = await import('../../src/runtime/vue/composables/use-email-change')
 const { usePasskeys } = await import('../../src/runtime/vue/composables/use-passkeys')
 const { useSessions, describeUserAgent } = await import('../../src/runtime/vue/composables/use-sessions')
 const { unwrapAuth } = await import('../../src/runtime/vue/utils/auth-result')
@@ -206,15 +209,74 @@ describe('useAuth account additions', () => {
     expect(client.updateUser).toHaveBeenCalledWith({ name: 'Ada L.' })
   })
 
-  it('sendVerificationEmail targets the signed-in address', async () => {
-    const auth = inSetup(() => useAuth())
-    await auth.sendVerificationEmail('/security')
-    expect(client.sendVerificationEmail).toHaveBeenCalledWith({ email: 'ada@example.com', callbackURL: '/security' })
+  it('offers no link-based email change or verification', () => {
+    const auth = inSetup(() => useAuth()) as unknown as Record<string, unknown>
+    expect(auth.changeEmail).toBeUndefined()
+    expect(auth.sendVerificationEmail).toBeUndefined()
+  })
+})
+
+describe('useEmailChange', () => {
+  beforeEach(() => {
+    user.value = { email: 'ada@example.com', emailVerified: true }
+    client.emailOtp.sendVerificationOtp.mockClear()
+    client.emailOtp.requestEmailChange.mockClear()
+    client.emailOtp.changeEmail.mockClear()
   })
 
-  it('sendVerificationEmail rejects when signed out', async () => {
-    user.value = null
-    const auth = inSetup(() => useAuth())
-    await expect(auth.sendVerificationEmail()).rejects.toThrow('No signed-in user')
+  it('takes a code from the current address, then one from the new address', async () => {
+    const onChanged = vi.fn()
+    const change = inSetup(() => useEmailChange({ onChanged }))
+    change.newEmail.value = ' ada@new.example '
+
+    await change.start()
+    expect(client.emailOtp.sendVerificationOtp).toHaveBeenCalledWith({ email: 'ada@example.com', type: 'email-verification' })
+    expect(change.step.value).toBe('confirm-current')
+
+    change.otp.value = '111111'
+    await change.confirmCurrent()
+    expect(client.emailOtp.requestEmailChange).toHaveBeenCalledWith({ newEmail: 'ada@new.example', otp: '111111' })
+    expect(change.step.value).toBe('verify-new')
+    expect(change.otp.value).toBe('')
+
+    change.otp.value = '222222'
+    await change.verifyNew()
+    expect(client.emailOtp.changeEmail).toHaveBeenCalledWith({ newEmail: 'ada@new.example', otp: '222222' })
+    expect(change.step.value).toBe('done')
+    expect(onChanged).toHaveBeenCalledWith('ada@new.example')
+  })
+
+  it('sends nothing for the current address or one validateEmail refuses', async () => {
+    const change = inSetup(() => useEmailChange({ validateEmail: email => email.endsWith('@acme.com') || 'Use your Acme address.' }))
+    change.newEmail.value = 'ADA@example.com'
+    await change.start()
+    expect(change.error.value).toBe('That is already your email address.')
+    change.newEmail.value = 'ada@other.example'
+    await change.start()
+    expect(change.error.value).toBe('Use your Acme address.')
+    expect(change.emailValid.value).toBe(false)
+    expect(client.emailOtp.sendVerificationOtp).not.toHaveBeenCalled()
+    expect(change.step.value).toBe('enter-email')
+  })
+
+  it('never rejects: a wrong code stays on its step, a rate limit says when to retry', async () => {
+    const change = inSetup(() => useEmailChange())
+    change.newEmail.value = 'ada@new.example'
+    await change.start()
+
+    client.emailOtp.requestEmailChange.mockResolvedValueOnce({ error: { status: 400, message: 'Invalid OTP' } })
+    await expect(change.confirmCurrent()).resolves.toBeUndefined()
+    expect(change.step.value).toBe('confirm-current')
+    expect(change.error.value).toBe('Invalid OTP')
+
+    client.emailOtp.requestEmailChange.mockResolvedValueOnce({ error: { status: 429, retryAfter: 61_000 } })
+    await change.confirmCurrent()
+    expect(change.retryAfter.value).toBe(61)
+    expect(change.error.value).toBe('Too many attempts. Try again in 61 seconds.')
+
+    change.reset()
+    expect(change.step.value).toBe('enter-email')
+    expect(change.newEmail.value).toBe('')
+    expect(change.error.value).toBeNull()
   })
 })

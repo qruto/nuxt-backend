@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { AnyComponents } from 'convex/server'
 import * as clientBridge from '../../src/convex/client'
+import { buildAuthOptions } from '../../src/convex/client/better-auth-options'
 
 const fakeComponent = {
   adapter: {
@@ -19,7 +20,7 @@ describe('Convex component client bridge', () => {
     try {
       delete process.env.SITE_URL
 
-      const options = clientBridge.createBetterAuthOptions({} as never)
+      const options = buildAuthOptions({} as never)
       expect(options.database).toBeDefined()
       expect(options.basePath).toBe('/api/auth')
     }
@@ -33,10 +34,14 @@ describe('Convex component client bridge', () => {
     }
   })
 
-  it('exposes a ready-made auth API remount helper', async () => {
+  it('exports one function and the error class: setupAuth builds every auth instance', () => {
+    expect(Object.keys(clientBridge).sort()).toEqual(['APIError', 'setupAuth'])
+  })
+
+  it('remounts the auth queries through setupAuth', async () => {
     const queryBuilder = vi.fn(definition => definition)
 
-    const authApi = clientBridge.makeAuthApi({ backend: fakeAppComponent }, queryBuilder as never)
+    const authApi = clientBridge.setupAuth({ backend: fakeAppComponent }, queryBuilder as never)
 
     // One query per api member: getAuthUser, the authConfig diagnostics, the
     // workspace reads and the session list (updateProfile and revokeSession
@@ -61,9 +66,11 @@ describe('Convex component client bridge', () => {
     const authSetup = clientBridge.setupAuth({ backend: fakeAppComponent }, queryBuilder as never)
 
     expect(typeof authSetup.createAuth).toBe('function')
-    expect(typeof authSetup.createAuthOptions).toBe('function')
-    expect(authSetup).toHaveProperty('options')
+    expect(authSetup).not.toHaveProperty('createAuthOptions')
+    expect(authSetup).not.toHaveProperty('options')
     expect(authSetup).toHaveProperty('authComponent')
+    // The auth emails in effect, for a preview page.
+    expect(authSetup.emailTemplates.otp({ email: 'a@b.com', otp: '123456', type: 'change-email' }).subject).toBe('Confirm your new email')
     expect(authSetup).toHaveProperty('getAuthUser')
     // The agent token exchange rides along for http.ts to mount.
     expect(typeof authSetup.mcp.exchangeHandler).toBe('function')
@@ -75,12 +82,12 @@ describe('admin + organization defaults', () => {
     (options.plugins ?? []).map(plugin => plugin.id)
 
   it('bundles the admin and organization plugins by default', () => {
-    const options = clientBridge.createBetterAuthOptions({} as never)
+    const options = buildAuthOptions({} as never)
     expect(pluginIds(options)).toEqual(expect.arrayContaining(['convex', 'email-otp', 'passkey', 'admin', 'organization']))
   })
 
   it('bundles the agent OAuth provider (mcp) without a top-level jwt', () => {
-    const options = clientBridge.createBetterAuthOptions({} as never)
+    const options = buildAuthOptions({} as never)
     const ids = pluginIds(options)
     expect(ids).toContain('mcp')
     // No top-level jwt: better-auth dedupes plugins by id, and a second jwt
@@ -93,7 +100,7 @@ describe('admin + organization defaults', () => {
   })
 
   it('offers the built-in tool scopes to agents at consent time', () => {
-    const options = clientBridge.createBetterAuthOptions({} as never)
+    const options = buildAuthOptions({} as never)
     const mcpPlugin = (options.plugins ?? []).find(plugin => plugin.id === 'mcp') as unknown as {
       options?: { oidcConfig?: { scopes?: string[], metadata?: { scopes_supported?: string[] } } }
     }
@@ -105,23 +112,23 @@ describe('admin + organization defaults', () => {
   })
 
   it('requires PKCE and names the login and consent pages, defaults or given paths', () => {
-    const oidcConfigOf = (options: ReturnType<typeof clientBridge.createBetterAuthOptions>) => ((options.plugins ?? [])
+    const oidcConfigOf = (options: ReturnType<typeof buildAuthOptions>) => ((options.plugins ?? [])
       .find(plugin => plugin.id === 'mcp') as unknown as { options?: { loginPage?: string, oidcConfig?: Record<string, unknown> } }).options
-    const defaults = oidcConfigOf(clientBridge.createBetterAuthOptions({} as never))
+    const defaults = oidcConfigOf(buildAuthOptions({} as never))
     expect(defaults).toMatchObject({ loginPage: '/login', oidcConfig: { requirePKCE: true, consentPage: '/oauth/consent' } })
 
-    const moved = oidcConfigOf(clientBridge.createBetterAuthOptions({} as never, { mcp: { loginPath: '/sign-in', consentPath: '/agents/approve' } }))
+    const moved = oidcConfigOf(buildAuthOptions({} as never, { mcp: { loginPath: '/sign-in', consentPath: '/agents/approve' } }))
     expect(moved).toMatchObject({ loginPage: '/sign-in', oidcConfig: { consentPage: '/agents/approve' } })
   })
 
   it('wraps the provider in the consent plugin, after it', () => {
-    const ids = pluginIds(clientBridge.createBetterAuthOptions({} as never))
+    const ids = pluginIds(buildAuthOptions({} as never))
     expect(ids.indexOf('agent-consent')).toBeGreaterThan(ids.indexOf('mcp'))
   })
 
   it('dedupes against a consumer-supplied plugin of the same id', async () => {
     const { admin } = await import('better-auth/plugins')
-    const options = clientBridge.createBetterAuthOptions({} as never, {
+    const options = buildAuthOptions({} as never, {
       authOptions: { plugins: [admin({ defaultBanReason: 'spam' })] },
     })
     expect(pluginIds(options).filter(id => id === 'admin')).toHaveLength(1)
@@ -134,7 +141,7 @@ describe('workspace + profile api', () => {
     const queryBuilder = vi.fn(definition => definition)
     // The queries come back as raw definitions (the fake builder is identity);
     // updateProfile is a real mutationGeneric, whose raw handler is `_handler`.
-    return clientBridge.makeAuthApi({ backend: fakeAppComponent }, queryBuilder as never) as unknown as {
+    return clientBridge.setupAuth({ backend: fakeAppComponent }, queryBuilder as never) as unknown as {
       listWorkspaces: { handler: Handler }
       listWorkspaceMembers: { handler: Handler }
       updateProfile: { _handler: Handler }
@@ -231,7 +238,7 @@ describe('workspace session hook', () => {
     hookCtx: unknown,
   ) => Promise<{ data: Record<string, unknown> } | undefined>
 
-  const sessionBefore = (options: ReturnType<typeof clientBridge.createBetterAuthOptions>): SessionBeforeHook => {
+  const sessionBefore = (options: ReturnType<typeof buildAuthOptions>): SessionBeforeHook => {
     const hook = (options.databaseHooks as { session?: { create?: { before?: unknown } } } | undefined)?.session?.create?.before
     expect(typeof hook).toBe('function')
     return hook as SessionBeforeHook
@@ -244,7 +251,7 @@ describe('workspace session hook', () => {
       findOne: vi.fn(async () => ({ organizationId: 'org-9' })),
       create: vi.fn(),
     }
-    const result = await sessionBefore(clientBridge.createBetterAuthOptions({} as never))(
+    const result = await sessionBefore(buildAuthOptions({} as never))(
       { userId: 'user-1' }, hookCtx(adapter),
     )
     expect(result?.data.activeOrganizationId).toBe('org-9')
@@ -260,7 +267,7 @@ describe('workspace session hook', () => {
         return { id: `${args.model}-1`, ...args.data }
       }),
     }
-    const result = await sessionBefore(clientBridge.createBetterAuthOptions({} as never))(
+    const result = await sessionBefore(buildAuthOptions({} as never))(
       { userId: 'user-1' }, hookCtx(adapter),
     )
     expect(created.map(entry => entry.model)).toStrictEqual(['organization', 'member'])

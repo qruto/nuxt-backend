@@ -5,6 +5,7 @@ import { BILLING_FINDINGS } from './billing'
 import { DEPLOYMENT_FINDINGS } from './deployment'
 import { EMAIL_FINDINGS } from './email'
 import { SCAFFOLD_FINDINGS } from './scaffold'
+import { WORKSPACES_FINDINGS } from './workspaces'
 import type { FindingEntry, FindingService, PreflightFinding } from './types'
 
 export type { FindingEntry, FindingService, PreflightFinding } from './types'
@@ -17,6 +18,7 @@ export type { FindingEntry, FindingService, PreflightFinding } from './types'
 const BY_SERVICE = {
   deployment: DEPLOYMENT_FINDINGS,
   auth: AUTH_FINDINGS,
+  workspaces: WORKSPACES_FINDINGS,
   email: EMAIL_FINDINGS,
   billing: BILLING_FINDINGS,
   agents: AGENTS_FINDINGS,

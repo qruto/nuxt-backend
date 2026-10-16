@@ -1,7 +1,7 @@
 /**
  * The panel's tabs, in order. One page, so no vue-router in the bundle: a tab
- * switches the component `app.vue` renders. The DevTools docs page and the
- * homepage drawing list the same tabs (the docs contract checks both).
+ * switches the component `app.vue` renders. The DevTools docs page has a
+ * section per tab, in this order (the docs contract checks it).
  */
 export const PANEL_TABS = [
   { id: 'overview', label: 'Overview', icon: 'carbon-dashboard' },

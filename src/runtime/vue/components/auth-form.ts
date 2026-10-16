@@ -1,4 +1,4 @@
-import { computed, defineComponent, h, watch, type PropType, type VNodeChild } from 'vue'
+import { computed, defineComponent, h, nextTick, onMounted, ref, watch, type PropType, type VNodeChild } from 'vue'
 import { useRuntimeConfig } from '#imports'
 import { useBackendConfig } from '../composables/use-backend-config'
 import { useLoginFlow, type LoginStep } from '../composables/use-login-flow'
@@ -73,7 +73,27 @@ export const AuthForm = /* @__PURE__ */ defineComponent({
       },
     })
 
-    watch(flow.step, value => emit('step', value))
+    // Whether this browser can run a passkey ceremony at all, read after mount
+    // so the server render and the first client render agree. An in-app
+    // browser or a plain-http origin has no WebAuthn: offering a passkey there
+    // only ends in an error, so the form leaves it out and goes past the offer.
+    const passkeys = ref<boolean | null>(null)
+    onMounted(() => {
+      passkeys.value = typeof window.PublicKeyCredential === 'function'
+    })
+    watch([flow.step, passkeys], ([step, supported]) => {
+      if (step === 'add-passkey' && supported === false) void flow.skipPasskey()
+    })
+
+    // Each step replaces the markup that held focus: move it to the new step's
+    // first control, so keyboard and screen-reader users land where they act.
+    const root = ref<HTMLElement | null>(null)
+    watch(flow.step, (value) => {
+      emit('step', value)
+      void nextTick(() => {
+        root.value?.querySelector<HTMLElement>('[data-auth^="step-"] input, [data-auth^="step-"] button')?.focus()
+      })
+    })
     watch(flow.error, (value) => {
       if (value) emit('error', value)
     })
@@ -108,8 +128,12 @@ export const AuthForm = /* @__PURE__ */ defineComponent({
 
     const steps: Record<LoginStep, () => VNodeChild> = {
       'choose': () => h('section', { 'data-auth': 'step-choose' }, [
-        h('button', { 'data-auth': 'passkey-sign-in', 'type': 'button', 'disabled': flow.pending.value, 'onClick': flow.signInWithPasskey }, flow.pending.value ? 'Waiting…' : 'Sign in with passkey'),
-        h('div', { 'data-auth': 'divider' }, 'or'),
+        ...(passkeys.value === false
+          ? []
+          : [
+              h('button', { 'data-auth': 'passkey-sign-in', 'type': 'button', 'disabled': flow.pending.value, 'onClick': flow.signInWithPasskey }, flow.pending.value ? 'Waiting…' : 'Sign in with passkey'),
+              h('div', { 'data-auth': 'divider' }, 'or'),
+            ]),
         h('button', { 'data-auth': 'otp-start', 'type': 'button', 'disabled': flow.pending.value, 'onClick': () => flow.goTo('request-code') }, 'Continue with email code'),
       ]),
       'request-code': () => h('form', {
@@ -142,7 +166,8 @@ export const AuthForm = /* @__PURE__ */ defineComponent({
         backButton('request-code'),
       ]),
       'add-passkey': () => h('section', { 'data-auth': 'step-add-passkey' }, [
-        h('p', { 'data-auth': 'add-passkey-note' }, 'Save a passkey on this device to sign in instantly next time.'),
+        // Announced: the visitor is signed in now, and this is an offer, not a wall.
+        h('p', { 'data-auth': 'add-passkey-note', 'role': 'status', 'aria-live': 'polite' }, 'Save a passkey on this device to sign in instantly next time.'),
         h('button', { 'data-auth': 'passkey-add', 'type': 'button', 'disabled': flow.pending.value, 'onClick': flow.addPasskey }, flow.pending.value ? 'Adding…' : 'Add passkey'),
         h('button', { 'data-auth': 'skip', 'type': 'button', 'disabled': flow.pending.value, 'onClick': flow.skipPasskey }, 'Skip for now'),
       ]),
@@ -155,7 +180,7 @@ export const AuthForm = /* @__PURE__ */ defineComponent({
       : null)
 
     // Busy while a passkey ceremony or a code round-trip is in flight.
-    return () => h('div', { 'data-auth': 'form', 'aria-busy': flow.pending.value ? 'true' : undefined }, [
+    return () => h('div', { 'ref': root, 'data-auth': 'form', 'aria-busy': flow.pending.value ? 'true' : undefined }, [
       ...(slots.header
         ? [slots.header(flow)]
         : [logo(), title.value ? h('h1', { 'data-auth': 'title' }, title.value) : null]),

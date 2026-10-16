@@ -219,6 +219,16 @@ describe('nothing names what 0.2 removed', () => {
     ['benefitMetadataTtlMs', 'the benefit metadata TTL is fixed'],
     ['offerPasskey', 'the passkey step is always offered'],
     ['welcomeEmail', 'the packaged welcome always sends'],
+    ['createAuthOptions', 'setupAuth is the one auth factory'],
+    ['createBetterAuth', 'setupAuth is the one auth factory'],
+    ['makeAuthApi', 'setupAuth is the one auth factory'],
+    ['CreateBetterAuthOptions', 'SetupAuthOptions holds every option'],
+    ['defaultEmailTemplates', 'an override receives its default'],
+    ['integrations: {', 'setupAuth takes its integrations at the top level'],
+    ['integrations.email', 'setupAuth takes its integrations at the top level'],
+    ['sendVerificationEmail', 'every address is verified by code'],
+    ['email-change-requested', 'an email change is by code: email-changed'],
+    ['verification-sent', 'every address is verified by code'],
   ])('no file still offers %s (%s)', (needle) => {
     const offenders = files.filter(file => read(file).includes(needle)).map(file => file.replace(`${process.cwd()}/`, ''))
     expect(offenders).toEqual([])
@@ -264,9 +274,8 @@ describe('DevTools panel', () => {
     expect(page).toContain(`\n## ${label}\n`)
   })
 
-  it('the homepage drawing lists the same tabs', () => {
-    const tabs = read('website/components/home/DevX.vue').match(/const TABS = \[([\s\S]*?)\n\]/)?.[1] ?? ''
-    expect([...tabs.matchAll(/label: '([^']+)'/g)].map(m => m[1])).toEqual(labels)
+  it('lists them in the order of the panel', () => {
+    expect(labels.map(label => page.indexOf(`\n## ${label}\n`))).toEqual(labels.map(label => page.indexOf(`\n## ${label}\n`)).sort((a, b) => a - b))
   })
 })
 

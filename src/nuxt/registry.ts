@@ -98,6 +98,7 @@ export function registerSaasComposables(resolver: Resolver): void {
     { name: 'useAuthState', from: resolver.resolve('./runtime/vue/composables/base-aliases') },
     { name: 'useConnectionState', from: resolver.resolve('./runtime/vue/composables/base-aliases') },
     { name: 'useLoginFlow', from: resolver.resolve('./runtime/vue/composables/use-login-flow') },
+    { name: 'useEmailChange', from: resolver.resolve('./runtime/vue/composables/use-email-change') },
     { name: 'useOrganization', from: resolver.resolve('./runtime/vue/composables/use-organization') },
     { name: 'useSearch', from: resolver.resolve('./runtime/vue/composables/use-search') },
     { name: 'useAggregate', from: resolver.resolve('./runtime/vue/composables/use-aggregate') },

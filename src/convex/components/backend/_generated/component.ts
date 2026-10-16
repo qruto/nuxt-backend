@@ -41,6 +41,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   name: string;
                   role?: null | string;
                   updatedAt: number;
+                  userId?: null | string;
                 };
                 model: "user";
               }
@@ -211,6 +212,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "banned"
                     | "banReason"
                     | "banExpires"
+                    | "userId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -675,6 +677,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "banned"
                     | "banReason"
                     | "banExpires"
+                    | "userId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -1226,6 +1229,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   name?: string;
                   role?: null | string;
                   updatedAt?: number;
+                  userId?: null | string;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -1240,6 +1244,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "banned"
                     | "banReason"
                     | "banExpires"
+                    | "userId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -1807,6 +1812,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   name?: string;
                   role?: null | string;
                   updatedAt?: number;
+                  userId?: null | string;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -1821,6 +1827,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "banned"
                     | "banReason"
                     | "banExpires"
+                    | "userId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:

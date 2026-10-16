@@ -17,24 +17,29 @@
 // from the output means its ramp is not `static`; a stock Tailwind value in
 // its place would mean the splice failed.
 //
-// Two more silent losses are checked the same way. app.css imports its tokens
+// More silent losses are checked the same way. app.css imports its tokens
 // (assets/css/tokens.css): a broken import ships the ramps without a single
 // ground or ink, so a plain-hex token from that file must be in the output.
-// And Anybody and Martian Mono are variable in width only when Google is asked
+// Anybody and Martian Mono are variable in width only when Google is asked
 // for the axis (nuxt.config.ts `fonts`); without it every wide heading and
 // narrow code block renders at the normal width, so each family's faces must
-// carry its `font-stretch` range.
+// carry its `font-stretch` range. Their metric-matched fallback faces are
+// written by hand in app.css (@nuxt/fonts writes none for a global family),
+// so every one must reach the output with its metrics, and each stack must
+// name its fallback right after the family. And app.css's element defaults
+// sit in `@layer base`: one that lands outside a layer beats every part and
+// utility, whatever its specificity.
 //
 // Run after `nuxt build website`.
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const outputDir = 'website/.output/public/_nuxt'
+const APP_CSS = readFileSync('website/app.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
 
 function expectedShades() {
-  const source = readFileSync('website/app.css', 'utf8')
   const shades = new Map()
-  for (const block of source.matchAll(/@theme(?:\s+static)?\s*\{([^}]*)\}/g)) {
+  for (const block of APP_CSS.matchAll(/@theme(?:\s+static)?\s*\{([^}]*)\}/g)) {
     for (const [, name, value] of block[1].matchAll(/(--color-[a-z]+-\d+)\s*:\s*(#[0-9a-f]{3,8})/gi)) {
       shades.set(name, value.toLowerCase())
     }
@@ -88,9 +93,80 @@ for (const [name, hex] of shades) {
   }
 }
 
+/** A family name as the whitespace-free output may spell it: quoted or bare. */
+const familySpellings = family => ['"', '\'', ''].map(quote => `${quote}${family.replace(/\s+/g, '').toLowerCase()}${quote}`)
+
+// Every fallback face app.css writes reaches the output with its metrics, and
+// each stack that names a fallback names it right after its family.
+const FALLBACK_FACES = [...APP_CSS.matchAll(/@font-face\s*\{([^}]*)\}/g)]
+  .map(([, body]) => body.match(/font-family:\s*"([^"]+ Fallback)"/)?.[1])
+  .filter(Boolean)
+const names = (body, family) => familySpellings(family).some(name => body.includes(`font-family:${name};`) || body.endsWith(`font-family:${name}`))
+for (const family of new Set(FALLBACK_FACES)) {
+  const expected = FALLBACK_FACES.filter(name => name === family).length
+  const built = faces.filter(body => names(body, family) && body.includes('size-adjust:') && body.includes('ascent-override:'))
+  if (built.length !== expected) problems.push(`${family}: ${built.length} of app.css's ${expected} fallback faces reached the output with their metrics`)
+}
+for (const [, variable, stack] of APP_CSS.matchAll(/(--font-[a-z]+):([^;]*Fallback[^;]*);/g)) {
+  const [family, fallback] = stack.split(',').map(part => part.trim().replace(/^"|"$/g, ''))
+  const prefixes = familySpellings(family).flatMap(name => familySpellings(fallback).map(next => `${variable}:${name},${next}`))
+  if (!prefixes.some(prefix => css.includes(prefix))) problems.push(`\`${variable}\` does not name ${fallback} right after ${family}`)
+}
+
+/** A selector list as a sorted set: the minifier reorders lists (`p, li` ships as `li,p`). */
+function selectorSet(list) {
+  const selectors = []
+  let depth = 0
+  let current = ''
+  for (const char of list.replace(/\s+/g, '').toLowerCase()) {
+    if (char === '(') depth++
+    if (char === ')') depth--
+    if (char === ',' && depth === 0) {
+      selectors.push(current)
+      current = ''
+    }
+    else {
+      current += char
+    }
+  }
+  return [...selectors, current].sort().join(',')
+}
+
+/** Every rule in the output: its selector set and the `@layer` blocks around it. */
+function rules(text) {
+  const out = []
+  const open = []
+  let start = 0
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') {
+      const prelude = text.slice(start, i)
+      out.push({ selectors: selectorSet(prelude), layers: open.filter(outer => outer.startsWith('@layer')).map(outer => outer.slice('@layer'.length)) })
+      open.push(prelude)
+      start = i + 1
+    }
+    else if (text[i] === '}' || text[i] === ';') {
+      if (text[i] === '}') open.pop()
+      start = i + 1
+    }
+  }
+  return out
+}
+
+// The element defaults app.css puts in the base layer arrive there, and
+// nowhere outside a layer.
+const baseBlock = APP_CSS.match(/@layer\s+base\s*\{([\s\S]*?)\n\}/)?.[1]
+if (!baseBlock) problems.push('website/app.css has no `@layer base` block of element defaults')
+const builtRules = rules(css)
+for (const [, prelude] of (baseBlock ?? '').matchAll(/(?:^|\})([^{}]+)\{/g)) {
+  const selector = prelude.trim()
+  const places = builtRules.filter(rule => rule.selectors === selectorSet(selector))
+  if (places.length === 0) problems.push(`the element default \`${selector}\` is missing`)
+  else if (places.some(rule => !rule.layers.includes('base'))) problems.push(`the element default \`${selector}\` landed outside \`@layer base\``)
+}
+
 if (problems.length) {
   console.error(`[check-website-css] ${files.length} stylesheet(s) in ${outputDir}:`)
   for (const problem of problems) console.error(`  - ${problem}`)
   process.exit(1)
 }
-console.log(`[check-website-css] OK — ${shades.size} shades, the tokens and both width axes present in ${files.length} stylesheet(s).`)
+console.log(`[check-website-css] OK — ${shades.size} shades, the tokens, both width axes, ${FALLBACK_FACES.length} fallback faces and the base-layer defaults present in ${files.length} stylesheet(s).`)

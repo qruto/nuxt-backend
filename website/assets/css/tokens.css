@@ -26,11 +26,13 @@
   /* ── Type ─────────────────────────────────────────────────────
      Anybody carries display and prose (variable width: wide for
      display, 100% for prose), Martian Mono carries code, labels and
-     keys, and Handjet is the LCD's face and nothing else. */
-  --display: "Anybody", ui-sans-serif, system-ui, sans-serif;
-  --font: "Anybody", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "Martian Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --lcd: "Handjet", "Martian Mono", ui-monospace, monospace;
+     keys, and Handjet is the LCD's face and nothing else. The stacks
+     are app.css's `@theme` fonts, where @nuxt/fonts finds the families
+     and the build adds the metric-matched fallback faces. */
+  --display: var(--font-display);
+  --font: var(--font-sans);
+  --mono: var(--font-mono);
+  --lcd: var(--font-lcd);
 
   /* ── Grounds ──────────────────────────────────────────────────
      The ground, the faces raised off it, and the wells cut into it.
@@ -72,7 +74,7 @@
   --go-lo:   #3db669;
   --go-seam: #1a4e2d;
   --go-ink:  #052912;
-  --go-down-hi: #349b5a;
+  --go-down-hi: #369d5c;
   --go-down-lo: #43c873;
   /* An LED that is off. */
   --led-off: light-dark(#b7bac0, #3a3e45);
@@ -96,9 +98,13 @@
   --slot-face:   linear-gradient(135deg, var(--slot-near), var(--slot-mid) 60%, var(--slot-far));
 
   /* The LCD is backlit dark glass in both themes: an emissive display,
-     so its signal glyphs read the same on a light page. */
-  --lcd-glass:  radial-gradient(120% 90% at 30% 0%, #2a3a2e 0%, #151f18 55%, #0d140f 100%);
+     so its signal glyphs read the same on a light page. `--lcd-lit` is the
+     glass where the backlight is brightest, and `--lcd-sheen` the
+     reflection over its top-left corner, which lies over the glyphs too. */
+  --lcd-lit:    #2a3a2e;
   --lcd-ground: #151f18;
+  --lcd-glass:  radial-gradient(120% 90% at 30% 0%, var(--lcd-lit) 0%, var(--lcd-ground) 55%, #0d140f 100%);
+  --lcd-sheen:  rgb(255 255 255 / 0.14);
   --lcd-bezel:  #15171b;
 
   /* ── Inks ─────────────────────────────────────────────────────
@@ -108,7 +114,7 @@
      below. `--trim` is decorative only (ticks, dividers, never words). */
   --ink:       light-dark(#1f2226, #e6e8ec);
   --ink-dim:   light-dark(#575b62, #9fa3ad);
-  --ink-faint: light-dark(#5b5f67, #9498a3);
+  --ink-faint: light-dark(#5b5f67, #989ca7);
   --trim:      light-dark(#9a9ea7, #666a75);
 
   /* ── Signals ──────────────────────────────────────────────────
@@ -147,6 +153,9 @@
   --err-dim:    light-dark(color-mix(in srgb, var(--color-red-500) 10%, transparent),
                            color-mix(in srgb, var(--color-red-400) 14%, transparent));
   --err-lit:    #f87171;
+  /* Red glyphs on the LCD: the lit red is a lamp, too dark to read as text
+     on the glass. */
+  --err-glyph:  var(--color-red-300);
   --err-glow:   light-dark(color-mix(in srgb, var(--err-lit) 34%, transparent),
                            color-mix(in srgb, var(--err-lit) 26%, transparent));
   --on-err:     light-dark(#ffffff, #1c0707);
@@ -237,7 +246,7 @@
      inks carry legibility alone: `--engrave-ink` is for type of 24px
      and up (3:1), `--engrave-ink-sm` for anything smaller (4.5:1). */
   --engrave-ink:    light-dark(#5b6069, #7a7e89);
-  --engrave-ink-sm: light-dark(#5b6069, #9498a3);
+  --engrave-ink-sm: light-dark(#5b6069, #989ca7);
   --engrave:
     -0.8px -1.39px 0.8px  light-dark(rgb(24 28 36 / 0.50), rgb(0 0 0 / 0.85)),
     -1.7px -2.94px 4.95px light-dark(rgb(24 28 36 / 0.19), rgb(0 0 0 / 0.45)),
@@ -313,28 +322,38 @@
     inset -1px   -1.73px 2px    light-dark(rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.07)),
     0 1px 0 light-dark(rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.07));
 
-  /* Plaque face: two diagonal sheens and a fine grain over --surface. */
+  /* Plaque face: two diagonal sheens and a fine grain over --surface. Text
+     reads on the face at its lightest, the top-left sheen over a lit line
+     of grain, and at its darkest, the bottom-right shade, so
+     scripts/design-contrast.mjs measures both (design.md §Contrast). */
+  --plaque-sheen: light-dark(rgb(255 255 255 / 0.50), rgb(255 255 255 / 0.07));
+  --plaque-shade: light-dark(rgb(24 28 36 / 0.045), rgb(0 0 0 / 0.22));
+  --plaque-grain: light-dark(rgb(255 255 255 / 0.02), rgb(255 255 255 / 0.012));
   --grad-plaque:
-    linear-gradient(135deg, light-dark(rgb(255 255 255 / 0.50), rgb(255 255 255 / 0.07)), transparent 40%),
-    linear-gradient(315deg, light-dark(rgb(24 28 36 / 0.045), rgb(0 0 0 / 0.22)), transparent 45%),
-    repeating-linear-gradient(0deg, light-dark(rgb(255 255 255 / 0.02), rgb(255 255 255 / 0.012)) 0 1px, transparent 1px 3px),
+    linear-gradient(135deg, var(--plaque-sheen), transparent 40%),
+    linear-gradient(315deg, var(--plaque-shade), transparent 45%),
+    repeating-linear-gradient(0deg, var(--plaque-grain) 0 1px, transparent 1px 3px),
     linear-gradient(var(--surface), var(--surface));
 
   /* The ground: a light ray from the top-left over a 135° hairline
      grain, on `--bg`. Anchored at the document top (no
-     background-attachment: fixed, which janks on iOS). */
+     background-attachment: fixed, which janks on iOS). Where the ray is
+     strongest, the ground is lighter: the contrast test measures the inks
+     on the ray's peak as well as on `--bg`. */
+  --ray:        light-dark(rgb(240 241 243 / 0.85), rgb(58 62 69 / 0.50));
+  --ray-fade:   light-dark(rgb(240 241 243 / 0.22), rgb(58 62 69 / 0.13));
+  --matte-grain: light-dark(rgb(24 28 36 / 0.006), rgb(255 255 255 / 0.007));
   --matte-bg:
-    radial-gradient(130vmax 90vmax at 15% -4%,
-      light-dark(rgb(240 241 243 / 0.85), rgb(58 62 69 / 0.85)),
-      light-dark(rgb(240 241 243 / 0.22), rgb(58 62 69 / 0.22)) 45%,
-      transparent 100%),
-    repeating-linear-gradient(135deg, light-dark(rgb(24 28 36 / 0.006), rgb(255 255 255 / 0.007)) 0 2px, transparent 2px 6px),
+    radial-gradient(130vmax 90vmax at 15% -4%, var(--ray), var(--ray-fade) 45%, transparent 100%),
+    repeating-linear-gradient(135deg, var(--matte-grain) 0 2px, transparent 2px 6px),
     linear-gradient(var(--bg), var(--bg));
 }
 
-/* The lit signals in wide gamut, where the display has it. Text keeps
-   the sRGB ramps the contrast test measures. */
-@supports (color: color(display-p3 1 1 1)) {
+/* The lit signals in wide gamut, on a screen that shows it. A media query,
+   not `@supports`: every current browser parses display-p3, but an sRGB
+   screen clips it, which darkens the red. The LCD's green and yellow
+   glyphs read these values too, so the contrast test measures them. */
+@media (color-gamut: p3) {
   :root {
     --ok-lit:   color(display-p3 0.32 0.98 0.5);
     --warn-lit: color(display-p3 1 0.84 0.12);
@@ -348,18 +367,29 @@
    Raised faces are lighter than the ground in both themes, which
    squeezes the dark side; wells are darker, which squeezes the light
    side. The ratios are in design.md §Contrast, generated from these
-   values. */
+   values.
+
+   A property whose value reads one of these inks resolves it where the
+   property is declared, so a descendant inherits the `:root` ink, not
+   the scope's. Nuxt UI's `text-muted` and `text-dimmed` read the inks
+   through app.css's `--ui-text-*` bridges, so each scope re-declares
+   those too (test/docs/design-tokens.test.ts holds every such property
+   to it). */
 .plaque, .unit, .card, .code-plate {
-  --ink-dim:        light-dark(#575b62, #a7abb5);
-  --ink-faint:      light-dark(#5b5f67, #a7abb6);
-  --engrave-ink:    light-dark(#5b6069, #878b96);
-  --engrave-ink-sm: light-dark(#5b6069, #a7abb6);
+  --ink-dim:        light-dark(#575b62, #b1b5bf);
+  --ink-faint:      light-dark(#5b5f67, #b1b5c0);
+  --engrave-ink:    light-dark(#5b6069, #8f939e);
+  --engrave-ink-sm: light-dark(#5b6069, #b1b5c0);
   /* Small red on a gunmetal plate drops under 4.5:1; the soft red holds. */
   --err:            light-dark(var(--color-red-500), var(--color-red-300));
+  --ui-text-muted:  var(--ink-dim);
+  --ui-text-dimmed: var(--ink-faint);
 }
 .slot, .well, .input, .pill, details.dev {
   --ink-dim:        light-dark(#54585f, #9fa3ad);
   --ink-faint:      light-dark(#555860, #9498a3);
   --engrave-ink:    light-dark(#5b6069, #7a7e89);
   --engrave-ink-sm: light-dark(#545961, #9498a3);
+  --ui-text-muted:  var(--ink-dim);
+  --ui-text-dimmed: var(--ink-faint);
 }

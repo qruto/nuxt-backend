@@ -152,4 +152,22 @@ describe('the invitation route', () => {
     const report = await doctor([])
     expect(report.findings.find(finding => finding.id === 'invitation-path')?.status).toBe(status)
   })
+
+  // The check belongs to `workspaces`: that service reads the auth config
+  // for it, and `auth` has no check that needs the read at all.
+  it('is what --only workspaces checks', async () => {
+    deployed.authConfig = { invitationPath: '/join' }
+    const report = await doctor(['--only', 'workspaces'])
+
+    expect(report.findings.map(finding => [finding.id, finding.status])).toEqual([['invitation-path', 'fail']])
+    expect(vi.mocked(runConvex).mock.calls.map(([, args]) => args)).toContainEqual(['run', 'auth:authConfig'])
+  })
+
+  it('is not read for --only auth', async () => {
+    deployed.authConfig = { invitationPath: '/join' }
+    const report = await doctor(['--only', 'auth'])
+
+    expect(vi.mocked(runConvex).mock.calls.some(([, args]) => args[0] === 'run')).toBe(false)
+    expect(report.findings.some(finding => finding.id === 'invitation-path')).toBe(false)
+  })
 })

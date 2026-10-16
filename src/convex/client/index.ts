@@ -1,13 +1,14 @@
-import type { createClient, GenericCtx } from '@convex-dev/better-auth'
+import type { GenericCtx } from '@convex-dev/better-auth'
 import { APIError } from 'better-auth/api'
 import { betterAuth } from 'better-auth/minimal'
 import { mutationGeneric, type GenericDataModel, type QueryBuilder } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 import { DEFAULT_AGENT_CONSENT_PATH, DEFAULT_INVITATION_PATH, DEFAULT_LOGIN_PATH } from '../constants.js'
 import { setupMcp, type McpExchange } from '../integrations/mcp.js'
-import type { AuthSetupComponents, CreateBetterAuthOptions, DeviceSession, SetupAuthOptions } from './auth-types.js'
-import { createBetterAuthOptions } from './better-auth-options.js'
+import type { AuthBuildOptions, AuthIntegrations, AuthSetupComponents, DeviceSession, SetupAuthOptions } from './auth-types.js'
+import { buildAuthOptions } from './better-auth-options.js'
 import { componentAdapterRefs, createAuthComponent, resolveIntegrations } from './component.js'
+import { resolveTemplates } from './email.js'
 import { convexSignerJwt } from './plugins.js'
 import { identitySessionId, userSessions } from './sessions.js'
 import { workspaceQueries } from './workspaces.js'
@@ -21,11 +22,10 @@ import { workspaceQueries } from './workspaces.js'
  */
 export { APIError }
 
-// The public types live in auth-types.ts and are re-exported in declaration
-// order; the rest of the implementation sits next to this file, one
-// responsibility per module. TypeDoc orders a page by declaring file, then
-// position, so the files are named to keep the API reference in the order it
-// has always had (see auth-types.ts and better-auth-options.ts).
+// `setupAuth` is the entry's one function: every auth instance is built
+// through it. The public types live in auth-types.ts and are re-exported in
+// declaration order; the rest of the implementation sits next to this file,
+// one responsibility per module.
 export type {
   AuthMutationCtx,
   AuthEmailMessage,
@@ -42,77 +42,26 @@ export type {
   CanSignIn,
   AuthIntegrations,
   AuthEmailTemplates,
+  AuthEmailTemplateOverrides,
   AdminPluginOptions,
   OrganizationPluginOptions,
   McpAuthOptions,
-  CreateBetterAuthOptions,
   SetupAuthOptions,
   AuthSetupComponents,
   DeviceSession,
 } from './auth-types.js'
-export { defaultEmailTemplates } from './email.js'
-export { createBetterAuthOptions }
+/** `setupAuth`'s `createAuth`: the auth instance for one request ctx. */
+type AuthFactory<DM extends GenericDataModel> = (ctx: GenericCtx<DM>) => { api: { revokeSession: (input: { body: { token: string }, headers: Headers }) => Promise<unknown> } }
 
 /**
- * Shared factory that creates a Better Auth instance from a database adapter.
- *
- * Used by the public client bridge and by the component HTTP router so the
- * packaged component and app-facing wrapper stay aligned.
+ * The app functions `setupAuth` returns for the scaffold to re-export,
+ * following Convex's API remounting pattern for component client code.
  */
-export function createBetterAuth(
-  database: ReturnType<ReturnType<typeof createClient>['adapter']>,
-  options: CreateBetterAuthOptions = {},
-) {
-  return betterAuth(createBetterAuthOptions(database, options))
-}
-
-export function createAuthOptions<
-  DM extends GenericDataModel,
->(
-  ctx: GenericCtx<DM>,
-  components: AuthSetupComponents,
-  options?: SetupAuthOptions<DM>,
-) {
-  const authComponent = createAuthComponent<DM>(components.backend)
-  return createBetterAuthOptions(authComponent.adapter(ctx), {
-    authConfig: options?.authConfig,
-    authOptions: options?.authOptions,
-    basePath: options?.basePath,
-    admin: options?.admin,
-    organization: options?.organization,
-    mcp: options?.mcp,
-  }, { ctx, ...resolveIntegrations(components, options?.integrations) })
-}
-
-/**
- * Simple wrapper around the packaged auth component that runs in the app
- * environment.
- *
- * This follows Convex's simple function wrapper pattern: app code can pass the
- * component reference and Convex context in directly, while this helper handles
- * the cross-boundary adapter wiring and environment-backed auth creation.
- */
-export function createAuth<
-  DM extends GenericDataModel,
->(
-  ctx: GenericCtx<DM>,
-  components: AuthSetupComponents,
-  options?: SetupAuthOptions<DM>,
-) {
-  return betterAuth(createAuthOptions(ctx, components, options))
-}
-
-/**
- * Ready-made app query wrappers for re-exporting component functionality.
- *
- * This follows Convex's API remounting pattern for component client code.
- */
-export function makeAuthApi<
-  DM extends GenericDataModel,
->(
+function authApi<DM extends GenericDataModel>(
   components: AuthSetupComponents,
   queryBuilder: QueryBuilder<DM, 'public'>,
-  options?: SetupAuthOptions<DM>,
+  options: AuthBuildOptions,
+  createAuth: AuthFactory<DM>,
 ) {
   const authComponent = createAuthComponent<DM>(components.backend)
   const adapter = componentAdapterRefs(components)
@@ -129,9 +78,9 @@ export function makeAuthApi<
   // and `pages.acceptInvitation`, the agent login and consent paths and
   // `pages.login` / `pages.agentConsent`), and only `nuxt-backend doctor` can
   // see both sides to compare them.
-  const invitationPath = options?.organization?.invitationPath ?? DEFAULT_INVITATION_PATH
-  const agentLoginPath = options?.mcp?.loginPath ?? DEFAULT_LOGIN_PATH
-  const agentConsentPath = options?.mcp?.consentPath ?? DEFAULT_AGENT_CONSENT_PATH
+  const invitationPath = options.organization?.invitationPath ?? DEFAULT_INVITATION_PATH
+  const agentLoginPath = options.mcp?.loginPath ?? DEFAULT_LOGIN_PATH
+  const agentConsentPath = options.mcp?.consentPath ?? DEFAULT_AGENT_CONSENT_PATH
   const authConfig = queryBuilder({
     args: {},
     handler: async () => ({ invitationPath, agentLoginPath, agentConsentPath }),
@@ -140,10 +89,10 @@ export function makeAuthApi<
   // The caller's workspaces and their members (see workspaces.ts).
   const { listWorkspaces, listWorkspaceMembers } = workspaceQueries(queryBuilder, adapter)
 
-  // Name-only by design: email changes stay in the verified web flow
-  // (change-email confirmation), so neither the profile page nor an agent can
-  // move an account to an unproven address through this mutation.
-  // `mutationGeneric` because `makeAuthApi` receives only a query builder.
+  // Name-only by design: an email change needs a code from each address,
+  // so neither the profile page nor an agent can move an account to an
+  // unproven address through this mutation.
+  // `mutationGeneric` because `setupAuth` receives only a query builder.
   const updateProfile = mutationGeneric({
     args: { name: v.string() },
     handler: async (ctx, { name }) => {
@@ -198,11 +147,8 @@ export function makeAuthApi<
       if (!identity || !identitySessionId(identity)) throw new ConvexError('Sign in to manage your sessions.')
       const target = (await userSessions(ctx, adapter, identity.subject)).find(row => row._id === sessionId)
       if (!target) throw new ConvexError('Session not found.')
-      const { auth, headers } = await authComponent.getAuth(
-        (authCtx: GenericCtx<DM>) => createAuth<DM>(authCtx, components, options),
-        ctx as unknown as GenericCtx<DM>,
-      )
-      await auth.api.revokeSession({ body: { token: target.token }, headers })
+      const { auth, headers } = await authComponent.getAuth(createAuth as never, ctx as unknown as GenericCtx<DM>)
+      await (auth as unknown as ReturnType<AuthFactory<DM>>).api.revokeSession({ body: { token: target.token }, headers })
       return null
     },
   })
@@ -218,11 +164,18 @@ export function makeAuthApi<
   }
 }
 
+/** The cross-component options, without the ones left unset. */
+function integrationsOf<DM extends GenericDataModel>(options: SetupAuthOptions<DM>): AuthIntegrations<DM> {
+  const { email, rateLimiter, onUserCreated, canSignIn, onUserDeleted, emailTemplates } = options
+  return Object.fromEntries(
+    Object.entries({ email, rateLimiter, onUserCreated, canSignIn, onUserDeleted, emailTemplates }).filter(([, value]) => value !== undefined),
+  ) as AuthIntegrations<DM>
+}
+
 /**
- * App-facing client bridge for the packaged Convex component.
- *
- * This convenience helper composes the simple wrapper and API remounting
- * patterns exported from this module.
+ * The app's auth, from one call: the auth instance factory, the functions the
+ * scaffold re-exports, the agent token exchange, and the email templates in
+ * effect.
  *
  * @example
  * ```ts
@@ -230,9 +183,9 @@ export function makeAuthApi<
  * import { components } from './_generated/api'
  * import { query } from './_generated/server'
  *
- * export const { authComponent, createAuth, getAuthUser } = setupAuth(
- *   components, query,
- * )
+ * export const { authComponent, createAuth, getAuthUser } = setupAuth(components, query, {
+ *   canSignIn: async (ctx, { email }) => email.endsWith('@acme.com'),
+ * })
  * ```
  */
 export function setupAuth<
@@ -240,27 +193,13 @@ export function setupAuth<
 >(
   components: AuthSetupComponents,
   queryBuilder: QueryBuilder<DM, 'public'>,
-  options?: SetupAuthOptions<DM>,
+  options: SetupAuthOptions<DM> = {},
 ) {
+  const { email: _email, rateLimiter: _rateLimiter, onUserCreated: _onUserCreated, canSignIn: _canSignIn, onUserDeleted: _onUserDeleted, emailTemplates: _emailTemplates, ...buildOptions } = options
   const authComponent = createAuthComponent<DM>(components.backend)
-  const { getAuthUser, authConfig, listWorkspaces, listWorkspaceMembers, updateProfile, listSessions, revokeSession } = makeAuthApi(components, queryBuilder, options)
+  const runtime = resolveIntegrations(components, integrationsOf(options))
 
-  const resolvedIntegrations = resolveIntegrations(components, options?.integrations)
-
-  const createAuthOptionsForContext = (ctx: GenericCtx<DM>) => {
-    return createBetterAuthOptions(authComponent.adapter(ctx), {
-      authConfig: options?.authConfig,
-      authOptions: options?.authOptions,
-      basePath: options?.basePath,
-      admin: options?.admin,
-      organization: options?.organization,
-      mcp: options?.mcp,
-    }, { ctx, ...resolvedIntegrations })
-  }
-
-  const createAuthForContext = (ctx: GenericCtx<DM>) => {
-    return betterAuth(createAuthOptionsForContext(ctx))
-  }
+  const createAuth = (ctx: GenericCtx<DM>) => betterAuth(buildAuthOptions(authComponent.adapter(ctx), buildOptions, { ctx, ...runtime }))
 
   // A sign-only better-auth instance for the exchange's JWT mint: the aligned
   // jwt plugin CANNOT sit on the main instance — better-auth dedupes plugins
@@ -268,8 +207,8 @@ export function setupAuth<
   // custom-path jwt and 404s `/convex/token` (the client token bridge). This
   // instance shares the adapter/secret (same `jwks` row, so minted tokens
   // carry a `kid` the validator serves) but its handler is never mounted.
-  const createSignerAuthForContext = (ctx: GenericCtx<DM>) => {
-    const base = createAuthOptionsForContext(ctx)
+  const createSignerAuth = (ctx: GenericCtx<DM>) => {
+    const base = buildAuthOptions(authComponent.adapter(ctx), buildOptions, { ctx, ...runtime })
     return betterAuth({
       database: base.database,
       secret: base.secret,
@@ -283,24 +222,18 @@ export function setupAuth<
   // `registerBackendRoutes`): trades an MCP OAuth Bearer for a short-lived
   // Convex JWT. Wired here because it needs the same auth instance and rate
   // limiter.
-  const mcpExchange: McpExchange = setupMcp({
-    createAuth: ctx => createAuthForContext(ctx as GenericCtx<DM>),
-    createSignerAuth: ctx => createSignerAuthForContext(ctx as GenericCtx<DM>),
-    rateLimiter: resolvedIntegrations.rateLimiter,
+  const mcp: McpExchange = setupMcp({
+    createAuth: ctx => createAuth(ctx as GenericCtx<DM>),
+    createSignerAuth: ctx => createSignerAuth(ctx as GenericCtx<DM>),
+    rateLimiter: runtime.rateLimiter,
   })
 
   return {
     authComponent,
-    createAuthOptions: createAuthOptionsForContext,
-    options: createAuthOptionsForContext({} as GenericCtx<DM>),
-    createAuth: createAuthForContext,
-    getAuthUser,
-    authConfig,
-    listWorkspaces,
-    listWorkspaceMembers,
-    updateProfile,
-    listSessions,
-    revokeSession,
-    mcp: mcpExchange,
+    createAuth,
+    ...authApi(components, queryBuilder, buildOptions, createAuth),
+    mcp,
+    /** The auth emails in effect, overrides included: what a preview page renders. */
+    emailTemplates: resolveTemplates(runtime),
   }
 }

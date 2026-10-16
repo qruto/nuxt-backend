@@ -331,15 +331,13 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
         stays the packaged one, only the message changes. From
         <code>backend/auth.ts</code>:
       </p>
-      <pre class="cmd"><code>integrations: {
-  emailTemplates: {
-    otp: ({ email, otp, type }) => ({
-      to: email,
-      subject: `Your nuxt-backend playground ${'${type}'} code`,
-      text: `Your code: ${'${otp}'} …`,
-    }),
-  },
-}</code></pre>
+      <pre class="cmd"><code>emailTemplates: {
+  otp: ({ email, otp, type }) => ({
+    to: email,
+    subject: `Your nuxt-backend playground ${'${type}'} code`,
+    text: `Your code: ${'${otp}'} …`,
+  }),
+},</code></pre>
       <p class="hint">
         Request a sign-in code from <NuxtLink to="/login">/login</NuxtLink>:
         the sandbox inbox there shows the subject carrying the override. The

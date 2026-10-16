@@ -68,12 +68,21 @@ describe('collectPreflightFindings', () => {
   })
 
   it.each(['not a url', 'ftp://example.com', 'app.example.com'])(
-    'fails on an invalid SITE_URL (%s)',
+    'fails on an invalid SITE_URL (%s), without repeating the value',
     (siteUrl) => {
       const findings = collectPreflightFindings({ env: { SITE_URL: siteUrl }, siteUrlConfigured: true })
       expect(byId(findings, 'site-url').status).toBe('fail')
+      expect(byId(findings, 'site-url').message).not.toContain(siteUrl)
     },
   )
+
+  it('hints a fresh AUTH_SECRET piped in, never one on the command line', () => {
+    for (const env of [{}, { AUTH_SECRET: 'changeme' }]) {
+      const { fixHint } = byId(collectPreflightFindings({ env, siteUrlConfigured: true }), 'auth-secret')
+      expect(fixHint).toContain('openssl rand -base64 32 | npx convex env set AUTH_SECRET')
+      expect(fixHint).not.toContain('$(')
+    }
+  })
 
   it('reports missing optional email/billing env as warns describing the degradation', () => {
     const findings = collectPreflightFindings({ env: {}, siteUrlConfigured: true })
@@ -117,7 +126,15 @@ describe('collectPreflightFindings', () => {
 describe('formatPreflightSummary', () => {
   it('summarizes a fully configured environment', () => {
     const findings = collectPreflightFindings({ env: fullEnv, siteUrlConfigured: true })
-    expect(formatPreflightSummary(findings)).toBe('auth ✓')
+    expect(formatPreflightSummary(findings)).toBe(`${findings.length} checks ✓`)
+  })
+
+  it('says when nothing ran', () => {
+    expect(formatPreflightSummary([])).toBe('no checks ran')
+  })
+
+  it('counts one passing check in the singular', () => {
+    expect(formatPreflightSummary([{ id: 'invitation-path', status: 'pass' }])).toBe('1 check ✓')
   })
 
   it('counts problems and names them', () => {

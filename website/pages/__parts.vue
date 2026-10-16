@@ -10,6 +10,7 @@ definePageMeta({ layout: false, header: false, footer: false })
 useSeoMeta({ title: 'Parts', robots: 'noindex, nofollow' })
 
 const pressed = ref(true)
+const detent = ref('auth')
 </script>
 
 <template>
@@ -157,6 +158,27 @@ const pressed = ref(true)
             >
               Current page
             </Key>
+            <Key
+              size="nav"
+              signal="go"
+              to="/__parts"
+            >
+              Current GO
+            </Key>
+            <Key
+              size="nav"
+              signal="err"
+              to="/__parts"
+            >
+              Current err
+            </Key>
+            <Key
+              size="nav"
+              to="/docs"
+              disabled
+            >
+              Disabled link
+            </Key>
             <Key size="nav">
               Nav key
             </Key>
@@ -234,6 +256,13 @@ const pressed = ref(true)
                 <span class="pxled led-err" /><span class="px led-err text-xl">email ........ domain unverified</span>
               </div>
             </Lcd>
+          </template>
+          <template #dial>
+            <Dial
+              v-model="detent"
+              :options="[{ value: 'auth', label: 'Auth' }, { value: 'billing', label: 'Billing' }, { value: 'email', label: 'Email' }]"
+              label="Service"
+            />
           </template>
           <template #keys>
             <Key signal="go">

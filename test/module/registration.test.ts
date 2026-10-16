@@ -71,6 +71,7 @@ const COMPOSABLE_NAMES = [
   'useAuthState',
   'useConnectionState',
   'useLoginFlow',
+  'useEmailChange',
   'useOrganization',
   'useSearch',
   'useAggregate',

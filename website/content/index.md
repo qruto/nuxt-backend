@@ -1,31 +1,16 @@
 ---
 seo:
-  title: A full-stack Convex backend for Nuxt
-  description: Nuxt backend ships a Nuxt module and an all-in-one backend Convex component with Better Auth built in — real-time data, SSR-safe auth, and batteries-included backend components, in one package.
+  title: Auth, billing, email and agents for Nuxt on Convex
+  description: The all-in-one SaaS backend for Nuxt on Convex — authentication, billing, credits, transactional email, webhooks and an agent (MCP) surface from a single package.
 ---
 
 ::home-hero
 ::
 
-::home-backend-boot
-::
-
-::home-architecture
-::
-
-::home-capabilities
-::
-
-::home-monetize
+::home-console
 ::
 
 ::home-agents
-::
-
-::home-dev-x
-::
-
-::home-open-source
 ::
 
 ::home-closing-cta

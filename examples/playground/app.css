@@ -22,6 +22,119 @@
 @import "./assets/css/console.css";
 
 /* ════════════════════════════════════════════════════════════════
+   FALLBACK FACES: what a stack shows while its web font loads
+   ----------------------------------------------------------------
+   @nuxt/fonts writes metric-matched fallbacks for the families it
+   injects, but leaves a `global` family alone, and Anybody and Martian
+   Mono are global (nuxt.config.ts `fonts`). Without these faces a cold
+   visit paints in an unadjusted system font and reflows when the web
+   font lands.
+
+   One face per width the site sets (`font-stretch` picks it) and per
+   weight band, on a local face scaled to the web font's average glyph
+   width at that width and weight: `size-adjust` is the web font's
+   average ÷ the local face's (capsize's weighted average, measured in
+   the browser: Anybody 0.4914em at 100%/400, 0.5370 at 100%/600–700,
+   0.5825 at 112%/500, 0.5985 at 112%/600; Martian Mono 0.6502 at 87.5%,
+   0.7002 at 100%; Arial 0.4459, Arial Bold 0.4800, Courier New 0.6003.
+   118% sets uppercase nameplates, so that face is scaled on capitals:
+   Anybody 0.6981, Arial Bold 0.5962). The ascent and descent overrides
+   are the web font's (Anybody 1590/480, Martian Mono 1000/200 per em)
+   ÷ `size-adjust`, so a line keeps its height. Liberation Sans and Roboto
+   keep Arial's widths, Liberation Mono Courier New's.
+   ════════════════════════════════════════════════════════════════ */
+@font-face {
+  font-family: "Anybody Fallback";
+  src: local("Arial"), local("ArialMT"), local("Liberation Sans"), local("Roboto");
+  font-stretch: 100%;
+  font-weight: 100 549;
+  size-adjust: 110.2%;
+  ascent-override: 72.14%;
+  descent-override: 21.78%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Anybody Fallback";
+  src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"), local("Roboto Bold");
+  font-stretch: 100%;
+  font-weight: 550 900;
+  size-adjust: 111.89%;
+  ascent-override: 71.05%;
+  descent-override: 21.45%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Anybody Fallback";
+  src: local("Arial"), local("ArialMT"), local("Liberation Sans"), local("Roboto");
+  font-stretch: 112%;
+  font-weight: 100 549;
+  size-adjust: 130.63%;
+  ascent-override: 60.86%;
+  descent-override: 18.37%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Anybody Fallback";
+  src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"), local("Roboto Bold");
+  font-stretch: 112%;
+  font-weight: 550 900;
+  size-adjust: 124.69%;
+  ascent-override: 63.76%;
+  descent-override: 19.25%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Anybody Fallback";
+  src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"), local("Roboto Bold");
+  font-stretch: 118%;
+  font-weight: 550 900;
+  size-adjust: 117.09%;
+  ascent-override: 67.9%;
+  descent-override: 20.5%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Martian Mono Fallback";
+  src: local("Courier New"), local("CourierNewPSMT"), local("Liberation Mono");
+  font-stretch: 87.5%;
+  font-weight: 100 549;
+  size-adjust: 108.31%;
+  ascent-override: 92.33%;
+  descent-override: 18.47%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Martian Mono Fallback";
+  src: local("Courier New Bold"), local("CourierNewPS-BoldMT"), local("Liberation Mono Bold");
+  font-stretch: 87.5%;
+  font-weight: 550 900;
+  size-adjust: 108.31%;
+  ascent-override: 92.33%;
+  descent-override: 18.47%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Martian Mono Fallback";
+  src: local("Courier New"), local("CourierNewPSMT"), local("Liberation Mono");
+  font-stretch: 100%;
+  font-weight: 100 549;
+  size-adjust: 116.64%;
+  ascent-override: 85.73%;
+  descent-override: 17.15%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Martian Mono Fallback";
+  src: local("Courier New Bold"), local("CourierNewPS-BoldMT"), local("Liberation Mono Bold");
+  font-stretch: 100%;
+  font-weight: 550 900;
+  size-adjust: 116.64%;
+  ascent-override: 85.73%;
+  descent-override: 17.15%;
+  line-gap-override: 0%;
+}
+
+/* ════════════════════════════════════════════════════════════════
    RAMPS AND TYPE: what Tailwind and Nuxt UI read
    ----------------------------------------------------------------
    One `@theme static` block. Nuxt UI binds its aliases to these ramps
@@ -47,10 +160,13 @@
   /* Anybody for display and prose, Martian Mono for code and labels,
      Handjet for the LCD only. `--font-sans` drives the Docus and Nuxt UI
      chrome; `--font-display` generates the `font-display` utility the
-     app.config `ui.*` slots use. @nuxt/fonts self-hosts each family. */
-  --font-sans: "Anybody", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Anybody", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Martian Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+     app.config `ui.*` slots use. @nuxt/fonts self-hosts each family and
+     writes Handjet's fallback faces; Anybody's and Martian Mono's are
+     above. tokens.css reads these stacks (`--font`, `--display`, `--mono`,
+     `--lcd`), so each family list is written once. */
+  --font-sans: "Anybody", "Anybody Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Anybody", "Anybody Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Martian Mono", "Martian Mono Fallback", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --font-lcd: "Handjet", "Martian Mono", ui-monospace, monospace;
 
   --color-zinc-50:  #f6f7f9;
@@ -132,10 +248,42 @@ html.light { color-scheme: light; }
   scrollbar-width: thin;
 }
 
-/* Display type runs wide; prose stays at the face's normal width. */
-:where(h1, h2, h3, .font-display) { font-stretch: 112%; }
-/* Martian Mono is a wide mono; code and labels take a narrower cut. */
-:where(code, pre, kbd, samp) { font-stretch: 87.5%; }
+/* ════════════════════════════════════════════════════════════════
+   Element defaults
+   ----------------------------------------------------------------
+   In Tailwind's base layer, with its reset: under every utility and
+   every part, whatever their specificity. Docus imports this file
+   outside any layer, and a rule outside a layer beats every layered
+   one, so a default written out here would override the parts (a
+   `stamp` heading's width, a `k` kbd's) and Nuxt UI's utilities (a
+   `truncate` paragraph would wrap again).
+   ════════════════════════════════════════════════════════════════ */
+@layer base {
+  /* Display type runs wide; prose stays at the face's normal width. */
+  :where(h1, h2, h3, .font-display) { font-stretch: 112%; }
+  /* Martian Mono is a wide mono; code and labels take a narrower cut. */
+  :where(code, pre, kbd, samp) { font-stretch: 87.5%; }
+
+  h1, h2, h3 { text-wrap: balance; }
+  p, li { text-wrap: pretty; }
+
+  input, .mono, code, pre, time, .tnum { font-variant-numeric: tabular-nums; }
+
+  /* Inline code is a tiny recessed chip: the well needs its pocket, or the
+     inset shadow reads as a square notch cut into the paragraph. Inside the
+     docs, ProseCode's own utilities and the `slot slot-xs` part it carries
+     (app.config.ts) win over this. */
+  :where(p, li, td, h1, h2, h3, h4, h5) > code {
+    padding: 0.05em 0.35em;
+    border-radius: var(--r-xs);
+    background: var(--sink);
+    box-shadow: var(--inset-sm);
+  }
+  /* Martian Mono is wide: a long name (`runtimeConfig.public.backend.authRoute`)
+     is wider than a phone's column, so inline code may break anywhere rather
+     than push the page sideways. */
+  :where(p, li, td, th, dd) > code { overflow-wrap: anywhere; }
+}
 
 /* ════════════════════════════════════════════════════════════════
    Keyframes
@@ -180,11 +328,6 @@ body {
 }
 
 .pg-shell ::selection { background: var(--ok); color: var(--on-ok); }
-
-h1, h2, h3 { text-wrap: balance; }
-p, li { text-wrap: pretty; }
-
-input, .mono, code, pre, time, .tnum { font-variant-numeric: tabular-nums; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -510,6 +653,24 @@ html.qa-contrast :is(.embossed, .embossed-sm, .emb, .emb-sm, kbd) { text-shadow:
 .hbtn--ghost { background: none; box-shadow: none; color: var(--ink-dim); }
 .hbtn--ghost:hover { color: var(--ink); box-shadow: var(--elev-0); }
 
+/* The homepage console folds up into place as it scrolls in, where the
+   browser runs animations off the scroll position (animation-timeline).
+   Elsewhere, and under reduced motion, it simply sits there. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .home-fold {
+      transform-origin: 50% 100%;
+      animation: home-fold linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 70%;
+    }
+  }
+}
+@keyframes home-fold {
+  from { opacity: 0.4; transform: perspective(1200px) rotateX(14deg) translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+
 /* ════════════════════════════════════════════════════════════════
    DOCUS / NUXT UI — matte machined coat
    ----------------------------------------------------------------
@@ -517,8 +678,8 @@ html.qa-contrast :is(.embossed, .embossed-sm, .emb, .emb-sm, kbd) { text-shadow:
    `app.config.ts` `ui.*` slot overrides (design.md §Chrome map: header →
    bar, search → slot slot-pill, pre → slot, cards → plaque, callouts →
    carved, footer → seam …). Raw CSS selectors remain ONLY where Nuxt UI
-   exposes no slot: the TOC link ::before layer, inline code chips outside
-   the docs prose, and kbd.
+   exposes no slot: the TOC link ::before layer and kbd. (Inline code
+   outside the docs prose is an element default, in the base layer.)
    ════════════════════════════════════════════════════════════════ */
 
 /* Left sidebar + right TOC links. One metaphor: ACTIVE = pressed — the
@@ -536,24 +697,12 @@ aside a.text-primary::before {
   box-shadow: var(--inset-1);
 }
 
-/* Inline code → tiny recessed chips; kbd → a raised keycap.
-   The well needs the pocket to go with it: without a radius and a ground
-   the inset shadow reads as a square notch cut into the paragraph, which
-   is the one hard 90° corner on an otherwise fully machined page. Written
-   at `:where()` (specificity 0) on purpose — inside the docs, Nuxt UI's
-   ProseCode utilities out-specify these and keep their own tinted chip, so
-   the two halves of the site converge instead of fighting. */
-:where(p, li, td, h1, h2, h3, h4, h5) > code {
-  padding: 0.05em 0.35em;
-  border-radius: var(--r-xs);
-  background: var(--sink);
-  box-shadow: var(--inset-sm);
-}
-/* Martian Mono is wide: a long name (`runtimeConfig.public.backend.authRoute`)
-   is wider than a phone's column, so inline code may break anywhere rather
-   than push the page sideways. */
-:where(p, li, td, th, dd) > code { overflow-wrap: anywhere; }
-kbd { box-shadow: var(--elev-0); text-shadow: var(--emboss-sm); }
+/* kbd → a raised keycap. Outside the layers, unlike the element defaults
+   above: Nuxt UI's Kbd draws an inset ring with a utility, and the keycap
+   has to beat it. A `k` key is a part with its own face, so it is left
+   alone; `:where()` keeps the specificity at 0, so the `prefers-contrast`
+   switch above still strips the emboss. */
+:where(kbd:not(.k)) { box-shadow: var(--elev-0); text-shadow: var(--emboss-sm); }
 
 /* ── nuxt-backend components: depth-palette bridge ──────────────────────────
    Rung 2 of the customization ladder: one token override re-themes every

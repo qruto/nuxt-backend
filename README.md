@@ -130,9 +130,10 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 
 - `useAggregate` / `useCount` — aggregate-component reads
 - `useAiStream` — drive a metered, persisted AI token stream (reload mid-stream and the text keeps flowing)
-- `useAuth` — session + the passwordless flows: `signOut`, `sendOtp`, `signInWithOtp`, `signInWithPasskey`, `registerPasskey`, `changeEmail`, `deleteAccount`; the fully-typed Better Auth `client` for everything else
+- `useAuth` — session + the passwordless flows: `signOut`, `sendOtp`, `signInWithOtp`, `signInWithPasskey`, `registerPasskey`, `deleteAccount`; the fully-typed Better Auth `client` for everything else
 - `useBilling` — subscription state, `checkout`, `gift`, `portal`, `changePlan`, `cancel`
 - `useCredits` — prepaid credit balances + `topUp` and `gift`
+- `useEmailChange` — the email change, by a code from the current address and one from the new address
 - `useEmailStatus` — live email delivery status
 - `useFeatures` — entitlement / feature flags from active subscriptions
 - `useGifts` — gifts addressed to the signed-in user, auto-claimed on first sign-in (or explicit `claim`)

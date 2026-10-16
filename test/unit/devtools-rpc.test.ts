@@ -106,7 +106,7 @@ describe('runDoctor', () => {
     const second = rpc.functions.runDoctor()
     finish([])
     // The report is what `doctor --json` prints, for the panel's copy button.
-    expect(await first).toEqual({ ranAt: 1_000, findings: [], report: JSON.stringify({ $schema: 'https://nuxt-backend.dev/schemas/doctor.json', findings: [], summary: 'auth ✓' }, null, 2) })
+    expect(await first).toEqual({ ranAt: 1_000, findings: [], report: JSON.stringify({ $schema: 'https://nuxt-backend.dev/schemas/doctor.json', findings: [], summary: 'no checks ran' }, null, 2) })
     expect(await second).toBe(await first)
     expect(checks).toHaveBeenCalledOnce()
 

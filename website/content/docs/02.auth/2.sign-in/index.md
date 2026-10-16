@@ -86,7 +86,7 @@ It returns:
 | `emailValid` | `ComputedRef<boolean>` — whether `email` passes `validateEmail` |
 | `signInWithPasskey()` | sign in with a passkey already saved on this device |
 | `sendCode()` | email a code to `email` → `verify-code` |
-| `verifyCode()` | verify `otp` (signs in, or signs up on first use) → `add-passkey`, or done |
+| `verifyCode()` | verify `otp` (signs in, or signs up on first use) → `add-passkey` |
 | `addPasskey()` | save a passkey on the new session → done |
 | `skipPasskey()` | skip the passkey offer → done |
 | `goTo(step)` | jump to a step, clearing `otp` and `error` |

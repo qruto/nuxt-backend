@@ -16,7 +16,7 @@ Email goes through [Resend](https://resend.com), nested inside the `backend` com
 
 | Email | Sent by | Customize with |
 |---|---|---|
-| Sign-in code, welcome, email verification, change-email, delete-account, workspace invitation | The package, from the auth flow | `integrations.emailTemplates` on `setupAuth` |
+| Sign-in, verification and email-change codes, welcome, delete-account, workspace invitation | The package, from the auth flow | `emailTemplates` on `setupAuth` |
 | Gift notification | The package, when a gift is paid | `giftEmail` on `setupBilling` |
 | Everything else | Your server code, through `email.send` | Your own HTML or text, or a provider-hosted template |
 

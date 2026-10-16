@@ -1,8 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
 
-// The page is the packaged <SecuritySettings> — verification, passkeys,
-// sessions and the danger zone, all through usePasskeys/useSessions. The raw
+// The page is the packaged <SecuritySettings> — passkeys, sessions and the
+// danger zone, all through usePasskeys/useSessions. The raw
 // auth-client calls that used to live here are gone.
 </script>
 
@@ -12,8 +12,8 @@ definePageMeta({ middleware: 'auth' })
       tag="SecuritySettings · usePasskeys · useSessions"
       title="Privacy & security"
     >
-      The packaged <code>&lt;SecuritySettings&gt;</code>: email verification,
-      the passkeys that sign you in, active sessions on other devices, and the
+      The packaged <code>&lt;SecuritySettings&gt;</code>: the passkeys that
+      sign you in, active sessions on other devices, and the
       confirmed-by-email account deletion flow. Untouched version under
       <NuxtLink to="/playground/vanilla/security">Vanilla</NuxtLink>.
     </PageHeader>
@@ -23,7 +23,7 @@ definePageMeta({ middleware: 'auth' })
       title="Account security"
       tone="ok"
     >
-      <SecuritySettings callback-path="/playground/saas/security" />
+      <SecuritySettings />
     </LabPanel>
   </div>
 </template>

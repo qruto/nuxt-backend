@@ -4,7 +4,7 @@ import type { WorkflowManager } from '@convex-dev/workflow'
 import { describe, expectTypeOf, test } from 'vitest'
 import type pkg from '../../package.json'
 import backendModule, { type ModuleOptions } from 'nuxt-backend'
-import { defaultEmailTemplates, setupAuth } from 'nuxt-backend/auth'
+import { setupAuth, type SetupAuthOptions } from 'nuxt-backend/auth'
 import { createAccessControl, setupAuthorization } from 'nuxt-backend/authorization'
 import { registerBackendRoutes, setupMcp } from 'nuxt-backend/http'
 import { createFunctions } from 'nuxt-backend/functions'
@@ -92,7 +92,11 @@ describe('integrations', () => {
     expectTypeOf(setupAuth).returns.toHaveProperty('getAuthUser')
     expectTypeOf(setupAuth).returns.toHaveProperty('createAuth')
     expectTypeOf(setupAuth).returns.toHaveProperty('authComponent')
-    expectTypeOf(defaultEmailTemplates).toHaveProperty('otp')
+    expectTypeOf(setupAuth).returns.toHaveProperty('emailTemplates')
+    expectTypeOf(setupAuth).returns.not.toHaveProperty('createAuthOptions')
+    // The cross-component wiring sits at the top level of the options.
+    expectTypeOf<SetupAuthOptions>().toHaveProperty('rateLimiter')
+    expectTypeOf<SetupAuthOptions>().not.toHaveProperty('integrations')
   })
 
   test('nuxt-backend/authorization', () => {

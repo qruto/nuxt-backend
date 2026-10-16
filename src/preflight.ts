@@ -37,6 +37,12 @@ export interface PreflightInput {
 
 const SECRET_PLACEHOLDERS = new Set(['secret', 'changeme', 'change-me', 'your-secret', 'placeholder', 'todo'])
 
+/**
+ * A fresh secret, piped in: `convex env set NAME` reads a value it is not
+ * given from stdin, so the secret never sits in the process list.
+ */
+const SET_AUTH_SECRET = 'openssl rand -base64 32 | npx convex env set AUTH_SECRET'
+
 /** Whether a name is set on the deployment but not visible to this process. */
 type OnDeployment = (name: string) => boolean
 
@@ -55,11 +61,11 @@ function authSecretFinding(secret: string | undefined, onDeployment: OnDeploymen
       'auth-secret',
       'warn',
       'AUTH_SECRET is not visible here — it is required on the Convex deployment (a deploy fails without it) and cannot be verified from Nuxt.',
-      'On a dev deployment `npx nuxt-backend env push` generates one; otherwise: npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"',
+      `On a dev deployment \`npx nuxt-backend env push\` generates one; otherwise: ${SET_AUTH_SECRET}`,
     )
   }
   if (secret.length < 32 || SECRET_PLACEHOLDERS.has(secret.toLowerCase())) {
-    return finding('auth-secret', 'fail', 'AUTH_SECRET is too short or a placeholder — sessions signed with it are guessable.', 'npx convex env set AUTH_SECRET "$(openssl rand -base64 32)"')
+    return finding('auth-secret', 'fail', 'AUTH_SECRET is too short or a placeholder — sessions signed with it are guessable.', SET_AUTH_SECRET)
   }
   return finding('auth-secret', 'pass', 'AUTH_SECRET present and strong.')
 }
@@ -77,7 +83,8 @@ function siteUrlFinding(siteUrl: string | undefined, onDeployment: OnDeployment)
     )
   }
   if (!isHttpUrl(siteUrl)) {
-    return finding('site-url', 'fail', `SITE_URL is not a valid http(s) URL: "${siteUrl}" — auth and invitation/gift links use it as the app origin.`, 'Set SITE_URL to your app origin, e.g. https://app.example.com')
+    // The value is not quoted: no finding repeats what an env var holds.
+    return finding('site-url', 'fail', 'SITE_URL is not a valid http(s) URL — auth and invitation/gift links use it as the app origin.', 'Set SITE_URL to your app origin, e.g. https://app.example.com')
   }
   return finding('site-url', 'pass', 'SITE_URL is a valid URL.')
 }
@@ -149,7 +156,8 @@ export function collectPreflightFindings({ env, siteUrlConfigured, mcp, deployed
   return findings
 }
 
-function isHttpUrl(value: string): boolean {
+/** Whether `value` parses as an absolute http(s) URL. */
+export function isHttpUrl(value: string): boolean {
   try {
     const url = new URL(value)
     return url.protocol === 'http:' || url.protocol === 'https:'
@@ -167,9 +175,10 @@ export function doctorReport<F extends Pick<PreflightFinding, 'id' | 'status'>>(
   return { $schema: DOCTOR_SCHEMA_URL, findings, summary: formatPreflightSummary(findings) }
 }
 
-/** One-line summary for the dev-startup log, e.g. `auth ✓` or `2 findings`. */
+/** One line under the findings: `6 checks ✓` when all pass, `2 findings: auth-secret, site-url` when not, `no checks ran` for none. */
 export function formatPreflightSummary(findings: ReadonlyArray<Pick<PreflightFinding, 'id' | 'status'>>): string {
   const problems = findings.filter(finding => finding.status !== 'pass')
-  if (problems.length === 0) return 'auth ✓'
+  if (findings.length === 0) return 'no checks ran'
+  if (problems.length === 0) return `${findings.length} check${findings.length === 1 ? '' : 's'} ✓`
   return `${problems.length} finding${problems.length === 1 ? '' : 's'}: ${problems.map(f => f.id).join(', ')}`
 }

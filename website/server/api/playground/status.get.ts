@@ -2,7 +2,10 @@
 // It asks Better Auth's own `GET /api/auth/ok` on the deployment's HTTP
 // actions, so a deployment with the app's functions on it reads live, and
 // one that is down, paused or empty does not. One upstream request a minute
-// per server instance, whatever the traffic.
+// per server instance, whatever the traffic. The edge may serve an answer up
+// to a minute past its age while it asks again (`stale-while-revalidate=60`),
+// never longer: left open, a cache could keep showing a playground that
+// went down long ago.
 export default defineCachedEventHandler(async () => {
   const siteUrl = useRuntimeConfig().public.convex?.siteUrl
   if (!siteUrl) return { live: false }
@@ -13,4 +16,4 @@ export default defineCachedEventHandler(async () => {
   catch {
     return { live: false }
   }
-}, { name: 'playground-status', maxAge: 60, swr: true, getKey: () => 'status' })
+}, { name: 'playground-status', maxAge: 60, swr: true, staleMaxAge: 60, getKey: () => 'status' })

@@ -45,7 +45,7 @@ export default defineContentConfig({
         demo: z.boolean().optional(),
         /** The release that introduced it. */
         since: z.string().optional(),
-        /** When the file last changed in git: set at build (modules/docs-last-updated.ts), never by hand. */
+        /** When the file last changed in git: set at build (modules/docs-pages.ts), never by hand. */
         modifiedAt: z.string().optional(),
       }),
     }),

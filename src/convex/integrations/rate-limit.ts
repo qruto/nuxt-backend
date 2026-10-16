@@ -14,10 +14,11 @@ export interface RateLimiterComponents {
 
 /**
  * The package's default rate limits — `emailOtp`, `emailOtpGlobal`,
- * `billingSync`, `ai`, `aiBudget`, `mcp`, `admin`, `invitation` and
- * `invitationGlobal` — guarding the flows the package itself drives. Keyed per
+ * `emailChange`, `billingSync`, `ai`, `aiBudget`, `mcp`, `admin`,
+ * `invitation`, `invitationGlobal` and `agentRegistrationGlobal` — guarding
+ * the flows the package itself drives. Keyed per
  * email/entity/caller at the call site (e.g. `limit(ctx, 'emailOtp', { key:
- * hash })`); `emailOtpGlobal` and `invitationGlobal` are unkeyed. Extend or override any of them by
+ * hash })`); the `*Global` ones are unkeyed. Extend or override any of them by
  * passing your own limits to {@link setupRateLimiter}.
  *
  * Deliberately small: `emailOtp` throttles code *sends* (per-code brute force
@@ -25,20 +26,22 @@ export interface RateLimiterComponents {
  * passwordless — there are no password flows to limit), `emailOtpGlobal`
  * caps sends deployment-wide, `billingSync` guards the live provider
  * fan-out, `ai`/`aiBudget`/`mcp` back the metered-action, credit-budget and
- * agent surfaces, and `admin`/`invitation`/`invitationGlobal` cover the two
- * signed-in routes where one caller acts on *other* people — see `setupAuth`'s
- * route limits.
+ * agent surfaces, and `admin`/`invitation`/`emailChange` cover the
+ * signed-in routes where one caller acts on *other* people or addresses —
+ * see `setupAuth`'s route limits.
  *
  * ## Covering other auth routes
  *
- * These names throttle the routes the package wires itself. Every *other*
- * Better Auth route is throttled by Better Auth's own per-path limiter, which
- * takes its rules — and a durable storage — straight from your auth options:
+ * These names throttle the routes the package wires itself. Better Auth's own
+ * per-path limiter is off by default: it counts in memory, which on Convex
+ * lasts one function call. To throttle another route through it, turn it on
+ * with a durable storage, straight from your auth options:
  *
  * ```ts
  * setupAuth(components, query, {
  *   authOptions: {
  *     rateLimit: {
+ *       enabled: true,
  *       storage: 'database',
  *       customRules: { '/organization/create': { window: 60, max: 5 } },
  *     },
@@ -59,6 +62,12 @@ export const DEFAULT_LIMITS = {
    * this ceiling. Raise it when a launch legitimately signs in more than that.
    */
   emailOtpGlobal: { kind: 'fixed window', rate: 300, period: HOUR },
+  /**
+   * Email changes — 5 per hour per account. The code an email change sends to
+   * the new address goes where the caller chose, so it is bounded per account
+   * and then by `emailOtpGlobal`, like every other code.
+   */
+  emailChange: { kind: 'token bucket', rate: 5, period: HOUR, capacity: 5 },
   /**
    * Entitlement syncs — 10 per minute per billing entity, small burst for the
    * back-to-back syncs after checkout / top-up. Guards the live provider

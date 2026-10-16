@@ -1,6 +1,6 @@
 import type { GenericCtx } from '@convex-dev/better-auth'
 import type { GenericActionCtx, GenericDataModel, GenericMutationCtx } from 'convex/server'
-import type { AuthEmailSender, AuthEmailTemplates, AuthMutationCtx, AuthRateLimiter, CanSignIn, OnUserCreated, OnUserDeleted } from './auth-types.js'
+import type { AuthEmailSender, AuthEmailTemplateOverrides, AuthMutationCtx, AuthRateLimiter, CanSignIn, OnUserCreated, OnUserDeleted } from './auth-types.js'
 
 // The per-request runtime every auth module reads: the request ctx with the
 // resolved integrations, narrowed to one that can run functions, and the
@@ -18,7 +18,7 @@ export interface AuthRuntime<DM extends GenericDataModel = GenericDataModel> {
   canSignIn?: CanSignIn<DM>
   onUserDeleted?: OnUserDeleted<DM>
   userExists?: UserExists
-  emailTemplates?: Partial<AuthEmailTemplates>
+  emailTemplates?: AuthEmailTemplateOverrides
 }
 
 /** Narrow the request ctx to one that can run mutations, or `undefined`. */

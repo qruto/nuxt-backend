@@ -9,6 +9,7 @@ import { FINDING_SERVICES, type FindingService } from '../findings'
 import { doctorReport, formatPreflightSummary } from '../preflight'
 import { BACKEND_ENV_NAMES, nonProductionDeployKey, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
 import { billing } from './billing'
+import { progress } from './contract'
 import { adoptBackendDevScript, dev } from './dev'
 import { runDoctorChecks } from '../doctor'
 
@@ -214,19 +215,23 @@ Later, as you connect services: add EMAIL_API_KEY / BILLING_ACCESS_TOKEN to
  * touched), replace a `dev` script that stalls on a new deployment, then
  * sync env with the same engine as `nuxt-backend env push`. `print` takes
  * every progress line: stderr under `--json`, so stdout stays one document.
+ * Resolves with the deployment's env names after the push — the ones it
+ * listed and the ones it set — or `null` when no deployment was reachable,
+ * so the checks that follow need not list them again.
  */
-async function repairProject(rootDir: string, prod: boolean, print: (line: string) => void): Promise<void> {
-  scaffoldBackendFiles(rootDir)
+async function repairProject(rootDir: string, prod: boolean, print: (line: string) => void): Promise<string[] | null> {
+  scaffoldBackendFiles(rootDir, { log: print })
   const devScript = adoptBackendDevScript(rootDir, { onlyCombined: true })
   if (devScript?.changed) print(`[nuxt-backend] doctor --fix: scripts.dev → \`${devScript.script}\``)
   const run = await runEnvPush(rootDir, { prod })
-  if (run) {
-    print(`[nuxt-backend] doctor --fix: env push → ${run.deployment ?? 'deployment'}`)
-    reportEnvPush(run, { json: false, dryRun: false, print })
-  }
-  else {
+  if (!run) {
     print('[nuxt-backend] doctor --fix: no deployment reachable — env not pushed.')
+    return null
   }
+  print(`[nuxt-backend] doctor --fix: env push → ${run.deployment ?? 'deployment'}`)
+  reportEnvPush(run, { json: false, dryRun: false, print })
+  const set = run.results.filter(result => result.outcome === 'set').map(result => result.action.name)
+  return [...new Set([...run.deployedNames, ...set])]
 }
 
 /**
@@ -318,9 +323,9 @@ const doctor = defineCommand({
     if (only === null) return
     if (refuseNonProductionKey(args.prod, rootDir)) return
 
-    if (args.fix) await repairProject(rootDir, args.prod, args.json ? line => console.error(line) : line => console.log(line))
+    const deployedNames = args.fix ? await repairProject(rootDir, args.prod, progress(args.json)) : undefined
 
-    const reported = await runDoctorChecks(rootDir, { prod: args.prod, ...(only ? { only } : {}) })
+    const reported = await runDoctorChecks(rootDir, { prod: args.prod, ...(only ? { only } : {}), ...(deployedNames !== undefined ? { deployedNames } : {}) })
 
     if (args.json) {
       console.log(JSON.stringify(doctorReport(reported), null, 2))

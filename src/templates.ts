@@ -471,8 +471,6 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
 
     export const {
       authComponent,
-      createAuthOptions,
-      options,
       createAuth,
       getAuthUser,
       authConfig,
@@ -489,20 +487,19 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
       // come built in, with a personal workspace per user and emailed
       // workspace invitations with an /accept-invitation page. Customize them
       // with \`admin: { … }\` and \`organization: { … }\`.
-      integrations: {
-        // Email (OTP / verification / invitations) is delivered automatically
-        // through the backend component — configured by the EMAIL_* env vars.
-        // Throttle OTP sends and other auth-sensitive flows.
-        rateLimiter,
-        // Start the onboarding sequence (workflows.ts) when a user signs up. The
-        // packaged welcome email has already gone out.
-        onUserCreated: async (ctx, user) => {
-          await workflow.start(ctx, internal.workflows.onSignup, {
-            userId: user.id,
-            email: user.email,
-            name: user.name,
-          })
-        },
+      //
+      // Email (sign-in and email-change codes, invitations) is delivered
+      // automatically through the backend component — configured by the
+      // EMAIL_* env vars. Throttle code sends and other auth-sensitive flows.
+      rateLimiter,
+      // Start the onboarding sequence (workflows.ts) when a user signs up. The
+      // packaged welcome email has already gone out.
+      onUserCreated: async (ctx, user) => {
+        await workflow.start(ctx, internal.workflows.onSignup, {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+        })
       },
     })
     ` + '\n',
