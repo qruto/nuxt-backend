@@ -8,12 +8,14 @@ import authConfig from '../auth.config.js'
 import { DEFAULT_AUTH_ROUTE, DEFAULT_INVITATION_PATH, IMPERSONATED_BY_CLAIM } from '../constants.js'
 import { agentConsent } from './agent-consent.js'
 import type { AuthBuildOptions, CanSignInInput } from './auth-types.js'
+import { keyedCodeHash, replaceEarlierCodes } from './codes.js'
 import { makeSendVerificationOTP } from './email.js'
-import { assertCanSignIn, DEFAULT_REFUSAL, makeRequestHooks } from './guards.js'
+import { assertCanSignIn, DEFAULT_REFUSAL, disabledRoutes, makeRequestHooks } from './guards.js'
 import { type DatabaseHooks, mergeDatabaseHooks } from './hooks.js'
 import { type DefaultAuthPlugin, defaultMcp, defaultPasskey } from './plugins.js'
-import { type AuthRuntime, asMutationCtx, readEnv } from './runtime.js'
-import { ensureActiveOrganization, hookAdapter } from './workspaces.js'
+import { type AuthRuntime, asMutationCtx, hookAdapter, readEnv } from './runtime.js'
+import { ensureActiveOrganization } from './workspaces.js'
+import { logBackend } from '../log.js'
 
 /**
  * The one place the auth options are assembled: `setupAuth` builds every
@@ -49,7 +51,8 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
   // delete-account, welcome and workspace-invitation emails through the app's
   // email instance, which holds the templates (`setupEmail({ templates })`).
   // User-supplied options win.
-  // Note: this package is passwordless (passkey + OTP) — no password-reset flow.
+  // Note: this package is passwordless (passkey + OTP): the password-reset
+  // code routes are off unless the app turns passwords on (disabledRoutes).
   const email = runtime?.email
   const emailCtx = asMutationCtx(runtime?.ctx)
   const canSendEmail = Boolean(email && emailCtx)
@@ -62,7 +65,6 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
       role: string
       email: string
       organization: { name: string }
-      invitation: { expiresAt: Date }
       inviter: { user: { name: string, email: string } }
     }) => {
       // Accept links must open the app (SITE_URL), never the Convex site URL —
@@ -73,6 +75,8 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
       const explicitUrl = resolvedAuthOptions.baseURL
       const appUrl = readEnv('SITE_URL') ?? (typeof explicitUrl === 'string' ? explicitUrl : explicitUrl?.fallback) ?? ''
       const url = `${appUrl}${invitationPath}?id=${data.id}`
+      // No idempotency key: every send is a new issuance (a resend moves the
+      // expiry), so a key would never match a second send.
       await email!.sendTemplate(emailCtx!, 'invite', {
         email: data.email,
         url,
@@ -80,10 +84,6 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
         inviterEmail: data.inviter.user.email,
         organizationName: data.organization.name,
         role: data.role,
-      }, {
-        // One email per issuance: a resend moves the expiry, so it goes out;
-        // a repeat of the same request does not.
-        idempotencyKey: `invitation:${data.id}:${new Date(data.invitation.expiresAt).getTime()}`,
       })
     }
     : undefined
@@ -98,8 +98,9 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
   const defaultPlugins = [
     emailOTP({
       sendVerificationOTP: makeSendVerificationOTP(runtime),
-      // Only a hash is stored: a database read never yields a usable code.
-      storeOTP: 'hashed',
+      // Only a hash keyed by the auth secret is stored: a database read
+      // yields no usable code, and no way to compute one.
+      storeOTP: keyedCodeHash(secret),
       // Codes, never links: a link signs in whoever opens it, a code proves
       // the person holds the mailbox. An email change needs a code from the
       // current address, then one from the new address.
@@ -128,11 +129,22 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
 
   const onUserCreated = runtime?.onUserCreated
   // After a user is created: send the welcome email (if a transport is wired)
-  // and run the consumer's onUserCreated hook (workflows, analytics).
+  // and run the consumer's onUserCreated hook (workflows, analytics). The
+  // account exists by now, so a welcome that cannot go out (test mode refusing
+  // a real address, an override that renders no body) is logged, not thrown:
+  // a throw would fail the sign-up the person just completed and skip
+  // onUserCreated.
   const createAfterHook = emailCtx
     ? async (user: { id: string, email: string, name: string }) => {
       if (canSendEmail) {
-        await email!.sendTemplate(emailCtx, 'welcome', { email: user.email, name: user.name })
+        try {
+          // Better Auth runs an after-hook again when it throws (a failing
+          // onUserCreated, say); the key keeps the welcome to one.
+          await email!.sendTemplate(emailCtx, 'welcome', { email: user.email, name: user.name }, { idempotencyKey: `nuxt-backend:welcome:${user.id}` })
+        }
+        catch (error) {
+          logBackend('warn', 'auth.welcome_unsent', 'A new account\'s welcome email was not sent; the account was created and onUserCreated still runs.', error)
+        }
       }
       if (onUserCreated) {
         await onUserCreated(emailCtx, { id: user.id, email: user.email, name: user.name })
@@ -155,18 +167,22 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
     }
     : undefined
   const sessionBeforeHook = async (session: { userId: string } & Record<string, unknown>, hookCtx: unknown) => {
-    // Every new session gets an active workspace: the user's first
-    // membership, or a personal workspace created on first sign-in.
-    const activeOrganizationId = await ensureActiveOrganization(session.userId, hookCtx)
+    // Every refusal comes before any write, so a refused sign-in leaves no
+    // workspace behind: Better Auth runs the plugins' database hooks (the
+    // admin plugin's ban check) ahead of the app's, and the gate runs first
+    // here.
+    const user = await hookAdapter(hookCtx)?.findOne({
+      model: 'user',
+      where: [{ field: 'id', value: session.userId }],
+    }) as { email?: string, name?: string } | null | undefined
     if (gate) {
-      const user = await hookAdapter(hookCtx)?.findOne({
-        model: 'user',
-        where: [{ field: 'id', value: session.userId }],
-      }) as { email?: string } | null | undefined
       // Fail closed: a gate that cannot see the account refuses the session.
       if (!user?.email) throw new APIError('FORBIDDEN', { message: DEFAULT_REFUSAL })
       await gate({ email: user.email, isNewUser: false, purpose: 'session' })
     }
+    // Every new session gets an active workspace: the user's first
+    // membership, or their personal workspace.
+    const activeOrganizationId = await ensureActiveOrganization(session.userId, hookCtx, user?.name)
     return activeOrganizationId ? { data: { ...session, activeOrganizationId } } : undefined
   }
   const packageHooks: DatabaseHooks = {
@@ -181,6 +197,8 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
         }
       : {}),
     session: { create: { before: sessionBeforeHook } },
+    // A new code replaces every earlier one for its address and purpose.
+    verification: { create: { before: replaceEarlierCodes } },
   }
 
   // Account deletion: on by default (confirmed via email when a transport is
@@ -223,7 +241,15 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
   const trustedOrigins: BetterAuthOptions['trustedOrigins'] = trustLocalOrigins ? loopbackOrigins : configuredTrusted
 
   const databaseHooks = mergeDatabaseHooks(packageHooks, resolvedAuthOptions.databaseHooks)
-  const hooks = makeRequestHooks(runtime, resolvedAuthOptions.hooks)
+  // The routes the package turns off, refused by the request guard as well.
+  const disabled = disabledRoutes(resolvedAuthOptions)
+  const hooks = makeRequestHooks(runtime, resolvedAuthOptions.hooks, {
+    codes: !userPluginIds.has('email-otp'),
+    // An app's own organization plugin sends its own invitations.
+    invitations: Boolean(sendInvitationEmail) && !userPluginIds.has('organization'),
+    passwords: resolvedAuthOptions.emailAndPassword?.enabled === true,
+    disabled,
+  })
 
   return {
     ...resolvedAuthOptions,
@@ -232,6 +258,7 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
     ...(trustedOrigins ? { trustedOrigins } : {}),
     basePath: resolvedBasePath,
     database,
+    disabledPaths: [...new Set([...resolvedAuthOptions.disabledPaths ?? [], ...disabled])],
     // Passwordless by default; consumers may still enable email+password here.
     emailAndPassword: {
       enabled: false,
@@ -247,15 +274,15 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
     // Better Auth's own limiter keeps its counters in memory, which on Convex
     // lives no longer than one function call: it would limit nothing. The
     // package's limits run in the request guard on the rate-limiter component
-    // instead. `authOptions.rateLimit` still turns it on, with storage of your
-    // choosing.
+    // instead. `authOptions.rateLimit: { enabled: true, storage: 'database' }`
+    // still turns it on, with durable storage.
     rateLimit: { enabled: false, ...resolvedAuthOptions.rateLimit },
     // The package's hooks compose with consumer-supplied databaseHooks —
     // per model and operation, ours run first, theirs second (see
     // mergeDatabaseHooks) — so a consumer hook extends the packaged
     // behaviour rather than replacing it.
     ...(databaseHooks ? { databaseHooks } : {}),
-    // The OTP request guard (and any consumer before-hook after it).
+    // The request guards (and any consumer before-hook after them).
     hooks,
     plugins: [
       convex({

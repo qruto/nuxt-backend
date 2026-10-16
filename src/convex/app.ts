@@ -23,10 +23,14 @@ import { v } from 'convex/values'
  *
  * Optional — the deploy succeeds and the feature degrades in a designed,
  * observable way until configured (`nuxt-backend doctor` reports each):
- * - `EMAIL_API_KEY` — sends no-op with a console warn; OTP sign-in throws
- *   loudly (set `NUXT_BACKEND_LOG_OTP=1` to echo codes to the dev console).
- * - `EMAIL_FROM` — falls back to the provider's onboarding sender.
- * - `EMAIL_TEST_MODE` — defaults to ON (anything but `'false'`).
+ * - `EMAIL_API_KEY` — sends no-op with a console warn, and a sign-in code
+ *   or an invitation to a real address is refused with a 400 (set
+ *   `NUXT_BACKEND_LOG_OTP=1` to echo codes to the dev console instead).
+ * - `EMAIL_FROM` — falls back to the provider's onboarding sender, which
+ *   reaches no real recipient: codes and invitations to one are refused.
+ * - `EMAIL_TEST_MODE` — defaults to ON (anything but `'false'`): only the
+ *   provider's test addresses get mail; codes and invitations to others are
+ *   refused.
  * - `EMAIL_WEBHOOK_SECRET` — delivery events are rejected until set.
  * - `BILLING_ACCESS_TOKEN` — billing queries return empty; checkout and other
  *   billing actions fail on invocation.

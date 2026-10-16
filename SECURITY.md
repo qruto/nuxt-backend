@@ -93,9 +93,10 @@ catalogue and does not prove anything reaches them. A red build means *go and lo
 confirmed harmless carries `// fallow-ignore-next-line security-sink -- <why>` at the site, dated,
 so the reasoning is reviewed with the code. Today those are: the fetches whose destination is the
 deployment's own site URL from runtime config (the agent token exchange, the authorization-server
-metadata proxy, the AI stream), the doctor's probe of the project's own `SITE_URL`, the DevTools
-panel reading package versions from a fixed list, and a regex the playground builds from an
-escaped search term.
+metadata proxy, the AI stream), the doctor's probe of the project's own `SITE_URL`, the CLI's two
+spawns of the project's own Convex CLI (the current Node binary, no shell, fixed subcommands, and
+every value on stdin), the DevTools panel reading package versions from a fixed list, and a regex
+the playground builds from an escaped search term.
 
 `hardcoded-secret` and `secret-to-network` stay off on purpose: naming them in
 `security.categories.include` turns the setting into a whitelist and drops the other 44.
@@ -239,7 +240,9 @@ what was decided:
   ids, never tokens. A revoke resolves the id among the caller's own sessions only, and then
   runs through Better Auth's `/revoke-session`, whose ownership check, database hooks and
   secondary storage apply. Agent tokens carry no session, so they read `null` and cannot revoke.
-  **Fixed.** Pinned by `test/convex-component/sessions.test.ts`.
+  The list read only the first page of sessions, so an account with over a hundred missed the
+  rest; it reads every page now (2026-10-16). **Fixed.** Pinned by
+  `test/convex-component/sessions.test.ts`.
 - **Scaffolded email sending** (`email:send`; 2026-10-14). `send` was a public action gated
   only on a sign-in, so any visitor who could sign in could mail any address from the app's
   verified domain. It is an `internalAction` now. The any-address example is `sendAsAdmin`
@@ -256,20 +259,61 @@ what was decided:
   The consent page reads the request from the server, keeps the code out of its URL, cannot be
   framed, and opens no callback with a script-capable scheme (registration already refuses one). **Fixed.** Pinned by `test/unit/agent-consent-flow.test.ts`, which runs the real
   provider on Better Auth's memory adapter.
-- **Billing webhook secret** (`billing sync`; 2026-10-15). A new endpoint's secret was printed
-  as a ready `convex env set` line, so it landed in terminal history, CI logs and coding-agent
-  transcripts. It is stored on the deployment through the `env push` engine now and never
-  printed, `--json` included; `--env production` refuses a dev or preview deploy key, which would
-  put it on the wrong deployment. **Fixed.** Pinned by `test/unit/billing-sync-command.test.ts`.
+- **Values the CLI sets on a deployment** (`env push`, `doctor --fix`, `nuxt-backend dev`, the
+  dev server's env provisioning, `billing sync`; 2026-10-15, corrected 2026-10-16). A new billing
+  webhook endpoint's secret was printed as a ready `convex env set` line, so it landed in terminal
+  history, CI logs and coding-agent transcripts. The first fix stored it through the `env push`
+  engine instead, but that engine passed every value to `convex env set` as an argument: visible
+  to any process on the machine (`ps`) while the command ran, and quoted by Node in the error of a
+  command that failed or timed out — which `env push` (text and `--json`), `doctor --fix`,
+  `nuxt-backend dev`, the dev server's log and `billing sync` all print. Every value now reaches
+  `convex env set` on its stdin, never as an argument, and a failed Convex CLI call is reported as
+  its subcommand, its exit code and the last lines of its stderr, with the value scrubbed out —
+  never its arguments, stdin or stdout. `billing sync` writes only the deployment it read first:
+  under `--env production` the webhook URL is production's (from `convex function-spec --prod`,
+  a custom domain in the shell winning), a dev or preview deploy key is refused, and so is a
+  production or project key under sandbox; an endpoint on another deployment than the one its
+  secret goes to is refused; a secret already on the deployment is replaced only with `--force`;
+  and the manual fallback, `npx convex env set BILLING_WEBHOOK_SECRET`, asks for the value instead
+  of taking it on the command line. **Fixed.** Pinned by `test/unit/convex-cli.test.ts` and
+  `test/unit/env-push-secrets.test.ts`, which run a stand-in Convex CLI that refuses every write
+  and record what reached its argv and its stdin, and by `test/unit/billing-sync-command.test.ts`.
 - **Codes and email change** (`/email-otp/*`, `/change-email`; 2026-10-15). Codes were stored
   in plain text, so a read of the database yielded working sign-in codes, and an email change
   sent links: following the one at the new address moved the account and signed in whoever
-  opened it. Codes are stored as hashes now, and every proof of a mailbox is a code: an email
-  change takes one from the current address, then one from the new address (the core link
-  route is off), and a verification is a code too. The code to the new address is limited per
+  opened it. Codes are stored as a hash keyed by `AUTH_SECRET` now (the first fix, an unkeyed
+  SHA-256 of a six-digit code, was invertible in under a second), and every proof of a mailbox is
+  a code: an email change takes one from the current address, then one from the new address (the
+  core link routes are off), and a verification is a code too. The code to the new address is limited per
   account and counts against the deployment-wide ceiling. Session tokens carry the
   impersonating admin's id, so functions can refuse an impersonated session. **Fixed.** Pinned
   by `test/unit/email-change-flow.test.ts`, which runs the real flow on Better Auth's memory
   adapter.
+- **Code guessing** (`/email-otp/*`; 2026-10-16). `/email-otp/check-verification-otp` checked a
+  code without consuming it, and on Convex its wrong-guess count landed on another row than the
+  one it read, so guesses went uncounted. The route is off. A new code replaces the one before it,
+  so one is live per address; checks spend `emailOtpAttempt` (ten an hour per address, spent only
+  while a code is waiting, so nobody can lock an address out without one); password reset is off
+  until an app turns passwords on. Session and agent tokens stay stored as Better Auth stores
+  them. **Fixed.** Pinned by `test/unit/otp-codes-flow.test.ts`.
+- **Bearer-authenticated requests** (2026-10-16). The request guards read the caller from the
+  session cookie, which the bearer plugin fills in only after every before-hook has run, so a
+  request sent with `Authorization: Bearer` skipped the per-caller limits, the impersonation
+  refusals and the consent page's ownership check. The guards now resolve the session as the
+  route will, and refuse a credential that resolves to none. **Fixed.** Pinned by
+  `test/unit/bearer-guards.test.ts` and `test/unit/agent-consent-flow.test.ts`.
+- **Impersonation** (2026-10-16). An admin impersonating someone could save a passkey on their
+  account and sign in as them after the impersonation ended. While impersonating, these are
+  refused now: passkey registration, verification, renaming and removal, both steps of an email
+  change, account deletion, approving an agent, inviting a member, changing a member's role and
+  linking a social account. **Fixed.** Pinned by `test/unit/bearer-guards.test.ts`.
+- **Email change notice** (`/email-otp/change-email`; 2026-10-16). A change someone else made
+  went unnoticed by the address it left. The old address now hears of every change, after the
+  route answers, and the first code of a change says what it is for. **Hardened.** Pinned by
+  `test/unit/email-change-flow.test.ts`.
+- **Personal workspace** (2026-10-16). A person whose personal workspace still existed, after
+  they left it or were removed, could never sign in again: re-creating it hit the unique slug.
+  They rejoin it when it is empty, and get a new one otherwise; the sign-in gate runs before any
+  write. **Fixed.** Pinned by `test/unit/workspace-session-flow.test.ts`.
 - **DevTools** (2026-09-17). The Backend tab and its RPC run only under `nuxt dev`, on Vite's
   middleware — reachable exactly as far as Nuxt DevTools itself. **Accepted.**

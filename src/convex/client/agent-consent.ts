@@ -1,5 +1,6 @@
 import type { BetterAuthPlugin } from 'better-auth'
-import { APIError, createAuthEndpoint, createAuthMiddleware, getSessionFromCtx, sessionMiddleware } from 'better-auth/api'
+import { APIError, createAuthEndpoint, createAuthMiddleware, sessionMiddleware } from 'better-auth/api'
+import { type AuthHookCtx, requestSession } from './request-session.js'
 
 /** The signed cookie the OAuth provider keeps a pending consent code in. */
 const CONSENT_COOKIE = 'oidc_consent_prompt'
@@ -26,10 +27,8 @@ export interface AgentConsentRequest {
   expiresAt: number
 }
 
-type HookCtx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0]
-
 /** The consent code a request carries: in its body, else the provider's signed cookie. */
-async function consentCode(ctx: HookCtx): Promise<string | null> {
+async function consentCode(ctx: AuthHookCtx): Promise<string | null> {
   const fromBody = (ctx.body as { consent_code?: unknown } | undefined)?.consent_code
   if (typeof fromBody === 'string' && fromBody) return fromBody
   const fromCookie = await ctx.getSignedCookie(CONSENT_COOKIE, ctx.context.secret)
@@ -37,7 +36,7 @@ async function consentCode(ctx: HookCtx): Promise<string | null> {
 }
 
 /** The live authorization behind a code, or null when it is unknown or expired. */
-async function pendingAuthorization(ctx: HookCtx, code: string): Promise<{ value: PendingAuthorization, expiresAt: Date } | null> {
+async function pendingAuthorization(ctx: AuthHookCtx, code: string): Promise<{ value: PendingAuthorization, expiresAt: Date } | null> {
   const verification = await ctx.context.internalAdapter.findVerificationValue(code)
   if (!verification || verification.expiresAt < new Date()) return null
   try {
@@ -66,7 +65,9 @@ const EXPIRED = 'This request has expired or was already answered. Start again f
  *   token endpoint does not check, so a leaked consent code would otherwise
  *   trade for a token without anyone approving it.
  * - `/oauth2/consent` answers only the account the request was made for, and
- *   an administrator impersonating that account cannot approve.
+ *   an administrator impersonating that account cannot approve. Both are
+ *   checked against the session the route runs with, a Bearer token
+ *   included (`requestSession`).
  * - `POST /agent-consent/request` tells the consent page what is being asked,
  *   read from the stored request rather than from the page's URL, which the
  *   agent wrote.
@@ -94,7 +95,8 @@ export function agentConsent(): BetterAuthPlugin {
         {
           matcher: ctx => ctx.path === '/oauth2/consent',
           handler: createAuthMiddleware(async (ctx) => {
-            const session = await getSessionFromCtx(ctx).catch(() => null)
+            // No credential: the route answers 401 itself.
+            const session = await requestSession(ctx)
             if (!session) return
             const code = await consentCode(ctx)
             const pending = code ? await pendingAuthorization(ctx, code) : null
@@ -102,7 +104,7 @@ export function agentConsent(): BetterAuthPlugin {
               throw new APIError('FORBIDDEN', { message: 'This request was made for another account.' })
             }
             const accept = (ctx.body as { accept?: unknown } | undefined)?.accept === true
-            if (accept && (session.session as { impersonatedBy?: string | null }).impersonatedBy) {
+            if (accept && session.session.impersonatedBy) {
               throw new APIError('FORBIDDEN', { message: 'An administrator acting as this account cannot approve an agent.' })
             }
           }),
@@ -114,8 +116,8 @@ export function agentConsent(): BetterAuthPlugin {
         method: 'POST',
         use: [sessionMiddleware],
       }, async (ctx) => {
-        const code = await consentCode(ctx as unknown as HookCtx)
-        const pending = code ? await pendingAuthorization(ctx as unknown as HookCtx, code) : null
+        const code = await consentCode(ctx as unknown as AuthHookCtx)
+        const pending = code ? await pendingAuthorization(ctx as unknown as AuthHookCtx, code) : null
         if (!pending?.value.requireConsent || pending.value.userId !== ctx.context.session.user.id) {
           throw new APIError('NOT_FOUND', { message: EXPIRED })
         }

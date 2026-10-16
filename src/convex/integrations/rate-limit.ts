@@ -14,21 +14,23 @@ export interface RateLimiterComponents {
 
 /**
  * The package's default rate limits — `emailOtp`, `emailOtpGlobal`,
- * `emailChange`, `billingSync`, `ai`, `aiBudget`, `mcp`, `admin`,
- * `invitation`, `invitationGlobal` and `agentRegistrationGlobal` — guarding
- * the flows the package itself drives. Keyed per
- * email/entity/caller at the call site (e.g. `limit(ctx, 'emailOtp', { key:
- * hash })`); the `*Global` ones are unkeyed. Extend or override any of them by
- * passing your own limits to {@link setupRateLimiter}.
+ * `emailOtpAttempt`, `emailChange`, `billingSync`, `ai`, `aiBudget`,
+ * `mcp`, `admin`, `invitation`, `invitationGlobal` and
+ * `agentRegistrationGlobal` — guarding the flows the package itself drives.
+ * Keyed per email/entity/caller at the call site (e.g. `limit(ctx,
+ * 'emailOtp', { key: hash })`); the `*Global` ones are unkeyed. Extend or
+ * override any of them by passing your own limits to {@link setupRateLimiter}.
  *
- * Deliberately small: `emailOtp` throttles code *sends* (per-code brute force
- * is Better Auth's own `allowedAttempts` guard, and this package is
- * passwordless — there are no password flows to limit), `emailOtpGlobal`
- * caps sends deployment-wide, `billingSync` guards the live provider
- * fan-out, `ai`/`aiBudget`/`mcp` back the metered-action, credit-budget and
- * agent surfaces, and `admin`/`invitation`/`emailChange` cover the
- * signed-in routes where one caller acts on *other* people or addresses —
- * see `setupAuth`'s route limits.
+ * Deliberately small: `emailOtp` throttles code *sends* and
+ * `emailOtpAttempt` code *checks*, per address (Better Auth's own
+ * `allowedAttempts` bounds the guesses at one code, but a new code is one
+ * request away), `emailOtpGlobal` caps sends deployment-wide,
+ * `billingSync` guards the live provider fan-out, `ai`/`aiBudget`/`mcp`
+ * back the metered-action, credit-budget and agent surfaces, and
+ * `admin`/`invitation`/`emailChange` cover the signed-in routes where one
+ * caller acts on *other* people or addresses — see `setupAuth`'s route
+ * limits. The package is passwordless: there are no password limits, and an
+ * app that turns passwords on brings its own.
  *
  * ## Covering other auth routes
  *
@@ -62,6 +64,21 @@ export const DEFAULT_LIMITS = {
    * this ceiling. Raise it when a launch legitimately signs in more than that.
    */
   emailOtpGlobal: { kind: 'fixed window', rate: 300, period: HOUR },
+  /**
+   * Code checks — 10 per hour per address, burst 10. Every route that checks
+   * a code (sign-in, verification, both steps of an email change, a password
+   * reset when the app has passwords) spends one while a code is waiting,
+   * right or wrong, keyed by a SHA-256 of the address the code went to.
+   * Better Auth refuses a code after three wrong guesses, but `emailOtp` lets
+   * five new codes out a minute: without this limit, a guess loop that keeps
+   * requesting codes would get fifteen guesses a minute at one address, for
+   * as long as it ran. Here it gets ten an hour. Like every limit keyed by an
+   * address, someone who spends it can keep that address from signing in
+   * with a code for the hour — never without codes going to it, since a
+   * check with no code waiting spends nothing — and a passkey still signs it
+   * in.
+   */
+  emailOtpAttempt: { kind: 'token bucket', rate: 10, period: HOUR, capacity: 10 },
   /**
    * Email changes — 5 per hour per account. The code an email change sends to
    * the new address goes where the caller chose, so it is bounded per account

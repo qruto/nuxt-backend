@@ -1,29 +1,27 @@
 import type { GenericDataModel, QueryBuilder } from 'convex/server'
 import { v } from 'convex/values'
 import type { AdapterRefs } from './component.js'
+import { hookAdapter } from './runtime.js'
 
 // Workspaces (the organization plugin's organizations): the one every new
 // session activates, and the workspace queries `setupAuth` remounts.
 
-/** The minimal Better Auth adapter surface the session hooks need. */
-interface AuthHookAdapter {
-  findOne: (args: { model: string, where: Array<{ field: string, value: unknown }> }) => Promise<unknown>
-  create: (args: { model: string, data: Record<string, unknown> }) => Promise<unknown>
-}
-
-/** The adapter a database hook's endpoint context carries (`undefined` outside a request). */
-export function hookAdapter(hookCtx: unknown): AuthHookAdapter | undefined {
-  return (hookCtx as { context?: { adapter?: AuthHookAdapter } } | undefined)?.context?.adapter
-}
-
 /**
  * Resolve the workspace a new session should activate: the user's first
- * membership, or a personal workspace created on the spot (organization +
- * owner membership rows via the Better Auth adapter).
+ * membership, or their personal workspace (organization + owner membership
+ * rows via the Better Auth adapter). `name` is the account's display name,
+ * which names a workspace created here.
+ *
+ * A personal workspace can outlive its owner's membership. Left empty, it is
+ * the user's again; still held by others, it stays with them, and the user
+ * gets a new one under a slug of its own. Creating the old slug again would
+ * break the organization's unique slug, and with it every sign-in of the
+ * account.
  */
 export async function ensureActiveOrganization(
   userId: string,
   hookCtx: unknown,
+  name?: string,
 ): Promise<string | undefined> {
   const adapter = hookAdapter(hookCtx)
   if (!adapter) return undefined
@@ -34,24 +32,42 @@ export async function ensureActiveOrganization(
   }) as { organizationId?: string } | null
   if (membership?.organizationId) return membership.organizationId
 
-  const user = await adapter.findOne({
-    model: 'user',
-    where: [{ field: 'id', value: userId }],
-  }) as { name?: string } | null
   const now = new Date()
+  const join = async (organizationId: string) => {
+    await adapter.create({
+      model: 'member',
+      data: { organizationId, userId, role: 'owner', createdAt: now },
+    })
+    return organizationId
+  }
+
+  const slug = `personal-${userId.toLowerCase()}`
+  const personal = await adapter.findOne({
+    model: 'organization',
+    where: [{ field: 'slug', value: slug }],
+  }) as { id: string } | null
+  if (personal) {
+    const anyMember = await adapter.findOne({
+      model: 'member',
+      where: [{ field: 'organizationId', value: personal.id }],
+    })
+    if (!anyMember) return join(personal.id)
+  }
+
   const workspace = await adapter.create({
     model: 'organization',
     data: {
-      name: user?.name ? `${user.name}'s workspace` : 'Personal workspace',
-      slug: `personal-${userId.toLowerCase()}`,
+      name: name ? `${name}'s workspace` : 'Personal workspace',
+      slug: personal ? `${slug}-${randomSuffix()}` : slug,
       createdAt: now,
     },
   }) as { id: string }
-  await adapter.create({
-    model: 'member',
-    data: { organizationId: workspace.id, userId, role: 'owner', createdAt: now },
-  })
-  return workspace.id
+  return join(workspace.id)
+}
+
+/** Eight hex characters: a fresh slug beside a personal workspace someone else now holds. */
+function randomSuffix(): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(4)), byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
 /** More memberships than any real account holds; a bound, not pagination. */

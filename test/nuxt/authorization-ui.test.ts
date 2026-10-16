@@ -29,6 +29,9 @@ const client = {
     setActive: vi.fn(async () => ({})),
     inviteMember: vi.fn(async () => ({})),
     leave: vi.fn(async () => ({})),
+    acceptInvitation: vi.fn(async () => ({})),
+    rejectInvitation: vi.fn(async () => ({})),
+    cancelInvitation: vi.fn(async () => ({})),
   },
 }
 
@@ -185,6 +188,34 @@ describe('useOrganization', () => {
 
     await organization.leave()
     expect(client.organization.leave).toHaveBeenCalledWith({ organizationId: 'org-1' })
+  })
+
+  // The client resolves a refusal as `{ error }`: an action that resolved it
+  // would report a refused invitation as sent, or a refused one as accepted.
+  it('rejects every action the server refuses, and leaves the workspace claim alone', async () => {
+    user.value = { id: 'u1' }
+    activeOrganization.value = { data: workspace, isPending: false }
+    const organization = inSetup(() => useOrganization())
+    const refused = { data: null, error: { status: 403, message: 'Not allowed' } }
+    const { inviteMember, setActive, create, leave, acceptInvitation, rejectInvitation, cancelInvitation } = client.organization
+    for (const call of [inviteMember, setActive, create, leave, acceptInvitation, rejectInvitation, cancelInvitation]) call.mockResolvedValueOnce(refused)
+
+    await expect(organization.invite({ email: 'new@example.com' })).rejects.toThrow('Not allowed')
+    await expect(organization.setActive('org-2')).rejects.toThrow('Not allowed')
+    await expect(organization.create({ name: 'Beta', slug: 'beta' })).rejects.toThrow('Not allowed')
+    await expect(organization.leave()).rejects.toThrow('Not allowed')
+    await expect(organization.acceptInvitation('inv-1', { activate: true })).rejects.toThrow('Not allowed')
+    await expect(organization.declineInvitation('inv-1')).rejects.toThrow('Not allowed')
+    await expect(organization.cancelInvitation('inv-1')).rejects.toThrow('Not allowed')
+    expect(fetchAccessToken).not.toHaveBeenCalled()
+    expect(setAuth).not.toHaveBeenCalled()
+  })
+
+  it('rejects a rate-limited invitation with the wait', async () => {
+    user.value = { id: 'u1' }
+    const organization = inSetup(() => useOrganization())
+    client.organization.inviteMember.mockResolvedValueOnce({ data: null, error: { status: 429, retryAfter: 30_000 } })
+    await expect(organization.invite({ email: 'new@example.com' })).rejects.toMatchObject({ retryAfter: 30 })
   })
 })
 

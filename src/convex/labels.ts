@@ -60,6 +60,14 @@ export function createTranslate(labels: LabelTree = LABELS): Translate {
   }
 }
 
+/** What the auth flows tell a person they refused. */
+const AUTH_LABELS = {
+  undeliverable: {
+    testMode: 'This app is in test mode and only emails test addresses right now.',
+    unconfigured: 'This app can\'t send email yet.',
+  },
+} satisfies LabelTree
+
 /** The emails the package sends: subjects, sentences and buttons. */
 const EMAIL_LABELS = {
   link: {
@@ -74,6 +82,17 @@ const EMAIL_LABELS = {
       'change-email': 'Confirm your new email',
     },
     expiry: 'This code expires shortly. If you didn\'t request it, you can ignore this email.',
+    // The first code of an email change, to the current address.
+    emailChange: {
+      subject: 'Confirm your email change',
+      intro: 'Enter this code to confirm you want to change the email address on your account.',
+      warning: 'If you didn\'t ask for this, someone may be signed in to your account. Sign out of your other sessions.',
+    },
+  },
+  emailChanged: {
+    subject: 'Your email address was changed',
+    intro: 'The email address on your account is now {newEmail}.',
+    warning: 'If you didn\'t make this change, contact us right away.',
   },
   welcome: {
     subject: 'Welcome aboard',
@@ -101,5 +120,6 @@ const EMAIL_LABELS = {
 
 /** The English defaults, by group. */
 export const LABELS = {
+  auth: AUTH_LABELS,
   email: EMAIL_LABELS,
 } satisfies LabelTree

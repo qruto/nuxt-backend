@@ -16,7 +16,7 @@ CONVEX_DEPLOY_KEY=prod:... npx nuxt-backend doctor --prod
 
 | Finding | What it means in production |
 |---|---|
-| `email-transport` / `deployment-email-api-key` | No `EMAIL_API_KEY` — OTP sign-in throws. Nobody can sign in. |
+| `email-transport` / `deployment-email-api-key` | No `EMAIL_API_KEY` — sign-in codes to real addresses are refused. Nobody can sign in. |
 | `email-webhook-secret` / `deployment-email-webhook-secret` | `/email/events` is fail-closed — delivery status never advances past `sent`. |
 | `billing-access` / `deployment-billing-access-token` | No `BILLING_ACCESS_TOKEN` — pricing renders empty, checkout fails. |
 | `billing-webhook-secret` / `deployment-billing-webhook-secret` | `/billing/events` is fail-closed — entitlements only refresh on demand. |
@@ -67,6 +67,7 @@ Everything else keeps its normal severity: `deployment-auth-secret` / `deploymen
 - [ ] `NUXT_PUBLIC_BACKEND_URL` and `NUXT_PUBLIC_BACKEND_SITE_URL` on the host point at the production deployment (or `CONVEX_DEPLOYMENT=prod:<slug>`).
 - [ ] Custom domains on the deployment? Both `NUXT_PUBLIC_BACKEND_*` URLs are set by hand (nothing derives from a custom domain) and the provider webhooks point at the custom HTTP-actions origin — see [Custom domains](/docs/ship/deploy#custom-domains).
 - [ ] Pages that open live subscriptions are excluded from prerendering.
+- [ ] No `swr`, `isr` or `cache` route rule covers the private pages: they are exempt at their exact paths only, and the module warns at startup when a wildcard rule reaches them (see [caches](/docs/ui/pages#caches)).
 - [ ] With `@nuxtjs/robots` installed, the private pages answer `noindex`: `curl -sI https://app.example.com/settings | grep -i x-robots-tag` (see [search engines](/docs/ui/pages#search-engines)).
 - [ ] `nuxt-security` is installed (it is, as a dependency of this package — the module registers it in every app) and the CSP was not disabled — see [Security](/docs/ship/production/security).
 
@@ -74,4 +75,4 @@ Everything else keeps its normal severity: `deployment-auth-secret` / `deploymen
 
 ## After launch
 
-`doctor` stays useful: run it against production after every env change, and read the DevTools Backend tab's webhook feed (or `getWebhookDeliveries`) when a purchase or an email looks stuck — a `missing_secret`, `invalid_signature`, or `handler_error` outcome says exactly what to fix.
+`doctor` stays useful: run it against production after every env change, and read the DevTools Backend tab's webhook feed as an admin (or call `getWebhookDeliveries` as one) when a purchase or an email looks stuck — a `missing_secret`, `invalid_signature`, or `handler_error` outcome says exactly what to fix.
