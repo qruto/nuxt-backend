@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * OG image — "the plate": a 1200×630 machined titanium slab, rendered by
+ * OG image — "the plate": a 1200×630 machined gunmetal slab, rendered by
  * nuxt-og-image's Takumi renderer (`.takumi.vue` picks the renderer).
  *
- * Material rules (website/design.md): the canvas is titanium — the plate's
+ * Material rules (website/design.md): the ground is gunmetal — the plate's
  * face is a 135° sheen + hairline machining grain over the dark slab, its
  * edge an inset bevel lit from the top-left. Type is *engraved* (a mid-tone
  * ink + a two-layer text-shadow: dark up-left, light down-right). The only
@@ -11,7 +11,7 @@
  * (bottom-right) — signals are never engraved.
  *
  * Fonts: Takumi resolves `font-family` declarations it finds in this file
- * against @nuxt/fonts' global sheet, so "Bai Jamjuree" and "JetBrains Mono"
+ * against @nuxt/fonts' global sheet, so "Anybody" and "Martian Mono"
  * must stay `global: true` in nuxt.config.ts `fonts`, and @nuxt/fonts must be
  * listed in `modules` (see the note there). A family outside that sheet falls
  * back to the renderer's bundled Inter.
@@ -50,15 +50,15 @@ const descriptionText = computed(() => {
 
 <template>
   <div
-    style="position: relative; display: flex; width: 1200px; height: 630px; overflow: hidden; background-color: #161616; background-image: radial-gradient(1000px 700px at 18% -10%, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02) 42%, rgba(255, 255, 255, 0) 100%), repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0px, rgba(255, 255, 255, 0.012) 1px, rgba(255, 255, 255, 0) 1px, rgba(255, 255, 255, 0) 3px), repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.05) 0px, rgba(0, 0, 0, 0.05) 1px, rgba(0, 0, 0, 0) 1px, rgba(0, 0, 0, 0) 7px);"
+    style="position: relative; display: flex; width: 1200px; height: 630px; overflow: hidden; background-color: #26292e; background-image: radial-gradient(1000px 700px at 18% -10%, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02) 42%, rgba(255, 255, 255, 0) 100%), repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0px, rgba(255, 255, 255, 0.012) 1px, rgba(255, 255, 255, 0) 1px, rgba(255, 255, 255, 0) 3px), repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.05) 0px, rgba(0, 0, 0, 0.05) 1px, rgba(0, 0, 0, 0) 1px, rgba(0, 0, 0, 0) 7px);"
   >
     <!-- The plate: raised slab with an inset bevel (lit top-left, dark bottom-right) and a cast. -->
     <div
-      style="position: absolute; left: 48px; top: 48px; width: 1104px; height: 534px; display: flex; flex-direction: column; justify-content: space-between; padding: 64px 72px 56px 72px; border-radius: 28px; background-color: #232323; background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 45%), linear-gradient(315deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0) 45%), repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0px, rgba(255, 255, 255, 0.018) 1px, rgba(255, 255, 255, 0) 1px, rgba(255, 255, 255, 0) 3px); box-shadow: inset 1.5px 2.5px 3px rgba(255, 255, 255, 0.07), inset -1.5px -2.5px 3px rgba(0, 0, 0, 0.55), inset 0.5px 1px 1px rgba(255, 255, 255, 0.06), inset -0.5px -1px 1px rgba(0, 0, 0, 0.45), 2px 4px 8px rgba(0, 0, 0, 0.45), 8px 16px 36px rgba(0, 0, 0, 0.45);"
+      style="position: absolute; left: 48px; top: 48px; width: 1104px; height: 534px; display: flex; flex-direction: column; justify-content: space-between; padding: 64px 72px 56px 72px; border-radius: 28px; background-color: #33373e; background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 45%), linear-gradient(315deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0) 45%), repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0px, rgba(255, 255, 255, 0.018) 1px, rgba(255, 255, 255, 0) 1px, rgba(255, 255, 255, 0) 3px); box-shadow: inset 1.5px 2.5px 3px rgba(255, 255, 255, 0.07), inset -1.5px -2.5px 3px rgba(0, 0, 0, 0.55), inset 0.5px 1px 1px rgba(255, 255, 255, 0.06), inset -0.5px -1px 1px rgba(0, 0, 0, 0.45), 2px 4px 8px rgba(0, 0, 0, 0.45), 8px 16px 36px rgba(0, 0, 0, 0.45);"
     >
       <!-- Eyebrow — mono, engraved-sm -->
       <div
-        style="display: flex; font-family: 'JetBrains Mono'; font-weight: 500; font-size: 26px; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #8a8a8a; text-shadow: -0.5px -0.9px 0.5px rgba(0, 0, 0, 0.8), 0.6px 1px 0.5px rgba(255, 255, 255, 0.14);"
+        style="display: flex; font-family: 'Martian Mono'; font-weight: 500; font-size: 24px; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #a7abb6; text-shadow: -0.5px -0.9px 0.5px rgba(0, 0, 0, 0.8), 0.6px 1px 0.5px rgba(255, 255, 255, 0.14);"
       >
         {{ eyebrowText }}
       </div>
@@ -66,13 +66,13 @@ const descriptionText = computed(() => {
       <!-- Title + description — display, engraved -->
       <div style="display: flex; flex-direction: column; gap: 22px;">
         <div
-          style="display: flex; width: 800px; font-family: 'Bai Jamjuree'; font-weight: 600; font-size: 78px; line-height: 1.08; letter-spacing: 0.005em; color: #8f8f8f; text-shadow: -1px -1.7px 1px rgba(0, 0, 0, 0.85), 1.2px 2px 1px rgba(255, 255, 255, 0.17);"
+          style="display: flex; width: 800px; font-family: 'Anybody'; font-weight: 700; font-size: 74px; line-height: 1.08; letter-spacing: 0.005em; color: #878b96; text-shadow: -1px -1.7px 1px rgba(0, 0, 0, 0.85), 1.2px 2px 1px rgba(255, 255, 255, 0.17);"
         >
           {{ title?.slice(0, 80) }}
         </div>
         <div
           v-if="descriptionText"
-          style="display: flex; width: 720px; font-family: 'Bai Jamjuree'; font-weight: 500; font-size: 28px; line-height: 1.35; color: #7d7d7d; text-shadow: -0.5px -0.9px 0.5px rgba(0, 0, 0, 0.8), 0.6px 1px 0.5px rgba(255, 255, 255, 0.14);"
+          style="display: flex; width: 720px; font-family: 'Anybody'; font-weight: 400; font-size: 28px; line-height: 1.35; color: #a7abb6; text-shadow: -0.5px -0.9px 0.5px rgba(0, 0, 0, 0.8), 0.6px 1px 0.5px rgba(255, 255, 255, 0.14);"
         >
           {{ descriptionText }}
         </div>
@@ -80,9 +80,9 @@ const descriptionText = computed(() => {
 
       <!-- LED strip in a milled slot — go / live -->
       <div
-        style="display: flex; align-items: center; width: 132px; height: 18px; padding: 0 5px; border-radius: 9px; background-color: #151515; box-shadow: inset 1px 2px 3px rgba(0, 0, 0, 0.6), inset -1px -1.5px 1.5px rgba(255, 255, 255, 0.05), 0 1px 0 rgba(255, 255, 255, 0.05);"
+        style="display: flex; align-items: center; width: 132px; height: 18px; padding: 0 5px; border-radius: 9px; background-color: #1c1e22; box-shadow: inset 1px 2px 3px rgba(0, 0, 0, 0.6), inset -1px -1.5px 1.5px rgba(255, 255, 255, 0.05), 0 1px 0 rgba(255, 255, 255, 0.05);"
       >
-        <div style="display: flex; width: 122px; height: 8px; border-radius: 4px; background-color: #49b567; box-shadow: 0 0 10px rgba(73, 181, 103, 0.55), 0 0 22px rgba(73, 181, 103, 0.28);" />
+        <div style="display: flex; width: 122px; height: 8px; border-radius: 4px; background-color: #4ade80; box-shadow: 0 0 10px rgba(74, 222, 128, 0.55), 0 0 22px rgba(74, 222, 128, 0.28);" />
       </div>
     </div>
 
@@ -347,20 +347,20 @@ const descriptionText = computed(() => {
           cx="74"
           cy="74"
           r="7.6"
-          fill="#49b567"
+          fill="#4ade80"
           fill-opacity="0.32"
         />
         <circle
           cx="74"
           cy="74"
           r="3.7"
-          fill="#49b567"
+          fill="#4ade80"
         />
         <circle
           cx="72.9"
           cy="72.9"
           r="1.25"
-          fill="#afe8c0"
+          fill="#bbf7d0"
           fill-opacity="0.9"
         />
       </svg>

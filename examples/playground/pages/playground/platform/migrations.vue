@@ -147,7 +147,7 @@ function stateTone(state: string): 'ok' | 'warn' | 'err' {
           </StatusPill>
           <span class="mono status-name">{{ entry.name }}</span>
           <span class="status-meta mono">{{ entry.processed ?? 0 }} processed</span>
-          <SignalDot
+          <Led
             v-if="entry.state === 'inProgress'"
             tone="ok"
             pulse

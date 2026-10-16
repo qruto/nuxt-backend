@@ -17,6 +17,14 @@
 // from the output means its ramp is not `static`; a stock Tailwind value in
 // its place would mean the splice failed.
 //
+// Two more silent losses are checked the same way. app.css imports its tokens
+// (assets/css/tokens.css): a broken import ships the ramps without a single
+// ground or ink, so a plain-hex token from that file must be in the output.
+// And Anybody and Martian Mono are variable in width only when Google is asked
+// for the axis (nuxt.config.ts `fonts`); without it every wide heading and
+// narrow code block renders at the normal width, so each family's faces must
+// carry its `font-stretch` range.
+//
 // Run after `nuxt build website`.
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -60,6 +68,20 @@ const css = files.map(name => readFileSync(join(outputDir, name), 'utf8')).join(
 
 const problems = []
 if (css.includes('@theme')) problems.push('a literal `@theme` block reached the output (the app.css splice was not compiled)')
+
+// A token tokens.css declares as a plain hex, so no transform rewrites it.
+const TOKENS_SENTINEL = '--lcd-bezel:#15171b'
+if (!css.includes(TOKENS_SENTINEL)) problems.push(`\`${TOKENS_SENTINEL}\` is missing (did app.css stop importing assets/css/tokens.css?)`)
+
+/** The width range each variable family must be served with (names and values as the whitespace-free output spells them). */
+const WIDTH_AXES = { anybody: '50%150%', martianmono: '75%112.5%' }
+const faces = [...css.matchAll(/@font-face\{([^}]*)\}/g)].map(([, body]) => body)
+for (const [family, range] of Object.entries(WIDTH_AXES)) {
+  const own = faces.filter(body => ['', '"', '\''].some(quote => body.includes(`font-family:${quote}${family}${quote};`) || body.endsWith(`font-family:${quote}${family}${quote}`)))
+  if (own.length === 0) problems.push(`no @font-face for ${family}`)
+  // Every face, the italic included: one face with the axis must not hide one without.
+  else if (!own.every(body => body.includes(`font-stretch:${range}`))) problems.push(`${family} is served without its width axis on every face (font-stretch ${range}; see nuxt.config.ts fonts)`)
+}
 for (const [name, hex] of shades) {
   if (!spellings(hex).some(value => css.includes(`${name}:${value}`))) {
     problems.push(`\`${name}\` is missing or not ${hex} (is its ramp \`@theme static\`?)`)
@@ -71,4 +93,4 @@ if (problems.length) {
   for (const problem of problems) console.error(`  - ${problem}`)
   process.exit(1)
 }
-console.log(`[check-website-css] OK — ${shades.size} shades present in ${files.length} stylesheet(s).`)
+console.log(`[check-website-css] OK — ${shades.size} shades, the tokens and both width axes present in ${files.length} stylesheet(s).`)

@@ -1,0 +1,254 @@
+/* ════════════════════════════════════════════════════════════════
+   Parts: the console's keys, lights and display
+   ----------------------------------------------------------------
+   The controls of artboard 08, as Tailwind `@utility` parts (see the
+   note at the top of depth.css). A key is `k`; its size and its signal
+   are modifiers that only set the custom properties `k` reads, so they
+   compose in any order: `k k-nav`, `k k-xs k-go`. A light takes its
+   signal the same way: `led led-warn`, `strip strip-err`; the LCD's
+   `px` glyphs and `pxled` squares take the LED signals too.
+
+   Lit signals (`--*-lit`) are the same in both themes, and the LCD is
+   dark glass in both: a light reads as a light on any page.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Keys ───────────────────────────────────────────────────────── */
+
+/* A machined key: a face lit from above, a dark bottom lip, mono
+   uppercase lettering. Pressed (`:active`, `.k-down`, `aria-pressed`,
+   or `aria-current="page"`) it drops 2px into the plate; the current
+   page's key also lights its label green. */
+@utility k {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--k-h, 40px);
+  padding: 0 var(--k-px, 16px);
+  border: 1px solid var(--k-seam, var(--seam));
+  border-radius: var(--k-r, 10px);
+  background: var(--k-face, var(--key-face));
+  box-shadow: var(--k-shadow, var(--key-shadow));
+  color: var(--k-ink, var(--key-ink));
+  font-family: var(--mono);
+  font-size: var(--k-fs, 11px);
+  font-weight: 600;
+  font-stretch: 100%;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: box-shadow 0.12s ease, transform 0.12s ease, filter 0.12s ease;
+
+  &:hover {
+    filter: brightness(1.06);
+  }
+
+  &:is(:active, .k-down, [aria-pressed='true'], [aria-current='page']) {
+    transform: translateY(2px);
+    background: var(--k-face-down, var(--key-down));
+    box-shadow: var(--k-shadow-down, var(--key-shadow-down));
+  }
+
+  &[aria-current='page'] {
+    color: var(--ok);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+
+  &:is(:disabled, [aria-disabled='true']) {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* The header's keys: shorter, and a full touch target where there is no
+   hover. */
+@utility k-nav {
+  --k-h: 34px;
+  --k-px: 14px;
+  --k-fs: 10.5px;
+
+  @media (hover: none) {
+    min-height: 44px;
+  }
+}
+
+/* The small key: chips, keyboard hints, copy buttons, tabs. */
+@utility k-xs {
+  --k-h: 28px;
+  --k-px: 10px;
+  --k-fs: 10px;
+  --k-r: 8px;
+}
+
+/* GO: the one primary key on a page, lit green in both themes. */
+@utility k-go {
+  --k-ink: var(--go-ink);
+  --k-seam: var(--go-seam);
+  --k-face: linear-gradient(180deg, var(--go-hi), var(--go-lo));
+  --k-face-down: linear-gradient(180deg, var(--go-down-hi), var(--go-down-lo));
+  --k-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    inset 0 -2px 0 rgb(0 0 0 / 0.3),
+    1px 2px 1px light-dark(rgb(24 28 36 / 0.25), rgb(0 0 0 / 0.6)),
+    0 0 18px color-mix(in srgb, var(--ok-lit) 40%, transparent),
+    2px 4px 6px light-dark(rgb(24 28 36 / 0.15), rgb(0 0 0 / 0.45));
+  --k-shadow-down:
+    inset 2px 3px 6px rgb(0 0 0 / 0.5),
+    inset -1px -1px 0 rgb(255 255 255 / 0.15),
+    0 0 8px color-mix(in srgb, var(--ok-lit) 30%, transparent);
+}
+
+/* A key that warns, and one that destroys: the face stays metal, the
+   lettering takes the signal. */
+@utility k-warn {
+  --k-ink: var(--key-warn-ink);
+}
+
+@utility k-err {
+  --k-ink: var(--key-err-ink);
+}
+
+/* ── Lights ─────────────────────────────────────────────────────── */
+
+/* An LED: a lit dome with its glow. `led-lg` is the larger lamp. */
+@utility led {
+  display: inline-block;
+  flex-shrink: 0;
+  width: var(--led-size, 7px);
+  height: var(--led-size, 7px);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--led-hl, #fff) 0%, var(--c, var(--ok-lit)) 30%, color-mix(in srgb, var(--c, var(--ok-lit)), #000 50%) 100%);
+  box-shadow: var(--led-glow, 0 0 5px var(--c, var(--ok-lit)), 0 0 10px color-mix(in srgb, var(--c, var(--ok-lit)) 50%, transparent), inset 0 -1px 1px rgb(0 0 0 / 0.4));
+}
+
+@utility led-lg {
+  --led-size: 10px;
+}
+
+/* A live LED breathes. Reduced motion stills it (app.css). */
+@utility led-pulse {
+  animation: led-pulse 2.1s ease-in-out infinite;
+}
+
+@utility led-ok {
+  --c: var(--ok-lit);
+}
+
+@utility led-warn {
+  --c: var(--warn-lit);
+}
+
+@utility led-err {
+  --c: var(--err-lit);
+}
+
+/* Off: an unlit lamp sunk in the plate. */
+@utility led-off {
+  --c: var(--led-off);
+  --led-hl: var(--led-off);
+  --led-glow: inset 0 1px 1px light-dark(rgb(24 28 36 / 0.35), rgb(0 0 0 / 0.6));
+}
+
+@keyframes led-pulse {
+  50% { filter: brightness(0.8); opacity: 0.75; }
+}
+
+/* A tritium strip: a lit tube whose shine runs across its short side.
+   `strip` lies flat; `strip-v` stands. Size it with width and height. */
+@utility strip {
+  display: block;
+  border-radius: 5px;
+  background: linear-gradient(var(--strip-axis, 180deg),
+    color-mix(in srgb, var(--c, var(--ok-lit)), #000 50%),
+    var(--c, var(--ok-lit)) 35%,
+    color-mix(in srgb, var(--c, var(--ok-lit)), #fff 60%) 50%,
+    var(--c, var(--ok-lit)) 65%,
+    color-mix(in srgb, var(--c, var(--ok-lit)), #000 50%));
+  box-shadow:
+    0 0 8px var(--c, var(--ok-lit)),
+    0 0 22px color-mix(in srgb, var(--c, var(--ok-lit)) 55%, transparent),
+    inset 0 0 4px rgb(255 255 255 / 0.45);
+}
+
+@utility strip-v {
+  --strip-axis: 90deg;
+}
+
+@utility strip-ok {
+  --c: var(--ok-lit);
+}
+
+@utility strip-warn {
+  --c: var(--warn-lit);
+}
+
+@utility strip-err {
+  --c: var(--err-lit);
+}
+
+/* ── The LCD ────────────────────────────────────────────────────── */
+
+/* Backlit dark glass in a bezel, with scanlines and a sheen. */
+@utility lcd {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--lcd-glass);
+  box-shadow:
+    inset 6px 7px 14px rgb(0 0 0 / 0.9),
+    inset -2px -2px 3px rgb(255 255 255 / 0.05),
+    0 0 0 5px var(--lcd-bezel),
+    0 0 0 6px light-dark(rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.12)),
+    0 0 0 7px light-dark(rgb(24 28 36 / 0.35), rgb(0 0 0 / 0.6));
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(0deg, rgb(0 0 0 / 0.2) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(90deg, rgb(0 0 0 / 0.08) 0 1px, transparent 1px 3px),
+      linear-gradient(165deg, rgb(255 255 255 / 0.14), transparent 32%);
+    pointer-events: none;
+  }
+}
+
+/* One line of output. */
+@utility lcd-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Lit glyphs in Handjet, the LCD's own face (never used elsewhere). */
+@utility px {
+  font-family: var(--lcd);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--c, var(--ok-lit));
+  text-shadow:
+    0 0 5px color-mix(in srgb, var(--c, var(--ok-lit)) 85%, transparent),
+    0 0 16px color-mix(in srgb, var(--c, var(--ok-lit)) 45%, transparent);
+}
+
+/* A square pixel LED at the start of a line. */
+@utility pxled {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--c, var(--ok-lit));
+  box-shadow:
+    0 0 5px var(--c, var(--ok-lit)),
+    0 0 12px color-mix(in srgb, var(--c, var(--ok-lit)) 60%, transparent);
+}

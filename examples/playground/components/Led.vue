@@ -1,0 +1,26 @@
+<script setup lang="ts">
+/**
+ * An LED, the `led` part: a lit dome in one of the three signals, or off.
+ * `pulse` lets a live light breathe; `size="lg"` is the larger lamp. It is
+ * decorative unless it gets a `label`, which becomes its accessible name.
+ */
+const props = withDefaults(defineProps<{
+  tone?: 'ok' | 'warn' | 'err' | 'off'
+  size?: 'md' | 'lg'
+  pulse?: boolean
+  label?: string
+}>(), { tone: 'ok', size: 'md', pulse: false, label: undefined })
+
+// Spelled out, so Tailwind's scan finds every class it must emit.
+const TONE = { ok: 'led-ok', warn: 'led-warn', err: 'led-err', off: 'led-off' } as const
+</script>
+
+<template>
+  <span
+    class="led"
+    :class="[TONE[props.tone], { 'led-lg': props.size === 'lg', 'led-pulse': props.pulse }]"
+    :role="props.label ? 'img' : undefined"
+    :aria-label="props.label"
+    :aria-hidden="props.label ? undefined : 'true'"
+  />
+</template>

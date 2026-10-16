@@ -28,10 +28,10 @@
 ) {
   /* Package default: the three-signal vocabulary, not a brand colour. Green
      is "go", so it is both the accent (primary actions, focus rings) and the
-     ok tone; amber warns; red is the error. Each fixed colour is a
-     `light-dark()` pair lifted from the website's house ramps — green, amber
-     and red at 500 for light pages and 400 for dark ones — so the same
-     signal reads as text on either background.
+     ok tone; yellow warns; red is the error. Each fixed colour is a
+     `light-dark()` pair lifted from the website's house ramps (green; amber,
+     which carries the yellow; red) at 500 for light pages and 400 for dark
+     ones, so the same signal reads as text on either background.
 
      The components never set `color-scheme`: the app owns it. Declare
      `color-scheme: light dark` (or `dark`) on the app root and every pair
@@ -42,15 +42,15 @@
      onto its own palette through the `.bk-depth` bridge in website/app.css
      (`--bk-accent: var(--ok)` …), the second rung of the customization
      ladder. Apps do the same: override, don't edit. */
-  --bk-accent: light-dark(#136d36, #49b567);
-  --bk-on-accent: light-dark(#ffffff, #06150b);
+  --bk-accent: light-dark(#116632, #4ade80);
+  --bk-on-accent: light-dark(#ffffff, #052912);
   --bk-ink: inherit;
   --bk-muted: color-mix(in srgb, currentColor 55%, transparent);
   --bk-edge: color-mix(in srgb, currentColor 18%, transparent);
   --bk-surface: color-mix(in srgb, currentColor 5%, transparent);
-  --bk-error: light-dark(#a1302d, #ee6d69);
-  --bk-ok: light-dark(#136d36, #49b567);
-  --bk-warn: light-dark(#845007, #ce9622);
+  --bk-error: light-dark(#a1302d, #f87171);
+  --bk-ok: light-dark(#116632, #4ade80);
+  --bk-warn: light-dark(#6d5600, #facc15);
   --bk-radius: 8px;
 }
 

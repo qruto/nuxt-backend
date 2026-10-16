@@ -111,10 +111,7 @@ const metrics = computed(() => [
             :key="i"
             class="hrow fade-up"
           >
-            <SignalDot
-              :tone="ev.connected ? 'ok' : 'err'"
-              :pulse="false"
-            />
+            <Led :tone="ev.connected ? 'ok' : 'err'" />
             <span
               class="hlabel mono"
               :class="{ ok: ev.connected }"

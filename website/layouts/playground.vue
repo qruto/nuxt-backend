@@ -229,15 +229,13 @@ const isLogin = computed(() => route.path === '/login')
                 class="nav-icon"
               />
               <span class="nav-label">{{ item.label }}</span>
-              <SignalDot
+              <Led
                 v-if="item.live"
                 tone="ok"
-                :pulse="false"
               />
-              <SignalDot
+              <Led
                 v-else-if="item.xp"
                 tone="warn"
-                :pulse="false"
                 title="experimental"
               />
             </NuxtLink>

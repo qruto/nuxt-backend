@@ -26,13 +26,13 @@ export default defineAppConfig({
   ui: {
     colors: {
       // No brand colour. The site speaks in three status signals — green (go /
-      // ok / live / primary action), amber (attention / idle / secondary /
-      // experimental), red (danger / error / destructive) — on a titanium
-      // canvas. app.css re-tones Tailwind's `green`, `amber`, `red` and `zinc`
-      // ramps in `@theme` to enamel-on-metal values, so every Nuxt UI alias
-      // below lands on the house palette natively (Nuxt UI binds each alias
-      // to the ramp's 500 step in light, 400 in dark — both text-safe here).
-      // Key set = Nuxt UI 4's default `theme.colors` aliases + `neutral`.
+      // ok / live / primary action), yellow (attention / idle / secondary /
+      // experimental), red (danger / error / destructive) — on gunmetal.
+      // app.css re-tones Tailwind's `green`, `amber` (which carries the
+      // yellow), `red` and `zinc` ramps in `@theme static`, so every Nuxt UI
+      // alias below lands on the house palette natively (Nuxt UI binds each
+      // alias to the ramp's 500 step in light, 400 in dark — both text-safe
+      // here). Key set = Nuxt UI 4's default `theme.colors` aliases + `neutral`.
       primary: 'green',
       secondary: 'amber',
       success: 'green',
@@ -43,10 +43,38 @@ export default defineAppConfig({
       error: 'red',
       neutral: 'zinc',
     },
-    // Matte machined coat — the docs chrome is themed by injecting app.css
-    // utilities (.engraved, .plaque, .slot …) through Nuxt UI's slot system
-    // instead of CSS-selector archaeology. Classes are bare (not text-*
-    // prefixed) so tailwind-merge doesn't mis-group them. NOTE: never override
+    // The parts (assets/css/depth.css, console.css) are Tailwind utilities,
+    // so in a Nuxt UI slot string they meet the component's own classes. A
+    // part's class group conflicts with what the part draws, so the part,
+    // named last, replaces the component's background, ring, border, radius
+    // and shadow (or text colour and shadow, for relief) instead of losing to
+    // them in the stylesheet's order. `carved` and `seam` draw only an edge,
+    // so they keep a tinted background; `stamp` sets a whole label's type.
+    // Modifiers (`k-xs`, `slot-pill`, `led-warn` …) only set custom
+    // properties and belong to no group. test/docs/design-parts.test.ts keeps
+    // these lists equal to the parts the stylesheets declare.
+    tv: {
+      twMergeConfig: {
+        extend: {
+          classGroups: {
+            'depth': ['k', 'unit', 'plaque', 'slot', 'lcd', 'bar', 'code-plate'],
+            'depth-edge': ['carved', 'seam'],
+            'relief': ['cut', 'cut-sm', 'emb', 'emb-sm', 'engr', 'engr-lt'],
+            'label': ['stamp'],
+          },
+          conflictingClassGroups: {
+            'depth': ['bg-color', 'bg-image', 'rounded', 'shadow', 'shadow-color', 'inset-shadow', 'inset-shadow-color', 'ring-w', 'ring-color', 'inset-ring-w', 'border-w', 'border-color', 'backdrop-blur'],
+            'depth-edge': ['shadow', 'shadow-color', 'inset-shadow', 'inset-shadow-color', 'ring-w', 'ring-color', 'inset-ring-w'],
+            'relief': ['text-color', 'text-shadow', 'text-shadow-color'],
+            'label': ['font-family', 'font-size', 'font-weight', 'font-stretch', 'tracking', 'text-transform', 'text-color', 'leading'],
+          },
+        },
+      },
+    },
+    // Matte machined coat — the docs chrome is themed by injecting the parts
+    // and the legacy utilities (.engraved, .plaque, .slot …) through Nuxt
+    // UI's slot system instead of CSS-selector archaeology. Classes are bare
+    // (not text-* prefixed) so tailwind-merge doesn't mis-group them. NOTE: never override
     // `commandPalette.slots.input` or `contentNavigation.slots.*` without
     // copying Docus's own strings first — defu REPLACES same-key strings.
     header: { slots: { root: 'mach-bar' } },

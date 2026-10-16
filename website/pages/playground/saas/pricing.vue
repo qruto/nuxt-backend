@@ -174,10 +174,7 @@ function timeAgo(ts: number): string {
           :key="event._id"
           class="feed-row"
         >
-          <SignalDot
-            :tone="event.source === 'auth' ? 'ok' : 'ok'"
-            :pulse="false"
-          />
+          <Led tone="ok" />
           <span class="feed-type mono">{{ event.type }}</span>
           <span class="feed-summary">{{ event.summary }}</span>
           <span class="feed-time mono">{{ timeAgo(event.createdAt) }}</span>

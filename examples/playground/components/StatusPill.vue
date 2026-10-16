@@ -14,10 +14,9 @@ withDefaults(defineProps<{
     class="pill"
     :class="tone"
   >
-    <SignalDot
+    <Led
       v-if="dot"
-      :tone="tone"
-      :pulse="false"
+      :tone="tone === 'muted' ? 'off' : tone"
     />
     <slot />
   </span>

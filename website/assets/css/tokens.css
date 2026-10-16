@@ -1,0 +1,365 @@
+/* ════════════════════════════════════════════════════════════════
+   Console tokens: the palette, the inks and the depth ladders
+   ----------------------------------------------------------------
+   Gunmetal with three signals, after the reference artboard "08 ·
+   Console" (design.md §Palette). Dark is the reference; light is
+   derived by inverting the gunmetal lightness ladder at the same cool
+   hue. Lit signals (LEDs, strips, fills) are the same in both themes;
+   signal TEXT runs the ramps' 500 step on light grounds and 400 on
+   dark ones.
+
+   Every token is one declaration. Colours that differ by theme use
+   `light-dark()`, and so does every layer of every shadow: the layer
+   geometry is shared, only its colour changes, so a shadow follows the
+   page's `color-scheme` (the OS preference, or Docus's toggle through
+   `html.dark` / `html.light` in app.css) without a second copy.
+
+   The ramps live in app.css's `@theme static` block, which Tailwind
+   needs to see. scripts/design-contrast.mjs reads both files and fails
+   the docs tests when a text pair drops below its bar.
+   ════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* MANDATORY: adapt native UI (scrollbars, form controls) to scheme. */
+  color-scheme: light dark;
+
+  /* ── Type ─────────────────────────────────────────────────────
+     Anybody carries display and prose (variable width: wide for
+     display, 100% for prose), Martian Mono carries code, labels and
+     keys, and Handjet is the LCD's face and nothing else. */
+  --display: "Anybody", ui-sans-serif, system-ui, sans-serif;
+  --font: "Anybody", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Martian Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --lcd: "Handjet", "Martian Mono", ui-monospace, monospace;
+
+  /* ── Grounds ──────────────────────────────────────────────────
+     The ground, the faces raised off it, and the wells cut into it.
+     `--seam` is the dark line between two machined parts. */
+  --bg:         light-dark(#dcdee2, #26292e);
+  --surface:    light-dark(#ebedef, #33373e);
+  --surface-hi: light-dark(#f6f7f9, #3b3f46);
+  --sink:       light-dark(#ced1d6, #1c1e22);
+  --seam:       light-dark(#b7bac0, #101216);
+
+  /* Keys (the parts vocabulary builds on these): a face lit from above,
+     the same face pressed in, and its lettering. `light-dark()` takes
+     colours only, so each stop is a token and the gradients compose them. */
+  --key-hi:      light-dark(#f6f7f9, #42464e);
+  --key-mid:     light-dark(#ebedef, #33373e);
+  --key-lo:      light-dark(#dfe1e5, #282b31);
+  --key-down-hi: light-dark(#ced1d6, #24272c);
+  --key-down-lo: light-dark(#d9dce0, #2f3238);
+  --key-ink:     light-dark(#2b2e34, #d7dae0);
+  --key-face:    linear-gradient(180deg, var(--key-hi) 0%, var(--key-mid) 50%, var(--key-lo) 100%);
+  --key-down:    linear-gradient(180deg, var(--key-down-hi), var(--key-down-lo));
+  /* A key at rest: a lit top edge, a dark bottom lip, a contact shadow and
+     a cast. Pressed, it drops into the plate: all inset. */
+  --key-shadow:
+    inset 0 1px 0 light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.28)),
+    inset 1px 0 0 light-dark(rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.08)),
+    inset 0 -2px 0 light-dark(rgb(24 28 36 / 0.14), rgb(0 0 0 / 0.55)),
+    1px 2px 1px light-dark(rgb(24 28 36 / 0.20), rgb(0 0 0 / 0.60)),
+    2px 4px 6px light-dark(rgb(24 28 36 / 0.12), rgb(0 0 0 / 0.45));
+  --key-shadow-down:
+    inset 2px 3px 6px light-dark(rgb(24 28 36 / 0.22), rgb(0 0 0 / 0.80)),
+    inset -1px -1px 0 light-dark(rgb(255 255 255 / 0.6), rgb(255 255 255 / 0.06));
+  /* Lettering on a key that warns or destroys: the soft shade, which holds
+     4.5:1 on the whole key face. */
+  --key-warn-ink: light-dark(var(--color-amber-600), var(--color-amber-300));
+  --key-err-ink:  light-dark(var(--color-red-600), var(--color-red-300));
+  /* The GO key: lit green in both themes, the one primary on a page. */
+  --go-hi:   #7de7a4;
+  --go-lo:   #3db669;
+  --go-seam: #1a4e2d;
+  --go-ink:  #052912;
+  --go-down-hi: #349b5a;
+  --go-down-lo: #43c873;
+  /* An LED that is off. */
+  --led-off: light-dark(#b7bac0, #3a3e45);
+  /* The console slab: a heavy machined unit with a bevelled rim. */
+  --unit-lo: light-dark(#dfe1e5, #1f2126);
+  --unit-shadow:
+    inset 2px 2px 0 light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.18)),
+    inset -2px -3px 0 light-dark(rgb(24 28 36 / 0.10), rgb(0 0 0 / 0.60)),
+    inset 0 0 0 1px light-dark(rgb(24 28 36 / 0.08), rgb(0 0 0 / 0.50)),
+    10px 22px 30px light-dark(rgb(24 28 36 / 0.14), rgb(0 0 0 / 0.55)),
+    30px 70px 90px light-dark(rgb(24 28 36 / 0.12), rgb(0 0 0 / 0.50));
+  --unit-bevel: linear-gradient(160deg,
+    light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.55)),
+    light-dark(rgb(255 255 255 / 0.25), rgb(255 255 255 / 0.05)) 35%,
+    light-dark(rgb(24 28 36 / 0.04), rgb(0 0 0 / 0.10)) 65%,
+    light-dark(rgb(24 28 36 / 0.22), rgb(0 0 0 / 0.80)));
+  /* A milled slot: darkest at the near wall. */
+  --slot-near:   light-dark(#c3c6cc, #0e1013);
+  --slot-mid:    light-dark(#cdd0d5, #1a1c21);
+  --slot-far:    light-dark(#d6d9dd, #22252a);
+  --slot-face:   linear-gradient(135deg, var(--slot-near), var(--slot-mid) 60%, var(--slot-far));
+
+  /* The LCD is backlit dark glass in both themes: an emissive display,
+     so its signal glyphs read the same on a light page. */
+  --lcd-glass:  radial-gradient(120% 90% at 30% 0%, #2a3a2e 0%, #151f18 55%, #0d140f 100%);
+  --lcd-ground: #151f18;
+  --lcd-bezel:  #15171b;
+
+  /* ── Inks ─────────────────────────────────────────────────────
+     `--ink` is body copy, `--ink-dim` secondary text, `--ink-faint`
+     captions and placeholders. All three carry real text, so all three
+     clear 4.5:1 on the ground; raised faces and wells re-derive them
+     below. `--trim` is decorative only (ticks, dividers, never words). */
+  --ink:       light-dark(#1f2226, #e6e8ec);
+  --ink-dim:   light-dark(#575b62, #9fa3ad);
+  --ink-faint: light-dark(#5b5f67, #9498a3);
+  --trim:      light-dark(#9a9ea7, #666a75);
+
+  /* ── Signals ──────────────────────────────────────────────────
+     Green = go / ok / live / the primary action. Yellow = attention /
+     idle / secondary / experimental. Red = danger / error. There is no
+     brand colour.
+
+     Each family: the signal as text (4.5:1 on the ground, the faces
+     and the wells), -press (the hover fill), -soft (text on a tinted
+     chip), -dim (a faint tint), -glow (a translucent glow), -lit (the
+     lit LED, strip or fill: the reference value in both themes) and
+     -on (lettering on a filled control). */
+  --ok:         light-dark(var(--color-green-500), var(--color-green-400));
+  --ok-press:   light-dark(var(--color-green-600), var(--color-green-300));
+  --ok-soft:    light-dark(var(--color-green-600), var(--color-green-300));
+  --ok-dim:     light-dark(color-mix(in srgb, var(--color-green-500) 12%, transparent),
+                           color-mix(in srgb, var(--color-green-400) 14%, transparent));
+  --ok-lit:     #4ade80;
+  --ok-glow:    light-dark(color-mix(in srgb, var(--ok-lit) 34%, transparent),
+                           color-mix(in srgb, var(--ok-lit) 26%, transparent));
+  --on-ok:      light-dark(#ffffff, #052912);
+
+  --warn:       light-dark(var(--color-amber-500), var(--color-amber-400));
+  --warn-press: light-dark(var(--color-amber-600), var(--color-amber-300));
+  --warn-soft:  light-dark(var(--color-amber-600), var(--color-amber-300));
+  --warn-dim:   light-dark(color-mix(in srgb, var(--color-amber-500) 12%, transparent),
+                           color-mix(in srgb, var(--color-amber-400) 14%, transparent));
+  --warn-lit:   #facc15;
+  --warn-glow:  light-dark(color-mix(in srgb, var(--warn-lit) 34%, transparent),
+                           color-mix(in srgb, var(--warn-lit) 26%, transparent));
+  --on-warn:    light-dark(#ffffff, #1a1200);
+
+  --err:        light-dark(var(--color-red-500), var(--color-red-400));
+  --err-press:  light-dark(var(--color-red-600), var(--color-red-300));
+  --err-soft:   light-dark(var(--color-red-600), var(--color-red-300));
+  --err-dim:    light-dark(color-mix(in srgb, var(--color-red-500) 10%, transparent),
+                           color-mix(in srgb, var(--color-red-400) 14%, transparent));
+  --err-lit:    #f87171;
+  --err-glow:   light-dark(color-mix(in srgb, var(--err-lit) 34%, transparent),
+                           color-mix(in srgb, var(--err-lit) 26%, transparent));
+  --on-err:     light-dark(#ffffff, #1c0707);
+
+  /* Focus is green: "go here". Gradient type is a green ramp. */
+  --focus:      var(--ok);
+  --text-grad:  linear-gradient(135deg, var(--ok-soft), var(--ok) 55%, var(--ok-press));
+
+  /* Hairlines between rows, headers and panels. */
+  --edge:    light-dark(rgb(24 28 36 / 0.10), rgb(255 255 255 / 0.07));
+  --edge-hi: light-dark(rgb(24 28 36 / 0.16), rgb(255 255 255 / 0.12));
+
+  /* ── Geometry ─────────────────────────────────────────────────── */
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r:    16px;
+  --r-lg: 22px;
+
+  /* ── Motion ───────────────────────────────────────────────────── */
+  --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
+  --press:       130ms;
+  --transition:  180ms var(--ease-out);
+
+  /* ── Depth ────────────────────────────────────────────────────
+     One sun, top-left: a lit rim on the upper-left edge, a tight
+     contact shadow and a soft cast down-right (design.md §2). Shades
+     are a cool near-black on light grounds and black on gunmetal, so
+     a shadow never greys the hue it falls on. */
+  --elev-0:
+    inset 1px 1px 0 light-dark(rgb(255 255 255 / 0.65), rgb(255 255 255 / 0.08)),
+    0 0 0 1px light-dark(rgb(24 28 36 / 0.07), rgb(16 18 22 / 0.55));
+  --elev-1:
+    inset 1px 1px 0 light-dark(rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.10)),
+    inset -1px -1px 0 light-dark(rgb(24 28 36 / 0.05), rgb(0 0 0 / 0.30)),
+    1px 1px 1px light-dark(rgb(24 28 36 / 0.08), rgb(0 0 0 / 0.45)),
+    2px 4px 8px light-dark(rgb(24 28 36 / 0.09), rgb(0 0 0 / 0.38));
+  --elev-2:
+    inset 1px 1px 0 light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.11)),
+    1px 2px 2px light-dark(rgb(24 28 36 / 0.07), rgb(0 0 0 / 0.45)),
+    3px 6px 14px light-dark(rgb(24 28 36 / 0.11), rgb(0 0 0 / 0.45));
+  --elev-3:
+    inset 1px 1px 0 light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.12)),
+    2px 4px 6px light-dark(rgb(24 28 36 / 0.06), rgb(0 0 0 / 0.40)),
+    5px 12px 24px light-dark(rgb(24 28 36 / 0.13), rgb(0 0 0 / 0.50));
+  --elev-4:
+    inset 1px 1px 0 light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.14)),
+    8px 20px 48px light-dark(rgb(24 28 36 / 0.18), rgb(0 0 0 / 0.62));
+  --inset-1:
+    inset 1px 1px 2px light-dark(rgb(24 28 36 / 0.12), rgb(0 0 0 / 0.55)),
+    inset -1px -1px 0 light-dark(rgb(255 255 255 / 0.6), rgb(255 255 255 / 0.07));
+  --inset-2:
+    inset 2px 2px 5px light-dark(rgb(24 28 36 / 0.16), rgb(0 0 0 / 0.70)),
+    inset -1px -1px 0 light-dark(rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.08));
+
+  /* The names the playground's components were written against. */
+  --raise:    var(--elev-1);   /* resting card / panel            */
+  --raise-sm: var(--elev-1);   /* resting control (button, pill)  */
+  --raise-lg: var(--elev-3);   /* popover / large lifted surface  */
+  --inset:    var(--inset-2);  /* deep well (panel.well, tracks)  */
+  --inset-sm: var(--inset-1);  /* shallow well (input, chip)      */
+
+  /* Glows: the bare glow is an LED (a live dot, a finding, a delivery
+     outcome), -soft a resting primary control, -ring an active one.
+     One per element, on a control or an LED, never on a panel. */
+  --glow-ok:        0 0 9px color-mix(in srgb, var(--ok-lit) 50%, transparent);
+  --glow-ok-soft:   0 0 14px var(--ok-glow);
+  --glow-ok-ring:   0 0 0 1px var(--ok-glow), 0 4px 16px var(--ok-glow);
+  --glow-warn:      0 0 9px color-mix(in srgb, var(--warn-lit) 50%, transparent);
+  --glow-warn-soft: 0 0 14px var(--warn-glow);
+  --glow-warn-ring: 0 0 0 1px var(--warn-glow), 0 4px 16px var(--warn-glow);
+  --glow-err:       0 0 9px color-mix(in srgb, var(--err-lit) 50%, transparent);
+  --glow-err-soft:  0 0 14px var(--err-glow);
+  --glow-err-ring:  0 0 0 1px var(--err-glow), 0 4px 16px var(--err-glow);
+
+  /* A lit surface, and the bevel `.depth-border` draws: light at the
+     top-left, dark at the bottom-right. */
+  --grad-surface: linear-gradient(135deg, var(--surface-hi), var(--surface) 58%,
+    color-mix(in srgb, var(--surface), #000 6%) 150%);
+  --grad-bevel: linear-gradient(135deg,
+    light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.16)),
+    light-dark(rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.03)) 45%,
+    light-dark(rgb(24 28 36 / 0.14), rgb(0 0 0 / 0.55)));
+
+  /* ── Carved and raised type ───────────────────────────────────
+     Engraving is subtractive: the near wall (up-left) falls into
+     shadow, the far wall (down-right) catches light. Embossing flips
+     the offsets. A text-shadow never counts toward contrast, so the
+     inks carry legibility alone: `--engrave-ink` is for type of 24px
+     and up (3:1), `--engrave-ink-sm` for anything smaller (4.5:1). */
+  --engrave-ink:    light-dark(#5b6069, #7a7e89);
+  --engrave-ink-sm: light-dark(#5b6069, #9498a3);
+  --engrave:
+    -0.8px -1.39px 0.8px  light-dark(rgb(24 28 36 / 0.50), rgb(0 0 0 / 0.85)),
+    -1.7px -2.94px 4.95px light-dark(rgb(24 28 36 / 0.19), rgb(0 0 0 / 0.45)),
+     1px    1.73px 0.94px light-dark(rgb(255 255 255 / 0.92), rgb(255 255 255 / 0.16)),
+     1.8px  3.12px 4.5px  light-dark(rgb(255 255 255 / 0.30), rgb(255 255 255 / 0.05));
+  --engrave-sm:
+    -0.4px -0.7px 0.45px light-dark(rgb(24 28 36 / 0.45), rgb(0 0 0 / 0.80)),
+     0.5px  0.9px 0.5px  light-dark(rgb(255 255 255 / 0.90), rgb(255 255 255 / 0.14));
+  --emboss:
+    -0.8px -1.39px 0.8px  light-dark(rgb(255 255 255 / 0.90), rgb(255 255 255 / 0.12)),
+    -1.7px -2.94px 4.95px light-dark(rgb(255 255 255 / 0.35), rgb(255 255 255 / 0.04)),
+     1px    1.73px 0.94px light-dark(rgb(24 28 36 / 0.30), rgb(0 0 0 / 0.70)),
+     1.8px  3.12px 4.5px  light-dark(rgb(24 28 36 / 0.12), rgb(0 0 0 / 0.35));
+  --emboss-sm:
+    -0.5px -0.87px 0.47px light-dark(rgb(255 255 255 / 0.90), rgb(255 255 255 / 0.12)),
+     0.5px  0.87px 0.47px light-dark(rgb(24 28 36 / 0.28), rgb(0 0 0 / 0.60));
+  /* The parts' relief (depth.css): `cut` engraves display type with a dark
+     upper lip and a lit lower one, `cut-sm` is its two-layer cousin, `emb`
+     lifts a title off the metal in stepped layers, `engr` cuts a label. */
+  --cut:
+    0 1px 0 light-dark(rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.30)),
+    0 2px 1px light-dark(rgb(255 255 255 / 0.30), rgb(255 255 255 / 0.08)),
+    0 -1px 0 light-dark(rgb(24 28 36 / 0.50), rgb(0 0 0 / 1)),
+    0 -2px 2px light-dark(rgb(24 28 36 / 0.20), rgb(0 0 0 / 0.70));
+  --cut-sm:
+    0 1px 0 light-dark(rgb(255 255 255 / 0.80), rgb(255 255 255 / 0.22)),
+    0 -1px 0 light-dark(rgb(24 28 36 / 0.40), rgb(0 0 0 / 0.85));
+  --emb-ink: light-dark(#1f2226, #eef0f4);
+  --emb:
+    0 1px 0 light-dark(#9a9ea7, #4a4e57),
+    0 2px 0 light-dark(#a9adb5, #3a3d44),
+    0 3px 0 light-dark(#b7bac0, #2b2e34),
+    0 5px 3px light-dark(rgb(24 28 36 / 0.16), rgb(0 0 0 / 0.55)),
+    0 12px 16px light-dark(rgb(24 28 36 / 0.10), rgb(0 0 0 / 0.45));
+  --emb-sm:
+    0 1px 0 light-dark(#a9adb5, #3a3d44),
+    0 2px 2px light-dark(rgb(24 28 36 / 0.15), rgb(0 0 0 / 0.50));
+  --engr:
+    0 1px 0 light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.10)),
+    0 -1px 0 light-dark(rgb(24 28 36 / 0.22), rgb(0 0 0 / 0.70));
+
+  /* Icon glyphs emboss with two chained drop-shadows: a token, so the
+     contrast kill-switch in app.css can zero it. */
+  --emboss-icon:
+    drop-shadow(-0.5px -0.87px 0.4px light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.12)))
+    drop-shadow(0.5px 0.87px 0.4px light-dark(rgb(24 28 36 / 0.25), rgb(0 0 0 / 0.6)));
+
+  /* ── Plaques and slots ────────────────────────────────────────
+     A plaque is the raised panel: paired inner bevels at two scales,
+     an up-left bounce light and a down-right cast. A slot is a milled
+     well, deeper than `--inset-2`, with a lit lower lip. */
+  --plaque:
+    inset  1.2px   2.08px 2.68px light-dark(rgb(255 255 255 / 0.92), rgb(255 255 255 / 0.10)),
+    inset -1.2px  -2.08px 2.68px light-dark(rgb(24 28 36 / 0.10), rgb(0 0 0 / 0.50)),
+    inset  0.5px   0.78px 1.25px light-dark(rgb(255 255 255 / 0.92), rgb(255 255 255 / 0.09)),
+    inset -0.5px  -0.78px 1.25px light-dark(rgb(24 28 36 / 0.10), rgb(0 0 0 / 0.42)),
+    -3px -5.2px 16.2px light-dark(rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.03)),
+     0.18px 0.31px 0.43px light-dark(rgb(24 28 36 / 0.38), rgb(0 0 0 / 0.80)),
+     1.5px  2.6px  3.6px  light-dark(rgb(24 28 36 / 0.10), rgb(0 0 0 / 0.42)),
+     4px    7px   14px    light-dark(rgb(24 28 36 / 0.09), rgb(0 0 0 / 0.38));
+  --plaque-hi:
+    inset  1.2px   2.08px 2.68px light-dark(rgb(255 255 255 / 0.92), rgb(255 255 255 / 0.10)),
+    inset -1.2px  -2.08px 2.68px light-dark(rgb(24 28 36 / 0.10), rgb(0 0 0 / 0.50)),
+    inset  0.5px   0.78px 1.25px light-dark(rgb(255 255 255 / 0.92), rgb(255 255 255 / 0.09)),
+    inset -0.5px  -0.78px 1.25px light-dark(rgb(24 28 36 / 0.10), rgb(0 0 0 / 0.42)),
+    -3px -5.2px 16.2px light-dark(rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.03)),
+     0.18px 0.31px 0.43px light-dark(rgb(24 28 36 / 0.38), rgb(0 0 0 / 0.80)),
+     2px    3.5px  5px    light-dark(rgb(24 28 36 / 0.12), rgb(0 0 0 / 0.48)),
+     6px   11px   22px    light-dark(rgb(24 28 36 / 0.11), rgb(0 0 0 / 0.44));
+  --slot:
+    inset  1.2px  2.08px 3px    light-dark(rgb(24 28 36 / 0.18), rgb(0 0 0 / 0.65)),
+    inset  0.5px  0.87px 1.25px light-dark(rgb(24 28 36 / 0.22), rgb(0 0 0 / 0.60)),
+    inset -1px   -1.73px 2px    light-dark(rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.07)),
+    0 1px 0 light-dark(rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.07));
+
+  /* Plaque face: two diagonal sheens and a fine grain over --surface. */
+  --grad-plaque:
+    linear-gradient(135deg, light-dark(rgb(255 255 255 / 0.50), rgb(255 255 255 / 0.07)), transparent 40%),
+    linear-gradient(315deg, light-dark(rgb(24 28 36 / 0.045), rgb(0 0 0 / 0.22)), transparent 45%),
+    repeating-linear-gradient(0deg, light-dark(rgb(255 255 255 / 0.02), rgb(255 255 255 / 0.012)) 0 1px, transparent 1px 3px),
+    linear-gradient(var(--surface), var(--surface));
+
+  /* The ground: a light ray from the top-left over a 135° hairline
+     grain, on `--bg`. Anchored at the document top (no
+     background-attachment: fixed, which janks on iOS). */
+  --matte-bg:
+    radial-gradient(130vmax 90vmax at 15% -4%,
+      light-dark(rgb(240 241 243 / 0.85), rgb(58 62 69 / 0.85)),
+      light-dark(rgb(240 241 243 / 0.22), rgb(58 62 69 / 0.22)) 45%,
+      transparent 100%),
+    repeating-linear-gradient(135deg, light-dark(rgb(24 28 36 / 0.006), rgb(255 255 255 / 0.007)) 0 2px, transparent 2px 6px),
+    linear-gradient(var(--bg), var(--bg));
+}
+
+/* The lit signals in wide gamut, where the display has it. Text keeps
+   the sRGB ramps the contrast test measures. */
+@supports (color: color(display-p3 1 1 1)) {
+  :root {
+    --ok-lit:   color(display-p3 0.32 0.98 0.5);
+    --warn-lit: color(display-p3 1 0.84 0.12);
+    --err-lit:  color(display-p3 1 0.36 0.3);
+  }
+}
+
+/* ── Inks per ground ─────────────────────────────────────────────
+   An ink measured against the ground does not hold on a raised face
+   or down in a well, so each re-derives the inks that carry text.
+   Raised faces are lighter than the ground in both themes, which
+   squeezes the dark side; wells are darker, which squeezes the light
+   side. The ratios are in design.md §Contrast, generated from these
+   values. */
+.plaque, .unit, .card, .code-plate {
+  --ink-dim:        light-dark(#575b62, #a7abb5);
+  --ink-faint:      light-dark(#5b5f67, #a7abb6);
+  --engrave-ink:    light-dark(#5b6069, #878b96);
+  --engrave-ink-sm: light-dark(#5b6069, #a7abb6);
+  /* Small red on a gunmetal plate drops under 4.5:1; the soft red holds. */
+  --err:            light-dark(var(--color-red-500), var(--color-red-300));
+}
+.slot, .well, .input, .pill, .search-slot, details.dev {
+  --ink-dim:        light-dark(#54585f, #9fa3ad);
+  --ink-faint:      light-dark(#555860, #9498a3);
+  --engrave-ink:    light-dark(#5b6069, #7a7e89);
+  --engrave-ink-sm: light-dark(#545961, #9498a3);
+}

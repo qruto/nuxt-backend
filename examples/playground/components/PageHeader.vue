@@ -19,7 +19,10 @@ withDefaults(defineProps<{
         v-if="live"
         class="ph-live"
       >
-        <SignalDot tone="ok" />
+        <Led
+          tone="ok"
+          pulse
+        />
         live
       </span>
     </div>
