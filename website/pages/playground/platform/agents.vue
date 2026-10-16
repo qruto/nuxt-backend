@@ -192,9 +192,7 @@ async function copySnippet() {
         A <code>401</code> here is the discovery handshake, not a failure: the
         <code>WWW-Authenticate</code> header names the resource-metadata
         document, which names the authorization server, which runs the
-        authorization-code flow against this site's <code>/login</code>. The
-        surface is on by default and removed whole with
-        <code>backend: { mcp: false }</code>.
+        authorization-code flow against this site's <code>/login</code>.
       </p>
     </LabPanel>
 

@@ -86,8 +86,6 @@ export interface SetupMcpOptions {
   createSignerAuth: (ctx: McpExchangeCtx) => unknown
   /** Throttles exchanges per client+user (the `mcp` named limit). */
   rateLimiter?: McpRateLimiter
-  /** `false` turns the mounted route into a 404 (provider disabled). */
-  enabled?: boolean
 }
 
 export interface McpExchange {
@@ -122,10 +120,7 @@ function readEnv(name: string): string | undefined {
  * as its `mcp` export); call directly only for hand-rolled auth setups.
  */
 export function setupMcp(options: SetupMcpOptions): McpExchange {
-  const enabled = options.enabled !== false
-
   const exchangeHandler = async (ctx: McpExchangeCtx, request: Request): Promise<Response> => {
-    if (!enabled) return json(404, { error: 'mcp_disabled' })
     if (!request.headers.get('Authorization')) return unauthorized()
 
     const auth = options.createAuth(ctx) as McpExchangeAuth

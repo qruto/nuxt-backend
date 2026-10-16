@@ -56,8 +56,8 @@ Everything else keeps its normal severity — `deployment-auth-secret` / `deploy
 
 ### Agents (MCP)
 
-- [ ] Decide the posture. On by default: an OAuth-protected `/mcp` endpoint where agents act as the signed-in user with consented scopes only. `backend.mcp: false` removes the endpoint and the discovery routes; `setupAuth({ mcp: false })` also 404s the exchange.
-- [ ] If on: `SITE_URL` is correct (the OAuth flow and discovery documents are built on the app origin), the built-in tools you don't want are disabled (`tools.builtin`), and `trustedClients` lists only first-party agents.
+- [ ] Know the surface: an OAuth-protected `/mcp` endpoint where agents act as the signed-in user with consented scopes only.
+- [ ] `SITE_URL` is correct (the OAuth flow and discovery documents are built on the app origin), and `trustedClients` lists only first-party agents.
 
 ### App
 

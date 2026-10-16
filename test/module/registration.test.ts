@@ -39,7 +39,7 @@ interface DependencyOptions {
     auth0?: boolean
     devScript?: boolean
   }
-  mcp?: { route?: string, name?: string }
+  mcp?: { route?: string, name?: string, description?: string, instructions?: string, sessions?: boolean }
 }
 
 interface NitroImport { name: string, as?: string, from: string }
@@ -269,14 +269,12 @@ describe('module registration (defaults)', () => {
         security: '/security',
         acceptInvitation: '/accept-invitation',
       },
-      workspaces: true,
     })
     expect(runtimeConfig.backendMcp).toEqual({
       route: '/mcp',
       authBase: '/api/auth',
       exchangePath: DEFAULT_MCP_EXCHANGE_PATH,
       scopes: [...BACKEND_MCP_SCOPES],
-      tools: {},
       functions: {},
     })
     expect((runtimeConfig.public as Record<string, unknown>).backendMcp).toBeUndefined()
@@ -441,41 +439,6 @@ describe('module registration (defaults)', () => {
   })
 })
 
-describe('mcp: false', () => {
-  const getNuxt = useBoot({ backend: { mcp: false } })
-
-  it('drops the MCP surface: no toolkit, no runtime config, no gate, no relaxations', () => {
-    const nuxt = getNuxt()
-    expect(installedModuleNames(nuxt)).not.toContain('@nuxtjs/mcp-toolkit')
-    expect(dependencyOptions(nuxt).mcp).toBeUndefined()
-    expect(nuxt.options.runtimeConfig.backendMcp).toBeUndefined()
-    expect(nuxt.options.serverHandlers.filter(handler => handler.handler.startsWith(runtimeDir))).toEqual([])
-    const routeRules = nuxt.options.nitro.routeRules ?? {}
-    for (const route of ['/mcp', '/mcp/**', ...DISCOVERY_ROUTES]) {
-      expect(routeRules[route], route).toBeUndefined()
-    }
-    expect(nuxt.options.nitro.experimental?.asyncContext).toBeUndefined()
-  })
-
-  it('keeps the server utils importable so consumer tool files still compile', () => {
-    const aliases = nitroImports(getNuxt()).map(entry => entry.as ?? entry.name)
-    expect(aliases).toEqual(expect.arrayContaining(['useBackendMcp', 'defineBackendMcpTool', 'backendAuth']))
-  })
-
-  it('contributes no tool files to the toolkit scan', async () => {
-    const paths = { tools: [] as string[] }
-    await (getNuxt().callHook as (name: string, arg: unknown) => Promise<void>)('mcp:definitions:paths', paths)
-    expect(paths.tools).toEqual([])
-  })
-
-  it('leaves the rest of the surface intact', async () => {
-    const nuxt = getNuxt()
-    expect(nuxt.options.runtimeConfig.public.backend).toMatchObject({ pages: { login: '/login' } })
-    expect(nuxt.options.css).toContain(join(runtimeDir, 'vue/components/ui.css'))
-    expect((await extendPages(nuxt)).map(page => page.path)).toEqual(DEFAULT_PAGES.map(page => page.path))
-  })
-})
-
 describe('private pages stay out of search indexes and sitemaps', () => {
   const noindex = { robots: false, sitemap: false }
 
@@ -515,7 +478,6 @@ describe('pages: false', () => {
     const nuxt = getNuxt()
     expect(nuxt.options.runtimeConfig.public.backend).toEqual({
       pages: { login: '', pricing: '', settings: '', profile: '', security: '', acceptInvitation: '' },
-      workspaces: true,
     })
     expect(await extendPages(nuxt)).toEqual([])
     expect(nuxt.options.routeRules?.['/settings']).toBeUndefined()
@@ -525,18 +487,6 @@ describe('pages: false', () => {
 
   it('forwards no login path to the auth middleware (the app must provide one)', () => {
     expect(dependencyOptions(getNuxt()).convex?.betterAuth?.loginPath).toBeUndefined()
-  })
-})
-
-describe('workspaces: false', () => {
-  const getNuxt = useBoot({ backend: { workspaces: false } })
-
-  it('tells the runtime the organization endpoints do not exist', () => {
-    expect(getNuxt().options.runtimeConfig.public.backend).toMatchObject({ workspaces: false })
-  })
-
-  it('hands the base module the client without the organization plugin', () => {
-    expect(dependencyOptions(getNuxt()).convex?.betterAuth?.authClient).toMatch(/auth-client-solo$/)
   })
 })
 
@@ -562,7 +512,7 @@ describe('option forwarding through moduleDependencies', () => {
   // Any existing file: the base module validates a custom auth client path.
   const authClient = join(fixtureDir, 'backend/auth.ts')
   const getNuxt = useBoot({
-    backend: { url, siteUrl, authRoute: '/api/session', mcp: { route: '/agent/', name: 'Agent' } },
+    backend: { url, siteUrl, authRoute: '/api/session', mcp: { route: '/agent/', name: 'Agent', description: 'Account tools', instructions: 'Ask before buying.', sessions: true } },
     convex: { betterAuth: { authClient } },
   })
 
@@ -580,9 +530,9 @@ describe('option forwarding through moduleDependencies', () => {
     })
   })
 
-  it('forwards the MCP route (trailing slash trimmed) and name to the toolkit', () => {
+  it('forwards the MCP route (trailing slash trimmed) and the server options to the toolkit', () => {
     const nuxt = getNuxt()
-    expect(dependencyOptions(nuxt).mcp).toEqual({ route: '/agent', name: 'Agent' })
+    expect(dependencyOptions(nuxt).mcp).toEqual({ route: '/agent', name: 'Agent', description: 'Account tools', instructions: 'Ask before buying.', sessions: true })
     expect(nuxt.options.runtimeConfig.backendMcp).toMatchObject({ route: '/agent', authBase: '/api/session' })
     const routeRules = nuxt.options.nitro.routeRules ?? {}
     expect(routeRules['/agent']).toEqual(MCP_RELAXATION)
@@ -662,6 +612,28 @@ describe('dev boot under a test runner (test: true), DevTools left on', () => {
     expect(nuxt.options.dev).toBe(true)
     expect(nuxt.options.test).toBe(true)
     expect(ourPlugins(nuxt)).toEqual([])
+  })
+
+  // `updateTemplates` re-renders through `builder:generateApp`; nothing
+  // listens to it before a build, so the filters it is called with are the
+  // whole observable effect. The base module watches the same codegen path for
+  // its own fallback, so the check is that one of the filters picks ours.
+  it('re-renders the #backend type fallback when codegen writes _generated/api, on either separator', async () => {
+    const nuxt = getNuxt()
+    const fallback = { filename: 'types/nuxt-backend-api-fallback.d.ts' }
+    const rendersFallback = async (path: string): Promise<boolean> => {
+      const filters: Array<(template: typeof fallback) => boolean> = []
+      const unhook = nuxt.hook('builder:generateApp', (options) => {
+        if (options?.filter) filters.push(options.filter as (template: typeof fallback) => boolean)
+      })
+      await nuxt.callHook('builder:watch', 'change', path)
+      unhook()
+      return filters.some(filter => filter(fallback))
+    }
+
+    expect(await rendersFallback('backend/_generated/api.d.ts')).toBe(true)
+    expect(await rendersFallback('backend\\_generated\\api.d.ts')).toBe(true)
+    expect(await rendersFallback('backend/todos.ts')).toBe(false)
   })
 })
 

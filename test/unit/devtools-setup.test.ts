@@ -37,7 +37,6 @@ const info: DevtoolsServerInfo = {
     scaffold: true,
     css: true,
     autoEnv: true,
-    workspaces: true,
     authRoute: '/api/auth',
     loginPath: null,
     pagesEnabled: true,
@@ -46,7 +45,7 @@ const info: DevtoolsServerInfo = {
   pages: [],
   findings: [],
   env: { visible: { required: {}, optional: {} }, deployment: null },
-  mcp: { enabled: false, tools: [], scopes: [] },
+  mcp: { route: '/mcp', exchangePath: '/mcp/exchange', tools: [], scopes: [] },
   versions: {},
 }
 

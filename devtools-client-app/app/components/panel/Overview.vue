@@ -64,7 +64,6 @@ const wiring = computed(() => {
     { label: 'scaffold on dev start', on: options.scaffold },
     { label: 'env auto-provision', on: options.autoEnv },
     { label: 'default stylesheet', on: options.css },
-    { label: 'workspaces', on: options.workspaces },
     { label: 'ready-made pages', on: options.pagesEnabled },
     { label: `auth route: ${options.authRoute}`, on: true },
   ]

@@ -31,9 +31,3 @@ export type BackendMcpToolName
 export function backendMcpFunction(key: BackendMcpFunctionKey, event?: H3Event): string {
   return readBackendMcpRuntimeConfig(event)?.functions[key] ?? BACKEND_MCP_FUNCTION_DEFAULTS[key]
 }
-
-/** Whether a built-in tool survived `backend.mcp.tools.builtin` config. */
-export function builtinToolEnabled(name: BackendMcpToolName, event: H3Event): boolean {
-  const config = readBackendMcpRuntimeConfig(event)
-  return config ? config.tools[name] !== false : false
-}

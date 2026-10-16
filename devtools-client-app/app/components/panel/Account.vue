@@ -64,13 +64,7 @@ const day = (time: number | undefined) => time ? new Date(time).toLocaleDateStri
 
   <PanelCard title="Active workspace">
     <div
-      v-if="!state.info?.options.workspaces"
-      class="op50"
-    >
-      Workspaces are off (<code>backend.workspaces: false</code>).
-    </div>
-    <div
-      v-else-if="workspace?.available"
+      v-if="workspace?.available"
       class="flex flex-col gap-1"
     >
       <div class="flex items-center gap-2 flex-wrap">

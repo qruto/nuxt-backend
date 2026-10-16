@@ -18,24 +18,20 @@ Defined in: [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/
 
 The agent (MCP) surface: an OAuth-protected MCP endpoint served by Nitro
 via `@nuxtjs/mcp-toolkit`, with ready-made account/billing/workspace tools
-that call Convex as the signed-in user. On by default — everything the
-tools expose is already reachable through the product UI under the same
-user auth; OAuth adds per-client consent and the deployment's `mcp` rate
-limit guards the token exchange. Set `backend.mcp: false` for the
-conservative posture (no MCP endpoint, no OAuth discovery routes).
+that call Convex as the signed-in user. Everything the tools expose is
+already reachable through the product UI under the same user auth; OAuth
+adds per-client consent and the deployment's `mcp` rate limit guards the
+token exchange.
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="enabled"></a> `enabled?` | `boolean` | Master switch (same as `backend.mcp: false`). | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="route"></a> `route?` | `string` | MCP endpoint route. Default `/mcp` (the toolkit's default). | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="name"></a> `name?` | `string` | Server name/description/instructions forwarded to the toolkit. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="description"></a> `description?` | `string` | - | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="instructions"></a> `instructions?` | `string` | - | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="sessions"></a> `sessions?` | \| `boolean` \| \{ `enabled?`: `boolean`; `maxDuration?`: `number`; `maxSessions?`: `number`; \} | Stateful transport sessions, forwarded to the toolkit. Default off. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="tools"></a> `tools?` | \{ `builtin?`: \| `false` \| `Partial`\<`Record`\<[`BackendMcpToolName`](#backendmcptoolname), `boolean`\>\>; \} | - | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| `tools.builtin?` | \| `false` \| `Partial`\<`Record`\<[`BackendMcpToolName`](#backendmcptoolname), `boolean`\>\> | The built-in tool set: `false` removes all of them from the build; a map hides individual tools (`{ 'billing-portal-link': false }`). | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="functions"></a> `functions?` | `Partial`\<`Record`\< \| `"getAuthUser"` \| `"updateProfile"` \| `"getConfiguredProducts"` \| `"getCurrentSubscription"` \| `"getCredits"` \| `"generateCheckoutLink"` \| `"generateCustomerPortalUrl"` \| `"listWorkspaces"` \| `"listWorkspaceMembers"`, `string`\>\> | Override the Convex functions the built-in tools call — needed only when the scaffolded `auth.ts`/`billing.ts` files were renamed. Values are `module:export` refs, e.g. `{ getCredits: 'myBilling:getCredits' }`. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 
 ***
@@ -56,9 +52,8 @@ Defined in: [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/
 | <a id="loginpath"></a> `loginPath?` | `string` | Where the auth middleware sends signed-out visitors. Defaults to the resolved built-in login page path; set this when you disable `pages.login` and serve your own sign-in route somewhere else. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="css"></a> `css?` | `boolean` | Auto-add the neutral default stylesheet (`nuxt-backend/ui.css`) covering every shipped component and page. `false` to opt out and style the `data-*` hooks yourself. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="autoenv"></a> `autoEnv?` | `boolean` | On dev startup, provision the `dev:` deployment env automatically — the same engine as `npx nuxt-backend env push`: forward `.env(.local)` values, generate `AUTH_SECRET`, default `SITE_URL` to localhost, and echo OTP codes to the convex dev console until an email transport exists. Runs once per deployment (stamped under `node_modules/.cache/nuxt-backend`), asynchronously after startup. Never touches non-dev deployments. `false` to manage the deployment env yourself. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="mcp"></a> `mcp?` | `boolean` \| [`ModuleMcpOptions`](#modulemcpoptions) | The agent (MCP) surface — an OAuth-protected `/mcp` endpoint with built-in account/billing/workspace tools. Enabled by default (dev and production); `false` disables it. See [ModuleMcpOptions](#modulemcpoptions). | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
+| <a id="mcp"></a> `mcp?` | [`ModuleMcpOptions`](#modulemcpoptions) | The agent (MCP) surface — an OAuth-protected `/mcp` endpoint with built-in account/billing/workspace tools. See [ModuleMcpOptions](#modulemcpoptions). | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="devtools"></a> `devtools?` | `boolean` | The Backend tab in Nuxt DevTools (dev only): the deployment and its env names, live checks and doctor on demand, the signed-in account, billing, email, the webhook delivery log and the agent endpoint. Enabled by default whenever Nuxt DevTools is; set `false` to disable just the Backend tab. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="workspaces"></a> `workspaces?` | `boolean` | Whether the deployment runs the organization plugin (workspaces). Set `false` alongside `setupAuth(…, { organization: false })` so nothing on the Nuxt side — the DevTools bridge in particular — calls the organization endpoints that no longer exist. Defaults to `true`. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 
 ***
 

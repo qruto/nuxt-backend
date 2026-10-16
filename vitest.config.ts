@@ -32,8 +32,11 @@ export default defineConfig({
         // transpiles this file in that project, and the mapping back to source
         // drops statements that run on every boot (the first line of
         // registerBackendTypeFallback reads as never run), so edits move it.
-        // Measured: 75.14 lines / 75 functions; CI's Windows leg reads about
-        // two points lower on lines, which the floor leaves room for.
+        // Watcher callbacks count only when a test fires their hook: one that
+        // relies on a stray watch event landing mid-run passes on one leg and
+        // fails on the next. Measured: 79 lines / 82 functions; CI's Windows
+        // leg reads about two points lower on lines, which the floor leaves
+        // room for.
         'src/module.ts': {
           lines: 72,
           functions: 73,

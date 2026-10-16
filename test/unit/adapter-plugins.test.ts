@@ -61,21 +61,6 @@ describe('adapter schema plugins ⇄ runtime plugins', () => {
     expect(adapter).toStrictEqual(['admin', 'convex', 'email-otp', 'jwt', 'mcp', 'organization', 'passkey'])
   })
 
-  it('every opt-out configuration stays within the adapter plugin set', () => {
-    const adapter = new Set(pluginIds(adapterOptions()))
-
-    for (const config of [
-      { admin: false as const },
-      { organization: false as const },
-      { mcp: false as const },
-      { admin: false as const, organization: false as const, mcp: false as const },
-    ]) {
-      for (const id of pluginIds(runtimeOptions(config))) {
-        expect(adapter, `plugin "${id}" enabled by ${JSON.stringify(config)} has no adapter schema`).toContain(id)
-      }
-    }
-  })
-
   it('the tables the adapter maps cover the runtime instances, and the component schema owns them all', () => {
     const adapterTables = tableNames(adapterOptions())
     const runtimeTables = tableNames(runtimeOptions())

@@ -28,7 +28,6 @@ const RUNTIME_CONFIG = {
     authBase: '/api/auth',
     exchangePath: '/mcp/exchange',
     scopes: ['openid', 'profile', 'email', 'billing:read'],
-    tools: {},
     functions: {},
   },
   public: { convex: { siteUrl: 'https://deployment.test.site' } },
@@ -159,7 +158,7 @@ describe('mcp auth gate', () => {
     }
   })
 
-  it('is inert without runtime config (mcp disabled)', async () => {
+  it('is inert without runtime config', async () => {
     const gate = (await import('../../src/runtime/server/mcp/gate')).default
     expect(await gate(fakeEvent({ path: '/mcp', runtimeConfig: {} }))).toBeUndefined()
   })
@@ -324,7 +323,7 @@ describe('built-in tool wiring', () => {
     expect(args).toEqual({ name: 'Ada' })
   })
 
-  it('every built-in tool file guards on its scope and config toggle', async () => {
+  it('every built-in tool file names itself and declares its scope', async () => {
     const tools = ['profile-get', 'profile-update', 'billing-plans', 'billing-subscription', 'credits-balance', 'billing-checkout-link', 'billing-portal-link', 'workspace-list', 'workspace-members']
     for (const name of tools) {
       const definition = (await import(`../../src/runtime/server/mcp/tools/${name}.ts`)).default as {
@@ -332,18 +331,8 @@ describe('built-in tool wiring', () => {
         enabled?: (event: H3Event) => boolean | Promise<boolean>
       }
       expect(definition.name, name).toBe(name)
-      expect(definition.enabled, `${name} enabled guard`).toBeTypeOf('function')
-      // The config toggle hides a disabled built-in even for a fully scoped
-      // session.
-      const disabled = fakeEvent({
-        path: '/mcp',
-        context: { backendMcp: { userId: 'u', clientId: 'c', scopes: ['profile', 'profile:write', 'billing:read', 'billing:checkout', 'workspace:read'], convexToken: 't' } },
-        runtimeConfig: {
-          ...RUNTIME_CONFIG,
-          backendMcp: { ...RUNTIME_CONFIG.backendMcp, tools: { [name]: false } },
-        },
-      })
-      expect(await definition.enabled!(disabled), `${name} disable toggle`).toBe(false)
+      // `defineBackendMcpTool` wraps every tool in the session and scope gate.
+      expect(definition.enabled, `${name} gate`).toBeTypeOf('function')
     }
   })
 })

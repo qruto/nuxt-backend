@@ -1,6 +1,6 @@
 import { makeFunctionReference } from 'convex/server'
 import { z } from 'zod'
-import { backendMcpFunction, builtinToolEnabled } from '../builtin'
+import { backendMcpFunction } from '../builtin'
 import { defineBackendMcpTool, useBackendMcp } from '../index'
 
 export default defineBackendMcpTool({
@@ -11,7 +11,6 @@ export default defineBackendMcpTool({
   inputSchema: {
     organizationId: z.string().optional().describe('Workspace id from workspace-list (default: the active workspace).'),
   },
-  enabled: event => builtinToolEnabled('workspace-members', event),
   handler: async ({ organizationId }) => {
     const { fetchQuery } = useBackendMcp()
     const members = await fetchQuery(

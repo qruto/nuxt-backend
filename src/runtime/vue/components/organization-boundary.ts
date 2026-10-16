@@ -8,9 +8,8 @@ import { useOrganization } from '../composables/use-organization'
  * user has no active workspace) is the place for a workspace picker or a
  * create-workspace form; `placeholder` renders while state is loading.
  *
- * With the default `personal` workspace enabled, signed-in users always have
- * an active workspace, so `fallback` only shows for users created before the
- * feature (or when `organization.personal` is disabled).
+ * Every user gets a personal workspace on first sign-in, so `fallback` shows
+ * only when a session has lost its workspace (left or deleted since).
  *
  * The default slot receives the active workspace: `v-slot="{ workspace }"`.
  */

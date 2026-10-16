@@ -10,13 +10,14 @@ import { runConvex } from '../../src/convex-cli'
 // a dev one. Every Convex CLI read has to say `--prod`, and the routes it
 // probes have to be production's — taken from the function spec, not from
 // the dev URLs in `.env.local`.
+const deployed = vi.hoisted(() => ({ authConfig: {} as Record<string, unknown> }))
 vi.mock('../../src/convex-cli', () => ({
   runConvex: vi.fn(async (_rootDir: string, args: string[]) => {
     if (args[0] === 'env') return { stdout: 'AUTH_SECRET\nSITE_URL\nAUTH_TRUST_LOCAL_ORIGINS\n', stderr: '' }
     if (args[0] === 'function-spec') {
       return { stdout: JSON.stringify({ url: 'https://prod-slug-42.convex.cloud', functions: [{ identifier: 'auth.js:getAuthUser' }] }), stderr: '' }
     }
-    if (args[0] === 'run') return { stdout: JSON.stringify({ invitationPath: null }), stderr: '' }
+    if (args[0] === 'run') return { stdout: JSON.stringify(deployed.authConfig), stderr: '' }
     return { stdout: '', stderr: '' }
   }),
 }))
@@ -30,6 +31,7 @@ let probed: string[]
 const URL_VARS = ['NUXT_PUBLIC_BACKEND_SITE_URL', 'NUXT_PUBLIC_CONVEX_SITE_URL', 'NUXT_PUBLIC_BACKEND_URL', 'NUXT_PUBLIC_CONVEX_URL', 'CONVEX_DEPLOYMENT', 'CONVEX_DEPLOY_KEY', 'CONVEX_DEPLOYMENT_TOKEN']
 
 beforeEach(() => {
+  deployed.authConfig = {}
   for (const name of URL_VARS) vi.stubEnv(name, undefined)
   rootDir = mkdtempSync(join(tmpdir(), 'doctor-prod-'))
   writeFileSync(join(rootDir, '.env.local'), 'CONVEX_DEPLOYMENT=dev:happy-otter-123\nNUXT_PUBLIC_CONVEX_SITE_URL=https://happy-otter-123.convex.site\n')
@@ -135,5 +137,19 @@ describe('doctor --prod target', () => {
     expect(probed.every(url => url.startsWith('https://happy-otter-123.convex.site/'))).toBe(true)
     // On a dev deployment the dev-only var is the healthy state.
     expect(report.findings.find(finding => finding.id === 'deployment-auth-trust-local-origins')?.status).toBe('pass')
+  })
+})
+
+describe('the invitation route', () => {
+  // The deployment reports the path its invitation emails link to (the
+  // `auth:authConfig` read); the page mounts where nuxt.config puts it, here
+  // the default. A mismatch sends every invitee to a 404.
+  it.each([
+    ['/accept-invitation', 'pass'],
+    ['/join', 'fail'],
+  ])('a deployment linking invitations to %s: %s', async (invitationPath, status) => {
+    deployed.authConfig = { invitationPath }
+    const report = await doctor([])
+    expect(report.findings.find(finding => finding.id === 'invitation-path')?.status).toBe(status)
   })
 })

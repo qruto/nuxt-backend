@@ -1,6 +1,6 @@
 import { makeFunctionReference } from 'convex/server'
 import { z } from 'zod'
-import { backendMcpFunction, builtinToolEnabled } from '../builtin'
+import { backendMcpFunction } from '../builtin'
 import { defineBackendMcpTool, useBackendMcp } from '../index'
 
 export default defineBackendMcpTool({
@@ -13,7 +13,6 @@ export default defineBackendMcpTool({
   inputSchema: {
     name: z.string().min(1).max(256).describe('The new display name.'),
   },
-  enabled: event => builtinToolEnabled('profile-update', event),
   handler: async ({ name }) => {
     const { fetchMutation } = useBackendMcp()
     await fetchMutation(makeFunctionReference<'mutation'>(backendMcpFunction('updateProfile')), { name })

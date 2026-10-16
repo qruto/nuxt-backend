@@ -39,12 +39,12 @@ The intended integration shape:
 
 Adding `modules: ['nuxt-backend']` registers the following surface:
 
-- **Configuration** — a `backend` config key (`url`, `siteUrl`, `authRoute`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools`, `workspaces`) plus public/private runtime config, all falling back to env vars, and the typed `appConfig.backend` content layer (plan catalog, labels, brand).
+- **Configuration** — a `backend` config key (`url`, `siteUrl`, `authRoute`, `scaffold`, `pages`, `loginPath`, `css`, `autoEnv`, `mcp`, `devtools`) plus public/private runtime config, all falling back to env vars, and the typed `appConfig.backend` content layer (plan catalog, labels, brand).
 - **Default pages** — `/login`, `/pricing`, `/settings`, `/profile`, `/security`, and `/accept-invitation` mount out of the box; each is opt-out, path-configurable, and automatically shadowed by an app page at the same route. See [Default Pages](/docs/ui/pages).
 - **App runtime (Vue)** — a client Convex plugin and an SSR auth-token prefetch plugin (injects `$convex`); auto-imported composables (`useQuery`, `useMutation`, `useAuth`, `useBilling`, `usePasskeys`, …); auto-registered components (`<AuthForm>`, `<PricingTable>`, `<WorkspaceSettings>`, `<ProfileSettings>`, `<SecuritySettings>`, `<Authenticated>`, …); and an opt-in `auth` route middleware.
 - **Styling** — the neutral `ui.css` stylesheet, auto-added and themeable through `--bk-*` tokens (see [Theming](/docs/ui/customize)); `css: false` to bring your own.
 - **Server (Nitro)** — a same-origin Better Auth proxy at `authRoute/**`, plus server auto-imports (`fetchQuery`, `preloadQuery`, `backendAuth`, …).
-- **Agent surface** — an OAuth-protected MCP endpoint at `/mcp` and its two `/.well-known` discovery documents, on by default in dev and production; `mcp: false` removes it. See [MCP server](/docs/agents/mcp).
+- **Agent surface** — an OAuth-protected MCP endpoint at `/mcp` and its two `/.well-known` discovery documents, in dev and production. See [MCP server](/docs/agents/mcp).
 - **Security headers** — `nuxt-security`, installed by the module from its own dependency tree, with a Content Security Policy the Convex integration extends with the deployment origins; `security: false` in `nuxt.config` still switches it off. See [Security](/docs/ship/production/security).
 - **Project wiring & types** — `#backend` import aliases for both Vite and Nitro, first-run scaffolded backend files, and full type augmentation.
 - **Backend bridge** — package entrypoints you import inside your backend functions (`nuxt-backend/auth`, `nuxt-backend/app`, `nuxt-backend/billing`, `nuxt-backend/email`, …).

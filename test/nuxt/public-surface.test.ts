@@ -349,7 +349,7 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './search': ['defineSearch', 'search'],
   './workflows': ['defineEmailSequence', 'setupWorkflows'],
   './ai': ['priceTokens', 'setupAi'],
-  './mcp': ['BACKEND_MCP_FUNCTION_DEFAULTS', 'EXCHANGE_CACHE_MARGIN_MS', 'backendMcpFunction', 'builtinToolEnabled', 'createExchangeCache', 'defineBackendMcpTool', 'useBackendMcp'],
+  './mcp': ['BACKEND_MCP_FUNCTION_DEFAULTS', 'EXCHANGE_CACHE_MARGIN_MS', 'backendMcpFunction', 'createExchangeCache', 'defineBackendMcpTool', 'useBackendMcp'],
   './convex.config': ['default'],
   './auth.config': ['default', 'defineBackendAuthConfig'],
   './test': ['default', 'register'],
