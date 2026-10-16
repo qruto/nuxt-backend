@@ -16,12 +16,14 @@ navigation:
 
 Defined in: [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/auth.config.ts)
 
+Where the backend's tokens come from, for an app that moved them.
+
 #### Properties
 
-| Property | Type | Defined in |
-| ------ | ------ | ------ |
-| <a id="basepath"></a> `basePath?` | `string` | [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/auth.config.ts) |
-| <a id="jwks"></a> `jwks?` | `string` | [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/auth.config.ts) |
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="basepath"></a> `basePath?` | `string` | The auth routes' base path, where the token signer's JWKS is served. Default `/api/auth`. | [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/auth.config.ts) |
+| <a id="jwks"></a> `jwks?` | `string` | A static JWKS, for a deployment that sets its signing keys itself instead of storing them. | [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/auth.config.ts) |
 
 ## Variables
 
@@ -43,6 +45,12 @@ function defineBackendAuthConfig(options?): AuthConfig;
 
 Defined in: [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/auth.config.ts)
 
+The Convex auth config that trusts the backend's tokens: the session JWTs
+the `backend` component signs, verified against its JWKS on the
+deployment's site URL. `nuxt-backend/auth.config` exports it with the
+defaults, which the scaffolded `backend/auth.config.ts` re-exports; call
+it yourself only to move the auth routes or pin the keys.
+
 #### Parameters
 
 | Parameter | Type |
@@ -52,3 +60,11 @@ Defined in: [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/bl
 #### Returns
 
 `AuthConfig`
+
+#### Example
+
+```ts [backend/auth.config.ts]
+import { defineBackendAuthConfig } from 'nuxt-backend/auth.config'
+
+export default defineBackendAuthConfig({ basePath: '/auth' })
+```

@@ -8,6 +8,7 @@ import type { BillingApi, BillingPage, CheckoutOptions, GiftOptions, PageFetcher
 // gift checkout — and the error a billing action throws when its function
 // is not deployed.
 
+/** The error a billing action throws when its function is not deployed: it names the action. */
 export function notConfigured(action: string): never {
   throw new Error(
     `[nuxt-backend] Billing ${action} is unavailable — ensure \`billing.ts\` re-exports the `

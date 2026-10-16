@@ -100,6 +100,12 @@ const DEFAULT_LIMITS: {
      rate: 300;
      period: number;
   };
+  emailOtpAttempt: {
+     kind: "token bucket";
+     rate: 10;
+     period: number;
+     capacity: 10;
+  };
   emailChange: {
      kind: "token bucket";
      rate: 5;
@@ -157,21 +163,23 @@ const DEFAULT_LIMITS: {
 Defined in: [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts)
 
 The package's default rate limits — `emailOtp`, `emailOtpGlobal`,
-`emailChange`, `billingSync`, `ai`, `aiBudget`, `mcp`, `admin`,
-`invitation`, `invitationGlobal` and `agentRegistrationGlobal` — guarding
-the flows the package itself drives. Keyed per
-email/entity/caller at the call site (e.g. `limit(ctx, 'emailOtp', { key:
-hash })`); the `*Global` ones are unkeyed. Extend or override any of them by
-passing your own limits to [setupRateLimiter](#setupratelimiter).
+`emailOtpAttempt`, `emailChange`, `billingSync`, `ai`, `aiBudget`,
+`mcp`, `admin`, `invitation`, `invitationGlobal` and
+`agentRegistrationGlobal` — guarding the flows the package itself drives.
+Keyed per email/entity/caller at the call site (e.g. `limit(ctx,
+'emailOtp', { key: hash })`); the `*Global` ones are unkeyed. Extend or
+override any of them by passing your own limits to [setupRateLimiter](#setupratelimiter).
 
-Deliberately small: `emailOtp` throttles code *sends* (per-code brute force
-is Better Auth's own `allowedAttempts` guard, and this package is
-passwordless — there are no password flows to limit), `emailOtpGlobal`
-caps sends deployment-wide, `billingSync` guards the live provider
-fan-out, `ai`/`aiBudget`/`mcp` back the metered-action, credit-budget and
-agent surfaces, and `admin`/`invitation`/`emailChange` cover the
-signed-in routes where one caller acts on *other* people or addresses —
-see `setupAuth`'s route limits.
+Deliberately small: `emailOtp` throttles code *sends* and
+`emailOtpAttempt` code *checks*, per address (Better Auth's own
+`allowedAttempts` bounds the guesses at one code, but a new code is one
+request away), `emailOtpGlobal` caps sends deployment-wide,
+`billingSync` guards the live provider fan-out, `ai`/`aiBudget`/`mcp`
+back the metered-action, credit-budget and agent surfaces, and
+`admin`/`invitation`/`emailChange` cover the signed-in routes where one
+caller acts on *other* people or addresses — see `setupAuth`'s route
+limits. The package is passwordless: there are no password limits, and an
+app that turns passwords on brings its own.
 
 ## Covering other auth routes
 
@@ -208,6 +216,11 @@ count per identity and are enforced before the route runs.
 | `emailOtpGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `emailOtpGlobal.rate` | `300` | `300` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `emailOtpGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-emailotpattempt"></a> `emailOtpAttempt` | \{ `kind`: `"token bucket"`; `rate`: `10`; `period`: `number`; `capacity`: `10`; \} | - | Code checks — 10 per hour per address, burst 10. Every route that checks a code (sign-in, verification, both steps of an email change, a password reset when the app has passwords) spends one while a code is waiting, right or wrong, keyed by a SHA-256 of the address the code went to. Better Auth refuses a code after three wrong guesses, but `emailOtp` lets five new codes out a minute: without this limit, a guess loop that keeps requesting codes would get fifteen guesses a minute at one address, for as long as it ran. Here it gets ten an hour. Like every limit keyed by an address, someone who spends it can keep that address from signing in with a code for the hour — never without codes going to it, since a check with no code waiting spends nothing — and a passkey still signs it in. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `emailOtpAttempt.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `emailOtpAttempt.rate` | `10` | `10` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `emailOtpAttempt.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `emailOtpAttempt.capacity` | `10` | `10` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | <a id="property-emailchange"></a> `emailChange` | \{ `kind`: `"token bucket"`; `rate`: `5`; `period`: `number`; `capacity`: `5`; \} | - | Email changes — 5 per hour per account. The code an email change sends to the new address goes where the caller chose, so it is bounded per account and then by `emailOtpGlobal`, like every other code. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `emailChange.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `emailChange.rate` | `5` | `5` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
@@ -267,6 +280,12 @@ function setupRateLimiter<Limits>(components, limits?): RateLimiter<{
      kind: "fixed window";
      rate: 300;
      period: number;
+  };
+  emailOtpAttempt: {
+     kind: "token bucket";
+     rate: 10;
+     period: number;
+     capacity: 10;
   };
   emailChange: {
      kind: "token bucket";
@@ -354,6 +373,12 @@ named limits to cover your own application functions; they are merged with
      `kind`: `"fixed window"`;
      `rate`: `300`;
      `period`: `number`;
+  \};
+  `emailOtpAttempt`: \{
+     `kind`: `"token bucket"`;
+     `rate`: `10`;
+     `period`: `number`;
+     `capacity`: `10`;
   \};
   `emailChange`: \{
      `kind`: `"token bucket"`;

@@ -1,10 +1,7 @@
 /// <reference types="vite/client" />
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { convexTest, type TestConvex } from 'convex-test'
 import { componentsGeneric, makeFunctionReference } from 'convex/server'
-import aggregate from '@convex-dev/aggregate/test'
-import rateLimiter from '@convex-dev/rate-limiter/test'
-import component from '../../src/convex/test'
+import { asUser, defineBackendTestApp } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import schema from '../../website/backend/schema'
 
@@ -14,7 +11,7 @@ import schema from '../../website/backend/schema'
 // must still match the table afterwards. The abuse limits refuse what a
 // visitor should not be able to do or repeat.
 
-const modules = import.meta.glob(['../../website/backend/**/*.ts', '../../website/backend/_generated/*.js', '!**/*.d.ts'])
+const testApp = defineBackendTestApp(schema, import.meta.glob(['../../website/backend/**/*.ts', '../../website/backend/_generated/*.js', '!**/*.d.ts']))
 const components = componentsGeneric() as unknown as { backend: ComponentApi<'backend'> }
 const clearIdleAccounts = makeFunctionReference<'mutation'>('retention:clearIdleAccounts')
 const clearUserData = makeFunctionReference<'mutation'>('demo:clearUserData')
@@ -29,14 +26,11 @@ const runBackfill = makeFunctionReference<'action'>('migrations:runBackfill')
 
 const DAY = 86_400_000
 
-let t: TestConvex<typeof schema>
+let t: ReturnType<typeof testApp>
 
 beforeEach(() => {
   vi.useFakeTimers()
-  t = convexTest(schema, modules)
-  component.register(t)
-  aggregate.register(t, 'aggregate')
-  rateLimiter.register(t, 'rateLimiter')
+  t = testApp()
 })
 
 afterEach(() => {
@@ -181,27 +175,27 @@ describe('clearUserData', () => {
 
 describe('abuse limits', () => {
   test('the demo action needs a sign-in and a short text', async () => {
-    const me = await account(sandbox('echo'), { idleDays: 0 })
+    const me = await asUser(t, { email: sandbox('echo') })
     await expect(t.action(echo, { text: 'hi', delayMs: 0 })).rejects.toThrow('Sign in to run the demo action.')
-    await expect(t.withIdentity({ subject: me }).action(echo, { text: 'x'.repeat(501), delayMs: 0 })).rejects.toThrow('Up to 500 characters.')
+    await expect(me.action(echo, { text: 'x'.repeat(501), delayMs: 0 })).rejects.toThrow('Up to 500 characters.')
   })
 
   test('upload URLs are rationed per user and refused to a full library', async () => {
-    const me = t.withIdentity({ subject: await account(sandbox('upload'), { idleDays: 0 }) })
+    const me = await asUser(t, { email: sandbox('upload') })
     for (let i = 0; i < 10; i++) await me.mutation(generateUploadUrl, {})
     await expect(me.mutation(generateUploadUrl, {})).rejects.toThrow('Too many requests')
 
-    const full = await account(sandbox('full'), { idleDays: 0 })
+    const full = await asUser(t, { email: sandbox('full') })
     await t.run(async (ctx) => {
       for (let i = 0; i < 50; i++) {
-        await ctx.db.insert('files', { userId: full, storageId: await ctx.storage.store(new Blob([String(i)])), name: `${i}.txt` })
+        await ctx.db.insert('files', { userId: full.userId, storageId: await ctx.storage.store(new Blob([String(i)])), name: `${i}.txt` })
       }
     })
-    await expect(t.withIdentity({ subject: full }).mutation(generateUploadUrl, {})).rejects.toThrow('50 files per account')
+    await expect(full.mutation(generateUploadUrl, {})).rejects.toThrow('50 files per account')
   })
 
   test('todos and counters take bounded input', async () => {
-    const me = t.withIdentity({ subject: await account(sandbox('input'), { idleDays: 0 }) })
+    const me = await asUser(t, { email: sandbox('input') })
     await expect(me.mutation(createTodo, { text: ' ' })).rejects.toThrow('A todo needs some text.')
     await expect(me.mutation(createTodo, { text: 'x'.repeat(201) })).rejects.toThrow('up to 200 characters')
     await expect(me.mutation(increment, { name: 'x'.repeat(65) })).rejects.toThrow('Counter names')
@@ -210,16 +204,16 @@ describe('abuse limits', () => {
   })
 
   test('an account keeps up to 200 todos', async () => {
-    const userId = await account(sandbox('todos'), { idleDays: 0 })
+    const me = await asUser(t, { email: sandbox('todos') })
     await t.run(async (ctx) => {
-      for (let i = 0; i < 200; i++) await ctx.db.insert('todos', { userId, text: `todo ${i}`, completed: false })
+      for (let i = 0; i < 200; i++) await ctx.db.insert('todos', { userId: me.userId, text: `todo ${i}`, completed: false })
     })
-    await expect(t.withIdentity({ subject: userId }).mutation(createTodo, { text: 'one more' })).rejects.toThrow('up to 200 todos per account')
+    await expect(me.mutation(createTodo, { text: 'one more' })).rejects.toThrow('up to 200 todos per account')
   })
 
   test('a backfill needs the admin role', async () => {
-    const visitor = await account(sandbox('visitor'), { idleDays: 0 })
-    await expect(t.withIdentity({ subject: visitor }).action(runBackfill, { name: 'backfillMessagesCount', dryRun: true }))
+    const visitor = await asUser(t, { email: sandbox('visitor') })
+    await expect(visitor.action(runBackfill, { name: 'backfillMessagesCount', dryRun: true }))
       .rejects.toThrow('Forbidden')
   })
 })

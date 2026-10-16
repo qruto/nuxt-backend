@@ -22,7 +22,7 @@ import { priceTokens, setupAi } from 'nuxt-backend/ai'
 import { BACKEND_MCP_FUNCTION_DEFAULTS, defineBackendMcpTool, useBackendMcp } from 'nuxt-backend/mcp'
 import backendComponent from 'nuxt-backend/convex.config'
 import authConfig, { defineBackendAuthConfig } from 'nuxt-backend/auth.config'
-import backendTest, { register } from 'nuxt-backend/test'
+import backendTest, { asUser, defineBackendTestApp, register, seedWorkspace } from 'nuxt-backend/test'
 import { BACKEND_ESLINT_RULES, backendEslint } from 'nuxt-backend/eslint'
 import type { Linter } from 'eslint'
 import { useCredits } from '../../src/runtime/vue/composables/use-credits'
@@ -197,6 +197,11 @@ describe('integrations', () => {
     expectTypeOf(backendTest).toHaveProperty('register')
     expectTypeOf(backendTest).toHaveProperty('schema')
     expectTypeOf(backendTest).toHaveProperty('modules')
+    // A test app per call, and callers that carry a session's or an agent's claims.
+    expectTypeOf(defineBackendTestApp).returns.toBeFunction()
+    expectTypeOf(asUser).returns.resolves.toHaveProperty('userId')
+    expectTypeOf(asUser).returns.resolves.toHaveProperty('query')
+    expectTypeOf(seedWorkspace).returns.resolves.toBeString()
   })
 })
 

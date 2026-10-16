@@ -26,8 +26,8 @@ only when a provider or a client first calls it.
 The webhook endpoints share one fail-closed policy (see `webhook-guard.ts`):
 missing secret → 503, invalid signature → 403 (±5 min replay tolerance),
 oversized → 413, authentic-but-unknown type → 202, handler throw → 500 so
-the provider retries, redelivery of a processed id → 200. Every delivery's
-outcome lands in the component's ring-buffer log.
+the provider retries, redelivery of a processed id → 200. Every request's
+outcome lands in the component's delivery log.
 
 #### Properties
 

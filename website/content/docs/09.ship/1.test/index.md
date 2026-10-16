@@ -1,14 +1,75 @@
 ---
 title: Testing
-description: Register the packaged backend component in convex-test.
+description: Test your Convex functions in convex-test, with every component the scaffold mounts and callers signed in as a person or an agent.
 kind: how-to
 navigation:
   icon: i-lucide-flask-conical
 ---
 
-Use `nuxt-backend/test` to register the packaged `backend` component when testing your Convex functions with [`convex-test`](https://docs.convex.dev/testing/convex-test).
+`nuxt-backend/test` sets your Convex functions up in [`convex-test`](https://docs.convex.dev/testing/convex-test) the way the deployment runs them: the packaged `backend` component and every other component the scaffold mounts, and callers who carry the claims a real session or agent token carries.
 
-```ts [backend/functions.test.ts]
+## Your app under test
+
+`defineBackendTestApp(schema, modules)` returns a function that builds a fresh instance with every component registered under the name `convex.config.ts` mounts it by: `backend`, `aggregate`, `migrations`, `persistentTextStreaming`, `polar`, `rateLimiter` and `workflow`. Call it once per test, so no test sees another's rows. `asUser(t, options)` creates an account in the component's auth tables and returns the instance signed in as it, the way a real sign-in leaves a caller: with the role `'user'` and a personal workspace it owns and has active.
+
+```ts [backend/todos.test.ts]
+import { asUser, defineBackendTestApp, seedWorkspace } from 'nuxt-backend/test'
+import { expect, test } from 'vitest'
+import { api } from './_generated/api'
+import schema from './schema'
+
+const testApp = defineBackendTestApp(schema, import.meta.glob('./**/*.ts'))
+
+test('a member adds a todo to their workspace', async () => {
+  const ada = await asUser(testApp())
+  await ada.mutation(api.todos.create, { text: 'Ship it' })
+})
+
+test('everyone in the workspace is listed', async () => {
+  const t = testApp()
+  const workspace = await seedWorkspace(t)
+  const owner = await asUser(t, { workspace, workspaceRole: 'owner' })
+  await asUser(t, { workspace })
+  const workspaceMembers = await owner.query(api.auth.listWorkspaceMembers, {})
+  expect(workspaceMembers?.members).toHaveLength(2)
+})
+```
+
+::field-group
+  :::field{name="email / name" type="string"}
+  The account. Default: a fresh `user-<n>@example.com`, named after it.
+  :::
+
+  :::field{name="role" type="string"}
+  The app-wide role from the admin plugin, such as `'admin'`. Default: `'user'`, the role the plugin gives every new account.
+  :::
+
+  :::field{name="workspace" type="boolean | string"}
+  The active workspace. Default: a personal one the user owns, made the way sign-in makes it. A workspace id (from `seedWorkspace(t)` or another `asUser`) adds them to that one instead; `false` leaves them in none, as after leaving every workspace.
+  :::
+
+  :::field{name="workspaceRole" type="string"}
+  Their role there. Default: `'owner'` of their own, `'member'` of another.
+  :::
+
+  :::field{name="impersonatedBy" type="string"}
+  The admin's user id, for a session an admin opened as this user.
+  :::
+
+  :::field{name="agent" type="{ clientId, scopes }"}
+  Call as an agent: the claims the agent token exchange mints, and no session.
+  :::
+::
+
+The caller is `t.withIdentity(...)` with the claims a real token carries. A session's are the account's fields, `role` included, plus `activeOrganizationId`, `sessionId` and `impersonatedBy`; an agent's are those the agent token exchange signs, `clientId` and `scopes` among them. The issuer is `CONVEX_SITE_URL` when the test sets it, so `tokenIdentifier` reads as in production. `requireUser`, `requireMember`, the billing entity and `listSessions` resolve exactly as they do for a real caller, and a contract test in the package keeps the claims in step with the real tokens. The caller also carries `userId`, `email`, `workspaceId` and `sessionId` for your assertions. The three helpers are experimental: the claims follow the auth flows, which may still move.
+
+The aggregate's own batch worker isn't registered, as `@convex-dev/aggregate/test` leaves it out. A test of async aggregate writes registers it: `batchWorker.register(t, 'aggregate/batchWorker')` with `batchWorker` from `@convex-dev/batch-worker/test`.
+
+## Register the component yourself
+
+For a harness you build by hand, `register(t)` mounts the `backend` component alone:
+
+```ts [backend/billing.test.ts]
 import { convexTest } from 'convex-test'
 import backendTest from 'nuxt-backend/test'
 import { components } from './_generated/api'

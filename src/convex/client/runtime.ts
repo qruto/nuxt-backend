@@ -47,6 +47,7 @@ type EnvHost = typeof globalThis & {
   }
 }
 
+/** A deployment environment variable, or `undefined` where `process.env` is absent. */
 export function readEnv(name: string) {
   return (globalThis as EnvHost).process?.env?.[name]
 }

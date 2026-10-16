@@ -14,6 +14,10 @@ function toAuthComponentApi(componentRef: PublicAuthComponentRef): AuthComponent
   return componentRef as AuthComponentApi
 }
 
+/**
+ * The Better Auth client over the `backend` component, with the auth schema
+ * the component owns locally (the hybrid component pattern).
+ */
 export function createAuthComponent<DM extends GenericDataModel>(componentRef: PublicAuthComponentRef) {
   return createClient<DM, DefaultAuthSchema>(
     toAuthComponentApi(componentRef),
