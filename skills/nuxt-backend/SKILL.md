@@ -106,6 +106,12 @@ sign-in codes print in the terminal that runs `dev`.
   `billing sync`. Read state with `useBilling()`, `useFeatures()` and `useCredits()`, gate UI
   with `<FeatureBoundary>`, and render plans with `<PricingTable>`. Plan copy comes from
   `appConfig.backend.billing.plans` and `packs`.
+  The server decides what is sold: checkout takes only catalog products, returns only to
+  `SITE_URL` (or `setupBilling({ trustedOrigins })`), refuses the package's metadata keys
+  (`userId`, `gift`, `giftId`, `giftRecipient`, `recipientEmail`, `purchaserUserId`, `utm_*`) and a browser-chosen trial or `discountId`, each as
+  `invalid_input`. A campaign passes `discountCode` and `utm`; a different trial (1 to 30 days, in days or weeks)
+  or a discount by id goes through `billing.checkout(ctx, …)` in your own action. Gifts are
+  credit packs by catalog key: `useCredits().gift('credits500', { recipientEmail })`.
 - **Email:** transactional mail goes through `backend/email.ts` (`setupEmail`), and
   `useEmailStatus({ emailId })` tracks delivery (`isFailed` for a bounce). The package's own emails (sign-in codes, welcome,
   invitations, gifts) go through it too: restyle them with `setupEmail(components, { templates })`. Test mode is on until `EMAIL_TEST_MODE=false`.

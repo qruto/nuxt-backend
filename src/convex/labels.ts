@@ -87,6 +87,7 @@ const ERROR_LABELS = {
   invalid_input: 'That input isn\'t valid. Check it and try again.',
   not_ready: 'Nothing to show yet.',
   not_ready_no_customer: 'Nothing to show yet — this opens after your first purchase.',
+  not_ready_no_catalog: 'Nothing to buy yet — this app has no plans or packs set up.',
   not_ready_not_synced: 'Nothing to show yet — no credits have reached this account. Open billing to refresh, or get a credit pack.',
   // A provider's refusal may pass on a retry; the other reasons need the deployment fixed.
   unavailable: 'This isn\'t available right now. Try again shortly.',

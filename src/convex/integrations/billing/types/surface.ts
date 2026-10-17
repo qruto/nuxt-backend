@@ -11,6 +11,7 @@ import type {
   PauseSubscriptionOptions,
   RefundOrderOptions,
   RefundRecord,
+  ServerCheckoutOptions,
   SubscriptionTarget,
   UpdateSubscriptionOptions,
   UsageEvent,
@@ -23,27 +24,25 @@ import type { BillingEntity, BillingEntityCtx, BillingWebhookEventHandlers } fro
 
 export interface Billing {
   /**
-   * The ready-made checkout / portal / subscription functions to re-export from
-   * your Convex module (the result of the provider's `api()`), plus
-   * `giftCheckout`. `listAllSubscriptions` is wrapped to resolve the billing
-   * entity like the reactive reads do — it returns `null` instead of throwing
-   * for claimless callers (signed out, or the auth-handshake / reconnect window
-   * reactive queries subscribe in). `generateCheckoutLink` is replaced by this
-   * package's superset (prefill, custom fields, billing address, discount id),
-   * and is re-declared here so the scaffold's `export const {
-   * generateCheckoutLink } = billing.api` hands the app the wide argument type
-   * rather than upstream's narrow one. `generateCustomerPortalUrl`,
-   * `changeCurrentSubscription` and `cancelCurrentSubscription` are this
-   * package's too: they refuse with catalog codes (see `backendError`) and
-   * never pass the provider's own error on.
+   * The ready-made checkout, portal, price-list and gift functions to
+   * re-export from your Convex module. Of the provider's own `api()` only
+   * `getConfiguredProducts` (the price list) is kept; the rest are this
+   * package's, and refuse with catalog codes (see `backendError`):
+   *
+   * - `generateCheckoutLink` sells only the app's catalog, returns only to
+   *   the site (`SITE_URL` or `trustedOrigins`), refuses the metadata keys
+   *   the package reads back, and takes a discount code and campaign
+   *   attribution; the trial and a discount by id are {@link Billing.checkout}'s.
+   * - `generateCustomerPortalUrl` returns only to the site.
+   * - `giftCheckout` gifts a catalog credit pack, by its key.
+   * - `listAllSubscriptions` resolves the billing entity like the reactive
+   *   reads do: `null` instead of a throw for claimless callers.
    */
-  api: Omit<ReturnType<Polar['api']>, 'listAllSubscriptions' | 'generateCheckoutLink' | 'generateCustomerPortalUrl' | 'changeCurrentSubscription' | 'cancelCurrentSubscription'> & {
+  api: Pick<ReturnType<Polar['api']>, 'getConfiguredProducts'> & {
     listAllSubscriptions: ReturnType<typeof queryGeneric>
     giftCheckout: ReturnType<typeof actionGeneric>
     generateCheckoutLink: RegisteredAction<'public', CheckoutOptions, Promise<{ url: string }>>
     generateCustomerPortalUrl: RegisteredAction<'public', { returnUrl?: string }, Promise<{ url: string }>>
-    changeCurrentSubscription: RegisteredAction<'public', { productId: string }, Promise<null>>
-    cancelCurrentSubscription: RegisteredAction<'public', { revokeImmediately?: boolean }, Promise<null>>
   }
   /**
    * Ready-made, client-callable functions to re-export from your `billing.ts`
@@ -110,6 +109,27 @@ export interface Billing {
    * ready-made `syncEntitlements` already caches the result for you.
    */
   getCustomerState: (ctx: RunQueryCtx, args: { userId: string }) => Promise<CustomerEntitlements>
+  /**
+   * A checkout for the caller's billing entity, from server code — the
+   * `generateCheckoutLink` checks, plus what only the server chooses: a
+   * `trial` of at most 30 days (or `false` to remove the product's own) and
+   * a `discountId`. Call it from your own action, after deciding the caller
+   * qualifies.
+   *
+   * @example
+   * ```ts
+   * // A 30-day trial for people who came through a partner. The product is
+   * // still checked against the catalog, and the URLs against the site.
+   * export const partnerCheckout = action({
+   *   args: { productId: v.string(), origin: v.string(), successUrl: v.string() },
+   *   handler: async (ctx, { productId, ...urls }) => {
+   *     if (!(await cameThroughPartner(ctx))) throw backendError('forbidden', { reason: 'permission' })
+   *     return billing.checkout(ctx, { productIds: [productId], ...urls, trial: { interval: 'day', count: 30 } })
+   *   },
+   * })
+   * ```
+   */
+  checkout: (ctx: RunWriteCtx & { auth?: Auth }, options: ServerCheckoutOptions) => Promise<{ url: string }>
   /**
    * Spend prepaid credits — call from your own **server** action when a
    * metered feature is used. The billing entity (workspace or user, per

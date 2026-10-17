@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { convexTest } from 'convex-test'
 import component from '../../src/convex/test'
 import schema from '../../src/convex/components/backend/schema'
@@ -76,6 +76,65 @@ describe('billing entitlement cache (component)', () => {
     await t.mutation(api.billing.upsert, { userId: 'u1', activeProductIds: [], benefits: [], meters: [] })
     await t.mutation(api.billing.clear, {})
     expect(await t.query(api.billing.getByUser, { userId: 'u1' })).toBeNull()
+  })
+})
+
+// A checkout must not answer "valid or not" for one code after another: the
+// component counts each code attempt per entity, in a window, before the
+// provider is asked, and a checkout gives back the ones it did not refuse.
+describe('discount-code attempts (component)', () => {
+  const HOUR = 60 * 60 * 1000
+  const limits = { max: 3, windowMs: HOUR }
+  const reserve = (userId = 'u1') => t.mutation(api.billing.reserveDiscountCode, { userId, ...limits })
+  const counted = async () => (await t.run(ctx => ctx.db.query('billingDiscountAttempts').collect())).map(row => [row.userId, row.refused])
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  test('refuses past max in the window with the wait left, then starts over', async () => {
+    vi.useFakeTimers({ now: Date.UTC(2026, 9, 17, 12) })
+    const start = Date.now()
+    for (let i = 0; i < 3; i++) expect(await reserve()).toEqual({ reserved: true, windowStart: start })
+
+    vi.advanceTimersByTime(10 * 60 * 1000)
+    expect(await reserve()).toEqual({ reserved: false, retryAfter: 50 * 60 * 1000 })
+    // Per entity: another one is not held back.
+    expect(await reserve('u2')).toMatchObject({ reserved: true })
+
+    vi.advanceTimersByTime(HOUR)
+    // An attempt after the window counts from one again, on the same row.
+    expect(await reserve()).toEqual({ reserved: true, windowStart: Date.now() })
+    expect(await counted()).toEqual([['u1', 1], ['u2', 1]])
+  })
+
+  test('concurrent reservations never count past max', async () => {
+    const results = await Promise.all(Array.from({ length: 12 }, () => reserve()))
+    expect(results.filter(result => result.reserved)).toHaveLength(3)
+    expect(await counted()).toEqual([['u1', 3]])
+  })
+
+  test('a release gives the attempt back, only in the window it was counted in', async () => {
+    vi.useFakeTimers({ now: Date.UTC(2026, 9, 17, 12) })
+    const first = await reserve()
+    if (!first.reserved) throw new Error('expected a reservation')
+    await reserve()
+    await t.mutation(api.billing.releaseDiscountCode, { userId: 'u1', windowStart: first.windowStart })
+    expect(await counted()).toEqual([['u1', 1]])
+
+    vi.advanceTimersByTime(HOUR)
+    await reserve()
+    // A late release from the old window leaves the new one alone.
+    await t.mutation(api.billing.releaseDiscountCode, { userId: 'u1', windowStart: first.windowStart })
+    expect(await counted()).toEqual([['u1', 1]])
+    // Unknown entities are a no-op.
+    expect(await t.mutation(api.billing.releaseDiscountCode, { userId: 'nobody', windowStart: 0 })).toBeNull()
+  })
+
+  test('deleteByUser forgets the entity\'s attempts too', async () => {
+    await reserve()
+    await t.mutation(api.billing.deleteByUser, { userId: 'u1' })
+    expect(await t.run(ctx => ctx.db.query('billingDiscountAttempts').collect())).toEqual([])
   })
 })
 

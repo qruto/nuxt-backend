@@ -20,15 +20,14 @@ import { email } from './email'
 // through it).
 export const billing = setupBilling(components, { catalog, email })
 
-// Checkout / portal / subscription / gift functions for `useBilling`.
+// Checkout, portal, price list and gift checkout for `useBilling`. The
+// server sells only the catalog's plans and packs, sends buyers back only
+// to SITE_URL, and keeps the trial and discounts by id to itself.
 export const {
   generateCheckoutLink,
   generateCustomerPortalUrl,
   getConfiguredProducts,
-  listAllProducts,
   listAllSubscriptions,
-  changeCurrentSubscription,
-  cancelCurrentSubscription,
   giftCheckout,
 } = billing.api
 // Reactive queries + actions behind `useBilling` / `useFeatures` /
@@ -79,8 +78,8 @@ export const createDiscount = internalAction({
 })
 
 // Credits are prepaid: a credit pack is a one-time product whose Credits
-// benefit tops up a meter balance (`useCredits().topUp(packId)` — or gift
-// one to someone else with `useCredits().gift(packId, { recipientEmail })`).
+// benefit tops up a meter balance (`useCredits().topUp(packId)`, or as a gift
+// by its catalog key: `useCredits().gift('credits500', { recipientEmail })`).
 // Spend them from your own server code when a metered feature is used —
 // `spendCredits` blocks (throws) when the balance is too low, so credits are
 // never billed as overage. Uncomment and point `meterId` at your credit meter:

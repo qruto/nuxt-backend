@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { renderGenerated } from '../../src/cli/billing/generated'
 
 /**
  * `billing sync` writes `backend/billing.generated.ts` into the consumer's
@@ -17,6 +18,11 @@ describe('generated catalog file', () => {
     expect(source).toContain('function renderValue(')
     // The old implementation; a regression would reintroduce it.
     expect(source).not.toContain('JSON.stringify(map, null, 2)')
+  })
+
+  it('renders the pack keys as an array', () => {
+    const rendered = renderGenerated({ sandbox: { products: { pro: 'p1', credits500: 'p2' }, packs: ['credits500'], meters: {} } })
+    expect(rendered).toContain('    packs: [\'credits500\'],\n')
   })
 
   it('the committed playground map matches the renderer\'s output shape', () => {

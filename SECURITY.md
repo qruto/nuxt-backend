@@ -327,5 +327,28 @@ what was decided:
   they left it or were removed, could never sign in again: re-creating it hit the unique slug.
   They rejoin it when it is empty, and get a new one otherwise; the sign-in gate runs before any
   write. **Fixed.** Pinned by `test/unit/workspace-session-flow.test.ts`.
+- **Checkout, plan changes and gifts** (`billing:generateCheckoutLink`,
+  `billing:updateSubscription`, `billing:giftCheckout`, `billing:generateCustomerPortalUrl`;
+  2026-10-17). The browser chose everything: any product id the provider sells, the trial and
+  its length, a discount by id, the metadata — including the `userId` key a webhook resolves the
+  billing entity by and the gift keys a paid order is delivered by — and where the buyer, with a
+  checkout id in the query, was sent afterwards. Each is the server's now: products come from
+  the app's catalog (a plan change too, and a gift is a catalog credit pack named by its key),
+  success, return and embed URLs must be on `SITE_URL`'s origin or a `trustedOrigins` entry,
+  the package's metadata keys and the `utm_` prefix are refused, and a trial or a discount by
+  id comes only from server code (`billing.checkout`, a trial of 1 to 30 days in days or
+  weeks). A plan change must switch to a recurring catalog plan, never a pack. A client may still
+  send a discount code, which the provider checks; each refused code counts against the billing
+  entity, ten in a fixed one-hour window whatever rate limiter the app passes, so a checkout is no
+  way to test codes. The attempt is counted in one transaction before the provider sees the code,
+  so parallel checkouts can't get more codes checked between them, and given back when the code
+  is accepted or never tried.
+  Campaign attribution is stored as `utm_*` metadata. Webhooks resolve the billing entity from
+  the customer's own metadata only: an order's or a subscription's is copied from the checkout
+  a buyer filled in. The provider's own product list and single-subscription change and
+  cancel actions are no longer part of `billing.api`. **Fixed.** Pinned by
+  `test/unit/billing-orders-subscriptions.test.ts`, `test/unit/billing-integration.test.ts`,
+  `test/convex-component/billing.test.ts` and the probe suite, whose ratchet lost every checkout
+  gap and whose input probes count only an `invalid_input` on the probed field as a refusal.
 - **DevTools** (2026-09-17). The Backend tab and its RPC run only under `nuxt dev`, on Vite's
   middleware — reachable exactly as far as Nuxt DevTools itself. **Accepted.**

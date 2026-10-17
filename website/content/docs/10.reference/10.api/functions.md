@@ -257,7 +257,7 @@ never renames one.
 - `invalid_input` — an argument the call refuses; `field` names it.
 - `not_ready` — there is nothing to act on yet, and retrying will not
   change that: `reason` says what has to happen first (`no_customer`,
-  `not_synced`).
+  `not_synced`, `no_catalog`).
 - `unavailable` — a service can't serve the call; `service` and
   `reason` say which and why. Only `provider_refused` may pass on a retry;
   the others need the deployment fixed. Nothing throws service `backend`

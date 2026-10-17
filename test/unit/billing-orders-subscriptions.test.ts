@@ -1,10 +1,12 @@
 import { Polar } from '@convex-dev/polar'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { checkoutsClientUpdate } from '@polar-sh/sdk/funcs/checkoutsClientUpdate.js'
 import { checkoutsCreate } from '@polar-sh/sdk/funcs/checkoutsCreate.js'
 import { customersCreate } from '@polar-sh/sdk/funcs/customersCreate.js'
 import { customersGetState } from '@polar-sh/sdk/funcs/customersGetState.js'
 import { customersList } from '@polar-sh/sdk/funcs/customersList.js'
 import { customersUpdate } from '@polar-sh/sdk/funcs/customersUpdate.js'
+import { customerSessionsCreate } from '@polar-sh/sdk/funcs/customerSessionsCreate.js'
 import { discountsCreate } from '@polar-sh/sdk/funcs/discountsCreate.js'
 import { discountsDelete } from '@polar-sh/sdk/funcs/discountsDelete.js'
 import { discountsList } from '@polar-sh/sdk/funcs/discountsList.js'
@@ -25,11 +27,13 @@ import { type Billing, setupBilling, type SetupBillingConfig } from '../../src/c
  * network, and the deployment's token is expired anyway.
  */
 
+vi.mock('@polar-sh/sdk/funcs/checkoutsClientUpdate.js', () => ({ checkoutsClientUpdate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/checkoutsCreate.js', () => ({ checkoutsCreate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/customersCreate.js', () => ({ customersCreate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/customersGetState.js', () => ({ customersGetState: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/customersList.js', () => ({ customersList: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/customersUpdate.js', () => ({ customersUpdate: vi.fn() }))
+vi.mock('@polar-sh/sdk/funcs/customerSessionsCreate.js', () => ({ customerSessionsCreate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/discountsCreate.js', () => ({ discountsCreate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/discountsDelete.js', () => ({ discountsDelete: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/discountsList.js', () => ({ discountsList: vi.fn() }))
@@ -41,11 +45,13 @@ vi.mock('@polar-sh/sdk/funcs/ordersList.js', () => ({ ordersList: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/refundsCreate.js', () => ({ refundsCreate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/subscriptionsUpdate.js', () => ({ subscriptionsUpdate: vi.fn() }))
 
+const mockCheckoutsClientUpdate = vi.mocked(checkoutsClientUpdate)
 const mockCheckoutsCreate = vi.mocked(checkoutsCreate)
 const mockCustomersCreate = vi.mocked(customersCreate)
 const mockCustomersGetState = vi.mocked(customersGetState)
 const mockCustomersList = vi.mocked(customersList)
 const mockCustomersUpdate = vi.mocked(customersUpdate)
+const mockCustomerSessionsCreate = vi.mocked(customerSessionsCreate)
 const mockDiscountsCreate = vi.mocked(discountsCreate)
 const mockDiscountsDelete = vi.mocked(discountsDelete)
 const mockDiscountsList = vi.mocked(discountsList)
@@ -71,6 +77,8 @@ const components = {
       clearPendingSpends: 'ref:clearPendingSpends',
       getBenefitMetadata: 'ref:getBenefitMetadata',
       upsertBenefitMetadata: 'ref:upsertBenefitMetadata',
+      reserveDiscountCode: 'ref:reserveDiscountCode',
+      releaseDiscountCode: 'ref:releaseDiscountCode',
     },
     gifts: {
       create: 'ref:gifts.create',
@@ -91,12 +99,15 @@ const email = { sendTemplate: async () => null }
  * Bills the signed-in user with a configured provider token, so the billing
  * entity is whatever {@link makeCtx}'s identity claims say — the same
  * claims-first resolution production uses, with no `resolveEntity` override.
+ * The catalog sells two plans, and checkouts may return to `https://app`.
  */
 function make(overrides: Partial<SetupBillingConfig> = {}) {
   return setupBilling(components, {
     email,
     accessToken: 'oat_test',
     billTo: 'user',
+    products: { a: 'prod_a', b: 'prod_b' },
+    trustedOrigins: ['https://app'],
     ...overrides,
   } as SetupBillingConfig)
 }
@@ -109,7 +120,9 @@ function makeCtx(claims: Record<string, unknown> | null = signedIn) {
     // re-implement these to record the reference they were called with, and a
     // zero-arg annotation would make that a type error.
     runQuery: vi.fn(async (_ref?: unknown, _args?: unknown): Promise<unknown> => null),
-    runMutation: vi.fn(async (_ref?: unknown, _args?: unknown): Promise<unknown> => null),
+    // A discount-code attempt is reserved: the component's answer for a fresh window.
+    runMutation: vi.fn(async (ref?: unknown, _args?: unknown): Promise<unknown> =>
+      ref === 'ref:reserveDiscountCode' ? { reserved: true, windowStart: 1_000 } : null),
     auth: { getUserIdentity: vi.fn(async () => claims) },
   }
 }
@@ -123,7 +136,15 @@ function invoke(fn: unknown) {
 /** One live subscription on the synced component table. */
 const liveSubscription = { id: 'sub_1', status: 'active', endedAt: null, productId: 'prod_a' }
 
+/** The synced products table: the catalog's two plans, and a credit pack. */
+const SYNCED_PRODUCTS: Record<string, object> = {
+  prod_a: { id: 'prod_a', isRecurring: true, isArchived: false },
+  prod_b: { id: 'prod_b', isRecurring: true, isArchived: false },
+  prod_pack: { id: 'prod_pack', isRecurring: false, isArchived: false },
+}
+
 function withSubscriptions(subscriptions: unknown[] = [liveSubscription]) {
+  vi.spyOn(Polar.prototype, 'getProduct').mockImplementation(async (_ctx, { productId }) => (SYNCED_PRODUCTS[productId] ?? null) as never)
   return vi.spyOn(Polar.prototype, 'listAllUserSubscriptions').mockResolvedValue(subscriptions as never)
 }
 
@@ -160,11 +181,11 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
     await expect(billing.updateSubscription(makeCtx() as never, { productId: 'prod_a' }))
       .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'productId' } })
-    await expect(invoke(billing.api.changeCurrentSubscription)(makeCtx(), { productId: 'prod_a' }))
+    await expect(invoke(billing.functions.updateSubscription)(makeCtx(), { productId: 'prod_a' }))
       .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'productId' } })
     expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
 
-    await invoke(billing.api.changeCurrentSubscription)(makeCtx(), { productId: 'prod_b' })
+    await invoke(billing.functions.updateSubscription)(makeCtx(), { productId: 'prod_b' })
     expect(mockSubscriptionsUpdate).toHaveBeenCalledWith(expect.anything(), {
       id: 'sub_1',
       subscriptionUpdate: { productId: 'prod_b' },
@@ -804,7 +825,7 @@ describe('checkout customization', () => {
   function primeCheckout(billing: Billing, customerId: string | null = 'cus_1') {
     vi.spyOn(Polar.prototype, 'getCustomerByUserId')
       .mockResolvedValue(customerId === null ? null : { id: customerId, userId: 'u1' } as never)
-    mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout/1' } } as never)
+    mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout/1', clientSecret: 'cs_1' } } as never)
   }
 
   it('maps prefill, custom fields, locale and billing-address control onto CheckoutCreate', async () => {
@@ -862,15 +883,14 @@ describe('checkout customization', () => {
     )
   })
 
-  // A customer-facing *code* is never resolved here: the provider's API has no
-  // code lookup (its discount list filters by name), so doing it would mean
-  // scanning the whole catalog on a public, client-callable action. Codes are
-  // typed into the provider's own checkout; only an id is pre-applied.
-  it('pre-applies a discount id without ever listing the catalog', async () => {
+  // A discount by id is the server's to choose: an id names any discount,
+  // the 100% one minted for a single claim included. Server code passes it
+  // to billing.checkout without the catalog ever being listed.
+  it('pre-applies a discount id from server code, without ever listing the catalog', async () => {
     const billing = make()
     primeCheckout(billing)
 
-    await invoke(billing.api.generateCheckoutLink)(makeCtx(), {
+    await billing.checkout(makeCtx() as never, {
       productIds: ['prod_a'],
       origin: 'https://app',
       successUrl: 'https://app/done',
@@ -1017,6 +1037,271 @@ describe('checkout never adopts another entity’s customer', () => {
   })
 })
 
+// The browser chooses which catalog product to buy and nothing else: what is
+// sold, where the buyer lands, the trial, a discount by id and the metadata
+// keys the package reads back are the server's. Each refusal names its field
+// and comes before anything is created at the provider.
+describe('server-authoritative checkout', () => {
+  const args = { productIds: ['prod_a'], origin: 'https://app', successUrl: 'https://app/done' }
+
+  /**
+   * A billing whose entity has no provider customer yet, so a checkout that
+   * got past its checks would look one up and create it: the refusals below
+   * must come before either.
+   */
+  function primed(overrides: Partial<SetupBillingConfig> = {}) {
+    const billing = make(overrides)
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue(null as never)
+    mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [] } } } as never)
+    mockCustomersCreate.mockResolvedValue({ ok: true, value: { id: 'cus_new' } } as never)
+    mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout/1', clientSecret: 'cs_1' } } as never)
+    return billing
+  }
+
+  /** The refusal a checkout with these extra arguments meets, and that the provider never heard of it. */
+  async function refusal(extra: Record<string, unknown>, billing = primed(), ctx: ReturnType<typeof makeCtx> = makeCtx()) {
+    const error = await invoke(billing.api.generateCheckoutLink)(ctx, { ...args, ...extra }).catch((caught: unknown) => caught)
+    expect(mockCustomersList).not.toHaveBeenCalled()
+    expect(mockCustomersCreate).not.toHaveBeenCalled()
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+    return (error as { data?: unknown }).data
+  }
+
+  it('sells only the catalog\'s products', async () => {
+    expect(await refusal({ productIds: ['prod_a', 'prod_elsewhere'] })).toEqual({ code: 'invalid_input', field: 'productIds' })
+    expect(await refusal({ productIds: [] })).toEqual({ code: 'invalid_input', field: 'productIds' })
+    // No catalog at all sells nothing yet: the app's to fix, not the buyer's.
+    expect(await refusal({}, primed({ products: undefined }))).toMatchObject({ code: 'not_ready', reason: 'no_catalog' })
+  })
+
+  it('sends the buyer back only to the site or a trusted origin', async () => {
+    expect(await refusal({ successUrl: 'https://attacker.example/landing' })).toEqual({ code: 'invalid_input', field: 'successUrl' })
+    expect(await refusal({ origin: 'https://attacker.example' })).toEqual({ code: 'invalid_input', field: 'origin' })
+    expect(await refusal({ successUrl: 'javascript:alert(1)' })).toEqual({ code: 'invalid_input', field: 'successUrl' })
+    // Same host, another scheme: another origin.
+    expect(await refusal({ successUrl: 'http://app/done' })).toEqual({ code: 'invalid_input', field: 'successUrl' })
+  })
+
+  it('trusts SITE_URL\'s origin, and loopback only when local origins are trusted', async () => {
+    vi.stubEnv('SITE_URL', 'https://shop.example/path')
+    try {
+      const billing = primed({ trustedOrigins: [] })
+      const local = { origin: 'http://localhost:3001', successUrl: 'http://localhost:3001/done' }
+      await invoke(billing.api.generateCheckoutLink)(makeCtx(), { ...args, origin: 'https://shop.example', successUrl: 'https://shop.example/billing?ok=1' })
+      expect(mockCheckoutsCreate).toHaveBeenCalledTimes(1)
+      vi.clearAllMocks()
+      expect(await refusal(local, billing)).toEqual({ code: 'invalid_input', field: 'origin' })
+      vi.stubEnv('AUTH_TRUST_LOCAL_ORIGINS', '1')
+      await expect(invoke(billing.api.generateCheckoutLink)(makeCtx(), { ...args, ...local })).resolves.toEqual({ url: 'https://checkout/1' })
+    }
+    finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('refuses the metadata keys the package reads back, in any case, and oversized metadata', async () => {
+    for (const key of ['userId', 'UserID', 'gift', 'giftId', 'recipientEmail', 'purchaserUserId', 'giftRecipient', 'utm_source']) {
+      expect(await refusal({ metadata: { [key]: 'x' } }), key).toEqual({ code: 'invalid_input', field: 'metadata' })
+    }
+    expect(await refusal({ metadata: { ['k'.repeat(41)]: 'x' } })).toEqual({ code: 'invalid_input', field: 'metadata' })
+    expect(await refusal({ metadata: { note: 'x'.repeat(501) } })).toEqual({ code: 'invalid_input', field: 'metadata' })
+    expect(await refusal({ metadata: Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`k${i}`, 'v'])) }))
+      .toEqual({ code: 'invalid_input', field: 'metadata' })
+  })
+
+  it('refuses a trial or a discount id from the client, naming the field', async () => {
+    expect(await refusal({ trialInterval: 'year', trialIntervalCount: 5 })).toEqual({ code: 'invalid_input', field: 'trialInterval' })
+    expect(await refusal({ trialIntervalCount: 3 })).toEqual({ code: 'invalid_input', field: 'trialIntervalCount' })
+    expect(await refusal({ discountId: 'disc_full' })).toEqual({ code: 'invalid_input', field: 'discountId' })
+  })
+
+  it('refuses another entity\'s subscription to upgrade', async () => {
+    withSubscriptions()
+    expect(await refusal({ subscriptionId: 'sub_someone_else' })).toEqual({ code: 'forbidden', reason: 'not_owner' })
+
+    const billing = primed()
+    withSubscriptions()
+    await invoke(billing.api.generateCheckoutLink)(makeCtx(), { ...args, subscriptionId: 'sub_1' })
+    expect(mockCheckoutsCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ subscriptionId: 'sub_1' }))
+  })
+
+  it('keeps the app\'s own metadata and flattens campaign attribution into utm_* keys', async () => {
+    const billing = primed()
+
+    await invoke(billing.api.generateCheckoutLink)(makeCtx(), {
+      ...args,
+      metadata: { plan_page: 'pricing' },
+      utm: { source: '  newsletter ', medium: '', campaign: 'c'.repeat(150), content: 'hero' },
+    })
+
+    expect(mockCheckoutsCreate.mock.calls[0]![1].metadata).toStrictEqual({
+      plan_page: 'pricing',
+      utm_source: 'newsletter',
+      utm_campaign: 'c'.repeat(100),
+      utm_content: 'hero',
+    })
+    // No trial fields at all: the product's own trial applies.
+    expect(mockCheckoutsCreate.mock.calls[0]![1]).not.toHaveProperty('allowTrial')
+  })
+
+  it('applies a discount code on the created session, through its client secret', async () => {
+    const billing = primed()
+    mockCheckoutsClientUpdate.mockResolvedValue({ ok: true, value: {} } as never)
+
+    const result = await invoke(billing.api.generateCheckoutLink)(makeCtx(), { ...args, allowDiscountCodes: false, discountCode: ' LAUNCH20 ' })
+
+    expect(result).toEqual({ url: 'https://checkout/1' })
+    // A code applied up front needs codes allowed.
+    expect(mockCheckoutsCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ allowDiscountCodes: true }))
+    expect(mockCheckoutsClientUpdate).toHaveBeenCalledWith(expect.anything(), { clientSecret: 'cs_1', checkoutUpdatePublic: { discountCode: 'LAUNCH20' } })
+  })
+
+  it('refuses a code the provider refuses as invalid_input, and a failure as unavailable', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const billing = primed()
+    mockCheckoutsClientUpdate.mockResolvedValueOnce({ ok: false, error: Object.assign(new Error('Body: {"detail":"LAUNCH20"}'), { statusCode: 422 }) } as never)
+    await expect(invoke(billing.api.generateCheckoutLink)(makeCtx(), { ...args, discountCode: 'LAUNCH20' }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'discountCode' } })
+
+    mockCheckoutsClientUpdate.mockResolvedValueOnce({ ok: false, error: Object.assign(new Error('down'), { statusCode: 503 }) } as never)
+    await expect(invoke(billing.api.generateCheckoutLink)(makeCtx(), { ...args, discountCode: 'LAUNCH20' }))
+      .rejects.toMatchObject({ data: { code: 'unavailable', reason: 'provider_refused' } })
+
+    vi.clearAllMocks()
+    expect(await refusal({ discountCode: 'X'.repeat(65) }, billing)).toEqual({ code: 'invalid_input', field: 'discountCode' })
+  })
+
+  it('lets server code grant a trial of at most 30 days, or remove the product\'s own', async () => {
+    const billing = primed()
+    const checkout = (trial: unknown) => billing.checkout(makeCtx() as never, { ...args, trial: trial as never })
+
+    await checkout({ interval: 'day', count: 30 })
+    expect(mockCheckoutsCreate).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ allowTrial: true, trialInterval: 'day', trialIntervalCount: 30 }))
+    await checkout({ interval: 'week', count: 4 })
+    expect(mockCheckoutsCreate).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ trialInterval: 'week', trialIntervalCount: 4 }))
+    await checkout(false)
+    expect(mockCheckoutsCreate).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ allowTrial: false }))
+
+    vi.clearAllMocks()
+    // A month is a calendar month at the provider, up to 31 days: no months.
+    for (const trial of [{ interval: 'day', count: 31 }, { interval: 'week', count: 5 }, { interval: 'month' }, { interval: 'year' }, { interval: 'day', count: 0 }, { interval: 'day', count: 1.5 }, null, 'day']) {
+      await expect(checkout(trial), JSON.stringify(trial)).rejects.toMatchObject({ data: { code: 'invalid_input', field: 'trial' } })
+    }
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
+
+  it('holds server checkouts to the catalog and the site too', async () => {
+    const billing = primed()
+    await expect(billing.checkout(makeCtx() as never, { ...args, productIds: ['prod_elsewhere'] }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'productIds' } })
+    await expect(billing.checkout(makeCtx() as never, { ...args, successUrl: 'https://attacker.example' }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'successUrl' } })
+  })
+
+  it('switches plans only to a catalog product, before the provider is asked', async () => {
+    const billing = make()
+    withSubscriptions()
+
+    await expect(invoke(billing.functions.updateSubscription)(makeCtx(), { productId: 'prod_elsewhere' }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'productId' } })
+    expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
+  })
+
+  it('opens the portal with a return URL only on the site', async () => {
+    const billing = make()
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1', userId: 'u1' } as never)
+    mockCustomerSessionsCreate.mockResolvedValue({ ok: true, value: { customerPortalUrl: 'https://portal/1' } } as never)
+
+    await expect(invoke(billing.api.generateCustomerPortalUrl)(makeCtx(), { returnUrl: 'https://attacker.example/back' }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'returnUrl' } })
+    expect(mockCustomerSessionsCreate).not.toHaveBeenCalled()
+
+    // The same call back to the site opens the portal.
+    await expect(invoke(billing.api.generateCustomerPortalUrl)(makeCtx(), { returnUrl: 'https://app/settings' })).resolves.toEqual({ url: 'https://portal/1' })
+    expect(mockCustomerSessionsCreate).toHaveBeenCalledWith(expect.anything(), { customerId: 'cus_1', returnUrl: 'https://app/settings' })
+  })
+
+  it('refuses a signed-out caller as unauthenticated before what it sent', async () => {
+    expect(await refusal({ trialInterval: 'day', discountId: 'disc_full' }, primed(), makeCtx(null))).toMatchObject({ code: 'unauthenticated' })
+  })
+
+  it('refuses metadata values that are no strings, from server code too', async () => {
+    const billing = primed()
+    await expect(billing.checkout(makeCtx() as never, { ...args, metadata: { seats: 3 } as never }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'metadata' } })
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
+
+  // The provider answers "valid or not" for every code a checkout applies:
+  // unlimited, that is a way to test codes one after another.
+  it('counts each refused discount code against the entity, with or without an app limiter', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const billing = primed()
+    const ctx = makeCtx()
+    mockCheckoutsClientUpdate.mockResolvedValue({ ok: false, error: Object.assign(new Error('refused'), { statusCode: 422 }) } as never)
+
+    await expect(invoke(billing.api.generateCheckoutLink)(ctx, { ...args, discountCode: 'GUESS1' }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'discountCode' } })
+
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:reserveDiscountCode', { userId: 'u1', max: 10, windowMs: 3_600_000 })
+    // Reserved before the provider heard of the checkout, and kept: the provider refused the code.
+    expect(ctx.runMutation.mock.invocationCallOrder[0]!).toBeLessThan(mockCheckoutsCreate.mock.invocationCallOrder[0]!)
+    expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:releaseDiscountCode', expect.anything())
+  })
+
+  it('gives the attempt back when the provider accepts the code', async () => {
+    const billing = primed()
+    const ctx = makeCtx()
+    mockCheckoutsClientUpdate.mockResolvedValue({ ok: true, value: {} } as never)
+
+    await expect(invoke(billing.api.generateCheckoutLink)(ctx, { ...args, discountCode: 'LAUNCH20' })).resolves.toEqual({ url: 'https://checkout/1' })
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:releaseDiscountCode', { userId: 'u1', windowStart: 1_000 })
+  })
+
+  it('gives the attempt back when the checkout fails before the code is tried, or the provider is down', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const billing = primed()
+    mockCheckoutsCreate.mockResolvedValueOnce({ ok: false, error: Object.assign(new Error('down'), { statusCode: 503 }) } as never)
+    const failedCreate = makeCtx()
+    await expect(invoke(billing.api.generateCheckoutLink)(failedCreate, { ...args, discountCode: 'LAUNCH20' }))
+      .rejects.toMatchObject({ data: { code: 'unavailable', reason: 'provider_refused' } })
+    expect(mockCheckoutsClientUpdate).not.toHaveBeenCalled()
+    expect(failedCreate.runMutation).toHaveBeenCalledWith('ref:releaseDiscountCode', { userId: 'u1', windowStart: 1_000 })
+
+    mockCheckoutsClientUpdate.mockResolvedValueOnce({ ok: false, error: Object.assign(new Error('down'), { statusCode: 503 }) } as never)
+    const failedApply = makeCtx()
+    await expect(invoke(billing.api.generateCheckoutLink)(failedApply, { ...args, discountCode: 'LAUNCH20' }))
+      .rejects.toMatchObject({ data: { code: 'unavailable' } })
+    expect(failedApply.runMutation).toHaveBeenCalledWith('ref:releaseDiscountCode', { userId: 'u1', windowStart: 1_000 })
+  })
+
+  it('refuses a discount code while the entity waits out its refused codes, before any checkout', async () => {
+    const ctx = makeCtx()
+    ctx.runMutation.mockImplementation(async ref => (ref === 'ref:reserveDiscountCode' ? { reserved: false, retryAfter: 1_200_000 } : null))
+
+    expect(await refusal({ discountCode: 'GUESS11' }, primed(), ctx)).toEqual({ code: 'rate_limited', limit: 'discountCode', retryAfter: 1_200_000 })
+    expect(mockCheckoutsClientUpdate).not.toHaveBeenCalled()
+    // Without a code, the same entity checks out.
+    await expect(invoke(primed().api.generateCheckoutLink)(ctx, args)).resolves.toEqual({ url: 'https://checkout/1' })
+  })
+
+  it('switches plans only to a recurring plan, never a credit pack', async () => {
+    const billing = make({ products: { a: 'prod_a', b: 'prod_b', pack: 'prod_pack' } })
+    withSubscriptions()
+
+    await expect(invoke(billing.functions.updateSubscription)(makeCtx(), { productId: 'prod_pack' }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'productId' } })
+    expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
+  })
+
+  it('warns at setup about a trusted origin without its scheme', () => {
+    const warned = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    make({ trustedOrigins: ['https://app', 'shop.example'] })
+    expect(warned).toHaveBeenCalledTimes(1)
+    expect(String(warned.mock.calls[0]![0])).toContain('billing.trusted_origin_invalid')
+  })
+})
+
 describe('multipleSubscriptions', () => {
   const first = { id: 'sub_1', status: 'active', endedAt: null, productId: 'prod_a' }
   const second = { id: 'sub_2', status: 'trialing', endedAt: null, productId: 'prod_addon' }
@@ -1045,7 +1330,7 @@ describe('multipleSubscriptions', () => {
     // Each row is joined to its product exactly as the single-subscription
     // read does, so both branches hand the UI the same shape.
     expect(result.subscriptions).toStrictEqual([
-      { ...first, productKey: undefined, product: null },
+      { ...first, productKey: 'a', product: null },
       { ...second, productKey: undefined, product: null },
     ])
     // Single-plan consumers keep reading `.productId` / `.status` unchanged.
@@ -1216,25 +1501,13 @@ describe('registered actions', () => {
     })
   })
 
-  it('the single-subscription actions on billing.api run the package lifecycle and refuse by code', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    const billing = make()
-    withSubscriptions()
-
-    expect(await invoke(billing.api.changeCurrentSubscription)(makeCtx(), { productId: 'prod_b' })).toBeNull()
-    expect(mockSubscriptionsUpdate).toHaveBeenLastCalledWith(expect.anything(), { id: 'sub_1', subscriptionUpdate: expect.objectContaining({ productId: 'prod_b' }) })
-    expect(await invoke(billing.api.cancelCurrentSubscription)(makeCtx(), { revokeImmediately: true })).toBeNull()
-    expect(mockSubscriptionsUpdate).toHaveBeenLastCalledWith(expect.anything(), { id: 'sub_1', subscriptionUpdate: expect.objectContaining({ revoke: true }) })
-
-    // The provider's refusal reaches the caller as a code, not as its body.
-    mockSubscriptionsUpdate.mockResolvedValueOnce({ ok: false, error: new Error('API error occurred: Status 422. Body: {}') } as never)
-    const refused = await invoke(billing.api.cancelCurrentSubscription)(makeCtx(), {}).catch((error: unknown) => error)
-    expect(refused).toMatchObject({ data: { code: 'unavailable', reason: 'provider_refused' } })
-    expect(String(refused)).not.toContain('Body')
-
-    withSubscriptions([])
-    await expect(invoke(billing.api.changeCurrentSubscription)(makeCtx(), { productId: 'prod_b' }))
-      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'subscriptionId' } })
+  // The provider's own api() also has a product list and one-subscription
+  // change and cancel actions. The package's lifecycle functions cover both,
+  // so billing.api keeps only the provider's price list.
+  it('billing.api keeps only the provider\'s price list of its own actions', () => {
+    expect(Object.keys(make().api).sort()).toEqual([
+      'generateCheckoutLink', 'generateCustomerPortalUrl', 'getConfiguredProducts', 'giftCheckout', 'listAllSubscriptions',
+    ])
   })
 
   it('the lifecycle actions resolve nothing from the client but the target id', async () => {

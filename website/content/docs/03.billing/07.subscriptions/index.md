@@ -31,10 +31,7 @@ export const {
   generateCheckoutLink,
   generateCustomerPortalUrl,
   getConfiguredProducts,
-  listAllProducts,
   listAllSubscriptions,
-  changeCurrentSubscription,
-  cancelCurrentSubscription,
   giftCheckout,
 } = billing.api
 export const {

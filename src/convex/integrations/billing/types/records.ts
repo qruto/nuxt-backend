@@ -65,6 +65,8 @@ export interface CreditMeterConfig {
 export interface BillingCatalogIds {
   /** Catalog key → provider product id (plans and packs). */
   products?: Record<string, string>
+  /** The catalog keys of `products` that are credit packs: what a gift may buy. */
+  packs?: string[]
   /** Catalog key → credit meter config. */
   meters?: Record<string, CreditMeterConfig>
 }

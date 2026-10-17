@@ -8,6 +8,7 @@ import { actionGeneric, queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
 import { type BillingContext, readEnv } from './context.js'
 import type { BillingEntitlements } from './entitlements.js'
+import type { PurchaseRules } from './purchase.js'
 import type { ProviderCtx, RunWriteCtx } from './types/base.js'
 import type { GiftRecord } from './types/records.js'
 import { backendError } from '../../errors.js'
@@ -38,6 +39,7 @@ const GIFT_CUSTOMER_TAKEN = {
 export function createGifts(
   { components, config, billTo, provider, providerLib, resolveEntity, requireProviderAccess, unwrapProvider, throttle, customerOwner }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
+  { requireTrustedUrl, requirePack, requireClientMetadata }: PurchaseRules,
 ) {
   const gifts = components.backend.gifts
 
@@ -97,9 +99,15 @@ export function createGifts(
     return unwrapProvider(created, 'gift checkout').id
   }
 
+  /**
+   * A gift is a credit pack, named by its catalog key: never a plan, which
+   * would renew on the purchaser's card, and never a product outside the
+   * catalog. The pack, the return URLs and the metadata are checked before
+   * anything is created for the recipient.
+   */
   const giftCheckout = actionGeneric({
     args: {
-      productIds: v.array(v.string()),
+      pack: v.string(),
       recipientEmail: v.string(),
       message: v.optional(v.string()),
       origin: v.string(),
@@ -120,10 +128,15 @@ export function createGifts(
       if (!recipientEmail || !recipientEmail.includes('@')) {
         throw backendError('invalid_input', { field: 'recipientEmail' }, '[nuxt-backend] giftCheckout: a valid recipient email is required.')
       }
+      requireTrustedUrl(args.origin, 'origin')
+      requireTrustedUrl(args.successUrl, 'successUrl')
+      requireClientMetadata(args.metadata)
       // Every gift checkout reaches the provider for an address the purchaser
       // picked, so a purchaser is held to the `billingSync` limit (keyed by
-      // their user id) like every other client-callable provider call.
+      // their user id) like every other client-callable provider call — before
+      // the pack is even read.
       await throttle(ctx, purchaserUserId, 'gift checkouts')
+      const productId = await requirePack(ctx, args.pack)
       if (config.canGift) {
         const verdict = await config.canGift(ctx, { recipientEmail, purchaserUserId })
         if (verdict !== true) {
@@ -140,7 +153,7 @@ export function createGifts(
         purchaserUserId,
         purchaserEmail,
         purchaserName,
-        productIds: args.productIds,
+        productIds: [productId],
         message: args.message,
         billingCustomerId,
       })
@@ -151,7 +164,7 @@ export function createGifts(
         // The provider settles the order on the customer carrying this email;
         // fulfilment checks that it did (`handleGiftOrderPaid`).
         customerEmail: recipientEmail,
-        products: args.productIds,
+        products: [productId],
         embedOrigin: args.origin,
         successUrl: args.successUrl,
         allowDiscountCodes: true,

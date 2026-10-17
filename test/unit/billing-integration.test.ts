@@ -74,6 +74,9 @@ const config = {
   // mocked, but the operations that write at the provider refuse to run
   // without one.
   accessToken: 'oat_test',
+  // What the app sells (a plan and a credit pack), and where a buyer may land.
+  products: { pro: 'p1', credits500: 'p_pack' },
+  trustedOrigins: ['https://app'],
 } as never
 
 interface MakeCtxOptions {
@@ -585,6 +588,30 @@ describe('webhook refresh handler', () => {
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:upsert', expect.objectContaining({ userId: 'u1' }))
   })
 
+  // An order's and a subscription's metadata come from the checkout a buyer
+  // filled in: a `userId` there names whoever the buyer chose.
+  it.each(['order.paid', 'subscription.updated'] as const)('never takes the entity from a %s payload\'s own metadata', async (type) => {
+    primeRefresh()
+    const ctx = makeCtx()
+    ctx.runQuery.mockResolvedValue('u-owner')
+
+    await billing.webhookEvents[type]!(ctx as never, { type, data: { customer: { id: 'cus_1', metadata: {} }, metadata: { userId: 'u-victim' } } } as never)
+
+    expect(ctx.runQuery).toHaveBeenCalledWith('ref:userByCustomer', { customerId: 'cus_1' })
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:upsert', expect.objectContaining({ userId: 'u-owner' }))
+    expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:upsert', expect.objectContaining({ userId: 'u-victim' }))
+  })
+
+  it('takes the entity from a customer event\'s own metadata', async () => {
+    primeRefresh()
+    const ctx = makeCtx()
+
+    await billing.webhookEvents['customer.state_changed']!(ctx as never, { type: 'customer.state_changed', data: { id: 'cus_1', metadata: { userId: 'u1' } } } as never)
+
+    expect(ctx.runQuery).not.toHaveBeenCalled()
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:upsert', expect.objectContaining({ userId: 'u1' }))
+  })
+
   it('falls back to the cache to resolve the user from the customer id', async () => {
     primeRefresh()
     const ctx = makeCtx()
@@ -681,7 +708,7 @@ describe('billing entity resolution (billTo)', () => {
 
   it('one resolveEntity serves the reactive reads, spends and checkout alike', async () => {
     const resolveEntity = vi.fn(async () => ({ userId: 'team-7', email: 'billing@team.test' }))
-    const { instance, spy } = setup({ resolveEntity, accessToken: 'oat_test' })
+    const { instance, spy } = setup({ resolveEntity, accessToken: 'oat_test', products: { pro: 'p1' }, trustedOrigins: ['https://app'] })
     const ctx = identityCtx({ subject: 'u1', activeOrganizationId: 'org-1' })
 
     // A spend bills the resolver's entity, not the active workspace claim.
@@ -735,8 +762,17 @@ describe('gifts', () => {
     }
   }
   const purchaser = { subject: 'u-buyer', email: 'buyer@example.com', name: 'Buyer', activeOrganizationId: 'org-buyer' }
-  const giftArgs = { productIds: ['p1'], recipientEmail: 'r@example.com', origin: 'https://app', successUrl: 'https://app/done' }
+  const giftArgs = { pack: 'credits500', recipientEmail: 'r@example.com', origin: 'https://app', successUrl: 'https://app/done' }
   const giftCheckout = (instance: Billing) => instance.api.giftCheckout as unknown as (ctx: unknown, args: unknown) => Promise<unknown>
+  /** The synced products table: the pack sells once, the plan renews, anything else is not there. */
+  const SYNCED: Record<string, object> = {
+    p_pack: { id: 'p_pack', isRecurring: false, isArchived: false },
+    p1: { id: 'p1', isRecurring: true, isArchived: false },
+    p_once: { id: 'p_once', isRecurring: false, isArchived: false },
+  }
+  beforeEach(() => {
+    vi.spyOn(Polar.prototype, 'getProduct').mockImplementation(async (_ctx, { productId }) => (SYNCED[productId] ?? null) as never)
+  })
 
   it('giftCheckout requires a signed-in purchaser', async () => {
     await expect(giftCheckout(billing)(authedCtx(null), giftArgs)).rejects.toThrow(/sign in/)
@@ -775,6 +811,59 @@ describe('gifts', () => {
       metadata: expect.objectContaining({ gift: 'true', giftId: 'gift-1', purchaserUserId: 'u-buyer' }),
     }))
     expect(mockCheckoutsCreate.mock.calls[0]![1]).not.toHaveProperty('customerId')
+  })
+
+  it('giftCheckout buys the pack its catalog key names, and records that product', async () => {
+    mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'cus_r', metadata: {} }] } } } as never)
+    mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout' } } as never)
+    const ctx = authedCtx(purchaser)
+    ctx.runMutation.mockResolvedValue('gift-1')
+
+    await giftCheckout(billing)(ctx, { ...giftArgs, metadata: { occasion: 'birthday' } })
+
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:gifts.create', expect.objectContaining({ productIds: ['p_pack'] }))
+    expect(mockCheckoutsCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      products: ['p_pack'],
+      metadata: expect.objectContaining({ occasion: 'birthday', gift: 'true', giftId: 'gift-1' }),
+    }))
+  })
+
+  // A plan gift would renew on the purchaser's card, and an id outside the
+  // catalog is anything the provider sells. Refused before the recipient
+  // gets a customer.
+  it.each([
+    ['a plan', { pack: 'pro' }, 'pack'],
+    ['a key outside the catalog', { pack: 'credits_free' }, 'pack'],
+    ['a product id in place of the key', { pack: 'p_pack' }, 'pack'],
+    ['a foreign return URL', { successUrl: 'https://attacker.example/thanks' }, 'successUrl'],
+    ['a foreign embed origin', { origin: 'https://attacker.example' }, 'origin'],
+    ['the gift keys in its metadata', { metadata: { giftId: 'gift_of_someone_else' } }, 'metadata'],
+  ])('giftCheckout refuses %s as invalid_input', async (_name, extra, field) => {
+    await expect(giftCheckout(billing)(authedCtx(purchaser), { ...giftArgs, ...extra }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field } })
+    expect(mockCustomersList).not.toHaveBeenCalled()
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
+
+  // `billing sync` writes which keys are packs: a one-time product the
+  // catalog sells otherwise is no gift.
+  it('giftCheckout buys only the generated catalog\'s packs when it lists them', async () => {
+    mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'cus_r', metadata: {} }] } } } as never)
+    mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout' } } as never)
+    const catalog = { sandbox: { products: { pro: 'p1', credits500: 'p_pack', setup: 'p_once' }, packs: ['credits500'] } }
+    const listed = setupBilling(components, { ...(config as object), products: undefined, catalog } as never)
+    const ctx = authedCtx(purchaser)
+    ctx.runMutation.mockResolvedValue('gift-1')
+
+    await expect(giftCheckout(listed)(ctx, { ...giftArgs, pack: 'setup' }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'pack' } })
+    await expect(giftCheckout(listed)(ctx, giftArgs)).resolves.toEqual({ url: 'https://checkout' })
+  })
+
+  it('giftCheckout refuses a pack the products table has not loaded yet', async () => {
+    const unsynced = setupBilling(components, { ...(config as object), products: { credits900: 'p_new' } } as never)
+    await expect(giftCheckout(unsynced)(authedCtx(purchaser), { ...giftArgs, pack: 'credits900' }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'pack' } })
   })
 
   // A checkout bound to a customer pre-fills that customer's name, billing

@@ -18,6 +18,19 @@ export function notConfigured(action: string): never {
 }
 
 /**
+ * The checkout options only the server may choose, passed on when a caller
+ * still sends them (from plain JavaScript, or code written for an earlier
+ * release): the server then refuses the checkout naming the field, where
+ * dropping it here would silently check out without the trial or discount.
+ */
+function serverOnly(opts: CheckoutOptions): Record<string, unknown> {
+  const sent = opts as Record<string, unknown>
+  return Object.fromEntries(['trialInterval', 'trialIntervalCount', 'discountId']
+    .filter(field => sent[field] !== undefined)
+    .map(field => [field, sent[field]]))
+}
+
+/**
  * Build a `checkout(productIds, options)` action over a billing namespace —
  * shared by {@link useBilling} (subscriptions) and
  * {@link "runtime/vue/composables/use-credits"!useCredits} (top-ups),
@@ -36,14 +49,14 @@ export function createCheckout(billing: BillingApi) {
       successUrl,
       subscriptionId: opts.subscriptionId,
       metadata: opts.metadata,
-      trialInterval: opts.trialInterval,
-      trialIntervalCount: opts.trialIntervalCount,
       locale: opts.locale,
       prefill: opts.prefill,
       customFields: opts.customFields,
       requireBillingAddress: opts.requireBillingAddress,
       allowDiscountCodes: opts.allowDiscountCodes,
-      discountId: opts.discountId,
+      discountCode: opts.discountCode,
+      utm: opts.utm,
+      ...serverOnly(opts),
     })
     openProviderUrl(url, opts.redirect)
     return url
@@ -156,25 +169,23 @@ export function createProviderPager<Item>(
 }
 
 /**
- * Build a `gift(productIds, { recipientEmail, ... })` action over a billing
+ * Build a `gift(pack, { recipientEmail, ... })` action over a billing
  * namespace — shared by {@link useBilling} and
- * {@link "runtime/vue/composables/use-credits"!useCredits} (gifting a credit
- * pack is just a gift checkout of a one-time product). The purchaser
- * pays; the recipient (by email) receives the entitlement — attached
- * automatically if they have an account, claimable on first sign-in otherwise.
- * Must be called during component setup.
+ * {@link "runtime/vue/composables/use-credits"!useCredits}. A gift is a
+ * credit pack, named by its catalog key (`credits500`); the server refuses
+ * a plan or anything outside the catalog. The purchaser pays; the recipient
+ * (by email) receives the credits — attached automatically if they have an
+ * account, claimable on first sign-in otherwise. Must be called during
+ * component setup.
  */
 export function createGiftCheckout(billing: BillingApi) {
   const runGiftCheckout = billing.giftCheckout ? useAction(billing.giftCheckout) : null
-  return async (
-    productIds: string | string[],
-    opts: GiftOptions & { recipientEmail: string },
-  ): Promise<string> => {
+  return async (pack: string, opts: GiftOptions & { recipientEmail: string }): Promise<string> => {
     if (!runGiftCheckout) notConfigured('gift')
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const successUrl = opts.successUrl ?? (typeof window !== 'undefined' ? window.location.href : '')
     const { url } = await runGiftCheckout({
-      productIds: Array.isArray(productIds) ? productIds : [productIds],
+      pack,
       recipientEmail: opts.recipientEmail,
       message: opts.message,
       origin,

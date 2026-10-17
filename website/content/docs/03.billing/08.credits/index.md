@@ -55,8 +55,8 @@ const credits = useCredits('credits')   // a catalog meter key (or a raw meter i
   A checkout for the pack(s) — the same `CheckoutOptions` as `useBilling().checkout`; opens in a new tab unless `redirect: true`.
   :::
 
-  :::field{name="gift(productIds, { recipientEmail, message? })"}
-  Buy a pack for someone else — see [Gifts](/docs/billing/credits/gifts).
+  :::field{name="gift(pack, { recipientEmail, message? })"}
+  Buy a pack for someone else, by its catalog key (`'credits500'`) — see [Gifts](/docs/billing/credits/gifts).
   :::
 ::
 

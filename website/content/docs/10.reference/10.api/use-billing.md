@@ -146,6 +146,26 @@ Pre-filled customer details for a checkout session (all still editable).
 
 ***
 
+### CampaignAttribution
+
+Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
+
+Campaign attribution, as a campaign link's UTM parameters: stored on the
+order or subscription as `utm_*` metadata, each value cut to 100
+characters.
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="source"></a> `source?` | `string` | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="medium"></a> `medium?` | `string` | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="campaign"></a> `campaign?` | `string` | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="term"></a> `term?` | `string` | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="content"></a> `content?` | `string` | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+
+***
+
 ### BillingApi
 
 Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
@@ -160,13 +180,10 @@ pass `options.api` to override.
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
 | <a id="getconfiguredproducts"></a> `getConfiguredProducts?` | `Query`\<`Record`\<`string`, [`BillingProduct`](#billingproduct) \| `undefined`\>\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="listallproducts"></a> `listAllProducts?` | `Query`\<[`BillingProduct`](#billingproduct)[]\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="listallsubscriptions"></a> `listAllSubscriptions?` | `Query`\<[`BillingSubscription`](#billingsubscription)[] \| `null`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="getcurrentsubscription"></a> `getCurrentSubscription?` | `Query`\<[`BillingSubscription`](#billingsubscription) \| `null`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="generatecheckoutlink"></a> `generateCheckoutLink?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, [`CheckoutArgs`](#checkoutargs), \{ `url`: `string`; \}\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="generatecustomerportalurl"></a> `generateCustomerPortalUrl?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, \{ `returnUrl?`: `string`; \}, \{ `url`: `string`; \}\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="changecurrentsubscription"></a> `changeCurrentSubscription?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, \{ `productId`: `string`; \}, `null`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="cancelcurrentsubscription"></a> `cancelCurrentSubscription?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, \{ `revokeImmediately?`: `boolean`; \}, `null`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="updatesubscription"></a> `updateSubscription?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, \{ `subscriptionId?`: `string`; `productId?`: `string`; `proration?`: [`ClientProrationBehavior`](#clientprorationbehavior); \}, `null`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="cancelsubscription"></a> `cancelSubscription?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, \{ `subscriptionId?`: `string`; `atPeriodEnd?`: `boolean`; `reason?`: [`CancellationReason`](#cancellationreason); `comment?`: `string`; \}, `null`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="uncancelsubscription"></a> `uncancelSubscription?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, \{ `subscriptionId?`: `string`; \}, `null`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
@@ -199,7 +216,7 @@ A gift addressed to the current user (`getReceivedGifts` shape).
 | <a id="purchaseruserid"></a> `purchaserUserId` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="purchaseremail"></a> `purchaserEmail?` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="purchasername"></a> `purchaserName?` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="productids-2"></a> `productIds` | `string`[] | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="productids-1"></a> `productIds` | `string`[] | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="message-1"></a> `message?` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="status"></a> `status` | `string` | `'pending'` (awaiting payment) → `'paid'` (claimable) → `'claimed'`. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="createdat"></a> `createdAt` | `number` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
@@ -212,24 +229,25 @@ A gift addressed to the current user (`getReceivedGifts` shape).
 
 Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
 
-Per-call checkout overrides for [UseBillingReturn.checkout](#checkout).
+Per-call checkout overrides for [UseBillingReturn.checkout](#checkout). The
+trial is the plan's own (the catalog's `trial`): a different one, or a
+discount by id, is the server's choice — see `billing.checkout`.
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="subscriptionid-1"></a> `subscriptionId?` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="metadata-3"></a> `metadata?` | `Record`\<`string`, `string`\> | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="trialinterval-1"></a> `trialInterval?` | `"day"` \| `"week"` \| `"month"` \| `"year"` \| `null` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="trialintervalcount-1"></a> `trialIntervalCount?` | `number` \| `null` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="metadata-3"></a> `metadata?` | `Record`\<`string`, `string`\> | Your own keys: the server refuses the ones the package reads back. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="locale-1"></a> `locale?` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="successurl-2"></a> `successUrl?` | `string` | Where checkout returns the customer afterwards. Defaults to the current URL. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="successurl-2"></a> `successUrl?` | `string` | Where checkout returns the customer afterwards, on the site's own origin. Defaults to the current URL. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="redirect"></a> `redirect?` | `boolean` | Open in the same tab instead of a new one (redirect checkout). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="prefill-1"></a> `prefill?` | [`CheckoutPrefill`](#checkoutprefill) | Pre-filled customer details — defaults the customer can still change. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="customfields-1"></a> `customFields?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | Values for the organization's custom checkout fields, keyed by field slug. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="requirebillingaddress-1"></a> `requireBillingAddress?` | `boolean` | Require the full billing address, not just the country. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="allowdiscountcodes-1"></a> `allowDiscountCodes?` | `boolean` | Let the customer type a discount code (default `true`). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="discountid-1"></a> `discountId?` | `string` | Pre-apply a discount by id. Ids only — the provider's checkout payload takes no codes, and its API has no code→id lookup, so a campaign resolves its code once (`billing.discounts.list()`) and stores the id. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="discountcode-1"></a> `discountCode?` | `string` | A discount code to apply up front — a campaign link's, say. The provider checks it like one the customer typed; one it refuses rejects the checkout as `invalid_input` (`discountCode`). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="utm-1"></a> `utm?` | [`CampaignAttribution`](#campaignattribution) | Campaign attribution (a campaign link's UTM parameters), stored as `utm_*` metadata. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 
 ***
 
@@ -350,7 +368,7 @@ Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qrut
 | <a id="ispaused"></a> `isPaused` | `ComputedRef`\<`boolean`\> | `true` while the subscription is paused. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="pendingupdate"></a> `pendingUpdate` | `ComputedRef`\<[`PendingPlanUpdate`](#pendingplanupdate) \| `null`\> | A plan change already scheduled for the next period, `null` when none. Like [UseBillingReturn.pausedAt](#pausedat), this reads off the synced subscription row, which has no `pending_update` column yet — so it is `null` until the provider component syncs one. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="checkout"></a> `checkout` | (`productIds`, `options?`) => `Promise`\<`string`\> | Generate a checkout for the given product(s) and open it (returns the URL). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="gift"></a> `gift` | (`productIds`, `options`) => `Promise`\<`string`\> | Buy the given product(s) as a gift for someone else (by email). Opens checkout. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="gift"></a> `gift` | (`pack`, `options`) => `Promise`\<`string`\> | Buy a credit pack, by its catalog key, as a gift for someone else (by email). Opens checkout. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="portal"></a> `portal` | (`options?`) => `Promise`\<`string`\> | Open the billing customer portal (returns the URL). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="changeplan"></a> `changePlan` | (`productId`, `options?`) => `Promise`\<`void`\> | Switch the active subscription to another product (upgrade/downgrade). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="cancel"></a> `cancel` | (`options?`) => `Promise`\<`void`\> | Cancel the active subscription — at period end by default. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
@@ -596,20 +614,21 @@ type CheckoutArgs = {
   successUrl: string;
   subscriptionId?: string;
   metadata?: Record<string, string>;
-  trialInterval?: "day" | "week" | "month" | "year" | null;
-  trialIntervalCount?: number | null;
   locale?: string;
   prefill?: CheckoutPrefill;
   customFields?: Record<string, string | number | boolean>;
   requireBillingAddress?: boolean;
   allowDiscountCodes?: boolean;
-  discountId?: string;
+  discountCode?: string;
+  utm?: CampaignAttribution;
 };
 ```
 
 Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
 
-Args of the generated `generateCheckoutLink` action.
+Args of the generated `generateCheckoutLink` action. The server sells
+only the app's catalog and returns only to the site; the trial is the
+product's own, and a discount by id is the server's to apply.
 
 #### Properties
 
@@ -620,14 +639,13 @@ Args of the generated `generateCheckoutLink` action.
 | <a id="successurl"></a> `successUrl` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="subscriptionid"></a> `subscriptionId?` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="metadata-1"></a> `metadata?` | `Record`\<`string`, `string`\> | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="trialinterval"></a> `trialInterval?` | `"day"` \| `"week"` \| `"month"` \| `"year"` \| `null` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="trialintervalcount"></a> `trialIntervalCount?` | `number` \| `null` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="locale"></a> `locale?` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="prefill"></a> `prefill?` | [`CheckoutPrefill`](#checkoutprefill) | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="customfields"></a> `customFields?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | Values for the organization's custom checkout fields, keyed by field slug. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="requirebillingaddress"></a> `requireBillingAddress?` | `boolean` | Require the full billing address, not just the country. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="allowdiscountcodes"></a> `allowDiscountCodes?` | `boolean` | Let the customer type a discount code (default `true`). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="discountid"></a> `discountId?` | `string` | Pre-apply a discount by id — the only form the provider's checkout takes. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="discountcode"></a> `discountCode?` | `string` | A discount code to apply up front (a campaign link's), checked by the provider. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="utm"></a> `utm?` | [`CampaignAttribution`](#campaignattribution) | Campaign attribution, stored as `utm_*` metadata. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 
 ***
 
@@ -685,7 +703,7 @@ Args of the `getUsageHistory` action (provider event history for one meter).
 
 ```ts
 type GiftCheckoutArgs = {
-  productIds: string[];
+  pack: string;
   recipientEmail: string;
   message?: string;
   origin: string;
@@ -700,14 +718,14 @@ Args of the `giftCheckout` action (a checkout whose recipient is someone else).
 
 #### Properties
 
-| Property | Type | Defined in |
-| ------ | ------ | ------ |
-| <a id="productids-1"></a> `productIds` | `string`[] | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="recipientemail"></a> `recipientEmail` | `string` | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="message"></a> `message?` | `string` | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="origin-1"></a> `origin` | `string` | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="successurl-1"></a> `successUrl` | `string` | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="metadata-2"></a> `metadata?` | `Record`\<`string`, `string`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="pack"></a> `pack` | `string` | The credit pack's catalog key (`credits500`): gifts are packs only. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="recipientemail"></a> `recipientEmail` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="message"></a> `message?` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="origin-1"></a> `origin` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="successurl-1"></a> `successUrl` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="metadata-2"></a> `metadata?` | `Record`\<`string`, `string`\> | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 
 ***
 
@@ -857,18 +875,19 @@ during component setup.
 ### createGiftCheckout()
 
 ```ts
-function createGiftCheckout(billing): (productIds, opts) => Promise<string>;
+function createGiftCheckout(billing): (pack, opts) => Promise<string>;
 ```
 
 Defined in: [src/runtime/vue/composables/billing-provider.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/billing-provider.ts)
 
-Build a `gift(productIds, { recipientEmail, ... })` action over a billing
+Build a `gift(pack, { recipientEmail, ... })` action over a billing
 namespace — shared by [useBilling](#usebilling) and
-["runtime/vue/composables/use-credits"!useCredits](/docs/reference/api/use-credits#usecredits) (gifting a credit
-pack is just a gift checkout of a one-time product). The purchaser
-pays; the recipient (by email) receives the entitlement — attached
-automatically if they have an account, claimable on first sign-in otherwise.
-Must be called during component setup.
+["runtime/vue/composables/use-credits"!useCredits](/docs/reference/api/use-credits#usecredits). A gift is a
+credit pack, named by its catalog key (`credits500`); the server refuses
+a plan or anything outside the catalog. The purchaser pays; the recipient
+(by email) receives the credits — attached automatically if they have an
+account, claimable on first sign-in otherwise. Must be called during
+component setup.
 
 #### Parameters
 
@@ -878,7 +897,7 @@ Must be called during component setup.
 
 #### Returns
 
-(`productIds`, `opts`) => `Promise`\<`string`\>
+(`pack`, `opts`) => `Promise`\<`string`\>
 
 ***
 
@@ -918,7 +937,7 @@ const billing = useBilling()
 </script>
 <template>
   <p v-if="billing.isSubscribed.value">Pro</p>
-  <button @click="billing.checkout(productId, { trialInterval: 'day', trialIntervalCount: 7 })">
+  <button @click="billing.checkout(productId, { utm: { source: 'newsletter' } })">
     Upgrade
   </button>
 </template>

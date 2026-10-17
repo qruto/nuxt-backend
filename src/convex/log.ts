@@ -22,6 +22,7 @@ export const LOG_CODES = {
   'webhook.rejected': 'A webhook route refused a delivery before running anything: over the size cap (413), a bad signature (403) or no secret on the backend component (503). Once per isolate for each route and outcome.',
   'billing.provider_failed': 'The billing provider refused a request; the caller sees "Billing is temporarily unavailable".',
   'billing.gift_attach_failed': 'A paid gift could not be attached to the recipient automatically; they can still claim it after signing in.',
+  'billing.trusted_origin_invalid': 'A setupBilling trustedOrigins entry is no http(s) origin, so it trusts nothing.',
   'billing.gift_misdirected': 'A gift order was paid under another email than the recipient\'s, so the gift was not delivered and stays pending.',
   'ai.cost_over_reservation': 'A metered action finished above the credits it reserved, or its finalized cost was not an amount; the reservation was charged.',
   'ai.balance_hook_failed': 'An onCreditsLow or onCreditsExhausted hook threw; the spend itself settled.',
