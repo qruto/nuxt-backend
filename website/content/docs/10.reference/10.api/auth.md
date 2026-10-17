@@ -663,11 +663,41 @@ function setupAuth<DM>(
   }, Promise<null>>;
   authComponent: {
      adapter: (ctx) => AdapterFactory<BetterAuthOptions>;
-     getAuth: <T>(createAuth, ctx) => Promise<{
-        auth: ReturnType<T>;
-        headers: Headers;
-     }>;
-     getHeaders: (ctx) => Promise<Headers>;
+     getAnyUserById: (ctx, id) => Promise<
+        | {
+        _creationTime: number;
+        _id: Id<"user">;
+        image?: string | null;
+        role?: string | null;
+        banned?: boolean | null;
+        banReason?: string | null;
+        banExpires?: number | null;
+        userId?: string | null;
+        name: string;
+        email: string;
+        emailVerified: boolean;
+        createdAt: number;
+        updatedAt: number;
+      }
+       | null>;
+     setUserId: (ctx, authId, userId) => Promise<void>;
+     triggersApi: () => {
+        onCreate: RegisteredMutation<"internal", {
+           model: string;
+           doc: any;
+        }, Promise<void>>;
+        onUpdate: RegisteredMutation<"internal", {
+           model: string;
+           oldDoc: any;
+           newDoc: any;
+        }, Promise<void>>;
+        onDelete: RegisteredMutation<"internal", {
+           model: string;
+           doc: any;
+        }, Promise<void>>;
+     };
+     registerRoutes: (http, createAuth, opts?) => void;
+     registerRoutesLazy: <T>(http, createAuth, opts?) => void;
      safeGetAuthUser: (ctx) => Promise<
         | {
         _creationTime: number;
@@ -700,24 +730,11 @@ function setupAuth<DM>(
         createdAt: number;
         updatedAt: number;
      }>;
-     getAnyUserById: (ctx, id) => Promise<
-        | {
-        _creationTime: number;
-        _id: Id<"user">;
-        image?: string | null;
-        role?: string | null;
-        banned?: boolean | null;
-        banReason?: string | null;
-        banExpires?: number | null;
-        userId?: string | null;
-        name: string;
-        email: string;
-        emailVerified: boolean;
-        createdAt: number;
-        updatedAt: number;
-      }
-       | null>;
-     setUserId: (ctx, authId, userId) => Promise<void>;
+     getHeaders: (ctx) => Promise<Headers>;
+     getAuth: <T>(createAuth, ctx) => Promise<{
+        auth: ReturnType<T>;
+        headers: Headers;
+     }>;
      clientApi: () => {
         getAuthUser: RegisteredQuery<"public", {
          }, Promise<{
@@ -736,23 +753,6 @@ function setupAuth<DM>(
            updatedAt: number;
         }>>;
      };
-     triggersApi: () => {
-        onCreate: RegisteredMutation<"internal", {
-           model: string;
-           doc: any;
-        }, Promise<void>>;
-        onUpdate: RegisteredMutation<"internal", {
-           model: string;
-           oldDoc: any;
-           newDoc: any;
-        }, Promise<void>>;
-        onDelete: RegisteredMutation<"internal", {
-           model: string;
-           doc: any;
-        }, Promise<void>>;
-     };
-     registerRoutes: (http, createAuth, opts?) => void;
-     registerRoutesLazy: <T>(http, createAuth, opts?) => void;
   };
   createAuth: (ctx) => Auth<{
      appName?: string;
@@ -1195,11 +1195,41 @@ out through the `email` instance, with the templates it holds.
   }, Promise<null>>;
   authComponent: {
      adapter: (ctx) => AdapterFactory<BetterAuthOptions>;
-     getAuth: <T>(createAuth, ctx) => Promise<{
-        auth: ReturnType<T>;
-        headers: Headers;
-     }>;
-     getHeaders: (ctx) => Promise<Headers>;
+     getAnyUserById: (ctx, id) => Promise<
+        | {
+        _creationTime: number;
+        _id: Id<"user">;
+        image?: string | null;
+        role?: string | null;
+        banned?: boolean | null;
+        banReason?: string | null;
+        banExpires?: number | null;
+        userId?: string | null;
+        name: string;
+        email: string;
+        emailVerified: boolean;
+        createdAt: number;
+        updatedAt: number;
+      }
+       | null>;
+     setUserId: (ctx, authId, userId) => Promise<void>;
+     triggersApi: () => {
+        onCreate: RegisteredMutation<"internal", {
+           model: string;
+           doc: any;
+        }, Promise<void>>;
+        onUpdate: RegisteredMutation<"internal", {
+           model: string;
+           oldDoc: any;
+           newDoc: any;
+        }, Promise<void>>;
+        onDelete: RegisteredMutation<"internal", {
+           model: string;
+           doc: any;
+        }, Promise<void>>;
+     };
+     registerRoutes: (http, createAuth, opts?) => void;
+     registerRoutesLazy: <T>(http, createAuth, opts?) => void;
      safeGetAuthUser: (ctx) => Promise<
         | {
         _creationTime: number;
@@ -1232,24 +1262,11 @@ out through the `email` instance, with the templates it holds.
         createdAt: number;
         updatedAt: number;
      }>;
-     getAnyUserById: (ctx, id) => Promise<
-        | {
-        _creationTime: number;
-        _id: Id<"user">;
-        image?: string | null;
-        role?: string | null;
-        banned?: boolean | null;
-        banReason?: string | null;
-        banExpires?: number | null;
-        userId?: string | null;
-        name: string;
-        email: string;
-        emailVerified: boolean;
-        createdAt: number;
-        updatedAt: number;
-      }
-       | null>;
-     setUserId: (ctx, authId, userId) => Promise<void>;
+     getHeaders: (ctx) => Promise<Headers>;
+     getAuth: <T>(createAuth, ctx) => Promise<{
+        auth: ReturnType<T>;
+        headers: Headers;
+     }>;
      clientApi: () => {
         getAuthUser: RegisteredQuery<"public", {
          }, Promise<{
@@ -1268,23 +1285,6 @@ out through the `email` instance, with the templates it holds.
            updatedAt: number;
         }>>;
      };
-     triggersApi: () => {
-        onCreate: RegisteredMutation<"internal", {
-           model: string;
-           doc: any;
-        }, Promise<void>>;
-        onUpdate: RegisteredMutation<"internal", {
-           model: string;
-           oldDoc: any;
-           newDoc: any;
-        }, Promise<void>>;
-        onDelete: RegisteredMutation<"internal", {
-           model: string;
-           doc: any;
-        }, Promise<void>>;
-     };
-     registerRoutes: (http, createAuth, opts?) => void;
-     registerRoutesLazy: <T>(http, createAuth, opts?) => void;
   };
   createAuth: (ctx) => Auth<{
      appName?: string;
@@ -1654,18 +1654,18 @@ out through the `email` instance, with the templates it holds.
 | `updateProfile` | `RegisteredMutation`\<`"public"`, \{ `name`: `string`; \}, `Promise`\<`null`\>\> | - | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
 | `listSessions` | `RegisteredQuery`\<`"public"`, \{ \}, `Promise`\<[`DeviceSession`](#devicesession)[] \| `null`\>\> | - | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
 | `revokeSession` | `RegisteredMutation`\<`"public"`, \{ `sessionId`: `string`; \}, `Promise`\<`null`\>\> | - | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
-| `authComponent` | \{ `adapter`: (`ctx`) => `AdapterFactory`\<`BetterAuthOptions`\>; `getAuth`: \<`T`\>(`createAuth`, `ctx`) => `Promise`\<\{ `auth`: `ReturnType`\<`T`\>; `headers`: `Headers`; \}\>; `getHeaders`: (`ctx`) => `Promise`\<`Headers`\>; `safeGetAuthUser`: (`ctx`) => `Promise`\< \| \{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \} \| `undefined`\>; `getAuthUser`: (`ctx`) => `Promise`\<\{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \}\>; `getAnyUserById`: (`ctx`, `id`) => `Promise`\< \| \{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \} \| `null`\>; `setUserId`: (`ctx`, `authId`, `userId`) => `Promise`\<`void`\>; `clientApi`: () => \{ `getAuthUser`: `RegisteredQuery`\<`"public"`, \{ \}, `Promise`\<\{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \}\>\>; \}; `triggersApi`: () => \{ `onCreate`: `RegisteredMutation`\<`"internal"`, \{ `model`: `string`; `doc`: `any`; \}, `Promise`\<`void`\>\>; `onUpdate`: `RegisteredMutation`\<`"internal"`, \{ `model`: `string`; `oldDoc`: `any`; `newDoc`: `any`; \}, `Promise`\<`void`\>\>; `onDelete`: `RegisteredMutation`\<`"internal"`, \{ `model`: `string`; `doc`: `any`; \}, `Promise`\<`void`\>\>; \}; `registerRoutes`: (`http`, `createAuth`, `opts?`) => `void`; `registerRoutesLazy`: \<`T`\>(`http`, `createAuth`, `opts?`) => `void`; \} | - | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
+| `authComponent` | \{ `adapter`: (`ctx`) => `AdapterFactory`\<`BetterAuthOptions`\>; `getAnyUserById`: (`ctx`, `id`) => `Promise`\< \| \{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \} \| `null`\>; `setUserId`: (`ctx`, `authId`, `userId`) => `Promise`\<`void`\>; `triggersApi`: () => \{ `onCreate`: `RegisteredMutation`\<`"internal"`, \{ `model`: `string`; `doc`: `any`; \}, `Promise`\<`void`\>\>; `onUpdate`: `RegisteredMutation`\<`"internal"`, \{ `model`: `string`; `oldDoc`: `any`; `newDoc`: `any`; \}, `Promise`\<`void`\>\>; `onDelete`: `RegisteredMutation`\<`"internal"`, \{ `model`: `string`; `doc`: `any`; \}, `Promise`\<`void`\>\>; \}; `registerRoutes`: (`http`, `createAuth`, `opts?`) => `void`; `registerRoutesLazy`: \<`T`\>(`http`, `createAuth`, `opts?`) => `void`; `safeGetAuthUser`: (`ctx`) => `Promise`\< \| \{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \} \| `undefined`\>; `getAuthUser`: (`ctx`) => `Promise`\<\{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \}\>; `getHeaders`: (`ctx`) => `Promise`\<`Headers`\>; `getAuth`: \<`T`\>(`createAuth`, `ctx`) => `Promise`\<\{ `auth`: `ReturnType`\<`T`\>; `headers`: `Headers`; \}\>; `clientApi`: () => \{ `getAuthUser`: `RegisteredQuery`\<`"public"`, \{ \}, `Promise`\<\{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \}\>\>; \}; \} | - | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
 | `authComponent.adapter()` | (`ctx`) => `AdapterFactory`\<`BetterAuthOptions`\> | Returns the Convex database adapter for use in Better Auth options. | node\_modules/@convex-dev/better-auth/dist/client/create-client.d.ts:87 |
-| `authComponent.getAuth()` | \<`T`\>(`createAuth`, `ctx`) => `Promise`\<\{ `auth`: `ReturnType`\<`T`\>; `headers`: `Headers`; \}\> | Returns the Better Auth auth object and headers for using Better Auth API methods directly in a Convex mutation or query. Convex functions don't have access to request headers, so the headers object is created at runtime with the token for the current session as a Bearer token. | node\_modules/@convex-dev/better-auth/dist/client/create-client.d.ts:99 |
-| `authComponent.getHeaders()` | (`ctx`) => `Promise`\<`Headers`\> | Returns a Headers object for the current session using the session id from the current user identity via `ctx.auth.getUserIdentity()`. This is used to pass the headers to the Better Auth API methods when using the `getAuth` method. | node\_modules/@convex-dev/better-auth/dist/client/create-client.d.ts:112 |
-| `authComponent.safeGetAuthUser()` | (`ctx`) => `Promise`\< \| \{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \} \| `undefined`\> | Returns the current user or null if the user is not found | node\_modules/@convex-dev/better-auth/dist/client/create-client.d.ts:118 |
-| `authComponent.getAuthUser()` | (`ctx`) => `Promise`\<\{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \}\> | Returns the current user or throws an error if the user is not found | node\_modules/@convex-dev/better-auth/dist/client/create-client.d.ts:125 |
 | `authComponent.getAnyUserById()` | (`ctx`, `id`) => `Promise`\< \| \{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \} \| `null`\> | Returns a user by their Better Auth user id. | node\_modules/@convex-dev/better-auth/dist/client/create-client.d.ts:132 |
 | `authComponent.setUserId()` | (`ctx`, `authId`, `userId`) => `Promise`\<`void`\> | Replaces 0.7 behavior of returning a new user id from onCreateUser **Deprecated** in 0.9 | node\_modules/@convex-dev/better-auth/dist/client/create-client.d.ts:141 |
-| `authComponent.clientApi()` | () => \{ `getAuthUser`: `RegisteredQuery`\<`"public"`, \{ \}, `Promise`\<\{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \}\>\>; \} | Exposes functions for use with the ClientAuthBoundary component. Currently only contains getAuthUser. | node\_modules/@convex-dev/better-auth/dist/client/create-client.d.ts:147 |
 | `authComponent.triggersApi()` | () => \{ `onCreate`: `RegisteredMutation`\<`"internal"`, \{ `model`: `string`; `doc`: `any`; \}, `Promise`\<`void`\>\>; `onUpdate`: `RegisteredMutation`\<`"internal"`, \{ `model`: `string`; `oldDoc`: `any`; `newDoc`: `any`; \}, `Promise`\<`void`\>\>; `onDelete`: `RegisteredMutation`\<`"internal"`, \{ `model`: `string`; `doc`: `any`; \}, `Promise`\<`void`\>\>; \} | Exposes functions for executing trigger callbacks in the app context. Callbacks are defined in the `triggers` option to the component client config. See [createClient](https://labs.convex.dev/better-auth) for more information. | node\_modules/@convex-dev/better-auth/dist/client/create-client.d.ts:168 |
 | `authComponent.registerRoutes()` | (`http`, `createAuth`, `opts?`) => `void` | - | node\_modules/@convex-dev/better-auth/dist/client/create-client.d.ts:183 |
 | `authComponent.registerRoutesLazy()` | \<`T`\>(`http`, `createAuth`, `opts?`) => `void` | - | node\_modules/@convex-dev/better-auth/dist/client/create-client.d.ts:190 |
+| `authComponent.safeGetAuthUser()` | (`ctx`) => `Promise`\< \| \{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \} \| `undefined`\> | - | [src/convex/client/component.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/component.ts) |
+| `authComponent.getAuthUser()` | (`ctx`) => `Promise`\<\{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \}\> | - | [src/convex/client/component.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/component.ts) |
+| `authComponent.getHeaders()` | (`ctx`) => `Promise`\<`Headers`\> | - | [src/convex/client/component.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/component.ts) |
+| `authComponent.getAuth()` | \<`T`\>(`createAuth`, `ctx`) => `Promise`\<\{ `auth`: `ReturnType`\<`T`\>; `headers`: `Headers`; \}\> | - | [src/convex/client/component.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/component.ts) |
+| `authComponent.clientApi()` | () => \{ `getAuthUser`: `RegisteredQuery`\<`"public"`, \{ \}, `Promise`\<\{ `_creationTime`: `number`; `_id`: `Id`\<`"user"`\>; `image?`: `string` \| `null`; `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; `banReason?`: `string` \| `null`; `banExpires?`: `number` \| `null`; `userId?`: `string` \| `null`; `name`: `string`; `email`: `string`; `emailVerified`: `boolean`; `createdAt`: `number`; `updatedAt`: `number`; \}\>\>; \} | - | [src/convex/client/component.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/component.ts) |
 | `createAuth()` | (`ctx`) => `Auth`\<\{ `appName?`: `string`; `baseURL?`: `BaseURLConfig`; `secret?`: `string`; `secrets?`: \{ `version`: `number`; `value`: `string`; \}[]; `secondaryStorage?`: `SecondaryStorage`; `emailVerification?`: \{ `sendVerificationEmail?`: (`data`, `request?`) => `Promise`\<`void`\>; `sendOnSignUp?`: `boolean`; `sendOnSignIn?`: `boolean`; `autoSignInAfterVerification?`: `boolean`; `expiresIn?`: `number`; `beforeEmailVerification?`: (`user`, `request?`) => `Promise`\<`void`\>; `afterEmailVerification?`: (`user`, `request?`) => `Promise`\<`void`\>; \}; `socialProviders?`: `SocialProviders`; `session?`: `BetterAuthDBOptions`\<`"session"`, \| `"id"` \| `"createdAt"` \| `"updatedAt"` \| `"userId"` \| `"expiresAt"` \| `"token"` \| `"ipAddress"` \| `"userAgent"`\> & \{ `expiresIn?`: `number`; `updateAge?`: `number`; `disableSessionRefresh?`: `boolean`; `deferSessionRefresh?`: `boolean`; `storeSessionInDatabase?`: `boolean`; `preserveSessionInDatabase?`: `boolean`; `cookieCache?`: \{ `maxAge?`: `number`; `enabled?`: `boolean`; `strategy?`: `"jwt"` \| `"compact"` \| `"jwe"`; `refreshCache?`: \| `boolean` \| \{ `updateAge?`: ...; \}; `version?`: `string` \| ((`session`, `user`) => ...) \| ((`session`, `user`) => ...); \}; `freshAge?`: `number`; \}; `account?`: `BetterAuthDBOptions`\<`"account"`, \| `"id"` \| `"createdAt"` \| `"updatedAt"` \| `"userId"` \| `"accountId"` \| `"providerId"` \| `"accessToken"` \| `"refreshToken"` \| `"idToken"` \| `"accessTokenExpiresAt"` \| `"refreshTokenExpiresAt"` \| `"scope"` \| `"password"`\> & \{ `updateAccountOnSignIn?`: `boolean`; `accountLinking?`: \{ `enabled?`: `boolean`; `disableImplicitLinking?`: `boolean`; `requireLocalEmailVerified?`: `boolean`; `trustedProviders?`: ...[] \| ((`request?`) => ...); `allowDifferentEmails?`: `boolean`; `allowUnlinkingAll?`: `boolean`; `updateUserInfoOnLink?`: `boolean`; \}; `encryptOAuthTokens?`: `boolean`; `skipStateCookieCheck?`: `boolean`; `storeStateStrategy?`: `"database"` \| `"cookie"`; `storeAccountCookie?`: `boolean`; \}; `verification?`: `BetterAuthDBOptions`\<`"verification"`, `"id"` \| `"createdAt"` \| `"updatedAt"` \| `"expiresAt"` \| `"identifier"` \| `"value"`\> & \{ `disableCleanup?`: `boolean`; `storeIdentifier?`: \| `StoreIdentifierOption` \| \{ `default`: `StoreIdentifierOption`; `overrides?`: `Record`\<..., ...\>; \}; `storeInDatabase?`: `boolean`; \}; `trustedOrigins?`: \| `string`[] \| ((`request?`) => `Awaitable`\<(`string` \| `null` \| `undefined`)[]\>); `advanced?`: `BetterAuthAdvancedOptions`; `logger?`: `Logger`; `databaseHooks?`: \{ `user?`: \{ `create?`: \{ `before?`: ... \| ...; `after?`: ... \| ...; \}; `update?`: \{ `before?`: ... \| ...; `after?`: ... \| ...; \}; `delete?`: \{ `before?`: ... \| ...; `after?`: ... \| ...; \}; \}; `session?`: \{ `create?`: \{ `before?`: ... \| ...; `after?`: ... \| ...; \}; `update?`: \{ `before?`: ... \| ...; `after?`: ... \| ...; \}; `delete?`: \{ `before?`: ... \| ...; `after?`: ... \| ...; \}; \}; `account?`: \{ `create?`: \{ `before?`: ... \| ...; `after?`: ... \| ...; \}; `update?`: \{ `before?`: ... \| ...; `after?`: ... \| ...; \}; `delete?`: \{ `before?`: ... \| ...; `after?`: ... \| ...; \}; \}; `verification?`: \{ `create?`: \{ `before?`: ... \| ...; `after?`: ... \| ...; \}; `update?`: \{ `before?`: ... \| ...; `after?`: ... \| ...; \}; `delete?`: \{ `before?`: ... \| ...; `after?`: ... \| ...; \}; \}; \}; `onAPIError?`: \{ `throw?`: `boolean`; `onError?`: (`error`, `ctx`) => `void` \| `Promise`\<`void`\>; `errorURL?`: `string`; `customizeDefaultErrorPage?`: \{ `colors?`: \{ `background?`: ... \| ...; `foreground?`: ... \| ...; `primary?`: ... \| ...; `primaryForeground?`: ... \| ...; `mutedForeground?`: ... \| ...; `border?`: ... \| ...; `destructive?`: ... \| ...; `titleBorder?`: ... \| ...; `titleColor?`: ... \| ...; `gridColor?`: ... \| ...; `cardBackground?`: ... \| ...; `cornerBorder?`: ... \| ...; \}; `size?`: \{ `radiusSm?`: ... \| ...; `radiusMd?`: ... \| ...; `radiusLg?`: ... \| ...; `textSm?`: ... \| ...; `text2xl?`: ... \| ...; `text4xl?`: ... \| ...; `text6xl?`: ... \| ...; \}; `font?`: \{ `defaultFamily?`: ... \| ...; `monoFamily?`: ... \| ...; \}; `disableTitleBorder?`: `boolean`; `disableCornerDecorations?`: `boolean`; `disableBackgroundGrid?`: `boolean`; \}; \}; `telemetry?`: \{ `enabled?`: `boolean`; `debug?`: `boolean`; \}; `experimental?`: \{ `joins?`: `boolean`; `instrumentation?`: \{ `enabled?`: `boolean`; \}; \}; `basePath`: `string`; `database`: `AdapterFactory`\<`BetterAuthOptions`\>; `disabledPaths`: `string`[]; `emailAndPassword`: \{ `disableSignUp?`: `boolean`; `requireEmailVerification?`: `boolean`; `maxPasswordLength?`: `number`; `minPasswordLength?`: `number`; `sendResetPassword?`: (`data`, `request?`) => `Promise`\<`void`\>; `resetPasswordTokenExpiresIn?`: `number`; `onPasswordReset?`: (`data`, `request?`) => `Promise`\<`void`\>; `password?`: \{ `hash?`: (`password`) => `Promise`\<`string`\>; `verify?`: (`data`) => `Promise`\<`boolean`\>; \}; `autoSignIn?`: `boolean`; `revokeSessionsOnPasswordReset?`: `boolean`; `onExistingUserSignUp?`: (`data`, `request?`) => `Promise`\<`void`\>; `customSyntheticUser?`: (`params`) => `Record`\<`string`, `unknown`\>; `enabled`: `boolean`; \}; `user`: \{ `modelName?`: `"user"` \| `LiteralString`; `fields?`: `Partial`\<`Record`\<`"name"` \| `"email"` \| `"emailVerified"` \| `"image"` \| `"createdAt"` \| `"updatedAt"`, `string`\>\>; `additionalFields?`: \{ \[`key`: `string`\]: `DBFieldAttribute`; \}; `changeEmail?`: \{ `enabled`: `boolean`; `sendChangeEmailConfirmation?`: (`data`, `request?`) => `Promise`\<`void`\>; `updateEmailWithoutVerification?`: `boolean`; \}; `deleteUser?`: \{ `enabled?`: `boolean`; `sendDeleteAccountVerification?`: (`data`, `request?`) => `Promise`\<`void`\>; `beforeDelete?`: (`user`, `request?`) => `Promise`\<`void`\>; `afterDelete?`: (`user`, `request?`) => `Promise`\<`void`\>; `deleteTokenExpiresIn?`: `number`; \}; \}; `rateLimit`: \{ `window?`: `number`; `max?`: `number`; `modelName?`: `"rateLimit"` \| `LiteralString`; `fields?`: `Partial`\<`Record`\<`"key"` \| `"count"` \| `"lastRequest"`, `string`\>\>; `customRules?`: \{ \[`key`: `string`\]: \| `false` \| `BetterAuthRateLimitRule` \| ((`request`, `currentRule`) => `Awaitable`\<... \| ...\>); \}; `storage?`: `"memory"` \| `"database"` \| `"secondary-storage"`; `customStorage?`: `BetterAuthRateLimitStorage`; `enabled`: `boolean`; \}; `hooks`: \| \{ `before?`: `MiddlewareHandler`; `after?`: `MiddlewareHandler`; \} \| `undefined`; `plugins`: \[\{ `id`: `"convex"`; `version`: `string`; `init`: (`ctx`) => `void`; `hooks`: \{ `before`: ( \| \{ `matcher`: `boolean`; `handler`: (`inputContext`) => ...; \} \| \{ `matcher`: (`ctx`) => ...; `handler`: (`inputContext`) => ...; \})[]; `after`: \{ `matcher`: (`context`) => `boolean`; `handler`: `MiddlewareHandler`; \}[]; \}; `endpoints`: \{ `getOpenIdConfig`: `StrictEndpoint`\<`"/convex/.well-known/openid-configuration"`, \{ `method`: `"GET"`; `metadata`: \{ `isAction`: `false`; \}; \}, `OIDCMetadata`\>; `getJwks`: `StrictEndpoint`\<`"/convex/jwks"`, \{ `method`: `"GET"`; `metadata`: \{ `openapi`: \{ `description`: ...; `responses`: ...; \}; \}; \}, `JSONWebKeySet`\>; `getLatestJwks`: `StrictEndpoint`\<`"/convex/latest-jwks"`, \{ `isAction`: `boolean`; `method`: `"POST"`; `metadata`: \{ `SERVER_ONLY`: `true`; `openapi`: \{ `description`: ...; \}; \}; \}, `any`[]\>; `rotateKeys`: `StrictEndpoint`\<`"/convex/rotate-keys"`, \{ `isAction`: `boolean`; `method`: `"POST"`; `metadata`: \{ `SERVER_ONLY`: `true`; `openapi`: \{ `description`: ...; \}; \}; \}, `any`[]\>; `getToken`: `StrictEndpoint`\<`"/convex/token"`, \{ `method`: `"GET"`; `requireHeaders`: `true`; `use`: (`inputContext`) => ...[]; `metadata`: \{ `openapi`: \{ `description`: ...; `responses`: ...; \}; \}; \}, \{ `token`: `string`; \}\>; \}; `schema`: \{ `jwks`: \{ `fields`: \{ `publicKey`: \{ `type`: `"string"`; `required`: `true`; \}; `privateKey`: \{ `type`: `"string"`; `required`: `true`; \}; `createdAt`: \{ `type`: `"date"`; `required`: `true`; \}; `expiresAt`: \{ `type`: `"date"`; `required`: `false`; \}; \}; \}; `user`: \{ `fields`: \{ `userId`: \{ `type`: `"string"`; `required`: `false`; `input`: `false`; \}; \}; \}; \}; \}, ...(BetterAuthPlugin \| \{ id: "email-otp"; version: string; init: any; endpoints: \{ sendVerificationOTP: StrictEndpoint\<"/email-otp/send-verification-otp", \{ method: "POST"; use: (...)\[\]; body: ZodObject\<(...), (...)\>; metadata: \{ openapi: ... \} \}, \{ success: boolean \}\>; createVerificationOTP: StrictEndpoint\<string, \{ method: "POST"; body: ZodObject\<(...), (...)\>; metadata: \{ openapi: ... \} \}, string\>; getVerificationOTP: StrictEndpoint\<string, \{ method: "GET"; query: ZodObject\<(...), (...)\>; metadata: \{ openapi: ... \} \}, \{ otp: ... \} \| \{ otp: ... \}\>; checkVerificationOTP: StrictEndpoint\<"/email-otp/check-verification-otp", \{ method: "POST"; body: ZodObject\<(...), (...)\>; metadata: \{ openapi: ... \} \}, \{ success: boolean \}\>; verifyEmailOTP: StrictEndpoint\<"/email-otp/verify-email", \{ method: "POST"; body: ZodObject\<(...), (...)\>; metadata: \{ openapi: ... \} \}, \{ status: ...; token: ...; user: ... \} \| \{ status: ...; token: ...; user: ... \}\>; signInEmailOTP: StrictEndpoint\<"/sign-in/email-otp", \{ method: "POST"; body: ZodIntersection\<(...), (...)\>; metadata: \{ openapi: ... \} \}, \{ token: string; user: \{ id: ...; createdAt: ...; updatedAt: ...; email: ...; emailVerified: ...; name: ...; image?: ... \} \}\>; requestPasswordResetEmailOTP: StrictEndpoint\<"/email-otp/request-password-reset", \{ method: "POST"; body: ZodObject\<(...), (...)\>; metadata: \{ openapi: ... \} \}, \{ success: boolean \}\>; forgetPasswordEmailOTP: StrictEndpoint\<"/forget-password/email-otp", \{ method: "POST"; body: ZodObject\<(...), (...)\>; metadata: \{ openapi: ... \} \}, \{ success: boolean \}\>; resetPasswordEmailOTP: StrictEndpoint\<"/email-otp/reset-password", \{ method: "POST"; body: ZodObject\<(...), (...)\>; metadata: \{ openapi: ... \} \}, \{ success: boolean \}\>; requestEmailChangeEmailOTP: StrictEndpoint\<"/email-otp/request-email-change", \{ method: "POST"; body: ZodObject\<(...), (...)\>; use: (...)\[\]; metadata: \{ openapi: ... \} \}, \{ success: boolean \}\>; changeEmailEmailOTP: StrictEndpoint\<"/email-otp/change-email", \{ method: "POST"; body: ZodObject\<(...), (...)\>; use: (...)\[\]; metadata: \{ openapi: ... \} \}, \{ success: boolean \}\> \}; hooks: \{ after: \{ matcher: any; handler: Middleware\<(...), (...)\> \}\[\] \}; rateLimit: (\{ pathMatcher: any; window: number; max: number \} \| \{ pathMatcher: any; window: number; max: number \} \| \{ pathMatcher: any; window: number; max: number \} \| \{ pathMatcher: any; window: number; max: number \} \| \{ pathMatcher: any; window: number; max: number \} \| \{ pathMatcher: any; window: number; max: number \} \| \{ pathMatcher: any; window: number; max: number \} \| \{ pathMatcher: any; window: number; max: number \} \| \{ pathMatcher: any; window: number; max: number \})\[\]; options: EmailOTPOptions; $ERROR\_CODES: \{ OTP\_EXPIRED: RawError\<"OTP\_EXPIRED"\>; INVALID\_OTP: RawError\<"INVALID\_OTP"\>; TOO\_MANY\_ATTEMPTS: RawError\<"TOO\_MANY\_ATTEMPTS"\> \} \} \| \{ id: "passkey"; version: string; endpoints: \{ generatePasskeyRegistrationOptions: StrictEndpoint\<"/passkey/generate-register-options", \{ method: "GET"; use: (...)\[\]; query: ZodOptional\<(...)\>; metadata: \{ openapi: ... \} \}, PublicKeyCredentialCreationOptionsJSON\>; generatePasskeyAuthenticationOptions: StrictEndpoint\<"/passkey/generate-authenticate-options", \{ method: "GET"; metadata: \{ openapi: ... \} \}, PublicKeyCredentialRequestOptionsJSON\>; verifyPasskeyRegistration: StrictEndpoint\<"/passkey/verify-registration", \{ method: "POST"; body: ZodObject\<(...), (...)\>; use: (...)\[\]; metadata: \{ openapi: ... \} \}, Passkey\>; verifyPasskeyAuthentication: StrictEndpoint\<"/passkey/verify-authentication", \{ method: "POST"; body: ZodObject\<(...), (...)\>; metadata: \{ openapi: ...; $Infer: ... \} \}, \{ session: \{ id: ...; createdAt: ...; updatedAt: ...; userId: ...; expiresAt: ...; token: ...; ipAddress?: ...; userAgent?: ... \}; user: \{ id: ...; createdAt: ...; updatedAt: ...; email: ...; emailVerified: ...; name: ...; image?: ... \} \}\>; listPasskeys: StrictEndpoint\<"/passkey/list-user-passkeys", \{ method: "GET"; use: (...)\[\]; metadata: \{ openapi: ... \} \}, Passkey\[\]\>; deletePasskey: StrictEndpoint\<"/passkey/delete-passkey", \{ method: "POST"; body: ZodObject\<(...), (...)\>; use: (...)\[\]; metadata: \{ openapi: ... \} \}, \{ status: boolean \}\>; updatePasskey: StrictEndpoint\<"/passkey/update-passkey", \{ method: "POST"; body: ZodObject\<(...), (...)\>; use: (...)\[\]; metadata: \{ openapi: ... \} \}, \{ passkey: Passkey \}\> \}; schema: \{ passkey: \{ fields: \{ name: \{ type: ...; required: ... \}; publicKey: \{ type: ...; required: ... \}; userId: \{ type: ...; references: ...; required: ...; index: ... \}; credentialID: \{ type: ...; required: ...; index: ... \}; counter: \{ type: ...; required: ... \}; deviceType: \{ type: ...; required: ... \}; backedUp: \{ type: ...; required: ... \}; transports: \{ type: ...; required: ... \}; createdAt: \{ type: ...; required: ... \}; aaguid: \{ type: ...; required: ... \} \} \} \}; $ERROR\_CODES: \{ CHALLENGE\_NOT\_FOUND: RawError\<"CHALLENGE\_NOT\_FOUND"\>; YOU\_ARE\_NOT\_ALLOWED\_TO\_REGISTER\_THIS\_PASSKEY: RawError\<"YOU\_ARE\_NOT\_ALLOWED\_TO\_REGISTER\_THIS\_PASSKEY"\>; FAILED\_TO\_VERIFY\_REGISTRATION: RawError\<"FAILED\_TO\_VERIFY\_REGISTRATION"\>; PASSKEY\_NOT\_FOUND: RawError\<"PASSKEY\_NOT\_FOUND"\>; AUTHENTICATION\_FAILED: RawError\<"AUTHENTICATION\_FAILED"\>; UNABLE\_TO\_CREATE\_SESSION: RawError\<"UNABLE\_TO\_CREATE\_SESSION"\>; FAILED\_TO\_UPDATE\_PASSKEY: RawError\<"FAILED\_TO\_UPDATE\_PASSKEY"\>; PREVIOUSLY\_REGISTERED: RawError\<"PREVIOUSLY\_REGISTERED"\>; REGISTRATION\_CANCELLED: RawError\<"REGISTRATION\_CANCELLED"\>; AUTH\_CANCELLED: RawError\<"AUTH\_CANCELLED"\>; UNKNOWN\_ERROR: RawError\<"UNKNOWN\_ERROR"\>; SESSION\_REQUIRED: RawError\<"SESSION\_REQUIRED"\>; RESOLVE\_USER\_REQUIRED: RawError\<"RESOLVE\_USER\_REQUIRED"\>; RESOLVED\_USER\_INVALID: RawError\<"RESOLVED\_USER\_INVALID"\> \}; options: PasskeyOptions \| undefined \} \| \{ id: "admin"; version: string; init: any; hooks: \{ after: \{ matcher: any; handler: Middleware\<(...), (...)\> \}\[\] \}; endpoints: \{ setRole: StrictEndpoint\<"/admin/set-role", \{ method: "POST"; body: ZodObject\<(...), (...)\>; requireHeaders: true; use: (...)\[\]; metadata: \{ openapi: ...; $Infer: ... \} \}, \{ user: UserWithRole \}\>; getUser: StrictEndpoint\<"/admin/get-user", \{ method: "GET"; query: ZodObject\<(...), (...)\>; use: (...)\[\]; metadata: \{ openapi: ... \} \}, UserWithRole\>; createUser: StrictEndpoint\<"/admin/create-user", \{ method: "POST"; body: ZodObject\<(...), (...)\>; metadata: \{ openapi: ...; $Infer: ... \} \}, \{ user: UserWithRole \}\>; adminUpdateUser: StrictEndpoint\<"/admin/update-user", \{ method: "POST"; body: ZodObject\<(...), (...)\>; use: (...)\[\]; metadata: \{ openapi: ... \} \}, UserWithRole\>; listUsers: StrictEndpoint\<"/admin/list-users", \{ method: "GET"; use: (...)\[\]; query: ZodObject\<(...), (...)\>; metadata: \{ openapi: ... \} \}, \{ users: (...)\[\]; total: number \}\>; listUserSessions: StrictEndpoint\<"/admin/list-user-sessions", \{ method: "POST"; use: (...)\[\]; body: ZodObject\<(...), (...)\>; metadata: \{ openapi: ... \} \}, \{ sessions: (...)\[\] \}\>; unbanUser: StrictEndpoint\<"/admin/unban-user", \{ method: "POST"; body: ZodObject\<(...), (...)\>; use: (...)\[\]; metadata: \{ openapi: ... \} \}, \{ user: UserWithRole \}\>; banUser: StrictEndpoint\<"/admin/ban-user", \{ method: "POST"; body: ZodObject\<(...), (...)\>; use: (...)\[\]; metadata: \{ openapi: ... \} \}, \{ user: UserWithRole \}\>; impersonateUser: StrictEndpoint\<"/admin/impersonate-user", \{ method: "POST"; body: ZodObject\<(...), (...)\>; use: (...)\[\]; metadata: \{ openapi: ... \} \}, \{ session: \{ id: ...; createdAt: ...; updatedAt: ...; userId: ...; expiresAt: ...; token: ...; ipAddress?: ...; userAgent?: ... \}; user: UserWithRole \}\>; stopImpersonating: StrictEndpoint\<"/admin/stop-impersonating", \{ method: "POST"; requireHeaders: true \}, \{ session: (...) & (...); user: (...) & (...) \}\>; revokeUserSession: StrictEndpoint\<"/admin/revoke-user-session", \{ method: "POST"; body: ZodObject\<(...), (...)\>; use: (...)\[\]; metadata: \{ openapi: ... \} \}, \{ success: boolean \}\>; revokeUserSessions: StrictEndpoint\<"/admin/revoke-user-sessions", \{ method: "POST"; body: ZodObject\<(...), (...)\>; use: (...)\[\]; metadata: \{ openapi: ... \} \}, \{ success: boolean \}\>; removeUser: StrictEndpoint\<"/admin/remove-user", \{ method: "POST"; body: ZodObject\<(...), (...)\>; use: (...)\[\]; metadata: \{ openapi: ... \} \}, \{ success: boolean \}\>; setUserPassword: StrictEndpoint\<"/admin/set-user-password", \{ method: "POST"; body: ZodObject\<(...), (...)\>; use: (...)\[\]; metadata: \{ openapi: ... \} \}, \{ status: boolean \}\>; userHasPermission: StrictEndpoint\<"/admin/has-permission", \{ method: "POST"; body: ZodIntersection\<(...), (...)\>; metadata: \{ openapi: ...; $Infer: ... \} \}, \{ error: null; success: boolean \}\> \}; $ERROR\_CODES: \{ USER\_ALREADY\_EXISTS\_USE\_ANOTHER\_EMAIL: RawError\<"USER\_ALREADY\_EXISTS\_USE\_ANOTHER\_EMAIL"\>; FAILED\_TO\_CREATE\_USER: RawError\<"FAILED\_TO\_CREATE\_USER"\>; USER\_ALREADY\_EXISTS: RawError\<"USER\_ALREADY\_EXISTS"\>; YOU\_CANNOT\_BAN\_YOURSELF: RawError\<"YOU\_CANNOT\_BAN\_YOURSELF"\>; YOU\_ARE\_NOT\_ALLOWED\_TO\_CHANGE\_USERS\_ROLE: RawError\<"YOU\_ARE\_NOT\_ALLOWED\_TO\_CHANGE\_USERS\_ROLE"\>; YOU\_ARE\_NOT\_ALLOWED\_TO\_CREATE\_USERS: RawError\<"YOU\_ARE\_NOT\_ALLOWED\_TO\_CREATE\_USERS"\>; YOU\_ARE\_NOT\_ALLOWED\_TO\_LIST\_USERS: RawError\<"YOU\_ARE\_NOT\_ALLOWED\_TO\_LIST\_USERS"\>; YOU\_ARE\_NOT\_ALLOWED\_TO\_LIST\_USERS\_SESSIONS: RawError\<"YOU\_ARE\_NOT\_ALLOWED\_TO\_LIST\_USERS\_SESSIONS"\>; YOU\_ARE\_NOT\_ALLOWED\_TO\_BAN\_USERS: RawError\<"YOU\_ARE\_NOT\_ALLOWED\_TO\_BAN\_USERS"\>; YOU\_ARE\_NOT\_ALLOWED\_TO\_IMPERSONATE\_USERS: RawError\<"YOU\_ARE\_NOT\_ALLOWED\_TO\_IMPERSONATE\_USERS"\>; YOU\_ARE\_NOT\_ALLOWED\_TO\_REVOKE\_USERS\_SESSIONS: RawError\<"YOU\_ARE\_NOT\_ALLOWED\_TO\_REVOKE\_USERS\_SESSIONS"\>; YOU\_ARE\_NOT\_ALLOWED\_TO\_DELETE\_USERS: RawError\<"YOU\_ARE\_NOT\_ALLOWED\_TO\_DELETE\_USERS"\>; YOU\_ARE\_NOT\_ALLOWED\_TO\_SET\_USERS\_PASSWORD: RawError\<"YOU\_ARE\_NOT\_ALLOWED\_TO\_SET\_USERS\_PASSWORD"\>; BANNED\_USER: RawError\<"BANNED\_USER"\>; YOU\_ARE\_NOT\_ALLOWED\_TO\_GET\_USER: RawError\<"YOU\_ARE\_NOT\_ALLOWED\_TO\_GET\_USER"\>; NO\_DATA\_TO\_UPDATE: RawError\<"NO\_DATA\_TO\_UPDATE"\>; YOU\_ARE\_NOT\_ALLOWED\_TO\_UPDATE\_USERS: RawError\<"YOU\_ARE\_NOT\_ALLOWED\_TO\_UPDATE\_USERS"\>; YOU\_CANNOT\_REMOVE\_YOURSELF: RawError\<"YOU\_CANNOT\_REMOVE\_YOURSELF"\>; YOU\_ARE\_NOT\_ALLOWED\_TO\_SET\_NON\_EXISTENT\_VALUE: RawError\<"YOU\_ARE\_NOT\_ALLOWED\_TO\_SET\_NON\_EXISTENT\_VALUE"\>; YOU\_CANNOT\_IMPERSONATE\_ADMINS: RawError\<"YOU\_CANNOT\_IMPERSONATE\_ADMINS"\>; INVALID\_ROLE\_TYPE: RawError\<"INVALID\_ROLE\_TYPE"\>; YOU\_ARE\_NOT\_ALLOWED\_TO\_SET\_USERS\_EMAIL: RawError\<"YOU\_ARE\_NOT\_ALLOWED\_TO\_SET\_USERS\_EMAIL"\>; PASSWORD\_CANNOT\_BE\_UPDATED\_VIA\_UPDATE\_USER: RawError\<"PASSWORD\_CANNOT\_BE\_UPDATED\_VIA\_UPDATE\_USER"\> \}; schema: \{ user: \{ fields: \{ role: \{ type: ...; required: ...; input: ... \}; banned: \{ type: ...; defaultValue: ...; required: ...; input: ... \}; banReason: \{ type: ...; required: ...; input: ... \}; banExpires: \{ type: ...; required: ...; input: ... \} \} \}; session: \{ fields: \{ impersonatedBy: \{ type: ...; required: ...; input: ... \} \} \} \}; options: NoInfer\<AdminOptions\> \} \| DefaultOrganizationPlugin\<\{ allowUserToCreateOrganization?: boolean \| ((user: (...) & (...)) =\> Awaitable\<(...)\>); organizationLimit?: number \| ((user: (...) & (...)) =\> Awaitable\<(...)\>); creatorRole?: string; membershipLimit?: number \| ((user: \{ id: ...; createdAt: ...; updatedAt: ...; email: ...; emailVerified: ...; name: ...; image?: ... \}, organization: \{ id: ...; name: ...; slug: ...; logo?: ...; metadata?: ...; createdAt: ... \}) =\> (...) \| (...)); ac?: AccessControl; roles?: \{ \[key: string\]: (...) \| (...) \}; dynamicAccessControl?: \{ enabled?: (...) \| (...) \| (...); maximumRolesPerOrganization?: (...) \| (...) \| (...) \}; teams?: \{ enabled: boolean; defaultTeam?: (...) \| (...); maximumTeams?: (...) \| (...) \| (...); maximumMembersPerTeam?: (...) \| (...) \| (...); allowRemovingAllTeams?: (...) \| (...) \| (...) \}; invitationExpiresIn?: number; invitationLimit?: number \| ((data: \{ user: ...; organization: ...; member: ... \}, ctx: AuthContext) =\> Awaitable\<(...)\>); cancelPendingInvitationsOnReInvite?: boolean; requireEmailVerificationOnInvitation?: boolean; sendInvitationEmail?: (data: \{ id: ...; role: ...; email: ...; organization: ...; invitation: ...; inviter: ... \}, request?: (...) \| (...)) =\> Promise\<(...)\>; schema?: \{ session?: (...) \| (...); organization?: (...) \| (...); member?: (...) \| (...); invitation?: (...) \| (...); team?: (...) \| (...); teamMember?: (...) \| (...); organizationRole?: (...) \| (...) \}; disableOrganizationDeletion?: boolean; organizationHooks?: \{ beforeCreateOrganization?: (...) \| (...); afterCreateOrganization?: (...) \| (...); beforeUpdateOrganization?: (...) \| (...); afterUpdateOrganization?: (...) \| (...); beforeDeleteOrganization?: (...) \| (...); afterDeleteOrganization?: (...) \| (...); beforeAddMember?: (...) \| (...); afterAddMember?: (...) \| (...); beforeRemoveMember?: (...) \| (...); afterRemoveMember?: (...) \| (...); beforeUpdateMemberRole?: (...) \| (...); afterUpdateMemberRole?: (...) \| (...); beforeCreateInvitation?: (...) \| (...); afterCreateInvitation?: (...) \| (...); beforeAcceptInvitation?: (...) \| (...); afterAcceptInvitation?: (...) \| (...); beforeRejectInvitation?: (...) \| (...); afterRejectInvitation?: (...) \| (...); beforeCancelInvitation?: (...) \| (...); afterCancelInvitation?: (...) \| (...); beforeCreateTeam?: (...) \| (...); afterCreateTeam?: (...) \| (...); beforeUpdateTeam?: (...) \| (...); afterUpdateTeam?: (...) \| (...); beforeDeleteTeam?: (...) \| (...); afterDeleteTeam?: (...) \| (...); beforeAddTeamMember?: (...) \| (...); afterAddTeamMember?: (...) \| (...); beforeRemoveTeamMember?: (...) \| (...); afterRemoveTeamMember?: (...) \| (...) \} \}\>)\[\]\]; \}\> | - | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
 | `mcp` | [`McpExchange`](#mcpexchange) | - | [src/convex/client/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/client/index.ts) |
 
