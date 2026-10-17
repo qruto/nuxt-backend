@@ -137,6 +137,16 @@ try {
   if (!moduleMeta.docs) problems.push('dist/module.json has no `docs` — the nuxt/modules listing would fall back to the GitHub URL')
   if (moduleMeta.version !== manifest.version) problems.push(`dist/module.json says ${moduleMeta.version}, package.json ${manifest.version}`)
 
+  // mkdist doubles the extension of a specifier that already ends in `.js`
+  // (a runtime file importing `../../../convex/errors.js` declared
+  // `errors.js.js`), and the types behind it read as `any`. attw only follows
+  // the export map, so a runtime declaration reached through an auto-import
+  // gets its own check.
+  const runtimeDeclarations = files.filter(f => f.startsWith('package/dist/runtime/') && f.endsWith('.d.ts'))
+  for (const file of runtimeDeclarations) {
+    if (/\.js\.js['"]/.test(readFileSync(join(extracted, file), 'utf8'))) problems.push(`${file.slice('package/'.length)} imports a doubled \`.js.js\` path`)
+  }
+
   // A consumer's package manager runs these. This package has none to run,
   // and one shipped by mistake (a pnpm-only `preinstall`, once) breaks
   // `npm install` for every npm user.

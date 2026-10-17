@@ -58,3 +58,22 @@ if (existsSync(toolsDir)) {
     if (file.endsWith('.d.ts')) rmSync(join(toolsDir, file))
   }
 }
+
+// mkdist's declarations append `.js` to a specifier that already ends in it:
+// a runtime file importing `../../../convex/errors.js` (outside the runtime
+// tree, so written with its extension) declares `errors.js.js`, which
+// resolves to nothing, and the types that cross it read as `any`. Only in a
+// real build: in the stub, dist/runtime is a link to src/runtime.
+const runtimeDir = join(dist, 'runtime')
+if (existsSync(runtimeDir)) {
+  const { lstatSync, readdirSync } = await import('node:fs')
+  if (!lstatSync(runtimeDir).isSymbolicLink()) {
+    const declarations = readdirSync(runtimeDir, { recursive: true, encoding: 'utf8' }).filter(file => file.endsWith('.d.ts'))
+    for (const file of declarations) {
+      const path = join(runtimeDir, file)
+      const text = readFileSync(path, 'utf8')
+      const fixed = text.replace(/\.js\.js(['"])/g, '.js$1')
+      if (fixed !== text) writeFileSync(path, fixed)
+    }
+  }
+}
