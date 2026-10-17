@@ -6,12 +6,12 @@ definePageMeta({ middleware: 'auth' })
 
 // ── Full-text search (debounced) ──────────────────────────────────
 const term = ref('')
-const { results, isLoading } = useSearch(api.search.searchMessages, term, { debounce: 200 })
+const { results, isLoading } = useSearch(api.search.searchMessages, { term, debounce: 200 })
 
 // ── Live aggregate count (kept in sync by a write trigger) ────────
-const messageCount = useCount(api.aggregates.countMessages)
+const { data: messageCount, isLoading: countLoading } = useAggregate(api.aggregates.countMessages)
 // The general aggregate read beyond counting — a live character-total sum.
-const totalCharacters = useAggregate(api.aggregates.totalCharacters)
+const { data: totalCharacters, isLoading: sumLoading } = useAggregate(api.aggregates.totalCharacters)
 
 // Seed the index from here so search has something to find.
 const draft = ref('')
@@ -34,12 +34,12 @@ function highlight(text: string): string {
 <template>
   <div class="stack">
     <PageHeader
-      tag="useSearch · useCount · useAggregate"
+      tag="useSearch · useAggregate"
       title="Search & counts"
       live
     >
       <code>useSearch</code> debounces a term into a Convex full-text query;
-      <code>useCount</code> reads a live aggregate kept in sync by a write
+      <code>useAggregate</code> reads a live aggregate kept in sync by a write
       trigger — no table scan. Add a message, then search for it.
     </PageHeader>
 
@@ -47,12 +47,14 @@ function highlight(text: string): string {
       <MetricCard
         label="messages (aggregate)"
         :value="messageCount"
+        :loading="countLoading"
         tone="ok"
-        hint="useCount(api.aggregates.countMessages)"
+        hint="useAggregate(api.aggregates.countMessages)"
       />
       <MetricCard
         label="characters stored"
         :value="totalCharacters"
+        :loading="sumLoading"
         tone="ok"
         hint="useAggregate · sum"
       />

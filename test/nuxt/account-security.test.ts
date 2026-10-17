@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, defineComponent, h, ref, toValue, type MaybeRefOrGetter } from 'vue'
+import { computed, defineComponent, h, nextTick, ref, toValue, type MaybeRefOrGetter } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { ConvexError } from 'convex/values'
 
@@ -25,17 +25,21 @@ const client = {
   admin: { checkRolePermission: vi.fn(() => false) },
 }
 
-// The live session list: what the `listSessions` query returns, and the
-// `revokeSession` mutation. Everything else in the client module stays real.
+// The live session list: what the `listSessions` query returns (an Error
+// for a failed read), and the `revokeSession` mutation. Everything else in
+// the client module stays real.
 const DAY = 86_400_000
-const sessionRows = ref<Array<Record<string, unknown>> | null | undefined>()
+const sessionRows = ref<Array<Record<string, unknown>> | Error | null | undefined>()
 const revokeSessionMutation = vi.fn(async (_args: { sessionId: string }): Promise<null> => null)
 const sessionsApi = { listSessions: 'auth:listSessions', revokeSession: 'auth:revokeSession' } as never
 
 vi.mock('nuxt-convex-module/client', async original => ({
   ...await original<Record<string, unknown>>(),
-  useQuery: (_ref: unknown, args: MaybeRefOrGetter<unknown>) =>
-    computed(() => (toValue(args) === 'skip' ? undefined : sessionRows.value)),
+  useQuery_experimental: ({ args }: { args: MaybeRefOrGetter<unknown> }) => computed(() => {
+    const rows = sessionRows.value
+    if (toValue(args) === 'skip' || rows === undefined) return { status: 'pending' }
+    return rows instanceof Error ? { status: 'error', error: rows } : { status: 'success', data: rows }
+  }),
   useMutation: () => revokeSessionMutation,
 }))
 
@@ -125,11 +129,11 @@ describe('useSessions', () => {
     { id: 's-expired', userAgent: 'Safari iPhone', createdAt: now - DAY * 30, updatedAt: now - DAY * 23, expiresAt: now - DAY * 16, current: false },
   ]
 
-  function withSessions() {
+  function withSessions(api: typeof sessionsApi = sessionsApi) {
     let result!: ReturnType<typeof useSessions>
     mount(defineComponent({
       setup() {
-        result = useSessions({ api: sessionsApi })
+        result = useSessions({ api })
         return () => h('div')
       },
     }), {
@@ -174,24 +178,87 @@ describe('useSessions', () => {
     expect(sessions.isLoading.value).toBe(false)
   })
 
+  it('drops an action\'s failure on sign-out, so it never shows to the next sign-in', async () => {
+    const sessions = withSessions()
+    revokeSessionMutation.mockRejectedValueOnce(new ConvexError({ code: 'invalid_input', field: 'sessionId' }))
+    await sessions.revoke('s-gone').catch(() => {})
+    expect(sessions.error.value?.code).toBe('invalid_input')
+    user.value = null
+    await nextTick()
+    expect(sessions.error.value).toBeNull()
+    user.value = { email: 'ada@example.com', emailVerified: true }
+    await nextTick()
+    expect(sessions.error.value).toBeNull()
+  })
+
+  it('holds an action\'s failure over the list\'s, and falls back to the list\'s after a success', async () => {
+    sessionRows.value = new ConvexError({ code: 'unauthenticated' })
+    const sessions = withSessions()
+    expect(sessions.error.value?.code).toBe('unauthenticated')
+    revokeSessionMutation.mockRejectedValueOnce(new ConvexError({ code: 'rate_limited', retryAfter: 1000 }))
+    await sessions.revoke('s-other').catch(() => {})
+    expect(sessions.error.value?.code).toBe('rate_limited')
+    await sessions.revoke('s-other')
+    expect(sessions.error.value?.code).toBe('unauthenticated')
+  })
+
+  it('says what to export when revokeSession is missing', async () => {
+    const sessions = withSessions({ listSessions: 'auth:listSessions' } as never)
+    await expect(sessions.revoke('s-other')).rejects.toThrow('needs `revokeSession`')
+    expect(sessions.error.value?.message).toContain('[nuxt-backend] Revoking a session needs `revokeSession`')
+  })
+
+  it('puts a failed read in error instead of throwing', () => {
+    sessionRows.value = new ConvexError({ code: 'unauthenticated' })
+    const sessions = withSessions()
+    expect(sessions.sessions.value).toBeUndefined()
+    expect(sessions.isLoading.value).toBe(false)
+    expect(sessions.error.value).toMatchObject({ code: 'unauthenticated', data: {} })
+  })
+
+  it('is pending while an action runs, and only then', async () => {
+    const sessions = withSessions()
+    let settle!: () => void
+    revokeSessionMutation.mockImplementationOnce(() => new Promise<null>((resolve) => {
+      settle = () => resolve(null)
+    }))
+    expect(sessions.isPending.value).toBe(false)
+    const revoking = sessions.revoke('s-other')
+    expect(sessions.isPending.value).toBe(true)
+    settle()
+    await revoking
+    expect(sessions.isPending.value).toBe(false)
+
+    revokeSessionMutation.mockRejectedValueOnce(new ConvexError({ code: 'invalid_input', field: 'sessionId' }))
+    await expect(sessions.revoke('s-gone')).rejects.toBeInstanceOf(ConvexError)
+    expect(sessions.isPending.value).toBe(false)
+  })
+
   it('revokes by id and surfaces the message of a refusal', async () => {
     const sessions = withSessions()
     await sessions.revoke('s-other')
     expect(revokeSessionMutation).toHaveBeenCalledWith({ sessionId: 's-other' })
 
     // What the client hands over: a ConvexError whose message is the platform's
-    // wrapper, and whose data is the catalog refusal.
-    revokeSessionMutation.mockRejectedValueOnce(Object.assign(
+    // wrapper, and whose data is the catalog refusal. The action rejects with
+    // it as it came; `error` holds it read.
+    const refusal = Object.assign(
       new ConvexError({ code: 'invalid_input', field: 'sessionId', message: 'Session not found.' }),
       { message: '[CONVEX M(auth:revokeSession)] Server Error' },
-    ))
-    await expect(sessions.revoke('s-gone')).rejects.toThrow('Session not found.')
-    expect(sessions.error.value).toBe('Session not found.')
+    )
+    revokeSessionMutation.mockRejectedValueOnce(refusal)
+    await expect(sessions.revoke('s-gone')).rejects.toBe(refusal)
+    expect(sessions.error.value).toEqual({ code: 'invalid_input', data: { field: 'sessionId', message: 'Session not found.' }, message: 'Session not found.' })
 
-    // An app's own ConvexError('text') — the old convention — still shows its text, not the wrapper.
+    // An app's own ConvexError('text') carries no code: it reads as
+    // unavailable, still with its own text, not the wrapper.
     revokeSessionMutation.mockRejectedValueOnce(Object.assign(new ConvexError('That device is already gone.'), { message: '[CONVEX M(auth:revokeSession)] Server Error' }))
-    await expect(sessions.revoke('s-gone')).rejects.toThrow('That device is already gone.')
-    expect(sessions.error.value).toBe('That device is already gone.')
+    await expect(sessions.revoke('s-gone')).rejects.toBeInstanceOf(ConvexError)
+    expect(sessions.error.value).toMatchObject({ code: 'unavailable', data: { service: 'backend', reason: 'unexpected' }, message: 'That device is already gone.' })
+
+    // The next action clears the last failure.
+    await sessions.revoke('s-other')
+    expect(sessions.error.value).toBeNull()
   })
 
   it('revokeOthers goes through the auth client and throws on failure', async () => {
@@ -201,7 +268,11 @@ describe('useSessions', () => {
 
     client.revokeOtherSessions.mockResolvedValueOnce({ error: { message: 'nope' } })
     await expect(sessions.revokeOthers()).rejects.toThrow('nope')
-    expect(sessions.error.value).toBe('nope')
+    expect(sessions.error.value?.message).toBe('nope')
+
+    client.revokeOtherSessions.mockResolvedValueOnce({ error: { status: 429, statusText: 'Too Many Requests', message: 'Too many requests', retryAfter: 5000 } })
+    await expect(sessions.revokeOthers()).rejects.toThrow()
+    expect(sessions.error.value).toMatchObject({ code: 'rate_limited', data: { retryAfter: 5000 } })
   })
 })
 
@@ -209,7 +280,14 @@ describe('describeUserAgent', () => {
   it('labels browser and platform', () => {
     expect(describeUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X) Chrome/120 Safari/537')).toBe('Chrome · macOS')
     expect(describeUserAgent('Mozilla/5.0 (Windows NT 10.0) Gecko Firefox/121')).toBe('Firefox · Windows')
-    expect(describeUserAgent(null)).toBe('unknown device')
+    expect(describeUserAgent('curl/8.4.0')).toBeNull()
+    expect(describeUserAgent('Mozilla/5.0 (X11; Linux x86_64) Unknown/1.0')).toBe('Browser · Linux')
+  })
+
+  it('reads null for a session without a user agent, so the page words an unknown device', () => {
+    expect(describeUserAgent(null)).toBeNull()
+    expect(describeUserAgent('')).toBeNull()
+    expect(describeUserAgent()).toBeNull()
   })
 })
 

@@ -4,7 +4,7 @@ import { usePasskeys, type UsePasskeysReturn, type Passkey } from '../composable
 import { useSessions, describeUserAgent, type UseSessionsReturn, type SessionInfo } from '../composables/use-sessions'
 import { useBackendConfig } from '../composables/use-backend-config'
 import { unwrapAuth } from '../utils/auth-result'
-import { refusalMessage } from '../utils/backend-error'
+import { failureOf, refusalMessage } from '../utils/backend-error'
 import type { SettingsMessage } from './workspace-settings'
 
 export type SecuritySection = 'passkeys' | 'sessions' | 'danger'
@@ -71,7 +71,10 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
       return typeof window === 'undefined' ? false : window.confirm(text)
     }
 
-    async function run(key: string, action: () => Promise<unknown>, okText?: string) {
+    /** A failed passkey or account call's sentence. The session actions read theirs as `useSessions` does. */
+    const describe = (e: unknown) => refusalMessage(e, 'Something went wrong')
+
+    async function run(key: string, action: () => Promise<unknown>, okText?: string, read: (e: unknown) => string = describe) {
       message.value = null
       pending.value = key
       try {
@@ -79,7 +82,7 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
         if (okText) message.value = { text: okText, ok: true }
       }
       catch (e) {
-        const text = refusalMessage(e, 'Something went wrong')
+        const text = read(e)
         message.value = { text, ok: false }
         emit('error', text)
       }
@@ -110,12 +113,12 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
     const revokeSession = (row: SessionInfo) => run(`session:${row.id}`, async () => {
       await sessions.revoke(row.id)
       emit('session-revoked', row.id)
-    })
+    }, undefined, e => failureOf(e).message)
 
     const revokeOthers = () => run('sessions:others', async () => {
       await sessions.revokeOthers()
       emit('sessions-revoked')
-    }, 'Other sessions signed out.')
+    }, 'Other sessions signed out.', e => failureOf(e).message)
 
     const requestDeletion = async () => {
       if (!(await confirmed('Send an account-deletion confirmation email?'))) return
@@ -206,7 +209,7 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
       if (slots.session) return slots.session(ctx)
       const isCurrent = row.current
       return h('li', { 'data-security': 'session', 'data-current': isCurrent || undefined, 'key': row.id }, [
-        h('span', { 'data-security': 'session-name' }, describeUserAgent(row.userAgent)),
+        h('span', { 'data-security': 'session-name' }, describeUserAgent(row.userAgent) ?? 'Unknown device'),
         h('span', { 'data-security': 'session-meta' }, formatDate(row.createdAt)),
         isCurrent
           ? h('span', { 'data-security': 'current-badge' }, 'This device')
@@ -223,8 +226,12 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
       const ctx = context()
       if (slots.sessions) return slots.sessions(ctx)
       const list = sessions.sessions.value ?? []
-      return h('section', { 'data-security': 'section-sessions' }, [
+      // A list that failed to load says why; an action's failure shows in the message region.
+      const failed = sessions.sessions.value === undefined ? sessions.error.value : null
+      return h('section', { 'data-security': 'section-sessions', 'aria-busy': sessions.isLoading.value || undefined }, [
         h('h3', { 'data-security': 'section-title' }, 'Active sessions'),
+        sessions.isLoading.value ? h('p', { 'data-security': 'sessions-loading' }, 'Loading sessions…') : null,
+        failed ? h('p', { 'data-security': 'sessions-error', 'role': 'alert' }, failed.message) : null,
         h('ul', { 'data-security': 'session-list' }, list.map(sessionRow)),
         h('button', {
           'data-security': 'revoke-others',

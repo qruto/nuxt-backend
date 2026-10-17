@@ -35,9 +35,9 @@ export function createOnDemandSections(run: <T>(fn: () => T) => T, patch: Patch)
       sessions = list
       watchEffect(() => patch('sessions', {
         isLoading: list.isLoading.value,
-        ...(list.error.value ? { error: list.error.value } : {}),
+        ...(list.error.value ? { error: list.error.value.message } : {}),
         items: (list.sessions.value ?? []).map(session => ({
-          device: describeUserAgent(session.userAgent),
+          device: describeUserAgent(session.userAgent) ?? 'Unknown device',
           current: session.current,
           createdAt: toMs(session.createdAt),
         })),
@@ -84,7 +84,7 @@ export function createOnDemandSections(run: <T>(fn: () => T) => T, patch: Patch)
     lookupEmail(id) {
       if (!email) {
         run(() => {
-          const status = useEmailStatus(emailId)
+          const status = useEmailStatus({ emailId })
           email = status
           watchEffect(() => {
             if (!emailId.value) return
@@ -93,6 +93,7 @@ export function createOnDemandSections(run: <T>(fn: () => T) => T, patch: Patch)
               isLoading: status.isLoading.value,
               status: status.status.value,
               found: status.data.value != null,
+              ...(status.error.value ? { error: status.error.value.message } : {}),
             })
           })
         })

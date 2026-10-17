@@ -9,7 +9,7 @@ const workflowId = ref<string | null>(null)
 const workflowPending = ref(false)
 // Starts are throttled: every run sends an email on the shared quota.
 const workflowError = ref<string | null>(null)
-const status = useWorkflowStatus(api.workflows.getWorkflowStatus, workflowId)
+const { data: status } = useWorkflowStatus(api.workflows.getWorkflowStatus, { workflowId })
 
 async function runWorkflow() {
   workflowPending.value = true

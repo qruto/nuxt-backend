@@ -27,7 +27,7 @@ The `backend` component keeps tables of its own: the Better Auth tables, the bil
 | Call Convex from a Nitro route, or render data on the first load | `fetchQuery`, `backendAuth(event)`, `preloadQuery` | [Server & SSR](/docs/data/server-rendering) |
 | Show why a call was refused, or refuse one yourself | `getBackendError`, `backendError` | [Handle errors](/docs/data/errors) |
 | Find rows by the words in a text field | `search`, `defineSearch`, `useSearch` | [Full-text search](/docs/data/search) |
-| Show a count or a sum without reading every row | `TableAggregate`, `useCount` | [Aggregates](/docs/data/aggregates) |
+| Show a count or a sum without reading every row | `TableAggregate`, `useAggregate` | [Aggregates](/docs/data/aggregates) |
 | Upload files and show them | `useUpload`, `useUploadQueue`, `useStorageUrl` | [File storage](/docs/data/files) |
 | Run steps over minutes or days that survive restarts | `setupWorkflows`, `useWorkflowStatus` | [Workflows](/docs/data/jobs/workflows) |
 | Change existing documents in batches, or backfill an aggregate | `setupMigrations` | [Migrations](/docs/data/jobs/migrations) |
@@ -52,7 +52,7 @@ The `backend` component keeps tables of its own: the Better Auth tables, the bil
   :::
 
   :::card{icon="i-lucide-sigma" title="Aggregates" to="/docs/data/aggregates"}
-  Keep counts and sums in sync through triggers, and read them live with `useCount`.
+  Keep counts and sums in sync through triggers, and read them live with `useAggregate`.
   :::
 ::
 

@@ -61,9 +61,10 @@ const sessions = {
     { id: 'sentinel-session-id-2', userAgent: null, createdAt: Date.parse('2026-09-02T00:00:00.000Z'), current: false },
   ]),
   isLoading: ref(false),
-  error: ref<string | null>(null),
+  error: ref<{ code: string, data: Record<string, unknown>, message: string } | null>(null),
 }
 const emailStatus = ref<{ status: string } | null | undefined>(undefined)
+const emailError = ref<{ code: string, data: Record<string, unknown>, message: string } | null>(null)
 vi.mock('../../src/runtime/vue/composables/use-sessions', async importOriginal => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useSessions: () => sessions,
@@ -87,7 +88,8 @@ vi.mock('../../src/runtime/vue/composables/use-email-status', () => ({
   useEmailStatus: () => ({
     data: emailStatus,
     status: computed(() => emailStatus.value?.status),
-    isLoading: computed(() => emailStatus.value === undefined),
+    isLoading: computed(() => emailStatus.value === undefined && !emailError.value),
+    error: emailError,
   }),
 }))
 
@@ -250,11 +252,23 @@ describe('the DevTools bridge plugin', () => {
 
     const { sessions: loaded, passkeys } = bridge.getSnapshot()
     expect(loaded!.items[0]).toMatchObject({ current: true, device: expect.stringContaining('Chrome') })
-    expect(loaded!.items[1]).toMatchObject({ current: false, createdAt: Date.parse('2026-09-02T00:00:00.000Z') })
+    expect(loaded!.items[1]).toMatchObject({ current: false, device: 'Unknown device', createdAt: Date.parse('2026-09-02T00:00:00.000Z') })
     expect(passkeys!.items).toEqual([{ name: 'Laptop', deviceType: 'multiDevice', backedUp: true, createdAt: Date.parse('2026-09-03T00:00:00.000Z') }])
     const serialized = JSON.stringify(bridge.getSnapshot())
     for (const secret of ['sentinel-session-id-1', 'sentinel-session-id-2', 'sentinel-passkey-id']) {
       expect(serialized).not.toContain(secret)
+    }
+  })
+
+  it('shows why the session list could not be read, as its sentence', async () => {
+    const bridge = install()
+    bridge.request('sessions')
+    sessions.error.value = { code: 'unauthenticated', data: {}, message: 'Sign in to continue.' }
+    try {
+      await vi.waitFor(() => expect(bridge.getSnapshot().sessions?.error).toBe('Sign in to continue.'))
+    }
+    finally {
+      sessions.error.value = null
     }
   })
 
@@ -271,5 +285,18 @@ describe('the DevTools bridge plugin', () => {
 
     emailStatus.value = { status: 'delivered' }
     await vi.waitFor(() => expect(bridge.getSnapshot().emailLookup).toMatchObject({ status: 'delivered', found: true, isLoading: false }))
+  })
+
+  it('says why an email lookup failed, rather than that the email was not found', async () => {
+    const bridge = install()
+    emailStatus.value = undefined
+    emailError.value = { code: 'unauthenticated', data: {}, message: 'Sign in to continue.' }
+    try {
+      bridge.lookupEmail('email_456')
+      await vi.waitFor(() => expect(bridge.getSnapshot().emailLookup).toEqual({ emailId: 'email_456', isLoading: false, status: undefined, found: false, error: 'Sign in to continue.' }))
+    }
+    finally {
+      emailError.value = null
+    }
   })
 })

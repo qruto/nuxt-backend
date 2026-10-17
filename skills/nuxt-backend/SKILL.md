@@ -92,6 +92,14 @@ sign-in codes print in the terminal that runs `dev`.
   `#backend/api`; `useBackendClient()` for a one-off imperative call; `<StorageImage>` for an
   image in file storage. The base module's brand-named composables and components are not
   auto-imported in a nuxt-backend app: use these neutral names.
+- **Data composables:** `useSearch(query, { term })`, `useAggregate(query)`,
+  `useWorkflowStatus(query, { workflowId })`, `useEmailStatus({ emailId })`,
+  `useSandboxInbox({ address })` and `useSessions()` take an options object of values, refs or
+  getters and return a plain object to destructure: `data` (or `results`, `messages`, `sessions`),
+  `isLoading`, `isPending` for actions, and `error` as `{ code, data, message } | null`. A read
+  never throws, so bind `error` instead of wrapping it in `try`; an action rejects and fills
+  `error` too. `data` is `undefined` until the first read lands. Rules:
+  https://nuxt-backend.dev/docs/reference/nuxt/conventions.
 - **Server routes:** `backendAuth(event)` in Nitro runs Convex calls as the signed-in user.
 - **Workspaces:** `useOrganization()`, `<WorkspaceSettings>` and `<RoleBoundary>`.
 - **Billing:** declare meters, plans, packs and features in `backend/billing.catalog.ts`, then
@@ -99,7 +107,7 @@ sign-in codes print in the terminal that runs `dev`.
   with `<FeatureBoundary>`, and render plans with `<PricingTable>`. Plan copy comes from
   `appConfig.backend.billing.plans` and `packs`.
 - **Email:** transactional mail goes through `backend/email.ts` (`setupEmail`), and
-  `useEmailStatus(id)` tracks delivery. The package's own emails (sign-in codes, welcome,
+  `useEmailStatus({ emailId })` tracks delivery (`isFailed` for a bounce). The package's own emails (sign-in codes, welcome,
   invitations, gifts) go through it too: restyle them with `setupEmail(components, { templates })`. Test mode is on until `EMAIL_TEST_MODE=false`.
   Never expose a public function that takes a recipient: the scaffolded `send` is an
   `internalAction`. Call it from server code with an address you trust, or use
@@ -133,6 +141,7 @@ the user id. Details: https://nuxt-backend.dev/docs/ui/customize.
 ## Where to look
 
 - Composables and components: https://nuxt-backend.dev/docs/reference/nuxt/composables
+- Composable conventions: https://nuxt-backend.dev/docs/reference/nuxt/conventions
 - Error codes: https://nuxt-backend.dev/docs/reference/backend/errors
 - Every import path: https://nuxt-backend.dev/docs/reference/entrypoints
 - Module options: https://nuxt-backend.dev/docs/reference/configuration/module-options

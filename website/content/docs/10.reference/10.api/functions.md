@@ -260,7 +260,10 @@ never renames one.
   `not_synced`).
 - `unavailable` — a service can't serve the call; `service` and
   `reason` say which and why. Only `provider_refused` may pass on a retry;
-  the others need the deployment fixed.
+  the others need the deployment fixed. Nothing throws service `backend`
+  with reason `unexpected`: it is how a composable's `error` reads a
+  failure without a code (a crash, an app's own error), and says nothing
+  about whether a service is down.
 
 #### Type Declaration
 

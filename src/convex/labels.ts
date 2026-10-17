@@ -93,6 +93,8 @@ const ERROR_LABELS = {
   unavailable_not_configured: 'This isn\'t set up on this app yet.',
   unavailable_test_mode: 'This app is in test mode and only emails test addresses, so this address can\'t receive mail here.',
   unavailable_unconfigured: 'This app can\'t send email yet.',
+  // Never thrown: a composable's reading of a failure without a code (a crash, an app's own error).
+  unavailable_unexpected: 'Something went wrong.',
 } satisfies LabelTree
 
 /** The emails the package sends: subjects, sentences and buttons. */

@@ -102,7 +102,6 @@ export function registerSaasComposables(resolver: Resolver): void {
     { name: 'useOrganization', from: resolver.resolve('./runtime/vue/composables/use-organization') },
     { name: 'useSearch', from: resolver.resolve('./runtime/vue/composables/use-search') },
     { name: 'useAggregate', from: resolver.resolve('./runtime/vue/composables/use-aggregate') },
-    { name: 'useCount', from: resolver.resolve('./runtime/vue/composables/use-aggregate') },
     { name: 'useBilling', from: resolver.resolve('./runtime/vue/composables/use-billing') },
     { name: 'useFeatures', from: resolver.resolve('./runtime/vue/composables/use-features') },
     { name: 'useCredits', from: resolver.resolve('./runtime/vue/composables/use-credits') },
