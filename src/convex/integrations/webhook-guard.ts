@@ -218,14 +218,31 @@ function deliveryRecorder(log: GuardCtx, refs: WebhookLogRefs, service: WebhookS
 /**
  * The request's body as text, or `null` when it is over the cap: refused on
  * a declared `Content-Length` before anything is read, and otherwise
- * measured in the bytes that arrived (a body without the header, or one that
- * understated it).
+ * counted as it streams in (a chunked body, or one that understated its
+ * length), the read cancelled the moment the count passes the cap, so no
+ * more than the cap is ever held.
  */
 async function readCappedBody(request: Request): Promise<string | null> {
   const declared = Number(request.headers.get('content-length') ?? Number.NaN)
   if (Number.isFinite(declared) && declared > WEBHOOK_BODY_LIMIT) return null
-  const bytes = await request.arrayBuffer()
-  if (bytes.byteLength > WEBHOOK_BODY_LIMIT) return null
+  if (!request.body) return ''
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (let read = await reader.read(); !read.done; read = await reader.read()) {
+    total += read.value.byteLength
+    if (total > WEBHOOK_BODY_LIMIT) {
+      await reader.cancel()
+      return null
+    }
+    chunks.push(read.value)
+  }
+  const bytes = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
   return new TextDecoder().decode(bytes)
 }
 

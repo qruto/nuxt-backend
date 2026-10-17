@@ -172,6 +172,26 @@ describe('handleWebhookDelivery — the rows the edge owns', () => {
     expect(input.verify).not.toHaveBeenCalled()
   })
 
+  it('a chunked body with no Content-Length stops being read at the cap', async () => {
+    const chunk = new Uint8Array(64 * 1024)
+    let pulled = 0
+    const stream = new ReadableStream<Uint8Array>({
+      // Endless: only a read that stops at the cap ever settles.
+      pull(controller) {
+        pulled++
+        controller.enqueue(chunk)
+      },
+    })
+    const request = new Request('https://site.test/billing/events', { method: 'POST', body: stream, duplex: 'half' } as RequestInit)
+    const input = delivery({ request })
+
+    const response = await handleWebhookDelivery(makeCtx(), refs, input)
+
+    expect(response.status).toBe(413)
+    expect(pulled * chunk.byteLength).toBeLessThanOrEqual(WEBHOOK_BODY_LIMIT + 2 * chunk.byteLength)
+    expect(input.verify).not.toHaveBeenCalled()
+  })
+
   it('caps the body in bytes, not characters', async () => {
     // Two bytes a character in UTF-8: half the cap in characters, just over it in bytes.
     const wide = 'é'.repeat(WEBHOOK_BODY_LIMIT / 2 + 1)
