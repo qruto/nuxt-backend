@@ -554,19 +554,6 @@ details.dev > .dev-body { padding: 0.25rem 0.85rem 0.85rem; }
   -webkit-text-fill-color: transparent;
   color: transparent;
 }
-/* A whisper of fractal noise to stop flat banding on big surfaces. */
-.noise { position: relative; }
-.noise::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  opacity: 0.035;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
 /* ── Matte-material utilities (legacy) ───────────────────────────
    Carved and raised type from before the parts vocabulary
    (assets/css/depth.css, design.md §Parts), which replaces them as R3–R5
@@ -618,35 +605,6 @@ html.qa-contrast { --emboss-icon: none; }
 html.qa-contrast :is(.engraved, .engraved-sm, .cut, .cut-sm, .engr, .engr-lt) { color: var(--ink); text-shadow: none; }
 html.qa-contrast .cut::after { content: none; }
 html.qa-contrast :is(.embossed, .embossed-sm, .emb, .emb-sm, kbd) { text-shadow: none; }
-
-/* Landing CTA buttons — a convex machined pill (shared by the home
-   sections; scoped styles only add layout, never re-declare the recipe). */
-.hbtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.72rem 1.25rem;
-  border-radius: 999px;
-  font-family: var(--display);
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--ink);
-  background: var(--grad-plaque);
-  box-shadow: var(--plaque);
-  text-decoration: none;
-  transition: box-shadow var(--transition), transform var(--press), color var(--transition);
-}
-.hbtn svg { width: 1.05em; height: 1.05em; }
-.hbtn:hover { box-shadow: var(--plaque-hi); transform: translateY(-1px); }
-.hbtn:active { box-shadow: var(--inset-1); transform: translateY(0.5px); }
-.hbtn--primary {
-  color: var(--on-ok);
-  background: linear-gradient(135deg, var(--ok), var(--ok-press));
-  box-shadow: var(--elev-1), var(--glow-ok-soft);
-}
-.hbtn--primary:hover { box-shadow: var(--elev-2), var(--glow-ok-ring); }
-.hbtn--ghost { background: none; box-shadow: none; color: var(--ink-dim); }
-.hbtn--ghost:hover { color: var(--ink); box-shadow: var(--elev-0); }
 
 /* The homepage console folds up into place as it scrolls in, where the
    browser runs animations off the scroll position (animation-timeline).

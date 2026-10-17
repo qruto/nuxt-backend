@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ComponentPublicInstance } from 'vue'
-import { CONSOLE_DETENTS, CONSOLE_GLYPH, consoleCommand, consoleSummary, consoleTranscript, typedRows, type ConsoleLine } from '~~/shared/console'
+import { CONSOLE_DETENTS, CONSOLE_GLYPH, CONSOLE_PHONE_ROWS, consoleCommand, consoleSummary, consoleTranscript, foldsOnPhone, typedRows, type ConsoleLine } from '~~/shared/console'
 
 /**
  * The console: turn the dial to a service and the LCD types what
@@ -13,6 +13,11 @@ import { CONSOLE_DETENTS, CONSOLE_GLYPH, consoleCommand, consoleSummary, console
  * Reduced motion never types. Screen readers get the transcript as the
  * terminal prints it, line by line, and a turn of the dial announces the
  * command and its summary.
+ *
+ * A phone folds a long transcript to its first six rows and the summary,
+ * with a key under the glass that shows all of it: pressed, the LCD grows
+ * in place and nothing else moves. The fold is visual only: the transcript
+ * a screen reader reads is always whole, and from `sm` up nothing folds.
  */
 const service = ref(CONSOLE_DETENTS[0]!.service)
 const detent = computed(() => CONSOLE_DETENTS.find(entry => entry.service === service.value)!)
@@ -32,6 +37,10 @@ const rows = computed<Row[]>(() => [
 
 /** What the terminal prints, line by line, for assistive technology. */
 const transcript = computed(() => consoleTranscript(detent.value).filter(Boolean))
+
+// The fold: the reader's choice holds across turns of the dial.
+const expanded = ref(false)
+const foldable = computed(() => rows.value.length > CONSOLE_PHONE_ROWS + 1)
 
 const LED: Partial<Record<Tone, string>> = { pass: 'led-ok', warn: 'led-warn', fail: 'led-err' }
 const INK: Partial<Record<Tone, string>> = { 'warn': 'led-warn', 'fail': 'led-err', 'summary-warn': 'led-warn', 'hint': 'led-warn opacity-75' }
@@ -125,23 +134,34 @@ onBeforeUnmount(() => {
             label="Doctor output"
             class="min-h-80 content-start"
           >
-            <div
+            <template
               v-for="(row, index) in rows"
               :key="`${service}-${index}`"
-              class="lcd-row items-start"
-              :class="{ 'mt-2': row.tone.startsWith('summary'), 'ps-[22px]': row.tone === 'hint' || row.tone === 'command' }"
-              aria-hidden="true"
             >
-              <span
-                v-if="LED[row.tone]"
-                class="pxled mt-1.5"
-                :class="LED[row.tone]"
-              />
-              <span
-                class="px text-base leading-snug wrap-anywhere sm:text-lg"
-                :class="INK[row.tone]"
-              >{{ parts[index]!.shown }}<span class="invisible">{{ parts[index]!.rest }}</span></span>
-            </div>
+              <!-- Where a phone folds the transcript: the rows it leaves out. -->
+              <div
+                v-if="foldable && !expanded && index === rows.length - 1"
+                class="lcd-row ps-[22px] sm:hidden"
+                aria-hidden="true"
+              >
+                <span class="px text-base leading-snug">…</span>
+              </div>
+              <div
+                class="lcd-row items-start"
+                :class="{ 'mt-2': row.tone.startsWith('summary'), 'ps-[22px]': row.tone === 'hint' || row.tone === 'command', 'max-sm:hidden': !expanded && foldsOnPhone(index, rows.length) }"
+                aria-hidden="true"
+              >
+                <span
+                  v-if="LED[row.tone]"
+                  class="pxled mt-1.5"
+                  :class="LED[row.tone]"
+                />
+                <span
+                  class="px text-base leading-snug wrap-anywhere sm:text-lg"
+                  :class="INK[row.tone]"
+                >{{ parts[index]!.shown }}<span class="invisible">{{ parts[index]!.rest }}</span></span>
+              </div>
+            </template>
             <ol class="sr-only">
               <li>$ {{ consoleCommand(detent) }}</li>
               <li
@@ -152,6 +172,15 @@ onBeforeUnmount(() => {
               </li>
             </ol>
           </Lcd>
+          <Key
+            v-if="foldable"
+            class="mt-5 sm:hidden"
+            :pressed="expanded"
+            :aria-controls="lcdId"
+            @click="expanded = !expanded"
+          >
+            Show all {{ rows.length }} lines
+          </Key>
           <p
             class="sr-only"
             role="status"

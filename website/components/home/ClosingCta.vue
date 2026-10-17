@@ -1,91 +1,55 @@
 <script setup lang="ts">
 /**
- * Closing call-to-action — the shipping plate: one wide convex plaque with
- * the send-off engraved into it and the install command milled below,
- * bookending the hero's carved wordmark.
+ * The closing plate: one wide `plaque` with the send-off cut into it in two
+ * lines, as the hero's title is, the install line milled below and two
+ * keys. The hero holds the page's one GO key, so these two are metal: the
+ * strip beside the stamp is the plate's only light. A word joiner keeps
+ * `nuxt-backend` whole where a phone wraps the title.
  */
+const TITLE = ['Install the module.', 'Run nuxt-\u2060backend dev. Ship.']
 </script>
 
 <template>
-  <section class="cta">
-    <div class="cta__plate plaque noise">
-      <p class="cta__eyebrow engraved-sm">
-        Ready in one command
+  <section class="mx-auto w-full max-w-(--ui-container) px-4 pt-12 pb-20 sm:px-6 lg:px-8 lg:pb-28">
+    <div class="plaque mx-auto grid max-w-4xl justify-items-center gap-6 px-4 py-12 text-center sm:px-12 sm:py-16">
+      <p class="flex items-center gap-3">
+        <Strip class="h-1.5 w-10" />
+        <span class="stamp">Ready in one command</span>
       </p>
-      <h2 class="cta__title engraved">
-        Install the module.<br>Run nuxt-backend dev. Ship.
+      <h2 class="grid justify-items-center gap-1 font-display text-[clamp(1.5rem,6.4vw,2.9rem)] leading-[1.12] font-bold [font-stretch:112%]">
+        <span
+          v-for="line in TITLE"
+          :key="line"
+          class="cut"
+          :data-text="line"
+        >{{ line }}</span>
       </h2>
-      <p class="cta__lead">
+      <p class="max-w-xl text-(--ink-dim) text-pretty">
         Add <code>nuxt-backend</code> to your modules. The first
         <code>nuxt-backend dev</code> scaffolds the Convex files and fills in
         the environment for you, nothing to set by hand: real-time data and
         Better Auth, working.
       </p>
-      <HomeCommandSlot class="cta__cmd" />
-      <div class="cta__row">
-        <NuxtLink
-          to="/docs/start/quickstart"
-          class="hbtn hbtn--primary"
-        >
-          <UIcon name="i-lucide-arrow-right" />
+      <HomeCommandSlot />
+      <div class="flex flex-wrap justify-center gap-3">
+        <Key to="/docs/start/quickstart">
+          <UIcon
+            name="i-lucide-arrow-right"
+            class="size-3.5"
+          />
           Get started
-        </NuxtLink>
-        <NuxtLink
+        </Key>
+        <Key
           to="/playground"
           prefetch-on="interaction"
-          class="hbtn"
         >
-          <UIcon name="i-lucide-flask-conical" />
+          <UIcon
+            name="i-lucide-flask-conical"
+            class="size-3.5"
+          />
           Explore the playground
-        </NuxtLink>
+        </Key>
       </div>
     </div>
   </section>
 </template>
-
-<style scoped>
-.cta { padding: clamp(2rem, 6vw, 5rem) 1.25rem clamp(4rem, 9vw, 7rem); }
-.cta__plate {
-  max-width: 56rem;
-  margin: 0 auto;
-  padding: clamp(2.4rem, 5vw, 3.75rem) clamp(1.5rem, 4vw, 3rem);
-  text-align: center;
-}
-
-.cta__eyebrow {
-  margin: 0 0 1.1rem;
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.cta__title {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: clamp(1.85rem, 4.5vw, 2.9rem);
-  letter-spacing: -0.005em;
-  line-height: 1.12;
-}
-
-.cta__lead {
-  margin: 1.1rem auto 0;
-  max-width: 36rem;
-  font-size: 1.02rem;
-  line-height: 1.6;
-  color: var(--ink-dim);
-}
-.cta__lead code { font-family: var(--mono); font-size: 0.9em; color: var(--ok-soft); }
-
-.cta__cmd { margin-top: 1.7rem; }
-
-.cta__row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.7rem;
-  margin-top: 1.6rem;
-}
-</style>
