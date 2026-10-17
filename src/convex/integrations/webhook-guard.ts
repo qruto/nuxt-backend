@@ -3,10 +3,12 @@ import { Webhook } from 'standardwebhooks'
 import { logBackend } from '../log.js'
 
 /**
- * The shared fail-closed edge discipline for inbound webhook routes
- * (`/billing/events`, `/email/events`): secret-list parsing, body size cap,
- * redelivery dedupe, and outcome logging into the component's delivery log.
- * Uniform policy (documented in the Webhooks guide):
+ * The one fail-closed edge every inbound webhook route runs through
+ * (`/billing/events`, `/email/events`): {@link handleWebhookDelivery} owns
+ * the secret check, the body size cap, reading the body, redelivery dedupe,
+ * the JSON parse, the outcome log and the `webhook.rejected` deployment-log
+ * line; a route supplies only its signature check and its handlers. Uniform policy
+ * (documented in the Webhooks guide):
  *
  * | condition                        | status | outcome            |
  * | -------------------------------- | ------ | ------------------ |
@@ -67,7 +69,7 @@ export interface WebhookLogRefs {
   listRecent: FunctionReference<'query', 'internal', { limit?: number }, WebhookDeliveryRow[]>
 }
 
-/** Payloads are KB-scale; bound memory before any verification runs. */
+/** Payloads are KB-scale; bound memory before any verification runs. In bytes, as delivered. */
 export const WEBHOOK_BODY_LIMIT = 1024 * 1024
 
 /**
@@ -83,79 +85,234 @@ type GuardCtx = {
   runMutation: (ref: never, args: never) => Promise<unknown>
 }
 
-const warnedMissingSecret = new Set<string>()
+/** The routes behind the edge, each the service its deliveries are logged under. */
+export type WebhookService = 'billing' | 'email'
 
-export interface GuardedDelivery {
-  deliveryId: string
-  /** Record the delivery's outcome in the delivery log (never throws). */
-  record: (outcome: WebhookOutcome, details?: { type?: string, note?: string }) => Promise<void>
-  /** A short-circuit response from the guard, or null to proceed. */
-  rejection: Response | null
+/** A delivery body as the edge reads it before any route verifies it. */
+export interface ParsedWebhook {
+  /** The event's `type` field, when the body is a JSON object that has one. */
+  type?: string
+  /** The parsed JSON, or the raw body when it is not JSON. */
+  payload: unknown
 }
 
 /**
- * Run the shared pre-verification checks for an inbound delivery and hand
- * back the outcome recorder. `secretsConfigured === false` fails closed with
- * 503 (mounted-but-unconfigured is an explicit, doctor-visible state — never
- * silent acceptance), oversized bodies 413, and a redelivery of an already
- * fully-processed id answers 200 without running anything.
+ * Read a delivery body once, for every route: the event type (for the
+ * delivery log and the unknown-type hook) and the payload the typed handlers
+ * receive. Never throws — a body that is not JSON comes back as the raw
+ * string with no type, and the route's signature check decides its fate.
  */
-export async function guardDelivery(
-  ctx: GuardCtx,
-  refs: WebhookLogRefs,
-  input: {
-    service: string
-    /** The provider delivery id header (webhook-id / svix-id). */
-    deliveryId: string | null
-    bodyLength: number
-    secretsConfigured: boolean
-  },
-): Promise<GuardedDelivery> {
-  const deliveryId = input.deliveryId ?? `none:${Date.now()}`
-  const record: GuardedDelivery['record'] = async (outcome, details) => {
+export function parseWebhookJson(body: string): ParsedWebhook {
+  let payload: unknown
+  try {
+    payload = JSON.parse(body)
+  }
+  catch {
+    return { payload: body }
+  }
+  const type = typeof payload === 'object' && payload !== null ? (payload as { type?: unknown }).type : undefined
+  return typeof type === 'string' ? { type, payload } : { payload }
+}
+
+/**
+ * What a route's signature check made of a delivery that passed the edge's
+ * own checks:
+ *
+ * - `ok` — verified and handled; the route's response goes back.
+ * - `unknown_type` — verified, but of a type the route cannot parse: the edge
+ *   calls `onUnknownEvent` and answers 202.
+ * - `invalid_signature` / `missing_secret` — refused before anything ran
+ *   (`missing_secret` here is the route's own half missing a secret the app
+ *   has).
+ * - `handler_error` — nothing about the delivery could run. With a
+ *   `response`, that response goes back; without one, the edge throws
+ *   `note`, so the platform answers 500 and the provider retries.
+ *
+ * Refusals log no event type: nothing about an unverified body goes in the
+ * delivery log.
+ */
+export type WebhookVerdict
+  = | { outcome: 'ok', response: Response, type?: string }
+    | { outcome: 'unknown_type', type?: string }
+    | { outcome: 'invalid_signature' | 'missing_secret', response?: Response, note?: string }
+    | { outcome: 'handler_error', response?: Response, note: string }
+
+/** One inbound delivery and the route that verifies and handles it. */
+export interface WebhookDelivery<Ctx> {
+  service: WebhookService
+  /** The provider's delivery id header (`webhook-id` / `svix-id`). */
+  deliveryId: string | null
+  /**
+   * The inbound request. The edge reads its body, once, and only after the
+   * secret check and a `Content-Length` over the cap have had their say.
+   */
+  request: Request
+  /** Whether the app has at least one secret to verify with; `false` answers 503. */
+  secretsConfigured: boolean
+  /**
+   * Verify the signature of `body` (the request's, read by the edge) and run
+   * the handlers. A throw is a handler error once the signature verified:
+   * the edge logs it with the event type and rethrows, so the platform
+   * answers 500 and the provider retries against the idempotent built-ins.
+   * A failure before verification is a `handler_error` verdict instead,
+   * which logs no type.
+   */
+  verify: (event: ParsedWebhook, body: string) => Promise<WebhookVerdict>
+  /**
+   * Called for an authentic delivery whose type the route does not know. A
+   * throw is a handler error like any other: logged with the type, rethrown.
+   */
+  onUnknownEvent?: (ctx: Ctx, event: { type?: string, payload: unknown }) => Promise<void>
+}
+
+const warnedMissingSecret = new Set<string>()
+/** The refusals already explained in this isolate, as `<service>:<outcome>`. */
+const loggedRefusals = new Set<string>()
+
+const REFUSALS = {
+  missing_secret: { status: 503, text: 'Webhook secret not configured' },
+  oversized: { status: 413, text: 'Payload too large' },
+  invalid_signature: { status: 403, text: 'Invalid signature' },
+} as const
+
+/**
+ * The deployment-log line a refusal leaves: the route, the outcome and the
+ * status, nothing from the body. Once per isolate for each route and outcome
+ * — a refused request costs nothing to send, so a line per request would let
+ * anyone flood the log; the delivery log counts every one of them.
+ */
+function logRejected(service: WebhookService, outcome: keyof typeof REFUSALS, status: number): void {
+  const key = `${service}:${outcome}`
+  if (loggedRefusals.has(key)) return
+  loggedRefusals.add(key)
+  logBackend('warn', 'webhook.rejected', `/${service}/events refused a delivery: ${outcome} (${status}). `
+  + 'Further refusals like it are counted in the delivery log, not repeated here.')
+}
+
+/** One delivery's log: its row in the delivery log, and the refusal that also writes the deployment-log line. */
+interface DeliveryRecorder {
+  record: (outcome: WebhookOutcome, details?: { type?: string, note?: string }) => Promise<void>
+  refuse: (outcome: keyof typeof REFUSALS, response?: Response, note?: string) => Promise<Response>
+}
+
+/** The recorder for one delivery; a log write that fails is reported and never fails the delivery. */
+function deliveryRecorder(log: GuardCtx, refs: WebhookLogRefs, service: WebhookService, deliveryId: string): DeliveryRecorder {
+  const record: DeliveryRecorder['record'] = async (outcome, details) => {
     try {
-      await ctx.runMutation(refs.record as never, {
-        service: input.service,
-        deliveryId,
-        type: details?.type,
-        outcome,
-        note: details?.note,
-      } as never)
+      await log.runMutation(refs.record as never, { service, deliveryId, type: details?.type, outcome, note: details?.note } as never)
     }
     catch (error) {
-      logBackend('error', 'webhook.log_write_failed', `Webhook delivery log write failed (${input.service}).`, error)
+      logBackend('error', 'webhook.log_write_failed', `Webhook delivery log write failed (${service}).`, error)
     }
   }
+  const refuse: DeliveryRecorder['refuse'] = async (outcome, response, note) => {
+    const fallback = REFUSALS[outcome]
+    const answer = response ?? new Response(fallback.text, { status: fallback.status })
+    await record(outcome, note === undefined ? undefined : { note })
+    logRejected(service, outcome, answer.status)
+    return answer
+  }
+  return { record, refuse }
+}
 
-  if (!input.secretsConfigured) {
-    if (!warnedMissingSecret.has(input.service)) {
-      warnedMissingSecret.add(input.service)
+/**
+ * The request's body as text, or `null` when it is over the cap: refused on
+ * a declared `Content-Length` before anything is read, and otherwise
+ * measured in the bytes that arrived (a body without the header, or one that
+ * understated it).
+ */
+async function readCappedBody(request: Request): Promise<string | null> {
+  const declared = Number(request.headers.get('content-length') ?? Number.NaN)
+  if (Number.isFinite(declared) && declared > WEBHOOK_BODY_LIMIT) return null
+  const bytes = await request.arrayBuffer()
+  if (bytes.byteLength > WEBHOOK_BODY_LIMIT) return null
+  return new TextDecoder().decode(bytes)
+}
+
+/** The answer before any route runs: 503 without a secret, 413 over the cap, 200 for an id already processed — or the body to verify. */
+async function answerBeforeRoute<Ctx>(log: GuardCtx, refs: WebhookLogRefs, delivery: WebhookDelivery<Ctx>, logged: DeliveryRecorder): Promise<Response | string> {
+  const { service } = delivery
+  if (!delivery.secretsConfigured) {
+    // This warning is the refusal's deployment-log line: no webhook.rejected beside it.
+    if (!warnedMissingSecret.has(service)) {
+      warnedMissingSecret.add(service)
       logBackend(
         'warn',
         'webhook.secret_missing',
-        `/${input.service}/events is mounted but its webhook secret is not set — `
+        `/${service}/events is mounted but its webhook secret is not set — `
         + 'rejecting all deliveries (503) until it is. Add the secret to .env.local and run `npx nuxt-backend env push`.',
       )
     }
-    await record('missing_secret')
-    return { deliveryId, record, rejection: new Response('Webhook secret not configured', { status: 503 }) }
+    await logged.record('missing_secret')
+    return new Response(REFUSALS.missing_secret.text, { status: REFUSALS.missing_secret.status })
+  }
+  const body = await readCappedBody(delivery.request)
+  if (body === null) return logged.refuse('oversized')
+  if (!delivery.deliveryId) return body
+  const prior = await log.runQuery(refs.find as never, { service, deliveryId: delivery.deliveryId } as never) as { outcome: WebhookOutcome } | null
+  if (prior?.outcome !== 'ok') return body
+  await logged.record('duplicate')
+  return new Response('Already processed', { status: 200 })
+}
+
+/**
+ * Run one inbound delivery through the edge and answer it. In order: a
+ * missing secret answers 503 (mounted-but-unconfigured is an explicit,
+ * doctor-visible state — never silent acceptance), an oversized body 413
+ * (on its declared length before it is read, else on the bytes read), and a
+ * redelivery of an id already processed 200 without running anything.
+ * Only then does the route verify the delivery and run its handlers, and the
+ * edge turns its verdict into the response, the delivery-log row and, for a
+ * refusal, a `webhook.rejected` line in the deployment log.
+ */
+export async function handleWebhookDelivery<Ctx>(
+  ctx: Ctx,
+  refs: WebhookLogRefs,
+  delivery: WebhookDelivery<Ctx>,
+): Promise<Response> {
+  const log = ctx as unknown as GuardCtx
+  const logged = deliveryRecorder(log, refs, delivery.service, delivery.deliveryId ?? `none:${Date.now()}`)
+  const body = await answerBeforeRoute(log, refs, delivery, logged)
+  if (typeof body !== 'string') return body
+
+  const event = parseWebhookJson(body)
+  let verdict: WebhookVerdict
+  try {
+    verdict = await delivery.verify(event, body)
+  }
+  catch (error) {
+    await logged.record('handler_error', { type: event.type, note: errorNote(error) })
+    throw error
   }
 
-  if (input.bodyLength > WEBHOOK_BODY_LIMIT) {
-    await record('oversized')
-    return { deliveryId, record, rejection: new Response('Payload too large', { status: 413 }) }
-  }
-
-  if (input.deliveryId) {
-    const prior = await ctx.runQuery(refs.find as never, { service: input.service, deliveryId } as never) as
-      { outcome: WebhookOutcome } | null
-    if (prior?.outcome === 'ok') {
-      await record('duplicate')
-      return { deliveryId, record, rejection: new Response('Already processed', { status: 200 }) }
+  switch (verdict.outcome) {
+    case 'ok':
+      await logged.record('ok', { type: verdict.type ?? event.type })
+      return verdict.response
+    case 'unknown_type': {
+      const type = verdict.type ?? event.type
+      try {
+        await delivery.onUnknownEvent?.(ctx, { type, payload: event.payload })
+      }
+      catch (error) {
+        await logged.record('handler_error', { type, note: errorNote(error) })
+        throw error
+      }
+      await logged.record('unknown_type', { type })
+      return new Response('Accepted (unknown event type)', { status: 202 })
     }
+    case 'handler_error':
+      await logged.record('handler_error', { note: verdict.note })
+      if (verdict.response) return verdict.response
+      throw new Error(verdict.note)
+    default:
+      return logged.refuse(verdict.outcome, verdict.response, verdict.note)
   }
+}
 
-  return { deliveryId, record, rejection: null }
+/** A thrown value as the delivery log's note. */
+function errorNote(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 const STANDARD_WEBHOOK_PREFIX = 'whsec_'

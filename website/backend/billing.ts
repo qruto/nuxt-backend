@@ -1,10 +1,9 @@
 import { setupBilling, type DiscountInput } from 'nuxt-backend/billing'
 import { v } from 'convex/values'
-import { api, components, internal } from './_generated/api'
+import { components, internal } from './_generated/api'
 import { isSandboxIdentity, SANDBOX_IDENTITY_HELP } from '../utils/testEmail'
 import { catalog } from './billing.generated'
 import { internalAction, internalMutation, query } from './_generated/server'
-import { authComponent } from './auth'
 import { email } from './email'
 import { admin } from './functions'
 import { rateLimiter } from './rateLimiter'
@@ -26,14 +25,6 @@ export const billing = setupBilling(components, {
   // matches; packs grant once at purchase. `meter: 'credits'` in ai.ts spends
   // from the same meter.
   catalog,
-  getUserInfo: async (ctx) => {
-    const user = await ctx.runQuery(api.auth.getAuthUser, {})
-    return { userId: user._id, email: user.email }
-  },
-  currentUserId: async (ctx) => {
-    if (!(await ctx.auth.getUserIdentity())) return null
-    return (await authComponent.getAuthUser(ctx))._id
-  },
   // The playground is a sandbox: a gift goes to a sandbox identity, the only
   // kind of account it has, so no real address reaches the provider.
   canGift: (_ctx, { recipientEmail }) =>
@@ -76,7 +67,6 @@ export const billing = setupBilling(components, {
   },
 })
 
-export const { provider } = billing
 export const {
   generateCheckoutLink,
   generateCustomerPortalUrl,

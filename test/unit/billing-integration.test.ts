@@ -1,3 +1,4 @@
+import { Polar } from '@convex-dev/polar'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { customersGetState } from '@polar-sh/sdk/funcs/customersGetState.js'
 import { benefitsGet } from '@polar-sh/sdk/funcs/benefitsGet.js'
@@ -8,7 +9,7 @@ import { customersCreate } from '@polar-sh/sdk/funcs/customersCreate.js'
 import { customersGet } from '@polar-sh/sdk/funcs/customersGet.js'
 import { customersUpdate } from '@polar-sh/sdk/funcs/customersUpdate.js'
 import { checkoutsCreate } from '@polar-sh/sdk/funcs/checkoutsCreate.js'
-import { type Billing, setupBilling, type SpendReservation } from '../../src/convex/integrations/billing'
+import { type Billing, type BillingEntityCtx, setupBilling, type SpendReservation } from '../../src/convex/integrations/billing'
 import { setupEmail } from '../../src/convex/integrations/email'
 
 // Stub the standalone provider SDK functions the billing helpers call so
@@ -69,8 +70,6 @@ const config = {
   // mocked, but the operations that write at the provider refuse to run
   // without one.
   accessToken: 'oat_test',
-  getUserInfo: async () => ({ userId: 'u1', email: 'a@b.com' }),
-  currentUserId: async () => 'u1',
 } as never
 
 interface MakeCtxOptions {
@@ -104,7 +103,7 @@ beforeEach(() => {
   // A gift's customer, read before a claim maps it: claimed by nobody yet.
   mockCustomersGet.mockResolvedValue({ ok: true, value: { id: 'cus_g', metadata: { giftRecipient: 'true' } } } as never)
   billing = setupBilling(components, config)
-  getCustomerByUserId = vi.spyOn(billing.provider, 'getCustomerByUserId')
+  getCustomerByUserId = vi.spyOn(Polar.prototype, 'getCustomerByUserId')
 })
 
 afterEach(() => {
@@ -256,7 +255,7 @@ describe('spendCredits', () => {
       ...(config as object),
       credits: { credits: { meterId: 'm_sum', property: 'amount' } },
     } as never)
-    vi.spyOn(named.provider, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
 
     const reservation = await named.reserveCredits(ctx as never, { userId: 'u1', meter: 'credits', value: 10, externalId: 'est-1' })
     await named.settleSpend(ctx as never, reservation, { finalAmount: 4 })
@@ -301,7 +300,7 @@ describe('spendCredits', () => {
       ...(config as object),
       credits: { credits: { meterId: 'm_sum', property: 'amount' } },
     } as never)
-    vi.spyOn(named.provider, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
     mockEventsIngest.mockResolvedValue({ ok: true, value: {} } as never)
     const ctx = makeCtx({ debit: { ok: true, balance: 10 } })
 
@@ -319,7 +318,7 @@ describe('spendCredits', () => {
       ...(config as object),
       credits: { actions: { meterId: 'm_count' } },
     } as never)
-    vi.spyOn(named.provider, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
 
     await expect(
       named.spendCredits(makeCtx() as never, { userId: 'u1', meter: 'actions', value: 3 }),
@@ -337,7 +336,7 @@ describe('spendCredits', () => {
         actions: { meterId: 'm_count' },
       },
     } as never)
-    vi.spyOn(named.provider, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
     mockEventsIngest.mockResolvedValue({ ok: true, value: {} } as never)
     const ctx = makeCtx()
 
@@ -448,7 +447,7 @@ describe('credit amounts are finite and above zero', () => {
       ...(config as object),
       credits: { credits: { meterId: 'm_sum', property: 'amount' } },
     } as never)
-    vi.spyOn(named.provider, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
     const ctx = makeCtx()
 
     await expect(named.refundCredits(ctx as never, { userId: 'u1', meter: 'credits', value }))
@@ -480,13 +479,6 @@ describe('forgetEntity', () => {
     const ctx = makeCtx()
     await billing.forgetEntity(ctx as never, 'u1')
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:deleteByUser', { userId: 'u1' })
-  })
-
-  it('names the missing component function on an older component build', async () => {
-    const backend = (components as { backend: { billing: Record<string, string> } }).backend
-    const { deleteByUser: _deleteByUser, ...older } = backend.billing
-    const legacy = setupBilling({ ...(components as Record<string, unknown>), backend: { ...backend, billing: older } } as never, config)
-    await expect(legacy.forgetEntity(makeCtx() as never, 'u1')).rejects.toThrow('components.backend.billing.deleteByUser is missing')
   })
 })
 
@@ -619,7 +611,7 @@ describe('billing entity resolution (billTo)', () => {
 
   function setup(config: Partial<Parameters<typeof setupBilling>[1]> = {}) {
     const instance = setupBilling(components, { email, ...config })
-    const spy = vi.spyOn(instance.provider, 'getCustomerByUserId')
+    const spy = vi.spyOn(Polar.prototype, 'getCustomerByUserId')
     spy.mockResolvedValue({ id: 'cus_entity' } as never)
     mockEventsIngest.mockResolvedValue({ ok: true, value: {} } as never)
     return { instance, spy }
@@ -664,6 +656,47 @@ describe('billing entity resolution (billTo)', () => {
     await expect(
       instance.spendCredits(identityCtx({ subject: 'u1' }) as never, { name: 'credits' }),
     ).rejects.toThrow(/no billing entity/)
+  })
+
+  /** A registered function's implementation, the seam convex-test drives too. */
+  const handlerOf = (fn: unknown) => (fn as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler
+
+  it('one resolveEntity serves the reactive reads, spends and checkout alike', async () => {
+    const resolveEntity = vi.fn(async () => ({ userId: 'team-7', email: 'billing@team.test' }))
+    const { instance, spy } = setup({ resolveEntity, accessToken: 'oat_test' })
+    const ctx = identityCtx({ subject: 'u1', activeOrganizationId: 'org-1' })
+
+    // A spend bills the resolver's entity, not the active workspace claim.
+    await instance.spendCredits(ctx as never, { name: 'credits' })
+    expect(spy).toHaveBeenLastCalledWith(expect.anything(), 'team-7')
+
+    // The reactive read looks up the same entity's cache row.
+    await handlerOf(instance.functions.getCredits)(ctx, {})
+    expect(ctx.runQuery).toHaveBeenCalledWith('ref:getByUser', { userId: 'team-7' })
+
+    // Checkout binds the same entity's provider customer and checks out as it.
+    spy.mockClear()
+    mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout' } } as never)
+    const checkout = await handlerOf(instance.api.generateCheckoutLink)(ctx, { productIds: ['p1'], origin: 'https://app', successUrl: 'https://app/done' })
+    expect(checkout).toStrictEqual({ url: 'https://checkout' })
+    expect(spy).toHaveBeenCalledWith(expect.anything(), 'team-7')
+    expect(mockCheckoutsCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ customerId: 'cus_entity', products: ['p1'] }))
+    expect(resolveEntity).toHaveBeenCalledWith(ctx)
+  })
+
+  it('hands resolveEntity every context, signed in or not; its null answers reads with null and refuses provider calls', async () => {
+    const resolveEntity = vi.fn(async (ctx: BillingEntityCtx) =>
+      (await ctx.auth.getUserIdentity()) ? { userId: 'team-7', email: '' } : null)
+    const { instance } = setup({ resolveEntity, accessToken: 'oat_test' })
+    // An internal call with no caller: `auth` is there, its identity is null.
+    const signedOut = identityCtx(null)
+
+    expect(await instance.resolveEntity(signedOut as never)).toBeNull()
+    expect(resolveEntity).toHaveBeenCalledWith(signedOut)
+    expect(await handlerOf(instance.functions.getCredits)(signedOut, {})).toBeNull()
+    await expect(handlerOf(instance.api.generateCheckoutLink)(signedOut, { productIds: ['p1'], origin: 'https://app', successUrl: 'https://app/done' }))
+      .rejects.toThrow('[nuxt-backend] Billing found no billing entity for this caller: setupBilling\'s resolveEntity returned null.')
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
   })
 })
 
@@ -1079,7 +1112,7 @@ describe('billing event hooks', () => {
       order.push('hook')
     })
     billing = setupBilling(components, { email, events: { 'order.paid': onPaid } })
-    getCustomerByUserId = vi.spyOn(billing.provider, 'getCustomerByUserId')
+    getCustomerByUserId = vi.spyOn(Polar.prototype, 'getCustomerByUserId')
     getCustomerByUserId.mockResolvedValue(null as never)
     const ctx = makeCtx()
     ctx.runMutation.mockImplementation(async () => {
@@ -1109,7 +1142,7 @@ describe('billing event hooks', () => {
 
   it('keeps refreshing without any consumer hooks (default)', async () => {
     billing = setupBilling(components, { email })
-    getCustomerByUserId = vi.spyOn(billing.provider, 'getCustomerByUserId')
+    getCustomerByUserId = vi.spyOn(Polar.prototype, 'getCustomerByUserId')
     getCustomerByUserId.mockResolvedValue(null as never)
     const ctx = makeCtx()
 

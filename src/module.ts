@@ -14,7 +14,7 @@ import { isDevtoolsUiEnabled, isSiteUrlConfigured, runDevAutoEnv, runPreflight }
 import { registerMcp, resolveMcpOptions } from './nuxt/mcp'
 import { assertModuleOptions } from './nuxt/options'
 import { registerModulePages } from './nuxt/pages'
-import { registerAuthMiddleware, registerBackendTypeFallback, registerBillingLinkComponents, registerSaasComposables } from './nuxt/registry'
+import { hideBaseBrandNames, registerAuthMiddleware, registerBackendTypeFallback, registerBaseComponentAliases, registerSaasComposables } from './nuxt/registry'
 import { registerThemeBridge } from './nuxt/theme'
 
 // The module definition; the helpers setup calls live in nuxt/, one file
@@ -258,7 +258,8 @@ export default defineNuxtModule<ModuleOptions>({
     registerThemeBridge(nuxt, uiCss)
 
     registerAuthMiddleware()
-    registerBillingLinkComponents()
+    registerBaseComponentAliases(resolver, nuxt)
+    hideBaseBrandNames(nuxt)
 
     const pagesInfo = registerModulePages(options, resolver, nuxt)
 

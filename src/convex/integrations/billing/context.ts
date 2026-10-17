@@ -1,9 +1,9 @@
 import { Polar } from '@convex-dev/polar'
 import type { Auth } from 'convex/server'
 import { parseSecretList } from '../webhook-guard.js'
-import type { RunWriteCtx } from './types/base.js'
+import type { ProviderCtx, RunQueryCtx, RunWriteCtx } from './types/base.js'
 import type { CreditMeterConfig, SpendCreditsEvent } from './types/records.js'
-import type { BillingComponents, PolarConfig, ProviderLibRefs, SetupBillingConfig } from './types/setup.js'
+import type { BillingComponents, BillingEntity, BillingEntityCtx, ProviderLibRefs, SetupBillingConfig } from './types/setup.js'
 import { logBackend } from '../../log.js'
 
 type EnvHost = typeof globalThis & {
@@ -86,8 +86,8 @@ export interface BillingContext {
   creditMeters: Record<string, CreditMeterConfig>
   meterNameById: Map<string, string>
   resolveMeter: (event: Pick<SpendCreditsEvent, 'meter' | 'meterId'>) => (CreditMeterConfig & { key?: string }) | null
-  entityFromIdentity: (ctx: { auth?: Auth }) => Promise<{ userId: string, email: string } | null>
-  getUserInfo: NonNullable<PolarConfig['getUserInfo']>
+  resolveEntity: (ctx: BillingEntityCtx) => Promise<BillingEntity | null>
+  requireEntity: (ctx: ProviderCtx | (RunQueryCtx & { auth?: Auth })) => Promise<BillingEntity>
   provider: Polar
   cache: BillingComponents['backend']['billing']
   providerLib: ProviderLibRefs['lib']
@@ -137,12 +137,16 @@ export function createBillingContext(components: BillingComponents, config: Setu
   }
 
   /**
-   * Resolve the billing entity from identity claims: the active workspace
-   * (org mode) or the signed-in user (user mode). Claims carry `email` and
-   * `activeOrganizationId` via this package's JWT payload.
+   * Resolve the billing entity: `setupBilling`'s `resolveEntity` when given,
+   * else identity claims — the active workspace (org mode) or the signed-in
+   * user (user mode). Claims carry `email` and `activeOrganizationId` via
+   * this package's JWT payload. Every Convex context has `auth`, and an
+   * internal call with no caller has a `null` identity: the default resolves
+   * it to nobody, and a custom resolver is handed the context to do the same.
    */
-  const entityFromIdentity = async (ctx: { auth?: Auth }): Promise<{ userId: string, email: string } | null> => {
-    const identity = await ctx.auth?.getUserIdentity()
+  const resolveEntity = async (ctx: BillingEntityCtx): Promise<BillingEntity | null> => {
+    if (config.resolveEntity) return config.resolveEntity(ctx)
+    const identity = await ctx.auth.getUserIdentity()
     if (!identity) return null
     const claims = identity as unknown as Record<string, unknown>
     const entityId = billTo === 'organization'
@@ -152,24 +156,26 @@ export function createBillingContext(components: BillingComponents, config: Setu
     return { userId: entityId, email: typeof claims.email === 'string' ? claims.email : '' }
   }
 
-  // The provider requires a `getUserInfo`; wrap the entity resolution (or the
-  // consumer's override in user mode) with a clear failure for billing
-  // operations that need a signed-in entity.
-  const getUserInfo: NonNullable<PolarConfig['getUserInfo']> = async (ctx) => {
-    if (billTo === 'user' && config.getUserInfo) return config.getUserInfo(ctx)
-    const entity = await entityFromIdentity(ctx as unknown as { auth?: Auth })
-    if (!entity) {
-      throw new Error(billTo === 'organization'
-        ? '[nuxt-backend] Billing needs an active workspace — sign in (a personal workspace is created automatically) or activate one.'
-        : '[nuxt-backend] Billing needs a signed-in user.')
-    }
-    return entity
+  /**
+   * The entity a provider operation runs for, or a clear refusal. Also the
+   * provider client's `getUserInfo`, which its own checkout and portal
+   * actions call. A hand-built context with no `auth` has no caller to
+   * resolve. The refusal names what the default resolver reads; a custom one
+   * is the app's own, so it is only named.
+   */
+  const requireEntity = async (ctx: ProviderCtx | (RunQueryCtx & { auth?: Auth })): Promise<BillingEntity> => {
+    const caller = ctx as RunQueryCtx & { auth?: Auth }
+    const entity = caller.auth ? await resolveEntity(caller as BillingEntityCtx) : null
+    if (entity) return entity
+    if (caller.auth && config.resolveEntity) throw new Error('[nuxt-backend] Billing found no billing entity for this caller: setupBilling\'s resolveEntity returned null.')
+    throw new Error(billTo === 'organization'
+      ? '[nuxt-backend] Billing needs an active workspace — sign in (a personal workspace is created automatically) or activate one.'
+      : '[nuxt-backend] Billing needs a signed-in user.')
   }
 
   const provider = new Polar(components.polar, {
-    ...config,
     products,
-    getUserInfo,
+    getUserInfo: requireEntity,
     organizationToken: accessToken,
     server: environment,
     // Primary secret only — the raw value may be a comma-separated rotation
@@ -270,8 +276,8 @@ export function createBillingContext(components: BillingComponents, config: Setu
     creditMeters,
     meterNameById,
     resolveMeter,
-    entityFromIdentity,
-    getUserInfo,
+    resolveEntity,
+    requireEntity,
     provider,
     cache,
     providerLib,

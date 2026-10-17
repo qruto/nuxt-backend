@@ -1,7 +1,7 @@
 import { benefitsGet } from '@polar-sh/sdk/funcs/benefitsGet.js'
 import { customersGetState } from '@polar-sh/sdk/funcs/customersGetState.js'
 import type { BillingContext } from './context.js'
-import type { PolarRunQueryCtx, RunWriteCtx } from './types/base.js'
+import type { ProviderCtx, RunWriteCtx } from './types/base.js'
 import type { Billing } from './types/surface.js'
 
 /**
@@ -14,7 +14,7 @@ const BENEFIT_METADATA_TTL_MS = 15 * 60 * 1000
 /** The entitlement cache: read live from the provider, written to the component, forgotten on erasure. */
 export function createEntitlements({ provider, cache }: BillingContext) {
   const getCustomerState: Billing['getCustomerState'] = async (ctx, { userId }) => {
-    const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, userId)
+    const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, userId)
     if (!customer) {
       return { customerId: null, activeProductIds: [], benefits: [], meters: [] }
     }
@@ -114,7 +114,6 @@ export function createEntitlements({ provider, cache }: BillingContext) {
   }
 
   const forgetEntity: Billing['forgetEntity'] = async (ctx, userId) => {
-    if (!cache.deleteByUser) throw new Error('[nuxt-backend] components.backend.billing.deleteByUser is missing — redeploy the backend component to forget billing entities.')
     await ctx.runMutation(cache.deleteByUser, { userId })
   }
 

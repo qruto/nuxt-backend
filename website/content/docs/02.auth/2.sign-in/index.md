@@ -133,7 +133,7 @@ definePageMeta({ middleware: 'auth' })
 
 Unauthenticated users are redirected to the sign-in page (`/login`, or wherever [`pages.login`](/docs/reference/configuration/module-options) puts it) with the original destination in `?redirect=`. The guard runs on the server for direct loads and in the browser for client-side navigation.
 
-`auth` is this package's name for the guard `nuxt-convex-module` registers as `convex-auth` — both stay registered and point at the same middleware, so code written against the base module keeps working.
+`auth` is this package's name for the guard `nuxt-convex-module` registers as `convex-auth`. The module registers the same middleware under `auth` only, so a page that still says `convex-auth` fails to resolve its middleware: rename it.
 
 ## Auth-state components
 
@@ -161,7 +161,7 @@ A member invites by email, and the invitee accepts on the built-in `/accept-invi
 
 ## Advanced: low-level auth helpers
 
-The package also exports low-level Convex auth helpers for custom auth integrations: `provideConvexAuth`, `useAuthState`, and the components above. These are building blocks for custom auth providers and are **not required** for the default Better Auth setup scaffolded by the module.
+`useAuthState()` and the components above read the auth state the module provides. They are building blocks for your own UI and are **not required** for the default Better Auth setup scaffolded by the module.
 
 ```ts
 function useAuthState(): {
@@ -169,8 +169,9 @@ function useAuthState(): {
   isAuthenticated: ComputedRef<boolean>
   isRefreshing: ComputedRef<boolean>
 }
-function provideConvexAuth(options: ConvexAuthProviderOptions): ConvexAuthState
 ```
+
+A custom auth integration provides that state itself with `provideConvexAuth`, imported from `nuxt-convex-module/client`: the module does not auto-import it.
 
 The three flags are computed refs — read `.value` in script (templates unwrap them). `isRefreshing` is the state `<AuthRefreshing>` renders on: the backend rejected a confirmed token and a new one is being fetched.
 

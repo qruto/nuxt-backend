@@ -13,7 +13,7 @@ import { webhooksCreateWebhookEndpoint } from '@polar-sh/sdk/funcs/webhooksCreat
 import { webhooksListWebhookEndpoints } from '@polar-sh/sdk/funcs/webhooksListWebhookEndpoints.js'
 import { collectBillingFindings, readBillingOrganizationState, syncBillingCatalog, type BillingOrganizationState } from '../../src/cli/billing'
 import { BILLING_WEBHOOK_PROVISION_EVENTS } from '../../src/convex/catalog'
-import { BILLING_REFRESH_EVENTS } from '../../src/convex/integrations/billing'
+import { REFRESH_EVENTS } from '../../src/convex/integrations/billing/events'
 import type { BillingCatalog } from '../../src/convex/catalog'
 
 vi.mock('@polar-sh/sdk/funcs/metersCreate.js', () => ({ metersCreate: vi.fn() }))
@@ -723,7 +723,7 @@ describe('collectBillingFindings', () => {
 
 describe('BILLING_WEBHOOK_PROVISION_EVENTS', () => {
   it('covers every event the runtime refresh set consumes', () => {
-    for (const event of BILLING_REFRESH_EVENTS) {
+    for (const event of REFRESH_EVENTS) {
       expect(BILLING_WEBHOOK_PROVISION_EVENTS).toContain(event)
     }
   })

@@ -27,7 +27,6 @@ export const billing = setupBilling(components, {
   },
 })
 
-export const { provider } = billing
 export const {
   generateCheckoutLink,
   generateCustomerPortalUrl,

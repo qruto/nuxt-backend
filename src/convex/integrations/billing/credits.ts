@@ -2,7 +2,8 @@ import { eventsIngest } from '@polar-sh/sdk/funcs/eventsIngest.js'
 import type { Auth } from 'convex/server'
 import type { BillingContext } from './context.js'
 import type { BillingEntitlements } from './entitlements.js'
-import type { EventsIngestRequest, PolarRunQueryCtx, RunWriteCtx } from './types/base.js'
+import type { EventsIngestRequest, ProviderCtx, RunWriteCtx } from './types/base.js'
+import type { BillingEntityCtx } from './types/setup.js'
 import type { Billing } from './types/surface.js'
 
 /**
@@ -20,9 +21,16 @@ export function requireCreditAmount(value: unknown, label: string, { orZero = fa
 
 /** Prepaid credits: reserve, settle, release, spend and refund. */
 export function createCredits(
-  { provider, cache, resolveMeter, entityFromIdentity }: BillingContext,
+  { provider, cache, resolveMeter, resolveEntity }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
 ) {
+  /**
+   * The caller's billing entity, for a spend or refund without an explicit
+   * `userId`. A hand-built context with no `auth` has no caller to resolve.
+   */
+  const callerEntityId = async (ctx: RunWriteCtx & { auth?: Auth }): Promise<string | undefined> =>
+    ctx.auth ? (await resolveEntity(ctx as BillingEntityCtx))?.userId : undefined
+
   // Reserve → ingest → settle. The cached balance is the guard: `debit` is an
   // atomic conditional decrement (Convex mutations serialize), so two
   // concurrent spends can never both pass, and there is no live provider read
@@ -35,7 +43,7 @@ export function createCredits(
   const reserveCredits: Billing['reserveCredits'] = async (ctx, event) => {
     const value = requireCreditAmount(event.value ?? 1, 'spendCredits: `value`')
     const entityId = event.userId
-      ?? (await entityFromIdentity(ctx as { auth?: Auth }))?.userId
+      ?? await callerEntityId(ctx)
     if (!entityId) {
       throw new Error('[nuxt-backend] spendCredits: no billing entity — pass `userId` or call from an authenticated context.')
     }
@@ -96,7 +104,7 @@ export function createCredits(
       return
     }
     try {
-      const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, reservation.entityId)
+      const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, reservation.entityId)
       if (!customer) {
         throw new Error(`[nuxt-backend] No billing customer for ${reservation.entityId}. Start a checkout first.`)
       }
@@ -140,7 +148,7 @@ export function createCredits(
     // A negative refund would ingest a positive event: a charge, not a refund.
     const value = requireCreditAmount(event.value, 'refundCredits: `value`')
     const entityId = event.userId
-      ?? (await entityFromIdentity(ctx as { auth?: Auth }))?.userId
+      ?? await callerEntityId(ctx)
     if (!entityId) {
       throw new Error('[nuxt-backend] refundCredits: no billing entity — pass `userId` or call from an authenticated context.')
     }
@@ -150,7 +158,7 @@ export function createCredits(
         `[nuxt-backend] refundCredits: meter '${event.meter}' has no \`property\` (count meter) — only sum meters can be refunded.`,
       )
     }
-    const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, entityId)
+    const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, entityId)
     if (!customer) {
       throw new Error(`[nuxt-backend] No billing customer for ${entityId}.`)
     }

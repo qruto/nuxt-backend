@@ -70,13 +70,10 @@ describe('setup factories', () => {
     expect(run).toBeDefined()
   })
 
-  it('setupBilling exposes the provider client, ready-made functions, and SaaS helpers', () => {
-    const billing = setupBilling(fakeComponents, {
-      email: { sendTemplate: async () => null },
-      getUserInfo: async () => ({ userId: 'u1', email: 'a@b.com' }),
-      currentUserId: async () => 'u1',
-    })
-    expect(billing.provider).toBeDefined()
+  it('setupBilling exposes ready-made functions and SaaS helpers, and never the provider client', () => {
+    const billing = setupBilling(fakeComponents, { email: { sendTemplate: async () => null } })
+    // The provider's own client stays inside: a brand-neutral surface.
+    expect(billing).not.toHaveProperty('provider')
     expect(billing.api).toHaveProperty('generateCheckoutLink')
     expect(billing.api).toHaveProperty('generateCustomerPortalUrl')
     expect(billing.api).toHaveProperty('giftCheckout')

@@ -107,13 +107,6 @@ describe('setupEmail transactional helpers', () => {
     expect(ctx.runMutation).toHaveBeenNthCalledWith(2, 'ref:cleanupAbandoned', {})
   })
 
-  it('cleanup names the missing component function on an older component build', async () => {
-    const { cleanup: _cleanup, cleanupAbandoned: _abandoned, ...older } = refs
-    const email = setupEmail({ backend: { email: older } } as unknown as EmailComponents)
-    await expect(email.cleanup(makeCtx())).rejects.toThrow('components.backend.email.cleanup is missing')
-    await expect(email.cleanupAbandoned(makeCtx())).rejects.toThrow('components.backend.email.cleanupAbandoned is missing')
-  })
-
   it('webhookHandler forwards body + headers and passes the verified response through', async () => {
     const ctx = makeCtx()
     ctx.runAction.mockResolvedValue({ status: 202, body: '', type: 'email.delivered' })
@@ -162,7 +155,7 @@ describe('setupEmail transactional helpers', () => {
     expect(email.api.getEmailStatus).toBeDefined()
   })
 
-  it('getSandboxInbox reads the component inbox, and is empty on a component without one', async () => {
+  it('getSandboxInbox reads the component inbox', async () => {
     const invoke = (fn: unknown, ctx: unknown, args: unknown) =>
       (fn as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler(ctx, args)
     const messages = [{ from: 'onboarding@resend.dev', subject: 'Code', text: '123456', receivedAt: 1 }]
@@ -171,9 +164,6 @@ describe('setupEmail transactional helpers', () => {
     const withInbox = setupEmail({ backend: { email: { ...refs, inbox: 'ref:inbox' } } } as unknown as EmailComponents)
     expect(await invoke(withInbox.api.getSandboxInbox, ctx, { address: 'delivered+a@resend.dev' })).toEqual(messages)
     expect(ctx.runQuery).toHaveBeenCalledWith('ref:inbox', { address: 'delivered+a@resend.dev' })
-
-    const olderBuild = setupEmail(component)
-    expect(await invoke(olderBuild.api.getSandboxInbox, ctx, { address: 'delivered+a@resend.dev' })).toEqual([])
   })
 })
 

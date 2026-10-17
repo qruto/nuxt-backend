@@ -1,3 +1,4 @@
+import { Polar } from '@convex-dev/polar'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { checkoutsCreate } from '@polar-sh/sdk/funcs/checkoutsCreate.js'
 import { customersCreate } from '@polar-sh/sdk/funcs/customersCreate.js'
@@ -89,7 +90,7 @@ const email = { sendTemplate: async () => null }
 /**
  * Bills the signed-in user with a configured provider token, so the billing
  * entity is whatever {@link makeCtx}'s identity claims say — the same
- * claims-first resolution production uses, with no `getUserInfo` override.
+ * claims-first resolution production uses, with no `resolveEntity` override.
  */
 function make(overrides: Partial<SetupBillingConfig> = {}) {
   return setupBilling(components, {
@@ -122,8 +123,8 @@ function invoke(fn: unknown) {
 /** One live subscription on the synced component table. */
 const liveSubscription = { id: 'sub_1', status: 'active', endedAt: null, productId: 'prod_a' }
 
-function withSubscriptions(billing: Billing, subscriptions: unknown[] = [liveSubscription]) {
-  return vi.spyOn(billing.provider, 'listAllUserSubscriptions').mockResolvedValue(subscriptions as never)
+function withSubscriptions(subscriptions: unknown[] = [liveSubscription]) {
+  return vi.spyOn(Polar.prototype, 'listAllUserSubscriptions').mockResolvedValue(subscriptions as never)
 }
 
 beforeEach(() => {
@@ -135,7 +136,7 @@ beforeEach(() => {
 describe('subscription lifecycle → SubscriptionUpdate union', () => {
   it('updateSubscription maps productId + proration onto the base arm', async () => {
     const billing = make()
-    withSubscriptions(billing)
+    withSubscriptions()
 
     await billing.updateSubscription(makeCtx() as never, { productId: 'prod_b', proration: 'prorate' })
 
@@ -147,7 +148,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
   it('updateSubscription refuses a call that changes nothing', async () => {
     const billing = make()
-    withSubscriptions(billing)
+    withSubscriptions()
 
     await expect(billing.updateSubscription(makeCtx() as never, {})).rejects.toThrow(/pass `productId`/)
     expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
@@ -155,7 +156,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
   it('cancelSubscription defaults to the end of the paid period', async () => {
     const billing = make()
-    withSubscriptions(billing)
+    withSubscriptions()
 
     await billing.cancelSubscription(makeCtx() as never, { reason: 'too_expensive', comment: 'over budget' })
 
@@ -171,7 +172,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
   it('cancelSubscription with atPeriodEnd: false revokes immediately', async () => {
     const billing = make()
-    withSubscriptions(billing)
+    withSubscriptions()
 
     await billing.cancelSubscription(makeCtx() as never, { atPeriodEnd: false, reason: 'other' })
 
@@ -187,7 +188,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
   it('uncancelSubscription flips the cancel flag back off', async () => {
     const billing = make()
-    withSubscriptions(billing)
+    withSubscriptions()
 
     await billing.uncancelSubscription(makeCtx() as never)
 
@@ -199,7 +200,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
   it('pauseSubscription pauses at period end, optionally with an auto-resume date', async () => {
     const billing = make()
-    withSubscriptions(billing)
+    withSubscriptions()
     const resumesAt = new Date('2026-10-01T00:00:00.000Z')
 
     await billing.pauseSubscription(makeCtx() as never, { resumesAt })
@@ -212,7 +213,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
   it('resumeSubscription resumes immediately', async () => {
     const billing = make()
-    withSubscriptions(billing)
+    withSubscriptions()
 
     await billing.resumeSubscription(makeCtx() as never)
 
@@ -224,7 +225,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
   it('acts on a paused subscription — pause/resume statuses stay manageable', async () => {
     const billing = make()
-    withSubscriptions(billing, [{ id: 'sub_paused', status: 'paused', endedAt: null, productId: 'prod_a' }])
+    withSubscriptions([{ id: 'sub_paused', status: 'paused', endedAt: null, productId: 'prod_a' }])
 
     await billing.resumeSubscription(makeCtx() as never)
 
@@ -236,7 +237,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
   it('ignores ended subscriptions when picking the target', async () => {
     const billing = make()
-    withSubscriptions(billing, [
+    withSubscriptions([
       { id: 'sub_old', status: 'canceled', endedAt: '2026-01-01T00:00:00Z', productId: 'prod_a' },
       liveSubscription,
     ])
@@ -248,7 +249,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
   it('asks which subscription once an entity holds more than one', async () => {
     const billing = make({ multipleSubscriptions: true })
-    withSubscriptions(billing, [liveSubscription, { id: 'sub_2', status: 'active', endedAt: null, productId: 'prod_b' }])
+    withSubscriptions([liveSubscription, { id: 'sub_2', status: 'active', endedAt: null, productId: 'prod_b' }])
 
     await expect(billing.cancelSubscription(makeCtx() as never)).rejects.toThrow(/pass `subscriptionId`/)
 
@@ -258,7 +259,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
   it('refuses a subscriptionId from another billing account', async () => {
     const billing = make()
-    withSubscriptions(billing)
+    withSubscriptions()
 
     await expect(
       billing.cancelSubscription(makeCtx() as never, { subscriptionId: 'sub_someone_else' }),
@@ -268,7 +269,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
   it('says so when there is nothing running to change', async () => {
     const billing = make()
-    withSubscriptions(billing, [])
+    withSubscriptions([])
 
     await expect(billing.updateSubscription(makeCtx() as never, { productId: 'prod_b' }))
       .rejects.toThrow(/has none running/)
@@ -276,7 +277,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
   it('reports a failed provider update in this package’s own words', async () => {
     const billing = make()
-    withSubscriptions(billing)
+    withSubscriptions()
     const error = Object.assign(new Error('subscription locked'), { name: 'SubscriptionLocked', statusCode: 409, error: 'SubscriptionLocked' })
     mockSubscriptionsUpdate.mockResolvedValue({ ok: false, error } as never)
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -298,7 +299,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
   // rejected value. Convex keeps logs, so none of that may reach them.
   it('logs which fields the provider refused, never the values it echoed', async () => {
     const billing = make()
-    withSubscriptions(billing)
+    withSubscriptions()
     const detail = [
       { loc: ['body', 'customer_email'], msg: 'value is not a valid email address', type: 'value_error', input: 'ada@example.com' },
       { loc: ['body', 'billing_address', 'line1'], msg: 'Field required', type: 'missing', input: { line2: '1 High St' } },
@@ -323,7 +324,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
   it('keeps the SDK’s fixed phrase for a payload it could not validate, not the value', async () => {
     const billing = make()
-    withSubscriptions(billing)
+    withSubscriptions()
     const error = Object.assign(new Error('Input validation failed: expected an email, got "ada@example"'), {
       name: 'SDKValidationError',
       rawMessage: 'Input validation failed',
@@ -355,7 +356,7 @@ describe('degradation without BILLING_ACCESS_TOKEN', () => {
     ['refundOrder', (b: Billing, ctx: unknown) => b.refundOrder(ctx as never, { orderId: 'o1', reason: 'other' })],
   ])('%s fails loudly rather than silently doing nothing', async (_name, call) => {
     const billing = unconfigured()
-    withSubscriptions(billing)
+    withSubscriptions()
 
     await expect(call(billing, makeCtx())).rejects.toThrow(/BILLING_ACCESS_TOKEN/)
     expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
@@ -404,7 +405,7 @@ describe('rate limiting', () => {
   it('burns the billingSync limit keyed by the billing entity', async () => {
     const rateLimiter = limiter()
     const billing = make({ rateLimiter })
-    withSubscriptions(billing)
+    withSubscriptions()
     const ctx = makeCtx()
 
     await billing.cancelSubscription(ctx as never)
@@ -419,7 +420,7 @@ describe('rate limiting', () => {
   ])('a tripped limit stops the %s before it reaches the provider', async (_name, call) => {
     const rateLimiter = limiter(false)
     const billing = make({ rateLimiter })
-    withSubscriptions(billing)
+    withSubscriptions()
 
     await expect(call(billing, makeCtx())).rejects.toThrow(/Too many/)
     expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
@@ -441,7 +442,7 @@ describe('rate limiting', () => {
 
   it('stays unthrottled with no limiter configured (the zero-config scaffold)', async () => {
     const billing = make()
-    withSubscriptions(billing)
+    withSubscriptions()
 
     await billing.resumeSubscription(makeCtx() as never)
 
@@ -465,7 +466,7 @@ describe('orders & invoices', () => {
   }
 
   function withCustomer(billing: Billing, id: string | null = 'cus_1') {
-    return vi.spyOn(billing.provider, 'getCustomerByUserId')
+    return vi.spyOn(Polar.prototype, 'getCustomerByUserId')
       .mockResolvedValue(id === null ? null : { id, userId: 'u1' } as never)
   }
 
@@ -673,8 +674,8 @@ describe('refunds', () => {
 })
 
 describe('order.refunded → pending spends', () => {
-  function primeRefresh(billing: Billing) {
-    vi.spyOn(billing.provider, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1', userId: 'u1' } as never)
+  function primeRefresh() {
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1', userId: 'u1' } as never)
     mockCustomersGetState.mockResolvedValue({
       ok: true,
       value: { activeSubscriptions: [], grantedBenefits: [], activeMeters: [] },
@@ -683,7 +684,7 @@ describe('order.refunded → pending spends', () => {
 
   it('drops the entity’s reservations before re-reading the provider', async () => {
     const billing = make()
-    primeRefresh(billing)
+    primeRefresh()
     const ctx = makeCtx()
     const order: string[] = []
     ctx.runMutation.mockImplementation(async (ref: unknown) => {
@@ -702,39 +703,12 @@ describe('order.refunded → pending spends', () => {
 
   it('skips the clear when the event has no resolvable entity', async () => {
     const billing = make()
-    primeRefresh(billing)
+    primeRefresh()
     const ctx = makeCtx()
 
     await billing.webhookEvents['order.refunded']!(ctx as never, { data: {} } as never)
 
     expect(ctx.runMutation).not.toHaveBeenCalled()
-  })
-
-  it('still refreshes when the component has no clearPendingSpends yet', async () => {
-    const older = {
-      ...(components as unknown as Record<string, unknown>),
-      backend: {
-        ...((components as unknown as { backend: Record<string, unknown> }).backend),
-        billing: Object.fromEntries(
-          Object.entries((components as unknown as { backend: { billing: Record<string, unknown> } }).backend.billing)
-            .filter(([key]) => key !== 'clearPendingSpends'),
-        ),
-      },
-    }
-    const billing = setupBilling(older as never, {
-      email,
-      accessToken: 'oat_test',
-      billTo: 'user',
-    } as SetupBillingConfig)
-    primeRefresh(billing)
-    const ctx = makeCtx()
-
-    await billing.webhookEvents['order.refunded']!(ctx as never, {
-      data: { customerId: 'cus_1', customer: { metadata: { userId: 'u1' } } },
-    } as never)
-
-    expect(ctx.runMutation).toHaveBeenCalledWith('ref:upsert', expect.objectContaining({ userId: 'u1' }))
-    expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:clearPendingSpends', expect.anything())
   })
 })
 
@@ -780,7 +754,7 @@ describe('discounts', () => {
 
 describe('checkout customization', () => {
   function primeCheckout(billing: Billing, customerId: string | null = 'cus_1') {
-    vi.spyOn(billing.provider, 'getCustomerByUserId')
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId')
       .mockResolvedValue(customerId === null ? null : { id: customerId, userId: 'u1' } as never)
     mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout/1' } } as never)
   }
@@ -937,7 +911,7 @@ describe('checkout never adopts another entity’s customer', () => {
 
   function workspaceBilling() {
     const billing = make({ billTo: 'organization' })
-    vi.spyOn(billing.provider, 'getCustomerByUserId').mockResolvedValue(null as never)
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue(null as never)
     mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout/1' } } as never)
     return billing
   }
@@ -987,7 +961,7 @@ describe('checkout never adopts another entity’s customer', () => {
 
   it('says “account” when billing each user', async () => {
     const billing = make()
-    vi.spyOn(billing.provider, 'getCustomerByUserId').mockResolvedValue(null as never)
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue(null as never)
     existingCustomer({ userId: 'u-deleted' })
 
     await expect(invoke(billing.api.generateCheckoutLink)(makeCtx(), args))
@@ -1000,13 +974,13 @@ describe('multipleSubscriptions', () => {
   const second = { id: 'sub_2', status: 'trialing', endedAt: null, productId: 'prod_addon' }
 
   function readCurrent(billing: Billing, subscriptions: unknown[]) {
-    vi.spyOn(billing.provider, 'listAllUserSubscriptions').mockResolvedValue(subscriptions as never)
+    vi.spyOn(Polar.prototype, 'listAllUserSubscriptions').mockResolvedValue(subscriptions as never)
     return invoke(billing.functions.getCurrentSubscription)(makeCtx(), {})
   }
 
   it('keeps the single-subscription read by default', async () => {
     const billing = make()
-    const single = vi.spyOn(billing.provider, 'getCurrentSubscription')
+    const single = vi.spyOn(Polar.prototype, 'getCurrentSubscription')
       .mockResolvedValue({ id: 'sub_1', productId: 'prod_a' } as never)
 
     const result = await invoke(billing.functions.getCurrentSubscription)(makeCtx(), {})
@@ -1068,7 +1042,7 @@ describe('multipleSubscriptions', () => {
 
   it('joins the configured product key onto every live row', async () => {
     const billing = make({ multipleSubscriptions: true, products: { pro: 'prod_a' } })
-    vi.spyOn(billing.provider, 'getProduct').mockResolvedValue({ id: 'prod_a', name: 'Pro' } as never)
+    vi.spyOn(Polar.prototype, 'getProduct').mockResolvedValue({ id: 'prod_a', name: 'Pro' } as never)
 
     const result = await readCurrent(billing, [first]) as Record<string, unknown>
 
@@ -1078,7 +1052,7 @@ describe('multipleSubscriptions', () => {
 
   it('returns null for a claimless caller either way', async () => {
     const billing = make({ multipleSubscriptions: true })
-    vi.spyOn(billing.provider, 'listAllUserSubscriptions').mockResolvedValue([] as never)
+    vi.spyOn(Polar.prototype, 'listAllUserSubscriptions').mockResolvedValue([] as never)
 
     expect(await invoke(billing.functions.getCurrentSubscription)(makeCtx(null), {})).toBeNull()
   })
@@ -1101,7 +1075,7 @@ describe('usage history', () => {
 
   it('reads the entity’s own events, scoped to the named meter', async () => {
     const billing = metered()
-    vi.spyOn(billing.provider, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1', userId: 'u1' } as never)
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1', userId: 'u1' } as never)
     mockEventsList.mockResolvedValue({
       ok: true,
       value: { items: [providerEvent], pagination: { totalCount: 1, maxPage: 1 } },
@@ -1133,7 +1107,7 @@ describe('usage history', () => {
 
   it('counts one unit per event on a count meter, and says nothing without a meter', async () => {
     const counted = make({ credits: { calls: { meterId: 'm_count' } } })
-    vi.spyOn(counted.provider, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1', userId: 'u1' } as never)
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1', userId: 'u1' } as never)
     mockEventsList.mockResolvedValue({
       ok: true,
       value: { items: [{ ...providerEvent, metadata: {} }], pagination: { totalCount: 1, maxPage: 1 } },
@@ -1149,7 +1123,7 @@ describe('usage history', () => {
 
   it('is an empty page — not null — for an entity the provider has never billed', async () => {
     const billing = metered()
-    vi.spyOn(billing.provider, 'getCustomerByUserId').mockResolvedValue(null as never)
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue(null as never)
 
     expect(await billing.getUsageHistory(makeCtx() as never)).toStrictEqual({
       items: [],
@@ -1160,7 +1134,7 @@ describe('usage history', () => {
 
   it('hands back a next cursor while more pages exist', async () => {
     const billing = metered()
-    vi.spyOn(billing.provider, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1', userId: 'u1' } as never)
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1', userId: 'u1' } as never)
     mockEventsList.mockResolvedValue({
       ok: true,
       value: { items: [providerEvent], pagination: { totalCount: 30, maxPage: 3 } },
@@ -1184,7 +1158,7 @@ describe('registered actions', () => {
 
   it('pauseSubscription takes epoch milliseconds on the wire', async () => {
     const billing = make()
-    withSubscriptions(billing)
+    withSubscriptions()
 
     await invoke(billing.functions.pauseSubscription)(makeCtx(), { resumesAt: Date.UTC(2026, 9, 1) })
 
@@ -1196,7 +1170,7 @@ describe('registered actions', () => {
 
   it('the lifecycle actions resolve nothing from the client but the target id', async () => {
     const billing = make()
-    withSubscriptions(billing)
+    withSubscriptions()
 
     // No userId argument exists — the entity always comes from the caller's
     // own identity, so a client cannot cancel someone else's plan.

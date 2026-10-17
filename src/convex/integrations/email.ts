@@ -6,8 +6,7 @@ import {
 } from 'convex/server'
 import { v } from 'convex/values'
 import { Resend, type CreateContactOptions } from 'resend'
-import { guardDelivery, parseSecretList, type WebhookLogRefs } from './webhook-guard.js'
-import { sendArgs } from '../email-validators.js'
+import { handleWebhookDelivery, parseSecretList, type WebhookLogRefs } from './webhook-guard.js'
 import {
   emailRenderContext,
   escapeHtml,
@@ -54,21 +53,12 @@ export interface EmailComponents {
       status: FunctionReference<'query', 'internal', { emailId: string }, EmailStatus | null>
       get: FunctionReference<'query', 'internal', { emailId: string }, EmailRecord | null>
       cancel: FunctionReference<'mutation', 'internal', { emailId: string }, null>
-      /**
-       * Retention pruning of the provider component's email records. Optional
-       * so an app pinned to an older component build still type-checks —
-       * `email.cleanup` / `email.cleanupAbandoned` then throw, naming the
-       * missing function.
-       */
-      cleanup?: FunctionReference<'mutation', 'internal', { olderThanMs?: number }, null>
-      cleanupAbandoned?: FunctionReference<'mutation', 'internal', { olderThanMs?: number }, null>
+      /** Retention pruning of the provider component's email records. */
+      cleanup: FunctionReference<'mutation', 'internal', { olderThanMs?: number }, null>
+      cleanupAbandoned: FunctionReference<'mutation', 'internal', { olderThanMs?: number }, null>
       handleWebhook: FunctionReference<'action', 'internal', { body: string, headers: Record<string, string> }, { status: number, body: string, type?: string }>
-      /**
-       * The sandbox inbox (test mode only). Optional so an app pinned to an
-       * older component build still type-checks — `getSandboxInbox` then
-       * answers an empty inbox.
-       */
-      inbox?: FunctionReference<'query', 'internal', { address: string }, SandboxMessage[]>
+      /** The sandbox inbox (test mode only). */
+      inbox: FunctionReference<'query', 'internal', { address: string }, SandboxMessage[]>
     }
     webhooks: WebhookLogRefs
   }
@@ -408,81 +398,58 @@ export function setupEmail(components: EmailComponents, options: SetupEmailOptio
   }
 
   const cleanup: Email['cleanup'] = async (ctx, options = {}) => {
-    if (!refs.cleanup) throw new Error('[nuxt-backend] components.backend.email.cleanup is missing — redeploy the backend component to prune emails.')
     await ctx.runMutation(refs.cleanup, options)
   }
 
   const cleanupAbandoned: Email['cleanupAbandoned'] = async (ctx, options = {}) => {
-    if (!refs.cleanupAbandoned) throw new Error('[nuxt-backend] components.backend.email.cleanupAbandoned is missing — redeploy the backend component to prune emails.')
     await ctx.runMutation(refs.cleanupAbandoned, options)
   }
 
   const webhookHandler: Email['webhookHandler'] = async (ctx, request) => {
-    const body = await request.text()
     const headers: Record<string, string> = {}
     request.headers.forEach((value, key) => {
       headers[key] = value
     })
 
-    // Shared fail-closed edge (size cap, dedupe, delivery logging). The secret
-    // itself lives on the component env; the app-declared copy of the same
-    // deployment var answers "configured?" without invoking the component.
-    const secretsConfigured = parseSecretList(readProcessEnv('EMAIL_WEBHOOK_SECRET')).length > 0
-    const guard = await guardDelivery(ctx as never, components.backend.webhooks, {
+    // The secret itself lives on the component env; the app-declared copy of
+    // the same deployment var answers "configured?" without invoking the
+    // component.
+    return handleWebhookDelivery(ctx, components.backend.webhooks, {
       service: 'email',
       deliveryId: headers['svix-id'] ?? null,
-      bodyLength: body.length,
-      secretsConfigured,
-    })
-    if (guard.rejection) return guard.rejection
-
-    const result = await ctx.runAction(refs.handleWebhook, { body, headers })
-    if (result.status === 403) {
-      await guard.record('invalid_signature')
-      return new Response(result.body || null, { status: 403 })
-    }
-    // The component holds no secret although the app does: `app.use(backend,
-    // { env })` does not forward EMAIL_WEBHOOK_SECRET. Nothing was verified,
-    // so the request is counted like any other refused before a signature.
-    if (result.status === 503) {
-      await guard.record('missing_secret', { note: 'the backend component has no EMAIL_WEBHOOK_SECRET' })
-      return new Response(result.body || null, { status: 503 })
-    }
-    if (result.status >= 300) {
-      await guard.record('handler_error', { note: `component answered ${result.status}` })
-      return new Response(result.body || null, { status: result.status })
-    }
-
-    // Verified. Dispatch the typed handler (or the unknown-type hook) — a
-    // handler throw propagates to a 500 so the provider redelivers against
-    // the idempotent built-ins.
-    const type = result.type
-    const known = type !== undefined && (ALL_EMAIL_EVENTS as readonly string[]).includes(type)
-    try {
-      if (known) {
+      request,
+      secretsConfigured: parseSecretList(readProcessEnv('EMAIL_WEBHOOK_SECRET')).length > 0,
+      onUnknownEvent: options.onUnknownEvent,
+      verify: async (event, body) => {
+        let result: { status: number, body: string, type?: string }
+        try {
+          result = await ctx.runAction(refs.handleWebhook, { body, headers })
+        }
+        catch (error) {
+          // Nothing is verified yet, so the type in the body is the sender's
+          // word: a verdict, not a throw, keeps it out of the delivery log.
+          // Still a 500, so the provider retries.
+          return { outcome: 'handler_error', note: `the signature check failed to run: ${error instanceof Error ? error.message : String(error)}` }
+        }
+        if (result.status === 403) return { outcome: 'invalid_signature', response: new Response(result.body || null, { status: 403 }) }
+        // The component holds no secret although the app does: `app.use(backend,
+        // { env })` does not forward EMAIL_WEBHOOK_SECRET. Nothing was verified,
+        // so the request is counted like any other refused before a signature.
+        if (result.status === 503) {
+          return { outcome: 'missing_secret', note: 'the backend component has no EMAIL_WEBHOOK_SECRET', response: new Response(result.body || null, { status: 503 }) }
+        }
+        if (result.status >= 300) {
+          return { outcome: 'handler_error', note: `component answered ${result.status}`, response: new Response(result.body || null, { status: result.status }) }
+        }
+        // Verified. Dispatch the typed handler; a throw propagates to a 500 so
+        // the provider redelivers against the idempotent built-ins.
+        const type = result.type
+        if (type === undefined || !(ALL_EMAIL_EVENTS as readonly string[]).includes(type)) return { outcome: 'unknown_type', type }
         const handler = events?.[type as EmailWebhookEventType]
-        if (handler) {
-          const payload = JSON.parse(body) as EmailWebhookEvent
-          await (handler as (ctx: AnyActionCtx, event: EmailWebhookEvent) => Promise<void>)(ctx, payload)
-        }
-        await guard.record('ok', { type })
-      }
-      else {
-        if (options.onUnknownEvent) {
-          await options.onUnknownEvent(ctx, { type, payload: safeParse(body) })
-        }
-        await guard.record('unknown_type', { type })
-        return new Response('Accepted (unknown event type)', { status: 202 })
-      }
-    }
-    catch (error) {
-      await guard.record('handler_error', {
-        type,
-        note: error instanceof Error ? error.message : String(error),
-      })
-      throw error
-    }
-    return new Response(result.body || null, { status: result.status })
+        if (handler) await (handler as (ctx: AnyActionCtx, event: EmailWebhookEvent) => Promise<void>)(ctx, event.payload as EmailWebhookEvent)
+        return { outcome: 'ok', type, response: new Response(result.body || null, { status: result.status }) }
+      },
+    })
   }
 
   const getEmailStatus = queryGeneric({
@@ -499,7 +466,6 @@ export function setupEmail(components: EmailComponents, options: SetupEmailOptio
   const getSandboxInbox = queryGeneric({
     args: { address: v.string() },
     handler: async (ctx, args): Promise<SandboxMessage[]> => {
-      if (!refs.inbox) return []
       return ctx.runQuery(refs.inbox, { address: args.address })
     },
   })
@@ -534,19 +500,8 @@ export function setupEmail(components: EmailComponents, options: SetupEmailOptio
   }
 }
 
-function safeParse(body: string): unknown {
-  try {
-    return JSON.parse(body)
-  }
-  catch {
-    return body
-  }
-}
-
 function readProcessEnv(name: string): string | undefined {
   return (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[name]
 }
 
-/** Re-export so consumers can keep the `send` argument validator aligned. */
-export { sendArgs }
 export { escapeHtml }

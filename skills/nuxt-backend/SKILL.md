@@ -77,6 +77,10 @@ sign-in codes print in the terminal that runs `dev`.
   - `admin.*` requires the app-wide admin role;
   - `withRole('editor')` sets a custom tier.
   Use them instead of the bare `query` and `mutation` for anything user-scoped.
+- **Data:** `useQuery`, `useMutation`, `useAction` and `usePaginatedQuery` with refs from
+  `#backend/api`; `useBackendClient()` for a one-off imperative call; `<StorageImage>` for an
+  image in file storage. The base module's brand-named composables and components are not
+  auto-imported in a nuxt-backend app: use these neutral names.
 - **Server routes:** `backendAuth(event)` in Nitro runs Convex calls as the signed-in user.
 - **Workspaces:** `useOrganization()`, `<WorkspaceSettings>` and `<RoleBoundary>`.
 - **Billing:** declare meters, plans, packs and features in `backend/billing.catalog.ts`, then

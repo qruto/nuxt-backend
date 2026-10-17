@@ -27,7 +27,6 @@ import { email } from './email'
 // written by `npx nuxt-backend billing sync`. Exported for ai.ts (metered actions spend through it).
 export const billing = setupBilling(components, { catalog, email })
 
-export const { provider } = billing
 export const {
   generateCheckoutLink,
   generateCustomerPortalUrl,
@@ -88,7 +87,7 @@ Keep these exports. The composables bind to them by name (`useBilling` → `getC
 | `email` | Required. The app's `setupEmail` instance: a paid gift's recipient hears of it through its `gift` [template](/docs/email/templates). `setupBilling` checks it when it runs, so an `email` that arrives undefined — an import cycle through `email.ts` does that despite the type — fails the deploy instead of the first paid gift. |
 | `accessToken` · `environment` · `webhookSecret` | Override the `BILLING_ACCESS_TOKEN` / `BILLING_ENVIRONMENT` / `BILLING_WEBHOOK_SECRET` env vars. |
 | `billTo` | Who owns subscriptions and credits: `'organization'` (the default — members share the workspace's plan and credits) or `'user'` (B2C apps without shared billing). |
-| `getUserInfo` · `currentUserId` | Override entity resolution for action contexts (checkout / portal / sync) and for query contexts (the reactive reads). Consulted only with `billTo: 'user'`; `currentUserId` returns `null` when signed out so reads degrade instead of throwing. |
+| `resolveEntity` | Resolve the billing entity yourself, in place of the claims `billTo` reads: `(ctx) => Promise<{ userId, email } \| null>`, where `ctx` has `auth` and `runQuery`. One resolver serves every context — the reactive reads, checkout and the portal, spends and the subscription lifecycle. Return `null` when nobody is signed in: reads answer `null` and provider operations refuse. |
 | `catalog` | The environment-keyed id map from `billing.generated.ts` — fills `products` and `credits` for the active `BILLING_ENVIRONMENT`. |
 | `products` · `credits` | An explicit product map (catalog key → product id) and named credit meters (`spendCredits({ meter: 'credits' })`, `useCredits('credits')`). Explicit entries win over `catalog`. |
 | `rateLimiter` | Your `setupRateLimiter(...)` instance. Throttles **every client-callable function that reaches the live provider** — `syncEntitlements`, `syncProducts`, checkout, the subscription-lifecycle actions, order history and invoices — against the `billingSync` limit (10/min, keyed by the workspace or user), so a caller can't loop one to amplify the provider fan-out. `giftCheckout` counts against the same limit, keyed by the purchaser. Omit to leave them unthrottled. |
@@ -128,8 +127,8 @@ Keep these exports. The composables bind to them by name (`useBilling` → `getC
   Order history, invoice URLs and metered consumption, read live from the provider — there is no local order or usage table, because the provider already is the ledger. Each returns `null` when no access token is configured. `refundOrder` is admin-tier (`requireAdmin`).
   :::
 
-  :::field{name="getCustomerState · resolveEntity · discounts · provider"}
-  Live customer state, entity resolution from claims, discount management (`discounts.create` / `.list` / `.remove` — privileged, so server-side methods rather than registered functions), and `provider`, the underlying billing-provider client — an advanced escape hatch; its `polar` property is the provider's raw SDK.
+  :::field{name="getCustomerState · resolveEntity · discounts"}
+  Live customer state, the caller's billing entity resolved the way every billing function resolves it, and discount management (`discounts.create` / `.list` / `.remove` — privileged, so server-side methods rather than registered functions).
   :::
 ::
 

@@ -17,17 +17,11 @@ import type {
   UsageHistoryOptions,
 } from './options.js'
 import type { CustomerEntitlements, RefundCreditsEvent, SpendCreditsEvent, SpendReservation } from './records.js'
-import type { BillingWebhookEventHandlers } from './setup.js'
+import type { BillingEntity, BillingEntityCtx, BillingWebhookEventHandlers } from './setup.js'
 
 // What `setupBilling` returns.
 
 export interface Billing {
-  /**
-   * The underlying billing-provider component client (an advanced escape hatch
-   * — use `provider.polar` for the raw SDK). Needed by `registerBackendRoutes`
-   * to mount the webhook.
-   */
-  provider: Polar
   /**
    * The ready-made checkout / portal / subscription functions to re-export from
    * your Convex module (the result of the provider's `api()`), plus
@@ -139,11 +133,12 @@ export interface Billing {
   /** Undo a reservation whose work failed — nothing is charged. */
   releaseSpend: (ctx: RunWriteCtx, reservation: SpendReservation) => Promise<void>
   /**
-   * Resolve the billing entity from the caller's identity claims — the active
-   * workspace (`billTo: 'organization'`) or the signed-in user. `null` when
-   * signed out.
+   * Resolve the caller's billing entity the way every billing function does:
+   * `setupBilling`'s `resolveEntity` when given, else identity claims — the
+   * active workspace (`billTo: 'organization'`) or the signed-in user.
+   * `null` when signed out. Any query, mutation or action context will do.
    */
-  resolveEntity: (ctx: { auth?: Auth }) => Promise<{ userId: string, email: string } | null>
+  resolveEntity: (ctx: BillingEntityCtx) => Promise<BillingEntity | null>
   /**
    * Forget a billing entity: drop its cached entitlements (plans, benefits,
    * credit balances, in-flight reservations). The provider's customer record

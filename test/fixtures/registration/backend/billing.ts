@@ -24,7 +24,6 @@ import { email } from './email'
 // through it).
 export const billing = setupBilling(components, { catalog, email })
 
-export const { provider } = billing
 // Checkout / portal / subscription / gift functions for `useBilling`.
 export const {
   generateCheckoutLink,

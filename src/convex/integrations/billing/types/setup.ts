@@ -1,8 +1,8 @@
-import type { Polar, WebhookEventHandlers } from '@convex-dev/polar'
+import type { WebhookEventHandlers } from '@convex-dev/polar'
 import type { Auth, FunctionReference, GenericActionCtx, GenericDataModel } from 'convex/server'
 import type { Email } from '../../email.js'
 import type { WebhookLogRefs } from '../../webhook-guard.js'
-import type { AnyQueryCtx, BillingRateLimiter, PolarComponent, RunWriteCtx } from './base.js'
+import type { BillingRateLimiter, ProviderComponent, RunQueryCtx, RunWriteCtx } from './base.js'
 import type {
   BillingCatalogIds,
   CachedEntitlements,
@@ -32,7 +32,7 @@ export type BillingWebhookEventHandlers = WebhookEventHandlers
  *   delivers gift notifications.
  */
 export interface BillingComponents {
-  polar: PolarComponent
+  polar: ProviderComponent
   backend: {
     // Component functions always surface to the parent app as `internal`
     // references in the generated `ComponentApi`, regardless of how they are
@@ -61,16 +61,11 @@ export interface BillingComponents {
        * Drop every in-flight spend reservation for one entity, without
        * re-crediting: used after a refund, where the provider's balance is
        * already the truth and re-subtracting local reservations would push the
-       * cache below it. Optional so an app pinned to an older component build
-       * still type-checks — the refund path then just re-syncs.
+       * cache below it.
        */
-      clearPendingSpends?: FunctionReference<'mutation', 'internal', { userId: string }, null>
-      /**
-       * Delete one entity's entitlement cache row (account erasure). Optional
-       * so an app pinned to an older component build still type-checks —
-       * `billing.forgetEntity` then throws, naming the missing function.
-       */
-      deleteByUser?: FunctionReference<'mutation', 'internal', { userId: string }, null>
+      clearPendingSpends: FunctionReference<'mutation', 'internal', { userId: string }, null>
+      /** Delete one entity's entitlement cache row (account erasure). */
+      deleteByUser: FunctionReference<'mutation', 'internal', { userId: string }, null>
       getBenefitMetadata: FunctionReference<'query', 'internal', { benefitIds: string[] }, Array<{
         benefitId: string
         metadata: Record<string, string | number | boolean>
@@ -108,25 +103,44 @@ export interface ProviderLibRefs {
   }
 }
 
-export type PolarConfig = ConstructorParameters<typeof Polar>[1]
-
 /** What billing sends its email through: the app's `setupEmail` instance. */
 export type BillingEmail = Pick<Email, 'sendTemplate'>
 
 /**
- * Billing configuration. Service-neutral at the package boundary: the access
- * token, environment, and webhook secret default to the required
+ * Who a billing operation runs for: the entity that owns the subscription and
+ * the credits — a workspace, or a user with `billTo: 'user'` — and the email
+ * the provider customer is created with. `userId` is the entity's id either
+ * way.
+ */
+export interface BillingEntity {
+  userId: string
+  email: string
+}
+
+/**
+ * The context {@link SetupBillingConfig.resolveEntity} receives: the caller's
+ * auth, and `runQuery` to read the app's own tables. Queries, mutations and
+ * actions all provide both, so one resolver serves the reactive reads and the
+ * provider calls alike. `auth` is always there; an internal call with no
+ * caller has a `null` identity.
+ */
+export interface BillingEntityCtx {
+  auth: Auth
+  runQuery: RunQueryCtx['runQuery']
+}
+
+/**
+ * Billing configuration: every option `setupBilling` reads, and nothing else.
+ * The access token, environment and webhook secret default to the required
  * `BILLING_ACCESS_TOKEN` / `BILLING_ENVIRONMENT` / `BILLING_WEBHOOK_SECRET`
  * env vars, so `setupBilling(components, { email })` needs no env plumbing.
- * Product maps and other provider passthrough config are accepted as-is,
- * plus `billTo`.
  *
  * The billing entity resolves from identity claims out of the box — the
  * active workspace (`billTo: 'organization'`, the default) or the signed-in
- * user (`billTo: 'user'`) — so `getUserInfo` / `currentUserId` are optional
- * overrides, not required wiring.
+ * user (`billTo: 'user'`) — so {@link SetupBillingConfig.resolveEntity} is an
+ * override, not required wiring.
  */
-export type SetupBillingConfig = Omit<PolarConfig, 'getUserInfo' | 'organizationToken' | 'server' | 'webhookSecret'> & {
+export interface SetupBillingConfig {
   /**
    * The app's `setupEmail` instance. A gift's recipient hears of it through
    * its `gift` template once the purchase is paid; restyle it there, with
@@ -143,24 +157,27 @@ export type SetupBillingConfig = Omit<PolarConfig, 'getUserInfo' | 'organization
   /** Webhook signature secret. Defaults to the required `BILLING_WEBHOOK_SECRET` env var. */
   webhookSecret?: string
   /**
+   * Friendly product keys → provider product ids (`{ pro: '…' }`), so a
+   * current subscription reads with its `productKey`. Usually supplied via
+   * `catalog`; an explicit map wins.
+   */
+  products?: Record<string, string>
+  /**
    * Who owns subscriptions and credits: the active workspace (`'organization'`,
    * the default — members share the workspace's plan and credits) or the
    * individual user (`'user'`, for B2C apps without shared billing).
    */
   billTo?: 'organization' | 'user'
   /**
-   * Override the billing-entity resolution for **action** contexts (checkout /
-   * portal / sync). Only consulted with `billTo: 'user'`; the default reads
-   * the signed-in user from identity claims.
+   * Resolve the billing entity yourself, in place of the identity claims
+   * `billTo` reads. One resolver for every context: the reactive reads
+   * (`getCurrentSubscription`, `getFeatures`, `getCredits`), checkout and
+   * the portal, spends and the subscription lifecycle. It is called with
+   * every context, signed in or not, so it must return `null` when
+   * `ctx.auth.getUserIdentity()` does: reads then answer `null`, and
+   * provider operations refuse.
    */
-  getUserInfo?: PolarConfig['getUserInfo']
-  /**
-   * Override the billing-entity resolution for **query** contexts (the
-   * reactive `getCurrentSubscription` / `getFeatures` / `getCredits` reads).
-   * Only consulted with `billTo: 'user'`; the default reads identity claims.
-   * Return `null` when signed out so reads degrade gracefully.
-   */
-  currentUserId?: (ctx: AnyQueryCtx) => Promise<string | null>
+  resolveEntity?: (ctx: BillingEntityCtx) => Promise<BillingEntity | null>
   /**
    * Throttle every client-callable function that reaches the live provider —
    * `syncEntitlements`, `syncProducts`, checkout, the subscription-lifecycle

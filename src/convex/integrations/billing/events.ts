@@ -21,9 +21,6 @@ export const REFRESH_EVENTS = [
   'benefit_grant.revoked',
 ] as const satisfies ReadonlyArray<keyof WebhookEventHandlers>
 
-/** Internal: lets tests pin the provision list against the refresh set. */
-export const BILLING_REFRESH_EVENTS: readonly string[] = REFRESH_EVENTS
-
 /**
  * The provider's full webhook catalog. The composed handler map covers every
  * one of these, so any verified delivery gets logging, dedupe, and consumer

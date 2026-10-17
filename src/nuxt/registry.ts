@@ -1,7 +1,7 @@
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { addComponent, addImports, addRouteMiddleware, addServerImports, addTypeTemplate, resolveModule, updateTemplates, type Resolver } from '@nuxt/kit'
-import type { Nuxt } from '@nuxt/schema'
+import type { Nuxt, NuxtHooks } from '@nuxt/schema'
 import { backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from '../aliases'
 import { logger } from './logger'
 
@@ -12,9 +12,8 @@ import { logger } from './logger'
 /**
  * Expose the SaaS layer as Nuxt auto-imports — one name per concept. The core
  * data composables (`useQuery`, `useMutation`, ...) come from
- * `nuxt-convex-module`, which registers its own service as `useBetterAuth`;
- * `useAuth` is this package's extended service and the only auto-import of
- * that name.
+ * `nuxt-convex-module`; `useAuth` is this package's extended service over
+ * the base module's, whose own name {@link hideBaseBrandNames} hides.
  */
 export function registerSaasComposables(resolver: Resolver): void {
   addImports({
@@ -97,6 +96,7 @@ export function registerSaasComposables(resolver: Resolver): void {
     // Backend-neutral names over the base module's brand-named surface.
     { name: 'useAuthState', from: resolver.resolve('./runtime/vue/composables/base-aliases') },
     { name: 'useConnectionState', from: resolver.resolve('./runtime/vue/composables/base-aliases') },
+    { name: 'useBackendClient', from: resolver.resolve('./runtime/vue/composables/base-aliases') },
     { name: 'useLoginFlow', from: resolver.resolve('./runtime/vue/composables/use-login-flow') },
     { name: 'useEmailChange', from: resolver.resolve('./runtime/vue/composables/use-email-change') },
     { name: 'useOrganization', from: resolver.resolve('./runtime/vue/composables/use-organization') },
@@ -144,14 +144,13 @@ export function registerSaasComposables(resolver: Resolver): void {
 
 /**
  * The neutral `auth` route middleware: the base module registers its guard as
- * `convex-auth` (since nuxt-convex-module 0.10), and this package promises the
- * brand-neutral name — the built-in pages, the docs and the scaffold all say
- * `definePageMeta({ middleware: 'auth' })`. Both names resolve to the same
- * file: the guard that lives beside the `better-auth/server` runtime this
- * package already aliases for `backendAuth`, so there is no second
- * implementation to keep in step. Without the base runtime on disk the base
- * module's own registration is missing too, so the warning next to
- * `backendAuth` already covers it.
+ * `convex-auth` (since nuxt-convex-module 0.10), and this package names it
+ * `auth` — the built-in pages, the docs and the scaffold all say
+ * `definePageMeta({ middleware: 'auth' })`. It is the same file: the guard
+ * that lives beside the `better-auth/server` runtime this package already
+ * aliases for `backendAuth`, so there is no second implementation to keep in
+ * step. Without the base runtime on disk the base module's own registration
+ * is missing too, so the warning next to `backendAuth` already covers it.
  */
 export function registerAuthMiddleware(): void {
   const middleware = resolveBaseAuthMiddleware()
@@ -160,30 +159,140 @@ export function registerAuthMiddleware(): void {
 }
 
 /**
- * The neutral names of the base module's billing links. `nuxt-convex-module`
- * registers `<CheckoutLink>` and `<CustomerPortalLink>` (its Vue ports of
- * `@convex-dev/polar/react`) as global components in every app — provider
- * names on this package's otherwise brand-neutral surface. Both stay
- * registered; `<BillingCheckoutLink>` and `<BillingPortalLink>` point at the
- * same exports, and are what the docs and the scaffold name. Without the base
- * runtime on disk there is nothing to alias (and the base module's own
- * registration is missing too).
+ * The neutral names of the base module's components that carry a provider's
+ * vocabulary: `<BillingCheckoutLink>` and `<BillingPortalLink>` are its
+ * `<CheckoutLink>` and `<CustomerPortalLink>` (Vue ports of
+ * `@convex-dev/polar/react`), and `<StorageImage>` is its `<ConvexImage>`.
+ * Each points at the same export; {@link hideBaseBrandNames} hides the
+ * originals. Without the base runtime on disk there is nothing to alias (and
+ * the base module's own registration is missing too).
+ *
+ * In development the old names stay registered as stand-ins that warn once,
+ * naming the new one, and render it: a type check cannot see a component name
+ * in a template, so this is where an app still using one finds out. A
+ * production build has no stand-ins.
  */
-export function registerBillingLinkComponents(): void {
-  const components = resolveBasePolarComponents()
-  if (!components) return
-  addComponent({ name: 'BillingCheckoutLink', filePath: components, export: 'CheckoutLink' })
-  addComponent({ name: 'BillingPortalLink', filePath: components, export: 'CustomerPortalLink' })
+export function registerBaseComponentAliases(resolver: Resolver, nuxt: Nuxt): void {
+  const renamed = (name: string, file: string) => {
+    // Priority 1: it replaces the base module's registration under the same name, whichever hook runs first.
+    if (nuxt.options.dev) addComponent({ name, export: name, filePath: resolver.resolve(`./runtime/vue/components/${file}`), priority: 1 })
+  }
+  const links = resolveBaseRuntime('nuxt-convex-module/polar/vue')
+  if (links) {
+    addComponent({ name: 'BillingCheckoutLink', filePath: links, export: 'CheckoutLink' })
+    addComponent({ name: 'BillingPortalLink', filePath: links, export: 'CustomerPortalLink' })
+    renamed('CheckoutLink', 'renamed-billing-links')
+    renamed('CustomerPortalLink', 'renamed-billing-links')
+  }
+  const client = resolveBaseRuntime('nuxt-convex-module/client')
+  if (client) {
+    // The component's own file when the build has one (what the base module
+    // registers), so a page using it does not pull in the whole client entry.
+    const own = ['components/convex-image.js', 'components/convex-image.mjs', 'components/convex-image.ts']
+      .map(file => join(dirname(client), file))
+      .find(file => existsSync(file))
+    addComponent({ name: 'StorageImage', filePath: own ?? client, export: 'ConvexImage' })
+    renamed('ConvexImage', 'renamed-storage-image')
+  }
+}
+
+/** A path with `/` separators, the way kit's resolver registers them on every platform. */
+const slashed = (path: string): string => path.replaceAll('\\', '/')
+
+/**
+ * The base module's package directory, as resolved and as its real path (a
+ * pnpm or linked install registers through either), each ending in `/`.
+ * Empty when it is not installed, so nothing reads as the base module's.
+ */
+function baseModuleRoots(): string[] {
+  const manifest = resolveBaseRuntime('nuxt-convex-module/package.json')
+  if (!manifest) return []
+  const root = dirname(manifest)
+  return [...new Set([root, realpathSync(root)])].map(dir => `${slashed(dir).replace(/\/$/, '')}/`)
+}
+
+/** An auto-import or component name that says the platform's or a provider's name. */
+const BRAND_NAME = /convex|betterauth|polar|resend/i
+
+/**
+ * The base module's components hidden although their names say no brand:
+ * the provider's own words for its billing links, with neutral aliases above.
+ */
+const PROVIDER_WORDED_COMPONENTS = new Set(['CheckoutLink', 'CustomerPortalLink'])
+
+/**
+ * Keep the base module's brand-named surface out of an app that uses this
+ * package: its composables (`useConvex`, `useConvexQuery`, `useBetterAuth`,
+ * `provideConvexAuth`, …), its components (`<ConvexImage>`, `<CheckoutLink>`,
+ * `<CustomerPortalLink>`, and `<ConvexProviderWithClerk>` /
+ * `<ConvexProviderWithAuth0>` when those integrations are on), its
+ * `convex-auth` route middleware and its Nitro imports (`convexAuth`,
+ * `convexBetterAuthNuxt`). Most have a neutral name here — `useBackendClient`,
+ * `useQuery`, `useAuth`, `useAuthState`, `<StorageImage>`,
+ * `<BillingCheckoutLink>`, `<BillingPortalLink>`, `auth` and `backendAuth`
+ * — so an app sees one name per concept; the rest stay an explicit import
+ * from the base module.
+ *
+ * The base module registers through the same hooks, and Nuxt installs it
+ * after this module, so a filter added as one more hook would run before its
+ * entries arrive. The filters run after each hook call instead, once every
+ * handler has added its entries, whatever order the modules installed in.
+ * One rule for imports and components alike: a brand-named entry whose file
+ * lives in the base module's package directory goes. Nothing else is touched
+ * — not the aliases above, not an app file that happens to sit under a
+ * directory of the same name — and an argument of an unexpected shape is
+ * left alone rather than failing the hook. The base module's own runtime
+ * imports what it uses explicitly, so nothing it ships breaks.
+ */
+export function hideBaseBrandNames(nuxt: Nuxt): void {
+  const roots = baseModuleRoots()
+  const fromBaseModule = (path: unknown): boolean =>
+    typeof path === 'string' && roots.some(root => slashed(path).startsWith(root))
+  const hiddenImport = (entry: { name?: string, as?: string, from?: string } | undefined) =>
+    fromBaseModule(entry?.from) && BRAND_NAME.test(entry?.as ?? entry?.name ?? '')
+  const hiddenComponent = (component: { pascalName?: string, filePath?: string } | undefined) =>
+    fromBaseModule(component?.filePath)
+    && (BRAND_NAME.test(component?.pascalName ?? '') || PROVIDER_WORDED_COMPONENTS.has(component?.pascalName ?? ''))
+  nuxt.hooks.afterEach(({ name, args }) => {
+    switch (name) {
+      case 'imports:extend':
+        filterInPlace(args[0], (entry: Parameters<NuxtHooks['imports:extend']>[0][number]) => !hiddenImport(entry))
+        break
+      case 'components:extend':
+        filterInPlace(args[0], (component: Parameters<NuxtHooks['components:extend']>[0][number]) => !hiddenComponent(component))
+        break
+      case 'app:resolve':
+        filterInPlace(args[0], (middleware: { name?: string, path?: string } | undefined) =>
+          !(middleware?.name === 'convex-auth' && fromBaseModule(middleware.path)), 'middleware')
+        break
+      case 'nitro:config':
+        filterInPlace((args[0] as Parameters<NuxtHooks['nitro:config']>[0] | undefined)?.imports, (entry: { name?: string, as?: string, from?: string }) => !hiddenImport(entry), 'imports')
+        break
+    }
+  })
 }
 
 /**
- * The base module's `polar/vue` runtime file (its `./polar/vue` export,
- * resolved with ESM conditions like the server runtime above). `undefined`
- * when it is not on disk.
+ * Remove the entries `keep` refuses, in place: the hooks hand over the array
+ * every module shares. `list` (or its `key` property) is checked to be an
+ * array first, since a throw here would reject the whole hook call.
  */
-function resolveBasePolarComponents(): string | undefined {
+function filterInPlace<T>(holder: unknown, keep: (entry: T) => boolean, key?: string): void {
+  const list = key === undefined ? holder : (holder as Record<string, unknown> | undefined)?.[key]
+  if (!Array.isArray(list)) return
+  for (let index = list.length - 1; index >= 0; index--) {
+    if (!keep(list[index] as T)) list.splice(index, 1)
+  }
+}
+
+/**
+ * One of the base module's runtime files, by its package export (resolved
+ * with ESM conditions like the server runtime below). `undefined` when it is
+ * not on disk.
+ */
+function resolveBaseRuntime(specifier: string): string | undefined {
   try {
-    const exported = resolveModule('nuxt-convex-module/polar/vue', { url: new URL(import.meta.url) })
+    const exported = resolveModule(specifier, { url: new URL(import.meta.url) })
     return existsSync(exported) ? exported : undefined
   }
   catch {
@@ -214,13 +323,7 @@ function resolveBaseAuthMiddleware(): string | undefined {
  * `require.resolve` cannot see it). `undefined` when it is not on disk.
  */
 function resolveBaseServerRuntime(): string | undefined {
-  try {
-    const exported = resolveModule('nuxt-convex-module/better-auth/server', { url: new URL(import.meta.url) })
-    return existsSync(exported) ? exported : undefined
-  }
-  catch {
-    return undefined
-  }
+  return resolveBaseRuntime('nuxt-convex-module/better-auth/server')
 }
 
 /**

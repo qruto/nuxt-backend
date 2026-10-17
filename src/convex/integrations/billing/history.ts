@@ -5,7 +5,7 @@ import { ordersInvoice } from '@polar-sh/sdk/funcs/ordersInvoice.js'
 import { ordersList } from '@polar-sh/sdk/funcs/ordersList.js'
 import { refundsCreate } from '@polar-sh/sdk/funcs/refundsCreate.js'
 import { type BillingContext, resolveLimit, resolvePage } from './context.js'
-import type { PolarRunQueryCtx } from './types/base.js'
+import type { ProviderCtx } from './types/base.js'
 import type { BillingOrder, UsageEvent } from './types/options.js'
 import type { CreditMeterConfig } from './types/records.js'
 import type { Billing } from './types/surface.js'
@@ -34,7 +34,7 @@ export function createHistory({
   accessToken,
   creditMeters,
   provider,
-  getUserInfo,
+  requireEntity,
   resolveMeter,
   requireProviderAccess,
   unwrapProvider,
@@ -58,9 +58,9 @@ export function createHistory({
 
   const getOrders: Billing['getOrders'] = async (ctx, options = {}) => {
     if (!accessToken) return null
-    const { userId } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
+    const { userId } = await requireEntity(ctx)
     await throttle(ctx, userId, 'order reads')
-    const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, userId)
+    const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, userId)
     // No provider customer yet = nothing has ever been charged. An empty page
     // is the honest answer; `null` is reserved for "billing isn't configured".
     if (!customer) return { items: [], pagination: { totalCount: 0, maxPage: 0 } }
@@ -81,9 +81,9 @@ export function createHistory({
 
   const getInvoiceUrl: Billing['getInvoiceUrl'] = async (ctx, orderId) => {
     if (!accessToken) return null
-    const { userId } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
+    const { userId } = await requireEntity(ctx)
     await throttle(ctx, userId, 'invoice reads')
-    const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, userId)
+    const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, userId)
     const order = unwrapProvider(await ordersGet(provider.polar, { id: orderId }), 'invoice read')
     // Ownership is the authorization: the order id is guessable-ish and the
     // invoice carries a name and address, so it never leaves its own account.
@@ -103,9 +103,9 @@ export function createHistory({
 
   const getUsageHistory: Billing['getUsageHistory'] = async (ctx, options = {}) => {
     if (!accessToken) return null
-    const { userId } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
+    const { userId } = await requireEntity(ctx)
     await throttle(ctx, userId, 'usage reads')
-    const customer = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, userId)
+    const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, userId)
     // No provider customer = nothing was ever metered. An empty page is the
     // honest answer; `null` is reserved for "billing isn't configured".
     if (!customer) return { items: [], pagination: { totalCount: 0, maxPage: 0 } }

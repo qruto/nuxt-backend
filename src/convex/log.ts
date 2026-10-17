@@ -19,6 +19,7 @@ export const LOG_CODES = {
   'email.undeliverable': 'A one-time code or an invitation was refused on the request: its email would not arrive (no EMAIL_API_KEY, test mode, or no EMAIL_FROM).',
   'webhook.secret_missing': 'A webhook route is mounted but its secret is not set, so every delivery is refused with 503.',
   'webhook.log_write_failed': 'A webhook delivery was handled but its row in the delivery log could not be written.',
+  'webhook.rejected': 'A webhook route refused a delivery before running anything: over the size cap (413), a bad signature (403) or no secret on the backend component (503). Once per isolate for each route and outcome.',
   'billing.provider_failed': 'The billing provider refused a request; the caller sees "Billing is temporarily unavailable".',
   'billing.gift_attach_failed': 'A paid gift could not be attached to the recipient automatically; they can still claim it after signing in.',
   'billing.gift_misdirected': 'A gift order was paid under another email than the recipient\'s, so the gift was not delivered and stays pending.',

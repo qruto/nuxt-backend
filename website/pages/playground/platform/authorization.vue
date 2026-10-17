@@ -12,7 +12,7 @@ const bootstrapCommand = `npx convex run functions:setUserRole '{"email":"${'you
 // --- Live server-side guards (backend/guards.ts) ----------------------------
 // Each button calls a Convex function built with a different pre-authorized
 // builder; denials are REAL server-side rejections, not UI gating.
-const convex = useConvex()
+const backend = useBackendClient()
 const GUARDS = [
   { key: 'whoami', label: 'authed.query', fn: api.guards.whoami, hint: 'signed in, not banned' },
   { key: 'workspaceInfo', label: 'org.query', fn: api.guards.workspaceInfo, hint: 'fresh workspace membership' },
@@ -26,7 +26,7 @@ const guardPending = ref<string | null>(null)
 async function callGuard(entry: (typeof GUARDS)[number]) {
   guardPending.value = entry.key
   try {
-    const result = await convex.query(entry.fn as never, {})
+    const result = await backend.query(entry.fn as never, {})
     guardResults.value = { ...guardResults.value, [entry.key]: { ok: true, detail: JSON.stringify(result) } }
   }
   catch (e) {
