@@ -1,7 +1,7 @@
 import { createClient, type CreateAuth, type GenericCtx } from '@convex-dev/better-auth'
 import { type FunctionReference, type GenericDataModel, queryGeneric } from 'convex/server'
-import { ConvexError } from 'convex/values'
 import { authSchema } from '../components/backend/schema.js'
+import { backendError } from '../errors.js'
 import { identityClientId, identitySessionId } from './identity.js'
 import type { AuthComponentApi, AuthIntegrations, AuthSetupComponents, PublicAuthComponentRef } from './auth-types.js'
 import type { AuthRuntime, UserExists } from './runtime.js'
@@ -47,7 +47,7 @@ export function createAuthComponent<DM extends GenericDataModel>(componentRef: P
 
   const getAuthUser: typeof client.getAuthUser = async (ctx) => {
     const user = await safeGetAuthUser(ctx)
-    if (!user) throw new ConvexError('Unauthenticated')
+    if (!user) throw backendError('unauthenticated', {}, 'Unauthenticated')
     return user
   }
 
