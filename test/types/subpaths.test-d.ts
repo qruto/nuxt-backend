@@ -9,7 +9,7 @@ import { createAccessControl, setupAuthorization } from 'nuxt-backend/authorizat
 import { registerBackendRoutes } from 'nuxt-backend/http'
 import { createFunctions } from 'nuxt-backend/functions'
 import { backendEnv } from 'nuxt-backend/app'
-import { ALL_BILLING_EVENTS, defineBillingCatalog, type SetupBillingConfig, setupBilling } from 'nuxt-backend/billing'
+import { ALL_BILLING_EVENTS, type BillingEntity, type BillingEntityCtx, defineBillingCatalog, type SetupBillingConfig, setupBilling } from 'nuxt-backend/billing'
 import type { ALL_EMAIL_EVENTS, EmailWebhookEventType } from 'nuxt-backend/email'
 import { setupEmail } from 'nuxt-backend/email'
 import { DEFAULT_LIMITS, MINUTE, setupRateLimiter } from 'nuxt-backend/rate-limit'
@@ -135,8 +135,12 @@ describe('integrations', () => {
   test('nuxt-backend/billing', () => {
     expectTypeOf(setupBilling).parameter(1).toEqualTypeOf<SetupBillingConfig>()
     expectTypeOf<SetupBillingConfig['email']>().not.toBeNullable()
-    expectTypeOf(setupBilling).returns.toHaveProperty('provider')
     expectTypeOf(setupBilling).returns.toHaveProperty('api')
+    // The provider's own client never leaves setupBilling.
+    expectTypeOf<Extract<keyof ReturnType<typeof setupBilling>, 'provider'>>().toBeNever()
+    // One entity resolver, and none of the provider client's own option names.
+    expectTypeOf<SetupBillingConfig['resolveEntity']>().toEqualTypeOf<((ctx: BillingEntityCtx) => Promise<BillingEntity | null>) | undefined>()
+    expectTypeOf<Extract<keyof SetupBillingConfig, 'getUserInfo' | 'currentUserId' | 'organizationToken' | 'server'>>().toBeNever()
     expectTypeOf(defineBillingCatalog).toBeFunction()
     expectTypeOf(ALL_BILLING_EVENTS).toExtend<readonly string[]>()
   })

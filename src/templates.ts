@@ -166,7 +166,6 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // through it).
     export const billing = setupBilling(components, { catalog, email })
 
-    export const { provider } = billing
     // Checkout / portal / subscription / gift functions for \`useBilling\`.
     export const {
       generateCheckoutLink,

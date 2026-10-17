@@ -103,8 +103,10 @@ describe('the nuxt-backend skill', () => {
   const registered = new Set([
     // This module: addImports / addComponent entries and server import aliases.
     ...[...readModuleSources().matchAll(/\b(?:name|as): '(\w+)'/g)].map(m => m[1]!),
-    // The base module's auto-imports and components, which every app gets too.
-    ...[...read('node_modules/nuxt-convex-module/dist/module.mjs').matchAll(/\bname: "(\w+)"/g)].map(m => m[1]!),
+    // The base module's auto-imports and components, which every app gets
+    // too — less the brand-named ones the module hides (`hideBaseBrandNames`).
+    ...[...read('node_modules/nuxt-convex-module/dist/module.mjs').matchAll(/\bname: "(\w+)"/g)].map(m => m[1]!)
+      .filter(name => !/convex|betterauth/i.test(name) && !['CheckoutLink', 'CustomerPortalLink'].includes(name)),
   ])
   const exported = new Set(walk('src/runtime', ['.ts']).flatMap(file => [
     ...[...read(file).matchAll(/export (?:declare )?(?:async )?(?:function|const|class|interface|type) (\w+)/g)].map(m => m[1]!),

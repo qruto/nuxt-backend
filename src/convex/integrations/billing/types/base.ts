@@ -4,22 +4,13 @@ import type { discountsCreate } from '@polar-sh/sdk/funcs/discountsCreate.js'
 import type { discountsList } from '@polar-sh/sdk/funcs/discountsList.js'
 import type { eventsIngest } from '@polar-sh/sdk/funcs/eventsIngest.js'
 import type { subscriptionsUpdate } from '@polar-sh/sdk/funcs/subscriptionsUpdate.js'
-import type { GenericActionCtx, GenericDataModel, GenericQueryCtx } from 'convex/server'
+import type { GenericActionCtx, GenericDataModel } from 'convex/server'
 
 // The context shapes and the provider-derived vocabulary every other billing
 // type and module builds on.
 
-/**
- * Any query context — the consumer's `currentUserId` resolver runs inside the
- * lib's generic query, but its body uses the consumer's concrete ctx (e.g.
- * `authComponent.getAuthUser(ctx)`). Typing the data model as `any` makes both
- * sides assignable across the library boundary.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AnyQueryCtx = GenericQueryCtx<any>
-
 /** The component reference accepted by the billing-provider client (`components.polar`). */
-export type PolarComponent = ConstructorParameters<typeof Polar>[0]
+export type ProviderComponent = ConstructorParameters<typeof Polar>[0]
 
 /**
  * A minimal Convex context (just `runQuery`) — kept DataModel-independent and
@@ -29,7 +20,7 @@ export type PolarComponent = ConstructorParameters<typeof Polar>[0]
 export type RunQueryCtx = Pick<GenericActionCtx<GenericDataModel>, 'runQuery'>
 /** A context that can both read and write (sync + upsert the cache). */
 export type RunWriteCtx = Pick<GenericActionCtx<GenericDataModel>, 'runQuery' | 'runMutation'>
-export type PolarRunQueryCtx = Parameters<Polar['getCustomerByUserId']>[0]
+export type ProviderCtx = Parameters<Polar['getCustomerByUserId']>[0]
 
 /**
  * A structural rate limiter for throttling `syncEntitlements` — satisfied by

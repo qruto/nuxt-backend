@@ -3,7 +3,7 @@
  * This page's Convex connection, for a block inside <DeferredBackend>: the
  * slot gets `connected`, whether the WebSocket is up right now.
  */
-const state = useConvexConnectionState()
+const state = useConnectionState()
 </script>
 
 <template>

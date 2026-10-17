@@ -50,8 +50,8 @@ The hand-written pages below are grouped by the part of the package they describ
   The auto-imported Nitro helpers: fetch and preload, `backendAuth`, and the agent-tool utilities.
   :::
 
-  :::card{icon="i-lucide-plug-zap" title="ConvexVueClient" to="/docs/reference/nuxt/client"}
-  The imperative client behind `useConvex()` and `$convex`, for one-off calls outside the composables.
+  :::card{icon="i-lucide-plug-zap" title="Backend client" to="/docs/reference/nuxt/client"}
+  The imperative client behind `useBackendClient()` and `$convex`, for one-off calls outside the composables.
   :::
 
   :::card{icon="i-lucide-folder-symlink" title="Import Aliases" to="/docs/reference/nuxt/import-aliases"}

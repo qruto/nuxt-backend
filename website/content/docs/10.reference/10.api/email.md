@@ -197,16 +197,16 @@ object — the key is picked structurally.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="backend"></a> `backend` | \{ `email`: \{ `send`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, [`SendEmailOptions`](#sendemailoptions), `string` \| `null`\>; `status`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `emailId`: `string`; \}, [`EmailStatus`](#emailstatus) \| `null`\>; `get`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `emailId`: `string`; \}, [`EmailRecord`](#emailrecord) \| `null`\>; `cancel`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `emailId`: `string`; \}, `null`\>; `cleanup?`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `olderThanMs?`: `number`; \}, `null`\>; `cleanupAbandoned?`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `olderThanMs?`: `number`; \}, `null`\>; `handleWebhook`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"internal"`, \{ `body`: `string`; `headers`: `Record`\<`string`, `string`\>; \}, \{ `status`: `number`; `body`: `string`; `type?`: `string`; \}\>; `inbox?`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `address`: `string`; \}, [`SandboxMessage`](#sandboxmessage)[]\>; \}; `webhooks`: `WebhookLogRefs`; \} | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
-| `backend.email` | \{ `send`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, [`SendEmailOptions`](#sendemailoptions), `string` \| `null`\>; `status`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `emailId`: `string`; \}, [`EmailStatus`](#emailstatus) \| `null`\>; `get`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `emailId`: `string`; \}, [`EmailRecord`](#emailrecord) \| `null`\>; `cancel`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `emailId`: `string`; \}, `null`\>; `cleanup?`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `olderThanMs?`: `number`; \}, `null`\>; `cleanupAbandoned?`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `olderThanMs?`: `number`; \}, `null`\>; `handleWebhook`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"internal"`, \{ `body`: `string`; `headers`: `Record`\<`string`, `string`\>; \}, \{ `status`: `number`; `body`: `string`; `type?`: `string`; \}\>; `inbox?`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `address`: `string`; \}, [`SandboxMessage`](#sandboxmessage)[]\>; \} | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
+| <a id="backend"></a> `backend` | \{ `email`: \{ `send`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, [`SendEmailOptions`](#sendemailoptions), `string` \| `null`\>; `status`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `emailId`: `string`; \}, [`EmailStatus`](#emailstatus) \| `null`\>; `get`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `emailId`: `string`; \}, [`EmailRecord`](#emailrecord) \| `null`\>; `cancel`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `emailId`: `string`; \}, `null`\>; `cleanup`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `olderThanMs?`: `number`; \}, `null`\>; `cleanupAbandoned`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `olderThanMs?`: `number`; \}, `null`\>; `handleWebhook`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"internal"`, \{ `body`: `string`; `headers`: `Record`\<`string`, `string`\>; \}, \{ `status`: `number`; `body`: `string`; `type?`: `string`; \}\>; `inbox`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `address`: `string`; \}, [`SandboxMessage`](#sandboxmessage)[]\>; \}; `webhooks`: `WebhookLogRefs`; \} | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
+| `backend.email` | \{ `send`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, [`SendEmailOptions`](#sendemailoptions), `string` \| `null`\>; `status`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `emailId`: `string`; \}, [`EmailStatus`](#emailstatus) \| `null`\>; `get`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `emailId`: `string`; \}, [`EmailRecord`](#emailrecord) \| `null`\>; `cancel`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `emailId`: `string`; \}, `null`\>; `cleanup`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `olderThanMs?`: `number`; \}, `null`\>; `cleanupAbandoned`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `olderThanMs?`: `number`; \}, `null`\>; `handleWebhook`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"internal"`, \{ `body`: `string`; `headers`: `Record`\<`string`, `string`\>; \}, \{ `status`: `number`; `body`: `string`; `type?`: `string`; \}\>; `inbox`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `address`: `string`; \}, [`SandboxMessage`](#sandboxmessage)[]\>; \} | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | `backend.email.send` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, [`SendEmailOptions`](#sendemailoptions), `string` \| `null`\> | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | `backend.email.status` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `emailId`: `string`; \}, [`EmailStatus`](#emailstatus) \| `null`\> | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | `backend.email.get` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `emailId`: `string`; \}, [`EmailRecord`](#emailrecord) \| `null`\> | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | `backend.email.cancel` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `emailId`: `string`; \}, `null`\> | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
-| `backend.email.cleanup?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `olderThanMs?`: `number`; \}, `null`\> | Retention pruning of the provider component's email records. Optional so an app pinned to an older component build still type-checks — `email.cleanup` / `email.cleanupAbandoned` then throw, naming the missing function. | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
-| `backend.email.cleanupAbandoned?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `olderThanMs?`: `number`; \}, `null`\> | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
+| `backend.email.cleanup` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `olderThanMs?`: `number`; \}, `null`\> | Retention pruning of the provider component's email records. | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
+| `backend.email.cleanupAbandoned` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `olderThanMs?`: `number`; \}, `null`\> | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | `backend.email.handleWebhook` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"internal"`, \{ `body`: `string`; `headers`: `Record`\<`string`, `string`\>; \}, \{ `status`: `number`; `body`: `string`; `type?`: `string`; \}\> | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
-| `backend.email.inbox?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `address`: `string`; \}, [`SandboxMessage`](#sandboxmessage)[]\> | The sandbox inbox (test mode only). Optional so an app pinned to an older component build still type-checks — `getSandboxInbox` then answers an empty inbox. | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
+| `backend.email.inbox` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `address`: `string`; \}, [`SandboxMessage`](#sandboxmessage)[]\> | The sandbox inbox (test mode only). | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | `backend.webhooks` | `WebhookLogRefs` | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 
 ***
@@ -610,68 +610,6 @@ Resolve a label by its dotted key and fill it in.
 `string`
 
 ## Variables
-
-### sendArgs
-
-```ts
-const sendArgs: {
-  to: VUnion<string | string[], [VString<string, "required">, VArray<string[], VString<string, "required">, "required">], "required", never>;
-  subject: VString<string | undefined, "optional">;
-  html: VString<string | undefined, "optional">;
-  text: VString<string | undefined, "optional">;
-  from: VString<string | undefined, "optional">;
-  cc: VUnion<string | string[] | undefined, [VString<string, "required">, VArray<string[], VString<string, "required">, "required">], "optional", never>;
-  bcc: VUnion<string | string[] | undefined, [VString<string, "required">, VArray<string[], VString<string, "required">, "required">], "optional", never>;
-  replyTo: VArray<string[] | undefined, VString<string, "required">, "optional">;
-  headers: VArray<
-     | {
-     name: string;
-     value: string;
-   }[]
-     | undefined, VObject<{
-     name: string;
-     value: string;
-   }, {
-     name: VString<string, "required">;
-     value: VString<string, "required">;
-  }, "required", "name" | "value">, "optional">;
-  template: VObject<
-     | {
-     variables?: Record<string, string | number>;
-     id: string;
-   }
-     | undefined, {
-     id: VString<string, "required">;
-     variables: VRecord<Record<string, string | number> | undefined, VString<string, "required">, VUnion<string | number, [VString<string, "required">, VFloat64<number, "required">], "required", never>, "optional", string>;
-  }, "optional", "id" | "variables" | `variables.${string}`>;
-  idempotencyKey: VString<string | undefined, "optional">;
-};
-```
-
-Defined in: [src/convex/email-validators.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts)
-
-The argument validators of a transactional send, shared verbatim by the
-component's `email.send` and the app-side `setupEmail` wrapper: the app
-validates what it forwards, the component validates what it receives, and
-one definition keeps the two from drifting.
-
-#### Type Declaration
-
-| Name | Type | Default value | Defined in |
-| ------ | ------ | ------ | ------ |
-| <a id="property-to"></a> `to` | `VUnion`\<`string` \| `string`[], \[`VString`\<`string`, `"required"`\>, `VArray`\<`string`[], `VString`\<`string`, `"required"`\>, `"required"`\>\], `"required"`, `never`\> | `vRecipient` | [src/convex/email-validators.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts) |
-| <a id="property-subject"></a> `subject` | `VString`\<`string` \| `undefined`, `"optional"`\> | - | [src/convex/email-validators.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts) |
-| <a id="property-html"></a> `html` | `VString`\<`string` \| `undefined`, `"optional"`\> | - | [src/convex/email-validators.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts) |
-| <a id="property-text"></a> `text` | `VString`\<`string` \| `undefined`, `"optional"`\> | - | [src/convex/email-validators.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts) |
-| <a id="property-from"></a> `from` | `VString`\<`string` \| `undefined`, `"optional"`\> | - | [src/convex/email-validators.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts) |
-| <a id="property-cc"></a> `cc` | `VUnion`\<`string` \| `string`[] \| `undefined`, \[`VString`\<`string`, `"required"`\>, `VArray`\<`string`[], `VString`\<`string`, `"required"`\>, `"required"`\>\], `"optional"`, `never`\> | - | [src/convex/email-validators.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts) |
-| <a id="property-bcc"></a> `bcc` | `VUnion`\<`string` \| `string`[] \| `undefined`, \[`VString`\<`string`, `"required"`\>, `VArray`\<`string`[], `VString`\<`string`, `"required"`\>, `"required"`\>\], `"optional"`, `never`\> | - | [src/convex/email-validators.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts) |
-| <a id="property-replyto"></a> `replyTo` | `VArray`\<`string`[] \| `undefined`, `VString`\<`string`, `"required"`\>, `"optional"`\> | - | [src/convex/email-validators.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts) |
-| <a id="property-headers"></a> `headers` | `VArray`\< \| \{ `name`: `string`; `value`: `string`; \}[] \| `undefined`, `VObject`\<\{ `name`: `string`; `value`: `string`; \}, \{ `name`: `VString`\<`string`, `"required"`\>; `value`: `VString`\<`string`, `"required"`\>; \}, `"required"`, `"name"` \| `"value"`\>, `"optional"`\> | - | [src/convex/email-validators.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts) |
-| <a id="property-template"></a> `template` | `VObject`\< \| \{ `variables?`: `Record`\<`string`, `string` \| `number`\>; `id`: `string`; \} \| `undefined`, \{ `id`: `VString`\<`string`, `"required"`\>; `variables`: `VRecord`\<`Record`\<`string`, `string` \| `number`\> \| `undefined`, `VString`\<`string`, `"required"`\>, `VUnion`\<`string` \| `number`, \[`VString`\<`string`, `"required"`\>, `VFloat64`\<`number`, `"required"`\>\], `"required"`, `never`\>, `"optional"`, `string`\>; \}, `"optional"`, `"id"` \| `"variables"` \| `` `variables.${string}` ``\> | - | [src/convex/email-validators.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts) |
-| <a id="property-idempotencykey"></a> `idempotencyKey` | `VString`\<`string` \| `undefined`, `"optional"`\> | - | [src/convex/email-validators.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-validators.ts) |
-
-***
 
 ### ALL\_EMAIL\_EVENTS
 

@@ -4,7 +4,7 @@ import type { BillingContext } from './context.js'
 import type { BillingEntitlements } from './entitlements.js'
 import type { BillingHistory } from './history.js'
 import type { BillingSubscriptions } from './subscriptions.js'
-import type { PolarRunQueryCtx } from './types/base.js'
+import type { ProviderCtx } from './types/base.js'
 import type { CurrentSubscriptions } from './types/options.js'
 
 /** Statuses that count as a live entitlement for the current-subscription reads. */
@@ -12,17 +12,15 @@ const LIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'p
 
 /** The registered queries and actions `setupBilling` hands the app as `billing.functions`. */
 export function createBillingFunctions(
-  { config, billTo, products, meterNameById, provider, cache, webhookLog, entityFromIdentity, getUserInfo, throttle, requireAdmin }: BillingContext,
+  { config, products, meterNameById, provider, cache, webhookLog, resolveEntity, requireEntity, throttle, requireAdmin }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
   { updateSubscription, cancelSubscription, uncancelSubscription, pauseSubscription, resumeSubscription }: BillingSubscriptions,
   { getOrders, getInvoiceUrl, getUsageHistory, refundOrder }: BillingHistory,
 ) {
   // --- Ready-made reactive functions (re-exported by the consumer's billing.ts) ---
 
-  const resolveUserId = async (ctx: GenericQueryCtx<GenericDataModel>): Promise<string | null> => {
-    if (billTo === 'user' && config.currentUserId) return config.currentUserId(ctx)
-    return (await entityFromIdentity(ctx))?.userId ?? null
-  }
+  const resolveUserId = async (ctx: GenericQueryCtx<GenericDataModel>): Promise<string | null> =>
+    (await resolveEntity(ctx))?.userId ?? null
 
   /** The caller's entitlement snapshot row, or `null` when nobody is signed in. */
   const resolveUserRow = async (ctx: GenericQueryCtx<GenericDataModel>) => {
@@ -37,14 +35,14 @@ export function createBillingFunctions(
       const userId = await resolveUserId(ctx)
       if (!userId) return null
       if (!config.multipleSubscriptions) {
-        return provider.getCurrentSubscription(ctx as unknown as PolarRunQueryCtx, { userId })
+        return provider.getCurrentSubscription(ctx as unknown as ProviderCtx, { userId })
       }
       // Array-first: with add-ons there is no single "the" subscription, and
       // the upstream single-subscription read is a `.unique()` that would
       // throw here. `paused` counts as live — the provider's pause events are
       // not confirmed on this deployment, so a paused plan must not silently
       // read as the free plan.
-      const all = await provider.listAllUserSubscriptions(ctx as unknown as PolarRunQueryCtx, { userId })
+      const all = await provider.listAllUserSubscriptions(ctx as unknown as ProviderCtx, { userId })
       const now = new Date().toISOString()
       const live = all.filter(subscription =>
         subscription.endedAt == null
@@ -61,7 +59,7 @@ export function createBillingFunctions(
       // does: `<PricingTable>` and feature copy read `product` / `productKey`,
       // so the two branches must return the same shape.
       const enriched = await Promise.all(live.map(async (subscription) => {
-        const product = await provider.getProduct(ctx as unknown as PolarRunQueryCtx, {
+        const product = await provider.getProduct(ctx as unknown as ProviderCtx, {
           productId: subscription.productId,
         })
         const productKey = products
@@ -76,7 +74,7 @@ export function createBillingFunctions(
   })
 
   // Replaces the provider api()'s generated query, which resolves the caller
-  // via `getUserInfo` and therefore throws for claimless callers. Reactive
+  // through the entity resolver and therefore throws for claimless callers. Reactive
   // clients subscribe during every auth handshake and websocket reconnect, and
   // Convex retries a throwing query — degrading to `null` keeps the logs clean.
   const listAllSubscriptions = queryGeneric({
@@ -84,7 +82,7 @@ export function createBillingFunctions(
     handler: async (ctx) => {
       const userId = await resolveUserId(ctx)
       if (!userId) return null
-      return provider.listAllUserSubscriptions(ctx as unknown as PolarRunQueryCtx, { userId })
+      return provider.listAllUserSubscriptions(ctx as unknown as ProviderCtx, { userId })
     },
   })
 
@@ -167,7 +165,7 @@ export function createBillingFunctions(
   const syncEntitlements = actionGeneric({
     args: {},
     handler: async (ctx) => {
-      const { userId } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
+      const { userId } = await requireEntity(ctx)
       if (!userId) return null
       // Guard the live provider fan-out: throttle per billing entity so a caller
       // can't loop this to burn the access token's quota / trip provider limits.

@@ -2,7 +2,7 @@
 // eslint-disable-next-line unicorn/prefer-node-protocol
 import { Buffer as PolyfillBuffer } from 'buffer'
 import { Polar, type PolarWebhookEvent, type WebhookEventHandlers } from '@convex-dev/polar'
-import { guardDelivery, parseSecretList, translateStandardSignature } from '../webhook-guard.js'
+import { handleWebhookDelivery, parseSecretList, translateStandardSignature, type WebhookVerdict } from '../webhook-guard.js'
 import type { BillingContext } from './context.js'
 import type { BillingEntitlements } from './entitlements.js'
 import { ALL_BILLING_EVENTS, REFRESH_EVENTS } from './events.js'
@@ -18,15 +18,6 @@ if (typeof globalThis.Buffer === 'undefined') {
   (globalThis as { Buffer?: typeof PolyfillBuffer }).Buffer = PolyfillBuffer
 }
 
-function safeJsonParse(body: string): unknown {
-  try {
-    return JSON.parse(body)
-  }
-  catch {
-    return body
-  }
-}
-
 /**
  * Why `/billing/events` refuses every delivery when the upstream handlers
  * could not be captured — thrown, so the deployment log carries it, and kept
@@ -39,7 +30,7 @@ const HANDLERS_NOT_CAPTURED = '[nuxt-backend] /billing/events cannot verify any 
 
 /** The `/billing/events` edge: the per-event handler map and the guarded handler that runs it. */
 export function createWebhooks(
-  { components, config, products, accessToken, environment, webhookSecret, webhookLog, provider, cache, getUserInfo }: BillingContext,
+  { components, config, products, accessToken, environment, webhookSecret, webhookLog, provider, cache, requireEntity }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
   { handleGiftOrderPaid }: BillingGifts,
 ) {
@@ -85,11 +76,9 @@ export function createWebhooks(
    * their `settle`/`release` finds nothing and the next sync is authoritative.
    */
   const handleOrderRefunded = async (ctx: RunWriteCtx, event: PolarWebhookEvent): Promise<void> => {
-    const clearPendingSpends = cache.clearPendingSpends
-    if (!clearPendingSpends) return
     const userId = await resolveEventEntity(ctx, event)
     if (!userId) return
-    await ctx.runMutation(clearPendingSpends, { userId })
+    await ctx.runMutation(cache.clearPendingSpends, { userId })
   }
 
   // A benefit's metadata changed — patch the snapshot so friendly-key feature
@@ -130,15 +119,15 @@ export function createWebhooks(
   // Upstream verification + built-in persistence are kept byte-for-byte, but
   // the public route is OURS: the upstream handlers are captured through a
   // shim router (one per accepted secret — comma-separated rotation list) and
-  // invoked behind the shared fail-closed guard. This adds: missing-secret
-  // 503, 1 MiB cap, webhook-id dedupe, authentic-unknown-type 202 (instead of
+  // invoked behind the shared webhook edge. The edge adds missing-secret 503,
+  // the 1 MiB cap, webhook-id dedupe, authentic-unknown-type 202 (instead of
   // an unparseable event 500-looping the endpoint), and outcome logging.
   const webhookSecrets = parseSecretList(webhookSecret)
   const capturedHandlers: Array<(ctx: RunWriteCtx, request: Request) => Promise<Response>> = []
   for (const secret of webhookSecrets) {
     const handlerProvider = secret === webhookSecrets[0]
       ? provider
-      : new Polar(components.polar, { ...config, products, getUserInfo, organizationToken: accessToken, server: environment, webhookSecret: secret })
+      : new Polar(components.polar, { products, getUserInfo: requireEntity, organizationToken: accessToken, server: environment, webhookSecret: secret })
     const shim = {
       route: (spec: { handler: unknown }) => {
         // Registered http actions carry their implementation on `_handler`
@@ -160,70 +149,45 @@ export function createWebhooks(
   // import billing (http.ts with every auth route, ai.ts) would fail with it.
   const handlersMissing = capturedHandlers.length < webhookSecrets.length
 
-  const webhookHandler = async (ctx: RunWriteCtx, request: Request): Promise<Response> => {
-    const body = await request.text()
-    const guard = await guardDelivery(ctx as never, webhookLog, {
-      service: 'billing',
-      deliveryId: request.headers.get('webhook-id'),
-      bodyLength: body.length,
-      secretsConfigured: webhookSecrets.length > 0,
-    })
-    if (guard.rejection) return guard.rejection
-
-    if (handlersMissing) {
-      // 500, so the provider keeps retrying until a fixed deployment can
-      // verify the delivery; logged as a handler error with the cause. No
-      // event type: nothing about an unverified body goes in the log.
-      await guard.record('handler_error', { note: HANDLERS_NOT_CAPTURED })
-      throw new Error(HANDLERS_NOT_CAPTURED)
-    }
-
-    const parsedType = ((): string | undefined => {
-      try {
-        const parsed = JSON.parse(body) as { type?: unknown }
-        return typeof parsed.type === 'string' ? parsed.type : undefined
-      }
-      catch {
-        return undefined
-      }
-    })()
-
+  /**
+   * Verify one delivery against every accepted secret in turn and run the
+   * event map through the first handler that accepts it. Signature checks
+   * have no side effects, so a 403 just moves on to the next secret.
+   */
+  const verify = async (ctx: RunWriteCtx, request: Request, body: string): Promise<WebhookVerdict> => {
+    // 500, so the provider keeps retrying until a fixed deployment can
+    // verify the delivery; logged as a handler error with the cause.
+    if (handlersMissing) return { outcome: 'handler_error', note: HANDLERS_NOT_CAPTURED }
     // The provider signs with Standard Webhooks semantics; the SDK verifies a
     // different reading of the same secret (see translateStandardSignature).
     const headers = translateStandardSignature(request.headers, body, webhookSecrets)
-    let lastForbidden: Response | null = null
+    let lastForbidden: Response | undefined
     for (const handler of capturedHandlers) {
       const attempt = new Request(request.url, { method: 'POST', headers, body })
       try {
         const response = await handler(ctx, attempt)
-        if (response.status === 403) {
-          // Signature mismatch — try the next accepted secret (verification
-          // has no side effects).
-          lastForbidden = response
-          continue
-        }
-        await guard.record('ok', { type: parsedType })
-        return response
+        if (response.status !== 403) return { outcome: 'ok', response }
+        lastForbidden = response
       }
       catch (error) {
-        if ((error as { name?: string })?.name === 'SDKValidationError') {
-          // Authentic (signature passed before parsing) but unparseable by
-          // the installed SDK — acknowledge instead of 500-looping.
-          if (config.onUnknownEvent) {
-            await config.onUnknownEvent(ctx, { type: parsedType, payload: safeJsonParse(body) })
-          }
-          await guard.record('unknown_type', { type: parsedType })
-          return new Response('Accepted (unknown event type)', { status: 202 })
-        }
-        await guard.record('handler_error', {
-          type: parsedType,
-          note: error instanceof Error ? error.message : String(error),
-        })
+        // Authentic (the signature passed before parsing) but unparseable by
+        // the installed SDK — acknowledged instead of 500-looping.
+        if ((error as { name?: string })?.name === 'SDKValidationError') return { outcome: 'unknown_type' }
         throw error
       }
     }
-    await guard.record('invalid_signature')
-    return lastForbidden ?? new Response('Invalid signature', { status: 403 })
+    return { outcome: 'invalid_signature', response: lastForbidden }
+  }
+
+  const webhookHandler = async (ctx: RunWriteCtx, request: Request): Promise<Response> => {
+    return handleWebhookDelivery(ctx, webhookLog, {
+      service: 'billing',
+      deliveryId: request.headers.get('webhook-id'),
+      request,
+      secretsConfigured: webhookSecrets.length > 0,
+      verify: (_event, body) => verify(ctx, request, body),
+      onUnknownEvent: config.onUnknownEvent,
+    })
   }
 
   return { webhookEvents, webhookHandler }

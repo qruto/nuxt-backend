@@ -8,7 +8,7 @@ import { actionGeneric, queryGeneric } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 import { type BillingContext, readEnv } from './context.js'
 import type { BillingEntitlements } from './entitlements.js'
-import type { PolarRunQueryCtx, RunWriteCtx } from './types/base.js'
+import type { ProviderCtx, RunWriteCtx } from './types/base.js'
 import type { GiftRecord } from './types/records.js'
 import { logBackend } from '../../log.js'
 
@@ -35,7 +35,7 @@ const GIFT_CUSTOMER_TAKEN = {
  * paid, which tells the recipient through the app's email instance.
  */
 export function createGifts(
-  { components, config, billTo, provider, providerLib, entityFromIdentity, requireProviderAccess, unwrapProvider, throttle, customerOwner }: BillingContext,
+  { components, config, billTo, provider, providerLib, resolveEntity, requireProviderAccess, unwrapProvider, throttle, customerOwner }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
 ) {
   const gifts = components.backend.gifts
@@ -47,7 +47,7 @@ export function createGifts(
    * gift claimed, and refresh the entitlement cache. Idempotent.
    */
   const attachGift = async (ctx: RunWriteCtx, gift: GiftRecord, userId: string, entityId: string): Promise<void> => {
-    const existing = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, entityId)
+    const existing = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, entityId)
     if (existing && existing.id !== gift.billingCustomerId) {
       // The entity already bills through another provider customer (e.g. the
       // recipient subscribed under a different email than the gift was sent
@@ -174,7 +174,7 @@ export function createGifts(
       if (!email) {
         throw new Error('[nuxt-backend] claimGift: the signed-in identity has no email claim.')
       }
-      const entity = await entityFromIdentity(ctx)
+      const entity = await resolveEntity(ctx)
       if (!entity) {
         throw new Error('[nuxt-backend] claimGift: no billing entity — sign in (a personal workspace is created automatically).')
       }

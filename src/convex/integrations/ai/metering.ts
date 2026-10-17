@@ -57,7 +57,7 @@ export function createMetering({ config, billing, rateLimiter, cache }: AiContex
     if (!identity) {
       throw new Error('[nuxt-backend] Sign in to use this feature.')
     }
-    const entity = await billing.resolveEntity(ctx)
+    const entity = await billing.resolveEntity(ctx as RunCtx & { auth: Auth })
     if (!entity) {
       throw new Error('[nuxt-backend] No billing entity — sign in (a personal workspace is created automatically).')
     }

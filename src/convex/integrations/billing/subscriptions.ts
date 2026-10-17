@@ -4,7 +4,7 @@ import { discountsList } from '@polar-sh/sdk/funcs/discountsList.js'
 import { subscriptionsUpdate } from '@polar-sh/sdk/funcs/subscriptionsUpdate.js'
 import type { Auth } from 'convex/server'
 import { type BillingContext, resolveLimit, resolvePage } from './context.js'
-import type { PolarRunQueryCtx, ProviderSubscription, RunQueryCtx, RunWriteCtx, SubscriptionUpdatePayload } from './types/base.js'
+import type { ProviderCtx, ProviderSubscription, RunQueryCtx, RunWriteCtx, SubscriptionUpdatePayload } from './types/base.js'
 import type { BillingDiscounts, SubscriptionTarget } from './types/options.js'
 import type { Billing } from './types/surface.js'
 
@@ -18,7 +18,7 @@ import type { Billing } from './types/surface.js'
 const ENDED_SUBSCRIPTION_STATUSES = new Set(['canceled', 'incomplete_expired'])
 
 /** Discounts and the subscription lifecycle — every write goes to the provider. */
-export function createSubscriptions({ provider, getUserInfo, requireProviderAccess, unwrapProvider, throttle }: BillingContext) {
+export function createSubscriptions({ provider, requireEntity, requireProviderAccess, unwrapProvider, throttle }: BillingContext) {
   const createDiscount: BillingDiscounts['create'] = async (discount) => {
     requireProviderAccess('discount creation')
     const result = await discountsCreate(provider.polar, discount)
@@ -66,7 +66,7 @@ export function createSubscriptions({ provider, getUserInfo, requireProviderAcce
     userId: string,
     subscriptionId?: string,
   ): Promise<{ id: string, status: string }> => {
-    const all = await provider.listAllUserSubscriptions(ctx as unknown as PolarRunQueryCtx, { userId })
+    const all = await provider.listAllUserSubscriptions(ctx as unknown as ProviderCtx, { userId })
     if (subscriptionId) {
       const found = all.find(subscription => subscription.id === subscriptionId)
       if (!found) {
@@ -100,7 +100,7 @@ export function createSubscriptions({ provider, getUserInfo, requireProviderAcce
     update: SubscriptionUpdatePayload,
   ): Promise<ProviderSubscription> => {
     requireProviderAccess(operation)
-    const { userId } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
+    const { userId } = await requireEntity(ctx)
     await throttle(ctx, userId, `${operation}s`)
     const subscription = await resolveSubscription(ctx, userId, options.subscriptionId)
     const result = await subscriptionsUpdate(provider.polar, {

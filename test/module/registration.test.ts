@@ -74,6 +74,7 @@ const COMPOSABLE_NAMES = [
   'useAuth',
   'useAuthState',
   'useConnectionState',
+  'useBackendClient',
   'useLoginFlow',
   'useEmailChange',
   'useOrganization',
@@ -396,26 +397,48 @@ describe('module registration (defaults)', () => {
     expect(existsSync(paths.tools[0]!)).toBe(true)
   })
 
-  it('aliases the base module\'s billing links under neutral names', async () => {
+  it('aliases the base module\'s brand-named components under neutral names, and hides the originals', async () => {
     // <BillingCheckoutLink> / <BillingPortalLink> are the base module's
-    // <CheckoutLink> / <CustomerPortalLink> — same file, same exports — so the
-    // documented surface never has to say a provider's name. They live outside
-    // the runtime dir, hence the unfiltered hook here.
+    // <CheckoutLink> / <CustomerPortalLink>, and <StorageImage> its
+    // <ConvexImage> — same files, same exports — so an app's surface never
+    // says a platform's or a provider's name. They live outside the runtime
+    // dir, hence the unfiltered hook here.
     const components: ExtendedComponents = []
     await getNuxt().callHook('components:extend', components)
     const byName = (name: string) => components.find(component => component.pascalName === name)
-    for (const [alias, upstream] of [['BillingCheckoutLink', 'CheckoutLink'], ['BillingPortalLink', 'CustomerPortalLink']] as const) {
+    const aliases = [
+      ['BillingCheckoutLink', 'CheckoutLink', /[\\/]runtime[\\/]polar[\\/]vue[\\/]components(\.m?js|\.ts)?$/],
+      ['BillingPortalLink', 'CustomerPortalLink', /[\\/]runtime[\\/]polar[\\/]vue[\\/]components(\.m?js|\.ts)?$/],
+      ['StorageImage', 'ConvexImage', /[\\/]runtime[\\/]vue[\\/]components[\\/]convex-image(\.m?js|\.ts)?$/],
+    ] as const
+    for (const [alias, upstream, file] of aliases) {
       const component = byName(alias)
       expect(component, alias).toBeDefined()
       expect(component!.export).toBe(upstream)
-      expect(component!.filePath).toMatch(/[\\/]nuxt-convex-module[\\/](dist|src)[\\/]runtime[\\/]polar[\\/]vue[\\/]components(\.m?js|\.ts)?$/)
+      expect(component!.filePath).toMatch(/[\\/]nuxt-convex-module[\\/](dist|src)[\\/]/)
+      expect(component!.filePath).toMatch(file)
       expect(existsWithExtension(component!.filePath), component!.filePath).toBe(true)
+      expect(byName(upstream), `${upstream} is hidden`).toBeUndefined()
     }
-    // The originals stay registered too — apps that already use them keep
-    // working. The base module registers them extensionless; the alias resolves
-    // the file, so compare the two with the extension stripped.
-    const bare = (path?: string) => path?.replace(/\.(m?js|ts)$/, '')
-    expect(bare(byName('CheckoutLink')?.filePath)).toBe(bare(byName('BillingCheckoutLink')?.filePath))
+    // The base module's neutral components stay.
+    expect(byName('Authenticated')).toBeDefined()
+  })
+
+  it('hides every brand-named auto-import, component, middleware and Nitro import of the base module', async () => {
+    const nuxt = getNuxt()
+    const brand = /convex|betterauth|polar|resend/i
+    const imports = await extendImports(nuxt)
+    const components: ExtendedComponents = []
+    await nuxt.callHook('components:extend', components)
+    const middleware = await resolveMiddleware(nuxt)
+    expect({
+      imports: imports.map(entry => entry.as ?? entry.name).filter(name => brand.test(name)),
+      components: components.map(component => component.pascalName).filter(name => brand.test(name) || ['CheckoutLink', 'CustomerPortalLink'].includes(name)),
+      middleware: middleware.map(entry => entry.name).filter(name => brand.test(name)),
+      server: nitroImports(nuxt).map(entry => entry.as ?? entry.name).filter(name => brand.test(name)),
+    }).toEqual({ imports: [], components: [], middleware: [], server: [] })
+    // The neutral data composables the base module registers stay.
+    expect(imports.map(entry => entry.name)).toEqual(expect.arrayContaining(['useQuery', 'useMutation', 'useAction', 'usePaginatedQuery', 'useStorageUrl']))
   })
 
   it('registers every component, each pointing at an existing file', async () => {
@@ -427,7 +450,7 @@ describe('module registration (defaults)', () => {
     }
   })
 
-  it('registers the composable set; useAuth is ours alone (the base module registers useBetterAuth)', async () => {
+  it('registers the composable set; useAuth is ours alone', async () => {
     const imports = await extendImports(getNuxt())
     const ours = imports.filter(entry => entry.from.startsWith(runtimeDir))
     expect(ours.map(entry => entry.name).sort()).toEqual([...COMPOSABLE_NAMES].sort())
@@ -435,8 +458,8 @@ describe('module registration (defaults)', () => {
       expect(existsWithExtension(entry.from), entry.from).toBe(true)
     }
     expect(imports.filter(entry => entry.name === 'useAuth').map(entry => entry.from)).toEqual([join(runtimeDir, 'vue/composables/use-auth')])
-    expect(imports.filter(entry => entry.name === 'useBetterAuth').every(entry => !entry.from.startsWith(runtimeDir))).toBe(true)
-    expect(imports.some(entry => entry.name === 'useBetterAuth'), 'the base module registers useBetterAuth').toBe(true)
+    // The imperative client: the base module's `useConvex` under its neutral name.
+    expect(imports.find(entry => entry.name === 'useBackendClient')?.from).toBe(join(runtimeDir, 'vue/composables/base-aliases'))
   })
 
   it('registers the Nitro server imports, backendAuth aliased from the base runtime', () => {
@@ -466,18 +489,16 @@ describe('module registration (defaults)', () => {
     }
   })
 
-  it('registers the neutral `auth` middleware over the base module\'s guard file', async () => {
+  it('registers the neutral `auth` middleware over the base module\'s guard file, in place of `convex-auth`', async () => {
     const middleware = await resolveMiddleware(getNuxt())
     const auth = middleware.find(entry => entry.name === 'auth')
     // The base module registers the same file as `convex-auth`; the neutral
-    // name is this package's promise (STABILITY.md), and the two must share
-    // one implementation.
-    const base = middleware.find(entry => entry.name === 'convex-auth')
+    // name is this package's promise (STABILITY.md), the one implementation
+    // stays the base module's, and the brand-named registration is hidden.
     expect(auth).toMatchObject({ name: 'auth', global: false })
     expect(auth!.path).toMatch(/[\\/]nuxt-convex-module[\\/](dist|src)[\\/]runtime[\\/]better-auth[\\/]nuxt[\\/]middleware(\.m?js|\.ts)?$/)
     expect(existsWithExtension(auth!.path), auth!.path).toBe(true)
-    expect(base, 'the base module still registers convex-auth').toBeDefined()
-    expect(existsWithExtension(base!.path), base!.path).toBe(true)
+    expect(middleware.map(entry => entry.name)).not.toContain('convex-auth')
   })
 
   it('skips a page the app already serves at the same path', async () => {
@@ -722,6 +743,21 @@ describe('dev boot under nuxi prepare (_prepare: true, test: false)', () => {
     expect(plugin!.mode).toBe('client')
     expect(plugin!.src).toMatch(/[\\/]devtools[\\/]plugin\.client(\.ts)?$/)
     expect(existsWithExtension(plugin!.src), plugin!.src).toBe(true)
+  })
+  // A type check cannot see a component name in a template, so in development
+  // the hidden names render their replacement and warn (test/unit/brand-names.test.ts).
+  it('keeps the hidden component names as warning stand-ins, in place of the base module\'s', async () => {
+    const components: ExtendedComponents = []
+    await getNuxt().callHook('components:extend', components)
+    const standIns = components
+      .filter(component => ['ConvexImage', 'CheckoutLink', 'CustomerPortalLink'].includes(component.pascalName))
+      .map(({ pascalName, export: name, filePath }) => ({ pascalName, export: name, filePath }))
+    expect(standIns).toStrictEqual([
+      { pascalName: 'CheckoutLink', export: 'CheckoutLink', filePath: join(runtimeDir, 'vue/components/renamed-billing-links') },
+      { pascalName: 'CustomerPortalLink', export: 'CustomerPortalLink', filePath: join(runtimeDir, 'vue/components/renamed-billing-links') },
+      { pascalName: 'ConvexImage', export: 'ConvexImage', filePath: join(runtimeDir, 'vue/components/renamed-storage-image') },
+    ])
+    for (const { filePath } of standIns) expect(existsWithExtension(filePath), filePath).toBe(true)
   })
 })
 

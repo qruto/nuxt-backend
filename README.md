@@ -141,7 +141,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useSearch` — debounced full-text search
 - `useWorkflowStatus` — workflow run status
 
-**Core (from `nuxt-convex-module`)** — `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `useConvexAuth`, `useConvexConnectionState`, `useUpload`, `useUploadQueue`, `useStorageUrl`, `useConvex`, and friends.
+**Core (from `nuxt-convex-module`)** — `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `useUpload`, `useUploadQueue`, `useStorageUrl`, and friends, plus `useBackendClient`, `useAuthState` and `useConnectionState`, the neutral names of its brand-named composables. Those brand-named names are not auto-imported.
 
 ### Components
 
@@ -150,6 +150,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `<BillingCheckoutLink>` / `<BillingPortalLink>` — billing links
 - `<GiftClaimBanner>` — surface unclaimed gifts
 - `<RoleBoundary>` / `<FeatureBoundary>` — gate UI by role or billing entitlement
+- `<StorageImage>` — an image from file storage
 
 ### Server (Nitro)
 

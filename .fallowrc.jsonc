@@ -85,7 +85,7 @@
     // Auto-imports registered by name (addImports / addComponent in
     // src/nuxt/registry.ts, frozen by test/nuxt/public-surface.test.ts): the app
     // reaches them through the auto-import, never by importing the file.
-    { "file": "src/runtime/vue/composables/base-aliases.ts", "exports": ["useAuthState", "useConnectionState"] },
+    { "file": "src/runtime/vue/composables/base-aliases.ts", "exports": ["useAuthState", "useConnectionState", "useBackendClient"] },
     { "file": "src/runtime/vue/composables/use-ai-stream.ts", "exports": ["useAiStream"] },
     { "file": "src/runtime/vue/components/feature-boundary.ts", "exports": ["FeatureBoundary"] },
     { "file": "src/runtime/vue/components/gift-claim-banner.ts", "exports": ["GiftClaimBanner"] }

@@ -44,13 +44,12 @@ export type {
   RefundCreditsEvent,
   GiftRecord,
 } from './billing/types/records.js'
-export type { BillingWebhookEventHandlers, BillingComponents, BillingEmail, SetupBillingConfig } from './billing/types/setup.js'
+export type { BillingWebhookEventHandlers, BillingComponents, BillingEmail, BillingEntity, BillingEntityCtx, SetupBillingConfig } from './billing/types/setup.js'
 export type { Billing } from './billing/types/surface.js'
 
-/** Webhook events that signal a customer's plans / benefits / credits may have changed. */
 // Catalog-as-code authoring surface (billing.catalog.ts / `billing sync`).
-export { type BillingCatalog, BILLING_WEBHOOK_PROVISION_EVENTS, type CatalogCreditGrant, type CatalogFeature, type CatalogMeter, type CatalogPack, type CatalogPlan, defineBillingCatalog } from '../catalog.js'
-export { BILLING_REFRESH_EVENTS, ALL_BILLING_EVENTS } from './billing/events.js'
+export { type BillingCatalog, type CatalogCreditGrant, type CatalogFeature, type CatalogMeter, type CatalogPack, type CatalogPlan, defineBillingCatalog } from '../catalog.js'
+export { ALL_BILLING_EVENTS } from './billing/events.js'
 
 /**
  * Configure billing for subscriptions, discounts, prepaid credits, and gift
@@ -65,7 +64,8 @@ export { BILLING_REFRESH_EVENTS, ALL_BILLING_EVENTS } from './billing/events.js'
  * Billing follows the tenant: with the default `billTo: 'organization'` the
  * active workspace owns the subscription and credits (every member shares
  * them); with `billTo: 'user'` each user is their own customer. Either way
- * the entity resolves from identity claims — zero wiring.
+ * the entity resolves from identity claims — zero wiring — unless
+ * `resolveEntity` says otherwise.
  *
  * @example
  * ```ts
@@ -75,7 +75,6 @@ export { BILLING_REFRESH_EVENTS, ALL_BILLING_EVENTS } from './billing/events.js'
  *
  * const billing = setupBilling(components, { email })
  *
- * export const { provider } = billing
  * export const { generateCheckoutLink, generateCustomerPortalUrl, giftCheckout } = billing.api
  * export const {
  *   getCurrentSubscription, getFeatures, getCredits, syncEntitlements,
@@ -100,7 +99,7 @@ export function setupBilling(
     )
   }
   const context = createBillingContext(components, config)
-  const { provider, entityFromIdentity } = context
+  const { provider, resolveEntity } = context
   const entitlements = createEntitlements(context)
   const { getCustomerState, forgetEntity } = entitlements
   const { reserveCredits, settleSpend, releaseSpend, spendCredits, refundCredits } = createCredits(context, entitlements)
@@ -132,7 +131,6 @@ export function setupBilling(
   const { webhookEvents, webhookHandler } = createWebhooks(context, entitlements, gifts)
 
   return {
-    provider,
     api: { ...provider.api(), listAllSubscriptions, generateCheckoutLink, giftCheckout },
     functions: {
       getCurrentSubscription,
@@ -161,7 +159,7 @@ export function setupBilling(
     reserveCredits,
     settleSpend,
     releaseSpend,
-    resolveEntity: entityFromIdentity,
+    resolveEntity,
     forgetEntity,
     discounts,
     updateSubscription,

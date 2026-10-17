@@ -5,7 +5,7 @@ import { customersUpdate } from '@polar-sh/sdk/funcs/customersUpdate.js'
 import { actionGeneric } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 import type { BillingContext } from './context.js'
-import type { CheckoutCreateInput, PolarRunQueryCtx, RunWriteCtx } from './types/base.js'
+import type { CheckoutCreateInput, ProviderCtx, RunWriteCtx } from './types/base.js'
 import type { CheckoutOptions } from './types/options.js'
 
 /**
@@ -20,7 +20,7 @@ const CUSTOMER_TAKEN = {
 } as const
 
 /** The checkout link: one provider customer per billing entity, then a checkout session. */
-export function createCheckout({ billTo, provider, providerLib, getUserInfo, requireProviderAccess, unwrapProvider, throttle, customerOwner }: BillingContext) {
+export function createCheckout({ billTo, provider, providerLib, requireEntity, requireProviderAccess, unwrapProvider, throttle, customerOwner }: BillingContext) {
   /**
    * Adopt the provider customer that already carries this email — unless it
    * pays for another billing entity. The provider keys customers by email,
@@ -57,7 +57,7 @@ export function createCheckout({ billTo, provider, providerLib, getUserInfo, req
    * profile instead of sprouting a second.
    */
   const resolveCheckoutCustomer = async (ctx: RunWriteCtx, userId: string, email: string): Promise<string> => {
-    const mapped = await provider.getCustomerByUserId(ctx as unknown as PolarRunQueryCtx, userId)
+    const mapped = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, userId)
     if (mapped) return mapped.id
     const existing = unwrapProvider(await customersList(provider.polar, { email, limit: 1 }), 'checkout')
     const found = existing.result.items[0]
@@ -146,7 +146,7 @@ export function createCheckout({ billTo, provider, providerLib, getUserInfo, req
     returns: v.object({ url: v.string() }),
     handler: async (ctx, args) => {
       requireProviderAccess('checkout')
-      const { userId, email } = await getUserInfo(ctx as unknown as PolarRunQueryCtx)
+      const { userId, email } = await requireEntity(ctx)
       await throttle(ctx, userId, 'checkouts')
       const customerId = await resolveCheckoutCustomer(ctx, userId, email)
       const payload = buildCheckoutPayload(

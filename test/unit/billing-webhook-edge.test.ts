@@ -55,7 +55,7 @@ function generateSecret(): string {
 }
 
 /** Sign the way the provider does — Standard Webhooks semantics. */
-function signedRequest(secret: string, body: string, id = 'msg_1'): Request {
+function signedRequest(secret: string, body: string, id = 'msg_1', headers: Record<string, string> = {}): Request {
   const at = new Date()
   return new Request('https://site.test/billing/events', {
     method: 'POST',
@@ -64,6 +64,7 @@ function signedRequest(secret: string, body: string, id = 'msg_1'): Request {
       'webhook-id': id,
       'webhook-timestamp': String(Math.floor(at.getTime() / 1000)),
       'webhook-signature': new Webhook(secret).sign(id, at, body),
+      ...headers,
     },
   })
 }
@@ -213,6 +214,20 @@ describe('outcomes', () => {
     expect(outcomes(rows)).toStrictEqual([['unknown_type', type]])
   })
 
+  it('a throwing onUnknownEvent → rethrown so the provider retries, logged handler_error with the type', async () => {
+    const secret = generateSecret()
+    const { ctx, rows } = makeCtx()
+    const onUnknownEvent = vi.fn(async () => {
+      throw new Error('hook failed')
+    })
+    const body = JSON.stringify({ type: 'mystery.event', data: { id: 'x_1' } })
+
+    await expect(billing({ webhookSecret: secret, onUnknownEvent }).webhookHandler(ctx, signedRequest(secret, body)))
+      .rejects.toThrow('hook failed')
+
+    expect(rows.map(row => [row.outcome, row.type, row.note])).toStrictEqual([['handler_error', 'mystery.event', 'hook failed']])
+  })
+
   it('a redelivered id after an ok → 200 without running anything again', async () => {
     const secret = generateSecret()
     const deleted = vi.fn(async () => {})
@@ -246,6 +261,30 @@ describe('outcomes', () => {
 
     const response = await billing({ webhookSecret: secret })
       .webhookHandler(ctx, signedRequest(secret, 'x'.repeat(WEBHOOK_BODY_LIMIT + 1)))
+
+    expect(response.status).toBe(413)
+    expect(errors).not.toHaveBeenCalled()
+    expect(outcomes(rows)).toStrictEqual([['oversized', undefined]])
+  })
+
+  it('a declared Content-Length over the cap → 413 with the body never read', async () => {
+    const secret = generateSecret()
+    const { ctx, rows } = makeCtx()
+    const request = signedRequest(secret, memberDeleted(), 'msg_big', { 'content-length': String(WEBHOOK_BODY_LIMIT + 1) })
+
+    const response = await billing({ webhookSecret: secret }).webhookHandler(ctx, request)
+
+    expect(response.status).toBe(413)
+    expect(request.bodyUsed).toBe(false)
+    expect(outcomes(rows)).toStrictEqual([['oversized', undefined]])
+  })
+
+  it('counts the cap in bytes: a body under it in characters but over it in UTF-8 → 413', async () => {
+    const secret = generateSecret()
+    const { ctx, rows } = makeCtx()
+
+    const response = await billing({ webhookSecret: secret })
+      .webhookHandler(ctx, signedRequest(secret, '€'.repeat(Math.floor(WEBHOOK_BODY_LIMIT / 3) + 1)))
 
     expect(response.status).toBe(413)
     expect(errors).not.toHaveBeenCalled()

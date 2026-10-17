@@ -338,8 +338,8 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './http': ['registerBackendRoutes'],
   './functions': ['createFunctions'],
   './app': ['backendEnv'],
-  './billing': ['ALL_BILLING_EVENTS', 'BILLING_REFRESH_EVENTS', 'BILLING_WEBHOOK_PROVISION_EVENTS', 'defineBillingCatalog', 'setupBilling'],
-  './email': ['ALL_EMAIL_EVENTS', 'escapeHtml', 'sendArgs', 'setupEmail'],
+  './billing': ['ALL_BILLING_EVENTS', 'defineBillingCatalog', 'setupBilling'],
+  './email': ['ALL_EMAIL_EVENTS', 'escapeHtml', 'setupEmail'],
   './rate-limit': ['DAY', 'DEFAULT_LIMITS', 'HOUR', 'MINUTE', 'SECOND', 'setupRateLimiter'],
   './migrations': ['setupMigrations'],
   './aggregate': ['TableAggregate', 'Triggers', 'customCtx', 'customMutation', 'withTriggers'],
@@ -435,6 +435,7 @@ const REGISTRY = {
     'useAiStream',
     'useAuth',
     'useAuthState',
+    'useBackendClient',
     'useBackendConfig',
     'useBilling',
     'useConnectionState',
@@ -454,8 +455,9 @@ const REGISTRY = {
     'useUsage',
     'useWorkflowStatus',
   ],
-  // `BillingCheckoutLink` and `BillingPortalLink` alias the base module's
-  // `CheckoutLink` / `CustomerPortalLink`.
+  // `BillingCheckoutLink`, `BillingPortalLink` and `StorageImage` alias the
+  // base module's `CheckoutLink`, `CustomerPortalLink` and `ConvexImage`,
+  // which the module hides.
   components: [
     'AcceptInvitation',
     'AgentConsent',
@@ -471,6 +473,7 @@ const REGISTRY = {
     'ProfileSettings',
     'RoleBoundary',
     'SecuritySettings',
+    'StorageImage',
     'UsageHistory',
     'WorkspaceSettings',
   ],
@@ -490,6 +493,47 @@ describe('the registry', () => {
       .map(([, name, alias]) => alias ?? name!)
       .filter(name => name !== packageJson.name)
     expect(registered.sort()).toEqual(Object.values(REGISTRY).flat().sort())
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Brand-neutral names: the public surface speaks in backend terms. A provider
+// may appear in prose — a doc comment explaining what runs underneath — but
+// never as the name of something an app imports, registers or types against.
+
+/** A name that says a provider: the billing or the email service this package wraps. */
+const PROVIDER_NAME = /polar|resend/i
+
+describe('brand-neutral names', () => {
+  it('no export of any entry, value or type, names a provider', () => {
+    const named = Object.entries(ENTRIES)
+      .filter(([, entry]) => entry.kind !== 'css')
+      .flatMap(([key, entry]) => reachableExports(join(root, entry.source))
+        .filter(candidate => PROVIDER_NAME.test(candidate.name))
+        .map(candidate => `${key} → ${candidate.name}`))
+    expect(named).toEqual([])
+  })
+
+  it('no auto-import, component, Nitro import or middleware the module registers names a provider', () => {
+    expect(Object.values(REGISTRY).flat().filter(name => PROVIDER_NAME.test(name))).toEqual([])
+  })
+
+  it('the generated reference names no provider type: no identifier in code says Polar or Resend', () => {
+    // Every signature, table cell and code block TypeDoc writes is code: an
+    // identifier there with a provider in it is a type an app would have to
+    // name. Lower-case spellings are component keys (`components.polar`),
+    // which the app's own `convex.config.ts` chooses.
+    const pages = walk(GENERATED_REFERENCE, '.md')
+    expect(pages.length).toBeGreaterThan(10)
+    const named: string[] = []
+    for (const page of pages) {
+      const text = readFileSync(page, 'utf8')
+      const code = [...text.matchAll(/```[\s\S]*?```|`[^`\n]+`/g)].map(([span]) => span)
+      for (const span of code) {
+        for (const [identifier] of span.matchAll(/\b\w*(?:Polar|Resend)\w*\b/g)) named.push(`${relative(root, page)}: ${identifier}`)
+      }
+    }
+    expect([...new Set(named)]).toEqual([])
   })
 })
 

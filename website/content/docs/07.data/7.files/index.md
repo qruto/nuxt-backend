@@ -104,19 +104,38 @@ const url = useStorageUrl(api.files.getUrl, storageId)
 
 Returns a shallow ref of `string | null` once loaded (`null` if the file is gone) or `undefined` while loading/skipped.
 
+## `<StorageImage>`
+
+An `<img>` for a file in storage: it resolves the URL through `useStorageUrl` and renders once the URL is known. Every other attribute (`alt`, `class`, `loading`, `width`) goes onto the `<img>`. The default slot renders while the URL loads or `storage-id` is empty, and the `missing` slot once the file is gone:
+
+```vue
+<script setup lang="ts">
+import { api } from '#backend/api'
+
+defineProps<{ imageId: string | null }>()
+</script>
+
+<template>
+  <StorageImage :get-url="api.files.getUrl" :storage-id="imageId" alt="Cover" class="cover">
+    <div class="skeleton" />
+    <template #missing>
+      <div class="placeholder" />
+    </template>
+  </StorageImage>
+</template>
+```
+
+`get-url` is read once, at setup; `storage-id` is reactive.
+
 ## `uploadFile()`
 
-Low-level promise-based uploader behind the composables, for when you want the bare promise rather than reactive state — an event handler, say. It needs no client of its own, only the upload URL your `generateUploadUrl` mutation mints: from `useConvex()` in a component setup, as below, or from whatever Convex client you hold elsewhere. Takes `{ url, file, onProgress?, signal? }` and resolves to the storage id:
+Low-level promise-based uploader behind the composables, for when you want the bare promise rather than reactive state — an event handler, say. It needs no client of its own, only the upload URL your `generateUploadUrl` mutation mints: from `useBackendClient()` in a component setup, as below, or from whatever client you hold elsewhere. Takes `{ url, file, onProgress?, signal? }` and resolves to the storage id:
 
 ```ts
 import { api } from '#backend/api'
-import { uploadFile, useConvex } from '#imports'
+import { uploadFile, useBackendClient } from '#imports'
 
-const convex = useConvex() // in a component setup — elsewhere, use whatever Convex client you have
-const url = await convex.mutation(api.files.generateUploadUrl, {})
+const backend = useBackendClient() // in a component setup — elsewhere, use whatever client you have
+const url = await backend.mutation(api.files.generateUploadUrl, {})
 const storageId = await uploadFile({ url, file })
 ```
-
-::note
-Each composable has a `useConvex*` alias (`useConvexUpload`, `useConvexUploadQueue`, `useConvexStorageUrl`).
-::
