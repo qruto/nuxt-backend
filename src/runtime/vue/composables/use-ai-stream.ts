@@ -1,6 +1,7 @@
 import { computed, ref, toValue, type ComputedRef, type MaybeRefOrGetter } from 'vue'
 import { useRuntimeConfig } from '#imports'
 import { useAction, useQuery } from 'nuxt-convex-module/client'
+import { type BackendError, getBackendError } from '../utils/backend-error'
 
 /** The `{ start, body }` pair an `ai.stream(...)` definition exports. */
 export interface AiStreamApi {
@@ -32,9 +33,16 @@ export interface UseAiStreamReturn {
   /** The active stream's id — hand it to another client to watch along. */
   streamId: ComputedRef<string | undefined>
   /**
+   * Why the last `start` was refused — `insufficient_credits`,
+   * `rate_limited`, `unauthenticated`, … (see `getBackendError`) — or
+   * `null`. Cleared when the next `start` begins.
+   */
+  error: ComputedRef<BackendError | null>
+  /**
    * Start a new metered stream: runs the `start` action (credits reserve,
    * rate limit), then drives the HTTP stream. Resolves with the stream id as
-   * soon as driving begins.
+   * soon as driving begins. A refused start ends in `status: 'error'` with
+   * the refusal in `error`, and rejects.
    */
   start: (args?: Record<string, unknown>) => Promise<string>
   /** Abort the driving fetch (the server releases the unfinished spend). */
@@ -69,6 +77,10 @@ export function useAiStream(stream: AiStreamApi, options: UseAiStreamOptions = {
   const drivenStatus = ref<AiStreamStatus>('idle')
   const driving = ref(false)
   const activeStreamId = ref<string | undefined>()
+  const startError = ref<BackendError | null>(null)
+  // The last start was refused: `status` says 'error' over any persisted
+  // body (an attached `streamId`'s included) until the next start.
+  const refused = ref(false)
   let controller: AbortController | null = null
 
   // Viewer/fallback path: the reactive persisted body. Subscribed whenever a
@@ -90,6 +102,8 @@ export function useAiStream(stream: AiStreamApi, options: UseAiStreamOptions = {
   })
 
   const start: UseAiStreamReturn['start'] = async (args = {}) => {
+    startError.value = null
+    refused.value = false
     const url = endpoint.value
     if (!url) {
       throw new Error('[nuxt-backend] useAiStream: no stream endpoint — configure the Convex site URL or pass `url`.')
@@ -97,7 +111,19 @@ export function useAiStream(stream: AiStreamApi, options: UseAiStreamOptions = {
     stopDriving()
     drivenText.value = ''
     drivenStatus.value = 'pending'
-    const { streamId } = await runStart(args as never) as { streamId: string }
+    // A new stream replaces the last one: a refused start must not read as
+    // the previous stream's persisted status.
+    activeStreamId.value = undefined
+    let streamId: string
+    try {
+      ({ streamId } = await runStart(args as never) as { streamId: string })
+    }
+    catch (cause) {
+      drivenStatus.value = 'error'
+      refused.value = true
+      startError.value = getBackendError(cause)
+      throw cause
+    }
     activeStreamId.value = streamId
     driving.value = true
     controller = new AbortController()
@@ -150,14 +176,15 @@ export function useAiStream(stream: AiStreamApi, options: UseAiStreamOptions = {
   return {
     text: computed(() => driving.value ? drivenText.value : body.value?.text ?? drivenText.value),
     status: computed<AiStreamStatus>(() => {
-      if (driving.value) return drivenStatus.value
+      if (driving.value || refused.value) return drivenStatus.value
       const persisted = body.value?.status as AiStreamStatus | undefined
       return persisted ?? drivenStatus.value
     }),
-    isStreaming: computed(() => driving.value
+    isStreaming: computed(() => driving.value || refused.value
       ? drivenStatus.value === 'streaming' || drivenStatus.value === 'pending'
       : body.value?.status === 'streaming' || body.value?.status === 'pending'),
     streamId: computed(() => watchedId.value ?? undefined),
+    error: computed(() => startError.value),
     start,
     stop: stopDriving,
   }

@@ -5,6 +5,7 @@ import { useBilling, type UseBillingReturn } from '../composables/use-billing'
 import { useCredits, type UseCreditsReturn } from '../composables/use-credits'
 import { useBackendConfig } from '../composables/use-backend-config'
 import { unwrapAuth } from '../utils/auth-result'
+import { refusalMessage } from '../utils/backend-error'
 import type { CreditPack } from '../../config'
 
 export type WorkspaceSettingsSection = 'workspaces' | 'billing' | 'credits'
@@ -83,7 +84,7 @@ export const WorkspaceSettings = /* @__PURE__ */ defineComponent({
         if (okText) message.value = { text: okText, ok: true }
       }
       catch (e) {
-        const text = e instanceof Error ? e.message : 'Something went wrong'
+        const text = refusalMessage(e, 'Something went wrong')
         message.value = { text, ok: false }
         emit('error', text)
       }

@@ -96,7 +96,7 @@ describe('setupAi().meteredAction', () => {
     expect(order).toEqual(['limit', 'reserve', 'handler', 'settle'])
     expect(result).toEqual({ chargedTo: 'org_1', cost: 2 })
     expect(billing.reserveCredits).toHaveBeenCalledWith(expect.anything(), { meter: 'credits', value: 2 })
-    expect(limiter.limit).toHaveBeenCalledWith(expect.anything(), 'ai', { key: 'org_1' })
+    expect(limiter.limit).toHaveBeenCalledWith(expect.anything(), 'ai', { key: 'org_1', throws: true })
   })
 
   it('releases the reservation when the handler throws — nothing charged', async () => {
@@ -147,6 +147,17 @@ describe('setupAi().meteredAction', () => {
 
     const anonymous = { auth: { getUserIdentity: async () => null } }
     await expect(invoke(action, anonymous, {})).rejects.toThrow(/Sign in/)
+  })
+
+  it('refuses as rate_limited without a wait when the limiter\'s is no number', async () => {
+    const billing = makeBilling()
+    const limiter = { limit: vi.fn(async () => ({ ok: false, retryAfter: Number.POSITIVE_INFINITY })) }
+    const ai = setupAi(components, { billing, rateLimiter: limiter as never })
+    const action = ai.meteredAction({ meter: false, args: {}, handler: async () => 'ran' })
+
+    const refusal = await invoke(action, identityCtx(), {}).catch((error: unknown) => error)
+    expect(refusal).toMatchObject({ data: { code: 'rate_limited', limit: 'ai' } })
+    expect((refusal as { data: Record<string, unknown> }).data).not.toHaveProperty('retryAfter')
   })
 
   it('carries the acting user on every ingested event (member attribution)', async () => {
@@ -375,6 +386,7 @@ describe('setupAi() budget — a fixed window over credits, per billing entity',
       key: 'org_1',
       count: 30,
       config: { kind: 'fixed window', rate: 100, period: 60_000 },
+      throws: true,
     })
   })
 
@@ -387,7 +399,9 @@ describe('setupAi() budget — a fixed window over credits, per billing entity',
     const ai = setupAi(components, { billing, rateLimiter: limiter as never, budget })
     const action = ai.meteredAction({ meter: 'credits', args: {}, handler: async () => 'ok' })
 
-    await expect(invoke(action, identityCtx(), {})).rejects.toThrow(/Credit budget reached — 100 credits per window. Resets in 30s/)
+    const refusal = invoke(action, identityCtx(), {})
+    await expect(refusal).rejects.toThrow(/Credit budget reached — 100 credits per window. Resets in 30s/)
+    await expect(refusal).rejects.toMatchObject({ data: { code: 'rate_limited', limit: 'aiBudget', retryAfter: 30_000 } })
     expect(billing.reserveCredits).not.toHaveBeenCalled()
   })
 
@@ -407,7 +421,7 @@ describe('setupAi() budget — a fixed window over credits, per billing entity',
     await invoke(action, identityCtx(), {})
 
     expect(limiter.limit).toHaveBeenCalledTimes(1)
-    expect(limiter.limit).toHaveBeenCalledWith(expect.anything(), 'ai', { key: 'org_1' })
+    expect(limiter.limit).toHaveBeenCalledWith(expect.anything(), 'ai', { key: 'org_1', throws: true })
   })
 
   it('needs a rate limiter to enforce against', () => {

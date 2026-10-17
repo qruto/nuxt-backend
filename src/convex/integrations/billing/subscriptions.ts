@@ -7,6 +7,7 @@ import { type BillingContext, resolveLimit, resolvePage } from './context.js'
 import type { ProviderCtx, ProviderSubscription, RunQueryCtx, RunWriteCtx, SubscriptionUpdatePayload } from './types/base.js'
 import type { BillingDiscounts, SubscriptionTarget } from './types/options.js'
 import type { Billing } from './types/surface.js'
+import { backendError } from '../../errors.js'
 
 /**
  * Subscription statuses the provider considers finished. Everything else —
@@ -21,9 +22,8 @@ const ENDED_SUBSCRIPTION_STATUSES = new Set(['canceled', 'incomplete_expired'])
 export function createSubscriptions({ provider, requireEntity, requireProviderAccess, unwrapProvider, throttle }: BillingContext) {
   const createDiscount: BillingDiscounts['create'] = async (discount) => {
     requireProviderAccess('discount creation')
-    const result = await discountsCreate(provider.polar, discount)
-    if (!result.ok) throw result.error
-    return { id: result.value.id, code: result.value.code ?? null }
+    const created = unwrapProvider(await discountsCreate(provider.polar, discount), 'discount creation')
+    return { id: created.id, code: created.code ?? null }
   }
 
   const listDiscounts: BillingDiscounts['list'] = async (options = {}) => {
@@ -34,8 +34,7 @@ export function createSubscriptions({ provider, requireEntity, requireProviderAc
       page,
       limit: resolveLimit(options.limit),
     })
-    if (!result.ok) throw result.error
-    const { items, pagination } = result.value.result
+    const { items, pagination } = unwrapProvider(result, 'discount listing').result
     return {
       items,
       pagination,
@@ -48,8 +47,7 @@ export function createSubscriptions({ provider, requireEntity, requireProviderAc
     list: listDiscounts,
     remove: async (discountId) => {
       requireProviderAccess('discount deletion')
-      const result = await discountsDelete(provider.polar, { id: discountId })
-      if (!result.ok) throw result.error
+      unwrapProvider(await discountsDelete(provider.polar, { id: discountId }), 'discount deletion')
     },
   }
 
@@ -65,22 +63,24 @@ export function createSubscriptions({ provider, requireEntity, requireProviderAc
     ctx: RunQueryCtx,
     userId: string,
     subscriptionId?: string,
-  ): Promise<{ id: string, status: string }> => {
+  ): Promise<{ id: string, status: string, productId: string }> => {
     const all = await provider.listAllUserSubscriptions(ctx as unknown as ProviderCtx, { userId })
     if (subscriptionId) {
       const found = all.find(subscription => subscription.id === subscriptionId)
       if (!found) {
-        throw new Error(`[nuxt-backend] Subscription ${subscriptionId} is not on this billing account.`)
+        throw backendError('forbidden', { reason: 'not_owner' }, `[nuxt-backend] Subscription ${subscriptionId} is not on this billing account.`)
       }
       return found
     }
     const live = all.filter(subscription =>
       subscription.endedAt == null && !ENDED_SUBSCRIPTION_STATUSES.has(subscription.status))
     if (live.length === 0) {
-      throw new Error('[nuxt-backend] No subscription to change — this billing account has none running.')
+      throw backendError('invalid_input', { field: 'subscriptionId' }, '[nuxt-backend] No subscription to change — this billing account has none running.')
     }
     if (live.length > 1) {
-      throw new Error(
+      throw backendError(
+        'invalid_input',
+        { field: 'subscriptionId' },
         '[nuxt-backend] This billing account has several running subscriptions — pass `subscriptionId` to say which one.',
       )
     }
@@ -88,21 +88,25 @@ export function createSubscriptions({ provider, requireEntity, requireProviderAc
   }
 
   /**
-   * One provider `subscriptions.update` call, behind the shared guards: token
-   * present, entity resolved, rate limit checked, subscription addressed. Every
-   * lifecycle operation is the same call with a different arm of the SDK's
-   * `SubscriptionUpdate` union.
+   * One provider `subscriptions.update` call, behind the shared guards: entity
+   * resolved (a signed-out caller is `unauthenticated` before anything says
+   * billing is unconfigured), token present, rate limit checked, subscription
+   * addressed, and `refuse` given the subscription to say no before the
+   * provider is asked. Every lifecycle operation is the same call with a
+   * different arm of the SDK's `SubscriptionUpdate` union.
    */
   const applySubscriptionUpdate = async (
     ctx: RunWriteCtx & { auth?: Auth },
     operation: string,
     options: SubscriptionTarget,
     update: SubscriptionUpdatePayload,
+    refuse?: (subscription: { productId: string }) => void,
   ): Promise<ProviderSubscription> => {
-    requireProviderAccess(operation)
     const { userId } = await requireEntity(ctx)
+    requireProviderAccess(operation)
     await throttle(ctx, userId, `${operation}s`)
     const subscription = await resolveSubscription(ctx, userId, options.subscriptionId)
+    refuse?.(subscription)
     const result = await subscriptionsUpdate(provider.polar, {
       id: subscription.id,
       subscriptionUpdate: update,
@@ -112,11 +116,15 @@ export function createSubscriptions({ provider, requireEntity, requireProviderAc
 
   const updateSubscription: Billing['updateSubscription'] = async (ctx, options = {}) => {
     if (!options.productId && !options.proration) {
-      throw new Error('[nuxt-backend] updateSubscription: pass `productId` (the plan to switch to) and/or `proration`.')
+      throw backendError('invalid_input', { field: 'productId' }, '[nuxt-backend] updateSubscription: pass `productId` (the plan to switch to) and/or `proration`.')
     }
     return applySubscriptionUpdate(ctx, 'plan change', options, {
       productId: options.productId,
       prorationBehavior: options.proration,
+    }, (subscription) => {
+      if (options.productId && options.productId === subscription.productId) {
+        throw backendError('invalid_input', { field: 'productId' }, `[nuxt-backend] updateSubscription: the subscription is already on ${options.productId}.`)
+      }
     })
   }
 

@@ -4,6 +4,7 @@ import { backendAppConfigDefaults } from '../../config'
 import { useBilling } from '../composables/use-billing'
 import { useBackendConfig } from '../composables/use-backend-config'
 import { useCredits, type UseCreditsReturn } from '../composables/use-credits'
+import { refusalMessage } from '../utils/backend-error'
 
 export interface CreditsLowBannerSlotContext {
   credits: UseCreditsReturn
@@ -90,7 +91,7 @@ export const CreditsLowBanner = /* @__PURE__ */ defineComponent({
         if (url) emit('topped-up', url)
       }
       catch (failure) {
-        emit('error', failure instanceof Error ? failure.message : 'Could not start the top-up')
+        emit('error', refusalMessage(failure, 'Could not start the top-up'))
       }
       finally {
         pending.value = false

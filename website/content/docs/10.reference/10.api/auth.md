@@ -21,6 +21,9 @@ dependency on the auth library. Throw it from a hook `setupAuth` passes
 through (`authOptions.databaseHooks`, `organization.organizationHooks`) to
 refuse with a status and a message the client shows, not a bare 500:
 `throw new APIError('BAD_REQUEST', { message: 'Invite a company address.' })`.
+Add a catalog `code` and its fields to the body
+(`{ code: 'invalid_input', field: 'email', message }`) and the client
+reads it with `getBackendError` like the package's own refusals.
 
 #### Extends
 

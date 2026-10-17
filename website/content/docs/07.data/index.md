@@ -25,6 +25,7 @@ The `backend` component keeps tables of its own: the Better Auth tables, the bil
 | Call an outside API or a model | An action, called with `useAction`, or a [metered action](/docs/ai/metered-actions) when it spends credits | [Queries & mutations](/docs/data/queries-and-mutations#useaction) |
 | Load a long list a page at a time | `usePaginatedQuery` | [Queries & mutations](/docs/data/queries-and-mutations#pagination) |
 | Call Convex from a Nitro route, or render data on the first load | `fetchQuery`, `backendAuth(event)`, `preloadQuery` | [Server & SSR](/docs/data/server-rendering) |
+| Show why a call was refused, or refuse one yourself | `getBackendError`, `backendError` | [Handle errors](/docs/data/errors) |
 | Find rows by the words in a text field | `search`, `defineSearch`, `useSearch` | [Full-text search](/docs/data/search) |
 | Show a count or a sum without reading every row | `TableAggregate`, `useCount` | [Aggregates](/docs/data/aggregates) |
 | Upload files and show them | `useUpload`, `useUploadQueue`, `useStorageUrl` | [File storage](/docs/data/files) |
@@ -40,6 +41,10 @@ The `backend` component keeps tables of its own: the Better Auth tables, the bil
 
   :::card{icon="i-lucide-server" title="Server & SSR" to="/docs/data/server-rendering"}
   Call Convex from Nitro handlers, as the signed-in user when needed, and preload queries for hydration.
+  :::
+
+  :::card{icon="i-lucide-octagon-alert" title="Handle errors" to="/docs/data/errors"}
+  Read a refusal's stable code on the client, and refuse from your own functions with the same codes.
   :::
 
   :::card{icon="i-lucide-search" title="Full-Text Search" to="/docs/data/search"}

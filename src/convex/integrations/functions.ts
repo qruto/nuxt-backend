@@ -2,6 +2,10 @@ import { customAction, customCtx, customMutation, customQuery } from 'convex-hel
 import type { ActionBuilder, GenericDataModel, MutationBuilder, QueryBuilder } from 'convex/server'
 import type { Authorization, AuthorizationCtx, AuthorizationUser } from './authorization.js'
 
+// The error catalog: throw a refusal by code, read one back from anything a call threw.
+export { BACKEND_ERRORS, backendError, getBackendError } from '../errors.js'
+export type { BackendError, BackendErrorArgs, BackendErrorCode, BackendErrorData, BackendErrorPayload } from '../errors.js'
+
 /** The workspace context injected by the `org` tier. */
 export interface FunctionOrganization {
   id: string

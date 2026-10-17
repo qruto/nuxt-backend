@@ -3,6 +3,7 @@ import { computed, inject, ref, type ComputedRef, type Ref } from 'vue'
 import { ConvexAuthStateKey, useMutation, useQuery } from 'nuxt-convex-module/client'
 import { useAuth } from './use-auth'
 import { unwrapAuth } from '../utils/auth-result'
+import { refusalMessage } from '../utils/backend-error'
 import { useBackendNamespace } from '../utils/namespace'
 
 /** One of the signed-in user's device sessions (mirrors the `listSessions` query). */
@@ -45,11 +46,9 @@ export interface UseSessionsReturn {
   revokeOthers: () => Promise<void>
 }
 
-/** The readable message of a failed call: a `ConvexError`'s string data, else the error's message. */
+/** The readable message of a failed call: a catalog refusal's sentence, else the error's message. */
 function messageOf(error: unknown): string {
-  const data = (error as { data?: unknown } | null)?.data
-  if (typeof data === 'string') return data
-  return error instanceof Error ? error.message : 'Request failed'
+  return refusalMessage(error, 'Request failed')
 }
 
 /**

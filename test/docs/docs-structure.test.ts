@@ -102,12 +102,13 @@ describe('the route table', () => {
 
   it('keeps temporary redirects temporary, and the pending list only shrinks', () => {
     const rules = docsRedirectRules()
-    const pending = [...DOCS_REDIRECTS.filter(redirect => redirect.pending), ...DOCS_SHORT_LINKS]
-    for (const { from } of pending) expect(rules[from]?.redirect.statusCode, from).toBe(302)
+    const pending = [...DOCS_REDIRECTS.filter(redirect => redirect.pending), ...DOCS_SHORT_LINKS.filter(link => link.pending)]
+    // Short links stay temporary whether or not their home has landed: the page they name can move.
+    for (const { from } of [...pending, ...DOCS_SHORT_LINKS]) expect(rules[from]?.redirect.statusCode, from).toBe(302)
     // A ratchet: lower it as each pending home lands — the group landings,
-    // split pages (D3c), the Diagnostics and Errors pages (D6); the 0.2.0 docs
-    // pass (D11) brings it to zero.
-    expect(pending.length).toBeLessThanOrEqual(11)
+    // split pages (D3c), the Diagnostics page (D6); the 0.2.0 docs pass (D11)
+    // brings it to zero.
+    expect(pending.length).toBeLessThanOrEqual(10)
   })
 })
 

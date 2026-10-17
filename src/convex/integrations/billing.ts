@@ -111,6 +111,9 @@ export function setupBilling(
   const gifts = createGifts(context, entitlements)
   const { giftCheckout, claimGift, getReceivedGifts } = gifts
   const {
+    generateCustomerPortalUrl,
+    changeCurrentSubscription,
+    cancelCurrentSubscription,
     getCurrentSubscription,
     listAllSubscriptions,
     getFeatures,
@@ -131,7 +134,15 @@ export function setupBilling(
   const { webhookEvents, webhookHandler } = createWebhooks(context, entitlements, gifts)
 
   return {
-    api: { ...provider.api(), listAllSubscriptions, generateCheckoutLink, giftCheckout },
+    api: {
+      ...provider.api(),
+      listAllSubscriptions,
+      generateCheckoutLink,
+      generateCustomerPortalUrl,
+      changeCurrentSubscription,
+      cancelCurrentSubscription,
+      giftCheckout,
+    },
     functions: {
       getCurrentSubscription,
       getFeatures,

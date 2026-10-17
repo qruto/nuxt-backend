@@ -1,7 +1,8 @@
 import type { Auth, FunctionReference, GenericActionCtx, GenericDataModel, MutationBuilder, RegisteredMutation } from 'convex/server'
-import { ConvexError, v } from 'convex/values'
+import { v } from 'convex/values'
 import { defaultRoles } from 'better-auth/plugins/admin/access'
 import { IMPERSONATED_BY_CLAIM } from '../constants.js'
+import { backendError } from '../errors.js'
 
 /**
  * Authorization over the bundled Better Auth setup: role checks (admin
@@ -92,7 +93,10 @@ export interface SetupAuthorizationOptions<DM extends GenericDataModel = Generic
 export interface Authorization {
   /** The signed-in user from identity claims, or `null` when signed out. */
   getUser: (ctx: AuthorizationCtx) => Promise<AuthorizationUser | null>
-  /** The signed-in user; throws `Unauthenticated` when signed out, `Forbidden` when banned. */
+  /**
+   * The signed-in user; throws `unauthenticated` when signed out, `forbidden`
+   * (reason `banned`) when banned — catalog codes (see `backendError`).
+   */
   requireUser: (ctx: AuthorizationCtx) => Promise<AuthorizationUser>
   /**
    * Require an app-wide role. `fresh: true` re-reads the user document past
@@ -156,8 +160,8 @@ export function setupAuthorization<DM extends GenericDataModel = GenericDataMode
 
   const requireUser = async (ctx: AuthorizationCtx): Promise<AuthorizationUser> => {
     const user = await getUser(ctx)
-    if (!user) throw new ConvexError('Unauthenticated')
-    if (user.banned) throw new ConvexError('Forbidden: account is banned')
+    if (!user) throw backendError('unauthenticated', {}, 'Unauthenticated')
+    if (user.banned) throw backendError('forbidden', { reason: 'banned' }, 'Forbidden: account is banned')
     return user
   }
 
@@ -175,8 +179,8 @@ export function setupAuthorization<DM extends GenericDataModel = GenericDataMode
       model: 'user',
       where: [{ field: '_id', value: user.id }],
     }) as { role?: string | null, banned?: boolean | null } | null
-    if (!document) throw new ConvexError('Unauthenticated')
-    if (document.banned) throw new ConvexError('Forbidden: account is banned')
+    if (!document) throw backendError('unauthenticated', {}, 'Unauthenticated')
+    if (document.banned) throw backendError('forbidden', { reason: 'banned' }, 'Forbidden: account is banned')
     user.role = document.role || 'user'
     user.banned = false
   }
@@ -185,7 +189,7 @@ export function setupAuthorization<DM extends GenericDataModel = GenericDataMode
     const user = await requireUser(ctx)
     if (fresh) await refreshUser(ctx, user)
     if (!hasAnyRole(user.role, role)) {
-      throw new ConvexError('Forbidden: missing required role')
+      throw backendError('forbidden', { reason: 'role' }, 'Forbidden: missing required role')
     }
     return user
   }
@@ -197,14 +201,14 @@ export function setupAuthorization<DM extends GenericDataModel = GenericDataMode
       const statementRole = statementRoles[role.trim()]
       return statementRole ? statementRole.authorize(permissions).success : false
     })
-    if (!allowed) throw new ConvexError('Forbidden: missing required permission')
+    if (!allowed) throw backendError('forbidden', { reason: 'permission' }, 'Forbidden: missing required permission')
     return user
   }
 
   const requireOrganization: Authorization['requireOrganization'] = async (ctx) => {
     const user = await requireUser(ctx)
     if (!user.activeOrganizationId) {
-      throw new ConvexError('No active organization — create or activate a workspace first')
+      throw backendError('no_workspace', {}, 'No active organization — create or activate a workspace first')
     }
     return { user, organizationId: user.activeOrganizationId }
   }
@@ -213,7 +217,7 @@ export function setupAuthorization<DM extends GenericDataModel = GenericDataMode
     const user = await requireUser(ctx)
     const organizationId = memberOptions.organizationId ?? user.activeOrganizationId
     if (!organizationId) {
-      throw new ConvexError('No active organization — create or activate a workspace first')
+      throw backendError('no_workspace', {}, 'No active organization — create or activate a workspace first')
     }
     const member = await ctx.runQuery(findOne, {
       model: 'member',
@@ -222,10 +226,10 @@ export function setupAuthorization<DM extends GenericDataModel = GenericDataMode
         { field: 'organizationId', value: organizationId },
       ],
     }) as { role?: string } | null
-    if (!member) throw new ConvexError('Forbidden: not a member of this workspace')
+    if (!member) throw backendError('forbidden', { reason: 'not_member' }, 'Forbidden: not a member of this workspace')
     const memberRole = member.role ?? 'member'
     if (memberOptions.role && !hasAnyRole(memberRole, memberOptions.role)) {
-      throw new ConvexError('Forbidden: missing required workspace role')
+      throw backendError('forbidden', { reason: 'workspace_role' }, 'Forbidden: missing required workspace role')
     }
     return { user, organizationId, role: memberRole }
   }
@@ -238,7 +242,7 @@ export function setupAuthorization<DM extends GenericDataModel = GenericDataMode
         model: 'user',
         where: [{ field: 'email', value: email }],
       })
-      if (!user) throw new ConvexError(`No user with email ${email}`)
+      if (!user) throw backendError('invalid_input', { field: 'email' }, `No user with email ${email}`)
       await ctx.runMutation(updateOne, {
         input: { model: 'user', update: { role }, where: [{ field: 'email', value: email }] },
       })

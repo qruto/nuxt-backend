@@ -225,7 +225,10 @@ describe('setupEmail marketing helpers', () => {
     sdk.segments.create.mockResolvedValue({ data: null, error: { message: 'rate limited' } })
     const email = setupEmail(component)
 
-    await expect(email.segments.create({ name: 'x' })).rejects.toThrow('[nuxt-backend] Resend: rate limited')
+    const refusal = email.segments.create({ name: 'x' })
+    await expect(refusal).rejects.toThrow('[nuxt-backend] Resend: rate limited')
+    // The provider's words stay in the message, for the log; the client reads the code.
+    await expect(refusal).rejects.toMatchObject({ data: { code: 'unavailable', service: 'email', reason: 'provider_refused' } })
   })
 })
 

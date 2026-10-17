@@ -89,7 +89,8 @@ function hookCtx(rows: Record<string, unknown>) {
   }
 }
 
-const forbidden = (message: string) => expect.objectContaining({ status: 'FORBIDDEN', body: { message } })
+// A refusal of the sign-in gate, with its catalog code (getBackendError reads it).
+const forbidden = (message: string) => expect.objectContaining({ status: 'FORBIDDEN', body: { code: 'forbidden', reason: 'sign_in_refused', message } })
 const tooMany = expect.objectContaining({ status: 'TOO_MANY_REQUESTS' })
 
 describe('codes, never links', () => {
@@ -508,7 +509,7 @@ describe('OTP rate limits', () => {
     const guard = otpGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
 
     await expect(guard({ path: '/email-otp/send-verification-otp', body: otp }))
-      .rejects.toEqual(expect.objectContaining({ status: 'TOO_MANY_REQUESTS', body: { message: expect.stringContaining('Too many') } }))
+      .rejects.toEqual(expect.objectContaining({ status: 'TOO_MANY_REQUESTS', body: { code: 'rate_limited', limit: 'emailOtp', message: expect.stringContaining('Too many') } }))
   })
 
   it('both refusals carry the limiter\'s wait as retryAfter (ms) next to the message', async () => {
@@ -518,21 +519,31 @@ describe('OTP rate limits', () => {
 
     await expect(otpGuard({ ctx: mutationCtx(), rateLimiter: { limit: perAddress } })(request)).rejects.toEqual(expect.objectContaining({
       status: 'TOO_MANY_REQUESTS',
-      body: { message: expect.stringContaining('Too many'), retryAfter: 4200 },
+      body: { code: 'rate_limited', limit: 'emailOtp', message: expect.stringContaining('Too many'), retryAfter: 4200 },
     }))
     await expect(otpGuard({ ctx: mutationCtx(), rateLimiter: { limit: global } })(request)).rejects.toEqual(expect.objectContaining({
       status: 'TOO_MANY_REQUESTS',
-      body: { message: expect.stringContaining('unavailable'), retryAfter: 1500 },
+      body: { code: 'rate_limited', limit: 'emailOtpGlobal', message: expect.stringContaining('unavailable'), retryAfter: 1500 },
     }))
   })
 
-  it('a refusal without a wait puts nothing but the message on the wire', async () => {
+  it('a refusal without a wait puts nothing but its code, limit and message on the wire', async () => {
     const limit = vi.fn(async () => ({ ok: false }))
     const guard = otpGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
     const refusal = await guard({ path: '/email-otp/send-verification-otp', body: otp }).catch((cause: unknown) => cause) as APIError
     expect(refusal).toBeInstanceOf(APIError)
     // What better-call serializes: JSON drops an undefined `retryAfter`.
-    expect(JSON.parse(JSON.stringify(refusal.body))).toEqual({ message: expect.any(String) })
+    expect(JSON.parse(JSON.stringify(refusal.body))).toEqual({ code: 'rate_limited', limit: 'emailOtpGlobal', message: expect.any(String) })
+  })
+
+  it('a wait that is no number is dropped, not a crash: the refusal still goes out', async () => {
+    for (const retryAfter of [Number.NaN, Number.POSITIVE_INFINITY, '4200']) {
+      const limit = vi.fn(async () => ({ ok: false, retryAfter }))
+      const refusal = await otpGuard({ ctx: mutationCtx(), rateLimiter: { limit } })({ path: '/email-otp/send-verification-otp', body: otp })
+        .catch((cause: unknown) => cause) as APIError
+      expect(refusal).toBeInstanceOf(APIError)
+      expect(refusal.body).toEqual({ code: 'rate_limited', limit: 'emailOtpGlobal', message: expect.any(String) })
+    }
   })
 })
 
@@ -580,6 +591,12 @@ describe('sign-in gate (canSignIn)', () => {
     await otpSender(options)(signIn)
     expect(inviteOnly).toHaveBeenCalledWith(ctx, { email: 'ada@example.com', isNewUser: false, purpose: 'sign-in' })
     expect(email).toHaveBeenCalledOnce()
+  })
+
+  it('refuses with the default sentence when the gate\'s message is no string', async () => {
+    const odd = vi.fn(async () => ({ allowed: false as const, message: 42 as unknown as string }))
+    const { options } = setup({ canSignIn: odd as unknown as typeof inviteOnly })
+    await expect(otpSender(options)(signIn)).rejects.toEqual(forbidden('Sign-in is by invitation right now.'))
   })
 
   it('refuses a new address before any email and before the per-address limit is consumed', async () => {
@@ -663,9 +680,10 @@ describe('email that would not arrive', () => {
   // where a code or an invitation the transport would drop gets refused.
   const otpRequest = (email: string) => ({ path: '/email-otp/send-verification-otp', body: { email, type: 'sign-in' } })
   const inviteRequest = (email: string) => ({ path: '/organization/invite-member', body: { email, role: 'member' }, context: signedIn('user_inviter') })
-  const refused = (message: string) => expect.objectContaining({ status: 'BAD_REQUEST', body: { message } })
-  const testModeRefusal = refused('This app is in test mode and only emails test addresses right now.')
-  const unconfiguredRefusal = refused('This app can\'t send email yet.')
+  // `unavailable` from the email service, with the reason the client can branch on.
+  const refused = (reason: string, message: string) => expect.objectContaining({ status: 'SERVICE_UNAVAILABLE', body: { code: 'unavailable', service: 'email', reason, message } })
+  const testModeRefusal = refused('test_mode', 'This app is in test mode and only emails test addresses, so this address can\'t receive mail here.')
+  const unconfiguredRefusal = refused('unconfigured', 'This app can\'t send email yet.')
   const runtime = () => ({ ctx: mutationCtx(), email: emailSpy() })
   let warn: ReturnType<typeof vi.spyOn>
   beforeEach(() => {
@@ -931,7 +949,7 @@ describe('privileged route rate limits', () => {
     const guard = routeGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
 
     await expect(guard({ path: '/organization/invite-member', context: signedIn('user_inviter') }))
-      .rejects.toEqual(expect.objectContaining({ status: 'TOO_MANY_REQUESTS', body: { message: expect.stringContaining('temporarily unavailable') } }))
+      .rejects.toEqual(expect.objectContaining({ status: 'TOO_MANY_REQUESTS', body: { code: 'rate_limited', limit: 'invitationGlobal', message: expect.stringContaining('temporarily unavailable') } }))
     expect(limit.mock.calls.map(call => call[1])).toEqual(['invitation', 'invitationGlobal'])
   })
 
@@ -941,9 +959,9 @@ describe('privileged route rate limits', () => {
     const ceiling = vi.fn(async (_ctx: unknown, name: string) => (name === 'invitationGlobal' ? { ok: false, retryAfter: 600_000 } : { ok: true }))
 
     await expect(routeGuard({ ctx: mutationCtx(), rateLimiter: { limit: perCaller } })(request))
-      .rejects.toEqual(expect.objectContaining({ body: { message: expect.stringContaining('Too many invitations'), retryAfter: 90_000 } }))
+      .rejects.toEqual(expect.objectContaining({ body: { code: 'rate_limited', limit: 'invitation', message: expect.stringContaining('Too many invitations'), retryAfter: 90_000 } }))
     await expect(routeGuard({ ctx: mutationCtx(), rateLimiter: { limit: ceiling } })(request))
-      .rejects.toEqual(expect.objectContaining({ body: { message: expect.stringContaining('temporarily unavailable'), retryAfter: 600_000 } }))
+      .rejects.toEqual(expect.objectContaining({ body: { code: 'rate_limited', limit: 'invitationGlobal', message: expect.stringContaining('temporarily unavailable'), retryAfter: 600_000 } }))
   })
 
   it('an admin route has no deployment ceiling — it spends nobody else\'s resource', async () => {
@@ -988,7 +1006,7 @@ describe('privileged route rate limits', () => {
     const guard = routeGuard({ ctx, rateLimiter: { limit } })
 
     await expect(guard({ path: '/mcp/register', context: {} }))
-      .rejects.toEqual(new APIError('TOO_MANY_REQUESTS', { message: 'Too many agents are registering right now. Please try again later.', retryAfter: 120_000 }))
+      .rejects.toEqual(new APIError('TOO_MANY_REQUESTS', { code: 'rate_limited', limit: 'agentRegistrationGlobal', message: 'Too many agents are registering right now. Please try again later.', retryAfter: 120_000 }))
     expect(limit.mock.calls).toEqual([[ctx, 'agentRegistrationGlobal']])
   })
 

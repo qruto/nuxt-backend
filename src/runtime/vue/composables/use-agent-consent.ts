@@ -1,5 +1,6 @@
 import { onMounted, ref, type Ref } from 'vue'
 import { unwrapAuth } from '../utils/auth-result'
+import { refusalMessage } from '../utils/backend-error'
 import { useAuth } from './use-auth'
 
 /** What an agent asks for, as the server stored it — never as its URL says. */
@@ -72,7 +73,7 @@ function agentCallback(url: string): string | null {
 }
 
 function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : 'Request failed'
+  return refusalMessage(error, 'Request failed')
 }
 
 /**

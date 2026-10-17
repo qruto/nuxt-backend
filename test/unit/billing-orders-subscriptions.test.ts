@@ -154,6 +154,23 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
     expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
   })
 
+  it('refuses a plan change to the plan the subscription is already on, before the provider', async () => {
+    const billing = make()
+    withSubscriptions()
+
+    await expect(billing.updateSubscription(makeCtx() as never, { productId: 'prod_a' }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'productId' } })
+    await expect(invoke(billing.api.changeCurrentSubscription)(makeCtx(), { productId: 'prod_a' }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'productId' } })
+    expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
+
+    await invoke(billing.api.changeCurrentSubscription)(makeCtx(), { productId: 'prod_b' })
+    expect(mockSubscriptionsUpdate).toHaveBeenCalledWith(expect.anything(), {
+      id: 'sub_1',
+      subscriptionUpdate: { productId: 'prod_b' },
+    })
+  })
+
   it('cancelSubscription defaults to the end of the paid period', async () => {
     const billing = make()
     withSubscriptions()
@@ -410,7 +427,7 @@ describe('rate limiting', () => {
 
     await billing.cancelSubscription(ctx as never)
 
-    expect(rateLimiter.limit).toHaveBeenCalledWith(ctx, 'billingSync', { key: 'u1' })
+    expect(rateLimiter.limit).toHaveBeenCalledWith(ctx, 'billingSync', { key: 'u1', throws: true })
   })
 
   it.each([
@@ -426,6 +443,15 @@ describe('rate limiting', () => {
     expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
     expect(mockOrdersList).not.toHaveBeenCalled()
     expect(mockOrdersGet).not.toHaveBeenCalled()
+  })
+
+  it('a structural limiter\'s wait that is no number is dropped, and the call still refuses as rate_limited', async () => {
+    const billing = make({ rateLimiter: { limit: vi.fn(async () => ({ ok: false, retryAfter: Number.NaN })) } as never })
+    withSubscriptions()
+
+    await expect(billing.cancelSubscription(makeCtx() as never))
+      .rejects.toMatchObject({ data: { code: 'rate_limited', limit: 'billingSync' } })
+    expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
   })
 
   it('checkout is throttled on the same limit', async () => {
@@ -556,7 +582,26 @@ describe('orders & invoices', () => {
     mockOrdersGet.mockResolvedValue({ ok: true, value: providerOrder } as never)
 
     await expect(billing.getInvoiceUrl(makeCtx() as never, 'order_1'))
-      .rejects.toThrow(/different billing account/)
+      .rejects.toMatchObject({ data: { code: 'forbidden', reason: 'not_owner' } })
+    expect(mockOrdersInvoice).not.toHaveBeenCalled()
+  })
+
+  it('getInvoiceUrl refuses an order that does not exist exactly like someone else\'s', async () => {
+    const billing = make()
+    withCustomer(billing)
+    const missing = Object.assign(new Error('Not found'), { name: 'ResourceNotFound', statusCode: 404, error: 'ResourceNotFound' })
+    mockOrdersGet.mockResolvedValue({ ok: false, error: missing } as never)
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const absent = await billing.getInvoiceUrl(makeCtx() as never, 'order_nope').catch((error: unknown) => error) as { data: unknown, message: string }
+    mockOrdersGet.mockResolvedValue({ ok: true, value: providerOrder } as never)
+    withCustomer(billing, 'cus_other')
+    const foreign = await billing.getInvoiceUrl(makeCtx() as never, 'order_1').catch((error: unknown) => error) as { data: unknown, message: string }
+
+    expect(absent.data).toEqual({ code: 'forbidden', reason: 'not_owner' })
+    expect([absent.data, absent.message]).toEqual([foreign.data, foreign.message])
+    // Not a provider failure: nothing for an operator to chase.
+    expect(logged).not.toHaveBeenCalled()
     expect(mockOrdersInvoice).not.toHaveBeenCalled()
   })
 
@@ -744,11 +789,14 @@ describe('discounts', () => {
     expect(mockDiscountsDelete).toHaveBeenCalledWith(expect.anything(), { id: 'disc_1' })
   })
 
-  it('propagates a failed removal', async () => {
+  it('refuses a failed removal as unavailable, without the provider\'s words', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     const billing = make()
     mockDiscountsDelete.mockResolvedValue({ ok: false, error: new Error('not found') } as never)
 
-    await expect(billing.discounts.remove('disc_x')).rejects.toThrow('not found')
+    const refusal = await billing.discounts.remove('disc_x').catch((error: unknown) => error)
+    expect(refusal).toMatchObject({ data: { code: 'unavailable', service: 'billing', reason: 'provider_refused' } })
+    expect(String(refusal)).not.toContain('not found')
   })
 })
 
@@ -929,8 +977,8 @@ describe('checkout never adopts another entity’s customer', () => {
 
     // A ConvexError, so the words reach the member even where production
     // redacts other errors: what happened, and what resolves it.
-    expect(refusal).toMatchObject({ data: expect.stringContaining('already pays for another workspace') })
-    expect((refusal as { data: string }).data).toMatch(/different email/)
+    expect(refusal).toMatchObject({ data: { code: 'forbidden', reason: 'customer_taken', message: expect.stringContaining('already pays for another workspace') } })
+    expect((refusal as { data: { message: string } }).data.message).toMatch(/different email/)
     expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:insertCustomer', expect.anything())
     expect(mockCustomersUpdate).not.toHaveBeenCalled()
     expect(mockCheckoutsCreate).not.toHaveBeenCalled()
@@ -944,7 +992,7 @@ describe('checkout never adopts another entity’s customer', () => {
       ref === 'ref:userByCustomer' && (query as { customerId: string }).customerId === 'cus_personal' ? 'org-personal' : null)
 
     await expect(invoke(billing.api.generateCheckoutLink)(ctx, args))
-      .rejects.toMatchObject({ data: expect.stringContaining('another workspace') })
+      .rejects.toMatchObject({ data: { reason: 'customer_taken', message: expect.stringContaining('another workspace') } })
     expect(mockCheckoutsCreate).not.toHaveBeenCalled()
   })
 
@@ -965,7 +1013,7 @@ describe('checkout never adopts another entity’s customer', () => {
     existingCustomer({ userId: 'u-deleted' })
 
     await expect(invoke(billing.api.generateCheckoutLink)(makeCtx(), args))
-      .rejects.toMatchObject({ data: expect.stringContaining('already pays for another account') })
+      .rejects.toMatchObject({ data: { reason: 'customer_taken', message: expect.stringContaining('already pays for another account') } })
   })
 })
 
@@ -1166,6 +1214,27 @@ describe('registered actions', () => {
       id: 'sub_1',
       subscriptionUpdate: { pauseAtPeriodEnd: true, resumesAt: new Date(Date.UTC(2026, 9, 1)) },
     })
+  })
+
+  it('the single-subscription actions on billing.api run the package lifecycle and refuse by code', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const billing = make()
+    withSubscriptions()
+
+    expect(await invoke(billing.api.changeCurrentSubscription)(makeCtx(), { productId: 'prod_b' })).toBeNull()
+    expect(mockSubscriptionsUpdate).toHaveBeenLastCalledWith(expect.anything(), { id: 'sub_1', subscriptionUpdate: expect.objectContaining({ productId: 'prod_b' }) })
+    expect(await invoke(billing.api.cancelCurrentSubscription)(makeCtx(), { revokeImmediately: true })).toBeNull()
+    expect(mockSubscriptionsUpdate).toHaveBeenLastCalledWith(expect.anything(), { id: 'sub_1', subscriptionUpdate: expect.objectContaining({ revoke: true }) })
+
+    // The provider's refusal reaches the caller as a code, not as its body.
+    mockSubscriptionsUpdate.mockResolvedValueOnce({ ok: false, error: new Error('API error occurred: Status 422. Body: {}') } as never)
+    const refused = await invoke(billing.api.cancelCurrentSubscription)(makeCtx(), {}).catch((error: unknown) => error)
+    expect(refused).toMatchObject({ data: { code: 'unavailable', reason: 'provider_refused' } })
+    expect(String(refused)).not.toContain('Body')
+
+    withSubscriptions([])
+    await expect(invoke(billing.api.changeCurrentSubscription)(makeCtx(), { productId: 'prod_b' }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'subscriptionId' } })
   })
 
   it('the lifecycle actions resolve nothing from the client but the target id', async () => {

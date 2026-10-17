@@ -5,11 +5,12 @@ import { customersGet } from '@polar-sh/sdk/funcs/customersGet.js'
 import { customersList } from '@polar-sh/sdk/funcs/customersList.js'
 import { customersUpdate } from '@polar-sh/sdk/funcs/customersUpdate.js'
 import { actionGeneric, queryGeneric } from 'convex/server'
-import { ConvexError, v } from 'convex/values'
+import { v } from 'convex/values'
 import { type BillingContext, readEnv } from './context.js'
 import type { BillingEntitlements } from './entitlements.js'
 import type { ProviderCtx, RunWriteCtx } from './types/base.js'
 import type { GiftRecord } from './types/records.js'
+import { backendError } from '../../errors.js'
 import { logBackend } from '../../log.js'
 
 /** The fields of a paid order's payload that gift fulfilment reads. */
@@ -53,10 +54,9 @@ export function createGifts(
       // recipient subscribed under a different email than the gift was sent
       // to). Entitlements can't move between provider customers — documented
       // limitation; the purchaser can re-gift to the recipient's billing email.
-      throw new Error(
-        '[nuxt-backend] This gift is attached to a different billing profile than your account uses. '
-        + 'Ask the sender to re-send it to your billing email.',
-      )
+      const message = 'This gift is attached to a different billing profile than your account uses. '
+        + 'Ask the sender to re-send it to your billing email.'
+      throw backendError('forbidden', { reason: 'billing_profile_mismatch', message }, '[nuxt-backend] ' + message)
     }
     if (!existing) {
       // Checkout's rule (see checkout.ts): a customer that already pays for
@@ -64,7 +64,9 @@ export function createGifts(
       // one set of benefits and credits.
       const customer = unwrapProvider(await customersGet(provider.polar, { id: gift.billingCustomerId }), 'gift claim')
       const owner = await customerOwner(ctx, customer)
-      if (owner !== null && owner !== entityId) throw new ConvexError(GIFT_CUSTOMER_TAKEN[billTo])
+      if (owner !== null && owner !== entityId) {
+        throw backendError('forbidden', { reason: 'customer_taken', message: GIFT_CUSTOMER_TAKEN[billTo] }, GIFT_CUSTOMER_TAKEN[billTo])
+      }
       await ctx.runMutation(providerLib.insertCustomer, { id: gift.billingCustomerId, userId: entityId })
     }
     // Tag the provider customer so future webhooks resolve the entity directly.
@@ -105,18 +107,18 @@ export function createGifts(
       metadata: v.optional(v.record(v.string(), v.string())),
     },
     handler: async (ctx, args) => {
-      requireProviderAccess('gift checkout')
       const identity = await ctx.auth.getUserIdentity()
       if (!identity) {
-        throw new Error('[nuxt-backend] giftCheckout: sign in to send a gift.')
+        throw backendError('unauthenticated', {}, '[nuxt-backend] giftCheckout: sign in to send a gift.')
       }
+      requireProviderAccess('gift checkout')
       const claims = identity as unknown as Record<string, unknown>
       const purchaserUserId = identity.subject
       const purchaserEmail = typeof claims.email === 'string' ? claims.email : undefined
       const purchaserName = typeof claims.name === 'string' ? claims.name : undefined
       const recipientEmail = args.recipientEmail.trim().toLowerCase()
       if (!recipientEmail || !recipientEmail.includes('@')) {
-        throw new Error('[nuxt-backend] giftCheckout: a valid recipient email is required.')
+        throw backendError('invalid_input', { field: 'recipientEmail' }, '[nuxt-backend] giftCheckout: a valid recipient email is required.')
       }
       // Every gift checkout reaches the provider for an address the purchaser
       // picked, so a purchaser is held to the `billingSync` limit (keyed by
@@ -125,7 +127,11 @@ export function createGifts(
       if (config.canGift) {
         const verdict = await config.canGift(ctx, { recipientEmail, purchaserUserId })
         if (verdict !== true) {
-          throw new ConvexError(verdict.message ?? 'This address can\'t receive gifts.')
+          // The app's own sentence, when it wrote one: anything else reads as the default, never as a crash.
+          const message = typeof verdict === 'object' && verdict !== null && typeof verdict.message === 'string' && verdict.message
+            ? verdict.message
+            : 'This address can\'t receive gifts.'
+          throw backendError('forbidden', { reason: 'gift_refused', message }, message)
         }
       }
       const billingCustomerId = await recipientCustomer(recipientEmail)
@@ -167,16 +173,16 @@ export function createGifts(
     handler: async (ctx, { giftId }) => {
       const identity = await ctx.auth.getUserIdentity()
       if (!identity) {
-        throw new Error('[nuxt-backend] claimGift: sign in to receive a gift.')
+        throw backendError('unauthenticated', {}, '[nuxt-backend] claimGift: sign in to receive a gift.')
       }
       const claims = identity as unknown as Record<string, unknown>
       const email = typeof claims.email === 'string' ? claims.email.toLowerCase() : null
       if (!email) {
-        throw new Error('[nuxt-backend] claimGift: the signed-in identity has no email claim.')
+        throw backendError('forbidden', { reason: 'no_email' }, '[nuxt-backend] claimGift: the signed-in identity has no email claim.')
       }
       const entity = await resolveEntity(ctx)
       if (!entity) {
-        throw new Error('[nuxt-backend] claimGift: no billing entity — sign in (a personal workspace is created automatically).')
+        throw backendError('no_workspace', {}, '[nuxt-backend] claimGift: no billing entity — sign in (a personal workspace is created automatically).')
       }
       // Email ownership is proven by the OTP sign-in flow, so matching the
       // identity's email against the gift's recipient is the authorization.
@@ -186,7 +192,7 @@ export function createGifts(
       let claimed = 0
       for (const gift of candidates) {
         if (gift.recipientEmail !== email) {
-          throw new Error('[nuxt-backend] claimGift: this gift is addressed to a different email.')
+          throw backendError('forbidden', { reason: 'not_recipient' }, '[nuxt-backend] claimGift: this gift is addressed to a different email.')
         }
         if (gift.status !== 'paid') continue
         await attachGift(ctx, gift, identity.subject, entity.userId)

@@ -1,5 +1,6 @@
 import { defineComponent, h } from 'vue'
 import { useGifts } from '../composables/use-gifts'
+import { refusalMessage } from '../utils/backend-error'
 
 /**
  * A banner listing the signed-in user's unclaimed gifts with a "Receive"
@@ -38,7 +39,7 @@ export const GiftClaimBanner = /* @__PURE__ */ defineComponent({
         if (count > 0) emit('claimed', count)
       }
       catch (error) {
-        emit('error', error instanceof Error ? error.message : String(error))
+        emit('error', refusalMessage(error, String(error)))
       }
     }
 

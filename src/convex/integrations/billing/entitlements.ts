@@ -12,15 +12,15 @@ import type { Billing } from './types/surface.js'
 const BENEFIT_METADATA_TTL_MS = 15 * 60 * 1000
 
 /** The entitlement cache: read live from the provider, written to the component, forgotten on erasure. */
-export function createEntitlements({ provider, cache }: BillingContext) {
+export function createEntitlements({ provider, cache, unwrapProvider }: BillingContext) {
   const getCustomerState: Billing['getCustomerState'] = async (ctx, { userId }) => {
     const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, userId)
     if (!customer) {
       return { customerId: null, activeProductIds: [], benefits: [], meters: [] }
     }
-    const result = await customersGetState(provider.polar, { id: customer.id })
-    if (!result.ok) throw result.error
-    const state = result.value as {
+    // Through the package boundary like every provider read: the raw SDK
+    // error carries the provider's response body, which must not reach a caller.
+    const state = unwrapProvider(await customersGetState(provider.polar, { id: customer.id }), 'entitlement sync') as {
       activeSubscriptions?: Array<{
         productId: string
         currentPeriodStart?: Date

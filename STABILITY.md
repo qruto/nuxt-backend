@@ -39,6 +39,8 @@ Every `nuxt-backend/<subpath>` in the package `exports` map, and every value and
 
 Anything tagged `@internal` in the source is stripped from the published declarations and is not part of this surface; the surface test (`test/nuxt/public-surface.test.ts`) keeps the tag off everything an entry re-exports and freezes each entry's export list.
 
+The error catalog is part of this surface: every code `backendError` throws and `getBackendError` reads (`BACKEND_ERRORS` in `nuxt-backend/functions`), the data fields each code carries, the `forbidden`, `not_ready` and `unavailable` reasons the package throws, and the HTTP status an auth route answers each code with. A `forbidden` reason the reader maps from Better Auth's own 403 is Better Auth's error code, passed through as Better Auth names it, and is not covered. A code, a field or a reason is never renamed or removed outside the deprecation cycle; a minor release may add a code, an optional field or a reason. The English sentences are not part of it: the error's `message` and the `errors` labels may be reworded in any release. [Errors](https://nuxt-backend.dev/docs/reference/backend/errors) lists them.
+
 Every name on this surface is brand-neutral: no export, value or type, and no registered name says the billing or the email provider. The same test pins it, down to the identifiers in the generated API reference. A provider appears only in prose, where a doc comment says what runs underneath, and in the component keys an app's own `convex.config.ts` chooses (`components.polar`).
 
 ### 2. Configuration names
@@ -88,6 +90,7 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
 
 - **Composables**:
   - `describeUserAgent`
+  - `getBackendError` — reads a refusal's catalog code out of anything a call threw or resolved with
   - `unwrapAuth`
   - `useAgentConsent`
   - `useAggregate`

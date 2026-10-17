@@ -5,6 +5,7 @@ import { requireCreditAmount } from '../billing/credits.js'
 import type { Ai, CreditsBalanceEvent, MeteredUsage, RunCtx } from './config.js'
 import type { AiContext } from './context.js'
 import { estimateCost, finalizeCost } from './pricing.js'
+import { backendError } from '../../errors.js'
 import { logBackend } from '../../log.js'
 
 /** An action context that can also schedule (both metered shapes run in actions). */
@@ -42,6 +43,17 @@ function settledAmount(reserved: number, finalAmount: number | undefined): numbe
 }
 
 /**
+ * The refusal of a closed limit: `rate_limited` with its name and the wait.
+ * A structural limiter may answer a wait that is no number; the refusal then
+ * goes out without one rather than failing the catalog's check.
+ */
+function limitRefusal(limit: string, retryAfter: number | undefined, detail: string, waitPhrase: string) {
+  const wait = Number.isFinite(retryAfter) ? retryAfter : undefined
+  const suffix = wait ? ` ${waitPhrase} ${Math.ceil(wait / 1000)}s.` : ''
+  return backendError('rate_limited', { limit, retryAfter: wait }, `${detail}${suffix}`)
+}
+
+/**
  * Metered calls over the billing spend reservation: reserve before running,
  * settle what was spent (or release on failure) after, and fire the balance
  * hooks once a settle lands.
@@ -55,20 +67,21 @@ export function createMetering({ config, billing, rateLimiter, cache }: AiContex
     requireMeteredCost(options)
     const identity = await (ctx.auth?.getUserIdentity() ?? Promise.resolve(null))
     if (!identity) {
-      throw new Error('[nuxt-backend] Sign in to use this feature.')
+      throw backendError('unauthenticated', {}, '[nuxt-backend] Sign in to use this feature.')
     }
     const entity = await billing.resolveEntity(ctx as RunCtx & { auth: Auth })
     if (!entity) {
-      throw new Error('[nuxt-backend] No billing entity — sign in (a personal workspace is created automatically).')
+      throw backendError('no_workspace', {}, '[nuxt-backend] No billing entity — sign in (a personal workspace is created automatically).')
     }
 
+    // Both checks let the limiter throw its own `RateLimited` error, which
+    // `getBackendError` reads as `rate_limited` with the limit's name and
+    // wait; a structural limiter that answers `{ ok: false }` instead gets the
+    // same code from here.
     const limitName = options.limit ?? 'ai'
     if (rateLimiter && limitName !== false) {
-      const { ok, retryAfter } = await rateLimiter.limit(ctx as never, limitName as never, { key: entity.userId })
-      if (!ok) {
-        const wait = retryAfter ? ` Try again in ${Math.ceil(retryAfter / 1000)}s.` : ''
-        throw new Error(`[nuxt-backend] Rate limit reached.${wait}`)
-      }
+      const { ok, retryAfter } = await rateLimiter.limit(ctx as never, limitName as never, { key: entity.userId, throws: true })
+      if (!ok) throw limitRefusal(limitName, retryAfter, '[nuxt-backend] Rate limit reached.', 'Try again in')
     }
 
     // The budget is the same limiter, counting credits instead of calls: one
@@ -80,15 +93,14 @@ export function createMetering({ config, billing, rateLimiter, cache }: AiContex
           `[nuxt-backend] This call costs ${options.cost} credits but the budget is ${budget.units} per window — it can never fit.`,
         )
       }
-      const { ok, retryAfter } = await rateLimiter.limit(ctx as never, (budget.limit ?? 'aiBudget') as never, {
+      const budgetLimit = budget.limit ?? 'aiBudget'
+      const { ok, retryAfter } = await rateLimiter.limit(ctx as never, budgetLimit as never, {
         key: entity.userId,
         count: options.cost,
         config: { kind: 'fixed window', rate: budget.units, period: budget.period },
+        throws: true,
       })
-      if (!ok) {
-        const wait = retryAfter ? ` Resets in ${Math.ceil(retryAfter / 1000)}s.` : ''
-        throw new Error(`[nuxt-backend] Credit budget reached — ${budget.units} credits per window.${wait}`)
-      }
+      if (!ok) throw limitRefusal(budgetLimit, retryAfter, `[nuxt-backend] Credit budget reached — ${budget.units} credits per window.`, 'Resets in')
     }
 
     const reservation = options.meter === false

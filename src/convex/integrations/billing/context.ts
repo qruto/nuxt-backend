@@ -4,6 +4,7 @@ import { parseSecretList } from '../webhook-guard.js'
 import type { ProviderCtx, RunQueryCtx, RunWriteCtx } from './types/base.js'
 import type { CreditMeterConfig, SpendCreditsEvent } from './types/records.js'
 import type { BillingComponents, BillingEntity, BillingEntityCtx, ProviderLibRefs, SetupBillingConfig } from './types/setup.js'
+import { backendError } from '../../errors.js'
 import { logBackend } from '../../log.js'
 
 type EnvHost = typeof globalThis & {
@@ -160,17 +161,21 @@ export function createBillingContext(components: BillingComponents, config: Setu
    * The entity a provider operation runs for, or a clear refusal. Also the
    * provider client's `getUserInfo`, which its own checkout and portal
    * actions call. A hand-built context with no `auth` has no caller to
-   * resolve. The refusal names what the default resolver reads; a custom one
-   * is the app's own, so it is only named.
+   * resolve. A caller nobody signed in as is `unauthenticated`; a signed-in
+   * one without an entity is `no_workspace`. The detail names what the
+   * default resolver reads; a custom one is the app's own, so it is only named.
    */
   const requireEntity = async (ctx: ProviderCtx | (RunQueryCtx & { auth?: Auth })): Promise<BillingEntity> => {
     const caller = ctx as RunQueryCtx & { auth?: Auth }
     const entity = caller.auth ? await resolveEntity(caller as BillingEntityCtx) : null
     if (entity) return entity
-    if (caller.auth && config.resolveEntity) throw new Error('[nuxt-backend] Billing found no billing entity for this caller: setupBilling\'s resolveEntity returned null.')
-    throw new Error(billTo === 'organization'
+    const detail = billTo === 'organization'
       ? '[nuxt-backend] Billing needs an active workspace — sign in (a personal workspace is created automatically) or activate one.'
-      : '[nuxt-backend] Billing needs a signed-in user.')
+      : '[nuxt-backend] Billing needs a signed-in user.'
+    const signedIn = Boolean(await caller.auth?.getUserIdentity())
+    if (!signedIn) throw backendError('unauthenticated', {}, detail)
+    if (config.resolveEntity) throw backendError('no_workspace', {}, '[nuxt-backend] Billing found no billing entity for this caller: setupBilling\'s resolveEntity returned null.')
+    throw backendError('no_workspace', {}, detail)
   }
 
   const provider = new Polar(components.polar, {
@@ -194,7 +199,9 @@ export function createBillingContext(components: BillingComponents, config: Setu
    */
   const requireProviderAccess = (operation: string): void => {
     if (accessToken) return
-    throw new Error(
+    throw backendError(
+      'unavailable',
+      { service: 'billing', reason: 'not_configured' },
       `[nuxt-backend] Billing ${operation} needs the BILLING_ACCESS_TOKEN env var — `
       + 'set it on the deployment (`npx nuxt-backend doctor` lists what is missing).',
     )
@@ -206,8 +213,8 @@ export function createBillingContext(components: BillingComponents, config: Setu
    * sometimes an expired-token hint — in front of a visitor: `<BillingHistory>`
    * renders `orders.error` verbatim. A summary is logged instead (class,
    * status, provider code, refused fields — never the body, which echoes the
-   * request), and the caller sees the same package-shaped message a missing
-   * token produces.
+   * request), and the caller sees `unavailable` (reason `provider_refused`),
+   * the code a missing token produces with another reason.
    */
   const unwrapProvider = <T>(
     result: { ok: true, value: T } | { ok: false, error: unknown },
@@ -215,7 +222,9 @@ export function createBillingContext(components: BillingComponents, config: Setu
   ): T => {
     if (result.ok) return result.value
     logBackend('error', 'billing.provider_failed', `Billing ${operation} failed at the provider.`, summarizeProviderError(result.error))
-    throw new Error(
+    throw backendError(
+      'unavailable',
+      { service: 'billing', reason: 'provider_refused' },
       `[nuxt-backend] Billing is temporarily unavailable — the provider refused the ${operation}. Try again shortly.`,
     )
   }
@@ -223,12 +232,16 @@ export function createBillingContext(components: BillingComponents, config: Setu
   /**
    * Throttle one live provider fan-out per billing entity against the shared
    * `billingSync` limit. A no-op until a limiter is configured, so the
-   * zero-config scaffold behaves exactly as before.
+   * zero-config scaffold behaves exactly as before. The limiter throws its own
+   * `RateLimited` error (`throws: true`), which `getBackendError` reads as
+   * `rate_limited`; a structural limiter that answers `{ ok: false }`
+   * instead gets the same code from here.
    */
   const throttle = async (ctx: RunWriteCtx, userId: string, what: string): Promise<void> => {
     if (!config.rateLimiter) return
-    const { ok } = await config.rateLimiter.limit(ctx, 'billingSync', { key: userId })
-    if (!ok) throw new Error(`[nuxt-backend] Too many ${what} — try again shortly.`)
+    const { ok, retryAfter } = await config.rateLimiter.limit(ctx, 'billingSync', { key: userId, throws: true })
+    // A structural limiter may answer a wait that is no number: refuse without one.
+    if (!ok) throw backendError('rate_limited', { limit: 'billingSync', retryAfter: Number.isFinite(retryAfter) ? retryAfter : undefined }, `[nuxt-backend] Too many ${what} — try again shortly.`)
   }
 
   /**
@@ -251,7 +264,8 @@ export function createBillingContext(components: BillingComponents, config: Setu
    * The one gate of the admin-tier functions (`refundOrder`, the webhook
    * log): `setupBilling`'s `requireAdmin` when given; otherwise an `admin`
    * entry in the caller's `role` claim, which the admin plugin writes
-   * comma-separated, on an account that is not banned. Throws to refuse.
+   * comma-separated, on an account that is not banned. Throws `forbidden`
+   * (reason `admin_only`) to refuse.
    */
   const requireAdmin = async (ctx: { auth?: Auth }, what: string): Promise<void> => {
     if (config.requireAdmin) {
@@ -261,7 +275,7 @@ export function createBillingContext(components: BillingComponents, config: Setu
     const claims = await ctx.auth?.getUserIdentity() as unknown as { role?: unknown, banned?: unknown } | null | undefined
     const roles = typeof claims?.role === 'string' ? claims.role.split(',').map(entry => entry.trim()) : []
     if (!roles.includes('admin') || claims?.banned === true) {
-      throw new Error(`[nuxt-backend] ${what} is admin-only — sign in as an admin, or pass \`requireAdmin\` to setupBilling to define your own gate.`)
+      throw backendError('forbidden', { reason: 'admin_only' }, `[nuxt-backend] ${what} is admin-only — sign in as an admin, or pass \`requireAdmin\` to setupBilling to define your own gate.`)
     }
   }
 

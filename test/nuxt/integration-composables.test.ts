@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
 import { computed, nextTick, provide, ref } from 'vue'
 import { makeFunctionReference } from 'convex/server'
+import { ConvexError } from 'convex/values'
 import type { OptimisticLocalStore } from 'convex/browser'
 import { ConvexVueClient, ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { mountWithConvex } from '../helpers/vue_test_utils'
@@ -17,6 +18,7 @@ import { type SandboxInboxApi, useSandboxInbox } from '../../src/runtime/vue/com
 import { useGifts } from '../../src/runtime/vue/composables/use-gifts'
 import { useSearch } from '../../src/runtime/vue/composables/use-search'
 import { useWorkflowStatus } from '../../src/runtime/vue/composables/use-workflow'
+import { useAiStream } from '../../src/runtime/vue/composables/use-ai-stream'
 
 const address = 'https://127.0.0.1:3001'
 const seedMutationRef = makeFunctionReference<'mutation'>('seed:default')
@@ -754,5 +756,56 @@ describe('useWorkflowStatus', () => {
   it('pauses while the id is null', async () => {
     const { result } = await mountWithConvex(client, () => useWorkflowStatus(workflowRef, ref(null)))
     expect(result.value).toBeUndefined()
+  })
+})
+
+describe('useAiStream', () => {
+  const startRef = makeFunctionReference<'action'>('ai:startEcho')
+  const bodyRef = makeFunctionReference<'query'>('ai:echoBody')
+
+  it('ends a refused start in error, with the refusal in error, and rejects', async () => {
+    const refusal = new ConvexError({ code: 'insufficient_credits', meter: 'credits', balance: 0, need: 1 })
+    vi.spyOn(client, 'action').mockRejectedValue(refusal)
+    const { result } = await mountWithConvex(client, () => useAiStream({ start: startRef, body: bodyRef }, { url: 'https://site.test/ai/stream' }))
+
+    await expect(result.start({ prompt: 'hi' })).rejects.toBe(refusal)
+    expect(result.status.value).toBe('error')
+    expect(result.isStreaming.value).toBe(false)
+    expect(result.error.value).toEqual({
+      code: 'insufficient_credits',
+      data: { meter: 'credits', balance: 0, need: 1 },
+      message: 'Not enough credits: 0 left, 1 needed. Top up to continue.',
+    })
+  })
+
+  it('says error after a refused start while attached to a finished stream, and clears it on the next start', async () => {
+    seed(store => store.setQuery(bodyRef, { streamId: 's1' }, { text: 'earlier', status: 'done' }))
+    const refusal = new ConvexError({ code: 'rate_limited', limit: 'ai', retryAfter: 2000 })
+    const action = vi.spyOn(client, 'action').mockRejectedValueOnce(refusal)
+    const { result } = await mountWithConvex(client, () => useAiStream({ start: startRef, body: bodyRef }, { url: 'https://site.test/ai/stream', streamId: 's1' }))
+    expect(result.status.value).toBe('done')
+
+    await expect(result.start()).rejects.toBe(refusal)
+    expect(result.status.value).toBe('error')
+    expect(result.isStreaming.value).toBe(false)
+    expect(result.error.value).toMatchObject({ code: 'rate_limited' })
+
+    // The next start begins clean, even one that fails before it reaches the server.
+    action.mockRejectedValueOnce(new Error('offline'))
+    await expect(result.start()).rejects.toThrow('offline')
+    expect(result.error.value).toBeNull()
+    expect(result.status.value).toBe('error')
+  })
+
+  it('clears the last refusal before checking for an endpoint', async () => {
+    const url = ref<string | undefined>('https://site.test/ai/stream')
+    vi.spyOn(client, 'action').mockRejectedValue(new ConvexError({ code: 'unauthenticated' }))
+    const { result } = await mountWithConvex(client, () => useAiStream({ start: startRef, body: bodyRef }, { url }))
+    await expect(result.start()).rejects.toBeTruthy()
+    expect(result.error.value).toMatchObject({ code: 'unauthenticated' })
+
+    url.value = undefined
+    await expect(result.start()).rejects.toThrow(/no stream endpoint/)
+    expect(result.error.value).toBeNull()
   })
 })
