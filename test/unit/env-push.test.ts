@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ENV_DEFAULT_NAMES, planEnvDefaults } from '../../src/env-defaults'
 import { executeEnvPush, planEnvPush, type EnvPushAction } from '../../src/env-push'
 
 function byName(actions: EnvPushAction[], name: string): EnvPushAction {
@@ -132,5 +133,60 @@ describe('rotating a value already on the deployment', () => {
       force: new Set(['AUTH_TRUST_LOCAL_ORIGINS']),
     })
     expect(plan.find(action => action.name === 'AUTH_TRUST_LOCAL_ORIGINS')!.action).toBe('unset')
+  })
+})
+
+describe('a preview deployment', () => {
+  // Disposable like dev, so a secret is generated and mail and billing start
+  // safe; but its SITE_URL is its own origin, which only the caller knows.
+  it('generates AUTH_SECRET, starts mail in test mode and billing in the sandbox, and waits for SITE_URL', () => {
+    const actions = planEnvPush({ deployedNames: [], localEnv: {}, dev: false, preview: true })
+    expect(byName(actions, 'AUTH_SECRET')).toMatchObject({ action: 'provision', detail: 'generated (preview deployment)' })
+    expect(byName(actions, 'AUTH_SECRET').value?.length).toBeGreaterThanOrEqual(43)
+    expect(byName(actions, 'SITE_URL')).toMatchObject({ action: 'missing', detail: expect.stringContaining('--site-url') })
+    expect(byName(actions, 'EMAIL_TEST_MODE')).toMatchObject({ action: 'provision', value: 'true' })
+    expect(byName(actions, 'BILLING_ENVIRONMENT')).toMatchObject({ action: 'provision', value: 'sandbox' })
+    // No sign-in codes in a shared deployment's logs, and no loopback trust.
+    expect(actions.find(a => a.name === 'NUXT_BACKEND_LOG_OTP')).toBeUndefined()
+    expect(byName(actions, 'AUTH_TRUST_LOCAL_ORIGINS').action).toBe('unset')
+  })
+
+  it('takes a given SITE_URL, and keeps what the preview already holds', () => {
+    const actions = planEnvPush({ deployedNames: ['AUTH_SECRET', 'EMAIL_TEST_MODE'], localEnv: { SITE_URL: 'https://my-branch.example.app' }, dev: false, preview: true })
+    expect(byName(actions, 'SITE_URL')).toMatchObject({ action: 'forward', value: 'https://my-branch.example.app' })
+    expect(byName(actions, 'AUTH_SECRET').action).toBe('skip')
+    expect(byName(actions, 'EMAIL_TEST_MODE').action).toBe('skip')
+  })
+})
+
+describe('planEnvDefaults', () => {
+  it('writes the four preview defaults, SITE_URL as given', () => {
+    const actions = planEnvDefaults({ type: 'preview', defaultNames: [], siteUrl: 'https://preview.example.com' })
+    expect(actions.map(a => [a.name, a.action])).toEqual([
+      ['AUTH_SECRET', 'provision'],
+      ['SITE_URL', 'provision'],
+      ['EMAIL_TEST_MODE', 'provision'],
+      ['BILLING_ENVIRONMENT', 'provision'],
+    ])
+    expect(byName(actions, 'SITE_URL').value).toBe('https://preview.example.com')
+    expect(byName(actions, 'EMAIL_TEST_MODE').value).toBe('true')
+    expect(byName(actions, 'BILLING_ENVIRONMENT').value).toBe('sandbox')
+  })
+
+  it('never guesses a preview\'s SITE_URL', () => {
+    expect(byName(planEnvDefaults({ type: 'preview', defaultNames: [] }), 'SITE_URL')).toMatchObject({ action: 'missing' })
+    // One already set needs no new one.
+    expect(byName(planEnvDefaults({ type: 'preview', defaultNames: ['SITE_URL'] }), 'SITE_URL').action).toBe('skip')
+  })
+
+  it('gives dev the dev server\'s origin', () => {
+    expect(byName(planEnvDefaults({ type: 'dev', defaultNames: [] }), 'SITE_URL')).toMatchObject({ action: 'provision', value: 'http://localhost:3000' })
+  })
+
+  it('keeps defaults already set unless forced, and replaces SITE_URL when one is given', () => {
+    const actions = planEnvDefaults({ type: 'preview', defaultNames: ENV_DEFAULT_NAMES, siteUrl: 'https://next.example.com', force: new Set(['AUTH_SECRET']) })
+    expect(byName(actions, 'AUTH_SECRET').action).toBe('update')
+    expect(byName(actions, 'SITE_URL')).toMatchObject({ action: 'update', value: 'https://next.example.com' })
+    expect(byName(actions, 'EMAIL_TEST_MODE').action).toBe('skip')
   })
 })

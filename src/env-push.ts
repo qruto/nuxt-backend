@@ -54,6 +54,12 @@ export interface EnvPushPlanInput {
   /** Treat as a dev deployment (gap-filling allowed). */
   dev: boolean
   /**
+   * Treat as a preview deployment: disposable like dev, so AUTH_SECRET is
+   * generated and mail and billing start safe (`PREVIEW_ENV_DEFAULTS`), but
+   * SITE_URL is the preview's own origin, which only the caller knows.
+   */
+  preview?: boolean
+  /**
    * Names whose deployment value may be replaced by the local one. Rotation is
    * deliberate: a push never overwrites a live secret on its own, because the
    * plan compares presence, not values — it reads names only, so the CLI can
@@ -63,12 +69,33 @@ export interface EnvPushPlanInput {
 }
 
 /**
+ * A name with no value anywhere: what a deployment of this kind gets. Dev and
+ * preview deployments are disposable, so a secret is generated for them; dev
+ * gets the dev server's origin, a preview starts mail and billing safe and
+ * waits for its own origin; anything else never gets a value made up.
+ */
+function gapAction(name: string, { dev, preview }: { dev: boolean, preview: boolean }): EnvPushAction {
+  const required = (REQUIRED_DEPLOYMENT_ENV as readonly string[]).includes(name)
+  if (required && (dev || preview) && name === 'AUTH_SECRET') {
+    return { name, action: 'provision', value: generateAuthSecret(), detail: `generated (${dev ? 'dev' : 'preview'} deployment)` }
+  }
+  if (required && dev) return { name, action: 'provision', value: DEV_SITE_URL, detail: 'dev default' }
+  if (required) {
+    return { name, action: 'missing', detail: preview ? 'required — pass the preview\'s own origin with --site-url' : 'required — set it in .env.local (or the dashboard) and push again' }
+  }
+  if (preview && name in PREVIEW_ENV_DEFAULTS) {
+    return { name, action: 'provision', value: PREVIEW_ENV_DEFAULTS[name as keyof typeof PREVIEW_ENV_DEFAULTS], detail: 'preview default' }
+  }
+  return { name, action: 'unset', detail: `optional — ${OPTIONAL_DEPLOYMENT_ENV[name as keyof typeof OPTIONAL_DEPLOYMENT_ENV]}` }
+}
+
+/**
  * Decide what to do per var. Pure; exported for tests — `runEnvPush` is the
  * flow the CLI and the module call.
  *
  * @internal
  */
-export function planEnvPush({ deployedNames, localEnv, dev, force }: EnvPushPlanInput): EnvPushAction[] {
+export function planEnvPush({ deployedNames, localEnv, dev, preview = false, force }: EnvPushPlanInput): EnvPushAction[] {
   const deployed = new Set(deployedNames)
   const actions: EnvPushAction[] = []
 
@@ -104,18 +131,7 @@ export function planEnvPush({ deployedNames, localEnv, dev, force }: EnvPushPlan
       actions.push({ name, action: 'forward', value: local, detail: 'forwarded from .env(.local)' })
       continue
     }
-    const required = (REQUIRED_DEPLOYMENT_ENV as readonly string[]).includes(name)
-    if (required && dev) {
-      actions.push(name === 'AUTH_SECRET'
-        ? { name, action: 'provision', value: randomBytes(32).toString('base64'), detail: 'generated (dev deployment)' }
-        : { name, action: 'provision', value: 'http://localhost:3000', detail: 'dev default' })
-    }
-    else if (required) {
-      actions.push({ name, action: 'missing', detail: 'required — set it in .env.local (or the dashboard) and push again' })
-    }
-    else {
-      actions.push({ name, action: 'unset', detail: `optional — ${OPTIONAL_DEPLOYMENT_ENV[name as keyof typeof OPTIONAL_DEPLOYMENT_ENV]}` })
-    }
+    actions.push(gapAction(name, { dev, preview }))
   }
 
   // Dev without a transport: echo OTP codes to the convex dev console so the
@@ -126,6 +142,21 @@ export function planEnvPush({ deployedNames, localEnv, dev, force }: EnvPushPlan
   }
 
   return actions
+}
+
+/** The SITE_URL a dev deployment gets when nothing else names one: the Nuxt dev server's default origin. */
+export const DEV_SITE_URL = 'http://localhost:3000'
+
+/**
+ * What a preview deployment starts with when nothing else gives a value: mail
+ * in test mode, billing in the sandbox. A preview is reachable by anyone with
+ * its URL, so it never sends real mail or takes real money until told to.
+ */
+export const PREVIEW_ENV_DEFAULTS = { EMAIL_TEST_MODE: 'true', BILLING_ENVIRONMENT: 'sandbox' } as const
+
+/** A new AUTH_SECRET: 32 random bytes, base64. */
+export function generateAuthSecret(): string {
+  return randomBytes(32).toString('base64')
 }
 
 /** Minimal .env parser — enough for KEY=VALUE lines (dotenv-style). */
@@ -142,16 +173,29 @@ export function readEnvFiles(rootDir: string): Record<string, string> {
 }
 
 /**
+ * The deployment a Convex CLI call acts on: the one `.env.local` names by
+ * default, the project's production deployment with `prod`, or the preview
+ * deployment of that name with `preview`.
+ */
+export interface DeploymentTarget {
+  prod?: boolean
+  /** A preview deployment's name: the branch `convex deploy` named it after. */
+  preview?: string
+}
+
+/**
  * The Convex CLI flags that select the deployment to act on. `--prod` is
  * explicit because the ambient selection is not production: `.env.local`
  * names a dev deployment, and without the flag every `env` / `run` /
  * `function-spec` call acts on it. Only `convex deploy` implies production
  * on its own. A deploy key for one deployment (`CONVEX_DEPLOY_KEY`) selects
  * that deployment instead; the CLI then ignores `--prod`, so passing it is
- * harmless.
+ * harmless. A preview is selected by name (`--preview-name`), with the
+ * developer's login or a preview deploy key.
  */
-export function deploymentFlags(options: { prod?: boolean } = {}): string[] {
-  return options.prod ? ['--prod'] : []
+export function deploymentFlags(options: DeploymentTarget = {}): string[] {
+  if (options.prod) return ['--prod']
+  return options.preview !== undefined ? ['--preview-name', options.preview] : []
 }
 
 /**
@@ -191,17 +235,22 @@ export function nonProductionDeployKey(env: Record<string, string | undefined> =
  * process. (`--names-only` arrived in convex 1.42; the peer range starts
  * at 1.46.)
  */
-export async function deploymentEnvNames(rootDir: string, options: { prod?: boolean } = {}): Promise<string[] | null> {
+export async function deploymentEnvNames(rootDir: string, options: DeploymentTarget = {}): Promise<string[] | null> {
   try {
     const { stdout } = await runConvex(rootDir, ['env', 'list', '--names-only', ...deploymentFlags(options)])
-    return stdout
-      .split('\n')
-      .map(line => line.split('=')[0]?.trim() ?? '')
-      .filter(name => /^[A-Z][A-Z0-9_]*$/.test(name))
+    return envNames(stdout)
   }
   catch {
     return null
   }
+}
+
+/** The variable names in a `--names-only` listing (or a `NAME=value` one, whose values are dropped). */
+export function envNames(listing: string): string[] {
+  return listing
+    .split('\n')
+    .map(line => line.split('=')[0]?.trim() ?? '')
+    .filter(name => /^[A-Z][A-Z0-9_]*$/.test(name))
 }
 
 /**
@@ -234,7 +283,7 @@ export async function deploymentFunctionSpec(rootDir: string, options: { prod?: 
  * quote them. The Convex CLI reads a value it was not given from stdin when
  * stdin is not a terminal (since convex 1.27).
  */
-export async function setDeploymentEnv(rootDir: string, name: string, value: string, options: { prod?: boolean } = {}): Promise<void> {
+export async function setDeploymentEnv(rootDir: string, name: string, value: string, options: DeploymentTarget = {}): Promise<void> {
   await runConvex(rootDir, ['env', 'set', ...deploymentFlags(options), name], { input: value })
 }
 
@@ -248,6 +297,8 @@ export interface ExecuteEnvPushOptions {
   dryRun?: boolean
   /** Set on the production deployment (`convex env set --prod`). */
   prod?: boolean
+  /** Set on the preview deployment of this name (`convex env set --preview-name`). */
+  preview?: string
   /** Injectable spawner for tests. */
   setEnv?: (rootDir: string, name: string, value: string) => Promise<void>
 }
@@ -263,7 +314,7 @@ export interface ExecuteEnvPushOptions {
 export async function executeEnvPush(
   rootDir: string,
   actions: EnvPushAction[],
-  { dryRun = false, prod = false, setEnv = (dir, name, value) => setDeploymentEnv(dir, name, value, { prod }) }: ExecuteEnvPushOptions = {},
+  { dryRun = false, prod = false, preview, setEnv = (dir, name, value) => setDeploymentEnv(dir, name, value, { prod, preview }) }: ExecuteEnvPushOptions = {},
 ): Promise<EnvPushResult[]> {
   const results: EnvPushResult[] = []
   for (const action of actions) {
@@ -287,6 +338,11 @@ export async function executeEnvPush(
 }
 
 export interface EnvPushRunResult {
+  /**
+   * What was written: the deployment `.env.local` names (`dev:<slug>`),
+   * `production`, `preview:<name>`, or a type's project env defaults
+   * (`defaults:preview`).
+   */
   deployment: string | null
   dev: boolean
   /** The names the deployment held before the push (`convex env list`). */
@@ -351,17 +407,36 @@ export function provisionedEnvNames(rootDir: string): ReadonlySet<string> | unde
     : undefined
 }
 
+export interface RunEnvPushOptions extends DeploymentTarget {
+  dryRun?: boolean
+  force?: ReadonlySet<string>
+  /**
+   * The SITE_URL to write, over any other: replaces the one on the deployment
+   * (giving it is asking for it), and is a preview's only source of one.
+   */
+  siteUrl?: string
+  setEnv?: ExecuteEnvPushOptions['setEnv']
+}
+
 /** The whole flow shared by the CLI and the module's dev auto-provision. */
-export async function runEnvPush(rootDir: string, options: { prod?: boolean, dryRun?: boolean, force?: ReadonlySet<string>, setEnv?: ExecuteEnvPushOptions['setEnv'] } = {}): Promise<EnvPushRunResult | null> {
-  const deployedNames = await deploymentEnvNames(rootDir, { prod: options.prod })
+export async function runEnvPush(rootDir: string, options: RunEnvPushOptions = {}): Promise<EnvPushRunResult | null> {
+  const target = { prod: options.prod, preview: options.preview }
+  const deployedNames = await deploymentEnvNames(rootDir, target)
   if (deployedNames === null) return null
 
   // Dev-class deployments get required-gap filling. Under --prod the target is
-  // the project's production deployment, whatever .env.local names.
-  const deployment = options.prod ? 'production' : configuredDeployment(rootDir)
-  const dev = !options.prod && isDevDeployment(rootDir)
-  const actions = planEnvPush({ deployedNames, localEnv: readEnvFiles(rootDir), dev, ...(options.force ? { force: options.force } : {}) })
-  const results = await executeEnvPush(rootDir, actions, { dryRun: options.dryRun, prod: options.prod, ...(options.setEnv ? { setEnv: options.setEnv } : {}) })
+  // the project's production deployment, whatever .env.local names; under
+  // --preview, that preview.
+  const preview = !options.prod && options.preview !== undefined
+  const deployment = options.prod ? 'production' : preview ? `preview:${options.preview}` : configuredDeployment(rootDir)
+  const dev = !options.prod && !preview && isDevDeployment(rootDir)
+  const localEnv = readEnvFiles(rootDir)
+  // A SITE_URL in .env(.local) is the dev app's origin, never a preview's.
+  if (preview) delete localEnv.SITE_URL
+  if (options.siteUrl) localEnv.SITE_URL = options.siteUrl
+  const force = options.siteUrl ? new Set([...options.force ?? [], 'SITE_URL']) : options.force
+  const actions = planEnvPush({ deployedNames, localEnv, dev, preview, ...(force ? { force } : {}) })
+  const results = await executeEnvPush(rootDir, actions, { dryRun: options.dryRun, ...target, ...(options.setEnv ? { setEnv: options.setEnv } : {}) })
   return {
     deployment,
     dev,

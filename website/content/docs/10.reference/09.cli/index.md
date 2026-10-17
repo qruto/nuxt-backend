@@ -1,12 +1,18 @@
 ---
 title: CLI
-description: npx nuxt-backend — init, dev, doctor, env push, and billing sync, with every flag and every finding.
+description: npx nuxt-backend — init, dev, doctor, env push, billing sync and inbox, with every flag, every finding and each command's contract.
 kind: reference
 navigation:
   icon: i-lucide-terminal
 ---
 
 `npx nuxt-backend <command>` ships with the package. Every command takes `--cwd <dir>` (default `.`, the project directory) and reads `.env` + `.env.local` from it. Deployment env **values** are never read — only names, via `npx convex env list` — with one exception: `billing sync` reads `BILLING_ENVIRONMENT`, the sandbox/production switch, to compare it with the environment it syncs. A value the CLI sets reaches `npx convex env set` on its stdin, never as an argument.
+
+No command asks a question: every input is a flag, so a coding agent or a script can run each one unattended. The one exception is the first run of [`dev`](#dev) with no deployment configured, which hands the terminal to `convex dev` for the Convex login. Each command states its contract, which `--help` repeats at the end of its description:
+
+- **Side effects:** what it may change. The classes are *reads only*, *writes project files*, *writes the dev deployment*, *writes a preview deployment*, *writes project env defaults*, *writes production* and *writes provider accounts*. A flag that changes them is named with them: `doctor` reads only, and writes with `--fix`.
+- **`--json`:** stdout is one JSON document, and progress lines go to stderr. The shapes are stable (see [Stability](/docs/ship/releases/stability)); the wording of text output is not.
+- **Exit codes:** `0` and `1` everywhere, plus `130` when `dev` is interrupted.
 
 ## `init`
 
@@ -16,12 +22,16 @@ Scaffold the backend files, `.env.example`, and the `nuxt.config` wiring. Re-run
 npx nuxt-backend init
 npx nuxt-backend init --force       # overwrite existing scaffold files
 npx nuxt-backend init --no-agents   # skip AGENTS.md and .mcp.json
+npx nuxt-backend init --json        # what it wrote, as one JSON document
 ```
+
+**Side effects:** writes project files. **`--json`:** `{ created, agentsMd, mcpJson, appComponent, devScript, convexDependency, nuxtConfig, next }` — the files written, what happened to `AGENTS.md` and `.mcp.json` (`null` with `--no-agents`), the root component it changed, the `dev` script it set, the `convex` range it added, whether `nuxt.config` lists the module (`listed`) or you must add it (`manual`), and the commands to run next. **Exit codes:** `0` done — every file written or already in place; `1` a file could not be written.
 
 | Flag | Effect |
 |---|---|
 | `--force` | Overwrite existing scaffold files (and `.env.example`), and replace the `nuxt-backend` section of `AGENTS.md`. |
 | `--no-agents` | Skip `AGENTS.md` and `.mcp.json`. |
+| `--json` | Print the outcome as one JSON document; progress goes to stderr. |
 
 What it does: writes every missing file from the [scaffold](/docs/auth/setup#the-scaffolded-files) into the Convex functions directory (`convex.json`'s `functions`, else an existing `backend/` or `convex/`, else `backend/`), writes `.env.example`, and adds `'nuxt-backend'` to `modules` in `nuxt.config.{ts,js,mjs}` via magicast (or tells you to). It also touches two files outside the scaffold when they need it: `app/app.vue` (or `app.vue`) has its `<NuxtWelcome />` replaced with `<NuxtPage />` while it is still the `create nuxt` starter — a root component that already renders `<NuxtPage />` is left alone — and `convex` is added to `dependencies` in `package.json` when neither `dependencies` nor `devDependencies` lists it (a caret range on the installed copy, else this package's peer range; `npx convex dev` refuses to run until the app declares it, so install once more to link it). It points a plain `nuxt dev` script at [`nuxt-backend dev`](#dev), keeping its arguments, and does the same for the `convex dev --start "nuxt dev"` script that `nuxt-convex-module` can write; a `dev` script you wrote yourself stays as it is. For coding agents it writes a `nuxt-backend` section into `AGENTS.md`, between markers so a re-run never duplicates it, and adds the Convex MCP server to `.mcp.json`. It also says when a `CLAUDE.md` does not import `AGENTS.md`. See [Skills & agent files](/docs/agents/coding) for how it merges into files you already have. It ends with the next steps:
 
@@ -44,6 +54,8 @@ Run Convex and Nuxt from one command. `init` points your `dev` script at it, so 
 npx nuxt-backend dev
 npm run dev -- --port 3001   # through the dev script: arguments reach nuxt dev
 ```
+
+**Side effects:** writes project files (the scaffold, when the functions directory is missing) and the dev deployment (its env, and the code `convex dev` pushes). **`--json`:** none — it runs until stopped, with Convex and Nuxt printing to the terminal. **Exit codes:** `0` Convex and Nuxt stopped cleanly; `1` no deployment could be set up, or Convex failed (its own exit code is passed on); `130` stopped by Ctrl-C, SIGINT or SIGTERM.
 
 In order, it:
 
@@ -70,6 +82,8 @@ npx nuxt-backend doctor --json     # machine-readable { $schema, findings, summa
 npx nuxt-backend doctor --only billing,email
 ```
 
+**Side effects:** reads only; with `--fix`, writes project files and the dev deployment (production with `--fix --prod`). **`--json`:** `{ $schema, findings, summary }`, described by [its JSON Schema](https://nuxt-backend.dev/schemas/doctor.json). **Exit codes:** `0` no finding failed (warnings allowed); `1` a finding failed, or the flags were refused.
+
 | Flag | Effect |
 |---|---|
 | `--prod` | Production posture: checks the project's **production** deployment (`convex … --prod`), and the optional tier's designed degradations become failures (see below). Refuses a dev or preview `CONVEX_DEPLOY_KEY`, which would point the checks at that deployment. |
@@ -93,6 +107,7 @@ Each finding has an `id`, the `service` it belongs to, a status (`pass` / `warn`
 | `deployment-email-api-key`, `deployment-email-from`, `deployment-email-test-mode`, `deployment-email-webhook-secret`, `deployment-billing-access-token`, `deployment-billing-webhook-secret`, `deployment-billing-environment` | Each optional var's presence on the deployment, with its designed degradation | — (warn; the key/secret ones **fail with `--prod`**) |
 | `deployment-auth-trust-local-origins` | Dev-only: unset is healthy; set on a **non-dev** deployment is a leak | — (warn; **fail with `--prod`**) |
 | `deployment-env` | The deployment env could be read at all | — (warn) |
+| `env-defaults` | The project's preview env defaults hold `AUTH_SECRET` and `SITE_URL`, so a new preview deployment's first push goes through (see [Preview deployments](#preview-deployments)). Not checked with `--prod`, or when the defaults cannot be read (a deployment with no cloud project) | — (warn; `env push --defaults preview --site-url <url>` sets them) |
 | `billing-meter-usage` | Every meter in `billing.catalog.ts` is funded by a plan or pack credit grant, or billed by a usage price | — (warn: an orphan meter) |
 | `billing-organization` | `BILLING_ACCESS_TOKEN` is visible locally and the provider answers with it for the active `BILLING_ENVIRONMENT` | — (warn: expired / wrong environment — the cross-checks below are skipped) |
 | `billing-multiple-subscriptions`, `billing-proration`, `billing-benefit-grace`, `billing-trial-abuse`, `billing-portal`, `billing-feature-benefits` | The provider organization's settings against the catalog: one active subscription per customer when several plans exist, plan-change proration, benefit revocation grace, trial-abuse prevention when a plan has a trial, portal plan changes, native feature-flag benefits | — (warn) |
@@ -114,11 +129,18 @@ npx nuxt-backend env push --dry-run
 npx nuxt-backend env push --prod
 npx nuxt-backend env push --json
 npx nuxt-backend env push --force BILLING_WEBHOOK_SECRET   # replace a value already set
+npx nuxt-backend env push --defaults preview --site-url https://preview.example.com
+npx nuxt-backend env push --preview my-branch --site-url https://my-branch.example.app
 ```
+
+**Side effects:** writes the dev deployment; with `--prod`, production; with `--preview`, a preview deployment; with `--defaults`, the project env defaults; with `--dry-run`, reads only. **`--json`:** `{ deployment, dev, results: [{ name, action, detail, outcome, error }], missingRequired }`, where `deployment` names what was written — `dev:<slug>`, `production`, `preview:<name>` or `defaults:<type>` — and values never appear. **Exit codes:** `0` every value set, or nothing to set; `1` refused, no deployment (or project defaults) reachable, a set failed, or required env is missing.
 
 | Flag | Effect |
 |---|---|
 | `--prod` | Acts on the project's **production** deployment (`convex env set --prod`), whichever deployment `.env.local` names. Never invents values; fails (exit 1) on missing required env. Refuses to run when `CONVEX_DEPLOY_KEY` is a dev or preview key: the Convex CLI follows the key and ignores `--prod`, so the push would land there. |
+| `--preview [name]` | Acts on the preview deployment of that name (`convex env set --preview-name`). Without a name, the branch the CI build names, read as `convex deploy` reads it (`VERCEL_GIT_COMMIT_REF` on Vercel, `HEAD` on Netlify, …). Generates `AUTH_SECRET` and starts mail in test mode and billing in the sandbox when nothing else sets them; `SITE_URL` comes from `--site-url` only. Refuses a deploy key that is not a preview key. |
+| `--defaults preview\|dev` | Writes the project's env defaults for new deployments of that type (`convex env default set --type`) instead of a deployment: a generated `AUTH_SECRET`, `SITE_URL`, `EMAIL_TEST_MODE=true` and `BILLING_ENVIRONMENT=sandbox`. A default already set is kept unless `--force` names it. `prod` is refused, and so is a production deploy key. |
+| `--site-url <url>` | The `SITE_URL` to write, replacing the one already set — giving it is asking for it. A preview's only source of one, and required for `--defaults preview` until the project has that default. |
 | `--dry-run` | Print the plan without setting anything. |
 | `--force <names>` | Replace values already set on the deployment with the local ones: a comma-separated list of names (case-insensitive), or `all` for every variable of the contract. Rotation has to be asked for — the plan reads deployment **names**, never values, so it cannot tell a rotated secret from an identical one. |
 | `--json` | Machine-readable output. |
@@ -135,6 +157,27 @@ The plan, per variable of the contract (`AUTH_SECRET`, `SITE_URL`, `AUTH_TRUST_L
 | `unset` | Optional and absent — informational, with the designed degradation; dev-only vars are never forwarded to a non-dev deployment |
 
 Each value reaches `npx convex env set NAME` on its stdin — never as an argument, where every process on the machine could read it (`ps`), and never through a shell. A set that fails is reported as the command, its exit code and the last lines of its stderr, never with the value. The deployment is whatever the Convex CLI targets — `CONVEX_DEPLOYMENT` from `.env.local` in dev, or a `CONVEX_DEPLOY_KEY` in the environment for production. Without a reachable deployment the command exits 1 (`run npx convex dev once, then push again`).
+
+### Preview deployments
+
+`npx convex deploy` with a preview deploy key creates the branch's preview deployment, runs your `--cmd`, then pushes the backend to it. That push fails unless `AUTH_SECRET` and `SITE_URL` are already there, and a new preview starts with nothing but the project's preview env defaults. Two ways to have them there, which work together:
+
+- **In the build, exactly.** `--cmd` runs once the preview exists and before the push, so `env push --preview` can fill its env there, with the branch's own origin as `SITE_URL`. On Vercel, where `VERCEL_BRANCH_URL` is the branch's stable URL and the same build command also runs for production:
+
+  ```bash
+  npx convex deploy --cmd-url-env-var-name NUXT_PUBLIC_BACKEND_URL \
+    --cmd 'if [ "$VERCEL_ENV" = preview ]; then npx nuxt-backend env push --preview --site-url "https://$VERCEL_BRANCH_URL"; fi && npm run build'
+  ```
+
+- **Project env defaults, once.** Convex copies them into every preview it creates, so a preview built without that step can still push:
+
+  ```bash
+  npx nuxt-backend env push --defaults preview --site-url https://preview.example.com
+  ```
+
+`SITE_URL` is the one value neither will make up. Auth trusts only that origin, and a preview's origin is its own — one per branch on most hosts — so it has to come from the build, which knows it, or from you. A default cannot be exact for every preview: name a stable preview domain if your host gives you one, and let the build step replace it per branch. `doctor` reports the defaults as [`env-defaults`](#findings).
+
+`--defaults dev` writes the same four values for new dev deployments, with `SITE_URL` at `http://localhost:3000` unless `--site-url` names another: useful when teammates start with a bare `npx convex dev`, which `nuxt-backend dev` makes unnecessary. Every deployment created from the defaults shares their one `AUTH_SECRET`.
 
 ::note
 `backend.autoEnv` (default `true`) runs this same engine once per dev deployment on dev-server startup, stamped under `node_modules/.cache/nuxt-backend`, and watches `.env.local` for `CONVEX_DEPLOYMENT` to appear so the two first-run terminals can start in any order. It never touches non-dev deployments.
@@ -171,3 +214,22 @@ Before it writes anything, it reads the deployment the Convex CLI will write —
 - **The products.** `billing:syncProducts` runs only when the deployment can load the catalog synced: it holds `BILLING_ACCESS_TOKEN`, and its `BILLING_ENVIRONMENT` (sandbox when unset) is the environment synced. Otherwise it is skipped with the command to run once that is set; a run that fails reports the deployment's error.
 
 Needs `BILLING_ACCESS_TOKEN` (env or `.env.local`) and a `billing.catalog.ts`. The full semantics — tagging, drift, adopted products, the generated map — are in [Catalog as code](/docs/billing/catalog).
+
+## `inbox`
+
+Print the sign-in codes a dev deployment sent to one of the email provider's sandbox addresses: how a coding agent, or a script, finishes an email-code sign-in with no mailbox and no terminal to read. It reads the component's [sandbox inbox](/docs/email/sandbox-inbox) with `npx convex run --component backend email:inbox`, so the app need not publish it.
+
+```bash
+npx nuxt-backend inbox                               # delivered@resend.dev
+npx nuxt-backend inbox delivered+agent@resend.dev --json
+```
+
+**Side effects:** reads only. **`--json`:** `{ address, deployment, messages: [{ from, subject, receivedAt, code }], code }` — the mail of the last hour, newest first, and the newest message's six-digit code (`null` when there is none). Message bodies are never printed. **Exit codes:** `0` the inbox was read, even when empty; `1` refused, or the read failed.
+
+| Flag | Effect |
+|---|---|
+| `[address]` | The sandbox address to read: `delivered@resend.dev` (the default), or `delivered+<label>@resend.dev`. Any other address is refused — only these have an inbox. |
+| `--json` | Print the inbox as one JSON document. |
+| `--prod` | Refused: the inbox is read on dev deployments only. |
+
+It reads dev-class deployments only (`dev:`, `local:` and `anonymous:`) and refuses everything else: `--prod`, a `CONVEX_DEPLOY_KEY` for anything but a dev deployment (the Convex CLI would follow it), a `CONVEX_DEPLOYMENT` of another kind, and a self-hosted deployment, which does not say what it is. The deployment keeps mail only in test mode, the default, and only for sandbox addresses — with `EMAIL_TEST_MODE=false` the inbox is empty. With no email provider key, sign-in to a sandbox address still works: the code lands in the inbox.

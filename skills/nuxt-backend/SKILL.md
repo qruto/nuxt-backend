@@ -41,8 +41,11 @@ existing one, the first deployment (a local one needs no account), and how to ch
 | `npx nuxt-backend init` | Scaffolds `backend/`, `convex.json`, `.env.example`, AGENTS.md and `.mcp.json`, and adds the module to `nuxt.config`. `--no-agents` skips the agent files |
 | `npx nuxt-backend dev` | The `dev` script: sets up a dev deployment on first run, provisions its env, then runs Convex and Nuxt together |
 | `npx nuxt-backend doctor` | Checks env, codegen, the function contract, webhook routes and the billing catalog. `--fix` repairs what it can, `--prod` checks production, `--json` prints findings with a `service` and a `docsUrl`, `--only billing` checks one service |
-| `npx nuxt-backend env push` | Syncs `.env` and `.env.local` to the deployment. Dev deployments also get `AUTH_SECRET` and `SITE_URL` generated |
+| `npx nuxt-backend env push` | Syncs `.env` and `.env.local` to the deployment. Dev deployments also get `AUTH_SECRET` and `SITE_URL` generated. `--preview <branch> --site-url <url>` fills a preview deployment, `--defaults preview --site-url <url>` writes the project's preview env defaults |
 | `npx nuxt-backend billing sync` | Creates the products in `backend/billing.catalog.ts`, writes `backend/billing.generated.ts`, stores the webhook secret on the deployment and loads the products there. `--json` for a machine-readable outcome |
+| `npx nuxt-backend inbox [address]` | Prints the sign-in codes a dev deployment sent to a sandbox address (`delivered+<label>@resend.dev`). Dev deployments only |
+
+No command prompts. `--json` prints one JSON document with progress on stderr, exit code `1` means refused or failed, and `--help` ends with what the command may change: reads only, project files, the dev deployment, a preview, the project's env defaults, production or provider accounts. Run a command that writes production only when the user asks for it.
 
 ## Environment
 

@@ -158,6 +158,12 @@ describe('runConvex', () => {
     await expect(failure).rejects.toMatchObject({ message: 'convex env set could not start (ENOENT)', code: null })
     await expect(failure).rejects.not.toHaveProperty('spawnargs')
   })
+
+  it('names a project default\'s set as env default set, never its type or name', async () => {
+    const { runConvex } = await import('../../src/convex-cli')
+    const failure = runConvex(join(rootDir, 'gone'), ['env', 'default', 'set', '--type', 'preview', 'AUTH_SECRET'])
+    await expect(failure).rejects.toMatchObject({ message: 'convex env default set could not start (ENOENT)' })
+  })
 })
 
 describe('runConvex input', () => {
