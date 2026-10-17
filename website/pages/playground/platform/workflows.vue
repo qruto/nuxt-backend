@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { api } from '#backend/api'
-import { errorText } from '../../../utils/errorText'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -18,7 +17,7 @@ async function runWorkflow() {
   try {
     workflowId.value = await startWorkflow({ label: new Date().toLocaleTimeString() })
   }
-  catch (cause) { workflowError.value = errorText(cause, 'Could not start the workflow') }
+  catch (cause) { workflowError.value = getBackendError(cause)?.message ?? 'Could not start the workflow' }
   finally { workflowPending.value = false }
 }
 

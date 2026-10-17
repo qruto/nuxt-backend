@@ -1,8 +1,10 @@
 /// <reference types="vite/client" />
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { componentsGeneric, makeFunctionReference } from 'convex/server'
+import { getBackendError } from '../../src/convex/errors'
 import { asUser, defineBackendTestApp } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
+import { rateLimiter } from '../../website/backend/rateLimiter'
 import schema from '../../website/backend/schema'
 
 // The public playground's guards, run on the website's own functions. The
@@ -183,7 +185,9 @@ describe('abuse limits', () => {
   test('upload URLs are rationed per user and refused to a full library', async () => {
     const me = await asUser(t, { email: sandbox('upload') })
     for (let i = 0; i < 10; i++) await me.mutation(generateUploadUrl, {})
-    await expect(me.mutation(generateUploadUrl, {})).rejects.toThrow('Too many requests')
+    // The limiter's own refusal, which the page reads as rate_limited with the wait.
+    const limited = await me.mutation(generateUploadUrl, {}).catch((error: unknown) => error)
+    expect(getBackendError(limited)).toMatchObject({ code: 'rate_limited', data: { limit: 'playgroundUpload' } })
 
     const full = await asUser(t, { email: sandbox('full') })
     await t.run(async (ctx) => {
@@ -192,6 +196,15 @@ describe('abuse limits', () => {
       }
     })
     await expect(full.mutation(generateUploadUrl, {})).rejects.toThrow('50 files per account')
+  })
+
+  test('a refusal the limiter answers without a wait still refuses, as rate_limited', async () => {
+    // With `throws: true` the limiter throws only when it knows the wait; a
+    // closed limit without one comes back as `{ ok: false }`.
+    const me = await asUser(t, { email: sandbox('nowait') })
+    vi.spyOn(rateLimiter, 'limit').mockResolvedValueOnce({ ok: false, retryAfter: undefined } as never)
+    const limited = await me.mutation(generateUploadUrl, {}).catch((error: unknown) => error)
+    expect(getBackendError(limited)).toEqual({ code: 'rate_limited', data: { limit: 'playgroundUpload' }, message: 'Too many requests. Try again in a moment.' })
   })
 
   test('todos and counters take bounded input', async () => {

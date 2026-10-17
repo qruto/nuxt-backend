@@ -30,7 +30,13 @@ async function callGuard(entry: (typeof GUARDS)[number]) {
     guardResults.value = { ...guardResults.value, [entry.key]: { ok: true, detail: JSON.stringify(result) } }
   }
   catch (e) {
-    const message = e instanceof Error ? e.message.split('\n')[0]! : 'denied'
+    // The refusal's code and reason, as the server threw them: production keeps
+    // these where it shows any other error as "Server Error".
+    const refusal = getBackendError(e)
+    const reason = (refusal?.data as { reason?: string } | undefined)?.reason
+    const message = refusal
+      ? `${refusal.code}${reason ? ` (${reason})` : ''}: ${refusal.message}`
+      : e instanceof Error ? e.message.split('\n')[0]! : 'denied'
     guardResults.value = { ...guardResults.value, [entry.key]: { ok: false, detail: message } }
   }
   finally {
@@ -54,7 +60,7 @@ async function loadUsers() {
     adminUsers.value = result.users ?? []
   }
   catch (e) {
-    adminNotice.value = e instanceof Error ? e.message : 'Failed'
+    adminNotice.value = getBackendError(e)?.message ?? (e instanceof Error ? e.message : 'Failed')
   }
   finally {
     adminBusy.value = null
@@ -80,7 +86,7 @@ async function setBanned(row: AdminUserRow, ban: boolean) {
     await loadUsers()
   }
   catch (e) {
-    adminNotice.value = e instanceof Error ? e.message : 'Failed'
+    adminNotice.value = getBackendError(e)?.message ?? (e instanceof Error ? e.message : 'Failed')
   }
   finally {
     adminBusy.value = null

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { api } from '#backend/api'
-import { errorText } from '../../../utils/errorText'
 import { isAllowedTestEmail, OUTCOME_TEST_EMAILS, TEST_EMAIL_HELP } from '../../../utils/testEmail'
 
 definePageMeta({ middleware: 'auth' })
@@ -29,7 +28,7 @@ async function sendTestEmail() {
     else emailSkipped.value = true
   }
   catch (cause) {
-    emailError.value = errorText(cause, 'Send failed')
+    emailError.value = getBackendError(cause)?.message ?? 'Send failed'
   }
   finally { emailPending.value = false }
 }
@@ -89,7 +88,7 @@ async function runMarketing() {
     await sendBroadcast({ broadcastId: broadcast.id })
     marketingMsg.value = `Broadcast ${broadcast.id} sent to segment ${segment.id}.`
   }
-  catch (e) { marketingMsg.value = errorText(e, 'Marketing failed') }
+  catch (e) { marketingMsg.value = getBackendError(e)?.message ?? 'Marketing failed' }
   finally { marketingPending.value = false }
 }
 
