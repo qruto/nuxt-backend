@@ -6,7 +6,7 @@ import type pkg from '../../package.json'
 import backendModule, { type ModuleOptions } from 'nuxt-backend'
 import { setupAuth, type SetupAuthOptions } from 'nuxt-backend/auth'
 import { createAccessControl, setupAuthorization } from 'nuxt-backend/authorization'
-import { registerBackendRoutes, setupMcp } from 'nuxt-backend/http'
+import { registerBackendRoutes } from 'nuxt-backend/http'
 import { createFunctions } from 'nuxt-backend/functions'
 import { backendEnv } from 'nuxt-backend/app'
 import { ALL_BILLING_EVENTS, defineBillingCatalog, type SetupBillingConfig, setupBilling } from 'nuxt-backend/billing'
@@ -22,7 +22,7 @@ import { priceTokens, setupAi } from 'nuxt-backend/ai'
 import { BACKEND_MCP_FUNCTION_DEFAULTS, defineBackendMcpTool, useBackendMcp } from 'nuxt-backend/mcp'
 import backendComponent from 'nuxt-backend/convex.config'
 import authConfig, { defineBackendAuthConfig } from 'nuxt-backend/auth.config'
-import backendTest, { register } from 'nuxt-backend/test'
+import backendTest, { asUser, defineBackendTestApp, register, seedWorkspace } from 'nuxt-backend/test'
 import { BACKEND_ESLINT_RULES, backendEslint } from 'nuxt-backend/eslint'
 import type { Linter } from 'eslint'
 import { useCredits } from '../../src/runtime/vue/composables/use-credits'
@@ -92,10 +92,12 @@ describe('integrations', () => {
     expectTypeOf(setupAuth).returns.toHaveProperty('getAuthUser')
     expectTypeOf(setupAuth).returns.toHaveProperty('createAuth')
     expectTypeOf(setupAuth).returns.toHaveProperty('authComponent')
-    expectTypeOf(setupAuth).returns.toHaveProperty('emailTemplates')
+    // The templates live with the email instance, which every auth email goes through.
+    expectTypeOf(setupAuth).returns.not.toHaveProperty('emailTemplates')
     expectTypeOf(setupAuth).returns.not.toHaveProperty('createAuthOptions')
     // The cross-component wiring sits at the top level of the options.
     expectTypeOf<SetupAuthOptions>().toHaveProperty('rateLimiter')
+    expectTypeOf<SetupAuthOptions['email']>().not.toBeNullable()
     expectTypeOf<SetupAuthOptions>().not.toHaveProperty('integrations')
   })
 
@@ -110,7 +112,11 @@ describe('integrations', () => {
     // Mounts onto the app's router and returns nothing.
     expectTypeOf(registerBackendRoutes).parameter(0).toEqualTypeOf<HttpRouter>()
     expectTypeOf(registerBackendRoutes).returns.toBeVoid()
-    expectTypeOf(setupMcp).toBeFunction()
+    // Every part is required: a route left out would answer 404 at its first call.
+    expectTypeOf<Parameters<typeof registerBackendRoutes>[1]['billing']>().not.toBeNullable()
+    expectTypeOf<Parameters<typeof registerBackendRoutes>[1]['email']>().not.toBeNullable()
+    expectTypeOf<Parameters<typeof registerBackendRoutes>[1]['ai']>().not.toBeNullable()
+    expectTypeOf<Parameters<typeof registerBackendRoutes>[1]['auth']>().toHaveProperty('mcp')
   })
 
   test('nuxt-backend/functions', () => {
@@ -127,7 +133,8 @@ describe('integrations', () => {
   })
 
   test('nuxt-backend/billing', () => {
-    expectTypeOf(setupBilling).parameter(1).toEqualTypeOf<SetupBillingConfig | undefined>()
+    expectTypeOf(setupBilling).parameter(1).toEqualTypeOf<SetupBillingConfig>()
+    expectTypeOf<SetupBillingConfig['email']>().not.toBeNullable()
     expectTypeOf(setupBilling).returns.toHaveProperty('provider')
     expectTypeOf(setupBilling).returns.toHaveProperty('api')
     expectTypeOf(defineBillingCatalog).toBeFunction()
@@ -136,6 +143,9 @@ describe('integrations', () => {
 
   test('nuxt-backend/email', () => {
     expectTypeOf(setupEmail).returns.toHaveProperty('send')
+    // The templates of every email the package sends, rendered or sent by name.
+    expectTypeOf(setupEmail).returns.toHaveProperty('render')
+    expectTypeOf(setupEmail).returns.toHaveProperty('sendTemplate')
     expectTypeOf(setupEmail).returns.toHaveProperty('api')
     expectTypeOf<EmailWebhookEventType>().toExtend<(typeof ALL_EMAIL_EVENTS)[number]>()
   })
@@ -187,6 +197,11 @@ describe('integrations', () => {
     expectTypeOf(backendTest).toHaveProperty('register')
     expectTypeOf(backendTest).toHaveProperty('schema')
     expectTypeOf(backendTest).toHaveProperty('modules')
+    // A test app per call, and callers that carry a session's or an agent's claims.
+    expectTypeOf(defineBackendTestApp).returns.toBeFunction()
+    expectTypeOf(asUser).returns.resolves.toHaveProperty('userId')
+    expectTypeOf(asUser).returns.resolves.toHaveProperty('query')
+    expectTypeOf(seedWorkspace).returns.resolves.toBeString()
   })
 })
 

@@ -10,6 +10,9 @@ function makeOptions() {
     auth: {
       authComponent: { registerRoutes: vi.fn() },
       createAuth: () => {},
+      mcp: {
+        exchangeHandler: vi.fn(async () => Response.json({ token: 't' })),
+      },
     },
     billing: {
       webhookHandler: vi.fn(async () => new Response('accepted', { status: 202 })),
@@ -20,9 +23,6 @@ function makeOptions() {
     ai: {
       httpHandler: vi.fn(),
       corsOrigin: 'https://app.test',
-    },
-    mcp: {
-      exchangeHandler: vi.fn(async () => Response.json({ token: 't' })),
     },
   }
 }
@@ -36,7 +36,7 @@ describe('registerBackendRoutes', () => {
     const http = makeHttp()
     const options = makeOptions()
 
-    registerBackendRoutes(http, options as never)
+    registerBackendRoutes(http, options)
 
     expect(options.auth.authComponent.registerRoutes).toHaveBeenCalledWith(http, options.auth.createAuth)
     const calls = routeCalls(http)
@@ -47,21 +47,30 @@ describe('registerBackendRoutes', () => {
     expect(calls).toContainEqual(expect.objectContaining({ path: '/mcp/exchange', method: 'POST' }))
   })
 
-  it('billing, email, ai, and mcp are optional', () => {
+  it('takes every part: one left out is a type error, and a named one before anything mounts', () => {
     const http = makeHttp()
+    const { auth } = makeOptions()
+    // @ts-expect-error billing, email and ai are required
+    expect(() => registerBackendRoutes(http, { auth })).toThrow('registerBackendRoutes is missing billing (from setupBilling), email (from setupEmail), ai (from setupAi).')
+    expect(auth.authComponent.registerRoutes).not.toHaveBeenCalled()
+    expect(routeCalls(http)).toEqual([])
+  })
+
+  // An import cycle leaves an export undefined while http.ts loads: the part
+  // is passed, and still missing.
+  it('names a part that arrived undefined, such as an auth.ts without its mcp export', () => {
     const options = makeOptions()
-
-    registerBackendRoutes(http, { auth: options.auth } as never)
-
-    expect(options.auth.authComponent.registerRoutes).toHaveBeenCalled()
-    expect((http as { route: ReturnType<typeof vi.fn> }).route).not.toHaveBeenCalled()
+    expect(() => registerBackendRoutes(makeHttp(), { ...options, auth: { ...options.auth, mcp: undefined as never } }))
+      .toThrow(/missing auth \(setupAuth's authComponent, createAuth and mcp\)\. /)
+    expect(() => registerBackendRoutes(makeHttp(), { ...options, email: undefined as never }))
+      .toThrow(/missing email \(from setupEmail\)\. .*import cycle/)
   })
 
   it('the route paths are configurable', () => {
     const http = makeHttp()
     const options = makeOptions()
 
-    registerBackendRoutes(http, { ...options, billingPath: '/hooks/billing', emailPath: '/hooks/email', aiPath: '/hooks/ai', mcpExchangePath: '/hooks/mcp' } as never)
+    registerBackendRoutes(http, { ...options, billingPath: '/hooks/billing', emailPath: '/hooks/email', aiPath: '/hooks/ai', mcpExchangePath: '/hooks/mcp' })
 
     const calls = routeCalls(http)
     expect(calls).toContainEqual(expect.objectContaining({ path: '/hooks/billing', method: 'POST' }))

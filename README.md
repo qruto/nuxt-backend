@@ -188,11 +188,12 @@ On dev startup the module checks your environment — missing site URL, weak `AU
 The scaffolded `backend/` files compose the backend from `nuxt-backend/*`:
 
 - `convex.config.ts` — the explicit app definition, scaffolded for you: declares the env contract (`backendEnv` from `nuxt-backend/app`), mounts the all-in-one `backend` component (auth + email + billing cache + gifts, with the email provider nested inside) and the upstream components one `app.use` each, and forwards the email config
-- `setupAuth` — passwordless Better Auth (OTP + passkey plugins), workspaces with emailed invitations, email templates included
+- `setupAuth` — passwordless Better Auth (OTP + passkey plugins), workspaces with emailed invitations, its email sent through `setupEmail`
 - `setupBilling` — products, checkout, webhook handlers, entitlement cache, prepaid credits (`spendCredits`), and gift purchases (`giftCheckout` / `claimGift`)
 - `setupAi` (`nuxt-backend/ai`) — metered actions and persisted token streams: rate-limited, prepaid-credit-metered with reserve → run → settle (a failed run costs nothing), usage ingested into the billing provider
 - `registerBackendRoutes` — one call mounts every inbound route: auth routes, `/billing/events`, `/email/events`, `/ai/stream`, and the agent token exchange at `/mcp/exchange`
-- `setupEmail`, `setupRateLimiter`, `setupWorkflows`, `setupMigrations`, `withTriggers` (aggregates), `defineSearch`
+- `setupEmail` — transactional and marketing email, and the templates of every email the package sends (auth and billing send through it)
+- `setupRateLimiter`, `setupWorkflows`, `setupMigrations`, `withTriggers` (aggregates), `defineSearch`
 
 ### CLI
 

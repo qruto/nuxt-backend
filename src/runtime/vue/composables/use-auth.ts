@@ -9,7 +9,10 @@ export interface UseBackendAuthService extends UseBetterAuthReturn {
   // ── Passwordless flows (OTP + passkeys) ────────────────────────────────
   /** Sign the current user out. */
   signOut: () => Promise<unknown>
-  /** Send a sign-in / verification OTP code to an email. */
+  /**
+   * Send a sign-in / verification OTP code to an email. `'forget-password'`
+   * answers 400 unless the app turned on `emailAndPassword`.
+   */
   sendOtp: (email: string, type?: 'sign-in' | 'email-verification' | 'forget-password') => Promise<unknown>
   /** Complete sign-in (or passwordless sign-up) with an emailed OTP code. */
   signInWithOtp: (args: { email: string, otp: string, name?: string }) => Promise<unknown>

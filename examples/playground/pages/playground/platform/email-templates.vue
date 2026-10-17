@@ -12,7 +12,7 @@ const previews = useQuery(api.emailTemplates.previews)
 <template>
   <div class="stack">
     <PageHeader
-      tag="setupAuth · defaultGiftEmail"
+      tag="setupEmail · templates"
       title="Email templates"
     >
       The transactional emails the backend sends out of the box — one-time
@@ -24,18 +24,18 @@ const previews = useQuery(api.emailTemplates.previews)
 
     <LabPanel
       label="customize"
-      title="Two override points"
+      title="One override point"
       tone="ok"
     >
       <p class="hint">
-        Auth emails: <code>emailTemplates</code> in
-        <code>backend/auth.ts</code> — this playground overrides
+        Every email: <code>templates</code> in <code>backend/email.ts</code>.
+        Auth and billing send through that instance, so one override restyles
+        an email wherever it goes out. This playground overrides
         <code>otp</code> that way (see
         <NuxtLink to="/playground/platform/email">Email</NuxtLink> for the
-        snippet and live delivery tracking). The gift email:
-        <code>giftEmail</code> in <code>setupBilling</code>. Below are the
-        templates in effect, rendered with sample data: the playground's
-        <code>otp</code>, and the packaged defaults for the rest.
+        snippet and live delivery tracking). Below are the templates in
+        effect, rendered with sample data: the playground's <code>otp</code>,
+        and the packaged defaults for the rest.
       </p>
     </LabPanel>
 

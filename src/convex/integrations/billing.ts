@@ -6,7 +6,6 @@ import { createBillingFunctions } from './billing/functions.js'
 import { createGifts } from './billing/gifts.js'
 import { createHistory } from './billing/history.js'
 import { createSubscriptions } from './billing/subscriptions.js'
-import type { GiftEmailData, GiftEmailMessage } from './billing/types/records.js'
 import type { BillingComponents, SetupBillingConfig } from './billing/types/setup.js'
 import type { Billing } from './billing/types/surface.js'
 import { createWebhooks } from './billing/webhooks.js'
@@ -44,44 +43,14 @@ export type {
   SpendReservation,
   RefundCreditsEvent,
   GiftRecord,
-  GiftEmailMessage,
-  GiftEmailData,
 } from './billing/types/records.js'
-export type { BillingWebhookEventHandlers, BillingComponents, SetupBillingConfig } from './billing/types/setup.js'
+export type { BillingWebhookEventHandlers, BillingComponents, BillingEmail, SetupBillingConfig } from './billing/types/setup.js'
 export type { Billing } from './billing/types/surface.js'
 
 /** Webhook events that signal a customer's plans / benefits / credits may have changed. */
 // Catalog-as-code authoring surface (billing.catalog.ts / `billing sync`).
 export { type BillingCatalog, BILLING_WEBHOOK_PROVISION_EVENTS, type CatalogCreditGrant, type CatalogFeature, type CatalogMeter, type CatalogPack, type CatalogPlan, defineBillingCatalog } from '../catalog.js'
 export { BILLING_REFRESH_EVENTS, ALL_BILLING_EVENTS } from './billing/events.js'
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, c => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c] ?? c
-  ))
-}
-
-/**
- * The packaged default gift-notification email — minimal, dependency-free.
- * Used when `giftEmail` ({@link SetupBillingConfig}) is not supplied; exported so
- * apps can preview it or build their override on top of it.
- */
-export function defaultGiftEmail(data: GiftEmailData): GiftEmailMessage {
-  const from = data.purchaserName || data.purchaserEmail || 'Someone'
-  const intro = `${from} sent you a gift! Sign in to receive it.`
-  const safeUrl = escapeHtml(data.claimUrl)
-  return {
-    to: data.recipientEmail,
-    subject: `${from} sent you a gift 🎁`,
-    text: `${intro}${data.message ? `\n\n“${data.message}”` : ''}\n\n${data.claimUrl}`,
-    html: `<div style="font-family:system-ui,sans-serif;font-size:16px;line-height:1.5">`
-      + `<p>${escapeHtml(intro)}</p>`
-      + (data.message ? `<blockquote style="margin:0 0 12px;padding:8px 12px;border-left:3px solid #ddd;color:#444">${escapeHtml(data.message)}</blockquote>` : '')
-      + `<p><a href="${safeUrl}" style="display:inline-block;padding:10px 16px;background:#111;color:#fff;border-radius:8px;text-decoration:none">Receive your gift</a></p>`
-      + `<p style="color:#666">Or paste this link into your browser:<br>${safeUrl}</p>`
-      + `</div>`,
-  }
-}
 
 /**
  * Configure billing for subscriptions, discounts, prepaid credits, and gift
@@ -102,8 +71,9 @@ export function defaultGiftEmail(data: GiftEmailData): GiftEmailMessage {
  * ```ts
  * import { setupBilling } from 'nuxt-backend/billing'
  * import { components } from './_generated/api'
+ * import { email } from './email'
  *
- * const billing = setupBilling(components)
+ * const billing = setupBilling(components, { email })
  *
  * export const { provider } = billing
  * export const { generateCheckoutLink, generateCustomerPortalUrl, giftCheckout } = billing.api
@@ -115,8 +85,20 @@ export function defaultGiftEmail(data: GiftEmailData): GiftEmailMessage {
  */
 export function setupBilling(
   components: BillingComponents,
-  config: SetupBillingConfig = {},
+  config: SetupBillingConfig,
 ): Billing {
+  // The type makes `email` required, but an import cycle hands it over as
+  // `undefined` all the same: when `email.ts` is still evaluating as this
+  // module reads it, its export is not set yet. Left unchecked, that
+  // surfaces only when a paid gift tries to send.
+  if (typeof (config.email as Partial<SetupBillingConfig['email']> | undefined)?.sendTemplate !== 'function') {
+    throw new TypeError(
+      '[nuxt-backend] setupBilling: `email` is not a setupEmail instance. Pass the app\'s, from email.ts: '
+      + '`setupBilling(components, { email })`. If you already do, it was still undefined when billing.ts loaded — '
+      + 'an import cycle runs through email.ts (say email.ts imports functions.ts, functions.ts imports auth.ts, '
+      + 'and auth.ts imports email.ts). Break the cycle so email.ts finishes loading first.',
+    )
+  }
   const context = createBillingContext(components, config)
   const { provider, entityFromIdentity } = context
   const entitlements = createEntitlements(context)
@@ -127,7 +109,7 @@ export function setupBilling(
   const history = createHistory(context)
   const { getOrders, getInvoiceUrl, getUsageHistory, refundOrder } = history
   const { generateCheckoutLink } = createCheckout(context)
-  const gifts = createGifts(context, entitlements, defaultGiftEmail)
+  const gifts = createGifts(context, entitlements)
   const { giftCheckout, claimGift, getReceivedGifts } = gifts
   const {
     getCurrentSubscription,

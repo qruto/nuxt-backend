@@ -57,6 +57,34 @@ describe('gift lifecycle (component)', () => {
     expect(gift?.billingOrderId).toBe('order_1')
   })
 
+  test('markPaid re-binds the gift to the customer the paid order landed on, once', async () => {
+    const giftId = await createGift()
+    await t.mutation(api.gifts.markPaid, { giftId, billingOrderId: 'order_1', billingCustomerId: 'cus_from_order' })
+    expect(await t.query(api.gifts.get, { giftId })).toMatchObject({ status: 'paid', billingCustomerId: 'cus_from_order' })
+
+    // A redelivery cannot move it again: only a pending gift is paid.
+    await t.mutation(api.gifts.markPaid, { giftId, billingOrderId: 'order_2', billingCustomerId: 'cus_other' })
+    expect(await t.query(api.gifts.get, { giftId })).toMatchObject({ billingOrderId: 'order_1', billingCustomerId: 'cus_from_order' })
+  })
+
+  test('markPaid without a customer keeps the one recorded at checkout', async () => {
+    const giftId = await createGift()
+    await t.mutation(api.gifts.markPaid, { giftId, billingOrderId: 'order_1' })
+    expect((await t.query(api.gifts.get, { giftId }))?.billingCustomerId).toBe('cus_gift')
+  })
+
+  test('markNotified stamps once, on the record the sender reads before sending', async () => {
+    const giftId = await createGift()
+    expect((await t.query(api.gifts.get, { giftId }))?.notifiedAt).toBeUndefined()
+
+    expect(await t.mutation(api.gifts.markNotified, { giftId })).toBe(true)
+    const stamped = (await t.query(api.gifts.get, { giftId }))?.notifiedAt
+    expect(stamped).toBeTypeOf('number')
+
+    expect(await t.mutation(api.gifts.markNotified, { giftId })).toBe(false)
+    expect((await t.query(api.gifts.get, { giftId }))?.notifiedAt).toBe(stamped)
+  })
+
   test('markClaimed records who received the gift and where', async () => {
     const giftId = await createGift()
     await t.mutation(api.gifts.markPaid, { giftId })

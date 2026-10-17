@@ -224,14 +224,16 @@ describe('/email/events on the guard — the rows the route owns', () => {
     expect(recorded(ctx)).toStrictEqual([{ service: 'email', deliveryId: 'msg_1', type: 'email.bounced', outcome: 'handler_error', note: 'boom' }])
   })
 
-  it('any other non-2xx from the component (e.g. its own 503) → passed through + handler_error', async () => {
+  // The app has the secret, but `app.use(backend, { env })` never gave it to
+  // the component: nothing was verified, so it is counted, not logged.
+  it('a 503 from the component itself (no secret on its side) → passed through + missing_secret', async () => {
     const ctx = makeCtx()
     ctx.runAction.mockResolvedValue({ status: 503, body: 'Webhook secret not configured' })
 
     const response = await setupEmail(components).webhookHandler(asCtx(ctx), request('{}'))
 
     expect(response.status).toBe(503)
-    expect(recorded(ctx).map(row => [row.outcome, row.note])).toStrictEqual([['handler_error', 'component answered 503']])
+    expect(recorded(ctx).map(row => [row.outcome, row.note])).toStrictEqual([['missing_secret', 'the backend component has no EMAIL_WEBHOOK_SECRET']])
   })
 
   it('duplicate of a successful delivery → 200 without invoking the component', async () => {

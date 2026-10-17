@@ -154,6 +154,82 @@ describe('spend reservations (reserve → settle / release)', () => {
   })
 })
 
+// `v.number()` admits NaN and the infinities, and a negative debit is a credit.
+// The app layer refuses them first; the cache holds the same line on its own,
+// so no caller can corrupt a balance — and a balance that is already not a
+// number refuses spends rather than waving them all through.
+describe('amounts the cache refuses', () => {
+  const seed = async (balance = 10) => {
+    await t.mutation(api.billing.upsert, {
+      userId: 'u1',
+      activeProductIds: [],
+      benefits: [],
+      meters: [{ meterId: 'm1', consumedUnits: 0, creditedUnits: balance, balance }],
+    })
+  }
+  const meter = async () => (await t.query(api.billing.getByUser, { userId: 'u1' }))?.meters[0]
+
+  test.each([
+    ['negative', -5],
+    ['zero', 0],
+    ['NaN', Number.NaN],
+    ['infinite', Number.POSITIVE_INFINITY],
+  ])('debit refuses a %s amount and writes nothing', async (_label, amount) => {
+    await seed()
+
+    await expect(t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount, externalId: 'x' }))
+      .rejects.toThrow(/billing\.debit: `amount` must be a finite number above zero/)
+    expect(await meter()).toMatchObject({ balance: 10, consumedUnits: 0 })
+  })
+
+  test('debit fails closed on a balance that is not a number', async () => {
+    await seed(Number.NaN)
+
+    expect(await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 1, externalId: 'x' }))
+      .toMatchObject({ ok: false, reason: 'insufficient' })
+  })
+
+  test.each([
+    ['negative', -1],
+    ['NaN', Number.NaN],
+    ['infinite', Number.POSITIVE_INFINITY],
+  ])('settle and finalize refuse a %s finalAmount and keep the reservation', async (_label, finalAmount) => {
+    await seed()
+    await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 4, externalId: 'held' })
+
+    await expect(t.mutation(api.billing.settle, { userId: 'u1', externalId: 'held', finalAmount }))
+      .rejects.toThrow(/billing\.settle: `finalAmount` must be a finite number of zero or more/)
+    await expect(t.mutation(api.billing.finalize, { userId: 'u1', externalId: 'held', finalAmount }))
+      .rejects.toThrow(/billing\.finalize: `finalAmount` must be a finite number of zero or more/)
+    expect(await meter()).toMatchObject({ balance: 6, consumedUnits: 4 })
+
+    // Still releasable: nothing was half-settled.
+    await t.mutation(api.billing.release, { userId: 'u1', externalId: 'held' })
+    expect(await meter()).toMatchObject({ balance: 10, consumedUnits: 0 })
+  })
+
+  test('a finalAmount of zero settles the whole reservation back', async () => {
+    await seed()
+    await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 4, externalId: 'free' })
+
+    expect(await t.mutation(api.billing.finalize, { userId: 'u1', externalId: 'free', finalAmount: 0 }))
+      .toMatchObject({ settled: true, released: 4, balance: 10 })
+  })
+
+  test.each([
+    ['negative', -5],
+    ['zero', 0],
+    ['NaN', Number.NaN],
+    ['infinite', Number.POSITIVE_INFINITY],
+  ])('credit refuses a %s amount and writes nothing', async (_label, amount) => {
+    await seed()
+
+    await expect(t.mutation(api.billing.credit, { userId: 'u1', meterId: 'm1', amount }))
+      .rejects.toThrow(/billing\.credit: `amount` must be a finite number above zero/)
+    expect(await meter()).toMatchObject({ balance: 10, consumedUnits: 0 })
+  })
+})
+
 describe('benefit metadata snapshots', () => {
   test('upsert + read round trip, patched in place', async () => {
     await t.mutation(api.billing.upsertBenefitMetadata, {

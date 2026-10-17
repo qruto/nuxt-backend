@@ -11,14 +11,13 @@ const TRANSPORT = [
   { name: 'EMAIL_WEBHOOK_SECRET', unset: 'Delivery events are rejected, so statuses stop at "sent".' },
 ] as const
 
-/** The packaged auth-email templates, overridable in auth.ts (`integrations.emailTemplates`). */
+/** The packaged email templates, overridable in email.ts (`setupEmail({ templates })`). */
 const TEMPLATES = [
   ['otp', 'Sign-in, verification and change-email codes'],
-  ['welcome', 'Right after sign-up (unless the app sends its own)'],
-  ['verify', 'Email-verification link'],
-  ['changeEmail', 'Confirmation to the current address'],
+  ['welcome', 'Right after sign-up'],
   ['deleteAccount', 'Account-deletion confirmation'],
   ['invite', 'Workspace invitation'],
+  ['gift', 'A paid gift, to its recipient'],
 ] as const
 
 const transport = computed(() => {
@@ -35,6 +34,7 @@ function transportSignal(entry: { name: string, here: boolean, deployed: boolean
   return entry.name === 'EMAIL_API_KEY' || entry.name === 'EMAIL_WEBHOOK_SECRET' ? 'warn' : 'off'
 }
 
+const feed = computed(() => state.snapshot?.webhookFeed)
 const deliveries = computed(() => (state.snapshot?.webhooks ?? []).filter(row => row.service === 'email'))
 
 const emailId = ref('')
@@ -114,21 +114,21 @@ const lookupSignal = computed<Signal>(() => {
   </PanelCard>
 
   <PanelCard title="Recent delivery events">
+    <WebhookFeedNotice v-if="feed === 'admins-only' || feed === 'unavailable'" />
     <div
-      v-if="!deliveries.length"
+      v-else-if="!deliveries.length"
       class="op50"
     >
-      None recorded. Sign in to the inspected app to read the delivery log; events arrive once the provider's webhook
-      points at <code>/email/events</code>.
+      None recorded. Events arrive once the provider's webhook points at <code>/email/events</code>.
     </div>
     <div
       v-for="row of deliveries"
-      :key="`${row.deliveryId}:${row.receivedAt}`"
+      :key="`${row.outcome}:${row.deliveryId}:${row.receivedAt}`"
       class="flex items-center gap-2 text-xs"
     >
       <Led :signal="outcomeSignal(row.outcome)" />
       <span class="font-mono">{{ row.type ?? '—' }}</span>
-      <span class="op65">{{ row.outcome }}</span>
+      <span class="op65">{{ row.outcome }}{{ row.count && row.count > 1 ? ` ×${row.count}` : '' }}</span>
       <span class="op50 ml-auto font-mono">{{ new Date(row.receivedAt).toLocaleTimeString() }}</span>
     </div>
   </PanelCard>
@@ -153,7 +153,7 @@ const lookupSignal = computed<Signal>(() => {
       <span class="op65">{{ when }}</span>
     </div>
     <div class="text-xs op50">
-      Override any of them in <code>auth.ts</code> (<code>integrations.emailTemplates</code>) without replacing the transport.
+      Override any of them in <code>email.ts</code> (<code>setupEmail({ templates })</code>) without replacing the transport.
     </div>
   </PanelCard>
 </template>

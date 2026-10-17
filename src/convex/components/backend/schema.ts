@@ -371,16 +371,20 @@ export const aiTables = {
 }
 
 /**
- * Webhook delivery ring buffer (see `webhooks.ts`): one row per inbound
- * delivery with its outcome — powers redelivery dedupe and the DevTools
- * Webhooks page. Capped, prunable, never a source of truth.
+ * The webhook delivery log (see `webhooks.ts`) — powers redelivery dedupe and
+ * the DevTools Webhooks page, never a source of truth. A delivery whose
+ * signature verified gets a row in the `webhookDeliveries` ring; a request
+ * answered before any signature verified is counted in `webhookTallies`, one
+ * row per service and outcome; `webhookTrims` holds the ring's next trim.
  */
 export const webhookTables = {
   webhookDeliveries: defineTable({
     service: v.string(),
-    /** The provider delivery id (webhook-id / svix-id header). */
+    /** The provider delivery id (webhook-id / svix-id header), truncated. */
     deliveryId: v.string(),
     type: v.optional(v.string()),
+    // The tallied outcomes stay in the union for rows written before they
+    // were tallied; the trim ages them out with the rest.
     outcome: v.union(
       v.literal('ok'),
       v.literal('invalid_signature'),
@@ -394,7 +398,32 @@ export const webhookTables = {
     receivedAt: v.number(),
   })
     .index('receivedAt', ['receivedAt'])
-    .index('service_deliveryId', ['service', 'deliveryId']),
+    .index('service_deliveryId', ['service', 'deliveryId'])
+    // Dedupe's lookup: the delivery's `ok` row, whatever else it holds.
+    .index('service_deliveryId_outcome', ['service', 'deliveryId', 'outcome']),
+  webhookTallies: defineTable({
+    service: v.string(),
+    outcome: v.union(
+      v.literal('invalid_signature'),
+      v.literal('duplicate'),
+      v.literal('oversized'),
+      v.literal('missing_secret'),
+    ),
+    /** The latest such request's delivery id header, truncated. */
+    deliveryId: v.string(),
+    type: v.optional(v.string()),
+    note: v.optional(v.string()),
+    /** Requests counted since the tally last went a day without one. */
+    count: v.number(),
+    /** When the latest one arrived. */
+    receivedAt: v.number(),
+  })
+    .index('service_outcome', ['service', 'outcome'])
+    .index('receivedAt', ['receivedAt']),
+  webhookTrims: defineTable({
+    /** When the scheduled trim runs; the first delivery after it schedules the next. */
+    dueAt: v.number(),
+  }),
 }
 
 /**

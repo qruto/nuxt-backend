@@ -7,6 +7,7 @@ import { v } from 'convex/values'
 import { components } from './_generated/api'
 import { internalAction } from './_generated/server'
 import { catalog } from './billing.generated'
+import { email } from './email'
 
 // Subscriptions, discounts, prepaid credits & gift purchases. Billing
 // follows the tenant: with the default `billTo: 'organization'` the active
@@ -18,8 +19,10 @@ import { catalog } from './billing.generated'
 // nothing to add to your schema. The catalog (plans, packs, credit meters)
 // is declared in billing.catalog.ts and pushed with
 // `npx nuxt-backend billing sync`, which fills billing.generated.ts.
-// The instance is exported for ai.ts (metered actions spend through it).
-export const billing = setupBilling(components, { catalog })
+// A gift's recipient hears of it through `email` (email.ts), which holds
+// the template. The instance is exported for ai.ts (metered actions spend
+// through it).
+export const billing = setupBilling(components, { catalog, email })
 
 export const { provider } = billing
 // Checkout / portal / subscription / gift functions for `useBilling`.
@@ -43,7 +46,25 @@ export const {
   syncProducts,
   getReceivedGifts,
   claimGift,
+  // The webhook delivery log, for DevTools: admins only, null for anyone else.
   getWebhookDeliveries,
+  // Subscription lifecycle — upgrade/downgrade, cancel, uncancel,
+  // pause/resume. Each resolves the caller's own billing entity, so a
+  // client can only ever act on its own subscription.
+  updateSubscription,
+  cancelSubscription,
+  uncancelSubscription,
+  pauseSubscription,
+  resumeSubscription,
+  // Order history, invoices and metered usage, read live from the provider
+  // (this package keeps no local order or usage table — the provider is the
+  // ledger).
+  getOrders,
+  getInvoiceUrl,
+  getUsageHistory,
+  // Admin-tier: gated by `setupBilling({ requireAdmin })`, which defaults
+  // to an `admin` role claim on the caller's identity.
+  refundOrder,
 } = billing.functions
 // Webhook handlers (imported by http.ts) that keep the cache fresh.
 export const { webhookEvents } = billing

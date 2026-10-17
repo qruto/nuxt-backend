@@ -2673,6 +2673,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           from?: string;
           headers?: Array<{ name: string; value: string }>;
           html?: string;
+          idempotencyKey?: string;
           replyTo?: Array<string>;
           subject?: string;
           template?: {
@@ -2791,7 +2792,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       markPaid: FunctionReference<
         "mutation",
         "internal",
-        { billingOrderId?: string; giftId: string },
+        { billingCustomerId?: string; billingOrderId?: string; giftId: string },
         null,
         Name
       >;
@@ -2826,6 +2827,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { limit?: number },
         Array<{
+          count?: number;
           deliveryId: string;
           note?: string;
           outcome:

@@ -59,7 +59,7 @@ export const BACKEND_ENV = {
   },
   EMAIL_API_KEY: {
     side: 'deployment',
-    without: 'email sends no-op and OTP sign-in throws (NUXT_BACKEND_LOG_OTP=1 echoes codes to the convex dev console)',
+    without: 'email sends no-op, and sign-in codes and invitations to real addresses are refused (NUXT_BACKEND_LOG_OTP=1 echoes codes to the convex dev console)',
     example: 'Email',
     findings: ['email-transport', 'deployment-email-api-key'],
   },
@@ -103,7 +103,7 @@ export const BACKEND_ENV = {
     side: 'deployment',
     devOnly: true,
     tooling: true,
-    without: 'with no email transport, OTP sign-in throws instead of printing the code in the convex dev console (dev deployments get it from `env push`)',
+    without: 'with no email transport, a sign-in code to a real address is refused instead of printed in the convex dev console (dev deployments get it from `env push`)',
     example: null,
     findings: [],
   },

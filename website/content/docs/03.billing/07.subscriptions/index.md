@@ -9,11 +9,11 @@ navigation:
   icon: i-lucide-credit-card
 ---
 
-`setupBilling(components)` wires subscriptions, discounts, **prepaid credits**, and **gift purchases** via the [Polar](https://www.convex.dev/components/polar) component, linked to your auth users. The reactive **feature + credit cache** and the gift records live inside the all-in-one `backend` component (`components.backend.billing` / `components.backend.gifts`), so **you add nothing to your schema**. This page covers subscriptions; the siblings cover the [catalog](/docs/billing/catalog), [credits](/docs/billing/credits), [gifts](/docs/billing/credits/gifts), and [feature gating](/docs/billing/feature-gating).
+`setupBilling(components, { email })` wires subscriptions, discounts, **prepaid credits**, and **gift purchases** via the [Polar](https://www.convex.dev/components/polar) component, linked to your auth users. The reactive **feature + credit cache** and the gift records live inside the all-in-one `backend` component (`components.backend.billing` / `components.backend.gifts`), so **you add nothing to your schema**. This page covers subscriptions; the siblings cover the [catalog](/docs/billing/catalog), [credits](/docs/billing/credits), [gifts](/docs/billing/credits/gifts), and [feature gating](/docs/billing/feature-gating).
 
 ## Server setup
 
-`setupBilling` needs **no config**: the access token, environment, and webhook secret default to the `BILLING_ACCESS_TOKEN` / `BILLING_ENVIRONMENT` / `BILLING_WEBHOOK_SECRET` env vars, and the billing entity resolves from identity claims — the active workspace by default (`billTo: 'organization'`, so members share the workspace's plan and credits), or the signed-in user with `billTo: 'user'` for B2C apps. The scaffolded `billing.ts`, as generated:
+`setupBilling` needs **one option**, `email`, the app's `setupEmail` instance, which sends the gift notification. The access token, environment, and webhook secret default to the `BILLING_ACCESS_TOKEN` / `BILLING_ENVIRONMENT` / `BILLING_WEBHOOK_SECRET` env vars, and the billing entity resolves from identity claims — the active workspace by default (`billTo: 'organization'`, so members share the workspace's plan and credits), or the signed-in user with `billTo: 'user'` for B2C apps. The scaffolded `billing.ts`, as generated:
 
 ```ts [backend/billing.ts]
 import { setupBilling, type DiscountInput } from 'nuxt-backend/billing'
@@ -21,10 +21,11 @@ import { v } from 'convex/values'
 import { components } from './_generated/api'
 import { internalAction } from './_generated/server'
 import { catalog } from './billing.generated'
+import { email } from './email'
 
 // The catalog id map (plans, packs, credit meters) comes from billing.generated.ts,
 // written by `npx nuxt-backend billing sync`. Exported for ai.ts (metered actions spend through it).
-export const billing = setupBilling(components, { catalog })
+export const billing = setupBilling(components, { catalog, email })
 
 export const { provider } = billing
 export const {
@@ -80,20 +81,20 @@ export const createDiscount = internalAction({
 Keep these exports. The composables bind to them by name (`useBilling` → `getConfiguredProducts` / `listAllSubscriptions` / `getCurrentSubscription` / `generateCheckoutLink` / …), and `npx nuxt-backend doctor` verifies the contract against the deployment — a trimmed export degrades the matching composable to `undefined`s.
 ::
 
-Config is optional — every option overrides a default:
+`email` is the one required option; every other option overrides a default:
 
 | Option | Effect |
 |---|---|
+| `email` | Required. The app's `setupEmail` instance: a paid gift's recipient hears of it through its `gift` [template](/docs/email/templates). `setupBilling` checks it when it runs, so an `email` that arrives undefined — an import cycle through `email.ts` does that despite the type — fails the deploy instead of the first paid gift. |
 | `accessToken` · `environment` · `webhookSecret` | Override the `BILLING_ACCESS_TOKEN` / `BILLING_ENVIRONMENT` / `BILLING_WEBHOOK_SECRET` env vars. |
 | `billTo` | Who owns subscriptions and credits: `'organization'` (the default — members share the workspace's plan and credits) or `'user'` (B2C apps without shared billing). |
 | `getUserInfo` · `currentUserId` | Override entity resolution for action contexts (checkout / portal / sync) and for query contexts (the reactive reads). Consulted only with `billTo: 'user'`; `currentUserId` returns `null` when signed out so reads degrade instead of throwing. |
 | `catalog` | The environment-keyed id map from `billing.generated.ts` — fills `products` and `credits` for the active `BILLING_ENVIRONMENT`. |
 | `products` · `credits` | An explicit product map (catalog key → product id) and named credit meters (`spendCredits({ meter: 'credits' })`, `useCredits('credits')`). Explicit entries win over `catalog`. |
-| `rateLimiter` | Your `setupRateLimiter(...)` instance. Throttles **every client-callable function that reaches the live provider** — `syncEntitlements`, `syncProducts`, checkout, the subscription-lifecycle actions, order history and invoices — against the `billingSync` limit (10/min, keyed by the workspace or user), so a caller can't loop one to amplify the provider fan-out. Omit to leave them unthrottled. |
+| `rateLimiter` | Your `setupRateLimiter(...)` instance. Throttles **every client-callable function that reaches the live provider** — `syncEntitlements`, `syncProducts`, checkout, the subscription-lifecycle actions, order history and invoices — against the `billingSync` limit (10/min, keyed by the workspace or user), so a caller can't loop one to amplify the provider fan-out. `giftCheckout` counts against the same limit, keyed by the purchaser. Omit to leave them unthrottled. |
 | `multipleSubscriptions` | Let one entity hold several live subscriptions at once (a plan plus add-ons). Switches `getCurrentSubscription` to the array-first `CurrentSubscriptions` shape — `subscriptions` leads, and the primary subscription's fields ride alongside so `subscription.productId` / `.status` keep reading unchanged — and makes `subscriptionId` the way the lifecycle actions pick their target. Off, the upstream single-subscription read throws the moment a second one exists. |
 | `requireAdmin` | Gate for the admin-tier actions (`refundOrder` — moving real money): throw to refuse. The default requires an `admin` role claim on the caller's identity; supply your own to check permissions, a workspace role, or an allowlist. |
 | `events` | Webhook handlers keyed by the provider's own event names (`'order.paid'`, `'subscription.active'`, …). They run **after** the built-in entitlement-cache refresh and gift fulfilment, so features and credits read fresh inside them; events outside the built-in refresh set are mounted too. |
-| `giftEmail` | Restyle the gift-notification email — see [Gifts](/docs/billing/credits/gifts). |
 | `onUnknownEvent` | Called for an **authentic** (signature-verified) webhook event whose type the installed provider SDK cannot parse — one newer than the package, say. The delivery is acknowledged with 202 either way, so an unknown type never puts the endpoint into a retry loop. |
 
 `setupBilling(...)` returns:
@@ -104,7 +105,7 @@ Config is optional — every option overrides a default:
   :::
 
   :::field{name="functions"}
-  Reactive functions to re-export so the composables work with zero wiring: `getCurrentSubscription` (→ `useBilling`), `getFeatures` (→ `useFeatures`), `getCredits` (→ `useCredits`), `getReceivedGifts` / `claimGift` (→ `useGifts`), `syncEntitlements` (refresh the cache on demand), `syncProducts` (pull the provider's product catalog into the reactive products table — fresh deployments render empty pricing until it runs once; webhooks keep it fresh afterwards), `getWebhookDeliveries` (the delivery feed behind DevTools and the playground), the subscription lifecycle actions `updateSubscription` / `cancelSubscription` / `uncancelSubscription` / `pauseSubscription` / `resumeSubscription`, the live provider reads `getOrders` / `getInvoiceUrl` (→ `useOrders`, `<BillingHistory>`) and `getUsageHistory` (→ `useUsage`, `<UsageHistory>`), and the admin-tier `refundOrder`.
+  Reactive functions to re-export so the composables work with zero wiring: `getCurrentSubscription` (→ `useBilling`), `getFeatures` (→ `useFeatures`), `getCredits` (→ `useCredits`), `getReceivedGifts` / `claimGift` (→ `useGifts`), `syncEntitlements` (refresh the cache on demand), `syncProducts` (pull the provider's product catalog into the reactive products table — fresh deployments render empty pricing until it runs once; webhooks keep it fresh afterwards), `getWebhookDeliveries` (the delivery log behind DevTools; admins only, `null` for anyone else), the subscription lifecycle actions `updateSubscription` / `cancelSubscription` / `uncancelSubscription` / `pauseSubscription` / `resumeSubscription`, the live provider reads `getOrders` / `getInvoiceUrl` (→ `useOrders`, `<BillingHistory>`) and `getUsageHistory` (→ `useUsage`, `<UsageHistory>`), and the admin-tier `refundOrder`.
   :::
 
   :::field{name="forgetEntity"}
@@ -151,6 +152,12 @@ const billing = useBilling()
 ```
 
 Signed-out visitors are simply on the free plan: the user-scoped queries are skipped and `subscription` resolves to `null`.
+
+## One email, one billing profile
+
+The billing provider keys its customers by email, and checkout resolves the paying entity's customer from the email of the member who starts it: the customer already mapped to the entity, else the one carrying that email, else a new one. The first entity to check out under an email owns its customer — every customer the package binds carries the entity's id in its metadata.
+
+In workspace mode one member's email can stand behind several workspaces, and a customer shared between two of them would merge them: one set of benefits and credits, and a single-subscription read that throws once both subscribe. So a checkout never adopts a customer that already pays for another entity. It refuses with a `ConvexError` the UI can show — the email already pays for another workspace, and a checkout from a member with a different email gives this one its own. The same holds per account with `billTo: 'user'`, where it only meets an email that moved between accounts. One customer per billing entity, keyed by the entity rather than the email, is planned for a later release.
 
 ## Environment
 

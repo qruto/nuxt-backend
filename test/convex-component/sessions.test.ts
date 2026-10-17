@@ -1,10 +1,10 @@
 /// <reference types="vite/client" />
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
-import { convexTest } from 'convex-test'
 import { componentsGeneric, defineSchema, makeFunctionReference, queryGeneric } from 'convex/server'
-import component from '../../src/convex/test'
+import { asUser, defineBackendTestApp } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { setupAuth } from '../../src/convex/client'
+import { setupEmail } from '../../src/convex/integrations/email'
 
 // The device-session functions, end to end: the app's `listSessions` and
 // `revokeSession` (as `backend/auth.ts` re-exports them) over the mounted
@@ -12,7 +12,7 @@ import { setupAuth } from '../../src/convex/client'
 // are days old on purpose — Better Auth's own /list-sessions refuses those.
 
 const components = componentsGeneric() as unknown as { backend: ComponentApi<'backend'> }
-const { listSessions, revokeSession } = setupAuth(components as never, queryGeneric)
+const { listSessions, revokeSession } = setupAuth(components as never, queryGeneric, { email: setupEmail(components as never) })
 
 const appModules = {
   './_generated/api.js': () => Promise.resolve({}),
@@ -31,11 +31,11 @@ afterAll(() => {
   vi.unstubAllEnvs()
 })
 
-let t: ReturnType<typeof convexTest>
+const testApp = defineBackendTestApp(defineSchema({}), appModules)
+let t: ReturnType<typeof testApp>
 
 beforeEach(() => {
-  t = convexTest(defineSchema({}), appModules)
-  component.register(t)
+  t = testApp()
 })
 
 async function createRow(model: string, data: Record<string, unknown>): Promise<{ _id: string }> {
@@ -89,9 +89,10 @@ describe('listSessions', () => {
   })
 
   test('is null for signed-out callers and for agent tokens, which belong to no session', async () => {
-    const ids = await seed()
+    await seed()
     await expect(t.query(listRef, {})).resolves.toBeNull()
-    await expect(t.withIdentity({ subject: ids.ada, clientId: 'agent-1' }).query(listRef, {})).resolves.toBeNull()
+    const agent = await asUser(t, { agent: { clientId: 'agent-1', scopes: ['openid', 'profile'] } })
+    await expect(agent.query(listRef, {})).resolves.toBeNull()
   })
 })
 
@@ -116,4 +117,28 @@ describe('revokeSession', () => {
 
     expect(await sessionTokens()).toHaveLength(5)
   })
+})
+
+describe('a long session history', () => {
+  test('lists and revokes every one of the caller\'s sessions, past the first hundred and behind 250 newer ones of someone else', async () => {
+    const now = Date.now()
+    const ada = (await createRow('user', { name: 'Ada', email: 'ada@example.com', emailVerified: true, createdAt: now, updatedAt: now }))._id
+    const bob = (await createRow('user', { name: 'Bob', email: 'bob@example.com', emailVerified: true, createdAt: now, updatedAt: now }))._id
+    // Ada's sessions are the oldest rows in the table, each expiring a second
+    // after the one before; every row after them is Bob's.
+    const adas: string[] = []
+    for (let index = 0; index < 120; index++) adas.push(await signIn(ada, `token-ada-${index}`, { expiresAt: now + DAY + index * 1000 }))
+    for (let index = 0; index < 250; index++) await signIn(bob, `token-bob-${index}`)
+
+    const current = adas.at(-1)!
+    const caller = t.withIdentity({ subject: ada, sessionId: current })
+    const rows = await caller.query(listRef, {}) as Array<{ id: string }>
+    expect(rows.map(row => row.id)).toEqual([...adas].reverse())
+
+    // The second to expire sits past the first hundred.
+    await caller.mutation(revokeRef, { sessionId: adas[1]! })
+    const after = await caller.query(listRef, {}) as Array<{ id: string }>
+    expect(after).toHaveLength(119)
+    expect(after.map(row => row.id)).not.toContain(adas[1])
+  }, 60_000)
 })

@@ -91,8 +91,9 @@ function memberDeleted(data: Record<string, unknown> = {}): string {
   })
 }
 
-function billing(config: SetupBillingConfig) {
-  return setupBilling(components, config)
+function billing(config: Omit<SetupBillingConfig, 'email'>) {
+  // No gift here is paid, so nothing is sent.
+  return setupBilling(components, { email: { sendTemplate: async () => null }, ...config })
 }
 
 const outcomes = (rows: Row[]) => rows.map(row => [row.outcome, row.type])

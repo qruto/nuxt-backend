@@ -431,7 +431,7 @@
       "source": "./.agents/skills/test-nuxt-backend",
       "sourceType": "local",
       "skillPath": "SKILL.md",
-      "computedHash": "f764430359ab6f90c446931532c5579cd57436b9b74c7ef64964987556a6402d"
+      "computedHash": "31484520e58e35655b54ce833533dbaa2d1898aa149133e3d158520d1e01409e"
     },
     "typescript-advanced-types": {
       "source": "wshobson/agents",

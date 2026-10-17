@@ -1,5 +1,6 @@
 import { computed, type ComputedRef, type Ref } from 'vue'
 import { useConvex } from 'nuxt-convex-module/client'
+import { ensureOk } from '../utils/auth-steps'
 import { useAuth } from './use-auth'
 
 /** A workspace (Better Auth organization). */
@@ -105,12 +106,24 @@ export interface UseOrganizationReturn {
   listReceivedInvitations: () => Promise<ReceivedInvitation[]>
 }
 
+/** The client's result, or its `{ error }` thrown. */
+async function settled<T>(call: Promise<T>, fallback: string): Promise<T> {
+  const result = await call
+  ensureOk(result, fallback)
+  return result
+}
+
 /**
  * Workspace (organization) state and actions, including the full invitation
  * flow (invite / accept / decline / cancel — the packaged `AcceptInvitation`
  * component and `/accept-invitation` page build on these). Anything beyond —
  * member removal, role updates — lives on the fully-typed client:
  * `useAuth().client.organization.*`.
+ *
+ * Every action rejects when the server refuses it (the client itself resolves
+ * a refusal as `{ error }`), so a `catch` sees each failure; a rate-limited
+ * call rejects with the wait in `retryAfter`. Each still resolves the client's
+ * result on success.
  *
  * @example
  * ```vue
@@ -145,7 +158,7 @@ export function useOrganization(): UseOrganizationReturn {
   }
 
   const setActive = async (organizationId: string): Promise<void> => {
-    await client.organization.setActive({ organizationId })
+    await settled(client.organization.setActive({ organizationId }), 'Could not switch the workspace')
     await refreshWorkspaceClaim()
   }
 
@@ -160,23 +173,23 @@ export function useOrganization(): UseOrganizationReturn {
     // Creating a workspace makes it the active one, and leaving can drop it —
     // both change the JWT claim, so re-authenticate Convex like setActive does.
     create: async (args) => {
-      const result = await client.organization.create(args)
+      const result = await settled(client.organization.create(args), 'Could not create the workspace')
       await refreshWorkspaceClaim()
       return result
     },
     invite: ({ email, role = 'member', organizationId }) =>
-      client.organization.inviteMember({ email, role, organizationId }),
+      settled(client.organization.inviteMember({ email, role, organizationId }), 'Could not send the invitation'),
     leave: async (organizationId) => {
       const target = organizationId ?? active.value.data?.id
       if (!target) throw new Error('[nuxt-backend] No workspace to leave')
-      const result = await client.organization.leave({ organizationId: target })
+      const result = await settled(client.organization.leave({ organizationId: target }), 'Could not leave the workspace')
       await refreshWorkspaceClaim()
       return result
     },
     // Accepting adds a membership (a JWT-relevant change) — refresh the claim
     // like the other membership mutations do.
     acceptInvitation: async (invitationId, options) => {
-      const result = await client.organization.acceptInvitation({ invitationId }) as {
+      const result = await settled(client.organization.acceptInvitation({ invitationId }), 'Could not accept the invitation') as {
         data?: { invitation?: { organizationId?: string } } | null
       }
       await refreshWorkspaceClaim()
@@ -185,9 +198,9 @@ export function useOrganization(): UseOrganizationReturn {
       return result
     },
     declineInvitation: invitationId =>
-      client.organization.rejectInvitation({ invitationId }),
+      settled(client.organization.rejectInvitation({ invitationId }), 'Could not decline the invitation'),
     cancelInvitation: invitationId =>
-      client.organization.cancelInvitation({ invitationId }),
+      settled(client.organization.cancelInvitation({ invitationId }), 'Could not cancel the invitation'),
     getInvitation: async (invitationId) => {
       const result = await client.organization.getInvitation({ query: { id: invitationId } }) as {
         data?: InvitationDetails | null

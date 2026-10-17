@@ -19,11 +19,25 @@ const notice = ref('')
 const planId = computed(() => billing.products.value?.pro?.id)
 const packId = computed(() => billing.products.value?.credits500?.id)
 
+// Each action rejects with the reason when it is refused (a taken slug, an
+// address the app can't email yet): show it where the confirmations go.
+async function attempt(action: () => Promise<unknown>, done: string) {
+  try {
+    await action()
+    notice.value = done
+  }
+  catch (error) {
+    notice.value = error instanceof Error ? error.message : String(error)
+  }
+}
+
 async function addWorkspace() {
   const name = workspaceName.value.trim()
   if (!name) return
-  await create({ name, slug: `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}` })
-  workspaceName.value = ''
+  await attempt(async () => {
+    await create({ name, slug: `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}` })
+    workspaceName.value = ''
+  }, `Workspace ${name} created.`)
 }
 
 async function sendInvite() {
@@ -31,19 +45,22 @@ async function sendInvite() {
   if (!email) return
   // The invitee gets an email with an accept link; the module's built-in
   // /accept-invitation page handles the rest.
-  await invite({ email })
-  inviteEmail.value = ''
-  notice.value = `Invitation email sent to ${email}.`
+  await attempt(async () => {
+    await invite({ email })
+    inviteEmail.value = ''
+  }, `Invitation email sent to ${email}.`)
 }
 
 async function sendGift() {
   const email = giftEmail.value.trim()
-  if (!packId.value || !email) return
+  const pack = packId.value
+  if (!pack || !email) return
   // The recipient receives the credits — attached automatically if they have
   // an account, claimed on their first sign-in otherwise (<GiftClaimBanner>).
-  await credits.gift(packId.value, { recipientEmail: email })
-  giftEmail.value = ''
-  notice.value = `Checkout opened — once paid, ${email} receives the credits.`
+  await attempt(async () => {
+    await credits.gift(pack, { recipientEmail: email })
+    giftEmail.value = ''
+  }, `Checkout opened — once paid, ${email} receives the credits.`)
 }
 
 async function logout() {

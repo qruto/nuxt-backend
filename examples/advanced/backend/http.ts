@@ -12,11 +12,10 @@ import { ai } from './ai'
 // dashboards at these paths.
 const http = httpRouter()
 registerBackendRoutes(http, {
-  auth: { authComponent, createAuth },
+  auth: { authComponent, createAuth, mcp },
   billing,
   email,
   ai,
-  mcp,
   billingPath: '/hooks/billing',
   emailPath: '/hooks/email',
 })

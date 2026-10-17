@@ -6,14 +6,17 @@ const state = usePanelState()
 const service = ref<'all' | 'billing' | 'email'>('all')
 const problemsOnly = ref(false)
 
+// `readable` once an admin's feed answered; WebhookFeedNotice covers the rest.
+const feed = computed(() => state.snapshot?.webhookFeed)
 const rows = computed(() => state.snapshot?.webhooks ?? [])
 const shown = computed(() => rows.value.filter(row =>
   (service.value === 'all' || row.service === service.value)
   && (!problemsOnly.value || outcomeSignal(row.outcome) === 'err' || outcomeSignal(row.outcome) === 'warn')))
 
+// A tally row stands for `count` requests.
 const counts = computed(() => {
   const byOutcome = new Map<string, number>()
-  for (const row of rows.value) byOutcome.set(row.outcome, (byOutcome.get(row.outcome) ?? 0) + 1)
+  for (const row of rows.value) byOutcome.set(row.outcome, (byOutcome.get(row.outcome) ?? 0) + (row.count ?? 1))
   return [...byOutcome.entries()]
 })
 
@@ -21,6 +24,13 @@ const lastReceived = computed(() => (['billing', 'email'] as const).map((name) =
   const latest = rows.value.find(row => row.service === name)
   return { name, at: latest?.receivedAt, outcome: latest?.outcome }
 }))
+
+function receivedLabel(at: number | undefined): string {
+  if (at) return `last event ${new Date(at).toLocaleString()}`
+  if (feed.value === 'readable') return 'no event yet'
+  if (feed.value === 'admins-only') return 'hidden: the delivery log is admin-only'
+  return feed.value === 'unavailable' ? 'unknown: the delivery log is not exported' : 'loading…'
+}
 
 const secrets = computed(() => {
   const env = state.info?.env
@@ -40,7 +50,7 @@ const secrets = computed(() => {
     >
       <Led :signal="entry.outcome ? outcomeSignal(entry.outcome) : 'off'" />
       <span class="w-14">{{ entry.name }}</span>
-      <span class="op65">{{ entry.at ? `last event ${new Date(entry.at).toLocaleString()}` : 'no event yet' }}</span>
+      <span class="op65">{{ receivedLabel(entry.at) }}</span>
       <span class="op50 font-mono ml-auto">/{{ entry.name }}/events</span>
     </div>
     <div
@@ -80,11 +90,12 @@ const secrets = computed(() => {
         {{ outcome }} · {{ count }}
       </SignalBadge>
     </div>
+    <WebhookFeedNotice v-if="feed === 'admins-only' || feed === 'unavailable'" />
     <div
-      v-if="!shown.length"
+      v-else-if="!shown.length"
       class="op50"
     >
-      {{ rows.length ? 'Nothing matches the filter.' : 'None recorded yet. Sign in to the inspected app to read the delivery log.' }}
+      {{ !feed ? 'Loading…' : rows.length ? 'Nothing matches the filter.' : 'None recorded yet.' }}
     </div>
     <table
       v-else
@@ -109,7 +120,7 @@ const secrets = computed(() => {
       <tbody>
         <tr
           v-for="row of shown"
-          :key="`${row.service}:${row.deliveryId}:${row.receivedAt}`"
+          :key="`${row.service}:${row.outcome}:${row.deliveryId}:${row.receivedAt}`"
         >
           <td class="py1 pr4">
             {{ row.service }}
@@ -119,7 +130,7 @@ const secrets = computed(() => {
           </td>
           <td class="py1 pr4">
             <SignalBadge :signal="outcomeSignal(row.outcome)">
-              {{ row.outcome }}
+              {{ row.outcome }}{{ row.count && row.count > 1 ? ` ×${row.count}` : '' }}
             </SignalBadge>
             <span
               v-if="row.note"
@@ -133,8 +144,9 @@ const secrets = computed(() => {
       </tbody>
     </table>
     <div class="text-xs op50">
-      The last 50 deliveries this deployment verified or refused. To send one again, replay it from the provider's
-      dashboard.
+      The last 50 deliveries this deployment verified. A request answered before its signature verified (refused, or a
+      duplicate of one already handled) is counted per kind instead, shown at the latest one. To send a delivery again,
+      replay it from the provider's dashboard.
     </div>
   </PanelCard>
 </template>

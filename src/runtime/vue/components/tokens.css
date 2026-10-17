@@ -36,7 +36,10 @@
      The components never set `color-scheme`: the app owns it. Declare
      `color-scheme: light dark` (or `dark`) on the app root and every pair
      follows the page; with no scheme declared, `light-dark()` resolves to
-     its light value.
+     its light value. A production build rewrites each pair for browsers
+     that predate `light-dark()`, into variables only a `color-scheme` rule
+     defines; the module's generated stylesheet gives them the light default
+     (LIGHT_DARK_DEFAULT in src/nuxt/theme.ts).
 
      The website does not use these values — it maps every `--bk-*` token
      onto its own palette through the `.bk-depth` bridge in website/app.css

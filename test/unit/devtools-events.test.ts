@@ -140,6 +140,26 @@ describe('activity: credits, webhooks, email, connection', () => {
     ])
   })
 
+  it('says nothing when the feed opens up: an admin signing in sees the log as it stood', () => {
+    const row = { service: 'billing', deliveryId: 'd1', type: 'order.paid', outcome: 'ok', receivedAt: 1 }
+    const hidden = snapshot({ webhookFeed: 'admins-only', webhooks: [] })
+    const readable = snapshot({ webhookFeed: 'readable', webhooks: [row] })
+    expect(diffSection('webhooks', hidden, readable)).toEqual([])
+    expect(diffSection('webhooks', readable, hidden)).toEqual([])
+    // Once readable, a new delivery is news again.
+    const next = snapshot({ webhookFeed: 'readable', webhooks: [{ ...row, deliveryId: 'd2', receivedAt: 2 }, row] })
+    expect(diffSection('webhooks', readable, next)).toEqual([{ kind: 'webhook', level: 'info', title: 'Webhook handled', detail: 'billing · order.paid' }])
+  })
+
+  it('says how many requests a tally stands for when it moves', () => {
+    const tally = { service: 'billing', deliveryId: 'junk_1', outcome: 'invalid_signature', receivedAt: 5, count: 1 }
+    const before = snapshot({ webhookFeed: 'readable', webhooks: [tally] })
+    const after = snapshot({ webhookFeed: 'readable', webhooks: [{ ...tally, deliveryId: 'junk_37', receivedAt: 9, count: 37 }] })
+    expect(diffSection('webhooks', before, after)).toEqual([
+      { kind: 'webhook', level: 'error', title: 'Webhook refused: invalid signature', detail: 'billing · ×37' },
+    ])
+  })
+
   it('follows one email\'s delivery status', () => {
     const sent = snapshot({ emailLookup: { emailId: 'e1', isLoading: false, found: true, status: 'sent' } })
     const bounced = snapshot({ emailLookup: { emailId: 'e1', isLoading: false, found: true, status: 'bounced' } })

@@ -17,7 +17,7 @@ const REDIRECT_URI = 'http://127.0.0.1:9999/callback'
 interface TestHelpers {
   createUser: (user: object) => object
   saveUser: (user: object) => Promise<{ id: string }>
-  login: (options: { userId: string }) => Promise<{ headers: Headers }>
+  login: (options: { userId: string }) => Promise<{ headers: Headers, token: string }>
   getOTP: (email: string) => string | undefined
 }
 
@@ -43,8 +43,8 @@ beforeEach(async () => {
 
 async function signedIn(email = 'ada@example.com') {
   const user = await helpers.saveUser(helpers.createUser({ email, name: email.split('@')[0], emailVerified: true }))
-  const { headers } = await helpers.login({ userId: user.id })
-  return { userId: user.id, cookie: headers.get('cookie') ?? '' }
+  const { headers, token } = await helpers.login({ userId: user.id })
+  return { userId: user.id, cookie: headers.get('cookie') ?? '', token }
 }
 
 describe('agent registration', () => {
@@ -90,10 +90,10 @@ async function authorize(clientId: string, cookie: string, extra: Record<string,
   return auth.handler(new Request(`${BASE}/mcp/authorize?${query}`, { headers: { cookie } }))
 }
 
-async function post(path: string, cookie: string, body: Record<string, unknown>) {
+async function post(path: string, cookie: string, body: Record<string, unknown>, bearer?: string) {
   return auth.handler(new Request(`${BASE}${path}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', cookie, 'origin': ORIGIN },
+    headers: { 'content-type': 'application/json', cookie, 'origin': ORIGIN, ...(bearer ? { authorization: `Bearer ${bearer}` } : {}) },
     body: JSON.stringify(body),
   }))
 }
@@ -193,6 +193,23 @@ describe('the consent page', () => {
     expect((await post('/oauth2/consent', cookie, { accept: true })).status).toBe(403)
     // Denying stays possible.
     expect((await post('/oauth2/consent', cookie, { accept: false })).status).toBe(200)
+  })
+
+  // A Bearer token becomes the session cookie only after every before-hook
+  // has run: the consent checks must read the session the route will use.
+  it('holds both refusals against a caller who signs in with a Bearer token', async () => {
+    const { location, person } = await pendingConsent()
+    const code = location.searchParams.get('consent_code')!
+    const other = await signedIn('mallory@example.com')
+
+    expect((await post('/oauth2/consent', '', { accept: true, consent_code: code }, other.token)).status).toBe(403)
+    for (const session of db.session!.filter(row => row.userId === person.userId)) session.impersonatedBy = 'admin-1'
+    expect((await post('/oauth2/consent', '', { accept: true, consent_code: code }, person.token)).status).toBe(403)
+    // The person's own Bearer session, not impersonated, answers.
+    const own = await helpers.login({ userId: person.userId })
+    const approved = await post('/oauth2/consent', '', { accept: true, consent_code: code }, own.token)
+    expect(approved.status).toBe(200)
+    expect(new URL((await approved.json() as { redirectURI: string }).redirectURI).searchParams.get('code')).toBeTruthy()
   })
 })
 

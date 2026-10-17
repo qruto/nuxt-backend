@@ -1,6 +1,7 @@
 import { actionGeneric, type Auth, type GenericActionCtx, type GenericDataModel } from 'convex/server'
 import type { GenericId } from 'convex/values'
 import type { SpendReservation } from '../billing.js'
+import { requireCreditAmount } from '../billing/credits.js'
 import type { Ai, CreditsBalanceEvent, MeteredUsage, RunCtx } from './config.js'
 import type { AiContext } from './context.js'
 import { estimateCost, finalizeCost } from './pricing.js'
@@ -8,6 +9,37 @@ import { logBackend } from '../../log.js'
 
 /** An action context that can also schedule (both metered shapes run in actions). */
 type ActionRunCtx = RunCtx & GenericActionCtx<GenericDataModel>
+
+/**
+ * Refuse a metered call whose cost is not a finite number above zero, before
+ * anything is spent on it: a negative cost would hand tokens back to the
+ * budget window and credit the balance, a `NaN` would pass every comparison.
+ * An unmetered call's cost moves nothing, so it is left alone.
+ */
+function requireMeteredCost({ meter, cost }: { meter: string | false, cost: number }): void {
+  if (meter !== false) requireCreditAmount(cost, 'setupAi: a metered call\'s `cost`')
+}
+
+/**
+ * The amount a finished call settles at: its finalized cost, held to the
+ * reservation. Above the estimate it is clamped down — settling beyond the
+ * reservation would be a second, unguarded debit. A cost that is no amount
+ * at all (`NaN`, an infinity, a negative from a buggy `finalize`) is refused
+ * the same way: the work is done and its result belongs to the caller, so the
+ * reservation is charged and the bug logged, never passed on to the balance.
+ */
+function settledAmount(reserved: number, finalAmount: number | undefined): number {
+  if (finalAmount === undefined) return reserved
+  if (!Number.isFinite(finalAmount) || finalAmount < 0) {
+    logBackend('error', 'ai.cost_over_reservation', `Finalized cost ${finalAmount} is not an amount of zero or more — charging the ${reserved} credits reserved. Fix the cost's finalize.`)
+    return reserved
+  }
+  if (finalAmount > reserved) {
+    logBackend('warn', 'ai.cost_over_reservation', `Finalized cost ${finalAmount} exceeds the ${reserved} credits reserved — charging the reservation. Raise the estimate.`)
+    return reserved
+  }
+  return finalAmount
+}
 
 /**
  * Metered calls over the billing spend reservation: reserve before running,
@@ -20,6 +52,7 @@ export function createMetering({ config, billing, rateLimiter, cache }: AiContex
     ctx: RunCtx & { auth?: Auth },
     options: { meter: string | false, limit?: string | false, cost: number, allowOverage?: boolean },
   ): Promise<{ usage: MeteredUsage, reservation: SpendReservation }> => {
+    requireMeteredCost(options)
     const identity = await (ctx.auth?.getUserIdentity() ?? Promise.resolve(null))
     if (!identity) {
       throw new Error('[nuxt-backend] Sign in to use this feature.')
@@ -135,7 +168,8 @@ export function createMetering({ config, billing, rateLimiter, cache }: AiContex
    * the reservation itself: the cache side is one atomic `finalize` — drop the
    * entry, re-credit the remainder, report the balance and the auto-release
    * job to cancel. An ingest that fails releases the whole reservation, as
-   * before: a provider event that never landed must not consume credits.
+   * before: a provider event that never landed must not consume credits. A
+   * final amount of zero ingests nothing and hands the whole reservation back.
    */
   const closeSpend = async (
     ctx: ActionRunCtx,
@@ -143,14 +177,12 @@ export function createMetering({ config, billing, rateLimiter, cache }: AiContex
     reservation: SpendReservation,
     options: { finalAmount?: number, metadata?: Record<string, string | number | boolean> } = {},
   ): Promise<void> => {
-    let final = options.finalAmount ?? reservation.value
-    if (final > reservation.value) {
-      logBackend('warn', 'ai.cost_over_reservation', `Finalized cost ${final} exceeds the ${reservation.value} credits reserved — charging the reservation. Raise the estimate.`)
-      final = reservation.value
-    }
-    final = Math.max(0, final)
+    const final = settledAmount(reservation.value, options.finalAmount)
     try {
-      await billing.settleSpend(ctx, { ...reservation, reserved: false, value: final }, {
+      // The reservation travels as reserved; the amount spent goes as
+      // `finalAmount`, which the billing layer checks against it.
+      await billing.settleSpend(ctx, { ...reservation, reserved: false }, {
+        finalAmount: final,
         // Member attribution: the acting user rides on every event, so
         // provider-side usage can be grouped per member of a workspace.
         metadata: { ...options.metadata, userId: usage.userId },

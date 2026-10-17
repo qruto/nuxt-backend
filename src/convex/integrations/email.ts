@@ -8,6 +8,34 @@ import { v } from 'convex/values'
 import { Resend, type CreateContactOptions } from 'resend'
 import { guardDelivery, parseSecretList, type WebhookLogRefs } from './webhook-guard.js'
 import { sendArgs } from '../email-validators.js'
+import {
+  emailRenderContext,
+  escapeHtml,
+  type EmailMessage,
+  type EmailRenderContext,
+  type EmailTemplateData,
+  type EmailTemplateName,
+  type EmailTemplateOverrides,
+  resolveEmailTemplates,
+} from '../email-templates.js'
+
+export type {
+  DeleteAccountEmailData,
+  EmailBrand,
+  EmailChangedEmailData,
+  EmailMessage,
+  EmailRenderContext,
+  EmailTemplateData,
+  EmailTemplateName,
+  EmailTemplateOverrides,
+  EmailTemplates,
+  GiftEmailData,
+  InviteEmailData,
+  OtpEmailData,
+  OtpPurpose,
+  WelcomeEmailData,
+} from '../email-templates.js'
+export type { LabelParams, Translate } from '../labels.js'
 
 /**
  * The component handle `setupEmail` reads from your generated `components`
@@ -105,6 +133,11 @@ export type SendEmailOptions = {
   replyTo?: string[]
   headers?: Array<{ name: string, value: string }>
   template?: { id: string, variables?: Record<string, string | number> }
+  /**
+   * Dedupes the send: a second send with the same key, while the first is
+   * still on record, returns the first one's id and delivers nothing.
+   */
+  idempotencyKey?: string
 }
 
 /**
@@ -201,6 +234,19 @@ export type EmailWebhookEventHandlers = {
 
 export interface SetupEmailOptions {
   /**
+   * Restyle any email the package sends, by template name: `otp`,
+   * `welcome`, `deleteAccount`, `invite`, `gift`. Each override gets the
+   * template's data and its render context, the default included:
+   * `invite: (data, { byDefault }) => ({ ...byDefault(data), subject: 'Join us' })`.
+   */
+  templates?: EmailTemplateOverrides
+  /**
+   * The app the emails are sent for. `name` reaches every template as
+   * `brand.name`; without it, the brand is the host of `SITE_URL`. The
+   * packaged emails sign off with it, linked to `SITE_URL`.
+   */
+  brand?: { name?: string }
+  /**
    * React to any verified provider event, keyed by its event name
    * (`'email.bounced'`, `'contact.created'`, …). Handlers run **after** the
    * component has verified the signature and updated delivery status —
@@ -248,6 +294,19 @@ export interface Email {
   }
   /** Send a transactional email (call from your own gated action/mutation). */
   send: (ctx: RunMutationCtx, options: SendEmailOptions) => Promise<string | null>
+  /**
+   * Render one of the package's emails, your override or the packaged
+   * default, without sending it: what a preview page or a test shows.
+   * Resolves once an async override has rendered.
+   */
+  render: <Name extends EmailTemplateName>(name: Name, data: EmailTemplateData<Name>, options?: { locale?: string }) => Promise<EmailMessage>
+  /** Render one of the package's emails and send it. */
+  sendTemplate: <Name extends EmailTemplateName>(
+    ctx: RunMutationCtx,
+    name: Name,
+    data: EmailTemplateData<Name>,
+    options?: { locale?: string, idempotencyKey?: string },
+  ) => Promise<string | null>
   /** Read an email's delivery status. */
   status: (ctx: RunQueryCtx, emailId: string) => Promise<EmailStatus | null>
   /** Cancel a not-yet-sent email. */
@@ -306,7 +365,10 @@ export interface Email {
 /**
  * App-facing email helper over the `backend` component's email module: both
  * **transactional** email (send / status / cancel + webhook) and **marketing**
- * email (segments / contacts / broadcasts via the provider SDK).
+ * email (segments / contacts / broadcasts via the provider SDK). It also
+ * holds the templates of every email the package sends: `setupAuth` and
+ * `setupBilling` take this instance as their `email` option and send through
+ * it, so an override here restyles all of them.
  *
  * Both use the required `EMAIL_API_KEY` env var. While it's missing (e.g. a
  * mid-configuration preview), transactional `send` logs instead of delivering.
@@ -316,16 +378,27 @@ export interface Email {
  * import { setupEmail } from 'nuxt-backend/email'
  * import { components } from './_generated/api'
  *
- * export const email = setupEmail(components)
+ * export const email = setupEmail(components, {
+ *   templates: { invite: (data, { byDefault }) => ({ ...byDefault(data), subject: 'Join the team' }) },
+ * })
  * export const { getEmailStatus } = email.api
  * ```
  */
 export function setupEmail(components: EmailComponents, options: SetupEmailOptions = {}): Email {
   const refs = components.backend.email
   const events = options.events
+  const templates = resolveEmailTemplates(options.templates)
 
   const send: Email['send'] = (ctx, options) =>
     ctx.runMutation(refs.send, options)
+
+  const render: Email['render'] = async (name, data, renderOptions = {}) => {
+    const context = emailRenderContext({ siteUrl: readProcessEnv('SITE_URL') ?? '', brandName: options.brand?.name, locale: renderOptions.locale })
+    return await (templates[name] as (data: unknown, context: EmailRenderContext) => EmailMessage | Promise<EmailMessage>)(data, context)
+  }
+
+  const sendTemplate: Email['sendTemplate'] = async (ctx, name, data, { locale, idempotencyKey } = {}) =>
+    send(ctx, { ...(await render(name, data, { locale })), ...(idempotencyKey ? { idempotencyKey } : {}) })
 
   const status: Email['status'] = (ctx, emailId) =>
     ctx.runQuery(refs.status, { emailId })
@@ -367,6 +440,13 @@ export function setupEmail(components: EmailComponents, options: SetupEmailOptio
     if (result.status === 403) {
       await guard.record('invalid_signature')
       return new Response(result.body || null, { status: 403 })
+    }
+    // The component holds no secret although the app does: `app.use(backend,
+    // { env })` does not forward EMAIL_WEBHOOK_SECRET. Nothing was verified,
+    // so the request is counted like any other refused before a signature.
+    if (result.status === 503) {
+      await guard.record('missing_secret', { note: 'the backend component has no EMAIL_WEBHOOK_SECRET' })
+      return new Response(result.body || null, { status: 503 })
     }
     if (result.status >= 300) {
       await guard.record('handler_error', { note: `component answered ${result.status}` })
@@ -427,6 +507,8 @@ export function setupEmail(components: EmailComponents, options: SetupEmailOptio
   return {
     api: { getEmailStatus, getSandboxInbox },
     send,
+    render,
+    sendTemplate,
     status,
     cancel,
     cleanup,
@@ -467,3 +549,4 @@ function readProcessEnv(name: string): string | undefined {
 
 /** Re-export so consumers can keep the `send` argument validator aligned. */
 export { sendArgs }
+export { escapeHtml }

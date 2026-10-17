@@ -23,4 +23,5 @@ export const sendArgs = {
     id: v.string(),
     variables: v.optional(v.record(v.string(), v.union(v.string(), v.number()))),
   })),
+  idempotencyKey: v.optional(v.string()),
 }

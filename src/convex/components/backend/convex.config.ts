@@ -32,7 +32,8 @@ import resend from '@convex-dev/resend/convex.config'
  * type-safely through
  * the generated `env` export (see `email.ts`). All optional — a deploy
  * succeeds without them and email degrades in a designed way (sends no-op,
- * OTP throws loudly, webhooks rejected) until `EMAIL_API_KEY` is set.
+ * codes and invitations to real addresses refused, webhooks rejected) until
+ * `EMAIL_API_KEY` is set.
  */
 const component = defineComponent('backend', {
   env: {

@@ -12,7 +12,7 @@ export interface BackendPageDef<K extends string = string> {
   file: string
   /**
    * Behind the `auth` route middleware. A private page is also kept out of
-   * search indexes, sitemaps and every cache (`pageRouteRules`).
+   * search indexes, sitemaps and caches at its path (`pageRouteRules`).
    */
   auth: boolean
 }

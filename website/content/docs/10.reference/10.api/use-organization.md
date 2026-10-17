@@ -172,6 +172,11 @@ component and `/accept-invitation` page build on these). Anything beyond —
 member removal, role updates — lives on the fully-typed client:
 `useAuth().client.organization.*`.
 
+Every action rejects when the server refuses it (the client itself resolves
+a refusal as `{ error }`), so a `catch` sees each failure; a rate-limited
+call rejects with the wait in `retryAfter`. Each still resolves the client's
+result on success.
+
 #### Returns
 
 [`UseOrganizationReturn`](#useorganizationreturn)

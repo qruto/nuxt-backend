@@ -12,7 +12,7 @@ const LIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'p
 
 /** The registered queries and actions `setupBilling` hands the app as `billing.functions`. */
 export function createBillingFunctions(
-  { config, billTo, products, meterNameById, provider, cache, webhookLog, entityFromIdentity, getUserInfo, throttle }: BillingContext,
+  { config, billTo, products, meterNameById, provider, cache, webhookLog, entityFromIdentity, getUserInfo, throttle, requireAdmin }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
   { updateSubscription, cancelSubscription, uncancelSubscription, pauseSubscription, resumeSubscription }: BillingSubscriptions,
   { getOrders, getInvoiceUrl, getUsageHistory, refundOrder }: BillingHistory,
@@ -134,13 +134,31 @@ export function createBillingFunctions(
     },
   })
 
+  /**
+   * Whether the caller passes the admin gate `refundOrder` uses, as a yes or
+   * no. A signed-out caller is refused before a custom gate is asked.
+   */
+  const isAdmin = async (ctx: GenericQueryCtx<GenericDataModel>): Promise<boolean> => {
+    if (!(await ctx.auth.getUserIdentity())) return false
+    try {
+      await requireAdmin(ctx, 'getWebhookDeliveries')
+      return true
+    }
+    catch {
+      return false
+    }
+  }
+
   // The webhook delivery feed (the DevTools Webhooks and Email pages, the
-  // playground's webhook page). Identity-gated: delivery rows carry event
-  // types and provider ids.
+  // playground's webhook page). Admin-tier, like `refundOrder`: the log is
+  // deployment-wide — every account's provider delivery ids, event types,
+  // outcomes and handler errors. Anyone else, signed out included, reads
+  // `null` rather than an error, so a reactive reader settles on "admins
+  // only" instead of retrying a throw.
   const getWebhookDeliveries = queryGeneric({
     args: { limit: v.optional(v.number()) },
     handler: async (ctx, { limit }) => {
-      if (!(await ctx.auth.getUserIdentity())) return null
+      if (!(await isAdmin(ctx))) return null
       if (!webhookLog) return []
       return ctx.runQuery(webhookLog.listRecent, { limit })
     },

@@ -17,64 +17,39 @@ navigation:
 Defined in: [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts)
 
 One call to mount every inbound route the backend handles on your Convex
-HTTP router: the auth routes, the guarded billing events endpoint
-(entitlement refresh + gift fulfilment), the guarded email delivery-events
-endpoint (status tracking), the metered AI stream endpoint, and the agent
-(MCP) token exchange.
+HTTP router: the auth routes, the agent (MCP) token exchange, the guarded
+billing events endpoint (entitlement refresh + gift fulfilment), the
+guarded email delivery-events endpoint (status tracking), and the metered
+AI stream endpoint. Each part is required: a route left unmounted fails
+only when a provider or a client first calls it.
 
 The webhook endpoints share one fail-closed policy (see `webhook-guard.ts`):
 missing secret → 503, invalid signature → 403 (±5 min replay tolerance),
 oversized → 413, authentic-but-unknown type → 202, handler throw → 500 so
-the provider retries, redelivery of a processed id → 200. Every delivery's
-outcome lands in the component's ring-buffer log.
+the provider retries, redelivery of a processed id → 200. Every request's
+outcome lands in the component's delivery log.
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="auth"></a> `auth` | \{ `authComponent`: \{ `registerRoutes`: (...`args`) => `void`; \}; `createAuth`: `unknown`; \} | From `setupAuth`: mounts the auth HTTP routes. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
+| <a id="auth"></a> `auth` | \{ `authComponent`: \{ `registerRoutes`: (...`args`) => `void`; \}; `createAuth`: `unknown`; `mcp`: \{ `exchangeHandler`: (`ctx`, `request`) => `Promise`\<`Response`\>; \}; \} | From `setupAuth`: mounts the auth HTTP routes, and the agent token exchange (its `mcp` export) at [RegisterBackendRoutesOptions.mcpExchangePath](#mcpexchangepath), where the Nuxt MCP gate trades agents' OAuth Bearers for short-lived Convex JWTs. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | `auth.authComponent` | \{ `registerRoutes`: (...`args`) => `void`; \} | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | `auth.authComponent.registerRoutes` | (...`args`) => `void` | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | `auth.createAuth` | `unknown` | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
-| <a id="billing"></a> `billing?` | \{ `webhookHandler`: (`ctx`, `request`) => `Promise`\<`Response`\>; \} | From `setupBilling`: mounts the guarded billing events webhook at [RegisterBackendRoutesOptions.billingPath](#billingpath) (fail-closed statuses, redelivery dedupe, delivery logging — pass the whole `billing` instance). | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
+| `auth.mcp` | \{ `exchangeHandler`: (`ctx`, `request`) => `Promise`\<`Response`\>; \} | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
+| `auth.mcp.exchangeHandler` | (`ctx`, `request`) => `Promise`\<`Response`\> | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
+| <a id="billing"></a> `billing` | \{ `webhookHandler`: (`ctx`, `request`) => `Promise`\<`Response`\>; \} | From `setupBilling`: mounts the guarded billing events webhook at [RegisterBackendRoutesOptions.billingPath](#billingpath) (fail-closed statuses, redelivery dedupe, delivery logging — pass the whole `billing` instance). | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | `billing.webhookHandler` | (`ctx`, `request`) => `Promise`\<`Response`\> | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
-| <a id="email"></a> `email?` | \{ `webhookHandler`: (`ctx`, `request`) => `Promise`\<`Response`\>; \} | From `setupEmail`: mounts the email events webhook at [RegisterBackendRoutesOptions.emailPath](#emailpath). | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
+| <a id="email"></a> `email` | \{ `webhookHandler`: (`ctx`, `request`) => `Promise`\<`Response`\>; \} | From `setupEmail`: mounts the email events webhook at [RegisterBackendRoutesOptions.emailPath](#emailpath). | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | `email.webhookHandler` | (`ctx`, `request`) => `Promise`\<`Response`\> | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
-| <a id="ai"></a> `ai?` | \{ `httpHandler`: `unknown`; `corsOrigin`: `string`; \} | From `setupAi`: mounts the metered stream endpoint at [RegisterBackendRoutesOptions.aiPath](#aipath). | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
+| <a id="ai"></a> `ai` | \{ `httpHandler`: `unknown`; `corsOrigin`: `string`; \} | From `setupAi`: mounts the metered stream endpoint at [RegisterBackendRoutesOptions.aiPath](#aipath). | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | `ai.httpHandler` | `unknown` | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | `ai.corsOrigin` | `string` | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
-| <a id="mcp"></a> `mcp?` | \{ `exchangeHandler`: (`ctx`, `request`) => `Promise`\<`Response`\>; \} | From `setupAuth` (its `mcp` export): mounts the agent token exchange at [RegisterBackendRoutesOptions.mcpExchangePath](#mcpexchangepath) — the Nuxt MCP gate trades agents' OAuth Bearers here for short-lived Convex JWTs. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
-| `mcp.exchangeHandler` | (`ctx`, `request`) => `Promise`\<`Response`\> | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | <a id="billingpath"></a> `billingPath?` | `string` | Route for the billing events webhook. Default `/billing/events`. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | <a id="emailpath"></a> `emailPath?` | `string` | Route for the email events webhook. Default `/email/events`. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | <a id="aipath"></a> `aiPath?` | `string` | Route for the AI stream endpoint. Default `/ai/stream`. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | <a id="mcpexchangepath"></a> `mcpExchangePath?` | `string` | Route for the agent token exchange. Default `/mcp/exchange`. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
-
-***
-
-### SetupMcpOptions
-
-Defined in: [src/convex/integrations/mcp.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts)
-
-#### Properties
-
-| Property | Type | Description | Defined in |
-| ------ | ------ | ------ | ------ |
-| <a id="createauth"></a> `createAuth` | (`ctx`) => `unknown` | From `setupAuth`: builds the per-request better-auth instance. Typed `unknown` because the concrete instance's generics reference option types better-auth doesn't export — it is read structurally (same trade as `registerBackendRoutes`'s never-typed auth params). | [src/convex/integrations/mcp.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts) |
-| <a id="createsignerauth"></a> `createSignerAuth` | (`ctx`) => `unknown` | Builds the sign-only instance whose `auth.api.signJWT` mints the Convex JWT (the aligned jwt plugin cannot live on the main instance — see the client bridge). | [src/convex/integrations/mcp.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts) |
-| <a id="ratelimiter"></a> `rateLimiter?` | `McpRateLimiter` | Throttles exchanges per client+user (the `mcp` named limit). | [src/convex/integrations/mcp.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts) |
-
-***
-
-### McpExchange
-
-Defined in: [src/convex/integrations/mcp.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts)
-
-#### Properties
-
-| Property | Type | Description | Defined in |
-| ------ | ------ | ------ | ------ |
-| <a id="exchangehandler"></a> `exchangeHandler` | (`ctx`, `request`) => `Promise`\<`Response`\> | httpAction body for `POST /mcp/exchange` (wrapped by `registerBackendRoutes`). | [src/convex/integrations/mcp.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts) |
 
 ## Functions
 
@@ -104,34 +79,12 @@ Defined in: [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-back
 import { registerBackendRoutes } from 'nuxt-backend/http'
 import { httpRouter } from 'convex/server'
 import { components } from './_generated/api'
+import { ai } from './ai'
 import { authComponent, createAuth, mcp } from './auth'
-import billing from './billing'
+import { billing } from './billing'
 import { email } from './email'
 
 const http = httpRouter()
-registerBackendRoutes(http, { auth: { authComponent, createAuth }, billing, email, mcp })
+registerBackendRoutes(http, { auth: { authComponent, createAuth, mcp }, billing, email, ai })
 export default http
 ```
-
-***
-
-### setupMcp()
-
-```ts
-function setupMcp(options): McpExchange;
-```
-
-Defined in: [src/convex/integrations/mcp.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/mcp.ts)
-
-Build the `/mcp/exchange` handler. Wired for you by `setupAuth` (returned
-as its `mcp` export); call directly only for hand-rolled auth setups.
-
-#### Parameters
-
-| Parameter | Type |
-| ------ | ------ |
-| `options` | [`SetupMcpOptions`](#setupmcpoptions) |
-
-#### Returns
-
-[`McpExchange`](#mcpexchange)

@@ -35,6 +35,7 @@ function toWire(row: Doc<'billingGifts'>) {
     claimedEntityId: row.claimedEntityId,
     createdAt: row.createdAt,
     paidAt: row.paidAt,
+    notifiedAt: row.notifiedAt,
     claimedAt: row.claimedAt,
   }
 }
@@ -62,23 +63,38 @@ export const create = mutation({
   },
 })
 
-/** Mark a gift paid once the billing provider confirms the order. Idempotent. */
+/**
+ * Mark a gift paid once the billing provider confirms the order. Idempotent.
+ * `billingCustomerId` re-binds the gift to the customer the paid order landed
+ * on, when that differs from the one recorded at checkout (the caller has
+ * checked it carries the recipient's email).
+ */
 export const markPaid = mutation({
-  args: { giftId: v.id('billingGifts'), billingOrderId: v.optional(v.string()) },
+  args: {
+    giftId: v.id('billingGifts'),
+    billingOrderId: v.optional(v.string()),
+    billingCustomerId: v.optional(v.string()),
+  },
   returns: v.null(),
-  handler: async (ctx, { giftId, billingOrderId }) => {
+  handler: async (ctx, { giftId, billingOrderId, billingCustomerId }) => {
     const gift = await ctx.db.get('billingGifts', giftId)
     if (!gift || gift.status !== 'pending') return null
-    await ctx.db.patch('billingGifts', giftId, { status: 'paid', billingOrderId, paidAt: Date.now() })
+    await ctx.db.patch('billingGifts', giftId, {
+      status: 'paid',
+      billingOrderId,
+      paidAt: Date.now(),
+      ...(billingCustomerId === undefined ? {} : { billingCustomerId }),
+    })
     return null
   },
 })
 
-/** Mark a gift claimed after its entitlement attached to an entity. Idempotent. */
 /**
- * Stamp the recipient-notification email as sent — status-guarded so webhook
- * redeliveries of `order.paid` can never email the recipient twice.
- * Returns whether this call won the stamp (the caller sends only on `true`).
+ * Stamp the recipient-notification email as sent. The caller stamps only
+ * after the send succeeded, so a failed send is retried on the next delivery
+ * of `order.paid`, and skips the send once the stamp is there, so a replay
+ * long after the email's own record is gone still emails nobody twice.
+ * Returns whether this call set the stamp.
  */
 export const markNotified = mutation({
   args: { giftId: v.string() },
@@ -93,6 +109,7 @@ export const markNotified = mutation({
   },
 })
 
+/** Mark a gift claimed after its entitlement attached to an entity. Idempotent. */
 export const markClaimed = mutation({
   args: { giftId: v.id('billingGifts'), userId: v.string(), entityId: v.string() },
   returns: v.null(),

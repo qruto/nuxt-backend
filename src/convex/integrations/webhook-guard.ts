@@ -5,8 +5,8 @@ import { logBackend } from '../log.js'
 /**
  * The shared fail-closed edge discipline for inbound webhook routes
  * (`/billing/events`, `/email/events`): secret-list parsing, body size cap,
- * redelivery dedupe, and outcome logging into the component's delivery ring
- * buffer. Uniform policy (documented in the Webhooks guide):
+ * redelivery dedupe, and outcome logging into the component's delivery log.
+ * Uniform policy (documented in the Webhooks guide):
  *
  * | condition                        | status | outcome            |
  * | -------------------------------- | ------ | ------------------ |
@@ -23,12 +23,19 @@ import { logBackend } from '../log.js'
  * ever silently swallowed. Deliberately NO rate limiting here — signature
  * verification is the gate, and a limiter would drop the legitimate retry
  * bursts that follow an incident.
+ *
+ * Every outcome is recorded, but only a delivery whose signature verified
+ * gets a log row of its own: the component counts the requests answered
+ * before verification (`missing_secret`, `oversized`, `invalid_signature`,
+ * `duplicate`) per service and outcome, so junk requests can neither grow
+ * the log nor evict the `ok` rows dedupe reads. The log is deployment-wide,
+ * so its reader (`getWebhookDeliveries`) is admin-only.
  */
 
 export type WebhookOutcome
   = 'ok' | 'invalid_signature' | 'unknown_type' | 'handler_error' | 'duplicate' | 'oversized' | 'missing_secret'
 
-/** A row of the delivery ring buffer, as served to feeds. */
+/** A row of the delivery log, as served to feeds. */
 export interface WebhookDeliveryRow {
   service: string
   deliveryId: string
@@ -36,9 +43,15 @@ export interface WebhookDeliveryRow {
   outcome: WebhookOutcome
   note?: string
   receivedAt: number
+  /**
+   * Set on a tally of requests answered before their signature verified:
+   * how many it stands for (the latest one's id, type, note and time are the
+   * row's own). It counts afresh after a day without one.
+   */
+  count?: number
 }
 
-/** `components.backend.webhooks` — the delivery ring buffer functions. */
+/** `components.backend.webhooks` — the delivery log functions. */
 export interface WebhookLogRefs {
   record: FunctionReference<'mutation', 'internal', {
     service: string
@@ -74,7 +87,7 @@ const warnedMissingSecret = new Set<string>()
 
 export interface GuardedDelivery {
   deliveryId: string
-  /** Record the delivery's outcome in the ring buffer (never throws). */
+  /** Record the delivery's outcome in the delivery log (never throws). */
   record: (outcome: WebhookOutcome, details?: { type?: string, note?: string }) => Promise<void>
   /** A short-circuit response from the guard, or null to proceed. */
   rejection: Response | null

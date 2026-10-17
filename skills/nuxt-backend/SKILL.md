@@ -64,8 +64,13 @@ sign-in codes print in the terminal that runs `dev`.
 
 - **Auth:** `useAuth()` for the session, sign-out and roles, and `<AuthForm>` for sign-in with
   passkeys and email codes. `definePageMeta({ middleware: 'auth' })` protects a page. The module
-  mounts `/login`, `/pricing`, `/settings`, `/profile`, `/security` and `/accept-invitation`.
-  `backend.pages` in `nuxt.config` moves or disables each one.
+  mounts `/login`, `/pricing`, `/settings`, `/profile`, `/security`, `/accept-invitation` and
+  `/oauth/consent`, every one of them always. A path under `backend.pages` in `nuxt.config`
+  moves a page (`pages: { pricing: '/plans' }`); an app page at a page's path replaces it. A page
+  key takes a path only: `true` or `false` stops the build.
+- **Caching:** keep `swr`, `isr` and `cache` route rules on public pages (`'/blog/**'`), never
+  `'/**'`. A signed-in render carries the session's token, and the private pages opt out of
+  caches at their exact paths only.
 - **Functions:** `backend/functions.ts` exports pre-authorized builders:
   - `authed.query(...)` gets `ctx.user`;
   - `org.mutation(...)` adds `ctx.organization`;
@@ -79,7 +84,8 @@ sign-in codes print in the terminal that runs `dev`.
   with `<FeatureBoundary>`, and render plans with `<PricingTable>`. Plan copy comes from
   `appConfig.backend.billing.plans` and `packs`.
 - **Email:** transactional mail goes through `backend/email.ts` (`setupEmail`), and
-  `useEmailStatus(id)` tracks delivery. Test mode is on until `EMAIL_TEST_MODE=false`.
+  `useEmailStatus(id)` tracks delivery. The package's own emails (sign-in codes, welcome,
+  invitations, gifts) go through it too: restyle them with `setupEmail(components, { templates })`. Test mode is on until `EMAIL_TEST_MODE=false`.
   Never expose a public function that takes a recipient: the scaffolded `send` is an
   `internalAction`. Call it from server code with an address you trust, or use
   `admin.action` (like `sendAsAdmin`) when a person types the address.
@@ -87,8 +93,9 @@ sign-in codes print in the terminal that runs `dev`.
   and stops at the consent page, `/oauth/consent`, where the person approves or denies; there
   is no option to skip it. Add tools with `defineBackendMcpTool` from `nuxt-backend/mcp`, one
   file each in `server/mcp/tools/`.
-- **Tests:** register the component in `convex-test` with `nuxt-backend/test`
-  (`backendTest.register(t)`).
+- **Tests:** `defineBackendTestApp(schema, modules)` from `nuxt-backend/test` builds the app in
+  `convex-test` with every component mounted, and `asUser(t, { role, workspace, agent })` signs
+  a caller in as a real sign-in leaves one: role `user`, an own personal workspace, real claims.
 - **Linting:** `backendEslint()` from `nuxt-backend/eslint` applies Convex's lint rules to
   `backend/`: `export default withNuxt(backendEslint())`. It needs `@convex-dev/eslint-plugin`
   installed. See https://nuxt-backend.dev/docs/ship/test/linting.

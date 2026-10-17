@@ -16,9 +16,15 @@ const notice = ref('')
 async function sendInvite() {
   const email = inviteEmail.value.trim()
   if (!email) return
-  await invite({ email })
-  inviteEmail.value = ''
-  notice.value = `Invitation sent — the custom template links to /join.`
+  // A refused invitation rejects with the reason.
+  try {
+    await invite({ email })
+    inviteEmail.value = ''
+    notice.value = `Invitation sent — the custom template links to /join.`
+  }
+  catch (error) {
+    notice.value = error instanceof Error ? error.message : String(error)
+  }
 }
 
 async function logout() {

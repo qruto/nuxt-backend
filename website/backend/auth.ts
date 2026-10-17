@@ -3,6 +3,7 @@ import { isSandboxIdentity, SANDBOX_IDENTITY_HELP } from '../utils/testEmail'
 import { components, internal } from './_generated/api'
 import { markActive } from '../utils/activity'
 import { query } from './_generated/server'
+import { email } from './email'
 import { rateLimiter } from './rateLimiter'
 import { workflow } from './workflows'
 
@@ -25,8 +26,6 @@ export const {
   revokeSession,
   // The agent token exchange (mounted at /mcp/exchange by http.ts).
   mcp,
-  // The auth emails in effect, for the email-templates preview page.
-  emailTemplates,
 } = setupAuth(components, query, {
   // The public playground is a sandbox: every account is a generated sandbox
   // identity (utils/testEmail.ts), never a real address. `canSignIn` below
@@ -57,19 +56,12 @@ export const {
   },
   canSignIn: async (_ctx, { email }) =>
     isSandboxIdentity(email) || { allowed: false, message: SANDBOX_IDENTITY_HELP },
-  // Email (sign-in and email-change codes, invitations) is wired
-  // automatically through the backend component — configured by the EMAIL_*
-  // env vars. Throttle code sends and other auth-sensitive flows.
+  // Every auth email (sign-in and email-change codes, welcome, invitations)
+  // goes out through email.ts, which holds the templates — the playground
+  // brands its sign-in code there.
+  email,
+  // Throttle code sends and other auth-sensitive flows.
   rateLimiter,
-  // Branded OTP subject — a template override changes the message body while
-  // the transport stays the packaged one (demoed on /playground/platform/email).
-  emailTemplates: {
-    otp: ({ email, otp, type }) => ({
-      to: email,
-      subject: `Your nuxt-backend playground ${type === 'sign-in' ? 'sign-in' : type} code`,
-      text: `Your code: ${otp}\n\nSent by the nuxt-backend playground with a custom template from backend/auth.ts.`,
-    }),
-  },
   // Kick off a durable welcome workflow when a user signs up, and seed the
   // playground's demo data. The seed is scheduled (not run inline): this
   // hook fires mid-sign-up, before the session hook creates the personal

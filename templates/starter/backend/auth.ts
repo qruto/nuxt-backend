@@ -1,6 +1,7 @@
 import { setupAuth } from 'nuxt-backend/auth'
 import { components, internal } from './_generated/api'
 import { query } from './_generated/server'
+import { email } from './email'
 import { rateLimiter } from './rateLimiter'
 import { workflow } from './workflows'
 
@@ -23,9 +24,10 @@ export const {
   // workspace invitations with an /accept-invitation page. Customize them
   // with `admin: { … }` and `organization: { … }`.
   //
-  // Email (sign-in and email-change codes, invitations) is delivered
-  // automatically through the backend component — configured by the
-  // EMAIL_* env vars. Throttle code sends and other auth-sensitive flows.
+  // Every auth email (sign-in and email-change codes, welcome,
+  // invitations) goes out through email.ts, which holds the templates.
+  email,
+  // Throttle code sends and other auth-sensitive flows.
   rateLimiter,
   // Start the onboarding sequence (workflows.ts) when a user signs up. The
   // packaged welcome email has already gone out.

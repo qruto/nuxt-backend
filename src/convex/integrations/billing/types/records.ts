@@ -94,7 +94,10 @@ export interface SpendCreditsEvent {
    * releases on failure, so a failed run never consumes credits.
    */
   meterId?: string
-  /** Credits required for this spend (default `1`). */
+  /**
+   * Credits required for this spend (default `1`): a finite number above
+   * zero. Anything else is refused before the balance or the provider sees it.
+   */
   value?: number
   /**
    * Let the balance go negative instead of refusing the spend — the
@@ -114,7 +117,8 @@ export interface SpendCreditsEvent {
 /**
  * A credit reservation's addressing data — serializable, so a spend can
  * reserve in one function and settle/release in another (the streaming HTTP
- * dispatcher does exactly that).
+ * dispatcher does exactly that). Being plain data, it is checked again when it
+ * settles: a `value` that is not a finite number above zero is refused.
  */
 export interface SpendReservation {
   /** The billing entity the spend belongs to. */
@@ -137,7 +141,7 @@ export interface RefundCreditsEvent {
   userId?: string
   /** The configured credit meter name to refund on (must be a sum meter). */
   meter: string
-  /** Credits to give back. */
+  /** Credits to give back: a finite number above zero. */
   value: number
   /** Extra event properties. */
   metadata?: Record<string, string | number | boolean>
@@ -168,23 +172,7 @@ export interface GiftRecord {
   claimedEntityId?: string
   createdAt: number
   paidAt?: number
+  /** When the recipient's notification email went out — stamped only after the send succeeded. */
+  notifiedAt?: number
   claimedAt?: number
-}
-
-/** The gift-notification email built by `giftEmail` ({@link SetupBillingConfig}). */
-export interface GiftEmailMessage {
-  to: string
-  subject: string
-  html?: string
-  text?: string
-}
-
-/** The data available to the gift-notification email template. */
-export interface GiftEmailData {
-  recipientEmail: string
-  purchaserName?: string
-  purchaserEmail?: string
-  message?: string
-  /** The app URL where the recipient signs in (or up) to receive the gift. */
-  claimUrl: string
 }

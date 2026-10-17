@@ -329,9 +329,9 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
       <p class="hint">
         Every OTP this deployment sends uses a custom template — the transport
         stays the packaged one, only the message changes. From
-        <code>backend/auth.ts</code>:
+        <code>backend/email.ts</code>:
       </p>
-      <pre class="cmd"><code>emailTemplates: {
+      <pre class="cmd"><code>templates: {
   otp: ({ email, otp, type }) => ({
     to: email,
     subject: `Your nuxt-backend playground ${'${type}'} code`,

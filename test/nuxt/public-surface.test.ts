@@ -335,11 +335,11 @@ const EXPORT_NAMES: Record<string, string[]> = {
   '.': ['default'],
   './auth': ['APIError', 'setupAuth'],
   './authorization': ['adminAc', 'createAccessControl', 'defaultStatements', 'setupAuthorization', 'userAc'],
-  './http': ['registerBackendRoutes', 'setupMcp'],
+  './http': ['registerBackendRoutes'],
   './functions': ['createFunctions'],
   './app': ['backendEnv'],
-  './billing': ['ALL_BILLING_EVENTS', 'BILLING_REFRESH_EVENTS', 'BILLING_WEBHOOK_PROVISION_EVENTS', 'defaultGiftEmail', 'defineBillingCatalog', 'setupBilling'],
-  './email': ['ALL_EMAIL_EVENTS', 'sendArgs', 'setupEmail'],
+  './billing': ['ALL_BILLING_EVENTS', 'BILLING_REFRESH_EVENTS', 'BILLING_WEBHOOK_PROVISION_EVENTS', 'defineBillingCatalog', 'setupBilling'],
+  './email': ['ALL_EMAIL_EVENTS', 'escapeHtml', 'sendArgs', 'setupEmail'],
   './rate-limit': ['DAY', 'DEFAULT_LIMITS', 'HOUR', 'MINUTE', 'SECOND', 'setupRateLimiter'],
   './migrations': ['setupMigrations'],
   './aggregate': ['TableAggregate', 'Triggers', 'customCtx', 'customMutation', 'withTriggers'],
@@ -349,7 +349,7 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './mcp': ['BACKEND_MCP_FUNCTION_DEFAULTS', 'EXCHANGE_CACHE_MARGIN_MS', 'backendMcpFunction', 'createExchangeCache', 'defineBackendMcpTool', 'useBackendMcp'],
   './convex.config': ['default'],
   './auth.config': ['default', 'defineBackendAuthConfig'],
-  './test': ['default', 'register'],
+  './test': ['asUser', 'default', 'defineBackendTestApp', 'register', 'seedWorkspace'],
   './eslint': ['BACKEND_ESLINT_RULES', 'backendEslint'],
 }
 
@@ -480,7 +480,7 @@ const REGISTRY = {
 }
 
 /** The experimental tier, by the names STABILITY.md lists. */
-const EXPERIMENTAL = ['./mcp', './ai', 'useAiStream', 'useWorkflowStatus', 'useSandboxInbox']
+const EXPERIMENTAL = ['./mcp', './ai', 'useAiStream', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace']
 
 describe('the registry', () => {
   it('matches every name src/module.ts and src/nuxt/ register', () => {

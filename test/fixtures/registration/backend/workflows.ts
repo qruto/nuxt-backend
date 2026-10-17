@@ -22,7 +22,7 @@ export const onSignup = defineEmailSequence(workflow, components, {
       email: ({ email, name }) => ({
         to: email,
         subject: 'How is it going?',
-        text: `Hi ${name}, you signed up three days ago. Reply to this email if anything is in your way.`,
+        text: `Hi${name ? ` ${name}` : ''}, you signed up three days ago. Reply to this email if anything is in your way.`,
       }),
     },
   ],

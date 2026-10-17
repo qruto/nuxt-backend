@@ -17,6 +17,7 @@ The active workspace rides on the Convex JWT as `activeOrganizationId`. Server-s
 
 ```ts [backend/auth.ts]
 export const { authComponent, createAuth, getAuthUser, listWorkspaces, listWorkspaceMembers } = setupAuth(components, query, {
+  email,
   // Options are the organization plugin's, plus:
   organization: {
     invitationPath: '/accept-invitation', // where emailed invitation links land (default)
@@ -83,6 +84,8 @@ const { organizations, current, member, role, members, isLoading, setActive, cre
   :::
 ::
 
+Each action rejects with the reason when the server refuses it, such as a taken slug or an invitation for someone already in the workspace, so a `catch` sees every failure.
+
 Anything beyond — removing a member, updating a member's role — lives on the fully-typed client: `useAuth().client.organization.*`.
 
 ## `<WorkspaceSettings>`
@@ -139,7 +142,7 @@ const {
 
 ### Customizing the flow
 
-- **Email** — override `invite` in `setupAuth`'s `emailTemplates` to restyle without replacing the transport, or supply the plugin's own `organization.sendInvitationEmail` to take over delivery entirely.
+- **Email** — override the `invite` [template](/docs/email/templates) on `setupEmail` to restyle without replacing the transport, or supply the plugin's own `organization.sendInvitationEmail` to take over delivery entirely. Each invitation is sent once per issuance; a resend goes out again.
 - **Link path** — `organization: { invitationPath: '/join' }` changes where emailed links point.
 - **Page** — the module mounts it at `/accept-invitation`; the module option `pages.acceptInvitation` moves it, and an app page at its path replaces it.
 
@@ -164,6 +167,7 @@ export default defineNuxtConfig({
 
 ```ts [backend/auth.ts]
 setupAuth(components, query, {
+  email,
   organization: { invitationPath: '/join' },
 })
 ```

@@ -12,6 +12,7 @@ import { buildDevtoolsInfo, readPackageVersions } from './devtools/info'
 import type { BackendMcpFunctionKey } from './runtime/server/mcp/builtin'
 import { isDevtoolsUiEnabled, isSiteUrlConfigured, runDevAutoEnv, runPreflight } from './nuxt/dev'
 import { registerMcp, resolveMcpOptions } from './nuxt/mcp'
+import { assertModuleOptions } from './nuxt/options'
 import { registerModulePages } from './nuxt/pages'
 import { registerAuthMiddleware, registerBackendTypeFallback, registerBillingLinkComponents, registerSaasComposables } from './nuxt/registry'
 import { registerThemeBridge } from './nuxt/theme'
@@ -127,6 +128,9 @@ export default defineNuxtModule<ModuleOptions>({
   // installs fails with Nuxt's own error instead of half-working.
   moduleDependencies: (nuxt): ModuleDependencies => {
     const rawOptions = nuxt.options as unknown as Record<string, unknown>
+    // Nuxt resolves the dependencies before any module's setup runs: refuse
+    // an option 0.2 removed here, before the login path below is read.
+    assertModuleOptions(rawOptions.backend)
     const backend = (rawOptions.backend ?? {}) as ModuleOptions
     const convex = (rawOptions.convex ?? {}) as Record<string, unknown>
     const resolver = createResolver(moduleDir)
@@ -214,6 +218,9 @@ export default defineNuxtModule<ModuleOptions>({
     }
   },
   async setup(options, nuxt) {
+    // Again for options passed inline (`modules: [['nuxt-backend', { … }]]`),
+    // which `moduleDependencies` does not see.
+    assertModuleOptions(options)
     const resolver = createResolver(moduleDir)
 
     // Scaffold the minimum Convex backend files (auth component mount, route
@@ -242,9 +249,10 @@ export default defineNuxtModule<ModuleOptions>({
     registerSaasComposables(resolver)
 
     // The neutral stylesheet for every shipped component and page, first in
-    // line and layered (ui.css), so every app rule wins over it. Right after
-    // it, the bridge onto @nuxt/ui's tokens and @nuxtjs/color-mode's class,
-    // when the app has them (src/nuxt/theme.ts).
+    // line and layered (ui.css), so an app rule outside a layer wins over it.
+    // Right after it, a generated one (src/nuxt/theme.ts): the light default
+    // a production build's rewritten light-dark() needs, and the bridge onto
+    // @nuxt/ui's tokens and @nuxtjs/color-mode's class when the app has them.
     const uiCss = resolver.resolve('./runtime/vue/components/ui.css')
     nuxt.options.css.unshift(uiCss)
     registerThemeBridge(nuxt, uiCss)
@@ -306,8 +314,8 @@ function securityDisabled(nuxt: Nuxt): boolean {
 }
 
 // Typed `appConfig.backend` (content layer) and
-// `runtimeConfig.public.backend.pages` (resolved default-page paths, `''`
-// when a page is disabled) for consumers. Same augmentation target as the
+// `runtimeConfig.public.backend.pages` (where each page mounts: every page
+// does) for consumers. Same augmentation target as the
 // base module's runtime-config typing (`@nuxt/schema`), not `nuxt/schema`,
 // which only re-exports it: augmented through the re-export, this
 // `AppConfigInput` did not merge with the other modules' and the website's

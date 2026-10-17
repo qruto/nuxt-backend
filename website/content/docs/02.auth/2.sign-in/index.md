@@ -92,7 +92,9 @@ It returns:
 | `goTo(step)` | jump to a step, clearing `otp` and `error` |
 | `reset()` | back to `choose` with every field cleared |
 
-A refused request (HTTP 429) leaves the flow on its current step. `error` reads *"Too many attempts. Try again in 30 seconds."* and `retryAfter` holds the `30`, so a custom page can count down or disable its button until then. When the wait is unknown, the message says *"…Try again in a moment."* and `retryAfter` stays `null`. See [rate limiting](/docs/ship/production/rate-limits#what-the-user-sees) for which refusals carry a wait.
+A refused request (HTTP 429) leaves the flow on its current step. `error` reads *"Too many attempts. Try again in 30 seconds."* and `retryAfter` holds the `30`, so a custom page can count down or disable its button until then. When the wait is unknown, the message says *"…Try again in a moment."* and `retryAfter` stays `null`. See [rate limiting](/docs/ship/production/rate-limits#what-the-user-sees) for which refusals carry a wait. Checking codes has a budget of its own: ten checks an hour per address (`emailOtpAttempt`), however many codes were sent.
+
+A refusal from your `canSignIn` gate (HTTP 403) reaches whoever typed the address, before any code is sent. If the gate refuses new addresses, that answer tells anyone which addresses have an account: see the [note on refusing at sign-in](/docs/auth/setup#cross-component-wiring) for the way around it.
 
 Every step is also available one level down on `useAuth()` — `sendOtp`, `signInWithOtp`, `signInWithPasskey`, `registerPasskey` — when a page needs a shape the composable does not model.
 
