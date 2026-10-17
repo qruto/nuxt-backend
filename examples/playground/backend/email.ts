@@ -1,5 +1,6 @@
 import { setupEmail } from 'nuxt-backend/email'
-import { ConvexError, v } from 'convex/values'
+import { backendError } from 'nuxt-backend/functions'
+import { v } from 'convex/values'
 import { isAllowedTestEmail, normalizeTestEmail, TEST_EMAIL_HELP } from '../utils/testEmail'
 import { api, components, internal } from './_generated/api'
 import { action, internalMutation, query } from './_generated/server'
@@ -59,7 +60,7 @@ export const { getEmailStatus, getSandboxInbox } = email.api
 /** A Resend test inbox, lower-cased — or a refusal: the playground never emails a real person. */
 function testRecipient(address: string): string {
   const recipient = normalizeTestEmail(address)
-  if (!isAllowedTestEmail(recipient)) throw new ConvexError(TEST_EMAIL_HELP)
+  if (!isAllowedTestEmail(recipient)) throw backendError('invalid_input', { field: 'to', message: TEST_EMAIL_HELP })
   return recipient
 }
 
@@ -74,7 +75,7 @@ export const sendTest = action({
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, { to, subject }) => {
     const user = await ctx.runQuery(api.auth.getAuthUser, {})
-    if (!user) throw new ConvexError('Sign in to send email.')
+    if (!user) throw backendError('unauthenticated', { message: 'Sign in to send email.' })
     const recipient = testRecipient(to ?? 'delivered@resend.dev')
     await throttle(ctx, emailLimits(user._id))
     const subj = subject ?? 'Hello from nuxt-backend'

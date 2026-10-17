@@ -1,4 +1,5 @@
 import { setupAi } from 'nuxt-backend/ai'
+import { backendError } from 'nuxt-backend/functions'
 import { v } from 'convex/values'
 import { components } from './_generated/api'
 import { billing } from './billing'
@@ -27,7 +28,12 @@ export const transform = ai.meteredAction({
   handler: async (ctx, { text, fail }) => {
     await new Promise(resolve => setTimeout(resolve, 600))
     if (fail) {
-      throw new Error('Model call failed (simulated) — the reserved credit was released, nothing charged.')
+      // A catalog code, so the page reads it in production too.
+      throw backendError('unavailable', {
+        service: 'ai',
+        reason: 'simulated',
+        message: 'Model call failed (simulated): the reserved credit was released, nothing charged.',
+      })
     }
     return {
       transformed: text.toUpperCase(),

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { errorText } from '../../../utils/errorText'
 import { isSandboxIdentity, SANDBOX_IDENTITY_HELP } from '../../../utils/testEmail'
 
 definePageMeta({ middleware: 'auth' })
@@ -37,7 +36,7 @@ async function run(action: () => Promise<unknown>, message: string) {
     notice.value = message
   }
   catch (cause) {
-    notice.value = errorText(cause, 'Something went wrong')
+    notice.value = getBackendError(cause)?.message ?? (cause instanceof Error ? cause.message : 'Something went wrong')
   }
   finally {
     pending.value = false

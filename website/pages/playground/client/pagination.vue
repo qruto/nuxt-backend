@@ -4,7 +4,6 @@ import { api } from '#backend/api'
 import type { Id } from '#backend/dataModel'
 import { LOG_LEVELS } from '../../../backend/schema'
 import type { LogLevel } from '../../../backend/schema'
-import { errorText } from '../../../utils/errorText'
 // Paginated optimistic helpers are public utilities (used inside
 // withOptimisticUpdate) but not Nuxt auto-imports — pull from the package.
 import { insertAtTop } from 'nuxt-convex-module/client'
@@ -53,7 +52,7 @@ async function seedLogs() {
     generation.value++
   }
   catch (cause) {
-    seedError.value = errorText(cause, 'Could not seed logs')
+    seedError.value = getBackendError(cause)?.message ?? 'Could not seed logs'
   }
   finally {
     seeding.value = false

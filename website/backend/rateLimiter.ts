@@ -1,5 +1,6 @@
+import { backendError } from 'nuxt-backend/functions'
 import { HOUR, MINUTE, setupRateLimiter } from 'nuxt-backend/rate-limit'
-import { ConvexError, v } from 'convex/values'
+import { v } from 'convex/values'
 import { components } from './_generated/api'
 import { mutation, query } from './_generated/server'
 
@@ -24,17 +25,19 @@ export const rateLimiter = setupRateLimiter(components, {
 type PlaygroundLimit = 'playgroundEmail' | 'playgroundEmailGlobal' | 'playgroundSeed' | 'playgroundUpload' | 'playgroundAction'
 
 /**
- * Take one token from each limit in turn (keyed ones per user), or refuse with
- * a readable "try again" error — a `ConvexError`, whose message survives
- * production's error redaction.
+ * Take one token from each limit in turn (keyed ones per user), or refuse as
+ * `rate_limited`, which survives production's redaction. `throws: true` lets
+ * the limiter throw its own `RateLimited` error, but only when it knows the
+ * wait: a refusal without one comes back as `{ ok: false }`, so that one is
+ * thrown here.
  */
 export async function throttle(
   ctx: Parameters<typeof rateLimiter.limit>[0],
   limits: Array<{ name: PlaygroundLimit, key?: string }>,
 ): Promise<void> {
   for (const { name, key } of limits) {
-    const { ok, retryAfter } = await rateLimiter.limit(ctx, name, key ? { key } : {})
-    if (!ok) throw new ConvexError(`Too many requests — try again in ${Math.ceil(retryAfter / 1000)} s.`)
+    const { ok, retryAfter } = await rateLimiter.limit(ctx, name, { ...(key ? { key } : {}), throws: true })
+    if (!ok) throw backendError('rate_limited', { limit: name, retryAfter: retryAfter || undefined })
   }
 }
 

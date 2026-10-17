@@ -19,6 +19,8 @@ const simulateFailure = ref(false)
 const transforming = ref(false)
 const transformResult = ref<{ transformed: string, reversed: string, chargedTo: string, cost: number } | null>(null)
 const transformError = ref<string | null>(null)
+// An empty balance is a refusal with a way out: the page offers a top-up.
+const outOfCredits = ref(false)
 
 // The session's settle log — what each run cost, or released.
 const settled = ref<Array<{ at: number, cost: number, ok: boolean }>>([])
@@ -28,6 +30,7 @@ async function runTransform() {
   transforming.value = true
   transformResult.value = null
   transformError.value = null
+  outOfCredits.value = false
   try {
     const result = await transform({
       text: transformText.value.trim() || 'Meter this sentence',
@@ -37,10 +40,19 @@ async function runTransform() {
     settled.value = [{ at: Date.now(), cost: result.cost, ok: true }, ...settled.value].slice(0, 8)
   }
   catch (error) {
-    transformError.value = error instanceof Error ? error.message : 'Transform failed'
-    // The action costs one credit ('credits' counts events); a failed run
-    // released exactly that.
-    settled.value = [{ at: Date.now(), cost: 1, ok: false }, ...settled.value].slice(0, 8)
+    // A catalog refusal reads the same in production as here; anything else
+    // is a crash, which production shows only as "Server Error".
+    const refusal = getBackendError(error)
+    outOfCredits.value = refusal?.code === 'insufficient_credits'
+    transformError.value = refusal?.message ?? 'Transform failed'
+    // A refusal before the reservation (no credits, rate limited, signed
+    // out) reserved nothing. A run that failed released its one credit
+    // ('credits' counts events), and so did a usage report the provider
+    // refused or had no customer for.
+    const released = !refusal || refusal.code === 'unavailable' || (refusal.code === 'not_ready' && refusal.data.reason === 'no_customer')
+    if (released) {
+      settled.value = [{ at: Date.now(), cost: 1, ok: false }, ...settled.value].slice(0, 8)
+    }
   }
   finally { transforming.value = false }
 }
@@ -54,11 +66,14 @@ const streamError = ref<string | null>(null)
 
 async function runStream() {
   streamError.value = null
+  outOfCredits.value = false
   try {
     await echo.start({ prompt: streamPrompt.value.trim() || 'Hello from the metered stream' })
   }
-  catch (error) {
-    streamError.value = error instanceof Error ? error.message : 'Stream failed'
+  catch {
+    // A refused start ends in status 'error' with the refusal in `echo.error`.
+    outOfCredits.value = echo.error.value?.code === 'insufficient_credits'
+    streamError.value = echo.error.value?.message ?? 'Stream failed'
   }
 }
 
@@ -193,6 +208,14 @@ function clock(at: number) {
       >
         {{ transformError }}
       </p>
+      <p
+        v-if="outOfCredits"
+        class="hint"
+      >
+        <NuxtLink to="/playground/platform/credits">
+          Top up credits
+        </NuxtLink> to keep going. The refusal came before anything was reserved.
+      </p>
       <ul
         v-if="settled.length"
         class="settle-log"
@@ -258,6 +281,14 @@ function clock(at: number) {
         class="msg err mono"
       >
         {{ streamError }}
+      </p>
+      <p
+        v-if="outOfCredits && streamError"
+        class="hint"
+      >
+        <NuxtLink to="/playground/platform/credits">
+          Top up credits
+        </NuxtLink> to stream again.
       </p>
       <p class="hint">
         Tokens stream over HTTP from <code>/ai/stream</code> while persisting

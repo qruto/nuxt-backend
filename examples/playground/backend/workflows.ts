@@ -1,5 +1,6 @@
 import { setupWorkflows, type WorkflowId } from 'nuxt-backend/workflows'
-import { ConvexError, v } from 'convex/values'
+import { backendError } from 'nuxt-backend/functions'
+import { v } from 'convex/values'
 import { components, internal } from './_generated/api'
 import { mutation, query } from './_generated/server'
 import { emailLimits, throttle } from './rateLimiter'
@@ -49,7 +50,7 @@ export const startDemoWorkflow = mutation({
   returns: v.string(),
   handler: async (ctx, { label }): Promise<string> => {
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new ConvexError('Sign in to start a workflow.')
+    if (!identity) throw backendError('unauthenticated', { message: 'Sign in to start a workflow.' })
     await throttle(ctx, emailLimits(identity.subject))
     return workflow.start(ctx, internal.workflows.demoWorkflow, { label: label.slice(0, 80) })
   },

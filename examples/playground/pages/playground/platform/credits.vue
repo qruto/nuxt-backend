@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { api } from '#backend/api'
-import { errorText } from '../../../utils/errorText'
 import { isSandboxIdentity, SANDBOX_IDENTITY_HELP } from '../../../utils/testEmail'
 
 definePageMeta({ middleware: 'auth' })
@@ -37,7 +36,7 @@ async function runTransform() {
     }) as typeof transformResult.value
   }
   catch (error) {
-    transformError.value = error instanceof Error ? error.message : 'Transform failed'
+    transformError.value = getBackendError(error)?.message ?? 'Transform failed'
   }
   finally { transforming.value = false }
 }
@@ -52,8 +51,8 @@ async function runStream() {
   try {
     await echo.start({ prompt: streamPrompt.value.trim() || 'Hello from the metered stream' })
   }
-  catch (error) {
-    streamError.value = error instanceof Error ? error.message : 'Stream failed'
+  catch {
+    streamError.value = echo.error.value?.message ?? 'Stream failed'
   }
 }
 
@@ -96,7 +95,7 @@ async function sendGift() {
     giftMessage.value = ''
   }
   catch (error) {
-    giftNotice.value = errorText(error, 'The gift checkout failed')
+    giftNotice.value = getBackendError(error)?.message ?? 'The gift checkout failed'
   }
   finally { gifting.value = false }
 }
