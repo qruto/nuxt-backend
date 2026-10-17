@@ -62,8 +62,8 @@ export function createOnDemandSections(run: <T>(fn: () => T) => T, patch: Patch)
     },
     gifts() {
       if (gifts) return
-      // Never claims: the panel only looks.
-      const received = useGifts({ autoClaim: false })
+      // Only looks: a gift is claimed by its recipient's own click.
+      const received = useGifts()
       gifts = received
       watchEffect(() => {
         const rows = received.received.value
@@ -71,7 +71,7 @@ export function createOnDemandSections(run: <T>(fn: () => T) => T, patch: Patch)
           isLoading: rows === undefined,
           received: rows?.length ?? 0,
           unclaimed: received.unclaimed.value.length,
-          pending: (rows ?? []).filter(gift => gift.status === 'pending').length,
+          claimed: (rows ?? []).filter(gift => gift.status === 'claimed').length,
         })
       })
     },

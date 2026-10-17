@@ -279,14 +279,24 @@ export const vGift = v.object({
   productIds: v.array(v.string()),
   message: v.optional(v.string()),
   status: v.string(),
-  billingCustomerId: v.string(),
+  billingCustomerId: v.optional(v.string()),
   billingOrderId: v.optional(v.string()),
+  purchaserEntityId: v.optional(v.string()),
+  pack: v.optional(v.string()),
+  giftProductId: v.optional(v.string()),
+  amount: v.optional(v.number()),
+  currency: v.optional(v.string()),
+  discountId: v.optional(v.string()),
+  claimingEntityId: v.optional(v.string()),
+  claimingUserId: v.optional(v.string()),
+  claimOrderId: v.optional(v.string()),
   claimedByUserId: v.optional(v.string()),
   claimedEntityId: v.optional(v.string()),
   createdAt: v.number(),
   paidAt: v.optional(v.number()),
   notifiedAt: v.optional(v.number()),
   claimedAt: v.optional(v.number()),
+  refundedAt: v.optional(v.number()),
 })
 
 export const billingTables = {
@@ -326,30 +336,63 @@ export const billingTables = {
     windowStart: v.number(),
   })
     .index('userId', ['userId']),
+  // One trial per owner, across every workspace they own and whatever
+  // happens to those workspaces later. A row per owner and entity: `used`
+  // once a subscription of the entity started a trial, else a hold a
+  // checkout took so a second workspace's checkout at the same time starts
+  // none.
+  billingTrials: defineTable({
+    ownerUserId: v.string(),
+    entityId: v.string(),
+    used: v.boolean(),
+    at: v.number(),
+  })
+    .index('ownerUserId', ['ownerUserId']),
   billingGifts: defineTable({
     // Stored lowercased; matched case-insensitively against the claimant's email.
     recipientEmail: v.string(),
     purchaserUserId: v.string(),
     purchaserEmail: v.optional(v.string()),
     purchaserName: v.optional(v.string()),
+    // The credit pack the recipient receives: its provider product.
     productIds: v.array(v.string()),
+    // Plain text, shown only inside the app once the recipient signs in.
     message: v.optional(v.string()),
-    // 'pending' (checkout created) → 'paid' (order webhook) → 'claimed'.
+    // 'pending' (checkout created) → 'paid' (the purchase order is paid and
+    // its claim discount minted) → 'claimed' (the recipient's $0 order is
+    // paid), or 'refunded' (the purchase was refunded before the claim).
     status: v.string(),
-    // The billing provider's customer keyed by the recipient's email.
-    billingCustomerId: v.string(),
+    // Before 0.2: the provider customer keyed by the recipient's email,
+    // which the purchase was billed to. Gifts are billed to the purchaser now.
+    billingCustomerId: v.optional(v.string()),
+    // The purchase order, paid by the purchaser's own billing entity.
     billingOrderId: v.optional(v.string()),
+    purchaserEntityId: v.optional(v.string()),
+    // The pack's catalog key, and the private gift product the purchaser bought.
+    pack: v.optional(v.string()),
+    giftProductId: v.optional(v.string()),
+    // What the purchase order charged, in the currency's smallest unit.
+    amount: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    // The single-use 100% discount the recipient claims the pack with.
+    discountId: v.optional(v.string()),
+    // The claim checkout in flight: who opened it, for which entity.
+    claimingEntityId: v.optional(v.string()),
+    claimingUserId: v.optional(v.string()),
+    claimOrderId: v.optional(v.string()),
     claimedByUserId: v.optional(v.string()),
-    // The entity the entitlement attached to: workspace id or user id.
+    // The entity the credits landed on: workspace id or user id.
     claimedEntityId: v.optional(v.string()),
     createdAt: v.number(),
     paidAt: v.optional(v.number()),
     notifiedAt: v.optional(v.number()),
     claimedAt: v.optional(v.number()),
+    refundedAt: v.optional(v.number()),
   })
     .index('recipientEmail', ['recipientEmail'])
     .index('recipientEmail_status', ['recipientEmail', 'status'])
-    .index('status', ['status']),
+    .index('status', ['status'])
+    .index('purchaserUserId_createdAt', ['purchaserUserId', 'createdAt']),
 }
 
 /**

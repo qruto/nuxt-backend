@@ -90,6 +90,7 @@ Keep these exports. The composables bind to them by name (`useBilling` → `getC
 | `rateLimiter` | Your `setupRateLimiter(...)` instance. Throttles **every client-callable function that reaches the live provider** — `syncEntitlements`, `syncProducts`, checkout, the subscription-lifecycle actions, order history and invoices — against the `billingSync` limit (10/min, keyed by the workspace or user), so a caller can't loop one to amplify the provider fan-out. `giftCheckout` counts against the same limit, keyed by the purchaser. Omit to leave them unthrottled. |
 | `multipleSubscriptions` | Let one entity hold several live subscriptions at once (a plan plus add-ons). Switches `getCurrentSubscription` to the array-first `CurrentSubscriptions` shape — `subscriptions` leads, and the primary subscription's fields ride alongside so `subscription.productId` / `.status` keep reading unchanged — and makes `subscriptionId` the way the lifecycle actions pick their target. Off, the upstream single-subscription read throws the moment a second one exists. |
 | `requireAdmin` | Gate for the admin-tier actions (`refundOrder` — moving real money): throw to refuse. The default requires an `admin` role claim on the caller's identity; supply your own to check permissions, a workspace role, or an allowlist. |
+| `canGift` · `giftLimit` | Who may receive a gift, on top of the package's own rules, and how many gifts one purchaser may buy in a window (10 in 30 days by default). See [Gifts](/docs/billing/credits/gifts). |
 | `events` | Webhook handlers keyed by the provider's own event names (`'order.paid'`, `'subscription.active'`, …). They run **after** the built-in entitlement-cache refresh and gift fulfilment, so features and credits read fresh inside them; events outside the built-in refresh set are mounted too. |
 | `onUnknownEvent` | Called for an **authentic** (signature-verified) webhook event whose type the installed provider SDK cannot parse — one newer than the package, say. The delivery is acknowledged with 202 either way, so an unknown type never puts the endpoint into a retry loop. |
 
@@ -97,7 +98,7 @@ Keep these exports. The composables bind to them by name (`useBilling` → `getC
 
 ::field-group
   :::field{name="api"}
-  Checkout / portal / product / subscription functions to re-export, plus `giftCheckout` (a checkout billed to someone else's email). `listAllSubscriptions` is wrapped to return `null` instead of throwing for claimless callers.
+  Checkout / portal / product / subscription functions to re-export, plus `giftCheckout` (the purchaser's checkout of a credit pack for someone else). `listAllSubscriptions` is wrapped to return `null` instead of throwing for claimless callers.
   :::
 
   :::field{name="functions"}
@@ -122,6 +123,10 @@ Keep these exports. The composables bind to them by name (`useBilling` → `getC
 
   :::field{name="getOrders · getInvoiceUrl · getUsageHistory · refundOrder"}
   Order history, invoice URLs and metered consumption, read live from the provider — there is no local order or usage table, because the provider already is the ledger. Each returns `null` when no access token is configured. `refundOrder` is admin-tier (`requireAdmin`).
+  :::
+
+  :::field{name="checkout · portal"}
+  The checkout and the customer portal from server code, for your own actions: `checkout` takes what `generateCheckoutLink` takes plus the server-only `trial` and `discountId` (see [Checkout](/docs/billing/subscriptions/checkout)); `portal(ctx, { returnUrl? })` opens the portal for the caller's billing entity, as the caller's own member of a workspace's billing customer.
   :::
 
   :::field{name="getCustomerState · resolveEntity · discounts"}
@@ -149,17 +154,24 @@ const billing = useBilling()
 
 Signed-out visitors are simply on the free plan: the user-scoped queries are skipped and `subscription` resolves to `null`.
 
-## One email, one billing profile
+## One customer per billing entity
 
-The billing provider keys its customers by email, and checkout resolves the paying entity's customer from the email of the member who starts it: the customer already mapped to the entity, else the one carrying that email, else a new one. The first entity to check out under an email owns its customer — every customer the package binds carries the entity's id in its metadata.
+Every billing entity pays through a provider customer of its own, keyed by the entity's id as the provider's external id: a workspace's id, or a user's with `billTo: 'user'`. The first checkout creates it, and every live call after that finds it by that id: customer state, usage events, orders and the portal. Webhooks resolve the entity from the customer's external id first, then the entity tag in its metadata, then the cache.
 
-In workspace mode one member's email can stand behind several workspaces, and a customer shared between two of them would merge them: one set of benefits and credits, and a single-subscription read that throws once both subscribe. So a checkout never adopts a customer that already pays for another entity. It refuses with `forbidden` (reason `customer_taken`) and a message the UI can show — the email already pays for another workspace, and a checkout from a member with a different email gives this one its own. The same holds per account with `billTo: 'user'`, where it only meets an email that moved between accounts. One customer per billing entity, keyed by the entity rather than the email, is planned for a later release.
+- **A workspace** is a team customer named after it, with the workspace's owner as its owner member. One person's email can stand behind every workspace they own, and each still bills through its own customer, with its own plan, credits and orders. Members are never seats: the customer pays, and its owner opens the portal.
+- **A user** (`billTo: 'user'`) is an individual customer with the user's email. An email the provider already keeps for another account is refused with `forbidden` (reason `customer_taken`), since the provider keeps an individual customer's email unique.
+- **An earlier customer** of the owner's verified email that no entity keyed, one the provider made from a checkout that named no customer, say, becomes the entity's own for a personal workspace or a user. Never for a shared workspace, never one that another entity holds, and never for an email its owner has not proved by a sign-in code.
+- **A customer from before 0.2**, mapped by the old email lookup and carrying no external id, gets the entity's id on its first checkout or entitlement read: production billing from 0.1 carries over with nothing to run. One that two entities shared is refused for the second as `forbidden` (reason `customer_taken`), and the deployment logs `billing.customer_mapping_shared` until its billing data is reset.
+
+Trials run once per owner: a checkout for a workspace whose owner already had a trial starts without one, whatever the product or the server offers. The package records a trial by the owner's user id when a subscription starts one, so deleting the workspace that trialed, or handing it over, changes nothing. A checkout that offers a trial holds it for its workspace for an hour, so two first checkouts of one owner's workspaces at once can't both start one.
+
+The billing portal opens as the caller's own member of the workspace's customer, so it shows who is signed in and what they may do there. Only its owner or a billing manager gets one: another member is refused with `forbidden` (reason `not_billing_manager`). Workspace admins are not billing managers yet. The member is found by the caller's user id; an adopted customer's owner member has none (the provider sets it only at creation), so it is matched by the caller's verified email instead, and only a member no account is keyed to. That owner loses the portal if they change their email, until the operator updates the member at the provider.
 
 ## Environment
 
 | Variable | Purpose |
 |---|---|
-| `BILLING_ACCESS_TOKEN` | The provider organization access token — unset, billing queries return empty and checkout actions fail on invocation |
+| `BILLING_ACCESS_TOKEN` | The provider organization access token — unset, billing queries return empty and checkout actions fail on invocation. Workspaces need its `members:write` and `customer_sessions:write` scopes too, for team customers and the member's portal |
 | `BILLING_WEBHOOK_SECRET` | Verifies webhooks on `/billing/events` — unset, events are rejected (503) and entitlements refresh only on demand |
 | `BILLING_ENVIRONMENT` | `sandbox` (the default) or `production` |
 

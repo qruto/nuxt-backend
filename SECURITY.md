@@ -350,5 +350,36 @@ what was decided:
   `test/unit/billing-orders-subscriptions.test.ts`, `test/unit/billing-integration.test.ts`,
   `test/convex-component/billing.test.ts` and the probe suite, whose ratchet lost every checkout
   gap and whose input probes count only an `invalid_input` on the probed field as a refusal.
+- **Billing customers and gifts** (`billing:generateCheckoutLink`,
+  `billing:generateCustomerPortalUrl`, `billing:giftCheckout`, `billing:claimGift`,
+  `billing:getReceivedGifts`; 2026-10-17). Checkout found a billing customer by the email of the
+  member who started it, so a second workspace of the same owner was mapped onto the first one's
+  customer and shared its plan and credits. A gift checkout was billed to a customer keyed by the
+  recipient's email: the purchaser saw the recipient's billing details pre-filled and got no
+  receipt, a customer was created for any address before anyone paid, and a refunded gift stayed
+  claimable. Every billing entity now has a provider customer of its own, keyed by its id and never
+  looked up by email; a workspace is a team customer whose portal opens only as its owner's own
+  member (or a billing manager's), found by the caller's user id, or by the caller's verified email
+  for a member no account is keyed to (an adopted customer's owner). An earlier customer is
+  adopted only for an email its owner verified, and a claim and the received-gift list need a
+  verified email too. A gift is bought on the purchaser's own customer, as a
+  private benefit-less twin of the pack with discount codes off, and claimed into the recipient's
+  own customer through a single-use, code-free 100% discount minted only once the purchase is
+  paid on the purchaser's entity, at a price above zero and with no discount; the claim is
+  confirmed only at $0. Any paid order that redeemed the gift's single-use discount is its claim,
+  whichever of the recipient's entities it landed on. Any refund before the claim deletes the
+  discount, unless it was already redeemed, and a refund that arrives before the purchase's
+  `order.paid` voids the pending gift. A purchaser needs an earlier paid order and may buy at most
+  10 gifts in 30 days by default, open checkouts counted, with the cap checked again at payment (a
+  gift paid past it is refunded), and never one for their own address; the gift email carries the sender's name (at most 40 characters, links removed)
+  and no token, and `getReceivedGifts` returns no purchaser email or billing id. **Fixed.** Pinned
+  by `test/unit/billing-orders-subscriptions.test.ts`, `test/unit/billing-gifts.test.ts`,
+  `test/unit/billing-integration.test.ts` and `test/convex-component/gifts.test.ts`.
+  **Limits:** a claimed gift's credits can't be taken back (the provider can't revoke what a $0
+  order granted), so a refund after the claim returns the money only; a demoted workspace owner
+  keeps their provider member until member mirroring lands, and workspace admins are not billing
+  managers yet; an adopted customer's owner who changes their email loses the portal until the
+  member is updated at the provider; the provider's own trial-abuse matching does not cover team
+  customers, so the package records one trial per owner user id itself.
 - **DevTools** (2026-09-17). The Backend tab and its RPC run only under `nuxt dev`, on Vite's
   middleware — reachable exactly as far as Nuxt DevTools itself. **Accepted.**

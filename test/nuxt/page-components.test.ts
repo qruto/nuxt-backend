@@ -194,7 +194,7 @@ const gifts = {
   unclaimed: computed(() => giftList.value),
   isLoading: computed(() => false),
   isClaiming: computed(() => giftClaiming.value),
-  claim: vi.fn(async () => 1),
+  claim: vi.fn(async () => true),
 }
 vi.mock('../../src/runtime/vue/composables/use-gifts', () => ({ useGifts: () => gifts }))
 vi.mock('../../src/runtime/vue/composables/use-organization', () => ({ useOrganization: () => organization }))
@@ -1034,7 +1034,7 @@ describe('GiftClaimBanner', () => {
   })
 
   it('is busy while a claim is in flight, and claims the clicked gift', async () => {
-    giftList.value = [{ id: 'g1', status: 'paid', purchaserEmail: 'grace@example.com' }]
+    giftList.value = [{ id: 'g1', status: 'paid', purchaserName: 'Grace' }]
     giftClaiming.value = true
     const wrapper = mount(GiftClaimBanner)
     expect(wrapper.find('[data-gift="banner"]').attributes('aria-busy')).toBe('true')
@@ -1047,6 +1047,15 @@ describe('GiftClaimBanner', () => {
     await flushPromises()
     expect(gifts.claim).toHaveBeenCalledWith('g1')
     expect(wrapper.emitted('claimed')).toEqual([[1]])
+  })
+
+  it('says nothing was claimed yet when the claim opened the provider\'s checkout', async () => {
+    giftList.value = [{ id: 'g1', status: 'paid', purchaserName: 'Grace' }]
+    gifts.claim.mockResolvedValueOnce(false)
+    const wrapper = mount(GiftClaimBanner)
+    await wrapper.find('[data-gift="claim"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.emitted('claimed')).toBeUndefined()
   })
 })
 

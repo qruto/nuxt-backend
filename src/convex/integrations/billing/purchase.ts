@@ -14,13 +14,14 @@ import { logBackend } from '../../log.js'
 /**
  * Metadata keys the package writes on a checkout and reads back from the
  * order, subscription or customer it becomes: the billing entity a webhook
- * resolves (`userId`) and the gift a paid order delivers. A client that
- * could set them could bill another workspace's plan to itself or claim
- * someone else's gift, so they are refused from the client, in any letter
- * case. The `utm_` prefix is reserved too: the package writes it from
- * {@link CampaignAttribution}.
+ * resolves (`userId`), the gift a paid order delivers (`giftId`) and whether
+ * that order bought it or claimed it (`phase`). A client that could set them
+ * could bill another workspace's plan to itself or claim someone else's
+ * gift, so they are refused from the client, in any letter case. The keys
+ * earlier releases wrote stay reserved, and the `utm_` prefix is too: the
+ * package writes it from {@link CampaignAttribution}.
  */
-export const RESERVED_METADATA_KEYS = ['userId', 'gift', 'giftId', 'recipientEmail', 'purchaserUserId', 'giftRecipient'] as const
+export const RESERVED_METADATA_KEYS = ['userId', 'gift', 'giftId', 'phase', 'recipientEmail', 'purchaserUserId', 'giftRecipient'] as const
 
 /** The prefix of the attribution keys the package writes. */
 export const CAMPAIGN_METADATA_PREFIX = 'utm_'
@@ -78,6 +79,8 @@ export function createPurchaseRules({ config, environment, products, provider }:
   }
   // The catalog keys `billing sync` wrote as packs, when the generated catalog has them.
   const packKeys = config.catalog?.[environment]?.packs
+  // Each pack's private gift product, which `billing sync` creates beside it.
+  const giftProducts = config.catalog?.[environment]?.gifts
 
   /**
    * The origins a buyer may return to: `SITE_URL`'s, then
@@ -161,6 +164,22 @@ export function createPurchaseRules({ config, environment, products, provider }:
   }
 
   /**
+   * The private gift product of a catalog pack: what a purchaser buys for
+   * someone else. `billing sync` creates it beside the pack, with its prices
+   * and none of its benefits, so the purchase grants the purchaser nothing.
+   * An app without one has not synced since gifts changed: `not_ready`.
+   */
+  const requireGiftProduct = (key: string): string => {
+    const productId = giftProducts && Object.hasOwn(giftProducts, key) ? giftProducts[key] : undefined
+    if (productId) return productId
+    throw backendError(
+      'not_ready',
+      { reason: 'no_catalog' },
+      '[nuxt-backend] Billing: this pack has no gift product yet — run `npx nuxt-backend billing sync`, which creates a private gift product beside each pack.',
+    )
+  }
+
+  /**
    * A plan to switch a subscription to: in the catalog, and a recurring
    * product the products table has loaded — never a pack, which the
    * provider could not bill as a subscription.
@@ -201,7 +220,7 @@ export function createPurchaseRules({ config, environment, products, provider }:
     }
   }
 
-  return { requireTrustedUrl, requireCatalogProducts, requirePack, requirePlan, requireClientMetadata }
+  return { requireTrustedUrl, requireCatalogProducts, requirePack, requireGiftProduct, requirePlan, requireClientMetadata }
 }
 
 /**

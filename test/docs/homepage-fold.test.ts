@@ -22,7 +22,7 @@ describe('the console\'s fold', () => {
     const mark = () => wrapper.findAll('.lcd-row.sm\\:hidden').length
     const drawn = wrapper.findAll('.lcd-row').length - mark()
 
-    expect(folded()).toBe(7)
+    expect(folded()).toBe(8)
     expect(mark()).toBe(1)
     expect(key().attributes('aria-pressed')).toBe('false')
     expect(key().text()).toBe(`Show all ${rows('billing')} lines`)
@@ -35,7 +35,7 @@ describe('the console\'s fold', () => {
     expect(key().text()).toBe(`Show all ${rows('billing')} lines`)
 
     await key().trigger('click')
-    expect([folded(), mark()]).toEqual([7, 1])
+    expect([folded(), mark()]).toEqual([8, 1])
     wrapper.unmount()
   })
 

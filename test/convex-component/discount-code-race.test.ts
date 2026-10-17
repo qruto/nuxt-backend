@@ -3,6 +3,7 @@
 import { Polar } from '@convex-dev/polar'
 import { checkoutsClientUpdate } from '@polar-sh/sdk/funcs/checkoutsClientUpdate.js'
 import { checkoutsCreate } from '@polar-sh/sdk/funcs/checkoutsCreate.js'
+import { customersGet } from '@polar-sh/sdk/funcs/customersGet.js'
 import { convexTest, type TestConvex } from 'convex-test'
 import type { FunctionReference } from 'convex/server'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
@@ -20,9 +21,11 @@ import { setupBilling, type SetupBillingConfig } from '../../src/convex/integrat
 
 vi.mock('@polar-sh/sdk/funcs/checkoutsClientUpdate.js', () => ({ checkoutsClientUpdate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/checkoutsCreate.js', () => ({ checkoutsCreate: vi.fn() }))
+vi.mock('@polar-sh/sdk/funcs/customersGet.js', () => ({ customersGet: vi.fn() }))
 
 const mockCheckoutsClientUpdate = vi.mocked(checkoutsClientUpdate)
 const mockCheckoutsCreate = vi.mocked(checkoutsCreate)
+const mockCustomersGet = vi.mocked(customersGet)
 
 /** The package's limit: ten refused codes an hour per billing entity. */
 const LIMIT = 10
@@ -77,7 +80,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.spyOn(console, 'error').mockImplementation(() => {})
   t = convexTest(schema, component.modules)
+  // The billing entity (the user, u1) already pays through its own customer,
+  // keyed by its id; it has no trial to spend and the product offers none.
   vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1', userId: 'u1' } as never)
+  mockCustomersGet.mockResolvedValue({ ok: true, value: { id: 'cus_1', externalId: 'u1', metadata: { userId: 'u1' } } } as never)
+  vi.spyOn(Polar.prototype, 'getProduct').mockResolvedValue(null as never)
+  vi.spyOn(Polar.prototype, 'listAllUserSubscriptions').mockResolvedValue([] as never)
   mockCheckoutsCreate.mockImplementation(() => later({ ok: true, value: { url: 'https://checkout/1', clientSecret: 'cs_1' } }) as never)
 })
 

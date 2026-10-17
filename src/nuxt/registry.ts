@@ -62,6 +62,16 @@ export function registerSaasComposables(resolver: Resolver): void {
     filePath: resolver.resolve('./runtime/vue/components/pricing-table'),
   })
   addComponent({
+    name: 'BillingCheckoutLink',
+    export: 'BillingCheckoutLink',
+    filePath: resolver.resolve('./runtime/vue/components/billing-links'),
+  })
+  addComponent({
+    name: 'BillingPortalLink',
+    export: 'BillingPortalLink',
+    filePath: resolver.resolve('./runtime/vue/components/billing-links'),
+  })
+  addComponent({
     name: 'BillingHistory',
     export: 'BillingHistory',
     filePath: resolver.resolve('./runtime/vue/components/billing-history'),
@@ -160,12 +170,13 @@ export function registerAuthMiddleware(): void {
 
 /**
  * The neutral names of the base module's components that carry a provider's
- * vocabulary: `<BillingCheckoutLink>` and `<BillingPortalLink>` are its
- * `<CheckoutLink>` and `<CustomerPortalLink>` (Vue ports of
- * `@convex-dev/polar/react`), and `<StorageImage>` is its `<ConvexImage>`.
- * Each points at the same export; {@link hideBaseBrandNames} hides the
- * originals. Without the base runtime on disk there is nothing to alias (and
- * the base module's own registration is missing too).
+ * vocabulary: `<StorageImage>` is its `<ConvexImage>`, pointing at the same
+ * export. Its `<CheckoutLink>` and `<CustomerPortalLink>` are replaced
+ * outright by this package's `<BillingCheckoutLink>` and
+ * `<BillingPortalLink>`, bound to its own checkout and portal.
+ * {@link hideBaseBrandNames} hides the originals. Without the base runtime
+ * on disk there is nothing to alias (and the base module's own registration
+ * is missing too).
  *
  * In development the old names stay registered as stand-ins that warn once,
  * naming the new one, and render it: a type check cannot see a component name
@@ -177,10 +188,10 @@ export function registerBaseComponentAliases(resolver: Resolver, nuxt: Nuxt): vo
     // Priority 1: it replaces the base module's registration under the same name, whichever hook runs first.
     if (nuxt.options.dev) addComponent({ name, export: name, filePath: resolver.resolve(`./runtime/vue/components/${file}`), priority: 1 })
   }
-  const links = resolveBaseRuntime('nuxt-convex-module/polar/vue')
-  if (links) {
-    addComponent({ name: 'BillingCheckoutLink', filePath: links, export: 'CheckoutLink' })
-    addComponent({ name: 'BillingPortalLink', filePath: links, export: 'CustomerPortalLink' })
+  // The billing links are the package's own (registered with the other
+  // components), bound to its checkout and portal: the base module's bind by
+  // name and create a session on render. The old names stand in for them.
+  if (resolveBaseRuntime('nuxt-convex-module/polar/vue')) {
     renamed('CheckoutLink', 'renamed-billing-links')
     renamed('CustomerPortalLink', 'renamed-billing-links')
   }

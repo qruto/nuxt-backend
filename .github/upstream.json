@@ -87,6 +87,12 @@
       "fallback": "Read them from the provider API on demand"
     },
     {
+      "ask": "Customers keyed by external id: team customers, and checkouts and portal sessions by external customer id, with no lookup by email",
+      "owner": "get-convex/polar",
+      "blocks": "A4 (one customer per billing entity)",
+      "fallback": "The package creates, keys and maps each entity's customer itself, outside the component's client"
+    },
+    {
       "ask": "Polar SDK 1.x support",
       "owner": "get-convex/polar",
       "blocks": "UP2",
@@ -139,6 +145,18 @@
       "owner": "polarsource/polar",
       "blocks": "A4, A7a",
       "fallback": "One trial per owner, tracked by the package"
+    },
+    {
+      "ask": "Set a member's external_id after it was created",
+      "owner": "polarsource/polar",
+      "blocks": "A4 (adopted customers), F9",
+      "fallback": "The portal matches an adopted customer's owner member by the caller's verified email"
+    },
+    {
+      "ask": "Revoke the benefits a $0 order granted when the order that paid for it is refunded",
+      "owner": "polarsource/polar",
+      "blocks": "A4, GIFT (refunds after a gift's claim)",
+      "fallback": "A refund before the claim voids the gift; after it, the money is returned and the credits stay. Gifts need an earlier paid order and a per-purchaser cap"
     },
     {
       "ask": "Trial reminder emails that show the price",

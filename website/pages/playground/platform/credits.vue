@@ -9,9 +9,9 @@ const billing = useBilling()
 // Name-first resolution: 'credits' is the meter named in backend/billing.ts —
 // the client never touches a provider meter id.
 const credits = useCredits('credits')
-// Explicit gift view — the <GiftClaimBanner> above the metrics demonstrates
-// auto-claim; this instance lists and claims manually.
-const gifts = useGifts({ autoClaim: false })
+// Gifts wait for their recipient: the <GiftClaimBanner> above the metrics
+// claims one per click, and this instance lists them.
+const gifts = useGifts()
 
 const creditPackId = computed(() => billing.products.value?.credits100?.id)
 
@@ -67,9 +67,9 @@ const streamTone = computed(() => {
   }
 })
 
-// Gift a credit pack to another email — the recipient receives the credits
-// (attached automatically if they have an account, claimed on first sign-in
-// otherwise; see the GiftClaimBanner above the metrics). The recipient is a
+// Gift a credit pack to another email — you pay on your own billing account,
+// and the recipient signs in and claims the credits into theirs (see the
+// GiftClaimBanner above the metrics). The recipient is a
 // sandbox identity, as every playground account is — billing.ts's canGift
 // refuses any other address on the server.
 const giftRecipient = ref('')
@@ -313,14 +313,13 @@ async function sendGift() {
         {{ giftNotice }}
       </p>
       <p class="hint">
-        The recipient gets an email; if they don't have an account yet, the
-        gift attaches automatically on their first sign-in
-        (<code>useGifts</code> auto-claim).
+        The recipient gets an email, signs in with that address and claims
+        the credits into their own account (<code>useGifts().claim</code>).
       </p>
     </LabPanel>
 
     <LabPanel
-      label="useGifts · manual"
+      label="useGifts"
       title="Received gifts"
       variant="well"
     >
@@ -328,9 +327,9 @@ async function sendGift() {
         v-if="!gifts.received.value?.length"
         class="hint"
       >
-        Nothing yet — gifts sent to your email show up here (the banner above
-        auto-claims; this panel is the explicit
-        <code>useGifts({ autoClaim: false })</code> view and claim history).
+        Nothing yet — gifts sent to your email show up here, with the banner
+        above to claim them; this panel is the <code>useGifts()</code> view
+        and claim history.
       </p>
       <div
         v-else
@@ -347,7 +346,7 @@ async function sendGift() {
           >
             {{ gift.status }}
           </StatusPill>
-          <span class="gift-from">from {{ gift.purchaserEmail ?? gift.purchaserName ?? 'someone' }}</span>
+          <span class="gift-from">from {{ gift.purchaserName ?? 'someone' }}</span>
           <span
             v-if="gift.message"
             class="gift-note hint"

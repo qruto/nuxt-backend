@@ -86,14 +86,20 @@ export interface InviteEmailData {
   role: string
 }
 
-/** Data for the `gift` template. */
+/**
+ * Data for the `gift` template. It names who sent what and links to the app,
+ * nothing more: the purchaser's email and their message stay out of the
+ * email, and the link carries no token — the recipient signs in to claim.
+ */
 export interface GiftEmailData {
   recipientEmail: string
-  /** The buyer's name: their own text, so escape it in HTML ({@link escapeHtml}). */
+  /**
+   * The sender's name: at most 40 characters with links and domains taken
+   * out, but still their own text, so escape it in HTML ({@link escapeHtml}).
+   */
   purchaserName?: string
-  purchaserEmail?: string
-  /** The buyer's note to the recipient, verbatim: escape it in HTML. */
-  message?: string
+  /** What the gift is: the credit pack's product name. */
+  item: string
   /** The app URL where the recipient signs in (or up) to receive the gift. */
   claimUrl: string
 }
@@ -148,11 +154,11 @@ export type EmailTemplateOverrides = {
  * Escape text for HTML: `&`, `<`, `>`, `"` and `'`. Every packaged template
  * runs each value through it; an override that writes its own HTML should do
  * the same with anything a user typed (a name, a workspace name, a gift
- * message), or that user can put markup into an email your domain sends.
+ * sender's name), or that user can put markup into an email your domain sends.
  *
  * @example
  * ```ts
- * gift: (data, { byDefault }) => ({ ...byDefault(data), html: `<p>${escapeHtml(data.message ?? '')}</p>` })
+ * gift: (data, { byDefault }) => ({ ...byDefault(data), html: `<p>From ${escapeHtml(data.purchaserName ?? 'someone')}</p>` })
  * ```
  */
 export function escapeHtml(value: string): string {
@@ -194,14 +200,13 @@ function muted(html: string): string {
 }
 
 /** An email whose point is one link: a sentence, a button, the bare URL. */
-function linkEmail({ t, brand }: EmailRenderContext, to: string, subject: string, intro: string, url: string, action: string, quote?: string): EmailMessage {
+function linkEmail({ t, brand }: EmailRenderContext, to: string, subject: string, intro: string, url: string, action: string): EmailMessage {
   const safeUrl = escapeHtml(url)
   return message(
     to,
     subject,
-    `${intro}${quote ? `\n\n“${quote}”` : ''}\n\n${url}`,
+    `${intro}\n\n${url}`,
     `<p>${escapeHtml(intro)}</p>`
-    + (quote ? `<blockquote style="margin:0 0 12px;padding:8px 12px;border-left:3px solid #ddd;color:#444">${escapeHtml(quote)}</blockquote>` : '')
     + `<p><a href="${safeUrl}" style="display:inline-block;padding:10px 16px;background:#111;color:#fff;border-radius:8px;text-decoration:none">${escapeHtml(action)}</a></p>`
     + muted(`${escapeHtml(t('email.link.fallback'))}<br>${safeUrl}`),
     brand,
@@ -270,17 +275,16 @@ export const PACKAGED_EMAIL_TEMPLATES: { [Name in EmailTemplateName]: (data: Ema
     url,
     context.t('email.invite.action'),
   ),
-  gift: ({ recipientEmail, purchaserName, purchaserEmail, message: note, claimUrl }, context) => {
+  gift: ({ recipientEmail, purchaserName, item, claimUrl }, context) => {
     const { t } = context
-    const sender = purchaserName || purchaserEmail || t('email.gift.sender')
+    const sender = purchaserName || t('email.gift.sender')
     return linkEmail(
       context,
       recipientEmail,
       t('email.gift.subject', { sender }),
-      t('email.gift.intro', { sender }),
+      t('email.gift.intro', { sender, item }),
       claimUrl,
       t('email.gift.action'),
-      note,
     )
   },
 }

@@ -15,7 +15,7 @@ zero-config defaults; each file here changes exactly one thing from them.
 | **Billing webhook hook** — `order.paid` writes to an app table, after the built-in refresh + gift fulfilment | `backend/billing.ts` (`events`) + `backend/schema.ts` |
 | **Custom webhook paths** (`/hooks/billing`, `/hooks/email`) | `backend/http.ts` |
 | **Hand-rolled signup workflow** — `workflow.define` calling the component's email module directly, instead of `defineEmailSequence` | `backend/workflows.ts` |
-| **Explicit gift claiming** — `useGifts({ autoClaim: false })` + `<GiftClaimBanner>` button | `app/pages/app/index.vue` |
+| **Gift claiming** — `useGifts()` + `<GiftClaimBanner>` button | `app/pages/app/index.vue` |
 
 ## Run it
 

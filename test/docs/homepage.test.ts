@@ -36,7 +36,7 @@ vi.mock('../../src/convex-cli', () => ({
 }))
 vi.mock('../../src/cli/billing', async original => ({
   ...await original<typeof import('../../src/cli/billing')>(),
-  readBillingOrganizationState: async () => ({ slug: 'acme', allowMultipleSubscriptions: false, prorationBehavior: 'next_period', benefitRevocationGracePeriod: 0, preventTrialAbuse: true, portal: { updatePlan: true, pause: false }, benefitTypeByKey: {} }),
+  readBillingOrganizationState: async () => ({ slug: 'acme', allowMultipleSubscriptions: false, prorationBehavior: 'next_period', benefitRevocationGracePeriod: 0, preventTrialAbuse: true, portal: { updatePlan: true, pause: false }, benefitTypeByKey: {}, memberModel: true, membersReadable: true }),
 }))
 
 describe('the console', () => {

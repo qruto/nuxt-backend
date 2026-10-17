@@ -246,7 +246,6 @@ describe('gift notification stamp (component)', () => {
       recipientEmail: 'r@example.com',
       purchaserUserId: 'u1',
       productIds: ['p1'],
-      billingCustomerId: 'cus_1',
     })
     expect(await t.mutation(api.gifts.markNotified, { giftId })).toBe(true)
     expect(await t.mutation(api.gifts.markNotified, { giftId })).toBe(false)

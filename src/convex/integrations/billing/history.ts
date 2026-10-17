@@ -4,12 +4,14 @@ import { ordersGet } from '@polar-sh/sdk/funcs/ordersGet.js'
 import { ordersInvoice } from '@polar-sh/sdk/funcs/ordersInvoice.js'
 import { ordersList } from '@polar-sh/sdk/funcs/ordersList.js'
 import { refundsCreate } from '@polar-sh/sdk/funcs/refundsCreate.js'
-import { type BillingContext, resolveLimit, resolvePage } from './context.js'
+import { type BillingContext, isProviderNotFound, resolveLimit, resolvePage } from './context.js'
+import type { BillingCustomers } from './customers.js'
 import type { ProviderCtx } from './types/base.js'
 import type { BillingOrder, UsageEvent } from './types/options.js'
 import type { CreditMeterConfig } from './types/records.js'
 import type { Billing } from './types/surface.js'
 import { backendError } from '../../errors.js'
+import { logBackend } from '../../log.js'
 
 /**
  * Provider payloads carry `Date` objects and `undefined` holes that Convex
@@ -31,17 +33,21 @@ function toConvexValue<T>(value: T): T {
 }
 
 /** Orders, invoices, usage and refunds: live provider reads — no local ledger. */
-export function createHistory({
-  accessToken,
-  creditMeters,
-  provider,
-  requireEntity,
-  resolveMeter,
-  requireProviderAccess,
-  unwrapProvider,
-  throttle,
-  requireAdmin,
-}: BillingContext) {
+export function createHistory(
+  {
+    components,
+    accessToken,
+    creditMeters,
+    provider,
+    requireEntity,
+    resolveMeter,
+    requireProviderAccess,
+    unwrapProvider,
+    throttle,
+    requireAdmin,
+  }: BillingContext,
+  { keyedCustomer }: Pick<BillingCustomers, 'keyedCustomer'>,
+) {
   /**
    * How many credits one ingested event represents, for the history read: the
    * meter's value property for a sum meter, exactly one for a count meter, and
@@ -61,13 +67,14 @@ export function createHistory({
     if (!accessToken) return null
     const { userId } = await requireEntity(ctx)
     await throttle(ctx, userId, 'order reads')
-    const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, userId)
     // No provider customer yet = nothing has ever been charged. An empty page
     // is the honest answer; `null` is reserved for "billing isn't configured".
-    if (!customer) return { items: [], pagination: { totalCount: 0, maxPage: 0 } }
+    // The orders are read by the entity's id, so a customer from before 0.2
+    // is keyed first, and one another entity holds shows nothing.
+    if (!await keyedCustomer(ctx, userId, 'order read')) return { items: [], pagination: { totalCount: 0, maxPage: 0 } }
     const page = resolvePage(options)
     const result = await ordersList(provider.polar, {
-      customerId: customer.id,
+      externalCustomerId: userId,
       page,
       limit: resolveLimit(options.limit),
       sorting: ['-created_at'],
@@ -89,11 +96,13 @@ export function createHistory({
     const found = await ordersGet(provider.polar, { id: orderId })
     // An order that does not exist refuses like someone else's, so the answer
     // never tells a caller which order ids are real.
-    if (!found.ok && (found.error as { statusCode?: unknown } | null)?.statusCode === 404) throw notOwner()
+    if (!found.ok && isProviderNotFound(found.error)) throw notOwner()
     const order = unwrapProvider(found, 'invoice read')
     // Ownership is the authorization: the order id is guessable-ish and the
     // invoice carries a name and address, so it never leaves its own account.
-    if (!customer || order.customerId !== customer.id) throw notOwner()
+    // The entity's own: keyed by its id, or on the customer the component maps it to.
+    const own = order.customer?.externalId === userId || (customer != null && order.customerId === customer.id)
+    if (!own) throw notOwner()
     if (!order.isInvoiceGenerated) {
       // Generation is asynchronous at the provider. Ask for it and report "not
       // yet" — the next call returns the URL.
@@ -109,10 +118,10 @@ export function createHistory({
     if (!accessToken) return null
     const { userId } = await requireEntity(ctx)
     await throttle(ctx, userId, 'usage reads')
-    const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, userId)
     // No provider customer = nothing was ever metered. An empty page is the
     // honest answer; `null` is reserved for "billing isn't configured".
-    if (!customer) return { items: [], pagination: { totalCount: 0, maxPage: 0 } }
+    // Read by the entity's id, as orders are: a customer from before 0.2 is keyed first.
+    if (!await keyedCustomer(ctx, userId, 'usage read')) return { items: [], pagination: { totalCount: 0, maxPage: 0 } }
     // A friendly meter name resolves to its id; an unconfigured raw id passes
     // straight through, so an app can read a meter it never named.
     const meter = options.meter
@@ -120,7 +129,7 @@ export function createHistory({
       : null
     const page = resolvePage(options)
     const result = await eventsList(provider.polar, {
-      customerId: customer.id,
+      externalCustomerId: userId,
       // The provider applies the meter's own filter clause, so the page holds
       // exactly the events that meter bills from — not merely same-named ones.
       meterId: meter?.meterId,
@@ -159,6 +168,15 @@ export function createHistory({
     const amount = options.amount ?? order.refundableAmount
     if (!(amount > 0)) {
       throw backendError('invalid_input', { field: 'amount' }, `[nuxt-backend] refundOrder: order ${options.orderId} has nothing left to refund.`)
+    }
+    // A gift's purchase refunded after its claim takes the money back, not
+    // the credits: the provider can't revoke what a $0 order granted.
+    const giftId = order.metadata?.giftId
+    if (typeof giftId === 'string' && order.metadata?.phase !== 'claim') {
+      const gift = await ctx.runQuery(components.backend.gifts.get, { giftId })
+      if (gift?.status === 'claimed') {
+        logBackend('warn', 'billing.gift_refunded_after_claim', 'refundOrder is refunding a gift purchase its recipient already claimed; the credits stay with them.')
+      }
     }
     const result = await refundsCreate(provider.polar, {
       orderId: options.orderId,

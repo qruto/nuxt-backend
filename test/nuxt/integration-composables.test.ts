@@ -526,16 +526,13 @@ describe('useGifts', () => {
     isAuthenticated: computed(() => true),
     isRefreshing: computed(() => false),
   })
-  const paidGift = {
-    id: 'gift-1', recipientEmail: 'me@example.com', purchaserUserId: 'u-b',
-    purchaserName: 'Buyer', productIds: ['p1'], status: 'paid', createdAt: 1,
-  }
+  const paidGift = { id: 'gift-1', purchaserName: 'Buyer', pack: 'credits100', productIds: ['p1'], status: 'paid', createdAt: 1 }
 
   it('lists received gifts and filters the unclaimed ones', async () => {
     seed(store => store.setQuery(receivedGiftsRef, {}, [paidGift, { ...paidGift, id: 'gift-2', status: 'claimed' }]))
     const { result } = await mountWithConvex(
       client,
-      () => useGifts({ api: giftsApi, autoClaim: false }),
+      () => useGifts({ api: giftsApi }),
       { provide: authedProvide },
     )
     expect(result.received.value).toHaveLength(2)
@@ -544,13 +541,13 @@ describe('useGifts', () => {
   })
 
   it('is empty without querying when signed out', async () => {
-    const { result } = await mountWithConvex(client, () => useGifts({ api: giftsApi, autoClaim: false }))
+    const { result } = await mountWithConvex(client, () => useGifts({ api: giftsApi }))
     expect(result.received.value).toStrictEqual([])
     expect(result.isLoading.value).toBe(false)
   })
 
-  it('auto-claims paid gifts once on first authenticated load', async () => {
-    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ claimed: 1 })
+  it('never claims a gift its recipient did not ask for', async () => {
+    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ url: null })
     seed(store => store.setQuery(receivedGiftsRef, {}, [paidGift]))
     await mountWithConvex(
       client,
@@ -559,19 +556,32 @@ describe('useGifts', () => {
     )
     await nextTick()
     await nextTick()
-    expect(actionSpy).toHaveBeenCalledTimes(1)
-    expect(actionSpy).toHaveBeenCalledWith(claimGiftRef, {})
+    expect(actionSpy).not.toHaveBeenCalled()
   })
 
-  it('claim(giftId) targets a single gift and reports the count', async () => {
-    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ claimed: 1 })
+  it('claim(giftId) claims one gift, returning to this page; true when the server confirmed it', async () => {
+    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ url: null })
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
     const { result } = await mountWithConvex(
       client,
-      () => useGifts({ api: giftsApi, autoClaim: false }),
+      () => useGifts({ api: giftsApi }),
       { provide: authedProvide },
     )
-    expect(await result.claim('gift-1')).toBe(1)
-    expect(actionSpy).toHaveBeenCalledWith(claimGiftRef, { giftId: 'gift-1' })
+    expect(await result.claim('gift-1')).toBe(true)
+    expect(actionSpy).toHaveBeenCalledWith(claimGiftRef, { giftId: 'gift-1', successUrl: window.location.href })
+    expect(openSpy).not.toHaveBeenCalled()
+  })
+
+  it('claim(giftId) opens the provider\'s $0 checkout when the pack needs one, and resolves false', async () => {
+    vi.spyOn(client, 'action').mockResolvedValue({ url: 'https://checkout.test/claim' })
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const { result } = await mountWithConvex(
+      client,
+      () => useGifts({ api: giftsApi }),
+      { provide: authedProvide },
+    )
+    expect(await result.claim('gift-1')).toBe(false)
+    expect(openSpy).toHaveBeenCalledWith('https://checkout.test/claim', '_blank')
   })
 
   it('gift checkout opens the returned URL (useBilling.gift)', async () => {

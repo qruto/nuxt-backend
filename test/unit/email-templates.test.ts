@@ -77,10 +77,16 @@ describe('packaged templates', () => {
     expect(invite.html).toContain('&lt;script&gt;')
     expect(invite.html).toContain('id=1&amp;x=&lt;y&gt;')
 
-    const gift = PACKAGED_EMAIL_TEMPLATES.gift({ recipientEmail: 'r@c.com', message: '<b>hi</b>', claimUrl: 'https://app.example.com/' }, context)
+    const gift = PACKAGED_EMAIL_TEMPLATES.gift({ recipientEmail: 'r@c.com', purchaserName: '<b>Ada</b>', item: '500 credits', claimUrl: 'https://app.example.com/' }, context)
+    expect(gift.subject).toBe('<b>Ada</b> sent you a gift 🎁')
+    expect(gift.html).toContain('&lt;b&gt;Ada&lt;/b&gt; sent you a gift: 500 credits.')
+    expect(gift.html).not.toContain('<b>Ada</b>')
+  })
+
+  it('names the sender and the pack in a gift email, and nothing the purchaser wrote', () => {
+    const gift = PACKAGED_EMAIL_TEMPLATES.gift({ recipientEmail: 'r@c.com', item: '500 credits', claimUrl: 'https://app.example.com/' }, context)
     expect(gift.subject).toBe('Someone sent you a gift 🎁')
-    expect(gift.html).toContain('&lt;b&gt;hi&lt;/b&gt;')
-    expect(gift.text).toContain('“<b>hi</b>”')
+    expect(gift.text).toMatch(/^Someone sent you a gift: 500 credits. Sign in to receive it.\n\nhttps:\/\/app.example.com\/\n/)
   })
 })
 
@@ -147,7 +153,7 @@ describe('setupEmail templates', () => {
     const email = setupEmail(component, {
       templates: { gift: async (data, { byDefault }) => ({ ...byDefault(data), subject: await Promise.resolve('Rendered later') }) },
     })
-    const gift = { recipientEmail: 'r@c.com', claimUrl: 'https://app.example.com/' }
+    const gift = { recipientEmail: 'r@c.com', item: '500 credits', claimUrl: 'https://app.example.com/' }
     expect(await email.render('gift', gift)).toMatchObject({ to: 'r@c.com', subject: 'Rendered later' })
 
     const ctx = { runMutation: vi.fn(async () => 'email_1') }
@@ -158,7 +164,7 @@ describe('setupEmail templates', () => {
   it('sends a rendered template, with its idempotency key when there is one', async () => {
     const email = setupEmail(component)
     const ctx = { runMutation: vi.fn(async () => 'email_1') }
-    const gift = { recipientEmail: 'r@c.com', claimUrl: 'https://app.example.com/' }
+    const gift = { recipientEmail: 'r@c.com', item: '500 credits', claimUrl: 'https://app.example.com/' }
 
     await email.sendTemplate(ctx, 'gift', gift, { idempotencyKey: 'gift:gift-1' })
     await email.sendTemplate(ctx, 'gift', gift)

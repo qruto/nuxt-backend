@@ -27,10 +27,10 @@ export const email = setupEmail(components, {
       subject: `${inviterName} wants you on ${organizationName}`,
       text: `Join ${organizationName} as ${role}: ${url}\n\n(Custom template from backend/email.ts.)`,
     }),
-    gift: ({ recipientEmail, purchaserName, message, claimUrl }) => ({
+    gift: ({ recipientEmail, purchaserName, item, claimUrl }) => ({
       to: recipientEmail,
       subject: `${purchaserName ?? 'Someone'} sent you a gift on Advanced example`,
-      text: `${message ? `“${message}”\n\n` : ''}Sign in to receive it: ${claimUrl}\n\n(Custom template from backend/email.ts.)`,
+      text: `${item}. Sign in to receive it: ${claimUrl}\n\n(Custom template from backend/email.ts.)`,
     }),
   },
 })

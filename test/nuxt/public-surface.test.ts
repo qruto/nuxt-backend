@@ -455,9 +455,9 @@ const REGISTRY = {
     'useUsage',
     'useWorkflowStatus',
   ],
-  // `BillingCheckoutLink`, `BillingPortalLink` and `StorageImage` alias the
-  // base module's `CheckoutLink`, `CustomerPortalLink` and `ConvexImage`,
-  // which the module hides.
+  // `StorageImage` aliases the base module's `ConvexImage`, and
+  // `BillingCheckoutLink` and `BillingPortalLink` replace its `CheckoutLink`
+  // and `CustomerPortalLink`; the module hides all three originals.
   components: [
     'AcceptInvitation',
     'AgentConsent',

@@ -6,9 +6,9 @@ definePageMeta({ middleware: 'auth' })
 const { user, signOut } = useAuth()
 const { organizations, setActive, invite } = useOrganization()
 const billing = useBilling()
-// CUSTOMIZATION: explicit claiming — autoClaim off, the banner's button (or
-// gifts.claim()) attaches waiting gifts instead of first-load magic.
-const gifts = useGifts({ autoClaim: false })
+// Gifts wait until their recipient claims them: the banner's button, or
+// gifts.claim(gift.id), grants the credits to this account.
+const gifts = useGifts()
 
 const inviteEmail = ref('')
 const notice = ref('')

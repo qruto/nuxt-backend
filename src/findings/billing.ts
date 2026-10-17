@@ -15,5 +15,7 @@ export const BILLING_FINDINGS = {
   'billing-benefit-grace': { title: 'Benefit revocation' },
   'billing-trial-abuse': { title: 'Trial abuse prevention' },
   'billing-portal': { title: 'Customer portal' },
+  'billing-team-customers': { title: 'Team customers' },
+  'billing-gift-twins': { title: 'Gift products' },
   'billing-feature-benefits': { title: 'Feature benefits' },
 } as const satisfies FindingEntries

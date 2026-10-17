@@ -2435,6 +2435,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         null,
         Name
       >;
+      claimTrial: FunctionReference<
+        "mutation",
+        "internal",
+        { entityId: string; holdMs: number; ownerUserId: string },
+        boolean,
+        Name
+      >;
       clear: FunctionReference<"mutation", "internal", {}, null, Name>;
       clearPendingSpends: FunctionReference<
         "mutation",
@@ -2472,6 +2479,23 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { userId: string },
         null,
+        Name
+      >;
+      entityProfile: FunctionReference<
+        "query",
+        "internal",
+        { entityId: string },
+        null | {
+          name: string;
+          ownedEntityIds: Array<string>;
+          owner: null | {
+            email: string;
+            emailVerified: boolean;
+            name: string;
+            userId: string;
+          };
+          personal: boolean;
+        },
         Name
       >;
       finalize: FunctionReference<
@@ -2521,6 +2545,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             rollover?: boolean;
           }>;
         } | null,
+        Name
+      >;
+      markTrialUsed: FunctionReference<
+        "mutation",
+        "internal",
+        { entityId: string; ownerUserId: string },
+        null,
         Name
       >;
       release: FunctionReference<
@@ -2727,14 +2758,27 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       >;
     };
     gifts: {
+      countBought: FunctionReference<
+        "query",
+        "internal",
+        {
+          excludeGiftId?: string;
+          pendingSince: number;
+          purchaserUserId: string;
+          since: number;
+        },
+        { count: number; oldest: number | null },
+        Name
+      >;
       create: FunctionReference<
         "mutation",
         "internal",
         {
-          billingCustomerId: string;
+          giftProductId?: string;
           message?: string;
+          pack?: string;
           productIds: Array<string>;
-          purchaserEmail?: string;
+          purchaserEntityId?: string;
           purchaserName?: string;
           purchaserUserId: string;
           recipientEmail: string;
@@ -2747,21 +2791,31 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { giftId: string },
         {
-          billingCustomerId: string;
+          amount?: number;
+          billingCustomerId?: string;
           billingOrderId?: string;
+          claimOrderId?: string;
           claimedAt?: number;
           claimedByUserId?: string;
           claimedEntityId?: string;
+          claimingEntityId?: string;
+          claimingUserId?: string;
           createdAt: number;
+          currency?: string;
+          discountId?: string;
+          giftProductId?: string;
           id: string;
           message?: string;
           notifiedAt?: number;
+          pack?: string;
           paidAt?: number;
           productIds: Array<string>;
           purchaserEmail?: string;
+          purchaserEntityId?: string;
           purchaserName?: string;
           purchaserUserId: string;
           recipientEmail: string;
+          refundedAt?: number;
           status: string;
         } | null,
         Name
@@ -2769,23 +2823,33 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       listByEmail: FunctionReference<
         "query",
         "internal",
-        { email: string; status?: string },
+        { email: string; status?: "paid" | "claimed" },
         Array<{
-          billingCustomerId: string;
+          amount?: number;
+          billingCustomerId?: string;
           billingOrderId?: string;
+          claimOrderId?: string;
           claimedAt?: number;
           claimedByUserId?: string;
           claimedEntityId?: string;
+          claimingEntityId?: string;
+          claimingUserId?: string;
           createdAt: number;
+          currency?: string;
+          discountId?: string;
+          giftProductId?: string;
           id: string;
           message?: string;
           notifiedAt?: number;
+          pack?: string;
           paidAt?: number;
           productIds: Array<string>;
           purchaserEmail?: string;
+          purchaserEntityId?: string;
           purchaserName?: string;
           purchaserUserId: string;
           recipientEmail: string;
+          refundedAt?: number;
           status: string;
         }>,
         Name
@@ -2793,7 +2857,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       markClaimed: FunctionReference<
         "mutation",
         "internal",
-        { entityId: string; giftId: string; userId: string },
+        {
+          claimOrderId?: string;
+          entityId: string;
+          giftId: string;
+          userId: string;
+        },
         null,
         Name
       >;
@@ -2807,15 +2876,41 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       markPaid: FunctionReference<
         "mutation",
         "internal",
-        { billingCustomerId?: string; billingOrderId?: string; giftId: string },
+        {
+          amount?: number;
+          billingOrderId?: string;
+          currency?: string;
+          giftId: string;
+        },
         null,
         Name
       >;
-      resolveRecipient: FunctionReference<
+      markRefunded: FunctionReference<
+        "mutation",
+        "internal",
+        { giftId: string },
+        boolean,
+        Name
+      >;
+      personalEntity: FunctionReference<
         "query",
         "internal",
-        { email: string },
-        { organizationId: string | null; userId: string } | null,
+        { userId: string },
+        string | null,
+        Name
+      >;
+      setDiscount: FunctionReference<
+        "mutation",
+        "internal",
+        { discountId: string; giftId: string },
+        boolean,
+        Name
+      >;
+      startClaim: FunctionReference<
+        "mutation",
+        "internal",
+        { entityId: string; giftId: string; userId: string },
+        boolean,
         Name
       >;
     };

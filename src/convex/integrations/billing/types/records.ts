@@ -67,6 +67,12 @@ export interface BillingCatalogIds {
   products?: Record<string, string>
   /** The catalog keys of `products` that are credit packs: what a gift may buy. */
   packs?: string[]
+  /**
+   * Pack key → the provider id of its private gift product: the same prices,
+   * no benefits, bought by a purchaser for someone else. Never sold on its
+   * own, so it is outside `products` and the checkout allow-list.
+   */
+  gifts?: Record<string, string>
   /** Catalog key → credit meter config. */
   meters?: Record<string, CreditMeterConfig>
 }
@@ -162,14 +168,36 @@ export interface GiftRecord {
   id: string
   recipientEmail: string
   purchaserUserId: string
+  /** Before 0.2 only: gifts no longer keep the purchaser's email. */
   purchaserEmail?: string
   purchaserName?: string
+  /** The credit pack's provider product: what the recipient's claim grants. */
   productIds: string[]
   message?: string
-  /** `'pending'` (checkout created) → `'paid'` (order webhook) → `'claimed'`. */
+  /**
+   * `'pending'` (the purchaser's checkout is open) → `'paid'` (the purchase
+   * is paid and claimable) → `'claimed'`, or `'refunded'` when the purchase
+   * was refunded before the claim.
+   */
   status: string
-  billingCustomerId: string
+  /** Before 0.2 only: the customer keyed by the recipient's email that the purchase was billed to. */
+  billingCustomerId?: string
+  /** The purchase order, on the purchaser's own customer. */
   billingOrderId?: string
+  /** The billing entity that paid. */
+  purchaserEntityId?: string
+  /** The pack's catalog key. */
+  pack?: string
+  /** The private gift product the purchaser bought. */
+  giftProductId?: string
+  /** What the purchase charged, in the currency's smallest unit. */
+  amount?: number
+  currency?: string
+  /** The single-use 100% discount the recipient claims the pack with. */
+  discountId?: string
+  claimingEntityId?: string
+  claimingUserId?: string
+  claimOrderId?: string
   claimedByUserId?: string
   claimedEntityId?: string
   createdAt: number
@@ -177,4 +205,5 @@ export interface GiftRecord {
   /** When the recipient's notification email went out — stamped only after the send succeeded. */
   notifiedAt?: number
   claimedAt?: number
+  refundedAt?: number
 }

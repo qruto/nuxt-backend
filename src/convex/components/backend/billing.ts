@@ -493,6 +493,10 @@ export const deleteByUser = mutation({
     for await (const row of ctx.db.query('billingDiscountAttempts').withIndex('userId', q => q.eq('userId', userId))) {
       await ctx.db.delete('billingDiscountAttempts', row._id)
     }
+    // A deleted account's trial record, kept by its user id.
+    for await (const row of ctx.db.query('billingTrials').withIndex('ownerUserId', q => q.eq('ownerUserId', userId))) {
+      await ctx.db.delete('billingTrials', row._id)
+    }
     return null
   },
 })
@@ -558,5 +562,101 @@ export const userByCustomer = query({
       .withIndex('customerId', q => q.eq('customerId', customerId))
       .first()
     return row?.userId ?? null
+  },
+})
+
+/** Whether a member row's role — comma-separated when it holds several — names the owner. */
+function isOwnerRole(role: string): boolean {
+  return role.split(',').some(entry => entry.trim() === 'owner')
+}
+
+/** The most workspaces of one owner a trial check reads: one owner with more is an operator, not a person. */
+const OWNED_ENTITIES_CAP = 100
+
+/**
+ * Who stands behind a billing entity when it is a workspace, for the
+ * provider customer it bills through: its name, whether it is a personal
+ * workspace (the `personal-` slug the sign-in hook gives it, and no member
+ * but its owner), its owner, and every workspace that owner owns — one trial
+ * counts across them. `null` when the id is no workspace: a user entity
+ * (`billTo: 'user'`), or whatever an app's own `resolveEntity` returns.
+ */
+export const entityProfile = query({
+  args: { entityId: v.string() },
+  returns: v.union(v.null(), v.object({
+    name: v.string(),
+    personal: v.boolean(),
+    owner: v.union(v.null(), v.object({
+      userId: v.string(),
+      email: v.string(),
+      name: v.string(),
+      emailVerified: v.boolean(),
+    })),
+    ownedEntityIds: v.array(v.string()),
+  })),
+  handler: async (ctx, { entityId }) => {
+    const id = ctx.db.normalizeId('organization', entityId)
+    const workspace = id ? await ctx.db.get('organization', id) : null
+    if (!workspace) return null
+    // Two rows answer "only the owner": a personal workspace someone joined is shared.
+    const members = await ctx.db.query('member').withIndex('organizationId', q => q.eq('organizationId', entityId)).take(2)
+    let ownerId: string | null = null
+    for await (const member of ctx.db.query('member').withIndex('organizationId', q => q.eq('organizationId', entityId))) {
+      if (!isOwnerRole(member.role)) continue
+      ownerId = member.userId
+      break
+    }
+    const userId = ownerId ? ctx.db.normalizeId('user', ownerId) : null
+    const user = userId ? await ctx.db.get('user', userId) : null
+    const owned = ownerId
+      ? (await ctx.db.query('member').withIndex('userId', q => q.eq('userId', ownerId)).take(OWNED_ENTITIES_CAP))
+          .filter(member => isOwnerRole(member.role))
+          .map(member => member.organizationId)
+      : []
+    return {
+      name: workspace.name,
+      personal: workspace.slug.startsWith('personal-') && members.length === 1 && ownerId !== null,
+      owner: user ? { userId: ownerId!, email: user.email, name: user.name, emailVerified: user.emailVerified } : null,
+      ownedEntityIds: owned.includes(entityId) ? owned : [entityId, ...owned],
+    }
+  },
+})
+
+/** The trial rows of one owner: a bounded read, since an owner holds few workspaces. */
+function ownerTrials(ctx: MutationCtx, ownerUserId: string) {
+  return ctx.db.query('billingTrials').withIndex('ownerUserId', q => q.eq('ownerUserId', ownerUserId)).take(OWNED_ENTITIES_CAP)
+}
+
+/**
+ * Whether a checkout for this entity may offer its owner a trial, decided
+ * and held in one transaction so two first checkouts of the same owner at
+ * once can't both start one: no for an owner whose trial ran on any entity,
+ * or who holds a trial checkout for another entity opened less than
+ * `holdMs` ago. A yes holds the trial for this entity until a subscription
+ * of it starts one (`markTrialUsed`) or the hold runs out.
+ */
+export const claimTrial = mutation({
+  args: { ownerUserId: v.string(), entityId: v.string(), holdMs: v.number() },
+  returns: v.boolean(),
+  handler: async (ctx, { ownerUserId, entityId, holdMs }) => {
+    const now = Date.now()
+    const rows = await ownerTrials(ctx, ownerUserId)
+    if (rows.some(row => row.used || (row.entityId !== entityId && now - row.at < holdMs))) return false
+    const own = rows.find(row => row.entityId === entityId)
+    if (own) await ctx.db.patch('billingTrials', own._id, { at: now })
+    else await ctx.db.insert('billingTrials', { ownerUserId, entityId, used: false, at: now })
+    return true
+  },
+})
+
+/** Record that an entity's subscription started its owner's one trial. Idempotent. */
+export const markTrialUsed = mutation({
+  args: { ownerUserId: v.string(), entityId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { ownerUserId, entityId }) => {
+    const own = (await ownerTrials(ctx, ownerUserId)).find(row => row.entityId === entityId)
+    if (own) await ctx.db.patch('billingTrials', own._id, { used: true, at: Date.now() })
+    else await ctx.db.insert('billingTrials', { ownerUserId, entityId, used: true, at: Date.now() })
+    return null
   },
 })
