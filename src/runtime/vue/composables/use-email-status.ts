@@ -1,6 +1,7 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
-import { useQuery } from 'nuxt-convex-module/client'
+import type { BackendError } from '../utils/backend-error'
+import { absentQuery, useLiveQuery, warnCallShape } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
 
 /** Email delivery status (mirrors the component `status` query). */
@@ -21,60 +22,63 @@ export interface EmailApi {
 }
 
 export interface UseEmailStatusOptions {
+  /** The email to track (a value, ref or getter), as `send` returned it. Tracking pauses while it is `null`, `undefined` or blank. */
+  emailId: MaybeRefOrGetter<string | null | undefined>
   /** Override the injected `api.email` namespace (or the `getEmailStatus` ref). */
   api?: EmailApi
 }
 
 export interface UseEmailStatusReturn {
-  /** The full status record, `null` if unknown, `undefined` while loading. */
+  /** The full status record: `null` if no such email, `undefined` until the first read lands, while paused, and after a failed read. */
   data: ComputedRef<EmailStatus | null | undefined>
   /** The status string (`queued` | `sent` | `delivered` | `bounced` | …), or `undefined`. */
   status: ComputedRef<string | undefined>
-  /** `true` until the first status loads. */
+  /** `true` until the first status for the current id lands; `false` while paused. */
   isLoading: ComputedRef<boolean>
+  /** Why the status could not be read, or `null`. A failed delivery is `isFailed`, not this. */
+  error: ComputedRef<BackendError | null>
   /** `true` once the email is delivered. */
   isDelivered: ComputedRef<boolean>
-  /** `true` if the email bounced, was complained about, or failed. */
-  isError: ComputedRef<boolean>
+  /** `true` if the email bounced, was marked as spam, or failed to send. */
+  isFailed: ComputedRef<boolean>
 }
 
 /**
  * Reactive delivery status for a sent email. Updates live as delivery webhooks
- * advance the status (queued → sent → delivered/bounced). Zero-arg via the
- * auto-provided `api.email` namespace; pass `{ api }` to override.
+ * advance the status (queued → sent → delivered/bounced). Reads through the
+ * auto-provided `api.email` namespace; pass `{ api }` to override. It never
+ * throws: a failed read shows in `error`.
  *
  * @example
  * ```vue
  * <script setup lang="ts">
  * const emailId = ref<string>()
- * const delivery = useEmailStatus(emailId)
+ * const delivery = useEmailStatus({ emailId })
  * </script>
  * <template>
- *   <p v-if="delivery.status.value">Status: {{ delivery.status.value }}</p>
+ *   <p v-if="delivery.isFailed.value">Not delivered: {{ delivery.status.value }}</p>
+ *   <p v-else-if="delivery.status.value">Status: {{ delivery.status.value }}</p>
  * </template>
  * ```
- *
- * @param emailId - The email id to track (reactive, from `send`). Tracking pauses
- *   while it is `undefined`/empty.
  */
-export function useEmailStatus(
-  emailId: MaybeRefOrGetter<string | undefined>,
-  options: UseEmailStatusOptions = {},
-): UseEmailStatusReturn {
-  const email = useBackendNamespace<EmailApi>('email', 'useEmailStatus', options.api)
+export function useEmailStatus(options: UseEmailStatusOptions): UseEmailStatusReturn {
+  warnCallShape('useEmailStatus', options, 'useEmailStatus({ emailId })')
+  const email = useBackendNamespace<EmailApi>('email', 'useEmailStatus', options?.api)
 
-  const data = email.getEmailStatus
-    ? useQuery(email.getEmailStatus, computed(() => {
-        const id = toValue(emailId)
+  const read = email.getEmailStatus
+    ? useLiveQuery(email.getEmailStatus, computed(() => {
+        const id = toValue(options?.emailId)?.trim()
         return id ? { emailId: id } : 'skip'
       }))
-    : computed<EmailStatus | null | undefined>(() => undefined)
+    : absentQuery<EmailStatus | null>()
+  const data = read.data
 
   return {
     data,
     status: computed(() => data.value?.status),
-    isLoading: computed(() => toValue(emailId) != null && data.value === undefined),
+    isLoading: read.isLoading,
+    error: read.error,
     isDelivered: computed(() => data.value?.status === 'delivered'),
-    isError: computed(() => Boolean(data.value && (data.value.bounced || data.value.complained || data.value.failed))),
+    isFailed: computed(() => Boolean(data.value && (data.value.bounced || data.value.complained || data.value.failed))),
   }
 }

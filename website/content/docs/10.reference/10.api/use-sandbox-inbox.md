@@ -52,6 +52,7 @@ Defined in: [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.co
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
+| <a id="address"></a> `address` | `MaybeRefOrGetter`\<`string` \| `null` \| `undefined`\> | The sandbox address to read (a value, ref or getter). Reading pauses while it is `undefined` or blank. | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
 | <a id="api"></a> `api?` | [`SandboxInboxApi`](#sandboxinboxapi) | Override the injected `api.email` namespace (or the `getSandboxInbox` ref). | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
 
 ***
@@ -64,17 +65,18 @@ Defined in: [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.co
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="messages"></a> `messages` | `ComputedRef`\<[`SandboxMessage`](#sandboxmessage)[] \| `undefined`\> | The inbox, newest first; `undefined` while loading or without an address. | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
+| <a id="messages"></a> `messages` | `ComputedRef`\<[`SandboxMessage`](#sandboxmessage)[] \| `undefined`\> | The inbox, newest first: `undefined` until the first read lands, without an address, and after a failed read. | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
 | <a id="latest"></a> `latest` | `ComputedRef`\<[`SandboxMessage`](#sandboxmessage) \| `undefined`\> | The newest message, if any. | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
 | <a id="code"></a> `code` | `ComputedRef`\<`string` \| `undefined`\> | The first six-digit code in the newest message — a sign-in code, typically. | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
-| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until the first read for the current address lands. | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
+| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until the first read for the current address lands; `false` without one. | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
+| <a id="error"></a> `error` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the inbox could not be read, or `null`. | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
 
 ## Functions
 
 ### useSandboxInbox()
 
 ```ts
-function useSandboxInbox(address, options?): UseSandboxInboxReturn;
+function useSandboxInbox(options): UseSandboxInboxReturn;
 ```
 
 Defined in: [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts)
@@ -88,14 +90,14 @@ a real mailbox. Only the provider's sandbox addresses
 test mode. Needs `getSandboxInbox` re-exported from `backend/email.ts`
 (`export const { getSandboxInbox } = email.api`); without it the inbox stays
 empty. Anyone who knows an address can read its inbox, so use it only where
-every account is a throwaway one.
+every account is a throwaway one. It never throws: a failed read shows in
+`error`.
 
 #### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `address` | `MaybeRefOrGetter`\<`string` \| `undefined`\> | The sandbox address to read (reactive). Reading pauses while it is `undefined` or empty. |
-| `options` | [`UseSandboxInboxOptions`](#usesandboxinboxoptions) | - |
+| Parameter | Type |
+| ------ | ------ |
+| `options` | [`UseSandboxInboxOptions`](#usesandboxinboxoptions) |
 
 #### Returns
 
@@ -106,7 +108,7 @@ every account is a throwaway one.
 ```vue
 <script setup lang="ts">
 const address = ref('delivered+demo-4f2a@resend.dev')
-const inbox = useSandboxInbox(address)
+const inbox = useSandboxInbox({ address })
 </script>
 <template>
   <p v-if="inbox.code.value">Your code: {{ inbox.code.value }}</p>

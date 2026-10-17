@@ -1,9 +1,10 @@
 import type { FunctionReference } from 'convex/server'
-import { computed, inject, ref, type ComputedRef, type Ref } from 'vue'
-import { ConvexAuthStateKey, useMutation, useQuery } from 'nuxt-convex-module/client'
+import { computed, inject, ref, watch, type ComputedRef } from 'vue'
+import { ConvexAuthStateKey, useMutation } from 'nuxt-convex-module/client'
 import { useAuth } from './use-auth'
 import { unwrapAuth } from '../utils/auth-result'
-import { refusalMessage } from '../utils/backend-error'
+import { type BackendError, failureOf } from '../utils/backend-error'
+import { absentQuery, useLiveQuery } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
 
 /** One of the signed-in user's device sessions (mirrors the `listSessions` query). */
@@ -32,32 +33,46 @@ export interface UseSessionsOptions {
 }
 
 export interface UseSessionsReturn {
-  /** Active sessions, live — `undefined` until the first read (and during SSR). */
+  /** Active sessions, live: `[]` when signed out, `undefined` until the first read lands (and during SSR) and after a failed read. */
   sessions: ComputedRef<SessionInfo[] | undefined>
   /** The session belonging to this browser, once the list is loaded. */
   current: ComputedRef<SessionInfo | undefined>
   /** `true` until the first read lands (always `false` when signed out). */
   isLoading: ComputedRef<boolean>
-  /** Message of the last failed action; cleared when the next one starts. */
-  error: Ref<string | null>
-  /** Sign a session out by id. The list updates on its own. Throws on failure. */
+  /** `true` while `revoke` or `revokeOthers` runs. */
+  isPending: ComputedRef<boolean>
+  /** Why the last action failed, else why the list could not be read, else `null`. An action clears its own failure when the next one starts, and signing out clears it. */
+  error: ComputedRef<BackendError | null>
+  /** Sign a session out by id. The list updates on its own. Rejects with the failure, which `error` also holds. */
   revoke: (id: string) => Promise<void>
-  /** Sign out every session except this one. The list updates on its own. Throws on failure. */
+  /** Sign out every session except this one. The list updates on its own. Rejects with the failure, which `error` also holds. */
   revokeOthers: () => Promise<void>
 }
 
-/** The readable message of a failed call: a catalog refusal's sentence, else the error's message. */
-function messageOf(error: unknown): string {
-  return refusalMessage(error, 'Request failed')
-}
-
 /**
- * Device-session management — list, revoke one, revoke the rest. The list is
+ * Device-session management: list, revoke one, revoke the rest. The list is
  * a live query over `listSessions` from `backend/auth.ts`, so a session
  * signed out anywhere drops off without a reload; it works for sessions of
  * any age (Better Auth's own `/list-sessions` demands a sign-in from the
- * last day). Rows carry ids, never session tokens. Actions throw a plain
- * `Error` on failure and mirror its message into `error`.
+ * last day). Rows carry ids, never session tokens. The list never throws: a
+ * failed read shows in `error`. The actions reject on failure and mirror it
+ * into `error`.
+ *
+ * @example
+ * ```vue
+ * <script setup lang="ts">
+ * const { sessions, revoke, isPending, error } = useSessions()
+ * </script>
+ * <template>
+ *   <p v-if="error">{{ error.message }}</p>
+ *   <ul>
+ *     <li v-for="session in sessions" :key="session.id">
+ *       {{ describeUserAgent(session.userAgent) ?? 'Unknown device' }}
+ *       <button v-if="!session.current" :disabled="isPending" @click="revoke(session.id)">Sign out</button>
+ *     </li>
+ *   </ul>
+ * </template>
+ * ```
  */
 export function useSessions(options: UseSessionsOptions = {}): UseSessionsReturn {
   const { client } = useAuth()
@@ -69,37 +84,49 @@ export function useSessions(options: UseSessionsOptions = {}): UseSessionsReturn
   const auth = inject(ConvexAuthStateKey, null)
   const signedOut = computed(() => auth == null || !auth.isAuthenticated.value)
 
-  const rows = authApi.listSessions
-    ? useQuery(authApi.listSessions, () => (signedOut.value ? 'skip' : {}))
-    : computed<SessionInfo[] | null | undefined>(() => null)
+  const read = authApi.listSessions
+    ? useLiveQuery(authApi.listSessions, () => (signedOut.value ? 'skip' : {}))
+    : absentQuery<SessionInfo[] | null>()
   // A query can't read the clock, so the server returns expired rows too.
   const sessions = computed<SessionInfo[] | undefined>(() => {
     if (signedOut.value) return []
+    // Without the query deployed there is nothing to list.
+    if (!authApi.listSessions) return []
     // Server-side null = claimless caller (auth handshake) — treat as empty.
-    if (rows.value === null) return []
+    if (read.data.value === null) return []
     const now = Date.now()
-    return rows.value?.filter(session => session.expiresAt > now)
+    return read.data.value?.filter(session => session.expiresAt > now)
   })
 
   const runRevoke = authApi.revokeSession ? useMutation(authApi.revokeSession) : null
-  const error = ref<string | null>(null)
+  const actionError = ref<BackendError | null>(null)
+  const pending = ref(0)
+  // A failure belongs to the session it happened in: signing out drops it.
+  watch(signedOut, (out) => {
+    if (out) actionError.value = null
+  })
 
   async function run(call: () => Promise<unknown>): Promise<void> {
-    error.value = null
+    actionError.value = null
+    pending.value++
     try {
       await call()
     }
-    catch (e) {
-      error.value = messageOf(e)
-      throw new Error(error.value, { cause: e })
+    catch (cause) {
+      actionError.value = failureOf(cause)
+      throw cause
+    }
+    finally {
+      pending.value--
     }
   }
 
   return {
     sessions,
     current: computed(() => sessions.value?.find(session => session.current)),
-    isLoading: computed(() => !signedOut.value && sessions.value === undefined),
-    error,
+    isLoading: computed(() => !signedOut.value && read.isLoading.value),
+    isPending: computed(() => pending.value > 0),
+    error: computed(() => (signedOut.value ? null : actionError.value ?? read.error.value)),
     revoke: id => run(async () => {
       if (!runRevoke) {
         throw new Error(
@@ -113,16 +140,20 @@ export function useSessions(options: UseSessionsOptions = {}): UseSessionsReturn
   }
 }
 
-/** 'Chrome · macOS'-style label from a user-agent string. */
-export function describeUserAgent(userAgent?: string | null): string {
-  if (!userAgent) return 'unknown device'
+/**
+ * A short label for a session's device, `Chrome · macOS` style, from its
+ * user agent. `null` when there is no user agent or nothing in it is
+ * recognisable, so the page shows its own wording for an unknown device.
+ */
+export function describeUserAgent(userAgent?: string | null): string | null {
+  if (!userAgent) return null
   const browser = /firefox/i.test(userAgent)
     ? 'Firefox'
     : /edg/i.test(userAgent)
       ? 'Edge'
       : /chrome/i.test(userAgent)
         ? 'Chrome'
-        : /safari/i.test(userAgent) ? 'Safari' : 'Browser'
+        : /safari/i.test(userAgent) ? 'Safari' : null
   const os = /mac os/i.test(userAgent)
     ? 'macOS'
     : /windows/i.test(userAgent)
@@ -131,6 +162,7 @@ export function describeUserAgent(userAgent?: string | null): string {
         ? 'Linux'
         : /iphone|ipad/i.test(userAgent)
           ? 'iOS'
-          : /android/i.test(userAgent) ? 'Android' : ''
-  return os ? `${browser} · ${os}` : browser
+          : /android/i.test(userAgent) ? 'Android' : null
+  if (browser && os) return `${browser} · ${os}`
+  return browser ?? (os ? `Browser · ${os}` : null)
 }

@@ -12,7 +12,7 @@ const emailPending = ref(false)
 const lastEmailId = ref<string | undefined>()
 const emailSkipped = ref(false)
 const emailError = ref<string | null>(null)
-const delivery = useEmailStatus(lastEmailId)
+const delivery = useEmailStatus({ emailId: lastEmailId })
 const sentEmails = useQuery(api.email.listSentEmails)
 // Even here we only send to Resend test inboxes — never a real address
 // (email.sendTest checks it again on the server).
@@ -38,7 +38,7 @@ async function sendTestEmail() {
 const complained = computed(() => delivery.data.value?.complained === true)
 
 const deliveryTone = computed(() => {
-  if (delivery.isError.value) return 'err'
+  if (delivery.isFailed.value) return 'err'
   if (complained.value) return 'warn'
   if (delivery.isDelivered.value) return 'ok'
   return 'warn'
@@ -58,7 +58,7 @@ const inboxAddress = ref('')
 watch(() => user.value?.email, (email) => {
   if (email && !inboxAddress.value) inboxAddress.value = email
 }, { immediate: true })
-const inbox = useSandboxInbox(inboxAddress)
+const inbox = useSandboxInbox({ address: inboxAddress })
 
 function receivedAgo(at: number): string {
   const minutes = Math.max(0, Math.round((Date.now() - at) / 60_000))
@@ -152,7 +152,7 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
       <div class="lifecycle">
         <StatusRing
           tone="warn"
-          :pulse="!!lastEmailId && !delivery.isDelivered.value && !delivery.isError.value"
+          :pulse="!!lastEmailId && !delivery.isDelivered.value && !delivery.isFailed.value"
         >
           sent
         </StatusRing>
@@ -161,7 +161,7 @@ const webhookEvents = useQuery(api.billing.listWebhookEvents)
           delivered
         </StatusRing>
         <span class="track" />
-        <StatusRing :tone="delivery.isError.value ? 'err' : 'muted'">
+        <StatusRing :tone="delivery.isFailed.value ? 'err' : 'muted'">
           bounced
         </StatusRing>
       </div>

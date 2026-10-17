@@ -128,7 +128,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 
 **SaaS layer (this package)**
 
-- `useAggregate` / `useCount` — aggregate-component reads
+- `useAggregate` — aggregate-component reads (a count or a sum)
 - `useAiStream` — drive a metered, persisted AI token stream (reload mid-stream and the text keeps flowing)
 - `useAuth` — session + the passwordless flows: `signOut`, `sendOtp`, `signInWithOtp`, `signInWithPasskey`, `registerPasskey`, `deleteAccount`; the fully-typed Better Auth `client` for everything else
 - `useBilling` — subscription state, `checkout`, `gift`, `portal`, `changePlan`, `cancel`
@@ -138,7 +138,9 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useFeatures` — entitlement / feature flags from active subscriptions
 - `useGifts` — gifts addressed to the signed-in user, auto-claimed on first sign-in (or explicit `claim`)
 - `useOrganization` — workspaces + the full invitation flow: `invite`, `acceptInvitation`, `declineInvitation`, `cancelInvitation`, `getInvitation`, `listReceivedInvitations`
+- `useSandboxInbox` — the mail test mode sent to a sandbox address (experimental)
 - `useSearch` — debounced full-text search
+- `useSessions` — signed-in devices: list, `revoke`, `revokeOthers`
 - `useWorkflowStatus` — workflow run status
 
 **Core (from `nuxt-convex-module`)** — `useQuery`, `useQueries`, `useMutation`, `useAction`, `usePaginatedQuery`, `usePreloadedQuery`, `useUpload`, `useUploadQueue`, `useStorageUrl`, and friends, plus `useBackendClient`, `useAuthState` and `useConnectionState`, the neutral names of its brand-named composables. Those brand-named names are not auto-imported.

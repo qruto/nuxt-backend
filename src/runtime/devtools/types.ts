@@ -148,6 +148,8 @@ export interface DevtoolsEmailLookupSnapshot {
   status?: string
   /** The id matched an email this deployment sent. */
   found: boolean
+  /** Why the status could not be read; absent when it was. */
+  error?: string
 }
 
 /** Sections loaded when a panel page asks for them, not on every render. */

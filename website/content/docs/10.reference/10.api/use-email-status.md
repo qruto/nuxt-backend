@@ -55,6 +55,7 @@ Defined in: [src/runtime/vue/composables/use-email-status.ts](https://github.com
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
+| <a id="emailid"></a> `emailId` | `MaybeRefOrGetter`\<`string` \| `null` \| `undefined`\> | The email to track (a value, ref or getter), as `send` returned it. Tracking pauses while it is `null`, `undefined` or blank. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
 | <a id="api"></a> `api?` | [`EmailApi`](#emailapi) | Override the injected `api.email` namespace (or the `getEmailStatus` ref). | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
 
 ***
@@ -67,32 +68,33 @@ Defined in: [src/runtime/vue/composables/use-email-status.ts](https://github.com
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="data"></a> `data` | `ComputedRef`\<[`EmailStatus`](#emailstatus) \| `null` \| `undefined`\> | The full status record, `null` if unknown, `undefined` while loading. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
+| <a id="data"></a> `data` | `ComputedRef`\<[`EmailStatus`](#emailstatus) \| `null` \| `undefined`\> | The full status record: `null` if no such email, `undefined` until the first read lands, while paused, and after a failed read. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
 | <a id="status-1"></a> `status` | `ComputedRef`\<`string` \| `undefined`\> | The status string (`queued` | `sent` | `delivered` | `bounced` | …), or `undefined`. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
-| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until the first status loads. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
+| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until the first status for the current id lands; `false` while paused. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
+| <a id="error"></a> `error` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the status could not be read, or `null`. A failed delivery is `isFailed`, not this. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
 | <a id="isdelivered"></a> `isDelivered` | `ComputedRef`\<`boolean`\> | `true` once the email is delivered. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
-| <a id="iserror"></a> `isError` | `ComputedRef`\<`boolean`\> | `true` if the email bounced, was complained about, or failed. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
+| <a id="isfailed"></a> `isFailed` | `ComputedRef`\<`boolean`\> | `true` if the email bounced, was marked as spam, or failed to send. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
 
 ## Functions
 
 ### useEmailStatus()
 
 ```ts
-function useEmailStatus(emailId, options?): UseEmailStatusReturn;
+function useEmailStatus(options): UseEmailStatusReturn;
 ```
 
 Defined in: [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts)
 
 Reactive delivery status for a sent email. Updates live as delivery webhooks
-advance the status (queued → sent → delivered/bounced). Zero-arg via the
-auto-provided `api.email` namespace; pass `{ api }` to override.
+advance the status (queued → sent → delivered/bounced). Reads through the
+auto-provided `api.email` namespace; pass `{ api }` to override. It never
+throws: a failed read shows in `error`.
 
 #### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `emailId` | `MaybeRefOrGetter`\<`string` \| `undefined`\> | The email id to track (reactive, from `send`). Tracking pauses while it is `undefined`/empty. |
-| `options` | [`UseEmailStatusOptions`](#useemailstatusoptions) | - |
+| Parameter | Type |
+| ------ | ------ |
+| `options` | [`UseEmailStatusOptions`](#useemailstatusoptions) |
 
 #### Returns
 
@@ -103,9 +105,10 @@ auto-provided `api.email` namespace; pass `{ api }` to override.
 ```vue
 <script setup lang="ts">
 const emailId = ref<string>()
-const delivery = useEmailStatus(emailId)
+const delivery = useEmailStatus({ emailId })
 </script>
 <template>
-  <p v-if="delivery.status.value">Status: {{ delivery.status.value }}</p>
+  <p v-if="delivery.isFailed.value">Not delivered: {{ delivery.status.value }}</p>
+  <p v-else-if="delivery.status.value">Status: {{ delivery.status.value }}</p>
 </template>
 ```

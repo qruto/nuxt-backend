@@ -10,12 +10,44 @@ navigation:
 
 # useWorkflowStatus
 
+## Interfaces
+
+### UseWorkflowStatusOptions
+
+Defined in: [src/runtime/vue/composables/use-workflow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-workflow.ts)
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="workflowid"></a> `workflowId` | `MaybeRefOrGetter`\<`string` \| `null` \| `undefined`\> | The workflow to watch (a value, ref or getter). The subscription pauses while it is `null`, `undefined` or blank. | [src/runtime/vue/composables/use-workflow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-workflow.ts) |
+
+***
+
+### UseWorkflowStatusReturn
+
+Defined in: [src/runtime/vue/composables/use-workflow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-workflow.ts)
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| `Query` *extends* \| [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`\> \| `FunctionReference_future`\<`"query"`\> |
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="data"></a> `data` | `ComputedRef`\<`FunctionReturnType`\<`Query`\> \| `undefined`\> | The status your query returns: `undefined` until the first read lands, while paused, and after a failed read. | [src/runtime/vue/composables/use-workflow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-workflow.ts) |
+| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until the first read for the current id lands; `false` while paused. | [src/runtime/vue/composables/use-workflow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-workflow.ts) |
+| <a id="error"></a> `error` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the read failed, or `null`. | [src/runtime/vue/composables/use-workflow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-workflow.ts) |
+
 ## Functions
 
 ### useWorkflowStatus()
 
 ```ts
-function useWorkflowStatus<Query>(query, workflowId): ComputedRef<FunctionReturnType<Query> | undefined>;
+function useWorkflowStatus<Query>(query, options): UseWorkflowStatusReturn<Query>;
 ```
 
 Defined in: [src/runtime/vue/composables/use-workflow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-workflow.ts)
@@ -24,7 +56,8 @@ Defined in: [src/runtime/vue/composables/use-workflow.ts](https://github.com/qru
 
 Reactively track a durable [Workflow](https://www.convex.dev/components/workflow)'s status. Pass a query that takes `{ workflowId }` (wrapping
 `workflow.status`) and the id to watch; the subscription pauses while the id
-is null/undefined and updates live as the workflow progresses.
+is empty and updates live as the workflow progresses. It never throws: a
+failed read shows in `error`.
 
 #### Type Parameters
 
@@ -37,11 +70,11 @@ is null/undefined and updates live as the workflow progresses.
 | Parameter | Type |
 | ------ | ------ |
 | `query` | `Query` |
-| `workflowId` | `MaybeRefOrGetter`\<`string` \| `null` \| `undefined`\> |
+| `options` | [`UseWorkflowStatusOptions`](#useworkflowstatusoptions) |
 
 #### Returns
 
-`ComputedRef`\<`FunctionReturnType`\<`Query`\> \| `undefined`\>
+[`UseWorkflowStatusReturn`](#useworkflowstatusreturn)\<`Query`\>
 
 #### Example
 
@@ -50,8 +83,8 @@ is null/undefined and updates live as the workflow progresses.
 import { useWorkflowStatus } from '#imports'
 import { api } from '#backend/api'
 
-const status = useWorkflowStatus(api.workflows.status, workflowId)
-// status.value?.type: 'inProgress' | 'completed' | 'failed' | 'canceled'
+const status = useWorkflowStatus(api.workflows.status, { workflowId })
+// status.data.value?.type: 'inProgress' | 'completed' | 'failed' | 'canceled'
 </script>
 ```
 

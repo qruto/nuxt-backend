@@ -197,8 +197,21 @@ describe('nothing names what 0.2 removed', () => {
   // The Upgrade page names each removal to say what to do instead, and the
   // changelog records it; nothing else may still offer it.
   const record = [contentFile('/docs/ship/migrate/upgrade'), contentFile('/docs/ship/releases/changelog')]
-  const files = [...prose, at('AGENTS.md'), at('CONTRIBUTING.md'), at('STABILITY.md'), ...walk('src', ['.ts', '.vue']), ...walk('skills', ['.md'])]
+  // The playground's app code too: it is what a reader copies from.
+  const built = (path: string) => /\/(?:node_modules|\.nuxt|\.output|\.data|_generated)(?:\/|$)/.test(path)
+  const playground = [...walk('website/pages', ['.vue', '.ts'], built), ...walk('website/components', ['.vue', '.ts'], built), ...walk('website/layouts', ['.vue'], built), ...walk('website/backend', ['.ts'], built), ...walk('examples/playground', ['.vue', '.ts'], built)]
+  const files = [...prose, at('AGENTS.md'), at('CONTRIBUTING.md'), at('STABILITY.md'), ...walk('src', ['.ts', '.vue']), ...walk('skills', ['.md']), ...playground]
     .filter(file => !record.some(page => file.endsWith(page)))
+  /** A needle as a whole word where it starts or ends in one: `useCount` is not `useCountdown`. */
+  const offers = (text: string, needle: string) => new RegExp(`${/^\w/.test(needle) ? '\\b' : ''}${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}${/\w$/.test(needle) ? '\\b' : ''}`).test(text)
+
+  it('matches a needle as a whole word', () => {
+    expect(offers('const n = useCount(q)', 'useCount')).toBe(true)
+    expect(offers('const { count } = useCountdown(10)', 'useCount')).toBe(false)
+    expect(offers('if (delivery.isError.value) …', 'isError.value')).toBe(true)
+    expect(offers('pages: false', 'pages: false')).toBe(true)
+  })
+
   it.each([
     ['installation: \'local\'', 'the local installation'],
     ['--installation', 'the local installation'],
@@ -236,8 +249,10 @@ describe('nothing names what 0.2 removed', () => {
     ['AuthEmailSender', 'setupAuth sends through the setupEmail instance'],
     ['AuthEmailTemplates', 'the templates live on setupEmail'],
     ['gift_email_unsent', 'the gift email goes through the email instance'],
+    ['useCount', 'useAggregate is the one aggregate composable'],
+    ['isError.value', 'useEmailStatus says isFailed'],
   ])('no file still offers %s (%s)', (needle) => {
-    const offenders = files.filter(file => read(file).includes(needle)).map(file => file.replace(`${process.cwd()}/`, ''))
+    const offenders = files.filter(file => offers(read(file), needle)).map(file => file.replace(`${process.cwd()}/`, ''))
     expect(offenders).toEqual([])
   })
 

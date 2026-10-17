@@ -92,8 +92,8 @@ function naming(module, body) {
     return { importName, title: importName, slug: subpath ? subpath.replace(/[/.]/g, '-') : 'module' }
   }
   const file = module.slice(module.lastIndexOf('/') + 1)
-  // `use-aggregate` documents useAggregate and useCount, `use-workflow`
-  // useWorkflowStatus: the file name alone would misname them.
+  // `use-workflow` documents useWorkflowStatus: the file name alone would
+  // misname it.
   const named = file.replace(/-(\w)/g, (_, letter) => letter.toUpperCase())
   const composables = [...new Set([...body.matchAll(/^### (use\w+)/gm)].map(([, name]) => name))]
     .sort((a, b) => Number(b === named) - Number(a === named))
