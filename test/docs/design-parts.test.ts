@@ -260,8 +260,8 @@ describe('the part components', () => {
  * replace as R3–R5 rebuild them. Both numbers only go down: when you remove
  * a style block or an uppercase label recipe, lower the number here.
  */
-const STYLE_BLOCKS = 48
-const UPPERCASE_RECIPES = 29
+const STYLE_BLOCKS = 46
+const UPPERCASE_RECIPES = 23
 
 describe('the ratchet', () => {
   const vue = walk('website', ['.vue'], path => /\/(?:node_modules|\.nuxt|\.output)(?:\/|$)/.test(path))

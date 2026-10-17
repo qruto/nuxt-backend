@@ -127,5 +127,17 @@ export function typedRows(texts: readonly string[], typed: number): Array<{ show
   })
 }
 
+/** How many rows a phone shows above the summary until the reader asks for all of them. */
+export const CONSOLE_PHONE_ROWS = 6
+
+/**
+ * Whether a phone folds row `index` of a transcript of `count` rows away
+ * while the LCD is folded: every row past the first six but the last, the
+ * summary, which always shows. A transcript that fits has nothing to fold.
+ */
+export function foldsOnPhone(index: number, count: number): boolean {
+  return index >= CONSOLE_PHONE_ROWS && index < count - 1
+}
+
 /** The install line the hero and the closing show: the Quickstart's first command. */
 export const INSTALL_COMMAND = 'npx nuxt module add nuxt-backend'

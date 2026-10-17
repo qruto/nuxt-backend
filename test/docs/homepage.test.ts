@@ -7,10 +7,12 @@ import { effectScope } from 'vue'
 import { main } from '../../src/cli/main'
 import { FINDING_SERVICES } from '../../src/findings'
 import { useCopy } from '../../website/composables/useCopy'
-import { CONSOLE_DETENTS, consoleCommand, consoleTranscript, INSTALL_COMMAND, typedRows } from '../../website/shared/console'
+import * as shared from '../../website/shared/console'
+import { CONSOLE_DETENTS, CONSOLE_PHONE_ROWS, consoleCommand, consoleTranscript, foldsOnPhone, INSTALL_COMMAND, typedRows } from '../../website/shared/console'
 import { SITE } from '../../website/shared/site'
 import { BACKEND_CALL, namedComponents, reachableComponents, siteComponents } from './components'
 import { contentFile, read, walk } from './helpers'
+import { component, homeConsole, lcdRowCount, parts, renderComponent } from './sfc'
 
 // The homepage says what the package does in its own words and shows its
 // CLI's real output, so both are held to the code: each dial detent is what
@@ -95,6 +97,86 @@ describe('the console', () => {
   })
 })
 
+const detent = (service: string) => CONSOLE_DETENTS.find(entry => entry.service === service)!
+
+/** Server-rendered markup without the fragment comments Vue marks it with. */
+const markup = (html: string) => html.split('<!--[-->').join('').split('<!--]-->').join('')
+
+/** The home console rendered with `service` on the dial. */
+async function renderConsole(service: string): Promise<string> {
+  const { root, components } = homeConsole(service)
+  return markup(await renderComponent(root, {}, components))
+}
+
+/** The command line the hero, the agents section and the closing mill in. */
+const commandSlot = () => component('website/components/home/CommandSlot.vue', { '~~/shared/console': shared }, { useCopy })
+
+/** A row's text: its markup with every tag stripped, until none is left. */
+function textOf(html: string): string {
+  let text = html
+  for (let previous = ''; previous !== text;) {
+    previous = text
+    text = text.replace(/<[^>]*>/g, '')
+  }
+  return text
+}
+
+/** The rows the LCD draws, in order: each one's classes and text. */
+function lcdRows(html: string): Array<{ classes: string[], text: string }> {
+  return [...html.matchAll(/<div class="(lcd-row[^"]*)"[^>]*>([\s\S]*?)<\/div>/g)]
+    .map(([, classes, inner]) => ({ classes: classes!.split(' '), text: textOf(inner!) }))
+}
+
+// A phone shows a long transcript folded to its first six rows and the
+// summary, with a key that shows the rest; from `sm` up nothing folds, and
+// a screen reader always gets the whole of it.
+describe('the console on a phone', () => {
+  it('folds every row past the first six but the summary, and nothing that fits', () => {
+    expect(CONSOLE_PHONE_ROWS).toBe(6)
+    for (const entry of CONSOLE_DETENTS) {
+      const count = lcdRowCount(entry.service)
+      const folded = Array.from({ length: count }, (_, index) => index).filter(index => foldsOnPhone(index, count))
+      const expected = count > 7 ? Array.from({ length: count - 7 }, (_, index) => index + 6) : []
+      expect(folded, entry.service).toEqual(expected)
+    }
+    expect(CONSOLE_DETENTS.filter(entry => lcdRowCount(entry.service) > 7).map(entry => entry.service)).toEqual(['billing', 'email'])
+  })
+
+  it('draws a long transcript folded below sm only, with the fold marked above the summary', async () => {
+    const rows = lcdRows(await renderConsole('billing'))
+    const drawn = rows.filter(row => !row.classes.includes('sm:hidden'))
+    expect(drawn).toHaveLength(lcdRowCount('billing'))
+    expect(drawn.map(row => row.classes.includes('max-sm:hidden'))).toEqual(drawn.map((_, index) => index >= 6 && index < drawn.length - 1))
+    // Every fold is a phone variant, so a wider screen draws what it did.
+    expect(rows.flatMap(row => row.classes).filter(name => /hidden/.test(name) && !/^(?:max-sm:|sm:)hidden$/.test(name))).toEqual([])
+    const mark = rows.findIndex(row => row.classes.includes('sm:hidden'))
+    expect(mark).toBe(rows.length - 2)
+    expect(rows[mark]!.text.trim()).toBe('…')
+  })
+
+  it('puts a key under the glass that says how many lines there are and controls the LCD', async () => {
+    const html = await renderConsole('billing')
+    const key = html.match(/<button[^>]*aria-controls="([^"]+)"[^>]*>([^<]*)<\/button>/)
+    expect(key?.[2]!.trim()).toBe(`Show all ${lcdRowCount('billing')} lines`)
+    expect(key?.[0]).toContain('aria-pressed="false"')
+    expect(key?.[0]).toMatch(/class="[^"]*\bsm:hidden\b/)
+    const lcd = html.match(new RegExp(`<div[^>]*\\bid="${key![1]}"[^>]*>`))?.[0]
+    expect(lcd).toContain('aria-label="Doctor output"')
+  })
+
+  it('reads a screen reader every line of the transcript, folded or not', async () => {
+    const html = await renderConsole('billing')
+    const read = [...(html.match(/<ol class="sr-only">([\s\S]*?)<\/ol>/)?.[1] ?? '').matchAll(/<li>([\s\S]*?)<\/li>/g)].map(([, text]) => text!.trim())
+    expect(read).toEqual([`$ ${consoleCommand(detent('billing'))}`, ...consoleTranscript(detent('billing')).filter(Boolean)].map(line => line.trim().replace(/'/g, '&#39;').replace(/"/g, '&quot;')))
+  })
+
+  it('folds nothing and draws no key when the transcript fits', async () => {
+    const html = await renderConsole('auth')
+    expect(lcdRows(html)).toHaveLength(lcdRowCount('auth'))
+    expect(html).not.toMatch(/max-sm:hidden|Show all/)
+  })
+})
+
 describe('the install line', () => {
   it('is the Quickstart\'s first command', () => {
     const quickstart = read(contentFile('/docs/start/quickstart'))
@@ -141,6 +223,53 @@ describe('the install line', () => {
   })
 })
 
+// The agents and closing sections are made of the parts the hero and the
+// console are (website/design.md §6): labels are `stamp`s, titles are
+// cut, panels are plaques and wells are slots, with no recipe of their own.
+describe('the sections after the console', () => {
+  const LEGACY = ['engraved', 'engraved-sm', 'embossed', 'embossed-sm', 'noise', 'hbtn', 'hbtn--primary', 'eyebrow']
+  it.each(['Agents', 'ClosingCta'])('%s has no style block, no hand-rolled label and no legacy recipe', (name) => {
+    const source = read(`website/components/home/${name}.vue`)
+    expect(source).not.toMatch(/<style\b|text-transform|\buppercase\b|letter-spacing|tracking-/)
+    const classes = [...source.matchAll(/\sclass="([^"]*)"/g)].flatMap(([, list]) => list!.split(/\s+/))
+    expect(classes.filter(name => LEGACY.includes(name))).toEqual([])
+    expect(classes).toContain('stamp')
+    expect(classes).toContain('plaque')
+  })
+})
+
+describe('the agents section', () => {
+  const render = async () => markup(await renderComponent(component('website/components/home/Agents.vue'), {}, { ...parts(), HomeCommandSlot: commandSlot() }))
+
+  // Each row of the tools/list result carries one light and says its state
+  // in words, so the grant reads without the colour.
+  it('lists each tool with a light and its state: listed when its scope was granted, hidden when not', async () => {
+    const html = await render()
+    const tools = [...html.matchAll(/<li class="grid[^"]*"><span class="font-medium[^"]*">([^<]+)<\/span><span[^>]*>([^<]+)<\/span><span[^>]*><span class="led (led-\w+)"[^>]*><\/span><span class="stamp">(\w+)<\/span>/g)]
+      .map(([, name, scope, led, state]) => ({ name, scope, led, state }))
+    expect(tools).toHaveLength(9)
+    const granted = ['openid', 'profile', 'email', 'billing:read', 'workspace:read']
+    for (const tool of tools) {
+      const listed = granted.includes(tool.scope!)
+      expect([tool.led, tool.state], tool.name).toEqual(listed ? ['led-ok', 'listed'] : ['led-warn', 'hidden'])
+    }
+    expect(html).toContain(`<code>${tools.filter(tool => tool.state === 'listed').length} of 9 tools</code>`)
+  })
+
+  it('says on the consent plaque which scopes were granted, in words as well as marks', async () => {
+    const html = await render()
+    const said = [...html.matchAll(/<span class="sr-only">((?:Not )?[Gg]ranted:)<\/span><span[^>]*>([^<]+)<\/span>/g)].map(([, state, scope]) => `${state} ${scope}`)
+    expect(said).toEqual(['Granted: openid · profile · email', 'Granted: billing:read', 'Granted: workspace:read', 'Not granted: profile:write', 'Not granted: billing:checkout'])
+  })
+
+  it('mills the connect line in with the install line\'s copy key', async () => {
+    const html = await render()
+    expect(html).toContain('claude mcp add --transport http nuxt-backend https://your-app.com/mcp</code>')
+    expect(html).toContain('aria-label="Copy the connect command"')
+    expect(html).not.toContain('Copy the install command')
+  })
+})
+
 describe('the closing', () => {
   const closing = read('website/components/home/ClosingCta.vue')
 
@@ -156,7 +285,27 @@ describe('the closing', () => {
     const hero = read('website/components/home/Hero.vue')
     const go = hero.match(/<Key\s+to="([^"]+)"\s+signal="go"/)?.[1]
     expect(go).toBe('/docs/start/quickstart')
-    expect(closing).toMatch(new RegExp(`<NuxtLink\\s+to="${go}"\\s+class="hbtn hbtn--primary"`))
+    expect(closing).toMatch(new RegExp(`<Key\\s+to="${go}">`))
+  })
+
+  // GO is the one primary key on a page (design.md §6): the hero's.
+  it('leaves the page\'s one GO key to the hero', () => {
+    const lit = walk('website/components/home', ['.vue']).filter(file => /signal="go"/.test(read(file)))
+    expect(lit.map(file => file.slice(file.lastIndexOf('/') + 1))).toEqual(['Hero.vue'])
+    expect(read('website/components/home/Hero.vue').match(/signal="go"/g)).toHaveLength(1)
+  })
+
+  // The send-off is cut into the plate as the hero's title is: one `cut`
+  // per line, each repeating its text for the floor.
+  it('cuts its title into the plate, a line at a time', async () => {
+    const html = markup(await renderComponent(component('website/components/home/ClosingCta.vue'), {}, { ...parts(), HomeCommandSlot: commandSlot() }))
+    const title = html.match(/<h2[^>]*>([\s\S]*?)<\/h2>/)?.[1] ?? ''
+    const lines = [...title.matchAll(/<span class="cut" data-text="([^"]+)">([^<]+)<\/span>/g)].map(([, floor, text]) => [floor, text])
+    // A word joiner holds the package name together on a phone; it reads as nothing.
+    expect(title).toContain('nuxt-\u2060backend')
+    expect(lines.map(line => line.map(text => text!.replace('\u2060', '')))).toEqual([['Install the module.', 'Install the module.'], ['Run nuxt-backend dev. Ship.', 'Run nuxt-backend dev. Ship.']])
+    expect(html).toContain('aria-label="Copy the install command"')
+    expect(html).toContain('<span class="stamp">Ready in one command</span>')
   })
 })
 

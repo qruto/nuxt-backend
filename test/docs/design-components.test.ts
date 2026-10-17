@@ -1,43 +1,11 @@
-import { runInThisContext } from 'node:vm'
-import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import * as vue from 'vue'
-import { compileScript, parse } from 'vue/compiler-sfc'
-import { renderToString } from 'vue/server-renderer'
-import { read } from './helpers'
+import { component, renderComponent } from './sfc'
 
 // The part components as a page renders them (website/components): what a
 // key says about itself when it is a link, disabled or pressed, and what an
 // LED says when it has a name.
 
-/**
- * A website component compiled as Nuxt compiles it, its template inlined,
- * with Nuxt's auto-imported `computed` in scope.
- */
-function component(file: string): vue.Component {
-  const { descriptor } = parse(read(file), { filename: file })
-  const { content } = compileScript(descriptor, { id: file, inlineTemplate: true })
-  const { outputText } = ts.transpileModule(content, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } })
-  const module = { exports: {} as { default?: vue.Component } }
-  const load = (id: string) => {
-    if (id === 'vue') return vue
-    throw new Error(`${file} imports ${id}`)
-  }
-  runInThisContext(`(function (require, module, exports, computed) {\n${outputText}\n})`)(load, module, module.exports, vue.computed)
-  return module.exports.default!
-}
-
-/** NuxtLink as an anchor; the attributes a key passes fall through onto it. */
-const NuxtLink = vue.defineComponent({
-  props: { to: { type: null, required: true } },
-  setup: (props, { slots }) => () => vue.h('a', { href: String(props.to) }, slots.default?.()),
-})
-
-async function render(file: string, props: Record<string, unknown>, text = 'Key'): Promise<string> {
-  const app = vue.createSSRApp({ render: () => vue.h(component(file), props, { default: () => text }) })
-  app.component('NuxtLink', NuxtLink)
-  return renderToString(app)
-}
+const render = (file: string, props: Record<string, unknown>, text = 'Key') => renderComponent(component(file), props, {}, text)
 
 describe('<Key>', () => {
   it('is a link to its page', async () => {
