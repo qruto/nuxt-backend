@@ -2,6 +2,7 @@ import type { FunctionReference } from 'convex/server'
 import { computed, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
 import { useQuery } from 'nuxt-convex-module/client'
 import { useBackendNamespace } from '../utils/namespace'
+import { findCode } from '../utils/sandbox-code'
 
 /** A message in a sandbox inbox (mirrors the component `inbox` query). */
 export interface SandboxMessage {
@@ -32,23 +33,6 @@ export interface UseSandboxInboxReturn {
   code: ComputedRef<string | undefined>
   /** `true` until the first read for the current address lands. */
   isLoading: ComputedRef<boolean>
-}
-
-const CODE = /\b(\d{6})\b/
-
-/** HTML reduced to its visible text: style and script bodies (a `#123456` colour) go first, then the tags. */
-function visibleText(html: string | undefined): string | undefined {
-  return html?.replace(/<(style|script)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ').replace(/<[^>]*>/g, ' ')
-}
-
-/** The first six-digit code in a message: its text, then its subject, then its visible HTML text. */
-function findCode(message: SandboxMessage | undefined): string | undefined {
-  if (!message) return undefined
-  for (const source of [message.text, message.subject, visibleText(message.html)]) {
-    const match = source?.match(CODE)
-    if (match) return match[1]
-  }
-  return undefined
 }
 
 /**

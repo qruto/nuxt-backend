@@ -13,6 +13,7 @@ import { join } from 'node:path'
 import { runConvex } from './convex-cli'
 import { deriveDeploymentUrls, resolveSiteUrl } from './deployment'
 import { deploymentEnvNames, deploymentFlags, deploymentFunctionSpec, isDevDeployment, readEnvFiles } from './env-push'
+import { projectEnvDefaultNames } from './env-defaults'
 import { DEV_ONLY_DEPLOYMENT_ENV, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './env-registry'
 import { applyProductionPosture, deploymentEnvId, finding, type FindingService, type PreflightFinding } from './findings'
 import { collectPreflightFindings } from './preflight'
@@ -277,6 +278,27 @@ function deploymentEnvFindings(rootDir: string, deployed: string[] | null, prod:
 }
 
 /**
+ * Whether a new preview deployment starts with the required env: `convex
+ * deploy` creates a preview and pushes to it in one run, and the push fails
+ * unless the project's preview env defaults hold AUTH_SECRET and SITE_URL or
+ * the build's `--cmd` sets them in between. No finding when the defaults
+ * cannot be read (a deployment with no cloud project behind it).
+ */
+async function envDefaultsFindings(rootDir: string): Promise<PreflightFinding[]> {
+  const names = await projectEnvDefaultNames(rootDir, 'preview')
+  if (!names) return []
+  const missing = REQUIRED_DEPLOYMENT_ENV.filter(name => !names.includes(name))
+  return [missing.length === 0
+    ? finding('env-defaults', 'pass', 'New preview deployments start with AUTH_SECRET and SITE_URL (project env defaults).')
+    : finding(
+        'env-defaults',
+        'warn',
+        `New preview deployments start without ${missing.join(' and ')}: unless the build sets them (\`nuxt-backend env push --preview\` in \`convex deploy --cmd\`), their first push fails.`,
+        'Run: npx nuxt-backend env push --defaults preview --site-url <the origin new previews start with>',
+      )]
+}
+
+/**
  * Deployment-reachable reads that need the convex CLI; each degrades to
  * null (and its checks to no finding) when the deployment is unreachable.
  * A read only happens when a wanted check needs it.
@@ -332,7 +354,13 @@ export async function runDoctorChecks(rootDir: string, { prod, only, deployedNam
       // there but not visible here counts as set instead of warning next to
       // the deployment-side finding that says it is.
       const names = deployedNames !== undefined ? deployedNames : await deploymentEnvNames(rootDir, { prod })
-      return { deployed: names, surface: await deployedSurfaceFindings(rootDir, { prod, reachable: names !== null, siteUrl, wants }) }
+      // Preview defaults are the project's, read with the dev deployment's
+      // login: not part of a production check.
+      const [surface, defaults] = await Promise.all([
+        deployedSurfaceFindings(rootDir, { prod, reachable: names !== null, siteUrl, wants }),
+        names !== null && !prod && wants('deployment') ? envDefaultsFindings(rootDir) : [],
+      ])
+      return { deployed: names, surface: [...surface, ...defaults] }
     })(),
     // Billing catalog cross-checks: what backend/billing.catalog.ts declares
     // against the organization's own subscription + portal settings. Every

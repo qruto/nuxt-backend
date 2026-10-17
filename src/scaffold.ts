@@ -17,12 +17,14 @@ export interface ScaffoldOptions {
 /**
  * Scaffold the backend files that don't exist yet (idempotent). Used by the
  * module's first-run auto-scaffold and by the CLI's `init`, `dev` and `doctor --fix`.
+ * Returns the files it wrote, relative to `rootDir`.
  */
-export function scaffoldBackendFiles(rootDir: string, options: ScaffoldOptions = {}) {
+export function scaffoldBackendFiles(rootDir: string, options: ScaffoldOptions = {}): string[] {
   const log = options.log ?? console.log
   const functionsDir = resolveFunctionsDir(rootDir)
   const functionsDirPath = join(rootDir, functionsDir)
   const convexJsonPath = join(rootDir, 'convex.json')
+  const written: string[] = []
 
   if (!existsSync(functionsDirPath)) {
     mkdirSync(functionsDirPath, { recursive: true })
@@ -34,6 +36,7 @@ export function scaffoldBackendFiles(rootDir: string, options: ScaffoldOptions =
 
   for (const [file, contents] of templates) {
     if (writeUnlessPresent(join(functionsDirPath, file), contents, options.force)) {
+      written.push(`${functionsDir}/${file}`)
       log(`[nuxt-backend] Created ${functionsDir}/${file}`)
     }
   }
@@ -41,9 +44,11 @@ export function scaffoldBackendFiles(rootDir: string, options: ScaffoldOptions =
   if (!options.files && functionsDir !== STANDARD_FUNCTIONS_DIR) {
     const convexJson = `${JSON.stringify({ functions: `${functionsDir}/` }, null, 2)}\n`
     if (writeUnlessPresent(convexJsonPath, convexJson)) {
+      written.push('convex.json')
       log('[nuxt-backend] Created convex.json')
     }
   }
+  return written
 }
 
 /**

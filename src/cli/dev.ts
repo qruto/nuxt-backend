@@ -25,6 +25,7 @@ import { isDevDeploymentId } from '../deployment'
 import { configuredDeployment, isEnvProvisioned, markEnvProvisioned, runEnvPush, type EnvPushRunResult } from '../env-push'
 import { finding, type PreflightFinding } from '../findings'
 import { resolveFunctionsDir, scaffoldBackendFiles } from '../scaffold'
+import { withContract } from './contract'
 
 /** The side effects `runDev` performs, injectable for tests. */
 export interface DevSteps {
@@ -194,7 +195,15 @@ export async function runDev(rootDir: string, nuxtArgs: readonly string[], steps
   return steps.convex(['dev', '--start', nuxtDevCommand(nuxtArgs)], env)
 }
 
-export const dev = defineCommand({
+export const dev = withContract('dev', {
+  sideEffects: ['writes project files', 'writes the dev deployment'],
+  json: 'none: it runs until stopped, with Convex and Nuxt printing to the terminal',
+  exitCodes: {
+    0: 'Convex and Nuxt stopped cleanly',
+    1: 'no deployment could be set up, or Convex failed (its own exit code is passed on)',
+    130: 'stopped by Ctrl-C, SIGINT or SIGTERM',
+  },
+}, defineCommand({
   meta: {
     name: 'dev',
     description: 'Run Convex and Nuxt together: set up the dev deployment on the first run, provision its env, then `convex dev --start "nuxt dev"` (other arguments go to nuxt dev)',
@@ -216,4 +225,4 @@ export const dev = defineCommand({
       log: line => console.log(`[nuxt-backend] ${line}`),
     })
   },
-})
+}))

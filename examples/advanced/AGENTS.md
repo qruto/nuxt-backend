@@ -15,6 +15,10 @@ endpoint).
 - `npx nuxt-backend dev` runs Convex and Nuxt together, and `npx nuxt-backend doctor` checks the
   whole setup. `npx nuxt-backend env push` syncs `.env.local` to the deployment, and
   `npx nuxt-backend billing sync` turns `backend/billing.catalog.ts` into products.
+- The CLI never prompts: every input is a flag, `--json` prints one JSON document, and `--help`
+  ends with what a command may change. To sign in on a dev deployment without a mailbox, request a
+  code for `delivered+agent@resend.dev` and read it with
+  `npx nuxt-backend inbox delivered+agent@resend.dev --json`.
 - The deployment's env: `AUTH_SECRET` and `SITE_URL` are required, and `EMAIL_*` and
   `BILLING_*` are optional. `CONVEX_DEPLOYMENT` belongs to the Convex CLI: read it, never rename
   it.

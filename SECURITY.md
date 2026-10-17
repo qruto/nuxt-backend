@@ -278,6 +278,18 @@ what was decided:
   of taking it on the command line. **Fixed.** Pinned by `test/unit/convex-cli.test.ts` and
   `test/unit/env-push-secrets.test.ts`, which run a stand-in Convex CLI that refuses every write
   and record what reached its argv and its stdin, and by `test/unit/billing-sync-command.test.ts`.
+- **Previews, project defaults and the CLI's inbox** (`env push --preview`, `env push --defaults`,
+  `nuxt-backend inbox`; 2026-10-17). The preview and defaults targets write through the same engine,
+  each value on stdin (`convex env default set` reads it there too). A preview is selected by name,
+  and a deploy key that is not a preview key is refused, since the Convex CLI would follow it to
+  another deployment; project defaults are never written for production, nor with a production
+  key in hand; a preview's `SITE_URL` is never taken from `.env.local`, which names the dev app.
+  `inbox` prints sign-in codes, so it reads only a dev-class deployment: `--prod`, any deploy key
+  but a dev one, another kind of `CONVEX_DEPLOYMENT` and a self-hosted deployment are refused
+  before the Convex CLI starts, only the provider's sandbox addresses are read, and message bodies
+  are never printed. The component keeps nothing once test mode is off. **New.** Pinned by
+  `test/unit/env-push-preview.test.ts`, which runs a stand-in Convex CLI, and
+  `test/unit/cli-inbox.test.ts`.
 - **Codes and email change** (`/email-otp/*`, `/change-email`; 2026-10-15). Codes were stored
   in plain text, so a read of the database yielded working sign-in codes, and an email change
   sent links: following the one at the new address moved the account and signed in whoever

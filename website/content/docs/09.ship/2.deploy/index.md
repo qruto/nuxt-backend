@@ -92,7 +92,9 @@ Convex **preview deployments** give every branch its own backend. With a *previe
 npx convex deploy --cmd 'npm run build' --cmd-url-env-var-name NUXT_PUBLIC_BACKEND_URL --preview-run 'billing:syncProducts'
 ```
 
-`--preview-run` runs a function after the push — seeding products is the usual one. Preview deployments start with an empty env: set `AUTH_SECRET` and `SITE_URL` on them (the preview's own public URL) with `npx convex env set --preview-name <branch> …`, and keep email in test mode and billing in sandbox there. `NUXT_PUBLIC_BACKEND_SITE_URL` for a preview is the preview deployment's `.convex.site` URL.
+`--preview-run` runs a function after the push — seeding products is the usual one. `NUXT_PUBLIC_BACKEND_SITE_URL` for a preview is the preview deployment's `.convex.site` URL.
+
+A new preview starts with an empty env, and its first push fails without `AUTH_SECRET` and `SITE_URL`. `convex deploy` runs `--cmd` after it creates the preview and before it pushes, so the build can fill them in with `npx nuxt-backend env push --preview`: a generated `AUTH_SECRET`, the branch's own origin as `SITE_URL` (`--site-url`), email in test mode and billing in the sandbox. Once, from your machine, `npx nuxt-backend env push --defaults preview --site-url <origin>` writes the same values as the project's preview env defaults, which Convex copies into every new preview. [Preview deployments](/docs/reference/cli#preview-deployments) on the CLI page has the Vercel build command and why `SITE_URL` is never guessed.
 
 ## Custom domains
 

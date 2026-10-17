@@ -150,11 +150,13 @@ push of a new deployment fails until `AUTH_SECRET` and `SITE_URL` are on it, and
    the user connects those services. Anything about `AUTH_SECRET`, `SITE_URL` or the backend URL
    is not: run `npx nuxt-backend doctor` and follow its fix lines.
 3. Request `/login` with `curl` and check for HTTP 200. With no email provider connected, sign-in
-   codes are printed in the `dev` output instead of being emailed. Sign-in works on the origin
-   `SITE_URL` names, `http://localhost:3000` on a dev deployment. When Nuxt started on another
-   port (3000 was taken), sign-in answers "Invalid origin": tell the user, and suggest
-   `AUTH_TRUST_LOCAL_ORIGINS=1` in `.env.local` followed by `npx nuxt-backend env push`, which
-   trusts every `localhost` port on a dev deployment.
+   codes are printed in the `dev` output instead of being emailed. To sign in yourself, use a
+   sandbox address such as `delivered+agent@resend.dev` and read its code with
+   `npx nuxt-backend inbox delivered+agent@resend.dev --json` (the `code` field). Sign-in works
+   on the origin `SITE_URL` names, `http://localhost:3000` on a dev deployment. When Nuxt
+   started on another port (3000 was taken), sign-in answers "Invalid origin": tell the user, and
+   suggest `AUTH_TRUST_LOCAL_ORIGINS=1` in `.env.local` followed by `npx nuxt-backend env push`,
+   which trusts every `localhost` port on a dev deployment.
 4. Stop the dev process when you are done, with Ctrl-C or `kill -INT <pid>` on macOS and Linux.
    It stops Convex, Nuxt and a local backend together. On Windows, `taskkill /PID <pid> /T /F`
    ends it with the processes it started.

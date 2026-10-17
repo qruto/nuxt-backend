@@ -108,7 +108,7 @@ describe('API names', () => {
   const ours = new Set([...readModuleSources().matchAll(/name: '(\w+)'/g)].map(([, name]) => name!))
   const base = new Set([...read('node_modules/nuxt-convex-module/dist/module.mjs').matchAll(/"(use[A-Z]\w*|[A-Z][A-Za-z]+)"/g)].map(([, name]) => name!))
   const known = (name: string) => ours.has(name) || base.has(name) || NUXT_NAMES.has(name)
-  const commands = new Set(['init', 'dev', 'doctor', 'env', 'billing'])
+  const commands = new Set(['init', 'dev', 'doctor', 'env', 'billing', 'inbox'])
   const checked = handWritten.filter(file => !NAME_EXEMPT.includes(contentRoute(file)))
 
   it('reads both registries', () => {

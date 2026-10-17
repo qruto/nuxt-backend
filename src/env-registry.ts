@@ -41,14 +41,14 @@ export const BACKEND_ENV = {
     required: true,
     without: 'a deploy fails: it signs sessions and encrypts the keys agent tokens are signed with',
     example: null,
-    findings: ['auth-secret', 'deployment-auth-secret'],
+    findings: ['auth-secret', 'deployment-auth-secret', 'env-defaults'],
   },
   SITE_URL: {
     side: 'deployment',
     required: true,
     without: 'a deploy fails: auth trusts it as the app origin, and invitation and gift emails link to it',
     example: null,
-    findings: ['site-url', 'deployment-site-url'],
+    findings: ['site-url', 'deployment-site-url', 'env-defaults'],
   },
   AUTH_TRUST_LOCAL_ORIGINS: {
     side: 'deployment',

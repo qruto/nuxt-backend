@@ -29,6 +29,10 @@ endpoint).
 - \`npx nuxt-backend dev\` runs Convex and Nuxt together, and \`npx nuxt-backend doctor\` checks the
   whole setup. \`npx nuxt-backend env push\` syncs \`.env.local\` to the deployment, and
   \`npx nuxt-backend billing sync\` turns \`backend/billing.catalog.ts\` into products.
+- The CLI never prompts: every input is a flag, \`--json\` prints one JSON document, and \`--help\`
+  ends with what a command may change. To sign in on a dev deployment without a mailbox, request a
+  code for \`delivered+agent@resend.dev\` and read it with
+  \`npx nuxt-backend inbox delivered+agent@resend.dev --json\`.
 - The deployment's env: \`AUTH_SECRET\` and \`SITE_URL\` are required, and \`EMAIL_*\` and
   \`BILLING_*\` are optional. \`CONVEX_DEPLOYMENT\` belongs to the Convex CLI: read it, never rename
   it.
@@ -125,11 +129,18 @@ const MCP_MESSAGES: Record<McpJsonAction, string | undefined> = {
   invalid: '.mcp.json is not a JSON object, so it was left alone. Add the Convex server yourself: "convex": { "command": "npx", "args": ["convex", "mcp", "start"] }',
 }
 
+/** What `writeAgentFiles` did to each file, and the lines `init` prints about it. */
+export interface AgentFilesResult {
+  agentsMd: AgentsMdAction
+  mcpJson: McpJsonAction
+  messages: string[]
+}
+
 /**
- * Write AGENTS.md and `.mcp.json` in `rootDir`, and return what happened,
- * one line each, for `init` to print.
+ * Write AGENTS.md and `.mcp.json` in `rootDir`, and return what happened:
+ * the action on each file, and one line each for `init` to print.
  */
-export function writeAgentFiles(rootDir: string, { force = false } = {}): string[] {
+export function writeAgentFiles(rootDir: string, { force = false } = {}): AgentFilesResult {
   const messages: string[] = []
 
   const agentsPath = join(rootDir, 'AGENTS.md')
@@ -148,5 +159,5 @@ export function writeAgentFiles(rootDir: string, { force = false } = {}): string
   if (claude !== undefined && !claude.includes('AGENTS.md')) {
     messages.push('CLAUDE.md does not mention AGENTS.md. Add a line with `@AGENTS.md` so Claude Code reads it too')
   }
-  return messages
+  return { agentsMd: agents.action, mcpJson: mcp.action, messages }
 }

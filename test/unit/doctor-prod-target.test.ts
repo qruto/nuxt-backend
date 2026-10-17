@@ -10,9 +10,13 @@ import { runConvex } from '../../src/convex-cli'
 // a dev one. Every Convex CLI read has to say `--prod`, and the routes it
 // probes have to be production's — taken from the function spec, not from
 // the dev URLs in `.env.local`.
-const deployed = vi.hoisted(() => ({ authConfig: {} as Record<string, unknown> }))
+const deployed = vi.hoisted(() => ({ authConfig: {} as Record<string, unknown>, previewDefaults: 'AUTH_SECRET\nSITE_URL\n' as string | null }))
 vi.mock('../../src/convex-cli', () => ({
   runConvex: vi.fn(async (_rootDir: string, args: string[]) => {
+    if (args[0] === 'env' && args[1] === 'default') {
+      if (deployed.previewDefaults === null) throw new Error('convex env exited with code 1')
+      return { stdout: deployed.previewDefaults, stderr: '' }
+    }
     if (args[0] === 'env') return { stdout: 'AUTH_SECRET\nSITE_URL\nAUTH_TRUST_LOCAL_ORIGINS\n', stderr: '' }
     if (args[0] === 'function-spec') {
       return { stdout: JSON.stringify({ url: 'https://prod-slug-42.convex.cloud', functions: [{ identifier: 'auth.js:getAuthUser' }] }), stderr: '' }
@@ -32,6 +36,7 @@ const URL_VARS = ['NUXT_PUBLIC_BACKEND_SITE_URL', 'NUXT_PUBLIC_CONVEX_SITE_URL',
 
 beforeEach(() => {
   deployed.authConfig = {}
+  deployed.previewDefaults = 'AUTH_SECRET\nSITE_URL\n'
   for (const name of URL_VARS) vi.stubEnv(name, undefined)
   rootDir = mkdtempSync(join(tmpdir(), 'doctor-prod-'))
   writeFileSync(join(rootDir, '.env.local'), 'CONVEX_DEPLOYMENT=dev:happy-otter-123\nNUXT_PUBLIC_CONVEX_SITE_URL=https://happy-otter-123.convex.site\n')
@@ -55,7 +60,7 @@ afterEach(() => {
 
 async function doctor(args: string[]) {
   await runCommand(main, { rawArgs: ['doctor', '--json', ...args, '--cwd', rootDir] })
-  return JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { findings: Array<{ id: string, status: string }> }
+  return JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { findings: Array<{ id: string, status: string, fixHint: string }> }
 }
 
 describe('--prod with a non-production deploy key', () => {
@@ -169,5 +174,35 @@ describe('the invitation route', () => {
 
     expect(vi.mocked(runConvex).mock.calls.some(([, args]) => args[0] === 'run')).toBe(false)
     expect(report.findings.some(finding => finding.id === 'invitation-path')).toBe(false)
+  })
+})
+
+describe('the preview env defaults', () => {
+  // `convex deploy` creates a preview and pushes to it in one run: unless the
+  // project's preview defaults hold the required pair (or the build sets it),
+  // that first push fails.
+  const envDefaults = (report: Awaited<ReturnType<typeof doctor>>) => report.findings.find(finding => finding.id === 'env-defaults')
+
+  it('warns when new previews would start without the required pair, and says how to set it', async () => {
+    deployed.previewDefaults = 'EMAIL_TEST_MODE\n'
+    const reported = envDefaults(await doctor([]))
+
+    expect(reported).toMatchObject({ status: 'warn', fixHint: expect.stringContaining('env push --defaults preview --site-url') })
+    expect(vi.mocked(runConvex).mock.calls.map(([, args]) => args)).toContainEqual(['env', 'default', 'list', '--names-only', '--type', 'preview'])
+  })
+
+  it('passes when the defaults hold both', async () => {
+    expect(envDefaults(await doctor([]))?.status).toBe('pass')
+  })
+
+  it('reports nothing when the defaults cannot be read, or under --prod', async () => {
+    deployed.previewDefaults = null
+    expect(envDefaults(await doctor([]))).toBeUndefined()
+
+    deployed.previewDefaults = ''
+    vi.mocked(console.log).mockClear()
+    vi.mocked(runConvex).mockClear()
+    expect(envDefaults(await doctor(['--prod']))).toBeUndefined()
+    expect(vi.mocked(runConvex).mock.calls.some(([, args]) => args[1] === 'default')).toBe(false)
   })
 })

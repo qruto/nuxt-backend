@@ -70,7 +70,7 @@ export class ConvexCliError extends Error {
   }
 }
 
-/** The subcommands whose second word names the command too (`env set`). */
+/** The subcommands whose next word names the command too (`env set`, `env default set`). */
 const ENV_SUBCOMMANDS = new Set(['set', 'list', 'get', 'remove'])
 
 /**
@@ -79,7 +79,8 @@ const ENV_SUBCOMMANDS = new Set(['set', 'list', 'get', 'remove'])
  * name or value.
  */
 function commandName(args: readonly string[]): string {
-  const [first, second] = args
+  const [first, second, third] = args
+  if (first === 'env' && second === 'default' && third && ENV_SUBCOMMANDS.has(third)) return `convex env default ${third}`
   if (first === 'env' && second && ENV_SUBCOMMANDS.has(second)) return `convex env ${second}`
   return first && /^[a-z][a-z-]*$/.test(first) ? `convex ${first}` : 'convex'
 }
