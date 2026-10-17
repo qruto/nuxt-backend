@@ -20,9 +20,9 @@ Defined in: [src/convex/integrations/search.ts](https://github.com/qruto/nuxt-ba
 
 | Type Parameter |
 | ------ |
-| `DM` *extends* `GenericDataModel` |
-| `T` *extends* `TableNamesInDataModel`\<`DM`\> |
-| `I` *extends* `IndexName`\<`DM`, `T`\> |
+| <a id="type-parameter-dm-1"></a> `DM` *extends* `GenericDataModel` |
+| <a id="type-parameter-t-1"></a> `T` *extends* `TableNamesInDataModel`\<`DM`\> |
+| <a id="type-parameter-i"></a> `I` *extends* `IndexName`\<`DM`, `T`\> |
 
 #### Properties
 
@@ -39,7 +39,7 @@ Defined in: [src/convex/integrations/search.ts](https://github.com/qruto/nuxt-ba
 
 ```ts
 function search<DM, T>(ctx, table): {
-  withSearchIndex: SearchIndexBound<DM, T, I>;
+  withSearchIndex<I>(index): SearchIndexBound<DM, T, I>;
 };
 ```
 
@@ -53,8 +53,8 @@ schema's `searchIndex` definitions.
 
 | Type Parameter |
 | ------ |
-| `DM` *extends* `GenericDataModel` |
-| `T` *extends* `string` |
+| <a id="type-parameter-dm"></a> `DM` *extends* `GenericDataModel` |
+| <a id="type-parameter-t"></a> `T` *extends* `string` |
 
 #### Parameters
 
@@ -101,9 +101,9 @@ matching documents — pair it with the `useSearch` composable on the client.
 
 | Type Parameter |
 | ------ |
-| `DM` *extends* `GenericDataModel` |
-| `T` *extends* `string` |
-| `I` *extends* `string` \| `number` \| `symbol` |
+| <a id="type-parameter-dm-2"></a> `DM` *extends* `GenericDataModel` |
+| <a id="type-parameter-t-2"></a> `T` *extends* `string` |
+| <a id="type-parameter-i-1"></a> `I` *extends* `string` \| `number` \| `symbol` |
 
 #### Parameters
 

@@ -96,7 +96,7 @@ into `error`.
 
 | Parameter | Type |
 | ------ | ------ |
-| `options` | [`UseSessionsOptions`](#usesessionsoptions) |
+| `options?` | [`UseSessionsOptions`](#usesessionsoptions) |
 
 #### Returns
 

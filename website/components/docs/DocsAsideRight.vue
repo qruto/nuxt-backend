@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DocsCollectionItem } from '@nuxt/content'
 
-// Docus 5.14.0's DocsAsideRight (test/docs/docus-copies.test.ts pins the
+// Docus 5.15.0's DocsAsideRight (test/docs/docus-copies.test.ts pins the
 // source), changed: Docus draws the aside's bottom block only under a table
 // of contents, so on a page without headings the related pages, "Was this
 // helpful?" and the last-updated date never showed. There the block stands
@@ -43,6 +43,9 @@ const contentTocVariants = useUIConfig('contentToc')
       <DocsAsideRightBottom standalone />
     </div>
 
-    <DocsAsideMobileBar :links="links" />
+    <LazyDocsAsideMobileBar
+      v-if="subNavigationMode"
+      :links="links"
+    />
   </div>
 </template>

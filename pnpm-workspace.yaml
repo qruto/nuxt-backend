@@ -14,7 +14,7 @@ packages:
 # Reference with `"nuxt": "catalog:"` in package.json so the root module and the
 # website can never drift onto different Nuxt majors. https://pnpm.io/catalogs
 catalog:
-  nuxt: ^4.6.1
+  nuxt: ^4.6.2
 
 # --- Node module layout ------------------------------------------------------
 # Deviation from nuxt-convex-module (which runs pnpm's default isolated linker):

@@ -35,13 +35,13 @@ Defined in: [src/convex/integrations/migrations.ts](https://github.com/qruto/nux
 
 | Type Parameter |
 | ------ |
-| `Schema` *extends* `SchemaDefinition`\<`GenericSchema`, `boolean`\> \| `void` |
+| <a id="type-parameter-schema"></a> `Schema` *extends* `SchemaDefinition`\<`GenericSchema`, `boolean`\> \| `void` |
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="schema-1"></a> `schema?` | `Schema` | Your database schema. Recommended — it provides table types to `migrations.define({ table, migrateOne })` and enables custom index ranges. | [src/convex/integrations/migrations.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/migrations.ts) |
+| <a id="schema"></a> `schema?` | `Schema` | Your database schema. Recommended — it provides table types to `migrations.define({ table, migrateOne })` and enables custom index ranges. | [src/convex/integrations/migrations.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/migrations.ts) |
 | <a id="defaultbatchsize"></a> `defaultBatchSize?` | `number` | Documents processed per transaction batch (default 100). | [src/convex/integrations/migrations.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/migrations.ts) |
 | <a id="migrationslocationprefix"></a> `migrationsLocationPrefix?` | `string` | Prefix added to function names when running migrations from the CLI. | [src/convex/integrations/migrations.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/migrations.ts) |
 
@@ -79,7 +79,7 @@ Pass your `schema` so `define()` gets table types. If you need to supply the
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| `Schema` *extends* `void` \| `SchemaDefinition`\<`GenericSchema`, `boolean`\> | `void` |
+| <a id="type-parameter-schema-1"></a> `Schema` *extends* `void` \| `SchemaDefinition`\<`GenericSchema`, `boolean`\> | `void` |
 
 #### Parameters
 

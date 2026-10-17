@@ -87,7 +87,7 @@ permanently mounted panel). Loads happen in the browser only.
 
 | Parameter | Type |
 | ------ | ------ |
-| `options` | [`UseOrdersOptions`](#useordersoptions) |
+| `options?` | [`UseOrdersOptions`](#useordersoptions) |
 
 #### Returns
 

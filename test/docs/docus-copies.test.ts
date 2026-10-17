@@ -13,19 +13,19 @@ import { at } from './helpers'
 
 /** Each shadowing file, the Docus source it replaces, and that source's sha256 (first 16 hex digits). */
 const SHADOWS: Record<string, [upstream: string, sha256: string]> = {
-  'website/components/IconMenuToggle.vue': ['app/components/IconMenuToggle.vue', 'dfc00c75625ab25b'],
+  'website/components/IconMenuToggle.vue': ['app/components/IconMenuToggle.vue', 'afd3c575d543d5ec'],
   'website/components/app/AppFooter.vue': ['app/components/app/AppFooter.vue', '803f3a044f7ca533'],
-  'website/components/app/AppHeader.vue': ['app/components/app/AppHeader.vue', '591a7c8d4383c219'],
+  'website/components/app/AppHeader.vue': ['app/components/app/AppHeader.vue', '34c4def5643765d0'],
   'website/components/app/AppHeaderBody.vue': ['app/components/app/AppHeaderBody.vue', '58af51854f28f7ef'],
   'website/components/app/AppHeaderBottom.vue': ['app/components/app/AppHeaderBottom.vue', '740c40e029b39e51'],
   'website/components/app/AppHeaderCTA.vue': ['app/components/app/AppHeaderCTA.vue', 'acc43dd168ab619a'],
   'website/components/app/AppHeaderLogo.vue': ['app/components/app/AppHeaderLogo.vue', '3cf724a235c0c06f'],
   'website/components/docs/DocsAsideLeftBody.vue': ['app/components/docs/DocsAsideLeftBody.vue', '189feeb74c322543'],
-  'website/components/docs/DocsAsideMobileBar.vue': ['app/components/docs/DocsAsideMobileBar.vue', '4a5c60cdd097280d'],
-  'website/components/docs/DocsAsideRight.vue': ['app/components/docs/DocsAsideRight.vue', 'eb6d803c107d9e8d'],
+  'website/components/docs/DocsAsideMobileBar.vue': ['app/components/docs/DocsAsideMobileBar.vue', 'e26af93a988dd853'],
+  'website/components/docs/DocsAsideRight.vue': ['app/components/docs/DocsAsideRight.vue', 'da1a11cbaedb007a'],
   'website/components/docs/DocsAsideRightBottom.vue': ['app/components/docs/DocsAsideRightBottom.vue', 'ecb58b4e25ee5c51'],
-  'website/components/docs/DocsPageHeaderLinks.vue': ['app/components/docs/DocsPageHeaderLinks.vue', '58dc7609435936be'],
-  'website/pages/[[lang]]/[...slug].vue': ['app/pages/[[lang]]/[...slug].vue', '53f13dc4ec6e4dcd'],
+  'website/components/docs/DocsPageHeaderLinks.vue': ['app/components/docs/DocsPageHeaderLinks.vue', '0bed2558a9f79220'],
+  'website/pages/[[lang]]/[...slug].vue': ['app/pages/[[lang]]/[...slug].vue', '88bdb6f09f9b2606'],
 }
 
 /** Docus sources the site keeps but is written against: what it relies on there, and the source's sha256. */

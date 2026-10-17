@@ -73,7 +73,7 @@ changing `meter` or `limit` reloads from the first page.
 
 | Parameter | Type |
 | ------ | ------ |
-| `options` | [`UseUsageOptions`](#useusageoptions) |
+| `options?` | [`UseUsageOptions`](#useusageoptions) |
 
 #### Returns
 

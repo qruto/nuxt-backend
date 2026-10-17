@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ContentNavigationItem } from '@nuxt/content'
 
-// Docus 5.14.0's DocsAsideRightBottom (test/docs/docus-copies.test.ts pins
+// Docus 5.15.0's DocsAsideRightBottom (test/docs/docus-copies.test.ts pins
 // the source), changed: the page's related links, "Was this helpful?" and
 // its last-updated date come before the ecosystem links, and "Explain with
 // AI" shows only once the assistant is grounded in these docs

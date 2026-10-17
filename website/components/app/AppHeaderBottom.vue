@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ContentNavigationItem } from '@nuxt/content'
 
-// Docus 5.14.0's AppHeaderBottom (test/docs/docus-copies.test.ts pins the
+// Docus 5.15.0's AppHeaderBottom (test/docs/docus-copies.test.ts pins the
 // source), changed: a tab whose every page is experimental carries the
 // Experimental badge (utils/nav-badges.ts).
 const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')

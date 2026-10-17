@@ -78,7 +78,7 @@ session cookie live there), starting as `undefined` during SSR.
 
 | Parameter | Type |
 | ------ | ------ |
-| `options` | [`UsePasskeysOptions`](#usepasskeysoptions) |
+| `options?` | [`UsePasskeysOptions`](#usepasskeysoptions) |
 
 #### Returns
 

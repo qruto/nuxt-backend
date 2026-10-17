@@ -39,7 +39,7 @@ revoked agent token keeps working. Pure and clock-injectable for tests.
 
 | Type Parameter |
 | ------ |
-| `Value` |
+| <a id="type-parameter-value"></a> `Value` |
 
 #### Properties
 
@@ -102,18 +102,18 @@ Defined in: [src/runtime/server/mcp/index.ts](https://github.com/qruto/nuxt-back
 
 **`Experimental`**
 
+#### Type Parameters
+
+| Type Parameter | Default type |
+| ------ | ------ |
+| <a id="type-parameter-inputschema"></a> `InputSchema` *extends* `ZodRawShape` \| `undefined` | `ZodRawShape` |
+| <a id="type-parameter-outputschema"></a> `OutputSchema` *extends* `ZodRawShape` | `ZodRawShape` |
+
 #### Type Declaration
 
 | Name | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | `scope?` | `string` | OAuth scope required for this tool. Agents without it never see the tool in `tools/list`, and a direct call is refused — the handler-side check matters because list-time hiding is only advisory. | [src/runtime/server/mcp/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/index.ts) |
-
-#### Type Parameters
-
-| Type Parameter | Default type |
-| ------ | ------ |
-| `InputSchema` *extends* `ZodRawShape` \| `undefined` | `ZodRawShape` |
-| `OutputSchema` *extends* `ZodRawShape` | `ZodRawShape` |
 
 ## Variables
 
@@ -210,7 +210,7 @@ Defined in: [src/runtime/server/mcp/cache.ts](https://github.com/qruto/nuxt-back
 
 | Type Parameter |
 | ------ |
-| `Value` |
+| <a id="type-parameter-value-1"></a> `Value` |
 
 #### Parameters
 
@@ -278,8 +278,8 @@ via the standard `enabled` guard — it runs after the session/scope gate.
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| `InputSchema` *extends* \| `Readonly`\<\{ \[`k`: `string`\]: `$ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>; \}\> \| `undefined` | `Readonly`\<\{ \[`k`: `string`\]: `$ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>; \}\> |
-| `OutputSchema` *extends* `Readonly`\<\{ \[`k`: `string`\]: `$ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>; \}\> | `Readonly`\<\{ \[`k`: `string`\]: `$ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>; \}\> |
+| <a id="type-parameter-inputschema-1"></a> `InputSchema` *extends* \| `Readonly`\<\{ \[`k`: `string`\]: `$ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>; \}\> \| `undefined` | `Readonly`\<\{ \[`k`: `string`\]: `$ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>; \}\> |
+| <a id="type-parameter-outputschema-1"></a> `OutputSchema` *extends* `Readonly`\<\{ \[`k`: `string`\]: `$ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>; \}\> | `Readonly`\<\{ \[`k`: `string`\]: `$ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>; \}\> |
 
 #### Parameters
 
