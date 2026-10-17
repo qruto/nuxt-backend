@@ -3,7 +3,7 @@
 // reaches @nuxt/ui only through Docus, so it does not import from it.
 import type { TocLink as ContentTocLink } from '@nuxt/content'
 
-// Docus 5.14.0's DocsAsideMobileBar (test/docs/docus-copies.test.ts pins the
+// Docus 5.15.0's DocsAsideMobileBar (test/docs/docus-copies.test.ts pins the
 // source), changed: on a page without headings the "On this page" drawer
 // opened empty; it holds the aside's bottom block (related pages, "Was this
 // helpful?", the last-updated date) on every page.
@@ -11,7 +11,7 @@ defineProps<{
   links?: ContentTocLink[]
 }>()
 
-const { subNavigationMode, sidebarNavigation, currentSection } = useSubNavigation()
+const { sidebarNavigation, currentSection } = useSubNavigation()
 const { t } = useDocusI18n()
 
 const contentNavVariants = useUIConfig('contentNavigation')
@@ -23,7 +23,6 @@ const tocDrawerOpen = ref(false)
 
 <template>
   <div
-    v-if="subNavigationMode"
     class="lg:hidden sticky top-(--ui-header-height) z-10 bg-default/75 backdrop-blur -mx-4 p-2 border-b border-dashed border-default flex justify-between"
   >
     <UDrawer

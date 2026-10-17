@@ -270,7 +270,7 @@ A page of provider records, plus the token that reads the next one.
 
 | Type Parameter |
 | ------ |
-| `Item` |
+| <a id="type-parameter-item"></a> `Item` |
 
 #### Properties
 

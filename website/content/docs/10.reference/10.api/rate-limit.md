@@ -351,7 +351,7 @@ named limits to cover your own application functions; they are merged with
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| `Limits` *extends* `Record`\<`string`, [`RateLimitConfig`](#ratelimitconfig)\> | `Record`\<`never`, `never`\> |
+| <a id="type-parameter-limits"></a> `Limits` *extends* `Record`\<`string`, [`RateLimitConfig`](#ratelimitconfig)\> | `Record`\<`never`, `never`\> |
 
 #### Parameters
 

@@ -89,7 +89,7 @@ continues reactively. A failed or aborted stream releases its credits.
 | Parameter | Type |
 | ------ | ------ |
 | `stream` | [`AiStreamApi`](#aistreamapi) |
-| `options` | [`UseAiStreamOptions`](#useaistreamoptions) |
+| `options?` | [`UseAiStreamOptions`](#useaistreamoptions) |
 
 #### Returns
 

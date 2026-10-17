@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Docus 5.14.0's AppFooter (test/docs/docus-copies.test.ts pins the
+// Docus 5.15.0's AppFooter (test/docs/docus-copies.test.ts pins the
 // source), changed: the project's pages sit between the copyright and the
 // icons.
 const { github } = useAppConfig()

@@ -76,7 +76,7 @@ a standalone config adds `typescript-eslint`'s parser for `.ts` files.
 
 | Parameter | Type |
 | ------ | ------ |
-| `options` | [`BackendEslintOptions`](#backendeslintoptions) |
+| `options?` | [`BackendEslintOptions`](#backendeslintoptions) |
 
 #### Returns
 

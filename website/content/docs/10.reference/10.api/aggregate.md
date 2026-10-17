@@ -28,7 +28,7 @@ instance and keep it in sync with [Triggers](#triggers).
 
 | Type Parameter |
 | ------ |
-| `T` *extends* `AnyTableAggregateType` |
+| <a id="type-parameter-t"></a> `T` *extends* `AnyTableAggregateType` |
 
 #### Constructors
 
@@ -1161,7 +1161,7 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:442
 
 | Type Parameter |
 | ------ |
-| `Ctx` *extends* `MutationCtx` |
+| <a id="type-parameter-ctx"></a> `Ctx` *extends* `MutationCtx` |
 
 ###### Parameters
 
@@ -1186,7 +1186,7 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:445
 
 | Type Parameter |
 | ------ |
-| `Ctx` *extends* `MutationCtx` |
+| <a id="type-parameter-ctx-1"></a> `Ctx` *extends* `MutationCtx` |
 
 ###### Parameters
 
@@ -1227,8 +1227,8 @@ export const mutation = customMutation(rawMutation, customCtx(triggers.wrapDB));
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| `DataModel` *extends* `GenericDataModel` | - |
-| `Ctx` *extends* \{ `db`: `GenericDatabaseWriter`\<`DataModel`\>; \} | `GenericMutationCtx`\<`DataModel`\> |
+| <a id="type-parameter-datamodel-4"></a> `DataModel` *extends* `GenericDataModel` | - |
+| <a id="type-parameter-ctx-3"></a> `Ctx` *extends* \{ `db`: `GenericDatabaseWriter`\<`DataModel`\>; \} | `GenericMutationCtx`\<`DataModel`\> |
 
 #### Constructors
 
@@ -1263,7 +1263,7 @@ Defined in: node\_modules/convex-helpers/server/triggers.d.ts:49
 
 | Type Parameter |
 | ------ |
-| `TableName` *extends* `string` |
+| <a id="type-parameter-tablename-3"></a> `TableName` *extends* `string` |
 
 ###### Parameters
 
@@ -1295,19 +1295,19 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:355
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| `K` *extends* `Key` | - |
-| `DataModel` *extends* `GenericDataModel` | - |
-| `TableName` *extends* `TableNamesInDataModel`\<`DataModel`\> | - |
-| `Namespace` *extends* `ConvexValue` \| `undefined` | `undefined` |
+| <a id="type-parameter-k"></a> `K` *extends* `Key` | - |
+| <a id="type-parameter-datamodel"></a> `DataModel` *extends* `GenericDataModel` | - |
+| <a id="type-parameter-tablename"></a> `TableName` *extends* `TableNamesInDataModel`\<`DataModel`\> | - |
+| <a id="type-parameter-namespace"></a> `Namespace` *extends* `ConvexValue` \| `undefined` | `undefined` |
 
 #### Properties
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
 | <a id="key"></a> `Key` | `K` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:356 |
-| <a id="datamodel-1"></a> `DataModel` | `DataModel` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:357 |
-| <a id="tablename-1"></a> `TableName` | `TableName` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:358 |
-| <a id="namespace-1"></a> `Namespace?` | `Namespace` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:359 |
+| <a id="datamodel"></a> `DataModel` | `DataModel` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:357 |
+| <a id="tablename"></a> `TableName` | `TableName` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:358 |
+| <a id="namespace"></a> `Namespace?` | `Namespace` | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:359 |
 
 ***
 
@@ -1323,9 +1323,9 @@ Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:449
 
 | Type Parameter |
 | ------ |
-| `Ctx` |
-| `DataModel` *extends* `GenericDataModel` |
-| `TableName` *extends* `TableNamesInDataModel`\<`DataModel`\> |
+| <a id="type-parameter-ctx-2"></a> `Ctx` |
+| <a id="type-parameter-datamodel-1"></a> `DataModel` *extends* `GenericDataModel` |
+| <a id="type-parameter-tablename-1"></a> `TableName` *extends* `TableNamesInDataModel`\<`DataModel`\> |
 
 #### Parameters
 
@@ -1365,18 +1365,18 @@ type Change<DataModel, TableName> = {
 
 Defined in: node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:450
 
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| <a id="type-parameter-datamodel-2"></a> `DataModel` *extends* `GenericDataModel` |
+| <a id="type-parameter-tablename-2"></a> `TableName` *extends* `TableNamesInDataModel`\<`DataModel`\> |
+
 #### Type Declaration
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
 | `id` | `GenericId`\<`TableName`\> | node\_modules/@convex-dev/aggregate/dist/client/index.d.ts:451 |
-
-#### Type Parameters
-
-| Type Parameter |
-| ------ |
-| `DataModel` *extends* `GenericDataModel` |
-| `TableName` *extends* `TableNamesInDataModel`\<`DataModel`\> |
 
 ## Functions
 
@@ -1395,9 +1395,9 @@ anything from args.
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| `InCtx` *extends* `Record`\<`string`, `any`\> | - |
-| `OutCtx` *extends* `Record`\<`string`, `any`\> | - |
-| `ExtraArgs` *extends* `Record`\<`string`, `any`\> | `Record`\<`string`, `any`\> |
+| <a id="type-parameter-inctx"></a> `InCtx` *extends* `Record`\<`string`, `any`\> | - |
+| <a id="type-parameter-outctx"></a> `OutCtx` *extends* `Record`\<`string`, `any`\> | - |
+| <a id="type-parameter-extraargs"></a> `ExtraArgs` *extends* `Record`\<`string`, `any`\> | `Record`\<`string`, `any`\> |
 
 #### Parameters
 
@@ -1484,12 +1484,12 @@ export const setMyName = myUserMutation({
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| `CustomArgsValidator` *extends* `PropertyValidators` | - |
-| `CustomCtx` *extends* `Record`\<`string`, `any`\> | - |
-| `CustomMadeArgs` *extends* `Record`\<`string`, `any`\> | - |
-| `Visibility` *extends* `FunctionVisibility` | - |
-| `DataModel` *extends* `GenericDataModel` | - |
-| `ExtraArgs` *extends* `Record`\<`string`, `any`\> | `object` |
+| <a id="type-parameter-customargsvalidator"></a> `CustomArgsValidator` *extends* `PropertyValidators` | - |
+| <a id="type-parameter-customctx"></a> `CustomCtx` *extends* `Record`\<`string`, `any`\> | - |
+| <a id="type-parameter-custommadeargs"></a> `CustomMadeArgs` *extends* `Record`\<`string`, `any`\> | - |
+| <a id="type-parameter-visibility"></a> `Visibility` *extends* `FunctionVisibility` | - |
+| <a id="type-parameter-datamodel-3"></a> `DataModel` *extends* `GenericDataModel` | - |
+| <a id="type-parameter-extraargs-1"></a> `ExtraArgs` *extends* `Record`\<`string`, `any`\> | `object` |
 
 #### Parameters
 
@@ -1520,8 +1520,8 @@ automatically fires the registered [Triggers](#triggers) (e.g. to keep a
 
 | Type Parameter |
 | ------ |
-| `DataModel` *extends* `GenericDataModel` |
-| `Visibility` *extends* `FunctionVisibility` |
+| <a id="type-parameter-datamodel-5"></a> `DataModel` *extends* `GenericDataModel` |
+| <a id="type-parameter-visibility-1"></a> `Visibility` *extends* `FunctionVisibility` |
 
 #### Parameters
 

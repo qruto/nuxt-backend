@@ -57,7 +57,7 @@ updates live as subscriptions/benefits change. Zero-arg via the auto-provided
 
 | Parameter | Type |
 | ------ | ------ |
-| `options` | [`UseFeaturesOptions`](#usefeaturesoptions) |
+| `options?` | [`UseFeaturesOptions`](#usefeaturesoptions) |
 
 #### Returns
 

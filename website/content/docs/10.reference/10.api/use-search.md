@@ -20,7 +20,7 @@ Defined in: [src/runtime/vue/composables/use-search.ts](https://github.com/qruto
 
 | Type Parameter |
 | ------ |
-| `Query` *extends* \| [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`\> \| `FunctionReference_future`\<`"query"`\> |
+| <a id="type-parameter-query"></a> `Query` *extends* \| [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`\> \| `FunctionReference_future`\<`"query"`\> |
 
 #### Properties
 
@@ -39,7 +39,7 @@ Defined in: [src/runtime/vue/composables/use-search.ts](https://github.com/qruto
 
 | Type Parameter |
 | ------ |
-| `Query` *extends* \| [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`\> \| `FunctionReference_future`\<`"query"`\> |
+| <a id="type-parameter-query-1"></a> `Query` *extends* \| [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`\> \| `FunctionReference_future`\<`"query"`\> |
 
 #### Properties
 
@@ -72,7 +72,7 @@ results.
 
 | Type Parameter |
 | ------ |
-| `Query` *extends* \| [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`\> \| `FunctionReference_future`\<`"query"`\> |
+| <a id="type-parameter-query-2"></a> `Query` *extends* \| [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`\> \| `FunctionReference_future`\<`"query"`\> |
 
 #### Parameters
 
@@ -80,7 +80,7 @@ results.
 | ------ | ------ |
 | `query` | `Query` |
 | `term` | `MaybeRefOrGetter`\<`string`\> |
-| `options` | [`UseSearchOptions`](#usesearchoptions)\<`Query`\> |
+| `options?` | [`UseSearchOptions`](#usesearchoptions)\<`Query`\> |
 
 #### Returns
 

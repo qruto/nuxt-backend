@@ -50,7 +50,7 @@ const SPOKEN = { live: ', live', down: ', unreachable', unknown: '' } as const
       Agents
     </Key>
     <Key
-      :to="github && github.url"
+      :to="github ? github.url : undefined"
       size="nav"
       target="_blank"
     >

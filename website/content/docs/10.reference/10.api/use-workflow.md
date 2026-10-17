@@ -30,7 +30,7 @@ is null/undefined and updates live as the workflow progresses.
 
 | Type Parameter |
 | ------ |
-| `Query` *extends* \| [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`\> \| `FunctionReference_future`\<`"query"`\> |
+| <a id="type-parameter-query"></a> `Query` *extends* \| [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`\> \| `FunctionReference_future`\<`"query"`\> |
 
 #### Parameters
 

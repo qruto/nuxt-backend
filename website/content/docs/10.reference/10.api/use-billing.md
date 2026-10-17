@@ -23,7 +23,7 @@ cursor), so `pagination` carries the totals rather than a next token.
 
 | Type Parameter |
 | ------ |
-| `Item` |
+| <a id="type-parameter-item-1"></a> `Item` |
 
 #### Properties
 
@@ -370,7 +370,7 @@ Reactive paging over a provider history endpoint (see [createProviderPager](#cre
 
 | Type Parameter |
 | ------ |
-| `Item` |
+| <a id="type-parameter-item-3"></a> `Item` |
 
 #### Properties
 
@@ -725,7 +725,7 @@ Fetches one page from a provider-history action.
 
 | Type Parameter |
 | ------ |
-| `Item` |
+| <a id="type-parameter-item-2"></a> `Item` |
 
 #### Parameters
 
@@ -839,14 +839,14 @@ during component setup.
 
 | Type Parameter |
 | ------ |
-| `Item` |
+| <a id="type-parameter-item"></a> `Item` |
 
 #### Parameters
 
 | Parameter | Type |
 | ------ | ------ |
 | `fetchPage` | [`PageFetcher`](#pagefetcher)\<`Item`\> \| `null` |
-| `options` | [`ProviderPagerOptions`](#providerpageroptions) |
+| `options?` | [`ProviderPagerOptions`](#providerpageroptions) |
 
 #### Returns
 
@@ -904,7 +904,7 @@ matching function reads as "not set" and throws only when actually called.
 
 | Parameter | Type |
 | ------ | ------ |
-| `options` | [`UseBillingOptions`](#usebillingoptions) |
+| `options?` | [`UseBillingOptions`](#usebillingoptions) |
 
 #### Returns
 
