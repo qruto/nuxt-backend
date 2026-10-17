@@ -9,7 +9,8 @@ import type { AuthBuildOptions, AuthIntegrations, AuthSetupComponents, DeviceSes
 import { buildAuthOptions } from './better-auth-options.js'
 import { componentAdapterRefs, createAuthComponent, resolveIntegrations } from './component.js'
 import { convexSignerJwt } from './plugins.js'
-import { identitySessionId, userSessions } from './sessions.js'
+import { identitySessionId } from './identity.js'
+import { userSessions } from './sessions.js'
 import { workspaceQueries } from './workspaces.js'
 
 /**

@@ -20,15 +20,6 @@ interface SessionRow {
 }
 
 /**
- * The Better Auth session behind a Convex identity. Session JWTs carry it as
- * `sessionId`; agent tokens from the MCP exchange carry none.
- */
-export function identitySessionId(identity: unknown): string | null {
-  const sessionId = (identity as { sessionId?: unknown } | null)?.sessionId
-  return typeof sessionId === 'string' ? sessionId : null
-}
-
-/**
  * A user's sessions, latest expiry first, without the ones an admin opened by
  * impersonating them (Better Auth's /list-sessions hides those too). Expired
  * rows are left in: a query must not read the clock, so callers drop them.
