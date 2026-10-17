@@ -257,8 +257,8 @@ cost: {
 
 | Type Parameter |
 | ------ |
-| `Args` *extends* `PropertyValidators` |
-| `Result` |
+| <a id="type-parameter-args"></a> `Args` *extends* `PropertyValidators` |
+| <a id="type-parameter-result"></a> `Result` |
 
 #### Properties
 
@@ -279,8 +279,8 @@ Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| `Args` *extends* `PropertyValidators` | - |
-| `Result` | `unknown` |
+| <a id="type-parameter-args-2"></a> `Args` *extends* `PropertyValidators` | - |
+| <a id="type-parameter-result-2"></a> `Result` | `unknown` |
 
 #### Properties
 
@@ -291,7 +291,7 @@ Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt
 | <a id="limit-2"></a> `limit?` | `string` \| `false` | **`Experimental`** Named rate limit (checked per billing entity via the configured `rateLimiter`). Default `'ai'`; `false` disables the check. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="allowoverage"></a> `allowOverage?` | `boolean` | **`Experimental`** Let this spend take the balance negative instead of refusing it — for a pay-as-you-go meter with no credit benefit behind it, where every unit is overage the provider invoices at the end of the cycle. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="charge"></a> `charge?` | `"success"` \| `"start"` | **`Experimental`** When to charge: `'success'` (default) settles after the handler returns — a failed run consumes nothing; `'start'` settles before running, for work that is irrevocably consumed upstream the moment it starts. A finalized cost needs the result, so it only applies to `'success'`. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="args-3"></a> `args` | `Args` | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="args"></a> `args` | `Args` | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="handler"></a> `handler` | (`ctx`, `args`) => `Promise`\<`Result`\> | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 
 ***
@@ -306,8 +306,8 @@ Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| `Args` *extends* `PropertyValidators` | - |
-| `Result` | `unknown` |
+| <a id="type-parameter-args-3"></a> `Args` *extends* `PropertyValidators` | - |
+| <a id="type-parameter-result-3"></a> `Result` | `unknown` |
 
 #### Properties
 
@@ -318,7 +318,7 @@ Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt
 | <a id="cost-2"></a> `cost?` | [`MeteredCost`](#meteredcost)\<`Args`, `Result`\> | **`Experimental`** Credits per stream. Default `1`. A [FinalizedCost](#finalizedcost) prices what the handler *returns* — return the model's token usage from it. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="limit-3"></a> `limit?` | `string` \| `false` | **`Experimental`** Named rate limit. Default `'ai'`; `false` disables. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="allowoverage-1"></a> `allowOverage?` | `boolean` | **`Experimental`** Let this spend take the balance negative (pay-as-you-go meters). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="args-5"></a> `args` | `Args` | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="args-1"></a> `args` | `Args` | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="handler-1"></a> `handler` | (`ctx`, `args`, `stream`) => `Promise`\<`Result`\> | **`Experimental`** Produce the stream: `append(text)` pushes a chunk to the client AND persists it. Credits settle when the handler finishes; an error or disconnect releases them — an interrupted stream never charges. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 
 ***
@@ -397,8 +397,8 @@ Credits per call: fixed, derived from the args, or estimated then finalized.
 
 | Type Parameter |
 | ------ |
-| `Args` *extends* `PropertyValidators` |
-| `Result` |
+| <a id="type-parameter-args-1"></a> `Args` *extends* `PropertyValidators` |
+| <a id="type-parameter-result-1"></a> `Result` |
 
 ***
 
@@ -444,7 +444,7 @@ as `per: 1_000_000` on the entry or as a table-wide `options.per`.
 | ------ | ------ |
 | `usage` | [`TokenUsage`](#tokenusage) |
 | `table` | [`TokenPriceTable`](#tokenpricetable) |
-| `options` | \{ `per?`: `number`; `round?`: `"up"` \| `"nearest"` \| `"none"`; `minimum?`: `number`; \} |
+| `options?` | \{ `per?`: `number`; `round?`: `"up"` \| `"nearest"` \| `"none"`; `minimum?`: `number`; \} |
 | `options.per?` | `number` |
 | `options.round?` | `"up"` \| `"nearest"` \| `"none"` |
 | `options.minimum?` | `number` |

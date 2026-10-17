@@ -3,7 +3,7 @@ import { kebabCase } from 'scule'
 import type { Collections, ContentNavigationItem, DocsCollectionItem } from '@nuxt/content'
 import { findPageHeadline } from '@nuxt/content/utils'
 
-// Docus 5.14.0's docs page (test/docs/docus-copies.test.ts pins the
+// Docus 5.15.0's docs page (test/docs/docus-copies.test.ts pins the
 // source), changed: the header carries the page's trail (and its
 // BreadcrumbList), its kind and stability chips, and its Try live, API and
 // Source keys, always under the title; the page reaches the aside through
@@ -105,7 +105,7 @@ const editLink = computed(() => {
 
       <template #links>
         <DocsPageKeys :page="page" />
-        <DocsPageHeaderLinks />
+        <LazyDocsPageHeaderLinks hydrate-on-idle />
       </template>
     </UPageHeader>
 
@@ -144,7 +144,10 @@ const editLink = computed(() => {
           </template>
         </div>
       </USeparator>
-      <UContentSurround :surround="surround" />
+      <LazyUContentSurround
+        :surround="surround"
+        hydrate-on-visible
+      />
     </UPageBody>
 
     <template

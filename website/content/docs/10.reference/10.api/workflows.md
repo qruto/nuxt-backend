@@ -37,7 +37,7 @@ One email in an [defineEmailSequence](#defineemailsequence) drip.
 
 | Type Parameter |
 | ------ |
-| `Data` |
+| <a id="type-parameter-data"></a> `Data` |
 
 #### Properties
 
@@ -173,7 +173,7 @@ since sign-up), and hands the step the account's current `email` and
 
 | Type Parameter |
 | ------ |
-| `Args` *extends* `PropertyValidators` |
+| <a id="type-parameter-args"></a> `Args` *extends* `PropertyValidators` |
 
 #### Parameters
 

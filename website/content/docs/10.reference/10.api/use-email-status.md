@@ -68,7 +68,7 @@ Defined in: [src/runtime/vue/composables/use-email-status.ts](https://github.com
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="data"></a> `data` | `ComputedRef`\<[`EmailStatus`](#emailstatus) \| `null` \| `undefined`\> | The full status record, `null` if unknown, `undefined` while loading. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
-| <a id="status-1"></a> `status` | `ComputedRef`\<`string` \| `undefined`\> | The status string (`queued` | `sent` | `delivered` | `bounced` | …), or `undefined`. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
+| <a id="status-1"></a> `status` | `ComputedRef`\<`string` \| `undefined`\> | The status string (`queued` \| `sent` \| `delivered` \| `bounced` \| …), or `undefined`. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
 | <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until the first status loads. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
 | <a id="isdelivered"></a> `isDelivered` | `ComputedRef`\<`boolean`\> | `true` once the email is delivered. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
 | <a id="iserror"></a> `isError` | `ComputedRef`\<`boolean`\> | `true` if the email bounced, was complained about, or failed. | [src/runtime/vue/composables/use-email-status.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-status.ts) |
@@ -92,7 +92,7 @@ auto-provided `api.email` namespace; pass `{ api }` to override.
 | Parameter | Type | Description |
 | ------ | ------ | ------ |
 | `emailId` | `MaybeRefOrGetter`\<`string` \| `undefined`\> | The email id to track (reactive, from `send`). Tracking pauses while it is `undefined`/empty. |
-| `options` | [`UseEmailStatusOptions`](#useemailstatusoptions) | - |
+| `options?` | [`UseEmailStatusOptions`](#useemailstatusoptions) | - |
 
 #### Returns
 

@@ -55,7 +55,7 @@ it yourself only to move the auth routes or pin the keys.
 
 | Parameter | Type |
 | ------ | ------ |
-| `options` | [`DefineBackendAuthConfigOptions`](#definebackendauthconfigoptions) |
+| `options?` | [`DefineBackendAuthConfigOptions`](#definebackendauthconfigoptions) |
 
 #### Returns
 

@@ -94,7 +94,7 @@ last day). Rows carry ids, never session tokens. Actions throw a plain
 
 | Parameter | Type |
 | ------ | ------ |
-| `options` | [`UseSessionsOptions`](#usesessionsoptions) |
+| `options?` | [`UseSessionsOptions`](#usesessionsoptions) |
 
 #### Returns
 

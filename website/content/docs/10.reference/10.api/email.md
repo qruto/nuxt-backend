@@ -367,7 +367,7 @@ Defined in: [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-bac
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
 | <a id="id-1"></a> `id?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
-| <a id="name-3"></a> `name?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
+| <a id="name-2"></a> `name?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="status-2"></a> `status?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 
 ***
@@ -382,7 +382,7 @@ A verified provider webhook event, as delivered to the typed handlers.
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| `T` *extends* [`EmailWebhookEventType`](#emailwebhookeventtype) | [`EmailWebhookEventType`](#emailwebhookeventtype) |
+| <a id="type-parameter-t"></a> `T` *extends* [`EmailWebhookEventType`](#emailwebhookeventtype) | [`EmailWebhookEventType`](#emailwebhookeventtype) |
 
 #### Properties
 
@@ -484,7 +484,7 @@ The data a template renders from.
 
 | Type Parameter |
 | ------ |
-| `Name` *extends* [`EmailTemplateName`](#emailtemplatename) |
+| <a id="type-parameter-name"></a> `Name` *extends* [`EmailTemplateName`](#emailtemplatename) |
 
 ***
 
@@ -680,7 +680,7 @@ mid-configuration preview), transactional `send` logs instead of delivering.
 | Parameter | Type |
 | ------ | ------ |
 | `components` | [`EmailComponents`](#emailcomponents) |
-| `options` | [`SetupEmailOptions`](#setupemailoptions) |
+| `options?` | [`SetupEmailOptions`](#setupemailoptions) |
 
 #### Returns
 

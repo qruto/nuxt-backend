@@ -85,7 +85,7 @@ session-refetch after sign-in, then an optional post-OTP passkey enrolment.
 
 | Parameter | Type |
 | ------ | ------ |
-| `options` | [`UseLoginFlowOptions`](#useloginflowoptions) |
+| `options?` | [`UseLoginFlowOptions`](#useloginflowoptions) |
 
 #### Returns
 

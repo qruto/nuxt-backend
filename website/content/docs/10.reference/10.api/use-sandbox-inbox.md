@@ -95,7 +95,7 @@ every account is a throwaway one.
 | Parameter | Type | Description |
 | ------ | ------ | ------ |
 | `address` | `MaybeRefOrGetter`\<`string` \| `undefined`\> | The sandbox address to read (reactive). Reading pauses while it is `undefined` or empty. |
-| `options` | [`UseSandboxInboxOptions`](#usesandboxinboxoptions) | - |
+| `options?` | [`UseSandboxInboxOptions`](#usesandboxinboxoptions) | - |
 
 #### Returns
 
