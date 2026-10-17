@@ -92,6 +92,7 @@ const COMPOSABLE_NAMES = [
   'useAgentConsent',
   'describeUserAgent',
   'unwrapAuth',
+  'getBackendError',
   'useBackendConfig',
   'useEmailStatus',
   'useSandboxInbox',

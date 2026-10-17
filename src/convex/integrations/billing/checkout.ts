@@ -3,10 +3,11 @@ import { customersCreate } from '@polar-sh/sdk/funcs/customersCreate.js'
 import { customersList } from '@polar-sh/sdk/funcs/customersList.js'
 import { customersUpdate } from '@polar-sh/sdk/funcs/customersUpdate.js'
 import { actionGeneric } from 'convex/server'
-import { ConvexError, v } from 'convex/values'
+import { v } from 'convex/values'
 import type { BillingContext } from './context.js'
 import type { CheckoutCreateInput, ProviderCtx, RunWriteCtx } from './types/base.js'
 import type { CheckoutOptions } from './types/options.js'
+import { backendError } from '../../errors.js'
 
 /**
  * What a checkout says when the member's email already pays for another
@@ -36,7 +37,9 @@ export function createCheckout({ billTo, provider, providerLib, requireEntity, r
     userId: string,
   ): Promise<string> => {
     const owner = await customerOwner(ctx, customer)
-    if (owner !== null && owner !== userId) throw new ConvexError(CUSTOMER_TAKEN[billTo])
+    if (owner !== null && owner !== userId) {
+      throw backendError('forbidden', { reason: 'customer_taken', message: CUSTOMER_TAKEN[billTo] }, CUSTOMER_TAKEN[billTo])
+    }
     if (owner === null) {
       // Claim it the way a created customer is claimed: the tag is what the
       // next entity to meet this email is refused on, and what lets the first
@@ -145,8 +148,8 @@ export function createCheckout({ billTo, provider, providerLib, requireEntity, r
     },
     returns: v.object({ url: v.string() }),
     handler: async (ctx, args) => {
-      requireProviderAccess('checkout')
       const { userId, email } = await requireEntity(ctx)
+      requireProviderAccess('checkout')
       await throttle(ctx, userId, 'checkouts')
       const customerId = await resolveCheckoutCustomer(ctx, userId, email)
       const payload = buildCheckoutPayload(

@@ -336,7 +336,7 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './auth': ['APIError', 'setupAuth'],
   './authorization': ['adminAc', 'createAccessControl', 'defaultStatements', 'setupAuthorization', 'userAc'],
   './http': ['registerBackendRoutes'],
-  './functions': ['createFunctions'],
+  './functions': ['BACKEND_ERRORS', 'backendError', 'createFunctions', 'getBackendError'],
   './app': ['backendEnv'],
   './billing': ['ALL_BILLING_EVENTS', 'defineBillingCatalog', 'setupBilling'],
   './email': ['ALL_EMAIL_EVENTS', 'escapeHtml', 'setupEmail'],
@@ -429,6 +429,7 @@ describe('@internal', () => {
 const REGISTRY = {
   composables: [
     'describeUserAgent',
+    'getBackendError',
     'unwrapAuth',
     'useAgentConsent',
     'useAggregate',

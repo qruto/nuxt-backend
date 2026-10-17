@@ -169,7 +169,9 @@ describe('an invitation the transport would drop', () => {
 
       const { token } = await flow.signedIn()
       const refused = await flow.post('/organization/invite-member', { email: 'bob@example.com', role: 'member' }, { bearer: token })
-      expect(refused.status).toBe(400)
+      // `unavailable` from the email service: 503, with the code in the body.
+      expect(refused.status).toBe(503)
+      expect(await refused.json()).toMatchObject({ code: 'unavailable', service: 'email', reason: 'test_mode' })
       expect(warn.mock.calls.flat().join('\n')).toContain('email.undeliverable')
       // Refused before the inviter's bucket or the deployment's was spent.
       expect(flow.limiter.limit).not.toHaveBeenCalled()

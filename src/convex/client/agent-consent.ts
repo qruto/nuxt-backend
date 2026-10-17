@@ -1,5 +1,6 @@
 import type { BetterAuthPlugin } from 'better-auth'
 import { APIError, createAuthEndpoint, createAuthMiddleware, sessionMiddleware } from 'better-auth/api'
+import { authRefusal } from './refusals.js'
 import { type AuthHookCtx, requestSession } from './request-session.js'
 
 /** The signed cookie the OAuth provider keeps a pending consent code in. */
@@ -101,11 +102,11 @@ export function agentConsent(): BetterAuthPlugin {
             const code = await consentCode(ctx)
             const pending = code ? await pendingAuthorization(ctx, code) : null
             if (pending && pending.value.userId !== session.user.id) {
-              throw new APIError('FORBIDDEN', { message: 'This request was made for another account.' })
+              throw authRefusal('forbidden', { reason: 'not_owner', message: 'This request was made for another account.' })
             }
             const accept = (ctx.body as { accept?: unknown } | undefined)?.accept === true
             if (accept && session.session.impersonatedBy) {
-              throw new APIError('FORBIDDEN', { message: 'An administrator acting as this account cannot approve an agent.' })
+              throw authRefusal('forbidden', { reason: 'impersonating', message: 'An administrator acting as this account cannot approve an agent.' })
             }
           }),
         },

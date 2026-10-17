@@ -22,13 +22,13 @@ class RateLimitedError extends Error {
   /** Seconds, rounded up so a countdown never lets the user retry early. */
   readonly retryAfter: number | null
 
-  constructor(retryAfterMs: number | undefined) {
+  constructor(retryAfterMs: number | undefined, cause?: unknown) {
     const seconds = typeof retryAfterMs === 'number' && Number.isFinite(retryAfterMs)
       ? Math.max(1, Math.ceil(retryAfterMs / 1000))
       : null
     super(seconds === null
       ? 'Too many attempts. Try again in a moment.'
-      : `Too many attempts. Try again in ${seconds} ${seconds === 1 ? 'second' : 'seconds'}.`)
+      : `Too many attempts. Try again in ${seconds} ${seconds === 1 ? 'second' : 'seconds'}.`, { cause })
     this.retryAfter = seconds
   }
 }
@@ -40,12 +40,15 @@ export function defaultValidateEmail(email: string): boolean {
   return at > 0 && value.indexOf('.', at) > at + 1 && !value.includes(' ') && at === value.lastIndexOf('@')
 }
 
-/** Throw the client's error envelope, a 429 with its wait. */
+/**
+ * Throw the client's error envelope, a 429 with its wait. The envelope's
+ * error is the thrown error's `cause`, so `getBackendError` reads its code.
+ */
 export function ensureOk(result: unknown, fallback: string): void {
   const { error: resultError } = (result ?? {}) as AuthResult
   if (!resultError) return
-  if (resultError.status === 429) throw new RateLimitedError(resultError.retryAfter)
-  throw new Error(resultError.message ?? fallback)
+  if (resultError.status === 429) throw new RateLimitedError(resultError.retryAfter, resultError)
+  throw new Error(resultError.message ?? fallback, { cause: resultError })
 }
 
 /**

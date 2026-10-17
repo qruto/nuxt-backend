@@ -4,6 +4,7 @@ import { useEmailChange, type UseEmailChangeReturn } from '../composables/use-em
 import { useOrganization } from '../composables/use-organization'
 import { useBackendConfig } from '../composables/use-backend-config'
 import { unwrapAuth } from '../utils/auth-result'
+import { refusalMessage } from '../utils/backend-error'
 import type { SettingsMessage } from './workspace-settings'
 
 export interface ProfileSlotContext {
@@ -66,7 +67,7 @@ export const ProfileSettings = /* @__PURE__ */ defineComponent({
         .split(/[\s@]+/).filter(Boolean).slice(0, 2).map(part => part[0]!.toUpperCase()).join(''))
 
     function fail(e: unknown) {
-      const text = e instanceof Error ? e.message : 'Something went wrong'
+      const text = refusalMessage(e, 'Something went wrong')
       message.value = { text, ok: false }
       emit('error', text)
     }

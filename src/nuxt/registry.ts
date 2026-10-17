@@ -114,6 +114,7 @@ export function registerSaasComposables(resolver: Resolver): void {
     { name: 'useAgentConsent', from: resolver.resolve('./runtime/vue/composables/use-agent-consent') },
     { name: 'describeUserAgent', from: resolver.resolve('./runtime/vue/composables/use-sessions') },
     { name: 'unwrapAuth', from: resolver.resolve('./runtime/vue/utils/auth-result') },
+    { name: 'getBackendError', from: resolver.resolve('./runtime/vue/utils/backend-error') },
     { name: 'useBackendConfig', from: resolver.resolve('./runtime/vue/composables/use-backend-config') },
     { name: 'useEmailStatus', from: resolver.resolve('./runtime/vue/composables/use-email-status') },
     { name: 'useSandboxInbox', from: resolver.resolve('./runtime/vue/composables/use-sandbox-inbox') },

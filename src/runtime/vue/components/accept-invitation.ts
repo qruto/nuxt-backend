@@ -1,5 +1,6 @@
 import { defineComponent, h, onMounted, ref } from 'vue'
 import { useOrganization, type InvitationDetails } from '../composables/use-organization'
+import { refusalMessage } from '../utils/backend-error'
 
 type InvitationState = 'loading' | 'ready' | 'accepted' | 'declined' | 'missing' | 'error'
 
@@ -58,7 +59,7 @@ export const AcceptInvitation = /* @__PURE__ */ defineComponent({
         state.value = invitation.value ? 'ready' : 'missing'
       }
       catch (error) {
-        errorMessage.value = error instanceof Error ? error.message : String(error)
+        errorMessage.value = refusalMessage(error, String(error))
         state.value = 'error'
         emit('error', errorMessage.value)
       }
@@ -81,7 +82,7 @@ export const AcceptInvitation = /* @__PURE__ */ defineComponent({
         }
       }
       catch (error) {
-        errorMessage.value = error instanceof Error ? error.message : String(error)
+        errorMessage.value = refusalMessage(error, String(error))
         state.value = 'error'
         emit('error', errorMessage.value)
       }

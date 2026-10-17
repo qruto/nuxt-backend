@@ -254,14 +254,35 @@ export const DOCS_ALIASES: Record<string, string> = {
   '/docs/stability': '/docs/ship/releases/stability',
 }
 
+/** Where the error catalog is documented, one anchor per code. */
+const ERRORS_PAGE = '/docs/reference/backend/errors'
+
+/**
+ * The error codes `BACKEND_ERRORS` (src/convex/errors.ts) holds, spelled out
+ * here because this file imports nothing. test/unit/error-catalog.test.ts
+ * keeps the two lists equal.
+ */
+export const ERROR_CODES = [
+  'unauthenticated',
+  'forbidden',
+  'no_workspace',
+  'rate_limited',
+  'insufficient_credits',
+  'invalid_input',
+  'not_ready',
+  'unavailable',
+] as const
+
 /**
  * Links the CLI, DevTools and thrown errors print: `/d/<finding-id>` and
- * `/e/<error-code>`. Every id lands on the same interim anchor until its page
- * has one anchor per id.
+ * `/e/<error-code>`. A finding lands on an interim anchor until its page has
+ * one per id; an error code lands on its own entry, and an unknown one on the
+ * catalog.
  */
-export const DOCS_SHORT_LINKS: Array<{ from: string, to: string, pending: string }> = [
+export const DOCS_SHORT_LINKS: Array<{ from: string, to: string, pending?: string }> = [
   { from: '/d/**', to: '/docs/reference/cli#findings', pending: 'D6 (a Diagnostics page, one anchor per finding)' },
-  { from: '/e/**', to: '/docs/ship/operate/troubleshooting', pending: 'D6 (an Errors page, one anchor per code)' },
+  ...ERROR_CODES.map(code => ({ from: `/e/${code}`, to: `${ERRORS_PAGE}#${code}` })),
+  { from: '/e/**', to: ERRORS_PAGE },
 ]
 
 /**

@@ -4,6 +4,7 @@ import { usePasskeys, type UsePasskeysReturn, type Passkey } from '../composable
 import { useSessions, describeUserAgent, type UseSessionsReturn, type SessionInfo } from '../composables/use-sessions'
 import { useBackendConfig } from '../composables/use-backend-config'
 import { unwrapAuth } from '../utils/auth-result'
+import { refusalMessage } from '../utils/backend-error'
 import type { SettingsMessage } from './workspace-settings'
 
 export type SecuritySection = 'passkeys' | 'sessions' | 'danger'
@@ -78,7 +79,7 @@ export const SecuritySettings = /* @__PURE__ */ defineComponent({
         if (okText) message.value = { text: okText, ok: true }
       }
       catch (e) {
-        const text = e instanceof Error ? e.message : 'Something went wrong'
+        const text = refusalMessage(e, 'Something went wrong')
         message.value = { text, ok: false }
         emit('error', text)
       }

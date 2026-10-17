@@ -2,6 +2,7 @@ import { computed, defineComponent, h, ref, type PropType, type Ref, type VNodeC
 import { type BillingOrder, formatBillingAmount, toBillingDate } from '../composables/use-billing'
 import { useBackendConfig } from '../composables/use-backend-config'
 import { useOrders, type UseOrdersReturn } from '../composables/use-orders'
+import { refusalMessage } from '../utils/backend-error'
 
 export interface BillingHistorySlotContext {
   orders: UseOrdersReturn
@@ -75,7 +76,7 @@ export const BillingHistory = /* @__PURE__ */ defineComponent({
         if (url) emit('invoice', url)
       }
       catch (failure) {
-        const message = failure instanceof Error ? failure.message : 'Could not open the invoice'
+        const message = refusalMessage(failure, 'Could not open the invoice')
         orders.error.value = message
         emit('error', message)
       }

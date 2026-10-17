@@ -1,6 +1,7 @@
 import { computed, getCurrentInstance, onMounted, ref, toValue, watch, type Ref } from 'vue'
 import { useAction } from 'nuxt-convex-module/client'
 import { openProviderUrl } from '../utils/open-url'
+import { refusalMessage } from '../utils/backend-error'
 import type { BillingApi, BillingPage, CheckoutOptions, GiftOptions, PageFetcher, ProviderPager, ProviderPagerOptions } from './use-billing'
 
 // The round trips to the billing provider that more than one composable
@@ -108,7 +109,7 @@ export function createProviderPager<Item>(
       page.value = target
     }
     catch (failure) {
-      error.value = failure instanceof Error ? failure.message : 'Could not load billing history'
+      error.value = refusalMessage(failure, 'Could not load billing history')
       items.value ??= []
     }
     finally {

@@ -4,6 +4,7 @@ import { formatBillingAmount, useBilling, type BillingProduct, type UseBillingRe
 import { useCredits, type UseCreditsReturn } from '../composables/use-credits'
 import { useAuth } from '../composables/use-auth'
 import { useBackendConfig } from '../composables/use-backend-config'
+import { refusalMessage } from '../utils/backend-error'
 import type { CreditPack, PricingPlan } from '../../config'
 
 /** A free trial the live product offers, as the provider configured it. */
@@ -175,7 +176,7 @@ export const PricingTable = /* @__PURE__ */ defineComponent({
         await action()
       }
       catch (e) {
-        error.value = e instanceof Error ? e.message : 'Something went wrong'
+        error.value = refusalMessage(e, 'Something went wrong')
         emit('error', error.value)
       }
       finally {

@@ -2,8 +2,9 @@ import type { GenericCtx } from '@convex-dev/better-auth'
 import { APIError } from 'better-auth/api'
 import { betterAuth } from 'better-auth/minimal'
 import { mutationGeneric, type GenericDataModel, type QueryBuilder } from 'convex/server'
-import { ConvexError, v } from 'convex/values'
+import { v } from 'convex/values'
 import { DEFAULT_AGENT_CONSENT_PATH, DEFAULT_INVITATION_PATH, DEFAULT_LOGIN_PATH } from '../constants.js'
+import { backendError } from '../errors.js'
 import { setupMcp, type McpExchange } from '../integrations/mcp.js'
 import type { AuthBuildOptions, AuthIntegrations, AuthSetupComponents, DeviceSession, SetupAuthOptions } from './auth-types.js'
 import { buildAuthOptions } from './better-auth-options.js'
@@ -18,6 +19,9 @@ import { workspaceQueries } from './workspaces.js'
  * through (`authOptions.databaseHooks`, `organization.organizationHooks`) to
  * refuse with a status and a message the client shows, not a bare 500:
  * `throw new APIError('BAD_REQUEST', { message: 'Invite a company address.' })`.
+ * Add a catalog `code` and its fields to the body
+ * (`{ code: 'invalid_input', field: 'email', message }`) and the client
+ * reads it with `getBackendError` like the package's own refusals.
  */
 export { APIError }
 
@@ -95,9 +99,11 @@ function authApi<DM extends GenericDataModel>(
     args: { name: v.string() },
     handler: async (ctx, { name }) => {
       const identity = await ctx.auth.getUserIdentity()
-      if (!identity) throw new Error('Sign in to update your profile.')
+      if (!identity) throw backendError('unauthenticated', {}, 'Sign in to update your profile.')
       const trimmed = name.trim()
-      if (!trimmed || trimmed.length > 256) throw new Error('Name must be 1-256 characters.')
+      if (!trimmed || trimmed.length > 256) {
+        throw backendError('invalid_input', { field: 'name', message: 'Name must be 1-256 characters.' }, 'Name must be 1-256 characters.')
+      }
       await ctx.runMutation(adapter.updateOne, {
         input: {
           model: 'user',
@@ -142,9 +148,9 @@ function authApi<DM extends GenericDataModel>(
     args: { sessionId: v.string() },
     handler: async (ctx, { sessionId }) => {
       const identity = await ctx.auth.getUserIdentity()
-      if (!identity || !identitySessionId(identity)) throw new ConvexError('Sign in to manage your sessions.')
+      if (!identity || !identitySessionId(identity)) throw backendError('unauthenticated', {}, 'Sign in to manage your sessions.')
       const target = (await userSessions(ctx, adapter, identity.subject)).find(row => row._id === sessionId)
-      if (!target) throw new ConvexError('Session not found.')
+      if (!target) throw backendError('invalid_input', { field: 'sessionId', message: 'Session not found.' }, 'Session not found.')
       const { auth, headers } = await authComponent.getAuth(createAuth as never, ctx as unknown as GenericCtx<DM>)
       await (auth as unknown as ReturnType<AuthFactory<DM>>).api.revokeSession({ body: { token: target.token }, headers })
       return null

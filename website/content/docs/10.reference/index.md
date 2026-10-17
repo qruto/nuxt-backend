@@ -65,6 +65,10 @@ The hand-written pages below are grouped by the part of the package they describ
   :::card{icon="i-lucide-box" title="Component API" to="/docs/reference/backend/component"}
   The functions `components.backend` exposes, module by module, and the helper that wraps each.
   :::
+
+  :::card{icon="i-lucide-octagon-alert" title="Errors" to="/docs/reference/backend/errors"}
+  Every code the package refuses with, its fields, label and status.
+  :::
 ::
 
 ## CLI

@@ -155,8 +155,8 @@ describe('the guards around an email change', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {
       const response = await flow.post('/email-otp/request-email-change', { newEmail: NEW, otp }, { cookie })
-      expect(response.status).toBe(400)
-      expect(await response.json()).toMatchObject({ message: 'This app is in test mode and only emails test addresses right now.' })
+      expect(response.status).toBe(503)
+      expect(await response.json()).toMatchObject({ code: 'unavailable', service: 'email', reason: 'test_mode', message: 'This app is in test mode and only emails test addresses, so this address can\'t receive mail here.' })
       expect(flow.codeFor(NEW)).toBeUndefined()
       expect(flow.db.verification!.some(row => String(row.identifier).startsWith('change-email-otp-'))).toBe(false)
       expect(spent(flow)).toEqual([])

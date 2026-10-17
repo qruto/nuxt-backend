@@ -136,9 +136,9 @@ describe('setupAuthorization against the real adapter', () => {
     const organization = await createRow('organization', { name: 'Acme', slug: 'acme', createdAt: now() })
     const organizationId = (organization.id ?? organization._id) as string
 
-    await expect(authorization.requireMember(
-      identityCtx({ subject: 'stranger', activeOrganizationId: organizationId }),
-    )).rejects.toThrow(/not a member/)
+    const refusal = authorization.requireMember(identityCtx({ subject: 'stranger', activeOrganizationId: organizationId }))
+    await expect(refusal).rejects.toThrow(/not a member/)
+    await expect(refusal).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'not_member' } })
   })
 
   test('requireRole fresh reads the stored role, not the stale claim', async () => {

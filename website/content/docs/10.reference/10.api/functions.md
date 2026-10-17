@@ -53,7 +53,328 @@ Defined in: [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt
 | <a id="ratelimiter"></a> `rateLimiter?` | [`FunctionsRateLimiter`](#functionsratelimiter) | Rate limiter to guard write tiers (`setupRateLimiter(...)`). | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
 | <a id="limits"></a> `limits?` | `Partial`\<`Record`\<`"admin"` \| `"authed"` \| `"org"`, `string`\>\> | Named rate limits per tier, consumed on **mutations and actions** (keyed by user id; queries are reads and can't consume a limit). E.g. `{ authed: 'apiWrites' }` with a matching limit in `setupRateLimiter`. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
 
+## Type Aliases
+
+### BackendErrorCode
+
+```ts
+type BackendErrorCode = keyof typeof BACKEND_ERRORS;
+```
+
+Defined in: [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts)
+
+One of the catalog's codes.
+
+***
+
+### BackendErrorData
+
+```ts
+type BackendErrorData<C> = Infer<typeof BACKEND_ERRORS[C]["data"]>;
+```
+
+Defined in: [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts)
+
+The fields a code carries beside it.
+
+#### Type Parameters
+
+| Type Parameter | Default type |
+| ------ | ------ |
+| `C` *extends* [`BackendErrorCode`](#backenderrorcode) | [`BackendErrorCode`](#backenderrorcode) |
+
+***
+
+### BackendError
+
+```ts
+type BackendError = { [C in BackendErrorCode]: { code: C; data: Partial<BackendErrorData<C>>; message: string } }[BackendErrorCode];
+```
+
+Defined in: [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts)
+
+A refusal read back by [getBackendError](#getbackenderror): its code, its fields, and a
+sentence to show — `data.message` when the throw site wrote one for the
+person, else the code's English label. Every field is optional here, the
+required ones too: the reader keeps only the fields that fit the catalog,
+and an auth route or an older deployment may send fewer.
+
+***
+
+### BackendErrorPayload
+
+```ts
+type BackendErrorPayload<C> = {
+  code: C;
+} & BackendErrorData<C> & {
+[key: string]: Value | undefined;
+};
+```
+
+Defined in: [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts)
+
+What a `backendError()` carries to the client: the code and its fields, flat.
+
+#### Type Declaration
+
+| Name | Type | Defined in |
+| ------ | ------ | ------ |
+| `code` | `C` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+
+#### Type Parameters
+
+| Type Parameter | Default type |
+| ------ | ------ |
+| `C` *extends* [`BackendErrorCode`](#backenderrorcode) | [`BackendErrorCode`](#backenderrorcode) |
+
+***
+
+### BackendErrorArgs
+
+```ts
+type BackendErrorArgs<C> = Record<string, never> extends BackendErrorData<C> ? [BackendErrorData<C>, string] : [BackendErrorData<C>, string];
+```
+
+Defined in: [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts)
+
+What `backendError` takes after the code: the code's data, optional for a
+code whose fields are all optional, then the English detail for the log.
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| `C` *extends* [`BackendErrorCode`](#backenderrorcode) |
+
+## Variables
+
+### BACKEND\_ERRORS
+
+```ts
+const BACKEND_ERRORS: {
+  unauthenticated: {
+     status: 401;
+     data: VObject<{
+        message?: string;
+      }, {
+        message: VString<string | undefined, "optional">;
+     }, "required", "message">;
+  };
+  forbidden: {
+     status: 403;
+     data: VObject<{
+        message?: string;
+        reason: string;
+      }, {
+        reason: VString<string, "required">;
+        message: VString<string | undefined, "optional">;
+     }, "required", "message" | "reason">;
+  };
+  no_workspace: {
+     status: 409;
+     data: VObject<{
+        message?: string;
+      }, {
+        message: VString<string | undefined, "optional">;
+     }, "required", "message">;
+  };
+  rate_limited: {
+     status: 429;
+     data: VObject<{
+        message?: string;
+        retryAfter?: number;
+        limit?: string;
+      }, {
+        retryAfter: VFloat64<number | undefined, "optional">;
+        limit: VString<string | undefined, "optional">;
+        message: VString<string | undefined, "optional">;
+     }, "required", "message" | "retryAfter" | "limit">;
+  };
+  insufficient_credits: {
+     status: 402;
+     data: VObject<{
+        message?: string;
+        meter?: string;
+        balance: number;
+        need: number;
+      }, {
+        meter: VString<string | undefined, "optional">;
+        balance: VFloat64<number, "required">;
+        need: VFloat64<number, "required">;
+        message: VString<string | undefined, "optional">;
+     }, "required", "message" | "meter" | "balance" | "need">;
+  };
+  invalid_input: {
+     status: 400;
+     data: VObject<{
+        message?: string;
+        field: string;
+      }, {
+        field: VString<string, "required">;
+        message: VString<string | undefined, "optional">;
+     }, "required", "message" | "field">;
+  };
+  not_ready: {
+     status: 409;
+     data: VObject<{
+        message?: string;
+        reason: string;
+      }, {
+        reason: VString<string, "required">;
+        message: VString<string | undefined, "optional">;
+     }, "required", "message" | "reason">;
+  };
+  unavailable: {
+     status: 503;
+     data: VObject<{
+        message?: string;
+        reason: string;
+        service: string;
+      }, {
+        service: VString<string, "required">;
+        reason: VString<string, "required">;
+        message: VString<string | undefined, "optional">;
+     }, "required", "message" | "reason" | "service">;
+  };
+};
+```
+
+Defined in: [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts)
+
+Every code the package throws, with the HTTP status an auth route answers
+it with and the validator its data is checked against where it is thrown.
+Codes and their fields are stable (STABILITY.md); a feature adds a code, it
+never renames one.
+
+- `unauthenticated` — nobody is signed in, or the session is gone.
+- `forbidden` — signed in, but not allowed; `reason` says why (`banned`,
+  `role`, `permission`, `not_member`, `workspace_role`, `admin_only`,
+  `not_owner`, `impersonating`, `sign_in_refused`, `customer_taken`,
+  `billing_profile_mismatch`, `gift_refused`, `not_recipient`, `no_email`).
+- `no_workspace` — the call needs an active workspace and there is none.
+- `rate_limited` — a named limit is spent; `retryAfter` is in milliseconds.
+- `insufficient_credits` — the balance can't cover the spend.
+- `invalid_input` — an argument the call refuses; `field` names it.
+- `not_ready` — there is nothing to act on yet, and retrying will not
+  change that: `reason` says what has to happen first (`no_customer`,
+  `not_synced`).
+- `unavailable` — a service can't serve the call; `service` and
+  `reason` say which and why. Only `provider_refused` may pass on a retry;
+  the others need the deployment fixed.
+
+#### Type Declaration
+
+| Name | Type | Default value | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="property-unauthenticated"></a> `unauthenticated` | \{ `status`: `401`; `data`: `VObject`\<\{ `message?`: `string`; \}, \{ `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `unauthenticated.status` | `401` | `401` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `unauthenticated.data` | `VObject`\<\{ `message?`: `string`; \}, \{ `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| <a id="property-forbidden"></a> `forbidden` | \{ `status`: `403`; `data`: `VObject`\<\{ `message?`: `string`; `reason`: `string`; \}, \{ `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"reason"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `forbidden.status` | `403` | `403` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `forbidden.data` | `VObject`\<\{ `message?`: `string`; `reason`: `string`; \}, \{ `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"reason"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| <a id="property-no_workspace"></a> `no_workspace` | \{ `status`: `409`; `data`: `VObject`\<\{ `message?`: `string`; \}, \{ `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `no_workspace.status` | `409` | `409` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `no_workspace.data` | `VObject`\<\{ `message?`: `string`; \}, \{ `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| <a id="property-rate_limited"></a> `rate_limited` | \{ `status`: `429`; `data`: `VObject`\<\{ `message?`: `string`; `retryAfter?`: `number`; `limit?`: `string`; \}, \{ `retryAfter`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `limit`: `VString`\<`string` \| `undefined`, `"optional"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"retryAfter"` \| `"limit"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `rate_limited.status` | `429` | `429` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `rate_limited.data` | `VObject`\<\{ `message?`: `string`; `retryAfter?`: `number`; `limit?`: `string`; \}, \{ `retryAfter`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `limit`: `VString`\<`string` \| `undefined`, `"optional"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"retryAfter"` \| `"limit"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| <a id="property-insufficient_credits"></a> `insufficient_credits` | \{ `status`: `402`; `data`: `VObject`\<\{ `message?`: `string`; `meter?`: `string`; `balance`: `number`; `need`: `number`; \}, \{ `meter`: `VString`\<`string` \| `undefined`, `"optional"`\>; `balance`: `VFloat64`\<`number`, `"required"`\>; `need`: `VFloat64`\<`number`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"meter"` \| `"balance"` \| `"need"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `insufficient_credits.status` | `402` | `402` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `insufficient_credits.data` | `VObject`\<\{ `message?`: `string`; `meter?`: `string`; `balance`: `number`; `need`: `number`; \}, \{ `meter`: `VString`\<`string` \| `undefined`, `"optional"`\>; `balance`: `VFloat64`\<`number`, `"required"`\>; `need`: `VFloat64`\<`number`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"meter"` \| `"balance"` \| `"need"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| <a id="property-invalid_input"></a> `invalid_input` | \{ `status`: `400`; `data`: `VObject`\<\{ `message?`: `string`; `field`: `string`; \}, \{ `field`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"field"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `invalid_input.status` | `400` | `400` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `invalid_input.data` | `VObject`\<\{ `message?`: `string`; `field`: `string`; \}, \{ `field`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"field"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| <a id="property-not_ready"></a> `not_ready` | \{ `status`: `409`; `data`: `VObject`\<\{ `message?`: `string`; `reason`: `string`; \}, \{ `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"reason"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `not_ready.status` | `409` | `409` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `not_ready.data` | `VObject`\<\{ `message?`: `string`; `reason`: `string`; \}, \{ `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"reason"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| <a id="property-unavailable"></a> `unavailable` | \{ `status`: `503`; `data`: `VObject`\<\{ `message?`: `string`; `reason`: `string`; `service`: `string`; \}, \{ `service`: `VString`\<`string`, `"required"`\>; `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"reason"` \| `"service"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `unavailable.status` | `503` | `503` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `unavailable.data` | `VObject`\<\{ `message?`: `string`; `reason`: `string`; `service`: `string`; \}, \{ `service`: `VString`\<`string`, `"required"`\>; `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"reason"` \| `"service"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+
 ## Functions
+
+### backendError()
+
+```ts
+function backendError<C>(code, ...args): ConvexError<BackendErrorPayload<C>>;
+```
+
+Defined in: [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts)
+
+Build the error for a refusal: `throw backendError('forbidden', { reason:
+'role' })`. The data is checked against the code's validator, so a throw
+site cannot send a field the catalog does not list. `detail` is the
+English sentence the deployment log shows as the error's message; it never
+reaches the person in production.
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| `C` *extends* \| `"unauthenticated"` \| `"forbidden"` \| `"no_workspace"` \| `"rate_limited"` \| `"insufficient_credits"` \| `"invalid_input"` \| `"not_ready"` \| `"unavailable"` |
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `code` | `C` |
+| ...`args` | [`BackendErrorArgs`](#backenderrorargs)\<`C`\> |
+
+#### Returns
+
+`ConvexError`\<[`BackendErrorPayload`](#backenderrorpayload)\<`C`\>\>
+
+#### Example
+
+```ts
+import { backendError } from 'nuxt-backend/functions'
+
+if (project.ownerId !== ctx.user.id) throw backendError('forbidden', { reason: 'not_owner' })
+if (!name.trim()) throw backendError('invalid_input', { field: 'name' }, 'A project needs a name.')
+```
+
+***
+
+### getBackendError()
+
+```ts
+function getBackendError(error): BackendError | null;
+```
+
+Defined in: [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts)
+
+Read a refusal out of anything a call threw or resolved with: a
+`backendError()` from a Convex function, the rate limiter's own
+`RateLimited` error, an auth client's `{ data, error }` result or its
+`error`, a Better Auth `APIError`, and any of these as an `Error`'s
+`cause`. `null` for anything else — a crash, an app's own error — so the
+caller keeps its own fallback.
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `error` | `unknown` |
+
+#### Returns
+
+[`BackendError`](#backenderror) \| `null`
+
+#### Example
+
+```ts
+try {
+  await transform({ text })
+}
+catch (error) {
+  const refusal = getBackendError(error)
+  // Every field may be absent on the read side: check the one you use.
+  if (refusal?.code === 'insufficient_credits' && refusal.data.need !== undefined) offerTopUp(refusal.data.need)
+  else message.value = refusal?.message ?? 'Something went wrong.'
+}
+```
+
+***
 
 ### createFunctions()
 

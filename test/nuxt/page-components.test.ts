@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, h, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
+import { ConvexError } from 'convex/values'
 
 // ── Controllable composable state ───────────────────────────────────────────
 
@@ -343,6 +344,18 @@ describe('PricingTable', () => {
     const wrapper = mount(PricingTable)
     expect(wrapper.find('[data-pricing="empty"]').exists()).toBe(true)
     products.value = saved
+  })
+
+  it('shows a refusal\'s own sentence, which production keeps, not the platform\'s wrapper', async () => {
+    const message = 'Your email already pays for another workspace.'
+    billing.checkout.mockRejectedValueOnce(Object.assign(
+      new ConvexError({ code: 'forbidden', reason: 'customer_taken', message }),
+      { message: '[CONVEX A(billing:generateCheckoutLink)] Server Error' },
+    ))
+    const wrapper = mount(PricingTable)
+    await wrapper.find('[data-pricing="plan-action"][data-intent="subscribe"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-pricing="error"]').text()).toBe(message)
   })
 
   it('surfaces a failed action as an alert and the empty catalog as a status', async () => {

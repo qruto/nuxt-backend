@@ -5,6 +5,7 @@ import type { BillingEntitlements } from './entitlements.js'
 import type { EventsIngestRequest, ProviderCtx, RunWriteCtx } from './types/base.js'
 import type { BillingEntityCtx } from './types/setup.js'
 import type { Billing } from './types/surface.js'
+import { backendError } from '../../errors.js'
 
 /**
  * Refuse a credit amount that is not a finite number above zero (`orZero`:
@@ -21,15 +22,22 @@ export function requireCreditAmount(value: unknown, label: string, { orZero = fa
 
 /** Prepaid credits: reserve, settle, release, spend and refund. */
 export function createCredits(
-  { provider, cache, resolveMeter, resolveEntity }: BillingContext,
+  { provider, cache, resolveMeter, resolveEntity, unwrapProvider }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
 ) {
   /**
    * The caller's billing entity, for a spend or refund without an explicit
-   * `userId`. A hand-built context with no `auth` has no caller to resolve.
+   * `userId`, or the refusal: `unauthenticated` when nobody is signed in
+   * (a hand-built context with no `auth` has no caller to resolve), else
+   * `no_workspace`.
    */
-  const callerEntityId = async (ctx: RunWriteCtx & { auth?: Auth }): Promise<string | undefined> =>
-    ctx.auth ? (await resolveEntity(ctx as BillingEntityCtx))?.userId : undefined
+  const callerEntityId = async (ctx: RunWriteCtx & { auth?: Auth }, what: string): Promise<string> => {
+    const entityId = ctx.auth ? (await resolveEntity(ctx as BillingEntityCtx))?.userId : undefined
+    if (entityId) return entityId
+    const detail = `[nuxt-backend] ${what}: no billing entity — pass \`userId\` or call from an authenticated context.`
+    if (!await ctx.auth?.getUserIdentity()) throw backendError('unauthenticated', {}, detail)
+    throw backendError('no_workspace', {}, detail)
+  }
 
   // Reserve → ingest → settle. The cached balance is the guard: `debit` is an
   // atomic conditional decrement (Convex mutations serialize), so two
@@ -42,11 +50,7 @@ export function createCredits(
   // form.
   const reserveCredits: Billing['reserveCredits'] = async (ctx, event) => {
     const value = requireCreditAmount(event.value ?? 1, 'spendCredits: `value`')
-    const entityId = event.userId
-      ?? await callerEntityId(ctx)
-    if (!entityId) {
-      throw new Error('[nuxt-backend] spendCredits: no billing entity — pass `userId` or call from an authenticated context.')
-    }
+    const entityId = event.userId ?? await callerEntityId(ctx, 'spendCredits')
     const meter = resolveMeter(event)
     const externalId = event.externalId ?? crypto.randomUUID()
 
@@ -71,11 +75,19 @@ export function createCredits(
       await refreshEntitlements(ctx as RunWriteCtx, entityId)
       result = await ctx.runMutation(cache.debit, debitArgs)
     }
+    if (!result.ok && result.reason === 'insufficient') {
+      throw backendError(
+        'insufficient_credits',
+        // A balance that is no number (the guard fails closed on one) reads as none left.
+        { meter: meter.key, balance: Number.isFinite(result.balance) ? result.balance : 0, need: value },
+        `[nuxt-backend] Insufficient credits — balance ${result.balance}, need ${value}. Top up to continue.`,
+      )
+    }
     if (!result.ok) {
-      throw new Error(
-        result.reason === 'insufficient'
-          ? `[nuxt-backend] Insufficient credits — balance ${result.balance}, need ${value}. Top up to continue.`
-          : `[nuxt-backend] Credit balance not synced yet for ${entityId} — call syncEntitlements (or open a billing view) and retry.`,
+      throw backendError(
+        'not_ready',
+        { reason: 'not_synced' },
+        `[nuxt-backend] Credit balance not synced yet for ${entityId} — call syncEntitlements (or open a billing view) and retry.`,
       )
     }
     return { entityId, externalId, reserved: true, meter: meter.key, meterId: meter.meterId, value }
@@ -106,7 +118,7 @@ export function createCredits(
     try {
       const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, reservation.entityId)
       if (!customer) {
-        throw new Error(`[nuxt-backend] No billing customer for ${reservation.entityId}. Start a checkout first.`)
+        throw backendError('not_ready', { reason: 'no_customer' }, `[nuxt-backend] No billing customer for ${reservation.entityId}. Start a checkout first.`)
       }
       const metadata = meter?.property
         ? { ...options.metadata, [meter.property]: value }
@@ -118,8 +130,7 @@ export function createCredits(
         externalId: reservation.externalId,
         timestamp: options.timestamp,
       }]
-      const result = await eventsIngest(provider.polar, { events })
-      if (!result.ok) throw result.error
+      unwrapProvider(await eventsIngest(provider.polar, { events }), 'usage report')
     }
     catch (error) {
       if (reservation.reserved) await ctx.runMutation(cache.release, { userId: reservation.entityId, externalId: reservation.externalId })
@@ -147,11 +158,7 @@ export function createCredits(
   const refundCredits: Billing['refundCredits'] = async (ctx, event) => {
     // A negative refund would ingest a positive event: a charge, not a refund.
     const value = requireCreditAmount(event.value, 'refundCredits: `value`')
-    const entityId = event.userId
-      ?? await callerEntityId(ctx)
-    if (!entityId) {
-      throw new Error('[nuxt-backend] refundCredits: no billing entity — pass `userId` or call from an authenticated context.')
-    }
+    const entityId = event.userId ?? await callerEntityId(ctx, 'refundCredits')
     const meter = resolveMeter({ meter: event.meter })
     if (!meter?.property) {
       throw new Error(
@@ -160,7 +167,7 @@ export function createCredits(
     }
     const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, entityId)
     if (!customer) {
-      throw new Error(`[nuxt-backend] No billing customer for ${entityId}.`)
+      throw backendError('not_ready', { reason: 'no_customer' }, `[nuxt-backend] No billing customer for ${entityId}.`)
     }
     const result = await eventsIngest(provider.polar, {
       events: [{
@@ -170,7 +177,7 @@ export function createCredits(
         externalId: event.externalId ?? crypto.randomUUID(),
       }],
     })
-    if (!result.ok) throw result.error
+    unwrapProvider(result, 'usage refund')
     await ctx.runMutation(cache.credit, { userId: entityId, meterId: meter.meterId, amount: value })
   }
 

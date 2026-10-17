@@ -6,6 +6,7 @@ import type { AuthRateLimitName, CanSignIn, CanSignInInput } from './auth-types.
 import { logsOtp, type UndeliverableReason, undeliverableReason } from './delivery.js'
 import { notifyEmailChanged } from './notices.js'
 import { type AuthHookCtx, requestSession, type RequestSession } from './request-session.js'
+import { authRefusal } from './refusals.js'
 import { type AuthRuntime, asMutationCtx } from './runtime.js'
 import { createTranslate } from '../labels.js'
 import { logBackend } from '../log.js'
@@ -15,6 +16,8 @@ import { logBackend } from '../log.js'
 // limits, and the refusals of an administrator acting as someone else and of
 // email that would not arrive. They run from the package's before-hook, where
 // a thrown `APIError` is the status the client sees and the route never runs.
+// Each refusal carries its catalog code (`authRefusal`), so the client reads
+// it with `getBackendError`.
 
 export const DEFAULT_REFUSAL = 'Sign-in is by invitation right now.'
 
@@ -117,7 +120,7 @@ function isEmail(value: unknown): value is string {
   return typeof value === 'string' && z.email().safeParse(value.toLowerCase()).success
 }
 
-/** Spend one token of a limit; a closed one is the 429 the client sees, with the wait (ms) in the body. */
+/** Spend one token of a limit; a closed one is the 429 `rate_limited` the client sees, with the wait (ms) and the limit in the body. */
 async function spend<DM extends GenericDataModel>(
   { runtime, ctx }: Pick<Guarded<DM>, 'runtime' | 'ctx'>,
   limit: AuthRateLimitName,
@@ -128,7 +131,9 @@ async function spend<DM extends GenericDataModel>(
   // The client spreads the refusal's body into the result's `error`, so
   // `retryAfter` is how `useLoginFlow` can say when to retry.
   const { ok, retryAfter } = key ? await runtime.rateLimiter.limit(ctx, limit, { key }) : await runtime.rateLimiter.limit(ctx, limit)
-  if (!ok) throw new APIError('TOO_MANY_REQUESTS', { message, retryAfter })
+  // A limiter of the app's own may answer a wait that is no number: the
+  // refusal goes out without one rather than failing the catalog's check.
+  if (!ok) throw authRefusal('rate_limited', { message, retryAfter: Number.isFinite(retryAfter) ? retryAfter : undefined, limit })
 }
 
 /**
@@ -173,7 +178,11 @@ function assertDeliverable(runtime: Pick<AuthRuntime, 'email'>, address: string,
   if (!reason) return
   const refused = kind === 'code' ? 'A one-time code' : 'An invitation'
   logBackend('warn', 'email.undeliverable', `${refused} was refused: ${UNDELIVERABLE_CAUSES[reason]}`)
-  throw new APIError('BAD_REQUEST', { message: translate(reason === 'test-mode' ? 'auth.undeliverable.testMode' : 'auth.undeliverable.unconfigured') })
+  throw authRefusal('unavailable', {
+    service: 'email',
+    reason: reason === 'test-mode' ? 'test_mode' : 'unconfigured',
+    message: translate(reason === 'test-mode' ? 'auth.undeliverable.testMode' : 'auth.undeliverable.unconfigured'),
+  })
 }
 
 /**
@@ -195,7 +204,7 @@ async function assertCodeSendAllowed<DM extends GenericDataModel>(
   if (!viaSend && !RESET_CODE_PATHS.includes(request.path)) return
   const { email, type } = bodyOf(request)
   if (viaSend && type === 'forget-password' && !policy.passwords) {
-    throw new APIError('BAD_REQUEST', { message: 'This app signs in with codes and passkeys: there is no password to reset.' })
+    throw authRefusal('invalid_input', { field: 'type', message: 'This app signs in with codes and passkeys: there is no password to reset.' })
   }
   // A request the route refuses on its own spends nothing.
   if (!isEmail(email) || (viaSend && !SEND_CODE_TYPES.includes(type as string))) return
@@ -351,7 +360,7 @@ async function assertSessionRouteAllowed<DM extends GenericDataModel>(
   if (!rule) return
   const session = await requestSession(request)
   if (!session) return
-  if (rule.impersonated && session.session.impersonatedBy) throw new APIError('FORBIDDEN', { message: rule.impersonated })
+  if (rule.impersonated && session.session.impersonatedBy) throw authRefusal('forbidden', { reason: 'impersonating', message: rule.impersonated })
 
   const ctx = asMutationCtx(runtime?.ctx)
   if (!runtime || !ctx) return
@@ -402,14 +411,16 @@ export function makeRequestHooks<DM extends GenericDataModel>(
   }
 }
 
-/** Ask the gate; a refusal becomes the `FORBIDDEN` `APIError` the sign-in UI shows. */
+/** Ask the gate; a refusal becomes the `forbidden` (reason `sign_in_refused`) refusal the sign-in UI shows. */
 export async function assertCanSignIn<DM extends GenericDataModel>(
   canSignIn: CanSignIn<DM>,
   ctx: GenericMutationCtx<DM> | GenericActionCtx<DM>,
   input: CanSignInInput,
 ): Promise<void> {
   const verdict = await canSignIn(ctx, input)
-  if (verdict !== true) throw new APIError('FORBIDDEN', { message: verdict.message ?? DEFAULT_REFUSAL })
+  // The app's own sentence, when it wrote one: anything else reads as the default, never as a crash.
+  const message = typeof verdict === 'object' && verdict !== null && typeof verdict.message === 'string' && verdict.message ? verdict.message : DEFAULT_REFUSAL
+  if (verdict !== true) throw authRefusal('forbidden', { reason: 'sign_in_refused', message })
 }
 
 /**

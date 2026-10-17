@@ -1,6 +1,7 @@
 import { computed, getCurrentInstance, onMounted, ref, type ComputedRef, type Ref } from 'vue'
 import { useAuth } from './use-auth'
 import { unwrapAuth } from '../utils/auth-result'
+import { refusalMessage } from '../utils/backend-error'
 
 /** A registered WebAuthn passkey (loose — the full shape is Better Auth's). */
 export interface Passkey {
@@ -60,7 +61,7 @@ export function usePasskeys(options: UsePasskeysOptions = {}): UsePasskeysReturn
       return unwrapAuth<T>(await call())
     }
     catch (e) {
-      error.value = e instanceof Error ? e.message : 'Request failed'
+      error.value = refusalMessage(e, 'Request failed')
       throw e
     }
   }

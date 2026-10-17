@@ -1,5 +1,6 @@
-import { APIError, type createAuthMiddleware, getSessionFromCtx } from 'better-auth/api'
+import { type createAuthMiddleware, getSessionFromCtx } from 'better-auth/api'
 import { bearer } from 'better-auth/plugins/bearer'
+import { authRefusal } from './refusals.js'
 
 // The caller of a request, read before the route runs: what every
 // request-level guard keys its limits and refusals on.
@@ -58,6 +59,6 @@ export async function requestSession(ctx: AuthHookCtx): Promise<RequestSession |
   const headers = await routeHeaders(ctx)
   const resolved = await getSessionFromCtx({ ...ctx, headers } as never) as RequestSession | null
   if (resolved) return resolved
-  if (carriesCredential(ctx, headers)) throw new APIError('UNAUTHORIZED', { message: 'Sign in again to continue.' })
+  if (carriesCredential(ctx, headers)) throw authRefusal('unauthenticated', { message: 'Sign in again to continue.' })
   return null
 }

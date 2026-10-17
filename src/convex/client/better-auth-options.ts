@@ -1,6 +1,5 @@
 import type { createClient } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
-import { APIError } from 'better-auth/api'
 import type { BetterAuthOptions } from 'better-auth/minimal'
 import { admin, emailOTP, organization } from 'better-auth/plugins'
 import type { GenericDataModel } from 'convex/server'
@@ -11,6 +10,7 @@ import type { AuthBuildOptions, CanSignInInput } from './auth-types.js'
 import { keyedCodeHash, replaceEarlierCodes } from './codes.js'
 import { makeSendVerificationOTP } from './email.js'
 import { assertCanSignIn, DEFAULT_REFUSAL, disabledRoutes, makeRequestHooks } from './guards.js'
+import { authRefusal } from './refusals.js'
 import { type DatabaseHooks, mergeDatabaseHooks } from './hooks.js'
 import { type DefaultAuthPlugin, defaultMcp, defaultPasskey } from './plugins.js'
 import { type AuthRuntime, asMutationCtx, hookAdapter, readEnv } from './runtime.js'
@@ -177,7 +177,7 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
     }) as { email?: string, name?: string } | null | undefined
     if (gate) {
       // Fail closed: a gate that cannot see the account refuses the session.
-      if (!user?.email) throw new APIError('FORBIDDEN', { message: DEFAULT_REFUSAL })
+      if (!user?.email) throw authRefusal('forbidden', { reason: 'sign_in_refused', message: DEFAULT_REFUSAL })
       await gate({ email: user.email, isNewUser: false, purpose: 'session' })
     }
     // Every new session gets an active workspace: the user's first

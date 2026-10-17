@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, defineComponent, h, ref, toValue, type MaybeRefOrGetter } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
+import { ConvexError } from 'convex/values'
 
 const user = ref<Record<string, unknown> | null>({ email: 'ada@example.com', emailVerified: false })
 
@@ -178,9 +179,19 @@ describe('useSessions', () => {
     await sessions.revoke('s-other')
     expect(revokeSessionMutation).toHaveBeenCalledWith({ sessionId: 's-other' })
 
-    revokeSessionMutation.mockRejectedValueOnce(Object.assign(new Error('[CONVEX M(auth:revokeSession)] Uncaught ConvexError'), { data: 'Session not found.' }))
+    // What the client hands over: a ConvexError whose message is the platform's
+    // wrapper, and whose data is the catalog refusal.
+    revokeSessionMutation.mockRejectedValueOnce(Object.assign(
+      new ConvexError({ code: 'invalid_input', field: 'sessionId', message: 'Session not found.' }),
+      { message: '[CONVEX M(auth:revokeSession)] Server Error' },
+    ))
     await expect(sessions.revoke('s-gone')).rejects.toThrow('Session not found.')
     expect(sessions.error.value).toBe('Session not found.')
+
+    // An app's own ConvexError('text') — the old convention — still shows its text, not the wrapper.
+    revokeSessionMutation.mockRejectedValueOnce(Object.assign(new ConvexError('That device is already gone.'), { message: '[CONVEX M(auth:revokeSession)] Server Error' }))
+    await expect(sessions.revoke('s-gone')).rejects.toThrow('That device is already gone.')
+    expect(sessions.error.value).toBe('That device is already gone.')
   })
 
   it('revokeOthers goes through the auth client and throws on failure', async () => {

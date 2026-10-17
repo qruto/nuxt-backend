@@ -1,3 +1,4 @@
+import { customerSessionsCreate } from '@polar-sh/sdk/funcs/customerSessionsCreate.js'
 import { actionGeneric, type GenericDataModel, type GenericQueryCtx, internalActionGeneric, queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
 import type { BillingContext } from './context.js'
@@ -6,13 +7,14 @@ import type { BillingHistory } from './history.js'
 import type { BillingSubscriptions } from './subscriptions.js'
 import type { ProviderCtx } from './types/base.js'
 import type { CurrentSubscriptions } from './types/options.js'
+import { backendError } from '../../errors.js'
 
 /** Statuses that count as a live entitlement for the current-subscription reads. */
 const LIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'paused'])
 
 /** The registered queries and actions `setupBilling` hands the app as `billing.functions`. */
 export function createBillingFunctions(
-  { config, products, meterNameById, provider, cache, webhookLog, resolveEntity, requireEntity, throttle, requireAdmin }: BillingContext,
+  { config, products, meterNameById, provider, cache, webhookLog, resolveEntity, requireEntity, requireProviderAccess, unwrapProvider, throttle, requireAdmin }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
   { updateSubscription, cancelSubscription, uncancelSubscription, pauseSubscription, resumeSubscription }: BillingSubscriptions,
   { getOrders, getInvoiceUrl, getUsageHistory, refundOrder }: BillingHistory,
@@ -201,6 +203,42 @@ export function createBillingFunctions(
 
   const subscriptionTargetArgs = { subscriptionId: v.optional(v.string()) }
 
+  // The provider api()'s portal and one-subscription actions, replaced: theirs
+  // rethrow the SDK's raw error, whose message carries the provider's
+  // response body, and refuse with plain errors production shows as "Server
+  // Error". These go through the package boundary and refuse by catalog code.
+  const generateCustomerPortalUrl = actionGeneric({
+    args: { returnUrl: v.optional(v.string()) },
+    returns: v.object({ url: v.string() }),
+    handler: async (ctx, { returnUrl }) => {
+      const { userId } = await requireEntity(ctx)
+      requireProviderAccess('portal session')
+      await throttle(ctx, userId, 'portal sessions')
+      const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, userId)
+      if (!customer) {
+        throw backendError('not_ready', { reason: 'no_customer' }, '[nuxt-backend] No billing customer yet — the portal opens after a first checkout.')
+      }
+      const session = unwrapProvider(await customerSessionsCreate(provider.polar, { customerId: customer.id, returnUrl }), 'portal session')
+      return { url: session.customerPortalUrl }
+    },
+  })
+
+  const changeCurrentSubscription = actionGeneric({
+    args: { productId: v.string() },
+    handler: async (ctx, { productId }) => {
+      await updateSubscription(ctx, { productId })
+      return null
+    },
+  })
+
+  const cancelCurrentSubscription = actionGeneric({
+    args: { revokeImmediately: v.optional(v.boolean()) },
+    handler: async (ctx, { revokeImmediately }) => {
+      await cancelSubscription(ctx, { atPeriodEnd: revokeImmediately !== true })
+      return null
+    },
+  })
+
   const updateSubscriptionFn = actionGeneric({
     args: {
       ...subscriptionTargetArgs,
@@ -316,6 +354,9 @@ export function createBillingFunctions(
   })
 
   return {
+    generateCustomerPortalUrl,
+    changeCurrentSubscription,
+    cancelCurrentSubscription,
     getCurrentSubscription,
     listAllSubscriptions,
     getFeatures,

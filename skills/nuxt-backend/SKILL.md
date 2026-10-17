@@ -80,6 +80,14 @@ sign-in codes print in the terminal that runs `dev`.
   - `admin.*` requires the app-wide admin role;
   - `withRole('editor')` sets a custom tier.
   Use them instead of the bare `query` and `mutation` for anything user-scoped.
+- **Errors:** a refusal is a `ConvexError` with a stable code (`unauthenticated`, `forbidden`,
+  `no_workspace`, `rate_limited`, `insufficient_credits`, `invalid_input`, `not_ready`, `unavailable`),
+  which production keeps where it hides a plain `Error` as "Server Error". Read one with the
+  auto-imported `getBackendError(error)`: branch on `code`, show `message`. It reads auth
+  results and the rate limiter's error too. Refuse from your own functions with
+  `backendError(code, data)` from `nuxt-backend/functions`. Call your own limits with
+  `throws: true` and still throw `rate_limited` when the result is `{ ok: false }`: the limiter
+  throws only when it knows the wait. Codes: https://nuxt-backend.dev/docs/reference/backend/errors.
 - **Data:** `useQuery`, `useMutation`, `useAction` and `usePaginatedQuery` with refs from
   `#backend/api`; `useBackendClient()` for a one-off imperative call; `<StorageImage>` for an
   image in file storage. The base module's brand-named composables and components are not
@@ -125,6 +133,7 @@ the user id. Details: https://nuxt-backend.dev/docs/ui/customize.
 ## Where to look
 
 - Composables and components: https://nuxt-backend.dev/docs/reference/nuxt/composables
+- Error codes: https://nuxt-backend.dev/docs/reference/backend/errors
 - Every import path: https://nuxt-backend.dev/docs/reference/entrypoints
 - Module options: https://nuxt-backend.dev/docs/reference/configuration/module-options
 - CLI and doctor findings: https://nuxt-backend.dev/docs/reference/cli

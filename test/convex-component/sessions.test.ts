@@ -5,6 +5,7 @@ import { asUser, defineBackendTestApp } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { setupAuth } from '../../src/convex/client'
 import { setupEmail } from '../../src/convex/integrations/email'
+import { getBackendError } from '../../src/convex/errors'
 
 // The device-session functions, end to end: the app's `listSessions` and
 // `revokeSession` (as `backend/auth.ts` re-exports them) over the mounted
@@ -114,6 +115,11 @@ describe('revokeSession', () => {
     await expect(t.withIdentity({ subject: ids.ada, clientId: 'agent-1' }).mutation(revokeRef, { sessionId: ids.phone }))
       .rejects.toThrow('Sign in to manage your sessions.')
     await expect(t.mutation(revokeRef, { sessionId: ids.phone })).rejects.toThrow('Sign in to manage your sessions.')
+    // Each refusal crosses the function boundary with its code, which production keeps.
+    expect(getBackendError(await ada.mutation(revokeRef, { sessionId: ids.bobs }).catch((error: unknown) => error)))
+      .toEqual({ code: 'invalid_input', data: { field: 'sessionId', message: 'Session not found.' }, message: 'Session not found.' })
+    expect(getBackendError(await t.mutation(revokeRef, { sessionId: ids.phone }).catch((error: unknown) => error)))
+      .toMatchObject({ code: 'unauthenticated' })
 
     expect(await sessionTokens()).toHaveLength(5)
   })

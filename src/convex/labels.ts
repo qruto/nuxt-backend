@@ -63,9 +63,36 @@ export function createTranslate(labels: LabelTree = LABELS): Translate {
 /** What the auth flows tell a person they refused. */
 const AUTH_LABELS = {
   undeliverable: {
-    testMode: 'This app is in test mode and only emails test addresses right now.',
+    testMode: 'This app is in test mode and only emails test addresses, so this address can\'t receive mail here.',
     unconfigured: 'This app can\'t send email yet.',
   },
+} satisfies LabelTree
+
+/**
+ * What a person reads for each error code (`getBackendError(error).message`)
+ * when the refusal carries no sentence of its own. Keyed by code;
+ * `<code>_<reason>` is the sentence for one reason of a code, used over the
+ * code's own.
+ */
+const ERROR_LABELS = {
+  unauthenticated: 'Sign in to continue.',
+  forbidden: 'You don\'t have access to this.',
+  no_workspace: 'Create or choose a workspace first.',
+  rate_limited: 'Too many requests. Try again in a moment.',
+  // The same refusal when the wait is known.
+  rate_limited_for: 'Too many requests. Try again in {count} second. | Too many requests. Try again in {count} seconds.',
+  insufficient_credits: 'Not enough credits. Top up to continue.',
+  // The same refusal when both amounts are known.
+  insufficient_credits_amounts: 'Not enough credits: {balance} left, {need} needed. Top up to continue.',
+  invalid_input: 'That input isn\'t valid. Check it and try again.',
+  not_ready: 'Nothing to show yet.',
+  not_ready_no_customer: 'Nothing to show yet — this opens after your first purchase.',
+  not_ready_not_synced: 'Nothing to show yet — no credits have reached this account. Open billing to refresh, or get a credit pack.',
+  // A provider's refusal may pass on a retry; the other reasons need the deployment fixed.
+  unavailable: 'This isn\'t available right now. Try again shortly.',
+  unavailable_not_configured: 'This isn\'t set up on this app yet.',
+  unavailable_test_mode: 'This app is in test mode and only emails test addresses, so this address can\'t receive mail here.',
+  unavailable_unconfigured: 'This app can\'t send email yet.',
 } satisfies LabelTree
 
 /** The emails the package sends: subjects, sentences and buttons. */
@@ -122,4 +149,5 @@ const EMAIL_LABELS = {
 export const LABELS = {
   auth: AUTH_LABELS,
   email: EMAIL_LABELS,
+  errors: ERROR_LABELS,
 } satisfies LabelTree

@@ -9,6 +9,7 @@ import type { ProviderCtx } from './types/base.js'
 import type { BillingOrder, UsageEvent } from './types/options.js'
 import type { CreditMeterConfig } from './types/records.js'
 import type { Billing } from './types/surface.js'
+import { backendError } from '../../errors.js'
 
 /**
  * Provider payloads carry `Date` objects and `undefined` holes that Convex
@@ -84,12 +85,15 @@ export function createHistory({
     const { userId } = await requireEntity(ctx)
     await throttle(ctx, userId, 'invoice reads')
     const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, userId)
-    const order = unwrapProvider(await ordersGet(provider.polar, { id: orderId }), 'invoice read')
+    const notOwner = () => backendError('forbidden', { reason: 'not_owner' }, '[nuxt-backend] getInvoiceUrl: that order is not on this billing account.')
+    const found = await ordersGet(provider.polar, { id: orderId })
+    // An order that does not exist refuses like someone else's, so the answer
+    // never tells a caller which order ids are real.
+    if (!found.ok && (found.error as { statusCode?: unknown } | null)?.statusCode === 404) throw notOwner()
+    const order = unwrapProvider(found, 'invoice read')
     // Ownership is the authorization: the order id is guessable-ish and the
     // invoice carries a name and address, so it never leaves its own account.
-    if (!customer || order.customerId !== customer.id) {
-      throw new Error('[nuxt-backend] getInvoiceUrl: that order belongs to a different billing account.')
-    }
+    if (!customer || order.customerId !== customer.id) throw notOwner()
     if (!order.isInvoiceGenerated) {
       // Generation is asynchronous at the provider. Ask for it and report "not
       // yet" — the next call returns the URL.
@@ -154,7 +158,7 @@ export function createHistory({
     // refundable rather than making every caller read the order first.
     const amount = options.amount ?? order.refundableAmount
     if (!(amount > 0)) {
-      throw new Error(`[nuxt-backend] refundOrder: order ${options.orderId} has nothing left to refund.`)
+      throw backendError('invalid_input', { field: 'amount' }, `[nuxt-backend] refundOrder: order ${options.orderId} has nothing left to refund.`)
     }
     const result = await refundsCreate(provider.polar, {
       orderId: options.orderId,

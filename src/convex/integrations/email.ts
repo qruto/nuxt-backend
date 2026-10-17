@@ -17,6 +17,7 @@ import {
   type EmailTemplateOverrides,
   resolveEmailTemplates,
 } from '../email-templates.js'
+import { backendError } from '../errors.js'
 
 export type {
   DeleteAccountEmailData,
@@ -251,9 +252,14 @@ export interface SetupEmailOptions {
   onUnknownEvent?: (ctx: AnyActionCtx, event: { type?: string, payload: unknown }) => Promise<void>
 }
 
+/**
+ * The provider's answer, or `unavailable` (reason `provider_refused`): the
+ * provider's own words stay in the error's message, for the log, and never
+ * reach a client in production.
+ */
 async function unwrap<T>(promise: Promise<{ data: T | null, error: { message: string } | null }>): Promise<T> {
   const { data, error } = await promise
-  if (error) throw new Error(`[nuxt-backend] Resend: ${error.message}`)
+  if (error) throw backendError('unavailable', { service: 'email', reason: 'provider_refused' }, `[nuxt-backend] Resend: ${error.message}`)
   return data as T
 }
 

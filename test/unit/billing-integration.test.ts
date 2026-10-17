@@ -9,8 +9,10 @@ import { customersCreate } from '@polar-sh/sdk/funcs/customersCreate.js'
 import { customersGet } from '@polar-sh/sdk/funcs/customersGet.js'
 import { customersUpdate } from '@polar-sh/sdk/funcs/customersUpdate.js'
 import { checkoutsCreate } from '@polar-sh/sdk/funcs/checkoutsCreate.js'
+import { customerSessionsCreate } from '@polar-sh/sdk/funcs/customerSessionsCreate.js'
 import { type Billing, type BillingEntityCtx, setupBilling, type SpendReservation } from '../../src/convex/integrations/billing'
 import { setupEmail } from '../../src/convex/integrations/email'
+import { getBackendError } from '../../src/convex/errors'
 
 // Stub the standalone provider SDK functions the billing helpers call so
 // nothing hits the network. `provider.getCustomerByUserId` is spied per-test
@@ -24,6 +26,7 @@ vi.mock('@polar-sh/sdk/funcs/customersCreate.js', () => ({ customersCreate: vi.f
 vi.mock('@polar-sh/sdk/funcs/customersGet.js', () => ({ customersGet: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/customersUpdate.js', () => ({ customersUpdate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/checkoutsCreate.js', () => ({ checkoutsCreate: vi.fn() }))
+vi.mock('@polar-sh/sdk/funcs/customerSessionsCreate.js', () => ({ customerSessionsCreate: vi.fn() }))
 
 const mockCustomersGetState = vi.mocked(customersGetState)
 const mockBenefitsGet = vi.mocked(benefitsGet)
@@ -34,6 +37,7 @@ const mockCustomersCreate = vi.mocked(customersCreate)
 const mockCustomersGet = vi.mocked(customersGet)
 const mockCustomersUpdate = vi.mocked(customersUpdate)
 const mockCheckoutsCreate = vi.mocked(checkoutsCreate)
+const mockCustomerSessionsCreate = vi.mocked(customerSessionsCreate)
 
 const components = {
   polar: { lib: { insertCustomer: 'ref:insertCustomer' } },
@@ -188,11 +192,22 @@ describe('getCustomerState', () => {
 })
 
 describe('spendCredits', () => {
-  it('throws when the user has no Polar customer', async () => {
+  it('refuses as not_ready (no_customer) when the entity has no provider customer: a retry would not change it', async () => {
     getCustomerByUserId.mockResolvedValue(null as never)
-    await expect(
-      billing.spendCredits(makeCtx() as never, { userId: 'u1', name: 'credits' }),
-    ).rejects.toThrow(/No billing customer/)
+    const refusal = await billing.spendCredits(makeCtx() as never, { userId: 'u1', name: 'credits' }).catch((error: unknown) => error)
+    expect(refusal).toMatchObject({ message: expect.stringMatching(/No billing customer/) })
+    expect(getBackendError(refusal)).toEqual({
+      code: 'not_ready',
+      data: { reason: 'no_customer' },
+      message: 'Nothing to show yet — this opens after your first purchase.',
+    })
+  })
+
+  it('refuses as not_ready (not_synced) when the balance never synced and may not refresh here', async () => {
+    const meters = setupBilling(components, { ...(config as object), credits: { credits: { meterId: 'm1' } } } as never)
+    const refusal = await meters.reserveCredits(makeCtx({ debit: { ok: false, reason: 'no-row' } }) as never, { userId: 'org-1', meter: 'credits', allowRefresh: false })
+      .catch((error: unknown) => error)
+    expect(getBackendError(refusal)).toMatchObject({ code: 'not_ready', data: { reason: 'not_synced' } })
   })
 
   it('blocks the spend when the guarded meter balance is insufficient', async () => {
@@ -365,13 +380,14 @@ describe('spendCredits', () => {
     )
   })
 
-  it('propagates a failed events.ingest', async () => {
+  it('refuses a failed events.ingest as unavailable, without the provider\'s words', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     getCustomerByUserId.mockResolvedValue({ id: 'cus_1' } as never)
     mockEventsIngest.mockResolvedValue({ ok: false, error: new Error('ingest failed') } as never)
 
-    await expect(
-      billing.spendCredits(makeCtx() as never, { userId: 'u1', name: 'credits' }),
-    ).rejects.toThrow('ingest failed')
+    const refusal = await billing.spendCredits(makeCtx() as never, { userId: 'u1', name: 'credits' }).catch((error: unknown) => error)
+    expect(getBackendError(refusal)).toMatchObject({ code: 'unavailable', data: { service: 'billing', reason: 'provider_refused' } })
+    expect(String(refusal)).not.toContain('ingest failed')
   })
 })
 
@@ -542,9 +558,10 @@ describe('discounts.create', () => {
     expect(await billing.discounts.create({ name: 'Internal' } as never)).toStrictEqual({ id: 'disc_2', code: null })
   })
 
-  it('propagates a failed discounts.create', async () => {
+  it('refuses a failed discounts.create as unavailable', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     mockDiscountsCreate.mockResolvedValue({ ok: false, error: new Error('bad discount') } as never)
-    await expect(billing.discounts.create({ name: 'x' } as never)).rejects.toThrow('bad discount')
+    await expect(billing.discounts.create({ name: 'x' } as never)).rejects.toMatchObject({ data: { code: 'unavailable', reason: 'provider_refused' } })
   })
 })
 
@@ -644,18 +661,19 @@ describe('billing entity resolution (billTo)', () => {
     expect(spy).toHaveBeenCalledWith(expect.anything(), 'org-override')
   })
 
-  it('throws a clear error with no identity and no explicit userId', async () => {
+  it('refuses a caller nobody signed in as, with no explicit userId, as unauthenticated', async () => {
     const { instance } = setup()
-    await expect(
-      instance.spendCredits(identityCtx(null) as never, { name: 'credits' }),
-    ).rejects.toThrow(/no billing entity/)
+    await expect(instance.spendCredits(identityCtx(null) as never, { name: 'credits' }))
+      .rejects.toMatchObject({ data: { code: 'unauthenticated' }, message: expect.stringMatching(/no billing entity/) })
+    await expect(instance.refundCredits(identityCtx(null) as never, { meter: 'credits', value: 1 }))
+      .rejects.toMatchObject({ data: { code: 'unauthenticated' } })
   })
 
   it('org mode without an active workspace claim yields no entity', async () => {
     const { instance } = setup()
     await expect(
       instance.spendCredits(identityCtx({ subject: 'u1' }) as never, { name: 'credits' }),
-    ).rejects.toThrow(/no billing entity/)
+    ).rejects.toMatchObject({ data: { code: 'no_workspace' }, message: expect.stringMatching(/no billing entity/) })
   })
 
   /** A registered function's implementation, the seam convex-test drives too. */
@@ -695,7 +713,15 @@ describe('billing entity resolution (billTo)', () => {
     expect(resolveEntity).toHaveBeenCalledWith(signedOut)
     expect(await handlerOf(instance.functions.getCredits)(signedOut, {})).toBeNull()
     await expect(handlerOf(instance.api.generateCheckoutLink)(signedOut, { productIds: ['p1'], origin: 'https://app', successUrl: 'https://app/done' }))
-      .rejects.toThrow('[nuxt-backend] Billing found no billing entity for this caller: setupBilling\'s resolveEntity returned null.')
+      .rejects.toMatchObject({ data: { code: 'unauthenticated' } })
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
+
+  it('refuses a signed-in caller resolveEntity finds no entity for as no_workspace, naming the resolver', async () => {
+    const { instance } = setup({ resolveEntity: vi.fn(async () => null), accessToken: 'oat_test' })
+    const refusal = handlerOf(instance.api.generateCheckoutLink)(identityCtx({ subject: 'u1' }), { productIds: ['p1'], origin: 'https://app', successUrl: 'https://app/done' })
+    await expect(refusal).rejects.toMatchObject({ data: { code: 'no_workspace' } })
+    await expect(refusal).rejects.toThrow('[nuxt-backend] Billing found no billing entity for this caller: setupBilling\'s resolveEntity returned null.')
     expect(mockCheckoutsCreate).not.toHaveBeenCalled()
   })
 })
@@ -781,7 +807,7 @@ describe('gifts', () => {
     const ctx = authedCtx(purchaser)
 
     await expect(giftCheckout(limited)(ctx, giftArgs)).rejects.toThrow(/Too many gift checkouts/)
-    expect(rateLimiter.limit).toHaveBeenCalledWith(ctx, 'billingSync', { key: 'u-buyer' })
+    expect(rateLimiter.limit).toHaveBeenCalledWith(ctx, 'billingSync', { key: 'u-buyer', throws: true })
     expect(mockCustomersList).not.toHaveBeenCalled()
     expect(mockCheckoutsCreate).not.toHaveBeenCalled()
   })
@@ -803,7 +829,7 @@ describe('gifts', () => {
     const gated = setupBilling(components, { ...(config as object), canGift } as never)
 
     await expect(giftCheckout(gated)(authedCtx(purchaser), { ...giftArgs, recipientEmail: 'Someone@Elsewhere.org' }))
-      .rejects.toMatchObject({ data: 'Gifts go to example.com only.' })
+      .rejects.toMatchObject({ data: { code: 'forbidden', reason: 'gift_refused', message: 'Gifts go to example.com only.' } })
     expect(canGift).toHaveBeenCalledWith(expect.anything(), { recipientEmail: 'someone@elsewhere.org', purchaserUserId: 'u-buyer' })
     expect(mockCustomersList).not.toHaveBeenCalled()
     expect(mockCheckoutsCreate).not.toHaveBeenCalled()
@@ -818,7 +844,13 @@ describe('gifts', () => {
   it('giftCheckout refuses with the default message when canGift gives none', async () => {
     const gated = setupBilling(components, { ...(config as object), canGift: () => ({ allowed: false }) } as never)
     await expect(giftCheckout(gated)(authedCtx(purchaser), giftArgs))
-      .rejects.toMatchObject({ data: 'This address can\'t receive gifts.' })
+      .rejects.toMatchObject({ data: { code: 'forbidden', reason: 'gift_refused', message: 'This address can\'t receive gifts.' } })
+  })
+
+  it('giftCheckout refuses with the default message when canGift\'s message is no string', async () => {
+    const gated = setupBilling(components, { ...(config as object), canGift: () => ({ allowed: false, message: { text: 'no' } }) } as never)
+    await expect(giftCheckout(gated)(authedCtx(purchaser), giftArgs))
+      .rejects.toMatchObject({ data: { code: 'forbidden', reason: 'gift_refused', message: 'This address can\'t receive gifts.' } })
   })
 
   it('claimGift rejects a gift addressed to a different email', async () => {
@@ -885,7 +917,7 @@ describe('gifts', () => {
 
     await expect(
       (billing.functions.claimGift as unknown as (ctx: unknown, args: unknown) => Promise<unknown>)(ctx, { giftId: 'gift-1' }),
-    ).rejects.toMatchObject({ data: expect.stringContaining('already pays for another workspace') })
+    ).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'customer_taken', message: expect.stringContaining('already pays for another workspace') } })
     expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:insertCustomer', expect.anything())
     expect(mockCustomersUpdate).not.toHaveBeenCalled()
     expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:gifts.markClaimed', expect.anything())
@@ -1151,5 +1183,75 @@ describe('billing event hooks', () => {
     } as never)
 
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:upsert', expect.objectContaining({ userId: 'org-1' }))
+  })
+})
+
+describe('provider refusals stop at the package boundary', () => {
+  // What the provider SDK rejects with: its message carries the response body,
+  // which echoes the request and must never reach a caller.
+  const providerError = () => ({ ok: false, error: Object.assign(new Error('API error occurred: Status 403. Body: {"detail":"a@example.com"}'), { statusCode: 403 }) })
+  const signedIn = () => ({ ...makeCtx(), auth: { getUserIdentity: async () => ({ subject: 'u1', email: 'a@example.com', activeOrganizationId: 'org-1' }) } })
+  const handler = (fn: unknown) => (fn as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler
+
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    getCustomerByUserId.mockResolvedValue({ id: 'cus_1' } as never)
+  })
+
+  it('syncEntitlements refuses a failed state read as unavailable, without the provider\'s body', async () => {
+    mockCustomersGetState.mockResolvedValue(providerError() as never)
+    const refusal = await handler(billing.functions.syncEntitlements)(signedIn(), {}).catch((error: unknown) => error)
+    expect(getBackendError(refusal)).toMatchObject({ code: 'unavailable', data: { service: 'billing', reason: 'provider_refused' } })
+    expect(String(refusal)).not.toContain('Body')
+  })
+
+  it('generateCustomerPortalUrl refuses a failed portal session as unavailable, without the provider\'s body', async () => {
+    mockCustomerSessionsCreate.mockResolvedValue(providerError() as never)
+    const refusal = await handler(billing.api.generateCustomerPortalUrl)(signedIn(), { returnUrl: 'https://app/settings' }).catch((error: unknown) => error)
+    expect(mockCustomerSessionsCreate).toHaveBeenCalledWith(expect.anything(), { customerId: 'cus_1', returnUrl: 'https://app/settings' })
+    expect(getBackendError(refusal)).toMatchObject({ code: 'unavailable', data: { reason: 'provider_refused' } })
+    expect(String(refusal)).not.toContain('Body')
+  })
+
+  it('generateCustomerPortalUrl answers the portal URL, and refuses an entity without a customer by code', async () => {
+    mockCustomerSessionsCreate.mockResolvedValue({ ok: true, value: { customerPortalUrl: 'https://portal' } } as never)
+    expect(await handler(billing.api.generateCustomerPortalUrl)(signedIn(), {})).toEqual({ url: 'https://portal' })
+
+    getCustomerByUserId.mockResolvedValue(null as never)
+    await expect(handler(billing.api.generateCustomerPortalUrl)(signedIn(), {}))
+      .rejects.toMatchObject({ data: { code: 'not_ready', reason: 'no_customer' } })
+  })
+
+  it('refuses a signed-out caller as unauthenticated before it says billing is not configured', async () => {
+    const unconfigured = setupBilling(components, { email } as never)
+    const signedOut = { ...makeCtx(), auth: { getUserIdentity: async () => null } }
+    await expect(handler(unconfigured.api.generateCustomerPortalUrl)(signedOut, {})).rejects.toMatchObject({ data: { code: 'unauthenticated' } })
+    await expect(handler(unconfigured.api.generateCheckoutLink)(signedOut, { productIds: ['p'], origin: 'https://app', successUrl: 'https://app/done' }))
+      .rejects.toMatchObject({ data: { code: 'unauthenticated' } })
+    await expect(handler(unconfigured.api.giftCheckout)(signedOut, { productId: 'p', recipientEmail: 'a@example.com', origin: 'https://app', successUrl: 'https://app/done' }))
+      .rejects.toMatchObject({ data: { code: 'unauthenticated' } })
+    await expect(unconfigured.cancelSubscription(signedOut as never)).rejects.toMatchObject({ data: { code: 'unauthenticated' } })
+    // Signed in, the missing token is what refuses.
+    await expect(handler(unconfigured.api.generateCustomerPortalUrl)(signedIn(), {}))
+      .rejects.toMatchObject({ data: { code: 'unavailable', service: 'billing', reason: 'not_configured' } })
+  })
+
+  it('refuses a signed-out caller by code, before any provider call', async () => {
+    const signedOut = { ...makeCtx(), auth: { getUserIdentity: async () => null } }
+    await expect(handler(billing.api.generateCustomerPortalUrl)(signedOut, {})).rejects.toMatchObject({ data: { code: 'unauthenticated' } })
+    await expect(handler(billing.functions.syncEntitlements)(signedOut, {})).rejects.toMatchObject({ data: { code: 'unauthenticated' } })
+    expect(mockCustomerSessionsCreate).not.toHaveBeenCalled()
+    expect(mockCustomersGetState).not.toHaveBeenCalled()
+  })
+
+  it('refuses an insufficient balance with the balance and the need', async () => {
+    const meters = setupBilling(components, { ...(config as object), credits: { credits: { meterId: 'm1' } } } as never)
+    const refusal = await meters.reserveCredits(makeCtx({ debit: { ok: false, reason: 'insufficient', balance: 0 } }) as never, { userId: 'org-1', meter: 'credits' })
+      .catch((error: unknown) => error)
+    expect(getBackendError(refusal)).toEqual({
+      code: 'insufficient_credits',
+      data: { meter: 'credits', balance: 0, need: 1 },
+      message: 'Not enough credits: 0 left, 1 needed. Top up to continue.',
+    })
   })
 })

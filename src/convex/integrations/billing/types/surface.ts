@@ -32,12 +32,18 @@ export interface Billing {
    * package's superset (prefill, custom fields, billing address, discount id),
    * and is re-declared here so the scaffold's `export const {
    * generateCheckoutLink } = billing.api` hands the app the wide argument type
-   * rather than upstream's narrow one.
+   * rather than upstream's narrow one. `generateCustomerPortalUrl`,
+   * `changeCurrentSubscription` and `cancelCurrentSubscription` are this
+   * package's too: they refuse with catalog codes (see `backendError`) and
+   * never pass the provider's own error on.
    */
-  api: Omit<ReturnType<Polar['api']>, 'listAllSubscriptions' | 'generateCheckoutLink'> & {
+  api: Omit<ReturnType<Polar['api']>, 'listAllSubscriptions' | 'generateCheckoutLink' | 'generateCustomerPortalUrl' | 'changeCurrentSubscription' | 'cancelCurrentSubscription'> & {
     listAllSubscriptions: ReturnType<typeof queryGeneric>
     giftCheckout: ReturnType<typeof actionGeneric>
     generateCheckoutLink: RegisteredAction<'public', CheckoutOptions, Promise<{ url: string }>>
+    generateCustomerPortalUrl: RegisteredAction<'public', { returnUrl?: string }, Promise<{ url: string }>>
+    changeCurrentSubscription: RegisteredAction<'public', { productId: string }, Promise<null>>
+    cancelCurrentSubscription: RegisteredAction<'public', { revokeImmediately?: boolean }, Promise<null>>
   }
   /**
    * Ready-made, client-callable functions to re-export from your `billing.ts`
