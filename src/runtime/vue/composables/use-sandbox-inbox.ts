@@ -1,6 +1,7 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
-import { useQuery } from 'nuxt-convex-module/client'
+import type { BackendError } from '../utils/backend-error'
+import { absentQuery, useLiveQuery, warnCallShape } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
 import { findCode } from '../utils/sandbox-code'
 
@@ -20,19 +21,23 @@ export interface SandboxInboxApi {
 }
 
 export interface UseSandboxInboxOptions {
+  /** The sandbox address to read (a value, ref or getter). Reading pauses while it is `undefined` or blank. */
+  address: MaybeRefOrGetter<string | null | undefined>
   /** Override the injected `api.email` namespace (or the `getSandboxInbox` ref). */
   api?: SandboxInboxApi
 }
 
 export interface UseSandboxInboxReturn {
-  /** The inbox, newest first; `undefined` while loading or without an address. */
+  /** The inbox, newest first: `undefined` until the first read lands, without an address, and after a failed read. */
   messages: ComputedRef<SandboxMessage[] | undefined>
   /** The newest message, if any. */
   latest: ComputedRef<SandboxMessage | undefined>
   /** The first six-digit code in the newest message — a sign-in code, typically. */
   code: ComputedRef<string | undefined>
-  /** `true` until the first read for the current address lands. */
+  /** `true` until the first read for the current address lands; `false` without one. */
   isLoading: ComputedRef<boolean>
+  /** Why the inbox could not be read, or `null`. */
+  error: ComputedRef<BackendError | null>
 }
 
 /**
@@ -43,7 +48,8 @@ export interface UseSandboxInboxReturn {
  * test mode. Needs `getSandboxInbox` re-exported from `backend/email.ts`
  * (`export const { getSandboxInbox } = email.api`); without it the inbox stays
  * empty. Anyone who knows an address can read its inbox, so use it only where
- * every account is a throwaway one.
+ * every account is a throwaway one. It never throws: a failed read shows in
+ * `error`.
  *
  * @experimental
  *
@@ -51,26 +57,22 @@ export interface UseSandboxInboxReturn {
  * ```vue
  * <script setup lang="ts">
  * const address = ref('delivered+demo-4f2a@resend.dev')
- * const inbox = useSandboxInbox(address)
+ * const inbox = useSandboxInbox({ address })
  * </script>
  * <template>
  *   <p v-if="inbox.code.value">Your code: {{ inbox.code.value }}</p>
  * </template>
  * ```
- *
- * @param address - The sandbox address to read (reactive). Reading pauses while
- *   it is `undefined` or empty.
  */
-export function useSandboxInbox(
-  address: MaybeRefOrGetter<string | undefined>,
-  options: UseSandboxInboxOptions = {},
-): UseSandboxInboxReturn {
-  const email = useBackendNamespace<SandboxInboxApi>('email', 'useSandboxInbox', options.api)
-  const current = computed(() => toValue(address)?.trim() || undefined)
+export function useSandboxInbox(options: UseSandboxInboxOptions): UseSandboxInboxReturn {
+  warnCallShape('useSandboxInbox', options, 'useSandboxInbox({ address })')
+  const email = useBackendNamespace<SandboxInboxApi>('email', 'useSandboxInbox', options?.api)
+  const current = computed(() => toValue(options?.address)?.trim() || undefined)
 
-  const messages = email.getSandboxInbox
-    ? useQuery(email.getSandboxInbox, computed(() => current.value ? { address: current.value } : 'skip'))
-    : computed<SandboxMessage[] | undefined>(() => undefined)
+  const read = email.getSandboxInbox
+    ? useLiveQuery(email.getSandboxInbox, computed(() => current.value ? { address: current.value } : 'skip'))
+    : absentQuery<SandboxMessage[]>()
+  const messages = read.data
 
   const latest = computed(() => messages.value?.[0])
 
@@ -78,6 +80,7 @@ export function useSandboxInbox(
     messages,
     latest,
     code: computed(() => findCode(latest.value)),
-    isLoading: computed(() => Boolean(email.getSandboxInbox) && current.value !== undefined && messages.value === undefined),
+    isLoading: read.isLoading,
+    error: read.error,
   }
 }

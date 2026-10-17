@@ -7,8 +7,8 @@ definePageMeta({ middleware: 'auth' })
 // Online, batched schema migrations — status reads the migration component's
 // own state (live), runs can start from here or the CLI.
 const status = useQuery(api.migrations.status)
-const messageCount = useCount(api.aggregates.countMessages)
-const totalCharacters = useAggregate(api.aggregates.totalCharacters)
+const { data: messageCount, isLoading: countLoading } = useAggregate(api.aggregates.countMessages)
+const { data: totalCharacters, isLoading: sumLoading } = useAggregate(api.aggregates.totalCharacters)
 const runBackfill = useAction(api.migrations.runBackfill)
 // A backfill walks every message on the deployment, so starting one is for
 // admins; the status below is live for everyone.
@@ -57,12 +57,14 @@ function stateTone(state: string): 'ok' | 'warn' | 'err' {
       <MetricCard
         label="messages counted"
         :value="messageCount"
+        :loading="countLoading"
         tone="ok"
         hint="messagesCount aggregate"
       />
       <MetricCard
         label="characters stored"
         :value="totalCharacters"
+        :loading="sumLoading"
         tone="ok"
         hint="messagesSize aggregate · sum"
       />

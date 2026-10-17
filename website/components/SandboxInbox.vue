@@ -9,7 +9,7 @@ const props = defineProps<{ email: string }>()
 const emit = defineEmits<{ fill: [code: string] }>()
 
 const address = computed(() => isSandboxIdentity(props.email) ? normalizeTestEmail(props.email) : undefined)
-const inbox = useSandboxInbox(address)
+const inbox = useSandboxInbox({ address })
 </script>
 
 <template>

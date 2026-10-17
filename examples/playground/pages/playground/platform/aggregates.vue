@@ -9,10 +9,10 @@ definePageMeta({ middleware: 'auth' })
 // the table — the aggregate component keeps a denormalized tree that the
 // `withTriggers` mutation wrapper updates in the same transaction as every
 // insert and delete, so both numbers are O(log n) and reactive.
-const messageCount = useCount(api.aggregates.countMessages)
-const totalCharacters = useAggregate(api.aggregates.totalCharacters)
+const { data: messageCount, isLoading: countLoading } = useAggregate(api.aggregates.countMessages)
+const { data: totalCharacters, isLoading: sumLoading } = useAggregate(api.aggregates.totalCharacters)
 const averageLength = computed(() =>
-  messageCount.value ? Math.round(totalCharacters.value / messageCount.value) : 0)
+  messageCount.value ? Math.round((totalCharacters.value ?? 0) / messageCount.value) : 0)
 
 // The list is yours (messages.list filters by the signed-in user); the
 // aggregates are table-wide, which is why the count can run ahead of the
@@ -27,8 +27,13 @@ const countHistory = ref<number[]>(Array.from({ length: 40 }, () => 0))
 function record(value: number) {
   countHistory.value = [...countHistory.value.slice(1), value]
 }
-onMounted(() => record(messageCount.value))
-watch(messageCount, record)
+// Only real reads go on the trace: no point while the count is still loading.
+onMounted(() => {
+  if (messageCount.value !== undefined) record(messageCount.value)
+})
+watch(messageCount, (value) => {
+  if (value !== undefined) record(value)
+})
 
 // The writes go through the trigger-wrapped `mutation` from aggregates.ts —
 // that wrapper is what keeps the numbers above honest.
@@ -66,15 +71,15 @@ async function clearMine() {
 }
 
 const readout = computed(() => ({
-  'useCount(api.aggregates.countMessages)': messageCount.value,
-  'useAggregate(api.aggregates.totalCharacters)': totalCharacters.value,
+  'useAggregate(api.aggregates.countMessages).data': messageCount.value,
+  'useAggregate(api.aggregates.totalCharacters).data': totalCharacters.value,
 }))
 </script>
 
 <template>
   <div class="stack">
     <PageHeader
-      tag="useCount · useAggregate"
+      tag="useAggregate"
       title="Aggregates"
       live
     >
@@ -88,12 +93,14 @@ const readout = computed(() => ({
       <MetricCard
         label="messages"
         :value="messageCount"
+        :loading="countLoading"
         tone="ok"
-        hint="useCount · messagesCount.count()"
+        hint="useAggregate · messagesCount.count()"
       />
       <MetricCard
         label="characters stored"
         :value="totalCharacters"
+        :loading="sumLoading"
         tone="ok"
         hint="useAggregate · messagesSize.sum()"
       />
@@ -204,9 +211,9 @@ const readout = computed(() => ({
           tone="ok"
         />
         <p class="hint readout-note">
-          Both coerce the loading state to <code>0</code> so a template can bind
-          straight to the number. <code>useCount</code> is an alias of
-          <code>useAggregate</code> — it reads better when you are counting rows.
+          Each <code>data</code> is <code>undefined</code> until its first read
+          lands, then a number; <code>isLoading</code> and <code>error</code> sit
+          beside it, and a failed read never throws out of the page.
         </p>
         <p class="hint">
           On the server: one <code>TableAggregate</code> per number (with

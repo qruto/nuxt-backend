@@ -80,7 +80,6 @@ const COMPOSABLE_NAMES = [
   'useOrganization',
   'useSearch',
   'useAggregate',
-  'useCount',
   'useBilling',
   'useFeatures',
   'useCredits',

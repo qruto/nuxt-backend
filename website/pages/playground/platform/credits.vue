@@ -72,14 +72,14 @@ const streamTone = computed(() => {
 // otherwise; see the GiftClaimBanner above the metrics). The recipient is a
 // sandbox identity, as every playground account is — billing.ts's canGift
 // refuses any other address on the server.
-const giftEmail = ref('')
+const giftRecipient = ref('')
 const giftMessage = ref('')
 const gifting = ref(false)
 const giftNotice = ref('')
 
 async function sendGift() {
-  if (!creditPackId.value || !giftEmail.value) return
-  if (!isSandboxIdentity(giftEmail.value)) {
+  if (!creditPackId.value || !giftRecipient.value) return
+  if (!isSandboxIdentity(giftRecipient.value)) {
     giftNotice.value = SANDBOX_IDENTITY_HELP
     return
   }
@@ -87,11 +87,11 @@ async function sendGift() {
   giftNotice.value = ''
   try {
     await credits.gift(creditPackId.value, {
-      recipientEmail: giftEmail.value,
+      recipientEmail: giftRecipient.value,
       message: giftMessage.value || undefined,
     })
-    giftNotice.value = `Checkout opened — once paid, ${giftEmail.value} receives the credits.`
-    giftEmail.value = ''
+    giftNotice.value = `Checkout opened — once paid, ${giftRecipient.value} receives the credits.`
+    giftRecipient.value = ''
     giftMessage.value = ''
   }
   catch (error) {
@@ -284,7 +284,7 @@ async function sendGift() {
         @submit.prevent="sendGift"
       >
         <input
-          v-model="giftEmail"
+          v-model="giftRecipient"
           class="gift-input"
           type="email"
           placeholder="delivered+…@resend.dev"
@@ -300,7 +300,7 @@ async function sendGift() {
           variant="primary"
           type="submit"
           :loading="gifting"
-          :disabled="!creditPackId || !giftEmail"
+          :disabled="!creditPackId || !giftRecipient"
         >
           Gift 100 credits
         </LabButton>

@@ -26,12 +26,13 @@ Defined in: [src/runtime/vue/composables/use-search.ts](https://github.com/qruto
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="debounce"></a> `debounce?` | `number` | Debounce, in milliseconds, before the term is sent to the server (default 200). | [src/runtime/vue/composables/use-search.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-search.ts) |
+| <a id="term"></a> `term` | `MaybeRefOrGetter`\<`string` \| `null` \| `undefined`\> | The search term (a value, ref or getter). A blank, whitespace-only, `null` or `undefined` term skips the query. | [src/runtime/vue/composables/use-search.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-search.ts) |
+| <a id="debounce"></a> `debounce?` | `MaybeRefOrGetter`\<`number` \| `undefined`\> | Debounce, in milliseconds, before the term is sent to the server (a value, ref or getter; default 200). | [src/runtime/vue/composables/use-search.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-search.ts) |
 | <a id="args"></a> `args?` | `MaybeRefOrGetter`\<`Omit`\<`FunctionArgs`\<`Query`\>, `"query"`\>\> | Extra arguments merged with `{ query }` (e.g. `{ limit }` or filter fields). | [src/runtime/vue/composables/use-search.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-search.ts) |
 
 ***
 
-### UseSearchResult
+### UseSearchReturn
 
 Defined in: [src/runtime/vue/composables/use-search.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-search.ts)
 
@@ -45,28 +46,25 @@ Defined in: [src/runtime/vue/composables/use-search.ts](https://github.com/qruto
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="results"></a> `results` | `ComputedRef`\<`FunctionReturnType`\<`Query`\>\> | The matching documents (empty array while loading or when the term is blank). | [src/runtime/vue/composables/use-search.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-search.ts) |
+| <a id="results"></a> `results` | `ComputedRef`\<`FunctionReturnType`\<`Query`\>\> | The matching documents: an empty array while loading, while the term is blank, and after a failed read. | [src/runtime/vue/composables/use-search.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-search.ts) |
 | <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | True while a non-empty term is in flight and no result has arrived yet. | [src/runtime/vue/composables/use-search.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-search.ts) |
-| <a id="term"></a> `term` | `ComputedRef`\<`string`\> | The debounced term currently driving the query. | [src/runtime/vue/composables/use-search.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-search.ts) |
+| <a id="error"></a> `error` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the search failed, or `null`. Clears once a later term reads. | [src/runtime/vue/composables/use-search.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-search.ts) |
+| <a id="term-1"></a> `term` | `ComputedRef`\<`string`\> | The debounced term currently driving the query. | [src/runtime/vue/composables/use-search.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-search.ts) |
 
 ## Functions
 
 ### useSearch()
 
 ```ts
-function useSearch<Query>(
-   query, 
-   term, 
-   options?
-): UseSearchResult<Query>;
+function useSearch<Query>(query, options): UseSearchReturn<Query>;
 ```
 
 Defined in: [src/runtime/vue/composables/use-search.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-search.ts)
 
 Reactive, debounced full-text search. Pairs with a query created by
-`defineSearch` (or any query taking `{ query: string }`): as the term ref
+`defineSearch` (or any query taking `{ query: string }`): as the term
 changes it debounces, skips the round-trip while blank, and returns the live
-results.
+results. It never throws: a failed search shows in `error`.
 
 #### Type Parameters
 
@@ -79,12 +77,11 @@ results.
 | Parameter | Type |
 | ------ | ------ |
 | `query` | `Query` |
-| `term` | `MaybeRefOrGetter`\<`string`\> |
 | `options` | [`UseSearchOptions`](#usesearchoptions)\<`Query`\> |
 
 #### Returns
 
-[`UseSearchResult`](#usesearchresult)\<`Query`\>
+[`UseSearchReturn`](#usesearchreturn)\<`Query`\>
 
 #### Example
 
@@ -94,6 +91,6 @@ import { useSearch } from '#imports'
 import { api } from '#backend/api'
 
 const term = ref('')
-const { results, isLoading } = useSearch(api.search.searchMessages, term, { debounce: 200 })
+const { results, isLoading } = useSearch(api.search.searchMessages, { term, debounce: 200 })
 </script>
 ```

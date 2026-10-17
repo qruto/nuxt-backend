@@ -112,8 +112,9 @@ const sessions = {
     { id: 's-other', userAgent: 'Firefox Windows', createdAt: Date.parse('2026-01-02'), current: false },
   ]),
   current: computed(() => ({ id: 's-current', userAgent: 'Chrome Mac OS X', createdAt: Date.parse('2026-01-01'), current: true })),
-  isLoading: computed(() => false),
-  error: ref<string | null>(null),
+  isLoading: ref(false),
+  isPending: computed(() => false),
+  error: ref<{ code: string, data: Record<string, unknown>, message: string } | null>(null),
   revoke: vi.fn(async () => {}),
   revokeOthers: vi.fn(async () => {}),
 }
@@ -199,9 +200,9 @@ vi.mock('../../src/runtime/vue/composables/use-gifts', () => ({ useGifts: () => 
 vi.mock('../../src/runtime/vue/composables/use-organization', () => ({ useOrganization: () => organization }))
 vi.mock('../../src/runtime/vue/composables/use-auth', () => ({ useAuth: () => auth }))
 vi.mock('../../src/runtime/vue/composables/use-passkeys', () => ({ usePasskeys: () => passkeys }))
-vi.mock('../../src/runtime/vue/composables/use-sessions', () => ({
+vi.mock('../../src/runtime/vue/composables/use-sessions', async importOriginal => ({
+  ...await importOriginal<Record<string, unknown>>(),
   useSessions: () => sessions,
-  describeUserAgent: (ua?: string | null) => ua ?? 'unknown device',
 }))
 vi.mock('../../src/runtime/vue/composables/use-backend-config', () => ({ useBackendConfig: () => backendConfig }))
 // The shipped pages set the document title through the auto-imported useHead.
@@ -827,6 +828,53 @@ describe('SecuritySettings', () => {
     expect(sessionRows[0]!.attributes('data-current')).toBeDefined()
     expect(sessionRows[0]!.find('[data-security="current-badge"]').exists()).toBe(true)
     expect(sessionRows[1]!.find('[data-security="revoke"]').exists()).toBe(true)
+  })
+
+  it('names each session\'s device, and words one it cannot describe', async () => {
+    sessions.sessions.value = [...sessions.sessions.value, { id: 's-agent', userAgent: null as unknown as string, createdAt: Date.parse('2026-01-03'), current: false }]
+    try {
+      const wrapper = mount(SecuritySettings)
+      await flushPromises()
+      expect(wrapper.findAll('[data-security="session-name"]').map(name => name.text())).toEqual(['Chrome · macOS', 'Firefox · Windows', 'Unknown device'])
+    }
+    finally {
+      sessions.sessions.value = sessions.sessions.value.slice(0, 2)
+    }
+  })
+
+  it('says why the session list did not load, and that it is loading', async () => {
+    const rows = sessions.sessions.value
+    try {
+      sessions.sessions.value = undefined as never
+      sessions.isLoading.value = true
+      const wrapper = mount(SecuritySettings)
+      await flushPromises()
+      expect(wrapper.find('[data-security="sessions-loading"]').exists()).toBe(true)
+      expect(wrapper.find('[data-security="section-sessions"]').attributes('aria-busy')).toBe('true')
+
+      sessions.isLoading.value = false
+      sessions.error.value = { code: 'unauthenticated', data: {}, message: 'Sign in to continue.' }
+      await flushPromises()
+      expect(wrapper.find('[data-security="sessions-loading"]').exists()).toBe(false)
+      const failed = wrapper.find('[data-security="sessions-error"]')
+      expect(failed.text()).toBe('Sign in to continue.')
+      expect(failed.attributes('role')).toBe('alert')
+    }
+    finally {
+      sessions.sessions.value = rows
+      sessions.isLoading.value = false
+      sessions.error.value = null
+    }
+  })
+
+  it('words a failed revoke as useSessions does: the refusal, or "Something went wrong."', async () => {
+    const wrapper = mount(SecuritySettings)
+    await flushPromises()
+    sessions.revoke.mockRejectedValueOnce(new Error('[CONVEX M(auth:revokeSession)] Server Error'))
+    await wrapper.find('[data-security="revoke"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-security="message"]').text()).toBe('Something went wrong.')
+    expect(wrapper.emitted('error')?.at(-1)).toEqual(['Something went wrong.'])
   })
 
   it('renames a passkey inline', async () => {

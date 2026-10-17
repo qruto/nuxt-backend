@@ -9,8 +9,8 @@ export const messagesCount = new TableAggregate<{ Key: null, DataModel: DataMode
   { sortKey: () => null },
 )
 
-// A live sum — total characters across all messages. Shows the general
-// `useAggregate` read beyond `useCount`.
+// A live sum — total characters across all messages. Shows `useAggregate`
+// reading a sum, not only a count.
 //
 // Its own namespace, on the same component mount. An aggregate's entries are
 // (key, document id), one B-tree per namespace: sharing messagesCount's tree,

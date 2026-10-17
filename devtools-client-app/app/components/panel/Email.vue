@@ -43,6 +43,7 @@ function lookUp() {
   if (emailId.value.trim()) panel.lookupEmail(emailId.value)
 }
 const lookupSignal = computed<Signal>(() => {
+  if (lookup.value?.error) return 'err'
   const status = lookup.value?.status
   if (!status) return 'off'
   if (status === 'delivered') return 'ok'
@@ -107,7 +108,7 @@ const lookupSignal = computed<Signal>(() => {
       class="flex items-center gap-2 text-xs"
     >
       <SignalBadge :signal="lookupSignal">
-        {{ lookup.isLoading ? 'looking…' : lookup.found ? lookup.status : 'not found' }}
+        {{ lookup.isLoading ? 'looking…' : lookup.error ?? (lookup.found ? lookup.status : 'not found') }}
       </SignalBadge>
       <span class="font-mono op65">{{ lookup.emailId }}</span>
     </div>

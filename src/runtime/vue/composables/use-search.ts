@@ -1,28 +1,33 @@
 import type { FunctionArgs, FunctionReference, FunctionReference_future, FunctionReturnType } from 'convex/server'
 import { computed, onScopeDispose, ref, toValue, watch, type ComputedRef, type MaybeRefOrGetter } from 'vue'
-import { useQuery } from 'nuxt-convex-module/client'
+import type { BackendError } from '../utils/backend-error'
+import { useLiveQuery, warnCallShape } from '../utils/live-query'
 
 export interface UseSearchOptions<Query extends FunctionReference<'query'> | FunctionReference_future<'query'>> {
-  /** Debounce, in milliseconds, before the term is sent to the server (default 200). */
-  debounce?: number
+  /** The search term (a value, ref or getter). A blank, whitespace-only, `null` or `undefined` term skips the query. */
+  term: MaybeRefOrGetter<string | null | undefined>
+  /** Debounce, in milliseconds, before the term is sent to the server (a value, ref or getter; default 200). */
+  debounce?: MaybeRefOrGetter<number | undefined>
   /** Extra arguments merged with `{ query }` (e.g. `{ limit }` or filter fields). */
   args?: MaybeRefOrGetter<Omit<FunctionArgs<Query>, 'query'>>
 }
 
-export interface UseSearchResult<Query extends FunctionReference<'query'> | FunctionReference_future<'query'>> {
-  /** The matching documents (empty array while loading or when the term is blank). */
+export interface UseSearchReturn<Query extends FunctionReference<'query'> | FunctionReference_future<'query'>> {
+  /** The matching documents: an empty array while loading, while the term is blank, and after a failed read. */
   results: ComputedRef<FunctionReturnType<Query>>
   /** True while a non-empty term is in flight and no result has arrived yet. */
   isLoading: ComputedRef<boolean>
+  /** Why the search failed, or `null`. Clears once a later term reads. */
+  error: ComputedRef<BackendError | null>
   /** The debounced term currently driving the query. */
   term: ComputedRef<string>
 }
 
 /**
  * Reactive, debounced full-text search. Pairs with a query created by
- * `defineSearch` (or any query taking `{ query: string }`): as the term ref
+ * `defineSearch` (or any query taking `{ query: string }`): as the term
  * changes it debounces, skips the round-trip while blank, and returns the live
- * results.
+ * results. It never throws: a failed search shows in `error`.
  *
  * @example
  * ```vue
@@ -31,24 +36,24 @@ export interface UseSearchResult<Query extends FunctionReference<'query'> | Func
  * import { api } from '#backend/api'
  *
  * const term = ref('')
- * const { results, isLoading } = useSearch(api.search.searchMessages, term, { debounce: 200 })
+ * const { results, isLoading } = useSearch(api.search.searchMessages, { term, debounce: 200 })
  * </script>
  * ```
  */
 export function useSearch<Query extends FunctionReference<'query'> | FunctionReference_future<'query'>>(
   query: Query,
-  term: MaybeRefOrGetter<string>,
-  options: UseSearchOptions<Query> = {},
-): UseSearchResult<Query> {
-  const debounceMs = options.debounce ?? 200
-  const debounced = ref(toValue(term))
+  options: UseSearchOptions<Query>,
+): UseSearchReturn<Query> {
+  warnCallShape('useSearch', options, 'useSearch(query, { term })')
+  const termOf = () => toValue(options?.term) ?? ''
+  const debounced = ref(termOf())
   let handle: ReturnType<typeof setTimeout> | undefined
 
-  watch(() => toValue(term), (value) => {
+  watch(termOf, (value) => {
     if (handle) clearTimeout(handle)
     handle = setTimeout(() => {
       debounced.value = value
-    }, debounceMs)
+    }, toValue(options.debounce) ?? 200)
   })
   onScopeDispose(() => {
     if (handle) clearTimeout(handle)
@@ -56,18 +61,17 @@ export function useSearch<Query extends FunctionReference<'query'> | FunctionRef
 
   const args = computed((): FunctionArgs<Query> | 'skip' => {
     const q = debounced.value
-    if (!q) return 'skip'
+    if (!q.trim()) return 'skip'
     const extra = options.args ? toValue(options.args) : ({} as Omit<FunctionArgs<Query>, 'query'>)
     return { ...extra, query: q } as FunctionArgs<Query>
   })
 
-  const data = useQuery(query, args)
-  const results = computed(() => (data.value ?? []) as FunctionReturnType<Query>)
-  const isLoading = computed(() => Boolean(debounced.value) && data.value === undefined)
+  const read = useLiveQuery(query, args)
 
   return {
-    results,
-    isLoading,
+    results: computed(() => (read.data.value ?? []) as FunctionReturnType<Query>),
+    isLoading: read.isLoading,
+    error: read.error,
     term: computed(() => debounced.value),
   }
 }

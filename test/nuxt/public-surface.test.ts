@@ -440,7 +440,6 @@ const REGISTRY = {
     'useBackendConfig',
     'useBilling',
     'useConnectionState',
-    'useCount',
     'useCredits',
     'useEmailChange',
     'useEmailStatus',
