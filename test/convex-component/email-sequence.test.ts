@@ -71,7 +71,10 @@ async function signUp(email: string, name: string): Promise<string> {
 
 const sent = () => t.query(makeFunctionReference<'query'>('workflows:listSent'), {}) as Promise<Array<{ to: string, subject: string }>>
 
-describe('defineEmailSequence with a userId', () => {
+// Each test drives the real workflow engine through every scheduled step, so
+// its time depends on load: under the full parallel run (and on Windows CI)
+// it passed the 5 s default. The work is bounded; the timeout says so.
+describe('defineEmailSequence with a userId', { timeout: 20_000 }, () => {
   test('sends to the account as it is when the step is due', async () => {
     const userId = await signUp('ada@example.com', 'Ada')
     await t.mutation(components.backend.adapter.updateOne, {
