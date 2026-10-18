@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ContentNavigationItem } from '@nuxt/content'
 
-// Docus 5.14.0's AppHeaderBody (test/docs/docus-copies.test.ts pins the
+// Docus 5.15.0's AppHeaderBody (test/docs/docus-copies.test.ts pins the
 // source), changed: the drawer below lg carries the header's keys and the
 // version chip above the ten tabs, and lists the tabs on every page, each
 // linking to its first page, with the Experimental badge of a tab whose

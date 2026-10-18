@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ContentNavigationItem } from '@nuxt/content'
 
-// Docus 5.14.0's DocsAsideLeftBody (test/docs/docus-copies.test.ts pins the
+// Docus 5.15.0's DocsAsideLeftBody (test/docs/docus-copies.test.ts pins the
 // source), changed: groups collapse, and the one holding the page opens;
 // a group's name is a stamped section label, and an amber light marks
 // where an experimental surface starts (utils/nav-badges.ts): the sidebar

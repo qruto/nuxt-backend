@@ -60,7 +60,7 @@ the packaged `GiftClaimBanner` component).
 
 | Parameter | Type |
 | ------ | ------ |
-| `options` | [`UseGiftsOptions`](#usegiftsoptions) |
+| `options?` | [`UseGiftsOptions`](#usegiftsoptions) |
 
 #### Returns
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { joinURL } from 'ufo'
 
-// Docus 5.14.0's DocsPageHeaderLinks (test/docs/docus-copies.test.ts pins
+// Docus 5.15.0's DocsPageHeaderLinks (test/docs/docus-copies.test.ts pins
 // the source), changed: the buttons are keys, and the two MCP items are
 // gone: this site's /mcp is the package's OAuth-gated agent surface, not a
 // docs server.

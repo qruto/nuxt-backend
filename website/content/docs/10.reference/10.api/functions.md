@@ -81,7 +81,7 @@ The fields a code carries beside it.
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| `C` *extends* [`BackendErrorCode`](#backenderrorcode) | [`BackendErrorCode`](#backenderrorcode) |
+| <a id="type-parameter-c"></a> `C` *extends* [`BackendErrorCode`](#backenderrorcode) | [`BackendErrorCode`](#backenderrorcode) |
 
 ***
 
@@ -115,24 +115,24 @@ Defined in: [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/ma
 
 What a `backendError()` carries to the client: the code and its fields, flat.
 
+#### Type Parameters
+
+| Type Parameter | Default type |
+| ------ | ------ |
+| <a id="type-parameter-c-1"></a> `C` *extends* [`BackendErrorCode`](#backenderrorcode) | [`BackendErrorCode`](#backenderrorcode) |
+
 #### Type Declaration
 
 | Name | Type | Defined in |
 | ------ | ------ | ------ |
 | `code` | `C` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 
-#### Type Parameters
-
-| Type Parameter | Default type |
-| ------ | ------ |
-| `C` *extends* [`BackendErrorCode`](#backenderrorcode) | [`BackendErrorCode`](#backenderrorcode) |
-
 ***
 
 ### BackendErrorArgs
 
 ```ts
-type BackendErrorArgs<C> = Record<string, never> extends BackendErrorData<C> ? [BackendErrorData<C>, string] : [BackendErrorData<C>, string];
+type BackendErrorArgs<C> = Record<string, never> extends BackendErrorData<C> ? [data?: BackendErrorData<C>, detail?: string] : [data: BackendErrorData<C>, detail?: string];
 ```
 
 Defined in: [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts)
@@ -144,7 +144,7 @@ code whose fields are all optional, then the English detail for the log.
 
 | Type Parameter |
 | ------ |
-| `C` *extends* [`BackendErrorCode`](#backenderrorcode) |
+| <a id="type-parameter-c-2"></a> `C` *extends* [`BackendErrorCode`](#backenderrorcode) |
 
 ## Variables
 
@@ -314,7 +314,7 @@ reaches the person in production.
 
 | Type Parameter |
 | ------ |
-| `C` *extends* \| `"unauthenticated"` \| `"forbidden"` \| `"no_workspace"` \| `"rate_limited"` \| `"insufficient_credits"` \| `"invalid_input"` \| `"not_ready"` \| `"unavailable"` |
+| <a id="type-parameter-c-3"></a> `C` *extends* \| `"unauthenticated"` \| `"forbidden"` \| `"no_workspace"` \| `"rate_limited"` \| `"insufficient_credits"` \| `"invalid_input"` \| `"not_ready"` \| `"unavailable"` |
 
 #### Parameters
 
@@ -477,7 +477,7 @@ option when you need stronger guarantees. Pass your `withTriggers`-wrapped
 
 | Type Parameter |
 | ------ |
-| `DM` *extends* `GenericDataModel` |
+| <a id="type-parameter-dm"></a> `DM` *extends* `GenericDataModel` |
 
 #### Parameters
 
@@ -485,7 +485,7 @@ option when you need stronger guarantees. Pass your `withTriggers`-wrapped
 | ------ | ------ |
 | `builders` | `Builders`\<`DM`\> |
 | `authorization` | [`Authorization`](/docs/reference/api/authorization#authorization) |
-| `options` | [`CreateFunctionsOptions`](#createfunctionsoptions) |
+| `options?` | [`CreateFunctionsOptions`](#createfunctionsoptions) |
 
 #### Returns
 

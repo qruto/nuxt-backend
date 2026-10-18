@@ -84,7 +84,7 @@ of a 429 in `retryAfter`).
 
 | Parameter | Type |
 | ------ | ------ |
-| `options` | [`UseEmailChangeOptions`](#useemailchangeoptions) |
+| `options?` | [`UseEmailChangeOptions`](#useemailchangeoptions) |
 
 #### Returns
 

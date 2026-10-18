@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Docus 5.14.0's AppHeader (test/docs/docus-copies.test.ts pins the
+// Docus 5.15.0's AppHeader (test/docs/docus-copies.test.ts pins the
 // source), changed: the keys (Docs · Playground · Agents · GitHub) and the
 // version chip take the right side from lg up, the phone menu is a drawer
 // that carries them, and Docus's GitHub button is gone (GitHub is a key).
@@ -29,12 +29,12 @@ const { subNavigationMode } = useSubNavigation()
       <AppHeaderCTA />
 
       <template v-if="isAssistantEnabled">
-        <AssistantChat />
+        <LazyAssistantChat />
       </template>
 
       <template v-if="isEnabled && locales.length > 1">
         <ClientOnly>
-          <LanguageSelect />
+          <LazyLanguageSelect />
 
           <template #fallback>
             <div class="h-8 w-8 animate-pulse rounded-md bg-neutral-200 dark:bg-neutral-800" />
@@ -74,7 +74,7 @@ const { subNavigationMode } = useSubNavigation()
       v-if="subNavigationMode === 'header'"
       #bottom
     >
-      <AppHeaderBottom />
+      <LazyAppHeaderBottom />
     </template>
   </UHeader>
 </template>

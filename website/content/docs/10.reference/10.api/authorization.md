@@ -106,7 +106,7 @@ Defined in: [src/convex/integrations/authorization.ts](https://github.com/qruto/
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| `DM` *extends* `GenericDataModel` | `GenericDataModel` |
+| <a id="type-parameter-dm"></a> `DM` *extends* `GenericDataModel` | `GenericDataModel` |
 
 #### Properties
 
@@ -191,7 +191,7 @@ Defined in: node\_modules/better-auth/dist/plugins/admin/access/statement.d.mts:
 
 ```ts
 function createAccessControl<TStatements>(s): {
-  newRole: Role<ExactRoleStatements<TRoleStatements>, TStatements>;
+  newRole<TRoleStatements>(statements): Role<ExactRoleStatements<TRoleStatements>, TStatements>;
   statements: TStatements;
 };
 ```
@@ -202,7 +202,7 @@ Defined in: node\_modules/better-auth/dist/plugins/access/access.d.mts:12
 
 | Type Parameter |
 | ------ |
-| `TStatements` *extends* `Statements` |
+| <a id="type-parameter-tstatements"></a> `TStatements` *extends* `Statements` |
 
 #### Parameters
 
@@ -214,7 +214,7 @@ Defined in: node\_modules/better-auth/dist/plugins/access/access.d.mts:12
 
 ```ts
 {
-  newRole: Role<ExactRoleStatements<TRoleStatements>, TStatements>;
+  newRole<TRoleStatements>(statements): Role<ExactRoleStatements<TRoleStatements>, TStatements>;
   statements: TStatements;
 }
 ```
@@ -240,14 +240,14 @@ Build the authorization helpers over the `backend` component's auth adapter.
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| `DM` *extends* `GenericDataModel` | `GenericDataModel` |
+| <a id="type-parameter-dm-1"></a> `DM` *extends* `GenericDataModel` | `GenericDataModel` |
 
 #### Parameters
 
 | Parameter | Type |
 | ------ | ------ |
 | `components` | [`AuthorizationComponents`](#authorizationcomponents) |
-| `options` | [`SetupAuthorizationOptions`](#setupauthorizationoptions)\<`DM`\> |
+| `options?` | [`SetupAuthorizationOptions`](#setupauthorizationoptions)\<`DM`\> |
 
 #### Returns
 
