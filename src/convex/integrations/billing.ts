@@ -5,6 +5,7 @@ import { createEntitlements } from './billing/entitlements.js'
 import { createBillingFunctions } from './billing/functions.js'
 import { createGifts } from './billing/gifts.js'
 import { createHistory } from './billing/history.js'
+import { createPurchaseRules } from './billing/purchase.js'
 import { createSubscriptions } from './billing/subscriptions.js'
 import type { BillingComponents, SetupBillingConfig } from './billing/types/setup.js'
 import type { Billing } from './billing/types/surface.js'
@@ -31,7 +32,10 @@ export type {
   DiscountListOptions,
   BillingDiscounts,
   CheckoutPrefill,
+  CampaignAttribution,
+  CheckoutTrial,
   CheckoutOptions,
+  ServerCheckoutOptions,
 } from './billing/types/options.js'
 export type {
   EntitlementBenefit,
@@ -75,7 +79,7 @@ export { ALL_BILLING_EVENTS } from './billing/events.js'
  *
  * const billing = setupBilling(components, { email })
  *
- * export const { generateCheckoutLink, generateCustomerPortalUrl, giftCheckout } = billing.api
+ * export const { generateCheckoutLink, generateCustomerPortalUrl, getConfiguredProducts, giftCheckout } = billing.api
  * export const {
  *   getCurrentSubscription, getFeatures, getCredits, syncEntitlements,
  *   getReceivedGifts, claimGift,
@@ -103,17 +107,16 @@ export function setupBilling(
   const entitlements = createEntitlements(context)
   const { getCustomerState, forgetEntity } = entitlements
   const { reserveCredits, settleSpend, releaseSpend, spendCredits, refundCredits } = createCredits(context, entitlements)
-  const subscriptions = createSubscriptions(context)
+  const rules = createPurchaseRules(context)
+  const subscriptions = createSubscriptions(context, rules)
   const { discounts, updateSubscription, cancelSubscription, uncancelSubscription, pauseSubscription, resumeSubscription } = subscriptions
   const history = createHistory(context)
   const { getOrders, getInvoiceUrl, getUsageHistory, refundOrder } = history
-  const { generateCheckoutLink } = createCheckout(context)
-  const gifts = createGifts(context, entitlements)
+  const { generateCheckoutLink, checkout } = createCheckout(context, rules)
+  const gifts = createGifts(context, entitlements, rules)
   const { giftCheckout, claimGift, getReceivedGifts } = gifts
   const {
     generateCustomerPortalUrl,
-    changeCurrentSubscription,
-    cancelCurrentSubscription,
     getCurrentSubscription,
     listAllSubscriptions,
     getFeatures,
@@ -130,17 +133,18 @@ export function setupBilling(
     getInvoiceUrlFn,
     getUsageHistoryFn,
     refundOrderFn,
-  } = createBillingFunctions(context, entitlements, subscriptions, history)
+  } = createBillingFunctions(context, entitlements, subscriptions, history, rules)
   const { webhookEvents, webhookHandler } = createWebhooks(context, entitlements, gifts)
 
   return {
     api: {
-      ...provider.api(),
+      // Only the provider's price-list read: its checkout, portal, product
+      // list and one-subscription actions are left out, so a provider
+      // release that adds a public action never ships it to the app.
+      getConfiguredProducts: provider.api().getConfiguredProducts,
       listAllSubscriptions,
       generateCheckoutLink,
       generateCustomerPortalUrl,
-      changeCurrentSubscription,
-      cancelCurrentSubscription,
       giftCheckout,
     },
     functions: {
@@ -165,6 +169,7 @@ export function setupBilling(
     webhookEvents,
     webhookHandler,
     getCustomerState,
+    checkout,
     spendCredits,
     refundCredits,
     reserveCredits,

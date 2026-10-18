@@ -4,6 +4,7 @@ import { v } from 'convex/values'
 import type { BillingContext } from './context.js'
 import type { BillingEntitlements } from './entitlements.js'
 import type { BillingHistory } from './history.js'
+import type { PurchaseRules } from './purchase.js'
 import type { BillingSubscriptions } from './subscriptions.js'
 import type { ProviderCtx } from './types/base.js'
 import type { CurrentSubscriptions } from './types/options.js'
@@ -18,6 +19,7 @@ export function createBillingFunctions(
   { refreshEntitlements }: BillingEntitlements,
   { updateSubscription, cancelSubscription, uncancelSubscription, pauseSubscription, resumeSubscription }: BillingSubscriptions,
   { getOrders, getInvoiceUrl, getUsageHistory, refundOrder }: BillingHistory,
+  { requireTrustedUrl }: PurchaseRules,
 ) {
   // --- Ready-made reactive functions (re-exported by the consumer's billing.ts) ---
 
@@ -203,16 +205,17 @@ export function createBillingFunctions(
 
   const subscriptionTargetArgs = { subscriptionId: v.optional(v.string()) }
 
-  // The provider api()'s portal and one-subscription actions, replaced: theirs
-  // rethrow the SDK's raw error, whose message carries the provider's
-  // response body, and refuse with plain errors production shows as "Server
-  // Error". These go through the package boundary and refuse by catalog code.
+  // The provider api()'s portal action, replaced: theirs rethrows the SDK's
+  // raw error, whose message carries the provider's response body, and
+  // takes any return URL. This one goes through the package boundary,
+  // refuses by catalog code, and sends the customer back only to the site.
   const generateCustomerPortalUrl = actionGeneric({
     args: { returnUrl: v.optional(v.string()) },
     returns: v.object({ url: v.string() }),
     handler: async (ctx, { returnUrl }) => {
       const { userId } = await requireEntity(ctx)
       requireProviderAccess('portal session')
+      requireTrustedUrl(returnUrl, 'returnUrl')
       await throttle(ctx, userId, 'portal sessions')
       const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, userId)
       if (!customer) {
@@ -220,22 +223,6 @@ export function createBillingFunctions(
       }
       const session = unwrapProvider(await customerSessionsCreate(provider.polar, { customerId: customer.id, returnUrl }), 'portal session')
       return { url: session.customerPortalUrl }
-    },
-  })
-
-  const changeCurrentSubscription = actionGeneric({
-    args: { productId: v.string() },
-    handler: async (ctx, { productId }) => {
-      await updateSubscription(ctx, { productId })
-      return null
-    },
-  })
-
-  const cancelCurrentSubscription = actionGeneric({
-    args: { revokeImmediately: v.optional(v.boolean()) },
-    handler: async (ctx, { revokeImmediately }) => {
-      await cancelSubscription(ctx, { atPeriodEnd: revokeImmediately !== true })
-      return null
     },
   })
 
@@ -355,8 +342,6 @@ export function createBillingFunctions(
 
   return {
     generateCustomerPortalUrl,
-    changeCurrentSubscription,
-    cancelCurrentSubscription,
     getCurrentSubscription,
     listAllSubscriptions,
     getFeatures,

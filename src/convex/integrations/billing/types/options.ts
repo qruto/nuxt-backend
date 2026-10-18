@@ -215,22 +215,54 @@ export interface CheckoutPrefill {
 }
 
 /**
- * Everything {@link Billing.api}'s `generateCheckoutLink` accepts. A type
- * alias rather than an interface so it can type the registered action itself
- * (Convex's `DefaultFunctionArgs` needs an implicit index signature, which only
- * aliases get) — that is what makes the wide argument list visible to an app
- * that re-exports `generateCheckoutLink` from the scaffold.
+ * Campaign attribution a checkout carries, as a campaign link's UTM
+ * parameters. Stored on the order or subscription as flat `utm_source`,
+ * `utm_medium`, … metadata, the way the provider's own checkout links store
+ * it; each value is trimmed and cut to 100 characters.
+ */
+export interface CampaignAttribution {
+  source?: string
+  medium?: string
+  campaign?: string
+  term?: string
+  content?: string
+}
+
+/**
+ * A trial the server grants at checkout in place of the product's own: 1 to
+ * 30 days, in days or weeks. No months: the provider counts a month as a
+ * calendar month, up to 31 days.
+ */
+export interface CheckoutTrial {
+  interval: 'day' | 'week'
+  /** Number of intervals. Defaults to 1. */
+  count?: number
+}
+
+/**
+ * Everything {@link Billing.api}'s `generateCheckoutLink` accepts from a
+ * client. A type alias rather than an interface so it can type the
+ * registered action itself (Convex's `DefaultFunctionArgs` needs an implicit
+ * index signature, which only aliases get).
+ *
+ * What is bought and where the buyer lands are checked on the server: every
+ * product must be in the app's catalog, and `origin` and `successUrl` on
+ * the site's own origin (`SITE_URL`) or one of `trustedOrigins`. The trial
+ * is the product's own, and a discount is the code the customer types or
+ * `discountCode`: a different trial or a discount by id is the server's
+ * choice, through {@link Billing.checkout}.
  */
 export type CheckoutOptions = {
+  /** Provider product ids, each one from the app's catalog. */
   productIds: string[]
   /** The origin of the page embedding the checkout (for the iframe handshake). */
   origin: string
+  /** Where the buyer lands after paying. */
   successUrl: string
-  /** Upgrade an existing free subscription instead of starting a new one. */
+  /** Upgrade one of the entity's own free subscriptions instead of starting a new one. */
   subscriptionId?: string
+  /** The app's own keys: none the package reads back (see `RESERVED_METADATA_KEYS`). */
   metadata?: Record<string, string>
-  trialInterval?: 'day' | 'week' | 'month' | 'year' | null
-  trialIntervalCount?: number | null
   /** BCP-47 language tag for the checkout UI. */
   locale?: string
   /** Pre-filled customer details. */
@@ -241,17 +273,33 @@ export type CheckoutOptions = {
   requireBillingAddress?: boolean
   /**
    * Let the customer type a discount code into the provider's own checkout
-   * (default `true`). That is where a customer-entered code belongs: the
-   * provider validates it against the live catalog, so this package never has
-   * to.
+   * (default `true`). The provider validates it against the live catalog.
    */
   allowDiscountCodes?: boolean
   /**
-   * Pre-apply a discount by **id** — the only form the provider's checkout
-   * payload takes. There is no code→id lookup in the provider's API (its
-   * discount list filters by name, not code), so a campaign that knows a code
-   * resolves it once with `billing.discounts.list()` and stores the id, rather
-   * than making every checkout scan the catalog.
+   * A discount code to apply up front: a campaign link's code, say. The
+   * provider checks it like one the customer typed, and a code it does not
+   * know refuses the checkout as `invalid_input` (`discountCode`).
+   */
+  discountCode?: string
+  /** Campaign attribution, stored as `utm_*` metadata. */
+  utm?: CampaignAttribution
+}
+
+/**
+ * What {@link Billing.checkout} takes from server code: everything a client
+ * may send, plus what only the server chooses.
+ */
+export type ServerCheckoutOptions = CheckoutOptions & {
+  /**
+   * The trial for this checkout: `false` removes the product's own, an
+   * override grants at most 30 days. Omit to keep the product's own trial.
+   */
+  trial?: CheckoutTrial | false
+  /**
+   * Pre-apply a discount by **id** — the form the provider's checkout
+   * payload takes, and the server's to choose: a 100% discount minted for
+   * one claim must never be a client's to name.
    */
   discountId?: string
 }

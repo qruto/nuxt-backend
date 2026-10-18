@@ -53,12 +53,12 @@ async function sendInvite() {
 
 async function sendGift() {
   const email = giftEmail.value.trim()
-  const pack = packId.value
-  if (!pack || !email) return
-  // The recipient receives the credits — attached automatically if they have
-  // an account, claimed on their first sign-in otherwise (<GiftClaimBanner>).
+  if (!packId.value || !email) return
+  // A gift is a credit pack, named by its catalog key. The recipient receives
+  // the credits — attached automatically if they have an account, claimed on
+  // their first sign-in otherwise (<GiftClaimBanner>).
   await attempt(async () => {
-    await credits.gift(pack, { recipientEmail: email })
+    await credits.gift('credits500', { recipientEmail: email })
     giftEmail.value = ''
   }, `Checkout opened — once paid, ${email} receives the credits.`)
 }

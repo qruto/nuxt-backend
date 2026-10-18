@@ -100,6 +100,8 @@ describe('syncBillingCatalog', () => {
     }))
     expect(result.ids.meters.credits).toEqual({ meterId: 'mtr_1', eventName: 'credits', property: 'amount' })
     expect(Object.keys(result.ids.products)).toEqual(['pro', 'credits500'])
+    // The packs, by key: what a gift may buy.
+    expect(result.ids.packs).toEqual(['credits500'])
   })
 
   it('a failed list request surfaces as an Error with the provider\'s detail', async () => {

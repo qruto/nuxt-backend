@@ -47,6 +47,14 @@ export interface BillingComponents {
         meters: EntitlementMeter[]
       }, null>
       userByCustomer: FunctionReference<'query', 'internal', { customerId: string }, string | null>
+      /**
+       * Count one discount-code attempt for an entity before the provider is
+       * asked, in a fixed window of at most `max`: the window's start, or the
+       * wait once `max` are counted.
+       */
+      reserveDiscountCode: FunctionReference<'mutation', 'internal', { userId: string, max: number, windowMs: number }, { reserved: true, windowStart: number } | { reserved: false, retryAfter: number }>
+      /** Give back an attempt `reserveDiscountCode` counted, in the window it was counted in. */
+      releaseDiscountCode: FunctionReference<'mutation', 'internal', { userId: string, windowStart: number }, null>
       debit: FunctionReference<'mutation', 'internal', {
         userId: string
         meterId: string
@@ -162,6 +170,15 @@ export interface SetupBillingConfig {
    * `catalog`; an explicit map wins.
    */
   products?: Record<string, string>
+  /**
+   * Origins, besides `SITE_URL`'s, a checkout, a gift checkout or the
+   * customer portal may send the buyer back to (`['https://app.example.com']`)
+   * — a second domain the app is served from, say. Every other return or
+   * embed URL is refused as `invalid_input`. With
+   * `AUTH_TRUST_LOCAL_ORIGINS=1` (local development) loopback origins are
+   * trusted too.
+   */
+  trustedOrigins?: string[]
   /**
    * Who owns subscriptions and credits: the active workspace (`'organization'`,
    * the default — members share the workspace's plan and credits) or the

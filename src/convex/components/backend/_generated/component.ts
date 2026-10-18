@@ -2530,6 +2530,21 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         null,
         Name
       >;
+      releaseDiscountCode: FunctionReference<
+        "mutation",
+        "internal",
+        { userId: string; windowStart: number },
+        null,
+        Name
+      >;
+      reserveDiscountCode: FunctionReference<
+        "mutation",
+        "internal",
+        { max: number; userId: string; windowMs: number },
+        | { reserved: true; windowStart: number }
+        | { reserved: false; retryAfter: number },
+        Name
+      >;
       settle: FunctionReference<
         "mutation",
         "internal",

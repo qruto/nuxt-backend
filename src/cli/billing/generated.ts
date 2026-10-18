@@ -31,6 +31,7 @@ export async function loadGenerated(rootDir: string): Promise<Partial<Record<Env
 function renderValue(value: unknown, indent: string): string {
   if (typeof value === 'string') return `'${value.replace(/\\/g, '\\\\').replace(/'/g, '\\\'')}'`
   if (value === null || typeof value !== 'object') return String(value)
+  if (Array.isArray(value)) return `[${value.map(item => renderValue(item, indent)).join(', ')}]`
   const inner = indent + '  '
   const entries = Object.entries(value as Record<string, unknown>)
   if (entries.length === 0) return '{}'

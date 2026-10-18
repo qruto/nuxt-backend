@@ -39,10 +39,13 @@ export function createWebhooks(
   // Handlers run inside an httpAction at runtime, so we can refresh inline.
   /**
    * The billing entity a webhook event belongs to. Prefers the provider
-   * customer metadata (set at checkout, so first-time webhooks self-bootstrap)
-   * and falls back to the synced cache. Gift orders carry no `userId` metadata
-   * until claimed, so they resolve to `null` here and are handled by the gift
-   * branch instead.
+   * customer's own metadata (set at checkout, so first-time webhooks
+   * self-bootstrap) and falls back to the synced cache. Only the customer's
+   * metadata counts: an order's or a subscription's is copied from its
+   * checkout, which a buyer filled in, so a `userId` there could name any
+   * entity. On a `customer.*` event the payload is the customer itself.
+   * Gift orders carry no `userId` until claimed, so they resolve to `null`
+   * here and are handled by the gift branch instead.
    */
   const resolveEventEntity = async (ctx: RunWriteCtx, event: PolarWebhookEvent): Promise<string | null> => {
     const data = event.data as {
@@ -53,7 +56,8 @@ export function createWebhooks(
     }
     const customerId = data.customerId ?? data.customer?.id ?? data.id
     if (typeof customerId !== 'string') return null
-    const metaUserId = data.customer?.metadata?.userId ?? data.metadata?.userId
+    const ownMetadata = String((event as { type?: unknown }).type).startsWith('customer.') ? data.metadata : undefined
+    const metaUserId = data.customer?.metadata?.userId ?? ownMetadata?.userId
     if (typeof metaUserId === 'string') return metaUserId
     return await ctx.runQuery(cache.userByCustomer, { customerId })
   }

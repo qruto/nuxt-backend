@@ -35,8 +35,6 @@ const productsRef = makeFunctionReference<'query'>('billing:getConfiguredProduct
 const subscriptionsRef = makeFunctionReference<'query'>('billing:listAllSubscriptions')
 const checkoutRef = makeFunctionReference<'action'>('billing:generateCheckoutLink')
 const portalRef = makeFunctionReference<'action'>('billing:generateCustomerPortalUrl')
-const changeRef = makeFunctionReference<'action'>('billing:changeCurrentSubscription')
-const cancelRef = makeFunctionReference<'action'>('billing:cancelCurrentSubscription')
 const syncRef = makeFunctionReference<'action'>('billing:syncEntitlements')
 const giftCheckoutRef = makeFunctionReference<'action'>('billing:giftCheckout')
 const receivedGiftsRef = makeFunctionReference<'query'>('billing:getReceivedGifts')
@@ -224,14 +222,30 @@ describe('useBilling', () => {
     const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
     const { result } = await mountWithConvex(client, () => useBilling({ api }))
 
-    const url = await result.checkout('prod_1', { metadata: { plan: 'pro' } })
+    const url = await result.checkout('prod_1', { metadata: { plan: 'pro' }, discountCode: 'LAUNCH', utm: { source: 'newsletter' } })
 
     expect(url).toBe('https://polar.test/checkout')
     expect(actionSpy).toHaveBeenCalledWith(
       checkoutRef,
-      expect.objectContaining({ productIds: ['prod_1'], metadata: { plan: 'pro' } }),
+      expect.objectContaining({ productIds: ['prod_1'], metadata: { plan: 'pro' }, discountCode: 'LAUNCH', utm: { source: 'newsletter' } }),
     )
+    // The trial and a discount by id are the server's: never sent.
+    const sent = actionSpy.mock.calls[0]![1] as Record<string, unknown>
+    for (const field of ['trialInterval', 'trialIntervalCount', 'discountId']) expect(sent).not.toHaveProperty(field)
     expect(openSpy).toHaveBeenCalledWith('https://polar.test/checkout', '_blank')
+  })
+
+  // Code written for an earlier release, or plain JavaScript, may still send
+  // a trial or a discount id: passed on, the server refuses it by name.
+  it('checkout passes a trial or discount id on, for the server to refuse', async () => {
+    const api = { generateCheckoutLink: checkoutRef } as unknown as BillingApi
+    const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ url: 'https://polar.test/checkout' })
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    const { result } = await mountWithConvex(client, () => useBilling({ api }))
+
+    await result.checkout('prod_1', { trialInterval: 'day', trialIntervalCount: 7, discountId: 'disc_1' } as never)
+
+    expect(actionSpy).toHaveBeenCalledWith(checkoutRef, expect.objectContaining({ trialInterval: 'day', trialIntervalCount: 7, discountId: 'disc_1' }))
   })
 
   it('checkout redirects in the same tab when redirect is set', async () => {
@@ -246,25 +260,14 @@ describe('useBilling', () => {
     expect(openSpy).not.toHaveBeenCalled()
   })
 
-  it('portal, changePlan and cancel fall back to the pre-lifecycle actions', async () => {
-    // A backend deployed before the lifecycle functions existed: `changePlan`
-    // and `cancel` must still work through the older product-only pair.
-    const api = {
-      generateCustomerPortalUrl: portalRef,
-      changeCurrentSubscription: changeRef,
-      cancelCurrentSubscription: cancelRef,
-    } as unknown as BillingApi
-    // portal reads `.url`; changePlan/cancel ignore the return value.
+  it('portal opens the returned URL with the return URL it was given', async () => {
+    const api = { generateCustomerPortalUrl: portalRef } as unknown as BillingApi
     const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ url: 'https://polar.test/portal' })
     vi.spyOn(window, 'open').mockReturnValue(null)
     const { result } = await mountWithConvex(client, () => useBilling({ api }))
 
-    expect(await result.portal()).toBe('https://polar.test/portal')
-    await result.changePlan('prod_2')
-    await result.cancel({ atPeriodEnd: false })
-
-    expect(actionSpy).toHaveBeenCalledWith(changeRef, { productId: 'prod_2' })
-    expect(actionSpy).toHaveBeenCalledWith(cancelRef, { revokeImmediately: true })
+    expect(await result.portal({ returnUrl: 'https://app.test/billing' })).toBe('https://polar.test/portal')
+    expect(actionSpy).toHaveBeenCalledWith(portalRef, { returnUrl: 'https://app.test/billing' })
   })
 
   it('throws a helpful error when actions are not configured', async () => {
@@ -577,12 +580,13 @@ describe('useGifts', () => {
     const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
     const { result } = await mountWithConvex(client, () => useBilling({ api: { ...api, listAllSubscriptions: subscriptionsRef } as never }))
 
-    const url = await result.gift('pack_100', { recipientEmail: 'friend@example.com', message: 'hi' })
+    const url = await result.gift('credits100', { recipientEmail: 'friend@example.com', message: 'hi' })
 
     expect(url).toBe('https://checkout.test/gift')
+    // By catalog key: the server resolves the pack and refuses anything else.
     expect(actionSpy).toHaveBeenCalledWith(
       giftCheckoutRef,
-      expect.objectContaining({ productIds: ['pack_100'], recipientEmail: 'friend@example.com', message: 'hi' }),
+      expect.objectContaining({ pack: 'credits100', recipientEmail: 'friend@example.com', message: 'hi' }),
     )
     expect(openSpy).toHaveBeenCalledWith('https://checkout.test/gift', '_blank')
   })

@@ -48,8 +48,8 @@ export interface UseCreditsReturn {
   isLoading: ComputedRef<boolean>
   /** Buy a credit pack (a one-time product) via checkout — returns the URL. */
   topUp: (productIds: string | string[], options?: CheckoutOptions) => Promise<string>
-  /** Buy a credit pack as a gift for someone else (by email). Opens checkout. */
-  gift: (productIds: string | string[], options: GiftOptions & { recipientEmail: string }) => Promise<string>
+  /** Buy a credit pack, by its catalog key (`credits500`), as a gift for someone else (by email). Opens checkout. */
+  gift: (pack: string, options: GiftOptions & { recipientEmail: string }) => Promise<string>
   /** Refresh the cached balance from the provider (e.g. right after a top-up completes). */
   refresh: () => Promise<void>
 }

@@ -41,6 +41,8 @@ Anything tagged `@internal` in the source is stripped from the published declara
 
 The error catalog is part of this surface: every code `backendError` throws and `getBackendError` reads (`BACKEND_ERRORS` in `nuxt-backend/functions`), the data fields each code carries, the `forbidden`, `not_ready` and `unavailable` reasons the package throws, and the HTTP status an auth route answers each code with. A `forbidden` reason the reader maps from Better Auth's own 403 is Better Auth's error code, passed through as Better Auth names it, and is not covered. A code, a field or a reason is never renamed or removed outside the deprecation cycle; a minor release may add a code, an optional field or a reason. The English sentences are not part of it: the error's `message` and the `errors` labels may be reworded in any release. [Errors](https://nuxt-backend.dev/docs/reference/backend/errors) lists them.
 
+So are the checkout metadata keys the package reserves, which `generateCheckoutLink` and `giftCheckout` refuse from a client in any letter case: `userId`, `gift`, `giftId`, `recipientEmail`, `purchaserUserId`, `giftRecipient` and the `utm_` prefix (where campaign attribution lands, as `utm_source`, `utm_medium`, `utm_campaign`, `utm_term` and `utm_content`). A minor release may reserve another key; a reserved key is freed only through the deprecation cycle.
+
 Every name on this surface is brand-neutral: no export, value or type, and no registered name says the billing or the email provider. The same test pins it, down to the identifiers in the generated API reference. A provider appears only in prose, where a doc comment says what runs underneath, and in the component keys an app's own `convex.config.ts` chooses (`components.polar`).
 
 ### 2. Configuration names
@@ -158,9 +160,7 @@ The composables bind to deployment functions by name, so the scaffolded `backend
   - `revokeSession`
   - `updateProfile`
 - `billing.ts`:
-  - `cancelCurrentSubscription`
   - `cancelSubscription`
-  - `changeCurrentSubscription`
   - `claimGift`
   - `generateCheckoutLink`
   - `generateCustomerPortalUrl`
@@ -174,7 +174,6 @@ The composables bind to deployment functions by name, so the scaffolded `backend
   - `getUsageHistory`
   - `getWebhookDeliveries`
   - `giftCheckout`
-  - `listAllProducts`
   - `listAllSubscriptions`
   - `pauseSubscription`
   - `refundOrder`

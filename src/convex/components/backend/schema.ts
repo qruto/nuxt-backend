@@ -315,6 +315,17 @@ export const billingTables = {
     updatedAt: v.number(),
   })
     .index('benefitId', ['benefitId']),
+  // How many discount codes the provider refused at checkout, per billing
+  // entity, in a fixed one-hour window (the codes themselves are not kept):
+  // a checkout must not test codes one after another. `refused` also counts
+  // a code in flight, reserved before the provider is asked and given back
+  // when it accepts. One row per entity, reset when its window ends.
+  billingDiscountAttempts: defineTable({
+    userId: v.string(),
+    refused: v.number(),
+    windowStart: v.number(),
+  })
+    .index('userId', ['userId']),
   billingGifts: defineTable({
     // Stored lowercased; matched case-insensitively against the claimant's email.
     recipientEmail: v.string(),

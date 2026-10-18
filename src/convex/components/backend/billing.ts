@@ -490,6 +490,60 @@ export const deleteByUser = mutation({
     for await (const row of ctx.db.query('billingEntitlements').withIndex('userId', q => q.eq('userId', userId))) {
       await ctx.db.delete('billingEntitlements', row._id)
     }
+    for await (const row of ctx.db.query('billingDiscountAttempts').withIndex('userId', q => q.eq('userId', userId))) {
+      await ctx.db.delete('billingDiscountAttempts', row._id)
+    }
+    return null
+  },
+})
+
+/**
+ * Reserve one discount-code attempt for a billing entity before its checkout
+ * asks the provider, in one transaction: the check and the count can't be
+ * split by a parallel checkout. Inside the window (`windowMs` from its
+ * first attempt) at most `max` attempts count; a reserved one counts until
+ * the caller releases it (the provider accepted the code, or never got to
+ * try it), so a code the provider refuses stays counted. Answers the
+ * window's start, which a release names, or the milliseconds left in the
+ * window once `max` are counted.
+ */
+export const reserveDiscountCode = mutation({
+  args: { userId: v.string(), max: v.number(), windowMs: v.number() },
+  returns: v.union(
+    v.object({ reserved: v.literal(true), windowStart: v.number() }),
+    v.object({ reserved: v.literal(false), retryAfter: v.number() }),
+  ),
+  handler: async (ctx, { userId, max, windowMs }) => {
+    const now = Date.now()
+    const row = await ctx.db.query('billingDiscountAttempts').withIndex('userId', q => q.eq('userId', userId)).first()
+    if (!row) {
+      await ctx.db.insert('billingDiscountAttempts', { userId, refused: 1, windowStart: now })
+      return { reserved: true as const, windowStart: now }
+    }
+    const left = row.windowStart + windowMs - now
+    if (left <= 0) {
+      await ctx.db.patch('billingDiscountAttempts', row._id, { refused: 1, windowStart: now })
+      return { reserved: true as const, windowStart: now }
+    }
+    if (row.refused >= max) return { reserved: false as const, retryAfter: left }
+    await ctx.db.patch('billingDiscountAttempts', row._id, { refused: row.refused + 1 })
+    return { reserved: true as const, windowStart: row.windowStart }
+  },
+})
+
+/**
+ * Give back an attempt `reserveDiscountCode` counted: the provider accepted
+ * the code, or the checkout failed before the code was tried. A no-op once
+ * the window it was reserved in has ended (a new window counts from zero).
+ */
+export const releaseDiscountCode = mutation({
+  args: { userId: v.string(), windowStart: v.number() },
+  returns: v.null(),
+  handler: async (ctx, { userId, windowStart }) => {
+    const row = await ctx.db.query('billingDiscountAttempts').withIndex('userId', q => q.eq('userId', userId)).first()
+    if (row && row.windowStart === windowStart && row.refused > 0) {
+      await ctx.db.patch('billingDiscountAttempts', row._id, { refused: row.refused - 1 })
+    }
     return null
   },
 })

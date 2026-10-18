@@ -176,15 +176,30 @@ export interface CheckoutPrefill {
   business?: boolean
 }
 
-/** Args of the generated `generateCheckoutLink` action. */
+/**
+ * Campaign attribution, as a campaign link's UTM parameters: stored on the
+ * order or subscription as `utm_*` metadata, each value cut to 100
+ * characters.
+ */
+export interface CampaignAttribution {
+  source?: string
+  medium?: string
+  campaign?: string
+  term?: string
+  content?: string
+}
+
+/**
+ * Args of the generated `generateCheckoutLink` action. The server sells
+ * only the app's catalog and returns only to the site; the trial is the
+ * product's own, and a discount by id is the server's to apply.
+ */
 export type CheckoutArgs = {
   productIds: string[]
   origin: string
   successUrl: string
   subscriptionId?: string
   metadata?: Record<string, string>
-  trialInterval?: 'day' | 'week' | 'month' | 'year' | null
-  trialIntervalCount?: number | null
   locale?: string
   prefill?: CheckoutPrefill
   /** Values for the organization's custom checkout fields, keyed by field slug. */
@@ -193,8 +208,10 @@ export type CheckoutArgs = {
   requireBillingAddress?: boolean
   /** Let the customer type a discount code (default `true`). */
   allowDiscountCodes?: boolean
-  /** Pre-apply a discount by id — the only form the provider's checkout takes. */
-  discountId?: string
+  /** A discount code to apply up front (a campaign link's), checked by the provider. */
+  discountCode?: string
+  /** Campaign attribution, stored as `utm_*` metadata. */
+  utm?: CampaignAttribution
 }
 
 /**
@@ -205,13 +222,10 @@ export type CheckoutArgs = {
  */
 export interface BillingApi {
   getConfiguredProducts?: Query<Record<string, BillingProduct | undefined>>
-  listAllProducts?: Query<BillingProduct[]>
   listAllSubscriptions?: Query<BillingSubscription[] | null>
   getCurrentSubscription?: Query<BillingSubscription | null>
   generateCheckoutLink?: FunctionReference<'action', 'public', CheckoutArgs, { url: string }>
   generateCustomerPortalUrl?: FunctionReference<'action', 'public', { returnUrl?: string }, { url: string }>
-  changeCurrentSubscription?: FunctionReference<'action', 'public', { productId: string }, null>
-  cancelCurrentSubscription?: FunctionReference<'action', 'public', { revokeImmediately?: boolean }, null>
   // Every lifecycle action takes an optional `subscriptionId`: the server
   // resolves the caller's own single live subscription without it, and needs
   // it once `multipleSubscriptions` lets one account hold several.
@@ -248,7 +262,8 @@ export type UsageArgs = {
 
 /** Args of the `giftCheckout` action (a checkout whose recipient is someone else). */
 export type GiftCheckoutArgs = {
-  productIds: string[]
+  /** The credit pack's catalog key (`credits500`): gifts are packs only. */
+  pack: string
   recipientEmail: string
   message?: string
   origin: string
@@ -272,14 +287,17 @@ export interface ReceivedGift {
   claimedAt?: number
 }
 
-/** Per-call checkout overrides for {@link UseBillingReturn.checkout}. */
+/**
+ * Per-call checkout overrides for {@link UseBillingReturn.checkout}. The
+ * trial is the plan's own (the catalog's `trial`): a different one, or a
+ * discount by id, is the server's choice — see `billing.checkout`.
+ */
 export interface CheckoutOptions {
   subscriptionId?: string
+  /** Your own keys: the server refuses the ones the package reads back. */
   metadata?: Record<string, string>
-  trialInterval?: 'day' | 'week' | 'month' | 'year' | null
-  trialIntervalCount?: number | null
   locale?: string
-  /** Where checkout returns the customer afterwards. Defaults to the current URL. */
+  /** Where checkout returns the customer afterwards, on the site's own origin. Defaults to the current URL. */
   successUrl?: string
   /** Open in the same tab instead of a new one (redirect checkout). */
   redirect?: boolean
@@ -292,11 +310,13 @@ export interface CheckoutOptions {
   /** Let the customer type a discount code (default `true`). */
   allowDiscountCodes?: boolean
   /**
-   * Pre-apply a discount by id. Ids only — the provider's checkout payload
-   * takes no codes, and its API has no code→id lookup, so a campaign resolves
-   * its code once (`billing.discounts.list()`) and stores the id.
+   * A discount code to apply up front — a campaign link's, say. The
+   * provider checks it like one the customer typed; one it refuses rejects
+   * the checkout as `invalid_input` (`discountCode`).
    */
-  discountId?: string
+  discountCode?: string
+  /** Campaign attribution (a campaign link's UTM parameters), stored as `utm_*` metadata. */
+  utm?: CampaignAttribution
 }
 
 export interface UseBillingOptions {
@@ -396,8 +416,8 @@ export interface UseBillingReturn {
   pendingUpdate: ComputedRef<PendingPlanUpdate | null>
   /** Generate a checkout for the given product(s) and open it (returns the URL). */
   checkout: (productIds: string | string[], options?: CheckoutOptions) => Promise<string>
-  /** Buy the given product(s) as a gift for someone else (by email). Opens checkout. */
-  gift: (productIds: string | string[], options: GiftOptions & { recipientEmail: string }) => Promise<string>
+  /** Buy a credit pack, by its catalog key, as a gift for someone else (by email). Opens checkout. */
+  gift: (pack: string, options: GiftOptions & { recipientEmail: string }) => Promise<string>
   /** Open the billing customer portal (returns the URL). */
   portal: (options?: { returnUrl?: string, redirect?: boolean }) => Promise<string>
   /** Switch the active subscription to another product (upgrade/downgrade). */
@@ -484,7 +504,7 @@ export interface GiftOptions {
  * </script>
  * <template>
  *   <p v-if="billing.isSubscribed.value">Pro</p>
- *   <button @click="billing.checkout(productId, { trialInterval: 'day', trialIntervalCount: 7 })">
+ *   <button @click="billing.checkout(productId, { utm: { source: 'newsletter' } })">
  *     Upgrade
  *   </button>
  * </template>
@@ -550,9 +570,7 @@ export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
   const gift = createGiftCheckout(billing)
   const runPortal = billing.generateCustomerPortalUrl ? useAction(billing.generateCustomerPortalUrl) : null
   const runUpdate = billing.updateSubscription ? useAction(billing.updateSubscription) : null
-  const runChange = billing.changeCurrentSubscription ? useAction(billing.changeCurrentSubscription) : null
   const runCancelSubscription = billing.cancelSubscription ? useAction(billing.cancelSubscription) : null
-  const runCancel = billing.cancelCurrentSubscription ? useAction(billing.cancelCurrentSubscription) : null
   const runUncancel = billing.uncancelSubscription ? useAction(billing.uncancelSubscription) : null
   const runPause = billing.pauseSubscription ? useAction(billing.pauseSubscription) : null
   const runResume = billing.resumeSubscription ? useAction(billing.resumeSubscription) : null
@@ -591,31 +609,18 @@ export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
       openProviderUrl(url, opts.redirect)
       return url
     },
-    // `updateSubscription` is the full-fidelity call; `changeCurrentSubscription`
-    // is the older product-only one. Prefer the first, fall back to the second
-    // so an app that has not redeployed its backend keeps working (it just
-    // cannot choose a proration behavior).
     changePlan: async (productId, opts = {}) => {
-      if (runUpdate) {
-        await runUpdate({ subscriptionId: opts.subscriptionId, productId, proration: opts.proration })
-        return
-      }
-      if (!runChange) notConfigured('changePlan')
-      await runChange({ productId })
+      if (!runUpdate) notConfigured('changePlan')
+      await runUpdate({ subscriptionId: opts.subscriptionId, productId, proration: opts.proration })
     },
     cancel: async (opts = {}) => {
-      const atPeriodEnd = opts.atPeriodEnd ?? true
-      if (runCancelSubscription) {
-        await runCancelSubscription({
-          subscriptionId: opts.subscriptionId,
-          atPeriodEnd,
-          reason: opts.reason,
-          comment: opts.comment,
-        })
-        return
-      }
-      if (!runCancel) notConfigured('cancel')
-      await runCancel({ revokeImmediately: !atPeriodEnd })
+      if (!runCancelSubscription) notConfigured('cancel')
+      await runCancelSubscription({
+        subscriptionId: opts.subscriptionId,
+        atPeriodEnd: opts.atPeriodEnd ?? true,
+        reason: opts.reason,
+        comment: opts.comment,
+      })
     },
     uncancel: async (opts = {}) => {
       if (!runUncancel) notConfigured('uncancel')

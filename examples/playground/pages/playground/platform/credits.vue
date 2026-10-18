@@ -86,7 +86,8 @@ async function sendGift() {
   gifting.value = true
   giftNotice.value = ''
   try {
-    await credits.gift(creditPackId.value, {
+    // By catalog key: a gift is a credit pack, never a plan.
+    await credits.gift('credits100', {
       recipientEmail: giftRecipient.value,
       message: giftMessage.value || undefined,
     })

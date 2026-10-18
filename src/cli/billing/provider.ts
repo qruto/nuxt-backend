@@ -14,6 +14,8 @@ interface CreditMeterIds {
 
 export interface CatalogIds {
   products: Record<string, string>
+  /** The keys of `products` that are credit packs: what a gift may buy. */
+  packs?: string[]
   meters: Record<string, CreditMeterIds>
 }
 

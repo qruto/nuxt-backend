@@ -4,6 +4,7 @@ import { discountsList } from '@polar-sh/sdk/funcs/discountsList.js'
 import { subscriptionsUpdate } from '@polar-sh/sdk/funcs/subscriptionsUpdate.js'
 import type { Auth } from 'convex/server'
 import { type BillingContext, resolveLimit, resolvePage } from './context.js'
+import type { PurchaseRules } from './purchase.js'
 import type { ProviderCtx, ProviderSubscription, RunQueryCtx, RunWriteCtx, SubscriptionUpdatePayload } from './types/base.js'
 import type { BillingDiscounts, SubscriptionTarget } from './types/options.js'
 import type { Billing } from './types/surface.js'
@@ -19,7 +20,10 @@ import { backendError } from '../../errors.js'
 const ENDED_SUBSCRIPTION_STATUSES = new Set(['canceled', 'incomplete_expired'])
 
 /** Discounts and the subscription lifecycle — every write goes to the provider. */
-export function createSubscriptions({ provider, requireEntity, requireProviderAccess, unwrapProvider, throttle }: BillingContext) {
+export function createSubscriptions(
+  { provider, requireEntity, requireProviderAccess, unwrapProvider, throttle }: BillingContext,
+  { requirePlan }: PurchaseRules,
+) {
   const createDiscount: BillingDiscounts['create'] = async (discount) => {
     requireProviderAccess('discount creation')
     const created = unwrapProvider(await discountsCreate(provider.polar, discount), 'discount creation')
@@ -100,13 +104,13 @@ export function createSubscriptions({ provider, requireEntity, requireProviderAc
     operation: string,
     options: SubscriptionTarget,
     update: SubscriptionUpdatePayload,
-    refuse?: (subscription: { productId: string }) => void,
+    refuse?: (subscription: { productId: string }) => void | Promise<void>,
   ): Promise<ProviderSubscription> => {
     const { userId } = await requireEntity(ctx)
     requireProviderAccess(operation)
     await throttle(ctx, userId, `${operation}s`)
     const subscription = await resolveSubscription(ctx, userId, options.subscriptionId)
-    refuse?.(subscription)
+    await refuse?.(subscription)
     const result = await subscriptionsUpdate(provider.polar, {
       id: subscription.id,
       subscriptionUpdate: update,
@@ -121,7 +125,9 @@ export function createSubscriptions({ provider, requireEntity, requireProviderAc
     return applySubscriptionUpdate(ctx, 'plan change', options, {
       productId: options.productId,
       prorationBehavior: options.proration,
-    }, (subscription) => {
+    }, async (subscription) => {
+      // The plan to switch to is one the app sells as a plan, whoever asks.
+      if (options.productId) await requirePlan(ctx, options.productId)
       if (options.productId && options.productId === subscription.productId) {
         throw backendError('invalid_input', { field: 'productId' }, `[nuxt-backend] updateSubscription: the subscription is already on ${options.productId}.`)
       }

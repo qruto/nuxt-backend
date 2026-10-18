@@ -10,6 +10,7 @@ export const catalog: Partial<Record<'sandbox' | 'production', BillingCatalogIds
       credits100: '0313cfbe-b321-4fde-873a-00e27748682f',
       credits500: '8eb269bd-5f98-4a3f-9850-ff5f44d03da7',
     },
+    packs: ['credits100', 'credits500'],
     meters: {
       credits: {
         meterId: '8455082f-da79-4961-b323-bc799ddf7fbc',

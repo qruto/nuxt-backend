@@ -343,6 +343,10 @@ export async function syncBillingCatalog(
     }))
   }
 
+  // Which products are packs: the runtime lets a gift buy only these.
+  const packKeys = Object.keys(catalog.packs ?? {}).filter(key => key in ids.products)
+  if (packKeys.length > 0) ids.packs = packKeys
+
   // --- Drift: managed remote objects whose key left the catalog ---
   const knownKeys = new Set([
     ...Object.keys(catalog.meters ?? {}),

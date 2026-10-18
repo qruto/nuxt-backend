@@ -58,6 +58,7 @@ SaaS pages use redirect checkout (`billing.checkout(id, { redirect: true })`) �
 8. **Email outcomes** (platform/email) → bounced flips status; **complained is a flag on top of `delivered`** (shown as a warn pill), events may arrive out of order.
 9. **Cancel** → `cancelAtPeriodEnd` warning. **Delete account** → confirmation link → user row gone (`npx convex data user --component backend`).
 10. **Workspaces** (settings) → create auto-activates → billing shows Free/0 for the new workspace; switch back → plan/credits return. Billing entity = active workspace (`billTo: 'organization'`).
+11. **Off-catalog checkout refused** → from the browser console on a signed-in page, call `billing:generateCheckoutLink` with a product id outside `billing.generated.ts`, then a catalog id with `successUrl: 'https://example.com'`, then with `trialInterval: 'day'`, then with `metadata: { userId: 'x' }`: each rejects with `invalid_input` naming the field (`productIds`, `successUrl`, `trialInterval`, `metadata`), and no checkout appears in the Polar sandbox. A gift by a plan's key (`giftCheckout` with `pack: 'pro'`) rejects with field `pack`. A campaign link's `utm` lands on the order as `utm_*` metadata (Polar dashboard → the order).
 
 ## Inspecting component state
 
