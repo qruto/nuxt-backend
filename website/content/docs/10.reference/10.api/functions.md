@@ -250,14 +250,15 @@ never renames one.
 - `forbidden` — signed in, but not allowed; `reason` says why (`banned`,
   `role`, `permission`, `not_member`, `workspace_role`, `admin_only`,
   `not_owner`, `impersonating`, `sign_in_refused`, `customer_taken`,
-  `billing_profile_mismatch`, `gift_refused`, `not_recipient`, `no_email`).
+  `not_billing_manager`, `gift_refused`, `gift_refunded`, `not_recipient`,
+  `no_email`).
 - `no_workspace` — the call needs an active workspace and there is none.
 - `rate_limited` — a named limit is spent; `retryAfter` is in milliseconds.
 - `insufficient_credits` — the balance can't cover the spend.
 - `invalid_input` — an argument the call refuses; `field` names it.
 - `not_ready` — there is nothing to act on yet, and retrying will not
   change that: `reason` says what has to happen first (`no_customer`,
-  `not_synced`, `no_catalog`).
+  `not_synced`, `no_catalog`, `not_paid`).
 - `unavailable` — a service can't serve the call; `service` and
   `reason` say which and why. Only `provider_refused` may pass on a retry;
   the others need the deployment fixed. Nothing throws service `backend`

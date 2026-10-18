@@ -1,6 +1,7 @@
 import { createCheckout } from './billing/checkout.js'
 import { createBillingContext } from './billing/context.js'
 import { createCredits } from './billing/credits.js'
+import { createCustomers } from './billing/customers.js'
 import { createEntitlements } from './billing/entitlements.js'
 import { createBillingFunctions } from './billing/functions.js'
 import { createGifts } from './billing/gifts.js'
@@ -48,7 +49,7 @@ export type {
   RefundCreditsEvent,
   GiftRecord,
 } from './billing/types/records.js'
-export type { BillingWebhookEventHandlers, BillingComponents, BillingEmail, BillingEntity, BillingEntityCtx, SetupBillingConfig } from './billing/types/setup.js'
+export type { BillingWebhookEventHandlers, BillingComponents, BillingEmail, BillingEntity, BillingEntityCtx, EntityProfile, SetupBillingConfig } from './billing/types/setup.js'
 export type { Billing } from './billing/types/surface.js'
 
 // Catalog-as-code authoring surface (billing.catalog.ts / `billing sync`).
@@ -104,16 +105,17 @@ export function setupBilling(
   }
   const context = createBillingContext(components, config)
   const { provider, resolveEntity } = context
-  const entitlements = createEntitlements(context)
+  const rules = createPurchaseRules(context)
+  const customers = createCustomers(context, rules)
+  const entitlements = createEntitlements(context, customers)
   const { getCustomerState, forgetEntity } = entitlements
   const { reserveCredits, settleSpend, releaseSpend, spendCredits, refundCredits } = createCredits(context, entitlements)
-  const rules = createPurchaseRules(context)
   const subscriptions = createSubscriptions(context, rules)
   const { discounts, updateSubscription, cancelSubscription, uncancelSubscription, pauseSubscription, resumeSubscription } = subscriptions
-  const history = createHistory(context)
+  const history = createHistory(context, customers)
   const { getOrders, getInvoiceUrl, getUsageHistory, refundOrder } = history
-  const { generateCheckoutLink, checkout } = createCheckout(context, rules)
-  const gifts = createGifts(context, entitlements, rules)
+  const { generateCheckoutLink, checkout } = createCheckout(context, rules, customers)
+  const gifts = createGifts(context, customers, rules)
   const { giftCheckout, claimGift, getReceivedGifts } = gifts
   const {
     generateCustomerPortalUrl,
@@ -133,8 +135,8 @@ export function setupBilling(
     getInvoiceUrlFn,
     getUsageHistoryFn,
     refundOrderFn,
-  } = createBillingFunctions(context, entitlements, subscriptions, history, rules)
-  const { webhookEvents, webhookHandler } = createWebhooks(context, entitlements, gifts)
+  } = createBillingFunctions(context, entitlements, subscriptions, history, customers)
+  const { webhookEvents, webhookHandler } = createWebhooks(context, entitlements, gifts, customers)
 
   return {
     api: {
@@ -170,6 +172,7 @@ export function setupBilling(
     webhookHandler,
     getCustomerState,
     checkout,
+    portal: customers.portal,
     spendCredits,
     refundCredits,
     reserveCredits,

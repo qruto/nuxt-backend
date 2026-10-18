@@ -64,12 +64,13 @@ describe('nuxt-backend/test registers the component as an app would mount it', (
       recipientEmail: 'Friend@Example.com',
       purchaserUserId: 'user_1',
       productIds: ['prod_credits500'],
-      billingCustomerId: 'cus_1',
+      pack: 'credits500',
     })
     expect(typeof id).toBe('string')
-    const gifts = await t.query(components.backend.gifts.listByEmail, { email: 'friend@example.com', status: 'pending' })
+    await t.mutation(components.backend.gifts.markPaid, { giftId: id })
+    const gifts = await t.query(components.backend.gifts.listByEmail, { email: 'friend@example.com', status: 'paid' })
     expect(gifts).toHaveLength(1)
-    expect(gifts[0]).toMatchObject({ recipientEmail: 'friend@example.com', status: 'pending' })
+    expect(gifts[0]).toMatchObject({ recipientEmail: 'friend@example.com', status: 'paid' })
   })
 
   test('the nested email child is registered at <name>/resend', async () => {

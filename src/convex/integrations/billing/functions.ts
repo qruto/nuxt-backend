@@ -1,25 +1,23 @@
-import { customerSessionsCreate } from '@polar-sh/sdk/funcs/customerSessionsCreate.js'
 import { actionGeneric, type GenericDataModel, type GenericQueryCtx, internalActionGeneric, queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
 import type { BillingContext } from './context.js'
+import type { BillingCustomers } from './customers.js'
 import type { BillingEntitlements } from './entitlements.js'
 import type { BillingHistory } from './history.js'
-import type { PurchaseRules } from './purchase.js'
 import type { BillingSubscriptions } from './subscriptions.js'
 import type { ProviderCtx } from './types/base.js'
 import type { CurrentSubscriptions } from './types/options.js'
-import { backendError } from '../../errors.js'
 
 /** Statuses that count as a live entitlement for the current-subscription reads. */
 const LIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'paused'])
 
 /** The registered queries and actions `setupBilling` hands the app as `billing.functions`. */
 export function createBillingFunctions(
-  { config, products, meterNameById, provider, cache, webhookLog, resolveEntity, requireEntity, requireProviderAccess, unwrapProvider, throttle, requireAdmin }: BillingContext,
+  { config, products, meterNameById, provider, cache, webhookLog, resolveEntity, requireEntity, throttle, requireAdmin }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
   { updateSubscription, cancelSubscription, uncancelSubscription, pauseSubscription, resumeSubscription }: BillingSubscriptions,
   { getOrders, getInvoiceUrl, getUsageHistory, refundOrder }: BillingHistory,
-  { requireTrustedUrl }: PurchaseRules,
+  { portal }: BillingCustomers,
 ) {
   // --- Ready-made reactive functions (re-exported by the consumer's billing.ts) ---
 
@@ -212,18 +210,7 @@ export function createBillingFunctions(
   const generateCustomerPortalUrl = actionGeneric({
     args: { returnUrl: v.optional(v.string()) },
     returns: v.object({ url: v.string() }),
-    handler: async (ctx, { returnUrl }) => {
-      const { userId } = await requireEntity(ctx)
-      requireProviderAccess('portal session')
-      requireTrustedUrl(returnUrl, 'returnUrl')
-      await throttle(ctx, userId, 'portal sessions')
-      const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, userId)
-      if (!customer) {
-        throw backendError('not_ready', { reason: 'no_customer' }, '[nuxt-backend] No billing customer yet — the portal opens after a first checkout.')
-      }
-      const session = unwrapProvider(await customerSessionsCreate(provider.polar, { customerId: customer.id, returnUrl }), 'portal session')
-      return { url: session.customerPortalUrl }
-    },
+    handler: (ctx, { returnUrl }) => portal(ctx, { returnUrl }),
   })
 
   const updateSubscriptionFn = actionGeneric({

@@ -1,4 +1,4 @@
-import { CheckoutLink as BillingCheckoutLink, CustomerPortalLink as BillingPortalLink } from 'nuxt-convex-module/polar/vue'
+import { BillingCheckoutLink, BillingPortalLink } from './billing-links'
 import { renamedComponent } from '../utils/renamed-component'
 
 /**

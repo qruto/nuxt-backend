@@ -6,8 +6,9 @@ import { handleWebhookDelivery, parseSecretList, translateStandardSignature, typ
 import type { BillingContext } from './context.js'
 import type { BillingEntitlements } from './entitlements.js'
 import { ALL_BILLING_EVENTS, REFRESH_EVENTS } from './events.js'
+import type { BillingCustomers } from './customers.js'
 import type { BillingGifts } from './gifts.js'
-import type { RunWriteCtx } from './types/base.js'
+import type { ProviderCtx, RunWriteCtx } from './types/base.js'
 import type { BillingWebhookEventHandlers } from './types/setup.js'
 
 // The provider SDK verifies webhook signatures with `Buffer.from(secret)`.
@@ -30,41 +31,55 @@ const HANDLERS_NOT_CAPTURED = '[nuxt-backend] /billing/events cannot verify any 
 
 /** The `/billing/events` edge: the per-event handler map and the guarded handler that runs it. */
 export function createWebhooks(
-  { components, config, products, accessToken, environment, webhookSecret, webhookLog, provider, cache, requireEntity }: BillingContext,
+  { components, config, products, accessToken, environment, webhookSecret, webhookLog, provider, providerLib, cache, requireEntity }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
-  { handleGiftOrderPaid }: BillingGifts,
+  { handleGiftOrderPaid, handleGiftOrderRefunded }: BillingGifts,
+  { recordTrial }: BillingCustomers,
 ) {
   // --- Webhook handlers: keep the cache fresh as billing state changes ---
 
   // Handlers run inside an httpAction at runtime, so we can refresh inline.
   /**
-   * The billing entity a webhook event belongs to. Prefers the provider
-   * customer's own metadata (set at checkout, so first-time webhooks
-   * self-bootstrap) and falls back to the synced cache. Only the customer's
-   * metadata counts: an order's or a subscription's is copied from its
-   * checkout, which a buyer filled in, so a `userId` there could name any
-   * entity. On a `customer.*` event the payload is the customer itself.
-   * Gift orders carry no `userId` until claimed, so they resolve to `null`
-   * here and are handled by the gift branch instead.
+   * The billing entity a webhook event belongs to, from its provider
+   * customer: the customer's external id first (every customer this package
+   * creates is keyed by its entity's id), then the entity tag in the
+   * customer's own metadata, then the entity the cache last synced it for.
+   * Only the customer counts: an order's or a subscription's metadata is
+   * copied from its checkout, which a buyer filled in, so a `userId` there
+   * could name any entity. On a `customer.*` event the payload is the
+   * customer itself. A customer found by its key or tag is mapped in the
+   * component too, so its synced subscriptions read back for the entity even
+   * when it was created outside a checkout of this package.
    */
   const resolveEventEntity = async (ctx: RunWriteCtx, event: PolarWebhookEvent): Promise<string | null> => {
     const data = event.data as {
       id?: string
       customerId?: string
-      customer?: { id?: string, metadata?: Record<string, unknown> }
+      externalId?: string | null
+      customer?: { id?: string, externalId?: string | null, metadata?: Record<string, unknown> }
       metadata?: Record<string, unknown>
     }
     const customerId = data.customerId ?? data.customer?.id ?? data.id
     if (typeof customerId !== 'string') return null
-    const ownMetadata = String((event as { type?: unknown }).type).startsWith('customer.') ? data.metadata : undefined
-    const metaUserId = data.customer?.metadata?.userId ?? ownMetadata?.userId
-    if (typeof metaUserId === 'string') return metaUserId
-    return await ctx.runQuery(cache.userByCustomer, { customerId })
+    const isCustomer = String((event as { type?: unknown }).type).startsWith('customer.')
+    const keyed = data.customer?.externalId ?? (isCustomer ? data.externalId : undefined)
+    const tagged = data.customer?.metadata?.userId ?? (isCustomer ? data.metadata?.userId : undefined)
+    const entityId = typeof keyed === 'string' && keyed !== '' ? keyed : typeof tagged === 'string' && tagged !== '' ? tagged : null
+    if (entityId === null) return await ctx.runQuery(cache.userByCustomer, { customerId })
+    if (!await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, entityId)) {
+      await ctx.runMutation(providerLib.insertCustomer, { id: customerId, userId: entityId })
+    }
+    return entityId
   }
 
   const handleRefreshEvent = async (ctx: RunWriteCtx, event: PolarWebhookEvent): Promise<void> => {
     const userId = await resolveEventEntity(ctx, event)
     if (!userId) return
+    // A subscription that started a trial spends its owner's one trial, for good.
+    const subscription = event.data as { trialStart?: unknown }
+    if (String((event as { type?: unknown }).type).startsWith('subscription.') && subscription.trialStart != null) {
+      await recordTrial(ctx, userId)
+    }
     await refreshEntitlements(ctx, userId)
   }
 
@@ -110,6 +125,7 @@ export function createWebhooks(
         // Reservations are dropped *before* the refresh, so the refreshed
         // cache is exactly what the provider now says.
         if (type === 'order.refunded') await handleOrderRefunded(ctx, event)
+        if (type === 'order.refunded') await handleGiftOrderRefunded(ctx, event)
         if (refreshes) await handleRefreshEvent(ctx, event)
         if (type === 'benefit.updated') await handleBenefitUpdated(ctx, event)
         if (type === 'order.paid') await handleGiftOrderPaid(ctx, event)

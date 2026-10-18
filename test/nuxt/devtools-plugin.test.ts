@@ -78,9 +78,9 @@ vi.mock('../../src/runtime/vue/composables/use-passkeys', () => ({
   }),
 }))
 vi.mock('../../src/runtime/vue/composables/use-gifts', () => ({
-  useGifts: (options: { autoClaim?: boolean }) => {
-    if (options.autoClaim !== false) throw new Error('the panel must never claim a gift')
-    const received = ref([{ status: 'paid' }, { status: 'pending' }, { status: 'claimed' }])
+  // A claim is the recipient's own click: the panel gets no way to make one.
+  useGifts: () => {
+    const received = ref([{ status: 'paid' }, { status: 'claimed' }, { status: 'claimed' }])
     return { received, unclaimed: computed(() => received.value.filter(gift => gift.status === 'paid')) }
   },
 }))
@@ -275,7 +275,7 @@ describe('the DevTools bridge plugin', () => {
   it('counts gifts by state, and never claims one', () => {
     const bridge = install()
     bridge.request('gifts')
-    expect(bridge.getSnapshot().gifts).toEqual({ isLoading: false, received: 3, unclaimed: 1, pending: 1 })
+    expect(bridge.getSnapshot().gifts).toEqual({ isLoading: false, received: 3, unclaimed: 1, claimed: 2 })
   })
 
   it('looks up one email\'s delivery status', async () => {

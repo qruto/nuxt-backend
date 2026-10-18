@@ -62,6 +62,8 @@ const COMPONENT_NAMES = [
   'AgentConsent',
   'GiftClaimBanner',
   'PricingTable',
+  'BillingCheckoutLink',
+  'BillingPortalLink',
   'BillingHistory',
   'UsageHistory',
   'CreditsLowBanner',
@@ -398,17 +400,13 @@ describe('module registration (defaults)', () => {
   })
 
   it('aliases the base module\'s brand-named components under neutral names, and hides the originals', async () => {
-    // <BillingCheckoutLink> / <BillingPortalLink> are the base module's
-    // <CheckoutLink> / <CustomerPortalLink>, and <StorageImage> its
-    // <ConvexImage> — same files, same exports — so an app's surface never
-    // says a platform's or a provider's name. They live outside the runtime
-    // dir, hence the unfiltered hook here.
+    // <StorageImage> is the base module's <ConvexImage> — same file, same
+    // export — so an app's surface never says a platform's name. It lives
+    // outside the runtime dir, hence the unfiltered hook here.
     const components: ExtendedComponents = []
     await getNuxt().callHook('components:extend', components)
     const byName = (name: string) => components.find(component => component.pascalName === name)
     const aliases = [
-      ['BillingCheckoutLink', 'CheckoutLink', /[\\/]runtime[\\/]polar[\\/]vue[\\/]components(\.m?js|\.ts)?$/],
-      ['BillingPortalLink', 'CustomerPortalLink', /[\\/]runtime[\\/]polar[\\/]vue[\\/]components(\.m?js|\.ts)?$/],
       ['StorageImage', 'ConvexImage', /[\\/]runtime[\\/]vue[\\/]components[\\/]convex-image(\.m?js|\.ts)?$/],
     ] as const
     for (const [alias, upstream, file] of aliases) {
@@ -422,6 +420,13 @@ describe('module registration (defaults)', () => {
     }
     // The base module's neutral components stay.
     expect(byName('Authenticated')).toBeDefined()
+    // The billing links are the package's own, bound to its checkout and
+    // portal; the base module's, which bind by name, are hidden.
+    for (const [own, upstream] of [['BillingCheckoutLink', 'CheckoutLink'], ['BillingPortalLink', 'CustomerPortalLink']] as const) {
+      expect(byName(own)?.export, own).toBe(own)
+      expect(byName(own)?.filePath).toMatch(/[\\/]runtime[\\/]vue[\\/]components[\\/]billing-links(\.m?js|\.ts)?$/)
+      expect(byName(upstream), `${upstream} is hidden`).toBeUndefined()
+    }
   })
 
   it('hides every brand-named auto-import, component, middleware and Nitro import of the base module', async () => {

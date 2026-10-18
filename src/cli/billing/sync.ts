@@ -7,6 +7,7 @@ import { customFieldsCreate } from '@polar-sh/sdk/funcs/customFieldsCreate.js'
 import { customFieldsList } from '@polar-sh/sdk/funcs/customFieldsList.js'
 import { productsCreate } from '@polar-sh/sdk/funcs/productsCreate.js'
 import { productsList } from '@polar-sh/sdk/funcs/productsList.js'
+import { productsUpdate } from '@polar-sh/sdk/funcs/productsUpdate.js'
 import { productsUpdateBenefits } from '@polar-sh/sdk/funcs/productsUpdateBenefits.js'
 import { webhooksCreateWebhookEndpoint } from '@polar-sh/sdk/funcs/webhooksCreateWebhookEndpoint.js'
 import { webhooksListWebhookEndpoints } from '@polar-sh/sdk/funcs/webhooksListWebhookEndpoints.js'
@@ -18,6 +19,132 @@ import { isManaged, listAllPages, MANAGED_BY, type CatalogIds, type Environment,
 // The provider reconciliation behind `nuxt-backend billing sync` — its
 // contract (find-or-create, never update or delete, drift reported) is on the
 // command, in ../billing.ts.
+
+/** Every key the catalog declares itself, of every kind. */
+function catalogKeys(catalog: BillingCatalog): string[] {
+  return [catalog.meters, catalog.plans, catalog.packs, catalog.features, catalog.customFields].flatMap(entries => Object.keys(entries ?? {}))
+}
+
+/** The catalog key of a pack's private gift product. */
+function giftProductKey(packKey: string): string {
+  return `${packKey}-gift`
+}
+
+/**
+ * Refuse a catalog whose own key is a pack's gift twin key (`<pack>-gift`):
+ * the twin would be found as that product, or that product as the twin.
+ */
+function refuseGiftKeyCollisions(catalog: BillingCatalog): void {
+  const keys = new Set(catalogKeys(catalog))
+  const taken = Object.keys(catalog.packs ?? {}).map(giftProductKey).filter(key => keys.has(key))
+  if (taken.length > 0) {
+    throw new Error(`[nuxt-backend] billing sync: ${taken.join(', ')} ${taken.length === 1 ? 'is' : 'are'} the key of a pack's gift product — rename the catalog entry.`)
+  }
+}
+
+/** A product's one live fixed price, as the provider lists it. */
+function fixedPrice(product: { prices?: unknown[] } | undefined): { priceAmount: number, priceCurrency?: string } | undefined {
+  const prices = (product?.prices ?? []) as Array<{ amountType?: string, isArchived?: boolean, priceAmount?: number, priceCurrency?: string }>
+  const fixed = prices.filter(price => price.amountType === 'fixed' && !price.isArchived)
+  const only = fixed.length === 1 ? fixed[0] : undefined
+  return typeof only?.priceAmount === 'number' ? { priceAmount: only.priceAmount, priceCurrency: only.priceCurrency } : undefined
+}
+
+/**
+ * A live fixed price's amount and currency, as a create or update payload
+ * takes them. The SDK types the currency as a closed enum; it is the one the
+ * provider listed.
+ */
+function fixedPriceUpdate(price: { priceAmount: number, priceCurrency?: string }): { priceAmount: number, priceCurrency?: never } {
+  return { priceAmount: price.priceAmount, ...(price.priceCurrency ? { priceCurrency: price.priceCurrency as never } : {}) }
+}
+
+/** A fixed price as the log shows it: its amount, and its currency when the provider names one. */
+function showPrice(price: { priceAmount: number, priceCurrency?: string } | undefined): string {
+  return price ? [price.priceAmount, price.priceCurrency].filter(part => part !== undefined).join(' ') : 'unknown'
+}
+
+/**
+ * Keep a pack's gift twin at the pack's live price, amount and currency: a
+ * pack priced again in the dashboard would otherwise sell its gift at the
+ * old price. The twin is the package's own and never subscribed to, so its
+ * price is replaced.
+ */
+async function alignGiftTwinPrice(
+  client: Polar,
+  pack: { priceAmount: number, priceCurrency?: string } | undefined,
+  twin: { id: string, prices?: unknown[] },
+  giftKey: string,
+  { dryRun, log }: { dryRun: boolean, log: SyncLogEntry[] },
+): Promise<void> {
+  const twinPrice = fixedPrice(twin)
+  if (!pack || (twinPrice?.priceAmount === pack.priceAmount && twinPrice.priceCurrency === pack.priceCurrency)) return
+  const note = `priced ${showPrice(twinPrice)}, the pack is ${showPrice(pack)}`
+  if (dryRun) {
+    log.push({ action: 'would-update', kind: 'product', key: giftKey, id: twin.id, note })
+    return
+  }
+  const updated = await productsUpdate(client, {
+    id: twin.id,
+    productUpdate: { prices: [{ amountType: 'fixed', ...fixedPriceUpdate(pack) }] },
+  })
+  if (!updated.ok) throw updated.error
+  log.push({ action: 'updated', kind: 'product', key: giftKey, id: twin.id, note })
+}
+
+/**
+ * Detach whatever benefits a gift twin carries: one attached in the
+ * dashboard would grant the purchaser credits too, besides the recipient's
+ * claim of the pack. A twin grants nothing.
+ */
+async function detachGiftTwinBenefits(
+  client: Polar,
+  twin: { id: string, benefits?: unknown[] },
+  giftKey: string,
+  { dryRun, log }: { dryRun: boolean, log: SyncLogEntry[] },
+): Promise<void> {
+  const count = twin.benefits?.length ?? 0
+  if (count === 0) return
+  const note = `carried ${count} benefit${count === 1 ? '' : 's'}; a gift product grants nothing`
+  if (dryRun) {
+    log.push({ action: 'would-update', kind: 'product', key: giftKey, id: twin.id, note })
+    return
+  }
+  const updated = await productsUpdateBenefits(client, { id: twin.id, productBenefitsUpdate: { benefits: [] } })
+  if (!updated.ok) throw updated.error
+  log.push({ action: 'updated', kind: 'product', key: giftKey, id: twin.id, note })
+}
+
+/**
+ * Hold an existing gift twin to what `billing sync` makes: the pack's live
+ * price, and no benefits. A twin created this run already is.
+ */
+async function alignGiftTwin(
+  client: Polar,
+  managedProducts: Array<{ id: string, metadata?: unknown, prices?: unknown[], benefits?: unknown[] }>,
+  packKey: string,
+  options: { dryRun: boolean, log: SyncLogEntry[] },
+): Promise<void> {
+  const giftKey = giftProductKey(packKey)
+  const twin = managedProducts.find(item => isManaged(item.metadata as Record<string, unknown>, giftKey))
+  if (!twin) return
+  const pack = fixedPrice(managedProducts.find(item => isManaged(item.metadata as Record<string, unknown>, packKey)))
+  await alignGiftTwinPrice(client, pack, twin, giftKey, options)
+  await detachGiftTwinBenefits(client, twin, giftKey, options)
+}
+
+/**
+ * Move each pack's gift twin out of `products` into `gifts`, by pack key: a
+ * twin is never sold on its own, so it stays out of the checkout allow-list
+ * and the price list.
+ */
+function moveGiftTwins(ids: CatalogIds, catalog: BillingCatalog): void {
+  const twins = new Map(Object.keys(catalog.packs ?? {}).map(pack => [giftProductKey(pack), pack]))
+  const gifts = Object.entries(ids.products).flatMap(([key, id]) => twins.has(key) ? [[twins.get(key)!, id] as const] : [])
+  if (gifts.length === 0) return
+  ids.gifts = Object.fromEntries(gifts)
+  ids.products = Object.fromEntries(Object.entries(ids.products).filter(([key]) => !twins.has(key)))
+}
 
 export interface BillingSyncOptions {
   rootDir: string
@@ -66,6 +193,7 @@ export async function syncBillingCatalog(
   const log: SyncLogEntry[] = []
   const ids: CatalogIds = { products: {}, meters: {} }
   const { dryRun, adopt } = options
+  refuseGiftKeyCollisions(catalog)
 
   // --- Managed inventories (one list call per kind, metadata-filtered) ---
   const managedMeters = await listAllPages(page => metersList(client, { metadata: { managedBy: MANAGED_BY }, limit: 100, page }))
@@ -328,6 +456,27 @@ export async function syncBillingCatalog(
     }))
   }
 
+  /**
+   * The pack's private gift twin: its price and none of its benefits, so a
+   * purchaser pays for someone else's credits without receiving any. The
+   * price is the pack's live one when the pack exists already: one priced
+   * again in the dashboard no longer matches the catalog.
+   */
+  const ensureGiftTwin = async (key: string, pack: CatalogPack, prices: ReturnType<typeof pricesFor>) => {
+    const giftKey = giftProductKey(key)
+    const live = fixedPrice(managedProducts.find(item => isManaged(item.metadata, key)))
+    const giftPrices = live ? prices.map(price => price.amountType === 'fixed' ? { ...price, ...fixedPriceUpdate(live) } : price) : prices
+    await ensureProduct(giftKey, [], () => ({
+      name: `${pack.name} (gift)`,
+      description: pack.description,
+      recurringInterval: null,
+      prices: giftPrices,
+      visibility: 'private',
+      metadata: { managedBy: MANAGED_BY, key: giftKey, giftOf: key },
+    }))
+    await alignGiftTwin(client, managedProducts, key, { dryRun, log })
+  }
+
   for (const [key, pack] of Object.entries(catalog.packs ?? {})) {
     // Purchased credits keep by default (rollover).
     const benefit = await creditBenefitFor(key, pack.credits, true)
@@ -341,7 +490,9 @@ export async function syncBillingCatalog(
       ...(attachedCustomFields.length > 0 ? { attachedCustomFields } : {}),
       metadata: { managedBy: MANAGED_BY, key },
     }))
+    await ensureGiftTwin(key, pack, prices)
   }
+  moveGiftTwins(ids, catalog)
 
   // Which products are packs: the runtime lets a gift buy only these.
   const packKeys = Object.keys(catalog.packs ?? {}).filter(key => key in ids.products)
@@ -349,12 +500,9 @@ export async function syncBillingCatalog(
 
   // --- Drift: managed remote objects whose key left the catalog ---
   const knownKeys = new Set([
-    ...Object.keys(catalog.meters ?? {}),
-    ...Object.keys(catalog.plans ?? {}),
-    ...Object.keys(catalog.packs ?? {}),
-    ...Object.keys(catalog.features ?? {}),
-    ...Object.keys(catalog.customFields ?? {}),
+    ...catalogKeys(catalog),
     ...[...Object.keys(catalog.plans ?? {}), ...Object.keys(catalog.packs ?? {})].map(key => `${key}-credits`),
+    ...Object.keys(catalog.packs ?? {}).map(giftProductKey),
   ])
   for (const [kind, items] of [['meter', managedMeters], ['product', managedProducts], ['benefit', managedBenefits], ['custom-field', managedCustomFields]] as const) {
     for (const item of items) {

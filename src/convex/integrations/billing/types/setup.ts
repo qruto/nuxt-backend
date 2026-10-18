@@ -47,6 +47,12 @@ export interface BillingComponents {
         meters: EntitlementMeter[]
       }, null>
       userByCustomer: FunctionReference<'query', 'internal', { customerId: string }, string | null>
+      /** Who stands behind a workspace entity: its name, whether it is personal, its owner and the workspaces that owner owns; `null` for anything else. */
+      entityProfile: FunctionReference<'query', 'internal', { entityId: string }, EntityProfile | null>
+      /** Hold the owner's one trial for this entity's checkout, or say no when it is spent or held for another entity. */
+      claimTrial: FunctionReference<'mutation', 'internal', { ownerUserId: string, entityId: string, holdMs: number }, boolean>
+      /** Record that a subscription of this entity started its owner's trial. */
+      markTrialUsed: FunctionReference<'mutation', 'internal', { ownerUserId: string, entityId: string }, null>
       /**
        * Count one discount-code attempt for an entity before the provider is
        * asked, in a fixed window of at most `max`: the window's start, or the
@@ -87,21 +93,39 @@ export interface BillingComponents {
       create: FunctionReference<'mutation', 'internal', {
         recipientEmail: string
         purchaserUserId: string
-        purchaserEmail?: string
+        purchaserEntityId?: string
         purchaserName?: string
+        pack?: string
         productIds: string[]
+        giftProductId?: string
         message?: string
-        billingCustomerId: string
       }, string>
-      markPaid: FunctionReference<'mutation', 'internal', { giftId: string, billingOrderId?: string, billingCustomerId?: string }, null>
+      markPaid: FunctionReference<'mutation', 'internal', { giftId: string, billingOrderId?: string, amount?: number, currency?: string }, null>
+      setDiscount: FunctionReference<'mutation', 'internal', { giftId: string, discountId: string }, boolean>
       markNotified: FunctionReference<'mutation', 'internal', { giftId: string }, boolean>
-      markClaimed: FunctionReference<'mutation', 'internal', { giftId: string, userId: string, entityId: string }, null>
-      listByEmail: FunctionReference<'query', 'internal', { email: string, status?: string }, GiftRecord[]>
+      startClaim: FunctionReference<'mutation', 'internal', { giftId: string, userId: string, entityId: string }, boolean>
+      markClaimed: FunctionReference<'mutation', 'internal', { giftId: string, userId: string, entityId: string, claimOrderId?: string }, null>
+      markRefunded: FunctionReference<'mutation', 'internal', { giftId: string }, boolean>
+      listByEmail: FunctionReference<'query', 'internal', { email: string, status?: 'paid' | 'claimed' }, GiftRecord[]>
+      countBought: FunctionReference<'query', 'internal', { purchaserUserId: string, since: number, pendingSince: number, excludeGiftId?: string }, { count: number, oldest: number | null }>
       get: FunctionReference<'query', 'internal', { giftId: string }, GiftRecord | null>
-      resolveRecipient: FunctionReference<'query', 'internal', { email: string }, { userId: string, organizationId: string | null } | null>
+      personalEntity: FunctionReference<'query', 'internal', { userId: string }, string | null>
     }
     webhooks: WebhookLogRefs
   }
+}
+
+/**
+ * A workspace entity as its provider customer needs it: the team customer is
+ * named after the workspace and owned by its owner, a personal workspace may
+ * adopt its owner's earlier customer, and one trial counts across every
+ * workspace the owner owns.
+ */
+export interface EntityProfile {
+  name: string
+  personal: boolean
+  owner: { userId: string, email: string, name: string, emailVerified: boolean } | null
+  ownedEntityIds: string[]
 }
 
 /** The provider component's own customer-mapping functions (structural). */
@@ -229,18 +253,30 @@ export interface SetupBillingConfig {
    */
   events?: Partial<BillingWebhookEventHandlers>
   /**
-   * Decide who may receive a gift, before `giftCheckout` creates a billing
-   * customer for the recipient — only addresses on your own domain, say, or
-   * only sandbox addresses on a public demo. Return `true` to allow, or a
-   * refusal whose `message` `giftCheckout` throws as a `ConvexError`, so it
-   * reaches the purchaser even where production redacts other errors
-   * (default: "This address can't receive gifts."). Called with the action
-   * ctx, so it can read your own tables; `recipientEmail` is lower-cased.
+   * Decide who may receive a gift, before `giftCheckout` opens the
+   * purchaser's checkout — only addresses on your own domain, say, or only
+   * sandbox addresses on a public demo. It adds to the package's own rules,
+   * which always hold: no gift to the purchaser's own address, an earlier
+   * paid order of the purchaser's first, and {@link SetupBillingConfig.giftLimit}.
+   * Return `true` to allow, or a refusal whose `message` `giftCheckout`
+   * throws as a `ConvexError`, so it reaches the purchaser even where
+   * production redacts other errors (default: "This address can't receive
+   * gifts."). Called with the action ctx, so it can read your own tables;
+   * `recipientEmail` is lower-cased, and `purchaserEntityId` is the billing
+   * entity that pays.
    */
   canGift?: (
     ctx: GenericActionCtx<GenericDataModel>,
-    input: { recipientEmail: string, purchaserUserId: string },
+    input: { recipientEmail: string, purchaserUserId: string, purchaserEntityId: string },
   ) => Promise<true | { allowed: false, message?: string }> | true | { allowed: false, message?: string }
+  /**
+   * How many gifts one purchaser may buy in a window: `max` paid gifts in
+   * `days` days (default 10 in 30). A stolen card that can buy gifts for
+   * strangers is a way to cash it out, and a claimed gift can't be taken
+   * back, so the cap holds whatever rate limiter the app passes. A further
+   * purchase is `rate_limited` (`limit: 'gifts'`).
+   */
+  giftLimit?: { max?: number, days?: number }
   /**
    * Named credit meters: spend by friendly name (`spendCredits({ meter:
    * 'credits' })`, `useCredits('credits')`) instead of provider meter ids.

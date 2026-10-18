@@ -116,16 +116,16 @@ export function createCredits(
       return
     }
     try {
-      const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, reservation.entityId)
-      if (!customer) {
+      if (!await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, reservation.entityId)) {
         throw backendError('not_ready', { reason: 'no_customer' }, `[nuxt-backend] No billing customer for ${reservation.entityId}. Start a checkout first.`)
       }
       const metadata = meter?.property
         ? { ...options.metadata, [meter.property]: value }
         : options.metadata
+      // By the entity's id, never a member's: usage counts against the customer.
       const events: EventsIngestRequest['events'] = [{
         name,
-        customerId: customer.id,
+        externalCustomerId: reservation.entityId,
         metadata,
         externalId: reservation.externalId,
         timestamp: options.timestamp,
@@ -165,14 +165,13 @@ export function createCredits(
         `[nuxt-backend] refundCredits: meter '${event.meter}' has no \`property\` (count meter) — only sum meters can be refunded.`,
       )
     }
-    const customer = await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, entityId)
-    if (!customer) {
+    if (!await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, entityId)) {
       throw backendError('not_ready', { reason: 'no_customer' }, `[nuxt-backend] No billing customer for ${entityId}.`)
     }
     const result = await eventsIngest(provider.polar, {
       events: [{
         name: meter.eventName ?? meter.key ?? event.meter,
-        customerId: customer.id,
+        externalCustomerId: entityId,
         metadata: { ...event.metadata, [meter.property]: -value },
         externalId: event.externalId ?? crypto.randomUUID(),
       }],

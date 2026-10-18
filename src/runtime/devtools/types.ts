@@ -136,8 +136,8 @@ export interface DevtoolsGiftsSnapshot {
   received: number
   /** Paid and ready to receive. */
   unclaimed: number
-  /** Awaiting the purchaser's payment. */
-  pending: number
+  /** Already received. */
+  claimed: number
 }
 
 /** The delivery status of one email the panel looks up by id. */

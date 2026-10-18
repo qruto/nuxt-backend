@@ -108,10 +108,17 @@ sign-in codes print in the terminal that runs `dev`.
   `appConfig.backend.billing.plans` and `packs`.
   The server decides what is sold: checkout takes only catalog products, returns only to
   `SITE_URL` (or `setupBilling({ trustedOrigins })`), refuses the package's metadata keys
-  (`userId`, `gift`, `giftId`, `giftRecipient`, `recipientEmail`, `purchaserUserId`, `utm_*`) and a browser-chosen trial or `discountId`, each as
+  (`userId`, `gift`, `giftId`, `phase`, `giftRecipient`, `recipientEmail`, `purchaserUserId`, `utm_*`) and a browser-chosen trial or `discountId`, each as
   `invalid_input`. A campaign passes `discountCode` and `utm`; a different trial (1 to 30 days, in days or weeks)
-  or a discount by id goes through `billing.checkout(ctx, …)` in your own action. Gifts are
-  credit packs by catalog key: `useCredits().gift('credits500', { recipientEmail })`.
+  or a discount by id goes through `billing.checkout(ctx, …)` in your own action, and the portal
+  through `billing.portal(ctx, { returnUrl })`. Each workspace (or user, with `billTo: 'user'`) pays
+  through a provider customer of its own, keyed by its id; a workspace's portal opens only for its
+  owner (`forbidden`, reason `not_billing_manager`), and trials run once per owner.
+  `<BillingCheckoutLink :product-ids>` and `<BillingPortalLink>` create their session on click.
+  Gifts are credit packs by catalog key: `useCredits().gift('credits500', { recipientEmail })`
+  buys the pack's private gift product on the purchaser's own account (after an earlier paid
+  order, never for their own address); the recipient claims it with `useGifts().claim(giftId)`.
+  `billing sync` creates the gift products.
 - **Email:** transactional mail goes through `backend/email.ts` (`setupEmail`), and
   `useEmailStatus({ emailId })` tracks delivery (`isFailed` for a bounce). The package's own emails (sign-in codes, welcome,
   invitations, gifts) go through it too: restyle them with `setupEmail(components, { templates })`. Test mode is on until `EMAIL_TEST_MODE=false`.

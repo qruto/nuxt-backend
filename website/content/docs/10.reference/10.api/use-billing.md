@@ -197,7 +197,7 @@ pass `options.api` to override.
 | <a id="syncentitlements"></a> `syncEntitlements?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, `EmptyArgs`, `null`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="giftcheckout"></a> `giftCheckout?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, [`GiftCheckoutArgs`](#giftcheckoutargs), \{ `url`: `string`; \}\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="getreceivedgifts"></a> `getReceivedGifts?` | `Query`\<[`ReceivedGift`](#receivedgift)[] \| `null`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="claimgift"></a> `claimGift?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, \{ `giftId?`: `string`; \}, \{ `claimed`: `number`; \}\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="claimgift"></a> `claimGift?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, \{ `giftId`: `string`; `successUrl?`: `string`; \}, \{ `url`: `string` \| `null`; \}\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 
 ***
 
@@ -205,20 +205,20 @@ pass `options.api` to override.
 
 Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
 
-A gift addressed to the current user (`getReceivedGifts` shape).
+A gift addressed to the current user (`getReceivedGifts` shape): paid and
+claimed ones only, with the sender's name but never their email or a
+billing id.
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="id-2"></a> `id` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="recipientemail-1"></a> `recipientEmail` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="purchaseruserid"></a> `purchaserUserId` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="purchaseremail"></a> `purchaserEmail?` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="purchasername"></a> `purchaserName?` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="purchasername"></a> `purchaserName?` | `string` | The sender's name, at most 40 characters with no links. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="pack-1"></a> `pack?` | `string` | The credit pack's catalog key. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="productids-1"></a> `productIds` | `string`[] | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="message-1"></a> `message?` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="status"></a> `status` | `string` | `'pending'` (awaiting payment) → `'paid'` (claimable) → `'claimed'`. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="message-1"></a> `message?` | `string` | The sender's plain-text message, shown only inside the app. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="status"></a> `status` | `string` | `'paid'` (claimable) → `'claimed'`. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="createdat"></a> `createdAt` | `number` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="paidat"></a> `paidAt?` | `number` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="claimedat"></a> `claimedAt?` | `number` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
@@ -436,7 +436,7 @@ Per-call options for [UseBillingReturn.gift](#gift).
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="message-2"></a> `message?` | `string` | A note shown to the recipient in the gift email. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="message-2"></a> `message?` | `string` | A plain-text note of at most 500 characters, no links, shown to the recipient inside the app. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="metadata-4"></a> `metadata?` | `Record`\<`string`, `string`\> | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="successurl-3"></a> `successUrl?` | `string` | Where the purchaser returns after paying. Defaults to the current URL. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="redirect-1"></a> `redirect?` | `boolean` | Open in the same tab instead of a new one (redirect checkout). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
@@ -714,7 +714,7 @@ type GiftCheckoutArgs = {
 
 Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
 
-Args of the `giftCheckout` action (a checkout whose recipient is someone else).
+Args of the `giftCheckout` action: the purchaser's own checkout of a pack for someone else.
 
 #### Properties
 
@@ -884,9 +884,9 @@ Build a `gift(pack, { recipientEmail, ... })` action over a billing
 namespace — shared by [useBilling](#usebilling) and
 ["runtime/vue/composables/use-credits"!useCredits](/docs/reference/api/use-credits#usecredits). A gift is a
 credit pack, named by its catalog key (`credits500`); the server refuses
-a plan or anything outside the catalog. The purchaser pays; the recipient
-(by email) receives the credits — attached automatically if they have an
-account, claimable on first sign-in otherwise. Must be called during
+a plan or anything outside the catalog. The purchaser pays on their own
+billing account and gets the receipt; the recipient (by email) signs in
+and claims the credits (`useGifts().claim`). Must be called during
 component setup.
 
 #### Parameters

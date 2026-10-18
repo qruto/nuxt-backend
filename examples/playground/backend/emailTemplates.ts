@@ -106,8 +106,7 @@ export const previews = query({
         email.render('gift', {
           recipientEmail: 'friend@example.com',
           purchaserName: SAMPLE.name,
-          purchaserEmail: SAMPLE.email,
-          message: 'Enjoy some credits on me!',
+          item: '100 credits',
           claimUrl: 'https://app.example.com/',
         }),
       ),

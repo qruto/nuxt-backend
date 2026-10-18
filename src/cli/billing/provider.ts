@@ -16,11 +16,13 @@ export interface CatalogIds {
   products: Record<string, string>
   /** The keys of `products` that are credit packs: what a gift may buy. */
   packs?: string[]
+  /** Pack key → its private gift product, outside `products`. */
+  gifts?: Record<string, string>
   meters: Record<string, CreditMeterIds>
 }
 
 export interface SyncLogEntry {
-  action: 'created' | 'exists' | 'adopted' | 'would-create' | 'drift' | 'warn'
+  action: 'created' | 'exists' | 'adopted' | 'would-create' | 'updated' | 'would-update' | 'drift' | 'warn'
   kind: 'meter' | 'benefit' | 'product' | 'webhook' | 'custom-field' | 'currency'
   key: string
   id?: string

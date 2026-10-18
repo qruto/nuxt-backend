@@ -302,3 +302,79 @@ describe('benefit metadata snapshots', () => {
     expect(rows[0]).toMatchObject({ benefitId: 'ben_1', metadata: { key: 'premium-renamed' } })
   })
 })
+
+describe('entity profile (component)', () => {
+  const now = Date.now()
+
+  async function seed() {
+    return await t.run(async (ctx) => {
+      const user = (email: string, name: string) => ctx.db.insert('user', { name, email, emailVerified: true, createdAt: now, updatedAt: now }) as Promise<string>
+      const ada = await user('ada@example.com', 'Ada')
+      const bob = await user('bob@example.com', 'Bob')
+      const workspace = (slug: string, name: string) => ctx.db.insert('organization', { name, slug, createdAt: now }) as Promise<string>
+      const personal = await workspace(`personal-${ada}`, 'Ada\'s workspace')
+      const team = await workspace('acme', 'Acme')
+      const joined = await workspace(`personal-${bob}`, 'Bob\'s workspace')
+      const member = (organizationId: string, userId: string, role: string) => ctx.db.insert('member', { organizationId, userId, role, createdAt: now })
+      await member(personal, ada, 'owner')
+      await member(team, bob, 'admin')
+      await member(team, ada, 'member,owner')
+      await member(joined, bob, 'owner')
+      await member(joined, ada, 'member')
+      return { ada, bob, personal, team, joined }
+    })
+  }
+
+  test('names a workspace\'s owner and every workspace that owner owns', async () => {
+    const { ada, personal, team } = await seed()
+    const profile = await t.query(api.billing.entityProfile, { entityId: team })
+    expect(profile).toStrictEqual({
+      name: 'Acme',
+      personal: false,
+      owner: { userId: ada, email: 'ada@example.com', name: 'Ada', emailVerified: true },
+      ownedEntityIds: [personal, team],
+    })
+  })
+
+  test('calls a workspace personal only while its owner is its one member', async () => {
+    const { personal, joined } = await seed()
+    expect((await t.query(api.billing.entityProfile, { entityId: personal }))?.personal).toBe(true)
+    // Someone joined Bob's personal workspace: it is shared now, and adopts nothing.
+    expect((await t.query(api.billing.entityProfile, { entityId: joined }))?.personal).toBe(false)
+  })
+
+  test('is null for an id that is no workspace', async () => {
+    const { ada } = await seed()
+    expect(await t.query(api.billing.entityProfile, { entityId: ada })).toBeNull()
+    expect(await t.query(api.billing.entityProfile, { entityId: 'not-an-id' })).toBeNull()
+  })
+})
+
+describe('one trial per owner (component)', () => {
+  const HOLD = 60 * 60 * 1000
+
+  test('holds the trial for the first workspace, refuses a second one at the same time, and lets the first retry', async () => {
+    expect(await t.mutation(api.billing.claimTrial, { ownerUserId: 'u1', entityId: 'org-a', holdMs: HOLD })).toBe(true)
+    expect(await t.mutation(api.billing.claimTrial, { ownerUserId: 'u1', entityId: 'org-b', holdMs: HOLD })).toBe(false)
+    expect(await t.mutation(api.billing.claimTrial, { ownerUserId: 'u1', entityId: 'org-a', holdMs: HOLD })).toBe(true)
+    // Another owner is untouched.
+    expect(await t.mutation(api.billing.claimTrial, { ownerUserId: 'u2', entityId: 'org-c', holdMs: HOLD })).toBe(true)
+  })
+
+  test('lets the hold of an abandoned checkout run out', async () => {
+    expect(await t.mutation(api.billing.claimTrial, { ownerUserId: 'u1', entityId: 'org-a', holdMs: HOLD })).toBe(true)
+    expect(await t.mutation(api.billing.claimTrial, { ownerUserId: 'u1', entityId: 'org-b', holdMs: 0 })).toBe(true)
+  })
+
+  test('keeps a used trial by the owner, whatever becomes of the workspace that ran it', async () => {
+    await t.mutation(api.billing.markTrialUsed, { ownerUserId: 'u1', entityId: 'org-deleted' })
+    expect(await t.mutation(api.billing.claimTrial, { ownerUserId: 'u1', entityId: 'org-new', holdMs: 0 })).toBe(false)
+    expect(await t.mutation(api.billing.claimTrial, { ownerUserId: 'u1', entityId: 'org-deleted', holdMs: 0 })).toBe(false)
+  })
+
+  test('forgets an erased account\'s trial record', async () => {
+    await t.mutation(api.billing.markTrialUsed, { ownerUserId: 'u1', entityId: 'org-a' })
+    await t.mutation(api.billing.deleteByUser, { userId: 'u1' })
+    expect(await t.mutation(api.billing.claimTrial, { ownerUserId: 'u1', entityId: 'org-a', holdMs: 0 })).toBe(true)
+  })
+})

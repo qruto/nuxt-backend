@@ -5,11 +5,12 @@ import { refusalMessage } from '../utils/backend-error'
 /**
  * A banner listing the signed-in user's unclaimed gifts with a "Receive"
  * button per gift. Renders nothing when there is nothing to claim, so it can
- * sit permanently in a layout or dashboard page.
+ * sit permanently in a layout or dashboard page. A gift is claimed only when
+ * its recipient clicks: the credits land on their own billing account.
  *
- * By default gifts stay unclaimed until the user clicks (explicit-consent UX);
- * pass `auto-claim` to attach them automatically on load instead — the banner
- * then only flashes while claiming.
+ * `claimed` fires once the server confirmed a claim (the credits arrive a
+ * moment later); a pack that asks for checkout fields opens the provider's
+ * $0 checkout instead, and fires nothing.
  *
  * Headless like `AuthForm`: semantic markup with `data-gift` attributes for
  * styling, or replace the rendering wholesale via the default slot (receives
@@ -22,21 +23,16 @@ import { refusalMessage } from '../utils/backend-error'
  */
 export const GiftClaimBanner = /* @__PURE__ */ defineComponent({
   name: 'GiftClaimBanner',
-  props: {
-    /** Claim gifts automatically instead of waiting for a click. Default `false`. */
-    autoClaim: { type: Boolean, default: false },
-  },
   emits: {
     claimed: (_count: number) => true,
     error: (_message: string) => true,
   },
-  setup(props, { slots, emit }) {
-    const gifts = useGifts({ autoClaim: props.autoClaim })
+  setup(_props, { slots, emit }) {
+    const gifts = useGifts()
 
-    const claim = async (giftId?: string): Promise<void> => {
+    const claim = async (giftId: string): Promise<void> => {
       try {
-        const count = await gifts.claim(giftId)
-        if (count > 0) emit('claimed', count)
+        if (await gifts.claim(giftId)) emit('claimed', 1)
       }
       catch (error) {
         emit('error', refusalMessage(error, String(error)))
@@ -61,7 +57,7 @@ export const GiftClaimBanner = /* @__PURE__ */ defineComponent({
           h('p', { 'data-gift': 'message' }, [
             // Decoration, not content — keep it off the accessible name.
             h('span', { 'aria-hidden': 'true' }, '🎁 '),
-            h('strong', gift.purchaserName || gift.purchaserEmail || 'Someone'),
+            h('strong', gift.purchaserName || 'Someone'),
             ' sent you a gift',
             gift.message ? `: “${gift.message}”` : '.',
           ]),

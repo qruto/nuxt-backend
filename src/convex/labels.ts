@@ -142,7 +142,7 @@ const EMAIL_LABELS = {
   },
   gift: {
     subject: '{sender} sent you a gift 🎁',
-    intro: '{sender} sent you a gift! Sign in to receive it.',
+    intro: '{sender} sent you a gift: {item}. Sign in to receive it.',
     sender: 'Someone',
     action: 'Receive your gift',
   },

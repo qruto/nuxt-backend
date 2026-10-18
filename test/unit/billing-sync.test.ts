@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { membersListMembers } from '@polar-sh/sdk/funcs/membersListMembers.js'
 import { metersCreate } from '@polar-sh/sdk/funcs/metersCreate.js'
 import { metersList } from '@polar-sh/sdk/funcs/metersList.js'
 import { benefitsCreate } from '@polar-sh/sdk/funcs/benefitsCreate.js'
@@ -8,6 +9,7 @@ import { customFieldsList } from '@polar-sh/sdk/funcs/customFieldsList.js'
 import { organizationsListOrganizations } from '@polar-sh/sdk/funcs/organizationsListOrganizations.js'
 import { productsCreate } from '@polar-sh/sdk/funcs/productsCreate.js'
 import { productsList } from '@polar-sh/sdk/funcs/productsList.js'
+import { productsUpdate } from '@polar-sh/sdk/funcs/productsUpdate.js'
 import { productsUpdateBenefits } from '@polar-sh/sdk/funcs/productsUpdateBenefits.js'
 import { webhooksCreateWebhookEndpoint } from '@polar-sh/sdk/funcs/webhooksCreateWebhookEndpoint.js'
 import { webhooksListWebhookEndpoints } from '@polar-sh/sdk/funcs/webhooksListWebhookEndpoints.js'
@@ -16,6 +18,7 @@ import { BILLING_WEBHOOK_PROVISION_EVENTS } from '../../src/convex/catalog'
 import { REFRESH_EVENTS } from '../../src/convex/integrations/billing/events'
 import type { BillingCatalog } from '../../src/convex/catalog'
 
+vi.mock('@polar-sh/sdk/funcs/membersListMembers.js', () => ({ membersListMembers: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/metersCreate.js', () => ({ metersCreate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/metersList.js', () => ({ metersList: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/benefitsCreate.js', () => ({ benefitsCreate: vi.fn() }))
@@ -25,6 +28,7 @@ vi.mock('@polar-sh/sdk/funcs/customFieldsList.js', () => ({ customFieldsList: vi
 vi.mock('@polar-sh/sdk/funcs/organizationsListOrganizations.js', () => ({ organizationsListOrganizations: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/productsCreate.js', () => ({ productsCreate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/productsList.js', () => ({ productsList: vi.fn() }))
+vi.mock('@polar-sh/sdk/funcs/productsUpdate.js', () => ({ productsUpdate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/productsUpdateBenefits.js', () => ({ productsUpdateBenefits: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/webhooksCreateWebhookEndpoint.js', () => ({ webhooksCreateWebhookEndpoint: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/webhooksListWebhookEndpoints.js', () => ({ webhooksListWebhookEndpoints: vi.fn() }))
@@ -104,6 +108,109 @@ describe('syncBillingCatalog', () => {
     expect(result.ids.packs).toEqual(['credits500'])
   })
 
+  it('refuses a catalog key that is a pack\'s gift product key, before anything is created', async () => {
+    const clashing = { ...catalog, features: { ...catalog.features, 'credits500-gift': { description: 'Clash' } } }
+    await expect(syncBillingCatalog(clashing, options, fakeClient)).rejects.toThrow(/credits500-gift is the key of a pack's gift product/)
+    expect(metersList).not.toHaveBeenCalled()
+  })
+
+  it('moves a gift twin to its pack\'s live price', async () => {
+    vi.mocked(metersList).mockResolvedValue(page([{ id: 'mtr_1', metadata: { managedBy: 'nuxt-backend', key: 'credits' } }]) as never)
+    vi.mocked(benefitsCreate).mockResolvedValue({ ok: true, value: { id: 'ben_x' } } as never)
+    vi.mocked(productsCreate).mockResolvedValue({ ok: true, value: { id: 'prod_new' } } as never)
+    vi.mocked(productsUpdateBenefits).mockResolvedValue({ ok: true, value: {} } as never)
+    vi.mocked(productsUpdate).mockResolvedValue({ ok: true, value: {} } as never)
+    vi.mocked(productsList).mockResolvedValue(page([
+      { id: 'prod_pack', name: '500 credits', prices: [{ amountType: 'fixed', priceAmount: 2500, priceCurrency: 'usd' }], metadata: { managedBy: 'nuxt-backend', key: 'credits500' } },
+      { id: 'prod_twin', name: '500 credits (gift)', prices: [{ amountType: 'fixed', priceAmount: 2000, priceCurrency: 'usd' }], metadata: { managedBy: 'nuxt-backend', key: 'credits500-gift' } },
+    ]) as never)
+
+    const result = await syncBillingCatalog(catalog, options, fakeClient)
+
+    expect(productsUpdate).toHaveBeenCalledWith(fakeClient, { id: 'prod_twin', productUpdate: { prices: [{ amountType: 'fixed', priceAmount: 2500, priceCurrency: 'usd' }] } })
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'updated', key: 'credits500-gift' }))
+  })
+
+  it('moves a gift twin to its pack\'s currency when only the currency differs', async () => {
+    vi.mocked(metersList).mockResolvedValue(page([{ id: 'mtr_1', metadata: { managedBy: 'nuxt-backend', key: 'credits' } }]) as never)
+    vi.mocked(benefitsCreate).mockResolvedValue({ ok: true, value: { id: 'ben_x' } } as never)
+    vi.mocked(productsCreate).mockResolvedValue({ ok: true, value: { id: 'prod_new' } } as never)
+    vi.mocked(productsUpdateBenefits).mockResolvedValue({ ok: true, value: {} } as never)
+    vi.mocked(productsUpdate).mockResolvedValue({ ok: true, value: {} } as never)
+    vi.mocked(productsList).mockResolvedValue(page([
+      { id: 'prod_pack', name: '500 credits', prices: [{ amountType: 'fixed', priceAmount: 2000, priceCurrency: 'usd' }], metadata: { managedBy: 'nuxt-backend', key: 'credits500' } },
+      { id: 'prod_twin', name: '500 credits (gift)', prices: [{ amountType: 'fixed', priceAmount: 2000, priceCurrency: 'eur' }], metadata: { managedBy: 'nuxt-backend', key: 'credits500-gift' } },
+    ]) as never)
+
+    const result = await syncBillingCatalog(catalog, options, fakeClient)
+
+    expect(productsUpdate).toHaveBeenCalledWith(fakeClient, { id: 'prod_twin', productUpdate: { prices: [{ amountType: 'fixed', priceAmount: 2000, priceCurrency: 'usd' }] } })
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'updated', key: 'credits500-gift', note: 'priced 2000 eur, the pack is 2000 usd' }))
+  })
+
+  it('detaches benefits attached to an existing gift twin, and only says so on a dry run', async () => {
+    vi.mocked(metersList).mockResolvedValue(page([{ id: 'mtr_1', metadata: { managedBy: 'nuxt-backend', key: 'credits' } }]) as never)
+    vi.mocked(benefitsCreate).mockResolvedValue({ ok: true, value: { id: 'ben_x' } } as never)
+    vi.mocked(productsCreate).mockResolvedValue({ ok: true, value: { id: 'prod_new' } } as never)
+    vi.mocked(productsUpdateBenefits).mockResolvedValue({ ok: true, value: {} } as never)
+    const price = [{ amountType: 'fixed', priceAmount: 2000, priceCurrency: 'usd' }]
+    vi.mocked(productsList).mockResolvedValue(page([
+      { id: 'prod_pack', name: '500 credits', prices: price, metadata: { managedBy: 'nuxt-backend', key: 'credits500' } },
+      { id: 'prod_twin', name: '500 credits (gift)', prices: price, benefits: [{ id: 'ben_credits' }], metadata: { managedBy: 'nuxt-backend', key: 'credits500-gift' } },
+    ]) as never)
+
+    const preview = await syncBillingCatalog(catalog, { ...options, dryRun: true }, fakeClient)
+    expect(productsUpdateBenefits).not.toHaveBeenCalled()
+    expect(preview.log).toContainEqual(expect.objectContaining({ action: 'would-update', key: 'credits500-gift', note: expect.stringContaining('1 benefit') }))
+
+    const result = await syncBillingCatalog(catalog, options, fakeClient)
+    // A twin grants nothing: the purchaser would otherwise receive credits too.
+    expect(productsUpdateBenefits).toHaveBeenCalledWith(fakeClient, { id: 'prod_twin', productBenefitsUpdate: { benefits: [] } })
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'updated', key: 'credits500-gift' }))
+  })
+
+  it('creates a missing gift twin at its existing pack\'s live price, not the catalog\'s', async () => {
+    vi.mocked(metersList).mockResolvedValue(page([{ id: 'mtr_1', metadata: { managedBy: 'nuxt-backend', key: 'credits' } }]) as never)
+    vi.mocked(benefitsCreate).mockResolvedValue({ ok: true, value: { id: 'ben_x' } } as never)
+    vi.mocked(productsCreate).mockImplementation((async (_client: unknown, payload: { metadata: { key: string } }) => ({ ok: true, value: { id: `prod_${payload.metadata.key}` } })) as never)
+    vi.mocked(productsUpdateBenefits).mockResolvedValue({ ok: true, value: {} } as never)
+    vi.mocked(productsList).mockResolvedValue(page([
+      { id: 'prod_pack', name: '500 credits', prices: [{ amountType: 'fixed', priceAmount: 2500, priceCurrency: 'eur' }], metadata: { managedBy: 'nuxt-backend', key: 'credits500' } },
+    ]) as never)
+
+    await syncBillingCatalog(catalog, options, fakeClient)
+
+    // The catalog still says 2000; the pack was priced again in the dashboard.
+    expect(productsCreate).toHaveBeenCalledWith(fakeClient, expect.objectContaining({
+      metadata: expect.objectContaining({ key: 'credits500-gift' }),
+      prices: [{ amountType: 'fixed', priceAmount: 2500, priceCurrency: 'eur' }],
+    }))
+    expect(productsUpdate).not.toHaveBeenCalled()
+  })
+
+  it('creates each pack\'s private gift twin: its prices, no benefits, outside the products', async () => {
+    vi.mocked(metersCreate).mockResolvedValue({ ok: true, value: { id: 'mtr_1' } } as never)
+    vi.mocked(benefitsCreate).mockResolvedValue({ ok: true, value: { id: 'ben_x' } } as never)
+    vi.mocked(productsCreate).mockImplementation((async (_client: unknown, payload: { metadata: { key: string } }) => ({ ok: true, value: { id: `prod_${payload.metadata.key}` } })) as never)
+    vi.mocked(productsUpdateBenefits).mockResolvedValue({ ok: true, value: {} } as never)
+
+    const result = await syncBillingCatalog(catalog, options, fakeClient)
+
+    expect(productsCreate).toHaveBeenCalledWith(fakeClient, {
+      name: '500 credits (gift)',
+      description: undefined,
+      recurringInterval: null,
+      prices: [{ amountType: 'fixed', priceAmount: 2000, priceCurrency: 'usd' }],
+      visibility: 'private',
+      metadata: { managedBy: 'nuxt-backend', key: 'credits500-gift', giftOf: 'credits500' },
+    })
+    // A twin grants nothing: the purchaser pays, the recipient's claim of the pack grants.
+    expect(vi.mocked(productsUpdateBenefits).mock.calls.some(([, args]) => (args as { id: string }).id === 'prod_credits500-gift')).toBe(false)
+    // Never sold on its own: not in the checkout allow-list, only in `gifts`.
+    expect(result.ids.products).not.toHaveProperty('credits500-gift')
+    expect(result.ids.gifts).toEqual({ credits500: 'prod_credits500-gift' })
+  })
+
   it('a failed list request surfaces as an Error with the provider\'s detail', async () => {
     // The SDK returns its error as a value; a bare object thrown would print as
     // "[object Object]" with no stack.
@@ -135,6 +242,7 @@ describe('syncBillingCatalog', () => {
     vi.mocked(productsList).mockResolvedValue(page([
       { id: 'prod_pro', metadata: { managedBy: 'nuxt-backend', key: 'pro' } },
       { id: 'prod_pack', metadata: { managedBy: 'nuxt-backend', key: 'credits500' } },
+      { id: 'prod_pack_gift', metadata: { managedBy: 'nuxt-backend', key: 'credits500-gift', giftOf: 'credits500' } },
     ]) as never)
 
     const result = await syncBillingCatalog(catalog, options, fakeClient)
@@ -143,6 +251,7 @@ describe('syncBillingCatalog', () => {
     expect(benefitsCreate).not.toHaveBeenCalled()
     expect(productsCreate).not.toHaveBeenCalled()
     expect(result.ids.products).toEqual({ pro: 'prod_pro', credits500: 'prod_pack' })
+    expect(result.ids.gifts).toEqual({ credits500: 'prod_pack_gift' })
     expect(result.log.every(entry => entry.action === 'exists')).toBe(true)
   })
 
@@ -197,6 +306,7 @@ describe('syncBillingCatalog', () => {
     vi.mocked(productsList).mockResolvedValue(page([
       { id: 'prod_pro', name: 'Pro', prices: [{ amountType: 'fixed', priceAmount: 1900 }], metadata: { managedBy: 'nuxt-backend', key: 'pro' } },
       { id: 'prod_pack', name: 'Credit Pack 500', prices: [{ amountType: 'fixed', priceAmount: 2000 }], metadata: { managedBy: 'nuxt-backend', key: 'credits500' } },
+      { id: 'prod_gift', name: '500 credits (gift)', prices: [{ amountType: 'fixed', priceAmount: 2000 }], metadata: { managedBy: 'nuxt-backend', key: 'credits500-gift' } },
     ]) as never)
 
     const result = await syncBillingCatalog(catalog, options, fakeClient)
@@ -233,8 +343,8 @@ describe('syncBillingCatalog', () => {
     const result = await syncBillingCatalog(catalog, { ...options, adopt: { pro: 'prod_existing' } }, fakeClient)
 
     expect(result.ids.products.pro).toBe('prod_existing')
-    // Only the pack was created; the adopted plan got no benefit attachment.
-    expect(productsCreate).toHaveBeenCalledTimes(1)
+    // Only the pack and its gift twin were created; the adopted plan got no benefit attachment.
+    expect(productsCreate).toHaveBeenCalledTimes(2)
     expect(vi.mocked(productsUpdateBenefits).mock.calls.every(([, args]) => (args as { id: string }).id !== 'prod_existing')).toBe(true)
   })
 
@@ -557,6 +667,7 @@ const organizationPayload = {
     usage: { show: true },
     subscription: { updateSeats: false, updatePlan: true, pause: false },
   },
+  featureSettings: { memberModelEnabled: true },
 }
 
 const healthyState: BillingOrganizationState = {
@@ -567,6 +678,9 @@ const healthyState: BillingOrganizationState = {
   preventTrialAbuse: true,
   portal: { updatePlan: true, pause: false },
   benefitTypeByKey: { priority_support: 'feature_flag' },
+  memberModel: true,
+  membersReadable: true,
+  productByKey: { 'credits500': { visibility: 'public', price: 2000, currency: 'usd', benefits: 1 }, 'credits500-gift': { visibility: 'private', price: 2000, currency: 'usd', benefits: 0 } },
 }
 
 const statusOf = (findings: Array<{ id: string, status: string }>, id: string) => findings.find(finding => finding.id === id)?.status
@@ -578,9 +692,12 @@ describe('readBillingOrganizationState', () => {
       { id: 'ben_f', type: 'custom', metadata: { managedBy: 'nuxt-backend', key: 'priority_support' } },
       { id: 'ben_other', type: 'custom', metadata: { managedBy: 'someone-else', key: 'ignored' } },
     ]) as never)
+    vi.mocked(membersListMembers).mockResolvedValue(emptyPage as never)
 
     const state = await readBillingOrganizationState({ accessToken: 'tok', environment: 'sandbox' }, fakeClient)
 
+    // The members read is the token-scope probe: one row at most, nothing written.
+    expect(membersListMembers).toHaveBeenCalledWith(fakeClient, { limit: 1 })
     expect(state).toEqual({
       slug: 'acme',
       allowMultipleSubscriptions: false,
@@ -589,7 +706,34 @@ describe('readBillingOrganizationState', () => {
       preventTrialAbuse: true,
       portal: { updatePlan: true, pause: false },
       benefitTypeByKey: { priority_support: 'custom' },
+      memberModel: true,
+      membersReadable: true,
+      productByKey: {},
     })
+  })
+
+  it('reads each managed product\'s visibility, one live fixed price and benefit count', async () => {
+    vi.mocked(organizationsListOrganizations).mockResolvedValue(page([organizationPayload]) as never)
+    vi.mocked(membersListMembers).mockResolvedValue(emptyPage as never)
+    vi.mocked(productsList).mockResolvedValue(page([
+      { id: 'p1', visibility: 'public', benefits: [{ id: 'b' }], prices: [{ amountType: 'fixed', priceAmount: 2000, priceCurrency: 'usd' }, { amountType: 'fixed', priceAmount: 1, isArchived: true }], metadata: { managedBy: 'nuxt-backend', key: 'credits500' } },
+      { id: 'p2', visibility: 'private', benefits: [], prices: [{ amountType: 'fixed', priceAmount: 2000, priceCurrency: 'usd' }, { amountType: 'fixed', priceAmount: 1800, priceCurrency: 'eur' }], metadata: { managedBy: 'nuxt-backend', key: 'credits500-gift' } },
+    ]) as never)
+
+    const state = await readBillingOrganizationState({ accessToken: 'tok', environment: 'sandbox' }, fakeClient)
+
+    // Several live fixed prices leave the price unknown, never one of them.
+    expect(state?.productByKey).toEqual({
+      'credits500': { visibility: 'public', price: 2000, currency: 'usd', benefits: 1 },
+      'credits500-gift': { visibility: 'private', benefits: 0 },
+    })
+  })
+
+  it('reports a token the provider refuses the members read for', async () => {
+    vi.mocked(organizationsListOrganizations).mockResolvedValue(page([{ ...organizationPayload, featureSettings: null }]) as never)
+    vi.mocked(membersListMembers).mockResolvedValue({ ok: false, error: { statusCode: 403 } } as never)
+
+    expect(await readBillingOrganizationState({ accessToken: 'tok', environment: 'sandbox' }, fakeClient)).toMatchObject({ memberModel: false, membersReadable: false })
   })
 
   it('returns null when the token is refused (the live 401 path) instead of throwing', async () => {
@@ -654,8 +798,31 @@ describe('collectBillingFindings', () => {
       'billing-benefit-grace',
       'billing-trial-abuse',
       'billing-portal',
+      'billing-team-customers',
+      'billing-gift-twins',
       'billing-feature-benefits',
     ])
+  })
+
+  it.each([
+    ['missing', {}, 'has no gift product'],
+    ['public', { 'credits500-gift': { visibility: 'public', price: 2000, currency: 'usd' } }, 'is not private'],
+    ['granting benefits', { 'credits500-gift': { visibility: 'private', price: 2000, currency: 'usd', benefits: 1 } }, 'carries benefits'],
+    ['at an old price', { 'credits500-gift': { visibility: 'private', price: 1500, currency: 'usd' } }, 'priced 1500 usd, the pack 2000 usd'],
+    ['in another currency', { 'credits500-gift': { visibility: 'private', price: 2000, currency: 'eur' } }, 'priced 2000 eur, the pack 2000 usd'],
+    ['priced unreadably', { 'credits500-gift': { visibility: 'private' } }, 'can\'t be checked'],
+    ['beside a pack priced unreadably', { 'credits500': { visibility: 'public' }, 'credits500-gift': { visibility: 'private', price: 2000, currency: 'usd' } }, 'can\'t be checked'],
+  ])('warns about a pack whose gift product is %s', (_name, twins, message) => {
+    const state = { ...healthyState, productByKey: { credits500: { visibility: 'public', price: 2000, currency: 'usd' }, ...twins } }
+    const found = collectBillingFindings(catalog, state, { tokenPresent: true }).find(entry => entry.id === 'billing-gift-twins')
+    expect(found).toMatchObject({ status: 'warn', message: expect.stringContaining(message) })
+  })
+
+  it('warns when the organization has no customer members, or the token can\'t read them', () => {
+    const memberless = collectBillingFindings(catalog, { ...healthyState, memberModel: false }, { tokenPresent: true }).find(finding => finding.id === 'billing-team-customers')
+    expect(memberless).toMatchObject({ status: 'warn', message: expect.stringContaining('team customer') })
+    const scoped = collectBillingFindings(catalog, { ...healthyState, membersReadable: false }, { tokenPresent: true }).find(finding => finding.id === 'billing-team-customers')
+    expect(scoped).toMatchObject({ status: 'warn', fixHint: expect.stringContaining('members:write and customer_sessions:write') })
   })
 
   it('warns when several plans meet an organization that allows stacked subscriptions', () => {

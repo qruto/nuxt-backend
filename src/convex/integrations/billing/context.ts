@@ -28,6 +28,12 @@ export function resolvePage(options: { cursor?: string, page?: number }): number
   return Number.isFinite(page) ? Math.max(1, Math.trunc(page!)) : 1
 }
 
+/** Whether a refused provider request means the object is not there: the SDK's 404 or its `ResourceNotFound`. */
+export function isProviderNotFound(error: unknown): boolean {
+  const fields = (typeof error === 'object' && error !== null ? error : {}) as { statusCode?: unknown, error?: unknown }
+  return fields.statusCode === 404 || fields.error === 'ResourceNotFound'
+}
+
 /** Clamp a page size to the provider's accepted 1–100 window. */
 export function resolveLimit(limit: number | undefined): number {
   if (!Number.isFinite(limit)) return 10

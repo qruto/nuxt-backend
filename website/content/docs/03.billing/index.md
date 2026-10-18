@@ -45,7 +45,7 @@ For metered AI calls, [`ai.meteredAction`](/docs/ai/metered-actions) wraps the s
   :::
 
   :::card{icon="i-lucide-gift" title="Gifts" to="/docs/billing/credits/gifts"}
-  Buy a plan or credits for someone else by email, and claim it on their first sign-in.
+  Buy a credit pack for someone else by email; they sign in and claim it into their own account.
   :::
 ::
 

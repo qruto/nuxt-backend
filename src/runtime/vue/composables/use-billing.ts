@@ -242,7 +242,7 @@ export interface BillingApi {
   syncEntitlements?: FunctionReference<'action', 'public', EmptyArgs, null>
   giftCheckout?: FunctionReference<'action', 'public', GiftCheckoutArgs, { url: string }>
   getReceivedGifts?: Query<ReceivedGift[] | null>
-  claimGift?: FunctionReference<'action', 'public', { giftId?: string }, { claimed: number }>
+  claimGift?: FunctionReference<'action', 'public', { giftId: string, successUrl?: string }, { url: string | null }>
 }
 
 /** Args of the `getOrders` action — provider page numbers start at 1. */
@@ -260,7 +260,7 @@ export type UsageArgs = {
   endTimestamp?: number
 }
 
-/** Args of the `giftCheckout` action (a checkout whose recipient is someone else). */
+/** Args of the `giftCheckout` action: the purchaser's own checkout of a pack for someone else. */
 export type GiftCheckoutArgs = {
   /** The credit pack's catalog key (`credits500`): gifts are packs only. */
   pack: string
@@ -271,16 +271,21 @@ export type GiftCheckoutArgs = {
   metadata?: Record<string, string>
 }
 
-/** A gift addressed to the current user (`getReceivedGifts` shape). */
+/**
+ * A gift addressed to the current user (`getReceivedGifts` shape): paid and
+ * claimed ones only, with the sender's name but never their email or a
+ * billing id.
+ */
 export interface ReceivedGift {
   id: string
-  recipientEmail: string
-  purchaserUserId: string
-  purchaserEmail?: string
+  /** The sender's name, at most 40 characters with no links. */
   purchaserName?: string
+  /** The credit pack's catalog key. */
+  pack?: string
   productIds: string[]
+  /** The sender's plain-text message, shown only inside the app. */
   message?: string
-  /** `'pending'` (awaiting payment) → `'paid'` (claimable) → `'claimed'`. */
+  /** `'paid'` (claimable) → `'claimed'`. */
   status: string
   createdAt: number
   paidAt?: number
@@ -477,7 +482,7 @@ export interface ProviderPagerOptions {
 
 /** Per-call options for {@link UseBillingReturn.gift}. */
 export interface GiftOptions {
-  /** A note shown to the recipient in the gift email. */
+  /** A plain-text note of at most 500 characters, no links, shown to the recipient inside the app. */
   message?: string
   metadata?: Record<string, string>
   /** Where the purchaser returns after paying. Defaults to the current URL. */

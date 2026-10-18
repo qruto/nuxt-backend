@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { checkoutsClientUpdate } from '@polar-sh/sdk/funcs/checkoutsClientUpdate.js'
 import { checkoutsCreate } from '@polar-sh/sdk/funcs/checkoutsCreate.js'
 import { customersCreate } from '@polar-sh/sdk/funcs/customersCreate.js'
-import { customersGetState } from '@polar-sh/sdk/funcs/customersGetState.js'
+import { customersGet } from '@polar-sh/sdk/funcs/customersGet.js'
+import { customersGetExternal } from '@polar-sh/sdk/funcs/customersGetExternal.js'
+import { customersGetStateExternal } from '@polar-sh/sdk/funcs/customersGetStateExternal.js'
 import { customersList } from '@polar-sh/sdk/funcs/customersList.js'
 import { customersUpdate } from '@polar-sh/sdk/funcs/customersUpdate.js'
 import { customerSessionsCreate } from '@polar-sh/sdk/funcs/customerSessionsCreate.js'
@@ -30,7 +32,9 @@ import { type Billing, setupBilling, type SetupBillingConfig } from '../../src/c
 vi.mock('@polar-sh/sdk/funcs/checkoutsClientUpdate.js', () => ({ checkoutsClientUpdate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/checkoutsCreate.js', () => ({ checkoutsCreate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/customersCreate.js', () => ({ customersCreate: vi.fn() }))
-vi.mock('@polar-sh/sdk/funcs/customersGetState.js', () => ({ customersGetState: vi.fn() }))
+vi.mock('@polar-sh/sdk/funcs/customersGet.js', () => ({ customersGet: vi.fn() }))
+vi.mock('@polar-sh/sdk/funcs/customersGetExternal.js', () => ({ customersGetExternal: vi.fn() }))
+vi.mock('@polar-sh/sdk/funcs/customersGetStateExternal.js', () => ({ customersGetStateExternal: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/customersList.js', () => ({ customersList: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/customersUpdate.js', () => ({ customersUpdate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/customerSessionsCreate.js', () => ({ customerSessionsCreate: vi.fn() }))
@@ -48,7 +52,9 @@ vi.mock('@polar-sh/sdk/funcs/subscriptionsUpdate.js', () => ({ subscriptionsUpda
 const mockCheckoutsClientUpdate = vi.mocked(checkoutsClientUpdate)
 const mockCheckoutsCreate = vi.mocked(checkoutsCreate)
 const mockCustomersCreate = vi.mocked(customersCreate)
-const mockCustomersGetState = vi.mocked(customersGetState)
+const mockCustomersGet = vi.mocked(customersGet)
+const mockCustomersGetExternal = vi.mocked(customersGetExternal)
+const mockCustomersGetState = vi.mocked(customersGetStateExternal)
 const mockCustomersList = vi.mocked(customersList)
 const mockCustomersUpdate = vi.mocked(customersUpdate)
 const mockCustomerSessionsCreate = vi.mocked(customerSessionsCreate)
@@ -77,6 +83,9 @@ const components = {
       clearPendingSpends: 'ref:clearPendingSpends',
       getBenefitMetadata: 'ref:getBenefitMetadata',
       upsertBenefitMetadata: 'ref:upsertBenefitMetadata',
+      entityProfile: 'ref:entityProfile',
+      claimTrial: 'ref:claimTrial',
+      markTrialUsed: 'ref:markTrialUsed',
       reserveDiscountCode: 'ref:reserveDiscountCode',
       releaseDiscountCode: 'ref:releaseDiscountCode',
     },
@@ -112,7 +121,7 @@ function make(overrides: Partial<SetupBillingConfig> = {}) {
   } as SetupBillingConfig)
 }
 
-const signedIn = { subject: 'u1', email: 'u1@example.com', activeOrganizationId: 'org-1' }
+const signedIn = { subject: 'u1', email: 'u1@example.com', emailVerified: true, activeOrganizationId: 'org-1' }
 
 function makeCtx(claims: Record<string, unknown> | null = signedIn) {
   return {
@@ -120,9 +129,13 @@ function makeCtx(claims: Record<string, unknown> | null = signedIn) {
     // re-implement these to record the reference they were called with, and a
     // zero-arg annotation would make that a type error.
     runQuery: vi.fn(async (_ref?: unknown, _args?: unknown): Promise<unknown> => null),
-    // A discount-code attempt is reserved: the component's answer for a fresh window.
-    runMutation: vi.fn(async (ref?: unknown, _args?: unknown): Promise<unknown> =>
-      ref === 'ref:reserveDiscountCode' ? { reserved: true, windowStart: 1_000 } : null),
+    // The owner's one trial is theirs to hold until a test says otherwise, and
+    // a discount-code attempt is reserved: the component's answer for a fresh window.
+    runMutation: vi.fn(async (ref?: unknown, _args?: unknown): Promise<unknown> => {
+      if (ref === 'ref:claimTrial') return true
+      if (ref === 'ref:reserveDiscountCode') return { reserved: true, windowStart: 1_000 }
+      return null
+    }),
     auth: { getUserIdentity: vi.fn(async () => claims) },
   }
 }
@@ -148,10 +161,18 @@ function withSubscriptions(subscriptions: unknown[] = [liveSubscription]) {
   return vi.spyOn(Polar.prototype, 'listAllUserSubscriptions').mockResolvedValue(subscriptions as never)
 }
 
+/** What the provider answers for an object it does not have. */
+const NOT_FOUND = { ok: false, error: Object.assign(new Error('Not found'), { statusCode: 404, error: 'ResourceNotFound' }) }
+
 beforeEach(() => {
   vi.restoreAllMocks()
   vi.clearAllMocks()
   mockSubscriptionsUpdate.mockResolvedValue({ ok: true, value: { id: 'sub_1', status: 'active' } } as never)
+  // No customer carries the entity's id yet, and no trial ran on it. A
+  // mapped customer is already keyed by its entity's id.
+  mockCustomersGetExternal.mockResolvedValue(NOT_FOUND as never)
+  mockCustomersGet.mockImplementation((async (_client: unknown, { id }: { id: string }) => ({ ok: true, value: { id, externalId: 'u1', metadata: {} } })) as never)
+  vi.spyOn(Polar.prototype, 'listAllUserSubscriptions').mockResolvedValue([] as never)
 })
 
 describe('subscription lifecycle → SubscriptionUpdate union', () => {
@@ -528,7 +549,7 @@ describe('orders & invoices', () => {
     const page = await billing.getOrders(makeCtx() as never, { limit: 25 })
 
     expect(mockOrdersList).toHaveBeenCalledWith(expect.anything(), {
-      customerId: 'cus_1',
+      externalCustomerId: 'u1',
       page: 1,
       limit: 25,
       sorting: ['-created_at'],
@@ -680,6 +701,21 @@ describe('refunds', () => {
       currency: 'usd',
       revokeBenefits: false,
     })
+  })
+
+  it('warns before refunding a gift purchase its recipient already claimed, and refunds it', async () => {
+    const billing = make()
+    const warned = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockOrdersGet.mockResolvedValue({ ok: true, value: { ...refundable.value, metadata: { giftId: 'gift-1' } } } as never)
+    mockRefundsCreate.mockResolvedValue(created as never)
+    const ctx = adminCtx()
+    ctx.runQuery.mockImplementation(async (ref?: unknown) => (ref === 'ref:gifts.get' ? { id: 'gift-1', status: 'claimed' } : null))
+
+    await billing.refundOrder(ctx as never, { orderId: 'order_1', reason: 'customer_request' })
+
+    expect(ctx.runQuery).toHaveBeenCalledWith('ref:gifts.get', { giftId: 'gift-1' })
+    expect(warned).toHaveBeenCalledWith(expect.stringContaining('billing.gift_refunded_after_claim'))
+    expect(mockRefundsCreate).toHaveBeenCalled()
   })
 
   it('passes an explicit partial amount and the benefit-revocation flag through', async () => {
@@ -852,7 +888,8 @@ describe('checkout customization', () => {
     expect(result).toStrictEqual({ url: 'https://checkout/1' })
     expect(mockCheckoutsCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       products: ['prod_a'],
-      customerId: 'cus_1',
+      // By the entity's id, never by email or a customer id.
+      externalCustomerId: 'u1',
       embedOrigin: 'https://app',
       successUrl: 'https://app/done',
       // The payload has a real `locale` field — no query-string patching.
@@ -904,7 +941,7 @@ describe('checkout customization', () => {
     )
   })
 
-  it('creates the provider customer once and maps it to the billing entity', async () => {
+  it('creates the user\'s customer keyed by its id, and maps it to the billing entity', async () => {
     const billing = make()
     primeCheckout(billing, null)
     mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [] } } } as never)
@@ -915,23 +952,39 @@ describe('checkout customization', () => {
       productIds: ['prod_a'], origin: 'https://app', successUrl: 'https://app/done',
     })
 
-    // The `userId` metadata is what lets the very first webhook resolve its
-    // entity before any sync has run.
+    expect(mockCustomersGetExternal).toHaveBeenCalledWith(expect.anything(), { externalId: 'u1' })
+    // The external id is what every live call and webhook finds it by; the
+    // tag keeps the first webhook resolving before any sync has run.
     expect(mockCustomersCreate).toHaveBeenCalledWith(expect.anything(), {
       email: 'u1@example.com',
+      externalId: 'u1',
       metadata: { userId: 'u1' },
     })
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:insertCustomer', { id: 'cus_new', userId: 'u1' })
+    expect(mockCheckoutsCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ externalCustomerId: 'u1' }))
   })
 
-  it('reuses an existing provider customer found by email, tagging it for the entity', async () => {
+  it('maps a customer that already carries the entity\'s id, without creating one', async () => {
+    const billing = make()
+    primeCheckout(billing, null)
+    mockCustomersGetExternal.mockResolvedValue({ ok: true, value: { id: 'cus_keyed' } } as never)
+    const ctx = makeCtx()
+
+    await invoke(billing.api.generateCheckoutLink)(ctx, { productIds: ['prod_a'], origin: 'https://app', successUrl: 'https://app/done' })
+
+    expect(mockCustomersList).not.toHaveBeenCalled()
+    expect(mockCustomersCreate).not.toHaveBeenCalled()
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:insertCustomer', { id: 'cus_keyed', userId: 'u1' })
+  })
+
+  it('adopts an unkeyed customer of the user\'s email, keying it to the entity', async () => {
     const billing = make()
     primeCheckout(billing, null)
     mockCustomersList.mockResolvedValue({
       ok: true,
-      value: { result: { items: [{ id: 'cus_existing', metadata: { giftRecipient: 'true' } }] } },
+      value: { result: { items: [{ id: 'cus_existing', externalId: null, metadata: { source: 'link' } }] } },
     } as never)
-    mockCustomersUpdate.mockResolvedValue({ ok: true, value: {} } as never)
+    mockCustomersUpdate.mockResolvedValue({ ok: true, value: { id: 'cus_existing' } } as never)
     const ctx = makeCtx()
 
     await invoke(billing.api.generateCheckoutLink)(ctx, {
@@ -939,101 +992,242 @@ describe('checkout customization', () => {
     })
 
     expect(mockCustomersCreate).not.toHaveBeenCalled()
-    // Claimed the way a created customer is: the tag is what the next entity
-    // meeting this email is refused on, and what the first webhook resolves by.
     expect(mockCustomersUpdate).toHaveBeenCalledWith(expect.anything(), {
       id: 'cus_existing',
-      customerUpdate: { metadata: { giftRecipient: 'true', userId: 'u1' } },
+      customerUpdate: { externalId: 'u1', metadata: { source: 'link', userId: 'u1' } },
     })
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:insertCustomer', { id: 'cus_existing', userId: 'u1' })
-    expect(mockCheckoutsCreate).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ customerId: 'cus_existing' }),
-    )
   })
 
-  it('adopts a customer already tagged for this entity without writing to it', async () => {
+  it('reads the winner\'s customer when another first checkout created it a moment earlier', async () => {
     const billing = make()
     primeCheckout(billing, null)
-    mockCustomersList.mockResolvedValue({
-      ok: true,
-      value: { result: { items: [{ id: 'cus_mine', metadata: { userId: 'u1' } }] } },
-    } as never)
+    mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [] } } } as never)
+    // The provider keeps the external id unique: the second create is refused.
+    mockCustomersCreate.mockResolvedValue({ ok: false, error: Object.assign(new Error('taken'), { statusCode: 422 }) } as never)
+    mockCustomersGetExternal.mockResolvedValueOnce(NOT_FOUND as never).mockResolvedValueOnce({ ok: true, value: { id: 'cus_won' } } as never)
     const ctx = makeCtx()
 
-    await invoke(billing.api.generateCheckoutLink)(ctx, {
-      productIds: ['prod_a'], origin: 'https://app', successUrl: 'https://app/done',
-    })
+    await invoke(billing.api.generateCheckoutLink)(ctx, { productIds: ['prod_a'], origin: 'https://app', successUrl: 'https://app/done' })
 
-    expect(mockCustomersUpdate).not.toHaveBeenCalled()
-    expect(ctx.runMutation).toHaveBeenCalledWith('ref:insertCustomer', { id: 'cus_mine', userId: 'u1' })
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:insertCustomer', { id: 'cus_won', userId: 'u1' })
+  })
+
+  it('refuses when the user\'s email already pays for another account', async () => {
+    const billing = make()
+    primeCheckout(billing, null)
+    mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'cus_old', externalId: 'u-deleted', metadata: {} }] } } } as never)
+
+    await expect(invoke(billing.api.generateCheckoutLink)(makeCtx(), { productIds: ['prod_a'], origin: 'https://app', successUrl: 'https://app/done' }))
+      .rejects.toMatchObject({ data: { code: 'forbidden', reason: 'customer_taken', message: expect.stringContaining('already pays for another account') } })
+    expect(mockCustomersCreate).not.toHaveBeenCalled()
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
   })
 })
 
-// The provider keys customers by email, and in workspace mode one member's
-// email stands behind every workspace they check out for. Adopting the
-// customer another workspace already bills through would merge the two: one
-// set of benefits and credits, and a single-subscription read that throws.
-describe('checkout never adopts another entity’s customer', () => {
+// One provider customer per billing entity. In workspace mode one person's
+// email stands behind every workspace they own, and matching customers by it
+// mapped a second workspace onto the first one's customer: one set of
+// benefits and credits for both. Each workspace is a team customer of its own
+// now, keyed by its id, with the owner as its owner member.
+describe('one customer per workspace', () => {
   const args = { productIds: ['prod_a'], origin: 'https://app', successUrl: 'https://app/done' }
+  const owner = { userId: 'u1', email: 'u1@example.com', name: 'Ada', emailVerified: true }
 
-  function workspaceBilling() {
+  function workspaceBilling(profile: Record<string, unknown>) {
     const billing = make({ billTo: 'organization' })
     vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue(null as never)
     mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout/1' } } as never)
-    return billing
-  }
-
-  function existingCustomer(metadata: Record<string, string>) {
-    mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'cus_personal', metadata }] } } } as never)
-  }
-
-  it('refuses a customer whose metadata names another workspace, with a message the UI can show', async () => {
-    const billing = workspaceBilling()
-    existingCustomer({ userId: 'org-personal' })
+    mockCustomersCreate.mockResolvedValue({ ok: true, value: { id: 'cus_team' } } as never)
     const ctx = makeCtx()
+    ctx.runQuery.mockImplementation(async (ref?: unknown) => ref === 'ref:entityProfile' ? { name: 'Acme', personal: false, owner, ownedEntityIds: ['org-0', 'org-1'], ...profile } : null)
+    return { billing, ctx }
+  }
 
-    const refusal = await invoke(billing.api.generateCheckoutLink)(ctx, args).catch((error: unknown) => error)
+  it('gives a second workspace of the same owner a team customer of its own, never matched by email', async () => {
+    const { billing, ctx } = workspaceBilling({})
+    // The owner's email already pays for their first workspace.
+    mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'cus_first', externalId: 'org-0', metadata: { userId: 'org-0' } }] } } } as never)
 
-    // A ConvexError, so the words reach the member even where production
-    // redacts other errors: what happened, and what resolves it.
-    expect(refusal).toMatchObject({ data: { code: 'forbidden', reason: 'customer_taken', message: expect.stringContaining('already pays for another workspace') } })
-    expect((refusal as { data: { message: string } }).data.message).toMatch(/different email/)
-    expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:insertCustomer', expect.anything())
+    await invoke(billing.api.generateCheckoutLink)(ctx, args)
+
+    expect(ctx.runQuery).toHaveBeenCalledWith('ref:entityProfile', { entityId: 'org-1' })
+    expect(mockCustomersList).not.toHaveBeenCalled()
+    expect(mockCustomersCreate).toHaveBeenCalledWith(expect.anything(), {
+      type: 'team',
+      externalId: 'org-1',
+      name: 'Acme',
+      owner: { email: 'u1@example.com', name: 'Ada', externalId: 'u1' },
+      metadata: { userId: 'org-1' },
+    })
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:insertCustomer', { id: 'cus_team', userId: 'org-1' })
+    expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:insertCustomer', expect.objectContaining({ id: 'cus_first' }))
+    expect(mockCheckoutsCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ externalCustomerId: 'org-1' }))
+  })
+
+  it('makes the workspace owner the owner member whoever checks out', async () => {
+    const { billing, ctx } = workspaceBilling({ owner: { userId: 'u-owner', email: 'owner@example.com', name: 'Owner', emailVerified: true } })
+
+    await invoke(billing.api.generateCheckoutLink)(ctx, args)
+
+    expect(mockCustomersCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      owner: { email: 'owner@example.com', name: 'Owner', externalId: 'u-owner' },
+    }))
+  })
+
+  it('lets a personal workspace adopt its owner\'s unkeyed customer, as a team', async () => {
+    const { billing, ctx } = workspaceBilling({ personal: true, ownedEntityIds: ['org-1'] })
+    mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'cus_old', externalId: null, metadata: {} }] } } } as never)
+    mockCustomersUpdate.mockResolvedValue({ ok: true, value: { id: 'cus_old' } } as never)
+
+    await invoke(billing.api.generateCheckoutLink)(ctx, args)
+
+    expect(mockCustomersList).toHaveBeenCalledWith(expect.anything(), { email: 'u1@example.com', limit: 1 })
+    expect(mockCustomersUpdate).toHaveBeenCalledWith(expect.anything(), {
+      id: 'cus_old',
+      customerUpdate: { externalId: 'org-1', metadata: { userId: 'org-1' }, type: 'team', name: 'Acme' },
+    })
+    expect(mockCustomersCreate).not.toHaveBeenCalled()
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:insertCustomer', { id: 'cus_old', userId: 'org-1' })
+  })
+
+  it('never adopts into a personal workspace a customer another entity holds, nor without a verified email', async () => {
+    for (const [profile, items] of [
+      [{ personal: true }, [{ id: 'cus_first', externalId: 'org-0', metadata: {} }]],
+      [{ personal: true }, [{ id: 'cus_tagged', externalId: null, metadata: { userId: 'org-0' } }]],
+      [{ personal: true, owner: { ...owner, emailVerified: false } }, [{ id: 'cus_old', externalId: null, metadata: {} }]],
+    ] as const) {
+      vi.clearAllMocks()
+      mockCustomersGetExternal.mockResolvedValue(NOT_FOUND as never)
+      const { billing, ctx } = workspaceBilling(profile)
+      mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items } } } as never)
+
+      await invoke(billing.api.generateCheckoutLink)(ctx, args)
+
+      expect(mockCustomersUpdate).not.toHaveBeenCalled()
+      expect(mockCustomersCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: 'team', externalId: 'org-1' }))
+    }
+  })
+
+  it('starts no second trial for an owner who trialed on any workspace they own', async () => {
+    const { billing, ctx } = workspaceBilling({})
+    vi.spyOn(Polar.prototype, 'listAllUserSubscriptions').mockImplementation(async (_ctx, { userId }) =>
+      (userId === 'org-0' ? [{ id: 'sub_old', status: 'canceled', trialStart: '2026-01-01T00:00:00.000Z' }] : []) as never)
+
+    // Neither the product's own trial nor one the server grants.
+    await billing.checkout(ctx as never, { ...args, trial: { interval: 'day', count: 14 } })
+
+    const payload = mockCheckoutsCreate.mock.calls[0]![1]
+    expect(payload).toMatchObject({ allowTrial: false })
+    expect(payload).not.toHaveProperty('trialInterval')
+  })
+
+  it('keeps the product\'s trial for an owner who never had one', async () => {
+    const { billing, ctx } = workspaceBilling({})
+
+    await invoke(billing.api.generateCheckoutLink)(ctx, args)
+
+    expect(mockCheckoutsCreate.mock.calls[0]![1]).not.toHaveProperty('allowTrial')
+  })
+
+  // The trial record is the owner's, kept by their user id: deleting the
+  // workspace that trialed, or handing it to someone else, leaves no
+  // subscription behind to read, and still no second trial.
+  it('starts no second trial when the owner\'s recorded trial outlived the workspace that ran it', async () => {
+    const { billing, ctx } = workspaceBilling({ ownedEntityIds: ['org-1'] })
+    vi.spyOn(Polar.prototype, 'getProduct').mockResolvedValue({ id: 'prod_a', trialInterval: 'day' } as never)
+    ctx.runMutation.mockImplementation(async (ref?: unknown) => (ref === 'ref:claimTrial' ? false : null))
+
+    await invoke(billing.api.generateCheckoutLink)(ctx, args)
+
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:claimTrial', { ownerUserId: 'u1', entityId: 'org-1', holdMs: 3_600_000 })
+    expect(mockCheckoutsCreate.mock.calls[0]![1]).toMatchObject({ allowTrial: false })
+  })
+
+  it('holds the owner\'s trial only for a checkout that offers one', async () => {
+    const { billing, ctx } = workspaceBilling({})
+    vi.spyOn(Polar.prototype, 'getProduct').mockResolvedValue({ id: 'prod_a' } as never)
+
+    await invoke(billing.api.generateCheckoutLink)(ctx, args)
+    expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:claimTrial', expect.anything())
+
+    await billing.checkout(ctx as never, { ...args, trial: { interval: 'day', count: 7 } })
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:claimTrial', expect.objectContaining({ ownerUserId: 'u1', entityId: 'org-1' }))
+  })
+})
+
+// A customer from before 0.2 has no external id, and every live call goes by it.
+describe('customers from before 0.2', () => {
+  const args = { productIds: ['prod_a'], origin: 'https://app', successUrl: 'https://app/done' }
+
+  it('keys a mapped customer by its entity\'s id on first touch', async () => {
+    const billing = make()
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_old', userId: 'u1' } as never)
+    mockCustomersGet.mockResolvedValue({ ok: true, value: { id: 'cus_old', externalId: null, metadata: { note: 'x' } } } as never)
+    mockCustomersUpdate.mockResolvedValue({ ok: true, value: { id: 'cus_old' } } as never)
+    mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout/1' } } as never)
+
+    await invoke(billing.api.generateCheckoutLink)(makeCtx(), args)
+
+    expect(mockCustomersUpdate).toHaveBeenCalledWith(expect.anything(), { id: 'cus_old', customerUpdate: { externalId: 'u1', metadata: { note: 'x', userId: 'u1' } } })
+    expect(mockCheckoutsCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ externalCustomerId: 'u1' }))
+  })
+
+  it('refuses an entity mapped onto a customer another entity is keyed to', async () => {
+    const billing = make({ billTo: 'organization' })
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_shared', userId: 'org-1' } as never)
+    mockCustomersGet.mockResolvedValue({ ok: true, value: { id: 'cus_shared', externalId: 'org-0', metadata: {} } } as never)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(invoke(billing.api.generateCheckoutLink)(makeCtx(), args)).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'customer_taken' } })
     expect(mockCustomersUpdate).not.toHaveBeenCalled()
     expect(mockCheckoutsCreate).not.toHaveBeenCalled()
   })
 
-  it('refuses a customer the entitlement cache ties to another workspace, tag or no tag', async () => {
-    const billing = workspaceBilling()
-    existingCustomer({})
-    const ctx = makeCtx()
-    ctx.runQuery.mockImplementation(async (ref?: unknown, query?: unknown) =>
-      ref === 'ref:userByCustomer' && (query as { customerId: string }).customerId === 'cus_personal' ? 'org-personal' : null)
+  it('keys a mapped customer before reading its orders and usage by the entity\'s id', async () => {
+    const billing = make()
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_old', userId: 'u1' } as never)
+    mockCustomersGet.mockResolvedValue({ ok: true, value: { id: 'cus_old', externalId: null, metadata: {} } } as never)
+    mockCustomersUpdate.mockResolvedValue({ ok: true, value: { id: 'cus_old' } } as never)
+    mockOrdersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'order_old' }], pagination: { totalCount: 1, maxPage: 1 } } } } as never)
+    mockEventsList.mockResolvedValue({ ok: true, value: { items: [], pagination: { totalCount: 0, maxPage: 1 } } } as never)
 
-    await expect(invoke(billing.api.generateCheckoutLink)(ctx, args))
-      .rejects.toMatchObject({ data: { reason: 'customer_taken', message: expect.stringContaining('another workspace') } })
-    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+    const orders = await billing.getOrders(makeCtx() as never)
+    await billing.getUsageHistory(makeCtx() as never)
+
+    // Keyed before the read, so the 0.1 customer's orders are found by its entity's id.
+    expect(mockCustomersUpdate).toHaveBeenCalledWith(expect.anything(), { id: 'cus_old', customerUpdate: { externalId: 'u1', metadata: { userId: 'u1' } } })
+    expect(mockCustomersUpdate.mock.invocationCallOrder[0]).toBeLessThan(mockOrdersList.mock.invocationCallOrder[0]!)
+    expect(mockOrdersList).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ externalCustomerId: 'u1' }))
+    expect(mockEventsList).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ externalCustomerId: 'u1' }))
+    expect(orders!.items).toHaveLength(1)
   })
 
-  it('checks out on the customer when it already belongs to this workspace', async () => {
-    const billing = workspaceBilling()
-    existingCustomer({ userId: 'org-1' })
-    const ctx = makeCtx()
+  it('shows no orders or usage for an entity mapped onto another entity\'s customer', async () => {
+    const billing = make({ billTo: 'organization' })
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_shared', userId: 'org-1' } as never)
+    mockCustomersGet.mockResolvedValue({ ok: true, value: { id: 'cus_shared', externalId: 'org-0', metadata: {} } } as never)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const empty = { items: [], pagination: { totalCount: 0, maxPage: 0 } }
 
-    await invoke(billing.api.generateCheckoutLink)(ctx, args)
-
-    expect(ctx.runMutation).toHaveBeenCalledWith('ref:insertCustomer', { id: 'cus_personal', userId: 'org-1' })
-    expect(mockCheckoutsCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ customerId: 'cus_personal' }))
+    expect(await billing.getOrders(makeCtx() as never)).toStrictEqual(empty)
+    expect(await billing.getUsageHistory(makeCtx() as never)).toStrictEqual(empty)
+    expect(mockOrdersList).not.toHaveBeenCalled()
+    expect(mockEventsList).not.toHaveBeenCalled()
   })
 
-  it('says “account” when billing each user', async () => {
+  it('adopts an earlier customer of the user\'s email only for a verified email', async () => {
     const billing = make()
     vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue(null as never)
-    existingCustomer({ userId: 'u-deleted' })
+    mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'cus_existing', externalId: null, metadata: {} }] } } } as never)
+    mockCustomersCreate.mockResolvedValue({ ok: true, value: { id: 'cus_new' } } as never)
+    mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout/1' } } as never)
 
-    await expect(invoke(billing.api.generateCheckoutLink)(makeCtx(), args))
-      .rejects.toMatchObject({ data: { reason: 'customer_taken', message: expect.stringContaining('already pays for another account') } })
+    await invoke(billing.api.generateCheckoutLink)(makeCtx({ ...signedIn, emailVerified: false }), args)
+
+    expect(mockCustomersList).not.toHaveBeenCalled()
+    expect(mockCustomersUpdate).not.toHaveBeenCalled()
+    expect(mockCustomersCreate).toHaveBeenCalled()
   })
 })
 
@@ -1417,7 +1611,7 @@ describe('usage history', () => {
     const page = await billing.getUsageHistory(makeCtx() as never, { meter: 'credits', limit: 25 })
 
     expect(mockEventsList).toHaveBeenCalledWith(expect.anything(), {
-      customerId: 'cus_1',
+      externalCustomerId: 'u1',
       meterId: 'm_sum',
       startTimestamp: undefined,
       endTimestamp: undefined,

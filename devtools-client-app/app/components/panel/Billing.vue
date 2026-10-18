@@ -156,7 +156,7 @@ const day = (time: number | undefined) => time ? new Date(time).toLocaleDateStri
         {{ gifts.unclaimed }} ready to receive
       </SignalBadge>
       <SignalBadge signal="off">
-        {{ gifts.pending }} awaiting payment
+        {{ gifts.claimed }} received
       </SignalBadge>
       <span class="op50">{{ gifts.received }} in total</span>
     </div>

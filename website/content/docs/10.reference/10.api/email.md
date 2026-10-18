@@ -148,16 +148,17 @@ Data for the `invite` template.
 
 Defined in: [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts)
 
-Data for the `gift` template.
+Data for the `gift` template. It names who sent what and links to the app,
+nothing more: the purchaser's email and their message stay out of the
+email, and the link carries no token — the recipient signs in to claim.
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="recipientemail"></a> `recipientEmail` | `string` | - | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
-| <a id="purchasername"></a> `purchaserName?` | `string` | The buyer's name: their own text, so escape it in HTML ([escapeHtml](#escapehtml)). | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
-| <a id="purchaseremail"></a> `purchaserEmail?` | `string` | - | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
-| <a id="message"></a> `message?` | `string` | The buyer's note to the recipient, verbatim: escape it in HTML. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="purchasername"></a> `purchaserName?` | `string` | The sender's name: at most 40 characters with links and domains taken out, but still their own text, so escape it in HTML ([escapeHtml](#escapehtml)). | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="item"></a> `item` | `string` | What the gift is: the credit pack's product name. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="claimurl"></a> `claimUrl` | `string` | The app URL where the recipient signs in (or up) to receive the gift. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 
 ***
@@ -637,7 +638,7 @@ Defined in: [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backen
 Escape text for HTML: `&`, `<`, `>`, `"` and `'`. Every packaged template
 runs each value through it; an override that writes its own HTML should do
 the same with anything a user typed (a name, a workspace name, a gift
-message), or that user can put markup into an email your domain sends.
+sender's name), or that user can put markup into an email your domain sends.
 
 #### Parameters
 
@@ -652,7 +653,7 @@ message), or that user can put markup into an email your domain sends.
 #### Example
 
 ```ts
-gift: (data, { byDefault }) => ({ ...byDefault(data), html: `<p>${escapeHtml(data.message ?? '')}</p>` })
+gift: (data, { byDefault }) => ({ ...byDefault(data), html: `<p>From ${escapeHtml(data.purchaserName ?? 'someone')}</p>` })
 ```
 
 ***

@@ -131,6 +131,24 @@ export interface Billing {
    */
   checkout: (ctx: RunWriteCtx & { auth?: Auth }, options: ServerCheckoutOptions) => Promise<{ url: string }>
   /**
+   * A customer-portal session for the caller's billing entity, from server
+   * code — what `generateCustomerPortalUrl` returns. With workspaces the
+   * session is the caller's own member of the workspace's billing customer,
+   * and only its owner or a billing manager gets one: anyone else is
+   * `forbidden` (reason `not_billing_manager`). An entity that never paid
+   * is `not_ready` (reason `no_customer`). `returnUrl` must be on the
+   * site's own origin or a `trustedOrigins` entry.
+   *
+   * @example
+   * ```ts
+   * export const openBilling = action({
+   *   args: {},
+   *   handler: ctx => billing.portal(ctx, { returnUrl: `${process.env.SITE_URL}/app/billing` }),
+   * })
+   * ```
+   */
+  portal: (ctx: RunWriteCtx & { auth?: Auth }, options?: { returnUrl?: string }) => Promise<{ url: string }>
+  /**
    * Spend prepaid credits — call from your own **server** action when a
    * metered feature is used. The billing entity (workspace or user, per
    * `billTo`) resolves from the caller's identity; pass `userId` to spend for

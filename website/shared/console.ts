@@ -64,6 +64,7 @@ export const CONSOLE_DETENTS: ConsoleDetent[] = [
       { id: 'billing-benefit-grace', status: 'pass', title: 'Benefit revocation', message: 'Benefits are revoked as soon as a subscription ends.' },
       { id: 'billing-trial-abuse', status: 'pass', title: 'Trial abuse prevention', message: 'No plan declares a trial.' },
       { id: 'billing-portal', status: 'pass', title: 'Customer portal', message: 'The customer portal offers plan changes (pause: off).' },
+      { id: 'billing-team-customers', status: 'pass', title: 'Team customers', message: 'Workspaces bill as team customers; the token reads customer members (it also needs members:write and customer_sessions:write, which a read can\'t check).' },
     ],
   },
   {

@@ -173,9 +173,9 @@ export function createProviderPager<Item>(
  * namespace — shared by {@link useBilling} and
  * {@link "runtime/vue/composables/use-credits"!useCredits}. A gift is a
  * credit pack, named by its catalog key (`credits500`); the server refuses
- * a plan or anything outside the catalog. The purchaser pays; the recipient
- * (by email) receives the credits — attached automatically if they have an
- * account, claimable on first sign-in otherwise. Must be called during
+ * a plan or anything outside the catalog. The purchaser pays on their own
+ * billing account and gets the receipt; the recipient (by email) signs in
+ * and claims the credits (`useGifts().claim`). Must be called during
  * component setup.
  */
 export function createGiftCheckout(billing: BillingApi) {

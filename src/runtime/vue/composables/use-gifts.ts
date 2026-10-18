@@ -1,52 +1,56 @@
-import { computed, type ComputedRef, inject, ref, watch } from 'vue'
+import { computed, type ComputedRef, inject, ref } from 'vue'
 import { useAction, useQuery, ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { useBackendNamespace } from '../utils/namespace'
+import { openProviderUrl } from '../utils/open-url'
 import type { BillingApi, ReceivedGift } from './use-billing'
 
 export interface UseGiftsOptions {
   /** Override the injected `api.billing` namespace. */
   api?: BillingApi
-  /**
-   * Claim paid gifts automatically once the user is signed in (default `true`).
-   * This is what makes "gift to an email without an account" complete: the
-   * recipient signs up, and their waiting gifts attach on first load.
-   */
-  autoClaim?: boolean
+}
+
+/** Per-call options for {@link UseGiftsReturn.claim}. */
+export interface ClaimGiftOptions {
+  /** Where the provider's $0 checkout returns to, when the pack needs one. Defaults to the current URL. */
+  successUrl?: string
+  /** Open that checkout in the same tab instead of a new one. */
+  redirect?: boolean
 }
 
 export interface UseGiftsReturn {
-  /** Every gift addressed to the signed-in user's email, or `undefined` while loading. */
+  /** The paid and claimed gifts addressed to the signed-in user's email, or `undefined` while loading. */
   received: ComputedRef<ReceivedGift[] | undefined>
   /** Gifts that are paid but not yet claimed (ready to receive). */
   unclaimed: ComputedRef<ReceivedGift[]>
   /** `true` until the gift list has loaded (always `false` when signed out). */
   isLoading: ComputedRef<boolean>
-  /** `true` while an auto- or manual claim is in flight. */
+  /** `true` while a claim is in flight. */
   isClaiming: ComputedRef<boolean>
   /**
-   * Claim a specific gift (by id) or every claimable gift (no argument).
-   * Resolves with the number of gifts attached; entitlements/credits refresh
-   * reactively right after.
+   * Claim one gift into the signed-in user's own billing account. Resolves
+   * `true` when the server confirmed the claim itself: the provider grants
+   * the credits a moment later, and they arrive reactively. Resolves `false`
+   * after opening the provider's $0 checkout, which the recipient finishes
+   * when the pack asks for checkout fields.
    */
-  claim: (giftId?: string) => Promise<number>
+  claim: (giftId: string, options?: ClaimGiftOptions) => Promise<boolean>
 }
 
 /**
- * Gifts addressed to the signed-in user, with automatic claiming. A gift is a
- * checkout someone else paid for this user's email; once paid it either
- * attached automatically (recipient already had an account) or waits here —
- * and `useGifts` claims it on first authenticated load (disable via
- * `autoClaim: false` to show an explicit "receive" button instead, e.g. with
- * the packaged `GiftClaimBanner` component).
+ * Gifts addressed to the signed-in user. A gift is a credit pack someone
+ * else paid for on their own billing account; the recipient receives it by
+ * claiming it, which grants the credits to their own account through a $0
+ * order. Nothing is claimed without the recipient asking — show a "Receive"
+ * button, or the packaged `GiftClaimBanner`.
  *
  * @example
  * ```vue
  * <script setup lang="ts">
- * const gifts = useGifts({ autoClaim: false })
+ * const gifts = useGifts()
  * </script>
  * <template>
  *   <div v-for="gift in gifts.unclaimed.value" :key="gift.id">
- *     🎁 from {{ gift.purchaserName ?? 'someone' }}
+ *     A gift from {{ gift.purchaserName ?? 'someone' }}
  *     <button @click="gifts.claim(gift.id)">Receive</button>
  *   </div>
  * </template>
@@ -54,7 +58,6 @@ export interface UseGiftsReturn {
  */
 export function useGifts(options: UseGiftsOptions = {}): UseGiftsReturn {
   const billing = useBackendNamespace<BillingApi>('billing', 'useGifts', options.api)
-  const autoClaim = options.autoClaim ?? true
 
   // Gate the query on auth state, read via `inject` (not `useConvexAuth`,
   // which throws) so `useGifts` still works without the auth integration.
@@ -75,7 +78,7 @@ export function useGifts(options: UseGiftsOptions = {}): UseGiftsReturn {
   const runClaim = billing.claimGift ? useAction(billing.claimGift) : null
   const claiming = ref(false)
 
-  const claim = async (giftId?: string): Promise<number> => {
+  const claim = async (giftId: string, claimOptions: ClaimGiftOptions = {}): Promise<boolean> => {
     if (!runClaim) {
       throw new Error(
         '[nuxt-backend] Gift claiming is unavailable — ensure `billing.ts` re-exports `claimGift` '
@@ -84,29 +87,15 @@ export function useGifts(options: UseGiftsOptions = {}): UseGiftsReturn {
     }
     claiming.value = true
     try {
-      const { claimed } = await runClaim(giftId ? { giftId } : {})
-      return claimed
+      const successUrl = claimOptions.successUrl ?? (typeof window === 'undefined' ? undefined : window.location.href)
+      const { url } = await runClaim({ giftId, ...(successUrl ? { successUrl } : {}) })
+      if (url === null) return true
+      openProviderUrl(url, claimOptions.redirect)
+      return false
     }
     finally {
       claiming.value = false
     }
-  }
-
-  if (autoClaim && runClaim) {
-    // Claim once per session load: the first time an authenticated user is
-    // seen holding paid-but-unclaimed gifts. Guarded so re-renders and query
-    // refreshes don't double-claim (the server is idempotent regardless).
-    let attempted = false
-    watch(unclaimed, async (gifts) => {
-      if (attempted || claiming.value || gifts.length === 0) return
-      attempted = true
-      try {
-        await claim()
-      }
-      catch (error) {
-        console.warn('[nuxt-backend] Auto-claiming gifts failed — showing them as unclaimed instead.', error)
-      }
-    }, { immediate: true })
   }
 
   return {
