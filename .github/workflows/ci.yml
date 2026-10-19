@@ -252,7 +252,7 @@ jobs:
       # are not ours to fix.
       - name: Workflow lint (zizmor)
         if: ${{ !cancelled() }}
-        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
         with:
           version: 1.30.0
           inputs: .github
@@ -332,7 +332,7 @@ jobs:
       # graph.
       - name: Quality (fallow)
         if: ${{ !cancelled() }}
-        uses: fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1
+        uses: fallow-rs/fallow@2823b6588b26e582124977135b9998efeb6959ad # v3.34.0
         with:
           command: ${{ github.event_name == 'pull_request' && 'audit' || '' }}
 
@@ -342,7 +342,7 @@ jobs:
       # fails the job.
       - name: Security candidates (fallow)
         if: ${{ !cancelled() }}
-        uses: fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1
+        uses: fallow-rs/fallow@2823b6588b26e582124977135b9998efeb6959ad # v3.34.0
         with:
           command: security
           auto-changed-since: false
