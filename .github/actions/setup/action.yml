@@ -17,6 +17,15 @@ inputs:
       restored cache is an input nobody reviewed, and a release pipeline takes no
       unreviewed inputs.
     default: 'true'
+  save-cache:
+    description: >-
+      Save the pnpm store when the job ends. CI turns this on only on main, in
+      one job per runtime and OS, so every store a job restores was written by
+      a run of reviewed code, and no job overwrites another's. A pull request
+      saves nothing (skipping the save also skips the `pnpm store prune`
+      before it). pnpm/setup puts the runtime into the cache key, so a store
+      saved under `node@lts` is never restored under another runtime.
+    default: 'false'
   require-lockfile:
     description: >-
       Refuse the one install pnpm's own CI frozen mode still allows: no lockfile
@@ -36,10 +45,11 @@ runs:
   using: composite
   steps:
     - name: Install pnpm, node & dependencies
-      uses: pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4 # v3.1.1
+      uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
       with:
         runtime: ${{ inputs.runtime }}
         cache: ${{ inputs.cache }}
+        save-cache: ${{ inputs.save-cache }}
         require-lockfile: ${{ inputs.require-lockfile }}
 
     # Generates `.nuxt/tsconfig.json` (which the root tsconfig extends), the

@@ -495,11 +495,13 @@ No CI job runs `git commit` at all — the release commit is made through GitHub
 never see it.
 
 **What the hooks cannot cover.** These stay CI's alone, so a green push is not a promise of a
-green pipeline: the `e2e` job (builds the example apps and drives them with Playwright,
-minutes, and uploads a screenshot of every module page as the `module-page-screenshots`
-artifact; `pnpm qa:screenshots` takes the same set locally into `.qa/module-pages/`), `pack` (the tarball gate, a real npm and a strict-pnpm consumer install, a Convex
-codegen from the installed copy, the consumer type check, `npm audit signatures`), `website`
-(the docs site's codegen, the component's generated bindings, type check and build),
+green pipeline: the end-to-end tests on the Linux leg of `test` (they build the example apps
+and drive them with Playwright, minutes, and upload a screenshot of every module page as the
+`module-page-screenshots` artifact; `pnpm qa:screenshots` takes the same set locally into
+`.qa/module-pages/`), that leg's run on the Node floor `engines` promises, `pack` (the tarball gate,
+real npm and pnpm consumer installs side by side, a strict-pnpm one, a Convex codegen from the
+installed copy, the consumer type check, `npm audit signatures`), `website` (the docs site's
+codegen, the component's generated bindings, type check and one production-shape build),
 `dependency-review`, the workflow lint (zizmor, actionlint) and the spell check, which need
 GitHub, the Windows leg of the test matrix, and the coverage thresholds.
 

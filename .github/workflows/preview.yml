@@ -8,13 +8,33 @@ name: Preview
 # in a real Nuxt app straight from the PR comment.
 # Auth is handled by the pkg.pr.new GitHub App installed on the repository;
 # the workflow token needs no extra permissions.
+#
+# Only when something it publishes changed: what the build reads, what the
+# package ships, and the template the playground is built from. A
+# workflow-level `paths:` filter is safe here, unlike in CI, because no ruleset
+# requires this workflow, so a run that never starts leaves nothing waiting.
 on:
   push:
     branches:
       - main
+    paths: &published
+      - 'src/**'
+      - 'skills/**'
+      - 'devtools-client-app/**'
+      - 'templates/starter/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'build.config.ts'
+      - 'tsconfig*.json'
+      - '.nuxtrc'
+      - '.github/workflows/preview.yml'
+      - '.github/actions/**'
   pull_request:
     branches:
       - main
+    paths: *published
 
 # Cancel superseded runs on a pull request, never on main: every commit on main
 # should end up with an installable build and its pkg.pr.new comment. A group

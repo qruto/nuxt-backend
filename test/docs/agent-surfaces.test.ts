@@ -435,7 +435,7 @@ describe('discovery', () => {
 describe('the build-output check', () => {
   it('runs on every website build, and on the live site every week', () => {
     const ci = read('.github/workflows/ci.yml')
-    expect(ci.indexOf('run: node scripts/check-website-agents.mjs')).toBeGreaterThan(ci.indexOf('run: pnpm exec nuxt build website'))
+    expect(ci.indexOf('run: node scripts/check-website-agents.mjs')).toBeGreaterThan(ci.indexOf('run: ./node_modules/.bin/nuxt build website'))
     const weekly = read('.github/workflows/weekly.yml')
     expect(weekly).toContain('run: node scripts/check-website-agents.mjs --origin https://nuxt-backend.dev')
     expect(weekly).toMatch(/needs:\n(?:\s+- \w+\n)*\s+- agents\n/)

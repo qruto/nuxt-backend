@@ -51,20 +51,19 @@ jobs:
   # Works out which of the expensive jobs a pull request needs. Anywhere else —
   # a push to main, the weekly run, a run by hand — they all run anyway: that
   # costs one full run per merge, and a green main is worth the minutes.
+  #
+  # No checkout: on a pull request the filter lists the changed files through
+  # the API, and nowhere else does it run. `ubuntu-slim` here and on the other
+  # jobs that only call an API: the same minutes on a quarter of the machine.
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
-      contents: read
       pull-requests: read
     outputs:
       src: ${{ steps.filter.outputs.src }}
       website: ${{ steps.filter.outputs.website }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         if: github.event_name == 'pull_request'
         id: filter
@@ -142,9 +141,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # The one job that saves the Linux `node@lts` store, on main.
       - uses: ./.github/actions/setup
         with:
           prepare: lib
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Lint
         if: ${{ !cancelled() }}
@@ -289,78 +290,46 @@ jobs:
         if: ${{ !cancelled() }}
         uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
 
-      # ── fallow runs last, and nothing runs after it ──────────────────────
+      # Dead code, unused exports and dependencies, duplication, complexity,
+      # through the lockfile's CLI: the version package.json pins, the same
+      # commands as .githooks. Its npm wrapper verifies the binary's signature
+      # before running it and refuses on any failure, which is what the fallow
+      # action added, along with a nested cache that idled longer than the
+      # analysis ran.
       #
-      # The fallow action expects to be used without a node setup step. It does
-      # its own `npm install -g` and then calls a bare `fallow`, trusting the
-      # runner's npm to have put it on PATH. There is no input to point it at a
-      # binary, so this step is the only way in.
-      #
-      # That does not work here, because `pnpm/setup` owns the runtime and
-      # creates no global shims. Pointing it at the lockfile's copy is better
-      # anyway: package.json pins `fallow` to an exact version, so CI runs the
-      # same build as .githooks, under Dependabot, the cooldown and pnpm's trust
-      # policy. The action's own global install fetches the MUSL build, which
-      # could not have run on this glibc runner even if PATH had found it. Its
-      # signature check still runs, against the binary that actually executes.
-      #
-      # `$GITHUB_PATH` prepends, for every later step in the job — which is what
-      # zizmor's `github-env` audit flags. It is ignored rather than fixed
-      # because the two steps that need it are the last two. Keep it that way: a
-      # step added below would inherit a PATH where 40-odd project binaries
-      # shadow the system's.
-      #
-      # `!cancelled()` for the same reason every gate above carries it, and this
-      # step is not a gate. Without it the implicit `success()` skips it as soon
-      # as anything earlier fails — and the two fallow steps below, which DO run
-      # after a failure, then call a bare `fallow` that is not on PATH. Both
-      # would report `command not found`, burying the real failure under two
-      # invented ones.
-      - name: Put project binaries on PATH
-        if: ${{ !cancelled() }}
-        run: echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH" # zizmor: ignore[github-env]
-
-      # Dead code, unused exports and dependencies, duplication, complexity.
-      # Through the action rather than the CLI for two things the CLI cannot do:
-      # it works out the PR base itself, and it verifies the binary's signature.
-      #
-      # Its `comment`, `review-comments` and `sarif` outputs stay off. Each one
-      # wants `pull-requests: write`, `checks: write` or `security-events: write`
-      # on a job that runs code from the pull request, and a failing job with the
-      # findings in its log already says the same thing.
-      #
-      # On a pull request it looks only at the changed files, and fails on any
-      # finding in them (`audit.gate` in .fallowrc.jsonc): a finding fallow
-      # counts as inherited still fails the run over everything on main, so
-      # letting it through here only moves the failure there. Anywhere else it
-      # runs over everything, because a scoped audit passes on a config edit
-      # that strands a file elsewhere.
+      # On a pull request it looks only at the files changed since the base,
+      # and fails on any finding in them (`audit.gate` in .fallowrc.jsonc): a
+      # finding fallow counts as inherited still fails the run over everything
+      # on main, so letting it through here only moves the failure there.
+      # Anywhere else it runs over everything, because a scoped audit passes
+      # on a config edit that strands a file elsewhere.
       #
       # Must run after the setup step's `dev:prepare`: without `dist/` the
       # tsconfig chain does not resolve and fallow sees a different module
       # graph.
       - name: Quality (fallow)
         if: ${{ !cancelled() }}
-        uses: fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1
-        with:
-          command: ${{ github.event_name == 'pull_request' && 'audit' || '' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -n "$BASE_SHA" ]; then
+            pnpm exec fallow audit --base "$BASE_SHA"
+          else
+            pnpm run test:quality
+          fi
 
       # A separate command, because fallow keeps security candidates out of
-      # both the default run and the audit gate — neither would ever report one.
-      # `auto-changed-since: false` so a candidate in an untouched file still
-      # fails the job.
+      # both the default run and the audit gate, so neither would ever report
+      # one. Over every file, so a candidate in an untouched one still fails.
       - name: Security candidates (fallow)
         if: ${{ !cancelled() }}
-        uses: fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1
-        with:
-          command: security
-          auto-changed-since: false
+        run: pnpm run test:security
 
   test:
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.src == 'true' }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 50
     permissions:
       contents: read
     strategy:
@@ -369,10 +338,16 @@ jobs:
         # Windows is in the matrix because the module does real path work (the
         # scaffold writes files, the codegen watcher normalizes paths) — the
         # class of bug that only ships to Windows users.
-        os: [ubuntu-latest, windows-latest]
-        # `lts` tracks the current LTS line, so a new one needs no bump here.
-        # `lts/-1` is not an option: engines.node is >=24.11.0, above it.
-        node: [lts]
+        #
+        # Two Node versions without a third leg: Linux runs the floor
+        # `engines.node` promises (read from package.json, so raising it needs
+        # no edit here), Windows the current LTS line (`lts` tracks it without
+        # a bump). Every other job runs `node@lts` on Linux.
+        include:
+          - os: ubuntu-latest
+            node: engines
+          - os: windows-latest
+            node: lts
     steps:
       # On the Windows leg too: the action supports every GitHub-hosted image,
       # and `audit` blocks nothing on any of them.
@@ -385,23 +360,45 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Read the Node floor
+        id: floor
+        if: matrix.node == 'engines'
+        run: |
+          floor=$(jq -r '.engines.node | ltrimstr(">=")' package.json)
+          if ! [[ $floor =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::engines.node is not a plain '>=x.y.z' floor; teach this step to read it."
+            exit 1
+          fi
+          echo "runtime=node@$floor" >> "$GITHUB_OUTPUT"
+
       # `lib`: the `nuxt` vitest project boots a Nuxt app from the repository
       # root, not from the website, so nothing here needs `nuxt prepare website`.
+      # Each leg saves its own store on main: the runtimes differ, and so do
+      # the cache keys.
       - uses: ./.github/actions/setup
         with:
-          runtime: node@${{ matrix.node }}
+          runtime: ${{ steps.floor.outputs.runtime || format('node@{0}', matrix.node) }}
           prepare: lib
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
 
-      # `pnpm test` plus coverage, without the projects `static` already
-      # runs once (`docs`, `types`): their results do not depend on the OS or
-      # the Node version. The thresholds in vitest.config.ts are enforced here.
+      # `pnpm test` without the projects `static` already runs once (`docs`,
+      # `types`): their results do not depend on the OS or the Node version.
+      # Coverage, and the thresholds in vitest.config.ts with it, on Linux
+      # only: instrumenting the Windows run would measure the same lines again,
+      # slower.
       - name: Test
-        run: pnpm run test:coverage
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            pnpm run test:coverage
+          else
+            pnpm exec vitest --run --project '!e2e' --project '!docs' --project '!types'
+          fi
 
       # Handed to the `coverage` job, which holds the upload credential. This
       # job runs code from the pull request, so it must never hold one itself.
       - name: Upload coverage artifact
-        if: ${{ !cancelled() && matrix.os == 'ubuntu-latest' }}
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
@@ -411,47 +408,32 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-  # Full-app end-to-end: builds `templates/starter` and `templates/panels` with @nuxt/test-utils/e2e
-  # and serves it on a real Nitro server against a stub deployment — SSR
-  # pages, the auth middleware's redirect, the Convex-aware
-  # CSP — with a browser leg for the sign-in form and a live query, and a
-  # screenshot of every module page. The other apps are installed and built
-  # in `pack`.
-  e2e:
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.src == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    permissions:
-      contents: read
-    steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
-        with:
-          egress-policy: audit
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: ./.github/actions/setup
-        with:
-          prepare: lib
-
+      # Full-app end-to-end, on the Linux leg rather than a job of its own,
+      # which would pay a second checkout, install and prepare: builds
+      # `templates/starter` and `templates/panels` with @nuxt/test-utils/e2e
+      # and serves them on a real Nitro server against a stub deployment (SSR
+      # pages, the auth middleware's redirect, the Convex-aware CSP), with a
+      # browser leg for the sign-in form and a live query, and a screenshot of
+      # every module page. The other apps are installed and built in `pack`.
+      #
       # The browser the e2e project drives. playwright-core is the lockfile
       # version, so the browser build it downloads is the one it was tested
-      # against; `--with-deps` adds the runner's system libraries.
+      # against; `--with-deps` adds the runner's system libraries. Only the
+      # headless shell: @nuxt/test-utils launches headless with no `channel`,
+      # so the full Chrome download would go unused.
       - name: Install Chromium
-        run: pnpm exec playwright-core install --with-deps chromium
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
+        run: pnpm exec playwright-core install --with-deps --only-shell chromium
 
       - name: End-to-end tests
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
         run: pnpm run test:e2e
 
       # Every page the module mounts, at 390 and 1280 px in both schemes, from
       # test/e2e/screenshots.test.ts: compare a pull request's set with main's
       # to see what a change does to the packaged pages.
       - name: Upload module-page screenshots
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: module-page-screenshots
@@ -498,102 +480,195 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm run check:tarball
 
-      # No lockfile, on purpose: this is what a new user gets. `npm` comes
-      # from the runner image, because pnpm's Node runtime ships without npm
-      # and npx from pnpm 11 on — and a stock npm is exactly the path being
-      # tested.
+      # Every consumer install, side by side: each app in its own directory,
+      # as a background job with its own log and port, and the step names any
+      # app that failed. They share nothing but the npm cache and the pnpm
+      # store, both safe to use at once. Convex codegen runs a local backend,
+      # so the codegens take turns (`flock`).
       #
-      # The version pin is a workaround. The image's own npm (10.9.x) crashes
-      # while resolving peers on any Nuxt 4 tree: `Cannot read properties of
-      # null (reading 'edgesOut')`, npm/cli#9787, fixed in 11.6.0. It is not
-      # about this package — a bare `npm install` of the example hits it too.
-      # Pinning also keeps this job reproducible when the runner image moves.
+      # npm: no lockfile, on purpose, because this is what a new user gets.
+      # `npm` is pinned rather than pnpm's: pnpm's Node runtime ships without
+      # npm and npx from pnpm 11 on, and a stock npm is exactly the path being
+      # tested. The image's own npm (10.9.x) crashes while resolving peers on
+      # any Nuxt 4 tree (`Cannot read properties of null (reading
+      # 'edgesOut')`, npm/cli#9787, fixed in 11.6.0); the pin also keeps the
+      # job reproducible when the runner image moves.
       #
       # The template and the examples are standalone apps of the published
       # package (`nuxt-backend: latest`); installing the tarball over that
       # dependency is exactly what a user who creates one with `create nuxt`
-      # gets, minus the registry.
+      # gets, minus the registry. Each built app is then started and asked for
+      # `/login`, the module's own page, which every app mounts and which
+      # renders although nothing answers at the placeholder backend URL. A
+      # build can succeed and still not serve: Nuxt 4.6's production build
+      # left the Convex client with an import pointing outside `.output`, so
+      # every request failed with ERR_MODULE_NOT_FOUND while `nuxt build`
+      # passed. No lockfile means the newest Nuxt, so this is where a new Nuxt
+      # release meets the package first.
       #
-      # Each built app is then started and asked for its home page. A build can
-      # succeed and still not serve: Nuxt 4.6's production build left the
-      # Convex client with an import pointing outside `.output`, so every
-      # request failed with ERR_MODULE_NOT_FOUND while `nuxt build` passed. No
-      # lockfile means the newest Nuxt, so this is where a new Nuxt release
-      # meets the package first. The page asked for is `/login`, the module's own
-      # page, which every app mounts and which renders although nothing answers
-      # at the placeholder backend URL.
-      - name: Consumer smoke test (npm install, build, serve)
+      # `floors`: the starter once more, at the lowest versions this package
+      # declares: the Nuxt floor in `meta.compatibility` and the floors of the
+      # convex and vue peer ranges. The newest of each proves the top of each
+      # range; this keeps the bottom honest. If it fails, the floor has moved:
+      # raise it in src/module.ts or package.json (and STABILITY.md) rather
+      # than working around it here.
+      #
+      # `pnpm`: the template and the examples under pnpm's defaults, with only
+      # what each one carries: its `.pnpmfile.mjs` answers the dependency build
+      # scripts (pnpm 11 stops the first install until every one is answered,
+      # here declined) and hoists `@convex-dev/*` so Convex's bundler reaches
+      # the component definitions the scaffold imports. A template can't ship
+      # a pnpm-workspace.yaml (`create nuxt` treats one that has it as
+      # pnpm-only), so the codegen assertion is what proves the hook works,
+      # and that Convex bundles without esbuild's install script. Then the
+      # official modules `create nuxt` offers, whose build scripts the hook
+      # answers too.
+      #
+      # `strict-pnpm`: a blank app under pnpm's default isolated linker, which
+      # hides everything a package does not declare: the one layout the
+      # hoisted workspace here, and npm, can never fail on. It installs the
+      # tarball with the settings the installation docs give strict-pnpm users
+      # (the `@convex-dev/*` hoist) and runs the same codegen assertion.
+      #
+      # Both pnpm apps zero `minimumReleaseAge` for their throwaway installs
+      # only: the gate must not depend on how many hours ago a dependency was
+      # published.
+      - name: Consumer smoke tests (npm and pnpm)
         id: smoke
         if: ${{ !cancelled() }}
         env:
           NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
+          CONVEX_AGENT_MODE: anonymous
         run: | # zizmor: ignore[adhoc-packages]
           TARBALL="$PWD/$(ls nuxt-backend-*.tgz)"
+          CODEGEN="$GITHUB_WORKSPACE/scripts/ci-convex-codegen.sh"
+          npm() { npx --yes npm@11.17.0 "$@"; }
+          codegen() { flock "$RUNNER_TEMP/codegen.lock" "$CODEGEN"; }
+
+          # Copies an app without what a previous run left in it.
+          fresh() {
+            cp -R "$1" "$2"
+            rm -rf "$2/node_modules" "$2/.nuxt" "$2/.output"
+          }
+
           serve() {
-            PORT=3000 node .output/server/index.mjs > server.log 2>&1 &
-            local server=$! code
-            code=$(curl -s -o /dev/null -w '%{http_code}' --retry 30 --retry-connrefused --retry-delay 1 http://localhost:3000/login || true)
-            kill "$server"
-            wait "$server" || true # the next app needs the port
+            local port=$1 server code
+            PORT=$port node .output/server/index.mjs > server.log 2>&1 &
+            server=$!
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 --retry 30 --retry-max-time 120 --retry-connrefused --retry-delay 1 "http://localhost:$port/login" || true)
+            kill "$server" 2> /dev/null || true
+            wait "$server" || true
             if [ "$code" != 200 ] || grep -q 'Cannot find module' server.log; then
               echo "::error::The built $(basename "$PWD") answered HTTP $code for /login"
               cat server.log
               return 1
             fi
           }
-          for app in templates/starter templates/panels examples/advanced; do
-            SMOKE="$RUNNER_TEMP/smoke-$(basename "$app")"
-            cp -R "$app" "$SMOKE"
-            rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output"
+
+          smoke_npm() {
+            local app=$1 port=$2 dir build_codegen=true
+            dir="$RUNNER_TEMP/smoke-$(basename "$app")"
+            fresh "$app" "$dir"
             # Codegen goes unless the app commits it. An app whose pages
             # import `#backend/api` gets it again from the installed package
             # before the build, as a user's build always has it (`convex dev`
             # writes it, `convex deploy` before its `--cmd`); the others prove
             # they build without it.
-            codegen=true
-            if ! git ls-files --error-unmatch "$app/backend/_generated/api.d.ts" >/dev/null 2>&1; then
-              rm -rf "$SMOKE/backend/_generated"
-              if grep -rq '#backend/api' "$app/app"; then
-                codegen="$GITHUB_WORKSPACE/scripts/ci-convex-codegen.sh"
-              fi
+            if ! git ls-files --error-unmatch "$app/backend/_generated/api.d.ts" > /dev/null 2>&1; then
+              rm -rf "$dir/backend/_generated"
+              if grep -rq '#backend/api' "$app/app"; then build_codegen=codegen; fi
             fi
-            echo "::group::$app"
-            (cd "$SMOKE" \
-              && npx --yes npm@11.17.0 install --no-audit --no-fund "$TARBALL" \
-              && "$codegen" \
-              && npx --yes npm@11.17.0 run build \
-              && serve)
-            echo "::endgroup::"
+            cd "$dir" \
+              && npm install --no-audit --no-fund "$TARBALL" \
+              && "$build_codegen" \
+              && npm run build \
+              && serve "$port"
+          }
+
+          smoke_floors() {
+            local dir="$RUNNER_TEMP/smoke-floors"
+            fresh templates/starter "$dir"
+            rm -rf "$dir/backend/_generated"
+            node -e '
+              const fs = require("node:fs")
+              const floor = range => range.match(/\d+\.\d+\.\d+/)[0]
+              const peers = JSON.parse(fs.readFileSync("package.json", "utf8")).peerDependencies
+              const nuxt = fs.readFileSync("src/module.ts", "utf8").match(/compatibility: \{ nuxt: .(.+?). \}/)[1]
+              const pins = { nuxt: floor(nuxt), convex: floor(peers.convex), vue: floor(peers.vue) }
+              const file = process.argv[1]
+              const app = JSON.parse(fs.readFileSync(file, "utf8"))
+              app.dependencies = { ...app.dependencies, ...pins }
+              app.overrides = { ...app.overrides, ...pins }
+              fs.writeFileSync(file, JSON.stringify(app, null, 2))
+              console.log("floors:", JSON.stringify(pins))
+            ' "$dir/package.json" \
+              && cd "$dir" \
+              && npm install --no-audit --no-fund "$TARBALL" \
+              && codegen \
+              && npm run build \
+              && serve 3003
+          }
+
+          smoke_pnpm() {
+            local app dir
+            export pnpm_config_minimum_release_age=0
+            for app in templates/starter templates/panels examples/advanced; do
+              dir="$RUNNER_TEMP/smoke-pnpm-$(basename "$app")"
+              fresh "$app" "$dir"
+              # Codegen goes unless the app commits it.
+              git ls-files --error-unmatch "$app/backend/_generated/api.d.ts" > /dev/null 2>&1 || rm -rf "$dir/backend/_generated"
+              (cd "$dir" && pnpm add "$TARBALL") || return 1
+            done
+            cd "$RUNNER_TEMP/smoke-pnpm-starter" \
+              && codegen \
+              && pnpm add @nuxt/a11y @nuxt/content @nuxt/eslint @nuxt/fonts @nuxt/hints \
+                @nuxt/icon @nuxt/image @nuxt/scripts @nuxt/test-utils @nuxt/ui better-sqlite3
+          }
+
+          smoke_strict_pnpm() {
+            local dir="$RUNNER_TEMP/smoke-strict-pnpm"
+            mkdir -p "$dir/app" && cd "$dir" || return 1
+            printf '%s\n' '{ "name": "smoke-strict-pnpm", "private": true, "type": "module" }' > package.json
+            printf '%s\n' "export default defineNuxtConfig({ modules: ['nuxt-backend'], telemetry: false })" > nuxt.config.ts
+            printf '%s\n' '<template><div>smoke</div></template>' > app/app.vue
+            printf '%s\n' 'publicHoistPattern:' "  - '@convex-dev/*'" 'allowBuilds:' '  esbuild: false' 'minimumReleaseAge: 0' > pnpm-workspace.yaml
+            pnpm add nuxt convex "$TARBALL" \
+              && pnpm exec nuxt-backend init \
+              && pnpm install --no-frozen-lockfile \
+              && pnpm exec nuxt build \
+              && codegen
+            # `init` adds the MCP server's SDK to devDependencies and says to
+            # install; in CI pnpm's lockfile is frozen by default, and its
+            # check before `pnpm exec` would refuse the changed manifest.
+          }
+
+          # Fetch the pinned npm once, before four jobs race to.
+          npm --version > /dev/null
+
+          names=() pids=()
+          start() {
+            names+=("$1")
+            (set -o pipefail; "${@:2}") > "$RUNNER_TEMP/smoke-$1.log" 2>&1 &
+            pids+=("$!")
+          }
+          start starter smoke_npm templates/starter 3000
+          start panels smoke_npm templates/panels 3001
+          start advanced smoke_npm examples/advanced 3002
+          start floors smoke_floors
+          start pnpm smoke_pnpm
+          start strict-pnpm smoke_strict_pnpm
+
+          failed=''
+          for i in "${!names[@]}"; do
+            wait "${pids[i]}" || failed="$failed ${names[i]}"
+            echo "::group::${names[i]}"
+            cat "$RUNNER_TEMP/smoke-${names[i]}.log"
+            echo '::endgroup::'
           done
-          # The starter once more, at the lowest versions this package
-          # declares: the Nuxt floor in `meta.compatibility` and the floors of
-          # the convex and vue peer ranges. The loop above proves the newest of
-          # each; this keeps the bottom of each range honest. If it fails, the
-          # floor has moved: raise it in src/module.ts or package.json (and
-          # STABILITY.md) rather than working around it here.
-          SMOKE="$RUNNER_TEMP/smoke-floors"
-          cp -R templates/starter "$SMOKE"
-          rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output" "$SMOKE/backend/_generated"
-          node -e '
-            const fs = require("node:fs")
-            const floor = range => range.match(/\d+\.\d+\.\d+/)[0]
-            const peers = JSON.parse(fs.readFileSync("package.json", "utf8")).peerDependencies
-            const nuxt = fs.readFileSync("src/module.ts", "utf8").match(/compatibility: \{ nuxt: .(.+?). \}/)[1]
-            const pins = { nuxt: floor(nuxt), convex: floor(peers.convex), vue: floor(peers.vue) }
-            const file = process.argv[1]
-            const app = JSON.parse(fs.readFileSync(file, "utf8"))
-            app.dependencies = { ...app.dependencies, ...pins }
-            app.overrides = { ...app.overrides, ...pins }
-            fs.writeFileSync(file, JSON.stringify(app, null, 2))
-            console.log("floors:", JSON.stringify(pins))
-          ' "$SMOKE/package.json"
-          echo "::group::templates/starter at the declared floors"
-          (cd "$SMOKE" \
-            && npx --yes npm@11.17.0 install --no-audit --no-fund "$TARBALL" \
-            && "$GITHUB_WORKSPACE/scripts/ci-convex-codegen.sh" \
-            && npx --yes npm@11.17.0 run build \
-            && serve)
-          echo "::endgroup::"
+          if [ -n "$failed" ]; then
+            echo "::error::Consumer smoke tests failed:$failed"
+            exit 1
+          fi
 
       # The install and starter budgets in budgets.json: what installing the
       # tarball adds to an empty project, and the JavaScript every page of the
@@ -726,73 +801,6 @@ jobs:
             )
           done
 
-      # The template and the examples under pnpm's defaults, with only what each
-      # one carries: its `.pnpmfile.mjs` answers the dependency build scripts
-      # (pnpm 11 stops the first install until every one is answered — here,
-      # declined) and hoists `@convex-dev/*` so Convex's bundler reaches the
-      # component definitions the scaffold imports. A template can't ship a
-      # pnpm-workspace.yaml (`create nuxt` treats one that has it as
-      # pnpm-only), so the codegen assertion below is what proves the hook
-      # works — and that Convex bundles without esbuild's install script. The
-      # last command adds the official modules `create nuxt` offers, whose
-      # build scripts the hook answers too. No lockfile, as above; the release
-      # age is zeroed for the same reason the strict-pnpm step below zeroes it.
-      - name: Consumer smoke test (pnpm, templates)
-        if: ${{ !cancelled() }}
-        env:
-          CONVEX_AGENT_MODE: anonymous
-          pnpm_config_minimum_release_age: '0'
-        run: | # zizmor: ignore[adhoc-packages]
-          TARBALL="$PWD/$(ls nuxt-backend-*.tgz)"
-          for app in templates/starter templates/panels examples/advanced; do
-            SMOKE="$RUNNER_TEMP/smoke-pnpm-$(basename "$app")"
-            cp -R "$app" "$SMOKE"
-            rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output"
-            # Codegen goes unless the app commits it.
-            git ls-files --error-unmatch "$app/backend/_generated/api.d.ts" >/dev/null 2>&1 || rm -rf "$SMOKE/backend/_generated"
-            echo "::group::$app"
-            (cd "$SMOKE" && pnpm add "$TARBALL")
-            echo "::endgroup::"
-          done
-          cd "$RUNNER_TEMP/smoke-pnpm-starter"
-          "$GITHUB_WORKSPACE/scripts/ci-convex-codegen.sh"
-          # The official modules `create nuxt` offers, and the better-sqlite3
-          # @nuxt/content installs on its first run.
-          pnpm add @nuxt/a11y @nuxt/content @nuxt/eslint @nuxt/fonts @nuxt/hints \
-            @nuxt/icon @nuxt/image @nuxt/scripts @nuxt/test-utils @nuxt/ui better-sqlite3
-
-      # The same consumer path under pnpm's default isolated linker, which
-      # hides everything a package does not declare — the one layout the
-      # hoisted workspace here, and npm above, can never fail on. It installs
-      # the tarball with the settings the installation docs give strict-pnpm
-      # users (the `@convex-dev/*` hoist so Convex's bundler can reach the
-      # component definitions the scaffold imports) and runs the same codegen
-      # assertion. `minimumReleaseAge` is off for this throwaway workspace
-      # only: the gate must not depend on how many hours ago a dependency was
-      # published.
-      - name: Consumer smoke test (strict pnpm)
-        if: ${{ !cancelled() }}
-        env:
-          NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
-          CONVEX_AGENT_MODE: anonymous
-        run: | # zizmor: ignore[adhoc-packages]
-          TARBALL="$PWD/$(ls nuxt-backend-*.tgz)"
-          SMOKE="$RUNNER_TEMP/smoke-strict-pnpm"
-          mkdir -p "$SMOKE/app"
-          cd "$SMOKE"
-          printf '%s\n' '{ "name": "smoke-strict-pnpm", "private": true, "type": "module" }' > package.json
-          printf '%s\n' "export default defineNuxtConfig({ modules: ['nuxt-backend'], telemetry: false })" > nuxt.config.ts
-          printf '%s\n' '<template><div>smoke</div></template>' > app/app.vue
-          printf '%s\n' 'publicHoistPattern:' "  - '@convex-dev/*'" 'allowBuilds:' '  esbuild: false' 'minimumReleaseAge: 0' > pnpm-workspace.yaml
-          pnpm add nuxt convex "$TARBALL"
-          pnpm exec nuxt-backend init
-          # init adds the MCP server's SDK to devDependencies and says to
-          # install; in CI pnpm's lockfile is frozen by default, and its check
-          # before `pnpm exec` would refuse the changed manifest.
-          pnpm install --no-frozen-lockfile
-          pnpm exec nuxt build
-          "$GITHUB_WORKSPACE/scripts/ci-convex-codegen.sh"
-
   # The docs site + playground: type-checked and built the way a deploy builds
   # it. `full` prepare, because both read website/.nuxt.
   website:
@@ -850,15 +858,34 @@ jobs:
         if: ${{ !cancelled() }}
         run: node scripts/typecheck-website.mjs
 
-      # A production build, prerendering the docs. The public URLs are stand-ins:
-      # the build only needs them to be well-formed, and the playground routes
-      # that would open a live connection are excluded from prerendering.
-      - name: Build (website)
+      # One production build, prerendering the docs, in the shape
+      # nuxt-backend.dev serves, and every check below reads it: a Vercel
+      # build, with Vercel's analytics modules, the docs assistant (on with the
+      # deployment's OIDC token) and the error-reporting SDK the monitoring
+      # layer wires once a build sees a DSN. The SDK, with the debug IDs its
+      # build plugin writes into every chunk, weighs some 48 kB of the heaviest
+      # page's initial JavaScript, so a build without it would hold the bundle
+      # ceiling to a site nobody serves. `node-server` rather than Vercel's
+      # output, so the agent-surfaces check can serve `.output`.
+      #
+      # The URLs, the token and the DSN are stand-ins: the build only needs
+      # them well-formed, nothing serves this build, no Sentry token means
+      # nothing uploads, the SDK's build plugin sends no telemetry
+      # (website/nuxt.config.ts), and the playground routes that would open a
+      # live connection are excluded from prerendering. The nuxt binary, not
+      # `pnpm exec`: with VERCEL set, pnpm's check before a run can read a
+      # changed setting and ask for a fresh install.
+      - name: Build (website, production shape)
         if: ${{ !cancelled() }}
-        env:
+        env: &production-shape
           NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
           NUXT_SITE_URL: https://nuxt-backend.example
-        run: pnpm exec nuxt build website
+          VERCEL: '1'
+          VERCEL_ENV: production
+          VERCEL_OIDC_TOKEN: ci-placeholder
+          NITRO_PRESET: node-server
+          MONITORING_DSN: https://public@o0.ingest.sentry.io/0
+        run: ./node_modules/.bin/nuxt build website
 
       # The build succeeds even when the site's palette silently falls back to
       # stock Tailwind; this reads the built CSS and fails if it did.
@@ -883,35 +910,13 @@ jobs:
       # sitemap.md against the content, both twins of every moved route, a
       # missing page, the skills, the manifest and the rename map, the MCP
       # card and the absence of a /mcp on the site. The weekly workflow runs the same
-      # check against nuxt-backend.dev.
+      # check against nuxt-backend.dev. With the build's environment, because
+      # it reads the build's credentials to know whether the docs assistant
+      # should be on (it is, with the OIDC stand-in).
       - name: Check agent surfaces
         if: ${{ !cancelled() }}
+        env: *production-shape
         run: node scripts/check-website-agents.mjs
-
-      # The bundle ceiling, on the shape nuxt-backend.dev serves: a Vercel
-      # build, with Vercel's analytics modules, the docs assistant (on with
-      # the deployment's OIDC token) and the error-reporting SDK the
-      # monitoring layer wires once a build sees a DSN. The build above has
-      # none of them, and the SDK with the debug IDs its build plugin writes
-      # into every chunk weighs some 48 kB of the heaviest page's initial
-      # JavaScript. The token and the DSN are placeholders: nothing
-      # serves this build, no Sentry token means nothing uploads, and the
-      # SDK's build plugin sends no telemetry (website/nuxt.config.ts). The nuxt binary, not
-      # `pnpm exec`: with VERCEL set, pnpm's check before a run can read a
-      # changed setting and ask for a fresh install.
-      - name: Check website bundle (production shape)
-        if: ${{ !cancelled() }}
-        env:
-          NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
-          NUXT_SITE_URL: https://nuxt-backend.example
-          VERCEL: '1'
-          VERCEL_ENV: production
-          VERCEL_OIDC_TOKEN: ci-placeholder
-          NITRO_PRESET: node-server
-          MONITORING_DSN: https://public@o0.ingest.sentry.io/0
-        run: |
-          ./node_modules/.bin/nuxt build website
-          node scripts/check-website-bundle.mjs
 
   # Looks at the dependencies a pull request adds or changes, and fails on a
   # known CVE or a package GitHub has flagged as malicious. pnpm's cooldown only
@@ -921,7 +926,7 @@ jobs:
   # compare on a push. It installs nothing, so no code from the PR runs here.
   dependency-review:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:
       contents: read
@@ -943,9 +948,10 @@ jobs:
     # Skipped whenever `test` is, since there would be no artifact to upload.
     # `!cancelled()` on its own is not enough: a skipped `test` would leave this
     # job downloading an artifact that was never produced, and failing for a
-    # confusing reason.
-    if: ${{ !cancelled() && needs.test.result == 'success' }}
-    runs-on: ubuntu-latest
+    # confusing reason. It does run when tests fail: that is when Codecov's
+    # flaky-test detection has something to see.
+    if: ${{ !cancelled() && needs.test.result != 'skipped' }}
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:
       contents: read
@@ -965,7 +971,9 @@ jobs:
         with:
           name: coverage
 
+      # A run whose tests failed may have written no report.
       - name: Upload coverage reports to Codecov
+        if: ${{ hashFiles('coverage/lcov.info') != '' }}
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           use_oidc: true
@@ -993,7 +1001,7 @@ jobs:
   # The one required status check, and the only name the branch ruleset knows.
   # Every job above reports into it, so adding, renaming or splitting a job never
   # means editing the ruleset. `skipped` counts as a pass: `dependency-review` is
-  # skipped on pushes, and `test`/`e2e`/`pack`/`website` are skipped when no
+  # skipped on pushes, and `test`/`pack`/`website` are skipped when no
   # relevant file changed.
   all-checks:
     name: All checks passed
@@ -1006,11 +1014,10 @@ jobs:
       - changes
       - static
       - test
-      - e2e
       - pack
       - website
       - dependency-review
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions: {}
     steps:
