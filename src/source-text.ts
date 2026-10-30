@@ -5,7 +5,7 @@
  * everything else kept byte for byte — a BOM and every line end included —
  * through a temporary file.
  */
-import { closeSync, fchmodSync, fstatSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync, writeSync } from 'node:fs'
+import { closeSync, fchmodSync, fstatSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 /** The slice of a Babel AST node the edits read. */
@@ -76,8 +76,9 @@ function pause(ms: number): void {
  * Write `code` back with the file's BOM, through a temporary file beside
  * the real one (symlinks resolved) that takes its mode and is renamed over
  * it. On Windows a rename can meet a file another process holds: it is
- * tried again a few times, then the file is written in place. The
- * temporary file never outlives a failure.
+ * tried again a few times, then refused with the file named. Never written
+ * in place, which would be a path checked and then used. The temporary
+ * file never outlives a failure.
  */
 export function writeSource(path: string, source: SourceText, code: string): void {
   const target = realpathSync(path)
@@ -106,11 +107,10 @@ export function writeSource(path: string, source: SourceText, code: string): voi
       catch (error) {
         const code = (error as NodeJS.ErrnoException).code ?? ''
         if (process.platform !== 'win32' || !['EPERM', 'EBUSY', 'EACCES'].includes(code)) throw error
-        if (attempt === 4) break
+        if (attempt === 4) throw new Error(`${target} is held by another program (${code}). Close it there and run this again.`, { cause: error })
         pause(50 * 2 ** attempt)
       }
     }
-    writeFileSync(target, text)
   }
   finally {
     rmSync(temporary, { force: true })

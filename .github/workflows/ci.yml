@@ -632,7 +632,13 @@ jobs:
       # gets its own install. The aliases have to reach the installed package
       # through the app's own Nuxt environment, which no test in the
       # repository can show. `--before` holds npm to pnpm-workspace.yaml's
-      # release cooldown, as the repository's own installs are.
+      # release cooldown, as the repository's own installs are. npm has no
+      # counterpart to `minimumReleaseAgeExclude`, and an override under
+      # `--before` crashes its arborist, so when one of the package's own
+      # dependencies on that list (our stack: nuxt-convex-module, Convex
+      # components) is newer than the cutoff, the cutoff moves to just past
+      # its release. That loosens the cooldown for everything else by the same
+      # stretch, never by more than the cooldown itself.
       - name: Consumer component tests (nuxt-backend/test-utils)
         if: ${{ !cancelled() && steps.smoke.outcome == 'success' }}
         env:
@@ -643,16 +649,27 @@ jobs:
           cp -R templates/starter "$APP"
           rm -rf "$APP/node_modules" "$APP/.nuxt" "$APP/.output" "$APP/backend/_generated"
           AGE=$(sed -n 's/^minimumReleaseAge: *//p' pnpm-workspace.yaml)
-          BEFORE=$(node -p "new Date(Date.now() - $AGE * 60_000).toISOString()")
-          node -e '
+          BEFORE=$(node -e '
             const fs = require("node:fs")
-            const dev = JSON.parse(fs.readFileSync("package.json", "utf8")).devDependencies
+            const own = JSON.parse(fs.readFileSync("package.json", "utf8"))
             const file = process.argv[1]
             const app = JSON.parse(fs.readFileSync(file, "utf8"))
             const tools = ["vitest", "@nuxt/test-utils", "@vue/test-utils", "happy-dom", "axe-core"]
-            app.devDependencies = Object.fromEntries(tools.map(name => [name, dev[name]]))
+            app.devDependencies = Object.fromEntries(tools.map(name => [name, own.devDependencies[name]]))
             fs.writeFileSync(file, JSON.stringify(app, null, 2))
-          ' "$APP/package.json"
+            const workspace = fs.readFileSync("pnpm-workspace.yaml", "utf8")
+            const exempt = workspace.match(/^minimumReleaseAgeExclude:\n((?:\s+- .+\n)+)/m)[1].split("\n").filter(Boolean)
+              .map(line => new RegExp("^" + line.replace(/^\s+- /, "").replace(/["\x27]/g, "").replace(/\*/g, ".*") + "$"))
+            const cutoff = Date.now() - Number(process.argv[2]) * 60_000
+            const releases = Object.keys(own.dependencies).filter(name => exempt.some(pattern => pattern.test(name))).map(async name => {
+              const { version } = JSON.parse(fs.readFileSync("node_modules/" + name + "/package.json", "utf8"))
+              const { time } = await (await fetch("https://registry.npmjs.org/" + name)).json()
+              const released = Date.parse(time[version])
+              if (released > cutoff) console.error(name + "@" + version + " is exempt from the cooldown: the cutoff moves past it")
+              return released
+            })
+            Promise.all(releases).then(times => console.log(new Date(Math.max(cutoff, ...times.map(t => t + 1000))).toISOString()))
+          ' "$APP/package.json" "$AGE")
           cp -R test/fixtures/test-utils/. "$APP"
           cd "$APP"
           npx --yes npm@11.17.0 install --no-audit --no-fund --before "$BEFORE" "$TARBALL"
