@@ -622,7 +622,7 @@ never renames one.
   `sign_in_refused`, `customer_taken`, `already_subscribed`,
   `not_billing_manager`, `provider_owner_only`, `gift_refused`,
   `gift_refunded`, `not_recipient`, `no_email`, `bot_check`,
-  `other_account`, `flag_off`, `sole_owner`, `ticket_required`, `invitation_refused`,
+  `other_account`, `flag_off`, `sole_owner`, `paid_subscription`, `ticket_required`, `invitation_refused`,
   `consent_required`, `age_required`, `under_age`, `passkey_only_admin`). A `consent_required` refusal
   also carries `kind`, the required consent not yet accepted at its latest version. A
   `ticket_required` refusal also carries `phase`, the launch phase that
@@ -888,7 +888,7 @@ import { action, mutation, query } from './_generated/server'
 
 export const { authed, workspace, admin, withRole, withFeature, setUserRole } = createFunctions(
   { query, mutation, action },
-  { components, billing, rateLimiter, limits: { authed: 'write' } },
+  { components, billing, rateLimiter, limits: { authed: 'write', workspace: 'write' } },
 )
 
 // backend/strips.ts

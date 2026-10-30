@@ -59,9 +59,10 @@ export interface AiComponents {
         meterId?: string
         cost: number
         externalId: string
-        status: 'reserved' | 'settled' | 'released'
+        status: 'reserved' | 'streaming' | 'settled' | 'released'
         createdAt: number
       } | null>
+      claimRequest: FunctionReference<'mutation', 'internal', { streamId: string }, boolean>
       markSettled: FunctionReference<'mutation', 'internal', { streamId: string }, null>
       markReleased: FunctionReference<'mutation', 'internal', { streamId: string }, null>
     }
@@ -73,6 +74,9 @@ export interface AiComponents {
      */
     billing: {
       finalize: BillingComponents['backend']['billing']['finalize']
+      /** Take a spend the provider has from the balance again, once its reservation lapsed. */
+      debit: BillingComponents['backend']['billing']['debit']
+      settle: BillingComponents['backend']['billing']['settle']
       release: FunctionReference<'mutation', 'internal', { userId: string, externalId: string }, null>
       attachReleaseJob: FunctionReference<'mutation', 'internal', {
         userId: string
@@ -122,8 +126,8 @@ export interface AiBudget {
 /**
  * A ceiling on what AI costs the whole app in one UTC day, in US dollars, as
  * the gateway reports each call's cost. Once the day's spend reaches it, the
- * `pause_ai` kill switch turns on: every metered call, stream, job and chat
- * reply is refused (`unavailable`, reason `ai_paused`) until the next UTC
+ * `pause_ai` kill switch turns on: every metered call, stream, job, chat
+ * reply and safety check is refused (`unavailable`, reason `ai_paused`) until the next UTC
  * day begins, when the pause lifts by itself. An override of `pause_ai` an
  * administrator set (a pause, a targeted one, or a resume) is never written
  * over, and the lift leaves it. The `ai.spend_limit_reached`
@@ -300,7 +304,8 @@ export interface SetupAiConfig {
   /**
    * The safety classifier `ai.moderate`, `ai.requireSafe` and every
    * `moderate` option check content with: a model call through the
-   * gateway, on the app's bill, never on the person's credits. Default
+   * gateway, on the app's bill, never on the person's credits. Its cost
+   * is recorded like any run's, so `spendLimit` counts it. Default
    * `{ model: 'meta-llama/llama-guard-4-12b' }`.
    */
   moderation?: ModerationConfig
@@ -702,7 +707,9 @@ export interface Ai {
    * (`setupAi({ moderation })`) and answer its verdict: `flagged`, and
    * `categories`, the classifier's own codes (Llama Guard's `S1` to
    * `S14`). Images are file storage ids, an upload not yet claimed
-   * included. In an action; the call is on the app's gateway bill.
+   * included. In an action; the call is on the app's gateway bill, its
+   * cost recorded against `spendLimit`, and it is refused while `pause_ai`
+   * is on (`unavailable`, reason `ai_paused`).
    *
    * @example
    * ```ts

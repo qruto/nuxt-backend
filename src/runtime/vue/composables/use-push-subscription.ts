@@ -1,12 +1,12 @@
 import type { FunctionReference } from 'convex/server'
-import { computed, inject, onMounted, ref, watch, type ComputedRef } from 'vue'
+import { computed, getCurrentInstance, inject, onMounted, ref, watch, type ComputedRef } from 'vue'
 import { ConvexAuthStateKey, useMutation } from 'nuxt-convex-module/client'
 import type { PushConfig } from '../../../convex/integrations/notifications'
 import { useActionState } from '../utils/action-state'
 import type { BackendError } from '../utils/backend-error'
 import { absentQuery, useLiveQuery } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
-import { devicePushManager, type PushDevice, pushDevice, PUSH_WORKER_SCOPE, PUSH_WORKER_URL, subscriptionFor } from '../utils/push-device'
+import { devicePushManager, type PushDevice, pushDevice, PUSH_WORKER_SCOPE, PUSH_WORKER_URL, subscriptionFor, watchDevicePushSignOut } from '../utils/push-device'
 
 export type { PushConfig } from '../../../convex/integrations/notifications'
 
@@ -94,6 +94,7 @@ export function usePushSubscription(options: UsePushSubscriptionOptions = {}): U
   const installed = ref(false)
   const permission = ref<NotificationPermission>('default')
   const subscribed = ref(false)
+  const app = getCurrentInstance()?.appContext.app
 
   async function readDevice(): Promise<void> {
     const device = pushDevice()
@@ -130,6 +131,8 @@ export function usePushSubscription(options: UsePushSubscriptionOptions = {}): U
     const { endpoint, keys } = subscription.toJSON()
     await runSubscribe!({ endpoint: endpoint!, p256dh: keys!.p256dh!, auth: keys!.auth! })
     subscribed.value = true
+    // A subscription made on this page is dropped by signing out here too.
+    void watchDevicePushSignOut(watch => (app ? app.runWithContext(watch) : watch())).catch(() => {})
     return true
   })
 

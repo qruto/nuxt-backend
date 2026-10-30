@@ -376,3 +376,15 @@ const REFUND_STALE_MS = 60 * 60 * 1000
 export function refundInFlight(job: { refundOwed?: 'pending' | 'given_up', refundAt?: number }, now = Date.now()): boolean {
   return job.refundOwed === 'pending' && (job.refundAt ?? 0) > now - REFUND_STALE_MS
 }
+
+/** How long after a job ended its charge may still land: the action that charges runs ten minutes at most. */
+const CHARGE_SETTLE_MS = 15 * 60 * 1000
+
+/**
+ * Whether a failed job's charge may still land: it was claimed, never
+ * marked, and the job ended moments ago. A retry waits for it, so the
+ * charge never lands on the new run and leaves its fresh hold behind.
+ */
+export function chargeInFlight(job: { charging?: number, charged: boolean, endedAt?: number }, now = Date.now()): boolean {
+  return job.charging !== undefined && !job.charged && (job.endedAt ?? now) > now - CHARGE_SETTLE_MS
+}

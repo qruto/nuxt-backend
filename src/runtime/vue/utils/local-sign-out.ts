@@ -17,6 +17,16 @@ export function sessionKey(data: unknown): string | null {
   return typeof key === 'string' && key ? key : null
 }
 
+/**
+ * The session as the auth server last settled it: its key when signed in
+ * (`'signed-in'` for an answer without one), `null` when signed out,
+ * `undefined` while the answer is pending.
+ */
+export function settledSessionKey(state: { isPending: boolean, data: unknown }): string | null | undefined {
+  if (state.isPending) return undefined
+  return state.data ? sessionKey(state.data) ?? 'signed-in' : null
+}
+
 /** Remember that this tab is signing `key` out; `null` forgets it (a sign-out that failed). */
 export function markLocalSignOut(key: string | null): void {
   ending = key

@@ -149,6 +149,27 @@ describe('setupEmail templates', () => {
     })).toMatchObject({ to: 'b@c.com', subject: 'Join Acme' })
   })
 
+  it('mails an invitation with no link or domain from the names the inviter typed', async () => {
+    const email = setupEmail(component)
+    const message = await email.render('invite', {
+      email: 'b@c.com',
+      url: 'https://app.example.com/join',
+      inviterName: 'Support   at https://evil-login.com/verify',
+      inviterEmail: 'mallory@example.com',
+      workspaceName: 'Security alert: verify at evil-login.com',
+      role: 'member',
+    })
+    expect(message.subject).not.toMatch(/evil-login/)
+    expect(message.text).not.toMatch(/evil-login/)
+    expect(message.html).not.toMatch(/evil-login/)
+    expect(message.subject).toBe('Join Security alert: verify at')
+    expect(message.text).toContain('Support at invited you to join Security alert: verify at as member.')
+    // A name that is nothing but a domain leaves the sentences that name no workspace.
+    const bare = await email.render('invite', { email: 'b@c.com', url: 'https://app.example.com/join', inviterName: 'evil-login.com', inviterEmail: 'mallory@example.com', workspaceName: 'evil-login.com', role: 'member' })
+    expect(bare.subject).toBe('You\'re invited to a workspace')
+    expect(bare.text).toContain('mallory@example.com invited you to join their workspace as member.')
+  })
+
   it('hands an override the data, the render context and the default bound to it', async () => {
     vi.stubEnv('SITE_URL', 'https://app.example.com')
     type WelcomeContext = Parameters<NonNullable<EmailTemplateOverrides['welcome']>>[1]

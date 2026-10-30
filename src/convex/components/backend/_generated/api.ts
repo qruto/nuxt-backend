@@ -21,6 +21,7 @@ import type * as costs from "../costs.js";
 import type * as crons from "../crons.js";
 import type * as devices from "../devices.js";
 import type * as email from "../email.js";
+import type * as erasures from "../erasures.js";
 import type * as flags from "../flags.js";
 import type * as funnel from "../funnel.js";
 import type * as gifts from "../gifts.js";
@@ -68,6 +69,7 @@ const fullApi: ApiFromModules<{
   crons: typeof crons;
   devices: typeof devices;
   email: typeof email;
+  erasures: typeof erasures;
   flags: typeof flags;
   funnel: typeof funnel;
   gifts: typeof gifts;

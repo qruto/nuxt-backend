@@ -22,12 +22,11 @@ export default defineNuxtPlugin({
     const loginPath = pages?.login ?? '/login'
     onFirstGuardedPage(router, () => {
       Promise.all([import('../utils/auth-session'), import('../utils/session-end'), import('../utils/local-sign-out')])
-        .then(([{ useAuthSession }, { watchSessionEnd }, { sessionKey }]) => nuxtApp.runWithContext(() => {
+        .then(([{ useAuthSession }, { watchSessionEnd }, { settledSessionKey }]) => nuxtApp.runWithContext(() => {
           const { session } = useAuthSession()
           watchSessionEnd(nuxtApp, {
             router,
-            // A signed-in answer always has a key; one without reads as signed in all the same.
-            session: () => (session.value.isPending ? undefined : session.value.data ? sessionKey(session.value.data) ?? 'signed-in' : null),
+            session: () => settledSessionKey(session.value),
             loginPath,
           })
         }))

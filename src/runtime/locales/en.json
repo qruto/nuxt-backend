@@ -1881,7 +1881,7 @@
           "kept": "Until the deletion is cancelled or runs."
         },
         "erasures": {
-          "holds": "An erasure in progress: the account's id and address, and the workspaces it deletes.",
+          "holds": "An erasure in progress: the account's id and address, and the workspaces it deletes; and the plan of the app's part (the billing customer, the email contact) while a participant of it is retried.",
           "kept": "Until the erasure finishes; a failed one 30 days."
         },
         "monitoringUser": {
@@ -2416,6 +2416,7 @@
       "forbidden_age_required": "Tell us how old you are to continue.",
       "forbidden_under_age": "We can't create an account for you.",
       "forbidden_sole_owner": "You're the only owner of a workspace others belong to. Make another member an owner first.",
+      "forbidden_paid_subscription": "This workspace has a paid plan. Cancel it before you delete the workspace.",
       "forbidden_cannot_share": "You can't share this.",
       "reauthentication_required": "Confirm it's you to continue: this needs a recent sign-in.",
       "no_workspace": "Create or choose a workspace first.",
@@ -2619,7 +2620,9 @@
       "invite": {
         "subject": "Join {workspace}",
         "intro": "{inviter} invited you to join {workspace} as {role}.",
-        "action": "Accept invitation"
+        "action": "Accept invitation",
+        "subjectUnnamed": "You're invited to a workspace",
+        "introUnnamed": "{inviter} invited you to join their workspace as {role}."
       },
       "gift": {
         "subject": "{sender} sent you a gift 🎁",

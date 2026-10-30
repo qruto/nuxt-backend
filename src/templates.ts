@@ -155,8 +155,8 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // runs to make your first administrator.
     export const { authed, workspace, admin, withRole, withFeature, setUserRole } = createFunctions(
       { query, mutation, action },
-      // Every authed write spends the 'write' limit (rateLimiter.ts), per account.
-      { components, billing, rateLimiter, limits: { authed: 'write' } },
+      // Every signed-in write spends the 'write' limit (rateLimiter.ts), per account.
+      { components, billing, rateLimiter, limits: { authed: 'write', workspace: 'write' } },
     )
     ` + '\n',
 

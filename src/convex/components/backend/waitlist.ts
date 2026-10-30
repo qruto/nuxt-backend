@@ -409,7 +409,7 @@ const consoleEntry = (entry: Entry): typeof vConsoleEntry.type => ({
 
 /** How many contacts wait to be written or have drifted (up to a thousand each). */
 async function mirrorBacklog(ctx: QueryCtx): Promise<{ pending: number, drift: number }> {
-  const count = async (state: 'pending' | 'drift') => (await ctx.db.query('waitlistEntries').withIndex('mirror', q => q.eq('mirror', state)).take(1000)).length
+  const count = async (state: 'pending' | 'drift') => (await ctx.db.query('waitlistEntries').withIndex('mirror_mirrorAt', q => q.eq('mirror', state)).take(1000)).length
   return { pending: await count('pending'), drift: await count('drift') }
 }
 
@@ -584,13 +584,11 @@ export async function pruneJoins(ctx: MutationCtx, before: number): Promise<{ pr
   return { pruned: rows.length, done: rows.length < 200 }
 }
 
-/** Contacts left pending or drifting for a while are written again (maintenance). */
+/** Contacts left pending or drifting for a while are written again (maintenance), the longest-waiting first: ones retried lately never hide them. */
 export async function retryMirrors(ctx: MutationCtx, before: number): Promise<void> {
   for (const state of ['pending', 'drift'] as const) {
-    const rows = await ctx.db.query('waitlistEntries').withIndex('mirror', q => q.eq('mirror', state)).take(MIRROR_RETRY_BATCH)
-    for (const entry of rows) {
-      if ((entry.mirrorAt ?? 0) < before) await enqueueMirror(ctx, entry)
-    }
+    const rows = await ctx.db.query('waitlistEntries').withIndex('mirror_mirrorAt', q => q.eq('mirror', state).lt('mirrorAt', before)).take(MIRROR_RETRY_BATCH)
+    for (const entry of rows) await enqueueMirror(ctx, entry)
   }
 }
 
@@ -670,8 +668,8 @@ async function writeContact(resend: Resend, email: string, audience: { segmentId
  */
 export const mirrorOne = internalAction({
   args: { entryId: v.id('waitlistEntries') },
-  returns: v.union(v.object({ skipped: v.string() }), v.null()),
-  handler: async (ctx, { entryId }) => {
+  returns: v.union(v.object({ skipped: v.string() }), v.object({ written: v.string() }), v.null()),
+  handler: async (ctx, { entryId }): Promise<{ skipped: string } | { written: string } | null> => {
     const target = await ctx.runQuery(internal.waitlist.mirrorTarget, { entryId })
     if (!target) return null
     const key = env.EMAIL_API_KEY
@@ -679,7 +677,8 @@ export const mirrorOne = internalAction({
     if (!key || reason) return { skipped: reason ?? 'no-key' }
     const resend = new Resend(key)
     await writeContact(resend, target.email, await audienceOf(ctx, resend, target))
-    return null
+    // The address it wrote: should the person have left meanwhile, the job's end removes the contact again.
+    return { written: target.email }
   },
 })
 
@@ -696,13 +695,27 @@ export const removeContact = internalAction({
   },
 })
 
+/**
+ * A contact written after its entry left (the person left, or was erased,
+ * while the write was on its way, so their removal ran first): removed
+ * again, unless the address is back on the list asking for the news.
+ */
+async function removeLateContact(ctx: MutationCtx, email: string | undefined): Promise<void> {
+  if (!email) return
+  const entries = await ctx.db.query('waitlistEntries').withIndex('email', q => q.eq('email', email)).take(50)
+  if (!entries.some(wantsNews)) await pool.enqueueAction(ctx, internal.waitlist.removeContact, { email })
+}
+
 /** A mirror job ended: the entry says whether its contact is written, skipped, or has drifted. */
 export const mirrored = internalMutation({
   args: vOnCompleteArgs(v.object({ entryId: v.id('waitlistEntries') })),
   handler: async (ctx, { context, result }) => {
     if (result.kind === 'canceled') return
     const entry = await ctx.db.get('waitlistEntries', context.entryId)
-    if (!entry || !wantsNews(entry)) return
+    if (!entry || !wantsNews(entry)) {
+      if (result.kind === 'success') await removeLateContact(ctx, (result.returnValue as { written?: string } | null)?.written)
+      return
+    }
     if (result.kind === 'success') {
       const skipped = (result.returnValue as { skipped?: string } | null)?.skipped
       await ctx.db.patch('waitlistEntries', entry._id, { mirror: skipped ? 'skipped' : 'synced', mirrorError: skipped, mirrorAt: Date.now() })

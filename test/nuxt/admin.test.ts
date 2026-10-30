@@ -326,6 +326,15 @@ describe('<AdminUsers>', () => {
     expect(document.activeElement).toBe(drawer.find('[data-admin="close"]').element)
   })
 
+  it('lets a linked account go that is on no page and cannot be read, and says why the list failed', async () => {
+    answers.set(key('admin:getUser', { userId: 'gone' }), null)
+    answers.set(key('admin:listUsers', firstPage()), new Error('Server unreachable'))
+    const wrapper = render(AdminUsers, { userId: 'gone' })
+    await flushPromises()
+    expect(wrapper.find('[data-admin="drawer"]').exists()).toBe(false)
+    expect(wrapper.find('[data-admin="users"] > [data-admin="error"]').attributes('role')).toBe('alert')
+  })
+
   it('offers the app\'s own roles, and the account\'s, and says when a list holds only its first rows', async () => {
     answers.set(key('admin:getUser', { userId: 'ada' }), detail(account('ada', { role: 'editor' }), { truncated: true }))
     const wrapper = render(AdminUsers, { roles: ['user', 'support'] })
@@ -908,6 +917,24 @@ describe('the Waitlist tab', () => {
     await flushPromises()
     expect(setFlagCall).toHaveBeenLastCalledWith({ next: 50 })
     expect(reauthenticated).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('declines only the ticked rows still on screen, never ones a wave admitted meanwhile', async () => {
+    setFlagCall.mockResolvedValueOnce({ admitted: 2 } as never).mockResolvedValueOnce({ declined: 1 } as never)
+    const wrapper = waitlistTab({}, { status: 'waiting' })
+    await flushPromises()
+    await wrapper.findAll('[data-admin="waitlist-table"] tbody input[type="checkbox"]')[0]!.setValue(true)
+    await wrapper.find('[data-admin="waitlist-wave"]').trigger('submit')
+    await flushPromises()
+    // The wave admitted both: they leave the waiting list, and a newcomer joins it.
+    const newcomer = { ...waitlistConsole().entries[1]!, id: 'e3', email: 'ida@panels.example' }
+    answers.set(key('waitlist:getWaitlistConsole', { status: 'waiting' }), waitlistConsole({ entries: [newcomer] }))
+    await flushPromises()
+    await wrapper.findAll('[data-admin="waitlist-table"] tbody input[type="checkbox"]')[0]!.setValue(true)
+    await wrapper.find('[data-admin="waitlist-decline"]').trigger('click')
+    await flushPromises()
+    expect(setFlagCall).toHaveBeenLastCalledWith({ ids: ['e3'] })
     wrapper.unmount()
   })
 

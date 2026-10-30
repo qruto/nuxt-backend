@@ -1,6 +1,6 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { slugify } from '../../../src/runtime/vue/utils/slug'
+import { slugify, workspaceSlug } from '../../../src/runtime/vue/utils/slug'
 
 // Property tests (fast-check) for the slug <WorkspaceSettings> makes from a
 // new workspace's name. A slug is a workspace's unique handle, so whatever a
@@ -41,5 +41,17 @@ describe('slugify', () => {
     fc.assert(fc.property(fc.array(word, { minLength: 1, maxLength: 5 }), gap, (words, separator) => {
       expect(slugify(words.join(separator))).toBe(words.join('-'))
     }))
+  })
+})
+
+describe('workspaceSlug', () => {
+  it('is the slug of the name, else "workspace", with a suffix of its own: never empty, never shared', () => {
+    fc.assert(fc.property(name, (typed) => {
+      const slug = workspaceSlug(typed)
+      expect(slug).toMatch(/^(?:[a-z0-9]+-)+[0-9a-f]{8}$/)
+      expect(slug.slice(0, -9)).toBe(slugify(typed) || 'workspace')
+    }))
+    expect(workspaceSlug('Мастерская')).toMatch(/^workspace-[0-9a-f]{8}$/)
+    expect(workspaceSlug('Acme')).not.toBe(workspaceSlug('Acme'))
   })
 })

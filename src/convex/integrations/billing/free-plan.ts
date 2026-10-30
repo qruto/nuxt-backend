@@ -46,7 +46,7 @@ export interface RevokedSubscription {
 }
 
 /** A subscription row as the synced table keeps it. */
-interface SyncedSubscription { id: string, productId: string, status: string, endedAt?: string | null }
+interface SyncedSubscription { id: string, productId: string, status: string, endedAt?: string | null, cancelAtPeriodEnd?: boolean }
 
 /** One page of the auth adapter's `findMany`. */
 interface AdapterPage { page: Array<{ _id?: string, id?: string }>, isDone: boolean, continueCursor: string }
@@ -221,7 +221,21 @@ export function createFreePlan(
     if (entity.kind === billedKind) await queue(ctx, entity.id)
   }
 
-  return { isFreeProduct, freeSubscriptionOf, queue, start, backfill, restartAfterRevoke, entityCreated, hooks }
+  /**
+   * Why the auth layer may not delete an entity now, or `null`: a workspace
+   * that still holds a paid subscription set to renew would go on being
+   * billed with nobody left in the app to cancel it (`paid_subscription`).
+   * One set to cancel at its period's end, or a free plan, is no reason.
+   */
+  const deletionRefusal = async (ctx: RunQueryCtx, entity: { kind: CreatedEntityKind, id: string }): Promise<'paid_subscription' | null> => {
+    if (entity.kind !== billedKind) return null
+    for (const subscription of await liveSubscriptions(ctx, entity.id)) {
+      if (!subscription.cancelAtPeriodEnd && !await isFreeProduct(ctx, subscription.productId)) return 'paid_subscription'
+    }
+    return null
+  }
+
+  return { isFreeProduct, freeSubscriptionOf, queue, start, backfill, restartAfterRevoke, entityCreated, deletionRefusal, hooks }
 }
 
 /** The free plan of one `setupBilling` call. */

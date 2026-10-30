@@ -2,7 +2,7 @@ import { backendEnvironment } from 'nuxt-backend/app'
 import { defineRetention } from 'nuxt-backend/functions'
 import { DAY } from 'nuxt-backend/rate-limit'
 import { v } from 'convex/values'
-import { internal } from './_generated/api'
+import { components, internal } from './_generated/api'
 import { internalMutation, type MutationCtx, query, type QueryCtx } from './_generated/server'
 import { admin } from './functions'
 import { jobs } from './jobs'
@@ -69,12 +69,14 @@ export const status = query({
 // for itself (`billTo: 'app'`), so the panels are the app's files, not the
 // administrator's: no workspace's quota counts them, and no account's
 // export or erasure takes them from the strips they are copied into. An
-// idea whose seeding stopped halfway starts over.
+// idea whose seed job still waits or draws is left to it; one whose seeding
+// stopped halfway (failed, canceled, gone) starts over.
 async function fillCache(ctx: MutationCtx) {
   let queued = 0
   for (const { id } of CANNED_IDEAS) {
     const row = await cacheRow(ctx, id)
     if (row?.ready) continue
+    if (row && await seedRunning(ctx, row.jobId)) continue
     if (row) {
       for (const panel of row.panels) await storage.release(ctx, panel.imageId)
       await ctx.db.delete('cannedStrips', row._id)
@@ -84,6 +86,12 @@ async function fillCache(ctx: MutationCtx) {
     queued++
   }
   return { queued }
+}
+
+/** Whether a seed job is still in line or drawing, read from the queue itself: the seed runs with no one signed in too. */
+async function seedRunning(ctx: MutationCtx, jobId: string | undefined) {
+  const job = jobId ? await ctx.runQuery(components.backend.jobs.get, { jobId }) : null
+  return job?.status === 'queued' || job?.status === 'running'
 }
 
 // The admin console's Demo tab (app/pages/admin/demo.vue) fills the cache.

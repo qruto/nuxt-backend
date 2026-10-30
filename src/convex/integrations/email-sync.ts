@@ -116,6 +116,37 @@ function refused(what: string, error: ProviderError): Error {
   return new Error(`[nuxt-backend] email sync: the provider refused to ${what}: ${error?.message ?? 'no answer'}`)
 }
 
+/** The most items one page of a provider listing holds. */
+const PAGE_LIMIT = 100
+/** The most pages one listing reads: past them, a sync works from what it read. */
+const PAGES_MAX = 50
+
+/** One page of a provider listing, as the SDK answers it. */
+type ListedPage<Item> = { data: { data: Item[], has_more?: boolean } | null, error: ProviderError }
+
+/**
+ * Every item of a listing the provider pages (20 an answer unless asked for
+ * more): a sync that read only the first page would miss what it made
+ * before, and make it again. `null` items with the first refusal.
+ */
+async function listAll<Item extends { id: string }>(page: (options: { limit: number, after?: string }) => Promise<ListedPage<Item>>): Promise<{ data: Item[] | null, error: ProviderError }> {
+  const items: Item[] = []
+  let after: string | undefined
+  for (let read = 0; read < PAGES_MAX; read++) {
+    const listed = await page({ limit: PAGE_LIMIT, ...(after ? { after } : {}) })
+    if (listed.error) return { data: null, error: listed.error }
+    const data = listed.data?.data ?? []
+    items.push(...data)
+    after = data.at(-1)?.id
+    if (!listed.data?.has_more || !after) break
+  }
+  return { data: items, error: null }
+}
+
+/** Every topic at the provider. The SDK's `topics.list` takes no page options, so this asks the API itself. */
+const listTopics = (resend: Resend) => listAll<Topic>(({ limit, after }) =>
+  resend.get<{ data: Topic[], has_more?: boolean }>(`/topics?${new URLSearchParams({ limit: String(limit), ...(after ? { after } : {}) }).toString()}`))
+
 /** A DMARC policy from a TXT record's text, or `null`. */
 export function dmarcPolicy(records: readonly string[]): string | null {
   for (const record of records) {
@@ -194,10 +225,10 @@ async function updateTopic(run: SyncRun, found: Topic, key: string, topic: Email
 
 /** The segment that holds the app's accounts: found, or made. */
 async function syncSegment(run: SyncRun): Promise<void> {
-  const segments = await run.resend.segments.list()
+  const segments = await listAll(options => run.resend.segments.list(options))
   if (segments.error) throw refused('list the segments', segments.error)
   const kept = keptId(run, 'segment', 'accounts')
-  const found = segments.data?.data.find(entry => entry.id === kept?.providerId) ?? segments.data?.data.find(entry => entry.name === ACCOUNTS_SEGMENT_NAME)
+  const found = segments.data?.find(entry => entry.id === kept?.providerId) ?? segments.data?.find(entry => entry.name === ACCOUNTS_SEGMENT_NAME)
   if (found) {
     if (kept?.providerId !== found.id) run.save.push({ kind: 'segment', key: 'accounts', providerId: found.id })
     return void run.log.push({ action: 'exists', kind: 'segment', key: 'accounts', id: found.id })
@@ -217,10 +248,10 @@ async function syncSegment(run: SyncRun): Promise<void> {
 /** The contact properties, by key: made when missing, a different type reported as drift. */
 async function syncProperties(run: SyncRun, declared: Readonly<Record<string, EmailContactProperty>>): Promise<void> {
   if (Object.keys(declared).length === 0) return
-  const properties = await run.resend.contactProperties.list()
+  const properties = await listAll(options => run.resend.contactProperties.list(options))
   if (properties.error) throw refused('list the contact properties', properties.error)
   for (const [key, property] of Object.entries(declared)) {
-    const found = properties.data?.data.find(entry => entry.key === key)
+    const found = properties.data?.find(entry => entry.key === key)
     if (found) {
       run.log.push(found.type === property.type ? { action: 'exists', kind: 'property', key, id: found.id } : { action: 'drift', kind: 'property', key, id: found.id, note: `is a ${found.type} at the provider` })
       continue
@@ -271,9 +302,9 @@ async function updateWebhook(run: SyncRun, id: string, { events, enable }: { eve
 
 /** The provider's webhook at `url`, or `null`. */
 async function findWebhook(run: SyncRun, url: string) {
-  const hooks = await run.resend.webhooks.list()
+  const hooks = await listAll(options => run.resend.webhooks.list(options))
   if (hooks.error) throw refused('list the webhooks', hooks.error)
-  return hooks.data?.data.find(entry => entry.endpoint.replace(/\/+$/, '') === url.replace(/\/+$/, '')) ?? null
+  return hooks.data?.find(entry => entry.endpoint.replace(/\/+$/, '') === url.replace(/\/+$/, '')) ?? null
 }
 
 /**
@@ -348,9 +379,9 @@ async function syncFlowAutomation(run: SyncRun, flow: FlowSettings, templateId: 
 /** Every declared flow's template and automation at the provider. */
 async function syncFlows(run: SyncRun, declared: LifecycleSyncDeclared): Promise<void> {
   if (declared.flows.length === 0) return
-  const listed = await run.resend.automations.list()
+  const listed = await listAll(options => run.resend.automations.list(options))
   if (listed.error) throw refused('list the automations', listed.error)
-  const existing = (listed.data?.data ?? []).map(entry => ({ id: entry.id, name: entry.name }))
+  const existing = (listed.data ?? []).map(entry => ({ id: entry.id, name: entry.name }))
   for (const flow of declared.flows) {
     const templateId = await syncFlowTemplate(run, flow.flow as LifecycleFlow, declared)
     await syncFlowAutomation(run, flow, templateId, existing, declared.from(flow.flow as LifecycleFlow))
@@ -401,13 +432,13 @@ async function flowSettings(ctx: Pick<GenericActionCtx<GenericDataModel>, 'runQu
 
 /** Each sender's domain: its sending region at the provider, and its DMARC policy. */
 async function readSenders(resend: Resend, fetcher: typeof fetch): Promise<EmailSyncReport['senders']> {
-  const domains = await resend.domains.list()
+  const domains = await listAll(options => resend.domains.list(options))
   const senders: EmailSyncReport['senders'] = []
   for (const variable of ['EMAIL_FROM', 'EMAIL_MARKETING_FROM'] as const) {
     const value = readEnv(variable)
     const domain = value ? senderDomain(value) : null
     if (!domain) continue
-    const known = domains.data?.data.find(entry => entry.name === domain || domain.endsWith(`.${entry.name}`))
+    const known = domains.data?.find(entry => entry.name === domain || domain.endsWith(`.${entry.name}`))
     senders.push({ variable, domain, region: known?.region ?? null, dmarc: await readDmarc(domain, fetcher) })
   }
   return senders
@@ -456,7 +487,7 @@ export async function syncEmail(
   const apiKey = readEnv('EMAIL_API_KEY')
   if (!apiKey) return report
   const resend = new Resend(apiKey)
-  const listed = await resend.topics.list()
+  const listed = await listTopics(resend)
   if (listed.error) {
     if (restricted(listed.error)) return { ...report, key: 'restricted' }
     throw refused('list the topics', listed.error)
@@ -464,7 +495,7 @@ export async function syncEmail(
   const run: SyncRun = { resend, dryRun, kept: await ctx.runQuery(refs.providerIds, {}), save: [], log: report.log }
   // A rotation touches the webhook's secret and nothing else.
   if (rotate) return { ...report, key: 'full', webhook: url ? await rotateWebhookSecret(run, url) : report.webhook }
-  await syncDeclared(run, declared, listed.data?.data ?? [])
+  await syncDeclared(run, declared, listed.data ?? [])
   if (run.save.length > 0 && !dryRun) await ctx.runMutation(refs.saveProviderIds, { ids: run.save })
   // Every flow's template and automation exists now (a refusal threw above), so a flow kept here starts something.
   if (!dryRun) report.flows.unsynced = await flows.keep()

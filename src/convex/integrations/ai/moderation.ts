@@ -3,6 +3,7 @@ import { backendError } from '../../errors.js'
 import { sniffContentType } from '../../files.js'
 import { logBackend } from '../../log.js'
 import type { AiModel, InferenceRegion } from './config.js'
+import type { RecordCost } from './costs.js'
 import { loadSdk, meteredModel, modelIdOf, type ModelCall, requireModelId, routeModel } from './models.js'
 
 // Content safety's check (`ai.moderate`, `ai.requireSafe`, `moderate` on a
@@ -13,7 +14,9 @@ import { loadSdk, meteredModel, modelIdOf, type ModelCall, requireModelId, route
 // and answers `safe`, or `unsafe` and the hazard codes (`S1` to `S14`) on the
 // next line. A policy-following classifier (gpt-oss-safeguard) is given the
 // same categories and asked for the same answer. The call is the app's,
-// on its gateway bill: nothing is reserved from the person's credits for it.
+// on its gateway bill: nothing is reserved from the person's credits for it,
+// and its cost is recorded like any run's, so the Costs tab and the
+// `spendLimit` count it.
 
 /** The classifier `setupAi` checks with unless `moderation.model` names another: Llama Guard 4, served by the Convex AI Gateway. */
 export const DEFAULT_MODERATION_MODEL = 'meta-llama/llama-guard-4-12b'
@@ -105,8 +108,8 @@ export function readVerdict(answer: string): ModerationVerdict | null {
 /** An image's bytes, read from the backend component's storage or the app's own. */
 type ImageReader = (storageId: string) => Promise<Uint8Array | null>
 
-/** The context a check runs in: an action's, which can call a model and read a file. */
-export type ModerationCtx = Pick<GenericActionCtx<GenericDataModel>, 'runAction'> & Partial<Pick<GenericActionCtx<GenericDataModel>, 'storage'>>
+/** The context a check runs in: an action's, which can call a model, read a file and record what the call cost. */
+export type ModerationCtx = Pick<GenericActionCtx<GenericDataModel>, 'runAction' | 'runQuery' | 'runMutation'> & Partial<Pick<GenericActionCtx<GenericDataModel>, 'storage' | 'auth'>>
 
 /** The backend component's storage, as a check reads an upload. */
 interface StorageBytesRef {
@@ -128,7 +131,7 @@ function refuseUnreadImages(id: string): never {
  * The check `setupAi` builds: `moderate` answers the verdict, `requireSafe`
  * throws the refusal a flagged prompt gets.
  */
-export function createModeration(config: { moderation?: ModerationConfig, inferenceRegion?: InferenceRegion }, storage: StorageBytesRef | undefined) {
+export function createModeration(config: { moderation?: ModerationConfig, inferenceRegion?: InferenceRegion }, storage: StorageBytesRef | undefined, recordCost?: RecordCost) {
   const model = config.moderation?.model ?? DEFAULT_MODERATION_MODEL
   requireModelId(model, 'setupAi({ moderation })')
   const id = modelIdOf(model)
@@ -183,15 +186,23 @@ export function createModeration(config: { moderation?: ModerationConfig, infere
       ...parts,
     ]
     const sdk = await loadSdk()
-    // The check's own calls: recorded for the run's refusal, never priced against anyone's credits.
+    // The check's own calls: never priced against anyone's credits, but
+    // recorded as the app's cost, against who asked when someone is signed in.
     const calls: ModelCall[] = []
     const classifier = meteredModel(routeModel(model, undefined, config.inferenceRegion), calls, config.inferenceRegion)
-    const result = await sdk.generateText({
-      model: classifier,
-      ...(llamaGuard ? {} : { system: POLICY }),
-      messages: [{ role: 'user', content }],
-      ...answerBudget(llamaGuard),
-    })
+    let result: Awaited<ReturnType<typeof sdk.generateText>>
+    try {
+      result = await sdk.generateText({
+        model: classifier,
+        ...(llamaGuard ? {} : { system: POLICY }),
+        messages: [{ role: 'user', content }],
+        ...answerBudget(llamaGuard),
+      })
+    }
+    finally {
+      const identity = await ctx.auth?.getUserIdentity()
+      await recordCost?.(ctx, { ...(identity ? { userId: identity.subject } : {}), owner: 'app' }, calls)
+    }
     const verdict = readVerdict(result.text)
     if (!verdict) {
       logBackend('error', 'ai.moderation_unreadable', `The moderation model ${id} answered something other than "safe" or "unsafe": the content is refused as unchecked.`)

@@ -182,13 +182,37 @@ async function shareNetwork(ctx: QueryCtx, a: string, b: string): Promise<boolea
   return (await seen(b)).some(fingerprint => theirs.has(fingerprint))
 }
 
-/** The flags a pair of accounts and a code raise now: not refusals, a reason for an administrator to look. */
-async function flagsOf(ctx: QueryCtx, referral: Pick<Referral, 'code' | 'referrerId' | 'referredId'>, now: number): Promise<ReferralFlag[]> {
+/** The flags a pair of accounts raise, with the burst read for them: not refusals, a reason for an administrator to look. */
+async function flagsOf(ctx: QueryCtx, referral: Pick<Referral, 'referrerId' | 'referredId'>, burst: boolean): Promise<ReferralFlag[]> {
   const flags: ReferralFlag[] = []
   if (await shareNetwork(ctx, referral.referrerId, referral.referredId)) flags.push('same_network')
-  const recent = await ctx.db.query('referrals').withIndex('code_claimedAt', q => q.eq('code', referral.code).gt('claimedAt', now - REFERRAL_BURST.windowMs)).take(REFERRAL_BURST.count + 1)
-  if (recent.length >= REFERRAL_BURST.count) flags.push('burst')
+  if (burst) flags.push('burst')
   return flags
+}
+
+/** At a claim: the claims on its code in the hour before it already make a burst. */
+async function burstBefore(ctx: QueryCtx, code: string, now: number): Promise<boolean> {
+  const recent = await ctx.db.query('referrals').withIndex('code_claimedAt', q => q.eq('code', code).gt('claimedAt', now - REFERRAL_BURST.windowMs)).take(REFERRAL_BURST.count + 1)
+  return recent.length >= REFERRAL_BURST.count
+}
+
+/**
+ * At a payment: the referral's own claim is one of a burst, some hour
+ * around it holding `REFERRAL_BURST.count` claims on its code, itself
+ * among them. Read around the claim, never the hour before the payment, so
+ * a burst the claim was no part of flags nothing, and one it was part of
+ * still does however late the payment comes. Reads at most four times the
+ * count: past that, one side of the claim holds enough for a burst anyway.
+ */
+async function claimInBurst(ctx: QueryCtx, row: Referral): Promise<boolean> {
+  const { count, windowMs } = REFERRAL_BURST
+  const near = await ctx.db.query('referrals').withIndex('code_claimedAt', q => q.eq('code', row.code).gt('claimedAt', row.claimedAt - windowMs).lt('claimedAt', row.claimedAt + windowMs)).take(4 * count)
+  const times = [...near.filter(other => other._id !== row._id).map(other => other.claimedAt), row.claimedAt].sort((a, b) => a - b)
+  for (let start = 0, end = 0; end < times.length; end++) {
+    while (times[end]! - times[start]! >= windowMs) start++
+    if (end - start + 1 >= count && times[start]! <= row.claimedAt && row.claimedAt <= times[end]!) return true
+  }
+  return false
 }
 
 /** The account of an id, or `null`. */
@@ -231,7 +255,7 @@ export const claim = mutation({
     const mailbox = await sha256Hex(mailboxOf(referred.email))
     if (await ctx.db.query('referrals').withIndex('mailbox', q => q.eq('mailbox', mailbox)).first()) return { claimed: false as const, reason: 'already_claimed' as const }
     const draft = { code, referrerId: row.ownerId, referredId: userId }
-    const flags = await flagsOf(ctx, draft, now)
+    const flags = await flagsOf(ctx, draft, await burstBefore(ctx, code, now))
     const fields = { ...draft, mailbox, state: 'claimed' as const, terms, claimedAt: now, ...(flags.length ? { flags, review: true } : {}) }
     const id = await ctx.db.insert('referrals', fields)
     // The growth funnel counts the person under the code they came through; a failure there never fails the claim.
@@ -272,8 +296,9 @@ async function belongsTo(ctx: QueryCtx, userId: string, entityId: string): Promi
  * The referred person's first paid order, on the billing entity they pay
  * for: it starts the hold. An order on an entity the referrer belongs to is
  * the same customer paying: the referral is voided as self-referral. The
- * flags are read again, with the sessions the person has opened since: a
- * flag found now goes back to an administrator, released before or not.
+ * flags are read again, with the sessions the person has opened since and
+ * the claims on the code around its own: a flag found now goes back to an
+ * administrator, released before or not.
  * Answers when the hold ends, or `null` when the order starts none.
  */
 export const orderPaid = mutation({
@@ -288,7 +313,7 @@ export const orderPaid = mutation({
       return null
     }
     const known = new Set(row.flags ?? [])
-    const found = (await flagsOf(ctx, row, now)).filter(flag => !known.has(flag))
+    const found = (await flagsOf(ctx, row, await claimInBurst(ctx, row))).filter(flag => !known.has(flag))
     const flags = [...known, ...new Set(found)]
     const released = row.released === true && found.length === 0
     const review = flags.length > 0 && !released

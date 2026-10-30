@@ -343,7 +343,8 @@ export async function pruneLifecycleRuns(ctx: MutationCtx, before: number, batch
       await ctx.db.delete('lifecycleRuns', run._id as Id<'lifecycleRuns'>)
       pruned++
     }
-    if (rows.length >= batch) return { pruned, done: false }
+    // A batch filled across the states may leave rows in a later one: the next batch reads them.
+    if (pruned >= batch) return { pruned, done: false }
   }
   return { pruned, done: true }
 }

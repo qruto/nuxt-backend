@@ -43,6 +43,8 @@ export interface BillingSectionContext {
   giftedProduct: (plan: string) => string | undefined
   /** Tell the component's own listener: the matching event. */
   notify: (event: 'plan-canceled' | 'plan-uncanceled' | 'plan-resumed' | 'change-canceled') => void
+  /** Say in the status region how a step taken outside `run` went: `<CancelFlow>`'s. */
+  announce: (text: () => string) => void
 }
 
 /**
@@ -68,8 +70,12 @@ export interface BillingSection {
   stateLine: Ref<HTMLElement | null>
   /** A date in the reader's words, or `null`. */
   date: (value: unknown) => string | null
-  /** Cancel at the period's end, with the reason and words a flow of your own gathered. */
+  /** Cancel at the period's end, with the reason and words a flow of your own gathered: in one step, past any save offer. */
   cancelPlan: (options?: CancelPlanOptions) => Promise<void>
+  /** `<CancelFlow>` (save offers on) cancelled the plan: what a one-step cancellation does once it went through. */
+  flowCanceled: () => void
+  /** `<CancelFlow>` kept the plan, its offer accepted: the flow closes, focus moves to the plan's state. */
+  flowKept: () => void
   /** Undo the cancellation set for the period's end. */
   keepPlan: () => Promise<void>
   /** Resume the paused plan now. */
@@ -84,7 +90,7 @@ export interface BillingSection {
 
 /** Build the plan section of one `<WorkspaceSettings>`. */
 export function createBillingSection(context: BillingSectionContext): BillingSection {
-  const { billing, features, labels, pending, run, partId, notify } = context
+  const { billing, features, labels, pending, run, partId, notify, announce } = context
   const { t, locale } = labels
   const holds: Record<PlanState, () => boolean> = {
     gifted: () => billing.pass.value !== null,
@@ -111,14 +117,22 @@ export function createBillingSection(context: BillingSectionContext): BillingSec
     endsOn: () => date(billing.subscription.value?.currentPeriodEnd),
   })
 
-  /** Cancel at the period's end; from the group, with no reason: the group asks nothing. */
+  /** The cancellation step is over: it closes, and the button pressed went with it, so focus moves to the plan's state. */
+  function settle(): void {
+    confirm.settle()
+    void nextTick(() => returnFocus(stateLine.value))
+  }
+
+  /**
+   * Cancel at the period's end; from the group, with no reason: the group
+   * asks nothing. One step whatever the reason: `offer: false`, since a
+   * save offer answered here would cancel nothing and read as done.
+   */
   function cancelPlan(options: CancelPlanOptions = {}): Promise<void> {
     return run('cancel', () => t('canceling'), async () => {
-      await billing.cancel({ reason: options.reason, comment: options.comment?.trim() || undefined })
-      confirm.settle()
+      await billing.cancel({ reason: options.reason, comment: options.comment?.trim() || undefined, offer: false })
+      settle()
       notify('plan-canceled')
-      // The button pressed went with the step: focus moves to the plan's state.
-      void nextTick(() => returnFocus(stateLine.value))
     }, () => t('canceled'))
   }
 
@@ -129,6 +143,12 @@ export function createBillingSection(context: BillingSectionContext): BillingSec
     stateLine,
     date,
     cancelPlan,
+    flowCanceled: () => {
+      settle()
+      notify('plan-canceled')
+      announce(() => t('canceled'))
+    },
+    flowKept: settle,
     keepPlan: () => run('uncancel', () => t('keeping'), async () => {
       await billing.uncancel()
       notify('plan-uncanceled')

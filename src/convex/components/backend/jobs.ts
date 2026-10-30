@@ -6,6 +6,7 @@ import {
   dedicatedInEffect,
   erred,
   type ModelLimit,
+  chargeInFlight,
   pickStarts,
   type PickState,
   POSITION_HORIZON,
@@ -54,9 +55,10 @@ const vPolicy = v.object({
 const LINE_WINDOW = 400
 
 /**
- * How many queued rows that read walks at most. It passes over an owner's
- * jobs past what the pick could start for them, so one owner's backlog
- * never hides everyone else's jobs behind it.
+ * How many queued rows that read walks at most, in score order. It passes
+ * over an owner's jobs past what the pick could start for them; when those
+ * use the walk up, the rest of the line is read owner by owner, so one
+ * owner's backlog never hides everyone else's jobs behind it.
  */
 const LINE_SCAN = 2000
 
@@ -145,18 +147,54 @@ async function runningJobs(ctx: QueryCtx): Promise<Doc<'jobs'>[]> {
  * a free slot could start.
  */
 async function waitingJobs(ctx: QueryCtx, perOwner = Number.POSITIVE_INFINITY): Promise<Doc<'jobs'>[]> {
-  const front: Doc<'jobs'>[] = []
-  const byOwner = new Map<string, number>()
+  const line = new LineFront(perOwner)
   let scanned = 0
   for await (const job of ctx.db.query('jobs').withIndex('by_status_and_score', q => q.eq('status', 'queued'))) {
-    if (++scanned > LINE_SCAN || front.length >= LINE_WINDOW) break
-    const owner = lineOwner(job)
-    const count = byOwner.get(owner) ?? 0
-    if (count >= perOwner) continue
-    byOwner.set(owner, count + 1)
-    front.push(job)
+    if (line.jobs.length >= LINE_WINDOW) break
+    // The scan spent on jobs passed over: the rest of the line is read owner by owner.
+    if (++scanned > LINE_SCAN) return await pastBacklog(ctx, line, job.score)
+    line.add(job)
   }
-  return front
+  return line.jobs
+}
+
+/** The front of the line as it is read: at most `perOwner` jobs of each owner, by its line owner. */
+class LineFront {
+  readonly jobs: Doc<'jobs'>[] = []
+  private readonly byOwner = new Map<string, number>()
+  private readonly ids = new Set<string>()
+  readonly perOwner: number
+  constructor(perOwner: number) {
+    this.perOwner = perOwner
+  }
+
+  add(job: Doc<'jobs'>): void {
+    const owner = lineOwner(job)
+    const count = this.byOwner.get(owner) ?? 0
+    if (count >= this.perOwner || this.ids.has(job._id)) return
+    this.byOwner.set(owner, count + 1)
+    this.ids.add(job._id)
+    this.jobs.push(job)
+  }
+}
+
+/**
+ * The line past a scan that one owner's backlog used up: each owner's jobs
+ * from `from` on, read owner by owner (at most `perOwner` of each, within
+ * the scan's reads again), merged with the front by score.
+ */
+async function pastBacklog(ctx: QueryCtx, line: LineFront, from: number): Promise<Doc<'jobs'>[]> {
+  let owner: string | undefined
+  for (let reads = 0; reads < LINE_SCAN;) {
+    const after = owner
+    const next = await ctx.db.query('jobs').withIndex('by_status_and_owner_and_score', q => after === undefined ? q.eq('status', 'queued') : q.eq('status', 'queued').gt('owner', after)).first()
+    if (!next) break
+    owner = next.owner
+    const theirs = await ctx.db.query('jobs').withIndex('by_status_and_owner_and_score', q => q.eq('status', 'queued').eq('owner', next.owner).gte('score', from)).take(Math.min(line.perOwner, LINE_WINDOW))
+    reads += 1 + theirs.length
+    for (const job of theirs) line.add(job)
+  }
+  return line.jobs.sort((a, b) => a.score - b.score).slice(0, LINE_WINDOW)
 }
 
 /** The most running jobs any owner may have: as many of each owner's waiting jobs as a pick could start. */
@@ -601,7 +639,8 @@ export const mark = mutation({
     if (!job || job.charged) return { refund: false }
     const now = Date.now()
     const owed = job.status !== 'running' && owesRefund({ ...job, charged: true }, job.status, job.status === 'failed' || job.cancel?.refund === true)
-    await ctx.db.patch('jobs', job._id, { charged: true, ...(owed ? { refundOwed: 'pending' as const, refundAt: now } : {}) })
+    // A running job's charge landed: the error an earlier try of it recorded is no longer why anything fails.
+    await ctx.db.patch('jobs', job._id, { charged: true, ...(job.status === 'running' ? { error: undefined } : {}), ...(owed ? { refundOwed: 'pending' as const, refundAt: now } : {}) })
     return { refund: owed }
   },
 })
@@ -821,7 +860,7 @@ export const requeue = mutation({
     const id = ctx.db.normalizeId('jobs', jobId)
     const job = id ? await ctx.db.get('jobs', id) : null
     if (!job || job.status !== 'failed' || !job.deadLetter) return null
-    if (refundInFlight(job)) return null
+    if (refundInFlight(job) || chargeInFlight(job)) return null
     const carried = carry === true && job.charged && !job.refunded
     const row = await queueRow(ctx)
     const tiers = resolveTiers(policy, row?.tiers)

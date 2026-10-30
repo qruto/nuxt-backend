@@ -21,11 +21,13 @@ import { logBackend } from '../../log.js'
  * resolves (`userId`), the gift a paid order delivers (`giftId`) and whether
  * that order bought it or claimed it (`phase`). A client that could set them
  * could bill another workspace's plan to itself or claim someone else's
- * gift, so they are refused from the client, in any letter case. The keys
+ * gift, so they are refused from the client, in any letter case, and so is
+ * `referralId`, which marks a referral reward's own checkout and keeps its
+ * order out of the referral program's count. The keys
  * earlier releases wrote stay reserved, and the `utm_` prefix is too: the
  * package writes it from {@link CampaignAttribution}.
  */
-export const RESERVED_METADATA_KEYS = ['userId', 'gift', 'giftId', 'phase', 'recipientEmail', 'purchaserUserId', 'giftRecipient', 'openedBy', 'emailOptOut'] as const
+export const RESERVED_METADATA_KEYS = ['userId', 'gift', 'giftId', 'phase', 'recipientEmail', 'purchaserUserId', 'giftRecipient', 'openedBy', 'emailOptOut', 'referralId'] as const
 
 /**
  * The checkout metadata key the soft opt-in's box travels in: `'true'`

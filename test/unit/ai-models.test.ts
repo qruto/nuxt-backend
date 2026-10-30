@@ -80,6 +80,7 @@ const components = {
     ai: {
       createRequest: 'ref:ai.createRequest',
       getByStream: 'ref:ai.getByStream',
+      claimRequest: 'ref:ai.claimRequest',
       markSettled: 'ref:ai.markSettled',
       markReleased: 'ref:ai.markReleased',
     },
@@ -117,10 +118,12 @@ function invoke(action: unknown, ctx: unknown, args: unknown): Promise<unknown> 
   return (action as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler(ctx, args)
 }
 
-/** POST a started stream to the stream route, as `useAiStream` does, with its request row in place. */
-async function postStream(ai: ReturnType<typeof setupAi>, name: string, cost = 50) {
+/** POST a started stream to the stream route, as `useAiStream` does, with its request row in place; `claimed: false` when another dispatch claimed it first. */
+async function postStream(ai: ReturnType<typeof setupAi>, name: string, cost = 50, { claimed = true } = {}) {
+  const base = signedIn()
   const ctx = {
-    ...signedIn(),
+    ...base,
+    runMutation: vi.fn(async (ref: unknown) => ref === 'ref:ai.claimRequest' ? claimed : base.runMutation(ref)),
     runQuery: vi.fn(async () => ({ streamId: 's1', name, entityId: 'org_1', userId: 'user_1', args: '{}', meterId: 'm1', cost, externalId: 'ext_1', status: 'reserved', createdAt: 0 })),
   }
   const response = await (ai.httpHandler as unknown as { _handler: (ctx: unknown, request: Request) => Promise<Response> })
@@ -683,6 +686,20 @@ describe('the model nuxt-backend/test gives every id', () => {
     expect(await response.text()).toContain('Stream this')
     expect(settledAt(billing)).toBeCloseTo(TEST_MODEL_USD * 10_000, 6)
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:ai.markSettled', { streamId: 's1' })
+  })
+
+  it('runs the model once per stream: a dispatch that loses the claim answers 409 and calls nothing', async () => {
+    const billing = makeBilling(50)
+    const ai = setupAi(components, { billing, model: MODEL })
+    const handler = vi.fn(async () => {})
+    ai.stream({ name: 'answer', meter: 'credits', cost: { estimate: 50, creditsPerUsd: 10_000 }, args: {}, handler })
+    const { response, ctx } = await postStream(ai, 'answer', 50, { claimed: false })
+
+    expect(response.status).toBe(409)
+    expect(handler).not.toHaveBeenCalled()
+    expect(billing.settleSpend).not.toHaveBeenCalled()
+    expect(billing.releaseSpend).not.toHaveBeenCalled()
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:ai.claimRequest', { streamId: 's1' })
   })
 
   it('refuses to start a stream whose model this deployment cannot reach', async () => {

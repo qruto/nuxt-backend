@@ -1,7 +1,7 @@
 import { computed, type ComputedRef, type MaybeRefOrGetter, onBeforeUnmount, onMounted, ref, type Ref, toValue, useId } from 'vue'
 import { navigateTo, useNuxtApp } from '#imports'
 import { useAuthSession } from '../utils/auth-session'
-import { slugify } from '../utils/slug'
+import { workspaceSlug } from '../utils/slug'
 import { useBackendPagePath } from './use-backend-page-path'
 import { type LabelGroupOverrides, useLabels, type UseLabelsReturn, valueLabel } from './use-labels'
 import { useWorkspace, type Workspace } from './use-workspace'
@@ -203,7 +203,7 @@ export function useWorkspaceSwitcher(overrides?: MaybeRefOrGetter<LabelGroupOver
     pending.value = 'create'
     message.value = { kind: 'status', text: t('workspaces.creating') }
     try {
-      await workspace.create({ name: trimmed, slug: slugify(trimmed) })
+      await workspace.create({ name: trimmed, slug: workspaceSlug(trimmed) })
       newName.value = ''
       message.value = { kind: 'status', text: t('workspaces.created', { name: trimmed }) }
       return true

@@ -156,6 +156,49 @@ describe('rotating a value already on the deployment', () => {
   })
 })
 
+describe('a production deployment', () => {
+  // .env.local is the dev deployment's: a production push forwards what is
+  // the app's everywhere (the provider keys), never what is dev's alone.
+  const devEnv = {
+    SITE_URL: 'http://localhost:3000',
+    PROTECTION_PROOF_SECRET: 'dev-proof-secret-of-at-least-32-chars',
+    PROTECTION_CHALLENGE_SECRET_KEY: '1x0000000000000000000000000000000AA',
+    BILLING_ACCESS_TOKEN: 'sandbox-token',
+  }
+
+  it('never forwards a local origin, the proof secret or a test challenge key', () => {
+    const plan = planEnvPush({ deployedNames: [], localEnv: devEnv, dev: false })
+    expect(byName(plan, 'SITE_URL').action).toBe('missing')
+    expect(byName(plan, 'SITE_URL').value).toBeUndefined()
+    expect(byName(plan, 'SITE_URL').detail).toContain('--site-url')
+    expect(byName(plan, 'PROTECTION_PROOF_SECRET').action).toBe('unset')
+    expect(byName(plan, 'PROTECTION_PROOF_SECRET').value).toBeUndefined()
+    expect(byName(plan, 'PROTECTION_CHALLENGE_SECRET_KEY').action).toBe('unset')
+    expect(byName(plan, 'PROTECTION_CHALLENGE_SECRET_KEY').value).toBeUndefined()
+    expect(byName(plan, 'BILLING_ACCESS_TOKEN')).toMatchObject({ action: 'forward', value: 'sandbox-token' })
+  })
+
+  it('forwards a public https origin and a real challenge key', () => {
+    const plan = planEnvPush({ deployedNames: [], localEnv: { SITE_URL: 'https://panels.example', PROTECTION_CHALLENGE_SECRET_KEY: '0x4AAAAAAA-real-key' }, dev: false })
+    expect(byName(plan, 'SITE_URL')).toMatchObject({ action: 'forward', value: 'https://panels.example' })
+    expect(byName(plan, 'PROTECTION_CHALLENGE_SECRET_KEY')).toMatchObject({ action: 'forward', value: '0x4AAAAAAA-real-key' })
+  })
+
+  it('keeps production\'s values when forced with dev ones', () => {
+    const plan = planEnvPush({ deployedNames: ['SITE_URL', 'PROTECTION_PROOF_SECRET'], localEnv: devEnv, dev: false, force: new Set(['SITE_URL', 'PROTECTION_PROOF_SECRET']) })
+    expect(byName(plan, 'SITE_URL').action).toBe('skip')
+    expect(byName(plan, 'SITE_URL').value).toBeUndefined()
+    expect(byName(plan, 'PROTECTION_PROOF_SECRET').action).toBe('skip')
+    expect(byName(plan, 'PROTECTION_PROOF_SECRET').value).toBeUndefined()
+  })
+
+  it('still forwards dev values to a dev deployment', () => {
+    const plan = planEnvPush({ deployedNames: [], localEnv: devEnv, dev: true })
+    expect(byName(plan, 'PROTECTION_PROOF_SECRET')).toMatchObject({ action: 'forward' })
+    expect(byName(plan, 'SITE_URL')).toMatchObject({ action: 'forward', value: 'http://localhost:3000' })
+  })
+})
+
 describe('a preview deployment', () => {
   // Disposable like dev, so a secret is generated and it is named a preview
   // (mail in test mode, billing in the sandbox); but its SITE_URL is its own

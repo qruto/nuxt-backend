@@ -73,7 +73,7 @@ const IDLE_RATE_LIMIT_RETENTION_MS = 24 * 60 * 60 * 1000
 const FINISHED_AI_REQUEST_RETENTION_MS = 24 * 60 * 60 * 1000
 
 /**
- * A request still `reserved` this long after it was created is deleted:
+ * A request still `reserved` (or `streaming`) this long after it was created is deleted:
  * its stream's release never ran, and the credit reservation it stood for
  * has long expired on the billing side (it holds no balance past its TTL).
  */
@@ -207,7 +207,7 @@ export const MAINTENANCE_TASKS = {
     .withIndex('lastRequest', q => q.lt('lastRequest', startedAt - IDLE_RATE_LIMIT_RETENTION_MS))]),
 
   aiRequests: async (ctx: MutationCtx, startedAt: number) => {
-    const windows = [['settled', FINISHED_AI_REQUEST_RETENTION_MS], ['released', FINISHED_AI_REQUEST_RETENTION_MS], ['reserved', STUCK_AI_REQUEST_RETENTION_MS]] as const
+    const windows = [['settled', FINISHED_AI_REQUEST_RETENTION_MS], ['released', FINISHED_AI_REQUEST_RETENTION_MS], ['reserved', STUCK_AI_REQUEST_RETENTION_MS], ['streaming', STUCK_AI_REQUEST_RETENTION_MS]] as const
     return remove(ctx, 'aiRequests', windows.map(([status, window]) => ctx.db.query('aiRequests')
       .withIndex('status_createdAt', q => q.eq('status', status).lt('createdAt', startedAt - window))))
   },
@@ -246,6 +246,10 @@ export const MAINTENANCE_TASKS = {
   failedErasures: async (ctx: MutationCtx, startedAt: number) => {
     const batch = await remove(ctx, 'accountErasures', [ctx.db.query('accountErasures')
       .withIndex('failedAt', q => q.gt('failedAt', 0).lt('failedAt', startedAt - FAILED_ERASURE_RETENTION_MS))])
+    const appPart = await remove(ctx, 'accountErasureFailures', [ctx.db.query('accountErasureFailures')
+      .withIndex('failedAt', q => q.lt('failedAt', startedAt - FAILED_ERASURE_RETENTION_MS))])
+    batch.pruned += appPart.pruned
+    batch.done &&= appPart.done
     if (batch.pruned > 0) logBackend('error', 'account.erasure_failed', `${batch.pruned} failed erasure(s) were dropped after ${FAILED_ERASURE_RETENTION_MS / 86_400_000} days without a retry.`)
     return batch
   },

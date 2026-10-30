@@ -208,12 +208,20 @@ export function pushOutcome(status: number, retryAfterHeader: string | null, fal
 
 /**
  * Send one message to one device: encrypt it, sign the request, post it.
- * Never throws for an answer: a network failure reads as `retry`.
+ * Never throws for an answer: a network failure reads as `retry`, and a
+ * device whose key cannot be encrypted to (no point on the curve) as `gone`.
  */
 export async function sendPush(target: PushTarget, message: PushMessage, keys: PushKeys, subject: string, options: { fetch?: typeof fetch, fallbackRetryMs?: number, urgency?: 'very-low' | 'low' | 'normal' | 'high' } = {}): Promise<PushOutcome> {
   const payload = pushPayload(message)
   if (payload.length > PUSH_PAYLOAD_MAX) return { kind: 'too-large' }
-  const body = await encryptPushPayload(payload, target)
+  let body: Uint8Array<ArrayBuffer>
+  try {
+    body = await encryptPushPayload(payload, target)
+  }
+  catch {
+    // Its key never works: the subscription is dropped, and the person's other devices still get theirs.
+    return { kind: 'gone' }
+  }
   const fallbackRetryMs = options.fallbackRetryMs ?? 60_000
   try {
     const response = await (options.fetch ?? fetch)(target.endpoint, {

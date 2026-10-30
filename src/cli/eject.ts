@@ -6,6 +6,7 @@ import { packageDir } from '../dirs'
 import { BACKEND_PAGE_DEFS } from '../pages'
 import { REGISTERED_UI, uiEntry, uiPath } from '../ui/registry'
 import { installedVersion } from '../agents'
+import { resolveFunctionsDir } from '../scaffold'
 import { withContract } from './contract'
 
 // `nuxt-backend eject <Part|page:<key>|email:<name>>`: the packaged source
@@ -13,8 +14,8 @@ import { withContract } from './contract'
 // owns it and `upgrade` can show what changed upstream since. A part or a
 // component lands in app/components/ under its own name (a same-named app
 // component replaces the packaged one everywhere), a page at its path in
-// app/pages/, an email in backend/emails/, added to `setupEmail`'s
-// `templates`.
+// app/pages/, an email in emails/ of the functions directory (backend/,
+// or the one convex.json names), added to `setupEmail`'s `templates`.
 
 /** The stamp an ejected file starts with: which packaged source, at which version. */
 const STAMP = /nuxt-backend eject: ([^@\s]+)@([\w.+-]+)/
@@ -58,7 +59,7 @@ export function ejectables(rootDir: string): Ejectable[] {
   const emails = (Object.keys(PACKAGED_EMAIL_TEMPLATES) as EmailTemplateName[]).map((name): Ejectable => ({
     target: `email:${name}`,
     kind: 'email',
-    files: [{ source: `src/convex/emails/${emailTemplateFile(name)}`, destination: `backend/emails/${emailTemplateFile(name)}` }],
+    files: [{ source: `src/convex/emails/${emailTemplateFile(name)}`, destination: posix.join(resolveFunctionsDir(rootDir), 'emails', emailTemplateFile(name)) }],
   }))
   return [...components, ...pages, ...emails]
 }
@@ -119,13 +120,13 @@ function emailCopy(name: EmailTemplateName, text: string, stamp: string): string
   const source = text.replace(/from '\.\.\/email-(?:templates|helpers)\.js'/g, 'from \'nuxt-backend/email\'')
   return [
     `// ${stamp}`,
-    `// Sent in place of the packaged \`${name}\` email: backend/email.ts lists it in \`setupEmail\`'s \`templates\`.`,
+    `// Sent in place of the packaged \`${name}\` email: ../email.ts lists it in \`setupEmail\`'s \`templates\`.`,
     source,
   ].join('\n')
 }
 
 /**
- * Add an ejected email to `setupEmail`'s `templates` in backend/email.ts.
+ * Add an ejected email to `setupEmail`'s `templates` in the functions directory's email.ts.
  * `false` when the file's call has a shape this cannot edit safely: the
  * caller then names the line to add.
  */
@@ -146,7 +147,7 @@ export interface EjectReport {
   target: string
   version: string
   written: string[]
-  /** A step left to do by hand: the email template to add when `backend/email.ts` has a shape `eject` does not edit. */
+  /** A step left to do by hand: the email template to add when `email.ts` has a shape `eject` does not edit. */
   todo?: string
 }
 
@@ -158,18 +159,19 @@ export class EjectError extends Error {
 /** Writes a file of the app's, recording what it wrote. */
 type Write = (destination: string, text: string) => void
 
-/** Copy an email template: its override file, and its place in `setupEmail`'s templates; the step left when `backend/email.ts` has a shape this cannot edit. */
+/** Copy an email template: its override file, and its place in `setupEmail`'s templates; the step left when `email.ts` has a shape this cannot edit. */
 function copyEmail(rootDir: string, found: Ejectable, stamp: string, write: Write): string | undefined {
   const name = found.target.slice('email:'.length) as EmailTemplateName
   const file = found.files[0]!
   const source = packaged(file.source)
   if (!source) throw new EjectError(`The installed nuxt-backend ships no ${file.source}: reinstall it, then eject again.`)
   write(file.destination, emailCopy(name, readFileSync(source, 'utf8'), stamp))
-  const emailFile = join(rootDir, 'backend/email.ts')
+  const emailPath = posix.join(resolveFunctionsDir(rootDir), 'email.ts')
+  const emailFile = join(rootDir, emailPath)
   const before = existsSync(emailFile) ? readFileSync(emailFile, 'utf8') : undefined
   const edited = before === undefined ? false : addEmailTemplate(before, name)
-  if (edited === false) return `Add \`${name}\` to \`setupEmail\`'s \`templates\` in backend/email.ts: \`import { ${name} } from './emails/${emailTemplateFile(name).replace(/\.ts$/, '')}'\`.`
-  if (edited !== before) write('backend/email.ts', edited)
+  if (edited === false) return `Add \`${name}\` to \`setupEmail\`'s \`templates\` in ${emailPath}: \`import { ${name} } from './emails/${emailTemplateFile(name).replace(/\.ts$/, '')}'\`.`
+  if (edited !== before) write(emailPath, edited)
   return undefined
 }
 
@@ -229,7 +231,7 @@ export interface EjectedFile {
 /** Every ejected file in the app at `rootDir`, by the stamp it starts with. */
 export function ejectedFiles(rootDir: string): EjectedFile[] {
   const app = srcDir(rootDir)
-  const dirs = [posix.join(app, 'components'), posix.join(app, 'pages'), 'backend/emails']
+  const dirs = [posix.join(app, 'components'), posix.join(app, 'pages'), posix.join(resolveFunctionsDir(rootDir), 'emails')]
   const found: EjectedFile[] = []
   const walk = (dir: string) => {
     const absolute = join(rootDir, dir)

@@ -716,6 +716,12 @@ export interface ProviderPagerOptions {
   enabled?: () => boolean
   /** Extra reactive inputs that should reload from page 1 when they change. */
   watchSources?: () => unknown
+  /**
+   * Who reads (the account and its active workspace): when it changes, the
+   * history on screen is another billing entity's, so it clears at once,
+   * not only once the new reader's first page arrives.
+   */
+  reader?: () => unknown
 }
 
 /** Per-call options for `useGifts().send`. */

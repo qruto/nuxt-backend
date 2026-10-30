@@ -274,7 +274,7 @@ npx nuxt-backend env push --preview my-branch --site-url https://my-branch.examp
 
 | Flag | Effect |
 |---|---|
-| `--prod` | Acts on the project's **production** deployment (`convex env set --prod`), whichever deployment `.env.local` names. It invents no value but `BACKEND_ENVIRONMENT`, which it derives, and fails (exit 1) on missing required env. Refuses to run when `CONVEX_DEPLOY_KEY` is a dev or preview key: the Convex CLI follows the key and ignores `--prod`, so the push would land there. |
+| `--prod` | Acts on the project's **production** deployment (`convex env set --prod`), whichever deployment `.env.local` names. It invents no value but `BACKEND_ENVIRONMENT`, which it derives, and fails (exit 1) on missing required env. It forwards from `.env.local` only what is the app's everywhere: never a `SITE_URL` that is no public https origin (pass production's with `--site-url`), `PROTECTION_PROOF_SECRET` (production's own) or the challenge provider's test secret key. Refuses to run when `CONVEX_DEPLOY_KEY` is a dev or preview key: the Convex CLI follows the key and ignores `--prod`, so the push would land there. |
 | `--preview [name]` | Acts on the preview deployment of that name (`convex env set --preview-name`). Without a name, the branch the CI build names, read as `convex deploy` reads it (`VERCEL_GIT_COMMIT_REF` on Vercel, `HEAD` on Netlify, …). Generates `AUTH_SECRET` and sets `BACKEND_ENVIRONMENT` to `preview` when nothing else sets them; `SITE_URL` comes from `--site-url` only. Refuses a deploy key that is not a preview key. |
 | `--defaults preview\|dev` | Writes the project's env defaults for new deployments of that type (`convex env default set --type`) instead of a deployment: a generated `AUTH_SECRET`, `SITE_URL`, and `BACKEND_ENVIRONMENT` as `preview` or `development`; dev defaults add `EMAIL_DEV_INBOX=1`. A default already set is kept unless `--force` names it. `prod` is refused, and so is a production deploy key. |
 | `--site-url <url>` | The `SITE_URL` to write, replacing the one already set: giving it is asking for it. A preview's only source of one, and required for `--defaults preview` until the project has that default. |
@@ -581,7 +581,7 @@ What it writes:
 
 - **A part** lands in `app/components/` as a `.vue` file with its CSS, under the part's own name. A same-named app component replaces the packaged one everywhere, packaged pages included, so the copy takes over at once.
 - **A page** lands in `app/pages/` at its mounted path, where an app page always wins.
-- **An email** lands in `backend/emails/` as a template function, and `eject` adds it to `setupEmail`'s `templates` in `backend/email.ts`, so it is sent in place of the packaged one.
+- **An email** lands in `backend/emails/` as a template function, and `eject` adds it to `setupEmail`'s `templates` in `backend/email.ts`, so it is sent in place of the packaged one. An app whose `convex.json` names another functions directory gets both there.
 
 Each file starts with a comment that names the package version it came from. [`upgrade`](#upgrade) diffs every ejected file against the new version's source and lists the changes you may want to carry over. It never rewrites an ejected file.
 

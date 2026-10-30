@@ -6,7 +6,7 @@ import type { BackendError } from '../utils/backend-error'
 import { useCursorPages } from '../utils/cursor-pages'
 import { absentQuery, type LiveQuery, useLiveQuery } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
-import { useAuthSession } from '../utils/auth-session'
+import { useReaderKey } from '../utils/reader'
 
 export type { AuditEntry, AuditParty } from '../../../convex/integrations/audit'
 
@@ -112,11 +112,7 @@ export function useAuditLog(options: UseAuditLogOptions = {}): UseAuditLogReturn
 
   // Who reads: the account and its active workspace. A cursor is a place in
   // one reader's view, so another reader starts again from the first page.
-  const { session } = useAuthSession()
-  const reader = computed(() => {
-    const data = session?.value?.data as { user?: { id?: string }, session?: { activeOrganizationId?: string | null } } | null | undefined
-    return `${data?.user?.id ?? ''}:${data?.session?.activeOrganizationId ?? ''}`
-  })
+  const reader = useReaderKey()
 
   // A cursor is a place in one listing: the scope, the page size and the reader.
   const pages = useCursorPages(() => JSON.stringify([scope.value, limit.value, reader.value]), () => data.value, () => isLoading.value)

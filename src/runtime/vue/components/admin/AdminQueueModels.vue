@@ -16,8 +16,15 @@ const props = defineProps<{
 const { tr } = useQueueLabels()
 
 const rates = reactive<Record<string, string>>({})
+// The rate each field last showed: a field still showing it follows the
+// learned rate as it moves; one an administrator typed in keeps the typing.
+const shown: Record<string, string> = {}
 watch(() => props.queue.models, (models) => {
-  for (const model of models) rates[model.model] = String(model.perMinute)
+  for (const model of models) {
+    const learned = String(model.perMinute)
+    if (rates[model.model] === undefined || rates[model.model] === shown[model.model]) rates[model.model] = learned
+    shown[model.model] = learned
+  }
 }, { immediate: true })
 
 const time = (at: number) => new Date(at).toLocaleString()

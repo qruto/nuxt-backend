@@ -9,7 +9,7 @@ import { refusalText, useLabels, type BackendLabels, type LabelOverrides } from 
 import { useWorkspace, type Workspace } from '../../composables/use-workspace'
 import { inLocale } from '../../utils/intl'
 import { useSettingsMessage } from '../../utils/settings-message'
-import { slugify } from '../../utils/slug'
+import { workspaceSlug } from '../../utils/slug'
 import type { CreditPack } from '../../../config'
 import { createBillingSection } from './workspace-billing'
 import { provideWorkspaceSettingsView, type WorkspaceSettingsSection, type WorkspaceSettingsSlotContext, type WorkspaceSettingsSlots } from './workspace-settings'
@@ -116,7 +116,7 @@ const createWorkspace = async (name: string) => {
   const trimmed = name.trim()
   if (!trimmed) return
   await run('create', () => t('creating'), async () => {
-    const created = await workspace.create({ name: trimmed, slug: slugify(trimmed) })
+    const created = await workspace.create({ name: trimmed, slug: workspaceSlug(trimmed) })
     newName.value = ''
     emit('workspace-created', created)
   }, () => t('created', { name: trimmed }))
@@ -155,6 +155,9 @@ const section = createBillingSection({
   giftedProduct: plan => products.value[plan]?.id,
   // One event per outcome; the union reads as each of them.
   notify: event => emit(event as 'plan-canceled'),
+  announce: (text) => {
+    note.value = { ok: true, text }
+  },
 })
 
 const planName = computed(() => {
@@ -199,7 +202,7 @@ const context = computed<WorkspaceSettingsSlotContext>(() => ({
 
 provideWorkspaceSettingsView({ labels, context, slots, newName, partId, section, products, productName })
 
-const loading = computed(() => (billing.subscription.value === undefined && !billing.error.value) || credits.balance.value === undefined)
+const loading = computed(() => (billing.subscription.value === undefined && !billing.error.value) || credits.isLoading.value)
 /** What the status announces: what an action waits for, then how it went, and that the plan or the credits are loading. */
 const statusText = computed(() => {
   if (progress.value) return progress.value()

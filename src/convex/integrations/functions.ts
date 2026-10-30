@@ -183,7 +183,7 @@ function reportingActions<Builder>(builder: Builder): Builder {
  *
  * export const { authed, workspace, admin, withRole, withFeature, setUserRole } = createFunctions(
  *   { query, mutation, action },
- *   { components, billing, rateLimiter, limits: { authed: 'write' } },
+ *   { components, billing, rateLimiter, limits: { authed: 'write', workspace: 'write' } },
  * )
  *
  * // backend/strips.ts

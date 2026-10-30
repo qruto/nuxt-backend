@@ -25,11 +25,15 @@ const outcome = ref<string | null>(null)
 const failure = computed(() => (props.preferences.error.value ? errorMessage(props.preferences.error.value) : null))
 const anySubscribed = computed(() => props.preferences.topics.value.some(topic => topic.subscribed || topic.pending))
 
-async function toggle(key: string, subscribed: boolean) {
+/** Save one box: a topic by its key, or a kind's channel. A refused save puts the box back as it is stored. */
+async function save(event: Event, target: string | { kind: string, channel: NotificationChannel }) {
+  const box = event.target as HTMLInputElement
   outcome.value = null
-  await props.preferences.set(key, subscribed).then(() => {
+  await props.preferences.set(target, box.checked).then(() => {
     outcome.value = t('saved')
-  }, () => {})
+  }, () => {
+    box.checked = !box.checked
+  })
 }
 
 /** A kind's name: the words its notifications open with, with no one and no workspace named. */
@@ -37,13 +41,6 @@ function kindName(type: string): string {
   const key = `${notificationLabelKey(type)}.title`
   const text = notificationWords.t(key as never, { actor: notificationWords.t('actorSomeone'), workspace: notificationWords.t('workspaceUnnamed'), amount: '' })
   return text === `notifications.${key}` ? notificationWords.t('fallbackTitle') : text
-}
-
-async function choose(kind: string, channel: NotificationChannel, on: boolean) {
-  outcome.value = null
-  await props.preferences.set({ kind, channel }, on).then(() => {
-    outcome.value = t('saved')
-  }, () => {})
 }
 
 async function leaveAll() {
@@ -84,7 +81,7 @@ async function leaveAll() {
             data-preferences="topic-input"
             :checked="topic.subscribed || topic.pending"
             :aria-describedby="`${headingId}-${topic.key}`"
-            @change="toggle(topic.key, ($event.target as HTMLInputElement).checked)"
+            @change="save($event, topic.key)"
           >
           {{ topic.name }}
         </label>
@@ -138,7 +135,7 @@ async function leaveAll() {
                 type="checkbox"
                 data-preferences="channel-input"
                 :checked="choice.enabled"
-                @change="choose(kind.type, choice.channel, ($event.target as HTMLInputElement).checked)"
+                @change="save($event, { kind: kind.type, channel: choice.channel })"
               >
               {{ t(channelNames[choice.channel]) }}
             </label>

@@ -13,6 +13,7 @@ import { checkoutsCreate } from '@polar-sh/sdk/funcs/checkoutsCreate.js'
 import { customerSessionsCreate } from '@polar-sh/sdk/funcs/customerSessionsCreate.js'
 import { customersCreate } from '@polar-sh/sdk/funcs/customersCreate.js'
 import { customersGet } from '@polar-sh/sdk/funcs/customersGet.js'
+import { customersDelete } from '@polar-sh/sdk/funcs/customersDelete.js'
 import { customersDeleteExternal } from '@polar-sh/sdk/funcs/customersDeleteExternal.js'
 import { customersGetExternal } from '@polar-sh/sdk/funcs/customersGetExternal.js'
 import { customersMembersDeleteExternal } from '@polar-sh/sdk/funcs/customersMembersDeleteExternal.js'
@@ -332,6 +333,12 @@ describe('the fake provider through the provider SDK', () => {
     await fake.idle()
     expect(deliveries.map(delivery => [delivery.headers.get('webhook-id'), delivery.body])).toEqual([[first.headers.get('webhook-id'), first.body]])
     expect((await webhooksRedeliverWebhookEvent(polar, { id: 'msg_never_sent' })).ok).toBe(false)
+
+    // A customer no external id keys (an earlier release's) is deleted by its own id.
+    const unkeyed = ok('customersCreate', await customersCreate(polar, { email: 'legacy@example.com', name: 'Legacy' }))
+    ok('customersDelete', await customersDelete(polar, { id: unkeyed.id, anonymize: true }))
+    expect(fake.state.customers[unkeyed.id]).toMatchObject({ name: null, deletedAt: expect.any(Number) })
+    expect((await customersDelete(polar, { id: unkeyed.id })).ok).toBe(false)
 
     // Every provider call the package and the billing component import was made, and parsed.
     expect([...called].sort()).toEqual(providerCalls())

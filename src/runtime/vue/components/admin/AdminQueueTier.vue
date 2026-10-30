@@ -18,13 +18,13 @@ const props = defineProps<{
 const { tr } = useQueueLabels()
 const overridden = (field: string, value: number | undefined) => (props.tier.overridden.includes(field) && value !== undefined ? String(value) : '')
 const draft = reactive({ perOwner: '', dedicated: '', budget: '' })
-watch(() => props.tier, (tier) => {
-  Object.assign(draft, {
-    perOwner: overridden('perOwner', tier.perOwner),
-    dedicated: overridden('dedicated', tier.dedicated),
-    budget: overridden('budgetUnits', tier.budget?.units),
-  })
-}, { immediate: true })
+// The fields follow what is stored, not every live read: a tier is read
+// again each time a job starts or ends, which must not undo the typing.
+watch(
+  [() => overridden('perOwner', props.tier.perOwner), () => overridden('dedicated', props.tier.dedicated), () => overridden('budgetUnits', props.tier.budget?.units)],
+  ([perOwner, dedicated, budget]) => Object.assign(draft, { perOwner, dedicated, budget }),
+  { immediate: true },
+)
 
 const number = (text: string): number | null => (text.trim() === '' ? null : Number(text))
 const headStart = () => (props.tier.headStart ? tr('queue.tiers.minutes', { count: Math.round(props.tier.headStart / 60_000) }) : tr('queue.none'))

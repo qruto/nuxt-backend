@@ -2136,6 +2136,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       >;
     };
     ai: {
+      claimRequest: FunctionReference<
+        "mutation",
+        "internal",
+        { streamId: string },
+        boolean,
+        Name
+      >;
       clear: FunctionReference<
         "mutation",
         "internal",
@@ -2218,7 +2225,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           externalId: string;
           meterId?: string;
           name: string;
-          status: "reserved" | "settled" | "released";
+          status: "reserved" | "streaming" | "settled" | "released";
           streamId: string;
           userId: string;
         } | null,
@@ -3173,6 +3180,62 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | "bounced"
             | "failed";
         } | null,
+        Name
+      >;
+    };
+    erasures: {
+      clearFailure: FunctionReference<
+        "mutation",
+        "internal",
+        { email?: string; userId?: string },
+        null,
+        Name
+      >;
+      failure: FunctionReference<
+        "query",
+        "internal",
+        { email?: string; userId?: string },
+        {
+          deleted: Array<string>;
+          done: Array<string>;
+          email?: string;
+          failed: Array<string>;
+          failedAt: number;
+          left: Array<string>;
+          rounds: number;
+          userId?: string;
+        } | null,
+        Name
+      >;
+      failures: FunctionReference<
+        "query",
+        "internal",
+        {},
+        Array<{
+          deleted: Array<string>;
+          done: Array<string>;
+          email?: string;
+          failed: Array<string>;
+          failedAt: number;
+          left: Array<string>;
+          rounds: number;
+          userId?: string;
+        }>,
+        Name
+      >;
+      keepFailure: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          deleted: Array<string>;
+          done: Array<string>;
+          email?: string;
+          failed: Array<string>;
+          left: Array<string>;
+          rounds: number;
+          userId?: string;
+        },
+        null,
         Name
       >;
     };

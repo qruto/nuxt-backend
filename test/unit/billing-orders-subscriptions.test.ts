@@ -1478,7 +1478,7 @@ describe('server-authoritative checkout', () => {
   })
 
   it('refuses the metadata keys the package reads back, in any case, and oversized metadata', async () => {
-    for (const key of ['userId', 'UserID', 'gift', 'giftId', 'recipientEmail', 'purchaserUserId', 'giftRecipient', 'utm_source']) {
+    for (const key of ['userId', 'UserID', 'gift', 'giftId', 'recipientEmail', 'purchaserUserId', 'giftRecipient', 'referralId', 'REFERRALID', 'utm_source']) {
       expect(await refusal({ metadata: { [key]: 'x' } }), key).toEqual({ code: 'invalid_input', field: 'metadata' })
     }
     expect(await refusal({ metadata: { ['k'.repeat(41)]: 'x' } })).toEqual({ code: 'invalid_input', field: 'metadata' })

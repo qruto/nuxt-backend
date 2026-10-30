@@ -92,6 +92,12 @@ export function createStreams(
     if (!definition) {
       return new Response('Unknown stream handler', { status: 404, headers })
     }
+    // One dispatch runs the model per reservation: the claim is one
+    // transaction, so a second POST of the same stream id (a retry, a
+    // replay) loses it here, before any model call.
+    if (!await ctx.runMutation(requests.claimRequest, { streamId })) {
+      return new Response('Stream already started', { status: 409, headers })
+    }
 
     const reservation: SpendReservation = {
       entityId: row.entityId,

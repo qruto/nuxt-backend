@@ -39,7 +39,7 @@ const credits = useCredits({ meter: 'credits' })   // a catalog meter key (or a 
 
 ::field-group
   :::field{name="balance / credited / consumed" type="ComputedRef<number | undefined>"}
-  The meter's remaining, granted and consumed units: `undefined` while loading, `0` when the meter has no grants yet.
+  The meter's remaining, granted and consumed units: `undefined` while loading or when the read failed, `0` when the meter has no grants yet, the workspace no billing record, or nobody is signed in.
   :::
 
   :::field{name="overage" type="ComputedRef<number | undefined>"}

@@ -38,12 +38,13 @@ vi.mock('../../templates/panels/backend/billing.generated', () => generated)
 
 // The AI SDK as the template calls it, with a way for one test to answer a
 // prompt itself: every other call goes to nuxt-backend/test's mock.
-const answers = vi.hoisted(() => ({ captions: null as string | null }))
+const answers = vi.hoisted(() => ({ captions: null as string | null, calls: 0 }))
 vi.mock('ai', async (importOriginal) => {
   const original = await importOriginal<typeof import('ai')>()
   return {
     ...original,
     generateText: (async (options: Parameters<typeof original.generateText>[0]) => {
+      answers.calls++
       if (answers.captions !== null && typeof options.prompt === 'string' && options.prompt.includes('short captions')) {
         return { ...(await original.generateText(options)), text: answers.captions }
       }
@@ -309,6 +310,19 @@ describe('templates/panels/backend', () => {
     expect(await balance(ada)).toBe(before! - 30)
   })
 
+  test('a strip whose job the queue no longer keeps can be drawn again', async () => {
+    const ada = await asUser(t)
+    const id = await ada.mutation(fn<'mutation'>('strips:create'), { idea: 'A cat learns to surf' }) as string
+    // Queued for a job that ended over 30 days ago: the queue deleted its row.
+    const panel = await storeImage(ada.workspaceId)
+    await t.run(async ctx => ctx.db.patch(id as never, { status: 'queued', jobId: 'job_gone', panels: [{ imageId: panel, caption: 'Surf' }] } as never))
+    await ada.mutation(fn<'mutation'>('strips:retry'), { id })
+    expect(await strip(ada, id)).toMatchObject({ status: 'draft', panels: [] })
+    expect(await stored(panel)).toBe(false)
+    // A draft has no job to retry.
+    expect(await refusal(ada.mutation(fn<'mutation'>('strips:retry'), { id }))).toMatchObject({ code: 'invalid_input', data: { reason: 'not_stopped' } })
+  })
+
   test('a panel saved twice is one panel, and one announcement', async () => {
     const ada = await asUser(t, { email: 'delivered+twice@resend.dev' })
     const id = await ada.mutation(fn<'mutation'>('strips:create'), { idea: 'A cat learns to surf' }) as string
@@ -421,10 +435,24 @@ describe('templates/panels/backend', () => {
     const grace = await asUser(t)
     const id = await ada.mutation(fn<'mutation'>('strips:create'), { idea: 'A cat learns to surf' }) as string
     holdTheClock()
-    // Another workspace cannot put its photo on this strip.
+    // Another workspace cannot put its photo on this strip, and the
+    // classifier never reads it for them.
+    const calls = answers.calls
     expect(await refusal(grace.action(fn<'action'>('strips:attachPhoto'), { id, photoId }))).toMatchObject({ code: 'forbidden' })
+    expect(answers.calls).toBe(calls)
     await ada.action(fn<'action'>('strips:attachPhoto'), { id, photoId })
     await drain()
+    expect(await strip(ada, id)).toMatchObject({ photoId })
+    // A file kept already, this photo or a panel, is no new upload: refused
+    // before the classifier reads it, and left where it is.
+    const panel = await storeImage(ada.workspaceId)
+    const other = await ada.mutation(fn<'mutation'>('strips:create'), { idea: 'A dog learns to ski' }) as string
+    const checked = answers.calls
+    for (const kept of [photoId, panel]) {
+      expect(await refusal(ada.action(fn<'action'>('strips:attachPhoto'), { id: other, photoId: kept }))).toMatchObject({ code: 'invalid_input', data: { reason: 'upload_claimed' } })
+    }
+    expect(answers.calls).toBe(checked)
+    expect(await stored(panel)).toBe(true)
     expect(await strip(ada, id)).toMatchObject({ photoId })
     expect(await ada.query(fn<'query'>('storage:getFileUrl'), { storageId: photoId })).toEqual(expect.any(String))
     expect(await grace.query(fn<'query'>('storage:getFileUrl'), { storageId: photoId })).toBeNull()
@@ -619,6 +647,10 @@ describe('templates/panels/backend as the public demo', () => {
     const root = await asUser(t, { role: 'admin', signInMethod: 'passkey', passkeyOnly: true })
     holdTheClock()
     expect(await root.mutation(fn<'mutation'>('demo:seed'), {})).toEqual({ queued: 4 })
+    // Still in line: a second seed leaves them to finish, paying for nothing twice.
+    const lined = await t.run(async ctx => ctx.db.query('cannedStrips').collect())
+    expect(await root.mutation(fn<'mutation'>('demo:seed'), {})).toEqual({ queued: 0 })
+    expect(await t.run(async ctx => ctx.db.query('cannedStrips').collect())).toEqual(lined)
     await drain()
     const status = await t.query(fn<'query'>('demo:status'), {}) as { ideas: Array<{ ready: boolean }> }
     expect(status.ideas.every(idea => idea.ready)).toBe(true)
@@ -634,6 +666,21 @@ describe('templates/panels/backend as the public demo', () => {
     // Not for anyone else.
     const ada = await asUser(t, { signInMethod: 'passkey' })
     expect(await refusal(ada.mutation(fn<'mutation'>('demo:seed'), {}))).toMatchObject({ code: 'forbidden' })
+  })
+
+  test('a seed job that stopped is drawn again by the next seed', async () => {
+    const root = await asUser(t, { role: 'admin', signInMethod: 'passkey', passkeyOnly: true })
+    // The model writes no caption: every seed job fails.
+    answers.captions = '\n  \n'
+    holdTheClock()
+    expect(await root.mutation(fn<'mutation'>('demo:seed'), {})).toEqual({ queued: 4 })
+    await drain()
+    expect((await t.query(fn<'query'>('demo:status'), {}) as { ideas: Array<{ ready: boolean }> }).ideas.some(idea => idea.ready)).toBe(false)
+    answers.captions = null
+    holdTheClock()
+    expect(await root.mutation(fn<'mutation'>('demo:seed'), {})).toEqual({ queued: 4 })
+    await drain()
+    expect((await t.query(fn<'query'>('demo:status'), {}) as { ideas: Array<{ ready: boolean }> }).ideas.every(idea => idea.ready)).toBe(true)
   })
 
   test('the day\'s spend limit turns pause_ai on', async () => {

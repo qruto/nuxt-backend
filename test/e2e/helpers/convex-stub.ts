@@ -237,9 +237,14 @@ export function startConvexStub(options: ConvexStubOptions = {}): Promise<Convex
     const ping = setInterval(() => send({ type: 'Ping' }), 10_000)
     ping.unref()
 
+    // One message at a time, in the order they came, as a deployment answers
+    // them: handled side by side, a slow query's Transition went out after a
+    // later one's, from a version the client had already left, and the
+    // client ignored every answer after it.
+    let handled: Promise<void> = Promise.resolve()
     ws.on('message', (data) => {
       const message = JSON.parse(String(data)) as ClientMessage
-      void handleSyncMessage(message).catch((error: unknown) => {
+      handled = handled.then(() => handleSyncMessage(message)).catch((error: unknown) => {
         send({ type: 'FatalError', error: errorMessage(error) })
       })
     })

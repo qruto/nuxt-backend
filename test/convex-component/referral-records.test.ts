@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { beforeEach, describe, expect, test } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { convexTest } from 'convex-test'
 import component from '../../src/convex/test'
 import schema from '../../src/convex/components/backend/schema'
@@ -117,6 +117,28 @@ describe('the flagged queue', () => {
       }
     })
     expect((await t.query(api.referrals.consoleRows, {})).flagged.map(row => row.id)).toEqual([flagged.id])
+  })
+
+  test('a payment reads the burst around the referral\'s own claim, not the hour before the payment', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      const code = await codeOf(await account('ada@example.com'))
+      const early = await claimed(code, 'early@example.com')
+      // Two hours on, a burst on the code that the early claim was no part of.
+      vi.setSystemTime(Date.now() + 2 * 60 * 60 * 1000)
+      const crowd = []
+      for (const name of ['a', 'b', 'c', 'd', 'e']) crowd.push(await claimed(code, `${name}@example.com`))
+      await pay(early.userId)
+      // Two hours later still, one of the burst pays.
+      vi.setSystemTime(Date.now() + 2 * 60 * 60 * 1000)
+      await pay(crowd[0]!.userId)
+      const flagged = (await t.query(api.referrals.consoleRows, {})).flagged.map(row => row.id)
+      expect(flagged).not.toContain(early.id)
+      expect(flagged).toContain(crowd[0]!.id)
+    }
+    finally {
+      vi.useRealTimers()
+    }
   })
 })
 

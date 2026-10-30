@@ -118,6 +118,8 @@ definePageMeta({ auth: true })
 
 Every region is a slot that receives the full state ([Workspace components](/docs/reference/components/workspaces#workspacesettings)).
 
+Deleting a workspace (Better Auth's `/organization/delete`, for its owners, after a recent sign-in) is refused with `forbidden`, reason `paid_subscription`, while the workspace holds a paid plan set to renew: cancel the plan first, and the workspace can go.
+
 ## Show a part only inside a workspace
 
 `<Gate workspace>` renders its default slot when the person has an active workspace, and `#fallback` otherwise. Every new session gets a workspace, so the fallback shows only for someone who left every workspace during this session:

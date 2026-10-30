@@ -588,7 +588,8 @@ export const billingTables = {
  * Metered-stream request plumbing for `setupAi().stream` — the HTTP stream
  * endpoint can't carry Convex args, so `start` records the request (args,
  * billing entity, reservation) and the HTTP dispatcher loads it by stream id.
- * Status mirrors the credit reservation: `reserved` → `settled` (event
+ * Status mirrors the credit reservation: `reserved` → `streaming` (the
+ * one dispatch that claimed it runs the model) → `settled` (event
  * ingested) or `released` (failed — nothing charged). Rows are plumbing, not
  * a usage ledger — the provider event is the durable record; they are safe to
  * prune.
@@ -607,7 +608,7 @@ export const aiTables = {
     meterId: v.optional(v.string()),
     cost: v.number(),
     externalId: v.string(),
-    status: v.union(v.literal('reserved'), v.literal('settled'), v.literal('released')),
+    status: v.union(v.literal('reserved'), v.literal('streaming'), v.literal('settled'), v.literal('released')),
     createdAt: v.number(),
   })
     .index('streamId', ['streamId'])
@@ -817,8 +818,11 @@ export const emailTables = {
     expiresAt: v.number(),
     /** The caller's idempotency key, deduplicating a send while one waits. */
     idempotencyKey: v.optional(v.string()),
+    /** The one address it goes to, lowercased, so an erasure finds it by its index. Unset for several, and on a row from before 0.2. */
+    recipient: v.optional(v.string()),
   })
-    .index('idempotencyKey', ['idempotencyKey']),
+    .index('idempotencyKey', ['idempotencyKey'])
+    .index('recipient', ['recipient']),
   /**
    * A send the person's quiet hours hold (`send` with `deliverAt`), until
    * their end: `sendHeld` runs by the row's id and deletes it, and an
@@ -1059,6 +1063,29 @@ export const accountTables = {
     error: v.optional(v.string()),
     /** When it gave up on a participant that kept failing; it resumes when `forget` runs for it again. */
     failedAt: v.optional(v.number()),
+  })
+    .index('userId', ['userId'])
+    .index('email', ['email'])
+    .index('failedAt', ['failedAt']),
+  /**
+   * The app's part of an erasure (the billing customer, the email contact,
+   * an app's own source) that gave up on a participant: the plan it ran,
+   * kept so a retry erases what it was meant to, though the component's
+   * part finished and the account's workspaces are gone. Deleted once
+   * every participant finished.
+   */
+  accountErasureFailures: defineTable({
+    userId: v.optional(v.string()),
+    email: v.optional(v.string()),
+    deleted: v.array(v.string()),
+    left: v.array(v.string()),
+    /** The participants that finished, which a retry skips. */
+    done: v.array(v.string()),
+    /** The participants that gave up. */
+    failed: v.array(v.string()),
+    /** The rounds of retries it has run. */
+    rounds: v.number(),
+    failedAt: v.number(),
   })
     .index('userId', ['userId'])
     .index('email', ['email'])
@@ -1400,6 +1427,8 @@ export const jobTables = {
     cancel: v.optional(v.object({ by: v.string(), refund: v.boolean() })),
   })
     .index('by_status_and_score', ['status', 'score'])
+    // Each owner's waiting jobs in score order: the line read owner by owner past one owner's backlog.
+    .index('by_status_and_owner_and_score', ['status', 'owner', 'score'])
     .index('by_owner_and_status', ['owner', 'status'])
     .index('by_userId', ['userId'])
     .index('by_visitor_and_status', ['visitor', 'status'])
@@ -1614,7 +1643,7 @@ export const waitlistTables = {
   })
     .index('email', ['email'])
     .index('status_verifiedAt', ['status', 'verifiedAt'])
-    .index('mirror', ['mirror']),
+    .index('mirror_mirrorAt', ['mirror', 'mirrorAt']),
   waitlistJoins: defineTable({
     email: v.string(),
     /** The key `joinWaitlist` handed the browser that began the join: only a code check that carries it applies the join. */
@@ -1769,6 +1798,17 @@ export const preferenceTables = {
     askedAt: v.optional(v.number()),
   })
     .index('contactId_topic', ['contactId', 'topic']),
+  /**
+   * The id a contact had before an address change merged it onto another
+   * row: the unsubscribe and confirmation links already sent carry it, and
+   * resolve through it to the row the person is on now.
+   */
+  emailContactAliases: defineTable({
+    formerId: v.string(),
+    contactId: v.id('emailContacts'),
+  })
+    .index('formerId', ['formerId'])
+    .index('contactId', ['contactId']),
   /** The provider's id of each object `email sync` made or found (a topic, the accounts' segment), so no provider id sits in the app's code. */
   emailProviderIds: defineTable({
     kind: v.union(v.literal('topic'), v.literal('segment')),

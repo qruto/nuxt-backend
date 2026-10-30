@@ -75,7 +75,7 @@ const credits = {
   credited: computed(() => (creditsLoading.value ? undefined : 50)),
   consumed: computed(() => (creditsLoading.value ? undefined : 8)),
   meterId: computed(() => 'meter_1'),
-  isLoading: computed(() => false),
+  isLoading: computed(() => creditsLoading.value),
   topUp: vi.fn(async () => 'https://billing.example/topup'),
   refresh: vi.fn(async () => {}),
 }
@@ -1511,12 +1511,13 @@ describe('WorkspaceSettings', () => {
     expect(wrapper.emitted('workspace-switched')).toEqual([['ws2']])
   })
 
-  it('creates a workspace with a slugified name', async () => {
+  it('creates a workspace with a slug of its name, made unique', async () => {
     const wrapper = mount(WorkspaceSettings)
     await wrapper.find('[data-settings="input-name"]').setValue('My New Team!')
     await wrapper.find('[data-settings="create-form"]').trigger('submit')
     await flushPromises()
-    expect(organization.create).toHaveBeenCalledWith({ name: 'My New Team!', slug: 'my-new-team' })
+    // Slugs are unique across the deployment: another account's "My New Team" must not refuse this one.
+    expect(organization.create).toHaveBeenCalledWith({ name: 'My New Team!', slug: expect.stringMatching(/^my-new-team-[0-9a-f]{8}$/) })
     expect(wrapper.emitted('workspace-created')).toBeTruthy()
     expect(wrapper.find('[data-settings="message"]').attributes('data-tone')).toBe('ok')
   })
@@ -1578,6 +1579,22 @@ describe('WorkspaceSettings', () => {
       const wrapper = mount(WorkspaceSettings)
       expect(wrapper.find('[data-settings="balance"]').text()).toContain('—')
       expect(wrapper.find('[data-settings="usage"]').text()).toBe('— credited · — used')
+    }
+    finally {
+      creditBalance.value = previous
+      creditsLoading.value = false
+    }
+  })
+
+  it('stops announcing loading once the credits read settled without a balance', () => {
+    // A failed read, or a backend without getCredits: no balance, and nothing more to wait for.
+    const previous = creditBalance.value
+    creditBalance.value = undefined
+    subscription.value = null
+    try {
+      const wrapper = mount(WorkspaceSettings)
+      expect(wrapper.find('[data-settings="status"]').text()).toBe('')
+      expect(wrapper.find('[data-settings="section-credits"]').attributes('aria-busy')).toBeUndefined()
     }
     finally {
       creditBalance.value = previous
@@ -1782,7 +1799,7 @@ describe('WorkspaceSettings billing section', () => {
     await confirm.find('[data-settings="confirm-cancel"]').trigger('click')
     await flushPromises()
     // No reason and no words: the confirmation asked for none.
-    expect(billing.cancel).toHaveBeenCalledWith({ reason: undefined, comment: undefined })
+    expect(billing.cancel).toHaveBeenCalledWith({ reason: undefined, comment: undefined, offer: false })
     expect(wrapper.emitted('plan-canceled')).toHaveLength(1)
     expect(wrapper.find('[data-settings="cancel-confirm"]').exists()).toBe(false)
     // The button pressed went with the step: focus is on the plan's state.
@@ -1799,7 +1816,8 @@ describe('WorkspaceSettings billing section', () => {
     })
     await wrapper.find('[data-app="cancel"]').trigger('click')
     await flushPromises()
-    expect(billing.cancel).toHaveBeenCalledWith({ reason: 'too_expensive', comment: 'Over budget' })
+    // In one step: a save offer answered here would cancel nothing.
+    expect(billing.cancel).toHaveBeenCalledWith({ reason: 'too_expensive', comment: 'Over budget', offer: false })
   })
 
   it('works from the keyboard: Escape closes the cancellation and gives focus back, a busy confirm keeps focus and starts nothing twice', async () => {

@@ -55,8 +55,13 @@ const syncRef = makeFunctionReference<'action', { dryRun: boolean }, EmailSyncRe
 let t: App
 let calls: Array<{ method: string, path: string, body: Record<string, unknown> | undefined }>
 
-/** A stand-in for the email provider: nothing exists until it is made. `refuse` answers one path (one method of it, when named) with the provider's refusal. */
-function provider(refuse?: { path: string, status: number, name: string, method?: string, message?: string }) {
+/**
+ * A stand-in for the email provider: nothing exists until it is made, but
+ * what `listed` holds by path, which it pages as the provider does (20 by
+ * default, `limit` up to 100, from `after`). `refuse` answers one path
+ * (one method of it, when named) with the provider's refusal.
+ */
+function provider(refuse?: { path: string, status: number, name: string, method?: string, message?: string }, listed: Record<string, Array<Record<string, unknown> & { id: string }>> = {}) {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(String(input instanceof Request ? input.url : input))
     const method = init?.method ?? 'GET'
@@ -65,6 +70,13 @@ function provider(refuse?: { path: string, status: number, name: string, method?
     const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } })
     if (refuse && url.pathname === refuse.path && (!refuse.method || refuse.method === method)) return json({ name: refuse.name, message: refuse.message ?? 'refused', statusCode: refuse.status }, refuse.status)
     if (method === 'GET' && url.pathname.startsWith('/templates/')) return json({ name: 'not_found', message: 'Template not found', statusCode: 404 }, 404)
+    const items = method === 'GET' ? listed[url.pathname] : undefined
+    if (items) {
+      const after = url.searchParams.get('after')
+      const from = after ? items.findIndex(item => item.id === after) + 1 : 0
+      const page = items.slice(from, from + Math.min(Number(url.searchParams.get('limit')) || 20, 100))
+      return json({ object: 'list', has_more: from + page.length < items.length, data: page })
+    }
     if (method === 'GET') return json({ object: 'list', has_more: false, data: [] })
     if (url.pathname === '/templates') return json({ object: 'template', id: `tpl_${(body?.alias as string).slice(13)}` })
     return json({ object: 'x', id: `id_${calls.length}` })
@@ -155,6 +167,22 @@ describe('email sync', () => {
     provider({ path: '/templates', status: 422, name: 'validation_error' })
     await expect(t.action(syncRef, { dryRun: false })).rejects.toThrow(/create the welcome template/)
     expect(await t.mutation(signedUpRef, { id: ada.userId, email: ada.email })).toEqual({ welcome: false })
+  })
+})
+
+describe('email sync on an account with more than a page of each', () => {
+  test('finds the topics and the automations past the provider\'s first page, and makes none again', async () => {
+    vi.stubEnv('EMAIL_API_KEY', 're_test_key')
+    const others = (kind: string) => Array.from({ length: 120 }, (_, i) => ({ id: `${kind}_other_${i}`, name: `Other ${kind} ${i}`, status: 'enabled' }))
+    const topics = [...others('topic'), { id: 'topic_tips', name: 'Tips', description: TOPICS.tips.description, default_subscription: 'opt_in' }, { id: 'topic_offers', name: 'Offers', description: TOPICS.offers.description, default_subscription: 'opt_out' }]
+    const flows = ['welcome', 'activationNudge', 'firstResult', 'winBack'].map(flow => ({ id: `auto_${flow}`, name: `nuxt-backend: ${flow}`, status: 'enabled' }))
+    provider(undefined, { '/topics': topics, '/automations': [...others('automation'), ...flows] })
+    const report = await t.action(syncRef, { dryRun: false })
+    expect(report.log.filter(entry => entry.kind === 'topic' || entry.kind === 'automation').map(entry => `${entry.kind}:${entry.key}:${entry.action}`)).toEqual([
+      'topic:tips:exists', 'topic:offers:exists',
+      'automation:welcome:exists', 'automation:activationNudge:exists', 'automation:firstResult:exists', 'automation:winBack:exists',
+    ])
+    expect(calls.filter(call => call.method === 'POST' && (call.path === '/topics' || call.path === '/automations'))).toEqual([])
   })
 })
 

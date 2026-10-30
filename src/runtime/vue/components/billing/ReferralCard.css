@@ -92,7 +92,8 @@
     gap: 0.5rem;
   }
 
-  [data-referral='error'] {
+  [data-referral='error'],
+  [data-referral='sharing-error'] {
     margin: 0;
     color: var(--bk-error);
   }

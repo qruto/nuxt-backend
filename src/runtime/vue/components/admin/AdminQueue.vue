@@ -33,6 +33,9 @@ const summary = computed(() => {
   ]
 })
 
+// Not read yet: loading, unless the read failed, which then says why.
+const loading = computed(() => queue.value === undefined && !error.value)
+
 /** Why jobs may not start: a paused queue, `pause_ai`, trimmed slots. */
 const notices = computed(() => {
   const now = queue.value
@@ -44,13 +47,20 @@ const notices = computed(() => {
 <template>
   <section
     data-admin-queue="tab"
-    :data-loading="queue === undefined ? '' : undefined"
+    :data-loading="loading ? '' : undefined"
   >
     <p
-      v-if="queue === undefined"
+      v-if="loading"
       data-admin-queue="loading"
     >
       {{ tr('loading') }}
+    </p>
+    <p
+      v-else-if="queue === undefined"
+      data-admin-queue="error"
+      role="alert"
+    >
+      {{ errorMessage(error) }}
     </p>
     <template v-else-if="queue">
       <header data-admin-queue="overview">

@@ -175,6 +175,15 @@ export function createProviderPager<Item>(
       () => load(1),
       { flush: 'post' },
     )
+    // Another reader's history is not theirs to see, nor to act on, while theirs loads.
+    if (options.reader) {
+      watch(options.reader, () => {
+        items.value = undefined
+        total.value = undefined
+        pageCount.value = undefined
+        void load(1)
+      }, { flush: 'post' })
+    }
   }
 
   return {

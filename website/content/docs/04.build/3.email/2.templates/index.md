@@ -138,18 +138,30 @@ npx nuxt-backend eject email:invite
 
 ```ts [backend/emails/invite.ts]
 // nuxt-backend eject: email:invite@0.2.0
-// Sent in place of the packaged `invite` email: backend/email.ts lists it in `setupEmail`'s `templates`.
+// Sent in place of the packaged `invite` email: ../email.ts lists it in `setupEmail`'s `templates`.
 import type { EmailMessage, EmailRenderContext, InviteEmailData } from 'nuxt-backend/email'
-import { linkBlocks } from 'nuxt-backend/email'
+import { linkBlocks, plainName } from 'nuxt-backend/email'
 
-/** The `invite` email: who invites the person to which workspace, in which role, and the link that accepts. */
+/** The longest inviter name the email shows. */
+const INVITER_NAME_LENGTH = 40
+/** The longest workspace name the email shows. */
+const WORKSPACE_NAME_LENGTH = 60
+
+/**
+ * The `invite` email: who invites the person to which workspace, in which
+ * role, and the link that accepts. Both names are the inviter's own text,
+ * mailed from the app's domain: no link or domain they typed goes along. A
+ * workspace name that was nothing else leaves the sentences that name none.
+ */
 export function invite({ email, url, inviterName, inviterEmail, workspaceName, role }: InviteEmailData, context: EmailRenderContext): EmailMessage {
   const { t } = context
-  const intro = t('email.invite.intro', { inviter: inviterName || inviterEmail, workspace: workspaceName, role })
+  const inviter = plainName(inviterName, INVITER_NAME_LENGTH) ?? inviterEmail
+  const workspace = plainName(workspaceName, WORKSPACE_NAME_LENGTH)
+  const intro = workspace ? t('email.invite.intro', { inviter, workspace, role }) : t('email.invite.introUnnamed', { inviter, role })
   const link = context.link(url)
   return {
     to: email,
-    subject: t('email.invite.subject', { workspace: workspaceName }),
+    subject: workspace ? t('email.invite.subject', { workspace }) : t('email.invite.subjectUnnamed'),
     blocks: [{ paragraph: intro }, ...linkBlocks(link, t('email.invite.action'), context)],
     text: `${intro}\n\n${link}`,
     preheader: intro,
@@ -157,7 +169,7 @@ export function invite({ email, url, inviterName, inviterEmail, workspaceName, r
 }
 ```
 
-Two helpers the packaged emails share come from `nuxt-backend/email`, for your own emails too: `linkBlocks(url, label, context)`, a button and the link written out (a bare path, from a deployment with no `SITE_URL`, gets its text alone), and `describeOrigin(requestedFrom, context)`, the "Requested from Chrome on macOS, near Lisbon…" line of the code emails.
+Three helpers the packaged emails share come from `nuxt-backend/email`, for your own emails too: `linkBlocks(url, label, context)`, a button and the link written out (a bare path, from a deployment with no `SITE_URL`, gets its text alone); `describeOrigin(requestedFrom, context)`, the "Requested from Chrome on macOS, near Lisbon…" line of the code emails; and `plainName(name, max)`, a name someone typed with every link and bare domain taken out, so an email from your domain never carries one (the invitation reads the inviter's and the workspace's names through it).
 
 From then on the copy is yours: the package never changes it. `npx nuxt-backend upgrade` compares each ejected file with the template of the new version and shows what changed, so you can carry a fix over by hand. Eject only what an override cannot reach, since every ejected email is one more file to keep in step ([Eject a part, page or email](/docs/build/ui/customize/eject)).
 

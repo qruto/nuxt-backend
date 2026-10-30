@@ -72,6 +72,20 @@ describe('the profile\'s Email section', () => {
   })
 })
 
+describe('a refused preference', () => {
+  it('puts its box back as it is stored', async () => {
+    backend.fail('email:setEmailTopic', new Error('Server unreachable'))
+    const profile = await mountSuspended(ProfileSettings)
+    await flushPromises()
+    const box = profile.findAll<HTMLInputElement>('input[data-preferences="topic-input"]')[1]!
+    await box.setValue(false)
+    await flushPromises()
+    expect(backend.callsTo('email:setEmailTopic')).toEqual([{ topic: 'stripTips', subscribed: false }])
+    expect(box.element.checked).toBe(true)
+    expect(profile.find('[data-profile="section-preferences"] [role="alert"]').exists()).toBe(true)
+  })
+})
+
 describe('the notification channels', () => {
   const channels = ref<NotificationKindChoice[]>([])
 

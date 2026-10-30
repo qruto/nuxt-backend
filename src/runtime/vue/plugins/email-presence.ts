@@ -19,8 +19,9 @@ export default defineNuxtPlugin({
         .catch((cause: unknown) => {
           if (import.meta.dev) console.warn('[nuxt-backend] the email presence watch could not start:', cause)
         })
+      // Watched only where this device holds a subscription, which loads the session's client.
       import('../utils/push-device')
-        .then(({ watchPushSignOut }) => nuxtApp.vueApp.runWithContext(watchPushSignOut))
+        .then(({ watchDevicePushSignOut }) => watchDevicePushSignOut(watch => nuxtApp.vueApp.runWithContext(watch)))
         .catch((cause: unknown) => {
           if (import.meta.dev) console.warn('[nuxt-backend] the push sign-out watch could not start:', cause)
         })

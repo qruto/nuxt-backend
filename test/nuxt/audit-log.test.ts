@@ -16,7 +16,7 @@ const authenticated = ref(true)
 /** The session the reader is: its account and its active workspace. */
 const session = ref<{ data: { user: { id: string }, session: { activeOrganizationId: string | null } } | null }>({ data: null })
 
-vi.mock('../../src/runtime/vue/utils/auth-session', () => ({ useAuthSession: () => ({ session }) }))
+vi.mock('nuxt-convex-module/better-auth/client', () => ({ useBetterAuth: () => ({ session }) }))
 
 vi.mock('nuxt-convex-module/client', async original => ({
   ...await original<Record<string, unknown>>(),

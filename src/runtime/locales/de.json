@@ -1881,7 +1881,7 @@
           "kept": "Bis die Löschung abgebrochen oder ausgeführt wird."
         },
         "erasures": {
-          "holds": "Eine laufende Löschung: die ID und Adresse des Kontos sowie die Workspaces, die sie löscht.",
+          "holds": "Eine laufende Löschung: die ID und Adresse des Kontos sowie die Workspaces, die sie löscht; und der Plan des App-Teils (der Abrechnungskunde, der E-Mail-Kontakt), solange ein Teilnehmer daran wiederholt wird.",
           "kept": "Bis die Löschung abgeschlossen ist; eine fehlgeschlagene 30 Tage."
         },
         "monitoringUser": {
@@ -2416,6 +2416,7 @@
       "forbidden_age_required": "Geben Sie Ihr Alter an, um fortzufahren.",
       "forbidden_under_age": "Wir können kein Konto für Sie erstellen.",
       "forbidden_sole_owner": "Sie sind der einzige Inhaber eines Workspace, dem noch andere angehören. Machen Sie zuerst ein anderes Mitglied zum Inhaber.",
+      "forbidden_paid_subscription": "Dieser Workspace hat einen kostenpflichtigen Plan. Kündigen Sie ihn, bevor Sie den Workspace löschen.",
       "forbidden_cannot_share": "Sie können das nicht teilen.",
       "reauthentication_required": "Bestätigen Sie Ihre Identität, um fortzufahren: Dafür ist eine aktuelle Anmeldung nötig.",
       "no_workspace": "Erstellen oder wählen Sie zuerst einen Workspace.",
@@ -2619,7 +2620,9 @@
       "invite": {
         "subject": "Treten Sie {workspace} bei",
         "intro": "{inviter} hat Sie eingeladen, {workspace} als {role} beizutreten.",
-        "action": "Einladung annehmen"
+        "action": "Einladung annehmen",
+        "subjectUnnamed": "Sie wurden in einen Workspace eingeladen",
+        "introUnnamed": "{inviter} hat Sie eingeladen, dem Workspace als {role} beizutreten."
       },
       "gift": {
         "subject": "{sender} hat Ihnen ein Geschenk geschickt 🎁",

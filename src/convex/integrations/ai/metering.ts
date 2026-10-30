@@ -285,6 +285,7 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
         await ctx.scheduler.cancel(outcome.releaseJobId as GenericId<'_scheduled_functions'>)
       }
       if (outcome.settled) await fireBalanceHooks(ctx, usage, reservation, outcome)
+      else await debitLapsed(ctx, reservation, final)
     }
     catch (error) {
       logBackend(
@@ -294,6 +295,19 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
         error,
       )
     }
+  }
+
+  /**
+   * Take a spend the provider has from the cached balance again, when its
+   * reservation was gone by the time the event landed: a stream that ran
+   * past its abandon timer had it released and re-credited, and the cache
+   * is the only spend guard. Overage is allowed: the credits are spent.
+   */
+  const debitLapsed = async (ctx: ActionRunCtx, reservation: SpendReservation, amount: number): Promise<void> => {
+    if (!reservation.meterId || amount === 0) return
+    const keys = { userId: reservation.entityId, externalId: reservation.externalId }
+    const taken = await ctx.runMutation(cache.debit, { ...keys, meterId: reservation.meterId, amount, allowOverage: true })
+    if (taken.ok) await ctx.runMutation(cache.settle, { ...keys, finalAmount: amount })
   }
 
   /**

@@ -2,6 +2,7 @@ import { computed, inject, toValue, type ComputedRef, type MaybeRefOrGetter, typ
 import { useAction, ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import type { BackendError } from '../utils/backend-error'
 import { useBackendNamespace } from '../utils/namespace'
+import { useReaderKey } from '../utils/reader'
 import { type BillingApi, createProviderPager, type UsageEvent } from './use-billing'
 
 export interface UseUsageOptions {
@@ -79,6 +80,7 @@ export function useUsage(options: UseUsageOptions = {}): UseUsageReturn {
   const signedOut = computed(() => auth != null && !auth.isAuthenticated.value)
 
   const runUsage = billing.getUsageHistory ? useAction(billing.getUsageHistory) : null
+  const reader = useReaderKey()
 
   const pager = createProviderPager<UsageEvent>(
     runUsage && (args => runUsage({ meter: toValue(options.meter), page: args.page, limit: args.limit })),
@@ -87,6 +89,8 @@ export function useUsage(options: UseUsageOptions = {}): UseUsageReturn {
       immediate: options.immediate,
       enabled: () => !signedOut.value,
       watchSources: () => toValue(options.meter),
+      // The server meters the active workspace: another one is another history.
+      reader: () => reader.value,
     },
   )
 

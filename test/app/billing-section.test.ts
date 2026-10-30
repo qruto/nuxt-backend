@@ -5,7 +5,7 @@ import { createBackendMock, type BackendMock } from '../../src/runtime/test-util
 import WorkspaceSettings from '../../src/runtime/vue/components/workspaces/WorkspaceSettings.vue'
 import { registerComponents } from '../helpers/register-components'
 
-await registerComponents('WorkspaceSettings')
+await registerComponents('WorkspaceSettings', 'CancelFlow')
 
 // The billing section of <WorkspaceSettings> over the backend mock
 // (nuxt-backend/test-utils), the way an app tests its settings page: the
@@ -78,7 +78,7 @@ describe('the billing section of <WorkspaceSettings>, on the backend mock', () =
     await active.find('[data-settings="confirm-cancel"]').trigger('click')
     await flushPromises()
     // At the period's end, in one step that asked nothing more.
-    expect(backend.callsTo('billing:cancelSubscription')).toEqual([{ atPeriodEnd: true }])
+    expect(backend.callsTo('billing:cancelSubscription')).toEqual([{ atPeriodEnd: true, offer: false }])
   })
 
   it('keeps a failed payment set to end from a second cancellation, and offers its way back', async () => {
@@ -110,5 +110,18 @@ describe('the billing section of <WorkspaceSettings>, on the backend mock', () =
     expect(wrapper.find('[data-settings="plan-status"]').exists()).toBe(true)
     expect(wrapper.find('[data-settings="managed"]').exists()).toBe(true)
     expect(wrapper.findAll('[data-settings="section-billing"] button')).toHaveLength(0)
+  })
+
+  it('tells the listener and the reader when the cancel flow, with save offers on, cancels the plan', async () => {
+    backend.state.queries['billing:getBillingAccess'] = { canManage: true, saveOffers: true }
+    backend.stub('billing:cancelSubscription', () => ({ canceled: true, endsAt: null }))
+    const wrapper = await mountSection()
+    await wrapper.find('[data-settings="cancel"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-cancel-flow="cancel"]').trigger('click')
+    await flushPromises()
+    expect(backend.callsTo('billing:cancelSubscription')).toEqual([{ atPeriodEnd: true, offer: false }])
+    expect(wrapper.emitted('plan-canceled')).toHaveLength(1)
+    expect(wrapper.find('[data-settings="message"]').text()).toBe('Subscription set to cancel at period end.')
   })
 })

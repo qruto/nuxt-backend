@@ -271,6 +271,27 @@ describe('an address change', () => {
     expect((await ada.query(getPrefs, {}))!.find(topic => topic.key === 'updates')).toMatchObject({ subscribed: false })
   })
 
+  test('an unsubscribe link sent before the move still works once the account\'s row merged away', async () => {
+    const ada = await asUser(t, { email: 'ada@example.com' })
+    await t.mutation(sendRef, { to: 'ada@example.com', topic: 'updates' })
+    const { contactId: before } = await t.mutation(readRef, { email: 'ada@example.com' })
+    const sent = await unsubscribeToken(SECRET, before!, 'updates')
+    await t.mutation(sendRef, { to: 'ada@new.example.com', topic: 'updates' })
+    await t.mutation(changeAddressRef, { userId: ada.userId, email: 'ada@new.example.com' })
+    // The next send to the new address moves the account onto the row that holds it.
+    await t.mutation(sendRef, { to: 'ada@new.example.com', topic: 'updates' })
+    expect((await t.mutation(readRef, { email: 'ada@example.com' })).contactId).toBeNull()
+    expect(await t.query(getLink, { token: sent })).toMatchObject({ kind: 'unsubscribe', subscribed: true })
+    expect(await t.mutation(byLink, { token: sent })).toBe(true)
+    expect(await states('ada@new.example.com')).toMatchObject({ updates: 'unsubscribed' })
+    // Merged again, the first link still reaches the row the account is on now.
+    await t.mutation(sendRef, { to: 'ada@third.example.com', topic: 'updates' })
+    await t.mutation(changeAddressRef, { userId: ada.userId, email: 'ada@third.example.com' })
+    await t.mutation(sendRef, { to: 'ada@third.example.com', topic: 'updates' })
+    await ada.mutation(setTopic, { topic: 'updates', subscribed: true })
+    expect(await t.query(getLink, { token: sent })).toMatchObject({ kind: 'unsubscribe', subscribed: true })
+  })
+
   test('removes the old address\'s contact at the provider, and writes the new one', async () => {
     vi.stubEnv('EMAIL_API_KEY', 're_test_key')
     const calls: string[] = []

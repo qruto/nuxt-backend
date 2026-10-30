@@ -70,6 +70,16 @@ describe('eject', () => {
     expect(read('backend/email.ts')).toContain('setupEmail(components, { templates: { emailChanged, invite } })')
   })
 
+  it('puts an email in the functions directory convex.json names, and finds it there', () => {
+    rmSync(join(root, 'backend'), { recursive: true })
+    mkdirSync(join(root, 'convex'))
+    writeFileSync(join(root, 'convex.json'), JSON.stringify({ functions: 'convex/' }))
+    writeFileSync(join(root, 'convex/email.ts'), 'import { setupEmail } from \'nuxt-backend/email\'\nimport { components } from \'./_generated/api\'\n\nexport const email = setupEmail(components)\n')
+    expect(eject(root, 'email:invite').written).toEqual(['convex/emails/invite.ts', 'convex/email.ts'])
+    expect(read('convex/email.ts')).toContain('setupEmail(components, { templates: { invite } })')
+    expect(ejectedFiles(root)).toEqual([expect.objectContaining({ target: 'email:invite', file: 'convex/emails/invite.ts' })])
+  })
+
   it('copies every email with imports an app resolves, each a name nuxt-backend/email exports', () => {
     const entry = readFileSync(join(import.meta.dirname, '../../src/convex/integrations/email.ts'), 'utf8')
     const exported = new Set([...entry.matchAll(/export (?:type )?\{([^}]+)\}/g)].flatMap(([, names]) => names!.split(',').map(name => name.trim()).filter(Boolean)))

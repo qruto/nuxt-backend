@@ -2003,6 +2003,38 @@ emails name it, so a person can tell a request that is not theirs.
 
 ***
 
+### plainName()
+
+```ts
+function plainName(name, max): string | undefined;
+```
+
+Defined in: [src/convex/email-helpers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-helpers.ts)
+
+A name someone typed as an email shows it: every link and bare domain
+taken out, whitespace collapsed, at most `max` characters; `undefined`
+when nothing is left. An email from the app's domain never carries a
+link a person put in their name, a workspace's or a gift sender's.
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` \| `undefined` |
+| `max` | `number` |
+
+#### Returns
+
+`string` \| `undefined`
+
+#### Example
+
+```ts
+const workspace = plainName(workspaceName, 60) // 'Security alert: verify at evil.com' → 'Security alert: verify at'
+```
+
+***
+
 ### escapeHtml()
 
 ```ts

@@ -2,7 +2,7 @@ import type { GenericCtx } from '@convex-dev/better-auth'
 import type { GenericActionCtx, GenericDataModel, GenericMutationCtx } from 'convex/server'
 import type { AuthAccount, AuthAudit, AuthEmail, AuthMutationCtx, AuthRateLimiter, CanSignIn, OnUserCreated, OnUserDeleted } from './auth-types.js'
 import type { PauseCheck } from '../pauses.js'
-import type { EntityCreatedListener } from './entities.js'
+import type { EntityCreatedListener, EntityDeletionGuard } from './entities.js'
 import type { AccessGate } from '../access-tickets.js'
 import type { BackendPaths } from '../paths.js'
 import type { AuthGuests } from './guest-claim.js'
@@ -59,6 +59,8 @@ export interface AuthRuntime<DM extends GenericDataModel = GenericDataModel> {
   access?: AccessGate
   /** Who hears of each workspace or account made: billing, once `registerBackendRoutes` connects it. */
   entityCreated?: () => readonly EntityCreatedListener[]
+  /** What may refuse the deletion of a workspace: billing, while it holds a paid subscription, once `registerBackendRoutes` connects it. */
+  entityDeleting?: () => readonly EntityDeletionGuard[]
   /** The app's paths the auth emails link to (`setupAuth({ paths })`, resolved). */
   paths?: BackendPaths
   /** What claims a visitor's guest jobs for the account created in their browser: the component's job queue. */

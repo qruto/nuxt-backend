@@ -235,8 +235,10 @@ export const sendSecret = sendMutation(async (ctx, args, from, secretExpiresAt) 
   }
   const now = Date.now()
   const expiresAt = Math.min(now + SECRET_OUTBOX_TTL_MS, secretExpiresAt ?? Number.POSITIVE_INFINITY)
+  const recipients = Array.isArray(message.to) ? message.to : [message.to]
   const id = await ctx.db.insert('secretOutbox', {
     message: { ...message, from },
+    ...(recipients.length === 1 ? { recipient: recipients[0]!.trim().toLowerCase() } : {}),
     attempts: 0,
     generation: 0,
     nextAttemptAt: now,

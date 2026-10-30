@@ -28,6 +28,8 @@ import { runConvex } from './convex-cli'
 import { usesProvenance } from './named-models'
 import { envLine, generateProvenanceCredentials } from './provenance-keys'
 import { generatePushKeys } from './convex/web-push'
+import { isLoopbackUrl } from './convex/loopback'
+import { TEST_CHALLENGE_SECRET_KEYS } from './convex/proof'
 
 /** The names `env push` forwards: the deployment's contract, from src/env-registry.ts. */
 export const BACKEND_ENV_NAMES = CONTRACT_ENV_NAMES
@@ -102,6 +104,23 @@ function gapAction(name: string, { dev, preview }: { dev: boolean, preview: bool
 }
 
 /**
+ * Why a value `.env(.local)` holds is not one for production, or null when
+ * it is: `.env.local` is the dev deployment's. Its `SITE_URL` is a local
+ * origin, its proof secret must not be shared with production, and the
+ * challenge provider's test secret keys pass every answer.
+ */
+function notForProduction(name: string, value: string): string | null {
+  if (name === 'SITE_URL') {
+    const url = URL.canParse(value.trim()) ? new URL(value.trim()) : null
+    if (url?.protocol === 'https:' && !isLoopbackUrl(url.href)) return null
+    return `required — .env.local's SITE_URL (${value}) is no public https origin: pass production's with --site-url, or set it in the dashboard`
+  }
+  if (name === 'PROTECTION_PROOF_SECRET') return 'production\'s own, never .env.local\'s: generate one (openssl rand -base64 32) and set it on the deployment and in the host\'s env'
+  if (name === 'PROTECTION_CHALLENGE_SECRET_KEY' && TEST_CHALLENGE_SECRET_KEYS.includes(value.trim())) return '.env.local holds the challenge provider\'s test secret key, which passes every answer: set production\'s own key on the deployment'
+  return null
+}
+
+/**
  * Decide what to do per var. Pure; exported for tests — `runEnvPush` is the
  * flow the CLI and the module call.
  *
@@ -109,50 +128,44 @@ function gapAction(name: string, { dev, preview }: { dev: boolean, preview: bool
  */
 export function planEnvPush({ deployedNames, localEnv, dev, preview = false, force, generated }: EnvPushPlanInput): EnvPushAction[] {
   const deployed = new Set(deployedNames)
-  const actions: EnvPushAction[] = []
-
-  for (const name of BACKEND_ENV_NAMES) {
-    if (DERIVED_DEPLOYMENT_ENV.has(name)) {
-      actions.push(environmentAction(deployed.has(name), force?.has(name) === true, { dev, preview }))
-      continue
-    }
+  const target = { dev, preview, production: !dev && !preview }
+  return BACKEND_ENV_NAMES.map((name) => {
+    if (DERIVED_DEPLOYMENT_ENV.has(name)) return environmentAction(deployed.has(name), force?.has(name) === true, { dev, preview })
     if (name in DEV_ONLY_DEPLOYMENT_ENV && !dev) {
-      actions.push({ name, action: 'unset', detail: 'dev deployments only: never pushed here (deploy --sandbox sets it on a sandbox; elsewhere set it by hand where you mean to)' })
-      continue
+      return { name, action: 'unset', detail: 'dev deployments only: never pushed here (deploy --sandbox sets it on a sandbox; elsewhere set it by hand where you mean to)' }
     }
     // A web push pair is one deployment's own: .env.local's is the dev deployment's, never production's.
     const local = (PUSH_ENV as readonly string[]).includes(name) && !dev ? undefined : localValue(name, localEnv)
-    if (deployed.has(name)) {
-      const replaceable = force?.has(name) && local !== undefined && local !== ''
-      if (!replaceable) {
-        actions.push({
-          name,
-          action: 'skip',
-          detail: force?.has(name)
-            ? 'no local value to replace it with'
-            : 'already set on the deployment (--force to replace)',
-        })
-        continue
-      }
-      actions.push({ name, action: 'update', value: local, detail: 'replaced from .env(.local)' })
-      continue
-    }
-    if (local !== undefined && local !== '') {
-      actions.push({ name, action: 'forward', value: local, detail: 'forwarded from .env(.local)' })
-      continue
-    }
+    const value = local === '' ? undefined : local
+    if (deployed.has(name)) return deployedAction(name, value, force?.has(name) === true, target.production)
+    if (value !== undefined) return localAction(name, value, target.production)
     const made = generated?.[name]
-    if (made !== undefined) {
-      const detail = !(PUSH_ENV as readonly string[]).includes(name)
-        ? 'generated (a signing key and its certificate, kept in .env.local)'
-        : dev ? 'generated (the web push key pair, kept in .env.local)' : 'generated (this deployment\'s own web push key pair: back it up with your other secrets)'
-      actions.push({ name, action: 'provision', value: made, detail })
-      continue
-    }
-    actions.push(gapAction(name, { dev, preview }))
-  }
+    if (made !== undefined) return { name, action: 'provision', value: made, detail: generatedDetail(name, dev) }
+    return gapAction(name, { dev, preview })
+  })
+}
 
-  return actions
+/** A name the deployment already holds: kept, unless forced with a local value production may take. */
+function deployedAction(name: string, local: string | undefined, forced: boolean, production: boolean): EnvPushAction {
+  if (!forced || local === undefined) {
+    return { name, action: 'skip', detail: forced ? 'no local value to replace it with' : 'already set on the deployment (--force to replace)' }
+  }
+  const refused = production ? notForProduction(name, local) : null
+  if (refused) return { name, action: 'skip', detail: `kept: ${refused}` }
+  return { name, action: 'update', value: local, detail: 'replaced from .env(.local)' }
+}
+
+/** A name the deployment lacks and `.env(.local)` holds: forwarded, unless it is dev's alone and this is production. */
+function localAction(name: string, local: string, production: boolean): EnvPushAction {
+  const refused = production ? notForProduction(name, local) : null
+  if (refused) return { name, action: (REQUIRED_DEPLOYMENT_ENV as readonly string[]).includes(name) ? 'missing' : 'unset', detail: refused }
+  return { name, action: 'forward', value: local, detail: 'forwarded from .env(.local)' }
+}
+
+/** What a generated value is, for the plan's detail. */
+function generatedDetail(name: string, dev: boolean): string {
+  if (!(PUSH_ENV as readonly string[]).includes(name)) return 'generated (a signing key and its certificate, kept in .env.local)'
+  return dev ? 'generated (the web push key pair, kept in .env.local)' : 'generated (this deployment\'s own web push key pair: back it up with your other secrets)'
 }
 
 /**

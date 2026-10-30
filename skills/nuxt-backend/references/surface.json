@@ -248,6 +248,7 @@
         "forceColorScheme",
         "html",
         "linkBlocks",
+        "plainName",
         "setupEmail",
         "trustedHtml"
       ],

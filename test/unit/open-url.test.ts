@@ -5,7 +5,7 @@ import { openProviderUrl } from '../../src/runtime/vue/utils/open-url'
 // one there: the SSR guard is the default, and the browser branches see only
 // the two members the helper touches.
 function stubWindow(href = 'https://app.test/billing') {
-  const win = { location: { href }, open: vi.fn() }
+  const win = { location: { href }, open: vi.fn<(url: string, target: string) => object | null>(() => ({})) }
   vi.stubGlobal('window', win)
   return win
 }
@@ -26,6 +26,14 @@ describe('openProviderUrl', () => {
     openProviderUrl('https://polar.test/checkout?session=abc')
     expect(win.open).toHaveBeenCalledWith('https://polar.test/checkout?session=abc', '_blank')
     expect(win.location.href).toBe('https://app.test/billing')
+  })
+
+  it('navigates in place when the browser blocks the new tab, as it may once the click is long past', () => {
+    const win = stubWindow()
+    win.open.mockReturnValue(null)
+    openProviderUrl('https://polar.test/invoice.pdf')
+    expect(win.open).toHaveBeenCalledWith('https://polar.test/invoice.pdf', '_blank')
+    expect(win.location.href).toBe('https://polar.test/invoice.pdf')
   })
 
   it('navigates in place with redirect, resolving app-relative paths against the page', () => {

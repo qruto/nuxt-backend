@@ -15,6 +15,8 @@ const components = {
       finalize: 'ref:billing.finalize',
       release: 'ref:billing.release',
       attachReleaseJob: 'ref:billing.attachReleaseJob',
+      debit: 'ref:billing.debit',
+      settle: 'ref:billing.settle',
     },
     costs: { record: 'ref:costs.record', summary: 'ref:costs.summary' },
     adapter: { findOne: 'ref:adapter.findOne' },
@@ -332,6 +334,20 @@ describe('setupAi() finalized cost — reserve an estimate, settle the actual', 
     await expect(invoke(action, ctx, {})).rejects.toThrow('provider down')
     expect(billing.releaseSpend).toHaveBeenCalledWith(expect.anything(), reservation)
     expect(finalizeCall(ctx)).toBeUndefined()
+  })
+
+  it('takes the spend from the balance again when its reservation was released before the event landed', async () => {
+    const { ai } = finalizedAi()
+    const action = ai.meteredAction({ meter: 'credits', cost: { estimate: 500, finalize: () => 120 }, args: {}, handler: async () => ({}) })
+    // A long stream: the abandon timer released the reservation, and the provider took the event after.
+    const ctx = identityCtx({ settled: false })
+    const finalize = ctx.runMutation.getMockImplementation()!
+    ctx.runMutation.mockImplementation(async (ref, args) => ref === 'ref:billing.debit' ? { ok: true, balance: 380 } as never : finalize(ref, args))
+
+    await invoke(action, ctx, {})
+
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:billing.debit', { userId: 'org_1', externalId: 'ext_1', meterId: 'm1', amount: 120, allowOverage: true })
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:billing.settle', { userId: 'org_1', externalId: 'ext_1', finalAmount: 120 })
   })
 })
 

@@ -65,6 +65,29 @@ describe('the Queue tab', () => {
     expect(backend.callsTo('jobs:retryJob')).toEqual([{ jobId: 'job-9' }])
   })
 
+  it('keeps what an administrator types while the queue moves under it', async () => {
+    const backend = createBackendMock({ user: { role: 'admin' }, queries: { 'jobs:getQueue': queue } })
+    backend.stub('jobs:listJobs', () => ({ page: [], isDone: true, continueCursor: '' }))
+    const tab = await mountSuspended(AdminQueue)
+    await flushPromises()
+    const perOwner = tab.find<HTMLInputElement>('input[aria-label="priority: Per owner"]')
+    const rate = tab.find<HTMLInputElement>('[data-admin-queue="models"] input')
+    await perOwner.setValue('5')
+    await rate.setValue('12')
+
+    // A job starts, and the learned rate moves: nothing stored by hand changed.
+    backend.state.queries['jobs:getQueue'] = {
+      ...queue,
+      running: 2,
+      tiers: queue.tiers.map(tier => ({ ...tier, running: tier.running + 1 })),
+      models: queue.models.map(model => ({ ...model, perMinute: 4 })),
+    }
+    await flushPromises()
+    expect(tab.text()).toContain('2 running, 4 waiting')
+    expect(perOwner.element.value).toBe('5')
+    expect(rate.element.value).toBe('12')
+  })
+
   it('counts the guest jobs that run and wait, once the queue takes guests', async () => {
     const backend = createBackendMock({ user: { role: 'admin' } })
     backend.stub('jobs:getQueue', () => ({ ...queue, guests: { running: 1, waiting: 2 } }))
@@ -120,6 +143,17 @@ describe('the Queue tab', () => {
     await flushPromises()
     expect(backend.callsTo('jobs:setQueue')).toEqual([{ paused: true }, { paused: true }])
     expect(tab.find('[data-reauthenticate="dialog"]').exists()).toBe(false)
+  })
+
+  it('says why the queue could not be read, instead of loading for good', async () => {
+    const backend = createBackendMock({ user: { role: 'admin' } })
+    backend.fail('jobs:getQueue', backendError('unavailable', { service: 'backend', reason: 'unexpected' }))
+    backend.stub('jobs:listJobs', () => ({ page: [], isDone: true, continueCursor: '' }))
+    const tab = await mountSuspended(AdminQueue)
+    await flushPromises()
+    expect(tab.find('[data-admin-queue="loading"]').exists()).toBe(false)
+    expect(tab.find('[data-admin-queue="error"]').attributes('role')).toBe('alert')
+    expect(tab.find('[data-admin-queue="tab"]').attributes('data-loading')).toBeUndefined()
   })
 
   it('shows nothing of the queue to anyone but an administrator', async () => {

@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
-import { componentsGeneric, defineSchema, makeFunctionReference, mutationGeneric, type FunctionReference } from 'convex/server'
+import { componentsGeneric, defineSchema, makeFunctionReference, mutationGeneric, queryGeneric, type FunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 import type { TestConvex } from 'convex-test'
 import { syncBillingCatalog } from '../../src/cli/billing/sync'
@@ -76,6 +76,8 @@ const testApp = defineBackendTestApp(defineSchema({}), {
         await billing.entityCreated(ctx, { kind: kind ?? 'workspace', id: entityId })
         return null
       } }),
+      // What the workspace delete route asks billing before a workspace goes.
+      deletionRefusal: queryGeneric({ args: { entityId: v.string() }, handler: async (ctx, { entityId }) => billing.deletionRefusal(ctx, { kind: 'workspace', id: entityId }) }),
     }
   },
 })
@@ -315,6 +317,21 @@ describe('the free plan, end to end', () => {
     expect(await inbox()).toEqual([])
   })
 
+  test('holds a workspace on a paid plan from deletion until the plan is set to end', async () => {
+    const ada = await onFree()
+    const refusal = () => t.query(fn<'query'>('workspaces:deletionRefusal'), { entityId: ada.workspaceId! })
+    // The free plan bills nothing: no reason to keep the workspace.
+    expect(await refusal()).toBeNull()
+    const pro = Object.values(fake.state.products).find(product => product.metadata.key === 'pro')!.id
+    const { url } = await ada.action(fn<'action'>('billing:generateCheckoutLink'), { productIds: [pro], origin: SITE, successUrl: `${SITE}/pricing` }) as { url: string }
+    await pay(url)
+    expect(await refusal()).toBe('paid_subscription')
+    const [paid] = Object.values(fake.state.subscriptions)
+    fake.state.subscriptions[paid!.id]!.cancelAtPeriodEnd = true
+    await fire('subscription.updated', paid!.id)
+    expect(await refusal()).toBeNull()
+  })
+
   test('is not started again for a workspace an account\'s erasure is deleting, whatever the revoke says', async () => {
     const ada = await onFree()
     const [free] = Object.values(fake.state.subscriptions)
@@ -333,6 +350,18 @@ describe('the free plan, end to end', () => {
     expect(customer).toMatchObject({ externalId: ada.workspaceId, name: null, deletedAt: expect.any(Number) })
     expect(Object.values(fake.state.subscriptions).map(subscription => [subscription.id, subscription.status])).toEqual([[free!.id, 'canceled']])
     expect(await start(ada.workspaceId!)).toBe('gone')
+  })
+
+  test('deletes a customer an earlier release never keyed by the id the app mapped it to', async () => {
+    const ada = await onFree()
+    // A 0.1-era customer: mapped to the workspace, its external id never set at the provider.
+    const customer = Object.values(fake.state.customers)[0]!
+    customer.externalId = null
+    const plan = await t.mutation(components.backend.account.forget, { userId: ada.userId })
+    await t.action(internalFn('account:eraseAccountData'), { userId: ada.userId, deleted: plan.deleted, left: plan.left })
+    await drain()
+    expect(customer).toMatchObject({ name: null, deletedAt: expect.any(Number) })
+    expect(Object.values(fake.state.subscriptions).map(subscription => subscription.status)).toEqual(['canceled'])
   })
 
   test('records nothing more of a workspace an account\'s erasure deleted, whatever the provider sends after', async () => {

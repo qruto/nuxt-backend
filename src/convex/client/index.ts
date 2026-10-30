@@ -9,7 +9,7 @@ import type { AuthBuildOptions, AuthIntegrations, AuthSetupComponents, DeviceSes
 import { buildAuthOptions } from './better-auth-options.js'
 import { type BackendPaths, resolveBackendPaths } from '../paths.js'
 import { componentAdapterRefs, createAuthComponent, resolveIntegrations } from './component.js'
-import { entityListenersOf } from './entities.js'
+import { deletionGuardsOf, entityListenersOf } from './entities.js'
 import { identitySessionId } from './identity.js'
 import { userSessions } from './sessions.js'
 
@@ -308,8 +308,10 @@ export function setupAuth<
 
   // Every workspace and account it makes is told to billing's free plan: through
   // the listener `registerBackendRoutes` connects, else by its function's name.
-  const createAuth = (ctx: GenericCtx<DM>) => betterAuth(buildAuthOptions(authComponent.adapter(ctx), buildOptions, { ctx, ...runtime, entityCreated: listened }))
+  // A workspace that still bills is held from deletion by the guard it connects too.
+  const createAuth = (ctx: GenericCtx<DM>) => betterAuth(buildAuthOptions(authComponent.adapter(ctx), buildOptions, { ctx, ...runtime, entityCreated: listened, entityDeleting: guarded }))
   const listened = entityListenersOf(createAuth)
+  const guarded = deletionGuardsOf(createAuth)
 
   return {
     authComponent,

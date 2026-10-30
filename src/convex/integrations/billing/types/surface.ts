@@ -334,6 +334,15 @@ export interface Billing {
    */
   entityCreated: (ctx: RunWriteCtx & { scheduler: Scheduler }, entity: { kind: 'workspace' | 'user', id: string }) => Promise<void>
   /**
+   * Why the auth layer may not delete a workspace (or, with `billTo:
+   * 'user'`, an account) now, or `null`: `paid_subscription` while it holds
+   * a paid subscription set to renew. What `registerBackendRoutes` connects
+   * to the workspace delete route, which refuses it (`forbidden`).
+   *
+   * @internal
+   */
+  deletionRefusal: (ctx: RunQueryCtx, entity: { kind: 'workspace' | 'user', id: string }) => Promise<'paid_subscription' | null>
+  /**
    * Record a billing event for one billing entity on the shared event
    * path, never failing the caller: what `setupAi` records a credit
    * balance's crossing through.

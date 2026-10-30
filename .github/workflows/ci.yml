@@ -27,15 +27,15 @@ on:
     - cron: '41 5 * * 1' # Mondays
   workflow_dispatch:
 
-# Cancel superseded runs on a pull request, never on main. `head_ref` is empty on
-# a push, so cancelling there would put every merge in one group, and two merges
-# in quick succession would kill the first run. `Release` will not tag a commit
-# whose CI run was cancelled, so that commit could never be released. The weekly
-# and manual runs get a group of their own: a group holds one pending run and a
-# newer one cancels it, so sharing main's would let a Monday run cancel a
-# merge's.
+# Cancel superseded runs on a pull request, never on main. A pull request's
+# runs share a group by its number, which no other pull request has (a branch
+# name does: two forks can both push `patch-1`). Every other run, a push to
+# main, the weekly or a manual one, gets a group of its own: a group holds one
+# pending run and a newer one cancels it even without cancel-in-progress, so a
+# group shared by main's pushes would let a third merge cancel the second's
+# pending run, and `Release` will not tag a commit whose CI run was cancelled.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || (github.event_name == 'push' && github.ref) || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # No permissions by default. Each job asks for what it needs.

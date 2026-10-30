@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { componentsGeneric, defineSchema, defineTable, type FunctionReference, makeFunctionReference, mutationGeneric } from 'convex/server'
+import { actionGeneric, componentsGeneric, defineSchema, defineTable, type FunctionReference, makeFunctionReference, mutationGeneric } from 'convex/server'
 import { v } from 'convex/values'
 import { MockLanguageModelV4 } from 'ai/test'
 import { asUser, defineBackendTestApp } from '../../src/convex/test'
@@ -108,6 +108,14 @@ const checkById = byId.meteredAction({
     return null
   },
 })
+/** An upload's check in a plain action of the app's, outside any metered call. */
+const checkAlone = actionGeneric({
+  args: { text: v.string() },
+  handler: async (ctx, { text }) => {
+    await ai.requireSafe(ctx, { text })
+    return null
+  },
+})
 /** A caption, checked before anything is reserved. */
 let captioned = 0
 const caption = ai.meteredAction({
@@ -165,7 +173,7 @@ const savePanel = mutationGeneric({
 const testApp = defineBackendTestApp(appSchema, {
   './_generated/api.js': () => Promise.resolve({}),
   './jobs.js': () => Promise.resolve(jobs.api),
-  './safety.js': () => Promise.resolve({ check, checkTextOnly, checkById, caption, upload, readBytes }),
+  './safety.js': () => Promise.resolve({ check, checkTextOnly, checkById, checkAlone, caption, upload, readBytes }),
   './strips.js': () => Promise.resolve({ render, drawPanel, create, savePanel }),
 })
 type App = ReturnType<typeof testApp>
@@ -174,6 +182,7 @@ const ref = {
   check: makeFunctionReference<'action', { text?: string, images?: string[], require?: boolean }, { flagged: boolean, categories: string[] } | null>('safety:check'),
   checkTextOnly: makeFunctionReference<'action', { images: string[], text?: string }, { flagged: boolean, categories: string[] }>('safety:checkTextOnly'),
   checkById: makeFunctionReference<'action', { text: string }, null>('safety:checkById'),
+  checkAlone: makeFunctionReference<'action', { text: string }, null>('safety:checkAlone'),
   caption: makeFunctionReference<'action', { prompt: string }, number>('safety:caption'),
   upload: makeFunctionReference<'mutation', { gif: boolean }, string>('safety:upload'),
   readBytes: makeFunctionReference<'action', { storageId: string }, number | null>('safety:readBytes'),
@@ -281,6 +290,21 @@ describe('ai.moderate and ai.requireSafe', () => {
     expect(shown[0]).toEqual({ text: '<content>\nBAD\n</content>', media: [] })
     // A reasoning classifier's thinking counts against its output: it gets room, and is asked to keep it short.
     expect(budgets[0]).toEqual({ maxOutputTokens: 1024, providerOptions: { openai: { reasoningEffort: 'low' } } })
+  })
+})
+
+describe('a check outside a metered call', () => {
+  test('is a model call like any: its cost recorded, and refused while pause_ai is on', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    const since = Date.now()
+    expect(await ada.action(ref.checkAlone, { text: 'A fox who wants to fly' })).toBeNull()
+    // Recorded against who asked, so the Costs tab and the spendLimit count it.
+    expect(await t.query(backend.costs.summary as unknown as FunctionReference<'query'>, { since })).toMatchObject({ runs: 1, people: [expect.objectContaining({ input: 10, output: 2 })] })
+    await t.mutation(backend.flags.set as unknown as FunctionReference<'mutation'>, { key: 'pause_ai', override: { enabled: true } })
+    const calls = shown.length
+    expect(await refusal(ada.action(ref.checkAlone, { text: 'A fox' }))).toMatchObject({ code: 'unavailable', data: { reason: 'ai_paused' } })
+    expect(shown.length).toBe(calls)
   })
 })
 

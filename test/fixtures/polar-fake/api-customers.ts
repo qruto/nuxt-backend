@@ -6,7 +6,7 @@ import { type CustomerRecord, type MemberRecord, newId, type SessionRecord, type
 // Customers, the way the provider keys them: an external id unique across
 // customers, an individual's email unique among individuals, a team customer
 // with its members (its owner first), and customer sessions that open the
-// fake portal. Deleting a customer by its external id ends its
+// fake portal. Deleting a customer, by its external id or its own, ends its
 // subscriptions first, revoked with the customer already marked deleted,
 // anonymizes it when asked, and from then on it reads as gone.
 
@@ -124,8 +124,7 @@ export function customerRoutes(context: ApiContext): Route[] {
    * with the customer already deleted (`customer.deletedAt` on their
    * events), its members go, and with `anonymize` its name and email too.
    */
-  const deleteCustomer: Handler = ({ params, query }) => {
-    const customer = external(params.externalId)
+  const removeCustomer = (customer: CustomerRecord, query: URLSearchParams) => {
     const time = now()
     customer.deletedAt = time
     customer.modifiedAt = time
@@ -138,6 +137,15 @@ export function customerRoutes(context: ApiContext): Route[] {
     }
     deliveries.emit('customer.deleted', models.customer(customer))
     return { status: 204 }
+  }
+
+  const deleteCustomer: Handler = ({ params, query }) => removeCustomer(external(params.externalId), query)
+
+  /** Delete a customer by its own id, keyed by an external id or not; one deleted already is gone. */
+  const deleteCustomerById: Handler = ({ params, query }) => {
+    const customer = find(state.customers, params.id, 'Customer')
+    if (customer.deletedAt) throw notFound('Customer')
+    return removeCustomer(customer, query)
   }
 
   /** Remove a team customer's member by the member's external id. */
@@ -168,6 +176,7 @@ export function customerRoutes(context: ApiContext): Route[] {
     ['DELETE', '/v1/customers/external/{externalId}/members/{memberExternalId}', deleteMember],
     ['GET', '/v1/customers/{id}', ({ params }) => reply(200, 'customer', models.customer(find(state.customers, params.id, 'Customer')))],
     ['PATCH', '/v1/customers/{id}', updateCustomer],
+    ['DELETE', '/v1/customers/{id}', deleteCustomerById],
     ['GET', '/v1/members', listMembers],
     ['POST', '/v1/customer-sessions', createSession],
   ]

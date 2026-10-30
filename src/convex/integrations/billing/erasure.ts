@@ -1,8 +1,10 @@
+import { customersDelete } from '@polar-sh/sdk/funcs/customersDelete.js'
 import { customersDeleteExternal } from '@polar-sh/sdk/funcs/customersDeleteExternal.js'
 import { customersMembersDeleteExternal } from '@polar-sh/sdk/funcs/customersMembersDeleteExternal.js'
 import { ordersList } from '@polar-sh/sdk/funcs/ordersList.js'
 import { logBackend } from '../../log.js'
 import { type BillingContext, isProviderNotFound } from './context.js'
+import type { BillingCustomers } from './customers.js'
 import type { ProviderCtx, RunWriteCtx } from './types/base.js'
 import type { AccountBillingErasure, AccountBillingExport } from './types/surface.js'
 
@@ -20,6 +22,7 @@ const EXPORT_ORDERS_MAX = 100
 export function createBillingErasure(
   { billTo, provider, accessToken, unwrapProvider }: BillingContext,
   forgetEntity: (ctx: RunWriteCtx, entityId: string) => Promise<void>,
+  { mappedCustomer }: Pick<BillingCustomers, 'mappedCustomer'>,
 ) {
   /** The billing entities that go with an account: the workspaces it was the only member of, or itself when billed on its own. */
   const entitiesOf = ({ userId, deleted }: { userId: string, deleted: readonly string[] }): string[] =>
@@ -28,6 +31,18 @@ export function createBillingErasure(
   /** A provider refusal, unless it says the thing is gone already. */
   const unlessGone = (result: { ok: true } | { ok: false, error: unknown }, operation: string): void => {
     if (!result.ok && !isProviderNotFound(result.error)) unwrapProvider(result as { ok: false, error: unknown }, operation)
+  }
+
+  /**
+   * Delete and anonymize an entity's provider customer: by its external id,
+   * or, for a customer an earlier release mapped but never keyed (keying is
+   * lazy), by the provider id the app mapped it to.
+   */
+  const deleteCustomer = async (ctx: RunWriteCtx, entityId: string): Promise<void> => {
+    const byExternal = await customersDeleteExternal(provider.polar, { externalId: entityId, anonymize: true })
+    if (byExternal.ok || !isProviderNotFound(byExternal.error)) return unlessGone(byExternal, 'customer erasure')
+    const mapped = await mappedCustomer(ctx, entityId)
+    if (mapped) unlessGone(await customersDelete(provider.polar, { id: mapped, anonymize: true }), 'customer erasure')
   }
 
   /**
@@ -40,7 +55,7 @@ export function createBillingErasure(
    */
   const forgetAccount: AccountBillingErasure = async (ctx, erasure) => {
     for (const entityId of entitiesOf(erasure)) {
-      if (accessToken) unlessGone(await customersDeleteExternal(provider.polar, { externalId: entityId, anonymize: true }), 'customer erasure')
+      if (accessToken) await deleteCustomer(ctx, entityId)
       await forgetEntity(ctx, entityId)
     }
     if (billTo !== 'workspace' || !accessToken) return

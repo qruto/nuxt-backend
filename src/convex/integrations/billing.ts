@@ -171,7 +171,7 @@ export function setupBilling(
     await forgetQuotas(ctx, userId)
     await forgetEntity(ctx, userId)
   }
-  const { forgetAccount, exportAccount } = createBillingErasure(context, forgetBillingEntity)
+  const { forgetAccount, exportAccount } = createBillingErasure(context, forgetBillingEntity, customers)
 
   const billing: Billing = {
     api: {
@@ -230,6 +230,7 @@ export function setupBilling(
     requireEntity,
     startFreePlan: freePlan.queue,
     entityCreated: freePlan.entityCreated,
+    deletionRefusal: freePlan.deletionRefusal,
     recordEvent: context.recordEvent,
     hasFeature,
     requireFeature,

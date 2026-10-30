@@ -6,8 +6,8 @@
  *
  * @internal
  */
-import { inject, watch } from 'vue'
-import { ConvexAuthStateKey } from 'nuxt-convex-module/client'
+import { watch } from 'vue'
+import { settledSessionKey } from './local-sign-out'
 import { PUSH_WORKER_SCOPE, PUSH_WORKER_URL } from '../../../convex/web-push'
 
 export { PUSH_WORKER_SCOPE, PUSH_WORKER_URL } from '../../../convex/web-push'
@@ -95,13 +95,49 @@ export async function dropDeviceSubscription(): Promise<void> {
 
 /**
  * Watch the session and drop this device's push subscription when it signs
- * out, so a shared computer stops notifying the person who left. Runs in
- * the app's injection context.
+ * out, so a shared computer stops notifying the person who left. `session`
+ * is the Better Auth session (`useSession()`'s state); only a settled end
+ * counts, signed in by the last answer and signed out by
+ * this one. A pending answer (a token refresh) is no end, nor is a new
+ * session id (a sign-in again, an administrator's visit): the Convex
+ * connection's own auth state drops for a round trip on both.
  */
-export function watchPushSignOut(): void {
-  const auth = inject(ConvexAuthStateKey, null)
-  if (!auth || pushDevice() === null) return
-  watch(() => auth.isAuthenticated.value, (signedIn, wasSignedIn) => {
-    if (wasSignedIn && !signedIn) void dropDeviceSubscription().catch(() => {})
+export function watchPushSignOut(session: () => { isPending: boolean, data: unknown }): void {
+  if (pushDevice() === null) return
+  let signedIn: string | null | undefined
+  watch(() => settledSessionKey(session()), (now) => {
+    if (now === undefined) return
+    const ended = signedIn
+    signedIn = now
+    if (now === null && ended) void dropDeviceSubscription().catch(() => {})
+  }, { immediate: true })
+}
+
+let watching = false
+
+/**
+ * Start {@link watchPushSignOut} once per page, on a device that holds a
+ * push subscription: the session's client loads only there, so a page of
+ * an app that never asked for push (a docs page) never fetches it. `run`
+ * runs in the app's context, where the session's composable reads it;
+ * `load` loads that client.
+ */
+export async function watchDevicePushSignOut(
+  run: (watch: () => void) => void,
+  load: () => Promise<{ useBetterAuth: () => { session: { value: { isPending: boolean, data: unknown } } } }> = () => import('nuxt-convex-module/better-auth/client'),
+): Promise<void> {
+  const device = pushDevice()
+  if (watching || !device) return
+  // Claimed before the first await, so two callers at once start one watch.
+  watching = true
+  const manager = await devicePushManager(device, { register: false })
+  if (!(await manager?.getSubscription())) {
+    watching = false
+    return
+  }
+  const { useBetterAuth } = await load()
+  run(() => {
+    const { session } = useBetterAuth()
+    watchPushSignOut(() => session.value)
   })
 }

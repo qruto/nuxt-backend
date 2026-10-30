@@ -65,6 +65,12 @@ watch(dialog, async (element) => {
 
 const onCancel = (event: Event) => {
   if (props.blocking) event.preventDefault()
+}
+// The browser may close it past a cancel it cannot refuse (a second Escape
+// with no click between, under Chromium's close watcher): while a consent
+// is required it opens again; otherwise a close is "later".
+const onClose = () => {
+  if (props.blocking) dialog.value?.showModal()
   else emit('later')
 }
 </script>
@@ -77,6 +83,7 @@ const onCancel = (event: Event) => {
     :aria-labelledby="`${id}-title`"
     :aria-busy="saving || undefined"
     @cancel="onCancel"
+    @close="onClose"
   >
     <form
       data-consent="form"

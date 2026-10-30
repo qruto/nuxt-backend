@@ -1,4 +1,4 @@
-import { computed, reactive, ref, useId } from 'vue'
+import { computed, reactive, ref, useId, watch } from 'vue'
 import { formatBillingDate } from '../../composables/billing-format'
 import { useWaitlistAdmin, type WaitlistCaps, type WaitlistEntryRow, type WaitlistStatus } from '../../composables/use-waitlist-admin'
 import { useAdminChanges } from '../../utils/admin-changes'
@@ -32,6 +32,13 @@ export function useWaitlistTab(confirm?: () => ConfirmFn | undefined) {
 
   const entries = computed<WaitlistEntryRow[]>(() => waitlist.console.value?.entries ?? [])
   const questions = computed(() => waitlist.console.value?.questions ?? {})
+  // Only rows on screen stay ticked: one a wave or another administrator
+  // moved out of the list must not ride along with the next decline.
+  watch(() => waitlist.console.value?.entries, (rows) => {
+    if (!rows) return
+    const shown = new Set(rows.map(entry => entry.id))
+    if (selected.value.some(entryId => !shown.has(entryId))) selected.value = selected.value.filter(entryId => shown.has(entryId))
+  })
 
   function applyFilter() {
     applied.value = { ...filter, ...(filter.question && filter.answer ? {} : { question: '', answer: '' }) }

@@ -157,6 +157,11 @@ const view = provideAdminUsersView({
 
 /** The account the drawer shows: its row in the list until its details load. */
 const drawn = computed(() => items.value.find(user => user.id === selected.value) ?? admin.user.value?.user ?? null)
+// A linked account on no page that is not there to read has no row to draw
+// the drawer from: it is let go, and the list says what it has to.
+watch(() => admin.user.value, (detail) => {
+  if (detail === null && selected.value && !drawn.value) void list.close()
+})
 const busyList = computed(() => admin.isLoading.value || pages.turning.value !== null)
 </script>
 
@@ -178,7 +183,7 @@ const busyList = computed(() => admin.isLoading.value || pages.turning.value !==
     <AdminListTail
       :view="view as never"
       :admin="admin"
-      :open="Boolean(selected)"
+      :open="Boolean(selected && drawn)"
     />
     <AdminUserDrawer
       v-if="selected && drawn"

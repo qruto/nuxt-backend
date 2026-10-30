@@ -285,6 +285,25 @@ describe('<ConsentPrompt>', () => {
     expect(dialog()).not.toBeNull()
   })
 
+  it('opens again when the browser closes it past a cancel it may not refuse, while a consent is required', async () => {
+    render(ConsentPrompt)
+    await flushPromises()
+    // A second Escape with no click between: the close watcher closes the dialog without a cancelable cancel.
+    dialog()!.close()
+    await flushPromises()
+    expect(dialog()!.open).toBe(true)
+  })
+
+  it('reads a close the browser makes as "later" when nothing is required', async () => {
+    view.value = viewOf({ missing: [] })
+    const wrapper = render(ConsentPrompt, { kinds: ['gallery'] })
+    await flushPromises()
+    dialog()!.close()
+    await flushPromises()
+    expect(dialog()).toBeNull()
+    wrapper.unmount()
+  })
+
   it('asks an opt-in only when named, and lets the person say not now', async () => {
     view.value = viewOf({ missing: [] })
     const wrapper = render(ConsentPrompt, { kinds: ['gallery'] })

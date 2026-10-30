@@ -264,9 +264,11 @@ export const DEFAULT_LIMITS = {
 
   /**
    * Writes of your own signed-in functions — 120 per minute per account,
-   * burst 60. The scaffold's `createFunctions(…, { limits: { authed: 'write' } })`
-   * spends one on every `authed` and `withRole` mutation and action, keyed
-   * by the account, so one session cannot write in a loop.
+   * burst 60. The scaffold's
+   * `createFunctions(…, { limits: { authed: 'write', workspace: 'write' } })`
+   * spends one on every `authed`, `withRole`, `workspace` and
+   * `withFeature` mutation and action, keyed by the account, so one
+   * session cannot write in a loop.
    * Override it here, or name another limit per tier.
    */
   write: { kind: 'token bucket', rate: 120, period: MINUTE, capacity: 60 },

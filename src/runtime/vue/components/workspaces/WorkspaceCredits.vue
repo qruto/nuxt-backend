@@ -17,7 +17,7 @@ const pending = (key: string) => view.context.value.pending === key
 <template>
   <section
     data-settings="section-credits"
-    :aria-busy="credits.balance.value === undefined ? 'true' : undefined"
+    :aria-busy="credits.isLoading.value ? 'true' : undefined"
   >
     <h3 data-settings="section-title">
       {{ t('credits') }}

@@ -40,7 +40,17 @@ export function setupAi(components: AiComponents, config: SetupAiConfig): Ai {
 
   const provenanceOf = provenanceReader(context.requests as unknown as ProvenanceRefs)
 
-  const { moderate, requireSafe } = context.moderation
+  // A check of the app's own is a model call like any other: refused on a
+  // sandbox without a spendLimit and while pause_ai is on. A metered call's
+  // or a job's check already passed both.
+  const moderate: Ai['moderate'] = async (ctx, input) => {
+    await context.refuseAi(ctx)
+    return context.moderation.moderate(ctx, input)
+  }
+  const requireSafe: Ai['requireSafe'] = async (ctx, input) => {
+    await context.refuseAi(ctx)
+    await context.moderation.requireSafe(ctx, input)
+  }
 
   const ai: Ai = { meteredAction, stream, httpHandler, corsOrigin, modelStatus, chat, knowledge, provenanceOf, moderate, requireSafe, api: costsApi(components) }
   AI_CONTEXTS.set(ai, context)

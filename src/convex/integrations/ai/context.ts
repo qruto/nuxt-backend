@@ -77,7 +77,8 @@ export function createAiContext(components: AiComponents, config: SetupAiConfig)
 
   // The component's storage, where an upload not yet claimed waits for the check.
   const storage = (components.backend as unknown as { storage?: Parameters<typeof createModeration>[1] }).storage
-  const moderation = createModeration(config, storage)
+  const recordCost = costRecorder(components.backend.costs, usdPerDay)
+  const moderation = createModeration(config, storage, recordCost)
 
   const paused = pauseCheck(components.backend)
   const refuseAi: AiContext['refuseAi'] = async (ctx) => {
@@ -88,5 +89,5 @@ export function createAiContext(components: AiComponents, config: SetupAiConfig)
     await refusePaused(paused, ctx, 'ai')
   }
 
-  return { config, billing, rateLimiter, pts, requests, cache, paused, refuseAi, corsOrigin, streamTimeout, streamRegistry, moderation, recordCost: costRecorder(components.backend.costs, usdPerDay) }
+  return { config, billing, rateLimiter, pts, requests, cache, paused, refuseAi, corsOrigin, streamTimeout, streamRegistry, moderation, recordCost }
 }

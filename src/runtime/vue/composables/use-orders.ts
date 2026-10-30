@@ -4,6 +4,7 @@ import { useActionState } from '../utils/action-state'
 import type { BackendError } from '../utils/backend-error'
 import { useBackendNamespace } from '../utils/namespace'
 import { openProviderUrl } from '../utils/open-url'
+import { useReaderKey } from '../utils/reader'
 import { type BillingApi, type BillingOrder, createProviderPager } from './use-billing'
 import { notConfigured } from './billing-provider'
 
@@ -101,9 +102,11 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersReturn {
   const runInvoice = billing.getInvoiceUrl ? useAction(billing.getInvoiceUrl) : null
 
   const { isPending, failure, run } = useActionState(() => signedOut.value)
+  const reader = useReaderKey()
   const pager = createProviderPager<BillingOrder>(
     runOrders && (args => runOrders({ page: args.page, limit: args.limit })),
-    { limit: options.limit, immediate: options.immediate, enabled: () => !signedOut.value },
+    // The server bills the active workspace: another one is another history.
+    { limit: options.limit, immediate: options.immediate, enabled: () => !signedOut.value, reader: () => reader.value },
   )
 
   return {

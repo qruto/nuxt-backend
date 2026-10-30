@@ -1,4 +1,5 @@
 import { backendError } from '../../errors.js'
+import { LINK, plainName, readable } from '../../email-helpers.js'
 
 // The text rules of a gift (its sender's name, its message) and its dates:
 // pure, so the gift flow and its manage actions read the same rules.
@@ -13,30 +14,12 @@ const SENDER_NAME_LENGTH = 40
 /** The longest message a purchaser may write; it shows only inside the app. */
 export const MESSAGE_LENGTH = 500
 /**
- * A link, or a bare domain with a top-level domain people link with: what
- * neither the sender name nor the message may carry. A dot alone is no link,
- * so a name like "St.John" or "J. R. R. Tolkien" stays as it is.
- */
-const LINK = /(?:[a-z][\w+.-]*:\/\/|www\.)\S*|\b[\w-]+(?:\.[\w-]+)*\.(?:com|net|org|io|co|app|dev|ai|me|info|biz|xyz|online|site|store|shop|link|click|top|club|live|pro|tech|cloud|page|ly|gg|tv|uk|de|ru|fr|us|ca|au|in|cn|jp|nl|br|es|it|pl|ch|se|eu|cc)(?![\w-])(?:\/\S*)?/gi
-/** The ideographic full stops a domain can hide behind. */
-const IDEOGRAPHIC_STOP = /[\u3002\uFF61]/g
-/** Format characters (zero-width joiners and the like) that split a domain to slip it past a check. */
-const FORMAT_CHARACTERS = /\p{Cf}/gu
-
-/** Text as a reader sees it: compatibility forms folded, full-width and ideographic dots made dots, invisible characters gone. */
-function readable(text: string): string {
-  return text.normalize('NFKC').replace(IDEOGRAPHIC_STOP, '.').replace(FORMAT_CHARACTERS, '')
-}
-
-/**
  * The sender's name as the gift email shows it: at most 40 characters, with
  * every link and bare domain taken out. A name is the purchaser's own text,
  * and an email from the app's domain must not carry a link someone typed.
  */
 export function giftSenderName(name: string | undefined): string | undefined {
-  if (name === undefined) return undefined
-  const plain = readable(name).replace(LINK, ' ').replace(/\s+/g, ' ').trim().slice(0, SENDER_NAME_LENGTH).trim()
-  return plain || undefined
+  return plainName(name, SENDER_NAME_LENGTH)
 }
 
 /** The purchaser's message, trimmed: plain text of at most 500 characters, refused with a link in it. */

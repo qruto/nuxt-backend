@@ -491,6 +491,44 @@ describe('launch news', () => {
     expect(calls.some(call => call.method === 'DELETE' && call.url.includes('/contacts/'))).toBe(true)
   })
 
+  test('removes a contact a write put back after the person left, unless the address joined again for the news', async () => {
+    provider()
+    const entry = await join('asked@panels.example', { launchNews: true })
+    await t.mutation(leaveWaitlist, { token: entry.token })
+    await settle()
+    // A write that read the entry before the person left lands after the removal: its end removes the contact again.
+    const lateWrite = (workId: string) => t.mutation(componentRef('waitlist:mirrored'), { workId, context: { entryId: entry.id }, result: { kind: 'success', returnValue: { written: 'asked@panels.example' } } })
+    calls.length = 0
+    await lateWrite('late-1')
+    await settle()
+    expect(calls.filter(call => call.method === 'DELETE')).toHaveLength(1)
+    await join('asked@panels.example', { launchNews: true })
+    calls.length = 0
+    await lateWrite('late-2')
+    await settle()
+    expect(calls.filter(call => call.method === 'DELETE')).toEqual([])
+  })
+
+  test('writes again a contact left drifting behind more than a pass reads of others retried lately', async () => {
+    const quiet = [vi.spyOn(console, 'error').mockImplementation(() => {}), vi.spyOn(console, 'warn').mockImplementation(() => {})]
+    provider(url => (new URL(url).pathname === '/contacts' ? 503 : null))
+    for (let index = 0; index < 50; index++) await join(`early${index}@panels.example`, { launchNews: true })
+    await join('stuck@panels.example', { launchNews: true })
+    // A pass two hours on retries the first fifty, which drift again; the next, within the hour, reaches the one behind them.
+    const pass = async () => {
+      await t.mutation(componentRef('maintenance:run'), {})
+      await t.finishAllScheduledFunctions(() => vi.runAllTimers(), 5000)
+    }
+    vi.advanceTimersByTime(2 * 60 * 60 * 1000)
+    await pass()
+    vi.advanceTimersByTime(30 * 60 * 1000)
+    calls.length = 0
+    await pass()
+    expect(calls.filter(call => call.method === 'POST' && (call.body as { email?: string } | undefined)?.email === 'stuck@panels.example')).not.toEqual([])
+    for (const spy of quiet) spy.mockRestore()
+    // Fifty-one contacts, each refused through every retry: slower than the default timeout on a busy machine.
+  }, 30_000)
+
   test('is a consent on the ledger, kept by a hash of the address, carried to the account at sign-up and withdrawn on leaving', async () => {
     provider()
     const kept = await join('asked@panels.example', { launchNews: true })

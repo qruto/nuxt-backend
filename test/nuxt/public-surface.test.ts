@@ -379,7 +379,7 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './functions': ['BACKEND_ERRORS', 'RECENT_SIGN_IN_SECONDS', 'SENSITIVE_ACTIONS', 'backendError', 'createFunctions', 'defineRetention', 'getBackendError', 'normalizeEmail', 'randomToken', 'sha256Hex', 'verifyHuman'],
   './app': ['backendEnv', 'backendEnvironment'],
   './billing': ['ALL_BILLING_EVENTS', 'defineBillingCatalog', 'setupBilling', 'setupReferrals'],
-  './email': ['ALL_EMAIL_EVENTS', 'describeOrigin', 'escapeHtml', 'forceColorScheme', 'html', 'linkBlocks', 'setupEmail', 'trustedHtml'],
+  './email': ['ALL_EMAIL_EVENTS', 'describeOrigin', 'escapeHtml', 'forceColorScheme', 'html', 'linkBlocks', 'plainName', 'setupEmail', 'trustedHtml'],
   './rate-limit': ['DAY', 'DEFAULT_LIMITS', 'HOUR', 'MINUTE', 'SECOND', 'setupRateLimiter'],
   './search': ['defineSearch', 'search'],
   './workflows': ['defineEmailSequence', 'setupWorkflows'],

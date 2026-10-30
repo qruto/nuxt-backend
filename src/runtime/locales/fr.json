@@ -1881,7 +1881,7 @@
           "kept": "Jusqu’à l’annulation ou l’exécution de la suppression."
         },
         "erasures": {
-          "holds": "Un effacement en cours : l’identifiant et l’adresse du compte, et les espaces de travail qu’il supprime.",
+          "holds": "Un effacement en cours : l’identifiant et l’adresse du compte, et les espaces de travail qu’il supprime ; et le plan de la partie de l’app (le client de facturation, le contact e-mail) tant qu’un de ses participants est relancé.",
           "kept": "Jusqu’à la fin de l’effacement ; un effacement échoué, 30 jours."
         },
         "monitoringUser": {
@@ -2416,6 +2416,7 @@
       "forbidden_age_required": "Indiquez votre âge pour continuer.",
       "forbidden_under_age": "Nous ne pouvons pas créer de compte pour vous.",
       "forbidden_sole_owner": "Vous êtes le seul propriétaire d’un espace de travail dont d’autres personnes sont membres. Nommez d’abord un autre membre propriétaire.",
+      "forbidden_paid_subscription": "Cet espace de travail a une offre payante. Résiliez-la avant de supprimer l’espace de travail.",
       "forbidden_cannot_share": "Vous ne pouvez pas partager cet élément.",
       "reauthentication_required": "Confirmez votre identité pour continuer : cette action nécessite une connexion récente.",
       "no_workspace": "Créez ou choisissez d’abord un espace de travail.",
@@ -2619,7 +2620,9 @@
       "invite": {
         "subject": "Rejoignez {workspace}",
         "intro": "{inviter} vous invite à rejoindre {workspace} en tant que {role}.",
-        "action": "Accepter l’invitation"
+        "action": "Accepter l’invitation",
+        "subjectUnnamed": "Vous êtes invité à rejoindre un espace de travail",
+        "introUnnamed": "{inviter} vous invite à rejoindre son espace de travail en tant que {role}."
       },
       "gift": {
         "subject": "{sender} vous a envoyé un cadeau 🎁",

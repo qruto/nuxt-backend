@@ -1,5 +1,5 @@
 import { httpActionGeneric, type HttpRouter } from 'convex/server'
-import { onEntityCreated } from '../client/entities.js'
+import { onEntityCreated, onEntityDeleting } from '../client/entities.js'
 import { DEFAULT_HEALTH_PATH } from '../constants.js'
 import { SIGNED_URL_PATH } from '../files.js'
 import { UNSUBSCRIBE_ROUTE } from './email-preferences.js'
@@ -40,12 +40,16 @@ export interface RegisterBackendRoutesOptions {
    * {@link RegisterBackendRoutesOptions.billingPath} (fail-closed statuses,
    * redelivery dedupe, delivery logging — pass the whole `billing` instance).
    * Every workspace (or account, with `billTo: 'user'`) the auth routes make
-   * is handed to it too, which starts the catalog's free plan for it.
+   * is handed to it too, which starts the catalog's free plan for it, and
+   * a workspace the auth routes delete is refused while it holds a paid
+   * subscription.
    */
   billing: {
     webhookHandler: (ctx: never, request: Request) => Promise<Response>
     /** @internal */
     entityCreated?: (ctx: never, entity: { kind: 'workspace' | 'user', id: string }) => Promise<void>
+    /** @internal */
+    deletionRefusal?: (ctx: never, entity: { kind: 'workspace' | 'user', id: string }) => Promise<string | null>
   }
   /**
    * From `setupEmail`: mounts the email events webhook at
@@ -138,6 +142,11 @@ export function registerBackendRoutes(http: HttpRouter, options: RegisterBackend
   const { entityCreated } = billing
   if (typeof auth.createAuth === 'function' && typeof entityCreated === 'function') {
     onEntityCreated(auth.createAuth, (ctx, entity) => entityCreated(ctx as never, entity))
+  }
+  // And a workspace that still holds a paid subscription is not deleted.
+  const { deletionRefusal } = billing
+  if (typeof auth.createAuth === 'function' && typeof deletionRefusal === 'function') {
+    onEntityDeleting(auth.createAuth, (ctx, entity) => deletionRefusal(ctx as never, entity))
   }
 
   const post = (path: string, handle: (ctx: never, request: Request) => Promise<Response>): void => {

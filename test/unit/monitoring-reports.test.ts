@@ -264,6 +264,15 @@ describe('scrubbing', () => {
     expect(scrubText('status_code=502 error_code=access_denied key_id=k1 page=2')).toBe('status_code=502 error_code=access_denied key_id=k1 page=2')
   })
 
+  it('reads a quoted value, a JSON field and a header\'s `name: value`', () => {
+    expect(scrubText('rejected code="482913" and otp=\'1234\'')).toBe('rejected code="[Filtered]" and otp=\'[Filtered]\'')
+    expect(scrubText('body {"token":"abc123","password": "two words","pin":1234,"page":2}')).toBe('body {"token":"[Filtered]","password": "[Filtered]","pin":1234,"page":2}')
+    expect(scrubText('{"auth":{"token":"abc"}}')).toBe('{"auth":{"token":"[Filtered]"}}')
+    expect(scrubText('headers: x-api-key: re_live_123, cookie: theme=dark')).toBe('headers: x-api-key: [Filtered], cookie: [Filtered]')
+    // A status or a time is no secret.
+    expect(scrubText('error_code: E_TIMEOUT at 12:30 status: 502')).toBe('error_code: E_TIMEOUT at 12:30 status: 502')
+  })
+
   it('reads the query of a page carried, percent-encoded, in a redirect', () => {
     const welcome = `/welcome?${stringifyQuery({ redirect: '/share?ref=1&token=abc123&email=a%40b.com' })}`
     expect(welcome).toBe('/welcome?redirect=/share?ref=1%26token=abc123%26email=a%2540b.com')

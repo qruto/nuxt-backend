@@ -3,8 +3,8 @@ import type { EmailRenderContext, RequestOrigin } from './email-templates.js'
 
 // What the packaged emails share beyond the blocks, public on
 // `nuxt-backend/email` so an ejected email (src/convex/emails/) and an
-// app's own read the same: where a request came from, and the blocks of
-// one link.
+// app's own read the same: where a request came from, the blocks of one
+// link, and a name someone typed with its links taken out.
 
 /** Whether a link can be a button: an absolute web or mail address. A deployment that knows no `SITE_URL` has only the path. */
 const ABSOLUTE_LINK = /^(?:https?:\/\/|mailto:)/i
@@ -55,4 +55,37 @@ function regionName(code: string, locale: string): string {
   catch {
     return code
   }
+}
+
+/**
+ * A link, or a bare domain with a top-level domain people link with: what
+ * a name an email shows may not carry. A dot alone is no link, so a name
+ * like "St.John" or "J. R. R. Tolkien" stays as it is.
+ */
+export const LINK = /(?:[a-z][\w+.-]*:\/\/|www\.)\S*|\b[\w-]+(?:\.[\w-]+)*\.(?:com|net|org|io|co|app|dev|ai|me|info|biz|xyz|online|site|store|shop|link|click|top|club|live|pro|tech|cloud|page|ly|gg|tv|uk|de|ru|fr|us|ca|au|in|cn|jp|nl|br|es|it|pl|ch|se|eu|cc)(?![\w-])(?:\/\S*)?/gi
+/** The ideographic full stops a domain can hide behind. */
+const IDEOGRAPHIC_STOP = /[。｡]/g
+/** Format characters (zero-width joiners and the like) that split a domain to slip it past a check. */
+const FORMAT_CHARACTERS = /\p{Cf}/gu
+
+/** Text as a reader sees it: compatibility forms folded, full-width and ideographic dots made dots, invisible characters gone. */
+export function readable(text: string): string {
+  return text.normalize('NFKC').replace(IDEOGRAPHIC_STOP, '.').replace(FORMAT_CHARACTERS, '')
+}
+
+/**
+ * A name someone typed as an email shows it: every link and bare domain
+ * taken out, whitespace collapsed, at most `max` characters; `undefined`
+ * when nothing is left. An email from the app's domain never carries a
+ * link a person put in their name, a workspace's or a gift sender's.
+ *
+ * @example
+ * ```ts
+ * const workspace = plainName(workspaceName, 60) // 'Security alert: verify at evil.com' → 'Security alert: verify at'
+ * ```
+ */
+export function plainName(name: string | undefined, max: number): string | undefined {
+  if (name === undefined) return undefined
+  const plain = readable(name).replace(LINK, ' ').replace(/\s+/g, ' ').trim().slice(0, max).trim()
+  return plain || undefined
 }

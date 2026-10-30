@@ -99,8 +99,9 @@ async function followAddress(ctx: MutationCtx, owned: Contact, address: string):
 /**
  * Move an account's contact onto the row that holds its new address: each
  * topic choice (the newer one winning for a topic both rows chose), and
- * what the sending rules read. The account's old row goes. Answers the row
- * kept.
+ * what the sending rules read. The account's old row goes, its id kept as
+ * an alias of the row kept, so the links already sent with it still work.
+ * Answers the row kept.
  */
 async function mergeInto(ctx: MutationCtx, owned: Contact, other: Contact): Promise<Id<'emailContacts'>> {
   for (const choice of await ctx.db.query('emailTopicChoices').withIndex('contactId_topic', q => q.eq('contactId', owned._id)).take(200)) {
@@ -117,8 +118,21 @@ async function mergeInto(ctx: MutationCtx, owned: Contact, other: Contact): Prom
     ...(engagedAt > 0 ? { engagedAt } : {}),
     recentSends: [...(owned.recentSends ?? []), ...(other.recentSends ?? [])].sort((a, b) => a - b).slice(-RECENT_SENDS_MAX),
   })
+  for (const alias of await ctx.db.query('emailContactAliases').withIndex('contactId', q => q.eq('contactId', owned._id)).take(100)) {
+    await ctx.db.patch('emailContactAliases', alias._id, { contactId: other._id })
+  }
+  await ctx.db.insert('emailContactAliases', { formerId: owned._id, contactId: other._id })
   await ctx.db.delete('emailContacts', owned._id)
   return other._id
+}
+
+/** The contact a signed link names by id: its row, or the row an address change merged it onto. */
+async function contactById(ctx: QueryCtx, contactId: string): Promise<Contact | null> {
+  const id = ctx.db.normalizeId('emailContacts', contactId)
+  const row = id ? await ctx.db.get('emailContacts', id) : null
+  if (row) return row
+  const alias = await ctx.db.query('emailContactAliases').withIndex('formerId', q => q.eq('formerId', contactId)).first()
+  return alias ? await ctx.db.get('emailContacts', alias.contactId) : null
 }
 
 async function choiceOf(ctx: QueryCtx, contactId: Id<'emailContacts'>, topic: string): Promise<Doc<'emailTopicChoices'> | null> {
@@ -185,8 +199,7 @@ export const readContact = query({
   args: { contactId: v.string(), topics: v.array(vTopicRef) },
   returns: v.union(v.null(), v.array(v.object({ key: v.string(), state: vState }))),
   handler: async (ctx, { contactId, topics }) => {
-    const id = ctx.db.normalizeId('emailContacts', contactId)
-    const contact = id ? await ctx.db.get('emailContacts', id) : null
+    const contact = await contactById(ctx, contactId)
     if (!contact) return null
     const now = Date.now()
     return await Promise.all(topics.map(async topic => ({ key: topic.key, state: stateOf(await choiceOf(ctx, contact._id, topic.key), topic.subscribedByDefault, now) })))
@@ -248,8 +261,7 @@ export const confirm = mutation({
   args: { contactId: v.string(), topic: v.object({ key: v.string(), subscribedByDefault: v.boolean(), consent: v.optional(vConsent) }) },
   returns: v.union(v.literal('confirmed'), v.literal('nothing')),
   handler: async (ctx, { contactId, topic }) => {
-    const id = ctx.db.normalizeId('emailContacts', contactId)
-    const contact = id ? await ctx.db.get('emailContacts', id) : null
+    const contact = await contactById(ctx, contactId)
     if (!contact) return 'nothing'
     const now = Date.now()
     const choice = await choiceOf(ctx, contact._id, topic.key)
@@ -293,10 +305,7 @@ export const unsubscribe = mutation({
 
 /** The contact a call names: by its id (from a signed link), else by the account. */
 async function namedContact(ctx: MutationCtx, contactId: string | undefined, userId: string | undefined): Promise<Contact | null> {
-  if (contactId) {
-    const id = ctx.db.normalizeId('emailContacts', contactId)
-    return id ? await ctx.db.get('emailContacts', id) : null
-  }
+  if (contactId) return await contactById(ctx, contactId)
   return userId ? await contactByUser(ctx, userId) : null
 }
 
@@ -663,6 +672,9 @@ export async function forgetEmailContact(ctx: MutationCtx, { userId, email }: { 
     const choices = await ctx.db.query('emailTopicChoices').withIndex('contactId_topic', q => q.eq('contactId', contact._id)).take(left)
     for (const choice of choices) await ctx.db.delete('emailTopicChoices', choice._id)
     left -= choices.length
+    const aliases = await ctx.db.query('emailContactAliases').withIndex('contactId', q => q.eq('contactId', contact._id)).take(left)
+    for (const alias of aliases) await ctx.db.delete('emailContactAliases', alias._id)
+    left -= aliases.length
     if (left <= 0) return true
     if (await ctx.db.get('emailContacts', contact._id)) await ctx.db.delete('emailContacts', contact._id)
   }

@@ -33,6 +33,17 @@ const ERASURE_ATTEMPTS = 5
 /** The wait before a participant's first retry; each next one waits twice as long. */
 const ERASURE_RETRY_MS = 10_000
 
+/**
+ * Past its quick retries, how many more rounds a participant that gave up
+ * gets: a provider down for longer than a few minutes, or a key that lacks
+ * a scope until someone fixes it. Its plan is kept meanwhile, and after
+ * the last round for an operator to run again.
+ */
+const LATE_ROUNDS = 3
+
+/** The wait before the first late round; each next one waits four times as long: an hour, four, sixteen. */
+const LATE_RETRY_MS = 60 * 60 * 1000
+
 /** How long a deletion waits before it runs, unless `graceMs` says otherwise: 30 days. */
 const DEFAULT_GRACE_MS = 30 * 24 * 60 * 60 * 1000
 
@@ -254,6 +265,12 @@ const vErasureArgs = v.object({
   done: v.optional(v.array(v.string())),
   /** This run's attempt, from 1. */
   attempt: v.optional(v.number()),
+  /** The participants that gave up in this round, which its quick retries skip. */
+  failed: v.optional(v.array(v.string())),
+  /** The late round this run belongs to, from 1; absent in an erasure's first run. */
+  round: v.optional(v.number()),
+  /** Run every erasure whose app part gave up again, from its kept plan (`npx convex run account:eraseAccountData '{"retryFailed":true}'`). */
+  retryFailed: v.optional(v.boolean()),
   /** The call scheduled for the end of a grace period: the account to erase unless its deletion was cancelled. */
   due: v.optional(v.string()),
 })
@@ -429,6 +446,17 @@ export interface Account {
   keepPath: string
 }
 
+/** Whose erasure: the account, or an address without one. */
+type ErasureTarget = { userId?: string, email?: string }
+
+/** What an erasure's app part was meant to erase, and how far it got: what a retry runs again. */
+type ErasurePlanState = { deleted: string[], left: string[], done: string[], failed: string[], rounds: number }
+
+/** The account or address an erasure names, without the keys it leaves out. */
+function targetOf({ userId, email }: ErasureTarget): ErasureTarget {
+  return { ...(userId ? { userId } : {}), ...(email ? { email } : {}) }
+}
+
 /** The `backend` component as export and erasure read it. */
 export interface AccountComponents {
   backend: unknown
@@ -448,6 +476,12 @@ interface AccountRefs {
     exportData: FunctionReference<'query', 'internal', { userId: string }, (Record<string, unknown> & { ownedAlone: string[] }) | null>
     storeExport: FunctionReference<'action', 'internal', { exportId: string, data: string }, { url: string } | null>
     exportStatus: FunctionReference<'query', 'internal', { userId: string }, AccountExportStatus>
+  }
+  erasures: {
+    keepFailure: FunctionReference<'mutation', 'internal', ErasureTarget & ErasurePlanState, null>
+    clearFailure: FunctionReference<'mutation', 'internal', ErasureTarget, null>
+    failure: FunctionReference<'query', 'internal', ErasureTarget, (ErasureTarget & ErasurePlanState) | null>
+    failures: FunctionReference<'query', 'internal', Record<string, never>, Array<ErasureTarget & ErasurePlanState>>
   }
   consents: {
     record: FunctionReference<'mutation', 'internal', { userId: string, entries: ConsentEntry[] }, ConsentEntry[]>
@@ -578,10 +612,12 @@ export function setupAccount(components: AccountComponents, options: SetupAccoun
     returns: v.null(),
     handler: async (ctx, args): Promise<null> => {
       if (args.due !== undefined) return finishDue(ctx, args.due)
+      if (args.retryFailed) return retryFailed(ctx)
       const done = new Set(args.done ?? [])
+      const failed = new Set(args.failed ?? [])
       const attempt = args.attempt ?? 1
       for (const [source, run] of participantsOf(args)) {
-        if (done.has(source)) continue
+        if (done.has(source) || failed.has(source)) continue
         try {
           await run(ctx)
           done.add(source)
@@ -589,18 +625,47 @@ export function setupAccount(components: AccountComponents, options: SetupAccoun
         catch (error) {
           if (attempt < ERASURE_ATTEMPTS) {
             // Every participant is idempotent; the ones done are skipped.
-            await ctx.scheduler.runAfter(ERASURE_RETRY_MS * 2 ** (attempt - 1), eraseByName, { ...args, done: [...done], attempt: attempt + 1 })
+            await ctx.scheduler.runAfter(ERASURE_RETRY_MS * 2 ** (attempt - 1), eraseByName, { ...args, done: [...done], failed: [...failed], attempt: attempt + 1 })
             logBackend('warn', 'account.erasure_retried', `An account's erasure will run its ${source} participant again (attempt ${attempt} failed).`, error)
             return null
           }
-          logBackend('error', 'account.erasure_failed', `An account's erasure gave up on its ${source} participant after ${attempt} tries; run its erasure again.`, error)
+          logBackend('error', 'account.erasure_failed', `An account's erasure gave up on its ${source} participant after ${attempt} tries; its plan is kept and tried again later.`, error)
           await ctx.runMutation(refs.account.reportFailure, { source, attempts: attempt })
-          done.add(source)
+          failed.add(source)
         }
       }
+      await settleRound(ctx, args, [...done], [...failed])
       return null
     },
   })
+
+  /**
+   * The end of one round of an erasure's app part. A participant that gave
+   * up leaves the plan kept (the component's part has deleted the
+   * workspaces it names by now, so it could not be worked out again) and a
+   * later round scheduled, hours on, until {@link LATE_ROUNDS} ran. A retry
+   * that finished everything forgets the kept plan.
+   */
+  const settleRound = async (ctx: GenericActionCtx<GenericDataModel>, args: ErasureArgs, done: string[], failed: string[]): Promise<void> => {
+    const target = { ...(args.userId ? { userId: args.userId } : {}), ...(args.email ? { email: args.email } : {}) }
+    if (failed.length === 0) {
+      if (args.round !== undefined) await ctx.runMutation(refs.erasures.clearFailure, target)
+      return
+    }
+    const round = args.round ?? 1
+    const plan = { ...target, deleted: args.deleted ?? [], left: args.left ?? [] }
+    await ctx.runMutation(refs.erasures.keepFailure, { ...plan, done, failed, rounds: round })
+    if (round <= LATE_ROUNDS) await ctx.scheduler.runAfter(LATE_RETRY_MS * 4 ** (round - 1), eraseByName, { ...plan, done, round: round + 1 })
+    else logBackend('error', 'account.erasure_failed', `An account's erasure still fails at ${failed.join(', ')} after ${round} rounds; its plan is kept: run account:eraseAccountData with { retryFailed: true } once the cause is fixed.`)
+  }
+
+  /** Run every kept plan again, from the participants it has left, with its late rounds afresh. */
+  const retryFailed = async (ctx: GenericActionCtx<GenericDataModel>): Promise<null> => {
+    for (const kept of await ctx.runQuery(refs.erasures.failures, {})) {
+      await ctx.scheduler.runAfter(0, eraseByName, { ...targetOf(kept), deleted: kept.deleted, left: kept.left, done: kept.done, round: 1 })
+    }
+    return null
+  }
 
   /** Start the app's part of an erasure by its function's name, never failing the component's part, which has started. */
   const startAppPart = async (ctx: AccountWriteCtx, args: ErasureArgs): Promise<void> => {
@@ -618,11 +683,14 @@ export function setupAccount(components: AccountComponents, options: SetupAccoun
       ...(target.userId ? { userId: target.userId } : {}),
       ...(target.email ? { email: target.email } : {}),
     })
+    // Run again after its app part gave up: what that part was meant to erase, not what is left to work out.
+    const kept = appPart ? await ctx.runQuery(refs.erasures.failure, targetOf(target)) : null
     await startAppPart(ctx, {
       ...(target.userId ? { userId: target.userId } : {}),
       ...(plan.email ? { email: plan.email } : {}),
-      deleted: plan.deleted,
-      left: plan.left,
+      deleted: [...new Set([...plan.deleted, ...kept?.deleted ?? []])],
+      left: [...new Set([...plan.left, ...kept?.left ?? []])],
+      ...(kept ? { done: kept.done, round: 1 } : {}),
     })
     return plan
   }

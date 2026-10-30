@@ -25,6 +25,7 @@ import { backendError, getBackendError } from '../../errors.js'
 import {
   budgetPeriod,
   bucketOf,
+  chargeInFlight,
   checkQueuePolicy,
   DEFAULT_CONCURRENCY,
   DEFAULT_MODEL_LIMIT,
@@ -1114,6 +1115,7 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
       const job = await ctx.runQuery(queue.get, { jobId }) as JobRow | null
       if (!job?.deadLetter || job.status !== 'failed') throw backendError('invalid_input', { field: 'jobId', reason: 'not_dead_letter' }, '[nuxt-backend] retryJob: only a failed job in the dead letters goes back in line.')
       if (refundInFlight(job)) throw backendError('invalid_input', { field: 'jobId', reason: 'refund_pending' }, '[nuxt-backend] retryJob: this job\'s refund is still on its way. Retry it once the refund lands.')
+      if (chargeInFlight(job)) throw backendError('invalid_input', { field: 'jobId', reason: 'charge_pending' }, '[nuxt-backend] retryJob: this job\'s charge may still land. Retry it in a few minutes.')
       // An administrator's retry counts in the owner's window now, and is never refused for it.
       // A guest job counts in none, also once claimed: the app pays for it.
       const budget = job.visitor === undefined ? await countBudget(ctx, job.owner, job.cost, true) : { budgetCounted: 0 }

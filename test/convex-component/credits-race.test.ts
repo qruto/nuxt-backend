@@ -450,3 +450,20 @@ describe('cycle + rollover ride along with the meter', () => {
     expect(await meter()).not.toHaveProperty('cycleEnd')
   })
 })
+
+describe('a metered stream\'s request is claimed by one dispatch', () => {
+  const request = { streamId: 's1', name: 'answer', entityId: USER, userId: USER, args: '{}', meterId: METER, cost: 5, externalId: 'stream-1' }
+  const status = async () => (await t.query(api.ai.getByStream, { streamId: 's1' }))?.status
+
+  test('the first claim wins, every other loses, and the run still settles', async () => {
+    await t.mutation(api.ai.createRequest, request)
+    const claims = await Promise.all([1, 2, 3].map(() => t.mutation(api.ai.claimRequest, { streamId: 's1' })))
+    expect(claims.filter(Boolean)).toHaveLength(1)
+    expect(await status()).toBe('streaming')
+    expect(await t.mutation(api.ai.claimRequest, { streamId: 'unknown' })).toBe(false)
+    await t.mutation(api.ai.markSettled, { streamId: 's1' })
+    expect(await status()).toBe('settled')
+    // A finished request is claimed by no one.
+    expect(await t.mutation(api.ai.claimRequest, { streamId: 's1' })).toBe(false)
+  })
+})

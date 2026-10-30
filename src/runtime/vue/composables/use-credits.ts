@@ -27,7 +27,12 @@ export interface UseCreditsOptions {
 }
 
 export interface UseCreditsReturn {
-  /** Remaining prepaid credit balance for the meter, or `undefined` while loading. */
+  /**
+   * Remaining prepaid credit balance for the meter: `undefined` while
+   * loading, and when the read failed (see `error`) or the backend exports
+   * no `getCredits`; `0` while signed out or before the billing entity
+   * has any.
+   */
   balance: ComputedRef<number | undefined>
   /** Total credits granted for the meter (top-ups + plan grants), or `undefined` while loading. */
   credited: ComputedRef<number | undefined>
@@ -98,7 +103,10 @@ export function useCredits(options: UseCreditsOptions = {}): UseCreditsReturn {
   warnCallShape('useCredits', arguments.length > 1 ? null : options, 'useCredits({ meter: \'credits\' })')
   const billing = useBackendNamespace<BillingApi>('billing', 'useCredits', options?.api)
 
-  const read = billing.getCredits ? useLiveQuery(billing.getCredits, {}) : absentQuery<Credits | null>()
+  // Read only for a signed-in session: signed out, there are no credits to read.
+  const auth = inject(ConvexAuthStateKey, null)
+  const signedOut = computed(() => auth != null && !auth.isAuthenticated.value)
+  const read = billing.getCredits ? useLiveQuery(billing.getCredits, () => (signedOut.value ? 'skip' : {})) : absentQuery<Credits | null>()
   const credits = read.data
 
   // Resolve the target meter — by configured name first (`{ meter: 'credits' }`),
@@ -106,8 +114,11 @@ export function useCredits(options: UseCreditsOptions = {}): UseCreditsReturn {
   // app configured. A customer can carry meters the catalog no longer
   // declares (a retired meter still holds its old balance), and picking those
   // by position would report someone else's zero as the balance.
-  // `undefined` ⇒ still loading; `null` ⇒ loaded but no such meter (treat as 0).
+  // `undefined` ⇒ still loading (or unread); `null` ⇒ no such meter (treat
+  // as 0): signed out, no billing entity yet (`getCredits` answered null),
+  // or none of that name.
   const meter = computed(() => {
+    if (signedOut.value || credits.value === null) return null
     const list = credits.value?.meters
     if (list === undefined) return undefined
     const id = toValue(options?.meter)?.trim()
@@ -122,8 +133,7 @@ export function useCredits(options: UseCreditsOptions = {}): UseCreditsReturn {
       return m?.[key] ?? 0
     })
 
-  const auth = inject(ConvexAuthStateKey, null)
-  const { isPending, failure, run } = useActionState(() => auth != null && !auth.isAuthenticated.value)
+  const { isPending, failure, run } = useActionState(() => signedOut.value)
   const topUp = createCheckout(billing)
   const runSync = billing.syncEntitlements ? useAction(billing.syncEntitlements) : null
 

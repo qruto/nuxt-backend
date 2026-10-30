@@ -98,6 +98,9 @@ const EMAIL_LABELS = {
     subject: 'Join {workspace}',
     intro: '{inviter} invited you to join {workspace} as {role}.',
     action: 'Accept invitation',
+    // A workspace name made of nothing but a link or a domain, which the email leaves out.
+    subjectUnnamed: 'You\'re invited to a workspace',
+    introUnnamed: '{inviter} invited you to join their workspace as {role}.',
   },
   gift: {
     subject: '{sender} sent you a gift 🎁',

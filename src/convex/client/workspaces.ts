@@ -1,7 +1,7 @@
 import type { organization } from 'better-auth/plugins'
 import type { GenericDataModel } from 'convex/server'
 import type { WorkspaceHookWorkspace, WorkspaceOptions } from './auth-types.js'
-import { announceEntity } from './entities.js'
+import { announceEntity, deletionRefusal } from './entities.js'
 import { authRefusal } from './refusals.js'
 import { type AuthRuntime, asMutationCtx, hookAdapter } from './runtime.js'
 
@@ -124,6 +124,12 @@ export function organizationOptions<DM extends GenericDataModel>(
       afterCreateOrganization: async ({ organization, user }) => {
         if (onCreate && ctx) await onCreate(ctx, { workspace: workspaceOf(organization), userId: user.id })
         await announceEntity(runtime, { kind: 'workspace', id: organization.id })
+      },
+      // A workspace that still holds a paid subscription stays: deleted, it
+      // would go on being billed with no workspace left to cancel it from.
+      beforeDeleteOrganization: async ({ organization }) => {
+        const reason = await deletionRefusal(runtime, { kind: 'workspace', id: organization.id })
+        if (reason) throw authRefusal('forbidden', { reason })
       },
       ...(canInvite && ctx
         ? {

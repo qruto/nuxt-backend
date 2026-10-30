@@ -79,4 +79,16 @@ describe('what a push service answers', () => {
     }
     expect(await sendPush(target, { title: 'x', navigate: 'https://app.example.com' }, keys, 'https://app.example.com', { fetch: offline as never })).toEqual({ kind: 'retry', retryAfterMs: 60_000 })
   })
+
+  it('reads a device whose key is no point on the curve as gone, and posts nothing to it', async () => {
+    const keys = await generatePushKeys()
+    // 65 bytes that start with 0x04, as a key must, but name no point on P-256.
+    const offCurve = new Uint8Array(65).fill(7)
+    offCurve[0] = 4
+    const target = { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', p256dh: base64urlEncode(offCurve), auth: base64urlEncode(crypto.getRandomValues(new Uint8Array(16))) }
+    expect(isPushTarget(target)).toBe(true)
+    const fetcher = vi.fn(async () => new Response(null, { status: 201 }))
+    expect(await sendPush(target, { title: 'x', navigate: 'https://app.example.com' }, keys, 'https://app.example.com', { fetch: fetcher as never })).toEqual({ kind: 'gone' })
+    expect(fetcher).not.toHaveBeenCalled()
+  })
 })

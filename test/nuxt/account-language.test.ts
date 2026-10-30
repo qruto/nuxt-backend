@@ -160,10 +160,13 @@ describe('<ProfileSettings>', () => {
     user.value = { ...ada, locale: 'de' }
     const wrapper = mount(ProfileSettings)
     await nextTick()
-    await wrapper.find('[data-profile="input-language"]').setValue('en')
+    const select = wrapper.find<HTMLSelectElement>('[data-profile="input-language"]')
+    await select.setValue('en')
     await flushPromises()
     expect(setLocale).not.toHaveBeenCalled()
     expect(wrapper.emitted('error')).toHaveLength(1)
+    // The field shows the language the account still reads.
+    expect(select.element.value).toBe('de')
   })
 
   it('offers nothing to pick in an app of one language', async () => {

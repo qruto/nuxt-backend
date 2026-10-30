@@ -2,7 +2,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import { convexTest } from 'convex-test'
 import resendComponent from '@convex-dev/resend/test'
-import { componentsGeneric, defineSchema, defineTable, makeFunctionReference, mutationGeneric, queryGeneric } from 'convex/server'
+import { componentsGeneric, defineSchema, defineTable, type FunctionReference, makeFunctionReference, mutationGeneric, queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
 import component, { asUser, defineBackendTestApp, seedWorkspace } from '../../src/convex/test'
 import { api } from '../../src/convex/components/backend/_generated/api'
@@ -15,6 +15,9 @@ import { setupAccount } from '../../src/convex/integrations/account'
 import { setupAudit } from '../../src/convex/integrations/audit'
 import { addressDigest } from '../../src/convex/waitlist-rules'
 import { unzipSync } from 'fflate'
+
+/** The late rounds the app's part of an erasure retries a participant in, past its quick retries (integrations/account.ts). */
+const LATE_ROUNDS = 3
 
 // Export and complete erasure. First the component on its own: the erasure
 // sweep seeds a person in every table that holds anything of one, erases
@@ -347,8 +350,39 @@ describe('the erasure sweep', () => {
     expect(JSON.stringify((await everything()).flagOverrides)).not.toContain(seeded.gone)
   })
 
+  test('exports the gifts the recipient may see, and nothing of the purchaser\'s billing', async () => {
+    const seeded = await seed()
+    await root.run(async (ctx) => {
+      const now = Date.now()
+      const gift = { recipientEmail: GONE, purchaserUserId: seeded.stays, purchaserEmail: 'stays@example.com', purchaserName: 'Stays', productIds: ['p'], purchaserEntityId: 'entity-stays', billingCustomerId: 'cus_stays', billingOrderId: 'order-stays', giftProductId: 'prod-gift', amount: 900, currency: 'usd', createdAt: now }
+      await ctx.db.insert('billingGifts', { ...gift, message: 'Open checkout', status: 'pending' })
+      await ctx.db.insert('billingGifts', { ...gift, message: 'For your birthday', status: 'paid', paidAt: now, deliverAt: now + 86_400_000 })
+      await ctx.db.insert('billingGifts', { ...gift, message: 'Refunded', status: 'refunded', refundedAt: now })
+      await ctx.db.insert('billingGifts', { ...gift, message: 'Delivered', status: 'paid', paidAt: now, deliverAt: now - 1000, deliveredAt: now - 1000 })
+    })
+    const data = await root.query(api.account.exportData, { userId: seeded.gone }) as Record<string, any>
+    expect(data.giftsReceived.map((gift: { message: string }) => gift.message).sort()).toEqual(['Delivered', 'Enjoy'])
+    for (const field of ['purchaserUserId', 'purchaserEmail', 'purchaserEntityId', 'billingCustomerId', 'billingOrderId', 'giftProductId', 'discountId', 'amount', 'currency']) {
+      for (const gift of data.giftsReceived) expect(gift).not.toHaveProperty(field)
+    }
+  })
+
+  test('erases a code email waiting for the address however many others wait before it', async () => {
+    const seeded = await seed()
+    await root.run(async (ctx) => {
+      const now = Date.now()
+      const code = (to: string) => ({ message: { to, from: 'app@example.com', subject: 'Your code', text: '123456' }, attempts: 0, nextAttemptAt: now, generation: 1, expiresAt: now + 600_000 })
+      for (let index = 0; index < 250; index++) await ctx.db.insert('secretOutbox', code(`someone-${index}@example.com`))
+      await ctx.db.insert('secretOutbox', { ...code(GONE), recipient: GONE })
+    })
+    await erase({ userId: seeded.gone })
+    expect(JSON.stringify(await root.run(ctx => ctx.db.query('secretOutbox').collect()))).not.toContain(GONE)
+  })
+
   test('exports what the component keeps of an account, never a token, a code or a key', async () => {
     const seeded = await seed()
+    // A gift the account bought that its friend claimed: the friend's account and workspace stay theirs.
+    await root.run(ctx => ctx.db.insert('billingGifts', { recipientEmail: 'claimed@example.com', purchaserUserId: seeded.gone, purchaserEmail: GONE, purchaserName: 'Gone', productIds: ['p'], message: 'Claimed', status: 'claimed', claimingUserId: seeded.stays, claimingEntityId: 'entity-stays', claimedByUserId: seeded.stays, claimedEntityId: 'entity-stays', createdAt: Date.now() }))
     const data = await root.query(api.account.exportData, { userId: seeded.gone }) as Record<string, any>
     expect(data.account).toMatchObject({ email: GONE, name: 'Gone', locale: 'de' })
     expect(data.ownedAlone.sort()).toEqual([seeded.personal, seeded.solo].sort())
@@ -356,7 +390,8 @@ describe('the erasure sweep', () => {
     expect(data.workspaces.map((workspace: { slug: string }) => workspace.slug).sort()).toEqual(['acme', `personal-${seeded.gone.toLowerCase()}`, 'side-project'])
     expect(data.invitationsSent).toEqual([expect.objectContaining({ email: 'friend@example.com' })])
     expect(data.invitationsReceived).toEqual([expect.objectContaining({ inviterId: seeded.stays })])
-    expect(data.giftsBought).toEqual([expect.objectContaining({ recipientEmail: 'friend@example.com', message: 'For you' })])
+    expect(data.giftsBought).toEqual(expect.arrayContaining([expect.objectContaining({ recipientEmail: 'friend@example.com', message: 'For you' })]))
+    expect(JSON.stringify(data.giftsBought)).not.toMatch(/claimedByUserId|claimedEntityId|claimingUserId|claimingEntityId|entity-stays/)
     expect(data.giftsReceived).toEqual([expect.objectContaining({ purchaserName: 'Stays', message: 'Enjoy' })])
     expect(data.giftsReceived[0]).not.toHaveProperty('purchaserEmail')
     expect(data.billing.map((row: { userId: string }) => row.userId).sort()).toEqual([seeded.personal, seeded.solo, seeded.gone].sort())
@@ -717,13 +752,50 @@ describe('the app\'s half', () => {
     const ada = await asUser(t, { email: 'ada@example.com' })
     await t.mutation(makeFunctionReference<'mutation'>('account:forget'), { userId: ada.userId })
     await t.finishAllScheduledFunctions(() => vi.runAllTimers())
-    expect(email.forgetContact).toHaveBeenCalledTimes(ERASURE_ATTEMPTS)
+    // Its quick retries, then each of the late rounds hours apart, and each round's own quick retries.
+    expect(email.forgetContact).toHaveBeenCalledTimes(ERASURE_ATTEMPTS * (1 + LATE_ROUNDS))
     // The billing customer, done in the first run, ran once.
     expect(billing.forgetAccount).toHaveBeenCalledTimes(1)
-    expect(warn.mock.calls.filter(([line]) => String(line).includes('account.erasure_retried'))).toHaveLength(ERASURE_ATTEMPTS - 1)
+    expect(warn.mock.calls.filter(([line]) => String(line).includes('account.erasure_retried'))).toHaveLength((ERASURE_ATTEMPTS - 1) * (1 + LATE_ROUNDS))
     expect(error).toHaveBeenCalledWith(expect.stringMatching(/^\[nuxt-backend\] account\.erasure_failed: .*emailContact/))
     expect(JSON.stringify(error.mock.calls)).not.toContain('ada@example.com')
     expect((await activity()).page).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'account.erasure_failed', actor: expect.objectContaining({ kind: 'app' }), subject: null, data: { source: 'emailContact', attempts: ERASURE_ATTEMPTS } })]))
+  })
+
+  test('keeps the plan of a provider part that gave up, and erases what it named on a retry, the workspaces long gone', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    billing.forgetAccount.mockRejectedValue(new Error('provider 503'))
+    const ada = await asUser(t, { email: 'ada@example.com' })
+    await t.mutation(makeFunctionReference<'mutation'>('account:forget'), { userId: ada.userId })
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    // The component's part finished, the workspace with it; the billing customer's plan is kept.
+    expect(await t.query(components.backend.erasures.failure, { userId: ada.userId })).toMatchObject({ deleted: [ada.workspaceId], failed: ['billingCustomer'], done: expect.arrayContaining(['emailContact']), rounds: LATE_ROUNDS + 1 })
+    for (const [, erasure] of billing.forgetAccount.mock.calls) expect(erasure).toEqual({ userId: ada.userId, deleted: [ada.workspaceId], left: [] })
+    // Once the cause is fixed, a retry erases the customer the plan named, and forgets the plan.
+    billing.forgetAccount.mockReset().mockResolvedValue(undefined)
+    email.forgetContact.mockClear()
+    await t.action(makeFunctionReference<'action', { retryFailed: boolean }>('account:eraseAccountData') as unknown as FunctionReference<'action', 'internal', { retryFailed: boolean }>, { retryFailed: true })
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    expect(billing.forgetAccount).toHaveBeenCalledExactlyOnceWith(expect.anything(), { userId: ada.userId, deleted: [ada.workspaceId], left: [] })
+    expect(email.forgetContact).not.toHaveBeenCalled()
+    expect(await t.query(components.backend.erasures.failures, {})).toEqual([])
+  })
+
+  test('runs a kept plan again when the account\'s erasure is run again', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    billing.forgetAccount.mockRejectedValue(new Error('missing scope'))
+    const ada = await asUser(t, { email: 'ada@example.com' })
+    const forgetRef = makeFunctionReference<'mutation'>('account:forget')
+    await t.mutation(forgetRef, { userId: ada.userId })
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    billing.forgetAccount.mockReset().mockResolvedValue(undefined)
+    // The component works out nothing left to delete; the kept plan still names the workspace.
+    expect(await t.mutation(forgetRef, { userId: ada.userId })).toMatchObject({ deleted: [] })
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    expect(billing.forgetAccount).toHaveBeenCalledExactlyOnceWith(expect.anything(), { userId: ada.userId, deleted: [ada.workspaceId], left: [] })
+    expect(await t.query(components.backend.erasures.failure, { userId: ada.userId })).toBeNull()
   })
 
   test('erases someone without an account by address, and refuses an address an account holds', async () => {

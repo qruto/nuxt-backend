@@ -19,6 +19,14 @@ import { useSearch } from '../../src/runtime/vue/composables/use-search'
 import { useWorkflowStatus } from '../../src/runtime/vue/composables/use-workflow'
 import { diagnostics } from '../../src/runtime/vue/utils/live-query'
 
+/** The session the provider history is read as: its account and its active workspace. */
+const reader = vi.hoisted(() => ({ workspace: undefined as unknown as { value: string } }))
+vi.mock('nuxt-convex-module/better-auth/client', async () => {
+  const { computed, ref } = await import('vue')
+  reader.workspace = ref('w1')
+  return { useBetterAuth: () => ({ session: computed(() => ({ data: { user: { id: 'u_me' }, session: { activeOrganizationId: reader.workspace.value } } })) }) }
+})
+
 const address = 'https://127.0.0.1:3001'
 const seedMutationRef = makeFunctionReference<'mutation'>('seed:default')
 const searchRef = makeFunctionReference<'query'>('search:searchMessages')
@@ -195,7 +203,7 @@ describe('useBilling', () => {
   it('checkout generates a link and opens it in a new tab', async () => {
     const api = { generateCheckoutLink: checkoutRef } as unknown as BillingApi
     const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ url: 'https://polar.test/checkout' })
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(window)
     const { result } = await mountWithConvex(client, () => useBilling({ api }))
 
     const url = await result.checkout('prod_1', { metadata: { plan: 'pro' }, discountCode: 'LAUNCH', utm: { source: 'newsletter' } })
@@ -216,7 +224,7 @@ describe('useBilling', () => {
   it('checkout passes a trial or discount id on, for the server to refuse', async () => {
     const api = { generateCheckoutLink: checkoutRef } as unknown as BillingApi
     const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ url: 'https://polar.test/checkout' })
-    vi.spyOn(window, 'open').mockReturnValue(null)
+    vi.spyOn(window, 'open').mockReturnValue(window)
     const { result } = await mountWithConvex(client, () => useBilling({ api }))
 
     await result.checkout('prod_1', { trialInterval: 'day', trialIntervalCount: 7, discountId: 'disc_1' } as never)
@@ -227,7 +235,7 @@ describe('useBilling', () => {
   it('checkout redirects in the same tab when redirect is set', async () => {
     const api = { generateCheckoutLink: checkoutRef } as unknown as BillingApi
     vi.spyOn(client, 'action').mockResolvedValue({ url: 'https://polar.test/c' })
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(window)
     const { result } = await mountWithConvex(client, () => useBilling({ api }))
 
     const url = await result.checkout(['prod_1', 'prod_2'], { redirect: true })
@@ -239,7 +247,7 @@ describe('useBilling', () => {
   it('portal opens the returned URL with the return URL it was given', async () => {
     const api = { generateCustomerPortalUrl: portalRef } as unknown as BillingApi
     const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ url: 'https://polar.test/portal' })
-    vi.spyOn(window, 'open').mockReturnValue(null)
+    vi.spyOn(window, 'open').mockReturnValue(window)
     const { result } = await mountWithConvex(client, () => useBilling({ api }))
 
     expect(await result.portal({ returnUrl: 'https://app.test/billing' })).toBe('https://polar.test/portal')
@@ -282,7 +290,7 @@ describe('useBilling', () => {
     const actionSpy = vi.spyOn(client, 'action').mockImplementationOnce(() => new Promise((resolve) => {
       settle = resolve as never
     }))
-    vi.spyOn(window, 'open').mockReturnValue(null)
+    vi.spyOn(window, 'open').mockReturnValue(window)
     const { result } = await mountWithConvex(client, () => useBilling({ api }))
 
     expect(result.isPending.value).toBe(false)
@@ -310,7 +318,7 @@ describe('useBilling', () => {
     vi.spyOn(client, 'action').mockImplementation(() => new Promise((resolve) => {
       settles.push(resolve as never)
     }))
-    vi.spyOn(window, 'open').mockReturnValue(null)
+    vi.spyOn(window, 'open').mockReturnValue(window)
     const { result } = await mountWithConvex(client, () => useBilling({ api }))
 
     const first = result.portal()
@@ -526,7 +534,7 @@ describe('useOrders', () => {
   it('opens an invoice and returns its URL', async () => {
     vi.spyOn(client, 'action').mockImplementation(async (...args: unknown[]) =>
       (args[0] === invoiceRef ? { url: 'https://billing.test/invoice.pdf' } : page) as never)
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(window)
     const { result } = await mountWithConvex(client, () => useOrders({ api: ordersApi }), { provide: authedProvide })
 
     expect(await result.invoice('ord_1')).toBe('https://billing.test/invoice.pdf')
@@ -540,6 +548,28 @@ describe('useOrders', () => {
     expect(result.error.value).toEqual({ code: 'unavailable', data: { service: 'backend', reason: 'unexpected' }, message: 'Something went wrong.' })
     expect(result.orders.value).toStrictEqual([])
     expect(result.isLoading.value).toBe(false)
+  })
+
+  it('clears another workspace\'s orders at once and reads the new one\'s from the first page', async () => {
+    const answers: Array<(value: unknown) => void> = []
+    const actionSpy = vi.spyOn(client, 'action').mockImplementation((() => new Promise(resolve => answers.push(resolve))) as never)
+    const { result } = await mountWithConvex(client, () => useOrders({ api: ordersApi }), { provide: authedProvide })
+    await flushPromises()
+    answers[0]!(page)
+    await flushPromises()
+    expect(result.orders.value).toHaveLength(1)
+
+    // The person switches workspaces: the billing entity is another one.
+    reader.workspace.value = 'w2'
+    await nextTick()
+    await flushPromises()
+    expect(result.orders.value).toBeUndefined()
+    expect(result.isLoading.value).toBe(true)
+    expect(actionSpy).toHaveBeenCalledTimes(2)
+    answers[1]!({ items: [] })
+    await flushPromises()
+    expect(result.orders.value).toStrictEqual([])
+    reader.workspace.value = 'w1'
   })
 
   it('a failed invoice rejects with the original error and lands in error, over the page', async () => {
@@ -729,7 +759,7 @@ describe('useGifts', () => {
 
   it('claim(giftId) claims one gift, returning to this page; true when the server confirmed it', async () => {
     const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ url: null })
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(window)
     const { result } = await mountWithConvex(
       client,
       () => useGifts({ api: giftsApi }),
@@ -742,7 +772,7 @@ describe('useGifts', () => {
 
   it('claim(giftId) opens the provider\'s $0 checkout when the pack needs one, and resolves false', async () => {
     vi.spyOn(client, 'action').mockResolvedValue({ url: 'https://checkout.test/claim' })
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(window)
     const { result } = await mountWithConvex(
       client,
       () => useGifts({ api: giftsApi }),
@@ -782,7 +812,7 @@ describe('useGifts', () => {
   it('send opens the purchaser\'s checkout of a pack by its catalog key, or of a plan pass by its key and months', async () => {
     const api = { giftCheckout: giftCheckoutRef } as unknown as BillingApi
     const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ url: 'https://checkout.test/gift' })
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(window)
     const { result } = await mountWithConvex(client, () => useGifts({ api }))
 
     const url = await result.send('credits100', { recipientEmail: 'friend@example.com', message: 'hi' })
@@ -976,6 +1006,24 @@ describe('useCredits', () => {
     expect(warned.mock.calls.filter(([text]) => String(text).includes('useCredits() takes an options object, such as useCredits({ meter: \'credits\' })'))).toHaveLength(2)
   })
 
+  it('reads a null answer, no billing entity yet, as no credits: zero, not loading', async () => {
+    seed(store => store.setQuery(creditsRef, {}, null))
+    const { result } = await mountWithConvex(client, () => useCredits({ api: billingApi }))
+    await nextTick()
+    expect(result.isLoading.value).toBe(false)
+    expect(result.balance.value).toBe(0)
+    expect(result.cycle.value).toBeNull()
+    expect(result.expiresAtCycleEnd.value).toBe(false)
+  })
+
+  it('reads nothing while signed out, and says there are no credits', async () => {
+    const query = vi.spyOn(client, 'watchQuery')
+    const { result } = await mountWithConvex(client, () => useCredits({ api: billingApi }), { provide: () => provide(ConvexAuthStateKey, authState(ref(false))) })
+    expect(query.mock.calls.some(([ref]) => ref === creditsRef)).toBe(false)
+    expect(result.isLoading.value).toBe(false)
+    expect(result.balance.value).toBe(0)
+  })
+
   it('puts a failed read in error, and stops loading', async () => {
     failQuery(creditsRef, new ConvexError({ code: 'unauthenticated' }))
     const { result } = await mountWithConvex(client, () => useCredits({ api: billingApi }))
@@ -1013,7 +1061,7 @@ describe('useCredits', () => {
   it('topUp checks out a credit pack', async () => {
     const api = { generateCheckoutLink: checkoutRef } as unknown as BillingApi
     const actionSpy = vi.spyOn(client, 'action').mockResolvedValue({ url: 'https://polar.test/pack' })
-    vi.spyOn(window, 'open').mockReturnValue(null)
+    vi.spyOn(window, 'open').mockReturnValue(window)
     const { result } = await mountWithConvex(client, () => useCredits({ api }))
 
     const url = await result.topUp('pack_100')

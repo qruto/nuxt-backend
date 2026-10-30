@@ -8,7 +8,8 @@ import { fileOwnerOf, fileSha256, keepGenerated } from './storage.js'
 /**
  * Metered-stream request plumbing (see `aiTables` in `schema.ts`): `start`
  * inserts a row after reserving credits, the HTTP dispatcher loads it by
- * stream id, and settlement/release mirror the credit reservation's fate.
+ * stream id and claims it, and settlement/release mirror the credit
+ * reservation's fate.
  * Public component functions — reachable only through the parent app, never
  * by browser clients (the `email.send` pattern).
  */
@@ -22,7 +23,7 @@ const vRequest = v.object({
   meterId: v.optional(v.string()),
   cost: v.number(),
   externalId: v.string(),
-  status: v.union(v.literal('reserved'), v.literal('settled'), v.literal('released')),
+  status: v.union(v.literal('reserved'), v.literal('streaming'), v.literal('settled'), v.literal('released')),
   createdAt: v.number(),
 })
 
@@ -48,27 +49,43 @@ export const getByStream = query({
   args: { streamId: v.string() },
   returns: v.union(vRequest, v.null()),
   handler: async (ctx, { streamId }) => {
-    const row = await ctx.db
-      .query('aiRequests')
-      .withIndex('streamId', q => q.eq('streamId', streamId))
-      .unique()
+    const row = await requestOf(ctx, streamId)
     if (!row) return null
     const { _id, _creationTime, ...request } = row
     return request
   },
 })
 
-/** Move a reserved request to its final status; a no-op once it left `reserved`. */
+/** A request by its stream id, or `null`. */
+function requestOf(ctx: QueryCtx, streamId: string) {
+  return ctx.db.query('aiRequests').withIndex('streamId', q => q.eq('streamId', streamId)).unique()
+}
+
+/**
+ * Claim a reserved request for the one dispatch that runs its model: `true`
+ * for the first, `false` for every other (one transaction, so two
+ * dispatches of the same stream id cannot both win and both run the model
+ * on one charge).
+ */
+export const claimRequest = mutation({
+  args: { streamId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { streamId }) => {
+    const row = await requestOf(ctx, streamId)
+    if (row?.status !== 'reserved') return false
+    await ctx.db.patch('aiRequests', row._id, { status: 'streaming' })
+    return true
+  },
+})
+
+/** Move a reserved or streaming request to its final status; a no-op once it has one. */
 function markRequest(status: 'settled' | 'released') {
   return mutation({
     args: { streamId: v.string() },
     returns: v.null(),
     handler: async (ctx, { streamId }) => {
-      const row = await ctx.db
-        .query('aiRequests')
-        .withIndex('streamId', q => q.eq('streamId', streamId))
-        .unique()
-      if (row && row.status === 'reserved') await ctx.db.patch('aiRequests', row._id, { status })
+      const row = await requestOf(ctx, streamId)
+      if (row && (row.status === 'reserved' || row.status === 'streaming')) await ctx.db.patch('aiRequests', row._id, { status })
       return null
     },
   })

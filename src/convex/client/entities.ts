@@ -51,6 +51,46 @@ export function entityListenersOf(createAuth: object): () => readonly EntityCrea
 }
 
 /**
+ * What may hold off the deletion of an entity the auth layer deletes: a
+ * reason it may not go now, or `null`. Billing refuses a workspace that
+ * still holds a paid subscription (`paid_subscription`).
+ */
+export type EntityDeletionGuard = (ctx: AuthMutationCtx, entity: CreatedEntity) => Promise<string | null>
+
+const guards = new WeakMap<object, EntityDeletionGuard[]>()
+
+/**
+ * Hold the deletions the auth instances `createAuth` builds make to a
+ * guard. `registerBackendRoutes` connects billing's here, on the very
+ * `createAuth` it mounts the auth routes with.
+ *
+ * @internal
+ */
+export function onEntityDeleting(createAuth: object, guard: EntityDeletionGuard): void {
+  guards.set(createAuth, [...guards.get(createAuth) ?? [], guard])
+}
+
+/**
+ * The deletion guards of one `createAuth`, read when an entity is deleted.
+ *
+ * @internal
+ */
+export function deletionGuardsOf(createAuth: object): () => readonly EntityDeletionGuard[] {
+  return () => guards.get(createAuth) ?? []
+}
+
+/** The first reason a connected guard gives for keeping `entity`, or `null`. */
+export async function deletionRefusal<DM extends GenericDataModel>(runtime: AuthRuntime<DM> | undefined, entity: CreatedEntity): Promise<string | null> {
+  const ctx = asMutationCtx(runtime?.ctx) as AuthMutationCtx | undefined
+  if (!ctx) return null
+  for (const guard of runtime?.entityDeleting?.() ?? []) {
+    const reason = await guard(ctx, entity)
+    if (reason) return reason
+  }
+  return null
+}
+
+/**
  * Queue billing's free-plan start by its function's name, for an entity
  * made where no listener is connected. Nothing without a scheduler (a
  * context outside a Convex function).

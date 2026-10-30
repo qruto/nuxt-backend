@@ -14,6 +14,7 @@ import { forgetAccess } from './access.js'
 import { forgetReferrals, referralRows } from './referrals.js'
 import { forgetFlagTargets } from './flags.js'
 import { forgetFunnel } from './funnel.js'
+import { isDelivered } from './gifts.js'
 import { BATCH_TRANSACTION_LIMITS } from './maintenance.js'
 import { eraseNotifications, exportNotifications } from './notifications.js'
 import { erasePushSubscriptions, exportPushSubscriptions } from './push.js'
@@ -444,10 +445,11 @@ export const ERASURE_PARTICIPANTS = {
   email: async (ctx, { email }) => {
     if (!email) return false
     const budget = new Budget()
-    // A code email waits minutes at most: the few that do are read whole.
-    await budget.remove(ctx, 'secretOutbox', async () => (await ctx.db.query('secretOutbox').take(ERASURE_BATCH))
+    // A code email for the address alone, by its index; one for several addresses (or from before 0.2) is read among the few without one.
+    await budget.remove(ctx, 'secretOutbox', async () => ctx.db.query('secretOutbox').withIndex('recipient', q => q.eq('recipient', email)).take(budget.left))
+    await budget.remove(ctx, 'secretOutbox', async () => (await ctx.db.query('secretOutbox').withIndex('recipient', q => q.eq('recipient', undefined)).take(ERASURE_BATCH))
       .filter(row => (Array.isArray(row.message.to) ? row.message.to : [row.message.to]).some(to => to.trim().toLowerCase() === email))
-      .slice(0, budget.left))
+      .slice(0, Math.max(budget.left, 0)))
     // Its row goes, so nothing is sent at the quiet hours' end.
     await budget.remove(ctx, 'heldEmails', async () => ctx.db.query('heldEmails').withIndex('email', q => q.eq('email', email)).take(Math.max(budget.left, 0)))
     return budget.spent
@@ -830,6 +832,20 @@ function exported<T extends { _id: unknown, _creationTime: unknown }>(row: T): O
 }
 
 /**
+ * The gifts sent to an address that are its recipient's to see, as
+ * `gifts.listByEmail` reads them (paid or claimed, and delivered): without
+ * the purchaser's account, address and billing (entity, customer, order,
+ * gift product, what they paid), or the claim discount.
+ */
+async function giftsReceived(ctx: QueryCtx, email: string) {
+  const rows: Array<Doc<'billingGifts'>> = []
+  for (const status of ['paid', 'claimed'] as const) {
+    rows.push(...(await ctx.db.query('billingGifts').withIndex('recipientEmail_status', q => q.eq('recipientEmail', email).eq('status', status)).take(MEMBERSHIPS_MAX)).filter(isDelivered))
+  }
+  return rows.map(({ discountId: _discount, purchaserEmail: _email, purchaserUserId: _user, purchaserEntityId: _entity, billingCustomerId: _customer, billingOrderId: _order, giftProductId: _product, amount: _amount, currency: _currency, ...gift }) => exported(gift))
+}
+
+/**
  * What the component keeps of an account, for its export: the account,
  * its sessions, sign-in accounts and passkeys, its workspaces and
  * invitations, the gifts it bought and was sent, the billing
@@ -873,10 +889,10 @@ export const exportData = query({
       ...await referralRows(ctx, userId),
       invitationsSent: (await ctx.db.query('invitation').withIndex('inviterId', q => q.eq('inviterId', userId)).take(MEMBERSHIPS_MAX)).map(exported),
       invitationsReceived: (await ctx.db.query('invitation').withIndex('email', q => q.eq('email', email)).take(MEMBERSHIPS_MAX)).map(exported),
+      // The recipient's own account and workspace ids are theirs, not the purchaser's, as the sent-gift listing keeps them.
       giftsBought: (await ctx.db.query('billingGifts').withIndex('purchaserUserId_createdAt', q => q.eq('purchaserUserId', userId)).take(MEMBERSHIPS_MAX))
-        .map(({ discountId: _discount, ...gift }) => exported(gift)),
-      giftsReceived: (await ctx.db.query('billingGifts').withIndex('recipientEmail', q => q.eq('recipientEmail', email)).take(MEMBERSHIPS_MAX))
-        .map(({ discountId: _discount, purchaserEmail: _purchaserEmail, ...gift }) => exported(gift)),
+        .map(({ discountId: _discount, claimedByUserId: _claimer, claimedEntityId: _claimed, claimingUserId: _claiming, claimingEntityId: _claimingEntity, ...gift }) => exported(gift)),
+      giftsReceived: await giftsReceived(ctx, email),
       billing: (await Promise.all(entities.map(entityId => ctx.db.query('billingEntitlements').withIndex('userId', q => q.eq('userId', entityId)).first())))
         .filter(row => row !== null)
         .map(row => exported(row)),

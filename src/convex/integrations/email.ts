@@ -1221,4 +1221,4 @@ function readProcessEnv(name: string): string | undefined {
 }
 
 export { escapeHtml, forceColorScheme, html, trustedHtml }
-export { describeOrigin, linkBlocks } from '../email-helpers.js'
+export { describeOrigin, linkBlocks, plainName } from '../email-helpers.js'

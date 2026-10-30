@@ -517,6 +517,7 @@ Options for [createProviderPager](#createproviderpager).
 | <a id="immediate"></a> `immediate?` | `boolean` | Load the first page on mount. Default `true`. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="enabled"></a> `enabled?` | () => `boolean` | While this is `false` the pager stays empty and never calls out. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="watchsources"></a> `watchSources?` | () => `unknown` | Extra reactive inputs that should reload from page 1 when they change. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="reader"></a> `reader?` | () => `unknown` | Who reads (the account and its active workspace): when it changes, the history on screen is another billing entity's, so it clears at once, not only once the new reader's first page arrives. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 
 ***
 

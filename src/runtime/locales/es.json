@@ -1881,7 +1881,7 @@
           "kept": "Hasta que la eliminación se cancele o se ejecute."
         },
         "erasures": {
-          "holds": "Una supresión en curso: el id y la dirección de la cuenta, y los espacios de trabajo que elimina.",
+          "holds": "Una supresión en curso: el id y la dirección de la cuenta, y los espacios de trabajo que elimina; y el plan de la parte de la app (el cliente de facturación, el contacto de email) mientras se reintenta uno de sus participantes.",
           "kept": "Hasta que termine la supresión; una fallida, 30 días."
         },
         "monitoringUser": {
@@ -2416,6 +2416,7 @@
       "forbidden_age_required": "Indícanos tu edad para continuar.",
       "forbidden_under_age": "No podemos crearte una cuenta.",
       "forbidden_sole_owner": "Eres el único propietario de un espacio de trabajo al que pertenecen otras personas. Primero haz propietario a otro miembro.",
+      "forbidden_paid_subscription": "Este espacio de trabajo tiene un plan de pago. Cancélalo antes de eliminar el espacio de trabajo.",
       "forbidden_cannot_share": "No puedes compartir esto.",
       "reauthentication_required": "Confirma que eres tú para continuar: esto requiere un inicio de sesión reciente.",
       "no_workspace": "Primero crea o elige un espacio de trabajo.",
@@ -2619,7 +2620,9 @@
       "invite": {
         "subject": "Únete a {workspace}",
         "intro": "{inviter} te invitó a unirte a {workspace} como {role}.",
-        "action": "Aceptar invitación"
+        "action": "Aceptar invitación",
+        "subjectUnnamed": "Te invitaron a un espacio de trabajo",
+        "introUnnamed": "{inviter} te invitó a unirte a su espacio de trabajo como {role}."
       },
       "gift": {
         "subject": "{sender} te envió un regalo 🎁",

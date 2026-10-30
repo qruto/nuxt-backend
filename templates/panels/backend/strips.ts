@@ -100,6 +100,18 @@ export const create = workspace.mutation({
   },
 })
 
+// What attachPhoto checks before the safety classifier reads anything, so
+// a check is never paid for a photo that could not be kept: the strip is
+// the caller's, and the photo a new upload, not a file kept already (a
+// strip's photo, a panel).
+export const checkPhoto = internalQuery({
+  args: { id: v.id('strips'), photoId: v.string(), workspaceId: v.string() },
+  handler: async (ctx, { id, photoId, workspaceId }) => {
+    ownStrip(await ctx.db.get('strips', id), workspaceId)
+    if (await storage.fileUrl(ctx, photoId)) throw backendError('invalid_input', { field: 'file', reason: 'upload_claimed' })
+  },
+})
+
 // A photo is unclaimed until this keeps it: claiming checks the file and the
 // quota, and ties the file to its owner, so an export or an erasure finds it.
 export const keepPhoto = internalMutation({
@@ -112,7 +124,9 @@ export const keepPhoto = internalMutation({
   },
 })
 
-// What the page calls with a new upload. A photo the safety classifier flags
+// What the page calls with a new upload. Another workspace's strip, or a
+// file kept already, is refused before the classifier reads the photo.
+// A photo the safety classifier flags
 // is refused with `invalid_input`, reason `content_blocked`, and never
 // claimed. When the upload itself is refused, by the classifier or the
 // claim (`invalid_input`: its type or size; `quota_exceeded`),
@@ -123,6 +137,7 @@ export const attachPhoto = workspace.action({
   args: { id: v.id('strips'), photoId: v.string() },
   handler: async (ctx, { id, photoId }) => {
     try {
+      await ctx.runQuery(internal.strips.checkPhoto, { id, photoId, workspaceId: ctx.workspace.id })
       await ai.requireSafe(ctx, { images: [photoId] })
       await ctx.runMutation(internal.strips.keepPhoto, {
         id,
@@ -283,14 +298,17 @@ export const generate = workspace.mutation({
 // A job that failed or was canceled leaves its strip queued: this lets the
 // strip go back to a draft, to be drawn again. The package refunded a
 // failed job's credits, and gave back a canceled job's hold. The panels the
-// job drew before it stopped go with it. While the job still runs, or once
-// it is done, there is nothing to retry (`invalid_input`, reason `not_stopped`).
+// job drew before it stopped go with it. A job the queue no longer keeps (it
+// deletes a finished one after 30 days) stopped long ago. While the job
+// still runs, or once it is done, there is nothing to retry
+// (`invalid_input`, reason `not_stopped`).
 export const retry = workspace.mutation({
   args: { id: v.id('strips') },
   handler: async (ctx, { id }) => {
     const strip = ownStrip(await ctx.db.get('strips', id), ctx.workspace.id)
-    const job = strip.status === 'queued' && strip.jobId ? await ctx.runQuery(api.jobs.getJob, { jobId: strip.jobId }) : null
-    if (job?.status !== 'failed' && job?.status !== 'canceled') throw backendError('invalid_input', { field: 'id', reason: 'not_stopped' })
+    if (strip.status !== 'queued' || !strip.jobId) throw backendError('invalid_input', { field: 'id', reason: 'not_stopped' })
+    const job = await ctx.runQuery(api.jobs.getJob, { jobId: strip.jobId })
+    if (job && job.status !== 'failed' && job.status !== 'canceled') throw backendError('invalid_input', { field: 'id', reason: 'not_stopped' })
     for (const panel of strip.panels) await storage.release(ctx, panel.imageId)
     await ctx.db.patch('strips', id, { status: 'draft', panels: [], jobId: undefined })
   },

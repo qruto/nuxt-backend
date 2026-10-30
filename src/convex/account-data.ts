@@ -373,7 +373,7 @@ export const ACCOUNT_DATA_SOURCES = {
   emailPreferences: {
     capability: 'email',
     where: 'component',
-    tables: ['emailContacts', 'emailTopicChoices'],
+    tables: ['emailContacts', 'emailTopicChoices', 'emailContactAliases'],
     holds: 'The address\'s choice for each email topic and how it was made, its time zone, when it last clicked an email or used the app, and when marketing mail went to it in the last 7 days.',
     keyedBy: ['account', 'email'],
     erasure: 'deleted',
@@ -439,8 +439,8 @@ export const ACCOUNT_DATA_SOURCES = {
   erasures: {
     capability: 'auth',
     where: 'component',
-    tables: ['accountErasures'],
-    holds: 'An erasure in progress: the account\'s id and address, and the workspaces it deletes.',
+    tables: ['accountErasures', 'accountErasureFailures'],
+    holds: 'An erasure in progress: the account\'s id and address, and the workspaces it deletes; and the plan of the app\'s part (the billing customer, the email contact) while a participant of it is retried.',
     keyedBy: ['account', 'email'],
     erasure: 'deleted',
     erasureNote: 'Removed once every participant finished; one that kept failing stays for an operator to run again, at most 30 days.',

@@ -176,14 +176,21 @@ export const FILTERED = '[Filtered]'
 /** An address, also percent-encoded once or twice (`a%40b.com`, `a%2540b.com`) in a URL. */
 const EMAIL = /[\w.%+-]+(?:@|%40|%2540)[\w-]+(?:\.[\w-]+)+/g
 const BEARER = /\b(Bearer|Basic)\s+[\w.~+/=-]+/gi
+/** A credential's scheme alone, as a header's value starts. */
+const AUTH_SCHEME = /^(?:Bearer|Basic)$/i
 /**
  * A parameter's name and its `=`, after a separator or a percent-encoded
  * one: a URL carried in another's query (`?redirect=/share?ref=1%26token=…`)
- * is read too.
+ * is read too. Or a field's or a header's name and its `:`, quoted or not:
+ * `{"token":"…"}`, `x-api-key: …`.
  */
-const PARAM = /(?<=^|[^\w.%-]|%[\dA-F]{2})([\w.-]+)(?:=|%3D)/gi
-/** A parameter's value, up to the next separator, raw or percent-encoded (`%26`, `%23`). */
-const PARAM_VALUE = /(?:(?!%2[36])[^&#\s"'])+/y
+const PARAM = /(?<=^|[^\w.%-]|%[\dA-F]{2})([\w.-]+)(?:=|%3D|["']?[ \t]*:[ \t]*)/gi
+/**
+ * A parameter's value: a quoted one to its closing quote (`code="…"`, a
+ * JSON string), else up to the next separator, raw or percent-encoded
+ * (`%26`, `%23`), or the end of a list or an object.
+ */
+const PARAM_VALUE = /(["'])(?:(?!\1)[^\\\n]|\\.)+\1|(?:(?!%2[36])[^&#\s"',;{}[\]])+/y
 
 /** The words that make a name a secret's wherever they stand in it: `invite_token`, `sessionId`, `client_secret`. */
 const SECRET_WORDS = new Set(['token', 'secret', 'secrets', 'password', 'passwords', 'passwd', 'passcode', 'otp', 'signature', 'sig', 'session', 'sessionid', 'auth', 'authorization', 'ticket', 'credential', 'credentials', 'apikey', 'cookie', 'cookies', 'verifier'])
@@ -213,8 +220,12 @@ function scrubParams(text: string): string {
     if (match.index < from || !isSecretName(match[1]!)) continue
     const start = match.index + match[0].length
     PARAM_VALUE.lastIndex = start
-    if (!PARAM_VALUE.exec(text)) continue
-    scrubbed += text.slice(from, start) + FILTERED
+    const value = PARAM_VALUE.exec(text)
+    // `Authorization: Bearer …`: the scheme stays, its credential is filtered already.
+    if (!value || AUTH_SCHEME.test(value[0])) continue
+    // A quoted value keeps its quotes, so a JSON body stays JSON.
+    const quote = value[1] ?? ''
+    scrubbed += text.slice(from, start) + quote + FILTERED + quote
     from = PARAM_VALUE.lastIndex
   }
   return scrubbed + text.slice(from)
@@ -223,9 +234,10 @@ function scrubParams(text: string): string {
 /**
  * A text with the personal data and secrets a report must not carry
  * replaced: email addresses (`[email]`), bearer and basic credentials, and
- * the value of every parameter whose name says it is a secret (`token`,
- * `invite_token`, `accessToken`, `code`, `api_key`, `signature`, …),
- * also in a URL carried percent-encoded in another. The monitoring preset
+ * the value of every parameter, field or header whose name says it is a
+ * secret (`token`, `invite_token`, `accessToken`, `code`, `api_key`,
+ * `signature`, …), written `name=value`, `name="value"`, `"name":"value"`
+ * or `name: value`, also in a URL carried percent-encoded in another. The monitoring preset
  * runs it on every message, URL and breadcrumb it sends, from every side.
  */
 export function scrubText(text: string): string {

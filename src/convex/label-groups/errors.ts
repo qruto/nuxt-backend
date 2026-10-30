@@ -29,6 +29,7 @@ const ERROR_LABELS = {
   forbidden_age_required: 'Tell us how old you are to continue.',
   forbidden_under_age: 'We can\'t create an account for you.',
   forbidden_sole_owner: 'You\'re the only owner of a workspace others belong to. Make another member an owner first.',
+  forbidden_paid_subscription: 'This workspace has a paid plan. Cancel it before you delete the workspace.',
   forbidden_cannot_share: 'You can\'t share this.',
   reauthentication_required: 'Confirm it\'s you to continue: this needs a recent sign-in.',
   no_workspace: 'Create or choose a workspace first.',

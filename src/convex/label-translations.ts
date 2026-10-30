@@ -141,6 +141,8 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         subject: 'Присоединяйтесь к {workspace}',
         intro: '{inviter} приглашает вас в пространство {workspace} с ролью «{role}».',
         action: 'Принять приглашение',
+        subjectUnnamed: 'Вас пригласили в рабочее пространство',
+        introUnnamed: '{inviter} приглашает вас в своё рабочее пространство с ролью «{role}».',
       },
       gift: {
         subject: '{sender} дарит вам подарок 🎁',
@@ -583,6 +585,8 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         subject: 'Treten Sie {workspace} bei',
         intro: '{inviter} hat Sie eingeladen, {workspace} als {role} beizutreten.',
         action: 'Einladung annehmen',
+        subjectUnnamed: 'Sie wurden in einen Workspace eingeladen',
+        introUnnamed: '{inviter} hat Sie eingeladen, dem Workspace als {role} beizutreten.',
       },
       gift: {
         subject: '{sender} hat Ihnen ein Geschenk geschickt 🎁',
@@ -1025,6 +1029,8 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         subject: 'Únete a {workspace}',
         intro: '{inviter} te invitó a unirte a {workspace} como {role}.',
         action: 'Aceptar invitación',
+        subjectUnnamed: 'Te invitaron a un espacio de trabajo',
+        introUnnamed: '{inviter} te invitó a unirte a su espacio de trabajo como {role}.',
       },
       gift: {
         subject: '{sender} te envió un regalo 🎁',
@@ -1467,6 +1473,8 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         subject: 'Rejoignez {workspace}',
         intro: '{inviter} vous invite à rejoindre {workspace} en tant que {role}.',
         action: 'Accepter l’invitation',
+        subjectUnnamed: 'Vous êtes invité à rejoindre un espace de travail',
+        introUnnamed: '{inviter} vous invite à rejoindre son espace de travail en tant que {role}.',
       },
       gift: {
         subject: '{sender} vous a envoyé un cadeau 🎁',

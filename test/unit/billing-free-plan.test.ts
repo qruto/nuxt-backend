@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getFunctionName, type FunctionReference } from 'convex/server'
 import { syncBillingCatalog } from '../../src/cli/billing/sync'
-import { entityListenersOf, type EntityCreatedListener } from '../../src/convex/client/entities'
+import { deletionGuardsOf, entityListenersOf, type EntityCreatedListener } from '../../src/convex/client/entities'
 import { registerBackendRoutes } from '../../src/convex/integrations/http'
 import { createPolarFake, type PolarFake } from '../fixtures/polar-fake/server'
 import { freePlanOf, isFreePlan, type BillingCatalog } from '../../src/convex/catalog'
@@ -335,12 +335,29 @@ describe('the billing entities the auth routes make', () => {
     warn.mockRestore()
   })
 
+  it('keeps a workspace that still holds a paid subscription, with a refusal the app can show', async () => {
+    const guard = vi.fn(async () => 'paid_subscription' as string | null)
+    const flow = await authFlow({ runtime: { entityDeleting: () => [guard] } })
+    const grace = await flow.signedIn('grace@example.com')
+    const { id } = await (await flow.post('/organization/create', { name: 'Acme', slug: 'acme' }, { cookie: grace.cookie })).json() as { id: string }
+    const refused = await flow.post('/organization/delete', { organizationId: id }, { cookie: grace.cookie })
+    expect(refused.status).toBe(403)
+    expect(await refused.json()).toMatchObject({ code: 'forbidden', reason: 'paid_subscription' })
+    expect(guard).toHaveBeenCalledWith(flow.runtime.ctx, { kind: 'workspace', id })
+    expect(flow.db.organization!.some(row => row.id === id)).toBe(true)
+    // Once the plan is cancelled, it goes.
+    guard.mockResolvedValue(null)
+    expect((await flow.post('/organization/delete', { organizationId: id }, { cookie: grace.cookie })).status).toBe(200)
+    expect(flow.db.organization!.some(row => row.id === id)).toBe(false)
+  })
+
   it('is connected to billing by registerBackendRoutes, on the createAuth it mounts', async () => {
     const createAuth = () => {}
     const entityCreated = vi.fn(async () => {})
+    const deletionRefusal = vi.fn(async () => 'paid_subscription')
     registerBackendRoutes({ route: vi.fn() } as never, {
       auth: { authComponent: { registerRoutes: vi.fn() }, createAuth },
-      billing: { webhookHandler: vi.fn(), entityCreated },
+      billing: { webhookHandler: vi.fn(), entityCreated, deletionRefusal },
       email: { webhookHandler: vi.fn() },
       ai: { httpHandler: vi.fn(), corsOrigin: 'https://app.test' },
     })
@@ -348,7 +365,11 @@ describe('the billing entities the auth routes make', () => {
     const ctx = { runMutation: vi.fn(), runQuery: vi.fn(), scheduler: { runAfter: vi.fn() } }
     await listener!(ctx as never, { kind: 'workspace', id: 'org_1' })
     expect(entityCreated).toHaveBeenCalledWith(ctx, { kind: 'workspace', id: 'org_1' })
+    const [guard] = deletionGuardsOf(createAuth)()
+    expect(await guard!(ctx as never, { kind: 'workspace', id: 'org_1' })).toBe('paid_subscription')
+    expect(deletionRefusal).toHaveBeenCalledWith(ctx, { kind: 'workspace', id: 'org_1' })
     // Another router's createAuth hears nothing of it.
     expect(entityListenersOf(() => {})()).toEqual([])
+    expect(deletionGuardsOf(() => {})()).toEqual([])
   })
 })

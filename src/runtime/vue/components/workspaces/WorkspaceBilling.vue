@@ -76,8 +76,7 @@ const portalLast = computed(() => !portalFirst.value && !gifted.value)
 const cancelling = computed(() => {
   if (props.billing.saveOffers?.value !== true) return { is: CancelConfirmGroup, props: { confirm: section.confirm } }
   if (!section.confirm.isOpen.value) return { is: () => null, props: {} }
-  const done = () => section.confirm.settle()
-  return { is: resolveComponent('CancelFlow'), props: { id: view.partId('cancel', 'confirm'), onClose: () => section.confirm.close(), onCanceled: done, onKept: done } }
+  return { is: resolveComponent('CancelFlow'), props: { id: view.partId('cancel', 'confirm'), onClose: () => section.confirm.close(), onCanceled: section.flowCanceled, onKept: section.flowKept } }
 })
 /** A scheduled plan change can be cancelled, unless the plan is set to end. */
 const changeCancellable = computed(() => props.billing.pendingChange.value !== null && !props.billing.cancelAtPeriodEnd.value)

@@ -9,6 +9,7 @@ import type { ComponentApi } from '../../src/convex/components/backend/_generate
 import schema from '../../src/convex/components/backend/schema'
 import { api, components, internal } from '../../src/convex/components/backend/_generated/api'
 import { MAINTENANCE_BATCH, MAINTENANCE_TASKS } from '../../src/convex/components/backend/maintenance'
+import { LIFECYCLE_RUN_RETENTION_MS } from '../../src/convex/components/backend/lifecycle'
 import { NOTIFICATION_READ_RETENTION_MS, NOTIFICATION_UNREAD_RETENTION_MS } from '../../src/convex/notifications'
 
 // The backend component's own housekeeping, run the way its cron runs it:
@@ -243,6 +244,19 @@ describe('maintenance', () => {
     })
     await runPass()
     expect(await rows('session')).toEqual([])
+  })
+
+  test('a lifecycle batch filled across states asks for the next one, so no state waits for a later pass', async () => {
+    const old = Date.now() - LIFECYCLE_RUN_RETENTION_MS - DAY
+    await t.run(async (ctx) => {
+      const run = (state: 'sent' | 'skipped', index: number) => ctx.db.insert('lifecycleRuns', { userId: `u${index}`, email: `u${index}@example.com`, flow: 'winBack', step: 0, dueAt: old, state, once: false })
+      for (let index = 0; index < MAINTENANCE_BATCH - 50; index++) await run('sent', index)
+      for (let index = 0; index < 100; index++) await run('skipped', index)
+    })
+    const first = await t.mutation(internal.maintenance.batch, { task: 'lifecycleRuns', startedAt: Date.now() })
+    expect(first).toEqual({ pruned: MAINTENANCE_BATCH, done: false })
+    const second = await t.mutation(internal.maintenance.batch, { task: 'lifecycleRuns', startedAt: Date.now() })
+    expect(second).toEqual({ pruned: 50, done: true })
   })
 
   test('a batch of large rows stops short of the transaction budget and the rest follows in later batches', async () => {

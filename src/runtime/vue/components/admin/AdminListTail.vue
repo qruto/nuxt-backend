@@ -15,7 +15,7 @@ defineOptions({ name: 'AdminListTail' })
 const props = defineProps<{
   view: AdminListView<unknown, { error?: unknown, footer?: unknown }>
   admin: UseAdminReturn
-  /** The row open in the drawer, if any: its failures show there. */
+  /** Whether a drawer is open: its failures show there. */
   open: boolean
 }>()
 const { t, errorMessage } = props.view.labels

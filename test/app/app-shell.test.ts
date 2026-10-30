@@ -173,7 +173,7 @@ describe('the workspace switcher', () => {
     await shell.find('[data-shell="create-input"]').setValue('  Studio 9 ')
     await shell.find('[data-shell="create"]').trigger('submit')
     await flushPromises()
-    expect(backend.callsTo('organization.create')).toEqual([{ name: 'Studio 9', slug: 'studio-9' }])
+    expect(backend.callsTo('organization.create')).toEqual([{ name: 'Studio 9', slug: expect.stringMatching(/^studio-9-[0-9a-f]{8}$/) }])
     expect(shell.find('[data-shell="switcher"] [data-shell="status"]').text()).toBe('Workspace “Studio 9” created.')
     shell.unmount()
   })

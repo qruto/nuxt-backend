@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, ref, shallowRef, useId } from 'vue'
 import { useLabels, type BackendLabels, type LabelOverrides } from '../../composables/use-labels'
 import { useReferrals } from '../../composables/use-referrals'
 import { useAuthSession } from '../../utils/auth-session'
@@ -43,7 +43,12 @@ const { t, errorMessage } = useLabels('referral', () => props.labels)
 const id = useId()
 
 const text = computed(() => props.shareText ?? referrals.shareText.value)
-const state = computed(() => (referrals.error.value ? 'error' : referrals.isLoading.value || !referrals.link.value ? 'loading' : 'ready'))
+// A refused share-pages choice says so beside its box; `error` holds it too,
+// but it is no reason to take the link away.
+const sharingError = ref<string | null>(null)
+const sharingFailure = shallowRef<unknown>(null)
+const readFailed = computed(() => referrals.error.value !== null && referrals.error.value !== sharingFailure.value)
+const state = computed(() => (readFailed.value ? 'error' : referrals.isLoading.value || !referrals.link.value ? 'loading' : 'ready'))
 const yourReward = computed(() => {
   const referrer = referrals.program.value?.referrer
   if (!referrer) return null
@@ -60,12 +65,17 @@ async function share() {
   if (await referrals.share() && referrals.link.value) emit('shared', referrals.link.value)
 }
 async function toggleSharing(event: Event) {
-  const checked = (event.target as HTMLInputElement).checked
+  const box = event.target as HTMLInputElement
+  sharingError.value = null
   try {
-    await referrals.setSharePages(checked)
+    await referrals.setSharePages(box.checked)
   }
   catch (failure) {
-    emit('error', errorMessage(failure) || t('failed'))
+    sharingFailure.value = referrals.error.value
+    // The choice stays as it was stored: the box shows it again.
+    box.checked = referrals.sharePages.value
+    sharingError.value = errorMessage(failure) || t('failed')
+    emit('error', sharingError.value)
   }
 }
 </script>
@@ -180,6 +190,13 @@ async function toggleSharing(event: Event) {
         data-referral="sharing-note"
       >
         {{ t('sharePagesNote') }}
+      </p>
+      <p
+        v-if="sharingError"
+        data-referral="sharing-error"
+        role="alert"
+      >
+        {{ sharingError }}
       </p>
     </template>
   </section>

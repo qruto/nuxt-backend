@@ -109,7 +109,7 @@ const busyList = computed(() => admin.isLoading.value || pages.turning.value !==
     <AdminListTail
       :view="view as never"
       :admin="admin"
-      :open="Boolean(selected)"
+      :open="Boolean(selected && drawn)"
     />
     <AdminWorkspaceDrawer
       v-if="selected && drawn"
