@@ -7,7 +7,8 @@ import { useNuxtApp } from '#imports'
 // only when the app lists it), stopped without sending what it held when
 // the visitor withdraws; and the feedback widget when the app config turns
 // it on, in the words of the `feedback` labels, asking for no name, address
-// or screenshot.
+// or screenshot. Both integrations load on demand, so each check waits for
+// the import to land.
 
 const sdk = vi.hoisted(() => {
   const replay = {
@@ -28,7 +29,7 @@ const sdk = vi.hoisted(() => {
 })
 
 vi.mock('@sentry/nuxt', () => ({
-  getReplay: () => (sdk.installed ? sdk.replay : undefined),
+  getClient: () => ({ getIntegrationByName: (name: string) => (name === 'Replay' && sdk.installed ? sdk.replay : undefined) }),
   replayIntegration: (options: Record<string, unknown>) => ({ name: 'Replay', options }),
   feedbackIntegration: (options: Record<string, unknown>) => ({ name: 'Feedback', options }),
   addIntegration: (integration: { name: string, options: Record<string, unknown> }) => {
@@ -76,8 +77,7 @@ describe('session replay', () => {
     const app = await install()
     expect(sdk.added).toEqual([])
     app.payload.state[`$s${STORAGE_CHOICE_STATE}`] = 'preferences,replay'
-    await nextTick()
-    expect(sdk.added).toEqual([{ name: 'Replay', options: { maskAllText: true, maskAllInputs: true, blockAllMedia: true } }])
+    await vi.waitFor(() => expect(sdk.added).toEqual([{ name: 'Replay', options: { maskAllText: true, maskAllInputs: true, blockAllMedia: true } }]))
     app.payload.state[`$s${STORAGE_CHOICE_STATE}`] = 'preferences'
     await nextTick()
     expect(sdk.replay.stop).toHaveBeenCalledWith({ flush: false })
@@ -94,9 +94,24 @@ describe('session replay', () => {
     expect(sdk.added).toEqual([])
   })
 
-  it('does nothing to stop when it never ran', () => {
-    applyReplay(false)
+  it('does nothing to stop when it never ran', async () => {
+    await applyReplay(false)
     expect(sdk.replay.stop).not.toHaveBeenCalled()
+  })
+
+  it('adds nothing when the visitor withdraws while it loads', async () => {
+    let arrive: (load: (options: Record<string, unknown>) => { name: string, options: Record<string, unknown> }) => void = () => {}
+    const added: unknown[] = []
+    const controls = {
+      getReplay: () => undefined,
+      addIntegration: (integration: unknown) => added.push(integration),
+      loadReplay: () => new Promise(resolve => arrive = resolve),
+    }
+    const allowing = applyReplay(true, controls as never)
+    await applyReplay(false, controls as never)
+    arrive(options => ({ name: 'Replay', options }))
+    await allowing
+    expect(added).toEqual([])
   })
 })
 
@@ -104,6 +119,7 @@ describe('the feedback widget', () => {
   it('is added when the app config turns it on, asking for no name, address or screenshot, in the labels\' words', async () => {
     config.value = { monitoring: { feedback: true }, labels: { feedback: { trigger: 'Something broke?' } } }
     await install()
+    await vi.waitFor(() => expect(sdk.added).toHaveLength(1))
     expect(sdk.added).toEqual([{
       name: 'Feedback',
       options: expect.objectContaining({

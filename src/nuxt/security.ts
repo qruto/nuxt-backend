@@ -1,3 +1,4 @@
+import type { Nuxt } from '@nuxt/schema'
 import { TRUSTED_TYPES_POLICIES } from '../runtime/vue/trusted-types'
 
 /**
@@ -35,4 +36,14 @@ export function securityDefaults(dev: boolean): Record<string, unknown> {
           },
     },
   }
+}
+
+/**
+ * Whether the app set `security: false` (nuxt-security's own switch): the
+ * package then installs no nuxt-security and adds no Trusted Types plugin.
+ * Nuxt 4.6 types the resolved option as the module's options object, but the
+ * value is still whatever nuxt.config wrote.
+ */
+export function securityDisabled(nuxt: Pick<Nuxt, 'options'>): boolean {
+  return (nuxt.options.security as unknown) === false
 }

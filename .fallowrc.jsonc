@@ -153,7 +153,17 @@
     "@vercel/analytics",
     "@vercel/speed-insights",
     "@vercel/firewall",
-    "docus"
+    "docus",
+    // The website's own declaration (the package's is imported throughout
+    // src/). website/modules/deferred-backend-client stands in for its client
+    // plugin and reaches the real one through an alias set, at build, to the
+    // installed file's path — never by name. Without `nuxt prepare website`
+    // (CI's static job) nothing in website/ imports it by name.
+    "nuxt-convex-module",
+    // Never imported: listed so npm hoists better-auth's own core line,
+    // which the passkey plugin's caret peer range would otherwise lift to the
+    // next minor (test/unit/peer-ranges.test.ts).
+    "@better-auth/core"
   ],
 
   "ignoreExportsUsedInFile": true,

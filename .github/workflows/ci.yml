@@ -545,11 +545,22 @@ jobs:
             SMOKE="$RUNNER_TEMP/smoke-$(basename "$app")"
             cp -R "$app" "$SMOKE"
             rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output"
-            # Codegen goes unless the app commits it.
-            git ls-files --error-unmatch "$app/backend/_generated/api.d.ts" >/dev/null 2>&1 || rm -rf "$SMOKE/backend/_generated"
+            # Codegen goes unless the app commits it. An app whose pages
+            # import `#backend/api` gets it again from the installed package
+            # before the build, as a user's build always has it (`convex dev`
+            # writes it, `convex deploy` before its `--cmd`); the others prove
+            # they build without it.
+            codegen=true
+            if ! git ls-files --error-unmatch "$app/backend/_generated/api.d.ts" >/dev/null 2>&1; then
+              rm -rf "$SMOKE/backend/_generated"
+              if grep -rq '#backend/api' "$app/app"; then
+                codegen="$GITHUB_WORKSPACE/scripts/ci-convex-codegen.sh"
+              fi
+            fi
             echo "::group::$app"
             (cd "$SMOKE" \
               && npx --yes npm@11.17.0 install --no-audit --no-fund "$TARBALL" \
+              && "$codegen" \
               && npx --yes npm@11.17.0 run build \
               && serve)
             echo "::endgroup::"
@@ -579,6 +590,7 @@ jobs:
           echo "::group::templates/starter at the declared floors"
           (cd "$SMOKE" \
             && npx --yes npm@11.17.0 install --no-audit --no-fund "$TARBALL" \
+            && "$GITHUB_WORKSPACE/scripts/ci-convex-codegen.sh" \
             && npx --yes npm@11.17.0 run build \
             && serve)
           echo "::endgroup::"
@@ -757,6 +769,10 @@ jobs:
           printf '%s\n' 'publicHoistPattern:' "  - '@convex-dev/*'" 'allowBuilds:' '  esbuild: false' 'minimumReleaseAge: 0' > pnpm-workspace.yaml
           pnpm add nuxt convex "$TARBALL"
           pnpm exec nuxt-backend init
+          # init adds the MCP server's SDK to devDependencies and says to
+          # install; in CI pnpm's lockfile is frozen by default, and its check
+          # before `pnpm exec` would refuse the changed manifest.
+          pnpm install --no-frozen-lockfile
           pnpm exec nuxt build
           "$GITHUB_WORKSPACE/scripts/ci-convex-codegen.sh"
 

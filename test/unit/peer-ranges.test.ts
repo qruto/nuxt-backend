@@ -54,6 +54,15 @@ describe('peer ranges', () => {
     expect(subset(pkg.dependencies!['@better-auth/passkey']!, pkg.dependencies!['better-auth']!)).toBe(true)
   })
 
+  it('holds Better Auth\'s core to the same line, so npm hoists the one better-auth uses', () => {
+    // The passkey plugin asks for `@better-auth/core` as a peer with a caret
+    // range, which npm otherwise fills with the newest minor at the top and
+    // then nests better-auth's own tree under this package: two copies of
+    // its utilities, which Nitro's bundle refuses.
+    expect(subset(pkg.dependencies!['@better-auth/core']!, pkg.dependencies!['better-auth']!)).toBe(true)
+    expect(installed('better-auth').dependencies!['@better-auth/core']).toBe(installed('@better-auth/core').version)
+  })
+
   it('lists the Convex component packages', () => {
     expect(convexDevPackages.length).toBeGreaterThanOrEqual(8)
   })

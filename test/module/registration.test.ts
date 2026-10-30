@@ -1001,6 +1001,19 @@ describe('devtools: false', () => {
   })
 })
 
+// nuxt-security's own switch, honoured by the package that installs it: no
+// headers module, and no Trusted Types policies for a CSP that is not sent.
+describe('security: false', () => {
+  const getNuxt = useBoot({ security: false })
+
+  it('installs no nuxt-security and adds no trusted-types plugin', () => {
+    const nuxt = getNuxt()
+    expect(installedModuleNames(nuxt)).not.toContain('nuxt-security')
+    expect(installedModuleNames(nuxt)).toContain('nuxt-convex-module')
+    expect(ourPlugins(nuxt).filter(src => src.includes('trusted-types'))).toEqual([])
+  })
+})
+
 // Dev boots: the module's dev-only work (scaffold, preflight, env
 // auto-provision) keys off `nuxt.options._prepare` (`nuxi prepare`) and
 // `nuxt.options.test` (set by @nuxt/test-utils, and resolved from the
@@ -1021,6 +1034,30 @@ describe('dev boot under nuxi prepare (_prepare: true, test: false)', () => {
     expect(plugin!.mode).toBe('client')
     expect(plugin!.src).toMatch(/[\\/]devtools[\\/]plugin\.client(\.ts)?$/)
     expect(existsWithExtension(plugin!.src), plugin!.src).toBe(true)
+  })
+
+  // What the module hands the panel's RPC once DevTools starts: `getInfo`
+  // rebuilds the payload from this boot on every call.
+  it('answers the panel\'s getInfo with this app\'s functions dir and pages', async () => {
+    const nuxt = getNuxt()
+    let functions: { getInfo?: () => { functionsDir: string, pages: Array<{ path: string }>, doctorRanAt: number | null } } = {}
+    // The base module serves an RPC of its own: only this package's namespace counts.
+    const devtools = {
+      extendServerRpc: (namespace: string, served: typeof functions) => {
+        if (namespace === 'nuxt-backend') functions = served
+        return null
+      },
+    }
+    Object.assign(nuxt, { devtools })
+    // The payload DevTools itself calls the hook with, at `modules:done`.
+    const initialized = { version: '0.0.0', packagePath: '', isGlobalInstall: false }
+    // A DevTools hook, which Nuxt's own hook types do not list.
+    const callHook = nuxt.callHook.bind(nuxt) as unknown as (name: string, ...args: unknown[]) => Promise<void>
+    await callHook('devtools:initialized', initialized)
+    const info = functions.getInfo?.()
+    expect(info?.functionsDir).toBe('backend')
+    expect(info?.pages.map(page => page.path)).toContain('/login')
+    expect(info?.doctorRanAt).toBeNull()
   })
   // A type check cannot see a component name in a template, so in development
   // the hidden names render their replacement and warn (test/unit/brand-names.test.ts).

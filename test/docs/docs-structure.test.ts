@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 import {
   DOCS_ALIASES,
-  DOCS_FRAGMENT_MOVES,
   DOCS_REDIRECTS,
   DOCS_SHORT_LINKS,
   DOCS_TABS,
   docsRedirectRules,
+  docsTwinRedirects,
 } from '../../website/shared/docs-routes'
+import { DOCS_FRAGMENT_MOVES } from '../../website/shared/docs-fragment-moves'
 import { contentRoute, read, walk } from './helpers'
 import snapshot from './routes-0.1.json'
 
@@ -91,13 +92,18 @@ describe('the route table', () => {
     expect(entries.filter(([, to]) => !resolves(to)).map(([from, to]) => `${from} → ${to}`)).toEqual([])
   })
 
-  it('redirects both Markdown twins of every route it redirects', () => {
+  it('redirects both Markdown twins of every route it redirects, on the server alone', () => {
     const rules = docsRedirectRules()
+    const twins = docsTwinRedirects()
     for (const from of redirectSources) {
       expect(rules[from], from).toBeDefined()
-      expect(rules[`${from}.md`], `${from}.md`).toBeDefined()
-      expect(rules[`/raw${from}.md`], `/raw${from}.md`).toBeDefined()
+      expect(twins[`${from}.md`], `${from}.md`).toBeDefined()
+      expect(twins[`/raw${from}.md`], `/raw${from}.md`).toBeDefined()
     }
+    // The browser gets every route rule: no twin is one.
+    expect(Object.keys(rules).filter(route => route.endsWith('.md'))).toEqual([])
+    // One hop: no twin redirects to another twin that redirects again.
+    expect(Object.values(twins).filter(({ to }) => twins[to]).map(({ to }) => to)).toEqual([])
   })
 
   it('keeps temporary redirects temporary, and the pending list only shrinks', () => {

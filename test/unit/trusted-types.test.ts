@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { securityDefaults } from '../../src/nuxt/security'
+import type { Nuxt } from '@nuxt/schema'
+import { securityDefaults, securityDisabled } from '../../src/nuxt/security'
 import { inertHtml, jsonScript, sameOriginScriptUrl, TRUSTED_TYPES_POLICIES } from '../../src/runtime/vue/trusted-types'
 
 // The content security policy the package asks nuxt-security for, and the
@@ -23,6 +24,14 @@ describe('the security defaults', () => {
   it('names the push worker and the web app manifest as the app\'s own, whatever the policy\'s fallback', () => {
     for (const dev of [true, false]) {
       expect((securityDefaults(dev).headers as { contentSecurityPolicy: Record<string, unknown> }).contentSecurityPolicy).toMatchObject({ 'worker-src': ['\'self\''], 'manifest-src': ['\'self\''] })
+    }
+  })
+
+  it('is off only for `security: false`, nuxt-security\'s own switch, never for its options object', () => {
+    const app = (security: unknown) => ({ options: { security } }) as unknown as Pick<Nuxt, 'options'>
+    expect(securityDisabled(app(false))).toBe(true)
+    for (const security of [undefined, {}, { nonce: false }, true]) {
+      expect(securityDisabled(app(security))).toBe(false)
     }
   })
 })

@@ -1,8 +1,12 @@
 import { detectAgent } from 'std-env'
+import { addPlugin, type Resolver } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import { AGENT_HINT } from '../agents'
 import { deriveDeploymentUrls, resolveSiteUrl } from '../deployment'
-import { provisionedEnvNames } from '../env-push'
+import { resolveFunctionsDir } from '../aliases'
+import { buildDevtoolsInfo, readPackageVersions } from '../devtools/info'
+import type { DevtoolsPageInfo } from '../devtools/rpc-types'
+import { provisionedEnvNames, readEnvFiles } from '../env-push'
 import { collectPreflightFindings, formatPreflightSummary, needsSetup, type PreflightFinding } from '../preflight'
 import { appComponentIsStarter } from '../scaffold'
 import type { ModuleOptions } from '../module'
@@ -85,5 +89,43 @@ function reportPreflight(findings: PreflightFinding[]): void {
   // applies here while setup still needs attention.
   if (needsSetup(findings) && detectAgent().name) {
     logger.info(AGENT_HINT)
+  }
+}
+
+/**
+ * The Backend tab in Nuxt DevTools: its RPC and the bridge plugin. Only where
+ * a panel can be opened: in dev, with the DevTools UI on and `devtools` not
+ * off, and never under a test runner, where nothing ever opens one.
+ */
+export async function registerDevtoolsPanel(options: ModuleOptions, resolver: Resolver, nuxt: Nuxt, pagesInfo: { list: DevtoolsPageInfo[] }): Promise<void> {
+  if (nuxt.options.dev && !nuxt.options.test && options.devtools !== false && isDevtoolsUiEnabled(nuxt)) {
+    // Lazy import keeps the DevTools wiring out of production module evaluation.
+    const { setupDevtools } = await import('../devtools/index')
+    const functionsDir = resolveFunctionsDir(nuxt.options.rootDir)
+    const siteUrlConfigured = isSiteUrlConfigured(options, nuxt)
+    const versions = readPackageVersions(nuxt.options.rootDir)
+    const rootDir = nuxt.options.rootDir
+    setupDevtools(resolver, nuxt, {
+      rootDir,
+      functionsDir,
+      // Rebuilt per RPC call so preflight findings (and the shadowed-page
+      // list `extendPages` fills during build) stay live in the panel. The
+      // env is what the dev server sees: its env files under its process env.
+      getInfo: (deploymentEnv, doctor) => buildDevtoolsInfo({
+        rootDir,
+        env: { ...readEnvFiles(rootDir), ...process.env },
+        siteUrlConfigured,
+        options,
+        pages: pagesInfo.list,
+        versions,
+        functionsDir,
+        deploymentEnv,
+        provisionedNames: provisionedEnvNames(rootDir),
+        doctor,
+      }),
+    })
+    // Appended so it runs after the plugins that provide the Convex client
+    // and the auth session.
+    addPlugin({ src: resolver.resolve('./runtime/devtools/plugin.client'), mode: 'client' }, { append: true })
   }
 }

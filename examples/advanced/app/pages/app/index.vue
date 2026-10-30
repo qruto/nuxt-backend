@@ -53,8 +53,9 @@ async function logout() {
     </p>
 
     <Gate workspace>
+      <!-- The content gets the active workspace; its type is optional, as other checks pass none. -->
       <template #default="{ workspace }">
-        <section>
+        <section v-if="workspace">
           <h2>Workspace</h2>
           <div class="row">
             <select

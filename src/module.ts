@@ -4,11 +4,9 @@ import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
 import { dependencyRange, moduleDir, packageVersion, runsFromSource } from './dirs'
 import { backendAppConfigDefaults, type BackendAppConfigInput } from './runtime/config'
 import { deriveDeploymentUrls, resolveSiteUrl } from './deployment'
-import { provisionedEnvNames, readEnvFiles } from './env-push'
-import { registerBackendAliases, resolveFunctionsDir } from './aliases'
+import { registerBackendAliases } from './aliases'
 import { resolvePagePath, type BackendPageKey, type ModulePagesOptions } from './pages'
-import { buildDevtoolsInfo, readPackageVersions } from './devtools/info'
-import { isDevtoolsUiEnabled, isSiteUrlConfigured, runPreflight } from './nuxt/dev'
+import { registerDevtoolsPanel, runPreflight } from './nuxt/dev'
 import { registerI18nMessages } from './nuxt/i18n'
 import { registerLabels } from './nuxt/labels'
 import { registerJobs } from './nuxt/jobs'
@@ -24,7 +22,7 @@ import { hideBaseBrandNames, registerBackendApi, registerBaseComponentAliases, r
 import { imageDependency } from './nuxt/image'
 import { registerStyles } from './nuxt/styles'
 import { registerProtection } from './nuxt/protection'
-import { securityDefaults } from './nuxt/security'
+import { securityDefaults, securityDisabled } from './nuxt/security'
 
 // The module definition; the helpers setup calls live in nuxt/, one file
 // per concern.
@@ -307,49 +305,10 @@ export default defineNuxtModule<ModuleOptions>({
 
     runPreflight(options, nuxt)
 
-    // Only where a panel can be opened: in dev, with the DevTools UI on, and
-    // never under a test runner, where nothing ever opens one.
-    if (nuxt.options.dev && !nuxt.options.test && options.devtools !== false && isDevtoolsUiEnabled(nuxt)) {
-      // Lazy import keeps the DevTools wiring out of production module evaluation.
-      const { setupDevtools } = await import('./devtools/index')
-      const functionsDir = resolveFunctionsDir(nuxt.options.rootDir)
-      const siteUrlConfigured = isSiteUrlConfigured(options, nuxt)
-      const versions = readPackageVersions(nuxt.options.rootDir)
-      const rootDir = nuxt.options.rootDir
-      setupDevtools(resolver, nuxt, {
-        rootDir,
-        functionsDir,
-        // Rebuilt per RPC call so preflight findings (and the shadowed-page
-        // list `extendPages` fills during build) stay live in the panel. The
-        // env is what the dev server sees: its env files under its process env.
-        getInfo: (deploymentEnv, doctor) => buildDevtoolsInfo({
-          rootDir,
-          env: { ...readEnvFiles(rootDir), ...process.env },
-          siteUrlConfigured,
-          options,
-          pages: pagesInfo.list,
-          versions,
-          functionsDir,
-          deploymentEnv,
-          provisionedNames: provisionedEnvNames(rootDir),
-          doctor,
-        }),
-      })
-      // Appended so it runs after the plugins that provide the Convex client
-      // and the auth session.
-      addPlugin({ src: resolver.resolve('./runtime/devtools/plugin.client'), mode: 'client' }, { append: true })
-    }
+    // The Backend tab in Nuxt DevTools, where a panel can be opened (nuxt/dev.ts).
+    await registerDevtoolsPanel(options, resolver, nuxt, pagesInfo)
   },
 })
-
-/**
- * Whether the app set `security: false` (nuxt-security's own switch). Nuxt 4.6
- * types the resolved option as the module's options object, but the value is
- * still whatever nuxt.config wrote.
- */
-function securityDisabled(nuxt: Nuxt): boolean {
-  return (nuxt.options.security as unknown) === false
-}
 
 // Typed `appConfig.backend` (content layer) and
 // `runtimeConfig.public.backend.pages` (where each page mounts: every page

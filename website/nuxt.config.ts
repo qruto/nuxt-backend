@@ -183,8 +183,9 @@ export default defineNuxtConfig({
     },
   },
   routeRules: {
-    // Every route the docs ever published, its Markdown twins, the aliases
-    // and the short links the CLI prints (shared/docs-routes.ts).
+    // Every route the docs ever published, the aliases and the short links
+    // the CLI prints (shared/docs-routes.ts). Their Markdown twins redirect
+    // in server/middleware/docs-twin-redirects.ts, off the browser's rules.
     ...docsRedirectRules(),
     // The site-wide default OG template — the machined plate. A route rule
     // decides the card's component even under an explicit `defineOgImage()`
