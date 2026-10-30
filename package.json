@@ -200,7 +200,7 @@
     "try:starter": "node scripts/try/starter.mjs",
     "dev:prepare:lib": "nuxt-module-build build --stub && nuxt-module-build prepare && node scripts/normalize-module-ext.mjs && pnpm run build:convex-component && nuxt prepare devtools-client-app",
     "dev:prepare": "pnpm run dev:prepare:lib && nuxt prepare website",
-    "lint": "eslint .",
+    "lint": "eslint --concurrency auto .",
     "lint:fix": "eslint . --fix",
     "lint:commits": "commitlint --verbose",
     "typecheck": "vue-tsc --noEmit",
