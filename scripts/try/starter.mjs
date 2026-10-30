@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * `pnpm try:starter` — the package as an app installs it: packed
- * (`pnpm pack`), installed into a fresh copy of `templates/starter` in a
- * temporary directory, and run on a local deployment of its own with
+ * (`pnpm pack`), installed into a fresh copy of `templates/starter` in this
+ * user's cache (STARTER_DIR), and run on a local deployment of its own with
  * the providers' sandboxes at https://starter.localhost — what a new user gets
  * from `create nuxt` and the quickstart, before anything is published.
  *
@@ -21,14 +21,18 @@
  */
 import { execFileSync } from 'node:child_process'
 import { copyFileSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { bin, childEnv, convex, createSession, deploymentRefusal, localPorts, portless, proxyDeployment, readEnvFile, root, scrubDeploymentEnv } from './kit.mjs'
 import { rootSandboxKeys } from './sandbox.mjs'
 
 const NAME = 'starter'
-/** Where the copy lives: one place, replaced on every run. */
-export const STARTER_DIR = join(tmpdir(), 'nuxt-backend-try-starter')
+/**
+ * Where the copy lives: one place, replaced on every run, in this user's
+ * cache rather than the shared temp directory, since its .env.local holds the
+ * sandbox keys and another account could have made the path first.
+ */
+export const STARTER_DIR = join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'nuxt-backend', 'try-starter')
 
 const log = line => console.log(`\x1B[36m[try:starter]\x1B[0m ${line}`)
 

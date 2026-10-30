@@ -240,8 +240,9 @@ describe('a Nuxt bundle', () => {
   it('has its visualizers write raw data, and the build\'s output go elsewhere than the app\'s .output', () => {
     const config = analyzeLayerConfig('/tmp/work')
     expect(config).toContain(`template: 'raw-data'`)
-    expect(config).toContain('"/tmp/work/{name}.json"')
-    expect(config).toContain('"/tmp/work/output"')
+    // The platform's own paths, as the layer writes them (`\\` on Windows).
+    expect(config).toContain(JSON.stringify(join('/tmp/work', '{name}.json')))
+    expect(config).toContain(JSON.stringify(join('/tmp/work', 'output')))
     expect(config).not.toContain('.output')
   })
 

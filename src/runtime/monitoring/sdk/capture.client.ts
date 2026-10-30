@@ -3,8 +3,15 @@
 // this file, so nothing else imports the SDK.
 import * as Sentry from '@sentry/nuxt'
 import { defineNuxtPlugin } from '#imports'
-import { isReportable, monitoringTags, tagBackendEvent } from '../report'
 import type { BackendErrorContext } from '../../vue/utils/action-state'
+
+/**
+ * How a failure is read (../report.ts), loaded with the first one: it reads
+ * the error catalog, whose English sentences would otherwise sit in every
+ * page's initial JavaScript.
+ */
+let reading: Promise<typeof import('../report')> | undefined
+const report = () => reading ??= import('../report')
 
 /**
  * The browser's reports about the backend: every event about a failed
@@ -18,8 +25,9 @@ import type { BackendErrorContext } from '../../vue/utils/action-state'
 export default defineNuxtPlugin({
   name: 'nuxt-backend:monitoring',
   setup(nuxtApp) {
-    Sentry.addEventProcessor((event, hint) => tagBackendEvent(event, hint.originalException, 'browser'))
-    nuxtApp.hook('backend:error', ({ cause }: BackendErrorContext) => {
+    Sentry.addEventProcessor(async (event, hint) => (await report()).tagBackendEvent(event, hint.originalException, 'browser'))
+    nuxtApp.hook('backend:error', async ({ cause }: BackendErrorContext) => {
+      const { isReportable, monitoringTags } = await report()
       if (isReportable(cause)) Sentry.captureException(cause, { tags: monitoringTags(cause, { source: 'browser' }) })
     })
   },

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createJiti } from 'jiti'
 import { describe, expect, it } from 'vitest'
 import { stubAliases } from '../../scripts/lib/stub-aliases.mjs'
@@ -34,11 +34,11 @@ describe('the dev stub\'s aliases', () => {
     // Without the aliases the package name resolves to the repository root, which has no `billing`.
     const bare = createJiti(join(root, 'dist/cli.mjs'), { alias: { [pkg.name]: root } })
     await expect(bare.import(`${pkg.name}/billing`)).rejects.toThrow()
-    expect(jiti.esmResolve(`${pkg.name}/billing`)).toBe(`file://${join(root, 'src/convex/integrations/billing.ts')}`)
+    expect(jiti.esmResolve(`${pkg.name}/billing`)).toBe(pathToFileURL(join(root, 'src/convex/integrations/billing.ts')).href)
     expect(Object.keys(await jiti.import(`${pkg.name}/app`) as object)).toContain('backendEnv')
     // `auth` and `auth.config` are two exports with one prefix: each keeps its own file.
-    expect(jiti.esmResolve(`${pkg.name}/auth.config`)).toBe(`file://${join(root, 'src/convex/auth.config.ts')}`)
-    expect(jiti.esmResolve(`${pkg.name}/auth`)).toBe(`file://${join(root, 'src/convex/client/index.ts')}`)
+    expect(jiti.esmResolve(`${pkg.name}/auth.config`)).toBe(pathToFileURL(join(root, 'src/convex/auth.config.ts')).href)
+    expect(jiti.esmResolve(`${pkg.name}/auth`)).toBe(pathToFileURL(join(root, 'src/convex/client/index.ts')).href)
   })
 
   it('are what build.config.ts hands the stub', () => {

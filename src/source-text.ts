@@ -5,7 +5,7 @@
  * everything else kept byte for byte — a BOM and every line end included —
  * through a temporary file.
  */
-import { chmodSync, existsSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { closeSync, fchmodSync, fstatSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync, writeSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 /** The slice of a Babel AST node the edits read. */
@@ -15,6 +15,20 @@ export interface Node {
 }
 
 export type Magicast = typeof import('magicast')
+
+/**
+ * A file's text, or `undefined` when there is no file: one read rather than
+ * a check and then a read, which another process could fall between.
+ */
+export function readTextIfPresent(path: string): string | undefined {
+  try {
+    return readFileSync(path, 'utf8')
+  }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    throw error
+  }
+}
 
 /**
  * A file's text: `raw` as it is (its BOM aside), and `code`, the same with
@@ -69,9 +83,21 @@ export function writeSource(path: string, source: SourceText, code: string): voi
   const target = realpathSync(path)
   const text = `${source.bom ? '\uFEFF' : ''}${code}`
   const temporary = join(dirname(target), `.${process.pid}-${Date.now()}.nuxt-backend.tmp`)
+  // The mode read from the open file, and the temporary file created new
+  // (`wx`) and written through its own descriptor: no path is checked and
+  // then used.
+  const opened = openSync(target, 'r')
+  const mode = fstatSync(opened).mode
+  closeSync(opened)
   try {
-    writeFileSync(temporary, text)
-    chmodSync(temporary, statSync(target).mode)
+    const written = openSync(temporary, 'wx')
+    try {
+      writeSync(written, text)
+      fchmodSync(written, mode)
+    }
+    finally {
+      closeSync(written)
+    }
     for (let attempt = 0; ; attempt++) {
       try {
         renameSync(temporary, target)
@@ -87,7 +113,7 @@ export function writeSource(path: string, source: SourceText, code: string): voi
     writeFileSync(target, text)
   }
   finally {
-    if (existsSync(temporary)) unlinkSync(temporary)
+    rmSync(temporary, { force: true })
   }
 }
 

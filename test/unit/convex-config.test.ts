@@ -353,12 +353,14 @@ describe('convex-config', () => {
     mkdirSync(join(root, 'shared'))
     writeFileSync(join(root, 'shared/convex.config.ts'), withoutMount(CONFIG, 'shardedCounter'))
     chmodSync(join(root, 'shared/convex.config.ts'), 0o640)
+    // What the file system kept of it: Windows keeps only the read-only bit.
+    const mode = statSync(join(root, 'shared/convex.config.ts')).mode & 0o777
     symlinkSync(join(root, 'shared/convex.config.ts'), join(root, 'backend/convex.config.ts'))
     write('http.ts', HTTP)
     await fixConvexConfig(root)
     expect(lstatSync(join(root, 'backend/convex.config.ts')).isSymbolicLink()).toBe(true)
     expect(readFileSync(join(root, 'shared/convex.config.ts'), 'utf-8')).toBe(CONFIG)
-    expect(statSync(join(root, 'shared/convex.config.ts')).mode & 0o777).toBe(0o640)
+    expect(statSync(join(root, 'shared/convex.config.ts')).mode & 0o777).toBe(mode)
     expect(readdirSync(join(root, 'shared')).filter(file => file.endsWith('.tmp'))).toEqual([])
   })
 })

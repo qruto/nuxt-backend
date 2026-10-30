@@ -86,7 +86,9 @@ export interface BackendCall {
   kind?: BackendCallKind
 }
 
-const CALL_PREFIX = /\[CONVEX ([QMA?])\(([^)]+)\)\]/
+// A function's path is short and has no parentheses or spaces: bounding it keeps a
+// long message of near-misses linear to scan.
+const CALL_PREFIX = /\[CONVEX ([QMA?])\(([^()\s]{1,256})\)\]/
 const CALL_KIND: Record<string, BackendCallKind | undefined> = { Q: 'query', M: 'mutation', A: 'action' }
 
 /**
@@ -146,23 +148,42 @@ interface StackFrame {
   in_app: boolean
 }
 
-const FRAME = /^\s*at (?:(.+?) \()?(.+?):(\d+):(\d+)\)?\s*$/
+/** `file:line:column`, read from its end: a file name may hold colons (`file:///…`, `C:\\…`). */
+function locationOf(text: string): { filename: string, lineno: number, colno: number } | null {
+  const column = text.lastIndexOf(':')
+  const line = text.lastIndexOf(':', column - 1)
+  if (line <= 0) return null
+  const lineno = text.slice(line + 1, column)
+  const colno = text.slice(column + 1)
+  if (!/^\d+$/.test(lineno) || !/^\d+$/.test(colno)) return null
+  return { filename: text.slice(0, line), lineno: Number(lineno), colno: Number(colno) }
+}
+
+/**
+ * One frame of a V8 stack trace: `at fn (file:line:col)` or `at file:line:col`.
+ * Read by position rather than one regular expression, which a long line of
+ * near-misses (`at a (a (a …`) would make slow.
+ */
+function frameOf(raw: string): { function?: string, filename: string, lineno: number, colno: number } | null {
+  const line = raw.trim()
+  if (!line.startsWith('at ')) return null
+  const rest = line.slice(3)
+  const open = rest.lastIndexOf(' (')
+  if (open > 0 && rest.endsWith(')')) {
+    const location = locationOf(rest.slice(open + 2, -1))
+    return location && { function: rest.slice(0, open), ...location }
+  }
+  return locationOf(rest)
+}
 
 /** The frames of a V8 stack trace, oldest first; none when there is no stack to read. */
 export function stackFrames(stack: string | undefined): StackFrame[] {
   if (!stack) return []
   const frames: StackFrame[] = []
   for (const line of stack.split('\n')) {
-    const match = FRAME.exec(line)
-    if (!match) continue
-    const filename = match[2]!
-    frames.push({
-      ...(match[1] ? { function: match[1] } : {}),
-      filename,
-      lineno: Number(match[3]),
-      colno: Number(match[4]),
-      in_app: !filename.includes('node_modules'),
-    })
+    const frame = frameOf(line)
+    if (!frame) continue
+    frames.push({ ...frame, in_app: !frame.filename.includes('node_modules') })
   }
   return frames.reverse()
 }
@@ -406,7 +427,7 @@ export interface CheckInInput {
 
 /** A job's name as a monitor slug: lower case, words joined by `-`. */
 export function monitorSlug(name: string): string {
-  return name.trim().toLowerCase().replace(/[^a-z0-9_]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'job'
+  return name.trim().toLowerCase().replace(/[^a-z0-9_]+/g, '-').replace(/^-/, '').replace(/-$/, '').slice(0, 50) || 'job'
 }
 
 /** A schedule as the monitor's config takes it. Intervals count whole minutes, the shortest a monitor knows. */

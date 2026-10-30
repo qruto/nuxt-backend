@@ -57,6 +57,14 @@ describe('a lazy component', () => {
     expect(() => lazyComponentModule('chat-thread', 'default', '/x.ts')).toThrow(/not a component name/)
   })
 
+  it('writes the path and the export as literals no script element or line ends inside', () => {
+    const code = lazyComponentModule('Probe', 'de\u2028fault', '/a</script>.ts')
+    expect(code).not.toContain('</script>')
+    expect(code).not.toMatch(/[\u2028\u2029]/)
+    expect(code).toContain('import("/a\\u003c/script\\u003e.ts")')
+    expect(code).toContain('module["de\\u2028fault"]')
+  })
+
   it('renders on the server what the component renders', async () => {
     expect(await renderToString(app(await lazyProbe()))).toBe(MARKUP)
   })

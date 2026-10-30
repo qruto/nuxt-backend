@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import { packageDir } from './dirs'
 import { finding, type PreflightFinding } from './findings'
 
@@ -76,7 +76,8 @@ export function appNames(rootDir: string): { components: Map<string, string>, co
   const components = new Map<string, string>()
   const composables = new Map<string, string>()
   const add = (names: Map<string, string>, name: string, file: string) => {
-    if (!names.has(name)) names.set(name, relative(rootDir, file))
+    // Shown to the developer, so `/`-separated on every platform, as Nuxt's own messages are.
+    if (!names.has(name)) names.set(name, relative(rootDir, file).split(sep).join('/'))
   }
   for (const base of ['app', '.']) {
     const componentsDir = join(rootDir, base, 'components')

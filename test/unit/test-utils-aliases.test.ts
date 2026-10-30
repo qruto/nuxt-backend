@@ -1,11 +1,14 @@
 import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { join, relative as nativeRelative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseSync } from 'oxc-parser'
 import { describe, expect, it } from 'vitest'
 import { backendTestAliases } from '../../src/runtime/test-utils/aliases'
 // The production redirect check, by path: what the login page calls under the aliases too.
 import { resolveAuthRedirect } from '../../node_modules/nuxt-convex-module/dist/runtime/better-auth/vue/redirect.js'
+
+/** A path relative to `from`, `/`-separated on every platform, as the assertions and messages name it. */
+const relative = (from: string, to: string): string => nativeRelative(from, to).split(sep).join('/')
 
 // backendTestAliases() swaps modules for every importer in a test project:
 // the package's runtime and an app's own code alike. Each stand-in must

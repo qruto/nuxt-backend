@@ -88,6 +88,24 @@ describe('what a report says about a failed call', () => {
   })
 })
 
+describe('reading what a failure says', () => {
+  it('reads a frame whose file name holds colons, and skips what is not a frame', () => {
+    const stack = 'Error: x\n    at load (file:///app/backend/a.ts:3:9)\n    at C:\\app\\b.ts:4:2\n    at nowhere (no-location)\n    at a (a (a'
+    expect(stackFrames(stack)).toEqual([
+      { filename: 'C:\\app\\b.ts', lineno: 4, colno: 2, in_app: true },
+      { function: 'load', filename: 'file:///app/backend/a.ts', lineno: 3, colno: 9, in_app: true },
+    ])
+  })
+
+  it('stays fast on long lines of near-misses', () => {
+    const started = performance.now()
+    expect(stackFrames(`at ${'a ('.repeat(50_000)}`)).toEqual([])
+    expect(backendCallOf('[CONVEX ?(('.repeat(50_000))).toBeNull()
+    expect(monitorSlug(`x${'-'.repeat(50_000)}y`)).toBe('x-y')
+    expect(performance.now() - started).toBeLessThan(1000)
+  })
+})
+
 describe('an envelope', () => {
   it('carries an error event with its stack, oldest frame first, and its tags', () => {
     const error = new Error('Payment provider down')

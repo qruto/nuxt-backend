@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, statSync } from 'node:fs'
+import { appendFileSync, closeSync, fstatSync, mkdirSync, openSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { createError, defineEventHandler, getRequestHeader, readBody } from 'h3'
 
@@ -112,11 +112,18 @@ export function createNotesHandler({ file, dev, served = () => undefined }: { fi
     const note = parseReviewNote(await readBody(event).catch(() => null))
     if (typeof note === 'string') throw createError({ statusCode: 422, statusMessage: note })
     const path = file()
-    if (existsSync(path) && statSync(path).size >= NOTES_FILE_LIMIT) {
-      throw createError({ statusCode: 413, statusMessage: 'The notes file is full: export it (pnpm try:notes --out notes.md), then remove .review/notes.jsonl.' })
-    }
     mkdirSync(dirname(path), { recursive: true })
-    appendFileSync(path, `${JSON.stringify(note)}\n`)
+    // The size and the append through one descriptor, of the one file.
+    const fd = openSync(path, 'a')
+    try {
+      if (fstatSync(fd).size >= NOTES_FILE_LIMIT) {
+        throw createError({ statusCode: 413, statusMessage: 'The notes file is full: export it (pnpm try:notes --out notes.md), then remove .review/notes.jsonl.' })
+      }
+      appendFileSync(fd, `${JSON.stringify(note)}\n`)
+    }
+    finally {
+      closeSync(fd)
+    }
     return { saved: true }
   })
 }

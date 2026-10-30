@@ -26,7 +26,8 @@
  * catalog key instead of creating a managed twin — benefits of adopted
  * products are left exactly as they are.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
+import { readTextIfPresent } from '../source-text'
 import { join, resolve } from 'node:path'
 import { defineCommand } from 'citty'
 import { runConvex } from '../convex-cli'
@@ -209,7 +210,7 @@ async function writeGenerated(rootDir: string, environment: Environment, ids: Ca
   generated[environment] = ids
   const path = join(rootDir, resolveFunctionsDir(rootDir), 'billing.generated.ts')
   const text = renderGenerated(generated)
-  if (existsSync(path) && readFileSync(path, 'utf8') === text) {
+  if (readTextIfPresent(path) === text) {
     print(`[nuxt-backend] ${path} holds these ids already.`)
     return null
   }

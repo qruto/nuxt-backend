@@ -24,7 +24,7 @@ const TEMPLATE = 'templates/panels'
 const UNCOMMITTED = new Set(['.env.local'])
 
 const ELISION = /^\s*(?:\/\/ …|<!-- … -->)\s*$/
-const COMMENT = /^\s*(?:\/\/|\/\*\*?|\*\/|\*(?:\s|$)|<!--.*-->\s*$)/
+const COMMENT = /^\s*(?:\/\/|\/\*\*?|\*\/|\*(?:\s|$)|<!--[\s\S]*?-->\s*$)/
 
 interface Block { page: string, path: string, line: number, body: string[] }
 

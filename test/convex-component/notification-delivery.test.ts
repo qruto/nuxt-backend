@@ -186,7 +186,7 @@ describe('the push channel', () => {
     await ada.mutation(subscribeRef, await device('https://fcm.googleapis.com/fcm/send/device-2'))
     await grace.mutation(recordRef, { event: { type: 'app.strip_shared', subjectId: ada.userId, targetId: 'strip_7' } })
     await settle()
-    const pushes = fetcher.mock.calls.filter(([url]) => String(url).startsWith('https://fcm.googleapis.com'))
+    const pushes = fetcher.mock.calls.filter(([url]) => new URL(String(url)).host === 'fcm.googleapis.com')
     expect(pushes.map(([url]) => url).sort()).toEqual(['https://fcm.googleapis.com/fcm/send/device-1', 'https://fcm.googleapis.com/fcm/send/device-2'])
     const [, init] = pushes[0] as unknown as [string, RequestInit]
     expect(init.headers).toMatchObject({ 'Content-Encoding': 'aes128gcm', 'Authorization': expect.stringMatching(/^vapid t=/) })
@@ -196,7 +196,7 @@ describe('the push channel', () => {
     fetcher.mockClear()
     await grace.mutation(recordRef, { event: { type: 'app.strip_shared', subjectId: ada.userId, targetId: 'strip_8' } })
     await settle()
-    expect(fetcher.mock.calls.filter(([url]) => String(url).startsWith('https://fcm.googleapis.com')).map(([url]) => url)).toEqual(['https://fcm.googleapis.com/fcm/send/device-1'])
+    expect(fetcher.mock.calls.filter(([url]) => new URL(String(url)).host === 'fcm.googleapis.com').map(([url]) => url)).toEqual(['https://fcm.googleapis.com/fcm/send/device-1'])
   })
 
   test('waits for the end of the person\'s quiet hours', async () => {

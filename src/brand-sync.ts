@@ -5,6 +5,7 @@
  * missing or out of date (`brand-file`).
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { readTextIfPresent } from './source-text'
 import { join } from 'node:path'
 import { type BackendBrand, BRAND_FILE, renderBrandFile } from './brand-file'
 import { finding, type PreflightFinding } from './findings'
@@ -21,7 +22,7 @@ export function syncBrandFile(rootDir: string, brand: BackendBrand): 'written' |
   const { path } = brandFileLocation(rootDir)
   if (!existsSync(join(path, '..'))) return 'no-functions-dir'
   const text = renderBrandFile(brand)
-  if (existsSync(path) && readFileSync(path, 'utf-8') === text) return 'unchanged'
+  if (readTextIfPresent(path) === text) return 'unchanged'
   writeFileSync(path, text)
   return 'written'
 }

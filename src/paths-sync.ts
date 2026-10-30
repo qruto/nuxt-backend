@@ -7,6 +7,7 @@
  * file that does not pass it on (`paths-file`).
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { readTextIfPresent } from './source-text'
 import { join } from 'node:path'
 import { BACKEND_PATH_KEYS, DEFAULT_BACKEND_PATHS, type BackendPaths } from './convex/paths'
 import { finding, type PreflightFinding } from './findings'
@@ -27,7 +28,7 @@ export function syncPathsFile(rootDir: string, paths: BackendPaths): 'written' |
   const { path } = pathsFileLocation(rootDir)
   if (!existsSync(join(path, '..'))) return 'no-functions-dir'
   const text = renderPathsFile(paths)
-  if (existsSync(path) && readFileSync(path, 'utf-8') === text) return 'unchanged'
+  if (readTextIfPresent(path) === text) return 'unchanged'
   writeFileSync(path, text)
   return 'written'
 }

@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest'
 
 const runtime = fileURLToPath(new URL('../../src/runtime/vue/', import.meta.url))
 const files = ['components', 'pages', 'composables', 'utils', 'plugins'].flatMap(dir =>
-  readdirSync(join(runtime, dir)).filter(file => file.endsWith('.ts')).map(file => join(dir, file)))
+  readdirSync(join(runtime, dir)).filter(file => file.endsWith('.ts')).map(file => `${dir}/${file}`))
 
 /**
  * Words the package shows in English on purpose, each with its reason: an

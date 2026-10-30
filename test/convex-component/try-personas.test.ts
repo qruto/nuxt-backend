@@ -34,10 +34,17 @@ const accounts = PERSONAS.map(({ key, email, name, role, passkeyOnly, locale, wo
 let t: ReturnType<typeof testApp>
 
 beforeEach(() => {
+  // A seeded strip notifies its author, whose email goes out from a
+  // scheduled function: the clock is ours so each test runs that work out
+  // before it ends, and the site's origin makes the email's link absolute.
+  vi.useFakeTimers({ toFake: ['setTimeout', 'Date'] })
+  vi.stubEnv('SITE_URL', 'https://app.example.com')
   t = testApp()
 })
 
-afterEach(() => {
+afterEach(async () => {
+  await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+  vi.useRealTimers()
   vi.unstubAllEnvs()
 })
 

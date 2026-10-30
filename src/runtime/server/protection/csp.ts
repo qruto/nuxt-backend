@@ -38,7 +38,7 @@ function allow(policy: Record<string, unknown>, chain: readonly string[]): void 
   for (const name of chain) {
     const sources = sourcesOf(policy[name])
     if (!sources) continue
-    if (sources.includes(CHALLENGE_ORIGIN)) return
+    if (new Set(sources).has(CHALLENGE_ORIGIN)) return
     // `'none'` stands alone: with an origin beside it, it would be ignored anyway.
     policy[name === 'child-src' ? name : own!] = [...sources.filter(source => source !== '\'none\''), CHALLENGE_ORIGIN]
     return

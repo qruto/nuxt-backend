@@ -90,7 +90,9 @@ function materialOf(secret: string): string {
 
 /** How many bytes the base64 `encoded` decodes to (its padding dropped). */
 function decodedLength(encoded: string): number {
-  return Math.floor(encoded.replace(/=+$/, '').length * 3 / 4)
+  let end = encoded.length
+  while (end > 0 && encoded[end - 1] === '=') end--
+  return Math.floor(end * 3 / 4)
 }
 
 /**

@@ -80,7 +80,9 @@ function quotedPath(path: string): string {
 /** A single-quoted string's content as {@link quotedPath} writes it, read back; undefined when it does not read. */
 function unquotedPath(content: string): string | undefined {
   try {
-    return JSON.parse(`"${content.replace(/\\'/g, '\'').replace(/"/g, '\\"')}"`) as string
+    // One pass, an escape at a time: `\'` reads as `'`, any other escape stays
+    // JSON's, and a bare `"` is escaped for the double-quoted JSON string.
+    return JSON.parse(`"${content.replace(/\\([\s\S])|"/g, (match, escaped: string | undefined) => escaped === undefined ? '\\"' : escaped === '\'' ? '\'' : match)}"`) as string
   }
   catch {
     return undefined

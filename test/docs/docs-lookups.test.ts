@@ -107,7 +107,7 @@ describe('the hand-kept maps beside the generated rows', () => {
 
   it('tags only routes the routes pages list', () => {
     const page = read(contentFile('/docs/reference/backend/http-routes'))
-    for (const route of Object.keys(ROUTE_AREAS)) expect(page, route).toMatch(new RegExp(`\\| \`${route.replace(/\//g, '\\/')}(?:\\/\\*{1,2})?\` \\|`))
+    for (const route of Object.keys(ROUTE_AREAS)) expect(page, route).toMatch(new RegExp(`\\| \`${route.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}(?:\\/\\*{1,2})?\` \\|`))
   })
 
   it('says what every subpath is for, and nothing else', () => {

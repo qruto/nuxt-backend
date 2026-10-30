@@ -1,7 +1,7 @@
 import { cpSync, mkdtempSync, rmSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 
@@ -28,7 +28,8 @@ afterAll(() => rmSync(copy, { recursive: true, force: true }))
 const othersExternal = {
   name: 'others-external',
   setup(bundler: { onResolve: (options: { filter: RegExp }, callback: (args: { path: string }) => { external: boolean } | undefined) => void }) {
-    bundler.onResolve({ filter: /^[^./]/ }, ({ path }) => (/^ai(?:\/|$)/.test(path) ? undefined : { external: true }))
+    // A bare name only: the filter also matches an absolute Windows path (`C:\…`), the entry point among them.
+    bundler.onResolve({ filter: /^[^./]/ }, ({ path }) => (/^ai(?:\/|$)/.test(path) || isAbsolute(path) ? undefined : { external: true }))
   },
 }
 

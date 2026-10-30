@@ -141,6 +141,15 @@ export function lazily(component: PackageComponent): PackageComponent & { declar
 }
 
 /**
+ * A string as a JavaScript literal for generated code: JSON, with the
+ * characters that could end a script element or a line where JSON allows
+ * them (`<`, `>`, U+2028, U+2029) escaped too.
+ */
+function codeLiteral(value: string): string {
+  return JSON.stringify(value).replace(/[<>\u2028\u2029]/g, char => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`)
+}
+
+/**
  * The module a lazy component is registered from: `name`, an async
  * component over the `exported` export (`default` included) of the file at
  * `filePath`.
@@ -149,7 +158,7 @@ export function lazyComponentModule(name: string, exported: string, filePath: st
   if (!/^[A-Z][\w$]*$/.test(name)) throw new Error(`lazily: "${name}" is not a component name a module can export`)
   return [
     `import { defineAsyncComponent } from 'vue'`,
-    `export const ${name} = defineAsyncComponent(() => import(${JSON.stringify(filePath)}).then(module => module[${JSON.stringify(exported)}]))`,
+    `export const ${name} = defineAsyncComponent(() => import(${codeLiteral(filePath)}).then(module => module[${codeLiteral(exported)}]))`,
     '',
   ].join('\n')
 }

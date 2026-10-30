@@ -1,11 +1,14 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { dirname, join, relative as nativeRelative, resolve, sep } from 'node:path'
 import { parseSync } from 'oxc-parser'
 import { describe, expect, it } from 'vitest'
 import { REQUIRED_FUNCTION_EXPORTS } from '../../src/contract'
 import { BACKEND_APP_CONFIG_KEYS } from '../../src/runtime/config'
 import { BACKEND_FILE_TEMPLATES } from '../../src/templates'
 import { aheadOfCode, contentFile, readModuleSources } from '../docs/helpers'
+
+/** A path relative to `from`, `/`-separated on every platform, as the assertions and messages name it. */
+const relative = (from: string, to: string): string => nativeRelative(from, to).split(sep).join('/')
 
 // The public surface, frozen. STABILITY.md promises the 0.x line keeps every
 // `nuxt-backend/<subpath>` and every value/type reachable from one; this file
@@ -790,14 +793,14 @@ describe('the surface as documented', () => {
       const { comments, program } = parse(file)
       return comments.filter(comment => /@experimental\b/.test(comment.value)).map((comment) => {
         const container = program.body.find(node => node.start < comment.start && comment.end < node.end)
-        if (container) return memberTagged(container, comment.end) ?? relative(root, file).split(sep).join('/')
+        if (container) return memberTagged(container, comment.end) ?? relative(root, file)
         const statement = program.body.find(node => node.start >= comment.end)
         const declaration = statement?.type === 'ExportNamedDeclaration' ? statement.declaration : undefined
         // A function or a type by its name, a component (`export const X = defineComponent(…)`) by its constant's.
         const id = declaration?.type === 'VariableDeclaration' ? declaration.declarations[0]?.id : declaration && 'id' in declaration ? declaration.id : undefined
         return id && 'name' in id
           ? String(id.name)
-          : relative(root, file).split(sep).join('/')
+          : relative(root, file)
       })
     })
     const expected = [...EXPERIMENTAL.map(name => (name.startsWith('./') ? ENTRIES[name]!.source : name)), ...Object.keys(EXPERIMENTAL_MEMBERS)]
