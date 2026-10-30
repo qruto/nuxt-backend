@@ -1,37 +1,12 @@
 import type { Ref } from 'vue'
+import { backendError } from '../../../convex/errors.js'
+import { quietly } from './action-state'
+import { type BackendError, failureOf } from './backend-error'
 
 // What the code-driven flows share — the sign-in flow (`useLoginFlow`) and the
-// email change (`useEmailChange`): a step only advances when the auth client
-// answered without an error, and an error lands in the flow's `error` (with
-// the wait of a 429 beside it) instead of rejecting.
-
-/** What the auth client hands back: the response JSON spread next to its status. */
-type AuthResult = { error?: { message?: string, status?: number, retryAfter?: number } | null }
-
-export const DEFAULT_EMAIL_MESSAGE = 'Enter a valid email address.'
-
-/**
- * A 429 on its way up `run()`'s error path, with when to retry. The package's
- * own limits answer with `retryAfter` in milliseconds in the body, which the
- * client's fetch spreads into `error` next to `status` — the only wait that
- * reaches a flow: Better Auth's built-in limiter (off unless an app turns it
- * on) sets an `X-Retry-After` header (seconds) that the `{ data, error }`
- * result drops, so its refusals read as "in a moment".
- */
-class RateLimitedError extends Error {
-  /** Seconds, rounded up so a countdown never lets the user retry early. */
-  readonly retryAfter: number | null
-
-  constructor(retryAfterMs: number | undefined, cause?: unknown) {
-    const seconds = typeof retryAfterMs === 'number' && Number.isFinite(retryAfterMs)
-      ? Math.max(1, Math.ceil(retryAfterMs / 1000))
-      : null
-    super(seconds === null
-      ? 'Too many attempts. Try again in a moment.'
-      : `Too many attempts. Try again in ${seconds} ${seconds === 1 ? 'second' : 'seconds'}.`, { cause })
-    this.retryAfter = seconds
-  }
-}
+// email change (`useEmailChange`): a step only advances when its call
+// resolved, and a failure lands in the flow's `error` (with the wait of a
+// rate limit beside it) instead of rejecting.
 
 /** A basic shape check: one `@`, a dot after it, no spaces. */
 export function defaultValidateEmail(email: string): boolean {
@@ -41,42 +16,73 @@ export function defaultValidateEmail(email: string): boolean {
 }
 
 /**
- * Throw the client's error envelope, a 429 with its wait. The envelope's
- * error is the thrown error's `cause`, so `getBackendError` reads its code.
+ * The refusal a flow makes itself, before any code is sent: an address that
+ * does not pass. `invalid_input` on `field`, with the sentence an app's
+ * own check wrote, or none, so the field's label (`errors.invalid_input_email`)
+ * says it in the reader's language.
  */
-export function ensureOk(result: unknown, fallback: string): void {
-  const { error: resultError } = (result ?? {}) as AuthResult
-  if (!resultError) return
-  if (resultError.status === 429) throw new RateLimitedError(resultError.retryAfter, resultError)
-  throw new Error(resultError.message ?? fallback, { cause: resultError })
+export function invalidInput(field: string, message?: string): BackendError {
+  return failureOf(backendError('invalid_input', message === undefined ? { field } : { field, message }))
 }
 
 /**
- * The runner a flow wraps each action in: `pending` while it runs, any error
- * into `error`, never a rejection.
+ * Run an app's email check, or the default one: `true` passes; `false`
+ * refuses with the field's label (`undefined` here); a string refuses with
+ * that sentence.
  */
-export function stepRunner(state: { pending: Ref<boolean>, error: Ref<string | null>, retryAfter: Ref<number | null> }) {
+export function checkEmail(validate: ((email: string) => boolean | string) | undefined, email: string): true | string | undefined {
+  const result = (validate ?? defaultValidateEmail)(email)
+  if (result === true) return true
+  return typeof result === 'string' ? result : undefined
+}
+
+/**
+ * The seconds a rate-limited failure says to wait, rounded up so a countdown
+ * never lets the user retry early; `null` for any other failure, or a limit
+ * that gave no wait. The package's own limits send it; Better Auth's built-in
+ * limiter (off unless an app turns it on) puts it in a header the client
+ * drops, so its refusals have none.
+ */
+function secondsToWait(failure: BackendError): number | null {
+  if (failure.code !== 'rate_limited' || typeof failure.data.retryAfter !== 'number') return null
+  return Math.max(1, Math.ceil(failure.data.retryAfter / 1000))
+}
+
+/**
+ * The runner a flow wraps each action in: `pending` while it runs, the
+ * failure (see `failureOf`) into `error`, never a rejection.
+ */
+export function stepRunner(state: { pending: Ref<boolean>, error: Ref<BackendError | null>, retryAfter: Ref<number | null> }) {
   const clearError = () => {
     state.error.value = null
     state.retryAfter.value = null
   }
 
-  async function run(fallback: string, action: () => Promise<void>): Promise<void> {
+  async function run(action: () => Promise<void>): Promise<void> {
     state.pending.value = true
     clearError()
     try {
-      await action()
+      // The composable calls a step makes report to its `error`, not to the
+      // app's `backend:error` hook: the step machine shows them itself.
+      await quietly(action)
     }
     catch (cause) {
       // The step only advances on success, so a refusal leaves the user where
       // they were — with the wait beside the message for a countdown.
-      if (cause instanceof RateLimitedError) state.retryAfter.value = cause.retryAfter
-      state.error.value = cause instanceof Error ? cause.message : fallback
+      const failure = failureOf(cause)
+      state.error.value = failure
+      state.retryAfter.value = secondsToWait(failure)
     }
     finally {
       state.pending.value = false
     }
   }
 
-  return { run, clearError }
+  /** Refuse before any call: the reason in `error`, nothing to wait for. */
+  const refuse = (failure: BackendError) => {
+    state.error.value = failure
+    state.retryAfter.value = null
+  }
+
+  return { run, clearError, refuse }
 }

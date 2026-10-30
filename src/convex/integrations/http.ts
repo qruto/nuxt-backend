@@ -1,13 +1,19 @@
 import { httpActionGeneric, type HttpRouter } from 'convex/server'
-import { DEFAULT_MCP_EXCHANGE_PATH } from '../constants.js'
+import { onEntityCreated } from '../client/entities.js'
+import { DEFAULT_HEALTH_PATH } from '../constants.js'
+import { SIGNED_URL_PATH } from '../files.js'
+import { UNSUBSCRIBE_ROUTE } from './email-preferences.js'
+import { healthRoute } from './health.js'
 
 /**
  * One call to mount every inbound route the backend handles on your Convex
- * HTTP router: the auth routes, the agent (MCP) token exchange, the guarded
+ * HTTP router: the auth routes, the guarded
  * billing events endpoint (entitlement refresh + gift fulfilment), the
- * guarded email delivery-events endpoint (status tracking), and the metered
- * AI stream endpoint. Each part is required: a route left unmounted fails
- * only when a provider or a client first calls it.
+ * guarded email delivery-events endpoint (status tracking), the metered
+ * AI stream endpoint, and the backend's health at `/backend/health` (a fixed
+ * path: the app's `/api/backend/health` asks it there). Each part is
+ * required: a route left unmounted fails only when a provider or a client
+ * first calls it.
  *
  * The webhook endpoints share one fail-closed policy (see `webhook-guard.ts`):
  * missing secret → 503, invalid signature → 403 (±5 min replay tolerance),
@@ -17,36 +23,54 @@ import { DEFAULT_MCP_EXCHANGE_PATH } from '../constants.js'
  */
 export interface RegisterBackendRoutesOptions {
   /**
-   * From `setupAuth`: mounts the auth HTTP routes, and the agent token
-   * exchange (its `mcp` export) at {@link RegisterBackendRoutesOptions.mcpExchangePath},
-   * where the Nuxt MCP gate trades agents' OAuth Bearers for short-lived
-   * Convex JWTs.
+   * From `setupAuth`: mounts the auth HTTP routes.
    */
   auth: {
     // Param types are `never` so any concrete `registerRoutes` signature is
     // assignable (function params are contravariant); called via a cast.
-    authComponent: { registerRoutes: (...args: never[]) => void }
-    createAuth: unknown
-    mcp: {
-      exchangeHandler: (ctx: never, request: Request) => Promise<Response>
+    authComponent: {
+      registerRoutes: (...args: never[]) => void
+      /** The account behind a request's session: the health route serves its detail to an admin. */
+      safeGetAuthUser?: (ctx: never) => Promise<{ role?: string | null, banned?: boolean | null } | null | undefined>
     }
+    createAuth: unknown
   }
   /**
    * From `setupBilling`: mounts the guarded billing events webhook at
    * {@link RegisterBackendRoutesOptions.billingPath} (fail-closed statuses,
    * redelivery dedupe, delivery logging — pass the whole `billing` instance).
+   * Every workspace (or account, with `billTo: 'user'`) the auth routes make
+   * is handed to it too, which starts the catalog's free plan for it.
    */
   billing: {
     webhookHandler: (ctx: never, request: Request) => Promise<Response>
+    /** @internal */
+    entityCreated?: (ctx: never, entity: { kind: 'workspace' | 'user', id: string }) => Promise<void>
   }
-  /** From `setupEmail`: mounts the email events webhook at {@link RegisterBackendRoutesOptions.emailPath}. */
+  /**
+   * From `setupEmail`: mounts the email events webhook at
+   * {@link RegisterBackendRoutesOptions.emailPath}, and the RFC 8058
+   * one-click unsubscribe at `/email/unsubscribe` (`GET` sends the reader
+   * to the unsubscribe page, `POST` unsubscribes at once).
+   */
   email: {
     webhookHandler: (ctx: never, request: Request) => Promise<Response>
+    /** @internal */
+    preferences?: { unsubscribeHandler: (ctx: never, request: Request) => Promise<Response> }
   }
   /** From `setupAi`: mounts the metered stream endpoint at {@link RegisterBackendRoutesOptions.aiPath}. */
   ai: {
     httpHandler: unknown
     corsOrigin: string
+  }
+  /**
+   * From `setupStorage`, when the app keeps files: mounts the route that
+   * serves `storage.signedUrl`'s expiring URLs (`GET /storage/<id>`).
+   * Without it, a signed URL answers 404.
+   */
+  storage?: {
+    /** @internal */
+    fileRoute: unknown
   }
   /** Route for the billing events webhook. Default `/billing/events`. */
   billingPath?: string
@@ -54,8 +78,12 @@ export interface RegisterBackendRoutesOptions {
   emailPath?: string
   /** Route for the AI stream endpoint. Default `/ai/stream`. */
   aiPath?: string
-  /** Route for the agent token exchange. Default `/mcp/exchange`. */
-  mcpExchangePath?: string
+  /**
+   * The roles that count as admin for the backend's health: a session whose
+   * account holds one reads the detail (each layer's reason, the env it
+   * lacks). Default `['admin']`, as `createFunctions` takes them.
+   */
+  adminRoles?: readonly string[]
 }
 
 /**
@@ -66,7 +94,7 @@ export interface RegisterBackendRoutesOptions {
 function missingParts(options: RegisterBackendRoutesOptions): string[] {
   const { auth, billing, email, ai } = options as Partial<RegisterBackendRoutesOptions>
   return [
-    typeof auth?.authComponent?.registerRoutes === 'function' && typeof auth.mcp?.exchangeHandler === 'function' ? null : 'auth (setupAuth\'s authComponent, createAuth and mcp)',
+    typeof auth?.authComponent?.registerRoutes === 'function' ? null : 'auth (setupAuth\'s authComponent and createAuth)',
     typeof billing?.webhookHandler === 'function' ? null : 'billing (from setupBilling)',
     typeof email?.webhookHandler === 'function' ? null : 'email (from setupEmail)',
     ai?.httpHandler == null ? 'ai (from setupAi)' : null,
@@ -74,6 +102,12 @@ function missingParts(options: RegisterBackendRoutesOptions): string[] {
 }
 
 /**
+ * Mount every route the backend serves on the app's HTTP router: the auth
+ * routes, the billing and email webhooks, the
+ * metered AI stream, and the health. Every part is required; a missing one throws,
+ * naming it. `storage` is the one optional part: pass it when the app keeps
+ * files, and `storage.signedUrl`'s expiring URLs are served.
+ *
  * @example
  * ```ts
  * // convex/http.ts
@@ -81,12 +115,12 @@ function missingParts(options: RegisterBackendRoutesOptions): string[] {
  * import { httpRouter } from 'convex/server'
  * import { components } from './_generated/api'
  * import { ai } from './ai'
- * import { authComponent, createAuth, mcp } from './auth'
+ * import { authComponent, createAuth } from './auth'
  * import { billing } from './billing'
  * import { email } from './email'
  *
  * const http = httpRouter()
- * registerBackendRoutes(http, { auth: { authComponent, createAuth, mcp }, billing, email, ai })
+ * registerBackendRoutes(http, { auth: { authComponent, createAuth }, billing, email, ai })
  * export default http
  * ```
  */
@@ -100,6 +134,11 @@ export function registerBackendRoutes(http: HttpRouter, options: RegisterBackend
   const { auth, billing, email, ai } = options
   const registerAuthRoutes = auth.authComponent.registerRoutes as (http: HttpRouter, createAuth: unknown) => void
   registerAuthRoutes(http, auth.createAuth)
+  // Each workspace (or account) the auth routes make starts on billing's free plan.
+  const { entityCreated } = billing
+  if (typeof auth.createAuth === 'function' && typeof entityCreated === 'function') {
+    onEntityCreated(auth.createAuth, (ctx, entity) => entityCreated(ctx as never, entity))
+  }
 
   const post = (path: string, handle: (ctx: never, request: Request) => Promise<Response>): void => {
     http.route({
@@ -108,9 +147,22 @@ export function registerBackendRoutes(http: HttpRouter, options: RegisterBackend
       handler: httpActionGeneric((ctx, request) => handle(ctx as never, request)),
     })
   }
-  post(options.mcpExchangePath ?? DEFAULT_MCP_EXCHANGE_PATH, auth.mcp.exchangeHandler)
   post(options.billingPath ?? '/billing/events', billing.webhookHandler)
   post(options.emailPath ?? '/email/events', email.webhookHandler)
+  // RFC 8058: the List-Unsubscribe header of every email sent under a topic points here.
+  const unsubscribe = email.preferences?.unsubscribeHandler
+  if (typeof unsubscribe === 'function') {
+    for (const method of ['GET', 'POST'] as const) {
+      http.route({ path: UNSUBSCRIBE_ROUTE, method, handler: httpActionGeneric((ctx, request) => unsubscribe(ctx as never, request)) })
+    }
+  }
+  // The app's /api/backend/health asks it; an uptime check may too.
+  http.route({ path: DEFAULT_HEALTH_PATH, method: 'GET', handler: healthRoute(auth.authComponent, options.adminRoles) })
+
+  // Expiring private file URLs (storage.signedUrl), when the app keeps files.
+  if (options.storage?.fileRoute) {
+    http.route({ pathPrefix: SIGNED_URL_PATH, method: 'GET', handler: options.storage.fileRoute as Parameters<HttpRouter['route']>[0]['handler'] })
+  }
 
   const aiPath = options.aiPath ?? '/ai/stream'
   http.route({

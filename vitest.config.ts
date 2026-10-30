@@ -1,8 +1,14 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import { defineVitestProject } from '@nuxt/test-utils/config'
+import { scaffoldBackend } from './test/helpers/scaffold-backend.ts'
+import { backendTestAliases } from './src/runtime/test-utils/aliases.ts'
 
 const nuxtImportsTestAlias = fileURLToPath(new URL('./test/helpers/nuxt-imports.ts', import.meta.url))
+// `nuxt/server` for the server runtime the unit tests run: the real one needs a built server.
+const nuxtServerTestAlias = fileURLToPath(new URL('./test/helpers/nuxt-server.ts', import.meta.url))
+// The website's `~~/shared`, for the website modules a unit test runs (its offline middleware).
+const websiteSharedAlias = fileURLToPath(new URL('./website/shared', import.meta.url))
 
 export default defineConfig({
   test: {
@@ -52,6 +58,8 @@ export default defineConfig({
         resolve: {
           alias: {
             '#imports': nuxtImportsTestAlias,
+            'nuxt/server': nuxtServerTestAlias,
+            '~~/shared': websiteSharedAlias,
           },
         },
         // The root tsconfig, as for docs below: a unit test that imports a
@@ -69,6 +77,8 @@ export default defineConfig({
         // website's functions, and website/tsconfig.json extends a .nuxt/ that
         // only exists after `nuxt prepare website`, which this job skips.
         tsconfig: 'tsconfig.convex.json',
+        // The authorization probes run the scaffold's own backend files.
+        plugins: [scaffoldBackend()],
         test: {
           name: 'convex-component',
           include: ['test/convex-component/**/*.test.ts'],
@@ -93,6 +103,32 @@ export default defineConfig({
           },
         },
       }),
+      await defineVitestProject({
+        // Tests written the way an app writes them, against the published
+        // test helpers (nuxt-backend/test-utils): the aliases put the mock in
+        // place of the base module's client and session for every file here,
+        // so none of them mocks a module. The real client's tests stay in the
+        // `nuxt` project above, which has no aliases.
+        tsconfig: 'tsconfig.json',
+        resolve: {
+          alias: backendTestAliases(),
+        },
+        test: {
+          name: 'app',
+          include: ['test/app/**/*.{test,spec}.ts'],
+          environment: 'nuxt',
+          // An app's Nuxt transforms the base module (it is one of its
+          // modules), which is where the aliases apply; this root app does not
+          // install it, so it is inlined here by hand.
+          server: { deps: { inline: [/nuxt-convex-module/] } },
+          environmentOptions: {
+            nuxt: {
+              rootDir: fileURLToPath(new URL('.', import.meta.url)),
+              domEnvironment: 'happy-dom',
+            },
+          },
+        },
+      }),
       {
         // Docs ↔ code contract: reads markdown and source, and imports only
         // the plain modules that hold names, commands and the install prompt.
@@ -107,6 +143,10 @@ export default defineConfig({
           name: 'docs',
           include: ['test/docs/**/*.{test,spec}.ts'],
           environment: 'node',
+          // The docs MCP registers its tools through the toolkit, whose
+          // runtime imports Nitro's: transformed here, test/docs/docs-mcp.test.ts
+          // stands Nitro in for it.
+          server: { deps: { inline: ['@nuxtjs/mcp-toolkit'] } },
         },
       },
       {

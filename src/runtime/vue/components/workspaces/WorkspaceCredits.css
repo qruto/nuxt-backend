@@ -1,0 +1,30 @@
+/*
+ * WorkspaceCredits's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-settings='balance'] {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+
+  [data-settings='usage'] {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--bk-muted);
+  }
+
+  [data-settings='topup'] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  [data-settings='refresh'] {
+    align-self: flex-start;
+    border: 0;
+    color: var(--bk-muted);
+  }
+}

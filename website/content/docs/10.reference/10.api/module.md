@@ -12,27 +12,17 @@ navigation:
 
 ## Interfaces
 
-### ModuleMcpOptions
+### ModuleRedirectsOptions
 
 Defined in: [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts)
 
-The agent (MCP) surface: an OAuth-protected MCP endpoint served by Nitro
-via `@nuxtjs/mcp-toolkit`, with ready-made account/billing/workspace tools
-that call Convex as the signed-in user. Everything the tools expose is
-already reachable through the product UI under the same user auth; OAuth
-adds per-client consent and the deployment's `mcp` rate limit guards the
-token exchange.
+Where the ready-made pages send a person once they are done.
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="route"></a> `route?` | `string` | MCP endpoint route. Default `/mcp` (the toolkit's default). | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="name"></a> `name?` | `string` | Server name/description/instructions forwarded to the toolkit. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="description"></a> `description?` | `string` | - | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="instructions"></a> `instructions?` | `string` | - | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="sessions"></a> `sessions?` | \| `boolean` \| \{ `enabled?`: `boolean`; `maxDuration?`: `number`; `maxSessions?`: `number`; \} | Stateful transport sessions, forwarded to the toolkit. Default off. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="functions"></a> `functions?` | `Partial`\<`Record`\< \| `"getAuthUser"` \| `"updateProfile"` \| `"getConfiguredProducts"` \| `"getCurrentSubscription"` \| `"getCredits"` \| `"generateCheckoutLink"` \| `"generateCustomerPortalUrl"` \| `"listWorkspaces"` \| `"listWorkspaceMembers"`, `string`\>\> | Override the Convex functions the built-in tools call — needed only when the scaffolded `auth.ts`/`billing.ts` files were renamed. Values are `module:export` refs, e.g. `{ getCredits: 'myBilling:getCredits' }`. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
+| <a id="aftersignin"></a> `afterSignIn?` | `string` | Where the sign-in page sends a person after they sign in, when the `?redirect=` the page guard added names no page of this site. A path of this site, such as `/app`. Default `/`. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 
 ***
 
@@ -44,14 +34,70 @@ Defined in: [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="url"></a> `url?` | `string` | - | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="siteurl"></a> `siteUrl?` | `string` | - | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
+| <a id="url"></a> `url?` | `string` | The deployment's URL (the `.convex.cloud` origin). Else `NUXT_PUBLIC_BACKEND_URL`, else derived from `CONVEX_DEPLOYMENT`. The HTTP-routes origin (`.convex.site`) derives from it; a custom domain in front of them goes in `NUXT_PUBLIC_CONVEX_SITE_URL`. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="authroute"></a> `authRoute?` | `string` | - | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="scaffold"></a> `scaffold?` | `false` \| `"auto"` | Auto-scaffold missing Convex backend files on dev startup. Set `false` when you scaffold explicitly with `npx nuxt-backend init`. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="pages"></a> `pages?` | `ModulePagesOptions` | Where the ready-made pages mount (sign-in, pricing, settings, profile, security, the invitation and agent-consent pages). Every page is on; give a key a path to move it. To replace a page, put an app page at its path: an app page always wins over the module's. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="autoenv"></a> `autoEnv?` | `boolean` | On dev startup, provision the `dev:` deployment env automatically — the same engine as `npx nuxt-backend env push`: forward `.env(.local)` values, generate `AUTH_SECRET`, default `SITE_URL` to localhost, and echo OTP codes to the convex dev console until an email transport exists. Runs once per deployment (stamped under `node_modules/.cache/nuxt-backend`), asynchronously after startup. Never touches non-dev deployments. `false` to manage the deployment env yourself. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="mcp"></a> `mcp?` | [`ModuleMcpOptions`](#modulemcpoptions) | The agent (MCP) surface — an OAuth-protected `/mcp` endpoint with built-in account/billing/workspace tools. See [ModuleMcpOptions](#modulemcpoptions). | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="devtools"></a> `devtools?` | `boolean` | The Backend tab in Nuxt DevTools (dev only): the deployment and its env names, live checks and doctor on demand, the signed-in account, billing, email, the webhook delivery log and the agent endpoint. Enabled by default whenever Nuxt DevTools is; set `false` to disable just the Backend tab. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
+| <a id="pages"></a> `pages?` | `ModulePagesOptions` | Where the ready-made pages mount (sign-in, pricing, settings, profile, security and the invitation pages). Every page is on; give a key a path to move it, or `false` to turn it off. To replace a page, put an app page at its path: an app page always wins over the module's. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
+| <a id="redirects"></a> `redirects?` | [`ModuleRedirectsOptions`](#moduleredirectsoptions) | Where the ready-made pages send a person once they are done. See [ModuleRedirectsOptions](#moduleredirectsoptions). | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
+| <a id="devtools"></a> `devtools?` | `boolean` | The Backend tab in Nuxt DevTools (dev only): the deployment and its env names, live checks and doctor on demand, the signed-in account, billing, email and the webhook delivery log. Enabled by default whenever Nuxt DevTools is; set `false` to disable just the Backend tab. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
+| <a id="css"></a> `css?` | `boolean` | The package's stylesheets (default `true`): the `--bk-*` tokens on `:root` and the styles of each detected capability's components, inside `@layer nuxt-backend`, so any rule of the app's wins. `false` loads no package CSS: the components keep their markup, `data-*` hooks and accessibility attributes, unstyled. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
+
+***
+
+### AdminTabMeta
+
+Defined in: [src/runtime/vue/components/admin/admin-tabs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/components/admin/admin-tabs.ts)
+
+What a page of the app says to join the console's tab bar:
+`definePageMeta({ adminTab: { label, icon, order } })` on a page under the
+console's path (`app/pages/admin/featured.vue` is `/admin/featured`).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="label"></a> `label` | `string` | The tab's words. | [src/runtime/vue/components/admin/admin-tabs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/components/admin/admin-tabs.ts) |
+| <a id="icon"></a> `icon?` | `string` | An icon class (`i-lucide-star`) drawn before the label, for an app that has an icon set; the label always shows. | [src/runtime/vue/components/admin/admin-tabs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/components/admin/admin-tabs.ts) |
+| <a id="order"></a> `order?` | `number` | Where the tab sits: lower first. The built-in tabs are 10 to 170, ten apart. Default: after them. Equal orders sort by label. | [src/runtime/vue/components/admin/admin-tabs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/components/admin/admin-tabs.ts) |
+
+***
+
+### PageAccessRules
+
+Defined in: [src/runtime/vue/utils/access-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/access-rules.ts)
+
+Who may open a page, as `definePageMeta({ auth: { … } })` declares it.
+A page with rules requires a sign-in, as `auth: true` does, and then every
+rule it names: a signed-in person who fails one gets a 403, shown with
+`<AccessDenied>`, or a 404 when the page is `hidden`. A parent page's
+rules apply to its children too.
+
+The page guard is for the screen only. Every backend function the page
+calls checks the caller again (`authed`, `workspace`, `admin`, `withRole`,
+`withFeature`).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="role"></a> `role?` | `string` \| readonly `string`[] | An app-wide role, or several: any one passes (`useAuth().hasRole`). | [src/runtime/vue/utils/access-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/access-rules.ts) |
+| <a id="workspace"></a> `workspace?` | `string` \| `true` \| readonly `string`[] | The active workspace: `true` lets in any member, a built-in role or a list of them (`'owner'`, `['owner', 'admin']`) only those who hold one there. Read fresh from the auth server on each guarded navigation. Without an active workspace the page is refused. | [src/runtime/vue/utils/access-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/access-rules.ts) |
+| <a id="feature"></a> `feature?` | `string` | A feature the active workspace's plan includes, by its catalog key (`useFeatures().has`). | [src/runtime/vue/utils/access-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/access-rules.ts) |
+| <a id="hidden"></a> `hidden?` | `boolean` | Changes no check: a person the rules refuse gets a 404 instead of the 403, and a signed-out visitor one too instead of the sign-in page, so the page's existence stays private. | [src/runtime/vue/utils/access-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/access-rules.ts) |
+
+***
+
+### AccessDeniedData
+
+Defined in: [src/runtime/vue/utils/access-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/access-rules.ts)
+
+What the guard's 403 carries in `error.data`.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="reason"></a> `reason` | [`AccessDeniedReason`](#accessdeniedreason) | The rule the person failed. | [src/runtime/vue/utils/access-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/access-rules.ts) |
+| <a id="path"></a> `path` | `string` | The page they asked for, as a path of this site: where signing in as someone else returns to. | [src/runtime/vue/utils/access-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/access-rules.ts) |
 
 ***
 
@@ -75,34 +121,15 @@ Per-request Better Auth + Convex helper returned by [convexAuth](https://nuxt-co
 
 ## Type Aliases
 
-### BackendMcpFunctionKey
+### AccessDeniedReason
 
 ```ts
-type BackendMcpFunctionKey = keyof typeof BACKEND_MCP_FUNCTION_DEFAULTS;
+type AccessDeniedReason = "role" | "workspace" | "feature" | "banned";
 ```
 
-Defined in: [src/runtime/server/mcp/builtin.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts)
+Defined in: [src/runtime/vue/utils/access-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/access-rules.ts)
 
-***
-
-### BackendMcpToolName
-
-```ts
-type BackendMcpToolName = 
-  | "profile-get"
-  | "profile-update"
-  | "billing-plans"
-  | "billing-subscription"
-  | "credits-balance"
-  | "billing-checkout-link"
-  | "billing-portal-link"
-  | "workspace-list"
-  | "workspace-members";
-```
-
-Defined in: [src/runtime/server/mcp/builtin.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/server/mcp/builtin.ts)
-
-The built-in agent tools, by MCP tool name.
+Why the page guard refused a signed-in person: the rule they failed.
 
 ***
 
@@ -127,7 +154,7 @@ an optional override for the Convex site URL.
 | Name | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | `convexUrl?` | `string` | Accepted for drop-in compatibility with upstream `convexBetterAuthNextJs` option objects and ignored — upstream requires but never reads it either; the deployment URL comes from runtime config. | node\_modules/nuxt-convex-module/runtime/better-auth/nuxt/server |
-| `convexSiteUrl?` | `string` | Override the Convex site URL. Defaults to `runtimeConfig.convex.siteUrl`, then `runtimeConfig.public.convex.siteUrl`, then the `NUXT_PUBLIC_CONVEX_SITE_URL` process variable. | node\_modules/nuxt-convex-module/runtime/better-auth/nuxt/server |
+| `convexSiteUrl?` | `string` | Override the Convex site URL. Defaults to `runtimeConfig.public.convex.siteUrl`, then the `NUXT_PUBLIC_CONVEX_SITE_URL` process variable. | node\_modules/nuxt-convex-module/runtime/better-auth/nuxt/server |
 
 ## Variables
 

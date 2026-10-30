@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { getAuthTables } from 'better-auth/db'
 import type { BetterAuthOptions } from 'better-auth/minimal'
-import { jwt } from 'better-auth/plugins'
 import { buildAuthOptions } from '../../src/convex/client/better-auth-options'
 import { authSchema } from '../../src/convex/components/backend/schema'
 import '../../src/convex/components/backend/adapter'
@@ -41,15 +40,11 @@ function adapterOptions(): BetterAuthOptions {
 }
 
 /**
- * The runtime plugin surface is split across two instances (see `setupAuth`):
- * the main instance from `buildAuthOptions`, and a sign-only instance
- * that carries the jwt plugin (it cannot sit on the main instance — Better
- * Auth dedupes plugins by id and a top-level jwt would displace the convex
- * plugin's internal one). The adapter schema must cover both.
+ * The runtime plugin surface: the instance `buildAuthOptions` builds. The
+ * adapter schema must cover it.
  */
 function runtimeOptions(config: Parameters<typeof buildAuthOptions>[1] = {}): BetterAuthOptions {
-  const main = buildAuthOptions({} as never, config) as BetterAuthOptions
-  return { ...main, plugins: [...(main.plugins ?? []), jwt()] }
+  return buildAuthOptions({} as never, config) as BetterAuthOptions
 }
 
 describe('adapter schema plugins ⇄ runtime plugins', () => {
@@ -58,7 +53,7 @@ describe('adapter schema plugins ⇄ runtime plugins', () => {
 
     expect(adapter).toStrictEqual(pluginIds(runtimeOptions()))
     // The named defaults, so a change on either side reads as intent here too.
-    expect(adapter).toStrictEqual(['admin', 'agent-consent', 'convex', 'email-otp', 'jwt', 'mcp', 'organization', 'passkey'])
+    expect(adapter).toStrictEqual(['admin', 'convex', 'email-otp', 'last-login-method', 'nuxt-backend-secret-rotation', 'organization', 'passkey', 'passkey-only'])
   })
 
   it('the tables the adapter maps cover the runtime instances, and the component schema owns them all', () => {

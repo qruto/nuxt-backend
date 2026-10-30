@@ -35,7 +35,7 @@ function calls() {
         if (text[end] === ')' && --depth === 0) break
       }
       const args = text.slice(index + 'logBackend('.length, end)
-      const head = args.match(/^\s*'(?:warn|error)',\s*'([\w.]+)',/)
+      const head = args.match(/^\s*'(?:info|warn|error)',\s*'([\w.]+)',/)
       // The message and the error argument after it: only `${…}` matters below.
       if (path !== 'src/convex/log.ts') found.push({ file: path, code: head?.[1] ?? '', message: head ? args.slice(head[0].length) : args })
       index = text.indexOf('logBackend(', end)
@@ -66,6 +66,6 @@ describe('the deployment log', () => {
 
   it.each(Object.keys(LOG_CODES))('%s is used and explained in Troubleshooting', (code) => {
     expect(calls().some(call => call.code === code), 'used').toBe(true)
-    expect(readFileSync(join(root, 'website/content/docs/09.ship/4.operate/4.troubleshooting.md'), 'utf8')).toContain(`\`${code}\``)
+    expect(readFileSync(join(root, 'website/content/docs/05.ship/5.operate/5.troubleshooting.md'), 'utf8')).toContain(`\`${code}\``)
   })
 })

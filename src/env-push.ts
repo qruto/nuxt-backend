@@ -6,21 +6,28 @@
  * never an argument, never through a shell), and on `dev:` deployments fills
  * the required gaps so the three-command onboarding needs zero manual
  * `convex env set`:
- * AUTH_SECRET is generated, SITE_URL defaults to localhost, and OTP codes are
- * echoed to the convex dev console until a real email transport exists.
+ * AUTH_SECRET is generated and SITE_URL defaults to localhost. Every
+ * deployment also gets its `BACKEND_ENVIRONMENT`, derived from its kind
+ * (`development`, `preview` or `production`), which decides the email test
+ * mode, the billing sandbox, the local origins trusted and the sign-in codes
+ * logged.
  *
  * Split into a pure planner (unit-testable) and a spawning executor, shared
- * by the CLI command (`nuxt-backend env push`) and the module's dev-startup
- * auto-provision (`backend.autoEnv`). Deployment values are never read —
- * only names via `convex env list` — and existing values are never
- * overwritten.
+ * by the CLI commands (`nuxt-backend env push`, `dev`). Deployment values are
+ * never read — only names via `convex env list` — and existing values are
+ * never overwritten.
  */
 import { randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { CONTRACT_ENV_NAMES, DEV_ONLY_DEPLOYMENT_ENV, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './env-registry'
+import { CONTRACT_ENV_NAMES, DERIVED_DEPLOYMENT_ENV, DEV_ONLY_DEPLOYMENT_ENV, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './env-registry'
+import { type BackendEnvironment, parseBackendEnvironment } from './convex/environment'
+import { appMonitoringDsn } from './monitoring'
 import { deriveDeploymentUrls, isDevDeploymentId, parseEnvFile } from './deployment'
 import { runConvex } from './convex-cli'
+import { usesProvenance } from './named-models'
+import { envLine, generateProvenanceCredentials } from './provenance-keys'
+import { generatePushKeys } from './convex/web-push'
 
 /** The names `env push` forwards: the deployment's contract, from src/env-registry.ts. */
 export const BACKEND_ENV_NAMES = CONTRACT_ENV_NAMES
@@ -30,7 +37,7 @@ export interface EnvPushAction {
   action:
     /** Local value forwarded to the deployment. */
     | 'forward'
-    /** Dev-only: value invented (generated secret / localhost default). */
+    /** Value invented: a generated secret, a dev or preview default, the deployment's kind. */
     | 'provision'
     /** Already set on the deployment — left alone unless forced. */
     | 'skip'
@@ -55,8 +62,9 @@ export interface EnvPushPlanInput {
   dev: boolean
   /**
    * Treat as a preview deployment: disposable like dev, so AUTH_SECRET is
-   * generated and mail and billing start safe (`PREVIEW_ENV_DEFAULTS`), but
-   * SITE_URL is the preview's own origin, which only the caller knows.
+   * generated and `BACKEND_ENVIRONMENT` is `preview` (mail in test mode,
+   * billing in the sandbox), but SITE_URL is the preview's own origin, which
+   * only the caller knows.
    */
   preview?: boolean
   /**
@@ -66,13 +74,19 @@ export interface EnvPushPlanInput {
    * never tell a rotated key from an identical one.
    */
   force?: ReadonlySet<string>
+  /**
+   * Values generated for this push (the content-credentials signing key and
+   * certificate, {@link provenanceToGenerate}): provisioned where neither
+   * the deployment nor .env.local has one.
+   */
+  generated?: Readonly<Record<string, string>>
 }
 
 /**
  * A name with no value anywhere: what a deployment of this kind gets. Dev and
  * preview deployments are disposable, so a secret is generated for them; dev
- * gets the dev server's origin, a preview starts mail and billing safe and
- * waits for its own origin; anything else never gets a value made up.
+ * gets the dev server's origin, a preview waits for its own; anything else
+ * never gets a value made up.
  */
 function gapAction(name: string, { dev, preview }: { dev: boolean, preview: boolean }): EnvPushAction {
   const required = (REQUIRED_DEPLOYMENT_ENV as readonly string[]).includes(name)
@@ -80,11 +94,9 @@ function gapAction(name: string, { dev, preview }: { dev: boolean, preview: bool
     return { name, action: 'provision', value: generateAuthSecret(), detail: `generated (${dev ? 'dev' : 'preview'} deployment)` }
   }
   if (required && dev) return { name, action: 'provision', value: DEV_SITE_URL, detail: 'dev default' }
+  if (dev && name in DEV_ONLY_DEPLOYMENT_ENV) return { name, action: 'provision', value: DEV_ONLY_DEPLOYMENT_ENV[name], detail: 'dev default' }
   if (required) {
     return { name, action: 'missing', detail: preview ? 'required — pass the preview\'s own origin with --site-url' : 'required — set it in .env.local (or the dashboard) and push again' }
-  }
-  if (preview && name in PREVIEW_ENV_DEFAULTS) {
-    return { name, action: 'provision', value: PREVIEW_ENV_DEFAULTS[name as keyof typeof PREVIEW_ENV_DEFAULTS], detail: 'preview default' }
   }
   return { name, action: 'unset', detail: `optional — ${OPTIONAL_DEPLOYMENT_ENV[name as keyof typeof OPTIONAL_DEPLOYMENT_ENV]}` }
 }
@@ -95,12 +107,21 @@ function gapAction(name: string, { dev, preview }: { dev: boolean, preview: bool
  *
  * @internal
  */
-export function planEnvPush({ deployedNames, localEnv, dev, preview = false, force }: EnvPushPlanInput): EnvPushAction[] {
+export function planEnvPush({ deployedNames, localEnv, dev, preview = false, force, generated }: EnvPushPlanInput): EnvPushAction[] {
   const deployed = new Set(deployedNames)
   const actions: EnvPushAction[] = []
 
   for (const name of BACKEND_ENV_NAMES) {
-    const local = localEnv[name]
+    if (DERIVED_DEPLOYMENT_ENV.has(name)) {
+      actions.push(environmentAction(deployed.has(name), force?.has(name) === true, { dev, preview }))
+      continue
+    }
+    if (name in DEV_ONLY_DEPLOYMENT_ENV && !dev) {
+      actions.push({ name, action: 'unset', detail: 'dev deployments only: never pushed here (deploy --sandbox sets it on a sandbox; elsewhere set it by hand where you mean to)' })
+      continue
+    }
+    // A web push pair is one deployment's own: .env.local's is the dev deployment's, never production's.
+    const local = (PUSH_ENV as readonly string[]).includes(name) && !dev ? undefined : localValue(name, localEnv)
     if (deployed.has(name)) {
       const replaceable = force?.has(name) && local !== undefined && local !== ''
       if (!replaceable) {
@@ -113,46 +134,78 @@ export function planEnvPush({ deployedNames, localEnv, dev, preview = false, for
         })
         continue
       }
-      // A dev-only var still never reaches a non-dev deployment, forced or not.
-      if (!dev && DEV_ONLY_DEPLOYMENT_ENV.has(name)) {
-        actions.push({ name, action: 'unset', detail: 'dev-only — not forwarded to a non-dev deployment' })
-        continue
-      }
       actions.push({ name, action: 'update', value: local, detail: 'replaced from .env(.local)' })
-      continue
-    }
-    // Dev-only vars (loopback origin trust) never leave the workstation for a
-    // non-dev deployment, even when .env.local carries them.
-    if (!dev && DEV_ONLY_DEPLOYMENT_ENV.has(name)) {
-      actions.push({ name, action: 'unset', detail: local ? 'dev-only — not forwarded to a non-dev deployment' : 'dev-only — not applicable to a non-dev deployment' })
       continue
     }
     if (local !== undefined && local !== '') {
       actions.push({ name, action: 'forward', value: local, detail: 'forwarded from .env(.local)' })
       continue
     }
+    const made = generated?.[name]
+    if (made !== undefined) {
+      const detail = !(PUSH_ENV as readonly string[]).includes(name)
+        ? 'generated (a signing key and its certificate, kept in .env.local)'
+        : dev ? 'generated (the web push key pair, kept in .env.local)' : 'generated (this deployment\'s own web push key pair: back it up with your other secrets)'
+      actions.push({ name, action: 'provision', value: made, detail })
+      continue
+    }
     actions.push(gapAction(name, { dev, preview }))
-  }
-
-  // Dev without a transport: echo OTP codes to the convex dev console so the
-  // very first sign-in works. Left alone once EMAIL_API_KEY exists anywhere.
-  const emailKeyAvailable = deployed.has('EMAIL_API_KEY') || Boolean(localEnv.EMAIL_API_KEY)
-  if (dev && !emailKeyAvailable && !deployed.has('NUXT_BACKEND_LOG_OTP')) {
-    actions.push({ name: 'NUXT_BACKEND_LOG_OTP', action: 'provision', value: '1', detail: 'no email transport — OTP codes print in the convex dev console' })
   }
 
   return actions
 }
 
-/** The SITE_URL a dev deployment gets when nothing else names one: the Nuxt dev server's default origin. */
-export const DEV_SITE_URL = 'http://localhost:3000'
+/**
+ * The value `.env(.local)` holds for a name. `MONITORING_DSN` falls back to
+ * the `NEXT_PUBLIC_SENTRY_DSN` Sentry's Vercel integration sets (pulled with
+ * `vercel env pull`), so the integration alone is enough.
+ */
+function localValue(name: string, localEnv: Record<string, string>): string | undefined {
+  if (name === 'MONITORING_DSN') return appMonitoringDsn(localEnv)
+  if (name === 'SITE_URL') return localSiteUrl(localEnv)
+  return localEnv[name]
+}
 
 /**
- * What a preview deployment starts with when nothing else gives a value: mail
- * in test mode, billing in the sandbox. A preview is reachable by anyone with
- * its URL, so it never sends real mail or takes real money until told to.
+ * The app's origin as the env here names it: `SITE_URL`, else the origin of
+ * `NUXT_SITE_URL`, the name Nuxt's site config (and the SEO modules on it)
+ * reads, so an app that already names its site once is not asked twice. A
+ * `NUXT_SITE_URL` that is no URL is passed as it is, for the check to name.
  */
-export const PREVIEW_ENV_DEFAULTS = { EMAIL_TEST_MODE: 'true', BILLING_ENVIRONMENT: 'sandbox' } as const
+export function localSiteUrl(env: Readonly<Record<string, string | undefined>>): string | undefined {
+  if (env.SITE_URL !== undefined) return env.SITE_URL
+  const site = env.NUXT_SITE_URL?.trim()
+  if (!site) return undefined
+  try {
+    return new URL(site).origin
+  }
+  catch {
+    return site
+  }
+}
+
+/**
+ * The kind of deployment, by what is being pushed to: `development` for a
+ * dev deployment (cloud or local), `preview` for a preview, and
+ * `production` for any other. A `sandbox` is the one value set by hand.
+ */
+export function deploymentEnvironment({ dev, preview }: { dev: boolean, preview: boolean }): Exclude<BackendEnvironment, 'sandbox'> {
+  return dev ? 'development' : preview ? 'preview' : 'production'
+}
+
+/**
+ * `BACKEND_ENVIRONMENT`: derived from the deployment's kind, never a value
+ * from .env.local, which holds the dev deployment's. Set once, it is left
+ * alone unless forced, so a `sandbox` set by hand stays.
+ */
+function environmentAction(deployed: boolean, forced: boolean, kind: { dev: boolean, preview: boolean }): EnvPushAction {
+  const name = 'BACKEND_ENVIRONMENT'
+  if (deployed && !forced) return { name, action: 'skip', detail: 'already set on the deployment (--force to replace)' }
+  return { name, action: deployed ? 'update' : 'provision', value: deploymentEnvironment(kind), detail: 'derived from the deployment\'s kind' }
+}
+
+/** The SITE_URL a dev deployment gets when nothing else names one: the Nuxt dev server's default origin. */
+export const DEV_SITE_URL = 'http://localhost:3000'
 
 /** A new AUTH_SECRET: 32 random bytes, base64. */
 export function generateAuthSecret(): string {
@@ -230,6 +283,23 @@ export function nonProductionDeployKey(env: Record<string, string | undefined> =
 }
 
 /**
+ * Why a push to the dev deployment (no `--prod`, no `--preview`) must not
+ * run. The Convex CLI follows a deploy key whatever the flags say, so with
+ * any key but a dev one the push lands on the deployment that key selects —
+ * production, a preview, or the one a project key picks — and the dev
+ * gap-filling would put a generated AUTH_SECRET, a localhost SITE_URL,
+ * `development` BACKEND_ENVIRONMENT (echoed sign-in codes, the trusted
+ * loopback origins) there. Null when no key is set, or for a dev key. The key is read
+ * where the Convex CLI reads it: the process env, then `.env.local`, then
+ * `.env`.
+ */
+export function devPushRefusal(rootDir: string): string | null {
+  const type = deployKeyType({ ...readEnvFiles(rootDir), ...process.env })
+  if (type === null || type === 'dev') return null
+  return `CONVEX_DEPLOY_KEY is a ${type} deploy key, and the Convex CLI follows it whatever the flags say, so a push to the dev deployment would put dev values (a generated AUTH_SECRET, a localhost SITE_URL, echoed sign-in codes) on the deployment that key selects. Unset it to push to the dev deployment CONVEX_DEPLOYMENT names in .env.local, or run with --prod to push production.`
+}
+
+/**
  * Read deployment env var NAMES via `convex env list --names-only`: the
  * values are never requested, so a production secret never reaches this
  * process. (`--names-only` arrived in convex 1.42; the peer range starts
@@ -242,6 +312,48 @@ export async function deploymentEnvNames(rootDir: string, options: DeploymentTar
   }
   catch {
     return null
+  }
+}
+
+/**
+ * The deployment's `BACKEND_ENVIRONMENT` (`convex env get`): with `SITE_URL`'s
+ * origin ({@link deploymentSiteOrigin}), the only values the package reads off
+ * a deployment, all non-secret. It is only ever compared, never printed; the
+ * origin is public and `doctor` prints it. `null` when it could not be read
+ * or is none of the four kinds, which the backend treats as unset (test mode,
+ * the sandbox). Read it only when the deployment lists the name.
+ */
+export async function deploymentBackendEnvironment(rootDir: string, options: DeploymentTarget = {}): Promise<BackendEnvironment | null> {
+  try {
+    const { stdout } = await runConvex(rootDir, ['env', 'get', ...deploymentFlags(options), 'BACKEND_ENVIRONMENT'])
+    return parseBackendEnvironment(stdout) ?? null
+  }
+  catch {
+    return null
+  }
+}
+
+/**
+ * The origin of the deployment's `SITE_URL` (`convex env get`): the app's
+ * public origin, which every emailed link already names, so no secret, and
+ * the site `doctor --prod` probes. Only its origin is kept, `malformed`
+ * when it is no http(s) URL; null when it could not be read. Read it only
+ * when the deployment lists the name.
+ */
+export async function deploymentSiteOrigin(rootDir: string, options: DeploymentTarget = {}): Promise<{ origin: string } | 'malformed' | null> {
+  let value: string
+  try {
+    value = (await runConvex(rootDir, ['env', 'get', ...deploymentFlags(options), 'SITE_URL'])).stdout.trim()
+  }
+  catch {
+    return null
+  }
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' || url.protocol === 'http:' ? { origin: url.origin } : 'malformed'
+  }
+  catch {
+    return 'malformed'
   }
 }
 
@@ -373,14 +485,19 @@ export function isDevDeployment(rootDir: string): boolean {
   return isDevDeploymentId(configuredDeployment(rootDir))
 }
 
+/** What a dev push provisions, as a number: raise it when `planEnvPush` provisions a new name (2: the stand-in marker; 3: the deployment's environment; 4: BACKEND_ENVIRONMENT in place of the mode variables; 5: EMAIL_DEV_INBOX; 6: the content-credentials signing key; 7: the web push key pair). */
+const PROVISION_VERSION = 7
+
 /**
  * The marker a clean `env push` leaves on a dev deployment: once it exists,
  * the module's dev-startup auto-provision and `nuxt-backend dev` skip the
  * `convex env list` spawn for that deployment. A run with a failed `set`
- * leaves no marker, so the next start retries.
+ * leaves no marker, so the next start retries. Its name carries
+ * {@link PROVISION_VERSION}, so a deployment provisioned before a release that
+ * provisions more is pushed once again.
  */
 function envProvisionedMarker(rootDir: string, deployment: string): string {
-  return join(rootDir, 'node_modules/.cache/nuxt-backend', `env-ok-${deployment.replace(/[^\w-]/g, '_')}`)
+  return join(rootDir, 'node_modules/.cache/nuxt-backend', `env-ok-${PROVISION_VERSION}-${deployment.replace(/[^\w-]/g, '_')}`)
 }
 
 /** Whether a clean `env push` has already provisioned this deployment. */
@@ -418,24 +535,40 @@ export interface RunEnvPushOptions extends DeploymentTarget {
   setEnv?: ExecuteEnvPushOptions['setEnv']
 }
 
-/** The whole flow shared by the CLI and the module's dev auto-provision. */
-export async function runEnvPush(rootDir: string, options: RunEnvPushOptions = {}): Promise<EnvPushRunResult | null> {
-  const target = { prod: options.prod, preview: options.preview }
-  const deployedNames = await deploymentEnvNames(rootDir, target)
-  if (deployedNames === null) return null
-
-  // Dev-class deployments get required-gap filling. Under --prod the target is
-  // the project's production deployment, whatever .env.local names; under
-  // --preview, that preview.
+/**
+ * The deployment a push lands on, and what kind it is. Dev-class deployments
+ * get required-gap filling. Under --prod
+ * the target is the project's production deployment, whatever .env.local
+ * names; under --preview, that preview.
+ */
+function pushTarget(rootDir: string, options: RunEnvPushOptions): { deployment: string | null, dev: boolean, preview: boolean } {
   const preview = !options.prod && options.preview !== undefined
   const deployment = options.prod ? 'production' : preview ? `preview:${options.preview}` : configuredDeployment(rootDir)
   const dev = !options.prod && !preview && isDevDeployment(rootDir)
+  return { deployment, dev, preview }
+}
+
+/**
+ * The whole flow shared by the CLI and the module's dev auto-provision. A
+ * push to the dev deployment with a deploy key that selects another one
+ * throws ({@link devPushRefusal}) before the Convex CLI is asked anything:
+ * the commands refuse it first, with their own words.
+ */
+export async function runEnvPush(rootDir: string, options: RunEnvPushOptions = {}): Promise<EnvPushRunResult | null> {
+  const target = { prod: options.prod, preview: options.preview }
+  const refusal = !options.prod && options.preview === undefined ? devPushRefusal(rootDir) : null
+  if (refusal) throw new Error(`[nuxt-backend] env push refused: ${refusal}`)
+  const deployedNames = await deploymentEnvNames(rootDir, target)
+  if (deployedNames === null) return null
+
+  const { deployment, dev, preview } = pushTarget(rootDir, options)
   const localEnv = readEnvFiles(rootDir)
   // A SITE_URL in .env(.local) is the dev app's origin, never a preview's.
   if (preview) delete localEnv.SITE_URL
   if (options.siteUrl) localEnv.SITE_URL = options.siteUrl
   const force = options.siteUrl ? new Set([...options.force ?? [], 'SITE_URL']) : options.force
-  const actions = planEnvPush({ deployedNames, localEnv, dev, preview, ...(force ? { force } : {}) })
+  const generated = await generatedEnv(rootDir, deployedNames, localEnv, { dev, dryRun: options.dryRun === true })
+  const actions = planEnvPush({ deployedNames, localEnv, dev, preview, ...(force ? { force } : {}), ...(generated ? { generated } : {}) })
   const results = await executeEnvPush(rootDir, actions, { dryRun: options.dryRun, ...target, ...(options.setEnv ? { setEnv: options.setEnv } : {}) })
   return {
     deployment,
@@ -444,4 +577,87 @@ export async function runEnvPush(rootDir: string, options: RunEnvPushOptions = {
     results,
     missingRequired: actions.filter(action => action.action === 'missing').map(action => action.name),
   }
+}
+
+/**
+ * The values a push generates where the deployment has none: the
+ * content-credentials pair and the web push pair. Kept in .env.local
+ * (outside a dry run): the provenance pair always, the push pair only for
+ * the dev deployment, whose pair it is.
+ */
+async function generatedEnv(rootDir: string, deployedNames: readonly string[], localEnv: Readonly<Record<string, string>>, { dev, dryRun }: { dev: boolean, dryRun: boolean }): Promise<Record<string, string> | null> {
+  const provenance = provenanceToGenerate(rootDir, deployedNames, localEnv)
+  if (provenance && !dryRun) writeLocalEnv(rootDir, provenance)
+  const push = await pushKeysToGenerate(deployedNames, localEnv, { dev })
+  if (push && dev && !dryRun) writeLocalEnv(rootDir, push, PUSH_KEYS_COMMENT)
+  return provenance || push ? { ...provenance, ...push } : null
+}
+
+/** The web push (VAPID) key pair: `setupNotifications` signs and encrypts every push with it. */
+export const PUSH_ENV = ['PUSH_PUBLIC_KEY', 'PUSH_PRIVATE_KEY'] as const
+
+/** The comment above the pair in .env.local. */
+const PUSH_KEYS_COMMENT = '# Web push (setupNotifications): the dev deployment\'s key pair, generated by `nuxt-backend env push`. Keep it: new keys orphan every subscribed device.'
+
+/**
+ * A new web push key pair, when the deployment has neither name: for the dev
+ * deployment the pair .env.local holds, else a new one written there; for
+ * production or a preview a pair of its own, never .env.local's. `null`
+ * when the deployment has one: a push never replaces it, since a browser
+ * binds its subscription to the public key.
+ */
+export async function pushKeysToGenerate(deployedNames: readonly string[], localEnv: Readonly<Record<string, string>>, { dev }: { dev: boolean }): Promise<Record<string, string> | null> {
+  if (PUSH_ENV.some(name => deployedNames.includes(name))) return null
+  if (dev && PUSH_ENV.every(name => localEnv[name])) return null
+  const { publicKey, privateKey } = await generatePushKeys()
+  return { PUSH_PUBLIC_KEY: publicKey, PUSH_PRIVATE_KEY: privateKey }
+}
+
+/** The content-credentials signing pair: `setupAi({ provenance })` reads both. */
+export const PROVENANCE_ENV = ['PROVENANCE_PRIVATE_KEY', 'PROVENANCE_CERTIFICATE'] as const
+
+/**
+ * A new signing key and certificate for content credentials, when the
+ * backend turns provenance on and neither the deployment nor .env.local
+ * has either name; null otherwise. The signer is named after the app's
+ * package.
+ */
+export function provenanceToGenerate(rootDir: string, deployedNames: readonly string[], localEnv: Readonly<Record<string, string>>): Record<string, string> | null {
+  if (PROVENANCE_ENV.some(name => deployedNames.includes(name) || localEnv[name])) return null
+  if (!usesProvenance(rootDir)) return null
+  const { privateKey, certificate } = generateProvenanceCredentials(appName(rootDir))
+  return { PROVENANCE_PRIVATE_KEY: privateKey, PROVENANCE_CERTIFICATE: certificate }
+}
+
+/** The app's name, from its package.json: what a generated certificate names as its signer. */
+function appName(rootDir: string): string {
+  try {
+    const name = (JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf8')) as { name?: unknown }).name
+    if (typeof name === 'string' && name.trim()) return name.trim()
+  }
+  catch {
+    // No readable package.json: the generic name.
+  }
+  return 'nuxt-backend app'
+}
+
+/**
+ * Keep generated values in .env.local, so the next push (production's
+ * included) forwards the same key: ahead of the platform's own group when
+ * the file has one, else at its end.
+ */
+export function writeLocalEnv(rootDir: string, values: Readonly<Record<string, string>>, comment = '# Content credentials (setupAi({ provenance })): generated by `nuxt-backend env push`. Replace both with a certificate from a CA on the C2PA trust list for a named signer.'): void {
+  const path = join(rootDir, '.env.local')
+  const text = existsSync(path) ? readFileSync(path, 'utf8') : ''
+  const block = [
+    comment,
+    ...Object.entries(values).map(([name, value]) => envLine(name, value)),
+    '',
+  ].join('\n')
+  const lines = text.split('\n')
+  const platform = lines.findIndex(line => /^# Deployment used by|^CONVEX_DEPLOYMENT=/.test(line))
+  const next = platform === -1
+    ? `${text}${text && !text.endsWith('\n') ? '\n' : ''}${text ? '\n' : ''}${block}`
+    : [...lines.slice(0, platform), block, ...lines.slice(platform)].join('\n')
+  writeFileSync(path, next)
 }

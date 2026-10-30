@@ -19,10 +19,11 @@ export function normalizePagePath(path: string): string {
 }
 
 /**
- * The mount path for one page key: the configured path, or the default. Only
- * a string is a path. Any other value (a 0.1 `false` or `true`) resolves to
- * the default here, so `doctor` reads such a config without crashing; the
- * module refuses it at startup ({@link pagesOptionProblems}).
+ * The path for one page key: the configured path, or the default. Only a
+ * string is a path: a page turned off (`false`) keeps its default, which a
+ * guard still sends a signed-out visitor to when it is `login`, and any
+ * other value resolves to the default too, so `doctor` reads such a config
+ * without crashing; the module refuses it at startup ({@link pagesOptionProblems}).
  */
 export function resolvePagePath(pages: ModulePagesOptions | undefined, key: BackendPageKey): string {
   const def = BACKEND_PAGE_DEFS.find(entry => entry.key === key)!
@@ -36,28 +37,39 @@ function quoted(value: unknown): string {
   return `\`${JSON.stringify(value) ?? String(value)}\``
 }
 
+/** Whether a page is turned off: `pages.<key>: false`. */
+export function isPageOff(pages: ModulePagesOptions | undefined, key: BackendPageKey): boolean {
+  return (pages as Record<string, unknown> | undefined)?.[key] === false
+}
+
 /**
  * What is wrong with a `pages` option, one sentence per problem; none when
- * every value is a path. 0.1 turned pages off with `false` (one key, or the
- * whole option) and mounted one at its default with `true`. Every page
- * mounts now: a page key takes a path or nothing, and an app page at the
- * path replaces the module's.
+ * every value is a path or `false`. Every page mounts unless its key is
+ * `false`; `true` (0.1's way to mount one at its default) and the whole
+ * option set to `false` are refused.
  *
  * @internal
  */
 export function pagesOptionProblems(pages: unknown): string[] {
   if (pages === undefined) return []
   if (pages === null || typeof pages !== 'object' || Array.isArray(pages)) {
-    return [`\`backend.pages\` is ${quoted(pages)}. It takes a path per page key, and every page mounts: to replace one, put an app page at its path.`]
+    return [`\`backend.pages\` is ${quoted(pages)}. It takes a path or \`false\` per page key: to replace a page, put an app page at its path.`]
   }
   return BACKEND_PAGE_DEFS.flatMap((def) => {
     const value: unknown = (pages as Record<string, unknown>)[def.key]
-    if (value === undefined || typeof value === 'string') return []
-    return [`\`backend.pages.${def.key}\` is ${quoted(value)}. Give it a path to move the page, or leave it out; to replace the page, put an app page at its path (\`${def.defaultPath}\` by default).`]
+    if (value === undefined || value === false || typeof value === 'string') return []
+    return [`\`backend.pages.${def.key}\` is ${quoted(value)}. Give it a path to move the page, \`false\` to turn it off, or leave it out; to replace the page, put an app page at its path (\`${def.defaultPath}\` by default).`]
   })
 }
 
-/** Every page key with its mount path. Published to `runtimeConfig.public.backend.pages`. */
+/** Every page key with its mount path, `false` for a page turned off: what `runtimeConfig.public.backend.pages` publishes. */
+export function publishedBackendPages(pages: ModulePagesOptions | undefined): Record<BackendPageKey, string | false> {
+  return Object.fromEntries(
+    BACKEND_PAGE_DEFS.map(def => [def.key, isPageOff(pages, def.key) ? false : resolvePagePath(pages, def.key)]),
+  ) as Record<BackendPageKey, string | false>
+}
+
+/** Every page key with its path, a page turned off at its default. */
 export function resolvedBackendPages(pages: ModulePagesOptions | undefined): Record<BackendPageKey, string> {
   return Object.fromEntries(
     BACKEND_PAGE_DEFS.map(def => [def.key, resolvePagePath(pages, def.key)]),
@@ -65,31 +77,35 @@ export function resolvedBackendPages(pages: ModulePagesOptions | undefined): Rec
 }
 
 /**
- * The mount paths of the pages that sit behind the `auth` middleware.
+ * The mount paths of the pages that ask for a sign-in (`definePageMeta({ auth })`).
  *
  * @internal
  */
 export function privatePagePaths(pages: ModulePagesOptions | undefined): string[] {
-  return BACKEND_PAGE_DEFS.filter(def => def.auth).map(def => resolvePagePath(pages, def.key))
+  return BACKEND_PAGE_DEFS.filter(def => def.auth && !isPageOff(pages, def.key)).map(def => resolvePagePath(pages, def.key))
 }
 
 /**
  * The route rules a page's path carries. No page is prerendered: each reads
  * the session or the live catalog when it is requested, and prerendering the
  * sign-in page hung `nuxt build`. A private page is also kept out of search
- * indexes and sitemaps (inert without @nuxtjs/robots and @nuxtjs/sitemap) and
- * out of caches, `cache-control: private, no-store` included: a signed-in
- * render carries the session's token. Nitro matches rules case-sensitively
- * and the router does not, so the exemption holds at the exact path only; a
- * wildcard caching rule over a private page draws a warning at startup
- * ({@link cachingRulesOver}). The rules follow the path, not the component,
- * so an app page at the same path gets them too; a rule the app sets for that
+ * indexes and sitemaps (inert without @nuxtjs/robots and @nuxtjs/sitemap; the
+ * noindex plugin's `robots` meta tag stands without them) and out of caches,
+ * `cache-control: private, no-store` included: a signed-in render carries the
+ * session's token. A public page that reads a token from its link
+ * (`noindex`) is kept out of indexes alone; one whose link carries a secret
+ * it acts on (`uncached`, the "keep my account" link) gets the private
+ * page's rules, though anyone may open it. Nitro matches rules case-sensitively and the
+ * router does not, so the exemption holds at the exact path only; a wildcard
+ * caching rule over a private page draws a warning at startup
+ * ({@link cachingRulesOver}). The rules follow the path, not the component, so
+ * an app page at the same path gets them too; a rule the app sets for that
  * exact path wins key by key.
  *
  * @internal
  */
-export function pageRouteRules(def: Pick<BackendPageDef, 'auth'>): Record<string, unknown> {
-  if (!def.auth) return { prerender: false }
+export function pageRouteRules(def: Pick<BackendPageDef, 'auth' | 'noindex' | 'uncached'>): Record<string, unknown> {
+  if (!def.auth && !def.uncached) return def.noindex ? { prerender: false, robots: false } : { prerender: false }
   return {
     prerender: false,
     cache: false,
@@ -166,4 +182,30 @@ export function collectExistingPagePaths(pages: PageLike[], parent = ''): Set<st
     }
   }
   return paths
+}
+
+/**
+ * Move the pages below `parentPath` into `parent` as its children, so the
+ * page mounted there is the frame of everything under it: the admin console
+ * and the app's own admin tabs (`app/pages/admin/featured.vue`). Nuxt
+ * nests a page only under a page file of the app's (`admin.vue`), so one
+ * the module mounts is the parent of nothing until this runs. A page's path
+ * becomes relative to the parent's; its name, meta and children stay. Returns
+ * the paths it moved.
+ *
+ * @internal
+ */
+export function adoptChildPages<T extends PageLike & { children?: T[] }>(pages: T[], parent: T, parentPath: string): string[] {
+  const base = normalizePagePath(parentPath)
+  if (base === '/') return []
+  const moved: string[] = []
+  for (const page of [...pages]) {
+    if (page === parent || !page.path.startsWith('/')) continue
+    const absolute = normalizePagePath(page.path)
+    if (!absolute.startsWith(`${base}/`)) continue
+    pages.splice(pages.indexOf(page), 1)
+    parent.children = [...(parent.children ?? []), { ...page, path: absolute.slice(base.length + 1) }]
+    moved.push(absolute)
+  }
+  return moved
 }

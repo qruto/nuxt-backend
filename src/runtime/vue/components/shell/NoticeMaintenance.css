@@ -1,0 +1,30 @@
+/*
+ * NoticeMaintenance's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-maintenance='banner'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.9rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--bk-accent) 40%, transparent);
+    border-radius: var(--bk-radius);
+    background: color-mix(in srgb, var(--bk-accent) 10%, transparent);
+    color: var(--bk-ink);
+    font-size: 0.9rem;
+  }
+
+  [data-maintenance='message'] {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  /* Two banners in the frame's region: one above the other. */
+  [data-backend-region='banner'] > [data-maintenance='banner'] + *,
+  [data-backend-region='banner'] > * + [data-maintenance='banner'] {
+    margin-block-start: 0.5rem;
+  }
+}

@@ -1,11 +1,10 @@
 {
   "mcpServers": {
-    "convex": {
+    "nuxt-backend": {
       "command": "npx",
       "args": [
-        "convex",
-        "mcp",
-        "start"
+        "nuxt-backend",
+        "mcp"
       ]
     }
   }

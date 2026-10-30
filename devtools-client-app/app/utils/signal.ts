@@ -1,6 +1,8 @@
 // The panel's only colours: a signal per element, never an accent. Every
 // status the panel shows maps to one of four signals here, once.
 
+import type { CapabilityState } from '../../../src/capabilities/types'
+
 export type Signal = 'ok' | 'warn' | 'err' | 'off'
 
 /** The UI kit colour (`n="…"`) for each signal. */
@@ -28,6 +30,14 @@ export const SIGNAL_SAFELIST = [
 /** A preflight or doctor finding. */
 export function findingSignal(status: 'pass' | 'warn' | 'fail'): Signal {
   return status === 'pass' ? 'ok' : status === 'warn' ? 'warn' : 'err'
+}
+
+/**
+ * An app capability's detected state: live is go, the dev and test stand-in asks
+ * attention, missing is off, failing is an error.
+ */
+export function layerSignal(state: CapabilityState): Signal {
+  return ({ live: 'ok', test: 'warn', missing: 'off', failing: 'err' } as const)[state]
 }
 
 /** A webhook delivery's outcome. A duplicate is a delivery already handled. */

@@ -12,9 +12,7 @@
    A modifier (`slot-pill`, `slot-xs`) never repeats a recipe: it sets
    the custom properties its part reads, so `slot slot-pill` composes.
    The values are tokens (assets/css/tokens.css); the anatomy is in
-   design.md §Parts. The examples/playground copy of this file is plain
-   CSS: scripts/sync-playground.mjs turns each `@utility x` into `.x`,
-   which is why no part uses `@apply`.
+   design.md §Parts. No part uses `@apply`: each is one complete recipe.
    ════════════════════════════════════════════════════════════════ */
 
 /* ── Faces ──────────────────────────────────────────────────────── */
@@ -94,6 +92,45 @@
   box-shadow: var(--slot);
 }
 
+/* A text field: a shallow well with room for its text, on an input, a
+   textarea or a select. It rings green on focus, like the slot. */
+@utility field {
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--sink);
+  box-shadow: var(--inset-1);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  transition: box-shadow var(--transition);
+
+  &::placeholder {
+    color: var(--ink-faint);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  &:is(textarea) {
+    min-height: 4.5rem;
+    resize: vertical;
+  }
+
+  &:is(select) {
+    cursor: pointer;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
 /* ── Chrome ─────────────────────────────────────────────────────── */
 
 /* The header: an opaque machined bar, lit along its top edge, with a
@@ -112,6 +149,12 @@
 @utility seam {
   border-top: 1px solid var(--seam);
   box-shadow: inset 0 1px 0 light-dark(rgb(255 255 255 / 0.6), rgb(255 255 255 / 0.05));
+}
+
+/* A machined groove under a heading: a hairline with a lit lip below. */
+@utility rule-carved {
+  border-bottom: 1px solid var(--edge-hi);
+  box-shadow: 0 1px 0 light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.06));
 }
 
 /* A code block's filename bar: a flush plate on the slot's upper lip. */
@@ -153,8 +196,40 @@
   }
 }
 
+/* The hero's engraving, cut deep into the plate. Its lips scale with the
+   type (`em`), so a 5rem title is cut as deep, for its size, as a 2rem one
+   is. The `data-text` layer is the floor: a concave face, darker under the
+   upper lip and lighter toward the lit one, repeated per line (`lh`). Its
+   middle is `--engrave-ink`, which clears the large-text bar on its own
+   (design.md §Contrast). */
+@utility cut-deep {
+  position: relative;
+  display: block;
+  width: fit-content;
+  color: var(--engrave-ink);
+  text-shadow: var(--cut-deep);
+
+  &::after {
+    content: attr(data-text);
+    content: attr(data-text) / "";
+    position: absolute;
+    inset: 0;
+    color: transparent;
+    text-shadow: none;
+    background: linear-gradient(180deg,
+      light-dark(color-mix(in oklch, var(--engrave-ink), #000 16%), color-mix(in oklch, var(--engrave-ink), #000 24%)) 18%,
+      var(--engrave-ink) 50%,
+      light-dark(color-mix(in oklch, var(--engrave-ink), #fff 24%), color-mix(in oklch, var(--engrave-ink), var(--ink) 34%)) 85%);
+    background-size: 100% 1lh;
+    background-clip: text;
+    pointer-events: none;
+  }
+}
+
 /* Engraved type without the floor: page and prose titles, which cannot
-   carry `data-text`. */
+   carry `data-text`. 24px and up only, like `cut`: its ink, `--engrave-ink`,
+   clears the large-text bar (3:1) and not the 4.5:1 smaller type needs
+   (tokens.css); a smaller engraved label is `engr`. */
 @utility cut-sm {
   color: var(--engrave-ink);
   text-shadow: var(--cut-sm);
@@ -186,7 +261,7 @@
 /* The uppercase mono label: eyebrows, field names, detents. One recipe
    for every small caps label on the site. */
 @utility stamp {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6875rem;
   font-weight: 600;
   font-stretch: 100%;

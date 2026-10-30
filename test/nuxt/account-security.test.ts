@@ -5,12 +5,16 @@ import { ConvexError } from 'convex/values'
 
 const user = ref<Record<string, unknown> | null>({ email: 'ada@example.com', emailVerified: false })
 
+// The auth client's answers as better-fetch shapes them: `{ data, error }`.
+type Answer = { data?: unknown, error?: Record<string, unknown> | null }
+const ok = (data: unknown = { status: true }): Answer => ({ data, error: null })
+
 const client = {
   passkey: {
-    addPasskey: vi.fn(async () => ({})),
-    listUserPasskeys: vi.fn(async () => ({ data: [{ id: 'pk1', name: 'Laptop', createdAt: '2026-01-01' }] })),
-    updatePasskey: vi.fn(async () => ({})),
-    deletePasskey: vi.fn(async () => ({})),
+    addPasskey: vi.fn(async (): Promise<Answer> => ok({ id: 'pk2', name: 'Desk key', createdAt: '2026-02-01' })),
+    listUserPasskeys: vi.fn(async (): Promise<Answer> => ok([{ id: 'pk1', name: 'Laptop', createdAt: '2026-01-01' }])),
+    updatePasskey: vi.fn(async (): Promise<Answer> => ok()),
+    deletePasskey: vi.fn(async (): Promise<Answer> => ok()),
   },
   revokeOtherSessions: vi.fn(async () => ({})),
   updateUser: vi.fn(async () => ({})),
@@ -55,7 +59,7 @@ vi.mock('nuxt-convex-module/better-auth/client', () => ({
   }),
 }))
 
-const { useAuth } = await import('../../src/runtime/vue/composables/use-auth')
+const { useAuthSession: useAuth } = await import('../../src/runtime/vue/utils/auth-session')
 const { useEmailChange } = await import('../../src/runtime/vue/composables/use-email-change')
 const { usePasskeys } = await import('../../src/runtime/vue/composables/use-passkeys')
 const { useSessions, describeUserAgent } = await import('../../src/runtime/vue/composables/use-sessions')
@@ -102,22 +106,62 @@ describe('usePasskeys', () => {
     expect(passkeys.passkeys.value).toBeUndefined()
   })
 
-  it('rename unwraps, refreshes, and throws on an error envelope', async () => {
+  it('rename unwraps, refreshes, and rejects on an error envelope with the failure in error', async () => {
     const passkeys = inSetup(() => usePasskeys({ immediate: false }))
     await passkeys.rename('pk1', 'Desk key')
     expect(client.passkey.updatePasskey).toHaveBeenCalledWith({ id: 'pk1', name: 'Desk key' })
     expect(client.passkey.listUserPasskeys).toHaveBeenCalled()
 
-    client.passkey.deletePasskey.mockResolvedValueOnce({ error: { message: 'denied' } })
-    await expect(passkeys.remove('pk1')).rejects.toThrow('denied')
-    expect(passkeys.error.value).toBe('denied')
+    const denied = { status: 403, message: 'denied', statusText: 'Forbidden' }
+    client.passkey.deletePasskey.mockResolvedValueOnce({ data: null, error: denied })
+    const rejection = await passkeys.remove('pk1').catch((cause: unknown) => cause)
+    expect((rejection as Error).cause).toBe(denied)
+    // The auth server's English stays on the cause; the person reads the label.
+    expect(passkeys.error.value).toMatchObject({ code: 'forbidden', message: 'You don\'t have access to this.' })
   })
 
-  it('add registers a passkey then refreshes', async () => {
+  it('add resolves with the new passkey, then refreshes', async () => {
     const passkeys = inSetup(() => usePasskeys({ immediate: false }))
-    await passkeys.add()
-    expect(client.passkey.addPasskey).toHaveBeenCalled()
+    await expect(passkeys.add({ name: 'Desk key' })).resolves.toMatchObject({ id: 'pk2', name: 'Desk key' })
+    expect(client.passkey.addPasskey).toHaveBeenCalledWith({ name: 'Desk key' })
     expect(client.passkey.listUserPasskeys).toHaveBeenCalled()
+  })
+
+  it('never rejects a load: a failed one shows in error, and the next load clears it', async () => {
+    client.passkey.listUserPasskeys.mockResolvedValueOnce({ data: null, error: { status: 401, message: 'Unauthorized', statusText: 'Unauthorized' } })
+    const passkeys = inSetup(() => usePasskeys({ immediate: false }))
+    await expect(passkeys.refresh()).resolves.toBeUndefined()
+    expect(passkeys.passkeys.value).toBeUndefined()
+    expect(passkeys.error.value).toMatchObject({ code: 'unauthenticated' })
+    expect(passkeys.isLoading.value).toBe(false)
+
+    await passkeys.refresh()
+    expect(passkeys.error.value).toBeNull()
+    expect(passkeys.passkeys.value).toHaveLength(1)
+  })
+
+  it('is pending while an action runs, and loading only while the list loads', async () => {
+    let release!: () => void
+    client.passkey.updatePasskey.mockImplementationOnce(() => new Promise<Answer>((resolve) => {
+      release = () => resolve(ok())
+    }))
+    const passkeys = inSetup(() => usePasskeys({ immediate: false }))
+    const renaming = passkeys.rename('pk1', 'Desk key')
+    expect(passkeys.isPending.value).toBe(true)
+    expect(passkeys.isLoading.value).toBe(false)
+    release()
+    await renaming
+    expect(passkeys.isPending.value).toBe(false)
+  })
+
+  it('drops an action\'s failure on sign-out', async () => {
+    const passkeys = inSetup(() => usePasskeys({ immediate: false }))
+    client.passkey.deletePasskey.mockResolvedValueOnce({ data: null, error: { status: 400, message: 'nope', statusText: 'Bad Request' } })
+    await expect(passkeys.remove('pk1')).rejects.toThrow('nope')
+    expect(passkeys.error.value).not.toBeNull()
+    user.value = null
+    await nextTick()
+    expect(passkeys.error.value).toBeNull()
   })
 })
 
@@ -128,6 +172,9 @@ describe('useSessions', () => {
     { id: 's-other', userAgent: 'Firefox Windows', createdAt: now - DAY * 2, updatedAt: now - DAY, expiresAt: now + DAY * 5, current: false },
     { id: 's-expired', userAgent: 'Safari iPhone', createdAt: now - DAY * 30, updatedAt: now - DAY * 23, expiresAt: now - DAY * 16, current: false },
   ]
+
+  /** Whether the auth state is still reading the session, as on a server render or a first client paint. */
+  const authLoading = ref(false)
 
   function withSessions(api: typeof sessionsApi = sessionsApi) {
     let result!: ReturnType<typeof useSessions>
@@ -140,8 +187,8 @@ describe('useSessions', () => {
       global: {
         provide: {
           [ConvexAuthStateKey as symbol]: {
-            isLoading: computed(() => false),
-            isAuthenticated: computed(() => user.value !== null),
+            isLoading: computed(() => authLoading.value),
+            isAuthenticated: computed(() => !authLoading.value && user.value !== null),
             isRefreshing: computed(() => false),
           },
         },
@@ -152,6 +199,7 @@ describe('useSessions', () => {
 
   beforeEach(() => {
     sessionRows.value = rows
+    authLoading.value = false
   })
 
   it('lists live sessions of any age, drops expired ones and marks the current one', () => {
@@ -168,6 +216,21 @@ describe('useSessions', () => {
     expect(sessions.isLoading.value).toBe(true)
     sessionRows.value = null
     expect(sessions.sessions.value).toEqual([])
+    expect(sessions.isLoading.value).toBe(false)
+  })
+
+  // Nobody is signed in while the session is still being read, but nobody is
+  // signed out either: an empty list would read as "no sessions".
+  it('is unknown and loading, not empty, while the session is still being read', async () => {
+    authLoading.value = true
+    const sessions = withSessions()
+    expect(sessions.sessions.value).toBeUndefined()
+    expect(sessions.isLoading.value).toBe(true)
+    expect(sessions.error.value).toBeNull()
+    expect(sessions.listError.value).toBeNull()
+    authLoading.value = false
+    await nextTick()
+    expect(sessions.sessions.value?.map(session => session.id)).toEqual(['s-current', 's-other'])
     expect(sessions.isLoading.value).toBe(false)
   })
 
@@ -198,6 +261,8 @@ describe('useSessions', () => {
     revokeSessionMutation.mockRejectedValueOnce(new ConvexError({ code: 'rate_limited', retryAfter: 1000 }))
     await sessions.revoke('s-other').catch(() => {})
     expect(sessions.error.value?.code).toBe('rate_limited')
+    // The read's own failure stays apart, for a list that says why it is empty.
+    expect(sessions.listError.value?.code).toBe('unauthenticated')
     await sessions.revoke('s-other')
     expect(sessions.error.value?.code).toBe('unauthenticated')
   })
@@ -243,12 +308,12 @@ describe('useSessions', () => {
     // wrapper, and whose data is the catalog refusal. The action rejects with
     // it as it came; `error` holds it read.
     const refusal = Object.assign(
-      new ConvexError({ code: 'invalid_input', field: 'sessionId', message: 'Session not found.' }),
+      new ConvexError({ code: 'invalid_input', field: 'sessionId' }),
       { message: '[CONVEX M(auth:revokeSession)] Server Error' },
     )
     revokeSessionMutation.mockRejectedValueOnce(refusal)
     await expect(sessions.revoke('s-gone')).rejects.toBe(refusal)
-    expect(sessions.error.value).toEqual({ code: 'invalid_input', data: { field: 'sessionId', message: 'Session not found.' }, message: 'Session not found.' })
+    expect(sessions.error.value).toEqual({ code: 'invalid_input', data: { field: 'sessionId' }, message: 'That session has already ended.' })
 
     // An app's own ConvexError('text') carries no code: it reads as
     // unavailable, still with its own text, not the wrapper.
@@ -339,10 +404,10 @@ describe('useEmailChange', () => {
     const change = inSetup(() => useEmailChange({ validateEmail: email => email.endsWith('@acme.com') || 'Use your Acme address.' }))
     change.newEmail.value = 'ADA@example.com'
     await change.start()
-    expect(change.error.value).toBe('That is already your email address.')
+    expect(change.error.value).toMatchObject({ code: 'invalid_input', data: { field: 'email' }, message: 'That is already your email address.' })
     change.newEmail.value = 'ada@other.example'
     await change.start()
-    expect(change.error.value).toBe('Use your Acme address.')
+    expect(change.error.value?.message).toBe('Use your Acme address.')
     expect(change.emailValid.value).toBe(false)
     expect(client.emailOtp.sendVerificationOtp).not.toHaveBeenCalled()
     expect(change.step.value).toBe('enter-email')
@@ -353,15 +418,16 @@ describe('useEmailChange', () => {
     change.newEmail.value = 'ada@new.example'
     await change.start()
 
-    client.emailOtp.requestEmailChange.mockResolvedValueOnce({ error: { status: 400, message: 'Invalid OTP' } })
+    client.emailOtp.requestEmailChange.mockResolvedValueOnce({ data: null, error: { status: 400, message: 'Invalid OTP', statusText: 'Bad Request' } })
     await expect(change.confirmCurrent()).resolves.toBeUndefined()
     expect(change.step.value).toBe('confirm-current')
-    expect(change.error.value).toBe('Invalid OTP')
+    expect(change.error.value?.message).toBe('Invalid OTP')
+    expect(change.isPending.value).toBe(false)
 
-    client.emailOtp.requestEmailChange.mockResolvedValueOnce({ error: { status: 429, retryAfter: 61_000 } })
+    client.emailOtp.requestEmailChange.mockResolvedValueOnce({ data: null, error: { status: 429, retryAfter: 61_000, statusText: 'Too Many Requests' } })
     await change.confirmCurrent()
     expect(change.retryAfter.value).toBe(61)
-    expect(change.error.value).toBe('Too many attempts. Try again in 61 seconds.')
+    expect(change.error.value).toMatchObject({ code: 'rate_limited', message: 'Too many requests. Try again in 61 seconds.' })
 
     change.reset()
     expect(change.step.value).toBe('enter-email')

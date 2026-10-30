@@ -2,16 +2,21 @@ import { readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { sentenceCase, styled, styledFiles } from '../../scripts/docs-style.mjs'
-import { at, contentFile, contentRoute, frontmatter, GENERATED_REFERENCE, read, readModuleSources, walk } from './helpers'
+import { LABELS } from '../../src/convex/labels'
+import { aheadOfCode, at, contentFile, contentRoute, frontmatter, GENERATED_REFERENCE, read, readModuleSources, walk } from './helpers'
 
 // The page contract: what every docs page owes a reader whatever it covers —
 // the house style, a kind, a stability chip where the surface is experimental,
 // a sidebar that stays short, slugs that read as words, and only API names
-// that exist.
+// that exist. A page ahead of the code (`status: planned` or `changing`)
+// owes the same, except what holds it to the code: the names it uses arrive
+// with its unit.
 
 const DOCS = 'website/content/docs'
 const pages = walk(DOCS, ['.md']).map(file => file.slice(file.indexOf(DOCS)))
 const handWritten = pages.filter(file => !`${file}/`.includes(GENERATED_REFERENCE))
+/** The hand-written pages true to the code: a planned or changing page names what does not exist yet. */
+const built = handWritten.filter(file => !aheadOfCode(file))
 
 describe('house style', () => {
   it.each(styledFiles())('%s is in sentence case (pnpm docs:style)', (file) => {
@@ -40,9 +45,9 @@ describe('kinds', () => {
  * `status: experimental` (the docs show a chip); no other page does.
  */
 const EXPERIMENTAL: Record<string, string[]> = {
-  '`nuxt-backend/ai`': ['/docs/ai'],
-  '`nuxt-backend/mcp`': ['/docs/agents/mcp'],
-  '`useSandboxInbox`': ['/docs/email/sandbox-inbox'],
+  '`nuxt-backend/ai`': ['/docs/build/ai'],
+  '`useSandboxInbox`': ['/docs/develop/dev-inbox'],
+  '`<Gate quota>`': ['/docs/build/billing/subscriptions/quotas'],
 }
 
 describe('stability chips', () => {
@@ -53,7 +58,7 @@ describe('stability chips', () => {
     expect(tier).toContain(entry)
   })
 
-  it.each(handWritten)('%s carries the chip exactly when it documents the experimental tier', (file) => {
+  it.each(built)('%s carries the chip exactly when it documents the experimental tier', (file) => {
     const route = contentRoute(file)
     const experimental = Object.values(EXPERIMENTAL).flat().some(prefix => route === prefix || route.startsWith(`${prefix}/`))
     expect(frontmatter(read(file)).status === 'experimental', route).toBe(experimental)
@@ -85,7 +90,9 @@ describe('the sidebar', () => {
     for (const segment of contentRoute(file).split('/').filter(Boolean)) expect(segment, file).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
   })
 
-  it.each([...pages, ...walk(DOCS, ['.yml']).map(file => file.slice(file.indexOf(DOCS)))])('%s names no provider in its navigation title', (file) => {
+  // Services is the one tab named for the providers: a page per service, titled with its name.
+  const SERVICES = `${DOCS}/02.services/`
+  it.each([...pages, ...walk(DOCS, ['.yml']).map(file => file.slice(file.indexOf(DOCS)))].filter(file => !file.startsWith(SERVICES)))('%s names no provider in its navigation title', (file) => {
     // Pages are named for what they do; the provider is named in prose.
     const meta = frontmatter(read(file))
     const title = file.endsWith('.yml') ? read(file).split('\n').find(line => line.startsWith('title:'))?.slice('title:'.length) ?? '' : meta.title ?? ''
@@ -97,19 +104,37 @@ describe('the sidebar', () => {
  * Names the docs may use beyond this package's own registry: Nuxt's, and the
  * Vue generic type parameters the signatures show.
  */
-const NUXT_NAMES = new Set(['NuxtPage', 'NuxtLayout', 'NuxtLink', 'NuxtWelcome', 'ClientOnly', 'useNuxtApp', 'useHead', 'useRoute', 'useRouter', 'useRuntimeConfig', 'useAppConfig', 'useState', 'useFetch', 'useAsyncData', 'useCookie', 'useRequestEvent'])
+// `NuxtImg` and `NuxtPicture` are @nuxt/image's, which the `backend` image provider serves.
+const NUXT_NAMES = new Set(['NuxtPage', 'NuxtLayout', 'NuxtLink', 'NuxtWelcome', 'ClientOnly', 'NuxtImg', 'NuxtPicture', 'useNuxtApp', 'useHead', 'useRoute', 'useRouter', 'useRuntimeConfig', 'useAppConfig', 'useState', 'useFetch', 'useAsyncData', 'useCookie', 'useRequestEvent', 'useSeoMeta'])
+
+/**
+ * The auth client's workspace hooks (`useAuth().client.useActiveOrganization()`):
+ * no auto-import, but the names the backend mock (nuxt-backend/test-utils)
+ * fails a workspace read by.
+ */
+const AUTH_CLIENT_HOOKS = new Set(['useListOrganizations', 'useActiveOrganization', 'useActiveMember'])
 
 /** Pages that name what no longer exists, or what an upstream package exports, on purpose. */
-const NAME_EXEMPT = ['/docs/ship/migrate/upgrade', '/docs/ship/releases/changelog', '/docs/ship/releases/stability', '/docs/reference/ecosystem']
+const NAME_EXEMPT = ['/docs/ship/releases/upgrade', '/docs/ship/releases/changelog', '/docs/ship/releases/stability', '/docs/reference/ecosystem']
+
+/**
+ * A page's text as the name pins read it: the Feature map's generated rows
+ * left out, since each repeats another page's description, and that page is
+ * held to the code where it is written (or skipped, while ahead of it).
+ */
+const pinnedText = (file: string) => read(file).replace(/<!-- generated:feature-map [\s\S]*?<!-- \/generated:feature-map -->/, '')
 
 describe('API names', () => {
   // The names the module registers (src/module.ts and its src/nuxt/
   // helpers), and those the base module registers under the same Nuxt app.
   const ours = new Set([...readModuleSources().matchAll(/name: '(\w+)'/g)].map(([, name]) => name!))
   const base = new Set([...read('node_modules/nuxt-convex-module/dist/module.mjs').matchAll(/"(use[A-Z]\w*|[A-Z][A-Za-z]+)"/g)].map(([, name]) => name!))
-  const known = (name: string) => ours.has(name) || base.has(name) || NUXT_NAMES.has(name)
-  const commands = new Set(['init', 'dev', 'doctor', 'env', 'billing', 'inbox'])
-  const checked = handWritten.filter(file => !NAME_EXEMPT.includes(contentRoute(file)))
+  // The accessibility helpers an app imports from `#backend/a11y`, not auto-imported.
+  const a11y = new Set([...read('src/runtime/vue/a11y.ts').matchAll(/^export function (use[A-Z]\w*)/gm)].map(([, name]) => name!))
+  const known = (name: string) => ours.has(name) || base.has(name) || a11y.has(name) || NUXT_NAMES.has(name) || AUTH_CLIENT_HOOKS.has(name)
+  // With the commands the 0.2.0 units add (`deploy`, `email sync`, `analyze`, `eject`; `dev --anonymous` is `dev`; `mcp` is built).
+  const commands = new Set(['init', 'dev', 'doctor', 'status', 'env', 'billing', 'inbox', 'upgrade', 'deploy', 'email', 'analyze', 'eject', 'mcp'])
+  const checked = built.filter(file => !NAME_EXEMPT.includes(contentRoute(file)))
 
   it('reads both registries', () => {
     expect(ours.has('useBilling') && ours.has('AuthForm')).toBe(true)
@@ -118,7 +143,7 @@ describe('API names', () => {
 
   it.each(checked)('%s names only composables and components that exist', (file) => {
     const unknown = new Set<string>()
-    for (const [, span] of read(file).matchAll(/`([^`\n]+)`/g)) {
+    for (const [, span] of pinnedText(file).matchAll(/`([^`\n]+)`/g)) {
       for (const [, name] of span!.matchAll(/\b(use[A-Z]\w*)\b/g)) if (!known(name!)) unknown.add(name!)
       const component = span!.match(/^<([A-Z]\w*)[\s/>]/)?.[1]
       if (component && !known(component)) unknown.add(component)
@@ -126,9 +151,25 @@ describe('API names', () => {
     expect([...unknown]).toEqual([])
   })
 
+  it.each(checked)('%s names only label keys that exist', (file) => {
+    // `labels.<group>.<key>` as app config writes it, `backend.<group>.<key>`
+    // as an @nuxtjs/i18n message names it: a group, or a key in one.
+    const exists = (path: string) => path.split('.').reduce<unknown>((node, key) => (node as Record<string, unknown> | undefined)?.[key], LABELS) !== undefined
+    const unknown = new Set<string>()
+    for (const [, span] of pinnedText(file).matchAll(/`([^`\n]+)`/g)) {
+      for (const [, scope, path] of span!.matchAll(/(?<![\w.$])(labels|backend)\.([a-z]\w*(?:\.\w+)*)/g)) {
+        // `backend.` also starts module options (`backend.pages`): only a label group makes it a
+        // message. After a dot it is a path into something else (`components.backend.email`).
+        if (scope === 'backend' && !Object.hasOwn(LABELS, path!.split('.')[0]!)) continue
+        if (!exists(path!)) unknown.add(`${scope}.${path}`)
+      }
+    }
+    expect([...unknown]).toEqual([])
+  })
+
   it.each(checked)('%s names only CLI commands that exist', (file) => {
     const unknown = new Set<string>()
-    const text = read(file)
+    const text = pinnedText(file)
     // A command line (`npx nuxt-backend doctor`), or a code span that is one (`nuxt-backend dev`).
     const invoked = [...text.matchAll(/\b(?:npx|exec|dlx|bunx)\s+nuxt-backend(?:@[\w.-]+)?\s+([a-z][a-z-]*)/g), ...text.matchAll(/`nuxt-backend ([a-z][a-z-]*)/g)]
     for (const [, command] of invoked) if (!commands.has(command!)) unknown.add(command!)
@@ -172,61 +213,8 @@ describe('kind templates', () => {
 
 /** Pages still owing their kind's template marker. The 0.2.0 docs pass (D11) empties it. */
 const KIND_TEMPLATE_RATCHET: string[] = [
-  '/docs/agents/coding',
-  '/docs/agents/mcp',
-  '/docs/agents/mcp/connect-a-client',
-  '/docs/agents/mcp/custom-tools',
-  '/docs/agents/mcp/oauth-and-consent',
-  '/docs/ai/costs',
-  '/docs/ai/metered-actions',
-  '/docs/ai/streaming',
-  '/docs/auth/access/functions',
-  '/docs/auth/access/roles',
-  '/docs/auth/accounts/profile',
-  '/docs/auth/accounts/security',
-  '/docs/auth/sign-in',
-  '/docs/auth/workspaces',
-  '/docs/billing/catalog',
-  '/docs/billing/credits',
-  '/docs/billing/credits/gifts',
-  '/docs/billing/credits/spending',
-  '/docs/billing/events',
-  '/docs/billing/feature-gating',
-  '/docs/billing/subscriptions',
-  '/docs/billing/subscriptions/checkout',
-  '/docs/billing/subscriptions/discounts',
-  '/docs/billing/subscriptions/orders',
-  '/docs/data/aggregates',
-  '/docs/data/files',
-  '/docs/data/jobs/migrations',
-  '/docs/data/jobs/workflows',
-  '/docs/data/queries-and-mutations',
-  '/docs/data/search',
-  '/docs/data/server-rendering',
-  '/docs/email/delivery-tracking',
-  '/docs/email/engagement/marketing',
-  '/docs/email/engagement/sequences',
-  '/docs/email/sandbox-inbox',
-  '/docs/email/sending',
-  '/docs/email/templates',
-  '/docs/reference/backend/component',
-  '/docs/ship/deploy',
-  '/docs/ship/migrate/upgrade',
-  '/docs/ship/production',
-  '/docs/ship/production/rate-limits',
-  '/docs/ship/production/security',
-  '/docs/ship/production/webhooks',
+  '/docs/ship/releases/upgrade',
   '/docs/ship/releases/changelog',
-  '/docs/ship/test',
-  '/docs/ship/test/linting',
-  '/docs/start/concepts/how-it-works',
-  '/docs/start/develop/devtools',
-  '/docs/start/installation',
-  '/docs/start/templates',
-  '/docs/ui/customize/labels',
-  '/docs/ui/customize/replace-pages',
-  '/docs/ui/customize/slots',
-  '/docs/ui/customize/theming',
 ]
 
 // The page every test above leans on exists.

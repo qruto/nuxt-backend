@@ -1,0 +1,24 @@
+/*
+ * ReauthenticatePasskey's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-reauthenticate='divider'] {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--bk-muted);
+  }
+
+  [data-reauthenticate='divider']::before,
+  [data-reauthenticate='divider']::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--reauthenticate-edge);
+  }
+}

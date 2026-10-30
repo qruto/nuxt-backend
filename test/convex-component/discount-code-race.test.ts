@@ -38,12 +38,15 @@ const refused = () => later({ ok: false, error: Object.assign(new Error('refused
 const down = () => later({ ok: false, error: Object.assign(new Error('down'), { statusCode: 503 }) })
 
 /**
- * Billing for the signed-in user with the component's real functions; the
- * provider component's references are strings no call here reaches the
- * component with.
+ * Billing for the signed-in user with the component's real billing
+ * functions; the provider component's references and the auth adapter's
+ * are strings no call here reaches the component with.
  */
 function makeBilling() {
-  const components = { polar: { lib: { insertCustomer: 'ref:insertCustomer' } }, backend: { billing: api.billing, gifts: {} } }
+  const components = {
+    polar: { lib: { insertCustomer: 'ref:insertCustomer' } },
+    backend: { adapter: { findOne: 'ref:findOne' }, billing: api.billing, gifts: {} },
+  }
   return setupBilling(components as never, {
     email: { sendTemplate: async () => null },
     accessToken: 'oat_test',
@@ -53,11 +56,15 @@ function makeBilling() {
   } as unknown as SetupBillingConfig)
 }
 
+/** The fresh account read every billing call makes: u1 exists and is not banned. */
+const account = (ref: unknown, args: unknown): unknown =>
+  ref === 'ref:findOne' && (args as { model?: string }).model === 'user' ? { role: 'user', banned: false } : null
+
 /** An action ctx whose component calls run in the convex-test deployment. */
 function makeCtx() {
   return {
     runQuery: async (ref: unknown, args: unknown): Promise<unknown> =>
-      typeof ref === 'string' ? null : t.query(ref as FunctionReference<'query'>, args as never),
+      typeof ref === 'string' ? account(ref, args) : t.query(ref as FunctionReference<'query'>, args as never),
     runMutation: async (ref: unknown, args: unknown): Promise<unknown> =>
       typeof ref === 'string' ? null : t.mutation(ref as FunctionReference<'mutation'>, args as never),
     auth: { getUserIdentity: async () => ({ subject: 'u1', email: 'u1@example.com' }) },

@@ -26,5 +26,8 @@
     "erasableSyntaxOnly": true,
     "skipLibCheck": true
   },
-  "include": ["./src/convex/**/*"]
+  // The capabilities' registry too: the backend's health route detects its
+  // capabilities with the registry's own detect (src/convex/integrations/health.ts),
+  // so the build emits those runtime-neutral files beside dist/convex.
+  "include": ["./src/convex/**/*", "./src/capabilities/**/*", "./src/env-registry.ts", "./src/devtools/rpc-types.ts", "./src/analyze/types.ts", "./src/findings/types.ts"]
 }

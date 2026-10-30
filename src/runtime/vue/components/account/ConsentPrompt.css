@@ -1,0 +1,181 @@
+/*
+ * ConsentPrompt's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-consent='dialog'] {
+    box-sizing: border-box;
+    width: min(32rem, calc(100vw - 2rem));
+    max-height: calc(100vh - 2rem);
+    /* Centred even under a reset that zeroes every margin. */
+    margin: auto;
+    overflow: auto;
+    padding: 1.25rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    background: Canvas;
+    color: var(--bk-ink);
+  }
+
+  [data-consent='dialog']::backdrop {
+    background: color-mix(in srgb, black 55%, transparent);
+  }
+
+  [data-consent='form'],
+  [data-consent='list'],
+  [data-consent='item'],
+  [data-consent='storage'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  [data-consent='list'],
+  [data-consent='purposes'] {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  [data-consent='purposes'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  :where([data-consent='purposes']) li::before {
+    content: '·';
+    margin-inline-end: 0.5rem;
+    color: var(--bk-muted);
+  }
+
+  [data-consent='title'],
+  [data-consent='note'] {
+    margin: 0;
+  }
+
+  [data-consent='note'] {
+    color: var(--bk-muted);
+    font-size: 0.95em;
+  }
+
+  [data-consent='label'],
+  [data-consent='age'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  [data-consent='age'] {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* The age step: why it is asked, then the question the field answers. */
+  [data-consent='age-intro'] {
+    color: var(--bk-muted);
+    font-size: 0.95em;
+    line-height: 1.5;
+  }
+
+  [data-consent='age-question'] {
+    font-weight: 600;
+  }
+
+  [data-consent='checkbox'] {
+    inline-size: 1.1rem;
+    block-size: 1.1rem;
+    margin: 0;
+    accent-color: var(--bk-accent);
+  }
+
+  [data-consent='purpose'] {
+    line-height: 1.5;
+  }
+
+  /* Keyboard focus on every control of the prompt and the storage question. */
+  :where([data-consent='dialog'], [data-consent='storage']) :where(button, a, input):focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 2px;
+  }
+
+  [data-consent='flag'] {
+    color: var(--bk-muted);
+    font-size: 0.85em;
+  }
+
+  /* A number of years: a short field. */
+  [data-consent='age-input'] {
+    max-width: 8rem;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: var(--bk-surface);
+    color: inherit;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+  }
+
+  [data-consent='age-input'][aria-invalid='true'] {
+    border-color: var(--bk-error);
+  }
+
+  [data-consent='link'] {
+    color: inherit;
+  }
+
+  [data-consent='error'] {
+    margin: 0;
+    color: var(--bk-error);
+  }
+
+  [data-consent='actions'] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  /* Allow and Decline carry the same weight: neither is the one to press. */
+  [data-consent='submit'],
+  [data-consent='allow'],
+  [data-consent='decline'],
+  [data-consent='later'] {
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: var(--bk-surface);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  [data-consent='submit'] {
+    border-color: transparent;
+    background: var(--bk-accent);
+    color: var(--bk-on-accent);
+  }
+
+  :where([data-consent='dialog'] button)[aria-disabled='true'],
+  :where([data-consent='storage'] button)[aria-disabled='true'] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  /* Not a wall: a corner of the page the content stays readable around. */
+  [data-consent='storage'] {
+    position: fixed;
+    inset-block-end: 1rem;
+    inset-inline: 1rem;
+    z-index: 40;
+    max-width: 36rem;
+    margin-inline: auto;
+    padding: 1rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    background: Canvas;
+    color: var(--bk-ink);
+    box-shadow: 0 0.5rem 2rem color-mix(in srgb, black 25%, transparent);
+  }
+}

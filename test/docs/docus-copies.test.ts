@@ -18,8 +18,10 @@ const SHADOWS: Record<string, [upstream: string, sha256: string]> = {
   'website/components/app/AppHeader.vue': ['app/components/app/AppHeader.vue', '34c4def5643765d0'],
   'website/components/app/AppHeaderBody.vue': ['app/components/app/AppHeaderBody.vue', '58af51854f28f7ef'],
   'website/components/app/AppHeaderBottom.vue': ['app/components/app/AppHeaderBottom.vue', '740c40e029b39e51'],
+  'website/components/app/AppHeaderBottomRight.vue': ['app/components/app/AppHeaderBottomRight.vue', 'acc43dd168ab619a'],
   'website/components/app/AppHeaderCTA.vue': ['app/components/app/AppHeaderCTA.vue', 'acc43dd168ab619a'],
   'website/components/app/AppHeaderLogo.vue': ['app/components/app/AppHeaderLogo.vue', '3cf724a235c0c06f'],
+  'website/components/app/AppSearch.vue': ['app/components/app/AppSearch.vue', 'b022ce21b9eb057f'],
   'website/components/docs/DocsAsideLeftBody.vue': ['app/components/docs/DocsAsideLeftBody.vue', '189feeb74c322543'],
   'website/components/docs/DocsAsideMobileBar.vue': ['app/components/docs/DocsAsideMobileBar.vue', 'e26af93a988dd853'],
   'website/components/docs/DocsAsideRight.vue': ['app/components/docs/DocsAsideRight.vue', 'da1a11cbaedb007a'],
@@ -33,6 +35,7 @@ const DEPENDS: Record<string, [reliedOn: string, sha256: string]> = {
   'app/composables/useSeo.ts': ['the BreadcrumbList and TechArticle that [...slug].vue feeds it, `dateModified` from `modifiedAt`, and the homepage JSON-LD without `seo.schema`', '07fdd050eb991782'],
   'app/components/app/AppHeaderLeft.vue': ['the logo link\'s only accessible name, `header.title`: AppHeaderLogo\'s mark is hidden from assistive technology and its wordmark drops out below 420px', '02b3f61019af6548'],
   'app/templates/landing.vue': ['the homepage\'s <title> and social card, both from `seo.title` (SITE.seoTitle)', '722a1fe5604e8a80'],
+  'app/error.vue': ['website/error.vue, which imports it by this path (Docus has no exports map) for every error but the page guard\'s 403, with the one `error` prop', 'c73def8f16e3c0ec'],
   'server/api/__sitemap__/urls.ts': ['the sitemap\'s `lastmod`, read from `meta.modifiedAt`, which modules/docs-pages.ts stamps', '52eb23417d3584e6'],
 }
 
@@ -62,6 +65,17 @@ describe('the Docus sources the site shadows', () => {
     expect(nuxtComponentName('/x/components/home/Hero.vue', '/x/components')).toBe('HomeHero')
     expect(nuxtComponentName('/x/components/home/index.vue', '/x/components')).toBe('Home')
     expect(nuxtComponentName('/x/components/Key.vue', '/x/components')).toBe('Key')
+  })
+})
+
+describe('why a shadow stays', () => {
+  // A shadow costs a pinned hash and a review at every Docus release, so each
+  // keeps something Docus's own does not do. The menu toggle once kept
+  // motion-v off docs pages; since Docus 5.15 draws it in CSS as well, what it
+  // keeps is saying whether the menu is open.
+  it('the menu toggle says whether the menu is open, which Docus\'s does not', () => {
+    expect(readFileSync(at('website/components/IconMenuToggle.vue'), 'utf8')).toContain(':aria-expanded="props.open"')
+    expect(readFileSync(at(`${DOCUS}/app/components/IconMenuToggle.vue`), 'utf8')).not.toContain('aria-expanded')
   })
 })
 

@@ -5,6 +5,13 @@
  * the browser with the text persisted server-side (reload mid-stream and it
  * continues).
  *
+ * Models are named as `provider/model` ids and called through the AI SDK (an
+ * optional peer: install `ai` to call one), each call charged at the cost
+ * the gateway reports. An id goes to the Convex AI Gateway first, on Convex
+ * Cloud with a paid plan (install `@convex-dev/ai-sdk-provider`), then
+ * through the Vercel AI Gateway with `AI_GATEWAY_API_KEY`. Without either, a
+ * call is refused, saying why.
+ *
  * Composes the billing spend reservation (`setupBilling`), the rate limiter,
  * and the upstream persistent-text-streaming component — usage recording IS
  * the provider event, so per-customer usage shows up in the provider's own
@@ -26,15 +33,52 @@ export type {
   AiRateLimiter,
   AiComponents,
   AiBudget,
+  AiSpendLimit,
   CreditsBalanceEvent,
   AiCreditsConfig,
+  AiModel,
+  InferenceRegion,
+  MeteredModel,
+  ModelStatus,
   SetupAiConfig,
+  AiGuestConfig,
+  GuestClaim,
   MeteredUsage,
   FinalizedCost,
+  ReportedCost,
   MeteredCost,
+  MeteredContext,
   MeteredActionConfig,
   MeteredStreamConfig,
+  PersonCost,
+  AiCosts,
+  AiApi,
   Ai,
 } from './ai/config.js'
 export { type ModelPrice, type TokenPriceTable, type TokenUsage, priceTokens } from './ai/pricing.js'
+export type { GeneratedImage, ImageStoreContext, JobProvenance, ProvenanceConfig, StoreImageOptions } from './ai/provenance.js'
+export type { Chat, ChatConfig, ChatMessage, ChatReply, ChatThread } from './ai/chat.js'
+export type { AiEmbeddingModel } from './ai/embeddings.js'
+export type { Knowledge, KnowledgeAddCost, KnowledgeApi, KnowledgeConfig, KnowledgeDocument, KnowledgePassage } from './ai/knowledge.js'
 export { setupAi } from './ai/setup.js'
+export type { ModerationConfig, ModerationCtx, ModerationInput, ModerationVerdict } from './ai/moderation.js'
+export type {
+  AdminJobView,
+  DefineJobQueueOptions,
+  EnqueueOptions,
+  GuestJobs,
+  JobContext,
+  JobDefinition,
+  JobModelLimit,
+  JobProgress,
+  JobQueue,
+  JobQueueApi,
+  JobQueueComponents,
+  JobStepContext,
+  JobStepDefinition,
+  JobTier,
+  JobView,
+  QueueChange,
+  StepResult,
+} from './ai/jobs.js'
+export { defineJobQueue } from './ai/jobs.js'

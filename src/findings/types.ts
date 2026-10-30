@@ -1,7 +1,12 @@
-/** The part of the app a finding is about: what `doctor --only` selects. */
-export type FindingService = 'deployment' | 'auth' | 'workspaces' | 'email' | 'billing' | 'agents' | 'ai' | 'scaffold'
+import type { CapabilityName } from '../capabilities/types.js'
 
-/** What the registry knows about one finding id, apart from its service. */
+/**
+ * A group of findings, one file of src/findings/ each. Every group belongs to
+ * one app capability (src/capabilities/registry.ts), the name `doctor --only` selects.
+ */
+export type FindingGroup = 'deployment' | 'auth' | 'email' | 'notifications' | 'billing' | 'ai' | 'scaffold' | 'site' | 'protection' | 'monitoring' | 'analytics'
+
+/** What the registry knows about one finding id, apart from its group. */
 export interface FindingEntry {
   /** The label the CLI and the DevTools panel print. */
   title: string
@@ -14,13 +19,14 @@ export interface FindingEntry {
   fixable?: boolean
 }
 
-/** One service's findings, by id. */
+/** One group's findings, by id. */
 export type FindingEntries = Readonly<Record<string, FindingEntry>>
 
 /** One check's result, as `doctor --json` reports it. */
 export interface PreflightFinding {
   id: string
-  service: FindingService
+  /** The app capability it is about: the name `doctor --only` selects it by. */
+  capability: CapabilityName
   title: string
   status: 'pass' | 'warn' | 'fail'
   message: string

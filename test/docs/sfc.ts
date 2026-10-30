@@ -58,18 +58,19 @@ export function parts(): Record<string, vue.Component> {
   return Object.fromEntries(['Console', 'EngravedTitle', 'Key', 'Lcd', 'Led', 'Strip'].map(name => [name, component(`website/components/${name}.vue`)]))
 }
 
-/** The rows the home console's LCD draws for a service: the command, each finding and its fix, the summary. */
-export function lcdRowCount(service: string): number {
-  const { lines } = shared.CONSOLE_DETENTS.find(entry => entry.service === service)!
+/** The rows the home console's LCD draws for a layer: the command, each finding and its fix, the summary. */
+export function lcdRowCount(layer: string): number {
+  const { lines } = shared.CONSOLE_DETENTS.find(entry => entry.layer === layer)!
   return 2 + lines.length + lines.filter(line => line.fixHint).length
 }
 
 /**
- * The homepage console (home/Console.vue) with `service` on the dial's
- * first detent, the one the page renders, and the parts it is built from.
+ * The homepage console (home/Console.vue) with `layer` on the dial's
+ * first detent, the one the page renders, and the parts it is built from;
+ * `from` stands in for the page's detents.
  */
-export function homeConsole(service: string): { root: vue.Component, components: Record<string, vue.Component> } {
-  const detents = [...shared.CONSOLE_DETENTS].sort((a, b) => Number(b.service === service) - Number(a.service === service))
+export function homeConsole(layer: string, from: readonly shared.ConsoleDetent[] = shared.CONSOLE_DETENTS): { root: vue.Component, components: Record<string, vue.Component> } {
+  const detents = [...from].sort((a, b) => Number(b.layer === layer) - Number(a.layer === layer))
   const root = component('website/components/home/Console.vue', { '~~/shared/console': { ...shared, CONSOLE_DETENTS: detents } })
   return { root, components: { ...parts(), Dial } }
 }

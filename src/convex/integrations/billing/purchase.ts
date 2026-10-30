@@ -1,8 +1,12 @@
 import type { BillingContext } from './context.js'
 import { readEnv } from './context.js'
+import { currencyOf } from './pricing.js'
 import type { CheckoutCreateInput, ProviderCtx, RunQueryCtx } from './types/base.js'
 import type { CampaignAttribution, CheckoutTrial } from './types/options.js'
 import { backendError } from '../../errors.js'
+import { backendEnvironment } from '../../delivery.js'
+import { trustsLocalOrigins } from '../../environment.js'
+import { isLocalOrigin } from '../../local-origins.js'
 import { logBackend } from '../../log.js'
 
 // What a buyer may choose and what only the server decides. A client picks
@@ -21,7 +25,15 @@ import { logBackend } from '../../log.js'
  * earlier releases wrote stay reserved, and the `utm_` prefix is too: the
  * package writes it from {@link CampaignAttribution}.
  */
-export const RESERVED_METADATA_KEYS = ['userId', 'gift', 'giftId', 'phase', 'recipientEmail', 'purchaserUserId', 'giftRecipient'] as const
+export const RESERVED_METADATA_KEYS = ['userId', 'gift', 'giftId', 'phase', 'recipientEmail', 'purchaserUserId', 'giftRecipient', 'openedBy', 'emailOptOut'] as const
+
+/**
+ * The checkout metadata key the soft opt-in's box travels in: `'true'`
+ * when the person ticked "Don't email me", `'false'` when the checkout
+ * showed the box and they left it. Absent when no box was shown, and then
+ * the paid order joins no topic.
+ */
+export const EMAIL_OPT_OUT_METADATA = 'emailOptOut'
 
 /** The prefix of the attribution keys the package writes. */
 export const CAMPAIGN_METADATA_PREFIX = 'utm_'
@@ -66,10 +78,8 @@ function originOf(value: string | undefined): string | null {
   }
 }
 
-const LOOPBACK = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/
-
 /** The rules every purchase goes through, bound to one `setupBilling` call. */
-export function createPurchaseRules({ config, environment, products, provider }: BillingContext) {
+export function createPurchaseRules({ config, catalogIds: generated, products, retiredProductIds, freePlan, provider }: BillingContext) {
   // An entry without a scheme (`app.example.com`) is no origin and never
   // matches: say so when billing is set up, not on a refused checkout.
   for (const entry of config.trustedOrigins ?? []) {
@@ -78,20 +88,21 @@ export function createPurchaseRules({ config, environment, products, provider }:
     }
   }
   // The catalog keys `billing sync` wrote as packs, when the generated catalog has them.
-  const packKeys = config.catalog?.[environment]?.packs
+  const packKeys = generated?.packs
   // Each pack's private gift product, which `billing sync` creates beside it.
-  const giftProducts = config.catalog?.[environment]?.gifts
+  const giftProducts = generated?.gifts
 
   /**
    * The origins a buyer may return to: `SITE_URL`'s, then
    * `setupBilling({ trustedOrigins })`, read per call so an env change
-   * applies without a redeploy of the code. With `AUTH_TRUST_LOCAL_ORIGINS=1`
-   * (local development, the same switch auth reads) any loopback origin too.
+   * applies without a redeploy of the code. On a `development`
+   * `BACKEND_ENVIRONMENT` (the same switch auth reads) any local origin too:
+   * loopback on any port, or a `.localhost` name over https.
    */
   const isTrustedOrigin = (origin: string): boolean => {
     const trusted = [readEnv('SITE_URL'), ...config.trustedOrigins ?? []].map(originOf)
     if (trusted.includes(origin)) return true
-    return readEnv('AUTH_TRUST_LOCAL_ORIGINS') === '1' && LOOPBACK.test(origin)
+    return trustsLocalOrigins(backendEnvironment()) && isLocalOrigin(origin)
   }
 
   /**
@@ -125,9 +136,28 @@ export function createPurchaseRules({ config, environment, products, provider }:
     )
   }
 
-  /** Refuse any product the app's catalog does not list. */
+  /**
+   * Refuse any product the app's catalog does not list, a retired plan's
+   * (it stays its subscribers' plan, but nobody new buys it or switches to
+   * it), and the free plan's: every entity is on it already, and returns to
+   * it when a paid plan ends.
+   */
   const requireCatalogProducts = (productIds: readonly string[], field: string): void => {
     const known = catalogIds()
+    if (freePlan && productIds.includes(freePlan.productId)) {
+      throw backendError(
+        'invalid_input',
+        { field, reason: 'free_plan' },
+        `[nuxt-backend] Billing: \`${field}\` names the free plan — every billing account is on it already and returns to it when a paid plan ends; nobody checks it out or switches to it.`,
+      )
+    }
+    if (productIds.some(id => retiredProductIds.has(id))) {
+      throw backendError(
+        'invalid_input',
+        { field, reason: 'retired' },
+        `[nuxt-backend] Billing: \`${field}\` names a retired plan — its subscribers keep it, but nobody new checks out or switches to it.`,
+      )
+    }
     if (productIds.length > 0 && productIds.every(id => known.has(id))) return
     throw backendError(
       'invalid_input',
@@ -180,14 +210,38 @@ export function createPurchaseRules({ config, environment, products, provider }:
   }
 
   /**
+   * A plan's gift as a pass, for a length the plan offers: the private
+   * purchase product the purchaser buys (none of the plan's benefits) and the
+   * free pass product the claim switches a workspace to. A plan the catalog
+   * does not offer as a gift, or a length it does not offer, is
+   * `invalid_input`; an app that has not synced since passes changed, or
+   * with no free plan to return to, is `not_ready`.
+   */
+  const requirePassGift = (plan: string, months: number): { purchaseProductId: string, passProductId: string } => {
+    const passes = generated?.passes
+    const gift = passes && Object.hasOwn(passes, plan) ? passes[plan] : undefined
+    if (!gift) {
+      throw backendError('invalid_input', { field: 'plan' }, '[nuxt-backend] Billing: the gift names no plan of the catalog that can be gifted. Offer one with `gift: { months }` on the plan, then run `npx nuxt-backend billing sync`.')
+    }
+    const purchaseProductId = Number.isInteger(months) && Object.hasOwn(gift.months, String(months)) ? gift.months[String(months)] : undefined
+    if (!purchaseProductId) {
+      throw backendError('invalid_input', { field: 'months' }, `[nuxt-backend] Billing: this plan is not offered as a gift for ${String(months)} months — its catalog \`gift.months\` lists the lengths.`)
+    }
+    if (!freePlan) {
+      throw backendError('not_ready', { reason: 'no_catalog' }, '[nuxt-backend] Billing: a plan pass returns to the free plan when it ends, and the catalog has none. Add a plan priced `{ month: 0 }`, then run `npx nuxt-backend billing sync`.')
+    }
+    return { purchaseProductId, passProductId: gift.pass }
+  }
+
+  /**
    * A plan to switch a subscription to: in the catalog, and a recurring
    * product the products table has loaded — never a pack, which the
-   * provider could not bill as a subscription.
+   * provider could not bill as a subscription. Resolves with its row.
    */
-  const requirePlan = async (ctx: RunQueryCtx, productId: string): Promise<void> => {
+  const requirePlan = async (ctx: RunQueryCtx, productId: string): Promise<{ recurringInterval?: string | null }> => {
     requireCatalogProducts([productId], 'productId')
     const product = await syncedProduct(ctx, productId)
-    if (product?.isRecurring) return
+    if (product?.isRecurring) return product
     throw backendError(
       'invalid_input',
       { field: 'productId' },
@@ -220,7 +274,23 @@ export function createPurchaseRules({ config, environment, products, provider }:
     }
   }
 
-  return { requireTrustedUrl, requireCatalogProducts, requirePack, requireGiftProduct, requirePlan, requireClientMetadata }
+  /**
+   * A presentment currency for a checkout: one the catalog's live products
+   * are priced in (`getPricing` lists them), as a lower-case ISO 4217 code.
+   * `undefined` keeps the provider's choice, the catalog's own currency.
+   */
+  const requireCurrency = async (ctx: RunQueryCtx, currency: string | undefined, productIds: readonly string[]): Promise<string | undefined> => {
+    if (currency === undefined) return undefined
+    const code = currency.trim().toLowerCase()
+    for (const productId of productIds) {
+      const product = await syncedProduct(ctx, productId)
+      if (product?.prices.some(price => !price.isArchived && currencyOf(price) === code)) continue
+      throw backendError('invalid_input', { field: 'currency' }, `[nuxt-backend] Billing: the catalog prices no product of this checkout in \`${code}\` — pick one of the currencies getPricing lists.`)
+    }
+    return code
+  }
+
+  return { requireTrustedUrl, requireCatalogProducts, requirePack, requireGiftProduct, requirePassGift, requirePlan, requireClientMetadata, requireCurrency }
 }
 
 /**

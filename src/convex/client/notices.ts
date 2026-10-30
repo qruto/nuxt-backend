@@ -17,7 +17,7 @@ const CHANGE_EMAIL_PATH = '/email-otp/change-email'
  */
 export async function notifyEmailChanged<DM extends GenericDataModel>(runtime: AuthRuntime<DM> | undefined, ctx: AuthHookCtx): Promise<void> {
   if (ctx.path !== CHANGE_EMAIL_PATH) return
-  const context = ctx.context as { returned?: unknown, session?: { user?: { id?: string, email?: string } } | null }
+  const context = ctx.context as { returned?: unknown, session?: { user?: { id?: string, email?: string, locale?: string | null } } | null }
   // The route refused: nothing moved.
   if (context.returned === undefined || context.returned instanceof Error) return
   // The session the route ran with still holds the old address.
@@ -27,7 +27,9 @@ export async function notifyEmailChanged<DM extends GenericDataModel>(runtime: A
   const mutationCtx = asMutationCtx(runtime?.ctx)
   if (!runtime?.email || !mutationCtx || !user?.id || !user.email || !newEmail || user.email.toLowerCase() === newEmail) return
   try {
+    // In the account's language: the old address no longer finds the account.
     await runtime.email.sendTemplate(mutationCtx, 'emailChanged', { email: user.email, newEmail }, {
+      locale: user.locale,
       idempotencyKey: `nuxt-backend:email-changed:${user.id}:${newEmail}`,
     })
   }

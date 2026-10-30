@@ -1,0 +1,45 @@
+/*
+ * AccountDeletion's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-account='section-delete'] {
+    padding: 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--bk-error) 30%, transparent);
+    border-radius: var(--bk-radius);
+  }
+
+  [data-account='confirm-input'][aria-invalid='true'] + [data-account='confirm-hint'] {
+    color: var(--bk-error);
+  }
+
+  [data-account='confirm-label'] {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  [data-account='delete'] {
+    align-self: flex-start;
+    border-color: color-mix(in srgb, var(--bk-error) 50%, transparent);
+    color: var(--bk-error);
+  }
+
+  [data-account='confirm-text'] {
+    display: block;
+    margin-block-end: 0.3rem;
+  }
+
+  /* A deletion is scheduled: the section warns rather than threatens, and keeping the account is the action. */
+  [data-account='section-delete'][data-state='scheduled'] {
+    border-color: color-mix(in srgb, var(--bk-warn) 55%, transparent);
+    background: color-mix(in srgb, var(--bk-warn) 8%, transparent);
+  }
+
+  /* Outlined in the accent, not filled: the page's own main action keeps the one fill. */
+  [data-account='keep'] {
+    align-self: flex-start;
+    border-color: var(--bk-accent);
+    color: var(--bk-accent);
+  }
+}

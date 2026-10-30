@@ -2,13 +2,14 @@
 import { useSlots } from 'vue'
 
 /**
- * The workhorse surface. `variant="raised"` (default) is a convex card
- * extruded from the material; `variant="well"` is a concave recess carved
- * into it (for readouts, lists, secondary content). `tone` colors the
- * header tick + label only — depth, not color, carries the structure.
- * Tones are the three signals: ok (green), warn (amber), err (red).
+ * The workhorse surface. `variant="raised"` (default) is a `plaque`, a
+ * convex card extruded from the material; `variant="well"` is a `slot`
+ * milled into it (for readouts, lists, secondary content). `tone` colors
+ * the header's LED and label only — depth, not color, carries the
+ * structure. Tones are the three signals: ok (green), warn (amber), err
+ * (red).
  */
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   label?: string
   title?: string
   tone?: 'ok' | 'warn' | 'err' | 'neutral'
@@ -17,97 +18,47 @@ withDefaults(defineProps<{
 }>(), { tone: 'neutral', variant: 'raised', flush: false })
 
 const slots = useSlots()
+
+// Spelled out, so Tailwind's scan finds every class it must emit.
+const VARIANT = { raised: 'plaque', well: 'slot [--slot-r:var(--r-lg)]' } as const
+const INK = { ok: 'text-(--ok)!', warn: 'text-(--warn)!', err: 'text-(--err)!', neutral: '' } as const
 </script>
 
 <template>
   <section
-    class="panel"
-    :class="[tone, variant]"
+    class="relative"
+    :class="VARIANT[props.variant]"
   >
     <header
-      v-if="label || title || slots.actions || slots.header"
-      class="panel-head"
+      v-if="props.label || props.title || slots.actions || slots.header"
+      class="mx-1 flex flex-wrap items-center justify-between gap-x-2.5 gap-y-2 border-b border-(--edge) px-[0.95rem] py-2.5"
     >
       <slot name="header">
-        <div class="panel-headl">
-          <span
-            v-if="label"
-            class="panel-tick"
+        <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <Led
+            v-if="props.label"
+            :tone="props.tone === 'neutral' ? 'off' : props.tone"
           />
           <code
-            v-if="label"
-            class="panel-label"
-          >{{ label }}</code>
+            v-if="props.label"
+            class="stamp min-w-0 leading-[1.35]!"
+            :class="INK[props.tone]"
+          >{{ props.label }}</code>
           <span
-            v-if="title"
-            class="panel-title"
-          >{{ title }}</span>
+            v-if="props.title"
+            class="min-w-0 text-[0.85rem] font-semibold text-(--ink)"
+          >{{ props.title }}</span>
         </div>
       </slot>
       <div
         v-if="slots.actions"
-        class="panel-actions"
+        class="flex shrink-0 items-center gap-1.5"
       >
         <slot name="actions" />
       </div>
     </header>
-    <div
-      class="panel-body"
-      :class="{ flush }"
-    >
+    <div :class="props.flush ? 'p-0' : 'p-4'">
       <slot />
     </div>
   </section>
 </template>
-
-<style scoped>
-.panel {
-  position: relative;
-  border-radius: var(--r-lg);
-}
-/* raised = a convex plaque; well = a machined slot. */
-.panel.raised { background: var(--grad-plaque); box-shadow: var(--plaque); }
-.panel.well   { background: var(--sink);        box-shadow: var(--slot); }
-
-.panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-  padding: 0.62rem 0.95rem;
-  margin: 0 0.25rem;
-  border-bottom: 1px solid var(--edge);
-}
-.panel-headl {
-  display: flex; align-items: center; gap: 0.5rem; min-width: 0;
-}
-.panel-tick {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--tone-c, var(--ink-faint));
-  box-shadow: 0 0 0 3px var(--tone-dim, transparent);
-  flex-shrink: 0;
-}
-.panel-label {
-  font-family: var(--mono);
-  font-size: 0.63rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--tone-c, var(--ink-dim));
-}
-.panel-title {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--ink);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.panel-actions {
-  display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0;
-}
-.panel-body { padding: 1rem; }
-.panel-body.flush { padding: 0; }
-
-.panel.ok   { --tone-c: var(--ok);   --tone-dim: var(--ok-dim); }
-.panel.warn { --tone-c: var(--warn); --tone-dim: var(--warn-dim); }
-.panel.err  { --tone-c: var(--err);  --tone-dim: var(--err-dim); }
-</style>

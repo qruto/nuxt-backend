@@ -1,0 +1,46 @@
+/*
+ * AccountData's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-account='root'] {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    color: var(--bk-ink);
+  }
+
+  [data-account^='section-'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  [data-account='note'],
+  [data-account='warning'],
+  [data-account='confirm-hint'],
+  [data-account='export-expiry'],
+  [data-account='refused'] {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--bk-muted);
+    line-height: 1.5;
+  }
+
+  [data-account='error'] {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--bk-error);
+  }
+
+  [data-account='status'] {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--bk-ok);
+  }
+
+  [data-account='status']:empty {
+    display: none;
+  }
+}

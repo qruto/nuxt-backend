@@ -1,9 +1,9 @@
 import { eventsIngest } from '@polar-sh/sdk/funcs/eventsIngest.js'
 import type { Auth } from 'convex/server'
-import type { BillingContext } from './context.js'
+import { BILLING_ACCESS, type BillingContext } from './context.js'
 import type { BillingEntitlements } from './entitlements.js'
 import type { EventsIngestRequest, ProviderCtx, RunWriteCtx } from './types/base.js'
-import type { BillingEntityCtx } from './types/setup.js'
+import type { SpendReservation } from './types/records.js'
 import type { Billing } from './types/surface.js'
 import { backendError } from '../../errors.js'
 
@@ -20,23 +20,30 @@ export function requireCreditAmount(value: unknown, label: string, { orZero = fa
   throw new Error(`[nuxt-backend] ${label} must be a finite number ${orZero ? 'of zero or more' : 'above zero'} — got ${String(value)}.`)
 }
 
+/** A long hold's length as the cache's `debit` takes it: checked, and left out without one. */
+function holdArgs(hold: number | undefined): { hold?: number } {
+  return hold === undefined ? {} : { hold: requireCreditAmount(hold, 'reserveCredits: `hold`') }
+}
+
 /** Prepaid credits: reserve, settle, release, spend and refund. */
 export function createCredits(
-  { provider, cache, resolveMeter, resolveEntity, unwrapProvider }: BillingContext,
+  { provider, cache, resolveMeter, requireEntity, unwrapProvider }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
 ) {
   /**
    * The caller's billing entity, for a spend or refund without an explicit
    * `userId`, or the refusal: `unauthenticated` when nobody is signed in
-   * (a hand-built context with no `auth` has no caller to resolve), else
-   * `no_workspace`.
+   * (a hand-built context with no `auth` has no caller to resolve),
+   * `forbidden` for an impersonating administrator or someone no longer a
+   * member of the workspace (read fresh), else `no_workspace`. Server code
+   * that passes `userId` has decided who pays itself.
    */
   const callerEntityId = async (ctx: RunWriteCtx & { auth?: Auth }, what: string): Promise<string> => {
-    const entityId = ctx.auth ? (await resolveEntity(ctx as BillingEntityCtx))?.userId : undefined
-    if (entityId) return entityId
-    const detail = `[nuxt-backend] ${what}: no billing entity — pass \`userId\` or call from an authenticated context.`
-    if (!await ctx.auth?.getUserIdentity()) throw backendError('unauthenticated', {}, detail)
-    throw backendError('no_workspace', {}, detail)
+    // Server code with no caller: say how to name the entity instead.
+    if (!await ctx.auth?.getUserIdentity()) {
+      throw backendError('unauthenticated', {}, `[nuxt-backend] ${what}: no billing entity — pass \`userId\` or call from an authenticated context.`)
+    }
+    return (await requireEntity(ctx, BILLING_ACCESS.spend)).userId
   }
 
   // Reserve → ingest → settle. The cached balance is the guard: `debit` is an
@@ -66,7 +73,7 @@ export function createCredits(
         + 'spend value must be 1 per event, or configure a sum meter with a `property`.',
       )
     }
-    const debitArgs = { userId: entityId, meterId: meter.meterId, amount: value, externalId, allowOverage: event.allowOverage }
+    const debitArgs = { userId: entityId, meterId: meter.meterId, amount: value, externalId, allowOverage: event.allowOverage, ...holdArgs(event.hold) }
     let result = await ctx.runMutation(cache.debit, debitArgs)
     if (!result.ok && (result.reason === 'no-row' || result.reason === 'no-meter') && event.allowRefresh !== false) {
       // Cold cache (granted but never synced) — self-heal once, then retry.
@@ -136,7 +143,22 @@ export function createCredits(
       if (reservation.reserved) await ctx.runMutation(cache.release, { userId: reservation.entityId, externalId: reservation.externalId })
       throw error
     }
-    if (reservation.reserved) await ctx.runMutation(cache.settle, { userId: reservation.entityId, externalId: reservation.externalId, finalAmount: value })
+    if (reservation.reserved) await closeSpent(ctx, reservation, value)
+  }
+
+  /**
+   * Close a reservation whose event the provider took, at `value`. One that
+   * was gone by the time the event landed (an earlier attempt whose ingest
+   * failed released it, or it lapsed) is taken from the cached balance
+   * again: the provider consumed the credits all the same, and the cache is
+   * the only spend guard.
+   */
+  const closeSpent = async (ctx: RunWriteCtx, reservation: SpendReservation, value: number): Promise<void> => {
+    const keys = { userId: reservation.entityId, externalId: reservation.externalId }
+    const closed = await ctx.runMutation(cache.finalize, { ...keys, finalAmount: value })
+    if (closed.settled || !reservation.meterId) return
+    const taken = await ctx.runMutation(cache.debit, { ...keys, meterId: reservation.meterId, amount: value, allowOverage: true })
+    if (taken.ok) await ctx.runMutation(cache.settle, { ...keys, finalAmount: value })
   }
 
   const releaseSpend: Billing['releaseSpend'] = async (ctx, reservation) => {
@@ -180,5 +202,36 @@ export function createCredits(
     await ctx.runMutation(cache.credit, { userId: entityId, meterId: meter.meterId, amount: value })
   }
 
-  return { reserveCredits, settleSpend, releaseSpend, spendCredits, refundCredits }
+  const reportCost: Billing['reportCost'] = async (ctx, report) => {
+    if (!await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, report.userId)) return
+    const llm = report.llm
+    const metadata = {
+      ...(report.cents === undefined ? {} : { _cost: { amount: report.cents, currency: 'usd' } }),
+      ...(llm
+        ? {
+            _llm: {
+              vendor: llm.vendor,
+              model: llm.model,
+              inputTokens: llm.inputTokens,
+              outputTokens: llm.outputTokens,
+              totalTokens: llm.inputTokens + llm.outputTokens + (llm.cachedInputTokens ?? 0),
+              ...(llm.cachedInputTokens ? { cachedInputTokens: llm.cachedInputTokens } : {}),
+            },
+          }
+        : {}),
+    }
+    const result = await eventsIngest(provider.polar, {
+      events: [{
+        name: report.name,
+        externalCustomerId: report.userId,
+        externalId: report.externalId,
+        ...(report.parentId ? { parentId: report.parentId } : {}),
+        ...(report.memberId ? { externalMemberId: report.memberId } : {}),
+        metadata: metadata as never,
+      }],
+    })
+    unwrapProvider(result, 'cost report')
+  }
+
+  return { reserveCredits, settleSpend, releaseSpend, spendCredits, refundCredits, reportCost }
 }

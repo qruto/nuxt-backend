@@ -68,6 +68,7 @@ describe('nuxt-backend/test registers the component as an app would mount it', (
     })
     expect(typeof id).toBe('string')
     await t.mutation(components.backend.gifts.markPaid, { giftId: id })
+    await t.mutation(components.backend.gifts.markDelivered, { giftId: id })
     const gifts = await t.query(components.backend.gifts.listByEmail, { email: 'friend@example.com', status: 'paid' })
     expect(gifts).toHaveLength(1)
     expect(gifts[0]).toMatchObject({ recipientEmail: 'friend@example.com', status: 'paid' })

@@ -1,0 +1,44 @@
+/*
+ * AdminSuppressions's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-admin='suppressions'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+    color: var(--bk-ink);
+  }
+
+  [data-admin='suppressions-intro'] {
+    margin: 0;
+    color: var(--bk-muted);
+    font-size: 0.9em;
+  }
+
+  [data-admin='suppressions-list'] {
+    display: block;
+    overflow-x: auto;
+    border-collapse: collapse;
+  }
+
+  :where([data-admin='suppressions-list']) caption {
+    text-align: start;
+    color: var(--bk-muted);
+    font-size: 0.9em;
+  }
+
+  :where([data-admin='suppressions-list']) :is(th, td) {
+    padding: 0.375rem 0.75rem 0.375rem 0;
+    border-bottom: 1px solid var(--bk-edge);
+    text-align: start;
+    white-space: nowrap;
+  }
+
+  /* A complaint: the person asked not to get mail. */
+  :where([data-admin='suppression'][data-origin='complaint']) td:nth-child(2) {
+    color: var(--bk-error);
+  }
+}

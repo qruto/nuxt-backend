@@ -20,9 +20,10 @@ Defined in: [src/runtime/vue/composables/use-login-flow.ts](https://github.com/q
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="requirename"></a> `requireName?` | `boolean` | UI hint for `<AuthForm>`: show a name field on the email step. Default `true`. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
 | <a id="validateemail"></a> `validateEmail?` | (`email`) => `string` \| `boolean` | Gate the email before sending. Return `true` to accept, `false` for the default message, or a string for a custom one. Default: a basic shape check. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
-| <a id="onsuccess"></a> `onSuccess?` | () => `unknown` | Called once the user is signed in and the flow is complete (e.g. `navigateTo`). | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="onsuccess"></a> `onSuccess?` | () => `unknown` | Called once the user is signed in and the flow is complete (e.g. `navigateTo`): once per flow, however the last step is reached. If it rejects, the failure is in `error`, and the next action that completes the flow (Skip, Add, a passkey sign-in) calls it again. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="autofill"></a> `autofill?` | `boolean` | Offer this browser's saved passkeys in the autofill of the email field (WebAuthn conditional mediation), so a person who has one signs in by picking it there, without a code. The field's `autocomplete` must end in `webauthn`: `autocomplete="username webauthn"`. The flow asks once it is mounted, on a step before a code was sent (`choose`, `request-code`) whose markup has such a field, and never while signed in. One offer waits at a time, renewed every four and a half minutes while the page is in view (a challenge lasts five), and once the page comes back into view after that. It asks again when a step brings the field back after the offer ended (a passkey prompt opened in its place, a passkey refused), and when a passkey picked there met an expired challenge. A passkey picked there finishes the flow as `signInWithPasskey` does; one the server refuses lands in `error`. An offer that ends before anyone picks a passkey says nothing. Default `false`: `<AuthForm>` turns it on. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="preferlastmethod"></a> `preferLastMethod?` | `boolean` | Open on the step of the way this browser last signed in (`lastMethod`): the email step after a code (`request-code`), the first step otherwise, where the passkey button is. `reset()` returns there too. The server render reads the same cookie, so both open on the same step; a page prerendered or served from a cache moves to this browser's own once hydrated, while it is still on the step it opened on. Default `false`: `<AuthForm>` turns it on. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
 
 ***
 
@@ -35,37 +36,79 @@ Defined in: [src/runtime/vue/composables/use-login-flow.ts](https://github.com/q
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="step"></a> `step` | `Ref`\<[`LoginStep`](#loginstep)\> | - | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="lastmethod"></a> `lastMethod` | `ComputedRef`\<[`SignInMethod`](#signinmethod) \| `null`\> | How this browser last signed in — `'passkey'` or `'email-otp'` — or `null`: the one place to read it, for a "Last used" mark on that method's button. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
 | <a id="email"></a> `email` | `Ref`\<`string`\> | - | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
-| <a id="name"></a> `name` | `Ref`\<`string`\> | - | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
 | <a id="otp"></a> `otp` | `Ref`\<`string`\> | - | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
-| <a id="pending"></a> `pending` | `Ref`\<`boolean`\> | - | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
-| <a id="error"></a> `error` | `Ref`\<`string` \| `null`\> | - | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
-| <a id="retryafter"></a> `retryAfter` | `Ref`\<`number` \| `null`\> | Seconds until a rate-limited action can be retried, for a countdown next to `error`; `null` when the last error was not a 429 or gave no wait. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="recoverycode"></a> `recoveryCode` | `Ref`\<`string`\> | The recovery code a passkey-only account types on `recover`. Once `recover()` signed in, it holds the new code that replaced the used one, to show once. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="invitecode"></a> `inviteCode` | `Ref`\<`string`\> | The invite code a new address types on `invite-code` (or on `waitlisted`, when it has one), while the app is closed. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="age"></a> `age` | `Ref`\<`string`\> | The age a new address types on `age`, when the app sets a minimum age. The question has an empty field and never names the minimum; the number is checked on the server and never kept. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="waitlist"></a> `waitlist` | `Ref`\< \| \{ `position`: `number`; `total`: `number`; `token`: `string`; \} \| `null`\> | Where the address stands on the waitlist, once its code checked while the app is in early access (the `waitlisted` step shows it); `null` otherwise. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="passkeyrequired"></a> `passkeyRequired` | `ComputedRef`\<`boolean`\> | `true` on `passkey-offer` after a recovery: a passkey must be saved, and `skipPasskey()` does nothing. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="ispending"></a> `isPending` | `ComputedRef`\<`boolean`\> | `true` while a step's call runs. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="error"></a> `error` | `Ref`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the last step failed, or `null`: `invalid_input` on `email` for an address `validateEmail` refused, `rate_limited`, `forbidden` with reason `banned` for a banned account, … Set it to `null` to clear it. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="retryafter"></a> `retryAfter` | `Ref`\<`number` \| `null`\> | Seconds until a rate-limited step can be retried, for a countdown next to `error`; `null` when the last failure was not a rate limit or gave no wait. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
 | <a id="emailvalid"></a> `emailValid` | `ComputedRef`\<`boolean`\> | Whether the current email passes `validateEmail`. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
-| <a id="signinwithpasskey"></a> `signInWithPasskey` | () => `Promise`\<`void`\> | Sign in with a passkey already saved on this device. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
-| <a id="sendcode"></a> `sendCode` | () => `Promise`\<`void`\> | Email an OTP code to `email` → `verify-code`. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
-| <a id="verifycode"></a> `verifyCode` | () => `Promise`\<`void`\> | Verify the entered code (signs in / signs up) → `add-passkey`. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
-| <a id="addpasskey"></a> `addPasskey` | () => `Promise`\<`void`\> | Save a passkey on the current account (post-OTP step) → done. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
-| <a id="skippasskey"></a> `skipPasskey` | () => `Promise`\<`void`\> | Skip the passkey offer → done. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="signinwithpasskey"></a> `signInWithPasskey` | () => `Promise`\<`void`\> | Sign in with a passkey already saved on this device, through the browser's passkey prompt. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="sendcode"></a> `sendCode` | () => `Promise`\<`void`\> | Email an OTP code to `email` → `verify-code`, or `undeliverable` when the email provider stopped delivering to the address. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="verifycode"></a> `verifyCode` | () => `Promise`\<`void`\> | Verify the entered code (signs in / signs up) → `passkey-offer`, or done at once where this browser can save no passkey. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="redeeminvitecode"></a> `redeemInviteCode` | () => `Promise`\<`void`\> | Check `inviteCode` and sign up with it and the code already typed → `passkey-offer`. A code that admits nobody stays on `invite-code`, refused as `invalid_input` on `inviteCode` (reason `invite_expired`, `invite_used_up` or `invite_revoked`, none for an unknown code). | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="submitage"></a> `submitAge` | () => `Promise`\<`void`\> | Send the same code again with the age typed → `passkey-offer`. An age that is no number stays on `age`, refused as `invalid_input` on `age`; one under the minimum is refused as `forbidden` (reason `under_age`) and this browser is refused for a day. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="addpasskey"></a> `addPasskey` | () => `Promise`\<`void`\> | Save a passkey on the current account (the offer after a code, or the one a recovery requires) → done. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="skippasskey"></a> `skipPasskey` | () => `Promise`\<`void`\> | Decline the passkey offer → done. Does nothing while `passkeyRequired`. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="recover"></a> `recover` | () => `Promise`\<`void`\> | Check `email` and `recoveryCode` for a passkey-only account → `passkey-offer` with `passkeyRequired`: the new passkey is saved before anything else. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
 | <a id="goto"></a> `goTo` | (`step`) => `void` | - | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
-| <a id="reset"></a> `reset` | () => `void` | - | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="bind"></a> `bind` | [`LoginBindings`](#loginbindings) | Attribute and handler bags for markup of your own, one per element: `emailInput`, `codeInput`, `submit`, `passkeyButton`, `back` and `status`. Spread each with `v-bind`; they carry the accessibility attributes the packaged form has. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+| <a id="reset"></a> `reset` | () => `void` | Back to the opening step (`choose`, or the one `preferLastMethod` picks) with every field cleared. | [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts) |
+
+***
+
+### LoginBindings
+
+Defined in: [src/runtime/vue/utils/login-bindings.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/login-bindings.ts)
+
+The attribute and handler bags `useLoginFlow().bind` holds, one per element of a sign-in form.
+
+#### Properties
+
+| Property | Modifier | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ | ------ |
+| <a id="emailinput"></a> `emailInput` | `readonly` | `Record`\<`string`, `unknown`\> | The email `<input>`: its type, `autocomplete="username webauthn"` for passkey autofill, and the refusal when it names the address. | [src/runtime/vue/utils/login-bindings.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/login-bindings.ts) |
+| <a id="codeinput"></a> `codeInput` | `readonly` | `Record`\<`string`, `unknown`\> | The code `<input>`: numeric, `autocomplete="one-time-code"`, the refusal's description, and focus when the person opened its step. | [src/runtime/vue/utils/login-bindings.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/login-bindings.ts) |
+| <a id="submit"></a> `submit` | `readonly` | `Record`\<`string`, `unknown`\> | The step's submit button: `type="submit"`, and `aria-disabled` while a step runs, so it keeps focus. | [src/runtime/vue/utils/login-bindings.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/login-bindings.ts) |
+| <a id="passkeybutton"></a> `passkeyButton` | `readonly` | `Record`\<`string`, `unknown`\> | The passkey button: its click handler, and `aria-disabled` while the browser's prompt is open. | [src/runtime/vue/utils/login-bindings.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/login-bindings.ts) |
+| <a id="back"></a> `back` | `readonly` | `Record`\<`string`, `unknown`\> | The button back to the previous step, which puts focus on the field it returns to. | [src/runtime/vue/utils/login-bindings.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/login-bindings.ts) |
+| <a id="status"></a> `status` | `readonly` | `Record`\<`string`, `unknown`\> | An empty element: a polite status that says a code was sent, and an alert that says why a step failed. | [src/runtime/vue/utils/login-bindings.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/login-bindings.ts) |
 
 ## Type Aliases
 
 ### LoginStep
 
 ```ts
-type LoginStep = "choose" | "request-code" | "verify-code" | "add-passkey";
+type LoginStep = 
+  | "choose"
+  | "request-code"
+  | "verify-code"
+  | "passkey-offer"
+  | "recover"
+  | "waitlisted"
+  | "invite-code"
+  | "age"
+  | "undeliverable";
 ```
 
 Defined in: [src/runtime/vue/composables/use-login-flow.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-login-flow.ts)
 
-The passwordless login state machine:
-`choose` → `signInWithPasskey` (returning users with a passkey on-device)
-`choose` → `request-code` → `verify-code` → `add-passkey` (OTP, then save a passkey)
+***
 
-New accounts are always created through the OTP flow (which verifies email
-ownership); a passkey is added afterwards from the authenticated session.
+### SignInMethod
+
+```ts
+type SignInMethod = "passkey" | "email-otp";
+```
+
+Defined in: [src/runtime/vue/utils/auth-session.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/auth-session.ts)
+
+How a person signs in: with a passkey, or with a code from their inbox.
 
 ## Functions
 
@@ -80,6 +123,10 @@ Defined in: [src/runtime/vue/composables/use-login-flow.ts](https://github.com/q
 The headless login flow behind `<AuthForm>` — bring your own markup and wire
 these refs/actions to it. Encodes the proven passwordless sequencing:
 session-refetch after sign-in, then an optional post-OTP passkey enrolment.
+
+A step machine: its actions never reject. A failed step stays where it
+is, with the reason in `error` (a `BackendError`) and the wait of a rate
+limit in `retryAfter`, so a form never needs a `try`.
 
 #### Parameters
 

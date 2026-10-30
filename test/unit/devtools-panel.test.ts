@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { PANEL_TABS } from '../../devtools-client-app/app/nav'
 import { createPanelStore, type PanelRpc } from '../../devtools-client-app/app/composables/store'
-import { connectionSignal, findingSignal, outcomeSignal, subscriptionSignal } from '../../devtools-client-app/app/utils/signal'
+import { connectionSignal, findingSignal, layerSignal, outcomeSignal, subscriptionSignal } from '../../devtools-client-app/app/utils/signal'
 import type { DevtoolsServerInfo } from '../../src/devtools/rpc-types'
 
 const panelDir = join(process.cwd(), 'devtools-client-app')
@@ -54,6 +54,8 @@ describe('signals', () => {
     expect(subscriptionSignal({ status: 'past_due' })).toBe('err')
     expect(subscriptionSignal({})).toBe('off')
     expect([connectionSignal('connected'), connectionSignal('reconnecting'), connectionSignal('closed'), connectionSignal(null)]).toEqual(['ok', 'warn', 'err', 'off'])
+    // A layer in its test mode asks attention; one that is missing is off, not broken.
+    expect([layerSignal('live'), layerSignal('test'), layerSignal('missing'), layerSignal('failing')]).toEqual(['ok', 'warn', 'off', 'err'])
   })
 })
 
@@ -65,6 +67,11 @@ describe('createPanelStore', () => {
     runDoctor: vi.fn(async () => ({ ranAt: 1, findings: [] })),
     getCatalog: vi.fn(async () => ({ status: 'missing' as const, meters: [], plans: [], packs: [], features: [], synced: [] })),
     resolveBackendSource: vi.fn(async (file: string) => ({ filepath: `/app/backend/${file}` })),
+    getHealth: vi.fn(async () => ({ readAt: 1, mounts: [], missingRoutes: [], maintenance: { status: 'ok' as const, tasks: [{ task: 'sessions', startedAt: 1, finishedAt: 2, pruned: 3, totalPruned: 3 }] } })),
+    getBundles: vi.fn(async () => ({ status: 'empty' as const })),
+    runBundles: vi.fn(async () => ({ status: 'ok' as const, report: { version: 1 as const, ranAt: '2026-10-27T10:00:00.000Z', bundles: [], budgets: [], failures: [] } })),
+    getEmailPreviews: vi.fn(async (options?: { locale?: string }) => ({ status: 'ok' as const, readAt: 1, locale: options?.locale ?? 'en', locales: ['en', 'de'], previews: [] })),
+    sendEmailPreview: vi.fn(async () => ({ status: 'sent' as const, to: 'delivered@resend.dev', emailId: 'email_1' })),
     ...overrides,
   })
 
@@ -98,6 +105,13 @@ describe('createPanelStore', () => {
     expect(store.state.snapshot).toBeNull()
   })
 
+  it('starts on the Overview, and opens the tab a layer\'s channel names', () => {
+    const store = createPanelStore()
+    expect(store.state.tab).toBe('overview')
+    store.select('billing')
+    expect(store.state.tab).toBe('billing')
+  })
+
   it('marks the activity seen up to the newest entry', () => {
     const store = createPanelStore()
     store.markActivitySeen()
@@ -121,6 +135,33 @@ describe('createPanelStore', () => {
     expect(store.state.deploymentEnvLoading).toBe(false)
   })
 
+  it('reads the mounts and the maintenance health, refreshing on request', async () => {
+    const store = createPanelStore()
+    const rpc = rpcWith()
+    store.connect(rpc)
+    const reading = store.readHealth(true)
+    expect(store.state.healthLoading).toBe(true)
+    await reading
+    expect(rpc.getHealth).toHaveBeenCalledWith({ refresh: true })
+    expect(store.state.health?.maintenance).toMatchObject({ status: 'ok', tasks: [{ task: 'sessions', pruned: 3 }] })
+    expect(store.state.healthLoading).toBe(false)
+  })
+
+  it('reads the last bundle run without measuring, and measures again one run at a time', async () => {
+    const store = createPanelStore()
+    const rpc = rpcWith()
+    store.connect(rpc)
+    await store.loadBundles()
+    expect(store.state.bundles).toEqual({ status: 'empty' })
+    expect(rpc.runBundles).not.toHaveBeenCalled()
+    const first = store.runBundles()
+    expect(store.state.bundlesRunning).toBe(true)
+    await Promise.all([first, store.runBundles()])
+    expect(rpc.runBundles).toHaveBeenCalledOnce()
+    expect(store.state.bundles).toMatchObject({ status: 'ok' })
+    expect(store.state.bundlesRunning).toBe(false)
+  })
+
   it('runs doctor once at a time', async () => {
     const store = createPanelStore()
     const rpc = rpcWith()
@@ -128,6 +169,23 @@ describe('createPanelStore', () => {
     await Promise.all([store.runDoctor(), store.runDoctor()])
     expect(rpc.runDoctor).toHaveBeenCalledOnce()
     expect(store.state.doctor).toEqual({ ranAt: 1, findings: [] })
+  })
+
+  it('renders the email previews in a language, and sends one preview at a time', async () => {
+    const store = createPanelStore()
+    const rpc = rpcWith()
+    store.connect(rpc)
+    const reading = store.loadEmailPreviews('de')
+    expect(store.state.emailPreviewsLoading).toBe(true)
+    await reading
+    expect(rpc.getEmailPreviews).toHaveBeenCalledWith({ locale: 'de' })
+    expect(store.state.emailPreviews).toMatchObject({ status: 'ok', locale: 'de', locales: ['en', 'de'] })
+    expect(store.state.emailPreviewsLoading).toBe(false)
+
+    await Promise.all([store.sendEmailPreview('welcome', 'de'), store.sendEmailPreview('welcome', 'de')])
+    expect(rpc.sendEmailPreview).toHaveBeenCalledOnce()
+    expect(rpc.sendEmailPreview).toHaveBeenCalledWith({ key: 'welcome', locale: 'de' })
+    expect(store.state.emailPreviewSend).toEqual({ key: 'welcome', status: 'sent', to: 'delivered@resend.dev', emailId: 'email_1' })
   })
 
   it('takes pushed info, and resolves sources through the dev server', async () => {

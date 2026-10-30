@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 import { type MutationCtx, mutation, query } from './_generated/server.js'
+import { retierOwner } from './jobs.js'
 import { vEntitlementBenefit, vEntitlementMeter } from './schema.js'
 
 /**
@@ -14,11 +15,15 @@ type PendingSpend = {
   amount: number
   externalId: string
   at: number
+  until?: number
   releaseJobId?: string
 }
 
+/** The longest a reservation may be held: a week, the longest a queued job waits for its slot. */
+const MAX_HOLD_MS = 7 * 24 * 60 * 60 * 1000
+
 function activePendings(pendings: PendingSpend[] | undefined, now: number): PendingSpend[] {
-  return (pendings ?? []).filter(pending => now - pending.at < PENDING_SPEND_TTL_MS)
+  return (pendings ?? []).filter(pending => pending.until === undefined ? now - pending.at < PENDING_SPEND_TTL_MS : now < pending.until)
 }
 
 /**
@@ -113,6 +118,8 @@ export const upsert = mutation({
     const doc = { ...args, meters, pendingSpends: pending, updatedAt: now }
     if (existing) await ctx.db.patch('billingEntitlements', existing._id, doc)
     else await ctx.db.insert('billingEntitlements', doc)
+    // A plan that changed moves the owner's waiting jobs up a tier, never down.
+    await retierOwner(ctx, args.userId)
     return null
   },
 })
@@ -142,14 +149,20 @@ export const debit = mutation({
      * app opts a spend in.
      */
     allowOverage: v.optional(v.boolean()),
+    /**
+     * Keep the reservation this long, in ms, instead of ten minutes: a
+     * queued job's credits, held until it starts. At most a week.
+     */
+    hold: v.optional(v.number()),
   },
   returns: v.object({
     ok: v.boolean(),
     balance: v.number(),
     reason: v.optional(v.union(v.literal('no-row'), v.literal('no-meter'), v.literal('insufficient'))),
   }),
-  handler: async (ctx, { userId, meterId, amount, externalId, allowOverage }) => {
+  handler: async (ctx, { userId, meterId, amount, externalId, allowOverage, hold }) => {
     assertAmount(amount, 'debit: `amount`')
+    if (hold !== undefined) assertAmount(hold, 'debit: `hold`')
     const row = await ctx.db
       .query('billingEntitlements')
       .withIndex('userId', q => q.eq('userId', userId))
@@ -176,7 +189,7 @@ export const debit = mutation({
     }
     await ctx.db.patch('billingEntitlements', row._id, {
       meters,
-      pendingSpends: [...pending, { meterId, amount, externalId, at: now }],
+      pendingSpends: [...pending, { meterId, amount, externalId, at: now, ...(hold === undefined ? {} : { until: now + Math.min(hold, MAX_HOLD_MS) }) }],
       updatedAt: now,
     })
     return { ok: true, balance: meters[index]!.balance }
@@ -414,12 +427,13 @@ export const credit = mutation({
   },
 })
 
-/** Read the live-metadata snapshot for a set of benefits (feature gating join). */
+/** Read the live-metadata snapshot (and the name) for a set of benefits (feature gating join). */
 export const getBenefitMetadata = query({
   args: { benefitIds: v.array(v.string()) },
   returns: v.array(v.object({
     benefitId: v.string(),
     metadata: v.record(v.string(), v.union(v.string(), v.number(), v.boolean())),
+    description: v.optional(v.string()),
     updatedAt: v.number(),
   })),
   handler: async (ctx, { benefitIds }) => {
@@ -431,16 +445,25 @@ export const getBenefitMetadata = query({
     ))
     return rows
       .filter(row => row !== null)
-      .map(row => ({ benefitId: row.benefitId, metadata: row.metadata, updatedAt: row.updatedAt }))
+      .map(row => ({
+        benefitId: row.benefitId,
+        metadata: row.metadata,
+        ...(row.description === undefined ? {} : { description: row.description }),
+        updatedAt: row.updatedAt,
+      }))
   },
 })
 
-/** Upsert benefit-metadata snapshots (post-sync, or from a benefit.updated webhook). */
+/**
+ * Upsert benefit-metadata snapshots (post-sync, or from a benefit.updated
+ * webhook). An entry without a description keeps the one the row has.
+ */
 export const upsertBenefitMetadata = mutation({
   args: {
     entries: v.array(v.object({
       benefitId: v.string(),
       metadata: v.record(v.string(), v.union(v.string(), v.number(), v.boolean())),
+      description: v.optional(v.string()),
     })),
   },
   returns: v.null(),
@@ -451,7 +474,8 @@ export const upsertBenefitMetadata = mutation({
         .query('billingBenefitMetadata')
         .withIndex('benefitId', q => q.eq('benefitId', entry.benefitId))
         .unique()
-      if (existing) await ctx.db.patch('billingBenefitMetadata', existing._id, { metadata: entry.metadata, updatedAt: now })
+      const description = entry.description === undefined ? {} : { description: entry.description }
+      if (existing) await ctx.db.patch('billingBenefitMetadata', existing._id, { metadata: entry.metadata, ...description, updatedAt: now })
       else await ctx.db.insert('billingBenefitMetadata', { ...entry, updatedAt: now })
     }
     return null
@@ -497,7 +521,96 @@ export const deleteByUser = mutation({
     for await (const row of ctx.db.query('billingTrials').withIndex('ownerUserId', q => q.eq('ownerUserId', userId))) {
       await ctx.db.delete('billingTrials', row._id)
     }
+    for await (const row of ctx.db.query('billingSubscriptionChanges').withIndex('userId', q => q.eq('userId', userId))) {
+      await ctx.db.delete('billingSubscriptionChanges', row._id)
+    }
+    for await (const row of ctx.db.query('billingQuotaKeys').withIndex('userId_key', q => q.eq('userId', userId))) {
+      await ctx.db.delete('billingQuotaKeys', row._id)
+    }
     return null
+  },
+})
+
+/**
+ * Note that a billing entity counts a plan quota, once per entity and key:
+ * `billing.requireQuota` calls it with the first claim, in the same
+ * transaction, so a refused or failed claim notes nothing.
+ */
+export const recordQuotaKey = mutation({
+  args: { userId: v.string(), key: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { userId, key }) => {
+    const existing = await ctx.db.query('billingQuotaKeys').withIndex('userId_key', q => q.eq('userId', userId).eq('key', key)).first()
+    if (!existing) await ctx.db.insert('billingQuotaKeys', { userId, key })
+    return null
+  },
+})
+
+/**
+ * Every plan quota a billing entity has counted, by key: what
+ * `billing.forgetEntity` resets in the app's counter before
+ * `deleteByUser` drops these rows.
+ */
+export const quotaKeys = query({
+  args: { userId: v.string() },
+  returns: v.array(v.string()),
+  handler: async (ctx, { userId }) => {
+    // An app declares a handful of quotas; the bound only keeps the read finite.
+    const rows = await ctx.db.query('billingQuotaKeys').withIndex('userId_key', q => q.eq('userId', userId)).take(1000)
+    return rows.map(row => row.key)
+  },
+})
+
+const vPendingChange = v.union(v.null(), v.object({ productId: v.string(), appliesAt: v.number() }))
+
+/**
+ * Record what a subscription's provider state says about its scheduled plan
+ * change and its resume date. A state older than the stored one (by the
+ * provider's `modifiedAt`) is ignored, so webhook deliveries and lifecycle
+ * responses may land in any order.
+ */
+export const recordSubscriptionChange = mutation({
+  args: {
+    subscriptionId: v.string(),
+    userId: v.string(),
+    pendingChange: vPendingChange,
+    resumesAt: v.union(v.null(), v.number()),
+    modifiedAt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query('billingSubscriptionChanges')
+      .withIndex('subscriptionId', q => q.eq('subscriptionId', args.subscriptionId))
+      .first()
+    if (!existing) await ctx.db.insert('billingSubscriptionChanges', args)
+    else if (args.modifiedAt >= existing.modifiedAt) await ctx.db.patch('billingSubscriptionChanges', existing._id, args)
+    return null
+  },
+})
+
+/**
+ * The recorded plan changes and resume dates of these subscriptions, with
+ * the provider time each was recorded at: one indexed read per id, so an
+ * entity with any number of subscriptions reads exactly the ones it shows.
+ * A subscription nothing was recorded for is left out.
+ */
+export const subscriptionChanges = query({
+  args: { subscriptionIds: v.array(v.string()) },
+  returns: v.array(v.object({
+    subscriptionId: v.string(),
+    pendingChange: vPendingChange,
+    resumesAt: v.union(v.null(), v.number()),
+    modifiedAt: v.number(),
+  })),
+  handler: async (ctx, { subscriptionIds }) => {
+    const rows = await Promise.all([...new Set(subscriptionIds)].map(subscriptionId => ctx.db
+      .query('billingSubscriptionChanges')
+      .withIndex('subscriptionId', q => q.eq('subscriptionId', subscriptionId))
+      .first()))
+    return rows
+      .filter(row => row !== null)
+      .map(row => ({ subscriptionId: row.subscriptionId, pendingChange: row.pendingChange, resumesAt: row.resumesAt, modifiedAt: row.modifiedAt }))
   },
 })
 

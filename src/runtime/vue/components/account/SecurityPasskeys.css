@@ -1,0 +1,79 @@
+/*
+ * SecurityPasskeys's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-security='input-passkey-name'] {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+
+  [data-security='add-passkey'] {
+    align-self: flex-start;
+    background: var(--bk-accent);
+    border-color: var(--bk-accent);
+    color: var(--bk-on-accent);
+  }
+
+  [data-security='passkeys-empty'] {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--bk-muted);
+  }
+
+  /* Passkey-only sign-in: a setting of its own under the list, framed so its hint reads with it. */
+  [data-security='passkey-only'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 0.8rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+  }
+
+  /* On: the account takes no sign-in code, said by the frame's tone as well as the button's words. */
+  [data-security='passkey-only'][data-state='on'] {
+    border-color: color-mix(in srgb, var(--bk-ok) 45%, transparent);
+  }
+
+  [data-security='passkey-only-hint'] {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--bk-muted);
+    line-height: 1.5;
+  }
+
+  [data-security='passkey-only-on'] {
+    background: var(--bk-accent);
+    border-color: var(--bk-accent);
+    color: var(--bk-on-accent);
+  }
+
+  [data-security='passkey-only-off'],
+  [data-security='recovery-code-new'] {
+    font-size: 0.85rem;
+  }
+
+  /*
+   * The recovery code, shown once: a plate in the warning tone, the text
+   * in the ink colour so it keeps the page's contrast on the light tint.
+   */
+  [data-security='recovery-code'] {
+    flex-basis: 100%;
+    margin: 0;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid color-mix(in srgb, var(--bk-warn) 55%, transparent);
+    border-radius: var(--bk-radius);
+    background: color-mix(in srgb, var(--bk-warn) 10%, transparent);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+}

@@ -41,6 +41,8 @@ export interface DevtoolsEntitlementsSnapshot {
   features: string[]
   /** Active plan (product) ids. */
   plans: string[]
+  /** Each quota's limit and use, as `useFeatures().quota()` reads it; absent until they are read. */
+  quotas?: Array<{ key: string, limit: number | 'unlimited', used: number, description?: string }>
 }
 
 /** One prepaid credit meter (the `getCredits` cache row). */
@@ -53,7 +55,7 @@ export interface DevtoolsCreditMeterSnapshot {
   consumed: number
 }
 
-/** The active workspace per `useOrganization()`. */
+/** The active workspace per `useWorkspace()`. */
 export interface DevtoolsWorkspaceSnapshot {
   /** False while no workspace is active (or workspace state is unreachable). */
   available: boolean
@@ -81,14 +83,25 @@ export interface DevtoolsWebhookDeliverySnapshot {
    * are the latest one's.
    */
   count?: number
+  /** When an administrator last had the provider send it again. */
+  replayedAt?: number
+}
+
+/** The last replay the panel asked for: on its way, sent, or refused with why. */
+export interface DevtoolsWebhookReplaySnapshot {
+  service: string
+  deliveryId: string
+  state: 'pending' | 'done' | 'error'
+  /** The refusal, in the app's words. */
+  message?: string
 }
 
 /**
  * What the delivery feed answered. `readable`: the caller is an admin and
  * `webhooks` holds the log. `admins-only`: it answered `null`, as it does for
  * anyone `requireAdmin` does not admit (signed out included), so `webhooks`
- * stays empty. `unavailable`: the app's billing module does not export
- * `getWebhookDeliveries`.
+ * stays empty. `unavailable`: the app has no `backend/webhooks.ts`
+ * exporting `getWebhookDeliveries`.
  */
 export type DevtoolsWebhookFeed = 'readable' | 'admins-only' | 'unavailable'
 
@@ -140,6 +153,22 @@ export interface DevtoolsGiftsSnapshot {
   claimed: number
 }
 
+/** The signed-in account's notifications: the newest few, with the channels each went out on. */
+export interface DevtoolsNotificationsSnapshot {
+  isLoading: boolean
+  /** Why they could not be read; absent when they were. */
+  error?: string
+  unread: number
+  items: Array<{
+    /** The kind of event it restates. */
+    type: string
+    title: string
+    read: boolean
+    at: number
+    channels: string[]
+  }>
+}
+
 /** The delivery status of one email the panel looks up by id. */
 export interface DevtoolsEmailLookupSnapshot {
   emailId: string
@@ -153,7 +182,7 @@ export interface DevtoolsEmailLookupSnapshot {
 }
 
 /** Sections loaded when a panel page asks for them, not on every render. */
-export type DevtoolsOnDemandSection = 'sessions' | 'passkeys' | 'gifts'
+export type DevtoolsOnDemandSection = 'sessions' | 'passkeys' | 'gifts' | 'notifications'
 
 /** The backend connection, from the base module's client state. */
 export type DevtoolsConnectionState = 'connected' | 'reconnecting' | 'idle' | 'closed'
@@ -195,7 +224,10 @@ export interface BackendDevtoolsSnapshot {
   sessions?: DevtoolsSessionsSnapshot
   passkeys?: DevtoolsPasskeysSnapshot
   gifts?: DevtoolsGiftsSnapshot
+  notifications?: DevtoolsNotificationsSnapshot
   emailLookup?: DevtoolsEmailLookupSnapshot
+  /** The last replay the panel asked for. */
+  webhookReplay?: DevtoolsWebhookReplaySnapshot
   /**
    * False until the panel first opens: the sections that need queries of
    * their own (billing, entitlements, credits, workspace, webhooks) start
@@ -214,6 +246,8 @@ export interface DevtoolsBridgeRequests {
   request(section: DevtoolsOnDemandSection): void
   /** Track one email's delivery status, replacing the previous lookup. */
   lookupEmail(emailId: string): void
+  /** Ask a delivery's provider to send it again, as the signed-in administrator (`replayWebhookDelivery`); the outcome lands in `webhookReplay`. */
+  replayWebhook(service: string, deliveryId: string): void
 }
 
 /** The surface the DevTools iframe consumes via `$backendDevtools`. */

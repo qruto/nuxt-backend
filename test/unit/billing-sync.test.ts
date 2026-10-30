@@ -39,7 +39,7 @@ const page = (items: unknown[]) => ({ ok: true, value: { result: { items, pagina
 const catalog: BillingCatalog = {
   meters: { credits: {} },
   plans: {
-    pro: { name: 'Pro', interval: 'month', price: 2900, credits: { meter: 'credits', units: 500 }, features: ['priority_support'] },
+    pro: { name: 'Pro', prices: { month: 2900 }, credits: { meter: 'credits', units: 500 }, features: ['priority_support'] },
   },
   packs: {
     credits500: { name: '500 credits', price: 2000, credits: { meter: 'credits', units: 500 } },
@@ -240,7 +240,7 @@ describe('syncBillingCatalog', () => {
       { id: 'ben_c', metadata: { managedBy: 'nuxt-backend', key: 'credits500-credits' } },
     ]) as never)
     vi.mocked(productsList).mockResolvedValue(page([
-      { id: 'prod_pro', metadata: { managedBy: 'nuxt-backend', key: 'pro' } },
+      { id: 'prod_pro', recurringInterval: 'month', metadata: { managedBy: 'nuxt-backend', key: 'pro', interval: 'month' } },
       { id: 'prod_pack', metadata: { managedBy: 'nuxt-backend', key: 'credits500' } },
       { id: 'prod_pack_gift', metadata: { managedBy: 'nuxt-backend', key: 'credits500-gift', giftOf: 'credits500' } },
     ]) as never)
@@ -251,6 +251,7 @@ describe('syncBillingCatalog', () => {
     expect(benefitsCreate).not.toHaveBeenCalled()
     expect(productsCreate).not.toHaveBeenCalled()
     expect(result.ids.products).toEqual({ pro: 'prod_pro', credits500: 'prod_pack' })
+    expect(result.ids.plans).toEqual({ pro: { month: 'prod_pro' } })
     expect(result.ids.gifts).toEqual({ credits500: 'prod_pack_gift' })
     expect(result.log.every(entry => entry.action === 'exists')).toBe(true)
   })
@@ -304,7 +305,8 @@ describe('syncBillingCatalog', () => {
     vi.mocked(metersCreate).mockResolvedValue({ ok: true, value: { id: 'mtr_1' } } as never)
     vi.mocked(benefitsCreate).mockResolvedValue({ ok: true, value: { id: 'ben_x' } } as never)
     vi.mocked(productsList).mockResolvedValue(page([
-      { id: 'prod_pro', name: 'Pro', prices: [{ amountType: 'fixed', priceAmount: 1900 }], metadata: { managedBy: 'nuxt-backend', key: 'pro' } },
+      // Tagged before plans had intervals: found by its key and its billing interval.
+      { id: 'prod_pro', name: 'Pro', recurringInterval: 'month', prices: [{ amountType: 'fixed', priceAmount: 1900 }], metadata: { managedBy: 'nuxt-backend', key: 'pro' } },
       { id: 'prod_pack', name: 'Credit Pack 500', prices: [{ amountType: 'fixed', priceAmount: 2000 }], metadata: { managedBy: 'nuxt-backend', key: 'credits500' } },
       { id: 'prod_gift', name: '500 credits (gift)', prices: [{ amountType: 'fixed', priceAmount: 2000 }], metadata: { managedBy: 'nuxt-backend', key: 'credits500-gift' } },
     ]) as never)
@@ -326,7 +328,7 @@ describe('syncBillingCatalog', () => {
     vi.mocked(metersCreate).mockResolvedValue({ ok: true, value: { id: 'mtr_1' } } as never)
     vi.mocked(benefitsCreate).mockResolvedValue({ ok: true, value: { id: 'ben_x' } } as never)
     vi.mocked(productsList).mockResolvedValue(page([
-      { id: 'prod_pro', name: 'Pro', prices: [{ amountType: 'fixed', priceAmount: 2900 }], metadata: { managedBy: 'nuxt-backend', key: 'pro' } },
+      { id: 'prod_pro', name: 'Pro', recurringInterval: 'month', prices: [{ amountType: 'fixed', priceAmount: 2900 }], metadata: { managedBy: 'nuxt-backend', key: 'pro' } },
     ]) as never)
 
     const result = await syncBillingCatalog(catalog, options, fakeClient)
@@ -471,8 +473,7 @@ describe('syncBillingCatalog — trials, usage prices, tax behaviour, custom fie
     plans: {
       pro: {
         name: 'Pro',
-        interval: 'month',
-        price: 2900,
+        prices: { month: 2900 },
         trial: { interval: 'day', count: 14 },
         usage: [{ meter: 'credits', unitAmount: '0.05', cap: 5000 }],
         taxBehavior: 'inclusive',
@@ -530,7 +531,7 @@ describe('syncBillingCatalog — trials, usage prices, tax behaviour, custom fie
   })
 
   it('defaults the trial count to one interval and omits absent options entirely', async () => {
-    await syncBillingCatalog({ plans: { basic: { name: 'Basic', interval: 'month', price: 900, trial: { interval: 'month' } } } }, options, fakeClient)
+    await syncBillingCatalog({ plans: { basic: { name: 'Basic', prices: { month: 900 }, trial: { interval: 'month' } } } }, options, fakeClient)
 
     expect(productsCreate).toHaveBeenCalledWith(fakeClient, {
       name: 'Basic',
@@ -539,14 +540,14 @@ describe('syncBillingCatalog — trials, usage prices, tax behaviour, custom fie
       trialInterval: 'month',
       trialIntervalCount: 1,
       prices: [{ amountType: 'fixed', priceAmount: 900, priceCurrency: 'usd' }],
-      metadata: { managedBy: 'nuxt-backend', key: 'basic' },
+      metadata: { managedBy: 'nuxt-backend', key: 'basic', interval: 'month' },
     })
   })
 
   it('warns instead of pricing usage against a meter the catalog never declares', async () => {
     const result = await syncBillingCatalog({
       meters: { credits: {} },
-      plans: { pro: { name: 'Pro', interval: 'month', price: 2900, usage: [{ meter: 'tokens', unitAmount: 1 }] } },
+      plans: { pro: { name: 'Pro', prices: { month: 2900 }, usage: [{ meter: 'tokens', unitAmount: 1 }] } },
     }, options, fakeClient)
 
     expect(result.log).toContainEqual(expect.objectContaining({ action: 'warn', kind: 'product', key: 'pro', note: expect.stringContaining('tokens') }))
@@ -557,7 +558,7 @@ describe('syncBillingCatalog — trials, usage prices, tax behaviour, custom fie
 
   it('warns instead of attaching a custom field the catalog never declares', async () => {
     const result = await syncBillingCatalog({
-      plans: { pro: { name: 'Pro', interval: 'month', price: 2900, customFields: ['vat'] } },
+      plans: { pro: { name: 'Pro', prices: { month: 2900 }, customFields: ['vat'] } },
     }, options, fakeClient)
 
     expect(result.log).toContainEqual(expect.objectContaining({ action: 'warn', kind: 'product', key: 'pro', note: expect.stringContaining('vat') }))
@@ -661,6 +662,7 @@ const organizationPayload = {
     prorationBehavior: 'invoice',
     benefitRevocationGracePeriod: 0,
     preventTrialAbuse: true,
+    customerEmailsOff: [],
     allowCustomerUpdates: true,
   },
   customerPortalSettings: {
@@ -676,11 +678,12 @@ const healthyState: BillingOrganizationState = {
   prorationBehavior: 'invoice',
   benefitRevocationGracePeriod: 0,
   preventTrialAbuse: true,
+  customerEmailsOff: [],
   portal: { updatePlan: true, pause: false },
   benefitTypeByKey: { priority_support: 'feature_flag' },
   memberModel: true,
   membersReadable: true,
-  productByKey: { 'credits500': { visibility: 'public', price: 2000, currency: 'usd', benefits: 1 }, 'credits500-gift': { visibility: 'private', price: 2000, currency: 'usd', benefits: 0 } },
+  productByKey: { 'credits500': { visibility: 'public', prices: { usd: 2000 }, benefits: 1 }, 'credits500-gift': { visibility: 'private', prices: { usd: 2000 }, benefits: 0 } },
 }
 
 const statusOf = (findings: Array<{ id: string, status: string }>, id: string) => findings.find(finding => finding.id === id)?.status
@@ -704,12 +707,21 @@ describe('readBillingOrganizationState', () => {
       prorationBehavior: 'invoice',
       benefitRevocationGracePeriod: 0,
       preventTrialAbuse: true,
+      customerEmailsOff: [],
       portal: { updatePlan: true, pause: false },
       benefitTypeByKey: { priority_support: 'custom' },
       memberModel: true,
       membersReadable: true,
       productByKey: {},
     })
+  })
+
+  it('reads which of the customer emails billing leans on the organization turned off', async () => {
+    vi.mocked(organizationsListOrganizations).mockResolvedValue(page([{ ...organizationPayload, customerEmailSettings: { orderConfirmation: true, subscriptionPastDue: false, subscriptionCancellation: false, subscriptionCycled: false, subscriptionRenewalReminder: false, subscriptionTrialConversionReminder: false, subscriptionUpdated: false } }]) as never)
+    vi.mocked(membersListMembers).mockResolvedValue(emptyPage as never)
+    const state = await readBillingOrganizationState({ accessToken: 'tok', environment: 'sandbox' }, fakeClient)
+    // The renewal and its reminders count with the rest; a plan update's email being off is the organization's own business.
+    expect(state?.customerEmailsOff).toEqual(['subscriptionCycled', 'subscriptionPastDue', 'subscriptionCancellation', 'subscriptionRenewalReminder', 'subscriptionTrialConversionReminder'])
   })
 
   it('reads each managed product\'s visibility, one live fixed price and benefit count', async () => {
@@ -722,10 +734,10 @@ describe('readBillingOrganizationState', () => {
 
     const state = await readBillingOrganizationState({ accessToken: 'tok', environment: 'sandbox' }, fakeClient)
 
-    // Several live fixed prices leave the price unknown, never one of them.
+    // Every live fixed price, by its currency; an archived one never.
     expect(state?.productByKey).toEqual({
-      'credits500': { visibility: 'public', price: 2000, currency: 'usd', benefits: 1 },
-      'credits500-gift': { visibility: 'private', benefits: 0 },
+      'credits500': { visibility: 'public', prices: { usd: 2000 }, benefits: 1 },
+      'credits500-gift': { visibility: 'private', prices: { usd: 2000, eur: 1800 }, benefits: 0 },
     })
   })
 
@@ -754,7 +766,7 @@ describe('collectBillingFindings', () => {
   it('warns about a meter nothing grants and nothing prices — no provider needed', () => {
     const findings = collectBillingFindings({
       meters: { credits: {}, tokens: {} },
-      plans: { pro: { name: 'Pro', interval: 'month', price: 2900, credits: { meter: 'credits', units: 500 } } },
+      plans: { pro: { name: 'Pro', prices: { month: 2900 }, credits: { meter: 'credits', units: 500 } } },
     }, null, { tokenPresent: false })
 
     expect(statusOf(findings, 'billing-meter-usage')).toBe('warn')
@@ -764,7 +776,7 @@ describe('collectBillingFindings', () => {
   it('passes the meter check when a usage price is the only thing referencing it', () => {
     const findings = collectBillingFindings({
       meters: { tokens: {} },
-      plans: { pro: { name: 'Pro', interval: 'month', price: 2900, usage: [{ meter: 'tokens', unitAmount: 1 }] } },
+      plans: { pro: { name: 'Pro', prices: { month: 2900 }, usage: [{ meter: 'tokens', unitAmount: 1 }] } },
     }, null, { tokenPresent: false })
 
     expect(statusOf(findings, 'billing-meter-usage')).toBe('pass')
@@ -798,6 +810,7 @@ describe('collectBillingFindings', () => {
       'billing-benefit-grace',
       'billing-trial-abuse',
       'billing-portal',
+      'billing-customer-emails',
       'billing-team-customers',
       'billing-gift-twins',
       'billing-feature-benefits',
@@ -806,14 +819,15 @@ describe('collectBillingFindings', () => {
 
   it.each([
     ['missing', {}, 'has no gift product'],
-    ['public', { 'credits500-gift': { visibility: 'public', price: 2000, currency: 'usd' } }, 'is not private'],
-    ['granting benefits', { 'credits500-gift': { visibility: 'private', price: 2000, currency: 'usd', benefits: 1 } }, 'carries benefits'],
-    ['at an old price', { 'credits500-gift': { visibility: 'private', price: 1500, currency: 'usd' } }, 'priced 1500 usd, the pack 2000 usd'],
-    ['in another currency', { 'credits500-gift': { visibility: 'private', price: 2000, currency: 'eur' } }, 'priced 2000 eur, the pack 2000 usd'],
+    ['public', { 'credits500-gift': { visibility: 'public', prices: { usd: 2000 } } }, 'is not private'],
+    ['granting benefits', { 'credits500-gift': { visibility: 'private', prices: { usd: 2000 }, benefits: 1 } }, 'carries benefits'],
+    ['at an old price', { 'credits500-gift': { visibility: 'private', prices: { usd: 1500 } } }, 'priced 1500 usd, the pack 2000 usd'],
+    ['in another currency', { 'credits500-gift': { visibility: 'private', prices: { eur: 2000 } } }, 'priced 2000 eur, the pack 2000 usd'],
+    ['missing a currency the pack has', { 'credits500': { visibility: 'public', prices: { usd: 2000, eur: 1800 } }, 'credits500-gift': { visibility: 'private', prices: { usd: 2000 } } }, 'priced 2000 usd, the pack 2000 usd, 1800 eur'],
     ['priced unreadably', { 'credits500-gift': { visibility: 'private' } }, 'can\'t be checked'],
-    ['beside a pack priced unreadably', { 'credits500': { visibility: 'public' }, 'credits500-gift': { visibility: 'private', price: 2000, currency: 'usd' } }, 'can\'t be checked'],
+    ['beside a pack priced unreadably', { 'credits500': { visibility: 'public' }, 'credits500-gift': { visibility: 'private', prices: { usd: 2000 } } }, 'can\'t be checked'],
   ])('warns about a pack whose gift product is %s', (_name, twins, message) => {
-    const state = { ...healthyState, productByKey: { credits500: { visibility: 'public', price: 2000, currency: 'usd' }, ...twins } }
+    const state = { ...healthyState, productByKey: { credits500: { visibility: 'public', prices: { usd: 2000 } }, ...twins } }
     const found = collectBillingFindings(catalog, state, { tokenPresent: true }).find(entry => entry.id === 'billing-gift-twins')
     expect(found).toMatchObject({ status: 'warn', message: expect.stringContaining(message) })
   })
@@ -828,8 +842,8 @@ describe('collectBillingFindings', () => {
   it('warns when several plans meet an organization that allows stacked subscriptions', () => {
     const twoPlans: BillingCatalog = {
       plans: {
-        pro: { name: 'Pro', interval: 'month', price: 2900 },
-        ultra: { name: 'Ultra', interval: 'month', price: 4900 },
+        pro: { name: 'Pro', prices: { month: 2900 } },
+        ultra: { name: 'Ultra', prices: { month: 4900 } },
       },
     }
 
@@ -841,8 +855,8 @@ describe('collectBillingFindings', () => {
   it('warns when plan changes are deferred to the next period but the catalog sells upgrades', () => {
     const twoPlans: BillingCatalog = {
       plans: {
-        pro: { name: 'Pro', interval: 'month', price: 2900 },
-        ultra: { name: 'Ultra', interval: 'month', price: 4900 },
+        pro: { name: 'Pro', prices: { month: 2900 } },
+        ultra: { name: 'Ultra', prices: { month: 4900 } },
       },
     }
 
@@ -858,7 +872,7 @@ describe('collectBillingFindings', () => {
 
   it('warns when a plan offers a trial the organization does not protect', () => {
     const trialCatalog: BillingCatalog = {
-      plans: { pro: { name: 'Pro', interval: 'month', price: 2900, trial: { interval: 'day', count: 14 } } },
+      plans: { pro: { name: 'Pro', prices: { month: 2900 }, trial: { interval: 'day', count: 14 } } },
     }
 
     expect(statusOf(collectBillingFindings(trialCatalog, { ...healthyState, preventTrialAbuse: false }, { tokenPresent: true }), 'billing-trial-abuse')).toBe('warn')
@@ -867,11 +881,20 @@ describe('collectBillingFindings', () => {
     expect(statusOf(collectBillingFindings(catalog, { ...healthyState, preventTrialAbuse: false }, { tokenPresent: true }), 'billing-trial-abuse')).toBe('pass')
   })
 
+  it('warns when the provider\'s customer emails the inbox leans on are off, and names them', () => {
+    const off = collectBillingFindings(catalog, { ...healthyState, customerEmailsOff: ['subscriptionPastDue', 'orderConfirmation'] }, { tokenPresent: true })
+    expect(statusOf(off, 'billing-customer-emails')).toBe('warn')
+    expect(off.find(entry => entry.id === 'billing-customer-emails')?.message).toContain('subscription past due, order confirmation')
+    expect(statusOf(collectBillingFindings(catalog, healthyState, { tokenPresent: true }), 'billing-customer-emails')).toBe('pass')
+    // Without a token there is nothing to read: no second warning.
+    expect(collectBillingFindings(catalog, null, { tokenPresent: false }).map(entry => entry.id)).not.toContain('billing-customer-emails')
+  })
+
   it('warns when the portal cannot change plan although the catalog sells several, and reports the pause toggle', () => {
     const twoPlans: BillingCatalog = {
       plans: {
-        pro: { name: 'Pro', interval: 'month', price: 2900 },
-        ultra: { name: 'Ultra', interval: 'month', price: 4900 },
+        pro: { name: 'Pro', prices: { month: 2900 } },
+        ultra: { name: 'Ultra', prices: { month: 4900 } },
       },
     }
     const findings = collectBillingFindings(twoPlans, { ...healthyState, portal: { updatePlan: false, pause: true } }, { tokenPresent: true })
@@ -895,5 +918,241 @@ describe('BILLING_WEBHOOK_PROVISION_EVENTS', () => {
     for (const event of REFRESH_EVENTS) {
       expect(BILLING_WEBHOOK_PROVISION_EVENTS).toContain(event)
     }
+  })
+})
+
+describe('syncBillingCatalog — yearly prices, retired plans, drift', () => {
+  const yearly: BillingCatalog = {
+    meters: { credits: {} },
+    plans: {
+      pro: { name: 'Pro', prices: { month: 2900, year: 29000 }, credits: { meter: 'credits', units: 500 }, trial: { interval: 'day', count: 14 } },
+    },
+  }
+  /** A managed plan product at one interval, as the provider lists it. */
+  const planProduct = (id: string, key: string, interval: 'month' | 'year', extra: Record<string, unknown> = {}) =>
+    ({ id, name: 'Pro', recurringInterval: interval, prices: [{ amountType: 'fixed', priceAmount: interval === 'year' ? 29000 : 2900 }], metadata: { managedBy: 'nuxt-backend', key, interval }, ...extra })
+
+  beforeEach(() => {
+    vi.mocked(metersList).mockResolvedValue(page([{ id: 'mtr_1', metadata: { managedBy: 'nuxt-backend', key: 'credits' } }]) as never)
+    let benefits = 0
+    vi.mocked(benefitsCreate).mockImplementation((async () => ({ ok: true, value: { id: `ben_${++benefits}` } })) as never)
+    let products = 0
+    vi.mocked(productsCreate).mockImplementation((async () => ({ ok: true, value: { id: `prod_${++products}` } })) as never)
+    vi.mocked(productsUpdateBenefits).mockResolvedValue({ ok: true, value: {} } as never)
+    vi.mocked(productsUpdate).mockResolvedValue({ ok: true, value: {} } as never)
+  })
+
+  it('creates one product per priced interval, tagged with the plan and the interval, and a year\'s worth of credits on the yearly one', async () => {
+    const result = await syncBillingCatalog(yearly, options, fakeClient)
+
+    expect(productsCreate).toHaveBeenCalledWith(fakeClient, expect.objectContaining({
+      recurringInterval: 'month',
+      prices: [{ amountType: 'fixed', priceAmount: 2900, priceCurrency: 'usd' }],
+      trialInterval: 'day',
+      trialIntervalCount: 14,
+      metadata: { managedBy: 'nuxt-backend', key: 'pro', interval: 'month' },
+    }))
+    expect(productsCreate).toHaveBeenCalledWith(fakeClient, expect.objectContaining({
+      recurringInterval: 'year',
+      prices: [{ amountType: 'fixed', priceAmount: 29000, priceCurrency: 'usd' }],
+      trialInterval: 'day',
+      metadata: { managedBy: 'nuxt-backend', key: 'pro', interval: 'year' },
+    }))
+    expect(benefitsCreate).toHaveBeenCalledWith(fakeClient, expect.objectContaining({
+      properties: { units: 6000, rollover: false, meterId: 'mtr_1' },
+      metadata: { managedBy: 'nuxt-backend', key: 'pro-credits-year' },
+    }))
+    expect(result.ids.products).toEqual({ 'pro': 'prod_1', 'pro:year': 'prod_2' })
+    expect(result.ids.plans).toEqual({ pro: { month: 'prod_1', year: 'prod_2' } })
+    expect(result.ids.retired).toBeUndefined()
+  })
+
+  it('grants each interval\'s own units when the catalog names them', async () => {
+    await syncBillingCatalog({ ...yearly, plans: { pro: { ...yearly.plans!.pro!, credits: { meter: 'credits', units: { month: 500, year: 5000 } } } } }, options, fakeClient)
+
+    expect(benefitsCreate).toHaveBeenCalledWith(fakeClient, expect.objectContaining({ properties: expect.objectContaining({ units: 500 }), metadata: expect.objectContaining({ key: 'pro-credits' }) }))
+    expect(benefitsCreate).toHaveBeenCalledWith(fakeClient, expect.objectContaining({ properties: expect.objectContaining({ units: 5000 }), metadata: expect.objectContaining({ key: 'pro-credits-year' }) }))
+  })
+
+  it('archives a retired plan\'s products, keeps their ids, and creates nothing for it', async () => {
+    vi.mocked(productsList).mockResolvedValue(page([planProduct('prod_m', 'pro', 'month'), planProduct('prod_y', 'pro', 'year', { isArchived: true })]) as never)
+
+    const result = await syncBillingCatalog({ ...yearly, plans: { pro: { ...yearly.plans!.pro!, retired: true } } }, options, fakeClient)
+
+    expect(productsUpdate).toHaveBeenCalledTimes(1)
+    expect(productsUpdate).toHaveBeenCalledWith(fakeClient, { id: 'prod_m', productUpdate: { isArchived: true } })
+    expect(productsCreate).not.toHaveBeenCalled()
+    expect(benefitsCreate).not.toHaveBeenCalled()
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'archived', key: 'pro', id: 'prod_m' }))
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'exists', key: 'pro:year', note: 'retired (archived)' }))
+    // A subscriber's plan still reads back by its key.
+    expect(result.ids.plans).toEqual({ pro: { month: 'prod_m', year: 'prod_y' } })
+    expect(result.ids.products).toEqual({ 'pro': 'prod_m', 'pro:year': 'prod_y' })
+    expect(result.ids.retired).toEqual(['pro'])
+  })
+
+  it('archives a retired plan\'s product at an interval the catalog no longer prices, and reports no drift for it', async () => {
+    vi.mocked(productsList).mockResolvedValue(page([planProduct('prod_m', 'pro', 'month'), planProduct('prod_y', 'pro', 'year')]) as never)
+
+    const result = await syncBillingCatalog({ ...yearly, plans: { pro: { ...yearly.plans!.pro!, prices: { month: 2900 }, retired: true } } }, options, fakeClient)
+
+    expect(productsUpdate).toHaveBeenCalledWith(fakeClient, { id: 'prod_m', productUpdate: { isArchived: true } })
+    expect(productsUpdate).toHaveBeenCalledWith(fakeClient, { id: 'prod_y', productUpdate: { isArchived: true } })
+    expect(result.ids.plans).toEqual({ pro: { month: 'prod_m', year: 'prod_y' } })
+    expect(result.log).not.toContainEqual(expect.objectContaining({ action: 'drift', key: 'pro:year' }))
+    // Nothing to warn about at an interval it was never sold at.
+    expect(result.log.filter(entry => entry.action === 'warn')).toEqual([])
+  })
+
+  it('records a retired plan\'s adopted product and leaves it as it is', async () => {
+    vi.mocked(productsList).mockResolvedValue(page([planProduct('prod_m', 'pro', 'month')]) as never)
+
+    const result = await syncBillingCatalog({ ...yearly, plans: { pro: { ...yearly.plans!.pro!, retired: true } } }, { ...options, adopt: { 'pro:year': 'prod_legacy_year' } }, fakeClient)
+
+    expect(productsUpdate).not.toHaveBeenCalledWith(fakeClient, expect.objectContaining({ id: 'prod_legacy_year' }))
+    expect(result.ids.plans).toEqual({ pro: { month: 'prod_m', year: 'prod_legacy_year' } })
+    expect(result.ids.retired).toEqual(['pro'])
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'adopted', key: 'pro:year', note: expect.stringContaining('archive it in the provider dashboard') }))
+  })
+
+  it('keeps the credit benefit a yearly product from before intervals carries, and gives a new monthly price its own', async () => {
+    // A 0.1 yearly plan: tagged with its key alone, granting `pro-credits` once a year.
+    vi.mocked(benefitsList).mockResolvedValue(page([
+      { id: 'ben_legacy', type: 'meter_credit', properties: { units: 6000, rollover: false, meterId: 'mtr_1' }, metadata: { managedBy: 'nuxt-backend', key: 'pro-credits' } },
+    ]) as never)
+    vi.mocked(productsList).mockResolvedValue(page([{ ...planProduct('prod_y', 'pro', 'year'), metadata: { managedBy: 'nuxt-backend', key: 'pro' } }]) as never)
+
+    const kept = await syncBillingCatalog({ ...yearly, plans: { pro: { ...yearly.plans!.pro!, prices: { year: 29000 }, credits: { meter: 'credits', units: { year: 6000 } } } } }, options, fakeClient)
+
+    // Found by its key and interval, checked against the year's grant: no second benefit, no drift.
+    expect(benefitsCreate).not.toHaveBeenCalled()
+    expect(kept.ids.products).toEqual({ 'pro:year': 'prod_y' })
+    expect(kept.log).toContainEqual(expect.objectContaining({ action: 'exists', kind: 'benefit', key: 'pro-credits' }))
+    expect(kept.log.filter(entry => entry.action === 'drift')).toEqual([])
+
+    // The same `units` as a number now means a month's: twelve times that is drift, still no new benefit.
+    const drifted = await syncBillingCatalog({ ...yearly, plans: { pro: { ...yearly.plans!.pro!, prices: { year: 29000 }, credits: { meter: 'credits', units: 6000 } } } }, options, fakeClient)
+    expect(benefitsCreate).not.toHaveBeenCalled()
+    expect(drifted.log).toContainEqual(expect.objectContaining({ action: 'drift', kind: 'benefit', key: 'pro-credits', note: expect.stringContaining('grants 6000 units, catalog says 72000') }))
+
+    // A monthly price added beside it grants a benefit of its own.
+    await syncBillingCatalog(yearly, options, fakeClient)
+    expect(benefitsCreate).toHaveBeenCalledTimes(1)
+    expect(benefitsCreate).toHaveBeenCalledWith(fakeClient, expect.objectContaining({ properties: expect.objectContaining({ units: 500 }), metadata: expect.objectContaining({ key: 'pro-credits-month' }) }))
+  })
+
+  it('only says it would archive on a dry run, and warns about a plan retired before its first sync', async () => {
+    vi.mocked(productsList).mockResolvedValue(page([planProduct('prod_m', 'pro', 'month')]) as never)
+
+    const result = await syncBillingCatalog({ ...yearly, plans: { pro: { ...yearly.plans!.pro!, retired: true } } }, { ...options, dryRun: true }, fakeClient)
+
+    expect(productsUpdate).not.toHaveBeenCalled()
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'would-archive', key: 'pro' }))
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'warn', key: 'pro:year', note: expect.stringContaining('nothing created') }))
+  })
+
+  it('pushes the catalog\'s trial to a product that offers another, and removes one the catalog dropped', async () => {
+    vi.mocked(productsList).mockResolvedValue(page([
+      planProduct('prod_m', 'pro', 'month', { trialInterval: 'day', trialIntervalCount: 7 }),
+      planProduct('prod_y', 'pro', 'year', { trialInterval: 'day', trialIntervalCount: 14 }),
+    ]) as never)
+
+    const result = await syncBillingCatalog(yearly, options, fakeClient)
+
+    // The yearly one already matches: one update, to the monthly.
+    expect(productsUpdate).toHaveBeenCalledTimes(1)
+    expect(productsUpdate).toHaveBeenCalledWith(fakeClient, { id: 'prod_m', productUpdate: { trialInterval: 'day', trialIntervalCount: 14 } })
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'updated', key: 'pro', note: 'trial 7 day, catalog says 14 day' }))
+
+    vi.mocked(productsUpdate).mockClear()
+    await syncBillingCatalog({ ...yearly, plans: { pro: { ...yearly.plans!.pro!, trial: undefined } } }, options, fakeClient)
+    expect(productsUpdate).toHaveBeenCalledWith(fakeClient, { id: 'prod_m', productUpdate: { trialInterval: null, trialIntervalCount: null } })
+    expect(productsUpdate).toHaveBeenCalledWith(fakeClient, { id: 'prod_y', productUpdate: { trialInterval: null, trialIntervalCount: null } })
+  })
+
+  it('reports a credit grant whose units or rollover moved, and a priced interval the catalog dropped', async () => {
+    vi.mocked(benefitsList).mockResolvedValue(page([
+      { id: 'ben_m', type: 'meter_credit', properties: { units: 400, rollover: true, meterId: 'mtr_1' }, metadata: { managedBy: 'nuxt-backend', key: 'pro-credits' } },
+    ]) as never)
+    vi.mocked(productsList).mockResolvedValue(page([planProduct('prod_m', 'pro', 'month', { trialInterval: 'day', trialIntervalCount: 14 }), planProduct('prod_y', 'pro', 'year')]) as never)
+
+    const result = await syncBillingCatalog({ ...yearly, plans: { pro: { ...yearly.plans!.pro!, prices: { month: 2900 } } } }, options, fakeClient)
+
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'drift', kind: 'benefit', key: 'pro-credits', note: expect.stringContaining('grants 400 units, catalog says 500; rollover on, catalog says off') }))
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'drift', kind: 'product', key: 'pro:year', id: 'prod_y' }))
+    expect(productsUpdate).not.toHaveBeenCalledWith(fakeClient, expect.objectContaining({ id: 'prod_y' }))
+  })
+
+  it('warns about a pack whose credits do not roll over', async () => {
+    const result = await syncBillingCatalog({ meters: { credits: {} }, packs: { boost: { name: 'Boost', price: 500, credits: { meter: 'credits', units: 50, rollover: false } } } }, options, fakeClient)
+
+    expect(result.log).toContainEqual(expect.objectContaining({ action: 'warn', kind: 'product', key: 'boost', note: expect.stringContaining('rollover is off') }))
+  })
+
+  it('refuses a plan still written as 0.1 wrote it, or priced at no interval, before the provider hears of anything', async () => {
+    const legacy = { plans: { pro: { name: 'Pro', interval: 'year', price: 29000 } } } as unknown as BillingCatalog
+    await expect(syncBillingCatalog(legacy, options, fakeClient)).rejects.toThrow('write `prices: { year: 29000 }`')
+    // A yearly plan's credits were a year's grant: the line keeps them one.
+    const credited = { plans: { pro: { name: 'Pro', interval: 'year', price: 29000, credits: { meter: 'credits', units: 6000 } } } } as unknown as BillingCatalog
+    await expect(syncBillingCatalog(credited, options, fakeClient)).rejects.toThrow('`credits: { …, units: { year: 6000 } }`')
+    await expect(syncBillingCatalog({ plans: { pro: { name: 'Pro', prices: {} } } }, options, fakeClient)).rejects.toThrow('plans.pro has no price')
+    expect(metersList).not.toHaveBeenCalled()
+  })
+})
+
+describe('the billing lifecycle in the catalog (LIFECYCLE)', () => {
+  beforeEach(() => {
+    let count = 0
+    vi.mocked(metersCreate).mockResolvedValue({ ok: true, value: { id: 'mtr_1' } } as never)
+    vi.mocked(benefitsCreate).mockImplementation((async () => ({ ok: true, value: { id: `ben_${++count}` } })) as never)
+    vi.mocked(productsCreate).mockImplementation((async (_client: unknown, args: { metadata: { key: string } }) => ({ ok: true, value: { id: `prod_${args.metadata.key}` } })) as never)
+  })
+
+  const created = (name: string) => vi.mocked(productsCreate).mock.calls.map(([, args]) => args as Record<string, unknown>).find(args => args.name === name)
+
+  it('sets a monthly meter cycle on the yearly product, which grants a month\'s credits', async () => {
+    await syncBillingCatalog({
+      meters: { credits: {} },
+      plans: { creator: { name: 'Creator', prices: { month: 1200, year: 12000 }, credits: { meter: 'credits', units: 500 }, meterCycle: 'month' } },
+    }, options, fakeClient)
+    const yearly = vi.mocked(productsCreate).mock.calls.map(([, args]) => args as Record<string, unknown>).find(args => args.recurringInterval === 'year')!
+    const monthly = vi.mocked(productsCreate).mock.calls.map(([, args]) => args as Record<string, unknown>).find(args => args.recurringInterval === 'month')!
+    expect(yearly).toMatchObject({ meterInterval: 'month', meterIntervalCount: 1 })
+    expect(monthly).not.toHaveProperty('meterInterval')
+    // One benefit of 500 a month, on both products: no year's grant of 6000.
+    const grants = vi.mocked(benefitsCreate).mock.calls.map(([, args]) => (args as { properties?: { units?: number } }).properties?.units).filter(Boolean)
+    expect(grants).toEqual([500])
+  })
+
+  it('reports a yearly product made without the meter cycle, which the provider never changes', async () => {
+    vi.mocked(productsList).mockResolvedValue(page([
+      { id: 'prod_y', name: 'Creator', recurringInterval: 'year', meterInterval: null, metadata: { managedBy: 'nuxt-backend', key: 'creator', interval: 'year' }, prices: [], benefits: [] },
+    ]) as never)
+    const result = await syncBillingCatalog({ plans: { creator: { name: 'Creator', prices: { year: 12000 }, meterCycle: 'month' } } }, options, fakeClient)
+    expect(result.log.find(entry => entry.id === 'prod_y')?.note).toContain('meter cycle none, catalog says month')
+  })
+
+  it('makes a reverse trial a pass: no trial on the plan\'s products, a pass product and its length in the map', async () => {
+    const result = await syncBillingCatalog({
+      plans: {
+        free: { name: 'Free', prices: { month: 0 } },
+        pro: { name: 'Pro', prices: { month: 1200 }, trial: { interval: 'day', count: 14, pass: true } },
+      },
+    }, options, fakeClient)
+    expect(created('Pro')).not.toHaveProperty('trialInterval')
+    expect(created('Pro (pass)')).toMatchObject({ visibility: 'private', recurringInterval: 'month' })
+    expect(result.ids.passes?.pro).toEqual({ pass: 'prod_pro-pass', months: {}, trialDays: 14 })
+  })
+
+  it('refuses a reverse trial with no free plan to return to, and two of them', async () => {
+    await expect(syncBillingCatalog({ plans: { pro: { name: 'Pro', prices: { month: 1200 }, trial: { pass: true } } } }, options, fakeClient))
+      .rejects.toThrow('needs a free plan for the reverse trial to return to')
+    await expect(syncBillingCatalog({
+      plans: {
+        free: { name: 'Free', prices: { month: 0 } },
+        a: { name: 'A', prices: { month: 1200 }, trial: { pass: true } },
+        b: { name: 'B', prices: { month: 2400 }, trial: { pass: true } },
+      },
+    }, options, fakeClient)).rejects.toThrow('a, b all run a reverse trial')
   })
 })

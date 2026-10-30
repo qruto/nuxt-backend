@@ -54,7 +54,7 @@ describe('guessing a code', () => {
 
     const right = await flow.post('/sign-in/email-otp', { email: ADA, otp: code })
     expect(right.status).toBe(429)
-    expect(await right.json()).toMatchObject({ message: 'Too many code attempts. Please try again later.', retryAfter: 60_000 })
+    expect(await right.json()).toMatchObject({ code: 'rate_limited', limit: 'emailOtpAttempt', message: 'Too many requests. Try again in 60 seconds.', retryAfter: 60_000 })
     expect(flow.db.session).toHaveLength(0)
 
     // Keyed by a digest of the address: never the address itself, and

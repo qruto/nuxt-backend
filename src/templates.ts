@@ -1,17 +1,27 @@
 import dedent from 'dedent'
+import { DEFAULT_BACKEND_PATHS } from './convex/paths'
+import { BRAND_FILE, renderBrandFile } from './brand-file'
+import { PATHS_FILE, renderPathsFile } from './paths-file'
 
-const AUTH_CONFIG_TEMPLATE = `export { default } from 'nuxt-backend/auth.config'\n`
+const AUTH_CONFIG_TEMPLATE = dedent`
+  import { defineBackendAuthConfig } from 'nuxt-backend/auth.config'
+  import { paths } from './paths.generated'
+
+  // Trust the session tokens the backend signs, under the auth route
+  // nuxt.config names (\`backend.authRoute\`), which the Nuxt module writes
+  // to paths.generated.ts.
+  export default defineBackendAuthConfig({ paths })
+  ` + '\n'
 
 const HTTP_TEMPLATE = dedent`
   import { registerBackendRoutes } from 'nuxt-backend/http'
   import { httpRouter } from 'convex/server'
   import { ai } from './ai'
-  import { authComponent, createAuth, mcp } from './auth'
+  import { authComponent, createAuth } from './auth'
   import { billing } from './billing'
   import { email } from './email'
 
-  // Mounts every inbound route the backend handles: the auth routes and the
-  // agent token exchange (/mcp/exchange) behind the app's MCP endpoint, the
+  // Mounts every inbound route the backend handles: the auth routes, the
   // billing events endpoint (/billing/events, BILLING_WEBHOOK_SECRET) that
   // keeps the reactive feature/credit cache fresh and fulfils gifts, the
   // email events endpoint (/email/events, EMAIL_WEBHOOK_SECRET) that makes
@@ -21,7 +31,7 @@ const HTTP_TEMPLATE = dedent`
   // \`setupBilling({ events })\` / \`setupEmail({ events })\`.
   const http = httpRouter()
   registerBackendRoutes(http, {
-    auth: { authComponent, createAuth, mcp },
+    auth: { authComponent, createAuth },
     billing,
     email,
     ai,
@@ -43,29 +53,43 @@ const BILLING_CATALOG_TEMPLATE = dedent`
   // the checkout fields they collect. Push it with
   // \`npx nuxt-backend billing sync\` — objects are created in the billing
   // provider (find-or-create, tagged, never deleted) and the id map lands in
-  // billing.generated.ts. Credit granting is provider-native: a plan's
-  // \`credits\` become a meter-credit benefit granted every cycle; a pack's are
-  // granted once at purchase. A plan can also open with a free \`trial\` and
-  // charge \`usage\` on top of its fixed price — pay-as-you-go overage settled
-  // against the same meter at the end of each cycle.
+  // billing.generated.ts. A plan is sold at each interval it has a price for,
+  // one product per price, so a subscriber switches between monthly and
+  // yearly like between plans. Credit granting is provider-native: a plan's
+  // \`credits\` become a meter-credit benefit granted every cycle (a year's
+  // worth on the yearly price); a pack's are granted once at purchase. This
+  // catalog is a starting point for the sandbox: a new plan, pack or price,
+  // and a changed trial, reach /pricing on the next sync. A price or credit
+  // grant already synced is reported as drift, never rewritten: change it in
+  // the provider dashboard, or publish it under a new key. Retire a plan with
+  // \`retired: true\` — its subscribers keep it, nobody new buys it — rather
+  // than deleting it.
   export default defineBillingCatalog({
-    // meters: { credits: {} },
-    // plans: {
-    //   pro: {
-    //     name: 'Pro', interval: 'month', price: 2900,
-    //     credits: { meter: 'credits', units: 500 },
-    //     features: ['priority_support'],
-    //     trial: { interval: 'day', count: 14 },
-    //     usage: [{ meter: 'credits', unitAmount: 5 }],
-    //     customFields: ['company'],
-    //   },
-    // },
-    // packs: {
-    //   credits500: { name: '500 credits', price: 2000, credits: { meter: 'credits', units: 500 } },
-    // },
-    // features: {
-    //   priority_support: { description: 'Priority support' },
-    // },
+    meters: { credits: {} },
+    plans: {
+      starter: {
+        name: 'Starter',
+        prices: { month: 900, year: 9000 },
+        credits: { meter: 'credits', units: 100 },
+      },
+      pro: {
+        name: 'Pro',
+        prices: { month: 2900, year: 29000 },
+        credits: { meter: 'credits', units: 500 },
+        features: ['priority_support'],
+        trial: { interval: 'day', count: 14 },
+        // Pay-as-you-go past the allowance, and a field checkout collects:
+        // usage: [{ meter: 'credits', unitAmount: 5 }],
+        // customFields: ['company'],
+      },
+    },
+    packs: {
+      credits100: { name: '100 credits', price: 1000, credits: { meter: 'credits', units: 100 } },
+      credits500: { name: '500 credits', price: 4000, credits: { meter: 'credits', units: 500 } },
+    },
+    features: {
+      priority_support: { description: 'Priority support' },
+    },
     // customFields: {
     //   company: { type: 'text', name: 'Company' },
     // },
@@ -88,12 +112,19 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     import { billing } from './billing'
     import { rateLimiter } from './rateLimiter'
 
-    // The rails for selling metered AI features: every metered action/stream is
-    // rate-limited (the 'ai' limit by default) and prepaid-credit-metered with
-    // reserve → run → settle — a failed run consumes nothing. Usage lands in
-    // the billing provider as ingested events (their portal shows it per
-    // customer). Declare your credit meter in billing.catalog.ts.
-    export const ai = setupAi(components, { billing, rateLimiter })
+    // The rails for selling metered AI features: every metered action or
+    // stream is rate-limited (the 'ai' limit by default) and paid for in
+    // prepaid credits with reserve → run → settle, so a failed run consumes
+    // nothing. Usage lands in the billing provider as ingested events.
+    // Declare your credit meter in billing.catalog.ts.
+    // spendLimit is the most a UTC day of model calls may cost the whole app:
+    // past it, the pause_ai switch turns on until the day ends. Raise it as
+    // your app grows; a sandbox deployment, a public demo, refuses AI without one.
+    export const ai = setupAi(components, { billing, rateLimiter, spendLimit: { usdPerDay: 10 } })
+
+    // What each person's AI calls cost: the admin console's Costs tab reads it,
+    // and it answers administrators only.
+    export const { getCosts } = ai.api
 
     // A metered action — swap the echo for your model call. Costs 1 credit
     // from the 'credits' meter per call (see billing.catalog.ts).
@@ -105,54 +136,40 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
         return { echo: prompt.toUpperCase(), chargedTo: ctx.usage.entityId }
       },
     })
-
-    // A metered, persisted token stream — drive it client-side with
-    // \`useAiStream({ start: api.ai.startEcho, body: api.ai.echoBody })\`.
-    // Reload mid-stream and the persisted text continues reactively.
-    export const { start: startEcho, body: echoBody } = ai.stream({
-      name: 'echo',
-      meter: 'credits',
-      args: { prompt: v.string() },
-      handler: async (ctx, { prompt }, { append }) => {
-        for (const word of prompt.split(' ')) {
-          await append(word + ' ')
-        }
-      },
-    })
     ` + '\n',
   'functions.ts': dedent`
-    import { setupAuthorization } from 'nuxt-backend/authorization'
     import { createFunctions } from 'nuxt-backend/functions'
     import { components } from './_generated/api'
-    import { action, internalMutation, mutation, query } from './_generated/server'
+    import { action, mutation, query } from './_generated/server'
+    import { billing } from './billing'
+    import { rateLimiter } from './rateLimiter'
 
-    // Authorization over identity claims (role, ban state, active workspace),
-    // with fresh reads where it matters. Bootstrap your first admin with:
-    //   npx convex run functions:setUserRole '{"email":"you@example.com","role":"admin"}'
-    export const authorization = setupAuthorization(components, { internalMutation })
-    export const { setUserRole } = authorization
-
-    // Pre-authorized builders — drop-in replacements for query/mutation/action:
-    //   authed.query({ ... })            ctx.user (signed in, not banned)
-    //   org.mutation({ ... })            + ctx.organization (fresh workspace membership)
-    //   admin.action({ ... })            app-wide admin role
-    //   withRole('editor').query({ .. }) custom role tier
-    export const { authed, org, admin, withRole } = createFunctions(
+    // Every access tier of your backend, from this one call. Each is a
+    // drop-in for query/mutation/action that checks the caller first:
+    //   authed.query({ ... })              ctx.user (signed in, not banned)
+    //   workspace.mutation({ ... })        + ctx.workspace (fresh membership)
+    //   admin.action({ ... })              the app-wide admin role
+    //   withRole('editor').query({ ... })  an app-wide role of yours
+    //   withFeature('reports').query(...)  workspace + a plan's feature
+    // setUserRole is the internal mutation \`npx nuxt-backend doctor --fix\`
+    // runs to make your first administrator.
+    export const { authed, workspace, admin, withRole, withFeature, setUserRole } = createFunctions(
       { query, mutation, action },
-      authorization,
+      // Every authed write spends the 'write' limit (rateLimiter.ts), per account.
+      { components, billing, rateLimiter, limits: { authed: 'write' } },
     )
     ` + '\n',
 
   'billing.ts': dedent`
-    import { setupBilling, type DiscountInput } from 'nuxt-backend/billing'
-    import { v } from 'convex/values'
+    import { setupBilling } from 'nuxt-backend/billing'
     import { components } from './_generated/api'
-    import { internalAction } from './_generated/server'
+    import { audit } from './audit'
     import { catalog } from './billing.generated'
     import { email } from './email'
+    import { paths } from './paths.generated'
 
     // Subscriptions, discounts, prepaid credits & gift purchases. Billing
-    // follows the tenant: with the default \`billTo: 'organization'\` the active
+    // follows the tenant: with the default \`billTo: 'workspace'\` the active
     // workspace owns the subscription and credits (members share them); switch to
     // \`billTo: 'user'\` for per-user B2C billing. The billing entity resolves from
     // identity claims automatically, configuration comes from the BILLING_* env
@@ -162,70 +179,37 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // is declared in billing.catalog.ts and pushed with
     // \`npx nuxt-backend billing sync\`, which fills billing.generated.ts.
     // A gift's recipient hears of it through \`email\` (email.ts), which holds
-    // the template. The instance is exported for ai.ts (metered actions spend
-    // through it).
-    export const billing = setupBilling(components, { catalog, email })
+    // the template. Checkouts, plan changes, refunds, gifts and the provider's
+    // webhooks are recorded on the activity trail through \`audit\` (audit.ts).
+    // functions.ts builds its withFeature tier on this instance, and ai.ts
+    // spends credits through it; this file imports nothing from functions.ts.
+    // \`paths\` (paths.generated.ts) is the settings page its emails link to.
+    export const billing = setupBilling(components, { catalog, email, audit, paths })
 
-    // Checkout, portal, price list and gift checkout for \`useBilling\`. The
-    // server sells only the catalog's plans and packs, sends buyers back only
-    // to SITE_URL, and keeps the trial and discounts by id to itself.
+    // Every function the billing composables call, by name: checkout, the
+    // portal and the price list (the server sells only the catalog's plans and
+    // packs, and sends buyers back only to SITE_URL), the reactive
+    // subscription, feature and credit reads, the gifts, the subscription's
+    // lifecycle (each resolves the caller's own billing entity), the order and
+    // usage history read live from the provider, the admin-only refund and
+    // revenue metrics (the admin console's Revenue view), the free plan every new
+    // workspace starts on (internal; run by the workpool), and the gift sweep
+    // (internal; woken by the component's cron, and scheduled for a gift dated
+    // for later).
     export const {
-      generateCheckoutLink,
-      generateCustomerPortalUrl,
-      getConfiguredProducts,
-      listAllSubscriptions,
-      giftCheckout,
+      getPricing, getConfiguredProducts, getBillingAccess, getFeatures, getCredits,
+      getCurrentSubscription, listAllSubscriptions, syncEntitlements, syncProducts, startFreePlan,
+      generateCheckoutLink, generateCustomerPortalUrl,
+      updateSubscription, cancelSubscription, acceptSaveOffer, uncancelSubscription,
+      cancelPendingChange, pauseSubscription, resumeSubscription,
+      getOrders, getInvoiceUrl, getUsageHistory, refundOrder, getWithdrawal, withdraw,
+      giftCheckout, getReceivedGifts, claimGift, getSentGifts, resendGift, changeGiftRecipient,
+      rescheduleGift, cancelGift, runGiftSweep, getRevenue, getBillingConsole,
     } = billing.api
-    // Reactive queries + actions behind \`useBilling\` / \`useFeatures\` /
-    // \`useCredits\` / \`useGifts\`.
-    export const {
-      getCurrentSubscription,
-      getFeatures,
-      getCredits,
-      syncEntitlements,
-      syncProducts,
-      getReceivedGifts,
-      claimGift,
-      // The webhook delivery log, for DevTools: admins only, null for anyone else.
-      getWebhookDeliveries,
-      // Subscription lifecycle — upgrade/downgrade, cancel, uncancel,
-      // pause/resume. Each resolves the caller's own billing entity, so a
-      // client can only ever act on its own subscription.
-      updateSubscription,
-      cancelSubscription,
-      uncancelSubscription,
-      pauseSubscription,
-      resumeSubscription,
-      // Order history, invoices and metered usage, read live from the provider
-      // (this package keeps no local order or usage table — the provider is the
-      // ledger).
-      getOrders,
-      getInvoiceUrl,
-      getUsageHistory,
-      // Admin-tier: gated by \`setupBilling({ requireAdmin })\`, which defaults
-      // to an \`admin\` role claim on the caller's identity.
-      refundOrder,
-    } = billing.functions
-    // Webhook handlers (imported by http.ts) that keep the cache fresh.
-    export const { webhookEvents } = billing
-
-    // Discounts: mint a percentage coupon. This is privileged — a public action
-    // would let anyone create a 100%-off code — so it ships as an internalAction:
-    // run it from ops (\`npx convex run billing:createDiscount '{"name":"Launch","percent":20}'\`)
-    // or your own server code. To expose it to an admin UI, re-declare it with
-    // the \`admin.action\` builder from ./functions instead of internalAction.
-    export const createDiscount = internalAction({
-      args: { name: v.string(), percent: v.number(), code: v.optional(v.string()) },
-      handler: async (ctx, { name, percent, code }) => {
-        const basisPoints = Math.round(Math.min(Math.max(percent, 0), 100) * 100)
-        const discount: DiscountInput = { type: 'percentage', name, code, duration: 'once', basisPoints }
-        return billing.discounts.create(discount)
-      },
-    })
 
     // Credits are prepaid: a credit pack is a one-time product whose Credits
     // benefit tops up a meter balance (\`useCredits().topUp(packId)\`, or as a gift
-    // by its catalog key: \`useCredits().gift('credits500', { recipientEmail })\`).
+    // by its catalog key: \`useGifts().send('credits500', { recipientEmail })\`).
     // Spend them from your own server code when a metered feature is used —
     // \`spendCredits\` blocks (throws) when the balance is too low, so credits are
     // never billed as overage. Uncomment and point \`meterId\` at your credit meter:
@@ -237,6 +221,19 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     //     await billing.spendCredits(ctx, { name: 'credits', meterId })
     //   },
     // })
+
+    // Quotas (experimental): how many of a thing a plan allows, declared as
+    // \`quotas\` in billing.catalog.ts. Count one in the mutation that makes
+    // the thing, where the check and the count are one transaction, and give
+    // it back in the one that removes it (\`workspace\` from ./functions):
+    //
+    // export const createProject = workspace.mutation({
+    //   args: { name: v.string() },
+    //   handler: async (ctx, { name }) => {
+    //     await billing.requireQuota(ctx, 'projects')
+    //     return ctx.db.insert('projects', { name, workspaceId: ctx.workspace.id })
+    //   },
+    // })
     ` + '\n',
 
   'email.ts': dedent`
@@ -244,7 +241,8 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     import { v } from 'convex/values'
     import { components } from './_generated/api'
     import { internalAction } from './_generated/server'
-    import { admin } from './functions'
+    import { brand } from './brand.generated'
+    import { paths } from './paths.generated'
 
     // Transactional + marketing email over the backend component's email module.
     // Delivery uses the EMAIL_* env vars (optional — sends no-op until
@@ -254,50 +252,36 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     //   templates: { welcome: (data, { byDefault }) => ({ ...byDefault(data), subject: 'Hi!' }) }
     // React to delivery events with
     // \`setupEmail(components, { events: { 'email.bounced': async (ctx, event) => { ... } } })\`.
-    export const email = setupEmail(components)
+    // \`paths\` (paths.generated.ts) is where an email's unsubscribe link opens, and
+    // \`brand\` (brand.generated.ts) the name, logo and postal address app.config
+    // declares (\`backend.brand\`): the emails name the app as its pages do.
+    export const email = setupEmail(components, { paths, brand })
 
-    // Reactive delivery-status query behind the \`useEmailStatus\` composable.
-    export const { getEmailStatus } = email.api
+    // The read behind useEmailStatus, and the DevTools Email tab's previews
+    // (internal: only the Convex CLI reaches them, on a dev deployment).
+    export const { getEmailStatus, previewEmails, sendEmailPreview } = email.api
+
+    // The preference center: the profile's Email section and useEmailPreferences,
+    // the unsubscribe page, and \`npx nuxt-backend email sync\` (internal).
+    export const { getEmailPreferences, setEmailTopic, unsubscribeAllTopics, getEmailLink, unsubscribeByLink, confirmEmailTopic, recordTimeZone, syncEmail } = email.api
+
+    // Announcements: the notice <BackendNotices> shows every signed-in person,
+    // and the admin console's Announcements tab that publishes it and sends its broadcast.
+    export const { getAnnouncements, dismissAnnouncement, getAnnouncementsConsole, publishAnnouncement, endAnnouncement, previewAnnouncement, sendAnnouncement, cancelAnnouncement } = email.api
+
+    // Addresses the provider stopped delivering to (a hard bounce, a complaint),
+    // mirrored from its webhook: sign-in shows them an undeliverable step instead
+    // of sending a code, and the admin console's Suppressions tab lifts one.
+    export const { getSuppressions, liftSuppression } = email.api
 
     // Send a transactional email from your own server code: another action, a
     // scheduled function, or \`npx convex run email:send\`. Internal on purpose —
     // a public action that takes the recipient is an open relay on your verified
     // domain for anyone who can sign in.
     export const send = internalAction({
-      args: { to: v.string(), subject: v.string(), html: v.optional(v.string()), text: v.optional(v.string()) },
-      returns: v.union(v.string(), v.null()),
-      handler: async (ctx, args) => email.send(ctx, args),
-    })
-
-    // A send to any address from an admin screen: the \`admin.action\` builder
-    // (./functions) refuses everyone without the app-wide admin role. Plain text,
-    // so nothing typed into the form is rendered as markup.
-    export const sendAsAdmin = admin.action({
       args: { to: v.string(), subject: v.string(), text: v.string() },
       returns: v.union(v.string(), v.null()),
       handler: async (ctx, args) => email.send(ctx, args),
-    })
-
-    // Marketing (segments / contacts / broadcasts) via the provider SDK. These
-    // are privileged — a public action would be an open spam/phishing relay on
-    // your verified domain — so they ship as internalActions: run them from ops
-    // or your own server code. To expose one to an admin UI, re-declare it with
-    // the \`admin.action\` builder from ./functions instead of internalAction.
-    export const createSegment = internalAction({
-      args: { name: v.string() },
-      handler: async (ctx, { name }) => email.segments.create({ name }),
-    })
-    export const addContact = internalAction({
-      args: { segmentId: v.string(), email: v.string(), firstName: v.optional(v.string()), lastName: v.optional(v.string()) },
-      handler: async (ctx, { segmentId, ...contact }) => email.contacts.add({ ...contact, segments: [{ id: segmentId }] }),
-    })
-    export const createBroadcast = internalAction({
-      args: { segmentId: v.string(), from: v.string(), subject: v.string(), html: v.string() },
-      handler: async (ctx, args) => email.broadcasts.create(args),
-    })
-    export const sendBroadcast = internalAction({
-      args: { broadcastId: v.string() },
-      handler: async (ctx, { broadcastId }) => email.broadcasts.send(broadcastId),
     })
     ` + '\n',
 
@@ -338,62 +322,163 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     })
     ` + '\n',
 
-  'migrations.ts': dedent`
-    import { setupMigrations } from 'nuxt-backend/migrations'
+  'audit.ts': dedent`
+    import { setupAudit } from 'nuxt-backend/audit'
+    import { components } from './_generated/api'
+    import { notifications } from './notifications'
+
+    // The activity trail. Every sign-in and sign-out, passkey and email
+    // change, signed-out device, workspace invitation, membership and role
+    // change and administrator impersonation is recorded
+    // here and kept a year: your own on /security, the workspace's on
+    // /settings for its owners and admins, and every event for admins.
+    // Record your own under \`app.\`:
+    //   await audit.recordBackendEvent(ctx, { type: 'app.project_archived', targetId: project._id })
+    // Hear of every event in an internal action of yours, taking
+    // \`{ event: vBackendEvent }\`:
+    //   setupAudit(components, { notifications, onEvent: internal.audit.onEvent })
+    // The notifications instance lets an event of your own that notify names
+    // reach the inbox as it is recorded (notifications.ts).
+    export const audit = setupAudit(components, { notifications })
+
+    // The reads behind useAuditLog and <AuditLog>, and the activation checklist
+    // behind useActivation: declare one with defineActivation, then pass it as
+    // setupAudit(components, { checklist }). Without one it reads nothing.
+    // Name the event that says a person got value from the app, the growth
+    // funnel's activation, with setupAudit(components, { activation: 'app.project_published' });
+    // until you do, a person's first event of your own counts. getSource and
+    // recordSource are behind <HowDidYouHear> and the first-touch campaign.
+    export const { listActivity, listWorkspaceActivity, listAllActivity, getActivation, dismissActivation, getSource, recordSource } = audit.api
+    ` + '\n',
+
+  'notifications.ts': dedent`
+    import { setupNotifications } from 'nuxt-backend/notifications'
+    import { components } from './_generated/api'
+    import { email } from './email'
+    import { paths } from './paths.generated'
+
+    // Notifications: the in-app inbox, email and web push. Every event the
+    // backend records about a person (a role, a passkey, an invitation, a
+    // payment, a gift, a bounce) reaches the inbox with nothing set up, live
+    // and in their language, and the kinds that allow it by email (the
+    // \`email\` instance words and sends them) and as a push to each device
+    // they allowed (PUSH_PUBLIC_KEY and PUSH_PRIVATE_KEY, which env push
+    // generates). An event of your own joins through notify: record it under
+    // \`app.\` with audit.recordBackendEvent, say what it becomes here, and give
+    // its words as labels (your i18n files, passed to setupEmail as messages):
+    //   notify: { 'app.project_archived': { channels: ['app', 'email', 'push'], link: event => \`/projects/\${event.targetId}\` } }
+    export const notifications = setupNotifications(components, { email, paths })
+
+    // The reads and writes behind useNotifications and <NotificationInbox>.
+    export const { listNotifications, getUnreadCount, markNotificationsRead } = notifications.api
+
+    // Each person's channels, kind by kind (the profile's Email section), the
+    // devices behind usePushSubscription, and the delivery the backend
+    // schedules for an email or a push (internal, called by name).
+    export const { getNotificationChannels, setNotificationChannel, getPushConfig, subscribePush, unsubscribePush, deliverNotification } = notifications.api
+    ` + '\n',
+
+  'account.ts': dedent`
+    import { setupAccount } from 'nuxt-backend/account'
+    import { components } from './_generated/api'
+    import { audit } from './audit'
+    import { billing } from './billing'
+    import { email } from './email'
+    import { paths } from './paths.generated'
+
+    // Export and deletion of an account. /security offers both: the export, one
+    // JSON file behind a link that expires within the hour, with the account's
+    // files as zip parts beside it, and a deletion the person confirms by typing
+    // their address. It waits out a grace period (graceMs, 30 days unless you
+    // say otherwise) the person can cancel, with a link in an email, then erases
+    // them everywhere: the backend's tables, the files, the billing customer and
+    // the email contact. Your own tables join through
+    // \`sources\`, each with an internal query that exports an account's rows
+    // and an internal mutation that erases a batch of them:
+    //   sources: { todos: { description: 'To-dos', export: internal.todos.exportFor, forget: internal.todos.forgetFor } }
+    // \`paths\` carries the keep-account page's path from nuxt.config, for the
+    // link in the deletion email.
+    export const account = setupAccount(components, { audit, billing, email, paths })
+
+    // The export behind useAccount and <AccountData>, and the providers'
+    // and your sources' part of an erasure, which it runs by this name.
+    export const {
+      exportAccountData,
+      getAccountExport,
+      eraseAccountData,
+      getAccountDeletion,
+      cancelAccountDeletion,
+      getConsents,
+      getConsentTerms,
+      grantConsent,
+      withdrawConsent,
+      chooseStorage,
+      getOnboarding,
+      completeOnboarding,
+    } = account.api
+    ` + '\n',
+
+  'admin.ts': dedent`
+    import { setupAdmin } from 'nuxt-backend/admin'
     import { components } from './_generated/api'
 
-    // Online, batched schema migrations. Pass your schema for typed migrateOne:
-    //   import schema from './schema'
-    //   setupMigrations(components, { schema })
-    export const { migrations, run } = setupMigrations(components)
+    // The admin console (/admin): every account and every workspace, for the
+    // app-wide admin role, read fresh on every call. Workspaces are read-only:
+    // an admin acts inside one only by impersonating a member, for thirty
+    // minutes at most, and an admin's own account is never impersonated.
+    // Make the first admin with \`npx nuxt-backend doctor --fix\`, which asks
+    // for your address.
+    const admin = setupAdmin(components)
 
-    // Define migrations with migrations.define({ table, migrateOne }), then:
-    //   npx convex run migrations:run '{ "fn": "migrations:yourMigration" }'
+    // The reads behind useAdmin, <AdminUsers> and <AdminWorkspaces>, and the
+    // Analytics tab's growth funnel (getFunnel), counted inside the deployment.
+    export const { listUsers, getUser, listWorkspaces, getWorkspace, getFunnel } = admin.api
     ` + '\n',
 
-  'aggregates.ts': dedent`
-    // Denormalized counts/sums via the Aggregate component (mounted as
-    // \`components.aggregate\`). Uncomment and adapt to a table in your schema —
-    // here, a live count of rows in a \`messages\` table kept in sync by triggers:
-    //
-    // import { TableAggregate, Triggers, withTriggers } from 'nuxt-backend/aggregate'
-    // import { components } from './_generated/api'
-    // import { mutation as rawMutation, query } from './_generated/server'
-    // import type { DataModel } from './_generated/dataModel'
-    //
-    // export const messagesCount = new TableAggregate<{ Key: null, DataModel: DataModel, TableName: 'messages' }>(
-    //   components.aggregate,
-    //   { sortKey: () => null },
-    // )
-    //
-    // const triggers = new Triggers<DataModel>()
-    // triggers.register('messages', messagesCount.trigger())
-    // export const mutation = withTriggers(rawMutation, triggers)
-    //
-    // export const countMessages = query({
-    //   args: {},
-    //   handler: (ctx) => messagesCount.count(ctx),
-    // })
-    export {}
+  'webhooks.ts': dedent`
+    import { setupWebhooks } from 'nuxt-backend/admin'
+    import { components } from './_generated/api'
+
+    // The webhook delivery log of both providers (/billing/events and
+    // /email/events), for the app-wide admin role, read fresh on every call:
+    // the admin console's Webhooks tab and DevTools' webhook feed. Replay asks
+    // the provider to send a delivery again, signed, to the same route; it
+    // takes a recent sign-in and is recorded on the activity trail.
+    export const webhooks = setupWebhooks(components)
+
+    export const { getWebhookDeliveries, replayWebhookDelivery } = webhooks.api
     ` + '\n',
 
-  'search.ts': dedent`
-    // Type-safe full-text search over a Convex searchIndex. Add a search index to
-    // a table in your schema:
-    //   messages: defineTable({ text: v.string(), userId: v.string() })
-    //     .searchIndex('search_text', { searchField: 'text', filterFields: ['userId'] })
-    // then expose a search query and drive it from the client with \`useSearch\`:
-    //
-    // import { defineSearch } from 'nuxt-backend/search'
-    // import { query } from './_generated/server'
-    //
-    // export const searchMessages = defineSearch(query, {
-    //   table: 'messages',
-    //   index: 'search_text',
-    //   searchField: 'text',
-    // })
-    export {}
+  'flags.ts': dedent`
+    import { defineFlags, setupFlags } from 'nuxt-backend/flags'
+    import { components } from './_generated/api'
+    import { audit } from './audit'
+    import { billing } from './billing'
+
+    // Feature flags, read inside your own queries and mutations, and the
+    // kill switches the package honors: pause sign-ups, checkout or AI, and
+    // put up a maintenance banner. Flip them from the admin console's Flags
+    // tab; every change takes a recent sign-in and is recorded on the
+    // activity trail. Declare yours here, then read one on the server:
+    //   await flags.requireFlag(ctx, 'newEditor')
+    // and in a page: const { isEnabled } = useFlag('newEditor')
+    // A flag with variants is an experiment: read it with useExperiment(key)
+    // in a page and flags.variant(ctx, key) on the server, and compare the
+    // variants in the admin console's Analytics tab.
+    export const flags = setupFlags(components, {
+      flags: defineFlags({
+        // newEditor: { default: false, description: 'The rewritten editor.' },
+      }),
+      audit,
+      // A flag's plan targets match the plans the caller's billing entity is on.
+      billing,
+    })
+
+    // The reads behind useFlag, useExperiment, useFlagAdmin, <BackendNotices>,
+    // the Flags tab and the Experiments view.
+    export const { getFlags, listFlags, setFlag, exposeExperiment, getExperiments } = flags.api
     ` + '\n',
+
 }
 
 /**
@@ -403,27 +488,28 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
  * (`start_push 500`) when a `convex.config` import is reached through an
  * intermediate module or `app.use` runs in a loop. Mounts the all-in-one
  * `backend` component (auth + email + billing + gifts) plus the upstream
- * components (aggregate, migrations, persistent text streaming, Polar, rate
- * limiter, workflows), declares the deployment env via `backendEnv`, and
- * forwards the email env.
+ * components its setup helpers use (persistent text streaming, Polar, rate
+ * limiter, sharded counter for plan quotas, workflows, workpool),
+ * declares the deployment env via `backendEnv`, and forwards the email env.
  */
 const DEFAULT_CONVEX_CONFIG = dedent`
   import { defineApp } from 'convex/server'
   import { backendEnv } from 'nuxt-backend/app'
   import backend from 'nuxt-backend/convex.config'
-  import aggregate from '@convex-dev/aggregate/convex.config'
-  import migrations from '@convex-dev/migrations/convex.config'
   import persistentTextStreaming from '@convex-dev/persistent-text-streaming/convex.config'
   import polar from '@convex-dev/polar/convex.config'
   import rateLimiter from '@convex-dev/rate-limiter/convex.config'
+  import shardedCounter from '@convex-dev/sharded-counter/convex.config'
   import workflow from '@convex-dev/workflow/convex.config'
+  import workpool from '@convex-dev/workpool/convex.config'
 
   // Explicit on purpose. Convex discovers components by intercepting every
   // \`convex.config\` import while bundling this file, and current backends
   // reject the push (start_push 500) when such an import is reached through an
   // intermediate module or the components are mounted in a loop — so every
   // component is imported and mounted right here, one app.use() per component.
-  // Mount your own components after them.
+  // Mount your own components after them: the action cache, an aggregate,
+  // migrations or crons, when your code imports one.
   //
   // The env contract is the package's: AUTH_SECRET + SITE_URL are required,
   // the rest optional with designed fallbacks (\`npx nuxt-backend env push\`
@@ -436,18 +522,19 @@ const DEFAULT_CONVEX_CONFIG = dedent`
   // email, billing cache, gifts — the email provider is nested inside).
   app.use(backend, {
     env: {
+      BACKEND_ENVIRONMENT: app.env.BACKEND_ENVIRONMENT,
       EMAIL_API_KEY: app.env.EMAIL_API_KEY,
       EMAIL_FROM: app.env.EMAIL_FROM,
-      EMAIL_TEST_MODE: app.env.EMAIL_TEST_MODE,
       EMAIL_WEBHOOK_SECRET: app.env.EMAIL_WEBHOOK_SECRET,
+      MONITORING_DSN: app.env.MONITORING_DSN,
     },
   })
-  app.use(aggregate)
-  app.use(migrations)
   app.use(persistentTextStreaming)
   app.use(polar)
   app.use(rateLimiter)
+  app.use(shardedCounter)
   app.use(workflow)
+  app.use(workpool)
 
   export default app
   ` + '\n'
@@ -470,7 +557,10 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
     import { setupAuth } from 'nuxt-backend/auth'
     import { components, internal } from './_generated/api'
     import { query } from './_generated/server'
+    import { account } from './account'
+    import { audit } from './audit'
     import { email } from './email'
+    import { paths } from './paths.generated'
     import { rateLimiter } from './rateLimiter'
     import { workflow } from './workflows'
 
@@ -479,25 +569,34 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
       createAuth,
       getAuthUser,
       authConfig,
-      listWorkspaces,
-      listWorkspaceMembers,
       updateProfile,
       listSessions,
       revokeSession,
-      // The agent token exchange (mounted at /mcp/exchange by http.ts) — the
-      // app's OAuth-protected MCP endpoint calls Convex through it.
-      mcp,
+      listSignInAlerts,
     } = setupAuth(components, query, {
-      // Roles/permissions (admin plugin) and workspaces (organization plugin)
+      // App-wide roles (admin plugin) and workspaces
       // come built in, with a personal workspace per user and emailed
       // workspace invitations with an /accept-invitation page. Customize them
-      // with \`admin: { … }\` and \`organization: { … }\`.
+      // with \`admin: { … }\` and \`workspaces: { … }\`: how long invitations
+      // last, and onCreate / onMemberAdded / onMemberRemoved.
       //
+      // The auth route and the pages the auth emails link to, as nuxt.config
+      // declares them (\`backend.authRoute\`, \`backend.pages\`): the Nuxt module
+      // writes them to paths.generated.ts.
+      paths,
       // Every auth email (sign-in and email-change codes, welcome,
       // invitations) goes out through email.ts, which holds the templates.
       email,
       // Throttle code sends and other auth-sensitive flows.
       rateLimiter,
+      // Record sign-ins, passkeys, workspace and administrator changes on the
+      // activity trail through audit.ts, so they reach its onEvent too.
+      audit,
+      // Erase a deleted account everywhere through account.ts: the backend's
+      // tables, the billing customer, the email contact and your sources.
+      account,
+      // Launching in phases (early access, invite only)? Add backend/access.ts
+      // with setupAccess, and pass it here as \`access\`.
       // Start the onboarding sequence (workflows.ts) when a user signs up. The
       // packaged welcome email has already gone out.
       onUserCreated: async (ctx, user) => {
@@ -511,4 +610,38 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
     ` + '\n',
   'http.ts': HTTP_TEMPLATE,
   ...FEATURE_FILE_TEMPLATES,
+  // The paths nuxt.config declares, at their defaults until the module writes the app's own.
+  [PATHS_FILE]: renderPathsFile(DEFAULT_BACKEND_PATHS),
+  // The brand app.config declares, empty until the module writes the app's own.
+  [BRAND_FILE]: renderBrandFile({}),
 }
+
+/**
+ * `layouts/default.vue`, the frame `npx nuxt-backend init` writes beside an
+ * app root that renders `<NuxtLayout>`: `<AppShell>` with the app's brand,
+ * its header (the workspace switcher, the notification bell, the account
+ * menu) and the app-wide notices. Written only where `<NuxtWelcome />` was
+ * replaced, or the app has no layout at all; a layout of the app's own is
+ * never touched. `templates/starter` ships the same file.
+ */
+export const DEFAULT_LAYOUT_TEMPLATE = dedent`
+  <script setup lang="ts">
+  // The frame of the app: the header with your brand, the workspace switcher,
+  // the notification bell and the account menu, then the app-wide notices and
+  // your page. Put your links in the \`nav\` slot, and your buttons before the
+  // account menu in \`actions\`. \`<AppShell :switcher="false">\` hides the
+  // switcher for an app whose people never share a workspace.
+  const { brand } = useBackendConfig()
+  </script>
+
+  <template>
+    <AppShell>
+      <template #brand>
+        <NuxtLink to="/">
+          {{ brand.name || 'Your app' }}
+        </NuxtLink>
+      </template>
+      <slot />
+    </AppShell>
+  </template>
+  ` + '\n'

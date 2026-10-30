@@ -15,7 +15,7 @@ const items = [
   [
     { label: 'Changelog', icon: 'i-lucide-scroll-text', to: '/docs/ship/releases/changelog' },
     { label: 'Stability', icon: 'i-lucide-shield-check', to: '/docs/ship/releases/stability' },
-    { label: 'Upgrade from 0.1', icon: 'i-lucide-arrow-up-circle', to: '/docs/ship/migrate/upgrade' },
+    { label: 'Upgrade from 0.1', icon: 'i-lucide-arrow-up-circle', to: '/docs/ship/releases/upgrade' },
   ],
   [
     { label: 'npm', icon: 'i-simple-icons-npm', to: 'https://www.npmjs.com/package/nuxt-backend', target: '_blank' as const },

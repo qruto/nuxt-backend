@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "private": true,
+  "name": "nuxt5",
+  "type": "module"
+}

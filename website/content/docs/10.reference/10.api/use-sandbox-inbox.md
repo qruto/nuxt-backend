@@ -16,7 +16,7 @@ navigation:
 
 Defined in: [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts)
 
-A message in a sandbox inbox (mirrors the component `inbox` query).
+A message in the dev inbox (mirrors the component `inbox` action).
 
 #### Properties
 
@@ -24,9 +24,9 @@ A message in a sandbox inbox (mirrors the component `inbox` query).
 | ------ | ------ | ------ | ------ |
 | <a id="from"></a> `from` | `string` | - | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
 | <a id="subject"></a> `subject` | `string` | - | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
-| <a id="text"></a> `text?` | `string` | - | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
+| <a id="text"></a> `text?` | `string` | Only the newest message carries its body. | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
 | <a id="html"></a> `html?` | `string` | - | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
-| <a id="receivedat"></a> `receivedAt` | `number` | When it was sent, as epoch ms. | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
+| <a id="receivedat"></a> `receivedAt` | `number` | When the provider accepted it, as epoch ms. | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
 
 ***
 
@@ -40,7 +40,7 @@ The `email` function group re-exported from your `backend/email.ts`.
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="getsandboxinbox"></a> `getSandboxInbox?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"public"`, \{ `address`: `string`; \}, [`SandboxMessage`](#sandboxmessage)[]\> | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
+| <a id="getsandboxinbox"></a> `getSandboxInbox?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, \{ `address`: `string`; \}, [`SandboxMessage`](#sandboxmessage)[]\> | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
 
 ***
 
@@ -52,7 +52,7 @@ Defined in: [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.co
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="address"></a> `address` | `MaybeRefOrGetter`\<`string` \| `null` \| `undefined`\> | The sandbox address to read (a value, ref or getter). Reading pauses while it is `undefined` or blank. | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
+| <a id="address"></a> `address` | `MaybeRefOrGetter`\<`string` \| `null` \| `undefined`\> | The test address to read (a value, ref or getter). Reading pauses while it is `undefined` or blank. | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
 | <a id="api"></a> `api?` | [`SandboxInboxApi`](#sandboxinboxapi) | Override the injected `api.email` namespace (or the `getSandboxInbox` ref). | [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sandbox-inbox.ts) |
 
 ***
@@ -83,15 +83,17 @@ Defined in: [src/runtime/vue/composables/use-sandbox-inbox.ts](https://github.co
 
 **`Experimental`**
 
-The mail a sandbox address received within the last hour, live — so a demo,
-a preview deployment or an e2e run can finish an email-code sign-in without
-a real mailbox. Only the provider's sandbox addresses
-(`delivered+label@resend.dev`) have an inbox, and only while email runs in
-test mode. Needs `getSandboxInbox` re-exported from `backend/email.ts`
-(`export const { getSandboxInbox } = email.api`); without it the inbox stays
-empty. Anyone who knows an address can read its inbox, so use it only where
-every account is a throwaway one. It never throws: a failed read shows in
-`error`.
+The mail a test address received within the last hour, refreshed while the
+page is open — so a demo, a preview deployment or an e2e run can finish an
+email-code sign-in without a real mailbox. Only the provider's test
+addresses (`delivered+label@resend.dev`) have an inbox, and only while
+email runs in test mode. The backend reads the mail back from the email
+provider's own log of sent email with its `EMAIL_API_KEY`, and keeps no
+copy. Needs `getSandboxInbox` re-exported from `backend/email.ts`
+(`export const { getSandboxInbox } = email.api`); without it the inbox
+stays empty. Anyone who knows an address can read its inbox, so use it
+only where every account is a throwaway one. It never throws: a failed
+read shows in `error`.
 
 #### Parameters
 

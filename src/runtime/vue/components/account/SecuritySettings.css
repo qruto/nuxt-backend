@@ -1,0 +1,80 @@
+/*
+ * SecuritySettings's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-security='root'] {
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem;
+    color: var(--bk-ink);
+  }
+
+  [data-security^='section-'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  /* Focus rests on a section or the message only after the button pressed went (`tabindex="-1"`): a place, not a control. */
+  [data-security^='section-']:focus,
+  [data-security='message']:focus {
+    outline: none;
+  }
+
+  [data-security='passkey-list'],
+  [data-security='session-list'] {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  [data-security='passkey'],
+  [data-security='session'] {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    font-size: 0.85rem;
+  }
+
+  [data-security='passkey-name'],
+  [data-security='session-name'] {
+    font-weight: 600;
+  }
+
+  [data-security='passkey-meta'],
+  [data-security='session-meta'] {
+    flex: 1;
+    color: var(--bk-muted);
+    font-size: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  [data-security='rename'],
+  [data-security='revoke'],
+  [data-security='remove'] {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.78rem;
+  }
+
+  [data-security='remove'],
+  [data-security='revoke'] {
+    border-color: color-mix(in srgb, var(--bk-error) 50%, transparent);
+    color: var(--bk-error);
+  }
+
+  [data-security='revoke-others'],
+  [data-security='sign-out'] {
+    align-self: flex-start;
+    color: var(--bk-muted);
+  }
+}

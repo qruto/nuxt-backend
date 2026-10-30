@@ -13,41 +13,58 @@ navigation:
 
 | Module | Description |
 | ------ | ------ |
-| [nuxt-backend/aggregate](/docs/reference/api/aggregate) | - |
+| [nuxt-backend/access](/docs/reference/api/access) | - |
+| [nuxt-backend/account](/docs/reference/api/account) | - |
+| [nuxt-backend/admin](/docs/reference/api/admin) | - |
 | [nuxt-backend/ai](/docs/reference/api/ai) | The rails for selling metered AI features — `nuxt-backend/ai`: wrap any Convex action so it is rate-limited, prepaid-credit-metered (reserve → run → settle — a failed run consumes nothing), and optionally token-streamed to the browser with the text persisted server-side (reload mid-stream and it continues). |
 | [nuxt-backend/app](/docs/reference/api/app) | - |
+| [nuxt-backend/audit](/docs/reference/api/audit) | - |
 | [nuxt-backend/auth.config](/docs/reference/api/auth-config) | - |
 | [nuxt-backend/auth](/docs/reference/api/auth) | - |
-| [nuxt-backend/authorization](/docs/reference/api/authorization) | - |
 | [nuxt-backend/billing](/docs/reference/api/billing) | - |
 | [nuxt-backend/convex.config](/docs/reference/api/convex-config) | - |
 | [nuxt-backend/email](/docs/reference/api/email) | - |
 | [nuxt-backend/eslint](/docs/reference/api/eslint) | The ESLint preset for a `nuxt-backend` app: the official Convex lint rules, scoped to the functions directory, with Convex's generated code ignored. |
+| [nuxt-backend/flags](/docs/reference/api/flags) | - |
 | [nuxt-backend/functions](/docs/reference/api/functions) | - |
 | [nuxt-backend/http](/docs/reference/api/http) | - |
-| [nuxt-backend/mcp](/docs/reference/api/mcp) | The agent (MCP) surface's Nitro utilities — `nuxt-backend/mcp`, also auto-imported in `server/`: [useBackendMcp](/docs/reference/api/mcp#usebackendmcp) for the signed-in agent session behind a tool call, [defineBackendMcpTool](/docs/reference/api/mcp#definebackendmcptool) for your own tools. |
-| [nuxt-backend/migrations](/docs/reference/api/migrations) | - |
+| [nuxt-backend/monitoring](/docs/reference/api/monitoring) | Error reports and cron check-ins from the backend's own actions, sent to the monitoring service the deployment's DSN names. They are posted straight to its ingest endpoint with `fetch`: no SDK runs in the backend. Without `MONITORING_DSN` on the deployment every call is a no-op that resolves `false`. Reports name the environment `BACKEND_ENVIRONMENT` says (`env push` derives it from the deployment's kind), so they sit beside the app's own. |
+| [nuxt-backend/notifications](/docs/reference/api/notifications) | - |
 | [nuxt-backend/rate-limit](/docs/reference/api/rate-limit) | - |
 | [nuxt-backend/search](/docs/reference/api/search) | - |
+| [nuxt-backend/storage](/docs/reference/api/storage) | - |
+| [nuxt-backend/test-utils](/docs/reference/api/test-utils) | Test helpers for an app's Vue side — `nuxt-backend/test-utils`: [createBackendMock](/docs/reference/api/test-utils#createbackendmock), a fake backend and session that the package's composables and components, and the base module's, read in a component or page test; [resetBackendMock](/docs/reference/api/test-utils#resetbackendmock), which forgets it; [backendMockProvides](/docs/reference/api/test-utils#backendmockprovides), what a plain `mount()` provides it with; [backendTestAliases](/docs/reference/api/test-utils#backendtestaliases), the Vitest aliases that point them at it, so a test needs no `vi.mock`; and [renderEmail](/docs/reference/api/test-utils#renderemail), which renders an email the package sends as your `setupEmail` options would. Your Convex functions are tested with `nuxt-backend/test` instead. |
 | [nuxt-backend/workflows](/docs/reference/api/workflows) | - |
 | [nuxt-backend](/docs/reference/api/module) | - |
-| [useAgentConsent](/docs/reference/api/use-agent-consent) | - |
-| [useAggregate](/docs/reference/api/use-aggregate) | - |
+| [useAccessPhase · useInvite · useAccessAdmin](/docs/reference/api/use-access) | - |
+| [useAccount](/docs/reference/api/use-account) | - |
+| [useAdmin](/docs/reference/api/use-admin) | - |
 | [useAiStream](/docs/reference/api/use-ai-stream) | - |
+| [useAuditLog](/docs/reference/api/use-audit-log) | - |
 | [useAuth](/docs/reference/api/use-auth) | - |
 | [useBackendConfig](/docs/reference/api/use-backend-config) | - |
+| [useBackendPagePath](/docs/reference/api/use-backend-page-path) | - |
 | [useBilling](/docs/reference/api/use-billing) | - |
+| [useCampaign](/docs/reference/api/use-campaign) | - |
 | [useCredits](/docs/reference/api/use-credits) | - |
 | [useEmailChange](/docs/reference/api/use-email-change) | - |
 | [useEmailStatus](/docs/reference/api/use-email-status) | - |
 | [useFeatures](/docs/reference/api/use-features) | - |
+| [useFlag · useFlagAdmin](/docs/reference/api/use-flags) | - |
 | [useGifts](/docs/reference/api/use-gifts) | - |
+| [useHumanCheck](/docs/reference/api/use-human-check) | - |
+| [useJob](/docs/reference/api/use-job) | - |
+| [useLabels](/docs/reference/api/use-labels) | - |
 | [useLoginFlow](/docs/reference/api/use-login-flow) | - |
 | [useOrders](/docs/reference/api/use-orders) | - |
-| [useOrganization](/docs/reference/api/use-organization) | - |
 | [usePasskeys](/docs/reference/api/use-passkeys) | - |
+| [usePricing](/docs/reference/api/use-pricing) | - |
+| [useReauthentication](/docs/reference/api/use-reauthentication) | - |
 | [useSandboxInbox](/docs/reference/api/use-sandbox-inbox) | - |
 | [useSearch](/docs/reference/api/use-search) | - |
 | [useSessions](/docs/reference/api/use-sessions) | - |
 | [useUsage](/docs/reference/api/use-usage) | - |
+| [useWaitlistAdmin](/docs/reference/api/use-waitlist-admin) | - |
+| [useWaitlist](/docs/reference/api/use-waitlist) | - |
 | [useWorkflowStatus](/docs/reference/api/use-workflow) | - |
+| [useWorkspace](/docs/reference/api/use-workspace) | - |

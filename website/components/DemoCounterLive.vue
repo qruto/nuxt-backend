@@ -1,23 +1,33 @@
-<!-- The live half of ::demo-counter: a reactive Convex query driven by
-     mutations, with auth handled by <Authenticated> / <Unauthenticated>. It
-     renders only inside <DeferredBackend>, once the client has loaded. -->
 <script setup lang="ts">
 import { api } from '#backend/api'
 
+/**
+ * The live half of ::demo-counter: a query on the LCD and the mutations
+ * that move it, for the signed-in visitor's own counter. It renders only
+ * inside <DemoBlock>, once the backend client has loaded. Signed out, it
+ * says why it needs an account and leads to the sign-in page, which brings
+ * the visitor back here.
+ */
 const counter = useQuery(api.counter.get, {})
 const increment = useMutation(api.counter.increment)
 const reset = useMutation(api.counter.reset)
+const route = useRoute()
 
 const value = computed(() => counter.value?.value ?? 0)
-const busy = ref(false)
+const pending = ref<'increment' | 'reset' | null>(null)
+const failure = ref<string | null>(null)
 
-async function bump(by: number) {
-  busy.value = true
+async function run(action: 'increment' | 'reset') {
+  pending.value = action
+  failure.value = null
   try {
-    await increment({ by })
+    await (action === 'increment' ? increment({ by: 1 }) : reset({}))
+  }
+  catch (cause) {
+    failure.value = getBackendError(cause)?.message ?? 'The counter did not change. Try again.'
   }
   finally {
-    busy.value = false
+    pending.value = null
   }
 }
 </script>
@@ -25,53 +35,60 @@ async function bump(by: number) {
 <template>
   <div>
     <Authenticated>
-      <div class="flex items-center justify-between gap-4">
-        <div class="flex items-baseline gap-3">
-          <span class="text-3xl font-bold tabular-nums">{{ value }}</span>
-          <code class="text-xs text-muted">useQuery(api.counter.get)</code>
-        </div>
-        <div class="flex gap-2">
-          <UButton
-            :loading="busy"
-            icon="i-lucide-plus"
-            color="primary"
-            @click="bump(1)"
+      <div class="flex flex-wrap items-center gap-4">
+        <Lcd
+          label="Your counter"
+          live
+          class="min-w-36"
+        >
+          <div class="lcd-row">
+            <span class="pxled led-ok" /><span class="px text-3xl tabular-nums">{{ value }}</span>
+          </div>
+        </Lcd>
+        <div class="flex flex-wrap gap-2">
+          <Key
+            signal="go"
+            :loading="pending === 'increment'"
+            @click="run('increment')"
           >
             Increment
-          </UButton>
-          <UButton
-            variant="ghost"
-            color="neutral"
-            icon="i-lucide-rotate-ccw"
-            aria-label="Reset"
-            @click="() => { void reset({}) }"
-          />
+          </Key>
+          <Key
+            :loading="pending === 'reset'"
+            @click="run('reset')"
+          >
+            Reset
+          </Key>
         </div>
       </div>
-      <p class="mt-2 text-sm text-muted">
-        Live: the number is a Convex query; the buttons call mutations. Open this
-        page in another tab to watch it sync in real time.
+      <p
+        v-if="failure"
+        role="alert"
+        class="m-0 mt-3 text-sm text-(--err)"
+      >
+        {{ failure }}
       </p>
     </Authenticated>
 
     <Unauthenticated>
-      <p class="text-sm text-muted">
-        This live demo writes to your Convex deployment.
-        <ULink
-          to="/login"
-          class="text-primary"
-        >Sign in</ULink>
-        to run it, or explore the
-        <ULink
-          to="/playground"
-          class="text-primary"
-        >playground</ULink>.
-      </p>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="m-0 min-w-0 flex-1 basis-56 text-sm leading-relaxed text-(--ink-dim)">
+          The counter is yours, so it needs an account: sign in with a
+          sandbox identity and come back here.
+        </p>
+        <Key
+          :to="{ path: '/login', query: { redirect: route.fullPath } }"
+          size="xs"
+          prefetch-on="interaction"
+        >
+          Sign in
+        </Key>
+      </div>
     </Unauthenticated>
 
     <AuthLoading>
-      <p class="text-sm text-muted">
-        Resolving session…
+      <p class="m-0 text-sm text-(--ink-dim)">
+        Reading your session…
       </p>
     </AuthLoading>
   </div>

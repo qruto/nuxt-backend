@@ -7,8 +7,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { pageScripts, staticImports } from '../../scripts/check-website-bundle.mjs'
 import { CLIENT_PLUGIN } from '../../website/modules/deferred-backend-client'
 import { needsBackendClient } from '../../website/modules/deferred-backend-client/runtime/routes'
-import { badgeExperimental, lastCommitDates } from '../../website/modules/docs-pages'
-import { EXPERIMENTAL_BADGE, hoistExperimental } from '../../website/utils/nav-badges'
+import { badgeStatus, lastCommitDates } from '../../website/modules/docs-pages'
+import { EXPERIMENTAL_BADGE, hoistBadges } from '../../website/utils/nav-badges'
 import { pageTrail } from '../../website/utils/page-trail'
 
 /** A navigation entry, as the site's helpers take it. */
@@ -19,13 +19,13 @@ type ContentNavigationItem = Parameters<typeof pageTrail>[0] extends (infer Item
 // last-updated date from git.
 
 describe('the deferred backend client', () => {
-  const pages = ['/login', '/accept-invitation', '/oauth/consent', '/playground/vanilla/pricing']
+  const pages = ['/login', '/oauth/consent', '/playground/pricing']
 
-  it.each(['/playground', '/playground/platform/billing', '/login', '/oauth/consent'])('loads before %s renders', (path) => {
+  it.each(['/playground', '/playground/strips', '/login', '/oauth/consent'])('loads before %s renders', (path) => {
     expect(needsBackendClient(path, pages)).toBe(true)
   })
 
-  it.each(['/', '/docs/start', '/docs/data/queries-and-mutations', '/playgrounds', '/login/extra'])('waits on %s', (path) => {
+  it.each(['/', '/docs/start', '/docs/build/data/read-write', '/playgrounds', '/login/extra'])('waits on %s', (path) => {
     expect(needsBackendClient(path, pages)).toBe(false)
   })
 
@@ -54,24 +54,24 @@ describe('Experimental badges', () => {
 
   it('go on a page that documents the experimental tier, beside its icon', () => {
     const entry: Record<string, unknown> = { status: 'experimental', navigation: { icon: 'i-lucide-brain' } }
-    badgeExperimental(entry)
+    badgeStatus(entry)
     expect(entry.navigation).toEqual({ icon: 'i-lucide-brain', badge: EXPERIMENTAL_BADGE })
   })
 
   it('skip stable pages and pages out of the navigation', () => {
     const stable: Record<string, unknown> = { navigation: { icon: 'x' } }
     const hidden: Record<string, unknown> = { status: 'experimental', navigation: false }
-    badgeExperimental(stable)
-    badgeExperimental(hidden)
+    badgeStatus(stable)
+    badgeStatus(hidden)
     expect(stable.navigation).toEqual({ icon: 'x' })
     expect(hidden.navigation).toBe(false)
   })
 
   it('sit where the surface starts: a whole tab, a whole group, or one page', () => {
-    const [ai, agents, email] = hoistExperimental([
-      { title: 'AI', path: '/docs/ai', children: [page('/docs/ai', true), page('/docs/ai/streaming', true)] },
-      { title: 'Agents', path: '/docs/agents', children: [page('/docs/agents'), { title: 'MCP', path: '/docs/agents/mcp', children: [page('/docs/agents/mcp', true), page('/docs/agents/mcp/tools', true)] }] },
-      { title: 'Email', path: '/docs/email', children: [page('/docs/email'), page('/docs/email/sandbox-inbox', true)] },
+    const [ai, agents, email] = hoistBadges([
+      { title: 'AI', path: '/docs/build/ai', children: [page('/docs/build/ai', true), page('/docs/build/ai/streaming', true)] },
+      { title: 'Agents', path: '/docs/develop/agents', children: [page('/docs/develop/agents'), { title: 'MCP', path: '/docs/develop/agents/mcp', children: [page('/docs/develop/agents/mcp', true), page('/docs/agents/mcp/tools', true)] }] },
+      { title: 'Email', path: '/docs/build/email', children: [page('/docs/build/email'), page('/docs/develop/dev-inbox', true)] },
     ])
     expect(ai!.badge).toEqual(EXPERIMENTAL_BADGE)
     expect(ai!.children!.some(child => child.badge)).toBe(false)
@@ -85,17 +85,17 @@ describe('Experimental badges', () => {
 
 describe('a page\'s trail', () => {
   const navigation: ContentNavigationItem[] = [
-    { title: 'Billing', path: '/docs/billing', children: [
-      { title: 'Overview', path: '/docs/billing' },
-      { title: 'Growth', path: '/docs/billing/growth', page: false, children: [{ title: 'Gifts', path: '/docs/billing/growth/gifts' }] },
+    { title: 'Billing', path: '/docs/build/billing', children: [
+      { title: 'Overview', path: '/docs/build/billing' },
+      { title: 'Growth', path: '/docs/build/growth#offers', page: false, children: [{ title: 'Gifts', path: '/docs/build/growth/offers/gifts' }] },
     ] },
   ]
 
   it('runs from the tab to the page, and knows which steps are pages', () => {
-    expect(pageTrail(navigation, '/docs/billing/growth/gifts')).toEqual([
-      { title: 'Billing', path: '/docs/billing', page: true },
-      { title: 'Growth', path: '/docs/billing/growth', page: false },
-      { title: 'Gifts', path: '/docs/billing/growth/gifts', page: true },
+    expect(pageTrail(navigation, '/docs/build/growth/offers/gifts')).toEqual([
+      { title: 'Billing', path: '/docs/build/billing', page: true },
+      { title: 'Growth', path: '/docs/build/growth#offers', page: false },
+      { title: 'Gifts', path: '/docs/build/growth/offers/gifts', page: true },
     ])
   })
 

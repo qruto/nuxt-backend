@@ -48,15 +48,17 @@ export interface AuthFlowOptions {
   runtime?: Partial<AuthRuntime>
   /** Change the database adapter Better Auth gets, e.g. to make a read fail. */
   adapter?: (adapter: Record<string, unknown>) => void
+  /** Share another flow's database: a second instance over the same rows, as after a redeploy. */
+  db?: Record<string, Row[]>
 }
 
 /** One Better Auth instance and its database, for one test. */
 export async function authFlow(options: AuthFlowOptions = {}) {
   vi.stubEnv('EMAIL_API_KEY', 're_test')
-  vi.stubEnv('EMAIL_TEST_MODE', 'false')
+  vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
   vi.stubEnv('EMAIL_FROM', 'Acme <hello@acme.dev>')
 
-  const db: Record<string, Row[]> = Object.fromEntries(Object.keys(tables).map(table => [table, []]))
+  const db: Record<string, Row[]> = options.db ?? Object.fromEntries(Object.keys(tables).map(table => [table, []]))
   const memory = memoryAdapter(db)
   // The convex plugin no-ops writes outside a mutation; this adapter is one.
   const database = ((adapterOptions: unknown) => {
@@ -88,16 +90,19 @@ export async function authFlow(options: AuthFlowOptions = {}) {
     authOptions: { baseURL: ORIGIN, secret: SECRET, ...authOptions, plugins: [testUtils(), ...authOptions?.plugins ?? []] },
   }, runtime) as never) as unknown as { handler: (request: Request) => Promise<Response>, $context: Promise<{ test: TestHelpers }> }
   const helpers = (await auth.$context).test
+  sameCodeBrowser(auth)
 
   /** POST a JSON body as a browser would (a session cookie), as an API client would (a Bearer token), or anonymously. */
-  async function post(path: string, body: Record<string, unknown> = {}, credential: { cookie?: string, bearer?: string } = {}) {
+  async function post(path: string, body: Record<string, unknown> = {}, credential: { cookie?: string, bearer?: string, codeBrowser?: boolean } = {}) {
+    const cookie = credential.cookie
     return auth.handler(new Request(`${BASE}${path}`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         'origin': ORIGIN,
-        ...(credential.cookie ? { cookie: credential.cookie } : {}),
+        ...(cookie ? { cookie } : {}),
         ...(credential.bearer ? { authorization: `Bearer ${credential.bearer}` } : {}),
+        ...(credential.codeBrowser === false ? { [OTHER_BROWSER]: '1' } : {}),
       },
       body: JSON.stringify(body),
     }))
@@ -141,15 +146,75 @@ export async function authFlow(options: AuthFlowOptions = {}) {
    * Sign in through the code routes, as a person does, so the session hooks
    * run inside the request (`signedIn` creates its session outside one).
    */
-  async function signInWithCode(address = 'ada@example.com', name = 'Ada') {
+  async function signInWithCode(address = 'ada@example.com', name = 'Ada', credential: { cookie?: string } = {}) {
     const { code } = await sendCode(address)
-    const response = await post('/sign-in/email-otp', { email: address, otp: code, name })
-    const cookie = response.headers.getSetCookie().map(entry => entry.split(';')[0]).join('; ')
+    const response = await post('/sign-in/email-otp', { email: address, otp: code, name }, credential)
+    const cookie = response.headers.getSetCookie().filter(entry => !/max-age=0/i.test(entry)).map(entry => entry.split(';')[0]).join('; ')
     const { token, user } = await response.json() as { token: string, user: { id: string } }
     return { response, cookie, token, userId: user.id }
   }
 
   return { db, auth, helpers, sent, email, limiter, runtime, post, get, signedIn, signInWithCode, impersonate, codeFor, sendCode }
+}
+
+/** A request header a test sets to check a code from another browser than the one that asked; never sent on. */
+const OTHER_BROWSER = 'x-test-other-browser'
+
+/**
+ * Make `auth.handler` one browser for sign-in codes: the cookie a code
+ * request sets, per address, rides along with the check of that address's
+ * code, as it would in the browser that asked. A request carrying
+ * {@link OTHER_BROWSER} checks from another browser.
+ */
+export function sameCodeBrowser(auth: { handler: (request: Request) => Promise<Response> }): void {
+  const handler = auth.handler.bind(auth)
+  const cookies = new Map<string, string>()
+  const addressOf = async (request: Request) => {
+    const body = await request.clone().json().catch(() => ({})) as { email?: unknown }
+    return typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+  }
+  auth.handler = async (request: Request) => {
+    const path = new URL(request.url).pathname
+    let sent = request
+    if (path.endsWith('/sign-in/email-otp')) {
+      const headers = new Headers(request.headers)
+      const bound = headers.has(OTHER_BROWSER) ? undefined : cookies.get(await addressOf(request))
+      headers.delete(OTHER_BROWSER)
+      if (bound) headers.set('cookie', [headers.get('cookie'), bound].filter(Boolean).join('; '))
+      sent = new Request(request, { headers })
+    }
+    const address = path.endsWith('/email-otp/send-verification-otp') ? await addressOf(request) : ''
+    const response = await handler(sent)
+    const set = response.headers.getSetCookie().find(entry => entry.split('=')[0]!.endsWith('.sign_in_code'))
+    if (set && address) cookies.set(address, set.split(';')[0]!)
+    return response
+  }
+}
+
+/**
+ * A `fetch` for a Better Auth client, wired to `auth.handler` as a browser
+ * would be: the app's origin on every request and a cookie jar for the
+ * session. `onAnswer` sees the jar after each answer.
+ */
+export function browserFetch(auth: { handler: (request: Request) => Promise<Response> }, onAnswer?: (jar: ReadonlyMap<string, string>) => void) {
+  const jar = new Map<string, string>()
+  return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const request = new Request(input, init)
+    const headers = new Headers(request.headers)
+    headers.set('origin', ORIGIN)
+    if (jar.size > 0) headers.set('cookie', [...jar].map(([name, value]) => `${name}=${value}`).join('; '))
+    const response = await auth.handler(new Request(request, { headers }))
+    for (const cookie of response.headers.getSetCookie()) {
+      const [pair = ''] = cookie.split(';')
+      const at = pair.indexOf('=')
+      const name = pair.slice(0, at)
+      const value = pair.slice(at + 1)
+      if (!value || /max-age=0/i.test(cookie)) jar.delete(name)
+      else jar.set(name, value)
+    }
+    onAnswer?.(jar)
+    return response
+  }
 }
 
 /** A code that is not `code`: the guess a test makes. */

@@ -1,16 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { betterAuth } from 'better-auth'
 import { memoryAdapter } from 'better-auth/adapters/memory'
-import { buildAuthOptions } from '../../src/convex/client/better-auth-options'
+import { buildAuthOptions, sessionClaims } from '../../src/convex/client/better-auth-options'
 import { tables } from '../../src/convex/components/backend/schema'
-import { setupMcp } from '../../src/convex/integrations/mcp'
 import { asUser } from '../../src/convex/test'
+import { sameCodeBrowser } from '../helpers/auth-flow'
 
 // nuxt-backend/test's callers against the tokens they stand in for. A real
 // sign-up runs on Better Auth's memory adapter with the package's own options
-// and mints a session token; the agent exchange signs an agent's. A claim
-// added, renamed or dropped on either side fails here, so app tests never run
-// on stale claims.
+// and mints a session token. A claim added, renamed or dropped fails here, so
+// app tests never run on stale claims.
 
 const ORIGIN = 'https://app.example.com'
 const BASE = `${ORIGIN}/api/auth`
@@ -48,7 +47,9 @@ describe('a session caller', () => {
     auth = betterAuth(buildAuthOptions(database, {
       authOptions: { baseURL: ORIGIN, secret: 'a-test-secret-that-is-long-enough-1234' },
     }) as never)
-    vi.stubEnv('NUXT_BACKEND_LOG_OTP', '1')
+    // One browser asks for the code and checks it.
+    sameCodeBrowser(auth)
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'development')
     vi.stubEnv('CONVEX_SITE_URL', 'https://happy-otter-123.convex.site')
   })
 
@@ -89,25 +90,16 @@ describe('a session caller', () => {
   })
 })
 
-describe('an agent caller', () => {
-  it('carries the claims the agent token exchange signs', async () => {
-    const signJWT = vi.fn(async (_args: { body: { payload: Record<string, unknown> } }) => ({ token: 'jwt' }))
-    const fake = {
-      api: { getMcpSession: async () => ({ userId: 'user-1', clientId: 'client-1', scopes: 'openid billing:read' }), signJWT },
-      $context: Promise.resolve({
-        adapter: {
-          findOne: async ({ model }: { model: string }) => model === 'user'
-            ? { name: 'Ada', email: 'ada@example.com', emailVerified: true, role: 'user' }
-            : { organizationId: 'org-1' },
-        },
-      }),
+describe('a session token', () => {
+  it('never takes a claim only the package writes from a field of the user', () => {
+    // An app's own user fields, named like the claims that make an impersonation or a session.
+    const user = {
+      id: 'user-1', name: 'Ada', email: 'ada@example.com', impersonatedBy: 'nobody', activeOrganizationId: 'org-x', sessionId: 's-x', sub: 'other',
+      // The identity Convex reads: a field like these must never make the session somebody else's.
+      subject: 'user-2', issuer: 'https://evil.example', tokenIdentifier: 'https://evil.example|user-2', email_verified: true, preferred_username: 'root', given_name: 'Root',
     }
-    const { exchangeHandler } = setupMcp({ createAuth: () => fake, createSignerAuth: () => fake })
-    await exchangeHandler({} as never, new Request('https://site.test/mcp/exchange', { method: 'POST', headers: { Authorization: 'Bearer opaque' } }))
-    const real = signJWT.mock.calls[0]![0].body.payload
-
-    const kit = await kitClaims({ agent: { clientId: 'client-1', scopes: ['openid', 'billing:read'] } })
-    expect(names(kit)).toEqual(names(real))
-    expect(kinds(kit)).toEqual(kinds(real))
+    expect(sessionClaims({ user, session: {} })).toEqual({ name: 'Ada', email: 'ada@example.com' })
+    expect(sessionClaims({ user, session: { activeOrganizationId: 'org-1', impersonatedBy: 'admin-1' } }))
+      .toEqual({ name: 'Ada', email: 'ada@example.com', activeOrganizationId: 'org-1', impersonatedBy: 'admin-1' })
   })
 })

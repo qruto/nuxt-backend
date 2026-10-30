@@ -7,7 +7,9 @@ import { findPageHeadline } from '@nuxt/content/utils'
 // source), changed: the header carries the page's trail (and its
 // BreadcrumbList), its kind and stability chips, and its Try live, API and
 // Source keys, always under the title; the page reaches the aside through
-// DOCS_PAGE. One locale, so the i18n branches are gone.
+// DOCS_PAGE; a page with `demo: true` says so on its root, where
+// scripts/check-website-bundle.mjs holds it to the live blocks the page
+// renders. One locale, so the i18n branches are gone.
 definePageMeta({
   layout: 'docs',
 })
@@ -55,8 +57,9 @@ watch(() => navigation?.value, () => {
   headline.value = findPageHeadline(navigation?.value, page.value?.path) || headline.value
 })
 
-// Docus names it 'Docs', which the og-image types do not list.
-defineOgImage('Docs.takumi', {
+// The docs plate (components/OgImage/Plate.takumi.vue), in place of Docus's
+// own `Docs` card.
+defineOgImage('Plate', {
   headline: headline.value,
   title: formatOgTitle(title),
   description: formatOgDescription(title, description),
@@ -84,6 +87,7 @@ const editLink = computed(() => {
   <UPage
     v-if="page"
     :ui="isOpen ? { center: 'lg:col-span-10' } : undefined"
+    :data-demo-page="page.demo ? '' : undefined"
   >
     <UPageHeader
       :title="page.title"

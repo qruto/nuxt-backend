@@ -55,11 +55,12 @@ ${pages.map(page => `  ${page.name},`).join('\n')}
 
 /**
  * The ready-made pages, by key. Every page mounts at its default path; give a
- * key a path to mount the page there instead. An app page at a page's path
- * always wins: the module detects it and mounts nothing there.
+ * key a path to mount the page there instead, or \`false\` to turn it off. An
+ * app page at a page's path always wins: the module detects it and mounts
+ * nothing there.
  */
 export interface ModulePagesOptions {
-${pages.map(page => `  /** ${page.doc} */\n  ${page.key}?: string`).join('\n')}
+${pages.map(page => `  /** ${page.doc} */\n  ${page.key}?: string | false`).join('\n')}
 }
 `
 }

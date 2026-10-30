@@ -12,18 +12,134 @@ navigation:
 
 ## Interfaces
 
-### FunctionOrganization
+### CallerRule
 
-Defined in: [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts)
+Defined in: [src/convex/integrations/access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/access.ts)
 
-The workspace context injected by the `org` tier.
+How a session was opened, for the functions that refuse some kinds. An
+impersonated session may read but not spend or change billing.
+
+#### Extended by
+
+- [`BillingAccessRule`](/docs/reference/api/billing#billingaccessrule)
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="id"></a> `id` | `string` | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| <a id="role"></a> `role` | `string` | The caller's role within the workspace (owner/admin/member or custom). | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| <a id="impersonation"></a> `impersonation?` | `"refused"` \| `"allowed"` | A session an administrator opened by impersonating the caller: `'allowed'` unless refused. | [src/convex/integrations/access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/access.ts) |
+| <a id="recentsignin"></a> `recentSignIn?` | `number` | How recent a sign-in it takes, in seconds since the person signed in to the session (`RECENT_SIGN_IN_SECONDS`, the package's ten minutes, for its own). An older one is refused as `reauthentication_required`, and so is a token that names no session or carries no `authTime`; an administrator's visit is refused as `forbidden` (reason `impersonating`): no sign-in of the person's own stands behind it. A mutation's or an action's rule only: a query is not rerun as time passes. | [src/convex/integrations/access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/access.ts) |
+
+***
+
+### FunctionUser
+
+Defined in: [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts)
+
+The signed-in user, as read from identity claims.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id"></a> `id` | `string` | Better Auth user id (the component's `user` document id). | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| <a id="email"></a> `email` | `string` | - | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| <a id="name"></a> `name` | `string` | - | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| <a id="role"></a> `role` | `string` | App-wide role from the admin plugin; `'user'` when unset. | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| <a id="banned"></a> `banned` | `boolean` | - | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| <a id="activeworkspaceid"></a> `activeWorkspaceId` | `string` \| `null` | The session's active workspace, or `null` when none. | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| <a id="impersonatedby"></a> `impersonatedBy` | `string` \| `null` | The admin impersonating this user, or `null` for the user's own session. Refuse what an impersonating admin must not do: `if (user.impersonatedBy) throw …`. | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| <a id="authtime"></a> `authTime` | `number` \| `null` | When the person signed in to the session the token belongs to, as epoch milliseconds (the `authTime` claim), or `null` for a token minted before the claim existed. | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| <a id="signinmethod"></a> `signInMethod` | `"passkey"` \| `"email-otp"` \| `null` | How the person signed in to this session: `'passkey'` or `'email-otp'` (the `signInMethod` claim, the session's own, never the account's last sign-in elsewhere); `null` for an administrator's visit and a token minted before the claim existed. Hold a passkey-only step to it: `if (ctx.user.signInMethod !== 'passkey') throw …`. | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| <a id="claims"></a> `claims` | `Record`\<`string`, `unknown`\> | All identity claims, for anything not surfaced above. | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+
+***
+
+### AuthorizationWorkspace
+
+Defined in: [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts)
+
+A workspace the caller belongs to, as the `workspace` tier injects it as `ctx.workspace`.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id-1"></a> `id` | `string` | - | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| <a id="slug"></a> `slug` | `string` | - | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| <a id="name-1"></a> `name` | `string` | - | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| <a id="role-1"></a> `role` | `string` | The caller's role *within the workspace* (owner/admin/member or custom). | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+
+***
+
+### AuthorizationCtx
+
+Defined in: [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts)
+
+Any Convex ctx that can read identity and run component queries.
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="auth"></a> `auth` | `Auth` | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| <a id="runquery"></a> `runQuery` | \<`Query`\>(`query`, ...`args`) => `Promise`\<`FunctionReturnType`\<`Query`\>\> | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+
+***
+
+### AuthorizationComponents
+
+Defined in: [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts)
+
+The component handle `createFunctions` reads from your generated
+`components` object: the package's all-in-one `backend` component, whose
+auth adapter functions it queries through. Pass the whole `components`
+object — the key is picked structurally.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="backend"></a> `backend` | \{ `adapter`: \{ `findOne`: `unknown`; `updateOne`: `unknown`; \}; `audit?`: \{ `record`: `unknown`; \}; \} | - | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| `backend.adapter` | \{ `findOne`: `unknown`; `updateOne`: `unknown`; \} | - | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| `backend.adapter.findOne` | `unknown` | - | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| `backend.adapter.updateOne` | `unknown` | - | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| `backend.audit?` | \{ `record`: `unknown`; \} | The activity trail `setUserRole` records a role change on; absent from a component built before it. | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+| `backend.audit.record` | `unknown` | - | [src/convex/integrations/authorization.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/authorization.ts) |
+
+***
+
+### FunctionWorkspace
+
+Defined in: [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts)
+
+The workspace context the `workspace` tier injects as `ctx.workspace`.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id-2"></a> `id` | `string` | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| <a id="slug-1"></a> `slug` | `string` | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| <a id="name-2"></a> `name` | `string` | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| <a id="role-2"></a> `role` | `string` | The caller's role within the workspace: `owner`, `admin` or `member`. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+
+***
+
+### FunctionDeclaration
+
+Defined in: [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts)
+
+What a tier's function may declare beside `args` and `handler`: how
+recent a sign-in it takes, and whether an administrator's visit to the
+account may call it.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="recentsignin-1"></a> `recentSignIn?` | `number` \| `boolean` | A sensitive action: `true` takes a sign-in from the last ten minutes (`RECENT_SIGN_IN_SECONDS`), a number from the last that many seconds. An older one is refused as `reauthentication_required`, which `useReauthentication` answers by asking the person to sign in again; an administrator's visit never passes. The `admin` tier's mutations and actions take a recent sign-in unless they say `false`. A query cannot take one: it is not rerun as time passes, so its window would not hold, and defining one that says so throws. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| <a id="impersonation-1"></a> `impersonation?` | `"refused"` \| `"allowed"` | `'refused'` refuses a session an administrator opened by impersonating the account (`forbidden`, reason `impersonating`): for a function where a person's money or access is at stake. `'allowed'`, the default, lets the visit in. The `admin` tier's mutations and actions refuse it always. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
 
 ***
 
@@ -33,11 +149,61 @@ Defined in: [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt
 
 A rate limiter compatible with `setupRateLimiter(...)` from `nuxt-backend/rate-limit`.
 
-#### Properties
+#### Methods
 
-| Property | Type | Defined in |
-| ------ | ------ | ------ |
-| <a id="limit"></a> `limit` | (`ctx`, `name`, `options?`) => `Promise`\<`unknown`\> | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+##### limit()
+
+```ts
+limit(
+   ctx, 
+   name, 
+   options?
+): Promise<unknown>;
+```
+
+Defined in: [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts)
+
+###### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `ctx` | `never` |
+| `name` | `never` |
+| `options?` | `undefined` |
+
+###### Returns
+
+`Promise`\<`unknown`\>
+
+***
+
+### FunctionsBilling
+
+Defined in: [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts)
+
+What the `withFeature` tier needs of the app's billing: `setupBilling`'s
+return satisfies it.
+
+#### Methods
+
+##### requireFeature()
+
+```ts
+requireFeature(ctx, feature): Promise<void>;
+```
+
+Defined in: [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts)
+
+###### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `ctx` | [`AuthorizationCtx`](#authorizationctx) |
+| `feature` | `string` |
+
+###### Returns
+
+`Promise`\<`void`\>
 
 ***
 
@@ -49,9 +215,88 @@ Defined in: [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
+| <a id="components"></a> `components` | [`AuthorizationComponents`](#authorizationcomponents) | Your generated `components` (`./_generated/api`): the tiers read the `backend` component's tables. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| <a id="billing"></a> `billing?` | [`FunctionsBilling`](#functionsbilling) | Your `setupBilling` instance (`./billing`). It enables `withFeature`, which checks a plan's features against it. `billing.ts` imports nothing from `functions.ts`, so the two files never import each other. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| <a id="ratelimiter"></a> `rateLimiter?` | [`FunctionsRateLimiter`](#functionsratelimiter) | Your `setupRateLimiter` instance, to guard the tiers' writes with `limits`. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| <a id="limits"></a> `limits?` | `Partial`\<`Record`\<`"admin"` \| `"workspace"` \| `"authed"`, `string`\>\> | A named rate limit per tier, spent on its **mutations and actions** (keyed by user id; queries are reads and spend none). `{ authed: 'write' }` with a matching limit in `setupRateLimiter`. `withRole` spends `authed`'s, and `withFeature` `workspace`'s. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
 | <a id="adminroles"></a> `adminRoles?` | `string`[] | App-wide roles that pass the `admin` tier. Default `['admin']`. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| <a id="ratelimiter"></a> `rateLimiter?` | [`FunctionsRateLimiter`](#functionsratelimiter) | Rate limiter to guard write tiers (`setupRateLimiter(...)`). | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| <a id="limits"></a> `limits?` | `Partial`\<`Record`\<`"admin"` \| `"authed"` \| `"org"`, `string`\>\> | Named rate limits per tier, consumed on **mutations and actions** (keyed by user id; queries are reads and can't consume a limit). E.g. `{ authed: 'apiWrites' }` with a matching limit in `setupRateLimiter`. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+
+***
+
+### RetentionResult
+
+Defined in: [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts)
+
+What a pass reports: the rows it deleted, and whether rows past the age are left for the next batch.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="deleted"></a> `deleted` | `number` | The rows this batch deleted. | [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts) |
+| <a id="more"></a> `more` | `boolean` | Whether the batch left rows past the age: the pass has scheduled its next batch. | [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts) |
+
+***
+
+### RetentionOptions
+
+Defined in: [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts)
+
+The options of [defineRetention](#defineretention).
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| <a id="type-parameter-dm-1"></a> `DM` *extends* `GenericDataModel` |
+| <a id="type-parameter-t"></a> `T` *extends* `TableNamesInDataModel`\<`DM`\> |
+| <a id="type-parameter-i"></a> `I` *extends* `IndexNames`\<`NamedTableInfo`\<`DM`, `T`\>\> |
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="fn"></a> `fn` | `string` | The rule's own function path, as `npx convex run` takes it, such as `'retention:pruneDrafts'`. A batch that leaves rows behind schedules it again. | [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts) |
+| <a id="table"></a> `table` | `T` | The table to prune. Its rows are typed from your schema. | [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts) |
+| <a id="index"></a> `index` | `I` | The index to read through, named by its fields as Convex's guidelines ask (`by_status_and_updatedAt`): the rule reads the fields from the name. The field after any `match` fields holds the time; `by_creation_time` uses `_creationTime`. | [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts) |
+| <a id="match"></a> `match?` | `{ [F in string]?: FieldTypeFromFieldPath<DocumentByName<DM, T>, F> }` | Equal values for the index's leading fields, in the index's order. | [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts) |
+| <a id="ttl"></a> `ttl` | `number` | How old a row may get, in milliseconds, on the index's time field. `0` deletes a row once that time has passed, for an `expiresAt` field. | [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts) |
+| <a id="batch"></a> `batch?` | `number` | Rows per transaction. Lower it for large rows or a heavy `onDelete`. Defaults to 100. | [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts) |
+| <a id="ondelete"></a> `onDelete?` | (`ctx`, `row`) => `void` \| `Promise`\<`void`\> | Runs before each row is deleted, in the same transaction. | [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts) |
+
+***
+
+### SensitiveLimit
+
+Defined in: [src/convex/sensitive-actions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/sensitive-actions.ts)
+
+Where a limit's bucket is keyed, one per kind of key.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="caller"></a> `caller?` | [`AuthRateLimitName`](/docs/reference/api/auth#authratelimitname) | Per signed-in caller, by user id: opening more sessions does not multiply it. | [src/convex/sensitive-actions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/sensitive-actions.ts) |
+| <a id="address"></a> `address?` | [`AuthRateLimitName`](/docs/reference/api/auth#authratelimitname) | Per address the request names, by a digest of it. | [src/convex/sensitive-actions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/sensitive-actions.ts) |
+| <a id="client"></a> `client?` | [`AuthRateLimitName`](/docs/reference/api/auth#authratelimitname) | Per client network address, by an HMAC of it under the auth secret. | [src/convex/sensitive-actions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/sensitive-actions.ts) |
+| <a id="entity"></a> `entity?` | `string` | Per billing entity (the workspace, or the account with `billTo: 'user'`). | [src/convex/sensitive-actions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/sensitive-actions.ts) |
+| <a id="global"></a> `global?` | [`AuthRateLimitName`](/docs/reference/api/auth#authratelimitname) | One ceiling for the whole deployment, spent after every keyed bucket allowed the request. | [src/convex/sensitive-actions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/sensitive-actions.ts) |
+
+***
+
+### SensitiveAction
+
+Defined in: [src/convex/sensitive-actions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/sensitive-actions.ts)
+
+One row: what a write takes.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="recentsignin-2"></a> `recentSignIn` | `number` \| `null` | How recent a sign-in it takes, in seconds since the person signed in to the session (`RECENT_SIGN_IN_SECONDS`, ten minutes, on every row of the package's); `null` for none. An older sign-in is refused as `reauthentication_required`. An impersonated session never passes, since no sign-in of the person's own stands behind it: `forbidden`, reason `impersonating`. | [src/convex/sensitive-actions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/sensitive-actions.ts) |
+| <a id="impersonation-2"></a> `impersonation` | `"refused"` \| `"allowed"` | A session an administrator opened by impersonating the account: `'refused'` as `forbidden`, reason `impersonating`. | [src/convex/sensitive-actions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/sensitive-actions.ts) |
+| <a id="limit-1"></a> `limit` | [`SensitiveLimit`](#sensitivelimit) \| `null` | The limits it spends, each keyed as its field says; `null` for none. | [src/convex/sensitive-actions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/sensitive-actions.ts) |
 
 ## Type Aliases
 
@@ -146,7 +391,54 @@ code whose fields are all optional, then the English detail for the log.
 | ------ |
 | <a id="type-parameter-c-2"></a> `C` *extends* [`BackendErrorCode`](#backenderrorcode) |
 
+***
+
+### FunctionsComponents
+
+```ts
+type FunctionsComponents = AuthorizationComponents;
+```
+
+Defined in: [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts)
+
+The generated `components` the tiers read the `backend` component's tables through.
+
+***
+
+### RetentionArgs
+
+```ts
+type RetentionArgs = {
+  now?: number;
+};
+```
+
+Defined in: [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts)
+
+What a rule's internal mutation takes.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="now"></a> `now?` | `number` | The pass's clock, in epoch milliseconds: the current time by default. A test passes it to move time without fake timers. | [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts) |
+
 ## Variables
+
+### RECENT\_SIGN\_IN\_SECONDS
+
+```ts
+const RECENT_SIGN_IN_SECONDS: 600 = 600;
+```
+
+Defined in: [src/convex/constants.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/constants.ts)
+
+How recent a sign-in a sensitive action takes, in seconds: ten minutes.
+One constant for the whole package: Better Auth's `session.freshAge` (the
+passkey routes' own check), every row of the sensitive-action table that
+asks for a recent sign-in, and `requireRecentSignIn`'s default `within`.
+
+***
 
 ### BACKEND\_ERRORS
 
@@ -164,11 +456,50 @@ const BACKEND_ERRORS: {
      status: 403;
      data: VObject<{
         message?: string;
+        phase?: string;
+        invite?: string;
+        kind?: string;
+        waitlist?: {
+           position: number;
+           total: number;
+           token: string;
+        };
         reason: string;
       }, {
         reason: VString<string, "required">;
         message: VString<string | undefined, "optional">;
-     }, "required", "message" | "reason">;
+        phase: VString<string | undefined, "optional">;
+        invite: VString<string | undefined, "optional">;
+        kind: VString<string | undefined, "optional">;
+        waitlist: VObject<
+           | {
+           position: number;
+           total: number;
+           token: string;
+         }
+           | undefined, {
+           position: VFloat64<number, "required">;
+           total: VFloat64<number, "required">;
+           token: VString<string, "required">;
+        }, "optional", "position" | "total" | "token">;
+      }, "required", 
+        | "message"
+        | "reason"
+        | "phase"
+        | "invite"
+        | "kind"
+        | "waitlist"
+        | "waitlist.position"
+        | "waitlist.total"
+       | "waitlist.token">;
+  };
+  reauthentication_required: {
+     status: 403;
+     data: VObject<{
+        message?: string;
+      }, {
+        message: VString<string | undefined, "optional">;
+     }, "required", "message">;
   };
   no_workspace: {
      status: 409;
@@ -184,11 +515,13 @@ const BACKEND_ERRORS: {
         message?: string;
         retryAfter?: number;
         limit?: string;
+        plans?: string[];
       }, {
         retryAfter: VFloat64<number | undefined, "optional">;
         limit: VString<string | undefined, "optional">;
+        plans: VArray<string[] | undefined, VString<string, "required">, "optional">;
         message: VString<string | undefined, "optional">;
-     }, "required", "message" | "retryAfter" | "limit">;
+     }, "required", "message" | "retryAfter" | "limit" | "plans">;
   };
   insufficient_credits: {
      status: 402;
@@ -204,15 +537,51 @@ const BACKEND_ERRORS: {
         message: VString<string | undefined, "optional">;
      }, "required", "message" | "meter" | "balance" | "need">;
   };
+  feature_required: {
+     status: 402;
+     data: VObject<{
+        message?: string;
+        feature: string;
+        plans: string[];
+      }, {
+        feature: VString<string, "required">;
+        plans: VArray<string[], VString<string, "required">, "required">;
+        message: VString<string | undefined, "optional">;
+     }, "required", "feature" | "message" | "plans">;
+  };
+  quota_exceeded: {
+     status: 402;
+     data: VObject<{
+        message?: string;
+        limit: number;
+        plans: string[];
+        quota: string;
+        used: number;
+        amount: number;
+      }, {
+        quota: VString<string, "required">;
+        limit: VFloat64<number, "required">;
+        used: VFloat64<number, "required">;
+        amount: VFloat64<number, "required">;
+        plans: VArray<string[], VString<string, "required">, "required">;
+        message: VString<string | undefined, "optional">;
+     }, "required", "message" | "limit" | "plans" | "quota" | "used" | "amount">;
+  };
   invalid_input: {
      status: 400;
      data: VObject<{
         message?: string;
+        reason?: string;
+        need?: number;
+        units?: number;
         field: string;
       }, {
         field: VString<string, "required">;
+        reason: VString<string | undefined, "optional">;
+        need: VFloat64<number | undefined, "optional">;
+        units: VFloat64<number | undefined, "optional">;
         message: VString<string | undefined, "optional">;
-     }, "required", "message" | "field">;
+     }, "required", "message" | "reason" | "need" | "field" | "units">;
   };
   not_ready: {
      status: 409;
@@ -249,19 +618,46 @@ never renames one.
 - `unauthenticated` — nobody is signed in, or the session is gone.
 - `forbidden` — signed in, but not allowed; `reason` says why (`banned`,
   `role`, `permission`, `not_member`, `workspace_role`, `admin_only`,
-  `not_owner`, `impersonating`, `sign_in_refused`, `customer_taken`,
-  `not_billing_manager`, `gift_refused`, `gift_refunded`, `not_recipient`,
-  `no_email`).
+  `not_owner`, `impersonating`, `admin_target`,
+  `sign_in_refused`, `customer_taken`, `already_subscribed`,
+  `not_billing_manager`, `provider_owner_only`, `gift_refused`,
+  `gift_refunded`, `not_recipient`, `no_email`, `bot_check`,
+  `other_account`, `flag_off`, `sole_owner`, `ticket_required`, `invitation_refused`,
+  `consent_required`, `age_required`, `under_age`, `passkey_only_admin`). A `consent_required` refusal
+  also carries `kind`, the required consent not yet accepted at its latest version. A
+  `ticket_required` refusal also carries `phase`, the launch phase that
+  asks for a ticket, and `invite`, how the invite code given checked
+  (`expired`, `used-up`, `revoked`, `unknown`), when one was.
+- `reauthentication_required` — the call is a sensitive action, and the
+  session's sign-in is older than it takes: sign in again
+  (`useReauthentication`), then retry. Better Auth's own refusals of a
+  session too old for its route read as this code too.
 - `no_workspace` — the call needs an active workspace and there is none.
 - `rate_limited` — a named limit is spent; `retryAfter` is in milliseconds.
+  The job queue's budget (`limit: 'jobBudget'`) also names the `plans`
+  on sale whose tier would fit the job now, in pricing order.
 - `insufficient_credits` — the balance can't cover the spend.
-- `invalid_input` — an argument the call refuses; `field` names it.
+- `feature_required` — the billing entity's plan does not include the
+  feature the call needs; `plans` names the catalog plans on sale that
+  do, in pricing order (none when no plan on sale includes it).
+- `quota_exceeded` — the billing entity's plan allows `limit` of the
+  `quota`, `used` are held, and `amount` more do not fit; `plans` names
+  the catalog plans on sale that allow enough, in pricing order.
+- `invalid_input` — an argument the call refuses; `field` names it, and
+  `reason` says why when the field alone does not (`otp_expired`,
+  `passkey_cancelled`, `no_password`, `retired`, `has_account`). A job
+  bigger than any budget of the queue is `over_budget` on `cost`, with
+  its `need` and the owner's `units`; a step's model refusing the
+  content is `content_blocked` on `prompt`.
 - `not_ready` — there is nothing to act on yet, and retrying will not
   change that: `reason` says what has to happen first (`no_customer`,
-  `not_synced`, `no_catalog`, `not_paid`).
+  `not_synced`, `no_catalog`, `not_paid`, and `no_budget`: AI on a
+  sandbox deployment whose `setupAi` sets no `spendLimit`).
 - `unavailable` — a service can't serve the call; `service` and
   `reason` say which and why. Only `provider_refused` may pass on a retry;
-  the others need the deployment fixed. Nothing throws service `backend`
+  the others need the deployment fixed, but a kill switch's
+  (`signups_paused`, `checkout_paused`, `ai_paused`, service `signups`,
+  `checkout` or `ai`), which an administrator turns off. Nothing throws service `backend`
   with reason `unexpected`: it is how a composable's `error` reads a
   failure without a code (a crash, an app's own error), and says nothing
   about whether a service is down.
@@ -273,27 +669,51 @@ never renames one.
 | <a id="property-unauthenticated"></a> `unauthenticated` | \{ `status`: `401`; `data`: `VObject`\<\{ `message?`: `string`; \}, \{ `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `unauthenticated.status` | `401` | `401` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `unauthenticated.data` | `VObject`\<\{ `message?`: `string`; \}, \{ `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
-| <a id="property-forbidden"></a> `forbidden` | \{ `status`: `403`; `data`: `VObject`\<\{ `message?`: `string`; `reason`: `string`; \}, \{ `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"reason"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| <a id="property-forbidden"></a> `forbidden` | \{ `status`: `403`; `data`: `VObject`\<\{ `message?`: `string`; `phase?`: `string`; `invite?`: `string`; `kind?`: `string`; `waitlist?`: \{ `position`: `number`; `total`: `number`; `token`: `string`; \}; `reason`: `string`; \}, \{ `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; `phase`: `VString`\<`string` \| `undefined`, `"optional"`\>; `invite`: `VString`\<`string` \| `undefined`, `"optional"`\>; `kind`: `VString`\<`string` \| `undefined`, `"optional"`\>; `waitlist`: `VObject`\< \| \{ `position`: `number`; `total`: `number`; `token`: `string`; \} \| `undefined`, \{ `position`: `VFloat64`\<`number`, `"required"`\>; `total`: `VFloat64`\<`number`, `"required"`\>; `token`: `VString`\<`string`, `"required"`\>; \}, `"optional"`, `"position"` \| `"total"` \| `"token"`\>; \}, `"required"`, \| `"message"` \| `"reason"` \| `"phase"` \| `"invite"` \| `"kind"` \| `"waitlist"` \| `"waitlist.position"` \| `"waitlist.total"` \| `"waitlist.token"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `forbidden.status` | `403` | `403` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
-| `forbidden.data` | `VObject`\<\{ `message?`: `string`; `reason`: `string`; \}, \{ `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"reason"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `forbidden.data` | `VObject`\<\{ `message?`: `string`; `phase?`: `string`; `invite?`: `string`; `kind?`: `string`; `waitlist?`: \{ `position`: `number`; `total`: `number`; `token`: `string`; \}; `reason`: `string`; \}, \{ `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; `phase`: `VString`\<`string` \| `undefined`, `"optional"`\>; `invite`: `VString`\<`string` \| `undefined`, `"optional"`\>; `kind`: `VString`\<`string` \| `undefined`, `"optional"`\>; `waitlist`: `VObject`\< \| \{ `position`: `number`; `total`: `number`; `token`: `string`; \} \| `undefined`, \{ `position`: `VFloat64`\<`number`, `"required"`\>; `total`: `VFloat64`\<`number`, `"required"`\>; `token`: `VString`\<`string`, `"required"`\>; \}, `"optional"`, `"position"` \| `"total"` \| `"token"`\>; \}, `"required"`, \| `"message"` \| `"reason"` \| `"phase"` \| `"invite"` \| `"kind"` \| `"waitlist"` \| `"waitlist.position"` \| `"waitlist.total"` \| `"waitlist.token"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| <a id="property-reauthentication_required"></a> `reauthentication_required` | \{ `status`: `403`; `data`: `VObject`\<\{ `message?`: `string`; \}, \{ `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `reauthentication_required.status` | `403` | `403` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `reauthentication_required.data` | `VObject`\<\{ `message?`: `string`; \}, \{ `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | <a id="property-no_workspace"></a> `no_workspace` | \{ `status`: `409`; `data`: `VObject`\<\{ `message?`: `string`; \}, \{ `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `no_workspace.status` | `409` | `409` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `no_workspace.data` | `VObject`\<\{ `message?`: `string`; \}, \{ `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
-| <a id="property-rate_limited"></a> `rate_limited` | \{ `status`: `429`; `data`: `VObject`\<\{ `message?`: `string`; `retryAfter?`: `number`; `limit?`: `string`; \}, \{ `retryAfter`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `limit`: `VString`\<`string` \| `undefined`, `"optional"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"retryAfter"` \| `"limit"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| <a id="property-rate_limited"></a> `rate_limited` | \{ `status`: `429`; `data`: `VObject`\<\{ `message?`: `string`; `retryAfter?`: `number`; `limit?`: `string`; `plans?`: `string`[]; \}, \{ `retryAfter`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `limit`: `VString`\<`string` \| `undefined`, `"optional"`\>; `plans`: `VArray`\<`string`[] \| `undefined`, `VString`\<`string`, `"required"`\>, `"optional"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"retryAfter"` \| `"limit"` \| `"plans"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `rate_limited.status` | `429` | `429` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
-| `rate_limited.data` | `VObject`\<\{ `message?`: `string`; `retryAfter?`: `number`; `limit?`: `string`; \}, \{ `retryAfter`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `limit`: `VString`\<`string` \| `undefined`, `"optional"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"retryAfter"` \| `"limit"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `rate_limited.data` | `VObject`\<\{ `message?`: `string`; `retryAfter?`: `number`; `limit?`: `string`; `plans?`: `string`[]; \}, \{ `retryAfter`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `limit`: `VString`\<`string` \| `undefined`, `"optional"`\>; `plans`: `VArray`\<`string`[] \| `undefined`, `VString`\<`string`, `"required"`\>, `"optional"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"retryAfter"` \| `"limit"` \| `"plans"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | <a id="property-insufficient_credits"></a> `insufficient_credits` | \{ `status`: `402`; `data`: `VObject`\<\{ `message?`: `string`; `meter?`: `string`; `balance`: `number`; `need`: `number`; \}, \{ `meter`: `VString`\<`string` \| `undefined`, `"optional"`\>; `balance`: `VFloat64`\<`number`, `"required"`\>; `need`: `VFloat64`\<`number`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"meter"` \| `"balance"` \| `"need"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `insufficient_credits.status` | `402` | `402` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `insufficient_credits.data` | `VObject`\<\{ `message?`: `string`; `meter?`: `string`; `balance`: `number`; `need`: `number`; \}, \{ `meter`: `VString`\<`string` \| `undefined`, `"optional"`\>; `balance`: `VFloat64`\<`number`, `"required"`\>; `need`: `VFloat64`\<`number`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"meter"` \| `"balance"` \| `"need"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
-| <a id="property-invalid_input"></a> `invalid_input` | \{ `status`: `400`; `data`: `VObject`\<\{ `message?`: `string`; `field`: `string`; \}, \{ `field`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"field"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| <a id="property-feature_required"></a> `feature_required` | \{ `status`: `402`; `data`: `VObject`\<\{ `message?`: `string`; `feature`: `string`; `plans`: `string`[]; \}, \{ `feature`: `VString`\<`string`, `"required"`\>; `plans`: `VArray`\<`string`[], `VString`\<`string`, `"required"`\>, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"feature"` \| `"message"` \| `"plans"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `feature_required.status` | `402` | `402` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `feature_required.data` | `VObject`\<\{ `message?`: `string`; `feature`: `string`; `plans`: `string`[]; \}, \{ `feature`: `VString`\<`string`, `"required"`\>; `plans`: `VArray`\<`string`[], `VString`\<`string`, `"required"`\>, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"feature"` \| `"message"` \| `"plans"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| <a id="property-quota_exceeded"></a> `quota_exceeded` | \{ `status`: `402`; `data`: `VObject`\<\{ `message?`: `string`; `limit`: `number`; `plans`: `string`[]; `quota`: `string`; `used`: `number`; `amount`: `number`; \}, \{ `quota`: `VString`\<`string`, `"required"`\>; `limit`: `VFloat64`\<`number`, `"required"`\>; `used`: `VFloat64`\<`number`, `"required"`\>; `amount`: `VFloat64`\<`number`, `"required"`\>; `plans`: `VArray`\<`string`[], `VString`\<`string`, `"required"`\>, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"limit"` \| `"plans"` \| `"quota"` \| `"used"` \| `"amount"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `quota_exceeded.status` | `402` | `402` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `quota_exceeded.data` | `VObject`\<\{ `message?`: `string`; `limit`: `number`; `plans`: `string`[]; `quota`: `string`; `used`: `number`; `amount`: `number`; \}, \{ `quota`: `VString`\<`string`, `"required"`\>; `limit`: `VFloat64`\<`number`, `"required"`\>; `used`: `VFloat64`\<`number`, `"required"`\>; `amount`: `VFloat64`\<`number`, `"required"`\>; `plans`: `VArray`\<`string`[], `VString`\<`string`, `"required"`\>, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"limit"` \| `"plans"` \| `"quota"` \| `"used"` \| `"amount"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| <a id="property-invalid_input"></a> `invalid_input` | \{ `status`: `400`; `data`: `VObject`\<\{ `message?`: `string`; `reason?`: `string`; `need?`: `number`; `units?`: `number`; `field`: `string`; \}, \{ `field`: `VString`\<`string`, `"required"`\>; `reason`: `VString`\<`string` \| `undefined`, `"optional"`\>; `need`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `units`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"reason"` \| `"need"` \| `"field"` \| `"units"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `invalid_input.status` | `400` | `400` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
-| `invalid_input.data` | `VObject`\<\{ `message?`: `string`; `field`: `string`; \}, \{ `field`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"field"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `invalid_input.data` | `VObject`\<\{ `message?`: `string`; `reason?`: `string`; `need?`: `number`; `units?`: `number`; `field`: `string`; \}, \{ `field`: `VString`\<`string`, `"required"`\>; `reason`: `VString`\<`string` \| `undefined`, `"optional"`\>; `need`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `units`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"reason"` \| `"need"` \| `"field"` \| `"units"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | <a id="property-not_ready"></a> `not_ready` | \{ `status`: `409`; `data`: `VObject`\<\{ `message?`: `string`; `reason`: `string`; \}, \{ `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"reason"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `not_ready.status` | `409` | `409` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `not_ready.data` | `VObject`\<\{ `message?`: `string`; `reason`: `string`; \}, \{ `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"reason"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | <a id="property-unavailable"></a> `unavailable` | \{ `status`: `503`; `data`: `VObject`\<\{ `message?`: `string`; `reason`: `string`; `service`: `string`; \}, \{ `service`: `VString`\<`string`, `"required"`\>; `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"reason"` \| `"service"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `unavailable.status` | `503` | `503` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `unavailable.data` | `VObject`\<\{ `message?`: `string`; `reason`: `string`; `service`: `string`; \}, \{ `service`: `VString`\<`string`, `"required"`\>; `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"` \| `"reason"` \| `"service"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+
+***
+
+### SENSITIVE\_ACTIONS
+
+```ts
+const SENSITIVE_ACTIONS: Readonly<Record<string, SensitiveAction>> = ROWS;
+```
+
+Defined in: [src/convex/sensitive-actions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/sensitive-actions.ts)
+
+The table, by Better Auth route (its path under the auth base path) or by
+scaffold function (`module:export`, as the client calls it). Reads appear
+where their impersonation rule or limit says something: an impersonated
+session may use only the routes whose row allows it.
 
 ## Functions
 
@@ -315,7 +735,7 @@ reaches the person in production.
 
 | Type Parameter |
 | ------ |
-| <a id="type-parameter-c-3"></a> `C` *extends* \| `"unauthenticated"` \| `"forbidden"` \| `"no_workspace"` \| `"rate_limited"` \| `"insufficient_credits"` \| `"invalid_input"` \| `"not_ready"` \| `"unavailable"` |
+| <a id="type-parameter-c-3"></a> `C` *extends* \| `"unauthenticated"` \| `"forbidden"` \| `"reauthentication_required"` \| `"no_workspace"` \| `"rate_limited"` \| `"insufficient_credits"` \| `"feature_required"` \| `"quota_exceeded"` \| `"invalid_input"` \| `"not_ready"` \| `"unavailable"` |
 
 #### Parameters
 
@@ -383,96 +803,126 @@ catch (error) {
 ### createFunctions()
 
 ```ts
-function createFunctions<DM>(
-   builders, 
-   authorization, 
-   options?
-): {
+function createFunctions<DM>(builders, options): {
   authed: {
      query: CustomBuilder<"query", Record<string, never>, {
-        user: AuthorizationUser;
-     }, Record<string, never>, GenericQueryCtx<DM>, "public", Record<string, any>>;
+        user: FunctionUser;
+     }, Record<string, never>, GenericQueryCtx<DM>, "public", FunctionDeclaration>;
      mutation: CustomBuilder<"mutation", Record<string, never>, {
-        user: AuthorizationUser;
-     }, Record<string, never>, GenericMutationCtx<DM>, "public", Record<string, any>>;
+        user: FunctionUser;
+     }, Record<string, never>, GenericMutationCtx<DM>, "public", FunctionDeclaration>;
      action: CustomBuilder<"action", Record<string, never>, {
-        user: AuthorizationUser;
-     }, Record<string, never>, GenericActionCtx<DM>, "public", Record<string, any>>;
+        user: FunctionUser;
+     }, Record<string, never>, GenericActionCtx<DM>, "public", FunctionDeclaration>;
   };
-  org: {
+  workspace: {
      query: CustomBuilder<"query", Record<string, never>, {
-        user: AuthorizationUser;
-        organization: {
-           id: string;
-           role: string;
-        };
-     }, Record<string, never>, GenericQueryCtx<DM>, "public", Record<string, any>>;
+        user: FunctionUser;
+        workspace: AuthorizationWorkspace;
+     }, Record<string, never>, GenericQueryCtx<DM>, "public", FunctionDeclaration>;
      mutation: CustomBuilder<"mutation", Record<string, never>, {
-        user: AuthorizationUser;
-        organization: {
-           id: string;
-           role: string;
-        };
-     }, Record<string, never>, GenericMutationCtx<DM>, "public", Record<string, any>>;
+        user: FunctionUser;
+        workspace: AuthorizationWorkspace;
+     }, Record<string, never>, GenericMutationCtx<DM>, "public", FunctionDeclaration>;
      action: CustomBuilder<"action", Record<string, never>, {
-        user: AuthorizationUser;
-        organization: {
-           id: string;
-           role: string;
-        };
-     }, Record<string, never>, GenericActionCtx<DM>, "public", Record<string, any>>;
+        user: FunctionUser;
+        workspace: AuthorizationWorkspace;
+     }, Record<string, never>, GenericActionCtx<DM>, "public", FunctionDeclaration>;
   };
   admin: {
      query: CustomBuilder<"query", Record<string, never>, {
-        user: AuthorizationUser;
-     }, Record<string, never>, GenericQueryCtx<DM>, "public", Record<string, any>>;
+        user: FunctionUser;
+     }, Record<string, never>, GenericQueryCtx<DM>, "public", FunctionDeclaration>;
      mutation: CustomBuilder<"mutation", Record<string, never>, {
-        user: AuthorizationUser;
-     }, Record<string, never>, GenericMutationCtx<DM>, "public", Record<string, any>>;
+        user: FunctionUser;
+     }, Record<string, never>, GenericMutationCtx<DM>, "public", FunctionDeclaration>;
      action: CustomBuilder<"action", Record<string, never>, {
-        user: AuthorizationUser;
-     }, Record<string, never>, GenericActionCtx<DM>, "public", Record<string, any>>;
+        user: FunctionUser;
+     }, Record<string, never>, GenericActionCtx<DM>, "public", FunctionDeclaration>;
   };
   withRole: (role) => {
      query: CustomBuilder<"query", Record<string, never>, {
-        user: AuthorizationUser;
-     }, Record<string, never>, GenericQueryCtx<DM>, "public", Record<string, any>>;
+        user: FunctionUser;
+     }, Record<string, never>, GenericQueryCtx<DM>, "public", FunctionDeclaration>;
      mutation: CustomBuilder<"mutation", Record<string, never>, {
-        user: AuthorizationUser;
-     }, Record<string, never>, GenericMutationCtx<DM>, "public", Record<string, any>>;
+        user: FunctionUser;
+     }, Record<string, never>, GenericMutationCtx<DM>, "public", FunctionDeclaration>;
      action: CustomBuilder<"action", Record<string, never>, {
-        user: AuthorizationUser;
-     }, Record<string, never>, GenericActionCtx<DM>, "public", Record<string, any>>;
+        user: FunctionUser;
+     }, Record<string, never>, GenericActionCtx<DM>, "public", FunctionDeclaration>;
   };
+  withFeature: (feature) => {
+     query: CustomBuilder<"query", Record<string, never>, {
+        user: FunctionUser;
+        workspace: AuthorizationWorkspace;
+     }, Record<string, never>, GenericQueryCtx<DM>, "public", FunctionDeclaration>;
+     mutation: CustomBuilder<"mutation", Record<string, never>, {
+        user: FunctionUser;
+        workspace: AuthorizationWorkspace;
+     }, Record<string, never>, GenericMutationCtx<DM>, "public", FunctionDeclaration>;
+     action: CustomBuilder<"action", Record<string, never>, {
+        user: FunctionUser;
+        workspace: AuthorizationWorkspace;
+     }, Record<string, never>, GenericActionCtx<DM>, "public", FunctionDeclaration>;
+  };
+  setUserRole: RegisteredMutation<"internal", {
+     email: string;
+     role: string;
+  }, Promise<null>>;
 };
 ```
 
 Defined in: [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts)
 
-Pre-authorized function builders over your `_generated/server` builders —
-grouped by tier, each a drop-in `{ query, mutation, action }`:
+Every access tier of your backend, from one call in `backend/functions.ts`:
+each a drop-in `{ query, mutation, action }` that checks the caller before
+the handler runs.
 
 ```ts
-const { authed, org, admin, withRole } = createFunctions({ query, mutation, action }, authorization)
+// backend/functions.ts
+import { createFunctions } from 'nuxt-backend/functions'
+import { billing } from './billing'
+import { rateLimiter } from './rateLimiter'
+import { components } from './_generated/api'
+import { action, mutation, query } from './_generated/server'
 
-export const me = authed.query({           // ctx.user (requireUser)
-  args: {},
-  handler: async (ctx) => ctx.user,
+export const { authed, workspace, admin, withRole, withFeature, setUserRole } = createFunctions(
+  { query, mutation, action },
+  { components, billing, rateLimiter, limits: { authed: 'write' } },
+)
+
+// backend/strips.ts
+export const create = workspace.mutation({ // ctx.user + ctx.workspace (fresh membership)
+  args: { title: v.string() },
+  handler: async (ctx, { title }) =>
+    ctx.db.insert('strips', { title, workspaceId: ctx.workspace.id }),
 })
-export const createProject = org.mutation({ // + ctx.organization (fresh membership)
-  args: { name: v.string() },
-  handler: async (ctx, { name }) =>
-    ctx.db.insert('projects', { name, organizationId: ctx.organization.id }),
-})
-export const purge = admin.action({ ... })   // requireRole(adminRoles)
-export const review = withRole('editor').query({ ... })
 ```
 
-The `org` tier verifies membership with a fresh member-table read on every
-call (a removed member is locked out immediately, not at JWT expiry).
-`authed`/`admin`/`withRole` are claims-based — see `requireRole`'s `fresh`
-option when you need stronger guarantees. Pass your `withTriggers`-wrapped
-`mutation` to keep aggregate triggers composing.
+The `workspace` tier verifies membership with a fresh member-table read on every
+call (a removed member is locked out immediately, not at token expiry). The
+`admin` tier reads the role fresh too, so a demoted admin is refused on
+their next call, and its mutations and actions refuse a session an
+administrator opened by impersonating someone (`forbidden`, reason
+`impersonating`): an admin write is a person's own act. The mutations
+and actions of every tier read the account fresh, so a ban, a deletion
+or (for `withRole`) a role change lands on the next write; `authed` and
+`withRole` queries read the token's claims, which can lag by up to its
+15-minute lifetime.
+
+Every tier's action reports a crash of its handler, or an `unavailable`
+refusal, to the monitoring service `MONITORING_DSN` names
+(`nuxt-backend/monitoring`), then rethrows it. Pass your
+trigger-wrapped `mutation` to keep aggregate triggers composing.
+
+A function declares `recentSignIn` beside `args` for a sign-in from the
+last ten minutes (`true`) or a number of seconds, and
+`impersonation: 'refused'` to refuse an administrator's visit. The
+`admin` tier's mutations and actions take a recent sign-in by default.
+
+`setUserRole` is the internal mutation that sets an app-wide role by
+email: `npx nuxt-backend doctor --fix` runs it to make your first
+administrator.
 
 #### Type Parameters
 
@@ -485,23 +935,296 @@ option when you need stronger guarantees. Pass your `withTriggers`-wrapped
 | Parameter | Type |
 | ------ | ------ |
 | `builders` | `Builders`\<`DM`\> |
-| `authorization` | [`Authorization`](/docs/reference/api/authorization#authorization) |
-| `options?` | [`CreateFunctionsOptions`](#createfunctionsoptions) |
+| `options` | [`CreateFunctionsOptions`](#createfunctionsoptions) |
 
 #### Returns
 
 | Name | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| `authed` | \{ `query`: `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\>; `mutation`: `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\>; `action`: `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\>; \} | Signed-in (and not banned): injects `ctx.user`. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| `authed.query` | `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| `authed.mutation` | `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| `authed.action` | `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| `org` | \{ `query`: `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); `organization`: \{ `id`: `string`; `role`: `string`; \}; \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\>; `mutation`: `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); `organization`: \{ `id`: `string`; `role`: `string`; \}; \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\>; `action`: `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); `organization`: \{ `id`: `string`; `role`: `string`; \}; \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\>; \} | Workspace member (fresh check): injects `ctx.user` + `ctx.organization`. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| `org.query` | `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); `organization`: \{ `id`: `string`; `role`: `string`; \}; \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| `org.mutation` | `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); `organization`: \{ `id`: `string`; `role`: `string`; \}; \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| `org.action` | `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); `organization`: \{ `id`: `string`; `role`: `string`; \}; \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| `admin` | \{ `query`: `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\>; `mutation`: `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\>; `action`: `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\>; \} | App-wide admin (`adminRoles`): injects `ctx.user`. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| `admin.query` | `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| `admin.mutation` | `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| `admin.action` | `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
-| `withRole()` | (`role`) => \{ `query`: `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\>; `mutation`: `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\>; `action`: `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`AuthorizationUser`](/docs/reference/api/authorization#authorizationuser); \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, `Record`\<`string`, `any`\>\>; \} | Custom app-wide role tier: `withRole('editor').query(...)`. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `authed` | \{ `query`: `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; `mutation`: `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; `action`: `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; \} | Signed-in (and not banned): injects `ctx.user`. Its mutations and actions read the account fresh, so a ban lands at once; its queries read the token's claims. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `authed.query` | `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `authed.mutation` | `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `authed.action` | `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `workspace` | \{ `query`: `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); `workspace`: [`AuthorizationWorkspace`](#authorizationworkspace); \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; `mutation`: `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); `workspace`: [`AuthorizationWorkspace`](#authorizationworkspace); \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; `action`: `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); `workspace`: [`AuthorizationWorkspace`](#authorizationworkspace); \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; \} | Workspace member (fresh check): injects `ctx.user` + `ctx.workspace` (`{ id, slug, name, role }`). Its writes read the account fresh too. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `workspace.query` | `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); `workspace`: [`AuthorizationWorkspace`](#authorizationworkspace); \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `workspace.mutation` | `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); `workspace`: [`AuthorizationWorkspace`](#authorizationworkspace); \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `workspace.action` | `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); `workspace`: [`AuthorizationWorkspace`](#authorizationworkspace); \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `admin` | \{ `query`: `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; `mutation`: `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; `action`: `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; \} | App-wide admin (`adminRoles`, read fresh): injects `ctx.user`. Its mutations and actions refuse impersonated sessions, and take a sign-in from the last ten minutes unless the function says `recentSignIn: false` (`reauthentication_required`). On a `sandbox` deployment it refuses an administrator whose account is not passkey-only (`forbidden`, reason `passkey_only_admin`). | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `admin.query` | `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `admin.mutation` | `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `admin.action` | `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\> | - | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `withRole()` | (`role`) => \{ `query`: `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; `mutation`: `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; `action`: `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; \} | Custom app-wide role tier: `withRole('editor').query(...)`. Its writes read the role and the ban fresh. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `withFeature()` | (`feature`) => \{ `query`: `CustomBuilder`\<`"query"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); `workspace`: [`AuthorizationWorkspace`](#authorizationworkspace); \}, `Record`\<`string`, `never`\>, `GenericQueryCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; `mutation`: `CustomBuilder`\<`"mutation"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); `workspace`: [`AuthorizationWorkspace`](#authorizationworkspace); \}, `Record`\<`string`, `never`\>, `GenericMutationCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; `action`: `CustomBuilder`\<`"action"`, `Record`\<`string`, `never`\>, \{ `user`: [`FunctionUser`](#functionuser); `workspace`: [`AuthorizationWorkspace`](#authorizationworkspace); \}, `Record`\<`string`, `never`\>, `GenericActionCtx`\<`DM`\>, `"public"`, [`FunctionDeclaration`](#functiondeclaration)\>; \} | The `workspace` tier for a plan's feature: `withFeature('reports').query(...)`. A workspace member (read fresh) whose billing entity's plan grants the feature, as `billing.requireFeature` checks it: from the entitlement cache, matched by its catalog key. Anyone else is refused `feature_required`, its `plans` the plans on sale that include it. Injects `ctx.user` and `ctx.workspace`; its `recentSignIn` is asked last, of a caller the feature already lets in. Its writes spend `limits.workspace`. Needs `billing` in `createFunctions`' options: without it, defining a function throws. The plan checked is the billing entity's, as billing resolves it: the active workspace, `ctx.workspace`, by default; the one your `setupBilling({ resolveEntity })` names when you have one. With `billTo: 'user'` it is the caller's own plan, and the tier still asks for a workspace member: gate a function on a user's plan, or behind another tier, with `billing.requireFeature(ctx, key)` in its handler. **Guarantee** Refuses a caller who may not act at all (signed out, no member) as the `workspace` tier does, before the feature is read. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+| `setUserRole` | `RegisteredMutation`\<`"internal"`, \{ `email`: `string`; `role`: `string`; \}, `Promise`\<`null`\>\> | The internal mutation that sets an app-wide role by email, never callable from a browser: `npx nuxt-backend doctor --fix` runs it to make your first administrator. A role it changes is recorded on the activity trail as `admin.role_changed`. | [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts) |
+
+***
+
+### verifyHuman()
+
+```ts
+function verifyHuman(
+   ctx, 
+   token, 
+   __namedParameters
+): Promise<void>;
+```
+
+Defined in: [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts)
+
+Check that a call comes from a person, in a function of your own: a
+waitlist join, a contact form, a referral claim, any call that reaches the
+deployment over the live connection and never through the app's server.
+The client gets the token from `useHumanCheck().token(action, subject)`
+and passes it along with the call.
+
+It accepts either:
+- a proof the app's server signed for this `action` (and `subject`, when
+  one is named) and this deployment after its own bot check passed (on
+  Vercel, BotID), under `PROTECTION_PROOF_SECRET`, at most a minute old;
+- a challenge answer, given for this `action` and verified with the
+  provider under `PROTECTION_CHALLENGE_SECRET_KEY`. That takes a `fetch`,
+  which Convex runs in actions only, and off Vercel no proof is signed:
+  check in an action, as below, which works on every host.
+
+A proof for a call that names no subject is bound to the browser that
+asked for it, by the visitor cookie the proof route sets: `jobs.enqueue`
+in the same function puts a signed-out caller's guest job under that
+visitor (`defineJobQueue({ guest })`).
+
+With neither secret set, the deployment checks nobody and every call
+passes: bot protection is missing (`nuxt-backend doctor --prod` says so).
+Anything else is refused as `forbidden` with reason `bot_check`; a
+provider that cannot be reached as `unavailable` (`provider_refused`).
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `ctx` | `object` |
+| `token` | `string` \| `null` \| `undefined` |
+| `__namedParameters` | \{ `action`: `string`; `subject?`: `string`; \} |
+| `__namedParameters.action` | `string` |
+| `__namedParameters.subject?` | `string` |
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Guarantee
+
+A token passes for the one action (and subject) it was given for, and a proof for a minute on its own deployment.
+
+#### Guarantee
+
+Without a secret on the deployment, no token is ever required.
+
+#### Example
+
+```ts
+import { verifyHuman } from 'nuxt-backend/functions'
+
+export const joinWaitlist = action({
+  args: { email: v.string(), human: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, { email, human }) => {
+    await verifyHuman(ctx, human, { action: 'waitlist', subject: email })
+    await ctx.runMutation(internal.waitlist.insert, { email })
+  },
+})
+```
+
+***
+
+### defineRetention()
+
+```ts
+function defineRetention<DM, T, I>(internalMutation, options): RegisteredMutation<"internal", RetentionArgs, Promise<RetentionResult>>;
+```
+
+Defined in: [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts)
+
+Delete a table's rows once they pass an age, a batch per transaction,
+until none is left. Returns the rule's internal mutation: export it from
+a file in `backend/`, and start it from a cron (`crons.cron(...,
+internal.retention.pruneDrafts, {})`).
+
+A pass fixes its cutoff when it starts (the current time minus `ttl`), so
+it always ends: each batch reads up to `batch` rows older than the cutoff
+through `index`, runs `onDelete` for each and deletes it, all in one
+transaction, and a batch that leaves rows behind schedules the next one
+through the rule's own `fn`, carrying the same clock. A batch that throws
+rolls back, ends the pass and logs `retention.batch_failed` with the table
+and the row; the next pass retries from the same oldest rows.
+
+Pass the builder your other writes use: when an aggregate counts the table,
+that is the trigger-wrapped `internalMutation`, so a pruned row leaves the
+count too.
+
+The mutation takes an optional `{ now }` (epoch milliseconds) and returns
+`{ deleted, more }`.
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| <a id="type-parameter-dm-2"></a> `DM` *extends* `GenericDataModel` |
+| <a id="type-parameter-t-1"></a> `T` *extends* `string` |
+| <a id="type-parameter-i-1"></a> `I` *extends* `string` \| `number` \| `symbol` |
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `internalMutation` | `MutationBuilder`\<`DM`, `"internal"`\> |
+| `options` | [`RetentionOptions`](#retentionoptions)\<`DM`, `T`, `I`\> |
+
+#### Returns
+
+`RegisteredMutation`\<`"internal"`, [`RetentionArgs`](#retentionargs), `Promise`\<[`RetentionResult`](#retentionresult)\>\>
+
+#### Guarantee
+
+A pass ends: its cutoff is fixed when it starts.
+
+#### Guarantee
+
+`onDelete` and the delete of its row are one transaction: both happen or neither does.
+
+#### Guarantee
+
+Rows are read through an index, never scanned, so a batch reads at most `batch + 1` rows.
+
+#### Guarantee
+
+A row whose time field is missing sorts first and is deleted on the first pass.
+
+#### Throws
+
+TypeError when `fn`, `ttl`, `batch` or `index` is malformed, as the module loads.
+
+#### Example
+
+```ts
+// backend/retention.ts
+import { defineRetention } from 'nuxt-backend/functions'
+import { DAY } from 'nuxt-backend/rate-limit'
+import { internalMutation } from './_generated/server'
+
+export const pruneDrafts = defineRetention(internalMutation, {
+  fn: 'retention:pruneDrafts',
+  table: 'strips',
+  index: 'by_status_and_updatedAt',
+  match: { status: 'draft' },
+  ttl: 30 * DAY,
+})
+```
+
+***
+
+### randomToken()
+
+```ts
+function randomToken(bytes?): string;
+```
+
+Defined in: [src/convex/tokens.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/tokens.ts)
+
+A random token from the platform's secure random source: 32 bytes by
+default, written as 43 URL-safe characters (`A-Z a-z 0-9 - _`), so it
+goes into a path or a query as it is. Hand it out once and keep only
+`sha256Hex(token)`.
+
+`bytes` is the entropy, from 16 to 1024. The token's length is longer:
+22 characters for 16 bytes.
+
+#### Parameters
+
+| Parameter | Type | Default value |
+| ------ | ------ | ------ |
+| `bytes?` | `number` | `32` |
+
+#### Returns
+
+`string`
+
+#### Throws
+
+TypeError when `bytes` is no whole number from 16 to 1024.
+
+#### Example
+
+```ts
+import { randomToken, sha256Hex } from 'nuxt-backend/functions'
+
+const token = randomToken()
+const tokenHash = await sha256Hex(token) // store this
+return token // shown once
+```
+
+***
+
+### sha256Hex()
+
+```ts
+function sha256Hex(text): Promise<string>;
+```
+
+Defined in: [src/convex/tokens.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/tokens.ts)
+
+The text's SHA-256 as 64 lower-case hex characters, from its UTF-8
+bytes. The hash to store for a token, and to look it up by: hash what
+arrives and compare hashes.
+
+It suits tokens that are random and long. A password or any guessable
+secret needs a slow, salted hash instead (the package never stores
+passwords).
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `text` | `string` |
+
+#### Returns
+
+`Promise`\<`string`\>
+
+#### Example
+
+```ts
+import { sha256Hex } from 'nuxt-backend/functions'
+
+await sha256Hex('abc') // 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+```
+
+***
+
+### normalizeEmail()
+
+```ts
+function normalizeEmail(address): string;
+```
+
+Defined in: [src/convex/tokens.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/tokens.ts)
+
+The address trimmed and lower-cased: the form to store and compare it in,
+so `Ana@Example.com ` and `ana@example.com` are one person. Only
+surrounding whitespace and case change, and the domain is not rewritten
+(no punycode, no plus-tag or dot rules, which differ by provider).
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `address` | `string` |
+
+#### Returns
+
+`string`
+
+#### Example
+
+```ts
+import { normalizeEmail } from 'nuxt-backend/functions'
+
+normalizeEmail('  Ana@Example.com ') // 'ana@example.com'
+```

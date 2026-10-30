@@ -13,10 +13,13 @@ import { BACKEND_CLIENT_META, needsBackendClient } from './runtime/routes'
 //   start: /playground/** and the module's pages
 //   (`runtimeConfig.public.backend.pages`), marked here at build;
 // - on a docs page with `demo: true`, when a <DeferredBackend> block scrolls
-//   into view;
+//   into view, or when the reader starts it (a `::demo-*` block built on
+//   <DemoBlock>, website/components);
 // - nowhere else: never on the homepage. scripts/check-website-bundle.mjs
 //   fails CI when a prerendered page's scripts reach the client up front,
-//   call for it at mount, or prefetch it.
+//   call for it at mount, or prefetch it; when the pages that hold a live
+//   block are not exactly the `demo: true` ones; and when what a demo
+//   loads on demand passes its ceiling.
 //
 // Its chunks are kept out of every page's prefetch hints too, and the links
 // into the playground prefetch on intent (test/docs/homepage.test.ts): an
@@ -112,6 +115,8 @@ export default defineNuxtModule({
         '  interface NuxtApp {',
         '    /** Load the backend client (once); resolves when its plugin has run. */',
         '    $loadBackendClient: () => Promise<void>',
+        '    /** Without loading anything: `unavailable` in a build without a backend URL, `deferred` until loaded, `loaded` after. */',
+        '    $backendClientStatus: () => \'unavailable\' | \'deferred\' | \'loaded\'',
         '  }',
         '}',
         'export {}',

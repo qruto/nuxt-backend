@@ -1,6 +1,7 @@
 import { ref, watchEffect } from 'vue'
 import { useEmailStatus, type UseEmailStatusReturn } from '../vue/composables/use-email-status'
 import { useGifts, type UseGiftsReturn } from '../vue/composables/use-gifts'
+import { useNotifications, type UseNotificationsReturn } from '../vue/composables/use-notifications'
 import { usePasskeys, type UsePasskeysReturn } from '../vue/composables/use-passkeys'
 import { describeUserAgent, useSessions, type UseSessionsReturn } from '../vue/composables/use-sessions'
 import type { BackendDevtoolsBridgeHost, DevtoolsBridgeRequests, DevtoolsOnDemandSection } from './types'
@@ -15,19 +16,32 @@ function toMs(value: string | Date | number | undefined): number | undefined {
 
 /**
  * The sections a panel page loads when it opens: device sessions, passkeys,
- * received gifts, and one email's delivery status. Each composable is created
+ * received gifts, the inbox, and one email's delivery status. Each composable is created
  * the first time it is asked for (inside the app context `run` provides) and
  * mirrored into the bridge from then on. Only what the panel shows is copied:
  * a passkey's credential stays in the app.
  */
-export function createOnDemandSections(run: <T>(fn: () => T) => T, patch: Patch): Omit<DevtoolsBridgeRequests, 'activate'> {
+export function createOnDemandSections(run: <T>(fn: () => T) => T, patch: Patch): Omit<DevtoolsBridgeRequests, 'activate' | 'replayWebhook'> {
   let sessions: UseSessionsReturn | undefined
   let passkeys: UsePasskeysReturn | undefined
   let gifts: UseGiftsReturn | undefined
+  let notifications: UseNotificationsReturn | undefined
   let email: UseEmailStatusReturn | undefined
   const emailId = ref<string>()
 
   const loaders: Record<DevtoolsOnDemandSection, () => void> = {
+    notifications() {
+      // A live query: the inbox's own first page, mirrored as it changes.
+      if (notifications) return
+      const inbox = useNotifications({ limit: 10 })
+      notifications = inbox
+      watchEffect(() => patch('notifications', {
+        isLoading: inbox.isLoading.value,
+        ...(inbox.error.value ? { error: inbox.error.value.message } : {}),
+        unread: inbox.unreadCount.value,
+        items: inbox.items.value.map(item => ({ type: item.type, title: item.title, read: item.read, at: item.at, channels: item.channels })),
+      }))
+    },
     sessions() {
       // A live query: created once, it keeps the panel current on its own.
       if (sessions) return
@@ -49,7 +63,7 @@ export function createOnDemandSections(run: <T>(fn: () => T) => T, patch: Patch)
         passkeys = list
         watchEffect(() => patch('passkeys', {
           isLoading: list.isLoading.value,
-          ...(list.error.value ? { error: list.error.value } : {}),
+          ...(list.error.value ? { error: list.error.value.message } : {}),
           items: (list.passkeys.value ?? []).map(passkey => ({
             name: passkey.name ?? undefined,
             deviceType: passkey.deviceType,
@@ -58,7 +72,8 @@ export function createOnDemandSections(run: <T>(fn: () => T) => T, patch: Patch)
           })),
         }))
       }
-      passkeys.refresh().catch(() => {})
+      // A load never rejects: a failure shows in the section.
+      void passkeys.refresh()
     },
     gifts() {
       if (gifts) return

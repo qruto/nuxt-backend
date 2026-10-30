@@ -1,0 +1,76 @@
+{
+  "login": {
+    "title": "Se connecter à l'exemple avancé",
+    "language": "English"
+  },
+  "backend": {
+    "auth": {
+      "title": "Se connecter",
+      "titleBrand": "Se connecter à {brand}",
+      "passkeySignIn": "Se connecter avec une clé d’accès",
+      "passkeyWaiting": "En attente de votre clé d’accès…",
+      "divider": "ou",
+      "emailCode": "Continuer avec un code par e-mail",
+      "name": "Nom",
+      "email": "E-mail",
+      "sendCode": "M’envoyer un code",
+      "sending": "Envoi du code…",
+      "sent": "Nous avons envoyé un code à {email}.",
+      "code": "Code de vérification",
+      "verify": "Vérifier",
+      "verifying": "Vérification…",
+      "back": "Retour",
+      "passkeyOffer": "Enregistrez une clé d’accès sur cet appareil pour vous connecter instantanément la prochaine fois.",
+      "addPasskey": "Ajouter une clé d’accès",
+      "addingPasskey": "Ajout de la clé d’accès…",
+      "skip": "Plus tard"
+    },
+    "invitation": {
+      "title": "Invitation",
+      "loading": "Chargement de l’invitation…",
+      "missing": "Ce lien d’invitation est invalide ou a expiré.",
+      "invited": "{inviter} vous invite à rejoindre {workspace}.",
+      "invitedAs": "{inviter} vous invite à rejoindre {workspace} en tant que {role}.",
+      "accept": "Accepter l’invitation",
+      "accepting": "Connexion à l’espace…",
+      "decline": "Refuser",
+      "declining": "Refus…",
+      "accepted": "Vous avez rejoint {workspace}.",
+      "declined": "Invitation refusée."
+    },
+    "usage": {
+      "units": "{count} crédit | {count} crédits"
+    },
+    "errors": {
+      "unauthenticated": "Connectez-vous pour continuer.",
+      "forbidden": "Vous n’avez pas accès à ceci.",
+      "rate_limited": "Trop de requêtes. Réessayez dans un instant.",
+      "rate_limited_for": "Trop de requêtes. Réessayez dans {count} seconde. | Trop de requêtes. Réessayez dans {count} secondes.",
+      "invalid_input_email": "Saisissez une adresse e-mail valide.",
+      "unavailable_unexpected": "Une erreur s’est produite.",
+      "invalid_input_otp": "Ce code n’est pas le bon. Vérifiez-le, ou demandez-en un nouveau.",
+      "invalid_input_otp_expired": "Ce code a expiré. Demandez-en un nouveau.",
+      "invalid_input_passkey_cancelled": "La fenêtre de la clé d’accès a été fermée. Réessayez, ou continuez avec un code par e-mail.",
+      "forbidden_too_many_attempts": "Trop de codes erronés. Demandez-en un nouveau."
+    },
+    "email": {
+      "layout": {
+        "sentBy": "Envoyé par {brand}"
+      },
+      "link": {
+        "fallback": "Ou collez ce lien dans votre navigateur :"
+      },
+      "emailChanged": {
+        "subject": "Votre adresse e-mail a été modifiée",
+        "intro": "L’adresse e-mail de votre compte est désormais {newEmail}.",
+        "warning": "Si vous n’êtes pas à l’origine de ce changement, contactez-nous immédiatement."
+      },
+      "welcome": {
+        "subject": "Bienvenue à bord",
+        "greeting": "Bienvenue !",
+        "greetingNamed": "Bienvenue, {name} !",
+        "body": "Votre compte est prêt — merci de nous avoir rejoints."
+      }
+    }
+  }
+}

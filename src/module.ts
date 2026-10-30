@@ -1,21 +1,30 @@
-import { defineNuxtModule, addPlugin, createResolver } from '@nuxt/kit'
+import { defineNuxtModule, addNitroPlugin, addPlugin, addServerHandler, createResolver, hasNuxtModule } from '@nuxt/kit'
 import { defu } from 'defu'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
-import { dependencyRange, moduleDir, packageVersion } from './dirs'
+import { dependencyRange, moduleDir, packageVersion, runsFromSource } from './dirs'
 import { backendAppConfigDefaults, type BackendAppConfigInput } from './runtime/config'
 import { deriveDeploymentUrls, resolveSiteUrl } from './deployment'
 import { provisionedEnvNames, readEnvFiles } from './env-push'
-import { scaffoldBackendFiles } from './scaffold'
 import { registerBackendAliases, resolveFunctionsDir } from './aliases'
 import { resolvePagePath, type BackendPageKey, type ModulePagesOptions } from './pages'
 import { buildDevtoolsInfo, readPackageVersions } from './devtools/info'
-import type { BackendMcpFunctionKey } from './runtime/server/mcp/builtin'
-import { isDevtoolsUiEnabled, isSiteUrlConfigured, runDevAutoEnv, runPreflight } from './nuxt/dev'
-import { registerMcp, resolveMcpOptions } from './nuxt/mcp'
+import { isDevtoolsUiEnabled, isSiteUrlConfigured, runPreflight } from './nuxt/dev'
+import { registerI18nMessages } from './nuxt/i18n'
+import { registerLabels } from './nuxt/labels'
+import { registerJobs } from './nuxt/jobs'
+import { registerReports } from './nuxt/reports'
+import { VISITOR_IP_ROUTE } from './convex/constants'
+import { monitoringDependency, monitoringWiring, registerMonitoring, type MonitoringPublicConfig } from './nuxt/monitoring'
 import { assertModuleOptions } from './nuxt/options'
 import { registerModulePages } from './nuxt/pages'
-import { hideBaseBrandNames, registerAuthMiddleware, registerBackendTypeFallback, registerBaseComponentAliases, registerSaasComposables } from './nuxt/registry'
-import { registerThemeBridge } from './nuxt/theme'
+import { registerBrandFile } from './nuxt/brand'
+import { registerInstallable } from './nuxt/installable'
+import { registerPathsFile } from './nuxt/paths'
+import { hideBaseBrandNames, registerBackendApi, registerBaseComponentAliases, registerPageAccess, registerSaasComposables } from './nuxt/registry'
+import { imageDependency } from './nuxt/image'
+import { registerStyles } from './nuxt/styles'
+import { registerProtection } from './nuxt/protection'
+import { securityDefaults } from './nuxt/security'
 
 // The module definition; the helpers setup calls live in nuxt/, one file
 // per concern.
@@ -28,75 +37,67 @@ import { registerThemeBridge } from './nuxt/theme'
  */
 export type { ConvexAuthOptions as BackendAuthOptions, ConvexAuthService as BackendAuthService } from 'nuxt-convex-module/better-auth/server'
 
-// The MCP option vocabularies live with the runtime that interprets them
-// (type-only imports — erased at build, so no server-runtime code is pulled
-// into the module bundle).
-export type { BackendMcpFunctionKey, BackendMcpToolName } from './runtime/server/mcp/builtin'
+// The page guard's vocabulary: the rules `definePageMeta({ auth })` takes, and
+// what its 403 carries in `error.data`, for a typed `error.vue`.
+export type { AccessDeniedData, AccessDeniedReason, PageAccessRules } from './runtime/vue/utils/access-rules'
+export type { AdminTabMeta } from './runtime/vue/components/admin/admin-tabs'
 
-/**
- * The agent (MCP) surface: an OAuth-protected MCP endpoint served by Nitro
- * via `@nuxtjs/mcp-toolkit`, with ready-made account/billing/workspace tools
- * that call Convex as the signed-in user. Everything the tools expose is
- * already reachable through the product UI under the same user auth; OAuth
- * adds per-client consent and the deployment's `mcp` rate limit guards the
- * token exchange.
- */
-export interface ModuleMcpOptions {
-  /** MCP endpoint route. Default `/mcp` (the toolkit's default). */
-  route?: string
-  /** Server name/description/instructions forwarded to the toolkit. */
-  name?: string
-  description?: string
-  instructions?: string
-  /** Stateful transport sessions, forwarded to the toolkit. Default off. */
-  sessions?: boolean | { enabled?: boolean, maxDuration?: number, maxSessions?: number }
+/** Where the ready-made pages send a person once they are done. */
+export interface ModuleRedirectsOptions {
   /**
-   * Override the Convex functions the built-in tools call — needed only when
-   * the scaffolded `auth.ts`/`billing.ts` files were renamed. Values are
-   * `module:export` refs, e.g. `{ getCredits: 'myBilling:getCredits' }`.
+   * Where the sign-in page sends a person after they sign in, when the
+   * `?redirect=` the page guard added names no page of this site.
+   * A path of this site, such as `/app`. Default `/`.
    */
-  functions?: Partial<Record<BackendMcpFunctionKey, string>>
+  afterSignIn?: string
 }
 
 export interface ModuleOptions {
+  /**
+   * The deployment's URL (the `.convex.cloud` origin). Else
+   * `NUXT_PUBLIC_BACKEND_URL`, else derived from `CONVEX_DEPLOYMENT`. The
+   * HTTP-routes origin (`.convex.site`) derives from it; a custom domain in
+   * front of them goes in `NUXT_PUBLIC_CONVEX_SITE_URL`.
+   */
   url?: string
-  siteUrl?: string
   authRoute?: string
   /**
-   * Auto-scaffold missing Convex backend files on dev startup. Set `false`
-   * when you scaffold explicitly with `npx nuxt-backend init`.
-   */
-  scaffold?: 'auto' | false
-  /**
    * Where the ready-made pages mount (sign-in, pricing, settings, profile,
-   * security, the invitation and agent-consent pages). Every page is on; give
-   * a key a path to move it. To replace a page, put an app page at its path:
-   * an app page always wins over the module's.
+   * security and the invitation pages). Every page is on; give a key a path
+   * to move it, or `false` to turn it off. To replace a page, put an app
+   * page at its path: an app page always wins over the module's.
    */
   pages?: ModulePagesOptions
-  /**
-   * On dev startup, provision the `dev:` deployment env automatically — the
-   * same engine as `npx nuxt-backend env push`: forward `.env(.local)` values,
-   * generate `AUTH_SECRET`, default `SITE_URL` to localhost, and echo OTP
-   * codes to the convex dev console until an email transport exists. Runs
-   * once per deployment (stamped under `node_modules/.cache/nuxt-backend`),
-   * asynchronously after startup. Never touches non-dev deployments.
-   * `false` to manage the deployment env yourself.
-   */
-  autoEnv?: boolean
-  /**
-   * The agent (MCP) surface — an OAuth-protected `/mcp` endpoint with
-   * built-in account/billing/workspace tools. See {@link ModuleMcpOptions}.
-   */
-  mcp?: ModuleMcpOptions
+  /** Where the ready-made pages send a person once they are done. See {@link ModuleRedirectsOptions}. */
+  redirects?: ModuleRedirectsOptions
   /**
    * The Backend tab in Nuxt DevTools (dev only): the deployment and its env
    * names, live checks and doctor on demand, the signed-in account, billing,
-   * email, the webhook delivery log and the agent endpoint. Enabled by
+   * email and the webhook delivery log. Enabled by
    * default whenever Nuxt DevTools is; set `false` to disable just the
    * Backend tab.
    */
   devtools?: boolean
+  /**
+   * The package's stylesheets (default `true`): the `--bk-*` tokens on
+   * `:root` and the styles of each detected capability's components, inside
+   * `@layer nuxt-backend`, so any rule of the app's wins. `false` loads no
+   * package CSS: the components keep their markup, `data-*` hooks and
+   * accessibility attributes, unstyled.
+   */
+  css?: boolean
+}
+
+/** The install and upgrade steps a published build declares (see `runsFromSource`). */
+const lifecycleHooks = {
+  async onInstall(nuxt: Nuxt): Promise<void> {
+    const { installProject } = await import('./nuxt/install')
+    await installProject(nuxt)
+  },
+  async onUpgrade(_nuxt: Nuxt, _options: ModuleOptions, previousVersion: string): Promise<void> {
+    const { announceUpgrade } = await import('./nuxt/install')
+    announceUpgrade(previousVersion, packageVersion())
+  },
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -107,17 +108,26 @@ export default defineNuxtModule<ModuleOptions>({
     // Surfaced by Nuxt DevTools and the nuxt/modules registry (which reads it
     // from dist/module.json and uses it as the listing's website).
     docs: 'https://nuxt-backend.dev',
-    // From 4.1, where moduleDependencies with option forwarding arrived. Not
-    // Nuxt 5 yet: every server handler here is written for Nitro 2 and h3 1,
-    // and Nuxt 5 runs Nitro 3 — on it Nuxt disables the module with its own
-    // incompatibility warning instead of letting it fail at runtime.
-    compatibility: { nuxt: '^4.1.0' },
+    // From 4.6.2: the server code is written against `nuxt/server`, which
+    // ships in 4.6, and nuxt-convex-module 0.12 needs 4.6 too. Not Nuxt 5
+    // yet: the package's server code and nuxt-security still run on h3 1, and on Nuxt 5 Nuxt disables
+    // the module with its own incompatibility warning instead of letting it
+    // fail at runtime.
+    compatibility: { nuxt: '^4.6.2' },
   },
   defaults: {
-    scaffold: 'auto',
-    autoEnv: true,
     devtools: true,
   },
+  // `npx nuxt module add nuxt-backend` is the whole install: its `nuxt
+  // prepare` calls onInstall once, and at an interactive terminal it sets the
+  // project up as `npx nuxt-backend init` does, installing `convex` too. On a
+  // newer version than the app recorded, onUpgrade says what `upgrade` does.
+  // Nuxt records the version in the app's `.nuxtrc` (`setups.nuxt-backend`)
+  // for any module that declares either hook, so only a published build
+  // declares them: run from source, in this repository's own prepare, there
+  // is no app to set up and nothing to record. Lazy: none of it loads on a
+  // normal start.
+  ...(runsFromSource ? {} : lifecycleHooks),
   // The Convex + Better Auth + Polar framework integration. Declared as a
   // module dependency (not `installModule`) so Nuxt dedupes it when the app
   // lists it too, and so its own dependencies (nuxt-security with the
@@ -134,20 +144,24 @@ export default defineNuxtModule<ModuleOptions>({
     const backend = (rawOptions.backend ?? {}) as ModuleOptions
     const convex = (rawOptions.convex ?? {}) as Record<string, unknown>
     const resolver = createResolver(moduleDir)
-    // The auth middleware redirects to the sign-in page's path, wherever it
+    // The page guard redirects to the sign-in page's path, wherever it
     // mounts (and whether the module's page or the app's own serves it).
     const loginPath = resolvePagePath(backend.pages, 'login')
     // Both URLs are derivable from the deployment slug the platform CLI
     // writes to .env.local, so neither is required config. This package's own
-    // env names are NUXT_PUBLIC_BACKEND_URL / NUXT_PUBLIC_BACKEND_SITE_URL;
-    // precedence for these *defaults* is backend.* option → those names →
-    // derived. The base module reads the platform's own NUXT_PUBLIC_CONVEX_*
-    // names directly, so setting one of those still works and wins over a
-    // default — preflight nudges you to the neutral name when it is the only
-    // one set.
+    // env name is NUXT_PUBLIC_BACKEND_URL, and the site origin (the HTTP
+    // routes) derives from it; precedence for the url *default* is
+    // backend.url → that name → derived. The base module reads the platform's
+    // own NUXT_PUBLIC_CONVEX_* names directly, so setting one of those still
+    // works and wins over a default: NUXT_PUBLIC_CONVEX_SITE_URL is how a
+    // custom domain in front of the HTTP routes is named.
     const derived = deriveDeploymentUrls(nuxt.options.rootDir)
-    const mcp = resolveMcpOptions(backend.mcp)
     return {
+      // The error-reporting SDK's module, only once it is installed and a
+      // DSN is set: an app without either never bundles it (an optional
+      // peer). Its defaults point it at the package's own config files. The
+      // same decision registers the capture plugins in setup.
+      ...monitoringDependency(monitoringWiring(nuxt), resolver),
       // Installed here, by this package, so every app gets the security
       // headers and the Convex-aware CSP the docs promise. The base module
       // treats nuxt-security as optional and only auto-detects a package the
@@ -157,15 +171,18 @@ export default defineNuxtModule<ModuleOptions>({
       // nuxt-security that was never installed. First in the list, so it is
       // set up before the base module looks for it. `security: false` in
       // nuxt.config still disables it outright (nuxt-security's own switch).
-      ...(securityDisabled(nuxt) ? {} : { 'nuxt-security': { version: dependencyRange('nuxt-security') } }),
+      // Its defaults add the nonce and, in a production build, Trusted Types (src/nuxt/security.ts).
+      ...(securityDisabled(nuxt) ? {} : { 'nuxt-security': { version: dependencyRange('nuxt-security'), defaults: securityDefaults(nuxt.options.dev) } }),
+      // <NuxtImg provider="backend"> once the app adds @nuxt/image: the
+      // provider and the deployment's file hosts as its defaults.
+      ...imageDependency(resolver, [backend.url ?? process.env.NUXT_PUBLIC_BACKEND_URL ?? derived?.url, resolveSiteUrl({ url: backend.url, env: process.env, derived })]),
       'nuxt-convex-module': {
         version: dependencyRange('nuxt-convex-module'),
         defaults: {
           url: backend.url ?? process.env.NUXT_PUBLIC_BACKEND_URL ?? derived?.url,
           // A platform build that knows only the client URL still gets its
           // HTTP-actions origin (the .site twin of a .cloud URL).
-          siteUrl: resolveSiteUrl({ siteUrl: backend.siteUrl, url: backend.url, env: process.env, derived }),
-          authRoute: backend.authRoute,
+          siteUrl: resolveSiteUrl({ url: backend.url, env: process.env, derived }),
           // nuxt-security is this package's dependency, not the app's, and the
           // base module only auto-detects a package the app itself declares —
           // so ask for it outright (the module itself installs it, above).
@@ -178,8 +195,8 @@ export default defineNuxtModule<ModuleOptions>({
           // Here that command never starts Nuxt on a new deployment: the
           // scaffold's `backendEnv` requires AUTH_SECRET and SITE_URL, the
           // first push fails without them, Convex only starts the child after a
-          // successful push, and the values come from this module's env
-          // auto-provisioning, which runs inside Nuxt. So the scripts stay the
+          // successful push, and the values come from `nuxt-backend dev`'s env
+          // provisioning, which runs before Convex does. So the scripts stay the
           // app's own; a user's `convex.devScript: true` still wins.
           devScript: false,
         },
@@ -193,6 +210,9 @@ export default defineNuxtModule<ModuleOptions>({
           betterAuth: {
             authClient: resolver.resolve('./runtime/vue/auth-client'),
             loginPath,
+            // The same-origin proxy route (`betterAuth.authRoute` in the base
+            // module since 0.12). Unset, the base module mounts it at /api/auth.
+            ...(backend.authRoute !== undefined ? { authRoute: backend.authRoute } : {}),
             ...(typeof convex.betterAuth === 'object' && convex.betterAuth !== null ? convex.betterAuth : {}),
           },
           polar: true,
@@ -200,19 +220,6 @@ export default defineNuxtModule<ModuleOptions>({
           // enable a second auth provider just because its SDK is resolvable.
           clerk: false,
           auth0: false,
-        },
-      },
-      // The MCP endpoint host. `defaults` forward `backend.mcp.*` — a user's
-      // own top-level `mcp` config wins over them (same contract as the
-      // `convex.*` forwarding above).
-      '@nuxtjs/mcp-toolkit': {
-        version: dependencyRange('@nuxtjs/mcp-toolkit'),
-        defaults: {
-          route: mcp.route,
-          ...(mcp.name !== undefined ? { name: mcp.name } : {}),
-          ...(mcp.description !== undefined ? { description: mcp.description } : {}),
-          ...(mcp.instructions !== undefined ? { instructions: mcp.instructions } : {}),
-          ...(mcp.sessions !== undefined ? { sessions: mcp.sessions } : {}),
         },
       },
     }
@@ -223,17 +230,10 @@ export default defineNuxtModule<ModuleOptions>({
     assertModuleOptions(options)
     const resolver = createResolver(moduleDir)
 
-    // Scaffold the minimum Convex backend files (auth component mount, route
-    // registration) on the first dev run. Dev-boot only: `nuxt build`,
-    // `nuxt prepare`, and test boots must never write into the app.
-    if (options.scaffold !== false && nuxt.options.dev && !nuxt.options._prepare && !nuxt.options.test) {
-      scaffoldBackendFiles(nuxt.options.rootDir)
-    }
-
     // `#backend/*` — the backend-branded aliases for the Convex functions
     // folder (same targets as the base module's `#convex/*`).
-    registerBackendAliases(nuxt)
-    registerBackendTypeFallback(nuxt)
+    registerBackendAliases(nuxt, resolver.resolve('./runtime'))
+    registerBackendApi(resolver, nuxt)
 
     // The content layer: `appConfig.backend` (plan catalog, labels, brand).
     // defu keeps user `app.config.ts` values winning and HMR-reactive. Cast:
@@ -246,28 +246,66 @@ export default defineNuxtModule<ModuleOptions>({
       backendAppConfigDefaults,
     ) as unknown as typeof nuxt.options.appConfig.backend
 
+    // A server that starts with only NUXT_PUBLIC_BACKEND_URL gets the base
+    // module's two URLs from it (the render's auth-token prefetch needs the site one).
+    const backendUrl = resolver.resolve('./runtime/server/backend-url')
+    addNitroPlugin({ nitro2: backendUrl, nitro3: backendUrl })
+
     registerSaasComposables(resolver)
+    // The English labels by group: a page ships the groups its components read.
+    registerLabels(resolver)
+    // The package's messages for an app's @nuxtjs/i18n, when it has one.
+    registerI18nMessages(resolver, nuxt)
 
-    // The neutral stylesheet for every shipped component and page, first in
-    // line and layered (ui.css), so an app rule outside a layer wins over it.
-    // Right after it, a generated one (src/nuxt/theme.ts): the light default
-    // a production build's rewritten light-dark() needs, and the bridge onto
-    // @nuxt/ui's tokens and @nuxtjs/color-mode's class when the app has them.
-    const uiCss = resolver.resolve('./runtime/vue/components/ui.css')
-    nuxt.options.css.unshift(uiCss)
-    registerThemeBridge(nuxt, uiCss)
+    // The tokens and each detected capability's component styles, first in
+    // line and layered (`@layer nuxt-backend`), so any app rule wins over
+    // them; none with `css: false` (src/nuxt/styles.ts).
+    registerStyles(options.css, resolver, nuxt)
 
-    registerAuthMiddleware()
+    // The page guard, the one way a page says who may open it: `definePageMeta({ auth })`.
+    registerPageAccess(resolver, nuxt)
+    // Without @nuxtjs/robots to answer the private pages' `robots: false`
+    // rule, the pages carry the `noindex` meta tag themselves. Decided once
+    // every module is installed, whichever order they are listed in.
+    nuxt.hook('modules:done', () => {
+      if (!hasNuxtModule('@nuxtjs/robots', nuxt)) addPlugin(resolver.resolve('./runtime/vue/plugins/noindex'))
+    })
+    // Off a guarded page to sign-in when the session ends under it.
+    addPlugin({ src: resolver.resolve('./runtime/vue/plugins/session-ended'), mode: 'client' })
+    // A new account to its first run at /welcome, once.
+    if (options.pages?.welcome !== false) addPlugin({ src: resolver.resolve('./runtime/vue/plugins/onboarding-redirect'), mode: 'client' })
+    // A return from checkout: the parameter off the address, the entitlements refreshed once.
+    addPlugin({ src: resolver.resolve('./runtime/vue/plugins/checkout-return'), mode: 'client' })
+    // A campaign link's UTM values, sent once for a signed-in person: the growth funnel's first touch.
+    addPlugin({ src: resolver.resolve('./runtime/vue/plugins/first-touch'), mode: 'client' })
+    // App activity and the browser's time zone, once a day: the sunset rule and quiet hours read them.
+    addPlugin({ src: resolver.resolve('./runtime/vue/plugins/email-presence'), mode: 'client' })
+    // The passkey ceremony, loaded once the page is idle (a tap then runs it straight through).
+    addPlugin({ src: resolver.resolve('./runtime/vue/plugins/passkey-ceremony'), mode: 'client' })
+    // The narrow Trusted Types `default` policy, for code that writes a sink without one of its own.
+    if (!securityDisabled(nuxt)) addPlugin({ src: resolver.resolve('./runtime/vue/plugins/trusted-types.client'), mode: 'client' })
     registerBaseComponentAliases(resolver, nuxt)
     hideBaseBrandNames(nuxt)
 
     const pagesInfo = registerModulePages(options, resolver, nuxt)
+    // The paths the backend links to, carried from this config into the functions directory.
+    registerPathsFile(options, nuxt)
+    // The brand the backend's emails read, carried from app.config beside it.
+    registerBrandFile(nuxt)
+    // The web push worker, and the web app manifest from the brand and two icons.
+    registerInstallable(resolver, nuxt)
 
-    registerMcp(options, resolver, nuxt)
+    // After the pages: it adds to the public runtime config they publish.
+    registerProtection(resolver, nuxt)
+    // Error reports, cron check-ins and the health route (the monitoring layer).
+    registerMonitoring(resolver, nuxt)
+    // The visitor's address for the billing provider's local pricing: a checkout is created on the deployment.
+    addServerHandler({ route: VISITOR_IP_ROUTE, method: 'get', handler: { nuxt: resolver.resolve('./runtime/server/visitor-ip') } })
+    // The admin console's Queue tab, once backend/jobs.ts defines a job queue.
+    registerJobs(nuxt)
+    registerReports(nuxt)
 
     runPreflight(options, nuxt)
-
-    runDevAutoEnv(options, nuxt)
 
     // Only where a panel can be opened: in dev, with the DevTools UI on, and
     // never under a test runner, where nothing ever opens one.
@@ -275,7 +313,6 @@ export default defineNuxtModule<ModuleOptions>({
       // Lazy import keeps the DevTools wiring out of production module evaluation.
       const { setupDevtools } = await import('./devtools/index')
       const functionsDir = resolveFunctionsDir(nuxt.options.rootDir)
-      const mcp = resolveMcpOptions(options.mcp)
       const siteUrlConfigured = isSiteUrlConfigured(options, nuxt)
       const versions = readPackageVersions(nuxt.options.rootDir)
       const rootDir = nuxt.options.rootDir
@@ -285,17 +322,17 @@ export default defineNuxtModule<ModuleOptions>({
         // Rebuilt per RPC call so preflight findings (and the shadowed-page
         // list `extendPages` fills during build) stay live in the panel. The
         // env is what the dev server sees: its env files under its process env.
-        getInfo: deploymentEnv => buildDevtoolsInfo({
+        getInfo: (deploymentEnv, doctor) => buildDevtoolsInfo({
           rootDir,
           env: { ...readEnvFiles(rootDir), ...process.env },
           siteUrlConfigured,
           options,
           pages: pagesInfo.list,
-          mcp: { route: mcp.route },
           versions,
           functionsDir,
           deploymentEnv,
           provisionedNames: provisionedEnvNames(rootDir),
+          doctor,
         }),
       })
       // Appended so it runs after the plugins that provide the Convex client
@@ -320,16 +357,43 @@ function securityDisabled(nuxt: Nuxt): boolean {
 // base module's runtime-config typing (`@nuxt/schema`), not `nuxt/schema`,
 // which only re-exports it: augmented through the re-export, this
 // `AppConfigInput` did not merge with the other modules' and the website's
-// `app.config.ts` (Nuxt UI keys) stopped type-checking.
+// `app.config.ts` (its UI library's keys) stopped type-checking.
 declare module '@nuxt/schema' {
   interface AppConfigInput {
     backend?: BackendAppConfigInput
   }
   interface PublicRuntimeConfig {
     backend: {
-      pages: Record<BackendPageKey, string>
+      pages: Record<BackendPageKey, string | false>
       /** The same-origin auth proxy route (`backend.authRoute`). */
       authRoute: string
+      /** `backend.redirects`, defaults filled in. */
+      redirects: Required<ModuleRedirectsOptions>
+      /** BotID checks requests in the browser: a build on Vercel. */
+      botDetection: boolean
+      /** The bot check's challenge site key, or empty: `NUXT_PUBLIC_BACKEND_CHALLENGE_SITE_KEY`. */
+      challengeSiteKey: string
+      /** The DSN the browser reports errors to, empty when nothing is wired. */
+      monitoring: MonitoringPublicConfig
+      /** `backend/jobs.ts` defines a job queue, as the build read it: the admin console shows its Queue tab. */
+      jobs: boolean
+      /** `backend/admin.ts` passes `reports` to `setupAdmin`, as the build read it: the admin console shows its Reports tab. */
+      reports: boolean
+      /**
+       * An SEO module is installed, as the build detected it: the pricing
+       * page adds Open Graph tags and schema.org products. Detected, never
+       * a switch to set.
+       *
+       * @internal
+       */
+      seo: boolean
+    }
+  }
+  interface RuntimeConfig {
+    /** What the app's health route tells the backend it asks (server only). */
+    backendHealth: {
+      /** The deployment kind the build ran against, for the detail's wording; empty when none. */
+      deployment: string
     }
   }
 }

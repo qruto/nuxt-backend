@@ -1,10 +1,14 @@
 import { actionGeneric, type Auth, type GenericActionCtx, type GenericDataModel } from 'convex/server'
 import type { GenericId } from 'convex/values'
 import type { SpendReservation } from '../billing.js'
+import { BILLING_ACCESS } from '../billing/context.js'
 import { requireCreditAmount } from '../billing/credits.js'
-import type { Ai, CreditsBalanceEvent, MeteredUsage, RunCtx } from './config.js'
+import type { Ai, AiModel, CreditsBalanceEvent, MeteredModel, MeteredUsage, RunCtx } from './config.js'
 import type { AiContext } from './context.js'
-import { estimateCost, finalizeCost } from './pricing.js'
+import { failedRun, meteredModel, modelIdOf, modelRefusal, requireModelId, routeModel, type ModelCall } from './models.js'
+import type { ModerationInput } from './moderation.js'
+import { imageStore, type ProvenanceRefs } from './provenance.js'
+import { estimateCost, finalizeCost, isReportedCost, requireReportedCost } from './pricing.js'
 import { backendError } from '../../errors.js'
 import { logBackend } from '../../log.js'
 
@@ -58,20 +62,64 @@ function limitRefusal(limit: string, retryAfter: number | undefined, detail: str
  * settle what was spent (or release on failure) after, and fire the balance
  * hooks once a settle lands.
  */
-export function createMetering({ config, billing, rateLimiter, cache }: AiContext) {
-  /** Entity + caller + rate limit + budget + reservation — shared by both shapes. */
+export function createMetering({ config, billing, rateLimiter, cache, refuseAi, streamTimeout, requests, moderation, recordCost }: AiContext) {
+  /**
+   * Check a metered definition where it is made, so a bad model id or rate
+   * fails the push rather than a call.
+   */
+  const checkDefinition = (definition: { model?: AiModel, cost?: unknown }, where: string): void => {
+    requireModelId(definition.model, where)
+    requireReportedCost(definition.cost, where)
+  }
+
+  /**
+   * The model a call must be able to reach before anything is counted: the
+   * one it names, or setupAi's when its cost is the model's to report. Any
+   * other model is checked when the handler calls it, and the reservation
+   * released when it cannot be reached.
+   */
+  const requiredModel = (definition: { model?: AiModel, cost?: unknown }): AiModel | undefined =>
+    definition.model ?? (isReportedCost(definition.cost) ? config.model : undefined)
+
+  /**
+   * `ctx.model` for one run: the run's model, or another, each recording
+   * its calls into `calls`, which the settle prices.
+   */
+  const modelPicker = (own: AiModel | undefined, calls: ModelCall[]) => (model?: AiModel): MeteredModel => {
+    const chosen = model ?? own ?? config.model
+    if (chosen === undefined) {
+      throw new Error('[nuxt-backend] ctx.model(): no model to call — set `model` on setupAi or on the action, or pass one.')
+    }
+    requireModelId(chosen, 'ctx.model()')
+    return meteredModel(routeModel(chosen, undefined, config.inferenceRegion), calls, config.inferenceRegion)
+  }
+
+  /**
+   * Entity + caller + rate limit + budget + reservation — shared by both
+   * shapes. The caller is checked before anything is counted against the
+   * entity: a member of the workspace that pays, read fresh (someone removed
+   * is refused on their next call, whatever their token says), never an
+   * administrator impersonating them — a spend is the member's own.
+   */
   const prepare = async (
     ctx: RunCtx & { auth?: Auth },
-    options: { meter: string | false, limit?: string | false, cost: number, allowOverage?: boolean },
+    options: { meter: string | false, limit?: string | false, cost: number, allowOverage?: boolean, model?: AiModel, /** `false` in a mutation: a cold credit cache cannot be refreshed there. */ allowRefresh?: false, /** What the safety classifier checks before the budget and the reservation count anything; in an action. */ moderate?: ModerationInput },
   ): Promise<{ usage: MeteredUsage, reservation: SpendReservation }> => {
     requireMeteredCost(options)
     const identity = await (ctx.auth?.getUserIdentity() ?? Promise.resolve(null))
     if (!identity) {
       throw backendError('unauthenticated', {}, '[nuxt-backend] Sign in to use this feature.')
     }
-    const entity = await billing.resolveEntity(ctx as RunCtx & { auth: Auth })
-    if (!entity) {
-      throw backendError('no_workspace', {}, '[nuxt-backend] No billing entity — sign in (a personal workspace is created automatically).')
+    const entity = await billing.requireEntity(ctx as RunCtx & { auth: Auth }, BILLING_ACCESS.spend)
+    // A sandbox without a spend limit, and the pause_ai kill switch: once the caller is known, before the model, the limits or the credits count anything.
+    await refuseAi(ctx)
+
+    // A model this deployment cannot reach would fail the run anyway: once
+    // the caller is known, refuse before the rate limit, the budget or the
+    // balance counts anything.
+    if (options.model !== undefined) {
+      const route = routeModel(options.model, undefined, config.inferenceRegion)
+      if (route.route === 'missing') throw modelRefusal(route)
     }
 
     // Both checks let the limiter throw its own `RateLimited` error, which
@@ -83,6 +131,10 @@ export function createMetering({ config, billing, rateLimiter, cache }: AiContex
       const { ok, retryAfter } = await rateLimiter.limit(ctx as never, limitName as never, { key: entity.userId, throws: true })
       if (!ok) throw limitRefusal(limitName, retryAfter, '[nuxt-backend] Rate limit reached.', 'Try again in')
     }
+
+    // The safety check, once the rate limit let the call through: a flagged
+    // prompt is refused before the budget or the balance counts anything.
+    if (options.moderate) await moderation.requireSafe(ctx as never, options.moderate)
 
     // The budget is the same limiter, counting credits instead of calls: one
     // fixed window per billing entity, consuming `cost` tokens a spend.
@@ -106,12 +158,15 @@ export function createMetering({ config, billing, rateLimiter, cache }: AiContex
     const reservation = options.meter === false
       ? { entityId: entity.userId, externalId: crypto.randomUUID(), reserved: false, value: options.cost } satisfies SpendReservation
       : await billing.reserveCredits(ctx, {
+          // Checked above: the reservation is the entity's, not resolved again.
+          userId: entity.userId,
           meter: options.meter,
           value: options.cost,
           // Pay-as-you-go: a meter with no credit benefit behind it has nothing
           // prepaid to draw down, so the balance is allowed below zero and the
           // provider invoices the overage.
           allowOverage: options.allowOverage,
+          ...(options.allowRefresh === false ? { allowRefresh: false } : {}),
         })
 
     return {
@@ -136,6 +191,10 @@ export function createMetering({ config, billing, rateLimiter, cache }: AiContex
    * counterfactual, so two settling across the line together can both report
    * the crossing. Dedupe on the receiving side if that matters — this is a
    * notification signal, not a ledger entry.
+   *
+   * Each crossing is recorded on the shared event path as well, for the
+   * entity whose balance it is (`billing.credits_low`, once the app sets a
+   * threshold, and `billing.credits_exhausted`), hooks or not.
    */
   const fireBalanceHooks = async (
     ctx: GenericActionCtx<GenericDataModel>,
@@ -144,8 +203,7 @@ export function createMetering({ config, billing, rateLimiter, cache }: AiContex
     outcome: { balance: number, balanceBefore: number },
   ): Promise<void> => {
     const hooks = config.credits
-    if (!hooks) return
-    const threshold = hooks.lowBalanceThreshold
+    const threshold = hooks?.lowBalanceThreshold
     const event: CreditsBalanceEvent = {
       entityId: reservation.entityId,
       userId: usage.userId,
@@ -158,6 +216,10 @@ export function createMetering({ config, billing, rateLimiter, cache }: AiContex
     }
     const crossedLow = threshold !== undefined && outcome.balanceBefore > threshold && outcome.balance <= threshold
     const crossedZero = outcome.balanceBefore > 0 && outcome.balance <= 0
+    const meter = reservation.meter ? { meter: reservation.meter } : {}
+    if (crossedLow) await billing.recordEvent(ctx, reservation.entityId, { type: 'billing.credits_low', data: { balance: outcome.balance, threshold, ...meter } })
+    if (crossedZero) await billing.recordEvent(ctx, reservation.entityId, { type: 'billing.credits_exhausted', data: { balance: outcome.balance, ...meter } })
+    if (!hooks) return
     for (const hook of [
       crossedLow ? hooks.onCreditsLow : undefined,
       crossedZero ? hooks.onCreditsExhausted : undefined,
@@ -234,42 +296,85 @@ export function createMetering({ config, billing, rateLimiter, cache }: AiContex
     }
   }
 
-  const meteredAction: Ai['meteredAction'] = definition => actionGeneric({
-    args: definition.args,
-    // Loose internal typing: precise arg types live on MeteredActionConfig;
-    // the open `Args` generic fights Convex's conditional args-array types.
-    handler: (async (ctx: GenericActionCtx<GenericDataModel>, args: Record<string, unknown>) => {
-      const cost = estimateCost(definition.cost, args)
-      const { usage, reservation } = await prepare(ctx as never, {
-        meter: definition.meter,
-        limit: definition.limit,
-        cost,
-        allowOverage: definition.allowOverage,
-      })
-      const metered = definition.meter !== false
+  /**
+   * Arm the release of a reservation that settles in another function than
+   * the one that reserved it (a stream, a chat reply): if that function never
+   * runs or dies mid-flight, the credits come back after `streamTimeout`,
+   * while the reservation is still live. The settle cancels it.
+   */
+  const armRelease = async (ctx: Pick<ActionRunCtx, 'scheduler' | 'runMutation'>, reservation: SpendReservation): Promise<void> => {
+    if (!reservation.reserved || streamTimeout === false) return
+    try {
+      const jobId = await ctx.scheduler.runAfter(streamTimeout, cache.release, { userId: reservation.entityId, externalId: reservation.externalId })
+      await ctx.runMutation(cache.attachReleaseJob, { userId: reservation.entityId, externalId: reservation.externalId, jobId })
+    }
+    catch (error) {
+      // The timer is an improvement on the reservation TTL, never a
+      // precondition: the work must not fail because its safety net could
+      // not be armed.
+      logBackend('warn', 'ai.stream_release_unscheduled', 'Could not schedule the reservation release — falling back to the pending-spend TTL.', error)
+    }
+  }
 
-      if (definition.charge === 'start') {
-        // Irrevocable upstream work: charge first, no refund on failure.
-        if (metered) await closeSpend(ctx as never, usage, reservation, { metadata: { charge: 'start' } })
-        return definition.handler(Object.assign(ctx, { usage }) as never, args as never)
-      }
+  const meteredAction: Ai['meteredAction'] = (definition) => {
+    checkDefinition(definition, 'ai.meteredAction')
+    return actionGeneric({
+      args: definition.args,
+      // Loose internal typing: precise arg types live on MeteredActionConfig;
+      // the open `Args` generic fights Convex's conditional args-array types.
+      handler: (async (ctx: GenericActionCtx<GenericDataModel>, args: Record<string, unknown>) => {
+        const cost = estimateCost(definition.cost, args)
+        const { usage, reservation } = await prepare(ctx as never, {
+          meter: definition.meter,
+          limit: definition.limit,
+          cost,
+          allowOverage: definition.allowOverage,
+          model: requiredModel(definition),
+          ...(definition.moderate ? { moderate: definition.moderate(args as never) } : {}),
+        })
+        const metered = definition.meter !== false
+        const calls: ModelCall[] = []
+        const storeImage = imageStore(ctx, config.provenance, requests as unknown as ProvenanceRefs, { owner: usage.entityId, userId: usage.userId, calls, model: modelIdOf(definition.model ?? config.model) })
+        const handlerCtx = Object.assign(ctx, { usage, model: modelPicker(definition.model, calls), storeImage })
 
-      let result: unknown
-      try {
-        result = await definition.handler(Object.assign(ctx, { usage }) as never, args as never)
-      }
-      catch (error) {
-        if (metered) await billing.releaseSpend(ctx as never, reservation)
-        throw error
-      }
-      if (metered) {
-        await closeSpend(ctx as never, usage, reservation, { finalAmount: finalizeCost(definition.cost, result, usage) })
-      }
-      return result
-    }) as never,
-  })
+        // What the run's calls cost, recorded once it ends, done or failed: they were paid for either way.
+        const run = { userId: usage.userId, owner: usage.entityId }
 
-  return { prepare, closeSpend, meteredAction }
+        if (definition.charge === 'start') {
+          // Irrevocable upstream work: charge first, no refund on failure.
+          if (metered) await closeSpend(ctx as never, usage, reservation, { metadata: { charge: 'start' } })
+          try {
+            return await definition.handler(handlerCtx as never, args as never)
+          }
+          finally {
+            await recordCost(ctx, run, calls)
+          }
+        }
+
+        let result: unknown
+        try {
+          result = await definition.handler(handlerCtx as never, args as never)
+          // A handler that returned after every model call failed (a
+          // swallowed stream error) failed all the same.
+          const failure = failedRun(calls)
+          if (failure) throw failure
+        }
+        catch (error) {
+          if (metered) await billing.releaseSpend(ctx as never, reservation)
+          throw error
+        }
+        finally {
+          await recordCost(ctx, run, calls)
+        }
+        if (metered) {
+          await closeSpend(ctx as never, usage, reservation, { finalAmount: finalizeCost(definition.cost, result, usage, calls) })
+        }
+        return result
+      }) as never,
+    })
+  }
+
+  return { prepare, closeSpend, armRelease, meteredAction, checkDefinition, requiredModel, modelPicker }
 }
 
 export type AiMetering = ReturnType<typeof createMetering>

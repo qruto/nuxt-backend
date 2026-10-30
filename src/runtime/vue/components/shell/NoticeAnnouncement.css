@@ -1,0 +1,54 @@
+/*
+ * NoticeAnnouncement's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-announcement='banner'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    background: var(--bk-surface);
+    color: var(--bk-ink);
+    font-size: 0.9rem;
+  }
+
+  [data-announcement='item'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.9rem;
+  }
+
+  /* Two announcements: a hairline between them. */
+  [data-announcement='item'] + [data-announcement='item'] {
+    padding-block-start: 0.5rem;
+    border-block-start: 1px solid var(--bk-edge);
+  }
+
+  [data-announcement='message'] {
+    flex: 1;
+    min-width: 12rem;
+    margin: 0;
+  }
+
+  [data-announcement='link'] {
+    color: var(--bk-accent);
+    font-weight: 600;
+  }
+
+  [data-announcement='error'] {
+    margin: 0.4rem 0 0;
+    color: var(--bk-error);
+    font-size: 0.85rem;
+  }
+
+  /* Two banners in the frame's region: one above the other. */
+  [data-backend-region='banner'] > [data-announcement='region'] + *,
+  [data-backend-region='banner'] > * + [data-announcement='region'] {
+    margin-block-start: 0.5rem;
+  }
+}

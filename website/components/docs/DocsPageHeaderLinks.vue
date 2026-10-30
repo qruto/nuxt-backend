@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { joinURL } from 'ufo'
+import { docsMcpUrl } from '#shared/docs-mcp'
 
 // Docus 5.15.0's DocsPageHeaderLinks (test/docs/docus-copies.test.ts pins
-// the source), changed: the buttons are keys, and the two MCP items are
-// gone: this site's /mcp is the package's OAuth-gated agent surface, not a
-// docs server.
+// the source), changed: the buttons are keys, and the two MCP items, which
+// point at this site's /mcp, give way to one that copies the docs MCP's URL
+// (shared/docs-mcp.ts), for the site this deploy names, as the server card
+// and llms.txt give it.
 const route = useRoute()
+const site = useSiteConfig()
 const runtimeConfig = useRuntimeConfig()
 const appBaseURL = runtimeConfig.app?.baseURL || '/'
 const rawPrefix = (runtimeConfig.public.agentDiscovery as { rawPrefix?: string } | undefined)?.rawPrefix || '/raw'
@@ -30,6 +33,7 @@ const items = computed(() => [
   { label: t('docs.copy.view'), icon: 'i-simple-icons:markdown', target: '_blank' as const, to: markdownLink.value },
   { label: t('docs.copy.gpt'), icon: 'i-simple-icons:openai', target: '_blank' as const, to: `https://chatgpt.com/?hints=search&q=${prompt.value}` },
   { label: t('docs.copy.claude'), icon: 'i-simple-icons:anthropic', target: '_blank' as const, to: `https://claude.ai/new?q=${prompt.value}` },
+  { label: 'Copy docs MCP URL', icon: 'i-lucide-plug', onSelect: () => void copy(docsMcpUrl(site.url)) },
 ])
 
 async function copyPage() {

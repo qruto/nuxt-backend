@@ -40,7 +40,7 @@ type RateLimitConfig =
 Defined in: node\_modules/@convex-dev/rate-limiter/dist/shared.d.ts:116
 
 One of the supported rate limits.
-See [tokenBucketValidator](https://github.com/get-convex/rate-limiter#define-your-rate-limits) and [fixedWindowValidator](https://github.com/get-convex/rate-limiter#define-your-rate-limits) for more
+See [tokenBucketValidator](https://github.com/convex/rate-limiter#define-your-rate-limits) and [fixedWindowValidator](https://github.com/convex/rate-limiter#define-your-rate-limits) for more
 information.
 
 ## Variables
@@ -129,11 +129,10 @@ const DEFAULT_LIMITS: {
      rate: 10000;
      period: number;
   };
-  mcp: {
-     kind: "token bucket";
-     rate: 60;
+  aiGlobal: {
+     kind: "fixed window";
+     rate: 300;
      period: number;
-     capacity: 20;
   };
   admin: {
      kind: "token bucket";
@@ -152,10 +151,99 @@ const DEFAULT_LIMITS: {
      rate: 200;
      period: number;
   };
-  agentRegistrationGlobal: {
+  workspaceCreate: {
+     kind: "token bucket";
+     rate: 10;
+     period: number;
+     capacity: 5;
+  };
+  accountDelete: {
+     kind: "token bucket";
+     rate: 3;
+     period: number;
+     capacity: 3;
+  };
+  passkeySignIn: {
+     kind: "token bucket";
+     rate: 30;
+     period: number;
+     capacity: 30;
+  };
+  passkeySignInGlobal: {
      kind: "fixed window";
+     rate: 3000;
+     period: number;
+  };
+  signUpOtpGlobal: {
+     kind: "fixed window";
+     rate: 200;
+     period: number;
+  };
+  inviteCheck: {
+     kind: "token bucket";
+     rate: 10;
+     period: number;
+     capacity: 10;
+  };
+  inviteCheckGlobal: {
+     kind: "fixed window";
+     rate: 1000;
+     period: number;
+  };
+  waitlistJoin: {
+     kind: "token bucket";
+     rate: 5;
+     period: number;
+     capacity: 3;
+  };
+  waitlistJoinGlobal: {
+     kind: "fixed window";
+     rate: 1000;
+     period: number;
+  };
+  contact: {
+     kind: "token bucket";
+     rate: 5;
+     period: number;
+     capacity: 3;
+  };
+  contactGlobal: {
+     kind: "fixed window";
+     rate: 500;
+     period: number;
+  };
+  inboundMail: {
+     kind: "token bucket";
+     rate: 30;
+     period: number;
+     capacity: 10;
+  };
+  inboundMailGlobal: {
+     kind: "fixed window";
+     rate: 3000;
+     period: number;
+  };
+  report: {
+     kind: "fixed window";
+     rate: 10;
+     period: number;
+  };
+  reportGlobal: {
+     kind: "fixed window";
+     rate: 500;
+     period: number;
+  };
+  write: {
+     kind: "token bucket";
+     rate: 120;
+     period: number;
+     capacity: 60;
+  };
+  upload: {
+     kind: "token bucket";
      rate: 100;
      period: number;
+     capacity: 20;
   };
 };
 ```
@@ -163,9 +251,13 @@ const DEFAULT_LIMITS: {
 Defined in: [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts)
 
 The package's default rate limits — `emailOtp`, `emailOtpGlobal`,
-`emailOtpAttempt`, `emailChange`, `billingSync`, `ai`, `aiBudget`,
-`mcp`, `admin`, `invitation`, `invitationGlobal` and
-`agentRegistrationGlobal` — guarding the flows the package itself drives.
+`emailOtpAttempt`, `emailChange`, `billingSync`, `ai`, `aiBudget`, `aiGlobal`,
+`admin`, `invitation`, `invitationGlobal`, `workspaceCreate`, `accountDelete`,
+`passkeySignIn`, `passkeySignInGlobal`, `signUpOtpGlobal`, `inviteCheck`,
+`inviteCheckGlobal`, `waitlistJoin`, `waitlistJoinGlobal`, `contact`, `contactGlobal`,
+`inboundMail`, `inboundMailGlobal`, `report`, `reportGlobal`,
+`write` and `upload` —
+guarding the flows the package itself drives.
 Keyed per email/entity/caller at the call site (e.g. `limit(ctx,
 'emailOtp', { key: hash })`); the `*Global` ones are unkeyed. Extend or
 override any of them by passing your own limits to [setupRateLimiter](#setupratelimiter).
@@ -174,11 +266,15 @@ Deliberately small: `emailOtp` throttles code *sends* and
 `emailOtpAttempt` code *checks*, per address (Better Auth's own
 `allowedAttempts` bounds the guesses at one code, but a new code is one
 request away), `emailOtpGlobal` caps sends deployment-wide,
-`billingSync` guards the live provider fan-out, `ai`/`aiBudget`/`mcp`
-back the metered-action, credit-budget and agent surfaces, and
+`billingSync` guards the live provider fan-out, `ai`/`aiBudget`
+back the metered-action and credit-budget surfaces, `aiGlobal` caps what
+the app pays for itself (guest jobs), and
 `admin`/`invitation`/`emailChange` cover the signed-in routes where one
-caller acts on *other* people or addresses — see `setupAuth`'s route
-limits. The package is passwordless: there are no password limits, and an
+caller acts on *other* people or addresses, `workspaceCreate` the route
+that makes a billing entity, `accountDelete` an account's own deletion —
+see `setupAuth`'s route
+limits — and `passkeySignIn`/
+`passkeySignInGlobal` the routes anyone may call without a session. The package is passwordless: there are no password limits, and an
 app that turns passwords on brings its own.
 
 ## Covering other auth routes
@@ -240,11 +336,10 @@ count per identity and are enforced before the route runs.
 | `aiBudget.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `aiBudget.rate` | `10000` | `10_000` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `aiBudget.period` | `number` | `DAY` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
-| <a id="property-mcp"></a> `mcp` | \{ `kind`: `"token bucket"`; `rate`: `60`; `period`: `number`; `capacity`: `20`; \} | - | Agent (MCP) session exchanges — 60 per minute per client+user. Guards the token-exchange endpoint agents call on the app's behalf. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
-| `mcp.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
-| `mcp.rate` | `60` | `60` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
-| `mcp.period` | `number` | `MINUTE` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
-| `mcp.capacity` | `20` | `20` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-aiglobal"></a> `aiGlobal` | \{ `kind`: `"fixed window"`; `rate`: `300`; `period`: `number`; \} | - | What the app pays for itself, across the whole deployment — 300 per hour, a fixed window, unkeyed. Every job a signed-out visitor starts (`defineJobQueue({ guest })`) spends one: no credits pay for those, so this window is what bounds the gateway bill a flood of visitors could run up. Over it, a guest job is refused with `rate_limited`. Raise it when a launch legitimately lets more visitors try than that. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `aiGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `aiGlobal.rate` | `300` | `300` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `aiGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | <a id="property-admin"></a> `admin` | \{ `kind`: `"token bucket"`; `rate`: `30`; `period`: `number`; `capacity`: `10`; \} | - | Administrator actions — 30 per minute per administrator, burst 10. Covers every `/admin/*` route that acts on somebody else (list, create, update, ban/unban, set role, impersonate, revoke sessions, remove user): each is one privileged call against another person's account, so the ceiling is "a human working fast", not a script. `/admin/stop-impersonating` and `/admin/has-permission` are deliberately exempt — the first is how an administrator leaves an impersonated session and must never be throttled, the second is a read-only check the console calls on render. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `admin.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `admin.rate` | `30` | `30` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
@@ -259,10 +354,83 @@ count per identity and are enforced before the route runs.
 | `invitationGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `invitationGlobal.rate` | `200` | `200` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `invitationGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
-| <a id="property-agentregistrationglobal"></a> `agentRegistrationGlobal` | \{ `kind`: `"fixed window"`; `rate`: `100`; `period`: `number`; \} | - | Agent client registrations across the whole deployment — 100 per hour, a fixed window. Registration is anonymous by design (OAuth dynamic client registration), so there is no caller to key on: this ceiling bounds how fast anyone can fill the client table. An agent registers once per install, so a real launch stays far below it. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
-| `agentRegistrationGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
-| `agentRegistrationGlobal.rate` | `100` | `100` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
-| `agentRegistrationGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-workspacecreate"></a> `workspaceCreate` | \{ `kind`: `"token bucket"`; `rate`: `10`; `period`: `number`; `capacity`: `5`; \} | - | Workspaces made — 10 per hour per member, burst 5. Every new workspace is a billing entity: with a free plan in the catalog it becomes a provider customer and gets the plan's credits, so one account must not mint them in a loop. Per **member**, like `invitation`; the sign-in limits bound how many accounts one person holds. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `workspaceCreate.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `workspaceCreate.rate` | `10` | `10` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `workspaceCreate.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `workspaceCreate.capacity` | `5` | `5` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-accountdelete"></a> `accountDelete` | \{ `kind`: `"token bucket"`; `rate`: `3`; `period`: `number`; `capacity`: `3`; \} | - | An account's own deletion — 3 per hour per account, burst 3. Deleting is final and starts an erasure across every participant, the providers included: a person deletes once, so the bucket only stops a script that keeps asking with a session it holds. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `accountDelete.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `accountDelete.rate` | `3` | `3` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `accountDelete.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `accountDelete.capacity` | `3` | `3` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-passkeysignin"></a> `passkeySignIn` | \{ `kind`: `"token bucket"`; `rate`: `30`; `period`: `number`; `capacity`: `30`; \} | - | Passkey sign-in challenges — 30 per minute per client address, burst 30. Every passkey sign-in starts with a challenge the server stores (`/passkey/generate-authenticate-options`, which needs no session): a tap on "Sign in with passkey", and each sign-in page that offers passkeys in the browser's autofill, again every four and a half minutes while it stays open in view, a challenge lasting five. Keyed by an HMAC, under the auth secret, of the address Better Auth reads from `x-forwarded-for` (its `advanced.ipAddress` options), which only a proxy in front of the deployment makes trustworthy: anyone calling the deployment directly writes that header themselves. A best effort, then, with [DEFAULT\_LIMITS.passkeySignInGlobal](#property-passkeysigninglobal) as the ceiling behind it. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `passkeySignIn.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `passkeySignIn.rate` | `30` | `30` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `passkeySignIn.period` | `number` | `MINUTE` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `passkeySignIn.capacity` | `30` | `30` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-passkeysigninglobal"></a> `passkeySignInGlobal` | \{ `kind`: `"fixed window"`; `rate`: `3000`; `period`: `number`; \} | - | Passkey sign-in challenges across the whole deployment — 3000 per hour, a fixed window, spent after [DEFAULT\_LIMITS.passkeySignIn](#property-passkeysignin) allowed the request. The ceiling a caller who rotates its address meets: it bounds how fast anyone can fill the verification table. At the ceiling, a passkey prompt answers 429 and autofill offers no passkey; email codes still sign people in. Raise it when more sign-in pages than that open in an hour (a page left open in view spends about thirteen). | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `passkeySignInGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `passkeySignInGlobal.rate` | `3000` | `3000` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `passkeySignInGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-signupotpglobal"></a> `signUpOtpGlobal` | \{ `kind`: `"fixed window"`; `rate`: `200`; `period`: `number`; \} | - | Sign-in codes to addresses with no account yet — 200 per hour across the deployment, a fixed window. Spent in place of `emailOtpGlobal` by a code that would create an account while `setupAccess` is wired, so a rush of joins on a launch day never holds up existing people's codes. Raise it for a launch that signs up more than that in an hour. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `signUpOtpGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `signUpOtpGlobal.rate` | `200` | `200` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `signUpOtpGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-invitecheck"></a> `inviteCheck` | \{ `kind`: `"token bucket"`; `rate`: `10`; `period`: `number`; `capacity`: `10`; \} | - | Invite checks (`checkInvite`, behind `useInvite().check` and the `/invite` page) — 10 per minute per signed-in caller, burst 10. A code has 50 bits, so guessing one is out of reach anyway; the limit keeps a script from turning the check into a lookup. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `inviteCheck.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `inviteCheck.rate` | `10` | `10` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `inviteCheck.period` | `number` | `MINUTE` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `inviteCheck.capacity` | `10` | `10` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-invitecheckglobal"></a> `inviteCheckGlobal` | \{ `kind`: `"fixed window"`; `rate`: `1000`; `period`: `number`; \} | - | Invite checks across the deployment — 1000 per hour, a fixed window: the ceiling a caller without a session meets, and the backstop behind [DEFAULT\_LIMITS.inviteCheck](#property-invitecheck). | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `inviteCheckGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `inviteCheckGlobal.rate` | `1000` | `1000` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `inviteCheckGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-waitlistjoin"></a> `waitlistJoin` | \{ `kind`: `"token bucket"`; `rate`: `5`; `period`: `number`; `capacity`: `3`; \} | - | Waitlist joins (`joinWaitlist`, behind `useWaitlist().join` and `<WaitlistForm>`) — 5 per hour per address, burst 3, so a script cannot use the form to ask for one mailbox's codes in a loop. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `waitlistJoin.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `waitlistJoin.rate` | `5` | `5` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `waitlistJoin.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `waitlistJoin.capacity` | `3` | `3` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-waitlistjoinglobal"></a> `waitlistJoinGlobal` | \{ `kind`: `"fixed window"`; `rate`: `1000`; `period`: `number`; \} | - | Waitlist joins across the deployment — 1000 per hour, a fixed window: the ceiling on the form, behind [DEFAULT\_LIMITS.waitlistJoin](#property-waitlistjoin). The codes a join asks for spend `signUpOtpGlobal` besides. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `waitlistJoinGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `waitlistJoinGlobal.rate` | `1000` | `1000` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `waitlistJoinGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-contact"></a> `contact` | \{ `kind`: `"token bucket"`; `rate`: `5`; `period`: `number`; `capacity`: `3`; \} | - | Contact and feedback messages (`submitContactMessage`, `<ContactForm>`) — 5 per hour per sender, burst 3. The sender is the signed-in account, else a hash of the address typed, never the address itself, so one person cannot flood the team's inbox. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `contact.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `contact.rate` | `5` | `5` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `contact.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `contact.capacity` | `3` | `3` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-contactglobal"></a> `contactGlobal` | \{ `kind`: `"fixed window"`; `rate`: `500`; `period`: `number`; \} | - | Contact and feedback messages across the deployment — 500 per hour, a fixed window: the ceiling on the form, behind [DEFAULT\_LIMITS.contact](#property-contact). | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `contactGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `contactGlobal.rate` | `500` | `500` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `contactGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-inboundmail"></a> `inboundMail` | \{ `kind`: `"token bucket"`; `rate`: `30`; `period`: `number`; `capacity`: `10`; \} | - | Inbound mail (`setupEmail({ inbound })`) — 30 per hour per sender, burst 10, keyed by a hash of the sender's address. Mail past it is dropped and logged (`email.inbound_rejected`, reason `rate_limited`), never answered. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `inboundMail.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `inboundMail.rate` | `30` | `30` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `inboundMail.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `inboundMail.capacity` | `10` | `10` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-inboundmailglobal"></a> `inboundMailGlobal` | \{ `kind`: `"fixed window"`; `rate`: `3000`; `period`: `number`; \} | - | Inbound mail across the deployment — 3000 per hour, a fixed window, behind [DEFAULT\_LIMITS.inboundMail](#property-inboundmail). | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `inboundMailGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `inboundMailGlobal.rate` | `3000` | `3000` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `inboundMailGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-report"></a> `report` | \{ `kind`: `"fixed window"`; `rate`: `10`; `period`: `number`; \} | - | Content reports (`reportContent`, and each mailbox that sends notices through the `report` page, `me+1@` counted as `me@`) — 10 per hour per person, so nobody floods the Reports tab. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `report.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `report.rate` | `10` | `10` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `report.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-reportglobal"></a> `reportGlobal` | \{ `kind`: `"fixed window"`; `rate`: `500`; `period`: `number`; \} | - | Notices through the public `report` page across the deployment — 500 per hour: the ceiling behind [DEFAULT\_LIMITS.report](#property-report), and with the bot check the only limit on a notice without an address, so no shared bucket can shut the anonymous channel for child sexual abuse material. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `reportGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `reportGlobal.rate` | `500` | `500` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `reportGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-write"></a> `write` | \{ `kind`: `"token bucket"`; `rate`: `120`; `period`: `number`; `capacity`: `60`; \} | - | Writes of your own signed-in functions — 120 per minute per account, burst 60. The scaffold's `createFunctions(…, { limits: { authed: 'write' } })` spends one on every `authed` and `withRole` mutation and action, keyed by the account, so one session cannot write in a loop. Override it here, or name another limit per tier. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `write.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `write.rate` | `120` | `120` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `write.period` | `number` | `MINUTE` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `write.capacity` | `60` | `60` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-upload"></a> `upload` | \{ `kind`: `"token bucket"`; `rate`: `100`; `period`: `number`; `capacity`: `20`; \} | - | Upload URLs — 100 per hour per account, burst 20. An upload URL takes a file of any size and the size is checked only once it has arrived, so this rate is what bounds the bytes one account can push into storage before `storage.claim` refuses them (`setupStorage`'s `generateUploadUrl`). The burst lets one batch of `useUploadQueue` through. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `upload.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `upload.rate` | `100` | `100` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `upload.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `upload.capacity` | `20` | `20` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 
 ## Functions
 
@@ -310,11 +478,10 @@ function setupRateLimiter<Limits>(components, limits?): RateLimiter<{
      rate: 10000;
      period: number;
   };
-  mcp: {
-     kind: "token bucket";
-     rate: 60;
+  aiGlobal: {
+     kind: "fixed window";
+     rate: 300;
      period: number;
-     capacity: 20;
   };
   admin: {
      kind: "token bucket";
@@ -333,10 +500,99 @@ function setupRateLimiter<Limits>(components, limits?): RateLimiter<{
      rate: 200;
      period: number;
   };
-  agentRegistrationGlobal: {
+  workspaceCreate: {
+     kind: "token bucket";
+     rate: 10;
+     period: number;
+     capacity: 5;
+  };
+  accountDelete: {
+     kind: "token bucket";
+     rate: 3;
+     period: number;
+     capacity: 3;
+  };
+  passkeySignIn: {
+     kind: "token bucket";
+     rate: 30;
+     period: number;
+     capacity: 30;
+  };
+  passkeySignInGlobal: {
      kind: "fixed window";
+     rate: 3000;
+     period: number;
+  };
+  signUpOtpGlobal: {
+     kind: "fixed window";
+     rate: 200;
+     period: number;
+  };
+  inviteCheck: {
+     kind: "token bucket";
+     rate: 10;
+     period: number;
+     capacity: 10;
+  };
+  inviteCheckGlobal: {
+     kind: "fixed window";
+     rate: 1000;
+     period: number;
+  };
+  waitlistJoin: {
+     kind: "token bucket";
+     rate: 5;
+     period: number;
+     capacity: 3;
+  };
+  waitlistJoinGlobal: {
+     kind: "fixed window";
+     rate: 1000;
+     period: number;
+  };
+  contact: {
+     kind: "token bucket";
+     rate: 5;
+     period: number;
+     capacity: 3;
+  };
+  contactGlobal: {
+     kind: "fixed window";
+     rate: 500;
+     period: number;
+  };
+  inboundMail: {
+     kind: "token bucket";
+     rate: 30;
+     period: number;
+     capacity: 10;
+  };
+  inboundMailGlobal: {
+     kind: "fixed window";
+     rate: 3000;
+     period: number;
+  };
+  report: {
+     kind: "fixed window";
+     rate: 10;
+     period: number;
+  };
+  reportGlobal: {
+     kind: "fixed window";
+     rate: 500;
+     period: number;
+  };
+  write: {
+     kind: "token bucket";
+     rate: 120;
+     period: number;
+     capacity: 60;
+  };
+  upload: {
+     kind: "token bucket";
      rate: 100;
      period: number;
+     capacity: 20;
   };
 } & Limits>;
 ```
@@ -403,11 +659,10 @@ named limits to cover your own application functions; they are merged with
      `rate`: `10000`;
      `period`: `number`;
   \};
-  `mcp`: \{
-     `kind`: `"token bucket"`;
-     `rate`: `60`;
+  `aiGlobal`: \{
+     `kind`: `"fixed window"`;
+     `rate`: `300`;
      `period`: `number`;
-     `capacity`: `20`;
   \};
   `admin`: \{
      `kind`: `"token bucket"`;
@@ -426,10 +681,99 @@ named limits to cover your own application functions; they are merged with
      `rate`: `200`;
      `period`: `number`;
   \};
-  `agentRegistrationGlobal`: \{
+  `workspaceCreate`: \{
+     `kind`: `"token bucket"`;
+     `rate`: `10`;
+     `period`: `number`;
+     `capacity`: `5`;
+  \};
+  `accountDelete`: \{
+     `kind`: `"token bucket"`;
+     `rate`: `3`;
+     `period`: `number`;
+     `capacity`: `3`;
+  \};
+  `passkeySignIn`: \{
+     `kind`: `"token bucket"`;
+     `rate`: `30`;
+     `period`: `number`;
+     `capacity`: `30`;
+  \};
+  `passkeySignInGlobal`: \{
      `kind`: `"fixed window"`;
+     `rate`: `3000`;
+     `period`: `number`;
+  \};
+  `signUpOtpGlobal`: \{
+     `kind`: `"fixed window"`;
+     `rate`: `200`;
+     `period`: `number`;
+  \};
+  `inviteCheck`: \{
+     `kind`: `"token bucket"`;
+     `rate`: `10`;
+     `period`: `number`;
+     `capacity`: `10`;
+  \};
+  `inviteCheckGlobal`: \{
+     `kind`: `"fixed window"`;
+     `rate`: `1000`;
+     `period`: `number`;
+  \};
+  `waitlistJoin`: \{
+     `kind`: `"token bucket"`;
+     `rate`: `5`;
+     `period`: `number`;
+     `capacity`: `3`;
+  \};
+  `waitlistJoinGlobal`: \{
+     `kind`: `"fixed window"`;
+     `rate`: `1000`;
+     `period`: `number`;
+  \};
+  `contact`: \{
+     `kind`: `"token bucket"`;
+     `rate`: `5`;
+     `period`: `number`;
+     `capacity`: `3`;
+  \};
+  `contactGlobal`: \{
+     `kind`: `"fixed window"`;
+     `rate`: `500`;
+     `period`: `number`;
+  \};
+  `inboundMail`: \{
+     `kind`: `"token bucket"`;
+     `rate`: `30`;
+     `period`: `number`;
+     `capacity`: `10`;
+  \};
+  `inboundMailGlobal`: \{
+     `kind`: `"fixed window"`;
+     `rate`: `3000`;
+     `period`: `number`;
+  \};
+  `report`: \{
+     `kind`: `"fixed window"`;
+     `rate`: `10`;
+     `period`: `number`;
+  \};
+  `reportGlobal`: \{
+     `kind`: `"fixed window"`;
+     `rate`: `500`;
+     `period`: `number`;
+  \};
+  `write`: \{
+     `kind`: `"token bucket"`;
+     `rate`: `120`;
+     `period`: `number`;
+     `capacity`: `60`;
+  \};
+  `upload`: \{
+     `kind`: `"token bucket"`;
      `rate`: `100`;
      `period`: `number`;
+     `capacity`: `20`;
   \};
 \} & `Limits`\>
 

@@ -1,0 +1,71 @@
+/*
+ * BillingHistory's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-history='root'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    color: var(--bk-ink);
+  }
+
+  [data-history='header'] {
+    margin: 0;
+    font-size: 1.15rem;
+    letter-spacing: -0.01em;
+  }
+
+  [data-history='list'] {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    overflow: hidden;
+  }
+
+  [data-history='order'][data-status='paid'] [data-history='order-status'] {
+    background: color-mix(in srgb, var(--bk-ok) 15%, transparent);
+    color: var(--bk-ok);
+  }
+
+  [data-history='order'][data-status='refunded'] [data-history='order-status'] {
+    background: color-mix(in srgb, var(--bk-warn) 15%, transparent);
+    color: var(--bk-warn);
+  }
+
+  [data-history='pager'] {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  [data-history='empty'],
+  [data-history='loading'] {
+    margin: 0;
+    color: var(--bk-muted);
+    font-size: 0.85rem;
+  }
+
+  [data-history='error'] {
+    margin: 0;
+    padding: 0.55rem 0.7rem;
+    border-radius: var(--bk-radius);
+    background: color-mix(in srgb, var(--bk-error) 12%, transparent);
+    color: var(--bk-error);
+    font-size: 0.85rem;
+  }
+
+  /* The status region: read out, not shown (the busy button already says it). */
+  [data-history='status'] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}

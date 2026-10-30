@@ -3,12 +3,14 @@ import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { BACKEND_ENV, CONTRACT_ENV_NAMES } from '../../src/env-registry'
-import { applyProductionPosture, deploymentEnvId, DOCTOR_SCHEMA_URL, finding, FINDING_SERVICES, FINDINGS, type FindingId } from '../../src/findings'
+import { applyProductionPosture, deploymentEnvId, DOCTOR_SCHEMA_URL, finding, FINDINGS, type FindingId } from '../../src/findings'
+import { CAPABILITY_NAMES } from '../../src/capabilities'
 import { doctorReport } from '../../src/preflight'
 
 // The findings registry against everything that names a finding: the checks
 // that emit them, the env registry, the production posture, the docs pages,
-// STABILITY.md's frozen list and the published JSON Schema.
+// STABILITY.md's frozen list and the published JSON Schema. The Diagnostics
+// page is generated from it (test/docs/docs-lookups.test.ts).
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const read = (path: string) => readFileSync(join(root, path), 'utf8')
@@ -33,11 +35,11 @@ function namesBetween(text: string, from: string, to: string): Set<string> {
 }
 
 describe('the findings registry', () => {
-  it('gives every finding a kebab-case id and a known service', () => {
+  it('gives every finding a kebab-case id and a known capability', () => {
     expect(ids.length).toBeGreaterThan(30)
     for (const id of ids) {
       expect(id).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-      expect(FINDING_SERVICES).toContain(FINDINGS[id].service)
+      expect(CAPABILITY_NAMES).toContain(FINDINGS[id].capability)
     }
   })
 
@@ -46,8 +48,10 @@ describe('the findings registry', () => {
     expect(fromEnv || checks.includes(`'${id}'`), `no check emits ${id}: drop it from the registry`).toBe(true)
   })
 
-  it('reports each name of the deployment\'s contract with a finding of its own', () => {
-    for (const name of CONTRACT_ENV_NAMES) {
+  it('reports each name of the deployment\'s contract with a finding of its own, but the two no finding checks yet', () => {
+    // The marketing sender and the sending region list none: arriving with the checks that read them.
+    expect(CONTRACT_ENV_NAMES.filter(name => BACKEND_ENV[name].findings.length === 0)).toEqual(['EMAIL_MARKETING_FROM', 'EMAIL_REGION'])
+    for (const name of CONTRACT_ENV_NAMES.filter(name => BACKEND_ENV[name].findings.length > 0)) {
       expect(FINDINGS[deploymentEnvId(name)]?.title, name).toBe(`Deployment ${name}`)
       expect(BACKEND_ENV[name].findings, name).toContain(deploymentEnvId(name))
     }
@@ -62,7 +66,7 @@ describe('the findings registry', () => {
   it('builds a reported finding from the registry', () => {
     expect(finding('billing-portal', 'warn', 'Plan changes are off.', 'Turn them on.')).toEqual({
       id: 'billing-portal',
-      service: 'billing',
+      capability: 'billing',
       title: 'Customer portal',
       status: 'warn',
       message: 'Plan changes are off.',
@@ -83,38 +87,26 @@ describe('the findings registry', () => {
 
 describe('the findings in the docs', () => {
   it('escalates under --prod exactly what the production page lists', () => {
-    const listed = namesBetween(read('website/content/docs/09.ship/3.production/index.md'), 'These findings escalate', 'Everything else')
+    const listed = namesBetween(read('website/content/docs/05.ship/2.checklist.md'), 'These findings escalate', 'Everything else')
     expect([...listed].filter(name => (ids as string[]).includes(name)).sort()).toEqual(ids.filter(id => FINDINGS[id].prod === 'fail').sort())
   })
 
-  it('lists every id in the CLI page\'s findings table, where /d/<id> lands', () => {
-    const listed = namesBetween(read('website/content/docs/10.reference/09.cli/index.md'), '### Findings', '## `env push`')
-    for (const id of ids) expect(listed.has(id), id).toBe(true)
-  })
+  // Every id's Diagnostics entry, where /d/<id> lands, is generated from
+  // this registry: test/docs/docs-lookups.test.ts holds the page to it.
 
-  it('names only registered ids in the first column of that table', () => {
-    const page = read('website/content/docs/10.reference/09.cli/index.md')
-    const table = page.slice(page.indexOf('### Findings'), page.indexOf('## `env push`'))
-    const named = [...table.matchAll(/^\| ([^|]+) \|/gm)]
-      .map(match => match[1]!)
-      .filter(cell => cell.startsWith('`'))
-      .flatMap(cell => [...cell.matchAll(/`([^`]+)`/g)].map(id => id[1]!))
-    expect(named.length).toBeGreaterThan(30)
-    expect(named.filter(id => !(ids as string[]).includes(id))).toEqual([])
-  })
-
-  it('freezes every id under its service in STABILITY.md, and nothing else', () => {
+  it('freezes every id under its capability in STABILITY.md, and nothing else', () => {
     const stability = read('STABILITY.md')
     const section = stability.slice(stability.indexOf('### 5. Diagnostics'), stability.indexOf('The environment variables the package reads'))
     const frozen: Record<string, string> = {}
-    let service = ''
+    let capability = ''
     for (const line of section.split('\n')) {
       const group = line.match(/^- `([a-z]+)`:$/)
-      if (group) service = group[1]!
+      if (group) capability = group[1]!
       const item = line.match(/^ {2}- `([a-z0-9-]+)`$/)
-      if (item) frozen[item[1]!] = service
+      if (item) frozen[item[1]!] = capability
     }
-    expect(frozen).toEqual(Object.fromEntries(ids.map(id => [id, FINDINGS[id].service])))
+    expect(frozen).toEqual(Object.fromEntries(ids.map(id => [id, FINDINGS[id].capability])))
+    expect(section).toContain(`The capabilities are \`${CAPABILITY_NAMES.join('`, `')}\``)
   })
 })
 
@@ -123,7 +115,7 @@ describe('the JSON Schema', () => {
     $id: string
     required: string[]
     properties: Record<string, unknown>
-    $defs: { finding: { required: string[], properties: { service: { enum: string[] }, status: { enum: string[] }, id: { pattern: string } } } }
+    $defs: { finding: { required: string[], properties: { capability: { enum: string[] }, status: { enum: string[] }, id: { pattern: string } } } }
   }
   const item = schema.$defs.finding
 
@@ -132,15 +124,15 @@ describe('the JSON Schema', () => {
   })
 
   it('describes a report exactly', () => {
-    const report = doctorReport([finding('mcp', 'pass', 'Mounted.')])
+    const report = doctorReport([finding('auth-secret', 'pass', 'Set.')])
     expect(Object.keys(report).sort()).toEqual(Object.keys(schema.properties).sort())
     expect([...schema.required].sort()).toEqual(Object.keys(report).sort())
     expect(Object.keys(report.findings[0]!).sort()).toEqual([...item.required].sort())
     expect(Object.keys(item.properties).sort()).toEqual([...item.required].sort())
   })
 
-  it('names the services and statuses the code has, and admits every id', () => {
-    expect(item.properties.service.enum).toEqual(FINDING_SERVICES)
+  it('names the capabilities and statuses the code has, and admits every id', () => {
+    expect(item.properties.capability.enum).toEqual(CAPABILITY_NAMES)
     expect(item.properties.status.enum).toEqual(['pass', 'warn', 'fail'])
     for (const id of ids) expect(id).toMatch(new RegExp(item.properties.id.pattern))
   })
@@ -148,7 +140,7 @@ describe('the JSON Schema', () => {
 
 describe('the sources', () => {
   it('build no finding by hand: every one goes through finding()', () => {
-    // A literal `{ id: …, title: … }` would skip the registry's service and docs link.
+    // A literal `{ id: …, title: … }` would skip the registry's capability and docs link.
     const literal = walk('src').filter(path => !path.startsWith('src/findings/')).filter(path => /\{\s*id: '[a-z-]+',\s*title:/.test(read(path)))
     expect(literal.map(path => relative(root, join(root, path)).split(sep).join('/'))).toEqual([])
   })

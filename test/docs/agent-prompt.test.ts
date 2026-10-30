@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { appendPageKeys, expandForAgents } from '../../website/shared/agent-markdown'
+import { expandForAgents } from '../../website/shared/agent-markdown'
 import { AGENT_PROMPT, AGENT_PROVIDERS } from '../../website/shared/agent-prompt'
 import { contentFile, read } from './helpers'
 
 // The one-paste install prompt (website/shared/agent-prompt.ts), the links
 // that hand it to an agent, and the content hook that writes what a Vue-drawn
-// block and the page header's keys stand for into the Markdown agents read
-// (`/raw/*.md`, `/llms-full.txt`).
+// block stands for into the Markdown agents read (`/raw/*.md`,
+// `/llms-full.txt`). How a twin opens, with the page header's keys, is in
+// test/docs/agent-surfaces.test.ts.
 
 describe('the agent install prompt', () => {
   const fence = `\`\`\`text\n${AGENT_PROMPT}\n\`\`\``
@@ -62,29 +63,10 @@ describe('Markdown for agents', () => {
     expect(body.value[1]).toEqual(['card', { title: 'x' }])
   })
 
-  it('closes the page with its header keys, once, as links an agent can follow', () => {
-    const body = page(['p', {}, 'Text.'])
-    const fields = { playground: '/playground/platform/email', api: '/docs/reference/api/email', source: 'src/convex/integrations/email.ts' }
-    appendPageKeys(body, fields)
-    appendPageKeys(body, fields)
-    expect(body.value).toHaveLength(2)
-    expect(body.value[1]).toEqual(['page-keys', {}, ['ul', {},
-      ['li', {}, 'Try it live in the playground: ', ['a', { href: '/playground/platform/email' }, '/playground/platform/email']],
-      ['li', {}, 'API reference: ', ['a', { href: '/docs/reference/api/email' }, '/docs/reference/api/email']],
-      ['li', {}, 'Source: ', ['a', { href: 'https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts' }, 'https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts']],
-    ]])
-  })
-
-  it('adds nothing to a page without keys', () => {
-    const body = page(['p', {}, 'Text.'])
-    appendPageKeys(body, { title: 'No keys' })
-    expect(body.value).toHaveLength(1)
-  })
-
   // What each hook does is held in test/docs/docs-pages.test.ts: the blocks
-  // are filled in the stored page, the keys only in what agents read.
+  // are filled in the stored page, the header only in what agents read.
   it('is run over every page by the site', () => {
     expect(read('website/modules/docs-pages.ts')).toMatch(/'content:file:afterParse', \(\{ file, content: page \}\) => enrichPage\(page, /)
-    expect(read('website/server/plugins/agent-page-keys.ts')).toMatch(/'agent-discovery:document', [^\n]+\n\s+appendPageKeys\(page\.body, page\)/)
+    expect(read('website/server/plugins/agent-surfaces.ts')).toMatch(/'agent-discovery:document', [^\n]+\n\s+openTwin\(page\.body, page\)/)
   })
 })

@@ -1,0 +1,58 @@
+/*
+ * The report page's notice form, on its data-* hooks. Theme through the
+ * --bk-* tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-report='notice'],
+  [data-report='appeal'],
+  [data-report='appeal-form'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 40rem;
+    color: var(--bk-ink);
+  }
+
+  :where([data-report='notice'], [data-report='appeal']) p {
+    margin: 0;
+  }
+
+  [data-report='hint'] {
+    color: var(--bk-muted);
+  }
+
+  [data-report='reasons'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+  }
+
+  [data-report='reason'],
+  [data-report='good-faith'] {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+  }
+
+  [data-report='intimate-note'] {
+    padding: 0.5rem 0.75rem;
+    border-inline-start: 3px solid var(--bk-warn);
+  }
+
+  [data-report='error'] {
+    color: var(--bk-error);
+  }
+
+  [data-report='sent'] {
+    color: var(--bk-ok);
+  }
+
+  [data-report='send'] {
+    align-self: flex-start;
+  }
+}

@@ -1,5 +1,7 @@
 import type { PropertyValidators } from 'convex/values'
-import type { FinalizedCost, MeteredUsage } from './config.js'
+import { logBackend } from '../../log.js'
+import type { FinalizedCost, MeteredUsage, ReportedCost } from './config.js'
+import type { ModelCall } from './models.js'
 
 // The cost side of a metered call: what to reserve before it runs, what it
 // actually spent, and the token arithmetic an app prices model calls with.
@@ -20,11 +22,72 @@ export function estimateCost(cost: unknown, args: Record<string, unknown>): numb
   return typeof estimate === 'function' ? (estimate as (args: unknown) => number)(args) : estimate
 }
 
+/** Whether a cost settles from what the model calls reported. */
+export function isReportedCost(cost: unknown): cost is ReportedCost<PropertyValidators> {
+  return typeof cost === 'object' && cost !== null && 'creditsPerUsd' in cost
+}
+
+/**
+ * Refuse a reported cost whose rate is no price, where the action is
+ * defined: a rate of zero would make every call free, a `NaN` would settle
+ * at the reservation forever.
+ */
+export function requireReportedCost(cost: unknown, where: string): void {
+  if (!isReportedCost(cost)) return
+  if (!(typeof cost.creditsPerUsd === 'number' && Number.isFinite(cost.creditsPerUsd) && cost.creditsPerUsd > 0)) {
+    throw new Error(`[nuxt-backend] ${where}: \`creditsPerUsd\` must be a finite number above zero — got ${String(cost.creditsPerUsd)}.`)
+  }
+}
+
+/**
+ * One call's credits: its reported cost at `creditsPerUsd`, else, once it
+ * finished, its tokens at `prices` (keyed by the id the call was made with).
+ * A refused call never answered and costs nothing. `undefined` for a call
+ * that cannot be priced: one that finished with no cost and no price, or a
+ * stream that broke or was left unread before it reported anything.
+ */
+function priceCall(call: ModelCall, cost: Pick<ReportedCost<PropertyValidators>, 'creditsPerUsd' | 'prices'>): number | undefined {
+  if (call.state === 'refused') return 0
+  if (call.usd !== undefined) return call.usd * cost.creditsPerUsd
+  if (call.state === 'finished' && cost.prices?.[call.usage.model]) return priceTokens(call.usage, cost.prices)
+  return undefined
+}
+
+/**
+ * Credits for the model calls a run made, from the cost each one reported at
+ * `creditsPerUsd`, or its tokens at `prices` when it reported none. A run
+ * with no call costs nothing but the `minimum`. `undefined` when a call
+ * cannot be priced (no cost, no price, or a stream that never reported one):
+ * the caller then settles at the reservation, never at a guess.
+ */
+export function priceModelCalls(calls: readonly ModelCall[], cost: Pick<ReportedCost<PropertyValidators>, 'creditsPerUsd' | 'prices' | 'round' | 'minimum'>): number | undefined {
+  let credits = 0
+  for (const call of calls) {
+    const priced = priceCall(call, cost)
+    if (priced === undefined) return undefined
+    credits += priced
+  }
+  // Dollars arrive as decimals; keep the float noise of their sum out of the balance.
+  credits = Math.round(credits * 1e9) / 1e9
+  const rounded = cost.round === 'up'
+    ? Math.ceil(credits)
+    : cost.round === 'nearest' ? Math.round(credits) : credits
+  return Math.max(rounded, cost.minimum ?? 0)
+}
+
 /**
  * Credits actually spent, once the work is done — `undefined` when the cost
- * was fixed up front and the reservation settles as-is.
+ * was fixed up front, or reported by no call it could be priced from, and the
+ * reservation settles as-is.
  */
-export function finalizeCost(cost: unknown, result: unknown, usage: MeteredUsage): number | undefined {
+export function finalizeCost(cost: unknown, result: unknown, usage: MeteredUsage, calls: readonly ModelCall[] = []): number | undefined {
+  if (isReportedCost(cost)) {
+    const credits = priceModelCalls(calls, cost)
+    if (credits === undefined) {
+      logBackend('warn', 'ai.cost_unreported', `A model call reported no cost (no price covers its model, or its stream never reached its end): charging the ${usage.cost} credits reserved. Add the model to the cost's \`prices\`, and read a stream to its end.`)
+    }
+    return credits
+  }
   if (typeof cost !== 'object' || cost === null || !('finalize' in cost)) return undefined
   return (cost as FinalizedCost<PropertyValidators, unknown>).finalize(result, usage)
 }

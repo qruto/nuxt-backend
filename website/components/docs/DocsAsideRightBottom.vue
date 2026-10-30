@@ -4,8 +4,8 @@ import type { ContentNavigationItem } from '@nuxt/content'
 // Docus 5.15.0's DocsAsideRightBottom (test/docs/docus-copies.test.ts pins
 // the source), changed: the page's related links, "Was this helpful?" and
 // its last-updated date come before the ecosystem links, and "Explain with
-// AI" shows only once the assistant is grounded in these docs
-// (`assistant.explainWithAi: true` in app.config, which Ask AI sets). On a
+// AI" shows only where the assistant is on, grounded in these docs
+// (`assistant.explainWithAi: true`, which nuxt.config.ts sets). On a
 // page without a table of contents the block stands alone (`standalone`,
 // DocsAsideRight and DocsAsideMobileBar), and opens without a separator.
 const props = defineProps<{

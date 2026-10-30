@@ -1,0 +1,57 @@
+/*
+ * AdminChart's default styles, on its data-* hooks. Theme through the
+ * --bk-* tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-admin='chart'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0.75rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    background: var(--bk-surface);
+  }
+
+  :where([data-admin='chart']) figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.25rem 0.75rem;
+  }
+
+  [data-admin='chart-total'] {
+    color: var(--bk-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  [data-admin='chart-bars'] {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  [data-admin='chart-bar'] {
+    flex: 1 1 0;
+    min-width: 1px;
+    height: calc(var(--admin-chart-value, 0) * 100%);
+    min-height: 1px;
+    border-radius: 2px 2px 0 0;
+    background: color-mix(in srgb, currentColor 65%, transparent);
+  }
+
+  [data-admin='chart-bar'][data-state='empty'] {
+    background: var(--bk-edge);
+  }
+
+  [data-admin='chart'][data-tone='loss'] [data-admin='chart-bar']:not([data-state='empty']) {
+    background: var(--bk-error);
+  }
+}

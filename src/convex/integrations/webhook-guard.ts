@@ -1,13 +1,14 @@
 import type { FunctionReference } from 'convex/server'
-import { Webhook } from 'standardwebhooks'
 import { logBackend } from '../log.js'
+import { reportError } from './monitoring.js'
 
 /**
  * The one fail-closed edge every inbound webhook route runs through
  * (`/billing/events`, `/email/events`): {@link handleWebhookDelivery} owns
  * the secret check, the body size cap, reading the body, redelivery dedupe,
  * the JSON parse, the outcome log and the `webhook.rejected` deployment-log
- * line; a route supplies only its signature check and its handlers. Uniform policy
+ * line; a route supplies only its signature check (the one verifier,
+ * `webhook-signatures.ts`) and its handlers. Uniform policy
  * (documented in the Webhooks guide):
  *
  * | condition                        | status | outcome            |
@@ -20,7 +21,8 @@ import { logBackend } from '../log.js'
  * | duplicate of a successful one    | 200    | `duplicate`        |
  * | success                          | 2xx    | `ok`               |
  *
- * One rule: throw ⇒ 5xx ⇒ the provider retries (built-ins are idempotent);
+ * One rule: throw ⇒ 5xx ⇒ the provider retries (built-ins are idempotent),
+ * and the failure goes to the monitoring service (`MONITORING_DSN`);
  * dedupe short-circuits only fully-successful (`ok`) outcomes; nothing is
  * ever silently swallowed. Deliberately NO rate limiting here — signature
  * verification is the gate, and a limiter would drop the legitimate retry
@@ -34,6 +36,14 @@ import { logBackend } from '../log.js'
  * so its reader (`getWebhookDeliveries`) is admin-only.
  */
 
+/**
+ * How a webhook route answered a request, as its row of the delivery log
+ * says: `ok` handled, `duplicate` a redelivery of one handled already,
+ * `unknown_type` verified but of a type the route does not parse,
+ * `handler_error` a handler threw (the provider retries), and
+ * `invalid_signature`, `oversized` and `missing_secret` refused before
+ * any signature verified.
+ */
 export type WebhookOutcome
   = 'ok' | 'invalid_signature' | 'unknown_type' | 'handler_error' | 'duplicate' | 'oversized' | 'missing_secret'
 
@@ -51,6 +61,8 @@ export interface WebhookDeliveryRow {
    * row's own). It counts afresh after a day without one.
    */
   count?: number
+  /** When an administrator last had the provider send it again (`replayWebhookDelivery`). */
+  replayedAt?: number
 }
 
 /** `components.backend.webhooks` — the delivery log functions. */
@@ -132,7 +144,7 @@ export function parseWebhookJson(body: string): ParsedWebhook {
  * delivery log.
  */
 export type WebhookVerdict
-  = | { outcome: 'ok', response: Response, type?: string }
+  = | { outcome: 'ok', response: Response, type?: string, note?: string }
     | { outcome: 'unknown_type', type?: string }
     | { outcome: 'invalid_signature' | 'missing_secret', response?: Response, note?: string }
     | { outcome: 'handler_error', response?: Response, note: string }
@@ -299,12 +311,13 @@ export async function handleWebhookDelivery<Ctx>(
   }
   catch (error) {
     await logged.record('handler_error', { type: event.type, note: errorNote(error) })
+    await reportError(error, { function: `${delivery.service} webhook` })
     throw error
   }
 
   switch (verdict.outcome) {
     case 'ok':
-      await logged.record('ok', { type: verdict.type ?? event.type })
+      await logged.record('ok', { type: verdict.type ?? event.type, ...(verdict.note ? { note: verdict.note } : {}) })
       return verdict.response
     case 'unknown_type': {
       const type = verdict.type ?? event.type
@@ -313,6 +326,7 @@ export async function handleWebhookDelivery<Ctx>(
       }
       catch (error) {
         await logged.record('handler_error', { type, note: errorNote(error) })
+        await reportError(error, { function: `${delivery.service} webhook` })
         throw error
       }
       await logged.record('unknown_type', { type })
@@ -320,6 +334,7 @@ export async function handleWebhookDelivery<Ctx>(
     }
     case 'handler_error':
       await logged.record('handler_error', { note: verdict.note })
+      await reportError(new Error(verdict.note), { function: `${delivery.service} webhook` })
       if (verdict.response) return verdict.response
       throw new Error(verdict.note)
     default:
@@ -330,46 +345,4 @@ export async function handleWebhookDelivery<Ctx>(
 /** A thrown value as the delivery log's note. */
 function errorNote(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
-}
-
-const STANDARD_WEBHOOK_PREFIX = 'whsec_'
-
-/** Base64 of a string's UTF-8 bytes — the secret reading the provider SDK verifies with. */
-function sdkSecretReading(secret: string): string {
-  return btoa(String.fromCharCode(...new TextEncoder().encode(secret)))
-}
-
-/**
- * Re-sign a Standard Webhooks delivery for the provider SDK's reading of the
- * secret. The provider signs with Standard Webhooks semantics — the `whsec_`
- * prefix stripped and the rest base64-decoded into the HMAC key — while the
- * SDK's `validateEvent` keys the HMAC with the UTF-8 bytes of the whole
- * secret string, so every genuine delivery failed verification (observed as
- * 403s until the provider disabled the endpoint). A delivery that verifies
- * under the standard reading of one of the accepted secrets comes back with
- * its `webhook-signature` recomputed under the SDK reading of that same
- * secret; anything else is returned untouched and refused downstream.
- *
- * @internal
- */
-export function translateStandardSignature(headers: Headers, body: string, secrets: readonly string[]): Headers {
-  const id = headers.get('webhook-id')
-  const timestamp = headers.get('webhook-timestamp')
-  const signature = headers.get('webhook-signature')
-  if (!id || !timestamp || !signature) return headers
-  const delivered = { 'webhook-id': id, 'webhook-timestamp': timestamp, 'webhook-signature': signature }
-  for (const secret of secrets) {
-    if (!secret.startsWith(STANDARD_WEBHOOK_PREFIX)) continue
-    try {
-      new Webhook(secret).verify(body, delivered)
-    }
-    catch {
-      continue
-    }
-    const resigned = new Webhook(sdkSecretReading(secret)).sign(id, new Date(Number(timestamp) * 1000), body)
-    const translated = new Headers(headers)
-    translated.set('webhook-signature', resigned)
-    return translated
-  }
-  return headers
 }

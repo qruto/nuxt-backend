@@ -1,11 +1,14 @@
-import { mkdirSync, mkdtempSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runCommand } from 'citty'
 import { organizationsListOrganizations } from '@polar-sh/sdk/funcs/organizationsListOrganizations.js'
+import { agentsSection, installedVersion, mergeAgentsMd, PROJECT_SKILLS } from '../../src/agents'
+import { AGENT_SKILLS } from '../../src/guidance/skills'
 import { main } from '../../src/cli/main'
 import { scaffoldBackendFiles } from '../../src/scaffold'
+import { DEFAULT_LAYOUT_TEMPLATE } from '../../src/templates'
 
 vi.mock('@polar-sh/sdk/funcs/organizationsListOrganizations.js', () => ({ organizationsListOrganizations: vi.fn() }))
 
@@ -60,10 +63,10 @@ describe('init — agent files', () => {
     await run(['init'])
 
     expect(readFileSync(join(rootDir, 'AGENTS.md'), 'utf-8')).toContain('<!-- nuxt-backend-start -->')
-    expect(JSON.parse(readFileSync(join(rootDir, '.mcp.json'), 'utf-8'))).toEqual({ mcpServers: { convex: { command: 'npx', args: ['convex', 'mcp', 'start'] } } })
+    expect(JSON.parse(readFileSync(join(rootDir, '.mcp.json'), 'utf-8'))).toEqual({ mcpServers: { 'nuxt-backend': { command: 'npx', args: ['nuxt-backend', 'mcp'] } } })
     const logs = vi.mocked(console.log).mock.calls.flat().join('\n')
     expect(logs).toContain('Created AGENTS.md')
-    expect(logs).toContain('Created .mcp.json with the Convex MCP server')
+    expect(logs).toContain('Created .mcp.json with the developer MCP server (npx nuxt-backend mcp)')
   })
 
   it('keeps an existing AGENTS.md and .mcp.json, and is quiet the second time', async () => {
@@ -74,7 +77,7 @@ describe('init — agent files', () => {
     const agents = readFileSync(join(rootDir, 'AGENTS.md'), 'utf-8')
     expect(agents.startsWith('# House rules\n\n<!-- nuxt-backend-start -->')).toBe(true)
     const mcp = readFileSync(join(rootDir, '.mcp.json'), 'utf-8')
-    expect(Object.keys((JSON.parse(mcp) as { mcpServers: object }).mcpServers)).toEqual(['docs', 'convex'])
+    expect(Object.keys((JSON.parse(mcp) as { mcpServers: object }).mcpServers)).toEqual(['docs', 'nuxt-backend'])
     expect(mcp).toMatch(/^\{\n {4}"mcpServers"/)
 
     vi.mocked(console.log).mockClear()
@@ -84,11 +87,75 @@ describe('init — agent files', () => {
     expect(vi.mocked(console.log).mock.calls.flat().join('\n')).not.toMatch(/AGENTS\.md|\.mcp\.json/)
   })
 
-  it('writes neither with --no-agents', async () => {
+  it('refreshes only the agent files with --agents, keeping the text around the section', async () => {
+    const stale = mergeAgentsMd('# House rules\n', { version: '0.0.1' }).content
+    writeFileSync(join(rootDir, 'AGENTS.md'), `${stale}\n## After\n`)
+
+    await run(['init', '--agents'])
+
+    expect(readFileSync(join(rootDir, 'AGENTS.md'), 'utf-8')).toBe(`# House rules\n\n${agentsSection(installedVersion(rootDir))}\n## After\n`)
+    expect(JSON.parse(readFileSync(join(rootDir, '.mcp.json'), 'utf-8'))).toEqual({ mcpServers: { 'nuxt-backend': { command: 'npx', args: ['nuxt-backend', 'mcp'] } } })
+    expect(existsSync(join(rootDir, 'backend'))).toBe(false)
+    expect(existsSync(join(rootDir, '.env.example'))).toBe(false)
+    expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain('Replaced the nuxt-backend section in AGENTS.md')
+  })
+
+  it('refuses an AGENTS.md whose markers do not pair up, and leaves it as it is', async () => {
+    const notes = '# Notes\n<!-- nuxt-backend-start -->\nmy own notes\n'
+    writeFileSync(join(rootDir, 'AGENTS.md'), notes)
+
+    await run(['init', '--agents'])
+
+    expect(readFileSync(join(rootDir, 'AGENTS.md'), 'utf-8')).toBe(notes)
+    expect(process.exitCode).toBe(1)
+    expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain('unpaired or repeated nuxt-backend markers')
+  })
+
+  it('installs every agent skill the package ships, and reports it in --json', async () => {
+    const progress = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await run(['init', '--json'])
+
+    expect(readdirSync(join(rootDir, PROJECT_SKILLS)).sort()).toEqual(AGENT_SKILLS.map(skill => skill.name).sort())
+    expect(progress.mock.calls.flat().join('\n')).toContain(`Installed the nuxt-backend agent skills in ${PROJECT_SKILLS}`)
+    const report = JSON.parse(vi.mocked(console.log).mock.calls.at(-1)![0] as string) as { skills: unknown }
+    expect(report.skills).toEqual({ installed: AGENT_SKILLS.map(skill => skill.name).sort(), refreshed: [], removed: [], stale: [] })
+  })
+
+  it('refreshes a skill another version wrote with --agents, and only reports it without', async () => {
+    await run(['init'])
+    const skill = join(rootDir, PROJECT_SKILLS, 'nuxt-backend-billing/SKILL.md')
+    const current = readFileSync(skill, 'utf-8')
+    writeFileSync(skill, 'old guidance')
+
+    vi.mocked(console.log).mockClear()
+    await run(['init'])
+    expect(readFileSync(skill, 'utf-8')).toBe('old guidance')
+    expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain('init --agents` refreshes them')
+
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await run(['init', '--agents', '--json'])
+    expect(readFileSync(skill, 'utf-8')).toBe(current)
+    expect(JSON.parse(vi.mocked(console.log).mock.calls.at(-1)![0] as string)).toEqual({ agentsMd: 'unchanged', mcpJson: 'unchanged', skills: { installed: [], refreshed: ['nuxt-backend-billing'], removed: [], stale: [] }, mcpSdkDependency: null })
+  })
+
+  it('refreshes a skill another version wrote with --force too, beside the scaffold', async () => {
+    await run(['init'])
+    const skill = join(rootDir, PROJECT_SKILLS, 'nuxt-backend-billing/SKILL.md')
+    const current = readFileSync(skill, 'utf-8')
+    writeFileSync(skill, 'old guidance')
+
+    vi.mocked(console.log).mockClear()
+    await run(['init', '--force'])
+    expect(readFileSync(skill, 'utf-8')).toBe(current)
+    expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain('Refreshed the nuxt-backend agent skills nuxt-backend-billing')
+  })
+
+  it('writes none of them with --no-agents', async () => {
     await run(['init', '--no-agents'])
 
     expect(existsSync(join(rootDir, 'AGENTS.md'))).toBe(false)
     expect(existsSync(join(rootDir, '.mcp.json'))).toBe(false)
+    expect(existsSync(join(rootDir, PROJECT_SKILLS))).toBe(false)
     expect(existsSync(join(rootDir, 'backend/auth.ts'))).toBe(true)
   })
 
@@ -121,13 +188,47 @@ describe('init', () => {
 
     await run(['init'])
 
-    expect(readFileSync(join(rootDir, 'app/app.vue'), 'utf-8')).toBe(starter.replace('<NuxtWelcome />', '<NuxtPage />'))
-    expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain('Replaced <NuxtWelcome /> with <NuxtPage /> in app/app.vue')
+    expect(readFileSync(join(rootDir, 'app/app.vue'), 'utf-8')).toBe(starter.replace('<NuxtWelcome />', '<NuxtLayout>\n      <NuxtPage />\n    </NuxtLayout>'))
+    expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain('Replaced <NuxtWelcome /> with <NuxtLayout><NuxtPage /></NuxtLayout> in app/app.vue')
+    // The frame comes with it: the app shell as the default layout.
+    expect(readFileSync(join(rootDir, 'app/layouts/default.vue'), 'utf-8')).toBe(DEFAULT_LAYOUT_TEMPLATE)
+    expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain('Created app/layouts/default.vue')
 
     const custom = '<template>\n  <NuxtLayout>\n    <NuxtPage />\n  </NuxtLayout>\n</template>\n'
     writeFileSync(join(rootDir, 'app/app.vue'), custom)
     await run(['init'])
     expect(readFileSync(join(rootDir, 'app/app.vue'), 'utf-8')).toBe(custom)
+  })
+
+  it('restores the default layout if it goes missing, and never touches a layout the app has', async () => {
+    mkdirSync(join(rootDir, 'app'))
+    writeFileSync(join(rootDir, 'app/app.vue'), '<template>\n  <div>\n    <NuxtRouteAnnouncer />\n    <NuxtWelcome />\n  </div>\n</template>\n')
+    await run(['init'])
+    const layout = join(rootDir, 'app/layouts/default.vue')
+    expect(readFileSync(layout, 'utf-8')).toBe(DEFAULT_LAYOUT_TEMPLATE)
+
+    // Deleted, it comes back: the root still renders the layout and the app has no other.
+    rmSync(layout)
+    await run(['init'])
+    expect(readFileSync(layout, 'utf-8')).toBe(DEFAULT_LAYOUT_TEMPLATE)
+
+    // Edited, it stays as it is.
+    writeFileSync(layout, '<template><div><slot /></div></template>\n')
+    await run(['init'])
+    expect(readFileSync(layout, 'utf-8')).toBe('<template><div><slot /></div></template>\n')
+
+    // An app with a layout of its own under another name gets no second one.
+    rmSync(layout)
+    writeFileSync(join(rootDir, 'app/layouts/marketing.vue'), '<template><slot /></template>\n')
+    await run(['init'])
+    expect(existsSync(layout)).toBe(false)
+  })
+
+  it('writes no layout beside a root component that renders no layout', async () => {
+    mkdirSync(join(rootDir, 'app'))
+    writeFileSync(join(rootDir, 'app/app.vue'), '<template>\n  <NuxtPage />\n</template>\n')
+    await run(['init'])
+    expect(existsSync(join(rootDir, 'app/layouts'))).toBe(false)
   })
 
   it('declares convex in the app manifest, once, and leaves an existing range alone', async () => {
@@ -157,7 +258,7 @@ describe('init', () => {
 
   it('points a plain nuxt dev script at nuxt-backend dev, and says to run it', async () => {
     const manifestPath = join(rootDir, 'package.json')
-    writeFileSync(manifestPath, JSON.stringify({ name: 'app', scripts: { dev: 'nuxt dev --port 3001', build: 'nuxt build' }, dependencies: { convex: '^1.0.0' } }, null, 2))
+    writeFileSync(manifestPath, JSON.stringify({ name: 'app', scripts: { dev: 'nuxt dev --port 3001', build: 'nuxt build' }, dependencies: { convex: '^1.0.0' }, devDependencies: { '@modelcontextprotocol/sdk': '^1.0.0' } }, null, 2))
 
     await run(['init'])
 
@@ -212,34 +313,34 @@ describe('doctor', () => {
     expect(report.findings.some(finding => finding.id === 'auth-secret')).toBe(true)
   })
 
-  it('names its schema and gives each finding a service and a docs link', async () => {
+  it('names its schema and gives each finding a capability and a docs link', async () => {
     await run(['doctor', '--json'])
 
-    const report = JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { $schema: string, findings: Array<{ id: string, service: string, docsUrl: string }> }
+    const report = JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { $schema: string, findings: Array<{ id: string, capability: string, docsUrl: string }> }
     expect(report.$schema).toBe('https://nuxt-backend.dev/schemas/doctor.json')
-    expect(report.findings.find(finding => finding.id === 'auth-secret')).toMatchObject({ service: 'auth', docsUrl: 'https://nuxt-backend.dev/d/auth-secret' })
+    expect(report.findings.find(finding => finding.id === 'auth-secret')).toMatchObject({ capability: 'auth', docsUrl: 'https://nuxt-backend.dev/d/auth-secret' })
   })
 
-  it('checks only the services --only names', async () => {
+  it('checks only the capabilities --only names', async () => {
     const fetchMock = vi.fn(async (_url: string | URL) => new Response('', { status: 400 }))
     vi.stubGlobal('fetch', fetchMock)
     writeFileSync(join(rootDir, '.env.local'), 'NUXT_PUBLIC_CONVEX_SITE_URL=https://demo.convex.site\n')
 
     await run(['doctor', '--json', '--only', 'email,auth'])
 
-    const report = JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { findings: Array<{ id: string, service: string }> }
-    expect(new Set(report.findings.map(finding => finding.service))).toEqual(new Set(['email', 'auth']))
+    const report = JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { findings: Array<{ id: string, capability: string }> }
+    expect(new Set(report.findings.map(finding => finding.capability))).toEqual(new Set(['email', 'auth']))
     // The billing route was never probed, and codegen never checked.
     expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(['https://demo.convex.site/email/events'])
     expect(report.findings.some(finding => finding.id === 'convex-codegen')).toBe(false)
     vi.unstubAllGlobals()
   })
 
-  it('refuses a service --only does not know', async () => {
+  it('refuses a capability --only does not know, and the names a release renamed', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
-    await run(['doctor', '--only', 'payments'])
+    await run(['doctor', '--only', 'payments,workspaces'])
 
-    expect(error.mock.calls.flat().join('\n')).toContain('payments is not a service')
+    expect(error.mock.calls.flat().join('\n')).toContain('payments, workspaces is not a capability. Capabilities: auth, data, jobs, billing, email, notifications, ai, protection, monitoring, flags, analytics, hosting.')
     error.mockRestore()
     expect(process.exitCode).toBe(1)
   })

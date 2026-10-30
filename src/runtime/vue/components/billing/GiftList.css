@@ -1,0 +1,101 @@
+/*
+ * GiftList's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-gift='list'] {
+    display: grid;
+    gap: 1.5rem;
+    max-width: 44rem;
+    color: var(--bk-ink);
+  }
+
+  [data-gift='section'] {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  [data-gift='section-title'] {
+    margin: 0;
+    font-size: 1.05rem;
+  }
+
+  [data-gift='entries'] {
+    display: grid;
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  [data-gift='entry'] {
+    display: grid;
+    gap: 0.4rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+  }
+
+  [data-gift='entry'][data-status='refunded'] {
+    opacity: 0.7;
+  }
+
+  [data-gift='entry-what'] {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  [data-gift='entry-meta'],
+  [data-gift='hint'],
+  [data-gift='empty'] {
+    margin: 0;
+    color: var(--bk-muted);
+    font-size: 0.85rem;
+  }
+
+  [data-gift='entry-message'] {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  [data-gift='entry-actions'],
+  [data-gift='entry-form'],
+  [data-gift='entry-target'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  :where([data-gift='list'] button) {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  :where([data-gift='list'] button)[aria-disabled='true'] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  :where([data-gift='list'] button):focus-visible,
+  :where([data-gift='list'] input):focus-visible,
+  :where([data-gift='list'] select):focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 2px;
+  }
+
+  [data-gift='list-error'] {
+    margin: 0;
+    color: var(--bk-error);
+  }
+
+  [data-gift='status']:empty {
+    display: none;
+  }
+}

@@ -1,0 +1,115 @@
+/*
+ * HowDidYouHear's default styles, on its data-* hooks. Theme through the
+ * --bk-* tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-source='root'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    color: var(--bk-ink);
+  }
+
+  [data-source='question'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  [data-source='title'] {
+    margin: 0 0 0.25rem;
+    padding: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  [data-source='hint'] {
+    margin: 0 0 0.25rem;
+    color: var(--bk-muted);
+    font-size: 0.9rem;
+  }
+
+  [data-source='option'] {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    background: var(--bk-surface);
+    cursor: pointer;
+  }
+
+  [data-source='option']:has(:checked) {
+    border-color: var(--bk-accent);
+  }
+
+  [data-source='choice'] {
+    margin: 0;
+    accent-color: var(--bk-accent);
+  }
+
+  [data-source='other'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  [data-source='detail'] {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+
+  [data-source='error'] {
+    margin: 0;
+    color: var(--bk-error);
+  }
+
+  [data-source='actions'] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  [data-source='submit'] {
+    padding: 0.5rem 1rem;
+    border: 0;
+    border-radius: var(--bk-radius-control);
+    background: var(--bk-accent);
+    color: var(--bk-on-accent);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  [data-source='skip'] {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  :is([data-source='submit'], [data-source='skip'])[aria-disabled='true'] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  [data-source='status'] {
+    margin: 0;
+    color: var(--bk-muted);
+  }
+
+  [data-source='status']:empty {
+    display: none;
+  }
+}

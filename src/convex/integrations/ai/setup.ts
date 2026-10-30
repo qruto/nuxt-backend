@@ -1,6 +1,11 @@
+import { createChats } from './chat.js'
 import type { Ai, AiComponents, SetupAiConfig } from './config.js'
-import { createAiContext } from './context.js'
+import { AI_CONTEXTS, createAiContext } from './context.js'
+import { costsApi } from './costs.js'
+import { createKnowledge } from './knowledge.js'
 import { createMetering } from './metering.js'
+import { modelStatusOf } from './models.js'
+import { provenanceReader, type ProvenanceRefs } from './provenance.js'
 import { createStreams } from './stream.js'
 
 /**
@@ -14,9 +19,10 @@ import { createStreams } from './stream.js'
  * import { billing } from './billing'
  * import { rateLimiter } from './rateLimiter'
  *
- * export const ai = setupAi(components, { billing, rateLimiter })
+ * export const ai = setupAi(components, { billing, rateLimiter, model: 'openai/gpt-5-mini' })
  * export const generate = ai.meteredAction({ ... })
  * export const { start: startEcho, body: echoBody } = ai.stream({ name: 'echo', ... })
+ * export const { getCosts } = ai.api
  * ```
  */
 export function setupAi(components: AiComponents, config: SetupAiConfig): Ai {
@@ -25,6 +31,18 @@ export function setupAi(components: AiComponents, config: SetupAiConfig): Ai {
   const { stream, httpHandler } = createStreams(context, metering)
   const { meteredAction } = metering
   const { corsOrigin } = context
+  const modelStatus: Ai['modelStatus'] = model => modelStatusOf(model ?? config.model, undefined, config.inferenceRegion)
 
-  return { meteredAction, stream, httpHandler, corsOrigin }
+  // The Agent and RAG components are the app's own mounts, reached only when a chat or a store runs.
+  const mounted = components as AiComponents & { agent?: unknown, rag?: unknown }
+  const { chat } = createChats(context, metering, mounted.agent)
+  const { knowledge } = createKnowledge(context, metering, mounted.rag, (components.backend as unknown as { storage: Parameters<typeof createKnowledge>[3] }).storage)
+
+  const provenanceOf = provenanceReader(context.requests as unknown as ProvenanceRefs)
+
+  const { moderate, requireSafe } = context.moderation
+
+  const ai: Ai = { meteredAction, stream, httpHandler, corsOrigin, modelStatus, chat, knowledge, provenanceOf, moderate, requireSafe, api: costsApi(components) }
+  AI_CONTEXTS.set(ai, context)
+  return ai
 }

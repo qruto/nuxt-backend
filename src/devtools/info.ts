@@ -1,16 +1,14 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
-import { BACKEND_MCP_SCOPES, DEFAULT_MCP_EXCHANGE_PATH, type BackendMcpScope } from '../convex/constants'
-import { deriveDeploymentUrls, resolveSiteUrl } from '../deployment'
-import { collectPreflightFindings, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from '../preflight'
+import { computeDeployment } from '../deployment'
+import { detectCapabilities } from '../capabilities'
+import { appMonitoringDsn, monitoringSdkInstalled } from '../monitoring'
+import { collectPreflightFindings, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../preflight'
 import { BACKEND_PAGE_DEFS, type BackendPageKey } from '../pages'
-import type { BackendMcpToolName } from '../runtime/server/mcp/builtin'
 import type {
-  DevtoolsDeployment,
   DevtoolsDeploymentEnv,
   DevtoolsEnvTier,
-  DevtoolsMcpStatus,
   DevtoolsPageInfo,
   DevtoolsServerInfo,
 } from './rpc-types'
@@ -20,14 +18,7 @@ import type {
  * `ModuleOptions`) so this file never imports the module entry.
  */
 export interface DevtoolsOptionsInput {
-  scaffold?: 'auto' | false
-  autoEnv?: boolean
   authRoute?: string
-}
-
-/** The resolved `backend.mcp` facts the panel needs (`null` = disabled). */
-export interface DevtoolsMcpInput {
-  route: string
 }
 
 export interface BuildDevtoolsInfoInput {
@@ -40,13 +31,24 @@ export interface BuildDevtoolsInfoInput {
   siteUrlConfigured: boolean
   options: DevtoolsOptionsInput
   pages: DevtoolsPageInfo[]
-  mcp: DevtoolsMcpInput
   versions: Record<string, string>
   functionsDir: string
   /** The last read of the deployment's env names (`null` until one ran). */
   deploymentEnv: DevtoolsDeploymentEnv | null
   /** The required names a clean `env push` put on the deployment, when known. */
   provisionedNames: ReadonlySet<string> | undefined
+  /** The panel's last doctor run, which the capability console reads beside the preflight (`null`: none counts). */
+  doctor?: DevtoolsLastDoctorRun | null
+}
+
+/**
+ * The panel's doctor runs as the capability console reads them: when the last one
+ * ran, and the findings of every capability a run covered, each capability's from the
+ * newest run that covered it.
+ */
+export interface DevtoolsLastDoctorRun {
+  ranAt: number
+  findings: readonly PreflightFinding[]
 }
 
 /**
@@ -77,54 +79,17 @@ export function envTier(isSet: (name: string) => boolean): DevtoolsEnvTier {
 }
 
 /**
- * The deployment the app talks to, from what the dev server sees. The id and
- * URLs are not secrets (the client URL reaches every browser); deploy keys are
- * never read.
+ * The names the deployment holds: the provisioned ones, and every one its
+ * last read listed.
  */
-export function computeDeployment(rootDir: string, env: Record<string, string | undefined>): DevtoolsDeployment {
-  const derived = deriveDeploymentUrls(rootDir, env)
-  const id = env.CONVEX_DEPLOYMENT ?? derived?.deployment
-  const url = env.NUXT_PUBLIC_BACKEND_URL ?? env.NUXT_PUBLIC_CONVEX_URL ?? derived?.url
-  const siteUrl = resolveSiteUrl({ env, derived })
-  const urls = { ...(url ? { url } : {}), ...(siteUrl ? { siteUrl } : {}) }
-  if (derived?.source === 'self-hosted') return { kind: 'self-hosted', ...urls }
-  if (!id) return { kind: 'none', ...urls }
-  const prefix = id.includes(':') ? id.slice(0, id.indexOf(':')) : ''
-  const kind = ({ dev: 'cloud-dev', local: 'local', anonymous: 'anonymous', prod: 'production', preview: 'preview' } as const)[prefix] ?? 'cloud-dev'
-  const name = id.slice(id.lastIndexOf(':') + 1)
-  const cloud = kind === 'cloud-dev' || kind === 'production' || kind === 'preview'
-  return {
-    kind,
-    id,
-    ...urls,
-    ...(cloud && /^[a-z0-9-]+$/.test(name) ? { dashboardUrl: `https://dashboard.convex.dev/d/${name}` } : {}),
+function deployedNamesOf({ provisionedNames, deploymentEnv }: BuildDevtoolsInfoInput): Set<string> {
+  const deployedNames = new Set(provisionedNames)
+  const read = deploymentEnv?.names
+  if (!read) return deployedNames
+  for (const tier of [read.required, read.optional]) {
+    for (const [name, set] of Object.entries(tier)) if (set) deployedNames.add(name)
   }
-}
-
-// The OAuth scope each built-in tool asks for (the `scope` in its tool file;
-// a unit test pins the two together). Exhaustive: adding a tool to
-// `BackendMcpToolName` without listing it here fails compilation, so the
-// panel's tool list can't silently go stale.
-const BUILTIN_TOOL_SCOPES: Record<BackendMcpToolName, BackendMcpScope> = {
-  'profile-get': 'profile',
-  'profile-update': 'profile:write',
-  'billing-plans': 'billing:read',
-  'billing-subscription': 'billing:read',
-  'credits-balance': 'billing:read',
-  'billing-checkout-link': 'billing:checkout',
-  'billing-portal-link': 'billing:checkout',
-  'workspace-list': 'workspace:read',
-  'workspace-members': 'workspace:read',
-}
-
-/** The agent surface as the panel reports it. */
-export function computeMcpStatus(mcp: DevtoolsMcpInput): DevtoolsMcpStatus {
-  return {
-    route: mcp.route,
-    exchangePath: DEFAULT_MCP_EXCHANGE_PATH,
-    tools: Object.entries(BUILTIN_TOOL_SCOPES).map(([name, scope]) => ({ name, scope })),
-    scopes: [...BACKEND_MCP_SCOPES],
-  }
+  return deployedNames
 }
 
 /**
@@ -135,33 +100,43 @@ export function computeMcpStatus(mcp: DevtoolsMcpInput): DevtoolsMcpStatus {
  */
 export function buildDevtoolsInfo(input: BuildDevtoolsInfoInput): DevtoolsServerInfo {
   const { options, deploymentEnv } = input
-  const deployedNames = new Set(input.provisionedNames)
+  const deployedNames = deployedNamesOf(input)
   const read = deploymentEnv?.names
-  if (read) {
-    for (const tier of [read.required, read.optional]) {
-      for (const [name, set] of Object.entries(tier)) if (set) deployedNames.add(name)
-    }
-  }
+  const deployment = computeDeployment(input.rootDir, input.env)
+  const findings = collectPreflightFindings({
+    env: input.env,
+    siteUrlConfigured: input.siteUrlConfigured,
+    deployedNames,
+  })
+  // Doctor adds the checks only it can make (the routes, the catalog, the
+  // mounts). The preflight is re-read on every call, so where both report an
+  // id, its live result wins over the run's.
+  const checked = [...new Map([...input.doctor?.findings ?? [], ...findings].map(finding => [finding.id, finding])).values()]
+  const capabilities = detectCapabilities({
+    env: input.env,
+    // The app reports errors once the SDK is wired: installed, with a DSN.
+    app: { monitoring: Boolean(appMonitoringDsn(input.env)) && monitoringSdkInstalled(input.rootDir) },
+    // Only a read lists every name; the provisioned ones say what is
+    // there, not what is missing.
+    deployed: read ? deployedNames : null,
+    ...input.provisionedNames ? { provisioned: input.provisionedNames } : {},
+    deployment: deployment.kind,
+    findings: checked,
+  })
   return {
     functionsDir: input.functionsDir,
     options: {
-      scaffold: options.scaffold !== false,
-      autoEnv: options.autoEnv !== false,
       authRoute: options.authRoute ?? '/api/auth',
     },
-    deployment: computeDeployment(input.rootDir, input.env),
+    deployment,
     pages: input.pages,
-    findings: collectPreflightFindings({
-      env: input.env,
-      siteUrlConfigured: input.siteUrlConfigured,
-      mcp: { route: input.mcp.route },
-      deployedNames,
-    }),
+    findings,
+    capabilities,
+    doctorRanAt: input.doctor?.ranAt ?? null,
     env: {
       visible: envTier(name => Boolean(input.env[name])),
       deployment: deploymentEnv,
     },
-    mcp: computeMcpStatus(input.mcp),
     versions: input.versions,
   }
 }

@@ -1,0 +1,2721 @@
+{
+  "backend": {
+    "auth": {
+      "title": "Connexion",
+      "titleBrand": "Se connecter à {brand}",
+      "passkeySignIn": "Se connecter avec une clé d’accès",
+      "passkeyWaiting": "En attente de votre clé d’accès…",
+      "divider": "ou",
+      "emailCode": "Continuer avec un code par e-mail",
+      "lastUsed": "Dernière utilisée",
+      "name": "Nom",
+      "email": "E-mail",
+      "sendCode": "Recevoir un code par e-mail",
+      "sending": "Envoi du code…",
+      "sent": "Nous avons envoyé un code à {email}.",
+      "code": "Code de vérification",
+      "verify": "Vérifier",
+      "verifying": "Vérification…",
+      "back": "Retour",
+      "passkeyOffer": "Enregistrez une clé d’accès sur cet appareil pour vous connecter instantanément la prochaine fois.",
+      "passkeyRequired": "Enregistrez une nouvelle clé d’accès sur cet appareil pour terminer la connexion.",
+      "newRecoveryCode": "Votre nouveau code de récupération : {code}. Conservez-le en lieu sûr. Il ne s’affiche qu’une fois.",
+      "lostPasskey": "Clé d’accès perdue ?",
+      "recoverIntro": "Saisissez votre e-mail et le code de récupération enregistré quand vous avez activé la connexion par clé d’accès uniquement.",
+      "recoveryCode": "Code de récupération",
+      "recover": "Récupérer mon compte",
+      "recovering": "Vérification du code de récupération…",
+      "addPasskey": "Ajouter une clé d’accès",
+      "addingPasskey": "Ajout de la clé d’accès…",
+      "skip": "Plus tard",
+      "waitlisted": "Vous êtes sur la liste d’attente. Nous vous ouvrirons l’accès dès que possible.",
+      "waitlistedPlace": "Votre position sur la liste d’attente : {position} sur {total}. Nous vous ouvrirons l’accès dès que possible.",
+      "waitlistedDisclosure": "Nous ouvrons l’accès par vagues, et parfois selon d’autres critères. Votre position peut changer.",
+      "agreement": "En continuant, vous acceptez les documents suivants : {terms}.",
+      "agreementItem": "{title}",
+      "ageQuestion": "Quel âge avez-vous ?",
+      "ageSubmit": "Continuer",
+      "ageChecking": "Vérification…",
+      "haveInviteCode": "J’ai un code d’invitation",
+      "undeliverable": "Nous ne pouvons pas envoyer d’e-mail à cette adresse pour le moment. Utilisez une autre adresse ou contactez-nous pour obtenir de l’aide.",
+      "tryAnotherEmail": "Utiliser une autre adresse",
+      "inviteIntro": "L’inscription se fait sur invitation pour le moment. Saisissez votre code d’invitation.",
+      "inviteCode": "Code d’invitation",
+      "redeemInvite": "Continuer",
+      "checkingInvite": "Vérification du code d’invitation…",
+      "invitePage": {
+        "title": "Votre invitation",
+        "checking": "Vérification de votre invitation…",
+        "valid": "Votre invitation est valide. Connectez-vous avec votre e-mail pour créer votre compte.",
+        "expired": "Cette invitation a expiré.",
+        "usedUp": "Cette invitation a déjà été utilisée.",
+        "revoked": "Cette invitation n’est plus valide.",
+        "unknown": "Ce lien d’invitation ne fonctionne pas. Vérifiez que vous avez ouvert le lien en entier.",
+        "continue": "Continuer vers la connexion"
+      },
+      "challenge": "Confirmez que vous êtes une personne pour continuer."
+    },
+    "profile": {
+      "title": "Profil",
+      "emailVerified": "E-mail vérifié",
+      "emailUnverified": "E-mail non vérifié",
+      "role": "Rôle : {role}",
+      "roles": {
+        "user": "Utilisateur",
+        "admin": "Administrateur"
+      },
+      "name": "Nom affiché",
+      "save": "Enregistrer le nom",
+      "saving": "Enregistrement…",
+      "saved": "Nom mis à jour.",
+      "newEmail": "Nouvelle adresse e-mail",
+      "emailHint": "Vous confirmez avec un code envoyé à votre adresse actuelle, puis avec un code envoyé à la nouvelle.",
+      "changeEmail": "Changer d’e-mail",
+      "changing": "Envoi du code…",
+      "codeSentTo": "Code envoyé à {email}",
+      "currentAddress": "votre adresse actuelle",
+      "confirm": "Confirmer",
+      "confirming": "Confirmation…",
+      "confirmHint": "Cela prouve que vous avez toujours accès à votre adresse actuelle. Un code est ensuite envoyé à la nouvelle.",
+      "verifyHint": "Pas de code ? Une adresse déjà associée à un compte n’en reçoit pas.",
+      "verifying": "Changement d’adresse…",
+      "cancel": "Annuler",
+      "changed": "Votre adresse e-mail est désormais {email}.",
+      "sameEmail": "C’est déjà votre adresse e-mail.",
+      "language": "Langue",
+      "languageHint": "Les pages et les e-mails que nous vous envoyons utilisent cette langue.",
+      "languageSaved": "Langue mise à jour."
+    },
+    "security": {
+      "title": "Sécurité",
+      "passkeys": "Clés d’accès",
+      "passkeysEmpty": "Aucune clé d’accès pour l’instant. Ajoutez-en une pour vous connecter sans code.",
+      "addPasskey": "Ajouter une clé d’accès sur cet appareil",
+      "addingPasskey": "Ajout de la clé d’accès…",
+      "passkeyAdded": "Clé d’accès enregistrée sur cet appareil.",
+      "passkeyName": "Nom de la clé d’accès",
+      "unnamedPasskey": "Clé d’accès sans nom",
+      "rename": "Renommer",
+      "renameNamed": "Renommer la clé d’accès {name}",
+      "save": "Enregistrer",
+      "saveNamed": "Enregistrer le nom de la clé d’accès {name}",
+      "saving": "Enregistrement…",
+      "remove": "Supprimer",
+      "removeNamed": "Supprimer la clé d’accès {name}",
+      "removing": "Suppression…",
+      "removeConfirm": "Supprimer la clé d’accès « {name} » ?",
+      "sessions": "Sessions actives",
+      "sessionsLoading": "Chargement des sessions…",
+      "unknownDevice": "Appareil inconnu",
+      "device": "{browser} · {os}",
+      "browser": "Navigateur",
+      "deviceTypes": {
+        "singleDevice": "Cet appareil uniquement",
+        "multiDevice": "Synchronisée"
+      },
+      "thisDevice": "Cet appareil",
+      "revoke": "Révoquer",
+      "revokeNamed": "Révoquer {device}, connecté le {date}",
+      "revoking": "Déconnexion…",
+      "revokeOthers": "Déconnecter les autres sessions",
+      "revokingOthers": "Déconnexion des autres sessions…",
+      "othersRevoked": "Les autres sessions ont été déconnectées.",
+      "alerts": "Alertes",
+      "alertsEmpty": "Aucun nouvel appareil ne s’est connecté à votre compte.",
+      "alertNewDevice": "Nouvelle connexion depuis {device}, {date}",
+      "alertRecovery": "Code de récupération utilisé sur {device}, {date}",
+      "alertSignOut": "Le déconnecter",
+      "alertSignOutNamed": "Le déconnecter : {device}, connecté le {date}",
+      "passkeyOnly": "Se connecter uniquement avec des clés d’accès",
+      "passkeyOnlyHint": "Les codes de connexion ne fonctionnent plus pour ce compte. Conservez le code de récupération : c’est le seul moyen de vous reconnecter sans clé d’accès.",
+      "passkeyOnlyOff": "Autoriser à nouveau les codes de connexion",
+      "newRecoveryCodeAction": "Générer un nouveau code de récupération",
+      "recoveryCode": "Votre code de récupération : {code}. Conservez-le en lieu sûr. Il ne s’affiche qu’une fois.",
+      "danger": "Cet appareil",
+      "signOut": "Se déconnecter",
+      "signingOut": "Déconnexion…",
+      "confirmAccept": "Confirmer",
+      "confirmCancel": "Annuler"
+    },
+    "account": {
+      "loading": "Chargement…",
+      "exportTitle": "Vos données",
+      "exportNote": "Téléchargez en un seul fichier tout ce que cette application conserve de votre compte. Son lien reste valable une heure.",
+      "export": "Exporter mes données",
+      "exporting": "Préparation de votre fichier…",
+      "exportReady": "Votre fichier est prêt.",
+      "download": "Télécharger vos données",
+      "expires": "Le lien reste valable jusqu’à {time}.",
+      "deleteTitle": "Supprimer le compte",
+      "deleteNote": "Votre compte est supprimé après un délai d’attente, et vous pouvez le conserver d’ici là. Ensuite, c’est irréversible : vos espaces de travail dont vous êtes le seul membre, vos fichiers, votre activité et vos données de facturation disparaissent avec lui.",
+      "confirmLabel": "Saisissez {email} pour confirmer",
+      "confirmHint": "Votre adresse, exactement telle qu’elle est affichée.",
+      "confirmMismatch": "Ce n’est pas votre adresse. Saisissez-la exactement telle qu’elle est affichée.",
+      "delete": "Supprimer mon compte",
+      "deleting": "Programmation de la suppression…",
+      "scheduled": "La suppression de votre compte est programmée.",
+      "scheduledNote": "Votre compte sera supprimé le {date}. D’ici là, il fonctionne comme avant.",
+      "keep": "Conserver mon compte",
+      "keeping": "Conservation de votre compte…",
+      "kept": "Votre compte est conservé.",
+      "filesPart": "Vos fichiers, partie {part} sur {count}",
+      "impersonating": "Un administrateur qui agit en tant que ce compte ne peut ni exporter ses données ni le supprimer."
+    },
+    "reauthenticate": {
+      "title": "Confirmez votre identité",
+      "intro": "Cette action nécessite une connexion récente. Confirmez avec votre clé d’accès ou avec un code envoyé par e-mail.",
+      "passkey": "Utiliser votre clé d’accès",
+      "passkeyWaiting": "En attente de votre clé d’accès…",
+      "divider": "ou",
+      "emailCode": "Recevoir un code par e-mail",
+      "sending": "Envoi du code…",
+      "sent": "Nous avons envoyé un code à {email}.",
+      "code": "Code de vérification",
+      "verify": "Confirmer",
+      "verifying": "Confirmation…",
+      "back": "Retour",
+      "cancel": "Annuler"
+    },
+    "invitation": {
+      "title": "Invitation",
+      "loading": "Chargement de l’invitation…",
+      "missing": "Ce lien d’invitation n’est pas valide ou a expiré.",
+      "failed": "Une erreur s’est produite : {message}",
+      "invited": "{inviter} vous invite à rejoindre {workspace}.",
+      "invitedAs": "{inviter} vous invite à rejoindre {workspace} en tant que {role}.",
+      "roles": {
+        "owner": "propriétaire",
+        "admin": "administrateur",
+        "member": "membre"
+      },
+      "accept": "Accepter l’invitation",
+      "accepting": "Adhésion…",
+      "decline": "Refuser",
+      "declining": "Refus…",
+      "accepted": "Vous avez rejoint {workspace}.",
+      "theWorkspace": "l’espace de travail",
+      "declined": "Invitation refusée."
+    },
+    "pricing": {
+      "title": "Tarifs",
+      "emailNotice": "Nous vous enverrons un e-mail au sujet des nouveautés.",
+      "emailOptOut": "Ne pas m’envoyer d’e-mails",
+      "description": "Forfaits et tarifs.",
+      "period": {
+        "month": "/mois",
+        "year": "/an"
+      },
+      "interval": "Période de facturation",
+      "intervals": {
+        "month": "Mensuel",
+        "year": "Annuel"
+      },
+      "save": "Économisez {percent} %",
+      "currency": "Devise",
+      "loading": "Chargement des forfaits…",
+      "empty": "Aucun forfait n’est encore configuré.",
+      "credits": {
+        "month": "{count} crédit / mois | {count} crédits / mois",
+        "year": "{count} crédit / an | {count} crédits / an"
+      },
+      "retired": "Plus proposé",
+      "packCredits": "{count} crédit | {count} crédits",
+      "perCredit": "{price} par crédit",
+      "lessPerCredit": "{percent} % de moins par crédit",
+      "bestValue": "Meilleure offre",
+      "promotion": {
+        "once": "{off} de réduction sur le premier paiement, puis {price}",
+        "months": "{off} de réduction pendant {count} mois, puis {price} | {off} de réduction pendant {count} mois, puis {price}",
+        "forever": "{off} de réduction pendant toute la durée de l’abonnement",
+        "pack": "{off} de réduction : {price} au paiement",
+        "ends": "Offre valable jusqu’au {date}"
+      },
+      "contact": "Nous contacter",
+      "subscribe": "S’abonner",
+      "switch": "Passer à {plan}",
+      "upgrade": "Passer à {plan}",
+      "downgrade": "Rétrograder vers {plan}",
+      "switchInterval": {
+        "month": "Passer à la facturation mensuelle",
+        "year": "Passer à la facturation annuelle"
+      },
+      "scheduled": "Commence le {date}",
+      "cancel": "Résilier le forfait",
+      "uncancel": "Conserver le forfait",
+      "trial": {
+        "day": "Jours d’essai gratuit : {count}",
+        "week": "Semaines d’essai gratuit : {count}",
+        "month": "Essai gratuit de {count} mois",
+        "year": "Années d’essai gratuit : {count}"
+      },
+      "current": "Actuel",
+      "signIn": "Se connecter pour s’abonner",
+      "signInFree": "S’inscrire gratuitement",
+      "returnsToFree": "De nouveau le vôtre à la fin de votre forfait",
+      "topUp": "Recharger",
+      "portal": "Gérer l’abonnement",
+      "checkingOut": "Ouverture du paiement…",
+      "changing": "Changement de forfait…",
+      "canceling": "Résiliation…",
+      "uncanceling": "Conservation du forfait…",
+      "openingPortal": "Ouverture du portail…",
+      "managed": "Le propriétaire et les administrateurs de votre espace de travail gèrent son forfait et achètent ses crédits.",
+      "finishingPurchase": "Finalisation de votre achat…",
+      "confirmTitle": "Résilier le forfait",
+      "confirmEnds": "Le forfait prend fin le {date}. Tout ce qu’il inclut reste disponible d’ici là.",
+      "confirmEndsPeriod": "Le forfait prend fin avec la période en cours. Tout ce qu’il inclut reste disponible d’ici là.",
+      "confirmCancel": "Confirmer la résiliation"
+    },
+    "settings": {
+      "title": "Paramètres",
+      "loading": "Chargement…",
+      "workspaces": "Espaces de travail",
+      "active": "Actif",
+      "switch": "Changer",
+      "switching": "Changement…",
+      "workspaceName": "Nom de l’espace de travail",
+      "create": "Créer un espace de travail",
+      "creating": "Création…",
+      "created": "Espace de travail « {name} » créé.",
+      "plan": "Forfait",
+      "free": "Gratuit",
+      "unknownPlan": "Forfait inconnu",
+      "planActive": "Actif",
+      "cancels": "Résilié à la fin de la période",
+      "renews": "renouvelé le {date}",
+      "viewPlans": "Voir les forfaits",
+      "cancel": "Résilier le forfait",
+      "canceling": "Résiliation…",
+      "canceled": "L’abonnement sera résilié à la fin de la période.",
+      "onTrial": "En essai",
+      "trialEnds": "fin de l’essai le {date}",
+      "pastDue": "Échec du paiement",
+      "pastDueHint": "Le dernier paiement n’a pas abouti. Mettez à jour le moyen de paiement pour conserver le forfait.",
+      "paused": "En pause",
+      "resumes": "reprend le {date}",
+      "ends": "prend fin le {date}",
+      "changing": "Changement de forfait programmé",
+      "changesTo": "passe à {plan} le {date}",
+      "managed": "Le propriétaire et les administrateurs de votre espace de travail gèrent son forfait.",
+      "portal": "Gérer la facturation",
+      "updatePayment": "Mettre à jour le moyen de paiement",
+      "openingPortal": "Ouverture du portail…",
+      "resume": "Reprendre le forfait",
+      "resuming": "Reprise…",
+      "resumed": "Le forfait est de nouveau actif.",
+      "keepPlan": "Conserver le forfait",
+      "keeping": "Conservation du forfait…",
+      "kept": "Le forfait sera de nouveau renouvelé.",
+      "gifted": "Offert",
+      "giftedUntil": "offert jusqu’au {date}",
+      "keepGiftedPlan": "Conserver ce forfait",
+      "keepingGiftedPlan": "Ouverture du paiement…",
+      "cancelChange": "Annuler le changement",
+      "cancelingChange": "Annulation du changement…",
+      "changeCanceled": "Le changement de forfait est annulé.",
+      "confirmTitle": "Résilier le forfait",
+      "confirmEnds": "Le forfait prend fin le {date}. Tout ce qu’il inclut reste disponible d’ici là.",
+      "confirmEndsPeriod": "Le forfait prend fin avec la période en cours. Tout ce qu’il inclut reste disponible d’ici là.",
+      "confirmCancel": "Confirmer la résiliation",
+      "finishingPurchase": "Finalisation de votre achat…",
+      "benefits": "Inclus",
+      "benefitKinds": {
+        "license_key": "Clé de licence",
+        "download": "Téléchargements",
+        "community": "Accès à la communauté",
+        "repository": "Accès au dépôt",
+        "shared_channel": "Canal partagé",
+        "custom": "Avantage",
+        "credits": "Crédits",
+        "feature": "Fonctionnalité",
+        "other": "Avantage"
+      },
+      "files": "{count} fichier | {count} fichiers",
+      "benefitsPortal": "Les clés complètes, les fichiers et les comptes connectés se trouvent dans le portail de facturation.",
+      "credits": "Crédits",
+      "balance": "{count} crédit | {count} crédits",
+      "balanceUnknown": "— crédits",
+      "credited": "Crédités : {count}",
+      "used": "Utilisés : {count}",
+      "buyPack": "Acheter {pack}",
+      "toppingUp": "Ouverture du paiement…",
+      "refresh": "Actualiser",
+      "refreshing": "Actualisation…"
+    },
+    "history": {
+      "title": "",
+      "invoice": "Facture",
+      "invoiceOpening": "Ouverture de la facture…",
+      "invoiceFailed": "Impossible d’ouvrir la facture",
+      "statuses": {
+        "pending": "En attente",
+        "paid": "Payé",
+        "refunded": "Remboursé",
+        "partially_refunded": "Partiellement remboursé"
+      },
+      "empty": "Aucun paiement pour l’instant.",
+      "loading": "Chargement…",
+      "newer": "Plus récents",
+      "older": "Plus anciens",
+      "pageLoading": "Chargement de la page…"
+    },
+    "usage": {
+      "title": "",
+      "units": "{count} crédit | {count} crédits",
+      "empty": "Aucune utilisation enregistrée pour l’instant.",
+      "loading": "Chargement…",
+      "newer": "Plus récents",
+      "older": "Plus anciens",
+      "pageLoading": "Chargement de la page…"
+    },
+    "audit": {
+      "title": "Activité récente",
+      "workspaceTitle": "Activité de l’espace de travail",
+      "allTitle": "Toute l’activité",
+      "empty": "Rien n’a encore été enregistré.",
+      "loading": "Chargement…",
+      "newer": "Plus récent",
+      "older": "Plus ancien",
+      "pageLoading": "Chargement de la page…",
+      "actors": {
+        "you": "Vous",
+        "administrator": "Un administrateur",
+        "app": "L’application",
+        "erased": "Un compte supprimé",
+        "unknown": "Quelqu’un"
+      },
+      "subjects": {
+        "you": "vous",
+        "administrator": "un administrateur",
+        "app": "l’application",
+        "erased": "un compte supprimé",
+        "unknown": "quelqu’un"
+      },
+      "unnamedWorkspace": "un espace de travail",
+      "roles": {
+        "owner": "propriétaire",
+        "admin": "admin",
+        "member": "membre",
+        "user": "utilisateur"
+      },
+      "methods": {
+        "passkey": "une clé d’accès",
+        "emailOtp": "un code reçu par e-mail"
+      },
+      "forSubject": "pour {subject}",
+      "inWorkspace": "dans {workspace}",
+      "withMethod": "avec {method}",
+      "impersonated": "par un administrateur agissant pour le compte",
+      "events": {
+        "auth": {
+          "signed_in": "{actor} : connexion",
+          "signed_out": "{actor} : déconnexion",
+          "reauthenticated": "{actor} : confirmation d’identité",
+          "passkey_added": "{actor} : ajout d’une clé d’accès",
+          "passkey_removed": "{actor} : suppression d’une clé d’accès",
+          "passkey_only_changed": "{actor} : modification de l’accès par code de connexion",
+          "email_changed": "{actor} : modification de l’adresse e-mail",
+          "session_revoked": "{actor} : fermeture d’une session",
+          "new_device": "{actor} : connexion depuis un nouvel appareil"
+        },
+        "workspace": {
+          "created": "{actor} : création de {workspace}",
+          "member_invited": "{actor} : invitation d’une personne dans {workspace} en tant que {role}",
+          "invitation_accepted": "{actor} : arrivée dans {workspace} en tant que {role}",
+          "member_removed": "{actor} : retrait de {subject} de {workspace}",
+          "member_role_changed": "{actor} : rôle {role} attribué à {subject} dans {workspace}"
+        },
+        "admin": {
+          "impersonation_started": "{actor} : début d’une session en tant que {subject}",
+          "impersonation_stopped": "{actor} : fin d’une session en tant que {subject}",
+          "role_changed": "{actor} : rôle {role} de l’application attribué à {subject}",
+          "user_banned": "{actor} : bannissement de {subject}",
+          "user_unbanned": "{actor} : levée du bannissement de {subject}"
+        },
+        "flag": {
+          "changed": "{actor} : modification du flag {flag}"
+        },
+        "experiment": {
+          "exposed": "{actor} : affichage de la version {variant} de {experiment}"
+        },
+        "announcement": {
+          "published": "{actor} : publication d’une annonce",
+          "ended": "{actor} : fin d’une annonce",
+          "sent": "{actor} : envoi de l’e-mail d’une annonce",
+          "cancelled": "{actor} : annulation de l’e-mail d’une annonce"
+        },
+        "access": {
+          "phase_changed": "{actor} : changement de la phase de lancement",
+          "ticket_used": "{actor} : inscription avec un ticket",
+          "invite_created": "{actor} : création d’un code ou d’un lien d’invitation",
+          "invite_revoked": "{actor} : révocation d’une invitation",
+          "admitted": "{actor} : invitation de personnes par adresse"
+        },
+        "consent": {
+          "granted": "{actor} : consentement donné",
+          "withdrawn": "{actor} : consentement retiré"
+        },
+        "waitlist": {
+          "joined": "{actor} : inscription sur la liste d’attente",
+          "admitted": "{actor} : admission de personnes de la liste d’attente",
+          "declined": "{actor} : refus d’inscriptions sur la liste d’attente",
+          "left": "{actor} : départ de la liste d’attente"
+        },
+        "report": {
+          "decided": "{actor} : décision sur un contenu signalé",
+          "crime_flagged": "{actor} : contenu signalé transmis aux autorités",
+          "appealed": "{actor} : recours contre une décision sur son contenu",
+          "appeal_decided": "{actor} : décision sur un recours"
+        },
+        "job": {
+          "queue_changed": "{actor} : modification de la file de tâches",
+          "canceled": "{actor} : annulation d’une tâche",
+          "retried": "{actor} : remise en file d’une tâche échouée"
+        },
+        "ai": {
+          "spend_limit_reached": "{actor} a mis l’IA en pause : la limite de dépenses du jour est atteinte"
+        },
+        "billing": {
+          "checkout_started": "{actor} : ouverture d’un paiement",
+          "plan_changed": "{actor} : modification de l’abonnement",
+          "subscription_created": "{actor} : début d’un abonnement",
+          "subscription_updated": "{actor} : mise à jour d’un abonnement",
+          "subscription_canceled": "{actor} : annulation d’un abonnement",
+          "subscription_revoked": "{actor} : fin d’un abonnement",
+          "order_paid": "{actor} : paiement enregistré",
+          "order_refunded": "{actor} : remboursement enregistré",
+          "refund_issued": "{actor} : remboursement effectué",
+          "benefit_granted": "{actor} : avantage accordé",
+          "benefit_revoked": "{actor} : avantage retiré",
+          "credits_low": "{actor} : crédits arrivés au seuil bas",
+          "credits_exhausted": "{actor} : crédits épuisés",
+          "subscription_past_due": "{actor} : échec du paiement de renouvellement",
+          "save_offer_made": "{actor} : offre proposée pour rester",
+          "save_offer_accepted": "{actor} : offre pour rester acceptée",
+          "checkout_abandoned": "{actor} : paiement laissé en suspens",
+          "contract_withdrawn": "{actor} : rétractation d’un achat",
+          "trial_pass_started": "{actor} : début d’un essai"
+        },
+        "gift": {
+          "purchased": "{actor} : achat d’un cadeau",
+          "claimed": "{actor} : réception d’un cadeau",
+          "refunded": "{actor} : remboursement d’un cadeau enregistré",
+          "pass_started": "{actor} : début d’un pass de forfait",
+          "pass_ending": "{actor} : averti de la fin prochaine d’un pass de forfait",
+          "pass_ended": "{actor} : fin d’un pass de forfait enregistrée"
+        },
+        "referral": {
+          "claimed": "{actor} : inscription par parrainage enregistrée",
+          "rewarded": "{actor} : récompense de parrainage accordée"
+        },
+        "email": {
+          "bounced": "{actor} : échec de distribution d’un e-mail à {subject}",
+          "suppression_lifted": "{actor} : levée d’un blocage d’e-mail"
+        },
+        "webhook": {
+          "replayed": "{actor} : relance d’une livraison de webhook"
+        },
+        "account": {
+          "created": "{actor} : inscription",
+          "activated": "{actor} : premier résultat obtenu",
+          "data_exported": "{actor} : export des données du compte",
+          "deletion_scheduled": "{actor} : demande de suppression du compte",
+          "deletion_canceled": "{actor} : compte conservé, suppression annulée",
+          "erasure_failed": "{actor} : effacement d’un compte supprimé inachevé"
+        }
+      },
+      "other": "{actor} : {type}"
+    },
+    "admin": {
+      "title": "Administration",
+      "tabsLabel": "Sections d’administration",
+      "tabs": {
+        "users": "Utilisateurs",
+        "workspaces": "Espaces de travail",
+        "activity": "Activité",
+        "flags": "Flags",
+        "access": "Accès",
+        "waitlist": "Liste d’attente",
+        "announcements": "Annonces",
+        "inbox": "Boîte de réception",
+        "referrals": "Parrainages",
+        "billing": "Facturation",
+        "queue": "File d’attente",
+        "costs": "Coûts",
+        "webhooks": "Webhooks",
+        "suppressions": "Blocages",
+        "analytics": "Statistiques",
+        "reports": "Signalements",
+        "system": "Système"
+      },
+      "loading": "Chargement…",
+      "costs": {
+        "refused": "Seuls les administrateurs voient ce que coûte l’IA.",
+        "window": "Afficher",
+        "days": "Le dernier jour | Les {count} derniers jours",
+        "refresh": "Actualiser",
+        "total": "{usd} pour {count} exécution | {usd} pour {count} exécutions",
+        "source": "Le coût des appels d’IA, tel que la passerelle l’a indiqué. Une exécution est une tâche en file, un appel facturé à l’usage, un flux, une réponse de chat ou un embedding de connaissances. Les appels d’une exécution échouée comptent aussi. Un appel passé avec votre propre clé n’indique aucun coût. Le tableau de bord des coûts du prestataire de facturation montre le coût des tâches par client, à côté du chiffre d’affaires.",
+        "truncated": "Cette période contient plus de personnes qu’une lecture n’en récupère : la liste couvre ses jours les plus récents. Le total les couvre tous.",
+        "empty": "Aucun appel d’IA sur cette période.",
+        "caption": "Les 100 personnes dont les appels d’IA coûtent le plus",
+        "person": "Personne",
+        "cost": "Coût",
+        "runs": "Exécutions",
+        "tokens": "Tokens en entrée / sortie",
+        "tokenCounts": "{input} / {output}",
+        "guest": "Visiteurs, avant inscription"
+      },
+      "webhooks": {
+        "refused": "Seuls les administrateurs consultent le journal des webhooks.",
+        "intro": "Chaque livraison vérifiée envoyée par les prestataires, de la plus récente à la plus ancienne. Rejouer demande au prestataire de la renvoyer, signée, vers la même route : une livraison déjà traitée est signalée comme doublon et ne change rien.",
+        "empty": "Aucune livraison n’est encore arrivée.",
+        "filter": "Afficher",
+        "all": "Les deux services",
+        "caption": "Livraisons de webhooks",
+        "service": "Service",
+        "event": "Événement",
+        "outcome": "Résultat",
+        "received": "Reçu",
+        "replay": "Rejouer",
+        "replayNamed": "Rejouer {event}, reçu le {date}",
+        "replaying": "Demande au prestataire…",
+        "replayed": "Rejoué le {date}",
+        "replaySent": "Le prestataire va la renvoyer.",
+        "counted": "Comptées, non journalisées : {count}",
+        "services": {
+          "billing": "Facturation",
+          "email": "E-mail"
+        }
+      },
+      "suppressions": {
+        "refused": "Seuls les administrateurs voient les adresses bloquées.",
+        "intro": "Les adresses auxquelles le prestataire d’e-mail ne livre plus, après un rebond définitif, une plainte ou un ajout manuel. Une adresse bloquée ne reçoit aucun code de connexion. Levez un blocage une fois la cause résolue ; ne levez une plainte que si la personne vous le demande.",
+        "empty": "Aucune adresse n’est bloquée.",
+        "caption": "Adresses bloquées",
+        "address": "Adresse",
+        "origin": "Motif",
+        "since": "Depuis",
+        "lift": "Lever",
+        "liftNamed": "Lever le blocage de {email}",
+        "lifting": "Levée en cours…",
+        "lifted": "Blocage levé : les e-mails parviennent à nouveau à {email}.",
+        "liftConfirm": "Lever le blocage de {email} ? Les e-mails lui seront de nouveau envoyés.",
+        "origins": {
+          "bounce": "Rebond",
+          "complaint": "Signalé comme spam",
+          "manual": "Ajouté manuellement",
+          "dropped": "Bloqué"
+        }
+      },
+      "views": {
+        "label": "Vues des statistiques",
+        "revenue": "Revenus",
+        "growth": "Croissance",
+        "experiments": "Expériences"
+      },
+      "growth": {
+        "window": "Afficher",
+        "weeks": "La dernière semaine | Les {count} dernières semaines",
+        "source": "Comptabilisé dans votre déploiement à mesure que les événements sont enregistrés : rien n’en sort, et rien n’est stocké sur l’appareil des visiteurs. Le comptage commence à l’inscription ; chaque étape compte dans la semaine où la personne s’est inscrite.",
+        "steps": "Entonnoir",
+        "step": {
+          "waitlist": "Inscription sur la liste d’attente",
+          "admitted": "Admission",
+          "signup": "Inscription",
+          "activation": "Activation",
+          "trial": "Début d’essai",
+          "paid": "Paiement"
+        },
+        "ofPrevious": "{rate} de l’étape précédente",
+        "breakdown": "Répartition par",
+        "dimension": {
+          "invite": "Invitation",
+          "campaign": "Campagne",
+          "referral": "Parrainage",
+          "promotion": "Promotion",
+          "answer": "Source déclarée"
+        },
+        "value": "Valeur",
+        "direct": "Direct ou inconnu",
+        "other": "Tout le reste",
+        "noBreakdown": "Personne sur cette période n’a encore de valeur ici.",
+        "otherAnswers": "Ce que les gens ont écrit sous « Ailleurs »",
+        "cohorts": "Rétention par semaine d’inscription",
+        "cohortWeek": "Semaine du",
+        "cohortSize": "Inscrits",
+        "weekAfter": "Semaine {count}",
+        "retained": "{rate} ({count})",
+        "empty": "Rien n’a encore été comptabilisé : la première inscription lance l’entonnoir."
+      },
+      "experiments": {
+        "empty": "Aucun flag ne déclare encore de variantes : ajoutez `variants` et un `goal` à l’un d’eux dans backend/flags.ts.",
+        "running": "En cours",
+        "stopped": "Arrêtée",
+        "decided": "{variant} affichée à tout le monde",
+        "started": "Commencée le {date} : {days} jours, {weeks} semaines complètes",
+        "notStarted": "Personne ne l’a encore vue.",
+        "goal": "Objectif : {kind}",
+        "noGoal": "Pas d’objectif : seules les expositions sont comptées.",
+        "variant": "Variante",
+        "control": "{variant} (témoin)",
+        "share": "Part",
+        "exposed": "Exposés",
+        "converted": "Objectif atteint",
+        "rate": "Taux (intervalle à 95%)",
+        "interval": "{rate} ({low} à {high})",
+        "guardrail": "Garde-fou : {kind}",
+        "worse": "Moins bon que le témoin",
+        "discount": "Affiche la promotion {discount}",
+        "verdict": {
+          "too_few": "Trop peu de personnes pour conclure : attendez au moins {count} expositions par variante.",
+          "no_difference": "Pas encore de différence nette : les intervalles se chevauchent.",
+          "leading": "{variant} est en tête : son intervalle ne chevauche pas celui du témoin."
+        },
+        "pick": "Afficher {variant} à tout le monde",
+        "picking": "Enregistrement…",
+        "resume": "Relancer"
+      },
+      "revenue": {
+        "window": "Afficher",
+        "days": "Le dernier jour | Les {count} derniers jours",
+        "interval": "Par",
+        "intervals": {
+          "day": "Jour",
+          "week": "Semaine",
+          "month": "Mois"
+        },
+        "refresh": "Actualiser",
+        "source": "Les métriques du prestataire de facturation, lues à l’ouverture de cette vue : rien n’est conservé ici. Revenus récurrents, attrition et valeur vie client sont ses chiffres, calculés à sa manière. Les montants sont en dollars américains.",
+        "figures": "Chiffres clés",
+        "mrr": "Revenus récurrents mensuels",
+        "arr": "Revenus récurrents annuels",
+        "revenue": "Revenus",
+        "activeSubscriptions": "Abonnements actifs",
+        "churnRate": "Taux d’attrition",
+        "lifetimeValue": "Valeur vie client",
+        "revenueChart": "Revenus",
+        "subscriptions": "Abonnements",
+        "newSubscriptions": "Nouveaux",
+        "renewedSubscriptions": "Renouvelés",
+        "churnedSubscriptions": "Perdus",
+        "cancellations": "Résiliations par motif",
+        "saveOffers": "Offres de rétention acceptées : {accepted} sur {made}",
+        "saveOffersTruncated": "Cette période contient plus d’offres de rétention qu’une lecture n’en compte : le décompte couvre les plus anciennes.",
+        "checkouts": "Paiements",
+        "checkoutsStarted": "Commencés",
+        "checkoutsCompleted": "Finalisés",
+        "conversion": "{rate} des paiements finalisés",
+        "usage": "Consommation par compteur",
+        "usageEmpty": "Le catalogue de facturation ne déclare aucun compteur.",
+        "meterTotal": "{total} au total",
+        "costs": "Coûts et marge",
+        "cost": "Coûts",
+        "costPerUser": "Coût par utilisateur",
+        "grossMargin": "Marge brute",
+        "noCosts": "La marge correspond aux seuls revenus tant que les événements d’usage n’indiquent pas de coût.",
+        "total": "{value} au total",
+        "point": "{at} : {value}"
+      },
+      "inbox": {
+        "title": "Boîte de réception",
+        "refused": "Seuls les administrateurs consultent la boîte de réception.",
+        "empty": "Rien n’est encore arrivé.",
+        "support": "Les réponses partent de {address}.",
+        "noSupport": "Il n’y a pas de boîte de support : définissez `inbound.support` dans setupEmail pour répondre d’ici.",
+        "filter": "Afficher",
+        "all": "Tout",
+        "kinds": {
+          "contact": "Formulaire de contact",
+          "reply": "Réponse par e-mail",
+          "workspace": "Adresse de l’espace de travail",
+          "support": "Boîte de support"
+        },
+        "deliveries": {
+          "support": "Dans la boîte de support",
+          "copy": "Copié dans la boîte de l’équipe",
+          "kept": "Conservé ici uniquement",
+          "held": "Non envoyé : mode test ou clé d’e-mail absente",
+          "failed": "Le prestataire d’e-mail l’a refusé"
+        },
+        "received": "Reçu",
+        "from": "De",
+        "account": "Compte : {name}",
+        "noSubject": "(sans objet)",
+        "attachments": "{count} pièce jointe | {count} pièces jointes",
+        "open": "Lire",
+        "close": "Fermer",
+        "answered": "Répondu",
+        "replyLabel": "Votre réponse",
+        "replyHint": "Elle part de l’adresse de support et reste dans le fil.",
+        "send": "Envoyer la réponse",
+        "sending": "Envoi…",
+        "replySent": "La réponse a été envoyée.",
+        "cannotReply": "Ce fil n’appartient pas à la boîte de support : répondez depuis votre propre messagerie."
+      },
+      "queue": {
+        "heading": "File de tâches",
+        "summary": "{running} en cours, {waiting} en attente",
+        "guests": "Invités : {running} en cours, {waiting} en attente",
+        "slots": "{concurrency} simultanées, {shared} partagées",
+        "average": "Une tâche prend en moyenne {seconds} s",
+        "paused": "En pause : aucune tâche ne démarre avant la reprise.",
+        "pausedAi": "pause_ai est activé : aucune tâche ne démarre tant qu’il n’est pas désactivé.",
+        "trimmed": "La simultanéité est trop faible pour tous les emplacements dédiés : les emplacements des niveaux payants les moins bien classés sont réduits jusqu’à ce qu’un emplacement reste partagé.",
+        "pause": "Mettre en pause",
+        "resume": "Reprendre",
+        "concurrency": "Tâches simultanées",
+        "save": "Enregistrer",
+        "reset": "Revenir au code",
+        "saved": "Enregistré.",
+        "none": "Aucun",
+        "guest": "Invité",
+        "tiers": {
+          "heading": "Niveaux",
+          "name": "Niveau",
+          "feature": "Fonctionnalité",
+          "everyone": "Tous les autres",
+          "headStart": "Avance",
+          "minutes": "{count} min",
+          "perOwner": "Par propriétaire",
+          "dedicated": "Dédiés",
+          "inEffect": "{configured} ({effect} en vigueur)",
+          "budget": "Budget",
+          "budgetValue": "{units} par {hours} h",
+          "running": "En cours",
+          "waiting": "En attente"
+        },
+        "models": {
+          "heading": "Modèles",
+          "model": "Modèle",
+          "rate": "Appels par minute",
+          "min": "Min",
+          "max": "Max",
+          "throttled": "429"
+        },
+        "jobs": {
+          "heading": "Tâches",
+          "all": "Toutes les tâches",
+          "deadLetters": "Lettres mortes",
+          "kind": "Type",
+          "owner": "Propriétaire",
+          "tier": "Niveau",
+          "status": "Statut",
+          "attempts": "Tentatives",
+          "joined": "Entrée en file",
+          "lastError": "Dernière erreur",
+          "actions": "Actions",
+          "empty": "Aucune tâche pour l’instant.",
+          "emptyDead": "Aucune lettre morte.",
+          "cancel": "Annuler",
+          "cancelRefund": "Annuler et rembourser",
+          "retry": "Réessayer",
+          "discard": "Écarter"
+        },
+        "status": {
+          "queued": "En attente",
+          "running": "En cours",
+          "done": "Terminée",
+          "failed": "Échouée",
+          "canceled": "Annulée"
+        }
+      },
+      "pageLoading": "Chargement de la page…",
+      "newer": "Plus récent",
+      "older": "Plus ancien",
+      "close": "Fermer",
+      "confirmAccept": "Confirmer",
+      "confirmCancel": "Annuler",
+      "created": "Créé",
+      "truncated": "Seuls les {count} premiers éléments de chaque liste s’affichent ici.",
+      "roles": {
+        "user": "Utilisateur",
+        "admin": "Administrateur"
+      },
+      "workspaceRoles": {
+        "owner": "propriétaire",
+        "admin": "admin",
+        "member": "membre"
+      },
+      "methods": {
+        "passkey": "Clé d’accès",
+        "emailOtp": "Code par e-mail"
+      },
+      "users": {
+        "title": "Utilisateurs",
+        "search": "Rechercher par e-mail",
+        "empty": "Aucun compte ne correspond.",
+        "account": "Compte",
+        "role": "Rôle",
+        "status": "Statut",
+        "view": "Voir",
+        "viewNamed": "Voir {name}",
+        "active": "Actif",
+        "banned": "Banni",
+        "bannedUntil": "Banni jusqu’au {date}",
+        "you": "Vous"
+      },
+      "user": {
+        "notFound": "Ce compte n’existe plus.",
+        "self": "C’est votre propre compte : un autre administrateur gère son rôle et son bannissement.",
+        "lastSignIn": "Dernière connexion",
+        "ticket": "Inscription via",
+        "ticketLabel": "{ticket} ({label})",
+        "never": "Jamais",
+        "role": "Rôle",
+        "saveRole": "Enregistrer le rôle",
+        "savingRole": "Enregistrement…",
+        "roleSaved": "Le rôle est enregistré.",
+        "ban": "Bannir",
+        "banReason": "Motif (conservé sur le compte, jamais dans le journal d’activité)",
+        "banFor": "Durée",
+        "durations": {
+          "day": "Un jour",
+          "week": "Une semaine",
+          "month": "Trente jours",
+          "forever": "Jusqu’à levée"
+        },
+        "banConfirm": "Bannir {name} ? Toutes ses sessions seront fermées, et la connexion lui sera impossible.",
+        "banning": "Bannissement…",
+        "bannedNote": "Banni. {reason}",
+        "bannedUntilNote": "Banni jusqu’au {date}. {reason}",
+        "noReason": "Aucun motif indiqué.",
+        "unban": "Lever le bannissement",
+        "unbanning": "Levée en cours…",
+        "unbanned": "Le bannissement est levé.",
+        "bannedDone": "Le compte est banni.",
+        "passkeyOnly": "Se connecte uniquement avec des clés d’accès.",
+        "passkeyOnlyOff": "Réautoriser les codes de connexion",
+        "passkeyOnlyConfirm": "Réautoriser les codes de connexion pour {name} ? Vérifiez d’abord qui fait la demande : toute personne ayant accès à la boîte mail pourra alors se connecter.",
+        "passkeyOnlyTurningOff": "Réautorisation des codes…",
+        "passkeyOnlyOffDone": "Les codes de connexion fonctionnent à nouveau pour ce compte.",
+        "sessions": "Sessions",
+        "noSessions": "Aucune session ouverte.",
+        "session": "{device}, connexion le {date}",
+        "until": "jusqu’au {date}",
+        "visit": "visite d’un administrateur",
+        "device": "{browser} sur {os}",
+        "browser": "Un navigateur",
+        "unknownDevice": "Un appareil inconnu",
+        "signOutAll": "Se déconnecter partout",
+        "signingOut": "Déconnexion…",
+        "signedOut": "Toutes les sessions sont fermées.",
+        "workspaces": "Espaces de travail",
+        "noWorkspaces": "Aucun espace de travail.",
+        "membership": "{workspace}, en tant que {role}",
+        "impersonate": "Agir en tant que",
+        "impersonateNamed": "Agir en tant que {name}",
+        "impersonating": "Ouverture de la visite…",
+        "impersonateNote": "Vous agissez en tant que cette personne pendant trente minutes au maximum, sans accès à rien de sensible.",
+        "administrator": "Impossible d’agir en tant que le compte d’un administrateur."
+      },
+      "workspaces": {
+        "title": "Espaces de travail",
+        "search": "Rechercher par nom",
+        "empty": "Aucun espace de travail ne correspond.",
+        "workspace": "Espace de travail",
+        "view": "Voir",
+        "viewNamed": "Voir {name}",
+        "readOnly": "Les espaces de travail sont en lecture seule ici. Pour agir dans l’un d’eux, agissez en tant qu’un de ses membres.",
+        "notFound": "Cet espace de travail n’existe plus.",
+        "members": "Membres",
+        "member": "{name}, {role}",
+        "administrator": "administrateur",
+        "banned": "banni",
+        "invitations": "Invitations en attente",
+        "noInvitations": "Aucune invitation en attente.",
+        "invitation": "{email}, en tant que {role}"
+      },
+      "system": {
+        "title": "Système",
+        "statuses": {
+          "ok": "Toutes les fonctions sont opérationnelles.",
+          "degraded": "Il manque à une fonction ce dont elle a besoin.",
+          "failing": "Une fonction est en échec."
+        },
+        "capability": "Fonction",
+        "state": "État",
+        "why": "Motif",
+        "states": {
+          "live": "Production",
+          "test": "Test",
+          "missing": "Manquant",
+          "failing": "En échec"
+        },
+        "capabilities": {
+          "auth": "Authentification",
+          "data": "Données",
+          "jobs": "Tâches",
+          "billing": "Facturation",
+          "email": "E-mail",
+          "ai": "IA",
+          "protection": "Protection",
+          "monitoring": "Surveillance",
+          "flags": "Flags"
+        },
+        "missingEnv": "Non défini : {names}",
+        "finding": "À corriger",
+        "refresh": "Vérifier à nouveau",
+        "checking": "Vérification…",
+        "unreachable": "Le bilan de santé n’a pas pu être lu.",
+        "coarse": "Seuls les états s’affichent : le détail est réservé aux administrateurs."
+      },
+      "tickets": {
+        "inviteCode": "Un code d’invitation",
+        "accessLink": "Un lien d’accès",
+        "invitation": "Une invitation par adresse",
+        "waitlist": "La liste d’attente",
+        "workspaceInvitation": "Une invitation à un espace de travail",
+        "gift": "Un cadeau",
+        "domain": "Un domaine autorisé",
+        "administrator": "Un administrateur"
+      },
+      "access": {
+        "title": "Accès",
+        "refused": "Seuls les administrateurs voient et modifient qui peut s’inscrire.",
+        "phaseTitle": "Phase de lancement",
+        "phaseHint": "Les comptes existants peuvent toujours se connecter. Tant que l’application est fermée, une nouvelle adresse a besoin d’un ticket. Changer de phase vous demande de confirmer votre identité.",
+        "phaseCurrent": "Actuellement : {phase}",
+        "phaseMove": "Passer en {phase}",
+        "phases": {
+          "earlyAccess": "Accès anticipé",
+          "inviteOnly": "Sur invitation",
+          "public": "Public"
+        },
+        "phaseConfirm": "Passer l’application en {phase} ? Le changement s’applique dès la prochaine inscription.",
+        "invitesTitle": "Codes d’invitation et liens d’accès",
+        "invitesHint": "Un code ou un lien ne s’affiche qu’une fois, à sa création : seul un hachage est conservé.",
+        "kind": "Type",
+        "kinds": {
+          "code": "Code d’invitation",
+          "link": "Lien d’accès"
+        },
+        "label": "Libellé",
+        "labelHint": "Nomme la cohorte dans le journal d’activité et les entonnoirs de croissance.",
+        "maxUses": "Utilisations",
+        "expiresAt": "Expiration",
+        "noExpiry": "Jamais",
+        "create": "Créer",
+        "creating": "Création…",
+        "created": "Copiez-le maintenant : il ne s’affiche qu’une fois.",
+        "copy": "Copier",
+        "copied": "Copié",
+        "uses": "{uses} sur {maxUses}",
+        "status": "Statut",
+        "statuses": {
+          "valid": "Actif",
+          "expired": "Expiré",
+          "usedUp": "Épuisé",
+          "revoked": "Révoqué",
+          "unknown": "Inconnu"
+        },
+        "revoke": "Révoquer",
+        "revoking": "Révocation…",
+        "revokeConfirm": "Révoquer {label} ? Plus personne ne sera admis avec, immédiatement.",
+        "noInvites": "Aucun code ni lien pour l’instant.",
+        "admitTitle": "Inviter par adresse",
+        "admitHint": "Une adresse par ligne, ou séparées par des virgules, jusqu’à 500. Aucun e-mail n’est envoyé sauf si vous le demandez : faites l’annonce par une diffusion aux personnes qui l’ont accepté. Chaque invitation dure 30 jours.",
+        "emailThem": "Leur envoyer un e-mail",
+        "emailThemHint": "Chaque personne reçoit un simple e-mail « Vous êtes invité » avec un désabonnement en un clic, environ cent par heure.",
+        "emails": "Adresses",
+        "admit": "Inviter",
+        "admitting": "Invitation…",
+        "admitted": "{count} adresse invitée. | {count} adresses invitées.",
+        "skipped": "{email} ignorée : {reason}",
+        "skipReasons": {
+          "malformed": "ce n’est pas une adresse",
+          "reserved": "domaine réservé",
+          "account": "a déjà un compte"
+        },
+        "admissionsTitle": "Adresses invitées",
+        "noAdmissions": "Aucune adresse invitée pour l’instant.",
+        "used": "Inscrit",
+        "waiting": "En attente"
+      },
+      "announcements": {
+        "title": "Annonces",
+        "refused": "Seuls les administrateurs voient et publient les annonces.",
+        "composeTitle": "Nouvelle annonce",
+        "composeHint": "L’avis s’affiche immédiatement pour toutes les personnes connectées, jusqu’à son expiration ou jusqu’à ce qu’elles le ferment. Publier vous demande de confirmer votre identité.",
+        "message": "Avis",
+        "messageHint": "Une ou deux phrases, jusqu’à {max} caractères.",
+        "linkUrl": "Lien",
+        "linkUrlHint": "Une page de l’application (/pricing) ou une adresse https:. Facultatif.",
+        "linkLabel": "Texte du lien",
+        "expiresAt": "Affiché jusqu’au",
+        "withBroadcast": "Envoyer aussi un e-mail",
+        "audience": "Destinataires",
+        "audiences": {
+          "accounts": "Personnes abonnées à un sujet",
+          "waitlist": "La liste des actualités de lancement de la liste d’attente"
+        },
+        "topic": "Sujet",
+        "subject": "Objet",
+        "body": "E-mail",
+        "bodyHint": "Texte brut : une ligne vide commence un nouveau paragraphe. Votre adresse postale et un lien de désabonnement sont ajoutés.",
+        "publish": "Publier",
+        "publishing": "Publication…",
+        "published": "Publié : l’avis s’affiche maintenant.",
+        "listTitle": "Publiées",
+        "noAnnouncements": "Rien n’a encore été publié.",
+        "live": "En ligne jusqu’au {date}",
+        "expired": "Expirée le {date}",
+        "ended": "Terminée le {date}",
+        "end": "Terminer l’avis",
+        "ending": "Arrêt…",
+        "endConfirm": "Terminer cet avis maintenant ? Il disparaîtra pour tout le monde.",
+        "emailTitle": "E-mail : {subject}",
+        "states": {
+          "draft": "Non envoyé",
+          "creating": "Envoi…",
+          "created": "Non envoyé",
+          "sent": "Envoyé le {date}",
+          "scheduled": "Programmé pour le {date}",
+          "cancelled": "Annulé"
+        },
+        "preview": "M’envoyer un aperçu",
+        "previewing": "Envoi…",
+        "previewed": "Un aperçu est en route vers votre adresse.",
+        "sendAt": "Envoyer le",
+        "sendAtHint": "Laissez vide pour envoyer maintenant.",
+        "send": "Envoyer l’e-mail",
+        "sending": "Envoi…",
+        "sendConfirm": "Envoyer cet e-mail à toutes les personnes de son audience qui l’ont accepté ? Il part une seule fois et ne peut pas être rappelé.",
+        "sent": "L’e-mail est en route.",
+        "scheduled": "L’e-mail est programmé.",
+        "cancel": "Annuler l’e-mail",
+        "cancelling": "Annulation…",
+        "cancelled": "L’e-mail est annulé.",
+        "testMode": "Les e-mails ne partent qu’en production. Ici, envoyez-vous un aperçu.",
+        "noAddress": "Ajoutez votre adresse postale (brand.address dans setupEmail) avant d’envoyer : chaque e-mail marketing la contient.",
+        "notSynced": "Exécutez d’abord npx nuxt-backend email sync : l’audience n’est pas encore chez le prestataire d’e-mail."
+      },
+      "billing": {
+        "refused": "Seuls les administrateurs voient les données de facturation.",
+        "entity": "Entité de facturation",
+        "entityHint": "L’id d’un espace de travail, ou celui d’un compte quand chaque compte paie pour lui-même. Laissez vide pour voir toutes les entités.",
+        "offersTitle": "Offres de rétention",
+        "offersHint": "Les offres proposées lors de la résiliation, selon le motif donné par la personne, et si elle les a acceptées.",
+        "offersEmpty": "Aucune offre de rétention pour l’instant.",
+        "withdrawalsTitle": "Rétractations",
+        "withdrawalsHint": "Chaque forfait a pris fin immédiatement. Le remboursement, déduction faite de ce que la personne a utilisé, est à vous d’envoyer sous 14 jours.",
+        "withdrawalsEmpty": "Aucune rétractation.",
+        "consentsTitle": "Preuves de consentement au renouvellement",
+        "consentsHint": "Ce que chaque paiement avec renouvellement a affiché et qui l’a accepté, conservé trois ans.",
+        "consentsEmpty": "Aucune preuve de consentement pour l’instant.",
+        "columns": {
+          "entity": "Entité de facturation",
+          "reason": "Motif",
+          "offer": "Offre",
+          "madeAt": "Proposée le",
+          "outcome": "Résultat",
+          "plan": "Forfait",
+          "account": "Compte",
+          "at": "Date",
+          "price": "Prix",
+          "terms": "Version des conditions",
+          "consentedAt": "Accepté le"
+        },
+        "offers": {
+          "pause": "Pause de {count} mois | Pause de {count} mois",
+          "downgrade": "Passer à {plan}",
+          "discount": "Réduction de {discount}"
+        },
+        "accepted": "Acceptée le {date}",
+        "declined": "Non acceptée",
+        "price": "{amount} {every}",
+        "every": {
+          "day": "chaque jour | tous les {count} jours",
+          "week": "chaque semaine | toutes les {count} semaines",
+          "month": "chaque mois | tous les {count} mois",
+          "year": "chaque année | tous les {count} ans"
+        },
+        "noTerms": "Aucune enregistrée"
+      },
+      "reports": {
+        "refused": "Seuls les administrateurs voient les signalements.",
+        "empty": "Aucun signalement ouvert.",
+        "subjects": "Contenu signalé",
+        "open": "Ouverts : {count}",
+        "gone": "Ce contenu n’existe plus.",
+        "author": "Par {email}",
+        "openAuthor": "Ouvrir dans Utilisateurs",
+        "deadline": "À décider avant le {date}",
+        "overdue": "En retard depuis le {date}",
+        "crime": "Signalé aux autorités le {date}",
+        "reasons": {
+          "illegal": "Illégal",
+          "intimate": "Image intime sans consentement",
+          "child_abuse": "Abus sexuel sur mineur",
+          "abuse": "Harcèlement",
+          "sexual": "Contenu sexuel",
+          "violence": "Violence",
+          "spam": "Spam",
+          "other": "Autre"
+        },
+        "notices": "Notifications",
+        "notifier": "De {name}, {email}",
+        "anonymous": "Envoyé sans nom",
+        "signedBy": "Signé par {name}",
+        "link": "Lien fourni",
+        "reason": "Motif",
+        "reasonHint": "Les faits, et la condition ou la loi enfreinte. L’auteur et les personnes qui l’ont signalé lisent ce texte.",
+        "ground": "Fondement",
+        "grounds": {
+          "terms": "Enfreint nos conditions",
+          "illegal": "Illégal"
+        },
+        "hide": "Masquer",
+        "dismiss": "Rejeter",
+        "flag": "Signaler une infraction présumée",
+        "flagConfirm": "Signaler ceci comme une infraction présumée menaçant la vie ou la sécurité d’une personne ? C’est à vous d’en informer l’autorité du pays concerné.",
+        "hidden": "Masqué. Les personnes qui l’ont signalé et son auteur ont été prévenus.",
+        "markHandled": "Marquer comme traité",
+        "markedHandled": "Marqué comme traité. Son expéditeur a été informé de votre action.",
+        "dismissed": "Rejeté. Les personnes qui l’ont signalé ont été prévenues.",
+        "flagged": "Signalé. Informez maintenant l’autorité du pays concerné.",
+        "unplaced": "Notifications concernant d’autres liens",
+        "appeals": "Recours",
+        "appealOf": "Recours contre le masquage de « {title} »",
+        "appealText": "L’auteur a écrit",
+        "uphold": "Maintenir la décision",
+        "reverse": "L’annuler",
+        "appealDecided": "Décision prise. L’auteur a été prévenu."
+      },
+      "waitlist": {
+        "title": "Liste d’attente",
+        "refused": "Seuls les administrateurs voient et modifient la liste d’attente.",
+        "counts": "En attente, admis, refusés et inscrits",
+        "statuses": {
+          "waiting": "En attente",
+          "admitted": "Admis",
+          "declined": "Refusé",
+          "joined": "Inscrit"
+        },
+        "count": "{count}",
+        "status": "Statut",
+        "domain": "Domaine",
+        "source": "Source",
+        "question": "Question",
+        "answer": "Réponse",
+        "anyQuestion": "Toutes",
+        "filter": "Appliquer",
+        "clearFilter": "Effacer",
+        "email": "Adresse",
+        "joinedAt": "Vérifiée",
+        "answers": "Réponses",
+        "boost": "Amis",
+        "news": "Actualités",
+        "newsYes": "Oui",
+        "newsNo": "Non",
+        "note": "Note",
+        "notePlaceholder": "Une note visible uniquement par les administrateurs",
+        "saveNote": "Enregistrer",
+        "select": "Sélectionner {email}",
+        "selectAll": "Tout sélectionner",
+        "approve": "Approuver",
+        "approveNext": "Approuver les suivants",
+        "approveCount": "Combien",
+        "approving": "Approbation…",
+        "approved": "{count} personne admise et prévenue par e-mail. | {count} personnes admises et prévenues par e-mail.",
+        "decline": "Refuser",
+        "declineAbuse": "Retirer pour abus",
+        "declining": "Refus…",
+        "declined": "{count} inscription refusée. | {count} inscriptions refusées.",
+        "declineConfirm": "Refuser {count} inscription ? Son ticket est retiré. | Refuser {count} inscriptions ? Leurs tickets sont retirés.",
+        "abuseConfirm": "Retirer {count} inscription pour abus ? Ce qu’elle a apporté à l’ami qui l’a partagée lui est repris. | Retirer {count} inscriptions pour abus ? Ce que chacune a apporté à l’ami qui l’a partagée lui est repris.",
+        "noEntries": "Personne pour l’instant.",
+        "capsTitle": "Capacité d’une vague",
+        "capsHint": "Une vague est limitée par les codes de connexion autorisés par le déploiement et le quota quotidien du forfait d’e-mail.",
+        "capCodes": "Codes de connexion restants cette heure-ci : {left} sur {limit}",
+        "capEmails": "E-mails aujourd’hui : {used} sur {limit}",
+        "capUnknown": "Inconnu : la consommation du prestataire d’e-mail n’a pas pu être lue.",
+        "mirrorTitle": "Actualités de lancement",
+        "mirrorDrift": "{count} contact s’est écarté de son inscription et sera réécrit. | {count} contacts se sont écartés de leurs inscriptions et seront réécrits.",
+        "mirrorPending": "{count} contact attend d’être écrit. | {count} contacts attendent d’être écrits.",
+        "mirrorStates": {
+          "pending": "En attente d’écriture",
+          "synced": "Écrit",
+          "drift": "Écarté",
+          "skipped": "Non écrit ici"
+        }
+      },
+      "referrals": {
+        "title": "Parrainages",
+        "refused": "Seuls les administrateurs voient et modifient les parrainages.",
+        "totals": "Parrainages par état",
+        "states": {
+          "claimed": "Réclamé",
+          "held": "En attente",
+          "rewarded": "Récompensé",
+          "voided": "Annulé",
+          "capped": "Plafond dépassé",
+          "flagged": "Signalé"
+        },
+        "count": "{count}",
+        "topTitle": "Meilleurs parrains",
+        "topEmpty": "Aucun parrainage pour l’instant.",
+        "referrer": "Parrain",
+        "referrals": "Parrainages",
+        "rewarded": "Récompensés",
+        "history": "Historique",
+        "historyTitle": "Parrainages de ce parrain",
+        "flaggedTitle": "Signalés",
+        "flaggedHint": "Ces récompenses attendent votre décision. Débloquez-en une pour qu’elle soit versée à la fin de sa période d’attente, ou annulez-la.",
+        "flaggedEmpty": "Aucune décision en attente.",
+        "state": "État",
+        "claimedAt": "Réclamé le",
+        "holdUntil": "Fin de l’attente",
+        "flags": "Motif",
+        "flagNames": {
+          "same_network": "Même réseau et même navigateur des deux côtés",
+          "burst": "Pic d’utilisation d’un même code"
+        },
+        "release": "Débloquer",
+        "void": "Annuler",
+        "releasing": "Déblocage…",
+        "voiding": "Annulation…",
+        "released": "La récompense a été débloquée.",
+        "voided": "Le parrainage a été annulé.",
+        "voidConfirm": "Annuler ce parrainage ? Personne ne recevra sa récompense.",
+        "program": "Le programme",
+        "holdDays": "Attente : {count} jour | Attente : {count} jours",
+        "capPerReferrer": "Au maximum {count} récompense par parrain. | Au maximum {count} récompenses par parrain.",
+        "capPerMonth": "Au maximum {count} récompense par mois. | Au maximum {count} récompenses par mois."
+      },
+      "flags": {
+        "title": "Flags",
+        "switchesTitle": "Interrupteurs d’urgence",
+        "switchesHint": "Chacun s’applique à tout le monde, dès la requête suivante. L’activer ou le désactiver vous demande de confirmer votre identité.",
+        "flagsTitle": "Feature flags",
+        "flagsHint": "Déclarés dans backend/flags.ts. Un flag désactivé pour tout le monde peut rester activé pour certains.",
+        "empty": "Cette application ne déclare encore aucun flag : ajoutez-les dans backend/flags.ts avec defineFlags.",
+        "refused": "Seuls les administrateurs voient et modifient les flags.",
+        "names": {
+          "pause_signups": "Suspendre les inscriptions",
+          "pause_checkout": "Suspendre les paiements",
+          "pause_ai": "Suspendre l’IA",
+          "maintenance": "Bannière de maintenance"
+        },
+        "descriptions": {
+          "pause_signups": "Les nouveaux comptes sont refusés, y compris ceux invités ou créés par un administrateur, avant l’envoi d’un code de connexion ; les comptes existants se connectent comme avant.",
+          "pause_checkout": "Les nouveaux paiements, changements de forfait et achats de cadeaux sont refusés ; les forfaits en cours, les résiliations, le portail de facturation et la récupération des cadeaux continuent de fonctionner.",
+          "pause_ai": "Les appels de modèles et flux facturés à l’usage sont refusés avant toute réservation de crédits.",
+          "maintenance": "Une bannière avec votre message s’affiche sur chaque page, après la visite d’un administrateur et avant les annonces."
+        },
+        "confirmOn": "Activer « {name} » pour tout le monde ?",
+        "message": "Message de la bannière",
+        "messageHint": "Texte brut. Laissez vide pour la phrase par défaut.",
+        "saveMessage": "Enregistrer le message",
+        "key": "Flag",
+        "state": "État actuel",
+        "states": {
+          "defaultOn": "Par défaut : activé",
+          "defaultOff": "Par défaut : désactivé",
+          "on": "Activé pour tout le monde",
+          "off": "Désactivé pour tout le monde",
+          "targeted": "Activé pour certains",
+          "undeclared": "Absent du code : n’active rien"
+        },
+        "targetsIdle": "ses cibles s’appliquent une fois qu’il est désactivé",
+        "rolledOut": "{percent} % déployé",
+        "edit": "Modifier",
+        "editing": "Modifier {key}",
+        "everyone": "Pour tout le monde",
+        "everyoneDefault": "Comme dans le code",
+        "everyoneOn": "Activé",
+        "everyoneOff": "Désactivé",
+        "users": "Id des comptes",
+        "workspaces": "Id des espaces de travail",
+        "plans": "Clés des forfaits",
+        "listHint": "Un par ligne, ou séparés par des virgules.",
+        "rollout": "Déploiement, en pourcentage",
+        "rolloutBy": {
+          "user": "Une part stable des comptes.",
+          "workspace": "Une part stable des espaces de travail : tous leurs membres voient la même chose."
+        },
+        "save": "Enregistrer",
+        "saving": "Enregistrement…",
+        "reset": "Revenir à la valeur par défaut",
+        "remove": "Supprimer",
+        "cancel": "Annuler",
+        "saved": "Enregistré.",
+        "changed": "Modifié le {date}"
+      }
+    },
+    "impersonation": {
+      "label": "Visite d’un administrateur",
+      "message": "Vous agissez en tant que {name}.",
+      "ends": "La visite se termine à {time}.",
+      "stop": "Arrêter l’emprunt d’identité",
+      "stopping": "Retour à votre compte…"
+    },
+    "maintenance": {
+      "label": "Maintenance",
+      "message": "Une maintenance est en cours. Certaines fonctions peuvent être indisponibles pendant un moment."
+    },
+    "announcement": {
+      "label": "Annonce",
+      "link": "En savoir plus",
+      "dismiss": "Fermer",
+      "dismissFailed": "Impossible de fermer l’annonce. Réessayez."
+    },
+    "deletion": {
+      "label": "Suppression du compte",
+      "message": "Votre compte sera supprimé le {date}. D’ici là, vous pouvez le conserver.",
+      "keep": "Conserver mon compte",
+      "keeping": "Conservation de votre compte…",
+      "kept": "Votre compte est conservé.",
+      "title": "Conserver votre compte",
+      "intro": "La suppression de votre compte est programmée. Conservez-le, et la suppression est annulée.",
+      "done": "Votre compte est conservé et la suppression est annulée. Nous vous avons envoyé une confirmation.",
+      "nothing": "Il n’y a rien à annuler : la suppression a déjà été annulée, elle a déjà eu lieu, ou ce lien n’est pas le dernier que nous avons envoyé.",
+      "noToken": "Ce lien ne contient pas de code. Ouvrez à nouveau le lien de l’e-mail."
+    },
+    "credits": {
+      "low": "Il vous reste {balance} crédit. | Crédits restants : {balance}.",
+      "topUp": "Recharger",
+      "topUpPack": "Acheter {pack}",
+      "toppingUp": "Ouverture du paiement…",
+      "topUpFailed": "Impossible de lancer la recharge",
+      "dismiss": "Fermer"
+    },
+    "upgrade": {
+      "message": "Votre forfait n’inclut pas cette fonction.",
+      "availableOn": "Disponible avec {plans}.",
+      "upgrade": "Passer à {plan}",
+      "seePlans": "Voir les forfaits",
+      "askManager": "Demandez au propriétaire ou à un administrateur de l’espace de travail de changer de forfait.",
+      "dismiss": "Plus tard"
+    },
+    "cancelFlow": {
+      "title": "Résilier votre forfait",
+      "question": "Quelle est la raison principale ? (facultatif)",
+      "reasons": {
+        "too_expensive": "Trop cher",
+        "missing_features": "Fonctionnalités manquantes",
+        "switched_service": "Passage à un autre service",
+        "unused": "Je ne l’utilise pas assez",
+        "customer_service": "Service client",
+        "low_quality": "Qualité inférieure à mes attentes",
+        "too_complex": "Trop compliqué",
+        "other": "Autre raison"
+      },
+      "comment": "Autre chose à nous dire ? (facultatif)",
+      "continue": "Continuer",
+      "cancel": "Résilier mon forfait",
+      "canceling": "Résiliation…",
+      "offerTitle": "Avant de partir",
+      "offerPause": "Mettez plutôt {plan} en pause pendant {count} mois. Il reprend automatiquement le {date}, et rien ne vous est facturé entre-temps. | Mettez plutôt {plan} en pause pendant {count} mois. Il reprend automatiquement le {date}, et rien ne vous est facturé entre-temps.",
+      "offerDowngrade": "Passez plutôt à {plan} à partir du {date}, à la fin de cette période.",
+      "offerDiscountRepeating": "{off} de réduction pendant {count} mois | {off} de réduction pendant {count} mois",
+      "offerDiscountOnce": "{off} de réduction sur votre prochain paiement",
+      "offerDiscountForever": "{off} de réduction tant que vous conservez le forfait",
+      "acceptPause": "Mettre en pause",
+      "acceptDowngrade": "Passer à {plan}",
+      "acceptDiscount": "Conserver mon forfait avec cette offre",
+      "accepting": "Application…",
+      "endsOn": "Votre forfait prend fin le {date}.",
+      "endsPeriod": "Votre forfait prend fin avec la période en cours.",
+      "endNote": "D’ici là, tout continue de fonctionner, et vos crédits restent utilisables.",
+      "keep": "Conserver mon forfait",
+      "keeping": "Conservation…",
+      "kept": "Votre forfait reste inchangé.",
+      "close": "Fermer",
+      "failed": "Cela n’a pas fonctionné. Réessayez, ou résiliez depuis le portail de facturation."
+    },
+    "withdrawal": {
+      "button": "Se rétracter du contrat ici",
+      "period": "Vous pouvez vous rétracter de {plan} jusqu’au {date}.",
+      "confirmTitle": "Vous rétracter de votre achat de {plan} ?",
+      "confirmText": "Votre forfait prend fin immédiatement. Nous vous envoyons un reçu par e-mail et remboursons ce qui vous est dû.",
+      "confirm": "Confirmer la rétractation",
+      "confirming": "Rétractation…",
+      "back": "Revenir en arrière",
+      "done": "Nous avons reçu votre rétractation le {at}. Un reçu vous a été envoyé par e-mail.",
+      "failed": "La rétractation n’a pas abouti. Réessayez."
+    },
+    "referral": {
+      "title": "Inviter des amis",
+      "intro": "Partagez votre lien. Quand un ami s’inscrit et paie, vous recevez tous les deux une récompense.",
+      "shareLead": "Essayez cette application avec mon lien.",
+      "friendDiscount": "Vous bénéficiez de {name} sur votre premier paiement.",
+      "friendTrial": "Vous bénéficiez de {days} jours gratuits.",
+      "shareSharer": "Je reçois {reward} quand vous devenez client.",
+      "sharerPack": "{name}",
+      "sharerMonths": "{count} mois offert | {count} mois offerts",
+      "yourReward": "Vous recevez {reward} une fois que le premier paiement d’un ami a passé son délai de remboursement de {days} jours.",
+      "linkLabel": "Votre lien",
+      "copy": "Copier le lien",
+      "copied": "Copié",
+      "share": "Partager",
+      "claimed": "{count} ami inscrit | Amis inscrits : {count}",
+      "held": "{count} ami en attente de la fin du délai de remboursement | Amis en attente de la fin du délai de remboursement : {count}",
+      "rewarded": "{count} ami récompensé | Amis récompensés : {count}",
+      "sharePages": "Afficher mon code sur les pages que je partage",
+      "sharePagesNote": "Un badge sur une page partagée renvoie vers votre lien d’invitation et indique que vous recevez une récompense quand quelqu’un s’inscrit.",
+      "loading": "Récupération de votre lien…",
+      "signedOut": "Connectez-vous pour obtenir votre lien.",
+      "failed": "Impossible de récupérer votre lien. Réessayez.",
+      "landing": {
+        "title": "Vous êtes invité",
+        "invitedBy": "{inviter} vous a invité.",
+        "invited": "Un ami vous a invité.",
+        "youGet": "Inscrivez-vous avec ce lien et bénéficiez de {name} sur votre premier paiement.",
+        "youGetTrial": "Inscrivez-vous avec ce lien et bénéficiez de {days} jours gratuits sur votre premier paiement.",
+        "youGetNothing": "Inscrivez-vous avec ce lien, et la personne qui vous a invité saura que vous venez de sa part.",
+        "signUp": "S’inscrire pour en profiter",
+        "claim": "Accepter l’invitation",
+        "claiming": "Validation…",
+        "claimed": "C’est fait. L’invitation est à vous.",
+        "ignored": "Cette invitation n’a pas pu être utilisée, mais vous pouvez continuer sans elle.",
+        "own": "C’est votre propre lien.",
+        "invalid": "Ce lien ne fonctionne plus.",
+        "checking": "Vérification du lien…",
+        "continue": "Continuer"
+      }
+    },
+    "pastDue": {
+      "label": "Échec du paiement",
+      "message": "Votre dernier paiement a échoué. Le forfait reste actif pendant les nouvelles tentatives ; mettez à jour le moyen de paiement pour le conserver.",
+      "action": "Mettre à jour le moyen de paiement",
+      "opening": "Ouverture…"
+    },
+    "quota": {
+      "loading": "Vérification des limites de votre forfait…",
+      "unavailable": "Impossible de lire les limites de votre forfait.",
+      "reached": "Vous avez utilisé {used} sur {limit} {quota}.",
+      "notIncluded": "Votre forfait n’inclut pas de {quota}.",
+      "needs": "Il faut {amount}.",
+      "availableOn": "Davantage avec {plans}.",
+      "upgrade": "Passer à {plan}",
+      "seePlans": "Voir les forfaits",
+      "askManager": "Demandez au propriétaire ou à un administrateur de l’espace de travail de changer de forfait."
+    },
+    "gift": {
+      "title": "Cadeaux",
+      "description": "Les cadeaux que vous avez envoyés et ceux qui vous sont destinés.",
+      "loading": "Chargement des cadeaux…",
+      "receivedTitle": "Reçus",
+      "sentTitle": "Envoyés",
+      "receivedEmpty": "Aucun cadeau pour vous pour l’instant.",
+      "sentEmpty": "Vous n’avez encore envoyé aucun cadeau.",
+      "itemPack": "{name}",
+      "itemPass": "{count} mois de {plan} | {count} mois de {plan}",
+      "from": "De la part de {sender}",
+      "to": "Pour {recipient}",
+      "sentOn": "Envoyé le {date}",
+      "deliverOn": "Arrive le {date}",
+      "deliveredOn": "Livré le {date}",
+      "claimedOn": "Reçu le {date}",
+      "status": {
+        "scheduled": "Programmé",
+        "delivered": "En attente du destinataire",
+        "claimed": "Reçu",
+        "refunded": "Remboursé",
+        "paid": "En attente de vous"
+      },
+      "claimInto": "Recevoir dans",
+      "personalWorkspace": "Mon espace de travail personnel",
+      "resend": "Renvoyer l’avis",
+      "resending": "Envoi…",
+      "resent": "L’avis a été renvoyé.",
+      "changeRecipient": "Changer de destinataire",
+      "newRecipient": "E-mail du nouveau destinataire",
+      "saveRecipient": "Enregistrer le destinataire",
+      "savingRecipient": "Enregistrement…",
+      "recipientChanged": "Le cadeau sera envoyé à la nouvelle adresse.",
+      "reschedule": "Changer la date",
+      "newDate": "Nouvelle date de livraison",
+      "saveDate": "Enregistrer la date",
+      "savingDate": "Enregistrement…",
+      "rescheduled": "La date de livraison a été modifiée.",
+      "cancel": "Annuler et rembourser",
+      "canceling": "Remboursement…",
+      "canceled": "Le cadeau a été annulé et remboursé.",
+      "cancelHint": "L’annulation rembourse intégralement l’achat. Un cadeau déjà reçu ne peut pas être annulé.",
+      "actionFailed": "Cela n’a pas fonctionné",
+      "received": "{sender} vous a envoyé un cadeau.",
+      "receivedWithMessage": "{sender} vous a envoyé un cadeau : « {message} »",
+      "someone": "Quelqu’un",
+      "claim": "Recevoir le cadeau",
+      "claiming": "Réception…",
+      "claimed": "Cadeau reçu. Les crédits arrivent dans un instant.",
+      "claimFailed": "Impossible de recevoir le cadeau"
+    },
+    "access": {
+      "title": "Vous n’avez pas accès à cette page",
+      "message": "Votre compte ne dispose pas de l’accès nécessaire à cette page. Demandez-le à un administrateur si vous en avez besoin.",
+      "messageWorkspace": "Votre rôle dans cet espace de travail ne donne pas accès à cette page. Passez à un autre espace de travail ou demandez l’accès à son propriétaire.",
+      "messageBanned": "Ce compte est banni.",
+      "signedInAs": "Connecté en tant que {email}.",
+      "home": "Aller à l’accueil",
+      "switchWorkspace": "Changer d’espace de travail",
+      "switchAccount": "Se connecter avec un autre compte",
+      "switchingAccount": "Déconnexion…",
+      "switchAccountFailed": "Impossible de vous déconnecter"
+    },
+    "waitlist": {
+      "title": "Rejoindre la liste d’attente",
+      "intro": "Nous ouvrons l’accès par vagues. Indiquez votre e-mail et nous vous enverrons un code pour le confirmer.",
+      "email": "Adresse e-mail",
+      "launchNews": "Me prévenir par e-mail au lancement",
+      "join": "Rejoindre la liste d’attente",
+      "joining": "Envoi du code…",
+      "codeIntro": "Saisissez le code envoyé à {email}.",
+      "code": "Code",
+      "verify": "Confirmer",
+      "verifying": "Vérification du code…",
+      "back": "Utiliser une autre adresse",
+      "placed": "Votre position : {position} sur {total}",
+      "placedUnknown": "Vous êtes sur la liste d’attente.",
+      "disclosure": "Nous ouvrons l’accès par vagues, et parfois selon d’autres critères. Votre position peut changer.",
+      "admitted": "Vous avez accès. Inscrivez-vous avec l’adresse utilisée pour la liste d’attente.",
+      "signUp": "S’inscrire",
+      "declined": "Nous ne pouvons pas vous proposer de place pour le moment.",
+      "joined": "Vous avez déjà un compte.",
+      "referredBy": "Un ami vous a invité. Il avance dans la liste quand vous la rejoignez.",
+      "dropReferral": "Je ne viens pas de la part d’un ami",
+      "shareTitle": "Avancez dans la liste",
+      "shareIntro": "Chaque ami qui s’inscrit avec votre lien vous fait avancer, jusqu’à {cap} amis.",
+      "shareLink": "Votre lien",
+      "copy": "Copier",
+      "copied": "Copié",
+      "friends": "{count} ami s’est inscrit avec votre lien. | Amis inscrits avec votre lien : {count}.",
+      "shareText": "Rejoignez la liste d’attente avec mon lien. Si vous le faites, j’avance dans la liste.",
+      "leave": "Quitter la liste d’attente",
+      "leaving": "Départ…",
+      "left": "Vous avez quitté la liste d’attente. Votre adresse a été supprimée.",
+      "page": {
+        "title": "Votre place",
+        "checking": "Vérification de votre place…",
+        "unknown": "Ce lien ne fonctionne pas. Ouvrez le lien de votre e-mail de confirmation."
+      }
+    },
+    "report": {
+      "page": {
+        "title": "Signaler un contenu"
+      },
+      "intro": "Signalez-nous un contenu de cette application qui est illégal ou qui enfreint nos conditions. Une personne de notre équipe examine chaque signalement.",
+      "url": "Lien vers le contenu",
+      "urlHint": "Copiez l’adresse de la page qui l’affiche.",
+      "reason": "Quel est le problème",
+      "reasons": {
+        "illegal": "Il est illégal",
+        "intimate": "C’est une image intime de moi partagée sans mon consentement",
+        "child_abuse": "Il exploite sexuellement un enfant",
+        "abuse": "Harcèlement ou intimidation",
+        "sexual": "Contenu sexuel",
+        "violence": "Violence ou menaces",
+        "spam": "Spam ou arnaque",
+        "other": "Autre chose"
+      },
+      "details": "Pourquoi",
+      "detailsHint": "Expliquez pourquoi le contenu est illégal ou enfreint nos conditions, et citez la loi ou la condition si vous la connaissez. Ce que vous écrivez est conservé avec notre décision : n’indiquez pas de données personnelles dont nous n’avons pas besoin.",
+      "name": "Votre nom",
+      "email": "Votre adresse e-mail",
+      "contactHint": "Nous vous envoyons par e-mail un accusé de réception et notre décision. Pour du contenu pédopornographique, vous pouvez laisser ces deux champs vides.",
+      "signature": "Votre nom complet, en guise de signature",
+      "signatureHint": "En signant, vous confirmez être la personne représentée ou pouvoir agir en son nom.",
+      "intimateNote": "Nous statuons dans les 48 heures sur toute demande de retrait d’une image intime partagée sans consentement, et retirons aussi les copies identiques.",
+      "goodFaith": "Je déclare de bonne foi que ce signalement est exact et complet.",
+      "send": "Envoyer le signalement",
+      "sending": "Envoi…",
+      "sent": "Merci. Nous avons reçu votre signalement et vous enverrons notre décision par e-mail.",
+      "sentAnonymous": "Merci. Nous avons reçu votre signalement.",
+      "appeal": {
+        "title": "Contester une décision",
+        "checking": "Vérification du lien…",
+        "unknown": "Ce lien de contestation ne fonctionne pas. Vérifiez que vous l’avez copié en entier.",
+        "hidden": "Le {date}, nous avons retiré « {title} ».",
+        "dismissed": "Le {date}, nous avons décidé de conserver « {title} ».",
+        "untitled": "votre contenu",
+        "reason": "Notre motif : {reason}",
+        "until": "Vous pouvez contester jusqu’au {date}.",
+        "expired": "Cette décision ne peut plus être contestée.",
+        "text": "Pourquoi la décision devrait changer",
+        "send": "Envoyer la contestation",
+        "sending": "Envoi…",
+        "open": "Merci. Une personne de notre équipe examine votre contestation et vous enverra le résultat par e-mail.",
+        "upheld": "Nous avons examiné votre contestation et maintenu notre décision.",
+        "reversed": "Nous avons examiné votre contestation et annulé notre décision."
+      }
+    },
+    "legal": {
+      "disclaimer": "Cette page est établie à partir de ce que l’application exécute. Elle ne constitue pas un conseil juridique.",
+      "unset": "Renseignez appConfig.backend.legal : {fields}.",
+      "thisApp": "cette application",
+      "nav": "Pages légales",
+      "pages": {
+        "privacy": "Politique de confidentialité",
+        "terms": "Conditions d’utilisation",
+        "subprocessors": "Sous-traitants ultérieurs",
+        "accessibility": "Déclaration d’accessibilité"
+      },
+      "controller": {
+        "title": "Qui sommes-nous",
+        "company": "{app} est exploité par {company}.",
+        "address": "Adresse postale : {address}",
+        "contact": "Contact : {contact}",
+        "dpo": "Délégué à la protection des données : {dpo}"
+      },
+      "privacy": {
+        "intro": "Cette politique indique ce que {app} conserve à votre sujet, pendant combien de temps, qui le traite pour notre compte, et comment en obtenir une copie ou le faire supprimer.",
+        "controller": "Nous décidons de ce qu’il advient de vos données personnelles : nous en sommes le responsable du traitement.",
+        "dataTitle": "Ce que nous conservons, et pendant combien de temps",
+        "dataIntro": "Chaque partie de l’application ne conserve que ce dont elle a besoin pour fonctionner pour vous, puis le supprime ou le conserve sans votre nom, comme indiqué ci-dessous.",
+        "holds": "Ce que nous conservons",
+        "kept": "Durée",
+        "processorsTitle": "Qui le traite pour notre compte",
+        "processorsIntro": "Ces services traitent des données personnelles pour notre compte, uniquement pour faire fonctionner l’application.",
+        "processorsLink": "Tous les sous-traitants ultérieurs, avec leur contrat",
+        "storageTitle": "Cookies et stockage dans votre navigateur",
+        "storageIntro": "Nous ne stockons que ce dont l’application a besoin pour fonctionner. Tout le reste attend votre autorisation, et vous pouvez changer d’avis à tout moment.",
+        "rightsTitle": "Vos droits",
+        "rightsAccess": "Vous pouvez télécharger tout ce que nous conservons à votre sujet, ou supprimer votre compte, dans vos paramètres de sécurité. Vos données sont effacées de chacun des services ci-dessus à la fin du délai de grâce de la suppression.",
+        "rightsAccessLink": "Paramètres de sécurité",
+        "rightsCorrect": "Vous pouvez corriger votre nom, votre adresse e-mail et votre langue dans votre profil.",
+        "rightsCorrectLink": "Profil",
+        "rightsOther": "Pour toute autre demande, ou si vous n’avez pas de compte, écrivez à {contact}. Nous répondons dans un délai d’un mois.",
+        "rightsOtherNoContact": "Pour toute autre demande, ou si vous n’avez pas de compte, contactez-nous. Nous répondons dans un délai d’un mois.",
+        "rightsComplain": "Vous pouvez également introduire une réclamation auprès de l’autorité de protection des données du lieu où vous vivez ou travaillez.",
+        "changesTitle": "Modifications",
+        "changes": "Nous mettons à jour cette page chaque fois que ce que nous conservons change."
+      },
+      "terms": {
+        "intro": "Les présentes conditions s’appliquent lorsque vous utilisez {app}. En l’utilisant, vous les acceptez.",
+        "accountTitle": "Votre compte",
+        "account": "Vous vous connectez avec un code que nous vous envoyons par e-mail, ou avec une clé d’accès. Protégez votre compte de messagerie et vos appareils : quiconque les contrôle peut se connecter en votre nom.",
+        "plansTitle": "Forfaits et paiements",
+        "plans": "Un forfait payant est renouvelé à chaque période jusqu’à ce que vous le résiliiez. Vous pouvez le résilier à tout moment dans vos paramètres et conserver le forfait jusqu’à la fin de la période payée.",
+        "merchant": "{merchant} vous vend nos forfaits et nos crédits en tant que vendeur officiel (merchant of record), et gère le paiement, les taxes et les factures selon ses propres conditions.",
+        "merchantLink": "Ses conditions pour les acheteurs",
+        "withdrawal": "Lorsque la loi vous accorde un droit de rétractation sur un achat, vos paramètres indiquent comment l’exercer tant qu’il s’applique.",
+        "contentTitle": "Votre contenu",
+        "content": "Vous conservez les droits sur ce que vous créez. Vous nous accordez ce dont nous avons besoin pour le stocker et le montrer aux personnes avec qui vous le partagez. Ne publiez rien d’illégal, ni rien qui nuise à autrui.",
+        "report": "Signalez tout contenu qui enfreint la loi ou les présentes conditions. Une personne examine chaque signalement, et la personne dont nous restreignons le contenu est informée du motif et de la manière de contester.",
+        "reportLink": "Signaler un contenu",
+        "aiTitle": "Fonctionnalités d’IA",
+        "ai": "Certaines fonctionnalités utilisent des modèles d’IA. Ce qu’ils produisent peut être erroné : vérifiez-le avant de vous y fier.",
+        "endTitle": "Résiliation",
+        "end": "Vous pouvez supprimer votre compte à tout moment. Nous pouvons suspendre un compte qui enfreint les présentes conditions, et nous vous en indiquons le motif.",
+        "privacy": "La manière dont nous traitons vos données est décrite dans notre politique de confidentialité.",
+        "contactTitle": "Contact",
+        "contact": "Questions sur les présentes conditions : {contact}.",
+        "changes": "Nous vous informons avant qu’une modification des présentes conditions ne prenne effet."
+      },
+      "subprocessors": {
+        "intro": "Les services qui traitent des données personnelles pour {app}, ce que chacun traite et où il les conserve.",
+        "name": "Service",
+        "processes": "Ce qu’il traite",
+        "location": "Où",
+        "agreement": "Contrat",
+        "agreementLink": "Lire le contrat"
+      },
+      "accessibility": {
+        "intro": "Nous voulons que chacun puisse utiliser {app} : au clavier, avec un lecteur d’écran, par commande vocale ou avec un zoom.",
+        "standardTitle": "La norme que nous suivons",
+        "standard": "Nous visons la conformité aux Règles pour l’accessibilité des contenus Web (WCAG) 2.1 au niveau AA, la partie Web de la norme européenne EN 301 549.",
+        "checkTitle": "Comment nous vérifions",
+        "check": "Les pages de connexion, de compte, de facturation et d’administration proviennent d’une boîte à outils conçue et testée selon les WCAG 2.2 niveaux A et AA, au clavier, avec un lecteur d’écran et par une vérification automatisée en couleurs claires et sombres. Nous testons nous-mêmes le reste de l’application.",
+        "gapsTitle": "Lacunes connues",
+        "gaps": "Nous n’avons connaissance d’aucune partie de l’application qui ne respecte pas la norme. Si vous en trouvez une, dites-le-nous.",
+        "reportTitle": "Signaler un obstacle",
+        "report": "Indiquez-nous à {contact} ce que vous avez essayé de faire et ce qui vous en a empêché, et nous vous répondrons.",
+        "reportNoContact": "Indiquez-nous ce que vous avez essayé de faire et ce qui vous en a empêché, et nous vous répondrons.",
+        "authority": "Si notre réponse ne résout pas le problème, vous pouvez contacter l’autorité chargée de faire appliquer la législation sur l’accessibilité là où vous vivez."
+      },
+      "capabilities": {
+        "auth": "Votre compte",
+        "data": "Vos fichiers",
+        "jobs": "Tâches en arrière-plan",
+        "billing": "Forfaits et paiements",
+        "email": "E-mail",
+        "notifications": "Notifications",
+        "ai": "Fonctionnalités d’IA",
+        "protection": "Détection des robots",
+        "monitoring": "Rapports d’erreurs",
+        "flags": "Feature flags",
+        "analytics": "Analyse de la croissance",
+        "hosting": "Hébergement"
+      },
+      "data": {
+        "workspaces": {
+          "holds": "Les espaces de travail auxquels un compte appartient, avec son rôle dans chacun, et les invitations qu’il a envoyées ou reçues.",
+          "kept": "Aussi longtemps que le compte ; une invitation sans réponse, 30 jours après son expiration."
+        },
+        "auth": {
+          "holds": "Le compte : nom, adresse, langue, rôle dans l’application et bannissement, et s’il a terminé le premier lancement et fermé la liste de tâches d’activation ; ses sessions avec leur navigateur et leur adresse réseau ; ses clés d’accès ; les codes de connexion et de changement d’e-mail en attente pour son adresse, stockés sous forme de hachages à clé.",
+          "kept": "Aussi longtemps que le compte ; une session, un jour après son expiration ; un code, une heure après son expiration."
+        },
+        "knownDevices": {
+          "holds": "Les appareils depuis lesquels le compte s’est connecté, pour les alertes de nouvel appareil : un hachage à clé du navigateur, du système et de la plage réseau de chaque appareil (jamais l’empreinte elle-même), les noms du navigateur et du système, la date de première et de dernière détection, et si sa première connexion a fait l’objet d’une alerte.",
+          "kept": "Un an après la dernière détection de l’appareil."
+        },
+        "access": {
+          "holds": "Les invitations par adresse qu’un administrateur a créées pour l’adresse, le ticket qui a admis le compte pendant que l’application était fermée (le registre des utilisations), les codes et liens qu’il a créés en tant qu’administrateur, et son inscription sur la liste d’attente : l’adresse, ses réponses, sa place et l’état de son contact pour les nouvelles du lancement (le consentement à ces nouvelles figure lui-même dans le registre des consentements).",
+          "kept": "Une invitation par adresse jusqu’à son utilisation ou sa révocation ; l’enregistrement du ticket aussi longtemps que le compte ; une inscription sur la liste d’attente jusqu’à ce que la personne la quitte ou soit effacée, et une inscription dont le code n’a jamais été vérifié, un jour."
+        },
+        "consents": {
+          "holds": "Le registre des consentements : une ligne pour chaque fois que le compte (ou, avant son inscription, un hachage de son adresse) a accepté un document ou une option, l’a retiré ou a fait un choix de stockage facultatif, avec le type, sa version, l’heure et sa provenance.",
+          "kept": "Aussi longtemps que le compte ; les lignes d’une adresse qui ne s’est jamais inscrite, jusqu’à son effacement."
+        },
+        "referrals": {
+          "holds": "Le code de partage du compte, le parrainage qui l’a amené (s’il en a utilisé un), et les parrainages qu’il a apportés, sous forme d’états et de dates : utilisé, en attente, récompensé ou annulé. Jamais l’identité de l’autre personne, une commande ou un montant. Les compteurs contiennent des totaux par parrain et par mois, et ceux du programme par état ; les décomptes, le nombre de parrainages et de récompenses de chaque parrain.",
+          "kept": "Aussi longtemps que le compte."
+        },
+        "billing": {
+          "holds": "Les forfaits, fonctionnalités et soldes de crédits mis en cache des entités de facturation du compte, leurs changements de forfait programmés et leurs clés de quota, les offres de maintien que le parcours de résiliation leur a faites, et l’essai utilisé par le compte.",
+          "kept": "Aussi longtemps que l’entité ; une marque de suppression, 30 jours."
+        },
+        "billingProofs": {
+          "holds": "La preuve du consentement à un abonnement renouvelable (le forfait, le prix et la périodicité affichés, la version des conditions, quand et par qui) et de chaque rétractation dans l’UE : quand et par qui.",
+          "kept": "Trois ans ; la preuve d’un paiement qui n’a démarré aucun abonnement, deux jours."
+        },
+        "gifts": {
+          "holds": "Les cadeaux achetés par le compte, avec l’adresse à laquelle chacun a été envoyé et son message, et les cadeaux envoyés à son adresse.",
+          "kept": "Aussi longtemps que l’achat figure dans la comptabilité."
+        },
+        "billingCustomer": {
+          "holds": "Le client chez le prestataire pour chaque entité de facturation : son nom, l’adresse du propriétaire, ses membres, son moyen de paiement, ses commandes et ses factures.",
+          "kept": "La durée propre au prestataire, pour ses obligations fiscales et comptables."
+        },
+        "billingSync": {
+          "holds": "Les clients et abonnements du prestataire tels que les synchronise le composant de facturation installé par l’application : l’identifiant de chaque entité de facturation à côté de celui de son client chez le prestataire, et le forfait, le prix, les dates et le statut de chaque abonnement, avec le motif et le commentaire d’une résiliation.",
+          "kept": "Jusqu’à ce que ce composant puisse les supprimer."
+        },
+        "rateLimits": {
+          "holds": "Le limiteur propre à Better Auth, désactivé sauf si une application l’active : un compteur par route et par adresse réseau.",
+          "kept": "Un jour après sa dernière requête."
+        },
+        "aiRequests": {
+          "holds": "Les arguments d’un flux d’IA facturé à l’usage lancé par le compte, pendant son exécution.",
+          "kept": "Un jour après son règlement ; une semaine s’il n’est jamais réglé."
+        },
+        "jobs": {
+          "holds": "Les tâches de génération mises en file par un compte ou son espace de travail (les arguments de la tâche, qui l’a lancée, sa progression, son résultat et son coût), le budget utilisé par chaque propriétaire par fenêtre, et le nombre d’essais invités utilisés par le navigateur dans lequel le compte s’est inscrit, selon l’identifiant de son cookie de visiteur.",
+          "kept": "Trente jours après la fin d’une tâche, lettres mortes comprises ; une fenêtre de budget jusqu’à l’effacement de son propriétaire ; les essais invités d’un navigateur, un an après le dernier, tant que dure le cookie de visiteur."
+        },
+        "aiCosts": {
+          "holds": "Ce que coûtent par jour les appels d’IA de chaque personne : ceux de la file de tâches, les actions facturées à l’usage, les flux, les réponses de chat et les embeddings de connaissances, en dollars américains et en jetons, avec l’entité de facturation qui a payé.",
+          "kept": "90 jours après le jour concerné."
+        },
+        "aiThreads": {
+          "holds": "Les fils de discussion lancés par un compte : le chat et l’espace de travail auxquels chacun appartient, son titre et sa date de dernière modification. Les messages se trouvent dans le composant Agent de l’application.",
+          "kept": "Jusqu’à ce que la personne supprime le fil, ou que le compte ou l’espace de travail disparaisse."
+        },
+        "aiDocuments": {
+          "holds": "Les documents de connaissances ajoutés par un compte : leur titre, leur espace de travail et leur statut. Les passages et les embeddings se trouvent dans le composant RAG de l’application.",
+          "kept": "Jusqu’à ce qu’un membre le retire, ou que son espace de travail disparaisse."
+        },
+        "aiProvenance": {
+          "holds": "Ce qui a produit chaque image générée stockée par les tâches d’un espace de travail : les modèles, la date, et les identifiants des lignes et fichiers à partir desquels elle a été créée, jamais leur contenu.",
+          "kept": "Jusqu’à la disparition de son espace de travail : l’enregistrement est ce qui montre qu’une image a été générée, aussi longtemps que l’image est affichée."
+        },
+        "audit": {
+          "holds": "L’activité du compte : connexions, clés d’accès, modifications d’e-mail et de session, événements d’espace de travail et de facturation, sous forme d’identifiants, jamais une adresse ou un nom.",
+          "kept": "365 jours."
+        },
+        "notifications": {
+          "holds": "Ce que l’application a signalé au compte dans sa boîte de réception : le type d’événement, la date, s’il a été lu, et l’espace de travail et l’élément qu’il désigne, sous forme d’identifiants, jamais le texte, une adresse ou un nom ; et les canaux que le compte a activés ou désactivés pour chaque type.",
+          "kept": "Une notification lue, 90 jours après sa lecture ; une notification non lue, 365 jours après son enregistrement ; un choix de canal, jusqu’à ce que le compte le modifie."
+        },
+        "pushSubscriptions": {
+          "holds": "Chaque appareil sur lequel le compte a autorisé les notifications push Web : l’adresse du service push pour cet appareil et les clés avec lesquelles les messages qui lui sont destinés sont chiffrés.",
+          "kept": "Jusqu’à ce que le service push indique que l’appareil n’existe plus, que le compte en abonne un plus récent au-delà de vingt, ou que l’appareil soit abonné par un autre compte."
+        },
+        "announcements": {
+          "holds": "Les annonces que le compte a fermées et, pour un administrateur, les annonces qu’il a publiées ou envoyées, par identifiant de compte.",
+          "kept": "Une annonce et ses fermetures, 90 jours après son expiration."
+        },
+        "lifecycle": {
+          "holds": "Chaque séquence d’e-mails de cycle de vie dans laquelle se trouve le compte : quel e-mail, quand il est prévu, son adresse, et s’il a été envoyé, ignoré par une règle d’envoi ou arrêté.",
+          "kept": "Une exécution terminée d’une séquence susceptible de se répéter, 90 jours après sa date prévue ; l’enregistrement d’une séquence envoyée une seule fois, jusqu’à l’effacement du compte."
+        },
+        "inbound": {
+          "holds": "Les messages envoyés par le compte via le formulaire de contact, et les e-mails qu’il (ou son adresse) a envoyés à l’application : le nom et l’adresse de l’expéditeur, l’objet, le texte, les noms et tailles des pièces jointes ; et les adresses de réponse créées pour lui, chacune un jeton aléatoire associé au fil auquel elle répond.",
+          "kept": "Un message, 90 jours ; une adresse de réponse, un an après le dernier e-mail dans lequel elle a été envoyée."
+        },
+        "reports": {
+          "holds": "Les contenus signalés par le compte en un clic, et les notifications envoyées depuis son adresse via le formulaire public, avec le nom, l’adresse, la langue et la signature saisie de l’auteur de la notification. Les décisions concernant les contenus qu’il a rédigés, avec le texte de sa contestation. Pour un administrateur, les décisions qu’il a prises, les contestations auxquelles il a répondu et les infractions présumées qu’il a signalées, par identifiant de compte. Les hachages des images intimes retirées, qui ne désignent personne.",
+          "kept": "Un signalement ou une notification clos, 548 jours (18 mois) après sa clôture ; une décision, 548 jours après avoir été prise, avec sa contestation, dès lors qu’aucune contestation n’est en cours ; le hachage d’une image retirée, aussi longtemps que l’application le conserve."
+        },
+        "flags": {
+          "holds": "Les feature flags qu’un administrateur a activés pour le compte, par son identifiant.",
+          "kept": "Jusqu’à ce qu’un administrateur modifie le flag."
+        },
+        "funnel": {
+          "holds": "La manière dont l’entonnoir de croissance comptabilise le compte : sa semaine d’inscription, l’invitation, la première campagne, le code de parrainage et la promotion avec lesquels il est arrivé, sa réponse à « Comment nous avez-vous connus ? » (avec les mots exacts d’une réponse « Autre »), les étapes qu’il a atteintes et sa dernière semaine d’activité ; et les variantes des expériences qu’il a vues en premier.",
+          "kept": "Jusqu’à l’effacement du compte."
+        },
+        "email": {
+          "holds": "Un e-mail contenant un code en attente du prestataire, et un e-mail retenu par les heures calmes de la personne jusqu’à leur fin.",
+          "kept": "Un e-mail contenant un code jusqu’à la réponse du prestataire, dix minutes au plus ; un e-mail retenu jusqu’à la fin des heures calmes."
+        },
+        "emailRecords": {
+          "holds": "Les e-mails envoyés à l’adresse : destinataires, objet, corps et statut de remise.",
+          "kept": "7 jours après un statut définitif, 30 jours sans statut définitif."
+        },
+        "emailPreferences": {
+          "holds": "Le choix de l’adresse pour chaque thème d’e-mail et la manière dont il a été fait, son fuseau horaire, la dernière fois qu’elle a cliqué sur un e-mail ou utilisé l’application, et quand des e-mails marketing lui ont été envoyés au cours des 7 derniers jours.",
+          "kept": "Jusqu’à l’effacement du compte."
+        },
+        "emailContact": {
+          "holds": "L’adresse en tant que contact du prestataire d’e-mail, avec les segments et thèmes dont elle fait partie.",
+          "kept": "Jusqu’à sa suppression."
+        },
+        "suppressions": {
+          "holds": "L’adresse, lorsque le prestataire d’e-mail a cessé de lui envoyer des messages après un rejet définitif, une plainte ou manuellement : une copie de la liste de suppression du prestataire que la connexion consulte avant d’envoyer un code.",
+          "kept": "Tant que le prestataire bloque l’adresse ; une semaine après la levée du blocage."
+        },
+        "files": {
+          "holds": "Les fichiers qu’un compte a envoyés via setupStorage et les images que ses tâches ont générées, avec leurs enregistrements de propriété (compte, espace de travail, taille, type) et leurs décomptes de quota, et les liens de partage qu’il a activés (la ligne partagée, jamais le jeton).",
+          "kept": "Jusqu’à leur libération par l’application ou leur effacement ; un envoi que personne n’a réclamé, un jour."
+        },
+        "exports": {
+          "holds": "Les exports de données du compte, chacun un fichier accessible par un lien, et les parties zip qui regroupent ses fichiers à côté.",
+          "kept": "Le fichier, une heure ; son enregistrement, un jour, pris en compte par la limite d’export."
+        },
+        "deletions": {
+          "holds": "Une suppression en attente de la fin de son délai de grâce : l’identifiant du compte, la date de la demande et celle de son exécution, et un hachage à clé du jeton du lien « Conserver mon compte ».",
+          "kept": "Jusqu’à l’annulation ou l’exécution de la suppression."
+        },
+        "erasures": {
+          "holds": "Un effacement en cours : l’identifiant et l’adresse du compte, et les espaces de travail qu’il supprime.",
+          "kept": "Jusqu’à la fin de l’effacement ; un effacement échoué, 30 jours."
+        },
+        "monitoringUser": {
+          "holds": "Les rapports d’erreurs et les signaux de tâches cron avec des identifiants, jamais une adresse ou un nom. Le package n’associe aucun utilisateur à un rapport.",
+          "kept": "La durée de conservation propre au service."
+        }
+      },
+      "processors": {
+        "deployment": {
+          "processes": "Tout ce que l’application stocke : comptes, sessions, espaces de travail, état de facturation, enregistrements d’e-mails, fichiers envoyés, exports et journaux.",
+          "location": "La région dans laquelle le déploiement a été créé : les États-Unis, l’UE (Dublin), le Canada ou l’Australie."
+        },
+        "host": {
+          "processes": "Chaque requête adressée à l’application, avec son adresse réseau et son navigateur. Sur un autre hébergeur, cet hébergeur à la place.",
+          "location": "La région de fonctions dans laquelle l’application est déployée ; Vercel est une société américaine."
+        },
+        "billing": {
+          "processes": "Le client de chaque compte ou espace de travail payant : nom, adresse e-mail, adresse de facturation, moyen de paiement, commandes, abonnements et factures. En tant que vendeur officiel (merchant of record), il vend aux clients en son propre nom, selon ses propres conditions.",
+          "location": "Les États-Unis, le Canada ou ailleurs en dehors de l’EEE et du Royaume-Uni."
+        },
+        "email": {
+          "processes": "Les e-mails envoyés par l’application, leurs événements de remise, ainsi que les contacts et les thèmes auxquels les personnes s’abonnent.",
+          "location": "Les États-Unis ; les e-mails partent de la région du domaine d’envoi."
+        },
+        "botCheck": {
+          "processes": "Des signaux du navigateur et de la requête (adresse réseau, navigateur, empreinte TLS) lorsqu’une personne se connecte, s’inscrit ou envoie un formulaire protégé, afin de distinguer les personnes des robots.",
+          "location": "Les États-Unis, et le réseau mondial du prestataire."
+        },
+        "webPush": {
+          "processes": "Les notifications envoyées à un appareil sur lequel une personne les a activées : l’adresse push de l’appareil et chaque message, chiffré de sorte que le service ne lise que sa destination et son heure d’envoi.",
+          "location": "Le réseau propre à chaque éditeur de navigateur, principalement aux États-Unis."
+        },
+        "aiGateway": {
+          "processes": "Les prompts et les réponses des fonctionnalités d’IA qu’une personne utilise, que la passerelle transmet au fournisseur du modèle ; jamais conservés par l’application au-delà de la requête.",
+          "location": "Les États-Unis, ou l’UE lorsque l’inférence y est fixée."
+        },
+        "monitoring": {
+          "processes": "Les rapports d’erreurs et les signaux de tâches cron, débarrassés des adresses, des noms et des identifiants de connexion, avec au plus l’identifiant d’un compte ; un replay de session masqué uniquement après autorisation de la personne.",
+          "location": "Les États-Unis ou l’UE, selon le lieu de création de l’organisation."
+        }
+      },
+      "storageName": "Nom",
+      "storageKind": "Type",
+      "storageWhy": "À quoi il sert",
+      "storageLasts": "Durée",
+      "storageConsent": "Autorisation",
+      "kinds": {
+        "cookie": "Cookie",
+        "httpOnly": "Cookie, illisible par les scripts",
+        "localStorage": "Stockage local",
+        "sessionStorage": "Stockage de session",
+        "push": "Abonnement push et service worker"
+      },
+      "consents": {
+        "necessary": "Non demandée : l’application en a besoin",
+        "preferences": "Uniquement après autorisation des préférences",
+        "replay": "Uniquement après autorisation du replay de session",
+        "analytics": "Uniquement après autorisation de l’analyse d’audience"
+      },
+      "storage": {
+        "session": {
+          "why": "Maintient la personne connectée.",
+          "lasts": "7 jours, renouvelés tant qu’elle utilise l’application."
+        },
+        "sessionJwt": {
+          "why": "Prouve au backend qui est connecté, pour les pages rendues par le serveur.",
+          "lasts": "15 minutes."
+        },
+        "signInCode": {
+          "why": "Fait en sorte que le code ne fonctionne que dans le navigateur qui l’a demandé.",
+          "lasts": "5 minutes."
+        },
+        "passkeyChallenge": {
+          "why": "Contient le défi auquel répond la clé d’accès.",
+          "lasts": "5 minutes."
+        },
+        "underAge": {
+          "why": "Empêche qu’une deuxième réponse suive immédiatement.",
+          "lasts": "1 jour."
+        },
+        "impersonation": {
+          "why": "Ramène l’administrateur à sa propre session à la fin de la visite.",
+          "lasts": "La durée de la visite, 30 minutes au plus."
+        },
+        "storageChoice": {
+          "why": "Mémorise ce que la personne a autorisé, afin que rien de facultatif ne soit stocké sans son accord.",
+          "lasts": "6 mois, puis la question est reposée."
+        },
+        "lastSignIn": {
+          "why": "Indique la dernière méthode de connexion utilisée, pour que le formulaire de connexion puisse la suggérer.",
+          "lasts": "30 jours."
+        },
+        "visitor": {
+          "why": "Comptabilise ce que ce navigateur a fait avant l’inscription, et le transmet au compte créé ici.",
+          "lasts": "1 an."
+        },
+        "invite": {
+          "why": "Conserve l’invitation jusqu’à la connexion qui l’utilise.",
+          "lasts": "Jusqu’à la fermeture de l’onglet."
+        },
+        "presence": {
+          "why": "Indique au backend le fuseau horaire de la personne au plus une fois par jour, pour que les e-mails respectent ses heures calmes.",
+          "lasts": "Jusqu’à la fermeture de l’onglet."
+        },
+        "upgradeDismissed": {
+          "why": "Garde le message masqué pendant la durée fixée par l’application. Si les préférences ne sont pas autorisées, il n’est conservé que pour l’onglet.",
+          "lasts": "Le délai de l’application, un an au plus."
+        },
+        "pushSubscription": {
+          "why": "L’abonnement push permet à l’application d’envoyer des notifications à cet appareil. Le service worker, lorsque le navigateur en a besoin, les affiche et ouvre l’application en cas de clic ; il ne met rien en cache.",
+          "lasts": "Jusqu’à ce que la personne désactive les notifications sur l’appareil ou retire l’autorisation du site."
+        },
+        "replay": {
+          "why": "Enregistre, de façon masquée, la minute précédant une erreur et le reste de cette visite, afin de trouver ce qui n’a pas fonctionné.",
+          "lasts": "Jusqu’à la fermeture de l’onglet."
+        }
+      }
+    },
+    "consent": {
+      "title": "Avant de continuer",
+      "kinds": {
+        "terms": "Conditions d’utilisation",
+        "privacy": "Politique de confidentialité"
+      },
+      "changed": "Le document « {title} » a été modifié. Lisez-le, puis acceptez-le pour continuer.",
+      "needed": "Acceptez le document « {title} » pour continuer.",
+      "optional": "Facultatif",
+      "required": "Obligatoire",
+      "read": "Lire le document « {title} »",
+      "accept": "J’accepte le document « {title} »",
+      "submit": "Accepter",
+      "saving": "Enregistrement…",
+      "later": "Plus tard",
+      "ageIntro": "Pour continuer à utiliser l’application, indiquez-nous votre âge.",
+      "ageQuestion": "Quel âge avez-vous ?",
+      "storageTitle": "Vos choix pour le stockage facultatif",
+      "storageIntro": "En plus de ce dont l’application a besoin pour fonctionner, elle peut stocker d’autres données sur cet appareil. Chaque option reste désactivée tant que vous ne l’autorisez pas, et vous pouvez changer d’avis à tout moment.",
+      "purposes": {
+        "preferences": "Mémoriser ma dernière méthode de connexion et les messages que j’ai fermés",
+        "replay": "Enregistrer mes visites pour aider à corriger les erreurs",
+        "analytics": "Mesurer l’utilisation de l’application"
+      },
+      "allow": "Autoriser",
+      "decline": "Refuser"
+    },
+    "connection": {
+      "reconnecting": "Reconnexion…",
+      "offline": "Vous êtes hors ligne.",
+      "pending": "{count} modification en attente d’envoi. | Modifications en attente d’envoi : {count}."
+    },
+    "upload": {
+      "label": "Fichier",
+      "choose": "Choisir un fichier",
+      "replace": "Choisir un autre fichier",
+      "drop": "ou déposez-le ici",
+      "uploading": "Envoi de {name}…",
+      "progress": "{percent} % envoyé",
+      "claiming": "Vérification de {name}…",
+      "done": "{name} ajouté.",
+      "cancel": "Annuler l’envoi",
+      "canceled": "Envoi annulé."
+    },
+    "notifications": {
+      "bellName": "Notifications",
+      "bellNameUnread": "Notifications non lues : {count}",
+      "bellNameUnreadMore": "Notifications non lues : plus de {count}",
+      "countMore": "{count}+",
+      "listName": "Notifications",
+      "markAllRead": "Tout marquer comme lu",
+      "markingRead": "Marquage comme lu…",
+      "markRead": "Marquer comme lu",
+      "unreadMark": "Non lu",
+      "emptyInbox": "Vous êtes à jour.",
+      "loadMore": "Afficher plus ancien",
+      "loadingInbox": "Chargement des notifications…",
+      "closeInbox": "Fermer",
+      "actorSomeone": "Quelqu’un",
+      "actorAdministrator": "Un administrateur",
+      "actorApp": "L’application",
+      "actorErased": "Un ancien membre",
+      "workspaceUnnamed": "un espace de travail",
+      "fallbackTitle": "Nouvelle activité",
+      "emailOpen": "Ouvrir",
+      "emailNote": "Vous pouvez choisir dans votre profil quelles notifications vous recevez par e-mail.",
+      "auth": {
+        "passkey_added": {
+          "title": "Une clé d’accès a été ajoutée",
+          "body": "Si ce n’était pas vous, supprimez-la dans vos paramètres de sécurité."
+        },
+        "passkey_removed": {
+          "title": "Une clé d’accès a été supprimée",
+          "body": "Si ce n’était pas vous, vérifiez vos paramètres de sécurité."
+        },
+        "passkey_only_changed": {
+          "title": "La connexion par clé d’accès uniquement a changé",
+          "body": "Vérifiez votre mode de connexion dans vos paramètres de sécurité."
+        },
+        "email_changed": {
+          "title": "Votre adresse e-mail a changé",
+          "body": "Si ce n’était pas vous, vérifiez immédiatement vos paramètres de sécurité."
+        },
+        "new_device": {
+          "title": "Nouvelle connexion à votre compte",
+          "body": "Un appareil que vous n’aviez jamais utilisé s’est connecté. Si ce n’était pas vous, déconnectez-le dans vos paramètres de sécurité."
+        }
+      },
+      "workspace": {
+        "invitation_accepted": {
+          "title": "{actor} a rejoint {workspace}",
+          "body": "Votre invitation a été acceptée."
+        },
+        "member_removed": {
+          "title": "Vous ne faites plus partie de {workspace}",
+          "body": "Vous n’y avez plus accès."
+        },
+        "member_role_changed": {
+          "title": "Votre rôle dans {workspace} a changé",
+          "body": "Votre rôle est désormais : {role}."
+        }
+      },
+      "admin": {
+        "role_changed": {
+          "title": "Votre rôle a changé",
+          "body": "Un administrateur vous a attribué le rôle {role}."
+        }
+      },
+      "billing": {
+        "plan_changed": {
+          "title": "Le forfait de {workspace} a changé",
+          "body": "{actor} a modifié l’abonnement."
+        },
+        "subscription_created": {
+          "title": "Un abonnement a commencé",
+          "body": "Le forfait de {workspace} est actif."
+        },
+        "subscription_canceled": {
+          "title": "Un abonnement a été annulé",
+          "body": "Il reste actif jusqu’à la fin de la période."
+        },
+        "subscription_revoked": {
+          "title": "Un abonnement a pris fin",
+          "body": "Le forfait de {workspace} n’est plus actif."
+        },
+        "subscription_past_due": {
+          "title": "Un paiement a échoué",
+          "body": "Mettez à jour le moyen de paiement de {workspace} pour conserver son forfait."
+        },
+        "order_paid": {
+          "title": "Paiement reçu",
+          "body": "Une commande de {amount} a été payée."
+        },
+        "order_refunded": {
+          "title": "Une commande a été remboursée",
+          "body": "{amount} ont été remboursés."
+        },
+        "credits_low": {
+          "title": "Vos crédits s’épuisent",
+          "body": "Crédits restants dans {workspace} : {balance}."
+        },
+        "credits_exhausted": {
+          "title": "Crédits épuisés",
+          "body": "Rechargez {workspace} pour continuer."
+        },
+        "save_offer_accepted": {
+          "title": "Le forfait de {workspace} est conservé",
+          "body": "{actor} a accepté une offre au lieu d’annuler."
+        },
+        "contract_withdrawn": {
+          "title": "Rétractation d’un achat",
+          "body": "{actor} s’est rétracté du forfait de {workspace}."
+        },
+        "trial_pass_started": {
+          "title": "Votre essai a commencé",
+          "body": "{workspace} bénéficie du forfait complet pendant l’essai, sans carte bancaire."
+        }
+      },
+      "gift": {
+        "purchased": {
+          "title": "Un cadeau a été acheté",
+          "body": "Son destinataire a été prévenu."
+        },
+        "claimed": {
+          "title": "Un cadeau a été récupéré",
+          "body": "Il a été ajouté à {workspace}."
+        },
+        "pass_started": {
+          "title": "Un pass de forfait a commencé",
+          "body": "{workspace} bénéficie du forfait offert, sans carte bancaire ni renouvellement."
+        },
+        "pass_ending": {
+          "title": "Un pass de forfait se termine dans une semaine",
+          "body": "Choisissez le forfait de {workspace} pour le conserver."
+        },
+        "pass_ended": {
+          "title": "Un pass de forfait est terminé",
+          "body": "Le forfait offert de {workspace} est terminé."
+        },
+        "refunded": {
+          "title": "Un cadeau a été remboursé",
+          "body": "Il a été remboursé avant d’être récupéré."
+        }
+      },
+      "referral": {
+        "claimed": {
+          "title": "Quelqu’un s’est inscrit avec votre lien",
+          "body": "Votre récompense suivra une fois sa période d’attente écoulée."
+        },
+        "rewarded": {
+          "title": "Un parrainage a été récompensé",
+          "body": "Votre récompense a été accordée."
+        }
+      },
+      "email": {
+        "bounced": {
+          "title": "Un e-mail qui vous était destiné n’a pas pu être distribué",
+          "body": "Vérifiez que votre adresse est correcte et toujours active."
+        }
+      }
+    },
+    "preferences": {
+      "title": "E-mail",
+      "topicsTitle": "Les e-mails que nous vous envoyons",
+      "topicsEmpty": "Aucun e-mail à choisir.",
+      "pending": "Consultez votre boîte de réception pour confirmer.",
+      "unsubscribeAll": "Se désabonner de tout",
+      "unsubscribedAll": "Vous ne recevrez plus ces e-mails.",
+      "saved": "Enregistré.",
+      "channelsTitle": "Notifications",
+      "channelsIntro": "Choisissez où vous recevez chaque type de notification.",
+      "channels": {
+        "app": "Dans l’application",
+        "email": "Par e-mail",
+        "push": "Push"
+      },
+      "unsubscribe": {
+        "title": "Se désabonner",
+        "intro": "Vous recevez cet e-mail parce que vous êtes abonné à {topic}. Désabonnez-vous en un clic.",
+        "introAll": "Désabonnez-vous en un clic de tous les e-mails que nous vous envoyons.",
+        "leave": "Se désabonner de {topic}",
+        "leaveAll": "Se désabonner de tous les e-mails",
+        "leaving": "Désabonnement…",
+        "done": "Vous êtes désabonné de {topic}.",
+        "doneAll": "Vous êtes désabonné de tous les e-mails que nous vous envoyons.",
+        "invalid": "Ce lien ne fonctionne pas. Ouvrez à nouveau le lien de l’e-mail.",
+        "noToken": "Ce lien ne contient pas de code. Ouvrez à nouveau le lien de l’e-mail.",
+        "manage": "Gérer vos e-mails"
+      },
+      "confirm": {
+        "title": "Confirmez votre abonnement",
+        "intro": "Appuyez sur le bouton pour commencer à recevoir {topic}.",
+        "action": "Confirmer",
+        "confirming": "Confirmation…",
+        "done": "Vous êtes abonné à {topic}.",
+        "nothing": "Il n’y a rien à confirmer : le lien a déjà été utilisé ou il a expiré. Refaites la demande depuis votre profil.",
+        "noToken": "Ce lien ne contient pas de code. Ouvrez à nouveau le lien de l’e-mail."
+      }
+    },
+    "contact": {
+      "name": "Votre nom",
+      "email": "Votre adresse e-mail",
+      "message": "Votre message",
+      "count": "{count} sur {max}",
+      "hint": "Écrivez entre {min} et {max} caractères.",
+      "send": "Envoyer le message",
+      "sending": "Envoi…",
+      "sent": "Merci. Votre message a été envoyé à l’équipe.",
+      "another": "Écrire un autre message",
+      "disclosure": "L’équipe répond par e-mail. Votre adresse sert uniquement à cette réponse.",
+      "trap": "Laissez ce champ vide"
+    },
+    "shell": {
+      "skip": "Aller au contenu",
+      "navigation": "Principale",
+      "signIn": "Se connecter",
+      "loading": "Chargement…",
+      "account": {
+        "menu": "{name}, menu du compte",
+        "heading": "Compte",
+        "signedInAs": "Connecté en tant que {email}",
+        "unnamed": "Votre compte",
+        "profile": "Profil",
+        "security": "Sécurité",
+        "settings": "Paramètres",
+        "admin": "Console d’administration",
+        "signOut": "Se déconnecter",
+        "signingOut": "Déconnexion…",
+        "signedOut": "Vous avez été déconnecté.",
+        "signOutFailed": "Impossible de vous déconnecter. Réessayez."
+      },
+      "workspaces": {
+        "menu": "{name}, changer d’espace de travail",
+        "heading": "Espaces de travail",
+        "unnamed": "Espace de travail sans nom",
+        "current": "Actuel",
+        "roles": {
+          "owner": "Propriétaire",
+          "admin": "Administrateur",
+          "member": "Membre"
+        },
+        "invitations": "{count} invitation en attente | Invitations en attente : {count}",
+        "switching": "Changement…",
+        "switched": "Vous êtes passé à {name}.",
+        "switchFailed": "Impossible de changer d’espace de travail. Vous êtes toujours dans {name}.",
+        "newName": "Nom du nouvel espace de travail",
+        "create": "Créer un espace de travail",
+        "creating": "Création…",
+        "created": "Espace de travail « {name} » créé.",
+        "createFailed": "Impossible de créer l’espace de travail.",
+        "manage": "Gérer les espaces de travail"
+      }
+    },
+    "onboarding": {
+      "title": "Bienvenue",
+      "steps": "Étapes de configuration",
+      "progress": "Étape {current} sur {total}",
+      "next": "Continuer",
+      "back": "Retour",
+      "skip": "Passer cette étape",
+      "finish": "Commencer",
+      "skipAll": "Passer la configuration",
+      "saving": "Enregistrement…",
+      "done": "Tout est prêt.",
+      "stepNames": {
+        "profile": "À propos de vous",
+        "workspace": "Votre espace de travail",
+        "teammates": "Votre équipe",
+        "plan": "Votre forfait"
+      },
+      "profile": {
+        "heading": "À propos de vous",
+        "intro": "C’est ainsi que vos coéquipiers vous voient.",
+        "name": "Votre nom",
+        "image": "Adresse de la photo (facultatif)",
+        "imageHint": "Un lien vers une image, commençant par https://",
+        "saved": "Enregistré."
+      },
+      "workspace": {
+        "heading": "Votre espace de travail",
+        "intro": "Tout ce que vous créez se trouve dans un espace de travail. Donnez un nom au vôtre.",
+        "name": "Nom de l’espace de travail",
+        "invitedTo": "Vous avez été invité à rejoindre {workspace}.",
+        "accept": "Rejoindre {workspace}",
+        "accepting": "Adhésion…",
+        "joined": "Vous avez rejoint {workspace}.",
+        "declined": "Invitation refusée.",
+        "decline": "Plus tard"
+      },
+      "teammates": {
+        "heading": "Invitez votre équipe",
+        "intro": "Vos coéquipiers reçoivent un e-mail avec un lien pour vous rejoindre. Vous pourrez aussi le faire plus tard dans les paramètres.",
+        "email": "Adresse e-mail",
+        "send": "Envoyer l’invitation",
+        "sending": "Envoi…",
+        "sent": "Invitation envoyée à {email}.",
+        "list": "Déjà invités"
+      },
+      "plan": {
+        "heading": "Choisissez un forfait",
+        "intro": "Choisissez un forfait maintenant, ou restez sur le forfait gratuit et décidez plus tard.",
+        "later": "Décider plus tard"
+      }
+    },
+    "activation": {
+      "title": "Premiers pas",
+      "loading": "Chargement…",
+      "progressLabel": "Progression",
+      "progress": "{done} sur {total} terminées",
+      "taskDone": "Terminé",
+      "taskOpen": "À faire",
+      "dismiss": "Fermer",
+      "dismissing": "Fermeture…",
+      "dismissed": "Liste de tâches fermée.",
+      "congratulations": "Tout est fait. Vous avez terminé toutes les premières étapes.",
+      "readOnly": "Vous consultez ce compte : sa liste de tâches ne peut pas être modifiée."
+    },
+    "source": {
+      "title": "Comment nous avez-vous connus ?",
+      "hint": "Facultatif : cela nous aide à savoir ce qui fonctionne.",
+      "options": {
+        "friend": "Un ami ou un collègue",
+        "search": "Un moteur de recherche",
+        "aiAssistant": "Un assistant IA (ChatGPT, Claude, Perplexity…)",
+        "social": "Les réseaux sociaux",
+        "podcast": "Un podcast",
+        "other": "Ailleurs"
+      },
+      "otherLabel": "Où ?",
+      "submit": "Continuer",
+      "saving": "Enregistrement…",
+      "skip": "Passer",
+      "thanks": "Merci de nous l’avoir dit.",
+      "answered": "Vous nous avez déjà dit comment vous nous avez connus.",
+      "signedOut": "Connectez-vous pour répondre.",
+      "loading": "Chargement…"
+    },
+    "feedback": {
+      "trigger": "Signaler un problème",
+      "title": "Signaler un problème",
+      "message": "Que s’est-il passé ?",
+      "placeholder": "Que faisiez-vous, et à quoi vous attendiez-vous ?",
+      "required": "(obligatoire)",
+      "submit": "Envoyer le signalement",
+      "cancel": "Annuler",
+      "sent": "Merci. Votre signalement a été transmis à l’équipe."
+    },
+    "ai": {
+      "label": "Généré par IA",
+      "details": "Comment ce contenu a été créé",
+      "models": "Créé avec {models}",
+      "madeOn": "Créé le {date}",
+      "verify": "Vérifier ses identifiants de contenu"
+    },
+    "errors": {
+      "unauthenticated": "Connectez-vous pour continuer.",
+      "forbidden": "Vous n’avez pas accès à cette ressource.",
+      "forbidden_banned": "Ce compte est banni.",
+      "forbidden_not_member": "Vous n’êtes pas membre de cet espace de travail.",
+      "forbidden_not_billing_manager": "Seuls le propriétaire et les admins de l’espace de travail gèrent sa facturation.",
+      "forbidden_impersonating": "Un administrateur qui agit en tant que ce compte ne peut pas faire cela.",
+      "forbidden_admin_target": "Impossible d’agir en tant que le compte d’un administrateur.",
+      "forbidden_passkey_only_admin": "Sur cette démo, les administrateurs se connectent avec une clé d’accès, sur un compte qui se connecte uniquement avec des clés d’accès. Activez la connexion uniquement avec des clés d’accès dans vos paramètres de sécurité, puis reconnectez-vous avec votre clé d’accès.",
+      "forbidden_sign_in_refused": "La connexion se fait sur invitation pour le moment.",
+      "forbidden_provider_owner_only": "Pour l’instant, seul le propriétaire de l’espace de travail ouvre son portail de facturation.",
+      "forbidden_too_many_attempts": "Trop de codes erronés. Demandez-en un nouveau.",
+      "forbidden_bot_check": "Nous n’avons pas pu confirmer que vous êtes une personne. Réessayez.",
+      "forbidden_other_account": "Cette connexion appartient à un autre compte. Confirmez avec la clé d’accès ou le code de ce compte.",
+      "forbidden_flag_off": "Cette fonctionnalité n’est pas encore disponible pour vous.",
+      "forbidden_passkey_required": "Enregistrez une nouvelle clé d’accès pour terminer la connexion.",
+      "forbidden_invitation_refused": "Cette invitation ne peut pas être envoyée.",
+      "forbidden_ticket_required": "L’inscription nécessite une invitation pour le moment.",
+      "forbidden_consent_required": "Acceptez les conditions mises à jour pour continuer.",
+      "forbidden_age_required": "Indiquez votre âge pour continuer.",
+      "forbidden_under_age": "Nous ne pouvons pas créer de compte pour vous.",
+      "forbidden_sole_owner": "Vous êtes le seul propriétaire d’un espace de travail dont d’autres personnes sont membres. Nommez d’abord un autre membre propriétaire.",
+      "forbidden_cannot_share": "Vous ne pouvez pas partager cet élément.",
+      "reauthentication_required": "Confirmez votre identité pour continuer : cette action nécessite une connexion récente.",
+      "no_workspace": "Créez ou choisissez d’abord un espace de travail.",
+      "rate_limited": "Trop de requêtes. Réessayez dans un instant.",
+      "rate_limited_for": "Trop de requêtes. Réessayez dans {count} seconde. | Trop de requêtes. Réessayez dans {count} secondes.",
+      "rate_limited_job_budget": "Vous avez atteint la limite du jour. Réinitialisation dans {count} minute. | Vous avez atteint la limite du jour. Réinitialisation dans {count} minutes.",
+      "insufficient_credits": "Crédits insuffisants. Rechargez pour continuer.",
+      "insufficient_credits_amounts": "Crédits insuffisants : {balance} restants, {need} nécessaires. Rechargez pour continuer.",
+      "feature_required": "Votre forfait n’inclut pas cette fonctionnalité. Passez à un forfait supérieur pour l’utiliser.",
+      "quota_exceeded": "La limite de votre forfait est atteinte. Passez à un forfait supérieur pour en avoir plus.",
+      "invalid_input": "Cette saisie n’est pas valide. Vérifiez-la et réessayez.",
+      "invalid_input_email": "Saisissez une adresse e-mail valide.",
+      "invalid_input_required": "Remplissez ce champ.",
+      "invalid_input_too_short": "Ce message est trop court. Écrivez au moins 10 caractères.",
+      "invalid_input_too_long": "C’est trop long. Limitez un message à 2 000 caractères et un nom à 100.",
+      "invalid_input_sessionId": "Cette session est déjà terminée.",
+      "invalid_input_otp": "Ce code est incorrect. Vérifiez-le ou demandez-en un nouveau.",
+      "invalid_input_otp_expired": "Ce code a expiré. Demandez-en un nouveau.",
+      "invalid_input_other_browser": "Ce code ne fonctionne que dans le navigateur depuis lequel vous l’avez demandé.",
+      "invalid_input_inviteCode": "Ce code d’invitation ne fonctionne pas. Vérifiez-le et réessayez.",
+      "invalid_input_age": "Saisissez votre âge en chiffres.",
+      "invalid_input_invite_expired": "Ce code d’invitation a expiré.",
+      "invalid_input_invite_used_up": "Ce code d’invitation a atteint sa limite d’utilisations.",
+      "invalid_input_invite_revoked": "Ce code d’invitation n’est plus valide.",
+      "invalid_input_recoveryCode": "Ce code de récupération est incorrect ou a déjà été utilisé.",
+      "invalid_input_passkeys": "Un compte à clé d’accès uniquement a besoin d’une clé d’accès. Ajoutez-en une, ou réautorisez d’abord les codes de connexion.",
+      "invalid_input_slug": "Ce nom est déjà pris. Essayez-en un autre.",
+      "invalid_input_passkey": "Cette clé d’accès n’a pas fonctionné. Réessayez, ou continuez avec un code par e-mail.",
+      "invalid_input_passkey_cancelled": "La fenêtre de la clé d’accès a été fermée. Réessayez, ou continuez avec un code par e-mail.",
+      "invalid_input_no_password": "Cette application utilise des codes et des clés d’accès pour la connexion : il n’y a pas de mot de passe à réinitialiser.",
+      "invalid_input_comment": "Ce commentaire est trop long. Limitez-le à 500 caractères.",
+      "invalid_input_cancel_scheduled": "Ce forfait est déjà programmé pour être annulé à la fin de sa période.",
+      "invalid_input_no_cancel_scheduled": "Ce forfait n’est pas programmé pour être annulé : il n’y a rien à annuler.",
+      "invalid_input_withdrawal_closed": "Aucun achat n’est plus dans son délai de rétractation : il n’y a rien dont vous rétracter.",
+      "invalid_input_retired": "Ce forfait n’est plus proposé. Choisissez-en un autre.",
+      "invalid_input_free_plan": "Le forfait gratuit reste actif jusqu’à ce qu’un forfait payant le remplace. Choisissez un forfait pour passer au niveau supérieur.",
+      "invalid_input_currency": "Les prix ne sont pas proposés dans cette devise. Choisissez-en une autre.",
+      "invalid_input_no_change_scheduled": "Aucun changement de forfait n’est programmé : il n’y a rien à annuler.",
+      "invalid_input_confirmation": "Saisissez votre adresse e-mail exactement telle qu’elle est affichée pour confirmer.",
+      "invalid_input_has_account": "Cette adresse appartient à un compte. Supprimez plutôt le compte.",
+      "invalid_input_file": "Ce fichier ne peut pas être conservé. Essayez-en un autre.",
+      "invalid_input_over_budget": "C’est plus que ce qu’un forfait autorise en une journée. Réduisez la taille.",
+      "invalid_input_content_blocked": "Ce contenu n’est pas autorisé ici. Essayez autre chose.",
+      "invalid_input_too_large": "Ce fichier est trop volumineux. Choisissez-en un plus petit.",
+      "invalid_input_unsupported_type": "Ce type de fichier n’est pas accepté. Choisissez-en un autre.",
+      "invalid_input_upload_gone": "Ce téléversement n’existe plus. Téléversez à nouveau le fichier.",
+      "invalid_input_upload_claimed": "Ce téléversement a déjà été utilisé. Téléversez à nouveau le fichier.",
+      "invalid_input_appeal_expired": "Cette décision ne peut plus faire l’objet d’un recours.",
+      "invalid_input_appealed_already": "Un recours a déjà été formé contre cette décision.",
+      "invalid_input_removed_copy": "Ce fichier a été retiré de l’application et ne peut pas être téléversé à nouveau.",
+      "not_ready": "Rien à afficher pour l’instant.",
+      "not_ready_no_customer": "Rien à afficher pour l’instant : cette section s’ouvre après votre premier achat.",
+      "not_ready_no_catalog": "Rien à acheter pour l’instant : cette application n’a aucun forfait ni pack configuré.",
+      "not_ready_not_synced": "Rien à afficher pour l’instant : aucun crédit n’a encore atteint ce compte. Ouvrez la facturation pour actualiser, ou achetez un pack de crédits.",
+      "not_ready_no_budget": "L’IA est désactivée sur cette démo pour le moment.",
+      "not_ready_sandbox": "Cette application est une démo : cette fonctionnalité est donc désactivée ici.",
+      "not_ready_environment": "Cette fonctionnalité est désactivée sur ce déploiement.",
+      "unavailable": "Cette fonctionnalité n’est pas disponible pour le moment. Réessayez dans un instant.",
+      "unavailable_not_configured": "Cette fonctionnalité n’est pas encore configurée sur cette application.",
+      "unavailable_test_mode": "Cette application est en mode test et n’envoie d’e-mails qu’à des adresses de test : cette adresse ne peut donc pas recevoir de messages ici.",
+      "unavailable_unconfigured": "Cette application ne peut pas encore envoyer d’e-mails.",
+      "unavailable_suppressed": "Nous ne pouvons pas envoyer d’e-mails à cette adresse pour le moment. Utilisez une autre adresse ou contactez-nous pour obtenir de l’aide.",
+      "unavailable_signups_paused": "Les nouvelles inscriptions sont suspendues pour le moment. Réessayez plus tard.",
+      "unavailable_checkout_paused": "Les achats sont suspendus pour le moment. Réessayez plus tard.",
+      "unavailable_ai_paused": "Les fonctionnalités d’IA sont suspendues pour le moment. Réessayez plus tard.",
+      "unavailable_stalled": "Cette tâche a cessé de répondre. Vos crédits ont été remboursés.",
+      "unavailable_job_failed": "Cette tâche a échoué. Vos crédits ont été remboursés.",
+      "unavailable_unexpected": "Une erreur s’est produite."
+    },
+    "email": {
+      "layout": {
+        "sentBy": "Envoyé par {brand}",
+        "unsubscribe": "Se désabonner"
+      },
+      "link": {
+        "fallback": "Ou collez ce lien dans votre navigateur :"
+      },
+      "lifecycle": {
+        "welcome": {
+          "subject": "Bienvenue sur {brand}",
+          "heading": "Bienvenue sur {brand}",
+          "body": "Votre compte est prêt. Voici par où commencer.",
+          "action": "Commencer"
+        },
+        "activationNudge": {
+          "subject": "Votre première création n’est qu’à une minute",
+          "heading": "Prêt quand vous l’êtes",
+          "body": "Vous vous êtes inscrit hier et n’avez encore rien créé. Il suffit d’une minute pour commencer.",
+          "action": "Commencer maintenant"
+        },
+        "firstResult": {
+          "subject": "Votre premier résultat est prêt",
+          "heading": "C’est prêt",
+          "body": "Ce que vous avez créé dans {brand} est prêt à être consulté.",
+          "action": "Voir"
+        },
+        "creditsLow": {
+          "subject": "Vos crédits s’épuisent",
+          "heading": "Crédits bientôt épuisés",
+          "body": "Votre solde a atteint son seuil bas. Ajoutez des crédits pour continuer sans interruption.",
+          "action": "Ajouter des crédits"
+        },
+        "trialEnding": {
+          "subject": "Votre essai se termine dans 7 jours",
+          "heading": "Votre essai se termine dans une semaine",
+          "body": "Votre forfait se poursuit à la fin de l’essai. Vous pouvez le modifier ou l’annuler à tout moment d’ici là.",
+          "action": "Consulter votre forfait"
+        },
+        "checkoutAbandoned": {
+          "subject": "Encore en réflexion ?",
+          "heading": "Votre paiement vous attend",
+          "body": "Vous avez commencé un paiement hier sans le terminer. Reprenez-le quand vous voulez.",
+          "action": "Voir les forfaits"
+        },
+        "winBack": {
+          "subject": "Nous serions ravis de vous revoir",
+          "heading": "Revenez sur {brand}",
+          "body": "Votre forfait a pris fin, mais votre compte est toujours là. Choisissez un nouveau forfait quand vous voulez.",
+          "action": "Voir les forfaits"
+        },
+        "stalled": {
+          "subject": "Cela fait un moment",
+          "heading": "Tout vous attend",
+          "body": "Vous n’êtes pas revenu depuis deux semaines. Tout ce que vous avez créé est là où vous l’avez laissé.",
+          "action": "Reprendre là où vous en étiez"
+        },
+        "annualSwitch": {
+          "subject": "Économisez avec la facturation annuelle",
+          "heading": "Payez à l’année, payez moins",
+          "body": "Vous avez payé au mois trois fois. Le prix annuel revient moins cher sur un an.",
+          "action": "Voir les prix annuels"
+        },
+        "reviewAsk": {
+          "subject": "Comment se passe votre expérience avec {brand} ?",
+          "heading": "Une minute de votre temps ?",
+          "body": "Vous utilisez {brand} depuis une semaine. Un court avis aide d’autres personnes à le découvrir.",
+          "action": "Laisser un avis"
+        }
+      },
+      "announcement": {
+        "action": "En savoir plus"
+      },
+      "otp": {
+        "subject": {
+          "sign-in": "Votre code de connexion",
+          "email-verification": "Confirmez votre adresse e-mail",
+          "forget-password": "Réinitialisez votre mot de passe",
+          "change-email": "Confirmez votre nouvelle adresse e-mail"
+        },
+        "expiry": "Ce code expire bientôt. Si vous ne l’avez pas demandé, vous pouvez ignorer cet e-mail.",
+        "passkeyOnly": {
+          "subject": "Connectez-vous avec votre clé d’accès",
+          "intro": "Quelqu’un a demandé un code de connexion pour votre compte. Votre compte se connecte uniquement avec une clé d’accès : aucun code n’a donc été envoyé.",
+          "recover": "Si vous avez perdu votre clé d’accès, choisissez « Clé d’accès perdue ? » sur la page de connexion et utilisez votre code de récupération. Si vous n’avez rien demandé, vous pouvez ignorer cet e-mail."
+        },
+        "emailChange": {
+          "subject": "Confirmez le changement d’adresse e-mail",
+          "intro": "Saisissez ce code pour confirmer que vous voulez changer l’adresse e-mail de votre compte.",
+          "warning": "Si vous n’avez rien demandé, quelqu’un est peut-être connecté à votre compte. Déconnectez vos autres sessions."
+        }
+      },
+      "origin": {
+        "summary": "Demandé depuis {details}.",
+        "device": "{browser} sur {os}",
+        "place": "près de {place}",
+        "time": "à {time}"
+      },
+      "newDevice": {
+        "subject": "Nouvelle connexion à votre compte",
+        "intro": "Votre compte vient d’être connecté depuis un appareil qu’il n’avait jamais utilisé.",
+        "warning": "Si ce n’était pas vous, déconnectez cet appareil dès maintenant.",
+        "action": "Vérifier vos appareils"
+      },
+      "passkeyRecovered": {
+        "subject": "Votre code de récupération a été utilisé",
+        "intro": "Votre code de récupération vient d’être utilisé pour vous connecter à votre compte, et une nouvelle clé d’accès doit être enregistrée avant toute autre action.",
+        "warning": "Si ce n’était pas vous, déconnectez dès maintenant tous les autres appareils.",
+        "action": "Vérifier vos appareils"
+      },
+      "emailChanged": {
+        "subject": "Votre adresse e-mail a été modifiée",
+        "intro": "L’adresse e-mail de votre compte est désormais {newEmail}.",
+        "warning": "Si vous n’êtes pas à l’origine de cette modification, contactez-nous immédiatement."
+      },
+      "deletionScheduled": {
+        "subject": "La suppression de votre compte est programmée",
+        "intro": "Votre compte sera supprimé le {date}. D’ici là, il fonctionne comme avant.",
+        "warning": "Si vous n’avez rien demandé, conservez votre compte et déconnectez vos autres sessions.",
+        "action": "Conserver mon compte"
+      },
+      "deletionCanceled": {
+        "subject": "Votre compte est conservé",
+        "body": "La suppression de votre compte est annulée, et rien n’a été supprimé."
+      },
+      "welcome": {
+        "subject": "Bienvenue à bord",
+        "greeting": "Bienvenue !",
+        "greetingNamed": "Bienvenue, {name} !",
+        "body": "Votre compte est prêt. Merci de nous avoir rejoints."
+      },
+      "invite": {
+        "subject": "Rejoignez {workspace}",
+        "intro": "{inviter} vous invite à rejoindre {workspace} en tant que {role}.",
+        "action": "Accepter l’invitation"
+      },
+      "gift": {
+        "subject": "{sender} vous a envoyé un cadeau 🎁",
+        "intro": "{sender} vous a envoyé un cadeau : {item}. Connectez-vous pour le recevoir.",
+        "sender": "Quelqu’un",
+        "action": "Recevoir votre cadeau",
+        "itemPass": "{count} mois de {plan} | {count} mois de {plan}",
+        "reminderSubject": "Votre cadeau de {sender} vous attend toujours",
+        "reminderIntro": "{sender} vous a envoyé un cadeau : {item}. Il vous attend toujours. Connectez-vous pour le recevoir."
+      },
+      "giftPassEnding": {
+        "subject": "Votre pass {plan} se termine le {date}",
+        "intro": "Le forfait {plan} offert à {workspace} par un proche se termine le {date}. Conservez-le et rien ne change ; sinon, l’espace de travail repasse au forfait gratuit et conserve tout ce qu’il a créé.",
+        "action": "Conserver {plan}",
+        "workspace": "votre espace de travail",
+        "trialIntro": "L’essai {plan} de {workspace} se termine le {date}. Conservez {plan} et rien ne change ; sinon, l’espace de travail repasse au forfait gratuit et conserve tout ce qu’il a créé."
+      },
+      "renewalReminder": {
+        "subject": "Votre forfait {plan} se renouvelle automatiquement",
+        "intro": "Pour rappel, votre forfait {plan} se renouvelle automatiquement au prix de {price} {every}. Le prochain renouvellement aura lieu le {date}.",
+        "cancel": "Vous pouvez résilier en ligne à tout moment avant un renouvellement, et le forfait reste actif jusqu’à la fin de la période payée.",
+        "action": "Gérer votre forfait",
+        "every": {
+          "day": "chaque jour | tous les {count} jours",
+          "week": "chaque semaine | toutes les {count} semaines",
+          "month": "chaque mois | tous les {count} mois"
+        }
+      },
+      "withdrawalReceipt": {
+        "subject": "Nous avons reçu votre rétractation du forfait {plan}",
+        "intro": "Nous avons reçu votre rétractation du contrat {plan} le {at} (UTC).",
+        "next": "Le forfait a pris fin. Tout remboursement dû est versé sur le moyen de paiement d’origine sous 14 jours."
+      },
+      "waitlistConfirmation": {
+        "subject": "Vous êtes sur la liste d’attente",
+        "intro": "Vous êtes n° {position} sur {total} sur la liste d’attente.",
+        "introUnplaced": "Vous êtes sur la liste d’attente.",
+        "note": "Nous admettons les personnes par vagues et pouvons aussi les admettre selon d’autres critères. Votre place peut changer. Utilisez ce lien pour la consulter à tout moment. Il ne nécessite aucun code de connexion : gardez cet e-mail pour vous.",
+        "action": "Voir votre place"
+      },
+      "topicConfirmation": {
+        "subject": "Confirmez : {topic}",
+        "intro": "Vous avez demandé à recevoir {topic}. Confirmez en un clic, et c’est parti.",
+        "note": "Si vous n’avez rien demandé, ignorez cet e-mail : rien n’est envoyé tant que vous n’avez pas confirmé. Le lien est valable 7 jours.",
+        "action": "Confirmer"
+      },
+      "accessInvitation": {
+        "subject": "Vous êtes invité sur {brand}",
+        "intro": "{brand} vous invite à l’essayer avant son ouverture à tous. Connectez-vous avec cette adresse e-mail pour commencer.",
+        "action": "Se connecter",
+        "why": "Vous recevez cet e-mail parce qu’une personne de {brand} a invité cette adresse. Si vous ne vous y attendiez pas, ignorez-le : rien ne se passera.",
+        "privacy": "Comment {brand} traite vos données : {url}"
+      },
+      "waitlistAdmitted": {
+        "subject": "C’est votre tour",
+        "intro": "Vous êtes admis. Inscrivez-vous avec l’adresse e-mail utilisée pour rejoindre la liste.",
+        "action": "S’inscrire"
+      },
+      "noticeReceived": {
+        "subject": "Nous avons reçu votre signalement",
+        "intro": "Nous avons reçu votre signalement concernant {url}.",
+        "introUnlinked": "Nous avons reçu votre signalement.",
+        "next": "Une personne de notre équipe va l’examiner et vous enverra la décision par e-mail.",
+        "intimate": "Une demande de retrait d’une image intime partagée sans consentement est tranchée sous 48 heures. Nous vous enverrons la décision par e-mail."
+      },
+      "noticeDecided": {
+        "subject": "Notre décision concernant votre signalement",
+        "removed": "Nous avons examiné votre signalement concernant {url} et retiré le contenu.",
+        "kept": "Nous avons examiné votre signalement concernant {url} et décidé de conserver le contenu.",
+        "removedUnlinked": "Nous avons examiné votre signalement et retiré le contenu.",
+        "keptUnlinked": "Nous avons examiné votre signalement et décidé de conserver le contenu.",
+        "handled": "Nous avons examiné votre signalement concernant {url} et y avons donné suite.",
+        "handledUnlinked": "Nous avons examiné votre signalement et y avons donné suite.",
+        "reason": "Motif : {reason}",
+        "redress": "Si vous n’êtes pas d’accord, vous pouvez soumettre la décision à un organe certifié de règlement extrajudiciaire des litiges ou à un tribunal."
+      },
+      "contentRestricted": {
+        "subject": "Nous avons retiré votre contenu",
+        "intro": "Nous avons retiré « {title} ». Il n’est plus visible par personne.",
+        "reason": "Motif : {reason}",
+        "notice": "Nous avons donné suite à un signalement envoyé via notre formulaire de signalement.",
+        "reports": "Nous avons donné suite à des signalements de personnes utilisant l’application.",
+        "illegal": "Nous avons jugé le contenu illégal.",
+        "terms": "Nous avons constaté que le contenu enfreint nos conditions.",
+        "person": "Cette décision a été prise par une personne de notre équipe ; aucun outil automatisé ne l’a prise.",
+        "appeal": "Vous pouvez contester cette décision jusqu’au {date}.",
+        "action": "Contester la décision",
+        "redress": "Vous pouvez également soumettre la décision à un organe certifié de règlement extrajudiciaire des litiges ou à un tribunal."
+      },
+      "appealDecided": {
+        "subject": "Notre décision concernant votre recours",
+        "upheld": "Nous avons examiné votre recours concernant « {title} » et maintenu notre décision.",
+        "reversed": "Nous avons examiné votre recours concernant « {title} » et annulé notre décision.",
+        "reason": "Motif : {reason}",
+        "redress": "Si vous n’êtes pas d’accord, vous pouvez soumettre la décision à un organe certifié de règlement extrajudiciaire des litiges ou à un tribunal."
+      }
+    }
+  }
+}

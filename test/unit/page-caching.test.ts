@@ -66,7 +66,7 @@ describe('warnOnCachedPrivatePages', () => {
     expect(message).toContain('Nitro matches paths case-sensitively and the router does not')
     expect(message).toContain(`${PRIVATE[0]!.toUpperCase()} renders the page at ${PRIVATE[0]}`)
     expect(message).toContain('a signed-in render carries the session\'s token')
-    expect(message).toContain('https://nuxt-backend.dev/docs/ui/pages#caches')
+    expect(message).toContain('https://nuxt-backend.dev/docs/build/ui/pages#caches')
     expect(message).not.toContain('routeRules[\'/blog/**\']')
     warn.mockRestore()
   })

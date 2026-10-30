@@ -26,7 +26,7 @@ const SPOKEN = { live: ', live', down: ', unreachable', unknown: '' } as const
     <Key
       to="/docs/start"
       size="nav"
-      v-bind="current(within('/docs') && !within('/docs/agents'))"
+      v-bind="current(within('/docs') && !within('/docs/develop/agents'))"
     >
       Docs
     </Key>
@@ -43,9 +43,9 @@ const SPOKEN = { live: ', live', down: ', unreachable', unknown: '' } as const
       Playground<span class="sr-only">{{ SPOKEN[status] }}</span>
     </Key>
     <Key
-      to="/docs/agents"
+      to="/docs/develop/agents"
       size="nav"
-      v-bind="current(within('/docs/agents'))"
+      v-bind="current(within('/docs/develop/agents'))"
     >
       Agents
     </Key>

@@ -87,10 +87,17 @@ jobs:
               # The consumer agent skill, which the site serves from ../skills
               # (the static job checks its content on every pull request).
               - 'skills/**'
+              # The skill registry llms.txt and the homepage's Markdown list,
+              # and the docs walk and frontmatter reader the llms.txt sections
+              # are built with.
+              - 'src/guidance/skills.ts'
+              - 'scripts/lib/docs-pages.mjs'
+              - 'scripts/lib/frontmatter.mjs'
               # The scripts the website job runs on its own output.
               - 'scripts/typecheck-website.mjs'
               - 'scripts/check-website-css.mjs'
               - 'scripts/check-website-bundle.mjs'
+              - 'scripts/check-website-agents.mjs'
             src:
               - *shared
               # The DevTools panel ships with the package: `build` generates
@@ -104,6 +111,8 @@ jobs:
               - 'templates/**'
               - 'vitest.config.ts'
               - 'build.config.ts'
+              # The ceilings `pack` checks the package against.
+              - 'budgets.json'
 
   # Everything that needs a checkout and an install and nothing more. One job
   # rather than a dozen, because the setup is identical. `if: !cancelled()` on
@@ -215,12 +224,12 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm run check:manifest
 
-      # The playground example is the website's playground copied by
-      # scripts/sync-playground.mjs; a website change that was not synced into
-      # it fails here.
-      - name: Playground drift
+      # The site serves the Panels template under /playground, copied by
+      # scripts/sync-panels.mjs; a template change that was not synced into
+      # website/ fails here.
+      - name: Panels drift
         if: ${{ !cancelled() }}
-        run: node scripts/sync-playground.mjs --check
+        run: node scripts/sync-panels.mjs --check
 
       # Regenerating the TypeDoc reference must produce no diff (and leave no
       # untracked file under the reference tree). A diff means the doc comments
@@ -402,9 +411,9 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-  # Full-app end-to-end: builds `templates/starter` with @nuxt/test-utils/e2e
+  # Full-app end-to-end: builds `templates/starter` and `templates/panels` with @nuxt/test-utils/e2e
   # and serves it on a real Nitro server against a stub deployment — SSR
-  # pages, the auth middleware's redirect, the MCP surface, the Convex-aware
+  # pages, the auth middleware's redirect, the Convex-aware
   # CSP — with a browser leg for the sign-in form and a live query, and a
   # screenshot of every module page. The other apps are installed and built
   # in `pack`.
@@ -512,9 +521,9 @@ jobs:
       # lockfile means the newest Nuxt, so this is where a new Nuxt release
       # meets the package first. The page asked for is `/login`, the module's own
       # page, which every app mounts and which renders although nothing answers
-      # at the placeholder backend URL (the playground's home redirects to its
-      # offline page then).
+      # at the placeholder backend URL.
       - name: Consumer smoke test (npm install, build, serve)
+        id: smoke
         if: ${{ !cancelled() }}
         env:
           NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
@@ -532,12 +541,11 @@ jobs:
               return 1
             fi
           }
-          for app in templates/starter examples/advanced examples/playground; do
+          for app in templates/starter templates/panels examples/advanced; do
             SMOKE="$RUNNER_TEMP/smoke-$(basename "$app")"
             cp -R "$app" "$SMOKE"
             rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output"
-            # Codegen goes unless the app commits it: examples/playground does,
-            # because its pages import the generated API at build time.
+            # Codegen goes unless the app commits it.
             git ls-files --error-unmatch "$app/backend/_generated/api.d.ts" >/dev/null 2>&1 || rm -rf "$SMOKE/backend/_generated"
             echo "::group::$app"
             (cd "$SMOKE" \
@@ -575,6 +583,21 @@ jobs:
             && serve)
           echo "::endgroup::"
 
+      # The install and starter budgets in budgets.json: what installing the
+      # tarball adds to an empty project, and the JavaScript every page of the
+      # starter loads before it runs, read from the starter the step above
+      # built. Both install from the registry with no lockfile, so a release
+      # upstream can move them: on a pull request going over warns, on main
+      # and in the weekly run it fails. (The tarball budget, in the check
+      # above, always fails.) scripts/budgets.mjs says how each is measured;
+      # a change that grows one on purpose moves it with
+      # `pnpm budgets:update install starter`.
+      - name: Check the install and starter budgets
+        if: ${{ !cancelled() && steps.smoke.outcome == 'success' }}
+        env:
+          BUDGETS_MODE: ${{ github.event_name == 'pull_request' && 'warn' || 'fail' }}
+        run: pnpm run check:budgets --starter "$RUNNER_TEMP/smoke-starter"
+
       # The other product of this package: the Convex component. A consumer's
       # `convex dev` resolves `nuxt-backend/convex.config` from the
       # scaffolded config, bundles the component and generates
@@ -588,6 +611,53 @@ jobs:
         working-directory: ${{ runner.temp }}/smoke-starter
         run: |
           "$GITHUB_WORKSPACE/scripts/ci-convex-codegen.sh"
+
+      # nuxt-backend/test-utils as an app uses it: the Testing page's Vitest
+      # setup and worked example (test/fixtures/test-utils) in a fresh copy of
+      # the starter, installed in one go with the tarball and the test tools
+      # at the ranges this repository tests with. Adding the tools onto the
+      # tree the smoke step installed crashes npm's arborist, so this app
+      # gets its own install. The aliases have to reach the installed package
+      # through the app's own Nuxt environment, which no test in the
+      # repository can show. `--before` holds npm to pnpm-workspace.yaml's
+      # release cooldown, as the repository's own installs are.
+      - name: Consumer component tests (nuxt-backend/test-utils)
+        if: ${{ !cancelled() && steps.smoke.outcome == 'success' }}
+        env:
+          NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
+        run: | # zizmor: ignore[adhoc-packages]
+          TARBALL="$PWD/$(ls nuxt-backend-*.tgz)"
+          APP="$RUNNER_TEMP/smoke-test-utils"
+          cp -R templates/starter "$APP"
+          rm -rf "$APP/node_modules" "$APP/.nuxt" "$APP/.output" "$APP/backend/_generated"
+          AGE=$(sed -n 's/^minimumReleaseAge: *//p' pnpm-workspace.yaml)
+          BEFORE=$(node -p "new Date(Date.now() - $AGE * 60_000).toISOString()")
+          node -e '
+            const fs = require("node:fs")
+            const dev = JSON.parse(fs.readFileSync("package.json", "utf8")).devDependencies
+            const file = process.argv[1]
+            const app = JSON.parse(fs.readFileSync(file, "utf8"))
+            const tools = ["vitest", "@nuxt/test-utils", "@vue/test-utils", "happy-dom", "axe-core"]
+            app.devDependencies = Object.fromEntries(tools.map(name => [name, dev[name]]))
+            fs.writeFileSync(file, JSON.stringify(app, null, 2))
+          ' "$APP/package.json"
+          cp -R test/fixtures/test-utils/. "$APP"
+          cd "$APP"
+          npx --yes npm@11.17.0 install --no-audit --no-fund --before "$BEFORE" "$TARBALL"
+          npx vitest run
+
+      # The Panels template's own tests, as the tutorial's part 6 runs them: its
+      # backend functions on nuxt-backend/test and a page over the mock
+      # backend, in the copy the smoke step installed with the tarball and the
+      # template's devDependencies. The functions need their codegen first.
+      - name: Panels template tests
+        if: ${{ !cancelled() && steps.smoke.outcome == 'success' }}
+        working-directory: ${{ runner.temp }}/smoke-panels
+        env:
+          NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
+        run: |
+          "$GITHUB_WORKSPACE/scripts/ci-convex-codegen.sh"
+          npx vitest run
 
       # The steps above prove the tarball installs, builds and codegens. This
       # one proves its type declarations compile inside an app — the Nuxt half
@@ -616,7 +686,7 @@ jobs:
           if [ "$attested" = 200 ]; then
             echo "::warning::npm now serves unimport@7.0.2's attestation — remove the pin in this step (unjs/unimport#568)."
           fi
-          for app in starter advanced playground; do
+          for app in starter panels advanced test-utils; do
             (
               cd "$RUNNER_TEMP/smoke-$app"
               if [ "$attested" != 200 ]; then
@@ -645,12 +715,11 @@ jobs:
           pnpm_config_minimum_release_age: '0'
         run: | # zizmor: ignore[adhoc-packages]
           TARBALL="$PWD/$(ls nuxt-backend-*.tgz)"
-          for app in templates/starter examples/advanced examples/playground; do
+          for app in templates/starter templates/panels examples/advanced; do
             SMOKE="$RUNNER_TEMP/smoke-pnpm-$(basename "$app")"
             cp -R "$app" "$SMOKE"
             rm -rf "$SMOKE/node_modules" "$SMOKE/.nuxt" "$SMOKE/.output"
-            # Codegen goes unless the app commits it: examples/playground does,
-            # because its pages import the generated API at build time.
+            # Codegen goes unless the app commits it.
             git ls-files --error-unmatch "$app/backend/_generated/api.d.ts" >/dev/null 2>&1 || rm -rf "$SMOKE/backend/_generated"
             echo "::group::$app"
             (cd "$SMOKE" && pnpm add "$TARBALL")
@@ -767,10 +836,49 @@ jobs:
       # The docs and the home page defer the backend client to the blocks
       # that use it (website/modules/deferred-backend-client); this reads
       # each prerendered page's initial scripts and fails when they reach it
-      # again, or grow past the ceiling.
+      # again, or grow past the ceiling. It also holds the live demos to the
+      # `demo: true` pages, and what a demo loads once it starts to its own
+      # ceiling.
       - name: Check website bundle
         if: ${{ !cancelled() }}
         run: node scripts/check-website-bundle.mjs
+
+      # What the site serves agents (website/shared/agent-surfaces.ts),
+      # against this build: it serves .output and asks for llms.txt and every
+      # link on it (each twin opening with its header, each page in one tab
+      # section with its own title and description), the homepage's twin,
+      # sitemap.md against the content, both twins of every moved route, a
+      # missing page, the skills, the manifest and the rename map, the MCP
+      # card and the absence of a /mcp on the site. The weekly workflow runs the same
+      # check against nuxt-backend.dev.
+      - name: Check agent surfaces
+        if: ${{ !cancelled() }}
+        run: node scripts/check-website-agents.mjs
+
+      # The bundle ceiling, on the shape nuxt-backend.dev serves: a Vercel
+      # build, with Vercel's analytics modules, the docs assistant (on with
+      # the deployment's OIDC token) and the error-reporting SDK the
+      # monitoring layer wires once a build sees a DSN. The build above has
+      # none of them, and the SDK with the debug IDs its build plugin writes
+      # into every chunk weighs some 48 kB of the heaviest page's initial
+      # JavaScript. The token and the DSN are placeholders: nothing
+      # serves this build, no Sentry token means nothing uploads, and the
+      # SDK's build plugin sends no telemetry (website/nuxt.config.ts). The nuxt binary, not
+      # `pnpm exec`: with VERCEL set, pnpm's check before a run can read a
+      # changed setting and ask for a fresh install.
+      - name: Check website bundle (production shape)
+        if: ${{ !cancelled() }}
+        env:
+          NUXT_PUBLIC_BACKEND_URL: https://example.convex.cloud
+          NUXT_SITE_URL: https://nuxt-backend.example
+          VERCEL: '1'
+          VERCEL_ENV: production
+          VERCEL_OIDC_TOKEN: ci-placeholder
+          NITRO_PRESET: node-server
+          MONITORING_DSN: https://public@o0.ingest.sentry.io/0
+        run: |
+          ./node_modules/.bin/nuxt build website
+          node scripts/check-website-bundle.mjs
 
   # Looks at the dependencies a pull request adds or changes, and fails on a
   # known CVE or a package GitHub has flagged as malicious. pnpm's cooldown only

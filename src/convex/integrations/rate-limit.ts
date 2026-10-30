@@ -14,9 +14,13 @@ export interface RateLimiterComponents {
 
 /**
  * The package's default rate limits — `emailOtp`, `emailOtpGlobal`,
- * `emailOtpAttempt`, `emailChange`, `billingSync`, `ai`, `aiBudget`,
- * `mcp`, `admin`, `invitation`, `invitationGlobal` and
- * `agentRegistrationGlobal` — guarding the flows the package itself drives.
+ * `emailOtpAttempt`, `emailChange`, `billingSync`, `ai`, `aiBudget`, `aiGlobal`,
+ * `admin`, `invitation`, `invitationGlobal`, `workspaceCreate`, `accountDelete`,
+ * `passkeySignIn`, `passkeySignInGlobal`, `signUpOtpGlobal`, `inviteCheck`,
+ * `inviteCheckGlobal`, `waitlistJoin`, `waitlistJoinGlobal`, `contact`, `contactGlobal`,
+ * `inboundMail`, `inboundMailGlobal`, `report`, `reportGlobal`,
+ * `write` and `upload` —
+ * guarding the flows the package itself drives.
  * Keyed per email/entity/caller at the call site (e.g. `limit(ctx,
  * 'emailOtp', { key: hash })`); the `*Global` ones are unkeyed. Extend or
  * override any of them by passing your own limits to {@link setupRateLimiter}.
@@ -25,11 +29,15 @@ export interface RateLimiterComponents {
  * `emailOtpAttempt` code *checks*, per address (Better Auth's own
  * `allowedAttempts` bounds the guesses at one code, but a new code is one
  * request away), `emailOtpGlobal` caps sends deployment-wide,
- * `billingSync` guards the live provider fan-out, `ai`/`aiBudget`/`mcp`
- * back the metered-action, credit-budget and agent surfaces, and
+ * `billingSync` guards the live provider fan-out, `ai`/`aiBudget`
+ * back the metered-action and credit-budget surfaces, `aiGlobal` caps what
+ * the app pays for itself (guest jobs), and
  * `admin`/`invitation`/`emailChange` cover the signed-in routes where one
- * caller acts on *other* people or addresses — see `setupAuth`'s route
- * limits. The package is passwordless: there are no password limits, and an
+ * caller acts on *other* people or addresses, `workspaceCreate` the route
+ * that makes a billing entity, `accountDelete` an account's own deletion —
+ * see `setupAuth`'s route
+ * limits — and `passkeySignIn`/
+ * `passkeySignInGlobal` the routes anyone may call without a session. The package is passwordless: there are no password limits, and an
  * app that turns passwords on brings its own.
  *
  * ## Covering other auth routes
@@ -110,10 +118,14 @@ export const DEFAULT_LIMITS = {
    */
   aiBudget: { kind: 'fixed window', rate: 10_000, period: DAY },
   /**
-   * Agent (MCP) session exchanges — 60 per minute per client+user. Guards the
-   * token-exchange endpoint agents call on the app's behalf.
+   * What the app pays for itself, across the whole deployment — 300 per
+   * hour, a fixed window, unkeyed. Every job a signed-out visitor starts
+   * (`defineJobQueue({ guest })`) spends one: no credits pay for those, so
+   * this window is what bounds the gateway bill a flood of visitors could
+   * run up. Over it, a guest job is refused with `rate_limited`. Raise it
+   * when a launch legitimately lets more visitors try than that.
    */
-  mcp: { kind: 'token bucket', rate: 60, period: MINUTE, capacity: 20 },
+  aiGlobal: { kind: 'fixed window', rate: 300, period: HOUR },
   /**
    * Administrator actions — 30 per minute per administrator, burst 10. Covers
    * every `/admin/*` route that acts on somebody else (list, create, update,
@@ -145,13 +157,127 @@ export const DEFAULT_LIMITS = {
    */
   invitationGlobal: { kind: 'fixed window', rate: 200, period: HOUR },
   /**
-   * Agent client registrations across the whole deployment — 100 per hour, a
-   * fixed window. Registration is anonymous by design (OAuth dynamic client
-   * registration), so there is no caller to key on: this ceiling bounds how
-   * fast anyone can fill the client table. An agent registers once per
-   * install, so a real launch stays far below it.
+   * Workspaces made — 10 per hour per member, burst 5. Every new workspace
+   * is a billing entity: with a free plan in the catalog it becomes a
+   * provider customer and gets the plan's credits, so one account must not
+   * mint them in a loop. Per **member**, like `invitation`; the sign-in
+   * limits bound how many accounts one person holds.
    */
-  agentRegistrationGlobal: { kind: 'fixed window', rate: 100, period: HOUR },
+  workspaceCreate: { kind: 'token bucket', rate: 10, period: HOUR, capacity: 5 },
+  /**
+   * An account's own deletion — 3 per hour per account, burst 3. Deleting
+   * is final and starts an erasure across every participant, the providers
+   * included: a person deletes once, so the bucket only stops a script that
+   * keeps asking with a session it holds.
+   */
+  accountDelete: { kind: 'token bucket', rate: 3, period: HOUR, capacity: 3 },
+  /**
+   * Passkey sign-in challenges — 30 per minute per client address, burst 30.
+   * Every passkey sign-in starts with a challenge the server stores
+   * (`/passkey/generate-authenticate-options`, which needs no session): a
+   * tap on "Sign in with passkey", and each sign-in page that offers
+   * passkeys in the browser's autofill, again every four and a half minutes
+   * while it stays open in view, a challenge lasting five. Keyed by an
+   * HMAC, under the auth secret, of the address Better Auth reads from
+   * `x-forwarded-for` (its `advanced.ipAddress` options), which only a
+   * proxy in front of the deployment makes trustworthy: anyone calling the
+   * deployment directly writes that header themselves. A best effort, then,
+   * with {@link DEFAULT_LIMITS.passkeySignInGlobal} as the ceiling behind it.
+   */
+  passkeySignIn: { kind: 'token bucket', rate: 30, period: MINUTE, capacity: 30 },
+  /**
+   * Passkey sign-in challenges across the whole deployment — 3000 per hour,
+   * a fixed window, spent after {@link DEFAULT_LIMITS.passkeySignIn}
+   * allowed the request. The ceiling a caller who rotates its address meets:
+   * it bounds how fast anyone can fill the verification table. At the
+   * ceiling, a passkey prompt answers 429 and autofill offers no passkey;
+   * email codes still sign people in. Raise it when more sign-in pages than
+   * that open in an hour (a page left open in view spends about thirteen).
+   */
+  passkeySignInGlobal: { kind: 'fixed window', rate: 3000, period: HOUR },
+  /**
+   * Sign-in codes to addresses with no account yet — 200 per hour across
+   * the deployment, a fixed window. Spent in place of `emailOtpGlobal` by a
+   * code that would create an account while `setupAccess` is wired, so a
+   * rush of joins on a launch day never holds up existing people's codes.
+   * Raise it for a launch that signs up more than that in an hour.
+   */
+  signUpOtpGlobal: { kind: 'fixed window', rate: 200, period: HOUR },
+  /**
+   * Invite checks (`checkInvite`, behind `useInvite().check` and the
+   * `/invite` page) — 10 per minute per signed-in caller, burst 10. A code
+   * has 50 bits, so guessing one is out of reach anyway; the limit keeps
+   * a script from turning the check into a lookup.
+   */
+  inviteCheck: { kind: 'token bucket', rate: 10, period: MINUTE, capacity: 10 },
+  /**
+   * Invite checks across the deployment — 1000 per hour, a fixed window:
+   * the ceiling a caller without a session meets, and the backstop behind
+   * {@link DEFAULT_LIMITS.inviteCheck}.
+   */
+  inviteCheckGlobal: { kind: 'fixed window', rate: 1000, period: HOUR },
+  /**
+   * Waitlist joins (`joinWaitlist`, behind `useWaitlist().join` and
+   * `<WaitlistForm>`) — 5 per hour per address, burst 3, so a script
+   * cannot use the form to ask for one mailbox's codes in a loop.
+   */
+  waitlistJoin: { kind: 'token bucket', rate: 5, period: HOUR, capacity: 3 },
+  /**
+   * Waitlist joins across the deployment — 1000 per hour, a fixed window:
+   * the ceiling on the form, behind {@link DEFAULT_LIMITS.waitlistJoin}.
+   * The codes a join asks for spend `signUpOtpGlobal` besides.
+   */
+  waitlistJoinGlobal: { kind: 'fixed window', rate: 1000, period: HOUR },
+  /**
+   * Contact and feedback messages (`submitContactMessage`, `<ContactForm>`) —
+   * 5 per hour per sender, burst 3. The sender is the signed-in account, else a
+   * hash of the address typed, never the address itself, so one person cannot
+   * flood the team's inbox.
+   */
+  contact: { kind: 'token bucket', rate: 5, period: HOUR, capacity: 3 },
+  /**
+   * Contact and feedback messages across the deployment — 500 per hour, a
+   * fixed window: the ceiling on the form, behind {@link DEFAULT_LIMITS.contact}.
+   */
+  contactGlobal: { kind: 'fixed window', rate: 500, period: HOUR },
+  /**
+   * Inbound mail (`setupEmail({ inbound })`) — 30 per hour per sender, burst
+   * 10, keyed by a hash of the sender's address. Mail past it is dropped and
+   * logged (`email.inbound_rejected`, reason `rate_limited`), never answered.
+   */
+  inboundMail: { kind: 'token bucket', rate: 30, period: HOUR, capacity: 10 },
+  /** Inbound mail across the deployment — 3000 per hour, a fixed window, behind {@link DEFAULT_LIMITS.inboundMail}. */
+  inboundMailGlobal: { kind: 'fixed window', rate: 3000, period: HOUR },
+  /**
+   * Content reports (`reportContent`, and each mailbox that sends notices
+   * through the `report` page, `me+1@` counted as `me@`) — 10 per hour per
+   * person, so nobody floods the Reports tab.
+   */
+  report: { kind: 'fixed window', rate: 10, period: HOUR },
+  /**
+   * Notices through the public `report` page across the deployment — 500 per
+   * hour: the ceiling behind {@link DEFAULT_LIMITS.report}, and with the bot
+   * check the only limit on a notice without an address, so no shared
+   * bucket can shut the anonymous channel for child sexual abuse material.
+   */
+  reportGlobal: { kind: 'fixed window', rate: 500, period: HOUR },
+
+  /**
+   * Writes of your own signed-in functions — 120 per minute per account,
+   * burst 60. The scaffold's `createFunctions(…, { limits: { authed: 'write' } })`
+   * spends one on every `authed` and `withRole` mutation and action, keyed
+   * by the account, so one session cannot write in a loop.
+   * Override it here, or name another limit per tier.
+   */
+  write: { kind: 'token bucket', rate: 120, period: MINUTE, capacity: 60 },
+  /**
+   * Upload URLs — 100 per hour per account, burst 20. An upload URL takes a
+   * file of any size and the size is checked only once it has arrived, so
+   * this rate is what bounds the bytes one account can push into storage
+   * before `storage.claim` refuses them (`setupStorage`'s
+   * `generateUploadUrl`). The burst lets one batch of `useUploadQueue` through.
+   */
+  upload: { kind: 'token bucket', rate: 100, period: HOUR, capacity: 20 },
 } as const satisfies Record<string, RateLimitConfig>
 
 /**

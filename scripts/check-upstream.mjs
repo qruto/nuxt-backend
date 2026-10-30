@@ -34,6 +34,14 @@ async function latest(name) {
 /** A table cell: a `|` inside one ends it early. */
 const cell = text => String(text).replaceAll('|', '\\|')
 
+/** `owner/repo#123`, the upstream pull request a watch waits on, as a link. */
+const PULL_REQUEST = /^([\w.-]+\/[\w.-]+)#(\d+)$/
+function pullRequestLink(pr) {
+  const match = PULL_REQUEST.exec(pr)
+  if (!match) throw new Error(`.github/upstream.json: ${JSON.stringify(pr)} is not owner/repo#number`)
+  return `[${pr}](https://github.com/${match[1]}/pull/${match[2]})`
+}
+
 const rows = []
 const ready = []
 for (const watch of config.watches) {
@@ -42,7 +50,7 @@ for (const watch of config.watches) {
   const line = `>=${watch.version} <${semver.inc(watch.version, 'major')}-0`
   const met = typeof range === 'string' && semver.validRange(range) !== null && semver.intersects(range, line)
   if (met) ready.push(watch.id)
-  rows.push(`| ${met ? '✅ ready' : '⏳ waiting'} | ${watch.title} | \`${watch.package}@${manifest.version}\` ${watch.field.replace('Dependencies', '')}: \`${cell(`${watch.dependency} ${range ?? '—'}`)}\` | ${watch.unblocks} |`)
+  rows.push(`| ${met ? '✅ ready' : '⏳ waiting'} | ${watch.title}${watch.pr ? ` (${pullRequestLink(watch.pr)})` : ''} | \`${watch.package}@${manifest.version}\` ${watch.field.replace('Dependencies', '')}: \`${cell(`${watch.dependency} ${range ?? '—'}`)}\` | ${watch.unblocks} |`)
 }
 
 const body = [

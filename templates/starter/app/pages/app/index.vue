@@ -1,21 +1,24 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { api } from '#backend/api'
 
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ auth: true })
 
-const { user, signOut } = useAuth()
-const { organizations, setActive, create, invite } = useOrganization()
+const { workspaces, setActive, create, invite } = useWorkspace()
 const billing = useBilling()
 const credits = useCredits()
+const gifts = useGifts()
+// A metered action from backend/ai.ts: each call spends one credit.
+const transform = useAction(api.ai.transform)
 
 const workspaceName = ref('')
 const inviteEmail = ref('')
 const giftEmail = ref('')
 const notice = ref('')
 
-// Product keys are the plan and pack keys in backend/billing.catalog.ts. Until
-// you fill the catalog and run `npx nuxt-backend billing sync`, the billing
-// panels show their empty states.
+// Product keys are the plan and pack keys in backend/billing.catalog.ts. On a
+// billing provider's sandbox with `npx nuxt-backend billing sync`; until then
+// the billing panels show their empty states.
 const planId = computed(() => billing.products.value?.pro?.id)
 const packId = computed(() => billing.products.value?.credits500?.id)
 
@@ -56,34 +59,24 @@ async function sendGift() {
   if (!packId.value || !email) return
   // A gift is a credit pack, named by its catalog key, paid on your own
   // billing account. The recipient signs in and claims the credits into
-  // theirs (<GiftClaimBanner>).
+  // theirs (the gift notice of <BackendNotices>).
   await attempt(async () => {
-    await credits.gift('credits500', { recipientEmail: email })
+    await gifts.send('credits500', { recipientEmail: email })
     giftEmail.value = ''
   }, `Checkout opened — once paid, ${email} receives the credits.`)
 }
 
-async function logout() {
-  await signOut()
-  await navigateTo('/')
+async function spendCredit() {
+  // Reserve → run → settle: a run that fails releases the credit.
+  await attempt(() => transform({ prompt: 'hello' }), 'Spent 1 credit.')
 }
 </script>
 
 <template>
-  <main>
-    <nav>
-      <strong>Your app</strong>
-      <span class="spacer" />
-      <span class="muted">{{ user?.email }}</span>
-      <button @click="logout">
-        Sign out
-      </button>
-    </nav>
+  <div class="page">
+    <ActivationChecklist />
 
-    <!-- Gifts sent to this account, claimable with one click. -->
-    <GiftClaimBanner @claimed="notice = 'Gift received — credits added. 🎁'" />
-
-    <OrganizationBoundary>
+    <Gate workspace>
       <template #default="{ workspace }">
         <section>
           <h2>Workspace</h2>
@@ -93,7 +86,7 @@ async function logout() {
               @change="setActive(($event.target as HTMLSelectElement).value)"
             >
               <option
-                v-for="entry in organizations"
+                v-for="entry in workspaces"
                 :key="entry.id"
                 :value="entry.id"
               >
@@ -128,7 +121,7 @@ async function logout() {
           </form>
         </section>
       </template>
-    </OrganizationBoundary>
+    </Gate>
 
     <section>
       <h2>Plan</h2>
@@ -152,15 +145,15 @@ async function logout() {
           Manage billing
         </button>
       </div>
-      <!-- FeatureBoundary gates on a feature key from billing.catalog.ts. -->
-      <FeatureBoundary feature="priority_support">
+      <!-- <Gate feature> shows a region by a feature key from billing.catalog.ts. -->
+      <Gate feature="priority_support">
         <p>Priority support is on.</p>
         <template #fallback>
           <p class="muted">
             Priority support comes with Pro.
           </p>
         </template>
-      </FeatureBoundary>
+      </Gate>
     </section>
 
     <section>
@@ -175,6 +168,9 @@ async function logout() {
           @click="credits.topUp(packId)"
         >
           Buy 500 credits
+        </button>
+        <button @click="spendCredit">
+          Spend 1 credit
         </button>
         <button @click="credits.refresh()">
           Refresh
@@ -204,5 +200,5 @@ async function logout() {
     >
       {{ notice }}
     </p>
-  </main>
+  </div>
 </template>

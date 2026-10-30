@@ -1,0 +1,30 @@
+/*
+ * AdminConsole's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-admin='tabs'] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    border-bottom: 1px solid var(--bk-edge);
+  }
+
+  [data-admin='tab'] {
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    margin-bottom: -1px;
+  }
+
+  [data-admin='tab'][aria-selected='true'] {
+    border-bottom-color: var(--bk-accent);
+    color: var(--bk-accent);
+  }
+
+  [data-admin='panel']:focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 4px;
+  }
+}

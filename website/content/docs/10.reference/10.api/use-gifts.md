@@ -36,6 +36,32 @@ Per-call options for [UseGiftsReturn.claim](#claim).
 | ------ | ------ | ------ | ------ |
 | <a id="successurl"></a> `successUrl?` | `string` | Where the provider's $0 checkout returns to, when the pack needs one. Defaults to the current URL. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
 | <a id="redirect"></a> `redirect?` | `boolean` | Open that checkout in the same tab instead of a new one. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="workspaceid"></a> `workspaceId?` | `string` | The workspace to receive the gift into, one the person manages (an owner or an admin of it). Omitted, it goes to their personal workspace. A plan pass goes only to a workspace on the free plan. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+
+***
+
+### SendGiftOptions
+
+Defined in: [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts)
+
+Per-call options for [UseGiftsReturn.send](#send).
+
+#### Extends
+
+- [`GiftOptions`](/docs/reference/api/use-billing#giftoptions)
+
+#### Properties
+
+| Property | Type | Description | Inherited from | Defined in |
+| ------ | ------ | ------ | ------ | ------ |
+| <a id="message"></a> `message?` | `string` | A plain-text note of at most 500 characters, no links, shown to the recipient inside the app. | [`GiftOptions`](/docs/reference/api/use-billing#giftoptions).[`message`](/docs/reference/api/use-billing#message-3) | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="metadata"></a> `metadata?` | `Record`\<`string`, `string`\> | - | [`GiftOptions`](/docs/reference/api/use-billing#giftoptions).[`metadata`](/docs/reference/api/use-billing#metadata-4) | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="successurl-1"></a> `successUrl?` | `string` | Where the purchaser returns after paying. Defaults to the current URL. | [`GiftOptions`](/docs/reference/api/use-billing#giftoptions).[`successUrl`](/docs/reference/api/use-billing#successurl-3) | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="redirect-1"></a> `redirect?` | `boolean` | Open in the same tab instead of a new one (redirect checkout). | [`GiftOptions`](/docs/reference/api/use-billing#giftoptions).[`redirect`](/docs/reference/api/use-billing#redirect-1) | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="currency"></a> `currency?` | `string` | The currency to pay in, lower-case ISO 4217: one the catalog prices the pack in (`usePricing().currencies`); one it does not is refused as `invalid_input` (`currency`). Omit for the catalog's own. | [`GiftOptions`](/docs/reference/api/use-billing#giftoptions).[`currency`](/docs/reference/api/use-billing#currency-3) | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="recipientemail"></a> `recipientEmail` | `string` | Who receives the gift. Never your own address. | - | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="months"></a> `months?` | `number` | For a plan pass: how many months, one of the lengths the plan offers (`gift: { months }` in the catalog). Leave it out for a credit pack. | - | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="deliverat"></a> `deliverAt?` | `number` \| `Date` | When the notice goes out and the recipient may claim, up to a year ahead. The purchase is paid at once. | - | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
 
 ***
 
@@ -47,11 +73,18 @@ Defined in: [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="received"></a> `received` | `ComputedRef`\<[`ReceivedGift`](/docs/reference/api/use-billing#receivedgift)[] \| `undefined`\> | The paid and claimed gifts addressed to the signed-in user's email, or `undefined` while loading. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
-| <a id="unclaimed"></a> `unclaimed` | `ComputedRef`\<[`ReceivedGift`](/docs/reference/api/use-billing#receivedgift)[]\> | Gifts that are paid but not yet claimed (ready to receive). | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
-| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until the gift list has loaded (always `false` when signed out). | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
-| <a id="isclaiming"></a> `isClaiming` | `ComputedRef`\<`boolean`\> | `true` while a claim is in flight. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
-| <a id="claim"></a> `claim` | (`giftId`, `options?`) => `Promise`\<`boolean`\> | Claim one gift into the signed-in user's own billing account. Resolves `true` when the server confirmed the claim itself: the provider grants the credits a moment later, and they arrive reactively. Resolves `false` after opening the provider's $0 checkout, which the recipient finishes when the pack asks for checkout fields. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="received"></a> `received` | `ComputedRef`\<[`ReceivedGift`](/docs/reference/api/use-billing#receivedgift)[] \| `undefined`\> | The delivered gifts addressed to the signed-in user's email: waiting and claimed, or `undefined` while loading. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="unclaimed"></a> `unclaimed` | `ComputedRef`\<[`ReceivedGift`](/docs/reference/api/use-billing#receivedgift)[]\> | Gifts that are delivered but not yet claimed (ready to receive). | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="sent"></a> `sent` | `ComputedRef`\<[`SentGift`](/docs/reference/api/use-billing#sentgift)[] \| `undefined`\> | The gifts the signed-in user sent, newest first: scheduled, delivered, claimed or refunded. `undefined` while loading. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until the gift lists have loaded (always `false` when signed out, and once a read failed). | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="ispending"></a> `isPending` | `ComputedRef`\<`boolean`\> | `true` while a send, a claim or a change to a sent gift runs. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="error"></a> `error` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the last action failed, else why a gift list could not be read, else `null`. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="send"></a> `send` | (`item`, `options`) => `Promise`\<`string`\> | Buy a gift for someone else and open the purchaser's checkout, resolving with its URL: a credit pack by its catalog key, or a plan as a pass with `months`. Rejects on failure, which `error` also holds. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="claim"></a> `claim` | (`giftId`, `options?`) => `Promise`\<`boolean`\> | Claim one gift into a workspace the signed-in user manages (their personal one by default). The session's email must be verified. Resolves `true` when the server confirmed the claim: the credits or the plan arrive a moment later, reactively. Resolves `false` after opening the provider's $0 checkout, for a pack that asks for checkout fields. Rejects with the refusal on failure, which `error` also holds. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="resend"></a> `resend` | (`giftId`) => `Promise`\<`void`\> | Send a sent gift's notice again. Refused once it is claimed or refunded, and more than once an hour. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="changerecipient"></a> `changeRecipient` | (`giftId`, `recipientEmail`) => `Promise`\<`void`\> | Address an unclaimed gift to someone else, under the same checks as a new gift. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="reschedule"></a> `reschedule` | (`giftId`, `deliverAt`) => `Promise`\<`void`\> | Move the delivery date of a gift not delivered yet. A date that is now delivers it at once. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
+| <a id="cancel"></a> `cancel` | (`giftId`) => `Promise`\<`void`\> | Cancel an unclaimed gift and refund the purchase in full. Needs a recent sign-in (`reauthentication_required` otherwise): wrap it in `useReauthentication().withReauthentication`. | [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts) |
 
 ## Functions
 
@@ -63,11 +96,14 @@ function useGifts(options?): UseGiftsReturn;
 
 Defined in: [src/runtime/vue/composables/use-gifts.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-gifts.ts)
 
-Gifts addressed to the signed-in user. A gift is a credit pack someone
-else paid for on their own billing account; the recipient receives it by
-claiming it, which grants the credits to their own account through a $0
-order. Nothing is claimed without the recipient asking — show a "Receive"
-button, or the packaged `GiftClaimBanner`.
+Gifts, from both sides. A gift is a credit pack or a plan pass someone
+paid for on their own billing account; the recipient receives it by
+claiming it, which grants the credits or the plan to a workspace they
+manage. Nothing is claimed without the recipient asking — show a "Receive"
+button, or the `gift` notice of `<BackendNotices>`. The purchaser sees what
+they sent and, until it is claimed, can resend its notice, change its
+recipient or date, or cancel it for a refund. The lists never throw (a
+failed read shows in `error`); the actions reject on failure.
 
 #### Parameters
 

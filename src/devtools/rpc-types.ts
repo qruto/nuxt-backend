@@ -1,5 +1,9 @@
 // Shared between the module (server side of the DevTools RPC) and the panel
-// app in `devtools-client-app/` (browser side) — keep this file dependency-free.
+// app in `devtools-client-app/` (browser side) — keep it free of runtime
+// imports: type imports only.
+
+import type { AnalyzeReport } from '../analyze/types.js'
+import type { CapabilityStatus } from '../capabilities/types.js'
 
 export const RPC_NAMESPACE = 'nuxt-backend'
 
@@ -9,11 +13,19 @@ export const DEVTOOLS_UI_ROUTE = '/__nuxt-backend'
 /** Port `pnpm dev:devtools-client` runs the panel dev server on (3630 is the base module's). */
 export const DEVTOOLS_UI_LOCAL_PORT = 3631
 
+/**
+ * The panel's tabs, by id, in order. The panel's own nav (`devtools-client-app/app/nav.ts`)
+ * labels them; the capability registry names the tab that shows each capability.
+ */
+export const DEVTOOLS_PANELS = ['overview', 'account', 'billing', 'email', 'webhooks', 'monitoring', 'activity', 'bundles'] as const
+
+export type DevtoolsPanelId = (typeof DEVTOOLS_PANELS)[number]
+
 /** A preflight finding as shown in the panel (same shape as `src/findings/types.ts`). */
 export interface DevtoolsPreflightFinding {
   id: string
-  /** The service `doctor --only` selects it by. */
-  service?: string
+  /** The app capability `doctor --only` selects it by. */
+  capability?: string
   title: string
   status: 'pass' | 'warn' | 'fail'
   message: string
@@ -21,6 +33,14 @@ export interface DevtoolsPreflightFinding {
   /** The finding's entry in the docs. */
   docsUrl?: string
 }
+
+/**
+ * One app capability as the Overview's console shows it, as `nuxt-backend
+ * status` reports it: its detected state, what it is built on, the env it
+ * lacks and its most pressing finding. Names and states only: no env value
+ * crosses the RPC.
+ */
+export type DevtoolsCapability = CapabilityStatus
 
 /** One mounted (or app-shadowed) ready-made page. */
 export interface DevtoolsPageInfo {
@@ -67,6 +87,17 @@ export interface DevtoolsEnvPresence {
  */
 export type DevtoolsDeploymentKind = 'cloud-dev' | 'local' | 'anonymous' | 'self-hosted' | 'production' | 'preview' | 'none'
 
+/** How the panel, `nuxt-backend status` and a capability's reason name each kind of deployment. */
+export const DEPLOYMENT_KIND_LABEL: Record<DevtoolsDeploymentKind, string> = {
+  'cloud-dev': 'cloud dev deployment',
+  'local': 'local deployment',
+  'anonymous': 'local deployment, no account',
+  'self-hosted': 'self-hosted backend',
+  'production': 'production deployment',
+  'preview': 'preview deployment',
+  'none': 'no deployment configured',
+}
+
 export interface DevtoolsDeployment {
   kind: DevtoolsDeploymentKind
   /** The `CONVEX_DEPLOYMENT` id, e.g. `dev:brave-fox-123`. */
@@ -79,28 +110,8 @@ export interface DevtoolsDeployment {
   dashboardUrl?: string
 }
 
-/** One built-in agent tool: its OAuth scope and whether config left it on. */
-export interface DevtoolsMcpTool {
-  name: string
-  scope: string
-}
-
-/** The agent (MCP) surface as configured. */
-export interface DevtoolsMcpStatus {
-  route: string
-  /** Where the endpoint exchanges an agent's OAuth token for a deployment token. */
-  exchangePath: string
-  tools: DevtoolsMcpTool[]
-  /** Every scope an agent can be granted. */
-  scopes: string[]
-}
-
 /** Redacted module-options snapshot — wiring flags only, no env values. */
 export interface DevtoolsOptionsSnapshot {
-  /** Auto-scaffold missing backend files on dev startup (`backend.scaffold`). */
-  scaffold: boolean
-  /** Dev-deployment env auto-provision (`backend.autoEnv`). */
-  autoEnv: boolean
   authRoute: string
 }
 
@@ -118,8 +129,17 @@ export interface DevtoolsServerInfo {
   deployment: DevtoolsDeployment
   pages: DevtoolsPageInfo[]
   findings: DevtoolsPreflightFinding[]
+  /**
+   * Every app capability, detected from the preflight's findings, the last doctor
+   * run's and the deployment env names last read.
+   */
+  capabilities: DevtoolsCapability[]
+  /**
+   * When the doctor run the capabilities read ran: `null` before the first, and
+   * again once an env file changes, which drops the run's findings.
+   */
+  doctorRanAt: number | null
   env: DevtoolsEnvPresence
-  mcp: DevtoolsMcpStatus
   /** Installed versions of the packages that matter for a bug report. */
   versions: Record<string, string>
 }
@@ -147,6 +167,100 @@ export interface DevtoolsCatalogSummary {
   synced: string[]
 }
 
+/** One component: the import it mounts from, and whether the app's `convex.config.ts` mounts it. */
+export interface DevtoolsMount {
+  /** The component's name, `crons` for `@convex-dev/crons/convex.config`. */
+  name: string
+  from: string
+  mounted: boolean
+  /** The scaffold mounts it (as opposed to one the app added). */
+  scaffold: boolean
+}
+
+/** One maintenance task's latest pass, as the backend component's `maintenance.status` reports it. */
+export interface DevtoolsMaintenanceTask {
+  task: string
+  startedAt: number
+  /** Absent until a pass has finished. */
+  finishedAt?: number
+  /** Rows the latest finished pass deleted; absent for a task that cannot count them. */
+  pruned?: number
+  totalPruned: number
+  /** The error that ended the latest pass early, if one did. */
+  error?: string
+}
+
+/**
+ * The backend's wiring and upkeep: the mounts and route groups, read from
+ * the app's own files against the scaffold's, and the component's
+ * maintenance, read from a dev deployment with the Convex CLI.
+ */
+export interface DevtoolsBackendHealth {
+  readAt: number
+  mounts: DevtoolsMount[]
+  /** Route groups the scaffold passes to `registerBackendRoutes` and `http.ts` does not. */
+  missingRoutes: string[]
+  maintenance:
+    | { status: 'ok', tasks: DevtoolsMaintenanceTask[] }
+    | { status: 'unavailable', reason: string }
+}
+
+/** One packaged email, as the dev deployment renders it with sample data. */
+export interface DevtoolsEmailPreview {
+  /** Unique among the previews: the template, with its variant (`otp-sign-in`). */
+  key: string
+  template: string
+  /** Which form of the template: a code's purpose. */
+  variant?: string
+  /** When the package sends it. */
+  note: string
+  to: string
+  subject: string
+  text: string
+  /** The HTML as a reader in light mode sees it, whatever the panel's theme. */
+  html: string
+  /** The same email in dark mode. */
+  htmlDark: string
+}
+
+/**
+ * The Email tab's previews: every packaged email in one language, from the
+ * app's `email:previewEmails` on the dev deployment. `missing`: the app's
+ * `backend/email.ts` does not export the preview functions;
+ * `unavailable`: no dev deployment, or the CLI failed.
+ */
+export interface DevtoolsEmailPreviews {
+  status: 'ok' | 'missing' | 'unavailable'
+  reason?: string
+  readAt: number
+  /** The language the previews are written in. */
+  locale?: string
+  /** Every language the app's emails are written in, the default first. */
+  locales: string[]
+  previews: DevtoolsEmailPreview[]
+}
+
+/** A preview sent to a test address, or why not. */
+export interface DevtoolsEmailPreviewSend {
+  status: 'sent' | 'missing' | 'unavailable'
+  reason?: string
+  /** The sandbox address it went to. */
+  to?: string
+  /** The id `send` returned, to look up its delivery. */
+  emailId?: string
+}
+
+/**
+ * The Bundles tab: what the last `nuxt-backend analyze` run measured.
+ * `empty`: no run has been made yet; `unavailable`: the run failed, with why.
+ */
+export interface DevtoolsBundles {
+  status: 'ok' | 'empty' | 'unavailable'
+  reason?: string
+  /** The last run's report; its Convex bundle is the one the tab refreshes. */
+  report?: AnalyzeReport
+}
+
 /** Called from the panel iframe, executed in the Nuxt dev server. */
 export interface ServerFunctions {
   getInfo(): DevtoolsServerInfo
@@ -158,12 +272,33 @@ export interface ServerFunctions {
   getDeploymentEnv(options?: { refresh?: boolean }): Promise<DevtoolsDeploymentEnv>
   /**
    * Run `nuxt-backend doctor`'s checks in the dev server against the dev
-   * deployment, all of them or `only` some services. One run per selection
+   * deployment, all of them or `only` some app capabilities. One run per selection
    * at a time; a second call for the same one joins it.
    */
   runDoctor(options?: { only?: string[] }): Promise<DevtoolsDoctorRun>
+  /**
+   * The mounts, the route groups and the maintenance health (a Convex CLI
+   * call, cached for a minute; `refresh` reads again). The maintenance is
+   * read from a dev deployment only.
+   */
+  getHealth(options?: { refresh?: boolean }): Promise<DevtoolsBackendHealth>
   /** Read `billing.catalog.ts` and `billing.generated.ts` afresh. */
   getCatalog(): Promise<DevtoolsCatalogSummary>
+  /**
+   * Every packaged email in `locale` (the default without one), as the dev
+   * deployment renders it: a Convex CLI call, never against production.
+   */
+  getEmailPreviews(options?: { locale?: string }): Promise<DevtoolsEmailPreviews>
+  /** Send one preview to one of the provider's test addresses through the dev deployment. */
+  sendEmailPreview(options: { key: string, locale?: string }): Promise<DevtoolsEmailPreviewSend>
+  /** The last `analyze` run, read from disk. It runs nothing. */
+  getBundles(): Promise<DevtoolsBundles>
+  /**
+   * Measure the backend's bundle now, as `nuxt-backend analyze --only convex`
+   * does: it bundles the functions again, so it runs only when the panel asks.
+   * One run at a time; a second call joins it.
+   */
+  runBundles(): Promise<DevtoolsBundles>
   /** Map a backend source file (`"billing.ts"`) to its path for open-in-editor. */
   resolveBackendSource(file: string): { filepath?: string }
 }

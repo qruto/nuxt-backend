@@ -9,6 +9,19 @@ export class BackendClientChunkError extends Error {
 }
 
 /**
+ * Where the backend client stands: `unavailable` in a build without a
+ * deployment URL (there is nothing to connect to), `deferred` until a page
+ * or a block asks for it, `loaded` once its plugin has run.
+ */
+export type BackendClientStatus = 'unavailable' | 'deferred' | 'loaded'
+
+/** Loads the client once; `status()` says, without loading anything, where it stands. */
+export interface BackendClientLoader {
+  (): Promise<void>
+  status: () => BackendClientStatus
+}
+
+/**
  * Load the backend client once: import nuxt-convex-module's client plugin
  * and run it. A build without a deployment URL rejects without importing:
  * the plugin would provide no client there, and a live block would crash on
@@ -19,21 +32,26 @@ export function createBackendClientLoader<Plugin>(options: {
   url: string | undefined
   load: () => Promise<{ default: Plugin }>
   run: (plugin: Plugin) => unknown
-}): () => Promise<void> {
+}): BackendClientLoader {
   let loading: Promise<void> | undefined
-  return () => {
+  let loaded = false
+  const load = () => {
     if (!options.url) return Promise.reject(new Error('[deferred-backend-client] This build has no backend URL to connect to.'))
     loading ??= options.load()
       .catch((cause: unknown) => {
         throw new BackendClientChunkError(cause)
       })
       .then(({ default: plugin }) => options.run(plugin))
-      .then(() => undefined, (error: unknown) => {
+      .then(() => {
+        loaded = true
+      }, (error: unknown) => {
         loading = undefined
         throw error
       })
     return loading
   }
+  const status = (): BackendClientStatus => !options.url ? 'unavailable' : loaded ? 'loaded' : 'deferred'
+  return Object.assign(load, { status })
 }
 
 /**

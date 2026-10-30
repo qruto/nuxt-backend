@@ -3,23 +3,35 @@
  * (`backend/billing.catalog.ts`) to the billing provider and write the id map
  * to `backend/billing.generated.ts`.
  *
- * Find-or-create only: every managed object is tagged
- * `metadata: { managedBy: 'nuxt-backend', key }` and looked up by that tag on
- * the next run, so re-running is idempotent. Nothing remote is ever updated
- * (prices on subscribed products are a dashboard task) or deleted — managed
- * objects whose key left the catalog are reported as drift. Granting stays
- * provider-native: plan/pack credits become meter-credit benefits attached to
- * the products, granted by the provider per cycle / at purchase.
+ * Find-or-create: every managed object is tagged
+ * `metadata: { managedBy: 'nuxt-backend', key }` — a plan's products also
+ * with their `interval`, one product per price in `prices: { month, year }`
+ * — and looked up by that tag on the next run, so re-running is idempotent.
+ * Nothing remote is ever deleted, and no price or credit grant a customer
+ * holds is rewritten: a changed name, price, units or rollover is reported
+ * as drift, like a managed object whose key left the catalog. Four writes
+ * go further: a plan's trial follows the catalog (it only decides what a new
+ * checkout gets), a plan's quotas follow it on its `<plan>-quotas` benefit,
+ * attached to products that exist already too, a `retired` plan's products
+ * are archived (subscribers keep them; nobody new buys them), and a pack's
+ * private gift twin follows its pack's live price and sheds benefits.
+ * The catalog's `discounts` (promotions) are the provider's own discounts,
+ * kept in line in place: name, code, dates, redemption caps and product
+ * scope always, the amount and months while nobody has redeemed one; a
+ * `retired` one is ended and its code freed. Granting stays provider-native:
+ * plan/pack credits become meter-credit benefits attached to the products,
+ * granted by the provider per cycle / at purchase.
  *
  * `--adopt key=<id>` records an existing product/meter/custom field under a
  * catalog key instead of creating a managed twin — benefits of adopted
  * products are left exactly as they are.
  */
-import { writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { defineCommand } from 'citty'
 import { runConvex } from '../convex-cli'
-import { deployKeyType, deploymentFlags, executeEnvPush, readEnvFiles } from '../env-push'
+import { billingEnvironment, type BackendEnvironment } from '../convex/environment'
+import { deployKeyType, deploymentBackendEnvironment, deploymentFlags, executeEnvPush, readEnvFiles } from '../env-push'
 import { resolveFunctionsDir } from '../scaffold'
 import { deploymentLabel, planWebhook, productsRefreshBlocker, readSyncDeployment, type SyncDeployment, type WebhookPlan } from './billing/deployment'
 import { loadCatalog } from './billing/doctor'
@@ -44,6 +56,14 @@ export interface BillingSyncCommandOptions {
   force?: boolean
   /** `key=<id>[,key=<id>…]`. */
   adopt?: string
+  /** The access token to sync with, over the env's: `deploy` holds the one it asked for. */
+  accessToken?: string
+  /**
+   * Write the production deployment whatever the environment synced: a demo
+   * or staging app (`BACKEND_ENVIRONMENT=sandbox`) bills in the sandbox from
+   * its production deployment. `deploy --sandbox` syncs it so.
+   */
+  production?: boolean
 }
 
 /** What `billing sync --json` prints. The webhook secret never appears in it. */
@@ -53,7 +73,11 @@ export interface BillingSyncReport {
   /** The deployment written — its client URL, from `convex function-spec` — or null when it could not be read. */
   deployment: string | null
   log: SyncLogEntry[]
-  /** The id map written, or `null` on a dry run. */
+  /**
+   * The id map written, or `null` when it already held these ids, or on a
+   * dry run. A deployment reads the map it was pushed with, so a written one
+   * reaches it with the next push.
+   */
   generated: string | null
   webhook: {
     /** The endpoint; null when the step was left out before one was known. */
@@ -79,6 +103,8 @@ export interface BillingSyncReport {
 
 export interface BillingSyncDeps {
   sync?: typeof syncBillingCatalog
+  /** Reads the `BACKEND_ENVIRONMENT` of the deployment the Convex CLI will write: `null` when unset or unreadable. */
+  readEnvironment?: (rootDir: string) => Promise<BackendEnvironment | null>
   /** Reads the deployment the sync writes, before anything is written. */
   readDeployment?: (rootDir: string, prod: boolean) => Promise<SyncDeployment>
   /** Sets one variable on the deployment, through the `env push` engine. */
@@ -116,37 +142,53 @@ function parseAdopt(raw: string | undefined): Record<string, string> {
  * secret on that deployment; under sandbox, a production key (a legacy key
  * with no type is one) would replace production's secret, and a project key
  * would write the deployment that key selects rather than the dev one
- * `.env.local` names.
+ * `.env.local` names. The exception is a demo or staging app: a production
+ * key for a deployment whose `BACKEND_ENVIRONMENT` is `sandbox` takes a
+ * sandbox sync, since the sandbox is what that deployment bills in.
  */
-function deployKeyRefusal(type: string | null, prod: boolean): string | null {
+function deployKeyRefusal(type: string | null, prod: boolean, deployed: BackendEnvironment | null): string | null {
   if (type === null) return null
   const reachesProduction = type === 'prod' || type === 'project'
   if (prod && !reachesProduction) {
     return `--env production refused: CONVEX_DEPLOY_KEY is a ${type} deployment key, so the webhook secret would land on that deployment instead of production. Use the production deploy key.`
   }
-  if (!prod && reachesProduction) {
+  if (!prod && reachesProduction && !(type === 'prod' && deployed === 'sandbox')) {
     return type === 'prod'
-      ? 'Sandbox sync refused: CONVEX_DEPLOY_KEY is a production deploy key, and the Convex CLI follows it whatever the flags say — the sandbox webhook secret would replace production\'s. Unset it for a sandbox sync, or sync production with --env production.'
+      ? 'Sandbox sync refused: CONVEX_DEPLOY_KEY is a production deploy key, and the Convex CLI follows it whatever the flags say — the sandbox webhook secret would replace production\'s. Unset it for a sandbox sync, or sync production with --env production. (A demo or staging deployment whose BACKEND_ENVIRONMENT is sandbox takes a sandbox sync with its own production key.)'
       : 'Sandbox sync refused: CONVEX_DEPLOY_KEY is a project deploy key, so the Convex CLI would write the deployment that key selects, not the dev deployment .env.local names. Unset it for a sandbox sync, or sync production with --env production.'
   }
   return null
 }
 
+/**
+ * Which catalog a sync writes: `--env`, else the environment the deployment
+ * bills in, read from its `BACKEND_ENVIRONMENT` (the provider's production
+ * only on `production`, its sandbox for every other value), else the
+ * sandbox. Production is only ever synced as asked or as the deployment says.
+ */
+function resolveSyncEnvironment(options: BillingSyncCommandOptions, deployed: BackendEnvironment | null): { environment: Environment } | { refusal: string } {
+  const environment = options.environment || billingEnvironment(deployed ?? undefined)
+  if (environment === 'sandbox' || environment === 'production') return { environment }
+  return { refusal: `Unknown billing environment '${environment}' — use sandbox or production.` }
+}
+
 /** What a sync runs against, or why it can't run. */
-async function resolveSyncInputs(rootDir: string, options: BillingSyncCommandOptions): Promise<SyncInputs | { refusal: string }> {
+async function resolveSyncInputs(rootDir: string, options: BillingSyncCommandOptions, deps: BillingSyncDeps): Promise<SyncInputs | { refusal: string }> {
   const localEnv = readEnvFiles(rootDir)
-  // An empty value (`BILLING_ENVIRONMENT=` in .env.local) means unset.
-  const environment = [options.environment, process.env.BILLING_ENVIRONMENT, localEnv.BILLING_ENVIRONMENT].find(Boolean) ?? 'sandbox'
-  if (environment !== 'sandbox' && environment !== 'production') {
-    // A value typed as --env is repeated back; one read from the env is not.
-    return { refusal: options.environment ? `Unknown billing environment '${environment}' — use sandbox or production.` : 'BILLING_ENVIRONMENT is neither sandbox nor production — correct it, or pass --env.' }
-  }
-  const prod = environment === 'production'
   // Where the Convex CLI looks for the key: the process env, then
   // .env.local, then .env.
-  const keyRefusal = deployKeyRefusal(deployKeyType({ ...localEnv, ...process.env }), prod)
+  const keyType = deployKeyType({ ...localEnv, ...process.env })
+  // The deployment the CLI will write says what it bills in, when no
+  // --env says, and whether a production key may take a sandbox sync.
+  const needsDeployment = !options.environment || (options.environment === 'sandbox' && keyType === 'prod')
+  const deployed = needsDeployment ? await (deps.readEnvironment ?? (dir => deploymentBackendEnvironment(dir)))(rootDir) : null
+  const target = resolveSyncEnvironment(options, deployed)
+  if ('refusal' in target) return target
+  const { environment } = target
+  const prod = environment === 'production' || options.production === true
+  const keyRefusal = deployKeyRefusal(keyType, prod, deployed)
   if (keyRefusal) return { refusal: keyRefusal }
-  const accessToken = process.env.BILLING_ACCESS_TOKEN || localEnv.BILLING_ACCESS_TOKEN
+  const accessToken = options.accessToken || process.env.BILLING_ACCESS_TOKEN || localEnv.BILLING_ACCESS_TOKEN
   if (!accessToken) {
     return { refusal: 'BILLING_ACCESS_TOKEN is not set (env or .env.local) — create an organization access token in the provider dashboard.' }
   }
@@ -154,16 +196,25 @@ async function resolveSyncInputs(rootDir: string, options: BillingSyncCommandOpt
   if (!loaded) {
     return { refusal: 'No billing.catalog.ts found — run `npx nuxt-backend init` (or create backend/billing.catalog.ts) first.' }
   }
+  // Before the provider hears of anything: the id map the run rewrites at
+  // the end must load, or it would lose the other environment's ids.
+  const unreadable = await loadGenerated(rootDir).then(() => null, (error: Error) => error.message)
+  if (unreadable) return { refusal: unreadable }
   return { environment, prod, accessToken, catalog: loaded.catalog, adopt: parseAdopt(options.adopt), localEnv }
 }
 
-/** Merge this environment's ids into billing.generated.ts; returns its path. */
-async function writeGenerated(rootDir: string, environment: Environment, ids: CatalogIds, print: Print): Promise<string> {
+/** Merge this environment's ids into billing.generated.ts; resolves with its path once written, or null when it held them already. */
+async function writeGenerated(rootDir: string, environment: Environment, ids: CatalogIds, print: Print): Promise<string | null> {
   const generated = await loadGenerated(rootDir)
   generated[environment] = ids
   const path = join(rootDir, resolveFunctionsDir(rootDir), 'billing.generated.ts')
-  writeFileSync(path, renderGenerated(generated))
-  print(`[nuxt-backend] Wrote ${path}`)
+  const text = renderGenerated(generated)
+  if (existsSync(path) && readFileSync(path, 'utf8') === text) {
+    print(`[nuxt-backend] ${path} holds these ids already.`)
+    return null
+  }
+  writeFileSync(path, text)
+  print(`[nuxt-backend] Wrote ${path}: commit it, and push the backend for the deployment to read it.`)
   return path
 }
 
@@ -280,7 +331,7 @@ async function refreshProducts(rootDir: string, context: { deployment: SyncDeplo
  * why it cannot run. Under production, `.env.local`'s site URL is dev's.
  */
 async function resolveSyncTarget(rootDir: string, options: BillingSyncCommandOptions, deps: BillingSyncDeps): Promise<{ inputs: SyncInputs, deployment: SyncDeployment, plan: GoingAhead } | { refusal: string }> {
-  const inputs = await resolveSyncInputs(rootDir, options)
+  const inputs = await resolveSyncInputs(rootDir, options, deps)
   if ('refusal' in inputs) return inputs
   const { prod, localEnv } = inputs
   const deployment = await (deps.readDeployment ?? readSyncDeployment)(rootDir, prod)
@@ -295,12 +346,12 @@ async function resolveSyncTarget(rootDir: string, options: BillingSyncCommandOpt
  * writes the production deployment; sandbox writes the one the Convex CLI
  * selects — the one `.env.local` names.
  */
-export async function runBillingSync(rootDir: string, options: BillingSyncCommandOptions, deps: BillingSyncDeps = {}): Promise<{ exitCode: 0 | 1, report: BillingSyncReport | null }> {
+export async function runBillingSync(rootDir: string, options: BillingSyncCommandOptions, deps: BillingSyncDeps = {}): Promise<{ exitCode: 0 | 1, report: BillingSyncReport | null, refusal?: string }> {
   const print = deps.print ?? (line => console.log(line))
   const target = await resolveSyncTarget(rootDir, options, deps)
   if ('refusal' in target) {
     console.error(`[nuxt-backend] ${target.refusal}`)
-    return { exitCode: 1, report: null }
+    return { exitCode: 1, report: null, refusal: target.refusal }
   }
   const { inputs: { environment, prod, accessToken, catalog, adopt }, deployment, plan } = target
   const dryRun = options.dryRun === true
@@ -328,13 +379,13 @@ export const billingSync = withContract('billing sync', {
   json: '{ environment, dryRun, deployment, log: [{ action, kind, key, id?, note? }], generated, webhook: { url, action: "created" | "exists" | "would-create" | "skipped", secret: "stored" | "kept" | "not-stored" | "none", note? }, products: { status: "synced" | "failed" | "skipped", note? } }',
   exitCodes: {
     0: 'Synced, or a dry run. A webhook or product step that could not run is reported, not fatal',
-    1: 'Refused or failed: unknown environment, no access token or catalog, a deploy key for the other kind of deployment, a production webhook URL that cannot be derived, a webhook URL on a deployment other than the one written, a provider error, or a webhook secret that belongs on the deployment and could not be stored',
+    1: 'Refused or failed: unknown environment, no access token or catalog, a catalog plan still in the 0.1 shape (`interval` and `price`) or priced at no interval, an id map (`billing.generated.ts`) that does not load, a deploy key for the other kind of deployment, a production webhook URL that cannot be derived, a webhook URL on a deployment other than the one written, a provider error, or a webhook secret that belongs on the deployment and could not be stored',
   },
 }, defineCommand({
-  meta: { name: 'sync', description: 'Push backend/billing.catalog.ts — meters, custom fields, feature/credit benefits, plans (trials, usage prices, tax behaviour) and packs — to the billing provider, store the webhook endpoint\'s secret on the deployment, write billing.generated.ts (find-or-create, never deletes) and load the deployment\'s products. Sandbox writes the deployment .env.local names; production writes the production deployment' },
+  meta: { name: 'sync', description: 'Push backend/billing.catalog.ts — meters, custom fields, feature/credit benefits, plans (a product per monthly and yearly price, trials, usage prices, tax behaviour; retired plans archived) and packs — to the billing provider, store the webhook endpoint\'s secret on the deployment, write billing.generated.ts (find-or-create, never deletes; drift reported) and load the deployment\'s products. Sandbox writes the deployment .env.local names; production writes the production deployment' },
   args: {
     'cwd': { type: 'string', description: 'Project directory', default: '.' },
-    'env': { type: 'string', description: 'Target environment: sandbox | production (default: BILLING_ENVIRONMENT or sandbox)' },
+    'env': { type: 'string', description: 'Target environment: sandbox | production (default: the environment the deployment bills in, read from its BACKEND_ENVIRONMENT, else sandbox)' },
     'dry-run': { type: 'boolean', description: 'Print the plan without creating anything', default: false },
     'webhook': { type: 'string', description: 'Provision the webhook endpoint at this URL (default: <site>/billing/events of the deployment written; pass "off" to skip)' },
     'force': { type: 'boolean', description: 'Store the webhook endpoint\'s secret even over a BILLING_WEBHOOK_SECRET the deployment already holds', default: false },

@@ -1,0 +1,126 @@
+/*
+ * The legal pages (privacy, terms, subprocessors, accessibility), on their
+ * data-legal hooks. Theme through the --bk-* tokens (tokens.css) or the
+ * hooks themselves: every rule sits in `@layer nuxt-backend`, so any rule of
+ * the app's wins.
+ */
+@layer nuxt-backend {
+  [data-legal='document'] {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 48rem;
+    color: var(--bk-ink);
+    line-height: 1.55;
+  }
+
+  :where([data-legal='document']) p {
+    margin: 0;
+  }
+
+  [data-legal='disclaimer'],
+  [data-legal='unset'] {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    background: var(--bk-surface);
+    color: var(--bk-muted);
+  }
+
+  [data-legal='unset'] {
+    border-color: var(--bk-warn);
+    color: var(--bk-ink);
+  }
+
+  [data-legal='section'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  [data-legal='title'] {
+    margin: 0.5rem 0 0;
+    font-size: 1.25em;
+  }
+
+  [data-legal='subtitle'] {
+    margin: 0.5rem 0 0;
+    font-size: 1em;
+  }
+
+  [data-legal='controller'] {
+    display: flex;
+    flex-direction: column;
+    font-style: normal;
+  }
+
+  [data-legal='data-map'],
+  [data-legal='data-rows'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+  }
+
+  [data-legal='data-row'] {
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--bk-edge);
+  }
+
+  :where([data-legal='data-row']) dd {
+    margin: 0.25rem 0 0;
+    color: var(--bk-muted);
+  }
+
+  [data-legal='label'] {
+    font-weight: 600;
+  }
+
+  [data-legal='table-scroll'] {
+    overflow-x: auto;
+  }
+
+  :where([data-legal='processors'], [data-legal='storage']) {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375em;
+  }
+
+  :where([data-legal='processors'], [data-legal='storage']) :is(th, td) {
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--bk-edge);
+    text-align: start;
+    vertical-align: top;
+  }
+
+  :where([data-legal='processors'], [data-legal='storage']) thead th {
+    color: var(--bk-muted);
+    font-weight: 600;
+  }
+
+  :where([data-legal='storage']) code {
+    overflow-wrap: anywhere;
+  }
+
+  [data-legal='rights'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+    padding-inline-start: 1.25rem;
+  }
+
+  :where([data-legal='links']) ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin: 0;
+    padding: 0.75rem 0 0;
+    border-top: 1px solid var(--bk-edge);
+    list-style: none;
+  }
+
+  :where([data-legal='document']) a {
+    color: var(--bk-accent);
+  }
+}

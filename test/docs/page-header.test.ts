@@ -2,6 +2,9 @@ import { existsSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 import { BACKEND_PAGE_DEFS } from '../../src/pages'
+import { ROOT_PAGES } from '../../website/shared/module-pages'
+import { expected } from '../../scripts/sync-panels.mjs'
+import { playgroundRoutes } from '../helpers/playground-routes'
 import { REPOSITORY } from '../../website/shared/page-keys'
 import { BACKEND_CALL, namedComponents, needsBackend, pascalCase, siteComponents } from './components'
 import { at, contentFile, contentRoute, GENERATED_REFERENCE, read, walk } from './helpers'
@@ -26,12 +29,37 @@ const withField = (name: string) => handWritten.flatMap((file) => {
   return typeof value === 'string' && value ? [[contentRoute(file), value] as const] : []
 })
 
-/** A site route the playground serves: a page file, or a module page the site mounts there. */
+/**
+ * Where the site serves the playground: Panels' pages and the module's, under
+ * /playground (website/shared/panels.ts, website/shared/module-pages.ts), and
+ * the module pages left at their default path (/login).
+ */
+const MOUNTED = new Set([
+  ...playgroundRoutes(),
+  ...BACKEND_PAGE_DEFS.filter(def => ROOT_PAGES.has(def.key)).map(def => def.defaultPath),
+])
+
+/** The page files Panels' sync writes, which serve under /playground, not where they sit. */
+const SYNCED = new Set([...expected().keys()].map(file => `website/${file}`))
+
+/** A site route the site serves: a page file of the site's own, or a playground route. */
 function servedBySite(route: string): boolean {
   const file = `website/pages${route}`
-  if (existsSync(at(`${file}.vue`)) || existsSync(at(`${file}/index.vue`))) return true
-  return BACKEND_PAGE_DEFS.some(def => route === `/playground/vanilla${def.defaultPath}`)
+  if ([`${file}.vue`, `${file}/index.vue`].some(page => existsSync(at(page)) && !SYNCED.has(page))) return true
+  return MOUNTED.has(route)
 }
+
+describe('the routes the site serves', () => {
+  it('are Panels\' and the module\'s pages where the site mounts them, and no copy of a root page in the playground', () => {
+    expect(servedBySite('/playground')).toBe(true)
+    expect(servedBySite('/playground/strips')).toBe(true)
+    expect(servedBySite('/playground/pricing')).toBe(true)
+    expect(servedBySite('/login')).toBe(true)
+    for (const route of ['/playground/login', '/strips', '/pricing', '/playground/platform/billing']) {
+      expect(servedBySite(route), route).toBe(false)
+    }
+  })
+})
 
 describe('the header keys', () => {
   it.each(withField('playground'))('%s: Try live opens a playground page (%s)', (_route, target) => {
@@ -104,21 +132,84 @@ describe('live demos', () => {
     expect(marked).toEqual(used)
   })
 
-  // The client loads when the block scrolls into view, and only then may a
-  // part that needs it render: in <DeferredBackend>'s default slot. Its
-  // fallback, and the rest of the demo, render before it.
-  it.each(demos)('%s keeps what needs the client in <DeferredBackend>\'s default slot', (name) => {
+  /**
+   * A block's own markup and what it hands each named slot: `<template
+   * #name>` blocks, nested templates counted, so a `v-if` template inside
+   * one does not end it early.
+   */
+  function slotTemplates(block: string): string[] {
+    const found: string[] = []
+    const tags = /<template\b[^>]*>|<\/template>/g
+    let depth = 0
+    let start = -1
+    for (const match of block.matchAll(tags)) {
+      if (match[0].startsWith('</')) {
+        depth--
+        if (depth === 0 && start >= 0) {
+          found.push(block.slice(start, match.index + match[0].length))
+          start = -1
+        }
+        continue
+      }
+      if (depth === 0 && /^<template\s+#[\w-]+/.test(match[0])) start = match.index
+      if (start >= 0) depth++
+    }
+    return found
+  }
+
+  /** The demo's boundary, <DemoBlock> or <DeferredBackend>, split into its default slot and what renders before the client. */
+  function boundary(template: string) {
+    const block = template.match(/<(DemoBlock|DeferredBackend)[\s>][\s\S]*?<\/\1>/)?.[0]
+    if (!block) return undefined
+    const named = slotTemplates(block)
+    const inner = block.slice(block.indexOf('>') + 1, block.lastIndexOf('</'))
+    return {
+      live: named.reduce((rest, part) => rest.replace(part, ''), inner),
+      early: template.replace(block, '') + named.join(''),
+    }
+  }
+
+  // The client loads when the block scrolls into view or the reader starts
+  // it, and only then may a part that needs it render: in the default slot
+  // of <DemoBlock>, which renders it in <DeferredBackend>'s, or of a bare
+  // <DeferredBackend>. The fallback, `#about` and the rest of the demo
+  // render before it.
+  it.each(demos)('%s keeps what needs the client in the deferred default slot', (name) => {
     const file = components.get(name)
     expect(file, `no component for ::${name}`).toBeDefined()
     const source = read(file!)
-    const template = source.slice(source.indexOf('<template>'))
-    const block = template.match(/<DeferredBackend[\s>][\s\S]*?<\/DeferredBackend>/)?.[0]
-    expect(block, `${name} holds no <DeferredBackend>`).toBeDefined()
-    const fallback = block!.match(/<template #fallback[\s\S]*?<\/template>/)?.[0] ?? ''
-    const early = template.replace(block!, '') + fallback
-    const live = namedComponents(block!.replace(fallback, '')).filter(child => child !== 'DeferredBackend' && needsBackend(child, components))
+    const parts = boundary(source.slice(source.indexOf('<template>')))
+    expect(parts, `${name} holds no <DemoBlock> or <DeferredBackend>`).toBeDefined()
+    const live = namedComponents(parts!.live).filter(child => needsBackend(child, components))
     expect(live.length, `${name}'s live part`).toBeGreaterThan(0)
-    expect(namedComponents(early).filter(child => needsBackend(child, components)), 'needs the client before it has loaded').toEqual([])
+    expect(namedComponents(parts!.early).filter(child => needsBackend(child, components)), 'needs the client before it has loaded').toEqual([])
     expect(source.slice(0, source.indexOf('<template>')), `${name} calls the backend itself`).not.toMatch(BACKEND_CALL)
+  })
+
+  // A lazy component's code is its own chunk, fetched when it first renders:
+  // with the client, not with the page.
+  it.each(demos)('%s loads its live part lazily', (name) => {
+    const source = read(components.get(name)!)
+    const { live } = boundary(source.slice(source.indexOf('<template>')))!
+    const tags = [...live.matchAll(/<([A-Z][A-Za-z0-9]*)[\s/>]/g)].map(match => match[1]!)
+    const needing = tags.filter(tag => needsBackend(tag.replace(/^Lazy(?=[A-Z])/, ''), components))
+    expect(needing.length).toBeGreaterThan(0)
+    for (const tag of needing) expect(tag, `${name} renders ${tag} eagerly`).toMatch(/^Lazy[A-Z]/)
+  })
+
+  it('<DemoBlock> renders its default slot only inside <DeferredBackend>\'s, never in the fallback', () => {
+    const source = read('website/components/DemoBlock.vue')
+    const template = source.slice(source.indexOf('<template>'))
+    const parts = boundary(template.replace(/<DemoBlock\b/g, '<Frame'))
+    expect(parts).toBeDefined()
+    const isDefault = /<slot\s*\/>|<slot>/
+    expect(parts!.live).toMatch(isDefault)
+    expect(parts!.early).not.toMatch(isDefault)
+    expect(parts!.early).toMatch(/<slot\s+name="about"/)
+  })
+
+  it('reads a slot\'s template whole, nested templates and all', () => {
+    expect(slotTemplates('<X><template #fallback="{ a }"><template v-if="a">1</template><b /></template><Live /></X>'))
+      .toEqual(['<template #fallback="{ a }"><template v-if="a">1</template><b /></template>'])
   })
 })

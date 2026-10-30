@@ -27,6 +27,10 @@
     // maps `nuxt-backend/*` to the sources, which reach into `src/convex` —
     // the world this config excludes and `tsconfig.convex.json` owns.
     "test/types",
+    // An app's test files, run in a starter app with the packed package (CI's
+    // `pack` job): they import `nuxt-backend/test-utils` and `#components` as
+    // that app resolves them, which this root app cannot.
+    "test/fixtures/test-utils",
     // A local scan workspace (SECURITY.md), never part of the build.
     ".deepsec"
   ]

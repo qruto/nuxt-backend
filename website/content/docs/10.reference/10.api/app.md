@@ -22,6 +22,18 @@ Defined in: [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/
 
 The env declaration the scaffolded `convex.config.ts` passes to `defineApp`.
 
+***
+
+### BackendEnvironment
+
+```ts
+type BackendEnvironment = "development" | "preview" | "sandbox" | "production";
+```
+
+Defined in: [src/convex/environment.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/environment.ts)
+
+The kind of deployment the backend runs on.
+
 ## Variables
 
 ### backendEnv
@@ -30,14 +42,23 @@ The env declaration the scaffolded `convex.config.ts` passes to `defineApp`.
 const backendEnv: {
   AUTH_SECRET: VString<string, "required">;
   SITE_URL: VString<string, "required">;
-  AUTH_TRUST_LOCAL_ORIGINS: VString<string | undefined, "optional">;
+  BACKEND_ENVIRONMENT: VUnion<"preview" | "development" | "sandbox" | "production" | undefined, [VLiteral<"development", "required">, VLiteral<"preview", "required">, VLiteral<"sandbox", "required">, VLiteral<"production", "required">], "optional", never>;
   EMAIL_API_KEY: VString<string | undefined, "optional">;
   EMAIL_FROM: VString<string | undefined, "optional">;
-  EMAIL_TEST_MODE: VString<string | undefined, "optional">;
+  EMAIL_MARKETING_FROM: VString<string | undefined, "optional">;
+  EMAIL_REGION: VUnion<"us-east-1" | "eu-west-1" | "sa-east-1" | "ap-northeast-1" | undefined, [VLiteral<"us-east-1", "required">, VLiteral<"eu-west-1", "required">, VLiteral<"sa-east-1", "required">, VLiteral<"ap-northeast-1", "required">], "optional", never>;
   EMAIL_WEBHOOK_SECRET: VString<string | undefined, "optional">;
+  EMAIL_DEV_INBOX: VString<string | undefined, "optional">;
   BILLING_ACCESS_TOKEN: VString<string | undefined, "optional">;
   BILLING_WEBHOOK_SECRET: VString<string | undefined, "optional">;
-  BILLING_ENVIRONMENT: VUnion<"sandbox" | "production" | undefined, [VLiteral<"sandbox", "required">, VLiteral<"production", "required">], "optional", never>;
+  AI_GATEWAY_API_KEY: VString<string | undefined, "optional">;
+  PROVENANCE_PRIVATE_KEY: VString<string | undefined, "optional">;
+  PROVENANCE_CERTIFICATE: VString<string | undefined, "optional">;
+  PUSH_PUBLIC_KEY: VString<string | undefined, "optional">;
+  PUSH_PRIVATE_KEY: VString<string | undefined, "optional">;
+  PROTECTION_PROOF_SECRET: VString<string | undefined, "optional">;
+  PROTECTION_CHALLENGE_SECRET_KEY: VString<string | undefined, "optional">;
+  MONITORING_DSN: VString<string | undefined, "optional">;
 };
 ```
 
@@ -52,28 +73,58 @@ base URL and every emailed link).
 
 Optional — the deploy succeeds and the feature degrades in a designed,
 observable way until configured (`nuxt-backend doctor` reports each):
+- `BACKEND_ENVIRONMENT` — the kind of deployment: `development`,
+  `preview`, `sandbox` or `production`. `env push` derives it from the
+  deployment; `sandbox` is the one value set by hand. Every mode follows
+  from it (see `src/convex/environment.ts`): email test mode and the
+  billing sandbox everywhere but `production`, the local origins trusted
+  and the sign-in codes logged on `development` alone, and the name the
+  backend's reports carry. Unset, every provider stays in its test mode and
+  nothing local is trusted.
 - `EMAIL_API_KEY` — sends no-op with a console warn, and a sign-in code
-  or an invitation to a real address is refused with a 400 (set
-  `NUXT_BACKEND_LOG_OTP=1` to echo codes to the dev console instead).
+  or an invitation to a real address is refused with a 400 (on
+  `development` the code prints to the dev console instead).
 - `EMAIL_FROM` — falls back to the provider's onboarding sender, which
   reaches no real recipient: codes and invitations to one are refused.
-- `EMAIL_TEST_MODE` — defaults to ON (anything but `'false'`): only the
-  provider's test addresses get mail; codes and invitations to others are
-  refused.
+- `EMAIL_MARKETING_FROM` — the sender of marketing mail (broadcasts), on a
+  subdomain apart from `EMAIL_FROM`'s. Unset, marketing mail goes from
+  `EMAIL_FROM`.
+- `EMAIL_REGION` — the region the sending domain sends from (`us-east-1`,
+  `eu-west-1`, `sa-east-1` or `ap-northeast-1`). The provider picks the
+  region by the domain; the value records it for the checks.
 - `EMAIL_WEBHOOK_SECRET` — delivery events are rejected until set.
+- `EMAIL_DEV_INBOX` — `1` publishes the dev inbox to pages
+  (`getSandboxInbox`) on a deployment outside production; `nuxt-backend
+  dev` sets it on dev deployments. Unset, the page reader answers nothing.
 - `BILLING_ACCESS_TOKEN` — billing queries return empty; checkout and other
   billing actions fail on invocation.
 - `BILLING_WEBHOOK_SECRET` — billing events are rejected until set
   (`syncEntitlements` remains the on-demand fallback).
-- `BILLING_ENVIRONMENT` — defaults to `'sandbox'`.
+- `AI_GATEWAY_API_KEY` — the Vercel AI Gateway's own name, read as it is:
+  where a `provider/model` id goes when the Convex AI Gateway does not
+  answer it (a free plan, a self-hosted deployment). Without either, the id
+  is refused when called.
+- `PROVENANCE_PRIVATE_KEY`, `PROVENANCE_CERTIFICATE` — the key that signs
+  the content credentials `ctx.storeImage` writes (`setupAi({ provenance })`)
+  and its certificate chain. Unset, generated images carry the IPTC source
+  type and no signed manifest. `env push` generates both.
+- `PROTECTION_PROOF_SECRET` — the auth routes that send a code take no
+  proof of a bot check until set; the app's server signs proofs with the
+  same value (`verifyHuman` takes them too).
+- `PROTECTION_CHALLENGE_SECRET_KEY` — those routes take no challenge
+  answer until set; the deployment verifies each with the provider.
+- `MONITORING_DSN` — where the backend posts error reports from its
+  actions and its cron check-ins (forwarded to the `backend` component
+  for its maintenance cron). Unset: nothing is reported from the backend;
+  the browser and the Nuxt server report on their own DSN.
 
 The names are service-neutral on purpose: the package hides its underlying
-providers behind the general capability (auth, email, billing).
+providers behind the general capability (auth, email, billing, protection).
 
 The scaffolded `convex.config.ts` declares these with
-`defineApp({ env: backendEnv })` and forwards the `EMAIL_*` refs to the
-`backend` component. Extend the set for your own vars (the env proxy
-throws on undeclared ones):
+`defineApp({ env: backendEnv })` and forwards the `EMAIL_*`,
+`BACKEND_ENVIRONMENT` and `MONITORING_DSN` refs to the `backend` component.
+Extend the set for your own vars (the env proxy throws on undeclared ones):
 `defineApp({ env: { ...backendEnv, MY_VAR: v.optional(v.string()) } })`.
 
 #### Type Declaration
@@ -82,11 +133,50 @@ throws on undeclared ones):
 | ------ | ------ | ------ |
 | <a id="property-auth_secret"></a> `AUTH_SECRET` | `VString`\<`string`, `"required"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-site_url"></a> `SITE_URL` | `VString`\<`string`, `"required"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
-| <a id="property-auth_trust_local_origins"></a> `AUTH_TRUST_LOCAL_ORIGINS` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-backend_environment"></a> `BACKEND_ENVIRONMENT` | `VUnion`\<`"preview"` \| `"development"` \| `"sandbox"` \| `"production"` \| `undefined`, \[`VLiteral`\<`"development"`, `"required"`\>, `VLiteral`\<`"preview"`, `"required"`\>, `VLiteral`\<`"sandbox"`, `"required"`\>, `VLiteral`\<`"production"`, `"required"`\>\], `"optional"`, `never`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-email_api_key"></a> `EMAIL_API_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-email_from"></a> `EMAIL_FROM` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
-| <a id="property-email_test_mode"></a> `EMAIL_TEST_MODE` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-email_marketing_from"></a> `EMAIL_MARKETING_FROM` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-email_region"></a> `EMAIL_REGION` | `VUnion`\<`"us-east-1"` \| `"eu-west-1"` \| `"sa-east-1"` \| `"ap-northeast-1"` \| `undefined`, \[`VLiteral`\<`"us-east-1"`, `"required"`\>, `VLiteral`\<`"eu-west-1"`, `"required"`\>, `VLiteral`\<`"sa-east-1"`, `"required"`\>, `VLiteral`\<`"ap-northeast-1"`, `"required"`\>\], `"optional"`, `never`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-email_webhook_secret"></a> `EMAIL_WEBHOOK_SECRET` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-email_dev_inbox"></a> `EMAIL_DEV_INBOX` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-billing_access_token"></a> `BILLING_ACCESS_TOKEN` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-billing_webhook_secret"></a> `BILLING_WEBHOOK_SECRET` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
-| <a id="property-billing_environment"></a> `BILLING_ENVIRONMENT` | `VUnion`\<`"sandbox"` \| `"production"` \| `undefined`, \[`VLiteral`\<`"sandbox"`, `"required"`\>, `VLiteral`\<`"production"`, `"required"`\>\], `"optional"`, `never`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-ai_gateway_api_key"></a> `AI_GATEWAY_API_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-provenance_private_key"></a> `PROVENANCE_PRIVATE_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-provenance_certificate"></a> `PROVENANCE_CERTIFICATE` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-push_public_key"></a> `PUSH_PUBLIC_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-push_private_key"></a> `PUSH_PRIVATE_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-protection_proof_secret"></a> `PROTECTION_PROOF_SECRET` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-protection_challenge_secret_key"></a> `PROTECTION_CHALLENGE_SECRET_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-monitoring_dsn"></a> `MONITORING_DSN` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+
+## Functions
+
+### backendEnvironment()
+
+```ts
+function backendEnvironment(): BackendEnvironment | undefined;
+```
+
+Defined in: [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts)
+
+The kind of deployment your functions run on, as its `BACKEND_ENVIRONMENT`
+says: `development`, `preview`, `sandbox` or `production`. `undefined`
+when it is unset or none of the four, which every mode of the package
+reads as the safe one: providers in their test modes, nothing local
+trusted. Read it where your own code behaves differently on a demo or a
+preview, the same way the package's email, billing and auth do.
+
+#### Returns
+
+[`BackendEnvironment`](#backendenvironment-3) \| `undefined`
+
+#### Example
+
+```ts [backend/strips.ts]
+import { backendEnvironment } from 'nuxt-backend/app'
+
+// A public demo draws from canned ideas only.
+const demo = backendEnvironment() === 'sandbox'
+```

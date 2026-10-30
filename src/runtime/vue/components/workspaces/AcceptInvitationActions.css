@@ -1,0 +1,21 @@
+/*
+ * AcceptInvitationActions's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-invitation='actions'] {
+    display: flex;
+    gap: 0.6rem;
+  }
+
+  [data-invitation='accept'] {
+    background: var(--bk-accent);
+    border-color: var(--bk-accent);
+    color: var(--bk-on-accent);
+  }
+
+  [data-invitation='decline'] {
+    color: var(--bk-muted);
+  }
+}

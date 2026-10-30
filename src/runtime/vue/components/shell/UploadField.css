@@ -1,0 +1,79 @@
+/*
+ * UploadField's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-upload='field'] {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border: 1px dashed var(--bk-edge);
+    border-radius: var(--bk-radius);
+    background: var(--bk-surface);
+    color: var(--bk-ink);
+  }
+
+  [data-upload='field'][data-dragging] {
+    border-style: solid;
+    border-color: var(--bk-accent);
+  }
+
+  [data-upload='label'] {
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  [data-upload='picker'],
+  [data-upload='file'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  [data-upload='choose'],
+  [data-upload='cancel'] {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  [data-upload='choose'][aria-disabled='true'] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  [data-upload='choose']:focus-visible,
+  [data-upload='cancel']:focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 2px;
+  }
+
+  [data-upload='drop'],
+  [data-upload='name'] {
+    color: var(--bk-muted);
+    font-size: 0.85rem;
+  }
+
+  [data-upload='progress'] {
+    flex: 1;
+    min-width: 6rem;
+    accent-color: var(--bk-accent);
+  }
+
+  [data-upload='status'] {
+    margin: 0;
+    font-size: 0.85rem;
+  }
+
+  [data-upload='error'] {
+    margin: 0;
+    color: var(--bk-error);
+    font-size: 0.85rem;
+  }
+}

@@ -23,6 +23,15 @@ extend-exclude = [
   ".claude/",
   ".fallow/",
   ".qa/",
+  # Translations: the words are German, Spanish, French and Russian, not misspelt English.
+  "**/i18n/locales/*.json",
+  "src/runtime/locales/de.json",
+  "src/runtime/locales/es.json",
+  "src/runtime/locales/fr.json",
+  "src/runtime/locales/ru.json",
+  # Generated from those files by `pnpm generate` (scripts/label-messages.mjs).
+  "src/convex/label-translations.ts",
+  "**/utils/email-messages.ts",
 ]
 
 [default.extend-words]
@@ -36,3 +45,19 @@ mis = "mis"
 unparseable = "unparseable"
 # `activePendings` — the plural of the `pendingSpends` entries, not "pending".
 Pendings = "Pendings"
+# `COSE` — CBOR Object Signing and Encryption (RFC 9052), the signature format
+# of content credentials (src/convex/c2pa).
+COSE = "COSE"
+cose = "cose"
+# `ALPH` — the WebP container's alpha chunk tag (src/convex/c2pa/formats.ts).
+ALPH = "ALPH"
+# `Sie` — the German formal "you", named on the translation page.
+Sie = "Sie"
+
+[default]
+extend-ignore-re = [
+  # Base64url key material in test vectors (RFC 8291's worked example, push keys): random letters, not words.
+  "[A-Za-z0-9_-]{40,}",
+  # A hash format's tag between dollar signs, such as `$ba$`.
+  "\\$[a-z]{2}\\$",
+]

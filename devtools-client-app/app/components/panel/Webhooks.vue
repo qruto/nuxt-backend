@@ -2,6 +2,7 @@
 import { outcomeSignal } from '~/utils/signal'
 
 const state = usePanelState()
+const panel = usePanel()
 
 const service = ref<'all' | 'billing' | 'email'>('all')
 const problemsOnly = ref(false)
@@ -31,6 +32,10 @@ function receivedLabel(at: number | undefined): string {
   if (feed.value === 'admins-only') return 'hidden: the delivery log is admin-only'
   return feed.value === 'unavailable' ? 'unknown: the delivery log is not exported' : 'loading…'
 }
+
+// The last replay asked for, and whether a row is the one it is about.
+const replay = computed(() => state.snapshot?.webhookReplay)
+const replaying = (row: { service: string, deliveryId: string }) => replay.value?.state === 'pending' && replay.value.service === row.service && replay.value.deliveryId === row.deliveryId
 
 const secrets = computed(() => {
   const env = state.info?.env
@@ -112,8 +117,11 @@ const secrets = computed(() => {
           <th class="py1 pr4 font-normal">
             Outcome
           </th>
-          <th class="py1 font-normal">
+          <th class="py1 pr4 font-normal">
             Received
+          </th>
+          <th class="py1 font-normal">
+            <span class="sr-only">Replay</span>
           </th>
         </tr>
       </thead>
@@ -137,16 +145,42 @@ const secrets = computed(() => {
               class="op50 pl1"
             >{{ row.note }}</span>
           </td>
-          <td class="py1 font-mono op65">
+          <td class="py1 pr4 font-mono op65">
             {{ new Date(row.receivedAt).toLocaleTimeString() }}
+            <span
+              v-if="row.replayedAt"
+              class="op65 pl1"
+            >replayed {{ new Date(row.replayedAt).toLocaleTimeString() }}</span>
+          </td>
+          <td class="py1">
+            <NButton
+              v-if="row.count === undefined"
+              n="xs"
+              icon="carbon-renew"
+              :disabled="replaying(row)"
+              @click="panel.replayWebhook(row.service, row.deliveryId)"
+            >
+              {{ replaying(row) ? 'Asking…' : 'Replay' }}
+            </NButton>
           </td>
         </tr>
       </tbody>
     </table>
+    <div
+      v-if="replay && replay.state !== 'pending'"
+      class="flex items-center gap-2 text-xs"
+    >
+      <SignalBadge :signal="replay.state === 'done' ? 'ok' : 'err'">
+        {{ replay.state === 'done' ? 'replay asked' : 'replay refused' }}
+      </SignalBadge>
+      <span class="op65">{{ replay.state === 'done' ? `The ${replay.service} provider sends ${replay.deliveryId} again; it lands here once it arrives.` : replay.message }}</span>
+    </div>
     <div class="text-xs op50">
       The last 50 deliveries this deployment verified. A request answered before its signature verified (refused, or a
-      duplicate of one already handled) is counted per kind instead, shown at the latest one. To send a delivery again,
-      replay it from the provider's dashboard.
+      duplicate of one already handled) is counted per kind instead, shown at the latest one, and so is each run of
+      free-plan deliveries (a $0 subscription's start, renewals and end). Replay asks the provider to send a verified
+      delivery again, signed, to the same route; it takes a sign-in from the last ten minutes, which the admin
+      console's Webhooks tab can ask for.
     </div>
   </PanelCard>
 </template>

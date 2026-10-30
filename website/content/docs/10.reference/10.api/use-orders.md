@@ -51,17 +51,18 @@ Defined in: [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto
 | ------ | ------ | ------ | ------ |
 | <a id="orders"></a> `orders` | `Ref`\<[`BillingOrder`](/docs/reference/api/use-billing#billingorder)[] \| `undefined`\> | The current page of past charges — `undefined` until the first load. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 | <a id="page"></a> `page` | `Ref`\<`number`\> | The page being shown; provider page numbers start at 1. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
-| <a id="total"></a> `total` | `ComputedRef`\<`number` \| `undefined`\> | Total orders across all pages, when the provider reported it. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
-| <a id="pagecount"></a> `pageCount` | `ComputedRef`\<`number` \| `undefined`\> | Number of pages, when the provider reported it. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
+| <a id="total"></a> `total` | `ComputedRef`\<`number` \| `undefined`\> | Total orders across all pages, when the provider reported it: the provider's count, which includes the subscription orders that charged nothing (a free plan's cycle) the pages leave out. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
+| <a id="pagecount"></a> `pageCount` | `ComputedRef`\<`number` \| `undefined`\> | Number of pages, when the provider reported it (counting those orders too: a page may list fewer than `limit`). | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 | <a id="hasmore"></a> `hasMore` | `ComputedRef`\<`boolean`\> | Whether a further page exists. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 | <a id="hasprevious"></a> `hasPrevious` | `ComputedRef`\<`boolean`\> | Whether an earlier page exists. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 | <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | Whether a load is in flight. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
-| <a id="error"></a> `error` | `Ref`\<`string` \| `null`\> | Message of the last failed load, `null` otherwise. Loads never reject. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
+| <a id="ispending"></a> `isPending` | `ComputedRef`\<`boolean`\> | `true` while `invoice` runs. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
+| <a id="error"></a> `error` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the last `invoice` failed, else why the last load failed, else `null`. Loads never reject. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 | <a id="refresh"></a> `refresh` | () => `Promise`\<`void`\> | Reload the current page. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 | <a id="next"></a> `next` | () => `Promise`\<`void`\> | Load the next page (no-op at the end). | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 | <a id="previous"></a> `previous` | () => `Promise`\<`void`\> | Load the previous page (no-op on page 1). | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 | <a id="goto"></a> `goTo` | (`page`) => `Promise`\<`void`\> | Jump to a page number. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
-| <a id="invoice"></a> `invoice` | (`orderId`, `options?`) => `Promise`\<`string` \| `null`\> | Fetch the invoice link for an order and open it, returning the URL (`null` when the provider has no invoice for that order yet). | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
+| <a id="invoice"></a> `invoice` | (`orderId`, `options?`) => `Promise`\<`string` \| `null`\> | Fetch the invoice link for an order and open it, returning the URL (`null` when the provider has no invoice for that order yet). Rejects on failure, which `error` also holds, and when the backend does not export `getInvoiceUrl`. | [src/runtime/vue/composables/use-orders.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-orders.ts) |
 
 ## Functions
 
@@ -81,7 +82,8 @@ provider says it is.
 Degrades all the way down: signed-out visitors and backends that have not
 deployed `getOrders` get an empty list rather than an error, and a failed
 load lands in `error` instead of rejecting (this is usually rendered by a
-permanently mounted panel). Loads happen in the browser only.
+permanently mounted panel). Loads happen in the browser only. `invoice` is
+an action: it rejects on failure and mirrors it into `error`.
 
 #### Parameters
 

@@ -1,0 +1,80 @@
+/*
+ * WaitlistForm's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-waitlist='root'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    color: var(--bk-ink);
+  }
+
+  [data-waitlist='join'],
+  [data-waitlist='verify'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  [data-waitlist='title'] {
+    margin: 0;
+  }
+
+  :where([data-waitlist='root']) label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  :where([data-waitlist='root'] input)[type='email'],
+  :where([data-waitlist='root'] input)[type='text'],
+  :where([data-waitlist='root']) select {
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: var(--bk-surface);
+    color: var(--bk-ink);
+    font: inherit;
+  }
+
+  :where([data-waitlist='root']) :where(input, select):focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 1px;
+  }
+
+  [data-waitlist='root'] [aria-invalid='true'] {
+    border-color: var(--bk-error);
+  }
+
+  [data-waitlist='submit'] {
+    align-self: flex-start;
+    padding: 0.5rem 0.9rem;
+    border: 0;
+    border-radius: var(--bk-radius-control);
+    background: var(--bk-accent);
+    color: var(--bk-on-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  :where([data-waitlist='root'], [data-waitlist='page']) :where(button)[aria-disabled='true'] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  [data-waitlist='disclosure'],
+  [data-waitlist='sent-note'] {
+    margin: 0;
+    color: var(--bk-muted);
+    font-size: 0.9em;
+    line-height: 1.5;
+  }
+
+  [data-waitlist='error'] {
+    margin: 0;
+    color: var(--bk-error);
+  }
+}

@@ -1,14 +1,17 @@
 /**
  * `nuxt-backend inbox [address]` — the sign-in codes a dev deployment sent to
- * one of the email provider's sandbox addresses, read from the backend
- * component's sandbox inbox (`convex run --component backend email:inbox`).
+ * one of the email provider's test addresses, read back from the provider's
+ * own log of sent email: the backend component's `email:inbox` action
+ * (`convex run --component backend email:inbox`) reads it with the
+ * deployment's own `EMAIL_API_KEY`, so the key's value never leaves the
+ * deployment and the deployment keeps no copy.
  *
  * It is how a coding agent, or a script, finishes an email-code sign-in on a
  * dev deployment with no mailbox and no terminal to read. So it refuses
  * everything else: `--prod`, a deploy key for anything but a dev deployment,
  * a configured deployment that is not dev-class, and an address that is not a
- * sandbox one. The component adds its own guard: with test mode off it holds
- * nothing. Only each message's sender, subject, time and code are printed,
+ * test one. The component adds its own guard: with test mode off, or with
+ * no key, it answers nothing. Only each message's sender, subject, time and code are printed,
  * never its body.
  */
 import { resolve } from 'node:path'
@@ -67,12 +70,12 @@ export function inboxRefusal(rootDir: string, { prod, address }: { prod: boolean
     }
   }
   if (!isSandboxAddress(address)) {
-    return `${address} has no sandbox inbox: only the provider's sandbox addresses do (${DEFAULT_INBOX_ADDRESS}, or delivered+<label>@resend.dev). Sign in with one of them.`
+    return `${address} has no dev inbox: only the provider's test addresses do (${DEFAULT_INBOX_ADDRESS}, or delivered+<label>@resend.dev). Sign in with one of them.`
   }
   return null
 }
 
-/** The component's raw message, as `email:inbox` returns it. */
+/** The raw message, as the component's `email:inbox` returns it. */
 interface RawMessage {
   from: string
   subject: string
@@ -81,7 +84,7 @@ interface RawMessage {
   receivedAt: number
 }
 
-/** Read one sandbox address's inbox on the deployment the Convex CLI selects. */
+/** Read one test address's inbox on the deployment the Convex CLI selects. */
 export async function readInbox(rootDir: string, address: string, run: typeof runConvex = runConvex): Promise<InboxReport> {
   const normalized = address.trim().toLowerCase()
   const { stdout } = await run(rootDir, ['run', '--component', 'backend', 'email:inbox', JSON.stringify({ address: normalized })])
@@ -109,7 +112,7 @@ export const inbox = withContract('inbox', {
   json: '`{ address, deployment, messages: [{ from, subject, receivedAt, code }], code }`: newest first, `code` the newest message\'s; bodies are never printed',
   exitCodes: {
     0: 'the inbox was read; it may be empty (`code` null)',
-    1: 'refused — `--prod`, a deploy key for anything but a dev deployment, a deployment that is not dev-class, an address with no sandbox inbox — or the read failed',
+    1: 'refused — `--prod`, a deploy key for anything but a dev deployment, a deployment that is not dev-class, an address with no dev inbox — or the read failed',
   },
 }, defineCommand({
   meta: { name: 'inbox', description: 'Print the sign-in codes a dev deployment sent to a sandbox address (default delivered@resend.dev)' },
@@ -133,7 +136,7 @@ export const inbox = withContract('inbox', {
       report = await readInbox(rootDir, address)
     }
     catch (error) {
-      console.error(`[nuxt-backend] Could not read the inbox: ${error instanceof Error ? error.message : String(error)}. Is \`npx nuxt-backend dev\` running, and has the backend been pushed?`)
+      console.error(`[nuxt-backend] Could not read the inbox: ${error instanceof Error ? error.message : String(error)}. Is \`npx nuxt-backend dev\` running, has the backend been pushed, and is EMAIL_API_KEY set on the deployment with full access?`)
       process.exitCode = 1
       return
     }
@@ -142,7 +145,7 @@ export const inbox = withContract('inbox', {
       return
     }
     if (report.messages.length === 0) {
-      console.log(`[nuxt-backend] No mail to ${report.address} in the last hour. Request a sign-in code for it, then read again.`)
+      console.log(`[nuxt-backend] No mail to ${report.address} in the last hour. Request a sign-in code for it, then read again (nothing is sent while EMAIL_API_KEY is unset on the deployment).`)
       return
     }
     for (const message of report.messages) {

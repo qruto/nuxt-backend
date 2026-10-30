@@ -1,0 +1,24 @@
+/*
+ * WaitlistCode's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  /* The code is read off an email: keep its digits apart. */
+  [data-waitlist='input-code'] {
+    max-width: 12rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.12em;
+  }
+
+  [data-waitlist='back'] {
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--bk-muted);
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+  }
+}

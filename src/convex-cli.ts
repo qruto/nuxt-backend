@@ -59,14 +59,20 @@ export class ConvexCliError extends Error {
   readonly timedOut: boolean
   /** The stderr lines the message quotes, with the input scrubbed out. */
   readonly stderrTail: string
+  /**
+   * `convex run` named a function the deployment does not have. Read off the
+   * whole stderr: the lines the message quotes are its list of the ones it has.
+   */
+  readonly missingFunction: boolean
 
-  constructor(message: string, details: { code: number | null, signal: NodeJS.Signals | null, timedOut: boolean, stderrTail: string }) {
+  constructor(message: string, details: { code: number | null, signal: NodeJS.Signals | null, timedOut: boolean, stderrTail: string, missingFunction?: boolean }) {
     super(message)
     this.name = 'ConvexCliError'
     this.code = details.code
     this.signal = details.signal
     this.timedOut = details.timedOut
     this.stderrTail = details.stderrTail
+    this.missingFunction = details.missingFunction === true
   }
 }
 
@@ -188,7 +194,7 @@ export function runConvex(rootDir: string, args: string[], options: RunConvexOpt
     }, timeout)
     const fail = (how: string, code: number | null, signal: NodeJS.Signals | null) => {
       const tail = stderrTail(stderr, options.input)
-      reject(new ConvexCliError(tail ? `${command} ${how}: ${tail}` : `${command} ${how}`, { code, signal, timedOut, stderrTail: tail }))
+      reject(new ConvexCliError(tail ? `${command} ${how}: ${tail}` : `${command} ${how}`, { code, signal, timedOut, stderrTail: tail, missingFunction: /Could not find function for /.test(stderr) }))
     }
     child.on('error', (error: NodeJS.ErrnoException) => {
       clearTimeout(timer)

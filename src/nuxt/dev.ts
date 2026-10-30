@@ -1,16 +1,17 @@
 import { detectAgent } from 'std-env'
 import type { Nuxt } from '@nuxt/schema'
 import { AGENT_HINT } from '../agents'
-import { deriveDeploymentUrls, resolveSiteUrl, isDevDeploymentId } from '../deployment'
-import { isEnvProvisioned, markEnvProvisioned, provisionedEnvNames, readEnvFiles, runEnvPush } from '../env-push'
+import { deriveDeploymentUrls, resolveSiteUrl } from '../deployment'
+import { provisionedEnvNames } from '../env-push'
 import { collectPreflightFindings, formatPreflightSummary, needsSetup, type PreflightFinding } from '../preflight'
 import { appComponentIsStarter } from '../scaffold'
 import type { ModuleOptions } from '../module'
 import { logger } from './logger'
-import { resolveMcpOptions } from './mcp'
 
-// What runs only in development: the DevTools gate, the env auto-provision,
-// and the environment preflight with its starter `app.vue` check.
+// What runs only in development: the DevTools gate, and the environment
+// preflight with its starter `app.vue` check. The dev server writes nothing
+// to the app and provisions nothing: `nuxt-backend init` scaffolds, and
+// `nuxt-backend dev` provisions the dev deployment's env.
 
 /** Whether the Nuxt DevTools UI itself is enabled for this app. */
 export function isDevtoolsUiEnabled(nuxt: Nuxt): boolean {
@@ -19,59 +20,15 @@ export function isDevtoolsUiEnabled(nuxt: Nuxt): boolean {
 }
 
 /**
- * Dev-startup env auto-provision (`backend.autoEnv`, default on): run the
- * `env push` engine against the `dev:` deployment once per deployment,
- * asynchronously after startup. The stamp under `node_modules/.cache`
- * prevents a `convex env list` spawn on every boot; a failed run leaves no
- * stamp, so the next boot retries. When `npx convex dev` has not provisioned
- * yet (very first run — no `CONVEX_DEPLOYMENT` in `.env.local`), a watcher
- * on `.env.local` picks the deployment up the moment it appears, so the two
- * first-run terminals can start in any order.
- */
-export function runDevAutoEnv(options: ModuleOptions, nuxt: Nuxt): void {
-  if (!nuxt.options.dev || nuxt.options._prepare || nuxt.options.test || options.autoEnv === false) return
-  const rootDir = nuxt.options.rootDir
-
-  const attempt = (): boolean => {
-    // Dev-class only: cloud dev (`dev:`), CLI-managed local (`local:`) and
-    // anonymous local (`anonymous:`) deployments. Read the id directly — URL
-    // derivation has nothing to say about a local backend without written URLs.
-    const deployment = process.env.CONVEX_DEPLOYMENT
-      ?? readEnvFiles(rootDir).CONVEX_DEPLOYMENT
-      ?? deriveDeploymentUrls(rootDir)?.deployment
-    if (!isDevDeploymentId(deployment)) return false
-    if (isEnvProvisioned(rootDir, deployment)) return true
-
-    void runEnvPush(rootDir, {}).then((run) => {
-      if (!run) return
-      for (const { action, outcome, error } of run.results) {
-        if (outcome === 'set') logger.info(`env push: ${action.name} — ${action.detail}`)
-        else if (outcome === 'failed') logger.warn(`env push: ${action.name} failed — ${error}`)
-      }
-      if (run.results.every(result => result.outcome !== 'failed')) markEnvProvisioned(rootDir, deployment)
-    }).catch((error: unknown) => {
-      logger.warn(`env auto-provision failed: ${error instanceof Error ? error.message : String(error)}`)
-    })
-    return true
-  }
-
-  if (attempt()) return
-  nuxt.hook('builder:watch', (_event, path) => {
-    if (!path.replace(/\\/g, '/').endsWith('.env.local')) return
-    attempt()
-  })
-}
-
-/**
- * Whether a backend site URL reaches the base module — from the module option,
- * the package's own env name (the platform's own name still works as a
- * fallback), explicit config, or slug derivation.
+ * Whether a backend site URL reaches the base module — from explicit config,
+ * the base module's own env name (a custom domain), or derivation from the
+ * backend URL or the deployment slug.
  * Shared by the preflight run and the DevTools `getInfo()` builder.
  */
 export function isSiteUrlConfigured(options: ModuleOptions, nuxt: Nuxt): boolean {
   return Boolean(
     ((nuxt.options as unknown as Record<string, unknown>).convex as { siteUrl?: string } | undefined)?.siteUrl
-    ?? resolveSiteUrl({ siteUrl: options.siteUrl, url: options.url, env: process.env, derived: deriveDeploymentUrls(nuxt.options.rootDir) }),
+    ?? resolveSiteUrl({ url: options.url, env: process.env, derived: deriveDeploymentUrls(nuxt.options.rootDir) }),
   )
 }
 
@@ -85,24 +42,17 @@ export function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
   const derived = deriveDeploymentUrls(nuxt.options.rootDir)
   const siteUrlConfigured = isSiteUrlConfigured(options, nuxt)
   // This package names its own environment after what it does, not after the
-  // services underneath. The platform's names keep working — the base module
-  // reads them — but say so once so a new reader learns the neutral one.
-  for (const [platform, neutral] of [
-    ['NUXT_PUBLIC_CONVEX_URL', 'NUXT_PUBLIC_BACKEND_URL'],
-    ['NUXT_PUBLIC_CONVEX_SITE_URL', 'NUXT_PUBLIC_BACKEND_SITE_URL'],
-  ] as const) {
-    if (process.env[platform] && !process.env[neutral]) {
-      logger.info(`${platform} is set; ${neutral} is this package's own name for it (both work).`)
-    }
+  // services underneath. The platform's name keeps working — the base module
+  // reads it — but say so once so a new reader learns the neutral one.
+  if (process.env.NUXT_PUBLIC_CONVEX_URL && !process.env.NUXT_PUBLIC_BACKEND_URL) {
+    logger.info('NUXT_PUBLIC_CONVEX_URL is set; NUXT_PUBLIC_BACKEND_URL is this package\'s own name for it (both work).')
   }
   if (derived?.source === 'deployment' && !options.url && !process.env.NUXT_PUBLIC_BACKEND_URL && !process.env.NUXT_PUBLIC_CONVEX_URL) {
     logger.info(`Backend URLs derived from ${derived.deployment} — no NUXT_PUBLIC_* URL vars needed.`)
   }
-  const mcp = resolveMcpOptions(options.mcp)
   const findings = collectPreflightFindings({
     env: process.env,
     siteUrlConfigured,
-    mcp: { route: mcp.route },
     deployedNames: provisionedEnvNames(nuxt.options.rootDir),
   })
 
@@ -112,7 +62,7 @@ export function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
   if (appComponentIsStarter(nuxt.options.rootDir)) {
     logger.warn(
       'app.vue still renders <NuxtWelcome /> and no <NuxtPage />, so the pages this module registers (/login, /pricing, …) will not render. '
-      + 'Replace <NuxtWelcome /> with <NuxtPage /> — `npx nuxt-backend init` does it for you.',
+      + 'Replace <NuxtWelcome /> with <NuxtLayout><NuxtPage /></NuxtLayout> — `npx nuxt-backend init` does it for you, and adds the app shell as the default layout.',
     )
   }
 

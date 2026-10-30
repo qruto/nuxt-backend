@@ -1,12 +1,15 @@
 import type { FunctionReference } from 'convex/server'
 import { type App, computed, effectScope, watchEffect } from 'vue'
 import { defineNuxtPlugin, useAppConfig } from '#app'
-import { useConvexNamespace, useQuery } from 'nuxt-convex-module/client'
-import { useAuth } from '../vue/composables/use-auth'
+import { useConvex, useQuery } from 'nuxt-convex-module/client'
+import { featureKeyOf } from '../../convex/catalog.js'
+import { useAuthSession } from '../vue/utils/auth-session'
 import { useBilling, type BillingApi } from '../vue/composables/use-billing'
 import { useFeatures } from '../vue/composables/use-features'
-import { useOrganization } from '../vue/composables/use-organization'
+import { useWorkspace } from '../vue/composables/use-workspace'
 import type { BackendAppConfigInput } from '../config'
+import { useApiNamespace } from '../vue/utils/namespace'
+import { failureOf } from '../vue/utils/backend-error'
 import { createBackendDevtoolsBridge } from './bridge'
 import { createOnDemandSections } from './on-demand'
 import { patchWebhookFeed } from './webhook-feed'
@@ -19,7 +22,7 @@ import type {
 } from './types'
 
 /** The scaffolded function modules the composables bind to by name. */
-const SCAFFOLDED_NAMESPACES = ['auth', 'billing', 'email'] as const
+const SCAFFOLDED_NAMESPACES = ['auth', 'billing', 'email', 'webhooks'] as const
 
 /** How many recent webhook deliveries the panel lists. */
 const DELIVERY_LIMIT = 50
@@ -30,16 +33,17 @@ declare global {
   }
 }
 
-// The delivery feed rides the billing namespace (scaffolded `billing.ts`
-// re-exports it) but isn't part of the composable-facing `BillingApi`. It is
-// admin-only: `null` for anyone else.
-type DevtoolsBillingNamespace = BillingApi & {
+// The delivery feed and its replay ride the webhooks namespace (the
+// scaffolded `webhooks.ts` re-exports them). Admin-only: the feed is `null`
+// for anyone else, and a replay is refused.
+interface DevtoolsWebhooksNamespace {
   getWebhookDeliveries?: FunctionReference<
     'query',
     'public',
     { limit?: number },
     DevtoolsWebhookDeliverySnapshot[] | null
   >
+  replayWebhookDelivery?: FunctionReference<'action', 'public', { service: 'billing' | 'email', deliveryId: string }, { replayedAt: number }>
 }
 
 /** The slice of the base module's bridge this plugin reads (version-checked). */
@@ -127,10 +131,11 @@ export default defineNuxtPlugin({
           const bridge = createBackendDevtoolsBridge(requests)
           const runInApp = <T>(fn: () => T): T => nuxtApp.vueApp.runWithContext(fn)
           Object.assign(requests, createOnDemandSections(runInApp, bridge.patch))
+          requests.replayWebhook = (service, deliveryId) => runInApp(() => replayWebhook(bridge.patch, service, deliveryId))
 
-          const auth = useAuth()
+          const auth = useAuthSession()
           const appConfig = useAppConfig() as { backend?: BackendAppConfigInput }
-          bridge.patch('missingNamespaces', SCAFFOLDED_NAMESPACES.filter(name => useConvexNamespace(name) === undefined))
+          bridge.patch('missingNamespaces', SCAFFOLDED_NAMESPACES.filter(name => useApiNamespace(name) === undefined))
 
           // Every read is optional-chained: a missing namespace or a signed-out
           // session degrades a section, never the plugin.
@@ -220,17 +225,18 @@ export default defineNuxtPlugin({
 function watchActiveSections(patch: BackendDevtoolsBridgeHost['patch']): void {
   const billing = useBilling()
   const features = useFeatures()
-  const workspace = useOrganization()
+  const workspace = useWorkspace()
 
-  // All meters (useCredits narrows to a single one) and the delivery feed
-  // come straight from the injected billing namespace — resolved the same way
-  // the composables resolve it.
-  const namespace = useConvexNamespace<DevtoolsBillingNamespace>('billing')
+  // All meters (useCredits narrows to a single one) come straight from the
+  // injected billing namespace, and the delivery feed from the webhooks one —
+  // resolved the same way the composables resolve them.
+  const namespace = useApiNamespace<BillingApi>('billing')
   const credits = namespace?.getCredits
     ? useQuery(namespace.getCredits)
     : computed(() => undefined)
-  const deliveries = namespace?.getWebhookDeliveries
-    ? useQuery(namespace.getWebhookDeliveries, { limit: DELIVERY_LIMIT })
+  const webhooks = useApiNamespace<DevtoolsWebhooksNamespace>('webhooks')
+  const deliveries = webhooks?.getWebhookDeliveries
+    ? useQuery(webhooks.getWebhookDeliveries, { limit: DELIVERY_LIMIT })
     : undefined
 
   watchEffect(() => {
@@ -247,7 +253,7 @@ function watchActiveSections(patch: BackendDevtoolsBridgeHost['patch']): void {
       cancelAtPeriodEnd: billing.cancelAtPeriodEnd.value,
       isPaused: billing.isPaused.value,
       trialEnd: billing.trialEnd.value?.getTime(),
-      pendingProductId: billing.pendingUpdate.value?.productId ?? undefined,
+      pendingProductId: billing.pendingChange.value?.productId,
       subscriptions: billing.subscriptions.value?.length,
     })
   })
@@ -255,9 +261,9 @@ function watchActiveSections(patch: BackendDevtoolsBridgeHost['patch']): void {
   watchEffect(() => {
     patch('entitlements', {
       isLoading: features.isLoading.value,
-      features: (features.benefits.value ?? []).map(benefit =>
-        String(benefit.metadata?.key ?? benefit.type ?? benefit.benefitId)),
+      features: (features.benefits.value ?? []).map(benefit => featureKeyOf(benefit)),
       plans: [...(features.plans.value ?? [])],
+      quotas: Object.entries(features.quotas.value ?? {}).map(([key, { limit, used, description }]) => ({ key, limit, used, ...(description === undefined ? {} : { description }) })),
     })
   })
 
@@ -279,7 +285,7 @@ function watchActiveSections(patch: BackendDevtoolsBridgeHost['patch']): void {
           id: current.id,
           name: current.name,
           role: workspace.role.value ?? undefined,
-          workspaces: workspace.organizations.value.length,
+          workspaces: workspace.workspaces.value.length,
           members: workspace.members.value.length,
           pendingInvitations: (current.invitations ?? [])
             .filter(invitation => invitation.status === 'pending').length,
@@ -297,4 +303,26 @@ function watchActiveSections(patch: BackendDevtoolsBridgeHost['patch']): void {
     const rows = deliveries.value
     if (rows !== undefined) patchWebhookFeed(patch, rows)
   })
+}
+
+/**
+ * Ask a delivery's provider to send it again, as the signed-in
+ * administrator, from the panel's Replay button. The outcome lands in the
+ * snapshot's `webhookReplay`, a refusal in its English sentence: a replay
+ * takes a recent sign-in, which the admin console's Webhooks tab can ask
+ * for and the panel cannot.
+ */
+function replayWebhook(patch: BackendDevtoolsBridgeHost['patch'], service: string, deliveryId: string): void {
+  const replay = useApiNamespace<DevtoolsWebhooksNamespace>('webhooks')?.replayWebhookDelivery
+  const settle = (state: 'pending' | 'done' | 'error', message?: string) => patch('webhookReplay', { service, deliveryId, state, ...(message ? { message } : {}) })
+  if (!replay || (service !== 'billing' && service !== 'email')) {
+    settle('error', 'backend/webhooks.ts does not export replayWebhookDelivery.')
+    return
+  }
+  const convex = useConvex()
+  settle('pending')
+  convex.action(replay, { service, deliveryId }).then(
+    () => settle('done'),
+    (cause: unknown) => settle('error', failureOf(cause).message),
+  )
 }

@@ -32,12 +32,23 @@
     "website/backend/**/*.ts",
     "test/setup/websocket.ts",
     "test/helpers/nuxt-imports.ts",
+    // `nuxt/server` in the unit project (vitest.config.ts aliases it): the
+    // server runtime under test imports it by that name, never by path.
+    "test/helpers/nuxt-server.ts",
     "test/fixtures/registration/nuxt.config.ts",
     "test/fixtures/registration/app.vue",
+    // The app test/e2e/lazy-component.test.ts builds: Nuxt reads both by convention.
+    "test/fixtures/lazy-build/nuxt.config.ts",
+    "test/fixtures/lazy-build/app.vue",
+    // The app test/e2e/last-sign-in-ssr.test.ts builds, read the same way.
+    "test/fixtures/last-sign-in-build/nuxt.config.ts",
+    "test/fixtures/last-sign-in-build/app.vue",
     // The fixture's Convex functions directory: the module resolves it at boot
     // and scaffolding compares it with the templates, so every file there is
     // read by path. The one directory entry, and the reason it is one.
     "test/fixtures/registration/backend/*.ts",
+    // Copied into a starter app and run there by CI's `pack` job.
+    "test/fixtures/test-utils/**/*.ts",
     "test/types/**/*.test-d.ts"
   ],
 
@@ -52,20 +63,42 @@
     ".nuxt/**",
     "**/.nuxt/**",
     "examples/**",
-    "templates/**"
+    "templates/**",
+    // Panels' backend as the site serves it: templates/panels/backend copied
+    // byte for byte (scripts/sync-panels.mjs), the template's code, not this
+    // codebase's, like templates/** above. The rest of the copy (pages,
+    // components, the layout) stays in, as the site's Nuxt tree loads it.
+    "website/backend/{account,admin,ai,audit,auth,billing,crons,demo,email,flags,functions,http,jobs,notifications,rateLimiter,routes,storage,strips,webhooks,workflows}.ts"
   ],
 
   // Registered by path from src/module.ts (addPlugin, the stylesheet) and
-  // src/nuxt/mcp.ts (addServerHandler, the MCP toolkit's `mcp:definitions:paths`
-  // hook) — the static graph cannot follow a resolver.resolve() string.
+  // src/nuxt/monitoring.ts — the static graph cannot follow a
+  // resolver.resolve() string.
   "dynamicallyLoaded": [
     "src/runtime/devtools/plugin.client.ts",
-    "src/runtime/server/mcp/gate.ts",
-    "src/runtime/server/mcp/protected-resource.ts",
-    "src/runtime/server/mcp/authorization-server.ts",
-    "src/runtime/server/mcp/tools/*.ts",
-    // nuxt.options.css.unshift(); it @imports the rest of the stylesheets.
-    "src/runtime/vue/components/ui.css"
+    // src/nuxt/monitoring.ts: the health route, and in dev the local error
+    // log's route, Nitro plugin and client plugin; once the error-reporting
+    // SDK is wired, its capture plugins, and the client and server config
+    // files the SDK's own module loads from the directory it is pointed at.
+    "src/runtime/server/monitoring/health.ts",
+    "src/runtime/server/monitoring/local-log.ts",
+    "src/runtime/server/monitoring/local-log-route.ts",
+    // src/module.ts: the visitor's address for the billing provider's local pricing.
+    "src/runtime/server/visitor-ip.ts",
+    // src/nuxt/installable.ts: the web push worker, and the web app manifest once the icons and the brand name are in place.
+    "src/runtime/server/push-worker.ts",
+    "src/runtime/server/manifest.ts",
+    "src/runtime/vue/plugins/monitoring-log.client.ts",
+    "src/runtime/monitoring/sdk/*.ts",
+    // nuxt.options.css.unshift() from src/nuxt/styles.ts, by the paths the
+    // UI registry (src/ui/registry.ts) names: the tokens, the shared rules and
+    // one stylesheet per component and part.
+    "src/runtime/vue/components/**/*.css",
+    // backendTestAliases() (nuxt-backend/test-utils) names them by path, as
+    // the Vite alias targets that stand in for the base module's client entry
+    // and the Better Auth client.
+    "src/runtime/test-utils/client.ts",
+    "src/runtime/test-utils/auth-client.ts"
   ],
 
   // The website, the tests and the fixture import the package by its
@@ -87,13 +120,20 @@
     // reaches them through the auto-import, never by importing the file.
     { "file": "src/runtime/vue/composables/base-aliases.ts", "exports": ["useAuthState", "useConnectionState", "useBackendClient"] },
     { "file": "src/runtime/vue/composables/use-ai-stream.ts", "exports": ["useAiStream"] },
+    { "file": "src/runtime/vue/composables/use-access.ts", "exports": ["useAccessPhase"] },
+    { "file": "src/runtime/vue/composables/use-experiment.ts", "exports": ["useExperiment"] },
     { "file": "src/runtime/vue/components/feature-boundary.ts", "exports": ["FeatureBoundary"] },
-    { "file": "src/runtime/vue/components/gift-claim-banner.ts", "exports": ["GiftClaimBanner"] }
+    { "file": "src/runtime/vue/components/gift-claim-banner.ts", "exports": ["GiftClaimBanner"] },
+    { "file": "src/runtime/vue/utils/backend-error.ts", "exports": ["getBackendError"] },
+    // Documented on the useBilling reference page beside formatBillingAmount;
+    // the packaged components read dates through formatBillingDate instead.
+    { "file": "src/runtime/vue/composables/use-billing.ts", "exports": ["toBillingDate"] }
   ],
 
   // Installed on purpose, never imported by name.
   "ignoreDependencies": [
     "nuxt-security", // installed into every app through moduleDependencies in src/module.ts, by name
+    "jiti", // the loader the dev stub's dist/cli.mjs runs through (a dependency of @nuxt/module-builder); test/unit/stub-aliases.test.ts drives it the same way
     "@edge-runtime/vm", // vitest `environment: 'edge-runtime'` for the convex-component project
     "@vue/test-utils", // reached through @nuxt/test-utils' mountSuspended
     "semver", // scripts/check-upstream.mjs matches the watched releases against upstream ranges
@@ -103,7 +143,17 @@
     "@arethetypeswrong/cli",
     "typedoc-plugin-frontmatter", // both listed as plain strings in typedoc.json "plugin"
     "typedoc-plugin-markdown",
-    "@iconify-json/carbon" // the DevTools panel's icons; UnoCSS loads the set by name at build time
+    "@convex-dev/bundle-analyzer", // `nuxt-backend analyze` runs its entry file as a child process, resolved by name in src/analyze/convex.ts
+    "@iconify-json/carbon", // the DevTools panel's icons; UnoCSS loads the set by name at build time
+    // The docs site's Vercel modules, installed by name in a Vercel build
+    // only (website/shared/vercel.ts); and its Firewall client and Docus's
+    // assistant helpers, which test/docs/site-vercel.test.ts mocks by name
+    // from the root (the website lists both).
+    "@sentry/nuxt", // the website's error-reporting SDK: the package's monitoring layer installs its module once a build sees a DSN, so nothing imports it
+    "@vercel/analytics",
+    "@vercel/speed-insights",
+    "@vercel/firewall",
+    "docus"
   ],
 
   "ignoreExportsUsedInFile": true,
@@ -130,7 +180,7 @@
       // element that declares it, so a scoped override restates the whole
       // value) and demo pages that repeat a layout on purpose.
       "website/**",
-      "src/runtime/vue/components/*.css"
+      "src/runtime/vue/components/**/*.css"
     ]
   },
 
@@ -196,28 +246,27 @@
         "reason": "The env-push decision table (set / skip / plan / fail per variable class and deployment kind); the cases are the documented behaviour."
       },
       {
-        "files": ["src/runtime/vue/components/pricing-table.ts"],
-        "functions": ["planAction", "<arrow>"],
+        "files": ["src/runtime/vue/components/billing/PricingTable.vue"],
+        "functions": ["planAction"],
         "maxCyclomatic": 27,
         "maxCognitive": 36,
         "reason": "Which button a plan shows (subscribe / switch / current / manage / gift) from subscription state, entitlement and catalog flags — a product decision table the docs spell out."
       },
       {
-        "files": ["src/runtime/vue/components/credits-low-banner.ts"],
-        "functions": ["<arrow>"],
-        "maxCyclomatic": 22,
-        "maxCognitive": 18,
-        "reason": "Banner visibility from meter balance, thresholds and dismissal state."
+        "files": ["src/runtime/vue/components/**/*.vue"],
+        "functions": ["<template>"],
+        "maxCyclomatic": 32,
+        "maxCognitive": 72,
+        "reason": "A packaged component's template is its content: each branch is a state the component contract renders and checks (test/nuxt/component-contract.ts), as the website's templates are excluded above for the same reason. Its regions are parts an app can swap, which is where a long template splits."
       },
       {
         "files": [
           "src/convex/integrations/ai/metering.ts",
           "src/convex/integrations/billing/gifts.ts",
           "src/convex/integrations/billing/webhooks.ts",
-          "src/convex/integrations/email.ts",
-          "src/convex/integrations/mcp.ts"
+          "src/convex/integrations/email.ts"
         ],
-        "functions": ["prepare", "handleGiftOrderPaid", "webhookHandler", "exchangeHandler"],
+        "functions": ["prepare", "handleGiftOrderPaid", "webhookHandler"],
         "maxCyclomatic": 22,
         "maxCognitive": 25,
         "reason": "Fail-closed request handlers: every rejection (missing secret, bad signature, oversized body, unknown event, replay) is an explicit branch with its own status code, per the webhook policy in the docs."

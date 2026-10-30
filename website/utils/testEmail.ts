@@ -14,8 +14,8 @@
  * All three take a `+label`. Test mode matches them case-sensitively, so the
  * helpers compare the lower-cased form.
  *
- * ACCOUNTS use a sandbox identity: `delivered+<label>@resend.dev` with a long
- * random label. Nobody can open that inbox, so the package's sandbox inbox
+ * ACCOUNTS use a test identity: `delivered+<label>@resend.dev` with a long
+ * random label. Nobody can open that inbox, so the package's dev inbox
  * shows its mail on the sign-in page (`useSandboxInbox`). Whoever knows the
  * address can therefore read its sign-in codes: the label is the password,
  * generated and never guessable.

@@ -1,11 +1,11 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { parseSync } from 'oxc-parser'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { REQUIRED_FUNCTION_EXPORTS } from '../../src/contract'
 import { BACKEND_APP_CONFIG_KEYS } from '../../src/runtime/config'
 import { BACKEND_FILE_TEMPLATES } from '../../src/templates'
-import { contentFile, readModuleSources } from '../docs/helpers'
+import { aheadOfCode, contentFile, readModuleSources } from '../docs/helpers'
 
 // The public surface, frozen. STABILITY.md promises the 0.x line keeps every
 // `nuxt-backend/<subpath>` and every value/type reachable from one; this file
@@ -14,19 +14,6 @@ import { contentFile, readModuleSources } from '../docs/helpers'
 // TypeDoc entry points are all checked against it, so a subpath or an export
 // cannot appear, move, or vanish without a deliberate edit here.
 //
-// `nuxt-backend/mcp` runs inside Nitro: `nitropack/runtime` reads its storage
-// through a virtual module only a Nitro build provides, and the toolkit's
-// server entry sits on top of it. Both are mocked so the entry's own module
-// graph evaluates in this environment — the mocks never reach the exported
-// names being observed.
-vi.mock('nitropack/runtime', () => ({
-  useEvent: () => undefined,
-  useRuntimeConfig: () => ({}),
-}))
-vi.mock('@nuxtjs/mcp-toolkit/server', () => ({
-  defineMcpTool: (definition: unknown) => definition,
-}))
-
 // The nuxt environment gives modules an http `import.meta.url`, so the repo
 // root comes from the working directory vitest was started in (its config
 // root) — verified against the package name below.
@@ -61,23 +48,28 @@ interface Entry {
 const ENTRIES: Record<string, Entry> = {
   '.': { source: 'src/module.ts', kind: 'runtime' },
   './auth': { source: 'src/convex/client/index.ts', kind: 'convex' },
-  './authorization': { source: 'src/convex/integrations/authorization.ts', kind: 'convex' },
   './http': { source: 'src/convex/integrations/http.ts', kind: 'convex' },
   './functions': { source: 'src/convex/integrations/functions.ts', kind: 'convex' },
   './app': { source: 'src/convex/app.ts', kind: 'convex' },
   './billing': { source: 'src/convex/integrations/billing.ts', kind: 'convex' },
   './email': { source: 'src/convex/integrations/email.ts', kind: 'convex' },
   './rate-limit': { source: 'src/convex/integrations/rate-limit.ts', kind: 'convex' },
-  './migrations': { source: 'src/convex/integrations/migrations.ts', kind: 'convex' },
-  './aggregate': { source: 'src/convex/integrations/aggregate.ts', kind: 'convex' },
   './search': { source: 'src/convex/integrations/search.ts', kind: 'convex' },
   './workflows': { source: 'src/convex/integrations/workflows.ts', kind: 'convex' },
+  './audit': { source: 'src/convex/integrations/audit.ts', kind: 'convex' },
+  './access': { source: 'src/convex/integrations/launch.ts', kind: 'convex' },
+  './account': { source: 'src/convex/integrations/account.ts', kind: 'convex' },
+  './admin': { source: 'src/convex/integrations/admin.ts', kind: 'convex' },
+  './flags': { source: 'src/convex/integrations/flags.ts', kind: 'convex' },
   './ai': { source: 'src/convex/integrations/ai.ts', kind: 'convex' },
-  './mcp': { source: 'src/runtime/server/mcp/index.ts', kind: 'runtime' },
+  './storage': { source: 'src/convex/integrations/storage.ts', kind: 'convex' },
+  './notifications': { source: 'src/convex/integrations/notifications.ts', kind: 'convex' },
+  './monitoring': { source: 'src/convex/integrations/monitoring.ts', kind: 'convex' },
   './convex.config': { source: 'src/convex/components/backend/convex.config.ts', kind: 'convex' },
   './_generated/component': { source: 'src/convex/components/backend/_generated/component.ts', kind: 'convex', typesOnly: true },
   './auth.config': { source: 'src/convex/auth.config.ts', kind: 'convex' },
   './test': { source: 'src/convex/test.ts', kind: 'raw' },
+  './test-utils': { source: 'src/runtime/test-utils/index.ts', kind: 'runtime' },
   './eslint': { source: 'src/eslint.ts', kind: 'entry' },
 }
 
@@ -323,6 +315,55 @@ function reachableExports(file: string, seen = new Set<string>()): Reachable[] {
   return result
 }
 
+/**
+ * What `file` takes from the Convex half that the component build strips
+ * from dist/convex's declarations, so an app's type check of the runtime
+ * fails on it: an @internal declaration imported or re-exported by name,
+ * or a module holding one taken whole (a namespace, `export *`, a dynamic
+ * import), whose members cannot be told apart here.
+ */
+function internalTakenBy(file: string, text?: string): string[] {
+  const convexRoot = join(root, 'src/convex') + sep
+  const where = relative(root, file)
+  const intoConvex = (request: string | undefined) => {
+    if (!request || !isRelative(request) || !request.includes('/convex/')) return undefined
+    const target = resolveRelative(file, request)
+    return target.startsWith(convexRoot) ? target : undefined
+  }
+  const named = (target: string, name: string, verb: string) => {
+    const found = reachableExports(target).find(candidate => candidate.name === name)
+    return found?.internal ? [`${where} ${verb} ${name} (${relative(root, found.origin)})`] : []
+  }
+  const whole = (target: string, verb: string) => {
+    const internal = reachableExports(target).filter(candidate => candidate.internal).map(candidate => candidate.name)
+    return internal.length > 0 ? [`${where} ${verb} all of ${relative(root, target)} (${internal.join(', ')})`] : []
+  }
+  const { module } = parse(file, text)
+  const source = text ?? readFileSync(file, 'utf8')
+  const offenders: string[] = []
+  for (const statement of module.staticImports) {
+    const target = intoConvex(statement.moduleRequest.value)
+    if (!target) continue
+    for (const entry of statement.entries) {
+      const kind = kindOf(entry.importName)
+      offenders.push(...(kind === 'NamespaceObject' ? whole(target, 'imports') : named(target, kind === 'Default' ? 'default' : entry.importName.name!, 'imports')))
+    }
+  }
+  for (const statement of module.staticExports) {
+    for (const entry of statement.entries) {
+      const target = intoConvex(entry.moduleRequest?.value)
+      if (!target) continue
+      offenders.push(...(kindOf(entry.importName) === 'Name' ? named(target, entry.importName.name!, 're-exports') : whole(target, 're-exports')))
+    }
+  }
+  for (const call of module.dynamicImports) {
+    const literal = /^(['"`])([^'"`$]+)\1$/.exec(source.slice(call.moduleRequest.start, call.moduleRequest.end).trim())
+    const target = intoConvex(literal?.[2])
+    if (target) offenders.push(...whole(target, 'imports'))
+  }
+  return offenders
+}
+
 // ---------------------------------------------------------------------------
 // Export names — observed at runtime, written down here as literals.
 
@@ -333,23 +374,29 @@ function reachableExports(file: string, seen = new Set<string>()): Reachable[] {
  */
 const EXPORT_NAMES: Record<string, string[]> = {
   '.': ['default'],
-  './auth': ['APIError', 'setupAuth'],
-  './authorization': ['adminAc', 'createAccessControl', 'defaultStatements', 'setupAuthorization', 'userAc'],
+  './auth': ['APIError', 'resolveSignInMethod', 'setupAuth', 'storesLastSignInCookie'],
   './http': ['registerBackendRoutes'],
-  './functions': ['BACKEND_ERRORS', 'backendError', 'createFunctions', 'getBackendError'],
-  './app': ['backendEnv'],
-  './billing': ['ALL_BILLING_EVENTS', 'defineBillingCatalog', 'setupBilling'],
-  './email': ['ALL_EMAIL_EVENTS', 'escapeHtml', 'setupEmail'],
+  './functions': ['BACKEND_ERRORS', 'RECENT_SIGN_IN_SECONDS', 'SENSITIVE_ACTIONS', 'backendError', 'createFunctions', 'defineRetention', 'getBackendError', 'normalizeEmail', 'randomToken', 'sha256Hex', 'verifyHuman'],
+  './app': ['backendEnv', 'backendEnvironment'],
+  './billing': ['ALL_BILLING_EVENTS', 'defineBillingCatalog', 'setupBilling', 'setupReferrals'],
+  './email': ['ALL_EMAIL_EVENTS', 'describeOrigin', 'escapeHtml', 'forceColorScheme', 'html', 'linkBlocks', 'setupEmail', 'trustedHtml'],
   './rate-limit': ['DAY', 'DEFAULT_LIMITS', 'HOUR', 'MINUTE', 'SECOND', 'setupRateLimiter'],
-  './migrations': ['setupMigrations'],
-  './aggregate': ['TableAggregate', 'Triggers', 'customCtx', 'customMutation', 'withTriggers'],
   './search': ['defineSearch', 'search'],
   './workflows': ['defineEmailSequence', 'setupWorkflows'],
-  './ai': ['priceTokens', 'setupAi'],
-  './mcp': ['BACKEND_MCP_FUNCTION_DEFAULTS', 'EXCHANGE_CACHE_MARGIN_MS', 'backendMcpFunction', 'createExchangeCache', 'defineBackendMcpTool', 'useBackendMcp'],
+  './audit': ['BACKEND_EVENTS', 'defineActivation', 'setupAudit', 'vBackendEvent'],
+  './access': ['ACCESS_PHASES', 'setupAccess', 'setupWaitlist'],
+  './account': ['ACCOUNT_DATA_SOURCES', 'setupAccount'],
+  './admin': ['IMPERSONATION_SESSION_SECONDS', 'setupAdmin', 'setupWebhooks'],
+  './flags': ['BACKEND_FLAGS', 'FLAG_TARGETS_MAX', 'MAINTENANCE_MESSAGE_MAX', 'ROLLOUT_BUCKETS', 'defineFlags', 'flagBucket', 'setupFlags'],
+  './ai': ['defineJobQueue', 'priceTokens', 'setupAi'],
+  './storage': ['DEFAULT_ACCEPTED_TYPES', 'DEFAULT_MAX_FILE_SIZE', 'SIGNED_URL_TTL_MAX_MS', 'SIGNED_URL_TTL_MS', 'setupStorage', 'sniffContentType', 'stripImageMetadata'],
+  './notifications': ['setupNotifications'],
+  './monitoring': ['MONITORING_TAGS', 'checkIn', 'checkingIn', 'isReportable', 'reportError', 'reportingErrors'],
+
   './convex.config': ['default'],
   './auth.config': ['default', 'defineBackendAuthConfig'],
   './test': ['asUser', 'default', 'defineBackendTestApp', 'register', 'seedWorkspace'],
+  './test-utils': ['backendMockProvides', 'backendTestAliases', 'createBackendMock', 'renderEmail', 'resetBackendMock'],
   './eslint': ['BACKEND_ESLINT_RULES', 'backendEslint'],
 }
 
@@ -366,10 +413,11 @@ describe('entry export names', () => {
     expect(Object.keys(EXPORT_NAMES).sort()).toEqual(jsEntries.map(([key]) => key).sort())
   })
 
+  // The first import of an entry transforms its module graph: seconds on a loaded machine.
   it.each(jsEntries.filter(([key]) => !STATIC_ONLY.includes(key)))('%s exports exactly the frozen names', async (key, entry) => {
     const namespace = await import(/* @vite-ignore */ resolve(root, entry.source)) as Record<string, unknown>
     expect(Object.keys(namespace).sort()).toEqual(EXPORT_NAMES[key])
-  })
+  }, 30_000)
 
   it.each(STATIC_ONLY)('%s exports exactly the frozen names (static)', (key) => {
     expect(staticExportNames(join(root, ENTRIES[key]!.source))).toEqual(EXPORT_NAMES[key])
@@ -399,6 +447,7 @@ describe('@internal', () => {
     expect(hasLeadingTag(file, declaration!.start, /@internal\b/)).toBe(true)
   })
 
+  // Both walks parse every entry's or runtime file: seconds on a loaded machine.
   it('never reaches an entry', () => {
     const leaked = Object.entries(ENTRIES)
       .filter(([, entry]) => entry.kind !== 'css')
@@ -406,6 +455,29 @@ describe('@internal', () => {
         .filter(candidate => candidate.internal)
         .map(candidate => `${key} → ${candidate.name} (${relative(root, candidate.origin)})`))
     expect(leaked).toEqual([])
+  }, 30_000)
+
+  // The module runtime reaches an app's type check as written: the website's
+  // reads src/runtime itself (dist/runtime links to it after dev:prepare),
+  // and a relative import into the Convex half resolves to dist/convex's
+  // declarations, which the component build strips of every @internal one.
+  it('never sits on what a runtime file takes from the Convex half', () => {
+    const offenders = walk(join(root, 'src/runtime'), '.ts').filter(file => !file.endsWith('.d.ts')).flatMap(file => internalTakenBy(file))
+    expect(offenders).toEqual([])
+  }, 30_000)
+
+  it('finds an internal declaration a runtime file takes in any form', () => {
+    // Positive control: src/convex/log.ts is internal through and through,
+    // and constants.ts has none. Each line is a module of its own, beside
+    // the runtime files, so its relative requests resolve as theirs would.
+    const fixture = (name: string, text: string) => internalTakenBy(join(root, `src/runtime/monitoring/${name}.fixture.ts`), text)
+    expect(fixture('named', `import { logBackend } from '../../convex/log.js'`)).toEqual([expect.stringContaining('imports logBackend')])
+    expect(fixture('type', `import type { LogCode } from '../../convex/log.js'`)).toEqual([expect.stringContaining('imports LogCode')])
+    expect(fixture('namespace', `import * as log from '../../convex/log.js'\nexport const write = log.logBackend`)).toEqual([expect.stringContaining('imports all of src/convex/log.ts')])
+    expect(fixture('re-export', `export { LOG_CODES as codes } from '../../convex/log.js'`)).toEqual([expect.stringContaining('re-exports LOG_CODES')])
+    expect(fixture('star', `export * from '../../convex/log.js'`)).toEqual([expect.stringContaining('re-exports all of src/convex/log.ts')])
+    expect(fixture('dynamic', `// — a wide character first, as comments here have\nexport const write = () => import('../../convex/log.js').then(log => log.logBackend)`)).toEqual([expect.stringContaining('imports all of src/convex/log.ts')])
+    expect(fixture('clean', `export { LOCAL_LOG_ROUTE } from '../../convex/constants.js'\nexport const load = () => import('../../convex/constants.js')`)).toEqual([])
   })
 
   it('is spelled as a JSDoc tag only, everywhere under src/', () => {
@@ -428,30 +500,62 @@ describe('@internal', () => {
 
 const REGISTRY = {
   composables: [
-    'describeUserAgent',
     'getBackendError',
-    'unwrapAuth',
-    'useAgentConsent',
-    'useAggregate',
+    'useAccount',
+    'useConsents',
+    'useContactForm',
+    'useOnboarding',
+    'useActivation',
+    'useAppShell',
+    'useAdmin',
+    'useFlag',
+    'useFlagAdmin',
+    'useAccessPhase',
+    'useInvite',
+    'useAccessAdmin',
+    'useWaitlist',
+    'useWaitlistAdmin',
     'useAiStream',
+    'useAuditLog',
     'useAuth',
-    'useAuthState',
     'useBackendClient',
     'useBackendConfig',
+    'useBackendPagePath',
+    'useReturnPath',
+    'useAiLabel',
     'useBilling',
+    'useCampaign',
     'useConnectionState',
     'useCredits',
     'useEmailChange',
     'useEmailStatus',
+    'useExperiment',
     'useFeatures',
     'useGifts',
+    'useHumanCheck',
+    'useInboxAdmin',
+    'useJob',
+    'useChat',
+    'useLabels',
     'useLoginFlow',
+    'useNotificationInbox',
+    'useEmailPreferences',
+    'usePushSubscription',
+    'useAnnouncements',
+    'useAnnouncementsAdmin',
+    'useNotifications',
     'useOrders',
-    'useOrganization',
+    'useReferrals',
+    'useReferralAdmin',
+    'useWorkspace',
     'usePasskeys',
+    'usePricing',
+    'useReauthentication',
     'useSandboxInbox',
     'useSearch',
     'useSessions',
+    'useShareLink',
+    'useUploadField',
     'useUsage',
     'useWorkflowStatus',
   ],
@@ -460,35 +564,91 @@ const REGISTRY = {
   // and `CustomerPortalLink`; the module hides all three originals.
   components: [
     'AcceptInvitation',
-    'AgentConsent',
+    'WaitlistForm',
+    'AppShell',
+    'OnboardingFlow',
+    'ActivationChecklist',
+    'AccessDenied',
+    'AccountData',
+    'AdminUsers',
+    'AdminWorkspaces',
+    'AiLabel',
+    'AuditLog',
     'AuthForm',
+    'BackendNotices',
     'BillingCheckoutLink',
     'BillingHistory',
     'BillingPortalLink',
-    'CreditsLowBanner',
-    'FeatureBoundary',
-    'GiftClaimBanner',
-    'OrganizationBoundary',
+    'CancelFlow',
+    'ConnectionStatus',
+    'ConsentPrompt',
+    'ContactForm',
+    'Gate',
+    'HowDidYouHear',
+    'NotificationInbox',
+    'NotificationInboxBell',
+    'NotificationInboxItem',
     'PricingTable',
     'ProfileSettings',
-    'RoleBoundary',
+    'ReauthenticateDialog',
+    'ReferralCard',
     'SecuritySettings',
     'StorageImage',
+    'UpgradePrompt',
+    'UploadField',
     'UsageHistory',
+    'WithdrawalButton',
     'WorkspaceSettings',
   ],
-  server: ['backendAuth', 'useBackendMcp', 'defineBackendMcpTool'],
-  // Route middleware: the neutral name over the base module's guard file.
-  middleware: ['auth'],
+  // The parts of the components above (src/ui/registry.ts): an app component of
+  // the same name replaces one everywhere.
+  parts: [
+    'AuthFormHeader', 'AuthFormChoose', 'AuthFormPasskey', 'AuthFormEmail', 'AuthFormCode', 'AuthFormRecover', 'AuthFormWaitlisted', 'AuthFormInviteCode', 'AuthFormAge', 'AuthFormUndeliverable', 'AuthFormPasskeyOffer', 'AuthFormAgreement', 'AuthFormError',
+    'WaitlistJoin', 'WaitlistCode', 'WaitlistPlace', 'WaitlistShare',
+    'ReauthenticatePasskey', 'ReauthenticateCode',
+    'ProfileIdentity', 'ProfileNameSection', 'ProfileEmailSection', 'ProfileLanguageSection', 'ProfilePreferencesSection',
+    'SecurityPasskeys', 'SecuritySessions', 'SecurityAlerts', 'AccountExport', 'AccountDeletion',
+    'WorkspaceList', 'WorkspaceBilling', 'WorkspaceCredits', 'AcceptInvitationActions', 'AuditLogEvent',
+    'PricingPeriodSwitch', 'PricingCurrencySelect', 'PricingPlanCard', 'PricingPackCard', 'PricingCancelConfirm', 'PricingEmailOptOut',
+    'BillingHistoryOrder', 'UsageHistoryEvent',
+    'CancelFlowQuestion', 'CancelFlowOffer', 'CancelFlowEnd',
+    'AdminUsersTable', 'AdminUserDrawer', 'AdminWorkspacesTable', 'AdminWorkspaceDrawer',
+    'AccountMenu', 'WorkspaceSwitcher',
+    'OnboardingProfile', 'OnboardingWorkspace', 'OnboardingTeammates', 'OnboardingPlan',
+  ],
+  server: ['backendAuth'],
+  // Route middleware: the global page guard behind `definePageMeta({ auth })`,
+  // the one way a page says who may open it.
+  middleware: ['backend-access'],
 }
 
 /** The experimental tier, by the names STABILITY.md lists. */
-const EXPERIMENTAL = ['./mcp', './ai', 'useAiStream', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace']
+const EXPERIMENTAL = ['./ai', './monitoring', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage']
+
+/**
+ * The experimental members of a stable type, by where the source tags them
+ * (`Interface.member`), each with the name STABILITY.md lists it by.
+ */
+const EXPERIMENTAL_MEMBERS: Record<string, string> = {
+  'BillingCatalog.quotas': 'BillingCatalog.quotas',
+  'CatalogPlan.quotas': 'CatalogPlan.quotas',
+  'CatalogPlan.gift': 'CatalogPlan.gift',
+  'BillingCatalogIds.quotas': 'BillingCatalogIds.quotas',
+  'BillingComponents.shardedCounter': 'BillingComponents.shardedCounter',
+  'PricedPlan.quotas': 'PricedPlan.quotas',
+  'Billing.getQuota': 'billing.getQuota',
+  'Billing.requireQuota': 'billing.requireQuota',
+  'Billing.releaseQuota': 'billing.releaseQuota',
+  'UseFeaturesReturn.quotas': 'useFeatures().quotas',
+  'UseFeaturesReturn.quota': 'useFeatures().quota()',
+  'UseFeaturesReturn.remaining': 'useFeatures().remaining()',
+}
 
 describe('the registry', () => {
   it('matches every name src/module.ts and src/nuxt/ register', () => {
-    // Registrations are `{ name: 'x' }` / `{ name: 'x', as: 'y' }` literals;
-    // the module meta (`name: 'nuxt-backend'`) is the only other `name:`.
+    // Registrations are `{ name: 'x' }` / `{ name: 'x', as: 'y' }` literals,
+    // the packaged UI's rows (src/ui/registry.ts) among them; the module
+    // meta (`name: 'nuxt-backend'`) is the only other `name:`.
     const registered = [...readModuleSources().matchAll(/\bname: '(\w[\w-]*)'(?:, as: '(\w+)')?/g)]
       .map(([, name, alias]) => alias ?? name!)
       .filter(name => name !== packageJson.name)
@@ -565,9 +725,10 @@ function isPublished(subpath: string): boolean {
 describe('the surface as documented', () => {
   it('names only published subpaths in README.md and the docs', () => {
     const docs = walk(join(root, 'website/content'), '.md')
-    // The Upgrade page and the changelog name removed subpaths on purpose.
-    const record = ['/docs/09.ship/6.migrate/1.upgrade.md', '/docs/09.ship/5.releases/1.changelog.md']
-    const files = [join(root, 'README.md'), ...docs.filter(file => !file.startsWith(GENERATED_REFERENCE) && !record.some(page => file.split(sep).join('/').endsWith(page)))]
+    // The Upgrade page and the changelog name removed subpaths on purpose, and
+    // a planned or changing page one its unit has not published yet.
+    const record = ['/docs/05.ship/6.releases/4.upgrade.md', '/docs/05.ship/6.releases/1.changelog.md']
+    const files = [join(root, 'README.md'), ...docs.filter(file => !file.startsWith(GENERATED_REFERENCE) && !record.some(page => file.split(sep).join('/').endsWith(page)) && !aheadOfCode(file))]
     // The generated reference is TypeDoc's output, not prose written by hand —
     // it must actually be excluded, or a rename of the content tree silently
     // turns this into a scan of generated files that always passes.
@@ -603,6 +764,9 @@ describe('the surface as documented', () => {
     for (const name of EXPERIMENTAL) {
       if (!mentioned(name.startsWith('./') ? `nuxt-backend/${name.slice('./'.length)}` : name)) missing.push(`experimental ${name}`)
     }
+    for (const name of Object.values(EXPERIMENTAL_MEMBERS)) {
+      if (!mentioned(name)) missing.push(`experimental ${name}`)
+    }
     // Surface 2's content layer: every dotted key of `appConfig.backend`.
     for (const key of BACKEND_APP_CONFIG_KEYS) {
       if (!mentioned(key)) missing.push(`appConfig.backend.${key}`)
@@ -613,26 +777,30 @@ describe('the surface as documented', () => {
   it('documents every appConfig.backend key on the labels page', () => {
     // The "full shape" field-group is the reference for surface 2's content
     // layer: one `::field{name="<key>"}` per frozen key, no more and no fewer.
-    const page = read(contentFile('/docs/ui/customize/labels'))
+    const page = read(contentFile('/docs/build/ui/customize/labels'))
     const documented = [...page.matchAll(/:::field\{name="([\w.]+)"/g)].map(([, name]) => name!)
     expect(documented.sort()).toEqual([...BACKEND_APP_CONFIG_KEYS].sort())
   })
 
   it('tags exactly the experimental tier', () => {
     // Module-level tags sit above the first import; composables carry theirs
-    // on the function. Any other `@experimental` in src/ is a tier change
-    // STABILITY.md must name.
+    // on the function, and a member of a stable type on the member. Any
+    // other `@experimental` in src/ is a tier change STABILITY.md must name.
     const tagged = walk(join(root, 'src'), '.ts').flatMap((file) => {
       const { comments, program } = parse(file)
       return comments.filter(comment => /@experimental\b/.test(comment.value)).map((comment) => {
+        const container = program.body.find(node => node.start < comment.start && comment.end < node.end)
+        if (container) return memberTagged(container, comment.end) ?? relative(root, file).split(sep).join('/')
         const statement = program.body.find(node => node.start >= comment.end)
         const declaration = statement?.type === 'ExportNamedDeclaration' ? statement.declaration : undefined
-        return declaration && 'id' in declaration && declaration.id && 'name' in declaration.id
-          ? String(declaration.id.name)
+        // A function or a type by its name, a component (`export const X = defineComponent(…)`) by its constant's.
+        const id = declaration?.type === 'VariableDeclaration' ? declaration.declarations[0]?.id : declaration && 'id' in declaration ? declaration.id : undefined
+        return id && 'name' in id
+          ? String(id.name)
           : relative(root, file).split(sep).join('/')
       })
     })
-    const expected = EXPERIMENTAL.map(name => (name.startsWith('./') ? ENTRIES[name]!.source : name))
+    const expected = [...EXPERIMENTAL.map(name => (name.startsWith('./') ? ENTRIES[name]!.source : name)), ...Object.keys(EXPERIMENTAL_MEMBERS)]
     expect(tagged.sort()).toEqual(expected.sort())
   })
 
@@ -667,6 +835,15 @@ describe('the surface as documented', () => {
     expect(staticExportNames(`${module}.ts`, template)).toEqual(expect.arrayContaining([...names]))
   })
 })
+
+/** The interface member a doc comment inside `statement` ending at `end` tags, as `Interface.member`; `undefined` for anything else. */
+function memberTagged(statement: Statement, end: number): string | undefined {
+  const declaration = statement.type === 'ExportNamedDeclaration' ? statement.declaration : statement
+  if (declaration?.type !== 'TSInterfaceDeclaration') return undefined
+  const member = declaration.body.body.find(node => node.start >= end)
+  const key = member && 'key' in member ? member.key : undefined
+  return key && 'name' in key ? `${declaration.id.name}.${String(key.name)}` : undefined
+}
 
 /** typedoc.json is JSONC: drop line and block comments outside strings. */
 function stripJsonComments(text: string): string {

@@ -1,0 +1,281 @@
+/*
+ * admin's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-admin='console'],
+  [data-admin='users'],
+  [data-admin='workspaces'],
+  [data-admin='flags'],
+  [data-admin='system'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    color: var(--bk-ink);
+    min-width: 0;
+  }
+
+  [data-admin='title'] {
+    margin: 0;
+    font-size: 1.15rem;
+    letter-spacing: -0.01em;
+  }
+
+  [data-admin='search'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* A field's label holds its text and the field, side by side, wrapping on a narrow screen. */
+  [data-admin='label'] {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.6rem;
+  }
+
+  /* Every table of the console, whatever its own hook: the views name theirs
+     (`data-admin="webhooks-log"` …), and each still reads, and stacks on a
+     narrow screen, as one. */
+  [data-admin='table'],
+  :where([data-admin]) table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  [data-admin='table'] :where(th, td),
+  :where([data-admin]) table :where(th, td) {
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--bk-edge);
+    text-align: start;
+    vertical-align: top;
+  }
+
+  [data-admin='table'] :where(thead th),
+  :where([data-admin]) table :where(thead th) {
+    color: var(--bk-muted);
+    font-weight: 600;
+  }
+
+  [data-admin='user-email'],
+  [data-admin='workspace-slug'],
+  [data-admin='member-email'],
+  [data-admin='drawer-subtitle'] {
+    display: block;
+    color: var(--bk-muted);
+    font-size: 0.8rem;
+    overflow-wrap: anywhere;
+  }
+
+  [data-admin='badge'] {
+    display: inline-block;
+    margin-inline-start: 0.4rem;
+    padding: 0 0.45rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    font-size: 0.75rem;
+  }
+
+  [data-admin='user'][data-banned] [data-admin='user-status'],
+  [data-admin='capability'][data-state='failing'] [data-admin='capability-state'] {
+    color: var(--bk-error);
+  }
+
+  [data-admin='capability'][data-state='missing'] [data-admin='capability-state'] {
+    color: var(--bk-warn);
+  }
+
+  [data-admin='pager'] {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  [data-admin='drawer'] {
+    width: min(32rem, 100vw);
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0 0 0 auto;
+    padding: 1.1rem;
+    border: 0;
+    border-inline-start: 1px solid var(--bk-edge);
+    background: Canvas;
+    color: CanvasText;
+    overflow-y: auto;
+  }
+
+  [data-admin='drawer']::backdrop {
+    background: color-mix(in srgb, CanvasText 35%, transparent);
+  }
+
+  [data-admin='drawer-header'] {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 0.25rem 0.75rem;
+    margin-bottom: 0.9rem;
+  }
+
+  [data-admin='drawer-title'] {
+    margin: 0;
+    font-size: 1.1rem;
+    overflow-wrap: anywhere;
+  }
+
+  [data-admin='drawer-subtitle'] {
+    grid-column: 1;
+    margin: 0;
+  }
+
+  [data-admin='close'] {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  [data-admin='details'] {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.3rem 0.9rem;
+    margin: 0 0 0.9rem;
+    font-size: 0.85rem;
+  }
+
+  [data-admin='details'] :where(dt) {
+    color: var(--bk-muted);
+  }
+
+  [data-admin='details'] :where(dd) {
+    margin: 0;
+  }
+
+  :where(section)[data-admin^='section-'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--bk-edge);
+  }
+
+  [data-admin='section-title'] {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bk-muted);
+  }
+
+  /* A passkey-only account: the note says so, and the one action lets it use sign-in codes again. */
+  [data-admin='passkey-only-off'] {
+    align-self: flex-start;
+  }
+
+  [data-admin='role-form'],
+  [data-admin='ban-form'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  [data-admin='session-list'],
+  [data-admin='membership-list'],
+  [data-admin='member-list'],
+  [data-admin='invitation-list'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.85rem;
+  }
+
+  [data-admin='member'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+  }
+
+  [data-admin='read-only-note'],
+  [data-admin='impersonate-note'],
+  [data-admin='self-note'],
+  [data-admin='ban-note'],
+  [data-admin='coarse-note'],
+  [data-admin='passkey-only-note'],
+  [data-admin='hint'],
+  [data-admin='refused'],
+  [data-admin='waitlist-empty'],
+  [data-admin='empty'],
+  [data-admin='loading'],
+  [data-admin='sessions-empty'],
+  [data-admin='workspaces-empty'],
+  [data-admin='invitations-empty'] {
+    margin: 0;
+    color: var(--bk-muted);
+    font-size: 0.85rem;
+  }
+
+  [data-admin='message'],
+  [data-admin='error'],
+  [data-admin='not-found'] {
+    margin: 0;
+    padding: 0.55rem 0.7rem;
+    border-radius: var(--bk-radius);
+    font-size: 0.85rem;
+  }
+
+  [data-admin='message'][data-tone='ok'] {
+    background: color-mix(in srgb, var(--bk-ok) 12%, transparent);
+    color: var(--bk-ok);
+  }
+
+  [data-admin='message'][data-tone='error'],
+  [data-admin='error'],
+  [data-admin='not-found'] {
+    background: color-mix(in srgb, var(--bk-error) 12%, transparent);
+    color: var(--bk-error);
+  }
+
+  /* Read out, not shown: the status region and the actions column's heading. */
+  [data-admin='status'],
+  [data-admin='visually-hidden'] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (max-width: 40rem) {
+    [data-admin='table'] :where(thead),
+    :where([data-admin]) table :where(thead) {
+      display: none;
+    }
+
+    [data-admin='table'] :where(tr),
+    :where([data-admin]) table :where(tr) {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      border-bottom: 1px solid var(--bk-edge);
+    }
+
+    [data-admin='table'] :where(th, td),
+    :where([data-admin]) table :where(th, td) {
+      border-bottom: 0;
+      padding: 0.3rem 0.4rem;
+    }
+  }
+
+  [data-admin='flags'] [data-admin='message']:empty {
+    padding: 0;
+  }
+}

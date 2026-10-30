@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runCommand } from 'citty'
 import { main } from '../../src/cli/main'
 import { resolveConvexCli } from '../../src/convex-cli'
+import { fakeCredential } from '../helpers/secrets'
 
 // `env push --preview` and `env push --defaults`, run as a coding agent or a
 // CI build runs them, against a stand-in `convex` that records every call.
@@ -34,7 +35,7 @@ process.stdin.on('end', () => {
 })
 `
 
-const EMAIL_KEY = 're_SECRET_email_key_0123456789abcdef'
+const EMAIL_KEY = fakeCredential('re_')
 
 let rootDir: string
 let printed: string[]
@@ -85,16 +86,16 @@ async function push(args: string[]) {
 }
 
 describe('env push --preview', () => {
-  it('fills the named preview: a generated secret, the given origin, test-mode mail and sandbox billing', async () => {
+  it('fills the named preview: a generated secret, the given origin, and its kind (test-mode mail, sandbox billing)', async () => {
     await push(['--preview', 'feat-login', '--site-url', 'https://feat-login.example.app/'])
 
     expect(process.exitCode).toBeUndefined()
     const written = sets()
-    expect(Object.keys(written).sort()).toEqual(['AUTH_SECRET', 'BILLING_ENVIRONMENT', 'EMAIL_API_KEY', 'EMAIL_TEST_MODE', 'SITE_URL'])
+    // A web push key pair of the preview's own, never .env.local's.
+    expect(Object.keys(written).sort()).toEqual(['AUTH_SECRET', 'BACKEND_ENVIRONMENT', 'EMAIL_API_KEY', 'PUSH_PRIVATE_KEY', 'PUSH_PUBLIC_KEY', 'SITE_URL'])
     for (const { args } of Object.values(written)) expect(args.slice(0, 4)).toEqual(['env', 'set', '--preview-name', 'feat-login'])
     expect(written.SITE_URL!.value).toBe('https://feat-login.example.app')
-    expect(written.EMAIL_TEST_MODE!.value).toBe('true')
-    expect(written.BILLING_ENVIRONMENT!.value).toBe('sandbox')
+    expect(written.BACKEND_ENVIRONMENT!.value).toBe('preview')
     expect(written.AUTH_SECRET!.value.length).toBeGreaterThanOrEqual(43)
     // Every read names the preview too, and no value is ever an argument.
     expect(calls().every(call => call.args.includes('--preview-name'))).toBe(true)
@@ -165,9 +166,10 @@ describe('env push --defaults', () => {
     expect(process.exitCode).toBeUndefined()
     expect(calls()[0]!.args).toEqual(['env', 'default', 'list', '--names-only', '--type', 'preview'])
     const written = sets()
-    expect(Object.keys(written)).toEqual(['AUTH_SECRET', 'SITE_URL', 'EMAIL_TEST_MODE', 'BILLING_ENVIRONMENT'])
+    expect(Object.keys(written)).toEqual(['AUTH_SECRET', 'SITE_URL', 'BACKEND_ENVIRONMENT'])
     for (const [name, { args }] of Object.entries(written)) expect(args).toEqual(['env', 'default', 'set', '--type', 'preview', name])
     expect(written.SITE_URL!.value).toBe('https://preview.example.com')
+    expect(written.BACKEND_ENVIRONMENT!.value).toBe('preview')
     // Defaults never carry the developer's own keys.
     expect(written.EMAIL_API_KEY).toBeUndefined()
     // Nor does any deployment get written.
@@ -183,11 +185,11 @@ describe('env push --defaults', () => {
   })
 
   it('keeps defaults already set', async () => {
-    vi.stubEnv('FAKE_CONVEX_DEFAULTS', 'AUTH_SECRET,SITE_URL,EMAIL_TEST_MODE')
+    vi.stubEnv('FAKE_CONVEX_DEFAULTS', 'AUTH_SECRET,SITE_URL')
     await push(['--defaults', 'preview'])
 
     expect(process.exitCode).toBeUndefined()
-    expect(Object.keys(sets())).toEqual(['BILLING_ENVIRONMENT'])
+    expect(Object.keys(sets())).toEqual(['BACKEND_ENVIRONMENT'])
   })
 
   it('gives dev defaults the dev server\'s origin', async () => {

@@ -1,75 +1,42 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-/**
- * Log levels defined as value (source of truth).
- * Type and validator are *derived* from it per TS best practices
- * (see https://github.com/AllThingsSmitty/typescript-tips-everyone-should-know#derive-types-from-values-instead-of-duplicating-them).
- * This avoids duplicating the 'info' | 'warn' | 'error' list in the table schema,
- * the logs mutation args, and demo UI types.
- */
-export const LOG_LEVELS = ['info', 'warn', 'error'] as const
-export type LogLevel = (typeof LOG_LEVELS)[number]
-export const logLevelValidator = v.union(
-  v.literal(LOG_LEVELS[0]),
-  v.literal(LOG_LEVELS[1]),
-  v.literal(LOG_LEVELS[2]),
-)
+/** A drawn panel: its image, in the package's storage (ctx.storeImage), by its id as a string. */
+const panel = v.object({ imageId: v.string(), caption: v.string() })
 
+// Panels' tables. The package keeps its tables in its own component, so this
+// schema holds only the app's: a strip belongs to the workspace it was made
+// in, and the public demo keeps the panels of its canned ideas (demo.ts).
 export default defineSchema({
-  todos: defineTable({
-    text: v.string(),
-    completed: v.boolean(),
-    userId: v.string(),
-  }).index('userId', ['userId']),
-
-  messages: defineTable({
-    userId: v.string(),
-    author: v.string(),
-    text: v.string(),
+  strips: defineTable({
+    workspaceId: v.string(),
+    authorId: v.string(),
+    authorEmail: v.string(),
+    idea: v.string(),
+    // One of the canned ideas (demo.ts), when the strip started from one.
+    ideaId: v.optional(v.string()),
+    status: v.union(v.literal('draft'), v.literal('queued'), v.literal('ready')),
+    // An upload the package's storage keeps (storage.ts): its id, as a string.
+    photoId: v.optional(v.string()),
+    jobId: v.optional(v.string()),
+    // The drawn panels, each image its workspace's file, stored by the job.
+    panels: v.array(panel),
+    // The panels are a canned idea's, copied from the demo's cache: the files
+    // are the app's own, so deleting the strip leaves them.
+    cached: v.optional(v.boolean()),
+    hidden: v.optional(v.boolean()),
   })
-    .index('userId', ['userId'])
-    .searchIndex('search_text', { searchField: 'text', filterFields: ['userId'] }),
+    .index('by_workspace', ['workspaceId'])
+    // An account's strips, for its export and its erasure (account.ts).
+    .index('by_author', ['authorId']),
 
-  counters: defineTable({
-    userId: v.string(),
-    name: v.string(),
-    value: v.number(),
-  }).index('userId_name', ['userId', 'name']),
-
-  logs: defineTable({
-    userId: v.string(),
-    level: logLevelValidator,
-    message: v.string(),
-  }).index('userId', ['userId']),
-
-  files: defineTable({
-    userId: v.string(),
-    storageId: v.id('_storage'),
-    name: v.string(),
-    contentType: v.optional(v.string()),
-    size: v.optional(v.number()),
-  }).index('userId', ['userId']).index('storageId', ['storageId']),
-
-  // Note: the Polar feature/credit cache (`billingEntitlements`) now lives inside
-  // the bundled `auth` / `billing` components — nothing to declare here. useFeatures() /
-  // useCredits() read it reactively via api.billing.getFeatures / getCredits.
-
-  // Transactional emails sent from the app, so the showcase can show a feed with
-  // live delivery status (via useEmailStatus per row).
-  sentEmails: defineTable({
-    userId: v.string(),
-    emailId: v.string(),
-    to: v.string(),
-    subject: v.string(),
-    createdAt: v.number(),
-  }).index('userId', ['userId']),
-
-  // Recent Polar webhook events, for the showcase activity feed.
-  webhookEvents: defineTable({
-    source: v.string(),
-    type: v.string(),
-    summary: v.string(),
-    createdAt: v.number(),
-  }).index('createdAt', ['createdAt']),
+  // The panels each canned idea was drawn into once, by the seed job
+  // (demo.ts): a job the app runs for itself, so the images are the app's.
+  cannedStrips: defineTable({
+    ideaId: v.string(),
+    // The seed job drawing it: a panel any other job draws is dropped.
+    jobId: v.optional(v.string()),
+    panels: v.array(panel),
+    ready: v.boolean(),
+  }).index('by_ideaId', ['ideaId']),
 })

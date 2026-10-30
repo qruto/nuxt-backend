@@ -23,7 +23,7 @@ signs everybody out. `npx nuxt-backend dev` generates it on a dev deployment; le
    `npx nuxt-backend` below is the project's own copy. Run it as that column says, not with
    `dlx`, which fetches a separate one.
 
-2. **Versions.** The package needs Nuxt 4 from 4.1.0 (not Nuxt 5 yet) and Node ≥ 24.11.0. Check
+2. **Versions.** The package needs Nuxt 4 from 4.6.2 (not Nuxt 5 yet) and Node ≥ 24.11.0. Check
    `node -v` and the `nuxt` version in `package.json`. If either is out of range, stop and tell
    the user; don't upgrade or downgrade Nuxt on your own.
 
@@ -54,9 +54,10 @@ bun create nuxt@latest my-app --template=gh:qruto/nuxt-backend/templates/starter
 
 Use the user's name for the app instead of `my-app`, and pass `--gitInit=false` when the folder
 is already inside a git repository. npm needs the `--` before `-t`; Bun rejects `-t`, so it takes
-`--template=`. Then `cd` into the new folder and run the `npx -y skills@1.7.0 add` command from the prompt
-there too: it installed the skill in the folder you started in, and the app needs its own copy
-for later tasks. Go to step 2.
+`--template=`. Then `cd` into the new folder and run `npx nuxt-backend init --agents` there: it
+installs the agent skills of the version the starter installed into the app's `.agents/skills/`,
+which later tasks read (the skill you started from sits in the folder you started in). Go to
+step 2.
 
 ## 1b. An existing Nuxt app: add the package
 
@@ -68,7 +69,7 @@ npx nuxt-backend init
 (With the project's install command.) `convex` is the package the backend functions import from
 and the CLI that runs them. `init` writes the backend files (`backend/`, or into the existing
 functions folder), `convex.json` when that folder is not `convex/`, `.env.example`, an
-`AGENTS.md` section and `.mcp.json` for agents, adds `'nuxt-backend'` to `modules`, points the
+`AGENTS.md` section, `.mcp.json` and the agent skills in `.agents/skills/` for agents, adds `'nuxt-backend'` to `modules`, points the
 `dev` script at `nuxt-backend dev`, and swaps `<NuxtWelcome />` for `<NuxtPage />` in an untouched
 `app/app.vue` so the module's pages render. It never replaces a file that exists.
 
@@ -83,17 +84,22 @@ Check what `init` printed:
 - When it says it added `convex` to the dependencies, run the install once more.
 - When it says `CLAUDE.md does not mention AGENTS.md`, tell the user; don't edit `CLAUDE.md`
   yourself.
+- When it says agent skills belong to another version, run the command it names:
+  `npx nuxt-backend init --agents`, or, for skills the skills CLI manages (this guide's own skill
+  among them, when you installed it here), the `npx skills add ./node_modules/nuxt-backend/skills`
+  line. The skill this guide came from follows the website, and the app needs the skills of the
+  version it installed.
 
 Existing Convex files: `init` keeps a `convex.config.ts`, `http.ts`, `schema.ts` or
 `auth.config.ts` that was already in the functions folder, and says nothing about it. The backend
 does not run until those four carry its parts: `env: backendEnv` in `defineApp` and
-`app.use(backend, { env: { … } })` forwarding the four email variables (`EMAIL_API_KEY`,
-`EMAIL_FROM`, `EMAIL_TEST_MODE`, `EMAIL_WEBHOOK_SECRET`, each as `app.env.<NAME>`) in
+`app.use(backend, { env: { … } })` forwarding `BACKEND_ENVIRONMENT`, the email variables
+(`EMAIL_API_KEY`, `EMAIL_FROM`, `EMAIL_WEBHOOK_SECRET`) and `MONITORING_DSN`, each as `app.env.<NAME>`, in
 `convex.config.ts` (a bare `app.use(backend)` leaves the component without them, and it sends no
 email, sign-in codes included, even with `EMAIL_API_KEY` on the deployment), `registerBackendRoutes`
 in `http.ts`, the auth tables in `schema.ts` and the auth provider in `auth.config.ts`. Compare
 each kept file with the
-[scaffolded files](https://nuxt-backend.dev/raw/docs/auth/setup.md) and propose the merge to
+[scaffolded files](https://nuxt-backend.dev/raw/docs/build/auth/setup.md) and propose the merge to
 the user before editing it; don't overwrite their code.
 
 pnpm notes:
@@ -126,10 +132,10 @@ before Nuxt starts. Start it in the background; it keeps running.
   creates nothing in the cloud:
 
   ```bash
-  CONVEX_AGENT_MODE=anonymous npx nuxt-backend dev
+  npx nuxt-backend dev --anonymous
   ```
 
-  In PowerShell: `$env:CONVEX_AGENT_MODE='anonymous'; npx nuxt-backend dev`.
+  The same command on macOS, Linux and Windows.
 
 - **The user wants a cloud deployment.** That needs their Convex login in a browser. Ask them to
   run the `dev` script in their own terminal and pick or create a project, then continue once
@@ -155,8 +161,8 @@ push of a new deployment fails until `AUTH_SECRET` and `SITE_URL` are on it, and
    `npx nuxt-backend inbox delivered+agent@resend.dev --json` (the `code` field). Sign-in works
    on the origin `SITE_URL` names, `http://localhost:3000` on a dev deployment. When Nuxt
    started on another port (3000 was taken), sign-in answers "Invalid origin": tell the user, and
-   suggest `AUTH_TRUST_LOCAL_ORIGINS=1` in `.env.local` followed by `npx nuxt-backend env push`,
-   which trusts every `localhost` port on a dev deployment.
+   suggest setting `SITE_URL` in `.env.local` to that origin, followed by `npx nuxt-backend env push --force SITE_URL`
+   (a `development` `BACKEND_ENVIRONMENT`, which `dev` sets, trusts every `localhost` port already).
 4. Stop the dev process when you are done, with Ctrl-C or `kill -INT <pid>` on macOS and Linux.
    It stops Convex, Nuxt and a local backend together. On Windows, `taskkill /PID <pid> /T /F`
    ends it with the processes it started.
@@ -168,7 +174,7 @@ findings in [CLI](https://nuxt-backend.dev/raw/docs/reference/cli.md).
 ## 4. Tell the user
 
 - What changed: the packages added, `nuxt.config.ts`, the `dev` script, the backend files,
-  `.env.example`, `.env.local`, `AGENTS.md` and `.mcp.json`.
+  `.env.example`, `.env.local`, `AGENTS.md`, `.mcp.json` and `.agents/skills/`.
 - How to run it: the `dev` script starts Convex and Nuxt together, and `/login` signs in.
 - If you created a local deployment: it lives on their machine. To move to a Convex account, they
   run `npx convex login` in their own terminal; it offers to link the existing deployment.

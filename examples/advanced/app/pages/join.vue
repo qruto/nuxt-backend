@@ -1,10 +1,10 @@
 <script setup lang="ts">
 // CUSTOMIZATION: this app's invitation accept page. Invitation emails link
-// here because backend/auth.ts sets `organization.invitationPath: '/join'`, and
-// nuxt.config.ts moves the built-in page to /join, where this page replaces
-// it (an app page always wins). The packaged <AcceptInvitation> component
+// here because nuxt.config.ts moves the built-in page to /join, which the
+// module carries to backend/paths.generated.ts, and this page replaces it
+// there (an app page always wins). The packaged <AcceptInvitation> component
 // still does the heavy lifting — restyled via its slots.
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ auth: true })
 </script>
 
 <template>

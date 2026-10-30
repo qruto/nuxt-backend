@@ -19,14 +19,14 @@ const BANNER = source => `<!-- Generated from ${source} (pnpm run docs:includes)
 export const INCLUDES = [
   {
     source: 'STABILITY.md',
-    page: 'website/content/docs/09.ship/5.releases/2.stability.md',
+    page: 'website/content/docs/05.ship/6.releases/2.stability.md',
     title: 'Stability',
     description: 'What a version number promises: the public surfaces, the experimental tier, and how upstream releases map to releases here.',
     icon: 'i-lucide-shield-check',
   },
   {
     source: 'CHANGELOG.md',
-    page: 'website/content/docs/09.ship/5.releases/1.changelog.md',
+    page: 'website/content/docs/05.ship/6.releases/1.changelog.md',
     title: 'Changelog',
     description: 'Every release of nuxt-backend, newest first: what changed, what broke, and what to do about it.',
     icon: 'i-lucide-history',

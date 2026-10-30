@@ -22,7 +22,7 @@ export function hasGeneratedApi(rootDir: string, functionsDir: string = resolveF
  * Order is significant: alias resolution is first-match-wins and `#backend`
  * is a prefix of `#backend/api`, so the specific entries must come first.
  */
-export function getBackendAliases(rootDir: string): Record<string, string> {
+export function getBackendAliases(rootDir: string, runtimeDir?: string): Record<string, string> {
   const functionsDir = resolveFunctionsDir(rootDir)
   const backendDir = join(rootDir, functionsDir)
   const generatedDir = join(backendDir, '_generated')
@@ -32,13 +32,22 @@ export function getBackendAliases(rootDir: string): Record<string, string> {
     '#backend/server': join(generatedDir, 'server'),
     '#backend/dataModel': join(generatedDir, 'dataModel'),
     '#backend/_generated': generatedDir,
+    // The packaged UI's helpers and part types, and the runtime an ejected
+    // file imports from (src/cli/eject.ts): the package's, not the app's.
+    ...(runtimeDir
+      ? {
+          '#backend/a11y': join(runtimeDir, 'vue/a11y'),
+          '#backend/parts': join(runtimeDir, 'vue/parts'),
+          '#backend/runtime': join(runtimeDir, 'vue'),
+        }
+      : {}),
     '#backend': backendDir,
   }
 }
 
 /** Register the `#backend/*` aliases for both Vite and Nitro. */
-export function registerBackendAliases(nuxt: Nuxt): void {
-  const aliases = getBackendAliases(nuxt.options.rootDir)
+export function registerBackendAliases(nuxt: Nuxt, runtimeDir?: string): void {
+  const aliases = getBackendAliases(nuxt.options.rootDir, runtimeDir)
 
   nuxt.options.nitro ||= {}
   nuxt.options.nitro.alias ||= {}

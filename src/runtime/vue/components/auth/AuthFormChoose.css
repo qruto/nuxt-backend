@@ -1,0 +1,36 @@
+/*
+ * AuthFormChoose's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-auth='divider'] {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--auth-muted);
+  }
+
+  [data-auth='divider']::before,
+  [data-auth='divider']::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--auth-edge);
+  }
+
+  /* "Lost your passkey?": a way out for a passkey-only account, quieter than the ways in. */
+  [data-auth='lost-passkey'] {
+    align-self: center;
+    border: 0;
+    background: none;
+    font-weight: 500;
+    font-size: 0.85rem;
+    color: var(--auth-muted);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+}

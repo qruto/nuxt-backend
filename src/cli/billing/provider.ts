@@ -2,6 +2,9 @@
 // carries, the environment and id-map shapes, the sync log entry, and the
 // drain over the provider's paginated list endpoints.
 
+import type { CatalogInterval } from '../../convex/catalog'
+import type { BillingCatalogDiscount, CatalogPassIds } from '../../convex/integrations/billing/types/records'
+
 export const MANAGED_BY = 'nuxt-backend'
 
 export type Environment = 'sandbox' | 'production'
@@ -13,17 +16,36 @@ interface CreditMeterIds {
 }
 
 export interface CatalogIds {
+  /**
+   * Product key → provider id, for everything the catalog sells: packs by
+   * key, a plan's prices as `<plan>` (monthly) and `<plan>:year`. A retired
+   * plan's products stay, so a subscriber's plan still reads back by key.
+   */
   products: Record<string, string>
+  /** Plan key → its product per priced interval, retired plans included. */
+  plans?: Record<string, Partial<Record<CatalogInterval, string>>>
+  /** The keys of retired plans: archived at the provider, never sold again. */
+  retired?: string[]
   /** The keys of `products` that are credit packs: what a gift may buy. */
   packs?: string[]
   /** Pack key → its private gift product, outside `products`. */
   gifts?: Record<string, string>
+  /** Plan key → its gift as a pass: the free pass product, and the purchase product per length in months. */
+  passes?: Record<string, CatalogPassIds>
   meters: Record<string, CreditMeterIds>
+  /** Quota key → what it counts (its `description`): what a feature read reports, granted or not. */
+  quotas?: Record<string, string>
+  /** The free plan's key: what every billing entity starts on, and returns to when a paid plan ends. */
+  free?: string
+  /** The currency a visitor pays in when the catalog does not price their own: the catalog's, else the organization's. */
+  currency?: string
+  /** Discount key → the discount and its terms as the provider holds them after the sync; retired ones left out. */
+  discounts?: Record<string, BillingCatalogDiscount>
 }
 
 export interface SyncLogEntry {
-  action: 'created' | 'exists' | 'adopted' | 'would-create' | 'updated' | 'would-update' | 'drift' | 'warn'
-  kind: 'meter' | 'benefit' | 'product' | 'webhook' | 'custom-field' | 'currency'
+  action: 'created' | 'exists' | 'adopted' | 'would-create' | 'updated' | 'would-update' | 'archived' | 'would-archive' | 'drift' | 'warn'
+  kind: 'meter' | 'benefit' | 'product' | 'webhook' | 'custom-field' | 'currency' | 'discount'
   key: string
   id?: string
   note?: string

@@ -1,4 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { type FunctionReference, getFunctionName } from 'convex/server'
+import { vi } from 'vitest'
 import { defineComponent, h, nextTick, provide } from 'vue'
 import { ConvexClientKey, type ConvexVueClient } from 'nuxt-convex-module/client'
 
@@ -62,4 +64,40 @@ export async function mountWithConvex<T>(
   if (options.tick) await nextTick()
 
   return { wrapper, result }
+}
+
+/**
+ * Make the client's reads of `query` fail with `error`, as a refused or
+ * crashed query does: every read, or those whose args `when` accepts. Other
+ * reads stay live. Undone by `vi.restoreAllMocks()`. The function it returns
+ * answers every failing read again, as a new result from the server does —
+ * with the same error, or with `next` from then on.
+ */
+export function failClientQuery(
+  client: ConvexVueClient,
+  query: FunctionReference<'query'>,
+  error: Error,
+  when: (args: Record<string, unknown>) => boolean = () => true,
+): (next?: Error) => void {
+  let current = error
+  const listeners = new Set<() => void>()
+  const watchQuery = client.watchQuery.bind(client)
+  vi.spyOn(client, 'watchQuery').mockImplementation(((ref: typeof query, ...rest: unknown[]) => {
+    if (getFunctionName(ref) !== getFunctionName(query) || !when(rest[0] as Record<string, unknown>)) return (watchQuery as (...args: unknown[]) => unknown)(ref, ...rest)
+    return {
+      onUpdate: (listener: () => void) => {
+        listeners.add(listener)
+        return () => listeners.delete(listener)
+      },
+      localQueryResult: () => {
+        throw current
+      },
+      localQueryLogs: () => undefined,
+      journal: () => undefined,
+    }
+  }) as never)
+  return (next) => {
+    if (next) current = next
+    for (const listener of listeners) listener()
+  }
 }

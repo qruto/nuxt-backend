@@ -1,0 +1,21 @@
+/*
+ * ReauthenticateCode's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-reauthenticate='label-otp'] {
+    gap: 0.3rem;
+    font-size: 0.85rem;
+    color: var(--bk-muted);
+  }
+
+  [data-reauthenticate='input-otp'] {
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--reauthenticate-edge);
+    border-radius: var(--bk-radius-control);
+    background: transparent;
+    color: var(--bk-ink);
+    font: inherit;
+  }
+}

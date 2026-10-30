@@ -2,16 +2,15 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { parseEnvFile } from '../../src/deployment'
+import { computeDeployment, parseEnvFile } from '../../src/deployment'
 import {
   buildDevtoolsInfo,
-  computeDeployment,
   computeDevtoolsPages,
-  computeMcpStatus,
   envTier,
   resolveBackendSource,
   type BuildDevtoolsInfoInput,
 } from '../../src/devtools/info'
+import { finding } from '../../src/findings'
 import { resolvedBackendPages } from '../../src/pages'
 
 describe('computeDevtoolsPages', () => {
@@ -44,7 +43,7 @@ describe('envTier', () => {
     expect(tier.optional.EMAIL_API_KEY).toBe(true)
     expect(tier.optional.BILLING_ACCESS_TOKEN).toBe(false)
     // Every optional-tier var is reported, none invented.
-    expect(Object.keys(tier.optional)).toContain('BILLING_ENVIRONMENT')
+    expect(Object.keys(tier.optional)).toContain('BACKEND_ENVIRONMENT')
   })
 })
 
@@ -76,23 +75,6 @@ describe('computeDeployment', () => {
   })
 })
 
-describe('computeMcpStatus', () => {
-  it('lists every built-in tool with its scope, and every scope', () => {
-    const status = computeMcpStatus({ route: '/mcp' })
-    expect(status).toMatchObject({ route: '/mcp', exchangePath: '/mcp/exchange' })
-    expect(status.tools).toHaveLength(9)
-    expect(status.scopes).toContain('billing:checkout')
-  })
-
-  it('gives each tool the scope its own tool file declares', () => {
-    const toolsDir = join(process.cwd(), 'src/runtime/server/mcp/tools')
-    for (const tool of computeMcpStatus({ route: '/mcp' }).tools) {
-      const source = readFileSync(join(toolsDir, `${tool.name}.ts`), 'utf-8')
-      expect(source, tool.name).toContain(`scope: '${tool.scope}'`)
-    }
-  })
-})
-
 describe('buildDevtoolsInfo', () => {
   const rootDir = mkdtempSync(join(tmpdir(), 'nuxt-backend-devtools-info-'))
   afterAll(() => rmSync(rootDir, { recursive: true, force: true }))
@@ -101,9 +83,8 @@ describe('buildDevtoolsInfo', () => {
     rootDir,
     env,
     siteUrlConfigured: true,
-    options: { scaffold: 'auto', authRoute: '/api/auth' },
+    options: { authRoute: '/api/auth' },
     pages: [{ key: 'login', path: '/login', auth: false, shadowed: false }],
-    mcp: { route: '/mcp' },
     versions: { 'nuxt-backend': '0.1.0' },
     functionsDir: 'backend',
     deploymentEnv: null,
@@ -137,11 +118,63 @@ describe('buildDevtoolsInfo', () => {
     expect(info.env.deployment).toEqual(deploymentEnv)
     // Vars outside the deployment contract are not reported at all.
     expect(serialized).not.toContain('SOME_UNRELATED_TOKEN')
+    // The capability console reads the names set, and shows states only: every
+    // name is on this dev deployment, but the panel reads no value, and none
+    // of the two switches is visible here, so email keeps test mode and
+    // billing the sandbox, and their reasons say so.
+    expect(info.capabilities.map(capability => capability.state)).toEqual(['test', 'test', 'test', 'test', 'test', 'test', 'test', 'test', 'live', 'live', 'test', 'missing'])
+    expect(info.capabilities.find(capability => capability.name === 'email')?.reason).toContain('its value was not read')
   })
 
-  it('collects live preflight findings with the mcp finding included', () => {
+  // The Overview's console: a channel per capability, lit from the preflight,
+  // the deployment env names last read and the last doctor run.
+  it('lights a channel per capability, from the preflight, the deployment env read and the last doctor run', () => {
+    const local = buildDevtoolsInfo(input({ CONVEX_DEPLOYMENT: 'local:local-acme-app' }))
+    expect(local.capabilities.map(capability => [capability.name, capability.state])).toEqual([
+      ['auth', 'missing'],
+      ['data', 'test'],
+      ['jobs', 'test'],
+      ['billing', 'missing'],
+      ['email', 'missing'],
+      // No web push key pair until env push generates it: the inbox works, push does not.
+      ['notifications', 'missing'],
+      ['ai', 'missing'],
+      ['protection', 'test'],
+      ['monitoring', 'test'],
+      ['flags', 'live'],
+      ['analytics', 'missing'],
+      ['hosting', 'missing'],
+    ])
+    expect(local.capabilities.find(capability => capability.name === 'billing')).toMatchObject({ providers: ['Polar'], devtools: 'billing', docsUrl: 'https://nuxt-backend.dev/docs/build/billing', top: { id: 'billing-access', status: 'warn' } })
+
+    const read = { status: 'ok' as const, readAt: 1, names: envTier(name => ['AUTH_SECRET', 'SITE_URL', 'EMAIL_API_KEY'].includes(name)) }
+    const route = finding('email-webhook-route', 'fail', '/email/events is not mounted on the deployment.')
+    const checked = buildDevtoolsInfo(input({ CONVEX_DEPLOYMENT: 'dev:brave-fox-123' }, { deploymentEnv: read, doctor: { ranAt: 5, findings: [route] } }))
+    expect(checked.capabilities.find(capability => capability.name === 'auth')?.state).toBe('test')
+    expect(checked.capabilities.find(capability => capability.name === 'email')).toMatchObject({ state: 'failing', top: { id: 'email-webhook-route' } })
+    expect(checked.doctorRanAt).toBe(5)
+    expect(local.doctorRanAt).toBeNull()
+  })
+
+  it('lets the live preflight win over the last doctor run where both report an id, so a fix shows at once', () => {
+    const fixed = { AUTH_SECRET: 'a'.repeat(40), SITE_URL: 'https://app.example.com' }
+    const info = buildDevtoolsInfo(input(fixed, { doctor: { ranAt: 5, findings: [finding('auth-secret', 'fail', 'AUTH_SECRET is too short.')] } }))
+    expect(info.findings.find(item => item.id === 'auth-secret')?.status).toBe('pass')
+    expect(info.capabilities.find(capability => capability.name === 'auth')).toMatchObject({ state: 'test', findings: { fail: 0 } })
+  })
+
+  it('counts a key visible here and missing from the read deployment as missing, and the provisioned names as set before a read', () => {
+    const read = { status: 'ok' as const, readAt: 1, names: envTier(name => ['AUTH_SECRET', 'SITE_URL'].includes(name)) }
+    const unpushed = buildDevtoolsInfo(input({ CONVEX_DEPLOYMENT: 'dev:brave-fox-123', EMAIL_API_KEY: 'k' }, { deploymentEnv: read }))
+    expect(unpushed.capabilities.find(capability => capability.name === 'email')).toMatchObject({ state: 'missing', reason: 'EMAIL_API_KEY is set here but not on the deployment (run env push), so sends no-op' })
+    const provisioned = buildDevtoolsInfo(input({ CONVEX_DEPLOYMENT: 'dev:brave-fox-123', EMAIL_API_KEY: 'k' }, { provisionedNames: new Set(['AUTH_SECRET', 'SITE_URL']) }))
+    expect(provisioned.capabilities.find(capability => capability.name === 'auth')?.state).toBe('test')
+    // Before a read, the env visible here stands in for the rest.
+    expect(provisioned.capabilities.find(capability => capability.name === 'email')?.state).toBe('test')
+  })
+
+  it('collects live preflight findings', () => {
     const info = buildDevtoolsInfo(input({}))
-    expect(info.findings.some(finding => finding.id === 'mcp' && finding.status === 'pass')).toBe(true)
     expect(info.findings.find(finding => finding.id === 'auth-secret')?.status).toBe('warn')
   })
 
@@ -156,27 +189,22 @@ describe('buildDevtoolsInfo', () => {
     expect(fromPush.findings.find(finding => finding.id === 'site-url')?.status).toBe('pass')
   })
 
-  it('snapshots options as wiring flags, and the deployment', () => {
-    const info = buildDevtoolsInfo(input({ CONVEX_DEPLOYMENT: 'dev:brave-fox-123' }))
-    expect(info.options).toEqual({
-      scaffold: true,
-      autoEnv: true,
-      authRoute: '/api/auth',
-    })
-    expect(info.deployment).toMatchObject({ kind: 'cloud-dev', id: 'dev:brave-fox-123' })
-    expect(info.mcp).toMatchObject({ route: '/mcp' })
-    expect(info.findings.some(finding => finding.id === 'mcp')).toBe(true)
+  it('reads billing as the provider\'s sandbox once a token is set, and missing before', () => {
+    const local = { CONVEX_DEPLOYMENT: 'local:my-app' }
+    const keyed = { status: 'ok' as const, readAt: 1, names: envTier(name => name === 'BILLING_ACCESS_TOKEN') }
+    expect(buildDevtoolsInfo(input(local, { deploymentEnv: keyed })).capabilities.find(capability => capability.name === 'billing')).toMatchObject({ state: 'test', reason: 'the billing sandbox' })
+    expect(buildDevtoolsInfo(input(local)).capabilities.find(capability => capability.name === 'billing')?.state).toBe('missing')
   })
 
-  it('reflects disabled wiring in the snapshot', () => {
-    const info = buildDevtoolsInfo({
-      ...input({}),
-      options: { scaffold: false, autoEnv: false },
-    })
-    expect(info.options).toMatchObject({
-      scaffold: false,
-      autoEnv: false,
-    })
+  it('snapshots the options that wire the app, and the deployment', () => {
+    const info = buildDevtoolsInfo(input({ CONVEX_DEPLOYMENT: 'dev:brave-fox-123' }))
+    expect(info.options).toEqual({ authRoute: '/api/auth' })
+    expect(info.deployment).toMatchObject({ kind: 'cloud-dev', id: 'dev:brave-fox-123' })
+  })
+
+  it('reflects a moved auth route in the snapshot', () => {
+    const info = buildDevtoolsInfo({ ...input({}), options: { authRoute: '/auth' } })
+    expect(info.options).toEqual({ authRoute: '/auth' })
   })
 })
 

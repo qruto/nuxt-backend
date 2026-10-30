@@ -8,7 +8,12 @@ import type { CatalogIds, Environment } from './provider'
 // writes into the app, read back first so a run keeps the other environment's
 // ids.
 
-/** Load the existing generated map (to preserve the other environment). */
+/**
+ * Load the existing generated map (to preserve the other environment). Only
+ * a missing file reads as empty: one that exists but does not import (a
+ * merge conflict, a broken hand edit) throws, naming the file, because
+ * rewriting it from nothing would drop the other environment's ids.
+ */
 export async function loadGenerated(rootDir: string): Promise<Partial<Record<Environment, CatalogIds>>> {
   const functionsDir = resolveFunctionsDir(rootDir)
   const path = join(rootDir, functionsDir, 'billing.generated.ts')
@@ -18,8 +23,8 @@ export async function loadGenerated(rootDir: string): Promise<Partial<Record<Env
     const module = await import(`${pathToFileURL(path).href}?t=${Date.now()}`) as { catalog?: Partial<Record<Environment, CatalogIds>> }
     return module.catalog ?? {}
   }
-  catch {
-    return {}
+  catch (error) {
+    throw new Error(`${join(functionsDir, 'billing.generated.ts')} does not load (${error instanceof Error ? error.message.split('\n')[0] : String(error)}), and writing it again would drop the ids of the environment this run does not sync. Fix the file — resolve a merge conflict in it — or delete it to start over.`, { cause: error })
   }
 }
 
@@ -35,8 +40,11 @@ function renderValue(value: unknown, indent: string): string {
   const inner = indent + '  '
   const entries = Object.entries(value as Record<string, unknown>)
   if (entries.length === 0) return '{}'
+  // Quoted all or none, per object: a yearly plan's `'pro:year'` needs quotes,
+  // and the linter wants its siblings quoted alike (quote-props consistent-as-needed).
+  const quoted = entries.some(([key]) => !/^[a-z_$][\w$]*$/i.test(key))
   const body = entries
-    .map(([key, item]) => `${inner}${/^[a-z_$][\w$]*$/i.test(key) ? key : `'${key}'`}: ${renderValue(item, inner)},`)
+    .map(([key, item]) => `${inner}${quoted ? `'${key}'` : key}: ${renderValue(item, inner)},`)
     .join('\n')
   return `{\n${body}\n${indent}}`
 }

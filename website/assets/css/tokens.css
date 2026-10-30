@@ -23,17 +23,6 @@
   /* MANDATORY: adapt native UI (scrollbars, form controls) to scheme. */
   color-scheme: light dark;
 
-  /* ── Type ─────────────────────────────────────────────────────
-     Anybody carries display and prose (variable width: wide for
-     display, 100% for prose), Martian Mono carries code, labels and
-     keys, and Handjet is the LCD's face and nothing else. The stacks
-     are app.css's `@theme` fonts, where @nuxt/fonts finds the families
-     and the build adds the metric-matched fallback faces. */
-  --display: var(--font-display);
-  --font: var(--font-sans);
-  --mono: var(--font-mono);
-  --lcd: var(--font-lcd);
-
   /* ── Grounds ──────────────────────────────────────────────────
      The ground, the faces raised off it, and the wells cut into it.
      `--seam` is the dark line between two machined parts. */
@@ -160,9 +149,8 @@
                            color-mix(in srgb, var(--err-lit) 26%, transparent));
   --on-err:     light-dark(#ffffff, #1c0707);
 
-  /* Focus is green: "go here". Gradient type is a green ramp. */
+  /* Focus is green: "go here". */
   --focus:      var(--ok);
-  --text-grad:  linear-gradient(135deg, var(--ok-soft), var(--ok) 55%, var(--ok-press));
 
   /* Hairlines between rows, headers and panels. */
   --edge:    light-dark(rgb(24 28 36 / 0.10), rgb(255 255 255 / 0.07));
@@ -203,19 +191,14 @@
   --elev-4:
     inset 1px 1px 0 light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.14)),
     8px 20px 48px light-dark(rgb(24 28 36 / 0.18), rgb(0 0 0 / 0.62));
+  /* What a modal lays over the page behind it: the shade, not a flat grey. */
+  --scrim: light-dark(rgb(24 28 36 / 0.38), rgb(0 0 0 / 0.58));
   --inset-1:
     inset 1px 1px 2px light-dark(rgb(24 28 36 / 0.12), rgb(0 0 0 / 0.55)),
     inset -1px -1px 0 light-dark(rgb(255 255 255 / 0.6), rgb(255 255 255 / 0.07));
   --inset-2:
     inset 2px 2px 5px light-dark(rgb(24 28 36 / 0.16), rgb(0 0 0 / 0.70)),
     inset -1px -1px 0 light-dark(rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.08));
-
-  /* The names the playground's components were written against. */
-  --raise:    var(--elev-1);   /* resting card / panel            */
-  --raise-sm: var(--elev-1);   /* resting control (button, pill)  */
-  --raise-lg: var(--elev-3);   /* popover / large lifted surface  */
-  --inset:    var(--inset-2);  /* deep well (panel.well, tracks)  */
-  --inset-sm: var(--inset-1);  /* shallow well (input, chip)      */
 
   /* Glows: the bare glow is an LED (a live dot, a finding, a delivery
      outcome), -soft a resting primary control, -ring an active one.
@@ -229,15 +212,6 @@
   --glow-err:       0 0 9px color-mix(in srgb, var(--err-lit) 50%, transparent);
   --glow-err-soft:  0 0 14px var(--err-glow);
   --glow-err-ring:  0 0 0 1px var(--err-glow), 0 4px 16px var(--err-glow);
-
-  /* A lit surface, and the bevel `.depth-border` draws: light at the
-     top-left, dark at the bottom-right. */
-  --grad-surface: linear-gradient(135deg, var(--surface-hi), var(--surface) 58%,
-    color-mix(in srgb, var(--surface), #000 6%) 150%);
-  --grad-bevel: linear-gradient(135deg,
-    light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.16)),
-    light-dark(rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.03)) 45%,
-    light-dark(rgb(24 28 36 / 0.14), rgb(0 0 0 / 0.55)));
 
   /* ── Carved and raised type ───────────────────────────────────
      Engraving is subtractive: the near wall (up-left) falls into
@@ -274,6 +248,15 @@
   --cut-sm:
     0 1px 0 light-dark(rgb(255 255 255 / 0.80), rgb(255 255 255 / 0.22)),
     0 -1px 0 light-dark(rgb(24 28 36 / 0.40), rgb(0 0 0 / 0.85));
+  /* `cut-deep` (the hero): the lips of `cut`, measured in `em` so the depth
+     grows with the type, each with a soft falloff; The floor is
+     drawn in the utility, where `--engrave-ink` resolves per ground. */
+  --cut-deep:
+    0 0.022em 0 light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.34)),
+    0 0.045em 0.03em light-dark(rgb(255 255 255 / 0.45), rgb(255 255 255 / 0.10)),
+    0 -0.018em 0 light-dark(rgb(24 28 36 / 0.62), rgb(0 0 0 / 1)),
+    0 -0.04em 0.035em light-dark(rgb(24 28 36 / 0.30), rgb(0 0 0 / 0.80)),
+    0 -0.07em 0.08em light-dark(rgb(24 28 36 / 0.12), rgb(0 0 0 / 0.45));
   --emb-ink: light-dark(#1f2226, #eef0f4);
   --emb:
     0 1px 0 light-dark(#9a9ea7, #4a4e57),

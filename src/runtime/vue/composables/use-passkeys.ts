@@ -1,16 +1,13 @@
-import { computed, getCurrentInstance, onMounted, ref, type ComputedRef, type Ref } from 'vue'
-import { useAuth } from './use-auth'
+import { computed, getCurrentInstance, onMounted, ref, type ComputedRef } from 'vue'
+import { type Passkey, type RegisterPasskeyOptions, useAuthSession } from '../utils/auth-session'
 import { unwrapAuth } from '../utils/auth-result'
-import { refusalMessage } from '../utils/backend-error'
+import { preloadPasskeyCeremony } from '../passkey-client'
+import { useActionState } from '../utils/action-state'
+import { type BackendError, failureOf } from '../utils/backend-error'
+import { clientCapabilities, type PasskeyCapabilities, signalAcceptedCredentials } from '../utils/passkey-signals'
 
-/** A registered WebAuthn passkey (loose — the full shape is Better Auth's). */
-export interface Passkey {
-  id: string
-  name?: string | null
-  deviceType?: string
-  backedUp?: boolean
-  createdAt: string | Date
-}
+export type { Passkey, RegisterPasskeyOptions } from '../utils/auth-session'
+export type { PasskeyCapabilities } from '../utils/passkey-signals'
 
 export interface UsePasskeysOptions {
   /** Load the passkey list on mount. Default `true`. */
@@ -18,84 +15,134 @@ export interface UsePasskeysOptions {
 }
 
 export interface UsePasskeysReturn {
-  /** The user's passkeys — `undefined` until the first (client-only) load. */
-  passkeys: Ref<Passkey[] | undefined>
-  /** Whether a list load is in flight. */
+  /** The user's passkeys — `undefined` until the first (client-only) load lands, and after a failed one. */
+  passkeys: ComputedRef<Passkey[] | undefined>
+  /** `true` while the list loads. */
   isLoading: ComputedRef<boolean>
-  /** Message of the last failed call; cleared when the next call starts. */
-  error: Ref<string | null>
-  /** Reload the list. */
+  /** `true` while `add`, `rename` or `remove` runs. */
+  isPending: ComputedRef<boolean>
+  /**
+   * Why the last action failed, else why the list could not be loaded, else
+   * `null`. An action clears its own failure when the next one starts, and
+   * signing out clears it.
+   */
+  error: ComputedRef<BackendError | null>
+  /** Reload the list. A load never rejects: a failed one shows in `error`. */
   refresh: () => Promise<void>
-  /** Register a passkey on this device, then reload. Throws on failure. */
-  add: () => Promise<void>
-  /** Rename a passkey, then reload. Throws on failure. */
+  /** Save a passkey on this device, then reload. Resolves with the passkey; rejects on failure, a cancelled prompt included. */
+  add: (options?: RegisterPasskeyOptions) => Promise<Passkey>
+  /** Rename a passkey, then reload. Rejects on failure. */
   rename: (id: string, name: string) => Promise<void>
-  /** Remove a passkey, then reload. Throws on failure. */
+  /** Remove a passkey, then reload. Rejects on failure; the last passkey of a passkey-only account is refused (`invalid_input` on `passkeys`). */
   remove: (id: string) => Promise<void>
+  /**
+   * What the browser's `getClientCapabilities()` reported (`conditionalGet`,
+   * `hybridTransport`, `passkeyPlatformAuthenticator`, …), or `null` before
+   * it answers, on the server, and in a browser without it.
+   */
+  capabilities: ComputedRef<PasskeyCapabilities | null>
+  /** `true` while the account refuses sign-in codes and signs in with passkeys only. */
+  passkeyOnly: ComputedRef<boolean>
+  /**
+   * Turn sign-in codes off for the account (`true`) or on again (`false`).
+   * Takes a recent sign-in and refuses an administrator's visit. Turning it
+   * on needs a passkey and resolves with `{ recoveryCode }`, shown once;
+   * turning it on again issues a new code, and the old one stops working.
+   * Turning it off resolves with `{ recoveryCode: null }`. Rejects on failure.
+   */
+  setPasskeyOnly: (on: boolean) => Promise<{ recoveryCode: string | null }>
 }
 
 /**
- * Passkey management over the Better Auth client — list, register, rename,
- * remove. Every method unwraps the client's `{ data, error }` envelope and
- * throws a plain `Error` on failure (mirrored into `error`), so callers use
- * ordinary try/catch. The list only loads in the browser (WebAuthn and the
- * session cookie live there), starting as `undefined` during SSR.
+ * Passkey management over the auth client — list, register, rename, remove.
+ * Loading the list is a read: it never rejects, and a failed load shows in
+ * `error`. The actions resolve, or reject with an `Error` carrying the
+ * server's message (the client's error as its `cause`), and keep the
+ * failure in `error`. The list only loads in the browser (WebAuthn and
+ * the session cookie live there), starting as `undefined` during SSR.
+ *
+ * @example
+ * ```vue
+ * <script setup lang="ts">
+ * const { passkeys, add, remove, isPending, error } = usePasskeys()
+ * </script>
+ * <template>
+ *   <p v-if="error">{{ error.message }}</p>
+ *   <ul>
+ *     <li v-for="passkey in passkeys" :key="passkey.id">
+ *       {{ passkey.name ?? 'Unnamed passkey' }}
+ *       <button :aria-disabled="isPending || undefined" @click="isPending || remove(passkey.id)">Remove</button>
+ *     </li>
+ *   </ul>
+ *   <button :aria-disabled="isPending || undefined" @click="isPending || add()">Add a passkey</button>
+ * </template>
+ * ```
  */
 export function usePasskeys(options: UsePasskeysOptions = {}): UsePasskeysReturn {
-  const { client, registerPasskey } = useAuth()
-  const passkeyClient = client as unknown as {
-    passkey: {
-      listUserPasskeys: () => Promise<unknown>
-      updatePasskey: (args: { id: string, name: string }) => Promise<unknown>
-      deletePasskey: (args: { id: string }) => Promise<unknown>
-    }
-  }
+  const auth = useAuthSession()
+  const { client } = auth
 
-  const passkeys = ref<Passkey[] | undefined>()
-  const loading = ref(false)
-  const error = ref<string | null>(null)
+  const list = ref<Passkey[] | undefined>()
+  const loads = ref(0)
+  const loadFailure = ref<BackendError | null>(null)
+  const signedOut = () => !auth.isLoading.value && !auth.isAuthenticated.value
+  const { isPending, failure, run } = useActionState(signedOut)
 
-  async function run<T>(call: () => Promise<unknown>): Promise<T> {
-    error.value = null
+  const capabilities = ref<PasskeyCapabilities | null>(null)
+  const userOf = () => auth.user.value as { id: string, email: string, passkeyOnly?: boolean | null } | null | undefined
+
+  async function refresh(): Promise<void> {
+    loads.value++
+    loadFailure.value = null
     try {
-      return unwrapAuth<T>(await call())
+      list.value = unwrapAuth<Passkey[] | null>(await client.passkey.listUserPasskeys()) ?? []
+      // The device keeps only the passkeys the account still holds (the WebAuthn Signal API).
+      const user = userOf()
+      if (user) void signalAcceptedCredentials(user.id, list.value.flatMap(passkey => (passkey.credentialID ? [passkey.credentialID] : [])))
     }
-    catch (e) {
-      error.value = refusalMessage(e, 'Request failed')
-      throw e
-    }
-  }
-
-  async function refresh() {
-    loading.value = true
-    try {
-      passkeys.value = (await run<Passkey[]>(() => passkeyClient.passkey.listUserPasskeys())) ?? []
+    catch (cause) {
+      list.value = undefined
+      loadFailure.value = failureOf(cause)
     }
     finally {
-      loading.value = false
+      loads.value--
     }
   }
 
-  if ((options.immediate ?? true) && getCurrentInstance()) {
-    onMounted(() => refresh().catch(() => {}))
+  if (getCurrentInstance()) {
+    // Loaded before `add` is tapped, which then opens the prompt in its own task.
+    onMounted(preloadPasskeyCeremony)
+    onMounted(async () => {
+      capabilities.value = await clientCapabilities()
+    })
+    if (options.immediate ?? true) onMounted(refresh)
   }
 
   return {
-    passkeys,
-    isLoading: computed(() => loading.value),
-    error,
+    passkeys: computed(() => list.value),
+    isLoading: computed(() => loads.value > 0),
+    isPending,
+    error: computed(() => (signedOut() ? null : failure.value ?? loadFailure.value)),
     refresh,
-    add: async () => {
-      await run(() => registerPasskey())
+    add: added => run(async () => {
+      const passkey = await auth.registerPasskey(added)
       await refresh()
-    },
-    rename: async (id, name) => {
-      await run(() => passkeyClient.passkey.updatePasskey({ id, name }))
+      return passkey
+    }),
+    rename: (id, name) => run(async () => {
+      unwrapAuth(await client.passkey.updatePasskey({ id, name }))
       await refresh()
-    },
-    remove: async (id) => {
-      await run(() => passkeyClient.passkey.deletePasskey({ id }))
+    }),
+    remove: id => run(async () => {
+      unwrapAuth(await client.passkey.deletePasskey({ id }))
       await refresh()
-    },
+    }),
+    capabilities: computed(() => capabilities.value),
+    passkeyOnly: computed(() => userOf()?.passkeyOnly === true),
+    setPasskeyOnly: on => run(async () => {
+      const answer = await auth.setPasskeyOnly(on)
+      await auth.session.value.refetch()
+      return answer
+    }),
   }
 }

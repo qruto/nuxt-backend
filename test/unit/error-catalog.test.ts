@@ -5,13 +5,12 @@ import { APIError } from 'better-auth/api'
 import { ConvexError } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 import { authRefusal } from '../../src/convex/client/refusals'
-import { BACKEND_ERRORS, backendError, type BackendErrorCode, getBackendError } from '../../src/convex/errors'
-import { LABELS } from '../../src/convex/labels'
-import { ERROR_CODES } from '../../website/shared/docs-routes'
+import { BACKEND_ERRORS, backendError, type BackendErrorCode, getBackendError, translateBackendError } from '../../src/convex/errors'
+import { createTranslate, LABELS } from '../../src/convex/labels'
 
 // The error catalog against everything that leans on it: every refusal the
 // package throws names a code the catalog holds, every code has a label, a
-// docs entry and a short link, and the reader turns each source a client
+// docs entry (generated, and pinned in test/docs/docs-lookups.test.ts), and the reader turns each source a client
 // meets back into the same `{ code, data, message }`.
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
@@ -102,9 +101,7 @@ describe('the catalog', () => {
       .filter(([, convex]) => !(convex && path === 'src/convex/errors.ts'))
       .map(([, convex, api, status]) => convex ? `${path}: ConvexError` : `${path}: ${api}(${status})`))
     expect(bare).toEqual([
-      // OAuth protocol answers, whose shape the spec fixes, and the 404s of routes that are off.
-      'src/convex/client/agent-consent.ts: APIError(UNAUTHORIZED)',
-      'src/convex/client/agent-consent.ts: APIError(NOT_FOUND)',
+      // The 404s of routes that are off.
       'src/convex/client/guards.ts: APIError(NOT_FOUND)',
     ])
   })
@@ -113,21 +110,8 @@ describe('the catalog', () => {
     expect(typeof (LABELS.errors as Record<string, unknown>)[code]).toBe('string')
   })
 
-  it.each(codes)('%s has an entry on the Errors page, with its label and status', (code) => {
-    const entry = errorsPage.split(`### \`${code}\``)[1]?.split(/^#{2,3} /m)[0]
-    expect(entry, code).toBeDefined()
-    expect(entry).toContain((LABELS.errors as Record<string, string>)[code])
-    expect(entry).toContain(`| ${BACKEND_ERRORS[code].status} |`)
-  })
-
-  it('documents no code the catalog does not hold', () => {
-    const documented = [...errorsPage.matchAll(/^### `(\w+)`$/gm)].map(([, code]) => code)
-    expect(documented).toEqual(codes)
-  })
-
-  it('gives every code a short link, /e/<code>', () => {
-    expect([...ERROR_CODES]).toEqual(codes)
-  })
+  // Each code's entry on the Errors page, and its /e/<code> short link, are
+  // generated from the catalog: test/docs/docs-lookups.test.ts holds them.
 })
 
 describe('backendError', () => {
@@ -147,8 +131,24 @@ describe('backendError', () => {
   it('checks the data against the code\'s validator', () => {
     expect(() => backendError('forbidden', {} as never)).toThrow(TypeError)
     expect(() => backendError('forbidden', { reason: 'role', extra: true } as never)).toThrow(/does not match its catalog entry/)
+    // A key the fields object inherits is no field of the catalog's.
+    expect(() => backendError('forbidden', { reason: 'role', constructor: 'x' } as never)).toThrow(/does not match its catalog entry/)
+    expect(() => backendError('forbidden', { reason: 'role', toString: 'y' } as never)).toThrow(/does not match its catalog entry/)
     expect(() => backendError('insufficient_credits', { balance: Number.NaN, need: 1 })).toThrow(TypeError)
     expect(() => (backendError as (code: string) => unknown)('nope')).toThrow(/no such code/)
+  })
+
+  it('carries a list field, each entry checked: feature_required\'s plans', () => {
+    const error = backendError('feature_required', { feature: 'reports', plans: ['pro', 'ultra'] })
+    expect(error.data).toEqual({ code: 'feature_required', feature: 'reports', plans: ['pro', 'ultra'] })
+    expect(error.message).toBe('Your plan doesn\'t include this. Upgrade to use it.')
+    expect(backendError('feature_required', { feature: 'reports', plans: [] }).data.plans).toEqual([])
+    expect(() => backendError('feature_required', { feature: 'reports', plans: ['pro', 2] } as never)).toThrow(/does not match its catalog entry/)
+    expect(() => backendError('feature_required', { feature: 'reports', plans: 'pro' } as never)).toThrow(/does not match its catalog entry/)
+    // The reader keeps the list as the catalog types it, and drops one that is not.
+    expect(getBackendError(new ConvexError({ code: 'feature_required', feature: 'reports', plans: ['pro'] })))
+      .toEqual({ code: 'feature_required', data: { feature: 'reports', plans: ['pro'] }, message: 'Your plan doesn\'t include this. Upgrade to use it.' })
+    expect(getBackendError(new ConvexError({ code: 'feature_required', feature: 'reports', plans: [1] }))!.data).toEqual({ feature: 'reports' })
   })
 
   it('refuses on an auth route with the code\'s status and the fields in the body', () => {
@@ -157,6 +157,12 @@ describe('backendError', () => {
     expect(refusal.statusCode).toBe(429)
     expect(refusal.body).toEqual({ code: 'rate_limited', limit: 'emailOtp', retryAfter: 4200, message: 'Too many.' })
     expect(() => authRefusal('forbidden', { message: 'no reason' } as never)).toThrow(TypeError)
+  })
+
+  it('answers the code\'s English label as the body\'s message when the refusal carries no sentence of its own', () => {
+    expect(authRefusal('rate_limited', { limit: 'emailOtp', retryAfter: 4200 }).body)
+      .toEqual({ code: 'rate_limited', limit: 'emailOtp', retryAfter: 4200, message: 'Too many requests. Try again in 5 seconds.' })
+    expect(authRefusal('unauthenticated').body).toEqual({ code: 'unauthenticated', message: 'Sign in to continue.' })
   })
 })
 
@@ -194,12 +200,37 @@ describe('getBackendError', () => {
     expect(getBackendError(authRefusal('unavailable', { service: 'email', reason: 'test_mode', message: 'Test mode.' }))).toEqual(expected)
   })
 
-  it('maps Better Auth\'s own 401, 403 and 429 by status', () => {
-    expect(getBackendError({ error: { status: 401, statusText: 'Unauthorized' } })).toMatchObject({ code: 'unauthenticated' })
+  it('maps Better Auth\'s own 401, 403 and 429 by status, leaving its English sentence out', () => {
+    expect(getBackendError({ error: { status: 401, statusText: 'Unauthorized', message: 'Unauthorized' } }))
+      .toEqual({ code: 'unauthenticated', data: {}, message: 'Sign in to continue.' })
     expect(getBackendError({ error: { status: 403, code: 'YOU_ARE_NOT_ALLOWED_TO_BAN_USERS', message: 'Not allowed.' } }))
-      .toEqual({ code: 'forbidden', data: { reason: 'you_are_not_allowed_to_ban_users', message: 'Not allowed.' }, message: 'Not allowed.' })
+      .toEqual({ code: 'forbidden', data: { reason: 'you_are_not_allowed_to_ban_users' }, message: 'You don\'t have access to this.' })
+    expect(getBackendError({ error: { status: 403, code: 'TOO_MANY_ATTEMPTS', message: 'Too many attempts' } }))
+      .toEqual({ code: 'forbidden', data: { reason: 'too_many_attempts' }, message: 'Too many wrong codes. Ask for a new one.' })
     expect(getBackendError({ error: { status: 429, statusText: 'Too Many Requests' } }))
       .toEqual({ code: 'rate_limited', data: {}, message: 'Too many requests. Try again in a moment.' })
+  })
+
+  it('maps Better Auth\'s own 400 codes to the input they refuse, worded by the labels', () => {
+    const read = (code: string, message: string) => getBackendError({ data: null, error: { code, message, status: 400, statusText: 'BAD_REQUEST' } })
+    expect(read('INVALID_OTP', 'Invalid OTP')).toEqual({ code: 'invalid_input', data: { field: 'otp' }, message: 'That code isn\'t right. Check it, or ask for a new one.' })
+    expect(read('OTP_EXPIRED', 'OTP expired')).toEqual({ code: 'invalid_input', data: { field: 'otp', reason: 'otp_expired' }, message: 'That code has expired. Ask for a new one.' })
+    expect(read('INVALID_EMAIL', 'Invalid email')!.message).toBe('Enter a valid email address.')
+    expect(read('ORGANIZATION_SLUG_ALREADY_TAKEN', 'Slug taken')!.data).toEqual({ field: 'slug' })
+    expect(read('AUTH_CANCELLED', 'Auth cancelled')).toEqual({ code: 'invalid_input', data: { field: 'passkey', reason: 'passkey_cancelled' }, message: 'The passkey prompt was closed. Try again, or continue with an email code.' })
+    expect(read('ERROR_CEREMONY_ABORTED', 'Registration cancelled')!.data).toEqual({ field: 'passkey', reason: 'passkey_cancelled' })
+    expect(read('ERROR_INVALID_DOMAIN', 'The domain is not valid')!.data).toEqual({ field: 'passkey' })
+    // A code of Better Auth's the map does not name is no refusal of ours.
+    expect(read('SOMETHING_NEW', 'New')).toBeNull()
+  })
+
+  it('reads the passkey plugin\'s 401 refusals of a passkey sign-in as the passkey refused, not a missing session', () => {
+    const read = (code: string) => getBackendError({ data: null, error: { code, message: 'Refused', status: 401, statusText: 'UNAUTHORIZED' } })
+    // A passkey removed from the account and still on the device, which autofill offers.
+    expect(read('PASSKEY_NOT_FOUND')).toEqual({ code: 'invalid_input', data: { field: 'passkey' }, message: 'That passkey didn\'t work. Try again, or continue with an email code.' })
+    expect(read('AUTHENTICATION_FAILED')!.data).toEqual({ field: 'passkey' })
+    // Any other 401 is still a missing session.
+    expect(read('UNAUTHORIZED')!.code).toBe('unauthenticated')
   })
 
   it('never shows a placeholder: a label whose numbers are missing falls back to one without them', () => {
@@ -234,5 +265,50 @@ describe('getBackendError', () => {
     const loop: { cause?: unknown } = {}
     loop.cause = loop
     expect(getBackendError(loop)).toBeNull()
+  })
+})
+
+describe('translateBackendError', () => {
+  // A reader's `errors` labels, as an app's French messages would hold them.
+  const french = createTranslate({ errors: { forbidden: 'Accès refusé.', invalid_input_email: 'E-mail incorrect.', rate_limited_for: 'Encore {count} instant. | Encore {count} instants.' } })
+
+  it('words a catalog refusal through the reader\'s labels, field and wait included', () => {
+    expect(translateBackendError(getBackendError(backendError('forbidden', { reason: 'role' }))!, french)).toBe('Accès refusé.')
+    expect(getBackendError(backendError('invalid_input', { field: 'email' }))!.message).toBe('Enter a valid email address.')
+    expect(translateBackendError(getBackendError(backendError('invalid_input', { field: 'email' }))!, french)).toBe('E-mail incorrect.')
+    expect(translateBackendError(getBackendError(backendError('rate_limited', { retryAfter: 3000 }))!, french)).toBe('Encore 3 instants.')
+  })
+
+  it('keeps a sentence written for the person, and names the code when the labels lack it', () => {
+    // useLabels never gets here: its labels fall back to English key by key.
+    expect(translateBackendError(getBackendError(backendError('forbidden', { reason: 'role', message: 'Owners only.' }))!, french)).toBe('Owners only.')
+    expect(translateBackendError(getBackendError(backendError('no_workspace'))!, french)).toBe('no_workspace')
+    expect(translateBackendError(getBackendError(backendError('no_workspace'))!, createTranslate())).toBe(LABELS.errors.no_workspace)
+  })
+
+  it('words the package\'s own auth refusals through the reader\'s labels: their message is the label, no sentence of the throw site\'s', () => {
+    // What the client reads off the route's answer.
+    const answered = (refusal: APIError) => getBackendError({ data: null, error: { ...(refusal.body as object), status: refusal.statusCode } })!
+    const limited = answered(authRefusal('rate_limited', { limit: 'emailOtp', retryAfter: 3000 }))
+    expect(limited).toEqual({ code: 'rate_limited', data: { limit: 'emailOtp', retryAfter: 3000 }, message: 'Too many requests. Try again in 3 seconds.' })
+    expect(translateBackendError(limited, french)).toBe('Encore 3 instants.')
+    const testMode = answered(authRefusal('unavailable', { service: 'email', reason: 'test_mode' }))
+    expect(testMode.data).toEqual({ service: 'email', reason: 'test_mode' })
+    expect(translateBackendError(testMode, createTranslate({ errors: { unavailable_test_mode: 'Mode test (fr).' } }))).toBe('Mode test (fr).')
+    const refused = answered(authRefusal('forbidden', { reason: 'sign_in_refused' }))
+    expect(translateBackendError(refused, createTranslate({ errors: { forbidden_sign_in_refused: 'Invitation obligatoire.' } }))).toBe('Invitation obligatoire.')
+    // An app's own sentence still travels as the app wrote it.
+    expect(translateBackendError(answered(authRefusal('forbidden', { reason: 'sign_in_refused', message: 'Invite only.' })), french)).toBe('Invite only.')
+  })
+
+  it('runs the chain through the reader\'s own labels before the English ones', () => {
+    const english = createTranslate()
+    const notMember = getBackendError(backendError('forbidden', { reason: 'not_member' }))!
+    // The reader words only the generic refusal: theirs wins over the package's English for the reason.
+    expect(translateBackendError(notMember, english, french)).toBe('Accès refusé.')
+    // The wait, the reader's own; with no sentence of theirs at all, the English one.
+    expect(translateBackendError(getBackendError(backendError('rate_limited', { retryAfter: 1000 }))!, english, french)).toBe('Encore 1 instant.')
+    expect(translateBackendError(getBackendError(backendError('no_workspace'))!, english, french)).toBe(LABELS.errors.no_workspace)
+    expect(translateBackendError(notMember, english)).toBe(LABELS.errors.forbidden_not_member)
   })
 })

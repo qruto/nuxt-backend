@@ -57,22 +57,6 @@ reviews:
         decrement. Relative imports carry a `.js` suffix (the Convex bundler
         and the emitted `dist/convex` both need it).
 
-    - path: 'src/runtime/server/mcp/**'
-      instructions: >-
-        The OAuth-protected MCP endpoint through which agents act as the
-        signed-in user. Every tool runs with a short-lived user JWT minted
-        from the agent's session, so the security review question is always
-        the same: can a caller reach data or a mutation the scopes it was
-        granted do not cover? Look for a tool that skips `hasScope`, a
-        fetcher bound to anything other than the exchanged token, cache
-        entries that outlive the token they were minted for, and an error
-        path that leaks the underlying Convex error to the agent.
-
-        Tool files under `tools/` are discovered by @nuxtjs/mcp-toolkit's
-        definition scan and imported by its generated server template, so a
-        new tool is public API the moment the file exists — its name, its
-        input schema and whether it is on by default all matter.
-
     - path: 'src/cli/**'
       instructions: >-
         `npx nuxt-backend`: `init`, `doctor`, `env push` and `billing sync`.
@@ -107,8 +91,8 @@ reviews:
         `pnpm create nuxt@latest my-app -t gh:qruto/nuxt-backend/templates/starter`
         is exactly what a user gets. They are linted but sit outside the root
         tsconfig and fallow. Jobs beyond documentation: the `pack` CI job
-        copies `templates/starter`, `examples/advanced` and
-        `examples/playground`, installs the packed tarball over `latest`
+        copies `templates/starter`, `templates/panels` and
+        `examples/advanced`, installs the packed tarball over `latest`
         with plain npm (then builds) and with pnpm, then once more into a
         blank app under strict pnpm — the only registry-shaped installs in
         the pipeline — and
@@ -124,22 +108,21 @@ reviews:
         `nuxt-backend init` scaffolds, and `examples/advanced` matches the
         same templates except its marked customizations — so an edit
         there is really an edit to `src/templates.ts`, and a change to one
-        half without the other fails CI. `examples/playground` is the
-        website's playground copied by `scripts/sync-playground.mjs`: review
-        the change in `website/`, where it belongs, and only the files the
-        script lists as `OWNED` here. An edit to any other file in the example
-        fails the CI drift check.
+        half without the other fails CI. The site serves
+        `templates/panels` under /playground, copied into `website/` by
+        `scripts/sync-panels.mjs`: review a Panels change in the template,
+        where it belongs. An edit to a synced copy in `website/` fails the
+        CI drift check.
 
     - path: 'website/backend/**'
       instructions: >-
-        The playground's own Convex functions, deployed behind
-        nuxt-backend.dev where anyone with an inbox can sign in: an
-        `authed.*` function is a public write surface, `admin.*` sits behind
-        a role granted with `functions:setUserRole`, and the ops entry points
-        (`_clearAll`, `seed`, minting a discount) are `internal*`, reached
-        only through `npx convex run`. Flag a new mutation or action that
-        spends provider money, clears more than the caller's own rows or
-        grants a role and is not one of the last two. `billing.catalog.ts`
+        The site's Convex functions, deployed behind nuxt-backend.dev as a
+        sandbox where anyone with a sandbox identity can sign in: Panels'
+        backend copied from templates/panels (review it there), the docs
+        demos' counter, and the try kit's `internal*` seeding functions,
+        reached only through `npx convex run` on a local deployment. Flag
+        a new public mutation or action that spends provider money or
+        clears more than the caller's own rows. `billing.catalog.ts`
         is the catalog as code and `billing.generated.ts` its output: a
         price, meter or benefit change belongs in the catalog and reaches the
         provider through `nuxt-backend billing sync`, never by editing ids.

@@ -1,0 +1,47 @@
+/*
+ * SecurityAlerts's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-security='alert-list'] {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  [data-security='alert'] {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--bk-edge);
+    border-left: 3px solid var(--bk-warn);
+    border-radius: var(--bk-radius);
+    font-size: 0.85rem;
+  }
+
+  /* A recovery code used: louder than a new device. */
+  [data-security='alert'][data-state='recovery'] {
+    border-left-color: var(--bk-error);
+  }
+
+  [data-security='alert-text'] {
+    flex: 1;
+  }
+
+  [data-security='alerts-empty'] {
+    margin: 0;
+    color: var(--bk-muted);
+    font-size: 0.85rem;
+  }
+
+  [data-security='alert-revoke'] {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.78rem;
+    color: var(--bk-error);
+  }
+}

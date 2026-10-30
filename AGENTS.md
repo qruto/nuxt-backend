@@ -14,7 +14,7 @@ setup every agent here runs with.
 | [`.agents/skills/`](./.agents/skills/) | The skills themselves — canonical, agent-neutral, committed |
 | [`.claude/skills/`](./.claude/skills/) | Symlinks into `.agents/skills/`, so Claude Code sees them |
 | [`skills-lock.json`](./skills-lock.json) | Upstream source + content hash for every skill |
-| [`skills/nuxt-backend/`](./skills/nuxt-backend/SKILL.md) | What users' agents are told about this package — update it with any public API, install-flow or docs-URL change (`test/docs/agent-skill.test.ts` holds its names, commands and links to the code) |
+| [`skills/`](./skills/nuxt-backend/SKILL.md) | What users' agents are told about this package, shipped in the tarball: the core skill `nuxt-backend` (≤ 12 kB) and the task skills it routes to, `nuxt-backend-<task>` (≤ 20 kB each), named in [`src/guidance/skills.ts`](./src/guidance/skills.ts) — update their prose with any install-flow or docs-URL change. `pnpm generate` writes their name lists (the `<!-- generated:… -->` blocks, each `references/api.md`, `upgrade.md`, `surface.json`, `renames.json`) from the code; a breaking change adds a rename-map entry in `src/guidance/renames.ts`, and a new public name or how-to page an owner in `skills.ts`. `test/docs/agent-skill.test.ts` and `agent-guidance.test.ts` hold them to the code |
 | [`.mcp.json`](./.mcp.json) | MCP servers for this project |
 | [`.claude/settings.json`](./.claude/settings.json) | Shared Claude Code settings: read-only MCP tools allowed, writes (`convex run`, env changes, sending email, Polar actions, fallow fixes, anything that drives the browser) ask first; `settings.local.json` stays yours |
 
@@ -35,10 +35,15 @@ rather than symlinking:
 - `skills-lock.json` must list every folder in `.agents/skills/` and nothing else,
   with one exception below. `depth-design` and `test-nuxt-backend` are
   `sourceType: "local"` — they have no upstream, so they live and die with this repo.
-- `.agents/skills/nuxt-backend` is a symlink to the consumer skill in `skills/`
-  (where the docs site publishes it), so agents working here load what users'
-  agents load. It stays out of the lock: its content hash would go stale with
-  every edit, and the skills CLI has nothing to restore it from.
+- `.agents/skills/nuxt-backend` and each `.agents/skills/nuxt-backend-<task>` are
+  symlinks to the consumer skills in `skills/` (where the docs site publishes
+  them), so agents working here load what users' agents load. They stay out of
+  the lock: their content hashes would go stale with every edit, and the skills
+  CLI has nothing to restore them from. Being out of the lock is also what has
+  `npx skills add qruto/nuxt-backend` list them, and only them: the CLI reads a
+  locked skill under an agent's folder as installed here, not published. A new
+  task skill gets the same pair of links (`.agents/skills/` to `skills/`,
+  `.claude/skills/` to `.agents/skills/`); `agent-skill.test.ts` checks both.
 
 MCP servers `github` and `vercel` need an interactive OAuth sign-in (`/mcp`) before
 their tools work.
@@ -57,25 +62,33 @@ Run this gate before opening a PR. It is the local core of CI's `static` and
 `test` jobs, not all of them — CI also lints commit messages, checks manifest
 ranges and workflow files, and runs typos. The git hooks overlap with it without
 mirroring it: `pre-commit` runs a fallow audit of the staged change, eslint on
-staged files and the playground drift check; `pre-push` runs fallow, the manifest
+staged files and the Panels drift check; `pre-push` runs fallow, the manifest
 check, `test:types:lib`, `test` and the reference drift check, but not
 `test:docs` — so run that one yourself when docs change.
 
 ```bash
+pnpm generate                # every generated file and region; commit what it rewrites
 pnpm lint
 pnpm test                    # vitest, every project but e2e
 pnpm test:types              # vue-tsc + tsc: module, Convex component, website
 pnpm test:docs               # the docs contract — hand-written docs against the code
 pnpm docs:reference:check    # TypeDoc regenerated with no diff
-pnpm playground:sync --check # examples/playground is the website's playground, copied
+pnpm panels:sync --check     # website/ serves templates/panels under /playground, copied
 pnpm test:quality            # fallow: dead code, duplication, complexity
 pnpm test:security           # fallow security candidates, kept out of the run above
 ```
 
 `test:types` runs `dev:prepare:lib` first, so it also proves the stub, the types
-and the Convex component still build. What stays in CI: the e2e project, the
-tarball gate (`pnpm pack && pnpm check:tarball` — run it when the change touches
-what the package ships), the Windows leg and the coverage thresholds.
+and the Convex component still build. What stays in CI: the e2e project
+(`pnpm test:e2e`), the tarball gate (`pnpm pack && pnpm check:tarball` — run it
+when the change touches what the package ships), the website job (component
+codegen drift against an anonymous local deployment, `pnpm exec nuxt build
+website`, then `node scripts/check-website-css.mjs`,
+`node scripts/check-website-bundle.mjs` and `node scripts/check-website-agents.mjs`,
+which serves the build and asks it for llms.txt, the twins and sitemap.md, then
+the bundle check again on a Vercel-shaped build with a placeholder `MONITORING_DSN`,
+as nuxt-backend.dev ships the analytics modules and the error-reporting SDK),
+the Windows leg and the coverage thresholds.
 
 <!-- convex-ai-start -->
 
@@ -105,5 +118,5 @@ nested copy, `pnpm dedupe`, then `pnpm install --frozen-lockfile` to re-verify.
 (`NUXT_PUBLIC_BACKEND_URL`, `EMAIL_*`, `BILLING_*`, `AUTH_SECRET`, `SITE_URL`).
 `CONVEX_DEPLOYMENT`, `CONVEX_SITE_URL` and `CONVEX_SELF_HOSTED_URL` belong to the
 platform CLI and runtime — read them, never ask a user to author them, and never
-rename them. `.env.local` and the generated `.env.example` group by purpose:
-Backend, Email, Billing, Dev only, then the platform's own group last.
+rename them. `.env.local` and the generated `.env.example` group by app layer
+(src/capabilities/registry.ts: Auth, Data, Billing, Email), then the platform's own group last.

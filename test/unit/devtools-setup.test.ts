@@ -1,28 +1,35 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { createServer, type Server } from 'node:http'
-import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createApp, toNodeListener, type EventHandler } from 'h3'
-import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
-import { setupDevtools } from '../../src/devtools/index'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DevtoolsServerInfo } from '../../src/devtools/rpc-types'
 import { DEVTOOLS_UI_ROUTE, RPC_NAMESPACE } from '../../src/devtools/rpc-types'
 
+/** The portable dev-server handler the panel is served by, as kit receives it. */
+type PanelHandler = { route: string, handler: { nuxt: (event: { req: Request }) => Promise<Response> } }
+const addDevServerHandler = vi.hoisted(() => vi.fn<(input: PanelHandler) => void>())
+vi.mock('@nuxt/kit', async importOriginal => ({
+  ...await importOriginal<Record<string, unknown>>(),
+  addDevServerHandler,
+  runWithNuxtContext: (_nuxt: unknown, fn: () => unknown) => fn(),
+}))
+
+const { setupDevtools } = await import('../../src/devtools/index')
+
 const base = mkdtempSync(join(tmpdir(), 'nuxt-backend-devtools-'))
 afterAll(() => rmSync(base, { recursive: true, force: true }))
+beforeEach(() => addDevServerHandler.mockClear())
 
 /**
  * A Nuxt with just what the wiring touches: hooks (called by name below, the
- * way @nuxt/devtools calls them), the dev-server handler list, and the
- * DevTools server context DevTools sets before `devtools:initialized`.
+ * way @nuxt/devtools calls them) and the DevTools server context DevTools
+ * sets before `devtools:initialized`.
  */
 function fakeEnv(resolverBase: string) {
   const hooks = new Map<string, (...args: unknown[]) => unknown>()
   const extendServerRpc = vi.fn()
   const nuxt = {
     hook: vi.fn((name: string, fn: (...args: unknown[]) => unknown) => hooks.set(name, fn)),
-    options: { devServerHandlers: [] as Array<{ route: string, handler: EventHandler }> },
     devtools: { extendServerRpc },
   }
   const resolver = { resolve: (path: string) => join(resolverBase, path) }
@@ -34,28 +41,19 @@ function fakeEnv(resolverBase: string) {
 const info: DevtoolsServerInfo = {
   functionsDir: 'backend',
   options: {
-    scaffold: true,
-    autoEnv: true,
     authRoute: '/api/auth',
   },
   deployment: { kind: 'none' },
   pages: [],
   findings: [],
+  capabilities: [],
+  doctorRanAt: null,
   env: { visible: { required: {}, optional: {} }, deployment: null },
-  mcp: { route: '/mcp', exchangePath: '/mcp/exchange', tools: [], scopes: [] },
   versions: {},
 }
 
 function contextFor(rootDir: string) {
   return { rootDir, functionsDir: 'backend', getInfo: () => info }
-}
-
-/** Serve one registered dev-server handler on an ephemeral port. */
-async function listen(entry: { route: string, handler: EventHandler }): Promise<{ url: string, server: Server }> {
-  const app = createApp().use(entry.route, entry.handler)
-  const server = createServer(toNodeListener(app))
-  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
-  return { url: `http://127.0.0.1:${(server.address() as AddressInfo).port}${entry.route}`, server }
 }
 
 afterEach(() => {
@@ -74,24 +72,29 @@ describe('setupDevtools', () => {
     setupDevtools(resolver as never, nuxt as never, contextFor(base))
 
     expect(hooks.has('vite:serverCreated')).toBe(false)
-    expect(nuxt.options.devServerHandlers).toHaveLength(1)
-    const { url, server } = await listen(nuxt.options.devServerHandlers[0]!)
-    try {
-      const page = await fetch(`${url}/`)
-      expect(page.status).toBe(200)
-      expect(page.headers.get('content-type')).toBe('text/html; charset=utf-8')
-      expect(page.headers.get('cache-control')).toBe('no-store')
-      expect(await page.text()).toContain('id="panel"')
+    expect(addDevServerHandler).toHaveBeenCalledTimes(1)
+    const { route, handler } = addDevServerHandler.mock.calls[0]![0]
+    expect(route).toBe(`${DEVTOOLS_UI_ROUTE}/**`)
+    // The request as every server builder hands it over: the full URL.
+    const get = (path: string, method = 'GET') =>
+      handler.nuxt({ req: new Request(`http://localhost:3000${DEVTOOLS_UI_ROUTE}${path}`, { method }) })
 
-      const script = await fetch(`${url}/_nuxt/entry.js`)
-      expect(script.headers.get('content-type')).toBe('text/javascript; charset=utf-8')
+    const page = await get('/')
+    expect(page.status).toBe(200)
+    expect(page.headers.get('content-type')).toBe('text/html; charset=utf-8')
+    expect(page.headers.get('cache-control')).toBe('no-store')
+    expect(await page.text()).toContain('id="panel"')
 
-      expect((await fetch(`${url}/missing.js`)).status).toBe(404)
-      expect((await fetch(`${url}/%2E%2E/secret.txt`)).status).toBe(404)
-    }
-    finally {
-      server.close()
-    }
+    const script = await get('/_nuxt/entry.js')
+    expect(script.headers.get('content-type')).toBe('text/javascript; charset=utf-8')
+
+    expect((await get('/missing.js')).status).toBe(404)
+    expect((await get('/', 'POST')).status).toBe(405)
+    // A path that climbs out of the panel folder is refused, not read. The URL
+    // parser folds a plain `..`, so it arrives with an encoded slash.
+    const escape = await get('/..%2fsecret.txt')
+    expect(escape.status).toBe(404)
+    expect(await escape.text()).not.toContain('not for the panel')
   })
 
   it('proxies the panel to the local dev server when the built client is absent', () => {
@@ -99,7 +102,7 @@ describe('setupDevtools', () => {
 
     setupDevtools(resolver as never, nuxt as never, contextFor(base))
 
-    expect(nuxt.options.devServerHandlers).toHaveLength(0)
+    expect(addDevServerHandler).not.toHaveBeenCalled()
     expect(hooks.has('vite:extendConfig')).toBe(true)
     const viteConfig: { server?: { proxy?: Record<string, { rewrite?: (path: string) => string }> } } = {}
     hooks.get('vite:extendConfig')!(viteConfig)

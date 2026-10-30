@@ -31,8 +31,6 @@ const unknownKeys = computed(() => {
   return [...display.value.plans, ...display.value.packs].filter(key => !declared.has(key))
 })
 
-const environmentOnDeployment = computed(() => state.info?.env.deployment?.names?.optional.BILLING_ENVIRONMENT
-  ?? state.info?.env.visible.optional.BILLING_ENVIRONMENT)
 const day = (time: number | undefined) => time ? new Date(time).toLocaleDateString() : '—'
 </script>
 
@@ -110,6 +108,28 @@ const day = (time: number | undefined) => time ? new Date(time).toLocaleDateStri
       class="op50"
     >
       No features granted. <code>useFeatures().has(key)</code> is false for every key until a plan grants one.
+    </div>
+  </PanelCard>
+
+  <PanelCard title="Quotas">
+    <div
+      v-if="entitlements?.quotas?.length"
+      class="flex gap-2 flex-wrap"
+    >
+      <SignalBadge
+        v-for="quota of entitlements.quotas"
+        :key="quota.key"
+        :signal="quota.limit === 'unlimited' || quota.used < quota.limit ? 'ok' : 'warn'"
+        :title="quota.description"
+      >
+        {{ quota.key }} {{ quota.used }} / {{ quota.limit === 'unlimited' ? '∞' : quota.limit }}
+      </SignalBadge>
+    </div>
+    <div
+      v-else
+      class="op50"
+    >
+      No quotas. A plan's <code>quotas</code> in <code>billing.catalog.ts</code> appear here once synced; <code>billing.requireQuota</code> refuses a quota no grant names.
     </div>
   </PanelCard>
 
@@ -234,13 +254,8 @@ const day = (time: number | undefined) => time ? new Date(time).toLocaleDateStri
       </div>
     </template>
     <div class="text-xs op65">
-      <template v-if="environmentOnDeployment">
-        <code>BILLING_ENVIRONMENT</code> is set: check its value to know whether checkouts charge real cards.
-      </template>
-      <template v-else>
-        Billing runs against the provider's sandbox until <code>BILLING_ENVIRONMENT=production</code> is set on the
-        deployment. Checkouts here never charge real cards.
-      </template>
+      Billing runs against the provider's sandbox until <code>BACKEND_ENVIRONMENT</code> is <code>production</code> on
+      the deployment. Checkouts here never charge real cards.
     </div>
   </PanelCard>
 </template>

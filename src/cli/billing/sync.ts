@@ -7,143 +7,83 @@ import { customFieldsCreate } from '@polar-sh/sdk/funcs/customFieldsCreate.js'
 import { customFieldsList } from '@polar-sh/sdk/funcs/customFieldsList.js'
 import { productsCreate } from '@polar-sh/sdk/funcs/productsCreate.js'
 import { productsList } from '@polar-sh/sdk/funcs/productsList.js'
-import { productsUpdate } from '@polar-sh/sdk/funcs/productsUpdate.js'
 import { productsUpdateBenefits } from '@polar-sh/sdk/funcs/productsUpdateBenefits.js'
 import { webhooksCreateWebhookEndpoint } from '@polar-sh/sdk/funcs/webhooksCreateWebhookEndpoint.js'
 import { webhooksListWebhookEndpoints } from '@polar-sh/sdk/funcs/webhooksListWebhookEndpoints.js'
-import type { BillingCatalog, CatalogCreditGrant, CatalogPack, CatalogPlan } from '../../convex/catalog'
-import { BILLING_WEBHOOK_PROVISION_EVENTS } from '../../convex/catalog'
-import { customFieldCreatePayload, describeMeterDrift, describeProductDrift, existsOrDrift, resolvePriceCurrency } from './objects'
+import type { BillingCatalog, CatalogCreditGrant, CatalogInterval, CatalogPack, CatalogPlan } from '../../convex/catalog'
+import { providerClientOptions } from '../../convex/integrations/billing/provider-client'
+import { BILLING_WEBHOOK_PROVISION_EVENTS, isFreePlan, providerTrialOf, packPricesByCurrency, planCreditUnits, planPricesByCurrency, planProductKey, planQuotasKey, pricedIntervals } from '../../convex/catalog'
+import { refuseInvalidDiscounts, refuseUnpricedDiscounts, syncDiscounts } from './discounts'
+import { addCurrencyPrices, alignGiftTwin, fixedPrices, giftProductKey, giftTwinPrices, moveGiftTwins } from './gift-twins'
+import { derivedPassKeys, refuseInvalidGifts, syncPassProducts } from './passes'
+import { customFieldCreatePayload, describeBenefitDrift, describeMeterDrift, describeProductDrift, existsOrDrift, resolvePriceCurrency } from './objects'
+import { findPlanProduct, isUntaggedPlanProduct, pushPlanTrial, recordPlanProduct, refuseInvalidPrices, refuseMissingDefaultCurrency, refuseUnpricedPlans, retirePlan, unpricedPlanProducts } from './plans'
 import { isManaged, listAllPages, MANAGED_BY, type CatalogIds, type Environment, type SyncLogEntry } from './provider'
+import { attachPlanQuotas, attachRetiredPlanQuotas, droppedQuotasKeys, ensurePlanQuotas, planQuotasBenefits, planQuotasKeys, recordQuotaKeys, refuseInvalidQuotas } from './quotas'
 
 // The provider reconciliation behind `nuxt-backend billing sync` — its
-// contract (find-or-create, never update or delete, drift reported) is on the
-// command, in ../billing.ts.
+// contract (find-or-create, drift reported, nothing deleted; the trial
+// pushed, a retired plan archived, a gift twin kept in line, the catalog's
+// discounts patched in place) is on the command, in ../billing.ts.
+
+/**
+ * The key of the credit benefit a plan grants at one interval:
+ * `<plan>-credits` on its monthly price, `<plan>-credits-year` on its
+ * yearly one. A plan billed yearly before plans had intervals grants
+ * `<plan>-credits` on that yearly product already: it keeps the key, and a
+ * monthly price beside it grants `<plan>-credits-month`.
+ */
+function planCreditKey(plan: string, interval: CatalogInterval, untaggedYearly = false): string {
+  if (untaggedYearly) return interval === 'year' ? `${plan}-credits` : `${plan}-credits-month`
+  return interval === 'month' ? `${plan}-credits` : `${plan}-credits-${interval}`
+}
 
 /** Every key the catalog declares itself, of every kind. */
 function catalogKeys(catalog: BillingCatalog): string[] {
   return [catalog.meters, catalog.plans, catalog.packs, catalog.features, catalog.customFields].flatMap(entries => Object.keys(entries ?? {}))
 }
 
-/** The catalog key of a pack's private gift product. */
-function giftProductKey(packKey: string): string {
-  return `${packKey}-gift`
+/**
+ * Record the currency a visitor pays in when the catalog does not price
+ * theirs (the catalog's, else the organization's): only for a catalog that
+ * prices more than one.
+ */
+function recordFallbackCurrency(ids: CatalogIds, catalog: BillingCatalog, currency: string | undefined): void {
+  if (!currency) return
+  const codes = new Set([
+    currency,
+    ...Object.values(catalog.plans ?? {}).flatMap(plan => planPricesByCurrency(plan, currency).map(([code]) => code)),
+    ...Object.values(catalog.packs ?? {}).flatMap(pack => packPricesByCurrency(pack, currency).map(([code]) => code)),
+  ].filter((code): code is string => code !== undefined))
+  if (codes.size > 1) ids.currency = currency
+}
+
+/** Record the plan every billing entity starts on, once its monthly product exists: never a retired one. */
+function recordFreePlan(ids: CatalogIds, key: string, plan: CatalogPlan): void {
+  if (!plan.retired && isFreePlan(plan) && ids.plans?.[key]?.month) ids.free = key
+}
+
+/** One fixed price per currency, as a create payload takes them; a currency the provider defaults names none. */
+function fixedPricesOf(amounts: Array<[string | undefined, number]>, taxBehavior: { taxBehavior?: CatalogPlan['taxBehavior'] }) {
+  return amounts.map(([code, amount]) => ({ amountType: 'fixed' as const, priceAmount: amount, ...(code ? { priceCurrency: code as never } : {}), ...taxBehavior }))
 }
 
 /**
- * Refuse a catalog whose own key is a pack's gift twin key (`<pack>-gift`):
- * the twin would be found as that product, or that product as the twin.
+ * Refuse a catalog whose own key is one the sync derives: a pack's gift
+ * twin (`<pack>-gift`), or a plan's quotas benefit (`<plan>-quotas`, for
+ * every plan, since one that sets no quota may set some later). The derived
+ * object would be found as that entry, or that entry as it.
  */
-function refuseGiftKeyCollisions(catalog: BillingCatalog): void {
+function refuseDerivedKeyCollisions(catalog: BillingCatalog): void {
   const keys = new Set(catalogKeys(catalog))
   const taken = Object.keys(catalog.packs ?? {}).map(giftProductKey).filter(key => keys.has(key))
   if (taken.length > 0) {
     throw new Error(`[nuxt-backend] billing sync: ${taken.join(', ')} ${taken.length === 1 ? 'is' : 'are'} the key of a pack's gift product — rename the catalog entry.`)
   }
-}
-
-/** A product's one live fixed price, as the provider lists it. */
-function fixedPrice(product: { prices?: unknown[] } | undefined): { priceAmount: number, priceCurrency?: string } | undefined {
-  const prices = (product?.prices ?? []) as Array<{ amountType?: string, isArchived?: boolean, priceAmount?: number, priceCurrency?: string }>
-  const fixed = prices.filter(price => price.amountType === 'fixed' && !price.isArchived)
-  const only = fixed.length === 1 ? fixed[0] : undefined
-  return typeof only?.priceAmount === 'number' ? { priceAmount: only.priceAmount, priceCurrency: only.priceCurrency } : undefined
-}
-
-/**
- * A live fixed price's amount and currency, as a create or update payload
- * takes them. The SDK types the currency as a closed enum; it is the one the
- * provider listed.
- */
-function fixedPriceUpdate(price: { priceAmount: number, priceCurrency?: string }): { priceAmount: number, priceCurrency?: never } {
-  return { priceAmount: price.priceAmount, ...(price.priceCurrency ? { priceCurrency: price.priceCurrency as never } : {}) }
-}
-
-/** A fixed price as the log shows it: its amount, and its currency when the provider names one. */
-function showPrice(price: { priceAmount: number, priceCurrency?: string } | undefined): string {
-  return price ? [price.priceAmount, price.priceCurrency].filter(part => part !== undefined).join(' ') : 'unknown'
-}
-
-/**
- * Keep a pack's gift twin at the pack's live price, amount and currency: a
- * pack priced again in the dashboard would otherwise sell its gift at the
- * old price. The twin is the package's own and never subscribed to, so its
- * price is replaced.
- */
-async function alignGiftTwinPrice(
-  client: Polar,
-  pack: { priceAmount: number, priceCurrency?: string } | undefined,
-  twin: { id: string, prices?: unknown[] },
-  giftKey: string,
-  { dryRun, log }: { dryRun: boolean, log: SyncLogEntry[] },
-): Promise<void> {
-  const twinPrice = fixedPrice(twin)
-  if (!pack || (twinPrice?.priceAmount === pack.priceAmount && twinPrice.priceCurrency === pack.priceCurrency)) return
-  const note = `priced ${showPrice(twinPrice)}, the pack is ${showPrice(pack)}`
-  if (dryRun) {
-    log.push({ action: 'would-update', kind: 'product', key: giftKey, id: twin.id, note })
-    return
+  const quotas = Object.keys(catalog.plans ?? {}).map(planQuotasKey).filter(key => keys.has(key))
+  if (quotas.length > 0) {
+    throw new Error(`[nuxt-backend] billing sync: ${quotas.join(', ')} ${quotas.length === 1 ? 'is' : 'are'} the key of a plan's quotas benefit — rename the catalog entry.`)
   }
-  const updated = await productsUpdate(client, {
-    id: twin.id,
-    productUpdate: { prices: [{ amountType: 'fixed', ...fixedPriceUpdate(pack) }] },
-  })
-  if (!updated.ok) throw updated.error
-  log.push({ action: 'updated', kind: 'product', key: giftKey, id: twin.id, note })
-}
-
-/**
- * Detach whatever benefits a gift twin carries: one attached in the
- * dashboard would grant the purchaser credits too, besides the recipient's
- * claim of the pack. A twin grants nothing.
- */
-async function detachGiftTwinBenefits(
-  client: Polar,
-  twin: { id: string, benefits?: unknown[] },
-  giftKey: string,
-  { dryRun, log }: { dryRun: boolean, log: SyncLogEntry[] },
-): Promise<void> {
-  const count = twin.benefits?.length ?? 0
-  if (count === 0) return
-  const note = `carried ${count} benefit${count === 1 ? '' : 's'}; a gift product grants nothing`
-  if (dryRun) {
-    log.push({ action: 'would-update', kind: 'product', key: giftKey, id: twin.id, note })
-    return
-  }
-  const updated = await productsUpdateBenefits(client, { id: twin.id, productBenefitsUpdate: { benefits: [] } })
-  if (!updated.ok) throw updated.error
-  log.push({ action: 'updated', kind: 'product', key: giftKey, id: twin.id, note })
-}
-
-/**
- * Hold an existing gift twin to what `billing sync` makes: the pack's live
- * price, and no benefits. A twin created this run already is.
- */
-async function alignGiftTwin(
-  client: Polar,
-  managedProducts: Array<{ id: string, metadata?: unknown, prices?: unknown[], benefits?: unknown[] }>,
-  packKey: string,
-  options: { dryRun: boolean, log: SyncLogEntry[] },
-): Promise<void> {
-  const giftKey = giftProductKey(packKey)
-  const twin = managedProducts.find(item => isManaged(item.metadata as Record<string, unknown>, giftKey))
-  if (!twin) return
-  const pack = fixedPrice(managedProducts.find(item => isManaged(item.metadata as Record<string, unknown>, packKey)))
-  await alignGiftTwinPrice(client, pack, twin, giftKey, options)
-  await detachGiftTwinBenefits(client, twin, giftKey, options)
-}
-
-/**
- * Move each pack's gift twin out of `products` into `gifts`, by pack key: a
- * twin is never sold on its own, so it stays out of the checkout allow-list
- * and the price list.
- */
-function moveGiftTwins(ids: CatalogIds, catalog: BillingCatalog): void {
-  const twins = new Map(Object.keys(catalog.packs ?? {}).map(pack => [giftProductKey(pack), pack]))
-  const gifts = Object.entries(ids.products).flatMap(([key, id]) => twins.has(key) ? [[twins.get(key)!, id] as const] : [])
-  if (gifts.length === 0) return
-  ids.gifts = Object.fromEntries(gifts)
-  ids.products = Object.fromEntries(Object.entries(ids.products).filter(([key]) => !twins.has(key)))
 }
 
 export interface BillingSyncOptions {
@@ -188,12 +128,20 @@ export interface BillingSyncResult {
 export async function syncBillingCatalog(
   catalog: BillingCatalog,
   options: BillingSyncOptions,
-  client: Polar = new Polar({ accessToken: options.accessToken, server: options.environment }),
+  client: Polar = new Polar(providerClientOptions({
+    accessToken: options.accessToken,
+    environment: options.environment,
+  })),
 ): Promise<BillingSyncResult> {
   const log: SyncLogEntry[] = []
   const ids: CatalogIds = { products: {}, meters: {} }
   const { dryRun, adopt } = options
-  refuseGiftKeyCollisions(catalog)
+  refuseDerivedKeyCollisions(catalog)
+  refuseUnpricedPlans(catalog)
+  refuseInvalidPrices(catalog)
+  refuseInvalidGifts(catalog, new Set(catalogKeys(catalog)))
+  refuseInvalidQuotas(catalog)
+  refuseInvalidDiscounts(catalog)
 
   // --- Managed inventories (one list call per kind, metadata-filtered) ---
   const managedMeters = await listAllPages(page => metersList(client, { metadata: { managedBy: MANAGED_BY }, limit: 100, page }))
@@ -208,6 +156,9 @@ export async function syncBillingCatalog(
     : []
 
   const currency = await resolvePriceCurrency(catalog, client, log)
+  refuseMissingDefaultCurrency(catalog, currency)
+  refuseUnpricedDiscounts(catalog, currency)
+  recordFallbackCurrency(ids, catalog, currency)
 
   // --- Meters ---
   for (const [key, meter] of Object.entries(catalog.meters ?? {})) {
@@ -291,16 +242,29 @@ export async function syncBillingCatalog(
 
   // --- Benefits (feature benefits + per-product credit grants) ---
   const benefitIdByKey = new Map<string, string>()
+  const createdBenefits = new Map<string, string>()
   const ensureBenefit = async (
     key: string,
     create: () => Parameters<typeof benefitsCreate>[1],
     /** Retried once with this payload when the provider rejects `create`. */
     fallback?: { payload: () => Parameters<typeof benefitsCreate>[1], note: string },
   ): Promise<string | null> => {
+    // Made earlier in this run (a plan's monthly grant, shared by its yearly
+    // product on a monthly meter cycle and by its pass): the same one again.
+    const made = createdBenefits.get(key)
+    if (made) return made
     const existing = managedBenefits.find(item => isManaged((item as { metadata?: Record<string, unknown> }).metadata, key))
     if (existing) {
       benefitIdByKey.set(key, existing.id)
-      log.push({ action: 'exists', kind: 'benefit', key, id: existing.id })
+      // A credit grant whose units or rollover changed in either place: the
+      // provider's grants follow its own figure, so say which one is live.
+      log.push(existsOrDrift(
+        'benefit',
+        key,
+        existing.id,
+        describeBenefitDrift(existing as { type?: string, properties?: unknown }, create()),
+        'change the grant in the provider dashboard (new grants follow it) or put the catalog back',
+      ))
       return existing.id
     }
     if (dryRun) {
@@ -317,6 +281,7 @@ export async function syncBillingCatalog(
     }
     if (!created.ok) throw created.error
     benefitIdByKey.set(key, created.value.id)
+    createdBenefits.set(key, created.value.id)
     log.push({ action: 'created', kind: 'benefit', key, id: created.value.id })
     return created.value.id
   }
@@ -347,36 +312,43 @@ export async function syncBillingCatalog(
     )
   }
 
-  const creditBenefitFor = async (productKey: string, grant: CatalogCreditGrant, defaultRollover: boolean): Promise<string | null> => {
+  const creditBenefitFor = async (benefitKey: string, grant: CatalogCreditGrant, defaultRollover: boolean): Promise<string | null> => {
     const meterIds = ids.meters[grant.meter]
     if (!meterIds) {
-      log.push({ action: 'warn', kind: 'benefit', key: `${productKey}-credits`, note: `meter '${grant.meter}' is not in the catalog` })
+      log.push({ action: 'warn', kind: 'benefit', key: benefitKey, note: `meter '${grant.meter}' is not in the catalog` })
       return null
     }
-    return ensureBenefit(`${productKey}-credits`, () => ({
+    return ensureBenefit(benefitKey, () => ({
       type: 'meter_credit',
       description: `${grant.units} credits`,
       properties: { units: grant.units, rollover: grant.rollover ?? defaultRollover, meterId: meterIds.meterId },
-      metadata: { managedBy: MANAGED_BY, key: `${productKey}-credits` },
+      metadata: { managedBy: MANAGED_BY, key: benefitKey },
     }))
   }
 
   // --- Products (plans + packs) ---
+  /**
+   * Find or create one product. `existing` is the managed product the
+   * caller found for it; `record` keeps its id (in `products` by default).
+   * Resolves with the product found, or `undefined` when it was adopted,
+   * created or would be.
+   */
   const ensureProduct = async (
     key: string,
     benefits: Array<string | null>,
     create: () => Parameters<typeof productsCreate>[1],
-  ): Promise<void> => {
+    existing: (typeof managedProducts)[number] | undefined,
+    record: (id: string) => void = (id) => { ids.products[key] = id },
+  ): Promise<(typeof managedProducts)[number] | undefined> => {
     if (adopt[key]) {
       // Adopted products keep their existing benefits untouched — creating
       // managed grant twins would double-grant.
-      ids.products[key] = adopt[key]
+      record(adopt[key])
       log.push({ action: 'adopted', kind: 'product', key, id: adopt[key], note: 'benefits left as-is' })
-      return
+      return undefined
     }
-    const existing = managedProducts.find(item => isManaged(item.metadata, key))
     if (existing) {
-      ids.products[key] = existing.id
+      record(existing.id)
       // A product is created once and then kept: the provider's prices are
       // immutable (an order references one), so a catalog edit to `name` or
       // `price` cannot be pushed to a product customers may already hold.
@@ -389,30 +361,35 @@ export async function syncBillingCatalog(
         describeProductDrift(existing, create()),
         'a created product is never rewritten; rename the catalog key to publish a new one',
       ))
-      return
+      return existing
     }
     if (dryRun) {
       log.push({ action: 'would-create', kind: 'product', key })
-      return
+      return undefined
     }
     const created = await productsCreate(client, create())
     if (!created.ok) throw created.error
-    ids.products[key] = created.value.id
+    record(created.value.id)
     log.push({ action: 'created', kind: 'product', key, id: created.value.id })
     const attach = benefits.filter((id): id is string => id !== null)
     if (attach.length > 0) {
       const updated = await productsUpdateBenefits(client, { id: created.value.id, productBenefitsUpdate: { benefits: attach } })
       if (!updated.ok) throw updated.error
     }
+    return undefined
   }
 
-  /** The fixed price, plus one metered price per `usage` entry (plans only). */
-  const pricesFor = (key: string, product: CatalogPlan | CatalogPack): Parameters<typeof productsCreate>[1]['prices'] => {
+  /**
+   * One fixed price per currency — a native presentment price each, on the
+   * same product — plus one metered price per `usage` entry (plans only,
+   * which are priced in one currency when they have any).
+   */
+  const pricesFor = (key: string, product: CatalogPlan | CatalogPack, amounts: Array<[string | undefined, number]>): Parameters<typeof productsCreate>[1]['prices'] => {
     const taxBehavior = product.taxBehavior ? { taxBehavior: product.taxBehavior } : {}
-    const priceCurrency = currency ? { priceCurrency: currency } : {}
+    const priceCurrency = currency ? { priceCurrency: currency as never } : {}
     const usage = 'usage' in product ? product.usage ?? [] : []
     return [
-      { amountType: 'fixed', priceAmount: product.price, ...priceCurrency, ...taxBehavior },
+      ...fixedPricesOf(amounts, taxBehavior),
       ...usage.flatMap((price) => {
         if (!(price.meter in (catalog.meters ?? {}))) {
           log.push({ action: 'warn', kind: 'product', key, note: `usage price meter '${price.meter}' is not in the catalog` })
@@ -433,39 +410,77 @@ export async function syncBillingCatalog(
     ]
   }
 
-  for (const [key, plan] of Object.entries(catalog.plans ?? {})) {
+  /**
+   * One plan's product at one interval: its credit grant for that cycle,
+   * the plan's features, and the catalog's trial pushed to one that exists.
+   * A yearly product made before plans had intervals keeps the credit
+   * benefit it carries, checked against the year's grant.
+   */
+  const ensurePlanProduct = async (key: string, plan: CatalogPlan, interval: CatalogInterval, quotasId: string | null | undefined) => {
+    const productKey = planProductKey(key, interval)
+    const existing = findPlanProduct(managedProducts, key, interval)
+    const untaggedYearly = isUntaggedPlanProduct(findPlanProduct(managedProducts, key, 'year'))
     const benefits: Array<string | null> = []
-    // Plan allowances default to use-it-or-lose-it per cycle.
-    if (plan.credits) benefits.push(await creditBenefitFor(key, plan.credits, false))
+    // Plan allowances default to use-it-or-lose-it per cycle. With a
+    // monthly meter cycle a yearly price grants a month's allowance every
+    // month: the monthly product's benefit, on both.
+    const monthly = interval === 'year' && plan.meterCycle === 'month'
+    const grantInterval = monthly ? 'month' : interval
+    const units = plan.credits ? planCreditUnits(plan.credits, grantInterval) : undefined
+    if (plan.credits && units !== undefined) benefits.push(await creditBenefitFor(planCreditKey(key, grantInterval, untaggedYearly && !monthly), { ...plan.credits, units }, false))
     for (const featureKey of plan.features ?? []) {
       const id = benefitIdByKey.get(featureKey)
       if (id) benefits.push(id)
-      else if (!dryRun) log.push({ action: 'warn', kind: 'product', key, note: `feature '${featureKey}' is not in the catalog` })
+      else if (!dryRun) log.push({ action: 'warn', kind: 'product', key: productKey, note: `feature '${featureKey}' is not in the catalog` })
     }
-    const attachedCustomFields = attachCustomFields(key, plan.customFields)
-    const prices = pricesFor(key, plan)
-    await ensureProduct(key, benefits, () => ({
+    benefits.push(...planQuotasBenefits(key, productKey, quotasId, { adopt, log }))
+    const attachedCustomFields = attachCustomFields(productKey, plan.customFields)
+    const amounts = planPricesByCurrency(plan, currency).map(([code, byInterval]) => [code, byInterval[interval]!] as [string | undefined, number])
+    const prices = pricesFor(productKey, plan, amounts)
+    const trial = providerTrialOf(plan.trial)
+    const found = await ensureProduct(productKey, benefits, () => ({
       name: plan.name,
       description: plan.description,
-      recurringInterval: plan.interval,
+      recurringInterval: interval,
       prices,
       // A trial is interval + count; the provider defaults the count to 1.
-      ...(plan.trial ? { trialInterval: plan.trial.interval, trialIntervalCount: plan.trial.count ?? 1 } : {}),
+      // A reverse trial is a pass the package starts, so the product has none.
+      ...(trial ? { trialInterval: trial.interval, trialIntervalCount: trial.count ?? 1 } : {}),
+      // The meter cycle is set once, as the product is made: the provider never changes it.
+      ...(monthly ? { meterInterval: 'month' as const, meterIntervalCount: 1 } : {}),
       ...(attachedCustomFields.length > 0 ? { attachedCustomFields } : {}),
-      metadata: { managedBy: MANAGED_BY, key },
-    }))
+      metadata: { managedBy: MANAGED_BY, key, interval },
+    }), existing, id => recordPlanProduct(ids, key, interval, id))
+    if (!found) return
+    // A plan priced per currency gains the currencies its product lacks.
+    if (amounts.length > 1) await addCurrencyPrices(client, found, prices, productKey, { dryRun, log })
+    await pushPlanTrial(client, found, productKey, trial, { dryRun, log })
+    await attachPlanQuotas(client, found, productKey, quotasId, { dryRun, log })
   }
 
+  const quotasByPlan = new Map<string, string | null | undefined>()
+  for (const [key, plan] of Object.entries(catalog.plans ?? {})) {
+    // The quotas benefit first, so each product carries it from the start.
+    const quotasId = await ensurePlanQuotas(client, managedBenefits, key, plan, { dryRun, log })
+    quotasByPlan.set(key, quotasId)
+    if (plan.retired) {
+      await retirePlan(client, managedProducts, key, pricedIntervals(plan), { dryRun, log, ids, adopt })
+      await attachRetiredPlanQuotas(client, managedProducts, key, quotasId, { dryRun, log, adopt })
+    }
+    else for (const interval of pricedIntervals(plan)) await ensurePlanProduct(key, plan, interval, quotasId)
+    recordFreePlan(ids, key, plan)
+  }
+  recordQuotaKeys(ids, catalog)
+
   /**
-   * The pack's private gift twin: its price and none of its benefits, so a
-   * purchaser pays for someone else's credits without receiving any. The
-   * price is the pack's live one when the pack exists already: one priced
-   * again in the dashboard no longer matches the catalog.
+   * The pack's private gift twin: its prices, one per currency, and none of
+   * its benefits, so a purchaser pays for someone else's credits without
+   * receiving any. The prices are the pack's live ones when the pack exists
+   * already: one priced again in the dashboard no longer matches the catalog.
    */
   const ensureGiftTwin = async (key: string, pack: CatalogPack, prices: ReturnType<typeof pricesFor>) => {
     const giftKey = giftProductKey(key)
-    const live = fixedPrice(managedProducts.find(item => isManaged(item.metadata, key)))
-    const giftPrices = live ? prices.map(price => price.amountType === 'fixed' ? { ...price, ...fixedPriceUpdate(live) } : price) : prices
+    const giftPrices = giftTwinPrices(fixedPrices(managedProducts.find(item => isManaged(item.metadata, key))), pack, prices)
     await ensureProduct(giftKey, [], () => ({
       name: `${pack.name} (gift)`,
       description: pack.description,
@@ -473,44 +488,91 @@ export async function syncBillingCatalog(
       prices: giftPrices,
       visibility: 'private',
       metadata: { managedBy: MANAGED_BY, key: giftKey, giftOf: key },
-    }))
+    }), managedProducts.find(item => isManaged(item.metadata, giftKey)))
     await alignGiftTwin(client, managedProducts, key, { dryRun, log })
   }
 
   for (const [key, pack] of Object.entries(catalog.packs ?? {})) {
-    // Purchased credits keep by default (rollover).
-    const benefit = await creditBenefitFor(key, pack.credits, true)
+    // Purchased credits keep by default (rollover). Without it, what a
+    // customer bought lapses at their next billing cycle: say so.
+    if (pack.credits.rollover === false) {
+      log.push({ action: 'warn', kind: 'product', key, note: 'rollover is off: unspent credits from this pack lapse at the customer\'s next billing cycle, and pricing compares no per-credit price for it' })
+    }
+    const benefit = await creditBenefitFor(`${key}-credits`, pack.credits, true)
     const attachedCustomFields = attachCustomFields(key, pack.customFields)
-    const prices = pricesFor(key, pack)
-    await ensureProduct(key, [benefit], () => ({
+    const amounts = packPricesByCurrency(pack, currency)
+    const prices = pricesFor(key, pack, amounts)
+    const found = await ensureProduct(key, [benefit], () => ({
       name: pack.name,
       description: pack.description,
       recurringInterval: null,
       prices,
       ...(attachedCustomFields.length > 0 ? { attachedCustomFields } : {}),
       metadata: { managedBy: MANAGED_BY, key },
-    }))
+    }), managedProducts.find(item => isManaged(item.metadata, key)))
+    // A pack priced per currency gains the currencies its product lacks.
+    if (amounts.length > 1) await addCurrencyPrices(client, found, prices, key, { dryRun, log })
     await ensureGiftTwin(key, pack, prices)
   }
   moveGiftTwins(ids, catalog)
+
+  await syncPassProducts(catalog, {
+    client,
+    ids,
+    managedProducts,
+    ensureProduct,
+    creditBenefitFor,
+    benefitIdByKey,
+    quotasByPlan,
+    planCreditKey,
+    price: (amounts, plan) => fixedPricesOf(amounts, plan.taxBehavior ? { taxBehavior: plan.taxBehavior } : {}),
+    currency,
+    adopt,
+    dryRun,
+    log,
+  })
 
   // Which products are packs: the runtime lets a gift buy only these.
   const packKeys = Object.keys(catalog.packs ?? {}).filter(key => key in ids.products)
   if (packKeys.length > 0) ids.packs = packKeys
 
+  // --- Discounts (the catalog's promotions), on the products' ids ---
+  // Only read for a catalog that declares any, so a token without the
+  // discounts scope keeps working for one that does not.
+  if (catalog.discounts) {
+    await syncDiscounts(catalog, {
+      client,
+      limitTarget: { environment: options.environment, accessToken: options.accessToken },
+      ids,
+      currency,
+      dryRun,
+      adopt,
+      log,
+    })
+  }
+
   // --- Drift: managed remote objects whose key left the catalog ---
   const knownKeys = new Set([
     ...catalogKeys(catalog),
-    ...[...Object.keys(catalog.plans ?? {}), ...Object.keys(catalog.packs ?? {})].map(key => `${key}-credits`),
+    ...Object.keys(catalog.plans ?? {}).flatMap(key => [planCreditKey(key, 'month'), planCreditKey(key, 'year'), planCreditKey(key, 'month', true)]),
+    // A plan that drops its quotas leaves its quotas benefit attached: drift.
+    ...planQuotasKeys(catalog),
+    ...Object.keys(catalog.packs ?? {}).map(key => `${key}-credits`),
     ...Object.keys(catalog.packs ?? {}).map(giftProductKey),
+    ...derivedPassKeys(catalog),
   ])
+  const droppedQuotas = new Set(droppedQuotasKeys(catalog))
+  log.push(...unpricedPlanProducts(catalog, managedProducts))
   for (const [kind, items] of [['meter', managedMeters], ['product', managedProducts], ['benefit', managedBenefits], ['custom-field', managedCustomFields]] as const) {
     for (const item of items) {
       const metadata = (item as { metadata?: Record<string, unknown> }).metadata
       if (metadata?.managedBy !== MANAGED_BY) continue
       const key = typeof metadata.key === 'string' ? metadata.key : ''
       if (key && !knownKeys.has(key)) {
-        log.push({ action: 'drift', kind, key, id: item.id, note: 'managed remotely but no longer in the catalog (never deleted automatically)' })
+        const note = droppedQuotas.has(key)
+          ? 'its plan sets no quotas now: emptied above, and still attached to the plan\'s products until you detach it in the provider dashboard'
+          : 'managed remotely but no longer in the catalog (never deleted automatically)'
+        log.push({ action: 'drift', kind, key, id: item.id, note })
       }
     }
   }

@@ -9,10 +9,10 @@ import { queryCollection } from '@nuxt/content/server'
 // nuxt-backend is what it provides and how it maps…". This reads the page's
 // own description off its collection instead.
 //
-// Every page renders through the site's plate (the `/**` route rule in
-// nuxt.config.ts); Docus's own docs card is listed too, so the swap keeps
-// working if a page opts back into it. Docs pages live in the `docs`
-// collection, the homepage in `landing`.
+// Every docs page renders the site's plate (its page asks for it, and the
+// `/**` route rule in nuxt.config.ts covers the rest), the homepage its
+// landing plate. Docs pages live in the `docs` collection, the homepage in
+// `landing`.
 //
 // The page is found by its card title, not its path: at build time the card
 // URL is a hash of the card's options, the page path is not carried on it
@@ -23,7 +23,7 @@ import { queryCollection } from '@nuxt/content/server'
 // characters both keep Docus's own text, which is squeezed but never another
 // page's.
 const TITLE_LIMIT = 60
-const CARDS = new Set(['OgImagePlateTakumi', 'OgImageDocsTakumi'])
+const CARDS = new Set(['OgImagePlateTakumi', 'OgImageLandingTakumi'])
 const COLLECTIONS = ['docs', 'landing'] as const
 
 interface Page { title?: string, description?: string, seo?: { title?: string, description?: string } }

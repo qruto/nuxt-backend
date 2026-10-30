@@ -92,7 +92,7 @@ export const siteComponents = () => componentsIn('website/components')
 
 /**
  * The components a template or a Markdown page names: `<HomeHero>`,
- * `<home-hero>`, `<LazyLiveConnection>` (as `LiveConnection`) and MDC's
+ * `<home-hero>`, `<LazyDemoSignInLive>` (as `DemoSignInLive`) and MDC's
  * `::home-hero`.
  */
 export function namedComponents(source: string): string[] {
@@ -106,13 +106,14 @@ export function namedComponents(source: string): string[] {
 
 /**
  * A call that needs the backend client: the module's composables (all but
- * `useBackendConfig`, which reads app config), the base module's and their
- * aliases, and `$loadBackendClient` itself.
+ * `useBackendConfig`, `useLabels` and `useBackendPagePath`, which read app
+ * and runtime config), the base module's and their aliases, and
+ * `$loadBackendClient` itself.
  */
 export const BACKEND_CALL = (() => {
   const own = walk('src/runtime/vue/composables', ['.ts'])
     .flatMap(file => [...read(file).matchAll(/export (?:async )?(?:function|const) (use[A-Z]\w*)/g)].map(match => match[1]!))
-    .filter(name => name !== 'useBackendConfig')
+    .filter(name => !['useBackendConfig', 'useLabels', 'useBackendPagePath'].includes(name))
   const base = ['useQuery', 'useQueries', 'usePaginatedQuery', 'useMutation', 'useAction', 'useConvex\\w*', 'useConnectionState', 'useAuthState', 'useBetterAuth']
   return new RegExp(`\\b(?:${[...own, ...base].join('|')})\\(|\\$loadBackendClient\\b`)
 })()

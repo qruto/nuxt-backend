@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
 import { Webhook } from 'standardwebhooks'
 import { setupEmail, type Email, type EmailComponents, type EmailWebhookEvent } from '../../src/convex/integrations/email'
+import { fakeCredential, signingSecret } from '../helpers/secrets'
+import { verifyWebhookSignature } from '../../src/convex/webhook-signatures'
 import {
   handleWebhookDelivery,
   parseSecretList,
   parseWebhookJson,
-  translateStandardSignature,
   type WebhookDelivery,
   type WebhookLogRefs,
   type WebhookOutcome,
@@ -508,35 +509,39 @@ describe('/email/events on the edge — what its route decides', () => {
   })
 })
 
-describe('translateStandardSignature', () => {
-  // 32 random-looking bytes, base64 — the shape the provider hands out.
-  const secret = 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSHc2e9Vp3kWhY='
-  const sdkReading = btoa(String.fromCharCode(...new TextEncoder().encode(secret)))
+describe('verifyWebhookSignature, the one verifier', () => {
+  const secret = signingSecret(32)
   const body = JSON.stringify({ type: 'order.paid', data: { id: 'ord_1' } })
   const id = 'msg_1'
   const at = new Date()
-  const headersFor = (signature: string) => new Headers({ 'webhook-id': id, 'webhook-timestamp': String(Math.floor(at.getTime() / 1000)), 'webhook-signature': signature })
+  const headersFor = (signature: string, prefix = 'webhook') => new Headers({ [`${prefix}-id`]: id, [`${prefix}-timestamp`]: String(Math.floor(at.getTime() / 1000)), [`${prefix}-signature`]: signature })
 
-  it('re-signs a delivery signed the standard way so the SDK reading verifies it', () => {
+  it('verifies a Standard Webhooks signature under the webhook-* or the svix-* headers', () => {
     const standard = new Webhook(secret).sign(id, at, body)
-    const translated = translateStandardSignature(headersFor(standard), body, [secret])
-
-    expect(translated.get('webhook-signature')).not.toBe(standard)
-    expect(() => new Webhook(sdkReading).verify(body, Object.fromEntries(translated.entries()))).not.toThrow()
+    expect(verifyWebhookSignature([secret], body, headersFor(standard))).toBe(true)
+    expect(verifyWebhookSignature([secret], body, headersFor(standard, 'svix'))).toBe(true)
   })
 
-  it('leaves a delivery already signed the SDK way, or not verifiable at all, untouched', () => {
-    const sdkSigned = new Webhook(sdkReading).sign(id, at, body)
-    expect(translateStandardSignature(headersFor(sdkSigned), body, [secret]).get('webhook-signature')).toBe(sdkSigned)
-    expect(translateStandardSignature(headersFor('v1,bogus'), body, [secret]).get('webhook-signature')).toBe('v1,bogus')
-    expect(translateStandardSignature(new Headers(), body, [secret]).get('webhook-signature')).toBeNull()
+  it('takes Polar\'s legacy key reading only where the route asks for it', () => {
+    const legacySecret = fakeCredential('polar_whs_')
+    const legacy = new Webhook(new TextEncoder().encode(legacySecret), { format: 'raw' }).sign(id, at, body)
+    expect(verifyWebhookSignature([legacySecret], body, headersFor(legacy), { legacyKey: true })).toBe(true)
+    expect(verifyWebhookSignature([legacySecret], body, headersFor(legacy))).toBe(false)
   })
 
-  it('tries every accepted secret and only ones with the standard prefix', () => {
-    const rotated = 'whsec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='
+  it('refuses a bogus signature, missing headers, a stale timestamp and an empty accept-list', () => {
+    const standard = new Webhook(secret).sign(id, at, body)
+    expect(verifyWebhookSignature([secret], body, headersFor('v1,bogus'), { legacyKey: true })).toBe(false)
+    expect(verifyWebhookSignature([secret], body, new Headers(), { legacyKey: true })).toBe(false)
+    expect(verifyWebhookSignature([], body, headersFor(standard), { legacyKey: true })).toBe(false)
+    const stale = new Date(at.getTime() - 10 * 60_000)
+    const staleHeaders = new Headers({ 'webhook-id': id, 'webhook-timestamp': String(Math.floor(stale.getTime() / 1000)), 'webhook-signature': new Webhook(secret).sign(id, stale, body) })
+    expect(verifyWebhookSignature([secret], body, staleHeaders, { legacyKey: true })).toBe(false)
+  })
+
+  it('tries every accepted secret of a rotation, a secret no reading can use included', () => {
+    const rotated = signingSecret(32)
     const standard = new Webhook(rotated).sign(id, at, body)
-    const translated = translateStandardSignature(headersFor(standard), body, ['plain-old-secret', secret, rotated])
-    const rotatedSdkReading = btoa(String.fromCharCode(...new TextEncoder().encode(rotated)))
-    expect(() => new Webhook(rotatedSdkReading).verify(body, Object.fromEntries(translated.entries()))).not.toThrow()
+    expect(verifyWebhookSignature(['plain-old-secret', secret, rotated], body, headersFor(standard), { legacyKey: true })).toBe(true)
   })
 })

@@ -1,0 +1,21 @@
+/*
+ * AuthFormUndeliverable's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  /* Why no code is coming: what the person came to read. */
+  [data-auth='undeliverable-note'] {
+    margin: 0;
+    padding: 0.55rem 0.7rem;
+    border-radius: var(--auth-radius);
+    background: color-mix(in srgb, var(--auth-error) 12%, transparent);
+    color: var(--auth-error);
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  [data-auth='use-another-email'] {
+    align-self: flex-start;
+  }
+}

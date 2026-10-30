@@ -1,31 +1,27 @@
 <script setup lang="ts">
 /**
- * OG image — "the plate": a 1200×630 machined gunmetal slab, rendered by
- * nuxt-og-image's Takumi renderer (`.takumi.vue` picks the renderer).
+ * The docs plate: every docs page's social card, and the site's default
+ * (the `/**` route rule in nuxt.config.ts), 1200×630, drawn by
+ * nuxt-og-image's Takumi renderer (`.takumi.vue` picks it). The homepage has
+ * its own, Landing.takumi.vue.
  *
- * Material rules (website/design.md): the ground is gunmetal — the plate's
- * face is a 135° sheen + hairline machining grain over the dark slab, its
- * edge an inset bevel lit from the top-left. Type is *engraved* (a mid-tone
- * ink + a two-layer text-shadow: dark up-left, light down-right). The only
- * chroma is the green status LED strip (bottom-left) and the coin's LED
- * (bottom-right) — signals are never engraved.
+ * A gunmetal slab on the gunmetal ground (website/design.md §2), with the
+ * page's tab stamped at the top, its title and description engraved in the
+ * middle, and at the foot the nameplate (the house mark and the wordmark)
+ * beside a lit strip. Engraving is two stacked text layers under the ink
+ * (utils/og-plate.ts); a signal is never engraved.
  *
- * Fonts: Takumi resolves `font-family` declarations it finds in this file
- * against @nuxt/fonts' global sheet, so "Anybody" and "Martian Mono"
- * must stay `global: true` in nuxt.config.ts `fonts`, and @nuxt/fonts must be
- * listed in `modules` (see the note there). A family outside that sheet falls
- * back to the renderer's bundled Inter.
+ * Fonts: nuxt-og-image loads the families and weights this file's static
+ * `style` attributes name (Anybody 700 and 400, Martian Mono 500), from
+ * @nuxt/fonts' global sheet, so they stay `global: true` in nuxt.config.ts.
+ * A family outside that sheet falls back to the renderer's own Inter.
  *
- * Props: Docus passes `headline` and `description` on EVERY docs page (the
- * headline is the section, e.g. "Getting Started"), on top of `title`. Both
- * used to be undeclared, so the module dropped them with a build warning and
- * every docs card came out with the same default eyebrow and no description.
- * `headline` therefore feeds the eyebrow — it is exactly the value that slot
- * wants — and `eyebrow` stays as the explicit override for a hand-written
- * `defineOgImage` call.
- *
- * Usage: defineOgImage('Plate', { title: 'Authentication', eyebrow: 'Guide' })
+ * Props: the docs page passes `headline` (the page's section, which feeds the
+ * eyebrow), `title` and `description`; `eyebrow` overrides the headline for a
+ * hand-written `defineOgImage('Plate', …)`.
  */
+import { OG_GROUND, OG_INK, OG_RELIEF, OG_RELIEF_SM, OG_SLAB, ogClip, ogMarkSrc, ogStrip } from '../../utils/og-plate'
+
 const props = withDefaults(
   defineProps<{
     title?: string
@@ -33,337 +29,93 @@ const props = withDefaults(
     headline?: string
     description?: string
   }>(),
-  { title: 'Nuxt backend', eyebrow: 'Nuxt backend' },
+  { title: 'Nuxt backend', eyebrow: undefined, headline: undefined, description: undefined },
 )
 
-// Docus's `headline` wins over the default eyebrow, an explicit `eyebrow` wins
-// over both. Trimmed so the plate never has to reflow a long string.
-const eyebrowText = computed(() =>
-  (props.eyebrow !== 'Nuxt backend' ? props.eyebrow : props.headline || props.eyebrow).slice(0, 42),
-)
-const descriptionText = computed(() => {
-  const text = props.description?.trim()
-  if (!text) return ''
-  return text.length > 128 ? `${text.slice(0, 127).trimEnd()}…` : text
-})
+// The site has one uppercase recipe, the `stamp` part, which a card cannot
+// use, so the eyebrow is capitalised here (design.md §4).
+const eyebrowText = computed(() => ogClip(props.eyebrow || props.headline || 'Docs', 42).toUpperCase())
+const titleText = computed(() => ogClip(props.title, 80))
+const descriptionText = computed(() => ogClip(props.description, 128))
+const mark = ogMarkSrc(64)
+const strip = ogStrip('ok')
 </script>
 
 <template>
-  <div
-    style="position: relative; display: flex; width: 1200px; height: 630px; overflow: hidden; background-color: #26292e; background-image: radial-gradient(1000px 700px at 18% -10%, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02) 42%, rgba(255, 255, 255, 0) 100%), repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0px, rgba(255, 255, 255, 0.012) 1px, rgba(255, 255, 255, 0) 1px, rgba(255, 255, 255, 0) 3px), repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.05) 0px, rgba(0, 0, 0, 0.05) 1px, rgba(0, 0, 0, 0) 1px, rgba(0, 0, 0, 0) 7px);"
-  >
-    <!-- The plate: raised slab with an inset bevel (lit top-left, dark bottom-right) and a cast. -->
-    <div
-      style="position: absolute; left: 48px; top: 48px; width: 1104px; height: 534px; display: flex; flex-direction: column; justify-content: space-between; padding: 64px 72px 56px 72px; border-radius: 28px; background-color: #33373e; background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 45%), linear-gradient(315deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0) 45%), repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0px, rgba(255, 255, 255, 0.018) 1px, rgba(255, 255, 255, 0) 1px, rgba(255, 255, 255, 0) 3px); box-shadow: inset 1.5px 2.5px 3px rgba(255, 255, 255, 0.07), inset -1.5px -2.5px 3px rgba(0, 0, 0, 0.55), inset 0.5px 1px 1px rgba(255, 255, 255, 0.06), inset -0.5px -1px 1px rgba(0, 0, 0, 0.45), 2px 4px 8px rgba(0, 0, 0, 0.45), 8px 16px 36px rgba(0, 0, 0, 0.45);"
-    >
-      <!-- Eyebrow — mono, engraved-sm -->
-      <div
-        style="display: flex; font-family: 'Martian Mono'; font-weight: 500; font-size: 24px; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #a7abb6; text-shadow: -0.5px -0.9px 0.5px rgba(0, 0, 0, 0.8), 0.6px 1px 0.5px rgba(255, 255, 255, 0.14);"
-      >
-        {{ eyebrowText }}
+  <div :style="OG_GROUND">
+    <div :style="OG_SLAB">
+      <!-- The tab, stamped: Martian Mono, engraved small. -->
+      <div style="position: relative; display: flex; font-family: 'Martian Mono'; font-weight: 500; font-size: 24px; line-height: 1; letter-spacing: 0.14em;">
+        <div
+          v-for="layer in OG_RELIEF_SM"
+          :key="layer.top"
+          :style="layer"
+        >
+          {{ eyebrowText }}
+        </div>
+        <div :style="{ position: 'relative', display: 'flex', color: OG_INK.small }">
+          {{ eyebrowText }}
+        </div>
       </div>
 
-      <!-- Title + description — display, engraved -->
       <div style="display: flex; flex-direction: column; gap: 22px;">
-        <div
-          style="display: flex; width: 800px; font-family: 'Anybody'; font-weight: 700; font-size: 74px; line-height: 1.08; letter-spacing: 0.005em; color: #878b96; text-shadow: -1px -1.7px 1px rgba(0, 0, 0, 0.85), 1.2px 2px 1px rgba(255, 255, 255, 0.17);"
-        >
-          {{ title?.slice(0, 80) }}
+        <!-- The title, engraved: Anybody bold. -->
+        <div style="position: relative; display: flex; width: 900px; font-family: 'Anybody'; font-weight: 700; font-size: 72px; line-height: 1.08; letter-spacing: 0.005em;">
+          <div
+            v-for="layer in OG_RELIEF"
+            :key="layer.top"
+            :style="layer"
+          >
+            {{ titleText }}
+          </div>
+          <div :style="{ position: 'relative', display: 'flex', width: '100%', color: OG_INK.display }">
+            {{ titleText }}
+          </div>
         </div>
+        <!-- The description, engraved small: Anybody regular. -->
         <div
           v-if="descriptionText"
-          style="display: flex; width: 720px; font-family: 'Anybody'; font-weight: 400; font-size: 28px; line-height: 1.35; color: #a7abb6; text-shadow: -0.5px -0.9px 0.5px rgba(0, 0, 0, 0.8), 0.6px 1px 0.5px rgba(255, 255, 255, 0.14);"
+          style="position: relative; display: flex; width: 820px; font-family: 'Anybody'; font-weight: 400; font-size: 28px; line-height: 1.35;"
         >
-          {{ descriptionText }}
+          <div
+            v-for="layer in OG_RELIEF_SM"
+            :key="layer.top"
+            :style="layer"
+          >
+            {{ descriptionText }}
+          </div>
+          <div :style="{ position: 'relative', display: 'flex', width: '100%', color: OG_INK.small }">
+            {{ descriptionText }}
+          </div>
         </div>
       </div>
 
-      <!-- LED strip in a milled slot — go / live -->
-      <div
-        style="display: flex; align-items: center; width: 132px; height: 18px; padding: 0 5px; border-radius: 9px; background-color: #1c1e22; box-shadow: inset 1px 2px 3px rgba(0, 0, 0, 0.6), inset -1px -1.5px 1.5px rgba(255, 255, 255, 0.05), 0 1px 0 rgba(255, 255, 255, 0.05);"
-      >
-        <div style="display: flex; width: 122px; height: 8px; border-radius: 4px; background-color: #4ade80; box-shadow: 0 0 10px rgba(74, 222, 128, 0.55), 0 0 22px rgba(74, 222, 128, 0.28);" />
+      <!-- The foot: the nameplate, and a lit strip — go. -->
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 18px;">
+          <img
+            :src="mark"
+            width="64"
+            height="64"
+            alt=""
+          >
+          <div style="position: relative; display: flex; font-family: 'Anybody'; font-weight: 700; font-size: 34px; line-height: 1; letter-spacing: 0.01em;">
+            <div
+              v-for="layer in OG_RELIEF_SM"
+              :key="layer.top"
+              :style="layer"
+            >
+              nuxt-backend
+            </div>
+            <div :style="{ position: 'relative', display: 'flex', color: OG_INK.small }">
+              nuxt-backend
+            </div>
+          </div>
+        </div>
+        <div :style="strip.slot">
+          <div :style="strip.light" />
+        </div>
       </div>
-    </div>
-
-    <!-- The house mark, bottom-right (colours baked in: takumi resolves no
-         external SVG). STALE: still the pre-2026-09 coin, while /logo.svg is now
-         the three-bar mark — the plate is rebuilt as the console card in the
-         website redesign, which redraws this with the new mark. -->
-    <div style="position: absolute; right: 104px; bottom: 100px; display: flex; width: 168px; height: 168px;">
-      <svg
-        width="168"
-        height="168"
-        viewBox="0 0 100 100"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          <linearGradient
-            id="og-edge"
-            x1="0"
-            y1="0"
-            x2="1"
-            y2="1"
-          >
-            <stop
-              offset="0"
-              stop-color="#5c5c5c"
-            />
-            <stop
-              offset="0.55"
-              stop-color="#2a2a2a"
-            />
-            <stop
-              offset="1"
-              stop-color="#090909"
-            />
-          </linearGradient>
-          <radialGradient
-            id="og-face"
-            cx="0.34"
-            cy="0.30"
-            r="0.86"
-          >
-            <stop
-              offset="0"
-              stop-color="#343434"
-            />
-            <stop
-              offset="0.5"
-              stop-color="#262626"
-            />
-            <stop
-              offset="1"
-              stop-color="#171717"
-            />
-          </radialGradient>
-          <linearGradient
-            id="og-rim"
-            x1="0"
-            y1="0"
-            x2="1"
-            y2="1"
-          >
-            <stop
-              offset="0"
-              stop-color="#ffffff"
-              stop-opacity="0.32"
-            />
-            <stop
-              offset="0.45"
-              stop-color="#ffffff"
-              stop-opacity="0"
-            />
-            <stop
-              offset="0.6"
-              stop-color="#000000"
-              stop-opacity="0"
-            />
-            <stop
-              offset="1"
-              stop-color="#000000"
-              stop-opacity="0.6"
-            />
-          </linearGradient>
-          <pattern
-            id="og-grain"
-            width="0.6"
-            height="2.1"
-            patternUnits="userSpaceOnUse"
-          >
-            <rect
-              width="0.6"
-              height="0.3"
-              fill="#ffffff"
-              fill-opacity="0.06"
-            />
-            <rect
-              y="1.2"
-              width="0.6"
-              height="0.3"
-              fill="#000000"
-              fill-opacity="0.16"
-            />
-          </pattern>
-        </defs>
-        <circle
-          cx="50"
-          cy="50"
-          r="48"
-          fill="url(#og-edge)"
-        />
-        <circle
-          cx="50"
-          cy="50"
-          r="46.4"
-          fill="url(#og-face)"
-        />
-        <circle
-          cx="50"
-          cy="50"
-          r="46.4"
-          fill="url(#og-grain)"
-        />
-        <circle
-          cx="50"
-          cy="50"
-          r="45.9"
-          fill="none"
-          stroke="url(#og-rim)"
-          stroke-width="1"
-        />
-        <!-- engraved stack: wide dark / wide light / tight dark / tight light / ink -->
-        <g
-          transform="translate(-2.2 -3.2) translate(50 49) scale(0.8) translate(-50 -50)"
-          fill="#000"
-          stroke="#000"
-          fill-opacity="0.35"
-          stroke-opacity="0.35"
-          stroke-width="7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M50 20 82 38 50 56 18 38Z"
-            stroke="none"
-          />
-          <path
-            d="M18 50 50 68 82 50"
-            fill="none"
-            opacity="0.8"
-          />
-          <path
-            d="M18 62 50 80 82 62"
-            fill="none"
-            opacity="0.6"
-          />
-        </g>
-        <g
-          transform="translate(2 3) translate(50 49) scale(0.8) translate(-50 -50)"
-          fill="#fff"
-          stroke="#fff"
-          fill-opacity="0.05"
-          stroke-opacity="0.05"
-          stroke-width="7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M50 20 82 38 50 56 18 38Z"
-            stroke="none"
-          />
-          <path
-            d="M18 50 50 68 82 50"
-            fill="none"
-            opacity="0.8"
-          />
-          <path
-            d="M18 62 50 80 82 62"
-            fill="none"
-            opacity="0.6"
-          />
-        </g>
-        <g
-          transform="translate(-1 -1.4) translate(50 49) scale(0.8) translate(-50 -50)"
-          fill="#000"
-          stroke="#000"
-          fill-opacity="0.85"
-          stroke-opacity="0.85"
-          stroke-width="7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M50 20 82 38 50 56 18 38Z"
-            stroke="none"
-          />
-          <path
-            d="M18 50 50 68 82 50"
-            fill="none"
-            opacity="0.8"
-          />
-          <path
-            d="M18 62 50 80 82 62"
-            fill="none"
-            opacity="0.6"
-          />
-        </g>
-        <g
-          transform="translate(1 1.6) translate(50 49) scale(0.8) translate(-50 -50)"
-          fill="#fff"
-          stroke="#fff"
-          fill-opacity="0.16"
-          stroke-opacity="0.16"
-          stroke-width="7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M50 20 82 38 50 56 18 38Z"
-            stroke="none"
-          />
-          <path
-            d="M18 50 50 68 82 50"
-            fill="none"
-            opacity="0.8"
-          />
-          <path
-            d="M18 62 50 80 82 62"
-            fill="none"
-            opacity="0.6"
-          />
-        </g>
-        <g
-          transform="translate(50 49) scale(0.8) translate(-50 -50)"
-          fill="#7a7a7a"
-          stroke="#7a7a7a"
-          stroke-width="7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M50 20 82 38 50 56 18 38Z"
-            stroke="none"
-          />
-          <path
-            d="M18 50 50 68 82 50"
-            fill="none"
-            opacity="0.8"
-          />
-          <path
-            d="M18 62 50 80 82 62"
-            fill="none"
-            opacity="0.6"
-          />
-        </g>
-        <circle
-          cx="74"
-          cy="74"
-          r="5.4"
-          fill="#000"
-          fill-opacity="0.55"
-        />
-        <circle
-          cx="74"
-          cy="74"
-          r="7.6"
-          fill="#4ade80"
-          fill-opacity="0.32"
-        />
-        <circle
-          cx="74"
-          cy="74"
-          r="3.7"
-          fill="#4ade80"
-        />
-        <circle
-          cx="72.9"
-          cy="72.9"
-          r="1.25"
-          fill="#bbf7d0"
-          fill-opacity="0.9"
-        />
-      </svg>
     </div>
   </div>
 </template>

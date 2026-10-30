@@ -8,6 +8,7 @@ const panel = usePanel()
 function loadLists() {
   panel.request('sessions')
   panel.request('passkeys')
+  panel.request('notifications')
 }
 onMounted(loadLists)
 watch(() => state.bridge, bridge => bridge === 'attached' && loadLists())
@@ -16,6 +17,7 @@ const identity = computed(() => state.snapshot?.identity)
 const workspace = computed(() => state.snapshot?.workspace)
 const sessions = computed(() => state.snapshot?.sessions)
 const passkeys = computed(() => state.snapshot?.passkeys)
+const notifications = computed(() => state.snapshot?.notifications)
 
 const identityState = computed<{ signal: Signal, text: string }>(() => {
   if (!identity.value?.available || identity.value.isLoading) return { signal: 'off', text: 'Loading' }
@@ -162,6 +164,53 @@ const day = (time: number | undefined) => time ? new Date(time).toLocaleDateStri
       <span>{{ passkey.name ?? 'Unnamed passkey' }}</span>
       <span class="op65">{{ passkey.deviceType === 'multiDevice' ? 'synced' : 'this device only' }}</span>
       <span class="op50 ml-auto">added {{ day(passkey.createdAt) }}</span>
+    </div>
+  </PanelCard>
+
+  <PanelCard title="Notifications">
+    <template #actions>
+      <NButton
+        n="xs"
+        icon="carbon-launch"
+        title="Open notifications.ts in the editor"
+        @click="openBackendFile('notifications.ts')"
+      >
+        notifications.ts
+      </NButton>
+    </template>
+    <div
+      v-if="notifications?.error"
+      class="op65 text-xs"
+    >
+      {{ notifications.error }}
+    </div>
+    <div
+      v-else-if="!notifications || (notifications.isLoading && !notifications.items.length)"
+      class="op50"
+    >
+      Loading…
+    </div>
+    <div
+      v-else-if="!notifications.items.length"
+      class="op50"
+    >
+      Nothing in the inbox. A role change, a passkey or an event of your own with <code>notify</code> puts one here.
+    </div>
+    <div
+      v-else
+      class="op65 text-xs"
+    >
+      {{ notifications.unread }} unread
+    </div>
+    <div
+      v-for="(item, index) of notifications?.items ?? []"
+      :key="index"
+      class="flex items-center gap-2 text-xs"
+    >
+      <Led :signal="item.read ? 'off' : 'ok'" />
+      <span>{{ item.title }}</span>
+      <span class="op65 font-mono">{{ item.type }}</span>
+      <span class="op50 ml-auto">{{ item.channels.join(', ') }} · {{ day(item.at) }}</span>
     </div>
   </PanelCard>
 </template>

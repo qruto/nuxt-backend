@@ -1,7 +1,11 @@
-import { computed, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
-import { useAction, useQuery } from 'nuxt-convex-module/client'
+import { computed, type ComputedRef, inject, type MaybeRefOrGetter, toValue } from 'vue'
+import { ConvexAuthStateKey, useAction } from 'nuxt-convex-module/client'
+import { useActionState } from '../utils/action-state'
+import type { BackendError } from '../utils/backend-error'
+import { absentQuery, useLiveQuery, warnCallShape } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
-import { type BillingApi, type CheckoutOptions, createCheckout, createGiftCheckout, type Credits, type GiftOptions } from './use-billing'
+import { type BillingApi, type CheckoutOptions, createCheckout, type Credits } from './use-billing'
+import { notConfigured } from './billing-provider'
 
 /** The billing period a meter's credited units belong to. */
 export interface CreditCycle {
@@ -12,6 +16,12 @@ export interface CreditCycle {
 }
 
 export interface UseCreditsOptions {
+  /**
+   * Which meter to read: a configured meter name (`'credits'`) or a raw
+   * meter id, as a value, ref or getter. Omitted or blank, the entity's first
+   * configured meter.
+   */
+  meter?: MaybeRefOrGetter<string | null | undefined>
   /** Override the injected `api.billing` namespace. */
   api?: BillingApi
 }
@@ -37,20 +47,23 @@ export interface UseCreditsReturn {
   cycle: ComputedRef<CreditCycle | null | undefined>
   /**
    * Whether the remaining balance expires at {@link CreditCycle.end} — `true`
-   * only when the plan's credits are known not to roll over and a cycle end is
-   * known. `undefined` while loading; `false` when credits carry over (or the
-   * provider has not said).
+   * only when every benefit crediting the meter is known not to roll over
+   * and a cycle end is known. `undefined` while loading; `false` when any
+   * of the credits carry over (a pack bought on top of a plan's allowance),
+   * or the provider has not said.
    */
   expiresAtCycleEnd: ComputedRef<boolean | undefined>
   /** The resolved meter id (the one read above) — pass it to your server-side spend. */
   meterId: ComputedRef<string | undefined>
-  /** `true` until credit balances have loaded. */
+  /** `true` until credit balances have loaded (`false` once the read failed). */
   isLoading: ComputedRef<boolean>
-  /** Buy a credit pack (a one-time product) via checkout — returns the URL. */
+  /** `true` while `topUp` or `refresh` runs. */
+  isPending: ComputedRef<boolean>
+  /** Why the last action failed, else why the balances could not be read, else `null`. */
+  error: ComputedRef<BackendError | null>
+  /** Buy a credit pack (a one-time product) via checkout — returns the URL. Rejects on failure, which `error` also holds. */
   topUp: (productIds: string | string[], options?: CheckoutOptions) => Promise<string>
-  /** Buy a credit pack, by its catalog key (`credits500`), as a gift for someone else (by email). Opens checkout. */
-  gift: (pack: string, options: GiftOptions & { recipientEmail: string }) => Promise<string>
-  /** Refresh the cached balance from the provider (e.g. right after a top-up completes). */
+  /** Refresh the cached balance from the provider (e.g. right after a top-up completes). Rejects on failure, and when the backend does not export `syncEntitlements`. */
   refresh: () => Promise<void>
 }
 
@@ -64,30 +77,31 @@ export interface UseCreditsReturn {
  *
  * Alongside the balance it exposes what a credits UI actually needs to say:
  * the current `cycle`, whether the remainder `expiresAtCycleEnd`, and the
- * `overage` a pay-as-you-go meter has run up.
+ * `overage` a pay-as-you-go meter has run up. The balance read never throws
+ * (a failed read shows in `error`); the actions reject on failure and
+ * mirror it into `error`.
  *
  * @example
  * ```vue
  * <script setup lang="ts">
- * const credits = useCredits()
+ * const { balance, topUp, isPending, error } = useCredits({ meter: 'credits' })
  * </script>
  * <template>
- *   <p>{{ credits.balance.value ?? '—' }} credits</p>
- *   <button @click="credits.topUp(creditPackId)">Buy 100 credits</button>
+ *   <p>{{ balance ?? '—' }} credits</p>
+ *   <p v-if="error">{{ error.message }}</p>
+ *   <button :aria-disabled="isPending || undefined" @click="isPending || topUp(creditPackId)">Buy 100 credits</button>
  * </template>
  * ```
- *
- * @param meterId - Optional meter to read (reactive): a configured meter name
- * (`'credits'`) or a raw meter id; defaults to the user's first meter.
  */
-export function useCredits(meterId?: MaybeRefOrGetter<string>, options: UseCreditsOptions = {}): UseCreditsReturn {
-  const billing = useBackendNamespace<BillingApi>('billing', 'useCredits', options.api)
+export function useCredits(options: UseCreditsOptions = {}): UseCreditsReturn {
+  // The old shape, `useCredits(meter, { api })`, passed a second argument.
+  warnCallShape('useCredits', arguments.length > 1 ? null : options, 'useCredits({ meter: \'credits\' })')
+  const billing = useBackendNamespace<BillingApi>('billing', 'useCredits', options?.api)
 
-  const credits = billing.getCredits
-    ? useQuery(billing.getCredits)
-    : computed<Credits | null | undefined>(() => null)
+  const read = billing.getCredits ? useLiveQuery(billing.getCredits, {}) : absentQuery<Credits | null>()
+  const credits = read.data
 
-  // Resolve the target meter — by configured name first (`useCredits('credits')`),
+  // Resolve the target meter — by configured name first (`{ meter: 'credits' }`),
   // then by raw meter id, else the user's primary meter: the first one this
   // app configured. A customer can carry meters the catalog no longer
   // declares (a retired meter still holds its old balance), and picking those
@@ -96,7 +110,7 @@ export function useCredits(meterId?: MaybeRefOrGetter<string>, options: UseCredi
   const meter = computed(() => {
     const list = credits.value?.meters
     if (list === undefined) return undefined
-    const id = meterId === undefined ? undefined : toValue(meterId)
+    const id = toValue(options?.meter)?.trim()
     if (!id) return list.find(m => m.name !== undefined) ?? list[0] ?? null
     return list.find(m => m.name === id) ?? list.find(m => m.meterId === id) ?? null
   })
@@ -108,8 +122,9 @@ export function useCredits(meterId?: MaybeRefOrGetter<string>, options: UseCredi
       return m?.[key] ?? 0
     })
 
+  const auth = inject(ConvexAuthStateKey, null)
+  const { isPending, failure, run } = useActionState(() => auth != null && !auth.isAuthenticated.value)
   const topUp = createCheckout(billing)
-  const gift = createGiftCheckout(billing)
   const runSync = billing.syncEntitlements ? useAction(billing.syncEntitlements) : null
 
   return {
@@ -139,11 +154,13 @@ export function useCredits(meterId?: MaybeRefOrGetter<string>, options: UseCredi
       return m?.rollover === false && m.cycleEnd !== undefined
     }),
     meterId: computed(() => meter.value?.meterId),
-    isLoading: computed(() => credits.value === undefined),
-    topUp,
-    gift,
-    refresh: async () => {
-      if (runSync) await runSync({})
-    },
+    isLoading: read.isLoading,
+    isPending,
+    error: computed(() => failure.value ?? read.error.value),
+    topUp: (productIds, opts) => run(() => topUp(productIds, opts)),
+    refresh: () => run(async () => {
+      if (!runSync) notConfigured('refresh')
+      await runSync({})
+    }),
   }
 }

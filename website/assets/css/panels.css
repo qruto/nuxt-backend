@@ -1,0 +1,33 @@
+/* The playground's look: Panels' own stylesheet
+   (templates/panels/app/assets/main.css), which the sync leaves in the
+   template, under the template's shell (<AppShell>'s `data-shell="root"`),
+   so the docs never meet it. The same rules in the same layers: the element
+   rules in `base`, after Tailwind's reset and with the shell's attribute
+   in front, so they win over it; the packaged components keep theirs, in a
+   later layer. test/unit/panels-sync.test.ts holds the selectors to the
+   template's. */
+@layer base {
+  [data-shell='root'] {
+    color-scheme: light dark;
+    font-family: system-ui, sans-serif;
+    line-height: 1.6;
+    background: Canvas;
+    color: CanvasText;
+
+    main { padding: 2.5rem 1.25rem; }
+    nav { display: flex; gap: 1rem; align-items: center; }
+    .page { max-width: 52rem; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
+    nav a { color: inherit; }
+    h1 { letter-spacing: -0.02em; margin: 0; }
+    section { border: 1px solid color-mix(in srgb, currentColor 15%, transparent); border-radius: 10px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+    button { padding: 0.45rem 0.8rem; border-radius: 8px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); background: none; color: inherit; font: inherit; cursor: pointer; }
+    button.primary { background: CanvasText; border-color: CanvasText; color: Canvas; font-weight: 600; }
+    input, select { padding: 0.45rem 0.6rem; border-radius: 8px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); background: none; color: inherit; font: inherit; }
+    ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+    li { display: flex; align-items: center; gap: 0.6rem; }
+  }
+}
+
+[data-shell='root'] .muted { opacity: 0.65; font-size: 0.9rem; }
+[data-shell='root'] .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+[data-shell='root'] .spacer { flex: 1; }

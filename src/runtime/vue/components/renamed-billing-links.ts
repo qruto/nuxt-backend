@@ -1,4 +1,4 @@
-import { BillingCheckoutLink, BillingPortalLink } from './billing-links'
+import { defineAsyncComponent } from 'vue'
 import { renamedComponent } from '../utils/renamed-component'
 
 /**
@@ -7,7 +7,7 @@ import { renamedComponent } from '../utils/renamed-component'
  *
  * @internal
  */
-export const CheckoutLink = renamedComponent('CheckoutLink', 'BillingCheckoutLink', BillingCheckoutLink)
+export const CheckoutLink = renamedComponent('CheckoutLink', 'BillingCheckoutLink', defineAsyncComponent(() => import('./billing/BillingCheckoutLink.vue')))
 
 /**
  * `<CustomerPortalLink>` in development only: renders `<BillingPortalLink>`
@@ -15,4 +15,4 @@ export const CheckoutLink = renamedComponent('CheckoutLink', 'BillingCheckoutLin
  *
  * @internal
  */
-export const CustomerPortalLink = renamedComponent('CustomerPortalLink', 'BillingPortalLink', BillingPortalLink)
+export const CustomerPortalLink = renamedComponent('CustomerPortalLink', 'BillingPortalLink', defineAsyncComponent(() => import('./billing/BillingPortalLink.vue')))

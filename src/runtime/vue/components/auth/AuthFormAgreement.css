@@ -1,0 +1,17 @@
+/*
+ * AuthFormAgreement's default styles, on its data-* hooks. Theme through the
+ * --bk-* tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-auth='agreement'] {
+    margin: 0;
+    color: var(--auth-muted);
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  [data-auth='agreement-link'] {
+    color: inherit;
+  }
+}

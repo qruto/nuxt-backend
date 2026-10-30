@@ -5,12 +5,11 @@
 import { registerBackendRoutes } from 'nuxt-backend/http'
 import { httpRouter } from 'convex/server'
 import { ai } from './ai'
-import { authComponent, createAuth, mcp } from './auth'
+import { authComponent, createAuth } from './auth'
 import { billing } from './billing'
 import { email } from './email'
 
-// Mounts every inbound route the backend handles: the auth routes and the
-// agent token exchange (/mcp/exchange) behind the app's MCP endpoint, the
+// Mounts every inbound route the backend handles: the auth routes, the
 // billing events endpoint (/billing/events, BILLING_WEBHOOK_SECRET) that
 // keeps the reactive feature/credit cache fresh and fulfils gifts, the
 // email events endpoint (/email/events, EMAIL_WEBHOOK_SECRET) that makes
@@ -20,7 +19,7 @@ import { email } from './email'
 // `setupBilling({ events })` / `setupEmail({ events })`.
 const http = httpRouter()
 registerBackendRoutes(http, {
-  auth: { authComponent, createAuth, mcp },
+  auth: { authComponent, createAuth },
   billing,
   email,
   ai,

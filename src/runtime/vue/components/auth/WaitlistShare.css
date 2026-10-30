@@ -1,0 +1,68 @@
+/*
+ * WaitlistShare's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-waitlist='share'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.9rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+  }
+
+  [data-waitlist='share-title'] {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  [data-waitlist='share-intro'] {
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  [data-waitlist='share-label'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.9em;
+    color: var(--bk-muted);
+  }
+
+  /* Read-only, so it can be selected and copied by hand where the clipboard is refused. */
+  [data-waitlist='share-link'] {
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: var(--bk-surface);
+    color: var(--bk-ink);
+    font: inherit;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  [data-waitlist='copy'] {
+    align-self: flex-start;
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  [data-waitlist='share'] :where(input, button):focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 2px;
+  }
+
+  [data-waitlist='friends'] {
+    margin: 0;
+    color: var(--bk-ok);
+    font-size: 0.9em;
+  }
+}

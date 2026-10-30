@@ -1,5 +1,6 @@
 import { computed, inject, toValue, type ComputedRef, type MaybeRefOrGetter, type Ref } from 'vue'
 import { useAction, ConvexAuthStateKey } from 'nuxt-convex-module/client'
+import type { BackendError } from '../utils/backend-error'
 import { useBackendNamespace } from '../utils/namespace'
 import { type BillingApi, createProviderPager, type UsageEvent } from './use-billing'
 
@@ -34,8 +35,8 @@ export interface UseUsageReturn {
   hasPrevious: ComputedRef<boolean>
   /** Whether a load is in flight. */
   isLoading: ComputedRef<boolean>
-  /** Message of the last failed load, `null` otherwise. Loads never reject. */
-  error: Ref<string | null>
+  /** Why the last load failed, `null` otherwise. Loads never reject. */
+  error: ComputedRef<BackendError | null>
   /** Reload the current page. */
   refresh: () => Promise<void>
   /** Load the next page (no-op at the end). */

@@ -39,8 +39,12 @@ async function routeHeaders(ctx: AuthHookCtx): Promise<Headers | undefined> {
 function carriesCredential(ctx: AuthHookCtx, headers: Headers | undefined): boolean {
   const authorization = ctx.request?.headers.get('authorization') || ctx.headers?.get('authorization') || ''
   if (/^bearer\s+\S/i.test(authorization)) return true
-  const name = ctx.context.authCookies.sessionToken.name
-  return (headers?.get('cookie') ?? '').split(';').some(cookie => cookie.trim().startsWith(`${name}=`))
+  // Any session-token cookie counts when the context names none: fail closed.
+  const name = ctx.context?.authCookies?.sessionToken?.name
+  return (headers?.get('cookie') ?? '').split(';').some((cookie) => {
+    const key = cookie.trim().split('=')[0] ?? ''
+    return name ? key === name : key.endsWith('session_token')
+  })
 }
 
 /**
@@ -50,15 +54,20 @@ function carriesCredential(ctx: AuthHookCtx, headers: Headers | undefined): bool
  * route's own session middleware reuses it instead of reading it again, and
  * a session already cached there is the one the route will use.
  *
- * `null` when the request carries no credential: the route answers 401
- * itself, or serves an anonymous caller. A credential that resolves to no
- * session is refused here with 401, so a lookup that failed in this hook can
- * never let the route run without the checks keyed on its caller.
+ * `null` when the request carries no credential, without a lookup: the
+ * route answers 401 itself, or serves an anonymous caller. A credential that
+ * resolves to no session is refused here with 401, so a lookup that failed
+ * in this hook can never let the route run without the checks keyed on its
+ * caller — unless `lenient`, where it is `null` too: a check that only
+ * looks for an impersonated session leaves a stale credential to the route.
+ * Any other failure of the lookup is thrown either way.
  */
-export async function requestSession(ctx: AuthHookCtx): Promise<RequestSession | null> {
+export async function requestSession(ctx: AuthHookCtx, { lenient = false } = {}): Promise<RequestSession | null> {
   const headers = await routeHeaders(ctx)
+  // No credential and no session the context already holds: nobody to read.
+  if (!carriesCredential(ctx, headers) && !(ctx.context as { session?: unknown } | undefined)?.session) return null
   const resolved = await getSessionFromCtx({ ...ctx, headers } as never) as RequestSession | null
   if (resolved) return resolved
-  if (carriesCredential(ctx, headers)) throw authRefusal('unauthenticated', { message: 'Sign in again to continue.' })
+  if (!lenient) throw authRefusal('unauthenticated')
   return null
 }
