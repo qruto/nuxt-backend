@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, h, nextTick, ref, type Ref } from 'vue'
+import { computed, h, inject, nextTick, ref, type Ref } from 'vue'
+import { ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { backendAppConfigDefaults } from '../../../config'
 import { busyAttributes } from '../../a11y'
 import { useBackendConfig } from '../../composables/use-backend-config'
@@ -57,6 +58,12 @@ defineSlots<{
 }>()
 
 const credits = useCredits({ meter: () => props.meter })
+// Only a session the backend has confirmed has a balance to nudge about.
+// Before that, `balance` reads 0 (signed out, or not confirmed yet: the
+// server render, and the browser until its first answer), which is no
+// shortfall to report.
+const auth = inject(ConvexAuthStateKey, null)
+const confirmed = computed(() => auth == null || auth.isAuthenticated.value)
 const billing = useBilling()
 const config = useBackendConfig()
 const labels = useLabels('credits')
@@ -121,7 +128,7 @@ async function topUp(): Promise<void> {
 /** The nudge's state, or `null`: `undefined` is "not loaded yet", and it never flashes at a customer whose balance turns out to be fine. */
 const context = computed<LowCreditsNoticeContext | null>(() => {
   const balance = credits.balance.value
-  if (balance === undefined || dismissed.value || !isShort(balance)) return null
+  if (!confirmed.value || balance === undefined || dismissed.value || !isShort(balance)) return null
   return { credits, balance, threshold: threshold.value, pricingPath: pricingPath.value ?? '', preselected: preselected.value, pending: pending.value, topUp, dismiss }
 })
 // `{balance}` becomes its own element so the number can be styled apart from the sentence.

@@ -1,6 +1,7 @@
-import { computed, type ComputedRef, type MaybeRefOrGetter, onBeforeUnmount, onMounted, ref, type Ref, toValue, useId } from 'vue'
-import { navigateTo, useNuxtApp } from '#imports'
+import { computed, type ComputedRef, type MaybeRefOrGetter, onBeforeUnmount, ref, type Ref, toValue, useId } from 'vue'
+import { navigateTo } from '#imports'
 import { useAuthSession } from '../utils/auth-session'
+import { useHydrated } from '../utils/hydrated'
 import { workspaceSlug } from '../utils/slug'
 import { useBackendPagePath } from './use-backend-page-path'
 import { type LabelGroupOverrides, useLabels, type UseLabelsReturn, valueLabel } from './use-labels'
@@ -309,13 +310,11 @@ export function initialsOf(name: string): string {
  */
 export function useAppShell(options: UseAppShellOptions = {}): UseAppShellReturn {
   const auth = useAuthSession()
-  // The server renders before the session is read here, and the browser's
-  // first render already knows it: until the page has hydrated, the shell
-  // reads as loading on both sides, so the two renders match.
-  const hydrated = ref(!useNuxtApp().isHydrating)
-  onMounted(() => {
-    hydrated.value = true
-  })
+  // The server knows the request's token but not the session, and the
+  // browser may have loaded the session by its first render: until the page
+  // has hydrated, the shell reads as loading on both sides, so the two
+  // renders match.
+  const hydrated = useHydrated()
   const labels = useLabels('shell', () => toValue(options.labels))
   const { t } = labels
   const login = useBackendPagePath('login')

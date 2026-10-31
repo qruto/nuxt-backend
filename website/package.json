@@ -29,7 +29,7 @@
     "docus": "^5.15.0",
     "nuxt": "catalog:",
     "nuxt-backend": "workspace:*",
-    "nuxt-convex-module": "~0.12.2",
+    "nuxt-convex-module": "~0.12.3",
     "vue": "^3.5.42",
     "vue-router": "^5.3.1",
     "zod": "^4.6.7"

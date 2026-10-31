@@ -20,9 +20,9 @@ vi.mock('../../src/runtime/vue/protection/challenge', () => ({ challengeAnswer }
 const SITE_KEY = '1x00000000000000000000AA'
 
 /** Run the plugin as the app would, with this public runtime config. */
-async function start({ botDetection = false, challengeSiteKey = '' }: { botDetection?: boolean, challengeSiteKey?: string }) {
+async function start({ authRoute = '/api/auth', botDetection = false, challengeSiteKey = '' }: { authRoute?: string, botDetection?: boolean, challengeSiteKey?: string }) {
   const config = useRuntimeConfig().public as Record<string, unknown>
-  config.backend = { ...(config.backend as object), authRoute: '/api/auth', botDetection, challengeSiteKey }
+  config.backend = { ...(config.backend as object), authRoute, botDetection, challengeSiteKey }
   const nuxtApp = useNuxtApp()
   await nuxtApp.runWithContext(() => (plugin as unknown as (app: typeof nuxtApp) => unknown)(nuxtApp))
 }
@@ -64,6 +64,27 @@ describe('the protection plugin', () => {
     expect(initBotId).not.toHaveBeenCalled()
     await start({ botDetection: true, challengeSiteKey: SITE_KEY })
     expect(initBotId).toHaveBeenCalledOnce()
+  })
+})
+
+describe('the auth client on the app\'s auth route', () => {
+  /** Where the plugin sends a request the client builds on its default route. */
+  async function sentTo(baseURL: string) {
+    const plugin = protectionClient().fetchPlugins[0]!
+    const { url, options } = await plugin.init!('/get-session', { baseURL })
+    return `${options!.baseURL}${url}`
+  }
+
+  it('sends every request to `backend.authRoute`, where the proxy is', async () => {
+    await start({ authRoute: '/auth/' })
+    expect(await sentTo('https://app.test/api/auth')).toBe('https://app.test/auth/get-session')
+  })
+
+  it('leaves the default route, and a client the app pointed elsewhere, as they are', async () => {
+    await start({})
+    expect(await sentTo('https://app.test/api/auth')).toBe('https://app.test/api/auth/get-session')
+    await start({ authRoute: '/auth' })
+    expect(await sentTo('https://app.test/custom')).toBe('https://app.test/custom/get-session')
   })
 })
 

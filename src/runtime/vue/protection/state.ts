@@ -58,8 +58,13 @@ async function answer(siteKey: string, action?: string): Promise<string> {
   return challengeAnswer(siteKey, { action, caption: await config?.caption().catch(() => '') ?? '' })
 }
 
+/** The route Better Auth's client is created with. */
+const DEFAULT_AUTH_ROUTE = '/api/auth'
+
 /**
- * The auth client plugin: with a challenge, every request to a protected
+ * The auth client plugin. Every request goes to the app's auth route
+ * (`backend.authRoute`), where the proxy is, instead of the route the
+ * client was created with. With a challenge, every request to a protected
  * auth route carries its answer, so `useLoginFlow`
  * and an app's own call to `client.emailOtp.sendVerificationOtp` all pass
  * the deployment's check alike. A challenge that fails sends the request
@@ -72,6 +77,12 @@ export function protectionClient() {
     fetchPlugins: [{
       id: 'backend-protection',
       name: 'Bot protection',
+      init(url, options) {
+        const route = config?.authRoute.replace(/\/+$/, '')
+        const baseURL = options?.baseURL
+        if (!route || route === DEFAULT_AUTH_ROUTE || !baseURL?.endsWith(DEFAULT_AUTH_ROUTE)) return { url, options }
+        return { url, options: { ...options, baseURL: baseURL.slice(0, -DEFAULT_AUTH_ROUTE.length) + route } }
+      },
       hooks: {
         async onRequest(context) {
           if (humanCheckMode() !== 'challenge' || context.headers.has(CHALLENGE_HEADER)) return
