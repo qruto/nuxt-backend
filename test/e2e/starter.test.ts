@@ -130,6 +130,9 @@ await setup({
   setupTimeout: 600_000,
   nuxtConfig: {
     telemetry: false,
+    // A production build names no element in a hydration mismatch; with this,
+    // the error a browser test collects says which node and what differed.
+    debug: { hydration: true },
     backend: {
       url: stub.url,
       devtools: false,
@@ -165,8 +168,20 @@ function collectBrowserErrors(page: Page): { errors: string[], frames: string[] 
   const frames: string[] = []
   page.on('pageerror', error => errors.push(`pageerror: ${error.message}`))
   page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(`console.error: ${message.text()}`)
-    else frames.push(`console.${message.type()}: ${message.text().slice(0, 200)}`)
+    const text = message.text()
+    if (message.type() === 'error') errors.push(`console.error: ${text}`)
+    else frames.push(`console.${message.type()}: ${text.slice(0, text.startsWith('[hydration node]') ? 1200 : 200)}`)
+  })
+  // A hydration warning passes its node, which the log shows only as a
+  // handle, and Vue replaces the node right after: print the markup around
+  // it from the page, while it is still there.
+  void page.addInitScript(() => {
+    const warn = console.warn
+    console.warn = (...args: unknown[]) => {
+      warn(...args)
+      const node = args.find((arg): arg is Node => arg instanceof Node)
+      if (node && String(args[0]).includes('Hydration')) console.info(`[hydration node] ${(node instanceof Element ? node : node.parentElement)?.outerHTML.slice(0, 1200)}`)
+    }
   })
   page.on('websocket', (socket) => {
     frames.push(`open ${socket.url()}`)
@@ -179,6 +194,12 @@ function collectBrowserErrors(page: Page): { errors: string[], frames: string[] 
 }
 
 describe('templates/starter (production build)', { timeout: 60_000 }, () => {
+  it('server-renders the home page with no credit balance for a visitor nobody knows yet', async () => {
+    const html = await (await fetch('/')).text()
+    expect(html).toContain('data-credits="live"')
+    expect(html).not.toContain('data-credits="banner"')
+  })
+
   it('server-renders the ready-made login page with the passwordless form', async () => {
     const response = await fetch('/login')
     expect(response.status).toBe(200)
@@ -419,7 +440,7 @@ const signInAs = (page: Page, who: keyof typeof SIGNED_IN) => page.context().add
 describe('the page guard in a browser', { timeout: 90_000 }, () => {
   it('shows <AccessDenied> for a navigation its rules refuse, keeping the page\'s path', async () => {
     const page = await createPage()
-    const { errors } = collectBrowserErrors(page)
+    const { errors, frames } = collectBrowserErrors(page)
     await signInAs(page, 'member')
     await page.goto(url('/'), { waitUntil: 'hydration' })
     // The navigation rejects with the 403, as a <NuxtLink> would swallow it.
@@ -429,7 +450,8 @@ describe('the page guard in a browser', { timeout: 90_000 }, () => {
     expect(new URL(page.url()).pathname).toBe('/members-only')
     expect(await page.textContent('[data-access="account"]')).toContain('ada@example.com')
     expect(await page.$('[data-members-only]')).toBeNull()
-    expect(errors).toEqual([])
+    // A hydration mismatch names its node in a warning (`debug.hydration` above).
+    expect(errors, `browser log: ${JSON.stringify(frames.filter(line => !line.startsWith('→') && !line.startsWith('←')), null, 1)}`).toEqual([])
     await page.close()
   })
 })

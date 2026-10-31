@@ -1096,6 +1096,19 @@ describe('CreditsLowBanner: the pack that covers the shortfall', () => {
     expect(mount(CreditsLowBanner, { props: { need: 50 } }).find('[data-credits="action"]').attributes('data-pack')).toBe('credits100')
   })
 
+  it('nudges no one the backend has not confirmed: a visitor, or a session still connecting', async () => {
+    const { ConvexAuthStateKey } = await import('nuxt-convex-module/client')
+    const authenticated = ref(false)
+    creditBalance.value = 0
+    const wrapper = mount(CreditsLowBanner, {
+      global: { provide: { [ConvexAuthStateKey as symbol]: { isAuthenticated: computed(() => authenticated.value), isLoading: computed(() => false) } } },
+    })
+    expect(wrapper.find('[data-credits="banner"]').exists()).toBe(false)
+    authenticated.value = true
+    await nextTick()
+    expect(wrapper.find('[data-credits="banner"]').exists()).toBe(true)
+  })
+
   it('shows while the balance is short of the need, even above the threshold', () => {
     pricingPacks.value = packs()
     creditBalance.value = 42

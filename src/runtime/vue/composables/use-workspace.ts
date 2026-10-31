@@ -3,6 +3,7 @@ import { useConvex } from 'nuxt-convex-module/client'
 import { unwrapAuth } from '../utils/auth-result'
 import { useActionState } from '../utils/action-state'
 import { type BackendError, failureOf, getBackendError } from '../utils/backend-error'
+import { useAuthRead } from '../utils/auth-read'
 import { useAuthSession } from '../utils/auth-session'
 import { useLabels } from './use-labels'
 
@@ -181,9 +182,9 @@ export function useWorkspace(): UseWorkspaceReturn {
   const convex = useConvex()
   const { client } = auth
 
-  const list = client.useListOrganizations()
-  const active = client.useActiveOrganization()
-  const activeMember = client.useActiveMember()
+  const list = useAuthRead(client, 'useListOrganizations')
+  const active = useAuthRead(client, 'useActiveOrganization')
+  const activeMember = useAuthRead(client, 'useActiveMember')
 
   const signedOut = computed(() => !auth.isLoading.value && !auth.isAuthenticated.value)
   const { isPending, failure, run: runAction } = useActionState(() => signedOut.value)
