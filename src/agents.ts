@@ -7,7 +7,7 @@
  * the package, so an agent reads guidance for exactly that version. The
  * merges are pure, so `init`, `doctor` and the tests share them.
  */
-import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import { packageDir, packageVersion } from './dirs'
 import { finding, type PreflightFinding } from './findings'
@@ -259,6 +259,16 @@ function isLink(path: string): boolean {
   }
 }
 
+/**
+ * `path` removed, whatever it is: a link (a junction, on Windows) as a link,
+ * never what it points at. Node up to 24.11 leaves a link whose target is
+ * gone under `rmSync`, even with `force`: it stats the target first.
+ */
+function remove(path: string): void {
+  if (isLink(path)) unlinkSync(path)
+  else rmSync(path, { recursive: true, force: true })
+}
+
 /** A name in the package's skill namespace: the core, `nuxt-backend`, or a task skill, `nuxt-backend-<task>`. */
 const SKILL_NAME = /^nuxt-backend(?:-[a-z]+)*$/
 
@@ -344,7 +354,7 @@ function sameFolder(source: string, copy: string): boolean {
 
 /** `source` copied to `target`, dotfiles left out, replacing whatever was there: a link goes as a link, never written through. */
 function copyFolder(source: string, target: string): void {
-  if (occupied(target)) rmSync(target, { recursive: true, force: true })
+  if (occupied(target)) remove(target)
   mkdirSync(dirname(target), { recursive: true })
   cpSync(source, target, { recursive: true, dereference: true, filter: path => path === source || !basename(path).startsWith('.') })
 }
@@ -454,8 +464,8 @@ function applyAgentSkills(rootDir: string, force: boolean): { report: SkillsRepo
   const removed = force ? ours(extra) : []
   for (const name of [...missing, ...replaced]) copyFolder(join(source, name), join(here, name))
   for (const name of removed) {
-    rmSync(join(here, name), { recursive: true, force: true })
-    rmSync(join(claude, name), { recursive: true, force: true })
+    remove(join(here, name))
+    remove(join(claude, name))
   }
   const linked = linkClaudeSkills(rootDir, source, ours(shipped), force ? claudeDiffer : [])
   const report: SkillsReport = {
