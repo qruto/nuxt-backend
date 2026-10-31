@@ -264,7 +264,7 @@
     "fflate": "^0.8.3",
     "magicast": "^0.5.4",
     "nanostores": "^1.1.1",
-    "nuxt-convex-module": "~0.12.2",
+    "nuxt-convex-module": "~0.12.3",
     "nuxt-security": "^2.6.0",
     "resend": "^6.34.1",
     "standardwebhooks": "^1.1.1",
