@@ -131,7 +131,7 @@ jobs:
       # harden-runner is itself a third-party action, so it is worth adding
       # where there is untrusted code to watch, and nowhere else.
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: audit
 
@@ -261,7 +261,7 @@ jobs:
       # are not ours to fix.
       - name: Workflow lint (zizmor)
         if: ${{ !cancelled() }}
-        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
         with:
           version: 1.30.0
           inputs: .github
@@ -341,7 +341,7 @@ jobs:
       # graph.
       - name: Quality (fallow)
         if: ${{ !cancelled() }}
-        uses: fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1
+        uses: fallow-rs/fallow@85fa32733e951df85966842f2bb6a3f2720a940c # v3.37.0
         with:
           command: ${{ github.event_name == 'pull_request' && 'audit' || '' }}
 
@@ -351,7 +351,7 @@ jobs:
       # fails the job.
       - name: Security candidates (fallow)
         if: ${{ !cancelled() }}
-        uses: fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1
+        uses: fallow-rs/fallow@85fa32733e951df85966842f2bb6a3f2720a940c # v3.37.0
         with:
           command: security
           auto-changed-since: false
@@ -377,7 +377,7 @@ jobs:
       # On the Windows leg too: the action supports every GitHub-hosted image,
       # and `audit` blocks nothing on any of them.
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: audit
 
@@ -426,7 +426,7 @@ jobs:
       contents: read
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: audit
 
@@ -474,7 +474,7 @@ jobs:
       contents: read
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: audit
 
@@ -804,7 +804,7 @@ jobs:
       contents: read
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: audit
 
