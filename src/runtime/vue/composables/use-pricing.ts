@@ -9,7 +9,7 @@ import { useActiveLocale } from '../utils/active-locale'
 import { currencyCode, visitorCurrency } from '../utils/currency'
 import { diagnostics } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
-import { pricingBindings, type PricingBindings } from '../utils/pricing-bindings'
+import { pricingBindings, shownInterval, type PricingBindings } from '../utils/pricing-bindings'
 import { useAuthSession } from '../utils/auth-session'
 import { useBilling } from './use-billing'
 import { useCampaign } from './use-campaign'
@@ -265,9 +265,12 @@ function planActions(state: Pick<UsePricingReturn, 'interval' | 'setInterval' | 
   const auth = useAuthSession()
   const login = useBackendPagePath('login')
   const route = useRoute()
+  // The price the plan's card shows, as `<PricingTable>` picks it: an archived one is sold to nobody new.
   const priceOf = (key: string) => {
     const plan = plans.value?.find(entry => entry.key === key)
-    return plan?.prices[state.interval.value] ?? plan?.prices.month ?? plan?.prices.year
+    if (!plan) return undefined
+    const at = shownInterval(plan, state.interval.value, billing.subscription.value?.productId)
+    return at && plan.prices[at]
   }
   const act = async ({ key }: { key: string }) => {
     if (!auth.isAuthenticated.value) {

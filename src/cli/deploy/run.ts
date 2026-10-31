@@ -6,7 +6,7 @@ import { siteFromCloudUrl } from '../../convex/urls'
 import type { PreflightFinding } from '../../findings/types'
 import type { BillingSyncCommandOptions, BillingSyncReport } from '../billing'
 import type { EmailSyncReport } from '../email'
-import type { DeployAsk } from './ask'
+import type { DeployAsk } from '../ask'
 import type { EmailWebhookResult } from './email-webhook'
 import { BUILD_COMMAND, type DeployHost } from './host'
 
@@ -306,6 +306,15 @@ async function backendStep(state: DeployState): Promise<void> {
     : { ...base, outcome: 'failed', detail: `npx convex deploy exited with code ${code}: its output above says why` })
 }
 
+/**
+ * A provider's error as one line, the key it was called with cut out: the
+ * billing SDK's message carries the provider's answer, which may quote it.
+ */
+function providerFailure(error: unknown, key: string): string {
+  const message = error instanceof Error ? error.message : String(error)
+  return message.split(key).join('[redacted]').replace(/\s+/g, ' ').trim()
+}
+
 /** 8. The billing catalog, synced to the environment production bills in, with its webhook and products; resolves with the id map it rewrote, if any. */
 async function billingStep(state: DeployState): Promise<string | null> {
   const base = { id: 'billing-catalog', capability: 'billing', title: 'The billing catalog' } as const
@@ -314,7 +323,15 @@ async function billingStep(state: DeployState): Promise<string | null> {
     return null
   }
   const environment = state.environment === 'sandbox' ? 'sandbox' : 'production'
-  const { exitCode, report, refusal } = await state.deps.billingSync({ environment, production: true, accessToken: state.billingToken, dryRun: state.options.dryRun })
+  let synced: Awaited<ReturnType<DeployDeps['billingSync']>>
+  try {
+    synced = await state.deps.billingSync({ environment, production: true, accessToken: state.billingToken, dryRun: state.options.dryRun })
+  }
+  catch (error) {
+    record(state, { ...base, outcome: 'failed', detail: `${providerFailure(error, state.billingToken)}: check the billing access token and the network, and run deploy again` })
+    return null
+  }
+  const { exitCode, report, refusal } = synced
   if (!report) {
     record(state, { ...base, outcome: 'failed', detail: refusal ?? 'billing sync failed' })
     return null

@@ -5,6 +5,7 @@ import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { useNuxtApp } from '#imports'
 import type { AdminUser, AdminUserDetail, AdminUserPage, AdminWorkspaceDetail, AdminWorkspacePage } from '../../src/convex/integrations/admin'
 import { ConvexError } from 'convex/values'
+import { withoutComments } from '../helpers/html'
 import type { AdminFlag, ExperimentResult } from '../../src/convex/integrations/flags'
 import type { AccessConsole } from '../../src/convex/integrations/launch'
 import type { WaitlistConsole } from '../../src/convex/integrations/waitlist'
@@ -280,7 +281,7 @@ describe('<AdminUsers>', () => {
 
   it('renders nothing for a caller who is no administrator', () => {
     answers.set(key('admin:listUsers', firstPage()), null)
-    expect(render(AdminUsers).html().replace(/<!--[\s\S]*?-->/g, '')).toBe('')
+    expect(withoutComments(render(AdminUsers).html())).toBe('')
   })
 
   it('searches as the person types, after a pause', async () => {
@@ -741,7 +742,7 @@ describe('the Flags tab', () => {
 
 describe('<ImpersonationBanner>', () => {
   it('renders nothing for a person\'s own session', () => {
-    expect(render(ImpersonationBanner).html().replace(/<!--[\s\S]*?-->/g, '')).toBe('')
+    expect(withoutComments(render(ImpersonationBanner).html())).toBe('')
   })
 
   it('says whose account this is and when the visit ends, and ends it at the admin console', async () => {

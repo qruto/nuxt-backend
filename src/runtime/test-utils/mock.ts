@@ -1,5 +1,5 @@
 import { getFunctionName, type FunctionReference } from 'convex/server'
-import { reactive, shallowReactive, shallowRef, type ShallowRef } from 'vue'
+import { effectScope, reactive, shallowReactive, shallowRef, watch, type ShallowRef } from 'vue'
 import type { Passkey } from '../vue/utils/auth-session.js'
 import type { ReceivedInvitation, WorkspaceInvitation, WorkspaceMember } from '../vue/composables/use-workspace.js'
 
@@ -327,9 +327,8 @@ export type QueryRead
     | { status: 'success', data: unknown }
     | { status: 'error', error: unknown }
 
-/** Read the query `name` with `args` from the active mock. Reactive: call it inside a `computed`. */
-export function readQuery(name: string, args: unknown): QueryRead {
-  const mock = activeBackendMock()
+/** Read the query `name` with `args` from `mock`, the active one by default. Reactive: call it inside a `computed`. */
+export function readQuery(name: string, args: unknown, mock: BackendMock = activeBackendMock()): QueryRead {
   const { failures, stubs } = internalsOf(mock)
   if (failures.has(name)) return { status: 'error', error: failures.get(name) }
   const entry = stubs.get(name) ?? mock.state.queries[name]
@@ -342,24 +341,54 @@ export function readQuery(name: string, args: unknown): QueryRead {
   }
 }
 
+/** Stops each one-shot query still waiting for its answer: a reset, or the next mock, leaves none behind. */
+const waiting = new Set<() => void>()
+registry.reset.add(() => {
+  for (const stop of waiting) stop()
+})
+
+/**
+ * A one-shot query's answer from `mock`, as a live read of it has it. One
+ * still loading (no entry yet, or a function that answers `undefined`)
+ * waits, as a deployment that has not answered yet does: it settles once
+ * the test answers or fails it, and never once a reset or the next mock
+ * replaced `mock`.
+ */
+function answerOnce(mock: BackendMock, name: string, args: unknown): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    // Detached: the read lasts until it settles, whichever component asked.
+    const scope = effectScope(true)
+    let settled = false
+    const stop = () => {
+      scope.stop()
+      waiting.delete(stop)
+    }
+    scope.run(() => watch(() => readQuery(name, args, mock), (read) => {
+      if (read.status === 'pending') return
+      settled = true
+      stop()
+      if (read.status === 'error') reject(read.error)
+      else resolve(read.data)
+    }, { immediate: true, flush: 'sync' }))
+    if (!settled) waiting.add(stop)
+  })
+}
+
 /**
  * Run a mutation, an action or a one-off query against the active mock:
- * recorded, then stubbed or failed. A mutation or action nobody stubbed
- * resolves `undefined` and warns once per name, since a test that relies on
- * its answer has to stub it.
+ * recorded, then stubbed or failed. A one-off query answers what a live
+ * read of it does, and waits while that is still loading. A mutation or
+ * action nobody stubbed resolves `undefined` and warns once per name, since
+ * a test that relies on its answer has to stub it.
  */
 export async function callFunction(kind: 'query' | 'mutation' | 'action', name: string, args: unknown): Promise<unknown> {
   const mock = activeBackendMock()
   mock.calls.push({ kind, name, args })
+  if (kind === 'query') return await answerOnce(mock, name, args)
   const own = internalsOf(mock)
   if (own.failures.has(name)) throw own.failures.get(name)
   const stub = own.stubs.get(name)
   if (stub) return await (stub as (args: unknown) => unknown)(args)
-  if (kind === 'query') {
-    const read = readQuery(name, args)
-    if (read.status === 'error') throw read.error
-    return read.status === 'success' ? read.data : undefined
-  }
   if (!own.warned.has(name)) {
     own.warned.add(name)
     console.warn(`[nuxt-backend/test-utils] no stub for the ${kind} ${name}: it resolved undefined. Answer it with backend.stub('${name}', args => …).`)

@@ -31,6 +31,8 @@ export interface RewardRecipient {
 /** What `setupReferrals` asks of the billing instance it was given. */
 export interface BillingRewards {
   billTo: 'workspace' | 'user'
+  /** Whether `setupBilling` was given its own `resolveEntity`, which hides a person's own billing entity: a referrer's reward has nowhere to land. */
+  customEntity: boolean
   /** A catalog discount by its key. */
   discount: (key: string) => KeyedDiscount | undefined
   /** Whether the catalog sells a credit pack under this key. */
@@ -126,6 +128,7 @@ export function createRewards(
 
   return {
     billTo,
+    customEntity: Boolean(config.resolveEntity),
     discount: key => discounts.discountOf(key),
     hasPack: async (ctx, key) => {
       try {

@@ -332,12 +332,17 @@ export const countBought = query({
   },
 })
 
-/** A single gift by id, or `null`. */
+/**
+ * A single gift by id, or `null`: for an id that is no gift's too, since
+ * the id comes from a caller's arguments or an order's metadata, and a
+ * malformed one refuses like a missing gift.
+ */
 export const get = query({
-  args: { giftId: v.id('billingGifts') },
+  args: { giftId: v.string() },
   returns: v.union(vGift, v.null()),
   handler: async (ctx, { giftId }) => {
-    const row = await ctx.db.get('billingGifts', giftId)
+    const id = ctx.db.normalizeId('billingGifts', giftId)
+    const row = id ? await ctx.db.get('billingGifts', id) : null
     return row ? toWire(row) : null
   },
 })
@@ -506,8 +511,23 @@ export const reservePass = mutation({
   },
 })
 
-/** Let go of a plan pass's claim that did not finish: the gift is its recipient's to claim again. */
-export const releasePass = releaseHold(gift => gift.status === 'paid', { claimingUserId: undefined, claimingEntityId: undefined, claimingUntil: undefined })
+/**
+ * Let go of a plan pass's claim that did not finish: the gift is its
+ * recipient's to claim again. Only the claim the hold is still for lets go
+ * (its holder and its `until`, as `reservePass` recorded them): one whose
+ * hold lapsed, and that another claim took since, leaves that one's hold.
+ */
+export const releasePass = mutation({
+  args: { giftId: v.id('billingGifts'), userId: v.string(), entityId: v.string(), until: v.number() },
+  returns: v.null(),
+  handler: async (ctx, { giftId, userId, entityId, until }) => {
+    const gift = await ctx.db.get('billingGifts', giftId)
+    if (gift?.status === 'paid' && gift.claimingUserId === userId && gift.claimingEntityId === entityId && gift.claimingUntil === until) {
+      await ctx.db.patch('billingGifts', giftId, { claimingUserId: undefined, claimingEntityId: undefined, claimingUntil: undefined })
+    }
+    return null
+  },
+})
 
 /**
  * Claim a plan pass: the recipient's workspace switched to the pass product,

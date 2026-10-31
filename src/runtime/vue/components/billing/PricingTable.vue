@@ -15,7 +15,7 @@ import { useAuthSession } from '../../utils/auth-session'
 import { getBackendError } from '../../utils/backend-error'
 import { createCancelConfirm } from '../../utils/cancel-confirm'
 import { returnFocus } from '../../utils/focus-return'
-import { pricingBindings } from '../../utils/pricing-bindings'
+import { pricingBindings, shownInterval } from '../../utils/pricing-bindings'
 import type { CreditPack, PricingContact, PricingPlan } from '../../../config'
 import { providePricingView, type PlanAction, type PlanTrial, type PricingSlotContext, type PricingTableSlots, type ResolvedPack, type ResolvedPlan } from './pricing-table'
 
@@ -162,22 +162,9 @@ const currentMonthly = computed(() => {
   return undefined
 })
 
-/**
- * The interval a plan card shows: the chosen one, else the plan's own —
- * among its prices that sell, or the one subscribed to (an archived price,
- * a retired plan's), which only its subscriber sees.
- */
-function shownInterval(offer: PricedPlan, chosen: PricingInterval): PricingInterval | undefined {
-  const shows = (at: PricingInterval) => {
-    const price = offer.prices[at]
-    return price !== undefined && (!price.archived || price.productId === subscribedId.value)
-  }
-  if (shows(chosen)) return chosen
-  return shows('month') ? 'month' : shows('year') ? 'year' : undefined
-}
-
 function resolvePlan(card: PricingPlan, offer: PricedPlan): ResolvedPlan | null {
-  const at = shownInterval(offer, interval.value)
+  // The interval the card shows: an archived price only to its subscriber.
+  const at = shownInterval(offer, interval.value, subscribedId.value)
   if (!at) return null
   const priceAt = offer.prices[at]!
   const isCurrent = Object.values(offer.prices).some(price => price?.productId === subscribedId.value)
