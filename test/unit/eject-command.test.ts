@@ -57,7 +57,8 @@ describe('nuxt-backend eject, the command', () => {
   it('says each file it wrote and the version it came from', async () => {
     await run('PricingPlanCard')
     expect(stdout).toHaveLength(2)
-    expect(stdout[0]).toMatch(new RegExp(`PricingPlanCard\\.vue\\s+from nuxt-backend ${version.replace(/\./g, '\\.')}$`))
+    expect(stdout[0]).toMatch(/PricingPlanCard\.vue\s+from nuxt-backend /)
+    expect(stdout[0]!.endsWith(`from nuxt-backend ${version}`)).toBe(true)
     expect(stdout[1]).toMatch(/PricingPlanCard\.css\s+from nuxt-backend /)
     expect(readFileSync(join(root, 'app/components/PricingPlanCard.vue'), 'utf8')).toContain(`nuxt-backend eject: PricingPlanCard@${version}`)
   })
