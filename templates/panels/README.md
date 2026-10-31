@@ -7,11 +7,6 @@ They hear when it is ready, by email and in the app, and share it by a link anyo
 Panels is the app the [tutorial](https://nuxt-backend.dev/docs/start/tutorial) builds, part by
 part, and the app the public demo runs in sandbox mode. It uses only the package's public APIs.
 
-> [!NOTE]
-> Until `0.2.0` is published, `nuxt-backend: latest` installs `0.1.0`, a throwaway test
-> publish. Install the [preview build of `main`](https://nuxt-backend.dev/docs/start/templates#preview-builds-pkgprnew)
-> over it: `npm install https://pkg.pr.new/qruto/nuxt-backend@main`.
-
 ## Create it
 
 ```bash
