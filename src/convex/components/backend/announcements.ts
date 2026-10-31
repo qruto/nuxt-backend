@@ -124,15 +124,17 @@ const vClaim = v.union(
   v.object({ next: v.literal('none') }),
   v.object({ next: v.literal('busy') }),
   v.object({ next: v.literal('done'), sendAt: v.optional(v.number()) }),
-  v.object({ next: v.literal('create'), ...vBroadcastDraft.fields }),
+  v.object({ next: v.literal('create'), ...vBroadcastDraft.fields, claimedAt: v.number() }),
   v.object({ next: v.literal('send'), providerId: v.string() }),
 )
 
 /**
  * Claim an announcement's broadcast for a send: `create` when the provider
  * has none yet (the claim holds it for a while, so two sends never both
- * create one), `send` with the id the provider gave it, `done` once it was
- * sent, `busy` while another send holds it, `none` without a broadcast.
+ * create one), with the claim's time, which names it to
+ * `broadcastCreated` and `releaseBroadcast`; `send` with the id the
+ * provider gave it, `done` once it was sent, `busy` while another send
+ * holds it, `none` without a broadcast.
  */
 export const claimBroadcast = mutation({
   args: { id: v.string() },
@@ -146,28 +148,38 @@ export const claimBroadcast = mutation({
     const now = Date.now()
     if (broadcast.state === 'creating' && now - (broadcast.claimedAt ?? 0) < CLAIM_TTL_MS) return { next: 'busy' as const }
     await ctx.db.patch('announcements', row._id, { broadcast: { ...broadcast, state: 'creating', claimedAt: now } })
-    return { next: 'create' as const, audience: broadcast.audience, ...(broadcast.topic ? { topic: broadcast.topic } : {}), subject: broadcast.subject, body: broadcast.body }
+    return { next: 'create' as const, audience: broadcast.audience, ...(broadcast.topic ? { topic: broadcast.topic } : {}), subject: broadcast.subject, body: broadcast.body, claimedAt: now }
   },
 })
 
-/** The provider made the broadcast: its id is kept, so every later send sends this one. */
+/** Whether the send that claimed a broadcast at `claimedAt` holds it still: not lapsed and taken by another, released, or cancelled meanwhile. */
+const holdsClaim = (broadcast: Announcement['broadcast'], claimedAt: number): broadcast is NonNullable<Announcement['broadcast']> =>
+  broadcast?.state === 'creating' && broadcast.claimedAt === claimedAt
+
+/**
+ * The provider made the broadcast: its id is kept, so every later send
+ * sends this one. Only while the claim is the send's own: `false` when it
+ * lapsed and another send took it, or the broadcast was cancelled
+ * meanwhile, and the send must not send what it made.
+ */
 export const broadcastCreated = mutation({
-  args: { id: v.string(), providerId: v.string() },
-  returns: v.null(),
-  handler: async (ctx, { id, providerId }) => {
+  args: { id: v.string(), providerId: v.string(), claimedAt: v.number() },
+  returns: v.boolean(),
+  handler: async (ctx, { id, providerId, claimedAt }) => {
     const row = await announcementOf(ctx, id)
-    if (row?.broadcast) await ctx.db.patch('announcements', row._id, { broadcast: { ...row.broadcast, state: 'created', providerId, claimedAt: undefined } })
-    return null
+    if (!row || !holdsClaim(row.broadcast, claimedAt)) return false
+    await ctx.db.patch('announcements', row._id, { broadcast: { ...row.broadcast, state: 'created', providerId, claimedAt: undefined } })
+    return true
   },
 })
 
-/** A claim that made nothing is let go, so the next send may try. */
+/** A claim that made nothing is let go, so the next send may try; one another send took meanwhile stays that send's. */
 export const releaseBroadcast = mutation({
-  args: { id: v.string() },
+  args: { id: v.string(), claimedAt: v.number() },
   returns: v.null(),
-  handler: async (ctx, { id }) => {
+  handler: async (ctx, { id, claimedAt }) => {
     const row = await announcementOf(ctx, id)
-    if (row?.broadcast?.state === 'creating') await ctx.db.patch('announcements', row._id, { broadcast: { ...row.broadcast, state: 'draft', claimedAt: undefined } })
+    if (row && holdsClaim(row.broadcast, claimedAt)) await ctx.db.patch('announcements', row._id, { broadcast: { ...row.broadcast, state: 'draft', claimedAt: undefined } })
     return null
   },
 })

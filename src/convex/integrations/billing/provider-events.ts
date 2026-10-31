@@ -114,7 +114,10 @@ function priceRecord(product: any, price: any): Record<string, unknown> {
         seatTiers: price.seatTiers?.tiers.map((tier: any) => ({ minSeats: tier.minSeats, maxSeats: tier.maxSeats ?? null, pricePerSeat: tier.pricePerSeat })),
       }
     case 'metered_unit':
-      return { ...base, priceCurrency: price.priceCurrency, unitAmount: price.unitAmount, capAmount: price.capAmount, meterId: price.meterId, meter: price.meter }
+      // The SDK's meter also carries its unit and label, which the table's
+      // validator refuses: the whole product would go unstored, and its
+      // delivery fail on every retry.
+      return { ...base, priceCurrency: price.priceCurrency, unitAmount: price.unitAmount, capAmount: price.capAmount, meterId: price.meterId, meter: price.meter && { id: price.meter.id, name: price.meter.name } }
     default:
       return base
   }

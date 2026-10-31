@@ -5,6 +5,7 @@ import { pmVariants, retoken, wrapPmBlocks, type Token } from '../../website/sha
 import { openTwin } from '../../website/shared/agent-markdown'
 import { LLMS_DETAILS } from '../../website/shared/agent-surfaces'
 import * as pm from '../../website/shared/pm'
+import { withoutComments } from '../helpers/html'
 import { read } from './helpers'
 import { component, renderComponent } from './sfc'
 
@@ -164,7 +165,7 @@ describe('<PmCode>', () => {
     expect([...html.matchAll(/data-pm-variant="(\w+)"/g)].map(([, name]) => name)).toEqual(['npm', 'pnpm', 'yarn', 'bun'])
     expect(html).toMatch(/<div data-pm-variant="npm">(?:<!--\[-->)?npm install convex(?:<!--\]-->)?<\/div>/)
     for (const { code } of variants) expect(html).toContain(`data-copies="${code}"`)
-    expect(html.replaceAll(/<!--[[\]]-->/g, '')).toContain(`<pre class="${SHIKI}"><span class="line"><span class="s2JfK">pnpm</span>`)
+    expect(withoutComments(html)).toContain(`<pre class="${SHIKI}"><span class="line"><span class="s2JfK">pnpm</span>`)
   })
 
   it('picks through a labelled radio group, one key per manager, with one tab stop', async () => {

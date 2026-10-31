@@ -1,6 +1,6 @@
 import { createInterface } from 'node:readline'
 
-/** One question at the terminal; `secret` answers are not echoed. An empty answer skips. */
+/** One question at the terminal, as `deploy` and `doctor --fix` ask it; `secret` answers are not echoed. An empty answer skips. */
 export type DeployAsk = (question: string, options?: { secret?: boolean }) => Promise<string>
 
 /**

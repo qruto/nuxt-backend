@@ -115,7 +115,7 @@ export interface AnnouncementsApi {
 type Live = { id: string, message: string, link?: { url: string, label?: string }, expiresAt: number, publishedAt: number }
 type Claim
   = | { next: 'none' } | { next: 'busy' } | { next: 'done', sendAt?: number }
-    | { next: 'create', audience: AnnouncementAudience, topic?: string, subject: string, body: string }
+    | { next: 'create', audience: AnnouncementAudience, topic?: string, subject: string, body: string, claimedAt: number }
     | { next: 'send', providerId: string }
 
 interface AnnouncementsRefs {
@@ -126,8 +126,8 @@ interface AnnouncementsRefs {
     dismiss: FunctionReference<'mutation', 'internal', { id: string, userId: string }, null>
     list: FunctionReference<'query', 'internal', Record<string, never>, Array<Omit<AnnouncementRow, 'broadcast'> & { broadcast?: AnnouncementRow['broadcast'] }>>
     claimBroadcast: FunctionReference<'mutation', 'internal', { id: string }, Claim>
-    broadcastCreated: FunctionReference<'mutation', 'internal', { id: string, providerId: string }, null>
-    releaseBroadcast: FunctionReference<'mutation', 'internal', { id: string }, null>
+    broadcastCreated: FunctionReference<'mutation', 'internal', { id: string, providerId: string, claimedAt: number }, boolean>
+    releaseBroadcast: FunctionReference<'mutation', 'internal', { id: string, claimedAt: number }, null>
     broadcastSent: FunctionReference<'mutation', 'internal', { id: string, sentBy: string, sendAt: number }, boolean>
     cancelBroadcast: FunctionReference<'mutation', 'internal', { id: string }, { cancelled: boolean, providerId: string | null }>
     broadcastCancelled: FunctionReference<'mutation', 'internal', { id: string }, boolean>
@@ -318,7 +318,13 @@ export function createAnnouncements(deps: AnnouncementsDeps): AnnouncementsApi {
 
   type ActionCtx = Pick<GenericActionCtx<GenericDataModel>, 'runQuery' | 'runMutation'>
 
-  /** Make the broadcast at the provider, with send off, and keep its id: a claim that made nothing is let go. */
+  /**
+   * Make the broadcast at the provider, with send off, and keep its id: a
+   * claim that made nothing is let go. One lost while the provider was slow
+   * (it lapsed and another send took it, or the broadcast was cancelled)
+   * keeps nothing: the provider deletes what this send made, unsent, and the
+   * send is refused. Resend's broadcast create takes no idempotency key.
+   */
   const createBroadcast = async (ctx: ActionCtx, resend: Resend, id: string, draft: Extract<Claim, { next: 'create' }>, link: AnnouncementRow['link']): Promise<string> => {
     let providerId: string
     try {
@@ -330,11 +336,13 @@ export function createAnnouncements(deps: AnnouncementsDeps): AnnouncementsApi {
       providerId = (made as { id: string }).id
     }
     catch (error) {
-      await ctx.runMutation(refs.announcements.releaseBroadcast, { id })
+      await ctx.runMutation(refs.announcements.releaseBroadcast, { id, claimedAt: draft.claimedAt })
       throw error
     }
-    await ctx.runMutation(refs.announcements.broadcastCreated, { id, providerId })
-    return providerId
+    if (await ctx.runMutation(refs.announcements.broadcastCreated, { id, providerId, claimedAt: draft.claimedAt })) return providerId
+    // A refusal is logged: an unsent draft at the provider sends nothing.
+    await provider('delete the broadcast this send made', resend.broadcasts.remove(providerId)).catch(() => {})
+    throw backendError('rate_limited', { retryAfter: 60_000 }, '[nuxt-backend] This broadcast was taken over by another send, or cancelled, while the email provider made it: this send sent nothing. Try again in a minute to see where it stands.')
   }
 
   /** Refuse a send this deployment, the brand or the time cannot take. */

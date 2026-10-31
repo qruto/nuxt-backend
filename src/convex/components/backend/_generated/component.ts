@@ -2407,8 +2407,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       broadcastCreated: FunctionReference<
         "mutation",
         "internal",
-        { id: string; providerId: string },
-        null,
+        { claimedAt: number; id: string; providerId: string },
+        boolean,
         Name
       >;
       broadcastSent: FunctionReference<
@@ -2435,6 +2435,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         | {
             audience: "accounts" | "waitlist";
             body: string;
+            claimedAt: number;
             next: "create";
             subject: string;
             topic?: string;
@@ -2512,7 +2513,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       releaseBroadcast: FunctionReference<
         "mutation",
         "internal",
-        { id: string },
+        { claimedAt: number; id: string },
         null,
         Name
       >;
@@ -3747,7 +3748,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       releasePass: FunctionReference<
         "mutation",
         "internal",
-        { giftId: string },
+        { entityId: string; giftId: string; until: number; userId: string },
         null,
         Name
       >;

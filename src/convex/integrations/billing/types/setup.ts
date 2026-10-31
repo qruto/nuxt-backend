@@ -182,7 +182,7 @@ export interface BillingComponents {
       markNotified: FunctionReference<'mutation', 'internal', { giftId: string }, boolean>
       startClaim: FunctionReference<'mutation', 'internal', { giftId: string, userId: string, entityId: string }, boolean>
       reservePass: FunctionReference<'mutation', 'internal', { giftId: string, userId: string, entityId: string, until: number }, 'reserved' | 'busy' | 'taken' | 'closed'>
-      releasePass: FunctionReference<'mutation', 'internal', { giftId: string }, null>
+      releasePass: FunctionReference<'mutation', 'internal', { giftId: string, userId: string, entityId: string, until: number }, null>
       beginCancel: FunctionReference<'mutation', 'internal', { giftId: string, until: number }, boolean>
       endCancel: FunctionReference<'mutation', 'internal', { giftId: string }, null>
       markClaimed: FunctionReference<'mutation', 'internal', { giftId: string, userId: string, entityId: string, claimOrderId?: string }, null>

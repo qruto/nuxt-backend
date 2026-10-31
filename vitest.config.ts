@@ -21,17 +21,23 @@ export default defineConfig({
       provider: 'v8',
       // TypeScript only: the stylesheets and the server runtime's tsconfig.json
       // are not code, and coverage would try to parse them.
-      include: ['src/**/*.ts'],
+      //
+      // And the built Convex code: an app's `nuxt-backend/*` imports resolve
+      // through the package's exports to dist/convex, so every suite built on
+      // a scaffolded backend runs the build, not src/. Its source maps point
+      // at src/, and v8 credits those lines there. `dev:prepare:lib` builds it
+      // before the tests, in CI and the git hooks alike.
+      include: ['src/**/*.ts', 'dist/convex/**/*.js'],
       reporter: ['text', 'json', 'lcov'],
       // A ratchet: one point below the measured numbers, so a regression fails
       // CI without being brittle. Raise them whenever coverage climbs — never
       // lower them to make a change pass.
-      // Measured over `--project "!e2e"`: 85.89 / 78.53 / 84.37 / 87.63.
+      // Measured by `test:coverage`, dist/convex counted: 95.40 / 87.35 / 86.55 / 96.90.
       thresholds: {
-        'statements': 84,
-        'branches': 77,
-        'functions': 83,
-        'lines': 86,
+        'statements': 94,
+        'branches': 86,
+        'functions': 85,
+        'lines': 95,
         // The module definition and the registration helpers it calls in
         // src/nuxt/, which only the `module` project's real Nuxt boot reaches.
         // A global number would hide a drop here behind the well-covered

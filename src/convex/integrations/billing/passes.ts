@@ -45,6 +45,9 @@ export const LAST_CYCLE_MS = 28 * DAY_MS
 /** How long a plan pass's claim holds its gift: the provider calls of one claim, with room to spare. */
 const CLAIM_HOLD_MS = 5 * 60 * 1000
 
+/** A billing period that ends this close to its pass's end ends with it: the hourly sweep could not switch the pass back any sooner. */
+const PERIOD_SLACK_MS = 60 * 60 * 1000
+
 /**
  * From when a pass's return to the free plan may be booked: once its last
  * monthly cycle from `startedAt` began (an hour in, so the provider has
@@ -66,6 +69,7 @@ interface PassSubscription {
   id: string
   productId: string
   status: string
+  currentPeriodEnd?: Date | null
   pendingUpdate?: { productId?: string | null } | null
 }
 
@@ -121,7 +125,8 @@ export function createPasses(
     await throttle(ctx, recipient.userId, 'gift claims')
     const taken = backendError('forbidden', { reason: 'already_subscribed' }, '[nuxt-backend] claimGift: this billing account already holds a plan. A pass goes to a workspace on the free plan — claim it into another, or later.')
     if (await ctx.runQuery(gifts.activePass, { entityId })) throw taken
-    const held = await ctx.runMutation(gifts.reservePass, { giftId: gift.id, userId: recipient.userId, entityId, until: Date.now() + CLAIM_HOLD_MS })
+    const hold = { giftId: gift.id, userId: recipient.userId, entityId, until: Date.now() + CLAIM_HOLD_MS }
+    const held = await ctx.runMutation(gifts.reservePass, hold)
     if (held === 'taken') throw taken
     if (held !== 'reserved') throw await holdRefusal(ctx, gift.id)
     const switched: { id?: string } = {}
@@ -131,7 +136,8 @@ export function createPasses(
     }
     catch (error) {
       if (switched.id) await backToFree(switched.id, 'pass claim')
-      await ctx.runMutation(gifts.releasePass, { giftId: gift.id })
+      // This claim's own hold only: one that lapsed meanwhile may be another claim's now.
+      await ctx.runMutation(gifts.releasePass, hold)
       throw error
     }
     const data = { plan: gift.plan, months: gift.months, endsAt }
@@ -250,6 +256,9 @@ export function createPasses(
    * workspace kept (its scheduled return cleared, so it can't undo the
    * plan). On the pass still, `schedule_return` books the switch to the free
    * plan for the period's end, and `end_pass` forces it when the end date came.
+   * A period that ends before the pass does (the provider kept its own when
+   * the start could not align it) gets no booking, which would end the pass
+   * early: `end_pass` alone switches it back, on its end date.
    */
   const follow = async (ctx: RunWriteCtx, gift: GiftRecord, step: 'schedule_return' | 'end_pass'): Promise<void> => {
     if (!gift.passSubscriptionId || gift.passEndedAt !== undefined || !freePlan) return
@@ -268,7 +277,9 @@ export function createPasses(
       return
     }
     if (step === 'schedule_return') {
-      if (subscription.pendingUpdate?.productId !== freePlan.productId) {
+      const periodEnd = subscription.currentPeriodEnd?.getTime()
+      const endsFirst = periodEnd !== undefined && gift.passEndsAt !== undefined && periodEnd < gift.passEndsAt - PERIOD_SLACK_MS
+      if (!endsFirst && subscription.pendingUpdate?.productId !== freePlan.productId) {
         unwrapProvider(await subscriptionsUpdate(provider.polar, { id: subscription.id, subscriptionUpdate: { productId: freePlan.productId, prorationBehavior: 'next_period' } }), 'pass follow')
       }
       await ctx.runMutation(gifts.notePass, { giftId: gift.id, step: 'return_scheduled' })

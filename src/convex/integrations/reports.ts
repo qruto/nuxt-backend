@@ -16,6 +16,7 @@ import { type GenericId, v } from 'convex/values'
 import { APPEAL_WINDOW_MS } from '../constants.js'
 import { readEnv } from '../delivery.js'
 import { backendError } from '../errors.js'
+import { EVENT_VALUE_MAX } from '../events.js'
 import { logBackend } from '../log.js'
 import { randomToken, sha256Hex } from '../tokens.js'
 import { APPEAL_FRAGMENT, REMOVAL_DEADLINE_MS, REPORT_REASONS, type ReportReason } from '../report-rules.js'
@@ -365,8 +366,16 @@ function onSite(url: string | undefined): string | undefined {
   }
 }
 
-/** What the activity trail keeps of a reason an administrator wrote: its start. */
-const trailText = (value: string): string => value.length > 200 ? `${value.slice(0, 199)}…` : value
+/**
+ * What the activity trail keeps of a reason an administrator wrote: its
+ * start, as long as an event's string may be, so the event is written. The
+ * cut never leaves half a surrogate pair, which is not valid Unicode.
+ */
+const trailText = (value: string): string => {
+  if (value.length <= EVENT_VALUE_MAX) return value
+  const start = value.slice(0, EVENT_VALUE_MAX - 1)
+  return `${/[\uD800-\uDBFF]$/.test(start) ? start.slice(0, -1) : start}…`
+}
 
 /**
  * Build the report functions over the backend component. `setupAdmin`

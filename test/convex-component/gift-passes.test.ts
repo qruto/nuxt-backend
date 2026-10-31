@@ -323,13 +323,14 @@ describe('a plan pass', () => {
     await startFree(recipient.workspaceId!)
     await drain()
     // A claim into another workspace holds the gift right now.
-    expect(await t.mutation(components.backend.gifts.reservePass, { giftId: bought.id, userId: recipient.userId, entityId: 'org-elsewhere', until: Date.now() + 60_000 })).toBe('reserved')
+    const elsewhere = { giftId: bought.id, userId: recipient.userId, entityId: 'org-elsewhere', until: Date.now() + 60_000 }
+    expect(await t.mutation(components.backend.gifts.reservePass, elsewhere)).toBe('reserved')
     expect(await refusal(recipient.action(fn<'action'>('billing:claimGift'), { giftId: bought.id }))).toMatchObject({ code: 'forbidden', data: { reason: 'gift_claimed' } })
     expect(await refusal(signedInAgo(ada, 0).action(fn<'action'>('billing:cancelGift'), { giftId: bought.id }))).toMatchObject({ code: 'forbidden', data: { reason: 'gift_claimed' } })
     expect(await current(recipient)).toMatchObject({ productId: ids.products.free, free: true })
     expect(Object.values(fake.state.refunds)).toEqual([])
     // That claim did not finish and let go: this one goes through.
-    await t.mutation(components.backend.gifts.releasePass, { giftId: bought.id })
+    await t.mutation(components.backend.gifts.releasePass, elsewhere)
     await recipient.action(fn<'action'>('billing:claimGift'), { giftId: bought.id })
     await fake.idle()
     expect(await current(recipient)).toMatchObject({ productId: ids.passes!.pro!.pass })

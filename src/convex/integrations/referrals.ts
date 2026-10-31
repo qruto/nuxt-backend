@@ -250,6 +250,10 @@ function rewardsOf(billing: Billing | undefined): BillingRewards {
 export function setupReferrals(components: ReferralComponents, options: SetupReferralsOptions): Referrals {
   const rewards = rewardsOf(options.billing)
   const terms = checkedReferralTerms(options)
+  // Refused here, not at the first grant: the sweep would fail on it every hour, holding cap slots it never uses.
+  if (terms.rewards.referrer && rewards.customEntity) {
+    throw new TypeError('[nuxt-backend] setupReferrals: rewards.referrer goes to the referrer\'s own billing entity, which setupBilling\'s `resolveEntity` hides from the program. Drop `resolveEntity` from setupBilling, or `rewards.referrer` from setupReferrals and grant the referrer\'s reward in your own code.')
+  }
   const refs = components.backend.referrals
   const sweepReference = makeFunctionReference<'action'>(RUN_REFERRAL_SWEEP_FUNCTION) as unknown as FunctionReference<'action', 'internal', { op?: 'sweep', referralId?: string }>
 

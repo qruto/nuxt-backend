@@ -12,6 +12,7 @@ import { APP_CAPABILITY_IDS } from '../../website/shared/docs-capabilities'
 import { HOME_MODULES, HOME_SERVICES, HOME_TRAITS } from '../../website/shared/home'
 import { CONSOLE_DETENTS, CONSOLE_PHONE_ROWS, consoleCommand, consoleTranscript, foldsOnPhone, INSTALL_COMMAND, typedRows, type ConsoleDetent } from '../../website/shared/console'
 import { SITE } from '../../website/shared/site'
+import { withoutComments } from '../helpers/html'
 import { BACKEND_CALL, namedComponents, reachableComponents, siteComponents } from './components'
 import { contentFile, read, walk } from './helpers'
 import { component, homeConsole, lcdRowCount, parts, renderComponent } from './sfc'
@@ -160,7 +161,7 @@ describe('the console on a phone', () => {
     const html = await renderConsole('billing')
     // The key's label, without the comments a server render leaves around a slot.
     const key = html.match(/<button[^>]*aria-controls="([^"]+)"[^>]*>((?:<!--[^>]*-->|[^<])*)<\/button>/)
-    expect(key?.[2]!.replace(/<!--[^>]*-->/g, '').trim()).toBe(`Show all ${lcdRowCount('billing')} lines`)
+    expect(withoutComments(key![2]!).trim()).toBe(`Show all ${lcdRowCount('billing')} lines`)
     expect(key?.[0]).toContain('aria-pressed="false"')
     expect(key?.[0]).toMatch(/class="[^"]*\bsm:hidden\b/)
     const lcd = html.match(new RegExp(`<div[^>]*\\bid="${key![1]}"[^>]*>`))?.[0]

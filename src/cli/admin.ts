@@ -1,4 +1,3 @@
-import { createInterface } from 'node:readline/promises'
 import { runConvex } from '../convex-cli'
 import { deploymentFlags } from '../env-push'
 import { finding, type PreflightFinding } from '../findings'
@@ -66,17 +65,6 @@ export function adminBootstrapFindings(hasAdmin: boolean | null, { prod }: { pro
 
 /** What `doctor --fix` reads from the person: an answer to one question. */
 export type Ask = (question: string) => Promise<string>
-
-/** Ask on the terminal. */
-export async function askOnTerminal(question: string): Promise<string> {
-  const terminal = createInterface({ input: process.stdin, output: process.stderr })
-  try {
-    return await terminal.question(question)
-  }
-  finally {
-    terminal.close()
-  }
-}
 
 /** An address `setUserRole` can look up: lower case, with one `@` between two non-empty parts. */
 function addressOf(answer: string): string | null {

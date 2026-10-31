@@ -1,4 +1,5 @@
 import type { Ref } from 'vue'
+import type { PricedPlan } from '../../../convex/integrations/billing/types/records.js'
 import { busyAttributes } from '../a11y'
 
 /** An interval a plan is priced at. */
@@ -37,6 +38,23 @@ export interface PricingBindingsContext {
   planLabel?: (plan: Item) => string
   /** The pack's container, as the caller describes it. */
   packLabel?: (pack: Item) => string
+}
+
+/**
+ * The interval a plan is shown and sold at: the chosen one, else the plan's
+ * own — among its prices that sell, or the one `subscribed` to (an archived
+ * price, a retired plan's), which only its subscriber sees. `undefined`
+ * when no price of the plan is left to show: an archived price is sold to
+ * nobody new. `<PricingTable>`'s cards and `usePricing`'s plan actions
+ * both go by it.
+ */
+export function shownInterval(plan: Pick<PricedPlan, 'prices'>, chosen: Interval, subscribed: string | undefined): Interval | undefined {
+  const shows = (at: Interval) => {
+    const price = plan.prices[at]
+    return price !== undefined && (!price.archived || price.productId === subscribed)
+  }
+  if (shows(chosen)) return chosen
+  return shows('month') ? 'month' : shows('year') ? 'year' : undefined
 }
 
 /** The bindings of a pricing view: what `usePricing().bind` and the packaged pricing parts spread. */

@@ -6,7 +6,7 @@ import { deploymentBackendEnvironment, deploymentEnvNames, deploymentFunctionSpe
 import { runBillingSync } from './billing'
 import { runEmailSync } from './email'
 import { progress, withContract } from './contract'
-import { askOnTerminal } from './deploy/ask'
+import { askOnTerminal } from './ask'
 import { runBuild } from './deploy/build'
 import { ensureEmailWebhook } from './deploy/email-webhook'
 import { buildCommandAdvice, deployHost } from './deploy/host'

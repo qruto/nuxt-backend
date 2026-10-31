@@ -146,7 +146,7 @@ export function useReferrals(options: UseReferralsOptions = {}): UseReferralsRet
       ? referred.kind === 'trial' ? t('friendTrial', { days: referred.days }) : t('friendDiscount', { name: referred.name })
       : null
     const mine = referrer
-      ? referrer.kind === 'pack' ? t('sharerPack', { name: referrer.name }) : t('sharerMonths', { months: referrer.months })
+      ? referrer.kind === 'pack' ? t('sharerPack', { name: referrer.name }) : t('sharerMonths', { count: referrer.months })
       : null
     return [t('shareLead'), friend, mine ? t('shareSharer', { reward: mine }) : null].filter(Boolean).join(' ')
   })
