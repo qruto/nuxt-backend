@@ -85,3 +85,13 @@ fallow-*
 # QA screenshots (local-only)
 .qa
 *-dev.log
+
+# Review notes left on `pnpm try` (press N), exported by `pnpm try:notes`
+.review
+
+# Nuxt records each module's install in the app's .nuxtrc (`setups.*`): the
+# apps in this repository use the module from source, so theirs stay local.
+website/.nuxtrc
+examples/*/.nuxtrc
+templates/*/.nuxtrc
+test/fixtures/**/.nuxtrc

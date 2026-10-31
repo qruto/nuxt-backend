@@ -45,6 +45,23 @@ updates:
     # when each of these unblocks, one watch per entry; drop the entry in the
     # pull request that adopts it.
     #
+    # @nuxt/fonts 1 (the docs site, #94) serves its faces as Vite build
+    # assets under /_nuxt/fonts/. The nuxt-og-image Docus pins (~6.10) fetches
+    # them while it prerenders the social cards and gets 404s, so every card
+    # falls back to Inter; 1.x also writes metric fallback faces of its own
+    # into the stacks app.css names its hand-made fallbacks in. Docus and Nuxt
+    # UI still take @nuxt/fonts 0.14 themselves. Drop the entry when Docus
+    # moves to nuxt-og-image 7.
+    #
+    # @vercel/firewall (the docs site's edge rate limits) stays on 1.2.2, the
+    # last release with npm provenance: 1.2.3 to 1.2.6 carry none, and pnpm's
+    # trustPolicy refuses them at install, which would fail the whole weekly
+    # group. It is ignored outright, as no watch can read provenance: the ask
+    # in .github/upstream.json ("Publish @vercel/firewall with npm provenance
+    # again") tracks it. Drop the entry, and the hand-rolled timeout in
+    # website/server/middleware/0.firewall.ts, in the pull request that moves
+    # to the first release with provenance again.
+    #
     # A major is held with `update-types`, which filters version updates only:
     # a security fix released only in the next major still opens a pull
     # request, and fails CI where the upstream blocker bites, in view. A
@@ -65,6 +82,9 @@ updates:
         update-types: ['version-update:semver-major']
       - dependency-name: '@nuxt/devtools-ui-kit'
         update-types: ['version-update:semver-major']
+      - dependency-name: '@nuxt/fonts'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@vercel/firewall'
     # Groups apply only to the kind of update named in `applies-to`, which
     # defaults to version updates. Without the second group every CVE fix
     # opens a pull request of its own.
@@ -85,13 +105,13 @@ updates:
   # weekly churn of floors a user's install ignores anyway. `nuxt-backend` is
   # the `latest` dist-tag on purpose, and the component packages and
   # nuxt-convex-module an example imports directly keep the package's own
-  # ranges (test/unit/playground-parity.test.ts), so they move with it. Same
+  # ranges, so they move with it. Same
   # cooldown and exclusions as above.
   - package-ecosystem: npm
     directories:
       - /templates/starter
+      - /templates/panels
       - /examples/advanced
-      - /examples/playground
     schedule:
       interval: weekly
       day: monday

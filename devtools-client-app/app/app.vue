@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { PANEL_TABS, type PanelTabId } from '~/nav'
+import { PANEL_TABS } from '~/nav'
 
 const state = usePanelState()
-const active = ref<PanelTabId>('overview')
+const panel = usePanel()
+// The store holds the tab, so a capability's channel on the Overview can open its own.
+const active = computed(() => state.tab)
 
 /** New problems since the Activity tab was last looked at. */
 const unseenProblems = computed(() => state.snapshot?.activity.filter(event => event.level !== 'info' && event.id > state.activitySeen).length ?? 0)
@@ -24,7 +26,7 @@ watch(active, (tab, previous) => {
         class="px2 py1.5 rounded flex items-center gap-2 text-left op65 hover:(op100 n-bg-active)"
         :class="{ 'n-bg-active op100!': active === tab.id }"
         :aria-current="active === tab.id ? 'page' : undefined"
-        @click="active = tab.id"
+        @click="panel.select(tab.id)"
       >
         <NIcon :icon="tab.icon" />
         {{ tab.label }}
@@ -61,8 +63,9 @@ watch(active, (tab, previous) => {
       <PanelBilling v-else-if="active === 'billing'" />
       <PanelEmail v-else-if="active === 'email'" />
       <PanelWebhooks v-else-if="active === 'webhooks'" />
-      <PanelAgents v-else-if="active === 'agents'" />
-      <PanelActivity v-else />
+      <PanelMonitoring v-else-if="active === 'monitoring'" />
+      <PanelActivity v-else-if="active === 'activity'" />
+      <PanelBundles v-else />
     </main>
   </div>
 </template>

@@ -1,0 +1,110 @@
+/* The review-notes overlay (ReviewNotes.vue): system colours, so it reads in either colour scheme over any page. */
+.trn {
+  color-scheme: light dark;
+  font: 13px/1.4 ui-sans-serif, system-ui, sans-serif;
+}
+.trn-box {
+  position: fixed;
+  z-index: 2147482999;
+  pointer-events: none;
+  outline: 2px solid #d4a017;
+  outline-offset: 1px;
+  background: color-mix(in srgb, #d4a017 12%, transparent);
+  border-radius: 2px;
+}
+.trn-key {
+  position: fixed;
+  z-index: 2147483000;
+  left: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
+  border-radius: 6px;
+  background: Canvas;
+  color: CanvasText;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.2);
+}
+.trn-key[aria-pressed='true'] {
+  outline: 2px solid #d4a017;
+}
+.trn-key kbd {
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, CanvasText 30%, transparent);
+  border-radius: 3px;
+  font: 11px ui-monospace, monospace;
+}
+.trn-panel {
+  position: fixed;
+  z-index: 2147483000;
+  left: 12px;
+  bottom: 52px;
+  display: grid;
+  gap: 8px;
+  width: min(380px, calc(100vw - 24px));
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
+  border-radius: 8px;
+  background: Canvas;
+  color: CanvasText;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+}
+.trn-panel p {
+  margin: 0;
+}
+.trn-where {
+  display: grid;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+.trn-where span,
+.trn-snippet {
+  font: 11px/1.4 ui-monospace, monospace;
+  opacity: 0.75;
+}
+.trn-label {
+  display: grid;
+  gap: 4px;
+}
+.trn-label textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, CanvasText 30%, transparent);
+  border-radius: 4px;
+  background: Canvas;
+  color: CanvasText;
+  font: inherit;
+  resize: vertical;
+}
+.trn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.trn-actions button {
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, CanvasText 30%, transparent);
+  border-radius: 4px;
+  background: Canvas;
+  color: CanvasText;
+  font: inherit;
+  cursor: pointer;
+}
+.trn-actions .trn-save {
+  border-color: #d4a017;
+  font-weight: 600;
+}
+.trn-actions [aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: default;
+}
+.trn-status {
+  font-size: 12px;
+  opacity: 0.8;
+}

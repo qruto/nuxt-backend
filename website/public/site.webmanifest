@@ -1,7 +1,7 @@
 {
   "name": "nuxt-backend",
   "short_name": "nuxt-backend",
-  "description": "The all-in-one SaaS backend for Nuxt on Convex — authentication, billing, credits, transactional email, webhooks and an agent (MCP) surface from a single package.",
+  "description": "The all-in-one backend for client apps on Nuxt and Convex — sign-in with codes and passkeys, workspaces, plans and credits, email and notifications, AI jobs, files and an admin console, from one package.",
   "start_url": "/",
   "display": "standalone",
   "theme_color": "#26292e",

@@ -1,6 +1,6 @@
-import { runConvex } from '../../convex-cli'
-import { siteFromCloudUrl } from '../../deployment'
-import { deploymentEnvNames, deploymentFlags, deploymentFunctionSpec } from '../../env-push'
+import { siteFromCloudUrl } from '../../convex/urls'
+import { billingEnvironment } from '../../convex/environment'
+import { deploymentBackendEnvironment, deploymentEnvNames, deploymentFunctionSpec } from '../../env-push'
 import { isHttpUrl } from '../../preflight'
 import type { Environment } from './provider'
 
@@ -19,10 +19,11 @@ export interface SyncDeployment {
   /** Its env names (never values); null when they could not be read. */
   envNames: string[] | null
   /**
-   * The billing environment it runs in: its `BILLING_ENVIRONMENT`, `sandbox`
-   * when unset (the backend's default), null when unknown. The one value
-   * billing sync reads — a sandbox/production switch, never a secret — and
-   * only when the name is set.
+   * The billing environment it runs in: `production` when its
+   * `BACKEND_ENVIRONMENT` says so, `sandbox` for any other kind and when
+   * unset (the backend's default), null when unknown. The one value billing
+   * sync reads — the kind of deployment, never a secret — and only when the
+   * name is set.
    */
   billingEnvironment: Environment | null
 }
@@ -41,17 +42,10 @@ export async function readSyncDeployment(rootDir: string, prod: boolean): Promis
 }
 
 async function deployedBillingEnvironment(rootDir: string, prod: boolean, envNames: string[]): Promise<Environment | null> {
-  if (!envNames.includes('BILLING_ENVIRONMENT')) return 'sandbox'
-  try {
-    const { stdout } = await runConvex(rootDir, ['env', 'get', ...deploymentFlags({ prod }), 'BILLING_ENVIRONMENT'])
-    const value = stdout.trim()
-    // Anything else is a value the backend refuses to deploy with; it is
-    // never echoed.
-    return value === 'sandbox' || value === 'production' ? value : null
-  }
-  catch {
-    return null
-  }
+  if (!envNames.includes('BACKEND_ENVIRONMENT')) return 'sandbox'
+  const environment = await deploymentBackendEnvironment(rootDir, { prod })
+  // A value that is none of the four kinds is read as unset by the backend: the sandbox.
+  return environment === null ? null : billingEnvironment(environment)
 }
 
 const CLOUD_URL = /^https:\/\/([a-z0-9-]+)\.convex\.cloud\/?$/
@@ -139,14 +133,14 @@ interface Unavailable {
 function derivedWebhookUrl(deployment: SyncDeployment, env: Record<string, string | undefined>, flag: string): { url: string } | Unavailable {
   const passUrl = 'Pass --webhook <url>'
   const tunnel = `${passUrl} — a public tunnel to it`
-  const site = env.NUXT_PUBLIC_BACKEND_SITE_URL || env.NUXT_PUBLIC_CONVEX_SITE_URL || (deployment.url ? siteFromCloudUrl(deployment.url) : null)
+  const site = env.NUXT_PUBLIC_CONVEX_SITE_URL || (deployment.url ? siteFromCloudUrl(deployment.url) : null)
   if (site) {
     const url = `${site.replace(/\/+$/, '')}/billing/events`
     return isLoopback(url) ? { reason: `the site URL is on this machine (${site}), where the provider cannot deliver.`, remedy: tunnel } : { url }
   }
   if (!deployment.url) return { reason: `the deployment could not be read (\`npx convex function-spec${flag}\` failed), so its site URL is unknown.`, remedy: passUrl }
   if (isLoopback(deployment.url)) return { reason: `the deployment runs on this machine (${deployment.url}), where the provider cannot deliver.`, remedy: tunnel }
-  return { reason: `no site URL derives from the deployment's own (${deployment.url}).`, remedy: 'Set NUXT_PUBLIC_BACKEND_SITE_URL, or pass --webhook <url>' }
+  return { reason: `no site URL derives from the deployment's own (${deployment.url}).`, remedy: 'Set NUXT_PUBLIC_CONVEX_SITE_URL, or pass --webhook <url>' }
 }
 
 /**
@@ -177,8 +171,9 @@ export function productsRefreshBlocker(deployment: SyncDeployment, environment: 
       : `${where} has no BILLING_ACCESS_TOKEN yet, so it cannot read the products. Forward it from .env.local with \`npx nuxt-backend env push\`, then run ${refresh}.`
   }
   if (deployment.billingEnvironment !== null && deployment.billingEnvironment !== environment) {
-    const why = deployment.envNames.includes('BILLING_ENVIRONMENT') ? 'BILLING_ENVIRONMENT says so' : 'BILLING_ENVIRONMENT is unset'
-    return `${where} runs the ${deployment.billingEnvironment} billing environment (${why}), not ${environment}, so it would load the other catalog. Run \`npx convex env set${flag} BILLING_ENVIRONMENT ${environment}\`, then ${refresh}.`
+    const why = deployment.envNames.includes('BACKEND_ENVIRONMENT') ? 'BACKEND_ENVIRONMENT says so' : 'BACKEND_ENVIRONMENT is unset'
+    const fix = environment === 'production' ? `Run \`npx convex env set${flag} BACKEND_ENVIRONMENT production\`` : `Set BACKEND_ENVIRONMENT to development, preview or sandbox (\`npx convex env set${flag} BACKEND_ENVIRONMENT sandbox\`)`
+    return `${where} runs the ${deployment.billingEnvironment} billing environment (${why}), not ${environment}, so it would load the other catalog. ${fix}, then ${refresh}.`
   }
   return null
 }

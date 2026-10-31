@@ -28,15 +28,20 @@ describe('defineBackendAuthConfig', () => {
     })
   })
 
-  it('uses a custom auth route when provided', () => {
+  it('serves the JWKS under the auth route of the generated paths', () => {
     process.env.CONVEX_SITE_URL = 'https://example.convex.site'
 
     const authConfig = defineBackendAuthConfig({
-      basePath: '/internal/auth',
+      paths: { authRoute: '/internal/auth' },
     })
 
     expect(authConfig.providers[0]).toMatchObject({
       jwks: 'https://example.convex.site/internal/auth/convex/jwks',
     })
+  })
+
+  it('refuses the removed basePath, and a path that is not one', () => {
+    expect(() => defineBackendAuthConfig({ basePath: '/auth' } as never)).toThrow(/backend\.authRoute/)
+    expect(() => defineBackendAuthConfig({ paths: { authRoute: 'auth' } })).toThrow(/paths\.authRoute is "auth"/)
   })
 })

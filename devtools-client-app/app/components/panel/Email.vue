@@ -5,20 +5,30 @@ const state = usePanelState()
 const panel = usePanel()
 
 const TRANSPORT = [
-  { name: 'EMAIL_API_KEY', unset: 'Email sends are skipped, and sign-in codes print in the dev terminal (NUXT_BACKEND_LOG_OTP=1).' },
+  { name: 'EMAIL_API_KEY', unset: 'Email sends are skipped, and sign-in codes print in the dev terminal on a development deployment.' },
   { name: 'EMAIL_FROM', unset: 'The provider\'s onboarding sender is used.' },
-  { name: 'EMAIL_TEST_MODE', unset: 'Test mode stays on: only the provider\'s test addresses receive mail.' },
   { name: 'EMAIL_WEBHOOK_SECRET', unset: 'Delivery events are rejected, so statuses stop at "sent".' },
 ] as const
 
-/** The packaged email templates, overridable in email.ts (`setupEmail({ templates })`). */
-const TEMPLATES = [
-  ['otp', 'Sign-in, verification and change-email codes'],
-  ['welcome', 'Right after sign-up'],
-  ['deleteAccount', 'Account-deletion confirmation'],
-  ['invite', 'Workspace invitation'],
-  ['gift', 'A paid gift, to its recipient'],
-] as const
+// The packaged emails, as the dev deployment renders them (`email:previewEmails`):
+// read when the tab opens, and again on a language change or a refresh.
+const previews = computed(() => state.emailPreviews)
+const locale = ref<string>()
+const scheme = ref<'light' | 'dark'>('light')
+const width = ref<'wide' | 'narrow'>('wide')
+const selected = ref<string>()
+const preview = computed(() => previews.value?.previews.find(entry => entry.key === selected.value) ?? previews.value?.previews[0])
+const templateOptions = computed(() => (previews.value?.previews ?? []).map(entry => ({ label: entry.key, value: entry.key })))
+const localeOptions = computed(() => (previews.value?.locales ?? []).map(code => ({ label: code, value: code })))
+const sent = computed(() => (state.emailPreviewSend?.key === preview.value?.key ? state.emailPreviewSend : null))
+function loadPreviews() {
+  void panel.loadEmailPreviews(locale.value)
+}
+onMounted(loadPreviews)
+watch(locale, loadPreviews)
+function sendPreview() {
+  if (preview.value) void panel.sendEmailPreview(preview.value.key, previews.value?.locale)
+}
 
 const transport = computed(() => {
   const env = state.info?.env
@@ -136,25 +146,108 @@ const lookupSignal = computed<Signal>(() => {
 
   <PanelCard title="Templates">
     <template #actions>
+      <NSelectTabs
+        v-model="scheme"
+        n="xs"
+        :options="[{ label: 'Light', value: 'light' }, { label: 'Dark', value: 'dark' }]"
+      />
+      <NSelectTabs
+        v-model="width"
+        n="xs"
+        :options="[{ label: 'Wide', value: 'wide' }, { label: 'Phone', value: 'narrow' }]"
+      />
+      <NButton
+        n="xs"
+        icon="carbon-renew"
+        title="Render the previews again"
+        :disabled="state.emailPreviewsLoading"
+        @click="loadPreviews()"
+      />
       <NButton
         n="xs"
         icon="carbon-launch"
-        title="Open auth.ts, where templates are overridden"
-        @click="openBackendFile('auth.ts')"
+        title="Open email.ts, where templates, messages and the brand are set"
+        @click="openBackendFile('email.ts')"
       >
-        auth.ts
+        email.ts
       </NButton>
     </template>
     <div
-      v-for="[name, when] of TEMPLATES"
-      :key="name"
-      class="flex items-center gap-2 text-xs"
+      v-if="!previews"
+      class="text-xs op50"
     >
-      <span class="font-mono w-28">{{ name }}</span>
-      <span class="op65">{{ when }}</span>
+      {{ state.emailPreviewsLoading ? 'Rendering every email on the dev deployment…' : 'Not rendered yet.' }}
     </div>
+    <NTip
+      v-else-if="previews.status !== 'ok'"
+      n="amber"
+      icon="carbon-warning"
+    >
+      {{ previews.reason }}
+    </NTip>
+    <template v-else>
+      <div
+        v-if="localeOptions.length > 1"
+        class="flex items-center gap-2 text-xs"
+      >
+        <span class="op65">Language</span>
+        <NSelectTabs
+          :model-value="previews.locale"
+          n="xs"
+          :options="localeOptions"
+          @update:model-value="locale = String($event)"
+        />
+      </div>
+      <NSelectTabs
+        :model-value="preview?.key"
+        n="xs"
+        class="flex-wrap"
+        :options="templateOptions"
+        @update:model-value="selected = String($event)"
+      />
+      <template v-if="preview">
+        <div class="text-xs op65">
+          {{ preview.note }}
+        </div>
+        <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+          <span class="op50">to</span>
+          <span class="font-mono">{{ preview.to }}</span>
+          <span class="op50">subject</span>
+          <span class="font-mono">{{ preview.subject }}</span>
+        </div>
+        <!-- sandbox with no allowances: the email's HTML renders, its scripts never run -->
+        <iframe
+          class="block border border-base rounded"
+          :class="width === 'narrow' ? 'w-[375px]' : 'w-full'"
+          style="height: 520px"
+          :srcdoc="scheme === 'dark' ? preview.htmlDark : preview.html"
+          sandbox=""
+          :title="`${preview.key} email preview`"
+        />
+        <details class="text-xs">
+          <summary class="op65 cursor-pointer">
+            Text version
+          </summary>
+          <pre class="whitespace-pre-wrap font-mono op80">{{ preview.text }}</pre>
+        </details>
+        <div class="flex items-center gap-2 text-xs flex-wrap">
+          <NButton
+            n="xs"
+            icon="carbon-send"
+            :disabled="state.emailPreviewSending"
+            @click="sendPreview()"
+          >
+            Send to delivered@resend.dev
+          </NButton>
+          <span
+            v-if="sent"
+            class="op65"
+          >{{ sent.status === 'sent' ? `Sent to ${sent.to}${sent.emailId ? ` (${sent.emailId})` : ''}: read it with npx nuxt-backend inbox, or in the provider's dashboard.` : sent.reason }}</span>
+        </div>
+      </template>
+    </template>
     <div class="text-xs op50">
-      Override any of them in <code>email.ts</code> (<code>setupEmail({ templates })</code>) without replacing the transport.
+      Rendered by the dev deployment from <code>email.ts</code>: your <code>templates</code>, <code>messages</code> and <code>brand</code>, in every language your messages cover.
     </div>
   </PanelCard>
 </template>

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { priceTokens, setupAi, type AiComponents, type CreditsBalanceEvent } from '../../src/convex/integrations/ai'
 import type { Billing, SpendReservation } from '../../src/convex/integrations/billing'
+import { backendError } from '../../src/convex/errors'
 
 const components = {
   backend: {
@@ -14,7 +15,11 @@ const components = {
       finalize: 'ref:billing.finalize',
       release: 'ref:billing.release',
       attachReleaseJob: 'ref:billing.attachReleaseJob',
+      debit: 'ref:billing.debit',
+      settle: 'ref:billing.settle',
     },
+    costs: { record: 'ref:costs.record', summary: 'ref:costs.summary' },
+    adapter: { findOne: 'ref:adapter.findOne' },
   },
   persistentTextStreaming: { lib: { createStream: 'ref:pts.createStream' } },
 } as unknown as AiComponents
@@ -22,10 +27,12 @@ const components = {
 function makeBilling(overrides: Partial<Billing> = {}): Billing {
   const reservation: SpendReservation = { entityId: 'org_1', externalId: 'ext_1', reserved: true, meter: 'credits', meterId: 'm1', value: 1 }
   return {
-    resolveEntity: vi.fn(async () => ({ userId: 'org_1', email: 'a@b.co' })),
+    // The caller, checked as billing checks it: a member of org_1.
+    requireEntity: vi.fn(async () => ({ userId: 'org_1', email: 'a@b.co' })),
     reserveCredits: vi.fn(async () => reservation),
     settleSpend: vi.fn(async () => {}),
     releaseSpend: vi.fn(async () => {}),
+    recordEvent: vi.fn(async () => {}),
     ...overrides,
   } as unknown as Billing
 }
@@ -95,8 +102,27 @@ describe('setupAi().meteredAction', () => {
 
     expect(order).toEqual(['limit', 'reserve', 'handler', 'settle'])
     expect(result).toEqual({ chargedTo: 'org_1', cost: 2 })
-    expect(billing.reserveCredits).toHaveBeenCalledWith(expect.anything(), { meter: 'credits', value: 2 })
+    expect(billing.reserveCredits).toHaveBeenCalledWith(expect.anything(), { userId: 'org_1', meter: 'credits', value: 2 })
     expect(limiter.limit).toHaveBeenCalledWith(expect.anything(), 'ai', { key: 'org_1', throws: true })
+  })
+
+  it('checks the caller as a member who spends in person before anything is counted', async () => {
+    // A removed member, or an administrator impersonating one: billing refuses them.
+    const refusal = backendError('forbidden', { reason: 'impersonating' })
+    const billing = makeBilling({
+      requireEntity: vi.fn(async () => {
+        throw refusal
+      }) as never,
+    })
+    const limiter = { limit: vi.fn(async () => ({ ok: true })) }
+    const ai = setupAi(components, { billing, rateLimiter: limiter as never })
+    const action = ai.meteredAction({ meter: 'credits', args: {}, handler: async () => 'ran' })
+
+    await expect(invoke(action, identityCtx(), {})).rejects.toBe(refusal)
+    expect(billing.requireEntity).toHaveBeenCalledWith(expect.anything(), { access: 'member', impersonation: 'refused' })
+    // Nothing spent on the workspace's behalf: no limit, no reservation.
+    expect(limiter.limit).not.toHaveBeenCalled()
+    expect(billing.reserveCredits).not.toHaveBeenCalled()
   })
 
   it('releases the reservation when the handler throws — nothing charged', async () => {
@@ -183,7 +209,7 @@ describe('setupAi().meteredAction', () => {
 
     expect(billing.reserveCredits).toHaveBeenCalledWith(
       expect.anything(),
-      { meter: 'usage', value: 1, allowOverage: true },
+      { userId: 'org_1', meter: 'usage', value: 1, allowOverage: true },
     )
   })
 })
@@ -209,7 +235,7 @@ describe('setupAi() finalized cost — reserve an estimate, settle the actual', 
     await invoke(action, ctx, {})
 
     // Reserved the ceiling…
-    expect(billing.reserveCredits).toHaveBeenCalledWith(expect.anything(), { meter: 'credits', value: 500 })
+    expect(billing.reserveCredits).toHaveBeenCalledWith(expect.anything(), { userId: 'org_1', meter: 'credits', value: 500 })
     // …ingested what was actually spent, against the reservation as reserved…
     expect(billing.settleSpend).toHaveBeenCalledWith(
       expect.objectContaining({}),
@@ -308,6 +334,20 @@ describe('setupAi() finalized cost — reserve an estimate, settle the actual', 
     await expect(invoke(action, ctx, {})).rejects.toThrow('provider down')
     expect(billing.releaseSpend).toHaveBeenCalledWith(expect.anything(), reservation)
     expect(finalizeCall(ctx)).toBeUndefined()
+  })
+
+  it('takes the spend from the balance again when its reservation was released before the event landed', async () => {
+    const { ai } = finalizedAi()
+    const action = ai.meteredAction({ meter: 'credits', cost: { estimate: 500, finalize: () => 120 }, args: {}, handler: async () => ({}) })
+    // A long stream: the abandon timer released the reservation, and the provider took the event after.
+    const ctx = identityCtx({ settled: false })
+    const finalize = ctx.runMutation.getMockImplementation()!
+    ctx.runMutation.mockImplementation(async (ref, args) => ref === 'ref:billing.debit' ? { ok: true, balance: 380 } as never : finalize(ref, args))
+
+    await invoke(action, ctx, {})
+
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:billing.debit', { userId: 'org_1', externalId: 'ext_1', meterId: 'm1', amount: 120, allowOverage: true })
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:billing.settle', { userId: 'org_1', externalId: 'ext_1', finalAmount: 120 })
   })
 })
 
@@ -488,6 +528,21 @@ describe('setupAi() low-balance hooks', () => {
     seen.length = 0
     await invoke(action, identityCtx({ balanceBefore: -2, balance: -5 }), {})
     expect(seen).toEqual([])
+  })
+
+  it('records each crossing on the shared event path, for the entity, hooks or not', async () => {
+    const billing = makeBilling()
+    const ai = setupAi(components, { billing, credits: { lowBalanceThreshold: 100 } })
+    const action = ai.meteredAction({ meter: 'credits', args: {}, handler: async () => 'ok' })
+    await invoke(action, identityCtx({ balanceBefore: 105, balance: -2 }), {})
+    expect(billing.recordEvent).toHaveBeenCalledWith(expect.anything(), 'org_1', { type: 'billing.credits_low', data: { balance: -2, threshold: 100, meter: 'credits' } })
+    expect(billing.recordEvent).toHaveBeenCalledWith(expect.anything(), 'org_1', { type: 'billing.credits_exhausted', data: { balance: -2, meter: 'credits' } })
+    // Without a threshold only the balance's end is recorded; staying below it, nothing.
+    const quiet = makeBilling()
+    const spender = setupAi(components, { billing: quiet }).meteredAction({ meter: 'credits', args: {}, handler: async () => 'ok' })
+    await invoke(spender, identityCtx({ balanceBefore: 150, balance: 90 }), {})
+    await invoke(spender, identityCtx({ balanceBefore: -2, balance: -5 }), {})
+    expect(quiet.recordEvent).not.toHaveBeenCalled()
   })
 
   it('never fails a settled spend because a hook threw', async () => {

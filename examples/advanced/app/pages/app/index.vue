@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ auth: true })
 
 const { user, signOut } = useAuth()
-const { organizations, setActive, invite } = useOrganization()
+const { workspaces, setActive, invite } = useWorkspace()
 const billing = useBilling()
 // Gifts wait until their recipient claims them: the banner's button, or
 // gifts.claim(gift.id), grants the credits to this account.
@@ -44,7 +44,7 @@ async function logout() {
       </button>
     </nav>
 
-    <GiftClaimBanner @claimed="notice = 'Gift received. 🎁'" />
+    <BackendNotices />
     <p
       v-if="gifts.unclaimed.value.length"
       class="muted"
@@ -52,9 +52,10 @@ async function logout() {
       {{ gifts.unclaimed.value.length }} gift(s) waiting — claim above.
     </p>
 
-    <OrganizationBoundary>
+    <Gate workspace>
+      <!-- The content gets the active workspace; its type is optional, as other checks pass none. -->
       <template #default="{ workspace }">
-        <section>
+        <section v-if="workspace">
           <h2>Workspace</h2>
           <div class="row">
             <select
@@ -62,7 +63,7 @@ async function logout() {
               @change="setActive(($event.target as HTMLSelectElement).value)"
             >
               <option
-                v-for="entry in organizations"
+                v-for="entry in workspaces"
                 :key="entry.id"
                 :value="entry.id"
               >
@@ -85,7 +86,7 @@ async function logout() {
           </form>
         </section>
       </template>
-    </OrganizationBoundary>
+    </Gate>
 
     <section>
       <h2>Billing</h2>
@@ -95,14 +96,14 @@ async function logout() {
         <code>order.paid</code> hook in <code>backend/billing.ts</code> writes
         each paid order to the app's own <code>orders</code> table.
       </p>
-      <FeatureBoundary feature="premium">
+      <Gate feature="premium">
         <p>✨ Premium unlocked.</p>
         <template #fallback>
           <p class="muted">
             Premium locked.
           </p>
         </template>
-      </FeatureBoundary>
+      </Gate>
     </section>
 
     <p

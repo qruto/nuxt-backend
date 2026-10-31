@@ -20,7 +20,7 @@ export function renamedComponent(from: string, to: string, target: Component) {
         warned.add(from)
         console.warn(
           `[nuxt-backend] <${from}> is <${to}> now. It renders only in development, and a production build `
-          + `no longer knows the name: rename it: https://nuxt-backend.dev/docs/ship/migrate/upgrade#the-surface-says-backend-never-a-provider`,
+          + `no longer knows the name: rename it: https://nuxt-backend.dev/docs/ship/releases/upgrade#the-surface-says-backend-never-a-provider`,
         )
       }
       return () => h(target, attrs, slots)

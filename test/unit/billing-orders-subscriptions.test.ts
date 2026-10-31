@@ -18,8 +18,11 @@ import { ordersGet } from '@polar-sh/sdk/funcs/ordersGet.js'
 import { ordersInvoice } from '@polar-sh/sdk/funcs/ordersInvoice.js'
 import { ordersList } from '@polar-sh/sdk/funcs/ordersList.js'
 import { refundsCreate } from '@polar-sh/sdk/funcs/refundsCreate.js'
+import { subscriptionsCreate } from '@polar-sh/sdk/funcs/subscriptionsCreate.js'
 import { subscriptionsUpdate } from '@polar-sh/sdk/funcs/subscriptionsUpdate.js'
 import { type Billing, setupBilling, type SetupBillingConfig } from '../../src/convex/integrations/billing'
+import { getBackendError } from '../../src/convex/errors'
+import { CANCELLATION_COMMENT_MAX } from '../../src/convex/integrations/billing/subscriptions'
 
 /**
  * The subscription-lifecycle, order and checkout surface: what each call maps
@@ -47,6 +50,7 @@ vi.mock('@polar-sh/sdk/funcs/ordersGet.js', () => ({ ordersGet: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/ordersInvoice.js', () => ({ ordersInvoice: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/ordersList.js', () => ({ ordersList: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/refundsCreate.js', () => ({ refundsCreate: vi.fn() }))
+vi.mock('@polar-sh/sdk/funcs/subscriptionsCreate.js', () => ({ subscriptionsCreate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/subscriptionsUpdate.js', () => ({ subscriptionsUpdate: vi.fn() }))
 
 const mockCheckoutsClientUpdate = vi.mocked(checkoutsClientUpdate)
@@ -67,17 +71,21 @@ const mockOrdersGet = vi.mocked(ordersGet)
 const mockOrdersInvoice = vi.mocked(ordersInvoice)
 const mockOrdersList = vi.mocked(ordersList)
 const mockRefundsCreate = vi.mocked(refundsCreate)
+const mockSubscriptionsCreate = vi.mocked(subscriptionsCreate)
 const mockSubscriptionsUpdate = vi.mocked(subscriptionsUpdate)
 
 const components = {
   polar: { lib: { insertCustomer: 'ref:insertCustomer' } },
   backend: {
+    // The auth tables' adapter: the fresh member and role reads.
+    adapter: { findOne: 'ref:findOne' },
     billing: {
       getByUser: 'ref:getByUser',
       upsert: 'ref:upsert',
       userByCustomer: 'ref:userByCustomer',
       debit: 'ref:debit',
       settle: 'ref:settle',
+      finalize: 'ref:finalize',
       release: 'ref:release',
       credit: 'ref:credit',
       clearPendingSpends: 'ref:clearPendingSpends',
@@ -88,6 +96,8 @@ const components = {
       markTrialUsed: 'ref:markTrialUsed',
       reserveDiscountCode: 'ref:reserveDiscountCode',
       releaseDiscountCode: 'ref:releaseDiscountCode',
+      recordSubscriptionChange: 'ref:recordSubscriptionChange',
+      subscriptionChanges: 'ref:subscriptionChanges',
     },
     gifts: {
       create: 'ref:gifts.create',
@@ -121,14 +131,31 @@ function make(overrides: Partial<SetupBillingConfig> = {}) {
   } as SetupBillingConfig)
 }
 
-const signedIn = { subject: 'u1', email: 'u1@example.com', emailVerified: true, activeOrganizationId: 'org-1' }
+// A session's token, signed in just now (`authTime`), as a sensitive action such as a refund takes it.
+const signedIn = { subject: 'u1', email: 'u1@example.com', emailVerified: true, activeOrganizationId: 'org-1', sessionId: 'session-1', authTime: Date.now() }
 
-function makeCtx(claims: Record<string, unknown> | null = signedIn) {
+/**
+ * The auth tables as the claims describe them, for the fresh reads: the
+ * account holds the role its token names (unless `stored` says it was
+ * changed since), and owns the workspace it acts for.
+ */
+function authTables(claims: Record<string, unknown> | null, stored: { role?: string } = {}) {
+  return (ref: unknown, args: unknown): unknown => {
+    if (ref !== 'ref:findOne') return undefined
+    const model = (args as { model?: string } | undefined)?.model
+    if (model === 'user') return claims ? { role: stored.role ?? claims.role ?? 'user', banned: false } : null
+    return model === 'member' && claims ? { role: 'owner' } : null
+  }
+}
+
+function makeCtx(claims: Record<string, unknown> | null = signedIn, stored: { role?: string } = {}) {
+  const tables = authTables(claims, stored)
   return {
     // Typed with the ref/args a Convex ctx actually passes: tests below
     // re-implement these to record the reference they were called with, and a
     // zero-arg annotation would make that a type error.
-    runQuery: vi.fn(async (_ref?: unknown, _args?: unknown): Promise<unknown> => null),
+    // Nothing recorded about any subscription's scheduled changes yet.
+    runQuery: vi.fn(async (ref?: unknown, args?: unknown): Promise<unknown> => (ref === 'ref:subscriptionChanges' ? [] : tables(ref, args) ?? null)),
     // The owner's one trial is theirs to hold until a test says otherwise, and
     // a discount-code attempt is reserved: the component's answer for a fresh window.
     runMutation: vi.fn(async (ref?: unknown, _args?: unknown): Promise<unknown> => {
@@ -202,11 +229,11 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
 
     await expect(billing.updateSubscription(makeCtx() as never, { productId: 'prod_a' }))
       .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'productId' } })
-    await expect(invoke(billing.functions.updateSubscription)(makeCtx(), { productId: 'prod_a' }))
+    await expect(invoke(billing.api.updateSubscription)(makeCtx(), { productId: 'prod_a' }))
       .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'productId' } })
     expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
 
-    await invoke(billing.functions.updateSubscription)(makeCtx(), { productId: 'prod_b' })
+    await invoke(billing.api.updateSubscription)(makeCtx(), { productId: 'prod_b' })
     expect(mockSubscriptionsUpdate).toHaveBeenCalledWith(expect.anything(), {
       id: 'sub_1',
       subscriptionUpdate: { productId: 'prod_b' },
@@ -245,9 +272,41 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
     })
   })
 
-  it('uncancelSubscription flips the cancel flag back off', async () => {
+  it('cancelSubscription sends the comment trimmed, and refuses one longer than the panel allows', async () => {
     const billing = make()
     withSubscriptions()
+
+    await billing.cancelSubscription(makeCtx() as never, { comment: '  over budget  ' })
+    expect(mockSubscriptionsUpdate).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({
+      subscriptionUpdate: expect.objectContaining({ customerCancellationComment: 'over budget' }),
+    }))
+
+    mockSubscriptionsUpdate.mockClear()
+    await expect(billing.cancelSubscription(makeCtx() as never, { comment: 'x'.repeat(CANCELLATION_COMMENT_MAX + 1) }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'comment' } })
+    expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
+  })
+
+  it('refuses a second cancellation and an uncancel with nothing to undo before the provider is asked', async () => {
+    const billing = make()
+    withSubscriptions([{ ...liveSubscription, cancelAtPeriodEnd: true }])
+    // The provider takes one cancellation per period: a second is no outage to retry.
+    await expect(billing.cancelSubscription(makeCtx() as never, { reason: 'unused' }))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'subscriptionId', reason: 'cancel_scheduled' } })
+    // Revoking at once is still possible.
+    await billing.cancelSubscription(makeCtx() as never, { atPeriodEnd: false })
+    expect(mockSubscriptionsUpdate).toHaveBeenCalledTimes(1)
+
+    mockSubscriptionsUpdate.mockClear()
+    withSubscriptions()
+    await expect(billing.uncancelSubscription(makeCtx() as never))
+      .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'subscriptionId', reason: 'no_cancel_scheduled' } })
+    expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
+  })
+
+  it('uncancelSubscription flips the cancel flag back off', async () => {
+    const billing = make()
+    withSubscriptions([{ ...liveSubscription, cancelAtPeriodEnd: true }])
 
     await billing.uncancelSubscription(makeCtx() as never)
 
@@ -301,7 +360,7 @@ describe('subscription lifecycle → SubscriptionUpdate union', () => {
       liveSubscription,
     ])
 
-    await billing.uncancelSubscription(makeCtx() as never)
+    await billing.cancelSubscription(makeCtx() as never)
 
     expect(mockSubscriptionsUpdate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'sub_1' }))
   })
@@ -417,7 +476,8 @@ describe('degradation without BILLING_ACCESS_TOKEN', () => {
     const billing = unconfigured()
     withSubscriptions()
 
-    await expect(call(billing, makeCtx())).rejects.toThrow(/BILLING_ACCESS_TOKEN/)
+    // An admin, so refundOrder gets past who is asking to the missing token.
+    await expect(call(billing, makeCtx({ ...signedIn, role: 'admin' }))).rejects.toThrow(/BILLING_ACCESS_TOKEN/)
     expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
     expect(mockRefundsCreate).not.toHaveBeenCalled()
   })
@@ -431,6 +491,13 @@ describe('degradation without BILLING_ACCESS_TOKEN', () => {
     expect(mockOrdersList).not.toHaveBeenCalled()
     expect(mockOrdersGet).not.toHaveBeenCalled()
     expect(mockEventsList).not.toHaveBeenCalled()
+  })
+
+  it('history reads ask who is calling before they say billing is not configured', async () => {
+    const billing = unconfigured()
+    for (const read of [() => billing.getOrders(makeCtx(null) as never), () => billing.getInvoiceUrl(makeCtx(null) as never, 'order_1'), () => billing.getUsageHistory(makeCtx(null) as never)]) {
+      await expect(read()).rejects.toMatchObject({ data: { code: 'unauthenticated' } })
+    }
   })
 
   it('checkout fails loudly without a token', async () => {
@@ -628,6 +695,29 @@ describe('orders & invoices', () => {
     expect(mockOrdersInvoice).not.toHaveBeenCalled()
   })
 
+  it('getInvoiceUrl does not let a customer keyed to another entity vouch for its orders', async () => {
+    const billing = make()
+    withCustomer(billing)
+    // The component still maps u1 onto cus_1, but cus_1 is keyed to another
+    // entity (shared by the 0.1 email lookup): its orders are not u1's.
+    mockCustomersGet.mockResolvedValue({ ok: true, value: { id: 'cus_1', externalId: 'org-0', metadata: {} } } as never)
+    mockOrdersGet.mockResolvedValue({ ok: true, value: providerOrder } as never)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(billing.getInvoiceUrl(makeCtx() as never, 'order_1'))
+      .rejects.toMatchObject({ data: { code: 'forbidden', reason: 'not_owner' } })
+    expect(mockOrdersInvoice).not.toHaveBeenCalled()
+  })
+
+  it('getInvoiceUrl still serves an order keyed to the entity when nothing is mapped', async () => {
+    const billing = make()
+    withCustomer(billing, null)
+    mockOrdersGet.mockResolvedValue({ ok: true, value: { ...providerOrder, customerId: 'cus_9', customer: { externalId: 'u1' } } } as never)
+    mockOrdersInvoice.mockResolvedValue({ ok: true, value: { url: 'https://invoices/9.pdf' } } as never)
+
+    expect(await billing.getInvoiceUrl(makeCtx() as never, 'order_1')).toStrictEqual({ url: 'https://invoices/9.pdf' })
+  })
+
   it('getInvoiceUrl refuses an order that does not exist exactly like someone else\'s', async () => {
     const billing = make()
     withCustomer(billing)
@@ -709,7 +799,7 @@ describe('refunds', () => {
     mockOrdersGet.mockResolvedValue({ ok: true, value: { ...refundable.value, metadata: { giftId: 'gift-1' } } } as never)
     mockRefundsCreate.mockResolvedValue(created as never)
     const ctx = adminCtx()
-    ctx.runQuery.mockImplementation(async (ref?: unknown) => (ref === 'ref:gifts.get' ? { id: 'gift-1', status: 'claimed' } : null))
+    ctx.runQuery.mockImplementation(async (ref?: unknown, args?: unknown) => (ref === 'ref:gifts.get' ? { id: 'gift-1', status: 'claimed' } : authTables({ ...signedIn, role: 'admin' })(ref, args) ?? null))
 
     await billing.refundOrder(ctx as never, { orderId: 'order_1', reason: 'customer_request' })
 
@@ -750,7 +840,7 @@ describe('refunds', () => {
     expect(mockOrdersGet).not.toHaveBeenCalled()
   })
 
-  it('reads a comma-separated role claim', async () => {
+  it('reads a comma-separated role', async () => {
     const billing = make()
     mockOrdersGet.mockResolvedValue(refundable as never)
     mockRefundsCreate.mockResolvedValue(created as never)
@@ -761,6 +851,37 @@ describe('refunds', () => {
     )
 
     expect(mockRefundsCreate).toHaveBeenCalled()
+  })
+
+  it('reads the role fresh: a demoted admin is refused whatever their token says', async () => {
+    const billing = make()
+    const demoted = makeCtx({ ...signedIn, role: 'admin' }, { role: 'user' })
+
+    await expect(billing.refundOrder(demoted as never, { orderId: 'order_1', reason: 'other' })).rejects.toThrow(/admin-only/)
+    expect(demoted.runQuery).toHaveBeenCalledWith('ref:findOne', { model: 'user', where: [{ field: '_id', value: 'u1' }] })
+    expect(mockOrdersGet).not.toHaveBeenCalled()
+  })
+
+  it('refuses an admin\'s impersonated session, whatever the gate', async () => {
+    const requireAdmin = vi.fn(async () => {})
+    for (const billing of [make(), make({ requireAdmin })]) {
+      const refusal = await billing.refundOrder(makeCtx({ ...signedIn, role: 'admin', impersonatedBy: 'admin-2' }) as never, { orderId: 'order_1', reason: 'other' })
+        .catch((error: unknown) => error)
+      expect(getBackendError(refusal)).toMatchObject({ code: 'forbidden', data: { reason: 'impersonating' } })
+    }
+    expect(requireAdmin).not.toHaveBeenCalled()
+    expect(mockOrdersGet).not.toHaveBeenCalled()
+  })
+
+  it('takes a sign-in from the last ten minutes, asked of an admin only', async () => {
+    const billing = make()
+    const stale = { ...signedIn, authTime: Date.now() - 11 * 60_000 }
+    const refusal = await billing.refundOrder(makeCtx({ ...stale, role: 'admin' }) as never, { orderId: 'order_1', reason: 'other' }).catch((error: unknown) => error)
+    expect(getBackendError(refusal)).toMatchObject({ code: 'reauthentication_required' })
+    // Someone who may not refund at all is told so, never asked to sign in again first.
+    const plain = await billing.refundOrder(makeCtx(stale) as never, { orderId: 'order_1', reason: 'other' }).catch((error: unknown) => error)
+    expect(getBackendError(plain)).toMatchObject({ code: 'forbidden', data: { reason: 'admin_only' } })
+    expect(mockOrdersGet).not.toHaveBeenCalled()
   })
 
   it('honours a custom requireAdmin gate', async () => {
@@ -864,6 +985,63 @@ describe('checkout customization', () => {
     mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout/1', clientSecret: 'cs_1' } } as never)
   }
 
+  it('refuses a second plan while the entity holds one, before the provider hears of it', async () => {
+    const billing = make({ products: { a: 'prod_a', b: 'prod_b', pack: 'prod_pack' } })
+    primeCheckout(billing)
+    withSubscriptions([liveSubscription])
+    const landing = { origin: 'https://app', successUrl: 'https://app/done' }
+
+    const refused = await invoke(billing.api.generateCheckoutLink)(makeCtx(), { productIds: ['prod_b'], ...landing }).catch((error: unknown) => error)
+    expect(getBackendError(refused)).toMatchObject({ code: 'forbidden', data: { reason: 'already_subscribed' }, message: 'This account already has a plan. Switch plans instead of subscribing again.' })
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+
+    // A pack is still on sale, and so is a checkout that acts on the plan held.
+    await invoke(billing.api.generateCheckoutLink)(makeCtx(), { productIds: ['prod_pack'], ...landing })
+    await invoke(billing.api.generateCheckoutLink)(makeCtx(), { productIds: ['prod_b'], subscriptionId: 'sub_1', ...landing })
+    expect(mockCheckoutsCreate).toHaveBeenCalledTimes(2)
+  })
+
+  it('sells a plan once the held one ended, and any plan with multipleSubscriptions', async () => {
+    const landing = { origin: 'https://app', successUrl: 'https://app/done' }
+    const ended = make()
+    primeCheckout(ended)
+    withSubscriptions([{ ...liveSubscription, status: 'canceled', endedAt: '2026-01-01T00:00:00Z' }])
+    await invoke(ended.api.generateCheckoutLink)(makeCtx(), { productIds: ['prod_b'], ...landing })
+
+    const multiple = make({ multipleSubscriptions: true })
+    withSubscriptions([liveSubscription])
+    await invoke(multiple.api.generateCheckoutLink)(makeCtx(), { productIds: ['prod_b'], ...landing })
+    expect(mockCheckoutsCreate).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([
+    ['https://app/done', 'https://app/done?checkout_return={CHECKOUT_ID}'],
+    ['https://app/settings?tab=plan', 'https://app/settings?tab=plan&checkout_return={CHECKOUT_ID}'],
+    ['https://app/settings?tab=plan#billing', 'https://app/settings?tab=plan&checkout_return={CHECKOUT_ID}#billing'],
+    ['https://app/done?', 'https://app/done?checkout_return={CHECKOUT_ID}'],
+    // An app's own id, under the name the provider suggests, stays as written beside the package's.
+    ['https://app/done?checkout_id={CHECKOUT_ID}', 'https://app/done?checkout_id={CHECKOUT_ID}&checkout_return={CHECKOUT_ID}'],
+    ['https://app/done?checkout_id=mine', 'https://app/done?checkout_id=mine&checkout_return={CHECKOUT_ID}'],
+    // One that already carries the package's parameter keeps it.
+    ['https://app/done?checkout_return={CHECKOUT_ID}', 'https://app/done?checkout_return={CHECKOUT_ID}'],
+  ])('sends %s back with the checkout\'s id: %s', async (successUrl, sent) => {
+    const billing = make()
+    primeCheckout(billing)
+    await invoke(billing.api.generateCheckoutLink)(makeCtx(), { productIds: ['prod_a'], origin: 'https://app', successUrl })
+    // The braces stay as the provider looks for them: never percent-encoded.
+    expect(mockCheckoutsCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ successUrl: sent }))
+  })
+
+  it('pays in a currency read as the pricing reads it: a price that names none is in the provider\'s default', async () => {
+    const billing = make()
+    primeCheckout(billing)
+    vi.spyOn(Polar.prototype, 'getProduct').mockResolvedValue({ id: 'prod_a', isRecurring: true, isArchived: false, prices: [{ amountType: 'fixed', priceAmount: 900, isArchived: false }] } as never)
+    await invoke(billing.api.generateCheckoutLink)(makeCtx(), { productIds: ['prod_a'], origin: 'https://app', successUrl: 'https://app/done', currency: 'USD' })
+    expect(mockCheckoutsCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ currency: 'usd' }))
+    const refused = await invoke(billing.api.generateCheckoutLink)(makeCtx(), { productIds: ['prod_a'], origin: 'https://app', successUrl: 'https://app/done', currency: 'eur' }).catch((error: unknown) => error)
+    expect(getBackendError(refused)).toMatchObject({ code: 'invalid_input', data: { field: 'currency' } })
+  })
+
   it('maps prefill, custom fields, locale and billing-address control onto CheckoutCreate', async () => {
     const billing = make()
     primeCheckout(billing)
@@ -891,7 +1069,8 @@ describe('checkout customization', () => {
       // By the entity's id, never by email or a customer id.
       externalCustomerId: 'u1',
       embedOrigin: 'https://app',
-      successUrl: 'https://app/done',
+      // Back with the checkout's id, which the provider fills in.
+      successUrl: 'https://app/done?checkout_return={CHECKOUT_ID}',
       // The payload has a real `locale` field — no query-string patching.
       locale: 'fr',
       requireBillingAddress: true,
@@ -1035,12 +1214,12 @@ describe('one customer per workspace', () => {
   const owner = { userId: 'u1', email: 'u1@example.com', name: 'Ada', emailVerified: true }
 
   function workspaceBilling(profile: Record<string, unknown>) {
-    const billing = make({ billTo: 'organization' })
+    const billing = make({ billTo: 'workspace' })
     vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue(null as never)
     mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout/1' } } as never)
     mockCustomersCreate.mockResolvedValue({ ok: true, value: { id: 'cus_team' } } as never)
     const ctx = makeCtx()
-    ctx.runQuery.mockImplementation(async (ref?: unknown) => ref === 'ref:entityProfile' ? { name: 'Acme', personal: false, owner, ownedEntityIds: ['org-0', 'org-1'], ...profile } : null)
+    ctx.runQuery.mockImplementation(async (ref?: unknown, args?: unknown) => ref === 'ref:entityProfile' ? { name: 'Acme', personal: false, owner, ownedEntityIds: ['org-0', 'org-1'], ...profile } : authTables(signedIn)(ref, args) ?? null)
     return { billing, ctx }
   }
 
@@ -1174,7 +1353,7 @@ describe('customers from before 0.2', () => {
   })
 
   it('refuses an entity mapped onto a customer another entity is keyed to', async () => {
-    const billing = make({ billTo: 'organization' })
+    const billing = make({ billTo: 'workspace' })
     vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_shared', userId: 'org-1' } as never)
     mockCustomersGet.mockResolvedValue({ ok: true, value: { id: 'cus_shared', externalId: 'org-0', metadata: {} } } as never)
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -1204,7 +1383,7 @@ describe('customers from before 0.2', () => {
   })
 
   it('shows no orders or usage for an entity mapped onto another entity\'s customer', async () => {
-    const billing = make({ billTo: 'organization' })
+    const billing = make({ billTo: 'workspace' })
     vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_shared', userId: 'org-1' } as never)
     mockCustomersGet.mockResolvedValue({ ok: true, value: { id: 'cus_shared', externalId: 'org-0', metadata: {} } } as never)
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -1276,7 +1455,7 @@ describe('server-authoritative checkout', () => {
     expect(await refusal({ successUrl: 'http://app/done' })).toEqual({ code: 'invalid_input', field: 'successUrl' })
   })
 
-  it('trusts SITE_URL\'s origin, and loopback only when local origins are trusted', async () => {
+  it('trusts SITE_URL\'s origin, and local origins only when they are trusted', async () => {
     vi.stubEnv('SITE_URL', 'https://shop.example/path')
     try {
       const billing = primed({ trustedOrigins: [] })
@@ -1285,8 +1464,13 @@ describe('server-authoritative checkout', () => {
       expect(mockCheckoutsCreate).toHaveBeenCalledTimes(1)
       vi.clearAllMocks()
       expect(await refusal(local, billing)).toEqual({ code: 'invalid_input', field: 'origin' })
-      vi.stubEnv('AUTH_TRUST_LOCAL_ORIGINS', '1')
+      vi.stubEnv('BACKEND_ENVIRONMENT', 'development')
       await expect(invoke(billing.api.generateCheckoutLink)(makeCtx(), { ...args, ...local })).resolves.toEqual({ url: 'https://checkout/1' })
+      // A .localhost name a local HTTPS proxy serves is as local as a loopback port.
+      const proxied = { origin: 'https://nuxt-backend.localhost', successUrl: 'https://nuxt-backend.localhost/done' }
+      await expect(invoke(billing.api.generateCheckoutLink)(makeCtx(), { ...args, ...proxied })).resolves.toEqual({ url: 'https://checkout/1' })
+      vi.clearAllMocks()
+      expect(await refusal({ origin: 'https://nuxt-backend.localhost.evil.com', successUrl: 'https://nuxt-backend.localhost.evil.com/done' }, billing)).toEqual({ code: 'invalid_input', field: 'origin' })
     }
     finally {
       vi.unstubAllEnvs()
@@ -1294,7 +1478,7 @@ describe('server-authoritative checkout', () => {
   })
 
   it('refuses the metadata keys the package reads back, in any case, and oversized metadata', async () => {
-    for (const key of ['userId', 'UserID', 'gift', 'giftId', 'recipientEmail', 'purchaserUserId', 'giftRecipient', 'utm_source']) {
+    for (const key of ['userId', 'UserID', 'gift', 'giftId', 'recipientEmail', 'purchaserUserId', 'giftRecipient', 'referralId', 'REFERRALID', 'utm_source']) {
       expect(await refusal({ metadata: { [key]: 'x' } }), key).toEqual({ code: 'invalid_input', field: 'metadata' })
     }
     expect(await refusal({ metadata: { ['k'.repeat(41)]: 'x' } })).toEqual({ code: 'invalid_input', field: 'metadata' })
@@ -1330,6 +1514,8 @@ describe('server-authoritative checkout', () => {
 
     expect(mockCheckoutsCreate.mock.calls[0]![1].metadata).toStrictEqual({
       plan_page: 'pricing',
+      // Who opened it, for an abandoned checkout's lifecycle email.
+      openedBy: 'u1',
       utm_source: 'newsletter',
       utm_campaign: 'c'.repeat(100),
       utm_content: 'hero',
@@ -1396,7 +1582,7 @@ describe('server-authoritative checkout', () => {
     const billing = make()
     withSubscriptions()
 
-    await expect(invoke(billing.functions.updateSubscription)(makeCtx(), { productId: 'prod_elsewhere' }))
+    await expect(invoke(billing.api.updateSubscription)(makeCtx(), { productId: 'prod_elsewhere' }))
       .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'productId' } })
     expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
   })
@@ -1483,7 +1669,7 @@ describe('server-authoritative checkout', () => {
     const billing = make({ products: { a: 'prod_a', b: 'prod_b', pack: 'prod_pack' } })
     withSubscriptions()
 
-    await expect(invoke(billing.functions.updateSubscription)(makeCtx(), { productId: 'prod_pack' }))
+    await expect(invoke(billing.api.updateSubscription)(makeCtx(), { productId: 'prod_pack' }))
       .rejects.toMatchObject({ data: { code: 'invalid_input', field: 'productId' } })
     expect(mockSubscriptionsUpdate).not.toHaveBeenCalled()
   })
@@ -1496,13 +1682,109 @@ describe('server-authoritative checkout', () => {
   })
 })
 
+describe('beside the free plan', () => {
+  const landing = { origin: 'https://app', successUrl: 'https://app/done' }
+  /** The catalog as `billing sync` writes it: a free plan, two paid plans and a recurring add-on. */
+  const catalog = {
+    sandbox: {
+      products: { free: 'prod_free', a: 'prod_a', b: 'prod_b', addon: 'prod_addon' },
+      plans: { free: { month: 'prod_free' }, a: { month: 'prod_a' }, b: { month: 'prod_b' } },
+      free: 'free',
+      meters: {},
+    },
+  }
+  const freeSubscription = { id: 'sub_free', status: 'active', endedAt: null, productId: 'prod_free' }
+  const products: Record<string, object> = {
+    ...SYNCED_PRODUCTS,
+    prod_free: { id: 'prod_free', isRecurring: true, isArchived: false, prices: [{ amountType: 'free', isArchived: false }] },
+    prod_addon: { id: 'prod_addon', isRecurring: true, isArchived: false },
+  }
+
+  function onPlans(subscriptions: unknown[]) {
+    vi.spyOn(Polar.prototype, 'getProduct').mockImplementation(async (_ctx, { productId }) => (products[productId] ?? null) as never)
+    vi.spyOn(Polar.prototype, 'listAllUserSubscriptions').mockResolvedValue(subscriptions as never)
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1', userId: 'u1' } as never)
+    mockCheckoutsCreate.mockResolvedValue({ ok: true, value: { url: 'https://checkout/1', clientSecret: 'cs_1' } } as never)
+  }
+  const checkout = (billing: Billing, productId: string) => invoke(billing.api.generateCheckoutLink)(makeCtx(), { productIds: [productId], ...landing })
+  const sentSubscription = () => (mockCheckoutsCreate.mock.calls.at(-1)![1] as { subscriptionId?: string }).subscriptionId
+
+  it('upgrades the free subscription in place with a plan\'s checkout', async () => {
+    const billing = make({ products: undefined, catalog } as never)
+    onPlans([freeSubscription])
+    await checkout(billing, 'prod_b')
+    expect(sentSubscription()).toBe('sub_free')
+  })
+
+  it('refuses a plan while a paid one is held beside the free plan, which it never upgrades into a second', async () => {
+    const billing = make({ products: undefined, catalog } as never)
+    // The free plan started late: a checkout opened before it was paid after it.
+    onPlans([freeSubscription, liveSubscription])
+    const refused = await checkout(billing, 'prod_b').catch((error: unknown) => error)
+    expect(getBackendError(refused)).toMatchObject({ code: 'forbidden', data: { reason: 'already_subscribed' } })
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
+
+  it('with multipleSubscriptions, lets an add-on sit beside the free plan and a plan replace it', async () => {
+    const billing = make({ products: undefined, catalog, multipleSubscriptions: true } as never)
+    onPlans([freeSubscription])
+    await checkout(billing, 'prod_addon')
+    expect(sentSubscription()).toBeUndefined()
+    await checkout(billing, 'prod_a')
+    expect(sentSubscription()).toBe('sub_free')
+  })
+
+  describe('an account\'s start, with billTo: \'user\'', () => {
+    /** An account's row, read by the start in place of a signed-in caller's claims. */
+    function startCtx(user: { email: string, emailVerified: boolean } | null) {
+      return {
+        runQuery: vi.fn(async (ref?: unknown, args?: unknown): Promise<unknown> => (ref === 'ref:findOne' && (args as { model?: string }).model === 'user' ? user : null)),
+        runMutation: vi.fn(async () => null),
+        auth: { getUserIdentity: vi.fn(async () => null) },
+      }
+    }
+    const start = (billing: Billing, ctx: unknown) => invoke(billing.api.startFreePlan)(ctx, { entityId: 'u1' })
+
+    beforeEach(() => {
+      vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue(null as never)
+      mockCustomersGetState.mockResolvedValue({ ok: true, value: { activeSubscriptions: [] } } as never)
+      mockSubscriptionsCreate.mockResolvedValue({ ok: true, value: { id: 'sub_free' } } as never)
+      mockCustomersUpdate.mockImplementation((async (_client: unknown, { id }: { id: string }) => ({ ok: true, value: { id } })) as never)
+    })
+
+    it('adopts the earlier customer of the account\'s proven email, as its own checkout would', async () => {
+      const billing = make({ products: undefined, catalog } as never)
+      mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'cus_earlier', externalId: null, metadata: {} }] } } } as never)
+      expect(await start(billing, startCtx({ email: 'Ada@Example.com', emailVerified: true }))).toBe('started')
+      expect(mockCustomersUpdate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'cus_earlier', customerUpdate: expect.objectContaining({ externalId: 'u1' }) }))
+      expect(mockCustomersCreate).not.toHaveBeenCalled()
+      expect(mockSubscriptionsCreate).toHaveBeenCalledWith(expect.anything(), { productId: 'prod_free', externalCustomerId: 'u1' })
+    })
+
+    it('leaves the account off the plan, logged and not retried, when another account\'s customer holds its email', async () => {
+      const billing = make({ products: undefined, catalog } as never)
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      mockCustomersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'cus_other', externalId: 'u2', metadata: {} }] } } } as never)
+      expect(await start(billing, startCtx({ email: 'ada@example.com', emailVerified: true }))).toBe('customer_taken')
+      expect(mockSubscriptionsCreate).not.toHaveBeenCalled()
+      expect(warn.mock.calls.map(([line]) => String(line))).toContainEqual(expect.stringContaining('billing.free_plan_customer_taken'))
+    })
+
+    it('starts nothing for a kind billing does not bill', async () => {
+      const billing = make({ products: undefined, catalog } as never)
+      expect(await invoke(billing.api.startFreePlan)(startCtx(null), { entityId: 'org_1', kind: 'workspace' })).toBe('not_billed')
+      expect(mockCustomersList).not.toHaveBeenCalled()
+    })
+  })
+})
+
 describe('multipleSubscriptions', () => {
   const first = { id: 'sub_1', status: 'active', endedAt: null, productId: 'prod_a' }
   const second = { id: 'sub_2', status: 'trialing', endedAt: null, productId: 'prod_addon' }
 
   function readCurrent(billing: Billing, subscriptions: unknown[]) {
     vi.spyOn(Polar.prototype, 'listAllUserSubscriptions').mockResolvedValue(subscriptions as never)
-    return invoke(billing.functions.getCurrentSubscription)(makeCtx(), {})
+    return invoke(billing.api.getCurrentSubscription)(makeCtx(), {})
   }
 
   it('keeps the single-subscription read by default', async () => {
@@ -1510,10 +1792,10 @@ describe('multipleSubscriptions', () => {
     const single = vi.spyOn(Polar.prototype, 'getCurrentSubscription')
       .mockResolvedValue({ id: 'sub_1', productId: 'prod_a' } as never)
 
-    const result = await invoke(billing.functions.getCurrentSubscription)(makeCtx(), {})
+    const result = await invoke(billing.api.getCurrentSubscription)(makeCtx(), {})
 
     expect(single).toHaveBeenCalled()
-    expect(result).toStrictEqual({ id: 'sub_1', productId: 'prod_a' })
+    expect(result).toStrictEqual({ id: 'sub_1', productId: 'prod_a', pendingChange: null, resumesAt: null })
   })
 
   it('leads with the array and keeps the primary fields readable', async () => {
@@ -1524,8 +1806,8 @@ describe('multipleSubscriptions', () => {
     // Each row is joined to its product exactly as the single-subscription
     // read does, so both branches hand the UI the same shape.
     expect(result.subscriptions).toStrictEqual([
-      { ...first, productKey: 'a', product: null },
-      { ...second, productKey: undefined, product: null },
+      { ...first, pendingChange: null, resumesAt: null, productKey: 'a', product: null },
+      { ...second, pendingChange: null, resumesAt: null, productKey: undefined, product: null },
     ])
     // Single-plan consumers keep reading `.productId` / `.status` unchanged.
     expect(result.productId).toBe('prod_a')
@@ -1581,7 +1863,142 @@ describe('multipleSubscriptions', () => {
     const billing = make({ multipleSubscriptions: true })
     vi.spyOn(Polar.prototype, 'listAllUserSubscriptions').mockResolvedValue([] as never)
 
-    expect(await invoke(billing.functions.getCurrentSubscription)(makeCtx(null), {})).toBeNull()
+    expect(await invoke(billing.api.getCurrentSubscription)(makeCtx(null), {})).toBeNull()
+  })
+})
+
+describe('scheduled changes: a plan change and a resume date', () => {
+  const appliesAt = new Date('2099-02-01T00:00:00.000Z')
+  const resumesAt = new Date('2099-03-01T00:00:00.000Z')
+  const modifiedAt = new Date('2099-01-15T00:00:00.000Z')
+
+  it('keeps what the update response says, so a scheduled change reads back before its webhook', async () => {
+    const billing = make()
+    withSubscriptions()
+    mockSubscriptionsUpdate.mockResolvedValueOnce({
+      ok: true,
+      value: { id: 'sub_1', status: 'active', createdAt: new Date('2099-01-01T00:00:00.000Z'), modifiedAt, resumesAt: null, pendingUpdate: { id: 'pu_1', productId: 'prod_b', appliesAt, seats: null } },
+    } as never)
+    const ctx = makeCtx()
+
+    await billing.updateSubscription(ctx as never, { productId: 'prod_b' })
+
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:recordSubscriptionChange', {
+      subscriptionId: 'sub_1',
+      userId: 'u1',
+      pendingChange: { productId: 'prod_b', appliesAt: appliesAt.getTime() },
+      resumesAt: null,
+      modifiedAt: modifiedAt.getTime(),
+    })
+  })
+
+  it('keeps the resume date of a pause, and no plan change for an update that changes no product', async () => {
+    const billing = make()
+    withSubscriptions()
+    mockSubscriptionsUpdate.mockResolvedValueOnce({
+      ok: true,
+      value: { id: 'sub_1', status: 'active', createdAt: modifiedAt, modifiedAt: null, resumesAt, pendingUpdate: { id: 'pu_1', productId: null, appliesAt, seats: 3 } },
+    } as never)
+    const ctx = makeCtx()
+
+    await billing.pauseSubscription(ctx as never, { resumesAt })
+
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:recordSubscriptionChange', {
+      subscriptionId: 'sub_1',
+      userId: 'u1',
+      pendingChange: null,
+      resumesAt: resumesAt.getTime(),
+      // No modification yet: the creation time orders it.
+      modifiedAt: modifiedAt.getTime(),
+    })
+  })
+
+  it('joins the recorded change onto both subscription reads, as ISO strings', async () => {
+    const billing = make()
+    withSubscriptions([liveSubscription, { id: 'sub_old', status: 'canceled', endedAt: '2026-01-01T00:00:00Z', productId: 'prod_a' }])
+    vi.spyOn(Polar.prototype, 'getCurrentSubscription').mockResolvedValue(liveSubscription as never)
+    const ctx = makeCtx()
+    ctx.runQuery.mockImplementation(async (ref?: unknown, args?: unknown) => (ref === 'ref:subscriptionChanges'
+      ? [{ subscriptionId: 'sub_1', pendingChange: { productId: 'prod_b', appliesAt: appliesAt.getTime() }, resumesAt: resumesAt.getTime(), modifiedAt: modifiedAt.getTime() }]
+      : authTables(signedIn)(ref, args) ?? null))
+
+    const current = await invoke(billing.api.getCurrentSubscription)(ctx, {})
+    const all = await invoke(billing.api.listAllSubscriptions)(ctx, {}) as Array<Record<string, unknown>>
+
+    const joined = { pendingChange: { productId: 'prod_b', appliesAt: appliesAt.toISOString() }, resumesAt: resumesAt.toISOString() }
+    expect(current).toStrictEqual({ ...liveSubscription, ...joined })
+    // By the ids the read holds, never a capped scan of the entity's rows.
+    expect(ctx.runQuery).toHaveBeenCalledWith('ref:subscriptionChanges', { subscriptionIds: ['sub_1'] })
+    expect(ctx.runQuery).toHaveBeenCalledWith('ref:subscriptionChanges', { subscriptionIds: ['sub_1', 'sub_old'] })
+    expect(all[0]).toStrictEqual({ ...liveSubscription, ...joined })
+    // A subscription nothing was recorded for reads as nothing scheduled.
+    expect(all[1]).toMatchObject({ id: 'sub_old', pendingChange: null, resumesAt: null })
+  })
+
+  it('drops a record the subscription moved on from, or whose date has passed', async () => {
+    const billing = make()
+    const synced = { ...liveSubscription, modifiedAt: '2099-01-20T00:00:00.000Z' }
+    vi.spyOn(Polar.prototype, 'getCurrentSubscription').mockResolvedValue(synced as never)
+    const read = async (change: Record<string, unknown>) => {
+      const ctx = makeCtx()
+      ctx.runQuery.mockImplementation(async (ref?: unknown, args?: unknown) => (ref === 'ref:subscriptionChanges' ? [{ subscriptionId: 'sub_1', ...change }] : authTables(signedIn)(ref, args) ?? null))
+      return await invoke(billing.api.getCurrentSubscription)(ctx, {}) as Record<string, unknown>
+    }
+    const scheduled = { pendingChange: { productId: 'prod_b', appliesAt: appliesAt.getTime() }, resumesAt: resumesAt.getTime() }
+
+    // Recorded before the synced row's last change: the subscription moved on.
+    expect(await read({ ...scheduled, modifiedAt: modifiedAt.getTime() })).toMatchObject({ pendingChange: null, resumesAt: null })
+    // Recorded at the row's own time: current.
+    expect(await read({ ...scheduled, modifiedAt: Date.parse(synced.modifiedAt) })).toMatchObject({ pendingChange: { productId: 'prod_b' } })
+    // A change whose date has passed has applied; a resume date that passed, resumed.
+    const past = Date.parse('2020-01-01T00:00:00.000Z')
+    expect(await read({ pendingChange: { productId: 'prod_b', appliesAt: past }, resumesAt: past, modifiedAt: Date.parse(synced.modifiedAt) }))
+      .toMatchObject({ pendingChange: null, resumesAt: null })
+  })
+
+  it('orders a state by its pending update too, so a stale delivery with the same subscription time loses', async () => {
+    const billing = make()
+    withSubscriptions()
+    const subscriptionTime = new Date('2099-01-10T00:00:00.000Z')
+    const scheduledAt = new Date('2099-01-12T00:00:00.000Z')
+    // The fresh state: the provider scheduled a change without moving the subscription's own time.
+    mockSubscriptionsUpdate.mockResolvedValueOnce({
+      ok: true,
+      value: { id: 'sub_1', status: 'active', createdAt: subscriptionTime, modifiedAt: subscriptionTime, resumesAt: null, pendingUpdate: { id: 'pu_1', productId: 'prod_b', appliesAt, seats: null, createdAt: scheduledAt, modifiedAt: null } },
+    } as never)
+    // The stale state: the same subscription time, no change yet.
+    mockSubscriptionsUpdate.mockResolvedValueOnce({
+      ok: true,
+      value: { id: 'sub_1', status: 'active', createdAt: subscriptionTime, modifiedAt: subscriptionTime, resumesAt: null, pendingUpdate: null },
+    } as never)
+    const ctx = makeCtx()
+
+    await billing.updateSubscription(ctx as never, { productId: 'prod_b' })
+    await billing.updateSubscription(ctx as never, { productId: 'prod_b' })
+
+    const keys = ctx.runMutation.mock.calls.filter(([ref]) => ref === 'ref:recordSubscriptionChange').map(([, args]) => (args as { modifiedAt: number }).modifiedAt)
+    expect(keys).toEqual([scheduledAt.getTime(), subscriptionTime.getTime()])
+    // The component keeps the larger key (test/convex-component/billing.test.ts), so the stale one loses.
+    expect(keys[1]!).toBeLessThan(keys[0]!)
+  })
+
+  it('never fails an applied change when its record cannot be written, and logs it', async () => {
+    const billing = make()
+    withSubscriptions()
+    mockSubscriptionsUpdate.mockResolvedValueOnce({
+      ok: true,
+      value: { id: 'sub_1', status: 'active', createdAt: modifiedAt, modifiedAt, resumesAt: null, pendingUpdate: { id: 'pu_1', productId: 'prod_b', appliesAt, seats: null } },
+    } as never)
+    const warned = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const ctx = makeCtx()
+    const failure = new Error('write conflict')
+    ctx.runMutation.mockImplementation(async (ref?: unknown) => {
+      if (ref === 'ref:recordSubscriptionChange') throw failure
+      return ref === 'ref:claimTrial' ? true : null
+    })
+
+    await expect(billing.updateSubscription(ctx as never, { productId: 'prod_b' })).resolves.toMatchObject({ id: 'sub_1' })
+    expect(warned).toHaveBeenCalledWith(expect.stringContaining('[nuxt-backend] billing.subscription_change_unrecorded:'), failure)
   })
 })
 
@@ -1679,7 +2096,7 @@ describe('registered actions', () => {
       'updateSubscription', 'cancelSubscription', 'uncancelSubscription',
       'pauseSubscription', 'resumeSubscription', 'getOrders', 'getInvoiceUrl', 'refundOrder',
     ] as const) {
-      expect(make().functions[name], name).toBeDefined()
+      expect(make().api[name], name).toBeDefined()
     }
   })
 
@@ -1687,7 +2104,7 @@ describe('registered actions', () => {
     const billing = make()
     withSubscriptions()
 
-    await invoke(billing.functions.pauseSubscription)(makeCtx(), { resumesAt: Date.UTC(2026, 9, 1) })
+    await invoke(billing.api.pauseSubscription)(makeCtx(), { resumesAt: Date.UTC(2026, 9, 1) })
 
     expect(mockSubscriptionsUpdate).toHaveBeenCalledWith(expect.anything(), {
       id: 'sub_1',
@@ -1700,7 +2117,10 @@ describe('registered actions', () => {
   // so billing.api keeps only the provider's price list.
   it('billing.api keeps only the provider\'s price list of its own actions', () => {
     expect(Object.keys(make().api).sort()).toEqual([
-      'generateCheckoutLink', 'generateCustomerPortalUrl', 'getConfiguredProducts', 'giftCheckout', 'listAllSubscriptions',
+      'acceptSaveOffer', 'cancelGift', 'cancelPendingChange', 'cancelSubscription', 'changeGiftRecipient', 'claimGift', 'generateCheckoutLink', 'generateCustomerPortalUrl', 'getBillingAccess',
+      'getBillingConsole', 'getConfiguredProducts', 'getCredits', 'getCurrentSubscription', 'getFeatures', 'getInvoiceUrl', 'getOrders', 'getPricing',
+      'getReceivedGifts', 'getRevenue', 'getSentGifts', 'getUsageHistory', 'getWithdrawal', 'giftCheckout', 'listAllSubscriptions', 'pauseSubscription',
+      'refundOrder', 'rescheduleGift', 'resendGift', 'resumeSubscription', 'runGiftSweep', 'startFreePlan', 'syncEntitlements', 'syncProducts', 'uncancelSubscription', 'updateSubscription', 'withdraw',
     ])
   })
 
@@ -1710,7 +2130,7 @@ describe('registered actions', () => {
 
     // No userId argument exists — the entity always comes from the caller's
     // own identity, so a client cannot cancel someone else's plan.
-    expect(await invoke(billing.functions.cancelSubscription)(makeCtx(), { atPeriodEnd: true })).toBeNull()
+    expect(await invoke(billing.api.cancelSubscription)(makeCtx(), { atPeriodEnd: true })).toEqual({ canceled: true, endsAt: null })
     expect(mockSubscriptionsUpdate).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ id: 'sub_1' }),

@@ -1,0 +1,98 @@
+/*
+ * AdminInbox's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-admin='inbox'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+    color: var(--bk-ink);
+  }
+
+  [data-admin='inbox-filter'],
+  :where([data-admin='inbox-reply']) label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  [data-admin='inbox-filter'] {
+    align-self: flex-start;
+  }
+
+  [data-admin='inbox-list'] {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--bk-edge);
+  }
+
+  [data-admin='inbox-row'] {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--bk-edge);
+  }
+
+  [data-admin='inbox-summary'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.75rem;
+  }
+
+  [data-admin='inbox-kind'],
+  [data-admin='inbox-time'],
+  [data-admin='inbox-delivery'],
+  [data-admin='inbox-answered'],
+  [data-admin='inbox-hint'] {
+    color: var(--bk-muted);
+    font-size: 0.9em;
+  }
+
+  [data-admin='inbox-delivery'][data-state='failed'] {
+    color: var(--bk-error);
+  }
+
+  [data-admin='inbox-open'] {
+    margin-inline-start: auto;
+  }
+
+  [data-admin='inbox-body'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-block: 0.5rem;
+  }
+
+  /* A message is plain text: its line breaks stay, and a long word does not widen the page. */
+  [data-admin='inbox-text'] {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  [data-admin='inbox-subject'],
+  [data-admin='inbox-from'],
+  [data-admin='inbox-hint'] {
+    margin: 0;
+  }
+
+  [data-admin='inbox-reply'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  [data-admin='inbox-send'] {
+    align-self: flex-start;
+  }
+
+  [data-admin='inbox-send'][aria-disabled='true'] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+}

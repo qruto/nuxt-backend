@@ -1,12 +1,12 @@
-import { setupBilling, type DiscountInput } from 'nuxt-backend/billing'
-import { v } from 'convex/values'
+import { setupBilling } from 'nuxt-backend/billing'
 import { components } from './_generated/api'
-import { internalAction } from './_generated/server'
+import { audit } from './audit'
 import { catalog } from './billing.generated'
 import { email } from './email'
+import { paths } from './paths.generated'
 
 // Subscriptions, discounts, prepaid credits & gift purchases. Billing
-// follows the tenant: with the default `billTo: 'organization'` the active
+// follows the tenant: with the default `billTo: 'workspace'` the active
 // workspace owns the subscription and credits (members share them); switch to
 // `billTo: 'user'` for per-user B2C billing. The billing entity resolves from
 // identity claims automatically, configuration comes from the BILLING_* env
@@ -16,70 +16,37 @@ import { email } from './email'
 // is declared in billing.catalog.ts and pushed with
 // `npx nuxt-backend billing sync`, which fills billing.generated.ts.
 // A gift's recipient hears of it through `email` (email.ts), which holds
-// the template. The instance is exported for ai.ts (metered actions spend
-// through it).
-export const billing = setupBilling(components, { catalog, email })
+// the template. Checkouts, plan changes, refunds, gifts and the provider's
+// webhooks are recorded on the activity trail through `audit` (audit.ts).
+// functions.ts builds its withFeature tier on this instance, and ai.ts
+// spends credits through it; this file imports nothing from functions.ts.
+// `paths` (paths.generated.ts) is the settings page its emails link to.
+export const billing = setupBilling(components, { catalog, email, audit, paths })
 
-// Checkout, portal, price list and gift checkout for `useBilling`. The
-// server sells only the catalog's plans and packs, sends buyers back only
-// to SITE_URL, and keeps the trial and discounts by id to itself.
+// Every function the billing composables call, by name: checkout, the
+// portal and the price list (the server sells only the catalog's plans and
+// packs, and sends buyers back only to SITE_URL), the reactive
+// subscription, feature and credit reads, the gifts, the subscription's
+// lifecycle (each resolves the caller's own billing entity), the order and
+// usage history read live from the provider, the admin-only refund and
+// revenue metrics (the admin console's Revenue view), the free plan every new
+// workspace starts on (internal; run by the workpool), and the gift sweep
+// (internal; woken by the component's cron, and scheduled for a gift dated
+// for later).
 export const {
-  generateCheckoutLink,
-  generateCustomerPortalUrl,
-  getConfiguredProducts,
-  listAllSubscriptions,
-  giftCheckout,
+  getPricing, getConfiguredProducts, getBillingAccess, getFeatures, getCredits,
+  getCurrentSubscription, listAllSubscriptions, syncEntitlements, syncProducts, startFreePlan,
+  generateCheckoutLink, generateCustomerPortalUrl,
+  updateSubscription, cancelSubscription, acceptSaveOffer, uncancelSubscription,
+  cancelPendingChange, pauseSubscription, resumeSubscription,
+  getOrders, getInvoiceUrl, getUsageHistory, refundOrder, getWithdrawal, withdraw,
+  giftCheckout, getReceivedGifts, claimGift, getSentGifts, resendGift, changeGiftRecipient,
+  rescheduleGift, cancelGift, runGiftSweep, getRevenue, getBillingConsole,
 } = billing.api
-// Reactive queries + actions behind `useBilling` / `useFeatures` /
-// `useCredits` / `useGifts`.
-export const {
-  getCurrentSubscription,
-  getFeatures,
-  getCredits,
-  syncEntitlements,
-  syncProducts,
-  getReceivedGifts,
-  claimGift,
-  // The webhook delivery log, for DevTools: admins only, null for anyone else.
-  getWebhookDeliveries,
-  // Subscription lifecycle — upgrade/downgrade, cancel, uncancel,
-  // pause/resume. Each resolves the caller's own billing entity, so a
-  // client can only ever act on its own subscription.
-  updateSubscription,
-  cancelSubscription,
-  uncancelSubscription,
-  pauseSubscription,
-  resumeSubscription,
-  // Order history, invoices and metered usage, read live from the provider
-  // (this package keeps no local order or usage table — the provider is the
-  // ledger).
-  getOrders,
-  getInvoiceUrl,
-  getUsageHistory,
-  // Admin-tier: gated by `setupBilling({ requireAdmin })`, which defaults
-  // to an `admin` role claim on the caller's identity.
-  refundOrder,
-} = billing.functions
-// Webhook handlers (imported by http.ts) that keep the cache fresh.
-export const { webhookEvents } = billing
-
-// Discounts: mint a percentage coupon. This is privileged — a public action
-// would let anyone create a 100%-off code — so it ships as an internalAction:
-// run it from ops (`npx convex run billing:createDiscount '{"name":"Launch","percent":20}'`)
-// or your own server code. To expose it to an admin UI, re-declare it with
-// the `admin.action` builder from ./functions instead of internalAction.
-export const createDiscount = internalAction({
-  args: { name: v.string(), percent: v.number(), code: v.optional(v.string()) },
-  handler: async (ctx, { name, percent, code }) => {
-    const basisPoints = Math.round(Math.min(Math.max(percent, 0), 100) * 100)
-    const discount: DiscountInput = { type: 'percentage', name, code, duration: 'once', basisPoints }
-    return billing.discounts.create(discount)
-  },
-})
 
 // Credits are prepaid: a credit pack is a one-time product whose Credits
 // benefit tops up a meter balance (`useCredits().topUp(packId)`, or as a gift
-// by its catalog key: `useCredits().gift('credits500', { recipientEmail })`).
+// by its catalog key: `useGifts().send('credits500', { recipientEmail })`).
 // Spend them from your own server code when a metered feature is used —
 // `spendCredits` blocks (throws) when the balance is too low, so credits are
 // never billed as overage. Uncomment and point `meterId` at your credit meter:
@@ -89,5 +56,18 @@ export const createDiscount = internalAction({
 //   handler: async (ctx, { meterId }) => {
 //     // The billing entity (active workspace or user) resolves from identity.
 //     await billing.spendCredits(ctx, { name: 'credits', meterId })
+//   },
+// })
+
+// Quotas (experimental): how many of a thing a plan allows, declared as
+// `quotas` in billing.catalog.ts. Count one in the mutation that makes
+// the thing, where the check and the count are one transaction, and give
+// it back in the one that removes it (`workspace` from ./functions):
+//
+// export const createProject = workspace.mutation({
+//   args: { name: v.string() },
+//   handler: async (ctx, { name }) => {
+//     await billing.requireQuota(ctx, 'projects')
+//     return ctx.db.insert('projects', { name, workspaceId: ctx.workspace.id })
 //   },
 // })

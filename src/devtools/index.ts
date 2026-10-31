@@ -3,14 +3,18 @@ import type { Nuxt } from '@nuxt/schema'
 import type { Resolver } from '@nuxt/kit'
 import { registerDevtools } from './register'
 import { createDevtoolsRpc } from './rpc'
+import type { DevtoolsLastDoctorRun } from './info'
 import { DEVTOOLS_UI_LOCAL_PORT, DEVTOOLS_UI_ROUTE, RPC_NAMESPACE, type DevtoolsDeploymentEnv, type DevtoolsServerInfo } from './rpc-types'
 
 /** What the module hands the DevTools RPC — build-time facts, re-read live. */
 export interface DevtoolsServerContext {
   rootDir: string
   functionsDir: string
-  /** Called per request, so findings stay live; given the last deployment env read. */
-  getInfo(deploymentEnv: DevtoolsDeploymentEnv | null): DevtoolsServerInfo
+  /**
+   * Called per request, so findings stay live; given the last deployment env
+   * read and the doctor runs since the env last changed.
+   */
+  getInfo(deploymentEnv: DevtoolsDeploymentEnv | null, doctor: DevtoolsLastDoctorRun | null): DevtoolsServerInfo
 }
 
 /** Env files and codegen: the dev-server facts the panel shows. */
@@ -44,6 +48,7 @@ export function setupDevtools(resolver: Resolver, nuxt: Nuxt, context: DevtoolsS
     functionsDir: context.functionsDir,
     buildInfo: context.getInfo,
     onDeploymentEnvRead: pushInfo,
+    onDoctorRun: pushInfo,
   })
 
   const handle = registerDevtools(nuxt, {

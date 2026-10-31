@@ -16,13 +16,18 @@
  *    marker as the module's dev-startup auto-provision);
  * 4. `convex dev --start "nuxt dev …"`: the first push now succeeds, codegen
  *    runs before Nuxt starts, and Convex owns the Nuxt process.
+ *
+ * `--anonymous` runs both Convex steps with `CONVEX_AGENT_MODE=anonymous` in
+ * their env, so step 2 creates an account-free local deployment without a
+ * login or a question. Set from Node rather than the shell, it works the same
+ * on macOS, Linux and Windows.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { delimiter, join, resolve } from 'node:path'
 import { defineCommand } from 'citty'
 import { spawnConvex } from '../convex-cli'
 import { isDevDeploymentId } from '../deployment'
-import { configuredDeployment, isEnvProvisioned, markEnvProvisioned, runEnvPush, type EnvPushRunResult } from '../env-push'
+import { configuredDeployment, devPushRefusal, isEnvProvisioned, markEnvProvisioned, runEnvPush, type EnvPushRunResult } from '../env-push'
 import { finding, type PreflightFinding } from '../findings'
 import { resolveFunctionsDir, scaffoldBackendFiles } from '../scaffold'
 import { withContract } from './contract'
@@ -47,18 +52,23 @@ export function nuxtDevCommand(args: readonly string[]): string {
   return ['nuxt', 'dev', ...args].map(shellQuote).join(' ')
 }
 
-/** Split this command's own `--cwd` off the raw arguments; the rest go to `nuxt dev`. */
-export function splitDevArgs(rawArgs: readonly string[]): { cwd: string, nuxtArgs: string[] } {
+/** Split this command's own `--cwd` and `--anonymous` off the raw arguments; the rest go to `nuxt dev`. */
+export function splitDevArgs(rawArgs: readonly string[]): { cwd: string, anonymous: boolean, nuxtArgs: string[] } {
   let cwd = '.'
+  let anonymous = false
   const nuxtArgs: string[] = []
   for (let index = 0; index < rawArgs.length; index++) {
     const arg = rawArgs[index]!
     if (arg === '--cwd' && index + 1 < rawArgs.length) cwd = rawArgs[++index]!
     else if (arg.startsWith('--cwd=')) cwd = arg.slice('--cwd='.length)
+    else if (arg === '--anonymous') anonymous = true
     else nuxtArgs.push(arg)
   }
-  return { cwd, nuxtArgs }
+  return { cwd, anonymous, nuxtArgs }
 }
+
+/** What the Convex CLI reads to set up an account-free local deployment without asking. */
+const CONVEX_ANONYMOUS = { CONVEX_AGENT_MODE: 'anonymous' } as const
 
 /** A plain `nuxt dev` script, the one the Nuxt starter ships, and its arguments. */
 const PLAIN_NUXT_DEV = /^(?:npx )?(?:nuxt|nuxi) dev(?<args>(?: [^&|;'"]*)?)$/
@@ -147,10 +157,17 @@ const INTERRUPTED = 130
  * none yet (the login and project prompts happen there). `null` when that
  * run ended without one, `INTERRUPTED` when it was stopped.
  */
-async function attachDeployment(rootDir: string, env: NodeJS.ProcessEnv, steps: DevSteps): Promise<string | null | typeof INTERRUPTED> {
+async function attachDeployment(rootDir: string, env: NodeJS.ProcessEnv, steps: DevSteps, anonymous: boolean): Promise<string | null | typeof INTERRUPTED> {
   const configured = configuredDeployment(rootDir)
-  if (configured) return configured
-  steps.log('No Convex deployment yet: `convex dev --once` sets one up. Log in and pick a project when it asks.')
+  if (configured) {
+    if (anonymous && !configured.startsWith('anonymous:')) {
+      steps.log(`--anonymous: CONVEX_DEPLOYMENT already names ${configured}, and this run uses it. Remove it from .env.local to start on an account-free local deployment instead.`)
+    }
+    return configured
+  }
+  steps.log(anonymous
+    ? 'No Convex deployment yet: `convex dev --once` starts an account-free local one. `npx convex login` moves it into your account later.'
+    : 'No Convex deployment yet: `convex dev --once` sets one up. Log in and pick a project when it asks.')
   // On a new deployment this push fails on the env it has not been given
   // yet. That is expected: the deployment exists and CONVEX_DEPLOYMENT is in
   // .env.local by then, which is all this step is for.
@@ -160,9 +177,18 @@ async function attachDeployment(rootDir: string, env: NodeJS.ProcessEnv, steps: 
   return configuredDeployment(rootDir)
 }
 
-/** `env push` on a dev deployment, once: a clean run leaves the shared marker. */
+/**
+ * `env push` on a dev deployment, once: a clean run leaves the shared marker.
+ * One refused because a deploy key selects another deployment says why and
+ * leaves no marker.
+ */
 async function provisionEnv(rootDir: string, deployment: string, steps: DevSteps): Promise<void> {
   if (!isDevDeploymentId(deployment) || isEnvProvisioned(rootDir, deployment)) return
+  const refusal = devPushRefusal(rootDir)
+  if (refusal) {
+    steps.log(`env push skipped: ${refusal}`)
+    return
+  }
   const run = await steps.envPush().catch((error: unknown) => {
     steps.log(`env push failed: ${error instanceof Error ? error.message : String(error)}`)
     return null
@@ -176,16 +202,20 @@ async function provisionEnv(rootDir: string, deployment: string, steps: DevSteps
 }
 
 /** Run the four steps (see the file header); resolves with the exit code to pass on. */
-export async function runDev(rootDir: string, nuxtArgs: readonly string[], steps: DevSteps): Promise<number> {
+export async function runDev(rootDir: string, nuxtArgs: readonly string[], steps: DevSteps, { anonymous = false } = {}): Promise<number> {
   // `nuxt` for the command Convex starts, whether this runs from a package
   // script (which already has it on PATH) or straight from a terminal.
-  const env = { ...process.env, PATH: [join(rootDir, 'node_modules/.bin'), process.env.PATH].filter(Boolean).join(delimiter) }
+  const env = {
+    ...process.env,
+    ...(anonymous ? CONVEX_ANONYMOUS : {}),
+    PATH: [join(rootDir, 'node_modules/.bin'), process.env.PATH].filter(Boolean).join(delimiter),
+  }
 
   if (!existsSync(join(rootDir, resolveFunctionsDir(rootDir)))) {
     scaffoldBackendFiles(rootDir, { log: steps.log })
   }
 
-  const deployment = await attachDeployment(rootDir, env, steps)
+  const deployment = await attachDeployment(rootDir, env, steps, anonymous)
   if (deployment === INTERRUPTED) return INTERRUPTED
   if (!deployment) {
     steps.log('No deployment is configured, so there is nothing to start against. Run `npx convex dev` once to set one up, then run this again.')
@@ -210,19 +240,21 @@ export const dev = withContract('dev', {
   },
   args: {
     cwd: { type: 'string', description: 'Project directory', default: '.' },
+    anonymous: { type: 'boolean', description: 'Start on an account-free local deployment, with no Convex login and no question, on every OS', default: false },
   },
   async run({ rawArgs }) {
-    const { cwd, nuxtArgs } = splitDevArgs(rawArgs)
+    const { cwd, anonymous, nuxtArgs } = splitDevArgs(rawArgs)
     const rootDir = resolve(process.cwd(), cwd)
     // While Convex runs, a stop signal sent here is passed on to it and this
     // process waits for it to clean up (spawnConvex). On Windows a console
     // Ctrl-C reaches Convex, and through it Nuxt, on its own, and the child
     // cannot be stopped gracefully from here, so this process only waits.
     if (process.platform === 'win32') process.on('SIGINT', () => {})
+    const log = (line: string) => console.log(`[nuxt-backend] ${line}`)
     process.exitCode = await runDev(rootDir, nuxtArgs, {
       convex: (args, env) => spawnConvex(rootDir, args, { env }),
       envPush: () => runEnvPush(rootDir, {}),
-      log: line => console.log(`[nuxt-backend] ${line}`),
-    })
+      log,
+    }, { anonymous })
   },
 }))

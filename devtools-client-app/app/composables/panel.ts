@@ -12,9 +12,6 @@ const BRIDGE_RETRY_LIMIT = 10
 /** The base module's own DevTools tab: connection, live queries, auth state, logs. */
 const CONNECTION_TAB = '/modules/custom-nuxt-convex-module'
 
-/** The MCP toolkit's tab (dev only, present while `backend.mcp` is on). */
-const MCP_INSPECTOR_TAB = '/modules/custom-mcp-inspector'
-
 // No colour-mode code here on purpose: DevTools toggles `dark` on this
 // same-origin page's <html> itself and follows changes both ways, so a sync
 // of the panel's own would fight it.
@@ -108,11 +105,6 @@ export async function openBackendFile(file: string): Promise<void> {
 /** Switch DevTools to the base module's tab: connection, live queries, auth state, logs. */
 export function openConnectionTab(): void {
   host?.devtools.navigate(CONNECTION_TAB)
-}
-
-/** Switch DevTools to the MCP Inspector, which drives the agent endpoint by hand. */
-export function openMcpInspector(): void {
-  host?.devtools.navigate(MCP_INSPECTOR_TAB)
 }
 
 /** Copy text (fix-hint commands, URLs) to the clipboard; quiet on denial. */

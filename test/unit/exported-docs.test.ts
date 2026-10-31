@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 // description and examples.
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
-const DIRS = ['src/convex', 'src/convex/integrations', 'src/convex/client', 'src/runtime/vue/composables']
+const DIRS = ['src/convex', 'src/convex/integrations', 'src/convex/client', 'src/runtime/vue/composables', 'src/runtime/test-utils']
 
 const sources = DIRS.flatMap(dir => readdirSync(join(root, dir))
   .filter(name => name.endsWith('.ts') && !name.endsWith('.d.ts'))

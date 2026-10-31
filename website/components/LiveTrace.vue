@@ -2,8 +2,8 @@
 import { computed } from 'vue'
 
 /**
- * A depth-native "live" element: a smooth trace plotted inside a concave well
- * carved into the material — the playground's calm replacement for the old
+ * A depth-native "live" element: a smooth trace plotted inside a `slot`
+ * milled into the material — the playground's calm replacement for the old
  * oscilloscope. Pass real `values` (e.g. inflight history) to plot data, or
  * leave it off for an ambient scrolling wave. `live=false` freezes + dims it.
  */
@@ -52,38 +52,50 @@ const dataPoints = computed(() => {
 })
 
 const isData = computed(() => dataPoints.value !== null)
+
+// The trace is lettered in its signal (`--c`); in the dark it glows a little.
+// Spelled out, so Tailwind's scan finds every class it must emit.
+const TONE = { ok: '[--c:var(--ok)]', warn: '[--c:var(--warn)]', err: '[--c:var(--err)]' } as const
+const line = computed(() => props.live
+  ? 'opacity-90 [filter:drop-shadow(0_0_2px_light-dark(transparent,color-mix(in_srgb,var(--c)_50%,transparent)))]'
+  : 'opacity-30')
 </script>
 
 <template>
   <div
-    class="trace well"
-    :class="[tone, { paused: !live }]"
+    class="slot overflow-hidden px-2 py-1.5 [--slot-r:var(--r-lg)]"
+    :class="TONE[tone]"
   >
     <svg
       :viewBox="`0 0 ${W} ${H}`"
       preserveAspectRatio="none"
+      class="block w-full overflow-visible"
       :style="{ 'height': `${height}px`, '--dur': `${speed}s` }"
       aria-hidden="true"
     >
       <!-- Real-data trace -->
       <polyline
         v-if="isData"
-        class="line"
+        class="fill-none stroke-(--c) stroke-[1.75] [stroke-linecap:round] [stroke-linejoin:round]"
+        :class="line"
         :points="dataPoints!"
         vector-effect="non-scaling-stroke"
       />
       <!-- Ambient scrolling trace (doubled for seamless loop) -->
       <g
         v-else
-        class="beam"
+        class="animate-[trace-scroll_var(--dur)_linear_infinite] motion-reduce:animate-none"
+        :class="{ '[animation-play-state:paused]': !live }"
       >
         <polyline
-          class="line"
+          class="fill-none stroke-(--c) stroke-[1.75] [stroke-linecap:round] [stroke-linejoin:round]"
+          :class="line"
           :points="ambient"
           vector-effect="non-scaling-stroke"
         />
         <polyline
-          class="line"
+          class="fill-none stroke-(--c) stroke-[1.75] [stroke-linecap:round] [stroke-linejoin:round]"
+          :class="line"
           :points="ambient"
           :transform="`translate(${W} 0)`"
           vector-effect="non-scaling-stroke"
@@ -92,40 +104,3 @@ const isData = computed(() => dataPoints.value !== null)
     </svg>
   </div>
 </template>
-
-<style scoped>
-.trace {
-  --c: var(--ok);
-  padding: 0.4rem 0.55rem;
-  overflow: hidden;
-}
-.trace.ok   { --c: var(--ok); }
-.trace.warn { --c: var(--warn); }
-.trace.err  { --c: var(--err); }
-
-svg { display: block; width: 100%; overflow: visible; }
-
-.beam { animation: trace-scroll var(--dur) linear infinite; }
-.trace.paused .beam { animation-play-state: paused; }
-
-.line {
-  fill: none;
-  stroke: var(--c);
-  stroke-width: 1.75;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  opacity: 0.9;
-}
-@media (prefers-color-scheme: dark) {
-  .line { filter: drop-shadow(0 0 2px color-mix(in srgb, var(--c) 50%, transparent)); }
-}
-.trace.paused .line { opacity: 0.3; filter: none; }
-
-@keyframes trace-scroll {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-240px); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .beam { animation: none; }
-}
-</style>

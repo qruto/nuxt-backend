@@ -1,0 +1,31 @@
+{
+  "name": "nuxt-backend",
+  "description": "The agent plugin for nuxt-backend apps: the core and task skills, the developer MCP server and the docs MCP, in one install.",
+  "owner": {
+    "name": "Slava Razum",
+    "url": "https://github.com/qruto"
+  },
+  "plugins": [
+    {
+      "name": "nuxt-backend",
+      "source": "./skills",
+      "description": "Everything a coding agent needs for nuxt-backend apps: the core skill and a task skill per part of the app, the developer MCP server (npx nuxt-backend mcp: the project's state, the docs, and the Convex, Polar, Resend and Vercel consoles on your own logins) and the docs MCP.",
+      "homepage": "https://nuxt-backend.dev/docs/develop/agents/plugin",
+      "repository": "https://github.com/qruto/nuxt-backend",
+      "license": "MIT",
+      "keywords": ["nuxt", "convex", "backend", "auth", "billing", "email", "mcp", "skills"],
+      "category": "development",
+      "skills": ["./"],
+      "mcpServers": {
+        "nuxt-backend": {
+          "command": "npx",
+          "args": ["nuxt-backend", "mcp"]
+        },
+        "nuxt-backend-docs": {
+          "type": "http",
+          "url": "https://mcp.nuxt-backend.dev/mcp"
+        }
+      }
+    }
+  ]
+}

@@ -1,20 +1,23 @@
 import { execFileSync } from 'node:child_process'
+import { request as httpRequest } from 'node:http'
+import { gunzipSync, gzipSync } from 'node:zlib'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 import { $fetch, createPage, fetch, setup, url } from '@nuxt/test-utils/e2e'
 import type { NuxtConfig } from '@nuxt/schema'
 import type { Page } from 'playwright-core'
 import type { BackendAppConfigInput } from '../../src/runtime/config'
+import { axeViolations } from './helpers/axe'
 import { startConvexStub } from './helpers/convex-stub'
 import { prepareExampleApp } from './helpers/example-app'
 
 // Full production build + serve of `templates/starter` — the out-of-the-box
 // app (`modules: ['nuxt-backend']`, scaffolded backend, no custom code) —
 // against a stub deployment: the module's ready-made pages over SSR, the
-// auth middleware, the Better Auth proxy, the agent (MCP) surface's OAuth
-// gate and discovery documents, the Convex-aware CSP, and a browser leg that
+// auth middleware, the Better Auth proxy, the Convex-aware CSP, and a browser leg that
 // drives the passwordless sign-in form and a live query through the stub's
-// sync WebSocket.
+// sync WebSocket, then checks each step a signed-out visitor reaches with
+// axe-core, in the light and the dark scheme.
 
 const rootDir = fileURLToPath(new URL('../../templates/starter', import.meta.url))
 const repoDir = fileURLToPath(new URL('../..', import.meta.url))
@@ -25,29 +28,88 @@ const repoDir = fileURLToPath(new URL('../..', import.meta.url))
 process.env.NUXT_TELEMETRY_DISABLED ||= '1'
 
 /**
- * The pricing catalog (`appConfig.backend.billing`) — names and prices
- * resolve live from `billing:getConfiguredProducts` (canned below).
+ * The pricing copy (`appConfig.backend.billing`) — names, prices and
+ * credits resolve live from `billing:getPricing` (canned below).
  */
 const CATALOG: BackendAppConfigInput = {
   billing: {
-    plans: [{ key: 'pro', credits: 500, blurb: 'Everything, monthly', highlight: true }],
-    packs: [{ key: 'credits500', credits: 500 }],
+    plans: [{ key: 'pro', blurb: 'Everything, monthly', highlight: true }],
+    packs: [{ key: 'credits500' }],
   },
 }
 
-/** Canned `billing:getConfiguredProducts` result, keyed like the catalog. */
-const PRODUCTS = {
-  pro: { id: 'prod_pro', name: 'Pro plan', prices: [{ priceAmount: 2900, priceCurrency: 'usd' }] },
-  credits500: { id: 'prod_credits500', name: '500 credits', prices: [{ priceAmount: 2000, priceCurrency: 'usd' }] },
+/** Canned `billing:getPricing` result: Pro by the month and the year, and one pack. */
+const PRICING = {
+  plans: [{
+    key: 'pro',
+    name: 'Pro plan',
+    description: null,
+    retired: false,
+    features: ['Priority support'],
+    prices: {
+      month: { productId: 'prod_pro', amount: 2900, currency: 'usd', monthly: 2900, credits: { meter: 'credits', units: 500, rollover: false } },
+      year: { productId: 'prod_pro_year', amount: 29000, currency: 'usd', monthly: 29000 / 12, savings: 16, credits: { meter: 'credits', units: 6000, rollover: false } },
+    },
+  }],
+  packs: [{ key: 'credits500', productId: 'prod_credits500', name: '500 credits', description: null, amount: 2000, currency: 'usd', credits: { meter: 'credits', units: 500, rollover: true }, isBestValue: false }],
 }
 
 const stub = await startConvexStub({
   handlers: {
-    'billing:getConfiguredProducts': () => PRODUCTS,
+    'billing:getPricing': () => PRICING,
+    // `useBilling()` still reads the products by key.
+    'billing:getConfiguredProducts': () => ({ pro: { id: 'prod_pro', name: 'Pro plan' }, credits500: { id: 'prod_credits500', name: '500 credits' } }),
     // `useCredits()` subscribes unconditionally; signed out there is no balance.
     'billing:getCredits': () => null,
   },
 })
+
+// The page guard: a page the starter does not ship, mounted behind one rule
+// of each kind: /members-only (`role: 'admin'`), /subscribers-only
+// (`feature: 'priority-support'`, which the admin's plan includes) and
+// /owners-only (`workspace: 'owner'`). The starter has no error.vue, so
+// the module's own error page renders the 403 with <AccessDenied>. A session
+// cookie names who is signed in, and the stub answers the token, the
+// session, the active workspace's member and the plan's features for it;
+// every other request stays signed out, as the rest of this file expects.
+const GUARDED_PAGE = fileURLToPath(new URL('../fixtures/access/members-only.vue', import.meta.url))
+const SIGNED_IN = { member: 'user', admin: 'admin' } as const
+/** Who a request's session cookie signs in, if anyone. */
+const whoIs = (cookie: string | string[] | undefined): keyof typeof SIGNED_IN | undefined =>
+  String(cookie ?? '').match(/better-auth\.session_token=(member|admin)\b/)?.[1] as keyof typeof SIGNED_IN | undefined
+const accountOf = (who: keyof typeof SIGNED_IN) => ({ id: `user_${who}`, name: 'Ada Lovelace', email: 'ada@example.com', emailVerified: true, image: null, role: SIGNED_IN[who], createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' })
+/** An unsigned JWT with the claims the auth server puts on a session's token. */
+function sessionToken(who: keyof typeof SIGNED_IN): string {
+  const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url')
+  const { id, image: _image, ...claims } = accountOf(who)
+  return `${encode({ alg: 'none', typ: 'JWT' })}.${encode({ sub: id, ...claims, exp: Math.floor(Date.now() / 1000) + 3600 })}.`
+}
+stub
+  .route('GET /api/auth/convex/token', (request) => {
+    const who = whoIs(request.headers.cookie)
+    return { body: { token: who ? sessionToken(who) : null } }
+  })
+  .route('GET /api/auth/get-session', (request) => {
+    const who = whoIs(request.headers.cookie)
+    return { body: who ? { user: accountOf(who), session: { id: `session_${who}`, userId: `user_${who}`, expiresAt: '2099-01-01T00:00:00.000Z' } } : null }
+  })
+  // The admin owns the active workspace; the member is a member of it.
+  .route('GET /api/auth/organization/get-active-member', (request) => {
+    const who = whoIs(request.headers.cookie)
+    return { body: who ? { id: `member_${who}`, organizationId: 'org_1', userId: `user_${who}`, role: who === 'admin' ? 'owner' : 'member' } : null }
+  })
+  // Both belong to the one workspace: the switcher lists it.
+  .route('GET /api/auth/organization/list', (request) => {
+    const who = whoIs(request.headers.cookie)
+    return { body: who ? [{ id: 'org_1', name: 'Acme', slug: 'acme', createdAt: '2026-01-01T00:00:00.000Z' }] : [] }
+  })
+  // The browser reports its time zone after a sign-in, for the email sending rules.
+  .on('email:recordTimeZone', () => null)
+  // The admin's plan includes priority support; the member's includes nothing.
+  .on('billing:getFeatures', (_args, call) => {
+    const subject = call.token ? JSON.parse(Buffer.from(call.token.split('.')[1] ?? '', 'base64url').toString('utf8')).sub : undefined
+    return { benefits: subject === 'user_admin' ? [{ benefitId: 'benefit_priority', metadata: { key: 'priority-support' } }] : [] }
+  })
 const app = prepareExampleApp(rootDir)
 afterAll(async () => {
   await stub.close()
@@ -68,17 +130,28 @@ await setup({
   setupTimeout: 600_000,
   nuxtConfig: {
     telemetry: false,
+    // A production build names no element in a hydration mismatch; with this,
+    // the error a browser test collects says which node and what differed.
+    debug: { hydration: true },
     backend: {
       url: stub.url,
-      siteUrl: stub.url,
-      autoEnv: false,
-      scaffold: false,
       devtools: false,
     },
+    // The stub answers both the client and the HTTP routes, so the site origin is its own.
+    convex: { siteUrl: stub.url },
     // Widened through `unknown`: the override is typed as the *resolved* app
     // config, whose empty defaults narrow the catalog arrays to `never[]` —
     // `CATALOG` is checked against the module's input contract instead.
     appConfig: { backend: CATALOG } as unknown as NuxtConfig['appConfig'],
+    hooks: {
+      'pages:extend'(pages) {
+        pages.push(
+          { name: 'members-only', path: '/members-only', file: GUARDED_PAGE, meta: { auth: { role: 'admin' } } },
+          { name: 'subscribers-only', path: '/subscribers-only', file: GUARDED_PAGE, meta: { auth: { feature: 'priority-support' } } },
+          { name: 'owners-only', path: '/owners-only', file: GUARDED_PAGE, meta: { auth: { workspace: 'owner' } } },
+        )
+      },
+    },
   },
 })
 
@@ -95,8 +168,20 @@ function collectBrowserErrors(page: Page): { errors: string[], frames: string[] 
   const frames: string[] = []
   page.on('pageerror', error => errors.push(`pageerror: ${error.message}`))
   page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(`console.error: ${message.text()}`)
-    else frames.push(`console.${message.type()}: ${message.text().slice(0, 200)}`)
+    const text = message.text()
+    if (message.type() === 'error') errors.push(`console.error: ${text}`)
+    else frames.push(`console.${message.type()}: ${text.slice(0, text.startsWith('[hydration node]') ? 1200 : 200)}`)
+  })
+  // A hydration warning passes its node, which the log shows only as a
+  // handle, and Vue replaces the node right after: print the markup around
+  // it from the page, while it is still there.
+  void page.addInitScript(() => {
+    const warn = console.warn
+    console.warn = (...args: unknown[]) => {
+      warn(...args)
+      const node = args.find((arg): arg is Node => arg instanceof Node)
+      if (node && String(args[0]).includes('Hydration')) console.info(`[hydration node] ${(node instanceof Element ? node : node.parentElement)?.outerHTML.slice(0, 1200)}`)
+    }
   })
   page.on('websocket', (socket) => {
     frames.push(`open ${socket.url()}`)
@@ -109,6 +194,12 @@ function collectBrowserErrors(page: Page): { errors: string[], frames: string[] 
 }
 
 describe('templates/starter (production build)', { timeout: 60_000 }, () => {
+  it('server-renders the home page with no credit balance for a visitor nobody knows yet', async () => {
+    const html = await (await fetch('/')).text()
+    expect(html).toContain('data-credits="live"')
+    expect(html).not.toContain('data-credits="banner"')
+  })
+
   it('server-renders the ready-made login page with the passwordless form', async () => {
     const response = await fetch('/login')
     expect(response.status).toBe(200)
@@ -120,14 +211,25 @@ describe('templates/starter (production build)', { timeout: 60_000 }, () => {
     expect(html).toContain('data-auth="otp-start"')
   })
 
-  it('server-renders the pricing page from the catalog; products arrive live after hydration', async () => {
-    const html = await $fetch<string>('/pricing')
+  it('server-renders the pricing page with its prices in the HTML, and its meta description', async () => {
+    const html = await $fetch<string>('/pricing?utm_source=newsletter')
     expect(html).toContain('data-pricing="page"')
     expect(html).toContain('data-pricing="table"')
     expect(html).toContain('data-pricing="header"')
-    // Live queries subscribe after hydration (no server WebSocket), so SSR
-    // carries the empty state — the browser leg below asserts the cards.
-    expect(html).toContain('data-pricing="empty"')
+    // The pricing is read on the server (one HTTP query) and rendered: a
+    // visitor and a crawler get the plans, not a loading state.
+    expect(html).not.toContain('data-pricing="loading"')
+    expect(html).toContain('data-pricing="plan"')
+    expect(html).toContain('Pro plan')
+    expect(html).toContain('$29')
+    expect(html).toContain('data-pricing="interval"')
+    expect(html).toContain('500 credits / month')
+    // The sign-in link returns to this very address, campaign included.
+    expect(html).toContain('href="/login?redirect=%2Fpricing%3Futm_source%3Dnewsletter"')
+    expect(html).toContain('<meta name="description" content="Plans and prices.">')
+    // No SEO module in the starter: no Open Graph tags, no structured data.
+    expect(html).not.toContain('application/ld+json')
+    expect(stub.calls.some(call => call.path === 'billing:getPricing' && call.transport === 'http')).toBe(true)
   })
 
   it('redirects signed-out visitors from a protected page to the login page with a return path', async () => {
@@ -143,39 +245,61 @@ describe('templates/starter (production build)', { timeout: 60_000 }, () => {
     expect(stub.requests.some(r => r.url === '/api/auth/convex/token')).toBe(true)
   })
 
-  it('serves RFC 9728 protected-resource metadata pointing at the auth proxy', async () => {
-    const response = await fetch('/.well-known/oauth-protected-resource')
-    expect(response.status).toBe(200)
-    expect(response.headers.get('content-type')).toContain('application/json')
-    const metadata = await response.json() as Record<string, unknown>
-    expect(metadata.resource).toBe(origin())
-    expect(metadata.authorization_servers).toEqual([`${origin()}/api/auth`])
-    expect(metadata.bearer_methods_supported).toEqual(['header'])
+  it('answers a signed-in person who fails a page\'s rules with a 403 that renders <AccessDenied>', async () => {
+    // A browser's request: an HTML page, not the JSON error a script gets.
+    const response = await fetch('/members-only?tab=roles', { headers: { cookie: 'better-auth.session_token=member', accept: 'text/html' } })
+    expect(response.status).toBe(403)
+    const html = await response.text()
+    expect(html).toContain('data-access="root"')
+    expect(html).toContain('data-access="reason"')
+    expect(html).not.toContain('data-members-only')
+    // The error's data, in the payload, carries the rule failed and the page
+    // asked for (with its slash escaped): where another account returns to.
+    expect(html).toContain('"reason":')
+    expect(html).toContain('members-only?tab=roles')
   })
 
-  it('proxies RFC 8414 authorization-server metadata from the deployment', async () => {
-    const response = await fetch('/.well-known/oauth-authorization-server')
+  it('opens a page with rules to a person who passes them, and keeps the render out of every cache', async () => {
+    const response = await fetch('/members-only', { headers: { cookie: 'better-auth.session_token=admin' } })
     expect(response.status).toBe(200)
-    const metadata = await response.json() as Record<string, unknown>
-    expect(metadata.issuer).toBe(stub.url)
-    expect(metadata.token_endpoint).toBe(`${stub.url}/api/auth/mcp/token`)
-    // Fetched from the site URL directly, not through the app's own proxy.
-    expect(stub.requests.some(r => r.url === '/api/auth/.well-known/oauth-authorization-server')).toBe(true)
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+    expect(await response.text()).toContain('data-members-only')
   })
 
-  it('challenges an unauthenticated MCP request with the resource-metadata pointer', async () => {
+  it.each([
+    { page: '/subscribers-only', rule: 'a plan feature, read from the deployment as the person', workspace: false },
+    { page: '/owners-only', rule: 'a workspace role, read from the auth route with the request\'s cookies', workspace: true },
+  ])('decides $rule on a server render', async ({ page, workspace }) => {
+    const refused = await fetch(page, { headers: { cookie: 'better-auth.session_token=member', accept: 'text/html' } })
+    expect(refused.status).toBe(403)
+    const html = await refused.text()
+    expect(html).toContain('data-access="root"')
+    // Only a workspace refusal offers the workspace switcher.
+    expect(html.includes('data-access="switch-workspace"')).toBe(workspace)
+    expect(html).not.toContain('data-members-only')
+    const opened = await fetch(page, { headers: { cookie: 'better-auth.session_token=admin' } })
+    expect(opened.status).toBe(200)
+    expect(await opened.text()).toContain('data-members-only')
+  })
+
+  it('sends a signed-out visitor from a page with rules to sign in, with the way back', async () => {
+    const response = await fetch('/members-only', { redirect: 'manual' })
+    expect(response.status).toBe(302)
+    const target = new URL(response.headers.get('location')!, origin())
+    expect(target.pathname).toBe('/login')
+    expect(target.searchParams.get('redirect')).toBe('/members-only')
+  })
+
+  it('serves no agent endpoint and no OAuth discovery: the end-user MCP waits for the next release', async () => {
+    for (const path of ['/.well-known/oauth-protected-resource', '/.well-known/oauth-authorization-server']) {
+      expect((await fetch(path)).status, path).toBe(404)
+    }
     const response = await fetch('/mcp', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'accept': 'application/json, text/event-stream' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'e2e', version: '0.0.0' } } }),
     })
-    expect(response.status).toBe(401)
-    const challenge = response.headers.get('www-authenticate')
-    expect(challenge).toContain('Bearer')
-    expect(challenge).toContain(`resource_metadata="${origin()}/.well-known/oauth-protected-resource"`)
-    const body = await response.json() as { error: { code: number, message: string } }
-    expect(body.error.code).toBe(-32000)
-    expect(body.error.message).toContain('authentication required')
+    expect(response.status).toBe(404)
   })
 
   it('proxies /api/auth/** to the site URL with the Better Auth forwarding headers', async () => {
@@ -191,10 +315,40 @@ describe('templates/starter (production build)', { timeout: 60_000 }, () => {
     expect(forwarded!.method).toBe('GET')
     expect(forwarded!.headers.cookie).toBe('better-auth.session_token=xyz')
     expect(forwarded!.headers.host).toBe(stubHost)
-    expect(forwarded!.headers['x-forwarded-host']).toBe(new URL(origin()).host)
-    expect(forwarded!.headers['x-forwarded-proto']).toBe('http')
     expect(forwarded!.headers['x-better-auth-forwarded-host']).toBe(new URL(origin()).host)
     expect(forwarded!.headers['x-better-auth-forwarded-proto']).toBe('http')
+  })
+
+  // Issue #19: 0.1.0 relayed a deployment's gzip-encoded auth response as
+  // plain bytes still labelled `content-encoding: gzip`, and the browser
+  // failed every sign-in with ERR_CONTENT_DECODING_FAILED. Read raw, with no
+  // client that decodes for us, the header and the bytes have to agree.
+  it('relays a compressed auth response with no stale content-encoding', async () => {
+    const answer = { token: 'session-token', user: { id: 'user_1', email: 'ada@example.com' } }
+    stub.route('POST /api/auth/sign-in/email-otp', () => ({
+      // Compressed whatever the request accepted, as a deployment may.
+      headers: { 'Content-Encoding': 'gzip', 'Set-Cookie': 'better-auth.session_token=abc; Path=/; HttpOnly' },
+      raw: gzipSync(JSON.stringify(answer)),
+    }))
+    const relayed = await new Promise<{ status: number, headers: Record<string, string | string[] | undefined>, bytes: Buffer }>((resolve, reject) => {
+      const outgoing = httpRequest(url('/api/auth/sign-in/email-otp'), { method: 'POST', headers: { 'content-type': 'application/json', 'accept-encoding': 'gzip, deflate, br' } }, (incoming) => {
+        const chunks: Buffer[] = []
+        incoming.on('data', chunk => chunks.push(chunk as Buffer))
+        incoming.on('end', () => resolve({ status: incoming.statusCode ?? 0, headers: incoming.headers, bytes: Buffer.concat(chunks) }))
+        incoming.on('error', reject)
+      })
+      outgoing.on('error', reject)
+      outgoing.end(JSON.stringify({ email: 'ada@example.com', otp: '123456' }))
+    })
+    expect(relayed.status).toBe(200)
+    const encoding = relayed.headers['content-encoding']
+    expect([undefined, 'identity', 'gzip'], `content-encoding: ${encoding}`).toContain(encoding)
+    // Whatever the relay says the bytes are, they are: decoded with what it names, they are the answer.
+    const decoded = encoding === 'gzip' ? gunzipSync(relayed.bytes) : relayed.bytes
+    expect(JSON.parse(decoded.toString('utf8'))).toEqual(answer)
+    const length = relayed.headers['content-length']
+    if (length !== undefined) expect(Number(length)).toBe(relayed.bytes.length)
+    expect(String(relayed.headers['set-cookie'])).toContain('better-auth.session_token=abc')
   })
 
   it('applies the Convex-aware CSP: connect-src carries the deployment over HTTP and WebSocket', async () => {
@@ -270,11 +424,82 @@ describe('templates/starter in a browser', { timeout: 90_000 }, () => {
     const signIn = await page.getAttribute('[data-pricing="plan-action"][data-intent="sign-in"]', 'href')
     expect(signIn).toBe('/login?redirect=%2Fpricing')
 
-    const productCalls = stub.calls.filter(c => c.path === 'billing:getConfiguredProducts' && c.transport === 'ws')
-    expect(productCalls.length).toBeGreaterThan(0)
-    expect(productCalls[0]!.kind).toBe('query')
+    // The server's read rides in the payload; the page then stays live over the socket.
+    const pricingCalls = stub.calls.filter(c => c.path === 'billing:getPricing' && c.transport === 'ws')
+    expect(pricingCalls.length).toBeGreaterThan(0)
+    expect(pricingCalls[0]!.kind).toBe('query')
 
     expect(errors).toEqual([])
     await page.close()
+  })
+})
+
+/** Sign a browser page in as `who`, through the session cookie the stub reads. */
+const signInAs = (page: Page, who: keyof typeof SIGNED_IN) => page.context().addCookies([{ name: 'better-auth.session_token', value: who, url: origin() }])
+
+describe('the page guard in a browser', { timeout: 90_000 }, () => {
+  it('shows <AccessDenied> for a navigation its rules refuse, keeping the page\'s path', async () => {
+    const page = await createPage()
+    const { errors, frames } = collectBrowserErrors(page)
+    await signInAs(page, 'member')
+    await page.goto(url('/'), { waitUntil: 'hydration' })
+    // The navigation rejects with the 403, as a <NuxtLink> would swallow it.
+    await page.evaluate(() => (document.querySelector('#__nuxt') as unknown as { __vue_app__: { config: { globalProperties: { $router: { push: (to: string) => Promise<unknown> } } } } })
+      .__vue_app__.config.globalProperties.$router.push('/members-only').catch(() => {}))
+    await page.waitForSelector('[data-access="root"]', { timeout: 15_000 })
+    expect(new URL(page.url()).pathname).toBe('/members-only')
+    expect(await page.textContent('[data-access="account"]')).toContain('ada@example.com')
+    expect(await page.$('[data-members-only]')).toBeNull()
+    // A hydration mismatch names its node in a warning (`debug.hydration` above).
+    expect(errors, `browser log: ${JSON.stringify(frames.filter(line => !line.startsWith('→') && !line.startsWith('←')), null, 1)}`).toEqual([])
+    await page.close()
+  })
+})
+
+/**
+ * Every module page a signed-out visitor reaches, at each step that changes
+ * its markup, for the axe smoke below. A pull request that adds a module
+ * page adds its line here: where it is, how to get to the step, and what
+ * shows once it is there.
+ */
+const AXE_STEPS: Array<{ name: string, path: string, ready: string, as?: keyof typeof SIGNED_IN, act?: (page: Page) => Promise<void> }> = [
+  { name: '/login, choosing a way in', path: '/login', ready: '[data-auth="step-choose"]' },
+  {
+    name: '/login, asking for a code',
+    path: '/login',
+    ready: '[data-auth="step-request-code"]',
+    act: page => page.click('[data-auth="otp-start"]'),
+  },
+  {
+    name: '/login, entering the code',
+    path: '/login',
+    ready: '[data-auth="step-verify-code"]',
+    act: async (page) => {
+      await page.click('[data-auth="otp-start"]')
+      await page.fill('[data-auth="input-email"]', 'ada@example.com')
+      await page.click('[data-auth="submit"]')
+    },
+  },
+  { name: '/pricing', path: '/pricing', ready: '[data-pricing="plan"]' },
+  // The page guard's 403, signed in: <AccessDenied> in the module's error page.
+  { name: '/members-only, refused', path: '/members-only', ready: '[data-access="switch-account"]', as: 'member' },
+]
+
+describe('templates/starter, checked by axe-core (WCAG 2.2 A and AA)', { timeout: 90_000 }, () => {
+  const runs = AXE_STEPS.flatMap(step => (['light', 'dark'] as const).map(scheme => ({ ...step, scheme })))
+
+  it.each(runs)('$name, $scheme', async ({ path, ready, as, act, scheme }) => {
+    const page = await createPage()
+    try {
+      if (as) await signInAs(page, as)
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' })
+      await page.goto(url(path), { waitUntil: 'hydration' })
+      await act?.(page)
+      await page.waitForSelector(ready, { timeout: 15_000 })
+      expect(await axeViolations(page)).toEqual([])
+    }
+    finally {
+      await page.close()
+    }
   })
 })

@@ -71,6 +71,13 @@ const detent = ref('auth')
             <span class="stamp">carved</span>
             <span>A tinted well keeps its own ground.</span>
           </div>
+          <label class="grid gap-2">
+            <span class="stamp">field</span>
+            <input
+              class="field"
+              placeholder="ada@example.com"
+            >
+          </label>
         </div>
       </section>
 
@@ -97,6 +104,9 @@ const detent = ref('auth')
         <div class="seam px-5 py-4">
           <span class="stamp">seam</span>
         </div>
+        <p class="rule-carved emb-sm pb-2 font-display text-xl font-semibold">
+          A heading over a <span class="stamp">rule-carved</span> groove
+        </p>
       </section>
 
       <section class="grid gap-4">
@@ -104,6 +114,10 @@ const detent = ref('auth')
           Relief
         </h2>
         <div class="plaque grid gap-5 p-6">
+          <span
+            class="cut-deep font-display text-6xl font-bold uppercase [font-stretch:118%]"
+            data-text="cut-deep: the hero"
+          >cut-deep: the hero</span>
           <EngravedTitle
             text="The backend, machined"
             class="text-5xl font-extrabold uppercase [font-stretch:118%]"
@@ -216,6 +230,7 @@ const detent = ref('auth')
               pulse
               label="Live"
             /> <span class="stamp">led-lg led-pulse</span></span>
+            <span class="flex items-center gap-2"><span class="led led-warn led-square" /> <span class="stamp">led-square</span></span>
           </div>
           <div class="flex flex-wrap items-center gap-6">
             <Strip

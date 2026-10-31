@@ -35,6 +35,17 @@ describe('<Key>', () => {
   it('is a disabled button when it is disabled without a link', async () => {
     expect(await render('website/components/Key.vue', { disabled: true })).toMatch(/^<button type="button" disabled class="k">/)
   })
+
+  it('says it is disabled and busy while it is loading, with a spinner before its label, and stays focusable', async () => {
+    const html = await render('website/components/Key.vue', { loading: true })
+    expect(html).toMatch(/^<button type="button" aria-disabled="true" aria-busy="true" class="k"><span class="[^"]*animate-spin[^"]*" aria-hidden="true"><\/span>(?:<!--\[-->)?Key/)
+    expect(await render('website/components/Key.vue', {})).not.toContain('aria-busy')
+  })
+
+  it('keeps the case of a label that is code, and wraps a long one when asked', async () => {
+    expect(await render('website/components/Key.vue', { code: true })).toMatch(/class="k normal-case! tracking-normal!"/)
+    expect(await render('website/components/Key.vue', { wrap: true })).toMatch(/class="k [^"]*whitespace-normal!/)
+  })
 })
 
 describe('<Led>', () => {

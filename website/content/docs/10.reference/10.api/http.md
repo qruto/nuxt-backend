@@ -17,11 +17,13 @@ navigation:
 Defined in: [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts)
 
 One call to mount every inbound route the backend handles on your Convex
-HTTP router: the auth routes, the agent (MCP) token exchange, the guarded
+HTTP router: the auth routes, the guarded
 billing events endpoint (entitlement refresh + gift fulfilment), the
-guarded email delivery-events endpoint (status tracking), and the metered
-AI stream endpoint. Each part is required: a route left unmounted fails
-only when a provider or a client first calls it.
+guarded email delivery-events endpoint (status tracking), the metered
+AI stream endpoint, and the backend's health at `/backend/health` (a fixed
+path: the app's `/api/backend/health` asks it there). Each part is
+required: a route left unmounted fails only when a provider or a client
+first calls it.
 
 The webhook endpoints share one fail-closed policy (see `webhook-guard.ts`):
 missing secret → 503, invalid signature → 403 (±5 min replay tolerance),
@@ -33,23 +35,23 @@ outcome lands in the component's delivery log.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="auth"></a> `auth` | \{ `authComponent`: \{ `registerRoutes`: (...`args`) => `void`; \}; `createAuth`: `unknown`; `mcp`: \{ `exchangeHandler`: (`ctx`, `request`) => `Promise`\<`Response`\>; \}; \} | From `setupAuth`: mounts the auth HTTP routes, and the agent token exchange (its `mcp` export) at [RegisterBackendRoutesOptions.mcpExchangePath](#mcpexchangepath), where the Nuxt MCP gate trades agents' OAuth Bearers for short-lived Convex JWTs. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
-| `auth.authComponent` | \{ `registerRoutes`: (...`args`) => `void`; \} | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
+| <a id="auth"></a> `auth` | \{ `authComponent`: \{ `registerRoutes`: (...`args`) => `void`; `safeGetAuthUser?`: (`ctx`) => `Promise`\< \| \{ `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; \} \| `null` \| `undefined`\>; \}; `createAuth`: `unknown`; \} | From `setupAuth`: mounts the auth HTTP routes. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
+| `auth.authComponent` | \{ `registerRoutes`: (...`args`) => `void`; `safeGetAuthUser?`: (`ctx`) => `Promise`\< \| \{ `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; \} \| `null` \| `undefined`\>; \} | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | `auth.authComponent.registerRoutes` | (...`args`) => `void` | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
+| `auth.authComponent.safeGetAuthUser?` | (`ctx`) => `Promise`\< \| \{ `role?`: `string` \| `null`; `banned?`: `boolean` \| `null`; \} \| `null` \| `undefined`\> | The account behind a request's session: the health route serves its detail to an admin. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | `auth.createAuth` | `unknown` | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
-| `auth.mcp` | \{ `exchangeHandler`: (`ctx`, `request`) => `Promise`\<`Response`\>; \} | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
-| `auth.mcp.exchangeHandler` | (`ctx`, `request`) => `Promise`\<`Response`\> | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
-| <a id="billing"></a> `billing` | \{ `webhookHandler`: (`ctx`, `request`) => `Promise`\<`Response`\>; \} | From `setupBilling`: mounts the guarded billing events webhook at [RegisterBackendRoutesOptions.billingPath](#billingpath) (fail-closed statuses, redelivery dedupe, delivery logging — pass the whole `billing` instance). | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
+| <a id="billing"></a> `billing` | \{ `webhookHandler`: (`ctx`, `request`) => `Promise`\<`Response`\>; \} | From `setupBilling`: mounts the guarded billing events webhook at [RegisterBackendRoutesOptions.billingPath](#billingpath) (fail-closed statuses, redelivery dedupe, delivery logging — pass the whole `billing` instance). Every workspace (or account, with `billTo: 'user'`) the auth routes make is handed to it too, which starts the catalog's free plan for it, and a workspace the auth routes delete is refused while it holds a paid subscription. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | `billing.webhookHandler` | (`ctx`, `request`) => `Promise`\<`Response`\> | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
-| <a id="email"></a> `email` | \{ `webhookHandler`: (`ctx`, `request`) => `Promise`\<`Response`\>; \} | From `setupEmail`: mounts the email events webhook at [RegisterBackendRoutesOptions.emailPath](#emailpath). | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
+| <a id="email"></a> `email` | \{ `webhookHandler`: (`ctx`, `request`) => `Promise`\<`Response`\>; \} | From `setupEmail`: mounts the email events webhook at [RegisterBackendRoutesOptions.emailPath](#emailpath), and the RFC 8058 one-click unsubscribe at `/email/unsubscribe` (`GET` sends the reader to the unsubscribe page, `POST` unsubscribes at once). | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | `email.webhookHandler` | (`ctx`, `request`) => `Promise`\<`Response`\> | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | <a id="ai"></a> `ai` | \{ `httpHandler`: `unknown`; `corsOrigin`: `string`; \} | From `setupAi`: mounts the metered stream endpoint at [RegisterBackendRoutesOptions.aiPath](#aipath). | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | `ai.httpHandler` | `unknown` | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | `ai.corsOrigin` | `string` | - | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
+| <a id="storage"></a> `storage?` | \{ \} | From `setupStorage`, when the app keeps files: mounts the route that serves `storage.signedUrl`'s expiring URLs (`GET /storage/<id>`). Without it, a signed URL answers 404. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | <a id="billingpath"></a> `billingPath?` | `string` | Route for the billing events webhook. Default `/billing/events`. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | <a id="emailpath"></a> `emailPath?` | `string` | Route for the email events webhook. Default `/email/events`. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 | <a id="aipath"></a> `aiPath?` | `string` | Route for the AI stream endpoint. Default `/ai/stream`. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
-| <a id="mcpexchangepath"></a> `mcpExchangePath?` | `string` | Route for the agent token exchange. Default `/mcp/exchange`. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
+| <a id="adminroles"></a> `adminRoles?` | readonly `string`[] | The roles that count as admin for the backend's health: a session whose account holds one reads the detail (each layer's reason, the env it lacks). Default `['admin']`, as `createFunctions` takes them. | [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts) |
 
 ## Functions
 
@@ -60,6 +62,12 @@ function registerBackendRoutes(http, options): void;
 ```
 
 Defined in: [src/convex/integrations/http.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/http.ts)
+
+Mount every route the backend serves on the app's HTTP router: the auth
+routes, the billing and email webhooks, the
+metered AI stream, and the health. Every part is required; a missing one throws,
+naming it. `storage` is the one optional part: pass it when the app keeps
+files, and `storage.signedUrl`'s expiring URLs are served.
 
 #### Parameters
 
@@ -80,11 +88,11 @@ import { registerBackendRoutes } from 'nuxt-backend/http'
 import { httpRouter } from 'convex/server'
 import { components } from './_generated/api'
 import { ai } from './ai'
-import { authComponent, createAuth, mcp } from './auth'
+import { authComponent, createAuth } from './auth'
 import { billing } from './billing'
 import { email } from './email'
 
 const http = httpRouter()
-registerBackendRoutes(http, { auth: { authComponent, createAuth, mcp }, billing, email, ai })
+registerBackendRoutes(http, { auth: { authComponent, createAuth }, billing, email, ai })
 export default http
 ```

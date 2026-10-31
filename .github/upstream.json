@@ -8,6 +8,7 @@
       "field": "peerDependencies",
       "dependency": "better-auth",
       "version": "1.7.0",
+      "pr": "get-convex/better-auth#444",
       "unblocks": "UP1 — Better Auth 1.7 (lift the better-auth and @better-auth/passkey holds in dependabot.yml)"
     },
     {
@@ -17,7 +18,8 @@
       "field": "devDependencies",
       "dependency": "@polar-sh/sdk",
       "version": "1.0.0",
-      "unblocks": "UP2 — Polar SDK 1.0 (lift the @polar-sh/sdk hold), and with it per-customer discount limits"
+      "pr": "get-convex/polar#100",
+      "unblocks": "UP2 — Polar SDK 1.0 (lift the @polar-sh/sdk hold), and with it per-customer discount limits through the SDK (deletes src/cli/billing/discount-limit.ts, the one raw call billing sync makes)"
     },
     {
       "id": "typescript-7",
@@ -45,6 +47,15 @@
       "dependency": "h3",
       "version": "2.0.0",
       "unblocks": "Nuxt 5 and h3 2 for the server handlers (lift the h3 hold in dependabot.yml)"
+    },
+    {
+      "id": "og-image-fonts-1",
+      "title": "Docus moves to nuxt-og-image 7, which reads @nuxt/fonts 1",
+      "package": "docus",
+      "field": "dependencies",
+      "dependency": "nuxt-og-image",
+      "version": "7.0.0",
+      "unblocks": "#94 — the docs site on @nuxt/fonts 1 (lift the @nuxt/fonts hold in dependabot.yml): social cards that read its fonts, and app.css fallback faces reworked for the ones it writes itself"
     }
   ],
   "decisions": [
@@ -52,7 +63,7 @@
       "id": "A1s",
       "title": "Agent OAuth on @better-auth/oauth-provider",
       "state": "go after Better Auth 1.7",
-      "note": "Decided 2026-10-14: A1a folds into UP1. Better Auth 1.7 removes the mcp plugin and reshapes the provider again, so moving on 1.6 would migrate the OAuth tables twice; until then agents stay on the hardened mcp plugin."
+      "note": "Decided 2026-10-14: A1a folds into UP1. Better Auth 1.7 removes the mcp plugin and reshapes the provider again. Decided 2026-10-27 (DEFER): 0.2.0 ships no end-user MCP endpoint and no OAuth tables; the endpoint returns in the release after it, on Better Auth 1.7's own MCP plugin."
     }
   ],
   "asks": [
@@ -63,10 +74,46 @@
       "fallback": "The site loads the client behind its own lazy plugin"
     },
     {
+      "ask": "A lazy-client option: import the Better Auth client when auth is first used, not with every page",
+      "owner": "qruto/nuxt-convex-module",
+      "blocks": "PERF (the auth client out of the starter's entry chunk)",
+      "fallback": "The client stays eager with every plugin registered; the passkey ceremony loads on first use through the package's own passkey plugin, and the starter budget holds the rest"
+    },
+    {
       "ask": "No WebSocket during SSR or prerender",
       "owner": "qruto/nuxt-convex-module",
-      "blocks": "C3, R3",
-      "fallback": "Client-only guards around the live parts"
+      "blocks": "C3, R3, A15 (useConvexConnectionState reads the client on the server, which opens its socket there)",
+      "fallback": "Client-only guards around the live parts; <ConnectionStatus> reads the connection state in the browser only"
+    },
+    {
+      "ask": "Read the connection state without opening the connection: a useConvexConnectionState (or a client.started signal) that waits for the client's first query, mutation or sign-in instead of creating the socket",
+      "owner": "qruto/nuxt-convex-module",
+      "blocks": "A15 (<ConnectionStatus> on every ready-made page, the sign-in page for a signed-out visitor included)",
+      "fallback": "<ConnectionStatus> reads the client's lazily created cachedSync, the field the module's DevTools bridge watches, and subscribes once it exists"
+    },
+    {
+      "ask": "Export the docs error page (docus/app/error.vue) under a stable path or component name",
+      "owner": "nuxt-content/docus",
+      "blocks": "A15 (the site's error.vue renders <AccessDenied> for a 403 and Docus's own page otherwise)",
+      "fallback": "website/error.vue imports it by file path; test/docs/docus-copies.test.ts pins its hash"
+    },
+    {
+      "ask": "Mount a named handler at its own `route`: `defineMcpHandler` documents the option, but every named handler is served at `/mcp/:handler`, under the default handler's prefix",
+      "owner": "nuxt-modules/mcp-toolkit",
+      "blocks": "DMCP (a public docs MCP beside the toolkit's default handler, in one app)",
+      "fallback": "website/server/docs-mcp/server.ts serves the docs tools from a plain Nitro route on the MCP SDK's own transport, registering them with the toolkit's `registerToolFromDefinition`"
+    },
+    {
+      "ask": "Export the docs MCP tools (`list-pages`, `get-page`) by name, so a handler other than the auto-discovered one can serve them",
+      "owner": "nuxt-content/docus",
+      "blocks": "DMCP",
+      "fallback": "website/server/docs-mcp/tools.ts imports them by file path (`docus/server/mcp/tools/*`) and names them; scripts/check-website-agents.mjs calls both against every build"
+    },
+    {
+      "ask": "A supported testing seam, nuxt-convex-module/testing: the reset of the session token useBetterAuth caches, and the auth-client alias a test can swap",
+      "owner": "qruto/nuxt-convex-module",
+      "blocks": "F2b (nuxt-backend/test-utils on a public API)",
+      "fallback": "backendTestAliases() reaches use-better-auth.js by path and swaps #convex/auth-client; test/unit/test-utils-aliases.test.ts fails when either moves"
     },
     {
       "ask": "A locale-aware login path in the auth middleware",
@@ -93,10 +140,10 @@
       "fallback": "The package creates, keys and maps each entity's customer itself, outside the component's client"
     },
     {
-      "ask": "Polar SDK 1.x support",
+      "ask": "Polar SDK 1.x support: the 1.0 rewrite breaks the client, validateEvent and syncProducts (get-convex/polar#95)",
       "owner": "get-convex/polar",
       "blocks": "UP2",
-      "fallback": "Stay on @polar-sh/sdk 0.x"
+      "fallback": "Stay on @polar-sh/sdk ^0.49.0, pinned in the website and the playground; doctor's billing-provider-sdk finding warns an app that resolves 1.x"
     },
     {
       "ask": "Better Auth 1.7 in the peer range",
@@ -107,7 +154,7 @@
     {
       "ask": "Forward the client IP to Better Auth (rate limits, session ipAddress)",
       "owner": "get-convex/better-auth",
-      "blocks": "A3, F6",
+      "blocks": "A3, F5 (the passkeySignIn bucket per client address), F6",
       "fallback": "Read the forwarded header in the package's proxy"
     },
     {
@@ -132,13 +179,13 @@
       "ask": "A metadata filter and an external_id for discounts",
       "owner": "polarsource/polar",
       "blocks": "PROMO",
-      "fallback": "The catalog keys discounts by code"
+      "fallback": "billing sync reads the whole discount list and finds each catalog discount by the managed key in its metadata"
     },
     {
       "ask": "Enforce per-customer discount limits on subscription updates",
       "owner": "polarsource/polar",
       "blocks": "PROMO, A2b",
-      "fallback": "The server refuses a reused discount on plan changes"
+      "fallback": "billing.applyDiscount says the provider skips the limit there, and the docs show the app's own once-per-entity record"
     },
     {
       "ask": "Trial-abuse matching for team customers",
@@ -165,10 +212,142 @@
       "fallback": "The package sends its own reminder"
     },
     {
+      "ask": "Refresh a synced product row when one of its benefits changes (handle benefit.updated in the component's webhook handler, or have the provider send product.updated)",
+      "owner": "get-convex/polar",
+      "blocks": "A7a (pricing reads a pack's or plan's credits off the product row's embedded benefits)",
+      "fallback": "The package re-syncs the products table on every benefit.updated delivery, best-effort, logged as billing.product_resync_failed when it fails"
+    },
+    {
+      "ask": "One subscription product with a price per billing interval (monthly and yearly), switchable without a product change",
+      "owner": "polarsource/polar",
+      "blocks": "A7a",
+      "fallback": "billing sync makes one product per interval, tagged with the plan's key and the interval (<plan>, <plan>:year); getPricing groups them back into one plan"
+    },
+    {
+      "ask": "Discounts in the declarative catalog config (/v1/config) and a documented code lookup",
+      "owner": "polarsource/polar",
+      "blocks": "PROMO",
+      "fallback": "billing sync keeps the catalog's discounts in line itself, and a code is matched against the list the provider's query returns"
+    },
+    {
       "ask": "A discount redemption webhook",
       "owner": "polarsource/polar",
       "blocks": "PROMO, REF",
       "fallback": "Read the discount off order.paid"
+    },
+    {
+      "ask": "lastLoginMethod's default resolver names the email OTP sign-in (/sign-in/email-otp)",
+      "owner": "better-auth/better-auth",
+      "blocks": "F5",
+      "fallback": "The package passes a customResolveMethod that names it email-otp"
+    },
+    {
+      "ask": "An AbortSignal for the passkey client's signIn.passkey({ autoFill })",
+      "owner": "better-auth/better-auth",
+      "blocks": "F5 (ending a passkey autofill request when its page goes away)",
+      "fallback": "The request waits until the next passkey ceremony, which @simplewebauthn/browser aborts it for; a flow that is gone ignores its answer"
+    },
+    {
+      "ask": "/passkey/verify-authentication checks the user id the challenge stored: a challenge asked for by a signed-in session answers only for that session's account",
+      "owner": "better-auth/better-auth",
+      "blocks": "A3 (re-authentication tied to the session it replaces)",
+      "fallback": "A re-authentication carries the x-backend-reauthenticate header; the request guard records the session it replaces, and the session-create hook refuses another account's sign-in before it is written (reauthenticatedWorkspace in src/convex/client/guards.ts)"
+    },
+    {
+      "ask": "A freshness option (freshSessionMiddleware) for the admin and organization plugins' write routes",
+      "owner": "better-auth/better-auth",
+      "blocks": "A3 (a recent sign-in for administrator and workspace-role writes)",
+      "fallback": "The request guard enforces the sensitive-action table's recentSignIn on those routes (assertSessionMay in src/convex/client/guards.ts)"
+    },
+    {
+      "ask": "Hand the session a route's own middleware read to the request after-hooks (ctx.context.session), as the before-hooks and the database hooks see it",
+      "owner": "better-auth/better-auth",
+      "blocks": "F4a (who acted on an audit event of a workspace or administrator route)",
+      "fallback": "The request guard's before-hook reads the caller as the route will and keeps it for the after-hook (noteRouteBefore in src/convex/client/audit.ts)"
+    },
+    {
+      "ask": "Run the database after-hooks of a route before its request after-hooks, or document the order they run in",
+      "owner": "better-auth/better-auth",
+      "blocks": "F4a (a re-authentication's new session recorded as one, not as a sign-in)",
+      "fallback": "revokeSuperseded in src/convex/client/guards.ts marks the replaced session revoked instead of dropping it, so the new session's database hook still reads it as a re-authentication"
+    },
+    {
+      "ask": "A route that revokes a connected agent (its consent and its tokens), in the mcp plugin or the OAuth provider that replaces it",
+      "owner": "better-auth/better-auth",
+      "blocks": "The connected-agents page of the release after 0.2.0, with the end-user MCP endpoint (DEFER)",
+      "fallback": "None needed in 0.2.0: no agent connects"
+    },
+    {
+      "ask": "Let `discovery.mcpServerCard` describe a server the toolkit does not mount: its `authentication` and its tools from the config, not from the toolkit handler's definitions, and a card per host",
+      "owner": "benjamincanac/nuxt-agent-discovery",
+      "blocks": "D7a, DMCP (the site has no MCP endpoint of its own, so its card describes the docs MCP at the docs host)",
+      "fallback": "website/server/plugins/agent-surfaces.ts sets the docs MCP's name, endpoint, authentication, capabilities and tools through the `agent-discovery:mcp-server-card` hook; nuxt.config.ts keeps the card from prerendering, so it answers per host"
+    },
+    {
+      "ask": "List the tools other modules contribute through `mcp:definitions:paths` on the MCP server card, or leave the lists out when it sees none",
+      "owner": "benjamincanac/nuxt-agent-discovery",
+      "blocks": "D7a",
+      "fallback": "The same hook replaces the tool list with the docs MCP's, and drops the empty resource and prompt lists; llmsSections is the llms.txt workaround below"
+    },
+    {
+      "ask": "Let a content-backed llms.txt section list its pages in navigation order, not `path` order",
+      "owner": "benjamincanac/nuxt-agent-discovery",
+      "blocks": "D7a",
+      "fallback": "nuxt.config.ts lists each tab section's links itself, from readDocsPages and llmsSections (website/shared/agent-surfaces.ts)"
+    },
+    {
+      "ask": "Name the function a server fetcher failed in (fetchQuery, fetchMutation, fetchAction, preloadQuery), as the browser client does with its `[CONVEX X(path)]` prefix, or call a hook with the reference and the error",
+      "owner": "qruto/nuxt-convex-module",
+      "blocks": "MON (the backend.function tag on a failed plain fetchQuery, fetchMutation or fetchAction made from a server route)",
+      "fallback": "backendAuth(event)'s calls are wrapped at their call site; a plain fetcher's failure reaches the error-reporting SDK through Nitro's error handler, tagged with its code but not its function"
+    },
+    {
+      "ask": "Tell a function a component lacks from a deployment that did not answer: `convex function-spec --component <path>`, or a distinct exit code or JSON error from `convex run --component` for a missing function",
+      "owner": "get-convex/convex-js",
+      "blocks": "UPG (`nuxt-backend upgrade` says a deployment runs an older backend, and to push it first)",
+      "fallback": "The upgrade reads the end of `convex run`'s error output, which is the component's function list the CLI prints after \"Could not find function\""
+    },
+    {
+      "ask": "Publish @vercel/firewall with npm provenance again: 1.2.3 to 1.2.6 carry none, where 1.2.2 and earlier did, so pnpm's trust policy refuses them",
+      "owner": "vercel/vercel",
+      "blocks": "SITE (the `timeout` option of `checkRateLimit`, added in 1.2.6)",
+      "fallback": "website/package.json pins 1.2.2, .github/dependabot.yml ignores the package until then, and website/server/middleware/0.firewall.ts races the check against its own one-second timeout"
+    },
+    {
+      "ask": "Make `checkRateLimit` answer `rateLimited: false` off Vercel, as it already does in development, rather than calling the request's own host from a production build anywhere else",
+      "owner": "vercel/vercel",
+      "blocks": "SITE",
+      "fallback": "website/server/middleware/0.firewall.ts checks the Firewall only when `VERCEL` is set"
+    },
+    {
+      "ask": "Let the Nuxt modules of @vercel/analytics and @vercel/speed-insights take options (an `enabled` flag, or skipping their script off Vercel): today each always injects it, a debug script from the CDN in dev and a `/_vercel/…` path no other host serves",
+      "owner": "vercel/analytics",
+      "blocks": "SITE",
+      "fallback": "website/nuxt.config.ts installs both modules in a Vercel build only (website/shared/vercel.ts)"
+    },
+    {
+      "ask": "Let the assistant's system prompt follow the MCP server it is pointed at, or take extra instructions from `docus.assistant`: it names only `list-pages` and `get-page`, whatever tools the server offers",
+      "owner": "nuxt-content/docus",
+      "blocks": "SITE (the docs MCP's search and lookups, which the prompt does not mention)",
+      "fallback": "Docus's own prompt, which the site's endpoint takes from getAssistantDefaultOptions as it is: the model sees the other tools by their names and descriptions only"
+    },
+    {
+      "ask": "Let the built-in assistant endpoint check what the chat sends before the model sees it: the roles (no client-sent `system` message), a cap on the question and on the history, and the history as text without the tool results the chat sends back",
+      "owner": "nuxt-content/docus",
+      "blocks": "SITE (Docus's own assistant handler, which passes the client's whole conversation to the model unchecked)",
+      "fallback": "website/server/routes/__docus__/assistant.ts serves the endpoint from Docus's helpers with those checks in front (website/shared/assistant.ts), and Docus leaves its own handler out"
+    },
+    {
+      "ask": "Support Better Auth's `listUsers` paging on the Convex adapter: `/admin/list-users` passes an `offset`, which the adapter refuses (\"offset not supported\"), so only its first page can be read",
+      "owner": "get-convex/better-auth",
+      "blocks": "F7 (the admin console's user list through Better Auth's own admin route)",
+      "fallback": "setupAdmin (src/convex/integrations/admin.ts) reads accounts and workspaces through the component adapter's `findMany` by cursor, and the console's writes stay Better Auth's admin routes"
+    },
+    {
+      "ask": "Delete a customer and its subscriptions: a mutation that removes the synced rows of one user id, for an account erasure",
+      "owner": "get-convex/polar",
+      "blocks": "F8 (complete erasure: the synced customers and subscriptions of a deleted account's billing entities)",
+      "fallback": "The erasure deletes and anonymizes the customer at the provider and leaves the synced rows, which name the billing entity's id and never an address or a name; the Privacy and data inventory page lists them as kept"
     }
   ]
 }

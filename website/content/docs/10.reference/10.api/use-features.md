@@ -12,6 +12,26 @@ navigation:
 
 ## Interfaces
 
+### QuotaUsage
+
+Defined in: [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts)
+
+**`Experimental`**
+
+One quota of a billing entity: how many its plan allows and how many it
+holds. `limit` is the most any grant allows — `0` when none names the
+quota, so a quota fails closed — or `'unlimited'`.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="limit"></a> `limit` | `number` \| `"unlimited"` | **`Experimental`** | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="used"></a> `used` | `number` | **`Experimental`** How many are counted: what `requireQuota` claimed, less what `releaseQuota` gave back. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="description"></a> `description?` | `string` | **`Experimental`** What the quota counts, as the catalog's `description` says it (`'projects'`): absent for a quota the catalog does not declare, which only a grant names. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+
+***
+
 ### UseFeaturesOptions
 
 Defined in: [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts)
@@ -34,9 +54,13 @@ Defined in: [src/runtime/vue/composables/use-features.ts](https://github.com/qru
 | ------ | ------ | ------ | ------ |
 | <a id="plans"></a> `plans` | `ComputedRef`\<`string`[] \| `undefined`\> | Active product ids the user is subscribed to, or `undefined` while loading. | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
 | <a id="benefits"></a> `benefits` | `ComputedRef`\<[`EntitlementBenefit`](/docs/reference/api/use-billing#entitlementbenefit)[] \| `undefined`\> | Granted benefits (entitlements), or `undefined` while loading. | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
-| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until features have loaded. | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
-| <a id="has"></a> `has` | (`feature`) => `boolean` | Whether the user has the given benefit (matched by `benefitId`, grant `id`, `type`, or any metadata value). | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
+| <a id="quotas"></a> `quotas` | `ComputedRef`\<`Record`\<`string`, [`QuotaUsage`](#quotausage)\> \| `undefined`\> | **`Experimental`** Every quota the catalog declares or a grant names, by key, or `undefined` while loading. | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
+| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until features have loaded (`false` once the read failed). | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
+| <a id="error"></a> `error` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the features could not be read, else `null`. While it is set, `has` and `hasPlan` say no. | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
+| <a id="has"></a> `has` | (`feature`) => `boolean` | Whether a granted benefit is `feature`: by its catalog key (the `key` in its metadata), or by its benefit id when it has no key. The match `billing.requireFeature` and the `withFeature` tier make on the server. | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
 | <a id="hasplan"></a> `hasPlan` | (`productId`) => `boolean` | Whether the user has an active subscription to the given product id. | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
+| <a id="quota"></a> `quota` | (`quota`) => [`QuotaUsage`](#quotausage) \| `undefined` | **`Experimental`** How many of `quota` the plan allows and how many are held, as `billing.getQuota` reads them on the server: `{ limit: 0, used: 0 }` for a quota no grant names, so it fails closed; `undefined` while loading or when the features could not be read. | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
+| <a id="remaining"></a> `remaining` | (`quota`) => `number` | **`Experimental`** How many more of `quota` fit: `Infinity` when the plan allows any number, and `0` while loading, when the features could not be read, or when none is left, so a gate fails closed. `billing.requireQuota` enforces it in the mutation. | [src/runtime/vue/composables/use-features.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-features.ts) |
 
 ## Functions
 
@@ -51,7 +75,11 @@ Defined in: [src/runtime/vue/composables/use-features.ts](https://github.com/qru
 Reactive feature-gating for the current user — the SaaS access primitive.
 Backed by the `getFeatures` query (the component's webhook-synced cache), so it
 updates live as subscriptions/benefits change. Zero-arg via the auto-provided
-`api.billing` namespace; pass `{ api }` to override.
+`api.billing` namespace; pass `{ api }` to override. The read never throws:
+a failed one shows in `error`, and gates closed. A gate in the UI is for
+the UI: enforce in the function with `billing.requireFeature` or the
+`withFeature` tier, and a quota with `billing.requireQuota`, which read
+the same cache and match the same way.
 
 #### Parameters
 
@@ -67,9 +95,10 @@ updates live as subscriptions/benefits change. Zero-arg via the auto-provided
 
 ```vue
 <script setup lang="ts">
-const { has, hasPlan } = useFeatures()
+const { has, hasPlan, remaining } = useFeatures()
 </script>
 <template>
   <PremiumPanel v-if="has('priority_support')" />
+  <NewProjectButton :disabled="remaining('projects') < 1" />
 </template>
 ```

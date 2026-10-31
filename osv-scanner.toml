@@ -10,7 +10,8 @@
 # braces <=3.0.3 — no fixed release. Reached only through glob matching at
 # build and dev time: micromatch under chokidar-cli (this repo's dev watcher),
 # nitropack's globby, @nuxt/content, and vite-plugin-singlefile (the MCP
-# inspector build inside @nuxtjs/mcp-toolkit).
+# inspector build inside @nuxtjs/mcp-toolkit, which the website's Docus
+# installs).
 [[IgnoredVulns]]
 id = "GHSA-vfj7-8cjw-p6xm"
 ignoreUntil = 2027-01-09

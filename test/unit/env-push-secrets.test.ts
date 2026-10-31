@@ -8,6 +8,7 @@ import { main } from '../../src/cli/main'
 import { runDev } from '../../src/cli/dev'
 import { resolveConvexCli } from '../../src/convex-cli'
 import { runEnvPush } from '../../src/env-push'
+import { fakeCredential } from '../helpers/secrets'
 
 // Every value the package puts on a deployment goes through `convex env set`.
 // Here that CLI is a stand-in that refuses every write, and nothing the
@@ -47,9 +48,9 @@ process.stdin.on('end', () => {
 })
 `
 
-const TOKEN = 'polar_oat_SECRET_token_0123456789abcdef'
-const EMAIL_KEY = 're_SECRET_email_key_0123456789abcdef'
-const WEBHOOK_SECRET = 'polar_whs_SECRET_webhook_0123456789abcdef'
+const TOKEN = fakeCredential('polar_oat_')
+const EMAIL_KEY = fakeCredential('re_')
+const WEBHOOK_SECRET = fakeCredential('polar_whs_')
 
 let rootDir: string
 let printed: string[]
@@ -67,7 +68,7 @@ beforeEach(() => {
   mkdirSync(join(rootDir, 'backend'))
   writeFileSync(join(rootDir, 'backend/billing.catalog.ts'), 'export default { plans: {} }\n')
   writeFileSync(join(rootDir, '.env.local'), `CONVEX_DEPLOYMENT=dev:fake-deployment-000\nBILLING_ACCESS_TOKEN=${TOKEN}\nEMAIL_API_KEY=${EMAIL_KEY}\n`)
-  for (const name of ['CONVEX_DEPLOY_KEY', 'CONVEX_DEPLOYMENT_TOKEN', 'CONVEX_DEPLOYMENT', 'BILLING_ACCESS_TOKEN', 'BILLING_ENVIRONMENT', 'EMAIL_API_KEY', 'NUXT_PUBLIC_BACKEND_SITE_URL', 'NUXT_PUBLIC_CONVEX_SITE_URL']) vi.stubEnv(name, undefined)
+  for (const name of ['CONVEX_DEPLOY_KEY', 'CONVEX_DEPLOYMENT_TOKEN', 'CONVEX_DEPLOYMENT', 'BILLING_ACCESS_TOKEN', 'BACKEND_ENVIRONMENT', 'EMAIL_API_KEY', 'NUXT_PUBLIC_CONVEX_SITE_URL']) vi.stubEnv(name, undefined)
   vi.stubEnv('FAKE_CONVEX_MODE', 'fail')
   vi.stubEnv('FAKE_CONVEX_NAMES', '')
   printed = []
@@ -121,7 +122,8 @@ describe('a failing convex env set', () => {
     // Not even a value that is no secret, like SITE_URL's default.
     const values = failed.map(result => result.action.value!)
     expect(values).toEqual(expect.arrayContaining([TOKEN, EMAIL_KEY, 'http://localhost:3000']))
-    expectNowhere(values, failed.map(result => result.error), printed)
+    // EMAIL_DEV_INBOX's `1` is in every exit code: a one-character flag names nothing.
+    expectNowhere(values.filter(value => value.length > 1), failed.map(result => result.error), printed)
     const sets = envSets()
     expect(sets.map(set => set.name)).toEqual(failed.map(result => result.action.name))
     for (const [index, set] of sets.entries()) {
@@ -179,7 +181,7 @@ describe('a failing convex env set', () => {
 
   it('billing sync --env production writes production, on stdin too', async () => {
     vi.stubEnv('FAKE_CONVEX_MODE', '')
-    vi.stubEnv('FAKE_CONVEX_NAMES', 'BILLING_ACCESS_TOKEN,BILLING_ENVIRONMENT')
+    vi.stubEnv('FAKE_CONVEX_NAMES', 'BILLING_ACCESS_TOKEN,BACKEND_ENVIRONMENT')
     const lines: string[] = []
     const { exitCode } = await runBillingSync(rootDir, { environment: 'production' }, {
       sync: async (_catalog, options) => ({
@@ -191,10 +193,10 @@ describe('a failing convex env set', () => {
     })
 
     expect(exitCode).toBe(0)
-    // Every call names production; the one value read is BILLING_ENVIRONMENT.
+    // Every call names production; the one value read is BACKEND_ENVIRONMENT.
     expect(calls().every(call => call.args.includes('--prod'))).toBe(true)
     expect(envSets()).toEqual([{ name: 'BILLING_WEBHOOK_SECRET', args: ['env', 'set', '--prod', 'BILLING_WEBHOOK_SECRET'], value: WEBHOOK_SECRET }])
-    expect(calls().filter(call => call.args[1] === 'get').map(call => call.args.at(-1))).toEqual(['BILLING_ENVIRONMENT'])
+    expect(calls().filter(call => call.args[1] === 'get').map(call => call.args.at(-1))).toEqual(['BACKEND_ENVIRONMENT'])
     expectNowhere([WEBHOOK_SECRET], lines, printed)
   })
 })

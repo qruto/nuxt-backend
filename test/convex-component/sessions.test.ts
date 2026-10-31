@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import { componentsGeneric, defineSchema, makeFunctionReference, queryGeneric } from 'convex/server'
-import { asUser, defineBackendTestApp } from '../../src/convex/test'
+import { defineBackendTestApp } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { setupAuth } from '../../src/convex/client'
 import { setupEmail } from '../../src/convex/integrations/email'
@@ -13,12 +13,13 @@ import { getBackendError } from '../../src/convex/errors'
 // are days old on purpose — Better Auth's own /list-sessions refuses those.
 
 const components = componentsGeneric() as unknown as { backend: ComponentApi<'backend'> }
-const { listSessions, revokeSession } = setupAuth(components as never, queryGeneric, { email: setupEmail(components as never) })
+const { listSessions, revokeSession, updateProfile } = setupAuth(components as never, queryGeneric, { email: setupEmail(components as never) })
 
 const appModules = {
   './_generated/api.js': () => Promise.resolve({}),
-  './auth.js': () => Promise.resolve({ listSessions, revokeSession }),
+  './auth.js': () => Promise.resolve({ listSessions, revokeSession, updateProfile }),
 }
+const updateProfileRef = makeFunctionReference<'mutation'>('auth:updateProfile')
 const listRef = makeFunctionReference<'query'>('auth:listSessions')
 const revokeRef = makeFunctionReference<'mutation'>('auth:revokeSession')
 
@@ -89,11 +90,10 @@ describe('listSessions', () => {
     expect(JSON.stringify(rows)).not.toContain('token-')
   })
 
-  test('is null for signed-out callers and for agent tokens, which belong to no session', async () => {
-    await seed()
+  test('is null for signed-out callers and for tokens that belong to no session', async () => {
+    const ids = await seed()
     await expect(t.query(listRef, {})).resolves.toBeNull()
-    const agent = await asUser(t, { agent: { clientId: 'agent-1', scopes: ['openid', 'profile'] } })
-    await expect(agent.query(listRef, {})).resolves.toBeNull()
+    await expect(t.withIdentity({ subject: ids.ada }).query(listRef, {})).resolves.toBeNull()
   })
 })
 
@@ -107,20 +107,34 @@ describe('revokeSession', () => {
     expect(tokens).toEqual(expect.arrayContaining(['token-laptop', 'token-bob']))
   })
 
-  test('refuses another user\'s session, an unknown id and an agent token alike', async () => {
+  test('refuses another user\'s session, an unknown id and an impersonating admin', async () => {
     const ids = await seed()
     const ada = t.withIdentity({ subject: ids.ada, sessionId: ids.laptop })
     await expect(ada.mutation(revokeRef, { sessionId: ids.bobs })).rejects.toThrow('Session not found.')
     await expect(ada.mutation(revokeRef, { sessionId: 'not-an-id' })).rejects.toThrow('Session not found.')
-    await expect(t.withIdentity({ subject: ids.ada, clientId: 'agent-1' }).mutation(revokeRef, { sessionId: ids.phone }))
-      .rejects.toThrow('Sign in to manage your sessions.')
+    // Signing Ada's devices out is hers to do, in person.
+    const refusal = (caller: typeof ada) => caller.mutation(revokeRef, { sessionId: ids.phone }).catch((error: unknown) => getBackendError(error))
+    expect(await refusal(t.withIdentity({ subject: ids.ada, sessionId: ids.impersonated, impersonatedBy: ids.bob })))
+      .toMatchObject({ code: 'forbidden', data: { reason: 'impersonating' } })
     await expect(t.mutation(revokeRef, { sessionId: ids.phone })).rejects.toThrow('Sign in to manage your sessions.')
     // Each refusal crosses the function boundary with its code, which production keeps.
     expect(getBackendError(await ada.mutation(revokeRef, { sessionId: ids.bobs }).catch((error: unknown) => error)))
-      .toEqual({ code: 'invalid_input', data: { field: 'sessionId', message: 'Session not found.' }, message: 'Session not found.' })
+      .toEqual({ code: 'invalid_input', data: { field: 'sessionId' }, message: 'That session has already ended.' })
     expect(getBackendError(await t.mutation(revokeRef, { sessionId: ids.phone }).catch((error: unknown) => error)))
       .toMatchObject({ code: 'unauthenticated' })
 
+    expect(await sessionTokens()).toHaveLength(5)
+  })
+})
+
+describe('an account banned since its token was minted', () => {
+  test('can neither sign its devices out nor change its profile: both read the account fresh', async () => {
+    const ids = await seed()
+    await t.mutation(components.backend.adapter.updateOne, { input: { model: 'user', where: [{ field: '_id', value: ids.ada }], update: { banned: true } } } as never)
+    const ada = t.withIdentity({ subject: ids.ada, sessionId: ids.laptop })
+    for (const call of [() => ada.mutation(revokeRef, { sessionId: ids.phone }), () => ada.mutation(updateProfileRef, { name: 'Ada L.' })]) {
+      expect(getBackendError(await call().catch((error: unknown) => error))).toMatchObject({ code: 'forbidden', data: { reason: 'banned' } })
+    }
     expect(await sessionTokens()).toHaveLength(5)
   })
 })

@@ -3,7 +3,7 @@ const CODE = /\b(\d{6})\b/
 
 /**
  * The provider's sandbox addresses, `+label` aliases included: the only ones
- * with a sandbox inbox (the component's `email.inbox` keeps the same list).
+ * with a dev inbox (src/convex/delivery.ts keeps the same list).
  */
 const SANDBOX_ADDRESS = /^(?:delivered|bounced|complained)(?:\+[^@\s]+)?@resend\.dev$/
 

@@ -112,6 +112,18 @@ describe('runDev', () => {
     expect(isEnvProvisioned(rootDir, 'dev:brave-fox-123')).toBe(false)
   })
 
+  it('never provisions through a deploy key that selects another deployment, and says why', async () => {
+    mkdirSync(join(rootDir, 'backend'))
+    configureDeployment('dev:brave-fox-123')
+    vi.stubEnv('CONVEX_DEPLOY_KEY', 'prod:steady-owl-456|secret')
+    const { steps, lines } = recordingSteps()
+
+    await runDev(rootDir, [], steps)
+    expect(steps.envPush).not.toHaveBeenCalled()
+    expect(lines.some(line => line.startsWith('env push skipped: CONVEX_DEPLOY_KEY is a prod deploy key'))).toBe(true)
+    expect(isEnvProvisioned(rootDir, 'dev:brave-fox-123')).toBe(false)
+  })
+
   it('never provisions a deployment that is not dev-class', async () => {
     mkdirSync(join(rootDir, 'backend'))
     configureDeployment('prod:steady-owl-456')
@@ -138,13 +150,67 @@ describe('runDev', () => {
     await runDev(rootDir, [], steps)
     expect(convexCalls[0]!.env.PATH?.split(delimiter)[0]).toBe(join(rootDir, 'node_modules/.bin'))
   })
+
+  it('runs nothing beside Convex on a local deployment: the providers\' sandboxes are the only billing', async () => {
+    mkdirSync(join(rootDir, 'backend'))
+    configureDeployment('local:my-app')
+    markEnvProvisioned(rootDir, 'local:my-app')
+    const { steps, convexCalls } = recordingSteps()
+
+    expect(await runDev(rootDir, [], steps)).toBe(0)
+    expect(convexCalls).toHaveLength(1)
+    expect(convexCalls[0]!.args[0]).toBe('dev')
+    expect(Object.keys(convexCalls[0]!.env)).not.toContain('BILLING_SIMULATOR_URL')
+  })
+})
+
+describe('--anonymous', () => {
+  it('sets an account-free local deployment up without a question, in Node, so every OS gets it', async () => {
+    mkdirSync(join(rootDir, 'backend'))
+    vi.stubEnv('CONVEX_AGENT_MODE', undefined)
+    const { steps, convexCalls, lines } = recordingSteps({ onOnce: () => configureDeployment('anonymous:anonymous-agent') })
+
+    expect(await runDev(rootDir, [], steps, { anonymous: true })).toBe(0)
+    expect(convexCalls.map(call => call.args)).toEqual([
+      ['dev', '--once', '--typecheck', 'disable'],
+      ['dev', '--start', 'nuxt dev'],
+    ])
+    expect(convexCalls.every(call => call.env.CONVEX_AGENT_MODE === 'anonymous')).toBe(true)
+    expect(lines[0]).toContain('account-free local')
+    expect(steps.envPush).toHaveBeenCalledOnce()
+    expect(isEnvProvisioned(rootDir, 'anonymous:anonymous-agent')).toBe(true)
+  })
+
+  it('leaves the Convex CLI asking without it', async () => {
+    mkdirSync(join(rootDir, 'backend'))
+    vi.stubEnv('CONVEX_AGENT_MODE', undefined)
+    const { steps, convexCalls } = recordingSteps({ onOnce: () => configureDeployment('dev:brave-fox-123') })
+
+    await runDev(rootDir, [], steps)
+    expect(convexCalls.some(call => 'CONVEX_AGENT_MODE' in call.env && call.env.CONVEX_AGENT_MODE !== undefined)).toBe(false)
+  })
+
+  it('says so, and keeps a deployment the app already names', async () => {
+    mkdirSync(join(rootDir, 'backend'))
+    configureDeployment('dev:brave-fox-123')
+    markEnvProvisioned(rootDir, 'dev:brave-fox-123')
+    const { steps, convexCalls, lines } = recordingSteps()
+
+    expect(await runDev(rootDir, [], steps, { anonymous: true })).toBe(0)
+    expect(convexCalls.map(call => call.args)).toEqual([['dev', '--start', 'nuxt dev']])
+    expect(lines[0]).toContain('CONVEX_DEPLOYMENT already names dev:brave-fox-123')
+  })
 })
 
 describe('arguments', () => {
   it('splits --cwd off and forwards the rest to nuxt dev', () => {
-    expect(splitDevArgs(['--cwd', 'app', '--port', '3001'])).toEqual({ cwd: 'app', nuxtArgs: ['--port', '3001'] })
-    expect(splitDevArgs(['--cwd=app', '--host'])).toEqual({ cwd: 'app', nuxtArgs: ['--host'] })
-    expect(splitDevArgs([])).toEqual({ cwd: '.', nuxtArgs: [] })
+    expect(splitDevArgs(['--cwd', 'app', '--port', '3001'])).toEqual({ cwd: 'app', anonymous: false, nuxtArgs: ['--port', '3001'] })
+    expect(splitDevArgs(['--cwd=app', '--host'])).toEqual({ cwd: 'app', anonymous: false, nuxtArgs: ['--host'] })
+    expect(splitDevArgs([])).toEqual({ cwd: '.', anonymous: false, nuxtArgs: [] })
+  })
+
+  it('keeps --anonymous for itself: nuxt dev never sees it', () => {
+    expect(splitDevArgs(['--anonymous', '--port', '3001'])).toEqual({ cwd: '.', anonymous: true, nuxtArgs: ['--port', '3001'] })
   })
 
   it('quotes only what the shell would split or expand', () => {

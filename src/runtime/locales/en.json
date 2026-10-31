@@ -1,0 +1,2724 @@
+{
+  "backend": {
+    "auth": {
+      "title": "Sign in",
+      "titleBrand": "Sign in to {brand}",
+      "passkeySignIn": "Sign in with passkey",
+      "passkeyWaiting": "Waiting for your passkey…",
+      "divider": "or",
+      "emailCode": "Continue with email code",
+      "lastUsed": "Last used",
+      "name": "Name",
+      "email": "Email",
+      "sendCode": "Email me a code",
+      "sending": "Sending the code…",
+      "sent": "We sent a code to {email}.",
+      "code": "Verification code",
+      "verify": "Verify",
+      "verifying": "Verifying…",
+      "back": "Back",
+      "passkeyOffer": "Save a passkey on this device to sign in instantly next time.",
+      "passkeyRequired": "Save a new passkey on this device to finish signing in.",
+      "newRecoveryCode": "Your new recovery code: {code}. Keep it somewhere safe. It is shown once.",
+      "lostPasskey": "Lost your passkey?",
+      "recoverIntro": "Enter your email and the recovery code you saved when you turned on passkey-only sign-in.",
+      "recoveryCode": "Recovery code",
+      "recover": "Recover my account",
+      "recovering": "Checking the recovery code…",
+      "addPasskey": "Add passkey",
+      "addingPasskey": "Adding the passkey…",
+      "skip": "Skip for now",
+      "waitlisted": "You're on the waitlist. We'll let you in as soon as we can.",
+      "waitlistedPlace": "You're #{position} of {total} on the waitlist. We'll let you in as soon as we can.",
+      "waitlistedDisclosure": "We admit in waves and may also admit by other criteria. Your position can change.",
+      "agreement": "By continuing, you agree to {terms}.",
+      "agreementItem": "the {title}",
+      "ageQuestion": "How old are you?",
+      "ageSubmit": "Continue",
+      "ageChecking": "Checking…",
+      "haveInviteCode": "I have an invite code",
+      "undeliverable": "We can't send email to this address right now. Use another address, or contact us for help.",
+      "tryAnotherEmail": "Use another address",
+      "inviteIntro": "Signing up takes an invite right now. Enter your invite code.",
+      "inviteCode": "Invite code",
+      "redeemInvite": "Continue",
+      "checkingInvite": "Checking the invite code…",
+      "invitePage": {
+        "title": "Your invite",
+        "checking": "Checking your invite…",
+        "valid": "Your invite works. Sign in with your email to create your account.",
+        "expired": "This invite has expired.",
+        "usedUp": "This invite has been used up.",
+        "revoked": "This invite is no longer valid.",
+        "unknown": "This invite link doesn't work. Check that you opened the whole link.",
+        "continue": "Continue to sign in"
+      },
+      "challenge": "Confirm you're a person to continue."
+    },
+    "profile": {
+      "title": "Profile",
+      "emailVerified": "Email verified",
+      "emailUnverified": "Email unverified",
+      "role": "Role: {role}",
+      "roles": {
+        "user": "User",
+        "admin": "Admin"
+      },
+      "name": "Display name",
+      "save": "Save name",
+      "saving": "Saving…",
+      "saved": "Name updated.",
+      "newEmail": "New email address",
+      "emailHint": "You confirm with a code from your current address, then one from the new address.",
+      "changeEmail": "Change email",
+      "changing": "Sending the code…",
+      "codeSentTo": "Code sent to {email}",
+      "currentAddress": "your current address",
+      "confirm": "Confirm",
+      "confirming": "Confirming…",
+      "confirmHint": "This proves you still hold your current address. Next, a code goes to the new one.",
+      "verifyHint": "No code? An address that already belongs to an account receives none.",
+      "verifying": "Changing the address…",
+      "cancel": "Cancel",
+      "changed": "Your email address is now {email}.",
+      "sameEmail": "That is already your email address.",
+      "language": "Language",
+      "languageHint": "Pages and the emails we send you use this language.",
+      "languageSaved": "Language updated."
+    },
+    "security": {
+      "title": "Security",
+      "passkeys": "Passkeys",
+      "passkeysEmpty": "No passkeys yet — add one to sign in without codes.",
+      "addPasskey": "Add passkey on this device",
+      "addingPasskey": "Adding the passkey…",
+      "passkeyAdded": "Passkey registered on this device.",
+      "passkeyName": "Passkey name",
+      "unnamedPasskey": "Unnamed passkey",
+      "rename": "Rename",
+      "renameNamed": "Rename passkey {name}",
+      "save": "Save",
+      "saveNamed": "Save the name of passkey {name}",
+      "saving": "Saving…",
+      "remove": "Remove",
+      "removeNamed": "Remove passkey {name}",
+      "removing": "Removing…",
+      "removeConfirm": "Remove passkey “{name}”?",
+      "sessions": "Active sessions",
+      "sessionsLoading": "Loading sessions…",
+      "unknownDevice": "Unknown device",
+      "device": "{browser} · {os}",
+      "browser": "Browser",
+      "deviceTypes": {
+        "singleDevice": "This device only",
+        "multiDevice": "Synced"
+      },
+      "thisDevice": "This device",
+      "revoke": "Revoke",
+      "revokeNamed": "Revoke {device}, signed in {date}",
+      "revoking": "Signing out…",
+      "revokeOthers": "Sign out other sessions",
+      "revokingOthers": "Signing out the other sessions…",
+      "othersRevoked": "Other sessions signed out.",
+      "alerts": "Alerts",
+      "alertsEmpty": "No new device has signed in to your account.",
+      "alertNewDevice": "New sign-in from {device}, {date}",
+      "alertRecovery": "Recovery code used on {device}, {date}",
+      "alertSignOut": "Sign it out",
+      "alertSignOutNamed": "Sign it out: {device}, signed in {date}",
+      "passkeyOnly": "Sign in with passkeys only",
+      "passkeyOnlyHint": "Sign-in codes stop working for this account. Keep the recovery code: it is the way back in without a passkey.",
+      "passkeyOnlyOff": "Allow sign-in codes again",
+      "newRecoveryCodeAction": "Make a new recovery code",
+      "recoveryCode": "Your recovery code: {code}. Keep it somewhere safe. It is shown once.",
+      "danger": "This device",
+      "signOut": "Sign out",
+      "signingOut": "Signing out…",
+      "confirmAccept": "Confirm",
+      "confirmCancel": "Cancel"
+    },
+    "account": {
+      "loading": "Loading…",
+      "exportTitle": "Your data",
+      "exportNote": "Download everything this app keeps of your account, in one file. Its link works for an hour.",
+      "export": "Export my data",
+      "exporting": "Preparing your file…",
+      "exportReady": "Your file is ready.",
+      "download": "Download your data",
+      "expires": "The link works until {time}.",
+      "deleteTitle": "Delete account",
+      "deleteNote": "Your account is deleted after a waiting period, and you can keep it until then. Then it can't be undone: your workspaces no one else belongs to, your files, your activity and your billing records go with it.",
+      "confirmLabel": "Type {email} to confirm",
+      "confirmHint": "Your address, exactly as it is shown.",
+      "confirmMismatch": "That isn't your address. Type it exactly as it is shown.",
+      "delete": "Delete my account",
+      "deleting": "Scheduling the deletion…",
+      "scheduled": "Your account is scheduled for deletion.",
+      "scheduledNote": "Your account will be deleted on {date}. Until then it works as before.",
+      "keep": "Keep my account",
+      "keeping": "Keeping your account…",
+      "kept": "Your account is kept.",
+      "filesPart": "Your files, part {part} of {count}",
+      "impersonating": "An administrator acting as this account can't export its data or delete it."
+    },
+    "reauthenticate": {
+      "title": "Confirm it's you",
+      "intro": "This needs a recent sign-in. Confirm with your passkey or a code we email you.",
+      "passkey": "Use your passkey",
+      "passkeyWaiting": "Waiting for your passkey…",
+      "divider": "or",
+      "emailCode": "Email me a code",
+      "sending": "Sending the code…",
+      "sent": "We sent a code to {email}.",
+      "code": "Verification code",
+      "verify": "Confirm",
+      "verifying": "Confirming…",
+      "back": "Back",
+      "cancel": "Cancel"
+    },
+    "invitation": {
+      "title": "Invitation",
+      "loading": "Loading invitation…",
+      "missing": "This invitation link is invalid or has expired.",
+      "failed": "Something went wrong: {message}",
+      "invited": "{inviter} invited you to join {workspace}.",
+      "invitedAs": "{inviter} invited you to join {workspace} as {role}.",
+      "roles": {
+        "owner": "owner",
+        "admin": "admin",
+        "member": "member"
+      },
+      "accept": "Accept invitation",
+      "accepting": "Joining…",
+      "decline": "Decline",
+      "declining": "Declining…",
+      "accepted": "You joined {workspace}.",
+      "theWorkspace": "the workspace",
+      "declined": "Invitation declined."
+    },
+    "pricing": {
+      "title": "Pricing",
+      "emailNotice": "We'll email you about new features.",
+      "emailOptOut": "Don't email me",
+      "description": "Plans and prices.",
+      "period": {
+        "month": "/mo",
+        "year": "/yr"
+      },
+      "interval": "Billing period",
+      "intervals": {
+        "month": "Monthly",
+        "year": "Yearly"
+      },
+      "save": "Save {percent}%",
+      "currency": "Currency",
+      "loading": "Loading plans…",
+      "empty": "No plans are configured yet.",
+      "credits": {
+        "month": "{count} credit / month | {count} credits / month",
+        "year": "{count} credit / year | {count} credits / year"
+      },
+      "retired": "No longer offered",
+      "packCredits": "{count} credit | {count} credits",
+      "perCredit": "{price} per credit",
+      "lessPerCredit": "{percent}% less per credit",
+      "bestValue": "Best value",
+      "promotion": {
+        "once": "{off} off the first payment, then {price}",
+        "months": "{off} off for {count} month, then {price} | {off} off for {count} months, then {price}",
+        "forever": "{off} off for as long as the subscription lasts",
+        "pack": "{off} off: {price} at checkout",
+        "ends": "Offer ends {date}"
+      },
+      "contact": "Contact us",
+      "subscribe": "Subscribe",
+      "switch": "Switch to {plan}",
+      "upgrade": "Upgrade to {plan}",
+      "downgrade": "Downgrade to {plan}",
+      "switchInterval": {
+        "month": "Switch to monthly billing",
+        "year": "Switch to yearly billing"
+      },
+      "scheduled": "Starts on {date}",
+      "cancel": "Cancel plan",
+      "uncancel": "Keep plan",
+      "trial": {
+        "day": "{count}-day free trial",
+        "week": "{count}-week free trial",
+        "month": "{count}-month free trial",
+        "year": "{count}-year free trial"
+      },
+      "current": "Current",
+      "signIn": "Sign in to subscribe",
+      "signInFree": "Sign up for free",
+      "returnsToFree": "Yours again when your plan ends",
+      "topUp": "Top up",
+      "portal": "Manage subscription",
+      "checkingOut": "Opening checkout…",
+      "changing": "Changing the plan…",
+      "canceling": "Canceling…",
+      "uncanceling": "Keeping the plan…",
+      "openingPortal": "Opening the portal…",
+      "managed": "Your workspace's owner and admins manage its plan and buy its credits.",
+      "finishingPurchase": "Finishing your purchase…",
+      "confirmTitle": "Cancel the plan",
+      "confirmEnds": "The plan ends on {date}. Everything it includes stays until then.",
+      "confirmEndsPeriod": "The plan ends with the current period. Everything it includes stays until then.",
+      "confirmCancel": "Confirm cancellation"
+    },
+    "settings": {
+      "title": "Settings",
+      "loading": "Loading…",
+      "workspaces": "Workspaces",
+      "active": "Active",
+      "switch": "Switch",
+      "switching": "Switching…",
+      "workspaceName": "Workspace name",
+      "create": "Create workspace",
+      "creating": "Creating…",
+      "created": "Workspace “{name}” created.",
+      "plan": "Plan",
+      "free": "Free",
+      "unknownPlan": "Unknown plan",
+      "planActive": "Active",
+      "cancels": "Cancels at period end",
+      "renews": "renews {date}",
+      "viewPlans": "View plans",
+      "cancel": "Cancel plan",
+      "canceling": "Canceling…",
+      "canceled": "Subscription set to cancel at period end.",
+      "onTrial": "On trial",
+      "trialEnds": "trial ends {date}",
+      "pastDue": "Payment failed",
+      "pastDueHint": "The last payment did not go through. Update the payment method to keep the plan.",
+      "paused": "Paused",
+      "resumes": "resumes {date}",
+      "ends": "ends {date}",
+      "changing": "Plan change scheduled",
+      "changesTo": "switches to {plan} on {date}",
+      "managed": "Your workspace's owner and admins manage its plan.",
+      "portal": "Manage billing",
+      "updatePayment": "Update payment method",
+      "openingPortal": "Opening the portal…",
+      "resume": "Resume plan",
+      "resuming": "Resuming…",
+      "resumed": "The plan runs again.",
+      "keepPlan": "Keep plan",
+      "keeping": "Keeping the plan…",
+      "kept": "The plan renews again.",
+      "gifted": "Gifted",
+      "giftedUntil": "gifted until {date}",
+      "keepGiftedPlan": "Keep this plan",
+      "keepingGiftedPlan": "Opening checkout…",
+      "cancelChange": "Cancel the change",
+      "cancelingChange": "Canceling the change…",
+      "changeCanceled": "The plan change is canceled.",
+      "confirmTitle": "Cancel the plan",
+      "confirmEnds": "The plan ends on {date}. Everything it includes stays until then.",
+      "confirmEndsPeriod": "The plan ends with the current period. Everything it includes stays until then.",
+      "confirmCancel": "Confirm cancellation",
+      "finishingPurchase": "Finishing your purchase…",
+      "benefits": "Included",
+      "benefitKinds": {
+        "license_key": "License key",
+        "download": "Downloads",
+        "community": "Community access",
+        "repository": "Repository access",
+        "shared_channel": "Shared channel",
+        "custom": "Perk",
+        "credits": "Credits",
+        "feature": "Feature",
+        "other": "Benefit"
+      },
+      "files": "{count} file | {count} files",
+      "benefitsPortal": "Whole keys, files and connected accounts are in the billing portal.",
+      "credits": "Credits",
+      "balance": "{count} credit | {count} credits",
+      "balanceUnknown": "— credits",
+      "credited": "{count} credited",
+      "used": "{count} used",
+      "buyPack": "Buy {pack}",
+      "toppingUp": "Opening checkout…",
+      "refresh": "Refresh",
+      "refreshing": "Refreshing…"
+    },
+    "history": {
+      "title": "",
+      "invoice": "Invoice",
+      "invoiceOpening": "Opening the invoice…",
+      "invoiceFailed": "Could not open the invoice",
+      "statuses": {
+        "pending": "Pending",
+        "paid": "Paid",
+        "refunded": "Refunded",
+        "partially_refunded": "Partly refunded"
+      },
+      "empty": "No charges yet.",
+      "loading": "Loading…",
+      "newer": "Newer",
+      "older": "Older",
+      "pageLoading": "Loading the page…"
+    },
+    "usage": {
+      "title": "",
+      "units": "{count} credit | {count} credits",
+      "empty": "No usage recorded yet.",
+      "loading": "Loading…",
+      "newer": "Newer",
+      "older": "Older",
+      "pageLoading": "Loading the page…"
+    },
+    "audit": {
+      "title": "Recent activity",
+      "workspaceTitle": "Workspace activity",
+      "allTitle": "All activity",
+      "empty": "Nothing recorded yet.",
+      "loading": "Loading…",
+      "newer": "Newer",
+      "older": "Older",
+      "pageLoading": "Loading the page…",
+      "actors": {
+        "you": "You",
+        "administrator": "An administrator",
+        "app": "The app",
+        "erased": "A deleted account",
+        "unknown": "Someone"
+      },
+      "subjects": {
+        "you": "you",
+        "administrator": "an administrator",
+        "app": "the app",
+        "erased": "a deleted account",
+        "unknown": "someone"
+      },
+      "unnamedWorkspace": "a workspace",
+      "roles": {
+        "owner": "owner",
+        "admin": "admin",
+        "member": "member",
+        "user": "user"
+      },
+      "methods": {
+        "passkey": "a passkey",
+        "emailOtp": "an email code"
+      },
+      "forSubject": "for {subject}",
+      "inWorkspace": "in {workspace}",
+      "withMethod": "with {method}",
+      "impersonated": "by an administrator acting for the account",
+      "events": {
+        "auth": {
+          "signed_in": "{actor} signed in",
+          "signed_out": "{actor} signed out",
+          "reauthenticated": "{actor} confirmed it was them",
+          "passkey_added": "{actor} added a passkey",
+          "passkey_removed": "{actor} removed a passkey",
+          "passkey_only_changed": "{actor} changed whether sign-in codes work",
+          "email_changed": "{actor} changed the email address",
+          "session_revoked": "{actor} signed a session out",
+          "new_device": "{actor} signed in from a new device"
+        },
+        "workspace": {
+          "created": "{actor} created {workspace}",
+          "member_invited": "{actor} invited someone to {workspace} as {role}",
+          "invitation_accepted": "{actor} joined {workspace} as {role}",
+          "member_removed": "{actor} removed {subject} from {workspace}",
+          "member_role_changed": "{actor} made {subject} {role} of {workspace}"
+        },
+        "admin": {
+          "impersonation_started": "{actor} began acting as {subject}",
+          "impersonation_stopped": "{actor} stopped acting as {subject}",
+          "role_changed": "{actor} made {subject} an app {role}",
+          "user_banned": "{actor} banned {subject}",
+          "user_unbanned": "{actor} lifted the ban on {subject}"
+        },
+        "flag": {
+          "changed": "{actor} changed the {flag} flag"
+        },
+        "experiment": {
+          "exposed": "{actor} saw the {variant} version of {experiment}"
+        },
+        "announcement": {
+          "published": "{actor} published an announcement",
+          "ended": "{actor} ended an announcement",
+          "sent": "{actor} sent an announcement's email",
+          "cancelled": "{actor} cancelled an announcement's email"
+        },
+        "access": {
+          "phase_changed": "{actor} changed the launch phase",
+          "ticket_used": "{actor} signed up with a ticket",
+          "invite_created": "{actor} made an invite code or link",
+          "invite_revoked": "{actor} revoked an invite",
+          "admitted": "{actor} invited people by address"
+        },
+        "consent": {
+          "granted": "{actor} agreed to a consent",
+          "withdrawn": "{actor} withdrew a consent"
+        },
+        "waitlist": {
+          "joined": "{actor} joined the waitlist",
+          "admitted": "{actor} admitted people from the waitlist",
+          "declined": "{actor} declined waitlist entries",
+          "left": "{actor} left the waitlist"
+        },
+        "report": {
+          "decided": "{actor} decided reported content",
+          "crime_flagged": "{actor} flagged reported content for the authorities",
+          "appealed": "{actor} appealed a decision on their content",
+          "appeal_decided": "{actor} decided an appeal"
+        },
+        "job": {
+          "queue_changed": "{actor} changed the job queue",
+          "canceled": "{actor} canceled a job",
+          "retried": "{actor} put a failed job back in line"
+        },
+        "ai": {
+          "spend_limit_reached": "{actor} paused AI: today's spend limit was reached"
+        },
+        "billing": {
+          "checkout_started": "{actor} opened a checkout",
+          "plan_changed": "{actor} changed the subscription",
+          "subscription_created": "{actor} started a subscription",
+          "subscription_updated": "{actor} updated a subscription",
+          "subscription_canceled": "{actor} canceled a subscription",
+          "subscription_revoked": "{actor} ended a subscription",
+          "order_paid": "{actor} recorded a payment",
+          "order_refunded": "{actor} recorded a refund",
+          "refund_issued": "{actor} issued a refund",
+          "benefit_granted": "{actor} granted a benefit",
+          "benefit_revoked": "{actor} revoked a benefit",
+          "credits_low": "{actor} brought the credits to their low mark",
+          "credits_exhausted": "{actor} used up the credits",
+          "subscription_past_due": "{actor} recorded a failed renewal payment",
+          "save_offer_made": "{actor} was offered to stay",
+          "save_offer_accepted": "{actor} accepted an offer to stay",
+          "checkout_abandoned": "{actor} left a checkout unpaid",
+          "contract_withdrawn": "{actor} withdrew from a purchase",
+          "trial_pass_started": "{actor} started a trial"
+        },
+        "gift": {
+          "purchased": "{actor} bought a gift",
+          "claimed": "{actor} claimed a gift",
+          "refunded": "{actor} recorded a gift refund",
+          "pass_started": "{actor} started a plan pass",
+          "pass_ending": "{actor} was told a plan pass ends soon",
+          "pass_ended": "{actor} recorded the end of a plan pass"
+        },
+        "referral": {
+          "claimed": "{actor} recorded a sign-up through a referral",
+          "rewarded": "{actor} granted a referral reward"
+        },
+        "email": {
+          "bounced": "{actor} could not deliver an email to {subject}",
+          "suppression_lifted": "{actor} lifted an email suppression"
+        },
+        "webhook": {
+          "replayed": "{actor} replayed a webhook delivery"
+        },
+        "account": {
+          "created": "{actor} signed up",
+          "activated": "{actor} reached their first result",
+          "data_exported": "{actor} exported the account data",
+          "deletion_scheduled": "{actor} asked to delete the account",
+          "deletion_canceled": "{actor} kept the account, cancelling its deletion",
+          "erasure_failed": "{actor} could not finish erasing a deleted account"
+        }
+      },
+      "other": "{actor}: {type}"
+    },
+    "admin": {
+      "title": "Admin",
+      "tabsLabel": "Admin sections",
+      "tabs": {
+        "users": "Users",
+        "workspaces": "Workspaces",
+        "activity": "Activity",
+        "flags": "Flags",
+        "access": "Access",
+        "waitlist": "Waitlist",
+        "announcements": "Announcements",
+        "inbox": "Inbox",
+        "referrals": "Referrals",
+        "billing": "Billing",
+        "queue": "Queue",
+        "costs": "Costs",
+        "webhooks": "Webhooks",
+        "suppressions": "Suppressions",
+        "analytics": "Analytics",
+        "reports": "Reports",
+        "system": "System"
+      },
+      "loading": "Loading…",
+      "costs": {
+        "refused": "Only administrators see what AI costs.",
+        "window": "Show",
+        "days": "The last day | The last {count} days",
+        "refresh": "Refresh",
+        "total": "{usd} for {count} run | {usd} for {count} runs",
+        "source": "What AI calls cost, as the gateway reported them. A run is a queued job, a metered call, a stream, a chat reply or a knowledge embedding. A failed run's calls count too. A call through a key of your own reports no cost. The billing provider's cost dashboard shows what jobs cost per customer, beside revenue.",
+        "truncated": "This window holds more people than one read takes: the list covers its newest days. The total covers them all.",
+        "empty": "No AI call ran in this window.",
+        "caption": "The 100 people whose AI calls cost the most",
+        "person": "Person",
+        "cost": "Cost",
+        "runs": "Runs",
+        "tokens": "Tokens in / out",
+        "tokenCounts": "{input} / {output}",
+        "guest": "Visitors, before signing up"
+      },
+      "webhooks": {
+        "refused": "Only administrators read the webhook log.",
+        "intro": "Every delivery the providers sent that verified, newest first. Replay asks the provider to send one again, signed, to the same route: a delivery already processed answers duplicate and changes nothing.",
+        "empty": "No delivery has arrived yet.",
+        "filter": "Show",
+        "all": "Both services",
+        "caption": "Webhook deliveries",
+        "service": "Service",
+        "event": "Event",
+        "outcome": "Outcome",
+        "received": "Received",
+        "replay": "Replay",
+        "replayNamed": "Replay {event}, received {date}",
+        "replaying": "Asking the provider…",
+        "replayed": "Replayed {date}",
+        "replaySent": "The provider will send it again.",
+        "counted": "Counted, not logged: {count}",
+        "services": {
+          "billing": "Billing",
+          "email": "Email"
+        }
+      },
+      "suppressions": {
+        "refused": "Only administrators see suppressed addresses.",
+        "intro": "Addresses the email provider no longer delivers to, after a hard bounce, a complaint or by hand. A suppressed address gets no sign-in code. Lift one once the cause is gone; lift a complaint only when the person asks you to.",
+        "empty": "No address is suppressed.",
+        "caption": "Suppressed addresses",
+        "address": "Address",
+        "origin": "Why",
+        "since": "Since",
+        "lift": "Lift",
+        "liftNamed": "Lift the suppression of {email}",
+        "lifting": "Lifting…",
+        "lifted": "Lifted: mail reaches {email} again.",
+        "liftConfirm": "Lift the suppression of {email}? Mail goes to it again.",
+        "origins": {
+          "bounce": "Bounced",
+          "complaint": "Marked as spam",
+          "manual": "Added by hand",
+          "dropped": "Suppressed"
+        }
+      },
+      "views": {
+        "label": "Analytics views",
+        "revenue": "Revenue",
+        "growth": "Growth",
+        "experiments": "Experiments"
+      },
+      "growth": {
+        "window": "Show",
+        "weeks": "The last week | The last {count} weeks",
+        "source": "Counted inside your deployment as events are recorded: nothing leaves it, and nothing is stored on a visitor's device. Counting starts at sign-up; every step counts in the week the person signed up.",
+        "steps": "Funnel",
+        "step": {
+          "waitlist": "Joined the waitlist",
+          "admitted": "Admitted",
+          "signup": "Signed up",
+          "activation": "Activated",
+          "trial": "Started a trial",
+          "paid": "Paid"
+        },
+        "ofPrevious": "{rate} of the step before",
+        "breakdown": "Broken down by",
+        "dimension": {
+          "invite": "Invite",
+          "campaign": "Campaign",
+          "referral": "Referral",
+          "promotion": "Promotion",
+          "answer": "How they heard"
+        },
+        "value": "Value",
+        "direct": "Direct or unknown",
+        "other": "Everything else",
+        "noBreakdown": "Nobody in this window has a value here yet.",
+        "otherAnswers": "What people wrote under \"Somewhere else\"",
+        "cohorts": "Retention by sign-up week",
+        "cohortWeek": "Week of",
+        "cohortSize": "Signed up",
+        "weekAfter": "Week {count}",
+        "retained": "{rate} ({count})",
+        "empty": "Nothing has been counted yet: the first sign-up starts the funnel."
+      },
+      "experiments": {
+        "empty": "No flag declares variants yet: add `variants` and a `goal` to one in backend/flags.ts.",
+        "running": "Running",
+        "stopped": "Stopped",
+        "decided": "Showing {variant} to everyone",
+        "started": "Started {date}: {days} days, {weeks} full weeks",
+        "notStarted": "Nobody has seen it yet.",
+        "goal": "Goal: {kind}",
+        "noGoal": "No goal: it counts exposures only.",
+        "variant": "Variant",
+        "control": "{variant} (control)",
+        "share": "Share",
+        "exposed": "Exposed",
+        "converted": "Reached the goal",
+        "rate": "Rate (95% interval)",
+        "interval": "{rate} ({low} to {high})",
+        "guardrail": "Guardrail: {kind}",
+        "worse": "Worse than the control",
+        "discount": "Shows the promotion {discount}",
+        "verdict": {
+          "too_few": "Too few people to tell: wait for at least {count} exposures per variant.",
+          "no_difference": "No clear difference yet: the intervals overlap.",
+          "leading": "{variant} leads: its interval is clear of the control's."
+        },
+        "pick": "Show {variant} to everyone",
+        "picking": "Saving…",
+        "resume": "Run it again"
+      },
+      "revenue": {
+        "window": "Show",
+        "days": "The last day | The last {count} days",
+        "interval": "Per",
+        "intervals": {
+          "day": "Day",
+          "week": "Week",
+          "month": "Month"
+        },
+        "refresh": "Refresh",
+        "source": "The billing provider's own metrics, read when this view opens: nothing is kept here. Recurring revenue, churn and lifetime value are its numbers, computed its way. Amounts are in US dollars.",
+        "figures": "Key figures",
+        "mrr": "Monthly recurring revenue",
+        "arr": "Annual recurring revenue",
+        "revenue": "Revenue",
+        "activeSubscriptions": "Active subscriptions",
+        "churnRate": "Churn rate",
+        "lifetimeValue": "Lifetime value",
+        "revenueChart": "Revenue",
+        "subscriptions": "Subscriptions",
+        "newSubscriptions": "New",
+        "renewedSubscriptions": "Renewed",
+        "churnedSubscriptions": "Churned",
+        "cancellations": "Cancellations per reason",
+        "saveOffers": "{accepted} of {made} save offers accepted",
+        "saveOffersTruncated": "This window holds more save offers than one read counts: the count covers its oldest ones.",
+        "checkouts": "Checkouts",
+        "checkoutsStarted": "Started",
+        "checkoutsCompleted": "Completed",
+        "conversion": "{rate} of checkouts completed",
+        "usage": "Usage per meter",
+        "usageEmpty": "The billing catalog declares no meters.",
+        "meterTotal": "{total} in total",
+        "costs": "Costs and margin",
+        "cost": "Costs",
+        "costPerUser": "Cost per user",
+        "grossMargin": "Gross margin",
+        "noCosts": "Margin reads as revenue alone until usage events carry a cost.",
+        "total": "{value} in total",
+        "point": "{at}: {value}"
+      },
+      "inbox": {
+        "title": "Inbox",
+        "refused": "Only administrators read the inbox.",
+        "empty": "Nothing has arrived yet.",
+        "support": "Replies go out from {address}.",
+        "noSupport": "There is no support inbox: set `inbound.support` on setupEmail to answer from here.",
+        "filter": "Show",
+        "all": "Everything",
+        "kinds": {
+          "contact": "Contact form",
+          "reply": "Reply by email",
+          "workspace": "Workspace address",
+          "support": "Support inbox"
+        },
+        "deliveries": {
+          "support": "In the support inbox",
+          "copy": "Copied to the team mailbox",
+          "kept": "Kept here only",
+          "held": "Not sent: test mode, or no email key",
+          "failed": "The email provider refused it"
+        },
+        "received": "Received",
+        "from": "From",
+        "account": "Account: {name}",
+        "noSubject": "(no subject)",
+        "attachments": "{count} attachment | {count} attachments",
+        "open": "Read",
+        "close": "Close",
+        "answered": "Answered",
+        "replyLabel": "Your reply",
+        "replyHint": "It goes out from the support address and stays on the thread.",
+        "send": "Send reply",
+        "sending": "Sending…",
+        "replySent": "The reply was sent.",
+        "cannotReply": "This is not a thread of the support inbox: answer it from your own mail."
+      },
+      "queue": {
+        "heading": "Job queue",
+        "summary": "{running} running, {waiting} waiting",
+        "guests": "Guests: {running} running, {waiting} waiting",
+        "slots": "{concurrency} at once, {shared} shared",
+        "average": "An average job takes {seconds} s",
+        "paused": "Paused: no job starts until you resume.",
+        "pausedAi": "pause_ai is on: no job starts until it is turned off.",
+        "trimmed": "The concurrency is too low for every dedicated slot: the worst-listed paid tiers' slots are trimmed until one slot stays shared.",
+        "pause": "Pause",
+        "resume": "Resume",
+        "concurrency": "Jobs at once",
+        "save": "Save",
+        "reset": "Back to code",
+        "saved": "Saved.",
+        "none": "None",
+        "guest": "Guest",
+        "tiers": {
+          "heading": "Tiers",
+          "name": "Tier",
+          "feature": "Feature",
+          "everyone": "Everyone else",
+          "headStart": "Head start",
+          "minutes": "{count} min",
+          "perOwner": "Per owner",
+          "dedicated": "Dedicated",
+          "inEffect": "{configured} ({effect} in effect)",
+          "budget": "Budget",
+          "budgetValue": "{units} per {hours} h",
+          "running": "Running",
+          "waiting": "Waiting"
+        },
+        "models": {
+          "heading": "Models",
+          "model": "Model",
+          "rate": "Calls a minute",
+          "min": "Min",
+          "max": "Max",
+          "throttled": "429s"
+        },
+        "jobs": {
+          "heading": "Jobs",
+          "all": "All jobs",
+          "deadLetters": "Dead letters",
+          "kind": "Kind",
+          "owner": "Owner",
+          "tier": "Tier",
+          "status": "Status",
+          "attempts": "Attempts",
+          "joined": "Joined",
+          "lastError": "Last error",
+          "actions": "Actions",
+          "empty": "No jobs yet.",
+          "emptyDead": "No dead letters.",
+          "cancel": "Cancel",
+          "cancelRefund": "Cancel and refund",
+          "retry": "Retry",
+          "discard": "Discard"
+        },
+        "status": {
+          "queued": "Waiting",
+          "running": "Running",
+          "done": "Done",
+          "failed": "Failed",
+          "canceled": "Canceled"
+        }
+      },
+      "pageLoading": "Loading the page…",
+      "newer": "Newer",
+      "older": "Older",
+      "close": "Close",
+      "confirmAccept": "Confirm",
+      "confirmCancel": "Cancel",
+      "created": "Created",
+      "truncated": "Only the first {count} of each list show here.",
+      "roles": {
+        "user": "User",
+        "admin": "Administrator"
+      },
+      "workspaceRoles": {
+        "owner": "owner",
+        "admin": "admin",
+        "member": "member"
+      },
+      "methods": {
+        "passkey": "Passkey",
+        "emailOtp": "Email code"
+      },
+      "users": {
+        "title": "Users",
+        "search": "Search by email",
+        "empty": "No accounts match.",
+        "account": "Account",
+        "role": "Role",
+        "status": "Status",
+        "view": "View",
+        "viewNamed": "View {name}",
+        "active": "Active",
+        "banned": "Banned",
+        "bannedUntil": "Banned until {date}",
+        "you": "You"
+      },
+      "user": {
+        "notFound": "This account no longer exists.",
+        "self": "This is your own account: another administrator manages its role and ban.",
+        "lastSignIn": "Last sign-in",
+        "ticket": "Signed up with",
+        "ticketLabel": "{ticket} ({label})",
+        "never": "Never",
+        "role": "Role",
+        "saveRole": "Save the role",
+        "savingRole": "Saving…",
+        "roleSaved": "The role is saved.",
+        "ban": "Ban",
+        "banReason": "Reason (kept on the account, never on the activity trail)",
+        "banFor": "For",
+        "durations": {
+          "day": "A day",
+          "week": "A week",
+          "month": "Thirty days",
+          "forever": "Until lifted"
+        },
+        "banConfirm": "Ban {name}? Every session of theirs is signed out, and they cannot sign in.",
+        "banning": "Banning…",
+        "bannedNote": "Banned. {reason}",
+        "bannedUntilNote": "Banned until {date}. {reason}",
+        "noReason": "No reason given.",
+        "unban": "Lift the ban",
+        "unbanning": "Lifting…",
+        "unbanned": "The ban is lifted.",
+        "bannedDone": "The account is banned.",
+        "passkeyOnly": "Signs in with passkeys only.",
+        "passkeyOnlyOff": "Allow sign-in codes again",
+        "passkeyOnlyConfirm": "Allow sign-in codes for {name} again? Check who is asking first: anyone with the mailbox can then sign in.",
+        "passkeyOnlyTurningOff": "Allowing codes…",
+        "passkeyOnlyOffDone": "Sign-in codes work for this account again.",
+        "sessions": "Sessions",
+        "noSessions": "No session is open.",
+        "session": "{device}, signed in {date}",
+        "until": "until {date}",
+        "visit": "an administrator's visit",
+        "device": "{browser} on {os}",
+        "browser": "A browser",
+        "unknownDevice": "An unknown device",
+        "signOutAll": "Sign out everywhere",
+        "signingOut": "Signing out…",
+        "signedOut": "Every session is signed out.",
+        "workspaces": "Workspaces",
+        "noWorkspaces": "No workspace.",
+        "membership": "{workspace}, as {role}",
+        "impersonate": "Impersonate",
+        "impersonateNamed": "Impersonate {name}",
+        "impersonating": "Opening the visit…",
+        "impersonateNote": "You act as them for thirty minutes at most, and nothing sensitive is open to you.",
+        "administrator": "An administrator's account can't be impersonated."
+      },
+      "workspaces": {
+        "title": "Workspaces",
+        "search": "Search by name",
+        "empty": "No workspaces match.",
+        "workspace": "Workspace",
+        "view": "View",
+        "viewNamed": "View {name}",
+        "readOnly": "Workspaces are read-only here. To act inside one, impersonate a member.",
+        "notFound": "This workspace no longer exists.",
+        "members": "Members",
+        "member": "{name}, {role}",
+        "administrator": "administrator",
+        "banned": "banned",
+        "invitations": "Open invitations",
+        "noInvitations": "No open invitations.",
+        "invitation": "{email}, as {role}"
+      },
+      "system": {
+        "title": "System",
+        "statuses": {
+          "ok": "Every capability works.",
+          "degraded": "A capability is missing what it needs.",
+          "failing": "A capability is failing."
+        },
+        "capability": "Capability",
+        "state": "State",
+        "why": "Why",
+        "states": {
+          "live": "Live",
+          "test": "Test",
+          "missing": "Missing",
+          "failing": "Failing"
+        },
+        "capabilities": {
+          "auth": "Auth",
+          "data": "Data",
+          "jobs": "Jobs",
+          "billing": "Billing",
+          "email": "Email",
+          "ai": "AI",
+          "protection": "Protection",
+          "monitoring": "Monitoring",
+          "flags": "Flags"
+        },
+        "missingEnv": "Not set: {names}",
+        "finding": "What to fix",
+        "refresh": "Check again",
+        "checking": "Checking…",
+        "unreachable": "The health check could not be read.",
+        "coarse": "Only the states show: the detail is for administrators."
+      },
+      "tickets": {
+        "inviteCode": "An invite code",
+        "accessLink": "An access link",
+        "invitation": "An invitation by address",
+        "waitlist": "The waitlist",
+        "workspaceInvitation": "A workspace invitation",
+        "gift": "A gift",
+        "domain": "An allowed domain",
+        "administrator": "An administrator"
+      },
+      "access": {
+        "title": "Access",
+        "refused": "Only administrators see and change who may sign up.",
+        "phaseTitle": "Launch phase",
+        "phaseHint": "Existing accounts always sign in. While the app is closed, a new address needs a ticket. Changing the phase asks you to confirm it's you.",
+        "phaseCurrent": "Now: {phase}",
+        "phaseMove": "Move to {phase}",
+        "phases": {
+          "earlyAccess": "Early access",
+          "inviteOnly": "Invite only",
+          "public": "Public"
+        },
+        "phaseConfirm": "Move the app to {phase}? This takes effect on the next sign-up.",
+        "invitesTitle": "Invite codes and access links",
+        "invitesHint": "A code or a link is shown once, when it is made: only a hash is kept.",
+        "kind": "Kind",
+        "kinds": {
+          "code": "Invite code",
+          "link": "Access link"
+        },
+        "label": "Label",
+        "labelHint": "Names the cohort in the activity trail and the growth funnels.",
+        "maxUses": "Uses",
+        "expiresAt": "Expires",
+        "noExpiry": "Never",
+        "create": "Create",
+        "creating": "Creating…",
+        "created": "Copy it now: it is shown once.",
+        "copy": "Copy",
+        "copied": "Copied",
+        "uses": "{uses} of {maxUses}",
+        "status": "Status",
+        "statuses": {
+          "valid": "Active",
+          "expired": "Expired",
+          "usedUp": "Used up",
+          "revoked": "Revoked",
+          "unknown": "Unknown"
+        },
+        "revoke": "Revoke",
+        "revoking": "Revoking…",
+        "revokeConfirm": "Revoke {label}? It stops admitting anyone at once.",
+        "noInvites": "No codes or links yet.",
+        "admitTitle": "Invite by address",
+        "admitHint": "One address per line, or comma-separated, up to 500. No email is sent unless you ask: announce through a broadcast to people who opted in. Each invitation lasts 30 days.",
+        "emailThem": "Email them",
+        "emailThemHint": "Each person gets a plain \"You're invited\" email with a one-click unsubscribe, about a hundred an hour.",
+        "emails": "Addresses",
+        "admit": "Invite",
+        "admitting": "Inviting…",
+        "admitted": "{count} address invited. | {count} addresses invited.",
+        "skipped": "Skipped {email}: {reason}",
+        "skipReasons": {
+          "malformed": "not an address",
+          "reserved": "a reserved domain",
+          "account": "already has an account"
+        },
+        "admissionsTitle": "Invited addresses",
+        "noAdmissions": "No addresses invited yet.",
+        "used": "Signed up",
+        "waiting": "Waiting"
+      },
+      "announcements": {
+        "title": "Announcements",
+        "refused": "Only administrators see and publish announcements.",
+        "composeTitle": "New announcement",
+        "composeHint": "The notice shows at once to everyone signed in, until it expires or they dismiss it. Publishing asks you to confirm it's you.",
+        "message": "Notice",
+        "messageHint": "One or two sentences, up to {max} characters.",
+        "linkUrl": "Link",
+        "linkUrlHint": "A page of the app (/pricing) or an https: address. Optional.",
+        "linkLabel": "Link words",
+        "expiresAt": "Shows until",
+        "withBroadcast": "Also send an email",
+        "audience": "To",
+        "audiences": {
+          "accounts": "People who opted into a topic",
+          "waitlist": "The waitlist's launch-news list"
+        },
+        "topic": "Topic",
+        "subject": "Subject",
+        "body": "Email",
+        "bodyHint": "Plain text: a blank line starts a new paragraph. Your postal address and an unsubscribe link are added.",
+        "publish": "Publish",
+        "publishing": "Publishing…",
+        "published": "Published: the notice shows now.",
+        "listTitle": "Published",
+        "noAnnouncements": "Nothing published yet.",
+        "live": "Live until {date}",
+        "expired": "Expired {date}",
+        "ended": "Ended {date}",
+        "end": "End notice",
+        "ending": "Ending…",
+        "endConfirm": "End this notice now? It goes away for everyone.",
+        "emailTitle": "Email: {subject}",
+        "states": {
+          "draft": "Not sent",
+          "creating": "Sending…",
+          "created": "Not sent",
+          "sent": "Sent {date}",
+          "scheduled": "Scheduled for {date}",
+          "cancelled": "Cancelled"
+        },
+        "preview": "Send me a preview",
+        "previewing": "Sending…",
+        "previewed": "A preview is on its way to your address.",
+        "sendAt": "Send at",
+        "sendAtHint": "Leave empty to send now.",
+        "send": "Send email",
+        "sending": "Sending…",
+        "sendConfirm": "Send this email to everyone in its audience who opted in? It goes out once and cannot be called back.",
+        "sent": "The email is on its way.",
+        "scheduled": "The email is scheduled.",
+        "cancel": "Cancel email",
+        "cancelling": "Cancelling…",
+        "cancelled": "The email is cancelled.",
+        "testMode": "Emails go out only from production. Here, send yourself a preview.",
+        "noAddress": "Add your postal address (brand.address on setupEmail) before sending: every marketing email carries it.",
+        "notSynced": "Run npx nuxt-backend email sync first: the audience is not at the email provider yet."
+      },
+      "billing": {
+        "refused": "Only administrators see billing records.",
+        "entity": "Billing entity",
+        "entityHint": "A workspace's id, or an account's when each account pays for itself. Leave it empty to see every entity.",
+        "offersTitle": "Save offers",
+        "offersHint": "The offers the cancel flow made, for the reason the person gave, and whether they took it.",
+        "offersEmpty": "No save offers yet.",
+        "withdrawalsTitle": "Withdrawals",
+        "withdrawalsHint": "Each plan ended at once. The refund, less what the person used, is yours to send within 14 days.",
+        "withdrawalsEmpty": "No withdrawals.",
+        "consentsTitle": "Renewal consent proofs",
+        "consentsHint": "What each renewing checkout showed and who agreed to it, kept three years.",
+        "consentsEmpty": "No consent proofs yet.",
+        "columns": {
+          "entity": "Billing entity",
+          "reason": "Reason",
+          "offer": "Offer",
+          "madeAt": "Made",
+          "outcome": "Outcome",
+          "plan": "Plan",
+          "account": "Account",
+          "at": "When",
+          "price": "Price",
+          "terms": "Terms version",
+          "consentedAt": "Agreed"
+        },
+        "offers": {
+          "pause": "Pause for {count} month | Pause for {count} months",
+          "downgrade": "Move to {plan}",
+          "discount": "Discount {discount}"
+        },
+        "accepted": "Taken on {date}",
+        "declined": "Not taken",
+        "price": "{amount} {every}",
+        "every": {
+          "day": "every day | every {count} days",
+          "week": "every week | every {count} weeks",
+          "month": "every month | every {count} months",
+          "year": "every year | every {count} years"
+        },
+        "noTerms": "None recorded"
+      },
+      "reports": {
+        "refused": "Only administrators see reports.",
+        "empty": "No open reports.",
+        "subjects": "Reported content",
+        "open": "{count} open",
+        "gone": "This content is gone.",
+        "author": "By {email}",
+        "openAuthor": "Open in Users",
+        "deadline": "Decide by {date}",
+        "overdue": "Overdue since {date}",
+        "crime": "Flagged for the authorities on {date}",
+        "reasons": {
+          "illegal": "Illegal",
+          "intimate": "Intimate image without consent",
+          "child_abuse": "Child sexual abuse",
+          "abuse": "Harassment",
+          "sexual": "Sexual content",
+          "violence": "Violence",
+          "spam": "Spam",
+          "other": "Other"
+        },
+        "notices": "Notices",
+        "notifier": "From {name}, {email}",
+        "anonymous": "Sent without a name",
+        "signedBy": "Signed by {name}",
+        "link": "Link given",
+        "reason": "Reason",
+        "reasonHint": "The facts, and the term or law it breaks. The author and the people who reported it read this.",
+        "ground": "Ground",
+        "grounds": {
+          "terms": "Breaks our terms",
+          "illegal": "Illegal"
+        },
+        "hide": "Hide",
+        "dismiss": "Dismiss",
+        "flag": "Flag a suspected crime",
+        "flagConfirm": "Flag this as a suspected crime that threatens someone's life or safety? You tell the authority of the country concerned yourself.",
+        "hidden": "Hidden. The people who reported it and its author were told.",
+        "markHandled": "Mark handled",
+        "markedHandled": "Marked handled. Its sender was told you acted on it.",
+        "dismissed": "Dismissed. The people who reported it were told.",
+        "flagged": "Flagged. Tell the authority of the country concerned now.",
+        "unplaced": "Notices about other links",
+        "appeals": "Appeals",
+        "appealOf": "Appeal against hiding \"{title}\"",
+        "appealText": "The author wrote",
+        "uphold": "Keep the decision",
+        "reverse": "Reverse it",
+        "appealDecided": "Decided. The author was told."
+      },
+      "waitlist": {
+        "title": "Waitlist",
+        "refused": "Only administrators see and change the waitlist.",
+        "counts": "Waiting, admitted, declined and joined",
+        "statuses": {
+          "waiting": "Waiting",
+          "admitted": "Admitted",
+          "declined": "Declined",
+          "joined": "Joined"
+        },
+        "count": "{count}",
+        "status": "Status",
+        "domain": "Domain",
+        "source": "Source",
+        "question": "Question",
+        "answer": "Answer",
+        "anyQuestion": "Any",
+        "filter": "Apply",
+        "clearFilter": "Clear",
+        "email": "Address",
+        "joinedAt": "Verified",
+        "answers": "Answers",
+        "boost": "Friends",
+        "news": "News",
+        "newsYes": "Yes",
+        "newsNo": "No",
+        "note": "Note",
+        "notePlaceholder": "A note only administrators see",
+        "saveNote": "Save",
+        "select": "Select {email}",
+        "selectAll": "Select all shown",
+        "approve": "Approve",
+        "approveNext": "Approve the next",
+        "approveCount": "How many",
+        "approving": "Approving…",
+        "approved": "{count} person admitted and emailed. | {count} people admitted and emailed.",
+        "decline": "Decline",
+        "declineAbuse": "Remove as abuse",
+        "declining": "Declining…",
+        "declined": "{count} entry declined. | {count} entries declined.",
+        "declineConfirm": "Decline {count} entry? Its ticket is withdrawn. | Decline {count} entries? Their tickets are withdrawn.",
+        "abuseConfirm": "Remove {count} entry as abuse? What it gave the friend who shared with it is taken back. | Remove {count} entries as abuse? What each gave the friend who shared with it is taken back.",
+        "noEntries": "Nobody here yet.",
+        "capsTitle": "Room for a wave",
+        "capsHint": "A wave is bounded by the sign-in codes the deployment allows and the email plan's daily quota.",
+        "capCodes": "Sign-in codes left this hour: {left} of {limit}",
+        "capEmails": "Emails today: {used} of {limit}",
+        "capUnknown": "Not known: the email provider's usage could not be read.",
+        "mirrorTitle": "Launch news",
+        "mirrorDrift": "{count} contact has drifted from its entry and will be written again. | {count} contacts have drifted from their entries and will be written again.",
+        "mirrorPending": "{count} contact is waiting to be written. | {count} contacts are waiting to be written.",
+        "mirrorStates": {
+          "pending": "Waiting to be written",
+          "synced": "Written",
+          "drift": "Drifted",
+          "skipped": "Not written here"
+        }
+      },
+      "referrals": {
+        "title": "Referrals",
+        "refused": "Only administrators see and change referrals.",
+        "totals": "Referrals by state",
+        "states": {
+          "claimed": "Claimed",
+          "held": "Held",
+          "rewarded": "Rewarded",
+          "voided": "Voided",
+          "capped": "Past the caps",
+          "flagged": "Flagged"
+        },
+        "count": "{count}",
+        "topTitle": "Top referrers",
+        "topEmpty": "No referrals yet.",
+        "referrer": "Referrer",
+        "referrals": "Referrals",
+        "rewarded": "Rewarded",
+        "history": "History",
+        "historyTitle": "Referrals of this referrer",
+        "flaggedTitle": "Flagged",
+        "flaggedHint": "These rewards wait for you. Release one to let it go out when its hold ends, or void it.",
+        "flaggedEmpty": "Nothing waits for a decision.",
+        "state": "State",
+        "claimedAt": "Claimed",
+        "holdUntil": "Hold ends",
+        "flags": "Why",
+        "flagNames": {
+          "same_network": "One network and browser for both sides",
+          "burst": "A burst on one code"
+        },
+        "release": "Release",
+        "void": "Void",
+        "releasing": "Releasing…",
+        "voiding": "Voiding…",
+        "released": "The reward was released.",
+        "voided": "The referral was voided.",
+        "voidConfirm": "Void this referral? Nobody gets its reward.",
+        "program": "The program",
+        "holdDays": "Hold: {count} day | Hold: {count} days",
+        "capPerReferrer": "At most {count} reward per referrer. | At most {count} rewards per referrer.",
+        "capPerMonth": "At most {count} reward a month. | At most {count} rewards a month."
+      },
+      "flags": {
+        "title": "Flags",
+        "switchesTitle": "Kill switches",
+        "switchesHint": "Each one holds for everyone, from the next request on. Turning one on or off asks you to confirm it's you.",
+        "flagsTitle": "Feature flags",
+        "flagsHint": "Declared in backend/flags.ts. While a flag is off for everyone, it can be on for some.",
+        "empty": "This app declares no flags yet: add them to backend/flags.ts with defineFlags.",
+        "refused": "Only administrators see and change flags.",
+        "names": {
+          "pause_signups": "Pause sign-ups",
+          "pause_checkout": "Pause checkout",
+          "pause_ai": "Pause AI",
+          "maintenance": "Maintenance banner"
+        },
+        "descriptions": {
+          "pause_signups": "New accounts are refused, invited and administrator-created ones included, before a sign-in code is sent; existing accounts sign in as before.",
+          "pause_checkout": "New checkouts, plan switches and gift purchases are refused; running plans, cancelling, the billing portal and gift claims keep working.",
+          "pause_ai": "Metered model calls and streams are refused before any credits are reserved.",
+          "maintenance": "A banner with your message shows on every page, after an administrator's visit and before announcements."
+        },
+        "confirmOn": "Turn on “{name}” for everyone?",
+        "message": "Banner message",
+        "messageHint": "Plain text. Leave it empty for the default sentence.",
+        "saveMessage": "Save the message",
+        "key": "Flag",
+        "state": "Now",
+        "states": {
+          "defaultOn": "Default: on",
+          "defaultOff": "Default: off",
+          "on": "On for everyone",
+          "off": "Off for everyone",
+          "targeted": "On for some",
+          "undeclared": "Not in code: it turns nothing on"
+        },
+        "targetsIdle": "its targets apply once it is off",
+        "rolledOut": "{percent}% rolled out",
+        "edit": "Edit",
+        "editing": "Edit {key}",
+        "everyone": "For everyone",
+        "everyoneDefault": "As in code",
+        "everyoneOn": "On",
+        "everyoneOff": "Off",
+        "users": "Account ids",
+        "workspaces": "Workspace ids",
+        "plans": "Plan keys",
+        "listHint": "One per line, or separated by commas.",
+        "rollout": "Rollout, in percent",
+        "rolloutBy": {
+          "user": "A stable share of accounts.",
+          "workspace": "A stable share of workspaces: their members all see the same."
+        },
+        "save": "Save",
+        "saving": "Saving…",
+        "reset": "Back to the default",
+        "remove": "Remove",
+        "cancel": "Cancel",
+        "saved": "Saved.",
+        "changed": "Changed {date}"
+      }
+    },
+    "impersonation": {
+      "label": "Administrator visit",
+      "message": "You are acting as {name}.",
+      "ends": "The visit ends at {time}.",
+      "stop": "Stop impersonating",
+      "stopping": "Returning to your account…"
+    },
+    "maintenance": {
+      "label": "Maintenance",
+      "message": "We're doing maintenance. Some things may not work for a little while."
+    },
+    "announcement": {
+      "label": "Announcement",
+      "link": "Read more",
+      "dismiss": "Dismiss",
+      "dismissFailed": "The announcement could not be dismissed. Try again."
+    },
+    "deletion": {
+      "label": "Account deletion",
+      "message": "Your account will be deleted on {date}. Until then you can keep it.",
+      "keep": "Keep my account",
+      "keeping": "Keeping your account…",
+      "kept": "Your account is kept.",
+      "title": "Keep your account",
+      "intro": "Your account is scheduled for deletion. Keep it, and the deletion is cancelled.",
+      "done": "Your account is kept, and the deletion is cancelled. We sent you a confirmation.",
+      "nothing": "There is nothing to cancel: the deletion was cancelled already, it already ran, or the link is not the latest one we sent.",
+      "noToken": "This link has no code. Open the link in the email again."
+    },
+    "credits": {
+      "low": "{balance} credit left. | {balance} credits left.",
+      "topUp": "Top up",
+      "topUpPack": "Buy {pack}",
+      "toppingUp": "Opening checkout…",
+      "topUpFailed": "Could not start the top-up",
+      "dismiss": "Dismiss"
+    },
+    "upgrade": {
+      "message": "Your plan doesn't include this.",
+      "availableOn": "Available on {plans}.",
+      "upgrade": "Upgrade to {plan}",
+      "seePlans": "See plans",
+      "askManager": "Ask the workspace's owner or an admin to upgrade.",
+      "dismiss": "Not now"
+    },
+    "cancelFlow": {
+      "title": "Cancel your plan",
+      "question": "What is the main reason? (optional)",
+      "reasons": {
+        "too_expensive": "Too expensive",
+        "missing_features": "Missing features",
+        "switched_service": "Switched to another service",
+        "unused": "Not using it enough",
+        "customer_service": "Customer service",
+        "low_quality": "Quality was lower than expected",
+        "too_complex": "Too complicated",
+        "other": "Something else"
+      },
+      "comment": "Anything you want to tell us? (optional)",
+      "continue": "Continue",
+      "cancel": "Cancel my plan",
+      "canceling": "Canceling…",
+      "offerTitle": "Before you go",
+      "offerPause": "Pause {plan} for {count} month instead. It resumes by itself on {date}, and nothing is charged meanwhile. | Pause {plan} for {count} months instead. It resumes by itself on {date}, and nothing is charged meanwhile.",
+      "offerDowngrade": "Switch to {plan} instead, from {date}, when this period ends.",
+      "offerDiscountRepeating": "{off} off for {count} month | {off} off for {count} months",
+      "offerDiscountOnce": "{off} off your next payment",
+      "offerDiscountForever": "{off} off for as long as you keep the plan",
+      "acceptPause": "Pause instead",
+      "acceptDowngrade": "Switch to {plan}",
+      "acceptDiscount": "Keep my plan with this offer",
+      "accepting": "Applying…",
+      "endsOn": "Your plan ends on {date}.",
+      "endsPeriod": "Your plan ends when the current period does.",
+      "endNote": "Until then everything keeps working, and your credits stay yours to use.",
+      "keep": "Keep my plan",
+      "keeping": "Keeping…",
+      "kept": "Your plan stays as it is.",
+      "close": "Close",
+      "failed": "That didn't work. Try again, or cancel in the billing portal."
+    },
+    "withdrawal": {
+      "button": "Withdraw from contract here",
+      "period": "You can withdraw from {plan} until {date}.",
+      "confirmTitle": "Withdraw from your {plan} purchase?",
+      "confirmText": "Your plan ends now. We email you a receipt, and refund what is due.",
+      "confirm": "Confirm withdrawal",
+      "confirming": "Withdrawing…",
+      "back": "Go back",
+      "done": "We received your withdrawal on {at}. A receipt is on its way to your email.",
+      "failed": "The withdrawal did not go through. Try again."
+    },
+    "referral": {
+      "title": "Invite friends",
+      "intro": "Share your link. When a friend signs up and pays, you both get a reward.",
+      "shareLead": "Try this app with my link.",
+      "friendDiscount": "You get {name} on your first payment.",
+      "friendTrial": "You get {days} days free.",
+      "shareSharer": "I earn {reward} when you become a customer.",
+      "sharerPack": "{name}",
+      "sharerMonths": "{count} free month | {count} free months",
+      "yourReward": "You get {reward} once a friend's first payment has cleared its {days}-day refund window.",
+      "linkLabel": "Your link",
+      "copy": "Copy link",
+      "copied": "Copied",
+      "share": "Share",
+      "claimed": "{count} friend signed up | {count} friends signed up",
+      "held": "{count} friend is waiting for the refund window | {count} friends are waiting for the refund window",
+      "rewarded": "{count} friend rewarded | {count} friends rewarded",
+      "sharePages": "Show my code on the pages I share",
+      "sharePagesNote": "A badge on a shared page links to your invitation link, and says you earn a reward when someone joins.",
+      "loading": "Getting your link…",
+      "signedOut": "Sign in to get your link.",
+      "failed": "Your link could not be read. Try again.",
+      "landing": {
+        "title": "You're invited",
+        "invitedBy": "{inviter} invited you.",
+        "invited": "A friend invited you.",
+        "youGet": "Sign up through this link and you get {name} on your first payment.",
+        "youGetTrial": "Sign up through this link and you get {days} days free on your first payment.",
+        "youGetNothing": "Sign up through this link and they will know it came from them.",
+        "signUp": "Sign up to claim",
+        "claim": "Claim the invitation",
+        "claiming": "Claiming…",
+        "claimed": "Done. The invitation is yours.",
+        "ignored": "This invitation could not be used, and you can go on without it.",
+        "own": "This is your own link.",
+        "invalid": "This link no longer works.",
+        "checking": "Checking the link…",
+        "continue": "Continue"
+      }
+    },
+    "pastDue": {
+      "label": "Payment failed",
+      "message": "Your last payment failed. The plan keeps working while it is retried; update the payment method to keep it.",
+      "action": "Update payment method",
+      "opening": "Opening…"
+    },
+    "quota": {
+      "loading": "Checking your plan's limits…",
+      "unavailable": "Your plan's limits could not be read.",
+      "reached": "You have used {used} of {limit} {quota}.",
+      "notIncluded": "Your plan includes no {quota}.",
+      "needs": "This needs {amount}.",
+      "availableOn": "More on {plans}.",
+      "upgrade": "Upgrade to {plan}",
+      "seePlans": "See plans",
+      "askManager": "Ask the workspace's owner or an admin to upgrade."
+    },
+    "gift": {
+      "title": "Gifts",
+      "description": "Gifts you sent and gifts for you.",
+      "loading": "Loading gifts…",
+      "receivedTitle": "Received",
+      "sentTitle": "Sent",
+      "receivedEmpty": "No gifts for you yet.",
+      "sentEmpty": "You have not sent a gift yet.",
+      "itemPack": "{name}",
+      "itemPass": "{count} month of {plan} | {count} months of {plan}",
+      "from": "From {sender}",
+      "to": "To {recipient}",
+      "sentOn": "Sent {date}",
+      "deliverOn": "Arrives {date}",
+      "deliveredOn": "Delivered {date}",
+      "claimedOn": "Received {date}",
+      "status": {
+        "scheduled": "Scheduled",
+        "delivered": "Waiting for them",
+        "claimed": "Received",
+        "refunded": "Refunded",
+        "paid": "Waiting for you"
+      },
+      "claimInto": "Receive into",
+      "personalWorkspace": "My personal workspace",
+      "resend": "Send the notice again",
+      "resending": "Sending…",
+      "resent": "The notice was sent again.",
+      "changeRecipient": "Change recipient",
+      "newRecipient": "New recipient’s email",
+      "saveRecipient": "Save recipient",
+      "savingRecipient": "Saving…",
+      "recipientChanged": "The gift now goes to the new address.",
+      "reschedule": "Change the date",
+      "newDate": "New delivery date",
+      "saveDate": "Save date",
+      "savingDate": "Saving…",
+      "rescheduled": "The delivery date changed.",
+      "cancel": "Cancel and refund",
+      "canceling": "Refunding…",
+      "canceled": "The gift was canceled and refunded.",
+      "cancelHint": "Canceling refunds the purchase in full. A claimed gift cannot be canceled.",
+      "actionFailed": "That did not work",
+      "received": "{sender} sent you a gift.",
+      "receivedWithMessage": "{sender} sent you a gift: “{message}”",
+      "someone": "Someone",
+      "claim": "Receive gift",
+      "claiming": "Receiving…",
+      "claimed": "Gift received. The credits arrive in a moment.",
+      "claimFailed": "Could not receive the gift"
+    },
+    "access": {
+      "title": "You don't have access to this page",
+      "message": "Your account doesn't have the access this page needs. Ask an administrator if you need it.",
+      "messageWorkspace": "Your role in this workspace doesn't include this page. Switch to another workspace, or ask its owner for access.",
+      "messageBanned": "This account is banned.",
+      "signedInAs": "Signed in as {email}.",
+      "home": "Go to the home page",
+      "switchWorkspace": "Switch workspace",
+      "switchAccount": "Sign in with another account",
+      "switchingAccount": "Signing out…",
+      "switchAccountFailed": "Could not sign out"
+    },
+    "waitlist": {
+      "title": "Join the waitlist",
+      "intro": "We're opening in waves. Add your email and we'll send a code to confirm it.",
+      "email": "Email address",
+      "launchNews": "Email me when it launches",
+      "join": "Join the waitlist",
+      "joining": "Sending the code…",
+      "codeIntro": "Enter the code we sent to {email}.",
+      "code": "Code",
+      "verify": "Confirm",
+      "verifying": "Checking the code…",
+      "back": "Use another address",
+      "placed": "You're #{position} of {total}",
+      "placedUnknown": "You're on the waitlist.",
+      "disclosure": "We admit in waves and may also admit by other criteria. Your position can change.",
+      "admitted": "You're in. Sign up with the address you joined with.",
+      "signUp": "Sign up",
+      "declined": "We can't offer you a place right now.",
+      "joined": "You already have an account.",
+      "referredBy": "A friend invited you. They move up the list when you join.",
+      "dropReferral": "Not from a friend",
+      "shareTitle": "Move up the list",
+      "shareIntro": "Each friend who joins with your link moves you up, up to {cap} friends.",
+      "shareLink": "Your link",
+      "copy": "Copy",
+      "copied": "Copied",
+      "friends": "{count} friend has joined with your link. | {count} friends have joined with your link.",
+      "shareText": "Join the waitlist with my link. If you do, I move up the list.",
+      "leave": "Leave the waitlist",
+      "leaving": "Leaving…",
+      "left": "You left the waitlist. Your address is removed.",
+      "page": {
+        "title": "Your place",
+        "checking": "Checking your place…",
+        "unknown": "This link doesn't work. Open the link in your confirmation email."
+      }
+    },
+    "report": {
+      "page": {
+        "title": "Report content"
+      },
+      "intro": "Tell us about content in this app that is illegal or breaks our terms. A person on our team reviews every report.",
+      "url": "Link to the content",
+      "urlHint": "Copy the address of the page that shows it.",
+      "reason": "What is wrong with it",
+      "reasons": {
+        "illegal": "It is illegal",
+        "intimate": "It is an intimate image of me shared without my consent",
+        "child_abuse": "It sexually exploits a child",
+        "abuse": "Harassment or bullying",
+        "sexual": "Sexual content",
+        "violence": "Violence or threats",
+        "spam": "Spam or a scam",
+        "other": "Something else"
+      },
+      "details": "Why",
+      "detailsHint": "Explain why the content is illegal or breaks our terms, and name the law or term if you know it. What you write is kept with our decision, so leave out personal details we don't need.",
+      "name": "Your name",
+      "email": "Your email address",
+      "contactHint": "We email you a receipt and our decision. For child sexual abuse material you may leave both out.",
+      "signature": "Your full name, as your signature",
+      "signatureHint": "Signing confirms that you are the person shown, or may act for them.",
+      "intimateNote": "We decide a request to remove an intimate image shared without consent within 48 hours, and remove identical copies too.",
+      "goodFaith": "I believe in good faith that this report is accurate and complete.",
+      "send": "Send report",
+      "sending": "Sending…",
+      "sent": "Thanks. We received your report and will email you our decision.",
+      "sentAnonymous": "Thanks. We received your report.",
+      "appeal": {
+        "title": "Appeal a decision",
+        "checking": "Checking the link…",
+        "unknown": "This appeal link doesn't work. Check that you copied all of it.",
+        "hidden": "On {date} we removed \"{title}\".",
+        "dismissed": "On {date} we decided to keep \"{title}\".",
+        "untitled": "your content",
+        "reason": "Our reason: {reason}",
+        "until": "You can appeal until {date}.",
+        "expired": "This decision can no longer be appealed.",
+        "text": "Why the decision should change",
+        "send": "Send appeal",
+        "sending": "Sending…",
+        "open": "Thanks. A person on our team is reviewing your appeal and will email you the outcome.",
+        "upheld": "We reviewed your appeal and kept our decision.",
+        "reversed": "We reviewed your appeal and reversed our decision."
+      }
+    },
+    "legal": {
+      "disclaimer": "This page is drawn from what the app runs. It is not legal advice.",
+      "unset": "Fill in appConfig.backend.legal: {fields}.",
+      "thisApp": "this app",
+      "nav": "Legal pages",
+      "pages": {
+        "privacy": "Privacy policy",
+        "terms": "Terms of service",
+        "subprocessors": "Subprocessors",
+        "accessibility": "Accessibility statement"
+      },
+      "controller": {
+        "title": "Who we are",
+        "company": "{app} is run by {company}.",
+        "address": "Postal address: {address}",
+        "contact": "Contact: {contact}",
+        "dpo": "Data protection officer: {dpo}"
+      },
+      "privacy": {
+        "intro": "This policy says what {app} keeps about you, for how long, who processes it for us, and how you get a copy of it or have it deleted.",
+        "controller": "We decide what happens to your personal data: we are its controller.",
+        "dataTitle": "What we keep, and for how long",
+        "dataIntro": "Each part of the app keeps only what it needs to work for you, and deletes it, or keeps it without your name, as below.",
+        "holds": "What we keep",
+        "kept": "How long",
+        "processorsTitle": "Who processes it for us",
+        "processorsIntro": "These services handle personal data on our behalf, only to run the app.",
+        "processorsLink": "Every subprocessor, with its agreement",
+        "storageTitle": "Cookies and storage in your browser",
+        "storageIntro": "We store only what the app needs to work. Anything else waits until you allow it, and you can change your mind at any time.",
+        "rightsTitle": "Your rights",
+        "rightsAccess": "You can download everything we keep about you, or delete your account, in your security settings. Your data goes from every service above once the deletion's grace period ends.",
+        "rightsAccessLink": "Security settings",
+        "rightsCorrect": "You can correct your name, email address and language in your profile.",
+        "rightsCorrectLink": "Profile",
+        "rightsOther": "For anything else, or if you have no account, write to {contact}. We answer within a month.",
+        "rightsOtherNoContact": "For anything else, or if you have no account, contact us. We answer within a month.",
+        "rightsComplain": "You may also complain to the data protection authority where you live or work.",
+        "changesTitle": "Changes",
+        "changes": "We update this page whenever what we keep changes."
+      },
+      "terms": {
+        "intro": "These terms apply when you use {app}. By using it, you agree to them.",
+        "accountTitle": "Your account",
+        "account": "You sign in with a code we email you, or with a passkey. Keep your email account and your devices safe: whoever controls them can sign in as you.",
+        "plansTitle": "Plans and payments",
+        "plans": "A paid plan renews each period until you cancel it. You can cancel at any time in your settings, and keep the plan until the end of the period you paid for.",
+        "merchant": "{merchant} sells our plans and credits to you as merchant of record, and handles payment, taxes and invoices under its own terms.",
+        "merchantLink": "Its terms for buyers",
+        "withdrawal": "Where the law gives you a right to withdraw from a purchase, your settings show how while it applies.",
+        "contentTitle": "Your content",
+        "content": "You keep the rights to what you create. You give us what we need to store it and show it to the people you share it with. Don't upload anything illegal, or anything that harms others.",
+        "report": "Report content that breaks the law or these terms. A person reviews every report, and the person whose content we restrict hears why and how to appeal.",
+        "reportLink": "Report content",
+        "aiTitle": "AI features",
+        "ai": "Some features use AI models. What they make can be wrong, so check it before you rely on it.",
+        "endTitle": "Ending",
+        "end": "You can delete your account at any time. We may suspend an account that breaks these terms, and we tell you why.",
+        "privacy": "How we handle your data is in our privacy policy.",
+        "contactTitle": "Contact",
+        "contact": "Questions about these terms: {contact}.",
+        "changes": "We tell you before a change to these terms takes effect."
+      },
+      "subprocessors": {
+        "intro": "The services that process personal data for {app}, what each one handles and where it keeps it.",
+        "name": "Service",
+        "processes": "What it processes",
+        "location": "Where",
+        "agreement": "Agreement",
+        "agreementLink": "Read the agreement"
+      },
+      "accessibility": {
+        "intro": "We want everyone to be able to use {app}: with a keyboard, a screen reader, speech input or zoom.",
+        "standardTitle": "The standard we follow",
+        "standard": "We aim to meet the Web Content Accessibility Guidelines (WCAG) 2.1 at level AA, the web part of the European standard EN 301 549.",
+        "checkTitle": "How we check",
+        "check": "The sign-in, account, billing and admin pages come from a toolkit built and tested against WCAG 2.2 levels A and AA, with a keyboard, a screen reader and an automated check in light and dark colors. We test the rest of the app ourselves.",
+        "gapsTitle": "Known gaps",
+        "gaps": "We know of no part of the app that falls short of the standard. If you find one, tell us.",
+        "reportTitle": "Report a barrier",
+        "report": "Tell us at {contact} what you tried to do and what stopped you, and we will answer.",
+        "reportNoContact": "Tell us what you tried to do and what stopped you, and we will answer.",
+        "authority": "If our answer does not solve it, you can contact the authority that enforces accessibility law where you live."
+      },
+      "capabilities": {
+        "auth": "Your account",
+        "data": "Your files",
+        "jobs": "Background work",
+        "billing": "Plans and payments",
+        "email": "Email",
+        "notifications": "Notifications",
+        "ai": "AI features",
+        "protection": "Bot checks",
+        "monitoring": "Error reports",
+        "flags": "Feature flags",
+        "analytics": "Growth analytics",
+        "hosting": "Hosting"
+      },
+      "data": {
+        "workspaces": {
+          "holds": "The workspaces an account belongs to, with its role in each, and the invitations it sent or was sent.",
+          "kept": "As long as the account; an unanswered invitation 30 days past its expiry."
+        },
+        "auth": {
+          "holds": "The account: name, address, language, app role and ban, and whether it finished the first run and dismissed the activation checklist; its sessions with their browser and network address; its passkeys; the sign-in and email-change codes waiting for its address, stored as keyed hashes.",
+          "kept": "As long as the account; a session a day past its expiry, a code an hour past its expiry."
+        },
+        "knownDevices": {
+          "holds": "The devices the account signed in from, for new-device alerts: a keyed hash of each device's browser, system and network range (never the fingerprint itself), the browser and system names, when it was first and last seen, and whether its first sign-in was alerted.",
+          "kept": "A year after the device was last seen."
+        },
+        "access": {
+          "holds": "The invitations by address an administrator made for the address, which ticket admitted the account while the app was closed (the redemption ledger), the codes and links it made as an administrator, and its waitlist entry: the address, its answers, its place and the state of its launch-news contact (the launch-news consent itself is on the consent ledger).",
+          "kept": "An invitation by address until it is used or revoked; the ticket record as long as the account; a waitlist entry until the person leaves or is erased, and a join whose code never checked a day."
+        },
+        "consents": {
+          "holds": "The consent ledger: one row for each time the account (or, before it signed up, a hash of its address) agreed to a document or an opt-in, withdrew it, or chose optional storage, with the kind, its version, the time and where it came from.",
+          "kept": "As long as the account; the rows of an address that never signed up until it is erased."
+        },
+        "referrals": {
+          "holds": "The account's share code, the referral that brought it (when it claimed one), and the referrals it brought, as states and times: claimed, held, rewarded or voided. Never who the other person is, an order or an amount. The counters hold totals per referrer and month, and the program's by state; the tallies how many referrals and rewards each referrer has.",
+          "kept": "As long as the account."
+        },
+        "billing": {
+          "holds": "The cached plans, features and credit balances of the account's billing entities, their scheduled plan changes and quota keys, the save offers the cancel flow made them, and the trial the account used.",
+          "kept": "As long as the entity; a deletion mark 30 days."
+        },
+        "billingProofs": {
+          "holds": "Proof of the consent to a renewing subscription (the plan, the price and interval shown, the terms version, when and by whom) and of each EU withdrawal: when and by whom.",
+          "kept": "Three years; a checkout's proof that started no subscription two days."
+        },
+        "gifts": {
+          "holds": "The gifts the account bought, with the address it sent each to and its message, and the gifts sent to its address.",
+          "kept": "As long as the purchase is on the books."
+        },
+        "billingCustomer": {
+          "holds": "The provider customer of each billing entity: its name, the owner's address, its members, payment method, orders and invoices.",
+          "kept": "The provider's own, for its tax and accounting duties."
+        },
+        "billingSync": {
+          "holds": "The provider's customers and subscriptions as the billing component the app mounts syncs them: each billing entity's id beside its provider customer's, and each subscription's plan, price, dates and status, with the reason and comment of a cancellation.",
+          "kept": "Until that component can delete them."
+        },
+        "rateLimits": {
+          "holds": "Better Auth's own limiter, off unless an app turns it on: a counter per route and network address.",
+          "kept": "A day after its last request."
+        },
+        "aiRequests": {
+          "holds": "The arguments of a metered AI stream the account started, while it runs.",
+          "kept": "A day after it settles; a week if it never does."
+        },
+        "jobs": {
+          "holds": "The generation jobs an account or its workspace queued (the job's arguments, who started it, its progress, result and cost), the budget each owner used per window, and how many guest tries the browser the account signed up in used, by its visitor cookie's id.",
+          "kept": "Thirty days after a job ends, dead letters included; a budget window until its owner is erased; a browser's guest tries a year after its last, as long as the visitor cookie lasts."
+        },
+        "aiCosts": {
+          "holds": "What each person's AI calls cost a day: the job queue's, metered actions, streams, chat replies and knowledge embeddings, in US dollars and tokens, with the billing entity that paid.",
+          "kept": "90 days after the day."
+        },
+        "aiThreads": {
+          "holds": "The chat threads an account started: which chat and workspace each belongs to, its title and when it last changed. The messages live in the app's Agent component.",
+          "kept": "Until the person deletes the thread, or the account or the workspace goes."
+        },
+        "aiDocuments": {
+          "holds": "The knowledge documents an account added: their title, workspace and status. The passages and embeddings live in the app's RAG component.",
+          "kept": "Until a member removes it, or its workspace goes."
+        },
+        "aiProvenance": {
+          "holds": "What made each generated image a workspace's jobs stored: the models, when, and the ids of the rows and files it was made from, never their content.",
+          "kept": "Until its workspace goes: the record is what shows an image was generated, for as long as the image is shown."
+        },
+        "audit": {
+          "holds": "The account's activity: sign-ins, passkeys, email and session changes, workspace and billing events, as ids, never an address or a name.",
+          "kept": "365 days."
+        },
+        "notifications": {
+          "holds": "What the app told the account in its inbox: the kind of event, when, whether it was read and the workspace and thing it names, as ids, never the words, an address or a name; and the channels the account turned on or off for each kind.",
+          "kept": "A read notification 90 days after it was read, an unread one 365 days after it was recorded; a channel choice until the account changes it."
+        },
+        "pushSubscriptions": {
+          "holds": "Each device the account allowed web push on: the push service's address for it and the keys messages to it are encrypted with.",
+          "kept": "Until the push service says the device is gone, the account subscribes a newer one past twenty, or the device is subscribed by another account."
+        },
+        "announcements": {
+          "holds": "Which announcements the account dismissed, and, for an administrator, the announcements they published or sent, by account id.",
+          "kept": "An announcement and its dismissals 90 days after it expired."
+        },
+        "lifecycle": {
+          "holds": "Each lifecycle email flow the account is in: which email, when it is due, its address, and whether it was sent, skipped by a sending rule or stopped.",
+          "kept": "A finished run of a flow that may run again 90 days after it was due; the record of a flow sent once until the account is erased."
+        },
+        "inbound": {
+          "holds": "The messages the account sent through the contact form, and the mail it (or its address) sent to the app: the sender's name and address, the subject, the text, the names and sizes of the attachments; and the reply addresses made for it, each a random token with the thread it answers.",
+          "kept": "A message 90 days; a reply address a year after the last email it went out in."
+        },
+        "reports": {
+          "holds": "The content the account reported in a click, and the notices sent from its address on the public form, with the notifier's name, address, language and typed signature. The decisions on content it wrote, with the text of its appeal. For an administrator, the decisions it made, the appeals it answered and the suspected crimes it flagged, by account id. The hashes of removed intimate images, which name no one.",
+          "kept": "A closed report or notice 548 days (18 months) after it was closed; a decision 548 days after it was made, with its appeal, once no appeal is open; a removed image's hash as long as the app keeps it."
+        },
+        "flags": {
+          "holds": "The flags an administrator turned on for the account by its id.",
+          "kept": "Until an administrator changes the flag."
+        },
+        "funnel": {
+          "holds": "How the growth funnel counts the account: its sign-up week, the invite, first campaign, referral code and promotion it came with, its answer to \"How did you hear about us?\" (with an \"Other\" answer's own words), the steps it reached and its last active week; and the experiments' variants it saw first.",
+          "kept": "Until the account is erased."
+        },
+        "email": {
+          "holds": "A code email waiting for the provider, and an email the person's quiet hours hold until they end.",
+          "kept": "A code email until the provider answers, at most ten minutes; a held email until the quiet hours end."
+        },
+        "emailRecords": {
+          "holds": "The emails sent to the address: recipients, subject, body and delivery status.",
+          "kept": "7 days after a final status, 30 days without one."
+        },
+        "emailPreferences": {
+          "holds": "The address's choice for each email topic and how it was made, its time zone, when it last clicked an email or used the app, and when marketing mail went to it in the last 7 days.",
+          "kept": "Until the account is erased."
+        },
+        "emailContact": {
+          "holds": "The address as a contact of the email provider, with the segments and topics it is in.",
+          "kept": "Until it is removed."
+        },
+        "suppressions": {
+          "holds": "The address, when the email provider stopped delivering to it after a hard bounce, a complaint or by hand: a copy of the provider's suppression list that sign-in reads before it sends a code.",
+          "kept": "While the provider suppresses the address; a week after it lifts the suppression."
+        },
+        "files": {
+          "holds": "The files an account uploaded through setupStorage and the images its jobs generated, with their owner records (account, workspace, size, type) and quota counts, and the share links it turned on (the shared row, never the token).",
+          "kept": "Until released by the app or erased; an upload nobody claimed a day."
+        },
+        "exports": {
+          "holds": "The account's data exports, each a file behind a link, and the zip parts that bundle its files beside it.",
+          "kept": "The file an hour; its record a day, which the export limit counts."
+        },
+        "deletions": {
+          "holds": "A deletion waiting out its grace period: the account's id, when it was asked for and when it runs, and a keyed hash of the token in the \"keep my account\" link.",
+          "kept": "Until the deletion is cancelled or runs."
+        },
+        "erasures": {
+          "holds": "An erasure in progress: the account's id and address, and the workspaces it deletes; and the plan of the app's part (the billing customer, the email contact) while a participant of it is retried.",
+          "kept": "Until the erasure finishes; a failed one 30 days."
+        },
+        "monitoringUser": {
+          "holds": "Error reports and cron check-ins with ids, never an address or a name. The package sets no user on a report.",
+          "kept": "The service's own retention."
+        }
+      },
+      "processors": {
+        "deployment": {
+          "processes": "Everything the app stores: accounts, sessions, workspaces, billing state, email records, uploaded files, exports and logs.",
+          "location": "The region the deployment was created in: the US, the EU (Dublin), Canada or Australia."
+        },
+        "host": {
+          "processes": "Each request to the app, with its network address and browser. On another host, that host instead.",
+          "location": "The functions region the app is deployed to; Vercel is a US company."
+        },
+        "billing": {
+          "processes": "The customer of each paying account or workspace: name, email address, billing address, payment method, orders, subscriptions and invoices. As merchant of record it sells to customers in its own name, under its own terms.",
+          "location": "The US, Canada or elsewhere outside the EEA and the UK."
+        },
+        "email": {
+          "processes": "The emails the app sends, their delivery events, and the contacts and topics people subscribe to.",
+          "location": "The US; mail leaves from the sending domain's region."
+        },
+        "botCheck": {
+          "processes": "Signals of the browser and the request (network address, browser, TLS fingerprint) when someone signs in, signs up or sends a protected form, to tell people from bots.",
+          "location": "The US, and the provider's network worldwide."
+        },
+        "webPush": {
+          "processes": "The notifications sent to a device a person turned them on for: the device's push address, and each message, encrypted so the service reads only where and when it goes.",
+          "location": "Each browser maker's own network, mostly in the US."
+        },
+        "aiGateway": {
+          "processes": "The prompts and the answers of the AI features a person uses, which the gateway passes to the model's provider; never kept by the app past the request.",
+          "location": "The US, or the EU where inference is pinned there."
+        },
+        "monitoring": {
+          "processes": "Error reports and cron check-ins, scrubbed of addresses, names and credentials, with an account's id at most; a masked session replay only after the person allowed it.",
+          "location": "The US or the EU, as the organization was created."
+        }
+      },
+      "storageName": "Name",
+      "storageKind": "Kind",
+      "storageWhy": "What it is for",
+      "storageLasts": "How long",
+      "storageConsent": "Permission",
+      "kinds": {
+        "cookie": "Cookie",
+        "httpOnly": "Cookie, unreadable by scripts",
+        "localStorage": "Local storage",
+        "sessionStorage": "Session storage",
+        "push": "Push subscription and service worker"
+      },
+      "consents": {
+        "necessary": "Not asked: the app needs it",
+        "preferences": "Only once you allow preferences",
+        "replay": "Only once you allow session replay",
+        "analytics": "Only once you allow analytics"
+      },
+      "storage": {
+        "session": {
+          "why": "Keeps them signed in.",
+          "lasts": "7 days, renewed while they use the app."
+        },
+        "sessionJwt": {
+          "why": "Proves to the backend who is signed in, for the pages the server renders.",
+          "lasts": "15 minutes."
+        },
+        "signInCode": {
+          "why": "Makes the code work only in the browser that asked for it.",
+          "lasts": "5 minutes."
+        },
+        "passkeyChallenge": {
+          "why": "Holds the challenge the passkey answers.",
+          "lasts": "5 minutes."
+        },
+        "underAge": {
+          "why": "Keeps a second answer from following at once.",
+          "lasts": "1 day."
+        },
+        "impersonation": {
+          "why": "Returns the administrator to their own session when the visit ends.",
+          "lasts": "The visit, 30 minutes at most."
+        },
+        "storageChoice": {
+          "why": "Remembers what they allowed, so nothing optional is stored unasked.",
+          "lasts": "6 months, then the prompt asks again."
+        },
+        "lastSignIn": {
+          "why": "Marks the way they signed in last, so the sign-in form can suggest it.",
+          "lasts": "30 days."
+        },
+        "visitor": {
+          "why": "Counts what this browser did before signing up, and hands it to the account made here.",
+          "lasts": "1 year."
+        },
+        "invite": {
+          "why": "Keeps the invite until the sign-in that uses it.",
+          "lasts": "Until the tab closes."
+        },
+        "presence": {
+          "why": "Tells the backend their time zone at most once a day, so emails respect their quiet hours.",
+          "lasts": "Until the tab closes."
+        },
+        "upgradeDismissed": {
+          "why": "Keeps the prompt hidden for the time the app sets. Without preferences allowed, it is kept for the tab only.",
+          "lasts": "The app's cool-down, a year at most."
+        },
+        "pushSubscription": {
+          "why": "The push subscription lets the app send that device notifications. The service worker, where the browser needs one, shows them and opens the app on a click; it caches nothing.",
+          "lasts": "Until the person turns notifications off on the device or takes back the site's permission."
+        },
+        "replay": {
+          "why": "Records, masked, the minute before an error and the rest of that visit, to find what went wrong.",
+          "lasts": "Until the tab closes."
+        }
+      }
+    },
+    "consent": {
+      "title": "Before you continue",
+      "kinds": {
+        "terms": "Terms",
+        "privacy": "Privacy policy"
+      },
+      "changed": "The {title} changed. Read it, then accept it to continue.",
+      "needed": "Accept the {title} to continue.",
+      "optional": "Optional",
+      "required": "Required",
+      "read": "Read the {title}",
+      "accept": "I accept the {title}",
+      "submit": "Accept",
+      "saving": "Saving…",
+      "later": "Not now",
+      "ageIntro": "To keep using the app, tell us how old you are.",
+      "ageQuestion": "How old are you?",
+      "storageTitle": "Your choices for optional storage",
+      "storageIntro": "Beyond what the app needs to work, it can store more on this device. Each is off until you allow it, and you can change your mind at any time.",
+      "purposes": {
+        "preferences": "Remember how I last signed in, and the prompts I dismissed",
+        "replay": "Record my visits to help fix errors",
+        "analytics": "Measure how the app is used"
+      },
+      "allow": "Allow",
+      "decline": "Decline"
+    },
+    "connection": {
+      "reconnecting": "Reconnecting…",
+      "offline": "You're offline.",
+      "pending": "{count} change is waiting to be sent. | {count} changes are waiting to be sent."
+    },
+    "upload": {
+      "label": "File",
+      "choose": "Choose a file",
+      "replace": "Choose another file",
+      "drop": "or drop it here",
+      "uploading": "Uploading {name}…",
+      "progress": "{percent}% uploaded",
+      "claiming": "Checking {name}…",
+      "done": "{name} added.",
+      "cancel": "Cancel upload",
+      "canceled": "Upload canceled."
+    },
+    "notifications": {
+      "bellName": "Notifications",
+      "bellNameUnread": "Notifications, {count} unread",
+      "bellNameUnreadMore": "Notifications, more than {count} unread",
+      "countMore": "{count}+",
+      "listName": "Notifications",
+      "markAllRead": "Mark all as read",
+      "markingRead": "Marking as read…",
+      "markRead": "Mark as read",
+      "unreadMark": "Unread",
+      "emptyInbox": "You are all caught up.",
+      "loadMore": "Show older",
+      "loadingInbox": "Loading notifications…",
+      "closeInbox": "Close",
+      "actorSomeone": "Someone",
+      "actorAdministrator": "An administrator",
+      "actorApp": "The app",
+      "actorErased": "A former member",
+      "workspaceUnnamed": "a workspace",
+      "fallbackTitle": "New activity",
+      "emailOpen": "Open",
+      "emailNote": "You can choose which notifications reach you by email on your profile.",
+      "auth": {
+        "passkey_added": {
+          "title": "A passkey was added",
+          "body": "If this was not you, remove it in your security settings."
+        },
+        "passkey_removed": {
+          "title": "A passkey was removed",
+          "body": "If this was not you, review your security settings."
+        },
+        "passkey_only_changed": {
+          "title": "Passkey-only sign-in changed",
+          "body": "Review how you sign in in your security settings."
+        },
+        "email_changed": {
+          "title": "Your email address changed",
+          "body": "If this was not you, review your security settings right away."
+        },
+        "new_device": {
+          "title": "New sign-in to your account",
+          "body": "A device you had not used before signed in. If this was not you, sign it out in your security settings."
+        }
+      },
+      "workspace": {
+        "invitation_accepted": {
+          "title": "{actor} joined {workspace}",
+          "body": "They accepted your invitation."
+        },
+        "member_removed": {
+          "title": "You were removed from {workspace}",
+          "body": "You no longer have access to it."
+        },
+        "member_role_changed": {
+          "title": "Your role in {workspace} changed",
+          "body": "You are now {role}."
+        }
+      },
+      "admin": {
+        "role_changed": {
+          "title": "Your role changed",
+          "body": "An administrator set your role to {role}."
+        }
+      },
+      "billing": {
+        "plan_changed": {
+          "title": "The plan of {workspace} changed",
+          "body": "{actor} changed the subscription."
+        },
+        "subscription_created": {
+          "title": "A subscription started",
+          "body": "The plan of {workspace} is active."
+        },
+        "subscription_canceled": {
+          "title": "A subscription was canceled",
+          "body": "It stays active until the end of the period."
+        },
+        "subscription_revoked": {
+          "title": "A subscription ended",
+          "body": "The plan of {workspace} is no longer active."
+        },
+        "subscription_past_due": {
+          "title": "A payment failed",
+          "body": "Update the payment method of {workspace} to keep its plan."
+        },
+        "order_paid": {
+          "title": "Payment received",
+          "body": "An order of {amount} was paid."
+        },
+        "order_refunded": {
+          "title": "An order was refunded",
+          "body": "{amount} was refunded."
+        },
+        "credits_low": {
+          "title": "Credits are running low",
+          "body": "{balance} credits are left in {workspace}."
+        },
+        "credits_exhausted": {
+          "title": "Credits ran out",
+          "body": "Top up {workspace} to keep going."
+        },
+        "save_offer_accepted": {
+          "title": "The plan of {workspace} was kept",
+          "body": "{actor} took an offer instead of canceling."
+        },
+        "contract_withdrawn": {
+          "title": "A purchase was withdrawn",
+          "body": "{actor} withdrew from the plan of {workspace}."
+        },
+        "trial_pass_started": {
+          "title": "Your trial started",
+          "body": "{workspace} has the full plan for the trial, with no card."
+        }
+      },
+      "gift": {
+        "purchased": {
+          "title": "A gift was bought",
+          "body": "Its recipient was told."
+        },
+        "claimed": {
+          "title": "A gift was claimed",
+          "body": "It landed in {workspace}."
+        },
+        "pass_started": {
+          "title": "A plan pass started",
+          "body": "{workspace} has the gifted plan, with no card and no renewal."
+        },
+        "pass_ending": {
+          "title": "A plan pass ends in a week",
+          "body": "Choose the plan for {workspace} to keep it."
+        },
+        "pass_ended": {
+          "title": "A plan pass ended",
+          "body": "The gifted plan of {workspace} is over."
+        },
+        "refunded": {
+          "title": "A gift was refunded",
+          "body": "It was refunded before anyone claimed it."
+        }
+      },
+      "referral": {
+        "claimed": {
+          "title": "Someone signed up with your link",
+          "body": "Your reward follows once their hold passes."
+        },
+        "rewarded": {
+          "title": "A referral was rewarded",
+          "body": "Your reward was granted."
+        }
+      },
+      "email": {
+        "bounced": {
+          "title": "An email to you bounced",
+          "body": "Check that your address is right and still open."
+        }
+      }
+    },
+    "preferences": {
+      "title": "Email",
+      "topicsTitle": "Emails we send you",
+      "topicsEmpty": "There are no emails to choose from.",
+      "pending": "Check your inbox to confirm.",
+      "unsubscribeAll": "Unsubscribe from all",
+      "unsubscribedAll": "You will get no more of these emails.",
+      "saved": "Saved.",
+      "channelsTitle": "Notifications",
+      "channelsIntro": "Choose where each kind of notification reaches you.",
+      "channels": {
+        "app": "In the app",
+        "email": "By email",
+        "push": "Push"
+      },
+      "unsubscribe": {
+        "title": "Unsubscribe",
+        "intro": "You get this email because you joined {topic}. Leave it with one press.",
+        "introAll": "Leave every email we send you with one press.",
+        "leave": "Unsubscribe from {topic}",
+        "leaveAll": "Unsubscribe from all emails",
+        "leaving": "Unsubscribing…",
+        "done": "You are unsubscribed from {topic}.",
+        "doneAll": "You are unsubscribed from every email we send you.",
+        "invalid": "This link does not work. Open the link in the email again.",
+        "noToken": "This link has no code. Open the link in the email again.",
+        "manage": "Manage your emails"
+      },
+      "confirm": {
+        "title": "Confirm your subscription",
+        "intro": "Press the button to start receiving {topic}.",
+        "action": "Confirm",
+        "confirming": "Confirming…",
+        "done": "You are subscribed to {topic}.",
+        "nothing": "There is nothing to confirm: the link was used already, or it lapsed. Ask again from your profile.",
+        "noToken": "This link has no code. Open the link in the email again."
+      }
+    },
+    "contact": {
+      "name": "Your name",
+      "email": "Your email address",
+      "message": "Your message",
+      "count": "{count} of {max}",
+      "hint": "Write between {min} and {max} characters.",
+      "send": "Send message",
+      "sending": "Sending…",
+      "sent": "Thank you. Your message was sent to the team.",
+      "another": "Write another message",
+      "disclosure": "The team answers by email. Your address is used for that reply only.",
+      "trap": "Leave this field empty"
+    },
+    "shell": {
+      "skip": "Skip to content",
+      "navigation": "Main",
+      "signIn": "Sign in",
+      "loading": "Loading…",
+      "account": {
+        "menu": "{name}, account menu",
+        "heading": "Account",
+        "signedInAs": "Signed in as {email}",
+        "unnamed": "Your account",
+        "profile": "Profile",
+        "security": "Security",
+        "settings": "Settings",
+        "admin": "Admin console",
+        "signOut": "Sign out",
+        "signingOut": "Signing out…",
+        "signedOut": "You were signed out.",
+        "signOutFailed": "Could not sign you out. Try again."
+      },
+      "workspaces": {
+        "menu": "{name}, switch workspace",
+        "heading": "Workspaces",
+        "unnamed": "Untitled workspace",
+        "current": "Current",
+        "roles": {
+          "owner": "Owner",
+          "admin": "Admin",
+          "member": "Member"
+        },
+        "invitations": "{count} invitation waiting | {count} invitations waiting",
+        "switching": "Switching…",
+        "switched": "Switched to {name}.",
+        "switchFailed": "Could not switch workspaces. You are still in {name}.",
+        "newName": "New workspace name",
+        "create": "Create workspace",
+        "creating": "Creating…",
+        "created": "Workspace “{name}” created.",
+        "createFailed": "Could not create the workspace.",
+        "manage": "Manage workspaces"
+      }
+    },
+    "onboarding": {
+      "title": "Welcome",
+      "steps": "Setup steps",
+      "progress": "Step {current} of {total}",
+      "next": "Continue",
+      "back": "Back",
+      "skip": "Skip this step",
+      "finish": "Get started",
+      "skipAll": "Skip setup",
+      "saving": "Saving…",
+      "done": "You are all set.",
+      "stepNames": {
+        "profile": "About you",
+        "workspace": "Your workspace",
+        "teammates": "Your team",
+        "plan": "Your plan"
+      },
+      "profile": {
+        "heading": "About you",
+        "intro": "This is how teammates see you.",
+        "name": "Your name",
+        "image": "Picture address (optional)",
+        "imageHint": "A link to a picture, starting with https://",
+        "saved": "Saved."
+      },
+      "workspace": {
+        "heading": "Your workspace",
+        "intro": "Everything you make lives in a workspace. Give yours a name.",
+        "name": "Workspace name",
+        "invitedTo": "You were invited to {workspace}.",
+        "accept": "Join {workspace}",
+        "accepting": "Joining…",
+        "joined": "You joined {workspace}.",
+        "declined": "Invitation declined.",
+        "decline": "Not now"
+      },
+      "teammates": {
+        "heading": "Invite your team",
+        "intro": "Teammates get an email with a link to join. You can do this later in Settings.",
+        "email": "Email address",
+        "send": "Send invitation",
+        "sending": "Sending…",
+        "sent": "Invitation sent to {email}.",
+        "list": "Invited so far"
+      },
+      "plan": {
+        "heading": "Choose a plan",
+        "intro": "Pick a plan now, or stay on the free one and decide later.",
+        "later": "Decide later"
+      }
+    },
+    "activation": {
+      "title": "Get started",
+      "loading": "Loading…",
+      "progressLabel": "Progress",
+      "progress": "{done} of {total} done",
+      "taskDone": "Done",
+      "taskOpen": "To do",
+      "dismiss": "Dismiss",
+      "dismissing": "Dismissing…",
+      "dismissed": "Checklist dismissed.",
+      "congratulations": "All done. You finished every first step.",
+      "readOnly": "You are viewing this account: its checklist cannot be changed."
+    },
+    "source": {
+      "title": "How did you hear about us?",
+      "hint": "Optional: it helps us know what works.",
+      "options": {
+        "friend": "A friend or colleague",
+        "search": "A search engine",
+        "aiAssistant": "An AI assistant (ChatGPT, Claude, Perplexity…)",
+        "social": "Social media",
+        "podcast": "A podcast",
+        "other": "Somewhere else"
+      },
+      "otherLabel": "Where?",
+      "submit": "Continue",
+      "saving": "Saving…",
+      "skip": "Skip",
+      "thanks": "Thanks for telling us.",
+      "answered": "You already told us how you found us.",
+      "signedOut": "Sign in to answer.",
+      "loading": "Loading…"
+    },
+    "feedback": {
+      "trigger": "Report a problem",
+      "title": "Report a problem",
+      "message": "What happened?",
+      "placeholder": "What were you doing, and what did you expect?",
+      "required": "(required)",
+      "submit": "Send report",
+      "cancel": "Cancel",
+      "sent": "Thank you. Your report reached the team."
+    },
+    "ai": {
+      "label": "AI-generated",
+      "details": "How this was made",
+      "models": "Made with {models}",
+      "madeOn": "Made on {date}",
+      "verify": "Check its content credentials"
+    },
+    "errors": {
+      "unauthenticated": "Sign in to continue.",
+      "forbidden": "You don't have access to this.",
+      "forbidden_banned": "This account is banned.",
+      "forbidden_not_member": "You're not a member of this workspace.",
+      "forbidden_not_billing_manager": "Only the workspace's owner and admins manage its billing.",
+      "forbidden_impersonating": "An administrator acting as this account can't do this.",
+      "forbidden_admin_target": "An administrator's account can't be impersonated.",
+      "forbidden_passkey_only_admin": "On this demo, administrators sign in with a passkey, on an account that signs in with passkeys only. Turn on passkey-only sign-in in your security settings, then sign in again with your passkey.",
+      "forbidden_sign_in_refused": "Sign-in is by invitation right now.",
+      "forbidden_provider_owner_only": "Only the workspace's owner opens its billing portal for now.",
+      "forbidden_too_many_attempts": "Too many wrong codes. Ask for a new one.",
+      "forbidden_bot_check": "We couldn't confirm you're a person. Try again.",
+      "forbidden_other_account": "That sign-in belongs to another account. Confirm with this account's passkey or code.",
+      "forbidden_flag_off": "This isn't available to you yet.",
+      "forbidden_passkey_required": "Save a new passkey to finish signing in.",
+      "forbidden_invitation_refused": "This invitation can't be sent.",
+      "forbidden_ticket_required": "Signing up needs an invite right now.",
+      "forbidden_consent_required": "Accept the updated terms to continue.",
+      "forbidden_age_required": "Tell us how old you are to continue.",
+      "forbidden_under_age": "We can't create an account for you.",
+      "forbidden_sole_owner": "You're the only owner of a workspace others belong to. Make another member an owner first.",
+      "forbidden_paid_subscription": "This workspace has a paid plan. Cancel it before you delete the workspace.",
+      "forbidden_cannot_share": "You can't share this.",
+      "reauthentication_required": "Confirm it's you to continue: this needs a recent sign-in.",
+      "no_workspace": "Create or choose a workspace first.",
+      "rate_limited": "Too many requests. Try again in a moment.",
+      "rate_limited_for": "Too many requests. Try again in {count} second. | Too many requests. Try again in {count} seconds.",
+      "rate_limited_job_budget": "You've reached today's limit. Resets in {count} minute. | You've reached today's limit. Resets in {count} minutes.",
+      "insufficient_credits": "Not enough credits. Top up to continue.",
+      "insufficient_credits_amounts": "Not enough credits: {balance} left, {need} needed. Top up to continue.",
+      "feature_required": "Your plan doesn't include this. Upgrade to use it.",
+      "quota_exceeded": "Your plan's limit is reached. Upgrade for more.",
+      "invalid_input": "That input isn't valid. Check it and try again.",
+      "invalid_input_email": "Enter a valid email address.",
+      "invalid_input_required": "Fill in this field.",
+      "invalid_input_too_short": "That message is too short. Write at least 10 characters.",
+      "invalid_input_too_long": "That is too long. Keep a message to 2,000 characters and a name to 100.",
+      "invalid_input_sessionId": "That session has already ended.",
+      "invalid_input_otp": "That code isn't right. Check it, or ask for a new one.",
+      "invalid_input_otp_expired": "That code has expired. Ask for a new one.",
+      "invalid_input_other_browser": "This code works only in the browser where you asked for it.",
+      "invalid_input_inviteCode": "That invite code doesn't work. Check it and try again.",
+      "invalid_input_age": "Enter your age as a number.",
+      "invalid_input_invite_expired": "That invite code has expired.",
+      "invalid_input_invite_used_up": "That invite code has been used up.",
+      "invalid_input_invite_revoked": "That invite code is no longer valid.",
+      "invalid_input_recoveryCode": "That recovery code isn't right, or it was used already.",
+      "invalid_input_passkeys": "A passkey-only account needs a passkey. Add one, or allow sign-in codes again first.",
+      "invalid_input_slug": "That name is taken. Try another one.",
+      "invalid_input_passkey": "That passkey didn't work. Try again, or continue with an email code.",
+      "invalid_input_passkey_cancelled": "The passkey prompt was closed. Try again, or continue with an email code.",
+      "invalid_input_no_password": "This app signs in with codes and passkeys: there is no password to reset.",
+      "invalid_input_comment": "That comment is too long. Keep it to 500 characters.",
+      "invalid_input_cancel_scheduled": "This plan is already set to cancel at the end of its period.",
+      "invalid_input_no_cancel_scheduled": "This plan isn't set to cancel, so there is nothing to undo.",
+      "invalid_input_withdrawal_closed": "No purchase is inside its withdrawal period any more, so there is nothing to withdraw from.",
+      "invalid_input_retired": "That plan is no longer offered. Pick another one.",
+      "invalid_input_free_plan": "The free plan stays until a paid plan replaces it. Choose a plan to upgrade.",
+      "invalid_input_currency": "Prices aren't offered in that currency. Pick another one.",
+      "invalid_input_no_change_scheduled": "No plan change is scheduled, so there is nothing to undo.",
+      "invalid_input_confirmation": "Type your email address exactly as it is shown to confirm.",
+      "invalid_input_has_account": "This address belongs to an account. Delete the account instead.",
+      "invalid_input_file": "That file can't be kept. Try another one.",
+      "invalid_input_over_budget": "This is bigger than any plan allows in a day. Make it smaller.",
+      "invalid_input_content_blocked": "This content isn't allowed here. Try something else.",
+      "invalid_input_too_large": "That file is too large. Pick a smaller one.",
+      "invalid_input_unsupported_type": "That type of file isn't accepted. Pick another one.",
+      "invalid_input_upload_gone": "That upload is gone. Upload the file again.",
+      "invalid_input_upload_claimed": "That upload was already used. Upload the file again.",
+      "invalid_input_appeal_expired": "This decision can no longer be appealed.",
+      "invalid_input_appealed_already": "This decision was appealed already.",
+      "invalid_input_removed_copy": "This file was removed from the app and can't be uploaded again.",
+      "not_ready": "Nothing to show yet.",
+      "not_ready_no_customer": "Nothing to show yet — this opens after your first purchase.",
+      "not_ready_no_catalog": "Nothing to buy yet — this app has no plans or packs set up.",
+      "not_ready_not_synced": "Nothing to show yet — no credits have reached this account. Open billing to refresh, or get a credit pack.",
+      "not_ready_no_budget": "AI is turned off in this demo for now.",
+      "not_ready_sandbox": "This app is a demo, so this is turned off here.",
+      "not_ready_environment": "This is turned off on this deployment.",
+      "unavailable": "This isn't available right now. Try again shortly.",
+      "unavailable_not_configured": "This isn't set up on this app yet.",
+      "unavailable_test_mode": "This app is in test mode and only emails test addresses, so this address can't receive mail here.",
+      "unavailable_unconfigured": "This app can't send email yet.",
+      "unavailable_suppressed": "We can't send email to this address right now. Use another address, or contact us for help.",
+      "unavailable_signups_paused": "New sign-ups are paused for now. Try again later.",
+      "unavailable_checkout_paused": "Purchases are paused for now. Try again later.",
+      "unavailable_ai_paused": "AI features are paused for now. Try again later.",
+      "unavailable_stalled": "This job stopped responding. Your credits were refunded.",
+      "unavailable_job_failed": "This job failed. Your credits were refunded.",
+      "unavailable_unexpected": "Something went wrong."
+    },
+    "email": {
+      "layout": {
+        "sentBy": "Sent by {brand}",
+        "unsubscribe": "Unsubscribe"
+      },
+      "link": {
+        "fallback": "Or paste this link into your browser:"
+      },
+      "lifecycle": {
+        "welcome": {
+          "subject": "Welcome to {brand}",
+          "heading": "Welcome to {brand}",
+          "body": "Your account is ready. Here is where to start.",
+          "action": "Get started"
+        },
+        "activationNudge": {
+          "subject": "Your first one is a minute away",
+          "heading": "Ready when you are",
+          "body": "You signed up yesterday and haven't made anything yet. It takes a minute to start.",
+          "action": "Start now"
+        },
+        "firstResult": {
+          "subject": "Your first result is ready",
+          "heading": "It's ready",
+          "body": "What you made in {brand} is ready to see.",
+          "action": "See it"
+        },
+        "creditsLow": {
+          "subject": "Your credits are running low",
+          "heading": "Credits running low",
+          "body": "Your balance has reached its low mark. Add credits to keep going without a pause.",
+          "action": "Add credits"
+        },
+        "trialEnding": {
+          "subject": "Your trial ends in 7 days",
+          "heading": "Your trial ends in a week",
+          "body": "Your plan continues when the trial ends. Change or cancel it any time before then.",
+          "action": "Review your plan"
+        },
+        "checkoutAbandoned": {
+          "subject": "Still thinking it over?",
+          "heading": "Your checkout is waiting",
+          "body": "You started a checkout yesterday and didn't finish. Pick it up whenever you're ready.",
+          "action": "See the plans"
+        },
+        "winBack": {
+          "subject": "We'd like to have you back",
+          "heading": "Come back to {brand}",
+          "body": "Your plan has ended, and your account is still here. Pick a plan again any time.",
+          "action": "See the plans"
+        },
+        "stalled": {
+          "subject": "It's been a while",
+          "heading": "We kept your place",
+          "body": "You haven't been back in two weeks. Everything you made is where you left it.",
+          "action": "Pick up where you left off"
+        },
+        "annualSwitch": {
+          "subject": "Save with yearly billing",
+          "heading": "Pay yearly, pay less",
+          "body": "You've paid monthly three times. The yearly price costs less over a year.",
+          "action": "See yearly prices"
+        },
+        "reviewAsk": {
+          "subject": "How is {brand} working for you?",
+          "heading": "A minute of your time?",
+          "body": "You've been using {brand} for a week. A short review helps other people find it.",
+          "action": "Leave a review"
+        }
+      },
+      "announcement": {
+        "action": "Read more"
+      },
+      "otp": {
+        "subject": {
+          "sign-in": "Your sign-in code",
+          "email-verification": "Confirm your email address",
+          "forget-password": "Reset your password",
+          "change-email": "Confirm your new email"
+        },
+        "expiry": "This code expires shortly. If you didn't request it, you can ignore this email.",
+        "passkeyOnly": {
+          "subject": "Sign in with your passkey",
+          "intro": "Someone asked for a sign-in code for your account. Your account signs in with a passkey only, so no code was sent.",
+          "recover": "If you lost your passkey, choose \"Lost your passkey?\" on the sign-in page and use your recovery code. If you didn't ask, you can ignore this email."
+        },
+        "emailChange": {
+          "subject": "Confirm your email change",
+          "intro": "Enter this code to confirm you want to change the email address on your account.",
+          "warning": "If you didn't ask for this, someone may be signed in to your account. Sign out of your other sessions."
+        }
+      },
+      "origin": {
+        "summary": "Requested from {details}.",
+        "device": "{browser} on {os}",
+        "place": "near {place}",
+        "time": "at {time}"
+      },
+      "newDevice": {
+        "subject": "New sign-in to your account",
+        "intro": "Your account was just signed in from a device it had not used before.",
+        "warning": "If this wasn't you, sign that device out now.",
+        "action": "Review your devices"
+      },
+      "passkeyRecovered": {
+        "subject": "Your recovery code was used",
+        "intro": "Your recovery code was just used to sign in to your account, and a new passkey must be saved before anything else.",
+        "warning": "If this wasn't you, sign every other device out now.",
+        "action": "Review your devices"
+      },
+      "emailChanged": {
+        "subject": "Your email address was changed",
+        "intro": "The email address on your account is now {newEmail}.",
+        "warning": "If you didn't make this change, contact us right away."
+      },
+      "deletionScheduled": {
+        "subject": "Your account is scheduled for deletion",
+        "intro": "Your account will be deleted on {date}. Until then it works as before.",
+        "warning": "If you didn't ask for this, keep your account and sign out of your other sessions.",
+        "action": "Keep my account"
+      },
+      "deletionCanceled": {
+        "subject": "Your account is kept",
+        "body": "The deletion of your account is cancelled, and nothing was deleted."
+      },
+      "welcome": {
+        "subject": "Welcome aboard",
+        "greeting": "Welcome!",
+        "greetingNamed": "Welcome, {name}!",
+        "body": "Your account is ready — thanks for joining us."
+      },
+      "invite": {
+        "subject": "Join {workspace}",
+        "intro": "{inviter} invited you to join {workspace} as {role}.",
+        "action": "Accept invitation",
+        "subjectUnnamed": "You're invited to a workspace",
+        "introUnnamed": "{inviter} invited you to join their workspace as {role}."
+      },
+      "gift": {
+        "subject": "{sender} sent you a gift 🎁",
+        "intro": "{sender} sent you a gift: {item}. Sign in to receive it.",
+        "sender": "Someone",
+        "action": "Receive your gift",
+        "itemPass": "{count} month of {plan} | {count} months of {plan}",
+        "reminderSubject": "Your gift from {sender} is still waiting",
+        "reminderIntro": "{sender} sent you a gift: {item}. It is still waiting for you. Sign in to receive it."
+      },
+      "giftPassEnding": {
+        "subject": "Your {plan} pass ends on {date}",
+        "intro": "The {plan} plan a friend gave {workspace} ends on {date}. Keep it and nothing changes; otherwise the workspace goes back to the free plan and keeps everything it made.",
+        "action": "Keep {plan}",
+        "workspace": "your workspace",
+        "trialIntro": "The {plan} trial of {workspace} ends on {date}. Keep {plan} and nothing changes; otherwise the workspace goes back to the free plan and keeps everything it made."
+      },
+      "renewalReminder": {
+        "subject": "Your {plan} plan renews automatically",
+        "intro": "A reminder of your {plan} plan: it renews automatically at {price} {every}. The next renewal is on {date}.",
+        "cancel": "You can cancel online at any time before a renewal, and the plan stays until the end of the period you paid for.",
+        "action": "Manage your plan",
+        "every": {
+          "day": "every day | every {count} days",
+          "week": "every week | every {count} weeks",
+          "month": "every month | every {count} months"
+        }
+      },
+      "withdrawalReceipt": {
+        "subject": "We received your withdrawal from {plan}",
+        "intro": "We received your withdrawal from the {plan} contract on {at} (UTC).",
+        "next": "The plan has ended. Any refund due is sent to the original payment method within 14 days."
+      },
+      "waitlistConfirmation": {
+        "subject": "You're on the waitlist",
+        "intro": "You're #{position} of {total} on the waitlist.",
+        "introUnplaced": "You're on the waitlist.",
+        "note": "We admit in waves and may also admit by other criteria. Your place can change. Use this link to check it any time. It needs no sign-in code, so keep the email to yourself.",
+        "action": "See your place"
+      },
+      "topicConfirmation": {
+        "subject": "Confirm: {topic}",
+        "intro": "You asked to receive {topic}. Confirm with one press, and it starts.",
+        "note": "If you didn't ask, ignore this email: nothing is sent until you confirm. The link works for 7 days.",
+        "action": "Confirm"
+      },
+      "accessInvitation": {
+        "subject": "You're invited to {brand}",
+        "intro": "{brand} invited you to try it before it opens to everyone. Sign in with this email address to start.",
+        "action": "Sign in",
+        "why": "You get this email because someone at {brand} invited this address. If you did not expect it, ignore it: nothing happens.",
+        "privacy": "How {brand} handles your data: {url}"
+      },
+      "waitlistAdmitted": {
+        "subject": "You're in",
+        "intro": "You're in. Sign up with the email address you joined with.",
+        "action": "Sign up"
+      },
+      "noticeReceived": {
+        "subject": "We received your report",
+        "intro": "We received your report about {url}.",
+        "introUnlinked": "We received your report.",
+        "next": "A person on our team will review it and email you the decision.",
+        "intimate": "A request to remove an intimate image shared without consent is decided within 48 hours. We will email you the decision."
+      },
+      "noticeDecided": {
+        "subject": "Our decision on your report",
+        "removed": "We reviewed your report about {url} and removed the content.",
+        "kept": "We reviewed your report about {url} and decided to keep the content.",
+        "removedUnlinked": "We reviewed your report and removed the content.",
+        "keptUnlinked": "We reviewed your report and decided to keep the content.",
+        "handled": "We reviewed your report about {url} and acted on it.",
+        "handledUnlinked": "We reviewed your report and acted on it.",
+        "reason": "Why: {reason}",
+        "redress": "If you disagree, you can take the decision to a certified out-of-court dispute settlement body or to a court."
+      },
+      "contentRestricted": {
+        "subject": "We removed your content",
+        "intro": "We removed \"{title}\". It is no longer shown to anyone.",
+        "reason": "Why: {reason}",
+        "notice": "We acted on a report sent through our report form.",
+        "reports": "We acted on reports from people using the app.",
+        "illegal": "We found the content illegal.",
+        "terms": "We found that the content breaks our terms.",
+        "person": "A person on our team made this decision; no automated tool decided it.",
+        "appeal": "You can appeal this decision until {date}.",
+        "action": "Appeal the decision",
+        "redress": "You can also take the decision to a certified out-of-court dispute settlement body or to a court."
+      },
+      "appealDecided": {
+        "subject": "Our decision on your appeal",
+        "upheld": "We reviewed your appeal about \"{title}\" and kept our decision.",
+        "reversed": "We reviewed your appeal about \"{title}\" and reversed our decision.",
+        "reason": "Why: {reason}",
+        "redress": "If you disagree, you can take the decision to a certified out-of-court dispute settlement body or to a court."
+      }
+    }
+  }
+}

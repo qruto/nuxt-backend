@@ -1,0 +1,77 @@
+/*
+ * AdminFlags's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  /* The Flags tab: the kill switches, each a switch with what it does, then the app's flags. */
+  [data-admin='switch-list'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  [data-admin='switch'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+  }
+
+  [data-admin='switch'][data-on] {
+    border-color: color-mix(in srgb, var(--bk-warn) 55%, transparent);
+    background: color-mix(in srgb, var(--bk-warn) 8%, transparent);
+  }
+
+  /* The switch says its state in words too: a check mark while on, never colour alone. */
+  [data-admin='switch-toggle'] {
+    align-self: flex-start;
+  }
+
+  [data-admin='switch-toggle'][aria-checked='true']::before {
+    content: '✓ ';
+  }
+
+  [data-admin='switch-description'],
+  [data-admin='flags-hint'],
+  [data-admin='flag-description'],
+  [data-admin='flag-changed'] {
+    margin: 0;
+    color: var(--bk-muted);
+    font-size: 0.85rem;
+  }
+
+  [data-admin='maintenance-form'],
+  [data-admin='flag-editor'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  [data-admin='flag-everyone'] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin: 0;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+  }
+
+  [data-admin='flag-field'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  [data-admin='flag-actions'] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}

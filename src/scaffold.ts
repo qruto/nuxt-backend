@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { BACKEND_FILE_TEMPLATES } from './templates'
+import { BACKEND_FILE_TEMPLATES, DEFAULT_LAYOUT_TEMPLATE } from './templates'
 
 const DEFAULT_FUNCTIONS_DIR = 'backend'
 const STANDARD_FUNCTIONS_DIR = 'convex'
@@ -137,13 +137,34 @@ export function appComponentIsStarter(rootDir: string): boolean {
 
 /**
  * Put the router outlet into the starter root component: `<NuxtWelcome />`
- * becomes `<NuxtPage />`, everything else (the route announcer, the wrapper)
- * stays. A root component the user has already touched is left alone.
- * Returns the rewritten file's name, relative to `rootDir`, or `undefined`.
+ * becomes `<NuxtLayout><NuxtPage /></NuxtLayout>`, so the pages render inside
+ * the app's layout; everything else (the route announcer, the wrapper) stays.
+ * A root component the user has already touched is left alone. Returns the
+ * rewritten file's name, relative to `rootDir`, or `undefined`.
  */
 export function mountPagesInAppComponent(rootDir: string): string | undefined {
   if (!appComponentIsStarter(rootDir)) return undefined
   const { name, path } = resolveAppComponent(rootDir)!
-  writeFileSync(path, readFileSync(path, 'utf-8').replace(/<NuxtWelcome\s*\/>/, '<NuxtPage />'))
+  const source = readFileSync(path, 'utf-8')
+  writeFileSync(path, source.replace(/^([ \t]*)<NuxtWelcome\s*\/>/m, (_match, indent: string) => `${indent}<NuxtLayout>\n${indent}  <NuxtPage />\n${indent}</NuxtLayout>`))
   return name
+}
+
+/**
+ * Write the app's default layout, `<AppShell>` around the page, when the root
+ * component renders `<NuxtLayout>` and the app has no layout at all: the
+ * frame of the starter, restored if it went missing. A layout the app has
+ * (any `.vue` file in its `layouts/` folder) is never touched or replaced.
+ * Returns the file's path relative to `rootDir`, or `undefined`.
+ */
+export function ensureDefaultLayout(rootDir: string): string | undefined {
+  const component = resolveAppComponent(rootDir)
+  if (!component) return undefined
+  const source = readFileSync(component.path, 'utf-8')
+  if (!source.includes('<NuxtLayout') || !source.includes('<NuxtPage')) return undefined
+  const folder = join(dirname(component.path), 'layouts')
+  if (existsSync(folder) && readdirSync(folder).some(file => file.endsWith('.vue'))) return undefined
+  mkdirSync(folder, { recursive: true })
+  writeFileSync(join(folder, 'default.vue'), DEFAULT_LAYOUT_TEMPLATE)
+  return join(dirname(component.name), 'layouts/default.vue').replace(/\\/g, '/').replace(/^\.\//, '')
 }

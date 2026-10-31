@@ -72,19 +72,21 @@ describe('scaffold templates', () => {
     expect(config).toContain(`import backend from 'nuxt-backend/convex.config'`)
     expect(config).toContain(`const app = defineApp({ env: backendEnv })`)
     expect(config).toContain(`EMAIL_WEBHOOK_SECRET: app.env.EMAIL_WEBHOOK_SECRET`)
-    for (const name of ['aggregate', 'migrations', 'persistentTextStreaming', 'polar', 'rateLimiter', 'workflow']) {
+    for (const name of ['persistentTextStreaming', 'polar', 'rateLimiter', 'shardedCounter', 'workflow', 'workpool']) {
       expect(config).toContain(`import ${name} from '@convex-dev/`)
       expect(config).toContain(`app.use(${name})`)
     }
+    // The components an app imports directly are its own to mount.
+    for (const name of ['actionCache', 'aggregate', 'migrations', 'crons']) expect(config).not.toContain(`app.use(${name})`)
     expect(config).toContain(`export default app`)
     expect(config).not.toContain('defineBackendApp')
     expect(config).not.toMatch(/for \(|\.forEach\(/)
     expect(BACKEND_FILE_TEMPLATES['http.ts']).toContain(
       `registerBackendRoutes(http, {`,
     )
-    expect(BACKEND_FILE_TEMPLATES['auth.config.ts']).toBe(
-      `export { default } from 'nuxt-backend/auth.config'\n`,
-    )
+    // The auth route comes from nuxt.config, through the generated paths file.
+    expect(BACKEND_FILE_TEMPLATES['auth.config.ts']).toContain(`import { defineBackendAuthConfig } from 'nuxt-backend/auth.config'`)
+    expect(BACKEND_FILE_TEMPLATES['auth.config.ts']).toContain(`export default defineBackendAuthConfig({ paths })`)
     expect(BACKEND_FILE_TEMPLATES['auth.ts']).toContain(
       `import { setupAuth } from 'nuxt-backend/auth'`,
     )
@@ -99,10 +101,12 @@ describe('scaffold templates', () => {
 describe('website app', () => {
   it('mounts its backend with the exact default scaffold', () => {
     // The docs site's backend is the reference consumer: its convex.config.ts
-    // is the default template verbatim, so the template is proven against the
-    // live dev deployment by the `convex dev` watcher.
+    // is the default template verbatim, plus the two components it imports
+    // directly, so the template is proven against the live dev deployment by
+    // the `convex dev` watcher.
     const target = fileURLToPath(new URL('../../website/backend/convex.config.ts', import.meta.url))
-    expect(readFileSync(target, 'utf-8')).toBe(BACKEND_FILE_TEMPLATES['convex.config.ts'])
+    const own = /^(?:import (?:aggregate|migrations) from .*|app\.use\((?:aggregate|migrations)\)|\/\/ The playground's own: .*|\/\/ backfills \(migrations\.ts\).*)\n/gm
+    expect(readFileSync(target, 'utf-8').replace(own, '')).toBe(BACKEND_FILE_TEMPLATES['convex.config.ts'])
   })
 
   it('does not enable React JSX in backend functions', () => {

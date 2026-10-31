@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { convexTest } from 'convex-test'
 import type { FunctionArgs } from 'convex/server'
-import { Webhook } from 'svix'
+import { Webhook } from 'standardwebhooks'
 import component from '../../src/convex/test'
 import schema from '../../src/convex/components/backend/schema'
 import { record as recordFunction } from '../../src/convex/components/backend/webhooks'
@@ -253,7 +253,7 @@ describe('gift notification stamp (component)', () => {
   })
 })
 
-describe('email webhook verification (component, real svix crypto)', () => {
+describe('email webhook verification (component, the one verifier, Svix headers)', () => {
   // A non-status-tracked type: exercises verification without the nested
   // provider component (which convex-test does not model).
   const payload = JSON.stringify({ type: 'contact.created', data: { id: 'c_1' } })

@@ -10,23 +10,32 @@ const BORDER = ['border-w', 'border-color', ...SIDES.flatMap(side => [`border-w-
 const RADIUS = ['rounded', ...CORNERS.map(corner => `rounded-${corner}`)]
 
 export default defineAppConfig({
-  // The nuxt-backend content layer: the plan catalog rendered by
-  // <PricingTable> / <WorkspaceSettings>. Keys match the products map in
-  // backend/billing.ts — names and prices resolve live from Polar sandbox.
+  // The backend block of templates/panels/app/app.config.ts, as it is: the
+  // site serves Panels under /playground (scripts/sync-panels.mjs), and
+  // test/unit/panels-sync.test.ts keeps the two equal.
   backend: {
-    billing: {
-      plans: [
-        { key: 'starter', credits: 50, blurb: 'For trying things out.' },
-        { key: 'pro', credits: 200, blurb: 'For products finding their feet.', features: ['premium'] },
-        { key: 'ultra', credits: 500, blurb: 'Everything, unlocked.', features: ['premium', 'ultra'], highlight: true },
-      ],
-      packs: [
-        { key: 'credits100', credits: 100 },
-        { key: 'credits500', credits: 500 },
-      ],
+    // <BackendNotices> in the shell offers more credits below this balance.
+    billing: { lowCreditsThreshold: 30 },
+    // A notification's words are labels, so they read in each person's language.
+    labels: {
+      notifications: {
+        strip_ready: { title: 'Your strip is ready', body: 'Open it to read and share it.' },
+      },
+      // Panels' own refusals (backend/strips.ts), each a code and a reason,
+      // read as errors.<code>_<reason>.
+      errors: {
+        forbidden_passkey_required: 'On the public demo, an idea of your own needs a passkey sign-in. Add a passkey on your security page, sign in with it, or start from one of the ideas above.',
+        forbidden_hidden: 'An administrator hid this strip after a report. It can no longer be drawn or changed.',
+        not_ready_idea_not_drawn: 'The demo has not drawn this idea yet. Start from another one.',
+        invalid_input_not_stopped: 'This strip is still drawing, or done. Nothing to try again.',
+      },
     },
-    brand: { name: 'Nuxt backend' },
   },
+
+  // Full-text search over SQLite FTS5 rather than Fuse, so a query ranks
+  // sections by relevance; components/app/AppSearch.vue ranks the generated
+  // reference below the pages written by hand.
+  search: { fts: true },
 
   docus: {
     locale: 'en',
@@ -108,8 +117,6 @@ export default defineAppConfig({
       compoundVariants: [{ variant: 'link', active: true, class: { link: 'slot slot-pill' } }],
     },
     contentSurround: { slots: { link: 'plaque' } },
-    // Docs-embedded demo cards (DemoCounter, DemoConnection).
-    card: { slots: { root: 'plaque' } },
     footer: { slots: { root: 'seam' } },
     prose: {
       h1: { slots: { base: 'font-display font-semibold tracking-[0.015em] cut-sm' } },
@@ -120,7 +127,7 @@ export default defineAppConfig({
       // variant's border and background after a `base` override, so only a
       // variant entry lets the part replace them.
       code: { variants: { color: { neutral: 'slot slot-xs' } } },
-      card: { slots: { base: 'plaque', title: 'font-display font-semibold embossed-sm' } },
+      card: { slots: { base: 'plaque', title: 'font-display font-semibold emb-sm' } },
       // Shadow-only carve — the callout keeps its tinted bg → a pressed tinted well.
       callout: { slots: { base: 'carved rounded-[10px]' } },
       // Code-block filename / package-manager marks. Nuxt UI's default map
@@ -177,10 +184,10 @@ export default defineAppConfig({
     titleTemplate: '%s · Nuxt backend',
     title: 'Nuxt backend',
     description:
-      'The all-in-one SaaS backend for Nuxt on Convex — authentication, billing, credits, transactional email, webhooks and an agent (MCP) surface from a single package.',
+      'The all-in-one backend for client apps on Nuxt and Convex — sign-in with codes and passkeys, workspaces, plans and credits, email and notifications, AI jobs, files and an admin console, from one package.',
   },
 
-  // The ten docs tabs ride in the header (Docus's sub-navigation), and the
+  // The six docs tabs ride in the header (Docus's sub-navigation), and the
   // sidebar shows only the current tab's groups.
   navigation: {
     sub: 'header',

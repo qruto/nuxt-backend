@@ -1,0 +1,112 @@
+/*
+ * WorkspaceBilling's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-settings='plan-name'] {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+
+  [data-settings='plan-status'] {
+    margin: 0;
+    font-size: 0.85rem;
+  }
+
+  /* Focus lands on the state once a cancellation went through: no ring for a line of text. */
+  [data-settings='plan-status']:focus { outline: none; }
+
+  [data-settings='benefits'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  [data-settings='benefits-title'],
+  [data-settings='confirm-title'] {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  [data-settings='benefit-list'] {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  [data-settings='benefit'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  [data-settings='benefit-name'] {
+    font-weight: 600;
+  }
+
+  [data-settings='benefit-kind'] {
+    color: var(--bk-muted);
+    font-size: 0.78rem;
+  }
+
+  [data-settings='benefit-detail'] {
+    font-family: ui-monospace, monospace;
+    font-size: 0.78rem;
+    overflow-wrap: anywhere;
+  }
+
+  [data-settings='plan-actions'] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  [data-settings='resume'],
+  [data-settings='uncancel'],
+  [data-settings='keep-gifted'] {
+    background: var(--bk-accent);
+    border-color: var(--bk-accent);
+    color: var(--bk-on-accent);
+  }
+
+  [data-settings='cancel-confirm'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.8rem;
+    border: 1px solid color-mix(in srgb, var(--bk-error) 40%, transparent);
+    border-radius: var(--bk-radius);
+  }
+
+  [data-settings='confirm-cancel'] {
+    align-self: flex-start;
+    border-color: var(--bk-error);
+    color: var(--bk-error);
+    font-weight: 600;
+  }
+
+  [data-settings='period'] {
+    color: var(--bk-muted);
+  }
+
+  [data-settings='pricing-link'] {
+    align-self: flex-start;
+    color: var(--bk-accent);
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  [data-settings='cancel'] {
+    border-color: color-mix(in srgb, var(--bk-error) 50%, transparent);
+    color: var(--bk-error);
+  }
+}

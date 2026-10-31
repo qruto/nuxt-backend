@@ -3,14 +3,15 @@ import type { ContentNavigationItem } from '@nuxt/content'
 
 // Docus 5.15.0's AppHeaderBody (test/docs/docus-copies.test.ts pins the
 // source), changed: the drawer below lg carries the header's keys and the
-// version chip above the ten tabs, and lists the tabs on every page, each
-// linking to its first page, with the Experimental badge of a tab whose
-// every page is experimental.
+// version chip, then the package-manager picker (components/PmChoice.vue,
+// in the tab row from lg up), above the six tabs, and lists the tabs on
+// every page, each linking to its first page, with the badge of a tab
+// whose every page carries it (Experimental or Planned, utils/nav-badges.ts).
 const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')
 
 const contentNavVariants = useUIConfig('contentNavigation')
 
-const tabs = computed<ContentNavigationItem[]>(() => hoistExperimental(navigation?.value || []).map(({ children, ...item }) => ({
+const tabs = computed<ContentNavigationItem[]>(() => hoistBadges(navigation?.value || []).map(({ children, ...item }) => ({
   ...item,
   path: children?.length ? getFirstPagePath({ ...item, children }) : item.path,
 })))
@@ -21,6 +22,19 @@ const tabs = computed<ContentNavigationItem[]>(() => hoistExperimental(navigatio
     <div class="flex flex-wrap items-center gap-2">
       <AppHeaderKeys />
       <AppHeaderVersion />
+    </div>
+
+    <div>
+      <p
+        id="drawer-pm"
+        class="stamp mb-3"
+      >
+        Commands
+      </p>
+      <PmChoice
+        labelledby="drawer-pm"
+        labels
+      />
     </div>
 
     <nav aria-labelledby="drawer-tabs">

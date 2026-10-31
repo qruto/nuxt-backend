@@ -1,5 +1,11 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
+/**
+ * A playground page's header: the API it shows in a `slot slot-xs` chip,
+ * the amber Experimental chip and the breathing live light, then the title
+ * engraved into the metal (`cut`, with its lighter floor) and the lead
+ * in the slot.
+ */
+const props = withDefaults(defineProps<{
   tag: string
   title: string
   live?: boolean
@@ -8,89 +14,37 @@ withDefaults(defineProps<{
 </script>
 
 <template>
-  <header class="ph">
-    <div class="ph-row">
-      <code class="ph-tag">{{ tag }}</code>
+  <header class="mb-6">
+    <div class="mb-2 flex flex-wrap items-center gap-2">
+      <code class="slot slot-xs px-2 py-1 font-mono text-[0.67rem] font-semibold tracking-[0.02em] text-(--ok)">{{ props.tag }}</code>
       <span
-        v-if="experimental"
-        class="ph-xp"
-      >experimental</span>
+        v-if="props.experimental"
+        class="stamp slot slot-xs inline-flex items-center gap-1.5 px-2.5 py-1.5 text-(--warn)!"
+      >
+        <Led
+          tone="warn"
+          shape="square"
+        />
+        Experimental
+      </span>
       <span
-        v-if="live"
-        class="ph-live"
+        v-if="props.live"
+        class="stamp inline-flex items-center gap-1.5 text-(--ok)!"
       >
         <Led
           tone="ok"
           pulse
         />
-        live
+        Live
       </span>
     </div>
-    <h1 class="ph-title engraved">
-      {{ title }}
-    </h1>
-    <p class="ph-sub">
+    <EngravedTitle
+      as="h1"
+      :text="props.title"
+      class="mt-0 mb-1.5 font-display text-[2.05rem] leading-[1.08] font-semibold tracking-[-0.005em]"
+    />
+    <p class="m-0 max-w-[64ch] text-[0.88rem] leading-normal text-(--ink-dim) [&_code]:text-[0.82em] [&_code]:text-(--ok)">
       <slot />
     </p>
   </header>
 </template>
-
-<style scoped>
-.ph { margin-bottom: 1.5rem; }
-.ph-row {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  margin-bottom: 0.55rem;
-}
-.ph-tag {
-  font-family: var(--mono);
-  font-size: 0.67rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  /* API name chip: the readable green on a well (matches inline code chips). */
-  color: var(--ok-soft);
-  background: var(--sink);
-  box-shadow: var(--inset-sm);
-  padding: 0.2rem 0.55rem;
-  border-radius: 6px;
-}
-/* Experimental marker = amber (attention), tint behind, signal as text. */
-.ph-xp {
-  font-family: var(--mono);
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--warn);
-  background: var(--warn-dim);
-  padding: 0.16rem 0.42rem;
-  border-radius: 5px;
-}
-.ph-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-family: var(--mono);
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ok);
-}
-.ph-title {
-  font-family: var(--display);
-  font-size: 2.05rem;
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  margin: 0 0 0.4rem;
-  line-height: 1.08;
-}
-.ph-sub {
-  color: var(--ink-dim);
-  font-size: 0.88rem;
-  margin: 0;
-  max-width: 64ch;
-  line-height: 1.5;
-}
-</style>

@@ -4,13 +4,12 @@ import type { BillingCatalogIds } from 'nuxt-backend/billing'
 export const catalog: Partial<Record<'sandbox' | 'production', BillingCatalogIds>> = {
   sandbox: {
     products: {
-      starter: '7a4d2654-12ab-4ab4-84fa-cc2bafd483c0',
-      pro: 'c7372c4e-2581-42d1-a514-7aec9a2a8ab6',
-      ultra: 'a95df103-3f0e-461e-b260-118343396561',
-      credits100: '0313cfbe-b321-4fde-873a-00e27748682f',
-      credits500: '8eb269bd-5f98-4a3f-9850-ff5f44d03da7',
+      'free': '7e57bd5d-52dc-47c6-9521-1de92771493c',
+      'studio': '498851d1-0c19-4df0-8ea9-c822f8c76653',
+      'studio:year': 'c76f0091-dda3-4e50-8809-ad9a12059952',
+      'credits100': '0313cfbe-b321-4fde-873a-00e27748682f',
+      'credits500': '8eb269bd-5f98-4a3f-9850-ff5f44d03da7',
     },
-    packs: ['credits100', 'credits500'],
     meters: {
       credits: {
         meterId: '8455082f-da79-4961-b323-bc799ddf7fbc',
@@ -18,5 +17,20 @@ export const catalog: Partial<Record<'sandbox' | 'production', BillingCatalogIds
         property: 'amount',
       },
     },
+    plans: {
+      free: {
+        month: '7e57bd5d-52dc-47c6-9521-1de92771493c',
+      },
+      studio: {
+        month: '498851d1-0c19-4df0-8ea9-c822f8c76653',
+        year: 'c76f0091-dda3-4e50-8809-ad9a12059952',
+      },
+    },
+    free: 'free',
+    gifts: {
+      credits100: '8e5f820c-e9da-4953-9660-abd9c3e5378a',
+      credits500: 'a4aafa73-bf57-4e44-bc4a-23790ceb6e7b',
+    },
+    packs: ['credits100', 'credits500'],
   },
 }

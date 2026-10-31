@@ -1,0 +1,43 @@
+/*
+ * KeepAccount's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-deletion='keep-page'] {
+    display: grid;
+    gap: 0.75rem;
+    justify-items: start;
+    max-width: 32rem;
+    color: var(--bk-ink);
+  }
+
+  [data-deletion='keep-page'] [data-deletion='message'] {
+    margin: 0;
+  }
+
+  [data-deletion='keep-page'] [data-deletion='keep'] {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  [data-deletion='keep-page'] [data-deletion='keep'][aria-disabled='true'] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  [data-deletion='keep-page'] [data-deletion='keep']:focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 2px;
+  }
+
+  [data-deletion='keep-page'] [data-deletion='error'] {
+    margin: 0;
+    color: var(--bk-error);
+  }
+}

@@ -16,10 +16,11 @@ navigation:
 
 ```ts
 const default: ComponentDefinition<any, {
+  BACKEND_ENVIRONMENT: VUnion<"preview" | "development" | "sandbox" | "production" | undefined, [VLiteral<"development", "required">, VLiteral<"preview", "required">, VLiteral<"sandbox", "required">, VLiteral<"production", "required">], "optional", never>;
   EMAIL_API_KEY: VString<string | undefined, "optional">;
   EMAIL_FROM: VString<string | undefined, "optional">;
-  EMAIL_TEST_MODE: VString<string | undefined, "optional">;
   EMAIL_WEBHOOK_SECRET: VString<string | undefined, "optional">;
+  MONITORING_DSN: VString<string | undefined, "optional">;
 }>;
 ```
 
@@ -42,6 +43,21 @@ of the box; the consumer only mounts `backend` and sets `EMAIL_API_KEY`. The
 Resend client runs in `backend`'s own functions (see `email.ts`), so it stays
 encapsulated behind this component's API.
 
+Migrations — the package's own data migrations (`migrations.ts`) run on
+the migrations component nested here, so its record of how far each got
+stays beside the tables they migrate, apart from the app's own migrations
+component; `nuxt-backend upgrade` starts them.
+
+Waitlist — the order people wait in is an aggregate (`waitlistRank`, queued
+writes), and the mirror of launch-news contacts to the email provider runs
+on a workpool (`waitlistMirror`) with retries and backoff, both nested here
+so a waitlist needs nothing mounted beside `backend`.
+
+Growth funnel — the counts of each step, dimension and week, of each
+cohort's active weeks and of each experiment's variants, are an aggregate
+(`funnelCounts`) nested here, so the funnel needs nothing mounted beside
+`backend` and nothing leaves the deployment.
+
 Billing — only the entitlement cache + gift records live here. The Polar
 component operates over the app's auth + HTTP routes and can't be nested, so
 it mounts at the app level (the scaffolded root `convex.config.ts` does
@@ -55,4 +71,7 @@ type-safely through
 the generated `env` export (see `email.ts`). All optional — a deploy
 succeeds without them and email degrades in a designed way (sends no-op,
 codes and invitations to real addresses refused, webhooks rejected) until
-`EMAIL_API_KEY` is set.
+`EMAIL_API_KEY` is set. `MONITORING_DSN` is where the component's cron checks
+in (see `monitoring.ts`), from a deployment whose `BACKEND_ENVIRONMENT`
+says it is neither a dev nor a preview one; unset, it checks in nowhere.
+`BACKEND_ENVIRONMENT` also decides the email test mode.

@@ -18,6 +18,7 @@ import { refundsCreate } from '@polar-sh/sdk/funcs/refundsCreate.js'
 import { type Billing, setupBilling } from '../../src/convex/integrations/billing'
 import { giftSenderName } from '../../src/convex/integrations/billing/gifts'
 import { setupEmail } from '../../src/convex/integrations/email'
+import { backendError } from '../../src/convex/errors'
 
 // Credit-pack gifts as the provider runs them: the purchaser buys the pack's
 // private gift product on their own billing entity, the paid order mints a
@@ -57,6 +58,8 @@ const mockOrdersList = vi.mocked(ordersList)
 const components = {
   polar: { lib: { insertCustomer: 'ref:insertCustomer' } },
   backend: {
+    // The auth tables' adapter: the fresh member and role reads.
+    adapter: { findOne: 'ref:findOne' },
     billing: { entityProfile: 'ref:entityProfile', userByCustomer: 'ref:userByCustomer', getBenefitMetadata: 'ref:getBenefitMetadata', upsert: 'ref:upsert' },
     gifts: {
       create: 'ref:gifts.create',
@@ -70,6 +73,17 @@ const components = {
       countBought: 'ref:gifts.countBought',
       get: 'ref:gifts.get',
       personalEntity: 'ref:gifts.personalEntity',
+      listByPurchaser: 'ref:gifts.listByPurchaser',
+      countToAddress: 'ref:gifts.countToAddress',
+      markDelivered: 'ref:gifts.markDelivered',
+      noteNotice: 'ref:gifts.noteNotice',
+      setRecipient: 'ref:gifts.setRecipient',
+      setDeliverAt: 'ref:gifts.setDeliverAt',
+      startPass: 'ref:gifts.startPass',
+      notePass: 'ref:gifts.notePass',
+      activePass: 'ref:gifts.activePass',
+      due: 'ref:gifts.due',
+      registerSweep: 'ref:gifts.registerSweep',
     },
     email: { send: 'ref:email.send' },
   },
@@ -78,14 +92,26 @@ const email = setupEmail(components)
 const config = {
   email,
   accessToken: 'oat_test',
-  // A plan and a credit pack; `billing sync` made the pack's gift twin.
+  // A plan and a credit pack; `billing sync` made the pack's gift twin. The deployment delivers mail live, so it bills in production too.
   products: { pro: 'p1', credits500: 'p_pack' },
-  catalog: { sandbox: { gifts: { credits500: 'p_pack_gift' } } },
+  catalog: { production: { gifts: { credits500: 'p_pack_gift' } } },
   trustedOrigins: ['https://app'],
 }
 
 const purchaser = { subject: 'u-buyer', email: 'buyer@example.com', emailVerified: true, name: 'Buyer', activeOrganizationId: 'org-team' }
 const recipient = { subject: 'u-r', email: 'R@Example.com', emailVerified: true, name: 'Rita', activeOrganizationId: 'org-team' }
+/** The member table as a test's caller finds it: their role in each workspace, no row for any other. */
+const memberOf = (memberships: Record<string, string>) => (ref: unknown, args?: unknown) => {
+  const { model, where = [] } = (args ?? {}) as { model?: string, where?: Array<{ field: string, value: unknown }> }
+  if (ref !== 'ref:findOne' || model !== 'member') return undefined
+  const role = memberships[where.find(clause => clause.field === 'organizationId')?.value as string]
+  return role ? { role } : null
+}
+
+/** The account row the fresh ban read finds for a test's caller; `undefined` for any other read. */
+const liveAccount = (ref: unknown, args?: unknown) =>
+  ref === 'ref:findOne' && (args as { model?: string } | undefined)?.model === 'user' ? { role: 'user', banned: false } : undefined
+
 const giftArgs = { pack: 'credits500', recipientEmail: 'r@example.com', origin: 'https://app', successUrl: 'https://app/done' }
 
 interface GiftRow {
@@ -107,6 +133,13 @@ interface GiftRow {
   claimingUserId?: string
   claimedEntityId?: string
   notifiedAt?: number
+  deliverAt?: number
+  deliveredAt?: number
+  noticeCount?: number
+  recipientChanges?: number
+  remindedAt?: number
+  plan?: string
+  months?: number
   createdAt: number
 }
 
@@ -115,7 +148,7 @@ interface GiftRow {
  * signed-in caller, and what was emailed. `personal` is the caller's personal
  * workspace; `bought` how many gifts they bought in the window.
  */
-function world(row: Partial<GiftRow> = {}, { claims = purchaser as Record<string, unknown> | null, personal = 'org-personal' as string | null, bought = 0 } = {}) {
+function world(row: Partial<GiftRow> = {}, { claims = purchaser as Record<string, unknown> | null, personal = 'org-personal' as string | null, bought = 0, toAddress = 0, account = { role: 'user', banned: false } as { role: string, banned: boolean } | null } = {}) {
   const gift: GiftRow = {
     id: 'gift-1',
     recipientEmail: 'r@example.com',
@@ -131,11 +164,15 @@ function world(row: Partial<GiftRow> = {}, { claims = purchaser as Record<string
   }
   const sends: Array<Record<string, unknown>> = []
   const ctx = {
-    runQuery: vi.fn(async (ref: unknown, _args?: unknown): Promise<unknown> => {
+    runQuery: vi.fn(async (ref: unknown, args?: unknown): Promise<unknown> => {
+      // The account as the user table holds it now, read fresh.
+      if (ref === 'ref:findOne' && (args as { model?: string } | undefined)?.model === 'user') return account
       if (ref === 'ref:gifts.get') return { ...gift }
       if (ref === 'ref:gifts.listByEmail') return [{ ...gift }]
       if (ref === 'ref:gifts.personalEntity') return personal
       if (ref === 'ref:gifts.countBought') return { count: bought, oldest: bought > 0 ? Date.now() - 1000 : null }
+      if (ref === 'ref:gifts.countToAddress') return toAddress
+      if (ref === 'ref:gifts.activePass') return null
       if (ref === 'ref:getBenefitMetadata') return []
       return null
     }),
@@ -145,7 +182,7 @@ function world(row: Partial<GiftRow> = {}, { claims = purchaser as Record<string
         case 'ref:gifts.create':
           return 'gift-1'
         case 'ref:gifts.markPaid':
-          if (gift.status === 'pending') Object.assign(gift, { status: 'paid', billingOrderId: input.billingOrderId, amount: input.amount, currency: input.currency })
+          if (gift.status === 'pending') Object.assign(gift, { status: 'paid', billingOrderId: input.billingOrderId, amount: input.amount, currency: input.currency, deliverAt: gift.deliverAt ?? Date.now() })
           return null
         case 'ref:gifts.setDiscount':
           gift.discountId ??= input.discountId as string
@@ -153,6 +190,16 @@ function world(row: Partial<GiftRow> = {}, { claims = purchaser as Record<string
         case 'ref:gifts.markNotified':
           gift.notifiedAt ??= Date.now()
           return true
+        case 'ref:gifts.markDelivered':
+          if (gift.status !== 'paid' || gift.deliveredAt !== undefined) return false
+          gift.deliveredAt = Date.now()
+          return true
+        case 'ref:gifts.noteNotice':
+          gift.noticeCount = (gift.noticeCount ?? 0) + 1
+          if (input.reminder) gift.remindedAt = Date.now()
+          return null
+        case 'ref:gifts.registerSweep':
+          return null
         case 'ref:gifts.startClaim':
           Object.assign(gift, { claimingUserId: input.userId, claimingEntityId: input.entityId })
           return true
@@ -183,6 +230,11 @@ let billing: Billing
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // A deployment that delivers to real addresses; the tests about one that
+  // can't say so.
+  vi.stubEnv('EMAIL_API_KEY', 're_test')
+  vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
+  vi.stubEnv('EMAIL_FROM', 'Acme <hello@acme.dev>')
   billing = setupBilling(components, config as never)
   vi.spyOn(Polar.prototype, 'getProduct').mockImplementation(async (_ctx, { productId }) =>
     ({ p_pack: { id: 'p_pack', name: '500 credits', isRecurring: false, isArchived: false }, p1: { id: 'p1', isRecurring: true, isArchived: false } } as Record<string, unknown>)[productId] as never ?? null)
@@ -208,6 +260,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
 })
 
 describe('buying a gift', () => {
@@ -235,6 +288,7 @@ describe('buying a gift', () => {
       products: ['p_pack_gift'],
       externalCustomerId: 'org-personal',
       embedOrigin: 'https://app',
+      // A gift changes nothing the purchaser holds: it returns as sent.
       successUrl: 'https://app/done',
       allowDiscountCodes: false,
       metadata: { giftId: 'gift-1' },
@@ -242,6 +296,19 @@ describe('buying a gift', () => {
     expect(JSON.stringify(mockCheckoutsCreate.mock.calls)).not.toContain('r@example.com')
     expect(mockCustomersList).not.toHaveBeenCalled()
     expect(mockCustomersCreate).not.toHaveBeenCalled()
+  })
+
+  it('pays in a currency the gift product is priced in, and refuses one it is not', async () => {
+    // `billing sync` gave the twin every currency of its pack.
+    const twin = { id: 'p_pack_gift', isRecurring: false, isArchived: false, prices: [{ amountType: 'fixed', priceAmount: 2000, priceCurrency: 'usd', isArchived: false }, { amountType: 'fixed', priceAmount: 1800, priceCurrency: 'eur', isArchived: false }] }
+    vi.spyOn(Polar.prototype, 'getProduct').mockImplementation(async (_ctx, { productId }) =>
+      ({ p_pack: { id: 'p_pack', name: '500 credits', isRecurring: false, isArchived: false }, p_pack_gift: twin } as Record<string, unknown>)[productId] as never ?? null)
+
+    await giftCheckout()(world().ctx, { ...giftArgs, currency: 'EUR' })
+    expect(mockCheckoutsCreate).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ products: ['p_pack_gift'], currency: 'eur' }))
+    const calls = mockCheckoutsCreate.mock.calls.length
+    await expect(giftCheckout()(world().ctx, { ...giftArgs, currency: 'gbp' })).rejects.toMatchObject({ data: { code: 'invalid_input', field: 'currency' } })
+    expect(mockCheckoutsCreate).toHaveBeenCalledTimes(calls)
   })
 
   it('needs an earlier paid order on an entity the purchaser owns, before anything is created', async () => {
@@ -256,7 +323,8 @@ describe('buying a gift', () => {
 
   it('counts orders across every workspace the purchaser owns', async () => {
     const { ctx } = world()
-    ctx.runQuery.mockImplementation(async (ref: unknown) => {
+    ctx.runQuery.mockImplementation(async (ref: unknown, args?: unknown) => {
+      if (liveAccount(ref, args)) return liveAccount(ref, args)
       if (ref === 'ref:gifts.personalEntity') return 'org-personal'
       if (ref === 'ref:gifts.countBought') return { count: 0, oldest: null }
       if (ref === 'ref:entityProfile') return { name: 'Mine', personal: true, owner: { userId: 'u-buyer', email: 'buyer@example.com', name: 'Buyer', emailVerified: true }, ownedEntityIds: ['org-personal', 'org-team'] }
@@ -294,11 +362,75 @@ describe('buying a gift', () => {
     const resolveEntity = vi.fn(async () => ({ userId: 'org-shared', email: 'buyer@example.com' }))
     const resolved = setupBilling(components, { ...config, resolveEntity } as never)
     const { ctx } = world()
-    ctx.runQuery.mockImplementation(async (ref: unknown) =>
-      ref === 'ref:entityProfile' ? { name: 'Shared', personal: false, owner: { userId: 'u-owner', email: 'o@example.com', name: 'O', emailVerified: true }, ownedEntityIds: ['org-shared'] } : null)
+    // An admin of the shared workspace: a manager there, still not its owner.
+    ctx.runQuery.mockImplementation(async (ref: unknown, args?: unknown) =>
+      ref === 'ref:entityProfile'
+        ? { name: 'Shared', personal: false, owner: { userId: 'u-owner', email: 'o@example.com', name: 'O', emailVerified: true }, ownedEntityIds: ['org-shared'] }
+        : liveAccount(ref, args) ?? memberOf({ 'org-shared': 'admin' })(ref, args) ?? null)
 
     await expect(giftCheckout(resolved)(ctx, giftArgs)).rejects.toMatchObject({ data: { code: 'no_workspace' } })
     expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
+
+  it('checks the workspace an older resolver names, whatever rule it ignores: a plain member buys nothing on it', async () => {
+    // Written before resolvers got a rule: it names the active workspace to everyone.
+    const resolveEntity = vi.fn(async () => ({ userId: 'org-team', email: 'buyer@example.com' }))
+    const resolved = setupBilling(components, { ...config, resolveEntity } as never)
+    // No profile of the workspace yet, and the purchaser only a member of it.
+    for (const [memberships, refusal] of [[{ 'org-team': 'member' }, 'not_billing_manager'], [{}, 'not_member']] as const) {
+      const { ctx } = world()
+      ctx.runQuery.mockImplementation(async (ref: unknown, args?: unknown) => liveAccount(ref, args) ?? memberOf(memberships)(ref, args) ?? null)
+      await expect(giftCheckout(resolved)(ctx, giftArgs)).rejects.toMatchObject({ data: { code: 'forbidden', reason: refusal } })
+      const claim = world({ status: 'paid', billingOrderId: 'order_gift', discountId: 'disc_1' }, { claims: recipient }).ctx
+      const reads = claim.runQuery.getMockImplementation()!
+      claim.runQuery.mockImplementation(async (ref: unknown, args?: unknown) => memberOf(memberships)(ref, args) ?? reads(ref, args))
+      await expect(handlerOf(resolved.api.claimGift)(claim, { giftId: 'gift-1' }))
+        .rejects.toMatchObject({ data: { code: 'forbidden', reason: refusal } })
+    }
+    expect(mockCustomersCreate).not.toHaveBeenCalled()
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
+
+  it('asks an app\'s own resolver for an entity the purchaser manages, and keeps its refusal', async () => {
+    // Teams of the app's own, billed per user: Buyer is a plain member of team-1.
+    const resolveEntity = vi.fn(async (_ctx: unknown, rule?: { access: string }) => {
+      if (rule?.access !== 'member') throw backendError('forbidden', { reason: 'not_billing_manager' })
+      return { userId: 'team-1', email: 'billing@team.test' }
+    })
+    const teams = setupBilling(components, { ...config, billTo: 'user', resolveEntity } as never)
+    await expect(giftCheckout(teams)(world().ctx, giftArgs)).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'not_billing_manager' } })
+    expect(resolveEntity).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ access: 'manage', impersonation: 'refused' }))
+    await expect(handlerOf(teams.api.claimGift)(world({ status: 'paid', billingOrderId: 'order_gift', discountId: 'disc_1' }, { claims: recipient }).ctx, { giftId: 'gift-1' }))
+      .rejects.toMatchObject({ data: { code: 'forbidden', reason: 'not_billing_manager' } })
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
+
+  it('refuses an impersonating administrator and an account banned since its token was minted', async () => {
+    await expect(giftCheckout()(world({}, { claims: { ...purchaser, impersonatedBy: 'admin-1' } }).ctx, giftArgs))
+      .rejects.toMatchObject({ data: { code: 'forbidden', reason: 'impersonating' } })
+    await expect(giftCheckout()(world({}, { account: { role: 'user', banned: true } }).ctx, giftArgs))
+      .rejects.toMatchObject({ data: { code: 'forbidden', reason: 'banned' } })
+    await expect(giftCheckout()(world({}, { account: null }).ctx, giftArgs))
+      .rejects.toMatchObject({ data: { code: 'unauthenticated' } })
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
+
+  it('refuses a recipient the gift email would not reach, before the provider or the purchaser\'s money', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'sandbox')
+    await expect(giftCheckout()(world().ctx, giftArgs))
+      .rejects.toMatchObject({ data: { code: 'unavailable', service: 'email', reason: 'test_mode' } })
+    vi.stubEnv('EMAIL_API_KEY', '')
+    await expect(giftCheckout()(world().ctx, giftArgs))
+      .rejects.toMatchObject({ data: { code: 'unavailable', service: 'email', reason: 'unconfigured' } })
+    expect(mockOrdersList).not.toHaveBeenCalled()
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+    const logged = warn.mock.calls.flat().join('\n')
+    expect(logged).toContain('email.undeliverable')
+    expect(logged).not.toContain('r@example.com')
+    // A test address still gets its copy in the sandbox inbox.
+    vi.stubEnv('EMAIL_API_KEY', 're_test')
+    await expect(giftCheckout()(world().ctx, { ...giftArgs, recipientEmail: 'delivered@resend.dev' })).resolves.toEqual({ url: 'https://checkout/gift' })
   })
 
   it('refuses a gift to the purchaser\'s own address', async () => {
@@ -331,10 +463,21 @@ describe('buying a gift', () => {
 
   it('never charges a shared workspace the purchaser only belongs to', async () => {
     const { ctx } = world({}, { personal: null })
-    ctx.runQuery.mockImplementation(async (ref: unknown) =>
-      ref === 'ref:entityProfile' ? { name: 'Team', personal: false, owner: { userId: 'u-owner', email: 'o@example.com', name: 'O', emailVerified: true }, ownedEntityIds: ['org-team'] } : null)
+    // An admin there: past the manager check, and still no owner.
+    ctx.runQuery.mockImplementation(async (ref: unknown, args?: unknown) =>
+      ref === 'ref:entityProfile' ? { name: 'Team', personal: false, owner: { userId: 'u-owner', email: 'o@example.com', name: 'O', emailVerified: true }, ownedEntityIds: ['org-team'] } : liveAccount(ref, args) ?? memberOf({ 'org-team': 'admin' })(ref, args) ?? null)
 
     await expect(giftCheckout()(ctx, giftArgs)).rejects.toMatchObject({ data: { code: 'no_workspace' } })
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
+
+  it('never charges a workspace a stale token names, once the purchaser left it', async () => {
+    // The token was minted while they owned org-team; the member table no longer has them.
+    const { ctx } = world({}, { personal: null })
+    ctx.runQuery.mockImplementation(async (ref: unknown, args?: unknown) =>
+      ref === 'ref:entityProfile' ? { name: 'Team', personal: false, owner: { userId: 'u-buyer', email: 'buyer@example.com', name: 'B', emailVerified: true }, ownedEntityIds: ['org-team'] } : liveAccount(ref, args) ?? memberOf({})(ref, args) ?? null)
+
+    await expect(giftCheckout()(ctx, giftArgs)).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'not_member' } })
     expect(mockCheckoutsCreate).not.toHaveBeenCalled()
   })
 
@@ -345,6 +488,18 @@ describe('buying a gift', () => {
     await expect(giftCheckout(gated)(world().ctx, giftArgs)).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'gift_refused', message: 'Gifts go to example.com only.' } })
     expect(canGift).toHaveBeenCalledWith(expect.anything(), { recipientEmail: 'r@example.com', purchaserUserId: 'u-buyer', purchaserEntityId: 'org-personal' })
     expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
+
+  it('moves a gift\'s date no more often than the billingSync limit allows: each date schedules a delivery', async () => {
+    const rateLimiter = { limit: vi.fn(async () => ({ ok: false })) }
+    const limited = setupBilling(components, { ...config, rateLimiter } as never)
+    const deliverAt = Date.now() + 5 * 24 * 60 * 60 * 1000
+    const { ctx, gift } = world({ status: 'paid', deliverAt })
+
+    await expect(handlerOf(limited.api.rescheduleGift)(ctx, { giftId: 'gift-1', deliverAt: deliverAt + 60 * 60 * 1000 })).rejects.toThrow(/Too many gift changes/)
+    expect(rateLimiter.limit).toHaveBeenCalledWith(ctx, 'billingSync', { key: 'u-buyer', throws: true })
+    expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:gifts.setDeliverAt', expect.anything())
+    expect(gift.deliverAt).toBe(deliverAt)
   })
 
   it('is throttled per purchaser on the billingSync limit, before the pack is read', async () => {
@@ -373,6 +528,15 @@ describe('a paid gift purchase', () => {
     ...overrides,
   })
   const deliver = (ctx: unknown, order: Record<string, unknown>) => billing.webhookEvents['order.paid']!(ctx as never, { type: 'order.paid', data: order } as never)
+
+  it('tells an address the purchaser changed to under keys of its own, so the old address\'s notices never stand in for its own', async () => {
+    const { ctx, sends } = world({ recipientChanges: 1 })
+
+    await deliver(ctx, purchase())
+
+    expect(sends).toHaveLength(1)
+    expect(sends[0]).toMatchObject({ to: 'r@example.com', idempotencyKey: 'nuxt-backend:gift:gift-1:to1' })
+  })
 
   it('is marked paid with what it charged, mints the claim discount and tells the recipient', async () => {
     const { gift, ctx, sends } = world()
@@ -475,6 +639,28 @@ describe('a paid gift purchase', () => {
     expect(gift.discountId).toBe('disc_earlier')
   })
 
+  // The settings changed between the checkout and the payment: the gift
+  // stands, the delivery succeeds and the app's own handler runs.
+  it('skips an email the deployment cannot deliver, without failing the delivery or the app\'s own handler', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const onPaid = vi.fn(async () => {})
+    const withHandler = setupBilling(components, { ...config, events: { 'order.paid': onPaid } } as never)
+    const { gift, ctx, sends } = world()
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'sandbox')
+
+    await withHandler.webhookEvents['order.paid']!(ctx as never, { type: 'order.paid', data: purchase() } as never)
+    expect(gift).toMatchObject({ status: 'paid', discountId: 'disc_1' })
+    expect(sends).toEqual([])
+    expect(onPaid).toHaveBeenCalledOnce()
+    expect(warn.mock.calls.flat().join('\n')).toContain('email.undeliverable')
+    // Unstamped: a redelivery once the setting is fixed sends it.
+    expect(gift.notifiedAt).toBeUndefined()
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
+    await deliver(ctx, purchase())
+    expect(sends).toHaveLength(1)
+    expect(gift.notifiedAt).toBeTypeOf('number')
+  })
+
   // Sent first and stamped after, so a send that throws is retried by the
   // provider's redelivery instead of being lost behind a stamp.
   it('a send that throws leaves no stamp; the redelivery sends exactly once and stamps', async () => {
@@ -506,8 +692,17 @@ describe('a paid gift purchase', () => {
 })
 
 describe('claiming a gift', () => {
-  const claimGift = (instance: Billing = billing) => handlerOf(instance.functions.claimGift)
+  const claimGift = (instance: Billing = billing) => handlerOf(instance.api.claimGift)
   const paid = { status: 'paid', billingOrderId: 'order_gift', discountId: 'disc_1' }
+
+  it('is the recipient\'s own, in person: an impersonating administrator and a banned account are refused', async () => {
+    await expect(claimGift()(world(paid, { claims: { ...recipient, impersonatedBy: 'admin-1' } }).ctx, { giftId: 'gift-1' }))
+      .rejects.toMatchObject({ data: { code: 'forbidden', reason: 'impersonating' } })
+    await expect(claimGift()(world(paid, { claims: recipient, account: { role: 'user', banned: true } }).ctx, { giftId: 'gift-1' }))
+      .rejects.toMatchObject({ data: { code: 'forbidden', reason: 'banned' } })
+    expect(await handlerOf(billing.api.getReceivedGifts)(world(paid, { claims: recipient, account: { role: 'user', banned: true } }).ctx, {})).toBeNull()
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
 
   it('opens a $0 checkout of the pack on the recipient\'s own entity, and confirms it on the server', async () => {
     const { gift, ctx } = world(paid, { claims: recipient })
@@ -522,7 +717,8 @@ describe('claiming a gift', () => {
       discountId: 'disc_1',
       allowDiscountCodes: false,
       metadata: { giftId: 'gift-1', phase: 'claim' },
-      successUrl: 'https://app/gifts',
+      // The claim grants the recipient's credits: a hosted one comes back with its id, to refresh them once.
+      successUrl: 'https://app/gifts?checkout_return={CHECKOUT_ID}',
     })
     expect(mockConfirm).toHaveBeenCalledWith(expect.anything(), { clientSecret: 'cs_1', checkoutConfirmStripe: {} })
     // The buyer's session token the confirm answers with never leaves the server.
@@ -548,8 +744,7 @@ describe('claiming a gift', () => {
   it('refuses a gift for another address, or none at all, alike', async () => {
     for (const row of [{ ...paid, recipientEmail: 'other@example.com' }, null]) {
       const { ctx } = world(paid, { claims: recipient })
-      if (row) ctx.runQuery.mockResolvedValue({ ...row, id: 'gift-1', productIds: ['p_pack'] })
-      else ctx.runQuery.mockResolvedValue(null)
+      ctx.runQuery.mockImplementation(async (ref: unknown, args?: unknown) => liveAccount(ref, args) ?? (row ? { ...row, id: 'gift-1', productIds: ['p_pack'] } : null))
       await expect(claimGift()(ctx, { giftId: 'gift-1' })).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'not_recipient' } })
     }
     expect(mockCheckoutsCreate).not.toHaveBeenCalled()
@@ -688,18 +883,18 @@ describe('received gifts', () => {
     const rows = [
       { id: 'gift-1', recipientEmail: 'r@example.com', purchaserUserId: 'u-buyer', purchaserEmail: 'buyer@example.com', purchaserName: 'Buyer at buyer.com', pack: 'credits500', productIds: ['p_pack'], message: 'Enjoy!', status: 'paid', discountId: 'disc_1', billingOrderId: 'order_gift', purchaserEntityId: 'org-buyer', createdAt: 1 },
     ]
-    ctx.runQuery.mockImplementation(async (ref: unknown) => (ref === 'ref:gifts.listByEmail' ? rows : null))
+    ctx.runQuery.mockImplementation(async (ref: unknown, args?: unknown) => (ref === 'ref:gifts.listByEmail' ? rows : liveAccount(ref, args) ?? null))
 
-    const received = await handlerOf(billing.functions.getReceivedGifts)(ctx, {})
+    const received = await handlerOf(billing.api.getReceivedGifts)(ctx, {})
 
     expect(ctx.runQuery).toHaveBeenCalledWith('ref:gifts.listByEmail', { email: 'r@example.com' })
-    expect(received).toStrictEqual([{ id: 'gift-1', purchaserName: 'Buyer at', pack: 'credits500', productIds: ['p_pack'], message: 'Enjoy!', status: 'paid', createdAt: 1, paidAt: undefined, claimedAt: undefined }])
+    expect(received).toStrictEqual([{ id: 'gift-1', purchaserName: 'Buyer at', pack: 'credits500', productIds: ['p_pack'], message: 'Enjoy!', status: 'paid', createdAt: 1, paidAt: undefined, claimedAt: undefined, plan: undefined, months: undefined, deliveredAt: undefined }])
   })
 
   it('is null for a caller nobody signed in as, and for an address never proved', async () => {
-    expect(await handlerOf(billing.functions.getReceivedGifts)(world({}, { claims: null }).ctx, {})).toBeNull()
+    expect(await handlerOf(billing.api.getReceivedGifts)(world({}, { claims: null }).ctx, {})).toBeNull()
     const unverified = world({}, { claims: { ...recipient, emailVerified: false } })
-    expect(await handlerOf(billing.functions.getReceivedGifts)(unverified.ctx, {})).toBeNull()
+    expect(await handlerOf(billing.api.getReceivedGifts)(unverified.ctx, {})).toBeNull()
     expect(unverified.ctx.runQuery).not.toHaveBeenCalled()
   })
 })

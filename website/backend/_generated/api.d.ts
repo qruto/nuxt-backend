@@ -8,29 +8,27 @@
  * @module
  */
 
-import type * as _clearAll from "../_clearAll.js";
-import type * as aggregates from "../aggregates.js";
+import type * as account from "../account.js";
+import type * as admin from "../admin.js";
 import type * as ai from "../ai.js";
+import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
 import type * as counter from "../counter.js";
 import type * as crons from "../crons.js";
 import type * as demo from "../demo.js";
 import type * as email from "../email.js";
-import type * as emailTemplates from "../emailTemplates.js";
-import type * as files from "../files.js";
+import type * as flags from "../flags.js";
 import type * as functions from "../functions.js";
-import type * as guards from "../guards.js";
 import type * as http from "../http.js";
-import type * as lib from "../lib.js";
-import type * as logs from "../logs.js";
-import type * as messages from "../messages.js";
-import type * as migrations from "../migrations.js";
+import type * as jobs from "../jobs.js";
+import type * as notifications from "../notifications.js";
+import type * as personas from "../personas.js";
 import type * as rateLimiter from "../rateLimiter.js";
-import type * as retention from "../retention.js";
-import type * as search from "../search.js";
-import type * as seed from "../seed.js";
-import type * as todos from "../todos.js";
+import type * as routes from "../routes.js";
+import type * as storage from "../storage.js";
+import type * as strips from "../strips.js";
+import type * as webhooks from "../webhooks.js";
 import type * as workflows from "../workflows.js";
 
 import type {
@@ -40,29 +38,27 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  _clearAll: typeof _clearAll;
-  aggregates: typeof aggregates;
+  account: typeof account;
+  admin: typeof admin;
   ai: typeof ai;
+  audit: typeof audit;
   auth: typeof auth;
   billing: typeof billing;
   counter: typeof counter;
   crons: typeof crons;
   demo: typeof demo;
   email: typeof email;
-  emailTemplates: typeof emailTemplates;
-  files: typeof files;
+  flags: typeof flags;
   functions: typeof functions;
-  guards: typeof guards;
   http: typeof http;
-  lib: typeof lib;
-  logs: typeof logs;
-  messages: typeof messages;
-  migrations: typeof migrations;
+  jobs: typeof jobs;
+  notifications: typeof notifications;
+  personas: typeof personas;
   rateLimiter: typeof rateLimiter;
-  retention: typeof retention;
-  search: typeof search;
-  seed: typeof seed;
-  todos: typeof todos;
+  routes: typeof routes;
+  storage: typeof storage;
+  strips: typeof strips;
+  webhooks: typeof webhooks;
   workflows: typeof workflows;
 }>;
 
@@ -94,10 +90,10 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   backend: import("nuxt-backend/_generated/component.js").ComponentApi<"backend">;
-  aggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"aggregate">;
-  migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
   persistentTextStreaming: import("@convex-dev/persistent-text-streaming/_generated/component.js").ComponentApi<"persistentTextStreaming">;
   polar: import("@convex-dev/polar/_generated/component.js").ComponentApi<"polar">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+  shardedCounter: import("@convex-dev/sharded-counter/_generated/component.js").ComponentApi<"shardedCounter">;
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
+  workpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"workpool">;
 };

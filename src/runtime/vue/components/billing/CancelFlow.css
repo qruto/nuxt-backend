@@ -1,0 +1,94 @@
+/*
+ * CancelFlow's default styles, on its data-* hooks (its parts' too). Theme
+ * through the --bk-* tokens (tokens.css) or the hooks themselves: every rule
+ * sits in `@layer nuxt-backend`, so any rule of the app's wins. The offer's
+ * two buttons are one style: accepting never looks like the way forward.
+ */
+@layer nuxt-backend {
+  [data-cancel-flow='root'] {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    background: var(--bk-surface);
+    color: var(--bk-ink);
+  }
+
+  [data-cancel-flow='title'] {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  [data-cancel-flow='question'],
+  [data-cancel-flow='offer'],
+  [data-cancel-flow='end'] {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  [data-cancel-flow='reasons'] {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  [data-cancel-flow='question-title'],
+  [data-cancel-flow='comment-label'] {
+    margin-block-end: 0.25rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+
+  [data-cancel-flow='reason'] {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.9rem;
+  }
+
+  [data-cancel-flow='comment'] {
+    font: inherit;
+    padding: 0.5rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: transparent;
+    color: var(--bk-ink);
+  }
+
+  [data-cancel-flow='continue'],
+  [data-cancel-flow='accept'],
+  [data-cancel-flow='cancel'],
+  [data-cancel-flow='keep'],
+  [data-cancel-flow='close'] {
+    flex: 1 1 10rem;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: transparent;
+    color: var(--bk-ink);
+    font-weight: 600;
+    font-size: 0.88rem;
+  }
+
+  [data-cancel-flow='offer-terms'],
+  [data-cancel-flow='ends'],
+  [data-cancel-flow='kept'] {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  [data-cancel-flow='end-note'] {
+    margin: 0;
+    color: var(--bk-muted);
+    font-size: 0.88rem;
+  }
+
+  [data-cancel-flow='error'] {
+    margin: 0;
+    color: var(--bk-error);
+    font-size: 0.85rem;
+  }
+}

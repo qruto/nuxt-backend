@@ -1,10 +1,12 @@
 import type { GenericDataModel } from 'convex/server'
 import { getSessionFromCtx } from 'better-auth/api'
 import type { OtpEmailData, OtpPurpose } from '../email-templates.js'
-import { logsOtp, reachesSandboxInbox } from './delivery.js'
+import { logsOtp } from '../delivery.js'
 import { assertCanSignIn } from './guards.js'
 import { type AuthRuntime, asMutationCtx, readEnv } from './runtime.js'
 import { logBackend } from '../log.js'
+import { OTP_EXPIRES_IN_SECONDS } from '../constants.js'
+import { requestLocale, requestOrigin } from './request-origin.js'
 
 // The sign-in code sender: delivery through the app's email instance, or the
 // local-dev echo when the deployment cannot deliver.
@@ -13,7 +15,7 @@ import { logBackend } from '../log.js'
 function undeliveredCause(hasEmail: boolean, hasCtx: boolean): string {
   if (!hasEmail) return 'setupAuth has no email instance to send through.'
   if (!hasCtx) return 'the request has no mutation or action ctx to send it from.'
-  return 'EMAIL_API_KEY is not set on this deployment. Set it to send email, or NUXT_BACKEND_LOG_OTP=1 to echo codes to the console during local dev.'
+  return 'EMAIL_API_KEY is not set on this deployment. Set it to send email; a development deployment (BACKEND_ENVIRONMENT=development) echoes codes to the console instead.'
 }
 
 /**
@@ -38,10 +40,7 @@ export function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: A
     // logs "Email skipped"), and the code would be gone while the sign-in UI
     // waits for it.
     const unconfigured = !readEnv('EMAIL_API_KEY')
-    // Except for a sandbox address: the module skips the provider but keeps
-    // the message in the sandbox inbox, so the code is not gone.
-    const sandboxOnly = unconfigured && reachesSandboxInbox(data.email)
-    if (!runtime?.email || !ctx || (unconfigured && !sandboxOnly)) {
+    if (!runtime?.email || !ctx || unconfigured) {
       // The OTP is a live credential and Convex logs are durable — never echo it
       // to logs unless a deployment explicitly opts in (local dev without email).
       if (logsOtp()) {
@@ -55,9 +54,10 @@ export function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: A
       // this is the backstop for a code that reached the sender anyway.
       throw new Error(`[nuxt-backend] OTP not delivered — ${undeliveredCause(Boolean(runtime?.email), Boolean(ctx))}`)
     }
-    if (sandboxOnly && logsOtp()) {
-      // Local dev keeps its terminal echo; the inbox copy is for the page.
-      logBackend('warn', 'auth.otp_echo', `No email transport configured. Email OTP (${data.type}) for ${data.email}: ${data.otp}`)
+    if (logsOtp()) {
+      // Local dev keeps its terminal echo beside the email; the dev inbox
+      // reads the email back for a page.
+      logBackend('warn', 'auth.otp_echo', `Email OTP (${data.type}) for ${data.email}: ${data.otp}`)
     }
     // Every limit and the sign-in gate already ran on the request (see
     // assertCodeSendAllowed): Better Auth runs this sender through
@@ -68,9 +68,13 @@ export function makeSendVerificationOTP<DM extends GenericDataModel>(runtime?: A
     // silently, so there is none.
     if (runtime.canSignIn && data.type === 'sign-in') {
       const isNewUser = runtime.userExists ? !(await runtime.userExists(ctx, data.email)) : true
-      await assertCanSignIn(runtime.canSignIn, ctx, { email: data.email, isNewUser, purpose: 'sign-in' })
+      await assertCanSignIn(runtime.canSignIn, ctx, { email: data.email, isNewUser, purpose: 'sign-in', ticket: null })
     }
     const reason = await codeReason(data, endpoint)
-    await runtime.email.sendTemplate(ctx, 'otp', reason ? { ...data, reason } : data)
+    // In the account's language, else the requesting browser's.
+    const locale = requestLocale(endpoint)
+    // Who asked: the device, an approximate place and the time.
+    const requestedFrom = requestOrigin(endpoint)
+    await runtime.email.sendTemplate(ctx, 'otp', { ...data, ...(reason ? { reason } : {}), requestedFrom }, { ...(locale ? { fallbackLocale: locale } : {}), expiresAt: Date.now() + OTP_EXPIRES_IN_SECONDS * 1000 })
   }
 }

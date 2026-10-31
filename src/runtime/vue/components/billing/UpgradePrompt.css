@@ -1,0 +1,55 @@
+/*
+ * UpgradePrompt's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-upgrade='root'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    background: var(--bk-surface);
+    color: var(--bk-ink);
+  }
+
+  [data-upgrade='message'] {
+    margin: 0;
+    flex: 1;
+    font-size: 0.88rem;
+  }
+
+  [data-upgrade='action'] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--bk-accent);
+    border-radius: var(--bk-radius-control);
+    background: var(--bk-accent);
+    color: var(--bk-on-accent);
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-decoration: none;
+  }
+
+  [data-upgrade='note'] {
+    margin: 0;
+    color: var(--bk-muted);
+    font-size: 0.85rem;
+  }
+}
+
+@layer nuxt-backend {
+  [data-upgrade='dismiss'] {
+    padding: 0.3rem 0.6rem;
+    border: 1px solid transparent;
+    border-radius: var(--bk-radius-control);
+    background: transparent;
+    color: var(--bk-muted);
+    font-size: 0.85rem;
+  }
+}

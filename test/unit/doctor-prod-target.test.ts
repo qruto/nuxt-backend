@@ -32,7 +32,7 @@ let probed: string[]
 // The URLs and the deploy key doctor reads come from the process env too:
 // start from none, so a value set on the runner cannot stand in for the one
 // under test.
-const URL_VARS = ['NUXT_PUBLIC_BACKEND_SITE_URL', 'NUXT_PUBLIC_CONVEX_SITE_URL', 'NUXT_PUBLIC_BACKEND_URL', 'NUXT_PUBLIC_CONVEX_URL', 'CONVEX_DEPLOYMENT', 'CONVEX_DEPLOY_KEY', 'CONVEX_DEPLOYMENT_TOKEN']
+const URL_VARS = ['NUXT_PUBLIC_CONVEX_SITE_URL', 'NUXT_PUBLIC_BACKEND_URL', 'NUXT_PUBLIC_CONVEX_URL', 'CONVEX_DEPLOYMENT', 'CONVEX_DEPLOY_KEY', 'CONVEX_DEPLOYMENT_TOKEN']
 
 beforeEach(() => {
   deployed.authConfig = {}
@@ -60,7 +60,7 @@ afterEach(() => {
 
 async function doctor(args: string[]) {
   await runCommand(main, { rawArgs: ['doctor', '--json', ...args, '--cwd', rootDir] })
-  return JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { findings: Array<{ id: string, status: string, fixHint: string }> }
+  return JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { findings: Array<{ id: string, capability: string, status: string, fixHint: string }> }
 }
 
 describe('--prod with a non-production deploy key', () => {
@@ -110,6 +110,31 @@ describe('--prod with a non-production deploy key', () => {
   })
 })
 
+describe('a dev push with a deploy key for another deployment', () => {
+  // .env.local names dev, but the Convex CLI follows the key: without --prod
+  // the dev values (a generated AUTH_SECRET, echoed codes, loopback origins)
+  // would land on production.
+  it.each([
+    ['env push', ['env', 'push']],
+    ['doctor --fix', ['doctor', '--json', '--fix']],
+  ])('%s refuses before touching the deployment', async (_label, args) => {
+    vi.stubEnv('CONVEX_DEPLOY_KEY', 'prod:determined-horse-300|secret')
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await runCommand(main, { rawArgs: [...args, '--cwd', rootDir] })
+
+    expect(process.exitCode).toBe(1)
+    expect(vi.mocked(runConvex)).not.toHaveBeenCalled()
+    expect(error.mock.calls.flat().join('\n')).toContain('CONVEX_DEPLOY_KEY is a prod deploy key')
+  })
+
+  it('doctor without --fix only reads, so it still runs', async () => {
+    vi.stubEnv('CONVEX_DEPLOY_KEY', 'prod:determined-horse-300|secret')
+    await doctor([])
+    expect(vi.mocked(runConvex)).toHaveBeenCalled()
+  })
+})
+
 describe('doctor --prod target', () => {
   it('reads production with --prod on every Convex CLI call', async () => {
     await doctor(['--prod'])
@@ -128,9 +153,10 @@ describe('doctor --prod target', () => {
     expect(probed.every(url => url.startsWith('https://prod-slug-42.convex.site/'))).toBe(true)
   })
 
-  it('treats production as non-dev: a dev-only var set there is flagged', async () => {
+  it('treats production as non-dev: no BACKEND_ENVIRONMENT there fails, and a variable 0.2.0 removed is named', async () => {
     const report = await doctor(['--prod'])
-    expect(report.findings.find(finding => finding.id === 'deployment-auth-trust-local-origins')?.status).toBe('fail')
+    expect(report.findings.find(finding => finding.id === 'deployment-backend-environment')?.status).toBe('fail')
+    expect(report.findings.find(finding => finding.id === 'deployment-removed-env')).toMatchObject({ status: 'warn', message: expect.stringContaining('AUTH_TRUST_LOCAL_ORIGINS'), fixHint: 'npx convex env remove --prod AUTH_TRUST_LOCAL_ORIGINS' })
   })
 
   it('without --prod checks the deployment .env.local names', async () => {
@@ -140,40 +166,62 @@ describe('doctor --prod target', () => {
     expect(calls.some(args => args.includes('--prod'))).toBe(false)
     expect(probed.length).toBeGreaterThan(0)
     expect(probed.every(url => url.startsWith('https://happy-otter-123.convex.site/'))).toBe(true)
-    // On a dev deployment the dev-only var is the healthy state.
-    expect(report.findings.find(finding => finding.id === 'deployment-auth-trust-local-origins')?.status).toBe('pass')
+    // A dev deployment without its kind warns (env push derives it), and a removed variable is named there too.
+    expect(report.findings.find(finding => finding.id === 'deployment-backend-environment')).toMatchObject({ status: 'warn', fixHint: expect.stringContaining('npx nuxt-backend env push') })
+    expect(report.findings.find(finding => finding.id === 'deployment-removed-env')).toMatchObject({ status: 'warn', fixHint: 'npx convex env remove AUTH_TRUST_LOCAL_ORIGINS' })
+  })
+
+  // `billing sync` makes the endpoint and stores its secret on the deployment,
+  // never printed. A secret kept in .env.local would ride `env push --prod`
+  // from the sandbox to production, and then block production's own sync.
+  it.each([
+    ['without --prod', [], '`npx nuxt-backend billing sync`:'],
+    ['with --prod', ['--prod'], '`npx nuxt-backend billing sync --env production`:'],
+  ])('points the billing webhook secret at billing sync, never at .env.local (%s)', async (_label, args, command) => {
+    const report = await doctor(args)
+    for (const id of ['billing-webhook-secret', 'deployment-billing-webhook-secret', 'billing-webhook-route']) {
+      const hint = report.findings.find(finding => finding.id === id)?.fixHint ?? ''
+      expect(hint, id).toContain(id === 'billing-webhook-secret' ? '`npx nuxt-backend billing sync`' : command)
+      expect(hint, id).not.toContain('.env.local')
+    }
+    // The email webhook's secret is still the app's to push.
+    expect(report.findings.find(finding => finding.id === 'email-webhook-route')?.fixHint).toContain('EMAIL_WEBHOOK_SECRET to .env.local')
   })
 })
 
-describe('the invitation route', () => {
-  // The deployment reports the path its invitation emails link to (the
-  // `auth:authConfig` read); the page mounts where nuxt.config puts it, here
-  // the default. A mismatch sends every invitee to a 404.
+describe('the page paths', () => {
+  // The deployment reports the paths it links to and serves on (the
+  // `auth:authConfig` read); nuxt.config declares them, here the defaults.
+  // They differ when the deployed code does not carry the generated file.
+  const paths = (acceptInvitation: string) => ({ paths: { authRoute: '/api/auth', acceptInvitation, keepAccount: '/account/keep', security: '/security', waitlist: '/waitlist' } })
+
   it.each([
     ['/accept-invitation', 'pass'],
     ['/join', 'fail'],
-  ])('a deployment linking invitations to %s: %s', async (invitationPath, status) => {
-    deployed.authConfig = { invitationPath }
+  ])('a deployment linking invitations to %s: %s', async (acceptInvitation, status) => {
+    deployed.authConfig = paths(acceptInvitation)
     const report = await doctor([])
-    expect(report.findings.find(finding => finding.id === 'invitation-path')?.status).toBe(status)
+    const reported = report.findings.find(finding => finding.id === 'page-paths')
+    expect(reported?.status).toBe(status)
+    if (status === 'fail') expect((reported as { message?: string } | undefined)?.message).toContain('acceptInvitation is /join there and /accept-invitation in backend.pages.acceptInvitation, so invitees land on a 404')
   })
 
-  // The check belongs to `workspaces`: that service reads the auth config
-  // for it, and `auth` has no check that needs the read at all.
-  it('is what --only workspaces checks', async () => {
-    deployed.authConfig = { invitationPath: '/join' }
-    const report = await doctor(['--only', 'workspaces'])
+  // The check belongs to the `auth` capability: it reads the auth config for
+  // it, and `billing` never needs the read.
+  it('is what --only auth checks', async () => {
+    deployed.authConfig = paths('/join')
+    const report = await doctor(['--only', 'auth'])
 
-    expect(report.findings.map(finding => [finding.id, finding.status])).toEqual([['invitation-path', 'fail']])
+    expect(report.findings.filter(finding => finding.id === 'page-paths').map(finding => [finding.id, finding.status, finding.capability])).toEqual([['page-paths', 'fail', 'auth']])
     expect(vi.mocked(runConvex).mock.calls.map(([, args]) => args)).toContainEqual(['run', 'auth:authConfig'])
   })
 
-  it('is not read for --only auth', async () => {
-    deployed.authConfig = { invitationPath: '/join' }
-    const report = await doctor(['--only', 'auth'])
+  it('is not read for --only billing', async () => {
+    deployed.authConfig = paths('/join')
+    const report = await doctor(['--only', 'billing'])
 
     expect(vi.mocked(runConvex).mock.calls.some(([, args]) => args[0] === 'run')).toBe(false)
-    expect(report.findings.some(finding => finding.id === 'invitation-path')).toBe(false)
+    expect(report.findings.some(finding => finding.id === 'page-paths')).toBe(false)
   })
 })
 

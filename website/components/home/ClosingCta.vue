@@ -1,12 +1,13 @@
 <script setup lang="ts">
+import { SITE } from '~~/shared/site'
+
 /**
  * The closing plate: one wide `plaque` with the send-off cut into it in two
- * lines, as the hero's title is, the install line milled below and two
- * keys. The hero holds the page's one GO key, so these two are metal: the
- * strip beside the stamp is the plate's only light. A word joiner keeps
- * `nuxt-backend` whole where a phone wraps the title.
+ * lines (shared/site.ts), as the hero's title is, the install line milled
+ * below and two keys. The hero holds the page's one GO key, so these two are
+ * metal: the strip beside the stamp is the plate's only light.
  */
-const TITLE = ['Install the module.', 'Run nuxt-\u2060backend dev. Ship.']
+const TITLE = SITE.closing
 </script>
 
 <template>

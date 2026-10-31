@@ -1,9 +1,13 @@
 <script setup lang="ts">
 /**
  * The header's menu toggle, in place of Docus's (test/docs/docus-copies.test.ts
- * pins its source): the same three bars folding into a cross, drawn with CSS
- * transitions instead of motion-v, so no animation library loads with a
- * docs page. Reduced motion stills it (app.css).
+ * pins its source): the same three bars folding into a cross, in CSS like
+ * Docus's own since 5.15. What it keeps of its own: `aria-expanded`, which
+ * Docus's toggle does not set, so a screen reader hears whether the menu is
+ * open; the drawing hidden from assistive tech; and the site's motion
+ * (design.md §10, a short ease-out) rather than Docus's overshooting spring.
+ * Its names are the site's English, where Docus's come from Nuxt UI's locale:
+ * the site is not translated. Reduced motion stills it (app.css).
  */
 const props = defineProps<{
   open: boolean

@@ -1,0 +1,128 @@
+/*
+ * WorkspaceSwitcher's default styles, on its data-* hooks. Theme through the
+ * --bk-* tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-shell='switcher-name'] {
+    max-inline-size: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  [data-shell='switcher-heading'] {
+    margin: 0.25rem 0.5rem;
+    color: var(--bk-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  [data-shell='workspace-list'] {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  [data-shell='workspace'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.1rem 0.6rem;
+    inline-size: 100%;
+    padding: 0.5rem;
+    border: 0;
+    border-radius: calc(var(--bk-radius) - 2px);
+    background: transparent;
+    text-align: start;
+  }
+
+  [data-shell='workspace']:hover {
+    background: var(--bk-surface);
+  }
+
+  [data-shell='workspace'][aria-current='true'] {
+    background: color-mix(in srgb, var(--bk-accent) 12%, transparent);
+  }
+
+  [data-shell='workspace'][aria-disabled='true'] {
+    opacity: 0.7;
+    cursor: progress;
+  }
+
+  [data-shell='workspace-name'] {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  [data-shell='workspace-role'],
+  [data-shell='workspace-slug'],
+  [data-shell='workspace-pending'] {
+    color: var(--bk-muted);
+    font-size: 0.85rem;
+  }
+
+  /* The current mark says it in words, in the accent. */
+  [data-shell='workspace-current'] {
+    margin-inline-start: auto;
+    color: var(--bk-accent);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  [data-shell='invitations'] {
+    margin: 0.4rem 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: calc(var(--bk-radius) - 2px);
+    background: color-mix(in srgb, var(--bk-warn) 14%, transparent);
+    font-size: 0.9rem;
+  }
+
+  [data-shell='create'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-block-start: 0.4rem;
+    padding: 0.5rem;
+    border-block-start: 1px solid var(--bk-edge);
+  }
+
+  [data-shell='create-label'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.9rem;
+  }
+
+  [data-shell='create-input'] {
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+
+  [data-shell='create-submit'] {
+    align-self: flex-start;
+    padding: 0.45rem 0.9rem;
+    border: 0;
+    border-radius: var(--bk-radius-control);
+    background: var(--bk-accent);
+    color: var(--bk-on-accent);
+    font-weight: 600;
+  }
+
+  [data-shell='create-submit'][aria-disabled='true'] {
+    opacity: 0.7;
+    cursor: progress;
+  }
+
+  [data-shell='manage'] {
+    display: block;
+    margin: 0.25rem 0.5rem 0.1rem;
+    font-size: 0.9rem;
+  }
+}

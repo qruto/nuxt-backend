@@ -9,15 +9,28 @@ function byName(actions: EnvPushAction[], name: string): EnvPushAction {
 }
 
 describe('planEnvPush', () => {
-  it('provisions the required pair on a bare dev deployment and enables OTP logging', () => {
+  it('provisions the required pair and the kind on a bare dev deployment', () => {
     const actions = planEnvPush({ deployedNames: [], localEnv: {}, dev: true })
     expect(byName(actions, 'AUTH_SECRET').action).toBe('provision')
     expect(byName(actions, 'AUTH_SECRET').value?.length).toBeGreaterThanOrEqual(43) // 32 bytes base64
     expect(byName(actions, 'SITE_URL')).toMatchObject({ action: 'provision', value: 'http://localhost:3000' })
-    expect(byName(actions, 'NUXT_BACKEND_LOG_OTP')).toMatchObject({ action: 'provision', value: '1' })
+    expect(byName(actions, 'BACKEND_ENVIRONMENT')).toMatchObject({ action: 'provision', value: 'development' })
     // Optional vars are reported, never invented.
     expect(byName(actions, 'EMAIL_API_KEY').action).toBe('unset')
     expect(byName(actions, 'BILLING_ACCESS_TOKEN').action).toBe('unset')
+  })
+
+  // The dev inbox's page reader is opt-in: a dev deployment gets it on, and
+  // nothing ever carries it anywhere else, .env.local included.
+  it('turns the dev inbox on for dev deployments alone', () => {
+    expect(byName(planEnvPush({ deployedNames: [], localEnv: {}, dev: true }), 'EMAIL_DEV_INBOX')).toMatchObject({ action: 'provision', value: '1' })
+    expect(byName(planEnvPush({ deployedNames: ['EMAIL_DEV_INBOX'], localEnv: {}, dev: true }), 'EMAIL_DEV_INBOX').action).toBe('skip')
+    expect(byName(planEnvPush({ deployedNames: [], localEnv: { EMAIL_DEV_INBOX: '0' }, dev: true }), 'EMAIL_DEV_INBOX')).toMatchObject({ action: 'forward', value: '0' })
+    for (const target of [{ dev: false }, { dev: false, preview: true }]) {
+      const action = byName(planEnvPush({ deployedNames: [], localEnv: { EMAIL_DEV_INBOX: '1' }, ...target }), 'EMAIL_DEV_INBOX')
+      expect(action).toMatchObject({ action: 'unset' })
+      expect(action.value).toBeUndefined()
+    }
   })
 
   it('forwards local values and never overwrites deployment values', () => {
@@ -32,14 +45,32 @@ describe('planEnvPush', () => {
     expect(byName(actions, 'SITE_URL')).toMatchObject({ action: 'forward', value: 'http://localhost:4000' })
   })
 
-  it('does not enable OTP logging once an email key exists anywhere', () => {
-    const inputs: Parameters<typeof planEnvPush>[0][] = [
-      { deployedNames: ['EMAIL_API_KEY'], localEnv: {}, dev: true },
-      { deployedNames: [], localEnv: { EMAIL_API_KEY: 're_1' }, dev: true },
-    ]
-    for (const input of inputs) {
-      const actions = planEnvPush(input)
-      expect(actions.find(a => a.name === 'NUXT_BACKEND_LOG_OTP')).toBeUndefined()
+  it('forwards the sender, the marketing sender and the region like any other key', () => {
+    const actions = planEnvPush({ deployedNames: [], localEnv: { EMAIL_FROM: 'a@mail.example.com', EMAIL_MARKETING_FROM: 'n@news.example.com', EMAIL_REGION: 'eu-west-1' }, dev: false })
+    expect(byName(actions, 'EMAIL_FROM')).toMatchObject({ action: 'forward', value: 'a@mail.example.com' })
+    expect(byName(actions, 'EMAIL_MARKETING_FROM')).toMatchObject({ action: 'forward', value: 'n@news.example.com' })
+    expect(byName(actions, 'EMAIL_REGION')).toMatchObject({ action: 'forward', value: 'eu-west-1' })
+  })
+
+  it('fills MONITORING_DSN from the DSN Sentry\'s Vercel integration sets, and prefers its own', () => {
+    expect(byName(planEnvPush({ deployedNames: [], localEnv: { NEXT_PUBLIC_SENTRY_DSN: 'https://a@o.test/1' }, dev: false }), 'MONITORING_DSN')).toMatchObject({ action: 'forward', value: 'https://a@o.test/1' })
+    expect(byName(planEnvPush({ deployedNames: [], localEnv: { NEXT_PUBLIC_SENTRY_DSN: 'https://a@o.test/1', MONITORING_DSN: 'https://b@o.test/2' }, dev: false }), 'MONITORING_DSN')).toMatchObject({ value: 'https://b@o.test/2' })
+    // The integration's name is a platform name: it is read, never pushed under its own.
+    expect(planEnvPush({ deployedNames: [], localEnv: { NEXT_PUBLIC_SENTRY_DSN: 'https://a@o.test/1' }, dev: false }).map(action => action.name)).not.toContain('NEXT_PUBLIC_SENTRY_DSN')
+  })
+
+  it('takes SITE_URL from NUXT_SITE_URL, as an origin, when SITE_URL itself is not set', () => {
+    expect(byName(planEnvPush({ deployedNames: [], localEnv: { NUXT_SITE_URL: 'https://app.example.com/' }, dev: false }), 'SITE_URL')).toMatchObject({ action: 'forward', value: 'https://app.example.com' })
+    expect(byName(planEnvPush({ deployedNames: [], localEnv: { NUXT_SITE_URL: 'https://app.example.com', SITE_URL: 'https://own.example.com' }, dev: false }), 'SITE_URL')).toMatchObject({ value: 'https://own.example.com' })
+    expect(byName(planEnvPush({ deployedNames: [], localEnv: { NUXT_SITE_URL: 'https://app.example.test:4000' }, dev: true }), 'SITE_URL')).toMatchObject({ action: 'forward', value: 'https://app.example.test:4000' })
+    // The site config's own name is read, never pushed under its own.
+    expect(planEnvPush({ deployedNames: [], localEnv: { NUXT_SITE_URL: 'https://app.example.com' }, dev: false }).map(action => action.name)).not.toContain('NUXT_SITE_URL')
+  })
+
+  it('sets nothing for a stand-in model: no deployment of any kind gets a marker for one', () => {
+    for (const input of [{ dev: true }, { dev: false }, { dev: true, preview: false }, { dev: false, preview: true }]) {
+      const names = planEnvPush({ deployedNames: [], localEnv: {}, ...input }).map(action => action.name)
+      expect(names, JSON.stringify(input)).not.toContain('NUXT_BACKEND_SIMULATE_MODELS')
     }
   })
 
@@ -48,20 +79,19 @@ describe('planEnvPush', () => {
     expect(byName(actions, 'AUTH_SECRET').action).toBe('missing')
     expect(byName(actions, 'SITE_URL').action).toBe('missing')
     expect(byName(actions, 'EMAIL_API_KEY').action).toBe('forward')
-    expect(actions.find(a => a.name === 'NUXT_BACKEND_LOG_OTP')).toBeUndefined()
+    expect(byName(actions, 'BACKEND_ENVIRONMENT')).toMatchObject({ action: 'provision', value: 'production' })
   })
 
-  it('forwards the dev-only loopback trust flag to a dev deployment only', () => {
-    const localEnv = { AUTH_TRUST_LOCAL_ORIGINS: '1' }
-    expect(byName(planEnvPush({ deployedNames: [], localEnv, dev: true }), 'AUTH_TRUST_LOCAL_ORIGINS'))
-      .toMatchObject({ action: 'forward', value: '1' })
-    // A production push never carries it, even when .env.local has it.
-    const prod = byName(planEnvPush({ deployedNames: [], localEnv, dev: false }), 'AUTH_TRUST_LOCAL_ORIGINS')
-    expect(prod.action).toBe('unset')
-    expect(prod.value).toBeUndefined()
-    expect(prod.detail).toContain('dev-only')
-    // Unset locally: reported as optional on dev, dev-only on prod — never invented.
-    expect(byName(planEnvPush({ deployedNames: [], localEnv: {}, dev: true }), 'AUTH_TRUST_LOCAL_ORIGINS').action).toBe('unset')
+  it('names each deployment\'s environment by its kind, never from .env.local, and keeps one already set', () => {
+    // .env.local is the dev deployment's: its value never reaches another kind.
+    const localEnv = { BACKEND_ENVIRONMENT: 'sandbox' }
+    for (const [input, value] of [[{ dev: true }, 'development'], [{ dev: true, local: true }, 'development'], [{ dev: false, preview: true }, 'preview'], [{ dev: false }, 'production']] as const) {
+      expect(byName(planEnvPush({ deployedNames: [], localEnv, ...input }), 'BACKEND_ENVIRONMENT'), JSON.stringify(input)).toMatchObject({ action: 'provision', value })
+    }
+    // A demo's hand-set sandbox is left alone, and replaced only when forced.
+    expect(byName(planEnvPush({ deployedNames: ['BACKEND_ENVIRONMENT'], localEnv, dev: false }), 'BACKEND_ENVIRONMENT').action).toBe('skip')
+    expect(byName(planEnvPush({ deployedNames: ['BACKEND_ENVIRONMENT'], localEnv, dev: true, force: new Set(['BACKEND_ENVIRONMENT']) }), 'BACKEND_ENVIRONMENT'))
+      .toMatchObject({ action: 'update', value: 'development' })
   })
 })
 
@@ -124,53 +154,82 @@ describe('rotating a value already on the deployment', () => {
     expect(token.action).toBe('skip')
     expect(token.detail).toContain('no local value')
   })
+})
 
-  it('never forwards a dev-only var to a non-dev deployment, even forced', () => {
-    const plan = planEnvPush({
-      deployedNames: ['AUTH_TRUST_LOCAL_ORIGINS'],
-      localEnv: { AUTH_TRUST_LOCAL_ORIGINS: '1' },
-      dev: false,
-      force: new Set(['AUTH_TRUST_LOCAL_ORIGINS']),
-    })
-    expect(plan.find(action => action.name === 'AUTH_TRUST_LOCAL_ORIGINS')!.action).toBe('unset')
+describe('a production deployment', () => {
+  // .env.local is the dev deployment's: a production push forwards what is
+  // the app's everywhere (the provider keys), never what is dev's alone.
+  const devEnv = {
+    SITE_URL: 'http://localhost:3000',
+    PROTECTION_PROOF_SECRET: 'dev-proof-secret-of-at-least-32-chars',
+    PROTECTION_CHALLENGE_SECRET_KEY: '1x0000000000000000000000000000000AA',
+    BILLING_ACCESS_TOKEN: 'sandbox-token',
+  }
+
+  it('never forwards a local origin, the proof secret or a test challenge key', () => {
+    const plan = planEnvPush({ deployedNames: [], localEnv: devEnv, dev: false })
+    expect(byName(plan, 'SITE_URL').action).toBe('missing')
+    expect(byName(plan, 'SITE_URL').value).toBeUndefined()
+    expect(byName(plan, 'SITE_URL').detail).toContain('--site-url')
+    expect(byName(plan, 'PROTECTION_PROOF_SECRET').action).toBe('unset')
+    expect(byName(plan, 'PROTECTION_PROOF_SECRET').value).toBeUndefined()
+    expect(byName(plan, 'PROTECTION_CHALLENGE_SECRET_KEY').action).toBe('unset')
+    expect(byName(plan, 'PROTECTION_CHALLENGE_SECRET_KEY').value).toBeUndefined()
+    expect(byName(plan, 'BILLING_ACCESS_TOKEN')).toMatchObject({ action: 'forward', value: 'sandbox-token' })
+  })
+
+  it('forwards a public https origin and a real challenge key', () => {
+    const plan = planEnvPush({ deployedNames: [], localEnv: { SITE_URL: 'https://panels.example', PROTECTION_CHALLENGE_SECRET_KEY: '0x4AAAAAAA-real-key' }, dev: false })
+    expect(byName(plan, 'SITE_URL')).toMatchObject({ action: 'forward', value: 'https://panels.example' })
+    expect(byName(plan, 'PROTECTION_CHALLENGE_SECRET_KEY')).toMatchObject({ action: 'forward', value: '0x4AAAAAAA-real-key' })
+  })
+
+  it('keeps production\'s values when forced with dev ones', () => {
+    const plan = planEnvPush({ deployedNames: ['SITE_URL', 'PROTECTION_PROOF_SECRET'], localEnv: devEnv, dev: false, force: new Set(['SITE_URL', 'PROTECTION_PROOF_SECRET']) })
+    expect(byName(plan, 'SITE_URL').action).toBe('skip')
+    expect(byName(plan, 'SITE_URL').value).toBeUndefined()
+    expect(byName(plan, 'PROTECTION_PROOF_SECRET').action).toBe('skip')
+    expect(byName(plan, 'PROTECTION_PROOF_SECRET').value).toBeUndefined()
+  })
+
+  it('still forwards dev values to a dev deployment', () => {
+    const plan = planEnvPush({ deployedNames: [], localEnv: devEnv, dev: true })
+    expect(byName(plan, 'PROTECTION_PROOF_SECRET')).toMatchObject({ action: 'forward' })
+    expect(byName(plan, 'SITE_URL')).toMatchObject({ action: 'forward', value: 'http://localhost:3000' })
   })
 })
 
 describe('a preview deployment', () => {
-  // Disposable like dev, so a secret is generated and mail and billing start
-  // safe; but its SITE_URL is its own origin, which only the caller knows.
-  it('generates AUTH_SECRET, starts mail in test mode and billing in the sandbox, and waits for SITE_URL', () => {
+  // Disposable like dev, so a secret is generated and it is named a preview
+  // (mail in test mode, billing in the sandbox); but its SITE_URL is its own
+  // origin, which only the caller knows.
+  it('generates AUTH_SECRET, names it a preview, and waits for SITE_URL', () => {
     const actions = planEnvPush({ deployedNames: [], localEnv: {}, dev: false, preview: true })
     expect(byName(actions, 'AUTH_SECRET')).toMatchObject({ action: 'provision', detail: 'generated (preview deployment)' })
     expect(byName(actions, 'AUTH_SECRET').value?.length).toBeGreaterThanOrEqual(43)
     expect(byName(actions, 'SITE_URL')).toMatchObject({ action: 'missing', detail: expect.stringContaining('--site-url') })
-    expect(byName(actions, 'EMAIL_TEST_MODE')).toMatchObject({ action: 'provision', value: 'true' })
-    expect(byName(actions, 'BILLING_ENVIRONMENT')).toMatchObject({ action: 'provision', value: 'sandbox' })
-    // No sign-in codes in a shared deployment's logs, and no loopback trust.
-    expect(actions.find(a => a.name === 'NUXT_BACKEND_LOG_OTP')).toBeUndefined()
-    expect(byName(actions, 'AUTH_TRUST_LOCAL_ORIGINS').action).toBe('unset')
+    // Not `development`: no sign-in codes in a shared deployment's logs, and no loopback trust.
+    expect(byName(actions, 'BACKEND_ENVIRONMENT')).toMatchObject({ action: 'provision', value: 'preview' })
   })
 
   it('takes a given SITE_URL, and keeps what the preview already holds', () => {
-    const actions = planEnvPush({ deployedNames: ['AUTH_SECRET', 'EMAIL_TEST_MODE'], localEnv: { SITE_URL: 'https://my-branch.example.app' }, dev: false, preview: true })
+    const actions = planEnvPush({ deployedNames: ['AUTH_SECRET', 'BACKEND_ENVIRONMENT'], localEnv: { SITE_URL: 'https://my-branch.example.app' }, dev: false, preview: true })
     expect(byName(actions, 'SITE_URL')).toMatchObject({ action: 'forward', value: 'https://my-branch.example.app' })
     expect(byName(actions, 'AUTH_SECRET').action).toBe('skip')
-    expect(byName(actions, 'EMAIL_TEST_MODE').action).toBe('skip')
+    expect(byName(actions, 'BACKEND_ENVIRONMENT').action).toBe('skip')
   })
 })
 
 describe('planEnvDefaults', () => {
-  it('writes the four preview defaults, SITE_URL as given', () => {
+  it('writes the three preview defaults, SITE_URL as given', () => {
     const actions = planEnvDefaults({ type: 'preview', defaultNames: [], siteUrl: 'https://preview.example.com' })
     expect(actions.map(a => [a.name, a.action])).toEqual([
       ['AUTH_SECRET', 'provision'],
       ['SITE_URL', 'provision'],
-      ['EMAIL_TEST_MODE', 'provision'],
-      ['BILLING_ENVIRONMENT', 'provision'],
+      ['BACKEND_ENVIRONMENT', 'provision'],
     ])
     expect(byName(actions, 'SITE_URL').value).toBe('https://preview.example.com')
-    expect(byName(actions, 'EMAIL_TEST_MODE').value).toBe('true')
-    expect(byName(actions, 'BILLING_ENVIRONMENT').value).toBe('sandbox')
+    expect(byName(actions, 'BACKEND_ENVIRONMENT').value).toBe('preview')
   })
 
   it('never guesses a preview\'s SITE_URL', () => {
@@ -181,12 +240,18 @@ describe('planEnvDefaults', () => {
 
   it('gives dev the dev server\'s origin', () => {
     expect(byName(planEnvDefaults({ type: 'dev', defaultNames: [] }), 'SITE_URL')).toMatchObject({ action: 'provision', value: 'http://localhost:3000' })
+    expect(byName(planEnvDefaults({ type: 'dev', defaultNames: [] }), 'BACKEND_ENVIRONMENT')).toMatchObject({ action: 'provision', value: 'development' })
+  })
+
+  it('publishes the dev inbox to pages on new dev deployments, and never on previews', () => {
+    expect(byName(planEnvDefaults({ type: 'dev', defaultNames: [] }), 'EMAIL_DEV_INBOX')).toMatchObject({ action: 'provision', value: '1' })
+    expect(planEnvDefaults({ type: 'preview', defaultNames: [], siteUrl: 'https://preview.example.com' }).some(action => action.name === 'EMAIL_DEV_INBOX')).toBe(false)
   })
 
   it('keeps defaults already set unless forced, and replaces SITE_URL when one is given', () => {
     const actions = planEnvDefaults({ type: 'preview', defaultNames: ENV_DEFAULT_NAMES, siteUrl: 'https://next.example.com', force: new Set(['AUTH_SECRET']) })
     expect(byName(actions, 'AUTH_SECRET').action).toBe('update')
     expect(byName(actions, 'SITE_URL')).toMatchObject({ action: 'update', value: 'https://next.example.com' })
-    expect(byName(actions, 'EMAIL_TEST_MODE').action).toBe('skip')
+    expect(byName(actions, 'BACKEND_ENVIRONMENT').action).toBe('skip')
   })
 })

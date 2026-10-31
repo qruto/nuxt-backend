@@ -37,57 +37,23 @@ const formatted = computed(() => {
     return String(v)
   }
 })
+
+// A `slot` milled into the material is the canonical readout. The JSON is
+// lettered in the tone's signal, readable on the well.
+const INK = { ok: 'text-(--ok)', warn: 'text-(--warn)', err: 'text-(--err)', neutral: 'text-(--ink-dim)' } as const
 </script>
 
 <template>
-  <div
-    class="readout"
-    :class="tone"
-  >
+  <div class="slot overflow-hidden">
     <div
       v-if="label"
-      class="readout-head"
+      class="px-[0.85rem] pt-1.5 pb-1"
     >
-      <span class="readout-label">{{ label }}</span>
+      <span class="stamp leading-[1.35]! [overflow-wrap:anywhere]">{{ label }}</span>
     </div>
-    <pre class="readout-body"><code>{{ formatted }}</code></pre>
+    <pre
+      class="m-0 overflow-x-auto px-[0.95rem] pt-2 pb-[0.85rem] font-mono text-[0.78rem] leading-[1.55] whitespace-pre"
+      :class="INK[tone]"
+    ><code>{{ formatted }}</code></pre>
   </div>
 </template>
-
-<style scoped>
-/* A concave well carved into the material — the canonical "readout". The
-   toned ink is the signal's `-soft` shade (the readable step on a well). */
-.readout {
-  border-radius: var(--r);
-  background: var(--sink);
-  box-shadow: var(--inset);
-  overflow: hidden;
-  --rc: var(--ink-dim);
-}
-.readout.ok   { --rc: var(--ok-soft); }
-.readout.warn { --rc: var(--warn-soft); }
-.readout.err  { --rc: var(--err-soft); }
-
-.readout-head {
-  padding: 0.4rem 0.85rem 0.25rem;
-}
-.readout-label {
-  font-family: var(--mono);
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-}
-.readout-body {
-  margin: 0;
-  padding: 0.5rem 0.95rem 0.85rem;
-  overflow-x: auto;
-  font-family: var(--mono);
-  font-size: 0.78rem;
-  line-height: 1.55;
-  color: var(--rc);
-  white-space: pre;
-}
-.readout-body code { font-family: inherit; }
-</style>

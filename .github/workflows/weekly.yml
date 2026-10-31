@@ -40,7 +40,7 @@ jobs:
           persist-credentials: false
 
       - name: Run analysis
-        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
         with:
           results_file: results.sarif
           results_format: sarif
@@ -68,7 +68,7 @@ jobs:
       contents: read
       actions: read # required to upload SARIF, see github/codeql-action#2117
       security-events: write
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
     with:
       # `-r ./` walks the workspace: pnpm-lock.yaml, plus the website and
       # devtools-client-app manifests.
@@ -127,6 +127,29 @@ jobs:
             --root-dir ${{ github.workspace }}/website/content
             .
           fail: true
+
+  # What nuxt-backend.dev serves agents, asked of the live site: llms.txt and
+  # every link on it, the twins' headers, the homepage's twin, sitemap.md
+  # against the content, both twins of every moved route, a missing page,
+  # the skills index, the manifest and the rename map, the MCP card, the
+  # missing /mcp, /playground, and a page asked for with `Accept: text/markdown`,
+  # which only the deploy's edge answers. CI runs the same check against
+  # every build; this catches what changes after one: the deploy, its edge
+  # rules, Docus's modules.
+  agents:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      - name: Probe the live site
+        run: node scripts/check-website-agents.mjs --origin https://nuxt-backend.dev
 
   # What this package waits on upstream (.github/upstream.json): checks each
   # watched release against the npm registry and renders the one issue that
@@ -206,6 +229,7 @@ jobs:
       - osv
       - rulesets
       - links
+      - agents
       - upstream
     if: ${{ always() && contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
@@ -221,6 +245,7 @@ jobs:
             osv=${{ needs.osv.result }}
             rulesets=${{ needs.rulesets.result }}
             links=${{ needs.links.result }}
+            agents=${{ needs.agents.result }}
             upstream=${{ needs.upstream.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |

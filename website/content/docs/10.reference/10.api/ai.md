@@ -18,6 +18,13 @@ settle — a failed run consumes nothing), and optionally token-streamed to
 the browser with the text persisted server-side (reload mid-stream and it
 continues).
 
+Models are named as `provider/model` ids and called through the AI SDK (an
+optional peer: install `ai` to call one), each call charged at the cost
+the gateway reports. An id goes to the Convex AI Gateway first, on Convex
+Cloud with a paid plan (install `@convex-dev/ai-sdk-provider`), then
+through the Vercel AI Gateway with `AI_GATEWAY_API_KEY`. Without either, a
+call is refused, saying why.
+
 Composes the billing spend reservation (`setupBilling`), the rate limiter,
 and the upstream persistent-text-streaming component — usage recording IS
 the provider event, so per-customer usage shows up in the provider's own
@@ -28,6 +35,105 @@ events) is the newest part of the package and may change shape in a minor
 release; `useAiStream` on the Vue side is experimental with it.
 
 ## Interfaces
+
+### ChatThread
+
+Defined in: [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts)
+
+**`Experimental`**
+
+One thread in a person's list.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id"></a> `id` | `string` | **`Experimental`** | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="title"></a> `title` | `string` | **`Experimental`** The start of its first message. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="updatedat"></a> `updatedAt` | `number` | **`Experimental`** When a message was last sent or answered in it, in ms. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+
+***
+
+### ChatMessage
+
+Defined in: [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts)
+
+**`Experimental`**
+
+One message of a thread.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id-1"></a> `id` | `string` | **`Experimental`** | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="role"></a> `role` | `"user"` \| `"assistant"` | **`Experimental`** | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="text"></a> `text` | `string` | **`Experimental`** | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="status"></a> `status` | `"streaming"` \| `"done"` \| `"failed"` | **`Experimental`** `streaming` while the reply is written, `failed` when it could not be (nothing was charged), else `done`. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+
+***
+
+### ChatReply
+
+Defined in: [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts)
+
+**`Experimental`**
+
+What a reply is, as a finalized cost reads it.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="text-1"></a> `text` | `string` | **`Experimental`** The reply's text. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+
+***
+
+### ChatConfig
+
+Defined in: [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts)
+
+**`Experimental`**
+
+What `ai.chat` takes.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="name"></a> `name` | `string` | **`Experimental`** The chat's name, unique per app; each reply's usage event records it. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="model"></a> `model?` | `LanguageModel` | **`Experimental`** The model that replies; defaults to `setupAi`'s. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="instructions"></a> `instructions?` | `string` | **`Experimental`** The system prompt every reply starts from. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="meter"></a> `meter?` | `string` \| `false` | **`Experimental`** The credit meter each reply is charged to. Required for a chat the billing entity pays for; a chat the app pays for (`billTo: 'app'`) charges no one. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="cost"></a> `cost?` | [`MeteredCost`](#meteredcost)\<`Record`\<`string`, `never`\>, [`ChatReply`](#chatreply)\> | **`Experimental`** What a reply costs, as on a metered action. Default `1`. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="limit"></a> `limit?` | `string` \| `false` | **`Experimental`** The named rate limit a reply counts against. Default `'ai'`; `false` disables it. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="allowoverage"></a> `allowOverage?` | `boolean` | **`Experimental`** Let a reply take the balance negative (pay-as-you-go meters). | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="maxoutputtokens"></a> `maxOutputTokens?` | `number` | **`Experimental`** The longest reply, in tokens. Default `1000`. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="knowledge"></a> `knowledge?` | [`Knowledge`](#knowledge-2) | **`Experimental`** A knowledge store each reply searches first, putting the closest passages in the model's context. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="billto"></a> `billTo?` | `"app"` \| `"entity"` | **`Experimental`** Who pays for a reply: the billing entity (the default), or the app itself, which needs setupAi's `rateLimiter`. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="moderate"></a> `moderate?` | `boolean` | **`Experimental`** Check each message with the safety classifier (`setupAi({ moderation })`) in the reply's action, before the model: a flagged message gets no reply, its reservation is released, and it is hidden from the thread and from later replies' context. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+
+***
+
+### Chat
+
+Defined in: [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts)
+
+**`Experimental`**
+
+The functions `ai.chat` returns: export each from the chat's module, by these names.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="threads"></a> `threads` | `RegisteredQuery`\<`"public"`, `Record`\<`string`, `never`\>, `Promise`\<[`ChatThread`](#chatthread)[]\>\> | **`Experimental`** The caller's threads in the active workspace, newest first. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="messages"></a> `messages` | `RegisteredQuery`\<`"public"`, \{ `threadId`: `string`; `paginationOpts`: \{ `numItems`: `number`; `cursor`: `string` \| `null`; \}; \}, `Promise`\<\{ `page`: [`ChatMessage`](#chatmessage)[]; `isDone`: `boolean`; `continueCursor`: `string`; \}\>\> | **`Experimental`** One thread's messages, newest first, paginated, with the reply being written. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="send"></a> `send` | `RegisteredMutation`\<`"public"`, \{ `text`: `string`; `threadId?`: `string`; \}, `Promise`\<`string`\>\> | **`Experimental`** Save a message, in a new thread or an existing one, start the reply, and return the thread's id. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="remove"></a> `remove` | `RegisteredMutation`\<`"public"`, \{ `threadId`: `string`; \}, `Promise`\<`null`\>\> | **`Experimental`** Delete one of the caller's threads, with its messages. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+| <a id="reply"></a> `reply` | `RegisteredAction`\<`"internal"`, `Record`\<`string`, `unknown`\>, `Promise`\<`null`\>\> | **`Experimental`** The reply, in a scheduled action: `send` schedules it by this name, next to itself. Internal. | [src/convex/integrations/ai/chat.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/chat.ts) |
+
+***
 
 ### AiRateLimiter
 
@@ -66,7 +172,7 @@ Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt
 | Parameter | Type |
 | ------ | ------ |
 | `ctx` | `RunWriteCtx` & \{ `auth?`: `Auth`; \} |
-| `name` | `"ai"` \| `"aiBudget"` |
+| `name` | `"ai"` \| `"aiBudget"` \| `"aiGlobal"` |
 | `options?` | \{ `key?`: `string`; `throws?`: `boolean`; `count?`: `number`; `config?`: [`RateLimitConfig`](/docs/reference/api/rate-limit#ratelimitconfig); \} |
 | `options.key?` | `string` |
 | `options.throws?` | `boolean` |
@@ -94,16 +200,24 @@ The component handles `setupAi` reads from your generated `components` object.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="backend"></a> `backend` | \{ `ai`: \{ `createRequest`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; `name`: `string`; `entityId`: `string`; `userId`: `string`; `args`: `string`; `meterId?`: `string`; `cost`: `number`; `externalId`: `string`; \}, `null`\>; `getByStream`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `streamId`: `string`; \}, \| \{ `streamId`: `string`; `name`: `string`; `entityId`: `string`; `userId`: `string`; `args`: `string`; `meterId?`: `string`; `cost`: `number`; `externalId`: `string`; `status`: `"reserved"` \| `"settled"` \| `"released"`; `createdAt`: `number`; \} \| `null`\>; `markSettled`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `null`\>; `markReleased`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `null`\>; \}; `billing`: \{ `finalize`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, \{ `settled`: `boolean`; `released`: `number`; `balance`: `number`; `balanceBefore`: `number`; `releaseJobId?`: `string`; \}\>; `release`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; \}, `null`\>; `attachReleaseJob`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `jobId`: `string`; \}, `null`\>; \}; \} | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| `backend.ai` | \{ `createRequest`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; `name`: `string`; `entityId`: `string`; `userId`: `string`; `args`: `string`; `meterId?`: `string`; `cost`: `number`; `externalId`: `string`; \}, `null`\>; `getByStream`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `streamId`: `string`; \}, \| \{ `streamId`: `string`; `name`: `string`; `entityId`: `string`; `userId`: `string`; `args`: `string`; `meterId?`: `string`; `cost`: `number`; `externalId`: `string`; `status`: `"reserved"` \| `"settled"` \| `"released"`; `createdAt`: `number`; \} \| `null`\>; `markSettled`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `null`\>; `markReleased`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `null`\>; \} | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="backend"></a> `backend` | \{ `ai`: \{ `createRequest`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; `name`: `string`; `entityId`: `string`; `userId`: `string`; `args`: `string`; `meterId?`: `string`; `cost`: `number`; `externalId`: `string`; \}, `null`\>; `getByStream`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `streamId`: `string`; \}, \| \{ `streamId`: `string`; `name`: `string`; `entityId`: `string`; `userId`: `string`; `args`: `string`; `meterId?`: `string`; `cost`: `number`; `externalId`: `string`; `status`: `"streaming"` \| `"reserved"` \| `"released"` \| `"settled"`; `createdAt`: `number`; \} \| `null`\>; `claimRequest`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `boolean`\>; `markSettled`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `null`\>; `markReleased`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `null`\>; \}; `billing`: \{ `finalize`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, \{ `settled`: `boolean`; `released`: `number`; `balance`: `number`; `balanceBefore`: `number`; `releaseJobId?`: `string`; \}\>; `debit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; `allowOverage?`: `boolean`; \}, \{ `ok`: `boolean`; `balance`: `number`; `reason?`: `"no-row"` \| `"no-meter"` \| `"insufficient"`; \}\>; `settle`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, `null`\>; `release`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; \}, `null`\>; `attachReleaseJob`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `jobId`: `string`; \}, `null`\>; \}; `costs`: \{ `record`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId?`: `string`; `owner`: `string`; `usage`: \{ `usd?`: `number`; `input`: `number`; `output`: `number`; `cached`: `number`; \}; `spendLimitUsd?`: `number`; \}, `null`\>; `summary`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `since`: `number`; \}, [`AiCosts`](#aicosts)\>; \}; `adapter`: \{ `findOne`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`\>; \}; \} | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| `backend.ai` | \{ `createRequest`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; `name`: `string`; `entityId`: `string`; `userId`: `string`; `args`: `string`; `meterId?`: `string`; `cost`: `number`; `externalId`: `string`; \}, `null`\>; `getByStream`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `streamId`: `string`; \}, \| \{ `streamId`: `string`; `name`: `string`; `entityId`: `string`; `userId`: `string`; `args`: `string`; `meterId?`: `string`; `cost`: `number`; `externalId`: `string`; `status`: `"streaming"` \| `"reserved"` \| `"released"` \| `"settled"`; `createdAt`: `number`; \} \| `null`\>; `claimRequest`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `boolean`\>; `markSettled`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `null`\>; `markReleased`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `null`\>; \} | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | `backend.ai.createRequest` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; `name`: `string`; `entityId`: `string`; `userId`: `string`; `args`: `string`; `meterId?`: `string`; `cost`: `number`; `externalId`: `string`; \}, `null`\> | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| `backend.ai.getByStream` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `streamId`: `string`; \}, \| \{ `streamId`: `string`; `name`: `string`; `entityId`: `string`; `userId`: `string`; `args`: `string`; `meterId?`: `string`; `cost`: `number`; `externalId`: `string`; `status`: `"reserved"` \| `"settled"` \| `"released"`; `createdAt`: `number`; \} \| `null`\> | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| `backend.ai.getByStream` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `streamId`: `string`; \}, \| \{ `streamId`: `string`; `name`: `string`; `entityId`: `string`; `userId`: `string`; `args`: `string`; `meterId?`: `string`; `cost`: `number`; `externalId`: `string`; `status`: `"streaming"` \| `"reserved"` \| `"released"` \| `"settled"`; `createdAt`: `number`; \} \| `null`\> | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| `backend.ai.claimRequest` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `boolean`\> | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | `backend.ai.markSettled` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `null`\> | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | `backend.ai.markReleased` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `null`\> | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| `backend.billing` | \{ `finalize`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, \{ `settled`: `boolean`; `released`: `number`; `balance`: `number`; `balanceBefore`: `number`; `releaseJobId?`: `string`; \}\>; `release`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; \}, `null`\>; `attachReleaseJob`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `jobId`: `string`; \}, `null`\>; \} | The entitlement cache's reservation protocol. `setupAi` closes its own spends here rather than through `settleSpend`: only `finalize` can drop a reservation *and* hand back the unspent remainder atomically, and it reports the balance the low-balance hooks read. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| `backend.billing` | \{ `finalize`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, \{ `settled`: `boolean`; `released`: `number`; `balance`: `number`; `balanceBefore`: `number`; `releaseJobId?`: `string`; \}\>; `debit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; `allowOverage?`: `boolean`; \}, \{ `ok`: `boolean`; `balance`: `number`; `reason?`: `"no-row"` \| `"no-meter"` \| `"insufficient"`; \}\>; `settle`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, `null`\>; `release`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; \}, `null`\>; `attachReleaseJob`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `jobId`: `string`; \}, `null`\>; \} | The entitlement cache's reservation protocol. `setupAi` closes its own spends here rather than through `settleSpend`: only `finalize` can drop a reservation *and* hand back the unspent remainder atomically, and it reports the balance the low-balance hooks read. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | `backend.billing.finalize` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, \{ `settled`: `boolean`; `released`: `number`; `balance`: `number`; `balanceBefore`: `number`; `releaseJobId?`: `string`; \}\> | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| `backend.billing.debit` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; `allowOverage?`: `boolean`; \}, \{ `ok`: `boolean`; `balance`: `number`; `reason?`: `"no-row"` \| `"no-meter"` \| `"insufficient"`; \}\> | Take a spend the provider has from the balance again, once its reservation lapsed. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| `backend.billing.settle` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, `null`\> | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | `backend.billing.release` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; \}, `null`\> | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | `backend.billing.attachReleaseJob` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `jobId`: `string`; \}, `null`\> | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| `backend.costs` | \{ `record`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId?`: `string`; `owner`: `string`; `usage`: \{ `usd?`: `number`; `input`: `number`; `output`: `number`; `cached`: `number`; \}; `spendLimitUsd?`: `number`; \}, `null`\>; `summary`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `since`: `number`; \}, [`AiCosts`](#aicosts)\>; \} | What AI cost per person per day: each run's usage goes in, the Costs tab's summary comes out. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| `backend.costs.record` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId?`: `string`; `owner`: `string`; `usage`: \{ `usd?`: `number`; `input`: `number`; `output`: `number`; `cached`: `number`; \}; `spendLimitUsd?`: `number`; \}, `null`\> | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| `backend.costs.summary` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `since`: `number`; \}, [`AiCosts`](#aicosts)\> | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| `backend.adapter` | \{ `findOne`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`\>; \} | The auth tables, where `getCosts` reads whether its caller is an administrator now. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| `backend.adapter.findOne` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`\> | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="persistenttextstreaming"></a> `persistentTextStreaming` | \{ `lib`: \{ `createStream`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ \}, `string`, `string` \| `undefined`\>; `addChunk`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; `text`: `string`; `final`: `boolean`; \}, `null`, `string` \| `undefined`\>; `setStreamStatus`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `status`: `string`; `streamId`: `string`; \}, `null`, `string` \| `undefined`\>; `getStreamStatus`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `streamId`: `string`; \}, `string`, `string` \| `undefined`\>; `getStreamText`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `streamId`: `string`; \}, \{ `text`: `string`; `status`: `string`; \}, `string` \| `undefined`\>; `deleteStream`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `null`, `string` \| `undefined`\>; \}; \} | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | `persistentTextStreaming.lib` | \{ `createStream`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ \}, `string`, `string` \| `undefined`\>; `addChunk`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; `text`: `string`; `final`: `boolean`; \}, `null`, `string` \| `undefined`\>; `setStreamStatus`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `status`: `string`; `streamId`: `string`; \}, `null`, `string` \| `undefined`\>; `getStreamStatus`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `streamId`: `string`; \}, `string`, `string` \| `undefined`\>; `getStreamText`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `streamId`: `string`; \}, \{ `text`: `string`; `status`: `string`; \}, `string` \| `undefined`\>; `deleteStream`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `streamId`: `string`; \}, `null`, `string` \| `undefined`\>; \} | - |  |
 | `persistentTextStreaming.lib.createStream` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ \}, `string`, `string` \| `undefined`\> | - | node\_modules/@convex-dev/persistent-text-streaming/dist/component/lib.d.ts:1 |
@@ -137,7 +251,31 @@ against the window. Size the budget with that slack in mind.
 | ------ | ------ | ------ | ------ |
 | <a id="units"></a> `units` | `number` | **`Experimental`** Credits an entity may spend per window. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="period"></a> `period` | `number` | **`Experimental`** Window length in ms — `HOUR` / `DAY` from `nuxt-backend/rate-limit`. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="limit-1"></a> `limit?` | `string` | **`Experimental`** The named limit the window is recorded under. Default `'aiBudget'` (see `DEFAULT_LIMITS`); name your own to keep separate budgets per feature. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="limit-2"></a> `limit?` | `string` | **`Experimental`** The named limit the window is recorded under. Default `'aiBudget'` (see `DEFAULT_LIMITS`); name your own to keep separate budgets per feature. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+
+***
+
+### AiSpendLimit
+
+Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
+
+**`Experimental`**
+
+A ceiling on what AI costs the whole app in one UTC day, in US dollars, as
+the gateway reports each call's cost. Once the day's spend reaches it, the
+`pause_ai` kill switch turns on: every metered call, stream, job, chat
+reply and safety check is refused (`unavailable`, reason `ai_paused`) until the next UTC
+day begins, when the pause lifts by itself. An override of `pause_ai` an
+administrator set (a pause, a targeted one, or a resume) is never written
+over, and the lift leaves it. The `ai.spend_limit_reached`
+event and the `ai_spend_limit` alert record it. A call already running
+finishes, so the day can end a little over.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="usdperday"></a> `usdPerDay` | `number` | **`Experimental`** The most the whole app may spend on model calls in a UTC day, in US dollars: above 0. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 
 ***
 
@@ -155,7 +293,7 @@ What crossed a balance threshold, handed to the low-balance hooks.
 | ------ | ------ | ------ | ------ |
 | <a id="entityid"></a> `entityId` | `string` | **`Experimental`** The billing entity (workspace/user) charged. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="userid"></a> `userId` | `string` | **`Experimental`** The member whose call spent the credits. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="meter"></a> `meter?` | `string` | **`Experimental`** The configured meter name, when the spend named one. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="meter-1"></a> `meter?` | `string` | **`Experimental`** The configured meter name, when the spend named one. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="meterid"></a> `meterId?` | `string` | **`Experimental`** The provider meter id. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="balance"></a> `balance` | `number` | **`Experimental`** Balance after the spend settled (negative when overage is allowed). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="previousbalance"></a> `previousBalance` | `number` | **`Experimental`** Balance as of before the spend reserved. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
@@ -183,8 +321,27 @@ that), just record or hand off.
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="lowbalancethreshold"></a> `lowBalanceThreshold?` | `number` | **`Experimental`** Fire [onCreditsLow](#oncreditslow) when a settle takes the balance from above this to at or below it. Omit to never fire it. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="oncreditslow"></a> `onCreditsLow?` | (`ctx`, `event`) => `void` \| `Promise`\<`void`\> | **`Experimental`** The balance just crossed [lowBalanceThreshold](#lowbalancethreshold) downwards. Fires on the crossing only — a second spend that stays below it is silent, so this is safe to wire straight to a notification. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="oncreditsexhausted"></a> `onCreditsExhausted?` | (`ctx`, `event`) => `void` \| `Promise`\<`void`\> | **`Experimental`** The balance just went from positive to zero-or-below. Same crossing rule. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="oncreditslow"></a> `onCreditsLow?` | (`ctx`, `event`) => `void` \| `Promise`\<`void`\> | **`Experimental`** The balance just crossed [lowBalanceThreshold](#lowbalancethreshold) downwards. Fires on the crossing only — a second spend that stays below it is silent, so this is safe to wire straight to a notification. **Guarantee** - Runs: in the action that settled the spend - Delivery: once per crossing of the threshold downwards; a spend that stays below it is silent - Order: after the spend settles - When it throws: logged as `ai.balance_hook_failed` and swallowed; the spend stays settled - Idempotency: none needed: safe to wire straight to a notification | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="oncreditsexhausted"></a> `onCreditsExhausted?` | (`ctx`, `event`) => `void` \| `Promise`\<`void`\> | **`Experimental`** The balance just went from positive to zero-or-below. Same crossing rule. **Guarantee** - Runs: in the action that settled the spend - Delivery: once per crossing from a positive balance to zero or below - Order: after the spend settles - When it throws: logged as `ai.balance_hook_failed` and swallowed; the spend stays settled - Idempotency: none needed: safe to wire straight to a notification | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+
+***
+
+### ModelStatus
+
+Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
+
+**`Experimental`**
+
+Where calls to a model go on this deployment, as `ai.modelStatus()`
+reports it: the state its app layer reads.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="model-1"></a> `model` | `string` \| `null` | **`Experimental`** The model's id (`openai/gpt-5-mini`, or a model object's own); `null` when none is configured. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="state"></a> `state` | `"missing"` \| `"live"` | **`Experimental`** - `live`: calls reach the model: through the Convex AI Gateway on Convex Cloud (a free plan refuses it when called, unless `AI_GATEWAY_API_KEY` is set to fall back on), through the Vercel AI Gateway with `AI_GATEWAY_API_KEY`, or with a model object's own provider key; - `missing`: the key is not set on a deployment the Convex AI Gateway cannot serve, or no model is configured: calls are refused `unavailable` (reason `not_configured`). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="route"></a> `route` | `"provider"` \| `"convex-gateway"` \| `"vercel-gateway"` \| `null` | **`Experimental`** Where calls go first: `convex-gateway` (the Convex AI Gateway, where the deployment can have it; the next route answers when it refuses), `vercel-gateway` (`AI_GATEWAY_API_KEY`), `provider` (a model object's own key), or `null` when calls are refused. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 
 ***
 
@@ -199,12 +356,34 @@ Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="billing"></a> `billing` | [`Billing`](/docs/reference/api/billing#billing) | **`Experimental`** The `setupBilling(...)` instance — supplies entity resolution + the credit spend. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="model-2"></a> `model?` | `LanguageModel` | **`Experimental`** The model `ctx.model()` calls when an action names none: a `provider/model` id or a model object. See [AiModel](#aimodel). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="ratelimiter"></a> `rateLimiter?` | [`AiRateLimiter`](#airatelimiter) | **`Experimental`** Your `setupRateLimiter(...)` instance. Metered actions/streams check their named limit (default `'ai'`) per billing entity before reserving. Omit to leave them unthrottled. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="cors"></a> `cors?` | \{ `origin?`: `string`; \} | **`Experimental`** CORS origin for the stream endpoint. Defaults to the `SITE_URL` env var. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | `cors.origin?` | `string` | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="budget"></a> `budget?` | [`AiBudget`](#aibudget) | **`Experimental`** A per-entity credit budget on top of the call-rate limit. Requires `rateLimiter` (it is enforced through it). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="credits"></a> `credits?` | [`AiCreditsConfig`](#aicreditsconfig) | **`Experimental`** Low-balance reactions fired after a spend settles. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="streamtimeout"></a> `streamTimeout?` | `number` \| `false` | **`Experimental`** How long a started stream may hold its reservation before it is released automatically (ms). Default 5 minutes; `false` disables the timer. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="guest"></a> `guest?` | [`AiGuestConfig`](#aiguestconfig) | **`Experimental`** What happens to a visitor's guest jobs (`defineJobQueue({ guest })`) once they sign up. See [AiGuestConfig](#aiguestconfig). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="inferenceregion"></a> `inferenceRegion?` | `"eu"` | **`Experimental`** Pin every model call to providers' endpoints in one region. `'eu'` sends every `provider/model` id through the Vercel AI Gateway with `AI_GATEWAY_API_KEY` (the Convex AI Gateway documents no inference region, so it is never tried), and adds the gateway's `providerOptions.gateway.inferenceRegion: { scope: 'zone', geoRegion: 'eu' }` to every call through `ctx.model()`. A model no provider serves in the region is refused by the gateway, and the run's reservation released. A call that reports running elsewhere logs `ai.region_mismatch`. The pin covers inference only: the deployment's data stays in its Convex region. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="provenance"></a> `provenance?` | [`ProvenanceConfig`](#provenanceconfig) | **`Experimental`** Content credentials on what a model made (EU AI Act Art. 50): every image stored through `ctx.storeImage` gets a C2PA manifest signed with `PROVENANCE_PRIVATE_KEY` and the IPTC `trainedAlgorithmicMedia` digital source type, and a provenance record of the models, the time and its inputs' ids; job results carry `provenance`. `true` for the defaults, `{ name }` for the generator name each manifest shows. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="moderation"></a> `moderation?` | [`ModerationConfig`](#moderationconfig) | **`Experimental`** The safety classifier `ai.moderate`, `ai.requireSafe` and every `moderate` option check content with: a model call through the gateway, on the app's bill, never on the person's credits. Its cost is recorded like any run's, so `spendLimit` counts it. Default `{ model: 'meta-llama/llama-guard-4-12b' }`. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="spendlimit"></a> `spendLimit?` | [`AiSpendLimit`](#aispendlimit) | **`Experimental`** The daily ceiling on what AI costs the whole app ([AiSpendLimit](#aispendlimit)). A `sandbox` deployment, a public demo, refuses every metered call, stream, job and chat reply without one (`not_ready`, reason `no_budget`): anyone may sign up there, and the model calls are real. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+
+***
+
+### AiGuestConfig
+
+Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
+
+**`Experimental`**
+
+What the guest jobs' claim at sign-up runs (`setupAi({ guest })`).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="claim"></a> `claim?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, [`GuestClaim`](#guestclaim)\> | **`Experimental`** An internal mutation of yours that moves your own rows to the new account when a visitor signs up in the browser that started guest jobs: it receives the guest's job ids, the new account's workspace and the account itself. The jobs have moved by then (`useJob` reads them for the new account); your rows that name them are yours to move. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 
 ***
 
@@ -221,9 +400,9 @@ Usage details handed to metered handlers (`ctx.usage`).
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="entityid-1"></a> `entityId` | `string` | **`Experimental`** The billing entity (workspace/user) charged. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="userid-1"></a> `userId` | `string` | **`Experimental`** The signed-in caller. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="meter-1"></a> `meter?` | `string` | **`Experimental`** Configured meter name, when metered. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="cost"></a> `cost` | `number` | **`Experimental`** Credits this call costs — the estimate, for a finalized cost. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="userid-2"></a> `userId` | `string` | **`Experimental`** The signed-in caller. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="meter-2"></a> `meter?` | `string` | **`Experimental`** Configured meter name, when metered. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="cost-1"></a> `cost` | `number` | **`Experimental`** Credits this call costs — the estimate, for a finalized cost. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 
 ***
 
@@ -266,6 +445,77 @@ cost: {
 | ------ | ------ | ------ | ------ |
 | <a id="estimate"></a> `estimate` | `number` \| ((`args`) => `number`) | **`Experimental`** Credits to reserve up front — a number or derived from the args. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="finalize"></a> `finalize` | (`result`, `usage`) => `number` | **`Experimental`** The credits actually consumed, from what the handler returned. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="creditsperusd"></a> `creditsPerUsd?` | `undefined` | **`Experimental`** Not here: a cost is finalized from the result or reported by the model ([ReportedCost](#reportedcost)), never both. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+
+***
+
+### ReportedCost
+
+Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
+
+**`Experimental`**
+
+A cost the model reports: reserve `estimate`, run, then settle what the
+model calls made through `ctx.model()` cost, at `creditsPerUsd`. A call
+through the AI Gateway reports its cost in US dollars
+(`providerMetadata.gateway.cost`).
+
+The estimate is the ceiling, as for a [FinalizedCost](#finalizedcost): a cost above it
+settles at the reservation. A call that reports no cost (a model object of
+your own) is priced by its tokens from `prices` when the table has its
+model; otherwise, and for a stream left unread or broken before it
+reported one, the run settles at the reservation and the line
+`ai.cost_unreported` is logged, so an unpriced call is never free. A run
+that made no model call settles at `minimum`, zero by default; one whose
+every call failed is a failed run, released.
+
+Needs a sum meter, like any cost settled after the run.
+
+#### Example
+
+```ts
+// 1 credit per cent of model spend, at least 1 credit a call.
+cost: { estimate: 20, creditsPerUsd: 100, round: 'up', minimum: 1 },
+```
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| <a id="type-parameter-args-1"></a> `Args` *extends* `PropertyValidators` |
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="estimate-1"></a> `estimate` | `number` \| ((`args`) => `number`) | **`Experimental`** Credits to reserve up front — a number or derived from the args. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="creditsperusd-1"></a> `creditsPerUsd` | `number` | **`Experimental`** Credits per US dollar of reported model cost: your price, margin included. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="prices"></a> `prices?` | [`TokenPriceTable`](#tokenpricetable) | **`Experimental`** Token prices for calls that report no cost, as `priceTokens` reads them: model id → credits per block of tokens. Keyed by the id the call was made with: the `provider/model` id through the gateway, a model object's own `modelId` (`gpt-5-mini` from `@ai-sdk/openai`) for your own provider. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="round"></a> `round?` | `"none"` \| `"up"` \| `"nearest"` | **`Experimental`** Round the credits up, to the nearest whole credit, or not at all (the default). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="minimum"></a> `minimum?` | `number` | **`Experimental`** The fewest credits a run settles at. Default `0`. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="finalize-1"></a> `finalize?` | `undefined` | **`Experimental`** Not here: a cost is reported by the model or finalized from the result ([FinalizedCost](#finalizedcost)), never both. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+
+***
+
+### MeteredContext
+
+Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
+
+**`Experimental`**
+
+What a metered handler gets beside the action context.
+
+#### Extends
+
+- [`ImageStoreContext`](#imagestorecontext)
+
+#### Properties
+
+| Property | Type | Description | Inherited from | Defined in |
+| ------ | ------ | ------ | ------ | ------ |
+| <a id="usage"></a> `usage` | [`MeteredUsage`](#meteredusage) | **`Experimental`** Who is charged, and the cost reserved. | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="model-3"></a> `model` | (`model?`) => `LanguageModelV4` | **`Experimental`** The model to call: the call's own (`model` on the action, else on `setupAi`), or another by id or object. Every call made through what it returns counts toward the run's cost: a [ReportedCost](#reportedcost) settles from what those calls report. **Example** `const { text } = await generateText({ model: ctx.model(), prompt })` | - | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="storeimage"></a> `storeImage` | (`file`, `options?`) => `Promise`\<`Id`\<`"_storage"`\>\> | **`Experimental`** Store an image a model made, with its content credentials: the IPTC source type in its XMP, a C2PA manifest signed with `PROVENANCE_PRIVATE_KEY`, and a provenance record of the models, the time and `inputs`. The image is kept in the `backend` component's storage as the job's owner's (the run's billing entity in a metered action), like an upload `storage.claim` kept: counted in the quota, listed in the owner's export and deleted with it. Resolves with its id there, typed as a storage id: read its URL through `storage.fileUrl`, `storage.signedUrl` or `getFileUrl`, never `ctx.storage.getUrl`, and delete it with `storage.release`. | [`ImageStoreContext`](#imagestorecontext).[`storeImage`](#storeimage-2) | [src/convex/integrations/ai/provenance.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/provenance.ts) |
 
 ***
 
@@ -279,18 +529,20 @@ Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| <a id="type-parameter-args-2"></a> `Args` *extends* `PropertyValidators` | - |
+| <a id="type-parameter-args-3"></a> `Args` *extends* `PropertyValidators` | - |
 | <a id="type-parameter-result-2"></a> `Result` | `unknown` |
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="meter-2"></a> `meter` | `string` \| `false` | **`Experimental`** The configured credit meter to charge (`setupBilling({ credits })` / catalog key) — or `false` for a rate-limit-only action. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="cost-1"></a> `cost?` | [`MeteredCost`](#meteredcost)\<`Args`, `Result`\> | **`Experimental`** Credits per call. Default `1`. See [MeteredCost](#meteredcost). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="limit-2"></a> `limit?` | `string` \| `false` | **`Experimental`** Named rate limit (checked per billing entity via the configured `rateLimiter`). Default `'ai'`; `false` disables the check. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="allowoverage"></a> `allowOverage?` | `boolean` | **`Experimental`** Let this spend take the balance negative instead of refusing it — for a pay-as-you-go meter with no credit benefit behind it, where every unit is overage the provider invoices at the end of the cycle. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="charge"></a> `charge?` | `"success"` \| `"start"` | **`Experimental`** When to charge: `'success'` (default) settles after the handler returns — a failed run consumes nothing; `'start'` settles before running, for work that is irrevocably consumed upstream the moment it starts. A finalized cost needs the result, so it only applies to `'success'`. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="meter-3"></a> `meter` | `string` \| `false` | **`Experimental`** The configured credit meter to charge (`setupBilling({ credits })` / catalog key) — or `false` for a rate-limit-only action. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="cost-2"></a> `cost?` | [`MeteredCost`](#meteredcost)\<`Args`, `Result`\> | **`Experimental`** Credits per call. Default `1`. See [MeteredCost](#meteredcost). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="limit-3"></a> `limit?` | `string` \| `false` | **`Experimental`** Named rate limit (checked per billing entity via the configured `rateLimiter`). Default `'ai'`; `false` disables the check. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="allowoverage-1"></a> `allowOverage?` | `boolean` | **`Experimental`** Let this spend take the balance negative instead of refusing it — for a pay-as-you-go meter with no credit benefit behind it, where every unit is overage the provider invoices at the end of the cycle. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="charge"></a> `charge?` | `"success"` \| `"start"` | **`Experimental`** When to charge: `'success'` (default) settles after the handler returns — a failed run consumes nothing; `'start'` settles before running, for work that is irrevocably consumed upstream the moment it starts. A finalized or reported cost needs the run, so it only applies to `'success'`: under `'start'` the estimate settles. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="model-4"></a> `model?` | `LanguageModel` | **`Experimental`** The model `ctx.model()` calls, over `setupAi`'s. Naming one also refuses the call before anything is counted when this deployment cannot reach it. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="moderate-1"></a> `moderate?` | (`args`) => [`ModerationInput`](#moderationinput) | **`Experimental`** What to check with the safety classifier before the reservation: the args' text and images (file storage ids). A flagged call is refused `invalid_input` with reason `content_blocked`, and nothing is reserved, counted against the budget or charged. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="args"></a> `args` | `Args` | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="handler"></a> `handler` | (`ctx`, `args`) => `Promise`\<`Result`\> | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 
@@ -306,20 +558,81 @@ Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| <a id="type-parameter-args-3"></a> `Args` *extends* `PropertyValidators` | - |
+| <a id="type-parameter-args-4"></a> `Args` *extends* `PropertyValidators` | - |
 | <a id="type-parameter-result-3"></a> `Result` | `unknown` |
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="name"></a> `name` | `string` | **`Experimental`** Registry key — unique per app; the HTTP dispatcher routes by it. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="meter-3"></a> `meter` | `string` \| `false` | **`Experimental`** The configured credit meter to charge, or `false` for limit-only. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="cost-2"></a> `cost?` | [`MeteredCost`](#meteredcost)\<`Args`, `Result`\> | **`Experimental`** Credits per stream. Default `1`. A [FinalizedCost](#finalizedcost) prices what the handler *returns* — return the model's token usage from it. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="limit-3"></a> `limit?` | `string` \| `false` | **`Experimental`** Named rate limit. Default `'ai'`; `false` disables. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="allowoverage-1"></a> `allowOverage?` | `boolean` | **`Experimental`** Let this spend take the balance negative (pay-as-you-go meters). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="name-1"></a> `name` | `string` | **`Experimental`** Registry key — unique per app; the HTTP dispatcher routes by it. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="meter-4"></a> `meter` | `string` \| `false` | **`Experimental`** The configured credit meter to charge, or `false` for limit-only. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="cost-3"></a> `cost?` | [`MeteredCost`](#meteredcost)\<`Args`, `Result`\> | **`Experimental`** Credits per stream. Default `1`. A [FinalizedCost](#finalizedcost) prices what the handler *returns* — return the model's token usage from it; a [ReportedCost](#reportedcost) settles from what the model calls through `ctx.model()` reported once the stream ends. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="limit-4"></a> `limit?` | `string` \| `false` | **`Experimental`** Named rate limit. Default `'ai'`; `false` disables. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="allowoverage-2"></a> `allowOverage?` | `boolean` | **`Experimental`** Let this spend take the balance negative (pay-as-you-go meters). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="model-5"></a> `model?` | `LanguageModel` | **`Experimental`** The model `ctx.model()` calls, over `setupAi`'s; refused at `start` when unreachable. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="moderate-2"></a> `moderate?` | (`args`) => [`ModerationInput`](#moderationinput) | **`Experimental`** What to check with the safety classifier before the reservation: the args' text and images (file storage ids). A flagged call is refused `invalid_input` with reason `content_blocked`, and nothing is reserved, counted against the budget or charged. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="args-1"></a> `args` | `Args` | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="handler-1"></a> `handler` | (`ctx`, `args`, `stream`) => `Promise`\<`Result`\> | **`Experimental`** Produce the stream: `append(text)` pushes a chunk to the client AND persists it. Credits settle when the handler finishes; an error or disconnect releases them — an interrupted stream never charges. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+
+***
+
+### PersonCost
+
+Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
+
+**`Experimental`**
+
+One person's AI costs over the Costs tab's window, the costliest first.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="who"></a> `who` | `string` | **`Experimental`** An account id, `guest` for visitors' jobs, or the billing entity a run was paid by without a member (`app` for the app's own). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="name-2"></a> `name?` | `string` | **`Experimental`** The account's name and address while it exists. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="email"></a> `email?` | `string` | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="usd"></a> `usd` | `number` | **`Experimental`** US dollars, as the gateway reported them: a call through a key of your own reports none. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="input"></a> `input` | `number` | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="output"></a> `output` | `number` | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="runs"></a> `runs` | `number` | **`Experimental`** Runs that ended in the window: jobs, metered calls, streams, chat replies and embeddings. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+
+***
+
+### AiCosts
+
+Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
+
+**`Experimental`**
+
+What AI cost over a window (`getCosts`): the admin console's Costs tab.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="since"></a> `since` | `number` | **`Experimental`** The window's first UTC day, as its first millisecond. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="usd-1"></a> `usd` | `number` | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="runs-1"></a> `runs` | `number` | **`Experimental`** | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="days"></a> `days` | \{ `day`: `number`; `usd`: `number`; `runs`: `number`; \}[] | **`Experimental`** Each day's total, oldest first; a day without any is absent. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="people"></a> `people` | [`PersonCost`](#personcost)[] | **`Experimental`** The 100 costliest people. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="truncated"></a> `truncated` | `boolean` | **`Experimental`** `true` when the window held more rows than one read takes: the people cover its newest days. The totals are whole. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+
+***
+
+### AiApi
+
+Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
+
+**`Experimental`**
+
+The functions `setupAi` builds for the admin console, to re-export from `backend/ai.ts`.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="getcosts"></a> `getCosts` | `RegisteredQuery`\<`"public"`, \{ `since`: `number`; \}, `Promise`\<[`AiCosts`](#aicosts) \| `null`\>\> | **`Experimental`** What AI cost per person from `since` (a moment; its UTC day counts whole, and 90 days are kept): the job queue, metered actions, streams, chat replies and knowledge embeddings, for administrators; `null` for anyone else. The caller passes the moment, so the query reads no clock. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 
 ***
 
@@ -333,10 +646,450 @@ Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="meteredaction"></a> `meteredAction` | \<`Args`, `Result`\>(`config`) => `RegisteredAction`\<`"public"`\> | **`Experimental`** A drop-in replacement for `action` that rate-limits, reserves prepaid credits, runs your handler, then settles the spend (usage lands in the billing provider as an ingested event). Failed runs release the reservation — nothing charged. **Examples** `export const generate = ai.meteredAction({ meter: 'credits', cost: args => args.long ? 5 : 1, args: { prompt: v.string(), long: v.optional(v.boolean()) }, handler: async (ctx, { prompt }) => runModel(prompt), })` **Token pricing — reserve an estimate, settle the actual usage** `export const generate = ai.meteredAction({ meter: 'credits', cost: { estimate: 200, finalize: result => priceTokens(result.usage, prices), }, args: { prompt: v.string() }, handler: async (ctx, { prompt }) => runModel(prompt), })` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="meteredaction"></a> `meteredAction` | \<`Args`, `Result`\>(`config`) => `RegisteredAction`\<`"public"`\> | **`Experimental`** A drop-in replacement for `action` that rate-limits, reserves prepaid credits, runs your handler, then settles the spend (usage lands in the billing provider as an ingested event). Failed runs release the reservation — nothing charged. **Examples** `export const generate = ai.meteredAction({ meter: 'credits', cost: args => args.long ? 5 : 1, args: { prompt: v.string(), long: v.optional(v.boolean()) }, handler: async (ctx, { prompt }) => runModel(prompt), })` **Settle what the model reported it cost** `export const summarize = ai.meteredAction({ meter: 'credits', model: 'openai/gpt-5-mini', cost: { estimate: 20, creditsPerUsd: 100, round: 'up', minimum: 1 }, args: { text: v.string() }, handler: async (ctx, { text }) => { const { text: summary } = await generateText({ model: ctx.model(), prompt: `Summarize: ${text}` }) return summary }, })` **Token pricing — reserve an estimate, settle the actual usage** `export const generate = ai.meteredAction({ meter: 'credits', cost: { estimate: 200, finalize: result => priceTokens(result.usage, prices), }, args: { prompt: v.string() }, handler: async (ctx, { prompt }) => runModel(prompt), })` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="stream"></a> `stream` | \<`Args`, `Result`\>(`config`) => \{ `start`: `RegisteredAction`\<`"public"`\>; `body`: `RegisteredQuery`\<`"public"`\>; \} | **`Experimental`** A metered, persisted token stream. Returns `{ start, body }` to re-export from your module — `useAiStream` drives them: `start` reserves credits and creates the stream, the HTTP endpoint (`registerBackendRoutes({ ai })`) runs your handler and streams chunks, `body` serves the persisted text reactively (reload mid-stream and it continues). A started stream that is never delivered (the browser closed before the HTTP call, or it died mid-flight) holds its reservation until the scheduled auto-release hands the credits back — `streamTimeout`. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="httphandler"></a> `httpHandler` | `PublicHttpAction` | **`Experimental`** The stream endpoint for `registerBackendRoutes({ ai })` (POST + CORS preflight). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="corsorigin"></a> `corsOrigin` | `string` | **`Experimental`** CORS headers for the stream route (used by `registerBackendRoutes`). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="modelstatus-1"></a> `modelStatus` | (`model?`) => [`ModelStatus`](#modelstatus) | **`Experimental`** Where calls to a model go on this deployment — `setupAi`'s `model` when none is passed: `live` or `missing`. Reads only the env, so a query can show it. **Example** `export const modelStatus = query({ args: {}, handler: async () => ai.modelStatus() })` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="chat-1"></a> `chat` | (`config`) => [`Chat`](#chat) | **`Experimental`** A chat: threads each person keeps with a model that follows your instructions, every reply streamed into the thread, kept on the server and metered like a metered action (reserved in the send, settled at what the model cost). Built on Convex's Agent component, which the app installs and mounts (`app.use(agent)`). Export the five functions it returns from the chat's module, under their names: `send` schedules `reply` next to itself. **Example** `// backend/chat.ts export const { threads, messages, send, remove, reply } = ai.chat({ name: 'helper', instructions: 'You help people plan comic strips.', meter: 'credits', cost: { estimate: 20, creditsPerUsd: 1000, round: 'up', minimum: 1 }, })` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="knowledge-1"></a> `knowledge` | (`config`) => [`Knowledge`](#knowledge-2) | **`Experimental`** A knowledge store: each billing entity's documents in a namespace of their own, plus one the app owns, searched by meaning. Built on Convex's RAG component, which the app installs and mounts (`app.use(rag)`). Export its `api` from the store's module, under their names: `add` schedules `embed` next to itself. **Example** `// backend/knowledge.ts export const knowledge = ai.knowledge({ model: 'openai/text-embedding-3-small', dimension: 1536, meter: 'credits' }) export const { documents, add, search, remove, embed } = knowledge.api` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="provenanceof"></a> `provenanceOf` | (`ctx`, `storageId`) => `Promise`\< \| [`JobProvenance`](/docs/reference/api/use-job#jobprovenance) \| `null`\> | **`Experimental`** What made a stored file (`ctx.storeImage` recorded it): the models, when, and the ids of its inputs; `null` for a file nothing recorded. Reads in a query, a mutation or an action of your own. **Example** `export const panelProvenance = query({ args: { storageId: v.id('_storage') }, handler: (ctx, { storageId }) => ai.provenanceOf(ctx, storageId), })` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="moderate-3"></a> `moderate` | (`ctx`, `input`) => `Promise`\<[`ModerationVerdict`](#moderationverdict)\> | **`Experimental`** Check text and images with the safety classifier (`setupAi({ moderation })`) and answer its verdict: `flagged`, and `categories`, the classifier's own codes (Llama Guard's `S1` to `S14`). Images are file storage ids, an upload not yet claimed included. In an action; the call is on the app's gateway bill, its cost recorded against `spendLimit`, and it is refused while `pause_ai` is on (`unavailable`, reason `ai_paused`). **Example** `const { flagged, categories } = await ai.moderate(ctx, { text: caption, images: [photoId] })` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="requiresafe"></a> `requireSafe` | (`ctx`, `input`) => `Promise`\<`void`\> | **`Experimental`** [Ai.moderate](#moderate-3), refusing flagged content: `invalid_input` with reason `content_blocked` (on `prompt` when there is text, else on `images`). Call it where your code accepts an upload, before you keep it. **Example** `export const attach = authed.action({ args: { storageId: v.string() }, handler: async (ctx, { storageId }) => { await ai.requireSafe(ctx, { images: [storageId] }) // …now keep it }, })` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="api"></a> `api` | [`AiApi`](#aiapi) | **`Experimental`** The admin console's functions, to re-export from `backend/ai.ts`: `getCosts`, what each person's AI calls cost, which the Costs tab reads. **Example** `export const { getCosts } = ai.api` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+
+***
+
+### JobQueueComponents
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+The components `defineJobQueue` reads from your generated `components` object.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="backend-1"></a> `backend` | `object` | **`Experimental`** The `backend` component: the queue's rows live there. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="workflow"></a> `workflow?` | `WorkflowComponent` | **`Experimental`** The Workflow component the jobs run on, as the scaffold mounts it. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### GuestJobs
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+Jobs a signed-out visitor may start (`defineJobQueue({ guest })`).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="pervisitor"></a> `perVisitor` | `number` | **`Experimental`** How many jobs one visitor (one browser, by its cookie) may start before signing up: `1` is one free try. Counts the jobs that wait, run or are done; a failed or canceled one gives its try back. A done one stays used for the visitor cookie's year, after its record is pruned. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### JobModelLimit
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+Where a model's limit starts, and the range it adapts within, in calls a minute.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="perminute"></a> `perMinute` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="min"></a> `min?` | `number` | **`Experimental`** The floor a `429` halves it to. Default `1`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="max"></a> `max?` | `number` | **`Experimental`** The ceiling clean calls grow it to. Default `30`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### DefineJobQueueOptions
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="ai-1"></a> `ai` | [`Ai`](#ai) | **`Experimental`** Your `setupAi(...)` instance: jobs share its billing, its model route, its `ai` rate limit and the `pause_ai` switch. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="concurrency"></a> `concurrency?` | `number` | **`Experimental`** How many jobs run at once across the app. Default `3`; the admin console changes it without a deploy. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="perowner"></a> `perOwner?` | `number` | **`Experimental`** Running jobs one owner may have, for a tier that sets none. Default `1`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="tiers"></a> `tiers?` | `Record`\<`string`, [`JobTier`](#jobtier)\> | **`Experimental`** What each plan gets in the line, best first. See [JobTier](#jobtier). | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="models"></a> `models?` | `Record`\<`string`, [`JobModelLimit`](#jobmodellimit)\> | **`Experimental`** Where each model's limit starts. A model not listed starts at 6 calls a minute, between 1 and 30. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="stallafter"></a> `stallAfter?` | `number` | **`Experimental`** How long a running job may go without a sign of life before it fails and is refunded, in ms. Default 5 minutes. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="workflow-1"></a> `workflow?` | `WorkflowComponent` | **`Experimental`** The Workflow component the jobs run on. Default `components.workflow`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="guest-1"></a> `guest?` | [`GuestJobs`](#guestjobs) | **`Experimental`** Let a signed-out visitor start jobs of the kinds defined with `guest: true`, after `verifyHuman` in the same mutation: free, under the `aiGlobal` limit, at the guest rank, and claimed by the account that signs up in their browser. Needs setupAi's `rateLimiter`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### JobContext
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+What a job's handler gets: its id, and the durable calls it orders.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id-2"></a> `id` | `string` | **`Experimental`** The job's id. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="run"></a> `run` | \<`Step`\>(`step`, `args`) => `Promise`\<[`StepResult`](#stepresult)\<`Step`\[`"_returnType"`\]\>\> | **`Experimental`** Run a step and return what it returned. A step that finds no free turn at its model, or answers `429`, a timeout or a passing provider error, is waited for and run again, up to 4 attempts. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="progress"></a> `progress` | (`progress`) => `Promise`\<`void`\> | **`Experimental`** Report how far the job got: `useJob` shows it, and it tells the queue the job is alive. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### JobDefinition
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+A kind of job: `jobs.define`.
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| <a id="type-parameter-args-5"></a> `Args` *extends* `PropertyValidators` |
+| <a id="type-parameter-result-4"></a> `Result` |
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="meter-5"></a> `meter` | `string` \| `false` | **`Experimental`** The credit meter its price is held from and charged to, or `false` for a free job. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="cost-4"></a> `cost?` | `number` \| ((`args`) => `number`) | **`Experimental`** Its price in credits: a number, or read from the args once when it joins. Default `1`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="guest-2"></a> `guest?` | `boolean` | **`Experimental`** A signed-out visitor may start it too (`defineJobQueue({ guest })`): free for them, the app pays. A member who starts it pays as for any other kind. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="moderate-4"></a> `moderate?` | (`args`) => [`ModerationInput`](#moderationinput) | **`Experimental`** What to check with the safety classifier (`setupAi({ moderation })`), from the args: as the job's first step, before the charge. A flagged job fails with `invalid_input`, reason `content_blocked`, and its hold is released. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="args-2"></a> `args` | `Args` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="handler-2"></a> `handler` | (`job`, `args`) => `Promise`\<`Result`\> | **`Experimental`** The steps, in order. Runs as a durable workflow: read data and call models in steps, never here. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### JobStepContext
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+What a step's handler gets beside the action context.
+
+#### Extends
+
+- [`ImageStoreContext`](#imagestorecontext)
+
+#### Properties
+
+| Property | Type | Description | Inherited from | Defined in |
+| ------ | ------ | ------ | ------ | ------ |
+| <a id="model-6"></a> `model` | (`model?`) => `LanguageModelV4` | **`Experimental`** The model to call: the step's own, or another by id or object. | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="job"></a> `job` | \{ `id`: `string`; `attempt`: `number`; \} | **`Experimental`** The job it runs for, and which attempt this is. | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| `job.id` | `string` | - | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| `job.attempt` | `number` | - | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="storeimage-1"></a> `storeImage` | (`file`, `options?`) => `Promise`\<`Id`\<`"_storage"`\>\> | **`Experimental`** Store an image a model made, with its content credentials: the IPTC source type in its XMP, a C2PA manifest signed with `PROVENANCE_PRIVATE_KEY`, and a provenance record of the models, the time and `inputs`. The image is kept in the `backend` component's storage as the job's owner's (the run's billing entity in a metered action), like an upload `storage.claim` kept: counted in the quota, listed in the owner's export and deleted with it. Resolves with its id there, typed as a storage id: read its URL through `storage.fileUrl`, `storage.signedUrl` or `getFileUrl`, never `ctx.storage.getUrl`, and delete it with `storage.release`. | [`ImageStoreContext`](#imagestorecontext).[`storeImage`](#storeimage-2) | [src/convex/integrations/ai/provenance.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/provenance.ts) |
+
+***
+
+### JobStepDefinition
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+A step of a job: `jobs.step`.
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| <a id="type-parameter-args-6"></a> `Args` *extends* `PropertyValidators` |
+| <a id="type-parameter-result-5"></a> `Result` |
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="model-7"></a> `model?` | `LanguageModel` | **`Experimental`** The model its calls go to: the step takes a turn from this model's limit before it runs. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="args-3"></a> `args` | `Args` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="handler-3"></a> `handler` | (`ctx`, `args`) => `Promise`\<`Result`\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### AdminJobView
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+A job as the admin console lists it.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id-3"></a> `id` | `string` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="kind"></a> `kind` | `string` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="owner"></a> `owner` | `string` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="userid-3"></a> `userId?` | `string` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="tier"></a> `tier?` | `string` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="status-1"></a> `status` | `"done"` \| `"queued"` \| `"running"` \| `"failed"` \| `"canceled"` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="guest-3"></a> `guest` | `boolean` | **`Experimental`** A job a signed-out visitor started: `owner` is `guest:<visitor>` until a sign-up claims it. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="attempts"></a> `attempts` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="retries"></a> `retries` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="cost-5"></a> `cost` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="joinedat"></a> `joinedAt` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="startedat"></a> `startedAt?` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="endedat"></a> `endedAt?` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="error"></a> `error?` | `Record`\<`string`, `unknown`\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="lasterror"></a> `lastError?` | `string` | **`Experimental`** The provider's own text for the last failed attempt, cut to 500 characters. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="deadletter"></a> `deadLetter` | `boolean` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### QueueChange
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+What `setQueue` takes. Each tier field takes `null` to go back to `backend/jobs.ts`.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="paused"></a> `paused?` | `boolean` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="concurrency-1"></a> `concurrency?` | `number` \| `null` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="tier-1"></a> `tier?` | \{ `name`: `string`; `perOwner?`: `number` \| `null`; `dedicated?`: `number` \| `null`; `budget?`: \| \{ `units`: `number`; \} \| `null`; \} | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| `tier.name` | `string` | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| `tier.perOwner?` | `number` \| `null` | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| `tier.dedicated?` | `number` \| `null` | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| `tier.budget?` | \| \{ `units`: `number`; \} \| `null` | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="model-8"></a> `model?` | \{ `id`: `string`; `perMinute?`: `number`; `min?`: `number`; `max?`: `number`; \} | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| `model.id` | `string` | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| `model.perMinute?` | `number` | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| `model.min?` | `number` | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| `model.max?` | `number` | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### JobQueueApi
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+The functions behind `useJob()` and the admin console's Queue tab, to re-export from `backend/jobs.ts`.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="getjob"></a> `getJob` | `RegisteredQuery`\<`"public"`, \{ `jobId`: `string`; \}, `Promise`\<[`JobView`](/docs/reference/api/use-job#jobview) \| `null`\>\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="canceljob"></a> `cancelJob` | `RegisteredMutation`\<`"public"`, \{ `jobId`: `string`; `refund?`: `boolean`; \}, `Promise`\<`null`\>\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="getqueue"></a> `getQueue` | `RegisteredQuery`\<`"public"`, `Record`\<`string`, `never`\>, `Promise`\<`unknown`\>\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="listjobs"></a> `listJobs` | `RegisteredQuery`\<`"public"`, \{ `paginationOpts`: \{ `numItems`: `number`; `cursor`: `string` \| `null`; \}; `deadLetters?`: `boolean`; \}, `Promise`\<`unknown`\>\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="setqueue"></a> `setQueue` | `RegisteredMutation`\<`"public"`, [`QueueChange`](#queuechange) & `Record`\<`string`, `unknown`\>, `Promise`\<`null`\>\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="retryjob"></a> `retryJob` | `RegisteredMutation`\<`"public"`, \{ `jobId`: `string`; \}, `Promise`\<`null`\>\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="discardjob"></a> `discardJob` | `RegisteredMutation`\<`"public"`, \{ `jobId`: `string`; \}, `Promise`\<`null`\>\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="runqueue"></a> `runQueue` | `RegisteredMutation`\<`"internal"`, `Record`\<`string`, `unknown`\>, `Promise`\<`null`\>\> | **`Experimental`** Internal: the pick, the stall sweep, a job's progress and each job's end. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="billjob"></a> `billJob` | `RegisteredAction`\<`"internal"`, \{ `op`: `"report"` \| `"charge"` \| `"refund"` \| `"moderate"`; `jobId`: `string`; `attempt?`: `number`; `input?`: [`ModerationInput`](#moderationinput); \}, `Promise`\< \| \{ `blocked`: `Record`\<`string`, `unknown`\>; \} \| `null`\>\> | **`Experimental`** Internal: a job's charge, refund and cost report. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### EnqueueOptions
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+What `jobs.enqueue` takes beside the kind and its args.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="billto-1"></a> `billTo?` | `"app"` \| `"entity"` | **`Experimental`** Who owns and pays for the job: the caller's billing entity (`'entity'`, the default), or the app itself (`'app'`, a `meter: false` kind). | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### JobQueue
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+The queue `defineJobQueue` returns.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="define"></a> `define` | \<`Args`, `Result`\>(`definition`) => `RegisteredMutation`\<`"internal"`, `Record`\<`string`, `unknown`\>, `Promise`\<`unknown`\>\> | **`Experimental`** Declare a kind of job. Export it: Convex registers it by name. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="step"></a> `step` | \<`Args`, `Result`\>(`definition`) => `RegisteredAction`\<`"internal"`, `ObjectType`\<`Args`\> & \{ `queuedJob?`: \{ `id`: `string`; `attempt`: `number`; \}; \}, `Promise`\< \| `Record`\<`string`, `unknown`\> \| \{ `value`: `Result`; \}\>\> | **`Experimental`** Declare a step a job runs: an internal action whose `ctx.model()` calls its model. Export it. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="enqueue"></a> `enqueue` | \<`Kind`\>(`ctx`, `job`, `args`, `options?`) => `Promise`\<\{ `jobId`: `string`; \}\> | **`Experimental`** Put a job in line from a mutation of yours: checks the caller, the `pause_ai` switch, the model route, the `ai` limit, the tier's budget and the credits, in that order; a refusal throws and rolls the mutation back. Resolves with the job's id. `{ billTo: 'app' }` puts in line a job the app runs for itself, such as content it seeds for everyone: a `meter: false` kind, owned by the app rather than the caller's billing entity, with nobody signed in needed. It checks `pause_ai`, the model route and the `aiGlobal` limit, counts in no budget, and the images its steps store are the app's: in no account's quota, export or erasure, read with `storage.fileUrl` and deleted with `storage.release`. Decide in your mutation who may start it. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="api-1"></a> `api` | [`JobQueueApi`](#jobqueueapi) | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### KnowledgeDocument
+
+Defined in: [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts)
+
+**`Experimental`**
+
+A document of a knowledge store, as the page lists it.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id-4"></a> `id` | `string` | **`Experimental`** | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="title-1"></a> `title` | `string` | **`Experimental`** | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="status-2"></a> `status` | `"pending"` \| `"failed"` \| `"ready"` | **`Experimental`** `pending` while its passages are embedded, `ready` once it is found, `failed` when it could not be (nothing was charged). | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="addedby"></a> `addedBy` | `string` | **`Experimental`** The member who added it; empty for the app's own. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="createdat"></a> `createdAt` | `number` | **`Experimental`** When it was added, in ms. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+
+***
+
+### KnowledgePassage
+
+Defined in: [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts)
+
+**`Experimental`**
+
+One passage a search found.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="text-2"></a> `text` | `string` | **`Experimental`** | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="score"></a> `score` | `number` | **`Experimental`** How close it is to the question, from 0 to 1. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="document"></a> `document` | \{ `id`: `string`; `title`: `string`; \} | **`Experimental`** | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| `document.id` | `string` | - | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| `document.title` | `string` | - | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+
+***
+
+### KnowledgeConfig
+
+Defined in: [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts)
+
+**`Experimental`**
+
+What `ai.knowledge` takes.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="model-9"></a> `model` | [`AiEmbeddingModel`](#aiembeddingmodel) | **`Experimental`** The embedding model: a `provider/model` id from the gateway's model list, or an AI SDK embedding model of your own. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="dimension"></a> `dimension` | `number` | **`Experimental`** The length of the model's vectors: `1536` for `openai/text-embedding-3-small`. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="meter-6"></a> `meter` | `string` \| `false` | **`Experimental`** The credit meter adding and searching are charged to; `false` makes both free. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="cost-6"></a> `cost?` | \{ `add?`: [`KnowledgeAddCost`](#knowledgeaddcost); `search?`: `number`; \} | **`Experimental`** What adding and searching cost, in credits. Default `{ add: 1, search: 1 }`. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| `cost.add?` | [`KnowledgeAddCost`](#knowledgeaddcost) | - | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| `cost.search?` | `number` | - | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="limit-5"></a> `limit?` | `string` \| `false` | **`Experimental`** The named rate limit adding and searching count against. Default `'ai'`; `false` disables it. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+
+***
+
+### KnowledgeApi
+
+Defined in: [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts)
+
+**`Experimental`**
+
+The functions a page calls, and the embedding `add` schedules: export each from the store's module, by these names.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="documents"></a> `documents` | `RegisteredQuery`\<`"public"`, \{ `paginationOpts`: \{ `numItems`: `number`; `cursor`: `string` \| `null`; \}; \}, `Promise`\<\{ `page`: [`KnowledgeDocument`](#knowledgedocument)[]; `isDone`: `boolean`; `continueCursor`: `string`; \}\>\> | **`Experimental`** The active workspace's documents, newest first, paginated. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="add"></a> `add` | `RegisteredMutation`\<`"public"`, \{ `title`: `string`; `text?`: `string`; `storageId?`: `string`; `key?`: `string`; \}, `Promise`\<`string`\>\> | **`Experimental`** Add a document from `{ title, text }` or `{ title, storageId }`, optionally under a `key` that replaces the older one, and return its id. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="search"></a> `search` | `RegisteredAction`\<`"public"`, \{ `query`: `string`; `limit?`: `number`; \}, `Promise`\<\{ `passages`: [`KnowledgePassage`](#knowledgepassage)[]; \}\>\> | **`Experimental`** Search the active workspace's documents for `{ query, limit? }`. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="remove-1"></a> `remove` | `RegisteredMutation`\<`"public"`, \{ `documentId`: `string`; \}, `Promise`\<`null`\>\> | **`Experimental`** Remove a document: the member who added it, or the workspace's owners and admins. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="embed"></a> `embed` | `RegisteredAction`\<`"internal"`, `Record`\<`string`, `unknown`\>, `Promise`\<`null`\>\> | **`Experimental`** The embedding `add` schedules, by this name next to itself. Internal. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+
+***
+
+### Knowledge
+
+Defined in: [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts)
+
+**`Experimental`**
+
+A knowledge store: its `api`, and `add` for your server code.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="api-2"></a> `api` | [`KnowledgeApi`](#knowledgeapi) | **`Experimental`** | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="add-1"></a> `add` | (`ctx`, `document`) => `Promise`\<\{ `documentId`: `string`; \}\> | **`Experimental`** Add a document from server code, charging no one: to the app's own namespace (`'app'`), which chats the app pays for search, or to a billing entity's by its id. Embeds at once, in this action. A `key` replaces the document added under it before. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+
+***
+
+### ModerationInput
+
+Defined in: [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts)
+
+**`Experimental`**
+
+What to check: text, and images as file storage ids.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="text-3"></a> `text?` | `string` | **`Experimental`** The text a person wrote: a prompt, a caption, a message. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="images"></a> `images?` | `string`[] | **`Experimental`** Images, as file storage ids: an upload (claimed or not) or a file the app stored. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+
+***
+
+### ModerationVerdict
+
+Defined in: [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts)
+
+**`Experimental`**
+
+What the classifier said.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="flagged"></a> `flagged` | `boolean` | **`Experimental`** Whether it found anything its categories name. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="categories"></a> `categories` | `string`[] | **`Experimental`** The classifier's own codes for what it found, such as Llama Guard's `S1` to `S14`; empty when nothing was. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+
+***
+
+### ModerationConfig
+
+Defined in: [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts)
+
+**`Experimental`**
+
+`setupAi({ moderation })`: the classifier content is checked with.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="model-10"></a> `model?` | `LanguageModel` | **`Experimental`** The classifier, a `provider/model` id or a model object. Default `meta-llama/llama-guard-4-12b`, which the Convex AI Gateway serves and which reads images too. On the Vercel AI Gateway route, name one that gateway serves, such as `openai/gpt-oss-safeguard-20b`, which reads text only: a check with images is then refused as unchecked. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 
 ***
 
@@ -352,8 +1105,8 @@ What one model charges, in credits per [ModelPrice.per](#per) tokens.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="input"></a> `input` | `number` | **`Experimental`** Credits per block of input (prompt) tokens. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
-| <a id="output"></a> `output` | `number` | **`Experimental`** Credits per block of output (completion) tokens. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
+| <a id="input-1"></a> `input` | `number` | **`Experimental`** Credits per block of input (prompt) tokens. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
+| <a id="output-1"></a> `output` | `number` | **`Experimental`** Credits per block of output (completion) tokens. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
 | <a id="cachedinput"></a> `cachedInput?` | `number` | **`Experimental`** Credits per block of cache-read input tokens, when the model prices them separately. Omit and cached tokens are billed as ordinary input. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
 | <a id="per"></a> `per?` | `number` | **`Experimental`** Tokens each rate covers. Default 1; use `1_000_000` for per-million rates. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
 
@@ -371,12 +1124,153 @@ A model call's token counts, as the SDKs report them.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="model"></a> `model` | `string` | **`Experimental`** The model id — the key looked up in the price table. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
-| <a id="input-1"></a> `input` | `number` | **`Experimental`** Input (prompt) tokens billed at the full rate. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
-| <a id="output-1"></a> `output` | `number` | **`Experimental`** Output (completion) tokens. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
+| <a id="model-11"></a> `model` | `string` | **`Experimental`** The model id — the key looked up in the price table. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
+| <a id="input-2"></a> `input` | `number` | **`Experimental`** Input (prompt) tokens billed at the full rate. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
+| <a id="output-2"></a> `output` | `number` | **`Experimental`** Output (completion) tokens. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
 | <a id="cachedinput-1"></a> `cachedInput?` | `number` | **`Experimental`** Cache-read input tokens, when the model reports them separately. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
 
+***
+
+### StoreImageOptions
+
+Defined in: [src/convex/integrations/ai/provenance.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/provenance.ts)
+
+**`Experimental`**
+
+What `ctx.storeImage` records beside the image.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="inputs"></a> `inputs?` | `string`[] | **`Experimental`** Ids of your own rows and files the image was made from: recorded, never read. | [src/convex/integrations/ai/provenance.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/provenance.ts) |
+| <a id="sourcetype"></a> `sourceType?` | `"generated"` \| `"composite"` | **`Experimental`** The IPTC digital source type: `generated` (`trainedAlgorithmicMedia`, the default) for an image a model made, `composite` (`compositeWithTrainedAlgorithmicMedia`) for a photo a model edited in part. | [src/convex/integrations/ai/provenance.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/provenance.ts) |
+
+***
+
+### ImageStoreContext
+
+Defined in: [src/convex/integrations/ai/provenance.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/provenance.ts)
+
+**`Experimental`**
+
+`ctx.storeImage` in a job step or a metered action.
+
+#### Extended by
+
+- [`MeteredContext`](#meteredcontext)
+- [`JobStepContext`](#jobstepcontext)
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="storeimage-2"></a> `storeImage` | (`file`, `options?`) => `Promise`\<`Id`\<`"_storage"`\>\> | **`Experimental`** Store an image a model made, with its content credentials: the IPTC source type in its XMP, a C2PA manifest signed with `PROVENANCE_PRIVATE_KEY`, and a provenance record of the models, the time and `inputs`. The image is kept in the `backend` component's storage as the job's owner's (the run's billing entity in a metered action), like an upload `storage.claim` kept: counted in the quota, listed in the owner's export and deleted with it. Resolves with its id there, typed as a storage id: read its URL through `storage.fileUrl`, `storage.signedUrl` or `getFileUrl`, never `ctx.storage.getUrl`, and delete it with `storage.release`. | [src/convex/integrations/ai/provenance.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/provenance.ts) |
+
+***
+
+### JobTier
+
+Defined in: [src/convex/jobs-policy.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/jobs-policy.ts)
+
+**`Experimental`**
+
+One tier of the queue, as `defineJobQueue({ tiers })` declares it.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="feature"></a> `feature?` | `string` | **`Experimental`** The plan feature that puts a job in this tier. The last tier may leave it out and catch everyone else. | [src/convex/jobs-policy.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/jobs-policy.ts) |
+| <a id="headstart"></a> `headStart?` | `number` | **`Experimental`** How far up the line its jobs score, in ms. Default `0`. | [src/convex/jobs-policy.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/jobs-policy.ts) |
+| <a id="perowner-1"></a> `perOwner?` | `number` | **`Experimental`** Running jobs one owner of this tier may have. Default: the queue's `perOwner`. | [src/convex/jobs-policy.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/jobs-policy.ts) |
+| <a id="dedicated"></a> `dedicated?` | `number` | **`Experimental`** Slots of `concurrency` kept for this tier and the tiers listed above it. Default `0`. | [src/convex/jobs-policy.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/jobs-policy.ts) |
+| <a id="budget-1"></a> `budget?` | \{ `units`: `number`; `period`: `number`; \} | **`Experimental`** Credits of jobs one owner may queue per window. Default none. | [src/convex/jobs-policy.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/jobs-policy.ts) |
+| `budget.units` | `number` | - | [src/convex/jobs-policy.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/jobs-policy.ts) |
+| `budget.period` | `number` | - | [src/convex/jobs-policy.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/jobs-policy.ts) |
+
 ## Type Aliases
+
+### AiModel
+
+```ts
+type AiModel = LanguageModel;
+```
+
+Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
+
+**`Experimental`**
+
+A model to call: a `provider/model` id (`'openai/gpt-5-mini'`), or a model
+object from any AI SDK provider package, called with that provider's own
+key. The AI SDK (`ai`) is an optional peer: install it to name one.
+
+An id goes to the Convex AI Gateway first, on Convex Cloud with a paid plan
+(install `@convex-dev/ai-sdk-provider`, an optional peer too), then
+through the Vercel AI Gateway with the deployment's `AI_GATEWAY_API_KEY`.
+Without either, the call is refused, saying why: no model answers in their
+place.
+
+***
+
+### MeteredModel
+
+```ts
+type MeteredModel = Extract<LanguageModel, {
+  specificationVersion: "v4";
+}>;
+```
+
+Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
+
+**`Experimental`**
+
+The model a metered handler calls (`ctx.model()`): an AI SDK language
+model, so `generateText`, `streamText` and the rest of the SDK take it
+as they take any other. Every call made through it counts toward the run's
+cost.
+
+***
+
+### InferenceRegion
+
+```ts
+type InferenceRegion = "eu";
+```
+
+Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
+
+**`Experimental`**
+
+A region the Vercel AI Gateway pins inference to (`setupAi({ inferenceRegion })`).
+
+***
+
+### GuestClaim
+
+```ts
+type GuestClaim = {
+  jobIds: string[];
+  workspaceId: string;
+  userId: string;
+};
+```
+
+Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
+
+**`Experimental`**
+
+What `setupAi({ guest: { claim } })`'s mutation receives.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="jobids"></a> `jobIds` | `string`[] | The visitor's jobs, now the new account's. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="workspaceid"></a> `workspaceId` | `string` | The new account's workspace: the one it signed up into. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="userid-1"></a> `userId` | `string` | The new account. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+
+***
 
 ### MeteredCost
 
@@ -384,21 +1278,89 @@ A model call's token counts, as the SDKs report them.
 type MeteredCost<Args, Result> = 
   | number
   | ((args) => number)
-| FinalizedCost<Args, Result>;
+  | FinalizedCost<Args, Result>
+| ReportedCost<Args>;
 ```
 
 Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
 
 **`Experimental`**
 
-Credits per call: fixed, derived from the args, or estimated then finalized.
+Credits per call: fixed, derived from the args, estimated then finalized,
+or settled from the cost the model reports.
 
 #### Type Parameters
 
 | Type Parameter |
 | ------ |
-| <a id="type-parameter-args-1"></a> `Args` *extends* `PropertyValidators` |
+| <a id="type-parameter-args-2"></a> `Args` *extends* `PropertyValidators` |
 | <a id="type-parameter-result-1"></a> `Result` |
+
+***
+
+### AiEmbeddingModel
+
+```ts
+type AiEmbeddingModel = string | Exclude<EmbeddingModel, string>;
+```
+
+Defined in: [src/convex/integrations/ai/embeddings.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/embeddings.ts)
+
+**`Experimental`**
+
+An embedding model: a `provider/model` id from the gateway's list, or an AI SDK embedding model object.
+
+***
+
+### StepResult
+
+```ts
+type StepResult<Returned> = 0 extends 1 & Returned ? unknown : Returned extends {
+  value: infer Value;
+} ? string extends keyof Returned ? never : Value : never;
+```
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+What a step returned, as `job.run` hands it back: the `value` member of the
+step's registered return type. Its other member, a record of any keys,
+is the queue's own outcome and never reaches the handler.
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| <a id="type-parameter-returned"></a> `Returned` |
+
+***
+
+### KnowledgeAddCost
+
+```ts
+type KnowledgeAddCost = number | ((document) => number);
+```
+
+Defined in: [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts)
+
+**`Experimental`**
+
+What adding a document costs, from the length of the text it embeds.
+
+***
+
+### ModerationCtx
+
+```ts
+type ModerationCtx = Pick<GenericActionCtx<GenericDataModel>, "runAction" | "runQuery" | "runMutation"> & Partial<Pick<GenericActionCtx<GenericDataModel>, "storage" | "auth">>;
+```
+
+Defined in: [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts)
+
+**`Experimental`**
+
+The context a check runs in: an action's, which can call a model, read a file and record what the call cost.
 
 ***
 
@@ -414,7 +1376,110 @@ Defined in: [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nux
 
 The app's price list: model id → [ModelPrice](#modelprice).
 
+***
+
+### ProvenanceConfig
+
+```ts
+type ProvenanceConfig = 
+  | boolean
+  | {
+  name?: string;
+};
+```
+
+Defined in: [src/convex/integrations/ai/provenance.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/provenance.ts)
+
+**`Experimental`**
+
+`setupAi({ provenance })`: `true` for the defaults, or the generator name each manifest shows.
+
+#### Union Members
+
+`boolean`
+
+***
+
+##### Type Literal
+
+```ts
+{
+  name?: string;
+}
+```
+
+| Name | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| `name?` | `string` | The generator name each manifest shows: your app's name. Default: `SITE_URL`'s host. | [src/convex/integrations/ai/provenance.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/provenance.ts) |
+
+***
+
+### GeneratedImage
+
+```ts
+type GeneratedImage = 
+  | Blob
+  | Uint8Array
+  | {
+  uint8Array: Uint8Array;
+  mediaType?: string;
+};
+```
+
+Defined in: [src/convex/integrations/ai/provenance.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/provenance.ts)
+
+**`Experimental`**
+
+A generated image, as `ctx.storeImage` takes it: the AI SDK's generated file, a `Blob`, or its bytes.
+
 ## Functions
+
+### defineJobQueue()
+
+```ts
+function defineJobQueue(components, options): JobQueue;
+```
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+Declare the app's generation queue, once, in `backend/jobs.ts`: kinds of
+jobs (`jobs.define`) run their steps (`jobs.step`) in a fair line with
+tiers from plan features, each model under a limit that adapts to `429`s,
+credits held while a job waits, charged when it starts and refunded when
+it fails, and each job's cost reported to the billing provider.
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `components` | [`JobQueueComponents`](#jobqueuecomponents) |
+| `options` | [`DefineJobQueueOptions`](#definejobqueueoptions) |
+
+#### Returns
+
+[`JobQueue`](#jobqueue)
+
+#### Example
+
+```ts
+// backend/jobs.ts
+import { defineJobQueue } from 'nuxt-backend/ai'
+import { MINUTE } from 'nuxt-backend/rate-limit'
+import { components } from './_generated/api'
+import { ai } from './ai'
+
+export const jobs = defineJobQueue(components, {
+  ai,
+  concurrency: 3,
+  tiers: { priority: { feature: 'priority_queue', headStart: 10 * MINUTE }, standard: {} },
+})
+
+export const { getJob, cancelJob, getQueue, listJobs, setQueue, retryJob, discardJob, runQueue, billJob } = jobs.api
+```
+
+***
 
 ### priceTokens()
 
@@ -444,9 +1509,9 @@ as `per: 1_000_000` on the entry or as a table-wide `options.per`.
 | ------ | ------ |
 | `usage` | [`TokenUsage`](#tokenusage) |
 | `table` | [`TokenPriceTable`](#tokenpricetable) |
-| `options?` | \{ `per?`: `number`; `round?`: `"up"` \| `"nearest"` \| `"none"`; `minimum?`: `number`; \} |
+| `options?` | \{ `per?`: `number`; `round?`: `"none"` \| `"up"` \| `"nearest"`; `minimum?`: `number`; \} |
 | `options.per?` | `number` |
-| `options.round?` | `"up"` \| `"nearest"` \| `"none"` |
+| `options.round?` | `"none"` \| `"up"` \| `"nearest"` |
 | `options.minimum?` | `number` |
 
 #### Returns
@@ -502,7 +1567,26 @@ import { components } from './_generated/api'
 import { billing } from './billing'
 import { rateLimiter } from './rateLimiter'
 
-export const ai = setupAi(components, { billing, rateLimiter })
+export const ai = setupAi(components, { billing, rateLimiter, model: 'openai/gpt-5-mini' })
 export const generate = ai.meteredAction({ ... })
 export const { start: startEcho, body: echoBody } = ai.stream({ name: 'echo', ... })
+export const { getCosts } = ai.api
 ```
+
+## References
+
+### JobProvenance
+
+Re-exports [JobProvenance](/docs/reference/api/use-job#jobprovenance)
+
+***
+
+### JobProgress
+
+Re-exports [JobProgress](/docs/reference/api/use-job#jobprogress)
+
+***
+
+### JobView
+
+Re-exports [JobView](/docs/reference/api/use-job#jobview)

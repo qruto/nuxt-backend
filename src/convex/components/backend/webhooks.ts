@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { internal } from './_generated/api.js'
 import type { Doc } from './_generated/dataModel.js'
-import { internalMutation, type MutationCtx, mutation, query } from './_generated/server.js'
+import { internalMutation, type MutationCtx, mutation, query, type QueryCtx } from './_generated/server.js'
 
 /**
  * Webhook delivery log — never a source of truth. Every request on
@@ -214,6 +214,7 @@ function feedRow(doc: Doc<'webhookDeliveries'> | Doc<'webhookTallies'>) {
     ...(doc.type === undefined ? {} : { type: doc.type }),
     ...(doc.note === undefined ? {} : { note: doc.note }),
     ...('count' in doc ? { count: doc.count } : {}),
+    ...('replayedAt' in doc && doc.replayedAt !== undefined ? { replayedAt: doc.replayedAt } : {}),
   }
 }
 
@@ -237,6 +238,7 @@ export const listRecent = query({
     note: v.optional(v.string()),
     receivedAt: v.number(),
     count: v.optional(v.number()),
+    replayedAt: v.optional(v.number()),
   })),
   handler: async (ctx, { limit }) => {
     const size = feedSize(limit)
@@ -248,5 +250,47 @@ export const listRecent = query({
       .sort((a, b) => b.receivedAt - a.receivedAt)
       .slice(0, size)
       .map(feedRow)
+  },
+})
+
+/** The newest verified row of one delivery: what a replay asks the provider to send again. */
+async function newestRow(ctx: { db: QueryCtx['db'] }, service: string, deliveryId: string) {
+  return await ctx.db
+    .query('webhookDeliveries')
+    .withIndex('service_deliveryId', q => q.eq('service', service).eq('deliveryId', clip(deliveryId, DELIVERY_ID_LIMIT)))
+    .order('desc')
+    .first()
+}
+
+/**
+ * One delivery of the log, by its service and provider id: its type and
+ * outcome, and when it was last replayed. `null` for an id the ring does
+ * not hold, a request counted before its signature verified included:
+ * only a verified delivery can be replayed.
+ */
+export const entry = query({
+  args: { service: v.string(), deliveryId: v.string() },
+  returns: v.union(v.object({ type: v.optional(v.string()), outcome: vDeliveryOutcome, receivedAt: v.number(), replayedAt: v.optional(v.number()) }), v.null()),
+  handler: async (ctx, { service, deliveryId }) => {
+    const row = await newestRow(ctx, service, deliveryId)
+    if (!row) return null
+    return { ...(row.type === undefined ? {} : { type: row.type }), outcome: row.outcome, receivedAt: row.receivedAt, ...(row.replayedAt === undefined ? {} : { replayedAt: row.replayedAt }) }
+  },
+})
+
+/**
+ * Stamp a delivery the provider was asked to send again: its newest row
+ * gets `replayedAt`. Answers the time, or `null` when the ring no longer
+ * holds it (trimmed between the ask and the stamp).
+ */
+export const markReplayed = mutation({
+  args: { service: v.string(), deliveryId: v.string() },
+  returns: v.union(v.number(), v.null()),
+  handler: async (ctx, { service, deliveryId }) => {
+    const row = await newestRow(ctx, service, deliveryId)
+    if (!row) return null
+    const at = Date.now()
+    await ctx.db.patch('webhookDeliveries', row._id, { replayedAt: at })
+    return at
   },
 })

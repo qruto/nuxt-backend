@@ -1,18 +1,17 @@
-<!-- Live demo on the docs (::demo-counter): a reactive Convex query driven
-     by mutations. The backend client loads when the card scrolls into view;
-     the page carries `demo: true`. -->
+<!-- Live demo on the docs (::demo-counter): a reactive query driven by
+     mutations. Reading it is free, so the backend client loads when the
+     block scrolls into view; writing needs an account. The page carries
+     `demo: true`. -->
 <template>
-  <UCard
-    variant="subtle"
-    class="my-4"
+  <DemoBlock
+    title="A live counter"
+    api="useQuery · useMutation"
+    playground="/playground"
   >
-    <DeferredBackend>
-      <LazyDemoCounterLive />
-      <template #fallback="{ failed }">
-        <p class="text-sm text-muted">
-          {{ failed ? 'The live counter could not load. Reload the page to try again.' : 'Loading the live counter…' }}
-        </p>
-      </template>
-    </DeferredBackend>
-  </UCard>
+    <template #about>
+      The number is a query; the keys call mutations. Open this page in a
+      second tab and both update together.
+    </template>
+    <LazyDemoCounterLive />
+  </DemoBlock>
 </template>

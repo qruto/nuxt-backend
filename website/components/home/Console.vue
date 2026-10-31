@@ -3,8 +3,8 @@ import type { ComponentPublicInstance } from 'vue'
 import { CONSOLE_DETENTS, CONSOLE_GLYPH, CONSOLE_PHONE_ROWS, consoleCommand, consoleSummary, consoleTranscript, foldsOnPhone, typedRows, type ConsoleLine } from '~~/shared/console'
 
 /**
- * The console: turn the dial to a service and the LCD types what
- * `npx nuxt-backend doctor --only <service>` prints for a configured app
+ * The console: turn the dial to an app layer and the LCD types what
+ * `npx nuxt-backend doctor --only <layer>` prints for a configured app
  * (shared/console.ts). The page renders the whole transcript. Typing never
  * moves anything: the untyped rest of each row keeps its place, invisible,
  * so the LCD has the size of the whole transcript from the first character.
@@ -19,9 +19,9 @@ import { CONSOLE_DETENTS, CONSOLE_GLYPH, CONSOLE_PHONE_ROWS, consoleCommand, con
  * in place and nothing else moves. The fold is visual only: the transcript
  * a screen reader reads is always whole, and from `sm` up nothing folds.
  */
-const service = ref(CONSOLE_DETENTS[0]!.service)
-const detent = computed(() => CONSOLE_DETENTS.find(entry => entry.service === service.value)!)
-const options = CONSOLE_DETENTS.map(({ service, label }) => ({ value: service, label }))
+const layer = ref(CONSOLE_DETENTS[0]!.layer)
+const detent = computed(() => CONSOLE_DETENTS.find(entry => entry.layer === layer.value)!)
+const options = CONSOLE_DETENTS.map(({ layer, label }) => ({ value: layer, label }))
 
 type Tone = 'command' | ConsoleLine['status'] | 'hint' | 'summary-ok' | 'summary-warn'
 interface Row { tone: Tone, text: string }
@@ -93,7 +93,7 @@ onMounted(() => {
 
 // What a turn of the dial says to assistive technology, once per turn.
 const said = ref('')
-watch(service, () => {
+watch(layer, () => {
   observer?.disconnect()
   type()
   said.value = `${consoleCommand(detent.value)}: ${consoleSummary(detent.value.lines)}`
@@ -116,12 +116,11 @@ onBeforeUnmount(() => {
         </p>
         <EngravedTitle
           text="One command checks it all."
-          size="sm"
           class="font-display text-3xl font-bold [font-stretch:112%] sm:text-4xl"
         />
         <p class="text-(--ink-dim) text-pretty">
           Turn the dial: each detent runs <code class="whitespace-nowrap">doctor --only</code> for one
-          service and shows what your terminal prints for an app that is set
+          app layer and shows what your terminal prints for an app that is set
           up, warnings and their fixes included.
         </p>
       </div>
@@ -136,7 +135,7 @@ onBeforeUnmount(() => {
           >
             <template
               v-for="(row, index) in rows"
-              :key="`${service}-${index}`"
+              :key="`${layer}-${index}`"
             >
               <!-- Where a phone folds the transcript: the rows it leaves out. -->
               <div
@@ -190,10 +189,10 @@ onBeforeUnmount(() => {
         </template>
         <template #dial>
           <Dial
-            v-model="service"
+            v-model="layer"
             :options="options"
             :controls="lcdId"
-            label="Service"
+            label="Layer"
           />
         </template>
         <template #keys>

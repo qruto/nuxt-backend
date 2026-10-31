@@ -12,8 +12,8 @@ scaffolded into the app by `npx nuxt-backend init`.
 What it ships, enabled out of the box: passwordless auth (email OTP + passkeys, no passwords, no
 social providers), workspaces with emailed invitations, subscriptions with feature gating, prepaid
 credits with top-ups and gifts (provider-native meters, no local ledger), transactional email with
-delivery tracking, fail-closed webhooks for both providers, metered AI actions and streaming, an
-OAuth-protected MCP server so agents act as a signed-in user, a `doctor` command that checks the
+delivery tracking, fail-closed webhooks for both providers, metered AI actions and streaming, a
+`doctor` command that checks the
 project and the deployment, and a Nuxt DevTools tab. Every public name is brand-neutral
 (`nuxt-backend/billing`, `useCredits`, `<PricingTable>`); the providers underneath are Convex,
 Better Auth, Polar and Resend.
@@ -32,4 +32,4 @@ https://www.npmjs.com/package/nuxt-backend
 
 ### Nuxt Compatibility
 
-Nuxt 4 (`^4.1.0`), Node >= 24.11, Convex >= 1.46.
+Nuxt 4 (`^4.6.2`), Node >= 24.11, Convex >= 1.46.

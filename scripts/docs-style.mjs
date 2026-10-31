@@ -12,7 +12,7 @@
  * only needs the command re-run.
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -23,10 +23,11 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
  * matched whole, before single words.
  */
 export const PROPER_NOUNS = [
-  'Better Auth', 'Claude Code', 'Convex', 'Nuxt', 'Nitro', 'Vue', 'Vite', 'Polar', 'Resend', 'Vercel',
-  'Netlify', 'Cloudflare', 'Docus', 'Markdown', 'TypeScript', 'JavaScript', 'Node', 'GitHub', 'Google',
-  'Stripe', 'Turnstile', 'Chrome', 'Safari', 'Firefox', 'Windows', 'macOS', 'Linux', 'Docker', 'Claude',
-  'Cursor', 'Inspector', 'Tailwind', 'ESLint', 'Vitest', 'Playwright', 'Content Security Policy',
+  'Better Auth', 'Claude Code', 'Claude Desktop', 'VS Code', 'Convex', 'Nuxt', 'Nitro', 'Vue', 'Vite',
+  'Polar', 'Resend', 'Vercel', 'Netlify', 'Cloudflare', 'Docus', 'Markdown', 'TypeScript', 'JavaScript',
+  'Node', 'GitHub', 'Google', 'Stripe', 'Turnstile', 'Chrome', 'Safari', 'Firefox', 'Windows', 'macOS',
+  'Linux', 'Docker', 'Claude', 'Cursor', 'Inspector', 'Tailwind', 'ESLint', 'Vitest', 'Playwright',
+  'Content Security Policy',
 ]
 
 /** Pages written by a generator: their headings come from elsewhere. */
@@ -89,11 +90,16 @@ export function styled(file, text) {
   }).join('\n')
 }
 
-/** Every hand-written docs file the style applies to. */
+/**
+ * Every hand-written docs file the style applies to: tracked or new (not
+ * ignored), and still on disk, so a page added or moved and not yet
+ * committed is styled and checked too.
+ */
 export function styledFiles() {
-  return execFileSync('git', ['ls-files', 'website/content/docs'], { cwd: root, encoding: 'utf8' })
+  return execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', 'website/content/docs'], { cwd: root, encoding: 'utf8' })
     .split('\n')
     .filter(file => (file.endsWith('.md') || file.endsWith('.navigation.yml')) && !GENERATED.some(pattern => pattern.test(`/${file}`)))
+    .filter((file, index, files) => files.indexOf(file) === index && existsSync(join(root, file)))
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

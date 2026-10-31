@@ -1,0 +1,36 @@
+/*
+ * ConnectionStatus's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  /* On the ready-made pages the frame's status region floats at the bottom of
+     the viewport, out of the page's flow: empty, it moves nothing, and it never
+     takes a click meant for the page under it. */
+  [data-backend-region='status'] {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 1rem;
+    z-index: 50;
+    display: flex;
+    justify-content: center;
+    padding-inline: 1rem;
+    pointer-events: none;
+  }
+
+  [data-connection='message'] {
+    margin: 0;
+    padding: 0.45rem 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--bk-warn) 40%, transparent);
+    border-radius: var(--bk-radius-control);
+    background: color-mix(in srgb, var(--bk-warn) 12%, Canvas);
+    color: var(--bk-ink);
+    font-size: 0.85rem;
+    pointer-events: auto;
+  }
+
+  [data-connection='status'][data-state='offline'] [data-connection='message'] {
+    border-color: color-mix(in srgb, var(--bk-error) 40%, transparent);
+    background: color-mix(in srgb, var(--bk-error) 10%, Canvas);
+  }
+}

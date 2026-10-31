@@ -32,8 +32,8 @@ async function copyCommand() {
     </div>
     <span class="op65">
       The log holds every account's deliveries, so <code>getWebhookDeliveries</code> answers only an account with the
-      <code>admin</code> role, or one your <code>requireAdmin</code> in <code>billing.ts</code> admits. To make an
-      account an admin on the dev deployment, run this, then sign in again:
+      <code>admin</code> role, or one <code>setupWebhooks({ adminUserIds })</code> in <code>webhooks.ts</code> names.
+      To make an account an admin on the dev deployment, run this, then sign in again:
     </span>
     <div class="flex items-center gap-2">
       <code class="font-mono op65 n-bg-active rounded px2 py0.5">{{ command }}</code>
@@ -49,7 +49,7 @@ async function copyCommand() {
     v-else-if="feed === 'unavailable'"
     class="op50"
   >
-    <code>billing.ts</code> does not export <code>getWebhookDeliveries</code>, so the log cannot be read. Re-export it
-    from <code>billing.functions</code>.
+    The app has no <code>backend/webhooks.ts</code> exporting <code>getWebhookDeliveries</code>, so the log cannot be
+    read. <code>npx nuxt-backend upgrade</code> writes it, re-exporting <code>setupWebhooks(components).api</code>.
   </div>
 </template>

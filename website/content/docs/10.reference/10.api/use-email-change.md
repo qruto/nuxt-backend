@@ -36,8 +36,8 @@ Defined in: [src/runtime/vue/composables/use-email-change.ts](https://github.com
 | <a id="step"></a> `step` | `Ref`\<[`EmailChangeStep`](#emailchangestep)\> | - | [src/runtime/vue/composables/use-email-change.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-change.ts) |
 | <a id="newemail"></a> `newEmail` | `Ref`\<`string`\> | The address the account moves to. | [src/runtime/vue/composables/use-email-change.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-change.ts) |
 | <a id="otp"></a> `otp` | `Ref`\<`string`\> | The code of the current step. | [src/runtime/vue/composables/use-email-change.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-change.ts) |
-| <a id="pending"></a> `pending` | `Ref`\<`boolean`\> | - | [src/runtime/vue/composables/use-email-change.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-change.ts) |
-| <a id="error"></a> `error` | `Ref`\<`string` \| `null`\> | - | [src/runtime/vue/composables/use-email-change.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-change.ts) |
+| <a id="ispending"></a> `isPending` | `ComputedRef`\<`boolean`\> | `true` while a step's call runs. | [src/runtime/vue/composables/use-email-change.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-change.ts) |
+| <a id="error"></a> `error` | `Ref`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the last step failed, or `null`: `invalid_input` on `email` for an address that does not pass, `rate_limited`, … Set it to `null` to clear it. | [src/runtime/vue/composables/use-email-change.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-change.ts) |
 | <a id="retryafter"></a> `retryAfter` | `Ref`\<`number` \| `null`\> | Seconds until a rate-limited step can be retried; `null` otherwise. | [src/runtime/vue/composables/use-email-change.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-change.ts) |
 | <a id="emailvalid"></a> `emailValid` | `ComputedRef`\<`boolean`\> | Whether `newEmail` passes `validateEmail` and differs from the current address. | [src/runtime/vue/composables/use-email-change.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-change.ts) |
 | <a id="start"></a> `start` | () => `Promise`\<`void`\> | Email a code to the current address → `confirm-current`. | [src/runtime/vue/composables/use-email-change.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-email-change.ts) |
@@ -78,7 +78,7 @@ who merely opens an email can change the account.
 
 Like `useLoginFlow`, a step machine that never rejects: a failed step
 leaves `step` where it was and puts the reason in `error` (with the wait
-of a 429 in `retryAfter`).
+of a rate limit in `retryAfter`).
 
 #### Parameters
 

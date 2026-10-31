@@ -6,7 +6,7 @@ import { customersList } from '@polar-sh/sdk/funcs/customersList.js'
 import { customersUpdate } from '@polar-sh/sdk/funcs/customersUpdate.js'
 import { membersListMembers } from '@polar-sh/sdk/funcs/membersListMembers.js'
 import type { Auth } from 'convex/server'
-import { type BillingContext, isProviderNotFound } from './context.js'
+import { BILLING_ACCESS, type BillingContext, isProviderNotFound } from './context.js'
 import type { PurchaseRules } from './purchase.js'
 import type { ProviderCtx, RunQueryCtx, RunWriteCtx } from './types/base.js'
 import type { BillingEntity, EntityProfile } from './types/setup.js'
@@ -22,8 +22,12 @@ import { logBackend } from '../../log.js'
 /** The member roles that may open a team customer's portal. */
 const BILLING_MEMBER_ROLES = new Set(['owner', 'billing_manager'])
 
-/** What the portal says to a workspace member the provider does not list as one who manages billing. */
-const NOT_BILLING_MANAGER = 'Only the workspace owner manages its billing for now. Ask them to open the billing portal.'
+/**
+ * What the portal says to a billing manager the provider does not list as
+ * one yet: the workspace's admins pass the server's check, and reach the
+ * portal once the provider lists them too.
+ */
+const PROVIDER_OWNER_ONLY = 'Only the workspace owner opens its billing portal for now. Ask them to open it.'
 
 /** What a `billTo: 'user'` checkout says when the account's email already pays for another account. */
 const EMAIL_TAKEN = 'Your email already pays for another account. Check out with a different email, or ask the app\'s operator to move that billing profile.'
@@ -43,8 +47,24 @@ function isConflict(error: unknown): boolean {
   return typeof status === 'number' && status >= 400 && status < 500 && status !== 404
 }
 
+/**
+ * The provider customer a workspace gets as its free plan starts, else on
+ * its first checkout: a team keyed
+ * by the workspace's id, named after it, owned by its owner member. The try
+ * kit seeds its personas' customers in this shape (scripts/try/seeds.mjs).
+ */
+export function teamCustomerCreate(entityId: string, name: string | undefined, owner: { userId: string, email: string, name: string | null }) {
+  return {
+    type: 'team' as const,
+    externalId: entityId,
+    ...(name ? { name } : {}),
+    owner: { email: owner.email, name: owner.name || null, externalId: owner.userId },
+    metadata: { userId: entityId },
+  }
+}
+
 /** The signed-in caller behind a provider operation, as a member of the entity's customer. */
-interface Caller {
+export interface Caller {
   userId: string
   email: string
   /** Proven by a sign-in code: only then may the email stand for the caller. */
@@ -76,7 +96,7 @@ export function createCustomers(
 
   /** A workspace entity's name, owner and owned workspaces; `null` with `billTo: 'user'` or for an id that is no workspace. */
   const profileOf = async (ctx: RunQueryCtx, entityId: string): Promise<EntityProfile | null> =>
-    billTo === 'organization' ? await ctx.runQuery(cache.entityProfile, { entityId }) : null
+    billTo === 'workspace' ? await ctx.runQuery(cache.entityProfile, { entityId }) : null
 
   /** The provider customer that already carries the entity's id as its external id, or `null`. */
   const customerByExternalId = async (entityId: string, operation: string): Promise<{ id: string } | null> => {
@@ -135,13 +155,7 @@ export function createCustomers(
     if (!owner?.email) {
       throw backendError('not_ready', { reason: 'no_customer' }, '[nuxt-backend] Billing: this workspace has no owner with an email to own its billing customer.')
     }
-    return await customersCreate(provider.polar, {
-      type: 'team',
-      externalId: entity.userId,
-      ...(profile?.name ? { name: profile.name } : {}),
-      owner: { email: owner.email, name: owner.name || null, externalId: owner.userId },
-      metadata,
-    })
+    return await customersCreate(provider.polar, teamCustomerCreate(entity.userId, profile?.name, owner))
   }
 
   /**
@@ -159,8 +173,8 @@ export function createCustomers(
    * one adopted (a personal workspace or a user only), else a new one, or
    * the one another request created a moment earlier.
    */
-  const firstCustomer = async (ctx: RunWriteCtx & { auth?: Auth }, entity: BillingEntity, profile: EntityProfile | null, operation: string): Promise<string> => {
-    const caller = await callerOf(ctx)
+  const firstCustomer = async (ctx: RunWriteCtx & { auth?: Auth }, entity: BillingEntity, profile: EntityProfile | null, operation: string, onBehalfOf?: Caller): Promise<string> => {
+    const caller = onBehalfOf ?? await callerOf(ctx)
     const adoptEmail = adoptableEmail(entity, profile, caller)
     const earlier = adoptEmail ? await adoptable(ctx, adoptEmail, entity.userId, operation) : null
     if (earlier?.taken && billTo === 'user') {
@@ -227,17 +241,21 @@ export function createCustomers(
    *    a personal workspace or a user entity, never a shared workspace.
    * 4. A new one. Two first checkouts at once race to create it: the
    *    provider keeps the external id unique, so the loser reads the winner's.
+   *
+   * `onBehalfOf` stands for the caller where nobody is signed in: the free
+   * plan's start, which reads the account it subscribes from its user row.
    */
   const ensureCustomer = async (
     ctx: RunWriteCtx & { auth?: Auth },
     entity: BillingEntity,
     profile: EntityProfile | null,
     operation: string,
+    onBehalfOf?: Caller,
   ): Promise<string> => {
     const mapped = await mappedCustomer(ctx, entity.userId)
     if (mapped) return await keyMapped(mapped, entity.userId, operation)
     const customerId = (await customerByExternalId(entity.userId, operation))?.id
-      ?? await firstCustomer(ctx, entity, profile, operation)
+      ?? await firstCustomer(ctx, entity, profile, operation, onBehalfOf)
     await ctx.runMutation(providerLib.insertCustomer, { id: customerId, userId: entity.userId })
     return customerId
   }
@@ -288,19 +306,23 @@ export function createCustomers(
     const member = members.find(entry => caller && entry.externalId === caller.userId)
       ?? members.find(entry => caller?.emailVerified && caller.email && entry.externalId == null && entry.email.toLowerCase() === caller.email)
     if (member && BILLING_MEMBER_ROLES.has(String(member.role))) return member.id
-    throw backendError('forbidden', { reason: 'not_billing_manager', message: NOT_BILLING_MANAGER }, `[nuxt-backend] ${NOT_BILLING_MANAGER}`)
+    throw backendError('forbidden', { reason: 'provider_owner_only', message: PROVIDER_OWNER_ONLY }, `[nuxt-backend] ${PROVIDER_OWNER_ONLY}`)
   }
 
   /**
    * A customer-portal session for the caller's billing entity, scoped to the
    * caller's own member of a workspace's team customer, so the portal shows
-   * who is signed in and what that member may do. A workspace member the
-   * provider does not list as the owner or a billing manager is refused
-   * (`forbidden`, reason `not_billing_manager`); an entity that never paid has
-   * no customer yet (`not_ready`, reason `no_customer`).
+   * who is signed in and what that member may do. Only a billing manager
+   * (the workspace's owner or an admin, read fresh) gets one, in person:
+   * another member is refused (`forbidden`, reason `not_billing_manager`),
+   * and so is an impersonating administrator. The provider
+   * must list the caller as the owner or a billing manager of the customer
+   * too, else `forbidden` with reason `provider_owner_only`: today it
+   * lists only the owner. An entity that never paid has no customer yet
+   * (`not_ready`, reason `no_customer`).
    */
   const portal = async (ctx: RunWriteCtx & { auth?: Auth }, options: { returnUrl?: string } = {}): Promise<{ url: string }> => {
-    const { userId } = await requireEntity(ctx)
+    const { userId } = await requireEntity(ctx, BILLING_ACCESS.portal)
     requireProviderAccess('portal session')
     requireTrustedUrl(options.returnUrl, 'returnUrl')
     await throttle(ctx, userId, 'portal sessions')
@@ -308,7 +330,7 @@ export function createCustomers(
     if (!customerId) {
       throw backendError('not_ready', { reason: 'no_customer' }, '[nuxt-backend] No billing customer yet — the portal opens after a first checkout.')
     }
-    const memberId = billTo === 'organization' ? await billingMemberOf(ctx, customerId) : undefined
+    const memberId = billTo === 'workspace' ? await billingMemberOf(ctx, customerId) : undefined
     const session = await customerSessionsCreate(provider.polar, {
       customerId,
       ...(memberId ? { memberId } : {}),

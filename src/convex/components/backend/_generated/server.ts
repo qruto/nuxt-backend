@@ -39,10 +39,12 @@ import type { DataModel } from "./dataModel.js";
 type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
+  readonly BACKEND_ENVIRONMENT:
+    "development" | "preview" | "sandbox" | "production" | undefined;
   readonly EMAIL_API_KEY: string | undefined;
   readonly EMAIL_FROM: string | undefined;
-  readonly EMAIL_TEST_MODE: string | undefined;
   readonly EMAIL_WEBHOOK_SECRET: string | undefined;
+  readonly MONITORING_DSN: string | undefined;
 };
 
 /**

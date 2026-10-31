@@ -1,0 +1,2204 @@
+{
+  "start": [
+    {
+      "kind": "Setup helpers",
+      "items": [
+        {
+          "name": "registerBackendRoutes",
+          "to": "/docs/reference/api/http"
+        }
+      ]
+    },
+    {
+      "kind": "Environment variables",
+      "items": [
+        {
+          "name": "BACKEND_ENVIRONMENT",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "AI_GATEWAY_API_KEY",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "PROVENANCE_PRIVATE_KEY",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "PROVENANCE_CERTIFICATE",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "PUSH_PUBLIC_KEY",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "PUSH_PRIVATE_KEY",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "MONITORING_DSN",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "NUXT_PUBLIC_BACKEND_URL",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        }
+      ]
+    },
+    {
+      "kind": "Findings",
+      "items": [
+        {
+          "name": "convex-codegen",
+          "to": "/docs/reference/cli/diagnostics#convex-codegen"
+        },
+        {
+          "name": "paths-file",
+          "to": "/docs/reference/cli/diagnostics#paths-file"
+        },
+        {
+          "name": "brand-file",
+          "to": "/docs/reference/cli/diagnostics#brand-file"
+        },
+        {
+          "name": "dev-script",
+          "to": "/docs/reference/cli/diagnostics#dev-script"
+        },
+        {
+          "name": "convex-config",
+          "to": "/docs/reference/cli/diagnostics#convex-config"
+        },
+        {
+          "name": "function-contract",
+          "to": "/docs/reference/cli/diagnostics#function-contract"
+        },
+        {
+          "name": "agent-files",
+          "to": "/docs/reference/cli/diagnostics#agent-files"
+        },
+        {
+          "name": "name-collisions",
+          "to": "/docs/reference/cli/diagnostics#name-collisions"
+        },
+        {
+          "name": "bundle-duplicates",
+          "to": "/docs/reference/cli/diagnostics#bundle-duplicates"
+        }
+      ]
+    }
+  ],
+  "auth": [
+    {
+      "kind": "Pages",
+      "items": [
+        {
+          "name": "/accept-invitation",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/admin",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/invite",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/account/keep",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/login",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/profile",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/security",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/settings",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/waitlist",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/welcome",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        }
+      ]
+    },
+    {
+      "kind": "Components",
+      "items": [
+        {
+          "name": "<AuthForm>",
+          "to": "/docs/reference/components/account#authform"
+        },
+        {
+          "name": "<WaitlistForm>",
+          "to": "/docs/reference/components/account#waitlistform"
+        },
+        {
+          "name": "<ReauthenticateDialog>",
+          "to": "/docs/reference/components/account#reauthenticatedialog"
+        },
+        {
+          "name": "<ProfileSettings>",
+          "to": "/docs/reference/components/account#profilesettings"
+        },
+        {
+          "name": "<SecuritySettings>",
+          "to": "/docs/reference/components/account#securitysettings"
+        },
+        {
+          "name": "<ConsentPrompt>",
+          "to": "/docs/reference/components/account#consentprompt"
+        },
+        {
+          "name": "<OnboardingFlow>",
+          "to": "/docs/reference/components/account#onboardingflow"
+        },
+        {
+          "name": "<ActivationChecklist>",
+          "to": "/docs/reference/components/account#activationchecklist"
+        },
+        {
+          "name": "<HowDidYouHear>",
+          "to": "/docs/reference/components/account#howdidyouhear"
+        },
+        {
+          "name": "<AccountData>",
+          "to": "/docs/reference/components/account#accountdata"
+        },
+        {
+          "name": "<WorkspaceSettings>",
+          "to": "/docs/reference/components/workspaces#workspacesettings"
+        },
+        {
+          "name": "<AcceptInvitation>",
+          "to": "/docs/reference/components/workspaces#acceptinvitation"
+        },
+        {
+          "name": "<AuditLog>",
+          "to": "/docs/reference/components/workspaces#auditlog"
+        },
+        {
+          "name": "<AdminUsers>",
+          "to": "/docs/reference/components/workspaces#adminusers"
+        },
+        {
+          "name": "<AdminWorkspaces>",
+          "to": "/docs/reference/components/workspaces#adminworkspaces"
+        },
+        {
+          "name": "<AccessDenied>",
+          "to": "/docs/reference/components/shell#accessdenied"
+        }
+      ]
+    },
+    {
+      "kind": "Composables",
+      "items": [
+        {
+          "name": "useAuth",
+          "to": "/docs/reference/api/use-auth"
+        },
+        {
+          "name": "useLoginFlow",
+          "to": "/docs/reference/api/use-login-flow"
+        },
+        {
+          "name": "useEmailChange",
+          "to": "/docs/reference/api/use-email-change"
+        },
+        {
+          "name": "useWorkspace",
+          "to": "/docs/reference/api/use-workspace"
+        },
+        {
+          "name": "useReferralAdmin",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "usePasskeys",
+          "to": "/docs/reference/api/use-passkeys"
+        },
+        {
+          "name": "useSessions",
+          "to": "/docs/reference/api/use-sessions"
+        },
+        {
+          "name": "useReauthentication",
+          "to": "/docs/reference/api/use-reauthentication"
+        },
+        {
+          "name": "useAuditLog",
+          "to": "/docs/reference/api/use-audit-log"
+        },
+        {
+          "name": "useAccount",
+          "to": "/docs/reference/api/use-account"
+        },
+        {
+          "name": "useConsents",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useAdmin",
+          "to": "/docs/reference/api/use-admin"
+        },
+        {
+          "name": "useAccessPhase",
+          "to": "/docs/reference/api/use-access"
+        },
+        {
+          "name": "useInvite",
+          "to": "/docs/reference/api/use-access"
+        },
+        {
+          "name": "useAccessAdmin",
+          "to": "/docs/reference/api/use-access"
+        },
+        {
+          "name": "useWaitlist",
+          "to": "/docs/reference/api/use-waitlist"
+        },
+        {
+          "name": "useWaitlistAdmin",
+          "to": "/docs/reference/api/use-waitlist-admin"
+        },
+        {
+          "name": "useOnboarding",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useActivation",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useReturnPath",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useHumanCheck",
+          "to": "/docs/reference/api/use-human-check"
+        }
+      ]
+    },
+    {
+      "kind": "Nitro auto-imports",
+      "items": [
+        {
+          "name": "backendAuth",
+          "to": "/docs/reference/nuxt/server-utilities"
+        }
+      ]
+    },
+    {
+      "kind": "Routes",
+      "items": [
+        {
+          "name": "/api/auth",
+          "to": "/docs/reference/backend/http-routes"
+        },
+        {
+          "name": "/api/human-proof",
+          "to": "/docs/reference/backend/http-routes"
+        }
+      ]
+    },
+    {
+      "kind": "Setup helpers",
+      "items": [
+        {
+          "name": "setupAuth",
+          "to": "/docs/reference/api/auth"
+        },
+        {
+          "name": "createFunctions",
+          "to": "/docs/reference/api/functions"
+        },
+        {
+          "name": "defineActivation",
+          "to": "/docs/reference/api/audit"
+        },
+        {
+          "name": "setupAudit",
+          "to": "/docs/reference/api/audit"
+        },
+        {
+          "name": "setupAccess",
+          "to": "/docs/reference/api/access"
+        },
+        {
+          "name": "setupWaitlist",
+          "to": "/docs/reference/api/access"
+        },
+        {
+          "name": "setupAccount",
+          "to": "/docs/reference/api/account"
+        },
+        {
+          "name": "setupAdmin",
+          "to": "/docs/reference/api/admin"
+        },
+        {
+          "name": "defineBackendAuthConfig",
+          "to": "/docs/reference/api/auth-config"
+        }
+      ]
+    },
+    {
+      "kind": "Environment variables",
+      "items": [
+        {
+          "name": "AUTH_SECRET",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "SITE_URL",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "PROTECTION_PROOF_SECRET",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "PROTECTION_CHALLENGE_SECRET_KEY",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "NUXT_PUBLIC_BACKEND_CHALLENGE_SITE_KEY",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        }
+      ]
+    },
+    {
+      "kind": "Findings",
+      "items": [
+        {
+          "name": "auth-secret",
+          "to": "/docs/reference/cli/diagnostics#auth-secret"
+        },
+        {
+          "name": "site-url",
+          "to": "/docs/reference/cli/diagnostics#site-url"
+        },
+        {
+          "name": "deployment-auth-secret",
+          "to": "/docs/reference/cli/diagnostics#deployment-auth-secret"
+        },
+        {
+          "name": "deployment-site-url",
+          "to": "/docs/reference/cli/diagnostics#deployment-site-url"
+        },
+        {
+          "name": "site-url-origin",
+          "to": "/docs/reference/cli/diagnostics#site-url-origin"
+        },
+        {
+          "name": "site-gated-page",
+          "to": "/docs/reference/cli/diagnostics#site-gated-page"
+        },
+        {
+          "name": "site-auth-proxy",
+          "to": "/docs/reference/cli/diagnostics#site-auth-proxy"
+        },
+        {
+          "name": "consent-urls",
+          "to": "/docs/reference/cli/diagnostics#consent-urls"
+        },
+        {
+          "name": "admin-bootstrap",
+          "to": "/docs/reference/cli/diagnostics#admin-bootstrap"
+        },
+        {
+          "name": "page-paths",
+          "to": "/docs/reference/cli/diagnostics#page-paths"
+        },
+        {
+          "name": "bot-protection",
+          "to": "/docs/reference/cli/diagnostics#bot-protection"
+        },
+        {
+          "name": "protection-proof",
+          "to": "/docs/reference/cli/diagnostics#protection-proof"
+        },
+        {
+          "name": "protection-challenge-keys",
+          "to": "/docs/reference/cli/diagnostics#protection-challenge-keys"
+        },
+        {
+          "name": "waitlist-bot-check",
+          "to": "/docs/reference/cli/diagnostics#waitlist-bot-check"
+        },
+        {
+          "name": "contact-bot-check",
+          "to": "/docs/reference/cli/diagnostics#contact-bot-check"
+        },
+        {
+          "name": "protection-guest-jobs",
+          "to": "/docs/reference/cli/diagnostics#protection-guest-jobs"
+        },
+        {
+          "name": "deployment-protection-proof-secret",
+          "to": "/docs/reference/cli/diagnostics#deployment-protection-proof-secret"
+        },
+        {
+          "name": "deployment-protection-challenge-secret-key",
+          "to": "/docs/reference/cli/diagnostics#deployment-protection-challenge-secret-key"
+        }
+      ]
+    }
+  ],
+  "billing": [
+    {
+      "kind": "Pages",
+      "items": [
+        {
+          "name": "/gifts",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/pricing",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/r/:code",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        }
+      ]
+    },
+    {
+      "kind": "Components",
+      "items": [
+        {
+          "name": "<PricingTable>",
+          "to": "/docs/reference/components/billing#pricingtable"
+        },
+        {
+          "name": "<BillingCheckoutLink>",
+          "to": "/docs/reference/components/billing#billingcheckoutlink"
+        },
+        {
+          "name": "<BillingPortalLink>",
+          "to": "/docs/reference/components/billing#billingportallink"
+        },
+        {
+          "name": "<BillingHistory>",
+          "to": "/docs/reference/components/billing#billinghistory"
+        },
+        {
+          "name": "<UsageHistory>",
+          "to": "/docs/reference/components/billing#usagehistory"
+        },
+        {
+          "name": "<UpgradePrompt>",
+          "to": "/docs/reference/components/billing#upgradeprompt"
+        },
+        {
+          "name": "<CancelFlow>",
+          "to": "/docs/reference/components/billing#cancelflow"
+        },
+        {
+          "name": "<WithdrawalButton>",
+          "to": "/docs/reference/components/billing#withdrawalbutton"
+        },
+        {
+          "name": "<ReferralCard>",
+          "to": "/docs/reference/components/billing#referralcard"
+        }
+      ]
+    },
+    {
+      "kind": "Composables",
+      "items": [
+        {
+          "name": "useBilling",
+          "to": "/docs/reference/api/use-billing"
+        },
+        {
+          "name": "useFeatures",
+          "to": "/docs/reference/api/use-features"
+        },
+        {
+          "name": "useCredits",
+          "to": "/docs/reference/api/use-credits"
+        },
+        {
+          "name": "usePricing",
+          "to": "/docs/reference/api/use-pricing"
+        },
+        {
+          "name": "useCampaign",
+          "to": "/docs/reference/api/use-campaign"
+        },
+        {
+          "name": "useOrders",
+          "to": "/docs/reference/api/use-orders"
+        },
+        {
+          "name": "useUsage",
+          "to": "/docs/reference/api/use-usage"
+        },
+        {
+          "name": "useGifts",
+          "to": "/docs/reference/api/use-gifts"
+        },
+        {
+          "name": "useReferrals",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        }
+      ]
+    },
+    {
+      "kind": "Routes",
+      "items": [
+        {
+          "name": "/billing/events",
+          "to": "/docs/reference/backend/http-routes"
+        }
+      ]
+    },
+    {
+      "kind": "Setup helpers",
+      "items": [
+        {
+          "name": "defineBillingCatalog",
+          "to": "/docs/reference/api/billing"
+        },
+        {
+          "name": "setupBilling",
+          "to": "/docs/reference/api/billing"
+        },
+        {
+          "name": "setupReferrals",
+          "to": "/docs/reference/api/billing"
+        }
+      ]
+    },
+    {
+      "kind": "Environment variables",
+      "items": [
+        {
+          "name": "BILLING_ACCESS_TOKEN",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "BILLING_WEBHOOK_SECRET",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        }
+      ]
+    },
+    {
+      "kind": "Findings",
+      "items": [
+        {
+          "name": "billing-access",
+          "to": "/docs/reference/cli/diagnostics#billing-access"
+        },
+        {
+          "name": "billing-webhook-secret",
+          "to": "/docs/reference/cli/diagnostics#billing-webhook-secret"
+        },
+        {
+          "name": "deployment-billing-access-token",
+          "to": "/docs/reference/cli/diagnostics#deployment-billing-access-token"
+        },
+        {
+          "name": "deployment-billing-webhook-secret",
+          "to": "/docs/reference/cli/diagnostics#deployment-billing-webhook-secret"
+        },
+        {
+          "name": "billing-webhook-route",
+          "to": "/docs/reference/cli/diagnostics#billing-webhook-route"
+        },
+        {
+          "name": "billing-webhook-enabled",
+          "to": "/docs/reference/cli/diagnostics#billing-webhook-enabled"
+        },
+        {
+          "name": "billing-webhook-events",
+          "to": "/docs/reference/cli/diagnostics#billing-webhook-events"
+        },
+        {
+          "name": "billing-meter-usage",
+          "to": "/docs/reference/cli/diagnostics#billing-meter-usage"
+        },
+        {
+          "name": "billing-organization",
+          "to": "/docs/reference/cli/diagnostics#billing-organization"
+        },
+        {
+          "name": "billing-multiple-subscriptions",
+          "to": "/docs/reference/cli/diagnostics#billing-multiple-subscriptions"
+        },
+        {
+          "name": "billing-proration",
+          "to": "/docs/reference/cli/diagnostics#billing-proration"
+        },
+        {
+          "name": "billing-benefit-grace",
+          "to": "/docs/reference/cli/diagnostics#billing-benefit-grace"
+        },
+        {
+          "name": "billing-trial-abuse",
+          "to": "/docs/reference/cli/diagnostics#billing-trial-abuse"
+        },
+        {
+          "name": "billing-portal",
+          "to": "/docs/reference/cli/diagnostics#billing-portal"
+        },
+        {
+          "name": "billing-customer-emails",
+          "to": "/docs/reference/cli/diagnostics#billing-customer-emails"
+        },
+        {
+          "name": "billing-team-customers",
+          "to": "/docs/reference/cli/diagnostics#billing-team-customers"
+        },
+        {
+          "name": "billing-gift-twins",
+          "to": "/docs/reference/cli/diagnostics#billing-gift-twins"
+        },
+        {
+          "name": "billing-pass-products",
+          "to": "/docs/reference/cli/diagnostics#billing-pass-products"
+        },
+        {
+          "name": "billing-feature-benefits",
+          "to": "/docs/reference/cli/diagnostics#billing-feature-benefits"
+        },
+        {
+          "name": "billing-promotion-limits",
+          "to": "/docs/reference/cli/diagnostics#billing-promotion-limits"
+        },
+        {
+          "name": "billing-promotion-portal",
+          "to": "/docs/reference/cli/diagnostics#billing-promotion-portal"
+        },
+        {
+          "name": "billing-provider-sdk",
+          "to": "/docs/reference/cli/diagnostics#billing-provider-sdk"
+        },
+        {
+          "name": "billing-catalog-production",
+          "to": "/docs/reference/cli/diagnostics#billing-catalog-production"
+        }
+      ]
+    }
+  ],
+  "email": [
+    {
+      "kind": "Pages",
+      "items": [
+        {
+          "name": "/unsubscribe",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        }
+      ]
+    },
+    {
+      "kind": "Components",
+      "items": [
+        {
+          "name": "<NotificationInbox>",
+          "to": "/docs/reference/components/shell#notificationinbox"
+        },
+        {
+          "name": "<ContactForm>",
+          "to": "/docs/reference/components/shell#contactform"
+        }
+      ]
+    },
+    {
+      "kind": "Composables",
+      "items": [
+        {
+          "name": "useNotifications",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useNotificationInbox",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useEmailPreferences",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "usePushSubscription",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useAnnouncements",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useAnnouncementsAdmin",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useContactForm",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useInboxAdmin",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useEmailStatus",
+          "to": "/docs/reference/api/use-email-status"
+        },
+        {
+          "name": "useSandboxInbox",
+          "to": "/docs/reference/api/use-sandbox-inbox"
+        }
+      ]
+    },
+    {
+      "kind": "Routes",
+      "items": [
+        {
+          "name": "/email/events",
+          "to": "/docs/reference/backend/http-routes"
+        }
+      ]
+    },
+    {
+      "kind": "Setup helpers",
+      "items": [
+        {
+          "name": "setupEmail",
+          "to": "/docs/reference/api/email"
+        },
+        {
+          "name": "defineEmailSequence",
+          "to": "/docs/reference/api/workflows"
+        },
+        {
+          "name": "setupNotifications",
+          "to": "/docs/reference/api/notifications"
+        }
+      ]
+    },
+    {
+      "kind": "Environment variables",
+      "items": [
+        {
+          "name": "EMAIL_API_KEY",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "EMAIL_FROM",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "EMAIL_MARKETING_FROM",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "EMAIL_REGION",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "EMAIL_WEBHOOK_SECRET",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "EMAIL_DEV_INBOX",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        }
+      ]
+    },
+    {
+      "kind": "Findings",
+      "items": [
+        {
+          "name": "email-transport",
+          "to": "/docs/reference/cli/diagnostics#email-transport"
+        },
+        {
+          "name": "email-webhook-secret",
+          "to": "/docs/reference/cli/diagnostics#email-webhook-secret"
+        },
+        {
+          "name": "deployment-email-api-key",
+          "to": "/docs/reference/cli/diagnostics#deployment-email-api-key"
+        },
+        {
+          "name": "deployment-email-from",
+          "to": "/docs/reference/cli/diagnostics#deployment-email-from"
+        },
+        {
+          "name": "deployment-email-webhook-secret",
+          "to": "/docs/reference/cli/diagnostics#deployment-email-webhook-secret"
+        },
+        {
+          "name": "email-webhook-route",
+          "to": "/docs/reference/cli/diagnostics#email-webhook-route"
+        },
+        {
+          "name": "deployment-email-dev-inbox",
+          "to": "/docs/reference/cli/diagnostics#deployment-email-dev-inbox"
+        },
+        {
+          "name": "email-sender-domain",
+          "to": "/docs/reference/cli/diagnostics#email-sender-domain"
+        },
+        {
+          "name": "email-reputation",
+          "to": "/docs/reference/cli/diagnostics#email-reputation"
+        },
+        {
+          "name": "email-quota",
+          "to": "/docs/reference/cli/diagnostics#email-quota"
+        },
+        {
+          "name": "email-key-permission",
+          "to": "/docs/reference/cli/diagnostics#email-key-permission"
+        },
+        {
+          "name": "email-topics",
+          "to": "/docs/reference/cli/diagnostics#email-topics"
+        },
+        {
+          "name": "email-flows",
+          "to": "/docs/reference/cli/diagnostics#email-flows"
+        },
+        {
+          "name": "email-webhook-events",
+          "to": "/docs/reference/cli/diagnostics#email-webhook-events"
+        },
+        {
+          "name": "email-webhook-enabled",
+          "to": "/docs/reference/cli/diagnostics#email-webhook-enabled"
+        },
+        {
+          "name": "email-postal-address",
+          "to": "/docs/reference/cli/diagnostics#email-postal-address"
+        },
+        {
+          "name": "email-marketing-from",
+          "to": "/docs/reference/cli/diagnostics#email-marketing-from"
+        },
+        {
+          "name": "email-region",
+          "to": "/docs/reference/cli/diagnostics#email-region"
+        }
+      ]
+    }
+  ],
+  "ai": [
+    {
+      "kind": "Pages",
+      "items": [
+        {
+          "name": "/report",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        }
+      ]
+    },
+    {
+      "kind": "Components",
+      "items": [
+        {
+          "name": "<AiLabel>",
+          "to": "/docs/reference/components/shell#ailabel"
+        }
+      ]
+    },
+    {
+      "kind": "Composables",
+      "items": [
+        {
+          "name": "useAiStream",
+          "to": "/docs/reference/api/use-ai-stream"
+        },
+        {
+          "name": "useJob",
+          "to": "/docs/reference/api/use-job"
+        },
+        {
+          "name": "useAiLabel",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useChat",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        }
+      ]
+    },
+    {
+      "kind": "Routes",
+      "items": [
+        {
+          "name": "/ai/stream",
+          "to": "/docs/reference/backend/http-routes"
+        }
+      ]
+    },
+    {
+      "kind": "Setup helpers",
+      "items": [
+        {
+          "name": "defineJobQueue",
+          "to": "/docs/reference/api/ai"
+        },
+        {
+          "name": "setupAi",
+          "to": "/docs/reference/api/ai"
+        }
+      ]
+    },
+    {
+      "kind": "Findings",
+      "items": [
+        {
+          "name": "ai-stream-route",
+          "to": "/docs/reference/cli/diagnostics#ai-stream-route"
+        },
+        {
+          "name": "ai-components",
+          "to": "/docs/reference/cli/diagnostics#ai-components"
+        },
+        {
+          "name": "ai-spend-limit",
+          "to": "/docs/reference/cli/diagnostics#ai-spend-limit"
+        },
+        {
+          "name": "deployment-ai-gateway-api-key",
+          "to": "/docs/reference/cli/diagnostics#deployment-ai-gateway-api-key"
+        },
+        {
+          "name": "deployment-provenance-private-key",
+          "to": "/docs/reference/cli/diagnostics#deployment-provenance-private-key"
+        },
+        {
+          "name": "deployment-provenance-certificate",
+          "to": "/docs/reference/cli/diagnostics#deployment-provenance-certificate"
+        }
+      ]
+    }
+  ],
+  "agents": [],
+  "data": [
+    {
+      "kind": "Components",
+      "items": [
+        {
+          "name": "<ConnectionStatus>",
+          "to": "/docs/reference/components/shell#connectionstatus"
+        },
+        {
+          "name": "<UploadField>",
+          "to": "/docs/reference/components/shell#uploadfield"
+        }
+      ]
+    },
+    {
+      "kind": "Composables",
+      "items": [
+        {
+          "name": "useConnectionState",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useBackendClient",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useSearch",
+          "to": "/docs/reference/api/use-search"
+        },
+        {
+          "name": "useShareLink",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useUploadField",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "getBackendError",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useWorkflowStatus",
+          "to": "/docs/reference/api/use-workflow"
+        }
+      ]
+    },
+    {
+      "kind": "Setup helpers",
+      "items": [
+        {
+          "name": "defineRetention",
+          "to": "/docs/reference/api/functions"
+        },
+        {
+          "name": "defineSearch",
+          "to": "/docs/reference/api/search"
+        },
+        {
+          "name": "setupWorkflows",
+          "to": "/docs/reference/api/workflows"
+        },
+        {
+          "name": "setupStorage",
+          "to": "/docs/reference/api/storage"
+        }
+      ]
+    }
+  ],
+  "ui": [
+    {
+      "kind": "Pages",
+      "items": [
+        {
+          "name": "/accept-invitation",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/legal/accessibility",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/admin",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/gifts",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/invite",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/account/keep",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/login",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/pricing",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/legal/privacy",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/profile",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/r/:code",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/report",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/security",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/settings",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/legal/subprocessors",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/legal/terms",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/unsubscribe",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/waitlist",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/welcome",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        }
+      ]
+    },
+    {
+      "kind": "Components",
+      "items": [
+        {
+          "name": "<AuthForm>",
+          "to": "/docs/reference/components/account#authform"
+        },
+        {
+          "name": "<WaitlistForm>",
+          "to": "/docs/reference/components/account#waitlistform"
+        },
+        {
+          "name": "<ReauthenticateDialog>",
+          "to": "/docs/reference/components/account#reauthenticatedialog"
+        },
+        {
+          "name": "<ProfileSettings>",
+          "to": "/docs/reference/components/account#profilesettings"
+        },
+        {
+          "name": "<SecuritySettings>",
+          "to": "/docs/reference/components/account#securitysettings"
+        },
+        {
+          "name": "<ConsentPrompt>",
+          "to": "/docs/reference/components/account#consentprompt"
+        },
+        {
+          "name": "<OnboardingFlow>",
+          "to": "/docs/reference/components/account#onboardingflow"
+        },
+        {
+          "name": "<ActivationChecklist>",
+          "to": "/docs/reference/components/account#activationchecklist"
+        },
+        {
+          "name": "<HowDidYouHear>",
+          "to": "/docs/reference/components/account#howdidyouhear"
+        },
+        {
+          "name": "<AccountData>",
+          "to": "/docs/reference/components/account#accountdata"
+        },
+        {
+          "name": "<WorkspaceSettings>",
+          "to": "/docs/reference/components/workspaces#workspacesettings"
+        },
+        {
+          "name": "<AcceptInvitation>",
+          "to": "/docs/reference/components/workspaces#acceptinvitation"
+        },
+        {
+          "name": "<AuditLog>",
+          "to": "/docs/reference/components/workspaces#auditlog"
+        },
+        {
+          "name": "<PricingTable>",
+          "to": "/docs/reference/components/billing#pricingtable"
+        },
+        {
+          "name": "<BillingCheckoutLink>",
+          "to": "/docs/reference/components/billing#billingcheckoutlink"
+        },
+        {
+          "name": "<BillingPortalLink>",
+          "to": "/docs/reference/components/billing#billingportallink"
+        },
+        {
+          "name": "<BillingHistory>",
+          "to": "/docs/reference/components/billing#billinghistory"
+        },
+        {
+          "name": "<UsageHistory>",
+          "to": "/docs/reference/components/billing#usagehistory"
+        },
+        {
+          "name": "<UpgradePrompt>",
+          "to": "/docs/reference/components/billing#upgradeprompt"
+        },
+        {
+          "name": "<CancelFlow>",
+          "to": "/docs/reference/components/billing#cancelflow"
+        },
+        {
+          "name": "<WithdrawalButton>",
+          "to": "/docs/reference/components/billing#withdrawalbutton"
+        },
+        {
+          "name": "<ReferralCard>",
+          "to": "/docs/reference/components/billing#referralcard"
+        },
+        {
+          "name": "<AdminUsers>",
+          "to": "/docs/reference/components/workspaces#adminusers"
+        },
+        {
+          "name": "<AdminWorkspaces>",
+          "to": "/docs/reference/components/workspaces#adminworkspaces"
+        },
+        {
+          "name": "<Gate>",
+          "to": "/docs/reference/components/shell#gate"
+        },
+        {
+          "name": "<BackendNotices>",
+          "to": "/docs/reference/components/shell#backendnotices"
+        },
+        {
+          "name": "<AccessDenied>",
+          "to": "/docs/reference/components/shell#accessdenied"
+        },
+        {
+          "name": "<ConnectionStatus>",
+          "to": "/docs/reference/components/shell#connectionstatus"
+        },
+        {
+          "name": "<UploadField>",
+          "to": "/docs/reference/components/shell#uploadfield"
+        },
+        {
+          "name": "<NotificationInbox>",
+          "to": "/docs/reference/components/shell#notificationinbox"
+        },
+        {
+          "name": "<ContactForm>",
+          "to": "/docs/reference/components/shell#contactform"
+        },
+        {
+          "name": "<AppShell>",
+          "to": "/docs/reference/components/shell#appshell"
+        },
+        {
+          "name": "<AiLabel>",
+          "to": "/docs/reference/components/shell#ailabel"
+        }
+      ]
+    },
+    {
+      "kind": "Composables",
+      "items": [
+        {
+          "name": "useAppShell",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useBackendConfig",
+          "to": "/docs/reference/api/use-backend-config"
+        },
+        {
+          "name": "useLabels",
+          "to": "/docs/reference/api/use-labels"
+        },
+        {
+          "name": "useBackendPagePath",
+          "to": "/docs/reference/api/use-backend-page-path"
+        }
+      ]
+    }
+  ],
+  "ship": [
+    {
+      "kind": "Pages",
+      "items": [
+        {
+          "name": "/legal/accessibility",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/legal/privacy",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/legal/subprocessors",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/legal/terms",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        }
+      ]
+    },
+    {
+      "kind": "Composables",
+      "items": [
+        {
+          "name": "useFlag",
+          "to": "/docs/reference/api/use-flags"
+        },
+        {
+          "name": "useFlagAdmin",
+          "to": "/docs/reference/api/use-flags"
+        },
+        {
+          "name": "useExperiment",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        }
+      ]
+    },
+    {
+      "kind": "Setup helpers",
+      "items": [
+        {
+          "name": "setupRateLimiter",
+          "to": "/docs/reference/api/rate-limit"
+        },
+        {
+          "name": "setupWebhooks",
+          "to": "/docs/reference/api/admin"
+        },
+        {
+          "name": "defineFlags",
+          "to": "/docs/reference/api/flags"
+        },
+        {
+          "name": "setupFlags",
+          "to": "/docs/reference/api/flags"
+        }
+      ]
+    },
+    {
+      "kind": "Findings",
+      "items": [
+        {
+          "name": "backend-site-url",
+          "to": "/docs/reference/cli/diagnostics#backend-site-url"
+        },
+        {
+          "name": "deployment-env",
+          "to": "/docs/reference/cli/diagnostics#deployment-env"
+        },
+        {
+          "name": "deployment-backend-environment",
+          "to": "/docs/reference/cli/diagnostics#deployment-backend-environment"
+        },
+        {
+          "name": "deployment-removed-env",
+          "to": "/docs/reference/cli/diagnostics#deployment-removed-env"
+        },
+        {
+          "name": "env-defaults",
+          "to": "/docs/reference/cli/diagnostics#env-defaults"
+        }
+      ]
+    }
+  ],
+  "reference": [
+    {
+      "kind": "Pages",
+      "items": [
+        {
+          "name": "19 in all",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app",
+          "label": "19 pages in all"
+        }
+      ]
+    },
+    {
+      "kind": "Components",
+      "items": [
+        {
+          "name": "33 in all",
+          "to": "/docs/reference/components",
+          "label": "33 components in all"
+        }
+      ]
+    },
+    {
+      "kind": "Composables",
+      "items": [
+        {
+          "name": "58 in all",
+          "to": "/docs/reference/nuxt/composables",
+          "label": "58 composables in all"
+        }
+      ]
+    },
+    {
+      "kind": "Nitro auto-imports",
+      "items": [
+        {
+          "name": "1 in all",
+          "to": "/docs/reference/nuxt/server-utilities",
+          "label": "1 nitro auto-imports in all"
+        }
+      ]
+    },
+    {
+      "kind": "Routes",
+      "items": [
+        {
+          "name": "5 in all",
+          "to": "/docs/reference/backend/http-routes",
+          "label": "5 routes in all"
+        }
+      ]
+    },
+    {
+      "kind": "Setup helpers",
+      "items": [
+        {
+          "name": "26 in all",
+          "to": "/docs/reference/backend",
+          "label": "26 setup helpers in all"
+        }
+      ]
+    },
+    {
+      "kind": "Environment variables",
+      "items": [
+        {
+          "name": "21 in all",
+          "to": "/docs/reference/configuration/environment-variables#every-variable",
+          "label": "21 environment variables in all"
+        }
+      ]
+    },
+    {
+      "kind": "Findings",
+      "items": [
+        {
+          "name": "94 in all",
+          "to": "/docs/reference/cli/diagnostics",
+          "label": "94 findings in all"
+        }
+      ]
+    }
+  ],
+  "first-run": [
+    {
+      "kind": "Your files",
+      "items": [
+        {
+          "name": "backend/convex.config.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/auth.config.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/auth.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/http.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/billing.catalog.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/ai.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/functions.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/billing.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/email.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/rateLimiter.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/workflows.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/audit.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/notifications.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/account.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/admin.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/webhooks.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/flags.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/paths.generated.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/brand.generated.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        }
+      ]
+    },
+    {
+      "kind": "Regenerated files",
+      "items": [
+        {
+          "name": "backend/billing.generated.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/_generated/",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        }
+      ]
+    },
+    {
+      "kind": "Pages",
+      "items": [
+        {
+          "name": "/accept-invitation",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/legal/accessibility",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/admin",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/gifts",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/invite",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/account/keep",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/login",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/pricing",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/legal/privacy",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/profile",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/r/:code",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/report",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/security",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/settings",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/legal/subprocessors",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/legal/terms",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/unsubscribe",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/waitlist",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        },
+        {
+          "name": "/welcome",
+          "to": "/docs/reference/backend/http-routes#in-the-nuxt-app"
+        }
+      ]
+    },
+    {
+      "kind": "Routes",
+      "items": [
+        {
+          "name": "/api/auth",
+          "to": "/docs/reference/backend/http-routes"
+        },
+        {
+          "name": "/api/human-proof",
+          "to": "/docs/reference/backend/http-routes"
+        },
+        {
+          "name": "/billing/events",
+          "to": "/docs/reference/backend/http-routes"
+        },
+        {
+          "name": "/email/events",
+          "to": "/docs/reference/backend/http-routes"
+        },
+        {
+          "name": "/ai/stream",
+          "to": "/docs/reference/backend/http-routes"
+        }
+      ]
+    },
+    {
+      "kind": "Composables",
+      "items": [
+        {
+          "name": "useAuth",
+          "to": "/docs/reference/api/use-auth"
+        },
+        {
+          "name": "useConnectionState",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useBackendClient",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useLoginFlow",
+          "to": "/docs/reference/api/use-login-flow"
+        },
+        {
+          "name": "useEmailChange",
+          "to": "/docs/reference/api/use-email-change"
+        },
+        {
+          "name": "useWorkspace",
+          "to": "/docs/reference/api/use-workspace"
+        },
+        {
+          "name": "useSearch",
+          "to": "/docs/reference/api/use-search"
+        },
+        {
+          "name": "useBilling",
+          "to": "/docs/reference/api/use-billing"
+        },
+        {
+          "name": "useFeatures",
+          "to": "/docs/reference/api/use-features"
+        },
+        {
+          "name": "useCredits",
+          "to": "/docs/reference/api/use-credits"
+        },
+        {
+          "name": "usePricing",
+          "to": "/docs/reference/api/use-pricing"
+        },
+        {
+          "name": "useCampaign",
+          "to": "/docs/reference/api/use-campaign"
+        },
+        {
+          "name": "useOrders",
+          "to": "/docs/reference/api/use-orders"
+        },
+        {
+          "name": "useUsage",
+          "to": "/docs/reference/api/use-usage"
+        },
+        {
+          "name": "useGifts",
+          "to": "/docs/reference/api/use-gifts"
+        },
+        {
+          "name": "useReferrals",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useReferralAdmin",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "usePasskeys",
+          "to": "/docs/reference/api/use-passkeys"
+        },
+        {
+          "name": "useSessions",
+          "to": "/docs/reference/api/use-sessions"
+        },
+        {
+          "name": "useReauthentication",
+          "to": "/docs/reference/api/use-reauthentication"
+        },
+        {
+          "name": "useAuditLog",
+          "to": "/docs/reference/api/use-audit-log"
+        },
+        {
+          "name": "useAccount",
+          "to": "/docs/reference/api/use-account"
+        },
+        {
+          "name": "useConsents",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useAdmin",
+          "to": "/docs/reference/api/use-admin"
+        },
+        {
+          "name": "useFlag",
+          "to": "/docs/reference/api/use-flags"
+        },
+        {
+          "name": "useFlagAdmin",
+          "to": "/docs/reference/api/use-flags"
+        },
+        {
+          "name": "useAccessPhase",
+          "to": "/docs/reference/api/use-access"
+        },
+        {
+          "name": "useInvite",
+          "to": "/docs/reference/api/use-access"
+        },
+        {
+          "name": "useAccessAdmin",
+          "to": "/docs/reference/api/use-access"
+        },
+        {
+          "name": "useWaitlist",
+          "to": "/docs/reference/api/use-waitlist"
+        },
+        {
+          "name": "useWaitlistAdmin",
+          "to": "/docs/reference/api/use-waitlist-admin"
+        },
+        {
+          "name": "useShareLink",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useUploadField",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useNotifications",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useNotificationInbox",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useEmailPreferences",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "usePushSubscription",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useAnnouncements",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useAnnouncementsAdmin",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useContactForm",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useOnboarding",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useActivation",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useExperiment",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useAppShell",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useInboxAdmin",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "getBackendError",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useBackendConfig",
+          "to": "/docs/reference/api/use-backend-config"
+        },
+        {
+          "name": "useLabels",
+          "to": "/docs/reference/api/use-labels"
+        },
+        {
+          "name": "useBackendPagePath",
+          "to": "/docs/reference/api/use-backend-page-path"
+        },
+        {
+          "name": "useReturnPath",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useEmailStatus",
+          "to": "/docs/reference/api/use-email-status"
+        },
+        {
+          "name": "useSandboxInbox",
+          "to": "/docs/reference/api/use-sandbox-inbox"
+        },
+        {
+          "name": "useWorkflowStatus",
+          "to": "/docs/reference/api/use-workflow"
+        },
+        {
+          "name": "useAiStream",
+          "to": "/docs/reference/api/use-ai-stream"
+        },
+        {
+          "name": "useJob",
+          "to": "/docs/reference/api/use-job"
+        },
+        {
+          "name": "useAiLabel",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useChat",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useHumanCheck",
+          "to": "/docs/reference/api/use-human-check"
+        }
+      ]
+    },
+    {
+      "kind": "Components",
+      "items": [
+        {
+          "name": "<AuthForm>",
+          "to": "/docs/reference/components/account#authform"
+        },
+        {
+          "name": "<WaitlistForm>",
+          "to": "/docs/reference/components/account#waitlistform"
+        },
+        {
+          "name": "<ReauthenticateDialog>",
+          "to": "/docs/reference/components/account#reauthenticatedialog"
+        },
+        {
+          "name": "<ProfileSettings>",
+          "to": "/docs/reference/components/account#profilesettings"
+        },
+        {
+          "name": "<SecuritySettings>",
+          "to": "/docs/reference/components/account#securitysettings"
+        },
+        {
+          "name": "<ConsentPrompt>",
+          "to": "/docs/reference/components/account#consentprompt"
+        },
+        {
+          "name": "<OnboardingFlow>",
+          "to": "/docs/reference/components/account#onboardingflow"
+        },
+        {
+          "name": "<ActivationChecklist>",
+          "to": "/docs/reference/components/account#activationchecklist"
+        },
+        {
+          "name": "<HowDidYouHear>",
+          "to": "/docs/reference/components/account#howdidyouhear"
+        },
+        {
+          "name": "<AccountData>",
+          "to": "/docs/reference/components/account#accountdata"
+        },
+        {
+          "name": "<WorkspaceSettings>",
+          "to": "/docs/reference/components/workspaces#workspacesettings"
+        },
+        {
+          "name": "<AcceptInvitation>",
+          "to": "/docs/reference/components/workspaces#acceptinvitation"
+        },
+        {
+          "name": "<AuditLog>",
+          "to": "/docs/reference/components/workspaces#auditlog"
+        },
+        {
+          "name": "<PricingTable>",
+          "to": "/docs/reference/components/billing#pricingtable"
+        },
+        {
+          "name": "<BillingCheckoutLink>",
+          "to": "/docs/reference/components/billing#billingcheckoutlink"
+        },
+        {
+          "name": "<BillingPortalLink>",
+          "to": "/docs/reference/components/billing#billingportallink"
+        },
+        {
+          "name": "<BillingHistory>",
+          "to": "/docs/reference/components/billing#billinghistory"
+        },
+        {
+          "name": "<UsageHistory>",
+          "to": "/docs/reference/components/billing#usagehistory"
+        },
+        {
+          "name": "<UpgradePrompt>",
+          "to": "/docs/reference/components/billing#upgradeprompt"
+        },
+        {
+          "name": "<CancelFlow>",
+          "to": "/docs/reference/components/billing#cancelflow"
+        },
+        {
+          "name": "<WithdrawalButton>",
+          "to": "/docs/reference/components/billing#withdrawalbutton"
+        },
+        {
+          "name": "<ReferralCard>",
+          "to": "/docs/reference/components/billing#referralcard"
+        },
+        {
+          "name": "<AdminUsers>",
+          "to": "/docs/reference/components/workspaces#adminusers"
+        },
+        {
+          "name": "<AdminWorkspaces>",
+          "to": "/docs/reference/components/workspaces#adminworkspaces"
+        },
+        {
+          "name": "<Gate>",
+          "to": "/docs/reference/components/shell#gate"
+        },
+        {
+          "name": "<BackendNotices>",
+          "to": "/docs/reference/components/shell#backendnotices"
+        },
+        {
+          "name": "<AccessDenied>",
+          "to": "/docs/reference/components/shell#accessdenied"
+        },
+        {
+          "name": "<ConnectionStatus>",
+          "to": "/docs/reference/components/shell#connectionstatus"
+        },
+        {
+          "name": "<UploadField>",
+          "to": "/docs/reference/components/shell#uploadfield"
+        },
+        {
+          "name": "<NotificationInbox>",
+          "to": "/docs/reference/components/shell#notificationinbox"
+        },
+        {
+          "name": "<ContactForm>",
+          "to": "/docs/reference/components/shell#contactform"
+        },
+        {
+          "name": "<AppShell>",
+          "to": "/docs/reference/components/shell#appshell"
+        },
+        {
+          "name": "<AiLabel>",
+          "to": "/docs/reference/components/shell#ailabel"
+        }
+      ]
+    },
+    {
+      "kind": "Env it sets",
+      "items": [
+        {
+          "name": "AUTH_SECRET",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "SITE_URL",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "BACKEND_ENVIRONMENT",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "EMAIL_DEV_INBOX",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        }
+      ]
+    },
+    {
+      "kind": "Maintenance",
+      "items": [
+        {
+          "name": "sessions",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "verifications",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "rateLimits",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "aiRequests",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "invitations",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "auditEvents",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "notifications",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "announcements",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "lifecycleRuns",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "accountExports",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "failedErasures",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "waitlistJoins",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "waitlistMirror",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "files",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "jobs",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "guestTries",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "aiCosts",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "aiCostDays",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "knownDevices",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "suppressions",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "monitoringAlerts",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "contactMessages",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "inboundMessages",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "replyAddresses",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "reports",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "reportDecisions",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "billingDeletions",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "billingConsents",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "billingWithdrawals",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "billingSaveOffers",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "billingLifecycleMarks",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "secretOutbox",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "emailRecords",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        }
+      ]
+    }
+  ]
+}

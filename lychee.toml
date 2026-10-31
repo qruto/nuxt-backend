@@ -3,7 +3,7 @@
 # because a website changed, not because someone's branch did.
 
 # External links only. Links inside the docs are Nuxt Content routes, not paths
-# on disk — `/docs/data/search` is `website/content/docs/07.data/5.search.md` once Docus
+# on disk — `/docs/build/data/read-write/search` is `website/content/docs/04.build/5.data/5.search.md` once Docus
 # strips the ordering prefixes — so lychee cannot judge them, and the docs build
 # already fails on a broken one.
 #
@@ -49,11 +49,18 @@ exclude = [
   # GitHub settings pages answer a logged-out client with 404, not 403, so
   # `accept` below cannot cover them (RELEASE.md links the Actions settings).
   "^https?://github\\.com/.*/settings(/|$)",
-  # The API reference's "Defined in" links, about 1,400 of them. TypeDoc
-  # writes each from the file and line it read in this checkout, and
-  # `docs:reference:check` fails when they drift, so none can be dead. Asking
-  # github.com for all of them in one run is what got answered with 503s.
-  "^https://github\\.com/qruto/nuxt-backend/blob/main/src/",
+  # This repository's own files on main: the API reference's "Defined in"
+  # links (about 1,400, which TypeDoc writes from this checkout) and the docs'
+  # links to the policy files and the examples. Each names a path in the very
+  # checkout this job runs on, and test/docs/docs-contract.test.ts fails on a
+  # path that does not exist. Asking github.com for them all in one run is
+  # what got answered with 503s (issue #96).
+  "^https://github\\.com/qruto/nuxt-backend/(blob|tree)/main/",
+  # The docs site's own pages (and their Markdown twins). They are the pages
+  # under website/content in this checkout, which the same docs test holds
+  # every link to, anchor included. The live site trails main until it
+  # deploys, and while it is down every link to it would read as dead.
+  "^https://nuxt-backend\\.dev/(raw/)?docs(/|$)",
 ]
 
 # A link that needs a login is not a broken link.

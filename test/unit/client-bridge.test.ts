@@ -3,6 +3,7 @@ import type { AnyComponents } from 'convex/server'
 import * as clientBridge from '../../src/convex/client'
 import { buildAuthOptions } from '../../src/convex/client/better-auth-options'
 import { setupEmail } from '../../src/convex/integrations/email'
+import { DEFAULT_BACKEND_PATHS } from '../../src/convex/paths'
 
 const fakeComponent = {
   adapter: {
@@ -36,8 +37,10 @@ describe('Convex component client bridge', () => {
     }
   })
 
-  it('exports one function and the error class: setupAuth builds every auth instance', () => {
-    expect(Object.keys(clientBridge).sort()).toEqual(['APIError', 'setupAuth'])
+  // And the sign-in method resolver, for an app that passes its own
+  // lastLoginMethod plugin: a helper, not a second way to build auth.
+  it('exports one builder and the error class: setupAuth builds every auth instance', () => {
+    expect(Object.keys(clientBridge).sort()).toEqual(['APIError', 'resolveSignInMethod', 'setupAuth', 'storesLastSignInCookie'])
   })
 
   it('remounts the auth queries through setupAuth', async () => {
@@ -45,21 +48,22 @@ describe('Convex component client bridge', () => {
 
     const authApi = clientBridge.setupAuth({ backend: fakeAppComponent }, queryBuilder as never, { email })
 
-    // One query per api member: getAuthUser, the authConfig diagnostics, the
-    // workspace reads and the session list (updateProfile and revokeSession
-    // are mutationGeneric, not built here).
-    expect(queryBuilder).toHaveBeenCalledTimes(5)
+    // One query per api member: getAuthUser, the authConfig diagnostics,
+    // the session list and the new-device alerts (updateProfile and
+    // revokeSession are mutationGeneric, not built here). Workspaces are
+    // read through useWorkspace, never here.
+    expect(queryBuilder).toHaveBeenCalledTimes(4)
     expect(queryBuilder).toHaveBeenCalledWith(expect.objectContaining({ args: {} }))
     expect(authApi).toHaveProperty('getAuthUser')
     expect(authApi).toHaveProperty('authConfig')
-    expect(authApi).toHaveProperty('listWorkspaces')
-    expect(authApi).toHaveProperty('listWorkspaceMembers')
+    expect(authApi).not.toHaveProperty('listWorkspaces')
+    expect(authApi).not.toHaveProperty('listWorkspaceMembers')
     expect(authApi).toHaveProperty('updateProfile')
     expect(authApi).toHaveProperty('listSessions')
     expect(authApi).toHaveProperty('revokeSession')
     // The diagnostics query reports the resolved paths for doctor to compare.
     const config = await (authApi.authConfig as unknown as { handler: () => Promise<Record<string, string>> }).handler()
-    expect(config).toEqual({ invitationPath: '/accept-invitation', agentLoginPath: '/login', agentConsentPath: '/oauth/consent' })
+    expect(config).toEqual({ paths: DEFAULT_BACKEND_PATHS })
   })
 
   it('keeps setupAuth as the convenience composition of the client patterns', () => {
@@ -74,8 +78,7 @@ describe('Convex component client bridge', () => {
     // The templates live with the email instance, which renders previews.
     expect(authSetup).not.toHaveProperty('emailTemplates')
     expect(authSetup).toHaveProperty('getAuthUser')
-    // The agent token exchange rides along for http.ts to mount.
-    expect(typeof authSetup.mcp.exchangeHandler).toBe('function')
+    expect(authSetup).not.toHaveProperty('mcp')
   })
 
   // The types require `email`, but an import cycle hands setupAuth
@@ -93,6 +96,33 @@ describe('Convex component client bridge', () => {
     const setup = () => clientBridge.setupAuth({ backend: fakeAppComponent }, vi.fn() as never, { email, integrations: { rateLimiter: {} } } as never)
     expect(setup).toThrow('setupAuth no longer takes `integrations`')
   })
+
+  it('refuses a workspaces key it does not read, so a kept guard never fails open', () => {
+    const setup = (workspaces: Record<string, unknown>) => () => clientBridge.setupAuth({ backend: fakeAppComponent }, vi.fn() as never, { email, workspaces } as never)
+    expect(setup({ organizationHooks: { beforeCreateInvitation: vi.fn() } })).toThrow('does not take `organizationHooks` (its invitation guard is `canInvite`')
+    expect(setup({ invitationPath: '/join' })).toThrow('set `backend.pages.acceptInvitation` in nuxt.config')
+    expect(setup({ invitationLimit: 5 })).toThrow('does not take `invitationLimit`')
+    expect(setup({ canInvite: vi.fn() })).not.toThrow()
+  })
+
+  it('takes its paths from the generated file, and refuses the removed basePath and a path that is not one', async () => {
+    const queryBuilder = vi.fn(definition => definition)
+    const auth = clientBridge.setupAuth({ backend: fakeAppComponent }, queryBuilder as never, { email, paths: { authRoute: '/auth', acceptInvitation: '/join' } })
+    const config = await (auth.authConfig as unknown as { handler: () => Promise<{ paths: Record<string, string> }> }).handler()
+    expect(config.paths).toMatchObject({ authRoute: '/auth', acceptInvitation: '/join', security: '/security' })
+    expect(() => clientBridge.setupAuth({ backend: fakeAppComponent }, vi.fn() as never, { email, basePath: '/auth' } as never)).toThrow('no longer takes `basePath`')
+    // Once a fallback, now overridden by the paths file: refused, not dropped.
+    expect(() => clientBridge.setupAuth({ backend: fakeAppComponent }, vi.fn() as never, { email, authOptions: { basePath: '/auth' } } as never)).toThrow('no longer takes `authOptions.basePath`')
+    expect(() => clientBridge.setupAuth({ backend: fakeAppComponent }, vi.fn() as never, { email, paths: { security: 'https://evil.example' } })).toThrow('paths.security')
+  })
+
+  it('reports the keep path setupAccount really uses, not the one setupAuth was given', async () => {
+    const queryBuilder = vi.fn(definition => definition)
+    const account = { forget: vi.fn(), soleOwnerships: vi.fn(), keepPath: '/account/stay' }
+    const auth = clientBridge.setupAuth({ backend: fakeAppComponent }, queryBuilder as never, { email, account: account as never, paths: { keepAccount: '/keep' } })
+    const config = await (auth.authConfig as unknown as { handler: () => Promise<{ paths: Record<string, string> }> }).handler()
+    expect(config.paths.keepAccount).toBe('/account/stay')
+  })
 })
 
 describe('admin + organization defaults', () => {
@@ -104,44 +134,14 @@ describe('admin + organization defaults', () => {
     expect(pluginIds(options)).toEqual(expect.arrayContaining(['convex', 'email-otp', 'passkey', 'admin', 'organization']))
   })
 
-  it('bundles the agent OAuth provider (mcp) without a top-level jwt', () => {
-    const options = buildAuthOptions({} as never)
-    const ids = pluginIds(options)
-    expect(ids).toContain('mcp')
-    // No top-level jwt: better-auth dedupes plugins by id, and a second jwt
-    // displaces the convex plugin's internal custom-path jwt — 404ing
-    // /convex/token. The exchange signs via a separate sign-only instance.
-    expect(ids).not.toContain('jwt')
-    // The mcp defaults must sit after the convex plugin: better-auth after-
-    // hooks are last-write-wins and both resume the oidc_login_prompt cookie.
-    expect(ids.indexOf('mcp')).toBeGreaterThan(ids.indexOf('convex'))
-  })
-
-  it('offers the built-in tool scopes to agents at consent time', () => {
-    const options = buildAuthOptions({} as never)
-    const mcpPlugin = (options.plugins ?? []).find(plugin => plugin.id === 'mcp') as unknown as {
-      options?: { oidcConfig?: { scopes?: string[], metadata?: { scopes_supported?: string[] } } }
-    }
-    const oidcConfig = mcpPlugin.options?.oidcConfig
-    for (const scope of ['profile:write', 'billing:read', 'billing:checkout', 'workspace:read']) {
-      expect(oidcConfig?.scopes).toContain(scope)
-      expect(oidcConfig?.metadata?.scopes_supported).toContain(scope)
-    }
-  })
-
-  it('requires PKCE and names the login and consent pages, defaults or given paths', () => {
-    const oidcConfigOf = (options: ReturnType<typeof buildAuthOptions>) => ((options.plugins ?? [])
-      .find(plugin => plugin.id === 'mcp') as unknown as { options?: { loginPage?: string, oidcConfig?: Record<string, unknown> } }).options
-    const defaults = oidcConfigOf(buildAuthOptions({} as never))
-    expect(defaults).toMatchObject({ loginPage: '/login', oidcConfig: { requirePKCE: true, consentPage: '/oauth/consent' } })
-
-    const moved = oidcConfigOf(buildAuthOptions({} as never, { mcp: { loginPath: '/sign-in', consentPath: '/agents/approve' } }))
-    expect(moved).toMatchObject({ loginPage: '/sign-in', oidcConfig: { consentPage: '/agents/approve' } })
-  })
-
-  it('wraps the provider in the consent plugin, after it', () => {
+  it('bundles no agent OAuth provider, and no top-level jwt', () => {
     const ids = pluginIds(buildAuthOptions({} as never))
-    expect(ids.indexOf('agent-consent')).toBeGreaterThan(ids.indexOf('mcp'))
+    expect(ids).not.toContain('mcp')
+    expect(ids).not.toContain('agent-consent')
+    // No top-level jwt: better-auth dedupes plugins by id, and a second jwt
+    // displaces the convex plugin's internal custom-path jwt, 404ing
+    // /convex/token.
+    expect(ids).not.toContain('jwt')
   })
 
   it('dedupes against a consumer-supplied plugin of the same id', async () => {
@@ -153,15 +153,13 @@ describe('admin + organization defaults', () => {
   })
 })
 
-describe('workspace + profile api', () => {
+describe('profile api', () => {
   type Handler = (ctx: unknown, args?: Record<string, unknown>) => Promise<unknown>
   const build = () => {
     const queryBuilder = vi.fn(definition => definition)
     // The queries come back as raw definitions (the fake builder is identity);
     // updateProfile is a real mutationGeneric, whose raw handler is `_handler`.
     return clientBridge.setupAuth({ backend: fakeAppComponent }, queryBuilder as never, { email }) as unknown as {
-      listWorkspaces: { handler: Handler }
-      listWorkspaceMembers: { handler: Handler }
       updateProfile: { _handler: Handler }
     }
   }
@@ -188,54 +186,11 @@ describe('workspace + profile api', () => {
     }),
   })
 
-  it('lists the caller workspaces with role and active flags, null when signed out', async () => {
-    const api = build()
-    const ctx = identityCtx({
-      subject: 'user-1',
-      claims: { activeOrganizationId: 'org-2' },
-      findMany: () => ({ page: [
-        { organizationId: 'org-1', role: 'owner', createdAt: 1 },
-        { organizationId: 'org-2', role: 'member', createdAt: 2 },
-      ] }),
-      findOne: ({ where }) => ({ _id: where[0]!.value, name: `W ${where[0]!.value}`, slug: `w-${where[0]!.value}` }),
-    })
-    await expect(api.listWorkspaces.handler(ctx)).resolves.toEqual([
-      { id: 'org-1', name: 'W org-1', slug: 'w-org-1', logo: null, role: 'owner', active: false, joinedAt: 1 },
-      { id: 'org-2', name: 'W org-2', slug: 'w-org-2', logo: null, role: 'member', active: true, joinedAt: 2 },
-    ])
-
-    await expect(api.listWorkspaces.handler(identityCtx({}))).resolves.toBeNull()
-  })
-
-  it('gates member listing on a fresh membership read, not claims', async () => {
-    const api = build()
-    // Claims say org-1 is active, but the member table no longer agrees —
-    // the stale-JWT caller must not see the roster.
-    const removed = identityCtx({
-      subject: 'user-1',
-      claims: { activeOrganizationId: 'org-1' },
-      findOne: () => null,
-    })
-    await expect(api.listWorkspaceMembers.handler(removed, {})).resolves.toBeNull()
-
-    const member = identityCtx({
-      subject: 'user-1',
-      claims: { activeOrganizationId: 'org-1' },
-      findOne: ({ model, where }) => (model === 'member'
-        ? { organizationId: 'org-1' }
-        : { name: `User ${where[0]!.value}`, email: `${where[0]!.value}@example.com` }),
-      findMany: () => ({ page: [{ userId: 'user-1', role: 'owner', createdAt: 5 }] }),
-    })
-    await expect(api.listWorkspaceMembers.handler(member, {})).resolves.toEqual({
-      organizationId: 'org-1',
-      members: [{ userId: 'user-1', name: 'User user-1', email: 'user-1@example.com', role: 'owner', joinedAt: 5 }],
-    })
-  })
-
   it('updates only the profile name, trimmed and identity-gated', async () => {
     const api = build()
     const updateOne = vi.fn()
-    const ctx = identityCtx({ subject: 'user-1', updateOne })
+    // The account as the user table holds it now: neither banned nor deleted.
+    const ctx = identityCtx({ subject: 'user-1', updateOne, findOne: ({ model }) => (model === 'user' ? { role: 'user', banned: false } : null) })
     await api.updateProfile._handler(ctx, { name: '  Ada  ' })
     expect(updateOne).toHaveBeenCalledWith(expect.objectContaining({
       input: expect.objectContaining({

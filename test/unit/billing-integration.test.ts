@@ -11,7 +11,7 @@ import { checkoutsCreate } from '@polar-sh/sdk/funcs/checkoutsCreate.js'
 import { customerSessionsCreate } from '@polar-sh/sdk/funcs/customerSessionsCreate.js'
 import { type Billing, type BillingEntityCtx, setupBilling, type SpendReservation } from '../../src/convex/integrations/billing'
 import { setupEmail } from '../../src/convex/integrations/email'
-import { getBackendError } from '../../src/convex/errors'
+import { backendError, getBackendError } from '../../src/convex/errors'
 
 // Stub the standalone provider SDK functions the billing helpers call so
 // nothing hits the network. `provider.getCustomerByUserId` is spied per-test
@@ -39,6 +39,8 @@ const mockCustomerSessionsCreate = vi.mocked(customerSessionsCreate)
 const components = {
   polar: { lib: { insertCustomer: 'ref:insertCustomer' } },
   backend: {
+    // The auth tables' adapter: the fresh member and role reads.
+    adapter: { findOne: 'ref:findOne' },
     billing: {
       getByUser: 'ref:getByUser',
       entityProfile: 'ref:entityProfile',
@@ -47,11 +49,13 @@ const components = {
       userByCustomer: 'ref:userByCustomer',
       debit: 'ref:debit',
       settle: 'ref:settle',
+      finalize: 'ref:finalize',
       release: 'ref:release',
       credit: 'ref:credit',
       getBenefitMetadata: 'ref:getBenefitMetadata',
       upsertBenefitMetadata: 'ref:upsertBenefitMetadata',
       deleteByUser: 'ref:deleteByUser',
+      recordSubscriptionChange: 'ref:recordSubscriptionChange',
     },
     gifts: {
       create: 'ref:gifts.create',
@@ -81,19 +85,43 @@ const config = {
 interface MakeCtxOptions {
   /** Result(s) for `cache.debit` — an array is consumed per call. */
   debit?: object | object[]
+  /** The caller's role in the workspace, read fresh; `null` for someone no longer a member. Default `'owner'`. */
+  memberRole?: string | null
 }
 
-function makeCtx({ debit }: MakeCtxOptions = {}) {
+/**
+ * The auth tables as the adapter answers `findOne` for one caller: their
+ * account (`null` once deleted), and their role in each workspace they
+ * belong to — no row for any other.
+ */
+function authTables(memberships: Record<string, string>, account: { role?: string, banned?: boolean } | null = { role: 'user', banned: false }) {
+  return (ref: unknown, args: unknown) => {
+    if (ref !== 'ref:findOne') return undefined
+    const { model, where = [] } = (args ?? {}) as { model?: string, where?: Array<{ field: string, value: unknown }> }
+    if (model === 'user') return account
+    const workspace = where.find(clause => clause.field === 'organizationId')?.value as string
+    return model === 'member' && memberships[workspace] ? { role: memberships[workspace] } : null
+  }
+}
+
+/** A caller who holds `role` in `org-1`, the workspace the test claims name, and no other; `null` for one removed from it. */
+function memberRead(role: string | null) {
+  return authTables(role === null ? {} : { 'org-1': role })
+}
+
+function makeCtx({ debit, memberRole = 'owner', finalized = true }: MakeCtxOptions & { finalized?: boolean } = {}) {
   const debitResults = Array.isArray(debit) ? [...debit] : debit === undefined ? [] : [debit]
-  const runQuery = vi.fn(async (ref: unknown): Promise<unknown> => {
+  const member = memberRead(memberRole)
+  const runQuery = vi.fn(async (ref: unknown, args?: unknown): Promise<unknown> => {
     if (ref === 'ref:getBenefitMetadata') return []
     if (ref === 'ref:getByUser') return null
-    return undefined
+    return member(ref, args)
   })
   const runMutation = vi.fn(async (ref: unknown): Promise<unknown> => {
     if (ref === 'ref:debit') {
       return debitResults.length > 1 ? debitResults.shift() : debitResults[0] ?? { ok: true, balance: 99 }
     }
+    if (ref === 'ref:finalize') return { settled: finalized, released: 0, balance: 0, balanceBefore: 0 }
     // The stamp lands after the gift email went out.
     if (ref === 'ref:gifts.markNotified') return true
     return null
@@ -136,7 +164,8 @@ describe('getCustomerState', () => {
     expect(state).toStrictEqual({
       customerId: 'cus_1',
       activeProductIds: ['prod_pro'],
-      benefits: [{ id: 'g1', benefitId: 'ben_1', type: 'custom', metadata: { key: 'premium' } }],
+      // The provider's type, and what it gives in neutral words.
+      benefits: [{ id: 'g1', benefitId: 'ben_1', type: 'custom', kind: 'custom', metadata: { key: 'premium' } }],
       meters: [{ meterId: 'm1', consumedUnits: 2, creditedUnits: 10, balance: 8 }],
     })
   })
@@ -183,6 +212,36 @@ describe('getCustomerState', () => {
       },
       { meterId: 'm2', consumedUnits: 0, creditedUnits: 5, balance: 5 },
     ])
+  })
+
+  it('never says a balance expires when a pack bought on top of a plan\'s allowance rolls over', async () => {
+    getCustomerByUserId.mockResolvedValue({ id: 'cus_1' } as never)
+    const end = new Date('2026-04-01T00:00:00.000Z')
+    const meters = [{ meterId: 'm1', consumedUnits: 0, creditedUnits: 600, balance: 600 }]
+    mockCustomersGetState.mockResolvedValue({
+      ok: true,
+      value: {
+        activeSubscriptions: [{ productId: 'prod_pro', currentPeriodEnd: end, meters: [{ meterId: 'm1' }] }],
+        grantedBenefits: [
+          { id: 'g1', benefitId: 'ben_plan', benefitType: 'meter_credit' },
+          { id: 'g2', benefitId: 'ben_pack', benefitType: 'meter_credit' },
+        ],
+        activeMeters: meters,
+      },
+    } as never)
+    const rollover: Record<string, boolean> = { ben_plan: false, ben_pack: true }
+    mockBenefitsGet.mockImplementation((async (_client: unknown, { id }: { id: string }) =>
+      ({ ok: true, value: { metadata: {}, type: 'meter_credit', properties: { meterId: 'm1', units: 100, rollover: rollover[id] } } })) as never)
+
+    // Whichever read lands last, the pack's credits keep: no expiry.
+    expect((await billing.getCustomerState(makeCtx() as never, { userId: 'u1' })).meters[0]?.rollover).toBe(true)
+
+    // And with only the plan's benefit read this pass, nothing is said either way.
+    mockBenefitsGet.mockImplementation((async (_client: unknown, { id }: { id: string }) =>
+      (id === 'ben_plan'
+        ? { ok: true, value: { metadata: {}, type: 'meter_credit', properties: { meterId: 'm1', units: 100, rollover: false } } }
+        : { ok: false, error: { statusCode: 500 } })) as never)
+    expect((await billing.getCustomerState(makeCtx() as never, { userId: 'u1' })).meters[0]).not.toHaveProperty('rollover')
   })
 
   it('keys a customer from before 0.2 on the first read, then reads it by the entity\'s id', async () => {
@@ -264,7 +323,7 @@ describe('spendCredits', () => {
     )
     // Settling carries the final amount so the component can hand back an
     // over-reserved remainder in the same transaction.
-    expect(ctx.runMutation).toHaveBeenCalledWith('ref:settle', { userId: 'u1', externalId: 'spend-1', finalAmount: 1 })
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:finalize', { userId: 'u1', externalId: 'spend-1', finalAmount: 1 })
     expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:release', expect.anything())
   })
 
@@ -309,7 +368,7 @@ describe('spendCredits', () => {
       expect.anything(),
       { events: [expect.objectContaining({ metadata: { amount: 4 } })] },
     )
-    expect(ctx.runMutation).toHaveBeenCalledWith('ref:settle', { userId: 'u1', externalId: 'est-1', finalAmount: 4 })
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:finalize', { userId: 'u1', externalId: 'est-1', finalAmount: 4 })
   })
 
   it('releases the reservation when ingestion fails — a failed run consumes nothing', async () => {
@@ -321,7 +380,17 @@ describe('spendCredits', () => {
       billing.spendCredits(ctx as never, { userId: 'u1', name: 'credits', meterId: 'm1', externalId: 'spend-2' }),
     ).rejects.toThrow('provider down')
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:release', { userId: 'u1', externalId: 'spend-2' })
-    expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:settle', expect.anything())
+    expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:finalize', expect.anything())
+  })
+
+  it('takes the credits from the cache again when the reservation was gone by the time the event landed', async () => {
+    getCustomerByUserId.mockResolvedValue({ id: 'cus_1' } as never)
+    mockEventsIngest.mockResolvedValue({ ok: true, value: {} } as never)
+    // A first attempt's failed ingest released the reservation; this one landed.
+    const ctx = makeCtx({ debit: { ok: true, balance: 2 }, finalized: false })
+    await billing.settleSpend(ctx as never, { entityId: 'u1', externalId: 'job-1', reserved: true, meterId: 'm1', value: 3 }, { name: 'credits' })
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:debit', { userId: 'u1', meterId: 'm1', amount: 3, externalId: 'job-1', allowOverage: true })
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:settle', { userId: 'u1', externalId: 'job-1', finalAmount: 3 })
   })
 
   it('self-heals a cold cache: refreshes entitlements and retries the reservation once', async () => {
@@ -335,7 +404,7 @@ describe('spendCredits', () => {
     // The cold cache triggered one sync (upsert) before the successful retry.
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:upsert', expect.objectContaining({ userId: 'u1' }))
     expect(mockEventsIngest).toHaveBeenCalledTimes(1)
-    expect(ctx.runMutation).toHaveBeenCalledWith('ref:settle', expect.anything())
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:finalize', expect.anything())
   })
 
   it('spends by configured meter name: sum meters ingest the amount property', async () => {
@@ -366,9 +435,10 @@ describe('spendCredits', () => {
     await expect(
       named.spendCredits(makeCtx() as never, { userId: 'u1', meter: 'actions', value: 3 }),
     ).rejects.toThrow(/counts events/)
-    await expect(
-      named.spendCredits(makeCtx() as never, { userId: 'u1', meter: 'nope' }),
-    ).rejects.toThrow(/Unknown credit meter 'nope'/)
+    // Refused as a catalog not synced yet, which the pages word for people.
+    const unknown = named.spendCredits(makeCtx() as never, { userId: 'u1', meter: 'nope' })
+    await expect(unknown).rejects.toThrow(/Unknown credit meter 'nope'/)
+    await expect(unknown).rejects.toMatchObject({ data: { code: 'not_ready', reason: 'no_catalog' } })
   })
 
   it('refunds sum meters with a compensating negative event and rejects count meters', async () => {
@@ -538,7 +608,7 @@ describe('getCredits', () => {
     } as never)
     const ctx = {
       auth: { getUserIdentity: async () => ({ subject: 'u1', email: 'a@b.com' }) },
-      runQuery: vi.fn(async (ref: unknown) => ref === 'ref:getByUser'
+      runQuery: vi.fn(async (ref: unknown, args?: unknown) => ref === 'ref:getByUser'
         ? {
             customerId: 'cus_1',
             activeProductIds: [],
@@ -548,10 +618,10 @@ describe('getCredits', () => {
               { meterId: 'm_current', balance: 50, creditedUnits: 50, consumedUnits: 0 },
             ],
           }
-        : null),
+        : authTables({})(ref, args) ?? null),
     }
 
-    const result = await (named.functions.getCredits as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<{ meters: Array<{ meterId: string, name?: string, balance: number }> } | null> })._handler(ctx, {}) as { meters: Array<{ meterId: string, name?: string, balance: number }> }
+    const result = await (named.api.getCredits as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<{ meters: Array<{ meterId: string, name?: string, balance: number }> } | null> })._handler(ctx, {}) as { meters: Array<{ meterId: string, name?: string, balance: number }> }
 
     expect(result.meters.map(meter => meter.meterId)).toStrictEqual(['m_current', 'm_retired'])
     expect(result.meters[0]).toMatchObject({ name: 'credits', balance: 50 })
@@ -564,14 +634,45 @@ describe('syncProducts', () => {
   // products table is empty and every pricing page renders "no plans" until
   // this runs once. Every doc names the same caller: `npx convex run`.
   it('is internal — the ops bootstrap the docs tell you to run, not a client action', () => {
-    expect(billing.functions.syncProducts.isInternal).toBe(true)
-    expect(billing.functions.syncProducts.isAction).toBe(true)
+    expect(billing.api.syncProducts.isInternal).toBe(true)
+    expect(billing.api.syncProducts.isAction).toBe(true)
   })
 
   it('pulls the provider catalog without asking for an identity', async () => {
     const ctx = { runQuery: vi.fn(), runMutation: vi.fn(), runAction: vi.fn(), auth: { getUserIdentity: vi.fn(async () => null) } }
-    await expect((billing.functions.syncProducts as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler(ctx, {})).resolves.toBeNull()
+    await expect((billing.api.syncProducts as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler(ctx, {})).resolves.toBeNull()
     expect(ctx.auth.getUserIdentity).not.toHaveBeenCalled()
+  })
+})
+
+describe('benefit.updated', () => {
+  // A product row embeds its benefits, and the provider sends no product
+  // event when a benefit changes: pricing would keep a pack's old units.
+  it('patches the benefit snapshot, then reloads the products table', async () => {
+    const ctx = { ...makeCtx(), runAction: vi.fn(async () => null) }
+    await billing.webhookEvents['benefit.updated']!(ctx as never, { type: 'benefit.updated', data: { id: 'ben_1', description: '600 credits', metadata: {} } } as never)
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:upsertBenefitMetadata', expect.anything())
+    expect(ctx.runAction).toHaveBeenCalledTimes(1)
+    // The billing component's own product sync, with the deployment's token.
+    expect((ctx.runAction.mock.calls[0] as unknown[])[1]).toMatchObject({ polarAccessToken: 'oat_test', server: 'sandbox' })
+  })
+
+  it('never fails the delivery when the reload fails: it says so, and the benefit is recorded', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const ctx = { ...makeCtx(), runAction: vi.fn(async () => Promise.reject(new Error('provider down'))) }
+    await expect(billing.webhookEvents['benefit.updated']!(ctx as never, { type: 'benefit.updated', data: { id: 'ben_1', description: '600 credits', metadata: {} } } as never)).resolves.toBeUndefined()
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:upsertBenefitMetadata', expect.anything())
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('billing.product_resync_failed'), expect.any(Error))
+    warn.mockRestore()
+  })
+
+  it('reloads nothing on a deployment with no access token yet', async () => {
+    vi.stubEnv('BILLING_ACCESS_TOKEN', '')
+    const tokenless = setupBilling(components, { ...(config as object), accessToken: undefined } as never)
+    const ctx = { ...makeCtx(), runAction: vi.fn(async () => null) }
+    await tokenless.webhookEvents['benefit.updated']!(ctx as never, { type: 'benefit.updated', data: { id: 'ben_1', metadata: {} } } as never)
+    expect(ctx.runAction).not.toHaveBeenCalled()
+    vi.unstubAllEnvs()
   })
 })
 
@@ -650,6 +751,42 @@ describe('webhook refresh handler', () => {
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:markTrialUsed', { ownerUserId: 'u-owner', entityId: 'org-1' })
   })
 
+  it.each(['subscription.updated', 'subscription.paused'])('keeps the scheduled plan change and resume date a %s delivery carries', async (type) => {
+    primeRefresh()
+    const ctx = makeCtx()
+    const appliesAt = new Date('2099-02-01T00:00:00.000Z')
+    const resumesAt = new Date('2099-03-01T00:00:00.000Z')
+    const modifiedAt = new Date('2099-01-15T00:00:00.000Z')
+
+    await billing.webhookEvents[type as 'subscription.updated']!(ctx as never, {
+      type,
+      data: {
+        id: 'sub_1', customer: { id: 'cus_1', externalId: 'org-1' }, createdAt: new Date('2099-01-01T00:00:00.000Z'), modifiedAt,
+        resumesAt, pendingUpdate: { id: 'pu_1', productId: 'p2', appliesAt, seats: null },
+      },
+    } as never)
+
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:recordSubscriptionChange', {
+      subscriptionId: 'sub_1',
+      userId: 'org-1',
+      pendingChange: { productId: 'p2', appliesAt: appliesAt.getTime() },
+      resumesAt: resumesAt.getTime(),
+      modifiedAt: modifiedAt.getTime(),
+    })
+    // A pause changes access as much as any other subscription event.
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:upsert', expect.objectContaining({ userId: 'org-1' }))
+  })
+
+  it('records nothing from an order event, or a subscription payload with no time to order it by', async () => {
+    primeRefresh()
+    const ctx = makeCtx()
+
+    await billing.webhookEvents['order.paid']!(ctx as never, { type: 'order.paid', data: { id: 'ord_1', customer: { id: 'cus_1', externalId: 'org-1' }, createdAt: new Date() } } as never)
+    await billing.webhookEvents['subscription.updated']!(ctx as never, { type: 'subscription.updated', data: { id: 'sub_1', customer: { id: 'cus_1', externalId: 'org-1' } } } as never)
+
+    expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:recordSubscriptionChange', expect.anything())
+  })
+
   it('maps a keyed customer the component does not know yet, so its subscriptions read back', async () => {
     primeRefresh()
     getCustomerByUserId.mockResolvedValue(null as never)
@@ -704,9 +841,10 @@ describe('webhook refresh handler', () => {
 })
 
 describe('billing entity resolution (billTo)', () => {
-  function identityCtx(claims: Record<string, unknown> | null) {
+  function identityCtx(claims: Record<string, unknown> | null, memberships: Record<string, string> = { 'org-1': 'owner' }) {
+    const member = authTables(memberships)
     return {
-      runQuery: vi.fn(),
+      runQuery: vi.fn(async (ref: unknown, args?: unknown) => member(ref, args)),
       runMutation: vi.fn(),
       auth: { getUserIdentity: vi.fn(async () => claims) },
     }
@@ -761,7 +899,26 @@ describe('billing entity resolution (billTo)', () => {
     const { instance } = setup()
     await expect(
       instance.spendCredits(identityCtx({ subject: 'u1' }) as never, { name: 'credits' }),
-    ).rejects.toMatchObject({ data: { code: 'no_workspace' }, message: expect.stringMatching(/no billing entity/) })
+    ).rejects.toMatchObject({ data: { code: 'no_workspace' }, message: expect.stringMatching(/needs an active workspace/) })
+  })
+
+  it('reads the caller\'s membership fresh, and refuses a removed member or an impersonating admin a spend', async () => {
+    const { instance, spy } = setup()
+    // The token still names the workspace; the member table no longer does.
+    const removed = { ...identityCtx({ subject: 'u1', activeOrganizationId: 'org-1' }), runQuery: vi.fn(async (ref: unknown, args?: unknown) => memberRead(null)(ref, args)) }
+    await expect(instance.spendCredits(removed as never, { name: 'credits' })).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'not_member' } })
+    expect(removed.runQuery).toHaveBeenCalledWith('ref:findOne', {
+      model: 'member',
+      where: [{ field: 'organizationId', value: 'org-1' }, { field: 'userId', value: 'u1' }],
+    })
+    expect(await handlerOf(instance.api.getCredits)(removed, {})).toBeNull()
+
+    const impersonated = identityCtx({ subject: 'u1', activeOrganizationId: 'org-1', impersonatedBy: 'admin-1' })
+    await expect(instance.spendCredits(impersonated as never, { name: 'credits' })).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'impersonating' } })
+    // Reading is not spending: the impersonating admin still sees the balance.
+    await handlerOf(instance.api.getCredits)(impersonated, {})
+    expect(impersonated.runQuery).toHaveBeenCalledWith('ref:getByUser', { userId: 'org-1' })
+    expect(spy).not.toHaveBeenCalled()
   })
 
   /** A registered function's implementation, the seam convex-test drives too. */
@@ -770,14 +927,15 @@ describe('billing entity resolution (billTo)', () => {
   it('one resolveEntity serves the reactive reads, spends and checkout alike', async () => {
     const resolveEntity = vi.fn(async () => ({ userId: 'team-7', email: 'billing@team.test' }))
     const { instance, spy } = setup({ resolveEntity, accessToken: 'oat_test', products: { pro: 'p1' }, trustedOrigins: ['https://app'] })
-    const ctx = identityCtx({ subject: 'u1', activeOrganizationId: 'org-1' })
+    // A workspace the resolver picks: the caller owns it.
+    const ctx = identityCtx({ subject: 'u1', activeOrganizationId: 'org-1' }, { 'team-7': 'owner' })
 
     // A spend bills the resolver's entity, not the active workspace claim.
     await instance.spendCredits(ctx as never, { name: 'credits' })
     expect(spy).toHaveBeenLastCalledWith(expect.anything(), 'team-7')
 
     // The reactive read looks up the same entity's cache row.
-    await handlerOf(instance.functions.getCredits)(ctx, {})
+    await handlerOf(instance.api.getCredits)(ctx, {})
     expect(ctx.runQuery).toHaveBeenCalledWith('ref:getByUser', { userId: 'team-7' })
 
     // Checkout binds the same entity's provider customer and checks out as it.
@@ -787,7 +945,87 @@ describe('billing entity resolution (billTo)', () => {
     expect(checkout).toStrictEqual({ url: 'https://checkout' })
     expect(spy).toHaveBeenCalledWith(expect.anything(), 'team-7')
     expect(mockCheckoutsCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ externalCustomerId: 'team-7', products: ['p1'] }))
-    expect(resolveEntity).toHaveBeenCalledWith(ctx)
+    // A checking call hands the resolver the access it asks for.
+    expect(resolveEntity).toHaveBeenCalledWith(ctx, expect.objectContaining({ access: 'manage', impersonation: 'refused' }))
+  })
+
+  it('refuses a workspace your own resolver picks that the caller does not belong to, with billTo: \'organization\'', async () => {
+    const { instance, spy } = setup({ resolveEntity: vi.fn(async () => ({ userId: 'team-9', email: '' })), accessToken: 'oat_test' })
+    // A member of org-1 only: the resolver's team-9 is someone else's.
+    const ctx = identityCtx({ subject: 'u1', activeOrganizationId: 'org-1' })
+    await expect(instance.spendCredits(ctx as never, { name: 'credits' })).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'not_member' } })
+    expect(await handlerOf(instance.api.getCredits)(ctx, {})).toBeNull()
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('hands your own resolver the rule with billTo: \'user\', so it can refuse a caller who may only read', async () => {
+    // Teams of the app's own: a viewer reads, only an owner manages.
+    const resolveEntity = vi.fn(async (_ctx: BillingEntityCtx, rule?: { access: string }) => {
+      if (rule?.access === 'manage') throw backendError('forbidden', { reason: 'not_billing_manager' })
+      return { userId: 'team-1', email: '' }
+    })
+    const { instance } = setup({ billTo: 'user', resolveEntity, accessToken: 'oat_test', products: { pro: 'p1' }, trustedOrigins: ['https://app'] })
+    const ctx = identityCtx({ subject: 'u1' }, {})
+    await handlerOf(instance.api.getCredits)(ctx, {})
+    expect(ctx.runQuery).toHaveBeenCalledWith('ref:getByUser', { userId: 'team-1' })
+    await expect(handlerOf(instance.api.generateCheckoutLink)(ctx, { productIds: ['p1'], origin: 'https://app', successUrl: 'https://app/done' }))
+      .rejects.toMatchObject({ data: { code: 'forbidden', reason: 'not_billing_manager' } })
+    expect(resolveEntity).toHaveBeenCalledWith(ctx, expect.objectContaining({ access: 'member' }))
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+  })
+
+  it('reads the account fresh: a banned or deleted one is refused whatever its token says', async () => {
+    const { instance } = setup()
+    for (const [account, refusal] of [[{ role: 'user', banned: true }, { code: 'forbidden', reason: 'banned' }], [null, { code: 'unauthenticated' }]] as const) {
+      const ctx = { ...identityCtx({ subject: 'u1', activeOrganizationId: 'org-1' }), runQuery: vi.fn(async (ref: unknown, args?: unknown) => authTables({ 'org-1': 'owner' }, account)(ref, args)) }
+      await expect(instance.spendCredits(ctx as never, { name: 'credits' })).rejects.toMatchObject({ data: refusal })
+      expect(await handlerOf(instance.api.getCredits)(ctx, {})).toBeNull()
+    }
+  })
+
+  it('reads the member table once per call, and again with reread', async () => {
+    const { instance } = setup()
+    const memberships: Record<string, string> = { 'org-1': 'owner' }
+    const ctx = identityCtx({ subject: 'u1', activeOrganizationId: 'org-1' }, memberships)
+    await instance.requireEntity(ctx as never, { access: 'manage' })
+    // The same call demotes the caller, then checks again.
+    memberships['org-1'] = 'member'
+    expect(await instance.requireEntity(ctx as never, { access: 'manage' })).toMatchObject({ userId: 'org-1' })
+    await expect(instance.requireEntity(ctx as never, { access: 'manage', reread: true })).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'not_billing_manager' } })
+  })
+
+  it('keeps your own resolver\'s refusal: a read answers null for it, getBillingAccess says no, a crash stays one', async () => {
+    const refuse = vi.fn(async (_ctx: BillingEntityCtx, rule?: { access: string }): Promise<null | { userId: string, email: string }> => {
+      if (rule?.access !== 'member') throw backendError('forbidden', { reason: 'not_billing_manager' })
+      return { userId: 'team-1', email: '' }
+    })
+    const { instance } = setup({ billTo: 'user', resolveEntity: refuse })
+    const ctx = identityCtx({ subject: 'u1' }, {})
+    expect(await handlerOf(instance.api.getBillingAccess)(ctx, {})).toEqual({ canManage: false, saveOffers: false, softOptIn: false })
+    await expect(instance.requireEntity(ctx as never, { access: 'manage' })).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'not_billing_manager' } })
+
+    const crash = setup({
+      billTo: 'user',
+      resolveEntity: vi.fn(async () => {
+        throw new Error('the team table is gone')
+      }),
+    }).instance
+    await expect(handlerOf(crash.api.getCredits)(ctx, {})).rejects.toThrow('the team table is gone')
+
+    // A service that failed is no refusal of the caller: it stays a failure, never "no billing".
+    for (const failure of [backendError('unavailable', { service: 'billing', reason: 'provider_refused' }), backendError('rate_limited', { limit: 'billingSync' })]) {
+      const failing = setup({ billTo: 'user', resolveEntity: vi.fn(async () => Promise.reject(failure)) }).instance
+      await expect(handlerOf(failing.api.getCredits)(ctx, {})).rejects.toBe(failure)
+    }
+  })
+
+  it('fails closed on an access it does not know', async () => {
+    const { instance } = setup()
+    const ctx = identityCtx({ subject: 'u1', activeOrganizationId: 'org-1' }, { 'org-1': 'member' })
+    for (const access of ['admin', 'MEMBER', undefined]) {
+      await expect(instance.requireEntity(ctx as never, { access } as never)).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'permission' } })
+    }
+    expect(await instance.requireEntity(ctx as never, { access: 'member' })).toMatchObject({ userId: 'org-1' })
   })
 
   it('hands resolveEntity every context, signed in or not; its null answers reads with null and refuses provider calls', async () => {
@@ -799,7 +1037,7 @@ describe('billing entity resolution (billTo)', () => {
 
     expect(await instance.resolveEntity(signedOut as never)).toBeNull()
     expect(resolveEntity).toHaveBeenCalledWith(signedOut)
-    expect(await handlerOf(instance.functions.getCredits)(signedOut, {})).toBeNull()
+    expect(await handlerOf(instance.api.getCredits)(signedOut, {})).toBeNull()
     await expect(handlerOf(instance.api.generateCheckoutLink)(signedOut, { productIds: ['p1'], origin: 'https://app', successUrl: 'https://app/done' }))
       .rejects.toMatchObject({ data: { code: 'unauthenticated' } })
     expect(mockCheckoutsCreate).not.toHaveBeenCalled()
@@ -892,7 +1130,7 @@ describe('provider refusals stop at the package boundary', () => {
 
   it('syncEntitlements refuses a failed state read as unavailable, without the provider\'s body', async () => {
     mockCustomersGetState.mockResolvedValue(providerError() as never)
-    const refusal = await handler(billing.functions.syncEntitlements)(signedIn(), {}).catch((error: unknown) => error)
+    const refusal = await handler(billing.api.syncEntitlements)(signedIn(), {}).catch((error: unknown) => error)
     expect(getBackendError(refusal)).toMatchObject({ code: 'unavailable', data: { service: 'billing', reason: 'provider_refused' } })
     expect(String(refusal)).not.toContain('Body')
   })
@@ -933,18 +1171,44 @@ describe('provider refusals stop at the package boundary', () => {
     ] as const) {
       mockMembersList.mockResolvedValue({ ok: true, value: { result: { items: [member] } } } as never)
       const refusal = await handler(billing.api.generateCustomerPortalUrl)(signedIn(claims), {}).catch((error: unknown) => error)
-      expect(getBackendError(refusal)).toMatchObject({ code: 'forbidden', data: { reason: 'not_billing_manager' } })
+      expect(getBackendError(refusal)).toMatchObject({ code: 'forbidden', data: { reason: 'provider_owner_only' } })
     }
     expect(mockCustomerSessionsCreate).not.toHaveBeenCalled()
   })
 
-  it('generateCustomerPortalUrl refuses a workspace member who does not manage its billing, before any session', async () => {
+  it('generateCustomerPortalUrl refuses a manager the provider does not list as one, before any session', async () => {
     for (const items of [[], [{ id: 'mem_1', externalId: 'u1', email: 'a@example.com', role: 'member' }]]) {
       mockMembersList.mockResolvedValue({ ok: true, value: { result: { items } } } as never)
       const refusal = await handler(billing.api.generateCustomerPortalUrl)(signedIn(), {}).catch((error: unknown) => error)
-      expect(getBackendError(refusal)).toMatchObject({ code: 'forbidden', data: { reason: 'not_billing_manager' } })
+      expect(getBackendError(refusal)).toMatchObject({ code: 'forbidden', data: { reason: 'provider_owner_only' } })
     }
     expect(mockCustomerSessionsCreate).not.toHaveBeenCalled()
+  })
+
+  it('refuses a member who manages no billing, and a removed one, before the provider is asked', async () => {
+    for (const [memberRole, reason] of [['member', 'not_billing_manager'], [null, 'not_member']] as const) {
+      const caller = { ...signedIn(), ...makeCtx({ memberRole }) }
+      for (const call of [
+        () => handler(billing.api.generateCustomerPortalUrl)(caller, {}),
+        () => handler(billing.api.generateCheckoutLink)(caller, { productIds: ['p1'], origin: 'https://app', successUrl: 'https://app/done' }),
+        () => billing.cancelSubscription(caller as never),
+        () => billing.getOrders(caller as never),
+      ]) {
+        expect(getBackendError(await call().catch((error: unknown) => error))).toMatchObject({ code: 'forbidden', data: { reason } })
+      }
+    }
+    expect(mockMembersList).not.toHaveBeenCalled()
+    expect(mockCustomerSessionsCreate).not.toHaveBeenCalled()
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+    expect(getCustomerByUserId).not.toHaveBeenCalled()
+  })
+
+  it('lets a workspace admin manage billing, as its owner does', async () => {
+    mockCustomerSessionsCreate.mockResolvedValue({ ok: true, value: { customerPortalUrl: 'https://portal' } } as never)
+    // The provider lists the admin as a billing manager of the team customer.
+    mockMembersList.mockResolvedValue({ ok: true, value: { result: { items: [{ id: 'mem_admin', externalId: 'u1', email: 'a@example.com', role: 'billing_manager' }] } } } as never)
+    const admin = { ...signedIn(), ...makeCtx({ memberRole: 'admin' }) }
+    expect(await handler(billing.api.generateCustomerPortalUrl)(admin, {})).toEqual({ url: 'https://portal' })
   })
 
   it('generateCustomerPortalUrl opens a user entity\'s own customer with billTo: \'user\', no member read', async () => {
@@ -972,7 +1236,7 @@ describe('provider refusals stop at the package boundary', () => {
   it('refuses a signed-out caller by code, before any provider call', async () => {
     const signedOut = { ...makeCtx(), auth: { getUserIdentity: async () => null } }
     await expect(handler(billing.api.generateCustomerPortalUrl)(signedOut, {})).rejects.toMatchObject({ data: { code: 'unauthenticated' } })
-    await expect(handler(billing.functions.syncEntitlements)(signedOut, {})).rejects.toMatchObject({ data: { code: 'unauthenticated' } })
+    await expect(handler(billing.api.syncEntitlements)(signedOut, {})).rejects.toMatchObject({ data: { code: 'unauthenticated' } })
     expect(mockCustomerSessionsCreate).not.toHaveBeenCalled()
     expect(mockCustomersGetState).not.toHaveBeenCalled()
   })

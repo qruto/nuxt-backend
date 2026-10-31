@@ -1,0 +1,52 @@
+/*
+ * The page a referral link opens: default styles on its data-* hooks.
+ * Theme through the --bk-* tokens (tokens.css) or the hooks themselves:
+ * every rule sits in `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-referral='landing'] {
+    display: grid;
+    gap: 0.75rem;
+    max-width: 28rem;
+    margin-inline: auto;
+    padding: 1rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    color: var(--bk-ink);
+  }
+
+  [data-referral='landing-from'],
+  [data-referral='landing-offer'],
+  [data-referral='landing-status'] {
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  [data-referral='landing-from'] {
+    font-weight: 600;
+  }
+
+  [data-referral='landing-sign-up'],
+  [data-referral='landing-claim'],
+  [data-referral='landing-continue'] {
+    justify-self: start;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--bk-accent);
+    border-radius: var(--bk-radius-control);
+    background: var(--bk-accent);
+    color: var(--bk-on-accent);
+    font: inherit;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  [data-referral='landing'] :where(a, button):focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 2px;
+  }
+
+  [data-referral='landing-status'][role='alert'] {
+    color: var(--bk-error);
+  }
+}

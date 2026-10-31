@@ -77,7 +77,8 @@ describe('setupEmail transactional helpers', () => {
     const options = { to: 'a@b.com', subject: 'Hi', html: '<p>hi</p>' }
 
     expect(await email.send(ctx, options)).toBe('em_1')
-    expect(ctx.runMutation).toHaveBeenCalledWith(refs.send, options)
+    // With the app's retention, `{}` for the defaults.
+    expect(ctx.runMutation).toHaveBeenCalledWith(refs.send, { ...options, retention: {} })
   })
 
   it('status queries the component for a delivery record', async () => {
@@ -155,15 +156,72 @@ describe('setupEmail transactional helpers', () => {
     expect(email.api.getEmailStatus).toBeDefined()
   })
 
-  it('getSandboxInbox reads the component inbox', async () => {
+  describe('getSandboxInbox', () => {
     const invoke = (fn: unknown, ctx: unknown, args: unknown) =>
       (fn as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler(ctx, args)
     const messages = [{ from: 'onboarding@resend.dev', subject: 'Code', text: '123456', receivedAt: 1 }]
-    const ctx = { runQuery: vi.fn(async () => messages) }
+    const read = async () => {
+      const ctx = { runAction: vi.fn(async () => messages) }
+      const withInbox = setupEmail({ backend: { email: { ...refs, inbox: 'ref:inbox' } } } as unknown as EmailComponents)
+      return { ctx, answer: await invoke(withInbox.api.getSandboxInbox, ctx, { address: 'delivered+a@resend.dev' }) }
+    }
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
 
-    const withInbox = setupEmail({ backend: { email: { ...refs, inbox: 'ref:inbox' } } } as unknown as EmailComponents)
-    expect(await invoke(withInbox.api.getSandboxInbox, ctx, { address: 'delivered+a@resend.dev' })).toEqual(messages)
-    expect(ctx.runQuery).toHaveBeenCalledWith('ref:inbox', { address: 'delivered+a@resend.dev' })
+    it('reads the dev inbox through the component\'s action once the deployment opts in outside production', async () => {
+      vi.stubEnv('BACKEND_ENVIRONMENT', 'development')
+      vi.stubEnv('EMAIL_DEV_INBOX', '1')
+      const { ctx, answer } = await read()
+      expect(answer).toEqual(messages)
+      expect(ctx.runAction).toHaveBeenCalledWith('ref:inbox', { address: 'delivered+a@resend.dev' })
+    })
+
+    /** A read through an app whose auth adapter answers `account` for the address asked about. */
+    const readAs = async (account: Record<string, unknown> | null, address = ' Delivered+Root@resend.dev ', options: Parameters<typeof setupEmail>[1] = {}) => {
+      const ctx = { runAction: vi.fn(async () => messages), runQuery: vi.fn(async () => account) }
+      const withInbox = setupEmail({ backend: { email: { ...refs, inbox: 'ref:inbox' }, adapter: { findOne: 'ref:findOne' } } } as unknown as EmailComponents, options)
+      return { ctx, answer: await invoke(withInbox.api.getSandboxInbox, ctx, { address }) }
+    }
+
+    it.each([
+      ['an administrator', { _id: 'u1', role: 'admin' }, {}],
+      ['an administrator among several roles', { _id: 'u1', role: 'user,admin' }, {}],
+      ['an app role named an admin role', { _id: 'u1', role: 'support' }, { adminRoles: ['support'] }],
+      ['an administrator named by id', { _id: 'u1', role: 'user' }, { adminUserIds: ['u1'] }],
+      ['a passkey-only account', { _id: 'u1', role: 'user', passkeyOnly: true }, {}],
+    ])('shows no mail for %s, never asking the provider', async (_label, account, options) => {
+      vi.stubEnv('BACKEND_ENVIRONMENT', 'sandbox')
+      vi.stubEnv('EMAIL_DEV_INBOX', '1')
+      const { ctx, answer } = await readAs(account, undefined, options as never)
+      expect(answer).toEqual([])
+      expect(ctx.runAction).not.toHaveBeenCalled()
+      // The account is found by the address as Better Auth stores it.
+      expect(ctx.runQuery).toHaveBeenCalledWith('ref:findOne', { model: 'user', where: [{ field: 'email', value: 'delivered+root@resend.dev' }] })
+    })
+
+    it.each([
+      ['a test account', { _id: 'u2', role: 'user', passkeyOnly: false }],
+      ['an address with no account yet', null],
+    ])('shows the mail of %s', async (_label, account) => {
+      vi.stubEnv('BACKEND_ENVIRONMENT', 'sandbox')
+      vi.stubEnv('EMAIL_DEV_INBOX', '1')
+      const { answer } = await readAs(account)
+      expect(answer).toEqual(messages)
+    })
+
+    it.each([
+      ['without the opt-in', 'sandbox', undefined],
+      ['with another value', 'development', 'true'],
+      ['on production', 'production', '1'],
+      ['on a deployment that does not say what it is', undefined, '1'],
+    ])('answers nothing %s, never asking the provider', async (_label, environment, flag) => {
+      vi.stubEnv('BACKEND_ENVIRONMENT', environment)
+      vi.stubEnv('EMAIL_DEV_INBOX', flag)
+      const { ctx, answer } = await read()
+      expect(answer).toEqual([])
+      expect(ctx.runAction).not.toHaveBeenCalled()
+    })
   })
 })
 
@@ -219,6 +277,25 @@ describe('setupEmail marketing helpers', () => {
     expect(sdk.broadcasts.create).toHaveBeenCalled()
     await email.broadcasts.send('b1', { scheduledAt: 'in 1 hour' })
     expect(sdk.broadcasts.send).toHaveBeenCalledWith('b1', { scheduledAt: 'in 1 hour' })
+  })
+
+  it('sends a broadcast from the marketing sender, else the transactional one, unless it names its own', async () => {
+    sdk.broadcasts.create.mockResolvedValue({ data: { id: 'b1' }, error: null })
+    const email = setupEmail(component)
+    const sender = async (payload: Record<string, unknown> = {}) => {
+      sdk.broadcasts.create.mockClear()
+      await email.broadcasts.create({ segmentId: 'seg_1', subject: 'Hi', ...payload } as never)
+      return (sdk.broadcasts.create.mock.calls[0]![0] as { from: string }).from
+    }
+    vi.stubEnv('EMAIL_FROM', 'Acme <hello@mail.acme.com>')
+    vi.stubEnv('EMAIL_MARKETING_FROM', 'Acme News <news@news.acme.com>')
+    expect(await sender()).toBe('Acme News <news@news.acme.com>')
+    expect(await sender({ from: 'ceo@acme.com' })).toBe('ceo@acme.com')
+    vi.stubEnv('EMAIL_MARKETING_FROM', '')
+    expect(await sender()).toBe('Acme <hello@mail.acme.com>')
+    vi.stubEnv('EMAIL_FROM', '')
+    expect(await sender()).toBe('onboarding@resend.dev')
+    vi.unstubAllEnvs()
   })
 
   it('throws a namespaced error when the SDK returns an error', async () => {

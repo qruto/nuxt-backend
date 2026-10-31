@@ -1,122 +1,100 @@
 <script setup lang="ts">
-// Where a build without a deployment lands playground visitors (see
-// middleware/playground-offline.global.ts). Standalone like /login: no
-// playground shell — the shell itself subscribes to the backend.
+import { isLocalSite } from '~~/shared/backend-probe'
+import { returnPath } from '~~/shared/playground-offline'
+
+// Where a build without a deployment, or with one that is not there, lands
+// playground visitors (see shared/playground-offline.ts). Standalone like
+// /login: no playground shell — the shell itself subscribes to the backend.
 definePageMeta({ layout: false, header: false, footer: false })
 
-const live = 'https://nuxt-backend.dev/playground'
+const LIVE_ORIGIN = 'https://nuxt-backend.dev'
+const live = `${LIVE_ORIGIN}/playground`
+
+// A build that names a deployment, but reached this page: that deployment
+// was not there. One that names none serves the docs only.
+const siteUrl = useRuntimeConfig().public.convex?.siteUrl
+const configured = Boolean(siteUrl)
+// A deployment on this machine (a stopped `pnpm try`, a dev server): the
+// page says how to start it again. Anywhere else it says to try again soon.
+const local = import.meta.dev || (configured && isLocalSite(siteUrl!))
+// The live playground is elsewhere only when this is not the live site.
+const elsewhere = useRequestURL().origin !== LIVE_ORIGIN
+// The page the visitor asked for, to ask the deployment again (a full load, so the server asks).
+const retry = returnPath(useRoute().query.from)
 </script>
 
 <template>
-  <main class="page bk-depth">
-    <div class="card">
-      <div class="brand">
-        <span
-          class="mark"
-          aria-hidden="true"
-        >▲</span>
-        <div class="brandtext">
-          <span class="name">Nuxt backend</span>
-          <span class="sub">playground</span>
-        </div>
+  <main class="pg-shell grid min-h-dvh place-items-center px-4 py-8">
+    <div class="plaque grid w-full max-w-[28rem] gap-5 p-6">
+      <Nameplate sub="playground" />
+      <div
+        v-if="configured"
+        class="grid gap-2"
+      >
+        <EngravedTitle
+          as="h1"
+          text="The backend is not answering"
+          size="sm"
+          class="font-display text-2xl font-bold"
+        />
+        <p
+          v-if="local"
+          class="text-(--ink-dim)"
+        >
+          This build's Convex deployment did not answer, so the live demos have
+          nothing to talk to. A local deployment runs only while its dev server
+          does: start it again (<code>pnpm try</code> in the repository), then
+          try again.
+        </p>
+        <p
+          v-else
+          class="text-(--ink-dim)"
+        >
+          The playground's backend is not answering right now, so the live
+          demos have nothing to talk to. Try again in a moment.
+        </p>
       </div>
-      <h1>No backend on this deployment</h1>
-      <p>
-        This build serves the docs only — it was made without a Convex
-        deployment, so the live demos have nothing to talk to. The playground
-        runs on the production site.
-      </p>
-      <div class="actions">
-        <a :href="live">
-          <LabButton>Open the live playground</LabButton>
-        </a>
-        <NuxtLink to="/docs/start">
-          <LabButton variant="secondary">
-            Read the docs
-          </LabButton>
-        </NuxtLink>
+      <div
+        v-else
+        class="grid gap-2"
+      >
+        <EngravedTitle
+          as="h1"
+          text="No backend on this deployment"
+          size="sm"
+          class="font-display text-2xl font-bold"
+        />
+        <p class="text-(--ink-dim)">
+          This build serves the docs only — it was made without a Convex
+          deployment, so the live demos have nothing to talk to. The playground
+          runs on the production site.
+        </p>
+      </div>
+      <div class="grid gap-3 min-[480px]:flex min-[480px]:flex-wrap">
+        <!-- The one primary key: ask this build's deployment again, or go
+             where the playground runs. -->
+        <Key
+          :to="configured ? retry : live"
+          :external="configured"
+          signal="go"
+          class="w-full min-[480px]:w-auto"
+        >
+          {{ configured ? 'Try again' : 'Open the live playground' }}
+        </Key>
+        <Key
+          v-if="configured && elsewhere"
+          :to="live"
+          class="w-full min-[480px]:w-auto"
+        >
+          Open the live playground
+        </Key>
+        <Key
+          to="/docs/start"
+          class="w-full min-[480px]:w-auto"
+        >
+          Read the docs
+        </Key>
       </div>
     </div>
   </main>
 </template>
-
-<style scoped>
-.page {
-  min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: 2rem 1rem;
-  background: var(--bg);
-  color: var(--ink);
-  font-family: var(--font);
-}
-
-.card {
-  width: min(28rem, 100%);
-  padding: 1.6rem;
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  box-shadow: var(--raise-lg);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  margin-bottom: 1.1rem;
-}
-
-.mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.2rem;
-  height: 2.2rem;
-  border-radius: var(--r-sm);
-  color: var(--bg);
-  font-size: 0.9rem;
-  background: linear-gradient(135deg, var(--ink-dim), var(--ink) 70%);
-  box-shadow: var(--elev-1), inset 1px 1px 0 light-dark(rgb(255 255 255 / 0.28), rgb(255 255 255 / 0.55));
-}
-
-.brandtext {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-}
-
-.name {
-  font-family: var(--display);
-  font-weight: 700;
-}
-
-.sub {
-  font-size: 0.7rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-}
-
-h1 {
-  margin: 0 0 0.5rem;
-  font-family: var(--display);
-  font-size: 1.25rem;
-  font-weight: 700;
-}
-
-p {
-  margin: 0 0 1.2rem;
-  color: var(--ink-dim);
-  line-height: 1.5;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-}
-
-.actions a {
-  text-decoration: none;
-}
-</style>

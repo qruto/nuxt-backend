@@ -7,9 +7,12 @@
 
 @layer base {
   :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-  body { margin: 0; line-height: 1.6; }
-  main { max-width: 52rem; margin: 0 auto; padding: 2.5rem 1.25rem; display: flex; flex-direction: column; gap: 1.5rem; }
+  /* An explicit page colour pair: the scheme's own canvas and text, which a
+     contrast checker can then read instead of assuming white. */
+  body { margin: 0; line-height: 1.6; background: Canvas; color: CanvasText; }
+  main { padding: 2.5rem 1.25rem; }
   nav { display: flex; gap: 1rem; align-items: center; }
+  .page { max-width: 52rem; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
   nav a { color: inherit; }
   h1 { letter-spacing: -0.02em; margin: 0; }
   section { border: 1px solid color-mix(in srgb, currentColor 15%, transparent); border-radius: 10px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }

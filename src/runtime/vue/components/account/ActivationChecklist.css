@@ -1,0 +1,131 @@
+/*
+ * ActivationChecklist's default styles, on its data-* hooks. Theme through
+ * the --bk-* tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-activation='root'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    background: var(--bk-surface);
+    color: var(--bk-ink);
+  }
+
+  [data-activation='title'] {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+
+  [data-activation='count'] {
+    margin: 0;
+    color: var(--bk-muted);
+    font-size: 0.9rem;
+  }
+
+  [data-activation='progress'] {
+    inline-size: 100%;
+    block-size: 0.5rem;
+    accent-color: var(--bk-accent);
+  }
+
+  [data-activation='tasks'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  [data-activation='task'] {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+  }
+
+  /* The mark is a picture; the state in words beside it is what says it. */
+  [data-activation='task']::before {
+    content: '○';
+    color: var(--bk-muted);
+  }
+
+  [data-activation='task'][data-state='done']::before {
+    content: '✓';
+    color: var(--bk-ok);
+    font-weight: 700;
+  }
+
+  [data-activation='task'][data-state='done'] [data-activation='label'] {
+    color: var(--bk-muted);
+    text-decoration: line-through;
+  }
+
+  [data-activation='link'] {
+    color: var(--bk-accent);
+    font-weight: 600;
+  }
+
+  [data-activation='state'] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  [data-activation='congratulations'],
+  [data-activation='read-only'] {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  [data-activation='congratulations'] {
+    color: var(--bk-ok);
+  }
+
+  [data-activation='read-only'] {
+    color: var(--bk-muted);
+    font-weight: 400;
+    font-size: 0.9rem;
+  }
+
+  [data-activation='dismiss'] {
+    align-self: flex-start;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  [data-activation='dismiss'][aria-disabled='true'] {
+    opacity: 0.7;
+    cursor: progress;
+  }
+
+  [data-activation='root'] :where(a, button):focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 2px;
+  }
+
+  /* The live region says things without showing them. */
+  [data-activation='status'] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}

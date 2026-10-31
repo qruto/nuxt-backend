@@ -2,7 +2,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { deriveDeploymentUrls, isDevDeploymentId, isLocalDeploymentId, parseEnvFile, resolveSiteUrl, siteFromCloudUrl } from '../../src/deployment'
+import { deriveDeploymentUrls, isDevDeploymentId, isLocalDeploymentId, parseEnvFile, resolveSiteUrl } from '../../src/deployment'
+import { siteFromCloudUrl } from '../../src/convex/urls'
 
 let rootDir: string
 
@@ -120,6 +121,8 @@ describe('siteFromCloudUrl', () => {
   it('maps only *.convex.cloud origins', () => {
     expect(siteFromCloudUrl('https://brave-otter-123.convex.cloud')).toBe('https://brave-otter-123.convex.site')
     expect(siteFromCloudUrl('https://brave-otter-123.convex.cloud/')).toBe('https://brave-otter-123.convex.site')
+    // A region in the name keeps it: the .site twin lives beside the .cloud one.
+    expect(siteFromCloudUrl('https://brave-otter-123.eu-west-1.convex.cloud')).toBe('https://brave-otter-123.eu-west-1.convex.site')
     expect(siteFromCloudUrl('https://example.com')).toBeNull()
     expect(siteFromCloudUrl('https://evil.com/x.convex.cloud')).toBeNull()
   })
@@ -128,15 +131,19 @@ describe('siteFromCloudUrl', () => {
 describe('resolveSiteUrl', () => {
   const derived = { url: 'https://brave-otter-123.convex.cloud', siteUrl: 'https://brave-otter-123.convex.site', source: 'deployment' as const, deployment: 'brave-otter-123' }
 
-  it('prefers an explicit site URL, then the site-URL env names, then the derived one', () => {
-    expect(resolveSiteUrl({ siteUrl: 'https://mine.example', env: { NUXT_PUBLIC_BACKEND_SITE_URL: 'https://env.example' }, derived })).toBe('https://mine.example')
-    expect(resolveSiteUrl({ env: { NUXT_PUBLIC_BACKEND_SITE_URL: 'https://env.example' }, derived })).toBe('https://env.example')
+  it('prefers the base module\'s own site URL (a custom domain), then the derived one', () => {
     expect(resolveSiteUrl({ env: { NUXT_PUBLIC_CONVEX_SITE_URL: 'https://platform.example' }, derived })).toBe('https://platform.example')
     expect(resolveSiteUrl({ env: {}, derived })).toBe('https://brave-otter-123.convex.site')
   })
 
+  it('has no site-URL name of its own: the removed NUXT_PUBLIC_BACKEND_SITE_URL changes nothing', () => {
+    expect(resolveSiteUrl({ env: { NUXT_PUBLIC_BACKEND_SITE_URL: 'https://env.example' }, derived })).toBe('https://brave-otter-123.convex.site')
+    expect(resolveSiteUrl({ env: { NUXT_PUBLIC_BACKEND_SITE_URL: 'https://env.example', NUXT_PUBLIC_BACKEND_URL: 'https://calm-fox-9.convex.cloud' }, derived: null })).toBe('https://calm-fox-9.convex.site')
+  })
+
   it('maps a client-only cloud URL to its .site twin — the convex deploy --cmd-url-env-var-name build', () => {
     expect(resolveSiteUrl({ env: { NUXT_PUBLIC_CONVEX_URL: 'https://calm-fox-9.convex.cloud' }, derived: null })).toBe('https://calm-fox-9.convex.site')
+    expect(resolveSiteUrl({ env: { NUXT_PUBLIC_BACKEND_URL: 'https://calm-fox-9.convex.cloud' }, derived: null })).toBe('https://calm-fox-9.convex.site')
     expect(resolveSiteUrl({ url: 'https://calm-fox-9.convex.cloud', env: {}, derived: null })).toBe('https://calm-fox-9.convex.site')
   })
 

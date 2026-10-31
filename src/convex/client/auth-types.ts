@@ -1,8 +1,13 @@
 import type { createClient } from '@convex-dev/better-auth'
 import type { BetterAuthOptions } from 'better-auth/minimal'
-import type { admin, organization } from 'better-auth/plugins'
+import type { admin } from 'better-auth/plugins'
 import type { AnyComponents, AuthConfig, GenericActionCtx, GenericDataModel, GenericMutationCtx } from 'convex/server'
+import type { Audit } from '../integrations/audit.js'
+import type { Account } from '../integrations/account.js'
+import type { AccessTicket } from '../access-tickets.js'
+import type { Access } from '../integrations/launch.js'
 import type { Email } from '../integrations/email.js'
+import type { BackendPaths } from '../paths.js'
 
 // The public types of `nuxt-backend/auth`, which the entry re-exports, plus
 // the unexported helper types a public signature mentions
@@ -26,24 +31,42 @@ export interface AuthMutationCtx {
  * What the auth flows send their email through: the app's `setupEmail`
  * instance, which holds the templates and sends through the package's own
  * transport (the `backend` component's email module, on Resend). Restyle
- * the sign-in code, welcome, account-deletion and invitation emails there,
+ * the sign-in code, welcome and invitation emails there,
  * with `setupEmail(components, { templates })`.
  */
-export type AuthEmail = Pick<Email, 'sendTemplate'>
+export type AuthEmail = Pick<Email, 'sendTemplate'> & Partial<Pick<Email, 'lifecycle'>>
+
+/**
+ * Where the auth layer records its events (sign-ins, passkeys, workspace
+ * invitations and roles, impersonations): the app's
+ * `setupAudit` instance, from `nuxt-backend/audit`.
+ */
+export type AuthAudit = Pick<Audit, 'recordBackendEvent'>
+
+/**
+ * What erases an account once it is deleted, and says whose deletion would
+ * leave a workspace without an owner: the app's `setupAccount` instance,
+ * from `nuxt-backend/account`.
+ */
+export type AuthAccount = Pick<Account, 'forget' | 'soleOwnerships'> & Partial<Pick<Account, 'gate' | 'scheduleDeletion' | 'keepPath'>>
 
 /**
  * The named rate limits the auth flows consult (a subset of the defaults):
  * code sends — per email (`emailOtp`, keyed by a SHA-256 of the address) and
- * deployment-wide (`emailOtpGlobal`, the backstop against mass probing) —
+ * deployment-wide (`emailOtpGlobal`, the backstop against mass probing;
+ * `signUpOtpGlobal` in its place for an address with no account, while
+ * `access` is wired) —
  * code checks per address (`emailOtpAttempt`, keyed the same way), the
- * agent token exchange `setupAuth` wires from the same options, the
- * privileged routes throttled per caller (`admin`, `invitation`, and
- * `emailChange` for the code an email change sends to the new address) with
+ * privileged routes throttled per caller (`admin`, `invitation`,
+ * `workspaceCreate` for a new workspace, `accountDelete` for an account's
+ * own deletion, and `emailChange` for the code an email change sends to
+ * the new address) with
  * a deployment-wide ceiling behind the last two (`invitationGlobal`,
- * `emailOtpGlobal`), and the anonymous agent registration route
- * (`agentRegistrationGlobal`).
+ * `emailOtpGlobal`), and the routes anyone may call without a session: the passkey sign-in
+ * challenge, per client address (`passkeySignIn`) and deployment-wide
+ * (`passkeySignInGlobal`).
  */
-export type AuthRateLimitName = 'emailOtp' | 'emailOtpGlobal' | 'emailOtpAttempt' | 'emailChange' | 'mcp' | 'admin' | 'invitation' | 'invitationGlobal' | 'agentRegistrationGlobal'
+export type AuthRateLimitName = 'emailOtp' | 'emailOtpGlobal' | 'signUpOtpGlobal' | 'emailOtpAttempt' | 'emailChange' | 'admin' | 'invitation' | 'invitationGlobal' | 'workspaceCreate' | 'accountDelete' | 'passkeySignIn' | 'passkeySignInGlobal'
 
 /**
  * Guards auth-sensitive flows. Satisfied by `setupRateLimiter(...)` from
@@ -69,9 +92,10 @@ export interface AuthCreatedUser {
 }
 
 /**
- * Fired once after a user is created — e.g. to kick off a welcome workflow.
+ * Fired after a user is created — e.g. to kick off a welcome workflow.
  * Receives the full request ctx (a mutation or action ctx for your data model),
- * so it can `runMutation`, schedule work, or start a Workflow.
+ * so it can `runMutation`, schedule work, or start a Workflow. Better Auth
+ * runs an after-hook a second time when it throws, so make it safe to repeat.
  */
 export type OnUserCreated<DM extends GenericDataModel = GenericDataModel>
   = (ctx: GenericMutationCtx<DM> | GenericActionCtx<DM>, user: AuthCreatedUser) => Promise<void>
@@ -84,10 +108,12 @@ export interface AuthDeletedUser {
 }
 
 /**
- * Fired once after a user account is deleted (the `deleteUser` flow, confirmed
- * via email when a transport is wired) — e.g. to erase the app's own rows for
- * that user, or the billing cache via `billing.forgetEntity`. Runs after a
- * consumer-supplied `user.deleteUser.afterDelete`.
+ * Fired once after a user account is deleted (`/delete-user`, immediate
+ * after a recent sign-in and the account's address typed to confirm) — a
+ * side effect of yours: tell a team channel, stop a workflow. Erasing your
+ * own tables belongs in `setupAccount({ sources })`, which retries and
+ * also runs for a deletion from server code. Runs after a consumer-supplied
+ * `user.deleteUser.afterDelete`.
  */
 export type OnUserDeleted<DM extends GenericDataModel = GenericDataModel>
   = (ctx: GenericMutationCtx<DM> | GenericActionCtx<DM>, user: AuthDeletedUser) => Promise<void>
@@ -114,11 +140,21 @@ export interface CanSignInInput {
   /** `true` when no account exists for the address yet. */
   isNewUser: boolean
   purpose: CanSignInPurpose
+  /**
+   * At `user-create`, the ticket that admits the address while the app is
+   * closed (`setupAuth({ access })`): `invite-code`, `access-link`,
+   * `invitation`, `waitlist`, `workspace-invitation`, `gift`, `domain` or
+   * `administrator`. `null` in an open phase, without `access`, for an
+   * existing account and at the other purposes.
+   */
+  ticket: AccessTicket | null
 }
 
 /**
  * A {@link CanSignIn} verdict: `true` to allow, or a refusal with an optional
- * message shown to the user (default: "Sign-in is by invitation right now.").
+ * message shown to the user as written. Without one, the person reads the
+ * `errors.forbidden_sign_in_refused` label, in their language (in English,
+ * "Sign-in is by invitation right now.").
  */
 export type CanSignInVerdict = true | { allowed: false, message?: string }
 
@@ -148,66 +184,126 @@ export type CanSignIn<DM extends GenericDataModel = GenericDataModel>
  * to run side effects (durable workflows, analytics, erasure) around the
  * account lifecycle. A code or an invitation the deployment cannot deliver —
  * no `EMAIL_API_KEY`, test mode, no `EMAIL_FROM` — is refused on the request,
- * with a message the form shows and the setting to change in the logs (set
- * `NUXT_BACKEND_LOG_OTP=1` to echo codes to the console during local dev
- * instead).
+ * with a message the form shows and the setting to change in the logs (a
+ * `development` `BACKEND_ENVIRONMENT` echoes codes to the console instead).
  */
 export interface AuthIntegrations<DM extends GenericDataModel = GenericDataModel> {
   /** The app's `setupEmail` instance: the sign-in codes and every other auth email go out through it. */
   email: AuthEmail
   rateLimiter?: AuthRateLimiter
+  /**
+   * Fired after an account is created, after its welcome email. See {@link OnUserCreated}.
+   *
+   * @guarantee
+   * - Runs: in the auth request that created the account (a mutation or action ctx), after its welcome email
+   * - Delivery: once, or twice when it throws: Better Auth runs a failed after-hook a second time
+   * - Order: after the account is created
+   * - When it throws: run again once; a second throw fails the sign-up request, and the account stays created
+   * - Idempotency: key what it starts on `user.id`, since it can run twice
+   */
   onUserCreated?: OnUserCreated<DM>
-  /** Gate sign-in / sign-up (invite-only, allow-list, closed beta). See {@link CanSignIn}. */
+  /**
+   * Gate sign-in / sign-up (invite-only, allow-list, closed beta). See {@link CanSignIn}.
+   *
+   * @guarantee
+   * - Runs: in the auth request (a mutation or action ctx), before the write it guards
+   * - Delivery: every time the gate is asked: a code request, an account creation, each new session, and twice for an email change
+   * - Order: before any write, so a refusal leaves nothing behind
+   * - When it throws: the error propagates as thrown and fails the request; return `{ allowed: false }` to refuse with `forbidden`, reason `sign_in_refused`
+   * - Idempotency: a read only: it runs several times for one sign-in
+   */
   canSignIn?: CanSignIn<DM>
-  /** Fired after an account is deleted, after any consumer `afterDelete`. See {@link OnUserDeleted}. */
+  /**
+   * Fired after an account is deleted, after any consumer `afterDelete`. See {@link OnUserDeleted}.
+   *
+   * @guarantee
+   * - Runs: in the deletion request (a mutation or action ctx), after the app's own `user.deleteUser.afterDelete`
+   * - Delivery: once per deletion
+   * - Order: after the account is deleted
+   * - When it throws: the deletion request fails; the account is already deleted
+   * - Idempotency: make the erasure safe to run again, by `user.id`
+   */
   onUserDeleted?: OnUserDeleted<DM>
+  /**
+   * The app's `setupAudit` instance (`backend/audit.ts`): the auth layer
+   * records its events through it, so they reach its `onEvent` action.
+   * Every event is recorded without it too, through the component, and
+   * never reaches `onEvent`.
+   */
+  audit?: AuthAudit
+  /**
+   * The app's `setupAccount` instance (`backend/account.ts`): an
+   * account's deletion (`/delete-user`,
+   * `/admin/remove-user`) erases everything of it through it, the
+   * providers' records and the app's own sources included, and is refused
+   * while it is the only owner of a workspace others belong to. Without
+   * it, the component's own tables are erased and the refusal holds; the
+   * providers' records and the app's tables are left.
+   */
+  account?: AuthAccount
 }
+
+/** What `setupAuth` reads of the `setupAccess` instance. */
+export type AuthAccess = Pick<Access, 'gate'>
 
 /** Options for the bundled admin plugin (roles, permissions, ban, impersonation). */
 export type AdminPluginOptions = Parameters<typeof admin>[0]
 
-/**
- * Options for the bundled organization plugin (workspaces). Every user gets a
- * personal workspace on first sign-in, set active, so `activeOrganizationId`
- * is never null. Beyond the plugin's own options:
- *
- * - `invitationPath` — the app page invitation emails link to (default
- *   `/accept-invitation`, registered automatically by the Nuxt module). The
- *   emailed URL is `{SITE_URL}{invitationPath}?id=<invitationId>`.
- *   ⚠ Declared in two places by necessity: keep it aligned with the Nuxt
- *   side's `backend.pages.acceptInvitation` (nuxt.config) — a mismatch 404s
- *   invitees, and `nuxt-backend doctor` cross-checks both.
- */
-export type OrganizationPluginOptions = Parameters<typeof organization>[0] & {
-  invitationPath?: string
+/** A workspace as the workspace hooks receive it. */
+export interface WorkspaceHookWorkspace {
+  id: string
+  name: string
+  slug: string
 }
 
+/** What {@link WorkspaceOptions.onCreate} receives: the new workspace and the account that made it, its first owner. */
+export interface WorkspaceCreatedEvent {
+  workspace: WorkspaceHookWorkspace
+  userId: string
+}
+
+/** What {@link WorkspaceOptions.onMemberAdded} and {@link WorkspaceOptions.onMemberRemoved} receive. */
+export interface WorkspaceMemberEvent {
+  workspace: WorkspaceHookWorkspace
+  userId: string
+  /** The member's role: `owner`, `admin` or `member`. */
+  role: string
+}
+
+/** What {@link WorkspaceOptions.canInvite} is asked about. */
+export interface WorkspaceInviteInput {
+  /** The address invited, lower-cased. */
+  email: string
+  role: string
+  workspaceId: string
+  /** The account that invites. */
+  inviterId: string
+}
+
+/** A workspace hook: the request's Convex ctx (a mutation or action ctx), and the event. */
+export type WorkspaceHook<E, DM extends GenericDataModel = GenericDataModel>
+  = (ctx: GenericMutationCtx<DM> | GenericActionCtx<DM>, event: E) => Promise<void>
+
 /**
- * Options for the agent (MCP) OAuth provider — better-auth's `mcp` plugin.
- * Agents obtain access via dynamic client registration + the OAuth
- * authorization-code flow with PKCE, and every authorization goes through
- * the consent page, where the person approves or denies. All of it is mounted
- * under the auth base path and reachable on the app origin through the base
- * module's auth proxy.
+ * Workspace options. Every account gets a personal workspace on its first
+ * sign-in, set active, so a session always has an active workspace. The
+ * roles are the built-in `owner`, `admin` and `member`.
  */
-export interface McpAuthOptions {
+export interface WorkspaceOptions<DM extends GenericDataModel = GenericDataModel> {
+  /** How long an invitation can be accepted, in seconds. Default 48 hours. */
+  invitationExpiresIn?: number
   /**
-   * Extra OAuth scopes on top of the built-in set, `BACKEND_MCP_SCOPES` (identity scopes
-   * plus the built-in tool scopes, always offered).
+   * Refuse an invitation before it is stored or emailed: `true` to allow,
+   * or `{ allowed: false, message? }`, refused as `forbidden` with reason
+   * `invitation_refused`, carrying your message.
    */
-  scopes?: string[]
-  /**
-   * The app page a person signs in on mid-authorization. Default `/login`;
-   * keep it equal to `backend.pages.login` (`nuxt-backend doctor` compares
-   * the two).
-   */
-  loginPath?: string
-  /**
-   * The app page a person approves or denies an agent on. Default
-   * `/oauth/consent`; keep it equal to `backend.pages.agentConsent`
-   * (`nuxt-backend doctor` compares the two).
-   */
-  consentPath?: string
+  canInvite?: (ctx: GenericMutationCtx<DM> | GenericActionCtx<DM>, input: WorkspaceInviteInput) => Promise<CanSignInVerdict>
+  /** After a workspace is created, a personal one included. Runs again when it throws, like every after-hook: make it safe to repeat. */
+  onCreate?: WorkspaceHook<WorkspaceCreatedEvent, DM>
+  /** After an account joins a workspace: its creator, an accepted invitation, an owner or admin adding it. */
+  onMemberAdded?: WorkspaceHook<WorkspaceMemberEvent, DM>
+  /** After a member is removed from a workspace. */
+  onMemberRemoved?: WorkspaceHook<WorkspaceMemberEvent, DM>
 }
 
 /**
@@ -221,17 +317,24 @@ export interface SetupAuthOptions<
   authConfig?: AuthConfig
   /** Override Better Auth options (merged with defaults) */
   authOptions?: BetterAuthOptions
-  /** Override Better Auth basePath and matching Convex auth route */
-  basePath?: string
+  /**
+   * The app's paths, from the `paths.generated.ts` the Nuxt module writes
+   * from nuxt.config (`backend.authRoute`, `backend.pages`): the auth
+   * routes' base path, and the pages the auth emails link to (an invitation,
+   * a recovered passkey-only account, a waitlist place). A key left out takes
+   * its page's default path.
+   */
+  paths?: Partial<BackendPaths>
   /** Admin plugin options: roles via `adminRoles`/`ac`, ban, impersonation. */
   admin?: AdminPluginOptions
-  /** Organization (workspace) plugin options. */
-  organization?: OrganizationPluginOptions
+  /** Workspace options: where invitation emails link, how long an invitation lasts, and the workspace hooks. */
+  workspaces?: WorkspaceOptions<DM>
   /**
-   * Agent (MCP) OAuth provider options: the provider behind the app's
-   * OAuth-protected MCP endpoint and the `/mcp/exchange` token mint.
+   * The app's `setupAccess` instance (`backend/access.ts`): the launch
+   * phase and the tickets that admit a new address. Existing accounts
+   * always sign in; `canSignIn` still runs after it, as your own veto.
    */
-  mcp?: McpAuthOptions
+  access?: AuthAccess
 }
 
 /**
@@ -240,7 +343,7 @@ export interface SetupAuthOptions<
  *
  * @internal
  */
-export type AuthBuildOptions = Omit<SetupAuthOptions, keyof AuthIntegrations>
+export type AuthBuildOptions<DM extends GenericDataModel = GenericDataModel> = Omit<SetupAuthOptions<DM>, keyof AuthIntegrations | 'access'>
 
 /** Component API shape expected by the Better Auth client. */
 export type AuthComponentApi = Parameters<typeof createClient>[0]
@@ -256,6 +359,19 @@ export type PublicAuthComponentRef = AuthComponentApi | AnyComponents[string]
  */
 export interface AuthSetupComponents {
   backend: PublicAuthComponentRef
+}
+
+/** One of the caller's latest sign-ins from a new device, as `listSignInAlerts` returns it. */
+export interface SignInAlert {
+  /** When the device signed in, epoch ms. */
+  at: number
+  /** The browser and the system, when the user agent named them. */
+  browser?: string
+  os?: string
+  /** It signed in with the account's recovery code, which always counts as a new device. */
+  recovery: boolean
+  /** The session it opened: compare with `listSessions` to sign it out while it lasts. */
+  sessionId?: string
 }
 
 /** One of the caller's device sessions, as `listSessions` returns it. */

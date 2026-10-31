@@ -1,6 +1,8 @@
 import { computed, inject, toValue, type ComputedRef, type MaybeRefOrGetter, type Ref } from 'vue'
 import { useAction, ConvexAuthStateKey } from 'nuxt-convex-module/client'
+import type { BackendError } from '../utils/backend-error'
 import { useBackendNamespace } from '../utils/namespace'
+import { useReaderKey } from '../utils/reader'
 import { type BillingApi, createProviderPager, type UsageEvent } from './use-billing'
 
 export interface UseUsageOptions {
@@ -34,8 +36,8 @@ export interface UseUsageReturn {
   hasPrevious: ComputedRef<boolean>
   /** Whether a load is in flight. */
   isLoading: ComputedRef<boolean>
-  /** Message of the last failed load, `null` otherwise. Loads never reject. */
-  error: Ref<string | null>
+  /** Why the last load failed, `null` otherwise. Loads never reject. */
+  error: ComputedRef<BackendError | null>
   /** Reload the current page. */
   refresh: () => Promise<void>
   /** Load the next page (no-op at the end). */
@@ -78,6 +80,7 @@ export function useUsage(options: UseUsageOptions = {}): UseUsageReturn {
   const signedOut = computed(() => auth != null && !auth.isAuthenticated.value)
 
   const runUsage = billing.getUsageHistory ? useAction(billing.getUsageHistory) : null
+  const reader = useReaderKey()
 
   const pager = createProviderPager<UsageEvent>(
     runUsage && (args => runUsage({ meter: toValue(options.meter), page: args.page, limit: args.limit })),
@@ -86,6 +89,8 @@ export function useUsage(options: UseUsageOptions = {}): UseUsageReturn {
       immediate: options.immediate,
       enabled: () => !signedOut.value,
       watchSources: () => toValue(options.meter),
+      // The server meters the active workspace: another one is another history.
+      reader: () => reader.value,
     },
   )
 

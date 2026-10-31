@@ -1,7 +1,8 @@
 import { computed, getCurrentInstance, onMounted, ref, toValue, watch, type Ref } from 'vue'
 import { useAction } from 'nuxt-convex-module/client'
+import { VISITOR_IP_ROUTE } from '../../../convex/constants.js'
 import { openProviderUrl } from '../utils/open-url'
-import { refusalMessage } from '../utils/backend-error'
+import { type BackendError, failureOf } from '../utils/backend-error'
 import type { BillingApi, BillingPage, CheckoutOptions, GiftOptions, PageFetcher, ProviderPager, ProviderPagerOptions } from './use-billing'
 
 // The round trips to the billing provider that more than one composable
@@ -31,6 +32,27 @@ function serverOnly(opts: CheckoutOptions): Record<string, unknown> {
 }
 
 /**
+ * The visitor's IP address as the app's server sees it
+ * (`/api/backend/visitor-ip`), which a checkout forwards for the billing
+ * provider's local pricing: the checkout is created on the deployment, whose
+ * address the provider would price by. Nothing when the route does not
+ * answer within two seconds, or answers none: the checkout goes on without.
+ */
+async function visitorIp(): Promise<string | undefined> {
+  if (typeof window === 'undefined' || typeof fetch !== 'function') return undefined
+  try {
+    // fallow-ignore-next-line security-sink -- VISITOR_IP_ROUTE is the module's own same-origin path, a constant; verified 2026-10-28
+    const response = await fetch(VISITOR_IP_ROUTE, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(2000) })
+    if (!response.ok) return undefined
+    const { ip } = await response.json() as { ip?: unknown }
+    return typeof ip === 'string' && ip !== '' ? ip : undefined
+  }
+  catch {
+    return undefined
+  }
+}
+
+/**
  * Build a `checkout(productIds, options)` action over a billing namespace —
  * shared by {@link useBilling} (subscriptions) and
  * {@link "runtime/vue/composables/use-credits"!useCredits} (top-ups),
@@ -43,6 +65,7 @@ export function createCheckout(billing: BillingApi) {
     if (!runCheckout) notConfigured('checkout')
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const successUrl = opts.successUrl ?? (typeof window !== 'undefined' ? window.location.href : '')
+    const customerIpAddress = await visitorIp()
     const { url } = await runCheckout({
       productIds: Array.isArray(productIds) ? productIds : [productIds],
       origin,
@@ -50,12 +73,16 @@ export function createCheckout(billing: BillingApi) {
       subscriptionId: opts.subscriptionId,
       metadata: opts.metadata,
       locale: opts.locale,
+      currency: opts.currency,
       prefill: opts.prefill,
       customFields: opts.customFields,
       requireBillingAddress: opts.requireBillingAddress,
       allowDiscountCodes: opts.allowDiscountCodes,
       discountCode: opts.discountCode,
+      discount: opts.discount,
       utm: opts.utm,
+      ...(opts.emailOptOut === undefined ? {} : { emailOptOut: opts.emailOptOut }),
+      ...(customerIpAddress ? { customerIpAddress } : {}),
       ...serverOnly(opts),
     })
     openProviderUrl(url, opts.redirect)
@@ -80,10 +107,10 @@ function normalizePage<Item>(result: BillingPage<Item> | Item[] | null | undefin
  * page numbers rather than a cursor, so this tracks a page and its totals.
  *
  * Loads run in the browser only (they need a Convex client and the signed-in
- * identity), never reject — a failure lands in `error` so a permanently
- * mounted history panel cannot break a page — and stay put when `fetchPage` is
- * `null`, which is how an undeployed backend function degrades. Must be called
- * during component setup.
+ * identity), never reject — a failure lands in `error` as `failureOf` reads
+ * it, so a permanently mounted history panel cannot break a page — and stay
+ * put when `fetchPage` is `null`, which is how an undeployed backend
+ * function degrades. Must be called during component setup.
  */
 export function createProviderPager<Item>(
   fetchPage: PageFetcher<Item> | null,
@@ -93,7 +120,7 @@ export function createProviderPager<Item>(
   const page = ref(1)
   const total = ref<number | undefined>()
   const pageCount = ref<number | undefined>()
-  const error = ref<string | null>(null)
+  const error = ref<BackendError | null>(null)
 
   const instance = getCurrentInstance()
   const immediate = (options.immediate ?? true) && instance != null
@@ -104,7 +131,15 @@ export function createProviderPager<Item>(
 
   const enabled = () => (options.enabled ? options.enabled() : true)
 
+  // Loads overlap: a filter or a sign-out reloads page 1 while a `next()`
+  // is still on its way, and either may answer last. Only the latest load
+  // writes, so an older answer can never put the previous filter's page, or
+  // the previous account's history, back on screen, and only it ends the
+  // loading state.
+  let latest = 0
+
   async function load(target: number): Promise<void> {
+    const run = ++latest
     if (!fetchPage || !enabled()) {
       items.value = []
       total.value = undefined
@@ -116,17 +151,19 @@ export function createProviderPager<Item>(
     error.value = null
     try {
       const result = normalizePage(await fetchPage({ page: target, limit: toValue(options.limit) }))
+      if (run !== latest) return
       items.value = result.items
       total.value = result.pagination?.totalCount
       pageCount.value = result.pagination?.maxPage
       page.value = target
     }
     catch (failure) {
-      error.value = refusalMessage(failure, 'Could not load billing history')
+      if (run !== latest) return
+      error.value = failureOf(failure)
       items.value ??= []
     }
     finally {
-      loading.value = false
+      if (run === latest) loading.value = false
     }
   }
 
@@ -138,6 +175,15 @@ export function createProviderPager<Item>(
       () => load(1),
       { flush: 'post' },
     )
+    // Another reader's history is not theirs to see, nor to act on, while theirs loads.
+    if (options.reader) {
+      watch(options.reader, () => {
+        items.value = undefined
+        total.value = undefined
+        pageCount.value = undefined
+        void load(1)
+      }, { flush: 'post' })
+    }
   }
 
   return {
@@ -154,7 +200,7 @@ export function createProviderPager<Item>(
     }),
     hasPrevious: computed(() => page.value > 1),
     isLoading: computed(() => loading.value),
-    error,
+    error: computed(() => error.value),
     refresh: () => load(page.value),
     next: async () => {
       if (pageCount.value != null && page.value >= pageCount.value) return
@@ -169,28 +215,30 @@ export function createProviderPager<Item>(
 }
 
 /**
- * Build a `gift(pack, { recipientEmail, ... })` action over a billing
- * namespace — shared by {@link useBilling} and
- * {@link "runtime/vue/composables/use-credits"!useCredits}. A gift is a
- * credit pack, named by its catalog key (`credits500`); the server refuses
- * a plan or anything outside the catalog. The purchaser pays on their own
- * billing account and gets the receipt; the recipient (by email) signs in
- * and claims the credits (`useGifts().claim`). Must be called during
- * component setup.
+ * Build the `send(item, { recipientEmail, ... })` action of
+ * {@link "runtime/vue/composables/use-gifts"!useGifts} over a billing
+ * namespace. A gift is a credit pack, named by its catalog key
+ * (`credits500`), or a plan as a pass: its key with a length in `months`
+ * the plan offers. The server refuses anything outside the catalog. The
+ * purchaser pays on their own billing account and gets the receipt; the
+ * recipient (by email) signs in and claims it (`useGifts().claim`). Must be
+ * called during component setup.
  */
 export function createGiftCheckout(billing: BillingApi) {
   const runGiftCheckout = billing.giftCheckout ? useAction(billing.giftCheckout) : null
-  return async (pack: string, opts: GiftOptions & { recipientEmail: string }): Promise<string> => {
+  return async (item: string, opts: GiftOptions & { recipientEmail: string, months?: number, deliverAt?: Date | number }): Promise<string> => {
     if (!runGiftCheckout) notConfigured('gift')
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const successUrl = opts.successUrl ?? (typeof window !== 'undefined' ? window.location.href : '')
     const { url } = await runGiftCheckout({
-      pack,
+      ...(opts.months === undefined ? { pack: item } : { plan: item, months: opts.months }),
+      ...(opts.deliverAt === undefined ? {} : { deliverAt: new Date(opts.deliverAt).getTime() }),
       recipientEmail: opts.recipientEmail,
       message: opts.message,
       origin,
       successUrl,
       metadata: opts.metadata,
+      currency: opts.currency,
     })
     openProviderUrl(url, opts.redirect)
     return url

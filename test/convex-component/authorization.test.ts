@@ -5,7 +5,7 @@ import { convexTest } from 'convex-test'
 import component from '../../src/convex/test'
 import schema from '../../src/convex/components/backend/schema'
 import { api } from '../../src/convex/components/backend/_generated/api'
-import { setupAuthorization, type AuthorizationCtx } from '../../src/convex/integrations/authorization'
+import { type AuthorizationCtx, createAuthorization } from '../../src/convex/integrations/authorization'
 
 // Run the backend component as the root app (same pattern as billing.test.ts)
 // so the adapter functions operate on the real schema — this validates the
@@ -115,9 +115,9 @@ describe('admin/organization schema through the adapter', () => {
   })
 })
 
-describe('setupAuthorization against the real adapter', () => {
+describe('the tiers\' authorization against the real adapter', () => {
   test('requireMember resolves a real membership', async () => {
-    const authorization = setupAuthorization(adapterApi as never)
+    const authorization = createAuthorization(adapterApi as never)
     const user = await createRow('user', userRow())
     const userId = (user.id ?? user._id) as string
     const organization = await createRow('organization', { name: 'Acme', slug: 'acme', createdAt: now() })
@@ -128,11 +128,11 @@ describe('setupAuthorization against the real adapter', () => {
       identityCtx({ subject: userId, activeOrganizationId: organizationId }),
       { role: ['admin', 'owner'] },
     )
-    expect(member).toMatchObject({ organizationId, role: 'admin' })
+    expect(member).toMatchObject({ workspaceId: organizationId, role: 'admin' })
   })
 
   test('requireMember rejects a non-member of the active workspace', async () => {
-    const authorization = setupAuthorization(adapterApi as never)
+    const authorization = createAuthorization(adapterApi as never)
     const organization = await createRow('organization', { name: 'Acme', slug: 'acme', createdAt: now() })
     const organizationId = (organization.id ?? organization._id) as string
 
@@ -142,7 +142,7 @@ describe('setupAuthorization against the real adapter', () => {
   })
 
   test('requireRole fresh reads the stored role, not the stale claim', async () => {
-    const authorization = setupAuthorization(adapterApi as never)
+    const authorization = createAuthorization(adapterApi as never)
     const user = await createRow('user', userRow({ role: 'user' }))
     const userId = (user.id ?? user._id) as string
 

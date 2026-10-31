@@ -3,34 +3,30 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { componentsGeneric, defineSchema, type FunctionReference, makeFunctionReference, queryGeneric } from 'convex/server'
 import { asUser, defineBackendTestApp, seedWorkspace } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
-import { setupAuth } from '../../src/convex/client'
 import { setupEmail } from '../../src/convex/integrations/email'
-import { setupAuthorization } from '../../src/convex/integrations/authorization'
+import { createAuthorization } from '../../src/convex/integrations/authorization'
 import { setupBilling } from '../../src/convex/integrations/billing'
 
 // nuxt-backend/test as an app uses it: the app's functions over every
 // component the scaffold mounts, and callers who carry the claims a real
-// session or agent token carries.
+// session token carries.
 
 const components = componentsGeneric() as unknown as { backend: ComponentApi<'backend'> }
 const whoami = queryGeneric({ args: {}, handler: async ctx => await ctx.auth.getUserIdentity() })
 const email = setupEmail(components as never)
-const { listWorkspaceMembers } = setupAuth(components as never, queryGeneric, { email })
 // What app functions gate on: the membership the authorization helpers read,
 // and the entity billing charges.
-const { requireMember } = setupAuthorization(components as never)
+const { requireMember } = createAuthorization(components as never)
 const billing = setupBilling(components as never, { email })
 const membership = queryGeneric({ args: {}, handler: async ctx => await requireMember(ctx as never) })
 const billingEntity = queryGeneric({ args: {}, handler: async ctx => await billing.resolveEntity(ctx) })
 const testApp = defineBackendTestApp(defineSchema({}), {
   './_generated/api.js': () => Promise.resolve({}),
   './whoami.js': () => Promise.resolve({ whoami, membership, billingEntity }),
-  './auth.js': () => Promise.resolve({ listWorkspaceMembers }),
 })
 const whoamiRef = makeFunctionReference<'query'>('whoami:whoami')
 const membershipRef = makeFunctionReference<'query'>('whoami:membership')
 const billingEntityRef = makeFunctionReference<'query'>('whoami:billingEntity')
-const membersRef = makeFunctionReference<'query'>('auth:listWorkspaceMembers')
 
 afterEach(() => {
   vi.unstubAllEnvs()
@@ -49,6 +45,16 @@ describe('defineBackendTestApp', () => {
     await expect(t.mutation(limiter.lib.rateLimit, { name: 'probe', config: { kind: 'token bucket', rate: 1, period: 1000 } } as never))
       .resolves.toMatchObject({ ok: true })
     await expect(rows(t, 'user')).resolves.toEqual([])
+    // The workpool, the sharded counter and the action cache, as the
+    // scaffold has mounted them since F14.
+    const mounted = componentsGeneric() as unknown as {
+      workpool: { lib: { statusBatch: FunctionReference<'query', 'internal'> } }
+      shardedCounter: { public: { count: FunctionReference<'query', 'internal'> } }
+      actionCache: { lib: { get: FunctionReference<'query', 'internal'> } }
+    }
+    await expect(t.query(mounted.workpool.lib.statusBatch, { ids: [] } as never)).resolves.toEqual([])
+    await expect(t.query(mounted.shardedCounter.public.count, { name: 'probe' } as never)).resolves.toBe(0)
+    await expect(t.query(mounted.actionCache.lib.get, { name: 'probe', args: {}, ttl: null } as never)).resolves.toEqual({ kind: 'miss' })
   })
 
   test('gives each call a fresh instance', async () => {
@@ -62,7 +68,7 @@ describe('asUser', () => {
     const t = testApp()
     const ada = await asUser(t)
     expect(await ada.query(whoamiRef, {})).toMatchObject({ role: 'user', activeOrganizationId: ada.workspaceId, banned: false })
-    expect(await ada.query(membershipRef, {})).toMatchObject({ organizationId: ada.workspaceId, role: 'owner' })
+    expect(await ada.query(membershipRef, {})).toMatchObject({ workspaceId: ada.workspaceId, role: 'owner' })
     expect(await ada.query(billingEntityRef, {})).toEqual({ userId: ada.workspaceId, email: ada.email })
     expect(await rows(t, 'organization')).toEqual([expect.objectContaining({ _id: ada.workspaceId, slug: `personal-${ada.userId.toLowerCase()}` })])
     expect(await rows(t, 'user')).toEqual([expect.objectContaining({ _id: ada.userId, role: 'user' })])
@@ -108,12 +114,13 @@ describe('asUser', () => {
     ]))
   })
 
-  test('puts several callers in one workspace, as the auth functions read it', async () => {
+  test('puts several callers in one workspace, as the member table holds it', async () => {
     const t = testApp()
     const workspace = await seedWorkspace(t)
     const owner = await asUser(t, { workspace, workspaceRole: 'owner' })
     await asUser(t, { workspace })
-    const { members } = await owner.query(membersRef, {}) as { members: Array<{ role: string }> }
+    expect(await owner.query(membershipRef, {})).toMatchObject({ workspaceId: workspace, role: 'owner' })
+    const members = (await rows(t, 'member')).filter(member => member.organizationId === workspace)
     expect(members.map(member => member.role).sort()).toEqual(['member', 'owner'])
   })
 
@@ -123,15 +130,5 @@ describe('asUser', () => {
     const visited = await asUser(t, { impersonatedBy: admin.userId })
     expect(await visited.query(whoamiRef, {})).toMatchObject({ impersonatedBy: admin.userId })
     expect(await rows(t, 'session')).toEqual(expect.arrayContaining([expect.objectContaining({ _id: visited.sessionId, impersonatedBy: admin.userId })]))
-  })
-
-  test('calls as an agent: the client and its scopes, and no session', async () => {
-    const t = testApp()
-    const agent = await asUser(t, { agent: { clientId: 'client_claude', scopes: ['openid', 'billing:read'] } })
-    const identity = await agent.query(whoamiRef, {}) as Record<string, unknown>
-    expect(identity).toMatchObject({ subject: agent.userId, clientId: 'client_claude', scopes: ['openid', 'billing:read'] })
-    expect(identity.sessionId).toBeUndefined()
-    expect(agent.sessionId).toBeUndefined()
-    expect(await rows(t, 'session')).toEqual([])
   })
 })

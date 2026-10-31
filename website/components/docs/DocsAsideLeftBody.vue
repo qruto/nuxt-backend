@@ -3,16 +3,17 @@ import type { ContentNavigationItem } from '@nuxt/content'
 
 // Docus 5.15.0's DocsAsideLeftBody (test/docs/docus-copies.test.ts pins the
 // source), changed: groups collapse, and the one holding the page opens;
-// a group's name is a stamped section label, and an amber light marks
-// where an experimental surface starts (utils/nav-badges.ts): the sidebar
-// has no room for the word.
+// a group's name is a stamped section label, and a light marks where an
+// experimental surface starts (amber), a planned one (off) or a changing
+// one (an amber square), as utils/nav-badges.ts hoists the badges: the
+// sidebar has no room for the word.
 // Moving to a page in a closed group redraws the tree with that group open;
 // within a group the reader's own toggles stay. Closed groups keep their
 // links in the page, so every route stays one crawl away.
 const route = useRoute()
 const appConfig = useAppConfig()
 const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')
-const { sidebarNavigation } = useSubNavigation(computed(() => hoistExperimental(navigation?.value ?? [])))
+const { sidebarNavigation } = useSubNavigation(computed(() => hoistBadges(navigation?.value ?? [])))
 
 const contentNavVariants = useUIConfig('contentNavigation')
 
@@ -38,8 +39,9 @@ const openGroup = computed(() => sidebarNavigation.value.find(item => item.child
     <template #link-trailing="{ link, ui }">
       <Led
         v-if="link.badge"
-        tone="warn"
-        label="Experimental"
+        :tone="badgeTone(link.badge)"
+        :shape="badgeShape(link.badge)"
+        :label="badgeLabel(link.badge)"
       />
       <UIcon
         v-if="link.children?.length"

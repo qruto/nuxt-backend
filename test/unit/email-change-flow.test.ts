@@ -10,7 +10,7 @@ import { authFlow, wrong } from '../helpers/auth-flow'
 // The email change against real Better Auth on a memory adapter: a code from
 // the current address, then one from the new address, and nothing moves
 // without both. Codes are stored hashed, so they are read from the dev echo
-// (NUXT_BACKEND_LOG_OTP) — the database holds nothing usable.
+// (a development BACKEND_ENVIRONMENT) — the database holds nothing usable.
 
 const ORIGIN = 'https://app.example.com'
 const BASE = `${ORIGIN}/api/auth`
@@ -33,7 +33,7 @@ beforeEach(async () => {
     authOptions: { baseURL: ORIGIN, secret: 'a-test-secret-that-is-long-enough-1234', plugins: [testUtils()] },
   }) as never)
   helpers = (await auth.$context as unknown as { test: TestHelpers }).test
-  vi.stubEnv('NUXT_BACKEND_LOG_OTP', '1')
+  vi.stubEnv('BACKEND_ENVIRONMENT', 'development')
   warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
 
@@ -132,12 +132,12 @@ describe('the guards around an email change', () => {
     expect((await flow.post('/email-otp/change-email', { newEmail: NEW, otp: flow.codeFor(NEW) }, { cookie })).status).toBe(200)
     const asked = canSignIn.mock.calls.map(call => (call as unknown[])[1] as { purpose: string })
     expect(asked.filter(input => input.purpose === 'email-change')).toEqual([
-      { email: NEW, isNewUser: false, purpose: 'email-change' },
-      { email: NEW, isNewUser: false, purpose: 'email-change' },
+      { email: NEW, isNewUser: false, purpose: 'email-change', ticket: null },
+      { email: NEW, isNewUser: false, purpose: 'email-change', ticket: null },
     ])
   })
 
-  it('stops at a refused address: no code goes to it, and no limit is spent', async () => {
+  it('stops at a refused address: no code goes to it, and only the caller\'s own change request is spent', async () => {
     const canSignIn = vi.fn(async (_ctx: unknown, input: { purpose: string }) =>
       input.purpose === 'email-change' ? { allowed: false as const, message: 'Use your work address.' } : true as const)
     const { flow, cookie, otp } = await changing({ runtime: { canSignIn } as never })
@@ -146,12 +146,44 @@ describe('the guards around an email change', () => {
     expect(response.status).toBe(403)
     expect(await response.json()).toMatchObject({ message: 'Use your work address.' })
     expect(flow.codeFor(NEW)).toBeUndefined()
+    // The gate answered about an address the caller typed: that answer costs
+    // the caller, never the address.
+    expect(spent(flow)).toEqual(['emailChange'])
+  })
+
+  it('cannot be used to probe the gate for free: refused answers spend the caller\'s change requests until none are left', async () => {
+    const canSignIn = vi.fn(async (_ctx: unknown, input: { email: string, purpose: string }) =>
+      input.purpose === 'email-change' && input.email.endsWith('@banned.example') ? { allowed: false as const } : true as const)
+    const { flow, cookie, otp } = await changing({ runtime: { canSignIn } as never })
+    const probe = (address: string) => flow.post('/email-otp/request-email-change', { newEmail: address, otp }, { cookie })
+
+    // Five an hour (emailChange): the refusals answer, then the bucket does.
+    for (let i = 0; i < 5; i++) expect((await probe(`person${i}@banned.example`)).status).toBe(403)
+    const closed = await probe('person5@banned.example')
+    expect(closed.status).toBe(429)
+    expect(await closed.json()).toMatchObject({ code: 'rate_limited', limit: 'emailChange' })
+    expect(canSignIn.mock.calls.filter(call => (call[1] as { purpose: string }).purpose === 'email-change')).toHaveLength(5)
+  })
+
+  it('asks nothing about the new address until a code to the current one is waiting', async () => {
+    const canSignIn = vi.fn(async () => true as const)
+    const flow = await authFlow({ runtime: { canSignIn } as never })
+    const { cookie } = await flow.signInWithCode('ada@old.example')
+    canSignIn.mockClear()
+    flow.limiter.limit.mockClear()
+
+    // No code went to the current address: Better Auth refuses on its own.
+    expect((await flow.post('/email-otp/request-email-change', { newEmail: NEW, otp: '123456' }, { cookie })).status).toBe(400)
+    // And no code is waiting for this pair: nothing moves, and the gate stays quiet.
+    expect((await flow.post('/email-otp/change-email', { newEmail: NEW, otp: '' }, { cookie })).status).toBe(400)
+    expect((await flow.post('/email-otp/change-email', { newEmail: 'other@new.example', otp: '000000' }, { cookie })).status).toBe(400)
+    expect(canSignIn).not.toHaveBeenCalled()
     expect(spent(flow)).toEqual([])
   })
 
   it('refuses a new address the transport would drop, before a code is minted for it', async () => {
     const { flow, cookie, otp } = await changing({}, 'delivered+ada@resend.dev')
-    vi.stubEnv('EMAIL_TEST_MODE', 'true')
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'sandbox')
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {
       const response = await flow.post('/email-otp/request-email-change', { newEmail: NEW, otp }, { cookie })
@@ -159,7 +191,7 @@ describe('the guards around an email change', () => {
       expect(await response.json()).toMatchObject({ code: 'unavailable', service: 'email', reason: 'test_mode', message: 'This app is in test mode and only emails test addresses, so this address can\'t receive mail here.' })
       expect(flow.codeFor(NEW)).toBeUndefined()
       expect(flow.db.verification!.some(row => String(row.identifier).startsWith('change-email-otp-'))).toBe(false)
-      expect(spent(flow)).toEqual([])
+      expect(spent(flow)).toEqual(['emailChange'])
     }
     finally {
       warn.mockRestore()
@@ -217,13 +249,13 @@ describe('the guards around an email change', () => {
     expect(spent(flow)).toEqual([])
   })
 
-  it('spends an attempt against the address each code went to, then the change limits', async () => {
+  it('spends the caller\'s change request, an attempt against the address each code went to, then the deployment\'s ceiling', async () => {
     const { flow, cookie, current, otp } = await changing()
 
     expect((await flow.post('/email-otp/request-email-change', { newEmail: NEW, otp }, { cookie })).status).toBe(200)
-    expect(spent(flow)).toEqual(['emailOtpAttempt', 'emailChange', 'emailOtpGlobal'])
+    expect(spent(flow)).toEqual(['emailChange', 'emailOtpAttempt', 'emailOtpGlobal'])
     expect((await flow.post('/email-otp/change-email', { newEmail: NEW, otp: wrong(flow.codeFor(NEW)) }, { cookie })).status).toBe(400)
-    expect(spent(flow)).toEqual(['emailOtpAttempt', 'emailChange', 'emailOtpGlobal', 'emailOtpAttempt'])
+    expect(spent(flow)).toEqual(['emailChange', 'emailOtpAttempt', 'emailOtpGlobal', 'emailOtpAttempt'])
 
     const keys = flow.limiter.limit.mock.calls.filter(call => call[1] === 'emailOtpAttempt').map(call => call[2]?.key)
     const digest = (address: string) => createHash('sha256').update(address).digest('hex')

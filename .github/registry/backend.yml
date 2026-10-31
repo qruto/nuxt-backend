@@ -1,5 +1,5 @@
 name: backend
-description: All-in-one SaaS backend for Nuxt on Convex — passwordless auth with passkeys, workspaces and invitations, billing with credits and gifts, transactional email with delivery tracking, webhooks, metered AI and an MCP server, from one module and one component.
+description: All-in-one SaaS backend for Nuxt on Convex — passwordless auth with passkeys, workspaces and invitations, billing with credits and gifts, transactional email with delivery tracking, webhooks and metered AI, from one module and one component.
 repo: qruto/nuxt-backend
 npm: nuxt-backend
 icon: nuxt-backend.svg
@@ -12,4 +12,4 @@ maintainers:
   - name: Slava Razum
     github: slavarazum
 compatibility:
-  nuxt: '^4.1.0'
+  nuxt: '^4.6.2'

@@ -2,11 +2,12 @@ import { defineApp } from 'convex/server'
 import { backendEnv } from 'nuxt-backend/app'
 import { v } from 'convex/values'
 import backend from 'nuxt-backend/convex.config'
-import migrations from '@convex-dev/migrations/convex.config'
 import persistentTextStreaming from '@convex-dev/persistent-text-streaming/convex.config'
 import polar from '@convex-dev/polar/convex.config'
 import rateLimiter from '@convex-dev/rate-limiter/convex.config'
+import shardedCounter from '@convex-dev/sharded-counter/convex.config'
 import workflow from '@convex-dev/workflow/convex.config'
+import workpool from '@convex-dev/workpool/convex.config'
 
 // The same explicit app definition the scaffold generates (compare
 // templates/starter/backend/convex.config.ts): every component is imported and
@@ -27,19 +28,18 @@ const app = defineApp({
 // reference so the deployment's values reach the backend component.
 app.use(backend, {
   env: {
+    BACKEND_ENVIRONMENT: app.env.BACKEND_ENVIRONMENT,
     EMAIL_API_KEY: app.env.EMAIL_API_KEY,
     EMAIL_FROM: app.env.EMAIL_FROM,
-    EMAIL_TEST_MODE: app.env.EMAIL_TEST_MODE,
     EMAIL_WEBHOOK_SECRET: app.env.EMAIL_WEBHOOK_SECRET,
+    MONITORING_DSN: app.env.MONITORING_DSN,
   },
 })
-// CUSTOMIZATION: `aggregate` is left unmounted — nothing in this backend uses
-// it. Drop a component's import + app.use() pair only when nothing in
-// backend/ depends on it.
-app.use(migrations)
 app.use(persistentTextStreaming)
 app.use(polar)
 app.use(rateLimiter)
+app.use(shardedCounter)
 app.use(workflow)
+app.use(workpool)
 
 export default app

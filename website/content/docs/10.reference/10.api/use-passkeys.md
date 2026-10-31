@@ -12,24 +12,6 @@ navigation:
 
 ## Interfaces
 
-### Passkey
-
-Defined in: [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts)
-
-A registered WebAuthn passkey (loose — the full shape is Better Auth's).
-
-#### Properties
-
-| Property | Type | Defined in |
-| ------ | ------ | ------ |
-| <a id="id"></a> `id` | `string` | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
-| <a id="name"></a> `name?` | `string` \| `null` | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
-| <a id="devicetype"></a> `deviceType?` | `string` | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
-| <a id="backedup"></a> `backedUp?` | `boolean` | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
-| <a id="createdat"></a> `createdAt` | `string` \| `Date` | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
-
-***
-
 ### UsePasskeysOptions
 
 Defined in: [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts)
@@ -50,13 +32,66 @@ Defined in: [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qru
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="passkeys"></a> `passkeys` | `Ref`\<[`Passkey`](#passkey)[] \| `undefined`\> | The user's passkeys — `undefined` until the first (client-only) load. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
-| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | Whether a list load is in flight. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
-| <a id="error"></a> `error` | `Ref`\<`string` \| `null`\> | Message of the last failed call; cleared when the next call starts. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
-| <a id="refresh"></a> `refresh` | () => `Promise`\<`void`\> | Reload the list. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
-| <a id="add"></a> `add` | () => `Promise`\<`void`\> | Register a passkey on this device, then reload. Throws on failure. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
-| <a id="rename"></a> `rename` | (`id`, `name`) => `Promise`\<`void`\> | Rename a passkey, then reload. Throws on failure. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
-| <a id="remove"></a> `remove` | (`id`) => `Promise`\<`void`\> | Remove a passkey, then reload. Throws on failure. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
+| <a id="passkeys"></a> `passkeys` | `ComputedRef`\<[`Passkey`](#passkey)[] \| `undefined`\> | The user's passkeys — `undefined` until the first (client-only) load lands, and after a failed one. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
+| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` while the list loads. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
+| <a id="ispending"></a> `isPending` | `ComputedRef`\<`boolean`\> | `true` while `add`, `rename` or `remove` runs. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
+| <a id="error"></a> `error` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the last action failed, else why the list could not be loaded, else `null`. An action clears its own failure when the next one starts, and signing out clears it. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
+| <a id="refresh"></a> `refresh` | () => `Promise`\<`void`\> | Reload the list. A load never rejects: a failed one shows in `error`. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
+| <a id="add"></a> `add` | (`options?`) => `Promise`\<[`Passkey`](#passkey)\> | Save a passkey on this device, then reload. Resolves with the passkey; rejects on failure, a cancelled prompt included. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
+| <a id="rename"></a> `rename` | (`id`, `name`) => `Promise`\<`void`\> | Rename a passkey, then reload. Rejects on failure. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
+| <a id="remove"></a> `remove` | (`id`) => `Promise`\<`void`\> | Remove a passkey, then reload. Rejects on failure; the last passkey of a passkey-only account is refused (`invalid_input` on `passkeys`). | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
+| <a id="capabilities"></a> `capabilities` | `ComputedRef`\<[`PasskeyCapabilities`](#passkeycapabilities) \| `null`\> | What the browser's `getClientCapabilities()` reported (`conditionalGet`, `hybridTransport`, `passkeyPlatformAuthenticator`, …), or `null` before it answers, on the server, and in a browser without it. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
+| <a id="passkeyonly"></a> `passkeyOnly` | `ComputedRef`\<`boolean`\> | `true` while the account refuses sign-in codes and signs in with passkeys only. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
+| <a id="setpasskeyonly"></a> `setPasskeyOnly` | (`on`) => `Promise`\<\{ `recoveryCode`: `string` \| `null`; \}\> | Turn sign-in codes off for the account (`true`) or on again (`false`). Takes a recent sign-in and refuses an administrator's visit. Turning it on needs a passkey and resolves with `{ recoveryCode }`, shown once; turning it on again issues a new code, and the old one stops working. Turning it off resolves with `{ recoveryCode: null }`. Rejects on failure. | [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts) |
+
+***
+
+### Passkey
+
+Defined in: [src/runtime/vue/utils/auth-session.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/auth-session.ts)
+
+A registered passkey, as `registerPasskey` and `usePasskeys` hand it back (loose — the full shape is Better Auth's).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id"></a> `id` | `string` | - | [src/runtime/vue/utils/auth-session.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/auth-session.ts) |
+| <a id="credentialid"></a> `credentialID?` | `string` | The WebAuthn credential id, base64url: what the browser knows the passkey by. | [src/runtime/vue/utils/auth-session.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/auth-session.ts) |
+| <a id="name"></a> `name?` | `string` \| `null` | - | [src/runtime/vue/utils/auth-session.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/auth-session.ts) |
+| <a id="devicetype"></a> `deviceType?` | `string` | - | [src/runtime/vue/utils/auth-session.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/auth-session.ts) |
+| <a id="backedup"></a> `backedUp?` | `boolean` | - | [src/runtime/vue/utils/auth-session.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/auth-session.ts) |
+| <a id="createdat"></a> `createdAt` | `string` \| `Date` | - | [src/runtime/vue/utils/auth-session.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/auth-session.ts) |
+
+***
+
+### RegisterPasskeyOptions
+
+Defined in: [src/runtime/vue/utils/auth-session.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/auth-session.ts)
+
+How `registerPasskey` saves a passkey: Better Auth's own `addPasskey` options.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="name-1"></a> `name?` | `string` | The name the passkey is listed under. | [src/runtime/vue/utils/auth-session.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/auth-session.ts) |
+| <a id="authenticatorattachment"></a> `authenticatorAttachment?` | `"platform"` \| `"cross-platform"` | Where the passkey may live: this device (`platform`), a security key (`cross-platform`), or either (left out). | [src/runtime/vue/utils/auth-session.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/auth-session.ts) |
+| <a id="useautoregister"></a> `useAutoRegister?` | `boolean` | Try to save one silently, with the password manager the person just signed in with. | [src/runtime/vue/utils/auth-session.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/auth-session.ts) |
+| <a id="extensions"></a> `extensions?` | `AuthenticationExtensionsClientInputs` | WebAuthn extensions for the ceremony. | [src/runtime/vue/utils/auth-session.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/auth-session.ts) |
+| <a id="context"></a> `context?` | `string` \| `null` | Context for a passkey-first registration flow. | [src/runtime/vue/utils/auth-session.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/auth-session.ts) |
+
+## Type Aliases
+
+### PasskeyCapabilities
+
+```ts
+type PasskeyCapabilities = Record<string, boolean>;
+```
+
+Defined in: [src/runtime/vue/utils/passkey-signals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/utils/passkey-signals.ts)
+
+What `PublicKeyCredential.getClientCapabilities()` reports, by the browser's own keys.
 
 ## Functions
 
@@ -68,11 +103,12 @@ function usePasskeys(options?): UsePasskeysReturn;
 
 Defined in: [src/runtime/vue/composables/use-passkeys.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-passkeys.ts)
 
-Passkey management over the Better Auth client — list, register, rename,
-remove. Every method unwraps the client's `{ data, error }` envelope and
-throws a plain `Error` on failure (mirrored into `error`), so callers use
-ordinary try/catch. The list only loads in the browser (WebAuthn and the
-session cookie live there), starting as `undefined` during SSR.
+Passkey management over the auth client — list, register, rename, remove.
+Loading the list is a read: it never rejects, and a failed load shows in
+`error`. The actions resolve, or reject with an `Error` carrying the
+server's message (the client's error as its `cause`), and keep the
+failure in `error`. The list only loads in the browser (WebAuthn and
+the session cookie live there), starting as `undefined` during SSR.
 
 #### Parameters
 
@@ -83,3 +119,21 @@ session cookie live there), starting as `undefined` during SSR.
 #### Returns
 
 [`UsePasskeysReturn`](#usepasskeysreturn)
+
+#### Example
+
+```vue
+<script setup lang="ts">
+const { passkeys, add, remove, isPending, error } = usePasskeys()
+</script>
+<template>
+  <p v-if="error">{{ error.message }}</p>
+  <ul>
+    <li v-for="passkey in passkeys" :key="passkey.id">
+      {{ passkey.name ?? 'Unnamed passkey' }}
+      <button :aria-disabled="isPending || undefined" @click="isPending || remove(passkey.id)">Remove</button>
+    </li>
+  </ul>
+  <button :aria-disabled="isPending || undefined" @click="isPending || add()">Add a passkey</button>
+</template>
+```

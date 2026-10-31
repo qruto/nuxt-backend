@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { registryText } from '../../scripts/pages-registry.mjs'
+import { DEFAULT_PAGE_PATHS } from '../../src/runtime/vue/composables/use-backend-page-path'
 import { BACKEND_PAGE_DEFS, collectExistingPagePaths, normalizePagePath, pageRouteRules, privatePagePaths, resolvePagePath, resolvedBackendPages } from '../../src/pages'
 
 describe('resolvePagePath', () => {
@@ -31,7 +32,19 @@ describe('resolvedBackendPages', () => {
       profile: '/profile',
       security: '/security',
       acceptInvitation: '/accept-invitation',
-      agentConsent: '/oauth/consent',
+      admin: '/admin',
+      invite: '/invite',
+      waitlist: '/waitlist',
+      keepAccount: '/account/keep',
+      unsubscribe: '/unsubscribe',
+      welcome: '/welcome',
+      report: '/report',
+      gifts: '/gifts',
+      referral: '/r/:code',
+      privacy: '/legal/privacy',
+      terms: '/legal/terms',
+      subprocessors: '/legal/subprocessors',
+      accessibility: '/legal/accessibility',
     })
     expect(Object.keys(resolved)).toHaveLength(BACKEND_PAGE_DEFS.length)
   })
@@ -39,7 +52,7 @@ describe('resolvedBackendPages', () => {
 
 describe('privatePagePaths', () => {
   it('lists the pages behind the auth middleware, at their paths', () => {
-    expect(privatePagePaths(undefined).sort()).toEqual(['/accept-invitation', '/oauth/consent', '/profile', '/security', '/settings'])
+    expect(privatePagePaths(undefined).sort()).toEqual(['/accept-invitation', '/admin', '/gifts', '/profile', '/security', '/settings', '/welcome'])
     expect(privatePagePaths({ profile: '/me/' })).toContain('/me')
   })
 
@@ -68,6 +81,31 @@ describe('pageRouteRules', () => {
   it('leaves a public page cacheable and indexable', () => {
     expect(pageRouteRules({ auth: false })).toStrictEqual({ prerender: false })
   })
+
+  it('keeps a public page that reads a token from its link out of indexes alone', () => {
+    expect(pageRouteRules({ auth: false, noindex: true })).toStrictEqual({ prerender: false, robots: false })
+    expect(pageRouteRules(BACKEND_PAGE_DEFS.find(def => def.key === 'login')!)).toStrictEqual({ prerender: false, robots: false })
+  })
+
+  it('keeps a public page whose address carries a secret it acts on out of indexes and caches too', () => {
+    expect(pageRouteRules({ auth: false, noindex: true, uncached: true })).toStrictEqual(pageRouteRules({ auth: true }))
+    const keep = BACKEND_PAGE_DEFS.find(def => def.key === 'keepAccount')
+    expect(keep).toMatchObject({ auth: false, noindex: true, uncached: true })
+    // It is public, so the page guard never sends a signed-out visitor away from it.
+    expect(privatePagePaths(undefined)).not.toContain('/account/keep')
+  })
+
+  it('asks the frame for the robots tag exactly where the page says noindex', () => {
+    // The route rule and the page's own meta tag are two halves of one decision.
+    for (const def of BACKEND_PAGE_DEFS) {
+      const source = readFileSync(fileURLToPath(new URL(`../../src/runtime/vue/pages/${def.file}.vue`, import.meta.url)), 'utf8')
+      expect(/<PageFrame[^>]*\snoindex[\s>]/.test(source), def.key).toBe(Boolean(def.noindex))
+    }
+  })
+
+  it('hides the admin console: a refused person gets the 404 of a page that does not exist', () => {
+    expect(BACKEND_PAGE_DEFS.find(def => def.key === 'admin')!.access).toEqual({ role: 'admin', hidden: true })
+  })
 })
 
 describe('the page registry', () => {
@@ -79,9 +117,13 @@ describe('the page registry', () => {
     const keys = BACKEND_PAGE_DEFS.map(def => def.key)
     expect(new Set(keys).size).toBe(keys.length)
     for (const def of BACKEND_PAGE_DEFS) {
-      expect(def.defaultPath, def.key).toMatch(/^\/[a-z0-9/-]+$/)
-      expect(existsSync(fileURLToPath(new URL(`../../src/runtime/vue/pages/${def.file}.ts`, import.meta.url))), def.file).toBe(true)
+      expect(def.defaultPath, def.key).toMatch(/^\/[a-z0-9/:-]+$/)
+      expect(existsSync(fileURLToPath(new URL(`../../src/runtime/vue/pages/${def.file}.vue`, import.meta.url))), def.file).toBe(true)
     }
+  })
+
+  it('gives the runtime the same default paths (useBackendPagePath, without published ones)', () => {
+    expect(DEFAULT_PAGE_PATHS).toEqual(Object.fromEntries(BACKEND_PAGE_DEFS.map(def => [def.key, def.defaultPath])))
   })
 })
 

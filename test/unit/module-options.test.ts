@@ -6,7 +6,8 @@ import { pagesOptionProblems, privatePagePaths, resolvedBackendPages, resolvePag
 // read it without crashing, and the module refuses it, naming each leftover
 // and linking the Upgrade page.
 
-const UPGRADE = 'https://nuxt-backend.dev/docs/ship/migrate/upgrade#pages-the-stylesheet-and-the-webhook-log-are-always-on'
+const UPGRADE = 'https://nuxt-backend.dev/docs/ship/releases/upgrade#page-paths-the-stylesheet-and-the-webhook-log'
+const ENVIRONMENT = 'https://nuxt-backend.dev/docs/ship/releases/upgrade#one-variable-says-what-kind-of-deployment-this-is'
 
 /** The error `assertModuleOptions` throws for these options. */
 function refusal(options: unknown): Error {
@@ -41,17 +42,20 @@ describe('pagesOptionProblems', () => {
     expect(pagesOptionProblems({ login: '/sign-in', profile: 'me/', pricing: '  ' })).toEqual([])
   })
 
-  it('names each page key whose value is not a path', () => {
+  it('takes `false`, which turns a page off', () => {
+    expect(pagesOptionProblems({ pricing: false, admin: false })).toEqual([])
+  })
+
+  it('names each page key whose value is neither a path nor `false`', () => {
     const problems = pagesOptionProblems({ login: '/sign-in', profile: false, security: true, settings: null })
-    expect(problems).toHaveLength(3)
-    expect(problems[0]).toMatch(/^`backend\.pages\.profile` is `false`\. Give it a path to move the page, or leave it out; to replace the page, put an app page at its path \(`\/profile` by default\)\.$/)
-    expect(problems[1]).toContain('`backend.pages.security` is `true`.')
-    expect(problems[2]).toContain('`backend.pages.settings` is `null`.')
+    expect(problems).toHaveLength(2)
+    expect(problems[0]).toMatch(/^`backend\.pages\.security` is `true`\. Give it a path to move the page, `false` to turn it off, or leave it out; to replace the page, put an app page at its path \(`\/security` by default\)\.$/)
+    expect(problems[1]).toContain('`backend.pages.settings` is `null`.')
   })
 
   it('names a whole `pages` value that is not an object of paths', () => {
     for (const [pages, shown] of [[false, '`false`'], [true, '`true`'], ['/x', '`"/x"`'], [['/x'], '`["/x"]`'], [null, '`null`']] as const) {
-      expect(pagesOptionProblems(pages), shown).toEqual([`\`backend.pages\` is ${shown}. It takes a path per page key, and every page mounts: to replace one, put an app page at its path.`])
+      expect(pagesOptionProblems(pages), shown).toEqual([`\`backend.pages\` is ${shown}. It takes a path or \`false\` per page key: to replace a page, put an app page at its path.`])
     }
   })
 })
@@ -64,29 +68,89 @@ describe('assertModuleOptions', () => {
     expect(() => assertModuleOptions(false)).not.toThrow()
   })
 
-  it('refuses pages turned off, in a named error that links the Upgrade page', () => {
+  it('takes `css` and a page turned off', () => {
+    expect(() => assertModuleOptions({ css: false, pages: { pricing: false } })).not.toThrow()
+    expect(() => assertModuleOptions({ css: true })).not.toThrow()
+  })
+
+  it('refuses the whole `pages` option turned off, in a named error that links the Upgrade page', () => {
     const error = refusal({ pages: false })
     expect(error.name).toBe('BackendOptionsError')
     expect(error.message).toBe([
       'nuxt-backend: these `backend` options changed in 0.2:',
-      '  - `backend.pages` is `false`. It takes a path per page key, and every page mounts: to replace one, put an app page at its path.',
+      '  - `backend.pages` is `false`. It takes a path or `false` per page key: to replace a page, put an app page at its path.',
       `What to change: ${UPGRADE}`,
     ].join('\n'))
   })
 
-  it('names every leftover at once: page values, `loginPath` and `css`', () => {
-    const { message } = refusal({ pages: { profile: false, pricing: true }, loginPath: '/sign-in', css: false })
+  it('names every leftover at once: page values and `loginPath`', () => {
+    const { message } = refusal({ pages: { profile: true, pricing: true }, loginPath: '/sign-in' })
     expect(message.split('\n').filter(line => line.startsWith('  - '))).toEqual([
       // In the order the pages are registered.
       expect.stringContaining('`backend.pages.pricing` is `true`.'),
-      expect.stringContaining('`backend.pages.profile` is `false`.'),
-      '  - `loginPath` is gone. The `auth` middleware follows `backend.pages.login`: set the path there.',
-      '  - `css` is gone. The stylesheet always loads, layered, so your own CSS wins: restyle through the `--bk-*` tokens or the `data-*` hooks.',
+      expect.stringContaining('`backend.pages.profile` is `true`.'),
+      '  - `loginPath` is gone. The page guard follows `backend.pages.login`: set the path there.',
     ])
     expect(message).toContain(UPGRADE)
   })
 
-  it('refuses `css: true` too: the key is gone, whatever its value', () => {
-    expect(refusal({ css: true }).message).toContain('`css` is gone.')
+  it('refuses the three options the environment replaces, each naming what does', () => {
+    const { message } = refusal({ siteUrl: 'https://x.convex.site', autoEnv: false, scaffold: false })
+    expect(message.split('\n').filter(line => line.startsWith('  - '))).toEqual([
+      expect.stringMatching(/^ {2}- `siteUrl` is gone\. The site origin derives from `url`.*`NUXT_PUBLIC_CONVEX_SITE_URL`/),
+      expect.stringMatching(/^ {2}- `autoEnv` is gone\. `npx nuxt-backend dev` provisions.*`npx nuxt-backend env push`/),
+      expect.stringMatching(/^ {2}- `scaffold` is gone\. `npx nuxt-backend init` scaffolds.*`npx nuxt-backend dev`/),
+    ])
+    // Only the Upgrade section that says more about these three.
+    expect(message.endsWith(`What to change: ${ENVIRONMENT}`)).toBe(true)
+    expect(message).not.toContain(UPGRADE)
+  })
+
+  it('refuses a removed option whatever its value, but not one left undefined', () => {
+    for (const options of [{ autoEnv: true }, { autoEnv: false }, { scaffold: 'auto' }, { siteUrl: '' }]) expect(refusal(options).message, JSON.stringify(options)).toContain('is gone.')
+    expect(() => assertModuleOptions({ siteUrl: undefined })).not.toThrow()
+  })
+
+  it('links both Upgrade sections when a page value goes with a removed option', () => {
+    const { message } = refusal({ pages: { profile: true }, autoEnv: false })
+    expect(message.endsWith(`What to change: ${UPGRADE} and ${ENVIRONMENT}`)).toBe(true)
+  })
+
+  it('refuses `mcp`, the endpoint for users\' agents, which waits for the next release', () => {
+    const { message } = refusal({ mcp: { route: '/agent' } })
+    expect(message).toContain('`mcp` is gone. The MCP endpoint for your users\' agents waits for the next release')
+    expect(message).toContain('https://nuxt-backend.dev/docs/start/roadmap')
+  })
+})
+
+// The sign-in page sends everyone without a usable `?redirect=` to
+// `redirects.afterSignIn`: a value off this site would send them off it.
+describe('redirects.afterSignIn', () => {
+  it('takes a path of this site', () => {
+    for (const afterSignIn of ['/', '/app', '/app?tab=1#top', undefined]) {
+      expect(() => assertModuleOptions({ redirects: { afterSignIn } }), String(afterSignIn)).not.toThrow()
+    }
+    expect(() => assertModuleOptions({ redirects: {} })).not.toThrow()
+  })
+
+  it.each([
+    'https://evil.example',
+    '//evil.example',
+    '/\\evil.example',
+    '/.//evil.example',
+    'javascript:alert(1)',
+    'app',
+    '/app\nSet-Cookie: x',
+    '',
+  ])('refuses %j at setup, naming the option', (afterSignIn) => {
+    const error = refusal({ redirects: { afterSignIn } })
+    expect(error.name).toBe('BackendOptionsError')
+    expect(error.message).toContain('`backend.redirects.afterSignIn`')
+    expect(error.message).toContain('a path of this site')
+  })
+
+  it('refuses a redirects value that is not an object, a path included', () => {
+    expect(refusal({ redirects: 'https://evil.example' }).message).toContain('`backend.redirects` is')
+    expect(refusal({ redirects: '/app' }).message).toContain('`backend.redirects` is')
   })
 })

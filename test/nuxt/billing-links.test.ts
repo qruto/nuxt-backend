@@ -1,12 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
-import { defineComponent, h, provide } from 'vue'
+import { computed, defineComponent, h, provide } from 'vue'
 import { makeFunctionReference } from 'convex/server'
 import { ConvexClientKey, ConvexVueClient } from 'nuxt-convex-module/client'
 import { silentConnectLogger } from '../helpers/silent-logger'
 import { openProviderUrl } from '../../src/runtime/vue/utils/open-url'
-import { BillingCheckoutLink, BillingPortalLink } from '../../src/runtime/vue/components/billing-links'
 import type { BillingApi } from '../../src/runtime/vue/composables/use-billing'
+import { registerComponents } from '../helpers/register-components'
+
+await registerComponents('BillingCheckoutLink', 'BillingPortalLink', 'PricingEmailOptOut')
+// After the registration, as the module registers them: the checkout link renders the soft opt-in part by name.
+const { default: BillingCheckoutLink } = await import('../../src/runtime/vue/components/billing/BillingCheckoutLink.vue')
+const { default: BillingPortalLink } = await import('../../src/runtime/vue/components/billing/BillingPortalLink.vue')
 
 // The billing links are the package's own, bound to its checkout and portal
 // actions: a provider session is created when the link is clicked, never
@@ -14,6 +19,11 @@ import type { BillingApi } from '../../src/runtime/vue/composables/use-billing'
 
 // Where the provider's page opens: the same tab by default.
 vi.mock('../../src/runtime/vue/utils/open-url', () => ({ openProviderUrl: vi.fn() }))
+// The soft opt-in part reads its words through the app's labels, which would pull in the app's auth client.
+vi.mock('nuxt-convex-module/better-auth/client', async () => ({
+  resolveAuthRedirect: (await import('../../node_modules/nuxt-convex-module/dist/runtime/better-auth/vue/redirect.js')).resolveAuthRedirect,
+  useBetterAuth: () => ({ session: computed(() => ({ data: null })) }),
+}))
 
 const checkoutRef = makeFunctionReference<'action'>('billing:generateCheckoutLink')
 const portalRef = makeFunctionReference<'action'>('billing:generateCustomerPortalUrl')
@@ -118,5 +128,18 @@ describe('<BillingPortalLink>', () => {
 
     expect(action).toHaveBeenCalledWith(portalRef, { returnUrl: new URL('/app/billing', window.location.href).href })
     expect(openProviderUrl).toHaveBeenCalledWith('https://portal.test/session', true)
+  })
+})
+
+describe('a caller the server says manages no billing', () => {
+  it('sees neither link', async () => {
+    const accessRef = makeFunctionReference<'query'>('billing:getBillingAccess')
+    // What `getBillingAccess` answers a workspace member who is neither its owner nor an admin.
+    void client.mutation(makeFunctionReference<'mutation'>('seed:default'), {}, { optimisticUpdate: store => store.setQuery(accessRef, {}, { canManage: false }) })
+    for (const component of [BillingCheckoutLink, BillingPortalLink]) {
+      const wrapper = render(component, { productIds: ['prod_pro'], api: { ...api, getBillingAccess: accessRef } })
+      await flushPromises()
+      expect(wrapper.find('a').exists()).toBe(false)
+    }
   })
 })

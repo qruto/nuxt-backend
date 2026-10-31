@@ -392,6 +392,10 @@ the June test publish satisfies that, so nothing has to be published by hand.
   drift` CI step guarantees the tree; this checks the deploy), and that `/playground` is online
   rather than redirecting to `/playground/offline` (it needs `CONVEX_DEPLOY_KEY` in the Vercel production
   environment; the build injects `NUXT_PUBLIC_BACKEND_URL` — see website/README.md).
+- **The upgrade fixture.** Snapshot the starter this release shipped, so the next release's
+  `doctor --fix` is tested against it: `node scripts/upgrade-fixture.mjs <tag> <version>`, point
+  `UPGRADE_BASE` in `test/helpers/upgrade-fixture.ts` at the new label, empty `ADDED_SINCE_BASE`
+  there, and delete the old snapshot.
 - **Deprecate the test publish.** `npm deprecate nuxt-backend@0.1.0 "Test publish — use >=0.2.0"`
   (see *Version numbers* above), then close the issues the release fixes. Only after the 0.2.0
   publish: the templates depend on `nuxt-backend: latest`, and until then `latest` is 0.1.0.
@@ -405,8 +409,8 @@ the June test publish satisfies that, so nothing has to be published by hand.
   `backend.yml` for a maintainer who prefers a pull request), and read both once more first. The
   entry claims Nuxt `^4.1.0`; widen it there and in `src/module.ts` together.
 - **Beyond this repository.** Once the release is on npm, take the package to the places people look:
-  - submit `examples/playground` to [convex.dev/templates](https://www.convex.dev/templates), which has a Nuxt filter and no Nuxt template yet;
-  - answer [get-convex/convex-backend#147](https://github.com/get-convex/convex-backend/issues/147), which asks for a Nuxt SaaS starter;
+  - submit `templates/panels` to [convex.dev/templates](https://www.convex.dev/templates), which has a Nuxt filter and no Nuxt template yet;
+  - answer [convex/convex-backend#147](https://github.com/convex/convex-backend/issues/147), which asks for a Nuxt SaaS starter;
   - list the `backend` component in the [Convex components directory](https://www.convex.dev/components);
   - offer the starter as a Vercel template.
   Update the [Ecosystem](https://nuxt-backend.dev/docs/reference/ecosystem) page when a listing lands.

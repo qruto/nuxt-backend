@@ -75,15 +75,15 @@ describe.each([
   const reachable = declared.filter(fn => !PRIVILEGED.test(fn.builder))
 
   it('declares public functions for the probe to check', () => {
-    expect(reachable.map(fn => fn.id)).toEqual(expect.arrayContaining(['ai.ts:transform', 'aggregates.ts:countMessages', 'billing.ts:consumeCredit']))
+    expect(reachable.map(fn => fn.id)).toEqual(expect.arrayContaining(['ai.ts:transform', 'billing.ts:consumeCredit', 'billing.ts:createProject']))
   })
 
   it('takes no recipient from a public caller', () => {
     expect(relays(templates)).toEqual([])
   })
 
-  it('keeps send internal and puts the any-address send behind the admin role', () => {
+  it('keeps send internal, and ships no any-address send at all', () => {
     expect(declared.find(fn => fn.id === 'email.ts:send')?.builder).toBe('internalAction')
-    expect(declared.find(fn => fn.id === 'email.ts:sendAsAdmin')?.builder).toBe('admin.action')
+    expect(declared.filter(fn => fn.id.startsWith('email.ts:')).map(fn => fn.id)).toEqual(['email.ts:send'])
   })
 })

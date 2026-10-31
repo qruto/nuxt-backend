@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import type { ContentNavigationItem } from '@nuxt/content'
+import type { NavBadge } from '~/utils/nav-badges'
 
 // Docus 5.15.0's AppHeaderBottom (test/docs/docus-copies.test.ts pins the
-// source), changed: a tab whose every page is experimental carries the
-// Experimental badge (utils/nav-badges.ts).
+// source), changed: a tab whose every page carries the same badge
+// (Experimental or Planned) carries it too (utils/nav-badges.ts).
 const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')
 const { sections } = useSubNavigation()
 
 const navMenuVariants = useUIConfig('navigationMenu')
 
-const badges = computed(() => new Map(hoistExperimental(navigation?.value ?? []).map(item => [getFirstPagePath(item), item.badge as typeof EXPERIMENTAL_BADGE | undefined])))
+const badges = computed(() => new Map(hoistBadges(navigation?.value ?? []).map(item => [getFirstPagePath(item), item.badge as NavBadge | undefined])))
 const items = computed(() => sections.value.map(section => ({ ...section, badge: badges.value.get(section.to) })))
 </script>
 

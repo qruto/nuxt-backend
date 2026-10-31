@@ -12,65 +12,88 @@ navigation:
 
 ## Interfaces
 
-### UseBackendAuthService
+### UseAuthReturn
 
 Defined in: [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts)
 
-The backend identity service: the base Convex + Better Auth service
-extended with this package's passwordless flows and authorization reads.
-
-#### Extends
-
-- `UseBetterAuthReturn`
+What `useAuth()` returns: the session, the role, an administrator's visit, and signing out.
 
 #### Properties
 
-| Property | Type | Description | Inherited from | Defined in |
-| ------ | ------ | ------ | ------ | ------ |
-| <a id="signout"></a> `signOut` | () => `Promise`\<`unknown`\> | Sign the current user out. | - | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
-| <a id="sendotp"></a> `sendOtp` | (`email`, `type?`) => `Promise`\<`unknown`\> | Send a sign-in / verification OTP code to an email. `'forget-password'` answers 400 unless the app turned on `emailAndPassword`. | - | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
-| <a id="signinwithotp"></a> `signInWithOtp` | (`args`) => `Promise`\<`unknown`\> | Complete sign-in (or passwordless sign-up) with an emailed OTP code. | - | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
-| <a id="signinwithpasskey"></a> `signInWithPasskey` | () => `Promise`\<`unknown`\> | Sign in with a passkey (WebAuthn). | - | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
-| <a id="registerpasskey"></a> `registerPasskey` | (`context?`) => `Promise`\<`unknown`\> | Register a passkey for the signed-in user. | - | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
-| <a id="updateuser"></a> `updateUser` | (`args`) => `Promise`\<`unknown`\> | Update profile fields (name / avatar image) on the current user. | - | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
-| <a id="deleteaccount"></a> `deleteAccount` | () => `Promise`\<`unknown`\> | Delete the account (confirmed via email). To change the email address, use `useEmailChange`. | - | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
-| <a id="role"></a> `role` | `ComputedRef`\<`string`\> | The app-wide role; `'user'` when signed out or unset. | - | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
-| <a id="hasrole"></a> `hasRole` | (`role`) => `boolean` | Whether the user has (any of) the given app-wide role(s). | - | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
-| <a id="can"></a> `can` | (`permissions`) => `boolean` | Check permission statements (e.g. `{ user: ['ban'] }`) against the user's role — sync and local. | - | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
-| <a id="banned"></a> `banned` | `ComputedRef`\<`boolean`\> | Whether the account is banned. | - | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
-| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until the session is known and no prefetched token covers the gap. | `UseBetterAuthReturn.isLoading` | node\_modules/nuxt-convex-module/runtime/better-auth/vue/use-better-auth |
-| <a id="isauthenticated"></a> `isAuthenticated` | `ComputedRef`\<`boolean`\> | `true` when Better Auth reports a session, or a token is cached while it reloads. | `UseBetterAuthReturn.isAuthenticated` | node\_modules/nuxt-convex-module/runtime/better-auth/vue/use-better-auth |
-| <a id="fetchaccesstoken"></a> `fetchAccessToken` | `AuthTokenFetcher` | Convex's token fetcher: the Better Auth JWT for the current session, or `null`. | `UseBetterAuthReturn.fetchAccessToken` | node\_modules/nuxt-convex-module/runtime/better-auth/vue/use-better-auth |
-| <a id="client"></a> `client` | `AuthClient` | The Better Auth client from `#convex/auth-client` — sign-in, sign-out and every plugin flow live here. | `UseBetterAuthReturn.client` | node\_modules/nuxt-convex-module/runtime/better-auth/vue/use-better-auth |
-| <a id="session"></a> `session` | `unknown` | Better Auth's own `useSession()` ref: `{ data, isPending, error }`. | `UseBetterAuthReturn.session` | node\_modules/nuxt-convex-module/runtime/better-auth/vue/use-better-auth |
-| <a id="user"></a> `user` | `ComputedRef`\<`BetterAuthUser` \| `null`\> | The current user, or `null` when signed out / still loading. | `UseBetterAuthReturn.user` | node\_modules/nuxt-convex-module/runtime/better-auth/vue/use-better-auth |
-| <a id="authversion"></a> `authVersion` | `ComputedRef`\<`string` \| `null`\> | The session id (or user id); changes when the signed-in identity changes. | `UseBetterAuthReturn.authVersion` | node\_modules/nuxt-convex-module/runtime/better-auth/vue/use-better-auth |
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="user"></a> `user` | `ComputedRef`\<[`BackendUser`](#backenduser) \| `null`\> | The signed-in account, or `null` when signed out or still loading. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
+| <a id="session"></a> `session` | `ComputedRef`\<`any`\> | The session this browser holds, or `null`. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
+| <a id="role"></a> `role` | `ComputedRef`\<`string`\> | The app-wide role; `'user'` when signed out or unset. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
+| <a id="hasrole"></a> `hasRole` | (`role`) => `boolean` | Whether the account holds the app-wide role, or any one of several. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
+| <a id="issignedin"></a> `isSignedIn` | `ComputedRef`\<`boolean`\> | Whether someone is signed in, read from the base module's auth state. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
+| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` while the session is still resolving. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
+| <a id="impersonating"></a> `impersonating` | `ComputedRef`\<`boolean`\> | `true` while an administrator is visiting the account: `user` is the account visited, and every sensitive action is refused. The `impersonation` notice of `<BackendNotices>` says so on every page, and `useAdmin().stopImpersonating()` ends the visit. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
+| <a id="signout"></a> `signOut` | () => `Promise`\<`void`\> | Sign this browser out. Rejects on failure. The app navigates after it on its own: a sign-out made here never sends the person to the sign-in page with `?redirect=`, as a session that ends elsewhere does. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
+
+## Type Aliases
+
+### BackendUser
+
+```ts
+type BackendUser = BetterAuthUser & {
+  banned?: boolean | null;
+};
+```
+
+Defined in: [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts)
+
+The signed-in account, as the session carries it: `id`, `email`, `name`, `role`, `banned`, `image`, `locale`, …
+
+#### Type Declaration
+
+| Name | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| `banned?` | `boolean` \| `null` | Whether the account is banned. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
+
+***
+
+### BackendSession
+
+```ts
+type BackendSession = NonNullable<NonNullable<BetterAuthSession["value"]["data"]>["session"]>;
+```
+
+Defined in: [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts)
+
+The session this browser holds: its `id`, `expiresAt`, the active workspace, and who opened it.
 
 ## Functions
 
 ### useAuth()
 
 ```ts
-function useAuth(initialToken?): UseBackendAuthService;
+function useAuth(): UseAuthReturn;
 ```
 
 Defined in: [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts)
 
-The backend identity composable — the base Better Auth service
-(`isLoading`, `isAuthenticated`, `fetchAccessToken`, `client`, `session`,
-`user`, `authVersion`) extended with the passwordless flows and
-authorization reads this package is opinionated about. Everything else
-(admin/organization management, …) lives on the fully-typed `client`.
-
-The base module registers its service as `useBetterAuth`; this is the only
-`useAuth` auto-import in apps using `nuxt-backend`.
-
-#### Parameters
-
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `initialToken?` | `string` \| `null` | Optional preloaded token (SSR), forwarded to the base. |
+Who is signed in: the session, the app-wide role, whether an
+administrator is visiting, and signing out. Nothing else: sign-in is
+`useLoginFlow`'s, passkeys are `usePasskeys`', the profile, the export and
+the deletion are `useAccount`'s, and ending a visit is `useAdmin`'s.
 
 #### Returns
 
-[`UseBackendAuthService`](#usebackendauthservice)
+[`UseAuthReturn`](#useauthreturn)
+
+#### Example
+
+```vue
+<script setup lang="ts">
+const { user, isSignedIn, hasRole, signOut } = useAuth()
+</script>
+
+<template>
+  <p v-if="isSignedIn">
+    {{ user?.name }}
+    <NuxtLink v-if="hasRole('admin')" to="/admin">Admin</NuxtLink>
+    <button @click="signOut().then(() => navigateTo('/'))">Sign out</button>
+  </p>
+</template>
+```

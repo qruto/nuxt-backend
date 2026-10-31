@@ -52,12 +52,8 @@ const px = computed(() => (typeof props.size === 'number' ? `${props.size}px` : 
     stroke-linecap="round"
     stroke-linejoin="round"
     aria-hidden="true"
-    class="icon"
+    class="block shrink-0"
   >
     <path :d="d" />
   </svg>
 </template>
-
-<style scoped>
-.icon { display: block; flex-shrink: 0; }
-</style>

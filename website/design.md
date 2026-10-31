@@ -10,7 +10,7 @@ and a dial). This file is the *why* and the *how*; the values live in code:
 | Tokens: grounds, inks, signals, depth | [`assets/css/tokens.css`](./assets/css/tokens.css) |
 | Parts: faces, wells, chrome, relief | [`assets/css/depth.css`](./assets/css/depth.css) |
 | Parts: keys, lights, the LCD | [`assets/css/console.css`](./assets/css/console.css) |
-| Ramps, fonts, Nuxt UI bridges, legacy utilities | [`app.css`](./app.css) |
+| Ramps, fonts, Nuxt UI bridges, element defaults | [`app.css`](./app.css) |
 | Part components | `components/{Led,Strip,Key,Lcd,Console,EngravedTitle}.vue` |
 | Code colours | [`shiki-themes.ts`](./shiki-themes.ts) |
 | Every part on one page | `/__parts`, under `nuxt dev` only |
@@ -200,9 +200,9 @@ test.
 
 | Face | Role | Width |
 | --- | --- | --- |
-| **Anybody** | display and prose (`--display`, `--font`, `--font-sans`, `--font-display`) | 112 % on h1–h3; 118 % uppercase on the hero and nameplates; 100 % in prose |
-| **Martian Mono** | code, labels, keys, tables (`--mono`, `--font-mono`) | 87.5 % in code; 100 % in labels and keys |
-| **Handjet** | the LCD's glyphs only (`--lcd`, `--font-lcd`) | — |
+| **Anybody** | display and prose (`--font-sans`, `--font-display`) | 112 % on h1–h3; 118 % uppercase on the hero and nameplates; 100 % in prose |
+| **Martian Mono** | code, labels, keys, tables (`--font-mono`) | 87.5 % in code; 100 % in labels and keys |
+| **Handjet** | the LCD's glyphs only (`--font-lcd`) | — |
 
 These three are the only families on the site (the design-parts test holds
 it). @nuxt/fonts self-hosts them with their width axis; `check-website-css`
@@ -243,6 +243,7 @@ grows. Resting UI whispers: blur under 8px, offset under 4px.
 | `--elev-2` | hover, a lifted card |
 | `--elev-3` | dropdown, popover |
 | `--elev-4` | modal: the cast alone |
+| `--scrim` | what a modal lays over the page behind it |
 | `--inset-1` · `--inset-2` | wells, inputs, tracks, the pressed state |
 | `--plaque` · `--plaque-hi` | the raised panel, at rest and on hover |
 | `--slot` | a milled well, deeper than `--inset-2` |
@@ -272,11 +273,13 @@ properties its part reads, so parts and modifiers compose in any order
 | `unit` | the console slab, with a bevelled rim | — |
 | `slot` | a milled well: inputs, readouts, code; rings green on focus (a code block that scrolls takes focus) | `slot-pill` (fully round), `slot-xs` (shallow, small radius) |
 | `carved` | the slot's shadow alone, for a tinted well | — |
+| `field` | a text field: a shallow well with room for its text, on an input, a textarea or a select; a faint placeholder, and a green ring on focus | — |
 | `bar` | the header: opaque, a lit top edge, a seam below | — |
 | `seam` | the footer's cut | — |
+| `rule-carved` | a machined groove under a heading: a hairline with a lit lip below (the prose h2) | — |
 | `code-plate` | a code block's filename plate | — |
 | `k` | a key: 40px, mono uppercase lettering; down when `:active`, `.k-down`, `aria-pressed` or `aria-current` (then lettered green, or in its signal's ink: `--k-ink-current`) | `k-nav` (34px, 44px on touch), `k-xs` (28px), `k-go` (lit green, the one primary), `k-warn`, `k-err` |
-| `led` | an LED | `led-ok`, `led-warn`, `led-err`, `led-off`, `led-lg`, `led-pulse` |
+| `led` | an LED | `led-ok`, `led-warn`, `led-err`, `led-off`, `led-lg`, `led-pulse`, `led-square` (a second meaning's shape) |
 | `strip` | a tritium strip, lying flat | `strip-v` (standing), `strip-ok`, `strip-warn`, `strip-err` |
 | `lcd` | backlit glass in a bezel, with scanlines; anything on it that is not a glyph is lit green | — |
 | `lcd-row` | one line of the LCD | — |
@@ -288,9 +291,9 @@ The relief parts are in §7. The components wrap the parts that take props:
 
 | Component | Part | Props |
 | --- | --- | --- |
-| `<Led>` | `led` | `tone`, `size`, `pulse`, `label` (its accessible name; decorative without) |
+| `<Led>` | `led` | `tone`, `size`, `shape`, `pulse`, `label` (its accessible name; decorative without) |
 | `<Strip>` | `strip` | `tone`, `vertical` |
-| `<Key>` | `k` | `to` (a link) or a button's `type`; `size`, `signal`, `pressed` (a button's toggle state; a link's `aria-current="true"`), `disabled` (a link loses its `href`) |
+| `<Key>` | `k` | `to` (a link) or a button's `type`; `size`, `signal`, `pressed` (a button's toggle state; a link's `aria-current="true"`), `disabled` (a link loses its `href`), `loading` (disabled and busy, with a spinner), `code` (a label that is code or an id keeps its case), `wrap` (a long label wraps inside the key) |
 | `<Lcd>` | `lcd` | `label`, `live` |
 | `<Console>` | `unit` | slots `display`, `dial`, `keys` |
 | `<Dial>` | `dial` | `options`, `label`, `v-model`: a radio group of detents around the knob |
@@ -319,7 +322,8 @@ Tailwind's scan finds every part it must emit.
 | Part | Use | Ink |
 | --- | --- | --- |
 | `cut` | engraved display type, 24px and up; with `data-text` repeating the text (`<EngravedTitle>` sets it), the lower half of every line takes a lighter floor: toward white on a light page, toward the ink on a dark one | `--engrave-ink`, and the floor (3:1, large text) |
-| `cut-sm` | engraved page and prose titles, which cannot carry `data-text` | `--engrave-ink` |
+| `cut-deep` | the hero title alone: the lips of `cut` measured in `em`, so the cut deepens with the type, and a concave floor (darker under the upper lip, lighter toward the lit one) in the `data-text` layer | `--engrave-ink` at the middle of the floor (3:1, large text) |
+| `cut-sm` | engraved page and prose titles at 24px and up, which cannot carry `data-text` | `--engrave-ink` |
 | `emb` · `emb-sm` | a title lifted off the metal in stepped layers | `--emb-ink` |
 | `engr` | an engraved label at any size | `--engrave-ink-sm` (4.5:1) |
 | `engr-lt` | the same cut in a brighter ink | `--ink-dim` |
@@ -333,8 +337,6 @@ Tailwind's scan finds every part it must emit.
 - **`prefers-contrast: more`** (and `?qa=contrast`) strips every relief part to
   plain `--ink` with no shadow. Apply relief through the parts only: a
   hand-written `text-shadow` in scoped CSS out-specifies the switch.
-- The legacy `.engraved`, `.engraved-sm`, `.embossed` and `.embossed-sm` stay
-  until R3–R5 rebuild what uses them; the switch reaches them too.
 
 ---
 
@@ -352,7 +354,7 @@ overrides where Nuxt UI has a slot:
 | `prose.pre` | `slot` + `code-plate` |
 | `prose.code` | `slot slot-xs` |
 | `prose.callout` | `carved` |
-| `card` · `contentSurround.link` | `plaque` |
+| `prose.card` · `contentSurround.link` | `plaque` |
 | `contentToc.trigger` | `engr` |
 | `contentNavigation` | a `slot slot-pill` active entry (a group's name is a `stamp`, drawn by the sidebar) |
 | `footer.root` | `seam` |
@@ -365,7 +367,7 @@ Where a slot is not enough, the site shadows the Docus component
   `off` until it is known), Agents and GitHub. A key is down while the
   reader is anywhere in its section (`aria-current="true"`). The version
   chip is a `k k-xs` with an amber light until the line is on npm. Below
-  `lg` a drawer carries the keys, the chip and the ten tabs; the menu
+  `lg` a drawer carries the keys, the chip and the six tabs; the menu
   toggle folds its three bars in CSS.
 - **The page header** carries the trail, a `stamp` chip for the page's kind
   and an amber-lit Experimental chip, then the `k k-xs` keys: Try live
@@ -379,21 +381,43 @@ Where a slot is not enough, the site shadows the Docus component
 Never override `commandPalette.slots.input` or `contentNavigation.slots.*`
 without copying Docus's own strings first: defu replaces same-key strings.
 
+**A live demo** in the docs (a `::demo-*` block) is a `<DemoBlock>`: a
+`plaque` whose header is a `stamp` with an LED and the word for the demo's
+state (Ready, unlit; Connecting, amber; Live, green and breathing; Offline,
+red; Out of date, red; No backend, unlit), the demo's title and its call in
+a `slot slot-xs`. Below them, what it shows, then the live part, or until
+it is there a `slot` that says what will happen, with one key that starts
+the demo (GO), tries again, or reloads a page older than the site. The live
+part's own lights use the same words and colours. The footer names the deployment it runs against and leads to its
+playground page. The live part is built like a playground page: `<Key>`,
+`<Led>`, `<Lcd>`, `field` inputs and `<StateReadout>` for what a
+composable returns.
+
+**The playground** is Panels, the app the tutorial builds, copied from
+`templates/panels` (`scripts/sync-panels.mjs`) and mounted under
+`/playground`. Its shell is the template's own layout (`layouts/panels.vue`,
+the packaged `<AppShell>`), with no Docus chrome, and its pages are the
+template's bytes: they keep the zero-config look an app made from the
+template has, not the parts. The sign-in and offline cards are the site's: a
+`plaque` with the nameplate and a `cut-sm` title.
+
 ---
 
-## 9. The playground bridge
+## 9. The docs demos
 
 The packaged components read `--bk-*` tokens (the customization ladder's second
 rung). Inside `.bk-depth`, app.css maps them onto the site's tokens
-(`--bk-accent: var(--ok)` …), so the playground's packaged pages wear the site's
-palette while `/playground/vanilla/*` keeps the zero-config look.
+(`--bk-accent: var(--ok)` …), so the packaged components in a docs demo wear
+the site's palette, while the playground keeps the template's zero-config look.
 
-The playground's own components (`LabPanel`, `LabButton`, `LabToggle`,
-`LabField`, `MetricCard`, `StateReadout`, `StatusPill` …) still use the names
-they were written against: `--raise` and `--raise-sm` (= `--elev-1`),
-`--raise-lg` (= `--elev-3`), `--inset` (= `--inset-2`), `--inset-sm`
-(= `--inset-1`). R5 rebuilds them on the parts and drops the names; new
-playground pages use the parts from the start.
+The demos' live parts are built on the parts, with no CSS of their own:
+`StateReadout` and `SandboxInbox` are slots, `StatusPill` a
+`slot slot-pill`, a text input a `field`, every label a `stamp`, every action
+a `<Key>` and every status light an `<Led>` beside the words for its state,
+so a state is never told by colour alone. A block lights one GO key at most,
+on its main action. A `<LabField>` labels one control by `for` and `id`; a
+row of keys is `as="div"`, a group the stamp names, so a label never wraps a
+key.
 
 ---
 
@@ -420,7 +444,9 @@ playground pages use the parts from the start.
 - **Contrast**: `scripts/design-contrast.mjs` and the table in §3.
 - **Bundle**: `scripts/check-website-bundle.mjs` fails when a prerendered
   page's initial scripts reach the backend client or motion-v, or pass the
-  size ceiling.
+  size ceiling; when the docs pages with a live demo are not exactly the
+  `demo: true` ones; and when a demo loads more than its own ceiling once it
+  starts.
 - **Build**: `scripts/check-website-css.mjs` fails when the ramps, the tokens
   import, a font's width axis or a fallback face go missing from the built CSS,
   or an element default lands outside the base layer.

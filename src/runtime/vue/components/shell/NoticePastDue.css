@@ -1,0 +1,46 @@
+/*
+ * NoticePastDue's default styles, on its data-* hooks. Theme through the
+ * --bk-* tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-past-due='banner'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.9rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--bk-error) 40%, transparent);
+    border-radius: var(--bk-radius);
+    background: color-mix(in srgb, var(--bk-error) 8%, transparent);
+    color: var(--bk-ink);
+    font-size: 0.9rem;
+  }
+
+  [data-past-due='message'] {
+    margin: 0;
+    flex: 1;
+  }
+
+  [data-past-due='action'] {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--bk-accent);
+    border-radius: var(--bk-radius-control);
+    background: var(--bk-accent);
+    color: var(--bk-on-accent);
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  [data-past-due='error'] {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--bk-error);
+    font-size: 0.85rem;
+  }
+
+  [data-backend-region='banner'] > [data-past-due='banner'] + *,
+  [data-backend-region='banner'] > * + [data-past-due='banner'] {
+    margin-block-start: 0.5rem;
+  }
+}

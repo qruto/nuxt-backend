@@ -1,0 +1,94 @@
+/*
+ * ContactForm's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-contact='root'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    color: var(--bk-ink);
+  }
+
+  [data-contact='form'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  :where([data-contact='form']) label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-weight: 600;
+  }
+
+  :where([data-contact='form']) :where(input, textarea) {
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: var(--bk-surface);
+    color: var(--bk-ink);
+    font: inherit;
+    font-weight: 400;
+  }
+
+  :where([data-contact='form']) :where(input, textarea):focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 1px;
+  }
+
+  [data-contact='form'] [aria-invalid='true'] {
+    border-color: var(--bk-error);
+  }
+
+  [data-contact='hint'],
+  [data-contact='disclosure'] {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.25rem 1rem;
+    margin: 0;
+    color: var(--bk-muted);
+    font-size: 0.9em;
+    line-height: 1.5;
+  }
+
+  [data-contact='submit'],
+  [data-contact='another'] {
+    align-self: flex-start;
+    padding: 0.5rem 0.9rem;
+    border: 0;
+    border-radius: var(--bk-radius-control);
+    background: var(--bk-accent);
+    color: var(--bk-on-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  [data-contact='submit'][aria-disabled='true'] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  [data-contact='submit']:focus-visible,
+  [data-contact='another']:focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 2px;
+  }
+
+  [data-contact='status'] {
+    margin: 0;
+  }
+
+  [data-contact='status']:empty {
+    display: none;
+  }
+
+  [data-contact='error'] {
+    margin: 0;
+    color: var(--bk-error);
+  }
+}

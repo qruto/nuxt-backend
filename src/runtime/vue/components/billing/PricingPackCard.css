@@ -1,0 +1,25 @@
+/*
+ * PricingPackCard's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-pricing='pack'] {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+  }
+
+  [data-pricing='pack-name'] {
+    font-weight: 600;
+    font-size: 0.88rem;
+  }
+
+  [data-pricing='pack-price'] {
+    color: var(--bk-muted);
+    font-size: 0.85rem;
+  }
+}

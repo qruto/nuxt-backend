@@ -9,7 +9,8 @@ import { describe, expect, it } from 'vitest'
 // (package.json `sideEffects` covers whole files, not calls inside them).
 
 const dir = fileURLToPath(new URL('../../src/runtime/vue/components', import.meta.url))
-const files = readdirSync(dir).filter(file => file.endsWith('.ts'))
+// The `.vue` files compile with the mark already; the `.ts` beside them are checked here.
+const files = (readdirSync(dir, { recursive: true }) as string[]).filter(file => file.endsWith('.ts'))
 
 describe('the packaged components', () => {
   it('finds them', () => {

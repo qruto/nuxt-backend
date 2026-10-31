@@ -19,7 +19,7 @@ const billing = {
   cancelAtPeriodEnd: ref(false),
   isPaused: ref(false),
   trialEnd: ref<Date | null>(null),
-  pendingUpdate: ref<{ productId: string | null } | null>(null),
+  pendingChange: ref<{ productId: string, appliesAt: Date } | null>(null),
 }
 const features = {
   isLoading: ref(false),
@@ -27,6 +27,7 @@ const features = {
   benefits: ref<Array<{ benefitId: string, type?: string, metadata?: Record<string, unknown> }> | undefined>([
     { benefitId: 'b1', metadata: { key: 'priority_support' } },
   ]),
+  quotas: ref<Record<string, { limit: number | 'unlimited', used: number }> | undefined>({ projects: { limit: 10, used: 4 }, exports: { limit: 'unlimited', used: 2 } }),
 }
 const auth = {
   user: ref<{ id: string, email: string, name: string } | null>({ id: 'u1', email: 'a@example.com', name: 'Ada' }),
@@ -37,7 +38,7 @@ const organization = {
   current: ref<{ id: string, name: string, invitations: Array<{ status: string }> } | null>({ id: 'w1', name: 'Acme', invitations: [{ status: 'pending' }, { status: 'accepted' }] }),
   members: ref([{}, {}, {}]),
   role: ref<string | null>('owner'),
-  organizations: ref([{}, {}]),
+  workspaces: ref([{}, {}]),
 }
 
 vi.mock('#app', async importOriginal => ({
@@ -45,14 +46,18 @@ vi.mock('#app', async importOriginal => ({
   defineNuxtPlugin: (plugin: unknown) => plugin,
   useAppConfig: () => appConfig,
 }))
+const convexAction = vi.fn(async (_ref: unknown, _args: unknown): Promise<unknown> => ({ replayedAt: 1 }))
 vi.mock('nuxt-convex-module/client', () => ({
-  useConvexNamespace: (name: string) => namespaces.get(name),
   useQuery: (query: { rows: unknown }) => ref(query.rows),
+  useConvex: () => ({ action: convexAction }),
 }))
-vi.mock('../../src/runtime/vue/composables/use-auth', () => ({ useAuth: () => auth }))
+vi.mock('../../src/runtime/vue/utils/namespace', () => ({
+  useApiNamespace: (name: string) => namespaces.get(name),
+}))
+vi.mock('../../src/runtime/vue/utils/auth-session', () => ({ useAuthSession: () => auth }))
 vi.mock('../../src/runtime/vue/composables/use-billing', () => ({ useBilling: () => billing }))
 vi.mock('../../src/runtime/vue/composables/use-features', () => ({ useFeatures: () => features }))
-vi.mock('../../src/runtime/vue/composables/use-organization', () => ({ useOrganization: () => organization }))
+vi.mock('../../src/runtime/vue/composables/use-workspace', () => ({ useWorkspace: () => organization }))
 
 // A live query in the real composable: the rows are there as soon as it is created.
 const sessions = {
@@ -83,6 +88,15 @@ vi.mock('../../src/runtime/vue/composables/use-gifts', () => ({
     const received = ref([{ status: 'paid' }, { status: 'claimed' }, { status: 'claimed' }])
     return { received, unclaimed: computed(() => received.value.filter(gift => gift.status === 'paid')) }
   },
+}))
+vi.mock('../../src/runtime/vue/composables/use-notifications', () => ({
+  // The inbox's first page: what the panel lists, with the channels each went out on.
+  useNotifications: () => ({
+    items: ref([{ id: 'sentinel-notification-id', type: 'auth.passkey_added', title: 'A passkey was added', body: null, link: '/security', at: 1_790_000_000_000, read: false, channels: ['app'], actor: { kind: 'you', name: 'Ada' }, workspace: null, data: {} }]),
+    unreadCount: ref(1),
+    isLoading: ref(false),
+    error: ref(null),
+  }),
 }))
 vi.mock('../../src/runtime/vue/composables/use-email-status', () => ({
   useEmailStatus: () => ({
@@ -126,6 +140,8 @@ beforeEach(() => {
   namespaces.set('email', {})
   namespaces.set('billing', {
     getCredits: { rows: { meters: [{ meterId: 'm1', name: 'credits', balance: 7, creditedUnits: 10, consumedUnits: 3 }] } },
+  })
+  namespaces.set('webhooks', {
     getWebhookDeliveries: { rows: [{ service: 'billing', deliveryId: 'd1', type: 'order.paid', outcome: 'ok', receivedAt: 5 }] },
   })
   appConfig.backend = { brand: { name: 'Acme' }, billing: { plans: [{ key: 'pro' }], packs: [{ key: 'credits500' }] } }
@@ -158,7 +174,7 @@ describe('the DevTools bridge plugin', () => {
     const snapshot = bridge.getSnapshot()
     expect(snapshot.active).toBe(true)
     expect(snapshot.billing).toMatchObject({ isLoading: false, status: 'active', productId: 'prod_pro', productName: 'Pro', cancelAtPeriodEnd: false, isPaused: false, subscriptions: 2 })
-    expect(snapshot.entitlements).toEqual({ isLoading: false, features: ['priority_support'], plans: ['prod_pro'] })
+    expect(snapshot.entitlements).toEqual({ isLoading: false, features: ['priority_support'], plans: ['prod_pro'], quotas: [{ key: 'projects', limit: 10, used: 4 }, { key: 'exports', limit: 'unlimited', used: 2 }] })
     expect(snapshot.credits).toEqual([{ meterId: 'm1', name: 'credits', balance: 7, credited: 10, consumed: 3 }])
     expect(snapshot.workspace).toEqual({ available: true, id: 'w1', name: 'Acme', role: 'owner', workspaces: 2, members: 3, pendingInvitations: 1 })
     expect(snapshot.webhooks).toEqual([{ service: 'billing', deliveryId: 'd1', type: 'order.paid', outcome: 'ok', note: undefined, receivedAt: 5 }])
@@ -203,6 +219,20 @@ describe('the DevTools bridge plugin', () => {
     ])
     bridge.patch('identity', { available: true, isLoading: false, isAuthenticated: false })
     expect(timeline.events.at(-1)).toMatchObject({ event: { title: 'Signed out', subtitle: 'a@example.com', data: { kind: 'auth', detail: 'a@example.com' }, logType: 'default' } })
+  })
+
+  it('replays a delivery as the signed-in administrator, the outcome in the snapshot', async () => {
+    const replay = { name: 'webhooks:replayWebhookDelivery' }
+    namespaces.set('webhooks', { ...namespaces.get('webhooks') as object, replayWebhookDelivery: replay })
+    const bridge = install()
+    bridge.replayWebhook('billing', 'd1')
+    expect(bridge.getSnapshot().webhookReplay).toEqual({ service: 'billing', deliveryId: 'd1', state: 'pending' })
+    expect(convexAction).toHaveBeenCalledWith(replay, { service: 'billing', deliveryId: 'd1' })
+    await vi.waitFor(() => expect(bridge.getSnapshot().webhookReplay).toEqual({ service: 'billing', deliveryId: 'd1', state: 'done' }))
+
+    convexAction.mockRejectedValueOnce(new Error('needs a recent sign-in'))
+    bridge.replayWebhook('email', 'msg_1')
+    await vi.waitFor(() => expect(bridge.getSnapshot().webhookReplay).toMatchObject({ service: 'email', deliveryId: 'msg_1', state: 'error', message: expect.any(String) }))
   })
 
   it('names the scaffolded function modules the app is missing', () => {
@@ -276,6 +306,14 @@ describe('the DevTools bridge plugin', () => {
     const bridge = install()
     bridge.request('gifts')
     expect(bridge.getSnapshot().gifts).toEqual({ isLoading: false, received: 3, unclaimed: 1, claimed: 2 })
+  })
+
+  it('lists the newest notifications with their channels, and not the ids or the actor behind them', () => {
+    const bridge = install()
+    bridge.request('notifications')
+    const { notifications } = bridge.getSnapshot()
+    expect(notifications).toEqual({ isLoading: false, unread: 1, items: [{ type: 'auth.passkey_added', title: 'A passkey was added', read: false, at: 1_790_000_000_000, channels: ['app'] }] })
+    expect(JSON.stringify(notifications)).not.toContain('sentinel-notification-id')
   })
 
   it('looks up one email\'s delivery status', async () => {

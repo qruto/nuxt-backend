@@ -1,6 +1,9 @@
 /**
  * Open a URL the deployment handed back — a checkout, a customer portal, an
- * invoice — in a new tab, or in place with `redirect`.
+ * invoice — in a new tab, or in place with `redirect`. The URL arrives after
+ * a round trip, when a browser may no longer count the click that asked for
+ * it and blocks the tab (`window.open` answers `null`): it then opens in
+ * place, rather than nowhere.
  *
  * Those URLs come from the billing provider through the app's own actions,
  * never from the page, but the browser does not know that: a navigation is
@@ -18,7 +21,7 @@ export function openProviderUrl(url: string, redirect?: boolean): void {
   }
   if (target.protocol !== 'https:' && target.protocol !== 'http:') return
   // fallow-ignore-next-line security-sink -- provider-issued destination, scheme-checked above; verified 2026-09-17
-  if (redirect) window.location.href = target.href
+  if (!redirect && window.open(target.href, '_blank')) return
   // fallow-ignore-next-line security-sink -- provider-issued destination, scheme-checked above; verified 2026-09-17
-  else window.open(target.href, '_blank')
+  window.location.href = target.href
 }

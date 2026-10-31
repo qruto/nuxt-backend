@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { bundle, transform } from 'lightningcss'
 import { describe, expect, it } from 'vitest'
-import { themeBridgeCss } from '../../src/nuxt/theme'
 
 // The package's stylesheet as a production build serves it. Vite 8 (Nuxt
 // 4.6) minifies CSS with Lightning CSS for its default targets
@@ -16,15 +15,15 @@ import { themeBridgeCss } from '../../src/nuxt/theme'
 const version = (major: number, minor = 0) => (major << 16) | (minor << 8)
 const TARGETS = { chrome: version(111), edge: version(111), firefox: version(114), safari: version(16, 4), ios_saf: version(16, 4) }
 
-const uiCss = fileURLToPath(new URL('../../src/runtime/vue/components/ui.css', import.meta.url))
-const tokens = readFileSync(fileURLToPath(new URL('../../src/runtime/vue/components/tokens.css', import.meta.url)), 'utf8')
+const tokensCss = fileURLToPath(new URL('../../src/runtime/vue/components/tokens.css', import.meta.url))
+const tokens = readFileSync(tokensCss, 'utf8')
 
 /** A stylesheet as the build minifies it. */
 const build = (css: string) => transform({ filename: 'app.css', code: Buffer.from(css), minify: true, targets: TARGETS }).code.toString()
-/** ui.css with its imports, as the build minifies it. */
-const pkg = bundle({ filename: uiCss, minify: true, targets: TARGETS }).code.toString()
-/** The generated theme stylesheet of an app with neither Nuxt UI nor color-mode. */
-const theme = build(themeBridgeCss({ nuxtUi: false, colorMode: false }))
+/** tokens.css, the stylesheet the module adds first, as the build minifies it. */
+const pkg = bundle({ filename: tokensCss, minify: true, targets: TARGETS }).code.toString()
+/** Its light-dark default, the block below every layer. */
+const theme = pkg.slice(pkg.indexOf('@layer theme.backend{'))
 
 /** The declarations of the first rule after `from` in minified CSS, by property. */
 function ruleAfter(css: string, from: string): Record<string, string> {
@@ -72,11 +71,11 @@ function substitute(value: string, variables: Record<string, string>): string {
 /** A `#rgb` or `#rrggbb` colour, lower-case and six digits long. */
 const hex = (value: string) => value.trim().toLowerCase().replace(/^#(\w)(\w)(\w)$/, '#$1$1$2$2$3$3')
 
-/** Each `--bk-*` default's sRGB pair, from the first rule of tokens.css. */
+/** Each `--bk-*` default's sRGB pair, from the first rule of tokens.css (`:root`). */
 const pairs = Object.fromEntries([...tokens.split('}')[0]!.matchAll(/^\s*(--bk-[\w-]+): light-dark\((#\w+), (#\w+)\);/gm)]
   .map(([, token, light, dark]) => [token!, { light: light!, dark: dark! }]))
 /** The same rule once the build has rewritten it: the first in the package's layer. */
-const built = ruleAfter(pkg, '@layer components.backend{')
+const built = ruleAfter(pkg, '@layer nuxt-backend{')
 
 describe('the stylesheet in a production build', () => {
   it('reads the token pairs and their rewrites', () => {
@@ -101,7 +100,9 @@ describe('the stylesheet in a production build', () => {
   })
 
   it('sets the default on the root, at zero specificity, below every other layer', () => {
-    expect(theme).toBe('@layer theme,base,components,utilities;@layer theme.backend{:where(:root){--lightningcss-light:initial;--lightningcss-dark: }}')
+    // The order statement first; the build folds its last layer into the block that follows.
+    expect(pkg.startsWith('@layer theme,base,reset;@layer nuxt-backend{')).toBe(true)
+    expect(theme).toBe('@layer theme.backend{:where(:root){--lightningcss-light:initial;--lightningcss-dark: }}')
   })
 
   it('gives a page that declares no color-scheme the light colour', () => {

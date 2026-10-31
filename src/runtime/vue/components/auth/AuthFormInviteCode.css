@@ -1,0 +1,17 @@
+/*
+ * AuthFormInviteCode's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-auth='invite-note'] {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--auth-muted);
+    line-height: 1.5;
+  }
+
+  [data-auth='input-invite-code'] {
+    letter-spacing: 0.08em;
+  }
+}

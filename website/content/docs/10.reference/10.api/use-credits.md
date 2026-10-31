@@ -35,6 +35,7 @@ Defined in: [src/runtime/vue/composables/use-credits.ts](https://github.com/qrut
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
+| <a id="meter"></a> `meter?` | `MaybeRefOrGetter`\<`string` \| `null` \| `undefined`\> | Which meter to read: a configured meter name (`'credits'`) or a raw meter id, as a value, ref or getter. Omitted or blank, the entity's first configured meter. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
 | <a id="api"></a> `api?` | [`BillingApi`](/docs/reference/api/use-billing#billingapi) | Override the injected `api.billing` namespace. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
 
 ***
@@ -47,24 +48,25 @@ Defined in: [src/runtime/vue/composables/use-credits.ts](https://github.com/qrut
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="balance"></a> `balance` | `ComputedRef`\<`number` \| `undefined`\> | Remaining prepaid credit balance for the meter, or `undefined` while loading. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
+| <a id="balance"></a> `balance` | `ComputedRef`\<`number` \| `undefined`\> | Remaining prepaid credit balance for the meter: `undefined` while loading, and when the read failed (see `error`) or the backend exports no `getCredits`; `0` while signed out or before the billing entity has any. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
 | <a id="credited"></a> `credited` | `ComputedRef`\<`number` \| `undefined`\> | Total credits granted for the meter (top-ups + plan grants), or `undefined` while loading. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
 | <a id="consumed"></a> `consumed` | `ComputedRef`\<`number` \| `undefined`\> | Credits consumed for the meter, or `undefined` while loading. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
 | <a id="overage"></a> `overage` | `ComputedRef`\<`number` \| `undefined`\> | Units consumed beyond what was credited — what a pay-as-you-go meter has run up this cycle and the provider will invoice. `0` for a meter that is still in prepaid credit; `undefined` while loading. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
 | <a id="cycle"></a> `cycle` | `ComputedRef`\<[`CreditCycle`](#creditcycle) \| `null` \| `undefined`\> | The billing cycle these credits belong to: `undefined` while loading, `null` for a meter with no cycle at all (credits bought as a one-time pack), otherwise the current period. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
-| <a id="expiresatcycleend"></a> `expiresAtCycleEnd` | `ComputedRef`\<`boolean` \| `undefined`\> | Whether the remaining balance expires at [CreditCycle.end](#end) — `true` only when the plan's credits are known not to roll over and a cycle end is known. `undefined` while loading; `false` when credits carry over (or the provider has not said). | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
+| <a id="expiresatcycleend"></a> `expiresAtCycleEnd` | `ComputedRef`\<`boolean` \| `undefined`\> | Whether the remaining balance expires at [CreditCycle.end](#end) — `true` only when every benefit crediting the meter is known not to roll over and a cycle end is known. `undefined` while loading; `false` when any of the credits carry over (a pack bought on top of a plan's allowance), or the provider has not said. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
 | <a id="meterid"></a> `meterId` | `ComputedRef`\<`string` \| `undefined`\> | The resolved meter id (the one read above) — pass it to your server-side spend. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
-| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until credit balances have loaded. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
-| <a id="topup"></a> `topUp` | (`productIds`, `options?`) => `Promise`\<`string`\> | Buy a credit pack (a one-time product) via checkout — returns the URL. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
-| <a id="gift"></a> `gift` | (`pack`, `options`) => `Promise`\<`string`\> | Buy a credit pack, by its catalog key (`credits500`), as a gift for someone else (by email). Opens checkout. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
-| <a id="refresh"></a> `refresh` | () => `Promise`\<`void`\> | Refresh the cached balance from the provider (e.g. right after a top-up completes). | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
+| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until credit balances have loaded (`false` once the read failed). | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
+| <a id="ispending"></a> `isPending` | `ComputedRef`\<`boolean`\> | `true` while `topUp` or `refresh` runs. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
+| <a id="error"></a> `error` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the last action failed, else why the balances could not be read, else `null`. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
+| <a id="topup"></a> `topUp` | (`productIds`, `options?`) => `Promise`\<`string`\> | Buy a credit pack (a one-time product) via checkout — returns the URL. Rejects on failure, which `error` also holds. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
+| <a id="refresh"></a> `refresh` | () => `Promise`\<`void`\> | Refresh the cached balance from the provider (e.g. right after a top-up completes). Rejects on failure, and when the backend does not export `syncEntitlements`. | [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts) |
 
 ## Functions
 
 ### useCredits()
 
 ```ts
-function useCredits(meterId?, options?): UseCreditsReturn;
+function useCredits(options?): UseCreditsReturn;
 ```
 
 Defined in: [src/runtime/vue/composables/use-credits.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-credits.ts)
@@ -78,14 +80,15 @@ webhook-synced cache via `getCredits`. Zero-arg via the auto-provided
 
 Alongside the balance it exposes what a credits UI actually needs to say:
 the current `cycle`, whether the remainder `expiresAtCycleEnd`, and the
-`overage` a pay-as-you-go meter has run up.
+`overage` a pay-as-you-go meter has run up. The balance read never throws
+(a failed read shows in `error`); the actions reject on failure and
+mirror it into `error`.
 
 #### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `meterId?` | `MaybeRefOrGetter`\<`string`\> | Optional meter to read (reactive): a configured meter name (`'credits'`) or a raw meter id; defaults to the user's first meter. |
-| `options?` | [`UseCreditsOptions`](#usecreditsoptions) | - |
+| Parameter | Type |
+| ------ | ------ |
+| `options?` | [`UseCreditsOptions`](#usecreditsoptions) |
 
 #### Returns
 
@@ -95,10 +98,11 @@ the current `cycle`, whether the remainder `expiresAtCycleEnd`, and the
 
 ```vue
 <script setup lang="ts">
-const credits = useCredits()
+const { balance, topUp, isPending, error } = useCredits({ meter: 'credits' })
 </script>
 <template>
-  <p>{{ credits.balance.value ?? '—' }} credits</p>
-  <button @click="credits.topUp(creditPackId)">Buy 100 credits</button>
+  <p>{{ balance ?? '—' }} credits</p>
+  <p v-if="error">{{ error.message }}</p>
+  <button :aria-disabled="isPending || undefined" @click="isPending || topUp(creditPackId)">Buy 100 credits</button>
 </template>
 ```

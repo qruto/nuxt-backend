@@ -7,9 +7,10 @@ import { main } from '../../src/cli/main'
 import { runConvex } from '../../src/convex-cli'
 
 // `nuxt-backend inbox`: a coding agent's way to read a sign-in code on a dev
-// deployment. It reads the component's sandbox inbox through the Convex CLI,
+// deployment. It reads the dev inbox (the provider's log of sent email, read by
+// the component's action) through the Convex CLI,
 // and refuses every deployment that is not a dev one, and every address that
-// is not a sandbox one, before the CLI is ever started.
+// is not a test one, before the CLI is ever started.
 
 const inbox = vi.hoisted(() => ({ messages: [] as unknown[] }))
 vi.mock('../../src/convex-cli', () => ({
@@ -131,7 +132,7 @@ describe('what it refuses, before the Convex CLI starts', () => {
     ['a deployment that is not dev-class', () => writeFileSync(join(rootDir, '.env.local'), 'CONVEX_DEPLOYMENT=prod:determined-horse-300\n'), [], 'CONVEX_DEPLOYMENT is prod:'],
     ['no deployment at all', () => writeFileSync(join(rootDir, '.env.local'), ''), [], 'No dev deployment is configured'],
     ['a self-hosted deployment', () => vi.stubEnv('CONVEX_SELF_HOSTED_URL', 'https://convex.example.com'), [], 'self-hosted'],
-    ['an address with no sandbox inbox', () => {}, ['someone@example.com'], 'has no sandbox inbox'],
+    ['an address with no dev inbox', () => {}, ['someone@example.com'], 'has no dev inbox'],
   ])('%s', async (_label, setup, args, message) => {
     setup()
     await run(args)

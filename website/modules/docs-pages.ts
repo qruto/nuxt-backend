@@ -2,24 +2,38 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { defineNuxtModule, useLogger } from '@nuxt/kit'
+import { docsFiles } from '../../scripts/lib/docs-pages.mjs'
+import { frontmatter } from '../../scripts/lib/frontmatter.mjs'
 import { expandForAgents } from '../shared/agent-markdown'
-import { EXPERIMENTAL_BADGE } from '../utils/nav-badges'
+import type { AgentPage } from '../shared/agent-surfaces'
+import { DOCS_SOURCES } from '../shared/docs-routes'
+import { changingNote, FEATURE_MAP, isChanging, isPlanned, PLANNED_NOTE } from '../shared/planned'
+import { statusBadge } from '../utils/nav-badges'
+import { wrapPmBlocks } from '../shared/pm-blocks'
 
 // What the build adds to every docs page as it parses it (Nuxt Content's
 // `content:file:afterParse`). Parsed pages are cached by content, not by
 // hook: after changing this, `rm -rf .data/content` before checking locally.
 //
 // - The agent text (shared/agent-markdown.ts): the blocks a component draws
-//   get the text they stand for. The header's keys go into the Markdown
-//   agents read, not into the stored page, which search indexes
-//   (server/plugins/agent-page-keys.ts).
-// - The navigation's Experimental badge, from `status: experimental`, so
-//   the page contract's one field drives both the chip and the badge (the
-//   chrome hoists it to where the surface starts, utils/nav-badges.ts).
+//   get the text they stand for. The page's header (version, tab, kind,
+//   status and keys) opens the Markdown agents read, not the stored page,
+//   which search indexes (`openTwin`, server/plugins/agent-surfaces.ts).
+// - The navigation's badge, from `status: experimental`, `planned` or
+//   `changing`, so the page contract's one field drives both the chip and
+//   the badge (the chrome hoists it to where the surface starts,
+//   utils/nav-badges.ts).
+// - A planned or changing page's callout, first in its body
+//   (shared/planned.ts): the page shows it, the site's search indexes it and
+//   the twin prints it, so a reader who lands from any of them knows the
+//   feature is not built yet, or that the code still has the previous API.
 // - The last-updated date: the committer date of the last commit that
 //   touched the file. It fills `modifiedAt`, which the aside shows and the
 //   TechArticle JSON-LD carries as `dateModified`, and `meta.modifiedAt`,
 //   which Docus's sitemap source reads for `lastmod`.
+// - The package-manager variants of each bash block whose commands all
+//   convert (shared/pm-blocks.ts): the page's text stays npm, the variants
+//   ride in a prop of the block that wraps it.
 //
 // A shallow clone (CI's checkout; Vercel's, until website/vercel-build.sh
 // fetches the rest) ends its history at a boundary commit that looks as if
@@ -76,17 +90,71 @@ export function stampModifiedAt(page: Record<string, unknown>, date: string): vo
   page.meta = { ...(page.meta as Record<string, unknown> | undefined), modifiedAt: date }
 }
 
-/** Badge a page's navigation entry when it documents the experimental tier. */
-export function badgeExperimental(page: Record<string, unknown>): void {
-  if (page.status !== 'experimental' || page.navigation === false) return
+/** Badge a page's navigation entry when it documents the experimental tier, or what is planned. */
+export function badgeStatus(page: Record<string, unknown>): void {
+  const badge = statusBadge(page.status)
+  if (!badge || page.navigation === false) return
   const navigation = typeof page.navigation === 'object' && page.navigation ? page.navigation : {}
-  page.navigation = { ...navigation, badge: EXPERIMENTAL_BADGE }
+  page.navigation = { ...navigation, badge }
+}
+
+/** The callout a planned page opens with, as a parsed node. */
+export const PLANNED_CALLOUT = ['callout', { icon: 'i-lucide-hammer', color: 'neutral' }, ['p', {}, ['strong', {}, 'Planned.'], ` ${PLANNED_NOTE} The `, ['a', { href: FEATURE_MAP }, 'Feature map'], ' shows what is built.']] as const
+
+/** The callout a changing page opens with, as a parsed node, naming the unit that brings the code to it. */
+export const changingCallout = (unit: string) => ['callout', { icon: 'i-lucide-git-compare-arrows', color: 'warning' }, ['p', {}, ['strong', {}, 'Changing.'], ` ${changingNote(unit)} The `, ['a', { href: FEATURE_MAP }, 'Feature map'], ' shows what each unit changes.']] as const
+
+/** The callout a page's release marker opens it with, if it has one. */
+export function markerCallout(page: { status?: unknown, changedBy?: unknown }): readonly unknown[] | undefined {
+  if (isPlanned(page)) return PLANNED_CALLOUT
+  if (isChanging(page)) return changingCallout(typeof page.changedBy === 'string' ? page.changedBy : 'its unit')
+  return undefined
+}
+
+/** Open a planned or changing page's body with its callout, in place. Safe to run twice. */
+export function noteMarker(page: Record<string, unknown> & { body?: unknown }): void {
+  const callout = markerCallout({ status: page.status, changedBy: page.changedBy })
+  if (!callout) return
+  const body = page.body as { type?: unknown, value?: unknown } | undefined
+  if (body?.type !== 'minimark' || !Array.isArray(body.value)) return
+  if (JSON.stringify(body.value[0]) === JSON.stringify(callout)) return
+  body.value.unshift(structuredClone(callout))
+}
+
+/**
+ * Every page of the `docs` collection, read from the files under `content`
+ * as the collection sources in shared/docs-routes.ts serve them: its route,
+ * its stem (the sidebar's order) and the frontmatter the agent surfaces
+ * print. nuxt.config.ts builds the llms.txt sections from it, before Nuxt
+ * Content has parsed anything.
+ */
+export function readDocsPages(content: string): AgentPage[] {
+  return docsFiles(content, DOCS_SOURCES).map(({ file, stem, route }): AgentPage => {
+    const { title, description, kind, status, changedBy } = frontmatter(readFileSync(join(content, file), 'utf8'))
+    return {
+      route,
+      stem,
+      title: title || route.split('/').at(-1)!,
+      ...(description ? { description } : {}),
+      ...(kind ? { kind } : {}),
+      ...(status ? { status } : {}),
+      ...(changedBy ? { changedBy } : {}),
+    }
+  })
+}
+
+/** Wrap the bash blocks of a parsed page body that convert to every package manager, in place. */
+export function wrapCommands(body: unknown): void {
+  const { type, value } = (body ?? {}) as { type?: unknown, value?: unknown }
+  if (type === 'minimark' && Array.isArray(value)) wrapPmBlocks(value)
 }
 
 /** What the build adds to a parsed page, in place (see the top of this file). */
 export function enrichPage(page: Record<string, unknown> & { body?: unknown }, date: string | undefined): void {
   expandForAgents(page.body)
-  badgeExperimental(page)
+  wrapCommands(page.body)
+  noteMarker(page)
+  badgeStatus(page)
   if (date) stampModifiedAt(page, date)
 }
 

@@ -15,6 +15,7 @@
 @import "./assets/css/tokens.css";
 @import "./assets/css/depth.css";
 @import "./assets/css/console.css";
+@import "./assets/css/panels.css";
 
 /* ════════════════════════════════════════════════════════════════
    FALLBACK FACES: what a stack shows while its web font loads
@@ -262,7 +263,7 @@ html.light { color-scheme: light; }
   h1, h2, h3 { text-wrap: balance; }
   p, li { text-wrap: pretty; }
 
-  input, .mono, code, pre, time, .tnum { font-variant-numeric: tabular-nums; }
+  input, code, pre, time, .font-mono { font-variant-numeric: tabular-nums; }
 
   /* Inline code is a tiny recessed chip: the well needs its pocket, or the
      inset shadow reads as a square notch cut into the paragraph. Inside the
@@ -272,7 +273,7 @@ html.light { color-scheme: light; }
     padding: 0.05em 0.35em;
     border-radius: var(--r-xs);
     background: var(--sink);
-    box-shadow: var(--inset-sm);
+    box-shadow: var(--inset-1);
   }
   /* Martian Mono is wide: a long name (`runtimeConfig.public.backend.authRoute`)
      is wider than a phone's column, so inline code may break anywhere rather
@@ -283,16 +284,12 @@ html.light { color-scheme: light; }
 /* ════════════════════════════════════════════════════════════════
    Keyframes
    ════════════════════════════════════════════════════════════════ */
-@keyframes pulse-ring {
-  0%, 100% { box-shadow: 0 0 0 0 var(--ring-glow, var(--ok-glow)); opacity: 1; }
-  50%      { box-shadow: 0 0 0 6px transparent; opacity: 0.6; }
-}
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes blink { 50% { opacity: 0.35; } }
+/* <LiveTrace>'s ambient wave: the doubled trace slides one viewBox width. */
+@keyframes trace-scroll { to { transform: translateX(-240px); } }
 
 /* ════════════════════════════════════════════════════════════════
    Reset / base
@@ -315,7 +312,7 @@ body {
   color: var(--ink);
   /* The same ground as the rest of the site. */
   background: var(--matte-bg);
-  font-family: var(--font);
+  font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
@@ -341,239 +338,20 @@ body {
 
 /* ════════════════════════════════════════════════════════════════
    Shared utilities
+   ----------------------------------------------------------------
+   Everything else a page draws is a part (assets/css/depth.css and
+   console.css, design.md §Parts) or a Tailwind utility.
    ════════════════════════════════════════════════════════════════ */
-.mono { font-family: var(--mono); }
-
-.lab-label {
-  font-family: var(--mono);
-  font-size: 0.64rem;
-  font-weight: 600;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
-}
-
 .fade-up { animation: fade-up 0.26s var(--ease-out) both; }
-
-/* Inline code chip — a tiny recessed well */
-.prose-code,
-.subtitle code,
-.ph-sub code,
-code.inline {
-  font-family: var(--mono);
-  font-size: 0.82em;
-  color: var(--ok-soft);
-  background: var(--sink);
-  padding: 0.08rem 0.36rem;
-  border-radius: 5px;
-  box-shadow: var(--inset-sm);
-}
-
-@media (max-width: 860px) {
-  .main-grid { grid-template-columns: 1fr; }
-  .sidebar { display: none !important; }
-}
-
-/* ════════════════════════════════════════════════════════════════
-   Buttons (.btn base — raised at rest, pressed-in on :active)
-   ════════════════════════════════════════════════════════════════ */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  font-family: var(--font);
-  font-size: 0.88rem;
-  font-weight: 600;
-  border-radius: var(--r-sm);
-  border: 0;
-  background: var(--surface);
-  color: var(--ink);
-  cursor: pointer;
-  box-shadow: var(--raise-sm);
-  transition: color var(--transition), box-shadow var(--transition),
-    transform var(--press) var(--ease-out);
-  text-decoration: none;
-}
-.btn:hover { color: var(--ok); }
-.btn:active:not(:disabled) { box-shadow: var(--inset-sm); transform: translateY(0.5px); }
-.btn.primary { background: var(--ok); color: var(--on-ok); box-shadow: var(--elev-1), var(--glow-ok-soft); }
-.btn.primary:hover { background: var(--ok-press); color: var(--on-ok); }
-.btn.primary:active:not(:disabled) { box-shadow: var(--inset-sm); }
-.btn.secondary { background: var(--surface); }
-.btn.danger { color: var(--err); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: var(--raise-sm); }
 
 /* ════════════════════════════════════════════════════════════════
    Focus & touch (Web Interface Guidelines) — ring sits ON TOP of depth
    ════════════════════════════════════════════════════════════════ */
-.pg-shell :where(a, button, summary, [role="button"], .lb):focus-visible {
+.pg-shell :where(a, button, summary, [role="button"]):focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
-a, button, summary, [role="button"], .lb, .tg, label { touch-action: manipulation; }
-
-.tg-sw input:focus-visible ~ .tg-track {
-  outline: 2px solid var(--focus);
-  outline-offset: 3px;
-}
-
-/* ════════════════════════════════════════════════════════════════
-   Inputs — concave wells carved into the material
-   ════════════════════════════════════════════════════════════════ */
-.input {
-  width: 100%;
-  padding: 0.6rem 0.8rem;
-  font-family: var(--font);
-  font-size: 0.92rem;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: var(--sink);
-  color: var(--ink);
-  box-shadow: var(--inset-sm);
-  transition: box-shadow var(--transition);
-}
-.input:focus {
-  outline: none;
-  box-shadow: var(--inset-sm), 0 0 0 2px var(--focus);
-}
-.input::placeholder { color: var(--ink-faint); }
-
-/* ════════════════════════════════════════════════════════════════
-   Cards / panels / pills
-   ════════════════════════════════════════════════════════════════ */
-.card {
-  background: var(--surface);
-  border-radius: var(--r-lg);
-  box-shadow: var(--raise);
-}
-
-.well {
-  background: var(--sink);
-  border-radius: var(--r-lg);
-  box-shadow: var(--inset);
-}
-
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-family: var(--mono);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  padding: 0.18rem 0.6rem;
-  border-radius: 999px;
-  color: var(--ink-dim);
-  background: var(--sink);
-  box-shadow: var(--inset-sm);
-}
-
-/* ════════════════════════════════════════════════════════════════
-   Page-level helpers (shared across the rebuilt pages)
-   ════════════════════════════════════════════════════════════════ */
-.stack { display: flex; flex-direction: column; gap: 1rem; }
-.row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
-.grid-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; align-items: start; }
-@media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
-
-.hint { font-size: 0.78rem; color: var(--ink-dim); line-height: 1.55; margin: 0; }
-.hint code, .lead code { font-family: var(--mono); font-size: 0.9em; color: var(--ok-soft); }
-.lead { font-size: 0.88rem; color: var(--ink-dim); line-height: 1.6; margin: 0; }
-
-textarea.input { resize: vertical; min-height: 4.5rem; line-height: 1.5; }
-select.input { cursor: pointer; }
-
-/* A collapsible "developer details" section — a recessed well. */
-details.dev {
-  background: var(--sink);
-  border-radius: var(--r);
-  box-shadow: var(--inset-sm);
-  padding: 0.2rem 0.2rem;
-}
-details.dev > summary {
-  cursor: pointer;
-  list-style: none;
-  padding: 0.6rem 0.85rem;
-  font-family: var(--mono);
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-details.dev > summary::-webkit-details-marker { display: none; }
-details.dev > summary::before {
-  content: '+';
-  font-size: 0.95rem;
-  line-height: 1;
-  color: var(--ok);
-}
-details.dev[open] > summary::before { content: '−'; }
-details.dev > .dev-body { padding: 0.25rem 0.85rem 0.85rem; }
-
-/* ── Depth utilities ─────────────────────────────────────────────
-   Reusable building blocks for the marketing homepage. */
-.depth-surface {
-  background: var(--grad-surface);
-  border-radius: var(--r-lg);
-  box-shadow: var(--elev-1);
-}
-/* A 1px bevel that's lit at the top-left and dark at the bottom-right,
-   sitting on a drop shadow → "border lighter than the shadow". */
-.depth-border {
-  border: 1px solid transparent;
-  border-radius: var(--r-lg);
-  background:
-    var(--grad-surface) padding-box,
-    var(--grad-bevel) border-box;
-  box-shadow: var(--elev-1);
-}
-.depth-well {
-  background: var(--sink);
-  border-radius: var(--r-lg);
-  box-shadow: var(--inset-1);
-}
-.text-grad {
-  background: var(--text-grad);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-}
-.text-grad-ink {
-  background: linear-gradient(160deg,
-    color-mix(in srgb, var(--ink), #fff 18%), var(--ink) 55%, var(--ink-dim));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-}
-/* ── Matte-material utilities (legacy) ───────────────────────────
-   Carved and raised type from before the parts vocabulary
-   (assets/css/depth.css, design.md §Parts), which replaces them as R3–R5
-   rebuild the chrome, homepage and playground; test/docs/design-parts.test.ts
-   counts their uses down. Plaques, slots, `carved` and `code-plate` are
-   parts now. */
-.engraved    { color: var(--engrave-ink); text-shadow: var(--engrave); }
-.engraved-sm { color: var(--engrave-ink-sm); text-shadow: var(--engrave-sm); }
-.embossed    { text-shadow: var(--emboss); }
-.embossed-sm { text-shadow: var(--emboss-sm); }
-
-.surface-matte {
-  background: var(--matte-bg);
-}
-
-/* A machined groove — section rule under h2. */
-.rule-carved {
-  border-bottom: 1px solid var(--edge-hi);
-  box-shadow: 0 1px 0 light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.06));
-}
+a, button, summary, [role="button"], label { touch-action: manipulation; }
 
 /* The copy button is absolutely positioned at the block's top-right corner
    with no gutter reserved for it, and below `lg` it is permanently visible
@@ -585,16 +363,49 @@ details.dev > .dev-body { padding: 0.25rem 0.85rem 0.85rem; }
 div.code-plate { padding-right: 3.25rem; }
 div:not(:has(> .code-plate)) > pre.slot { padding-right: 3.25rem; }
 
+/* ════════════════════════════════════════════════════════════════
+   The reader's package manager (shared/pm.ts)
+   ----------------------------------------------------------------
+   A converted block renders npm, pnpm, yarn and bun (PmCode.vue), and
+   the header's key all four marks (AppHeaderBottomRight.vue);
+   `html[data-pm]`, which the head script sets before the first paint,
+   says which one shows, and npm does while it is absent. The picker's
+   key for it (PmChoice.vue) is down as a pressed `k` is, before the
+   page hydrates and its `aria-checked` follows.
+   ════════════════════════════════════════════════════════════════ */
+[data-pm-variant]:not([data-pm-variant='npm']),
+:root[data-pm='pnpm'] [data-pm-variant='npm'],
+:root[data-pm='yarn'] [data-pm-variant='npm'],
+:root[data-pm='bun'] [data-pm-variant='npm'] { display: none; }
+:root[data-pm='pnpm'] [data-pm-variant='pnpm'],
+:root[data-pm='yarn'] [data-pm-variant='yarn'],
+:root[data-pm='bun'] [data-pm-variant='bun'] { display: block; }
+
+/* The variants hang under the picker's plate, as a code block under its filename. */
+.pm-code [data-pm-variant] > div { margin: 0; }
+.pm-code [data-pm-variant] pre { border-start-start-radius: 0; border-start-end-radius: 0; }
+
+:root:not([data-pm]) [data-pm-option='npm'],
+:root[data-pm='npm'] [data-pm-option='npm'],
+:root[data-pm='pnpm'] [data-pm-option='pnpm'],
+:root[data-pm='yarn'] [data-pm-option='yarn'],
+:root[data-pm='bun'] [data-pm-option='bun'] {
+  transform: translateY(2px);
+  background: var(--k-face-down, var(--key-down));
+  box-shadow: var(--k-shadow-down, var(--key-shadow-down));
+  color: var(--k-ink-current, var(--ok));
+}
+
 /* Depth is decoration — on request, give back plain ink. Reaches every site
-   that carves or raises type: the relief parts, the legacy utilities, `kbd`,
+   that carves or raises type: the relief parts, `kbd`,
    and the icon-emboss token. Components must apply depth through those
    (never a hand-written text-shadow / drop-shadow in scoped CSS, which
    out-specifies these rules), or this switch cannot reach them. */
 @media (prefers-contrast: more) {
   :root { --emboss-icon: none; }
-  .engraved, .engraved-sm, .cut, .cut-sm, .engr, .engr-lt { color: var(--ink); text-shadow: none; }
-  .cut::after { content: none; }
-  .embossed, .embossed-sm, .emb, .emb-sm, kbd { text-shadow: none; }
+  .cut, .cut-deep, .cut-sm, .engr, .engr-lt { color: var(--ink); text-shadow: none; }
+  .cut::after, .cut-deep::after { content: none; }
+  .emb, .emb-sm, kbd { text-shadow: none; }
 }
 /* QA hooks (plugins/qa.client.ts): `?qa=contrast` stamps `html.qa-contrast`
    so the kill-switch above can be exercised without flipping an OS setting —
@@ -602,9 +413,9 @@ div:not(:has(> .code-plate)) > pre.slot { padding-right: 3.25rem; }
    for components that read it; there is no global rule for it here (reduced
    motion stays on `prefers-reduced-motion` above). */
 html.qa-contrast { --emboss-icon: none; }
-html.qa-contrast :is(.engraved, .engraved-sm, .cut, .cut-sm, .engr, .engr-lt) { color: var(--ink); text-shadow: none; }
-html.qa-contrast .cut::after { content: none; }
-html.qa-contrast :is(.embossed, .embossed-sm, .emb, .emb-sm, kbd) { text-shadow: none; }
+html.qa-contrast :is(.cut, .cut-deep, .cut-sm, .engr, .engr-lt) { color: var(--ink); text-shadow: none; }
+html.qa-contrast :is(.cut, .cut-deep)::after { content: none; }
+html.qa-contrast :is(.emb, .emb-sm, kbd) { text-shadow: none; }
 
 /* The homepage console folds up into place as it scrolls in, where the
    browser runs animations off the scroll position (animation-timeline).
@@ -664,7 +475,9 @@ aside a.text-primary::before {
    Nuxt UI site is the module's own bridge onto Nuxt UI's tokens. */
 .bk-depth :where([data-auth='form'], [data-invitation], [data-gift='banner'],
                  [data-pricing='table'], [data-settings='root'],
-                 [data-profile='root'], [data-security='root']) {
+                 [data-profile='root'], [data-security='root'],
+                 [data-history='root'], [data-usage='root'], [data-credits='banner'],
+                 [data-upgrade='root'], [data-access='root'], [data-connection='status']) {
   --bk-accent: var(--ok);
   --bk-on-accent: var(--on-ok);
   --bk-muted: var(--ink-dim);

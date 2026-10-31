@@ -7,7 +7,9 @@
  * same run, and its first push fails on the required AUTH_SECRET and SITE_URL
  * unless the build's `--cmd` sets them in between (`env push --preview`) or
  * the project's defaults already hold them. The defaults written here are
- * that pair, plus test-mode mail and sandbox billing.
+ * that pair, plus `BACKEND_ENVIRONMENT` (`preview`, or `development` for dev
+ * defaults): mail in test mode and billing in the sandbox. Dev defaults also
+ * publish the dev inbox to pages (`EMAIL_DEV_INBOX=1`).
  *
  * SITE_URL is the one value that cannot be made up. A preview's origin is its
  * own (one per branch on most hosts), so the default is whatever origin the
@@ -18,8 +20,8 @@
  * Production never gets defaults from here. Values reach the Convex CLI on
  * stdin, as with `env push`; only names are ever read back.
  */
-import { REQUIRED_DEPLOYMENT_ENV } from './env-registry'
-import { DEV_SITE_URL, envNames, executeEnvPush, generateAuthSecret, PREVIEW_ENV_DEFAULTS, type EnvPushAction, type EnvPushRunResult, type ExecuteEnvPushOptions } from './env-push'
+import { DEV_ONLY_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './env-registry'
+import { DEV_SITE_URL, envNames, executeEnvPush, generateAuthSecret, type EnvPushAction, type EnvPushRunResult, type ExecuteEnvPushOptions } from './env-push'
 import { runConvex } from './convex-cli'
 
 /** The deployment types `--defaults` writes. Never production. */
@@ -27,8 +29,13 @@ export const ENV_DEFAULT_TYPES = ['preview', 'dev'] as const
 
 export type EnvDefaultType = (typeof ENV_DEFAULT_TYPES)[number]
 
-/** The names `--defaults` writes: the required pair, test-mode mail and sandbox billing. */
-export const ENV_DEFAULT_NAMES: readonly string[] = [...REQUIRED_DEPLOYMENT_ENV, ...Object.keys(PREVIEW_ENV_DEFAULTS)]
+/** The names `--defaults` writes: the required pair and the kind of deployment; dev defaults add the dev-only names (the dev inbox). */
+export const ENV_DEFAULT_NAMES: readonly string[] = [...REQUIRED_DEPLOYMENT_ENV, 'BACKEND_ENVIRONMENT']
+
+/** The names `--defaults` writes for one deployment type. */
+function defaultNamesOf(type: EnvDefaultType): readonly string[] {
+  return type === 'dev' ? [...ENV_DEFAULT_NAMES, ...Object.keys(DEV_ONLY_DEPLOYMENT_ENV)] : ENV_DEFAULT_NAMES
+}
 
 export interface EnvDefaultsPlanInput {
   type: EnvDefaultType
@@ -44,7 +51,8 @@ export interface EnvDefaultsPlanInput {
 function defaultValue(name: string, type: EnvDefaultType, siteUrl: string | undefined): string | undefined {
   if (name === 'AUTH_SECRET') return generateAuthSecret()
   if (name === 'SITE_URL') return siteUrl ?? (type === 'dev' ? DEV_SITE_URL : undefined)
-  return PREVIEW_ENV_DEFAULTS[name as keyof typeof PREVIEW_ENV_DEFAULTS]
+  if (name in DEV_ONLY_DEPLOYMENT_ENV) return DEV_ONLY_DEPLOYMENT_ENV[name]
+  return type === 'dev' ? 'development' : 'preview'
 }
 
 /**
@@ -55,7 +63,7 @@ function defaultValue(name: string, type: EnvDefaultType, siteUrl: string | unde
  */
 export function planEnvDefaults({ type, defaultNames, siteUrl, force }: EnvDefaultsPlanInput): EnvPushAction[] {
   const present = new Set(defaultNames)
-  return ENV_DEFAULT_NAMES.map((name): EnvPushAction => {
+  return defaultNamesOf(type).map((name): EnvPushAction => {
     const replace = force?.has(name) || (name === 'SITE_URL' && siteUrl !== undefined)
     if (present.has(name) && !replace) return { name, action: 'skip', detail: 'already a project default (--force to replace)' }
     const value = defaultValue(name, type, siteUrl)

@@ -1,0 +1,29 @@
+/*
+ * AuthFormPasskeyOffer's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  /* Saving a passkey is the step's one action: it takes the accent, as submit does. */
+  [data-auth='passkey-add'] {
+    background: var(--auth-accent);
+    border-color: var(--auth-accent);
+    color: var(--auth-on-accent);
+  }
+
+  /*
+   * The new recovery code after a recovery: shown once, so it reads as
+   * something to write down, on a plate in the warning tone. The text stays
+   * the ink colour, so it keeps the page's contrast on the light tint.
+   */
+  [data-auth='recovery-code'] {
+    margin: 0;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid color-mix(in srgb, var(--bk-warn) 55%, transparent);
+    border-radius: var(--auth-radius);
+    background: color-mix(in srgb, var(--bk-warn) 10%, transparent);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+}

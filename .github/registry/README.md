@@ -13,5 +13,6 @@ with the code it describes, not written in a browser on release day.
   `compatibility` and the docs URL from `package.json` / `dist/module.json` weekly, so those must
   agree with the published package (the docs contract test holds this entry's Nuxt range to `src/module.ts`). `type` is
   `3rd-party`: the sync sets it for every repository outside the nuxt and nuxt-modules
-  organizations. `icon` names a file to add under that repository's `icons/` — the house mark from
-  `website/public/logo.svg`, exported square.
+  organizations. `icon` names a file to add under that repository's `icons/`: `nuxt-backend.svg`, beside
+  this file, the house mark square on its gunmetal plate (`website/public/logo-dark.svg`), which
+  reads on a light page and a dark one alike.

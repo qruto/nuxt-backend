@@ -1,16 +1,23 @@
 #!/usr/bin/env node
 /**
- * Normalizes the Nuxt module entry from `.mjs`/`.d.mts` to `.js`/`.d.ts`.
+ * Post-processes the Nuxt module build in `dist/`, in four steps:
  *
- * `@nuxt/module-builder` hardcodes `module.mjs`, `module.d.mts` and
- * `types.d.mts` output filenames. Since the package is `"type": "module"`,
- * those `.js` files are already ESM, so this step renames the entry to plain
- * extensions to keep `dist/` consistent with the Convex component output
- * (which `tsc` emits as `.js`/`.d.ts`).
+ * 1. Renames the entry from `.mjs`/`.d.mts` to `.js`/`.d.ts`, and points
+ *    `types.d.ts` at it. `@nuxt/module-builder` hardcodes `module.mjs`,
+ *    `module.d.mts` and `types.d.mts`; the package is `"type": "module"`,
+ *    so plain extensions are ESM too, and match the Convex component output
+ *    (which `tsc` emits as `.js`/`.d.ts`).
+ * 2. Drops `module.d.cts`, the CJS declaration stub the dev stub emits.
+ * 3. Drops the `.d.ts` siblings of the MCP tool files, which Nitro would
+ *    otherwise bundle.
+ * 4. Repairs the doubled `.js.js` specifiers mkdist writes into runtime
+ *    declarations. A real build only: in the stub `dist/runtime` is a link
+ *    to `src/runtime`, so the step is skipped there.
  *
- * Idempotent: only acts on files that exist, so it is safe after both the
- * production build (`nuxt-module-build build`) and the dev stub
- * (`nuxt-module-build build --stub`).
+ * Idempotent and safe after both the production build (`nuxt-module-build
+ * build`) and the dev stub (`nuxt-module-build build --stub`): each step acts
+ * only on the files it finds, and the last one never writes through the
+ * stub's link into the sources.
  *
  * Usage:
  *   node scripts/normalize-module-ext.mjs

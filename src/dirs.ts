@@ -19,6 +19,18 @@ export const moduleDir = basename(here) === 'shared' || basename(here) === 'chun
  */
 export const packageDir = dirname(moduleDir)
 
+/** Whether `dir` is the package's `src/`: code the dev stub loads, never a published build. */
+export function isSourceDir(dir: string): boolean {
+  return basename(dir) === 'src'
+}
+
+/**
+ * Whether this code runs from the package's sources: this repository's
+ * own prepare, its website, examples and fixtures through the dev stub. A
+ * published install always runs `dist/`.
+ */
+export const runsFromSource = isSourceDir(moduleDir)
+
 interface PackageManifest {
   version: string
   dependencies: Record<string, string>

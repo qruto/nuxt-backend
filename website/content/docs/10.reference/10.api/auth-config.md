@@ -16,13 +16,13 @@ navigation:
 
 Defined in: [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/auth.config.ts)
 
-Where the backend's tokens come from, for an app that moved them.
+Where the backend's tokens come from.
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="basepath"></a> `basePath?` | `string` | The auth routes' base path, where the token signer's JWKS is served. Default `/api/auth`. | [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/auth.config.ts) |
+| <a id="paths"></a> `paths?` | `Partial`\<[`BackendPaths`](/docs/reference/api/auth#backendpaths)\> | The app's paths, from the `paths.generated.ts` the Nuxt module writes: `authRoute`, where the token signer's JWKS is served, is the one read here. Default `/api/auth`. | [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/auth.config.ts) |
 | <a id="jwks"></a> `jwks?` | `string` | A static JWKS, for a deployment that sets its signing keys itself instead of storing them. | [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/auth.config.ts) |
 
 ## Variables
@@ -47,9 +47,9 @@ Defined in: [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/bl
 
 The Convex auth config that trusts the backend's tokens: the session JWTs
 the `backend` component signs, verified against its JWKS on the
-deployment's site URL. `nuxt-backend/auth.config` exports it with the
-defaults, which the scaffolded `backend/auth.config.ts` re-exports; call
-it yourself only to move the auth routes or pin the keys.
+deployment's site URL, under the auth route nuxt.config names
+(`backend.authRoute`). The scaffolded `backend/auth.config.ts` calls it
+with the generated paths; pass `jwks` only to pin the keys.
 
 #### Parameters
 
@@ -65,6 +65,13 @@ it yourself only to move the auth routes or pin the keys.
 
 ```ts [backend/auth.config.ts]
 import { defineBackendAuthConfig } from 'nuxt-backend/auth.config'
+import { paths } from './paths.generated'
 
-export default defineBackendAuthConfig({ basePath: '/auth' })
+export default defineBackendAuthConfig({ paths })
 ```
+
+## References
+
+### BackendPaths
+
+Re-exports [BackendPaths](/docs/reference/api/auth#backendpaths)

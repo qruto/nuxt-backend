@@ -8,10 +8,11 @@ import component from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { defineEmailSequence, setupWorkflows } from '../../src/convex/integrations/workflows'
 
-// The scaffold's onboarding drip, run end to end: a sequence started with a
-// `userId` reads the account through the real auth adapter before each email,
-// so a deleted account gets nothing and a changed address gets the email at
-// the new one. The transport is an app mutation that records what it was
+// `defineEmailSequence` with a `userId`, run end to end on a sequence shaped
+// like the scaffold's onboarding drip: it reads the account through the real
+// auth adapter before each email, so a deleted account gets nothing and a
+// changed address gets the email at the new one. The scaffold's own drip is
+// held to that shape in test/unit/scaffold-parity.test.ts. The transport is an app mutation that records what it was
 // handed, so the test sees exactly what the sequence sent.
 
 const DAY = 86_400_000

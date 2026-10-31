@@ -25,29 +25,37 @@
       "#backend/_generated/api": ["../../website/backend/_generated/api"],
       "nuxt-backend": ["../../src/module.ts"],
       "nuxt-backend/auth": ["../../src/convex/client/index.ts"],
-      "nuxt-backend/authorization": ["../../src/convex/integrations/authorization.ts"],
       "nuxt-backend/http": ["../../src/convex/integrations/http.ts"],
       "nuxt-backend/functions": ["../../src/convex/integrations/functions.ts"],
       "nuxt-backend/app": ["../../src/convex/app.ts"],
       "nuxt-backend/billing": ["../../src/convex/integrations/billing.ts"],
       "nuxt-backend/email": ["../../src/convex/integrations/email.ts"],
       "nuxt-backend/rate-limit": ["../../src/convex/integrations/rate-limit.ts"],
-      "nuxt-backend/migrations": ["../../src/convex/integrations/migrations.ts"],
-      "nuxt-backend/aggregate": ["../../src/convex/integrations/aggregate.ts"],
       "nuxt-backend/search": ["../../src/convex/integrations/search.ts"],
       "nuxt-backend/workflows": ["../../src/convex/integrations/workflows.ts"],
+      "nuxt-backend/audit": ["../../src/convex/integrations/audit.ts"],
+      "nuxt-backend/access": ["../../src/convex/integrations/launch.ts"],
+      "nuxt-backend/account": ["../../src/convex/integrations/account.ts"],
+      "nuxt-backend/admin": ["../../src/convex/integrations/admin.ts"],
+      "nuxt-backend/flags": ["../../src/convex/integrations/flags.ts"],
+      "nuxt-backend/storage": ["../../src/convex/integrations/storage.ts"],
+      "nuxt-backend/notifications": ["../../src/convex/integrations/notifications.ts"],
       "nuxt-backend/ai": ["../../src/convex/integrations/ai.ts"],
+      "nuxt-backend/monitoring": ["../../src/convex/integrations/monitoring.ts"],
       "nuxt-backend/mcp": ["../../src/runtime/server/mcp/index.ts"],
       "nuxt-backend/convex.config": ["../../src/convex/components/backend/convex.config.ts"],
       "nuxt-backend/auth.config": ["../../src/convex/auth.config.ts"],
       "nuxt-backend/test": ["../../src/convex/test.ts"],
+      "nuxt-backend/test-utils": ["../../src/runtime/test-utils/index.ts"],
       "nuxt-backend/eslint": ["../../src/eslint.ts"]
     }
   },
   // Nuxt's two declaration entries carry the module augmentations the sources
   // rely on (`nuxt.options.nitro`, nuxt-security's `security`); the root
   // config includes them by the same names.
-  "include": ["./**/*.test-d.ts", "../../.nuxt/nuxt.d.ts", "../../.nuxt/nuxt.node.d.ts"],
+  // The test helpers' stand-ins import the base module under the private
+  // names their aliases give it, declared beside them.
+  "include": ["./**/*.test-d.ts", "../../.nuxt/nuxt.d.ts", "../../.nuxt/nuxt.node.d.ts", "../../src/runtime/test-utils/base-modules.d.ts", "./vue-sfc.d.ts"],
   // `exclude` is inherited too, and the root one lists `test/types` — which
   // would drop this directory's own files and leave tsc checking nothing.
   "exclude": ["../../node_modules", "../../dist"]

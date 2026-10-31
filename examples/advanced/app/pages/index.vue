@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { isAuthenticated } = useAuth()
+const { isSignedIn } = useAuth()
 </script>
 
 <template>
@@ -14,7 +14,7 @@ const { isAuthenticated } = useAuth()
     </p>
     <div class="row">
       <NuxtLink
-        v-if="isAuthenticated"
+        v-if="isSignedIn"
         to="/app"
       ><button class="primary">Open the app</button></NuxtLink>
       <NuxtLink

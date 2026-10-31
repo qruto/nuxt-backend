@@ -18,6 +18,8 @@ export interface RecordedCall {
   path: string
   args: unknown
   transport: 'http' | 'ws'
+  /** The bearer token an HTTP call carried, if any: who the caller is. */
+  token?: string
 }
 
 /**
@@ -34,6 +36,11 @@ export interface HttpResponse {
   headers?: Record<string, string>
   /** JSON-serialized; `undefined` sends an empty body. */
   body?: unknown
+  /**
+   * Bytes sent exactly as given, instead of `body`: a compressed response,
+   * with the `Content-Encoding` it was compressed with in `headers`.
+   */
+  raw?: Uint8Array
 }
 
 export type RouteHandler = (request: RecordedRequest) => HttpResponse | Promise<HttpResponse>
@@ -104,27 +111,13 @@ function errorMessage(error: unknown): string {
 }
 
 /** The Better Auth routes the module's proxy and server helpers reach out to. */
-function defaultRoutes(url: () => string): Record<string, RouteHandler> {
+function defaultRoutes(): Record<string, RouteHandler> {
   return {
     // Signed out: Better Auth answers `null` for a session-less request.
     'GET /api/auth/get-session': () => ({ body: null }),
     // The Convex JWT the SSR plugin prefetches — none without a session.
     'GET /api/auth/convex/token': () => ({ body: { token: null } }),
     'POST /api/auth/email-otp/send-verification-otp': () => ({ body: { success: true } }),
-    // RFC 8414 document the better-auth mcp plugin serves; the module's
-    // `/.well-known/oauth-authorization-server` route proxies it.
-    'GET /api/auth/.well-known/oauth-authorization-server': () => ({
-      body: {
-        issuer: url(),
-        authorization_endpoint: `${url()}/api/auth/mcp/authorize`,
-        token_endpoint: `${url()}/api/auth/mcp/token`,
-        registration_endpoint: `${url()}/api/auth/mcp/register`,
-        jwks_uri: `${url()}/api/auth/mcp/jwks`,
-        response_types_supported: ['code'],
-        grant_types_supported: ['authorization_code', 'refresh_token'],
-        code_challenge_methods_supported: ['S256'],
-      },
-    }),
   }
 }
 
@@ -144,15 +137,15 @@ export function startConvexStub(options: ConvexStubOptions = {}): Promise<Convex
   )
   const routes = new Map<string, RouteHandler>()
   let baseUrl = ''
-  for (const [key, handler] of Object.entries(defaultRoutes(() => baseUrl))) routes.set(key, handler)
+  for (const [key, handler] of Object.entries(defaultRoutes())) routes.set(key, handler)
 
   // Transition timestamps must only ever grow, across connections too.
   let lastTs = 0n
   const nextTs = () => ++lastTs
 
-  async function invoke(kind: FunctionKind, udfPath: string, args: unknown, transport: RecordedCall['transport']): Promise<unknown> {
+  async function invoke(kind: FunctionKind, udfPath: string, args: unknown, transport: RecordedCall['transport'], token?: string): Promise<unknown> {
     const path = canonicalizeUdfPath(udfPath)
-    const call: RecordedCall = { kind, path, args, transport }
+    const call: RecordedCall = { kind, path, args, transport, ...(token ? { token } : {}) }
     calls.push(call)
     const handler = handlers.get(path) ?? handlers.get('*')
     if (!handler) {
@@ -172,9 +165,9 @@ export function startConvexStub(options: ConvexStubOptions = {}): Promise<Convex
         body: Buffer.concat(chunks).toString('utf8'),
       }
       requests.push(request)
-      void respond(request).then(({ status = 200, headers = {}, body }) => {
+      void respond(request).then(({ status = 200, headers = {}, body, raw }) => {
         res.writeHead(status, { 'Content-Type': 'application/json', ...headers })
-        res.end(body === undefined ? undefined : JSON.stringify(body))
+        res.end(raw ?? (body === undefined ? undefined : JSON.stringify(body)))
       })
     })
   })
@@ -192,7 +185,8 @@ export function startConvexStub(options: ConvexStubOptions = {}): Promise<Convex
       // in, `{ status, value | errorMessage, logLines }` out.
       const { path, args } = JSON.parse(request.body || '{}') as { path: string, args?: unknown[] }
       try {
-        const value = await invoke(kind, path, args?.[0] ?? {}, 'http')
+        const token = /^Bearer (.+)$/.exec(String(request.headers.authorization ?? ''))?.[1]
+        const value = await invoke(kind, path, args?.[0] ?? {}, 'http', token)
         return { body: { status: 'success', value: value ?? null, logLines: [] } }
       }
       catch (error) {
@@ -243,9 +237,14 @@ export function startConvexStub(options: ConvexStubOptions = {}): Promise<Convex
     const ping = setInterval(() => send({ type: 'Ping' }), 10_000)
     ping.unref()
 
+    // One message at a time, in the order they came, as a deployment answers
+    // them: handled side by side, a slow query's Transition went out after a
+    // later one's, from a version the client had already left, and the
+    // client ignored every answer after it.
+    let handled: Promise<void> = Promise.resolve()
     ws.on('message', (data) => {
       const message = JSON.parse(String(data)) as ClientMessage
-      void handleSyncMessage(message).catch((error: unknown) => {
+      handled = handled.then(() => handleSyncMessage(message)).catch((error: unknown) => {
         send({ type: 'FatalError', error: errorMessage(error) })
       })
     })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { backendEnv } from '../../src/convex/app'
-import { collectPreflightFindings, DEV_ONLY_DEPLOYMENT_ENV, formatPreflightSummary, needsSetup, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../../src/preflight'
+import { collectPreflightFindings, formatPreflightSummary, needsSetup, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../../src/preflight'
 
 function byId(findings: PreflightFinding[], id: string): PreflightFinding {
   const finding = findings.find(f => f.id === id)
@@ -13,11 +13,10 @@ const fullEnv = {
   SITE_URL: 'https://app.example.com',
   EMAIL_API_KEY: 're_123',
   EMAIL_FROM: 'hello@example.com',
-  EMAIL_TEST_MODE: 'true',
   EMAIL_WEBHOOK_SECRET: 'whsec_email',
   BILLING_ACCESS_TOKEN: 'oat_123',
   BILLING_WEBHOOK_SECRET: 'whsec_billing',
-  BILLING_ENVIRONMENT: 'sandbox',
+  BACKEND_ENVIRONMENT: 'sandbox',
 }
 
 describe('deployment env contract', () => {
@@ -30,11 +29,9 @@ describe('deployment env contract', () => {
     expect(new Set(tiers).size).toBe(tiers.length)
   })
 
-  it('lists only optional vars as dev-only', () => {
-    for (const name of DEV_ONLY_DEPLOYMENT_ENV) {
-      expect(OPTIONAL_DEPLOYMENT_ENV).toHaveProperty(name)
-    }
-    expect(DEV_ONLY_DEPLOYMENT_ENV.has('AUTH_TRUST_LOCAL_ORIGINS')).toBe(true)
+  it('keeps the kind of deployment optional: unset keeps every provider in its test mode', () => {
+    expect(OPTIONAL_DEPLOYMENT_ENV).toHaveProperty('BACKEND_ENVIRONMENT')
+    expect(REQUIRED_DEPLOYMENT_ENV).not.toContain('BACKEND_ENVIRONMENT')
   })
 })
 
@@ -48,7 +45,7 @@ describe('collectPreflightFindings', () => {
     const findings = collectPreflightFindings({ env: {}, siteUrlConfigured: false })
     const finding = byId(findings, 'backend-site-url')
     expect(finding.status).toBe('warn')
-    expect(finding.fixHint).toContain('NUXT_PUBLIC_BACKEND_SITE_URL')
+    expect(finding.fixHint).toContain('NUXT_PUBLIC_BACKEND_URL')
   })
 
   it.each([
@@ -92,7 +89,7 @@ describe('collectPreflightFindings', () => {
       // Optional tier never claims a deploy will fail.
       expect(byId(findings, id).message).not.toContain('deploy fails')
     }
-    expect(byId(findings, 'email-transport').message).toContain('OTP')
+    expect(byId(findings, 'email-transport').message).toContain('sign-in codes print in the dev console')
     expect(byId(findings, 'billing-access').message).toContain('checkout')
   })
 
@@ -106,20 +103,11 @@ describe('collectPreflightFindings', () => {
     expect(byId(findings, 'billing-access').status).toBe('warn')
   })
 
-  it('produces no finding for fallback-only vars (EMAIL_FROM, EMAIL_TEST_MODE, BILLING_ENVIRONMENT)', () => {
+  it('produces no finding for fallback-only vars (EMAIL_FROM, BACKEND_ENVIRONMENT)', () => {
     const findings = collectPreflightFindings({ env: fullEnv, siteUrlConfigured: true })
     const ids = findings.map(finding => finding.id)
     expect(ids).not.toContain('email-from')
     expect(ids).not.toContain('billing-environment')
-  })
-
-  it('reports the agent endpoint when enabled and stays silent when disabled', () => {
-    const enabled = collectPreflightFindings({ env: fullEnv, siteUrlConfigured: true, mcp: { route: '/mcp' } })
-    expect(byId(enabled, 'mcp').status).toBe('pass')
-    expect(byId(enabled, 'mcp').message).toContain('/mcp')
-
-    const disabled = collectPreflightFindings({ env: fullEnv, siteUrlConfigured: true })
-    expect(disabled.map(finding => finding.id)).not.toContain('mcp')
   })
 })
 
@@ -134,7 +122,7 @@ describe('formatPreflightSummary', () => {
   })
 
   it('counts one passing check in the singular', () => {
-    expect(formatPreflightSummary([{ id: 'invitation-path', status: 'pass' }])).toBe('1 check ✓')
+    expect(formatPreflightSummary([{ id: 'page-paths', status: 'pass' }])).toBe('1 check ✓')
   })
 
   it('counts problems and names them', () => {

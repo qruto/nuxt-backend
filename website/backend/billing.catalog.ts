@@ -1,64 +1,34 @@
 import { defineBillingCatalog } from 'nuxt-backend/billing'
 
-// The playground's billing catalog as code: meters, plans, packs and feature
-// benefits, declared once here and pushed with `npx nuxt-backend billing sync`
-// (find-or-create, tagged `managedBy`, never deleted). The resulting provider
-// ids land in billing.generated.ts — the only place UUIDs live.
-//
-// This catalog mirrors the objects that already exist in the qruto sandbox, so
-// the first sync ran with `--adopt` (existing objects recorded as-is, their
-// benefits left untouched rather than growing managed twins that would
-// double-grant). Credit granting stays provider-native: a plan's `credits`
-// become a meter-credit benefit granted every cycle; a pack's are granted once
-// at purchase.
+// Panels' pricing as code: a `credits` meter, a free plan with a few credits
+// a month, a Studio plan whose `priority_queue` feature gives its strips a
+// head start in the queue (jobs.ts), and two packs. A strip costs 30
+// credits, so the free plan draws one strip a month. Prices are in cents.
+// Push it with `npx nuxt-backend billing sync`, which writes the ids to
+// billing.generated.ts.
 export default defineBillingCatalog({
-  // Sums `metadata.amount` on `credits` events, so one spend can cost more
-  // than one unit (the AI pages bill tokens). `aggregation: 'count'` would
-  // instead count events, one unit each — but a meter's aggregation is fixed
-  // once it has usage, so it is chosen here before the first sync.
-  meters: {
-    credits: { aggregation: 'sum', property: 'amount' },
-  },
+  // Every price is created in US dollars, whatever the organization's default
+  // currency: plans and packs then read alike on the pricing page.
+  currency: 'usd',
+  meters: { credits: {} },
   plans: {
-    starter: {
-      name: 'Starter',
-      description: 'For getting started — 50 credits every month.',
-      interval: 'month',
-      price: 500,
-      credits: { meter: 'credits', units: 50 },
+    free: {
+      name: 'Free',
+      prices: { month: 0 },
+      credits: { meter: 'credits', units: 30 },
     },
-    pro: {
-      name: 'Pro',
-      description: 'For products finding their feet — 200 credits every month.',
-      interval: 'month',
-      price: 900,
-      credits: { meter: 'credits', units: 200 },
-      features: ['premium'],
-    },
-    ultra: {
-      name: 'Ultra',
-      description: 'Everything unlocked — 500 credits every month.',
-      interval: 'month',
-      price: 1900,
-      credits: { meter: 'credits', units: 500 },
-      features: ['premium', 'ultra'],
+    studio: {
+      name: 'Studio',
+      prices: { month: 1200, year: 12000 },
+      credits: { meter: 'credits', units: 400 },
+      features: ['priority_queue'],
     },
   },
   packs: {
-    credits100: {
-      name: 'Credit Pack 100',
-      price: 1000,
-      credits: { meter: 'credits', units: 100, rollover: false },
-    },
-    credits500: {
-      name: 'Credit Pack 500',
-      description: 'One-time top-up of 500 credits.',
-      price: 4000,
-      credits: { meter: 'credits', units: 500 },
-    },
+    credits100: { name: '100 credits', price: 500, credits: { meter: 'credits', units: 100 } },
+    credits500: { name: '500 credits', price: 2000, credits: { meter: 'credits', units: 500 } },
   },
   features: {
-    premium: { description: 'Premium access' },
-    ultra: { description: 'Ultra access' },
+    priority_queue: { description: 'Your strips start drawing first' },
   },
 })

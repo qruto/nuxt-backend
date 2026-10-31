@@ -2,8 +2,8 @@
 // What a visitor's browser fetches for a prerendered page of the site, and
 // when. Fails when a page reaches code that must load on demand
 // (website/modules/deferred-backend-client): nuxt-convex-module's client
-// plugin, Better Auth's client, convex/browser, and the animation library
-// Docus's menu toggle brought in.
+// plugin, Better Auth's client, convex/browser, and motion-v, the animation
+// library Nuxt UI depends on (Docus's menu toggle used it before 5.15).
 //
 // - Up front: the module scripts the page names (its entry and its
 //   modulepreload links), and every chunk those import statically.
@@ -13,7 +13,14 @@
 //   or a page with no such block imports that code on demand from its own
 //   scripts (a lazy live component, an `import()` at mount). A page with a
 //   <DeferredBackend> block loads the client when the block scrolls into
-//   view, by design; those pages are listed.
+//   view or when the reader starts it, by design; those pages are listed.
+//
+// The docs pages that hold such a block are exactly the ones whose
+// frontmatter says `demo: true` (the page marks its root with it): a live
+// block on an unmarked page fails, and so does a marked page with none. What
+// a demo page loads once its block starts (the backend client, and what its
+// blocks import on demand) is measured too, and the heaviest fails above the
+// demo ceiling.
 //
 // It also fails when a page names no entry script (a changed cdnURL or
 // buildAssetsDir would leave nothing to check), and prints the heaviest
@@ -41,8 +48,14 @@ export const CLIENT_CALL = '$loadBackendClient'
 /** The attribute a <DeferredBackend> block renders, in the prerendered HTML. */
 export const LIVE_BLOCK = 'data-deferred-backend'
 
+/** The attribute a docs page with `demo: true` renders on its root (pages/[[lang]]/[...slug].vue). */
+export const DEMO_PAGE = 'data-demo-page'
+
 /** The most initial JavaScript, gzipped, any page may ship: what it measured, plus room to grow. */
 export const CEILING = 420_000
+
+/** The most JavaScript, gzipped, a demo page may load once its block starts: what it measured, plus room to grow. */
+export const DEMO_CEILING = 80_000
 
 /** The chunks a script imports statically: `import "./x.js"` and `from "./x.js"`, never `import("./x.js")`. */
 export function staticImports(code) {
@@ -80,6 +93,15 @@ export function pageEntries(html) {
 /** The scripts a page prefetches while idle. */
 export function pagePrefetches(html) {
   return tags(html).filter(tag => tag.rel === 'prefetch' && tag.as === 'script').map(tag => chunkOf(tag.url)).filter(Boolean)
+}
+
+/** Whether one of a page's tags carries `attribute`: a page that only mentions it in its text does not. */
+export function hasAttribute(html, attribute) {
+  return (html.match(/<[a-z][^>]*>/gi) ?? []).some((tag) => {
+    // Values emptied first: a class or a title that spells the name is no attribute.
+    const bare = tag.replace(/"[^"]*"|'[^']*'/g, '""')
+    return [...bare.matchAll(/\s([^\s"'=/>]+)/g)].some(([, name]) => name === attribute)
+  })
 }
 
 /** A redirect Nitro prerendered for a route rule: a refresh and no script, so no app to load. */
@@ -137,7 +159,12 @@ export function chunkStore(dir) {
     return seen
   }
   const carries = chunk => DEFERRED.filter(({ marker }) => read(chunk).includes(marker))
-  return { read, gzipped, exists, closure, carries }
+  let all
+  const holding = (what) => {
+    all ??= readdirSync(dir).filter(name => name.endsWith('.js'))
+    return all.filter(chunk => carries(chunk).some(entry => entry.what === what))
+  }
+  return { read, gzipped, exists, closure, carries, holding }
 }
 
 /** Each piece of deferred code `chunks` hold, with the first chunk that holds it. */
@@ -182,26 +209,73 @@ function atMount(route, live, own, store) {
 }
 
 /**
+ * A docs page holds a live block exactly when it says `demo: true`: the
+ * pages that may load the backend client from the docs are the demo pages.
+ */
+function demoPin(route, live, demo) {
+  if (!route.startsWith('/docs/') || live === demo) return []
+  return [live
+    ? 'renders a live block, but its frontmatter does not say `demo: true`'
+    : 'says `demo: true`, but renders no live block: drop the field, or add the block']
+}
+
+/**
+ * What a demo page loads once its block starts, gzipped: the backend client
+ * (nuxt-convex-module's client plugin) and what the page's blocks import on
+ * demand (their lazy live parts), with everything those import, statically
+ * or on demand in turn (a live part's own lazy part), less what the page
+ * loaded up front. A chunk loaded up front is not followed: what it imports
+ * on demand (the router's pages) is not the demo's. A block's chunk is one
+ * of the page's own that reaches the call for the client.
+ */
+function demoLoad(initial, own, store) {
+  const blocks = own.filter(chunk => [...store.closure([chunk])].some(reached => store.read(reached).includes(CLIENT_CALL)))
+  const later = new Set()
+  const queue = [
+    ...store.holding('nuxt-convex-module\'s client plugin'),
+    ...blocks.flatMap(chunk => dynamicImports(store.read(chunk))),
+  ]
+  while (queue.length > 0) {
+    const chunk = queue.pop()
+    if (later.has(chunk) || initial.has(chunk) || !store.exists(chunk)) continue
+    later.add(chunk)
+    const code = store.read(chunk)
+    queue.push(...staticImports(code), ...dynamicImports(code))
+  }
+  return [...later].reduce((sum, chunk) => sum + store.gzipped(chunk), 0)
+}
+
+/**
  * What a prerendered page loads that it must not, and when: up front, while
  * idle, or at mount (see the top of this file). Each failure is a `{ route,
- * message }`; `live` says the page holds a <DeferredBackend> block.
+ * message }`; `live` says the page holds a <DeferredBackend> block, `demo`
+ * that it says `demo: true`, and `demoBytes` what it loads once its block
+ * starts.
  */
 export function checkPage(route, html, store) {
   const entries = pageEntries(html).filter(store.exists)
   if (entries.length === 0) {
-    return { route, live: false, bytes: 0, failures: [{ route, message: 'names no entry script under /_nuxt/ that the build wrote: did cdnURL or buildAssetsDir change?' }] }
+    return { route, live: false, demo: false, bytes: 0, demoBytes: 0, failures: [{ route, message: 'names no entry script under /_nuxt/ that the build wrote: did cdnURL or buildAssetsDir change?' }] }
   }
   const initial = store.closure(pageScripts(html))
   const app = store.closure(entries)
   const own = [...initial].filter(chunk => !app.has(chunk))
-  const live = html.includes(LIVE_BLOCK)
+  const live = hasAttribute(html, LIVE_BLOCK)
+  const demo = hasAttribute(html, DEMO_PAGE)
   // The entry's chunks run on every page: a call there is reported once, as theirs.
   const startup = [...app].find(chunk => store.read(chunk).includes(CLIENT_CALL))
   const failures = [
-    ...[...upFront(initial, store), ...whileIdle(html, store), ...atMount(route, live, own, store)].map(message => ({ route, message })),
+    ...[...upFront(initial, store), ...whileIdle(html, store), ...atMount(route, live, own, store), ...demoPin(route, live, demo)].map(message => ({ route, message })),
     ...startup ? [{ route: 'every page', message: `calls for the backend client at startup (_nuxt/${startup})` }] : [],
   ]
-  return { route, live, failures, bytes: [...initial].reduce((sum, chunk) => sum + store.gzipped(chunk), 0) }
+  return {
+    route,
+    live,
+    demo,
+    failures,
+    bytes: [...initial].reduce((sum, chunk) => sum + store.gzipped(chunk), 0),
+    demoBytes: live ? demoLoad(initial, own, store) : 0,
+  }
 }
 
 /** One line per distinct failure, with the pages it happens on. */
@@ -218,26 +292,37 @@ export function formatFailures(failures) {
   })
 }
 
-function main() {
-  const assets = join(PUBLIC, '_nuxt')
-  if (!existsSync(assets)) {
-    console.error(`No built site at ${PUBLIC}: run \`nuxt build website\` first.`)
-    process.exit(1)
-  }
-  const store = chunkStore(assets)
-  // The home page and the docs: the pages that defer the backend client.
-  const results = htmlFiles(PUBLIC)
-    .map(file => ({ route: routeOf(file, PUBLIC), html: readFileSync(file, 'utf8') }))
+/**
+ * Every prerendered page under `dir` (a built site's public folder) that
+ * defers the backend client, checked: the home page and the docs. Returns
+ * the results, the heaviest page up front and the heaviest demo, and every
+ * failure, the ceilings' included.
+ */
+export function checkSite(dir) {
+  const store = chunkStore(join(dir, '_nuxt'))
+  const results = htmlFiles(dir)
+    .map(file => ({ route: routeOf(file, dir), html: readFileSync(file, 'utf8') }))
     .filter(({ route, html }) => (route === '/' || route.startsWith('/docs/')) && !isRedirect(html))
     .map(({ route, html }) => checkPage(route, html, store))
   const heaviest = results.reduce((top, result) => result.bytes > top.bytes ? result : top, { route: '', bytes: 0 })
+  const demoHeaviest = results.reduce((top, result) => result.demoBytes > top.demoBytes ? result : top, { route: '', demoBytes: 0 })
   const failures = results.flatMap(result => result.failures)
-  if (results.length === 0) failures.push({ route: PUBLIC, message: 'holds no prerendered page: did the build prerender the docs?' })
+  if (results.length === 0) failures.push({ route: dir, message: 'holds no prerendered page: did the build prerender the docs?' })
   if (heaviest.bytes > CEILING) failures.push({ route: heaviest.route, message: `ships ${heaviest.bytes} bytes of initial JavaScript, gzipped, over the ${CEILING} ceiling` })
+  if (demoHeaviest.demoBytes > DEMO_CEILING) failures.push({ route: demoHeaviest.route, message: `loads ${demoHeaviest.demoBytes} bytes of JavaScript, gzipped, once its demo starts, over the ${DEMO_CEILING} demo ceiling` })
+  return { results, heaviest, demoHeaviest, failures }
+}
 
+function main() {
+  if (!existsSync(join(PUBLIC, '_nuxt'))) {
+    console.error(`No built site at ${PUBLIC}: run \`nuxt build website\` first.`)
+    process.exit(1)
+  }
+  const { results, heaviest, demoHeaviest, failures } = checkSite(PUBLIC)
   console.log(`Checked ${results.length} prerendered pages. Heaviest initial JavaScript: ${heaviest.route} at ${(heaviest.bytes / 1000).toFixed(1)} kB gzipped (ceiling ${CEILING / 1000} kB).`)
   const live = results.filter(result => result.live).map(result => result.route)
-  console.log(`Pages that load the backend client when a live block scrolls into view: ${live.join(', ') || 'none'}.`)
+  console.log(`Pages that load the backend client when a live block scrolls into view or is started: ${live.join(', ') || 'none'}.`)
+  if (demoHeaviest.route) console.log(`Heaviest demo: ${demoHeaviest.route} loads ${(demoHeaviest.demoBytes / 1000).toFixed(1)} kB gzipped once it starts (ceiling ${DEMO_CEILING / 1000} kB).`)
   if (failures.length > 0) {
     console.error(formatFailures(failures).join('\n'))
     process.exit(1)

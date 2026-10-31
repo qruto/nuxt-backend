@@ -5,51 +5,54 @@ import { runCommand } from 'citty'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
 import { main } from '../../src/cli/main'
-import { FINDING_SERVICES } from '../../src/findings'
+import { CAPABILITY_NAMES } from '../../src/capabilities'
 import { useCopy } from '../../website/composables/useCopy'
 import * as shared from '../../website/shared/console'
-import { CONSOLE_DETENTS, CONSOLE_PHONE_ROWS, consoleCommand, consoleTranscript, foldsOnPhone, INSTALL_COMMAND, typedRows } from '../../website/shared/console'
+import { APP_CAPABILITY_IDS } from '../../website/shared/docs-capabilities'
+import { HOME_MODULES, HOME_SERVICES, HOME_TRAITS } from '../../website/shared/home'
+import { CONSOLE_DETENTS, CONSOLE_PHONE_ROWS, consoleCommand, consoleTranscript, foldsOnPhone, INSTALL_COMMAND, typedRows, type ConsoleDetent } from '../../website/shared/console'
 import { SITE } from '../../website/shared/site'
+import { withoutComments } from '../helpers/html'
 import { BACKEND_CALL, namedComponents, reachableComponents, siteComponents } from './components'
 import { contentFile, read, walk } from './helpers'
 import { component, homeConsole, lcdRowCount, parts, renderComponent } from './sfc'
 
 // The homepage says what the package does in its own words and shows its
 // CLI's real output, so both are held to the code: each dial detent is what
-// `doctor --only <service>` prints for a configured app, line for line; the
+// `doctor --only <layer>` prints for a configured app, line for line; the
 // install line is the Quickstart's; and the site's one description is the
 // same everywhere. Nothing on it is live: it never loads the backend
 // client, and its links into the playground leave the client's chunks
 // alone until a reader reaches for them.
 
 // The configured app the console shows: a dev deployment with every env var
-// set but EMAIL_TEST_MODE, its routes mounted, a billing catalog of two
+// set, its routes mounted, a billing catalog of two
 // plans and a provider that answers.
-const DEPLOYED_ENV = ['AUTH_SECRET', 'SITE_URL', 'AUTH_TRUST_LOCAL_ORIGINS', 'EMAIL_API_KEY', 'EMAIL_FROM', 'EMAIL_WEBHOOK_SECRET', 'BILLING_ACCESS_TOKEN', 'BILLING_WEBHOOK_SECRET', 'BILLING_ENVIRONMENT']
+const DEPLOYED_ENV = ['AUTH_SECRET', 'SITE_URL', 'BACKEND_ENVIRONMENT', 'EMAIL_API_KEY', 'EMAIL_FROM', 'EMAIL_WEBHOOK_SECRET', 'BILLING_ACCESS_TOKEN', 'BILLING_WEBHOOK_SECRET']
 vi.mock('../../src/convex-cli', () => ({
   runConvex: vi.fn(async (_rootDir: string, args: string[]) => {
     if (args[0] === 'env') return { stdout: `${DEPLOYED_ENV.join('\n')}\n`, stderr: '' }
     if (args[0] === 'function-spec') return { stdout: JSON.stringify({ url: 'https://happy-otter-123.convex.cloud', functions: [] }), stderr: '' }
-    if (args.includes('auth:authConfig')) return { stdout: JSON.stringify({ invitationPath: '/accept-invitation', agentLoginPath: '/login', agentConsentPath: '/oauth/consent' }), stderr: '' }
+    if (args.includes('auth:authConfig')) return { stdout: JSON.stringify({ paths: { authRoute: '/api/auth', acceptInvitation: '/accept-invitation', keepAccount: '/account/keep', security: '/security', waitlist: '/waitlist' } }), stderr: '' }
     return { stdout: '', stderr: '' }
   }),
 }))
 vi.mock('../../src/cli/billing', async original => ({
   ...await original<typeof import('../../src/cli/billing')>(),
-  readBillingOrganizationState: async () => ({ slug: 'acme', allowMultipleSubscriptions: false, prorationBehavior: 'next_period', benefitRevocationGracePeriod: 0, preventTrialAbuse: true, portal: { updatePlan: true, pause: false }, benefitTypeByKey: {}, memberModel: true, membersReadable: true }),
+  readBillingOrganizationState: async () => ({ slug: 'acme', allowMultipleSubscriptions: false, prorationBehavior: 'next_period', benefitRevocationGracePeriod: 0, preventTrialAbuse: true, portal: { updatePlan: true, pause: false }, benefitTypeByKey: {}, memberModel: true, membersReadable: true, customerEmailsOff: [] }),
 }))
 
 describe('the console', () => {
   let app: string
   // The deployment and the provider are read through the CLI's own env: none
   // from the machine running the tests may stand in for the app's.
-  const MACHINE_ENV = ['NUXT_PUBLIC_BACKEND_SITE_URL', 'NUXT_PUBLIC_CONVEX_SITE_URL', 'NUXT_PUBLIC_BACKEND_URL', 'NUXT_PUBLIC_CONVEX_URL', 'CONVEX_DEPLOYMENT', 'CONVEX_DEPLOY_KEY', 'CONVEX_DEPLOYMENT_TOKEN', ...DEPLOYED_ENV, 'EMAIL_TEST_MODE']
+  const MACHINE_ENV = ['NUXT_PUBLIC_CONVEX_SITE_URL', 'NUXT_PUBLIC_BACKEND_URL', 'NUXT_PUBLIC_CONVEX_URL', 'CONVEX_DEPLOYMENT', 'CONVEX_DEPLOY_KEY', 'CONVEX_DEPLOYMENT_TOKEN', ...DEPLOYED_ENV]
 
   beforeAll(() => {
     app = mkdtempSync(join(tmpdir(), 'homepage-console-'))
     mkdirSync(join(app, 'backend'))
     writeFileSync(join(app, '.env.local'), 'CONVEX_DEPLOYMENT=dev:happy-otter-123\nBILLING_ACCESS_TOKEN=polar_oat_example\n')
-    writeFileSync(join(app, 'backend/billing.catalog.ts'), 'export default { plans: { pro: { name: \'Pro\', price: { amount: 1000, interval: \'month\' } }, team: { name: \'Team\', price: { amount: 3000, interval: \'month\' } } } }\n')
+    writeFileSync(join(app, 'backend/billing.catalog.ts'), 'export default { plans: { pro: { name: \'Pro\', prices: { month: 1000 } }, team: { name: \'Team\', prices: { month: 3000 } } } }\n')
   })
   afterAll(() => rmSync(app, { recursive: true, force: true }))
   afterEach(() => {
@@ -58,29 +61,29 @@ describe('the console', () => {
     vi.restoreAllMocks()
   })
 
-  /** What `npx nuxt-backend doctor --only <service>` prints for the app, line by line. */
-  async function doctor(service: string): Promise<string[]> {
+  /** What `npx nuxt-backend doctor --only <layer>` prints for the app, line by line. */
+  async function doctor(layer: string): Promise<string[]> {
     for (const name of MACHINE_ENV) vi.stubEnv(name, undefined)
     // The webhook routes answer the unsigned probe as a mounted route does.
     vi.stubGlobal('fetch', vi.fn(async () => new Response('unsigned', { status: 401 })))
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    await runCommand(main, { rawArgs: ['doctor', '--only', service, '--cwd', app] })
+    await runCommand(main, { rawArgs: ['doctor', '--only', layer, '--cwd', app] })
     return log.mock.calls.map(call => call.join(' ')).join('\n').split('\n')
   }
 
-  it.each(CONSOLE_DETENTS.map(detent => [detent.service, detent] as const))('%s: shows what `doctor --only` prints, every line in order, and its summary', async (service, detent) => {
-    expect(FINDING_SERVICES).toContain(service)
-    expect(consoleCommand(detent)).toBe(`npx nuxt-backend doctor --only ${service}`)
-    expect(consoleTranscript(detent)).toEqual(await doctor(service))
+  it.each(CONSOLE_DETENTS.map(detent => [detent.layer, detent] as const))('%s: shows what `doctor --only` prints, every line in order, and its summary', async (layer, detent) => {
+    expect(CAPABILITY_NAMES).toContain(layer)
+    expect(consoleCommand(detent)).toBe(`npx nuxt-backend doctor --only ${layer}`)
+    expect(consoleTranscript(detent)).toEqual(await doctor(layer))
   }, 30_000)
 
-  it.each(CONSOLE_DETENTS.map(detent => [detent.service, detent] as const))('%s: links to docs that exist', (_service, detent) => {
+  it.each(CONSOLE_DETENTS.map(detent => [detent.layer, detent] as const))('%s: links to docs that exist', (_layer, detent) => {
     expect(() => contentFile(detent.docs)).not.toThrow()
   })
 
-  it('has four detents, one per service', () => {
-    expect(new Set(CONSOLE_DETENTS.map(detent => detent.service)).size).toBe(4)
+  it('has a detent for each layer a configured app checks clean', () => {
+    expect(CONSOLE_DETENTS.map(detent => detent.layer)).toEqual(['auth', 'billing', 'email', 'ai', 'protection', 'monitoring'])
   })
 
   // The untyped rest of every row stays in the page, invisible, so the LCD
@@ -97,14 +100,14 @@ describe('the console', () => {
   })
 })
 
-const detent = (service: string) => CONSOLE_DETENTS.find(entry => entry.service === service)!
+const detent = (layer: string) => CONSOLE_DETENTS.find(entry => entry.layer === layer)!
 
 /** Server-rendered markup without the fragment comments Vue marks it with. */
 const markup = (html: string) => html.split('<!--[-->').join('').split('<!--]-->').join('')
 
-/** The home console rendered with `service` on the dial. */
-async function renderConsole(service: string): Promise<string> {
-  const { root, components } = homeConsole(service)
+/** The home console rendered with `layer` on the dial, from the page's detents or `from`. */
+async function renderConsole(layer: string, from?: readonly ConsoleDetent[]): Promise<string> {
+  const { root, components } = homeConsole(layer, from)
   return markup(await renderComponent(root, {}, components))
 }
 
@@ -134,12 +137,12 @@ describe('the console on a phone', () => {
   it('folds every row past the first six but the summary, and nothing that fits', () => {
     expect(CONSOLE_PHONE_ROWS).toBe(6)
     for (const entry of CONSOLE_DETENTS) {
-      const count = lcdRowCount(entry.service)
+      const count = lcdRowCount(entry.layer)
       const folded = Array.from({ length: count }, (_, index) => index).filter(index => foldsOnPhone(index, count))
       const expected = count > 7 ? Array.from({ length: count - 7 }, (_, index) => index + 6) : []
-      expect(folded, entry.service).toEqual(expected)
+      expect(folded, entry.layer).toEqual(expected)
     }
-    expect(CONSOLE_DETENTS.filter(entry => lcdRowCount(entry.service) > 7).map(entry => entry.service)).toEqual(['billing', 'email'])
+    expect(CONSOLE_DETENTS.filter(entry => lcdRowCount(entry.layer) > 7).map(entry => entry.layer)).toEqual(['billing', 'email'])
   })
 
   it('draws a long transcript folded below sm only, with the fold marked above the summary', async () => {
@@ -156,8 +159,9 @@ describe('the console on a phone', () => {
 
   it('puts a key under the glass that says how many lines there are and controls the LCD', async () => {
     const html = await renderConsole('billing')
-    const key = html.match(/<button[^>]*aria-controls="([^"]+)"[^>]*>([^<]*)<\/button>/)
-    expect(key?.[2]!.trim()).toBe(`Show all ${lcdRowCount('billing')} lines`)
+    // The key's label, without the comments a server render leaves around a slot.
+    const key = html.match(/<button[^>]*aria-controls="([^"]+)"[^>]*>((?:<!--[^>]*-->|[^<])*)<\/button>/)
+    expect(withoutComments(key![2]!).trim()).toBe(`Show all ${lcdRowCount('billing')} lines`)
     expect(key?.[0]).toContain('aria-pressed="false"')
     expect(key?.[0]).toMatch(/class="[^"]*\bsm:hidden\b/)
     const lcd = html.match(new RegExp(`<div[^>]*\\bid="${key![1]}"[^>]*>`))?.[0]
@@ -171,17 +175,21 @@ describe('the console on a phone', () => {
   })
 
   it('folds nothing and draws no key when the transcript fits', async () => {
-    const html = await renderConsole('auth')
-    expect(lcdRows(html)).toHaveLength(lcdRowCount('auth'))
+    // Every detent the page has folds; a short transcript stands in.
+    const short: ConsoleDetent = { layer: 'agents', label: 'Agents', docs: '/docs/develop/agents', lines: [{ id: 'agent-login-path', status: 'pass', title: 'Agent sign-in route', message: 'Agent authorizations and the sign-in page agree on /login.' }] }
+    const html = await renderConsole('agents', [short])
+    expect(lcdRows(html)).toHaveLength(3)
     expect(html).not.toMatch(/max-sm:hidden|Show all/)
   })
 })
 
 describe('the install line', () => {
-  it('is the Quickstart\'s first command', () => {
+  // The hero installs into an app you already have: the Quickstart's
+  // existing-app tab, beside the starter template's.
+  it('is the Quickstart\'s first command for an existing app', () => {
     const quickstart = read(contentFile('/docs/start/quickstart'))
-    const nuxtTab = quickstart.match(/```bash \[nuxt\]\n([^\n]+)/)?.[1]
-    expect(nuxtTab).toBe(INSTALL_COMMAND)
+    const existingApp = quickstart.match(/```bash \[existing app\]\n([^\n]+)/)?.[1]
+    expect(existingApp).toBe(INSTALL_COMMAND)
   })
 
   // Clipped, it lost the package name on every phone, and most in the
@@ -228,7 +236,7 @@ describe('the install line', () => {
 // cut, panels are plaques and wells are slots, with no recipe of their own.
 describe('the sections after the console', () => {
   const LEGACY = ['engraved', 'engraved-sm', 'embossed', 'embossed-sm', 'noise', 'hbtn', 'hbtn--primary', 'eyebrow']
-  it.each(['Agents', 'ClosingCta'])('%s has no style block, no hand-rolled label and no legacy recipe', (name) => {
+  it.each(['Modules', 'AllInOne', 'ClosingCta'])('%s has no style block, no hand-rolled label and no legacy recipe', (name) => {
     const source = read(`website/components/home/${name}.vue`)
     expect(source).not.toMatch(/<style\b|text-transform|\buppercase\b|letter-spacing|tracking-/)
     const classes = [...source.matchAll(/\sclass="([^"]*)"/g)].flatMap(([, list]) => list!.split(/\s+/))
@@ -238,35 +246,24 @@ describe('the sections after the console', () => {
   })
 })
 
-describe('the agents section', () => {
-  const render = async () => markup(await renderComponent(component('website/components/home/Agents.vue'), {}, { ...parts(), HomeCommandSlot: commandSlot() }))
-
-  // Each row of the tools/list result carries one light and says its state
-  // in words, so the grant reads without the colour.
-  it('lists each tool with a light and its state: listed when its scope was granted, hidden when not', async () => {
-    const html = await render()
-    const tools = [...html.matchAll(/<li class="grid[^"]*"><span class="font-medium[^"]*">([^<]+)<\/span><span[^>]*>([^<]+)<\/span><span[^>]*><span class="led (led-\w+)"[^>]*><\/span><span class="stamp">(\w+)<\/span>/g)]
-      .map(([, name, scope, led, state]) => ({ name, scope, led, state }))
-    expect(tools).toHaveLength(9)
-    const granted = ['openid', 'profile', 'email', 'billing:read', 'workspace:read']
-    for (const tool of tools) {
-      const listed = granted.includes(tool.scope!)
-      expect([tool.led, tool.state], tool.name).toEqual(listed ? ['led-ok', 'listed'] : ['led-warn', 'hidden'])
-    }
-    expect(html).toContain(`<code>${tools.filter(tool => tool.state === 'listed').length} of 9 tools</code>`)
+describe('the layers and the services', () => {
+  it('names every app layer of the release, in its order, once', () => {
+    expect(HOME_MODULES.map(module => module.layer)).toEqual(APP_CAPABILITY_IDS)
   })
 
-  it('says on the consent plaque which scopes were granted, in words as well as marks', async () => {
-    const html = await render()
-    const said = [...html.matchAll(/<span class="sr-only">((?:Not )?[Gg]ranted:)<\/span><span[^>]*>([^<]+)<\/span>/g)].map(([, state, scope]) => `${state} ${scope}`)
-    expect(said).toEqual(['Granted: openid · profile · email', 'Granted: billing:read', 'Granted: workspace:read', 'Not granted: profile:write', 'Not granted: billing:checkout'])
+  it.each(HOME_MODULES.map(module => [module.layer, module.docs] as const))('%s links to docs that exist', (_layer, docs) => {
+    expect(() => contentFile(docs)).not.toThrow()
   })
 
-  it('mills the connect line in with the install line\'s copy key', async () => {
-    const html = await render()
-    expect(html).toContain('claude mcp add --transport http nuxt-backend https://your-app.com/mcp</code>')
-    expect(html).toContain('aria-label="Copy the connect command"')
-    expect(html).not.toContain('Copy the install command')
+  it('says how many layers and services there are where the hero counts them', () => {
+    const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve']
+    expect(read('website/components/home/Hero.vue')).toContain(`${words[HOME_MODULES.length]} layers · ${words[HOME_SERVICES.length]} services`)
+  })
+})
+
+describe('the all-in-one section', () => {
+  it.each(HOME_TRAITS.map(trait => [trait.title, trait.link.to] as const))('%s links to docs that exist', (_title, to) => {
+    expect(() => contentFile(to)).not.toThrow()
   })
 })
 
@@ -298,7 +295,7 @@ describe('the closing', () => {
   // The send-off is cut into the plate as the hero's title is: one `cut`
   // per line, each repeating its text for the floor.
   it('cuts its title into the plate, a line at a time', async () => {
-    const html = markup(await renderComponent(component('website/components/home/ClosingCta.vue'), {}, { ...parts(), HomeCommandSlot: commandSlot() }))
+    const html = markup(await renderComponent(component('website/components/home/ClosingCta.vue', { '~~/shared/site': { SITE } }), {}, { ...parts(), HomeCommandSlot: commandSlot() }))
     const title = html.match(/<h2[^>]*>([\s\S]*?)<\/h2>/)?.[1] ?? ''
     const lines = [...title.matchAll(/<span class="cut" data-text="([^"]+)">([^<]+)<\/span>/g)].map(([, floor, text]) => [floor, text])
     // A word joiner holds the package name together on a phone; it reads as nothing.
@@ -315,7 +312,7 @@ describe('the backend client', () => {
   const blocks = namedComponents(read('website/content/index.md'))
 
   it('is never loaded by the homepage, nor by the chrome around every page', () => {
-    expect(blocks).toEqual(['HomeHero', 'HomeConsole', 'HomeAgents', 'HomeClosingCta'])
+    expect(blocks).toEqual(['HomeHero', 'HomeModules', 'HomeConsole', 'HomeAllInOne', 'HomeClosingCta'])
     const reached = reachableComponents([...blocks, ...chrome], components)
     expect([...reached.keys()]).toContain('HomeCommandSlot')
     for (const [name, file] of reached) {
@@ -356,9 +353,14 @@ describe('the homepage title', () => {
     expect(read('website/components/home/Hero.vue')).toContain('SITE.title.split(\', \')')
   })
 
+  // The hero's paragraph is the one the homepage's Markdown for agents opens with.
+  it('leads with the paragraph in shared/site.ts', () => {
+    expect(read('website/components/home/Hero.vue')).toContain('{{ SITE.lead }}')
+  })
+
   it('reads as one title: what it does, what it runs on, the name once', () => {
     const title = template!.replace('%s', SITE.seoTitle)
-    expect(title).toBe('Auth, billing, email and agents for Nuxt on Convex · Nuxt backend')
+    expect(title).toBe('Auth, billing, email and AI for Nuxt apps on Convex · Nuxt backend')
     expect(title).not.toMatch(/\.\s·/)
     expect(title.match(/backend/gi)).toHaveLength(1)
     expect(title).toContain('Convex')

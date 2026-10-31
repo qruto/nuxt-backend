@@ -32,7 +32,7 @@
   background: var(--k-face, var(--key-face));
   box-shadow: var(--k-shadow, var(--key-shadow));
   color: var(--k-ink, var(--key-ink));
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: var(--k-fs, 11px);
   font-weight: 600;
   font-stretch: 100%;
@@ -131,13 +131,20 @@
   flex-shrink: 0;
   width: var(--led-size, 7px);
   height: var(--led-size, 7px);
-  border-radius: 50%;
+  border-radius: var(--led-r, 50%);
   background: radial-gradient(circle at 35% 30%, var(--led-hl, #fff) 0%, var(--c, var(--ok-lit)) 30%, color-mix(in srgb, var(--c, var(--ok-lit)), #000 50%) 100%);
   box-shadow: var(--led-glow, 0 0 5px var(--c, var(--ok-lit)), 0 0 10px color-mix(in srgb, var(--c, var(--ok-lit)) 50%, transparent), inset 0 -1px 1px rgb(0 0 0 / 0.4));
 }
 
 @utility led-lg {
   --led-size: 10px;
+}
+
+/* A square lamp: the same light in another shape, for a second meaning
+   beside a round one (an experimental page beside a live one), so the two
+   never differ by colour alone. */
+@utility led-square {
+  --led-r: 1.5px;
 }
 
 /* A live LED breathes. Reduced motion stills it (app.css). */
@@ -246,7 +253,7 @@
 
 /* Lit glyphs in Handjet, the LCD's own face (never used elsewhere). */
 @utility px {
-  font-family: var(--lcd);
+  font-family: var(--font-lcd);
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--glyph, var(--c, var(--ok-lit)));

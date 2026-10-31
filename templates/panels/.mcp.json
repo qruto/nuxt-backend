@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "nuxt-backend": {
+      "command": "npx",
+      "args": [
+        "nuxt-backend",
+        "mcp"
+      ]
+    }
+  }
+}

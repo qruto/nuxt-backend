@@ -7,9 +7,10 @@
 // second file and the glob would silently hand two arguments to publint.
 import { execFileSync } from 'node:child_process'
 import { builtinModules } from 'node:module'
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
+import { AGENT_SKILLS } from '../src/guidance/skills.ts'
 import { measure, overBudget, readBudgets } from './budgets.mjs'
 import { step } from './lib/step.mjs'
 
@@ -71,6 +72,8 @@ for (const required of [
   // The ESLint preset (`nuxt-backend/eslint`).
   'dist/eslint.mjs',
   'dist/eslint.d.mts',
+  // The English messages the module registers with an app's @nuxtjs/i18n.
+  'dist/runtime/locales/en.json',
   // The DevTools panel, prebuilt (see below for its assets).
   'dist/devtools-client/index.html',
   // The DevTools tab icon, served from the panel: a missing file is a broken image in every app's DevTools.
@@ -87,6 +90,21 @@ for (const required of [
   'src/convex/components/backend/_generated/api.ts',
   'src/convex/components/backend/_generated/component.ts',
   'src/convex/components/backend/_generated/server.ts',
+  // The agent guidance, read from node_modules so it matches the installed
+  // version: the AGENTS.md section `init` writes points at the core skill's
+  // SKILL.md, and `init` copies every skill below into an app. Each task
+  // skill's SKILL.md is required below, from the registry.
+  'skills/nuxt-backend/SKILL.md',
+  'skills/nuxt-backend/references/api.md',
+  'skills/nuxt-backend/references/surface.json',
+  'skills/nuxt-backend/references/renames.json',
+  'skills/nuxt-backend-upgrade/references/upgrade.md',
+  // Every skill src/guidance/skills.ts names: the core and each task skill,
+  // with the API file of each one that owns names.
+  ...AGENT_SKILLS.map(skill => skill.name).flatMap(name => [
+    `skills/${name}/SKILL.md`,
+    ...existsSync(join(root, 'skills', name, 'references/api.md')) ? [`skills/${name}/references/api.md`] : [],
+  ]),
   'README.md',
   'LICENSE',
 ]) {
@@ -102,7 +120,7 @@ if (devtools.length === 0) {
 }
 
 // Sources: only the Convex half, and never its tests.
-const sources = files.filter(f => /\.[mc]?ts$/.test(f) && !/\.d\.[mc]?ts$/.test(f))
+const sources = files.filter(f => /\.[mc]?ts$/.test(f) && !/\.d\.(?:vue\.)?[mc]?ts$/.test(f))
 for (const file of sources) {
   if (!file.startsWith('package/src/convex/')) {
     problems.push(`TypeScript source outside src/convex: ${file} — dist/runtime is probably still the dev:prepare symlink into src/`)
@@ -110,7 +128,11 @@ for (const file of sources) {
 }
 for (const file of files) {
   if (/\.test(?:-d)?\.[mc]?[jt]sx?$/.test(file)) problems.push(`ships a test: ${file}`)
-  if (file.startsWith('package/src/runtime/')) problems.push(`src/runtime must not ship (the module runtime is built into dist/runtime): ${file}`)
+  // The packaged UI ships as source SFCs and stylesheets (components and pages), so a consumer can eject
+  // them; everything else under src/runtime is built into dist/runtime.
+  if (file.startsWith('package/src/runtime/') && !/^package\/src\/runtime\/vue\/(?:components\/.+\.(?:vue|css)|pages\/[^/]+\.vue)$/.test(file)) {
+    problems.push(`src/runtime must not ship beyond the packaged .vue/.css components and pages (the module runtime is built into dist/runtime): ${file}`)
+  }
   if (file.endsWith('.map') && !file.startsWith('package/dist/convex/')) problems.push(`sourcemap outside dist/convex: ${file}`)
   if (/\/\.env(?:\.|$)/.test(file) || file.endsWith('.log') || file.endsWith('.tgz')) problems.push(`must never ship: ${file}`)
 }
@@ -132,10 +154,32 @@ try {
   const eslintTypes = readFileSync(join(pkgRoot, 'dist/eslint.d.mts'), 'utf8')
   if (!/from ['"]eslint['"]/.test(eslintTypes)) problems.push('dist/eslint.d.mts inlines the ESLint types instead of importing them from `eslint`')
 
+  // Each skill's links between its own files (SKILL.md to its references,
+  // the references to each other) must land inside the tarball: an agent
+  // follows them from node_modules, where nothing else is there.
+  for (const file of files.filter(f => f.startsWith('package/skills/') && f.endsWith('.md'))) {
+    for (const [, href] of readFileSync(join(extracted, file), 'utf8').matchAll(/\]\(([^)\s#]+)(?:#[^)]*)?\)/g)) {
+      if (/^[a-z]+:/.test(href)) continue
+      if (!files.includes(join(dirname(file), href).split('\\').join('/'))) problems.push(`${file.slice('package/'.length)} links ${href}, which the tarball does not carry`)
+    }
+  }
+
   // The registry listing's website and the DevTools docs link come from here.
   const moduleMeta = JSON.parse(readFileSync(join(pkgRoot, 'dist/module.json'), 'utf8'))
   if (!moduleMeta.docs) problems.push('dist/module.json has no `docs` — the nuxt/modules listing would fall back to the GitHub URL')
   if (moduleMeta.version !== manifest.version) problems.push(`dist/module.json says ${moduleMeta.version}, package.json ${manifest.version}`)
+
+  // Node and Convex's bundler load the Convex half as it ships, with no
+  // extension guessing: every relative import names a file that exists, as
+  // written. The backend's health route reaches beyond `dist/convex` into
+  // the layer and env registries the Convex build emits beside it
+  // (scripts/build-convex-component.mjs), so those are held to it too.
+  for (const file of files.filter(f => /^package\/dist\/(?:(?:convex|capabilities|devtools|findings)\/.+|env-registry)\.js$/.test(f))) {
+    const code = readFileSync(join(extracted, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    for (const [, specifier] of code.matchAll(/(?:\bfrom|\bimport\s*\(|\bimport)\s*['"](\.{1,2}\/[^'"]+)['"]/g)) {
+      if (!files.includes(join(dirname(file), specifier).split('\\').join('/'))) problems.push(`${file.slice('package/'.length)} imports ${specifier}, which the tarball does not carry as written (Node loads no other)`)
+    }
+  }
 
   // mkdist doubles the extension of a specifier that already ends in `.js`
   // (a runtime file importing `../../../convex/errors.js` declared
@@ -218,12 +262,42 @@ try {
     './eslint': ['eslint', '@convex-dev/eslint-plugin'],
     './test': ['convex-test'],
   }
+  // Runtime directories that exist for an optional peer: the module
+  // registers the files in them only once the peer resolves (the
+  // error-reporting SDK, wired once it is installed and a DSN is set, by
+  // src/nuxt/monitoring.ts), so nothing else reaches them.
+  const optionalPeerDirs = {
+    'dist/runtime/monitoring/sdk/': ['@sentry/nuxt'],
+  }
+  const homedInDir = (label, name) => Object.entries(optionalPeerDirs).some(([dir, peers]) => label.startsWith(dir) && peers.includes(name))
+  // Optional peers the shipped code reaches only through `import()` inside a
+  // `try`, from any entry: the AI SDK, loaded on the first model call
+  // (src/convex/integrations/ai/models.ts), whose absence turns
+  // into a refusal that says to install it, never ERR_MODULE_NOT_FOUND; and
+  // the Convex AI Gateway's provider, whose absence hands a model id to the
+  // next route. A static import of one is still a phantom. Each maps to how a
+  // static import of it reads: `from 'ai'` or `import 'ai'`, a subpath too,
+  // but not `import('ai')`.
+  const dynamicOnlyPeers = new Map([
+    ['ai', /(?:\bfrom|\bimport)\s*['"]ai(?:\/[^'"]*)?['"]/],
+    ['@convex-dev/ai-sdk-provider', /(?:\bfrom|\bimport)\s*['"]@convex-dev\/ai-sdk-provider(?:\/[^'"]*)?['"]/],
+    // BotID, loaded on the first request that needs it by the gate and the client plugin. The module
+    // aliases `botid/*` to src/runtime/protection/botid-absent when the app has not installed it, and
+    // wires no bot check then, so the absence never reaches a consumer as ERR_MODULE_NOT_FOUND.
+    ['botid', /(?:\bfrom|\bimport)\s*['"]botid(?:\/[^'"]*)?['"]/],
+    // Convex's Agent and RAG components, loaded on the first `ai.chat` or `ai.knowledge` call
+    // (src/convex/integrations/ai/chat.ts, knowledge.ts), whose absence turns into a refusal that
+    // says to install the component; the test kit loads their helpers the same way.
+    ['@convex-dev/agent', /(?:\bfrom|\bimport)\s*['"]@convex-dev\/agent(?:\/[^'"]*)?['"]/],
+    ['@convex-dev/rag', /(?:\bfrom|\bimport)\s*['"]@convex-dev\/rag(?:\/[^'"]*)?['"]/],
+  ])
 
   // `from '…'`, `import '…'`, `import('…')`, `export … from '…'`.
   const SPECIFIER = /(?:\bexport\s*\*\s*from|\bfrom|\bimport\s*\(|\bimport)\s*['"]([^'"]+)['"]/g
   // Block comments are stripped first: doc comments carry usage examples that
   // name packages no code imports.
   const CODE_ONLY = /\/\*[\s\S]*?\*\//g
+  const TYPE_IMPORT = /\b(?:import|export)\s+type\b[^;]*?\sfrom\s*['"][^'"]+['"]/g
 
   /** The package a specifier names, or null for a relative path, a builtin, a `#` alias — or a string that is no specifier at all (a template, a message). */
   const packageName = (specifier) => {
@@ -279,6 +353,14 @@ try {
     return { next: specifier.startsWith('.') ? candidates(file, specifier) : [] }
   }
 
+  /** Whether `file` reaches `name` only through `import()`: a dynamic-only peer it never imports statically. */
+  const reachedDynamically = (file, name) => {
+    const staticImport = dynamicOnlyPeers.get(name)
+    // A type-only import is erased from the JavaScript, so it is no static import.
+    const code = (readOrNull(file)?.replace(CODE_ONLY, '') ?? '').replace(TYPE_IMPORT, '')
+    return staticImport !== undefined && !staticImport.test(code)
+  }
+
   /** Every bare package name reachable from `entry` through relative and self imports, with one file that imports it. */
   const reachable = (entry) => {
     const seen = new Set()
@@ -291,7 +373,7 @@ try {
       for (const specifier of specifiersOf(file)) {
         const { next, name } = follow(file, specifier)
         queue.push(...next)
-        if (name && !bare.has(name)) bare.set(name, file.slice(pkgRoot.length + 1))
+        if (name && !bare.has(name) && !reachedDynamically(file, name)) bare.set(name, file.slice(pkgRoot.length + 1))
       }
     }
     return bare
@@ -300,7 +382,7 @@ try {
   const phantoms = []
   const check = (label, entry, allowTestOnly = false) => {
     for (const [name, importer] of reachable(entry)) {
-      if (optionalPeers.has(name) && !(optionalPeerHomes[label] ?? []).includes(name)) {
+      if (optionalPeers.has(name) && !(optionalPeerHomes[label] ?? []).includes(name) && !homedInDir(label, name)) {
         phantoms.push(`${label} reaches the optional peer "${name}" (via ${importer}) — a consumer without it gets ERR_MODULE_NOT_FOUND`)
         continue
       }

@@ -1,14 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createTranslate, formatLabel, LABELS } from '../../src/convex/labels'
-import { emailRenderContext, type EmailTemplateOverrides, PACKAGED_EMAIL_TEMPLATES } from '../../src/convex/email-templates'
-import { escapeHtml, setupEmail } from '../../src/convex/integrations/email'
+import { createEmailRenderer, type EmailTemplateOverrides, PACKAGED_EMAIL_TEMPLATES } from '../../src/convex/email-templates'
+import { escapeHtml, linkBlocks, setupEmail } from '../../src/convex/integrations/email'
 
 // The one registry of the emails the package sends: the labels they read
 // their words from, the packaged templates, and the overrides an app lays
 // over them through setupEmail.
 
 const component = { backend: { email: { send: 'ref:send' } } } as never
-const context = emailRenderContext({ siteUrl: 'https://app.example.com' })
+/** The English context on a deployment with this `SITE_URL`, branded `brandName` when given. */
+const renderContext = (siteUrl: string, brandName?: string) => createEmailRenderer({ brand: { name: brandName } }, () => ({ siteUrl })).context()
+const context = renderContext('https://app.example.com')
 
 afterEach(() => {
   vi.unstubAllEnvs()
@@ -44,7 +46,7 @@ describe('packaged templates', () => {
       expect(message.text).toContain('123456')
     }
     expect(PACKAGED_EMAIL_TEMPLATES.welcome({ email: 'a@b.com', name: 'Ada' }, context).text)
-      .toBe('Welcome, Ada! Your account is ready — thanks for joining us.\n\n— app.example.com')
+      .toBe('Welcome, Ada! Your account is ready — thanks for joining us.\n\n— Sent by app.example.com')
     expect(PACKAGED_EMAIL_TEMPLATES.welcome({ email: 'a@b.com', name: '' }, context).text).toMatch(/^Welcome! /)
   })
 
@@ -70,7 +72,7 @@ describe('packaged templates', () => {
       url: 'https://app.example.com/accept-invitation?id=1&x=<y>',
       inviterName: '<script>alert(1)</script>',
       inviterEmail: 'ada@example.com',
-      organizationName: 'Acme',
+      workspaceName: 'Acme',
       role: 'member',
     }, context)
     expect(invite.html).not.toContain('<script>')
@@ -88,21 +90,40 @@ describe('packaged templates', () => {
     expect(gift.subject).toBe('Someone sent you a gift 🎁')
     expect(gift.text).toMatch(/^Someone sent you a gift: 500 credits. Sign in to receive it.\n\nhttps:\/\/app.example.com\/\n/)
   })
+
+  it('render a link that is only a path, as a deployment with no SITE_URL builds it, as text', () => {
+    // A button takes only an absolute link: every one-link email says the path instead of failing.
+    const path = renderContext('')
+    const deletion = PACKAGED_EMAIL_TEMPLATES.deletionScheduled({ email: 'a@b.com', deletesAt: Date.UTC(2027, 0, 15), keepUrl: '/account/keep?token=t' }, path)
+    expect(deletion.html).not.toContain('class="nb-button"')
+    expect(deletion.text).toContain('/account/keep?token=t')
+    const waitlist = PACKAGED_EMAIL_TEMPLATES.waitlistConfirmation({ email: 'a@b.com', statusUrl: '/waitlist#t', position: 3, total: 9 }, path)
+    expect(waitlist.html).toContain('/waitlist#t')
+    expect(waitlist.html).not.toContain('class="nb-button"')
+  })
 })
 
-describe('the sign-off', () => {
-  const welcome = (siteUrl: string, brandName?: string) =>
-    PACKAGED_EMAIL_TEMPLATES.welcome({ email: 'a@b.com', name: 'Ada' }, emailRenderContext({ siteUrl, brandName }))
+describe('linkBlocks', () => {
+  it('gives an absolute link a button and the link written out, a path its text, and no link nothing', () => {
+    expect(linkBlocks(' https://app.example.com/a ', 'Open', context)).toEqual([{ button: { label: 'Open', url: 'https://app.example.com/a' } }, { note: 'Or paste this link into your browser:\nhttps://app.example.com/a' }])
+    expect(linkBlocks('/a', 'Open', context)).toEqual([{ note: '/a' }])
+    expect(linkBlocks('', 'Open', context)).toEqual([])
+  })
+})
 
-  it('signs with the brand, linked to the site, escaped', () => {
+describe('the footer', () => {
+  const welcome = (siteUrl: string, brandName?: string) =>
+    PACKAGED_EMAIL_TEMPLATES.welcome({ email: 'a@b.com', name: 'Ada' }, renderContext(siteUrl, brandName))
+
+  it('says who sent it, the brand linked to the site, escaped', () => {
     const message = welcome('https://app.example.com', 'A&B <Co>')
-    expect(message.text).toMatch(/\n\n— A&B <Co>\nhttps:\/\/app\.example\.com$/)
-    expect(message.html).toContain('— <a href="https://app.example.com" style="color:#666">A&amp;B &lt;Co&gt;</a>')
+    expect(message.text).toMatch(/\n\n— Sent by A&B <Co>\nhttps:\/\/app\.example\.com$/)
+    expect(message.html).toMatch(/Sent by <a href="https:\/\/app\.example\.com" style="[^"]*">A&amp;B &lt;Co&gt;<\/a>/)
     expect(message.html).not.toContain('<Co>')
   })
 
   it('names the host alone when there is no brand name, and nothing without a site', () => {
-    expect(welcome('https://app.example.com').text).toMatch(/\n\n— app\.example\.com$/)
+    expect(welcome('https://app.example.com').text).toMatch(/\n\n— Sent by app\.example\.com$/)
     const bare = welcome('')
     expect(bare.text).toBe('Welcome, Ada! Your account is ready — thanks for joining us.')
     expect(bare.html).not.toContain('<a ')
@@ -123,9 +144,30 @@ describe('setupEmail templates', () => {
       url: 'https://app.example.com/join',
       inviterName: 'Ada',
       inviterEmail: 'ada@example.com',
-      organizationName: 'Acme',
+      workspaceName: 'Acme',
       role: 'member',
     })).toMatchObject({ to: 'b@c.com', subject: 'Join Acme' })
+  })
+
+  it('mails an invitation with no link or domain from the names the inviter typed', async () => {
+    const email = setupEmail(component)
+    const message = await email.render('invite', {
+      email: 'b@c.com',
+      url: 'https://app.example.com/join',
+      inviterName: 'Support   at https://evil-login.com/verify',
+      inviterEmail: 'mallory@example.com',
+      workspaceName: 'Security alert: verify at evil-login.com',
+      role: 'member',
+    })
+    expect(message.subject).not.toMatch(/evil-login/)
+    expect(message.text).not.toMatch(/evil-login/)
+    expect(message.html).not.toMatch(/evil-login/)
+    expect(message.subject).toBe('Join Security alert: verify at')
+    expect(message.text).toContain('Support at invited you to join Security alert: verify at as member.')
+    // A name that is nothing but a domain leaves the sentences that name no workspace.
+    const bare = await email.render('invite', { email: 'b@c.com', url: 'https://app.example.com/join', inviterName: 'evil-login.com', inviterEmail: 'mallory@example.com', workspaceName: 'evil-login.com', role: 'member' })
+    expect(bare.subject).toBe('You\'re invited to a workspace')
+    expect(bare.text).toContain('mallory@example.com invited you to join their workspace as member.')
   })
 
   it('hands an override the data, the render context and the default bound to it', async () => {

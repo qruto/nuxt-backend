@@ -1,12 +1,14 @@
 import { addRouteMiddleware, defineNuxtPlugin, type NuxtApp, reloadNuxtApp, useRuntimeConfig } from '#app'
 import { joinURL } from 'ufo'
-import { backendClientMiddleware, createBackendClientLoader } from './loader'
+import { backendClientMiddleware, type BackendClientStatus, createBackendClientLoader } from './loader'
 
 /**
  * Stands in for nuxt-convex-module's client plugin (see ../index.ts): it
  * runs that plugin on demand. A global route middleware awaits it before a
  * route that needs the client renders, and `$loadBackendClient` lets a
- * <DeferredBackend> block ask for it.
+ * <DeferredBackend> block ask for it. `$backendClientStatus` tells the
+ * block, without loading anything, whether this build has a client to load
+ * and whether it has loaded already.
  */
 /**
  * nuxt-convex-module's client plugin, as this one runs it. Typed here: its
@@ -17,7 +19,7 @@ type ClientPlugin = (nuxtApp: NuxtApp) => unknown
 
 export default defineNuxtPlugin({
   name: 'website:deferred-backend-client',
-  setup(nuxtApp): { provide: { loadBackendClient: () => Promise<void> } } {
+  setup(nuxtApp): { provide: { loadBackendClient: () => Promise<void>, backendClientStatus: () => BackendClientStatus } } {
     const config = useRuntimeConfig()
     const url = config.public.convex?.url
     const loadBackendClient = createBackendClientLoader<ClientPlugin>({
@@ -32,6 +34,6 @@ export default defineNuxtPlugin({
       reload: path => reloadNuxtApp({ path: joinURL(config.app.baseURL, path), persistState: true }),
     }), { global: true })
 
-    return { provide: { loadBackendClient } }
+    return { provide: { loadBackendClient, backendClientStatus: loadBackendClient.status } }
   },
 })

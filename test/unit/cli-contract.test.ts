@@ -54,7 +54,7 @@ describe('the command contracts', () => {
   })
 
   it('names what a flag changes instead', () => {
-    expect(describeSideEffects(COMMAND_CONTRACTS.get('doctor')!)).toBe('reads only; --fix: writes project files, writes the dev deployment; --fix --prod: writes project files, writes production')
+    expect(describeSideEffects(COMMAND_CONTRACTS.get('doctor')!)).toBe('reads only; --fix: writes project files, writes the dev deployment, writes provider accounts; --fix --prod: writes project files, writes production, writes provider accounts')
     expect(describeSideEffects(COMMAND_CONTRACTS.get('env push')!)).toContain('--defaults: writes project env defaults')
     expect(describeSideEffects(COMMAND_CONTRACTS.get('inbox')!)).toBe('reads only')
   })
@@ -85,20 +85,29 @@ describe('init --json', () => {
   it('prints what it did as one JSON document, with progress on stderr', async () => {
     const report = await init()
 
-    expect(Object.keys(report)).toEqual(['created', 'agentsMd', 'mcpJson', 'appComponent', 'devScript', 'convexDependency', 'nuxtConfig', 'next'])
+    expect(Object.keys(report)).toEqual(['created', 'agentsMd', 'mcpJson', 'skills', 'appComponent', 'devScript', 'convexDependency', 'mcpSdkDependency', 'nuxtConfig', 'next'])
     expect(report.created).toEqual(expect.arrayContaining(['backend/auth.ts', 'convex.json', '.env.example']))
     for (const file of report.created) expect(existsSync(join(rootDir, file)), file).toBe(true)
-    expect(report).toMatchObject({ agentsMd: 'created', mcpJson: 'created', devScript: 'nuxt-backend dev', nuxtConfig: 'listed', appComponent: null })
+    expect(report).toMatchObject({ agentsMd: 'created', mcpJson: 'created', skills: { installed: expect.arrayContaining(['nuxt-backend']), refreshed: [], removed: [], stale: [] }, devScript: 'nuxt-backend dev', nuxtConfig: 'listed', appComponent: null })
     expect(report.convexDependency).toMatch(/^\^?\d|>=/)
+    // An optional peer, so setup declares it beside the server it writes into .mcp.json.
+    expect(report.mcpSdkDependency).toMatch(/^\^\d/)
+    expect(JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf-8')).devDependencies['@modelcontextprotocol/sdk']).toBe(report.mcpSdkDependency)
     expect(report.next).toEqual(['npm install', 'npm run dev'])
     expect(vi.mocked(console.error).mock.calls.flat().join('\n')).toContain('Created backend/auth.ts')
+  })
+
+  it('reports only the agent files with --agents', async () => {
+    expect(await init(['--agents'])).toMatchObject({ agentsMd: 'created', mcpJson: 'created', skills: { installed: expect.arrayContaining(['nuxt-backend']) }, mcpSdkDependency: expect.stringMatching(/^\^\d/) })
+    expect(await init(['--agents'])).toEqual({ agentsMd: 'unchanged', mcpJson: 'unchanged', skills: { installed: [], refreshed: [], removed: [], stale: [] }, mcpSdkDependency: null })
+    expect(existsSync(join(rootDir, 'backend'))).toBe(false)
   })
 
   it('reports nothing created on a second run, and no agent files with --no-agents', async () => {
     await init()
     const again = await init(['--no-agents'])
 
-    expect(again).toMatchObject({ created: [], agentsMd: null, mcpJson: null, devScript: null, convexDependency: null })
+    expect(again).toMatchObject({ created: [], agentsMd: null, mcpJson: null, skills: null, devScript: null, convexDependency: null })
     expect(again.next).toEqual(['npm run dev'])
   })
 })

@@ -1,0 +1,38 @@
+/*
+ * AccountExport's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-account='export-ready'] {
+    margin: 0;
+    font-size: 0.85rem;
+  }
+
+  [data-account='export-link'] {
+    color: var(--bk-accent);
+    font-weight: 600;
+  }
+
+  [data-account='export'] {
+    align-self: flex-start;
+  }
+
+  /* The account's files, one zip part per line under the download. */
+  [data-account='export-part'] {
+    margin: 0;
+    font-size: 0.85rem;
+  }
+
+  [data-account='export-part-link'] {
+    color: var(--bk-accent);
+    font-weight: 600;
+  }
+
+  [data-account='export-link']:focus-visible,
+  [data-account='export-part-link']:focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}

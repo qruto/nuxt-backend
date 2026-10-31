@@ -1,0 +1,46 @@
+/*
+ * WaitlistJoin's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-waitlist='intro'] {
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* The launch-news box: the box beside its words, unticked until the person ticks it. */
+  [data-waitlist='label-news'] {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  [data-waitlist='input-news'] {
+    inline-size: 1.1rem;
+    block-size: 1.1rem;
+    margin: 0;
+    accent-color: var(--bk-accent);
+  }
+
+  [data-waitlist='referral'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+    margin: 0;
+    font-size: 0.9em;
+    color: var(--bk-muted);
+  }
+
+  [data-waitlist='drop-referral'] {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    cursor: pointer;
+  }
+}

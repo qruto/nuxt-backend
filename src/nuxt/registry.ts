@@ -1,9 +1,11 @@
 import { existsSync, realpathSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { addComponent, addImports, addRouteMiddleware, addServerImports, addTypeTemplate, resolveModule, updateTemplates, type Resolver } from '@nuxt/kit'
+import { addComponent, addImports, addPluginTemplate, addRouteMiddleware, addServerImports, addTemplate, addTypeTemplate, resolveModule, updateTemplates, type Resolver } from '@nuxt/kit'
 import type { Nuxt, NuxtHooks } from '@nuxt/schema'
 import { backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from '../aliases'
 import { logger } from './logger'
+import { protectGuardedPages } from './pages'
+import { REGISTERED_UI, uiPath } from '../ui/registry'
 
 // What the module registers by name — the composables, components, server
 // imports and route middleware every app gets — and the `#backend/*`
@@ -21,126 +23,86 @@ export function registerSaasComposables(resolver: Resolver): void {
     from: resolver.resolve('./runtime/vue/composables/use-auth'),
   })
 
-  addComponent({
-    name: 'AuthForm',
-    export: 'AuthForm',
-    filePath: resolver.resolve('./runtime/vue/components/auth-form'),
-  })
-  addComponent({
-    name: 'RoleBoundary',
-    export: 'RoleBoundary',
-    filePath: resolver.resolve('./runtime/vue/components/role-boundary'),
-  })
-  addComponent({
-    name: 'OrganizationBoundary',
-    export: 'OrganizationBoundary',
-    filePath: resolver.resolve('./runtime/vue/components/organization-boundary'),
-  })
-  addComponent({
-    name: 'FeatureBoundary',
-    export: 'FeatureBoundary',
-    filePath: resolver.resolve('./runtime/vue/components/feature-boundary'),
-  })
-  addComponent({
-    name: 'AcceptInvitation',
-    export: 'AcceptInvitation',
-    filePath: resolver.resolve('./runtime/vue/components/accept-invitation'),
-  })
-  addComponent({
-    name: 'AgentConsent',
-    export: 'AgentConsent',
-    filePath: resolver.resolve('./runtime/vue/components/agent-consent'),
-  })
-  addComponent({
-    name: 'GiftClaimBanner',
-    export: 'GiftClaimBanner',
-    filePath: resolver.resolve('./runtime/vue/components/gift-claim-banner'),
-  })
-  addComponent({
-    name: 'PricingTable',
-    export: 'PricingTable',
-    filePath: resolver.resolve('./runtime/vue/components/pricing-table'),
-  })
-  addComponent({
-    name: 'BillingCheckoutLink',
-    export: 'BillingCheckoutLink',
-    filePath: resolver.resolve('./runtime/vue/components/billing-links'),
-  })
-  addComponent({
-    name: 'BillingPortalLink',
-    export: 'BillingPortalLink',
-    filePath: resolver.resolve('./runtime/vue/components/billing-links'),
-  })
-  addComponent({
-    name: 'BillingHistory',
-    export: 'BillingHistory',
-    filePath: resolver.resolve('./runtime/vue/components/billing-history'),
-  })
-  addComponent({
-    name: 'UsageHistory',
-    export: 'UsageHistory',
-    filePath: resolver.resolve('./runtime/vue/components/usage-history'),
-  })
-  addComponent({
-    name: 'CreditsLowBanner',
-    export: 'CreditsLowBanner',
-    filePath: resolver.resolve('./runtime/vue/components/credits-low-banner'),
-  })
-  addComponent({
-    name: 'WorkspaceSettings',
-    export: 'WorkspaceSettings',
-    filePath: resolver.resolve('./runtime/vue/components/workspace-settings'),
-  })
-  addComponent({
-    name: 'ProfileSettings',
-    export: 'ProfileSettings',
-    filePath: resolver.resolve('./runtime/vue/components/profile-settings'),
-  })
-  addComponent({
-    name: 'SecuritySettings',
-    export: 'SecuritySettings',
-    filePath: resolver.resolve('./runtime/vue/components/security-settings'),
-  })
+  // Every packaged component and part, by the name an app sees it under
+  // (src/ui/registry.ts). A part is registered too: an app component of the
+  // same name replaces it everywhere, since its parent renders it by name.
+  for (const entry of REGISTERED_UI) {
+    const component = { name: entry.name, export: 'default', filePath: resolver.resolve(`./runtime/vue/components/${uiPath(entry)}.vue`) }
+    addComponent(entry.lazy ? lazily(component) : component)
+  }
 
   const composables: Array<{ name: string, from: string }> = [
     // Backend-neutral names over the base module's brand-named surface.
-    { name: 'useAuthState', from: resolver.resolve('./runtime/vue/composables/base-aliases') },
     { name: 'useConnectionState', from: resolver.resolve('./runtime/vue/composables/base-aliases') },
     { name: 'useBackendClient', from: resolver.resolve('./runtime/vue/composables/base-aliases') },
     { name: 'useLoginFlow', from: resolver.resolve('./runtime/vue/composables/use-login-flow') },
     { name: 'useEmailChange', from: resolver.resolve('./runtime/vue/composables/use-email-change') },
-    { name: 'useOrganization', from: resolver.resolve('./runtime/vue/composables/use-organization') },
+    { name: 'useWorkspace', from: resolver.resolve('./runtime/vue/composables/use-workspace') },
     { name: 'useSearch', from: resolver.resolve('./runtime/vue/composables/use-search') },
-    { name: 'useAggregate', from: resolver.resolve('./runtime/vue/composables/use-aggregate') },
     { name: 'useBilling', from: resolver.resolve('./runtime/vue/composables/use-billing') },
     { name: 'useFeatures', from: resolver.resolve('./runtime/vue/composables/use-features') },
     { name: 'useCredits', from: resolver.resolve('./runtime/vue/composables/use-credits') },
+    { name: 'usePricing', from: resolver.resolve('./runtime/vue/composables/use-pricing') },
+    { name: 'useCampaign', from: resolver.resolve('./runtime/vue/composables/use-campaign') },
     { name: 'useOrders', from: resolver.resolve('./runtime/vue/composables/use-orders') },
     { name: 'useUsage', from: resolver.resolve('./runtime/vue/composables/use-usage') },
     { name: 'useGifts', from: resolver.resolve('./runtime/vue/composables/use-gifts') },
+    { name: 'useReferrals', from: resolver.resolve('./runtime/vue/composables/use-referrals') },
+    { name: 'useReferralAdmin', from: resolver.resolve('./runtime/vue/composables/use-referral-admin') },
     { name: 'usePasskeys', from: resolver.resolve('./runtime/vue/composables/use-passkeys') },
     { name: 'useSessions', from: resolver.resolve('./runtime/vue/composables/use-sessions') },
-    { name: 'useAgentConsent', from: resolver.resolve('./runtime/vue/composables/use-agent-consent') },
-    { name: 'describeUserAgent', from: resolver.resolve('./runtime/vue/composables/use-sessions') },
-    { name: 'unwrapAuth', from: resolver.resolve('./runtime/vue/utils/auth-result') },
+    { name: 'useReauthentication', from: resolver.resolve('./runtime/vue/composables/use-reauthentication') },
+    { name: 'useAuditLog', from: resolver.resolve('./runtime/vue/composables/use-audit-log') },
+    { name: 'useAccount', from: resolver.resolve('./runtime/vue/composables/use-account') },
+    { name: 'useConsents', from: resolver.resolve('./runtime/vue/composables/use-consents') },
+    { name: 'useAdmin', from: resolver.resolve('./runtime/vue/composables/use-admin') },
+    { name: 'useFlag', from: resolver.resolve('./runtime/vue/composables/use-flags') },
+    { name: 'useFlagAdmin', from: resolver.resolve('./runtime/vue/composables/use-flags') },
+    { name: 'useAccessPhase', from: resolver.resolve('./runtime/vue/composables/use-access') },
+    { name: 'useInvite', from: resolver.resolve('./runtime/vue/composables/use-access') },
+    { name: 'useAccessAdmin', from: resolver.resolve('./runtime/vue/composables/use-access') },
+    { name: 'useWaitlist', from: resolver.resolve('./runtime/vue/composables/use-waitlist') },
+    { name: 'useWaitlistAdmin', from: resolver.resolve('./runtime/vue/composables/use-waitlist-admin') },
+    { name: 'useShareLink', from: resolver.resolve('./runtime/vue/composables/use-share-link') },
+    { name: 'useUploadField', from: resolver.resolve('./runtime/vue/composables/use-upload-field') },
+    { name: 'useNotifications', from: resolver.resolve('./runtime/vue/composables/use-notifications') },
+    { name: 'useNotificationInbox', from: resolver.resolve('./runtime/vue/composables/use-notification-inbox') },
+    { name: 'useEmailPreferences', from: resolver.resolve('./runtime/vue/composables/use-email-preferences') },
+    { name: 'usePushSubscription', from: resolver.resolve('./runtime/vue/composables/use-push-subscription') },
+    { name: 'useAnnouncements', from: resolver.resolve('./runtime/vue/composables/use-announcements') },
+    { name: 'useAnnouncementsAdmin', from: resolver.resolve('./runtime/vue/composables/use-announcements') },
+    { name: 'useContactForm', from: resolver.resolve('./runtime/vue/composables/use-contact-form') },
+    { name: 'useOnboarding', from: resolver.resolve('./runtime/vue/composables/use-onboarding') },
+    { name: 'useActivation', from: resolver.resolve('./runtime/vue/composables/use-activation') },
+    { name: 'useExperiment', from: resolver.resolve('./runtime/vue/composables/use-experiment') },
+    { name: 'useAppShell', from: resolver.resolve('./runtime/vue/composables/use-app-shell') },
+    { name: 'useInboxAdmin', from: resolver.resolve('./runtime/vue/composables/use-inbox-admin') },
     { name: 'getBackendError', from: resolver.resolve('./runtime/vue/utils/backend-error') },
     { name: 'useBackendConfig', from: resolver.resolve('./runtime/vue/composables/use-backend-config') },
+    { name: 'useLabels', from: resolver.resolve('./runtime/vue/composables/use-labels') },
+    { name: 'useBackendPagePath', from: resolver.resolve('./runtime/vue/composables/use-backend-page-path') },
+    { name: 'useReturnPath', from: resolver.resolve('./runtime/vue/composables/use-return-path') },
     { name: 'useEmailStatus', from: resolver.resolve('./runtime/vue/composables/use-email-status') },
     { name: 'useSandboxInbox', from: resolver.resolve('./runtime/vue/composables/use-sandbox-inbox') },
     { name: 'useWorkflowStatus', from: resolver.resolve('./runtime/vue/composables/use-workflow') },
     { name: 'useAiStream', from: resolver.resolve('./runtime/vue/composables/use-ai-stream') },
+    { name: 'useJob', from: resolver.resolve('./runtime/vue/composables/use-job') },
+    { name: 'useAiLabel', from: resolver.resolve('./runtime/vue/composables/use-ai-label') },
+    { name: 'useChat', from: resolver.resolve('./runtime/vue/composables/use-chat') },
+    { name: 'useHumanCheck', from: resolver.resolve('./runtime/vue/composables/use-human-check') },
   ]
   for (const composable of composables) {
     addImports(composable)
   }
 
-  // Nitro-side neutral name for the base module's `convexAuth(event)` service,
-  // aliased straight from the base runtime file (same file its own
-  // registration uses).
+  // Nitro-side neutral name for the base module's `convexAuth(event)`
+  // service: the same service, its calls reported to the monitoring layer
+  // when they fail (tagged with the function they ran). Registered only
+  // when the base runtime it wraps is on disk.
   const serverRuntime = resolveBaseServerRuntime()
   if (serverRuntime) {
     addServerImports([
-      { name: 'convexAuth', as: 'backendAuth', from: serverRuntime },
+      { name: 'backendAuth', from: resolver.resolve('./runtime/server/monitoring/backend-calls') },
     ])
   }
   else {
@@ -152,20 +114,80 @@ export function registerSaasComposables(resolver: Resolver): void {
   }
 }
 
+/** What `addComponent` takes for one of the package's components. */
+interface PackageComponent {
+  name: string
+  export: string
+  filePath: string
+}
+
 /**
- * The neutral `auth` route middleware: the base module registers its guard as
- * `convex-auth` (since nuxt-convex-module 0.10), and this package names it
- * `auth` — the built-in pages, the docs and the scaffold all say
- * `definePageMeta({ middleware: 'auth' })`. It is the same file: the guard
- * that lives beside the `better-auth/server` runtime this package already
- * aliases for `backendAuth`, so there is no second implementation to keep in
- * step. Without the base runtime on disk the base module's own registration
- * is missing too, so the warning next to `backendAuth` already covers it.
+ * Register a heavy component lazily, by passing its options through this:
+ * `addComponent(lazily({ name, export, filePath }))`. It is registered from
+ * a generated module that exports it, under its name, as an async component
+ * over its file (a default export included), so its code is fetched when one
+ * first renders: the server awaits it, and the browser's hydration waits for
+ * it. Its type is still read from its own file. A component is heavy when it
+ * brings a library of its own or its own code passes 10 kB gzipped
+ * (CONTRIBUTING, "Budgets"); none registered above is, today.
  */
-export function registerAuthMiddleware(): void {
-  const middleware = resolveBaseAuthMiddleware()
-  if (!middleware) return
-  addRouteMiddleware({ name: 'auth', path: middleware, global: false })
+export function lazily(component: PackageComponent): PackageComponent & { declarationPath: string } {
+  const filePath = slashed(component.filePath)
+  const lazy = addTemplate({
+    filename: `nuxt-backend/lazy/${component.name}.mjs`,
+    getContents: () => lazyComponentModule(component.name, component.export, filePath),
+  })
+  return { name: component.name, export: component.name, filePath: lazy.dst, declarationPath: filePath }
+}
+
+/**
+ * A string as a JavaScript literal for generated code: JSON, with the
+ * characters that could end a script element or a line where JSON allows
+ * them (`<`, `>`, U+2028, U+2029) escaped too.
+ */
+function codeLiteral(value: string): string {
+  return JSON.stringify(value).replace(/[<>\u2028\u2029]/g, char => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`)
+}
+
+/**
+ * The module a lazy component is registered from: `name`, an async
+ * component over the `exported` export (`default` included) of the file at
+ * `filePath`.
+ */
+export function lazyComponentModule(name: string, exported: string, filePath: string): string {
+  if (!/^[A-Z][\w$]*$/.test(name)) throw new Error(`lazily: "${name}" is not a component name a module can export`)
+  return [
+    `import { defineAsyncComponent } from 'vue'`,
+    `export const ${name} = defineAsyncComponent(() => import(${codeLiteral(filePath)}).then(module => module[${codeLiteral(exported)}]))`,
+    '',
+  ].join('\n')
+}
+
+/**
+ * The page guard, `definePageMeta({ auth })`, the one way a page says who
+ * may open it (`true`, or `{ role, workspace, feature, hidden }`):
+ * a global route middleware, so a page's rules guard it with no middleware
+ * named, and the `auth` key typed on every app's `PageMeta`. A page without
+ * rules costs the guard one look at its meta. A guarded page's path is kept
+ * out of caches (protectGuardedPages), and an app with no error page of its
+ * own gets one that shows the 403 with `<AccessDenied>`.
+ */
+export function registerPageAccess(resolver: Resolver, nuxt: Nuxt): void {
+  addRouteMiddleware({ name: 'backend-access', path: resolver.resolve('./runtime/vue/middleware/page-access'), global: true })
+  // The `PageMeta` augmentation lives beside the rules' type; a type of its
+  // own here brings that file into the app's type program.
+  addTypeTemplate({
+    filename: 'types/nuxt-backend-page-access.d.ts',
+    getContents: () => `export type { PageAccessRules } from ${JSON.stringify(slashed(resolver.resolve('./runtime/vue/utils/page-access')))}\n`,
+  }, { nuxt: true })
+  protectGuardedPages(nuxt)
+  // Nuxt's own error page, the one it falls back to when neither the app nor
+  // a layer has an `error.vue`: the module's renders the same for anything
+  // but a 403. An `error.vue` the app adds later replaces it again.
+  const nuxtErrorPage = slashed(join(nuxt.options.appDir, 'components/nuxt-error-page.vue'))
+  nuxt.hook('app:resolve', (app) => {
+    if (app.errorComponent && slashed(app.errorComponent) === nuxtErrorPage) app.errorComponent = resolver.resolve('./runtime/vue/components/shell/ErrorPage.vue')
+  })
 }
 
 /**
@@ -223,13 +245,13 @@ function baseModuleRoots(): string[] {
 }
 
 /** An auto-import or component name that says the platform's or a provider's name. */
-const BRAND_NAME = /convex|betterauth|polar|resend/i
+export const BRAND_NAME = /convex|betterauth|polar|resend/i
 
 /**
  * The base module's components hidden although their names say no brand:
  * the provider's own words for its billing links, with neutral aliases above.
  */
-const PROVIDER_WORDED_COMPONENTS = new Set(['CheckoutLink', 'CustomerPortalLink'])
+export const PROVIDER_WORDED_COMPONENTS = new Set(['CheckoutLink', 'CustomerPortalLink'])
 
 /**
  * Keep the base module's brand-named surface out of an app that uses this
@@ -239,8 +261,8 @@ const PROVIDER_WORDED_COMPONENTS = new Set(['CheckoutLink', 'CustomerPortalLink'
  * `<ConvexProviderWithAuth0>` when those integrations are on), its
  * `convex-auth` route middleware and its Nitro imports (`convexAuth`,
  * `convexBetterAuthNuxt`). Most have a neutral name here — `useBackendClient`,
- * `useQuery`, `useAuth`, `useAuthState`, `<StorageImage>`,
- * `<BillingCheckoutLink>`, `<BillingPortalLink>`, `auth` and `backendAuth`
+ * `useQuery`, `useAuth`, `<StorageImage>`,
+ * `<BillingCheckoutLink>`, `<BillingPortalLink>` and `backendAuth`
  * — so an app sees one name per concept; the rest stay an explicit import
  * from the base module.
  *
@@ -312,24 +334,8 @@ function resolveBaseRuntime(specifier: string): string | undefined {
 }
 
 /**
- * The base module's route middleware file, `middleware.js` next to its
- * `better-auth/server` runtime (`dist/runtime/better-auth/nuxt/`). `undefined`
- * when the runtime is not on disk.
- */
-function resolveBaseAuthMiddleware(): string | undefined {
-  const serverRuntime = resolveBaseServerRuntime()
-  if (!serverRuntime) return undefined
-  const dir = dirname(serverRuntime)
-  for (const candidate of ['middleware.js', 'middleware.mjs', 'middleware.ts']) {
-    const file = join(dir, candidate)
-    if (existsSync(file)) return file
-  }
-  return undefined
-}
-
-/**
- * The base module's `better-auth/server` runtime file for the `backendAuth`
- * server auto-import: the package's `./better-auth/server` export (resolved
+ * The base module's `better-auth/server` runtime file, which the
+ * `backendAuth` server auto-import wraps: its `./better-auth/server` export (resolved
  * with ESM conditions, since that subpath exports `import`/`types` only and
  * `require.resolve` cannot see it). `undefined` when it is not on disk.
  */
@@ -337,22 +343,45 @@ function resolveBaseServerRuntime(): string | undefined {
   return resolveBaseRuntime('nuxt-convex-module/better-auth/server')
 }
 
+/** The templates that change the moment `convex dev` emits `_generated/api`. */
+const CODEGEN_GUARDED_TEMPLATES = ['types/nuxt-backend-api-fallback.d.ts', 'nuxt-backend-provide-api.mjs']
+
 /**
  * Fallback ambient types for `#backend/*` until `convex dev` emits codegen,
- * re-rendered live the moment `_generated/api` appears (mirrors the base
- * module's `#convex/*` fallback).
+ * and the plugin that provides the generated `api` app-wide, both re-rendered
+ * live the moment `_generated/api` appears.
+ *
+ * The plugin is what every composable reads its namespace through
+ * (`useBilling()` reads `api.billing`). The base module provided the `api`
+ * until 0.12, which leaves it to the app. Before codegen the import would fail
+ * the build, so the plugin is a no-op until then and the composables degrade
+ * with their dev warning.
  */
-export function registerBackendTypeFallback(nuxt: Nuxt): void {
+export function registerBackendApi(resolver: Resolver, nuxt: Nuxt): void {
   const functionsDir = resolveFunctionsDir(nuxt.options.rootDir)
-  const filename = 'types/nuxt-backend-api-fallback.d.ts' as const
+  const generated = () => hasGeneratedApi(nuxt.options.rootDir, functionsDir)
   addTypeTemplate({
-    filename,
-    getContents: () => backendTypeFallbackContents(hasGeneratedApi(nuxt.options.rootDir, functionsDir), functionsDir),
+    filename: 'types/nuxt-backend-api-fallback.d.ts',
+    getContents: () => backendTypeFallbackContents(generated(), functionsDir),
   }, { nuxt: true, nitro: true })
+
+  const namespaceModule = resolver.resolve('./runtime/vue/utils/namespace')
+  addPluginTemplate({
+    filename: 'nuxt-backend-provide-api.mjs',
+    getContents: () => generated()
+      ? [
+          'import { defineNuxtPlugin } from \'#app\'',
+          'import { api } from \'#backend/api\'',
+          `import { provideBackendApi } from ${JSON.stringify(namespaceModule)}`,
+          'export default defineNuxtPlugin({ name: \'nuxt-backend:api\', setup(nuxtApp) { provideBackendApi(api, nuxtApp.vueApp) } })',
+          '',
+        ].join('\n')
+      : 'import { defineNuxtPlugin } from \'#app\'\nexport default defineNuxtPlugin({ name: \'nuxt-backend:api\', setup() {} })\n',
+  })
 
   if (!nuxt.options.dev) return
   nuxt.hook('builder:watch', async (_event, path) => {
     if (!path.replace(/\\/g, '/').includes('_generated/api')) return
-    await updateTemplates({ filter: template => template.filename === filename })
+    await updateTemplates({ filter: template => CODEGEN_GUARDED_TEMPLATES.includes(template.filename) })
   })
 }

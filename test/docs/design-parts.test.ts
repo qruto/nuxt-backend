@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { read, walk } from './helpers'
 import { parse } from 'vue/compiler-sfc'
+import { expected } from '../../scripts/sync-panels.mjs'
+import { read, walk } from './helpers'
+
+/** The site files Panels' sync writes (site-relative): the template's, not the site's design. */
+const synced = new Set(expected().keys())
 
 // The parts vocabulary (website/design.md §Parts) and the ratchet that moves
 // the site onto it: the parts files hold only parts, every part is in the
@@ -66,7 +70,7 @@ describe('the parts files', () => {
     expect(new Set(names).size).toBe(names.length)
   })
 
-  it.each(PART_FILES)('%s uses no @apply (the playground copy is plain CSS)', (file) => {
+  it.each(PART_FILES)('%s uses no @apply (a part is one complete recipe)', (file) => {
     expect(stripComments(read(file))).not.toMatch(/@apply\b/)
   })
 })
@@ -256,12 +260,155 @@ describe('the part components', () => {
 })
 
 /**
+ * The module components that light a primary action of their own: their
+ * stylesheets (its own, or its parts') fill a control with the accent, the
+ * module's GO.
+ */
+const MODULE_PRIMARIES: Record<string, string[]> = {
+  AccessDenied: ['AccessDenied.css'],
+  AcceptInvitation: ['AcceptInvitationActions.css'],
+  // The shell's header: the sign-in link, the avatar and the create button fill with the accent. No playground page renders it yet.
+  AppShell: ['AppShell.css', 'AccountMenu.css', 'WorkspaceSwitcher.css'],
+  AuthForm: ['AuthForm.css', 'AuthFormPasskeyOffer.css'],
+  BackendNotices: ['NoticeGift.css', 'NoticeLowCredits.css', 'NoticePastDue.css'],
+  ConsentPrompt: ['ConsentPrompt.css'],
+  // The confirmation the admin console and the security settings ask in. Internal: no page names it.
+  ConfirmDialog: ['ConfirmDialog.css'],
+  ContactForm: ['ContactForm.css'],
+  Gate: ['Gate.css'],
+  // Its Continue button fills with the accent. No playground page renders it yet.
+  HowDidYouHear: ['HowDidYouHear.css'],
+  // The `/invite` page's own panel: no playground page renders it.
+  InviteRedeem: ['InviteRedeem.css'],
+  // The `/unsubscribe` page's own panel: no playground page renders it.
+  EmailUnsubscribe: ['EmailUnsubscribe.css'],
+  OnboardingFlow: ['OnboardingFlow.css'],
+  PricingTable: ['PricingTable.css'],
+  ProfileSettings: ['ProfileSettings.css', 'ProfileIdentity.css'],
+  ReauthenticateDialog: ['ReauthenticateDialog.css'],
+  // The `/r/:code` page's own panel: no playground page renders it.
+  ReferralLanding: ['ReferralLanding.css'],
+  SecuritySettings: ['SecurityPasskeys.css'],
+  UpgradePrompt: ['UpgradePrompt.css'],
+  WaitlistForm: ['WaitlistForm.css', 'WaitlistPlace.css'],
+  WorkspaceSettings: ['WorkspaceList.css', 'WorkspaceBilling.css'],
+}
+
+/**
+ * A module primary that lights only with an attribute: `<Gate>` draws its
+ * own button (the upgrade link) for a `quota` check alone.
+ */
+const LIT_WITH: Record<string, RegExp> = { Gate: /\squota\b/ }
+
+/** A module primary that never shows beside the page's own GO, by page. */
+const APART: Record<string, string[]> = {}
+
+/**
+ * The module primaries no page shows beside its own GO: the "Confirm it's
+ * you" dialog and the confirmation are modal, so while one is open nothing
+ * of the page behind it can be pressed, and it is not on the page otherwise.
+ */
+const MODAL = ['ReauthenticateDialog', 'ConfirmDialog']
+
+/** The GO keys a template lights: `signal="go"`, a `:signal` binding that can be `'go'`, a `k-go` class. */
+function litKeys(source: string): string[] {
+  const template = withoutHtmlComments(parse(source).descriptor.template?.content ?? '')
+  return [...template.matchAll(/\ssignal="go"|\s:signal="[^"]*'go'[^"]*"|(?<![\w-])k-go(?![\w-])/g)].map(([match]) => match.trim())
+}
+
+/**
+ * Every GO a page lights: its own, those of the site components it renders
+ * (followed through their tags), and the primary of each module component
+ * it renders, unless the page letters that one as a plain key (an
+ * arbitrary `…]:k` variant on the tag) or it never shows beside the page's
+ * GO (APART, MODAL). A `v-if` branch counts too: a page names its GO once.
+ */
+function pageGoKeys(page: string): string[] {
+  const found: string[] = []
+  const seen = new Set<string>()
+  const visit = (file: string) => {
+    if (seen.has(file)) return
+    seen.add(file)
+    const source = read(file)
+    found.push(...litKeys(source).map(key => `${file.slice(file.indexOf('website/'))}: ${key}`))
+    for (const [, tag, attributes] of withoutHtmlComments(parse(source).descriptor.template?.content ?? '').matchAll(/<([A-Z][A-Za-z0-9]+)\b([^>]*)>/g)) {
+      const component = `website/components/${tag}.vue`
+      // The part components define the keys; they light none themselves.
+      if (!['Key', 'Led'].includes(tag!) && walk('website/components', ['.vue']).some(path => path.endsWith(component))) visit(component)
+      if (MODULE_PRIMARIES[tag!] && (LIT_WITH[tag!]?.test(attributes!) ?? true) && !/\]:k(?![\w-])/.test(attributes!) && !APART[page]?.includes(tag!) && !MODAL.includes(tag!)) found.push(`<${tag}>'s own primary`)
+    }
+  }
+  visit(page)
+  return found
+}
+
+// The site's own playground pages (the offline page; the rest is Panels,
+// synced from templates/panels in the template's own look) are built from
+// the parts (design.md §9): no CSS of their own, labels from the `stamp`
+// part, and one lit GO key at most, on the page's main action.
+describe('the site\'s playground pages', () => {
+  const pages = walk('website/pages/playground', ['.vue']).filter(file => !synced.has(file.slice(file.indexOf('website/') + 'website/'.length))).map(file => [file.slice(file.indexOf('website/')), file] as const)
+
+  it('are there', () => {
+    expect(pages.map(([label]) => label)).toEqual(['website/pages/playground/offline.vue'])
+  })
+
+  it.each(pages)('%s has no style block and no uppercase of its own', (_label, file) => {
+    const { descriptor } = parse(read(file))
+    expect(descriptor.styles).toEqual([])
+    expect(classTokens(read(file)).has('uppercase')).toBe(false)
+  })
+
+  it.each(pages)('%s lights one GO key at most, its components\' and the module\'s counted', (label) => {
+    expect(pageGoKeys(label).length, pageGoKeys(label).join(', ')).toBeLessThanOrEqual(1)
+  })
+
+  it('knows every module component that lights a primary of its own', () => {
+    const filling = walk('src/runtime/vue/components', ['.css'])
+      .filter(file => /background:\s*var\(--(?:bk|auth)-accent\)/.test(read(file)))
+      .map(file => file.slice(file.lastIndexOf('/') + 1))
+    expect([...new Set(Object.values(MODULE_PRIMARIES).flat())].sort()).toEqual(filling.sort())
+  })
+
+  it('counts a GO wherever a page lights one', () => {
+    expect(litKeys('<template><Key signal="go" /><Key :signal="ready ? \'go\' : undefined" /><a class="k k-go" /><!-- k-go --></template>')).toEqual(['signal="go"', ':signal="ready ? \'go\' : undefined"', 'k-go'])
+    expect(pageGoKeys('website/pages/playground/offline.vue').length).toBeLessThanOrEqual(1)
+  })
+})
+
+// The classes app.css used to carry, before the parts: none may be named
+// again, in a template or in a class string in TypeScript (the Nuxt UI slot
+// overrides in app.config.ts), where nothing would draw them.
+describe('the legacy classes', () => {
+  const LEGACY = ['btn', 'lab-label', 'prose-code', 'grid-2', 'grid-auto', 'dev-body', 'depth-surface', 'depth-border', 'depth-well', 'text-grad', 'text-grad-ink', 'engraved', 'engraved-sm', 'embossed', 'embossed-sm', 'surface-matte']
+  // Single words, which count only in a static class list.
+  const LEGACY_WORDS = ['card', 'well', 'pill', 'stack', 'row', 'hint', 'lead', 'mono', 'input', 'dev']
+  const skip = (path: string) => /\/(?:node_modules|\.nuxt|\.output|\.data|content)(?:\/|$)/.test(path)
+
+  it('are named in no template or script of the site', () => {
+    // Panels' files are the template's, with its own classes (scripts/sync-panels.mjs).
+    const named = walk('website', ['.vue'], skip).filter(file => !synced.has(file.slice(file.indexOf('website/') + 'website/'.length))).flatMap(file => [...classTokens(read(file))]
+      .filter(token => LEGACY.includes(token) || (LEGACY_WORDS.includes(token) && new RegExp(`(?<![:\\w-])class="[^"]*(?<![\\w-])${token}(?![\\w-])`).test(read(file))))
+      .map(token => `${file.slice(file.indexOf('website/'))}: ${token}`))
+    expect(named).toEqual([])
+  })
+
+  it('are named in no class string in TypeScript', () => {
+    const named = walk('website', ['.ts'], skip).flatMap(file => [...read(file).matchAll(/'([^'\n]*)'/g)]
+      .flatMap(([, literal]) => literal!.split(/\s+/))
+      .filter(token => LEGACY.includes(token))
+      .map(token => `${file.slice(file.indexOf('website/'))}: ${token}`))
+    expect(named).toEqual([])
+  })
+})
+
+/**
  * Hand-written CSS in the site's components and pages, which the parts
  * replace as R3–R5 rebuild them. Both numbers only go down: when you remove
  * a style block or an uppercase label recipe, lower the number here.
  */
-const STYLE_BLOCKS = 46
-const UPPERCASE_RECIPES = 23
+const STYLE_BLOCKS = 1
+const UPPERCASE_RECIPES = 0
 
 describe('the ratchet', () => {
   const vue = walk('website', ['.vue'], path => /\/(?:node_modules|\.nuxt|\.output)(?:\/|$)/.test(path))

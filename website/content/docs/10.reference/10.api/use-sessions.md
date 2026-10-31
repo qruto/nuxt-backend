@@ -28,6 +28,7 @@ One of the signed-in user's device sessions (mirrors the `listSessions` query).
 | <a id="updatedat"></a> `updatedAt` | `number` | When the session was last extended, as epoch ms. | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
 | <a id="expiresat"></a> `expiresAt` | `number` | When the session stops signing anyone in, as epoch ms. | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
 | <a id="current"></a> `current` | `boolean` | Whether this is the session this browser is signed in with. | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
+| <a id="device"></a> `device` | `string` \| `null` | A short label for the device, `Chrome · macOS` style, read from its user agent; `null` when nothing in it is recognisable, so the page shows its own wording for an unknown device. | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
 
 ***
 
@@ -41,7 +42,7 @@ The session functions re-exported from your `backend/auth.ts`.
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="listsessions"></a> `listSessions?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"public"`, `Record`\<`string`, `never`\>, [`SessionInfo`](#sessioninfo)[] \| `null`\> | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
+| <a id="listsessions"></a> `listSessions?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"public"`, `Record`\<`string`, `never`\>, [`SessionRow`](#sessionrow)[] \| `null`\> | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
 | <a id="revokesession"></a> `revokeSession?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"public"`, \{ `sessionId`: `string`; \}, `null`\> | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
 
 ***
@@ -66,13 +67,26 @@ Defined in: [src/runtime/vue/composables/use-sessions.ts](https://github.com/qru
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="sessions"></a> `sessions` | `ComputedRef`\<[`SessionInfo`](#sessioninfo)[] \| `undefined`\> | Active sessions, live: `[]` when signed out, `undefined` until the first read lands (and during SSR) and after a failed read. | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
+| <a id="sessions"></a> `sessions` | `ComputedRef`\<[`SessionInfo`](#sessioninfo)[] \| `undefined`\> | Active sessions, live: `[]` when signed out, `undefined` while the session is still being read (during SSR too), until the first read lands and after a failed read. | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
 | <a id="current-1"></a> `current` | `ComputedRef`\<[`SessionInfo`](#sessioninfo) \| `undefined`\> | The session belonging to this browser, once the list is loaded. | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
-| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` until the first read lands (always `false` when signed out). | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
+| <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` while the session is still being read and until the first read lands (always `false` when signed out). | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
 | <a id="ispending"></a> `isPending` | `ComputedRef`\<`boolean`\> | `true` while `revoke` or `revokeOthers` runs. | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
 | <a id="error"></a> `error` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the last action failed, else why the list could not be read, else `null`. An action clears its own failure when the next one starts, and signing out clears it. | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
+| <a id="listerror"></a> `listError` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the list could not be read, else `null`: the read's own failure, never an action's, for a list that shows why it is empty. | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
 | <a id="revoke"></a> `revoke` | (`id`) => `Promise`\<`void`\> | Sign a session out by id. The list updates on its own. Rejects with the failure, which `error` also holds. | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
 | <a id="revokeothers"></a> `revokeOthers` | () => `Promise`\<`void`\> | Sign out every session except this one. The list updates on its own. Rejects with the failure, which `error` also holds. | [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts) |
+
+## Type Aliases
+
+### SessionRow
+
+```ts
+type SessionRow = Omit<SessionInfo, "device">;
+```
+
+Defined in: [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts)
+
+A session as `listSessions` answers it: everything but the `device` label, which the browser reads.
 
 ## Functions
 
@@ -88,7 +102,7 @@ Device-session management: list, revoke one, revoke the rest. The list is
 a live query over `listSessions` from `backend/auth.ts`, so a session
 signed out anywhere drops off without a reload; it works for sessions of
 any age (Better Auth's own `/list-sessions` demands a sign-in from the
-last day). Rows carry ids, never session tokens. The list never throws: a
+last ten minutes). Rows carry ids, never session tokens. The list never throws: a
 failed read shows in `error`. The actions reject on failure and mirror it
 into `error`.
 
@@ -112,33 +126,9 @@ const { sessions, revoke, isPending, error } = useSessions()
   <p v-if="error">{{ error.message }}</p>
   <ul>
     <li v-for="session in sessions" :key="session.id">
-      {{ describeUserAgent(session.userAgent) ?? 'Unknown device' }}
-      <button v-if="!session.current" :disabled="isPending" @click="revoke(session.id)">Sign out</button>
+      {{ session.device ?? 'Unknown device' }}
+      <button v-if="!session.current" :aria-disabled="isPending || undefined" @click="isPending || revoke(session.id)">Sign out</button>
     </li>
   </ul>
 </template>
 ```
-
-***
-
-### describeUserAgent()
-
-```ts
-function describeUserAgent(userAgent?): string | null;
-```
-
-Defined in: [src/runtime/vue/composables/use-sessions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-sessions.ts)
-
-A short label for a session's device, `Chrome · macOS` style, from its
-user agent. `null` when there is no user agent or nothing in it is
-recognisable, so the page shows its own wording for an unknown device.
-
-#### Parameters
-
-| Parameter | Type |
-| ------ | ------ |
-| `userAgent?` | `string` \| `null` |
-
-#### Returns
-
-`string` \| `null`

@@ -44,11 +44,67 @@ A usage meter, keyed by the event name spends use (`spendCredits({ meter })`).
 
 ***
 
+### CatalogPlanPrices
+
+Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)
+
+A plan's prices in cents, one per billing interval it is sold at. Each
+becomes a product of its own at the provider, tagged with the plan's key
+and the interval, so a subscriber switches between them like between
+plans. At least one is required. A plan priced `{ month: 0 }` is the
+catalog's free plan (see [CatalogPlan.prices](#prices)).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="month"></a> `month?` | `number` | Billed every month. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="year"></a> `year?` | `number` | Billed every year. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+
+***
+
+### CatalogPlanCreditGrant
+
+Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)
+
+A plan's credit grant, given every billing cycle — a month on the monthly
+price, a year on the yearly one. `units` as a number is the monthly
+allowance, and the yearly product grants twelve times it once a year;
+`{ month, year }` sets each cycle's grant yourself.
+
+#### Extends
+
+- `Omit`\<[`CatalogCreditGrant`](#catalogcreditgrant), `"units"`\>
+
+#### Properties
+
+| Property | Type | Description | Inherited from | Defined in |
+| ------ | ------ | ------ | ------ | ------ |
+| <a id="meter-1"></a> `meter` | `string` | The catalog meter key the credits land on. | [`CatalogCreditGrant`](#catalogcreditgrant).[`meter`](#meter) | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="rollover-1"></a> `rollover?` | `boolean` | Carry unused credits into the next cycle. Defaults to `false` for plan grants (use-it-or-lose-it monthly allowances) and `true` for packs (purchased credits keep). | [`CatalogCreditGrant`](#catalogcreditgrant).[`rollover`](#rollover) | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="units-1"></a> `units` | \| `number` \| `Partial`\<`Record`\<[`CatalogInterval`](#cataloginterval), `number`\>\> | - | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+
+***
+
+### CatalogPlanGift
+
+Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)
+
+A plan's gift as a pass: the lengths it is sold for.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="months"></a> `months` | readonly (`1` \| `3` \| `12`)[] | Which of 1, 3 and 12 months the plan can be gifted for. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+
+***
+
 ### CatalogPlan
 
 Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)
 
-A subscription plan (recurring product).
+A subscription plan: one recurring product per priced interval.
 
 #### Properties
 
@@ -56,14 +112,17 @@ A subscription plan (recurring product).
 | ------ | ------ | ------ | ------ |
 | <a id="name"></a> `name` | `string` | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="description"></a> `description?` | `string` | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
-| <a id="interval"></a> `interval` | `"month"` \| `"year"` | Billing interval. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
-| <a id="price"></a> `price` | `number` | Price in cents. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
-| <a id="credits"></a> `credits?` | [`CatalogCreditGrant`](#catalogcreditgrant) | Credits included with the plan, granted every cycle. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="prices"></a> `prices` | \| [`CatalogPlanPrices`](#catalogplanprices) \| [`CatalogCurrencyPrices`](#catalogcurrencyprices) | Price in cents per interval: `{ month: 2900, year: 29000 }`, in the catalog's [BillingCatalog.currency](#currency); or per currency, `{ usd: { month: 2900 }, eur: { month: 2700 } }`. `{ month: 0 }` makes the plan the catalog's free plan: a real subscription the provider holds, started for every new billing entity and again whenever a paid plan ends, so its credits and features are granted like any plan's. A catalog has at most one, priced by the month only, with no trial and no `usage`; it is never checked out, and a checkout of a paid plan upgrades it in place. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="credits"></a> `credits?` | [`CatalogPlanCreditGrant`](#catalogplancreditgrant) | Credits included with the plan, granted every cycle (see [CatalogPlanCreditGrant](#catalogplancreditgrant)). | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="features"></a> `features?` | `string`[] | Feature-benefit keys (from [BillingCatalog.features](#features-1)) this plan grants. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
-| <a id="trial"></a> `trial?` | `CatalogTrial` | Free trial before the first charge. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
-| <a id="usage"></a> `usage?` | `CatalogUsagePrice`[] | Metered prices charged on top of `price` (pay-as-you-go overage). | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="trial"></a> `trial?` | `CatalogTrial` | Free trial before the first charge, on every interval. `billing sync` pushes a change to it. `{ pass: true }` makes it a reverse trial: a pass every new workspace starts on, with no card (LIFECYCLE). | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="metercycle"></a> `meterCycle?` | `"month"` | Run the plan's meters on a monthly cycle on every price: a yearly price then charges once a year while its credits are granted, and its usage invoiced, every month (the provider's meter cycle). `billing sync` sets it on the plan's yearly product as it creates it; the provider never changes a product's meter cycle afterwards. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="usage"></a> `usage?` | `CatalogUsagePrice`[] | Metered prices charged on top of the fixed price (pay-as-you-go overage), every cycle. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="gift"></a> `gift?` | [`CatalogPlanGift`](#catalogplangift) | **`Experimental`** Make the plan giftable as a pass, for these lengths: someone buys it once and a workspace on the free plan holds it for that long, with no card and no renewal. `billing sync` makes two private products for it: a one-time purchase product per length (the months at the monthly price, 12 at the yearly one when the plan has it) and one free pass product carrying the plan's benefits. Needs a free plan to return to. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="taxbehavior"></a> `taxBehavior?` | `CatalogTaxBehavior` | Tax treatment of the price. Defaults to the organization's setting. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="customfields"></a> `customFields?` | `string`[] | Checkout field keys (from [BillingCatalog.customFields](#customfields-2)) to collect. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="retired"></a> `retired?` | `boolean` | Retire the plan: `billing sync` archives its products, so nobody new can check out or switch to it, while everyone subscribed keeps it, renews on it and can switch away. Keep a retired plan in the catalog — its ids stay in the generated map, so a subscriber's plan still reads back by its key. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="quotas"></a> `quotas?` | `Record`\<`string`, `number` \| `"unlimited"`\> | **`Experimental`** How many of each quota (keys from [BillingCatalog.quotas](#quotas-1)) the plan allows: a whole number, or `'unlimited'`. A quota the plan leaves out allows none. `billing sync` pushes them as one feature-flag benefit on the plan's products, `<plan>-quotas`, and pushes a change to them; a plan that drops them all keeps the benefit, its limits cleared. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 
 ***
 
@@ -79,7 +138,7 @@ A one-time credit pack.
 | ------ | ------ | ------ | ------ |
 | <a id="name-1"></a> `name` | `string` | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="description-1"></a> `description?` | `string` | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
-| <a id="price-1"></a> `price` | `number` | Price in cents. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="price"></a> `price` | `number` \| [`CatalogPackPrices`](#catalogpackprices) | Price in cents, in the catalog's [BillingCatalog.currency](#currency); or per currency, `{ usd: 2000, eur: 1800 }`. A pack's gift twin carries every one of them. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="credits-1"></a> `credits` | [`CatalogCreditGrant`](#catalogcreditgrant) | Credits granted once at purchase. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="taxbehavior-1"></a> `taxBehavior?` | `CatalogTaxBehavior` | Tax treatment of the price. Defaults to the organization's setting. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="customfields-1"></a> `customFields?` | `string`[] | Checkout field keys (from [BillingCatalog.customFields](#customfields-2)) to collect. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
@@ -90,15 +149,79 @@ A one-time credit pack.
 
 Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)
 
-A feature benefit, gate-checked client-side via `useFeatures().has(key)`.
-Pushed as the provider's native feature-flag benefit; the catalog key rides
-along in the benefit metadata, which is what the gate matches on.
+A feature benefit, gated by its key: in a function with
+`billing.requireFeature(ctx, key)` or the `withFeature(key)` tier, in the
+UI with `useFeatures().has(key)` and `<Gate feature>`. Pushed
+as the provider's native feature-flag benefit; the catalog key rides along
+in the benefit metadata, which is what every gate matches on.
 
 #### Properties
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
 | <a id="description-2"></a> `description` | `string` | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+
+***
+
+### CatalogQuota
+
+Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)
+
+**`Experimental`**
+
+A quota: how many of a thing a billing entity may hold at once — projects,
+boards, sites — counted where the thing is made and given back where it
+is removed. It never resets on a billing period: an allowance per period
+is what credits and meters are for. Each plan says how many it allows
+([CatalogPlan.quotas](#quotas)); one it does not name allows none. Never
+people: a quota on members, seats, users, teammates, collaborators,
+guests or people is refused, since a plan here is never priced per seat.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="description-3"></a> `description` | `string` | **`Experimental`** What it counts, as a sentence names it: `'projects'`, `'team boards'`. `billing sync` writes it to the generated map, `getFeatures` reports it with the quota, `<Gate quota>` says it ("You have used 3 of 3 projects") unless given a `name`, and DevTools shows it. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+
+***
+
+### CatalogDiscountProducts
+
+Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)
+
+What a discount applies to: the catalog's plans and packs, by key. Never
+every product: one the discount does not list is never discounted, and
+a product created later is not either.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="plans"></a> `plans?` | `string`[] | Plan keys. Their prices at every interval, or at `interval` only. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="interval"></a> `interval?` | [`CatalogInterval`](#cataloginterval) | Only the plans' prices at this interval. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="packs"></a> `packs?` | `string`[] | Pack keys. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+
+***
+
+### CatalogDiscountTerms
+
+Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)
+
+What every catalog discount says beside its amount (see [CatalogDiscount](#catalogdiscount)).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="name-2"></a> `name` | `string` | The name the customer sees at checkout and on the invoice. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="duration"></a> `duration` | [`CatalogDiscountDuration`](#catalogdiscountduration) | How long it takes money off (see [CatalogDiscountDuration](#catalogdiscountduration)). | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="code"></a> `code?` | `string` | A code customers type at checkout and a campaign link carries: 3 to 64 letters and digits, unique among the catalog's discounts. A discount with a code is public: anyone who knows the code can use it, and a client may name it by key (`useBilling().checkout(id, { discount })`). One without a code is the server's alone: `billing.checkout(ctx, { discount })` or the `checkoutDiscount` hook applies it. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="maxredemptions"></a> `maxRedemptions?` | `number` | How many times it may be redeemed in all. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="percustomer"></a> `perCustomer?` | `number` | How many times one customer may redeem it. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="startsat"></a> `startsAt?` | `string` \| `Date` | When it can first be redeemed: an ISO date-time (a date alone is the start of that day, UTC). | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="endsat"></a> `endsAt?` | `string` \| `Date` | When it can no longer be redeemed: the real end of the offer, which `<PricingTable>` shows as a date. Customers who redeemed it keep it for its duration. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="products"></a> `products` | [`CatalogDiscountProducts`](#catalogdiscountproducts) | The plans and packs it applies to: at least one. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="retired-1"></a> `retired?` | `boolean` | Retire it: `billing sync` ends it now and frees its code, so nobody new redeems it, while everyone who did keeps it for its duration. A changed amount or duration after the first redemption is published this way: retire the key and declare the new terms under another. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 
 ***
 
@@ -110,12 +233,14 @@ Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/m
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="currency"></a> `currency?` | `string` | ISO 4217 currency every `price` is created in, lowercase (`'usd'`, `'eur'`). Defaults to the organization's default presentment currency, which the provider requires on every product. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="currency"></a> `currency?` | `string` | ISO 4217 currency every single-currency `price` is created in, lowercase (`'usd'`, `'eur'`), and the one a visitor pays in when the catalog does not price their own. Defaults to the organization's default presentment currency, which the provider requires on every product: a per-currency price names it too. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="meters"></a> `meters?` | `Record`\<`string`, [`CatalogMeter`](#catalogmeter)\> | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
-| <a id="plans"></a> `plans?` | `Record`\<`string`, [`CatalogPlan`](#catalogplan)\> | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
-| <a id="packs"></a> `packs?` | `Record`\<`string`, [`CatalogPack`](#catalogpack)\> | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="plans-1"></a> `plans?` | `Record`\<`string`, [`CatalogPlan`](#catalogplan)\> | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="packs-1"></a> `packs?` | `Record`\<`string`, [`CatalogPack`](#catalogpack)\> | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="features-1"></a> `features?` | `Record`\<`string`, [`CatalogFeature`](#catalogfeature)\> | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="quotas-1"></a> `quotas?` | `Record`\<`string`, [`CatalogQuota`](#catalogquota)\> | **`Experimental`** The quotas plans set, keyed by what `billing.requireQuota`, `useFeatures().quota()` and `<Gate quota>` name them by. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="customfields-2"></a> `customFields?` | `Record`\<`string`, `CatalogCustomField`\> | Checkout fields plans and packs can collect, keyed by catalog key. | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="discounts"></a> `discounts?` | `Record`\<`string`, [`CatalogDiscount`](#catalogdiscount)\> | Promotions: the provider's own discounts, declared here and kept in line by `billing sync`, keyed by what checkout names them by (`billing.checkout(ctx, { discount: 'launch' })`). | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 
 ***
 
@@ -161,6 +286,43 @@ Defined in: [src/convex/integrations/billing/types/base.ts](https://github.com/q
   `ok`: `boolean`;
   `retryAfter?`: `number`;
 \}\>
+
+***
+
+### BillingLifecycle
+
+Defined in: [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts)
+
+`setupBilling({ lifecycle })`: what the package does around a
+subscription's life beyond the provider's own (LIFECYCLE).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="saveoffers"></a> `saveOffers?` | `Partial`\<`Record`\<[`CancellationReason`](#cancellationreason), [`SaveOfferRule`](#saveofferrule)\>\> | Save offers by cancellation reason: cancelling stays one step, and a reason with an entry gets one optional step first, its offer. None in the withdrawal period, on a past-due plan or a trial, and one per billing entity in 12 months. | [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts) |
+| <a id="abandonedcheckout"></a> `abandonedCheckout?` | `boolean` | Record `billing.checkout_abandoned` once per checkout that expired unpaid, which the `checkoutAbandoned` lifecycle email starts from. | [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts) |
+| <a id="renewalreminders"></a> `renewalReminders?` | `boolean` | Email the billing managers a yearly reminder of a renewing subscription's terms, as California's automatic renewal law asks, on cycles the provider's own reminder does not cover (under six months). | [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts) |
+| <a id="withdrawal"></a> `withdrawal?` | `boolean` | The EU withdrawal button (Art. 11a of the Consumer Rights Directive): `getWithdrawal` and `withdraw`, which `<WithdrawalButton>` calls, and the `withdrawalReceipt` email. For where the provider does not offer it. | [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts) |
+
+***
+
+### BillingConsole
+
+Defined in: [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts)
+
+The billing lifecycle's records as the admin console's Billing tab
+reads them (`getBillingConsole`), newest first, the latest 50 of each.
+Each names the billing entity: a workspace's id, or an account's with
+`billTo: 'user'`.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="saveoffers-1"></a> `saveOffers` | \{ `id`: `string`; `entityId`: `string`; `subscriptionId`: `string`; `reason`: `string`; `kind`: `"downgrade"` \| `"discount"` \| `"pause"`; `months`: `number` \| `null`; `plan`: `string` \| `null`; `discount`: `string` \| `null`; `madeAt`: `number`; `acceptedAt`: `number` \| `null`; \}[] | The save offers the cancel flow made: for which reason, what, and whether it was taken. | [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts) |
+| <a id="withdrawals"></a> `withdrawals` | \{ `entityId`: `string`; `subscriptionId`: `string`; `userId`: `string`; `plan`: `string`; `at`: `number`; \}[] | The EU withdrawals: who withdrew from which plan, and when. | [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts) |
+| <a id="consents"></a> `consents` | \{ `entityId`: `string`; `subscriptionId`: `string` \| `null`; `userId`: `string` \| `null`; `plan`: `string`; `amount`: `number`; `currency`: `string`; `interval`: `string`; `intervalCount`: `number`; `termsVersion`: `string` \| `null`; `consentedAt`: `number`; \}[] | The confirmed renewal consent proofs: what the checkout showed (the plan, the price and its interval, the terms version), who agreed and when. | [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts) |
 
 ***
 
@@ -294,7 +456,7 @@ Options for [Billing.getUsageHistory](#getusagehistory).
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="meter-1"></a> `meter?` | `string` | Which meter's consumption to read: a configured credit-meter name (`'credits'`) or a raw meter id. Omit for every ingested event on the account. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="meter-2"></a> `meter?` | `string` | Which meter's consumption to read: a configured credit-meter name (`'credits'`) or a raw meter id. Omit for every ingested event on the account. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="limit-2"></a> `limit?` | `number` | Events per page (1–100, default 10). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="cursor-1"></a> `cursor?` | `string` | An opaque page token from a previous page's `nextCursor`. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="page-1"></a> `page?` | `number` | The provider's 1-based page number — the raw form of `cursor`. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
@@ -351,7 +513,7 @@ Filters for [BillingDiscounts.list](#list).
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="query"></a> `query?` | `string` | Match against the discount's name. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="query"></a> `query?` | `string` | Match against the discount's name. The provider matches part of its code too, letter case aside, though it documents the name only: to find one by its code, compare `code` on what comes back. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="limit-3"></a> `limit?` | `number` | Discounts per page (1–100, default 10). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="page-2"></a> `page?` | `number` | The provider's 1-based page number. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 
@@ -372,7 +534,23 @@ server-side methods, not registered functions: call them from an
 | ------ | ------ | ------ | ------ |
 | <a id="create"></a> `create` | (`discount`) => `Promise`\<\{ `id`: `string`; `code`: `string` \| `null`; \}\> | Create a discount / coupon. Accepts the full provider shape (fixed or percentage). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="list"></a> `list` | (`options?`) => `Promise`\<[`BillingPage`](#billingpage)\<`Discount`\>\> | List discounts (newest provider order), one page at a time. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="remove"></a> `remove` | (`discountId`) => `Promise`\<`void`\> | Permanently delete a discount. Redemptions already applied stay applied. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="remove"></a> `remove` | (`discountId`) => `Promise`\<`void`\> | Delete a discount: nobody redeems it any more, and its code is free for another. The provider keeps it for the subscriptions that hold it: they keep taking it off for its duration. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+
+***
+
+### ApplyDiscountOptions
+
+Defined in: [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts)
+
+What [Billing.applyDiscount](#applydiscount) takes.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="entityid"></a> `entityId` | `string` | The billing entity whose subscription takes the discount, by id: the workspace id (`billTo: 'workspace'`, the default) or the user id. Server code that passes it has decided the entity qualifies; never pass an id a caller sent. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="discount"></a> `discount` | `string` \| `null` | A catalog discount's key, or `null` to remove the subscription's discount. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="subscriptionid-4"></a> `subscriptionId?` | `string` | The subscription, when the entity holds several (`multipleSubscriptions`). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 
 ***
 
@@ -387,7 +565,7 @@ default the customer can still change — the provider owns the form.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="name-2"></a> `name?` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="name-3"></a> `name?` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="email"></a> `email?` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="billingname"></a> `billingName?` | `string` | The name that should appear on the invoice, when it differs from `name`. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="billingaddress"></a> `billingAddress?` | \{ `country`: `string`; `line1?`: `string`; `line2?`: `string`; `postalCode?`: `string`; `city?`: `string`; `state?`: `string`; \} | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
@@ -440,6 +618,21 @@ calendar month, up to 31 days.
 
 ***
 
+### FeatureCheckOptions
+
+Defined in: [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts)
+
+What [Billing.hasFeature](#hasfeature) and [Billing.requireFeature](#requirefeature) take
+beside the feature, and the quota reads and counts beside the quota.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="userid"></a> `userId?` | `string` | The billing entity to check, by id: the workspace id (`billTo: 'workspace'`, the default) or the user id. Server code that passes it has decided whose features these are, so nobody is checked: never pass an id a caller sent, which would tell anyone whether any entity has the feature. Omit it to check the caller's own entity, checked the way the billing reads check it: signed in, an account not banned, a member of the workspace that pays (read fresh). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+
+***
+
 ### EntitlementBenefit
 
 Defined in: [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts)
@@ -450,9 +643,15 @@ A single granted benefit (entitlement) in a customer's billing state.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="id-1"></a> `id` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="id-1"></a> `id` | `string` | The grant's id. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="benefitid"></a> `benefitId` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="type"></a> `type` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="type"></a> `type` | `string` | The provider's own benefit type; `kind` says the same in neutral words. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="kind"></a> `kind?` | [`BenefitKind`](#benefitkind) | What the benefit gives (see [BenefitKind](#benefitkind)). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="name-4"></a> `name?` | `string` | The benefit's name, as the provider lists it to the customer. Absent until the benefit was read once. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="grantedat"></a> `grantedAt?` | `number` | When it was granted (epoch ms). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="licensekey"></a> `licenseKey?` | `string` | A license key's display key: masked but for its last characters. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="files"></a> `files?` | `number` | How many files a download benefit grants. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="repository"></a> `repository?` | `string` | The repository a repository benefit opens, as `owner/name`. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="metadata-2"></a> `metadata?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | The benefit's **live** provider metadata (read from the benefit, not the grant-time snapshot in customer state). Lets consumers feature-gate by a friendly key — set e.g. `{ key: 'premium' }` on the benefit and check `useFeatures().has('premium')`. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 
 ***
@@ -473,7 +672,7 @@ A credit-meter balance in a customer's billing state (prepaid credits).
 | <a id="balance"></a> `balance` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="cyclestart"></a> `cycleStart?` | `number` | The granting subscription's current period (epoch ms) — a meter has no period of its own in the provider's model. Absent for meters granted only by one-time credit packs. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="cycleend"></a> `cycleEnd?` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="rollover-1"></a> `rollover?` | `boolean` | Whether unspent credited units carry into the next cycle. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="rollover-2"></a> `rollover?` | `boolean` | Whether unspent credited units carry into the next cycle. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 
 ***
 
@@ -514,6 +713,47 @@ resolves to the provider meter and its ingestion shape. Declared in
 
 ***
 
+### BillingCatalogDiscount
+
+Defined in: [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts)
+
+A catalog discount as `billing sync` left it at the provider: its id and
+its terms, which checkout applies by key and `getPricing` shows. Dates
+are ISO strings, amounts in the currency's smallest unit.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id-2"></a> `id` | `string` | The provider's discount id. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="name-5"></a> `name` | `string` | The name the customer sees at checkout. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="code-1"></a> `code?` | `string` | Its code: a public promotion. Absent on one only the server applies. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="percentoff"></a> `percentOff?` | `number` | Percent off, `20` for 20%. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="amountoff"></a> `amountOff?` | `Record`\<`string`, `number`\> | A fixed amount off per currency, lower-case ISO 4217 code → cents. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="duration-1"></a> `duration` | `"once"` \| `"forever"` \| `"repeating"` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="months-1"></a> `months?` | `number` | The months a `repeating` discount lasts. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="startsat-1"></a> `startsAt?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="endsat-1"></a> `endsAt?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="productids-1"></a> `productIds` | `string`[] | The products it applies to: every one a checkout may take it on. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+
+***
+
+### CatalogPassIds
+
+Defined in: [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts)
+
+A plan's pass products in the generated map, and the length of its reverse trial when it has one.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="pass"></a> `pass` | `string` | The free pass product that carries the plan's benefits. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="months-2"></a> `months` | `Record`\<`string`, `string`\> | The private purchase product per gift length in months, keyed `'3'`. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="trialdays"></a> `trialDays?` | `number` | Days of the reverse trial every new workspace starts on this pass for (LIFECYCLE). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+
+***
+
 ### BillingCatalogIds
 
 Defined in: [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts)
@@ -524,10 +764,17 @@ The environment-keyed id map `nuxt-backend billing sync` generates.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="products"></a> `products?` | `Record`\<`string`, `string`\> | Catalog key → provider product id (plans and packs). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="packs-1"></a> `packs?` | `string`[] | The catalog keys of `products` that are credit packs: what a gift may buy. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="products-1"></a> `products?` | `Record`\<`string`, `string`\> | Product key → provider product id: packs by their catalog key, a plan's monthly price by the plan's key and its yearly one as `<plan>:year`. A retired plan's products stay listed, so a subscriber's plan still reads back by its key; the checkout never sells them. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="plans-2"></a> `plans?` | `Record`\<`string`, `Partial`\<`Record`\<[`CatalogInterval`](#cataloginterval), `string`\>\>\> | Plan key → its product per priced interval, retired plans included. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="retired-2"></a> `retired?` | `string`[] | The keys of retired plans: archived at the provider, never sold again. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="packs-2"></a> `packs?` | `string`[] | The catalog keys of `products` that are credit packs: what a gift may buy. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="gifts"></a> `gifts?` | `Record`\<`string`, `string`\> | Pack key → the provider id of its private gift product: the same prices, no benefits, bought by a purchaser for someone else. Never sold on its own, so it is outside `products` and the checkout allow-list. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="passes"></a> `passes?` | `Record`\<`string`, [`CatalogPassIds`](#catalogpassids)\> | Plan key → its gift as a plan pass: the private purchase product per length in months (`months`, keyed `'3'`) and the one free pass product that carries the plan's benefits (`pass`). Neither is sold on its own. `trialDays` marks the plan whose trial is a reverse trial: every new workspace starts on its pass for that many days (LIFECYCLE). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="meters-2"></a> `meters?` | `Record`\<`string`, [`CreditMeterConfig`](#creditmeterconfig)\> | Catalog key → credit meter config. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="quotas-2"></a> `quotas?` | `Record`\<`string`, `string`\> | **`Experimental`** Quota key → what it counts, as the catalog's `description` says it: each one is reported by `getFeatures` (as `useFeatures().quota()` reads it), granted or not. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="free"></a> `free?` | `string` | The free plan's key (`plans` holds its product): every billing entity starts on it, and returns to it when a paid plan ends. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="currency-3"></a> `currency?` | `string` | The currency a visitor pays in when the catalog does not price theirs, lower-case ISO 4217: written for a catalog that prices more than one. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="discounts-1"></a> `discounts?` | `Record`\<`string`, [`BillingCatalogDiscount`](#billingcatalogdiscount)\> | Discount key → the discount and its terms. A retired one is left out: nothing applies it again. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 
 ***
 
@@ -541,9 +788,9 @@ A prepaid-credit consumption event (drawn from the customer's meter balance).
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="userid"></a> `userId?` | `string` | The billing entity id — the workspace id (`billTo: 'organization'`, the default) or the auth user id (`billTo: 'user'`). Omit to resolve it from the caller's identity (the active workspace / signed-in user). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="meter-2"></a> `meter?` | `string` | A configured credit meter name (`setupBilling({ credits })` / catalog key) — the preferred spend target: resolves the meter id, event name, and ingestion shape in one word. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="name-3"></a> `name?` | `string` | The meter event name. Defaults to the configured meter's `eventName`/key. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="userid-1"></a> `userId?` | `string` | The billing entity id — the workspace id (`billTo: 'workspace'`, the default) or the auth user id (`billTo: 'user'`). Omit to resolve it from the caller's identity (the active workspace / signed-in user). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="meter-3"></a> `meter?` | `string` | A configured credit meter name (`setupBilling({ credits })` / catalog key) — the preferred spend target: resolves the meter id, event name, and ingestion shape in one word. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="name-6"></a> `name?` | `string` | The meter event name. Defaults to the configured meter's `eventName`/key. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="meterid-2"></a> `meterId?` | `string` | A raw credit meter id to guard against (escape hatch when no named meter config exists). When a meter resolves (by `meter` or `meterId`), the spend is **reserved** against the cached balance first and **blocked** (throws) if it is below `value` — keeping credits strictly prepaid (never billed as overage). The reservation settles after the provider event ingests, or releases on failure, so a failed run never consumes credits. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="value"></a> `value?` | `number` | Credits required for this spend (default `1`): a finite number above zero. Anything else is refused before the balance or the provider sees it. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="allowoverage"></a> `allowOverage?` | `boolean` | Let the balance go negative instead of refusing the spend — the pay-as-you-go case: the meter has no credit benefit behind it, so every unit is overage the provider invoices at the end of the cycle. Off by default: credits stay strictly prepaid. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
@@ -566,12 +813,37 @@ settles: a `value` that is not a finite number above zero is refused.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="entityid"></a> `entityId` | `string` | The billing entity the spend belongs to. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="entityid-1"></a> `entityId` | `string` | The billing entity the spend belongs to. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="externalid-1"></a> `externalId` | `string` | Idempotency key shared by the reservation and the provider event. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="reserved"></a> `reserved` | `boolean` | Whether a meter guard actually reserved cached balance. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="meter-3"></a> `meter?` | `string` | The configured meter name (when reserved via one). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="meter-4"></a> `meter?` | `string` | The configured meter name (when reserved via one). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="meterid-3"></a> `meterId?` | `string` | The raw meter id (when reserved). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="value-1"></a> `value` | `number` | Credits reserved. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+
+***
+
+### CostReport
+
+Defined in: [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts)
+
+What some work cost the app, for the billing provider's cost insights ([Billing.reportCost](#reportcost)).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="userid-2"></a> `userId` | `string` | The billing entity the work was for. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="name-7"></a> `name` | `string` | The event's name. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="externalid-2"></a> `externalId` | `string` | Idempotency key: the same report sent twice counts once. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="parentid"></a> `parentId?` | `string` | The charge this cost belongs to, by its `externalId`. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="cents"></a> `cents?` | `number` | What the work cost, in US cents; left out when nothing reported a cost. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="llm"></a> `llm?` | \{ `vendor`: `string`; `model`: `string`; `inputTokens`: `number`; `outputTokens`: `number`; `cachedInputTokens?`: `number`; \} | The model the work called, and the tokens it used. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| `llm.vendor` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| `llm.model` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| `llm.inputTokens` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| `llm.outputTokens` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| `llm.cachedInputTokens?` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="memberid"></a> `memberId?` | `string` | The member who started the work. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 
 ***
 
@@ -585,11 +857,11 @@ A prepaid-credit refund (compensating event on a sum meter).
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="userid-1"></a> `userId?` | `string` | The billing entity id; omit to resolve from the caller's identity. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="meter-4"></a> `meter` | `string` | The configured credit meter name to refund on (must be a sum meter). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="userid-3"></a> `userId?` | `string` | The billing entity id; omit to resolve from the caller's identity. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="meter-5"></a> `meter` | `string` | The configured credit meter name to refund on (must be a sum meter). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="value-2"></a> `value` | `number` | Credits to give back: a finite number above zero. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="metadata-4"></a> `metadata?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | Extra event properties. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="externalid-2"></a> `externalId?` | `string` | Idempotency key (defaults to a random UUID). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="externalid-3"></a> `externalId?` | `string` | Idempotency key (defaults to a random UUID). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 
 ***
 
@@ -604,12 +876,12 @@ A gift purchase record, as stored by the `backend` component
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="id-2"></a> `id` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="id-3"></a> `id` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="recipientemail"></a> `recipientEmail` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="purchaseruserid"></a> `purchaserUserId` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="purchaseremail"></a> `purchaserEmail?` | `string` | Before 0.2 only: gifts no longer keep the purchaser's email. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="purchasername"></a> `purchaserName?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="productids-1"></a> `productIds` | `string`[] | The credit pack's provider product: what the recipient's claim grants. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="productids-2"></a> `productIds` | `string`[] | The credit pack's provider product: what the recipient's claim grants. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="message"></a> `message?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="status-1"></a> `status` | `string` | `'pending'` (the purchaser's checkout is open) → `'paid'` (the purchase is paid and claimable) → `'claimed'`, or `'refunded'` when the purchase was refunded before the claim. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="billingcustomerid"></a> `billingCustomerId?` | `string` | Before 0.2 only: the customer keyed by the recipient's email that the purchase was billed to. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
@@ -618,7 +890,7 @@ A gift purchase record, as stored by the `backend` component
 | <a id="pack"></a> `pack?` | `string` | The pack's catalog key. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="giftproductid"></a> `giftProductId?` | `string` | The private gift product the purchaser bought. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="amount-2"></a> `amount?` | `number` | What the purchase charged, in the currency's smallest unit. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="currency-2"></a> `currency?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="currency-4"></a> `currency?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="discountid"></a> `discountId?` | `string` | The single-use 100% discount the recipient claims the pack with. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="claimingentityid"></a> `claimingEntityId?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="claiminguserid"></a> `claimingUserId?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
@@ -630,6 +902,161 @@ A gift purchase record, as stored by the `backend` component
 | <a id="notifiedat"></a> `notifiedAt?` | `number` | When the recipient's notification email went out — stamped only after the send succeeded. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="claimedat"></a> `claimedAt?` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="refundedat"></a> `refundedAt?` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="plan"></a> `plan?` | `string` | A plan pass: the plan's catalog key, and the months the purchaser paid for. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="months-3"></a> `months?` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="deliverat"></a> `deliverAt?` | `number` | The date the purchaser chose for the notice (the payment's own moment when none), and when it went out: the recipient sees and claims the gift from then. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="deliveredat"></a> `deliveredAt?` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="noticedat"></a> `noticedAt?` | `number` | The last notice sent (the first, the reminder or a resend), and how many. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="noticecount"></a> `noticeCount?` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="recipientchanges"></a> `recipientChanges?` | `number` | How many times the purchaser changed the address: each address's notices carry their own idempotency keys. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="remindedat"></a> `remindedAt?` | `number` | The one reminder, a week after delivery. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="passsubscriptionid"></a> `passSubscriptionId?` | `string` | A claimed pass: the subscription it switched, its start and end, and the steps taken toward the end. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="passstartedat"></a> `passStartedAt?` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="passendsat"></a> `passEndsAt?` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="passreturnscheduledat"></a> `passReturnScheduledAt?` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="passnoticedat"></a> `passNoticedAt?` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="passendedat"></a> `passEndedAt?` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="reversetrial"></a> `reverseTrial?` | `boolean` | A reverse trial's pass (LIFECYCLE), which nobody bought: the workspace started on it. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+
+***
+
+### GiftTask
+
+Defined in: [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts)
+
+A task the gift sweep found due.
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="kind-1"></a> `kind` | `"deliver"` \| `"remind"` \| `"schedule_return"` \| `"end_pass"` \| `"pass_notice"` | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="giftid"></a> `giftId` | `string` | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+
+***
+
+### RevenuePeriod
+
+Defined in: [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts)
+
+One period of a read: when it starts, and its values.
+
+#### Extends
+
+- [`RevenueValues`](#revenuevalues)
+
+#### Properties
+
+| Property | Type | Description | Inherited from | Defined in |
+| ------ | ------ | ------ | ------ | ------ |
+| <a id="costs"></a> `costs` | `number` \| `null` | - | `RevenueValues.costs` |  |
+| <a id="revenue"></a> `revenue` | `number` \| `null` | - | `RevenueValues.revenue` |  |
+| <a id="activesubscriptions"></a> `activeSubscriptions` | `number` \| `null` | - | `RevenueValues.activeSubscriptions` |  |
+| <a id="churnrate"></a> `churnRate` | `number` \| `null` | - | `RevenueValues.churnRate` |  |
+| <a id="lifetimevalue"></a> `lifetimeValue` | `number` \| `null` | - | `RevenueValues.lifetimeValue` |  |
+| <a id="newsubscriptions"></a> `newSubscriptions` | `number` \| `null` | - | `RevenueValues.newSubscriptions` |  |
+| <a id="renewedsubscriptions"></a> `renewedSubscriptions` | `number` \| `null` | - | `RevenueValues.renewedSubscriptions` |  |
+| <a id="churnedsubscriptions"></a> `churnedSubscriptions` | `number` \| `null` | - | `RevenueValues.churnedSubscriptions` |  |
+| <a id="checkouts"></a> `checkouts` | `number` \| `null` | - | `RevenueValues.checkouts` |  |
+| <a id="costperuser"></a> `costPerUser` | `number` \| `null` | - | `RevenueValues.costPerUser` |  |
+| <a id="grossmargin"></a> `grossMargin` | `number` \| `null` | - | `RevenueValues.grossMargin` |  |
+| <a id="monthlyrecurringrevenue"></a> `monthlyRecurringRevenue` | `number` \| `null` | - | `RevenueValues.monthlyRecurringRevenue` |  |
+| <a id="annualrecurringrevenue"></a> `annualRecurringRevenue` | `number` \| `null` | - | `RevenueValues.annualRecurringRevenue` |  |
+| <a id="netrevenue"></a> `netRevenue` | `number` \| `null` | - | `RevenueValues.netRevenue` |  |
+| <a id="canceledsubscriptions"></a> `canceledSubscriptions` | `number` \| `null` | - | `RevenueValues.canceledSubscriptions` |  |
+| <a id="succeededcheckouts"></a> `succeededCheckouts` | `number` \| `null` | - | `RevenueValues.succeededCheckouts` |  |
+| <a id="checkoutsconversion"></a> `checkoutsConversion` | `number` \| `null` | - | `RevenueValues.checkoutsConversion` |  |
+| <a id="grossmarginpercentage"></a> `grossMarginPercentage` | `number` \| `null` | - | `RevenueValues.grossMarginPercentage` |  |
+| <a id="at"></a> `at` | `number` | The period's first moment, in epoch milliseconds. | - | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+
+***
+
+### MeterUsage
+
+Defined in: [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts)
+
+What one metered feature consumed over a read's window.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="meter-6"></a> `meter` | `string` | The meter's key in the billing catalog: `credits`. | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| <a id="total"></a> `total` | `number` | What it consumed over the whole window, in the meter's own units. | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| <a id="periods"></a> `periods` | \{ `at`: `number`; `quantity`: `number`; \}[] | What it consumed in each period. | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+
+***
+
+### RevenueCancellations
+
+Defined in: [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts)
+
+Why people cancelled over the window, and what the cancel flow saved.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="reasons"></a> `reasons` | `Record`\<[`CancellationReason`](#cancellationreason), `number`\> | Cancellations per reason the cancel flow asks about, as the provider counted them. | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| <a id="saveoffers-2"></a> `saveOffers` | \{ `made`: `number`; `accepted`: `number`; `truncated`: `boolean`; \} | The cancel flow's save offers made in the window, and how many of them were accepted. | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| `saveOffers.made` | `number` | - | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| `saveOffers.accepted` | `number` | - | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| `saveOffers.truncated` | `boolean` | The window held more offers than one read counts: the counts cover its oldest ones. | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+
+***
+
+### RevenueReport
+
+Defined in: [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts)
+
+What `getRevenue` answers: the provider's metrics over a window, per period and in total.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="since"></a> `since` | `number` | The window's first moment, in epoch milliseconds: the start of its first UTC day. | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| <a id="until"></a> `until` | `number` | The window's end: the end of its last UTC day. | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| <a id="interval-2"></a> `interval` | [`RevenueInterval`](#revenueinterval) | - | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| <a id="totals"></a> `totals` | [`RevenueValues`](#revenuevalues) | Each metric over the whole window. | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| <a id="periods-1"></a> `periods` | [`RevenuePeriod`](#revenueperiod)[] | Each metric per period, oldest first. | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| <a id="cancellations"></a> `cancellations` | [`RevenueCancellations`](#revenuecancellations) | - | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| <a id="meters-3"></a> `meters` | [`MeterUsage`](#meterusage)[] | Usage per meter of the billing catalog, credits included. | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+
+***
+
+### RevenueOptions
+
+Defined in: [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts)
+
+What `getRevenue` takes.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="since-1"></a> `since` | `number` | The window's start, in epoch milliseconds: read from the start of its UTC day. | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| <a id="until-1"></a> `until?` | `number` | The window's end, in epoch milliseconds: read to the end of its UTC day. Default: now. | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| <a id="interval-3"></a> `interval?` | [`RevenueInterval`](#revenueinterval) | How the periods are cut. Default `day`. | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+
+***
+
+### SaveOfferTerms
+
+Defined in: [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts)
+
+A save offer's terms as the component keeps them (LIFECYCLE).
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="kind-2"></a> `kind` | `"downgrade"` \| `"discount"` \| `"pause"` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="months-4"></a> `months?` | `number` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="resumesat-1"></a> `resumesAt?` | `number` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="plan-1"></a> `plan?` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="productid-1"></a> `productId?` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="discount-2"></a> `discount?` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 
 ***
 
@@ -643,16 +1070,26 @@ object. Pass the whole object — each key is picked structurally:
 - `polar` — the upstream billing-provider component (checkout / portal /
   webhooks / customer mapping).
 - `backend` — the package's all-in-one component: `billing` is the reactive
-  entitlement cache, `gifts` the gift-purchase records, and `email` (optional)
-  delivers gift notifications.
+  entitlement cache, `gifts` the gift-purchase records, `email` (optional)
+  delivers gift notifications, and `adapter` reads the workspace members
+  and the roles every call is checked against, fresh.
+- `shardedCounter` — the counter component the scaffold mounts: it counts
+  what each billing entity holds of a quota (`billing.requireQuota`).
+- `workpool` — the queue the scaffold mounts: the free plan starts for
+  each new billing entity through it, a few provider requests at a time.
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="polar"></a> `polar` | `ComponentApi` | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="backend"></a> `backend` | \{ `billing`: \{ `getByUser`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `CachedEntitlements` \| `null`\>; `upsert`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `customerId?`: `string`; `activeProductIds`: `string`[]; `benefits`: [`EntitlementBenefit`](#entitlementbenefit)[]; `meters`: [`EntitlementMeter`](#entitlementmeter)[]; \}, `null`\>; `userByCustomer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `customerId`: `string`; \}, `string` \| `null`\>; `entityProfile`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId`: `string`; \}, [`EntityProfile`](#entityprofile) \| `null`\>; `claimTrial`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `ownerUserId`: `string`; `entityId`: `string`; `holdMs`: `number`; \}, `boolean`\>; `markTrialUsed`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `ownerUserId`: `string`; `entityId`: `string`; \}, `null`\>; `reserveDiscountCode`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `max`: `number`; `windowMs`: `number`; \}, \| \{ `reserved`: `true`; `windowStart`: `number`; \} \| \{ `reserved`: `false`; `retryAfter`: `number`; \}\>; `releaseDiscountCode`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `windowStart`: `number`; \}, `null`\>; `debit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; `allowOverage?`: `boolean`; \}, \{ `ok`: `boolean`; `balance`: `number`; `reason?`: `"no-row"` \| `"no-meter"` \| `"insufficient"`; \}\>; `settle`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, `null`\>; `release`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; \}, `null`\>; `credit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; \}, `null`\>; `clearPendingSpends`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\>; `deleteByUser`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\>; `getBenefitMetadata`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `benefitIds`: `string`[]; \}, \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `updatedAt`: `number`; \}[]\>; `upsertBenefitMetadata`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entries`: \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; \}[]; \}, `null`\>; \}; `gifts`: \{ `create`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `recipientEmail`: `string`; `purchaserUserId`: `string`; `purchaserEntityId?`: `string`; `purchaserName?`: `string`; `pack?`: `string`; `productIds`: `string`[]; `giftProductId?`: `string`; `message?`: `string`; \}, `string`\>; `markPaid`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `billingOrderId?`: `string`; `amount?`: `number`; `currency?`: `string`; \}, `null`\>; `setDiscount`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `discountId`: `string`; \}, `boolean`\>; `markNotified`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\>; `startClaim`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; \}, `boolean`\>; `markClaimed`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; `claimOrderId?`: `string`; \}, `null`\>; `markRefunded`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\>; `listByEmail`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; `status?`: `"paid"` \| `"claimed"`; \}, [`GiftRecord`](#giftrecord)[]\>; `countBought`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `purchaserUserId`: `string`; `since`: `number`; `pendingSince`: `number`; `excludeGiftId?`: `string`; \}, \{ `count`: `number`; `oldest`: `number` \| `null`; \}\>; `get`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `giftId`: `string`; \}, [`GiftRecord`](#giftrecord) \| `null`\>; `personalEntity`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `string` \| `null`\>; \}; `webhooks`: `WebhookLogRefs`; \} | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| `backend.billing` | \{ `getByUser`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `CachedEntitlements` \| `null`\>; `upsert`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `customerId?`: `string`; `activeProductIds`: `string`[]; `benefits`: [`EntitlementBenefit`](#entitlementbenefit)[]; `meters`: [`EntitlementMeter`](#entitlementmeter)[]; \}, `null`\>; `userByCustomer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `customerId`: `string`; \}, `string` \| `null`\>; `entityProfile`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId`: `string`; \}, [`EntityProfile`](#entityprofile) \| `null`\>; `claimTrial`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `ownerUserId`: `string`; `entityId`: `string`; `holdMs`: `number`; \}, `boolean`\>; `markTrialUsed`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `ownerUserId`: `string`; `entityId`: `string`; \}, `null`\>; `reserveDiscountCode`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `max`: `number`; `windowMs`: `number`; \}, \| \{ `reserved`: `true`; `windowStart`: `number`; \} \| \{ `reserved`: `false`; `retryAfter`: `number`; \}\>; `releaseDiscountCode`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `windowStart`: `number`; \}, `null`\>; `debit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; `allowOverage?`: `boolean`; \}, \{ `ok`: `boolean`; `balance`: `number`; `reason?`: `"no-row"` \| `"no-meter"` \| `"insufficient"`; \}\>; `settle`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, `null`\>; `release`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; \}, `null`\>; `credit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; \}, `null`\>; `clearPendingSpends`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\>; `deleteByUser`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\>; `getBenefitMetadata`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `benefitIds`: `string`[]; \}, \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `updatedAt`: `number`; \}[]\>; `upsertBenefitMetadata`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entries`: \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; \}[]; \}, `null`\>; \} | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="workpool"></a> `workpool?` | `WorkpoolComponent` | The workpool component the scaffold mounts. The free plan is started through it, so a wave of sign-ups queues its provider requests and retries a refused one; without it, through the scheduler. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="shardedcounter"></a> `shardedCounter?` | `ComponentApi` | **`Experimental`** The sharded counter component the scaffold mounts: it keeps how many of each plan quota a billing entity holds (`billing.requireQuota` and `releaseQuota`). Without it, `getQuota` and `getFeatures` read every quota as nothing used, and counting one throws, naming the mount. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="backend"></a> `backend` | \{ `adapter`: \{ `findOne`: `unknown`; `findMany?`: `unknown`; \}; `billing`: \{ `getByUser`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `CachedEntitlements` \| `null`\>; `upsert`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `customerId?`: `string`; `activeProductIds`: `string`[]; `benefits`: [`EntitlementBenefit`](#entitlementbenefit)[]; `meters`: [`EntitlementMeter`](#entitlementmeter)[]; \}, `null`\>; `userByCustomer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `customerId`: `string`; \}, `string` \| `null`\>; `entityProfile`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId`: `string`; \}, [`EntityProfile`](#entityprofile) \| `null`\>; `claimTrial`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `ownerUserId`: `string`; `entityId`: `string`; `holdMs`: `number`; \}, `boolean`\>; `markTrialUsed`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `ownerUserId`: `string`; `entityId`: `string`; \}, `null`\>; `reserveDiscountCode`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `max`: `number`; `windowMs`: `number`; \}, \| \{ `reserved`: `true`; `windowStart`: `number`; \} \| \{ `reserved`: `false`; `retryAfter`: `number`; \}\>; `releaseDiscountCode`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `windowStart`: `number`; \}, `null`\>; `debit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; `allowOverage?`: `boolean`; \}, \{ `ok`: `boolean`; `balance`: `number`; `reason?`: `"no-row"` \| `"no-meter"` \| `"insufficient"`; \}\>; `settle`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, `null`\>; `finalize`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, \{ `settled`: `boolean`; `released`: `number`; `balance`: `number`; `balanceBefore`: `number`; `releaseJobId?`: `string`; \}\>; `release`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; \}, `null`\>; `credit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; \}, `null`\>; `clearPendingSpends`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\>; `deleteByUser`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\>; `recordQuotaKey`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `key`: `string`; \}, `null`\>; `quotaKeys`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `string`[]\>; `getBenefitMetadata`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `benefitIds`: `string`[]; \}, \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `description?`: `string`; `updatedAt`: `number`; \}[]\>; `upsertBenefitMetadata`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entries`: \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `description?`: `string`; \}[]; \}, `null`\>; `recordSubscriptionChange`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `subscriptionId`: `string`; `userId`: `string`; `pendingChange`: \| \{ `productId`: `string`; `appliesAt`: `number`; \} \| `null`; `resumesAt`: `number` \| `null`; `modifiedAt`: `number`; \}, `null`\>; `subscriptionChanges`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `subscriptionIds`: `string`[]; \}, \{ `subscriptionId`: `string`; `pendingChange`: \| \{ `productId`: `string`; `appliesAt`: `number`; \} \| `null`; `resumesAt`: `number` \| `null`; `modifiedAt`: `number`; \}[]\>; \}; `referrals?`: \{ `offerFor`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, \| \{ `id`: `string`; `discount?`: `string`; `trialDays?`: `number`; \} \| `null`\>; `orderPaid`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `ownerId`: `string`; `entityId`: `string`; `orderId`: `string`; \}, \| \{ `id`: `string`; `holdUntil`: `number`; \} \| `null`\>; `orderRefunded`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `orderId`: `string`; \}, `string` \| `null`\>; \}; `gifts`: \{ `create`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `recipientEmail`: `string`; `purchaserUserId`: `string`; `purchaserEntityId?`: `string`; `purchaserName?`: `string`; `pack?`: `string`; `plan?`: `string`; `months?`: `number`; `deliverAt?`: `number`; `productIds`: `string`[]; `giftProductId?`: `string`; `message?`: `string`; \}, `string`\>; `markPaid`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `billingOrderId?`: `string`; `amount?`: `number`; `currency?`: `string`; \}, `null`\>; `setDiscount`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `discountId`: `string`; \}, `boolean`\>; `markNotified`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\>; `startClaim`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; \}, `boolean`\>; `reservePass`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; `until`: `number`; \}, `"reserved"` \| `"busy"` \| `"taken"` \| `"closed"`\>; `releasePass`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; `until`: `number`; \}, `null`\>; `beginCancel`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `until`: `number`; \}, `boolean`\>; `endCancel`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `null`\>; `markClaimed`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; `claimOrderId?`: `string`; \}, `null`\>; `markRefunded`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\>; `listByEmail`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; `status?`: `"claimed"` \| `"paid"`; \}, [`GiftRecord`](#giftrecord)[]\>; `countBought`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `purchaserUserId`: `string`; `since`: `number`; `pendingSince`: `number`; `excludeGiftId?`: `string`; \}, \{ `count`: `number`; `oldest`: `number` \| `null`; \}\>; `get`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `giftId`: `string`; \}, [`GiftRecord`](#giftrecord) \| `null`\>; `personalEntity`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `string` \| `null`\>; `listByPurchaser`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `purchaserUserId`: `string`; \}, [`GiftRecord`](#giftrecord)[]\>; `countToAddress`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; `since`: `number`; `pendingSince`: `number`; `excludeGiftId?`: `string`; \}, `number`\>; `markDelivered`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\>; `noteNotice`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `reminder?`: `boolean`; \}, `null`\>; `setRecipient`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `recipientEmail`: `string`; \}, `boolean`\>; `setDeliverAt`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `deliverAt`: `number`; \}, `boolean`\>; `startPass`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; `subscriptionId`: `string`; `endsAt`: `number`; `returnFrom`: `number`; \}, `boolean`\>; `notePass`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `step`: `"ended"` \| `"return_scheduled"` \| `"noticed"`; \}, `boolean`\>; `activePass`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId`: `string`; \}, \| \{ `id`: `string`; `plan`: `string`; `months?`: `number`; `startedAt`: `number`; `endsAt`: `number`; `subscriptionId?`: `string`; `trial?`: `true`; `rewardId?`: `string`; \} \| `null`\>; `startTrialPass`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `address`: `string`; `userId`: `string`; `entityId`: `string`; `plan`: `string`; `productId`: `string`; `subscriptionId`: `string`; `endsAt`: `number`; `returnFrom`: `number`; \}, `boolean`\>; `startRewardPass`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `rewardId`: `string`; `userId`: `string`; `entityId`: `string`; `plan`: `string`; `months`: `number`; `productId`: `string`; `subscriptionId`: `string`; `endsAt`: `number`; `returnFrom`: `number`; \}, `boolean`\>; `trialPassTaken`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `address`: `string`; \}, `boolean`\>; `due`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `now`: `number`; `limit?`: `number`; \}, \{ `tasks`: [`GiftTask`](#gifttask)[]; `more`: `boolean`; \}\>; `registerSweep`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `wake`: `string`; \}, `null`\>; \}; `webhooks`: `WebhookLogRefs`; `subscriptions`: \{ `recordOffer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entityId`: `string`; `subscriptionId`: `string`; `reason`: `string`; `offer`: [`SaveOfferTerms`](#saveofferterms); `since`: `number`; \}, `string` \| `null`\>; `lastOffer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId`: `string`; `since`: `number`; \}, `number` \| `null`\>; `takeOffer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `offerId`: `string`; `entityId`: `string`; \}, \| \{ `id`: `string`; `entityId`: `string`; `subscriptionId`: `string`; `reason`: `string`; `offer`: [`SaveOfferTerms`](#saveofferterms); `madeAt`: `number`; `acceptedAt?`: `number`; \} \| `null`\>; `releaseOffer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `offerId`: `string`; \}, `null`\>; `offerCounts`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `since`: `number`; `until`: `number`; \}, \{ `made`: `number`; `accepted`: `number`; `truncated`: `boolean`; \}\>; `recordConsent`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `checkoutId`: `string`; `entityId`: `string`; `userId?`: `string`; `productId`: `string`; `amount`: `number`; `currency`: `string`; `interval`: `string`; `intervalCount`: `number`; `termsVersion?`: `string`; \}, `null`\>; `confirmConsent`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `checkoutId`: `string`; `subscriptionId`: `string`; `at`: `number`; \}, `boolean`\>; `purchasedAt`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `subscriptionId`: `string`; \}, `number` \| `null`\>; `markOnce`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `key`: `string`; `every?`: `number`; \}, `boolean`\>; `recordWithdrawal`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entityId`: `string`; `subscriptionId`: `string`; `userId`: `string`; `productId`: `string`; `at`: `number`; \}, `boolean`\>; `withdrawalOf`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `subscriptionId`: `string`; \}, \| \{ `at`: `number`; `userId`: `string`; \} \| `null`\>; `lifecycleConsole`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId?`: `string`; \}, \{ `saveOffers`: \{ `id`: `string`; `entityId`: `string`; `subscriptionId`: `string`; `reason`: `string`; `offer`: [`SaveOfferTerms`](#saveofferterms); `madeAt`: `number`; `acceptedAt?`: `number`; \}[]; `withdrawals`: \{ `entityId`: `string`; `subscriptionId`: `string`; `userId`: `string`; `productId`: `string`; `at`: `number`; \}[]; `consents`: \{ `entityId`: `string`; `subscriptionId?`: `string`; `productId`: `string`; `amount`: `number`; `currency`: `string`; `interval`: `string`; `intervalCount`: `number`; `termsVersion?`: `string`; `userId?`: `string`; `consentedAt`: `number`; \}[]; \}\>; \}; `consents`: \{ `latest`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; `kind`: `string`; \}, \| \{ `kind`: `string`; `version`: `string`; `granted`: `boolean`; `at`: `number`; \} \| `null`\>; \}; `storage?`: \{ `quotaUsage`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `holder`: `string`; \}, `Record`\<`string`, `number`\>\>; \}; `account?`: \{ `isDeleting`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId`: `string`; \}, `boolean`\>; \}; \} | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.adapter` | \{ `findOne`: `unknown`; `findMany?`: `unknown`; \} | The auth tables' adapter: a member's role and an account's role are read through `findOne`; the free plan's backfill pages the workspaces (or the users) through `findMany`. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.adapter.findOne` | `unknown` | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.adapter.findMany?` | `unknown` | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.billing` | \{ `getByUser`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `CachedEntitlements` \| `null`\>; `upsert`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `customerId?`: `string`; `activeProductIds`: `string`[]; `benefits`: [`EntitlementBenefit`](#entitlementbenefit)[]; `meters`: [`EntitlementMeter`](#entitlementmeter)[]; \}, `null`\>; `userByCustomer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `customerId`: `string`; \}, `string` \| `null`\>; `entityProfile`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId`: `string`; \}, [`EntityProfile`](#entityprofile) \| `null`\>; `claimTrial`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `ownerUserId`: `string`; `entityId`: `string`; `holdMs`: `number`; \}, `boolean`\>; `markTrialUsed`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `ownerUserId`: `string`; `entityId`: `string`; \}, `null`\>; `reserveDiscountCode`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `max`: `number`; `windowMs`: `number`; \}, \| \{ `reserved`: `true`; `windowStart`: `number`; \} \| \{ `reserved`: `false`; `retryAfter`: `number`; \}\>; `releaseDiscountCode`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `windowStart`: `number`; \}, `null`\>; `debit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; `allowOverage?`: `boolean`; \}, \{ `ok`: `boolean`; `balance`: `number`; `reason?`: `"no-row"` \| `"no-meter"` \| `"insufficient"`; \}\>; `settle`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, `null`\>; `finalize`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, \{ `settled`: `boolean`; `released`: `number`; `balance`: `number`; `balanceBefore`: `number`; `releaseJobId?`: `string`; \}\>; `release`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; \}, `null`\>; `credit`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; \}, `null`\>; `clearPendingSpends`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\>; `deleteByUser`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\>; `recordQuotaKey`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `key`: `string`; \}, `null`\>; `quotaKeys`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `string`[]\>; `getBenefitMetadata`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `benefitIds`: `string`[]; \}, \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `description?`: `string`; `updatedAt`: `number`; \}[]\>; `upsertBenefitMetadata`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entries`: \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `description?`: `string`; \}[]; \}, `null`\>; `recordSubscriptionChange`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `subscriptionId`: `string`; `userId`: `string`; `pendingChange`: \| \{ `productId`: `string`; `appliesAt`: `number`; \} \| `null`; `resumesAt`: `number` \| `null`; `modifiedAt`: `number`; \}, `null`\>; `subscriptionChanges`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `subscriptionIds`: `string`[]; \}, \{ `subscriptionId`: `string`; `pendingChange`: \| \{ `productId`: `string`; `appliesAt`: `number`; \} \| `null`; `resumesAt`: `number` \| `null`; `modifiedAt`: `number`; \}[]\>; \} | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.billing.getByUser` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `CachedEntitlements` \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.billing.upsert` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `customerId?`: `string`; `activeProductIds`: `string`[]; `benefits`: [`EntitlementBenefit`](#entitlementbenefit)[]; `meters`: [`EntitlementMeter`](#entitlementmeter)[]; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.billing.userByCustomer` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `customerId`: `string`; \}, `string` \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
@@ -663,25 +1100,71 @@ object. Pass the whole object — each key is picked structurally:
 | `backend.billing.releaseDiscountCode` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `windowStart`: `number`; \}, `null`\> | Give back an attempt `reserveDiscountCode` counted, in the window it was counted in. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.billing.debit` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; `externalId`: `string`; `allowOverage?`: `boolean`; \}, \{ `ok`: `boolean`; `balance`: `number`; `reason?`: `"no-row"` \| `"no-meter"` \| `"insufficient"`; \}\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.billing.settle` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.billing.finalize` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; `finalAmount?`: `number`; \}, \{ `settled`: `boolean`; `released`: `number`; `balance`: `number`; `balanceBefore`: `number`; `releaseJobId?`: `string`; \}\> | settle, reporting whether a reservation was still there to close. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.billing.release` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `externalId`: `string`; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.billing.credit` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `meterId`: `string`; `amount`: `number`; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.billing.clearPendingSpends` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\> | Drop every in-flight spend reservation for one entity, without re-crediting: used after a refund, where the provider's balance is already the truth and re-subtracting local reservations would push the cache below it. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.billing.deleteByUser` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, `null`\> | Delete one entity's entitlement cache row (account erasure). | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| `backend.billing.getBenefitMetadata` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `benefitIds`: `string`[]; \}, \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `updatedAt`: `number`; \}[]\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| `backend.billing.upsertBenefitMetadata` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entries`: \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; \}[]; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| `backend.gifts` | \{ `create`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `recipientEmail`: `string`; `purchaserUserId`: `string`; `purchaserEntityId?`: `string`; `purchaserName?`: `string`; `pack?`: `string`; `productIds`: `string`[]; `giftProductId?`: `string`; `message?`: `string`; \}, `string`\>; `markPaid`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `billingOrderId?`: `string`; `amount?`: `number`; `currency?`: `string`; \}, `null`\>; `setDiscount`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `discountId`: `string`; \}, `boolean`\>; `markNotified`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\>; `startClaim`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; \}, `boolean`\>; `markClaimed`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; `claimOrderId?`: `string`; \}, `null`\>; `markRefunded`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\>; `listByEmail`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; `status?`: `"paid"` \| `"claimed"`; \}, [`GiftRecord`](#giftrecord)[]\>; `countBought`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `purchaserUserId`: `string`; `since`: `number`; `pendingSince`: `number`; `excludeGiftId?`: `string`; \}, \{ `count`: `number`; `oldest`: `number` \| `null`; \}\>; `get`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `giftId`: `string`; \}, [`GiftRecord`](#giftrecord) \| `null`\>; `personalEntity`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `string` \| `null`\>; \} | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| `backend.gifts.create` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `recipientEmail`: `string`; `purchaserUserId`: `string`; `purchaserEntityId?`: `string`; `purchaserName?`: `string`; `pack?`: `string`; `productIds`: `string`[]; `giftProductId?`: `string`; `message?`: `string`; \}, `string`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.billing.recordQuotaKey` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `key`: `string`; \}, `null`\> | Note that an entity counts a plan quota, once per entity and key. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.billing.quotaKeys` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `string`[]\> | Every plan quota an entity has counted, by key. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.billing.getBenefitMetadata` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `benefitIds`: `string`[]; \}, \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `description?`: `string`; `updatedAt`: `number`; \}[]\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.billing.upsertBenefitMetadata` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entries`: \{ `benefitId`: `string`; `metadata`: `Record`\<`string`, `string` \| `number` \| `boolean`\>; `description?`: `string`; \}[]; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.billing.recordSubscriptionChange` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `subscriptionId`: `string`; `userId`: `string`; `pendingChange`: \| \{ `productId`: `string`; `appliesAt`: `number`; \} \| `null`; `resumesAt`: `number` \| `null`; `modifiedAt`: `number`; \}, `null`\> | Record a subscription's scheduled plan change and resume date (epoch ms), unless a newer state is stored. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.billing.subscriptionChanges` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `subscriptionIds`: `string`[]; \}, \{ `subscriptionId`: `string`; `pendingChange`: \| \{ `productId`: `string`; `appliesAt`: `number`; \} \| `null`; `resumesAt`: `number` \| `null`; `modifiedAt`: `number`; \}[]\> | The recorded plan changes and resume dates (epoch ms) of these subscriptions, with the provider time each was recorded at. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.referrals?` | \{ `offerFor`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, \| \{ `id`: `string`; `discount?`: `string`; `trialDays?`: `number`; \} \| `null`\>; `orderPaid`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `ownerId`: `string`; `entityId`: `string`; `orderId`: `string`; \}, \| \{ `id`: `string`; `holdUntil`: `number`; \} \| `null`\>; `orderRefunded`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `orderId`: `string`; \}, `string` \| `null`\>; \} | The referral program (REF): what the first paid checkout and the order webhooks ask of it. Absent from a component built before it. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.referrals.offerFor` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, \| \{ `id`: `string`; `discount?`: `string`; `trialDays?`: `number`; \} \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.referrals.orderPaid` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `ownerId`: `string`; `entityId`: `string`; `orderId`: `string`; \}, \| \{ `id`: `string`; `holdUntil`: `number`; \} \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.referrals.orderRefunded` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `orderId`: `string`; \}, `string` \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts` | \{ `create`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `recipientEmail`: `string`; `purchaserUserId`: `string`; `purchaserEntityId?`: `string`; `purchaserName?`: `string`; `pack?`: `string`; `plan?`: `string`; `months?`: `number`; `deliverAt?`: `number`; `productIds`: `string`[]; `giftProductId?`: `string`; `message?`: `string`; \}, `string`\>; `markPaid`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `billingOrderId?`: `string`; `amount?`: `number`; `currency?`: `string`; \}, `null`\>; `setDiscount`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `discountId`: `string`; \}, `boolean`\>; `markNotified`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\>; `startClaim`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; \}, `boolean`\>; `reservePass`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; `until`: `number`; \}, `"reserved"` \| `"busy"` \| `"taken"` \| `"closed"`\>; `releasePass`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; `until`: `number`; \}, `null`\>; `beginCancel`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `until`: `number`; \}, `boolean`\>; `endCancel`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `null`\>; `markClaimed`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; `claimOrderId?`: `string`; \}, `null`\>; `markRefunded`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\>; `listByEmail`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; `status?`: `"claimed"` \| `"paid"`; \}, [`GiftRecord`](#giftrecord)[]\>; `countBought`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `purchaserUserId`: `string`; `since`: `number`; `pendingSince`: `number`; `excludeGiftId?`: `string`; \}, \{ `count`: `number`; `oldest`: `number` \| `null`; \}\>; `get`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `giftId`: `string`; \}, [`GiftRecord`](#giftrecord) \| `null`\>; `personalEntity`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `string` \| `null`\>; `listByPurchaser`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `purchaserUserId`: `string`; \}, [`GiftRecord`](#giftrecord)[]\>; `countToAddress`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; `since`: `number`; `pendingSince`: `number`; `excludeGiftId?`: `string`; \}, `number`\>; `markDelivered`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\>; `noteNotice`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `reminder?`: `boolean`; \}, `null`\>; `setRecipient`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `recipientEmail`: `string`; \}, `boolean`\>; `setDeliverAt`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `deliverAt`: `number`; \}, `boolean`\>; `startPass`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; `subscriptionId`: `string`; `endsAt`: `number`; `returnFrom`: `number`; \}, `boolean`\>; `notePass`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `step`: `"ended"` \| `"return_scheduled"` \| `"noticed"`; \}, `boolean`\>; `activePass`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId`: `string`; \}, \| \{ `id`: `string`; `plan`: `string`; `months?`: `number`; `startedAt`: `number`; `endsAt`: `number`; `subscriptionId?`: `string`; `trial?`: `true`; `rewardId?`: `string`; \} \| `null`\>; `startTrialPass`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `address`: `string`; `userId`: `string`; `entityId`: `string`; `plan`: `string`; `productId`: `string`; `subscriptionId`: `string`; `endsAt`: `number`; `returnFrom`: `number`; \}, `boolean`\>; `startRewardPass`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `rewardId`: `string`; `userId`: `string`; `entityId`: `string`; `plan`: `string`; `months`: `number`; `productId`: `string`; `subscriptionId`: `string`; `endsAt`: `number`; `returnFrom`: `number`; \}, `boolean`\>; `trialPassTaken`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `address`: `string`; \}, `boolean`\>; `due`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `now`: `number`; `limit?`: `number`; \}, \{ `tasks`: [`GiftTask`](#gifttask)[]; `more`: `boolean`; \}\>; `registerSweep`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `wake`: `string`; \}, `null`\>; \} | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.create` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `recipientEmail`: `string`; `purchaserUserId`: `string`; `purchaserEntityId?`: `string`; `purchaserName?`: `string`; `pack?`: `string`; `plan?`: `string`; `months?`: `number`; `deliverAt?`: `number`; `productIds`: `string`[]; `giftProductId?`: `string`; `message?`: `string`; \}, `string`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.gifts.markPaid` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `billingOrderId?`: `string`; `amount?`: `number`; `currency?`: `string`; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.gifts.setDiscount` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `discountId`: `string`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.gifts.markNotified` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.gifts.startClaim` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.reservePass` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; `until`: `number`; \}, `"reserved"` \| `"busy"` \| `"taken"` \| `"closed"`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.releasePass` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; `until`: `number`; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.beginCancel` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `until`: `number`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.endCancel` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.gifts.markClaimed` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; `claimOrderId?`: `string`; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.gifts.markRefunded` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| `backend.gifts.listByEmail` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; `status?`: `"paid"` \| `"claimed"`; \}, [`GiftRecord`](#giftrecord)[]\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.listByEmail` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; `status?`: `"claimed"` \| `"paid"`; \}, [`GiftRecord`](#giftrecord)[]\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.gifts.countBought` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `purchaserUserId`: `string`; `since`: `number`; `pendingSince`: `number`; `excludeGiftId?`: `string`; \}, \{ `count`: `number`; `oldest`: `number` \| `null`; \}\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.gifts.get` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `giftId`: `string`; \}, [`GiftRecord`](#giftrecord) \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.gifts.personalEntity` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, `string` \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.listByPurchaser` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `purchaserUserId`: `string`; \}, [`GiftRecord`](#giftrecord)[]\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.countToAddress` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `email`: `string`; `since`: `number`; `pendingSince`: `number`; `excludeGiftId?`: `string`; \}, `number`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.markDelivered` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.noteNotice` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `reminder?`: `boolean`; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.setRecipient` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `recipientEmail`: `string`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.setDeliverAt` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `deliverAt`: `number`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.startPass` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `userId`: `string`; `entityId`: `string`; `subscriptionId`: `string`; `endsAt`: `number`; `returnFrom`: `number`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.notePass` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `giftId`: `string`; `step`: `"ended"` \| `"return_scheduled"` \| `"noticed"`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.activePass` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId`: `string`; \}, \| \{ `id`: `string`; `plan`: `string`; `months?`: `number`; `startedAt`: `number`; `endsAt`: `number`; `subscriptionId?`: `string`; `trial?`: `true`; `rewardId?`: `string`; \} \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.startTrialPass` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `address`: `string`; `userId`: `string`; `entityId`: `string`; `plan`: `string`; `productId`: `string`; `subscriptionId`: `string`; `endsAt`: `number`; `returnFrom`: `number`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.startRewardPass` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `rewardId`: `string`; `userId`: `string`; `entityId`: `string`; `plan`: `string`; `months`: `number`; `productId`: `string`; `subscriptionId`: `string`; `endsAt`: `number`; `returnFrom`: `number`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.trialPassTaken` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `address`: `string`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.due` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `now`: `number`; `limit?`: `number`; \}, \{ `tasks`: [`GiftTask`](#gifttask)[]; `more`: `boolean`; \}\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.gifts.registerSweep` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `wake`: `string`; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `backend.webhooks` | `WebhookLogRefs` | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.subscriptions` | \{ `recordOffer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entityId`: `string`; `subscriptionId`: `string`; `reason`: `string`; `offer`: [`SaveOfferTerms`](#saveofferterms); `since`: `number`; \}, `string` \| `null`\>; `lastOffer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId`: `string`; `since`: `number`; \}, `number` \| `null`\>; `takeOffer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `offerId`: `string`; `entityId`: `string`; \}, \| \{ `id`: `string`; `entityId`: `string`; `subscriptionId`: `string`; `reason`: `string`; `offer`: [`SaveOfferTerms`](#saveofferterms); `madeAt`: `number`; `acceptedAt?`: `number`; \} \| `null`\>; `releaseOffer`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `offerId`: `string`; \}, `null`\>; `offerCounts`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `since`: `number`; `until`: `number`; \}, \{ `made`: `number`; `accepted`: `number`; `truncated`: `boolean`; \}\>; `recordConsent`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `checkoutId`: `string`; `entityId`: `string`; `userId?`: `string`; `productId`: `string`; `amount`: `number`; `currency`: `string`; `interval`: `string`; `intervalCount`: `number`; `termsVersion?`: `string`; \}, `null`\>; `confirmConsent`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `checkoutId`: `string`; `subscriptionId`: `string`; `at`: `number`; \}, `boolean`\>; `purchasedAt`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `subscriptionId`: `string`; \}, `number` \| `null`\>; `markOnce`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `key`: `string`; `every?`: `number`; \}, `boolean`\>; `recordWithdrawal`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entityId`: `string`; `subscriptionId`: `string`; `userId`: `string`; `productId`: `string`; `at`: `number`; \}, `boolean`\>; `withdrawalOf`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `subscriptionId`: `string`; \}, \| \{ `at`: `number`; `userId`: `string`; \} \| `null`\>; `lifecycleConsole`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId?`: `string`; \}, \{ `saveOffers`: \{ `id`: `string`; `entityId`: `string`; `subscriptionId`: `string`; `reason`: `string`; `offer`: [`SaveOfferTerms`](#saveofferterms); `madeAt`: `number`; `acceptedAt?`: `number`; \}[]; `withdrawals`: \{ `entityId`: `string`; `subscriptionId`: `string`; `userId`: `string`; `productId`: `string`; `at`: `number`; \}[]; `consents`: \{ `entityId`: `string`; `subscriptionId?`: `string`; `productId`: `string`; `amount`: `number`; `currency`: `string`; `interval`: `string`; `intervalCount`: `number`; `termsVersion?`: `string`; `userId?`: `string`; `consentedAt`: `number`; \}[]; \}\>; \} | The billing lifecycle's records (LIFECYCLE): save offers, consent proofs, once-marks and withdrawals. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.subscriptions.recordOffer` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entityId`: `string`; `subscriptionId`: `string`; `reason`: `string`; `offer`: [`SaveOfferTerms`](#saveofferterms); `since`: `number`; \}, `string` \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.subscriptions.lastOffer` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId`: `string`; `since`: `number`; \}, `number` \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.subscriptions.takeOffer` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `offerId`: `string`; `entityId`: `string`; \}, \| \{ `id`: `string`; `entityId`: `string`; `subscriptionId`: `string`; `reason`: `string`; `offer`: [`SaveOfferTerms`](#saveofferterms); `madeAt`: `number`; `acceptedAt?`: `number`; \} \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.subscriptions.releaseOffer` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `offerId`: `string`; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.subscriptions.offerCounts` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `since`: `number`; `until`: `number`; \}, \{ `made`: `number`; `accepted`: `number`; `truncated`: `boolean`; \}\> | The save offers made in a window, and how many were accepted: the Revenue view's count (analytics). | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.subscriptions.recordConsent` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `checkoutId`: `string`; `entityId`: `string`; `userId?`: `string`; `productId`: `string`; `amount`: `number`; `currency`: `string`; `interval`: `string`; `intervalCount`: `number`; `termsVersion?`: `string`; \}, `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.subscriptions.confirmConsent` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `checkoutId`: `string`; `subscriptionId`: `string`; `at`: `number`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.subscriptions.purchasedAt` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `subscriptionId`: `string`; \}, `number` \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.subscriptions.markOnce` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `key`: `string`; `every?`: `number`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.subscriptions.recordWithdrawal` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `entityId`: `string`; `subscriptionId`: `string`; `userId`: `string`; `productId`: `string`; `at`: `number`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.subscriptions.withdrawalOf` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `subscriptionId`: `string`; \}, \| \{ `at`: `number`; `userId`: `string`; \} \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.subscriptions.lifecycleConsole` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId?`: `string`; \}, \{ `saveOffers`: \{ `id`: `string`; `entityId`: `string`; `subscriptionId`: `string`; `reason`: `string`; `offer`: [`SaveOfferTerms`](#saveofferterms); `madeAt`: `number`; `acceptedAt?`: `number`; \}[]; `withdrawals`: \{ `entityId`: `string`; `subscriptionId`: `string`; `userId`: `string`; `productId`: `string`; `at`: `number`; \}[]; `consents`: \{ `entityId`: `string`; `subscriptionId?`: `string`; `productId`: `string`; `amount`: `number`; `currency`: `string`; `interval`: `string`; `intervalCount`: `number`; `termsVersion?`: `string`; `userId?`: `string`; `consentedAt`: `number`; \}[]; \}\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.consents` | \{ `latest`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; `kind`: `string`; \}, \| \{ `kind`: `string`; `version`: `string`; `granted`: `boolean`; `at`: `number`; \} \| `null`\>; \} | The consent ledger: the terms version a renewal's consent proof names. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.consents.latest` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; `kind`: `string`; \}, \| \{ `kind`: `string`; `version`: `string`; `granted`: `boolean`; `at`: `number`; \} \| `null`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.storage?` | \{ `quotaUsage`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `holder`: `string`; \}, `Record`\<`string`, `number`\>\>; \} | What the storage module counts by billing quota key (a holder's files and bytes): a quota read adds it to the count the app claims itself, so a quota shows one number. Absent on a component built before it. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.storage.quotaUsage` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `holder`: `string`; \}, `Record`\<`string`, `number`\>\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.account?` | \{ `isDeleting`: [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId`: `string`; \}, `boolean`\>; \} | Export and erasure: a billing entity an account's erasure is deleting starts no free plan again. Absent on a component built before it. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `backend.account.isDeleting` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `entityId`: `string`; \}, `boolean`\> | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 
 ***
 
@@ -698,7 +1181,7 @@ workspace the owner owns.
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="name-4"></a> `name` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="name-8"></a> `name` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="personal"></a> `personal` | `boolean` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="owner"></a> `owner` | \| \{ `userId`: `string`; `email`: `string`; `name`: `string`; `emailVerified`: `boolean`; \} \| `null` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="ownedentityids"></a> `ownedEntityIds` | `string`[] | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
@@ -718,8 +1201,40 @@ way.
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="userid-2"></a> `userId` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="userid-4"></a> `userId` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="email-1"></a> `email` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+
+***
+
+### BillingAccessRule
+
+Defined in: [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts)
+
+Who a billing call is for, as each of the package's own functions names
+it, and as `billing.requireEntity` takes it from your own:
+
+- `access: 'member'` — any member of the workspace that pays: reading
+  the plan, the features, the credits and the usage, and spending credits;
+- `access: 'manage'` — its owner or an admin, the billing managers:
+  checkout, the portal, the plan's lifecycle, orders and invoices.
+
+Membership and the workspace role are read fresh from the member table
+once per call, and so is the account (a banned one is refused).
+`impersonation: 'refused'` (see [CallerRule](/docs/reference/api/functions#callerrule)) also refuses a
+session an administrator opened as the caller.
+
+#### Extends
+
+- [`CallerRule`](/docs/reference/api/functions#callerrule)
+
+#### Properties
+
+| Property | Type | Description | Inherited from | Defined in |
+| ------ | ------ | ------ | ------ | ------ |
+| <a id="impersonation"></a> `impersonation?` | `"refused"` \| `"allowed"` | A session an administrator opened by impersonating the caller: `'allowed'` unless refused. | [`CallerRule`](/docs/reference/api/functions#callerrule).[`impersonation`](/docs/reference/api/functions#impersonation) | [src/convex/integrations/access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/access.ts) |
+| <a id="recentsignin"></a> `recentSignIn?` | `number` | How recent a sign-in it takes, in seconds since the person signed in to the session (`RECENT_SIGN_IN_SECONDS`, the package's ten minutes, for its own). An older one is refused as `reauthentication_required`, and so is a token that names no session or carries no `authTime`; an administrator's visit is refused as `forbidden` (reason `impersonating`): no sign-in of the person's own stands behind it. A mutation's or an action's rule only: a query is not rerun as time passes. | [`CallerRule`](/docs/reference/api/functions#callerrule).[`recentSignIn`](/docs/reference/api/functions#recentsignin) | [src/convex/integrations/access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/access.ts) |
+| <a id="access"></a> `access` | `"member"` \| `"manage"` | - | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="reread"></a> `reread?` | `boolean` | Read the member table and the account again even when this call already did: after the same call changed the caller's membership or role. | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 
 ***
 
@@ -747,12 +1262,13 @@ caller has a `null` identity.
 Defined in: [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts)
 
 Billing configuration: every option `setupBilling` reads, and nothing else.
-The access token, environment and webhook secret default to the required
-`BILLING_ACCESS_TOKEN` / `BILLING_ENVIRONMENT` / `BILLING_WEBHOOK_SECRET`
-env vars, so `setupBilling(components, { email })` needs no env plumbing.
+The access token and webhook secret default to the
+`BILLING_ACCESS_TOKEN` / `BILLING_WEBHOOK_SECRET` env vars, and the
+provider environment follows `BACKEND_ENVIRONMENT` (the provider's
+production on `production`, its sandbox everywhere else), so `setupBilling(components, { email })` needs no env plumbing.
 
 The billing entity resolves from identity claims out of the box — the
-active workspace (`billTo: 'organization'`, the default) or the signed-in
+active workspace (`billTo: 'workspace'`, the default) or the signed-in
 user (`billTo: 'user'`) — so [SetupBillingConfig.resolveEntity](#resolveentity) is an
 override, not required wiring.
 
@@ -761,24 +1277,59 @@ override, not required wiring.
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="email-2"></a> `email` | [`BillingEmail`](#billingemail) | The app's `setupEmail` instance. A gift's recipient hears of it through its `gift` template once the purchase is paid; restyle it there, with `setupEmail(components, { templates: { gift } })`. Checked when `setupBilling` runs: an import cycle through `email.ts` can hand it over as `undefined` despite the type, and that fails the deploy instead of the first paid gift. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="audit"></a> `audit?` | [`BillingAudit`](#billingaudit) | The app's `setupAudit` instance (`backend/audit.ts`): billing records its events through it — a checkout opened, the plan changed, a webhook's subscription, order, refund and benefit, a gift, a credit balance at its mark — so they reach its `onEvent` too. Without it they are recorded on the component's own trail. A free plan's own events record nothing. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="paths"></a> `paths?` | `Partial`\<[`BackendPaths`](/docs/reference/api/auth#backendpaths)\> | The app's paths, from the `paths.generated.ts` the Nuxt module writes from nuxt.config: the plan-pass and renewal emails link billing managers to `{SITE_URL}{paths.settings}` (`pages.settings`, `/settings` by default). | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="accesstoken"></a> `accessToken?` | `string` | Provider access token. Defaults to the required `BILLING_ACCESS_TOKEN` env var. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="environment"></a> `environment?` | `"sandbox"` \| `"production"` | Provider environment. Defaults to the required `BILLING_ENVIRONMENT` env var (`'sandbox'` otherwise). | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="webhooksecret"></a> `webhookSecret?` | `string` | Webhook signature secret. Defaults to the required `BILLING_WEBHOOK_SECRET` env var. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="products-1"></a> `products?` | `Record`\<`string`, `string`\> | Friendly product keys → provider product ids (`{ pro: '…' }`), so a current subscription reads with its `productKey`. Usually supplied via `catalog`; an explicit map wins. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="trustedorigins"></a> `trustedOrigins?` | `string`[] | Origins, besides `SITE_URL`'s, a checkout, a gift checkout or the customer portal may send the buyer back to (`['https://app.example.com']`) — a second domain the app is served from, say. Every other return or embed URL is refused as `invalid_input`. With `AUTH_TRUST_LOCAL_ORIGINS=1` (local development) loopback origins are trusted too. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="billto"></a> `billTo?` | `"user"` \| `"organization"` | Who owns subscriptions and credits: the active workspace (`'organization'`, the default — members share the workspace's plan and credits) or the individual user (`'user'`, for B2C apps without shared billing). | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="resolveentity"></a> `resolveEntity?` | (`ctx`) => `Promise`\<[`BillingEntity`](#billingentity) \| `null`\> | Resolve the billing entity yourself, in place of the identity claims `billTo` reads. One resolver for every context: the reactive reads (`getCurrentSubscription`, `getFeatures`, `getCredits`), checkout and the portal, spends and the subscription lifecycle. It is called with every context, signed in or not, so it must return `null` when `ctx.auth.getUserIdentity()` does: reads then answer `null`, and provider operations refuse. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="products-2"></a> `products?` | `Record`\<`string`, `string`\> | Friendly product keys → provider product ids (`{ pro: '…' }`), so a current subscription reads with its `productKey`. Usually supplied via `catalog`; an explicit map wins. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="trustedorigins"></a> `trustedOrigins?` | `string`[] | Origins, besides `SITE_URL`'s, a checkout, a gift checkout or the customer portal may send the buyer back to (`['https://app.example.com']`) — a second domain the app is served from, say. Every other return or embed URL is refused as `invalid_input`. On a `development` `BACKEND_ENVIRONMENT` local origins are trusted too: loopback on any port, and `.localhost` names over https. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="billto"></a> `billTo?` | `"workspace"` \| `"user"` | Who owns subscriptions and credits: the active workspace (`'workspace'`, the default — members share the workspace's plan and credits) or the individual user (`'user'`, for B2C apps without shared billing). With `'workspace'` the entity is a workspace, and every call checks the caller's membership and role in it, read fresh from the member table: members read and spend, its owner and admins also buy and manage (see [BillingAccessRule](#billingaccessrule)). With `'user'` the caller manages their own billing, or whatever entity your `resolveEntity` returns for them. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="resolveentity"></a> `resolveEntity?` | (`ctx`, `rule?`) => `Promise`\<[`BillingEntity`](#billingentity) \| `null`\> | Resolve the billing entity yourself, in place of the identity claims `billTo` reads. One resolver for every context: the reactive reads (`getCurrentSubscription`, `getFeatures`, `getCredits`), checkout and the portal, spends and the subscription lifecycle. It is called with every context, signed in or not, so it must return `null` when `ctx.auth.getUserIdentity()` does: reads then answer `null`, and provider operations refuse. With `billTo: 'workspace'` what it returns must be a workspace the caller belongs to: every billing call, the gifts included, reads their membership and role in it fresh; an entity of your own (a team in your own tables) goes with `billTo: 'user'`, where your resolver is the check. When a call checks its caller it hands the resolver its [BillingAccessRule](#billingaccessrule) too: refuse a caller who may not have that access by throwing a refusal (`backendError('forbidden', { reason: 'not_billing_manager' })`), which the reads answer as `null`, or by returning `null`. Treat a missing rule as the strictest case: refuse anything but `access: 'member'` to a caller who may only read. `billing.resolveEntity`, which checks nobody, passes none. **Guarantee** - Runs: in every billing function's ctx: a query, a mutation or an action - Delivery: on every billing call, the reads included - Order: before the call reads or writes anything - When it throws: a refusal it throws answers the reads with `null` and refuses the rest - Idempotency: a read only; return `null` when there is no identity | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="ratelimiter"></a> `rateLimiter?` | [`BillingRateLimiter`](#billingratelimiter) | Throttle every client-callable function that reaches the live provider — `syncEntitlements`, `syncProducts`, checkout, the subscription-lifecycle actions, order history and invoices. Pass your `setupRateLimiter(...)` limiter and each authenticated call is checked against the `billingSync` limit (10/min, keyed by the workspace/user), so a caller can't loop one to amplify the provider fan-out. `giftCheckout` burns the same limit keyed by the purchaser. Omit to leave them unthrottled. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="multiplesubscriptions"></a> `multipleSubscriptions?` | `boolean` | Let one billing entity hold several live subscriptions at once (a plan plus add-ons, say). The upstream single-subscription read throws the moment a second one exists, so this switches `getCurrentSubscription` to the subscriptions-array-first shape ([CurrentSubscriptions](#currentsubscriptions)) and makes `subscriptionId` the way lifecycle actions pick their target. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="requireadmin"></a> `requireAdmin?` | (`ctx`) => `Promise`\<`void`\> | Gate the admin-tier billing actions (`refundOrder` — moving real money). Throw from here to refuse. The default requires an `admin` role claim on the caller's identity (the admin plugin's role, carried on the JWT); supply your own to check permissions, a workspace role, or an allowlist. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="events"></a> `events?` | `Partial`\<`WebhookEventHandlers`\> | React to billing webhook events, keyed by the provider's own event names (`'order.paid'`, `'subscription.active'`, …). Your handler runs **after** the built-in entitlement-cache refresh (and gift fulfilment), so features/credits read fresh inside it. Events outside the built-in refresh set are mounted too. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="cangift"></a> `canGift?` | (`ctx`, `input`) => \| `true` \| `Promise`\< \| `true` \| \{ `allowed`: `false`; `message?`: `string`; \}\> \| \{ `allowed`: `false`; `message?`: `string`; \} | Decide who may receive a gift, before `giftCheckout` opens the purchaser's checkout — only addresses on your own domain, say, or only sandbox addresses on a public demo. It adds to the package's own rules, which always hold: no gift to the purchaser's own address, an earlier paid order of the purchaser's first, and [SetupBillingConfig.giftLimit](#giftlimit). Return `true` to allow, or a refusal whose `message` `giftCheckout` throws as a `ConvexError`, so it reaches the purchaser even where production redacts other errors (default: "This address can't receive gifts."). Called with the action ctx, so it can read your own tables; `recipientEmail` is lower-cased, and `purchaserEntityId` is the billing entity that pays. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="requireadmin"></a> `requireAdmin?` | (`ctx`) => `Promise`\<`void`\> | Gate the admin-tier billing functions (`refundOrder` — moving real money — and the webhook delivery log). Throw from here to refuse. The default requires the `admin` role on the account, read fresh from the user table (the admin plugin's role), so a demoted admin is refused on their next call; supply your own to check permissions, a workspace role, or an allowlist. `refundOrder` refuses an impersonated session before either gate runs. **Guarantee** - Runs: in the admin-tier function's ctx (`refundOrder`, the webhook log) - Delivery: on every admin-tier call - Order: after the impersonation refusal, before the call - When it throws: the call is refused - Idempotency: a read only | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="events"></a> `events?` | `Partial`\<`WebhookEventHandlers`\> | React to billing webhook events, keyed by the provider's own event names (`'order.paid'`, `'subscription.active'`, …). Your handler runs **after** the built-in entitlement-cache refresh (and gift fulfilment), so features/credits read fresh inside it. Events outside the built-in refresh set are mounted too. **Guarantee** - Runs: in the webhook's HTTP action, after the built-in entitlement refresh and gift fulfilment - Delivery: at least once: a delivery already processed answers 200 without running it again, but one that threw is redelivered - Order: as the provider delivers: no order across events - When it throws: logged as `handler_error`, answered 500, and the provider retries - Idempotency: key what it writes on the event's id | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="cangift"></a> `canGift?` | (`ctx`, `input`) => \| `true` \| `Promise`\< \| `true` \| \{ `allowed`: `false`; `message?`: `string`; \}\> \| \{ `allowed`: `false`; `message?`: `string`; \} | Decide who may receive a gift, before `giftCheckout` opens the purchaser's checkout — only addresses on your own domain, say, or only sandbox addresses on a public demo. It adds to the package's own rules, which always hold: no gift to the purchaser's own address, an earlier paid order of the purchaser's first, and [SetupBillingConfig.giftLimit](#giftlimit). Return `true` to allow, or a refusal whose `message` `giftCheckout` throws as a `ConvexError`, so it reaches the purchaser even where production redacts other errors (default: "This address can't receive gifts."). Called with the action ctx, so it can read your own tables; `recipientEmail` is lower-cased, and `purchaserEntityId` is the billing entity that pays. **Guarantee** - Runs: in `giftCheckout`'s action ctx, after the package's own gift rules - Delivery: once per gift checkout - Order: before the purchaser's checkout opens - When it throws: the error fails the gift checkout; return a refusal instead, whose message reaches the purchaser as `forbidden`, reason `gift_refused` - Idempotency: a read only | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="giftlimit"></a> `giftLimit?` | \{ `max?`: `number`; `days?`: `number`; \} | How many gifts one purchaser may buy in a window: `max` paid gifts in `days` days (default 10 in 30). A stolen card that can buy gifts for strangers is a way to cash it out, and a claimed gift can't be taken back, so the cap holds whatever rate limiter the app passes. A further purchase is `rate_limited` (`limit: 'gifts'`). | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `giftLimit.max?` | `number` | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | `giftLimit.days?` | `number` | - | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="credits-2"></a> `credits?` | `Record`\<`string`, [`CreditMeterConfig`](#creditmeterconfig)\> | Named credit meters: spend by friendly name (`spendCredits({ meter: 'credits' })`, `useCredits('credits')`) instead of provider meter ids. Usually supplied via `catalog`; explicit entries here win. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="catalog"></a> `catalog?` | `Partial`\<`Record`\<`"sandbox"` \| `"production"`, [`BillingCatalogIds`](#billingcatalogids) \| `undefined`\>\> | The environment-keyed id map generated by `nuxt-backend billing sync` (`backend/billing.generated.ts`): fills `products` and `credits` for the active `BILLING_ENVIRONMENT`, so provider UUIDs live in exactly one generated file. Explicit `products`/`credits` config wins. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="onunknownevent"></a> `onUnknownEvent?` | (`ctx`, `event`) => `Promise`\<`void`\> | Called for an **authentic** (signature-verified) webhook event whose type this package's provider SDK cannot parse — e.g. an event newer than the installed package. The delivery is acknowledged with 202 either way, so unknown types can never put the endpoint into a retry loop. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="checkoutdiscount"></a> `checkoutDiscount?` | (`ctx`, `input`) => \| `string` \| `Promise`\<`string` \| `null` \| `undefined`\> \| `null` \| `undefined` | Pick a server-side discount for a plan's checkout: the key of a catalog discount, or `null` for none. It runs on every checkout of a catalog plan that names no discount of its own (no `discount`, `discountCode` or `discountId`), from `<PricingTable>`, `useBilling().checkout` and `billing.checkout` alike: the place to give a cohort its price, such as founder pricing for accounts made before a launch. It decides who qualifies; the provider still checks the discount's dates, caps and per-customer limit, and one it no longer redeems (ended, used up) is dropped: the checkout opens again without it, at the regular price. A discount that applies to none of the checkout's products is never sent. A key the catalog does not have throws, naming it. `userId` is the person checking out, `entityId` the billing entity that pays (the workspace, with `billTo: 'workspace'`). **Guarantee** - Runs: in the checkout's action ctx, after the caller and every input are checked - Delivery: once per checkout of a catalog plan that names no discount of its own - Order: before the provider checkout is created - When it throws: the checkout fails with the error - Idempotency: a read only | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="credits-2"></a> `credits?` | `Record`\<`string`, [`CreditMeterConfig`](#creditmeterconfig)\> | Named credit meters: spend by friendly name (`spendCredits({ meter: 'credits' })`, `useCredits({ meter: 'credits' })`) instead of provider meter ids. Usually supplied via `catalog`; explicit entries here win. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="catalog"></a> `catalog?` | `Partial`\<`Record`\<`"sandbox"` \| `"production"`, [`BillingCatalogIds`](#billingcatalogids) \| `undefined`\>\> | The environment-keyed id map generated by `nuxt-backend billing sync` (`backend/billing.generated.ts`): fills `products` and `credits` for the deployment's billing environment, so provider UUIDs live in exactly one generated file. Explicit `products`/`credits` config wins. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="lifecycle"></a> `lifecycle?` | [`BillingLifecycle`](#billinglifecycle) | The billing lifecycle beyond the provider's own (LIFECYCLE): save offers by cancellation reason for the cancel flow, the abandoned-checkout hand-off, the annual renewal reminder for short cycles, and the EU withdrawal button. Each is off until named. **Example** `setupBilling(components, { catalog, email, lifecycle: { saveOffers: { too_expensive: { discount: 'stay30' }, unused: { pause: { months: 2 } } }, abandonedCheckout: true, renewalReminders: true, withdrawal: true, }, })` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="onunknownevent"></a> `onUnknownEvent?` | (`ctx`, `event`) => `Promise`\<`void`\> | Called for an **authentic** (signature-verified) webhook event whose type this package's provider SDK cannot parse — e.g. an event newer than the installed package. The delivery is acknowledged with 202 when it returns, so an unknown type never puts the endpoint into a retry loop; a throw answers 500, and the provider redelivers. **Guarantee** - Runs: in the webhook's HTTP action, for a verified event of a type this package does not know - Delivery: at least once: answered 202 when it returns, and redelivered when it throws - Order: as the provider delivers: no order across events - When it throws: logged as `handler_error`, answered 500, and the provider retries - Idempotency: key what it writes on the event's id | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+
+***
+
+### AccountBillingErasureInput
+
+Defined in: [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts)
+
+What an account's erasure hands billing: the account, the workspaces that go with it, and the ones it leaves.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="userid-5"></a> `userId` | `string` | - | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="deleted"></a> `deleted` | readonly `string`[] | The workspaces deleted with the account. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="left"></a> `left` | readonly `string`[] | The workspaces the account leaves, others staying. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+
+***
+
+### AccountBillingRecord
+
+Defined in: [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts)
+
+One billing entity's part of an account's export.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="entityid-2"></a> `entityId` | `string` | - | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="subscriptions"></a> `subscriptions` | `unknown`[] | Its subscriptions, as the app synced them from the provider. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="orders"></a> `orders` | \| \{ `id`: `string`; `createdAt`: `string`; `status`: `string`; `productId`: `string` \| `null`; `amount`: `number`; `currency`: `string`; `billingReason`: `string`; \}[] \| `null` | Its newest orders at the provider; `null` when the provider could not be read. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 
 ***
 
@@ -790,49 +1341,510 @@ Defined in: [src/convex/integrations/billing/types/surface.ts](https://github.co
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="api"></a> `api` | `Pick`\<\{ `changeCurrentSubscription`: `RegisteredAction`\<`"public"`, \{ `productId`: `string`; \}, `Promise`\<`void`\>\>; `cancelCurrentSubscription`: `RegisteredAction`\<`"public"`, \{ `revokeImmediately?`: `boolean`; \}, `Promise`\<`void`\>\>; `getConfiguredProducts`: `RegisteredQuery`\<`"public"`, \{ \}, `Promise`\<\{ \[`key`: `string`\]: \| \{ `benefits?`: \{ `createdAt`: ...; `deletable`: ...; `description`: ...; `id`: ...; `metadata?`: ...; `modifiedAt`: ...; `organizationId`: ...; `properties?`: ...; `selectable`: ...; `type`: ...; \}[]; `createdAt`: `string`; `description`: `string` \| `null`; `id`: `string`; `isArchived`: `boolean`; `isRecurring`: `boolean`; `medias`: \{ `checksumEtag`: ... \| ...; `checksumSha256Base64`: ... \| ...; `checksumSha256Hex`: ... \| ...; `createdAt`: `string`; `id`: `string`; `isUploaded`: `boolean`; `lastModifiedAt`: ... \| ...; `mimeType`: `string`; `name`: `string`; `organizationId`: `string`; `path`: `string`; `publicUrl`: `string`; `service?`: ... \| ...; `size`: `number`; `sizeReadable`: `string`; `storageVersion`: ... \| ...; `version`: ... \| ...; \}[]; `metadata?`: `Record`\<`string`, `any`\>; `modifiedAt`: `string` \| `null`; `name`: `string`; `organizationId`: `string`; `priceAmount?`: `number`; `prices`: \{ `amountType?`: ... \| ...; `capAmount?`: ... \| ... \| ...; `createdAt`: `string`; `id`: `string`; `isArchived`: `boolean`; `maximumAmount?`: ... \| ... \| ...; `meter?`: ... \| ...; `meterId?`: ... \| ...; `minimumAmount?`: ... \| ... \| ...; `modifiedAt`: ... \| ...; `presetAmount?`: ... \| ... \| ...; `priceAmount?`: ... \| ...; `priceCurrency?`: ... \| ...; `productId`: `string`; `recurringInterval?`: ... \| ... \| ...; `seatTiers?`: ... \| ...; `source?`: ... \| ...; `type?`: ... \| ...; `unitAmount?`: ... \| ...; \}[]; `recurringInterval?`: `string` \| `null`; `recurringIntervalCount?`: `number` \| `null`; `trialInterval?`: `string` \| `null`; `trialIntervalCount?`: `number` \| `null`; \} \| `undefined`; \}\>\>; `listAllProducts`: `RegisteredQuery`\<`"public"`, \{ \}, `Promise`\<\{ `benefits?`: \{ `createdAt`: `string`; `deletable`: `boolean`; `description`: `string`; `id`: `string`; `metadata?`: ... \| ...; `modifiedAt`: ... \| ...; `organizationId`: `string`; `properties?`: `any`; `selectable`: `boolean`; `type`: `string`; \}[]; `createdAt`: `string`; `description`: `string` \| `null`; `id`: `string`; `isArchived`: `boolean`; `isRecurring`: `boolean`; `medias`: \{ `checksumEtag`: `string` \| `null`; `checksumSha256Base64`: `string` \| `null`; `checksumSha256Hex`: `string` \| `null`; `createdAt`: `string`; `id`: `string`; `isUploaded`: `boolean`; `lastModifiedAt`: `string` \| `null`; `mimeType`: `string`; `name`: `string`; `organizationId`: `string`; `path`: `string`; `publicUrl`: `string`; `service?`: `string`; `size`: `number`; `sizeReadable`: `string`; `storageVersion`: `string` \| `null`; `version`: `string` \| `null`; \}[]; `metadata?`: `Record`\<`string`, `any`\>; `modifiedAt`: `string` \| `null`; `name`: `string`; `organizationId`: `string`; `priceAmount?`: `number`; `prices`: \{ `amountType?`: `string`; `capAmount?`: `number` \| `null`; `createdAt`: `string`; `id`: `string`; `isArchived`: `boolean`; `maximumAmount?`: `number` \| `null`; `meter?`: \{ `id`: ...; `name`: ...; \}; `meterId?`: `string`; `minimumAmount?`: `number` \| `null`; `modifiedAt`: `string` \| `null`; `presetAmount?`: `number` \| `null`; `priceAmount?`: `number`; `priceCurrency?`: `string`; `productId`: `string`; `recurringInterval?`: `string` \| `null`; `seatTiers?`: ...[]; `source?`: `string`; `type?`: `string`; `unitAmount?`: `string`; \}[]; `recurringInterval?`: `string` \| `null`; `recurringIntervalCount?`: `number` \| `null`; `trialInterval?`: `string` \| `null`; `trialIntervalCount?`: `number` \| `null`; \}[]\>\>; `listAllSubscriptions`: `RegisteredQuery`\<`"public"`, \{ \}, `Promise`\<\{ `amount`: `number` \| `null`; `cancelAtPeriodEnd`: `boolean`; `canceledAt?`: `string` \| `null`; `checkoutId`: `string` \| `null`; `createdAt`: `string`; `currency`: `string` \| `null`; `currentPeriodEnd`: `string` \| `null`; `currentPeriodStart`: `string`; `customFieldData?`: `Record`\<`string`, `any`\>; `customerCancellationComment?`: `string` \| `null`; `customerCancellationReason?`: `string` \| `null`; `customerId`: `string`; `discountId?`: `string` \| `null`; `endedAt`: `string` \| `null`; `endsAt?`: `string` \| `null`; `id`: `string`; `metadata`: `Record`\<`string`, `any`\>; `modifiedAt`: `string` \| `null`; `priceId?`: `string`; `product`: \| \{ `benefits?`: ...[]; `createdAt`: `string`; `description`: `string` \| `null`; `id`: `string`; `isArchived`: `boolean`; `isRecurring`: `boolean`; `medias`: \{ `checksumEtag`: ...; `checksumSha256Base64`: ...; `checksumSha256Hex`: ...; `createdAt`: ...; `id`: ...; `isUploaded`: ...; `lastModifiedAt`: ...; `mimeType`: ...; `name`: ...; `organizationId`: ...; `path`: ...; `publicUrl`: ...; `service?`: ...; `size`: ...; `sizeReadable`: ...; `storageVersion`: ...; `version`: ...; \}[]; `metadata?`: `Record`\<..., ...\>; `modifiedAt`: `string` \| `null`; `name`: `string`; `organizationId`: `string`; `prices`: \{ `amountType?`: ...; `capAmount?`: ...; `createdAt`: ...; `id`: ...; `isArchived`: ...; `maximumAmount?`: ...; `meter?`: ...; `meterId?`: ...; `minimumAmount?`: ...; `modifiedAt`: ...; `presetAmount?`: ...; `priceAmount?`: ...; `priceCurrency?`: ...; `productId`: ...; `recurringInterval?`: ...; `seatTiers?`: ...; `source?`: ...; `type?`: ...; `unitAmount?`: ...; \}[]; `recurringInterval?`: `string` \| `null`; `recurringIntervalCount?`: `number` \| `null`; `trialInterval?`: `string` \| `null`; `trialIntervalCount?`: `number` \| `null`; \} \| `null`; `productId`: `string`; `recurringInterval`: `string` \| `null`; `recurringIntervalCount?`: `number`; `seats?`: `number` \| `null`; `startedAt`: `string` \| `null`; `status`: `string`; `trialEnd?`: `string` \| `null`; `trialStart?`: `string` \| `null`; \}[]\>\>; `generateCheckoutLink`: `RegisteredAction`\<`"public"`, \{ `metadata?`: `Record`\<`string`, `string`\>; `trialInterval?`: `string` \| `null`; `trialIntervalCount?`: `number` \| `null`; `subscriptionId?`: `string`; `locale?`: `string`; `productIds`: `string`[]; `origin`: `string`; `successUrl`: `string`; \}, `Promise`\<\{ `url`: `string`; \}\>\>; `generateCustomerPortalUrl`: `RegisteredAction`\<`"public"`, \{ `returnUrl?`: `string`; \}, `Promise`\<\{ `url`: `string`; \}\>\>; \}, `"getConfiguredProducts"`\> & \{ `listAllSubscriptions`: `RegisteredQuery`\<`"public"`\>; `giftCheckout`: `RegisteredAction`\<`"public"`\>; `generateCheckoutLink`: `RegisteredAction`\<`"public"`, [`CheckoutOptions`](#checkoutoptions), `Promise`\<\{ `url`: `string`; \}\>\>; `generateCustomerPortalUrl`: `RegisteredAction`\<`"public"`, \{ `returnUrl?`: `string`; \}, `Promise`\<\{ `url`: `string`; \}\>\>; \} | The ready-made checkout, portal, price-list and gift functions to re-export from your Convex module. Of the provider's own `api()` only `getConfiguredProducts` (the price list) is kept; the rest are this package's, and refuse with catalog codes (see `backendError`): - `generateCheckoutLink` sells only the app's catalog, returns only to the site (`SITE_URL` or `trustedOrigins`), refuses the metadata keys the package reads back, and takes a discount code and campaign attribution; the trial and a discount by id are [Billing.checkout](#checkout)'s. - `generateCustomerPortalUrl` returns only to the site. - `giftCheckout` gifts a catalog credit pack, by its key. - `listAllSubscriptions` resolves the billing entity like the reactive reads do: `null` instead of a throw for claimless callers. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="functions"></a> `functions` | \{ `getCurrentSubscription`: `RegisteredQuery`\<`"public"`\>; `getFeatures`: `RegisteredQuery`\<`"public"`\>; `getCredits`: `RegisteredQuery`\<`"public"`\>; `syncEntitlements`: `RegisteredAction`\<`"public"`\>; `syncProducts`: `RegisteredAction`\<`"internal"`\>; `getReceivedGifts`: `RegisteredQuery`\<`"public"`\>; `claimGift`: `RegisteredAction`\<`"public"`\>; `getWebhookDeliveries`: `RegisteredQuery`\<`"public"`\>; `updateSubscription`: `RegisteredAction`\<`"public"`\>; `cancelSubscription`: `RegisteredAction`\<`"public"`\>; `uncancelSubscription`: `RegisteredAction`\<`"public"`\>; `pauseSubscription`: `RegisteredAction`\<`"public"`\>; `resumeSubscription`: `RegisteredAction`\<`"public"`\>; `getOrders`: `RegisteredAction`\<`"public"`\>; `getInvoiceUrl`: `RegisteredAction`\<`"public"`\>; `getUsageHistory`: `RegisteredAction`\<`"public"`\>; `refundOrder`: `RegisteredAction`\<`"public"`\>; \} | Ready-made, client-callable functions to re-export from your `billing.ts` so `useBilling` / `useFeatures` / `useCredits` / `useGifts` work with zero hand-wiring: the reactive current-subscription, feature-gating and credit-balance queries, a `syncEntitlements` action to refresh the cache after checkout / top-up, an **internal** `syncProducts` action to pull the provider's product catalog into the reactive products table (fresh deployments render empty pricing until `npx convex run billing:syncProducts` runs once — webhooks keep it fresh afterwards), and the gift queries/claim action. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.getCurrentSubscription` | `RegisteredQuery`\<`"public"`\> | - | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.getFeatures` | `RegisteredQuery`\<`"public"`\> | - | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.getCredits` | `RegisteredQuery`\<`"public"`\> | - | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.syncEntitlements` | `RegisteredAction`\<`"public"`\> | - | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.syncProducts` | `RegisteredAction`\<`"internal"`\> | Ops-only (internal): `npx convex run billing:syncProducts`. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.getReceivedGifts` | `RegisteredQuery`\<`"public"`\> | - | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.claimGift` | `RegisteredAction`\<`"public"`\> | - | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.getWebhookDeliveries` | `RegisteredQuery`\<`"public"`\> | The webhook delivery log, newest first — admin-tier, like `refundOrder` (see `requireAdmin` on [SetupBillingConfig](#setupbillingconfig)): `null` for anyone else, signed out included. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.updateSubscription` | `RegisteredAction`\<`"public"`\> | Switch the caller's subscription to another product. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.cancelSubscription` | `RegisteredAction`\<`"public"`\> | Cancel at period end (default) or revoke immediately. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.uncancelSubscription` | `RegisteredAction`\<`"public"`\> | Undo a scheduled cancellation. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.pauseSubscription` | `RegisteredAction`\<`"public"`\> | Pause at period end. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.resumeSubscription` | `RegisteredAction`\<`"public"`\> | Resume a paused subscription immediately. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.getOrders` | `RegisteredAction`\<`"public"`\> | The caller's order history, read live from the provider. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.getInvoiceUrl` | `RegisteredAction`\<`"public"`\> | A signed invoice URL for one of the caller's orders. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.getUsageHistory` | `RegisteredAction`\<`"public"`\> | The caller's metered consumption history, read live from the provider. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| `functions.refundOrder` | `RegisteredAction`\<`"public"`\> | Refund an order — admin-tier (see `requireAdmin` on [SetupBillingConfig](#setupbillingconfig)). | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="api"></a> `api` | `Pick`\<\{ `changeCurrentSubscription`: `RegisteredAction`\<`"public"`, \{ `productId`: `string`; \}, `Promise`\<`void`\>\>; `cancelCurrentSubscription`: `RegisteredAction`\<`"public"`, \{ `revokeImmediately?`: `boolean`; \}, `Promise`\<`void`\>\>; `getConfiguredProducts`: `RegisteredQuery`\<`"public"`, \{ \}, `Promise`\<\{ \[`key`: `string`\]: \| \{ `benefits?`: \{ `createdAt`: ...; `deletable`: ...; `description`: ...; `id`: ...; `metadata?`: ...; `modifiedAt`: ...; `organizationId`: ...; `properties?`: ...; `selectable`: ...; `type`: ...; \}[]; `createdAt`: `string`; `description`: `string` \| `null`; `id`: `string`; `isArchived`: `boolean`; `isRecurring`: `boolean`; `medias`: \{ `checksumEtag`: ... \| ...; `checksumSha256Base64`: ... \| ...; `checksumSha256Hex`: ... \| ...; `createdAt`: `string`; `id`: `string`; `isUploaded`: `boolean`; `lastModifiedAt`: ... \| ...; `mimeType`: `string`; `name`: `string`; `organizationId`: `string`; `path`: `string`; `publicUrl`: `string`; `service?`: ... \| ...; `size`: `number`; `sizeReadable`: `string`; `storageVersion`: ... \| ...; `version`: ... \| ...; \}[]; `metadata?`: `Record`\<`string`, `any`\>; `modifiedAt`: `string` \| `null`; `name`: `string`; `organizationId`: `string`; `priceAmount?`: `number`; `prices`: \{ `amountType?`: ... \| ...; `capAmount?`: ... \| ... \| ...; `createdAt`: `string`; `id`: `string`; `isArchived`: `boolean`; `maximumAmount?`: ... \| ... \| ...; `meter?`: ... \| ...; `meterId?`: ... \| ...; `minimumAmount?`: ... \| ... \| ...; `modifiedAt`: ... \| ...; `presetAmount?`: ... \| ... \| ...; `priceAmount?`: ... \| ...; `priceCurrency?`: ... \| ...; `productId`: `string`; `recurringInterval?`: ... \| ... \| ...; `seatTiers?`: ... \| ...; `source?`: ... \| ...; `type?`: ... \| ...; `unitAmount?`: ... \| ...; \}[]; `recurringInterval?`: `string` \| `null`; `recurringIntervalCount?`: `number` \| `null`; `trialInterval?`: `string` \| `null`; `trialIntervalCount?`: `number` \| `null`; \} \| `undefined`; \}\>\>; `listAllProducts`: `RegisteredQuery`\<`"public"`, \{ \}, `Promise`\<\{ `benefits?`: \{ `createdAt`: `string`; `deletable`: `boolean`; `description`: `string`; `id`: `string`; `metadata?`: ... \| ...; `modifiedAt`: ... \| ...; `organizationId`: `string`; `properties?`: `any`; `selectable`: `boolean`; `type`: `string`; \}[]; `createdAt`: `string`; `description`: `string` \| `null`; `id`: `string`; `isArchived`: `boolean`; `isRecurring`: `boolean`; `medias`: \{ `checksumEtag`: `string` \| `null`; `checksumSha256Base64`: `string` \| `null`; `checksumSha256Hex`: `string` \| `null`; `createdAt`: `string`; `id`: `string`; `isUploaded`: `boolean`; `lastModifiedAt`: `string` \| `null`; `mimeType`: `string`; `name`: `string`; `organizationId`: `string`; `path`: `string`; `publicUrl`: `string`; `service?`: `string`; `size`: `number`; `sizeReadable`: `string`; `storageVersion`: `string` \| `null`; `version`: `string` \| `null`; \}[]; `metadata?`: `Record`\<`string`, `any`\>; `modifiedAt`: `string` \| `null`; `name`: `string`; `organizationId`: `string`; `priceAmount?`: `number`; `prices`: \{ `amountType?`: `string`; `capAmount?`: `number` \| `null`; `createdAt`: `string`; `id`: `string`; `isArchived`: `boolean`; `maximumAmount?`: `number` \| `null`; `meter?`: \{ `id`: ...; `name`: ...; \}; `meterId?`: `string`; `minimumAmount?`: `number` \| `null`; `modifiedAt`: `string` \| `null`; `presetAmount?`: `number` \| `null`; `priceAmount?`: `number`; `priceCurrency?`: `string`; `productId`: `string`; `recurringInterval?`: `string` \| `null`; `seatTiers?`: ...[]; `source?`: `string`; `type?`: `string`; `unitAmount?`: `string`; \}[]; `recurringInterval?`: `string` \| `null`; `recurringIntervalCount?`: `number` \| `null`; `trialInterval?`: `string` \| `null`; `trialIntervalCount?`: `number` \| `null`; \}[]\>\>; `listAllSubscriptions`: `RegisteredQuery`\<`"public"`, \{ \}, `Promise`\<\{ `amount`: `number` \| `null`; `cancelAtPeriodEnd`: `boolean`; `canceledAt?`: `string` \| `null`; `checkoutId`: `string` \| `null`; `createdAt`: `string`; `currency`: `string` \| `null`; `currentPeriodEnd`: `string` \| `null`; `currentPeriodStart`: `string`; `customFieldData?`: `Record`\<`string`, `any`\>; `customerCancellationComment?`: `string` \| `null`; `customerCancellationReason?`: `string` \| `null`; `customerId`: `string`; `discountId?`: `string` \| `null`; `endedAt`: `string` \| `null`; `endsAt?`: `string` \| `null`; `id`: `string`; `metadata`: `Record`\<`string`, `any`\>; `modifiedAt`: `string` \| `null`; `priceId?`: `string`; `product`: \| \{ `benefits?`: ...[]; `createdAt`: `string`; `description`: `string` \| `null`; `id`: `string`; `isArchived`: `boolean`; `isRecurring`: `boolean`; `medias`: \{ `checksumEtag`: ...; `checksumSha256Base64`: ...; `checksumSha256Hex`: ...; `createdAt`: ...; `id`: ...; `isUploaded`: ...; `lastModifiedAt`: ...; `mimeType`: ...; `name`: ...; `organizationId`: ...; `path`: ...; `publicUrl`: ...; `service?`: ...; `size`: ...; `sizeReadable`: ...; `storageVersion`: ...; `version`: ...; \}[]; `metadata?`: `Record`\<..., ...\>; `modifiedAt`: `string` \| `null`; `name`: `string`; `organizationId`: `string`; `prices`: \{ `amountType?`: ...; `capAmount?`: ...; `createdAt`: ...; `id`: ...; `isArchived`: ...; `maximumAmount?`: ...; `meter?`: ...; `meterId?`: ...; `minimumAmount?`: ...; `modifiedAt`: ...; `presetAmount?`: ...; `priceAmount?`: ...; `priceCurrency?`: ...; `productId`: ...; `recurringInterval?`: ...; `seatTiers?`: ...; `source?`: ...; `type?`: ...; `unitAmount?`: ...; \}[]; `recurringInterval?`: `string` \| `null`; `recurringIntervalCount?`: `number` \| `null`; `trialInterval?`: `string` \| `null`; `trialIntervalCount?`: `number` \| `null`; \} \| `null`; `productId`: `string`; `recurringInterval`: `string` \| `null`; `recurringIntervalCount?`: `number`; `seats?`: `number` \| `null`; `startedAt`: `string` \| `null`; `status`: `string`; `trialEnd?`: `string` \| `null`; `trialStart?`: `string` \| `null`; \}[]\>\>; `generateCheckoutLink`: `RegisteredAction`\<`"public"`, \{ `metadata?`: `Record`\<`string`, `string`\>; `trialInterval?`: `string` \| `null`; `trialIntervalCount?`: `number` \| `null`; `subscriptionId?`: `string`; `locale?`: `string`; `productIds`: `string`[]; `origin`: `string`; `successUrl`: `string`; \}, `Promise`\<\{ `url`: `string`; \}\>\>; `generateCustomerPortalUrl`: `RegisteredAction`\<`"public"`, \{ `returnUrl?`: `string`; \}, `Promise`\<\{ `url`: `string`; \}\>\>; \}, `"getConfiguredProducts"`\> & \{ `getPricing`: `RegisteredQuery`\<`"public"`, \{ `currency?`: `string`; `discount?`: `string`; \}, `Promise`\<[`Pricing`](/docs/reference/api/use-pricing#pricing)\>\>; `listAllSubscriptions`: `RegisteredQuery`\<`"public"`\>; `giftCheckout`: `RegisteredAction`\<`"public"`\>; `generateCheckoutLink`: `RegisteredAction`\<`"public"`, [`CheckoutOptions`](#checkoutoptions), `Promise`\<\{ `url`: `string`; \}\>\>; `generateCustomerPortalUrl`: `RegisteredAction`\<`"public"`, \{ `returnUrl?`: `string`; \}, `Promise`\<\{ `url`: `string`; \}\>\>; `getCurrentSubscription`: `RegisteredQuery`\<`"public"`\>; `getFeatures`: `RegisteredQuery`\<`"public"`\>; `getCredits`: `RegisteredQuery`\<`"public"`\>; `getBillingAccess`: `RegisteredQuery`\<`"public"`\>; `syncEntitlements`: `RegisteredAction`\<`"public"`\>; `syncProducts`: `RegisteredAction`\<`"internal"`\>; `startFreePlan`: `RegisteredAction`\<`"internal"`\>; `getReceivedGifts`: `RegisteredQuery`\<`"public"`\>; `claimGift`: `RegisteredAction`\<`"public"`\>; `getSentGifts`: `RegisteredQuery`\<`"public"`\>; `resendGift`: `RegisteredAction`\<`"public"`\>; `changeGiftRecipient`: `RegisteredAction`\<`"public"`\>; `rescheduleGift`: `RegisteredAction`\<`"public"`\>; `cancelGift`: `RegisteredAction`\<`"public"`\>; `runGiftSweep`: `RegisteredAction`\<`"internal"`\>; `getBillingConsole`: `RegisteredQuery`\<`"public"`, \{ `entityId?`: `string`; \}, `Promise`\<[`BillingConsole`](#billingconsole) \| `null`\>\>; `updateSubscription`: `RegisteredAction`\<`"public"`\>; `cancelSubscription`: `RegisteredAction`\<`"public"`, \{ `subscriptionId?`: `string`; `atPeriodEnd?`: `boolean`; `reason?`: [`CancellationReason`](#cancellationreason); `comment?`: `string`; `offer?`: `false`; \}, `Promise`\<[`CancelOutcome`](/docs/reference/api/use-billing#canceloutcome)\>\>; `acceptSaveOffer`: `RegisteredAction`\<`"public"`, \{ `offerId`: `string`; \}, `Promise`\<`null`\>\>; `getWithdrawal`: `RegisteredQuery`\<`"public"`, `Record`\<`string`, `never`\>, `Promise`\< \| \{ `period`: \| [`WithdrawalPeriod`](/docs/reference/api/use-billing#withdrawalperiod) \| `null`; \} \| `null`\>\>; `withdraw`: `RegisteredAction`\<`"public"`, \{ `subscriptionId?`: `string`; \}, `Promise`\<\{ `withdrawnAt`: `number`; \}\>\>; `uncancelSubscription`: `RegisteredAction`\<`"public"`\>; `cancelPendingChange`: `RegisteredAction`\<`"public"`\>; `pauseSubscription`: `RegisteredAction`\<`"public"`\>; `resumeSubscription`: `RegisteredAction`\<`"public"`\>; `getOrders`: `RegisteredAction`\<`"public"`\>; `getInvoiceUrl`: `RegisteredAction`\<`"public"`\>; `getUsageHistory`: `RegisteredAction`\<`"public"`\>; `refundOrder`: `RegisteredAction`\<`"public"`\>; `getRevenue`: `RegisteredAction`\<`"public"`, \{ `since`: `number`; `until?`: `number`; `interval?`: [`RevenueInterval`](#revenueinterval); \}, `Promise`\<[`RevenueReport`](#revenuereport)\>\>; \} | Every client-callable function billing gives your app, the one bag to re-export from `backend/billing.ts`: the composables call each by name. The checkout, portal, price-list and gift functions first. Of the provider's own `api()` only `getConfiguredProducts` (the product of each catalog key) is kept; the rest are this package's, and refuse with catalog codes (see `backendError`): - `getPricing` is the catalog as a pricing page shows it — plans with their monthly and yearly prices, packs with their price per credit, and a public promotion when asked for one (`discount`, its key or code) — public, so `/pricing` renders on the server for any visitor. - `generateCheckoutLink` sells only the app's catalog, returns only to the site (`SITE_URL` or `trustedOrigins`), refuses the metadata keys the package reads back, and takes a discount code, a public promotion by key and campaign attribution; the trial, a promotion without a code and a discount by id are [Billing.checkout](#checkout)'s. - `generateCustomerPortalUrl` returns only to the site. - `giftCheckout` gifts a catalog credit pack by its key, or a plan as a pass by its key and a length in months; `deliverAt` dates it. - `getSentGifts`, `resendGift`, `changeGiftRecipient`, `rescheduleGift` and `cancelGift` are the purchaser's side of a gift until it is claimed (a cancel refunds the purchase, behind a recent sign-in); `runGiftSweep` is internal, woken by the component's cron. - `listAllSubscriptions` resolves the billing entity like the reactive reads do: `null` instead of a throw for claimless callers. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="webhookevents"></a> `webhookEvents` | [`BillingWebhookEventHandlers`](#billingwebhookeventhandlers) | Typed billing webhook handlers for `registerBackendRoutes` (mounted at `/billing/events`) that keep the reactive cache fresh (subscriptions, benefit grants, credit balances) and fulfil paid gifts. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="webhookhandler"></a> `webhookHandler` | (`ctx`, `request`) => `Promise`\<`Response`\> | The guarded `/billing/events` endpoint `registerBackendRoutes` mounts: fail-closed (503 while the secret is unset, 413 over the size cap, 403 on bad signatures across the rotation list, 200 on redeliveries of processed ids, 202 for authentic-but-unknown types) with every delivery outcome recorded in the component's delivery log. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="getcustomerstate"></a> `getCustomerState` | (`ctx`, `args`) => `Promise`\<[`CustomerEntitlements`](#customerentitlements)\> | Resolve a user's full billing entitlement state (active plans, benefits, and credit-meter balances) live from the provider. Call from an **action**; the ready-made `syncEntitlements` already caches the result for you. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="checkout"></a> `checkout` | (`ctx`, `options`) => `Promise`\<\{ `url`: `string`; \}\> | A checkout for the caller's billing entity, from server code — the `generateCheckoutLink` checks, plus what only the server chooses: a `trial` of at most 30 days (or `false` to remove the product's own) and a `discountId`. Call it from your own action, after deciding the caller qualifies. **Example** `// A 30-day trial for people who came through a partner. The product is // still checked against the catalog, and the URLs against the site. export const partnerCheckout = action({ args: { productId: v.string(), origin: v.string(), successUrl: v.string() }, handler: async (ctx, { productId, ...urls }) => { if (!(await cameThroughPartner(ctx))) throw backendError('forbidden', { reason: 'permission' }) return billing.checkout(ctx, { productIds: [productId], ...urls, trial: { interval: 'day', count: 30 } }) }, })` | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="checkout"></a> `checkout` | (`ctx`, `options`) => `Promise`\<\{ `url`: `string`; \}\> | A checkout for the caller's billing entity, from server code — the `generateCheckoutLink` checks, plus what only the server chooses: a `trial` of at most 30 days (or `false` to remove the product's own), a `discount` of the catalog by key (one without a code included) and a `discountId`. Call it from your own action, after deciding the caller qualifies. A discount the provider no longer redeems is refused as `invalid_input` (`discount`): check out again without it to sell at the regular price. **Example** `// A 30-day trial for people who came through a partner. The product is // still checked against the catalog, and the URLs against the site. export const partnerCheckout = action({ args: { productId: v.string(), origin: v.string(), successUrl: v.string() }, handler: async (ctx, { productId, ...urls }) => { if (!(await cameThroughPartner(ctx))) throw backendError('forbidden', { reason: 'permission' }) return billing.checkout(ctx, { productIds: [productId], ...urls, trial: { interval: 'day', count: 30 } }) }, })` | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="portal"></a> `portal` | (`ctx`, `options?`) => `Promise`\<\{ `url`: `string`; \}\> | A customer-portal session for the caller's billing entity, from server code — what `generateCustomerPortalUrl` returns. With workspaces the session is the caller's own member of the workspace's billing customer, and only its owner or a billing manager gets one: anyone else is `forbidden` (reason `not_billing_manager`). An entity that never paid is `not_ready` (reason `no_customer`). `returnUrl` must be on the site's own origin or a `trustedOrigins` entry. **Example** `export const openBilling = action({ args: {}, handler: ctx => billing.portal(ctx, { returnUrl: `${process.env.SITE_URL}/app/billing` }), })` | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="spendcredits"></a> `spendCredits` | (`ctx`, `event`) => `Promise`\<`void`\> | Spend prepaid credits — call from your own **server** action when a metered feature is used. The billing entity (workspace or user, per `billTo`) resolves from the caller's identity; pass `userId` to spend for a specific entity. With a configured `meter` (or raw `meterId`), the spend reserves against the cached balance atomically (strictly prepaid — two concurrent spends can never both pass), ingests the provider event, then settles; a failed run releases the reservation and consumes nothing. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="refundcredits"></a> `refundCredits` | (`ctx`, `event`) => `Promise`\<`void`\> | Give credits back on a **sum** meter (compensating negative-value event + optimistic cache re-credit). Count meters cannot be refunded. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="reservecredits"></a> `reserveCredits` | (`ctx`, `event`) => `Promise`\<[`SpendReservation`](#spendreservation)\> | The reserve step of a spend, alone — for flows that run work between the guard and the charge (`setupAi().meteredAction` / streaming). Atomically reserves against the cached balance (throws when insufficient) and returns serializable addressing data for [Billing.settleSpend](#settlespend) / [Billing.releaseSpend](#releasespend). `allowRefresh: false` skips the cold-cache self-heal (required from mutation contexts — the refresh fetches). | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="reservecredits"></a> `reserveCredits` | (`ctx`, `event`) => `Promise`\<[`SpendReservation`](#spendreservation)\> | The reserve step of a spend, alone — for flows that run work between the guard and the charge (`setupAi().meteredAction` / streaming). Atomically reserves against the cached balance (throws when insufficient) and returns serializable addressing data for [Billing.settleSpend](#settlespend) / [Billing.releaseSpend](#releasespend). `allowRefresh: false` skips the cold-cache self-heal (required from mutation contexts — the refresh fetches). `hold`, in ms, keeps the reservation that long instead of ten minutes (a week at most): a queued job's credits, held until it starts. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="settlespend"></a> `settleSpend` | (`ctx`, `reservation`, `options?`) => `Promise`\<`void`\> | Ingest the provider event for a reservation and finalize the spend. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="releasespend"></a> `releaseSpend` | (`ctx`, `reservation`) => `Promise`\<`void`\> | Undo a reservation whose work failed — nothing is charged. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="resolveentity-1"></a> `resolveEntity` | (`ctx`) => `Promise`\<[`BillingEntity`](#billingentity) \| `null`\> | Resolve the caller's billing entity the way every billing function does: `setupBilling`'s `resolveEntity` when given, else identity claims — the active workspace (`billTo: 'organization'`) or the signed-in user. `null` when signed out. Any query, mutation or action context will do. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="forgetentity"></a> `forgetEntity` | (`ctx`, `userId`) => `Promise`\<`void`\> | Forget a billing entity: drop its cached entitlements (plans, benefits, credit balances, in-flight reservations). The provider's customer record is untouched — this is the app-side erasure step, e.g. from the `onUserDeleted` auth hook with the deleted user's id (`billTo: 'user'`) or a dissolved workspace's id. A no-op for an unknown entity. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="discounts"></a> `discounts` | [`BillingDiscounts`](#billingdiscounts) | Discount (coupon) management: `create`, `list`, `remove`. Server-side by design — minting discounts is privileged, so wire it through an `internalAction` or your own admin-tier action. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="updatesubscription"></a> `updateSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Switch a subscription to another product (upgrade / downgrade), optionally choosing how the mid-period difference is settled. Call from an **action**; the ready-made `updateSubscription` function does it for the caller. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="cancelsubscription"></a> `cancelSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Cancel a subscription — at period end by default, immediately with `atPeriodEnd: false`. The reason and comment are the customer's own words and are visible to them. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="uncancelsubscription"></a> `uncancelSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Undo a scheduled cancellation, putting the subscription back on renewal. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="reportcost"></a> `reportCost` | (`ctx`, `event`) => `Promise`\<`void`\> | Send what some work cost you to the billing provider's cost insights: one event for the billing entity, with the cost in US cents (sub-cent precision kept) and the model and tokens it used, as a child of the charge it belongs to (`parentId`, that charge's `externalId`). It moves no credits. The job queue sends one per finished job. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="resolveentity-1"></a> `resolveEntity` | (`ctx`) => `Promise`\<[`BillingEntity`](#billingentity) \| `null`\> | Resolve the caller's billing entity the way every billing function does: `setupBilling`'s `resolveEntity` when given, else identity claims — the active workspace (`billTo: 'workspace'`) or the signed-in user. `null` when signed out. Any query, mutation or action context will do. It checks nobody: to act for the entity, check the caller with [Billing.requireEntity](#requireentity). | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="requireentity"></a> `requireEntity` | (`ctx`, `rule`) => `Promise`\<[`BillingEntity`](#billingentity)\> | The caller's billing entity, checked the way the package's own functions check it, for a function of yours: signed in, an account not banned, a member of the workspace that pays, its owner or an admin for `access: 'manage'` — each read fresh, once per call (`reread: true` reads again) — and no impersonated session where the rule refuses one. Throws the refusal: `unauthenticated`, `no_workspace`, or `forbidden` with reason `banned`, `not_member`, `not_billing_manager` or `impersonating`. **Example** `// Only the billing managers of the workspace that pays set its invoice // address, and only in person. export const setInvoiceAddress = mutation({ args: { address: v.string() }, handler: async (ctx, { address }) => { const { userId: workspaceId } = await billing.requireEntity(ctx, { access: 'manage', impersonation: 'refused' }) await ctx.db.insert('invoiceAddresses', { workspaceId, address }) }, })` | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="startfreeplan"></a> `startFreePlan` | (`ctx`, `entityId`) => `Promise`\<`void`\> | Queue the catalog's free plan for one billing entity: a real subscription at the provider, started through the scaffold's workpool (else the scheduler) by `billing:startFreePlan`. Nothing happens for an entity that holds a plan already, or when the catalog has no free plan. Every workspace (or user, with `billTo: 'user'`) the auth layer makes is queued — through `registerBackendRoutes` where the auth routes are mounted, by the function's name anywhere else — and a subscription that ends queues it again; call it yourself for a billing entity the auth layer did not make (one your own code writes, or a migration's), or run the backfill, `npx convex run billing:startFreePlan '{}'`. **Guarantee** - Runs: in the mutation or action that calls it; the start runs later, as an internal action - Delivery: through the scaffold's workpool, retried up to five attempts until the provider takes it; without one, once through the scheduler (re-run the backfill for any it missed) - Order: after the entity exists; whether it holds a plan is read from the provider, never from the synced table a late webhook leaves behind - When it throws: only when the queue can't be written to; the caller's work is not undone by a failed start - Idempotency: safe to repeat; an entity on a plan, free or paid, is left as it is | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="hasfeature"></a> `hasFeature` | (`ctx`, `feature`, `options?`) => `Promise`\<`boolean`\> | Whether the billing entity's plan grants `feature`: its catalog key (the `key` in a benefit's metadata), or the benefit id of a benefit that has no key — the one match `useFeatures().has()` makes, read from the same entitlement cache. In any query, mutation or action. Without `userId` it checks the caller's entity, and answers `false` for a caller with none (signed out, no workspace, no member of it) instead of refusing: for a function that shows more to a plan that has more. An empty `feature` is none: `false`. **Example** `export const report = workspace.query({ args: {}, handler: async ctx => ({ totals: await totalsOf(ctx), breakdown: await billing.hasFeature(ctx, 'reports') ? await breakdownOf(ctx) : null, }), })` | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="requirefeature"></a> `requireFeature` | (`ctx`, `feature`, `options?`) => `Promise`\<`void`\> | Refuse the call unless the billing entity's plan grants `feature` (matched as [Billing.hasFeature](#hasfeature) matches it): `feature_required`, whose `plans` names the catalog plans on sale that include it, in pricing order, for `<UpgradePrompt :plans>` to offer. Without `userId` the caller is checked first, as `requireEntity` checks a member, and refused as it refuses. An empty `feature` is refused as `invalid_input` (field `feature`). The `withFeature(key)` tier of `createFunctions` runs it for a whole function. **Guarantee** Reads the entitlement cache and the products table only: no provider call, on any path. **Guarantee** A caller who may not read the entity's billing is refused for that, never as `feature_required`. **Example** `export const exportReport = action({ args: {}, handler: async (ctx) => { await billing.requireFeature(ctx, 'reports') return await buildExport(ctx) }, })` | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="activeplans"></a> `activePlans` | (`ctx`, `options?`) => `Promise`\<`string`[]\> | The catalog plan keys the billing entity is subscribed to now (`pro`, never `pro:year`), read from the entitlement cache: retired plans included, products outside the catalog left out. In any query, mutation or action. Without `userId` it reads the caller's entity, checked as `hasFeature` checks it, and answers `[]` for a caller with none instead of refusing. What a feature flag's plan targets match (`setupFlags({ billing })`). **Guarantee** Reads the entitlement cache only: no provider call. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="getquota"></a> `getQuota` | (`ctx`, `quota`, `options?`) => `Promise`\<[`QuotaUsage`](/docs/reference/api/use-features#quotausage)\> | **`Experimental`** How many of `quota` the billing entity's plan allows, and how many it holds: the most any of its grants allows (`0` when none names it, `'unlimited'` when one says so), and the count `requireQuota` and `releaseQuota` keep. In any query, mutation or action. Without `userId` it reads the caller's entity, and answers `{ limit: 0, used: 0 }` for a caller with none instead of refusing, as `hasFeature` answers `false`. A quota that counts people (members, seats, users, …) is a `TypeError`: no plan here is priced per seat. **Guarantee** Reads the entitlement cache and the counter only: no provider call. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="requirequota"></a> `requireQuota` | (`ctx`, `quota`, `amount?`, `options?`) => `Promise`\<[`QuotaUsage`](/docs/reference/api/use-features#quotausage)\> | **`Experimental`** Count `amount` (default 1) against the billing entity's `quota`, or refuse the call when it does not fit what the plan allows: `quota_exceeded`, with the `limit`, how many are `used`, the `amount` asked for, and the catalog plans on sale that allow enough (`plans`, in pricing order, for `<UpgradePrompt :plans>` to offer). Call it in the mutation that makes the thing, before writing it: the check, the count and the write are one transaction, so a refused call, or one that fails after it, counts nothing, and two calls at once never overshoot the limit. A quota no grant names allows none. Without `userId` the caller is checked first, as `requireEntity` checks a member. Resolves with the quota as it now stands. Refuses any context but a mutation's with a `TypeError` (an action's read and write could not be one transaction, and a query writes nothing); an empty `quota` or an `amount` that is not a whole number above zero is `invalid_input`. **Guarantee** Reads the entitlement cache, the products table and the counter only: no provider call. **Guarantee** Counts nothing on a refusal, and a limit is never overshot by calls at once. **Example** `export const createProject = workspace.mutation({ args: { name: v.string() }, handler: async (ctx, { name }) => { await billing.requireQuota(ctx, 'projects') return ctx.db.insert('projects', { name, workspaceId: ctx.workspace.id }) }, })` | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="releasequota"></a> `releaseQuota` | (`ctx`, `quota`, `amount?`, `options?`) => `Promise`\<[`QuotaUsage`](/docs/reference/api/use-features#quotausage)\> | **`Experimental`** Give back `amount` (default 1) of the billing entity's `quota`, in the mutation that removes the thing: the count never goes below zero. Checked like [Billing.requireQuota](#requirequota); resolves with the quota as it now stands. **Example** `export const deleteProject = workspace.mutation({ args: { projectId: v.id('projects') }, handler: async (ctx, { projectId }) => { await ctx.db.delete(projectId) await billing.releaseQuota(ctx, 'projects') }, })` | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="forgetentity"></a> `forgetEntity` | (`ctx`, `userId`) => `Promise`\<`void`\> | Forget a billing entity: drop its cached entitlements (plans, benefits, credit balances, in-flight reservations) and its quota counts. The provider's customer record is untouched — this is the app-side erasure step, e.g. from the `onUserDeleted` auth hook with the deleted user's id (`billTo: 'user'`) or a dissolved workspace's id. A no-op for an unknown entity. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="forgetaccount"></a> `forgetAccount` | [`AccountBillingErasure`](#accountbillingerasure) | Billing's part of an account's erasure, which `setupAccount` runs in the app: the provider customer of every billing entity that goes with the account (its personal workspace and any it was the only member of, or the account itself with `billTo: 'user'`) is deleted and anonymized at the provider, which keeps its orders for its books, and its quota counts and cache are forgotten; in a workspace the account leaves, only its member of the team customer is removed. Safe to run again: a customer or a member already gone is fine. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="exportaccount"></a> `exportAccount` | [`AccountBillingExport`](#accountbillingexport) | Billing's part of an account's export, which `setupAccount` runs: the subscriptions and the newest orders of every billing entity the account owns alone. `orders` is `null` when the provider could not be read. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="discounts-2"></a> `discounts` | [`BillingDiscounts`](#billingdiscounts) | Discount (coupon) management: `create`, `list`, `remove`. Server-side by design — minting discounts is privileged, so wire it through an `internalAction` or your own admin-tier action. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="applydiscount"></a> `applyDiscount` | (`ctx`, `options`) => `Promise`\<`Subscription`\> | Put a catalog discount on a billing entity's subscription, by key, from server code that decided the entity qualifies: a win-back offer, a referral reward, a code a subscriber redeems in your own UI. The provider takes it off from the next payment, replacing any discount the subscription had (one at a time; `null` removes it). It checks the dates, the total cap and the plan, never the per-customer limit: keep your own record of who got it. A `once` discount, or one of 12 months or less, covers a whole yearly payment, and a discount follows the subscription across plan changes. Refused as `invalid_input`: a key the catalog does not have or one that does not apply to the plan (`discount`), and the free plan (`subscriptionId`, reason `free_plan`). Call from an action; no client can reach it. **Example** `export const winBack = internalAction({ args: { workspaceId: v.string() }, handler: (ctx, { workspaceId }) => billing.applyDiscount(ctx, { entityId: workspaceId, discount: 'winback' }), })` | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="updatesubscription"></a> `updateSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Switch a subscription to another product (upgrade / downgrade), optionally choosing how the mid-period difference is settled. A switch from a yearly price to a monthly one is scheduled for the paid year's end (`next_period`) whatever `proration` says: the yearly price granted the year's credits up front, so an immediate switch would refund most of the year while those credits stay spent. Call from an **action**; the ready-made `updateSubscription` function does it for the caller. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="cancelsubscription"></a> `cancelSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Cancel a subscription — at period end by default, immediately with `atPeriodEnd: false`. The reason and comment are the customer's own words and are visible to them; the comment is trimmed and refused as `invalid_input` (`comment`) over 500 characters. A period-end cancel of a subscription already set to cancel is refused as `invalid_input` (`subscriptionId`, reason `cancel_scheduled`) before the provider, which takes one cancellation per period, is asked. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="uncancelsubscription"></a> `uncancelSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Undo a scheduled cancellation, putting the subscription back on renewal. Refused as `invalid_input` (`subscriptionId`, reason `no_cancel_scheduled`) when none is scheduled. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="cancelpendingchange"></a> `cancelPendingChange` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Undo a plan change scheduled for the start of the next period, so the subscription renews on the plan it has. Refused as `invalid_input` (`subscriptionId`, reason `no_change_scheduled`) when none is scheduled. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="pausesubscription"></a> `pauseSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Pause a subscription at the end of the current period, optionally with an automatic resume date. Pause/resume are newer than the rest of the lifecycle: the provider's `subscription.paused` / `subscription.resumed` webhooks are known to the installed SDK but not confirmed live here, so entitlement reads treat a paused subscription as still live rather than assuming an event will arrive to say so. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="resumesubscription"></a> `resumeSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Resume a paused subscription immediately, starting a new billing period. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="getorders"></a> `getOrders` | (`ctx`, `options?`) => `Promise`\<[`BillingPage`](#billingpage)\<[`BillingOrder`](#billingorder)\> \| `null`\> | The billing entity's order history, read **live** from the provider — this package keeps no local order table (that would be a ledger, and the provider already is one). `null` when no access token is configured. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="getorders"></a> `getOrders` | (`ctx`, `options?`) => `Promise`\<[`BillingPage`](#billingpage)\<[`BillingOrder`](#billingorder)\> \| `null`\> | The billing entity's order history, read **live** from the provider — this package keeps no local order table (that would be a ledger, and the provider already is one). `null` when no access token is configured. The history lists charges: a subscription's order that charged nothing (a free plan's cycle, a trial's start, a cycle a full discount brought to nothing) is left out, while the provider's pages and `pagination` still count it, so a page may list fewer than `limit`. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="getinvoiceurl"></a> `getInvoiceUrl` | (`ctx`, `orderId`) => `Promise`\< \| \{ `url`: `string`; \} \| `null`\> | A URL to one of the entity's own invoices. `null` when no access token is configured, and `null` while the provider is still generating the PDF (the call asks for generation, then the next call returns the URL). Throws if the order belongs to a different billing account. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="getusagehistory"></a> `getUsageHistory` | (`ctx`, `options?`) => `Promise`\<[`BillingPage`](#billingpage)\<[`UsageEvent`](#usageevent)\> \| `null`\> | The billing entity's metered consumption history, read **live** from the provider's events API. There is no local usage ledger by design: the events this package ingests when it spends credits *are* the record, and the provider bills from them. `null` when no access token is configured. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="refundorder"></a> `refundOrder` | (`ctx`, `options`) => `Promise`\<[`RefundRecord`](#refundrecord)\> | Refund an order — admin-tier, gated by `requireAdmin` ([SetupBillingConfig](#setupbillingconfig)). Omit `amount` to refund whatever is still refundable. Credits are **not** reversed here: meter credits come from the provider's own benefit grants, so the refund's `order.refunded` webhook is what reverses them. This package only drops the entity's in-flight spend reservations and re-reads the provider's balance. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 
+***
+
+### ReferralRefs
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+The component functions the program calls (structural: the generated references satisfy it).
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="codefor"></a> `codeFor` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; \}, \{ `code`: `string`; `sharePages`: `boolean`; \}\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="peekcode"></a> `peekCode` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, \| \{ `code`: `string`; `sharePages`: `boolean`; \} \| `null`\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="setsharing"></a> `setSharing` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `userId`: `string`; `share`: `boolean`; \}, `null`\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="preview"></a> `preview` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `code`: `string`; \}, \| \{ `inviter`: `string` \| `null`; \} \| `null`\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="claim"></a> `claim` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `code`: `string`; `userId`: `string`; `terms`: [`StoredTerms`](#storedterms); \}, \| \{ `claimed`: `true`; `id`: `string`; `referrerId`: `string`; \} \| \{ `claimed`: `false`; `reason`: [`ClaimRefusal`](#claimrefusal); \}\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="mine"></a> `mine` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `userId`: `string`; \}, \{ `claimed`: `number`; `held`: `number`; `rewarded`: `number`; `referrals`: [`ReferralEntry`](#referralentry)[]; \}\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="consolerows"></a> `consoleRows` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `referrerId?`: `string`; \}, [`ReferralConsoleRows`](#referralconsolerows)\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="resolveflag"></a> `resolveFlag` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `id`: `string`; `resolution`: `"release"` \| `"void"`; \}, `boolean`\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="registersweep"></a> `registerSweep` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `wake`: `string`; \}, `null`\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="due"></a> `due` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `now`: `number`; `limit?`: `number`; \}, \{ `ids`: `string`[]; `more`: `boolean`; \}\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="get"></a> `get` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"internal"`, \{ `id`: `string`; \}, [`DueReferral`](#duereferral) \| `null`\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="beginreward"></a> `beginReward` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `id`: `string`; `now`: `number`; \}, `"skip"` \| `"capped"` \| `"grant"`\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="notegrant"></a> `noteGrant` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `id`: `string`; `grant`: \{ `discountId?`: `string`; `endsAt?`: `number`; `done?`: `boolean`; \}; \}, `null`\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="finishreward"></a> `finishReward` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `id`: `string`; \}, `boolean`\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="deferreward"></a> `deferReward` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `id`: `string`; `until`: `number`; \}, `null`\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="closeunrewarded"></a> `closeUnrewarded` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `id`: `string`; `now`: `number`; \}, `boolean`\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="voidreferral"></a> `voidReferral` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"mutation"`, `"internal"`, \{ `id`: `string`; `reason`: `"refunded"` \| `"administrator"` \| `"account_erased"`; \}, `boolean`\> | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### ReferralComponents
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+The components `setupReferrals` is given: the app's generated `components`.
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="backend-1"></a> `backend` | \{ `referrals`: [`ReferralRefs`](#referralrefs); \} | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `backend.referrals` | [`ReferralRefs`](#referralrefs) | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### StoredTerms
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+The terms a referral keeps from its claim.
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="referred"></a> `referred?` | \| \{ `discount`: `string`; \} \| \{ `trialDays`: `number`; \} | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="referrer"></a> `referrer?` | \| \{ `pack`: `string`; \} \| \{ `months`: `number`; `plan?`: `string`; \} | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="holdms"></a> `holdMs` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="caps"></a> `caps` | \{ `perReferrer`: `number` \| `null`; `perMonth`: `number` \| `null`; \} | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `caps.perReferrer` | `number` \| `null` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `caps.perMonth` | `number` \| `null` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### ReferralEntry
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+One referral as its referrer reads it: a state and a time, never who the other person is.
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="id-4"></a> `id` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="state"></a> `state` | [`ReferralState`](#referralstate) | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="claimedat-1"></a> `claimedAt` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="rewardedat"></a> `rewardedAt` | `number` \| `null` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### DueReferral
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+A referral as the sweep grants it.
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="id-5"></a> `id` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="state-1"></a> `state` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="referrerid"></a> `referrerId` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="referredid"></a> `referredId` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="orderid-2"></a> `orderId` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="entityid-3"></a> `entityId` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="terms"></a> `terms` | [`StoredTerms`](#storedterms) | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="grant"></a> `grant?` | \{ `discountId?`: `string`; `endsAt?`: `number`; `done?`: `boolean`; \} | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `grant.discountId?` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `grant.endsAt?` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `grant.done?` | `boolean` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### ReferralConsoleRow
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+One referral row of the admin console.
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="id-6"></a> `id` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="referrerid-1"></a> `referrerId` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="state-2"></a> `state` | [`ReferralState`](#referralstate) | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="claimedat-2"></a> `claimedAt` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="paidat-1"></a> `paidAt` | `number` \| `null` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="holduntil"></a> `holdUntil` | `number` \| `null` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="rewardedat-1"></a> `rewardedAt` | `number` \| `null` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="flags"></a> `flags` | `string`[] | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="released"></a> `released` | `boolean` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="capped"></a> `capped` | `boolean` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="voidedfor"></a> `voidedFor` | `string` \| `null` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### ReferralConsoleRows
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+What the component answers the console.
+
+#### Extended by
+
+- [`ReferralConsole`](#referralconsole)
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="totals-1"></a> `totals` | \{ `claimed`: `number`; `held`: `number`; `rewarded`: `number`; `voided`: `number`; `capped`: `number`; `flagged`: `number`; \} | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `totals.claimed` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `totals.held` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `totals.rewarded` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `totals.voided` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `totals.capped` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `totals.flagged` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="top"></a> `top` | \{ `referrerId`: `string`; `name`: `string` \| `null`; `referrals`: `number`; `rewarded`: `number`; \}[] | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="flagged"></a> `flagged` | [`ReferralConsoleRow`](#referralconsolerow)[] | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="history"></a> `history` | [`ReferralConsoleRow`](#referralconsolerow)[] | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### ReferralConsole
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+The referrals view of the admin console.
+
+#### Extends
+
+- [`ReferralConsoleRows`](#referralconsolerows)
+
+#### Properties
+
+| Property | Type | Description | Inherited from | Defined in |
+| ------ | ------ | ------ | ------ | ------ |
+| <a id="totals-2"></a> `totals` | \{ `claimed`: `number`; `held`: `number`; `rewarded`: `number`; `voided`: `number`; `capped`: `number`; `flagged`: `number`; \} | - | [`ReferralConsoleRows`](#referralconsolerows).[`totals`](#totals-1) | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `totals.claimed` | `number` | - | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `totals.held` | `number` | - | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `totals.rewarded` | `number` | - | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `totals.voided` | `number` | - | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `totals.capped` | `number` | - | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `totals.flagged` | `number` | - | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="top-1"></a> `top` | \{ `referrerId`: `string`; `name`: `string` \| `null`; `referrals`: `number`; `rewarded`: `number`; \}[] | - | [`ReferralConsoleRows`](#referralconsolerows).[`top`](#top) | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="flagged-1"></a> `flagged` | [`ReferralConsoleRow`](#referralconsolerow)[] | - | [`ReferralConsoleRows`](#referralconsolerows).[`flagged`](#flagged) | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="history-1"></a> `history` | [`ReferralConsoleRow`](#referralconsolerow)[] | - | [`ReferralConsoleRows`](#referralconsolerows).[`history`](#history) | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="program"></a> `program` | [`ReferralProgram`](#referralprogram) | The program's terms, as `setupReferrals` was given them. | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### ReferralProgram
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+The program a page describes: what each side gets. `null` for a side with no reward.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="referred-1"></a> `referred` | [`ReferredOffer`](#referredoffer) \| `null` | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="referrer-1"></a> `referrer` | [`ReferrerOffer`](#referreroffer) \| `null` | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="holddays"></a> `holdDays` | `number` | The hold, in days. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="caps-1"></a> `caps` | \{ `perReferrer`: `number` \| `null`; `perMonth`: `number` \| `null`; \} | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `caps.perReferrer` | `number` \| `null` | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| `caps.perMonth` | `number` \| `null` | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### ReferralCodeView
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+A person's own code and the program it belongs to.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="code-2"></a> `code` | `string` | The code, `/r/<code>` or `?ref=<code>`. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="sharepages"></a> `sharePages` | `boolean` | Whether the share pages the person's rows have carry the code. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="program-1"></a> `program` | [`ReferralProgram`](#referralprogram) | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### ReferralsView
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+A person's referrals.
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="claimed"></a> `claimed` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="held"></a> `held` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="rewarded"></a> `rewarded` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="referrals"></a> `referrals` | [`ReferralEntry`](#referralentry)[] | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### ReferralPreview
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+What a visitor reads on the page a referral link opens.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="inviter"></a> `inviter` | `string` \| `null` | The first name of the person who invited them, when they have one. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="program-2"></a> `program` | [`ReferralProgram`](#referralprogram) | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### ReferralsApi
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+The public functions `backend/referrals.ts` re-exports.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="getreferralcode"></a> `getReferralCode` | `RegisteredMutation`\<`"public"`, `Record`\<`string`, `never`\>, `Promise`\<[`ReferralCodeView`](#referralcodeview)\>\> | The signed-in person's code, made on the first call, and the program it belongs to. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="getreferrals"></a> `getReferrals` | `RegisteredQuery`\<`"public"`, `Record`\<`string`, `never`\>, `Promise`\<[`ReferralsView`](#referralsview) \| `null`\>\> | The signed-in person's referrals: counts, and each one's state. `null` when signed out. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="claimreferral"></a> `claimReferral` | `RegisteredMutation`\<`"public"`, \{ `code`: `string`; `fromSignIn?`: `boolean`; \}, `Promise`\< \| \{ `claimed`: `true`; \} \| \{ `claimed`: `false`; `reason`: [`ClaimRefusal`](#claimrefusal); \}\>\> | Claim a code for the signed-in account, the explicit step of a referral. A code that cannot be used is ignored, never an error: `claimed` is `false` and `reason` says why, and the sign-up goes on. `fromSignIn` is the claim a link's page runs on its own after the sign-in it sent the visitor to: it needs a sign-in from the last ten minutes (`reauthentication_required` else), so a crafted link opened by someone signed in earlier claims nothing by itself. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="previewreferral"></a> `previewReferral` | `RegisteredQuery`\<`"public"`, \{ `code`: `string`; \}, `Promise`\<[`ReferralPreview`](#referralpreview) \| `null`\>\> | What a link's code offers, for the page it opens. Anyone may read it. `null` for a code that is none, or of someone who cannot invite. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="setreferralsharing"></a> `setReferralSharing` | `RegisteredMutation`\<`"public"`, \{ `share`: `boolean`; \}, `Promise`\<`null`\>\> | Choose whether share pages carry the signed-in person's code. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="getreferralconsole"></a> `getReferralConsole` | `RegisteredQuery`\<`"public"`, \{ `referrerId?`: `string`; \}, `Promise`\<[`ReferralConsole`](#referralconsole) \| `null`\>\> | The admin console's referrals view. `null` for anyone who is not an administrator now. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="resolvereferral"></a> `resolveReferral` | `RegisteredMutation`\<`"public"`, \{ `id`: `string`; `resolution`: `"release"` \| `"void"`; \}, `Promise`\<\{ `resolved`: `boolean`; \}\>\> | Release or void a flagged referral's reward. An administrator's, in person, with a recent sign-in. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="runreferralsweep"></a> `runReferralSweep` | `RegisteredAction`\<`"internal"`, \{ `op?`: `"sweep"`; `referralId?`: `string`; \}, `Promise`\<`null`\>\> | The sweep that rewards what is due; woken by the component's cron. Internal. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### SetupReferralsOptions
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+What `setupReferrals` takes.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="billing-1"></a> `billing` | [`Billing`](#billing) | The app's `setupBilling` instance: it grants the rewards and reports the payments and refunds. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="rewards"></a> `rewards?` | [`ReferralRewards`](#referralrewards) | What each side gets. With none, the program still attributes sign-ups. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="hold"></a> `hold?` | `number` | How long a reward waits after the first payment (milliseconds). 30 days by default, 14 at the least. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="caps-2"></a> `caps?` | [`ReferralCaps`](#referralcaps) | How many rewards one referrer earns, and the program grants in a month. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### Referrals
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+The app's referral program, from [setupReferrals](#setupreferrals).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="api-1"></a> `api` | [`ReferralsApi`](#referralsapi) | The public functions `backend/referrals.ts` re-exports. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="codefor-1"></a> `codeFor` | (`ctx`, `userId`) => `Promise`\<`string` \| `null`\> | A person's code, for a page that carries it (a share page's badge). Made on the first call from a mutation or an action; a query reads the code that exists. `null` when the person has none, or turned the code off for their share pages. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="terms-1"></a> `terms` | [`ReferralTerms`](#referralterms) | The program's terms as checked, with their defaults. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+
+***
+
+### ReferralRewards
+
+Defined in: [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts)
+
+The rewards of a program; either side may be left out.
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="referred-2"></a> `referred?` | [`ReferredReward`](#referredreward) | [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts) |
+| <a id="referrer-2"></a> `referrer?` | [`ReferrerReward`](#referrerreward) | [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts) |
+
+***
+
+### ReferralCaps
+
+Defined in: [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts)
+
+The caps of a program.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="perreferrer"></a> `perReferrer?` | `number` | The most rewards one referrer earns. | [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts) |
+| <a id="permonth"></a> `perMonth?` | `number` | The most rewards the program grants in a calendar month. | [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts) |
+
+***
+
+### ReferralTerms
+
+Defined in: [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts)
+
+A program's terms as `setupReferrals` checks them: the rewards, the hold in milliseconds and the caps (`null` for none).
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="rewards-1"></a> `rewards` | [`ReferralRewards`](#referralrewards) | [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts) |
+| <a id="holdms-1"></a> `holdMs` | `number` | [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts) |
+| <a id="caps-3"></a> `caps` | \{ `perReferrer`: `number` \| `null`; `perMonth`: `number` \| `null`; \} | [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts) |
+| `caps.perReferrer` | `number` \| `null` | [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts) |
+| `caps.perMonth` | `number` \| `null` | [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts) |
+
 ## Type Aliases
+
+### CatalogInterval
+
+```ts
+type CatalogInterval = "month" | "year";
+```
+
+Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)
+
+A billing interval a plan is sold at: a product per interval, each with its own price.
+
+***
+
+### CatalogCurrencyPrices
+
+```ts
+type CatalogCurrencyPrices = Record<string, CatalogPlanPrices>;
+```
+
+Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)
+
+A plan's prices in several currencies: each lower-case ISO 4217 code to
+the plan's prices in it, `{ usd: { month: 2900 }, eur: { month: 2700 } }`.
+Every currency prices the same intervals, and one of them is the
+catalog's [BillingCatalog.currency](#currency) (the organization's default
+presentment currency when that is unset). Each becomes a native
+presentment price on the same product, so a visitor pays in their own
+currency and the subscription is the same plan.
+
+***
+
+### CatalogPackPrices
+
+```ts
+type CatalogPackPrices = Record<string, number>;
+```
+
+Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)
+
+A pack's price in several currencies: each lower-case ISO 4217 code to
+the price in cents, `{ usd: 2000, eur: 1800 }`. One of them is the
+catalog's [BillingCatalog.currency](#currency).
+
+***
+
+### CatalogDiscountDuration
+
+```ts
+type CatalogDiscountDuration = 
+  | "once"
+  | "forever"
+  | {
+  months: number;
+};
+```
+
+Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)
+
+How long a discount takes money off: the first payment only (`'once'`),
+every payment while the subscription lasts (`'forever'`), or the payments
+of the first `months` months. A one-time pack is paid once whatever the
+duration. On a yearly price `once` covers the whole first year, and
+`months` must be a whole number of years (12, 24, …).
+
+***
+
+### CatalogDiscount
+
+```ts
+type CatalogDiscount = CatalogDiscountTerms & 
+  | {
+  percentOff: number;
+  amountOff?: never;
+}
+  | {
+  amountOff: number | Record<string, number>;
+  percentOff?: never;
+};
+```
+
+Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)
+
+A promotion: a discount declared in the catalog and pushed by `billing
+sync` as the provider's own discount, found again by its key. A
+percentage of the price (`percentOff`, up to two decimals), or a fixed
+amount in cents (`amountOff`) — one per currency the catalog prices in,
+or a number in the catalog's [BillingCatalog.currency](#currency).
+
+#### Example
+
+```ts
+discounts: {
+  launch: {
+    name: 'Launch offer', percentOff: 20, duration: { months: 3 },
+    code: 'LAUNCH20', maxRedemptions: 500, perCustomer: 1, endsAt: '2027-01-31T23:59:59Z',
+    products: { plans: ['pro'], interval: 'month' },
+  },
+}
+```
+
+***
+
+### BillingAudit
+
+```ts
+type BillingAudit = Pick<Audit, "recordBackendEvent">;
+```
+
+Defined in: [src/convex/integrations/billing/activity.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/activity.ts)
+
+Records events through the shared event path: the app's `setupAudit` instance, or the component's own.
+
+***
 
 ### DiscountInput
 
@@ -918,6 +1930,32 @@ Why an order was refunded (provider `refunds.create` reason).
 
 ***
 
+### SaveOfferRule
+
+```ts
+type SaveOfferRule = 
+  | {
+  pause: {
+     months: 1 | 2 | 3;
+  };
+}
+  | {
+  downgrade: string;
+}
+  | {
+  discount: string;
+};
+```
+
+Defined in: [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts)
+
+The one offer the cancel flow makes for a cancellation reason: a pause of
+1 to 3 months at the period's end, a switch to a cheaper plan of the
+catalog at the period's end (its key), or a discount of the catalog
+without a `code` (its key), put on the subscription by the server.
+
+***
+
 ### CurrentSubscriptions
 
 ```ts
@@ -933,8 +1971,9 @@ What `getCurrentSubscription` returns once `multipleSubscriptions`
 because with add-ons there is no single "the" subscription. The primary
 subscription's own fields are spread alongside it, so single-plan consumers
 (`subscription.productId`, `subscription.status`) keep reading exactly as
-before. Still `null` when the entity has no live subscription at all — the
-"null means free plan" contract never changes.
+before. The free plan's subscription is one of them, marked `free: true`.
+Still `null` when the entity has no live subscription at all (no free plan
+in the catalog, or not started yet).
 
 #### Type Declaration
 
@@ -1023,12 +2062,16 @@ type CheckoutOptions = {
   subscriptionId?: string;
   metadata?: Record<string, string>;
   locale?: string;
+  currency?: string;
+  customerIpAddress?: string;
   prefill?: CheckoutPrefill;
   customFields?: Record<string, string | number | boolean>;
   requireBillingAddress?: boolean;
   allowDiscountCodes?: boolean;
   discountCode?: string;
+  discount?: string;
   utm?: CampaignAttribution;
+  emailOptOut?: boolean;
 };
 ```
 
@@ -1042,9 +2085,10 @@ index signature, which only aliases get).
 What is bought and where the buyer lands are checked on the server: every
 product must be in the app's catalog, and `origin` and `successUrl` on
 the site's own origin (`SITE_URL`) or one of `trustedOrigins`. The trial
-is the product's own, and a discount is the code the customer types or
-`discountCode`: a different trial or a discount by id is the server's
-choice, through [Billing.checkout](#checkout).
+is the product's own, and a discount is the code the customer types,
+`discountCode`, or a public promotion of the catalog by its key
+(`discount`): a different trial, a promotion only the server applies and
+a discount by id are the server's choice, through [Billing.checkout](#checkout).
 
 #### Properties
 
@@ -1053,15 +2097,19 @@ choice, through [Billing.checkout](#checkout).
 | <a id="productids"></a> `productIds` | `string`[] | Provider product ids, each one from the app's catalog. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="origin"></a> `origin` | `string` | The origin of the page embedding the checkout (for the iframe handshake). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="successurl"></a> `successUrl` | `string` | Where the buyer lands after paying. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="subscriptionid-4"></a> `subscriptionId?` | `string` | Upgrade one of the entity's own free subscriptions instead of starting a new one. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="subscriptionid-5"></a> `subscriptionId?` | `string` | Upgrade one of the entity's own free subscriptions instead of starting a new one. A plan's checkout upgrades the entity's free plan without it: the server names it. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="metadata-1"></a> `metadata?` | `Record`\<`string`, `string`\> | The app's own keys: none the package reads back (see `RESERVED_METADATA_KEYS`). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="locale"></a> `locale?` | `string` | BCP-47 language tag for the checkout UI. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="currency-2"></a> `currency?` | `string` | The currency to pay in, lower-case ISO 4217: one the catalog prices every product of the checkout in (`getPricing` lists them), else the checkout is refused as `invalid_input` (`currency`). Omit for the catalog's own. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="customeripaddress"></a> `customerIpAddress?` | `string` | The visitor's IP address, for the provider's local pricing: it picks the currency and pre-fills the billing country from the address that creates the checkout, which is otherwise the deployment's. The `useBilling` checkout reads it from the app's server (`/api/backend/visitor-ip`) and sends it; nothing keeps it. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="prefill"></a> `prefill?` | [`CheckoutPrefill`](#checkoutprefill) | Pre-filled customer details. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="customfields-3"></a> `customFields?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | Values for the organization's custom checkout fields, keyed by field slug. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="requirebillingaddress"></a> `requireBillingAddress?` | `boolean` | Require the full billing address, not just the country. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="allowdiscountcodes"></a> `allowDiscountCodes?` | `boolean` | Let the customer type a discount code into the provider's own checkout (default `true`). The provider validates it against the live catalog. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="discountcode"></a> `discountCode?` | `string` | A discount code to apply up front: a campaign link's code, say. The provider checks it like one the customer typed, and a code it does not know refuses the checkout as `invalid_input` (`discountCode`). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="discount-1"></a> `discount?` | `string` | A public promotion of the catalog to apply, by its key (`'launch'`): one with a `code`, for a product it applies to. Any other key is refused as `invalid_input` (`discount`), and so is one the provider no longer redeems (ended, used up), so the caller can check out without it. One discount per checkout: not beside `discountCode`. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="utm"></a> `utm?` | [`CampaignAttribution`](#campaignattribution) | Campaign attribution, stored as `utm_*` metadata. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="emailoptout"></a> `emailOptOut?` | `boolean` | The EU soft opt-in's box, where the checkout showed one (a topic of `setupEmail` has `softOptIn`): `true` when the person ticked "Don't email me", `false` when they left it. Paid, a checkout with `false` joins the person who opened it to those topics, recorded on the consent ledger with the checkout. Omit it where no box was shown: the order then joins nothing. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 
 ***
 
@@ -1077,14 +2125,94 @@ type ServerCheckoutOptions = CheckoutOptions & {
 Defined in: [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts)
 
 What [Billing.checkout](#checkout) takes from server code: everything a client
-may send, plus what only the server chooses.
+may send, plus what only the server chooses. Its `discount` may name any
+discount of the catalog, one without a code included.
 
 #### Type Declaration
 
 | Name | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | `trial?` | [`CheckoutTrial`](#checkouttrial) \| `false` | The trial for this checkout: `false` removes the product's own, an override grants at most 30 days. Omit to keep the product's own trial. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| `discountId?` | `string` | Pre-apply a discount by **id** — the form the provider's checkout payload takes, and the server's to choose: a 100% discount minted for one claim must never be a client's to name. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| `discountId?` | `string` | Pre-apply a discount by **id** — the form the provider's checkout payload takes, and the server's to choose: a 100% discount minted for one claim must never be a client's to name. Prefer `discount` for a catalog promotion. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+
+***
+
+### BenefitKind
+
+```ts
+type BenefitKind = 
+  | "license_key"
+  | "download"
+  | "community"
+  | "repository"
+  | "shared_channel"
+  | "custom"
+  | "credits"
+  | "feature"
+  | "other";
+```
+
+Defined in: [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts)
+
+What a granted benefit gives, in the package's own words rather than the
+provider's benefit types: a license key, file downloads, a role in a
+community server, access to a code repository, a shared chat channel, a
+perk you deliver yourself (`custom`), prepaid credits, a feature of the
+catalog, or `other` for a type newer than the package.
+
+***
+
+### RevenueInterval
+
+```ts
+type RevenueInterval = "day" | "week" | "month";
+```
+
+Defined in: [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts)
+
+How the periods of a read are cut: per day, week or month, as the provider counts them (in UTC).
+
+***
+
+### RevenueMetric
+
+```ts
+type RevenueMetric = 
+  | "monthlyRecurringRevenue"
+  | "annualRecurringRevenue"
+  | "revenue"
+  | "netRevenue"
+  | "activeSubscriptions"
+  | "newSubscriptions"
+  | "renewedSubscriptions"
+  | "churnedSubscriptions"
+  | "canceledSubscriptions"
+  | "churnRate"
+  | "checkouts"
+  | "succeededCheckouts"
+  | "checkoutsConversion"
+  | "lifetimeValue"
+  | "costs"
+  | "costPerUser"
+  | "grossMargin"
+  | "grossMarginPercentage";
+```
+
+Defined in: [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts)
+
+One metric a read returns: money in cents, a count, or a rate as a fraction.
+
+***
+
+### RevenueValues
+
+```ts
+type RevenueValues = Record<RevenueMetric, number | null>;
+```
+
+Defined in: [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts)
+
+A value of every metric; `null` where the provider has none (a margin before any cost was reported).
 
 ***
 
@@ -1105,12 +2233,174 @@ shape `registerBackendRoutes` mounts at `/billing/events`.
 ### BillingEmail
 
 ```ts
-type BillingEmail = Pick<Email, "sendTemplate">;
+type BillingEmail = Pick<Email, "sendTemplate"> & {
+  preferences?: Pick<Email["preferences"], "softOptIn" | "topics">;
+};
 ```
 
 Defined in: [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts)
 
 What billing sends its email through: the app's `setupEmail` instance.
+
+#### Type Declaration
+
+| Name | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| `preferences?` | `Pick`\<[`Email`](/docs/reference/api/email#email-23)\[`"preferences"`\], `"softOptIn"` \| `"topics"`\> | The soft opt-in a paid checkout joins its customer to (`setupEmail({ topics: { <key>: { softOptIn: true } } })`). | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+
+***
+
+### AccountBillingErasure
+
+```ts
+type AccountBillingErasure = (ctx, erasure) => Promise<void>;
+```
+
+Defined in: [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts)
+
+See [Billing.forgetAccount](#forgetaccount).
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `ctx` | `RunWriteCtx` |
+| `erasure` | [`AccountBillingErasureInput`](#accountbillingerasureinput) |
+
+#### Returns
+
+`Promise`\<`void`\>
+
+***
+
+### AccountBillingExport
+
+```ts
+type AccountBillingExport = (ctx, account) => Promise<AccountBillingRecord[]>;
+```
+
+Defined in: [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts)
+
+See [Billing.exportAccount](#exportaccount).
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `ctx` | `RunQueryCtx` |
+| `account` | `Pick`\<[`AccountBillingErasureInput`](#accountbillingerasureinput), `"userId"` \| `"deleted"`\> |
+
+#### Returns
+
+`Promise`\<[`AccountBillingRecord`](#accountbillingrecord)[]\>
+
+***
+
+### ClaimRefusal
+
+```ts
+type ClaimRefusal = 
+  | "invalid"
+  | "own_code"
+  | "already_claimed"
+  | "too_late"
+  | "self_referral";
+```
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+Why a claim recorded nothing.
+
+***
+
+### ReferredOffer
+
+```ts
+type ReferredOffer = 
+  | {
+  kind: "discount";
+  name: string;
+  percentOff?: number;
+  months?: number;
+}
+  | {
+  kind: "trial";
+  days: number;
+};
+```
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+What the person referred gets, in words a page can show.
+
+***
+
+### ReferrerOffer
+
+```ts
+type ReferrerOffer = 
+  | {
+  kind: "pack";
+  name: string;
+}
+  | {
+  kind: "months";
+  months: number;
+};
+```
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+What the referrer gets, in words a page can show.
+
+***
+
+### ReferredReward
+
+```ts
+type ReferredReward = 
+  | {
+  discount: string;
+}
+  | {
+  trialDays: number;
+};
+```
+
+Defined in: [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts)
+
+What the person referred gets: a catalog discount without a code, or trial days, on their first paid checkout.
+
+***
+
+### ReferrerReward
+
+```ts
+type ReferrerReward = 
+  | {
+  pack: string;
+}
+  | {
+  months: number;
+  plan?: string;
+};
+```
+
+Defined in: [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts)
+
+What the referrer gets: a credit pack, or free months of their plan.
+
+***
+
+### ReferralState
+
+```ts
+type ReferralState = "claimed" | "held" | "rewarded" | "voided";
+```
+
+Defined in: [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts)
+
+The states a referral goes through: claimed, held (first payment made, waiting out the hold), rewarded, voided.
 
 ## Variables
 
@@ -1132,23 +2422,30 @@ dispatch — events outside it (a newer provider than this package) land in
 ### defineBillingCatalog()
 
 ```ts
-function defineBillingCatalog(catalog): BillingCatalog;
+function defineBillingCatalog<Catalog>(catalog): Catalog;
 ```
 
 Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)
 
-Declare the billing catalog (typed identity). Push it with
+Declare the billing catalog (typed identity: its keys stay literal, so
+`keyof typeof catalog.discounts` names its promotions). Push it with
 `npx nuxt-backend billing sync`.
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| <a id="type-parameter-catalog"></a> `Catalog` *extends* [`BillingCatalog`](#billingcatalog) |
 
 #### Parameters
 
 | Parameter | Type |
 | ------ | ------ |
-| `catalog` | [`BillingCatalog`](#billingcatalog) |
+| `catalog` | `Catalog` |
 
 #### Returns
 
-[`BillingCatalog`](#billingcatalog)
+`Catalog`
 
 #### Example
 
@@ -1156,7 +2453,7 @@ Declare the billing catalog (typed identity). Push it with
 export default defineBillingCatalog({
   meters: { credits: {} },
   plans: {
-    pro: { name: 'Pro', interval: 'month', price: 2900,
+    pro: { name: 'Pro', prices: { month: 2900, year: 29000 },
       credits: { meter: 'credits', units: 500 }, features: ['priority_support'],
       trial: { interval: 'day', count: 14 },
       usage: [{ meter: 'credits', unitAmount: 5 }] },
@@ -1187,7 +2484,7 @@ has synced, so a mid-configuration deployment degrades gracefully; checkout /
 portal / credit / discount operations need the required
 `BILLING_ACCESS_TOKEN` env var.
 
-Billing follows the tenant: with the default `billTo: 'organization'` the
+Billing follows the tenant: with the default `billTo: 'workspace'` the
 active workspace owns the subscription and credits (every member shares
 them); with `billTo: 'user'` each user is their own customer. Either way
 the entity resolves from identity claims — zero wiring — unless
@@ -1213,9 +2510,129 @@ import { email } from './email'
 
 const billing = setupBilling(components, { email })
 
-export const { generateCheckoutLink, generateCustomerPortalUrl, getConfiguredProducts, giftCheckout } = billing.api
 export const {
+  generateCheckoutLink, generateCustomerPortalUrl, getConfiguredProducts, getPricing, giftCheckout,
   getCurrentSubscription, getFeatures, getCredits, syncEntitlements,
-  getReceivedGifts, claimGift,
-} = billing.functions
+  startFreePlan, getReceivedGifts, claimGift,
+} = billing.api
 ```
+
+***
+
+### setupReferrals()
+
+```ts
+function setupReferrals(components, options): Referrals;
+```
+
+Defined in: [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts)
+
+Set the referral program up in its own backend file (`backend/referrals.ts`).
+Each person gets a code of their own, made the first time they ask. A
+visitor who signs up through it claims the referral; the person's first
+paid order, on the billing entity they pay for, starts the hold, and a
+refund during it voids the referral. When the hold ends the program checks
+the order again, applies the caps and grants the rewards: the referrer's
+pack or free months here, and the person referred already had theirs at
+checkout (a catalog discount, locked on, or trial days).
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `components` | [`ReferralComponents`](#referralcomponents) |
+| `options` | [`SetupReferralsOptions`](#setupreferralsoptions) |
+
+#### Returns
+
+[`Referrals`](#referrals-1)
+
+#### Example
+
+```ts
+import { setupReferrals } from 'nuxt-backend/billing'
+import { DAY } from 'nuxt-backend/rate-limit'
+import { components } from './_generated/api'
+import { billing } from './billing'
+
+export const referrals = setupReferrals(components, {
+  billing,
+  rewards: { referred: { discount: 'friend' }, referrer: { pack: 'credits100' } },
+  hold: 30 * DAY,
+  caps: { perReferrer: 20, perMonth: 500 },
+})
+
+export const { getReferralCode, getReferrals, claimReferral } = referrals.api
+```
+
+## References
+
+### PricedCredits
+
+Re-exports [PricedCredits](/docs/reference/api/use-pricing#pricedcredits)
+
+***
+
+### PricedTrial
+
+Re-exports [PricedTrial](/docs/reference/api/use-pricing#pricedtrial)
+
+***
+
+### PricedPlanPrice
+
+Re-exports [PricedPlanPrice](/docs/reference/api/use-pricing#pricedplanprice)
+
+***
+
+### PricedPlan
+
+Re-exports [PricedPlan](/docs/reference/api/use-pricing#pricedplan)
+
+***
+
+### PricedPack
+
+Re-exports [PricedPack](/docs/reference/api/use-pricing#pricedpack)
+
+***
+
+### PricedOffer
+
+Re-exports [PricedOffer](/docs/reference/api/use-pricing#pricedoffer)
+
+***
+
+### PricedPromotion
+
+Re-exports [PricedPromotion](/docs/reference/api/use-pricing#pricedpromotion)
+
+***
+
+### Pricing
+
+Re-exports [Pricing](/docs/reference/api/use-pricing#pricing)
+
+***
+
+### QuotaUsage
+
+Re-exports [QuotaUsage](/docs/reference/api/use-features#quotausage)
+
+***
+
+### CancelOutcome
+
+Re-exports [CancelOutcome](/docs/reference/api/use-billing#canceloutcome)
+
+***
+
+### SaveOffer
+
+Re-exports [SaveOffer](/docs/reference/api/use-billing#saveoffer)
+
+***
+
+### WithdrawalPeriod
+
+Re-exports [WithdrawalPeriod](/docs/reference/api/use-billing#withdrawalperiod)

@@ -1,0 +1,39 @@
+/*
+ * UsageHistoryEvent's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-usage='event'] {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  [data-usage='event'] + [data-usage='event'] {
+    border-top: 1px solid var(--bk-edge);
+  }
+
+  [data-usage='event-time'] {
+    color: var(--bk-muted);
+    white-space: nowrap;
+  }
+
+  [data-usage='event-name'] {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: ui-monospace, monospace;
+    font-size: 0.8rem;
+  }
+
+  [data-usage='event-units'] {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+}

@@ -4,13 +4,15 @@
 // version chip take the right side from lg up, the phone menu is a drawer
 // that carries them, and Docus's GitHub button is gone (GitHub is a key).
 // The search field takes the width the logo and the keys leave. The menu
-// toggle is the site's IconMenuToggle, drawn in CSS: Docus's
-// animated one was the only motion-v on a docs page.
+// toggle is the site's IconMenuToggle, which says whether the menu is open
+// (`aria-expanded`) and moves with the site's motion. A status region
+// says when the reader picks another package manager (usePackageManager).
 const { forced: forcedColorMode } = useDocusColorMode()
 
 const { isEnabled: isAssistantEnabled } = useAssistant()
 const { isEnabled, locales } = useDocusI18n()
 const { subNavigationMode } = useSubNavigation()
+const { announcement } = usePackageManager()
 </script>
 
 <template>
@@ -26,6 +28,11 @@ const { subNavigationMode } = useSubNavigation()
     </template>
 
     <template #right>
+      <span
+        role="status"
+        class="sr-only"
+      >{{ announcement }}</span>
+
       <AppHeaderCTA />
 
       <template v-if="isAssistantEnabled">

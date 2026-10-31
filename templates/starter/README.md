@@ -62,6 +62,16 @@ Open `/login` and sign in. With no email provider configured yet, the one-time c
 same terminal. Until the first run writes `backend/_generated`, the `#backend/*` imports are
 typed `any`.
 
+## Try everything first
+
+Pick **Start without an account** when the first run asks, and the deployment runs on this machine.
+Sign in with a test address such as `delivered+you@resend.dev`; its code prints in the terminal. Then
+click through the pages the module mounts: `/login`, `/pricing`, `/settings` (workspace, plan and
+credits), `/profile` and `/security`. Billing and email read `missing` until you connect the providers'
+sandboxes below, and their pages show empty states until then.
+[Develop on real sandboxes](https://nuxt-backend.dev/docs/develop/sandboxes) covers each provider's
+test mode.
+
 ## Connect services
 
 Email and billing are optional until you connect them. Copy the names you need from
@@ -71,11 +81,11 @@ Email and billing are optional until you connect them. Copy the names you need f
 npx nuxt-backend env push
 ```
 
-To sell something, fill in `backend/billing.catalog.ts`, then:
+`backend/billing.catalog.ts` is what `/pricing` sells. Once a Polar sandbox token is in `.env.local`,
+push it to the provider's sandbox:
 
 ```bash
-npx nuxt-backend billing sync          # creates the products, writes backend/billing.generated.ts
-npx convex run billing:syncProducts    # loads them into the deployment
+npx nuxt-backend billing sync   # creates the products, writes backend/billing.generated.ts, loads them into the deployment
 ```
 
 `npx nuxt-backend doctor` checks the whole setup and says what is missing.
@@ -120,6 +130,20 @@ it, in one command on your host (with a production `CONVEX_DEPLOY_KEY` in its en
 ```bash
 npx convex deploy --cmd 'npm run build' --cmd-url-env-var-name NUXT_PUBLIC_BACKEND_URL
 ```
+
+`npx nuxt-backend deploy` takes production there from your machine in one command: it links the
+production deployment, pushes its env, deploys the backend, syncs the billing catalog, registers
+both webhooks, writes the app's env into the Vercel project and runs `doctor --prod`.
+
+## Deploy to Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fqruto%2Fnuxt-backend%2Ftree%2Fmain%2Ftemplates%2Fstarter&project-name=nuxt-backend-app&repository-name=nuxt-backend-app&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22convex%22%2C%22productSlug%22%3A%22convex%22%2C%22protocol%22%3A%22storage%22%7D%5D)
+
+The button copies this app into your Git account, adds Convex through the Vercel Marketplace and
+deploys it. `vercel.json` sets the build command, `npx nuxt-backend deploy --build`: it puts the
+env the first push needs on the new production deployment, then ships the backend and the app
+against it. The app starts on the providers' test modes; run `npx nuxt-backend deploy` from a clone
+to make it live ([Start from the deploy template](https://nuxt-backend.dev/docs/ship/deploy/template)).
 
 See [Deployment](https://nuxt-backend.dev/docs/ship/deploy) for the production env vars, and
 the [Nuxt deployment documentation](https://nuxt.com/docs/getting-started/deployment) for hosts.

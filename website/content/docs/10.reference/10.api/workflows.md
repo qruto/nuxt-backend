@@ -44,7 +44,7 @@ One email in an [defineEmailSequence](#defineemailsequence) drip.
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="after"></a> `after` | `number` | Delay before this step, in milliseconds from the previous one. | [src/convex/integrations/workflows.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts) |
-| <a id="email"></a> `email` | (`data`) => \| \{ `to`: `string`; `subject`: `string`; `html?`: `string`; `text?`: `string`; \} \| `null` | Build the email for this step — or return `null` to skip it (e.g. the user already activated and the nudge is moot). | [src/convex/integrations/workflows.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts) |
+| <a id="email"></a> `email` | (`data`, `context`) => [`EmailMessage`](/docs/reference/api/email#emailmessage) \| `null` | Build the email for this step — or return `null` to skip it (e.g. the user already activated and the nudge is moot). `context` holds the recipient's language (`locale`, and `t` over the `messages` of the sequence's `email`) and the `brand`. The `html` (a fragment: build it with `html` from `nuxt-backend/email`, which escapes what it interpolates) goes into the layout every packaged email uses, and the `text` gets the footer's words; an `html` that is a whole document (`<html …>`) is sent as it is. | [src/convex/integrations/workflows.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/workflows.ts) |
 
 ## Type Aliases
 
@@ -169,6 +169,18 @@ it reads the user, ends the sequence when the account is gone (deleted
 since sign-up), and hands the step the account's current `email` and
 `name` in place of the ones captured when it started.
 
+Every step's email goes into the layout the package's own emails use, in
+the recipient's language: the account's (`user.locale`), else a
+`locale` the sequence was started with. Pass the app's `email` (from
+`backend/email.ts`) for its brand and its `messages`; without it, the
+brand comes from `EMAIL_FROM` and `SITE_URL`, and `t` reads English.
+
+A run replays its steps each time it wakes. A step's email may render
+differently on a replay (an edited subject, a new translation, another
+`EMAIL_FROM`, a new layout): the email it sent stays sent, and the run goes
+on. Adding, dropping or moving a step, or a sleep, fails a run that has
+passed it.
+
 #### Type Parameters
 
 | Type Parameter |
@@ -177,13 +189,14 @@ since sign-up), and hands the step the account's current `email` and
 
 #### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `workflow` | `WorkflowManager` |
-| `components` | `SequenceEmailComponents` |
-| `options` | \{ `args`: `Args`; `steps`: [`EmailSequenceStep`](#emailsequencestep)\<`ObjectType`\<`Args`\>\>[]; \} |
-| `options.args` | `Args` |
-| `options.steps` | [`EmailSequenceStep`](#emailsequencestep)\<`ObjectType`\<`Args`\>\>[] |
+| Parameter | Type | Description |
+| ------ | ------ | ------ |
+| `workflow` | `WorkflowManager` | - |
+| `components` | `SequenceEmailComponents` | - |
+| `options` | \{ `args`: `Args`; `steps`: [`EmailSequenceStep`](#emailsequencestep)\<`ObjectType`\<`Args`\>\>[]; `email?`: `Pick`\<[`Email`](/docs/reference/api/email#email-23), `"compose"`\>; \} | - |
+| `options.args` | `Args` | - |
+| `options.steps` | [`EmailSequenceStep`](#emailsequencestep)\<`ObjectType`\<`Args`\>\>[] | - |
+| `options.email?` | `Pick`\<[`Email`](/docs/reference/api/email#email-23), `"compose"`\> | The app's `setupEmail` instance: its brand and `messages` reach every step. |
 
 #### Returns
 
@@ -193,13 +206,17 @@ since sign-up), and hands the step the account's current `email` and
 
 ```ts
 // backend/workflows.ts
+import { html } from 'nuxt-backend/email'
+import { email } from './email'
+
 export const onboardingSequence = defineEmailSequence(workflow, components, {
-  args: { email: v.string(), name: v.string() },
+  email,
+  args: { userId: v.string(), email: v.string(), name: v.string() },
   steps: [
-    { after: 24 * 60 * 60 * 1000, email: ({ email, name }) => ({ to: email, subject: `Your first day, ${name}`, text: '…' }) },
+    { after: 24 * 60 * 60 * 1000, email: ({ email, name }, { t }) => ({ to: email, subject: t('onboarding.day1', { name }), html: html`<p>${t('onboarding.day1Body')}</p>` }) },
     { after: 3 * 24 * 60 * 60 * 1000, email: ({ email }) => ({ to: email, subject: 'Getting the most out of it', text: '…' }) },
   ],
 })
 // started from auth's onUserCreated:
-//   await workflow.start(ctx, internal.workflows.onboardingSequence, { email, name })
+//   await workflow.start(ctx, internal.workflows.onboardingSequence, { userId, email, name })
 ```

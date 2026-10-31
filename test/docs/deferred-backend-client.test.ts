@@ -80,6 +80,34 @@ describe('loading the client', () => {
     expect(load).not.toHaveBeenCalled()
   })
 
+  // A block reads it before it asks: a build with nothing to connect to
+  // says so at once, and a page that has the client goes live at once.
+  it('says where it stands without loading anything', async () => {
+    const load = vi.fn(async () => ({ default: plugin }))
+    const loader = createBackendClientLoader({ url: 'https://x.convex.cloud', load, run: vi.fn() })
+    expect(loader.status()).toBe('deferred')
+    expect(load).not.toHaveBeenCalled()
+    await loader()
+    expect(loader.status()).toBe('loaded')
+    expect(createBackendClientLoader({ url: undefined, load, run: vi.fn() }).status()).toBe('unavailable')
+    expect(load).toHaveBeenCalledOnce()
+  })
+
+  it('stays deferred after a failed load, so a block may try again', async () => {
+    const loader = createBackendClientLoader({ url: 'https://x.convex.cloud', load: () => Promise.reject(new TypeError('404')), run: vi.fn() })
+    await expect(loader()).rejects.toBeInstanceOf(BackendClientChunkError)
+    expect(loader.status()).toBe('deferred')
+    const failing = createBackendClientLoader({
+      url: 'https://x.convex.cloud',
+      load: async () => ({ default: plugin }),
+      run: () => {
+        throw new Error('plugin failed')
+      },
+    })
+    await expect(failing()).rejects.toThrow('plugin failed')
+    expect(failing.status()).toBe('deferred')
+  })
+
   it('tries again after a chunk that would not fetch, and says what failed', async () => {
     const load = vi.fn()
       .mockRejectedValueOnce(new TypeError('Failed to fetch dynamically imported module'))

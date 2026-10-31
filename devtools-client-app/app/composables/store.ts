@@ -1,8 +1,13 @@
 import { reactive } from 'vue'
 import type {
+  DevtoolsBackendHealth,
+  DevtoolsBundles,
   DevtoolsCatalogSummary,
   DevtoolsDeploymentEnv,
   DevtoolsDoctorRun,
+  DevtoolsEmailPreviews,
+  DevtoolsEmailPreviewSend,
+  DevtoolsPanelId,
   DevtoolsServerInfo,
 } from '../../../src/devtools/rpc-types'
 import type {
@@ -24,8 +29,22 @@ export interface PanelState {
   doctor: DevtoolsDoctorRun | null
   doctorRunning: boolean
   catalog: DevtoolsCatalogSummary | null
+  /** The mounts, routes and maintenance (`null` until read). */
+  health: DevtoolsBackendHealth | null
+  healthLoading: boolean
+  /** The Email tab's previews (`null` until read). */
+  emailPreviews: DevtoolsEmailPreviews | null
+  emailPreviewsLoading: boolean
+  /** The last preview sent to a test address, or why it was not; `null` before one. */
+  emailPreviewSend: (DevtoolsEmailPreviewSend & { key: string }) | null
+  emailPreviewSending: boolean
+  /** The Bundles tab's last run (`null` until read). */
+  bundles: DevtoolsBundles | null
+  bundlesRunning: boolean
   /** The newest activity entry the Activity tab has shown (0: none yet). */
   activitySeen: number
+  /** The tab in view. */
+  tab: DevtoolsPanelId
 }
 
 /** The dev server functions the panel calls (each over the RPC, so async). */
@@ -34,7 +53,12 @@ export interface PanelRpc {
   getDeploymentEnv(options?: { refresh?: boolean }): Promise<DevtoolsDeploymentEnv>
   runDoctor(options?: { only?: string[] }): Promise<DevtoolsDoctorRun>
   getCatalog(): Promise<DevtoolsCatalogSummary>
+  getHealth(options?: { refresh?: boolean }): Promise<DevtoolsBackendHealth>
   resolveBackendSource(file: string): Promise<{ filepath?: string }>
+  getBundles(): Promise<DevtoolsBundles>
+  runBundles(): Promise<DevtoolsBundles>
+  getEmailPreviews(options?: { locale?: string }): Promise<DevtoolsEmailPreviews>
+  sendEmailPreview(options: { key: string, locale?: string }): Promise<DevtoolsEmailPreviewSend>
 }
 
 /**
@@ -52,7 +76,16 @@ export function createPanelStore() {
     doctor: null,
     doctorRunning: false,
     catalog: null,
+    health: null,
+    healthLoading: false,
+    emailPreviews: null,
+    emailPreviewsLoading: false,
+    emailPreviewSend: null,
+    emailPreviewSending: false,
+    bundles: null,
+    bundlesRunning: false,
     activitySeen: 0,
+    tab: 'overview',
   })
   let rpc: PanelRpc | null = null
   let bridge: BackendDevtoolsBridge | null = null
@@ -85,6 +118,10 @@ export function createPanelStore() {
       // The page starts its own queries (subscription, credits, deliveries…)
       // only now that someone is looking; a second call is a no-op.
       bridge.activate()
+    },
+    /** Bring a tab into view: the shell's nav, or a capability's channel on the Overview. */
+    select(tab: DevtoolsPanelId) {
+      state.tab = tab
     },
     /** The Activity tab is in view: everything recorded so far counts as seen. */
     markActivitySeen() {
@@ -119,15 +156,68 @@ export function createPanelStore() {
         state.doctorRunning = false
       }
     },
+    /** Read the mounts and the maintenance health (cached for a minute unless `refresh`). */
+    async readHealth(refresh = false) {
+      if (!rpc) return
+      state.healthLoading = true
+      try {
+        state.health = await rpc.getHealth({ refresh })
+      }
+      finally {
+        state.healthLoading = false
+      }
+    },
+    /** Read the last `analyze` run from disk; it measures nothing. */
+    async loadBundles() {
+      if (!rpc) return
+      state.bundles = await rpc.getBundles()
+    },
+    /** Measure the backend's bundle again (it bundles the functions, so only on request); one run at a time. */
+    async runBundles() {
+      if (!rpc || state.bundlesRunning) return
+      state.bundlesRunning = true
+      try {
+        state.bundles = await rpc.runBundles()
+      }
+      finally {
+        state.bundlesRunning = false
+      }
+    },
     async loadCatalog() {
       if (!rpc) return
       state.catalog = await rpc.getCatalog()
+    },
+    /** Render every packaged email in `locale` on the dev deployment (never cached). */
+    async loadEmailPreviews(locale?: string) {
+      if (!rpc) return
+      state.emailPreviewsLoading = true
+      try {
+        state.emailPreviews = await rpc.getEmailPreviews(locale ? { locale } : {})
+      }
+      finally {
+        state.emailPreviewsLoading = false
+      }
+    },
+    /** Send one preview to a test address; one send at a time. */
+    async sendEmailPreview(key: string, locale?: string) {
+      if (!rpc || state.emailPreviewSending) return
+      state.emailPreviewSending = true
+      try {
+        state.emailPreviewSend = { key, ...await rpc.sendEmailPreview({ key, ...(locale ? { locale } : {}) }) }
+      }
+      finally {
+        state.emailPreviewSending = false
+      }
     },
     request(section: DevtoolsOnDemandSection) {
       bridge?.request(section)
     },
     lookupEmail(emailId: string) {
       bridge?.lookupEmail(emailId)
+    },
+    /** Ask a delivery's provider to send it again, as the inspected app's signed-in administrator. */
+    replayWebhook(service: string, deliveryId: string) {
+      bridge?.replayWebhook(service, deliveryId)
     },
     async resolveSource(file: string): Promise<string | undefined> {
       return rpc ? (await rpc.resolveBackendSource(file)).filepath : undefined

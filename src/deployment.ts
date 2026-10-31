@@ -15,6 +15,8 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { siteFromCloudUrl } from './convex/urls'
+import type { DevtoolsDeployment } from './devtools/rpc-types'
 
 /**
  * Whether a `CONVEX_DEPLOYMENT` id names a dev-class deployment: cloud dev
@@ -67,30 +69,19 @@ export function parseEnvFile(content: string): Record<string, string> {
 }
 
 /**
- * `https://<slug>.convex.cloud` → `https://<slug>.convex.site`; null otherwise.
- * Exported for tests.
- *
- * @internal
- */
-export function siteFromCloudUrl(url: string): string | null {
-  const match = url.match(/^(https:\/\/[a-z0-9-]+\.convex)\.cloud\/?$/)
-  return match ? `${match[1]}.site` : null
-}
-
-/**
  * The HTTP-actions origin, from every way it can be known, in precedence
- * order: an explicit site URL, the site-URL env names, the derived deployment
- * URL, and finally the client URL's cloud origin mapped to its `.site` twin —
- * the platform-build case, where `npx convex deploy --cmd-url-env-var-name`
- * exposes only the client URL and nothing else is derivable.
+ * order: the base module's own `NUXT_PUBLIC_CONVEX_SITE_URL` (a custom domain
+ * or a self-hosted backend), the derived deployment URL, and finally the
+ * client URL's cloud origin mapped to its `.site` twin — the platform-build
+ * case, where `npx convex deploy --cmd-url-env-var-name` exposes only the
+ * client URL and nothing else is derivable.
  */
 export function resolveSiteUrl(input: {
-  siteUrl?: string
   url?: string
   env: Record<string, string | undefined>
   derived: DerivedDeploymentUrls | null
 }): string | undefined {
-  const explicit = input.siteUrl ?? input.env.NUXT_PUBLIC_BACKEND_SITE_URL ?? input.env.NUXT_PUBLIC_CONVEX_SITE_URL ?? input.derived?.siteUrl
+  const explicit = input.env.NUXT_PUBLIC_CONVEX_SITE_URL ?? input.derived?.siteUrl
   if (explicit) return explicit
   const cloudUrl = input.url ?? input.env.NUXT_PUBLIC_BACKEND_URL ?? input.env.NUXT_PUBLIC_CONVEX_URL ?? input.derived?.url
   return cloudUrl ? siteFromCloudUrl(cloudUrl) ?? undefined : undefined
@@ -102,7 +93,7 @@ export function resolveSiteUrl(input: {
  *
  * - `CONVEX_SELF_HOSTED_URL` → that origin as `url`; `siteUrl` stays underived
  *   (self-hosted serves HTTP actions on a separate origin the slug can't
- *   predict — set `NUXT_PUBLIC_BACKEND_SITE_URL` explicitly).
+ *   predict — set `NUXT_PUBLIC_CONVEX_SITE_URL` explicitly).
  * - `CONVEX_URL` (+ `CONVEX_SITE_URL`) written beside `CONVEX_DEPLOYMENT` →
  *   taken verbatim (a `local:` / `anonymous:` backend on `127.0.0.1:<port>`,
  *   or the `--start` environment); a `.site` twin is mapped from a cloud URL.
@@ -148,5 +139,30 @@ export function deriveDeploymentUrls(
     siteUrl: `https://${slug}.convex.site`,
     source: 'deployment',
     deployment,
+  }
+}
+
+/**
+ * The deployment the app talks to, from what the dev server sees. The id and
+ * URLs are not secrets (the client URL reaches every browser); deploy keys are
+ * never read.
+ */
+export function computeDeployment(rootDir: string, env: Record<string, string | undefined>): DevtoolsDeployment {
+  const derived = deriveDeploymentUrls(rootDir, env)
+  const id = env.CONVEX_DEPLOYMENT ?? derived?.deployment
+  const url = env.NUXT_PUBLIC_BACKEND_URL ?? env.NUXT_PUBLIC_CONVEX_URL ?? derived?.url
+  const siteUrl = resolveSiteUrl({ env, derived })
+  const urls = { ...(url ? { url } : {}), ...(siteUrl ? { siteUrl } : {}) }
+  if (derived?.source === 'self-hosted') return { kind: 'self-hosted', ...urls }
+  if (!id) return { kind: 'none', ...urls }
+  const prefix = id.includes(':') ? id.slice(0, id.indexOf(':')) : ''
+  const kind = ({ dev: 'cloud-dev', local: 'local', anonymous: 'anonymous', prod: 'production', preview: 'preview' } as const)[prefix] ?? 'cloud-dev'
+  const name = id.slice(id.lastIndexOf(':') + 1)
+  const cloud = kind === 'cloud-dev' || kind === 'production' || kind === 'preview'
+  return {
+    kind,
+    id,
+    ...urls,
+    ...(cloud && /^[a-z0-9-]+$/.test(name) ? { dashboardUrl: `https://dashboard.convex.dev/d/${name}` } : {}),
   }
 }

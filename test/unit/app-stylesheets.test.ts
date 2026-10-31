@@ -2,16 +2,13 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { OWNED, TARGET } from '../../scripts/sync-playground.mjs'
 
 // The stylesheets written for the templates and the examples keep every
 // element rule in a cascade layer. The module's stylesheet sits in
 // `components.backend`, and a rule outside any layer beats every layered
 // one, whatever its selector: an unlayered reset (`button { … }`,
 // `* { margin: 0 }`) strips the packaged buttons and inputs. A rule outside a
-// layer may only select the app's own markup, by class or id. (The
-// playground example's synced files are the website's, which runs on
-// Tailwind; only the ones written for the example count.)
+// layer may only select the app's own markup, by class or id.
 
 const rootDir = fileURLToPath(new URL('../..', import.meta.url))
 
@@ -107,10 +104,6 @@ function stylesheets(dir: string): string[] {
 
 const posix = (path: string) => path.split('\\').join('/')
 const files = [...stylesheets(join(rootDir, 'templates')), ...stylesheets(join(rootDir, 'examples'))]
-  .filter((path) => {
-    const inPlayground = posix(relative(TARGET, path))
-    return inPlayground.startsWith('../') || OWNED.includes(inPlayground)
-  })
   .map(path => posix(relative(rootDir, path)))
 
 describe('the check', () => {
@@ -129,9 +122,8 @@ describe('the check', () => {
 })
 
 describe('the templates\' and the examples\' stylesheets', () => {
-  it('are found, the playground\'s synced ones left out', () => {
-    expect(files).toEqual(expect.arrayContaining(['templates/starter/app/assets/main.css', 'examples/playground/assets/reset.css', 'examples/advanced/app/assets/main.css']))
-    expect(files).not.toContain('examples/playground/app.css')
+  it('are found', () => {
+    expect(files).toEqual(expect.arrayContaining(['templates/starter/app/assets/main.css', 'templates/panels/app/assets/main.css', 'examples/advanced/app/assets/main.css']))
     for (const file of files) expect(existsSync(join(rootDir, file)), file).toBe(true)
   })
 

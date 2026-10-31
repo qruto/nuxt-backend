@@ -1,0 +1,142 @@
+/*
+ * AuthForm's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-auth='form'] {
+    --auth-accent: var(--bk-accent);
+    --auth-on-accent: var(--bk-on-accent);
+    --auth-ink: var(--bk-ink);
+    --auth-muted: var(--bk-muted);
+    --auth-edge: var(--bk-edge);
+    --auth-error: var(--bk-error);
+    --auth-radius: var(--bk-radius);
+    --auth-radius-control: var(--bk-radius-control);
+
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    max-width: 24rem;
+    color: var(--auth-ink);
+  }
+
+  [data-auth^='step-'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  [data-auth^='label-'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+    color: var(--auth-muted);
+  }
+
+  [data-auth^='input-'] {
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--auth-edge);
+    border-radius: var(--auth-radius-control);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+
+  /* A field the last step refused (`aria-invalid`): the border says so, the message says why. */
+  [data-auth^='input-'][aria-invalid='true'] {
+    border-color: var(--auth-error);
+  }
+
+  [data-auth^='input-']:focus {
+    outline: 2px solid var(--auth-accent);
+    outline-offset: 1px;
+  }
+
+  /* The base every button of the form starts from, at the specificity of a
+     single attribute (:where adds none): the hooks below, such as the primary
+     fill of submit and passkey-sign-in, each a single attribute too, come
+     later and win. As `[data-auth='form'] button` (an attribute and a type)
+     it outranked them, and the primary buttons never took the accent. */
+  :where([data-auth='form']) button {
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--auth-edge);
+    border-radius: var(--auth-radius-control);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  :where([data-auth='form']) button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  [data-auth='submit'],
+  [data-auth='passkey-sign-in'] {
+    background: var(--auth-accent);
+    border-color: var(--auth-accent);
+    color: var(--auth-on-accent);
+  }
+
+  /* The mark on the button of the way this browser last signed in. */
+  [data-auth='last-used'] {
+    margin-inline-start: 0.5rem;
+    padding: 0.05rem 0.45rem;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    vertical-align: 0.1em;
+  }
+
+  [data-auth='back'],
+  [data-auth='skip'] {
+    border: 0;
+    background: none;
+    font-weight: 500;
+    color: var(--auth-muted);
+  }
+
+  [data-auth='sent-note'],
+  [data-auth='add-passkey-note'] {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--auth-muted);
+    line-height: 1.5;
+  }
+
+  /*
+   * The bot check's challenge (src/runtime/vue/protection/challenge.ts): a
+   * host at the foot of the page, invisible until the provider asks for a
+   * click, then shown with its caption. Restyle it through its hook,
+   * `[data-backend-challenge]`; `data-interactive` marks it while it asks.
+   */
+  [data-backend-challenge] {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 1rem;
+    z-index: 2147483000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    pointer-events: none;
+  }
+
+  [data-backend-challenge][data-interactive] {
+    pointer-events: auto;
+  }
+
+  [data-backend-challenge] > :where(p) {
+    margin: 0;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--bk-radius, 8px);
+    background: Canvas;
+    color: CanvasText;
+    font: inherit;
+  }
+}

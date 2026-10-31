@@ -9,14 +9,23 @@ export const workflow = setupWorkflows(components)
 // module directly. Runs once on signup (started from auth.ts's
 // onUserCreated), after the packaged welcome email; steps are durable and
 // retried on failure, and the sleep survives restarts and deploys.
+//
+// After the sleep it reads the account again, as `defineEmailSequence` does:
+// an account deleted in the meantime gets nothing, and a changed address
+// gets the email at the new one, never at the address it signed up with.
 export const onSignup = workflow.define({
   args: { userId: v.string(), email: v.string(), name: v.string() },
-  handler: async (step, { email, name }) => {
+  handler: async (step, { userId }) => {
     await step.sleep(3 * 24 * 60 * 60 * 1000, { name: 'three-days' })
+    const user = await step.runQuery(components.backend.adapter.findOne, {
+      model: 'user',
+      where: [{ field: '_id', value: userId }],
+    }) as { email: string, name: string } | null
+    if (!user) return
     await step.runMutation(components.backend.email.send, {
-      to: email,
+      to: user.email,
       subject: 'How is it going?',
-      text: `Hi${name ? ` ${name}` : ''}, you signed up three days ago. Reply to this email if anything is in your way.`,
+      text: `Hi${user.name ? ` ${user.name}` : ''}, you signed up three days ago. Reply to this email if anything is in your way.`,
     })
   },
 })

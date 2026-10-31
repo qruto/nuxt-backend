@@ -2,17 +2,16 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { uiCssText } from '../../scripts/stylesheet-imports.mjs'
 import { hexToOklch, inGamut, SIGNALS, srgbPairs, tierLch, tokensCss } from '../../scripts/wide-gamut.mjs'
 
 // The shipped stylesheets are data, not code: nothing imports them at test
 // time, so the contract is checked on the files themselves.
 const componentsDir = fileURLToPath(new URL('../../src/runtime/vue/components/', import.meta.url))
-const stylesheets = readdirSync(componentsDir)
+const stylesheets = (readdirSync(componentsDir, { recursive: true }) as string[])
   .filter(name => name.endsWith('.css'))
-  .map(name => [name, readFileSync(join(componentsDir, name), 'utf-8')] as const)
+  .map(name => [name.replaceAll('\\', '/'), readFileSync(join(componentsDir, name), 'utf-8')] as const)
 const tokens = readFileSync(join(componentsDir, 'tokens.css'), 'utf-8')
-const ui = readFileSync(join(componentsDir, 'ui.css'), 'utf-8')
+const shared = readFileSync(join(componentsDir, 'shared.css'), 'utf-8')
 const site = readFileSync(fileURLToPath(new URL('../../website/app.css', import.meta.url)), 'utf-8')
 
 /**
@@ -95,29 +94,38 @@ describe('component tokens', () => {
     }
   })
 
-  it('layers every stylesheet between Tailwind\'s reset and its utilities', () => {
-    // The order statement Tailwind declares comes first, so the layer sits in
-    // the same place whichever stylesheet loads first; every piece goes into
-    // components.backend, and an app rule outside a layer always wins.
-    const rules = ui.replace(/\/\*[\s\S]*?\*\//g, '').trim().split('\n').filter(Boolean)
-    expect(rules[0]).toBe('@layer theme, base, components, utilities;')
-    const pieces = stylesheets.map(([name]) => name).filter(name => name !== 'ui.css')
-    expect(rules.slice(1).sort()).toStrictEqual(pieces.map(name => `@import './${name}' layer(components.backend);`).sort())
+  it('declares the layer order first, so Tailwind\'s theme and reset and an app\'s reset sit below the package', () => {
+    const rules = tokens.replace(/\/\*[\s\S]*?\*\//g, '').trim().split('\n').filter(Boolean)
+    expect(rules[0]).toBe('@layer theme, base, reset, nuxt-backend;')
   })
 
-  it('imports what scripts/stylesheet-imports.mjs writes: tokens first (pnpm generate)', () => {
-    expect(ui).toBe(uiCssText())
-    expect(ui).toContain('@layer theme, base, components, utilities;\n\n@import \'./tokens.css\' layer(components.backend);')
+  it('puts every rule of every stylesheet in @layer nuxt-backend, so any app rule outside a layer wins', () => {
+    // tokens.css adds one block below every layer: the light default a
+    // production build's rewritten light-dark() needs.
+    for (const [name, css] of stylesheets) {
+      const top = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@layer theme, base, reset, nuxt-backend;/, '')
+      const blocks = [...top.matchAll(/^(\S[^{\n]*)\{/gm)].map(match => match[1]!.trim())
+      expect(blocks.filter(block => block !== '@layer nuxt-backend' && !(name === 'tokens.css' && block === '@layer theme.backend')), name).toEqual([])
+    }
+  })
+
+  it('puts the tokens on :root, where every component reads them and any ancestor can override them', () => {
+    const declared = tokens.replace(/\/\*[\s\S]*?\*\//g, '')
+    expect(declared).toMatch(/@layer nuxt-backend \{\s*:root \{\s*--bk-accent:/)
+    for (const [name, css] of stylesheets) {
+      if (name === 'tokens.css') continue
+      // A family token defaults to the shared one; no stylesheet redeclares a shared token.
+      expect(css.replace(/\/\*[\s\S]*?\*\//g, ''), name).not.toMatch(/^\s*--bk-[\w-]+:/m)
+    }
   })
 
   it('draws a keyboard focus ring on every button and link the components render', () => {
-    const rule = tokens.match(/:where\(([^{]*?)\)\s*:where\(button:focus-visible, a:focus-visible\)\s*\{([^}]*)\}/)
+    const rule = shared.match(/:where\(([^{]*?)\)\s*:where\(button:focus-visible, a:focus-visible\)\s*\{([^}]*)\}/)
     expect(rule).not.toBeNull()
     const [, roots, body] = rule!
     for (const root of [
       '[data-auth=\'form\']',
       '[data-invitation]',
-      '[data-consent]',
       '[data-gift=\'banner\']',
       '[data-credits=\'banner\']',
       '[data-history=\'root\']',
@@ -142,18 +150,9 @@ describe('component tokens', () => {
     }
   })
 
-  it('gives every component family the shared tokens', () => {
-    // Each family has a stylesheet named after it (consent.css styles
-    // [data-consent]) that reads --bk-* from the family root. A root missing
-    // from the token layer renders with undefined tokens: no accent, no
-    // focus ring.
-    const families = stylesheets
-      .map(([name]) => name.replace(/\.css$/, ''))
-      .filter(name => !['tokens', 'ui'].includes(name))
-    expect(families.length).toBeGreaterThan(8)
-    for (const family of families) {
-      expect(stylesheets.find(([name]) => name === `${family}.css`)![1], family).toContain(`[data-${family}`)
-      expect(tokens, family).toContain(`[data-${family}`)
-    }
+  it('styles each component and part in a file named after it', () => {
+    const named = stylesheets.map(([name]) => name).filter(name => name.includes('/'))
+    expect(named.length).toBeGreaterThan(30)
+    for (const name of named) expect(name, name).toMatch(/^(auth|account|workspaces|billing|admin|shell)\/(admin|[A-Z]\w+)\.css$/)
   })
 })

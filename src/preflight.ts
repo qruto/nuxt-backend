@@ -14,19 +14,18 @@
  * the findings registry (src/findings/), every env name from
  * src/env-registry.ts.
  */
+import { localSiteUrl } from './env-push'
 import { OPTIONAL_DEPLOYMENT_ENV } from './env-registry'
 import { DOCTOR_SCHEMA_URL, finding, type PreflightFinding } from './findings'
 
 export type { PreflightFinding } from './findings'
-export { DEV_ONLY_DEPLOYMENT_ENV, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './env-registry'
+export { OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './env-registry'
 
 export interface PreflightInput {
   /** Environment to inspect (inject `process.env` in real runs). */
   env: Record<string, string | undefined>
   /** Whether the backend site URL is configured (module option or env). */
   siteUrlConfigured: boolean
-  /** The agent (MCP) endpoint, when enabled — omit to skip the finding. */
-  mcp?: { route: string }
   /**
    * Env names known to be set on the deployment (`convex env list`, or a clean
    * `env push` run). A name set there but not visible here is not a problem:
@@ -49,7 +48,7 @@ type OnDeployment = (name: string) => boolean
 function backendSiteUrlFinding(siteUrlConfigured: boolean): PreflightFinding {
   return siteUrlConfigured
     ? finding('backend-site-url', 'pass', 'Backend site URL configured — the auth proxy can reach the backend HTTP routes.')
-    : finding('backend-site-url', 'warn', 'No backend site URL configured; the /api/auth proxy has no target.', 'Set NUXT_PUBLIC_BACKEND_SITE_URL (or backend.siteUrl in nuxt.config) — normally derived for you.')
+    : finding('backend-site-url', 'warn', 'No backend site URL configured; the /api/auth proxy has no target.', 'Set NUXT_PUBLIC_BACKEND_URL (the site origin derives from it); a custom domain in front of the HTTP routes goes in NUXT_PUBLIC_CONVEX_SITE_URL — normally derived for you.')
 }
 
 function authSecretFinding(secret: string | undefined, onDeployment: OnDeployment): PreflightFinding {
@@ -90,9 +89,23 @@ function siteUrlFinding(siteUrl: string | undefined, onDeployment: OnDeployment)
 }
 
 /**
+ * How BILLING_WEBHOOK_SECRET gets set: `billing sync` creates the provider's
+ * endpoint and stores its secret on the deployment, never printed, so it
+ * never sits in `.env.local`, where `env push --prod` would carry a sandbox
+ * secret to production. Under `--prod`, production's own sync; with no
+ * target known, both.
+ */
+export function billingWebhookSecretHint(prod?: boolean): string {
+  const command = prod === undefined
+    ? '`npx nuxt-backend billing sync` (with `--env production` for production)'
+    : `\`npx nuxt-backend billing sync${prod ? ' --env production' : ''}\``
+  return `Run ${command}: it creates the provider webhook for /billing/events and stores its secret on the deployment, never printed.`
+}
+
+/**
  * The optional tier's capability gates: absence is a designed degradation,
  * not a broken deploy. One finding per gate (transport, webhooks); the
- * fallback-only vars (EMAIL_FROM, EMAIL_TEST_MODE, BILLING_ENVIRONMENT) have
+ * fallback-only vars (EMAIL_FROM, BACKEND_ENVIRONMENT) have
  * safe defaults and produce no finding on their own.
  */
 const OPTIONAL_GATES = [
@@ -100,7 +113,7 @@ const OPTIONAL_GATES = [
     id: 'email-transport',
     name: 'EMAIL_API_KEY',
     on: 'transactional email is on',
-    fixHint: 'Add EMAIL_API_KEY to .env.local and run `npx nuxt-backend env push` (EMAIL_FROM / EMAIL_TEST_MODE have safe defaults).',
+    fixHint: 'Add EMAIL_API_KEY to .env.local and run `npx nuxt-backend env push` (EMAIL_FROM has a safe default).',
   },
   {
     id: 'email-webhook-secret',
@@ -112,13 +125,13 @@ const OPTIONAL_GATES = [
     id: 'billing-access',
     name: 'BILLING_ACCESS_TOKEN',
     on: 'billing is on',
-    fixHint: 'Add BILLING_ACCESS_TOKEN to .env.local and run `npx nuxt-backend env push` (BILLING_ENVIRONMENT defaults to sandbox).',
+    fixHint: 'Add BILLING_ACCESS_TOKEN to .env.local and run `npx nuxt-backend env push` (billing runs in the provider sandbox until BACKEND_ENVIRONMENT is production).',
   },
   {
     id: 'billing-webhook-secret',
     name: 'BILLING_WEBHOOK_SECRET',
     on: 'billing events verify',
-    fixHint: 'Create the provider webhook for /billing/events, then add BILLING_WEBHOOK_SECRET to .env.local and `npx nuxt-backend env push`.',
+    fixHint: billingWebhookSecretHint(),
   },
 ] as const satisfies ReadonlyArray<{ id: 'email-transport' | 'email-webhook-secret' | 'billing-access' | 'billing-webhook-secret', name: keyof typeof OPTIONAL_DEPLOYMENT_ENV, on: string, fixHint: string }>
 
@@ -140,19 +153,14 @@ function optionalGateFinding(gate: (typeof OPTIONAL_GATES)[number], env: Preflig
     : finding(gate.id, 'warn', `${gate.name} is not set (optional): ${OPTIONAL_DEPLOYMENT_ENV[gate.name]}.`, gate.fixHint)
 }
 
-export function collectPreflightFindings({ env, siteUrlConfigured, mcp, deployedNames }: PreflightInput): PreflightFinding[] {
+export function collectPreflightFindings({ env, siteUrlConfigured, deployedNames }: PreflightInput): PreflightFinding[] {
   const onDeployment: OnDeployment = name => env[name] === undefined && deployedNames?.has(name) === true
   const findings: PreflightFinding[] = [
     backendSiteUrlFinding(siteUrlConfigured),
     authSecretFinding(env.AUTH_SECRET, onDeployment),
-    siteUrlFinding(env.SITE_URL, onDeployment),
+    siteUrlFinding(localSiteUrl(env), onDeployment),
     ...OPTIONAL_GATES.map(gate => optionalGateFinding(gate, env, onDeployment)),
   ]
-  // Only where the route is known: the module and the DevTools panel read it
-  // from nuxt.config, the CLI does not.
-  if (mcp) {
-    findings.push(finding('mcp', 'pass', `OAuth-protected MCP endpoint at ${mcp.route} — agents sign in as your users and see only consented scopes.`))
-  }
   return findings
 }
 

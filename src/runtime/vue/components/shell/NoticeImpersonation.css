@@ -1,0 +1,44 @@
+/*
+ * NoticeImpersonation's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-impersonation='banner'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.9rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--bk-warn) 45%, transparent);
+    border-radius: var(--bk-radius);
+    background: color-mix(in srgb, var(--bk-warn) 14%, transparent);
+    color: var(--bk-ink);
+    font-size: 0.9rem;
+  }
+
+  [data-impersonation='message'] {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  [data-impersonation='ends'] {
+    margin: 0;
+    color: var(--bk-muted);
+  }
+
+  [data-impersonation='stop'] {
+    margin-inline-start: auto;
+  }
+
+  [data-impersonation='error'] {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--bk-error);
+  }
+
+  /* The frame's banner region, when its banner stands aside for one the app placed itself. */
+  [data-backend-region='banner']:empty {
+    display: none;
+  }
+}

@@ -1,13 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_LIMITS, setupRateLimiter } from '../../src/convex/integrations/rate-limit'
 import { setupWorkflows } from '../../src/convex/integrations/workflows'
-import { setupMigrations } from '../../src/convex/integrations/migrations'
 import { setupBilling } from '../../src/convex/integrations/billing'
 import { setupEmail } from '../../src/convex/integrations/email'
-import { TableAggregate, Triggers, withTriggers } from '../../src/convex/integrations/aggregate'
 import { search } from '../../src/convex/integrations/search'
 
-const fakeComponent = {} as never
 // Every setup* accepts the whole generated `components` object and picks its
 // keys structurally — this fixture stands in for it.
 const fakeComponents = {
@@ -16,6 +13,8 @@ const fakeComponents = {
   migrations: {},
   polar: { lib: { insertCustomer: {} } },
   backend: {
+    // The auth tables' adapter: the fresh member and role reads.
+    adapter: { findOne: {} },
     billing: { getByUser: {}, upsert: {}, userByCustomer: {} },
     gifts: { create: {}, markPaid: {}, markClaimed: {}, listByEmail: {}, get: {}, resolveRecipient: {} },
     email: {},
@@ -28,7 +27,7 @@ afterEach(() => {
 
 describe('setupRateLimiter', () => {
   it('seeds only limits with a real consumer (no dead password/sign-in limits)', () => {
-    expect(Object.keys(DEFAULT_LIMITS)).toEqual(['emailOtp', 'emailOtpGlobal', 'emailOtpAttempt', 'emailChange', 'billingSync', 'ai', 'aiBudget', 'mcp', 'admin', 'invitation', 'invitationGlobal', 'agentRegistrationGlobal'])
+    expect(Object.keys(DEFAULT_LIMITS)).toEqual(['emailOtp', 'emailOtpGlobal', 'emailOtpAttempt', 'emailChange', 'billingSync', 'ai', 'aiBudget', 'aiGlobal', 'admin', 'invitation', 'invitationGlobal', 'workspaceCreate', 'accountDelete', 'passkeySignIn', 'passkeySignInGlobal', 'signUpOtpGlobal', 'inviteCheck', 'inviteCheckGlobal', 'waitlistJoin', 'waitlistJoinGlobal', 'contact', 'contactGlobal', 'inboundMail', 'inboundMailGlobal', 'report', 'reportGlobal', 'write', 'upload'])
     expect(DEFAULT_LIMITS.emailOtp).toMatchObject({ kind: 'token bucket' })
     // The deployment-wide backstop is a fixed window: a ceiling per hour, not a smoothed rate.
     expect(DEFAULT_LIMITS.emailOtpGlobal).toMatchObject({ kind: 'fixed window', rate: 300 })
@@ -37,6 +36,8 @@ describe('setupRateLimiter', () => {
     expect(DEFAULT_LIMITS.ai).toMatchObject({ kind: 'token bucket', rate: 30 })
     // The credit budget is a period allowance that resets, not a smoothed rate.
     expect(DEFAULT_LIMITS.aiBudget).toMatchObject({ kind: 'fixed window' })
+    // What the app pays for itself (guest jobs): one unkeyed ceiling an hour.
+    expect(DEFAULT_LIMITS.aiGlobal).toMatchObject({ kind: 'fixed window', rate: 300, period: 60 * 60 * 1000 })
     // Both privileged-route limits are consumed by setupAuth's before-hook
     // (see "privileged route rate limits" in auth-integrations.test.ts).
     expect(DEFAULT_LIMITS.admin).toMatchObject({ kind: 'token bucket', rate: 30 })
@@ -46,6 +47,19 @@ describe('setupRateLimiter', () => {
     // The deployment-wide invitation ceiling is a fixed window, like the OTP
     // backstop it mirrors — a period allowance, not a smoothed rate.
     expect(DEFAULT_LIMITS.invitationGlobal).toMatchObject({ kind: 'fixed window', rate: 200, period: 60 * 60 * 1000 })
+    // Each new workspace is a billing entity (the free plan's credits, a
+    // provider customer): a few at once, then ten an hour per member.
+    expect(DEFAULT_LIMITS.workspaceCreate).toMatchObject({ kind: 'token bucket', rate: 10, period: 60 * 60 * 1000, capacity: 5 })
+    // An account's own deletion: a person deletes once; three tries an hour stop a script.
+    expect(DEFAULT_LIMITS.accountDelete).toMatchObject({ kind: 'token bucket', rate: 3, period: 60 * 60 * 1000, capacity: 3 })
+    // The passkey sign-in challenge: a bucket per client address, a minute's
+    // worth of sign-in pages; behind it, an hour's ceiling for the deployment.
+    expect(DEFAULT_LIMITS.passkeySignIn).toMatchObject({ kind: 'token bucket', rate: 30, period: 60 * 1000, capacity: 30 })
+    expect(DEFAULT_LIMITS.passkeySignInGlobal).toMatchObject({ kind: 'fixed window', rate: 3000, period: 60 * 60 * 1000 })
+    // Codes to new addresses spend their own ceiling, so a rush of joins leaves existing people's codes alone.
+    expect(DEFAULT_LIMITS.signUpOtpGlobal).toMatchObject({ kind: 'fixed window', rate: 200, period: 60 * 60 * 1000 })
+    // The scaffold's createFunctions spends `write` on every authed write, per account.
+    expect(DEFAULT_LIMITS.write).toMatchObject({ kind: 'token bucket', rate: 120, period: 60 * 1000, capacity: 60 })
   })
 
   it('merges custom limits on top of the defaults', () => {
@@ -64,12 +78,6 @@ describe('setup factories', () => {
     expect(workflow.start).toBeTypeOf('function')
   })
 
-  it('setupMigrations returns migrations + a runner', () => {
-    const { migrations, run } = setupMigrations(fakeComponents)
-    expect(migrations.define).toBeTypeOf('function')
-    expect(run).toBeDefined()
-  })
-
   it('setupBilling exposes ready-made functions and SaaS helpers, and never the provider client', () => {
     const billing = setupBilling(fakeComponents, { email: { sendTemplate: async () => null } })
     // The provider's own client stays inside: a brand-neutral surface.
@@ -77,13 +85,13 @@ describe('setup factories', () => {
     expect(billing.api).toHaveProperty('generateCheckoutLink')
     expect(billing.api).toHaveProperty('generateCustomerPortalUrl')
     expect(billing.api).toHaveProperty('giftCheckout')
-    // Ready-made reactive functions re-exported by the consumer's billing.ts.
-    expect(billing.functions.getCurrentSubscription).toBeDefined()
-    expect(billing.functions.getFeatures).toBeDefined()
-    expect(billing.functions.getCredits).toBeDefined()
-    expect(billing.functions.syncEntitlements).toBeDefined()
-    expect(billing.functions.getReceivedGifts).toBeDefined()
-    expect(billing.functions.claimGift).toBeDefined()
+    // Every function the consumer's billing.ts re-exports, in the one bag.
+    expect(billing.api.getCurrentSubscription).toBeDefined()
+    expect(billing.api.getFeatures).toBeDefined()
+    expect(billing.api.getCredits).toBeDefined()
+    expect(billing.api.syncEntitlements).toBeDefined()
+    expect(billing.api.getReceivedGifts).toBeDefined()
+    expect(billing.api.claimGift).toBeDefined()
     // Webhook handlers keep the reactive cache fresh.
     expect(billing.webhookEvents['customer.state_changed']).toBeTypeOf('function')
     expect(billing.webhookEvents['order.created']).toBeTypeOf('function')
@@ -96,6 +104,9 @@ describe('setup factories', () => {
   it('setupEmail exposes transactional + marketing helpers', () => {
     const email = setupEmail(fakeComponents)
     expect(email.api.getEmailStatus).toBeDefined()
+    expect(email.api.previewEmails).toBeDefined()
+    expect(email.api.sendEmailPreview).toBeDefined()
+    expect(email).not.toHaveProperty('devtools')
     expect(email.send).toBeTypeOf('function')
     expect(email.status).toBeTypeOf('function')
     expect(email.cancel).toBeTypeOf('function')
@@ -103,19 +114,6 @@ describe('setup factories', () => {
     expect(email.segments.create).toBeTypeOf('function')
     expect(email.contacts.add).toBeTypeOf('function')
     expect(email.broadcasts.send).toBeTypeOf('function')
-  })
-
-  it('aggregate helpers compose a trigger-wrapped mutation', () => {
-    const aggregate = new TableAggregate<{ Key: null, DataModel: never, TableName: 'messages' }>(
-      fakeComponent,
-      { sortKey: () => null },
-    )
-    expect(aggregate.trigger).toBeTypeOf('function')
-
-    const triggers = new Triggers()
-    const rawMutation = vi.fn(definition => definition)
-    const mutation = withTriggers(rawMutation as never, triggers)
-    expect(mutation).toBeTypeOf('function')
   })
 })
 

@@ -16,6 +16,8 @@ export function useBackendConfig(): BackendAppConfig {
       packs: user?.billing?.packs ?? backendAppConfigDefaults.billing.packs,
       lowCreditsThreshold: user?.billing?.lowCreditsThreshold ?? backendAppConfigDefaults.billing.lowCreditsThreshold,
     },
+    consent: { purposes: user?.consent?.purposes ?? backendAppConfigDefaults.consent.purposes },
+    legal: { ...backendAppConfigDefaults.legal, ...user?.legal },
     brand: { ...backendAppConfigDefaults.brand, ...user?.brand },
     labels: { ...backendAppConfigDefaults.labels, ...user?.labels },
   } as BackendAppConfig

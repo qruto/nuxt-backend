@@ -4,8 +4,10 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { billingSync, runBillingSync, type BillingSyncDeps } from '../../src/cli/billing'
 import type { SyncDeployment } from '../../src/cli/billing/deployment'
+import type { BackendEnvironment } from '../../src/convex/environment'
 import type { BillingSyncOptions, BillingSyncResult } from '../../src/cli/billing/sync'
 import { COMMAND_CONTRACTS } from '../../src/cli/contract'
+import { signingSecret } from '../helpers/secrets'
 
 // `billing sync` around the provider reconciliation: which deployment it
 // writes and the webhook URL that goes with it, where the endpoint's secret
@@ -13,7 +15,7 @@ import { COMMAND_CONTRACTS } from '../../src/cli/contract'
 // and whether the deployment can load the products. The reconciliation itself
 // is billing-sync.test.ts's; here it is a stub, and so is the deployment read.
 
-const SECRET = 'whsec_never_on_screen_0123456789'
+const SECRET = signingSecret()
 const DEV_URL = 'https://demo-slug-1.convex.cloud'
 const DEV_WEBHOOK = 'https://demo-slug-1.convex.site/billing/events'
 
@@ -22,13 +24,14 @@ let lines: string[]
 
 // Everything billing sync reads from the process env: start from none, so a
 // value set on the runner cannot stand in for the one under test.
-const ENV_VARS = ['BILLING_ENVIRONMENT', 'CONVEX_DEPLOY_KEY', 'CONVEX_DEPLOYMENT_TOKEN', 'CONVEX_DEPLOYMENT', 'NUXT_PUBLIC_BACKEND_SITE_URL', 'NUXT_PUBLIC_CONVEX_SITE_URL', 'NUXT_PUBLIC_BACKEND_URL', 'NUXT_PUBLIC_CONVEX_URL']
+const ENV_VARS = ['BACKEND_ENVIRONMENT', 'CONVEX_DEPLOY_KEY', 'CONVEX_DEPLOYMENT_TOKEN', 'CONVEX_DEPLOYMENT', 'NUXT_PUBLIC_CONVEX_SITE_URL', 'NUXT_PUBLIC_BACKEND_URL', 'NUXT_PUBLIC_CONVEX_URL']
 
 beforeEach(() => {
   rootDir = mkdtempSync(join(tmpdir(), 'billing-sync-command-'))
   mkdirSync(join(rootDir, 'backend'))
   writeFileSync(join(rootDir, 'backend/billing.catalog.ts'), 'export default { plans: {} }\n')
   lines = []
+  deployedEnvironment = null
   for (const name of ENV_VARS) vi.stubEnv(name, undefined)
   vi.stubEnv('BILLING_ACCESS_TOKEN', 'polar_oat_test')
   vi.spyOn(console, 'error').mockImplementation(line => lines.push(String(line)))
@@ -60,12 +63,16 @@ function providerSync(endpoint: 'create' | 'exists' = 'create') {
   })
 }
 
+/** What the deployment the Convex CLI will write holds as its BACKEND_ENVIRONMENT: nothing, unless a test says. */
+let deployedEnvironment: BackendEnvironment | null = null
+
 function deps(overrides: Partial<BillingSyncDeps> & { deployment?: Partial<SyncDeployment> } = {}) {
   const { deployment, ...rest } = overrides
   const setEnv = vi.fn(async () => {})
   const syncProducts = vi.fn(async () => {})
   const readDeployment = vi.fn(async () => deploymentState(deployment))
-  return { setEnv, syncProducts, readDeployment, sync: providerSync(), print: (line: string) => lines.push(line), ...rest }
+  const readEnvironment = vi.fn(async () => deployedEnvironment)
+  return { setEnv, syncProducts, readDeployment, readEnvironment, sync: providerSync(), print: (line: string) => lines.push(line), ...rest }
 }
 
 const output = () => lines.join('\n')
@@ -202,7 +209,7 @@ describe('billing sync --env production', () => {
     writeFileSync(join(rootDir, '.env.local'), 'CONVEX_DEPLOYMENT=dev:happy-otter-123\nNUXT_PUBLIC_CONVEX_SITE_URL=https://happy-otter-123.convex.site\n')
   })
 
-  const production = (deployment: Partial<SyncDeployment> = {}) => deps({ deployment: { url: 'https://prod-slug-42.convex.cloud', billingEnvironment: 'production', envNames: ['BILLING_ACCESS_TOKEN', 'BILLING_ENVIRONMENT'], ...deployment } })
+  const production = (deployment: Partial<SyncDeployment> = {}) => deps({ deployment: { url: 'https://prod-slug-42.convex.cloud', billingEnvironment: 'production', envNames: ['BILLING_ACCESS_TOKEN', 'BACKEND_ENVIRONMENT'], ...deployment } })
 
   it('reads production, and provisions production\'s endpoint — never the dev site URL .env.local names', async () => {
     const steps = production()
@@ -217,7 +224,7 @@ describe('billing sync --env production', () => {
   })
 
   it('takes a custom domain from the process env over the derived site', async () => {
-    vi.stubEnv('NUXT_PUBLIC_BACKEND_SITE_URL', 'https://api.example.com/')
+    vi.stubEnv('NUXT_PUBLIC_CONVEX_SITE_URL', 'https://api.example.com/')
     const steps = production()
     await runBillingSync(rootDir, { environment: 'production' }, steps)
     expect(steps.sync).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ webhookUrl: 'https://api.example.com/billing/events' }))
@@ -247,18 +254,36 @@ describe('billing sync --env production', () => {
 })
 
 describe('billing sync — the environment', () => {
-  it('repeats an unknown --env back, but never a value read from the env', async () => {
+  it('repeats an unknown --env back', async () => {
     const typed = deps()
     expect((await runBillingSync(rootDir, { environment: 'staging' }, typed)).exitCode).toBe(1)
     expect(output()).toContain('Unknown billing environment \'staging\'')
+    expect(typed.sync).not.toHaveBeenCalled()
+  })
 
-    lines = []
-    vi.stubEnv('BILLING_ENVIRONMENT', 'polar_oat_pasted_into_the_wrong_name')
-    const fromEnv = deps()
-    expect((await runBillingSync(rootDir, {}, fromEnv)).exitCode).toBe(1)
-    expect(output()).toContain('BILLING_ENVIRONMENT is neither sandbox nor production')
-    expect(output()).not.toContain('polar_oat_pasted_into_the_wrong_name')
-    expect(fromEnv.sync).not.toHaveBeenCalled()
+  it('bills in the environment the deployment says when no --env does: production only on production', async () => {
+    for (const [deployed, bills] of [[null, 'sandbox'], ['development', 'sandbox'], ['preview', 'sandbox'], ['sandbox', 'sandbox'], ['production', 'production']] as const) {
+      deployedEnvironment = deployed
+      // The deploy key names production, the only deployment a production sync may write.
+      if (bills === 'production') vi.stubEnv('CONVEX_DEPLOY_KEY', 'prod:prod-slug-42|secret')
+      else vi.unstubAllEnvs()
+      vi.stubEnv('BILLING_ACCESS_TOKEN', 'polar_oat_test')
+      const steps = deps({ deployment: { url: 'https://prod-slug-42.convex.cloud', billingEnvironment: bills } })
+      const { exitCode } = await runBillingSync(rootDir, {}, steps)
+      expect(exitCode, String(deployed)).toBe(0)
+      expect(steps.sync, String(deployed)).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ environment: bills }))
+    }
+  })
+
+  it('lets --env decide, and asks the deployment nothing for a production sync', async () => {
+    deployedEnvironment = 'production'
+    const steps = deps()
+    await runBillingSync(rootDir, { environment: 'sandbox' }, steps)
+    expect(steps.sync).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ environment: 'sandbox' }))
+    expect(steps.readEnvironment).not.toHaveBeenCalled()
+    const production = deps({ deployment: { url: 'https://prod-slug-42.convex.cloud' } })
+    await runBillingSync(rootDir, { environment: 'production' }, production)
+    expect(production.readEnvironment).not.toHaveBeenCalled()
   })
 })
 
@@ -279,6 +304,24 @@ describe('billing sync — a sandbox sync and the deploy key', () => {
     expect(steps.readDeployment).not.toHaveBeenCalled()
     expect(steps.sync).not.toHaveBeenCalled()
     expect(output()).toContain('Sandbox sync refused')
+  })
+
+  it('lets a demo or staging deployment take a sandbox sync with its own production key', async () => {
+    // The deployment's BACKEND_ENVIRONMENT is sandbox: the sandbox is what it bills in.
+    vi.stubEnv('CONVEX_DEPLOY_KEY', 'prod:prod-slug-42|secret')
+    deployedEnvironment = 'sandbox'
+    const steps = deps({ deployment: { url: 'https://prod-slug-42.convex.cloud' } })
+    const { exitCode } = await runBillingSync(rootDir, { environment: 'sandbox' }, steps)
+    expect(exitCode).toBe(0)
+    expect(steps.sync).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ environment: 'sandbox' }))
+    // Any other value on that deployment keeps the refusal, and so does a project key.
+    for (const [environment, key] of [['production', 'prod:prod-slug-42|secret'], [null, 'prod:prod-slug-42|secret'], ['sandbox', 'project:team:app|secret']] as const) {
+      deployedEnvironment = environment
+      vi.stubEnv('CONVEX_DEPLOY_KEY', key)
+      const refused = deps()
+      expect((await runBillingSync(rootDir, { environment: 'sandbox' }, refused)).exitCode, `${environment} ${key}`).toBe(1)
+      expect(refused.sync).not.toHaveBeenCalled()
+    }
   })
 
   it('refuses a production key kept in .env.local too', async () => {
@@ -307,6 +350,13 @@ describe('billing sync — the products', () => {
     expect(readFileSync(report!.generated!, 'utf8')).toContain('sandbox')
   })
 
+  // `deploy` pushes the backend again only when the map changed: a deployment reads the one it was pushed with.
+  it('reports the id map as written only when its ids changed', async () => {
+    expect((await runBillingSync(rootDir, { webhook: 'off' }, deps())).report?.generated).toMatch(/billing\.generated\.ts$/)
+    expect((await runBillingSync(rootDir, { webhook: 'off' }, deps())).report?.generated).toBeNull()
+    expect(output()).toContain('holds these ids already')
+  })
+
   it('reports the real error of a failed load, without failing the sync', async () => {
     const steps = deps({ syncProducts: vi.fn(() => Promise.reject(new Error('convex run exited with code 1: Uncaught Error: 401 Unauthorized'))) })
     const { exitCode, report } = await runBillingSync(rootDir, {}, steps)
@@ -329,12 +379,12 @@ describe('billing sync — the products', () => {
 
   it('does not load the other environment\'s catalog', async () => {
     writeFileSync(join(rootDir, '.env.local'), 'CONVEX_DEPLOYMENT=dev:happy-otter-123\n')
-    // Production's BILLING_ENVIRONMENT is unset, so it runs sandbox.
+    // Production's BACKEND_ENVIRONMENT is unset, so it bills in the sandbox.
     const steps = deps({ deployment: { url: 'https://prod-slug-42.convex.cloud', envNames: ['BILLING_ACCESS_TOKEN'], billingEnvironment: 'sandbox' } })
     const { report } = await runBillingSync(rootDir, { environment: 'production' }, steps)
 
     expect(steps.syncProducts).not.toHaveBeenCalled()
-    expect(report?.products).toMatchObject({ status: 'skipped', note: expect.stringContaining('npx convex env set --prod BILLING_ENVIRONMENT production') })
+    expect(report?.products).toMatchObject({ status: 'skipped', note: expect.stringContaining('npx convex env set --prod BACKEND_ENVIRONMENT production') })
   })
 
   it('writes and loads nothing on a dry run', async () => {
@@ -345,6 +395,31 @@ describe('billing sync — the products', () => {
     expect(steps.setEnv).not.toHaveBeenCalled()
     expect(steps.syncProducts).not.toHaveBeenCalled()
     expect(existsSync(join(rootDir, 'backend/billing.generated.ts'))).toBe(false)
+  })
+
+  it('keeps the other environment\'s ids when it rewrites the id map', async () => {
+    writeFileSync(join(rootDir, 'backend/billing.generated.ts'), 'export const catalog = { production: { products: { pro: \'prod_live\' }, meters: {} } }\n')
+    const { report } = await runBillingSync(rootDir, { webhook: 'off' }, deps())
+
+    const written = readFileSync(report!.generated!, 'utf8')
+    expect(written).toContain('sandbox')
+    expect(written).toContain('prod_live')
+  })
+
+  // Two branches that each ran `billing sync` leave conflict markers behind.
+  it('refuses an id map that does not load, before the provider hears of anything, and leaves it as it was', async () => {
+    const broken = 'export const catalog = {\n<<<<<<< HEAD\n  sandbox: { products: {}, meters: {} },\n=======\n  production: { products: { pro: \'prod_live\' }, meters: {} },\n>>>>>>> other\n}\n'
+    writeFileSync(join(rootDir, 'backend/billing.generated.ts'), broken)
+    const steps = deps()
+    const { exitCode, report } = await runBillingSync(rootDir, { webhook: 'off' }, steps)
+
+    expect(exitCode).toBe(1)
+    expect(report).toBeNull()
+    expect(steps.sync).not.toHaveBeenCalled()
+    expect(steps.setEnv).not.toHaveBeenCalled()
+    expect(readFileSync(join(rootDir, 'backend/billing.generated.ts'), 'utf8')).toBe(broken)
+    expect(output()).toContain('billing.generated.ts does not load')
+    expect(output()).toContain('delete it to start over')
   })
 })
 

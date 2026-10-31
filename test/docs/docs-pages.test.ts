@@ -9,11 +9,14 @@ import { read } from './helpers'
 // Nitro's runtime only loads inside a Nitro build; its plugin helper is
 // the identity.
 vi.mock('nitropack/runtime', () => ({ defineNitroPlugin: (plugin: unknown) => plugin }))
+// The twin plugin reads the content only for sitemap.md, which these tests leave alone.
+vi.mock('../../website/server/utils/content-pages', () => ({ contentPages: vi.fn() }))
 
 // What the docs build adds to each page (website/modules/docs-pages.ts) and
-// to the Markdown agents read (website/server/plugins/agent-page-keys.ts):
+// to the Markdown agents read (website/server/plugins/agent-surfaces.ts):
 // the date of each page's last commit, where the sitemap and the aside find
-// it, and the header's keys, only where agents read them.
+// it, and the page's header and the homepage's text, only where agents read
+// them.
 
 describe('last-updated dates from git', () => {
   // A git hook (pre-push runs the tests) exports GIT_DIR and GIT_INDEX_FILE
@@ -98,21 +101,26 @@ describe('a parsed page', () => {
   })
 
   // The site's search indexes every word of the stored body.
-  it('gets the text its blocks stand for, but not the header\'s keys', () => {
-    const page: Record<string, unknown> = { body: body(), ...keys }
+  it('gets the text its blocks stand for, but not the header, nor the homepage\'s text', () => {
+    const page: Record<string, unknown> = { body: { type: 'minimark', value: [...body().value, ['home-console', {}]] }, ...keys, kind: 'how-to' }
     enrichPage(page, undefined)
     const value = (page.body as { value: unknown[] }).value
     expect((value[1] as unknown[]).length).toBeGreaterThan(2)
-    expect(JSON.stringify(value)).not.toContain('page-keys')
+    expect(value[2]).toEqual(['home-console', {}])
+    expect(JSON.stringify(value)).not.toContain('Version: ')
+    expect(JSON.stringify(value)).not.toContain('Try it live')
   })
 
-  it('closes with the header\'s keys in the Markdown agents read', async () => {
+  it('opens with its header and keys in the Markdown agents read', async () => {
     const hooks = new Map<string, (event: unknown, page: Record<string, unknown>) => void>()
-    const { default: plugin } = await import('../../website/server/plugins/agent-page-keys')
+    const { default: plugin } = await import('../../website/server/plugins/agent-surfaces')
     plugin({ hooks: { hook: (name: string, handler: (event: unknown, page: Record<string, unknown>) => void) => hooks.set(name, handler) } } as never)
-    const copy = { ...keys, body: body() }
+    const copy = { ...keys, path: '/docs/build/email/sending', kind: 'how-to', body: body() }
     hooks.get('agent-discovery:document')!({}, copy)
-    expect(copy.body.value.at(-1)).toEqual(['page-keys', {}, expect.arrayContaining(['ul'])])
+    expect(copy.body.value[0]).toEqual(['p', {}, expect.stringMatching(/^Version: nuxt-backend .* · Tab: Build · Kind: how-to · Status: stable$/)])
+    expect(copy.body.value[1]).toEqual(['p', {}, 'Every page: ', expect.anything(), expect.any(String), expect.anything()])
+    expect(copy.body.value[2]).toEqual(['p', {}, 'Commands use npm; use your project\'s package manager.'])
+    expect(copy.body.value[3]).toEqual(['ul', {}, ['li', {}, ['a', { href: '/playground/platform/email' }, 'Try it live in the playground']], expect.anything(), expect.anything()])
   })
 })
 

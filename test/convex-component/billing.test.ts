@@ -378,3 +378,48 @@ describe('one trial per owner (component)', () => {
     expect(await t.mutation(api.billing.claimTrial, { ownerUserId: 'u1', entityId: 'org-a', holdMs: 0 })).toBe(true)
   })
 })
+
+describe('scheduled subscription changes (component)', () => {
+  const change = (modifiedAt: number, productId: string | null, resumesAt: number | null = null) => ({
+    subscriptionId: 'sub_1',
+    userId: 'org-1',
+    pendingChange: productId ? { productId, appliesAt: 2_000 } : null,
+    resumesAt,
+    modifiedAt,
+  })
+
+  const read = (...subscriptionIds: string[]) => t.query(api.billing.subscriptionChanges, { subscriptionIds })
+
+  test('keeps the newest state by the provider\'s modifiedAt, whatever order they land in', async () => {
+    await t.mutation(api.billing.recordSubscriptionChange, change(200, 'prod_team'))
+    // A late delivery of an older state never overwrites the newer one.
+    await t.mutation(api.billing.recordSubscriptionChange, change(100, null, 5_000))
+    expect(await read('sub_1')).toStrictEqual([
+      { subscriptionId: 'sub_1', pendingChange: { productId: 'prod_team', appliesAt: 2_000 }, resumesAt: null, modifiedAt: 200 },
+    ])
+
+    // The same moment again, or a later one, replaces it: the change was cancelled.
+    await t.mutation(api.billing.recordSubscriptionChange, change(200, null, 5_000))
+    expect(await read('sub_1')).toStrictEqual([
+      { subscriptionId: 'sub_1', pendingChange: null, resumesAt: 5_000, modifiedAt: 200 },
+    ])
+  })
+
+  test('reads the subscriptions asked for, by id, and deleteByUser forgets an entity\'s', async () => {
+    await t.mutation(api.billing.recordSubscriptionChange, change(100, 'prod_team'))
+    await t.mutation(api.billing.recordSubscriptionChange, { ...change(100, 'prod_pro'), subscriptionId: 'sub_2', userId: 'org-2' })
+    expect(await read('sub_2')).toMatchObject([{ subscriptionId: 'sub_2' }])
+    expect(await read('sub_unknown')).toStrictEqual([])
+
+    await t.mutation(api.billing.deleteByUser, { userId: 'org-1' })
+    expect(await read('sub_1', 'sub_2')).toMatchObject([{ subscriptionId: 'sub_2' }])
+  })
+
+  test('finds a subscription past the hundredth one an entity ever held', async () => {
+    for (let index = 0; index < 120; index++) {
+      await t.mutation(api.billing.recordSubscriptionChange, { ...change(100, null), subscriptionId: `sub_old_${index}` })
+    }
+    await t.mutation(api.billing.recordSubscriptionChange, { ...change(100, 'prod_team'), subscriptionId: 'sub_live' })
+    expect(await read('sub_live')).toMatchObject([{ subscriptionId: 'sub_live', pendingChange: { productId: 'prod_team' } }])
+  })
+})

@@ -69,6 +69,7 @@ export function createBackendDevtoolsBridge(requests: Partial<DevtoolsBridgeRequ
     },
     request: section => requests.request?.(section),
     lookupEmail: emailId => requests.lookupEmail?.(emailId),
+    replayWebhook: (service, deliveryId) => requests.replayWebhook?.(service, deliveryId),
     on(_event, callback) {
       handlers.add(callback)
       return () => {

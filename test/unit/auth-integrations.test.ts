@@ -12,8 +12,8 @@ function mutationCtx() {
   return { runMutation: vi.fn(), runQuery: vi.fn(), scheduler: { runAfter: vi.fn() } } as never
 }
 
-/** An email instance over a stub component: each send is `ctx.runMutation('backend/email:send', message)`. */
-const componentEmail = () => setupEmail({ backend: { email: { send: 'backend/email:send' } } } as never)
+/** An email instance over a stub component: each send is `ctx.runMutation('backend/email:send', message)`, a secret's `backend/email:sendSecret`. */
+const componentEmail = () => setupEmail({ backend: { email: { send: 'backend/email:send', sendSecret: 'backend/email:sendSecret' } } } as never)
 
 /**
  * The email instance as setupAuth receives it, with the packaged templates,
@@ -21,15 +21,15 @@ const componentEmail = () => setupEmail({ backend: { email: { send: 'backend/ema
  */
 function emailSpy() {
   const templates = componentEmail()
-  const sent = vi.fn(async (_ctx: unknown, _message: EmailMessage, _options?: { idempotencyKey?: string }) => 'email_1')
+  const sent = vi.fn(async (_ctx: unknown, _message: EmailMessage, _options?: { idempotencyKey?: string, expiresAt?: number }) => 'email_1')
   return Object.assign(sent, {
-    sendTemplate: (async (ctx: unknown, name: 'otp', data: never, options?: { idempotencyKey?: string }) =>
+    sendTemplate: (async (ctx: unknown, name: 'otp', data: never, options?: { idempotencyKey?: string, expiresAt?: number }) =>
       options ? sent(ctx, await templates.render(name, data), options) : sent(ctx, await templates.render(name, data))) as ReturnType<typeof setupEmail>['sendTemplate'],
   })
 }
 
-// Sign-in codes go out only with a key on the deployment (or to a sandbox
-// address); the tests that drop it say so.
+// Sign-in codes go out only with a key on the deployment (or echoed to the
+// logs where that is on); the tests that drop it say so.
 beforeEach(() => {
   vi.stubEnv('EMAIL_API_KEY', 're_test')
 })
@@ -67,9 +67,9 @@ function routeGuard(runtime: unknown): RouteGuard {
   return options.hooks!.before as unknown as RouteGuard
 }
 
-/** A hook context carrying a resolved session for `userId`. */
+/** A hook context carrying a resolved session for `userId`, signed in just now. */
 function signedIn(userId: string, session: Record<string, unknown> = {}) {
-  return { session: { user: { id: userId, email: `${userId}@example.com` }, session: { id: 'session_1', ...session } } }
+  return { session: { user: { id: userId, email: `${userId}@example.com` }, session: { id: 'session_1', createdAt: new Date(), ...session } } }
 }
 
 /** A hook context with no session and no credential: what an anonymous request carries. */
@@ -130,13 +130,13 @@ describe('Better Auth cross-component integrations', () => {
 
     const options = buildAuthOptions(fakeDb, {}, { ctx, email, rateLimiter, onUserCreated })
 
-    // Passwordless: delete-account is wired through the transport — but there
-    // is NO password-reset flow, and no link proves a mailbox: verification
-    // and email change go through the code plugin (below).
+    // Passwordless: there is NO password-reset flow, and no link proves a
+    // mailbox: verification and email change go through the code plugin
+    // (below). Deleting an account is immediate, with no email to confirm it.
     expect(options.emailVerification).toBeUndefined()
     expect(options.emailAndPassword?.sendResetPassword).toBeUndefined()
     expect(options.user?.changeEmail).toBeUndefined()
-    expect(options.user?.deleteUser?.sendDeleteAccountVerification).toBeTypeOf('function')
+    expect(options.user?.deleteUser).toEqual({ enabled: true })
     expect(options.databaseHooks?.user?.create?.after).toBeTypeOf('function')
 
     // After a user is created: a welcome email is sent (once per account,
@@ -169,6 +169,23 @@ describe('Better Auth cross-component integrations', () => {
     }
   })
 
+  it('sends the packaged welcome when the lifecycle flows fail at sign-up, and logs that apart', async () => {
+    const email = Object.assign(emailSpy(), { lifecycle: { flows: ['welcome'], signedUp: vi.fn(async () => Promise.reject(new Error('component unavailable'))) } })
+    const ctx = mutationCtx()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const options = buildAuthOptions(fakeDb, {}, { ctx, email: email as never })
+      await options.databaseHooks!.user!.create!.after!({ id: 'u1', email: 'a@b.com', name: 'Ada' } as never, {} as never)
+      expect(email).toHaveBeenCalledWith(ctx, expect.objectContaining({ to: 'a@b.com' }), { idempotencyKey: 'nuxt-backend:welcome:u1' })
+      const logged = warn.mock.calls.flat().map(String).join('\n')
+      expect(logged).toContain('email.lifecycle_unstarted')
+      expect(logged).not.toContain('auth.welcome_unsent')
+    }
+    finally {
+      warn.mockRestore()
+    }
+  })
+
   it('leaves auth behaviour unchanged with no integrations (regression guard)', () => {
     const options = buildAuthOptions(fakeDb)
 
@@ -176,8 +193,10 @@ describe('Better Auth cross-component integrations', () => {
     expect(options.emailAndPassword.sendResetPassword).toBeUndefined()
     expect(options.user?.changeEmail).toBeUndefined()
     // No email/lifecycle hooks — only the always-on workspace session hook
-    // (organizations are a default feature, not an integration).
-    expect(options.databaseHooks?.user).toBeUndefined()
+    // (organizations are a default feature, not an integration), and the
+    // account's language, read from the request that creates it.
+    expect(options.databaseHooks?.user?.create?.after).toBeUndefined()
+    expect(options.databaseHooks?.user?.create?.before).toBeTypeOf('function')
     expect(options.databaseHooks?.session?.create?.before).toBeTypeOf('function')
   })
 })
@@ -206,7 +225,7 @@ describe('workspace invitation email', () => {
     email: 'invitee@example.com',
     organization: { name: 'Acme' },
     invitation: { expiresAt: new Date('2026-10-20T00:00:00Z') },
-    inviter: { user: { name: 'Ada', email: 'ada@example.com' } },
+    inviter: { user: { id: 'user-ada', name: 'Ada', email: 'ada@example.com' } },
   }
 
   it('wires sendInvitationEmail through the transport with a SITE_URL accept link', async () => {
@@ -220,10 +239,11 @@ describe('workspace invitation email', () => {
       expect(sendInvitationEmail).toBeTypeOf('function')
 
       await sendInvitationEmail!(invitationData)
+      // In the invitee's language, else the inviter's.
       expect(email).toHaveBeenCalledWith(ctx, expect.objectContaining({
         to: 'invitee@example.com',
         subject: 'Join Acme',
-      }))
+      }), { senderId: 'user-ada' })
       const message = (email.mock.calls[0] as unknown[])[1] as { text: string }
       expect(message.text).toContain('https://app.example.com/accept-invitation?id=inv-1')
       expect(message.text).toContain('Ada invited you to join Acme as member.')
@@ -271,10 +291,10 @@ describe('workspace invitation email', () => {
     expect(message.text).toContain('/accept-invitation?id=inv-1')
   })
 
-  it('honors a custom invitationPath', async () => {
+  it('links to the invitation page of the generated paths', async () => {
     vi.stubEnv('SITE_URL', 'https://app.example.com')
     const email = emailSpy()
-    const options = buildAuthOptions(fakeDb, { organization: { invitationPath: '/join' } }, { ctx: mutationCtx(), email })
+    const options = buildAuthOptions(fakeDb, { paths: { acceptInvitation: '/join' } }, { ctx: mutationCtx(), email })
 
     await orgPluginOptions(options)!.sendInvitationEmail!(invitationData)
     const message = (email.mock.calls[0] as unknown[])[1] as { text: string }
@@ -289,21 +309,17 @@ describe('workspace invitation email', () => {
     await send(invitationData)
     await send({ ...invitationData, invitation: { expiresAt: new Date('2026-10-22T00:00:00Z') } })
     expect(email).toHaveBeenCalledTimes(2)
-    expect(email.mock.calls.map(call => call[2])).toEqual([undefined, undefined])
+    expect(email.mock.calls.map(call => call[2])).toEqual([{ senderId: 'user-ada' }, { senderId: 'user-ada' }])
   })
 
-  it('a consumer-supplied sendInvitationEmail wins over the built-in one', async () => {
-    const custom = vi.fn(async () => {})
-    const email = emailSpy()
-    const options = buildAuthOptions(
-      fakeDb,
-      { organization: { sendInvitationEmail: custom as never } },
-      { ctx: mutationCtx(), email },
-    )
-
-    await orgPluginOptions(options)!.sendInvitationEmail!(invitationData)
-    expect(custom).toHaveBeenCalled()
-    expect(email).not.toHaveBeenCalled()
+  it('maps the package\'s own workspace options onto the plugin, and passes nothing else through', async () => {
+    const onCreate = vi.fn(async () => {})
+    const options = buildAuthOptions(fakeDb, { workspaces: { invitationExpiresIn: 3600, onCreate, sendInvitationEmail: vi.fn() } as never }, { ctx: mutationCtx(), email: emailSpy() })
+    const plugin = orgPluginOptions(options) as unknown as { invitationExpiresIn: number, organizationHooks: { afterCreateOrganization: (data: unknown) => Promise<void> } }
+    expect(plugin.invitationExpiresIn).toBe(3600)
+    expect(Object.keys(plugin).sort()).toEqual(['invitationExpiresIn', 'organizationHooks', 'sendInvitationEmail'])
+    await plugin.organizationHooks.afterCreateOrganization({ organization: { id: 'w1', name: 'Acme', slug: 'acme' }, user: { id: 'u1' } })
+    expect(onCreate).toHaveBeenCalledWith(expect.anything(), { workspace: { id: 'w1', name: 'Acme', slug: 'acme' }, userId: 'u1' })
   })
 
   it('does not inject an invitation email without a transport', () => {
@@ -318,8 +334,8 @@ describe('workspace invitation email', () => {
         .rejects.toThrow('OTP not delivered')
     })
 
-    it('echoes the code to the console with NUXT_BACKEND_LOG_OTP=1', async () => {
-      vi.stubEnv('NUXT_BACKEND_LOG_OTP', '1')
+    it('echoes the code to the console on a development deployment', async () => {
+      vi.stubEnv('BACKEND_ENVIRONMENT', 'development')
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
       try {
         const send = otpSender(buildAuthOptions(fakeDb))
@@ -336,8 +352,12 @@ describe('workspace invitation email', () => {
       const email = emailSpy()
       const ctx = mutationCtx()
       const send = otpSender(buildAuthOptions(fakeDb, {}, { ctx, email }))
+      const before = Date.now()
       await send({ email: 'a@b.com', otp: '654321', type: 'sign-in' })
-      expect(email).toHaveBeenCalledWith(ctx, expect.objectContaining({ to: 'a@b.com' }))
+      // With the code's own expiry, past which its email is not sent.
+      expect(email).toHaveBeenCalledWith(ctx, expect.objectContaining({ to: 'a@b.com' }), { expiresAt: expect.any(Number) })
+      const [, , options] = email.mock.calls[0]! as unknown as [unknown, unknown, { expiresAt: number }]
+      expect(options.expiresAt - before).toBeGreaterThanOrEqual(5 * 60 * 1000 - 50)
     })
   })
 
@@ -362,9 +382,9 @@ describe('workspace invitation email', () => {
       }
     })
 
-    it('echoes the code with NUXT_BACKEND_LOG_OTP=1 — what the dev boot provisions', async () => {
+    it('echoes the code on a development deployment, which `env push` names so', async () => {
       vi.stubEnv('EMAIL_API_KEY', '')
-      vi.stubEnv('NUXT_BACKEND_LOG_OTP', '1')
+      vi.stubEnv('BACKEND_ENVIRONMENT', 'development')
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
       try {
         await expect(otpOver(mutationCtx())({ email: 'a@b.com', otp: '123456', type: 'sign-in' })).resolves.toBeUndefined()
@@ -376,30 +396,30 @@ describe('workspace invitation email', () => {
       }
     })
 
-    // The component keeps test-mode mail to a sandbox address in the sandbox
-    // inbox, key or not: that copy is the code for a keyless demo or e2e run.
-    it('hands a sandbox address to the component, which keeps it for the sandbox inbox', async () => {
+    // With no key nothing is sent, whoever the address is: the provider's test
+    // addresses are read back from the provider's own log, which a keyless
+    // deployment has no part in. The code prints in the dev console instead.
+    it('refuses a test address too without a key: nothing is sent, so the dev inbox has nothing to read', async () => {
       vi.stubEnv('EMAIL_API_KEY', '')
       try {
         const ctx = mutationCtx()
-        await expect(otpOver(ctx)({ email: 'Delivered+e2e@resend.dev', otp: '123456', type: 'sign-in' })).resolves.toBeUndefined()
-        expect((ctx as { runMutation: ReturnType<typeof vi.fn> }).runMutation)
-          .toHaveBeenCalledWith('backend/email:send', expect.objectContaining({ to: 'Delivered+e2e@resend.dev' }))
+        await expect(otpOver(ctx)({ email: 'Delivered+e2e@resend.dev', otp: '123456', type: 'sign-in' }))
+          .rejects.toThrow('EMAIL_API_KEY is not set on this deployment')
+        expect((ctx as { runMutation: ReturnType<typeof vi.fn> }).runMutation).not.toHaveBeenCalled()
       }
       finally {
         vi.unstubAllEnvs()
       }
     })
 
-    it('still echoes a sandbox address\'s code with NUXT_BACKEND_LOG_OTP=1', async () => {
-      vi.stubEnv('EMAIL_API_KEY', '')
-      vi.stubEnv('NUXT_BACKEND_LOG_OTP', '1')
+    it('echoes the code beside the email on a development deployment once the key is set', async () => {
+      vi.stubEnv('BACKEND_ENVIRONMENT', 'development')
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
       try {
         const ctx = mutationCtx()
         await otpOver(ctx)({ email: 'delivered+e2e@resend.dev', otp: '123456', type: 'sign-in' })
         expect(warn.mock.calls.flat().join('\n')).toContain('123456')
-        expect((ctx as { runMutation: ReturnType<typeof vi.fn> }).runMutation).toHaveBeenCalledWith('backend/email:send', expect.anything())
+        expect((ctx as { runMutation: ReturnType<typeof vi.fn> }).runMutation).toHaveBeenCalledWith('backend/email:sendSecret', expect.anything())
       }
       finally {
         warn.mockRestore()
@@ -407,16 +427,16 @@ describe('workspace invitation email', () => {
       }
     })
 
-    it('logs codes only for NUXT_BACKEND_LOG_OTP=1, never for another value', async () => {
+    it('logs codes only on a development deployment, never on another kind', async () => {
       vi.stubEnv('EMAIL_API_KEY', '')
-      vi.stubEnv('NUXT_BACKEND_LOG_OTP', 'false')
+      vi.stubEnv('BACKEND_ENVIRONMENT', 'sandbox')
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
       try {
         await expect(otpOver(mutationCtx())({ email: 'a@b.com', otp: '123456', type: 'sign-in' }))
           .rejects.toThrow('EMAIL_API_KEY is not set on this deployment')
         const ctx = mutationCtx()
-        await otpOver(ctx)({ email: 'delivered+e2e@resend.dev', otp: '654321', type: 'sign-in' })
-        expect((ctx as { runMutation: ReturnType<typeof vi.fn> }).runMutation).toHaveBeenCalledWith('backend/email:send', expect.anything())
+        await expect(otpOver(ctx)({ email: 'delivered+e2e@resend.dev', otp: '654321', type: 'sign-in' }))
+          .rejects.toThrow('EMAIL_API_KEY is not set on this deployment')
         expect(warn.mock.calls.flat().join('\n')).not.toMatch(/123456|654321/)
       }
       finally {
@@ -427,7 +447,7 @@ describe('workspace invitation email', () => {
 
     it('treats a sandbox address like any other once test mode is off', async () => {
       vi.stubEnv('EMAIL_API_KEY', '')
-      vi.stubEnv('EMAIL_TEST_MODE', 'false')
+      vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
       try {
         const ctx = mutationCtx()
         await expect(otpOver(ctx)({ email: 'delivered+e2e@resend.dev', otp: '123456', type: 'sign-in' }))
@@ -439,14 +459,13 @@ describe('workspace invitation email', () => {
       }
     })
 
-    it('sends through the component once the key is set, whatever NUXT_BACKEND_LOG_OTP says', async () => {
+    it('sends through the component once the key is set, and prints the code only on a development deployment', async () => {
       vi.stubEnv('EMAIL_API_KEY', 're_test')
-      vi.stubEnv('NUXT_BACKEND_LOG_OTP', '1')
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
       try {
         const ctx = mutationCtx()
         await otpOver(ctx)({ email: 'a@b.com', otp: '123456', type: 'sign-in' })
-        expect((ctx as { runMutation: ReturnType<typeof vi.fn> }).runMutation).toHaveBeenCalledWith('backend/email:send', expect.objectContaining({ to: 'a@b.com' }))
+        expect((ctx as { runMutation: ReturnType<typeof vi.fn> }).runMutation).toHaveBeenCalledWith('backend/email:sendSecret', expect.objectContaining({ to: 'a@b.com' }))
         expect(warn).not.toHaveBeenCalled()
       }
       finally {
@@ -512,7 +531,7 @@ describe('OTP rate limits', () => {
       .rejects.toEqual(expect.objectContaining({ status: 'TOO_MANY_REQUESTS', body: { code: 'rate_limited', limit: 'emailOtp', message: expect.stringContaining('Too many') } }))
   })
 
-  it('both refusals carry the limiter\'s wait as retryAfter (ms) next to the message', async () => {
+  it('both refusals carry the limiter\'s wait as retryAfter (ms), and the label that counts it down as the message', async () => {
     const request = { path: '/email-otp/send-verification-otp', body: otp }
     const perAddress = vi.fn(async (_ctx: unknown, name: string) => (name === 'emailOtpGlobal' ? { ok: true } : { ok: false, retryAfter: 4200 }))
     const global = vi.fn(async () => ({ ok: false, retryAfter: 1500 }))
@@ -523,7 +542,7 @@ describe('OTP rate limits', () => {
     }))
     await expect(otpGuard({ ctx: mutationCtx(), rateLimiter: { limit: global } })(request)).rejects.toEqual(expect.objectContaining({
       status: 'TOO_MANY_REQUESTS',
-      body: { code: 'rate_limited', limit: 'emailOtpGlobal', message: expect.stringContaining('unavailable'), retryAfter: 1500 },
+      body: { code: 'rate_limited', limit: 'emailOtpGlobal', message: 'Too many requests. Try again in 2 seconds.', retryAfter: 1500 },
     }))
   })
 
@@ -551,7 +570,7 @@ describe('sign-in gate (canSignIn)', () => {
   const signIn = { email: 'ada@example.com', otp: '111111', type: 'sign-in' }
   // A deployment that delivers to real addresses, so the gate is what decides.
   beforeEach(() => {
-    vi.stubEnv('EMAIL_TEST_MODE', 'false')
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
     vi.stubEnv('EMAIL_FROM', 'Acme <hello@acme.dev>')
   })
   const inviteOnly = vi.fn(async (_ctx: unknown, input: { isNewUser: boolean }) =>
@@ -574,7 +593,7 @@ describe('sign-in gate (canSignIn)', () => {
   it('is asked for sign-in codes with whether the address has an account', async () => {
     const { options, email, ctx, canSignIn } = setup()
     await otpSender(options)(signIn)
-    expect(canSignIn).toHaveBeenCalledWith(ctx, { email: 'ada@example.com', isNewUser: true, purpose: 'sign-in' })
+    expect(canSignIn).toHaveBeenCalledWith(ctx, { email: 'ada@example.com', isNewUser: true, purpose: 'sign-in', ticket: null })
     expect(email).toHaveBeenCalledOnce()
   })
 
@@ -589,7 +608,7 @@ describe('sign-in gate (canSignIn)', () => {
   it('lets an existing address through an invite-only gate', async () => {
     const { options, email, ctx } = setup({ canSignIn: inviteOnly, userExists: true })
     await otpSender(options)(signIn)
-    expect(inviteOnly).toHaveBeenCalledWith(ctx, { email: 'ada@example.com', isNewUser: false, purpose: 'sign-in' })
+    expect(inviteOnly).toHaveBeenCalledWith(ctx, { email: 'ada@example.com', isNewUser: false, purpose: 'sign-in', ticket: null })
     expect(email).toHaveBeenCalledOnce()
   })
 
@@ -643,7 +662,7 @@ describe('sign-in gate (canSignIn)', () => {
     const { options, ctx, canSignIn } = setup({ canSignIn: inviteOnly })
     const before = options.databaseHooks!.user!.create!.before!
     await expect(before({ email: 'new@example.com' } as never, null)).rejects.toEqual(forbidden('Invite only'))
-    expect(canSignIn).toHaveBeenCalledWith(ctx, { email: 'new@example.com', isNewUser: true, purpose: 'user-create' })
+    expect(canSignIn).toHaveBeenCalledWith(ctx, { email: 'new@example.com', isNewUser: true, purpose: 'user-create', ticket: null })
 
     const open = setup()
     await expect(open.options.databaseHooks!.user!.create!.before!({ email: 'new@example.com' } as never, null)).resolves.toBeUndefined()
@@ -656,7 +675,7 @@ describe('sign-in gate (canSignIn)', () => {
 
     const result = await before({ userId: 'u1' } as never, context as never)
 
-    expect(canSignIn).toHaveBeenCalledWith(ctx, { email: 'ada@example.com', isNewUser: false, purpose: 'session' })
+    expect(canSignIn).toHaveBeenCalledWith(ctx, { email: 'ada@example.com', isNewUser: false, purpose: 'session', ticket: null })
     expect(result).toEqual({ data: { userId: 'u1', activeOrganizationId: 'org-1' } })
   })
 
@@ -669,9 +688,10 @@ describe('sign-in gate (canSignIn)', () => {
     await expect(before({ userId: 'u1' } as never, hookCtx({ member: { organizationId: 'org-1' } }) as never)).rejects.toEqual(forbidden('Sign-in is by invitation right now.'))
   })
 
-  it('adds no gate hooks without a request ctx (the static options object)', () => {
+  it('adds no gate hooks without a request ctx (the static options object)', async () => {
     const options = buildAuthOptions(fakeDb, {}, { canSignIn: inviteOnly } as never)
-    expect(options.databaseHooks?.user).toBeUndefined()
+    // Only the account's language: an address the gate would refuse is created all the same.
+    await expect(options.databaseHooks!.user!.create!.before!({ email: 'stranger@example.com' } as never, undefined as never)).resolves.toBeUndefined()
   })
 })
 
@@ -698,7 +718,7 @@ describe('email that would not arrive', () => {
     await expect(otpGuard(runtime())(inviteRequest('ada@example.com'))).rejects.toEqual(testModeRefusal)
     const logged = warn.mock.calls.flat().join('\n')
     expect(logged).toContain('email.undeliverable')
-    expect(logged).toContain('EMAIL_TEST_MODE')
+    expect(logged).toContain('BACKEND_ENVIRONMENT')
     expect(logged).not.toContain('ada@example.com')
   })
 
@@ -707,22 +727,22 @@ describe('email that would not arrive', () => {
     await expect(otpGuard(runtime())(inviteRequest('delivered@resend.dev'))).resolves.toBeUndefined()
   })
 
-  it('lets a keyless deployment send a code to a sandbox address, kept for the sandbox inbox', async () => {
+  it('refuses a code from a keyless deployment to any address, a test address included: nothing is sent', async () => {
     vi.stubEnv('EMAIL_API_KEY', '')
-    await expect(otpGuard(runtime())(otpRequest('delivered+demo@resend.dev'))).resolves.toBeUndefined()
+    await expect(otpGuard(runtime())(otpRequest('delivered+demo@resend.dev'))).rejects.toEqual(unconfiguredRefusal)
     await expect(otpGuard(runtime())(otpRequest('ada@example.com'))).rejects.toEqual(unconfiguredRefusal)
     expect(warn.mock.calls.flat().join('\n')).toContain('EMAIL_API_KEY')
   })
 
   it('lets a keyless dev deployment send any code it echoes to the logs, but no invitation', async () => {
     vi.stubEnv('EMAIL_API_KEY', '')
-    vi.stubEnv('NUXT_BACKEND_LOG_OTP', '1')
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'development')
     await expect(otpGuard(runtime())(otpRequest('ada@example.com'))).resolves.toBeUndefined()
     await expect(otpGuard(runtime())(inviteRequest('ada@example.com'))).rejects.toEqual(unconfiguredRefusal)
   })
 
   it('out of test mode, refuses a real address until EMAIL_FROM names a sender', async () => {
-    vi.stubEnv('EMAIL_TEST_MODE', 'false')
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
     await expect(otpGuard(runtime())(otpRequest('ada@example.com'))).rejects.toEqual(unconfiguredRefusal)
     // The fallback sender still reaches the provider's test addresses.
     await expect(otpGuard(runtime())(otpRequest('delivered@resend.dev'))).resolves.toBeUndefined()
@@ -739,8 +759,6 @@ describe('email that would not arrive', () => {
 
   it('leaves alone the email the app sends itself', async () => {
     const before = (options: ReturnType<typeof buildAuthOptions>) => options.hooks!.before as unknown as OtpGuard
-    const ownInvitations = buildAuthOptions(fakeDb, { organization: { sendInvitationEmail: vi.fn() as never } }, runtime())
-    await expect(before(ownInvitations)(inviteRequest('ada@example.com'))).resolves.toBeUndefined()
     const ownOrganizationPlugin = buildAuthOptions(fakeDb, { authOptions: { plugins: [{ id: 'organization' } as never] } }, runtime())
     await expect(before(ownOrganizationPlugin)(inviteRequest('ada@example.com'))).resolves.toBeUndefined()
     const ownCodes = buildAuthOptions(fakeDb, { authOptions: { plugins: [{ id: 'email-otp' } as never] } }, runtime())
@@ -752,8 +770,20 @@ describe('email that would not arrive', () => {
     expect(warn).not.toHaveBeenCalled()
   })
 
+  // An account deletion sends nothing: the person typed their address to
+  // confirm it, so no email's delivery is asked about.
+  const deleteRequest = (email: string, body: Record<string, unknown> = {}) =>
+    ({ path: '/delete-user', body, context: { session: { user: { id: 'user_ada', email }, session: { id: 'session_1', createdAt: new Date() } } } })
+
+  it('lets a deletion through whatever email can reach, since none is sent', async () => {
+    await expect(otpGuard(runtime())(deleteRequest('ada@example.com', { confirmation: 'ada@example.com' }))).resolves.toBeUndefined()
+    // A confirmation link an earlier release emailed still carries its token.
+    await expect(otpGuard(runtime())(deleteRequest('ada@example.com', { token: 'a-token' }))).resolves.toBeUndefined()
+    expect(warn).not.toHaveBeenCalled()
+  })
+
   it('names the fallback sender\'s real reach in the cause it logs', async () => {
-    vi.stubEnv('EMAIL_TEST_MODE', 'false')
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
     await expect(otpGuard(runtime())(otpRequest('ada@example.com'))).rejects.toEqual(unconfiguredRefusal)
     expect(warn.mock.calls.flat().join('\n')).toContain('reaches only the provider\'s test addresses and your own account\'s address')
   })
@@ -786,16 +816,17 @@ describe('account deletion', () => {
     expect(options.user!.deleteUser!.enabled).toBe(true)
   })
 
-  it('keeps the emailed confirmation when the consumer only adds a beforeDelete', () => {
+  it('deletes at once, and keeps a consumer\'s beforeDelete and its own confirmation email', () => {
     const beforeDelete = vi.fn(async () => {})
     const options = buildAuthOptions(
       fakeDb,
       { authOptions: { user: { deleteUser: { beforeDelete } } } },
       { ctx: mutationCtx(), email: emailSpy() },
     )
-    expect(options.user!.deleteUser).toMatchObject({ enabled: true, beforeDelete })
-    expect(options.user!.deleteUser!.sendDeleteAccountVerification).toBeTypeOf('function')
-    expect(options.user!.deleteUser!.afterDelete).toBeUndefined()
+    expect(options.user!.deleteUser).toEqual({ enabled: true, beforeDelete })
+    const sendDeleteAccountVerification = vi.fn()
+    const own = buildAuthOptions(fakeDb, { authOptions: { user: { deleteUser: { sendDeleteAccountVerification } } } }, { ctx: mutationCtx(), email: emailSpy() })
+    expect(own.user!.deleteUser!.sendDeleteAccountVerification).toBe(sendDeleteAccountVerification)
   })
 
   it('runs onUserDeleted alone without a transport, and the consumer’s enabled: false still wins', async () => {
@@ -810,8 +841,8 @@ describe('account deletion', () => {
     expect(disabled.user!.deleteUser!.enabled).toBe(false)
   })
 
-  it('leaves deleteUser unset when nothing opts in', () => {
-    expect(buildAuthOptions(fakeDb).user?.deleteUser).toBeUndefined()
+  it('turns deletion on with nothing passed: the account system is complete out of the box', () => {
+    expect(buildAuthOptions(fakeDb).user?.deleteUser).toEqual({ enabled: true })
   })
 })
 
@@ -949,7 +980,7 @@ describe('privileged route rate limits', () => {
     const guard = routeGuard({ ctx: mutationCtx(), rateLimiter: { limit } })
 
     await expect(guard({ path: '/organization/invite-member', context: signedIn('user_inviter') }))
-      .rejects.toEqual(expect.objectContaining({ status: 'TOO_MANY_REQUESTS', body: { code: 'rate_limited', limit: 'invitationGlobal', message: expect.stringContaining('temporarily unavailable') } }))
+      .rejects.toEqual(expect.objectContaining({ status: 'TOO_MANY_REQUESTS', body: { code: 'rate_limited', limit: 'invitationGlobal', message: 'Too many requests. Try again in a moment.' } }))
     expect(limit.mock.calls.map(call => call[1])).toEqual(['invitation', 'invitationGlobal'])
   })
 
@@ -959,9 +990,9 @@ describe('privileged route rate limits', () => {
     const ceiling = vi.fn(async (_ctx: unknown, name: string) => (name === 'invitationGlobal' ? { ok: false, retryAfter: 600_000 } : { ok: true }))
 
     await expect(routeGuard({ ctx: mutationCtx(), rateLimiter: { limit: perCaller } })(request))
-      .rejects.toEqual(expect.objectContaining({ body: { code: 'rate_limited', limit: 'invitation', message: expect.stringContaining('Too many invitations'), retryAfter: 90_000 } }))
+      .rejects.toEqual(expect.objectContaining({ body: { code: 'rate_limited', limit: 'invitation', message: 'Too many requests. Try again in 90 seconds.', retryAfter: 90_000 } }))
     await expect(routeGuard({ ctx: mutationCtx(), rateLimiter: { limit: ceiling } })(request))
-      .rejects.toEqual(expect.objectContaining({ body: { code: 'rate_limited', limit: 'invitationGlobal', message: expect.stringContaining('temporarily unavailable'), retryAfter: 600_000 } }))
+      .rejects.toEqual(expect.objectContaining({ body: { code: 'rate_limited', limit: 'invitationGlobal', message: 'Too many requests. Try again in 600 seconds.', retryAfter: 600_000 } }))
   })
 
   it('an admin route has no deployment ceiling — it spends nobody else\'s resource', async () => {
@@ -998,16 +1029,6 @@ describe('privileged route rate limits', () => {
     // bucket of whoever happens to share a key with it.
     await guard({ path: '/admin/ban-user', context: anonymous() })
     expect(limit).not.toHaveBeenCalled()
-  })
-
-  it('bounds anonymous agent registration by the deployment ceiling alone, with no session lookup', async () => {
-    const limit = vi.fn(async (_ctx: unknown, _name: string, _options?: { key?: string }) => ({ ok: false, retryAfter: 120_000 }))
-    const ctx = mutationCtx()
-    const guard = routeGuard({ ctx, rateLimiter: { limit } })
-
-    await expect(guard({ path: '/mcp/register', context: {} }))
-      .rejects.toEqual(new APIError('TOO_MANY_REQUESTS', { code: 'rate_limited', limit: 'agentRegistrationGlobal', message: 'Too many agents are registering right now. Please try again later.', retryAfter: 120_000 }))
-    expect(limit.mock.calls).toEqual([[ctx, 'agentRegistrationGlobal']])
   })
 
   it('does nothing when the deployment configured no rate limiter', async () => {
@@ -1066,7 +1087,7 @@ describe('code requests the route would refuse', () => {
       .rejects.toEqual(expect.objectContaining({ status: 'BAD_REQUEST' }))
     expect(limit).not.toHaveBeenCalled()
 
-    vi.stubEnv('EMAIL_TEST_MODE', 'false')
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
     vi.stubEnv('EMAIL_FROM', 'Acme <hello@acme.dev>')
     const withPasswords = buildAuthOptions(fakeDb, { authOptions: { emailAndPassword: { enabled: true } } }, { ctx: mutationCtx(), email: emailSpy(), rateLimiter: { limit } })
     await expect((withPasswords.hooks!.before as unknown as OtpGuard)(request)).resolves.toBeUndefined()
@@ -1083,14 +1104,14 @@ describe('code requests the route would refuse', () => {
   })
 
   it('ask the gate about the address as Better Auth holds it, lower-cased', async () => {
-    vi.stubEnv('EMAIL_TEST_MODE', 'false')
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
     vi.stubEnv('EMAIL_FROM', 'Acme <hello@acme.dev>')
     const canSignIn = vi.fn(async () => true as const)
     await otpGuard({ ctx: mutationCtx(), email: emailSpy(), canSignIn, userExists: async () => false })({
       path: '/email-otp/send-verification-otp',
       body: { email: 'Ada@Example.COM', type: 'sign-in' },
     })
-    expect(canSignIn).toHaveBeenCalledWith(expect.anything(), { email: 'ada@example.com', isNewUser: true, purpose: 'sign-in' })
+    expect(canSignIn).toHaveBeenCalledWith(expect.anything(), { email: 'ada@example.com', isNewUser: true, purpose: 'sign-in', ticket: null })
   })
 })
 

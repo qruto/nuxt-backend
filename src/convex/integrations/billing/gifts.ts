@@ -1,24 +1,33 @@
 import type { PolarWebhookEvent } from '@convex-dev/polar'
 import { checkoutsClientConfirm } from '@polar-sh/sdk/funcs/checkoutsClientConfirm.js'
 import { checkoutsCreate } from '@polar-sh/sdk/funcs/checkoutsCreate.js'
-import { discountsCreate } from '@polar-sh/sdk/funcs/discountsCreate.js'
-import { discountsDelete } from '@polar-sh/sdk/funcs/discountsDelete.js'
 import { discountsGet } from '@polar-sh/sdk/funcs/discountsGet.js'
-import { discountsList } from '@polar-sh/sdk/funcs/discountsList.js'
-import { discountsUpdate } from '@polar-sh/sdk/funcs/discountsUpdate.js'
 import { ordersList } from '@polar-sh/sdk/funcs/ordersList.js'
 import { refundsCreate } from '@polar-sh/sdk/funcs/refundsCreate.js'
-import { actionGeneric, type Auth, queryGeneric } from 'convex/server'
+import { actionGeneric, type Auth, createFunctionHandle, type FunctionReference, makeFunctionReference, queryGeneric, type Scheduler } from 'convex/server'
 import { v } from 'convex/values'
+import { BILLING_MANAGER_ROLES, RUN_GIFT_SWEEP_FUNCTION } from '../../constants.js'
+import { hasAnyRole } from '../access.js'
+import { mintClaimDiscount, voidClaimDiscount } from './claim-discount.js'
 import { type BillingContext, isProviderNotFound, readEnv } from './context.js'
 import type { BillingCustomers } from './customers.js'
+import { withCheckoutReturn } from './checkout.js'
+import type { BillingFreePlan } from './free-plan.js'
+import { giftDeliverAt, giftMessage, giftSenderName } from './gift-rules.js'
+import { GIFT_ACCESS, giftCaller } from './gift-access.js'
+import { createGiftManagement } from './gift-manage.js'
+import { createPasses } from './passes.js'
 import type { PurchaseRules } from './purchase.js'
-import type { ProviderCtx, RunQueryCtx, RunWriteCtx } from './types/base.js'
+import type { CheckoutCreateInput, ProviderCtx, RunQueryCtx, RunWriteCtx } from './types/base.js'
 import type { GiftRecord } from './types/records.js'
+import type { BillingAccessRule } from './types/setup.js'
+import { UNDELIVERABLE_CAUSES, undeliverableReason } from '../../delivery.js'
 import { backendError } from '../../errors.js'
 import { logBackend } from '../../log.js'
+import { normalizeEmail } from '../../tokens.js'
+import { pauseCheck, refusePaused } from '../../pauses.js'
 
-// Credit-pack gifts, native to the provider. The purchaser buys the pack's
+// Gifts, native to the provider: a credit pack, or a plan as a pass. The purchaser buys the pack's
 // private gift product on their own billing entity's customer, so the receipt
 // and the invoice are theirs and nothing is created for the recipient. Once
 // that order is paid, a single-use, code-free 100% discount on the pack is
@@ -26,6 +35,14 @@ import { logBackend } from '../../log.js'
 // and claims it through a $0 checkout of the pack on their own entity, so the
 // provider grants the credits to their customer. A refund of the purchase
 // before the claim deletes the discount. Gifts are service units, never money.
+//
+// A plan pass has no discount and no checkout: the claim switches the
+// recipient's free workspace to the plan's pass product (passes.ts). A gift
+// may be dated for later: it is paid at once and delivered (the recipient is
+// told, and may see and claim it) on its date, by a scheduled function and,
+// should that be missed, the component's sweep (gift-manage.ts).
+
+export { giftSenderName } from './gift-rules.js'
 
 /** The fields of a gift order's payload that fulfilment reads. */
 type GiftOrder = {
@@ -47,77 +64,36 @@ const GIFT_LIMIT = { max: 10, days: 30 } as const
 /** How long a purchaser's open gift checkout counts against their cap: past it, the checkout has expired at the provider. */
 const OPEN_CHECKOUT_MS = 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
-/** The longest sender name a gift email shows. */
-const SENDER_NAME_LENGTH = 40
-/** The longest message a purchaser may write; it shows only inside the app. */
-const MESSAGE_LENGTH = 500
-/**
- * A link, or a bare domain with a top-level domain people link with: what
- * neither the sender name nor the message may carry. A dot alone is no link,
- * so a name like "St.John" or "J. R. R. Tolkien" stays as it is.
- */
-const LINK = /(?:[a-z][\w+.-]*:\/\/|www\.)\S*|\b[\w-]+(?:\.[\w-]+)*\.(?:com|net|org|io|co|app|dev|ai|me|info|biz|xyz|online|site|store|shop|link|click|top|club|live|pro|tech|cloud|page|ly|gg|tv|uk|de|ru|fr|us|ca|au|in|cn|jp|nl|br|es|it|pl|ch|se|eu|cc)(?![\w-])(?:\/\S*)?/gi
-/** The ideographic full stops a domain can hide behind. */
-const IDEOGRAPHIC_STOP = /[\u3002\uFF61]/g
-/** Format characters (zero-width joiners and the like) that split a domain to slip it past a check. */
-const FORMAT_CHARACTERS = /\p{Cf}/gu
+/** How many gifts one address may be sent in a day: nobody floods an inbox. */
+const ADDRESS_LIMIT = 5
 
-/** Text as a reader sees it: compatibility forms folded, full-width and ideographic dots made dots, invisible characters gone. */
-function readable(text: string): string {
-  return text.normalize('NFKC').replace(IDEOGRAPHIC_STOP, '.').replace(FORMAT_CHARACTERS, '')
-}
+/** A date this close ahead is due: the mutation that stamped it and the action reading it do not share a clock to the millisecond. */
+const CLOCK_SKEW_MS = 5000
 
 /** What the purchaser reads when they have not paid for anything yet. */
 const NO_EARLIER_ORDER = 'Gifts open after your first purchase. Buy a plan or a credit pack first, then send one.'
 /** What the purchaser reads when the recipient is their own address. */
 const OWN_ADDRESS = 'A gift is for someone else — send it to another address.'
-
-/**
- * The sender's name as the gift email shows it: at most 40 characters, with
- * every link and bare domain taken out. A name is the purchaser's own text,
- * and an email from the app's domain must not carry a link someone typed.
- */
-export function giftSenderName(name: string | undefined): string | undefined {
-  if (name === undefined) return undefined
-  const plain = readable(name).replace(LINK, ' ').replace(/\s+/g, ' ').trim().slice(0, SENDER_NAME_LENGTH).trim()
-  return plain || undefined
-}
-
-/** The purchaser's message, trimmed: plain text of at most 500 characters, refused with a link in it. */
-function giftMessage(message: string | undefined): string | undefined {
-  const trimmed = message?.trim()
-  if (!trimmed) return undefined
-  // `search` ignores the shared expression's global position, where `test` would keep it.
-  if (trimmed.length > MESSAGE_LENGTH || readable(trimmed).search(LINK) !== -1) {
-    throw backendError('invalid_input', { field: 'message' }, `[nuxt-backend] giftCheckout: a gift message is plain text of at most ${MESSAGE_LENGTH} characters, with no links.`)
-  }
-  return trimmed
-}
-
-/** The caller's identity as a gift needs it, or the refusal for nobody signed in. */
-async function giftCaller(ctx: { auth: Auth }, what: string) {
-  const identity = await ctx.auth.getUserIdentity()
-  if (!identity) throw backendError('unauthenticated', {}, `[nuxt-backend] ${what}: sign in first.`)
-  const claims = identity as unknown as Record<string, unknown>
-  return {
-    userId: identity.subject,
-    email: typeof claims.email === 'string' ? claims.email.toLowerCase() : '',
-    // Proven by a sign-in code: what lets an address claim what was sent to it.
-    emailVerified: claims.emailVerified === true,
-    name: typeof claims.name === 'string' ? claims.name : undefined,
-  }
-}
-
+/** What the purchaser reads when the recipient was sent five gifts today. */
+const ADDRESS_FULL = 'This address can\'t receive more gifts today. Try again tomorrow.'
 /**
  * Gift purchases: the purchaser's checkout, fulfilment and refund on the
  * provider's webhooks, and the recipient's claim.
  */
 export function createGifts(
-  { components, config, billTo, provider, resolveEntity, requireProviderAccess, unwrapProvider, throttle }: BillingContext,
-  { ensureCustomer, profileOf }: BillingCustomers,
-  { requireTrustedUrl, requirePack, requireGiftProduct, requireClientMetadata }: PurchaseRules,
+  context: BillingContext,
+  customers: BillingCustomers,
+  { requireTrustedUrl, requirePack, requireGiftProduct, requirePassGift, requireClientMetadata, requireCurrency }: PurchaseRules,
+  freePlan: Pick<BillingFreePlan, 'isFreeProduct'>,
 ) {
+  const { components, config, billTo, provider, requireEntity, account, memberRole, requireProviderAccess, unwrapProvider, throttle, recordEvent } = context
+  const { ensureCustomer, profileOf } = customers
+  const passes = createPasses(context, customers, freePlan)
   const gifts = components.backend.gifts
+  // The gift sweep, by the name every billing function goes by: scheduled for a gift dated later, woken by the component's cron.
+  const sweepReference = makeFunctionReference<'action'>(RUN_GIFT_SWEEP_FUNCTION) as unknown as FunctionReference<'action', 'internal', { op?: 'sweep', giftId?: string }>
+  // The pause_checkout kill switch: a gift is a purchase, a claim is not.
+  const paused = pauseCheck(components.backend)
   // A field left undefined keeps its default.
   const limit = { max: config.giftLimit?.max ?? GIFT_LIMIT.max, days: config.giftLimit?.days ?? GIFT_LIMIT.days }
 
@@ -125,20 +101,41 @@ export function createGifts(
    * The billing entity a person buys a gift from and claims one into: their
    * personal workspace by default, else the active workspace when they own
    * it. With `billTo: 'user'` or an app's own `resolveEntity`, the entity it
-   * resolves. A shared workspace someone only belongs to is never charged
-   * for their gift, nor handed theirs.
+   * resolves, asked for one the person manages (`rule`). A shared workspace
+   * someone only belongs to is never charged for their gift, nor handed theirs.
    */
-  const ownEntity = async (ctx: RunQueryCtx & { auth: Auth }, userId: string, what: string): Promise<string> => {
-    const personal = billTo === 'organization' && !config.resolveEntity ? await ctx.runQuery(gifts.personalEntity, { userId }) : null
+  const ownEntity = async (ctx: RunQueryCtx & { auth: Auth }, userId: string, what: string, rule: BillingAccessRule): Promise<string> => {
+    const personal = billTo === 'workspace' && !config.resolveEntity ? await ctx.runQuery(gifts.personalEntity, { userId }) : null
     if (personal) return personal
-    // The active workspace, or an app's own resolver's entity, only when the
-    // person owns it: a gift is never billed to, nor claimed into, a
-    // workspace they only belong to. A user entity has no owner to compare.
-    const entity = (await resolveEntity(ctx))?.userId
+    // The active workspace, or an app's own resolver's entity, checked as
+    // every billing call checks it (a ban, the membership and the manager
+    // role, read fresh), and only when the person owns it: a gift is never
+    // billed to, nor claimed into, a workspace they only belong to. A user
+    // entity has no owner to compare.
+    const entity = (await requireEntity(ctx, rule)).userId
     const profile = entity ? await profileOf(ctx, entity) : null
     const owned = profile ? profile.owner?.userId === userId : billTo === 'user' || Boolean(config.resolveEntity)
     if (entity && owned) return entity
     throw backendError('no_workspace', {}, `[nuxt-backend] ${what}: no billing entity of your own — sign in again (a personal workspace is created automatically).`)
+  }
+
+  /**
+   * The entity a gift is claimed into: `workspaceId` when the recipient
+   * names one they manage (an owner or an admin of it, read fresh), else the
+   * entity they own by default. With `billTo: 'user'` there is no workspace
+   * to name.
+   */
+  const claimEntity = async (ctx: RunQueryCtx & { auth: Auth }, userId: string, workspaceId: string | undefined, what: string): Promise<string> => {
+    if (workspaceId === undefined) return ownEntity(ctx, userId, what, GIFT_ACCESS.claim)
+    if (billTo !== 'workspace' || config.resolveEntity) {
+      throw backendError('invalid_input', { field: 'workspaceId' }, `[nuxt-backend] ${what}: there are no workspaces to receive into here — leave workspaceId out.`)
+    }
+    const role = await memberRole(ctx, userId, workspaceId)
+    if (!role) throw backendError('forbidden', { reason: 'not_member' }, `[nuxt-backend] ${what}: you are no member of that workspace.`)
+    if (!hasAnyRole(role, BILLING_MANAGER_ROLES)) {
+      throw backendError('forbidden', { reason: 'not_billing_manager' }, `[nuxt-backend] ${what}: only an owner or an admin of a workspace can receive a gift into it.`)
+    }
+    return workspaceId
   }
 
   /**
@@ -169,6 +166,25 @@ export function createGifts(
   }
 
   /**
+   * How many gifts an address was sent in the last day, open checkouts
+   * included unless `settledOnly`, leaving out `excludeGiftId`.
+   */
+  const giftsSentTo = (ctx: RunQueryCtx, recipientEmail: string, { settledOnly = false, excludeGiftId }: { settledOnly?: boolean, excludeGiftId?: string } = {}) => {
+    const now = Date.now()
+    return ctx.runQuery(gifts.countToAddress, {
+      email: recipientEmail,
+      since: now - DAY_MS,
+      pendingSince: settledOnly ? now + 1 : now - OPEN_CHECKOUT_MS,
+      ...(excludeGiftId ? { excludeGiftId } : {}),
+    })
+  }
+
+  /** Refuse a recipient already sent five gifts in the last day, so nobody floods one inbox. */
+  const requireAddressAllowance = async (ctx: RunQueryCtx, recipientEmail: string): Promise<void> => {
+    if (await giftsSentTo(ctx, recipientEmail) >= ADDRESS_LIMIT) throw backendError('forbidden', { reason: 'gift_refused', message: ADDRESS_FULL }, ADDRESS_FULL)
+  }
+
+  /**
    * Refuse a purchaser with no earlier paid order on any entity they own: a
    * stolen card that could buy gifts for strangers at once would be a way
    * to cash it out, and a claimed gift can't be taken back.
@@ -192,34 +208,67 @@ export function createGifts(
     throw backendError('forbidden', { reason: 'gift_refused', message }, message)
   }
 
+  /** The recipient as the gift sends it to: a valid address, never the purchaser's own. */
+  const requireRecipient = (typed: string, purchaserEmail: string): string => {
+    const recipientEmail = normalizeEmail(typed)
+    if (!recipientEmail || !recipientEmail.includes('@')) {
+      throw backendError('invalid_input', { field: 'recipientEmail' }, '[nuxt-backend] giftCheckout: a valid recipient email is required.')
+    }
+    if (recipientEmail === purchaserEmail) {
+      throw backendError('forbidden', { reason: 'gift_refused', message: OWN_ADDRESS }, OWN_ADDRESS)
+    }
+    return recipientEmail
+  }
+
   /**
-   * A gift is a credit pack, named by its catalog key: never a plan, which
-   * would renew on someone's card, and never a product outside the catalog.
-   * The purchaser buys the pack's private gift product on their own billing
-   * entity's customer, with discount codes off: they get the receipt, and
-   * the recipient's details appear nowhere in the checkout. Every input is
-   * checked before the provider hears of it.
+   * What a gift is, from the arguments: a pack by `pack`, or a plan pass by
+   * `plan` and its `months`, one or the other. The products it is bought
+   * with and claimed onto, resolved against the catalog.
+   */
+  const requireGiftItem = async (ctx: RunQueryCtx, args: { pack?: string, plan?: string, months?: number }): Promise<{ productId: string, giftProductId: string }> => {
+    if ((args.pack === undefined) === (args.plan === undefined)) {
+      throw backendError('invalid_input', { field: args.plan === undefined ? 'pack' : 'plan' }, '[nuxt-backend] giftCheckout: name the gift: a credit pack by `pack`, or a plan by `plan` with its `months`.')
+    }
+    if ((args.months === undefined) !== (args.plan === undefined)) {
+      throw backendError('invalid_input', { field: 'months' }, '[nuxt-backend] giftCheckout: `months` goes with a `plan` (a plan pass), and a plan needs its `months`.')
+    }
+    if (args.plan === undefined) return { productId: await requirePack(ctx, args.pack!), giftProductId: requireGiftProduct(args.pack!) }
+    const { passProductId, purchaseProductId } = requirePassGift(args.plan, args.months!)
+    return { productId: passProductId, giftProductId: purchaseProductId }
+  }
+
+  /**
+   * A gift is a credit pack named by its catalog key, or a plan named by its
+   * key with a length in months (a plan pass): never a product outside the
+   * catalog, and never a plan's own subscription, which would renew on
+   * someone's card. The purchaser buys the item's private gift product on
+   * their own billing entity's customer, with discount codes off: they get
+   * the receipt, and the recipient's details appear nowhere in the checkout.
+   * Every input is checked before the provider hears of it. `currency` pays
+   * in one the gift product is priced in (`billing sync` gives it every
+   * currency of its pack or plan), else in the catalog's own. `deliverAt`
+   * dates the notice for later, at most a year ahead.
    */
   const giftCheckout = actionGeneric({
     args: {
-      pack: v.string(),
+      pack: v.optional(v.string()),
+      plan: v.optional(v.string()),
+      months: v.optional(v.number()),
       recipientEmail: v.string(),
       message: v.optional(v.string()),
+      deliverAt: v.optional(v.number()),
       origin: v.string(),
       successUrl: v.string(),
       metadata: v.optional(v.record(v.string(), v.string())),
+      currency: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-      const purchaser = await giftCaller(ctx, 'giftCheckout')
+      const purchaser = await giftCaller(ctx, 'giftCheckout', GIFT_ACCESS.buy, account)
+      await refusePaused(paused, ctx, 'checkout')
       requireProviderAccess('gift checkout')
-      const recipientEmail = args.recipientEmail.trim().toLowerCase()
-      if (!recipientEmail || !recipientEmail.includes('@')) {
-        throw backendError('invalid_input', { field: 'recipientEmail' }, '[nuxt-backend] giftCheckout: a valid recipient email is required.')
-      }
-      if (recipientEmail === purchaser.email) {
-        throw backendError('forbidden', { reason: 'gift_refused', message: OWN_ADDRESS }, OWN_ADDRESS)
-      }
+      const recipientEmail = requireRecipient(args.recipientEmail, purchaser.email)
       const message = giftMessage(args.message)
+      const deliverAt = giftDeliverAt(args.deliverAt)
       requireTrustedUrl(args.origin, 'origin')
       requireTrustedUrl(args.successUrl, 'successUrl')
       requireClientMetadata(args.metadata)
@@ -228,11 +277,20 @@ export function createGifts(
       // their user id) like every other client-callable provider call — before
       // the pack is even read.
       await throttle(ctx, purchaser.userId, 'gift checkouts')
-      const productId = await requirePack(ctx, args.pack)
-      const giftProductId = requireGiftProduct(args.pack)
-      const entityId = await ownEntity(ctx, purchaser.userId, 'giftCheckout')
+      const item = await requireGiftItem(ctx, args)
+      const currency = await requireCurrency(ctx, args.currency, [item.giftProductId])
+      const entityId = await ownEntity(ctx, purchaser.userId, 'giftCheckout', GIFT_ACCESS.buy)
       await requireGiftAllowance(ctx, purchaser.userId)
       await askCanGift(ctx, { recipientEmail, purchaserUserId: purchaser.userId, purchaserEntityId: entityId })
+      // A gift whose email the deployment cannot deliver is refused before
+      // anyone pays for it, as a code or an invitation is: after the app's
+      // own refusal, so that is the one the purchaser reads.
+      const unsendable = undeliverableReason(recipientEmail)
+      if (unsendable) {
+        logBackend('warn', 'email.undeliverable', `A gift checkout was refused: ${UNDELIVERABLE_CAUSES[unsendable]}`)
+        throw backendError('unavailable', { service: 'email', reason: unsendable === 'test-mode' ? 'test_mode' : 'unconfigured' }, '[nuxt-backend] giftCheckout: the gift email to this recipient would not arrive.')
+      }
+      await requireAddressAllowance(ctx, recipientEmail)
       const profile = await profileOf(ctx, entityId)
       await requireEarlierOrder(profile?.ownedEntityIds ?? [entityId])
       await ensureCustomer(ctx, { userId: entityId, email: purchaser.email }, profile, 'gift checkout')
@@ -241,19 +299,21 @@ export function createGifts(
         purchaserUserId: purchaser.userId,
         purchaserEntityId: entityId,
         purchaserName: purchaser.name,
-        pack: args.pack,
-        productIds: [productId],
-        giftProductId,
+        ...(args.plan === undefined ? { pack: args.pack } : { plan: args.plan, months: args.months }),
+        productIds: [item.productId],
+        giftProductId: item.giftProductId,
         message,
+        ...(deliverAt === undefined ? {} : { deliverAt }),
       })
       const checkout = await checkoutsCreate(provider.polar, {
-        products: [giftProductId],
+        products: [item.giftProductId],
         externalCustomerId: entityId,
         embedOrigin: args.origin,
         successUrl: args.successUrl,
         // A gift is bought at its price: a discount on it would be one more
         // way to turn a code into credits for someone else.
         allowDiscountCodes: false,
+        ...(currency ? { currency: currency as CheckoutCreateInput['currency'] } : {}),
         metadata: { ...args.metadata, giftId },
       })
       return { url: unwrapProvider(checkout, 'gift checkout').url }
@@ -261,18 +321,21 @@ export function createGifts(
   })
 
   /**
-   * Claim one gift addressed to the caller's verified email, into their own
-   * billing entity: a checkout of the pack with the gift's single-use 100%
-   * discount locked on, which the server confirms itself when the pack asks
-   * for no checkout fields — the provider then grants the credits on the
-   * order. A pack that needs fields returns the provider's $0 checkout to
-   * finish. `url` is `null` when the server confirmed it; either way the gift
-   * counts as claimed once the provider says the claim order is paid.
+   * Claim one gift addressed to the caller's verified email, into a billing
+   * entity they manage (`workspaceId`, else their own): a checkout of the
+   * pack with the gift's single-use 100% discount locked on, which the server
+   * confirms itself when the pack asks for no checkout fields — the provider
+   * then grants the credits on the order. A pack that needs fields returns
+   * the provider's $0 checkout to finish. `url` is `null` when the server
+   * confirmed it; either way the gift counts as claimed once the provider says
+   * the claim order is paid. A plan pass has no checkout: the workspace's
+   * free subscription is switched to the pass, and the gift is claimed then.
+   * A gift dated for later can't be claimed before its date.
    */
   const claimGift = actionGeneric({
-    args: { giftId: v.string(), successUrl: v.optional(v.string()) },
-    handler: async (ctx, { giftId, successUrl }): Promise<{ url: string | null }> => {
-      const recipient = await giftCaller(ctx, 'claimGift')
+    args: { giftId: v.string(), successUrl: v.optional(v.string()), workspaceId: v.optional(v.string()) },
+    handler: async (ctx, { giftId, successUrl, workspaceId }): Promise<{ url: string | null }> => {
+      const recipient = await giftCaller(ctx, 'claimGift', GIFT_ACCESS.claim, account)
       if (!recipient.email || !recipient.emailVerified) {
         throw backendError('forbidden', { reason: 'no_email' }, '[nuxt-backend] claimGift: the signed-in identity has no verified email.')
       }
@@ -287,38 +350,62 @@ export function createGifts(
         throw backendError('forbidden', { reason: 'gift_refunded' }, '[nuxt-backend] claimGift: this gift was refunded, so it can\'t be received.')
       }
       if (gift.status === 'claimed') return { url: null }
-      // A gift paid before 0.2 has no discount: it gets one on its claim (below).
-      if (gift.status !== 'paid' || !(gift.discountId || gift.billingCustomerId)) {
+      // A gift paid before 0.2 has no discount: it gets one on its claim (below). A plan pass never has one.
+      if (gift.status !== 'paid' || !(gift.plan || gift.discountId || gift.billingCustomerId)) {
         throw backendError('not_ready', { reason: 'not_paid' }, '[nuxt-backend] claimGift: this gift is not paid for yet.')
+      }
+      // Dated for later: not the recipient's before its notice goes out.
+      if (!delivered(gift)) {
+        throw backendError('not_ready', { reason: 'not_delivered' }, '[nuxt-backend] claimGift: this gift arrives on a later date.')
       }
       requireProviderAccess('gift claim')
       requireTrustedUrl(successUrl, 'successUrl')
       await throttle(ctx, recipient.userId, 'gift claims')
-      const entityId = await ownEntity(ctx, recipient.userId, 'claimGift')
-      const customerId = await ensureCustomer(ctx, { userId: entityId, email: recipient.email }, await profileOf(ctx, entityId), 'gift claim')
-      const discountId = gift.discountId ?? await legacyDiscount(ctx, gift, customerId, recipient.userId, entityId)
-      if (!discountId) return { url: null }
-      await ctx.runMutation(gifts.startClaim, { giftId: gift.id, userId: recipient.userId, entityId })
-      const checkout = unwrapProvider(await checkoutsCreate(provider.polar, {
-        products: gift.productIds,
-        externalCustomerId: entityId,
-        discountId,
-        allowDiscountCodes: false,
-        metadata: { giftId: gift.id, phase: 'claim' },
-        ...(successUrl ? { successUrl } : {}),
-      }), 'gift claim')
-      if (checkout.totalAmount !== 0) {
-        // The discount did not cover the pack: never confirm a claim that charges the recipient.
-        logBackend('error', 'billing.gift_claim_not_free', 'A gift claim checkout was not free, so it was not confirmed.', { totalAmount: checkout.totalAmount })
-        throw backendError('unavailable', { service: 'billing', reason: 'provider_refused' }, '[nuxt-backend] claimGift: the gift could not be applied — try again shortly.')
+      const entityId = await claimEntity(ctx, recipient.userId, workspaceId, 'claimGift')
+      if (gift.plan) {
+        await passes.claimPass(ctx, gift, recipient, entityId)
+        await recordClaimed(ctx, gift, entityId, recipient.userId)
+        return { url: null }
       }
-      // The session token the confirm returns is the buyer's: it is dropped here.
-      const confirmed = await checkoutsClientConfirm(provider.polar, { clientSecret: checkout.clientSecret, checkoutConfirmStripe: {} })
-      if (confirmed.ok) return { url: null }
-      logBackend('warn', 'billing.gift_claim_hosted', 'A gift claim needs the provider\'s checkout to finish (the pack asks for checkout fields).')
-      return { url: checkout.url }
+      return await claimPack(ctx, gift, recipient, entityId, successUrl)
     },
   })
+
+  /**
+   * A pack's claim: a checkout of the pack on the recipient's entity with the
+   * gift's single-use discount locked on, confirmed by the server when the
+   * pack asks for no checkout fields (`url: null`), else the provider's $0
+   * checkout to finish. No checkout opens while the purchaser's cancellation
+   * holds the gift.
+   */
+  const claimPack = async (ctx: RunWriteCtx, gift: GiftRecord, recipient: { userId: string, email: string }, entityId: string, successUrl: string | undefined): Promise<{ url: string | null }> => {
+    const customerId = await ensureCustomer(ctx, { userId: entityId, email: recipient.email }, await profileOf(ctx, entityId), 'gift claim')
+    const discountId = gift.discountId ?? await legacyDiscount(ctx, gift, customerId, recipient.userId, entityId)
+    if (!discountId) return { url: null }
+    if (!await ctx.runMutation(gifts.startClaim, { giftId: gift.id, userId: recipient.userId, entityId })) {
+      throw backendError('forbidden', { reason: 'gift_refunded' }, '[nuxt-backend] claimGift: this gift is being cancelled by its sender, so it can\'t be received.')
+    }
+    const checkout = unwrapProvider(await checkoutsCreate(provider.polar, {
+      products: gift.productIds,
+      externalCustomerId: entityId,
+      discountId,
+      allowDiscountCodes: false,
+      metadata: { giftId: gift.id, phase: 'claim' },
+      // The claim grants the recipient's own credits: a hosted claim comes
+      // back with its id, so the page refreshes them once.
+      ...(successUrl ? { successUrl: withCheckoutReturn(successUrl) } : {}),
+    }), 'gift claim')
+    if (checkout.totalAmount !== 0) {
+      // The discount did not cover the pack: never confirm a claim that charges the recipient.
+      logBackend('error', 'billing.gift_claim_not_free', 'A gift claim checkout was not free, so it was not confirmed.', { totalAmount: checkout.totalAmount })
+      throw backendError('unavailable', { service: 'billing', reason: 'provider_refused' }, '[nuxt-backend] claimGift: the gift could not be applied — try again shortly.')
+    }
+    // The session token the confirm returns is the buyer's: it is dropped here.
+    const confirmed = await checkoutsClientConfirm(provider.polar, { clientSecret: checkout.clientSecret, checkoutConfirmStripe: {} })
+    if (confirmed.ok) return { url: null }
+    logBackend('warn', 'billing.gift_claim_hosted', 'A gift claim needs the provider\'s checkout to finish (the pack asks for checkout fields).')
+    return { url: checkout.url }
+  }
 
   /**
    * The gifts addressed to the caller's verified email that are theirs to
@@ -334,16 +421,22 @@ export function createGifts(
       const claims = identity as unknown as Record<string, unknown>
       const email = typeof claims.email === 'string' && claims.emailVerified === true ? claims.email.toLowerCase() : null
       if (!email) return null
+      // A banned or deleted account receives nothing, whatever its token says.
+      const stored = await account(ctx, identity.subject)
+      if (!stored || stored.banned) return null
       const rows = await ctx.runQuery(gifts.listByEmail, { email })
       return rows.map(gift => ({
         id: gift.id,
         purchaserName: giftSenderName(gift.purchaserName),
         pack: gift.pack,
+        plan: gift.plan,
+        months: gift.months,
         productIds: gift.productIds,
         message: gift.message,
         status: gift.status,
         createdAt: gift.createdAt,
         paidAt: gift.paidAt,
+        deliveredAt: gift.deliveredAt,
         claimedAt: gift.claimedAt,
       }))
     },
@@ -364,38 +457,11 @@ export function createGifts(
     && !order.discountId
     && typeof order.netAmount === 'number' && order.netAmount > 0
 
-  /**
-   * The gift's claim discount, minted once: codeless, 100%, once, a single
-   * redemption, on the pack only, named after the gift with no personal
-   * data. A run that minted but never stored it finds it by name; a lookup
-   * that fails stops the run rather than minting a second one.
-   */
-  const mintDiscount = async (gift: GiftRecord): Promise<string> => {
-    const name = `gift-${gift.id}`
-    const listed = unwrapProvider(await discountsList(provider.polar, { query: name, limit: 10 }), 'gift discount')
-    const minted = listed.result.items.find(discount => discount.metadata?.giftId === gift.id)
-    if (minted) return minted.id
-    const created = await discountsCreate(provider.polar, {
-      type: 'percentage',
-      basisPoints: 10_000,
-      duration: 'once',
-      maxRedemptions: 1,
-      products: gift.productIds,
-      name,
-      metadata: { giftId: gift.id },
-    })
-    return unwrapProvider(created, 'gift discount').id
-  }
+  /** The gift's claim discount, minted once (see claim-discount.ts). */
+  const mintDiscount = (gift: GiftRecord): Promise<string> => mintClaimDiscount(context, { kind: 'gift', id: gift.id, productIds: gift.productIds }, 'gift discount')
 
-  /** End a discount now and delete it; one already gone is fine. Ended first, so a failed deletion leaves nothing to redeem. */
-  const voidDiscount = async (discountId: string, operation: string): Promise<void> => {
-    for (const done of [
-      await discountsUpdate(provider.polar, { id: discountId, discountUpdate: { endsAt: new Date() } }),
-      await discountsDelete(provider.polar, { id: discountId }),
-    ]) {
-      if (!done.ok && !isProviderNotFound(done.error)) unwrapProvider(done, operation)
-    }
-  }
+  /** End a discount now and delete it; one already gone is fine. */
+  const voidDiscount = (discountId: string, operation: string): Promise<void> => voidClaimDiscount(context, discountId, operation)
 
   /**
    * Mint and store a paid gift's claim discount. When another run stored one
@@ -426,51 +492,123 @@ export function createGifts(
   }
 
   /**
-   * Tell the recipient, once per gift: send first, stamp after. A send that
-   * throws — a template override, test mode refusing the address, a
-   * transient failure — leaves no stamp, so the redelivery of `order.paid`
-   * sends again; a run that sent but never stamped is absorbed by the
-   * idempotency key while the first email's record exists; and once stamped,
-   * a replay sends nothing however late it comes. The key is namespaced so it
-   * can never collide with one of the app's own. The email names the sender
-   * and the pack and links to the app with no token; the message stays in
-   * the app.
+   * Whether the recipient may see and claim a gift: its notice went out, or
+   * it was paid before gifts had delivery dates (no date, no stamp).
    */
-  const notifyRecipient = async (ctx: RunWriteCtx, gift: GiftRecord): Promise<void> => {
-    if (gift.notifiedAt !== undefined) return
+  const delivered = (gift: Pick<GiftRecord, 'deliveredAt' | 'deliverAt'>): boolean => gift.deliveredAt !== undefined || gift.deliverAt === undefined
+
+  /**
+   * Tell the recipient: the first notice once per gift, then a reminder or a
+   * resend whenever asked. Send first, stamp after. A send that throws — a
+   * template override, a transient failure — leaves no stamp, so the
+   * redelivery of `order.paid` (or the next sweep) sends again; a run that
+   * sent but never stamped is absorbed by the idempotency key while the first
+   * email's record exists; and once stamped, a replay sends nothing however
+   * late it comes. An email the deployment cannot deliver at all (test mode,
+   * no key, no sender) is skipped and logged instead: a throw would fail
+   * every redelivery and keep the app's own `order.paid` handler from
+   * running, while the gift stands and the recipient can claim it in the app.
+   * It stays unstamped, so a redelivery once the setting is fixed sends it.
+   * The key is namespaced so it can never collide with one of the app's own,
+   * and is the gift's alone for its first notice: later ones count up, and an
+   * address the purchaser changed to gets keys of its own. The
+   * email names the sender and the gift and links to the app with no token;
+   * the message stays in the app. Returns whether an email went out.
+   */
+  const notifyRecipient = async (ctx: RunWriteCtx, gift: GiftRecord, kind: 'first' | 'reminder' | 'again' = 'first'): Promise<boolean> => {
+    if (kind === 'first' && gift.notifiedAt !== undefined) return false
+    const unsendable = undeliverableReason(gift.recipientEmail)
+    if (unsendable) {
+      logBackend('warn', 'email.undeliverable', `A paid gift's email to its recipient was not sent: ${UNDELIVERABLE_CAUSES[unsendable]}`)
+      return false
+    }
     const product = gift.productIds[0] ? await provider.getProduct(ctx as unknown as ProviderCtx, { productId: gift.productIds[0] }) : null
+    const item = gift.plan ? await passes.planName(ctx, gift.plan) : product?.name ?? gift.pack ?? 'credits'
+    const count = gift.noticeCount ?? 0
+    const key = gift.recipientChanges ? `nuxt-backend:gift:${gift.id}:to${gift.recipientChanges}` : `nuxt-backend:gift:${gift.id}`
+    // In the recipient's language when they have an account, else the purchaser's.
     await config.email.sendTemplate(ctx, 'gift', {
       recipientEmail: gift.recipientEmail,
       purchaserName: giftSenderName(gift.purchaserName),
-      item: product?.name ?? gift.pack ?? 'credits',
+      item,
+      ...(gift.plan && gift.months ? { months: gift.months } : {}),
       claimUrl: readEnv('SITE_URL') ?? '',
-    }, { idempotencyKey: `nuxt-backend:gift:${gift.id}` })
-    await ctx.runMutation(gifts.markNotified, { giftId: gift.id })
+      ...(kind === 'reminder' ? { reminder: true } : {}),
+    }, { senderId: gift.purchaserUserId, idempotencyKey: kind === 'first' && count === 0 ? key : `${key}:${count + 1}` })
+    if (kind === 'first') await ctx.runMutation(gifts.markNotified, { giftId: gift.id })
+    await ctx.runMutation(gifts.noteNotice, { giftId: gift.id, reminder: kind === 'reminder' })
+    return true
+  }
+
+  /** The scheduler of a function context that has one (an action's or an HTTP action's): a hand-built test context may not. */
+  const schedulerOf = (ctx: RunWriteCtx): Scheduler | undefined => (ctx as { scheduler?: Scheduler }).scheduler
+
+  /**
+   * Keep the handle the component's sweep wakes the app by, so a delivery
+   * that a restart missed is still made. Never fails a payment: the sweep
+   * is the backstop, not the path.
+   */
+  const registerSweep = async (ctx: RunWriteCtx): Promise<void> => {
+    try {
+      await ctx.runMutation(gifts.registerSweep, { wake: await createFunctionHandle(sweepReference) })
+    }
+    catch (error) {
+      logBackend('warn', 'billing.gift_sweep_unregistered', 'The gift sweep could not be registered, so a gift dated for later is delivered by its scheduled function only.', error)
+    }
   }
 
   /**
-   * A gift paid past its purchaser's cap — several checkouts opened at once,
-   * all paid — is refunded in full instead of delivered: the cap holds at
-   * payment, not only at checkout.
+   * Hand a paid gift to the recipient: tell them, then stamp it delivered so
+   * they see it and may claim it. A gift dated for later is scheduled instead
+   * (its scheduled function and the sweep deliver it on its date). A gift whose email can't go out is still delivered:
+   * the recipient finds it in the app.
+   */
+  const deliver = async (ctx: RunWriteCtx, gift: GiftRecord): Promise<void> => {
+    if (gift.status !== 'paid') return
+    if (gift.deliverAt !== undefined && gift.deliverAt > Date.now() + CLOCK_SKEW_MS) {
+      if (delivered(gift)) return
+      await registerSweep(ctx)
+      await schedulerOf(ctx)?.runAfter(gift.deliverAt - Date.now(), sweepReference, { giftId: gift.id })
+      return
+    }
+    // The first notice goes once: a redelivery of the payment sends it if it never went, and nothing if it did.
+    await notifyRecipient(ctx, gift)
+    if (!delivered(gift)) await ctx.runMutation(gifts.markDelivered, { giftId: gift.id })
+  }
+
+  /** The one reminder of a gift still unclaimed a week after it was delivered. */
+  const remind = async (ctx: RunWriteCtx, gift: GiftRecord): Promise<void> => {
+    if (gift.status !== 'paid' || !delivered(gift) || gift.remindedAt !== undefined) return
+    await notifyRecipient(ctx, gift, 'reminder')
+    // Spent even when the email could not go out: one reminder, not one per sweep.
+    if (!(await ctx.runQuery(gifts.get, { giftId: gift.id }))?.remindedAt) await ctx.runMutation(gifts.noteNotice, { giftId: gift.id, reminder: true })
+  }
+
+  /**
+   * A gift paid past its cap — several checkouts opened at once, all paid —
+   * is refunded in full instead of delivered: the purchaser's cap and the
+   * address's daily cap hold at payment, not only at checkout.
    */
   const overCap = async (ctx: RunWriteCtx, gift: GiftRecord, order: GiftOrder): Promise<boolean> => {
     const { count } = await giftsBought(ctx, gift.purchaserUserId, { settledOnly: true, excludeGiftId: gift.id })
-    if (count < limit.max) return false
-    logBackend('error', 'billing.gift_over_limit', 'A gift was paid past its purchaser\'s gift limit, so it was refunded instead of delivered.')
+    const purchaserFull = count >= limit.max
+    if (!purchaserFull && await giftsSentTo(ctx, gift.recipientEmail, { settledOnly: true, excludeGiftId: gift.id }) < ADDRESS_LIMIT) return false
+    if (purchaserFull) logBackend('error', 'billing.gift_over_limit', 'A gift was paid past its purchaser\'s gift limit, so it was refunded instead of delivered.')
+    else logBackend('error', 'billing.gift_over_address_limit', 'A gift was paid past its recipient address\'s daily limit, so it was refunded instead of delivered.')
     const amount = order.refundableAmount ?? order.netAmount
     if (order.id && typeof amount === 'number' && amount > 0) {
       unwrapProvider(await refundsCreate(provider.polar, { orderId: order.id, reason: 'other', amount, revokeBenefits: true }), 'gift refund')
     }
-    await ctx.runMutation(gifts.markRefunded, { giftId: gift.id })
+    if (await ctx.runMutation(gifts.markRefunded, { giftId: gift.id })) await recordGift(ctx, gift.purchaserEntityId, { type: 'gift.refunded', actor: null, targetId: gift.id })
     return true
   }
 
   /**
-   * The purchase is paid: check it is the gift's own and within the
-   * purchaser's cap, mark it paid with what it charged, mint the claim
-   * discount and tell the recipient. Each step is idempotent, so a
-   * redelivery picks up where a failed run stopped; a gift refunded in the
-   * meantime is never delivered.
+   * The purchase is paid: check it is the gift's own and within the caps,
+   * mark it paid with what it charged, mint the claim discount (a pack's; a
+   * plan pass has none) and deliver it: now, or on its date. Each step is
+   * idempotent, so a redelivery picks up where a failed run stopped; a gift
+   * refunded in the meantime is never delivered.
    */
   const purchasePaid = async (ctx: RunWriteCtx, gift: GiftRecord, order: GiftOrder): Promise<void> => {
     if (gift.status === 'pending') {
@@ -480,15 +618,21 @@ export function createGifts(
       }
       if (await overCap(ctx, gift, order)) return
       await ctx.runMutation(gifts.markPaid, { giftId: gift.id, billingOrderId: order.id, amount: order.netAmount, currency: order.currency })
+      await recordGift(ctx, gift.purchaserEntityId, {
+        type: 'gift.purchased',
+        actor: null,
+        targetId: gift.id,
+        data: { ...(typeof order.netAmount === 'number' ? { amount: order.netAmount } : {}), ...(order.currency ? { currency: order.currency } : {}) },
+      })
     }
     let current = await ctx.runQuery(gifts.get, { giftId: gift.id })
     if (current?.status !== 'paid' || current.billingOrderId !== order.id) return
-    if (!current.discountId) {
+    if (!current.plan && !current.discountId) {
       await storeDiscount(ctx, current)
       current = await ctx.runQuery(gifts.get, { giftId: gift.id })
       if (!current) return
     }
-    await notifyRecipient(ctx, current)
+    await deliver(ctx, current)
   }
 
   /**
@@ -510,6 +654,8 @@ export function createGifts(
     if (gift.status !== 'paid') return
     const entityId = order.customer?.externalId ?? gift.claimingEntityId ?? ''
     await ctx.runMutation(gifts.markClaimed, { giftId: gift.id, userId: gift.claimingUserId ?? entityId, entityId, claimOrderId: order.id })
+    // The recipient claimed it, by the checkout they opened.
+    await recordClaimed(ctx, gift, entityId, gift.claimingUserId)
   }
 
   /** The gift a paid or refunded order names in its metadata, which only the server writes on gift checkouts. */
@@ -517,6 +663,21 @@ export function createGifts(
     const giftId = order.metadata?.giftId
     if (typeof giftId !== 'string') return null
     return await ctx.runQuery(gifts.get, { giftId })
+  }
+
+  /**
+   * Record a gift's step for the entity it concerns: the purchaser's for a
+   * purchase and a refund, the recipient's for a claim. A gift bought before
+   * 0.2 names no purchasing entity, and records nothing.
+   */
+  const recordGift = async (ctx: RunWriteCtx, entityId: string | undefined, event: Parameters<typeof recordEvent>[2]): Promise<void> => {
+    if (entityId) await recordEvent(ctx, entityId, event)
+  }
+
+  /** A claim happened: the recipient's entity records it, and the purchaser's entity learns its gift was received. */
+  const recordClaimed = async (ctx: RunWriteCtx, gift: GiftRecord, entityId: string, userId: string | undefined): Promise<void> => {
+    await recordGift(ctx, entityId, { type: 'gift.claimed', actor: userId ? { userId } : null, targetId: gift.id })
+    if (gift.purchaserEntityId && gift.purchaserEntityId !== entityId) await recordGift(ctx, gift.purchaserEntityId, { type: 'gift.claimed', actor: null, targetId: gift.id })
   }
 
   /** Gift fulfilment on `order.paid`: a purchase delivers the gift, a claim marks it received. */
@@ -555,10 +716,26 @@ export function createGifts(
       return
     }
     if (gift.discountId) await voidDiscount(gift.discountId, 'gift refund')
-    await ctx.runMutation(gifts.markRefunded, { giftId: gift.id })
+    if (await ctx.runMutation(gifts.markRefunded, { giftId: gift.id })) await recordGift(ctx, gift.purchaserEntityId, { type: 'gift.refunded', actor: null, targetId: gift.id })
   }
 
-  return { giftCheckout, claimGift, getReceivedGifts, handleGiftOrderPaid, handleGiftOrderRefunded }
+  const management = createGiftManagement(context, {
+    passes,
+    delivered,
+    deliver,
+    remind,
+    notifyRecipient,
+    askCanGift: askCanGift as never,
+    requireAddressAllowance,
+    voidDiscount,
+    discountRedeemed,
+    recordGift,
+    schedulerOf,
+    sweepReference,
+    registerSweep,
+  })
+
+  return { giftCheckout, claimGift, getReceivedGifts, handleGiftOrderPaid, handleGiftOrderRefunded, passes, registerSweep, ...management }
 }
 
 export type BillingGifts = ReturnType<typeof createGifts>

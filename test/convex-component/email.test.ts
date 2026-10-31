@@ -3,10 +3,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { convexTest } from 'convex-test'
 import resendComponent from '@convex-dev/resend/test'
-import { Webhook } from 'svix'
+import { Webhook } from 'standardwebhooks'
 import component from '../../src/convex/test'
 import schema from '../../src/convex/components/backend/schema'
 import { api, components, internal } from '../../src/convex/components/backend/_generated/api'
+import { getBackendError } from '../../src/convex/errors'
 import { setupEmail, type EmailComponents, type EmailWebhookEvent } from '../../src/convex/integrations/email'
 import { WEBHOOK_BODY_LIMIT } from '../../src/convex/integrations/webhook-guard'
 
@@ -40,7 +41,7 @@ afterEach(() => {
   delete process.env.EMAIL_API_KEY
   delete process.env.EMAIL_FROM
   delete process.env.EMAIL_WEBHOOK_SECRET
-  delete process.env.EMAIL_TEST_MODE
+  delete process.env.BACKEND_ENVIRONMENT
 })
 
 /** Sign a delivery the way the provider does (svix headers, ±5 min tolerance). */
@@ -81,57 +82,102 @@ async function markSent(emailId: string, resendId: string) {
   await t.mutation(components.resend.lib.updateManualEmail, { emailId, status: 'sent', resendId })
 }
 
-describe('sandbox inbox', () => {
-  // Lower-case: the provider's test-mode check is case-sensitive, so a
-  // mixed-case sandbox address is refused before anything is sent.
-  const SANDBOX = 'delivered+demo-1@resend.dev'
+describe('dev inbox', () => {
+  const ADDRESS = 'delivered+demo-1@resend.dev'
+  const NOW = Date.parse('2026-09-08T10:00:00.000Z')
 
-  test('keeps a copy of test-mode mail to a sandbox address, newest first', async () => {
-    await t.mutation(api.email.send, { to: SANDBOX, subject: 'First', text: 'code 111111' })
-    await t.mutation(api.email.send, { to: [SANDBOX], subject: 'Second', html: '<p>code <b>222222</b></p>' })
+  /** The provider's list of sent emails and its retrieval of each, as a stubbed `fetch`. */
+  function providerLog(sent: Array<{ id: string, to: string[], subject: string, at: string, text?: string, html?: string }>, status = 200) {
+    const requests: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      requests.push(url)
+      if (status !== 200) return new Response('{}', { status })
+      const one = /\/emails\/([^?/]+)$/.exec(url)
+      if (one) {
+        const email = sent.find(entry => entry.id === one[1])
+        return Response.json({ id: email?.id, text: email?.text ?? null, html: email?.html ?? null })
+      }
+      return Response.json({ object: 'list', has_more: false, data: sent.map(email => ({ id: email.id, to: email.to, from: 'onboarding@resend.dev', subject: email.subject, created_at: email.at })) })
+    }))
+    return requests
+  }
+
+  // The component answers reads of an address from the one before for a few seconds: each test starts after the last one's answers went stale.
+  let started = 0
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'Date'] })
+    vi.setSystemTime(NOW + started++ * 60_000)
+    process.env.BACKEND_ENVIRONMENT = 'development'
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  test('reads what the provider logged for a test address, newest first, with the newest body', async () => {
+    providerLog([
+      { id: 'e2', to: [ADDRESS], subject: 'Second', at: '2026-09-08 09:59:00.000000+00', html: '<p>code <b>222222</b></p>' },
+      { id: 'e3', to: ['delivered+other@resend.dev'], subject: 'Someone else', at: '2026-09-08 09:58:30.000000+00', text: 'code 333333' },
+      { id: 'e1', to: [ADDRESS], subject: 'First', at: '2026-09-08 09:58:00.000000+00', text: 'code 111111' },
+    ])
 
     // Read back whatever the case or surrounding space of the address.
-    const inbox = await t.query(api.email.inbox, { address: ' Delivered+Demo-1@RESEND.dev ' })
+    const inbox = await t.action(api.email.inbox, { address: ' Delivered+Demo-1@RESEND.dev ' })
+
     expect(inbox.map(message => message.subject)).toEqual(['Second', 'First'])
-    expect(inbox[1]).toMatchObject({ from: 'onboarding@resend.dev', text: 'code 111111' })
-    expect(inbox[0]).toMatchObject({ html: '<p>code <b>222222</b></p>' })
+    expect(inbox[0]).toMatchObject({ from: 'onboarding@resend.dev', html: '<p>code <b>222222</b></p>', receivedAt: Date.parse('2026-09-08T09:59:00.000Z') })
+    // One body a read: the provider is asked for the newest message's only.
+    expect(inbox[1]?.text).toBeUndefined()
   })
 
-  test('keeps nothing once test mode is off', async () => {
-    process.env.EMAIL_TEST_MODE = 'false'
-    await t.mutation(api.email.send, { to: SANDBOX, subject: 'Live', text: 'x' })
-    expect(await t.run(ctx => ctx.db.query('sandboxInbox').collect())).toEqual([])
+  test('asks the provider once for a list and once for the newest body, and answers reads within five seconds from the last', async () => {
+    const requests = providerLog([{ id: 'e1', to: [ADDRESS], subject: 'First', at: '2026-09-08 09:58:00+00', text: 'code 111111' }])
+
+    const first = await t.action(api.email.inbox, { address: ADDRESS })
+    expect(first[0]).toMatchObject({ text: 'code 111111' })
+    expect(requests.map(url => new URL(url).pathname + new URL(url).search)).toEqual(['/emails?limit=100', '/emails/e1'])
+
+    vi.setSystemTime(Date.now() + 4000)
+    await expect(t.action(api.email.inbox, { address: ADDRESS })).resolves.toEqual(first)
+    expect(requests).toHaveLength(2)
+
+    vi.setSystemTime(Date.now() + 1000)
+    await t.action(api.email.inbox, { address: ADDRESS })
+    expect(requests).toHaveLength(4)
   })
 
-  test('stops serving captured mail the moment test mode is turned off', async () => {
-    await t.mutation(api.email.send, { to: SANDBOX, subject: 'Earlier', text: 'code 444444' })
-    process.env.EMAIL_TEST_MODE = 'false'
-    expect(await t.query(api.email.inbox, { address: SANDBOX })).toEqual([])
+  test('leaves out mail older than the hour', async () => {
+    providerLog([
+      { id: 'new', to: [ADDRESS], subject: 'Now', at: '2026-09-08 09:30:00+00', text: 'x' },
+      { id: 'old', to: [ADDRESS], subject: 'Yesterday', at: '2026-09-08 08:30:00+00', text: 'y' },
+    ])
+    expect((await t.action(api.email.inbox, { address: ADDRESS })).map(message => message.subject)).toEqual(['Now'])
   })
 
-  test('has no inbox for a real address', async () => {
-    expect(await t.query(api.email.inbox, { address: 'someone@example.com' })).toEqual([])
-  })
-
-  test('captures without an API key too, where the send itself is skipped', async () => {
+  test('answers nothing, and asks the provider nothing, once the deployment is production (test mode off), without a key, or for a real address', async () => {
+    const requests = providerLog([{ id: 'e1', to: [ADDRESS], subject: 'Hello', at: '2026-09-08 09:59:00+00', text: 'x' }])
+    expect(await t.action(api.email.inbox, { address: 'someone@example.com' })).toEqual([])
     delete process.env.EMAIL_API_KEY
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
-    expect(await t.mutation(api.email.send, { to: SANDBOX, subject: 'Local', text: 'code 333333' })).toBeNull()
-    expect(await t.query(api.email.inbox, { address: SANDBOX })).toMatchObject([{ subject: 'Local' }])
+    expect(await t.action(api.email.inbox, { address: ADDRESS })).toEqual([])
+    process.env.EMAIL_API_KEY = 're_test_key'
+    process.env.BACKEND_ENVIRONMENT = 'production'
+    expect(await t.action(api.email.inbox, { address: ADDRESS })).toEqual([])
+    // A deployment that never said what it is reads nothing either.
+    delete process.env.BACKEND_ENVIRONMENT
+    expect(await t.action(api.email.inbox, { address: ADDRESS })).toEqual([])
+    expect(requests).toEqual([])
   })
 
-  test('schedules each message\'s removal an hour after it arrives', async () => {
-    await t.mutation(api.email.send, { to: SANDBOX, subject: 'Soon gone', text: 'x' })
-    const [row] = await t.run(ctx => ctx.db.query('sandboxInbox').collect())
-    const jobs = await t.run(ctx => ctx.db.system.query('_scheduled_functions').collect())
-    const expiry = jobs.find(job => job.name.includes('expireSandboxMessage'))
-    expect(expiry?.args[0]).toEqual({ id: row!._id })
-    expect(expiry!.scheduledTime - row!._creationTime).toBeCloseTo(60 * 60 * 1000, -3)
+  test('keeps no copy of its own: the component has no inbox table', () => {
+    expect(Object.keys(schema.tables)).not.toContain('sandboxInbox')
+  })
 
-    await t.mutation(internal.email.expireSandboxMessage, { id: row!._id })
-    expect(await t.query(api.email.inbox, { address: SANDBOX })).toEqual([])
-    // Idempotent: the row is already gone.
-    await expect(t.mutation(internal.email.expireSandboxMessage, { id: row!._id })).resolves.toBeNull()
+  test('refuses with the provider\'s reason when the key cannot read sent mail', async () => {
+    providerLog([], 401)
+    const failure = await t.action(api.email.inbox, { address: ADDRESS }).catch((error: unknown) => error)
+    expect(getBackendError(failure)).toMatchObject({ code: 'unavailable', data: { service: 'email' } })
+    expect(String((failure as Error).message)).toContain('restricted to sending')
   })
 })
 
@@ -261,7 +307,7 @@ describe('transactional send → status → cancel (nested provider component)',
   })
 })
 
-describe('handleWebhook (component, real svix crypto, nested status tracking)', () => {
+describe('handleWebhook (component, the one verifier, nested status tracking)', () => {
   test('fails closed with 503 while EMAIL_WEBHOOK_SECRET is unset — even for a well-signed delivery', async () => {
     const body = providerEvent('email.delivered', 're_1')
 
@@ -453,5 +499,262 @@ describe('/email/events route: guard → component → delivery log (end to end)
     expect(retry.status).toBe(202)
     expect(attempts).toBe(2)
     expect(await outcomes()).toStrictEqual([['ok', 'email.delivered'], ['handler_error', 'email.delivered']])
+  })
+})
+
+describe('secret emails: no record, and the body is gone once the provider answers', () => {
+  const SANDBOX = 'delivered+code@resend.dev'
+  const CODE = { to: SANDBOX, subject: 'Your sign-in code', text: 'Your code is 482915', html: '<p>Your code is <b>482915</b></p>' }
+
+  /** Stub the provider's send endpoint with these answers, in order (the last one repeats); returns the requests it saw. */
+  function providerAnswers(...answers: Array<{ status: number, body?: unknown, headers?: Record<string, string> }>) {
+    const requests: Array<{ url: string, init: RequestInit }> = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      requests.push({ url, init })
+      const answer = answers[Math.min(requests.length, answers.length) - 1]!
+      return new Response(JSON.stringify(answer.body ?? {}), { status: answer.status, headers: answer.headers })
+    }))
+    return requests
+  }
+
+  const outbox = () => t.run(ctx => ctx.db.query('secretOutbox').collect())
+  /** Let `ms` pass, and run what fell due. */
+  async function pass(ms: number) {
+    vi.advanceTimersByTime(ms)
+    await t.finishInProgressScheduledFunctions()
+  }
+  const keyOf = (request: { init: RequestInit }) => (request.init.headers as Record<string, string>)['Idempotency-Key']
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  test('posts the message to the provider, keyed by its row, and leaves no record and no row', async () => {
+    const requests = providerAnswers({ status: 200, body: { id: 're_1' } })
+    expect(await t.mutation(api.email.sendSecret, CODE)).toBeNull()
+    const [row] = await outbox()
+    await t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(0))
+    expect(requests).toHaveLength(1)
+    expect(requests[0]!.url).toBe('https://api.resend.com/emails')
+    expect(JSON.parse(String(requests[0]!.init.body))).toMatchObject({ to: SANDBOX, subject: CODE.subject, text: CODE.text, html: CODE.html })
+    expect(keyOf(requests[0]!)).toBe(row!._id)
+    expect(await outbox()).toEqual([])
+  })
+
+  test('tries again after a 409, a 429 or a 5xx, with the same key, waiting at least as long as Retry-After asks', async () => {
+    const requests = providerAnswers({ status: 409 }, { status: 429, headers: { 'retry-after': '30' } }, { status: 503 }, { status: 200 })
+    await t.mutation(api.email.sendSecret, CODE)
+    await pass(0)
+    expect(requests).toHaveLength(1)
+    await pass(2_000)
+    expect(requests).toHaveLength(2)
+    // The 429 asked for 30 seconds: nothing before them.
+    await pass(25_000)
+    expect(requests).toHaveLength(2)
+    for (let step = 0; step < 6; step++) await pass(10_000)
+    expect(requests).toHaveLength(4)
+    expect(new Set(requests.map(keyOf)).size).toBe(1)
+    expect(await outbox()).toEqual([])
+  })
+
+  test('gives up on a refusal the provider will repeat, deletes the row, and logs no address', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const requests = providerAnswers({ status: 422, body: { message: 'Invalid `to` field' } })
+    await t.mutation(api.email.sendSecret, CODE)
+    await t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(0))
+    expect(requests).toHaveLength(1)
+    expect(await outbox()).toEqual([])
+    const logged = warn.mock.calls.flat().join('\n')
+    expect(logged).toContain('email.secret_failed')
+    expect(logged).not.toMatch(/resend\.dev|Invalid/)
+  })
+
+  test('keeps trying a failing provider only while the code is valid, then deletes the row', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const requests = providerAnswers({ status: 500 })
+    await t.mutation(api.email.sendSecret, CODE)
+    for (let step = 0; step < 40 && (await outbox()).length > 0; step++) await pass(30_000)
+    expect(requests.length).toBeGreaterThan(4)
+    expect(await outbox()).toEqual([])
+    // Each attempt waited for the one before it: the watchdog started no second chain.
+    expect(requests.length).toBeLessThan(15)
+  })
+
+  test('deletes the row even when the delivery throws', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new TypeError('network down')
+    }))
+    vi.spyOn(Math, 'random').mockImplementation(() => {
+      throw new Error('boom')
+    })
+    await t.mutation(api.email.sendSecret, CODE)
+    await t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(0))
+    expect(await outbox()).toEqual([])
+  })
+
+  test('a watchdog runs a delivery that never settled, and the row expires on its own', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    providerAnswers({ status: 200 })
+    await t.mutation(api.email.sendSecret, CODE)
+    const jobs = (await t.run(ctx => ctx.db.system.query('_scheduled_functions').collect())).map(job => job.name)
+    expect(jobs).toEqual(expect.arrayContaining([expect.stringContaining('deliverSecret'), expect.stringContaining('watchSecret'), expect.stringContaining('expireSecret')]))
+    await pass(0)
+    expect(await outbox()).toEqual([])
+    // A row whose delivery run was lost: the watchdog brings it back to the provider.
+    const lost = await t.run(ctx => ctx.db.insert('secretOutbox', { message: { ...CODE, from: 'a@b.c' }, attempts: 0, generation: 0, nextAttemptAt: Date.now() - 60_000, expiresAt: Date.now() + 600_000 }))
+    await t.mutation(internal.email.watchSecret, { id: lost })
+    // Its new run is due at the watchdog's own time, which a frozen test clock
+    // trails by the deployment's commit tick.
+    await pass(1)
+    expect(await outbox()).toEqual([])
+    // A row nobody delivered expires at the TTL.
+    const id = await t.run(ctx => ctx.db.insert('secretOutbox', { message: { ...CODE, from: 'a@b.c' }, attempts: 0, generation: 0, nextAttemptAt: Date.now(), expiresAt: Date.now() + 600_000 }))
+    await t.mutation(internal.email.expireSecret, { id })
+    expect(await outbox()).toEqual([])
+  })
+
+  test('a caller-supplied idempotency key dedupes a send while one waits', async () => {
+    providerAnswers({ status: 200 })
+    await t.mutation(api.email.sendSecret, { ...CODE, idempotencyKey: 'k1' })
+    await t.mutation(api.email.sendSecret, { ...CODE, idempotencyKey: 'k1' })
+    expect(await outbox()).toHaveLength(1)
+  })
+
+  test('refuses an address that is not a sandbox one in test mode, even another resend.dev one', async () => {
+    providerAnswers({ status: 200 })
+    await expect(t.mutation(api.email.sendSecret, { ...CODE, to: 'someone@example.com' })).rejects.toThrow('Test mode is enabled')
+    await expect(t.mutation(api.email.sendSecret, { ...CODE, to: 'anything@resend.dev' })).rejects.toThrow('Test mode is enabled')
+  })
+
+  test('sends nothing without an API key', async () => {
+    delete process.env.EMAIL_API_KEY
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const requests = providerAnswers({ status: 200 })
+    expect(await t.mutation(api.email.sendSecret, CODE)).toBeNull()
+    await t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(0))
+    expect(requests).toHaveLength(0)
+  })
+})
+
+describe('secret emails: one chain at a time, and nothing after the secret expires', () => {
+  const SANDBOX = 'delivered+code@resend.dev'
+  const CODE = { to: SANDBOX, subject: 'Your sign-in code', text: 'Your code is 482915' }
+  const outbox = () => t.run(ctx => ctx.db.query('secretOutbox').collect())
+
+  function provider(status: number) {
+    const requests: unknown[] = []
+    vi.stubGlobal('fetch', vi.fn(async (...args: unknown[]) => {
+      requests.push(args)
+      return new Response('{}', { status })
+    }))
+    return requests
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  test('a run of a replaced generation stops at once, and its retry is refused', async () => {
+    const requests = provider(200)
+    const id = await t.run(ctx => ctx.db.insert('secretOutbox', { message: { ...CODE, from: 'a@b.c' }, attempts: 0, generation: 2, nextAttemptAt: Date.now(), expiresAt: Date.now() + 600_000 }))
+    await t.action(internal.email.deliverSecret, { id, generation: 1 })
+    expect(requests).toHaveLength(0)
+    expect(await outbox()).toHaveLength(1)
+    expect(await t.mutation(internal.email.retrySecret, { id, generation: 1, delay: 1000 })).toBe('stale')
+    // The owning generation sends, and the row is gone.
+    await t.action(internal.email.deliverSecret, { id, generation: 2 })
+    expect(requests).toHaveLength(1)
+    expect(await outbox()).toEqual([])
+  })
+
+  test('the watchdog replaces a lost chain with a new generation', async () => {
+    provider(200)
+    const id = await t.run(ctx => ctx.db.insert('secretOutbox', { message: { ...CODE, from: 'a@b.c' }, attempts: 0, generation: 0, nextAttemptAt: Date.now() - 60_000, expiresAt: Date.now() + 600_000 }))
+    await t.mutation(internal.email.watchSecret, { id })
+    expect((await outbox())[0]).toMatchObject({ generation: 1 })
+  })
+
+  test('stops at the secret\'s own expiry, before the outbox TTL', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const requests = provider(500)
+    await t.mutation(api.email.sendSecret, { ...CODE, expiresAt: Date.now() + 10_000 })
+    const [row] = await outbox()
+    expect(row!.expiresAt).toBeLessThanOrEqual(Date.now() + 10_000)
+    vi.advanceTimersByTime(0)
+    await t.finishInProgressScheduledFunctions()
+    const sent = requests.length
+    expect(sent).toBeGreaterThan(0)
+    for (let step = 0; step < 4; step++) {
+      vi.advanceTimersByTime(5_000)
+      await t.finishInProgressScheduledFunctions()
+    }
+    expect(await outbox()).toEqual([])
+    // Nothing is posted once the secret has expired.
+    expect(await t.query(internal.email.secretInOutbox, { id: row!._id, now: Date.now() })).toBeNull()
+  })
+
+  test('a run that finds the secret expired sends nothing', async () => {
+    const requests = provider(200)
+    const id = await t.run(ctx => ctx.db.insert('secretOutbox', { message: { ...CODE, from: 'a@b.c' }, attempts: 0, generation: 0, nextAttemptAt: Date.now(), expiresAt: Date.now() - 1 }))
+    await t.action(internal.email.deliverSecret, { id, generation: 0 })
+    expect(requests).toHaveLength(0)
+  })
+})
+
+describe('email retention', () => {
+  const DAYS_90 = 90 * 24 * 60 * 60 * 1000
+  const settings = () => t.run(ctx => ctx.db.query('emailSettings').collect())
+
+  test('a send records the app\'s retention, once, for the maintenance to prune by', async () => {
+    await t.mutation(api.email.send, { to: TEST_RECIPIENT, subject: 'Hi', text: 'x', retention: {} })
+    expect(await settings()).toEqual([])
+    await t.mutation(api.email.send, { to: TEST_RECIPIENT, subject: 'Hi', text: 'x', retention: { finalizedMs: DAYS_90 } })
+    await t.mutation(api.email.send, { to: TEST_RECIPIENT, subject: 'Hi', text: 'x', retention: { finalizedMs: DAYS_90 } })
+    expect(await settings()).toMatchObject([{ finalizedMs: DAYS_90 }])
+    // An explicit {} is the defaults again.
+    await t.mutation(api.email.send, { to: TEST_RECIPIENT, subject: 'Hi', text: 'x', retention: {} })
+    expect((await settings())[0]).not.toHaveProperty('finalizedMs')
+  })
+
+  test('a send with no retention (a workflow step calling the component) leaves the app\'s setting alone', async () => {
+    await t.mutation(api.email.send, { to: TEST_RECIPIENT, subject: 'Hi', text: 'x', retention: { finalizedMs: DAYS_90 } })
+    await sendOne()
+    expect(await settings()).toMatchObject([{ finalizedMs: DAYS_90 }])
+  })
+
+  test('setupEmail always sends its retention, {} for the defaults', async () => {
+    const runMutation = vi.fn(async () => null)
+    const email = setupEmail({ backend: { email: { send: 'send', sendSecret: 'sendSecret' } } } as never)
+    await email.send({ runMutation } as never, { to: TEST_RECIPIENT, subject: 'Hi', text: 'x' })
+    expect(runMutation).toHaveBeenLastCalledWith('send', expect.objectContaining({ retention: {} }))
+    const custom = setupEmail({ backend: { email: { send: 'send', sendSecret: 'sendSecret' } } } as never, { retention: { finalizedMs: DAYS_90 } })
+    await custom.sendTemplate({ runMutation } as never, 'otp', { email: TEST_RECIPIENT, otp: '123456', type: 'sign-in' }, { expiresAt: 123 })
+    expect(runMutation).toHaveBeenLastCalledWith('sendSecret', expect.objectContaining({ retention: { finalizedMs: DAYS_90 }, expiresAt: 123 }))
+  })
+})
+
+describe('a send the quiet hours hold', () => {
+  test('waits in a row an erasure deletes, and its release is scheduled by the row alone', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'Date'] })
+    const deliverAt = Date.now() + 60 * 60 * 1000
+    expect(await t.mutation(api.email.send, { to: 'Ada@Example.com', subject: 'Strip tips', html: '<p>Hi</p>', deliverAt })).toBeNull()
+    const held = await t.run(ctx => ctx.db.query('heldEmails').collect())
+    expect(held).toEqual([expect.objectContaining({ email: 'ada@example.com', deliverAt, message: expect.objectContaining({ subject: 'Strip tips' }) })])
+    const scheduled = await t.run(ctx => ctx.db.system.query('_scheduled_functions').collect())
+    expect(scheduled.map(job => job.args)).toContainEqual([{ id: held[0]!._id }])
+    expect(JSON.stringify(scheduled)).not.toContain('example.com')
+
+    await t.mutation(api.account.forget, { email: 'ada@example.com' })
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    expect(await t.run(ctx => ctx.db.query('heldEmails').collect())).toEqual([])
+  })
+
+  test('goes at the quiet hours\' end, and its row with it', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'Date'] })
+    await t.mutation(api.email.send, { to: TEST_RECIPIENT, subject: 'Later', text: 'hi', deliverAt: Date.now() + 60_000 })
+    vi.advanceTimersByTime(61_000)
+    await t.finishInProgressScheduledFunctions()
+    expect(await t.run(ctx => ctx.db.query('heldEmails').collect())).toEqual([])
   })
 })

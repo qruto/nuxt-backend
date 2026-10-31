@@ -1,0 +1,34 @@
+/*
+ * PricingEmailOptOut's default styles, on its data-* hooks. Theme through the
+ * --bk-* tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-pricing='email-opt-out'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+    margin: 0.5rem 0 0;
+    color: var(--bk-muted);
+    font-size: 0.88rem;
+  }
+
+  [data-pricing='email-opt-out-label'] {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--bk-ink);
+    cursor: pointer;
+  }
+
+  [data-pricing='email-opt-out-box'] {
+    margin: 0;
+    accent-color: var(--bk-accent);
+  }
+
+  [data-pricing='email-opt-out-box']:focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 2px;
+  }
+}

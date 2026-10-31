@@ -1,0 +1,92 @@
+/*
+ * AdminRevenue's default styles, on its data-* hooks. Theme through the
+ * --bk-* tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-admin='revenue'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+    color: var(--bk-ink);
+  }
+
+  [data-admin='revenue-controls'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+  }
+
+  :is([data-admin='revenue-window'], [data-admin='revenue-interval']) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  :is([data-admin='revenue-source'], [data-admin='revenue-truncated'], [data-admin='revenue-no-costs'], [data-admin='revenue-usage-empty'], [data-admin='revenue-save-offers'], [data-admin='revenue-conversion']) {
+    margin: 0;
+    color: var(--bk-muted);
+    font-size: 0.9em;
+  }
+
+  [data-admin='revenue-heading'] {
+    margin: 0.5rem 0 0;
+    font-size: 1em;
+  }
+
+  [data-admin='revenue-figures'] {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: 0.5rem;
+    margin: 0;
+  }
+
+  [data-admin='revenue-figure'] {
+    padding: 0.75rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    background: var(--bk-surface);
+  }
+
+  :where([data-admin='revenue-figure']) dt {
+    color: var(--bk-muted);
+    font-size: 0.85em;
+  }
+
+  :where([data-admin='revenue-figure']) dd {
+    margin: 0.25rem 0 0;
+    font-size: 1.25em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  [data-admin='revenue-charts'] {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: 0.5rem;
+  }
+
+  [data-admin='revenue-reasons'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* A bar behind each reason, as long as its share of the largest. */
+  [data-admin='revenue-reason'] {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 2px;
+    background: linear-gradient(to right, color-mix(in srgb, var(--bk-warn) 30%, transparent) calc(var(--admin-chart-value, 0) * 100%), transparent 0);
+  }
+
+  [data-admin='revenue-reason-count'] {
+    font-variant-numeric: tabular-nums;
+  }
+}

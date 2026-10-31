@@ -1,0 +1,21 @@
+/*
+ * SecuritySessions's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-security='session'][data-current] {
+    border-color: color-mix(in srgb, var(--bk-accent) 60%, transparent);
+  }
+
+  [data-security='current-badge'] {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bk-ok) 15%, transparent);
+    color: var(--bk-ok);
+  }
+}

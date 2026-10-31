@@ -1,94 +1,76 @@
 import { computed, type ComputedRef } from 'vue'
-import { useBetterAuth as useBaseAuth, type UseBetterAuthReturn } from 'nuxt-convex-module/better-auth/client'
+import type { BetterAuthSession, BetterAuthUser } from 'nuxt-convex-module/better-auth/client'
+import { useAuthSession } from '../utils/auth-session'
 
-/**
- * The backend identity service: the base Convex + Better Auth service
- * extended with this package's passwordless flows and authorization reads.
- */
-export interface UseBackendAuthService extends UseBetterAuthReturn {
-  // ── Passwordless flows (OTP + passkeys) ────────────────────────────────
-  /** Sign the current user out. */
-  signOut: () => Promise<unknown>
-  /**
-   * Send a sign-in / verification OTP code to an email. `'forget-password'`
-   * answers 400 unless the app turned on `emailAndPassword`.
-   */
-  sendOtp: (email: string, type?: 'sign-in' | 'email-verification' | 'forget-password') => Promise<unknown>
-  /** Complete sign-in (or passwordless sign-up) with an emailed OTP code. */
-  signInWithOtp: (args: { email: string, otp: string, name?: string }) => Promise<unknown>
-  /** Sign in with a passkey (WebAuthn). */
-  signInWithPasskey: () => Promise<unknown>
-  /** Register a passkey for the signed-in user. */
-  registerPasskey: (context?: string) => Promise<unknown>
-  // ── Account management ─────────────────────────────────────────────────
-  /** Update profile fields (name / avatar image) on the current user. */
-  updateUser: (args: { name?: string, image?: string | null }) => Promise<unknown>
-  /** Delete the account (confirmed via email). To change the email address, use `useEmailChange`. */
-  deleteAccount: () => Promise<unknown>
-  // ── Authorization (admin plugin) ───────────────────────────────────────
+/** The signed-in account, as the session carries it: `id`, `email`, `name`, `role`, `banned`, `image`, `locale`, … */
+export type BackendUser = BetterAuthUser & {
+  /** Whether the account is banned. */
+  banned?: boolean | null
+}
+
+/** The session this browser holds: its `id`, `expiresAt`, the active workspace, and who opened it. */
+export type BackendSession = NonNullable<NonNullable<BetterAuthSession['value']['data']>['session']>
+
+/** What `useAuth()` returns: the session, the role, an administrator's visit, and signing out. */
+export interface UseAuthReturn {
+  /** The signed-in account, or `null` when signed out or still loading. */
+  user: ComputedRef<BackendUser | null>
+  /** The session this browser holds, or `null`. */
+  session: ComputedRef<BackendSession | null>
   /** The app-wide role; `'user'` when signed out or unset. */
   role: ComputedRef<string>
-  /** Whether the user has (any of) the given app-wide role(s). */
+  /** Whether the account holds the app-wide role, or any one of several. */
   hasRole: (role: string | string[]) => boolean
-  /** Check permission statements (e.g. `{ user: ['ban'] }`) against the user's role — sync and local. */
-  can: (permissions: Record<string, string[]>) => boolean
-  /** Whether the account is banned. */
-  banned: ComputedRef<boolean>
+  /** Whether someone is signed in, read from the base module's auth state. */
+  isSignedIn: ComputedRef<boolean>
+  /** `true` while the session is still resolving. */
+  isLoading: ComputedRef<boolean>
+  /**
+   * `true` while an administrator is visiting the account: `user` is the
+   * account visited, and every sensitive action is refused. The
+   * `impersonation` notice of `<BackendNotices>` says so on every page, and
+   * `useAdmin().stopImpersonating()` ends the visit.
+   */
+  impersonating: ComputedRef<boolean>
+  /**
+   * Sign this browser out. Rejects on failure. The app navigates after it on
+   * its own: a sign-out made here never sends the person to the sign-in page
+   * with `?redirect=`, as a session that ends elsewhere does.
+   */
+  signOut: () => Promise<void>
 }
 
 /**
- * The backend identity composable — the base Better Auth service
- * (`isLoading`, `isAuthenticated`, `fetchAccessToken`, `client`, `session`,
- * `user`, `authVersion`) extended with the passwordless flows and
- * authorization reads this package is opinionated about. Everything else
- * (admin/organization management, …) lives on the fully-typed `client`.
+ * Who is signed in: the session, the app-wide role, whether an
+ * administrator is visiting, and signing out. Nothing else: sign-in is
+ * `useLoginFlow`'s, passkeys are `usePasskeys`', the profile, the export and
+ * the deletion are `useAccount`'s, and ending a visit is `useAdmin`'s.
  *
- * The base module registers its service as `useBetterAuth`; this is the only
- * `useAuth` auto-import in apps using `nuxt-backend`.
+ * @example
+ * ```vue
+ * <script setup lang="ts">
+ * const { user, isSignedIn, hasRole, signOut } = useAuth()
+ * </script>
  *
- * @param initialToken - Optional preloaded token (SSR), forwarded to the base.
+ * <template>
+ *   <p v-if="isSignedIn">
+ *     {{ user?.name }}
+ *     <NuxtLink v-if="hasRole('admin')" to="/admin">Admin</NuxtLink>
+ *     <button @click="signOut().then(() => navigateTo('/'))">Sign out</button>
+ *   </p>
+ * </template>
+ * ```
  */
-export function useAuth(initialToken?: string | null): UseBackendAuthService {
-  const base = useBaseAuth(initialToken)
-
-  // Thin ergonomic wrappers over the Better Auth client — the client is fully
-  // typed and remains exposed for everything else; these cover the common flows.
-  const client = base.client as unknown as {
-    signOut: () => Promise<unknown>
-    emailOtp: { sendVerificationOtp: (args: { email: string, type: string }) => Promise<unknown> }
-    signIn: {
-      emailOtp: (args: { email: string, otp: string, name?: string }) => Promise<unknown>
-      passkey: () => Promise<unknown>
-    }
-    passkey: { addPasskey: (args: { context?: string }) => Promise<unknown> }
-    updateUser: (args: { name?: string, image?: string | null }) => Promise<unknown>
-    deleteUser: (args: Record<string, never>) => Promise<unknown>
-    admin: { checkRolePermission: (args: { permissions: Record<string, string[]>, role: string }) => boolean }
-  }
-
-  const role = computed<string>(() => {
-    const value = base.user.value?.role
-    return typeof value === 'string' && value ? value : 'user'
-  })
-  const roles = () => role.value.split(',').map(entry => entry.trim())
-
+export function useAuth(): UseAuthReturn {
+  const auth = useAuthSession()
   return {
-    ...base,
-    signOut: () => client.signOut(),
-    sendOtp: (email, type = 'sign-in') => client.emailOtp.sendVerificationOtp({ email, type }),
-    signInWithOtp: args => client.signIn.emailOtp(args),
-    signInWithPasskey: () => client.signIn.passkey(),
-    registerPasskey: context => client.passkey.addPasskey({ context }),
-    updateUser: args => client.updateUser(args),
-    deleteAccount: () => client.deleteUser({}),
-    role,
-    hasRole: (required) => {
-      const requiredRoles = Array.isArray(required) ? required : [required]
-      const userRoles = roles()
-      return requiredRoles.some(entry => userRoles.includes(entry))
-    },
-    can: permissions => roles().some(entry =>
-      client.admin.checkRolePermission({ permissions, role: entry })),
-    banned: computed(() => base.user.value?.banned === true),
+    user: computed(() => auth.user.value as BackendUser | null),
+    session: computed(() => (auth.session.value.data?.session ?? null) as BackendSession | null),
+    role: auth.role,
+    hasRole: auth.hasRole,
+    isSignedIn: auth.isAuthenticated,
+    isLoading: auth.isLoading,
+    impersonating: auth.isImpersonating,
+    signOut: auth.signOut,
   }
 }

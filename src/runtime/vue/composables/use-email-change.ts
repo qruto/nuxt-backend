@@ -1,6 +1,11 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
-import { DEFAULT_EMAIL_MESSAGE, defaultValidateEmail, ensureOk, stepRunner } from '../utils/auth-steps'
-import { useAuth } from './use-auth'
+import { backendError } from '../../../convex/errors.js'
+import { checkEmail, invalidInput, stepRunner } from '../utils/auth-steps'
+import { unwrapAuth } from '../utils/auth-result'
+import type { BackendError } from '../utils/backend-error'
+import { useAuthSession } from '../utils/auth-session'
+import { signalUserDetails } from '../utils/passkey-signals'
+import { useLabels } from './use-labels'
 
 /**
  * The email change, by code at both addresses:
@@ -28,8 +33,13 @@ export interface UseEmailChangeReturn {
   newEmail: Ref<string>
   /** The code of the current step. */
   otp: Ref<string>
-  pending: Ref<boolean>
-  error: Ref<string | null>
+  /** `true` while a step's call runs. */
+  isPending: ComputedRef<boolean>
+  /**
+   * Why the last step failed, or `null`: `invalid_input` on `email` for an
+   * address that does not pass, `rate_limited`, … Set it to `null` to clear it.
+   */
+  error: Ref<BackendError | null>
   /** Seconds until a rate-limited step can be retried; `null` otherwise. */
   retryAfter: Ref<number | null>
   /** Whether `newEmail` passes `validateEmail` and differs from the current address. */
@@ -44,13 +54,6 @@ export interface UseEmailChangeReturn {
   reset: () => void
 }
 
-interface EmailChangeClient {
-  emailOtp: {
-    requestEmailChange: (args: { newEmail: string, otp: string }) => Promise<unknown>
-    changeEmail: (args: { newEmail: string, otp: string }) => Promise<unknown>
-  }
-}
-
 /**
  * The headless email change behind `<ProfileSettings>`: a code from the
  * current address proves the person asking still holds it, a code from the
@@ -59,55 +62,54 @@ interface EmailChangeClient {
  *
  * Like `useLoginFlow`, a step machine that never rejects: a failed step
  * leaves `step` where it was and puts the reason in `error` (with the wait
- * of a 429 in `retryAfter`).
+ * of a rate limit in `retryAfter`).
  */
 export function useEmailChange(options: UseEmailChangeOptions = {}): UseEmailChangeReturn {
-  const auth = useAuth()
-  const client = auth.client as unknown as EmailChangeClient
+  const auth = useAuthSession()
+  const { client } = auth
+  const { t } = useLabels('profile')
 
   const step = ref<EmailChangeStep>('enter-email')
   const newEmail = ref('')
   const otp = ref('')
   const pending = ref(false)
-  const error = ref<string | null>(null)
+  const error = ref<BackendError | null>(null)
   const retryAfter = ref<number | null>(null)
-  const { run, clearError } = stepRunner({ pending, error, retryAfter })
+  const { run, clearError, refuse } = stepRunner({ pending, error, retryAfter })
 
-  const currentEmail = () => (auth.user.value?.email as string | undefined) ?? ''
+  const currentEmail = () => auth.user.value?.email ?? ''
   const target = () => newEmail.value.trim()
 
-  const validate = (value: string): true | string => {
-    if (value.toLowerCase() === currentEmail().toLowerCase()) return 'That is already your email address.'
-    const result = (options.validateEmail ?? defaultValidateEmail)(value)
-    if (result === true) return true
-    return typeof result === 'string' ? result : DEFAULT_EMAIL_MESSAGE
+  const validate = (value: string): true | string | undefined => {
+    if (value.toLowerCase() === currentEmail().toLowerCase()) return t('sameEmail')
+    return checkEmail(options.validateEmail, value)
   }
   const emailValid = computed(() => validate(target()) === true)
 
   const start = async () => {
     clearError()
     const verdict = validate(target())
-    if (verdict !== true) {
-      error.value = verdict
-      return
-    }
-    await run('Failed to send the code', async () => {
-      if (!currentEmail()) throw new Error('Sign in to change your email address.')
-      ensureOk(await auth.sendOtp(currentEmail(), 'email-verification'), 'Failed to send the code')
+    if (verdict !== true) return refuse(invalidInput('email', verdict))
+    await run(async () => {
+      if (!currentEmail()) throw backendError('unauthenticated')
+      await auth.sendOtp(currentEmail(), 'email-verification')
       otp.value = ''
       step.value = 'confirm-current'
     })
   }
 
-  const confirmCurrent = () => run('Invalid code', async () => {
-    ensureOk(await client.emailOtp.requestEmailChange({ newEmail: target(), otp: otp.value.trim() }), 'Invalid code')
+  const confirmCurrent = () => run(async () => {
+    unwrapAuth(await client.emailOtp.requestEmailChange({ newEmail: target(), otp: otp.value.trim() }))
     otp.value = ''
     step.value = 'verify-new'
   })
 
-  const verifyNew = () => run('Invalid code', async () => {
-    ensureOk(await client.emailOtp.changeEmail({ newEmail: target(), otp: otp.value.trim() }), 'Invalid code')
-    await (auth.session.value as unknown as { refetch?: () => Promise<unknown> }).refetch?.()
+  const verifyNew = () => run(async () => {
+    unwrapAuth(await client.emailOtp.changeEmail({ newEmail: target(), otp: otp.value.trim() }))
+    await auth.session.value.refetch()
+    // The passkeys on this device show the new address (the WebAuthn Signal API).
+    const user = auth.user.value
+    if (user) void signalUserDetails({ id: user.id, email: target(), name: user.name })
     otp.value = ''
     step.value = 'done'
     await options.onChanged?.(target())
@@ -121,5 +123,17 @@ export function useEmailChange(options: UseEmailChangeOptions = {}): UseEmailCha
     pending.value = false
   }
 
-  return { step, newEmail, otp, pending, error, retryAfter, emailValid, start, confirmCurrent, verifyNew, reset }
+  return {
+    step,
+    newEmail,
+    otp,
+    isPending: computed(() => pending.value),
+    error,
+    retryAfter,
+    emailValid,
+    start,
+    confirmCurrent,
+    verifyNew,
+    reset,
+  }
 }

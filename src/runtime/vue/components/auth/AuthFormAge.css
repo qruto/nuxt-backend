@@ -1,0 +1,12 @@
+/*
+ * AuthFormAge's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  /* A number of years: a short field, so it does not read as a sentence to type. */
+  [data-auth='input-age'] {
+    max-width: 8rem;
+    font-variant-numeric: tabular-nums;
+  }
+}

@@ -1,0 +1,127 @@
+/*
+ * ProfilePreferencesSection's default styles, on its data-* hooks. Theme
+ * through the --bk-* tokens (tokens.css) or the hooks themselves: every rule
+ * sits in `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-preferences='title'] {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  [data-preferences='topics'] {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  [data-preferences='topic-label'] {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+  }
+
+  [data-preferences='topic-input'] {
+    inline-size: 1rem;
+    block-size: 1rem;
+    accent-color: var(--bk-accent);
+  }
+
+  [data-preferences='topic-input']:focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 2px;
+  }
+
+  [data-preferences='topic'] [data-profile='hint'] {
+    padding-inline-start: 1.5rem;
+  }
+
+  [data-preferences='pending'] {
+    color: var(--bk-warn);
+  }
+
+  [data-preferences='unsubscribe-all'] {
+    align-self: flex-start;
+    padding: 0.45rem 0.8rem;
+    border: 1px solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  [data-preferences='unsubscribe-all'][aria-disabled='true'] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  [data-preferences='unsubscribe-all']:focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 2px;
+  }
+
+  [data-preferences='channels-title'] {
+    margin: 0.5rem 0 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  [data-preferences='channels'] {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  [data-preferences='kind'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 1rem;
+    padding-block: 0.4rem;
+    border-block-end: 1px solid var(--bk-edge);
+  }
+
+  [data-preferences='kind-name'] {
+    font-weight: 600;
+  }
+
+  [data-preferences='kind-channels'] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+  }
+
+  [data-preferences='channel'] {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  [data-preferences='channel-input'] {
+    inline-size: 1rem;
+    block-size: 1rem;
+    accent-color: var(--bk-accent);
+  }
+
+  [data-preferences='channel-input']:focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 2px;
+  }
+
+  [data-preferences='error'] {
+    margin: 0;
+    color: var(--bk-error);
+  }
+
+  [data-preferences='status']:empty {
+    display: none;
+  }
+}
