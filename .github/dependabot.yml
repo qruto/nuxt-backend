@@ -39,9 +39,9 @@ updates:
     #
     # @polar-sh/sdk 1.x is a rewrite that @convex-dev/polar has not moved to
     # (it still develops against 0.x), and the billing integration shares its
-    # types. typescript 7 is beyond typedoc's peer range. The DevTools kit and
-    # UI kit move together with Nuxt DevTools' own major, which arrives when
-    # Nuxt ships it. Weekly's upstream watch (.github/upstream.json) reports
+    # types. typescript 7 is beyond typedoc's peer range. DevTools itself, its kit
+    # and its UI kit move together, with the DevTools major Nuxt ships: Nuxt
+    # 4.6 installs DevTools 3, and a DevTools 4 of our own would run beside it. Weekly's upstream watch (.github/upstream.json) reports
     # when each of these unblocks, one watch per entry; drop the entry in the
     # pull request that adopts it.
     #
@@ -96,6 +96,8 @@ updates:
       - dependency-name: '@polar-sh/sdk'
         update-types: ['version-update:semver-major']
       - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@nuxt/devtools'
         update-types: ['version-update:semver-major']
       - dependency-name: '@nuxt/devtools-kit'
         update-types: ['version-update:semver-major']

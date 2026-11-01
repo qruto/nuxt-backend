@@ -46,7 +46,7 @@
       "field": "dependencies",
       "dependency": "@nuxt/devtools",
       "version": "4.0.0",
-      "unblocks": "The DevTools kit and UI kit majors (lift the @nuxt/devtools-kit and @nuxt/devtools-ui-kit holds in dependabot.yml)"
+      "unblocks": "The DevTools kit and UI kit majors (lift the @nuxt/devtools hold, and the @nuxt/devtools-kit and @nuxt/devtools-ui-kit holds in dependabot.yml)"
     },
     {
       "id": "nuxt-h3-2",

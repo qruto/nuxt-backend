@@ -24,7 +24,7 @@
     "@vercel/firewall": "1.2.2",
     "@vercel/speed-insights": "^2.0.0",
     "@vueuse/core": "^15.0.0",
-    "ai": "^7.0.157",
+    "ai": "^7.0.159",
     "convex": "^1.49.0",
     "docus": "^5.15.0",
     "nuxt": "catalog:",
