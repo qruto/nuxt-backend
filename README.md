@@ -84,6 +84,8 @@ the catalog in `backend/billing.catalog.ts` in Polar's sandbox: on the starter's
 balance. The [Quickstart](https://nuxt-backend.dev/docs/start/quickstart) walks through it, with the
 first-run fixes.
 
+> Until `0.2.0` is published, `nuxt-backend: latest` installs `0.1.0`, a throwaway test publish. Install the [preview build](https://nuxt-backend.dev/docs/start/templates#preview-builds-pkgprnew) of `main` over it in the meantime: `npm install https://pkg.pr.new/qruto/nuxt-backend@main`.
+
 > Using **strict** pnpm? Add `publicHoistPattern: ['@convex-dev/*']` to `pnpm-workspace.yaml` (or set `nodeLinker: hoisted`) so Convex can resolve the bundled component definitions. See the [installation docs](https://nuxt-backend.dev/docs/start/installation#using-strict-pnpm).
 
 **Connect services when you're ready.** Put a provider key in `.env.local` and forward it to the
