@@ -3796,6 +3796,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           giftId: string;
           returnFrom: number;
           subscriptionId: string;
+          until: number;
           userId: string;
         },
         boolean,

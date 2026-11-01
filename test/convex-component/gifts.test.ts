@@ -286,16 +286,19 @@ describe('delivery dates, notices and the purchaser\'s changes (component)', () 
     // Its last billing cycle begins 28 days before the end.
     const returnFrom = endsAt - 28 * DAY
     // A claim is recorded only by the one that holds the gift.
-    expect(await t.mutation(api.gifts.startPass, { giftId, userId: 'u', entityId: 'org-r', subscriptionId: 'sub_1', endsAt, returnFrom })).toBe(false)
-    expect(await t.mutation(api.gifts.reservePass, { giftId, userId: 'u', entityId: 'org-r', until: now() + 60_000 })).toBe('reserved')
+    const until = now() + 60_000
+    expect(await t.mutation(api.gifts.startPass, { giftId, userId: 'u', entityId: 'org-r', until, subscriptionId: 'sub_1', endsAt, returnFrom })).toBe(false)
+    expect(await t.mutation(api.gifts.reservePass, { giftId, userId: 'u', entityId: 'org-r', until })).toBe('reserved')
     // A second claim waits while the first holds it, and the purchaser's refund is refused meanwhile.
     expect(await t.mutation(api.gifts.reservePass, { giftId, userId: 'u2', entityId: 'org-2', until: now() + 60_000 })).toBe('busy')
     expect(await t.mutation(api.gifts.markRefunded, { giftId })).toBe(false)
     expect(await t.mutation(api.gifts.beginCancel, { giftId, until: now() + 60_000 })).toBe(false)
-    expect(await t.mutation(api.gifts.startPass, { giftId, userId: 'u', entityId: 'org-r', subscriptionId: 'sub_1', endsAt, returnFrom })).toBe(true)
+    // Only with the hold it took: a claim that held it once, with another `until`, records nothing.
+    expect(await t.mutation(api.gifts.startPass, { giftId, userId: 'u', entityId: 'org-r', until: until - 1, subscriptionId: 'sub_1', endsAt, returnFrom })).toBe(false)
+    expect(await t.mutation(api.gifts.startPass, { giftId, userId: 'u', entityId: 'org-r', until, subscriptionId: 'sub_1', endsAt, returnFrom })).toBe(true)
     // A second claim finds it claimed already, and the workspace takes no other pass meanwhile.
     expect(await t.mutation(api.gifts.reservePass, { giftId, userId: 'u2', entityId: 'org-2', until: now() + 60_000 })).toBe('closed')
-    expect(await t.mutation(api.gifts.startPass, { giftId, userId: 'u2', entityId: 'org-2', subscriptionId: 'sub_2', endsAt, returnFrom })).toBe(false)
+    expect(await t.mutation(api.gifts.startPass, { giftId, userId: 'u2', entityId: 'org-2', until, subscriptionId: 'sub_2', endsAt, returnFrom })).toBe(false)
     const other = await paidGift({ plan: 'pro', months: 1, pack: undefined, productIds: ['prod_pass'] })
     expect(await t.mutation(api.gifts.reservePass, { giftId: other, userId: 'u', entityId: 'org-r', until: now() + 60_000 })).toBe('taken')
     await t.mutation(api.gifts.markRefunded, { giftId: other })

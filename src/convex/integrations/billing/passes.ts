@@ -132,7 +132,7 @@ export function createPasses(
     const switched: { id?: string } = {}
     let endsAt: number
     try {
-      endsAt = await switchToPass(ctx, { gift, months: gift.months, passProductId, recipient, entityId, taken, switched })
+      endsAt = await switchToPass(ctx, { gift, months: gift.months, passProductId, recipient, entityId, until: hold.until, taken, switched })
     }
     catch (error) {
       if (switched.id) await backToFree(switched.id, 'pass claim')
@@ -158,7 +158,7 @@ export function createPasses(
    * kept in `switched` for an undo), its period aligned, and the pass
    * recorded. Answers when the pass ends.
    */
-  const switchToPass = async (ctx: RunWriteCtx, { gift, months, passProductId, recipient, entityId, taken, switched }: { gift: GiftRecord, months: number, passProductId: string, recipient: { userId: string, email: string }, entityId: string, taken: Error, switched: { id?: string } }): Promise<number> => {
+  const switchToPass = async (ctx: RunWriteCtx, { gift, months, passProductId, recipient, entityId, until, taken, switched }: { gift: GiftRecord, months: number, passProductId: string, recipient: { userId: string, email: string }, entityId: string, until: number, taken: Error, switched: { id?: string } }): Promise<number> => {
     await ensureCustomer(ctx, { userId: entityId, email: recipient.email }, await profileOf(ctx, entityId), 'pass claim')
     let free: PassSubscription | undefined
     for (const subscription of await heldSubscriptions(entityId)) {
@@ -178,10 +178,21 @@ export function createPasses(
     // The first month runs from the claim, so every cycle and the end date fall on the same day.
     const aligned = await subscriptionsUpdate(provider.polar, { id: switched.id, subscriptionUpdate: { currentBillingPeriodEnd: new Date(addMonths(now, 1)) } })
     if (!aligned.ok) logBackend('warn', 'billing.pass_period_unaligned', 'A plan pass kept the provider\'s billing period; its end date still holds, enforced by the sweep.')
-    if (!await ctx.runMutation(gifts.startPass, { giftId: gift.id, userId: recipient.userId, entityId, subscriptionId: switched.id, endsAt, returnFrom: returnFrom(now, endsAt) })) {
+    if (!await ctx.runMutation(gifts.startPass, { giftId: gift.id, userId: recipient.userId, entityId, until, subscriptionId: switched.id, endsAt, returnFrom: returnFrom(now, endsAt) })) {
+      // A retry into this same workspace took the gift after this claim's hold
+      // lapsed: it switches, or switched, the same subscription, so undoing it
+      // here would take the pass from under that claim.
+      if (await claimedHere(ctx, gift.id, entityId, switched.id)) switched.id = undefined
       throw backendError('forbidden', { reason: 'gift_claimed' }, '[nuxt-backend] claimGift: this gift was claimed, or is being claimed right now.')
     }
     return endsAt
+  }
+
+  /** Whether another claim holds a gift for this workspace, or recorded its pass on this subscription. */
+  const claimedHere = async (ctx: RunQueryCtx, giftId: string, entityId: string, subscriptionId: string): Promise<boolean> => {
+    const now = await ctx.runQuery(gifts.get, { giftId })
+    if (now?.status === 'paid') return now.claimingEntityId === entityId
+    return now?.status === 'claimed' && now.claimedEntityId === entityId && now.passSubscriptionId === subscriptionId
   }
 
   /**
