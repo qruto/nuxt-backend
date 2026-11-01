@@ -19,12 +19,6 @@
   ],
   "rules": [
     {
-      "type": "deletion"
-    },
-    {
-      "type": "non_fast_forward"
-    },
-    {
       "type": "pull_request",
       "parameters": {
         "required_approving_review_count": 0,
