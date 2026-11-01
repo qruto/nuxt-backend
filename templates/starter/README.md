@@ -9,11 +9,6 @@ backend code yet.
 Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) and the
 [nuxt-backend documentation](https://nuxt-backend.dev/docs/start) to learn more.
 
-> [!NOTE]
-> Until `0.2.0` is published, `nuxt-backend: latest` installs `0.1.0`, a throwaway test
-> publish. Install the [preview build of `main`](https://nuxt-backend.dev/docs/start/templates#preview-builds-pkgprnew)
-> over it: `npm install https://pkg.pr.new/qruto/nuxt-backend@main`.
-
 ## Setup
 
 Make sure to install dependencies:
