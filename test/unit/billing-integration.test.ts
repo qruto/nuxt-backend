@@ -9,6 +9,7 @@ import { discountsCreate } from '@polar-sh/sdk/funcs/discountsCreate.js'
 import { eventsIngest } from '@polar-sh/sdk/funcs/eventsIngest.js'
 import { checkoutsCreate } from '@polar-sh/sdk/funcs/checkoutsCreate.js'
 import { customerSessionsCreate } from '@polar-sh/sdk/funcs/customerSessionsCreate.js'
+import { productsList } from '@polar-sh/sdk/funcs/productsList.js'
 import { type Billing, type BillingEntityCtx, setupBilling, type SpendReservation } from '../../src/convex/integrations/billing'
 import { setupEmail } from '../../src/convex/integrations/email'
 import { backendError, getBackendError } from '../../src/convex/errors'
@@ -25,6 +26,7 @@ vi.mock('@polar-sh/sdk/funcs/discountsCreate.js', () => ({ discountsCreate: vi.f
 vi.mock('@polar-sh/sdk/funcs/eventsIngest.js', () => ({ eventsIngest: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/checkoutsCreate.js', () => ({ checkoutsCreate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/customerSessionsCreate.js', () => ({ customerSessionsCreate: vi.fn() }))
+vi.mock('@polar-sh/sdk/funcs/productsList.js', () => ({ productsList: vi.fn() }))
 
 const mockCustomersGetState = vi.mocked(customersGetStateExternal)
 const mockCustomersGet = vi.mocked(customersGet)
@@ -35,6 +37,7 @@ const mockDiscountsCreate = vi.mocked(discountsCreate)
 const mockEventsIngest = vi.mocked(eventsIngest)
 const mockCheckoutsCreate = vi.mocked(checkoutsCreate)
 const mockCustomerSessionsCreate = vi.mocked(customerSessionsCreate)
+const mockProductsList = vi.mocked(productsList)
 
 const components = {
   polar: { lib: { insertCustomer: 'ref:insertCustomer' } },
@@ -638,10 +641,14 @@ describe('syncProducts', () => {
     expect(billing.api.syncProducts.isAction).toBe(true)
   })
 
-  it('pulls the provider catalog without asking for an identity', async () => {
+  it('pulls the provider catalog without asking for an identity, a page at a time', async () => {
+    const page = (n: number, maxPage: number) => ({ ok: true, value: { result: { items: [{ id: `prod_${n}`, createdAt: new Date(0), modifiedAt: null, prices: [], medias: [] }], pagination: { totalCount: maxPage, maxPage } } } })
+    mockProductsList.mockImplementation((async (_client: unknown, { page: n }: { page: number }) => page(n, 2)) as never)
     const ctx = { runQuery: vi.fn(), runMutation: vi.fn(), runAction: vi.fn(), auth: { getUserIdentity: vi.fn(async () => null) } }
     await expect((billing.api.syncProducts as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler(ctx, {})).resolves.toBeNull()
     expect(ctx.auth.getUserIdentity).not.toHaveBeenCalled()
+    expect(mockProductsList.mock.calls.map(([, request]) => request)).toEqual([{ page: 1, limit: 100 }, { page: 2, limit: 100 }])
+    expect(ctx.runMutation.mock.calls.map(([, args]) => (args as { product: { id: string } }).product.id)).toEqual(['prod_1', 'prod_2'])
   })
 })
 

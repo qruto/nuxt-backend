@@ -123,8 +123,12 @@ function priceRecord(product: any, price: any): Record<string, unknown> {
   }
 }
 
-/** A product as the provider component's `products` table stores it. */
-function productRecord(product: any): Record<string, unknown> {
+/**
+ * A product as the provider component's `products` table stores it.
+ *
+ * @internal
+ */
+export function productRecord(product: any): Record<string, unknown> {
   return {
     id: product.id,
     organizationId: product.organizationId,
