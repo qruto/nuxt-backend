@@ -533,14 +533,16 @@ export const releasePass = mutation({
  * Claim a plan pass: the recipient's workspace switched to the pass product,
  * for `months` months from now. The package keeps the end date, and from
  * when its return may be booked (`returnFrom`). Only the claim that holds
- * the gift (`reservePass`) records it. Returns whether this call claimed it.
+ * the gift records it: its holder and its `until`, as `reservePass`
+ * recorded them, so a claim whose hold lapsed and that a retry took since
+ * records nothing. Returns whether this call claimed it.
  */
 export const startPass = mutation({
-  args: { giftId: v.id('billingGifts'), userId: v.string(), entityId: v.string(), subscriptionId: v.string(), endsAt: v.number(), returnFrom: v.number() },
+  args: { giftId: v.id('billingGifts'), userId: v.string(), entityId: v.string(), until: v.number(), subscriptionId: v.string(), endsAt: v.number(), returnFrom: v.number() },
   returns: v.boolean(),
-  handler: async (ctx, { giftId, ...start }) => {
+  handler: async (ctx, { giftId, until, ...start }) => {
     const gift = await ctx.db.get('billingGifts', giftId)
-    if (!gift || gift.status !== 'paid' || gift.plan === undefined || gift.claimingUserId !== start.userId || gift.claimingEntityId !== start.entityId) return false
+    if (!gift || gift.status !== 'paid' || gift.plan === undefined || gift.claimingUserId !== start.userId || gift.claimingEntityId !== start.entityId || gift.claimingUntil !== until) return false
     await ctx.db.patch('billingGifts', giftId, { status: 'claimed', claimingUntil: undefined, ...passStart(start, Date.now()) })
     return true
   },

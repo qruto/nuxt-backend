@@ -46,6 +46,10 @@ exclude = [
   # Consistently 403s automated clients while working in a browser.
   "^https?://(www\\.)?linkedin\\.com",
   "^https?://(twitter|x)\\.com",
+  # EUR-Lex answers an automated client with 202 and a challenge page, for
+  # every law the compliance pages cite. The ELI addresses are permanent
+  # identifiers, so a real move is not what this would catch.
+  "^https?://eur-lex\\.europa\\.eu/eli/",
   # GitHub settings pages answer a logged-out client with 404, not 403, so
   # `accept` below cannot cover them (RELEASE.md links the Actions settings).
   "^https?://github\\.com/.*/settings(/|$)",

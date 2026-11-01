@@ -170,6 +170,10 @@ describe('a product', () => {
     const meterId = stableId('meter', 'credits')
     const metered = (await stored.product(ids.products.metered!))?.prices.find(({ amountType }) => amountType === 'metered_unit')
     expect(metered).toEqual(expect.objectContaining({ unitAmount: '0.5', meterId, meter: { id: meterId, name: expect.any(String) } }))
+    // The deployment's product sync stores it the same way, where the provider component's own refused the whole page.
+    await t.action(makeFunctionReference<'action'>('billing:syncProducts'), {})
+    const synced = (await stored.product(ids.products.metered!))?.prices.find(({ amountType }) => amountType === 'metered_unit')
+    expect(synced).toEqual(expect.objectContaining({ unitAmount: '0.5', meterId, meter: { id: meterId, name: expect.any(String) } }))
   })
 })
 

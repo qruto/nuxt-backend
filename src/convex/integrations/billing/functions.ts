@@ -39,7 +39,7 @@ const LIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'p
 
 /** The registered queries and actions `setupBilling` hands the app in `billing.api`. */
 export function createBillingFunctions(
-  { components, config, products, meterNameById, provider, cache, allowedEntity, requireEntity, throttle, requireAdmin }: BillingContext,
+  { components, config, products, meterNameById, provider, cache, allowedEntity, requireEntity, throttle, requireAdmin, requireProviderAccess, syncProducts: syncProductsTable }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
   { withChanges, updateSubscription, uncancelSubscription, cancelPendingChange, pauseSubscription, resumeSubscription }: BillingSubscriptions,
   { getOrders, getInvoiceUrl, getUsageHistory, refundOrder }: BillingHistory,
@@ -264,11 +264,13 @@ export function createBillingFunctions(
   // `--preview-run` — and the CLI is the only caller the docs ever name. A
   // public one would also mean an identity gate and a throttle around a fan-out
   // to the live provider API; an app that wants a button re-declares it with
-  // its own `admin.action` builder.
+  // its own `admin.action` builder. Each product is stored as a delivery
+  // stores it (`syncProviderProducts`).
   const syncProducts = internalActionGeneric({
     args: {},
     handler: async (ctx) => {
-      await provider.syncProducts(ctx as never)
+      requireProviderAccess('product sync')
+      await syncProductsTable(ctx)
       return null
     },
   })

@@ -397,6 +397,34 @@ describe('claiming a plan pass', { timeout: 30_000 }, () => {
     expect(await reserve(gift.id, recipient.userId, await seedWorkspace(t))).toBe('busy')
   })
 
+  test('whose hold lapsed and a retry into the same workspace took, leaves the switch to that retry', async () => {
+    const ada = await purchaser()
+    const gift = await sendPass(ada, 'delivered+retried@resend.dev', 3)
+    const recipient = await onFree('delivered+retried@resend.dev')
+    const free = (await current(recipient))!
+    // The claim's switch comes back after its hold lapsed and the same person's retry took the gift.
+    let retry = 0
+    intercept = async (request, body) => {
+      if (request.method !== 'PATCH' || body.product_id !== ids.passes!.pro!.pass) return undefined
+      vi.setSystemTime(Date.now() + 6 * 60 * 1000)
+      retry = Date.now() + 60_000
+      expect(await t.mutation(components.backend.gifts.reservePass, { giftId: gift.id, userId: recipient.userId, entityId: recipient.workspaceId!, until: retry })).toBe('reserved')
+      return undefined
+    }
+
+    expect(await refusal(claim(recipient, gift.id))).toMatchObject({ code: 'forbidden', data: { reason: 'gift_claimed' } })
+    await fake.idle()
+    intercept = null
+
+    // The late claim records nothing and undoes nothing: the subscription stays
+    // on the pass for the retry, which still holds the gift.
+    expect(subscriptionsOf(recipient.workspaceId!)).toEqual([expect.objectContaining({ id: free.id, productId: ids.passes!.pro!.pass })])
+    expect(await t.query(components.backend.gifts.get, { giftId: gift.id })).toMatchObject({ status: 'paid', claimingEntityId: recipient.workspaceId })
+    const endsAt = addMonths(Date.now(), 3)
+    expect(await t.mutation(components.backend.gifts.startPass, { giftId: gift.id, userId: recipient.userId, entityId: recipient.workspaceId!, until: retry, subscriptionId: free.id, endsAt, returnFrom: endsAt - 28 * DAY })).toBe(true)
+    expect(await t.query(components.backend.gifts.activePass, { entityId: recipient.workspaceId! })).toMatchObject({ id: gift.id, subscriptionId: free.id })
+  })
+
   test('that can\'t switch back is logged for a hand fix, and still refused', async () => {
     const ada = await purchaser()
     const gift = await sendPass(ada, 'delivered+stuck@resend.dev', 3)

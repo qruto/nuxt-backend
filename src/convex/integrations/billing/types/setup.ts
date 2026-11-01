@@ -197,7 +197,7 @@ export interface BillingComponents {
       noteNotice: FunctionReference<'mutation', 'internal', { giftId: string, reminder?: boolean }, null>
       setRecipient: FunctionReference<'mutation', 'internal', { giftId: string, recipientEmail: string }, boolean>
       setDeliverAt: FunctionReference<'mutation', 'internal', { giftId: string, deliverAt: number }, boolean>
-      startPass: FunctionReference<'mutation', 'internal', { giftId: string, userId: string, entityId: string, subscriptionId: string, endsAt: number, returnFrom: number }, boolean>
+      startPass: FunctionReference<'mutation', 'internal', { giftId: string, userId: string, entityId: string, until: number, subscriptionId: string, endsAt: number, returnFrom: number }, boolean>
       notePass: FunctionReference<'mutation', 'internal', { giftId: string, step: 'return_scheduled' | 'noticed' | 'ended' }, boolean>
       activePass: FunctionReference<'query', 'internal', { entityId: string }, { id: string, plan: string, months?: number, startedAt: number, endsAt: number, subscriptionId?: string, trial?: true, rewardId?: string } | null>
       startTrialPass: FunctionReference<'mutation', 'internal', { address: string, userId: string, entityId: string, plan: string, productId: string, subscriptionId: string, endsAt: number, returnFrom: number }, boolean>

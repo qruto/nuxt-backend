@@ -175,6 +175,25 @@ function productRecord(product: any): Record<string, unknown> {
 
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
+/** One page of the provider's product list, as the SDK's `productsList` answers it. */
+export interface ProductPage { result: { items: unknown[], pagination: { maxPage: number } } }
+
+/**
+ * Reload the provider component's products table from the provider: every
+ * product, a page at a time, stored as a `product.*` delivery stores it. Not
+ * the component's own sync: its converter keeps a usage price's whole meter,
+ * which the table refuses, so a catalog with a usage price would fail it.
+ *
+ * @internal
+ */
+export async function syncProviderProducts(ctx: RunWriteCtx, listPage: (page: number) => Promise<ProductPage>, updateProduct: ProviderRecordRefs['updateProduct']): Promise<void> {
+  for (let page = 1, maxPage = 1; page <= maxPage; page++) {
+    const listed = await listPage(page)
+    maxPage = listed.result.pagination.maxPage
+    for (const product of listed.result.items) await ctx.runMutation(updateProduct, { product: productRecord(product) })
+  }
+}
+
 /**
  * Keep the provider component's subscriptions and products in step with a
  * verified event, as its own route stores them: the reads `useBilling` and

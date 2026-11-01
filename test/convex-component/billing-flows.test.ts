@@ -215,7 +215,7 @@ describe('billing on the fake provider, end to end', () => {
     const products = await t.query(fn<'query'>('billing:getConfiguredProducts'), {}) as Record<string, { name: string } | undefined>
     expect(products.pro?.name).toBe('Pro')
     expect(products.credits500?.name).toBe('500 credits')
-    // The component's own product sync reads the provider's sandbox, which here is the fake provider: every product comes back.
+    // The product sync reads the provider's sandbox, which here is the fake provider: every product comes back.
     await t.action(makeFunctionReference<'action'>('billing:syncProducts'), {})
     const synced = await t.query(fn<'query'>('billing:getConfiguredProducts'), {}) as Record<string, { name: string } | undefined>
     expect(synced.pro?.name).toBe('Pro')
