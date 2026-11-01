@@ -1801,7 +1801,7 @@ duration. On a yearly price `once` covers the whole first year, and
 ### CatalogDiscount
 
 ```ts
-type CatalogDiscount = CatalogDiscountTerms & 
+type CatalogDiscount = CatalogDiscountTerms & (
   | {
   percentOff: number;
   amountOff?: never;
@@ -1809,7 +1809,7 @@ type CatalogDiscount = CatalogDiscountTerms &
   | {
   amountOff: number | Record<string, number>;
   percentOff?: never;
-};
+});
 ```
 
 Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts)

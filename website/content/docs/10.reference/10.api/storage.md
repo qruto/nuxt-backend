@@ -236,7 +236,7 @@ The `backend` component as storage reads it, and the rate limiter it limits uplo
 ### ShareCtx
 
 ```ts
-type ShareCtx<DM> = GenericQueryCtx<DM> | GenericMutationCtx<DM> & {
+type ShareCtx<DM> = (GenericQueryCtx<DM> | GenericMutationCtx<DM>) & {
   user: {
      id: string;
   };

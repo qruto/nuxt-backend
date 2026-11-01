@@ -167,7 +167,7 @@ The attributes and handlers custom markup spreads on its elements.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="emailinput"></a> `emailInput` | \{ `type`: `"email"`; `name`: `"email"`; `autocomplete`: `"email"`; `required`: `true`; `aria-invalid`: `true` \| `undefined`; `value`: `string`; `onInput`: (`event`) => `void`; \} | The address field. | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
+| <a id="emailinput"></a> `emailInput` | \{ `type`: `"email"`; `name`: `"email"`; `autocomplete`: `"email"`; `required`: `true`; `"aria-invalid"`: `true` \| `undefined`; `value`: `string`; `onInput`: (`event`) => `void`; \} | The address field. | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
 | `emailInput.type` | `"email"` | - | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
 | `emailInput.name` | `"email"` | - | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
 | `emailInput.autocomplete` | `"email"` | - | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
@@ -175,7 +175,7 @@ The attributes and handlers custom markup spreads on its elements.
 | `emailInput.aria-invalid` | `true` \| `undefined` | - | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
 | `emailInput.value` | `string` | - | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
 | `emailInput.onInput` | (`event`) => `void` | - | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
-| <a id="codeinput"></a> `codeInput` | \{ `type`: `"text"`; `name`: `"otp"`; `inputmode`: `"numeric"`; `autocomplete`: `"one-time-code"`; `required`: `true`; `aria-invalid`: `true` \| `undefined`; `value`: `string`; `onInput`: (`event`) => `void`; \} | The code field. | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
+| <a id="codeinput"></a> `codeInput` | \{ `type`: `"text"`; `name`: `"otp"`; `inputmode`: `"numeric"`; `autocomplete`: `"one-time-code"`; `required`: `true`; `"aria-invalid"`: `true` \| `undefined`; `value`: `string`; `onInput`: (`event`) => `void`; \} | The code field. | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
 | `codeInput.type` | `"text"` | - | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
 | `codeInput.name` | `"otp"` | - | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
 | `codeInput.inputmode` | `"numeric"` | - | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
@@ -189,7 +189,7 @@ The attributes and handlers custom markup spreads on its elements.
 | `launchNewsInput.name` | `"launchNews"` | - | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
 | `launchNewsInput.checked` | `boolean` | - | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
 | `launchNewsInput.onChange` | (`event`) => `void` | - | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
-| <a id="answerinput"></a> `answerInput` | (`key`) => \{ `name`: `string`; `value`: `string`; `aria-invalid`: `true` \| `undefined`; `onChange`: (`event`) => `void`; \} | One question's field, by its key. | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
+| <a id="answerinput"></a> `answerInput` | (`key`) => \{ `name`: `string`; `value`: `string`; `"aria-invalid"`: `true` \| `undefined`; `onChange`: (`event`) => `void`; \} | One question's field, by its key. | [src/runtime/vue/composables/use-waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist.ts) |
 
 ***
 

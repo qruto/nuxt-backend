@@ -9,7 +9,16 @@
       "dependency": "better-auth",
       "version": "1.7.0",
       "pr": "get-convex/better-auth#444",
-      "unblocks": "UP1 — Better Auth 1.7 (lift the better-auth and @better-auth/passkey holds in dependabot.yml)"
+      "unblocks": "UP1 — Better Auth 1.7 (lift the better-auth hold, and the @better-auth/core and @better-auth/passkey holds in dependabot.yml)"
+    },
+    {
+      "id": "convex-eslint-plugin-ts-eslint",
+      "title": "@convex-dev/eslint-plugin takes the current @typescript-eslint line",
+      "package": "@convex-dev/eslint-plugin",
+      "field": "dependencies",
+      "dependency": "@typescript-eslint/utils",
+      "version": "8.70.0",
+      "unblocks": "lift the @convex-dev/eslint-plugin hold in dependabot.yml (5.0.1 pins @typescript-eslint ~8.58, whose copy crashes no-misused-promises under the hoisted linker)"
     },
     {
       "id": "polar-sdk-1",

@@ -27,11 +27,11 @@ updates:
         - convex-helpers
         - '@convex-dev/*'
     # `@convex-dev/better-auth` peers `better-auth: ">=1.6.11 <1.7.0"`, and this
-    # package mirrors that range for better-auth and its passkey plugin. A 1.7.x
-    # bump is a *minor* update, so the all-non-major group below would otherwise
-    # propose one that the add-on rejects at install time. Drop both entries
-    # when @convex-dev/better-auth ships better-auth 1.7 support (and widen the
-    # two ranges in package.json with it).
+    # package mirrors that range for better-auth, @better-auth/core and the passkey
+    # plugin. A 1.7.x bump is a *minor* update, so the all-non-major group below
+    # would otherwise propose one that the add-on rejects at install time. Drop
+    # the three entries when @convex-dev/better-auth ships better-auth 1.7 support
+    # (and widen the ranges in package.json with it).
     #
     # h3 2.x needs Nitro 3, which Nuxt 4 does not run on, and every server
     # handler here is written against h3 1. Drop the entry with the move to
@@ -67,11 +67,30 @@ updates:
     # request, and fails CI where the upstream blocker bites, in view. A
     # `versions` range filters security updates too, so it holds only what
     # no update type can name: Better Auth's minor line.
+    #
+    # @convex-dev/eslint-plugin 5.0.1 depends on its own TypeScript 5.9 and
+    # @typescript-eslint ~8.58. Under the hoisted linker that copy crashes
+    # `no-misused-promises` (`tsutils.unionConstituents is not a function`).
+    # Drop the entry when the plugin takes the @typescript-eslint line the
+    # repository runs.
+    #
+    # fallow 3.34 finds 29 clone groups in src/convex that 3.33 did not, mostly
+    # validators restated between the backend component's schema and its
+    # functions, and the quality gate refuses them. A dupes baseline keys each
+    # group by line numbers, so it breaks on the next schema edit. The
+    # advisories against 3.33 (GHSA-h4fr-cmh5-qr62, GHSA-jfwm-3p3c-6hx5) need an
+    # analyzed repository to be hostile; fallow only reads this one. fallow is
+    # ignored outright, so drop the entry in the pull request that removes the
+    # clones and moves to the current fallow.
     ignore:
       - dependency-name: better-auth
         versions: ['>=1.7.0']
+      - dependency-name: '@better-auth/core'
+        versions: ['>=1.7.0']
       - dependency-name: '@better-auth/passkey'
         versions: ['>=1.7.0']
+      - dependency-name: '@convex-dev/eslint-plugin'
+        versions: ['>=5.0.1']
       - dependency-name: h3
         update-types: ['version-update:semver-major']
       - dependency-name: '@polar-sh/sdk'
@@ -85,6 +104,7 @@ updates:
       - dependency-name: '@nuxt/fonts'
         update-types: ['version-update:semver-major']
       - dependency-name: '@vercel/firewall'
+      - dependency-name: fallow
     # Groups apply only to the kind of update named in `applies-to`, which
     # defaults to version updates. Without the second group every CVE fix
     # opens a pull request of its own.
