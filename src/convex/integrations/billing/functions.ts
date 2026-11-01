@@ -1,4 +1,3 @@
-import { productsList } from '@polar-sh/sdk/funcs/productsList.js'
 import { actionGeneric, type GenericDataModel, type GenericQueryCtx, internalActionGeneric, queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
 import { ADMIN_READ, BILLING_ACCESS, type BillingContext } from './context.js'
@@ -7,7 +6,6 @@ import type { BillingFreePlan, QueueCtx } from './free-plan.js'
 import { benefitKindOf, type BillingEntitlements } from './entitlements.js'
 import type { BillingHistory } from './history.js'
 import type { BillingLifecycleOps } from './lifecycle.js'
-import { productRecord } from './provider-events.js'
 import type { BillingQuotas } from './quotas.js'
 import type { BillingRevenue } from './revenue.js'
 import { REVENUE_INTERVALS } from './types/revenue.js'
@@ -41,7 +39,7 @@ const LIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'p
 
 /** The registered queries and actions `setupBilling` hands the app in `billing.api`. */
 export function createBillingFunctions(
-  { components, config, products, meterNameById, provider, providerLib, cache, allowedEntity, requireEntity, throttle, requireAdmin, requireProviderAccess, unwrapProvider }: BillingContext,
+  { components, config, products, meterNameById, provider, cache, allowedEntity, requireEntity, throttle, requireAdmin, requireProviderAccess, syncProducts: syncProductsTable }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
   { withChanges, updateSubscription, uncancelSubscription, cancelPendingChange, pauseSubscription, resumeSubscription }: BillingSubscriptions,
   { getOrders, getInvoiceUrl, getUsageHistory, refundOrder }: BillingHistory,
@@ -266,21 +264,13 @@ export function createBillingFunctions(
   // `--preview-run` — and the CLI is the only caller the docs ever name. A
   // public one would also mean an identity gate and a throttle around a fan-out
   // to the live provider API; an app that wants a button re-declares it with
-  // its own `admin.action` builder.
-  //
-  // Each product is stored as a `product.*` delivery stores it
-  // (`productRecord`), not through the component's own sync: its converter
-  // keeps a usage price's whole meter, which the products table refuses, so
-  // a catalog with a usage price would fail the sync outright.
+  // its own `admin.action` builder. Each product is stored as a delivery
+  // stores it (`syncProviderProducts`).
   const syncProducts = internalActionGeneric({
     args: {},
     handler: async (ctx) => {
       requireProviderAccess('product sync')
-      for (let page = 1, maxPage = 1; page <= maxPage; page++) {
-        const listed = unwrapProvider(await productsList(provider.polar, { page, limit: 100 }), 'product sync')
-        maxPage = listed.result.pagination.maxPage
-        for (const product of listed.result.items) await ctx.runMutation(providerLib.updateProduct, { product: productRecord(product) })
-      }
+      await syncProductsTable(ctx)
       return null
     },
   })

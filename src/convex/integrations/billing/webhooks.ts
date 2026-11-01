@@ -52,7 +52,7 @@ function eventCustomer(event: PolarWebhookEvent): { customerId: string, entityId
 
 /** The `/billing/events` edge: the per-event handler map and the guarded handler that runs it. */
 export function createWebhooks(
-  { config, webhookSecret, webhookLog, provider, providerLib, cache, accessToken, recordEvent, entityDeleting }: BillingContext,
+  { config, webhookSecret, webhookLog, provider, providerLib, cache, accessToken, recordEvent, entityDeleting, syncProducts }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
   { handleGiftOrderPaid, handleGiftOrderRefunded, passes }: BillingGifts,
   { recordTrial }: BillingCustomers,
@@ -172,7 +172,7 @@ export function createWebhooks(
    */
   const resyncProducts = async (ctx: RunWriteCtx): Promise<void> => {
     try {
-      if (accessToken && 'runAction' in ctx) await provider.syncProducts(ctx as never)
+      if (accessToken && 'runAction' in ctx) await syncProducts(ctx)
     }
     catch (error) {
       logBackend('warn', 'billing.product_resync_failed', 'A benefit changed but the products table could not be re-synced, so pricing shows the old figures until the next product event or billing:syncProducts.', error)

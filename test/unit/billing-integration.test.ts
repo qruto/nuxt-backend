@@ -632,6 +632,17 @@ describe('getCredits', () => {
   })
 })
 
+/** The provider's product list, `pages` pages of one product each. */
+function listProducts(pages: number) {
+  const page = (n: number) => ({ ok: true, value: { result: { items: [{ id: `prod_${n}`, createdAt: new Date(0), modifiedAt: null, prices: [], medias: [] }], pagination: { totalCount: pages, maxPage: pages } } } })
+  mockProductsList.mockImplementation((async (_client: unknown, { page: n }: { page: number }) => page(n)) as never)
+}
+
+/** The product ids a context's `updateProduct` calls stored, in order. */
+const storedProducts = (runMutation: ReturnType<typeof vi.fn>) => runMutation.mock.calls
+  .filter(([, args]) => (args as { product?: unknown }).product !== undefined)
+  .map(([, args]) => (args as { product: { id: string } }).product.id)
+
 describe('syncProducts', () => {
   // A fresh deployment has never seen a `product.*` webhook, so the reactive
   // products table is empty and every pricing page renders "no plans" until
@@ -642,13 +653,12 @@ describe('syncProducts', () => {
   })
 
   it('pulls the provider catalog without asking for an identity, a page at a time', async () => {
-    const page = (n: number, maxPage: number) => ({ ok: true, value: { result: { items: [{ id: `prod_${n}`, createdAt: new Date(0), modifiedAt: null, prices: [], medias: [] }], pagination: { totalCount: maxPage, maxPage } } } })
-    mockProductsList.mockImplementation((async (_client: unknown, { page: n }: { page: number }) => page(n, 2)) as never)
+    listProducts(2)
     const ctx = { runQuery: vi.fn(), runMutation: vi.fn(), runAction: vi.fn(), auth: { getUserIdentity: vi.fn(async () => null) } }
     await expect((billing.api.syncProducts as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler(ctx, {})).resolves.toBeNull()
     expect(ctx.auth.getUserIdentity).not.toHaveBeenCalled()
     expect(mockProductsList.mock.calls.map(([, request]) => request)).toEqual([{ page: 1, limit: 100 }, { page: 2, limit: 100 }])
-    expect(ctx.runMutation.mock.calls.map(([, args]) => (args as { product: { id: string } }).product.id)).toEqual(['prod_1', 'prod_2'])
+    expect(storedProducts(ctx.runMutation)).toEqual(['prod_1', 'prod_2'])
   })
 })
 
@@ -656,17 +666,19 @@ describe('benefit.updated', () => {
   // A product row embeds its benefits, and the provider sends no product
   // event when a benefit changes: pricing would keep a pack's old units.
   it('patches the benefit snapshot, then reloads the products table', async () => {
+    listProducts(1)
     const ctx = { ...makeCtx(), runAction: vi.fn(async () => null) }
     await billing.webhookEvents['benefit.updated']!(ctx as never, { type: 'benefit.updated', data: { id: 'ben_1', description: '600 credits', metadata: {} } } as never)
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:upsertBenefitMetadata', expect.anything())
-    expect(ctx.runAction).toHaveBeenCalledTimes(1)
-    // The billing component's own product sync, with the deployment's token.
-    expect((ctx.runAction.mock.calls[0] as unknown[])[1]).toMatchObject({ polarAccessToken: 'oat_test', server: 'sandbox' })
+    // The same reload as `billing:syncProducts`, never the provider component's own.
+    expect(storedProducts(ctx.runMutation)).toEqual(['prod_1'])
+    expect(ctx.runAction).not.toHaveBeenCalled()
   })
 
   it('never fails the delivery when the reload fails: it says so, and the benefit is recorded', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const ctx = { ...makeCtx(), runAction: vi.fn(async () => Promise.reject(new Error('provider down'))) }
+    mockProductsList.mockImplementation((async () => Promise.reject(new Error('provider down'))) as never)
+    const ctx = { ...makeCtx(), runAction: vi.fn(async () => null) }
     await expect(billing.webhookEvents['benefit.updated']!(ctx as never, { type: 'benefit.updated', data: { id: 'ben_1', description: '600 credits', metadata: {} } } as never)).resolves.toBeUndefined()
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:upsertBenefitMetadata', expect.anything())
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('billing.product_resync_failed'), expect.any(Error))
@@ -678,7 +690,7 @@ describe('benefit.updated', () => {
     const tokenless = setupBilling(components, { ...(config as object), accessToken: undefined } as never)
     const ctx = { ...makeCtx(), runAction: vi.fn(async () => null) }
     await tokenless.webhookEvents['benefit.updated']!(ctx as never, { type: 'benefit.updated', data: { id: 'ben_1', metadata: {} } } as never)
-    expect(ctx.runAction).not.toHaveBeenCalled()
+    expect(mockProductsList).not.toHaveBeenCalled()
     vi.unstubAllEnvs()
   })
 })

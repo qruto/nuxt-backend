@@ -1,8 +1,10 @@
 import { Polar } from '@convex-dev/polar'
+import { productsList } from '@polar-sh/sdk/funcs/productsList.js'
 import type { Auth } from 'convex/server'
 import { BILLING_MANAGER_ROLES, RECENT_SIGN_IN_SECONDS } from '../../constants.js'
 import { type AdapterFindOne, type CallerRule, callerRefusal, createAccessReads, hasAnyRole, refuseCaller, refuseStaleSignIn, sandboxAdminRefusal } from '../access.js'
 import { createBillingActivity, type RecordBillingEvent } from './activity.js'
+import { syncProviderProducts } from './provider-events.js'
 import type { ProviderCtx, RunQueryCtx, RunWriteCtx } from './types/base.js'
 import type { BillingCatalogIds, CreditMeterConfig, SpendCreditsEvent } from './types/records.js'
 import type { BillingAccessRule, BillingComponents, BillingEntity, BillingEntityCtx, ProviderLibRefs, SetupBillingConfig } from './types/setup.js'
@@ -167,6 +169,8 @@ export interface BillingContext {
   webhookLog: BillingComponents['backend']['webhooks']
   requireProviderAccess: (operation: string) => void
   unwrapProvider: <T>(result: { ok: true, value: T } | { ok: false, error: unknown }, operation: string) => T
+  /** Reload the products table from the provider, every product as a delivery stores it. */
+  syncProducts: (ctx: RunWriteCtx) => Promise<void>
   throttle: (ctx: RunWriteCtx, userId: string, what: string) => Promise<void>
   customerOwner: (ctx: RunWriteCtx, customer: { id: string, metadata?: Record<string, unknown> | null }) => Promise<string | null>
   requireAdmin: (ctx: RunQueryCtx & { auth?: Auth }, what: string, rule: CallerRule) => Promise<void>
@@ -478,6 +482,7 @@ export function createBillingContext(components: BillingComponents, config: Setu
     webhookLog,
     requireProviderAccess,
     unwrapProvider,
+    syncProducts: ctx => syncProviderProducts(ctx, async page => unwrapProvider(await productsList(provider.polar, { page, limit: 100 }), 'product sync'), providerLib.updateProduct),
     throttle,
     customerOwner,
     requireAdmin,

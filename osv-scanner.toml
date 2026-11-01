@@ -18,13 +18,6 @@ id = "GHSA-vfj7-8cjw-p6xm"
 ignoreUntil = 2027-01-09
 reason = "braces 3.0.3: no fixed version; build/dev glob matching only (micromatch via chokidar-cli, nitropack, @nuxt/content, vite-plugin-singlefile)"
 
-# node-forge <=1.4.0 — no fixed release. listhen uses it to mint the dev
-# server's self-signed certificate (@nuxt/cli), which production never runs.
-[[IgnoredVulns]]
-id = "GHSA-86w9-cpqp-85rv"
-ignoreUntil = 2027-01-09
-reason = "node-forge 1.4.0: no fixed version; dev-server HTTPS certificates only (listhen via @nuxt/cli)"
-
 # simple-git 3.x — fixed only in the 4.x major, which @nuxt/devtools 3 (what
 # Nuxt 4.5 and 4.6 install) does not accept (^3.36.0). DevTools runs in
 # development only, and DevTools 4 drops the dependency. Remove these when
@@ -115,3 +108,11 @@ reason = "better-auth adapters 1.6.33: Drizzle and Kysely on PostgreSQL; the pac
 id = "GHSA-vjh5-4x84-xrqp"
 ignoreUntil = 2027-01-09
 reason = "nuxt and @nuxt/nitro-server 4.6.3: fixed in 4.6.2; the unfixed range is 3.x"
+
+# zod 3.25.76 — fixed only in 4.6.6. Nuxt Content's own schema code in the docs
+# site validates the site's committed content with it at build time; the
+# package's runtime resolves zod 4.
+[[IgnoredVulns]]
+id = "GHSA-mrhx-c7xc-m3w5"
+ignoreUntil = 2027-01-09
+reason = "zod 3.25.76: fixed in 4.6.6 only; Nuxt Content validates committed docs content at build time; runtime uses zod 4"
