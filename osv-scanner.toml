@@ -1,9 +1,10 @@
 # What the weekly OSV scan (.github/workflows/weekly.yml) may skip, and why.
 #
 # Only advisories that have no fixed version inside the ranges our dependencies
-# accept, and that reach nothing but build or dev tooling: never the package's
-# runtime, never a consumer's production server. Anything with a fix gets fixed
-# in the lockfile instead. Every entry expires: when it does, the scan fails
+# accept, and that reach nothing but build or dev tooling, or need code the
+# package never runs (a plugin it never enables): never a consumer's production
+# server. Anything with a fix gets fixed in the lockfile instead. SECURITY.md's
+# "Open alerts" table gives each the same reason. Every entry expires: when it does, the scan fails
 # again and the entry is either removed (fixed upstream) or renewed with a
 # fresh look at the paths (`pnpm why <package>`).
 
@@ -47,3 +48,70 @@ reason = "simple-git 3.36.0: fixed in 4.x only; @nuxt/devtools 3 pins ^3.36.0; d
 id = "GHSA-v5rq-49vh-5v5c"
 ignoreUntil = 2027-01-09
 reason = "@simple-git/argv-parser 1.1.1: comes with simple-git 3.x; same path and fix as the simple-git entries"
+
+# minimatch 5.x, 9.x and 10.x — fixed only in 11. Reached through ESLint,
+# TypeDoc, Nuxt Content, glob and editorconfig: development and build tooling
+# matching the repository's own config patterns.
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-01-09
+reason = "minimatch 5.1.9/9.0.9/10.2.6: fixed in 11.x only; dev and build tooling globbing the repository config"
+
+# glob 10.x and 13.x — fixed only in 14. The same tooling as minimatch; no
+# glob here runs with an AbortSignal.
+[[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+ignoreUntil = 2027-01-09
+reason = "glob 10.5.0/13.0.6: fixed in 14.x only; dev and build tooling, no AbortSignal"
+
+# deepmerge 4.3.1 — no fixed release. @rollup/plugin-node-resolve merges the
+# build's own resolver options with it.
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2027-01-09
+reason = "deepmerge 4.3.1: no fixed version; build-time resolver options only"
+
+# fallow 3.33.1 — the quality gate's CLI, which only analyzes this repository.
+# Held below 3.34 until the clone groups 3.34 finds are removed
+# (.github/dependabot.yml says why).
+[[IgnoredVulns]]
+id = "GHSA-h4fr-cmh5-qr62"
+ignoreUntil = 2027-01-09
+reason = "fallow 3.33.1: needs a hostile analyzed repository; fallow only reads this one"
+
+[[IgnoredVulns]]
+id = "GHSA-jfwm-3p3c-6hx5"
+ignoreUntil = 2027-01-09
+reason = "fallow 3.33.1: needs a hostile analyzed repository; fallow only reads this one"
+
+# better-auth 1.6 — @convex-dev/better-auth 0.12.6 accepts nothing newer, and
+# no 1.6 release carries these fixes. Each needs a plugin the package never
+# enables (magic links with a social provider, oAuthProxy, deviceAuthorization),
+# or the Drizzle or Kysely adapter (it stores through Convex's).
+[[IgnoredVulns]]
+id = "GHSA-965c-763c-88jm"
+ignoreUntil = 2027-01-09
+reason = "better-auth 1.6.33: needs the magic-link plugin with social sign-in; never enabled"
+
+[[IgnoredVulns]]
+id = "GHSA-r4xp-prcw-77qf"
+ignoreUntil = 2027-01-09
+reason = "better-auth 1.6.33: needs the oAuthProxy plugin; never enabled"
+
+[[IgnoredVulns]]
+id = "GHSA-q84f-53jg-9ppm"
+ignoreUntil = 2027-01-09
+reason = "better-auth 1.6.33: needs the deviceAuthorization plugin; never enabled"
+
+[[IgnoredVulns]]
+id = "GHSA-44jh-23m7-hpcf"
+ignoreUntil = 2027-01-09
+reason = "better-auth adapters 1.6.33: Drizzle and Kysely on PostgreSQL; the package stores through Convex"
+
+# Nuxt's case-variant route rules — fixed in 4.6.2, and the lockfile resolves
+# 4.6.3. The advisory also lists the 3.x line with no fix, which is what the
+# scanner matches on 4.6.3.
+[[IgnoredVulns]]
+id = "GHSA-vjh5-4x84-xrqp"
+ignoreUntil = 2027-01-09
+reason = "nuxt and @nuxt/nitro-server 4.6.3: fixed in 4.6.2; the unfixed range is 3.x"
