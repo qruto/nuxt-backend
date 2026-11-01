@@ -552,15 +552,18 @@ describe('error reports', () => {
     expect(config).not.toMatch(/\bdsn\s*:/i)
   })
 
-  // CI's build has no DSN: a second build in the shape nuxt-backend.dev
-  // serves holds the SDK, the analytics modules and the assistant to the
-  // bundle ceiling.
+  // CI builds the site once, in the shape nuxt-backend.dev serves, so the
+  // bundle ceiling holds the SDK, the analytics modules and the assistant.
   it('are held to the bundle ceiling in CI, in the shape the live site ships', () => {
     const ci = read('.github/workflows/ci.yml')
-    const step = ci.slice(ci.indexOf('      - name: Check website bundle (production shape)'))
-    const env = step.slice(0, step.indexOf('        run: |'))
+    const step = ci.slice(ci.indexOf('      - name: Build (website, production shape)'))
+    const env = step.slice(0, step.indexOf('        run: '))
     for (const line of ['VERCEL: \'1\'', 'VERCEL_ENV: production', 'VERCEL_OIDC_TOKEN: ci-placeholder', 'NITRO_PRESET: node-server', 'MONITORING_DSN: https://public@o0.ingest.sentry.io/0']) expect(env, line).toContain(line)
-    expect(step).toMatch(/run: \|\n\s+\.\/node_modules\/\.bin\/nuxt build website\n\s+node scripts\/check-website-bundle\.mjs\n/)
+    expect(step).toMatch(/^ {8}run: \.\/node_modules\/\.bin\/nuxt build website$/m)
+    // The one build: every check of its output follows it, and no other
+    // step builds the site.
+    expect(step).toContain('run: node scripts/check-website-bundle.mjs')
+    expect(ci.match(/nuxt build website/g)).toHaveLength(1)
     expect(onVercel({ VERCEL: '1', VERCEL_ENV: 'production' })).toBe(true)
     expect(assistantCredential({ VERCEL: '1', VERCEL_ENV: 'production', VERCEL_OIDC_TOKEN: 'ci-placeholder' })).toBe('oidc')
     expect(appMonitoringDsn({ MONITORING_DSN: 'https://public@o0.ingest.sentry.io/0' })).toBeDefined()
