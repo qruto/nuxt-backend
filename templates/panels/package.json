@@ -11,7 +11,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "ai": "^7.0.105",
+    "ai": "^7.0.129",
     "convex": "^1.48.0",
     "nuxt": "^4.6.2",
     "nuxt-backend": "latest",

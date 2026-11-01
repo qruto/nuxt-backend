@@ -541,7 +541,7 @@ reference (`internal.audit.onEvent`).
 
 ```ts
 const BACKEND_EVENTS: {
-  auth.signed_in: {
+  "auth.signed_in": {
      scope: "account";
      data: {
         method: "string?";
@@ -550,7 +550,7 @@ const BACKEND_EVENTS: {
      description: "A session was opened for the account: `method` is how it signed in (`email-otp`, `passkey`), read as the account's last sign-in method records it.";
      recordedBy: "Every new session, by its database hook, except an administrator's impersonation and a re-authentication";
   };
-  auth.signed_out: {
+  "auth.signed_out": {
      scope: "account";
      data: {
      };
@@ -558,7 +558,7 @@ const BACKEND_EVENTS: {
      description: "The account signed out of this browser.";
      recordedBy: "`/sign-out`";
   };
-  auth.reauthenticated: {
+  "auth.reauthenticated": {
      scope: "account";
      data: {
         method: "string?";
@@ -567,7 +567,7 @@ const BACKEND_EVENTS: {
      description: "The person confirmed it was them, with a passkey or a code, before a sensitive action; the new session replaced the old one.";
      recordedBy: "A sign-in marked as a re-authentication (`useReauthentication`)";
   };
-  auth.passkey_added: {
+  "auth.passkey_added": {
      scope: "account";
      data: {
      };
@@ -575,7 +575,7 @@ const BACKEND_EVENTS: {
      description: "A passkey was saved to the account. `targetId` is the passkey.";
      recordedBy: "`/passkey/verify-registration`";
   };
-  auth.passkey_removed: {
+  "auth.passkey_removed": {
      scope: "account";
      data: {
      };
@@ -583,7 +583,7 @@ const BACKEND_EVENTS: {
      description: "A passkey was removed from the account. `targetId` is the passkey.";
      recordedBy: "`/passkey/delete-passkey`";
   };
-  auth.passkey_only_changed: {
+  "auth.passkey_only_changed": {
      scope: "account";
      data: {
         enabled: "boolean";
@@ -592,7 +592,7 @@ const BACKEND_EVENTS: {
      description: "Sign-in codes were turned off for the account (`enabled: true`: it signs in with a passkey only) or back on, by the person, or by an administrator for someone who lost every passkey.";
      recordedBy: "`/passkey-only/set` and `/admin/disable-passkey-only`";
   };
-  auth.email_changed: {
+  "auth.email_changed": {
      scope: "account";
      data: {
      };
@@ -600,7 +600,7 @@ const BACKEND_EVENTS: {
      description: "The account moved to a new address. Neither address is kept: the old one hears of it from the `emailChanged` notice.";
      recordedBy: "`/email-otp/change-email`";
   };
-  auth.new_device: {
+  "auth.new_device": {
      scope: "account";
      data: {
         browser: "string?";
@@ -611,7 +611,7 @@ const BACKEND_EVENTS: {
      description: "The account signed in from a device it has not used before (`browser` and `os` name it when known), or with its recovery code (`recovery`), which always counts as new. The account's first device records nothing. The email goes out from the sign-in itself, with the device, place and time; a recovery's is the `passkeyRecovered` email. `targetId` is the session.";
      recordedBy: "Every new session, by its database hook, except an administrator's impersonation";
   };
-  auth.session_revoked: {
+  "auth.session_revoked": {
      scope: "account";
      data: {
      };
@@ -619,7 +619,7 @@ const BACKEND_EVENTS: {
      description: "A session of the account was signed out from elsewhere: by its owner, or by an administrator. `targetId` is the session.";
      recordedBy: "`/revoke-session`, `/revoke-sessions`, `/revoke-other-sessions`, `/admin/revoke-user-session(s)` and `auth:revokeSession`";
   };
-  workspace.created: {
+  "workspace.created": {
      scope: "workspace";
      data: {
      };
@@ -627,7 +627,7 @@ const BACKEND_EVENTS: {
      description: "A workspace was created; its creator is its owner.";
      recordedBy: "`/organization/create`";
   };
-  workspace.member_invited: {
+  "workspace.member_invited": {
      scope: "workspace";
      data: {
         role: "string";
@@ -636,7 +636,7 @@ const BACKEND_EVENTS: {
      description: "Someone was invited to the workspace with `role`. `targetId` is the invitation; the address it went to is not kept.";
      recordedBy: "`/organization/invite-member`";
   };
-  workspace.invitation_accepted: {
+  "workspace.invitation_accepted": {
      scope: "workspace";
      data: {
         role: "string";
@@ -645,7 +645,7 @@ const BACKEND_EVENTS: {
      description: "The account accepted an invitation and joined the workspace with `role`. `targetId` is the invitation.";
      recordedBy: "`/organization/accept-invitation`";
   };
-  workspace.member_removed: {
+  "workspace.member_removed": {
      scope: "workspace";
      data: {
      };
@@ -653,7 +653,7 @@ const BACKEND_EVENTS: {
      description: "The account was taken out of the workspace. `targetId` is the membership.";
      recordedBy: "`/organization/remove-member`";
   };
-  workspace.member_role_changed: {
+  "workspace.member_role_changed": {
      scope: "workspace";
      data: {
         role: "string";
@@ -662,7 +662,7 @@ const BACKEND_EVENTS: {
      description: "The account's role in the workspace became `role`. A change to the role it already held records nothing.";
      recordedBy: "`/organization/update-member-role`";
   };
-  admin.impersonation_started: {
+  "admin.impersonation_started": {
      scope: "account";
      data: {
      };
@@ -670,7 +670,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) began acting as the account. `targetId` is the session they opened.";
      recordedBy: "The impersonation's session, by its database hook (`/admin/impersonate-user`)";
   };
-  admin.impersonation_stopped: {
+  "admin.impersonation_stopped": {
      scope: "account";
      data: {
      };
@@ -678,7 +678,7 @@ const BACKEND_EVENTS: {
      description: "The administrator stopped acting as the account. `targetId` is the session that ended.";
      recordedBy: "`/admin/stop-impersonating`, and signing the impersonated session out";
   };
-  admin.role_changed: {
+  "admin.role_changed": {
      scope: "account";
      data: {
         role: "string";
@@ -687,7 +687,7 @@ const BACKEND_EVENTS: {
      description: "An administrator set the account's app-wide role to `role`. Setting the role it already held records nothing.";
      recordedBy: "`/admin/set-role`, and the `setUserRole` bootstrap (as the app)";
   };
-  admin.user_banned: {
+  "admin.user_banned": {
      scope: "account";
      data: {
         expiresIn: "number?";
@@ -696,7 +696,7 @@ const BACKEND_EVENTS: {
      description: "An administrator banned the account: it cannot sign in, and every session it had was signed out. `expiresIn` is how many seconds the ban lasts; without it, until lifted. The reason given is not kept.";
      recordedBy: "`/admin/ban-user`";
   };
-  admin.user_unbanned: {
+  "admin.user_unbanned": {
      scope: "account";
      data: {
      };
@@ -704,7 +704,7 @@ const BACKEND_EVENTS: {
      description: "An administrator lifted the account's ban: it can sign in again.";
      recordedBy: "`/admin/unban-user`";
   };
-  flag.changed: {
+  "flag.changed": {
      scope: "account";
      data: {
         flag: "string";
@@ -718,7 +718,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) changed a feature flag or a kill switch: `flag` is its key, `enabled` its value for everyone when the change sets one, `rollout` the percentage it rolls out to, `targets` how many accounts, workspaces and plans it names (never which), `winner` the variant an experiment's flag now shows everyone, and `reset` that its override was removed, so it holds its default from code.";
      recordedBy: "`flags:setFlag` (`setupFlags`), from the admin console's Flags tab and the Experiments view";
   };
-  experiment.exposed: {
+  "experiment.exposed": {
      scope: "entity";
      data: {
         experiment: "string";
@@ -729,7 +729,7 @@ const BACKEND_EVENTS: {
      recordedBy: "The first `useExperiment` (`flags:exposeExperiment`) or `flags.variant` read of a running experiment";
      hiddenFromOwnActivity: true;
   };
-  announcement.published: {
+  "announcement.published": {
      scope: "account";
      data: {
         announcement: "string";
@@ -739,7 +739,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) published an announcement: `announcement` is its id, and `broadcast` whether an email waits to go with it. Never its words.";
      recordedBy: "`email:publishAnnouncement` (`setupEmail`), from the admin console's Announcements tab";
   };
-  announcement.ended: {
+  "announcement.ended": {
      scope: "account";
      data: {
         announcement: "string";
@@ -748,7 +748,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) took an announcement's notice down before it expired.";
      recordedBy: "`email:endAnnouncement` (`setupEmail`), from the admin console's Announcements tab";
   };
-  announcement.sent: {
+  "announcement.sent": {
      scope: "account";
      data: {
         announcement: "string";
@@ -760,7 +760,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) sent an announcement's broadcast: `audience` is `accounts` (under `topic`) or `waitlist`, and `scheduled` that it goes out later.";
      recordedBy: "`email:sendAnnouncement` (`setupEmail`), from the admin console's Announcements tab";
   };
-  announcement.cancelled: {
+  "announcement.cancelled": {
      scope: "account";
      data: {
         announcement: "string";
@@ -769,7 +769,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) cancelled an announcement's broadcast before it went out.";
      recordedBy: "`email:cancelAnnouncement` (`setupEmail`), from the admin console's Announcements tab";
   };
-  access.phase_changed: {
+  "access.phase_changed": {
      scope: "account";
      data: {
         phase: "string";
@@ -779,7 +779,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) moved the app to another launch phase: `phase` is the new one, `from` the one before (`early-access`, `invite-only`, `public`).";
      recordedBy: "`access:setAccessPhase` (`setupAccess`), from the admin console's Access tab";
   };
-  access.ticket_used: {
+  "access.ticket_used": {
      scope: "account";
      data: {
         ticket: "string";
@@ -789,7 +789,7 @@ const BACKEND_EVENTS: {
      description: "A new account signed up with a ticket while the app was closed: `ticket` is its kind (`invite-code`, `access-link`, `invitation`, `waitlist`, `workspace-invitation`, `gift`, `domain`, `administrator`) and `label` the cohort of a code, a link or an invitation by address. Never the code itself.";
      recordedBy: "The account's creation (`user.create`), once the account exists";
   };
-  access.invite_created: {
+  "access.invite_created": {
      scope: "account";
      data: {
         kind: "string";
@@ -800,7 +800,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) or server code made an invite code (`kind` `code`) or an access link (`link`) for the cohort `label`, good for `maxUses` sign-ups. Never the code itself.";
      recordedBy: "`access:createInvite` and `access.invites.create`";
   };
-  access.invite_revoked: {
+  "access.invite_revoked": {
      scope: "account";
      data: {
         kind: "string";
@@ -809,7 +809,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) closed a code or a link (`kind` `invite`), or deleted an unused invitation by address (`admission`).";
      recordedBy: "`access:revokeInvite`";
   };
-  access.admitted: {
+  "access.admitted": {
      scope: "account";
      data: {
         count: "number";
@@ -819,7 +819,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) or server code invited `count` addresses by address, for the cohort `label`. Never the addresses.";
      recordedBy: "`access:admitEmails` and `access.admit`";
   };
-  waitlist.joined: {
+  "waitlist.joined": {
      scope: "account";
      data: {
         source: "string";
@@ -830,7 +830,7 @@ const BACKEND_EVENTS: {
      description: "An address's sign-in code checked while the app was in early access, so it is on the waitlist: `source` is where it joined (`sign-in`, or the form's source), `referred` that it came through a friend's link, `news` that it asked for launch news. Never the address. The person has no account, so there is no actor.";
      recordedBy: "The code check of a new address in early access (`setupAccess`'s sign-in hooks)";
   };
-  waitlist.admitted: {
+  "waitlist.admitted": {
      scope: "account";
      data: {
         count: "number";
@@ -839,7 +839,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) admitted `count` waitlist entries, each given a ticket and a \"You're in\" email. Never the addresses.";
      recordedBy: "`waitlist:admitWaitlist` (`setupWaitlist`), from the admin console's Waitlist tab";
   };
-  waitlist.declined: {
+  "waitlist.declined": {
      scope: "account";
      data: {
         count: "number";
@@ -849,7 +849,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) declined `count` waitlist entries; `abuse` that they were removed as abuse, which takes back what each gave the friend who shared with it.";
      recordedBy: "`waitlist:declineWaitlist` (`setupWaitlist`), from the admin console's Waitlist tab";
   };
-  report.decided: {
+  "report.decided": {
      scope: "account";
      data: {
         action: "string";
@@ -862,7 +862,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) decided reported content (`targetId`, a row of `table`): `action` is `hidden` or `dismissed`, `ground` `illegal` or `terms`, `reports` how many open reports and notices it closed, `reason` the start of the reason given. About its author, when `reports.describe` names one. Never who reported it.";
      recordedBy: "`admin:decideReport` (`setupAdmin({ reports })`), from the admin console's Reports tab";
   };
-  report.crime_flagged: {
+  "report.crime_flagged": {
      scope: "account";
      data: {
         table: "string?";
@@ -871,7 +871,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) flagged reported content (`targetId`) as a suspected crime that threatens someone's life or safety, to be told to the authorities (DSA Art. 18). The package tells no one.";
      recordedBy: "`admin:flagCrime` (`setupAdmin({ reports })`), from the admin console's Reports tab";
   };
-  report.appealed: {
+  "report.appealed": {
      scope: "account";
      data: {
      };
@@ -879,7 +879,7 @@ const BACKEND_EVENTS: {
      description: "The author of hidden content appealed the decision through the link in its statement of reasons. The appeal waits in the Reports tab.";
      recordedBy: "`admin:appealDecision` (`setupAdmin({ reports })`), from the `report` page";
   };
-  report.appeal_decided: {
+  "report.appeal_decided": {
      scope: "account";
      data: {
         outcome: "string";
@@ -889,7 +889,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) decided an appeal about content (`targetId`): `outcome` is `upheld` or `reversed`, `reason` the start of the reason given. About the content's author.";
      recordedBy: "`admin:decideAppeal` (`setupAdmin({ reports })`), from the admin console's Reports tab";
   };
-  waitlist.left: {
+  "waitlist.left": {
      scope: "account";
      data: {
      };
@@ -897,7 +897,7 @@ const BACKEND_EVENTS: {
      description: "A person left the waitlist from their status page: their entry and contact were removed.";
      recordedBy: "`waitlist:leaveWaitlist` (`setupWaitlist`)";
   };
-  job.queue_changed: {
+  "job.queue_changed": {
      scope: "account";
      data: {
         change: "string";
@@ -908,7 +908,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) changed the job queue: `change` is `paused`, `resumed`, `concurrency`, `tier` or `model`, with the `tier` or `model` it retuned.";
      recordedBy: "`jobs:setQueue` (`defineJobQueue`), from the admin console's Queue tab";
   };
-  job.canceled: {
+  "job.canceled": {
      scope: "entity";
      data: {
         kind: "string";
@@ -919,7 +919,7 @@ const BACKEND_EVENTS: {
      description: "Someone (the actor) canceled a job of the billing entity: `kind` is its `jobs.define` export, `running` whether it had started, and `refunded` whether its credits went back.";
      recordedBy: "`jobs:cancelJob` (`defineJobQueue`), from `useJob().cancel()` or the admin console's Queue tab";
   };
-  job.retried: {
+  "job.retried": {
      scope: "entity";
      data: {
         kind: "string";
@@ -928,7 +928,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) put a failed job of the billing entity back in line, with a new hold on its credits.";
      recordedBy: "`jobs:retryJob` (`defineJobQueue`), from the Queue tab's dead letters";
   };
-  ai.spend_limit_reached: {
+  "ai.spend_limit_reached": {
      scope: "account";
      data: {
         usd: "number";
@@ -938,7 +938,7 @@ const BACKEND_EVENTS: {
      description: "What AI cost the whole app today (UTC), `usd`, reached the daily spend limit, `limit` (US dollars), so the app turned the `pause_ai` kill switch on until the next UTC day begins, when it lifts by itself. By the app: no one signed in acted, and the administrators' view shows it.";
      recordedBy: "The cost record that reached `setupAi({ spendLimit })` (`costs.checkSpendLimit` in the `backend` component)";
   };
-  billing.checkout_started: {
+  "billing.checkout_started": {
      scope: "entity";
      data: {
         productId: "string";
@@ -947,7 +947,7 @@ const BACKEND_EVENTS: {
      description: "A billing manager opened a checkout for a plan or a pack: `productId` is the provider product. Paying for it records `billing.order_paid`.";
      recordedBy: "`billing:generateCheckoutLink` and `billing.checkout`";
   };
-  billing.plan_changed: {
+  "billing.plan_changed": {
      scope: "entity";
      data: {
         change: "string";
@@ -957,7 +957,7 @@ const BACKEND_EVENTS: {
      description: "A billing manager changed the subscription: `change` is `plan` (to `productId`), `cancel`, `uncancel`, `cancel_pending`, `pause` or `resume`. `targetId` is the subscription.";
      recordedBy: "`billing:updateSubscription`, `cancelSubscription`, `uncancelSubscription`, `cancelPendingChange`, `pauseSubscription` and `resumeSubscription`";
   };
-  billing.subscription_created: {
+  "billing.subscription_created": {
      scope: "entity";
      data: {
         productId: "string";
@@ -969,7 +969,7 @@ const BACKEND_EVENTS: {
      description: "A paid subscription started at the provider. `targetId` is the subscription; `interval` is its billing period (`month`, `year`), and a trial's end (`trialEndsAt`, epoch ms) and length in days (`trialDays`) when it starts with one.";
      recordedBy: "The billing webhook (`/billing/events`), for the entity the customer belongs to; a free plan's own events record nothing";
   };
-  billing.subscription_updated: {
+  "billing.subscription_updated": {
      scope: "entity";
      data: {
         productId: "string";
@@ -979,7 +979,7 @@ const BACKEND_EVENTS: {
      description: "A paid subscription changed at the provider: its plan, its status or its period. `targetId` is the subscription.";
      recordedBy: "The billing webhook (`/billing/events`), for the entity the customer belongs to; a free plan's own events record nothing";
   };
-  billing.subscription_canceled: {
+  "billing.subscription_canceled": {
      scope: "entity";
      data: {
         productId: "string";
@@ -989,7 +989,7 @@ const BACKEND_EVENTS: {
      description: "A paid subscription was canceled: it ends with its period. `reason` is the customer's cancellation reason, when they gave one. `targetId` is the subscription.";
      recordedBy: "The billing webhook (`/billing/events`), for the entity the customer belongs to; a free plan's own events record nothing";
   };
-  billing.subscription_revoked: {
+  "billing.subscription_revoked": {
      scope: "entity";
      data: {
         productId: "string";
@@ -998,7 +998,7 @@ const BACKEND_EVENTS: {
      description: "A paid subscription ended, and its benefits with it. `targetId` is the subscription.";
      recordedBy: "The billing webhook (`/billing/events`), for the entity the customer belongs to; a free plan's own events record nothing";
   };
-  billing.subscription_past_due: {
+  "billing.subscription_past_due": {
      scope: "entity";
      data: {
         productId: "string";
@@ -1007,7 +1007,7 @@ const BACKEND_EVENTS: {
      description: "A renewal payment failed and the provider retries it: the `past-due` notice shows to the billing managers until it is paid. `targetId` is the subscription.";
      recordedBy: "The billing webhook (`/billing/events`), for the entity the customer belongs to; a free plan's own events record nothing";
   };
-  billing.order_paid: {
+  "billing.order_paid": {
      scope: "entity";
      data: {
         amount: "number";
@@ -1019,7 +1019,7 @@ const BACKEND_EVENTS: {
      description: "An order was paid: `amount` in the currency's smallest unit, `interval` the billing period of the subscription it pays for (`month`, `year`), and `promotion` the catalog key of the discount it was bought with, when it was one of the catalog's. `targetId` is the order.";
      recordedBy: "The billing webhook (`/billing/events`), for the entity the customer belongs to; a free plan's own events record nothing";
   };
-  billing.order_refunded: {
+  "billing.order_refunded": {
      scope: "entity";
      data: {
         amount: "number";
@@ -1029,7 +1029,7 @@ const BACKEND_EVENTS: {
      description: "An order was refunded at the provider: `amount` is what it refunded so far, in the currency's smallest unit. `targetId` is the order.";
      recordedBy: "The billing webhook (`/billing/events`), for the entity the customer belongs to; a free plan's own events record nothing";
   };
-  billing.refund_issued: {
+  "billing.refund_issued": {
      scope: "entity";
      data: {
         amount: "number?";
@@ -1039,7 +1039,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) refunded an order: `amount` when it was a part of it, `reason` the provider's reason. `targetId` is the order.";
      recordedBy: "`billing:refundOrder`";
   };
-  billing.benefit_granted: {
+  "billing.benefit_granted": {
      scope: "entity";
      data: {
         benefitType: "string";
@@ -1048,7 +1048,7 @@ const BACKEND_EVENTS: {
      description: "The provider granted a benefit of a plan or a pack: features, credits, a license key. `targetId` is the benefit.";
      recordedBy: "The billing webhook (`/billing/events`), for the entity the customer belongs to; a free plan's own events record nothing";
   };
-  billing.benefit_revoked: {
+  "billing.benefit_revoked": {
      scope: "entity";
      data: {
         benefitType: "string";
@@ -1057,7 +1057,7 @@ const BACKEND_EVENTS: {
      description: "The provider revoked a benefit. `targetId` is the benefit.";
      recordedBy: "The billing webhook (`/billing/events`), for the entity the customer belongs to; a free plan's own events record nothing";
   };
-  billing.credits_low: {
+  "billing.credits_low": {
      scope: "entity";
      data: {
         balance: "number";
@@ -1068,7 +1068,7 @@ const BACKEND_EVENTS: {
      description: "A spend took the credit balance to `threshold` or below (`setupAi({ credits: { lowBalanceThreshold } })`): once per crossing. The actor is the member whose spend crossed it.";
      recordedBy: "A metered AI call's settle (`setupAi`)";
   };
-  billing.save_offer_made: {
+  "billing.save_offer_made": {
      scope: "entity";
      data: {
         reason: "string";
@@ -1078,7 +1078,7 @@ const BACKEND_EVENTS: {
      description: "The cancel flow made a billing manager (the actor) a save offer instead of cancelling at once: `reason` is the cancellation reason, `offer` is `pause`, `downgrade` or `discount`. `targetId` is the subscription.";
      recordedBy: "`billing:cancelSubscription`, with `setupBilling({ lifecycle: { saveOffers } })`";
   };
-  billing.save_offer_accepted: {
+  "billing.save_offer_accepted": {
      scope: "entity";
      data: {
         reason: "string";
@@ -1088,7 +1088,7 @@ const BACKEND_EVENTS: {
      description: "A billing manager (the actor) accepted the cancel flow's save offer and kept the plan: `offer` is `pause`, `downgrade` or `discount`. `targetId` is the subscription.";
      recordedBy: "`billing:acceptSaveOffer`";
   };
-  billing.checkout_abandoned: {
+  "billing.checkout_abandoned": {
      scope: "entity";
      data: {
         productId: "string";
@@ -1097,7 +1097,7 @@ const BACKEND_EVENTS: {
      description: "A checkout expired unpaid, once per checkout: the actor is the person who opened it. The `checkoutAbandoned` lifecycle email starts from it. `targetId` is the checkout.";
      recordedBy: "The billing webhook's `checkout.expired`, with `setupBilling({ lifecycle: { abandonedCheckout: true } })`";
   };
-  billing.contract_withdrawn: {
+  "billing.contract_withdrawn": {
      scope: "entity";
      data: {
         productId: "string";
@@ -1106,7 +1106,7 @@ const BACKEND_EVENTS: {
      description: "A billing manager (the actor) withdrew from a purchase inside its 14 days with the withdrawal button: the subscription ended at once and a receipt went out. Refund what is due with `billing.refundOrder`. `targetId` is the subscription.";
      recordedBy: "`billing:withdraw`, with `setupBilling({ lifecycle: { withdrawal: true } })`";
   };
-  billing.trial_pass_started: {
+  "billing.trial_pass_started": {
      scope: "entity";
      data: {
         plan: "string";
@@ -1116,7 +1116,7 @@ const BACKEND_EVENTS: {
      description: "A new workspace started on a reverse trial: it holds `plan` as a pass, with no card, until `endsAt` (epoch milliseconds), then returns to the free plan. The actor is its owner. `targetId` is the subscription.";
      recordedBy: "The free plan's start, for a catalog plan with `trial: { pass: true }`";
   };
-  billing.credits_exhausted: {
+  "billing.credits_exhausted": {
      scope: "entity";
      data: {
         balance: "number";
@@ -1126,7 +1126,7 @@ const BACKEND_EVENTS: {
      description: "A spend took the credit balance from above zero to zero or below: once per crossing. The actor is the member whose spend crossed it.";
      recordedBy: "A metered AI call's settle (`setupAi`)";
   };
-  gift.purchased: {
+  "gift.purchased": {
      scope: "entity";
      data: {
         amount: "number?";
@@ -1136,7 +1136,7 @@ const BACKEND_EVENTS: {
      description: "A gift was paid for; its recipient is told by email, from the gift's own template. `targetId` is the gift. Its recipient's address is not kept here.";
      recordedBy: "The billing webhook's `order.paid` for a gift";
   };
-  gift.claimed: {
+  "gift.claimed": {
      scope: "entity";
      data: {
      };
@@ -1144,7 +1144,7 @@ const BACKEND_EVENTS: {
      description: "The recipient claimed a gift: for the recipient's billing entity, its credits or its plan landed there; for the purchaser's, their gift was received. `targetId` is the gift.";
      recordedBy: "The billing webhook's `order.paid` for a gift's claim, or `claimGift` for a plan pass";
   };
-  gift.pass_started: {
+  "gift.pass_started": {
      scope: "entity";
      data: {
         plan: "string";
@@ -1155,7 +1155,7 @@ const BACKEND_EVENTS: {
      description: "A workspace claimed a plan pass: it holds `plan` until `endsAt` (epoch milliseconds), with no card and no renewal. `targetId` is the gift.";
      recordedBy: "`claimGift`, for a plan pass";
   };
-  gift.pass_ending: {
+  "gift.pass_ending": {
      scope: "entity";
      data: {
         plan: "string";
@@ -1165,7 +1165,7 @@ const BACKEND_EVENTS: {
      description: "A workspace's plan pass ends in a week: its billing managers are offered to keep the plan, in the app and by email. `targetId` is the gift.";
      recordedBy: "The gift sweep, seven days before the pass ends";
   };
-  gift.pass_ended: {
+  "gift.pass_ended": {
      scope: "entity";
      data: {
         plan: "string";
@@ -1175,7 +1175,7 @@ const BACKEND_EVENTS: {
      description: "A workspace's plan pass is over: `outcome` is `returned` when it went back to the free plan and `kept` when the plan was paid for. `targetId` is the gift.";
      recordedBy: "The gift sweep, or the billing webhook when the plan is kept";
   };
-  gift.refunded: {
+  "gift.refunded": {
      scope: "entity";
      data: {
      };
@@ -1183,7 +1183,7 @@ const BACKEND_EVENTS: {
      description: "A gift's purchase was refunded before it was claimed. `targetId` is the gift.";
      recordedBy: "The billing webhook's `order.refunded` for a gift";
   };
-  referral.claimed: {
+  "referral.claimed": {
      scope: "entity";
      data: {
      };
@@ -1191,7 +1191,7 @@ const BACKEND_EVENTS: {
      description: "Someone signed up through a referral link, on the referrer's billing entity, by the app: never who signed up. `targetId` is the referral.";
      recordedBy: "`referrals:claimReferral` (`setupReferrals`)";
   };
-  referral.rewarded: {
+  "referral.rewarded": {
      scope: "entity";
      data: {
      };
@@ -1199,7 +1199,7 @@ const BACKEND_EVENTS: {
      description: "A referral's reward was granted, once its hold passed. `targetId` is the referral.";
      recordedBy: "The referral sweep (`referrals:runReferralSweep`, `setupReferrals`), when a hold ends";
   };
-  email.bounced: {
+  "email.bounced": {
      scope: "account";
      data: {
      };
@@ -1207,7 +1207,7 @@ const BACKEND_EVENTS: {
      description: "An email to the account's address bounced: the address may be wrong or closed. Neither the address nor the email is kept here.";
      recordedBy: "The email webhook (`/email/events`), for an account whose address an `email.bounced` event names";
   };
-  email.suppression_lifted: {
+  "email.suppression_lifted": {
      scope: "account";
      data: {
         origin: "string";
@@ -1216,7 +1216,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) lifted the email provider's suppression of an address, so mail reaches it again: `origin` is why it was suppressed (`bounce`, `complaint`, `manual`, `dropped`). The account that holds the address is the subject, when one does; the address is never kept here.";
      recordedBy: "`email:liftSuppression` (`setupEmail`), from the admin console's Suppressions tab";
   };
-  webhook.replayed: {
+  "webhook.replayed": {
      scope: "account";
      data: {
         service: "string";
@@ -1227,7 +1227,7 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) asked a provider to send a webhook delivery again: `service` is `billing` or `email`, `delivery` the provider's delivery id and `type` its event type. The replay arrives at the route like any delivery.";
      recordedBy: "`webhooks:replayWebhookDelivery` (`setupWebhooks`), from the admin console's Webhooks tab or DevTools";
   };
-  consent.granted: {
+  "consent.granted": {
      scope: "account";
      data: {
         kind: "string";
@@ -1238,7 +1238,7 @@ const BACKEND_EVENTS: {
      description: "The account agreed to a document or an opt-in, chose optional storage, or passed the age check: the `kind`, the `version` it agreed to (for `storage`, the purposes it allowed; for `age`, the minimum it passed) and where it came from (`sign-up`, `prompt` or `settings`). Never the age typed.";
      recordedBy: "Account creation (`setupAccount`'s required consents), `account:grantConsent` and `account:chooseStorage`";
   };
-  consent.withdrawn: {
+  "consent.withdrawn": {
      scope: "account";
      data: {
         kind: "string";
@@ -1249,7 +1249,7 @@ const BACKEND_EVENTS: {
      description: "The account withdrew a consent, or chose to allow no optional storage: the `kind` and the `version` it had agreed to. A required consent can't be withdrawn.";
      recordedBy: "`account:withdrawConsent` and `account:chooseStorage`";
   };
-  account.created: {
+  "account.created": {
      scope: "account";
      data: {
         invite: "string?";
@@ -1258,7 +1258,7 @@ const BACKEND_EVENTS: {
      description: "An account was created: the growth funnel's sign-up. `invite` is the label of the invite code or access link that admitted it, or the kind of ticket that let it in (`invite-code`, `access-link`, `waitlist` and the rest `access.ticket_used` names) when it had no label; absent for an account no ticket admitted. Never the address.";
      recordedBy: "The account's creation, by its database hook";
   };
-  account.activated: {
+  "account.activated": {
      scope: "account";
      data: {
         kind: "string";
@@ -1267,7 +1267,7 @@ const BACKEND_EVENTS: {
      description: "The account reached activation, once: `kind` is the event that counted, the one `setupAudit({ activation })` names, or the account's first event of the app's own (`app.*`) when none is named. An event recorded while an administrator acted as the account never counts. The `reviewAsk` lifecycle email starts from it.";
      recordedBy: "The event path itself, as it records the activation event";
   };
-  account.data_exported: {
+  "account.data_exported": {
      scope: "account";
      data: {
      };
@@ -1275,7 +1275,7 @@ const BACKEND_EVENTS: {
      description: "The account exported its data: a file behind a link that expires within the hour.";
      recordedBy: "`account:exportAccountData`";
   };
-  account.deletion_scheduled: {
+  "account.deletion_scheduled": {
      scope: "account";
      data: {
      };
@@ -1283,7 +1283,7 @@ const BACKEND_EVENTS: {
      description: "The account asked to be deleted: the deletion waits out its grace period, and the account can cancel it until then.";
      recordedBy: "`/delete-user`, once `setupAccount` is the app's account instance";
   };
-  account.deletion_canceled: {
+  "account.deletion_canceled": {
      scope: "account";
      data: {
      };
@@ -1291,7 +1291,7 @@ const BACKEND_EVENTS: {
      description: "The account kept itself: it cancelled a scheduled deletion from the app, or with the link in the email.";
      recordedBy: "`account:cancelAccountDeletion`";
   };
-  account.erasure_failed: {
+  "account.erasure_failed": {
      scope: "account";
      data: {
         source: "string";
