@@ -132,8 +132,9 @@ jobs:
   # every link on it, the twins' headers, the homepage's twin, sitemap.md
   # against the content, both twins of every moved route, a missing page,
   # the skills index, the manifest and the rename map, the MCP card, the
-  # missing /mcp, /playground, and a page asked for with `Accept: text/markdown`,
-  # which only the deploy's edge answers. CI runs the same check against
+  # missing /mcp, /playground, and a page asked for with `Accept: text/markdown`
+  # with and without its trailing slash, which only the deploy's edge
+  # answers. CI runs the same check against
   # every build; this catches what changes after one: the deploy, its edge
   # rules, Docus's modules.
   agents:
