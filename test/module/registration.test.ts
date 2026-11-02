@@ -423,7 +423,7 @@ describe('module registration (defaults)', () => {
     const nuxt = getNuxt()
     expect(nuxt.options.css.some(entry => /theme-bridge/.test(entry))).toBe(false)
     const tokens = readFileSync(join(runtimeDir, 'vue/components/tokens.css'), 'utf8')
-    expect(tokens).toContain('@layer theme.backend {\n  :where(:root) {\n    --lightningcss-light: initial;\n    --lightningcss-dark: ;\n  }\n}')
+    expect(tokens).toContain('@layer nuxt-backend-tokens {\n  :where(:root) {\n    --lightningcss-light: initial;\n    --lightningcss-dark: ;\n  }\n}')
   })
 
   it('gets the base module\'s Nuxt 4.6 build fix: one Convex copy for Vite', () => {

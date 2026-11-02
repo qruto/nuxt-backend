@@ -35,7 +35,7 @@ export default defineNuxtConfig({
 
 A packaged page carries more than its looks: who may press which button, what a refusal says, where focus goes, what a busy button announces. Each rung moves one of those duties from the package to you, and no more. A token keeps all of them with the package; a slot hands you one region; a swapped part hands you one part everywhere; a headless page hands you the markup but keeps the state and the accessibility attributes in its bindings. Only eject hands you the source, and even then `upgrade` tells you what changed upstream.
 
-The styled defaults are `.vue` components, and their CSS sits in one cascade layer, `@layer nuxt-backend`, with the tokens on `:root`. Any rule of yours outside that layer wins without a specificity fight, and the package CSS loads only for the capabilities your app uses.
+The styled defaults are `.vue` components, and their CSS sits in one cascade layer, `@layer nuxt-backend`, with the tokens on `:root` in the lowest one, `@layer nuxt-backend-tokens`. Any rule of yours outside that layer wins without a specificity fight, and the package CSS loads only for the capabilities your app uses.
 
 **Why there is no unstyled component layer.** Libraries used to ship three tiers: styled components, unstyled components with the same markup, and hooks. The middle tier has been dropped across the ecosystem. Clerk deprecated its headless Clerk Elements in favour of hooks, Supabase stopped maintaining its Auth UI and moved to a copy-in registry, and Better Auth UI and shadcn-vue install through registries too (checked on 2026-10-25). An unstyled component still fixes your markup, so it rarely fits a design system better than a styled one with `css: false`, and it doubles what must stay accessible. nuxt-backend ships the two ends that hold up, styled defaults and headless composables with bindings, plus `eject` for copy-in source.
 
@@ -56,7 +56,7 @@ The [Roadmap](/docs/start/roadmap) lists what waits for later releases.
 
 ::card-group
   :::card{icon="i-lucide-paintbrush" title="Restyle with tokens" to="/docs/build/ui/customize/tokens"}
-  `--bk-*` tokens on `:root` in `@layer nuxt-backend`, and the `data-*` state hooks.
+  `--bk-*` tokens on `:root` in `@layer nuxt-backend-tokens`, and the `data-*` state hooks.
   :::
 
   :::card{icon="i-lucide-type" title="Change copy and labels" to="/docs/build/ui/customize/labels"}

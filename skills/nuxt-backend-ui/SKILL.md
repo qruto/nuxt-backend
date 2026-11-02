@@ -1,6 +1,6 @@
 ---
 name: nuxt-backend-ui
-description: The packaged UI of a Nuxt app on nuxt-backend and how to customize it, in order of reach. The --bk-* tokens on :root in @layer nuxt-backend and the data-* hooks, every word as a label in appConfig.backend, translation with @nuxtjs/i18n, slots, swapping a part by its registered name, headless composables with bind and #backend/a11y, npx nuxt-backend eject, css false and pages.<key> false. Use when restyling, rewording, translating or rearranging the packaged pages and components (sign-in, pricing, settings, profile, security, admin), or replacing one with your own. Read the nuxt-backend core skill first.
+description: The packaged UI of a Nuxt app on nuxt-backend and how to customize it, in order of reach. The --bk-* tokens on :root in @layer nuxt-backend-tokens and the data-* hooks, every word as a label in appConfig.backend, translation with @nuxtjs/i18n, slots, swapping a part by its registered name, headless composables with bind and #backend/a11y, npx nuxt-backend eject, css false and pages.<key> false. Use when restyling, rewording, translating or rearranging the packaged pages and components (sign-in, pricing, settings, profile, security, admin), or replacing one with your own. Read the nuxt-backend core skill first.
 ---
 
 # nuxt-backend: UI and customization
@@ -13,9 +13,10 @@ bridge: put any kit's components in slots, parts or your own markup.
 
 ## Customizing, in order of reach
 
-1. **Tokens**: the `--bk-*` custom properties sit on `:root` inside `@layer nuxt-backend`, so
-   an override on `:root` in any app stylesheet re-themes every component, with no specificity
-   to match. A family root (`[data-pricing='table']`) scopes a change; state is `data-state`,
+1. **Tokens**: the `--bk-*` custom properties sit on `:root` inside `@layer nuxt-backend-tokens`,
+   the lowest layer, so an override on `:root` in any app stylesheet, in any layer or none,
+   re-themes every component, with no specificity to match. Restyle elements outside layers (or
+   in a layer after `nuxt-backend`): `theme`, `base` and `reset` sit below the package's rules. A family root (`[data-pricing='table']`) scopes a change; state is `data-state`,
    `data-disabled`, `data-invalid`, `data-loading`. Declare `color-scheme` yourself: the
    tokens are `light-dark()` pairs. Put resets in `@layer reset`, never unlayered.
 2. **Labels**: `appConfig.backend` holds the brand, the plan catalog copy and the labels:
@@ -67,7 +68,7 @@ https://nuxt-backend.dev/docs/build/ui/accessibility.
 - [Build the app shell](https://nuxt-backend.dev/docs/build/ui/app-shell): Wrap your signed-in pages in `<AppShell>`: a header with your brand, the workspace switcher, the notification bell and the account menu, the app-wide notices, and your page in the main landmark.
 - [Show parts of a page to the right people](https://nuxt-backend.dev/docs/build/ui/gate): Show a region only to someone signed in, with a role, in a workspace, on a plan with a feature, or with room left on a quota, with `<Gate>` and its fallback slot. One component replaces the four boundaries.
 - [Show app-wide notices](https://nuxt-backend.dev/docs/build/ui/notices): Place `<BackendNotices>` once in your layout for every notice the backend raises: an administrator's visit, maintenance, a past-due payment, a scheduled account deletion, low credits, a gift to claim and announcements, each replaceable through a named slot.
-- [Restyle with tokens](https://nuxt-backend.dev/docs/build/ui/customize/tokens): Re-theme every packaged component with the --bk-* tokens on :root inside @layer nuxt-backend, scope a change to one family, follow light and dark, and style state through the data-* hooks.
+- [Restyle with tokens](https://nuxt-backend.dev/docs/build/ui/customize/tokens): Re-theme every packaged component with the --bk-* tokens on :root inside @layer nuxt-backend-tokens, scope a change to one family, follow light and dark, and style state through the data-* hooks.
 - [Change copy and labels](https://nuxt-backend.dev/docs/build/ui/customize/labels): Set the plan catalog copy and the brand, and override any word a packaged component or page renders, from app config or per component. Reach for `useLabels()`.
 - [Translate the UI](https://nuxt-backend.dev/docs/build/ui/customize/translation): Translate every packaged page and component with @nuxtjs/i18n: backend.* messages per locale, placeholders and plurals, dates and money in the active locale, and localized page paths. Russian, German, Spanish and French come with the package. Reach for `useLabels()`.
 - [Customize with slots](https://nuxt-backend.dev/docs/build/ui/customize/slots): Keep a packaged component and replace only the regions you care about, with the state and actions it runs on, and set its props and listen to its events.
