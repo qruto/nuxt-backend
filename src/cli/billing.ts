@@ -39,7 +39,7 @@ import { loadCatalog } from './billing/doctor'
 import { loadGenerated, renderGenerated } from './billing/generated'
 import type { CatalogIds, Environment, SyncLogEntry } from './billing/provider'
 import { syncBillingCatalog, type BillingSyncOptions, type BillingSyncResult, type ProvisionedWebhook } from './billing/sync'
-import { progress, withContract } from './contract'
+import { finish, progress, withContract } from './contract'
 
 // The command lives here; the reconciliation (billing/sync.ts), the
 // deployment it writes (billing/deployment.ts), doctor's cross-checks
@@ -401,8 +401,7 @@ export const billingSync = withContract('billing sync', {
       force: args.force,
       ...(args.adopt ? { adopt: args.adopt } : {}),
     }, { print: progress(args.json) })
-    if (args.json && report) console.log(JSON.stringify(report, null, 2))
-    if (exitCode !== 0) process.exitCode = exitCode
+    finish(args.json, { exitCode, output: report })
   },
 }))
 

@@ -267,51 +267,94 @@ export const vPendingSpend = v.object({
  * recipient — identified by email — receives. Created at gift checkout, marked
  * `paid` by the billing webhook, and `claimed` once the entitlement is attached
  * to the recipient's billing entity (automatically when the recipient already
- * has an account, otherwise on their first sign-in).
+ * has an account, otherwise on their first sign-in). The `billingGifts` row.
  */
-export const vGift = v.object({
-  id: v.string(),
+const vGiftRow = v.object({
+  // Stored lowercased; matched case-insensitively against the claimant's email.
   recipientEmail: v.string(),
   purchaserUserId: v.string(),
   purchaserEmail: v.optional(v.string()),
   purchaserName: v.optional(v.string()),
+  // The credit pack the recipient receives: its provider product.
   productIds: v.array(v.string()),
+  // Plain text, shown only inside the app once the recipient signs in.
   message: v.optional(v.string()),
+  // 'pending' (checkout created) → 'paid' (the purchase order is paid and
+  // its claim discount minted) → 'claimed' (the recipient's $0 order is
+  // paid), or 'refunded' (the purchase was refunded before the claim).
   status: v.string(),
+  // Before 0.2: the provider customer keyed by the recipient's email,
+  // which the purchase was billed to. Gifts are billed to the purchaser now.
   billingCustomerId: v.optional(v.string()),
+  // The purchase order, paid by the purchaser's own billing entity.
   billingOrderId: v.optional(v.string()),
   purchaserEntityId: v.optional(v.string()),
+  // The pack's catalog key, and the private gift product the purchaser bought.
   pack: v.optional(v.string()),
   giftProductId: v.optional(v.string()),
+  // What the purchase order charged, in the currency's smallest unit.
   amount: v.optional(v.number()),
   currency: v.optional(v.string()),
+  // The single-use 100% discount the recipient claims the pack with.
   discountId: v.optional(v.string()),
+  // The claim checkout in flight: who opened it, for which entity. A plan
+  // pass's claim holds the gift until `claimingUntil`, while it switches the
+  // workspace at the provider.
   claimingEntityId: v.optional(v.string()),
   claimingUserId: v.optional(v.string()),
+  claimingUntil: v.optional(v.number()),
+  // The purchaser's cancellation in flight, until then: no claim starts meanwhile.
+  cancelingUntil: v.optional(v.number()),
   claimOrderId: v.optional(v.string()),
   claimedByUserId: v.optional(v.string()),
+  // The entity the credits landed on: workspace id or user id.
   claimedEntityId: v.optional(v.string()),
   createdAt: v.number(),
   paidAt: v.optional(v.number()),
   notifiedAt: v.optional(v.number()),
   claimedAt: v.optional(v.number()),
   refundedAt: v.optional(v.number()),
+  // A plan pass (the gift is a plan for `months` months, not a pack): the
+  // plan's catalog key and the length the purchaser paid for.
   plan: v.optional(v.string()),
   months: v.optional(v.number()),
+  // When the notice goes out: set when the purchase is paid (the moment
+  // it is paid, or the date the purchaser chose). The gift is the
+  // recipient's to see and claim once `deliveredAt` is stamped; a row
+  // with neither is a gift paid before delivery dates, delivered when paid.
   deliverAt: v.optional(v.number()),
   deliveredAt: v.optional(v.number()),
+  // The last notice sent (the first, a reminder or a resend), and how many.
   noticedAt: v.optional(v.number()),
   noticeCount: v.optional(v.number()),
+  // How many times the purchaser changed the address: each address's notices carry their own idempotency keys.
   recipientChanges: v.optional(v.number()),
+  // The one reminder, a week after delivery.
   remindedAt: v.optional(v.number()),
+  // A pass once claimed: the free subscription it switched, when it began
+  // and ends (the package keeps the end date), the scheduled return to the
+  // free plan, the ending notice and the end itself.
   passSubscriptionId: v.optional(v.string()),
   passStartedAt: v.optional(v.number()),
   passEndsAt: v.optional(v.number()),
+  // From when the return may be booked: once the pass's last billing cycle began.
+  passReturnFrom: v.optional(v.number()),
   passReturnScheduledAt: v.optional(v.number()),
   passNoticedAt: v.optional(v.number()),
   passEndedAt: v.optional(v.number()),
+  // A reverse trial (LIFECYCLE): the pass a new workspace started on,
+  // with no purchaser (`status` 'trial'). `recipientEmail` holds its
+  // owner's address with plus tags and dots taken out, so an address
+  // starts one.
   reverseTrial: v.optional(v.boolean()),
+  // A referral reward (REF): the pass a referrer on the free plan got for
+  // free months, with no purchaser (`status` 'reward'). `rewardId` is the
+  // referral it came from; `recipientEmail` is empty.
+  rewardId: v.optional(v.string()),
 })
+
+/** A gift as the component's reads return it: its id, without the claim and cancel holds or the reward it came from. */
+export const vGift = vGiftRow.omit('claimingUntil', 'cancelingUntil', 'passReturnFrom', 'rewardId').extend({ id: v.string() })
 
 /** A save offer's terms, as the cancel flow made it (LIFECYCLE). */
 export const vSaveOfferTerms = v.object({
@@ -321,6 +364,22 @@ export const vSaveOfferTerms = v.object({
   plan: v.optional(v.string()),
   productId: v.optional(v.string()),
   discount: v.optional(v.string()),
+})
+
+/** A renewing checkout's consent proof, as the `billingRenewalConsents` table stores it. */
+export const vRenewalConsent = v.object({
+  checkoutId: v.string(),
+  entityId: v.string(),
+  userId: v.optional(v.string()),
+  productId: v.string(),
+  amount: v.number(),
+  currency: v.string(),
+  interval: v.string(),
+  intervalCount: v.number(),
+  termsVersion: v.optional(v.string()),
+  createdAt: v.number(),
+  subscriptionId: v.optional(v.string()),
+  consentedAt: v.optional(v.number()),
 })
 
 export const billingTables = {
@@ -411,89 +470,7 @@ export const billingTables = {
   })
     .index('entityId', ['entityId'])
     .index('at', ['at']),
-  billingGifts: defineTable({
-    // Stored lowercased; matched case-insensitively against the claimant's email.
-    recipientEmail: v.string(),
-    purchaserUserId: v.string(),
-    purchaserEmail: v.optional(v.string()),
-    purchaserName: v.optional(v.string()),
-    // The credit pack the recipient receives: its provider product.
-    productIds: v.array(v.string()),
-    // Plain text, shown only inside the app once the recipient signs in.
-    message: v.optional(v.string()),
-    // 'pending' (checkout created) → 'paid' (the purchase order is paid and
-    // its claim discount minted) → 'claimed' (the recipient's $0 order is
-    // paid), or 'refunded' (the purchase was refunded before the claim).
-    status: v.string(),
-    // Before 0.2: the provider customer keyed by the recipient's email,
-    // which the purchase was billed to. Gifts are billed to the purchaser now.
-    billingCustomerId: v.optional(v.string()),
-    // The purchase order, paid by the purchaser's own billing entity.
-    billingOrderId: v.optional(v.string()),
-    purchaserEntityId: v.optional(v.string()),
-    // The pack's catalog key, and the private gift product the purchaser bought.
-    pack: v.optional(v.string()),
-    giftProductId: v.optional(v.string()),
-    // What the purchase order charged, in the currency's smallest unit.
-    amount: v.optional(v.number()),
-    currency: v.optional(v.string()),
-    // The single-use 100% discount the recipient claims the pack with.
-    discountId: v.optional(v.string()),
-    // The claim checkout in flight: who opened it, for which entity. A plan
-    // pass's claim holds the gift until `claimingUntil`, while it switches the
-    // workspace at the provider.
-    claimingEntityId: v.optional(v.string()),
-    claimingUserId: v.optional(v.string()),
-    claimingUntil: v.optional(v.number()),
-    // The purchaser's cancellation in flight, until then: no claim starts meanwhile.
-    cancelingUntil: v.optional(v.number()),
-    claimOrderId: v.optional(v.string()),
-    claimedByUserId: v.optional(v.string()),
-    // The entity the credits landed on: workspace id or user id.
-    claimedEntityId: v.optional(v.string()),
-    createdAt: v.number(),
-    paidAt: v.optional(v.number()),
-    notifiedAt: v.optional(v.number()),
-    claimedAt: v.optional(v.number()),
-    refundedAt: v.optional(v.number()),
-    // A plan pass (the gift is a plan for `months` months, not a pack): the
-    // plan's catalog key and the length the purchaser paid for.
-    plan: v.optional(v.string()),
-    months: v.optional(v.number()),
-    // When the notice goes out: set when the purchase is paid (the moment
-    // it is paid, or the date the purchaser chose). The gift is the
-    // recipient's to see and claim once `deliveredAt` is stamped; a row
-    // with neither is a gift paid before delivery dates, delivered when paid.
-    deliverAt: v.optional(v.number()),
-    deliveredAt: v.optional(v.number()),
-    // The last notice sent (the first, a reminder or a resend), and how many.
-    noticedAt: v.optional(v.number()),
-    noticeCount: v.optional(v.number()),
-    // How many times the purchaser changed the address: each address's notices carry their own idempotency keys.
-    recipientChanges: v.optional(v.number()),
-    // The one reminder, a week after delivery.
-    remindedAt: v.optional(v.number()),
-    // A pass once claimed: the free subscription it switched, when it began
-    // and ends (the package keeps the end date), the scheduled return to the
-    // free plan, the ending notice and the end itself.
-    passSubscriptionId: v.optional(v.string()),
-    passStartedAt: v.optional(v.number()),
-    passEndsAt: v.optional(v.number()),
-    // From when the return may be booked: once the pass's last billing cycle began.
-    passReturnFrom: v.optional(v.number()),
-    passReturnScheduledAt: v.optional(v.number()),
-    passNoticedAt: v.optional(v.number()),
-    passEndedAt: v.optional(v.number()),
-    // A reverse trial (LIFECYCLE): the pass a new workspace started on,
-    // with no purchaser (`status` 'trial'). `recipientEmail` holds its
-    // owner's address with plus tags and dots taken out, so an address
-    // starts one.
-    reverseTrial: v.optional(v.boolean()),
-    // A referral reward (REF): the pass a referrer on the free plan got for
-    // free months, with no purchaser (`status` 'reward'). `rewardId` is the
-    // referral it came from; `recipientEmail` is empty.
-    rewardId: v.optional(v.string()),
-  })
+  billingGifts: defineTable(vGiftRow)
     .index('recipientEmail', ['recipientEmail'])
     .index('recipientEmail_status', ['recipientEmail', 'status'])
     .index('recipientEmail_createdAt', ['recipientEmail', 'createdAt'])
@@ -540,20 +517,7 @@ export const billingTables = {
   // (what it showed: the plan, the price and its interval, the terms
   // version, who), confirmed when the subscription it started arrives, and
   // deleted three years after. An unconfirmed row goes after two days.
-  billingRenewalConsents: defineTable({
-    checkoutId: v.string(),
-    entityId: v.string(),
-    userId: v.optional(v.string()),
-    productId: v.string(),
-    amount: v.number(),
-    currency: v.string(),
-    interval: v.string(),
-    intervalCount: v.number(),
-    termsVersion: v.optional(v.string()),
-    createdAt: v.number(),
-    subscriptionId: v.optional(v.string()),
-    consentedAt: v.optional(v.number()),
-  })
+  billingRenewalConsents: defineTable(vRenewalConsent)
     .index('checkoutId', ['checkoutId'])
     .index('entityId', ['entityId'])
     .index('userId', ['userId'])
@@ -584,6 +548,44 @@ export const billingTables = {
     .index('at', ['at']),
 }
 
+/** A metered stream's request, as the `aiRequests` table stores it. */
+export const vAiRequest = v.object({
+  streamId: v.string(),
+  /** Which `ai.stream({ name })` definition drives this request. */
+  name: v.string(),
+  /** The billing entity (workspace/user) the credits reserve against. */
+  entityId: v.string(),
+  /** The signed-in caller (for member attribution inside workspaces). */
+  userId: v.string(),
+  /** JSON-encoded handler args. */
+  args: v.string(),
+  meterId: v.optional(v.string()),
+  cost: v.number(),
+  externalId: v.string(),
+  status: v.union(v.literal('reserved'), v.literal('streaming'), v.literal('settled'), v.literal('released')),
+  createdAt: v.number(),
+})
+
+/** A knowledge document, as the `aiDocuments` table stores it. */
+export const vAiDocument = v.object({
+  /** The knowledge store: its embedding model and dimension. */
+  store: v.string(),
+  /** The namespace: the billing entity whose members find it, or `app`. */
+  owner: v.string(),
+  /** The member who added it; empty for the app's own. */
+  addedBy: v.string(),
+  title: v.string(),
+  key: v.optional(v.string()),
+  status: v.union(v.literal('pending'), v.literal('ready'), v.literal('failed')),
+  entryId: v.optional(v.string()),
+  characters: v.number(),
+  createdAt: v.number(),
+  remove: v.string(),
+  read: v.string(),
+  namespaces: v.optional(v.string()),
+  removeNamespace: v.optional(v.string()),
+})
+
 /**
  * Metered-stream request plumbing for `setupAi().stream` — the HTTP stream
  * endpoint can't carry Convex args, so `start` records the request (args,
@@ -595,22 +597,7 @@ export const billingTables = {
  * prune.
  */
 export const aiTables = {
-  aiRequests: defineTable({
-    streamId: v.string(),
-    /** Which `ai.stream({ name })` definition drives this request. */
-    name: v.string(),
-    /** The billing entity (workspace/user) the credits reserve against. */
-    entityId: v.string(),
-    /** The signed-in caller (for member attribution inside workspaces). */
-    userId: v.string(),
-    /** JSON-encoded handler args. */
-    args: v.string(),
-    meterId: v.optional(v.string()),
-    cost: v.number(),
-    externalId: v.string(),
-    status: v.union(v.literal('reserved'), v.literal('streaming'), v.literal('settled'), v.literal('released')),
-    createdAt: v.number(),
-  })
+  aiRequests: defineTable(vAiRequest)
     .index('streamId', ['streamId'])
     // Maintenance: finished requests past their window.
     .index('status_createdAt', ['status', 'createdAt'])
@@ -649,24 +636,7 @@ export const aiTables = {
    * `namespaces` and `removeNamespace` find its owner's namespace there
    * and delete it, passages and all, when the owner goes.
    */
-  aiDocuments: defineTable({
-    /** The knowledge store: its embedding model and dimension. */
-    store: v.string(),
-    /** The namespace: the billing entity whose members find it, or `app`. */
-    owner: v.string(),
-    /** The member who added it; empty for the app's own. */
-    addedBy: v.string(),
-    title: v.string(),
-    key: v.optional(v.string()),
-    status: v.union(v.literal('pending'), v.literal('ready'), v.literal('failed')),
-    entryId: v.optional(v.string()),
-    characters: v.number(),
-    createdAt: v.number(),
-    remove: v.string(),
-    read: v.string(),
-    namespaces: v.optional(v.string()),
-    removeNamespace: v.optional(v.string()),
-  })
+  aiDocuments: defineTable(vAiDocument)
     .index('store_owner_createdAt', ['store', 'owner', 'createdAt'])
     .index('store_owner_key', ['store', 'owner', 'key'])
     .index('owner', ['owner'])
@@ -737,6 +707,17 @@ export const aiTables = {
     .index('by_day_and_shard', ['day', 'shard']),
 }
 
+/** How a webhook delivery ended, as the delivery log records it. */
+export const vDeliveryOutcome = v.union(
+  v.literal('ok'),
+  v.literal('invalid_signature'),
+  v.literal('unknown_type'),
+  v.literal('handler_error'),
+  v.literal('duplicate'),
+  v.literal('oversized'),
+  v.literal('missing_secret'),
+)
+
 /**
  * The webhook delivery log (see `webhooks.ts`) — powers redelivery dedupe and
  * the DevTools Webhooks page, never a source of truth. A delivery whose
@@ -752,15 +733,7 @@ export const webhookTables = {
     type: v.optional(v.string()),
     // The tallied outcomes stay in the union for rows written before they
     // were tallied; the trim ages them out with the rest.
-    outcome: v.union(
-      v.literal('ok'),
-      v.literal('invalid_signature'),
-      v.literal('unknown_type'),
-      v.literal('handler_error'),
-      v.literal('duplicate'),
-      v.literal('oversized'),
-      v.literal('missing_secret'),
-    ),
+    outcome: vDeliveryOutcome,
     note: v.optional(v.string()),
     receivedAt: v.number(),
     /** When an administrator last asked the provider to send this delivery again (`replayWebhookDelivery`). */
@@ -1202,6 +1175,12 @@ export const storageTables = {
     .index('sharedBy', ['sharedBy']),
 }
 
+/** What a report decision did to the content. */
+export const vDecisionAction = v.union(v.literal('hidden'), v.literal('dismissed'))
+
+/** What a report decision rests on: the law, or the app's terms. */
+export const vDecisionGround = v.union(v.literal('illegal'), v.literal('terms'))
+
 /** Why someone reported content: the one-click reasons, and the notice form's legal ones. */
 export const vReportReason = v.union(
   v.literal('abuse'),
@@ -1289,11 +1268,11 @@ export const reportTables = {
     subject: v.optional(v.id('reportSubjects')),
     /** The notice decided, for one the app could not place. */
     notice: v.optional(v.id('reports')),
-    action: v.union(v.literal('hidden'), v.literal('dismissed')),
+    action: vDecisionAction,
     /** The facts and the term or law it rests on, as the administrator wrote them. */
     reason: v.string(),
     /** Whether the content broke the law or the app's terms. */
-    ground: v.union(v.literal('illegal'), v.literal('terms')),
+    ground: vDecisionGround,
     /** The administrator who decided. */
     by: v.string(),
     at: v.number(),
@@ -1498,6 +1477,24 @@ export const monitoringTables = {
     .index('by_at', ['at']),
 }
 
+/** A consent decision, as the `consents` table stores it. */
+export const vConsent = v.object({
+  userId: v.optional(v.string()),
+  /** SHA-256 of the lower-cased address, for a decision given before the account existed. */
+  emailHash: v.optional(v.string()),
+  kind: v.string(),
+  version: v.string(),
+  /** `true` a grant, `false` a withdrawal. */
+  granted: v.boolean(),
+  at: v.number(),
+  /** Where it came from: `sign-up`, `prompt`, `settings`, `waitlist` or `topic`. */
+  source: v.string(),
+  /** The words the person agreed to, when the form showed its own (the launch-news box). */
+  text: v.optional(v.string()),
+  /** What the decision came with: `checkout:<id>` for a topic's soft opt-in at checkout. */
+  reference: v.optional(v.string()),
+})
+
 /**
  * The consent ledger (see `consents.ts`): one row per decision, a grant or a
  * withdrawal, of one kind at one version, never overwritten, so the history
@@ -1506,22 +1503,7 @@ export const monitoringTables = {
  * signs up.
  */
 export const consentTables = {
-  consents: defineTable({
-    userId: v.optional(v.string()),
-    /** SHA-256 of the lower-cased address, for a decision given before the account existed. */
-    emailHash: v.optional(v.string()),
-    kind: v.string(),
-    version: v.string(),
-    /** `true` a grant, `false` a withdrawal. */
-    granted: v.boolean(),
-    at: v.number(),
-    /** Where it came from: `sign-up`, `prompt`, `settings`, `waitlist` or `topic`. */
-    source: v.string(),
-    /** The words the person agreed to, when the form showed its own (the launch-news box). */
-    text: v.optional(v.string()),
-    /** What the decision came with: `checkout:<id>` for a topic's soft opt-in at checkout. */
-    reference: v.optional(v.string()),
-  })
+  consents: defineTable(vConsent)
     .index('userId_kind_at', ['userId', 'kind', 'at'])
     .index('userId_at', ['userId', 'at'])
     .index('emailHash_at', ['emailHash', 'at']),

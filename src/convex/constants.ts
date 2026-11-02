@@ -67,7 +67,6 @@ export const RESERVED_CLAIMS: readonly string[] = [
  * call, and `getBillingAccess` reports it for `useBilling().canManage`.
  */
 export const BILLING_MANAGER_ROLES: readonly string[] = ['owner', 'admin']
-export const COMPONENT_AUTH_ROUTE = '/'
 /**
  * App page that handles workspace-invitation accept links
  * (`{SITE_URL}{path}?id=<invitationId>`). The Nuxt module registers this page

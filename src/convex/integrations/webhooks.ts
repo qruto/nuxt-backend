@@ -11,7 +11,7 @@ import { logBackend } from '../log.js'
 import { type AdapterFindOne, type Administrators, createAccessReads, isAdministratorNow, requireAdministratorInPerson } from './access.js'
 import { type Audit, setupAudit } from './audit.js'
 import { providerClientOptions } from './billing/provider-client.js'
-import type { WebhookDeliveryRow, WebhookOutcome } from './webhook-guard.js'
+import type { WebhookDeliveryRow, WebhookOutcome, WebhookService } from './webhook-guard.js'
 
 export type { WebhookDeliveryRow, WebhookOutcome } from './webhook-guard.js'
 
@@ -23,9 +23,6 @@ export type { WebhookDeliveryRow, WebhookOutcome } from './webhook-guard.js'
 // fresh; a replay is an administrator's write: in person, behind a recent
 // sign-in, stamped on the delivery (`replayedAt`) and recorded on the
 // activity trail (`webhook.replayed`).
-
-/** The services whose deliveries the log keeps. */
-export type WebhookService = 'billing' | 'email'
 
 /** What a replay answered: the provider took it, and when the delivery was stamped. */
 export interface WebhookReplay {

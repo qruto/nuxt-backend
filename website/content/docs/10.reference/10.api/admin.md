@@ -770,9 +770,9 @@ any signature verified.
 type WebhookService = "billing" | "email";
 ```
 
-Defined in: [src/convex/integrations/webhooks.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/webhooks.ts)
+Defined in: [src/convex/integrations/webhook-guard.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/webhook-guard.ts)
 
-The services whose deliveries the log keeps.
+The routes behind the edge, each the service its deliveries are logged under.
 
 ***
 

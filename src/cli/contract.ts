@@ -49,6 +49,12 @@ export function withContract<T extends ArgsDef>(path: string, contract: CommandC
   }
 }
 
+/** End a command: its outcome as the one JSON document stdout holds under `--json`, and its exit code. */
+export function finish(json: boolean, { exitCode, output }: { exitCode: number, output?: unknown }): void {
+  if (json && output) console.log(JSON.stringify(output, null, 2))
+  if (exitCode !== 0) process.exitCode = exitCode
+}
+
 /** Where a command's progress lines go: stderr under `--json`, so stdout stays one JSON document. */
 export function progress(json: boolean): (line: string) => void {
   return json ? line => console.error(line) : line => console.log(line)

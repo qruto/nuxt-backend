@@ -2,6 +2,7 @@ import { v } from 'convex/values'
 import { internal } from './_generated/api.js'
 import type { Doc } from './_generated/dataModel.js'
 import { internalMutation, type MutationCtx, mutation, query, type QueryCtx } from './_generated/server.js'
+import { vDeliveryOutcome } from './schema.js'
 
 /**
  * Webhook delivery log — never a source of truth. Every request on
@@ -49,16 +50,6 @@ const NOTE_LIMIT = 500
 
 /** Rows `listRecent` serves when no limit is given. */
 const DEFAULT_FEED_SIZE = 50
-
-export const vDeliveryOutcome = v.union(
-  v.literal('ok'),
-  v.literal('invalid_signature'),
-  v.literal('unknown_type'),
-  v.literal('handler_error'),
-  v.literal('duplicate'),
-  v.literal('oversized'),
-  v.literal('missing_secret'),
-)
 
 type DeliveryOutcome = Doc<'webhookDeliveries'>['outcome']
 type TalliedOutcome = Doc<'webhookTallies'>['outcome']

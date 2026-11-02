@@ -3,7 +3,7 @@ import type { Doc, Id } from './_generated/dataModel.js'
 import { mutation, type MutationCtx, query, type QueryCtx } from './_generated/server.js'
 import { APPEAL_WINDOW_MS } from '../../constants.js'
 import { ERASED_PREFIX } from './parties.js'
-import { vReportReason } from './schema.js'
+import { vDecisionAction, vDecisionGround, vReportReason } from './schema.js'
 
 /**
  * Content duties: the component's half of `setupAdmin({ reports })`. One
@@ -209,7 +209,7 @@ export const reportsConsole = query({
       id: v.string(),
       text: v.string(),
       createdAt: v.number(),
-      decision: v.object({ action: v.union(v.literal('hidden'), v.literal('dismissed')), reason: v.string(), at: v.number(), authorId: v.union(v.string(), v.null()) }),
+      decision: v.object({ action: vDecisionAction, reason: v.string(), at: v.number(), authorId: v.union(v.string(), v.null()) }),
       subject: v.union(vSubject, v.null()),
     })),
   }),
@@ -313,9 +313,9 @@ export const decide = mutation({
     notice: v.optional(v.string()),
     /** Open notices sent without their thing that the app placed on this one: closed with it. */
     notices: v.optional(v.array(v.string())),
-    action: v.union(v.literal('hidden'), v.literal('dismissed')),
+    action: vDecisionAction,
     reason: v.string(),
-    ground: v.union(v.literal('illegal'), v.literal('terms')),
+    ground: vDecisionGround,
     by: v.string(),
     authorId: v.optional(v.string()),
     appealTokenHash: v.optional(v.string()),
@@ -359,9 +359,9 @@ export const flagCrime = mutation({
 
 const vAppealable = v.object({
   decisionId: v.string(),
-  action: v.union(v.literal('hidden'), v.literal('dismissed')),
+  action: vDecisionAction,
   reason: v.string(),
-  ground: v.union(v.literal('illegal'), v.literal('terms')),
+  ground: vDecisionGround,
   at: v.number(),
   until: v.number(),
   subject: v.union(vSubject, v.null()),
@@ -432,7 +432,7 @@ async function actedOnSince(ctx: QueryCtx, subject: Doc<'reportSubjects'> | null
 export const decideAppeal = mutation({
   args: { appeal: v.string(), outcome: v.union(v.literal('upheld'), v.literal('reversed')), reason: v.string(), by: v.string() },
   returns: v.union(v.object({
-    action: v.union(v.literal('hidden'), v.literal('dismissed')),
+    action: vDecisionAction,
     subject: v.union(vSubject, v.null()),
     authorId: v.union(v.string(), v.null()),
     /** Whether the app shows the content again: a removal reversed, and nothing reported or hidden since. */

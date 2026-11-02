@@ -66,9 +66,6 @@ export function requiredKinds(consents: ConsentDeclarations | undefined): string
   return Object.entries(consents ?? {}).filter(([, declaration]) => declaration.required).map(([kind]) => kind)
 }
 
-/** Where a decision came from, kept with each row. */
-export type ConsentSource = 'sign-up' | 'prompt' | 'settings' | 'waitlist' | 'topic'
-
 /** A kind's latest decision of one person. */
 export interface ConsentDecision {
   version: string

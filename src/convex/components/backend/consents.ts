@@ -3,6 +3,7 @@ import type { Doc } from './_generated/dataModel.js'
 import { mutation, type MutationCtx, query, type QueryCtx } from './_generated/server.js'
 import type { ConsentDecision } from '../../consent-rules.js'
 import { addressDigest } from '../../waitlist-rules.js'
+import { vConsent } from './schema.js'
 
 /**
  * The consent ledger: the component's half. One row per decision, a grant or
@@ -137,7 +138,7 @@ export const latest = query({
 /** Every decision of an account, oldest first: what the export carries and an administrator's tooling reads. */
 export const history = query({
   args: { userId: v.string() },
-  returns: v.array(v.object({ kind: v.string(), version: v.string(), granted: v.boolean(), at: v.number(), source: v.string(), text: v.optional(v.string()), reference: v.optional(v.string()) })),
+  returns: v.array(vConsent.omit('userId', 'emailHash')),
   handler: async (ctx, { userId }) => await consentRows(ctx, userId),
 })
 

@@ -1,4 +1,5 @@
 import { defineNuxtPlugin, useRouter } from '#imports'
+import { onEveryPage } from '../utils/every-page'
 import { CHECKOUT_RETURN_PARAM } from '../../../convex/constants.js'
 
 /**
@@ -32,9 +33,6 @@ export default defineNuxtPlugin({
         })
     }
     // A return is a page load; a navigation inside the app can bring one too.
-    nuxtApp.hook('app:mounted', check)
-    router.afterEach((_to, from) => {
-      if (from.matched.length > 0) check()
-    })
+    onEveryPage(nuxtApp, router, check)
   },
 })

@@ -22,8 +22,6 @@ export const REFERRAL_CLAIM_WINDOW_MS = DAY_MS
 export const REFERRAL_BURST = { count: 5, windowMs: 60 * 60 * 1000 } as const
 /** The most referrals a console read or an export lists. */
 export const REFERRAL_ROWS = 200
-/** The longest code a request may carry (a pasted link is cut to its code before this). */
-export const REFERRAL_CODE_INPUT_MAX = 32
 
 /** What the person referred gets: a catalog discount without a code, or trial days, on their first paid checkout. */
 export type ReferredReward = { discount: string } | { trialDays: number }
