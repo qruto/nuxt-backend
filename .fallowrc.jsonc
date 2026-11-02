@@ -47,6 +47,7 @@
     // and scaffolding compares it with the templates, so every file there is
     // read by path. The one directory entry, and the reason it is one.
     "test/fixtures/registration/backend/*.ts",
+    "src/convex/components/backend/*.ts",
     // Copied into a starter app and run there by CI's `pack` job.
     "test/fixtures/test-utils/**/*.ts",
     "test/types/**/*.test-d.ts"
@@ -191,6 +192,20 @@
       // value) and demo pages that repeat a layout on purpose.
       "website/**",
       "src/runtime/vue/components/**/*.css"
+    ],
+    // Reviewed clone groups, by fingerprint and instance count: a change to
+    // either reports the group again. Each is a Convex function's args that
+    // restate part of the table it writes, a different shape per side
+    // (`emails` against `email`, a required `key` against an optional
+    // one), kept inline so the function's signature reads where it is
+    // defined. A shape both sides share whole is lifted into schema.ts
+    // instead (vGift, vAiRequest, vRenewalConsent, vConsent).
+    "ignoredClones": [
+      "dup:9a635424:2", // components/backend/inbound.ts storeContact ↔ the contactMessages table
+      "dup:a7dc2fba:2", // the public contact form's args ↔ joinWaitlist's (integrations/inbound.ts, waitlist.ts)
+      "dup:0277f76a:2", // notifications.ts: the event a scheduled delivery carries ↔ the notifications table
+      "dup:32eeccaa:2", // components/backend/waitlist.ts staging a join ↔ the waitlistJoins table
+      "dup:1713db46:2" // components/backend/access.ts admit ↔ the accessAdmissions table
     ]
   },
 

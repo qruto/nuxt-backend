@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { type MutationCtx, mutation, query } from './_generated/server.js'
+import { type MutationCtx, mutation, query, type QueryCtx } from './_generated/server.js'
 import { retierOwner } from './jobs.js'
 import { vEntitlementBenefit, vEntitlementMeter } from './schema.js'
 
@@ -21,6 +21,11 @@ type PendingSpend = {
 
 /** The longest a reservation may be held: a week, the longest a queued job waits for its slot. */
 const MAX_HOLD_MS = 7 * 24 * 60 * 60 * 1000
+
+/** A user's row in the entitlement cache, if there is one. */
+function entitlementOf(ctx: QueryCtx, userId: string) {
+  return ctx.db.query('billingEntitlements').withIndex('userId', q => q.eq('userId', userId)).unique()
+}
 
 function activePendings(pendings: PendingSpend[] | undefined, now: number): PendingSpend[] {
   return (pendings ?? []).filter(pending => pending.until === undefined ? now - pending.at < PENDING_SPEND_TTL_MS : now < pending.until)
@@ -66,10 +71,7 @@ export const getByUser = query({
     v.null(),
   ),
   handler: async (ctx, { userId }) => {
-    const row = await ctx.db
-      .query('billingEntitlements')
-      .withIndex('userId', q => q.eq('userId', userId))
-      .unique()
+    const row = await entitlementOf(ctx, userId)
     if (!row) return null
     return {
       customerId: row.customerId ?? null,
@@ -98,10 +100,7 @@ export const upsert = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query('billingEntitlements')
-      .withIndex('userId', q => q.eq('userId', args.userId))
-      .unique()
+    const existing = await entitlementOf(ctx, args.userId)
     const now = Date.now()
     const pending = activePendings(existing?.pendingSpends, now)
     const meters = args.meters.map((meter) => {
@@ -163,10 +162,7 @@ export const debit = mutation({
   handler: async (ctx, { userId, meterId, amount, externalId, allowOverage, hold }) => {
     assertAmount(amount, 'debit: `amount`')
     if (hold !== undefined) assertAmount(hold, 'debit: `hold`')
-    const row = await ctx.db
-      .query('billingEntitlements')
-      .withIndex('userId', q => q.eq('userId', userId))
-      .unique()
+    const row = await entitlementOf(ctx, userId)
     if (!row) return { ok: false, balance: 0, reason: 'no-row' as const }
     const index = row.meters.findIndex(meter => meter.meterId === meterId)
     if (index === -1) return { ok: false, balance: 0, reason: 'no-meter' as const }
@@ -232,10 +228,7 @@ async function closeReservation(
   externalId: string,
   finalAmount?: number,
 ): Promise<SettleOutcome> {
-  const row = await ctx.db
-    .query('billingEntitlements')
-    .withIndex('userId', q => q.eq('userId', userId))
-    .unique()
+  const row = await entitlementOf(ctx, userId)
   if (!row) return NOTHING_SETTLED
   const now = Date.now()
   const pending = activePendings(row.pendingSpends, now)
@@ -326,10 +319,7 @@ export const attachReleaseJob = mutation({
   args: { userId: v.string(), externalId: v.string(), jobId: v.string() },
   returns: v.null(),
   handler: async (ctx, { userId, externalId, jobId }) => {
-    const row = await ctx.db
-      .query('billingEntitlements')
-      .withIndex('userId', q => q.eq('userId', userId))
-      .unique()
+    const row = await entitlementOf(ctx, userId)
     if (!row) return null
     const now = Date.now()
     const pending = activePendings(row.pendingSpends, now)
@@ -355,10 +345,7 @@ export const release = mutation({
   args: { userId: v.string(), externalId: v.string() },
   returns: v.null(),
   handler: async (ctx, { userId, externalId }) => {
-    const row = await ctx.db
-      .query('billingEntitlements')
-      .withIndex('userId', q => q.eq('userId', userId))
-      .unique()
+    const row = await entitlementOf(ctx, userId)
     if (!row) return null
     const now = Date.now()
     const pending = activePendings(row.pendingSpends, now)
@@ -391,10 +378,7 @@ export const clearPendingSpends = mutation({
   args: { userId: v.string() },
   returns: v.null(),
   handler: async (ctx, { userId }) => {
-    const row = await ctx.db
-      .query('billingEntitlements')
-      .withIndex('userId', q => q.eq('userId', userId))
-      .unique()
+    const row = await entitlementOf(ctx, userId)
     if (!row) return null
     await ctx.db.patch('billingEntitlements', row._id, { pendingSpends: [], updatedAt: Date.now() })
     return null
@@ -410,10 +394,7 @@ export const credit = mutation({
   returns: v.null(),
   handler: async (ctx, { userId, meterId, amount }) => {
     assertAmount(amount, 'credit: `amount`')
-    const row = await ctx.db
-      .query('billingEntitlements')
-      .withIndex('userId', q => q.eq('userId', userId))
-      .unique()
+    const row = await entitlementOf(ctx, userId)
     if (!row) return null
     const meters = row.meters.map(meter => meter.meterId === meterId
       ? {

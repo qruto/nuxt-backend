@@ -8,7 +8,8 @@ import { createReports, type ReportsApi, type ReportsOptions } from './reports.j
 import { type BackendPaths, resolveBackendPaths } from '../paths.js'
 
 export { setupWebhooks } from './webhooks.js'
-export type { SetupWebhooksOptions, WebhookDeliveryRow, WebhookOutcome, WebhookReplay, Webhooks, WebhooksApi, WebhooksComponents, WebhookService } from './webhooks.js'
+export type { SetupWebhooksOptions, WebhookDeliveryRow, WebhookOutcome, WebhookReplay, Webhooks, WebhooksApi, WebhooksComponents } from './webhooks.js'
+export type { WebhookService } from './webhook-guard.js'
 export type { FunnelBreakdownRow, FunnelCohort, FunnelDimension, FunnelReport, FunnelStep, PersonStep } from '../funnel-rules.js'
 
 export type { AppealView, DescribedSubject, NoticeInput, ReportAppeal, ReportedSubject, ReportNotice, ReportReason, ReportsApi, ReportsConsole, ReportsOptions, ReportSubject } from './reports.js'

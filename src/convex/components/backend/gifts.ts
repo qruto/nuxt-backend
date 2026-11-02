@@ -1,6 +1,6 @@
 import type { FunctionHandle } from 'convex/server'
 import { v } from 'convex/values'
-import type { Doc } from './_generated/dataModel.js'
+import type { Doc, Id } from './_generated/dataModel.js'
 import { internalMutation, mutation, query, type QueryCtx } from './_generated/server.js'
 import { vGift } from './schema.js'
 import { keepWake } from './wake.js'
@@ -195,6 +195,12 @@ export const markNotified = mutation({
 
 /** Whether the purchaser's cancellation holds the gift now: no claim starts meanwhile. */
 const canceling = (gift: Doc<'billingGifts'>, now: number): boolean => gift.cancelingUntil !== undefined && gift.cancelingUntil > now
+
+/** A paid gift nobody started to claim and its purchaser is not canceling: one its purchaser may still change. */
+async function unclaimedGift(ctx: QueryCtx, giftId: Id<'billingGifts'>): Promise<Doc<'billingGifts'> | null> {
+  const gift = await ctx.db.get('billingGifts', giftId)
+  return gift && gift.status === 'paid' && gift.claimingUserId === undefined && !canceling(gift, Date.now()) ? gift : null
+}
 
 /** Whether a plan pass's claim holds the gift now, while it switches the workspace at the provider. */
 const passClaiming = (gift: Doc<'billingGifts'>, now: number): boolean => gift.claimingUntil !== undefined && gift.claimingUntil > now
@@ -413,8 +419,8 @@ export const setRecipient = mutation({
   args: { giftId: v.id('billingGifts'), recipientEmail: v.string() },
   returns: v.boolean(),
   handler: async (ctx, { giftId, recipientEmail }) => {
-    const gift = await ctx.db.get('billingGifts', giftId)
-    if (!gift || gift.status !== 'paid' || gift.claimingUserId !== undefined || canceling(gift, Date.now())) return false
+    const gift = await unclaimedGift(ctx, giftId)
+    if (!gift) return false
     await ctx.db.patch('billingGifts', giftId, {
       recipientEmail: recipientEmail.toLowerCase(),
       notifiedAt: undefined,
@@ -436,8 +442,8 @@ export const beginCancel = mutation({
   args: { giftId: v.id('billingGifts'), until: v.number() },
   returns: v.boolean(),
   handler: async (ctx, { giftId, until }) => {
-    const gift = await ctx.db.get('billingGifts', giftId)
-    if (!gift || gift.status !== 'paid' || gift.claimingUserId !== undefined || canceling(gift, Date.now())) return false
+    const gift = await unclaimedGift(ctx, giftId)
+    if (!gift) return false
     await ctx.db.patch('billingGifts', giftId, { cancelingUntil: until })
     return true
   },

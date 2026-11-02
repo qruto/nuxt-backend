@@ -216,6 +216,19 @@ export const track = mutation({
   },
 })
 
+/**
+ * Send one event to the email provider. Answers `true` when a rate limit
+ * asks for another try, with attempts left; any other failure is logged
+ * with what not sending it again means (`unsent`), and not tried again.
+ */
+async function sendProviderEvent(key: string | undefined, args: { event: string, email: string, payload?: Record<string, unknown>, attempt: number }, unsent: string): Promise<boolean> {
+  const { error } = await new Resend(key).events.send({ event: args.event, email: args.email, ...(args.payload ? { payload: args.payload } : {}) })
+  if (!error) return false
+  if (rateLimited(error) && args.attempt < SEND_ATTEMPTS) return true
+  logBackend('warn', 'email.event_unsent', `The ${args.event} event failed at the email provider; it is not sent again, so ${unsent}.`, error)
+  return false
+}
+
 /** One event to the provider; a rate limit is waited out with backoff, a few times, and any other failure is not tried again. */
 export const sendEvent = internalAction({
   args: { event: v.string(), email: v.string(), payload: v.optional(v.record(v.string(), v.any())), attempt: v.number() },
@@ -223,13 +236,9 @@ export const sendEvent = internalAction({
   handler: async (ctx, args) => {
     const key = env.EMAIL_API_KEY
     if (!key) return null
-    const { error } = await new Resend(key).events.send({ event: args.event, email: args.email, ...(args.payload ? { payload: args.payload } : {}) })
-    if (!error) return null
-    if (!rateLimited(error) || args.attempt >= SEND_ATTEMPTS) {
-      logBackend('warn', 'email.event_unsent', `The ${args.event} event failed at the email provider; it is not sent again, so the automations listening for it start at most once.`, error)
-      return null
+    if (await sendProviderEvent(key, args, 'the automations listening for it start at most once')) {
+      await ctx.scheduler.runAfter(2 ** args.attempt * 1000, internal.lifecycle.sendEvent, { ...args, attempt: args.attempt + 1 })
     }
-    await ctx.scheduler.runAfter(2 ** args.attempt * 1000, internal.lifecycle.sendEvent, { ...args, attempt: args.attempt + 1 })
     return null
   },
 })
@@ -315,13 +324,9 @@ export const deliver = internalAction({
       logBackend('warn', 'email.undeliverable', `A lifecycle email (${args.event}) was not sent: ${reason}.`)
       return null
     }
-    const { error } = await new Resend(env.EMAIL_API_KEY).events.send({ event: args.event, email: args.email, ...(args.payload ? { payload: args.payload } : {}) })
-    if (!error) return null
-    if (!rateLimited(error) || args.attempt >= SEND_ATTEMPTS) {
-      logBackend('warn', 'email.event_unsent', `The ${args.event} event failed at the email provider; it is not sent again, so its lifecycle email goes at most once.`, error)
-      return null
+    if (await sendProviderEvent(env.EMAIL_API_KEY, args, 'its lifecycle email goes at most once')) {
+      await ctx.scheduler.runAfter(2 ** args.attempt * 1000, internal.lifecycle.deliver, { ...args, attempt: args.attempt + 1 })
     }
-    await ctx.scheduler.runAfter(2 ** args.attempt * 1000, internal.lifecycle.deliver, { ...args, attempt: args.attempt + 1 })
     return null
   },
 })

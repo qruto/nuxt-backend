@@ -107,6 +107,12 @@ function storageIdOf(ctx: QueryCtx, id: string): Id<'_storage'> | null {
   return ctx.db.system.normalizeId('_storage', id)
 }
 
+/** A file's owner record by an id from the app, which may name no file of the component's. */
+async function recordById(ctx: QueryCtx, id: string): Promise<Doc<'files'> | null> {
+  const storageId = storageIdOf(ctx, id)
+  return storageId ? await recordOf(ctx, storageId) : null
+}
+
 /** Delete a file's bytes (the original and the served copy), its record, and its count. */
 async function deleteFile(ctx: MutationCtx, record: Doc<'files'>): Promise<void> {
   for (const id of new Set([record.storageId, record.servedId])) {
@@ -361,8 +367,7 @@ export const release = mutation({
   args: { storageId: v.string() },
   returns: v.boolean(),
   handler: async (ctx, { storageId: id }) => {
-    const storageId = storageIdOf(ctx, id)
-    const record = storageId ? await recordOf(ctx, storageId) : null
+    const record = await recordById(ctx, id)
     if (!record) return false
     await deleteFile(ctx, record)
     return true
@@ -397,8 +402,7 @@ export const url = query({
   args: { storageId: v.string(), userId: v.optional(v.string()) },
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, { storageId: id, userId }) => {
-    const storageId = storageIdOf(ctx, id)
-    const record = storageId ? await recordOf(ctx, storageId) : null
+    const record = await recordById(ctx, id)
     if (record?.status !== 'ready') return null
     if (userId !== undefined && !await mayRead(ctx, record, userId)) return null
     return ctx.storage.getUrl(record.servedId ?? record.storageId)
@@ -410,8 +414,7 @@ export const served = query({
   args: { storageId: v.string() },
   returns: v.union(v.object({ url: v.string(), contentType: v.string(), size: v.number() }), v.null()),
   handler: async (ctx, { storageId: id }) => {
-    const storageId = storageIdOf(ctx, id)
-    const record = storageId ? await recordOf(ctx, storageId) : null
+    const record = await recordById(ctx, id)
     if (record?.status !== 'ready') return null
     const url = await ctx.storage.getUrl(record.servedId ?? record.storageId)
     return url ? { url, contentType: record.contentType ?? 'application/octet-stream', size: record.size } : null
@@ -423,8 +426,7 @@ export const isReady = query({
   args: { storageId: v.string() },
   returns: v.boolean(),
   handler: async (ctx, { storageId: id }) => {
-    const storageId = storageIdOf(ctx, id)
-    const record = storageId ? await recordOf(ctx, storageId) : null
+    const record = await recordById(ctx, id)
     return record?.status === 'ready'
   },
 })
@@ -473,8 +475,7 @@ export const removeCopies = mutation({
     const decision = decisionId ? ctx.db.normalizeId('reportDecisions', decisionId) ?? undefined : undefined
     let removed = 0
     for (const id of storageIds.slice(0, 20)) {
-      const storageId = storageIdOf(ctx, id)
-      const record = storageId ? await recordOf(ctx, storageId) : null
+      const record = await recordById(ctx, id)
       if (!record) {
         logBackend('warn', 'reports.copies_unmatched', 'A removed intimate image names a file setupStorage does not keep: its identical copies were not looked for.')
         continue

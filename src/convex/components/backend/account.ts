@@ -794,6 +794,11 @@ export const cancelDeletion = mutation({
 
 // ── Export ────────────────────────────────────────────────────────────────
 
+/** The account's exports made in the day its limit counts. */
+function exportsToday(ctx: QueryCtx, userId: string, now: number) {
+  return ctx.db.query('accountExports').withIndex('userId_createdAt', q => q.eq('userId', userId).gt('createdAt', now - DAY_MS))
+}
+
 /**
  * Count one export of the account's against its daily limit, before
  * anything is read: `rate_limited` (limit `accountExport`) once
@@ -805,7 +810,7 @@ export const startExport = mutation({
   returns: v.object({ exportId: v.id('accountExports'), createdAt: v.number(), expiresAt: v.number() }),
   handler: async (ctx, { userId }) => {
     const now = Date.now()
-    const recent = await ctx.db.query('accountExports').withIndex('userId_createdAt', q => q.eq('userId', userId).gt('createdAt', now - DAY_MS)).take(ACCOUNT_EXPORTS_PER_DAY)
+    const recent = await exportsToday(ctx, userId, now).take(ACCOUNT_EXPORTS_PER_DAY)
     if (recent.length >= ACCOUNT_EXPORTS_PER_DAY) {
       const retryAfter = Math.max(0, recent[0]!.createdAt + DAY_MS - now)
       throw backendError('rate_limited', { limit: 'accountExport', retryAfter }, `[nuxt-backend] exportAccountData: ${ACCOUNT_EXPORTS_PER_DAY} exports a day; try again later.`)
@@ -1046,7 +1051,7 @@ export const exportStatus = query({
   }),
   handler: async (ctx, { userId }) => {
     const now = Date.now()
-    const recent = await ctx.db.query('accountExports').withIndex('userId_createdAt', q => q.eq('userId', userId).gt('createdAt', now - DAY_MS)).order('desc').take(ACCOUNT_EXPORTS_PER_DAY)
+    const recent = await exportsToday(ctx, userId, now).order('desc').take(ACCOUNT_EXPORTS_PER_DAY)
     const remaining = Math.max(0, ACCOUNT_EXPORTS_PER_DAY - recent.length)
     for (const row of recent) {
       if (!row.storageId || row.expiresAt <= now) continue

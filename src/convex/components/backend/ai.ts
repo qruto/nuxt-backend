@@ -3,6 +3,7 @@ import { type ObjectType, v } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel.js'
 import { internal } from './_generated/api.js'
 import { action, internalMutation, mutation, type MutationCtx, query, type QueryCtx } from './_generated/server.js'
+import { vAiDocument, vAiRequest } from './schema.js'
 import { fileOwnerOf, fileSha256, keepGenerated } from './storage.js'
 
 /**
@@ -14,30 +15,8 @@ import { fileOwnerOf, fileSha256, keepGenerated } from './storage.js'
  * by browser clients (the `email.send` pattern).
  */
 
-const vRequest = v.object({
-  streamId: v.string(),
-  name: v.string(),
-  entityId: v.string(),
-  userId: v.string(),
-  args: v.string(),
-  meterId: v.optional(v.string()),
-  cost: v.number(),
-  externalId: v.string(),
-  status: v.union(v.literal('reserved'), v.literal('streaming'), v.literal('settled'), v.literal('released')),
-  createdAt: v.number(),
-})
-
 export const createRequest = mutation({
-  args: {
-    streamId: v.string(),
-    name: v.string(),
-    entityId: v.string(),
-    userId: v.string(),
-    args: v.string(),
-    meterId: v.optional(v.string()),
-    cost: v.number(),
-    externalId: v.string(),
-  },
+  args: vAiRequest.omit('status', 'createdAt'),
   returns: v.null(),
   handler: async (ctx, args) => {
     await ctx.db.insert('aiRequests', { ...args, status: 'reserved', createdAt: Date.now() })
@@ -47,7 +26,7 @@ export const createRequest = mutation({
 
 export const getByStream = query({
   args: { streamId: v.string() },
-  returns: v.union(vRequest, v.null()),
+  returns: v.union(vAiRequest, v.null()),
   handler: async (ctx, { streamId }) => {
     const row = await requestOf(ctx, streamId)
     if (!row) return null
@@ -189,24 +168,7 @@ export const listThreads = query({
 /** Forget a thread's owner row (its messages go through the Agent component). */
 export const deleteThread = threadWrite(async (ctx, row) => ctx.db.delete('aiThreads', row._id))
 
-const vDocumentStatus = v.union(v.literal('pending'), v.literal('ready'), v.literal('failed'))
-
-const vDocumentRow = v.object({
-  id: v.string(),
-  store: v.string(),
-  owner: v.string(),
-  addedBy: v.string(),
-  title: v.string(),
-  key: v.optional(v.string()),
-  status: vDocumentStatus,
-  entryId: v.optional(v.string()),
-  characters: v.number(),
-  createdAt: v.number(),
-  remove: v.string(),
-  read: v.string(),
-  namespaces: v.optional(v.string()),
-  removeNamespace: v.optional(v.string()),
-})
+const vDocumentRow = vAiDocument.extend({ id: v.string() })
 
 function documentView(row: { _id: string, _creationTime: number } & Record<string, unknown>) {
   const { _id, _creationTime, ...document } = row
@@ -215,7 +177,7 @@ function documentView(row: { _id: string, _creationTime: number } & Record<strin
 
 /** Record a document waiting for its embeddings, and return its id. */
 export const createDocument = mutation({
-  args: { store: v.string(), owner: v.string(), addedBy: v.string(), title: v.string(), key: v.optional(v.string()), characters: v.number(), remove: v.string(), read: v.string(), namespaces: v.optional(v.string()), removeNamespace: v.optional(v.string()) },
+  args: vAiDocument.omit('status', 'entryId', 'createdAt'),
   returns: v.string(),
   handler: async (ctx, args) => ctx.db.insert('aiDocuments', { ...args, status: 'pending', createdAt: Date.now() }),
 })
@@ -310,6 +272,15 @@ const vImageRecord = {
   manifest: v.optional(v.string()),
 }
 
+const vImageBytes = { bytes: v.bytes(), ...vImageRecord }
+
+/** Store an image's bytes, and answer what its owner record is written with. */
+async function storeBytes(storage: { store: (blob: Blob) => Promise<Id<'_storage'>> }, bytes: ArrayBuffer, record: ObjectType<typeof vImageRecord>) {
+  const contentType = record.contentType ?? 'application/octet-stream'
+  const storageId = await storage.store(new Blob([bytes], { type: contentType }))
+  return { ...record, contentType, storageId, size: bytes.byteLength, sha256: await fileSha256(bytes) }
+}
+
 /**
  * Keep a generated image (`ctx.storeImage`) and record what made it: an
  * action, so the bytes go straight to the component's storage and only the
@@ -324,16 +295,15 @@ const vImageRecord = {
  * again. Answers the image's id in the component's storage.
  */
 export const storeGeneratedImage = action({
-  args: { bytes: v.bytes(), ...vImageRecord },
+  args: vImageBytes,
   returns: v.id('_storage'),
   handler: async (ctx, { bytes, ...record }): Promise<Id<'_storage'>> => {
-    const contentType = record.contentType ?? 'application/octet-stream'
-    const storageId = await ctx.storage.store(new Blob([bytes], { type: contentType }))
+    const stored = await storeBytes(ctx.storage, bytes, record)
     try {
-      return await ctx.runMutation(internal.ai.recordImage, { ...record, contentType, storageId, size: bytes.byteLength, sha256: await fileSha256(bytes) })
+      return await ctx.runMutation(internal.ai.recordImage, stored)
     }
     catch (error) {
-      await ctx.storage.delete(storageId)
+      await ctx.storage.delete(stored.storageId)
       throw error
     }
   },
@@ -346,13 +316,9 @@ export const storeGeneratedImage = action({
  * (`ctx.storeImage` does), so its bytes are never a mutation's argument.
  */
 export const storeImage = mutation({
-  args: { bytes: v.bytes(), ...vImageRecord },
+  args: vImageBytes,
   returns: v.id('_storage'),
-  handler: async (ctx, { bytes, ...record }): Promise<Id<'_storage'>> => {
-    const contentType = record.contentType ?? 'application/octet-stream'
-    const storageId = await ctx.storage.store(new Blob([bytes], { type: contentType }))
-    return await recordImageRow(ctx, { ...record, contentType, storageId, size: bytes.byteLength, sha256: await fileSha256(bytes) })
-  },
+  handler: async (ctx, { bytes, ...record }): Promise<Id<'_storage'>> => recordImageRow(ctx, await storeBytes(ctx.storage, bytes, record)),
 })
 
 const vRecordImage = { ...vImageRecord, storageId: v.id('_storage'), size: v.number(), sha256: v.string() }
