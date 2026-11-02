@@ -1,6 +1,6 @@
-import { defineEventHandler, getCookie, getRequestProtocol, getRequestURL, readBody, setCookie, useRuntimeConfig, type RequestEvent } from 'nuxt/server'
+import { defineEventHandler, getCookie, getRequestIP, getRequestProtocol, getRequestURL, readBody, setCookie, useRuntimeConfig, type RequestEvent } from 'nuxt/server'
 import { backendError, refusalResponse } from '../../../convex/errors.js'
-import { CALL_METHOD, HUMAN_PROOF_ROUTE, isActionName, isProtectedAuthPath, newVisitorId, PROOF_HEADER, proofAudience, proofSubject, readVisitor, requestSubject, SECURE_VISITOR_COOKIE, signProof, signVisitor, VISITOR_COOKIE, VISITOR_COOKIE_MAX_AGE_SECONDS, VISITOR_METHOD, withVisitor } from '../../../convex/proof.js'
+import { CALL_METHOD, CLIENT_ADDRESS_HEADER, HUMAN_PROOF_ROUTE, isActionName, isProtectedAuthPath, newVisitorId, PROOF_HEADER, proofAudience, proofSubject, readVisitor, requestSubject, SECURE_VISITOR_COOKIE, signClientAddress, signProof, signVisitor, VISITOR_COOKIE, VISITOR_COOKIE_MAX_AGE_SECONDS, VISITOR_METHOD, withVisitor } from '../../../convex/proof.js'
 import { readSiteUrl } from '../site-url'
 
 // The app's server's half of bot protection: its own bot check, the secret
@@ -98,6 +98,26 @@ function setProofHeader(event: RequestEvent, proof: string | null): void {
   if (proof) event.req.headers.set(PROOF_HEADER, proof)
 }
 
+/**
+ * Sign the client's address into the request the auth proxy forwards
+ * (`CLIENT_ADDRESS_HEADER`), or take off one a caller sent. The deployment
+ * sees only this server connect, so this is the address it limits by
+ * (clientAddressPlugin). Behind the host's proxy the client's address is the
+ * first of `x-forwarded-for`. Without `PROTECTION_PROOF_SECRET` nothing is
+ * signed, and the deployment falls back to the address it sees.
+ */
+async function setClientAddress(event: RequestEvent): Promise<void> {
+  event.req.headers.delete(CLIENT_ADDRESS_HEADER)
+  const secret = proofSecret()
+  const address = secret ? getRequestIP(event, { xForwardedFor: true }) : undefined
+  if (secret && address) event.req.headers.set(CLIENT_ADDRESS_HEADER, await signClientAddress(secret, address, serverAudience()))
+}
+
+/** Whether a path is under the auth proxy's route. */
+function isAuthPath(path: string, authRoute: string): boolean {
+  return path === authRoute || path.startsWith(`${authRoute}/`)
+}
+
 /** The refusal for a failed check, as the auth client and `getBackendError` read it. */
 export function verdictRefusal(verdict: 'bot' | 'unavailable'): Response {
   return refusalResponse(verdict === 'bot'
@@ -164,15 +184,18 @@ async function visitorOf(event: RequestEvent, secret: string, audience: string):
  * with a proof signed under `PROTECTION_PROOF_SECRET` for its method, path
  * and address and for the deployment it goes to, which that deployment
  * checks: Better Auth runs on the deployment's own public URL, and a
- * request that skipped this check carries none. Global middleware matched
- * in-handler, like the agent gate.
+ * request that skipped this check carries none. Every request to the auth
+ * routes, whatever its method, also leaves with the client's address
+ * signed in (`setClientAddress`). Global middleware matched in-handler,
+ * like the agent gate.
  */
 export default defineEventHandler(async (event) => {
   const { method } = event.req
-  if (method !== 'POST') return
   const path = getRequestURL(event).pathname
-  if (path === HUMAN_PROOF_ROUTE) return proofForCall(event)
   const authRoute = (useRuntimeConfig().public.backend as { authRoute?: string } | undefined)?.authRoute ?? '/api/auth'
+  if (isAuthPath(path, authRoute)) await setClientAddress(event)
+  if (method !== 'POST') return
+  if (path === HUMAN_PROOF_ROUTE) return proofForCall(event)
   if (!isProtectedAuthPath(path, authRoute)) return
   setProofHeader(event, null)
   const verdict = await botVerdict()

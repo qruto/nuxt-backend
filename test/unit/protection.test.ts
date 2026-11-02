@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { probeProof, protectionFindings, type ProtectionDoctorInput } from '../../src/cli/protection'
 import { getBackendError } from '../../src/convex/errors'
 import { verifyHuman } from '../../src/convex/integrations/functions'
-import { CALL_METHOD, HUMAN_PROOF_ROUTE, PROOF_HEADER, type ProofTarget, proofVisitor, signProof as signProofFor, signVisitor, TEST_CHALLENGE_SECRET_KEYS, TEST_CHALLENGE_SITE_KEYS, verifyProof as verifyProofFor, VISITOR_METHOD, withVisitor } from '../../src/convex/proof'
+import { CALL_METHOD, CLIENT_ADDRESS_HEADER, HUMAN_PROOF_ROUTE, PROOF_HEADER, readClientAddress, type ProofTarget, proofVisitor, signProof as signProofFor, signVisitor, TEST_CHALLENGE_SECRET_KEYS, TEST_CHALLENGE_SITE_KEYS, verifyProof as verifyProofFor, VISITOR_METHOD, withVisitor } from '../../src/convex/proof'
 import { provenVisitor, requestVisitor } from '../../src/convex/visitor'
 import { authFlow, ORIGIN } from '../helpers/auth-flow'
 
@@ -356,7 +356,7 @@ describe('on the app\'s server', () => {
     const instance = createApp()
     instance.use(gate as never)
     instance.use('/api/auth', defineEventHandler(async (event: { req: Request }) => {
-      return { forwarded: event.req.headers.get(PROOF_HEADER), body: await event.req.text() }
+      return { forwarded: event.req.headers.get(PROOF_HEADER), client: event.req.headers.get(CLIENT_ADDRESS_HEADER), body: await event.req.text() }
     }) as never)
     return instance
   }
@@ -374,6 +374,18 @@ describe('on the app\'s server', () => {
     const text = typeof response.body === 'string' ? response.body : await new Response(response.body as BodyInit).text()
     const cookies = (response.headers as Array<[string, string]>).filter(([name]) => name.toLowerCase() === 'set-cookie').map(([, value]) => value)
     return { status: response.status, body: JSON.parse(text) as Record<string, unknown>, cookies }
+  }
+
+  /** GET through the app, from a client the host's proxy names in `x-forwarded-for`. */
+  async function get(shape: 'plain' | 'web', path: string, headers: Record<string, string> = {}) {
+    const instance = await app()
+    if (shape === 'web') {
+      const response = await toWebHandler(instance)(new Request(`${ORIGIN}${path}`, { headers }))
+      return await response.json() as Record<string, unknown>
+    }
+    const response = await toPlainHandler(instance)({ method: 'GET', path, headers: { host: 'app.example.com', ...headers } })
+    const text = typeof response.body === 'string' ? response.body : await new Response(response.body as BodyInit).text()
+    return JSON.parse(text) as Record<string, unknown>
   }
 
   let secret: string
@@ -410,6 +422,18 @@ describe('on the app\'s server', () => {
       // A verified bot (a crawler, an agent) asks for no sign-in code either.
       checkBotId.mockResolvedValue({ isBot: true, isHuman: false, isVerifiedBot: true, bypassed: false })
       expect(await post(shape, SEND)).toMatchObject({ status: 403, body: { reason: 'bot_check' } })
+    })
+
+    it('signs the client\'s address into every auth request, a GET included, for the deployment the proxy forwards to', async () => {
+      const CHALLENGE = '/api/auth/passkey/generate-authenticate-options'
+      const { client } = await get(shape, CHALLENGE, { 'x-forwarded-for': '203.0.113.9' })
+      expect(await readClientAddress(secret, client as string, 'happy-otter-123.convex.site')).toBe('203.0.113.9')
+      expect(await readClientAddress(secret, client as string, new URL(OTHER_SITE).host)).toBeNull()
+      // One the caller wrote is replaced, and without a secret dropped.
+      const replaced = await get(shape, CHALLENGE, { 'x-forwarded-for': '203.0.113.9', [CLIENT_ADDRESS_HEADER]: '198.51.100.1;v1.1.forged' })
+      expect(await readClientAddress(secret, replaced.client as string, 'happy-otter-123.convex.site')).toBe('203.0.113.9')
+      vi.stubEnv('PROTECTION_PROOF_SECRET', '')
+      expect((await get(shape, CHALLENGE, { 'x-forwarded-for': '203.0.113.9', [CLIENT_ADDRESS_HEADER]: '198.51.100.1;v1.1.forged' })).client).toBeNull()
     })
 
     it('never forwards a proof the caller wrote', async () => {

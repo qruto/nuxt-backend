@@ -1,4 +1,4 @@
-import { createError as h3CreateError, getCookie as h3GetCookie, getRequestHeader as h3RequestHeader, getRequestProtocol as h3RequestProtocol, getRequestURL as h3RequestURL, readBody as h3ReadBody, setCookie as h3SetCookie, setResponseStatus as h3SetResponseStatus, toWebRequest, type H3Event } from 'h3'
+import { createError as h3CreateError, getCookie as h3GetCookie, getRequestIP as h3RequestIP, getRequestHeader as h3RequestHeader, getRequestProtocol as h3RequestProtocol, getRequestURL as h3RequestURL, readBody as h3ReadBody, setCookie as h3SetCookie, setResponseStatus as h3SetResponseStatus, toWebRequest, type H3Event } from 'h3'
 
 // Stand-in for `nuxt/server` in the unit project. The real one is Nuxt's
 // runtime for the server builder in use, which only a built server resolves.
@@ -69,3 +69,4 @@ export const setResponseStatus = (event: H3Event, status: number, statusText?: s
 export const getCookie = (event: H3Event, name: string) => h3GetCookie(event, name)
 export const setCookie = (event: H3Event, name: string, value: string, options?: Parameters<typeof h3SetCookie>[3]) => h3SetCookie(event, name, value, options)
 export const getRequestProtocol = (event: H3Event, options?: { xForwardedProto?: boolean }) => h3RequestProtocol(event, options)
+export const getRequestIP = (event: H3Event, options?: { xForwardedFor?: boolean }) => h3RequestIP(event, options)
