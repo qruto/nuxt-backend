@@ -14,7 +14,7 @@ import {
   throttled,
   windowStartOf,
 } from '../../src/convex/jobs-policy'
-import { classifyStepError, retryAfterOf } from '../../src/convex/integrations/ai/job-errors'
+import { classifyStepError, retryAfterOf, upstreamErrorOf } from '../../src/convex/integrations/ai/job-errors'
 import { backendError } from '../../src/convex/errors'
 
 // The queue's policy as plain functions: the define-time checks, the
@@ -157,6 +157,15 @@ describe('a step\'s error', () => {
     expect(classifyStepError(new TypeError('no image'), [{ model: 'm', state: 'finished', usage: { model: 'm', input: 1, output: 0 }, finishReason: 'content-filter' }])).toEqual({ kind: 'blocked' })
     expect(classifyStepError(backendError('invalid_input', { field: 'idea' }))).toEqual({ kind: 'catalog', payload: { code: 'invalid_input', field: 'idea' } })
     expect(classifyStepError(new Error('anything else'))).toEqual({ kind: 'fatal' })
+  })
+
+  it('reads the provider\'s words from a 200 whose body is an error, at any depth', () => {
+    const body = JSON.stringify({ id: 'gen-1', error: { message: 'Upstream error from DeepInfra: BadRequestError', code: 400 } })
+    expect(upstreamErrorOf(Object.assign(new Error('Invalid JSON response'), { statusCode: 200, responseBody: body }))).toBe('Upstream error from DeepInfra: BadRequestError')
+    expect(upstreamErrorOf(new Error('retry', { cause: { responseBody: JSON.stringify({ error: 'over capacity' }) } }))).toBe('over capacity')
+    expect(upstreamErrorOf(Object.assign(new Error('x'), { responseBody: '<html>502</html>' }))).toBeUndefined()
+    expect(upstreamErrorOf(Object.assign(new Error('x'), { responseBody: JSON.stringify({ choices: [] }) }))).toBeUndefined()
+    expect(upstreamErrorOf(new Error('no body'))).toBeUndefined()
   })
 
   it('reads Retry-After as an HTTP date too', () => {
