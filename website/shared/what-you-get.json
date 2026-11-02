@@ -637,6 +637,10 @@
           "to": "/docs/reference/cli/diagnostics#billing-organization"
         },
         {
+          "name": "billing-customer-mapping",
+          "to": "/docs/reference/cli/diagnostics#billing-customer-mapping"
+        },
+        {
           "name": "billing-multiple-subscriptions",
           "to": "/docs/reference/cli/diagnostics#billing-multiple-subscriptions"
         },
@@ -1460,9 +1464,9 @@
       "kind": "Findings",
       "items": [
         {
-          "name": "94 in all",
+          "name": "95 in all",
           "to": "/docs/reference/cli/diagnostics",
-          "label": "94 findings in all"
+          "label": "95 findings in all"
         }
       ]
     }

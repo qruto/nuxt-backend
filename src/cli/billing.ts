@@ -38,6 +38,7 @@ import { deploymentLabel, planWebhook, productsRefreshBlocker, readSyncDeploymen
 import { loadCatalog } from './billing/doctor'
 import { loadGenerated, renderGenerated } from './billing/generated'
 import type { CatalogIds, Environment, SyncLogEntry } from './billing/provider'
+import { runBillingReset } from './billing/reset'
 import { syncBillingCatalog, type BillingSyncOptions, type BillingSyncResult, type ProvisionedWebhook } from './billing/sync'
 import { finish, progress, withContract } from './contract'
 
@@ -405,7 +406,26 @@ export const billingSync = withContract('billing sync', {
   },
 }))
 
+export const billingReset = withContract('billing reset', {
+  sideEffects: ['writes provider accounts', 'writes project files', 'writes the dev deployment'],
+  json: '{ sync: <billing sync --json>, cleared: [{ component, table, status: "cleared" | "failed" | "skipped", note? }], freePlan: { status: "queued" | "skipped" | "failed", note? } }',
+  exitCodes: {
+    0: 'Reset: the catalog synced, the billing data cleared, and the free plan queued (or the catalog has none)',
+    1: 'Refused or failed: a deploy key for any deployment but a dev one, a deployment that bills in production, a refused billing sync (nothing is cleared then), a table that could not be cleared, or a free plan that could not be queued',
+  },
+}, defineCommand({
+  meta: { name: 'reset', description: 'Start the dev deployment\'s billing over in the organization BILLING_ACCESS_TOKEN names, after the token moved to another one (a new sandbox): sync the catalog, clear the billing provider component\'s customers and subscriptions and the entitlement cache, and put every billing entity back on the free plan. Dev deployments only' },
+  args: {
+    cwd: { type: 'string', description: 'Project directory', default: '.' },
+    json: { type: 'boolean', description: 'Print the outcome as one JSON document; progress goes to stderr', default: false },
+  },
+  async run({ args }) {
+    const { exitCode, report } = await runBillingReset(resolve(process.cwd(), args.cwd), { sync: runBillingSync, print: progress(args.json) })
+    finish(args.json, { exitCode, output: report })
+  },
+}))
+
 export const billing = defineCommand({
   meta: { name: 'billing', description: 'Billing catalog helpers' },
-  subCommands: { sync: billingSync },
+  subCommands: { sync: billingSync, reset: billingReset },
 })

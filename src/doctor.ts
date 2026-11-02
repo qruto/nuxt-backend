@@ -36,6 +36,7 @@ import type { BillingCatalog } from './convex/catalog'
 import { collectBillingFindings, loadCatalog, readBillingOrganizationState } from './cli/billing'
 import { productionCatalogFindings, providerSdkFindings } from './cli/billing/doctor'
 import { billingEndpointFindings, billingProviderTarget, providerClient, readProviderEndpoint } from './cli/billing/settings'
+import { checkMappedCustomers, customerMappingFindings, readMappedCustomers } from './cli/billing/mappings'
 import { metricsAccessFindings } from './cli/billing/metrics'
 import { activationFindings } from './cli/analytics/activation'
 import { devScriptFinding } from './cli/dev'
@@ -313,6 +314,32 @@ async function billingEndpointCheck(env: Record<string, string | undefined>, { p
   if (!target) return []
   const url = `${siteUrl.replace(/\/+$/, '')}/billing/events`
   return billingEndpointFindings(await readProviderEndpoint(providerClient(target.accessToken, target.environment), url), url)
+}
+
+/**
+ * Whether the provider knows the customers the deployment maps billing
+ * entities onto, with the token `doctor` reaches it with: a page of the
+ * mapped ids, read off the provider's component, then each asked for. No
+ * finding without a token, or when either side cannot be read.
+ */
+async function customerMappingCheck(rootDir: string, env: Record<string, string | undefined>, { prod }: { prod: boolean }): Promise<PreflightFinding[]> {
+  const target = billingProviderTarget(env, prod)
+  if (!target) return []
+  const ids = await readMappedCustomers(rootDir, { prod })
+  if (!ids) return []
+  return customerMappingFindings(await checkMappedCustomers(providerClient(target.accessToken, target.environment), ids), { prod })
+}
+
+/**
+ * The deployment as the billing provider sees it: the webhook endpoint at
+ * its site, and the customers it maps billing entities onto.
+ */
+async function billingProviderFindings(rootDir: string, env: Record<string, string | undefined>, { prod, reachable, siteUrl }: { prod: boolean, reachable: boolean, siteUrl: string | undefined }): Promise<PreflightFinding[]> {
+  const [endpoint, mappings] = await Promise.all([
+    siteUrl ? billingEndpointCheck(env, { prod, siteUrl }) : [],
+    reachable ? customerMappingCheck(rootDir, env, { prod }) : [],
+  ])
+  return [...endpoint, ...mappings]
 }
 
 /** The email setup as the deployment's own email sync reads it, as a dry run; nothing when it cannot run, or the deployment has no `email:syncEmail`. */
@@ -685,7 +712,7 @@ async function deployedSurfaceFindings(rootDir: string, { prod, deployed, env, l
   // report nothing when it is unreadable) run side by side.
   // Bot protection: the deployment's names, the keys visible here, and a
   // proof signed with the secret here, which the deployment takes or not.
-  const [routes, pages, protection, site, admins, email, endpoint] = await Promise.all([
+  const [routes, pages, protection, site, admins, email, billing] = await Promise.all([
     probes && probeSiteUrl
       ? webhookRouteFindings(probeSiteUrl, { ai: identifiers ? [...identifiers].some(id => id.startsWith('ai:')) : true, wants, prod })
       : [],
@@ -696,11 +723,11 @@ async function deployedSurfaceFindings(rootDir: string, { prod, deployed, env, l
     reachable && wants('auth') ? deploymentHasAdmin(rootDir, { prod }).then(hasAdmin => adminBootstrapFindings(hasAdmin, { prod })) : [],
     // The topics, the webhook's events and the key's reach, as the deployment's own email sync reads them (a dry run).
     emailSetupFindings(rootDir, { prod, reachable: reachable && wants('email'), identifiers }),
-    wants('billing') && probeSiteUrl ? billingEndpointCheck(env, { prod, siteUrl: probeSiteUrl }) : [],
+    wants('billing') ? billingProviderFindings(rootDir, env, { prod, reachable, siteUrl: probeSiteUrl }) : [],
   ])
   return [
     ...routes,
-    ...endpoint,
+    ...billing,
     ...protection,
     // The composable function contract.
     ...identifiers && wants('scaffold') ? functionContractFindings(identifiers) : [],
