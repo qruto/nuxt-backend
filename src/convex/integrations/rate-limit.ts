@@ -178,11 +178,12 @@ export const DEFAULT_LIMITS = {
    * tap on "Sign in with passkey", and each sign-in page that offers
    * passkeys in the browser's autofill, again every four and a half minutes
    * while it stays open in view, a challenge lasting five. Keyed by an
-   * HMAC, under the auth secret, of the address Better Auth reads from
-   * `x-forwarded-for` (its `advanced.ipAddress` options), which only a
-   * proxy in front of the deployment makes trustworthy: anyone calling the
-   * deployment directly writes that header themselves. A best effort, then,
-   * with {@link DEFAULT_LIMITS.passkeySignInGlobal} as the ceiling behind it.
+   * HMAC, under the auth secret, of the client's address: the one the app's
+   * server signed under `PROTECTION_PROOF_SECRET` for a request through its
+   * auth proxy (clientAddressPlugin), else the one Convex wrote into
+   * `x-forwarded-for`, the address that connected. Without the secret every
+   * visitor through the app's server shares that server's address, so
+   * {@link DEFAULT_LIMITS.passkeySignInGlobal} is the ceiling behind it.
    */
   passkeySignIn: { kind: 'token bucket', rate: 30, period: MINUTE, capacity: 30 },
   /**

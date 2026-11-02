@@ -15,13 +15,14 @@ import type { Email } from '../integrations/email.js'
 import { normalizeLocale } from '../locale.js'
 import { auditDatabaseHooks, recordSignedUp } from './audit.js'
 import { checkNewDevice } from './devices.js'
+import { clientAddressPlugin } from './client-address.js'
 import { assertCanSignIn, challengePlugin, disabledRoutes, makeRequestHooks, reauthenticatedWorkspace, reauthenticating } from './guards.js'
 import { authRefusal } from './refusals.js'
 import { pausedData } from '../pauses.js'
 import { type DatabaseHooks, mergeDatabaseHooks } from './hooks.js'
 import { ACCOUNT_FIELDS, administratorsOf, defaultAdmin, type DefaultAuthPlugin, defaultLastLoginMethod, defaultPasskey, SESSION_FIELDS, sessionSignInMethod } from './plugins.js'
 import { isAdministrator } from '../integrations/access.js'
-import { protectionEnv } from '../proof.js'
+import { CLIENT_IP_HEADER, protectionEnv } from '../proof.js'
 import { resolveBackendPaths } from '../paths.js'
 import { type AuthRuntime, asMutationCtx, hookAdapter, readEnv } from './runtime.js'
 import { ensureActiveWorkspace, organizationOptions } from './workspaces.js'
@@ -453,6 +454,14 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
     // instead. `authOptions.rateLimit: { enabled: true, storage: 'database' }`
     // still turns it on, with durable storage.
     rateLimit: { enabled: false, ...resolvedAuthOptions.rateLimit },
+    // The client's address: the one the app's server signed and the
+    // client-address plugin checked, else the one the platform wrote into
+    // `x-forwarded-for` (see clientAddressPlugin). An app's own
+    // `ipAddressHeaders` replace both.
+    advanced: {
+      ...resolvedAuthOptions.advanced,
+      ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER, 'x-forwarded-for'], ...resolvedAuthOptions.advanced?.ipAddress },
+    },
     // The package's hooks compose with consumer-supplied databaseHooks —
     // per model and operation, ours run first, theirs second (see
     // mergeDatabaseHooks) — so a consumer hook extends the packaged
@@ -461,6 +470,7 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
     // The request guards (and any consumer before-hook after them).
     hooks,
     plugins: [
+      clientAddressPlugin(protection.proofSecret),
       convex({
         authConfig: resolvedAuthConfig,
         options: {

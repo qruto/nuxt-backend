@@ -53,7 +53,7 @@ describe('adapter schema plugins ⇄ runtime plugins', () => {
 
     expect(adapter).toStrictEqual(pluginIds(runtimeOptions()))
     // The named defaults, so a change on either side reads as intent here too.
-    expect(adapter).toStrictEqual(['admin', 'convex', 'email-otp', 'last-login-method', 'nuxt-backend-secret-rotation', 'organization', 'passkey', 'passkey-only'])
+    expect(adapter).toStrictEqual(['admin', 'convex', 'email-otp', 'last-login-method', 'nuxt-backend-client-address', 'nuxt-backend-secret-rotation', 'organization', 'passkey', 'passkey-only'])
   })
 
   it('the tables the adapter maps cover the runtime instances, and the component schema owns them all', () => {

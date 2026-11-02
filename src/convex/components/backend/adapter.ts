@@ -5,6 +5,7 @@ import { createApi } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import type { RegisteredMutation, RegisteredQuery } from 'convex/server'
 import { ACCOUNT_FIELDS, PASSKEY_ONLY_PLUGIN, SESSION_FIELDS } from '../../client/plugins.js'
+import { CLIENT_ADDRESS_PLUGIN_ID } from '../../client/client-address.js'
 import { SECRET_ROTATION_PLUGIN_ID } from '../../client/secret-rotation.js'
 import { authSchema as schema } from './schema.js'
 
@@ -13,7 +14,7 @@ import { authSchema as schema } from './schema.js'
  * component adapter. Mirrors upstream @convex-dev/better-auth component/adapter
  * pattern (see their auth-options.ts + adapter.ts) but limited to plugins we
  * enable by default (convex + emailOTP + passkey + lastLoginMethod + admin +
- * organization + passkey-only + the secret rotation) for minimal surface. ⚠ Keep this
+ * organization + passkey-only + the secret rotation + the client address) for minimal surface. ⚠ Keep this
  * plugin set aligned with the default set `buildAuthOptions` builds
  * (src/convex/client/better-auth-options.ts) —
  * a plugin enabled there but missing here leaves its tables out of the
@@ -39,6 +40,8 @@ const options: BetterAuthOptions = {
     { id: PASSKEY_ONLY_PLUGIN.id, schema: PASSKEY_ONLY_PLUGIN.schema },
     // The AUTH_SECRET rotation's cookie re-signing: no tables.
     { id: SECRET_ROTATION_PLUGIN_ID },
+    // The client's address behind the app's auth proxy: no tables.
+    { id: CLIENT_ADDRESS_PLUGIN_ID },
   ],
 }
 

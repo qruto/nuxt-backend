@@ -225,6 +225,49 @@ export function newVisitorId(): string {
  */
 export const VISITOR_METHOD = 'VISITOR'
 
+/**
+ * The header the app's server passes the client's address to the
+ * deployment in: `<address>;<proof>`, signed under the proof secret. The
+ * deployment sees only the app's server connect (its `x-forwarded-for` is
+ * the server's address, written by the platform), so without it every
+ * visitor through the app's server would share one address.
+ */
+export const CLIENT_ADDRESS_HEADER = 'x-backend-client'
+
+/**
+ * The header Better Auth reads the client's address from first
+ * (`advanced.ipAddress.ipAddressHeaders`): set by the deployment itself,
+ * from a {@link CLIENT_ADDRESS_HEADER} whose proof holds, and taken off
+ * every request that arrives with one.
+ */
+export const CLIENT_IP_HEADER = 'x-backend-client-ip'
+
+/** The method a client address is signed with, so no other proof passes for one. */
+export const CLIENT_METHOD = 'CLIENT'
+
+/** An IPv4 or IPv6 address as a header carries it: nothing a list or a second value could hide in. */
+const ADDRESS_FORMAT = /^[\da-f.:]{2,45}$/i
+
+/** Sign the client's address for one deployment: the {@link CLIENT_ADDRESS_HEADER} value. */
+export async function signClientAddress(secret: string, address: string, audience: string, now?: number): Promise<string> {
+  const proof = await signProof(secret, { method: CLIENT_METHOD, path: CLIENT_METHOD, audience, subject: address, ...(now === undefined ? {} : { now }) })
+  return `${address};${proof}`
+}
+
+/**
+ * The address a {@link CLIENT_ADDRESS_HEADER} value names, when its proof
+ * holds under `secret` for this deployment and is fresh; `null` for one
+ * that is missing, malformed, stale or signed for another deployment.
+ */
+export async function readClientAddress(secret: string, value: string | null | undefined, audience: string, now?: number): Promise<string | null> {
+  const at = value?.indexOf(';') ?? -1
+  if (!value || at === -1) return null
+  const address = value.slice(0, at)
+  if (!ADDRESS_FORMAT.test(address)) return null
+  const check = await verifyProof(secret, value.slice(at + 1), { method: CLIENT_METHOD, path: CLIENT_METHOD, audience, subject: address, ...(now === undefined ? {} : { now }) })
+  return check.ok ? address : null
+}
+
 /** The visitor a proof is bound to, or `undefined` for a proof bound to a subject (or none). Says nothing of its signature. */
 export function proofVisitor(proof: string): string | undefined {
   return PROOF_FORMAT.exec(proof)?.[3]
