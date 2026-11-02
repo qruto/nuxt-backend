@@ -11,7 +11,8 @@ holds the rules every change follows; this one covers who the caller is and what
 
 ## Sign-in and pages
 
-- `useAuth()` only reads the session (`user`, `role`, `hasRole()`, `isSignedIn`, `impersonating`)
+- `useAuth()` only reads the session (`user`, `role`, `hasRole()`, `isSignedIn`, `isReady` for
+  signed-in reads, `impersonating`)
   and signs out; `<AuthForm>` signs in with passkeys and email codes. `definePageMeta({ auth: true })`
   protects a page: the one page guard, no named middleware.
 - `definePageMeta({ auth: { role: 'admin' } })` opens a page only to a role (also `workspace: true`

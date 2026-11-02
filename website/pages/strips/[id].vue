@@ -6,7 +6,9 @@ definePageMeta({ auth: true })
 
 const route = useRoute()
 const id = computed(() => route.params.id as Id<'strips'>)
-const strip = useQuery(api.strips.get, () => ({ id: id.value }))
+// Asked once the backend holds the session's token (useAuth().isReady).
+const { isReady } = useAuth()
+const strip = useQuery(api.strips.get, () => (isReady.value ? { id: id.value } : 'skip'))
 // On the demo a canned idea is a copy of panels drawn once (backend/demo.ts).
 const demo = useQuery(api.demo.status, {})
 </script>

@@ -1,5 +1,6 @@
-import { computed, type ComputedRef } from 'vue'
+import { computed, type ComputedRef, hasInjectionContext, inject } from 'vue'
 import type { BetterAuthSession, BetterAuthUser } from 'nuxt-convex-module/better-auth/client'
+import { ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { useAuthSession } from '../utils/auth-session'
 
 /** The signed-in account, as the session carries it: `id`, `email`, `name`, `role`, `banned`, `image`, `locale`, … */
@@ -23,6 +24,16 @@ export interface UseAuthReturn {
   hasRole: (role: string | string[]) => boolean
   /** Whether someone is signed in, read from the base module's auth state. */
   isSignedIn: ComputedRef<boolean>
+  /**
+   * Whether a signed-in read can go: someone is signed in, and the backend
+   * connection holds their token. On every page load `isSignedIn` turns
+   * `true` a moment sooner, from the session, while the token is still on
+   * its way, and a query of a signed-in tier (`authed`, `workspace`,
+   * `admin`) started in that moment is refused `unauthenticated`. Skip
+   * such a query until this is `true`:
+   * `useQuery(api.strips.list, () => (isReady.value ? {} : 'skip'))`.
+   */
+  isReady: ComputedRef<boolean>
   /** `true` while the session is still resolving. */
   isLoading: ComputedRef<boolean>
   /**
@@ -49,7 +60,9 @@ export interface UseAuthReturn {
  * @example
  * ```vue
  * <script setup lang="ts">
- * const { user, isSignedIn, hasRole, signOut } = useAuth()
+ * const { user, isSignedIn, isReady, hasRole, signOut } = useAuth()
+ * // A read of your own signed-in functions waits for the backend to hold the token.
+ * const strips = useQuery(api.strips.list, () => (isReady.value ? {} : 'skip'))
  * </script>
  *
  * <template>
@@ -63,12 +76,15 @@ export interface UseAuthReturn {
  */
 export function useAuth(): UseAuthReturn {
   const auth = useAuthSession()
+  // The backend connection's own state: whether the client holds the session's token.
+  const connection = hasInjectionContext() ? inject(ConvexAuthStateKey, null) : null
   return {
     user: computed(() => auth.user.value as BackendUser | null),
     session: computed(() => (auth.session.value.data?.session ?? null) as BackendSession | null),
     role: auth.role,
     hasRole: auth.hasRole,
     isSignedIn: auth.isAuthenticated,
+    isReady: computed(() => auth.isAuthenticated.value && (connection ? connection.isAuthenticated.value : !auth.isLoading.value)),
     isLoading: auth.isLoading,
     impersonating: auth.isImpersonating,
     signOut: auth.signOut,

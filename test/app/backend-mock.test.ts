@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, nextTick } from 'vue'
+import { computed, defineComponent, h, nextTick, ref } from 'vue'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 import axe from 'axe-core'
 import { ConvexError } from 'convex/values'
 import { makeFunctionReference } from 'convex/server'
-import { Authenticated, provideConvexAuth, Unauthenticated, usePaginatedQuery, useQuery } from 'nuxt-convex-module/client'
+import { Authenticated, ConvexAuthStateKey, provideConvexAuth, Unauthenticated, usePaginatedQuery, useQuery } from 'nuxt-convex-module/client'
 import { backendMockProvides, createBackendMock, resetBackendMock } from '../../src/runtime/test-utils'
 import { useAuth as usePublicAuth } from '../../src/runtime/vue/composables/use-auth'
 import { useAuthSession as useAuth } from '../../src/runtime/vue/utils/auth-session'
@@ -69,6 +69,32 @@ describe('the session', () => {
     await auth.signOut()
     expect(auth.isAuthenticated.value).toBe(false)
     expect(backend.callsTo('signOut')).toHaveLength(1)
+  })
+
+  it('is ready for signed-in reads once the backend connection holds the token, not when the session says signed in', async () => {
+    const backend = createBackendMock()
+    backend.signIn({ name: 'Grace' })
+    // A page load: the session is back, the client's token not yet.
+    const token = ref(false)
+    let auth!: ReturnType<typeof usePublicAuth>
+    mount(defineComponent({
+      setup() {
+        auth = usePublicAuth()
+        return () => h('div')
+      },
+    }), { global: { provide: { [ConvexAuthStateKey as symbol]: { isLoading: computed(() => !token.value), isAuthenticated: computed(() => token.value), isRefreshing: computed(() => false) } } } })
+    expect(auth.isSignedIn.value).toBe(true)
+    expect(auth.isReady.value).toBe(false)
+    token.value = true
+    expect(auth.isReady.value).toBe(true)
+    // Signed out, nothing is ready, whatever the connection still holds.
+    backend.signOut()
+    await nextTick()
+    expect(auth.isReady.value).toBe(false)
+    // On the mock's own connection, ready as soon as signed in.
+    backend.signIn({ name: 'Grace' })
+    await nextTick()
+    expect(inSetup(() => usePublicAuth()).isReady.value).toBe(true)
   })
 
   it('records how the account signed in, as Better Auth does, and the form reads it', async () => {

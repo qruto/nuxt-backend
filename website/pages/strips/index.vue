@@ -5,7 +5,10 @@ import { api } from '#backend/api'
 // back here after.
 definePageMeta({ auth: true })
 
-const strips = useQuery(api.strips.list, {})
+// A signed-in read waits until the backend holds the session's token: on a
+// page load the session is back a moment sooner, and asking then is refused.
+const { isReady } = useAuth()
+const strips = useQuery(api.strips.list, () => (isReady.value ? {} : 'skip'))
 // The demo's facts (backend/demo.ts): the canned ideas, and whether an idea
 // of one's own needs a passkey sign-in. On the demo a canned idea is a free
 // copy once drawn, and its button waits until then; elsewhere it is a
