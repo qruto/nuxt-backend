@@ -1,6 +1,8 @@
 import { convexClient } from '@convex-dev/better-auth/client/plugins'
-import { adminClient, type AdminClientOptions, emailOTPClient, organizationClient, type OrganizationClientOptions } from 'better-auth/client/plugins'
+import { emailOTPClient } from 'better-auth/client/plugins'
 import { createAuthClient, type VueAuthClient } from 'better-auth/vue'
+import { adminClient, type AdminClientPlugin } from './admin-client'
+import { organizationClient, type OrganizationClientPlugin } from './organization-client'
 import { passkeyClient } from './passkey-client'
 import { protectionClient } from './protection/state'
 
@@ -11,7 +13,7 @@ import { protectionClient } from './protection/state'
  * are named with the options a call without any infers.
  */
 type BackendAuthPlugin = ReturnType<typeof convexClient> | ReturnType<typeof emailOTPClient> | ReturnType<typeof passkeyClient>
-  | ReturnType<typeof adminClient<AdminClientOptions>> | ReturnType<typeof organizationClient<OrganizationClientOptions>> | ReturnType<typeof protectionClient>
+  | AdminClientPlugin | OrganizationClientPlugin | ReturnType<typeof protectionClient>
 
 const plugins = [convexClient(), emailOTPClient(), passkeyClient(), adminClient(), organizationClient(), protectionClient()]
 
@@ -33,18 +35,21 @@ type Named = [(typeof plugins)[number]] extends [BackendAuthPlugin] ? [BackendAu
  * Every plugin is registered here, at construction, and the base module
  * imports this client on every page. The passkey plugin is the package's
  * own (`./passkey-client`): Better Auth's, with the WebAuthn ceremony loaded
- * apart from the page, once it is idle. The protection plugin answers the
- * bot check's challenge on the requests that send a code, when the app
- * shows one.
+ * apart from the page, once it is idle. So are the admin and organization
+ * plugins (`./admin-client`, `./organization-client`): Better Auth's,
+ * without the error-code tables a client never reads at runtime. The
+ * protection plugin answers the bot check's challenge on the requests that
+ * send a code, when the app shows one.
  *
  * Point `convex.betterAuth.authClient` at your own module to replace it —
  * include these plugins (plus yours, e.g. `crossDomainClient()`) to keep the
- * bundled flows and composables working. The package's passkey and
- * protection plugins are not public exports; without the latter, a
- * challenge is yours to answer, as the `x-captcha-response` header. For
- * passkeys, use Better Auth's `passkeyClient()` from
- * `@better-auth/passkey/client` there, which works the same and loads the
- * ceremony (about 12 kB) with every page.
+ * bundled flows and composables working. The package's own plugins are not
+ * public exports; without the protection plugin, a challenge is yours to
+ * answer, as the `x-captcha-response` header. For the others, use Better
+ * Auth's there — `passkeyClient()` from `@better-auth/passkey/client`,
+ * `adminClient()` and `organizationClient()` from
+ * `better-auth/client/plugins` — which work the same and load more with
+ * every page (the passkey ceremony alone is about 12 kB).
  */
 export const authClient: VueAuthClient<{ plugins: BackendAuthPlugin[] }> = createAuthClient({ plugins: plugins satisfies Named[] })
 
