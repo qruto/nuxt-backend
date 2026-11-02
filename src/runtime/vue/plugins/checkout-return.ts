@@ -5,8 +5,9 @@ import { CHECKOUT_RETURN_PARAM } from '../../../convex/constants.js'
 /**
  * Finishes a return from checkout. The server sends a plan or pack checkout,
  * and a gift's claim, back with the checkout's id as `?checkout_return=`;
- * on a page that has it, this takes the parameter off the address and
- * refreshes the entitlements once, while
+ * on a page that has it, this takes the parameter off the address, with the
+ * `customer_session_token` the provider adds beside it (a key to the
+ * customer's billing portal), and refreshes the entitlements once, while
  * `useBilling().isFinishingCheckout` says so, which the billing section of
  * `<WorkspaceSettings>` and `<PricingTable>` read out as "Finishing your
  * purchase…". Always on. An app's own `checkout_id` is never touched.

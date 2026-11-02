@@ -11,8 +11,9 @@ import { useBackendNamespace } from './namespace'
 // and of a gift's claim, so a customer who paid comes back with the
 // checkout's id on the address. The client's
 // checkout-return plugin hands it here: the parameter comes off the address
-// at once, and the entitlements are refreshed from the provider once, so the
-// new plan reads back before its webhooks land.
+// at once, with the customer-session token the provider adds beside it, and
+// the entitlements are refreshed from the provider once, so the new plan
+// reads back before its webhooks land.
 
 /**
  * `true` while the page refreshes the entitlements after a return from
@@ -21,6 +22,13 @@ import { useBackendNamespace } from './namespace'
  * it between requests.
  */
 export const finishingCheckout = shallowRef(false)
+
+/**
+ * The token the billing provider appends to a checkout's success URL: a key
+ * to that customer's billing portal. Nothing in the package reads it, and a
+ * key has no place in an address that is bookmarked, shared and logged.
+ */
+export const CUSTOMER_SESSION_PARAM = 'customer_session_token'
 
 /** The checkouts this page already finished: a second return with one id refreshes nothing. */
 const finished = new Set<string>()
@@ -32,14 +40,15 @@ const AUTH_WAIT_MS = 10_000
 export interface CheckoutReturn {
   /** The address's query. */
   query: LocationQuery
-  /** Replace the address's query with this one: the same address without the parameter. */
+  /** Replace the address's query with this one: the same address without the parameter and the provider's token. */
   strip: (query: LocationQuery) => unknown
   /** Refresh the entitlements from the provider once. A failure is left to the webhooks. */
   sync: () => Promise<unknown>
 }
 
 /**
- * Finish a return from checkout: take `checkout_return` off the address, then,
+ * Finish a return from checkout: take `checkout_return` off the address, with
+ * the provider's `customer_session_token` when it came along, then,
  * once per checkout, refresh the entitlements while
  * {@link finishingCheckout} is `true`. Answers whether a refresh ran and
  * went through. A refresh that fails changes nothing the customer sees: the
@@ -48,7 +57,7 @@ export interface CheckoutReturn {
 export async function finishCheckoutReturn({ query, strip, sync }: CheckoutReturn): Promise<boolean> {
   const value = query[CHECKOUT_RETURN_PARAM]
   if (value === undefined) return false
-  const { [CHECKOUT_RETURN_PARAM]: _returned, ...rest } = query
+  const { [CHECKOUT_RETURN_PARAM]: _returned, [CUSTOMER_SESSION_PARAM]: _token, ...rest } = query
   await strip(rest)
   const id = (Array.isArray(value) ? value[0] : value) ?? ''
   if (!id || finished.has(id)) return false
