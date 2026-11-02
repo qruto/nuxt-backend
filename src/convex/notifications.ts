@@ -42,12 +42,14 @@ export interface NotificationKind {
   page: NotificationDestination
   /** Nobody hears of what they did themselves (a role they changed, a plan they switched). */
   skipSelf?: true
+  /** News about the account's own safety or money: its email and push skip the weekly cap and the quiet hours ({@link NotifyKind.transactional}). */
+  transactional?: true
 }
 
 /** The kinds of the catalog that declare the `in-app` channel. */
 type InAppKind = { [K in BackendEventType]: 'in-app' extends (typeof BACKEND_EVENTS)[K]['channels'][number] ? K : never }[BackendEventType]
 
-const SUBJECT_SECURITY = { audience: 'subject', page: 'security' } as const
+const SUBJECT_SECURITY = { audience: 'subject', page: 'security', transactional: true } as const
 const BILLING_ENTITY = { audience: 'entity', page: 'settings' } as const
 
 /**
@@ -70,9 +72,9 @@ export const NOTIFICATION_KINDS = {
   'billing.subscription_created': BILLING_ENTITY,
   'billing.subscription_canceled': BILLING_ENTITY,
   'billing.subscription_revoked': BILLING_ENTITY,
-  'billing.subscription_past_due': BILLING_ENTITY,
-  'billing.order_paid': BILLING_ENTITY,
-  'billing.order_refunded': BILLING_ENTITY,
+  'billing.subscription_past_due': { ...BILLING_ENTITY, transactional: true },
+  'billing.order_paid': { ...BILLING_ENTITY, transactional: true },
+  'billing.order_refunded': { ...BILLING_ENTITY, transactional: true },
   'billing.credits_low': BILLING_ENTITY,
   'billing.credits_exhausted': BILLING_ENTITY,
   'billing.save_offer_accepted': { ...BILLING_ENTITY, skipSelf: true },
@@ -168,6 +170,15 @@ export interface NotifyKind {
   channels: readonly NotificationChannel[]
   /** Where the notification links, from the event; a path of the app. Left out, it links nowhere. */
   link?: (event: NotifyEvent) => string | null | undefined
+  /**
+   * News the person is waiting for (a print they ordered is ready, a job of
+   * theirs failed): its email and push skip the weekly cap and the quiet
+   * hours, and its email does not count toward the cap, as a transactional
+   * email does not. The person's choice of channels still holds, and so
+   * does the email provider's suppression list. Leave it off for anything a person
+   * could read tomorrow.
+   */
+  transactional?: boolean
 }
 
 /** The events of an app's own that notify: each type under `app.`, with what it becomes. */
@@ -177,6 +188,16 @@ export type NotifyOptions = Readonly<Record<`app.${string}`, NotifyKind>>
 export interface NotificationPlan {
   channels: NotificationChannel[]
   link?: string
+}
+
+/**
+ * Whether a kind's email and push skip the weekly cap and the quiet hours:
+ * a package kind by its row ({@link NOTIFICATION_KINDS}), one of the app's
+ * own by its `notify` entry.
+ */
+export function isTransactional(notify: NotifyOptions, type: string): boolean {
+  if (Object.hasOwn(NOTIFICATION_KINDS, type)) return (NOTIFICATION_KINDS[type as keyof typeof NOTIFICATION_KINDS] as NotificationKind).transactional === true
+  return Object.hasOwn(notify, type) && notify[type as `app.${string}`]!.transactional === true
 }
 
 /** The longest link a notification keeps. */
@@ -208,6 +229,7 @@ export function notifyProblem(notify: NotifyOptions): string | null {
     if (kind.channels.length === 0 || kind.channels.some(channel => !NOTIFICATION_CHANNELS.includes(channel))) {
       return `${type}: channels are ${NOTIFICATION_CHANNELS.map(channel => `\`${channel}\``).join(', ')}, and a kind uses at least one.`
     }
+    if (kind.transactional !== undefined && typeof kind.transactional !== 'boolean') return `${type}: \`transactional\` is true or false.`
     if (packageKeys.has(notificationLabelKey(type))) return `${type}: its words (\`${notificationLabelKey(type)}\`) would replace a package kind's. Name it otherwise.`
   }
   return null

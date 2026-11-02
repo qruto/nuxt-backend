@@ -189,9 +189,10 @@ What the notifications need of `setupEmail`'s instance: the layout and words, an
 
 #### Properties
 
-| Property | Type | Defined in |
-| ------ | ------ | ------ |
-| <a id="compose"></a> `compose` | \<`Message`\>(`build`, `options?`) => `Promise`\<`Message`\> | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="compose"></a> `compose` | \<`Message`\>(`build`, `options?`) => `Promise`\<`Message`\> | - | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
+| <a id="send"></a> `send` | (`ctx`, `message`) => `Promise`\<`string` \| `null`\> | The transactional send, under no sending rule: a transactional kind's email goes through it. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
 
 ***
 
@@ -204,7 +205,7 @@ Defined in: [src/convex/integrations/notifications.ts](https://github.com/qruto/
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="notify"></a> `notify?` | `Readonly`\<`Record`\<`` `app.${string}` ``, [`NotifyKind`](#notifykind)\>\> | What each event of your own (a type under `app.`) becomes: the channels it may use and where it links. A type without an entry stays a row on the activity trail. **Guarantee** - Runs: `link`, in the mutation or action that records the event (`audit.recordBackendEvent`), before its row is written - Delivery: once per event recorded; a notification is delivered in the transaction that records the event, and rolls back with it - Order: before the event is written, and before `onEvent` is scheduled - When it throws: the throw is logged as `notifications.deliver_failed` and the notification goes out without a link; the event is recorded either way - Idempotency: a read only: it can run again for a retried mutation | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
-| <a id="email"></a> `email?` | [`NotificationsEmail`](#notificationsemail) | The email instance (`setupEmail`), which email and push notifications are worded and rendered with: your messages, your brand and layout, and the weekly cap and quiet hours. Without it, notifications reach the inbox alone. Re-export `deliverNotification` with it. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
+| <a id="email"></a> `email?` | [`NotificationsEmail`](#notificationsemail) | The email instance (`setupEmail`), which email and push notifications are worded and rendered with: your messages, your brand and layout, and the weekly cap and quiet hours, which a transactional kind skips. Without it, notifications reach the inbox alone. Re-export `deliverNotification` with it. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
 | <a id="paths"></a> `paths?` | `Partial`\<[`BackendPaths`](/docs/reference/api/auth#backendpaths)\> | The paths the Nuxt module writes to `paths.generated.ts`: a package kind's email links to its ready-made page there. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
 
 ***
@@ -236,6 +237,7 @@ What one kind of the package's catalog does as a notification.
 | <a id="audience"></a> `audience` | [`NotificationAudience`](#notificationaudience) | - | [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts) |
 | <a id="page-1"></a> `page` | [`NotificationDestination`](#notificationdestination) | Where it links: the page the person manages what the event is about on. | [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts) |
 | <a id="skipself"></a> `skipSelf?` | `true` | Nobody hears of what they did themselves (a role they changed, a plan they switched). | [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts) |
+| <a id="transactional"></a> `transactional?` | `true` | News about the account's own safety or money: its email and push skip the weekly cap and the quiet hours ([NotifyKind.transactional](#transactional-1)). | [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts) |
 
 ***
 
@@ -271,6 +273,7 @@ What one event of an app's own becomes.
 | ------ | ------ | ------ | ------ |
 | <a id="channels-2"></a> `channels` | readonly [`NotificationChannel`](#notificationchannel)[] | The channels it may use: `app` the inbox, `email` and `push` where the kind allows them. Narrowed by the channel matrix and by each person's choices. | [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts) |
 | <a id="link-1"></a> `link?` | (`event`) => `string` \| `null` \| `undefined` | Where the notification links, from the event; a path of the app. Left out, it links nowhere. | [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts) |
+| <a id="transactional-1"></a> `transactional?` | `boolean` | News the person is waiting for (a print they ordered is ready, a job of theirs failed): its email and push skip the weekly cap and the quiet hours, and its email does not count toward the cap, as a transactional email does not. The person's choice of channels still holds, and so does the email provider's suppression list. Leave it off for anything a person could read tomorrow. | [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts) |
 
 ***
 

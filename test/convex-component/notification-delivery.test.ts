@@ -13,19 +13,29 @@ import { base64urlEncode, generatePushKeys } from '../../src/convex/web-push'
 // component writes the inbox row and only enqueues the email and the push
 // (the app's deliverNotification, by its handle), which reads the person's
 // address and language, words the notification in the app's messages, and
-// sends under the person's channel choices and the quiet hours.
+// sends under the person's channel choices, the weekly cap and the quiet
+// hours, which a transactional kind skips.
 
 const components = componentsGeneric() as unknown as { backend: ComponentApi<'backend'> }
 const email = setupEmail(components as never, {
   brand: { name: 'Panels' },
-  caps: { quietHours: { start: '21:00', end: '08:00' } },
-  messages: { en: { backend: { notifications: { strip_shared: { title: '{actor} shared a strip with you', body: 'Open it to read and comment.' } } } } },
+  caps: { perWeek: 1, quietHours: { start: '21:00', end: '08:00' } },
+  messages: { en: { backend: { notifications: {
+    strip_shared: { title: '{actor} shared a strip with you', body: 'Open it to read and comment.' },
+    strip_printed: { title: 'Your strip is printed', body: 'It ships today.' },
+  } } } },
 })
 /** What the email channel handed to the sending rules: the message, as rendered. */
 const prepared: Array<{ to: string, subject: string, html?: string, deliverAt?: number }> = []
+/** What a transactional kind sent at once, past the sending rules. */
+const sent: Array<{ to: string, subject: string, html?: string }> = []
 const notifications = setupNotifications(components as never, {
   email: {
     compose: email.compose,
+    send: async (ctx, message) => {
+      sent.push(message as never)
+      return email.send(ctx, message)
+    },
     preferences: {
       caps: email.preferences.caps,
       prepare: (async (ctx, message, topic, words, options) => {
@@ -37,6 +47,7 @@ const notifications = setupNotifications(components as never, {
   },
   notify: {
     'app.strip_shared': { channels: ['app', 'email', 'push'], link: event => `/strips/${event.targetId}` },
+    'app.strip_printed': { channels: ['app', 'email', 'push'], transactional: true },
   },
 })
 const audit = setupAudit(components as never, { notifications })
@@ -70,6 +81,7 @@ beforeEach(async () => {
   vi.spyOn(console, 'info').mockImplementation(() => {})
   vi.spyOn(console, 'warn').mockImplementation(() => {})
   prepared.length = 0
+  sent.length = 0
   t = testApp()
 })
 
@@ -100,9 +112,9 @@ describe('the email channel', () => {
     const ada = await asUser(t, { email: 'ada@example.com', workspace: false })
     await ada.mutation(recordRef, { event: { type: 'auth.passkey_added' } })
     await settle()
-    expect(prepared).toEqual([expect.objectContaining({ to: 'ada@example.com', subject: 'A passkey was added' })])
-    expect(prepared[0]!.html).toContain('https://app.example.com/security')
-    expect(prepared[0]!.html).toContain('Panels')
+    expect(sent).toEqual([expect.objectContaining({ to: 'ada@example.com', subject: 'A passkey was added' })])
+    expect(sent[0]!.html).toContain('https://app.example.com/security')
+    expect(sent[0]!.html).toContain('Panels')
   })
 
   test('words an app\'s own kind in the app\'s messages, with the actor\'s name and its link', async () => {
@@ -119,15 +131,54 @@ describe('the email channel', () => {
     await t.mutation(recordRef, { event: { type: 'billing.order_paid', actor: null, subjectId: ada.userId, data: { amount: 1, currency: 'usd' } } })
     await ada.mutation(recordRef, { event: { type: 'auth.passkey_removed' } })
     await settle()
-    expect(prepared.map(message => message.subject)).toEqual(['A passkey was removed'])
+    expect([...prepared, ...sent].map(message => message.subject)).toEqual(['A passkey was removed'])
   })
 
   test('waits for the end of the person\'s quiet hours', async () => {
     vi.setSystemTime(Date.UTC(2026, 9, 28, 22, 30))
+    const grace = await asUser(t, { name: 'Grace', workspace: false })
     const ada = await asUser(t, { email: 'ada@example.com', workspace: false })
-    await ada.mutation(recordRef, { event: { type: 'auth.passkey_added' } })
+    await grace.mutation(recordRef, { event: { type: 'app.strip_shared', subjectId: ada.userId, targetId: 'strip_7' } })
     await settle()
     expect(prepared[0]!.deliverAt).toBe(Date.UTC(2026, 9, 29, 8))
+  })
+
+  test('stops at the weekly cap', async () => {
+    const grace = await asUser(t, { name: 'Grace', workspace: false })
+    const ada = await asUser(t, { email: 'ada@example.com', workspace: false })
+    await grace.mutation(recordRef, { event: { type: 'app.strip_shared', subjectId: ada.userId, targetId: 'strip_7' } })
+    await grace.mutation(recordRef, { event: { type: 'app.strip_shared', subjectId: ada.userId, targetId: 'strip_8' } })
+    await settle()
+    expect(prepared).toHaveLength(1)
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('email.skipped_capped'))
+  })
+
+  test('sends a transactional kind at once, past the weekly cap and through the quiet hours, and never counts it', async () => {
+    vi.setSystemTime(Date.UTC(2026, 9, 28, 22, 30))
+    const ada = await asUser(t, { email: 'ada@example.com', workspace: false })
+    await t.mutation(recordRef, { event: { type: 'app.strip_printed', actor: null, subjectId: ada.userId, targetId: 'strip_7' } })
+    await t.mutation(recordRef, { event: { type: 'app.strip_printed', actor: null, subjectId: ada.userId, targetId: 'strip_8' } })
+    // The package's security kinds are transactional too.
+    await ada.mutation(recordRef, { event: { type: 'auth.passkey_added' } })
+    await settle()
+    expect(sent.map(message => message.subject)).toEqual(['Your strip is printed', 'Your strip is printed', 'A passkey was added'])
+    expect(prepared).toEqual([])
+
+    // None of them counted toward the cap: the first email that does still goes, held to the quiet hours' end.
+    const grace = await asUser(t, { name: 'Grace', workspace: false })
+    await grace.mutation(recordRef, { event: { type: 'app.strip_shared', subjectId: ada.userId, targetId: 'strip_9' } })
+    await settle()
+    expect(prepared).toEqual([expect.objectContaining({ subject: 'Grace shared a strip with you', deliverAt: Date.UTC(2026, 9, 29, 8) })])
+  })
+
+  test('holds a transactional kind to the person\'s channel choice', async () => {
+    const ada = await asUser(t, { email: 'ada@example.com', workspace: false })
+    await ada.mutation(chooseRef, { type: 'app.strip_printed', channel: 'email', enabled: false })
+    await ada.mutation(chooseRef, { type: 'auth.passkey_added', channel: 'email', enabled: false })
+    await t.mutation(recordRef, { event: { type: 'app.strip_printed', actor: null, subjectId: ada.userId, targetId: 'strip_7' } })
+    await ada.mutation(recordRef, { event: { type: 'auth.passkey_added' } })
+    await settle()
+    expect(sent).toEqual([])
   })
 })
 
@@ -144,6 +195,7 @@ describe('the person\'s channel choices', () => {
     await ada.mutation(recordRef, { event: { type: 'auth.passkey_added' } })
     await settle()
     expect(prepared).toEqual([])
+    expect(sent).toEqual([])
   })
 
   test('offer the new-device email, which the sign-in sends itself, and hold the auth layer to the choice', async () => {
@@ -157,6 +209,7 @@ describe('the person\'s channel choices', () => {
     await ada.mutation(recordRef, { event: { type: 'auth.new_device', actor: { userId: ada.userId } } })
     await settle()
     expect(prepared).toEqual([])
+    expect(sent).toEqual([])
   })
 
   test('refuse a channel the kind does not allow, and anyone signed out', async () => {
@@ -213,6 +266,22 @@ describe('the push channel', () => {
     await settle()
     expect(sentAt).toHaveLength(1)
     expect(sentAt[0]).toBeGreaterThanOrEqual(Date.UTC(2026, 9, 29, 8))
+  })
+
+  test('sends a transactional kind through the quiet hours', async () => {
+    await withPushKeys()
+    const sentAt: number[] = []
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      sentAt.push(Date.now())
+      return new Response(null, { status: 201 })
+    }))
+    vi.setSystemTime(Date.UTC(2026, 9, 28, 22, 30))
+    const ada = await asUser(t, { workspace: false })
+    await ada.mutation(subscribeRef, await device())
+    await t.mutation(recordRef, { event: { type: 'app.strip_printed', actor: null, subjectId: ada.userId, targetId: 'strip_7' } })
+    await settle()
+    expect(sentAt).toHaveLength(1)
+    expect(sentAt[0]).toBeLessThan(Date.UTC(2026, 9, 29, 8))
   })
 
   test('tries a busy push service again after the wait it asks for, and stops at a device unsubscribed', async () => {

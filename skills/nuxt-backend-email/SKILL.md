@@ -17,6 +17,10 @@ branding and language, delivery and the dev inbox.
 - Never expose a public function that takes a recipient: the scaffolded `send` is an
   `internalAction`. Call it from server code with an address you trust, or use `admin.action`
   (like `sendAsAdmin`) when a person types the address.
+- Notification email and push follow `setupEmail({ caps })` (weekly cap, quiet hours). A kind of the
+  app's own that people wait for (an order ready, a job failed) takes `transactional: true` in
+  `setupNotifications({ notify })`: it goes at once and is not counted, still under the person's
+  channel choice. The package's account kinds (passkeys, address, new device) are transactional already.
 - Sign-in codes go out through `email.sendSecret`: no email record is kept, `sendTemplate`
   resolves with `null` for them, and they have no status. Deleting an account sends no email.
 
