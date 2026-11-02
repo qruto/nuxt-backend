@@ -44,11 +44,13 @@ const MAPPING_STALE = 'Billing for this account points at a billing profile the 
  */
 const TRIAL_HOLD_MS = 60 * 60 * 1000
 
-/** A mapping the package refuses to use: keyed to another entity (`customer_taken`), or unknown to the provider (`customer_unknown`). */
+/** The refusals of a mapping the package will not use, as `code/reason`: keyed to another entity, or unknown to the provider. */
+const UNUSABLE_MAPPINGS = new Set(['forbidden/customer_taken', 'unavailable/customer_unknown'])
+
+/** Whether an error refuses a mapping the package will not use. */
 function isUnusableMapping(error: unknown): boolean {
   const refusal = getBackendError(error)
-  const reason = (refusal?.data as { reason?: string } | undefined)?.reason
-  return (refusal?.code === 'forbidden' && reason === 'customer_taken') || (refusal?.code === 'unavailable' && reason === 'customer_unknown')
+  return UNUSABLE_MAPPINGS.has(`${refusal?.code}/${(refusal?.data as { reason?: string } | undefined)?.reason}`)
 }
 
 /** A provider refusal of a create that another request may have won: a 4xx other than "not found". */

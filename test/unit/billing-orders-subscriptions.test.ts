@@ -1786,6 +1786,24 @@ describe('beside the free plan', () => {
       expect(warn.mock.calls.map(([line]) => String(line))).toContainEqual(expect.stringContaining('billing.free_plan_customer_taken'))
     })
 
+    it('leaves off the plan, not retried, an account mapped onto a customer of another organization', async () => {
+      const billing = make({ products: undefined, catalog } as never)
+      vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_other_org', userId: 'u1' } as never)
+      mockCustomersGet.mockResolvedValue({ ok: false, error: Object.assign(new Error('Not found'), { statusCode: 404 }) } as never)
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      expect(await start(billing, startCtx({ email: 'ada@example.com', emailVerified: true }))).toBe('customer_unknown')
+      expect(mockSubscriptionsCreate).not.toHaveBeenCalled()
+    })
+
+    it('fails a start the provider refuses for any other reason, so the queue tries it again', async () => {
+      const billing = make({ products: undefined, catalog } as never)
+      vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1', userId: 'u1' } as never)
+      mockCustomersGet.mockResolvedValue({ ok: false, error: Object.assign(new Error('Bad gateway'), { statusCode: 502 }) } as never)
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      await expect(start(billing, startCtx({ email: 'ada@example.com', emailVerified: true }))).rejects.toMatchObject({ data: { code: 'unavailable', service: 'billing', reason: 'provider_refused' } })
+      expect(mockSubscriptionsCreate).not.toHaveBeenCalled()
+    })
+
     it('starts nothing for a kind billing does not bill', async () => {
       const billing = make({ products: undefined, catalog } as never)
       expect(await invoke(billing.api.startFreePlan)(startCtx(null), { entityId: 'org_1', kind: 'workspace' })).toBe('not_billed')
