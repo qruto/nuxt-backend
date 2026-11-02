@@ -21,10 +21,10 @@
   },
   "starter": {
     "measured": {
-      "bytes": 122203
+      "bytes": 119958
     },
     "ceiling": {
-      "bytes": 129000
+      "bytes": 126000
     }
   }
 }
