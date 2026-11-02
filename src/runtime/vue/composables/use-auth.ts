@@ -1,4 +1,4 @@
-import { computed, type ComputedRef, hasInjectionContext, inject } from 'vue'
+import { computed, type ComputedRef, inject } from 'vue'
 import type { BetterAuthSession, BetterAuthUser } from 'nuxt-convex-module/better-auth/client'
 import { ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { useAuthSession } from '../utils/auth-session'
@@ -77,7 +77,7 @@ export interface UseAuthReturn {
 export function useAuth(): UseAuthReturn {
   const auth = useAuthSession()
   // The backend connection's own state: whether the client holds the session's token.
-  const connection = hasInjectionContext() ? inject(ConvexAuthStateKey, null) : null
+  const connection = inject(ConvexAuthStateKey, null)
   return {
     user: computed(() => auth.user.value as BackendUser | null),
     session: computed(() => (auth.session.value.data?.session ?? null) as BackendSession | null),
