@@ -1363,6 +1363,22 @@ describe('customers from before 0.2', () => {
     expect(mockCheckoutsCreate).not.toHaveBeenCalled()
   })
 
+  it('refuses an entity mapped onto a customer the provider does not know, from another organization, and reads nothing for it', async () => {
+    const billing = make({ billTo: 'workspace' })
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_other_org', userId: 'org-1' } as never)
+    mockCustomersGet.mockResolvedValue({ ok: false, error: Object.assign(new Error('Not found'), { statusCode: 404, error: 'ResourceNotFound' }) } as never)
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(invoke(billing.api.generateCheckoutLink)(makeCtx(), args)).rejects.toMatchObject({ data: { code: 'unavailable', service: 'billing', reason: 'customer_unknown' } })
+    expect(logged.mock.calls.flat().join(' ')).toContain('billing.customer_mapping_stale')
+    expect(logged.mock.calls.flat().join(' ')).not.toContain('billing.provider_failed')
+    expect(mockCustomersCreate).not.toHaveBeenCalled()
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+    // A live read shows nothing, rather than another organization's.
+    expect(await billing.getOrders(makeCtx() as never)).toStrictEqual({ items: [], pagination: { totalCount: 0, maxPage: 0 } })
+    expect(mockOrdersList).not.toHaveBeenCalled()
+  })
+
   it('keys a mapped customer before reading its orders and usage by the entity\'s id', async () => {
     const billing = make()
     vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_old', userId: 'u1' } as never)

@@ -32,8 +32,23 @@ const START_RETRIES = { maxAttempts: 5, initialBackoffMs: 2000, base: 2 }
 /** A context that can queue work: a mutation's or an action's. */
 export type QueueCtx = RunWriteCtx & { scheduler: Scheduler }
 
+/**
+ * Where a start stops when its customer is refused: an account whose email
+ * another account's customer holds, or a mapping of another organization,
+ * neither of which a retry heals. `null` for a failure the workpool retries.
+ */
+function refusedStart(error: unknown): 'customer_taken' | 'customer_unknown' | null {
+  const refusal = getBackendError(error)
+  const reason = (refusal?.data as { reason?: string } | undefined)?.reason
+  // Logged where it was refused, as `billing.customer_mapping_stale`.
+  if (refusal?.code === 'unavailable' && reason === 'customer_unknown') return 'customer_unknown'
+  if (refusal?.code !== 'forbidden' || reason !== 'customer_taken') return null
+  logBackend('warn', 'billing.free_plan_customer_taken', 'An account was not put on the free plan: its email belongs to another account\'s billing customer at the provider.')
+  return 'customer_taken'
+}
+
 /** What one start did, as the internal action answers it. */
-export type FreePlanStart = 'started' | 'subscribed' | 'gone' | 'not_billed' | 'customer_taken' | 'no_plan' | 'not_configured'
+export type FreePlanStart = 'started' | 'subscribed' | 'gone' | 'not_billed' | 'customer_taken' | 'customer_unknown' | 'no_plan' | 'not_configured'
 
 /** The kind of billing entity the auth layer made: one billing does not bill is no entity of it. */
 export type CreatedEntityKind = 'workspace' | 'user'
@@ -162,10 +177,9 @@ export function createFreePlan(
       await ensureCustomer(ctx, found.entity, found.profile, 'free plan', found.account)
     }
     catch (error) {
-      const refusal = getBackendError(error)
-      if (refusal?.code !== 'forbidden' || (refusal.data as { reason?: string }).reason !== 'customer_taken') throw error
-      logBackend('warn', 'billing.free_plan_customer_taken', 'An account was not put on the free plan: its email belongs to another account\'s billing customer at the provider.')
-      return 'customer_taken'
+      const outcome = refusedStart(error)
+      if (!outcome) throw error
+      return outcome
     }
     if (await holdsProviderSubscription(entityId)) return 'subscribed'
     // Its first subscription ever: none was synced for it, ended or not.

@@ -35,11 +35,21 @@ const EMAIL_TAKEN = 'Your email already pays for another account. Check out with
 /** What a checkout says for an entity the component maps onto a customer another entity is keyed to. */
 const MAPPING_TAKEN = 'This billing account is tied to another account\'s billing profile, from before billing gave each its own. Ask the app\'s operator to reset it.'
 
+/** What a billing call says for an entity the component maps onto a customer the provider does not know. */
+const MAPPING_STALE = 'Billing for this account points at a billing profile the provider no longer has, from another billing organization. Ask the app\'s operator to reset it.'
+
 /**
  * How long a checkout that may start the owner's trial holds it: a provider
  * checkout session expires within it, so a hold this old was abandoned.
  */
 const TRIAL_HOLD_MS = 60 * 60 * 1000
+
+/** A mapping the package refuses to use: keyed to another entity (`customer_taken`), or unknown to the provider (`customer_unknown`). */
+function isUnusableMapping(error: unknown): boolean {
+  const refusal = getBackendError(error)
+  const reason = (refusal?.data as { reason?: string } | undefined)?.reason
+  return (refusal?.code === 'forbidden' && reason === 'customer_taken') || (refusal?.code === 'unavailable' && reason === 'customer_unknown')
+}
 
 /** A provider refusal of a create that another request may have won: a 4xx other than "not found". */
 function isConflict(error: unknown): boolean {
@@ -192,10 +202,20 @@ export function createCustomers(
    * created before 0.2 carries no external id, and every live read goes by
    * it. One already keyed to another entity was shared between the two by
    * the old email lookup, and is refused (`forbidden`, reason
-   * `customer_taken`) until the operator resets it.
+   * `customer_taken`) until the operator resets it. One the provider does
+   * not know is a mapping from another organization, made before
+   * `BILLING_ACCESS_TOKEN` moved: the synced subscriptions are that
+   * organization's too, and the provider's component has no way to forget a
+   * mapping, so it is refused (`unavailable`, reason `customer_unknown`)
+   * until the operator resets the billing data.
    */
   const keyMapped = async (customerId: string, entityId: string, operation: string): Promise<string> => {
-    const customer = unwrapProvider(await customersGet(provider.polar, { id: customerId }), operation)
+    const found = await customersGet(provider.polar, { id: customerId })
+    if (!found.ok && isProviderNotFound(found.error)) {
+      logBackend('error', 'billing.customer_mapping_stale', 'A billing entity is mapped onto a customer the billing provider does not know: BILLING_ACCESS_TOKEN names another organization than the one the mapping was made in. It is refused until the deployment\'s billing data is reset.')
+      throw backendError('unavailable', { service: 'billing', reason: 'customer_unknown', message: MAPPING_STALE }, MAPPING_STALE)
+    }
+    const customer = unwrapProvider(found, operation)
     if (customer.externalId === entityId) return customerId
     if (customer.externalId) {
       logBackend('error', 'billing.customer_mapping_shared', 'A billing entity is mapped onto a customer keyed to another entity; it is refused until the deployment\'s billing data is reset.')
@@ -211,8 +231,9 @@ export function createCustomers(
   /**
    * Whether an entity has a customer its live reads find by its id: the one
    * the component maps it to, keyed now when it predates 0.2. `false` when
-   * it has none, or when that customer is keyed to another entity (shared by
-   * the old email lookup), so a read shows nothing of another entity's.
+   * it has none, when that customer is keyed to another entity (shared by
+   * the old email lookup), so a read shows nothing of another entity's, or
+   * when the provider does not know it (a mapping of another organization).
    */
   const keyedCustomer = async (ctx: RunQueryCtx, entityId: string, operation: string): Promise<boolean> => {
     const mapped = await mappedCustomer(ctx, entityId)
@@ -222,7 +243,7 @@ export function createCustomers(
       return true
     }
     catch (error) {
-      if (getBackendError(error)?.code === 'forbidden') return false
+      if (isUnusableMapping(error)) return false
       throw error
     }
   }
