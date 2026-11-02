@@ -225,11 +225,12 @@ export const { authComponent, createAuth, getAuthUser } = setupAuth(components, 
 | `role` | The app-wide role: `user`, `admin` or one of yours ([Roles](/docs/build/auth/access/roles)). |
 | `hasRole(role)` | Whether the account holds the role, or one of a list. |
 | `isSignedIn` | `true` once a session is loaded. |
+| `isReady` | `true` once someone is signed in and the backend connection holds their token: what a signed-in read waits for. |
 | `isLoading` | `true` while the session is still resolving, on the first load and after a refresh. |
 | `impersonating` | `true` while an administrator visits the account ([Impersonation](/docs/build/auth/admin/impersonation)). |
 | `signOut()` | Ends the session in this tab. |
 
-`isSignedIn` and `isLoading` come from the base module's Convex auth state, so they agree with what your queries see. The way this browser last signed in is `useLoginFlow().lastMethod` ([its fields](#its-options-and-fields)), for a sign-in page that offers it first.
+`isSignedIn` and `isLoading` come from the session. On a page load the session is back a moment before the backend connection holds its token, and a query of a signed-in tier (`authed`, `workspace`, `admin`) asked in that moment is refused `unauthenticated`. `isReady` reads the connection: pass `'skip'` until it is `true` ([Signed-in reads](/docs/build/data/read-write#signed-in-reads)). The way this browser last signed in is `useLoginFlow().lastMethod` ([its fields](#its-options-and-fields)), for a sign-in page that offers it first.
 
 ```vue [app/pages/account.vue]
 <script setup lang="ts">

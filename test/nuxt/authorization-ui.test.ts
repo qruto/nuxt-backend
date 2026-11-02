@@ -67,6 +67,8 @@ vi.mock('nuxt-convex-module/better-auth/client', () => ({
 }))
 vi.mock('nuxt-convex-module/client', () => ({
   useConvex: () => ({ setAuth }),
+  // No connection is provided here: useAuth().isReady reads the session alone.
+  ConvexAuthStateKey: Symbol('convex-auth-state'),
 }))
 
 const { useAuthSession: useAuth } = await import('../../src/runtime/vue/utils/auth-session')
@@ -228,9 +230,10 @@ describe('extended useAuth', () => {
   it('hands an app only the session, the role, the visit and signing out', () => {
     user.value = { id: 'u1', role: 'support,admin', banned: false }
     const auth = inSetup(() => usePublicAuth())
-    expect(Object.keys(auth).sort()).toEqual(['hasRole', 'impersonating', 'isLoading', 'isSignedIn', 'role', 'session', 'signOut', 'user'])
+    expect(Object.keys(auth).sort()).toEqual(['hasRole', 'impersonating', 'isLoading', 'isReady', 'isSignedIn', 'role', 'session', 'signOut', 'user'])
     expect(auth.hasRole('admin')).toBe(true)
     expect(auth.isSignedIn.value).toBe(true)
+    expect(auth.isReady.value).toBe(true)
     expect(auth.impersonating.value).toBe(false)
     expect(auth.user.value).toMatchObject({ id: 'u1', banned: false })
   })

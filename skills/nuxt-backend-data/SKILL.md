@@ -16,7 +16,10 @@ this one covers reading, writing and background work.
   storage. The base module's brand-named composables and components are not auto-imported in a
   nuxt-backend app: use these neutral names.
 - For user-scoped functions, use the builders in `backend/functions.ts` (`authed`, `workspace`,
-  `admin`; the `nuxt-backend-auth` skill).
+  `admin`; the `nuxt-backend-auth` skill). Read them with `'skip'` until `useAuth().isReady`:
+  `useQuery(api.strips.list, () => (isReady.value ? {} : 'skip'))`. `isSignedIn` turns `true` on
+  a page load a moment before the connection holds the token, and a read asked then is refused
+  `unauthenticated`.
 - `useConnectionState()` is the live connection; `<ConnectionStatus>` says a drop or going offline
   in words, and already closes every ready-made page. Do not build a retry button: the client
   reconnects, resends waiting mutations, and asks before a tab with unsent ones closes.

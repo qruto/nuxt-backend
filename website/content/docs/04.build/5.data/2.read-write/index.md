@@ -33,6 +33,21 @@ const profile = useQuery(
 </script>
 ```
 
+### Signed-in reads
+
+A query of a signed-in tier (`authed`, `workspace`, `admin`) needs the session's token on the backend connection. On every page load the session is back a moment sooner than the token, so `useAuth().isSignedIn` is already `true` while the connection is still anonymous, and a query asked then is refused `unauthenticated`. Skip it until `useAuth().isReady` is `true`:
+
+```vue
+<script setup lang="ts">
+import { api } from '#backend/api'
+
+const { isReady } = useAuth()
+const strips = useQuery(api.strips.list, () => (isReady.value ? {} : 'skip'))
+</script>
+```
+
+The package's own composables wait the same way. A public query needs no guard.
+
 ### Errors in the result: `useQuery_experimental()`
 
 The object form returns a computed ref of `{ status, data, error }`, where `status` is `'pending'`, `'success'` or `'error'`. An error lands in the result unless you pass `throwOnError: true`. Read its code with [`getBackendError`](/docs/build/data/read-write/errors).

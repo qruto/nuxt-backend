@@ -27,6 +27,7 @@ What `useAuth()` returns: the session, the role, an administrator's visit, and s
 | <a id="role"></a> `role` | `ComputedRef`\<`string`\> | The app-wide role; `'user'` when signed out or unset. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
 | <a id="hasrole"></a> `hasRole` | (`role`) => `boolean` | Whether the account holds the app-wide role, or any one of several. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
 | <a id="issignedin"></a> `isSignedIn` | `ComputedRef`\<`boolean`\> | Whether someone is signed in, read from the base module's auth state. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
+| <a id="isready"></a> `isReady` | `ComputedRef`\<`boolean`\> | Whether a signed-in read can go: someone is signed in, and the backend connection holds their token. On every page load `isSignedIn` turns `true` a moment sooner, from the session, while the token is still on its way, and a query of a signed-in tier (`authed`, `workspace`, `admin`) started in that moment is refused `unauthenticated`. Skip such a query until this is `true`: `useQuery(api.strips.list, () => (isReady.value ? {} : 'skip'))`. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
 | <a id="isloading"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` while the session is still resolving. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
 | <a id="impersonating"></a> `impersonating` | `ComputedRef`\<`boolean`\> | `true` while an administrator is visiting the account: `user` is the account visited, and every sensitive action is refused. The `impersonation` notice of `<BackendNotices>` says so on every page, and `useAdmin().stopImpersonating()` ends the visit. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
 | <a id="signout"></a> `signOut` | () => `Promise`\<`void`\> | Sign this browser out. Rejects on failure. The app navigates after it on its own: a sign-out made here never sends the person to the sign-in page with `?redirect=`, as a session that ends elsewhere does. | [src/runtime/vue/composables/use-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-auth.ts) |
@@ -86,7 +87,9 @@ the deletion are `useAccount`'s, and ending a visit is `useAdmin`'s.
 
 ```vue
 <script setup lang="ts">
-const { user, isSignedIn, hasRole, signOut } = useAuth()
+const { user, isSignedIn, isReady, hasRole, signOut } = useAuth()
+// A read of your own signed-in functions waits for the backend to hold the token.
+const strips = useQuery(api.strips.list, () => (isReady.value ? {} : 'skip'))
 </script>
 
 <template>
