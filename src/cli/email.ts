@@ -60,11 +60,18 @@ function namesNoFunction(error: unknown): boolean {
   return /could not find|not found|no such function/i.test(error instanceof Error ? error.message : String(error))
 }
 
+/**
+ * How long `email sync` waits for the deployment: the sync paces its calls
+ * to the provider's rate limit and waits out a refused one, so on a key
+ * allowed two calls a second it takes a minute or more.
+ */
+const EMAIL_SYNC_TIMEOUT_MS = 5 * 60_000
+
 /** Run the deployment's email sync: `null` when it has no `email:syncEmail` (no `backend/email.ts`, or one from before 0.2.0). */
 export async function runEmailSync(rootDir: string, { prod = false, dryRun = false, webhook, enableWebhook, rotateWebhookSecret }: EmailSyncCommandOptions = {}, run: typeof runConvex = runConvex): Promise<EmailSyncReport | null> {
   let stdout: string
   try {
-    ({ stdout } = await run(rootDir, ['run', ...deploymentFlags({ prod }), 'email:syncEmail', JSON.stringify({ dryRun, ...(webhook ? { webhook } : {}), ...(enableWebhook ? { enableWebhook } : {}), ...(rotateWebhookSecret ? { rotateWebhookSecret } : {}) })]))
+    ({ stdout } = await run(rootDir, ['run', ...deploymentFlags({ prod }), 'email:syncEmail', JSON.stringify({ dryRun, ...(webhook ? { webhook } : {}), ...(enableWebhook ? { enableWebhook } : {}), ...(rotateWebhookSecret ? { rotateWebhookSecret } : {}) })], { timeout: EMAIL_SYNC_TIMEOUT_MS }))
   }
   catch (error) {
     if (namesNoFunction(error)) return null

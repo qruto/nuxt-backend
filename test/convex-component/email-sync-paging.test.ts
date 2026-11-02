@@ -48,7 +48,7 @@ const flowSettings = (t: App) => t.query(components.backend.lifecycle.settings a
 
 type Item = Record<string, unknown> & { id: string }
 interface Call { method: string, path: string, limit: string | null, after: string | null, body: Record<string, unknown> | undefined }
-type Answer = { status: number, body: unknown }
+type Answer = { status: number, body: unknown, headers?: Record<string, string> }
 
 /**
  * A stand-in for the email provider, paging every listing as it does (20 by
@@ -61,13 +61,17 @@ const provider = {
   templates: new Set<string>(),
   answers: [] as Array<(call: Call) => Answer | undefined>,
   calls: [] as Call[],
+  /** When each call reached the provider, by the test's clock. */
+  at: [] as number[],
+  /** The headers every answer carries: the provider's rate limit, when a test sets one. */
+  headers: {} as Record<string, string>,
 }
 
 function refuse(match: (call: Call) => boolean, status = 422, name = 'validation_error', message = 'refused') {
   provider.answers.push(call => match(call) ? { status, body: { name, message, statusCode: status } } : undefined)
 }
 
-const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } })
+const json = (data: unknown, status = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', ...provider.headers, ...headers } })
 
 function stubProvider() {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -78,8 +82,9 @@ function stubProvider() {
     const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : undefined
     const call: Call = { method, path: url.pathname, limit: url.searchParams.get('limit'), after: url.searchParams.get('after'), body }
     provider.calls.push(call)
+    provider.at.push(Date.now())
     const answered = provider.answers.map(answer => answer(call)).find(Boolean)
-    if (answered) return json(answered.body, answered.status)
+    if (answered) return json(answered.body, answered.status, answered.headers)
     if (method === 'GET' && url.pathname.startsWith('/templates/')) {
       const alias = decodeURIComponent(url.pathname.slice('/templates/'.length))
       return provider.templates.has(alias) ? json({ object: 'template', id: `tpl_${alias}` }) : json({ name: 'not_found', message: 'Template not found', statusCode: 404 }, 404)
@@ -127,6 +132,8 @@ beforeEach(() => {
   provider.templates = new Set()
   provider.answers = []
   provider.calls = []
+  provider.at = []
+  provider.headers = {}
   stubProvider()
   t = plainApp()
 })
@@ -315,6 +322,59 @@ describe('email sync and the accounts\' segment and contact properties', () => {
     const report = await t.action(syncRef, {})
     expect(entries(report, 'property')).toEqual(['plan:exists', 'strips:created'])
     expect(made('/contact-properties').at(-1)!.body).toEqual({ key: 'strips', type: 'number', fallback_value: 0 })
+  })
+})
+
+describe('email sync and the provider\'s rate limit', () => {
+  /** Run a sync while the test's clock moves, so the waits it makes for the provider pass. */
+  async function syncing(app: App): Promise<EmailSyncReport> {
+    let done = false
+    const running = app.action(syncRef, {})
+    const finish = () => {
+      done = true
+    }
+    running.then(finish, finish)
+    while (!done) await vi.advanceTimersByTimeAsync(50)
+    return running
+  }
+
+  /** The time between each call and the one before it. */
+  const gaps = () => provider.at.slice(1).map((at, index) => at - provider.at[index]!)
+
+  test('spaces its calls by the limit the provider names', async () => {
+    provider.headers = { 'ratelimit-limit': '2', 'ratelimit-remaining': '1', 'ratelimit-reset': '1' }
+    expect((await syncing(flowsApp())).key).toBe('full')
+    expect(provider.at.length).toBeGreaterThan(5)
+    expect(Math.min(...gaps())).toBeGreaterThanOrEqual(500)
+  })
+
+  test('waits out a window the provider says is spent', async () => {
+    provider.headers = { 'ratelimit-limit': '10', 'ratelimit-remaining': '0', 'ratelimit-reset': '3' }
+    expect((await syncing(plainApp())).key).toBe('full')
+    expect(Math.min(...gaps())).toBeGreaterThanOrEqual(3000)
+  })
+
+  test('tries a call the provider refuses with its rate limit again, after the wait it names, and the sync goes on', async () => {
+    let limited = 0
+    provider.answers.push((call) => {
+      if (call.method !== 'POST' || call.path !== '/templates' || limited >= 2) return undefined
+      limited++
+      return { status: 429, body: { name: 'rate_limit_exceeded', message: 'Too many requests. You can only make 10 requests per second.', statusCode: 429 }, headers: { 'retry-after': '2' } }
+    })
+    const report = await syncing(flowsApp())
+    expect(entries(report, 'template')).toEqual(['welcome:created'])
+    const templates = provider.calls.flatMap((call, index) => call.method === 'POST' && call.path === '/templates' ? [provider.at[index]!] : [])
+    expect(templates).toHaveLength(3)
+    expect(templates[1]! - templates[0]!).toBeGreaterThanOrEqual(2000)
+    expect(templates[2]! - templates[1]!).toBeGreaterThanOrEqual(2000)
+  })
+
+  test('gives up on a call the provider keeps refusing, and says so', async () => {
+    provider.answers.push(call => call.method === 'POST' && call.path === '/templates'
+      ? { status: 429, body: { name: 'rate_limit_exceeded', message: 'Too many requests.', statusCode: 429 }, headers: { 'retry-after': '1' } }
+      : undefined)
+    await expect(syncing(flowsApp())).rejects.toThrow(/refused to create the welcome template: Too many requests/)
+    expect(made('/templates')).toHaveLength(5)
   })
 })
 

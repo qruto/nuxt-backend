@@ -63,6 +63,8 @@ describe('email sync', () => {
     const { exitCode, output } = await runEmailSyncCommand(rootDir, {}, print)
     expect(exitCode).toBe(0)
     expect(vi.mocked(runConvex).mock.calls.map(([, args]) => args.find(arg => arg.startsWith('email:')))).toEqual(['email:syncEmail', 'email:syncInbound'])
+    // The sync paces itself to the provider's rate limit: it gets minutes, not the CLI's default 30 seconds.
+    expect(vi.mocked(runConvex).mock.calls[0]![2]).toEqual({ timeout: 300_000 })
     expect(printed).toEqual(expect.arrayContaining([
       '  created       inbox     support@panels.example',
       '  ·             domain    panels.example: verified, receiving off',
