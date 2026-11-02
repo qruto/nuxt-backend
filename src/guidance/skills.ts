@@ -77,7 +77,7 @@ export const TASK_SKILLS = [
     entrypoints: ['nuxt-backend/billing'],
     composables: ['useBilling', 'useFeatures', 'useCredits', 'usePricing', 'useOrders', 'useUsage'],
     components: ['PricingTable', 'BillingCheckoutLink', 'BillingPortalLink', 'BillingHistory', 'UsageHistory', 'UpgradePrompt', 'CancelFlow', 'WithdrawalButton'],
-    commands: ['billing sync'],
+    commands: ['billing sync', 'billing reset'],
     findings: ['billing'],
     functions: ['billing'],
   },

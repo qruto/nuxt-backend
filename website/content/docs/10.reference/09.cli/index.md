@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: "npx nuxt-backend: init, dev, doctor, status, env push, env rotate, billing sync, email sync, inbox, upgrade, deploy, analyze, eject and mcp, with every flag and each command's contract."
+description: "npx nuxt-backend: init, dev, doctor, status, env push, env rotate, billing sync, billing reset, email sync, inbox, upgrade, deploy, analyze, eject and mcp, with every flag and each command's contract."
 kind: reference
 capability: tools
 status: changing
@@ -390,6 +390,33 @@ Before it writes anything, it reads the deployment the Convex CLI will write (`n
 - **The products.** `billing:syncProducts` runs only when the deployment can load the catalog synced: it holds `BILLING_ACCESS_TOKEN`, and its `BACKEND_ENVIRONMENT` bills in the environment synced. Otherwise it is skipped with the command to run once that is set, and a run that fails reports the deployment's error.
 
 It needs `BILLING_ACCESS_TOKEN` (in the env or `.env.local`) and a `billing.catalog.ts`. [Define and sync your catalog](/docs/build/billing/catalog) covers the full semantics: tagging, drift, adopted products and the generated map.
+
+## `billing reset`
+
+Start the dev deployment's billing over in the organization `BILLING_ACCESS_TOKEN` names, after the token moved to another organization (a new Polar sandbox, say). The billing provider's component maps each billing entity onto a customer once and never forgets it, so after such a move every entity's checkout, portal and free plan are refused as `unavailable` (reason `customer_unknown`), and [`billing-customer-mapping`](/docs/reference/cli/diagnostics#billing-customer-mapping) warns.
+
+<!-- generated:cli-billing-reset (pnpm docs:lookups, from src/cli/contract.ts) -->
+
+**Side effects:** writes provider accounts; writes project files; writes the dev deployment. **`--json`:** `{ sync: <billing sync --json>, cleared: [{ component, table, status: "cleared" | "failed" | "skipped", note? }], freePlan: { status: "queued" | "skipped" | "failed", note? } }`. **Exit codes:** `0` reset: the catalog synced, the billing data cleared, and the free plan queued (or the catalog has none); `1` refused or failed: a deploy key for any deployment but a dev one, a deployment that bills in production, a refused billing sync (nothing is cleared then), a table that could not be cleared, or a free plan that could not be queued.
+
+<!-- /generated:cli-billing-reset -->
+
+```bash
+npx nuxt-backend billing reset
+```
+
+| Flag | Effect |
+|---|---|
+| `--json` | Print the outcome as one JSON document (`{ sync, cleared, freePlan }`); progress goes to stderr. |
+
+In order, it:
+
+1. refuses a `CONVEX_DEPLOY_KEY` for any deployment but a dev one, and a deployment whose `BACKEND_ENVIRONMENT` is `production`. It has no `--prod`: on production, point `BILLING_ACCESS_TOKEN` back at the organization the billing data came from;
+2. runs [`billing sync`](#billing-sync) for the sandbox, which creates the catalog in the token's organization, writes `backend/billing.generated.ts` and loads the deployment's products. A sync that is refused (no token, no catalog) clears nothing;
+3. clears the billing provider component's `customers` and `subscriptions` tables (an empty `npx convex import --replace` of each, since the component has no mutation that deletes its rows) and the `backend` component's `billingEntitlements` cache (`billing:clear`);
+4. puts every billing entity back on the free plan, when the catalog has one: `npx convex run billing:startFreePlan '{}'`, with `--push` first when the sync rewrote the id map, so the deployment subscribes the new organization's free product.
+
+Paid subscriptions of the old organization stay there: the reset forgets them, it cancels nothing.
 
 ## `email sync`
 

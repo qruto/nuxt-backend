@@ -1081,6 +1081,10 @@
       "--adopt",
       "--json"
     ],
+    "billing reset": [
+      "--cwd",
+      "--json"
+    ],
     "email sync": [
       "--cwd",
       "--prod",
@@ -1176,6 +1180,7 @@
     "billing-webhook-events": "billing",
     "billing-meter-usage": "billing",
     "billing-organization": "billing",
+    "billing-customer-mapping": "billing",
     "billing-multiple-subscriptions": "billing",
     "billing-proration": "billing",
     "billing-benefit-grace": "billing",

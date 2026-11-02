@@ -13,6 +13,8 @@ export const BILLING_FINDINGS = {
   'billing-webhook-events': { title: 'Billing webhook events', fixable: true },
   'billing-meter-usage': { title: 'Billing meters' },
   'billing-organization': { title: 'Billing organization' },
+  // The customers the deployment maps entities onto, asked of the token's organization; `billing reset` clears them, never `doctor --fix`.
+  'billing-customer-mapping': { title: 'Customer mappings', prod: 'fail' },
   'billing-multiple-subscriptions': { title: 'Multiple subscriptions' },
   'billing-proration': { title: 'Plan change proration' },
   'billing-benefit-grace': { title: 'Benefit revocation' },

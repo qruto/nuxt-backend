@@ -186,6 +186,11 @@ export const FINDING_DOCS = {
     why: 'The cross-checks of the provider\'s settings below need it; they are skipped without it.',
     fix: 'Create a token for the environment you sync (an expired one, or one from the other environment, is refused).',
   },
+  'billing-customer-mapping': {
+    checks: 'The billing provider knows the customers the deployment maps billing entities onto: the first ten mapped, read off the provider\'s component and asked for one by one with the `BILLING_ACCESS_TOKEN` doctor reaches the provider with (the process env alone under `--prod`). No finding without a token, or when the deployment or the provider cannot be read.',
+    why: 'The provider\'s component maps an entity onto a customer once and never forgets it. After `BILLING_ACCESS_TOKEN` moves to another organization (a new sandbox, say), every mapped customer is one the provider does not know, and each such entity\'s checkout, portal and free plan are refused as `unavailable` (reason `customer_unknown`).',
+    fix: 'On a dev deployment, run `npx nuxt-backend billing reset`: it syncs the catalog to the token\'s organization, clears the deployment\'s billing data and puts every billing entity back on the free plan. Or point `BILLING_ACCESS_TOKEN` back at the organization the data came from, which is the fix on production.',
+  },
   'billing-multiple-subscriptions': {
     checks: 'The provider allows one active subscription per customer when the catalog has several plans, or a free plan beside a paid one.',
     why: 'With several allowed, a customer can hold two plans at once and the plan-change flow cannot tell which to change. Every billing entity holds the free plan, so with one in the catalog a checkout outside the package leaves a customer on two.',

@@ -55,6 +55,10 @@ credits and gifts.
   and `billing sync`, and pay with the test card. Without a token billing reads `missing`.
   `billing sync` writes the `sandbox` and `production` ids side by side. See
   https://nuxt-backend.dev/docs/develop/sandboxes.
+- Moving the token to another organization (a new sandbox) strands the deployment's billing data:
+  every entity is refused `unavailable` (reason `customer_unknown`), and doctor warns
+  `billing-customer-mapping`. On a dev deployment, run `npx nuxt-backend billing reset` (sync,
+  clear, free plan again); never clear the tables by hand.
 
 ## Reading state and gating
 

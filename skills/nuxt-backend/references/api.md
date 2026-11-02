@@ -497,6 +497,15 @@ Push backend/billing.catalog.ts — meters, custom fields, feature/credit benefi
 
 `--json`: { environment, dryRun, deployment, log: [{ action, kind, key, id?, note? }], generated, webhook: { url, action: "created" | "exists" | "would-create" | "skipped", secret: "stored" | "kept" | "not-stored" | "none", note? }, products: { status: "synced" | "failed" | "skipped", note? } }.
 
+### `npx nuxt-backend billing reset`
+
+Start the dev deployment's billing over in the organization BILLING_ACCESS_TOKEN names, after the token moved to another one (a new sandbox): sync the catalog, clear the billing provider component's customers and subscriptions and the entitlement cache, and put every billing entity back on the free plan. Dev deployments only.
+
+- `--cwd`: Project directory
+- `--json`: Print the outcome as one JSON document; progress goes to stderr
+
+`--json`: { sync: <billing sync --json>, cleared: [{ component, table, status: "cleared" | "failed" | "skipped", note? }], freePlan: { status: "queued" | "skipped" | "failed", note? } }.
+
 ### `npx nuxt-backend email sync`
 
 Create the email topics, the accounts' segment and the contact properties backend/email.ts declares at the email provider, point the deployment's webhook at every event the package reads (storing a new webhook's secret), read each sender's region and DMARC, and sync the support inbox.
@@ -655,6 +664,7 @@ The app's parts, each detected as `live`, `test`, `missing` or `failing`: `npx n
 | `billing-webhook-events` | billing | Billing webhook events |
 | `billing-meter-usage` | billing | Billing meters |
 | `billing-organization` | billing | Billing organization |
+| `billing-customer-mapping` | billing | Customer mappings |
 | `billing-multiple-subscriptions` | billing | Multiple subscriptions |
 | `billing-proration` | billing | Plan change proration |
 | `billing-benefit-grace` | billing | Benefit revocation |
