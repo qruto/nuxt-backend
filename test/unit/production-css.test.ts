@@ -22,8 +22,8 @@ const tokens = readFileSync(tokensCss, 'utf8')
 const build = (css: string) => transform({ filename: 'app.css', code: Buffer.from(css), minify: true, targets: TARGETS }).code.toString()
 /** tokens.css, the stylesheet the module adds first, as the build minifies it. */
 const pkg = bundle({ filename: tokensCss, minify: true, targets: TARGETS }).code.toString()
-/** Its light-dark default, the block below every layer. */
-const theme = pkg.slice(pkg.indexOf('@layer theme.backend{'))
+/** Its light-dark default: the `:where(:root)` rule beside the tokens, in the layer below every other. */
+const theme = pkg.slice(pkg.indexOf(':where(:root){'), pkg.indexOf('}', pkg.indexOf(':where(:root){')) + 1)
 
 /** The declarations of the first rule after `from` in minified CSS, by property. */
 function ruleAfter(css: string, from: string): Record<string, string> {
@@ -75,7 +75,7 @@ const hex = (value: string) => value.trim().toLowerCase().replace(/^#(\w)(\w)(\w
 const pairs = Object.fromEntries([...tokens.split('}')[0]!.matchAll(/^\s*(--bk-[\w-]+): light-dark\((#\w+), (#\w+)\);/gm)]
   .map(([, token, light, dark]) => [token!, { light: light!, dark: dark! }]))
 /** The same rule once the build has rewritten it: the first in the package's layer. */
-const built = ruleAfter(pkg, '@layer nuxt-backend{')
+const built = ruleAfter(pkg, '@layer nuxt-backend-tokens{')
 
 describe('the stylesheet in a production build', () => {
   it('reads the token pairs and their rewrites', () => {
@@ -100,9 +100,10 @@ describe('the stylesheet in a production build', () => {
   })
 
   it('sets the default on the root, at zero specificity, below every other layer', () => {
-    // The order statement first; the build folds its last layer into the block that follows.
-    expect(pkg.startsWith('@layer theme,base,reset;@layer nuxt-backend{')).toBe(true)
-    expect(theme).toBe('@layer theme.backend{:where(:root){--lightningcss-light:initial;--lightningcss-dark: }}')
+    // The build folds the first layer of the order statement into its block, then declares the rest.
+    expect(pkg.startsWith('@layer nuxt-backend-tokens{:root{')).toBe(true)
+    expect(pkg.indexOf('@layer theme,base,reset,nuxt-backend;')).toBeGreaterThan(pkg.indexOf(theme))
+    expect(theme).toBe(':where(:root){--lightningcss-light:initial;--lightningcss-dark: }')
   })
 
   it('gives a page that declares no color-scheme the light colour', () => {

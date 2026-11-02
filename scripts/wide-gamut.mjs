@@ -133,7 +133,7 @@ export function srgbPairs(css = readFileSync(TOKENS, 'utf8')) {
   }))
 }
 
-/** The generated block: one media query per gamut on `:root`, indented to sit in tokens.css's `@layer nuxt-backend`. */
+/** The generated block: one media query per gamut on `:root`, indented to sit in tokens.css's `@layer nuxt-backend-tokens`. */
 export function wideGamutBlock(css = readFileSync(TOKENS, 'utf8')) {
   const pairs = srgbPairs(css)
   const queries = Object.keys(GAMUTS).map((gamut) => {

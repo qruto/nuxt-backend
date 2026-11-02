@@ -94,24 +94,34 @@ describe('component tokens', () => {
     }
   })
 
-  it('declares the layer order first, so Tailwind\'s theme and reset and an app\'s reset sit below the package', () => {
+  it('declares the layer order first: the token defaults below everything, Tailwind\'s theme and reset and an app\'s reset below the package\'s rules', () => {
     const rules = tokens.replace(/\/\*[\s\S]*?\*\//g, '').trim().split('\n').filter(Boolean)
-    expect(rules[0]).toBe('@layer theme, base, reset, nuxt-backend;')
+    expect(rules[0]).toBe('@layer nuxt-backend-tokens, theme, base, reset, nuxt-backend;')
+  })
+
+  it('keeps every token default in the first layer declared, so a token an app sets in any layer wins, its own theme, base or reset included', () => {
+    const css = tokens.replace(/\/\*[\s\S]*?\*\//g, '')
+    const order = css.match(/^@layer ([^;{]+);/m)![1]!.split(',').map(name => name.trim())
+    expect(order[0]).toBe('nuxt-backend-tokens')
+    // Every declaration of a --bk-* default sits inside that layer's blocks.
+    const outside = css.replace(/@layer nuxt-backend-tokens \{[\s\S]*?\n\}/g, '')
+    expect(outside).not.toMatch(/--bk-[\w-]+\s*:/)
+    expect(outside).not.toMatch(/--lightningcss-light\s*:/)
   })
 
   it('puts every rule of every stylesheet in @layer nuxt-backend, so any app rule outside a layer wins', () => {
     // tokens.css adds one block below every layer: the light default a
     // production build's rewritten light-dark() needs.
     for (const [name, css] of stylesheets) {
-      const top = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@layer theme, base, reset, nuxt-backend;/, '')
+      const top = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@layer nuxt-backend-tokens, theme, base, reset, nuxt-backend;/, '')
       const blocks = [...top.matchAll(/^(\S[^{\n]*)\{/gm)].map(match => match[1]!.trim())
-      expect(blocks.filter(block => block !== '@layer nuxt-backend' && !(name === 'tokens.css' && block === '@layer theme.backend')), name).toEqual([])
+      expect(blocks.filter(block => block !== '@layer nuxt-backend' && !(name === 'tokens.css' && block === '@layer nuxt-backend-tokens')), name).toEqual([])
     }
   })
 
   it('puts the tokens on :root, where every component reads them and any ancestor can override them', () => {
     const declared = tokens.replace(/\/\*[\s\S]*?\*\//g, '')
-    expect(declared).toMatch(/@layer nuxt-backend \{\s*:root \{\s*--bk-accent:/)
+    expect(declared).toMatch(/@layer nuxt-backend-tokens \{\s*:root \{\s*--bk-accent:/)
     for (const [name, css] of stylesheets) {
       if (name === 'tokens.css') continue
       // A family token defaults to the shared one; no stylesheet redeclares a shared token.

@@ -1,19 +1,22 @@
 /*
  * The shared `--bk-*` tokens of every packaged component and page, on
- * `:root` inside `@layer nuxt-backend`: one override of a token in any
- * stylesheet of the app re-themes everything, with no specificity to match.
- * Family tokens (`--auth-*`) default to these on their family roots and
- * scope a change to one component.
+ * `:root` inside `@layer nuxt-backend-tokens`, the lowest layer there is:
+ * one override of a token in any stylesheet of the app re-themes everything,
+ * in any layer or none, with no specificity to match. Family tokens
+ * (`--auth-*`) default to these on their family roots and scope a change to
+ * one component.
  *
- * The layer order comes first, so wherever this file lands, Tailwind's theme
- * and reset (and a `reset` layer of the app's) sit below the package, and
- * every layer declared after it, and any rule outside a layer, above it.
- * The module adds this file first, then the stylesheets of the detected
- * capabilities' components (src/nuxt/styles.ts); `css: false` adds none.
+ * The layer order comes first, so wherever this file lands, the token
+ * defaults sit below everything; Tailwind's theme and reset (and a `reset`
+ * layer of the app's) sit below the package's rules, so a preflight never
+ * strips its buttons; and every layer declared after it, and any rule
+ * outside a layer, sits above them. The module adds this file first, then the
+ * stylesheets of the detected capabilities' components (src/nuxt/styles.ts);
+ * `css: false` adds none.
  */
-@layer theme, base, reset, nuxt-backend;
+@layer nuxt-backend-tokens, theme, base, reset, nuxt-backend;
 
-@layer nuxt-backend {
+@layer nuxt-backend-tokens {
   :root {
     /* Package default: the three-signal vocabulary, not a brand colour. Green
        is "go", so it is both the accent (primary actions, focus rings) and the
@@ -27,7 +30,7 @@
        follows the page; with no scheme declared, `light-dark()` resolves to
        its light value. A production build rewrites each pair for browsers
        that predate `light-dark()`, into variables only a `color-scheme` rule
-       defines; the `theme.backend` block at the end of this file gives
+       defines; the `:where(:root)` block at the end of this file gives
        them the light default.
 
        The website does not use these values — it maps every `--bk-*` token
@@ -85,10 +88,11 @@
  * two variables only in rules that declare `color-scheme`. On a page that
  * declares none, both stay undefined and every colour would read `a b`;
  * with these, the light value stands, as `light-dark()` itself resolves
- * without a scheme. In the lowest layer, so any rule of the app's that
- * declares `color-scheme` wins; `nuxt dev` never rewrites, so there they do nothing.
+ * without a scheme. In the lowest layer, beside the tokens, so any rule of
+ * the app's that declares `color-scheme` wins; `nuxt dev` never rewrites,
+ * so there they do nothing.
  */
-@layer theme.backend {
+@layer nuxt-backend-tokens {
   :where(:root) {
     --lightningcss-light: initial;
     --lightningcss-dark: ;
