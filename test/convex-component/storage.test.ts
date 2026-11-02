@@ -458,7 +458,7 @@ describe('signed URLs', () => {
     expect(served.headers.get('content-type')).toBe('image/png')
     expect(served.headers.get('x-content-type-options')).toBe('nosniff')
     expect(served.headers.get('content-disposition')).toBe('inline')
-    expect((await t.fetch(path.replace(/signature=./, 'signature=x'))).status).toBe(404)
+    expect((await t.fetch(path.replace(/signature=(.)/, (_, first: string) => `signature=${first === 'x' ? 'y' : 'x'}`))).status).toBe(404)
     vi.advanceTimersByTime(2 * HOUR)
     expect((await t.fetch(path)).status).toBe(404)
   })

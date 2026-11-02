@@ -161,6 +161,23 @@ describe('the free plan, per account', { timeout: 30_000 }, () => {
     expect(Object.values(fake.state.subscriptions)).toEqual([])
   })
 
+  test('leaves alone, with a code and one log line, an account mapped onto a customer of another organization', async () => {
+    const ada = await asUser(t, { email: 'ada@example.com' })
+    expect(await start(ada.userId)).toBe('started')
+    await fake.idle()
+    // BILLING_ACCESS_TOKEN moves to another organization: the provider knows none of the customers the deployment mapped.
+    for (const table of [fake.state.customers, fake.state.subscriptions]) {
+      for (const id of Object.keys(table)) Reflect.deleteProperty(table, id)
+    }
+    vi.mocked(console.error).mockClear()
+
+    expect(await start(ada.userId)).toBe('customer_unknown')
+    const logged = vi.mocked(console.error).mock.calls.flat().join('\n')
+    expect(logged).toContain('billing.customer_mapping_stale')
+    expect(logged).not.toContain('billing.provider_failed')
+    expect(Object.values(fake.state.subscriptions)).toEqual([])
+  })
+
   test('starts nothing for an account that no longer exists', async () => {
     expect(await start('j57f8h3a5mv0rq0ktbq7tv4n7d7sgk3e')).toBe('gone')
     expect(Object.values(fake.state.customers)).toEqual([])

@@ -1363,6 +1363,22 @@ describe('customers from before 0.2', () => {
     expect(mockCheckoutsCreate).not.toHaveBeenCalled()
   })
 
+  it('refuses an entity mapped onto a customer the provider does not know, from another organization, and reads nothing for it', async () => {
+    const billing = make({ billTo: 'workspace' })
+    vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_other_org', userId: 'org-1' } as never)
+    mockCustomersGet.mockResolvedValue({ ok: false, error: Object.assign(new Error('Not found'), { statusCode: 404, error: 'ResourceNotFound' }) } as never)
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(invoke(billing.api.generateCheckoutLink)(makeCtx(), args)).rejects.toMatchObject({ data: { code: 'unavailable', service: 'billing', reason: 'customer_unknown' } })
+    expect(logged.mock.calls.flat().join(' ')).toContain('billing.customer_mapping_stale')
+    expect(logged.mock.calls.flat().join(' ')).not.toContain('billing.provider_failed')
+    expect(mockCustomersCreate).not.toHaveBeenCalled()
+    expect(mockCheckoutsCreate).not.toHaveBeenCalled()
+    // A live read shows nothing, rather than another organization's.
+    expect(await billing.getOrders(makeCtx() as never)).toStrictEqual({ items: [], pagination: { totalCount: 0, maxPage: 0 } })
+    expect(mockOrdersList).not.toHaveBeenCalled()
+  })
+
   it('keys a mapped customer before reading its orders and usage by the entity\'s id', async () => {
     const billing = make()
     vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_old', userId: 'u1' } as never)
@@ -1768,6 +1784,24 @@ describe('beside the free plan', () => {
       expect(await start(billing, startCtx({ email: 'ada@example.com', emailVerified: true }))).toBe('customer_taken')
       expect(mockSubscriptionsCreate).not.toHaveBeenCalled()
       expect(warn.mock.calls.map(([line]) => String(line))).toContainEqual(expect.stringContaining('billing.free_plan_customer_taken'))
+    })
+
+    it('leaves off the plan, not retried, an account mapped onto a customer of another organization', async () => {
+      const billing = make({ products: undefined, catalog } as never)
+      vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_other_org', userId: 'u1' } as never)
+      mockCustomersGet.mockResolvedValue({ ok: false, error: Object.assign(new Error('Not found'), { statusCode: 404 }) } as never)
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      expect(await start(billing, startCtx({ email: 'ada@example.com', emailVerified: true }))).toBe('customer_unknown')
+      expect(mockSubscriptionsCreate).not.toHaveBeenCalled()
+    })
+
+    it('fails a start the provider refuses for any other reason, so the queue tries it again', async () => {
+      const billing = make({ products: undefined, catalog } as never)
+      vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1', userId: 'u1' } as never)
+      mockCustomersGet.mockResolvedValue({ ok: false, error: Object.assign(new Error('Bad gateway'), { statusCode: 502 }) } as never)
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      await expect(start(billing, startCtx({ email: 'ada@example.com', emailVerified: true }))).rejects.toMatchObject({ data: { code: 'unavailable', service: 'billing', reason: 'provider_refused' } })
+      expect(mockSubscriptionsCreate).not.toHaveBeenCalled()
     })
 
     it('starts nothing for a kind billing does not bill', async () => {
