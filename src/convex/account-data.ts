@@ -494,8 +494,3 @@ export const NO_PERSONAL_DATA: Readonly<Record<string, string>> = {
   experiments: 'Each experiment\'s variants, goal and guardrails as the code declared them, and when it started.',
   experimentKinds: 'The event kinds each experiment counts.',
 }
-
-/** The participants whose rows an erasure finds by the address alone: what it does for someone without an account. */
-export function emailKeyedSources(): AccountDataSourceKey[] {
-  return (Object.keys(ACCOUNT_DATA_SOURCES) as AccountDataSourceKey[]).filter(key => (ACCOUNT_DATA_SOURCES[key].keyedBy as readonly ErasureKey[]).includes('email'))
-}

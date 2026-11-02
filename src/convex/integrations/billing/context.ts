@@ -8,18 +8,10 @@ import { syncProviderProducts } from './provider-events.js'
 import type { ProviderCtx, RunQueryCtx, RunWriteCtx } from './types/base.js'
 import type { BillingCatalogIds, CreditMeterConfig, SpendCreditsEvent } from './types/records.js'
 import type { BillingAccessRule, BillingComponents, BillingEntity, BillingEntityCtx, ProviderLibRefs, SetupBillingConfig } from './types/setup.js'
-import { backendEnvironment } from '../../delivery.js'
+import { backendEnvironment, readEnv } from '../../delivery.js'
 import { billingEnvironment } from '../../environment.js'
 import { backendError, getBackendError } from '../../errors.js'
 import { logBackend } from '../../log.js'
-
-type EnvHost = typeof globalThis & {
-  process?: { env?: Record<string, string | undefined> }
-}
-
-export function readEnv(name: string) {
-  return (globalThis as EnvHost).process?.env?.[name]
-}
 
 /** The refusals that say who the caller is, which a resolver of the app's own may answer with. */
 const CALLER_REFUSALS = new Set(['unauthenticated', 'forbidden', 'no_workspace'])

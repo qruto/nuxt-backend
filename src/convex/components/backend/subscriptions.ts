@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server.js'
-import { vSaveOfferTerms } from './schema.js'
+import { vRenewalConsent, vSaveOfferTerms } from './schema.js'
 
 // The billing lifecycle's own records (LIFECYCLE): the cancel flow's save
 // offers, the renewal consent proof, what was sent once (an annual reminder,
@@ -10,6 +10,9 @@ import { vSaveOfferTerms } from './schema.js'
 
 /** How long an offer stays open after the cancel flow made it: the flow is one sitting. */
 export const SAVE_OFFER_OPEN_MS = 60 * 60 * 1000
+
+/** A confirmed consent proof, as an administrator reads it. */
+const vConsentProof = vRenewalConsent.omit('checkoutId', 'entityId', 'createdAt', 'consentedAt').extend({ consentedAt: v.number() })
 
 const vOfferRow = v.object({
   id: v.string(),
@@ -97,17 +100,7 @@ export const releaseOffer = mutation({
 
 /** The renewal consent a checkout showed, kept as it is made and confirmed when its subscription arrives. */
 export const recordConsent = mutation({
-  args: {
-    checkoutId: v.string(),
-    entityId: v.string(),
-    userId: v.optional(v.string()),
-    productId: v.string(),
-    amount: v.number(),
-    currency: v.string(),
-    interval: v.string(),
-    intervalCount: v.number(),
-    termsVersion: v.optional(v.string()),
-  },
+  args: vRenewalConsent.omit('createdAt', 'subscriptionId', 'consentedAt'),
   returns: v.null(),
   handler: async (ctx, args) => {
     const existing = await ctx.db.query('billingRenewalConsents').withIndex('checkoutId', q => q.eq('checkoutId', args.checkoutId)).first()
@@ -146,17 +139,7 @@ export const purchasedAt = query({
 /** A billing entity's confirmed consent proofs, newest first: what an administrator shows a regulator. */
 export const consents = query({
   args: { entityId: v.string() },
-  returns: v.array(v.object({
-    subscriptionId: v.optional(v.string()),
-    productId: v.string(),
-    amount: v.number(),
-    currency: v.string(),
-    interval: v.string(),
-    intervalCount: v.number(),
-    termsVersion: v.optional(v.string()),
-    userId: v.optional(v.string()),
-    consentedAt: v.number(),
-  })),
+  returns: v.array(vConsentProof),
   handler: async (ctx, { entityId }) => {
     const rows = await ctx.db.query('billingRenewalConsents').withIndex('entityId', q => q.eq('entityId', entityId)).order('desc').take(100)
     return rows.flatMap(({ subscriptionId, productId, amount, currency, interval, intervalCount, termsVersion, userId, consentedAt }) =>
@@ -230,18 +213,7 @@ export const lifecycleConsole = query({
   returns: v.object({
     saveOffers: v.array(vOfferRow),
     withdrawals: v.array(v.object({ entityId: v.string(), subscriptionId: v.string(), userId: v.string(), productId: v.string(), at: v.number() })),
-    consents: v.array(v.object({
-      entityId: v.string(),
-      subscriptionId: v.optional(v.string()),
-      productId: v.string(),
-      amount: v.number(),
-      currency: v.string(),
-      interval: v.string(),
-      intervalCount: v.number(),
-      termsVersion: v.optional(v.string()),
-      userId: v.optional(v.string()),
-      consentedAt: v.number(),
-    })),
+    consents: v.array(vConsentProof.extend({ entityId: v.string() })),
   }),
   handler: async (ctx, { entityId }) => {
     const offers = entityId === undefined

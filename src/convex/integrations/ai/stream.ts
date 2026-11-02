@@ -6,7 +6,7 @@ import type { Ai, MeteredStreamConfig, MeteredUsage } from './config.js'
 import type { AiContext } from './context.js'
 import type { AiMetering } from './metering.js'
 import { failedRun, type ModelCall } from './models.js'
-import { estimateCost, finalizeCost } from './pricing.js'
+import { finalizeCost } from './pricing.js'
 import { logBackend } from '../../log.js'
 
 /**
@@ -16,7 +16,7 @@ import { logBackend } from '../../log.js'
  */
 export function createStreams(
   { billing, pts, requests, corsOrigin, streamRegistry, recordCost }: AiContext,
-  { prepare, closeSpend, armRelease, checkDefinition, requiredModel, modelPicker }: AiMetering,
+  { prepareCall, closeSpend, armRelease, checkDefinition, modelPicker }: AiMetering,
 ): Pick<Ai, 'stream' | 'httpHandler'> {
   const stream: Ai['stream'] = (definition) => {
     checkDefinition(definition, 'ai.stream')
@@ -28,15 +28,7 @@ export function createStreams(
     const start = actionGeneric({
       args: definition.args,
       handler: (async (ctx: GenericActionCtx<GenericDataModel>, args: Record<string, unknown>) => {
-        const cost = estimateCost(definition.cost, args)
-        const { usage, reservation } = await prepare(ctx as never, {
-          meter: definition.meter,
-          limit: definition.limit,
-          cost,
-          allowOverage: definition.allowOverage,
-          model: requiredModel(definition),
-          ...(definition.moderate ? { moderate: definition.moderate(args as never) } : {}),
-        })
+        const { cost, usage, reservation } = await prepareCall(ctx, definition, args)
         const streamId = await pts.createStream(ctx as never)
         await ctx.runMutation(requests.createRequest, {
           streamId,

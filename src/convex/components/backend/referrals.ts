@@ -381,6 +381,12 @@ const vDue = v.object({
 })
 
 /** Whether a held referral may be rewarded at `now`: its hold is over and no flag waits for an administrator. */
+/** A referral by the id the app holds, or `null` for one that is gone or never was. */
+async function referralOf(ctx: QueryCtx, id: string): Promise<Referral | null> {
+  const rowId = ctx.db.normalizeId('referrals', id)
+  return rowId ? await ctx.db.get('referrals', rowId) : null
+}
+
 function rewardable(row: Referral, now: number): boolean {
   return row.state === 'held' && row.holdUntil !== undefined && row.holdUntil <= now && !inReview(row)
 }
@@ -407,8 +413,7 @@ export const get = query({
   args: { id: v.string() },
   returns: v.union(v.null(), vDue),
   handler: async (ctx, { id }) => {
-    const rowId = ctx.db.normalizeId('referrals', id)
-    const row = rowId ? await ctx.db.get('referrals', rowId) : null
+    const row = await referralOf(ctx, id)
     if (!row?.orderId || !row.entityId) return null
     return { id: row._id as string, referrerId: row.referrerId, referredId: row.referredId, orderId: row.orderId, entityId: row.entityId, terms: row.terms, state: row.state, ...(row.grant ? { grant: row.grant } : {}) }
   },
@@ -480,8 +485,7 @@ export const beginReward = mutation({
   args: { id: v.string(), now: v.number() },
   returns: v.union(v.literal('grant'), v.literal('capped'), v.literal('skip')),
   handler: async (ctx, { id, now }) => {
-    const rowId = ctx.db.normalizeId('referrals', id)
-    const row = rowId ? await ctx.db.get('referrals', rowId) : null
+    const row = await referralOf(ctx, id)
     if (!row || !rewardable(row, now)) return 'skip'
     if (row.reservedMonth) return 'grant'
     const { perReferrer, perMonth } = row.terms.caps
@@ -503,8 +507,7 @@ export const noteGrant = mutation({
   args: { id: v.string(), grant: v.object({ discountId: v.optional(v.string()), endsAt: v.optional(v.number()), done: v.optional(v.boolean()) }) },
   returns: v.null(),
   handler: async (ctx, { id, grant }) => {
-    const rowId = ctx.db.normalizeId('referrals', id)
-    const row = rowId ? await ctx.db.get('referrals', rowId) : null
+    const row = await referralOf(ctx, id)
     if (row) await patchReferral(ctx, row, { grant: { ...row.grant, ...grant } })
     return null
   },
@@ -515,8 +518,7 @@ export const finishReward = mutation({
   args: { id: v.string() },
   returns: v.boolean(),
   handler: async (ctx, { id }) => {
-    const rowId = ctx.db.normalizeId('referrals', id)
-    const row = rowId ? await ctx.db.get('referrals', rowId) : null
+    const row = await referralOf(ctx, id)
     if (row?.state !== 'held') return false
     await patchReferral(ctx, row, { state: 'rewarded', rewardedAt: Date.now(), dueAt: undefined })
     return true
@@ -528,8 +530,7 @@ export const deferReward = mutation({
   args: { id: v.string(), until: v.number() },
   returns: v.null(),
   handler: async (ctx, { id, until }) => {
-    const rowId = ctx.db.normalizeId('referrals', id)
-    const row = rowId ? await ctx.db.get('referrals', rowId) : null
+    const row = await referralOf(ctx, id)
     if (row?.state === 'held' && row.dueAt !== undefined) await patchReferral(ctx, row, { dueAt: until })
     return null
   },
@@ -544,8 +545,7 @@ export const closeUnrewarded = mutation({
   args: { id: v.string(), now: v.number() },
   returns: v.boolean(),
   handler: async (ctx, { id, now }) => {
-    const rowId = ctx.db.normalizeId('referrals', id)
-    const row = rowId ? await ctx.db.get('referrals', rowId) : null
+    const row = await referralOf(ctx, id)
     if (!row || !rewardable(row, now)) return false
     await releaseSlot(ctx, row)
     await patchReferral(ctx, row, { state: 'claimed', unrewarded: true, dueAt: undefined })
@@ -558,8 +558,7 @@ export const voidReferral = mutation({
   args: { id: v.string(), reason: v.union(v.literal('refunded'), v.literal('administrator'), v.literal('account_erased')) },
   returns: v.boolean(),
   handler: async (ctx, { id, reason }) => {
-    const rowId = ctx.db.normalizeId('referrals', id)
-    const row = rowId ? await ctx.db.get('referrals', rowId) : null
+    const row = await referralOf(ctx, id)
     return row ? await voidRow(ctx, row, reason) : false
   },
 })
@@ -651,8 +650,7 @@ export const resolveFlag = mutation({
   args: { id: v.string(), resolution: v.union(v.literal('release'), v.literal('void')) },
   returns: v.boolean(),
   handler: async (ctx, { id, resolution }) => {
-    const rowId = ctx.db.normalizeId('referrals', id)
-    const row = rowId ? await ctx.db.get('referrals', rowId) : null
+    const row = await referralOf(ctx, id)
     if (!row?.flags?.length || (row.state !== 'claimed' && row.state !== 'held')) return false
     if (resolution === 'void') return await voidRow(ctx, row, 'administrator')
     // A held referral goes back to the sweep, due from the end of its hold.

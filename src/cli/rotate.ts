@@ -24,7 +24,7 @@ import { parseSecretList } from '../convex/integrations/webhook-guard'
 import { deploymentFlags, generateAuthSecret, readEnvFiles, setDeploymentEnv } from '../env-push'
 import { readSyncDeployment, planWebhook } from './billing/deployment'
 import { billingProviderTarget, providerClient, readProviderEndpoint } from './billing/settings'
-import { progress, withContract } from './contract'
+import { finish, progress, withContract } from './contract'
 import { emailSyncRefusal, runEmailSync } from './email'
 
 /** The secrets `env rotate` rotates. */
@@ -325,8 +325,6 @@ export const envRotate = withContract('env rotate', {
     'json': { type: 'boolean', description: 'Print the outcome as one JSON document; progress goes to stderr', default: false },
   },
   async run({ args }) {
-    const { exitCode, output } = await runRotate(resolve(process.cwd(), args.cwd), String(args.name), { prod: args.prod, dryRun: args['dry-run'], retire: args.retire }, progress(args.json))
-    if (args.json && output) console.log(JSON.stringify(output, null, 2))
-    if (exitCode !== 0) process.exitCode = exitCode
+    finish(args.json, await runRotate(resolve(process.cwd(), args.cwd), String(args.name), { prod: args.prod, dryRun: args['dry-run'], retire: args.retire }, progress(args.json)))
   },
 }))

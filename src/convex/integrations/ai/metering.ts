@@ -330,6 +330,28 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
     }
   }
 
+  /**
+   * `prepare` for one call of an action or a stream: its cost estimated
+   * from the call's args, the model it must reach, and what the classifier
+   * checks.
+   */
+  const prepareCall = async (
+    ctx: GenericActionCtx<GenericDataModel>,
+    definition: { meter: string | false, limit?: string | false, cost?: unknown, allowOverage?: boolean, model?: AiModel, moderate?: (args: never) => ModerationInput },
+    args: Record<string, unknown>,
+  ): Promise<{ cost: number, usage: MeteredUsage, reservation: SpendReservation }> => {
+    const cost = estimateCost(definition.cost, args)
+    const { usage, reservation } = await prepare(ctx as never, {
+      meter: definition.meter,
+      limit: definition.limit,
+      cost,
+      allowOverage: definition.allowOverage,
+      model: requiredModel(definition),
+      ...(definition.moderate ? { moderate: definition.moderate(args as never) } : {}),
+    })
+    return { cost, usage, reservation }
+  }
+
   const meteredAction: Ai['meteredAction'] = (definition) => {
     checkDefinition(definition, 'ai.meteredAction')
     return actionGeneric({
@@ -337,15 +359,7 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
       // Loose internal typing: precise arg types live on MeteredActionConfig;
       // the open `Args` generic fights Convex's conditional args-array types.
       handler: (async (ctx: GenericActionCtx<GenericDataModel>, args: Record<string, unknown>) => {
-        const cost = estimateCost(definition.cost, args)
-        const { usage, reservation } = await prepare(ctx as never, {
-          meter: definition.meter,
-          limit: definition.limit,
-          cost,
-          allowOverage: definition.allowOverage,
-          model: requiredModel(definition),
-          ...(definition.moderate ? { moderate: definition.moderate(args as never) } : {}),
-        })
+        const { usage, reservation } = await prepareCall(ctx, definition, args)
         const metered = definition.meter !== false
         const calls: ModelCall[] = []
         const storeImage = imageStore(ctx, config.provenance, requests as unknown as ProvenanceRefs, { owner: usage.entityId, userId: usage.userId, calls, model: modelIdOf(definition.model ?? config.model) })
@@ -388,7 +402,7 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
     })
   }
 
-  return { prepare, closeSpend, armRelease, meteredAction, checkDefinition, requiredModel, modelPicker }
+  return { prepare, prepareCall, closeSpend, armRelease, meteredAction, checkDefinition, requiredModel, modelPicker }
 }
 
 export type AiMetering = ReturnType<typeof createMetering>

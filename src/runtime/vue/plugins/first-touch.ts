@@ -1,4 +1,5 @@
 import { defineNuxtPlugin, useRouter } from '#imports'
+import { onEveryPage } from '../utils/every-page'
 
 /** Whether a query carries any `utm_*` parameter. */
 const tagged = (query: Record<string, unknown>): boolean => Object.keys(query).some(name => name.startsWith('utm_'))
@@ -24,9 +25,6 @@ export default defineNuxtPlugin({
           if (import.meta.dev) console.error('[nuxt-backend] the campaign could not be recorded:', cause)
         })
     }
-    nuxtApp.hook('app:mounted', check)
-    router.afterEach((_to, from) => {
-      if (from.matched.length > 0) check()
-    })
+    onEveryPage(nuxtApp, router, check)
   },
 })

@@ -1,13 +1,15 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, type ComputedRef, inject } from 'vue'
 import { ConvexAuthStateKey, useAction } from 'nuxt-convex-module/client'
-import type { WebhookDeliveryRow, WebhookReplay, WebhookService } from '../../../convex/integrations/webhooks.js'
+import type { WebhookService } from '../../../convex/integrations/webhook-guard.js'
+import type { WebhookDeliveryRow, WebhookReplay } from '../../../convex/integrations/webhooks.js'
 import { useActionState } from '../utils/action-state'
 import type { BackendError } from '../utils/backend-error'
 import { absentQuery, useLiveQuery } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
 
-export type { WebhookDeliveryRow, WebhookReplay, WebhookService } from '../../../convex/integrations/webhooks.js'
+export type { WebhookService } from '../../../convex/integrations/webhook-guard.js'
+export type { WebhookDeliveryRow, WebhookReplay } from '../../../convex/integrations/webhooks.js'
 
 /** The rows the Webhooks tab reads: the whole ring. */
 const LOG_SIZE = 200

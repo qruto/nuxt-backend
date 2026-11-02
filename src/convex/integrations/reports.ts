@@ -39,7 +39,7 @@ import { DEFAULT_LIMITS } from './rate-limit.js'
 // goes. Every decision is emailed to whoever the law says must hear of it,
 // and recorded on the activity trail without the reporter.
 
-export { REMOVAL_DEADLINE_MS, REPORT_REASONS, type ReportReason } from '../report-rules.js'
+export type { ReportReason } from '../report-rules.js'
 
 /**
  * A reported thing of the app's: the table it is in and its row id, an id of

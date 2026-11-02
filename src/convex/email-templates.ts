@@ -37,7 +37,6 @@ import { baseLanguage, matchLocale, normalizeLocale, textDirection } from './loc
 // Convex mutation.
 
 export { escapeHtml }
-export { describeOrigin, linkBlocks } from './email-helpers.js'
 export type { EmailBlock }
 export type { EmailColors, EmailFonts, EmailScheme, EmailTheme, ResolvedEmailTheme } from './email-theme.js'
 

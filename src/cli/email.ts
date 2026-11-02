@@ -26,7 +26,7 @@ import type { EmailSyncReport } from '../convex/integrations/email-sync'
 import type { InboundSyncReport } from '../convex/integrations/inbound'
 import { deployKeyType, deploymentFlags, executeEnvPush, readEnvFiles } from '../env-push'
 import { finding, type PreflightFinding } from '../findings'
-import { progress, withContract } from './contract'
+import { finish, progress, withContract } from './contract'
 
 export type { EmailSyncReport } from '../convex/integrations/email-sync'
 
@@ -291,13 +291,11 @@ export const emailSync = withContract('email sync', {
     'json': { type: 'boolean', description: 'Print the outcome as one JSON document; progress goes to stderr', default: false },
   },
   async run({ args }) {
-    const { exitCode, output } = await runEmailSyncCommand(resolve(process.cwd(), args.cwd), {
+    finish(args.json, await runEmailSyncCommand(resolve(process.cwd(), args.cwd), {
       prod: args.prod,
       dryRun: args['dry-run'],
       ...(args.webhook ? { webhook: args.webhook } : {}),
-    }, progress(args.json))
-    if (args.json && output) console.log(JSON.stringify(output, null, 2))
-    if (exitCode !== 0) process.exitCode = exitCode
+    }, progress(args.json)))
   },
 }))
 

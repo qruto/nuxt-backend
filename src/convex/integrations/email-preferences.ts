@@ -36,7 +36,7 @@ import { ownCaller } from './access.js'
 // gate every send under a topic passes, and the RFC 8058 one-click route.
 // `setupEmail` builds it from its `topics` and `caps` and returns its parts.
 
-export type { ClockTime, EmailCaps, EmailTopic, EmailTopics, TopicSource, TopicState } from '../email-preferences.js'
+export type { EmailCaps, EmailTopics, TopicState } from '../email-preferences.js'
 
 type RunMutationCtx = Pick<GenericActionCtx<GenericDataModel>, 'runMutation'>
 type RunQueryCtx = Pick<GenericActionCtx<GenericDataModel>, 'runQuery'>

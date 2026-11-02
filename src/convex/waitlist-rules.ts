@@ -30,9 +30,8 @@ export const WAITLIST_CONSOLE_ROWS = 200
 /** How many of a status's oldest entries a filtered console read looks through. */
 export const WAITLIST_FILTER_SCAN = 1000
 
-// The share codes and the mailbox rule are the referral program's, one for
-// every sharer: an entry's code is handed to the account it becomes.
-export { mailboxOf, newShareCode, normalizeShareCode } from './referral-rules.js'
+// The mailbox rule is the referral program's, one for every sharer.
+export { mailboxOf } from './referral-rules.js'
 
 /** The source of an entry made on the sign-in page. */
 export const SOURCE_SIGN_IN = 'sign-in'
@@ -41,14 +40,6 @@ export const SOURCE_FORM = 'form'
 
 /** How many friends move a person up, by default, and how far each moves them. */
 export const DEFAULT_BOOST = { cap: 10, days: 1 } as const
-
-/** What a boost is set to: a cap of friends per person, and the days each one moves a person up. */
-export interface WaitlistBoost {
-  /** The most friends that count for one person. Default 10. */
-  cap?: number
-  /** The days each friend moves a person up the line. Default 1. */
-  days?: number
-}
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -109,17 +100,6 @@ export function checkedQuestions(questions: WaitlistQuestions | undefined): Wait
     }
   }
   return Object.fromEntries(entries)
-}
-
-/** The boost as `setupWaitlist` takes it, with defaults; `false` turns the referral boost off. */
-export function checkedBoost(boost: WaitlistBoost | false | undefined): { cap: number, days: number } {
-  if (boost === false) return { cap: 0, days: DEFAULT_BOOST.days }
-  const cap = boost?.cap ?? DEFAULT_BOOST.cap
-  const days = boost?.days ?? DEFAULT_BOOST.days
-  if (!Number.isInteger(cap) || cap < 0 || cap > 1000 || !(days > 0) || days > 365) {
-    throw new TypeError('[nuxt-backend] setupWaitlist: boost.cap is a whole number from 0 to 1000, and boost.days a number of days above 0, up to 365.')
-  }
-  return { cap, days }
 }
 
 // ── The signed status link ───────────────────────────────────────────────

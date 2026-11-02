@@ -8,7 +8,8 @@ import { resolveBackendPaths } from '../../paths.js'
 import { backendError } from '../../errors.js'
 import { logBackend } from '../../log.js'
 import { hasAnyRole } from '../access.js'
-import { type BillingContext, isProviderNotFound, readEnv } from './context.js'
+import { type BillingContext, isProviderNotFound } from './context.js'
+import { readEnv } from '../../delivery.js'
 import type { BillingCustomers } from './customers.js'
 import type { BillingFreePlan } from './free-plan.js'
 import type { GiftRecord } from './types/records.js'
@@ -38,9 +39,6 @@ export function addMonths(from: number, months: number): number {
   date.setUTCDate(Math.min(day, last))
   return date.getTime()
 }
-
-/** The last cycle of a pass is at least this long: from here to the end, the pass is in it. */
-export const LAST_CYCLE_MS = 28 * DAY_MS
 
 /** How long a plan pass's claim holds its gift: the provider calls of one claim, with room to spare. */
 const CLAIM_HOLD_MS = 5 * 60 * 1000
