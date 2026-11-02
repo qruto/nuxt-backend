@@ -6,6 +6,7 @@ import { defaultLastLoginMethod, resolveSignInMethod } from '../../src/convex/cl
 import { STORAGE_COOKIE } from '../../src/convex/consent-rules'
 import { LAST_SIGN_IN_COOKIE } from '../../src/convex/constants'
 import { DEFAULT_LIMITS } from '../../src/convex/integrations/rate-limit'
+import { CLIENT_ADDRESS_HEADER, CLIENT_IP_HEADER, signClientAddress } from '../../src/convex/proof'
 import { authFlow, ORIGIN, SECRET } from '../helpers/auth-flow'
 
 // How a person last signed in, against real Better Auth through its routes:
@@ -151,6 +152,65 @@ describe('the passkey sign-in challenge', () => {
     // The client, then the proxy in front of the deployment.
     expect((await challenge(flow, '203.0.113.7, 10.1.2.3')).status).toBe(200)
     expect(flow.limiter.limit.mock.calls[0]).toEqual([expect.anything(), 'passkeySignIn', { key: addressKey('203.0.113.7') }])
+  })
+
+  describe('behind the app\'s auth proxy', () => {
+    // The deployment sees the app's server connect, and the platform writes
+    // that server's address into x-forwarded-for: the server signs the
+    // client's own into the request it forwards.
+    const PROOF_SECRET = 'proof-secret-for-tests'
+    const SITE = 'https://happy-otter-123.convex.site'
+    const SERVER = '192.0.2.10'
+
+    /** A challenge request as the app's server forwards it, with extra headers. */
+    function forwarded(flow: Awaited<ReturnType<typeof authFlow>>, headers: Record<string, string>) {
+      return flow.auth.handler(new Request(`${ORIGIN}/api/auth/passkey/generate-authenticate-options`, {
+        headers: { 'origin': ORIGIN, 'x-forwarded-for': SERVER, ...headers },
+      }))
+    }
+
+    async function proxied() {
+      vi.stubEnv('PROTECTION_PROOF_SECRET', PROOF_SECRET)
+      vi.stubEnv('CONVEX_SITE_URL', SITE)
+      return authFlow()
+    }
+
+    it('spends the bucket of the address the app\'s server signed, not the server\'s own', async () => {
+      const flow = await proxied()
+      const signed = await signClientAddress(PROOF_SECRET, '203.0.113.9', 'happy-otter-123.convex.site')
+      expect((await forwarded(flow, { [CLIENT_ADDRESS_HEADER]: signed })).status).toBe(200)
+      expect(flow.limiter.limit.mock.calls[0]).toEqual([expect.anything(), 'passkeySignIn', { key: addressKey('203.0.113.9') }])
+    })
+
+    it('gives two visitors through one server a bucket each', async () => {
+      const flow = await proxied()
+      for (const visitor of ['203.0.113.9', '198.51.100.4']) {
+        const signed = await signClientAddress(PROOF_SECRET, visitor, 'happy-otter-123.convex.site')
+        expect((await forwarded(flow, { [CLIENT_ADDRESS_HEADER]: signed })).status).toBe(200)
+      }
+      expect(flow.limiter.limit.mock.calls.filter(([, name]) => name === 'passkeySignIn').map(([, , options]) => options?.key))
+        .toEqual([addressKey('203.0.113.9'), addressKey('198.51.100.4')])
+    })
+
+    it('ignores an address header a caller wrote itself, and one signed with another secret or for another deployment', async () => {
+      const flow = await proxied()
+      const elsewhere = await signClientAddress(PROOF_SECRET, '203.0.113.9', 'other-deployment-1.convex.site')
+      const forged = await signClientAddress('another-secret', '203.0.113.9', 'happy-otter-123.convex.site')
+      const cases: Array<Record<string, string>> = [{ [CLIENT_IP_HEADER]: '203.0.113.9' }, { [CLIENT_ADDRESS_HEADER]: '203.0.113.9;v1.0.forged' }, { [CLIENT_ADDRESS_HEADER]: elsewhere }, { [CLIENT_ADDRESS_HEADER]: forged }]
+      for (const headers of cases) {
+        expect((await forwarded(flow, headers)).status).toBe(200)
+      }
+      // Each spent the bucket of the address the platform wrote.
+      expect(new Set(flow.limiter.limit.mock.calls.filter(([, name]) => name === 'passkeySignIn').map(([, , options]) => options?.key))).toEqual(new Set([addressKey(SERVER)]))
+    })
+
+    it('takes no signed address on a deployment without the proof secret', async () => {
+      vi.stubEnv('CONVEX_SITE_URL', SITE)
+      const flow = await authFlow()
+      const signed = await signClientAddress(PROOF_SECRET, '203.0.113.9', 'happy-otter-123.convex.site')
+      expect((await forwarded(flow, { [CLIENT_ADDRESS_HEADER]: signed })).status).toBe(200)
+      expect(flow.limiter.limit.mock.calls[0]).toEqual([expect.anything(), 'passkeySignIn', { key: addressKey(SERVER) }])
+    })
   })
 
   it('spends nothing on the answer, which uses its challenge up', async () => {
