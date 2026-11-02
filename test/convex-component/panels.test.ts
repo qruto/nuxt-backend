@@ -686,10 +686,13 @@ describe('templates/panels/backend as the public demo', () => {
   test('the day\'s spend limit turns pause_ai on', async () => {
     registerTesting()
     const ada = await withCredits('delivered+limit@resend.dev', { signInMethod: 'passkey' })
+    holdTheClock()
+    // Midday UTC: the limit is per UTC day, and a strip drained from just
+    // before midnight would spend on the next one.
+    vi.setSystemTime(new Date().setUTCHours(12, 0, 0, 0))
     // The day has cost the app far past Panels' limit already, recorded
     // without one, so nothing paused yet.
     await t.mutation(backend().costs.record, { owner: 'elsewhere', usage: { usd: 1000, input: 1, output: 1, cached: 0 } })
-    holdTheClock()
     // An idea of one's own, from a passkey session, is drawn by the models.
     const first = await ada.mutation(fn<'mutation'>('strips:create'), { idea: 'A cat learns to surf' }) as string
     await ada.mutation(fn<'mutation'>('strips:generate'), { id: first })

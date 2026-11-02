@@ -795,6 +795,12 @@ describe('what AI costs, per person', () => {
   // Internal to the component: the alert's own read, called here as the alert calls it.
   const dailySpend = (backend.costs as unknown as { dailySpend: FunctionReference<'query', 'internal', { since: number, until: number }, Array<{ day: number, usd: number }>> }).dailySpend
 
+  // Midday UTC: costs are summed per UTC day, and a run drained from just
+  // before midnight would record its calls on the next one.
+  beforeEach(() => {
+    vi.setSystemTime(new Date().setUTCHours(12, 0, 0, 0))
+  })
+
   test('a chat reply, a metered action and a stream each count against who made them, in the summary and the day\'s spend', async () => {
     const t = testApp()
     const ada = await asUser(t)
