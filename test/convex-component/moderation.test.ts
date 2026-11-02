@@ -2,12 +2,13 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { actionGeneric, componentsGeneric, defineSchema, defineTable, type FunctionReference, makeFunctionReference, mutationGeneric } from 'convex/server'
 import { v } from 'convex/values'
+import { APICallError } from 'ai'
 import { MockLanguageModelV4 } from 'ai/test'
 import { asUser, defineBackendTestApp } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { backendError, getBackendError } from '../../src/convex/errors'
 import { defineJobQueue, setupAi } from '../../src/convex/integrations/ai'
-import { readVerdict } from '../../src/convex/integrations/ai/moderation'
+import { MODERATION_TIMEOUT_MS, readVerdict } from '../../src/convex/integrations/ai/moderation'
 import type { Billing } from '../../src/convex/integrations/billing'
 import { setupRateLimiter } from '../../src/convex/integrations/rate-limit'
 import { setupStorage } from '../../src/convex/integrations/storage'
@@ -18,7 +19,9 @@ import { setupStorage } from '../../src/convex/integrations/storage'
 // (checked before anything is reserved) and on a job (its first step, before
 // the charge, the hold released when it is flagged). The classifier is a
 // model object here, answering as Llama Guard does: `unsafe` and its codes
-// for text that says BAD or for a GIF, `safe` for anything else.
+// for text that says BAD or for a GIF, `safe` for anything else. Like Llama
+// Guard behind the Convex AI Gateway, it refuses a message with no text: a
+// 200 whose body is the upstream error, which the SDK cannot read.
 
 const components = componentsGeneric() as unknown as { backend: ComponentApi<'backend'>, rateLimiter: never, workflow: never, persistentTextStreaming: never }
 const backend = components.backend
@@ -31,17 +34,33 @@ const GIF = new TextEncoder().encode('GIF89a\x01\x00\x01\x00\x00\x00\x00;')
 const shown: Array<{ text: string, media: string[] }> = []
 const budgets: Array<{ maxOutputTokens?: number, providerOptions?: unknown }> = []
 let answer: string | null = null
+/** How the classifier fails, when it does: its provider's error, or no answer at all. */
+let failure: 'provider' | 'hang' | null = null
+
+/** What the AI SDK throws for a gateway's 200 that carries an upstream error instead of an answer. */
+const upstreamError = () => new APICallError({
+  message: 'Invalid JSON response',
+  url: 'https://gateway.example.com/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 200,
+  responseBody: JSON.stringify({ id: 'gen-1', error: { message: 'Upstream error from DeepInfra: {\'message\': \'\', \'type\': \'BadRequestError\', \'code\': 400}', code: 400 } }),
+  isRetryable: false,
+})
 
 const usage = { inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 2, text: 2, reasoning: 0 } }
 const classifier = new MockLanguageModelV4({
   provider: 'test',
   modelId: 'meta-llama/llama-guard-4-12b',
-  doGenerate: async ({ prompt, maxOutputTokens, providerOptions }) => {
+  doGenerate: async ({ prompt, maxOutputTokens, providerOptions, abortSignal }) => {
     budgets.push({ maxOutputTokens, providerOptions })
     const parts = prompt.flatMap(message => message.role === 'user' ? message.content as Array<{ type: string, text?: string, mediaType?: string }> : [])
     const text = parts.filter(part => part.type === 'text').map(part => part.text).join(' ')
     const media = parts.filter(part => part.type === 'file').map(part => part.mediaType!)
     shown.push({ text, media })
+    if (failure === 'hang') {
+      return new Promise((_resolve, reject) => abortSignal?.addEventListener('abort', () => reject(abortSignal.reason)))
+    }
+    if (failure === 'provider' || !text) throw upstreamError()
     const verdict = answer ?? (/BAD/.test(text) ? 'unsafe\nS10' : media.includes('image/gif') ? 'unsafe\nS12,S4' : 'safe')
     return { content: [{ type: 'text', text: verdict }], finishReason: { unified: 'stop', raw: 'stop' }, usage, warnings: [] }
   },
@@ -215,6 +234,7 @@ beforeEach(() => {
   shown.length = 0
   budgets.length = 0
   answer = null
+  failure = null
   captioned = 0
   for (const spy of silence) spy.mockClear()
 })
@@ -253,6 +273,8 @@ describe('ai.moderate and ai.requireSafe', () => {
     expect(await ada.action(ref.check, { images: [photo], require: true })).toBeNull()
     expect(await refusal(ada.action(ref.check, { images: [flagged], require: true }))).toMatchObject({ code: 'invalid_input', data: { field: 'images', reason: 'content_blocked' } })
     expect(shown.map(call => call.media)).toEqual([['image/png'], ['image/gif']])
+    // Images checked alone go with a few neutral words, which the gateway's Llama Guard needs.
+    expect(shown.map(call => call.text)).toEqual(['An image to check.', 'An image to check.'])
     const own = await t.run(ctx => ctx.storage.store(new Blob([GIF])))
     expect(await ada.action(ref.check, { images: [own] })).toEqual({ flagged: true, categories: ['S12', 'S4'] })
   })
@@ -274,6 +296,26 @@ describe('ai.moderate and ai.requireSafe', () => {
     const ada = await asUser(t)
     expect(await refusal(ada.action(ref.check, { text: 'A fox' }))).toMatchObject({ code: 'unavailable', data: { service: 'ai', reason: 'provider_refused' } })
     expect(silence[1]!.mock.calls.flat().join(' ')).toContain('ai.moderation_unreadable')
+  })
+
+  test('refuse as unchecked, with a code, when the classifier\'s provider fails, and log the provider\'s words', async () => {
+    failure = 'provider'
+    const t = testApp()
+    const ada = await asUser(t)
+    expect(await refusal(ada.action(ref.check, { text: 'A fox' }))).toMatchObject({ code: 'unavailable', data: { service: 'ai', reason: 'provider_refused' } })
+    const logged = silence[1]!.mock.calls.map(call => String(call[0])).join(' ')
+    expect(logged).toContain('ai.moderation_failed')
+    expect(logged).toContain('Upstream error from DeepInfra')
+  })
+
+  test('stop waiting for a classifier that does not answer, and refuse the content as unchecked', async () => {
+    failure = 'hang'
+    const t = testApp()
+    const ada = await asUser(t)
+    const checked = refusal(ada.action(ref.check, { text: 'A fox' }))
+    await vi.advanceTimersByTimeAsync(MODERATION_TIMEOUT_MS)
+    expect(await checked).toMatchObject({ code: 'unavailable', data: { service: 'ai', reason: 'provider_refused' } })
+    expect(silence[1]!.mock.calls.flat().join(' ')).toContain('ai.moderation_failed')
   })
 
   test('a text-only classifier is given the policy and room to reason, and refuses images it cannot read', async () => {

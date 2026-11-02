@@ -3,6 +3,7 @@ import { getServiceToken } from 'convex/server'
 import { backendError, getBackendError } from '../../errors.js'
 import { logBackend } from '../../log.js'
 import type { AiModel, InferenceRegion, MeteredModel, ModelStatus } from './config.js'
+import { upstreamErrorOf } from './job-errors.js'
 import { MODEL_ID } from './model-id.js'
 import type { TokenUsage } from './pricing.js'
 
@@ -460,6 +461,7 @@ export function failedRun(calls: readonly ModelCall[]): Error | undefined {
   if (calls.length === 0 || calls.some(call => call.state === 'finished' || call.state === 'open')) return undefined
   const { model, error } = calls[0]!
   if (getBackendError(error)) return error as Error
-  logBackend('error', 'ai.model_failed', `Every model call this run made failed (${model} first): the run is refused and nothing is charged.`, error)
+  const upstream = upstreamErrorOf(error)
+  logBackend('error', 'ai.model_failed', `Every model call this run made failed (${model} first${upstream ? `: ${upstream}` : ''}): the run is refused and nothing is charged.`, error)
   return backendError('unavailable', { service: 'ai', reason: 'provider_refused' }, `[nuxt-backend] The model call to ${model} failed. Try again shortly.`)
 }

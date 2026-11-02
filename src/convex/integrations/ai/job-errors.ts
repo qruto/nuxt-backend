@@ -71,6 +71,27 @@ export function retryAfterOf(error: unknown, now = Date.now()): number | undefin
   return undefined
 }
 
+/**
+ * The provider's own words behind an error, when a gateway answered a
+ * failed call with a 200 whose body is an `error` object (the Convex AI
+ * Gateway passing on an upstream refusal) or with a body the SDK could not
+ * read as an answer: the AI SDK then reports only "Invalid JSON response".
+ */
+export function upstreamErrorOf(error: unknown): string | undefined {
+  for (const link of chainOf(error)) {
+    if (typeof link.responseBody !== 'string') continue
+    try {
+      const body = JSON.parse(link.responseBody) as { error?: { message?: unknown } | string }
+      const message = typeof body?.error === 'string' ? body.error : body?.error?.message
+      if (typeof message === 'string' && message.trim()) return message.trim().slice(0, 500)
+    }
+    catch {
+      // A body that is not JSON says nothing more than the error does.
+    }
+  }
+  return undefined
+}
+
 /** Whether any text of the chain (name, message, type, body) says `pattern`. */
 const says = (chain: readonly ErrorLike[], pattern: RegExp): boolean =>
   chain.some(error => [error.name, error.message, error.type, error.responseBody].some(text => typeof text === 'string' && pattern.test(text)))

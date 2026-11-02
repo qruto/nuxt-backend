@@ -1,9 +1,10 @@
 import type { FunctionReference, GenericActionCtx, GenericDataModel } from 'convex/server'
-import { backendError } from '../../errors.js'
+import { backendError, getBackendError } from '../../errors.js'
 import { sniffContentType } from '../../files.js'
 import { logBackend } from '../../log.js'
 import type { AiModel, InferenceRegion } from './config.js'
 import type { RecordCost } from './costs.js'
+import { upstreamErrorOf } from './job-errors.js'
 import { loadSdk, meteredModel, modelIdOf, type ModelCall, requireModelId, routeModel } from './models.js'
 
 // Content safety's check (`ai.moderate`, `ai.requireSafe`, `moderate` on a
@@ -51,6 +52,17 @@ export interface ModerationConfig {
 
 /** The most images one check reads. */
 export const MODERATION_IMAGES_MAX = 8
+
+/** How long a check waits for its classifier: past it, the content is refused as unchecked, and the caller's action goes on. */
+export const MODERATION_TIMEOUT_MS = 30_000
+
+/**
+ * The words images checked alone go with. Llama Guard 4 behind the Convex AI
+ * Gateway refuses a message of images with no text (an upstream `400`,
+ * passed on as a `200` with an `error` body), and reads the same images
+ * with any text beside them.
+ */
+const IMAGES_ALONE = 'An image to check.'
 
 /** The hazard categories a policy-following classifier is given: the MLCommons taxonomy Llama Guard 4 is trained on. */
 const CATEGORIES = [
@@ -118,6 +130,14 @@ interface StorageBytesRef {
 
 let imagesUncheckedNoticed = false
 
+/** A classifier call that failed, as the caller reads it: a refusal of the catalog as it is (a model with no route, AI paused), anything else (a timeout, the provider's error) `unavailable` and logged. */
+function checkFailure(id: string, error: unknown): Error {
+  if (getBackendError(error)) return error as Error
+  const upstream = upstreamErrorOf(error)
+  logBackend('error', 'ai.moderation_failed', `The moderation model ${id} did not answer${upstream ? ` (${upstream})` : ''}: the content is refused as unchecked.`, error)
+  return backendError('unavailable', { service: 'ai', reason: 'provider_refused' }, `[nuxt-backend] The moderation model ${id} did not answer. Try again shortly.`)
+}
+
 /** Refuse a check with images its classifier cannot read: passing them unread would call them safe. */
 function refuseUnreadImages(id: string): never {
   if (!imagesUncheckedNoticed) {
@@ -181,8 +201,9 @@ export function createModeration(config: { moderation?: ModerationConfig, infere
     if (!text && imageIds.length === 0) return { flagged: false, categories: [] }
     const parts = await imageParts(ctx, imageIds)
     const llamaGuard = isLlamaGuard(id)
+    const words = text || IMAGES_ALONE
     const content = [
-      ...(text ? [{ type: 'text' as const, text: llamaGuard ? text : `<content>\n${text}\n</content>` }] : []),
+      { type: 'text' as const, text: llamaGuard ? words : `<content>\n${words}\n</content>` },
       ...parts,
     ]
     const sdk = await loadSdk()
@@ -191,15 +212,23 @@ export function createModeration(config: { moderation?: ModerationConfig, infere
     const calls: ModelCall[] = []
     const classifier = meteredModel(routeModel(model, undefined, config.inferenceRegion), calls, config.inferenceRegion)
     let result: Awaited<ReturnType<typeof sdk.generateText>>
+    // A gateway that hangs must not hold the caller's action until it times out.
+    const deadline = new AbortController()
+    const timer = setTimeout(() => deadline.abort(new Error(`The moderation model ${id} did not answer within ${MODERATION_TIMEOUT_MS / 1000} s.`)), MODERATION_TIMEOUT_MS)
     try {
       result = await sdk.generateText({
         model: classifier,
         ...(llamaGuard ? {} : { system: POLICY }),
         messages: [{ role: 'user', content }],
         ...answerBudget(llamaGuard),
+        abortSignal: deadline.signal,
       })
     }
+    catch (error) {
+      throw checkFailure(id, error)
+    }
     finally {
+      clearTimeout(timer)
       const identity = await ctx.auth?.getUserIdentity()
       await recordCost?.(ctx, { ...(identity ? { userId: identity.subject } : {}), owner: 'app' }, calls)
     }
