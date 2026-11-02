@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
+import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { computed, createApp, ref } from 'vue'
+import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { useNuxtApp, useRouter } from '#imports'
 import { entitlementSync, finishCheckoutReturn, finishingCheckout } from '../../src/runtime/vue/utils/checkout-return'
@@ -12,6 +14,9 @@ import { entitlementSync, finishCheckoutReturn, finishingCheckout } from '../../
 // app and router, with the backend's refresh standing in.
 
 const sync = vi.hoisted(() => ({ calls: [] as Array<{ args: unknown, finishing: boolean }> }))
+/** A router the plugin starts with in place of the test app's, while one is set. */
+const appRouter = vi.hoisted(() => ({ current: undefined as unknown }))
+mockNuxtImport('useRouter', original => () => (appRouter.current as Router | undefined) ?? (original as () => Router)())
 
 vi.mock('../../src/runtime/vue/utils/namespace', () => ({ useBackendNamespace: () => ({ syncEntitlements: {} }) }))
 vi.mock('nuxt-convex-module/client', async importOriginal => ({
@@ -30,7 +35,8 @@ describe('finishing a return from checkout', () => {
     const refresh = vi.fn(async () => {
       during = finishingCheckout.value
     })
-    expect(await finishCheckoutReturn({ query: { tab: 'plan', checkout_return: 'chk_a' }, strip, sync: refresh })).toBe(true)
+    expect(await finishCheckoutReturn({ query: { tab: 'plan', checkout_return: 'chk_a', customer_session_token: 'polar_cst_secret' }, strip, sync: refresh })).toBe(true)
+    // The provider's customer-session token, a key to the billing portal, comes off with it.
     expect(strip).toHaveBeenCalledWith({ tab: 'plan' })
     expect(during).toBe(true)
     expect(finishingCheckout.value).toBe(false)
@@ -115,13 +121,42 @@ describe('the checkout-return plugin', () => {
     await flushPromises()
     expect(sync.calls).toHaveLength(before)
 
-    await router.push('/settings?tab=plan&checkout_return=chk_1#billing')
+    await router.push('/settings?tab=plan&checkout_return=chk_1&customer_session_token=polar_cst_secret#billing')
     await nuxtApp.callHook('app:mounted', nuxtApp.vueApp)
     await vi.waitFor(() => expect(sync.calls).toHaveLength(before + 1), { timeout: 15_000 })
     // Refreshed with no arguments, while the page said it is finishing the purchase.
     expect(sync.calls[before]).toEqual({ args: {}, finishing: true })
     await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/settings?tab=plan#billing'))
     expect(finishingCheckout.value).toBe(false)
+  })
+
+  it('stops at a strip a guard refuses, rather than trying it again forever', async () => {
+    // A router of the app's own: the test app's matches no page, and never reports a refused navigation.
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/guarded', component: { render: () => null } }] })
+    let refused = 0
+    router.beforeEach((to, from) => {
+      // A guard that keeps the page as it is: the strip is a navigation like any.
+      if (from.path === '/guarded' && !to.query.checkout_return) {
+        refused++
+        return false
+      }
+    })
+    await router.push('/guarded?checkout_return=chk_guarded')
+    const { default: plugin } = await import('../../src/runtime/vue/plugins/checkout-return')
+    const nuxtApp = useNuxtApp()
+    appRouter.current = router
+    try {
+      await nuxtApp.runWithContext(() => (plugin as unknown as (app: typeof nuxtApp) => unknown)(nuxtApp))
+    }
+    finally {
+      appRouter.current = undefined
+    }
+    await nuxtApp.callHook('app:mounted', nuxtApp.vueApp)
+    await vi.waitFor(() => expect(refused).toBeGreaterThan(0))
+    await new Promise(resolve => setTimeout(resolve, 100))
+    await flushPromises()
+    expect(refused).toBe(1)
+    expect(router.currentRoute.value.fullPath).toBe('/guarded?checkout_return=chk_guarded')
   })
 
   it('leaves an app\'s own checkout_id on the address', async () => {
