@@ -116,6 +116,49 @@ function refused(what: string, error: ProviderError): Error {
   return new Error(`[nuxt-backend] email sync: the provider refused to ${what}: ${error?.message ?? 'no answer'}`)
 }
 
+/** How many times one call is tried while the provider answers it with its rate limit. */
+const RATE_LIMIT_ATTEMPTS = 5
+
+/** The longest wait for the provider's rate limit to reset. */
+const RATE_LIMIT_WAIT_MAX_MS = 60_000
+
+/** A header of the provider's answer, as a number of seconds; `undefined` when absent. */
+function seconds(headers: Record<string, string> | null, name: string): number | undefined {
+  const value = Number(headers?.[name])
+  return headers?.[name] !== undefined && Number.isFinite(value) && value >= 0 ? value : undefined
+}
+
+/**
+ * The provider's client, paced to its rate limit: each answer says how many
+ * calls a second the key may make (`ratelimit-limit`) and when the window
+ * resets once they are spent, so the next call waits for its turn. A call
+ * the provider still answers `429` is tried again after the `retry-after`
+ * it names, up to {@link RATE_LIMIT_ATTEMPTS} times. A sync makes dozens of
+ * calls one after another (a template, its publication and its automation
+ * for every flow); unpaced, it passed the limit on every run.
+ */
+function paced(resend: Resend): Resend {
+  const unpaced = resend.fetchRequest.bind(resend)
+  let spacingMs = 0
+  let nextAt = 0
+  resend.fetchRequest = async <T>(path: string, options: Parameters<Resend['fetchRequest']>[1] = {}) => {
+    for (let attempt = 1; ; attempt++) {
+      const ahead = nextAt - Date.now()
+      if (ahead > 0) await new Promise(resolve => setTimeout(resolve, ahead))
+      const answer = await unpaced<T>(path, options)
+      const limit = seconds(answer.headers, 'ratelimit-limit')
+      if (limit) spacingMs = Math.ceil(1000 / limit)
+      const spent = seconds(answer.headers, 'ratelimit-remaining') === 0
+      nextAt = Date.now() + Math.max(spacingMs, spent ? (seconds(answer.headers, 'ratelimit-reset') ?? 0) * 1000 : 0)
+      const limited = answer.error?.statusCode === 429 || answer.error?.name === 'rate_limit_exceeded'
+      if (!limited || attempt >= RATE_LIMIT_ATTEMPTS) return answer
+      const retryAfter = seconds(answer.headers, 'retry-after') ?? seconds(answer.headers, 'ratelimit-reset') ?? 1
+      nextAt = Date.now() + Math.min(retryAfter * 1000, RATE_LIMIT_WAIT_MAX_MS)
+    }
+  }
+  return resend
+}
+
 /** The most items one page of a provider listing holds. */
 const PAGE_LIMIT = 100
 /** The most pages one listing reads: past them, a sync works from what it read. */
@@ -486,7 +529,7 @@ export async function syncEmail(
   report.flows.unsynced = flows.unsynced
   const apiKey = readEnv('EMAIL_API_KEY')
   if (!apiKey) return report
-  const resend = new Resend(apiKey)
+  const resend = paced(new Resend(apiKey))
   const listed = await listTopics(resend)
   if (listed.error) {
     if (restricted(listed.error)) return { ...report, key: 'restricted' }
