@@ -10,6 +10,7 @@ import {
   NOTIFICATION_KINDS,
   type NotificationChannel,
   choosableChannels,
+  isTransactional,
   notificationLabelKey,
   type NotificationPlan,
   type NotifyEvent,
@@ -176,6 +177,8 @@ export interface ForgottenNotifications {
 /** What the notifications need of `setupEmail`'s instance: the layout and words, and the sending rules. */
 export interface NotificationsEmail {
   compose: <Message extends EmailMessage | null>(build: (context: EmailRenderContext) => Message | Promise<Message>, options?: { locale?: string | null }) => Promise<Message>
+  /** The transactional send, under no sending rule: a transactional kind's email goes through it. */
+  send: (ctx: Pick<GenericActionCtx<GenericDataModel>, 'runMutation'>, message: EmailMessage) => Promise<string | null>
   /**
    * The sending rules the email instance holds: the weekly cap and the quiet hours.
    *
@@ -201,7 +204,7 @@ export interface SetupNotificationsOptions {
   /**
    * The email instance (`setupEmail`), which email and push notifications
    * are worded and rendered with: your messages, your brand and layout,
-   * and the weekly cap and quiet hours. Without it, notifications reach the
+   * and the weekly cap and quiet hours, which a transactional kind skips. Without it, notifications reach the
    * inbox alone. Re-export `deliverNotification` with it.
    */
   email?: NotificationsEmail
@@ -441,6 +444,11 @@ export function setupNotifications(components: NotificationsComponents, options:
         ],
       }
     }, { locale: recipient.locale })
+    // A transactional kind goes at once, as a transactional email does: no cap, no quiet hours.
+    if (isTransactional(notify, delivery.event.type)) {
+      await email.send(ctx, message)
+      return
+    }
     // The weekly cap and the quiet hours, as for every non-transactional email; never the sunset rule.
     const prepared = await email.preferences.prepare(ctx, message, undefined, async () => ({ unsubscribe: '' }), { sunset: false })
     if (prepared) await ctx.runMutation(refs.email.send, prepared)
@@ -449,8 +457,8 @@ export function setupNotifications(components: NotificationsComponents, options:
   const deliverPush = async (ctx: DeliveryCtx, delivery: ScheduledDelivery, recipient: Recipient) => {
     const keys = pushKeys()
     if (!keys) return
-    // The quiet hours hold a push to their end, on the person's own clock.
-    if (delivery.attempt === undefined) {
+    // The quiet hours hold a push to their end, on the person's own clock; a transactional kind's goes at once.
+    if (delivery.attempt === undefined && !isTransactional(notify, delivery.event.type)) {
       const until = await ctx.runQuery(refs.preferences.quietUntil, { userId: delivery.userId, quietHours: email?.preferences.caps.quietHours ?? null })
       if (until !== null && until > Date.now()) {
         await ctx.scheduler.runAt(until, self, { ...delivery, attempt: 1 })

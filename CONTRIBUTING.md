@@ -303,7 +303,8 @@ A notification is written in the transaction that records its event (`audit.reco
   the event stands.
 - **A person's say.** `CHANNEL_GATES` holds the gates a notification passes before each channel
   (each person's choices, the weekly cap, the quiet hours): every gate must say yes. The inbox
-  is only held back by an explicit choice, never by a cap or quiet hours.
+  is only held back by an explicit choice, never by a cap or quiet hours, and neither is a
+  transactional kind's email or push (`transactional` on its row, or on an app's `notify` entry).
 
 ## Submitting Changes
 

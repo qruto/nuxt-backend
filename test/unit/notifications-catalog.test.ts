@@ -3,6 +3,7 @@ import { BACKEND_EVENTS, IN_APP_ONLY_AREAS } from '../../src/convex/events'
 import {
   declaredChannels,
   isAppPath,
+  isTransactional,
   NOTIFICATION_CHANNELS,
   NOTIFICATION_KINDS,
   choosableChannels,
@@ -61,6 +62,14 @@ describe('the notification kinds', () => {
     expect(choosableChannels('billing.order_paid', declaredChannels('billing.order_paid'))).toEqual(['app'])
   })
 
+  it('send every account kind, and a payment\'s, past the weekly cap and the quiet hours', () => {
+    for (const type of Object.keys(NOTIFICATION_KINDS).filter(type => type.startsWith('auth.'))) {
+      expect(isTransactional({}, type), type).toBe(true)
+    }
+    for (const type of ['billing.subscription_past_due', 'billing.order_paid', 'billing.order_refunded']) expect(isTransactional({}, type), type).toBe(true)
+    for (const type of ['workspace.member_removed', 'billing.credits_low', 'gift.claimed']) expect(isTransactional({}, type), type).toBe(false)
+  })
+
   it('word every one under labels, as a title and a body', () => {
     const words = LABELS.notifications as unknown as Record<string, unknown>
     for (const type of Object.keys(NOTIFICATION_KINDS)) {
@@ -79,6 +88,15 @@ describe('an app\'s notify option', () => {
     expect(notifyProblem({ 'app.Strip': { channels: ['app'] } } as never)).toContain('under `app.`')
     expect(notifyProblem({ 'app.strip_ready': { channels: [] } })).toContain('at least one')
     expect(notifyProblem({ 'app.strip_ready': { channels: ['sms'] } } as never)).toContain('channels are')
+    expect(notifyProblem({ 'app.strip_ready': { channels: ['email'], transactional: true } })).toBeNull()
+    expect(notifyProblem({ 'app.strip_ready': { channels: ['email'], transactional: 'yes' } } as never)).toContain('true or false')
+  })
+
+  it('is transactional only where it says so', () => {
+    const notify = { 'app.strip_printed': { channels: ['email'], transactional: true }, 'app.strip_shared': { channels: ['email'] } } as const
+    expect(isTransactional(notify, 'app.strip_printed')).toBe(true)
+    expect(isTransactional(notify, 'app.strip_shared')).toBe(false)
+    expect(isTransactional(notify, 'app.strip_unknown')).toBe(false)
   })
 
   it('does not take words a package kind has', () => {
