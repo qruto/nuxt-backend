@@ -130,11 +130,11 @@ describe('the checkout-return plugin', () => {
     expect(finishingCheckout.value).toBe(false)
   })
 
-  it('stops at a strip a guard refuses, rather than trying it again forever', async () => {
+  it('stops at a strip a guard refuses, rather than trying it again forever, and finishes a return a later navigation brings', async () => {
     // A router of the app's own: the test app's matches no page, and never reports a refused navigation.
     const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/guarded', component: { render: () => null } }] })
     let refused = 0
-    router.beforeEach((to, from) => {
+    const stopGuard = router.beforeEach((to, from) => {
       // A guard that keeps the page as it is: the strip is a navigation like any.
       if (from.path === '/guarded' && !to.query.checkout_return) {
         refused++
@@ -157,6 +157,11 @@ describe('the checkout-return plugin', () => {
     await flushPromises()
     expect(refused).toBe(1)
     expect(router.currentRoute.value.fullPath).toBe('/guarded?checkout_return=chk_guarded')
+
+    // Without the guard, a navigation that lands with a return, from a page of the app, is finished.
+    stopGuard()
+    await router.push('/guarded?checkout_return=chk_later&customer_session_token=polar_cst_secret')
+    await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/guarded'))
   })
 
   it('leaves an app\'s own checkout_id on the address', async () => {
