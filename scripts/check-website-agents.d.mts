@@ -65,3 +65,9 @@ export declare function checkAssistant(context: {
   fail: (message: string) => void
   live: boolean
 }, expected?: boolean): Promise<void>
+
+/** A page asked for with `Accept: text/markdown`, with and without its trailing slash: each answers its twin, typed as Markdown. */
+export declare function checkNegotiation(context: {
+  get: (path: string, init?: RequestInit) => Promise<Response>
+  fail: (message: string) => void
+}): Promise<void>

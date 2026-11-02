@@ -4,12 +4,12 @@ import type { AddressInfo } from 'node:net'
 import { createApp, type EventHandler, eventHandler, toNodeListener } from 'h3'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { appMonitoringDsn, MONITORING_SDK, monitoringSdkInstalled } from '../../src/monitoring'
-import { assistantFlag, checkAssistant } from '../../scripts/check-website-agents.mjs'
+import { assistantFlag, checkAssistant, checkNegotiation } from '../../scripts/check-website-agents.mjs'
 import { ASSISTANT_API_PATH, ASSISTANT_FAQ, ASSISTANT_FAQ_LEFT_OUT, ASSISTANT_MAX_BODY, ASSISTANT_MAX_HISTORY, ASSISTANT_MAX_QUESTION, ASSISTANT_MAX_TURNS, ASSISTANT_RATE_LIMIT, assistantCallerRefusal, assistantConversation, assistantCredential, assistantEnabled, assistantFaqQuestions } from '../../website/shared/assistant'
 import { DOCS_MCP_PATH, DOCS_MCP_RATE_LIMIT, DOCS_MCP_ROUTE } from '../../website/shared/docs-mcp'
 import { DOCS_TABS } from '../../website/shared/docs-routes'
 import { FIREWALL_HEADERS, FIREWALL_RULES, FIREWALL_TIMEOUT, firewallHeaders, firewallRuleFor } from '../../website/shared/firewall'
-import { INSIGHTS_MODULES, insightsModules, onVercel } from '../../website/shared/vercel'
+import { INSIGHTS_MODULES, insightsModules, onVercel, untypePageHeaderRoutes, type VercelRoute } from '../../website/shared/vercel'
 import { at, contentFile, read, walk } from './helpers'
 
 // What the docs site uses from Vercel (website/shared/vercel.ts): the docs
@@ -321,6 +321,81 @@ describe('the assistant check', () => {
     expect(await run(true)).toEqual(['the docs assistant is off, not on as the live site promises'])
     page = '<html></html>'
     expect(await run(false, false)).toEqual(['/docs/start answered 200 and does not say whether the docs assistant is on'])
+  })
+})
+
+describe('Markdown twins on Vercel', () => {
+  // A build's config.json routes, by shape: nuxt-agent-discovery's (Vary, the
+  // rewrite to the twin), nuxt-security's per page, a redirect, Nitro's own.
+  const page = { 'x-robots-tag': 'index, follow', 'content-type': 'text/html;charset=utf-8', 'cross-origin-opener-policy': 'same-origin' }
+  const routes = (): VercelRoute[] => [
+    { src: '^/(.+?)/?$', headers: { Vary: 'Accept, User-Agent' }, continue: true },
+    { src: '^/(.+?)/?$', dest: '/raw/$1.md', has: [{ type: 'header', key: 'accept', value: 'text/markdown' }], check: true },
+    { src: '/(.*)', headers: { 'X-Content-Type-Options': 'nosniff' }, continue: true },
+    { src: '/docs/start', headers: { ...page }, continue: true },
+    { src: '/docs/build', headers: { ...page, 'content-type': 'text/html' }, continue: true },
+    { src: '/feed.xml', headers: { 'Content-Type': 'application/xml' }, continue: true },
+    { src: '/docs/old', headers: { 'Location': '/docs/new', 'Content-Type': 'text/html' }, status: 301 },
+    { handle: 'filesystem' },
+    { src: '/(.*)', dest: '/__fallback' },
+  ]
+
+  it('takes the HTML type off each page\'s header route, and changes nothing else', () => {
+    const list = routes()
+    expect(untypePageHeaderRoutes(list)).toBe(2)
+    expect(list[3]!.headers).toEqual({ 'x-robots-tag': 'index, follow', 'cross-origin-opener-policy': 'same-origin' })
+    expect(list[4]!.headers).toEqual({ 'x-robots-tag': 'index, follow', 'cross-origin-opener-policy': 'same-origin' })
+    const untouched = routes()
+    for (const index of [0, 1, 2, 5, 6, 7, 8]) expect(list[index], String(index)).toEqual(untouched[index])
+  })
+
+  it('finds nothing to untype in a config without page header routes', () => {
+    expect(untypePageHeaderRoutes([{ handle: 'filesystem' }, { src: '/(.*)', dest: '/__fallback' }])).toBe(0)
+  })
+
+  it('are untyped by a local module, in a Vercel build only', () => {
+    const module = read('website/modules/markdown-twin-type.ts')
+    expect(module).toContain('untypePageHeaderRoutes(config.routes)')
+    expect(module).toContain('!nitro.options.preset.includes(\'vercel\')')
+  })
+})
+
+describe('the negotiation check', () => {
+  let server: Server
+  let origin: string
+  let answers: Record<string, { type: string, body: string }> = {}
+
+  beforeAll(async () => {
+    server = createServer((request, response) => {
+      const answer = answers[request.url!]
+      if (!answer || request.headers.accept !== 'text/markdown') return response.writeHead(404).end()
+      response.writeHead(200, { 'content-type': answer.type }).end(answer.body)
+    })
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+    origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+  })
+  afterAll(() => new Promise<void>(resolve => server.close(() => resolve())))
+
+  const run = async () => {
+    const failures: string[] = []
+    await checkNegotiation({ get: (path, init) => fetch(`${origin}${path}`, init), fail: message => failures.push(message) })
+    return failures
+  }
+  const twin = { type: 'text/markdown; charset=utf-8', body: '---\ntitle: "Introduction"\n---\n# Introduction\n' }
+
+  it('passes a page whose twin answers with and without the trailing slash', async () => {
+    answers = { '/docs/start': twin, '/docs/start/': twin }
+    expect(await run()).toEqual([])
+  })
+
+  it('fails the twin served as HTML without the slash, as the edge once did', async () => {
+    answers = { '/docs/start': { ...twin, type: 'text/html;charset=utf-8' }, '/docs/start/': twin }
+    expect(await run()).toEqual(['/docs/start with Accept: text/markdown answered 200 text/html;charset=utf-8'])
+  })
+
+  it('fails the page itself typed as Markdown', async () => {
+    answers = { '/docs/start': twin, '/docs/start/': { ...twin, body: '<!DOCTYPE html><html>' } }
+    expect(await run()).toEqual([`/docs/start/ with Accept: text/markdown answered ${twin.type}, but not the page's twin: "<!DOCTYPE html><html>"`])
   })
 })
 

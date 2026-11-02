@@ -567,11 +567,23 @@ export async function checkAssistant({ get, fail, live }, expected = live || ass
   await call.body?.cancel()
 }
 
-/** A page asked for with `Accept: text/markdown`: only a deploy's edge answers it for a prerendered page. */
-async function checkNegotiation({ get, fail }) {
-  const page = await get('/docs/start', { headers: { accept: 'text/markdown' } })
-  if (page.status !== 200 || !type(page).startsWith('text/markdown')) fail(`/docs/start with Accept: text/markdown answered ${page.status} ${type(page)}`)
-  await page.body?.cancel()
+/**
+ * A page asked for with `Accept: text/markdown`, with and without its
+ * trailing slash: only a deploy's edge answers it for a prerendered page.
+ * Without the slash the path is the prerendered page's own, whose header
+ * route once typed the twin as HTML (website/modules/markdown-twin-type.ts).
+ */
+export async function checkNegotiation({ get, fail }) {
+  for (const path of ['/docs/start', '/docs/start/']) {
+    const page = await get(path, { headers: { accept: 'text/markdown' } })
+    if (page.status !== 200 || !type(page).startsWith('text/markdown')) {
+      fail(`${path} with Accept: text/markdown answered ${page.status} ${type(page)}`)
+      await page.body?.cancel()
+      continue
+    }
+    const body = await page.text()
+    if (!body.startsWith('---\n')) fail(`${path} with Accept: text/markdown answered ${type(page)}, but not the page's twin: ${JSON.stringify(body.slice(0, 40))}`)
+  }
 }
 
 /** The checks, against a site answering at `origin`. Returns what failed, one line each. */
