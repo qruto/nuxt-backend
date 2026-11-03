@@ -4439,6 +4439,18 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         null,
         Name
       >;
+      features: FunctionReference<
+        "query",
+        "internal",
+        {},
+        {
+          gifts: boolean;
+          passes: boolean;
+          referrals: boolean;
+          trialPasses: boolean;
+        },
+        Name
+      >;
       forget: FunctionReference<
         "mutation",
         "internal",

@@ -35,6 +35,18 @@ export type NotificationAudience = 'subject' | 'inviter' | 'entity'
 /** The ready-made page a notification links to, resolved by `pages.<key>` in the app's config. */
 export type NotificationDestination = 'profile' | 'security' | 'settings'
 
+/**
+ * The billing feature a kind comes from, which an app may never use:
+ * - `gifts`: a gift someone bought (a credit pack, or a plan as a pass);
+ * - `passes`: a plan pass, gifted, a reverse trial's or a referral reward's;
+ * - `trialPasses`: a reverse trial (a catalog plan's `trial: { pass: true }`);
+ * - `referrals`: the referral program (`setupReferrals`).
+ */
+export type NotificationFeature = 'gifts' | 'passes' | 'trialPasses' | 'referrals'
+
+/** Which billing features a deployment has used, as the channel list reads them. */
+export type NotificationFeatures = Record<NotificationFeature, boolean>
+
 /** What one kind of the package's catalog does as a notification. */
 export interface NotificationKind {
   audience: NotificationAudience
@@ -44,6 +56,8 @@ export interface NotificationKind {
   skipSelf?: true
   /** News about the account's own safety or money: its email and push skip the weekly cap and the quiet hours ({@link NotifyKind.transactional}). */
   transactional?: true
+  /** The billing feature that records it: the channel list leaves the kind out while the deployment has never used it. */
+  feature?: NotificationFeature
 }
 
 /** The kinds of the catalog that declare the `in-app` channel. */
@@ -79,17 +93,66 @@ export const NOTIFICATION_KINDS = {
   'billing.credits_exhausted': BILLING_ENTITY,
   'billing.save_offer_accepted': { ...BILLING_ENTITY, skipSelf: true },
   'billing.contract_withdrawn': { ...BILLING_ENTITY, skipSelf: true },
-  'billing.trial_pass_started': BILLING_ENTITY,
-  'gift.purchased': BILLING_ENTITY,
-  'gift.claimed': BILLING_ENTITY,
-  'gift.pass_started': BILLING_ENTITY,
-  'gift.pass_ending': BILLING_ENTITY,
-  'gift.pass_ended': BILLING_ENTITY,
-  'gift.refunded': BILLING_ENTITY,
-  'referral.claimed': BILLING_ENTITY,
-  'referral.rewarded': BILLING_ENTITY,
+  'billing.trial_pass_started': { ...BILLING_ENTITY, feature: 'trialPasses' },
+  'gift.purchased': { ...BILLING_ENTITY, feature: 'gifts' },
+  'gift.claimed': { ...BILLING_ENTITY, feature: 'gifts' },
+  'gift.pass_started': { ...BILLING_ENTITY, feature: 'gifts' },
+  'gift.pass_ending': { ...BILLING_ENTITY, feature: 'passes' },
+  'gift.pass_ended': { ...BILLING_ENTITY, feature: 'passes' },
+  'gift.refunded': { ...BILLING_ENTITY, feature: 'gifts' },
+  'referral.claimed': { ...BILLING_ENTITY, feature: 'referrals' },
+  'referral.rewarded': { ...BILLING_ENTITY, feature: 'referrals' },
   'email.bounced': { audience: 'subject', page: 'profile' },
 } as const satisfies Record<InAppKind, NotificationKind>
+
+/** A kind of the package's catalog that notifies, by its event type (`billing.order_paid`). */
+export type NotificationType = keyof typeof NOTIFICATION_KINDS
+
+/** The policy of a package kind, or `undefined` for any other type. */
+export function notificationKind(type: string): NotificationKind | undefined {
+  return Object.hasOwn(NOTIFICATION_KINDS, type) ? NOTIFICATION_KINDS[type as NotificationType] : undefined
+}
+
+/**
+ * Whose plan, credits or gift a billing kind is about: `account` the
+ * reader's own (`billTo: 'user'`, where the person is the billing entity),
+ * `workspace` one they manage.
+ */
+export type NotificationEntity = 'account' | 'workspace'
+
+/**
+ * The billing entity a notification is about, from its row: a kind told to
+ * a billing entity (audience `entity`) names the workspace when the entity
+ * is one, and none when it is the account itself, which billing records as
+ * the event's subject instead. `null` for every other kind.
+ */
+export function notificationEntity(type: string, workspaceId: string | null | undefined): NotificationEntity | null {
+  if (notificationKind(type)?.audience !== 'entity') return null
+  return workspaceId ? 'workspace' : 'account'
+}
+
+/**
+ * The label keys of one part of a kind's words, in the order they are
+ * tried: for the person's own account, the words written for it
+ * (`titleYours`, `bodyYours`) before the ones about a workspace, which a
+ * part with no workspace in it keeps for both.
+ */
+export function notificationWordKeys(part: 'title' | 'body', entity: NotificationEntity | null): string[] {
+  return entity === 'account' ? [`${part}Yours`, part] : [part]
+}
+
+/**
+ * Whether a kind is on the channel list: an app's own always is; a package
+ * kind when the app's `kinds` lists it, or, without that list, unless it
+ * comes from a billing feature the deployment has never used
+ * ({@link NotificationKind.feature}).
+ */
+export function listedKind(type: string, kinds: ReadonlySet<string> | null, features: NotificationFeatures | null): boolean {
+  const kind = notificationKind(type)
+  if (!kind) return true
+  if (kinds) return kinds.has(type)
+  return !kind.feature || !features || features[kind.feature]
+}
 
 /** The most people one event notifies: a workspace's owners and admins, up to this many. */
 export const NOTIFICATION_RECIPIENTS_MAX = 25
@@ -196,7 +259,8 @@ export interface NotificationPlan {
  * own by its `notify` entry.
  */
 export function isTransactional(notify: NotifyOptions, type: string): boolean {
-  if (Object.hasOwn(NOTIFICATION_KINDS, type)) return (NOTIFICATION_KINDS[type as keyof typeof NOTIFICATION_KINDS] as NotificationKind).transactional === true
+  const kind = notificationKind(type)
+  if (kind) return kind.transactional === true
   return Object.hasOwn(notify, type) && notify[type as `app.${string}`]!.transactional === true
 }
 

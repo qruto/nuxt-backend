@@ -23,6 +23,7 @@ const entry = (id: string, fields: Partial<NotificationEntry> = {}): Notificatio
   channels: ['app'],
   actor: { kind: 'user', name: 'Grace' },
   workspace: { id: 'w1', name: 'Acme' },
+  entity: null,
   targetId: null,
   link: null,
   data: { role: 'admin' },
@@ -44,7 +45,7 @@ function mark(ids: string[] | undefined, all: boolean | undefined) {
 beforeEach(() => {
   rows.value = [
     entry('n4', { type: 'app.other', data: {}, actor: { kind: 'app', name: null }, workspace: null }),
-    entry('n3', { type: 'billing.credits_low', actor: { kind: 'app', name: null }, data: { balance: 10, threshold: 20 } }),
+    entry('n3', { type: 'billing.credits_low', actor: { kind: 'app', name: null }, entity: 'workspace', data: { balance: 10, threshold: 20 } }),
     entry('n2', { type: 'app.strip_ready', link: '/strips/s1', data: {}, actor: { kind: 'app', name: null }, workspace: null }),
     entry('n1', { type: 'auth.passkey_added', readAt: 1, data: {}, actor: { kind: 'you', name: 'Ada' }, workspace: null }),
   ]
@@ -79,6 +80,19 @@ describe('<NotificationInbox>, on the backend mock', () => {
     expect(inbox.findAll('a[data-notifications="link"]').map(target)).toEqual(['/settings', '/strips/s1', '/security'])
     // The one without a place to go is a button.
     expect(inbox.findAll('button[data-notifications="link"]')).toHaveLength(1)
+  })
+
+  it('words a billing kind about the person\'s own account as theirs, never as "a workspace"', async () => {
+    rows.value = [
+      entry('n6', { type: 'billing.plan_changed', actor: { kind: 'administrator', name: null }, workspace: null, entity: 'account', data: {} }),
+      entry('n5', { type: 'billing.subscription_created', actor: { kind: 'app', name: null }, workspace: null, entity: 'account', data: {} }),
+      entry('n4', { type: 'billing.credits_low', actor: { kind: 'app', name: null }, workspace: null, entity: 'account', data: { balance: 10, threshold: 20 } }),
+    ]
+    const inbox = await mountSuspended(NotificationInbox)
+    await flushPromises()
+    expect(inbox.findAll('[data-notifications="title"]').map(title => title.text())).toEqual(['Your plan changed', 'A subscription started', 'Credits are running low'])
+    // A part with no workspace in it keeps its one set of words.
+    expect(inbox.findAll('[data-notifications="body"]').map(body => body.text())).toEqual(['An administrator changed the subscription.', 'Your plan is active.', '10 credits are left.'])
   })
 
   it('words a kind of the app\'s own from its labels', async () => {

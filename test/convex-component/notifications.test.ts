@@ -178,10 +178,14 @@ describe('a package kind', () => {
     expect(await inbox(owner)).toHaveLength(1)
     expect(await inbox(admin)).toHaveLength(1)
     expect(await inbox(member)).toEqual([])
+    expect((await inbox(owner))[0]).toMatchObject({ entity: 'workspace', workspace: { id: workspaceId, name: 'Acme' } })
 
     const solo = await asUser(t, { workspace: false })
     await t.mutation(recordRef, { event: { type: 'billing.order_paid', actor: null, subjectId: solo.userId, targetId: 'ord_1', data: { amount: 900, currency: 'usd' } } })
-    expect(await inbox(solo)).toEqual([expect.objectContaining({ type: 'billing.order_paid', data: { amount: 900, currency: 'usd' }, actor: { kind: 'app', name: null } })])
+    // Billed on its own (`billTo: 'user'`), the account is the entity: the inbox words it as the person's own.
+    expect(await inbox(solo)).toEqual([expect.objectContaining({ type: 'billing.order_paid', data: { amount: 900, currency: 'usd' }, actor: { kind: 'app', name: null }, workspace: null, entity: 'account' })])
+    await solo.mutation(recordRef, { event: { type: 'auth.passkey_added' } })
+    expect((await inbox(solo))[0]).toMatchObject({ type: 'auth.passkey_added', entity: null })
   })
 
   test('finds a large workspace\'s owners and admins without reading its members', async () => {
@@ -407,5 +411,27 @@ describe('the inbox', () => {
     const ada = await asUser(t, { workspace: false })
     await t.mutation(recordRef, { event: { type: 'app.strip_ready', actor: { userId: 'erased:0123456789abcdef' }, subjectId: ada.userId } })
     expect((await inbox(ada))[0]!.actor).toEqual({ kind: 'erased', name: null })
+  })
+})
+
+describe('the billing features the channel list reads', () => {
+  test('are off until the deployment sold a gift, ran a pass, started a reverse trial or claimed a referral', async () => {
+    const backend = convexTest({ schema, modules: component.modules })
+    const features = () => backend.query(api.notifications.features, {})
+    expect(await features()).toEqual({ gifts: false, passes: false, trialPasses: false, referrals: false })
+    const now = Date.now()
+    // A reverse trial: a pass with no purchaser.
+    await backend.run(async ctx => void await ctx.db.insert('billingGifts', { recipientEmail: 'ada@example.com', purchaserUserId: '', productIds: ['p'], status: 'trial', plan: 'pro', createdAt: now, passStartedAt: now, passEndsAt: now + 1000, reverseTrial: true }))
+    expect(await features()).toEqual({ gifts: false, passes: true, trialPasses: true, referrals: false })
+    await backend.run(async ctx => void await ctx.db.insert('billingGifts', { recipientEmail: 'grace@example.com', purchaserUserId: 'u1', productIds: ['p'], status: 'pending', createdAt: now }))
+    await backend.run(async ctx => void await ctx.db.insert('referrals', { code: 'ADA00000', referrerId: 'u1', referredId: 'u2', state: 'claimed', terms: { holdMs: 1, caps: { perReferrer: null, perMonth: null } }, claimedAt: now }))
+    expect(await features()).toEqual({ gifts: true, passes: true, trialPasses: true, referrals: true })
+  })
+
+  test('count a pass that ended', async () => {
+    const backend = convexTest({ schema, modules: component.modules })
+    const now = Date.now()
+    await backend.run(async ctx => void await ctx.db.insert('billingGifts', { recipientEmail: '', purchaserUserId: '', productIds: ['p'], status: 'reward', plan: 'pro', createdAt: now, passStartedAt: now, passEndsAt: now + 1000, passEndedAt: now + 1000 }))
+    expect(await backend.query(api.notifications.features, {})).toEqual({ gifts: false, passes: true, trialPasses: false, referrals: false })
   })
 })

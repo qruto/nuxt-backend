@@ -342,7 +342,7 @@ Types: `FileOwner`, `StoredFile`, `ResolvedShareLink`, `ShareLinkState`, `Minted
 |---|---|
 | `setupNotifications()` | The in-app inbox: what the backend recorded about a person, live, with the unread count and marking read, and the `notify` option that turns your own events into notifications. |
 
-Types: `ChannelGate`, `ChannelHandler`, `Delivery`, `NotificationAudience`, `NotificationChannel`, `NotificationKind`, `NotificationDestination`, `NotificationPlan`, `NotifyEvent`, `NotifyKind`, `NotifyOptions`, `NotificationParty`, `NotificationEntry`, `NotificationsPage`, `UnreadCount`, `MarkedRead`, `NotificationKindChoice`, `PushConfig`, `ScheduledDelivery`, `NotificationsApi`, `Notifications`, `NotificationsWriteCtx`, `ForgottenNotifications`, `NotificationsEmail`, `SetupNotificationsOptions`, `NotificationsComponents`.
+Types: `ChannelGate`, `ChannelHandler`, `Delivery`, `NotificationAudience`, `NotificationChannel`, `NotificationEntity`, `NotificationFeature`, `NotificationKind`, `NotificationDestination`, `NotificationPlan`, `NotificationType`, `NotifyEvent`, `NotifyKind`, `NotifyOptions`, `NotificationParty`, `NotificationEntry`, `NotificationsPage`, `UnreadCount`, `MarkedRead`, `NotificationKindChoice`, `PushConfig`, `ScheduledDelivery`, `NotificationsApi`, `Notifications`, `NotificationsWriteCtx`, `ForgottenNotifications`, `NotificationsEmail`, `SetupNotificationsOptions`, `NotificationsComponents`.
 
 ### `nuxt-backend/monitoring`
 

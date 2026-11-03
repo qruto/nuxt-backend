@@ -308,10 +308,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         plan_changed: {
           title: 'Тариф пространства {workspace} изменён',
           body: 'Подписка изменена. Кем: {actor}.',
+          titleYours: 'Ваш тариф изменён',
         },
         subscription_created: {
           title: 'Подписка оформлена',
           body: 'Тариф пространства {workspace} активен.',
+          bodyYours: 'Ваш тариф активен.',
         },
         subscription_canceled: {
           title: 'Подписка отменена',
@@ -320,10 +322,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         subscription_revoked: {
           title: 'Подписка закончилась',
           body: 'Тариф пространства {workspace} больше не действует.',
+          bodyYours: 'Ваш тариф больше не действует.',
         },
         subscription_past_due: {
           title: 'Платёж не прошёл',
           body: 'Обновите способ оплаты пространства {workspace}, чтобы сохранить тариф.',
+          bodyYours: 'Обновите способ оплаты, чтобы сохранить тариф.',
         },
         order_paid: {
           title: 'Платёж получен',
@@ -336,22 +340,27 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         credits_low: {
           title: 'Кредиты заканчиваются',
           body: 'Осталось кредитов в пространстве {workspace}: {balance}.',
+          bodyYours: 'Осталось кредитов: {balance}.',
         },
         credits_exhausted: {
           title: 'Кредиты закончились',
           body: 'Пополните баланс пространства {workspace}, чтобы продолжить.',
+          bodyYours: 'Пополните баланс, чтобы продолжить.',
         },
         save_offer_accepted: {
           title: 'Тариф пространства {workspace} сохранён',
           body: 'Вместо отмены принято специальное предложение. Кем: {actor}.',
+          titleYours: 'Ваш тариф сохранён',
         },
         contract_withdrawn: {
           title: 'Отказ от покупки',
           body: 'Отказ от тарифа пространства {workspace}. Кем: {actor}.',
+          bodyYours: 'Отказ от вашего тарифа. Кем: {actor}.',
         },
         trial_pass_started: {
           title: 'Пробный период начался',
           body: 'На время пробного периода у пространства {workspace} полный тариф, без карты.',
+          bodyYours: 'На время пробного периода у вас полный тариф, без карты.',
         },
       },
       gift: {
@@ -362,18 +371,22 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         claimed: {
           title: 'Подарок получен',
           body: 'Он зачислен в пространство {workspace}.',
+          bodyYours: 'Он зачислен на ваш аккаунт.',
         },
         pass_started: {
           title: 'Подаренный тариф начал действовать',
           body: 'У пространства {workspace} подаренный тариф — без карты и без продления.',
+          bodyYours: 'У вас подаренный тариф — без карты и без продления.',
         },
         pass_ending: {
           title: 'Подаренный тариф закончится через неделю',
           body: 'Выберите тариф для пространства {workspace}, чтобы сохранить его.',
+          bodyYours: 'Выберите тариф, чтобы сохранить его.',
         },
         pass_ended: {
           title: 'Подаренный тариф закончился',
           body: 'Подаренный тариф пространства {workspace} больше не действует.',
+          bodyYours: 'Ваш подаренный тариф больше не действует.',
         },
         refunded: {
           title: 'Подарок возвращён',
@@ -752,10 +765,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         plan_changed: {
           title: 'Der Tarif von {workspace} hat sich geändert',
           body: '{actor} hat das Abo geändert.',
+          titleYours: 'Ihr Tarif hat sich geändert',
         },
         subscription_created: {
           title: 'Ein Abo wurde abgeschlossen',
           body: 'Der Tarif von {workspace} ist aktiv.',
+          bodyYours: 'Ihr Tarif ist aktiv.',
         },
         subscription_canceled: {
           title: 'Ein Abo wurde gekündigt',
@@ -764,10 +779,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         subscription_revoked: {
           title: 'Ein Abo ist beendet',
           body: 'Der Tarif von {workspace} ist nicht mehr aktiv.',
+          bodyYours: 'Ihr Tarif ist nicht mehr aktiv.',
         },
         subscription_past_due: {
           title: 'Eine Zahlung ist fehlgeschlagen',
           body: 'Aktualisieren Sie die Zahlungsmethode von {workspace}, um den Tarif zu behalten.',
+          bodyYours: 'Aktualisieren Sie Ihre Zahlungsmethode, um Ihren Tarif zu behalten.',
         },
         order_paid: {
           title: 'Zahlung eingegangen',
@@ -780,22 +797,27 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         credits_low: {
           title: 'Die Credits werden knapp',
           body: 'Verbleibende Credits in {workspace}: {balance}.',
+          bodyYours: 'Verbleibende Credits: {balance}.',
         },
         credits_exhausted: {
           title: 'Die Credits sind aufgebraucht',
           body: 'Laden Sie in {workspace} Credits auf, um weiterzumachen.',
+          bodyYours: 'Laden Sie Credits auf, um weiterzumachen.',
         },
         save_offer_accepted: {
           title: 'Der Tarif von {workspace} bleibt bestehen',
           body: '{actor} hat ein Angebot angenommen, statt zu kündigen.',
+          titleYours: 'Ihr Tarif bleibt bestehen',
         },
         contract_withdrawn: {
           title: 'Von einem Kauf wurde zurückgetreten',
           body: '{actor} ist vom Tarif von {workspace} zurückgetreten.',
+          bodyYours: '{actor} ist von Ihrem Tarif zurückgetreten.',
         },
         trial_pass_started: {
           title: 'Ihre Testphase hat begonnen',
           body: 'In {workspace} gilt während der Testphase der volle Tarif, ohne Karte.',
+          bodyYours: 'Während der Testphase haben Sie den vollen Tarif, ohne Karte.',
         },
       },
       gift: {
@@ -806,18 +828,22 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         claimed: {
           title: 'Ein Geschenk wurde eingelöst',
           body: 'Es ist in {workspace} angekommen.',
+          bodyYours: 'Es ist in Ihrem Konto angekommen.',
         },
         pass_started: {
           title: 'Ein Tarifpass hat begonnen',
           body: 'In {workspace} gilt der geschenkte Tarif, ohne Karte und ohne Verlängerung.',
+          bodyYours: 'Sie haben den geschenkten Tarif, ohne Karte und ohne Verlängerung.',
         },
         pass_ending: {
           title: 'Ein Tarifpass endet in einer Woche',
           body: 'Wählen Sie den Tarif für {workspace}, um ihn zu behalten.',
+          bodyYours: 'Wählen Sie den Tarif, um ihn zu behalten.',
         },
         pass_ended: {
           title: 'Ein Tarifpass ist abgelaufen',
           body: 'Der geschenkte Tarif von {workspace} ist abgelaufen.',
+          bodyYours: 'Ihr geschenkter Tarif ist abgelaufen.',
         },
         refunded: {
           title: 'Ein Geschenk wurde erstattet',
@@ -1196,10 +1222,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         plan_changed: {
           title: 'El plan de {workspace} cambió',
           body: '{actor} cambió la suscripción.',
+          titleYours: 'Tu plan cambió',
         },
         subscription_created: {
           title: 'Se inició una suscripción',
           body: 'El plan de {workspace} está activo.',
+          bodyYours: 'Tu plan está activo.',
         },
         subscription_canceled: {
           title: 'Se canceló una suscripción',
@@ -1208,10 +1236,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         subscription_revoked: {
           title: 'Una suscripción finalizó',
           body: 'El plan de {workspace} ya no está activo.',
+          bodyYours: 'Tu plan ya no está activo.',
         },
         subscription_past_due: {
           title: 'Un pago falló',
           body: 'Actualiza el método de pago de {workspace} para conservar su plan.',
+          bodyYours: 'Actualiza tu método de pago para conservar tu plan.',
         },
         order_paid: {
           title: 'Pago recibido',
@@ -1224,22 +1254,27 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         credits_low: {
           title: 'Quedan pocos créditos',
           body: 'Créditos restantes en {workspace}: {balance}.',
+          bodyYours: 'Créditos restantes: {balance}.',
         },
         credits_exhausted: {
           title: 'Se agotaron los créditos',
           body: 'Recarga {workspace} para seguir.',
+          bodyYours: 'Recarga para seguir.',
         },
         save_offer_accepted: {
           title: 'Se conservó el plan de {workspace}',
           body: '{actor} aceptó una oferta en lugar de cancelar.',
+          titleYours: 'Se conservó tu plan',
         },
         contract_withdrawn: {
           title: 'Se desistió de una compra',
           body: '{actor} desistió del plan de {workspace}.',
+          bodyYours: '{actor} desistió de tu plan.',
         },
         trial_pass_started: {
           title: 'Tu prueba empezó',
           body: '{workspace} tiene el plan completo durante la prueba, sin tarjeta.',
+          bodyYours: 'Tienes el plan completo durante la prueba, sin tarjeta.',
         },
       },
       gift: {
@@ -1250,18 +1285,22 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         claimed: {
           title: 'Se canjeó un regalo',
           body: 'Llegó a {workspace}.',
+          bodyYours: 'Llegó a tu cuenta.',
         },
         pass_started: {
           title: 'Empezó un pase de plan',
           body: '{workspace} tiene el plan regalado, sin tarjeta y sin renovación.',
+          bodyYours: 'Tienes el plan regalado, sin tarjeta y sin renovación.',
         },
         pass_ending: {
           title: 'Un pase de plan termina en una semana',
           body: 'Elige el plan de {workspace} para conservarlo.',
+          bodyYours: 'Elige el plan para conservarlo.',
         },
         pass_ended: {
           title: 'Un pase de plan terminó',
           body: 'El plan regalado de {workspace} ha terminado.',
+          bodyYours: 'Tu plan regalado ha terminado.',
         },
         refunded: {
           title: 'Se reembolsó un regalo',
@@ -1640,10 +1679,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         plan_changed: {
           title: 'Le forfait de {workspace} a changé',
           body: '{actor} a modifié l’abonnement.',
+          titleYours: 'Votre forfait a changé',
         },
         subscription_created: {
           title: 'Un abonnement a commencé',
           body: 'Le forfait de {workspace} est actif.',
+          bodyYours: 'Votre forfait est actif.',
         },
         subscription_canceled: {
           title: 'Un abonnement a été annulé',
@@ -1652,10 +1693,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         subscription_revoked: {
           title: 'Un abonnement a pris fin',
           body: 'Le forfait de {workspace} n’est plus actif.',
+          bodyYours: 'Votre forfait n’est plus actif.',
         },
         subscription_past_due: {
           title: 'Un paiement a échoué',
           body: 'Mettez à jour le moyen de paiement de {workspace} pour conserver son forfait.',
+          bodyYours: 'Mettez à jour votre moyen de paiement pour conserver votre forfait.',
         },
         order_paid: {
           title: 'Paiement reçu',
@@ -1668,22 +1711,27 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         credits_low: {
           title: 'Vos crédits s’épuisent',
           body: 'Crédits restants dans {workspace} : {balance}.',
+          bodyYours: 'Crédits restants : {balance}.',
         },
         credits_exhausted: {
           title: 'Crédits épuisés',
           body: 'Rechargez {workspace} pour continuer.',
+          bodyYours: 'Rechargez pour continuer.',
         },
         save_offer_accepted: {
           title: 'Le forfait de {workspace} est conservé',
           body: '{actor} a accepté une offre au lieu d’annuler.',
+          titleYours: 'Votre forfait est conservé',
         },
         contract_withdrawn: {
           title: 'Rétractation d’un achat',
           body: '{actor} s’est rétracté du forfait de {workspace}.',
+          bodyYours: '{actor} s’est rétracté de votre forfait.',
         },
         trial_pass_started: {
           title: 'Votre essai a commencé',
           body: '{workspace} bénéficie du forfait complet pendant l’essai, sans carte bancaire.',
+          bodyYours: 'Vous bénéficiez du forfait complet pendant l’essai, sans carte bancaire.',
         },
       },
       gift: {
@@ -1694,18 +1742,22 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         claimed: {
           title: 'Un cadeau a été récupéré',
           body: 'Il a été ajouté à {workspace}.',
+          bodyYours: 'Il a été ajouté à votre compte.',
         },
         pass_started: {
           title: 'Un pass de forfait a commencé',
           body: '{workspace} bénéficie du forfait offert, sans carte bancaire ni renouvellement.',
+          bodyYours: 'Vous bénéficiez du forfait offert, sans carte bancaire ni renouvellement.',
         },
         pass_ending: {
           title: 'Un pass de forfait se termine dans une semaine',
           body: 'Choisissez le forfait de {workspace} pour le conserver.',
+          bodyYours: 'Choisissez le forfait pour le conserver.',
         },
         pass_ended: {
           title: 'Un pass de forfait est terminé',
           body: 'Le forfait offert de {workspace} est terminé.',
+          bodyYours: 'Votre forfait offert est terminé.',
         },
         refunded: {
           title: 'Un cadeau a été remboursé',

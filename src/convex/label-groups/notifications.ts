@@ -7,8 +7,12 @@ import type { LabelTree } from '../label-format.js'
  * has its words under its type without `app.` (`strip_shared.title`).
  * Placeholders: `{actor}` is who did it, `{workspace}` the workspace it
  * happened in, `{amount}` an amount in its currency, and the rest are the
- * kind's own fields (`{role}`, `{balance}`). The component's own keys
- * always hold a capital letter, so they never meet a kind's.
+ * kind's own fields (`{role}`, `{balance}`). A billing, gift or pass
+ * kind whose words name `{workspace}` has a second set for an app that
+ * bills the person (`billTo: 'user'`), where the plan is their own:
+ * `titleYours` and `bodyYours`, read in place of `title` and `body`.
+ * The component's own keys always hold a capital letter, so they never
+ * meet a kind's.
  */
 const NOTIFICATIONS_LABELS = {
   // The button's name, and its name with the unread count: spoken, not only shown.
@@ -54,25 +58,25 @@ const NOTIFICATIONS_LABELS = {
     role_changed: { title: 'Your role changed', body: 'An administrator set your role to {role}.' },
   },
   billing: {
-    plan_changed: { title: 'The plan of {workspace} changed', body: '{actor} changed the subscription.' },
-    subscription_created: { title: 'A subscription started', body: 'The plan of {workspace} is active.' },
+    plan_changed: { title: 'The plan of {workspace} changed', body: '{actor} changed the subscription.', titleYours: 'Your plan changed' },
+    subscription_created: { title: 'A subscription started', body: 'The plan of {workspace} is active.', bodyYours: 'Your plan is active.' },
     subscription_canceled: { title: 'A subscription was canceled', body: 'It stays active until the end of the period.' },
-    subscription_revoked: { title: 'A subscription ended', body: 'The plan of {workspace} is no longer active.' },
-    subscription_past_due: { title: 'A payment failed', body: 'Update the payment method of {workspace} to keep its plan.' },
+    subscription_revoked: { title: 'A subscription ended', body: 'The plan of {workspace} is no longer active.', bodyYours: 'Your plan is no longer active.' },
+    subscription_past_due: { title: 'A payment failed', body: 'Update the payment method of {workspace} to keep its plan.', bodyYours: 'Update your payment method to keep your plan.' },
     order_paid: { title: 'Payment received', body: 'An order of {amount} was paid.' },
     order_refunded: { title: 'An order was refunded', body: '{amount} was refunded.' },
-    credits_low: { title: 'Credits are running low', body: '{balance} credits are left in {workspace}.' },
-    credits_exhausted: { title: 'Credits ran out', body: 'Top up {workspace} to keep going.' },
-    save_offer_accepted: { title: 'The plan of {workspace} was kept', body: '{actor} took an offer instead of canceling.' },
-    contract_withdrawn: { title: 'A purchase was withdrawn', body: '{actor} withdrew from the plan of {workspace}.' },
-    trial_pass_started: { title: 'Your trial started', body: '{workspace} has the full plan for the trial, with no card.' },
+    credits_low: { title: 'Credits are running low', body: '{balance} credits are left in {workspace}.', bodyYours: '{balance} credits are left.' },
+    credits_exhausted: { title: 'Credits ran out', body: 'Top up {workspace} to keep going.', bodyYours: 'Top up to keep going.' },
+    save_offer_accepted: { title: 'The plan of {workspace} was kept', body: '{actor} took an offer instead of canceling.', titleYours: 'Your plan was kept' },
+    contract_withdrawn: { title: 'A purchase was withdrawn', body: '{actor} withdrew from the plan of {workspace}.', bodyYours: '{actor} withdrew from your plan.' },
+    trial_pass_started: { title: 'Your trial started', body: '{workspace} has the full plan for the trial, with no card.', bodyYours: 'You have the full plan for the trial, with no card.' },
   },
   gift: {
     purchased: { title: 'A gift was bought', body: 'Its recipient was told.' },
-    claimed: { title: 'A gift was claimed', body: 'It landed in {workspace}.' },
-    pass_started: { title: 'A plan pass started', body: '{workspace} has the gifted plan, with no card and no renewal.' },
-    pass_ending: { title: 'A plan pass ends in a week', body: 'Choose the plan for {workspace} to keep it.' },
-    pass_ended: { title: 'A plan pass ended', body: 'The gifted plan of {workspace} is over.' },
+    claimed: { title: 'A gift was claimed', body: 'It landed in {workspace}.', bodyYours: 'It landed on your account.' },
+    pass_started: { title: 'A plan pass started', body: '{workspace} has the gifted plan, with no card and no renewal.', bodyYours: 'You have the gifted plan, with no card and no renewal.' },
+    pass_ending: { title: 'A plan pass ends in a week', body: 'Choose the plan for {workspace} to keep it.', bodyYours: 'Choose the plan to keep it.' },
+    pass_ended: { title: 'A plan pass ended', body: 'The gifted plan of {workspace} is over.', bodyYours: 'Your gifted plan is over.' },
     refunded: { title: 'A gift was refunded', body: 'It was refunded before anyone claimed it.' },
   },
   referral: {

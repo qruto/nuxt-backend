@@ -2111,11 +2111,13 @@
       "billing": {
         "plan_changed": {
           "title": "Le forfait de {workspace} a changé",
-          "body": "{actor} a modifié l’abonnement."
+          "body": "{actor} a modifié l’abonnement.",
+          "titleYours": "Votre forfait a changé"
         },
         "subscription_created": {
           "title": "Un abonnement a commencé",
-          "body": "Le forfait de {workspace} est actif."
+          "body": "Le forfait de {workspace} est actif.",
+          "bodyYours": "Votre forfait est actif."
         },
         "subscription_canceled": {
           "title": "Un abonnement a été annulé",
@@ -2123,11 +2125,13 @@
         },
         "subscription_revoked": {
           "title": "Un abonnement a pris fin",
-          "body": "Le forfait de {workspace} n’est plus actif."
+          "body": "Le forfait de {workspace} n’est plus actif.",
+          "bodyYours": "Votre forfait n’est plus actif."
         },
         "subscription_past_due": {
           "title": "Un paiement a échoué",
-          "body": "Mettez à jour le moyen de paiement de {workspace} pour conserver son forfait."
+          "body": "Mettez à jour le moyen de paiement de {workspace} pour conserver son forfait.",
+          "bodyYours": "Mettez à jour votre moyen de paiement pour conserver votre forfait."
         },
         "order_paid": {
           "title": "Paiement reçu",
@@ -2139,23 +2143,28 @@
         },
         "credits_low": {
           "title": "Vos crédits s’épuisent",
-          "body": "Crédits restants dans {workspace} : {balance}."
+          "body": "Crédits restants dans {workspace} : {balance}.",
+          "bodyYours": "Crédits restants : {balance}."
         },
         "credits_exhausted": {
           "title": "Crédits épuisés",
-          "body": "Rechargez {workspace} pour continuer."
+          "body": "Rechargez {workspace} pour continuer.",
+          "bodyYours": "Rechargez pour continuer."
         },
         "save_offer_accepted": {
           "title": "Le forfait de {workspace} est conservé",
-          "body": "{actor} a accepté une offre au lieu d’annuler."
+          "body": "{actor} a accepté une offre au lieu d’annuler.",
+          "titleYours": "Votre forfait est conservé"
         },
         "contract_withdrawn": {
           "title": "Rétractation d’un achat",
-          "body": "{actor} s’est rétracté du forfait de {workspace}."
+          "body": "{actor} s’est rétracté du forfait de {workspace}.",
+          "bodyYours": "{actor} s’est rétracté de votre forfait."
         },
         "trial_pass_started": {
           "title": "Votre essai a commencé",
-          "body": "{workspace} bénéficie du forfait complet pendant l’essai, sans carte bancaire."
+          "body": "{workspace} bénéficie du forfait complet pendant l’essai, sans carte bancaire.",
+          "bodyYours": "Vous bénéficiez du forfait complet pendant l’essai, sans carte bancaire."
         }
       },
       "gift": {
@@ -2165,19 +2174,23 @@
         },
         "claimed": {
           "title": "Un cadeau a été récupéré",
-          "body": "Il a été ajouté à {workspace}."
+          "body": "Il a été ajouté à {workspace}.",
+          "bodyYours": "Il a été ajouté à votre compte."
         },
         "pass_started": {
           "title": "Un pass de forfait a commencé",
-          "body": "{workspace} bénéficie du forfait offert, sans carte bancaire ni renouvellement."
+          "body": "{workspace} bénéficie du forfait offert, sans carte bancaire ni renouvellement.",
+          "bodyYours": "Vous bénéficiez du forfait offert, sans carte bancaire ni renouvellement."
         },
         "pass_ending": {
           "title": "Un pass de forfait se termine dans une semaine",
-          "body": "Choisissez le forfait de {workspace} pour le conserver."
+          "body": "Choisissez le forfait de {workspace} pour le conserver.",
+          "bodyYours": "Choisissez le forfait pour le conserver."
         },
         "pass_ended": {
           "title": "Un pass de forfait est terminé",
-          "body": "Le forfait offert de {workspace} est terminé."
+          "body": "Le forfait offert de {workspace} est terminé.",
+          "bodyYours": "Votre forfait offert est terminé."
         },
         "refunded": {
           "title": "Un cadeau a été remboursé",
