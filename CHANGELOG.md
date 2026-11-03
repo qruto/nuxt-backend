@@ -1,5 +1,59 @@
 # Changelog
 
+## v0.2.1
+
+[compare changes](https://github.com/qruto/nuxt-backend/compare/v0.2.0...v0.2.1)
+
+### 🚀 Enhancements
+
+#### Billing
+
+- Detect billing data of another organization, reset it with billing reset ([#176](https://github.com/qruto/nuxt-backend/pull/176))
+
+### 🔥 Performance
+
+#### Auth
+
+- Keep the admin and organization error tables out of every page ([#164](https://github.com/qruto/nuxt-backend/pull/164))
+
+### 🩹 Fixes
+
+#### AI
+
+- Check images alone on the convex gateway, time the check out, refuse with a code ([#166](https://github.com/qruto/nuxt-backend/pull/166))
+
+#### Auth
+
+- Limit by each visitor's address behind the app's auth proxy ([#162](https://github.com/qruto/nuxt-backend/pull/162))
+- Expose useAuth().isReady for signed-in reads ([#168](https://github.com/qruto/nuxt-backend/pull/168))
+
+#### Billing
+
+- Take the provider's customer session token off the checkout return ([#167](https://github.com/qruto/nuxt-backend/pull/167))
+- Refuse a customer mapping of another provider organization with its own code ([#169](https://github.com/qruto/nuxt-backend/pull/169))
+- Confirm a cancel no offer can follow, and name a meter's unit in the labels ([#178](https://github.com/qruto/nuxt-backend/pull/178))
+
+#### Email
+
+- Pace email sync to the provider's rate limit and retry a 429 ([#170](https://github.com/qruto/nuxt-backend/pull/170))
+
+#### Notifications
+
+- Send transactional kinds past the weekly cap and quiet hours ([#165](https://github.com/qruto/nuxt-backend/pull/165))
+- Word a person's own plan as theirs, list only the kinds an app sends ([#177](https://github.com/qruto/nuxt-backend/pull/177))
+
+#### UI
+
+- Keep the token defaults in a layer below every other ([#174](https://github.com/qruto/nuxt-backend/pull/174))
+
+#### Website
+
+- Serve Markdown twins as Markdown without a trailing slash ([#175](https://github.com/qruto/nuxt-backend/pull/175))
+
+### ❤️ Contributors
+
+- Slava Razum ([@slavarazum](https://github.com/slavarazum))
+
 ## v0.2.0
 
 [compare changes](https://github.com/qruto/nuxt-backend/compare/v0.1.0...v0.2.0)
