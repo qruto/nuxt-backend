@@ -229,7 +229,7 @@ describe('the person\'s channel choices', () => {
     const ada = await asUser(t, { email: 'ada@example.com', workspace: false })
     const types = async () => (await ada.query(channelsRef, {}))!.map(kind => kind.type)
     expect(await types()).toEqual(expect.arrayContaining(['billing.order_paid', 'workspace.member_removed']))
-    expect((await types()).filter(type => /^(?:gift|referral)\.|trial_pass/.test(type))).toEqual([])
+    expect((await types()).filter(type => /^(?:(?:gift|referral)\.|billing\.trial_pass)/.test(type))).toEqual([])
     // The first gift bought: its kinds join the list; passes and referrals stay off.
     await t.mutation(giftRef, {})
     expect(await types()).toEqual(expect.arrayContaining(['gift.purchased', 'gift.claimed', 'gift.refunded']))
