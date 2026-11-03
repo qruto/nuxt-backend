@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { busyAttributes } from '../../a11y'
 import type { BackendLabels, LabelKey } from '../../composables/use-labels'
 import type { PricingPlanCardProps } from '../../parts'
+import { useMeterUnit } from '../../utils/meter-unit'
 import { VNodes } from '../../utils/vnodes'
 import { usePricingView } from './pricing-table'
 import PricingPromotion from './PricingPromotion.vue'
@@ -23,6 +24,7 @@ const busy = computed(() => props.pricing.pending.value === props.plan.key)
 const canceling = computed(() => props.plan.isCurrentPrice && view.context.value.billing.cancelAtPeriodEnd.value)
 const period = computed(() => t(`period.${props.plan.interval}` as LabelKey<BackendLabels['pricing']>))
 const promotion = computed(() => view.planPromotion(props.plan))
+const unit = useMeterUnit()
 </script>
 
 <template>
@@ -84,7 +86,7 @@ const promotion = computed(() => view.planPromotion(props.plan))
         data-pricing="plan-feature"
         data-feature="credits"
       >
-        {{ t(`credits.${plan.interval}` as never, { count: plan.credits.units }) }}
+        {{ t(`credits.${plan.interval}` as never, { count: plan.credits.units, unit: unit.word(plan.credits.unit, plan.credits.units) }) }}
       </li>
       <li
         v-for="feature in plan.features ?? []"

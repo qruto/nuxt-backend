@@ -10,6 +10,7 @@ import { useCredits } from '../../composables/use-credits'
 import { refusalText, useLabels } from '../../composables/use-labels'
 import { usePricing } from '../../composables/use-pricing'
 import { holdsFocus, returnFocus } from '../../utils/focus-return'
+import { useMeterUnit } from '../../utils/meter-unit'
 import { VNodes } from '../../utils/vnodes'
 import { type LowCreditsNoticeContext, turnedOff } from './notices'
 
@@ -68,6 +69,7 @@ const billing = useBilling()
 const config = useBackendConfig()
 const labels = useLabels('credits')
 const { t, rich } = labels
+const unit = useMeterUnit()
 const pricingPath = useBackendPagePath('pricing')
 const dismissed = ref(false)
 const pending: Ref<boolean> = ref(false)
@@ -132,7 +134,7 @@ const context = computed<LowCreditsNoticeContext | null>(() => {
   return { credits, balance, threshold: threshold.value, pricingPath: pricingPath.value ?? '', preselected: preselected.value, pending: pending.value, topUp, dismiss }
 })
 // `{balance}` becomes its own element so the number can be styled apart from the sentence.
-const message = computed(() => context.value ? rich('low', { balance: h('span', { 'data-credits': 'balance' }, String(context.value.balance)), count: context.value.balance }) : [])
+const message = computed(() => context.value ? rich('low', { balance: h('span', { 'data-credits': 'balance' }, String(context.value.balance)), count: context.value.balance, unit: unit.word(credits.unit.value, context.value.balance) }) : [])
 </script>
 
 <template>

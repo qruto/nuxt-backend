@@ -166,7 +166,7 @@ export async function syncBillingCatalog(
     const property = aggregation === 'sum' ? meter.property ?? 'amount' : undefined
     const eventName = meter.eventName ?? key
     const record = (meterId: string) => {
-      ids.meters[key] = { meterId, eventName, ...(property ? { property } : {}) }
+      ids.meters[key] = { meterId, eventName, ...(property ? { property } : {}), ...(meter.unit ? { unit: meter.unit } : {}) }
     }
     if (adopt[key]) {
       record(adopt[key])

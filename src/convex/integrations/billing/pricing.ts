@@ -1,6 +1,6 @@
 import { queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
-import { type CatalogInterval, featureKeyOf, grantedQuotas, planQuotasKey, quotaLimit } from '../../catalog.js'
+import { type CatalogInterval, featureKeyOf, grantedQuotas, type MeterUnit, planQuotasKey, quotaLimit } from '../../catalog.js'
 import type { BillingContext } from './context.js'
 import { type CatalogDiscounts, type KeyedDiscount, offerOf, promotionOf } from './discounts.js'
 import type { ProviderCtx, RunQueryCtx } from './types/base.js'
@@ -36,6 +36,8 @@ export interface PricingSources {
   hidden: Set<string>
   /** Meter id → the catalog's name for it. */
   meterNames: Map<string, string>
+  /** The catalog's meter name → the unit it names for the meter. */
+  meterUnits?: ReadonlyMap<string, MeterUnit>
   /**
    * Benefit id → its live metadata, where the entitlement cache holds a
    * snapshot (the `benefit.updated` webhook patches it): what a feature
@@ -85,13 +87,14 @@ function priceOf(row: ProductRow, currencies: readonly string[] = []): { amount:
 }
 
 /** The credits of the product's one meter-credit benefit; none with zero or several. */
-function creditsOf(row: ProductRow, meterNames: Map<string, string>): PricedCredits | undefined {
+function creditsOf(row: ProductRow, { meterNames, meterUnits }: Pick<PricingSources, 'meterNames' | 'meterUnits'>): PricedCredits | undefined {
   const grants = (row.benefits ?? []).filter(benefit => benefit.type === 'meter_credit')
   if (grants.length !== 1) return undefined
   const { units, rollover, meterId } = (grants[0]!.properties ?? {}) as { units?: unknown, rollover?: unknown, meterId?: unknown }
   if (typeof units !== 'number') return undefined
   const meter = typeof meterId === 'string' ? meterNames.get(meterId) : undefined
-  return { ...(meter === undefined ? {} : { meter }), units, rollover: rollover === true }
+  const unit = meter === undefined ? undefined : meterUnits?.get(meter)
+  return { ...(meter === undefined ? {} : { meter }), ...(unit ? { unit } : {}), units, rollover: rollover === true }
 }
 
 function trialOf(row: ProductRow): PricedTrial | undefined {
@@ -140,10 +143,10 @@ function promotionOn(row: ProductRow, price: { amount: number, currency: string 
 }
 
 /** One price of a plan, from its product at `interval`; marked `archived` when that product sells to nobody new. */
-function planPrice(row: ProductRow, interval: CatalogInterval, { meterNames, currencies, promotion }: Pick<PricingSources, 'meterNames' | 'currencies' | 'promotion'>, archived: boolean): PricedPlanPrice | undefined {
+function planPrice(row: ProductRow, interval: CatalogInterval, { meterNames, meterUnits, currencies, promotion }: Pick<PricingSources, 'meterNames' | 'meterUnits' | 'currencies' | 'promotion'>, archived: boolean): PricedPlanPrice | undefined {
   const price = priceOf(row, currencies)
   if (!price) return undefined
-  const credits = creditsOf(row, meterNames)
+  const credits = creditsOf(row, { meterNames, meterUnits })
   const trial = trialOf(row)
   return {
     productId: row.id,
@@ -191,10 +194,10 @@ function comparePacks(packs: PricedPack[]): void {
 }
 
 /** A pack on sale, from its product row: none for an archived one or one without a price to show. */
-function packOf(productKey: string, row: ProductRow, { meterNames, currencies, promotion }: Pick<PricingSources, 'meterNames' | 'currencies' | 'promotion'>): PricedPack | undefined {
+function packOf(productKey: string, row: ProductRow, { meterNames, meterUnits, currencies, promotion }: Pick<PricingSources, 'meterNames' | 'meterUnits' | 'currencies' | 'promotion'>): PricedPack | undefined {
   const price = priceOf(row, currencies)
   if (row.isArchived || !price) return undefined
-  const credits = creditsOf(row, meterNames)
+  const credits = creditsOf(row, { meterNames, meterUnits })
   return { key: productKey, productId: row.id, name: row.name, description: row.description ?? null, ...price, ...(credits ? { credits } : {}), isBestValue: false, ...promotionOn(row, price, promotion, false) }
 }
 
@@ -215,11 +218,11 @@ type QuotaGrant = { metadata: Readonly<Record<string, unknown>> | undefined }
  * (in the dashboard, or as a retired plan's) stays listed, marked, for the
  * people on it; a plan none of whose prices sells is retired.
  */
-function addPlanProduct(plans: Map<string, PlanDraft>, productKey: string, row: ProductRow, { retired, meterNames, benefitMetadata, currencies, free, promotion }: Pick<PricingSources, 'retired' | 'meterNames' | 'benefitMetadata' | 'currencies' | 'free' | 'promotion'>): void {
+function addPlanProduct(plans: Map<string, PlanDraft>, productKey: string, row: ProductRow, { retired, meterNames, meterUnits, benefitMetadata, currencies, free, promotion }: Pick<PricingSources, 'retired' | 'meterNames' | 'meterUnits' | 'benefitMetadata' | 'currencies' | 'free' | 'promotion'>): void {
   const interval = row.recurringInterval
   if (interval !== 'month' && interval !== 'year') return
   const archived = row.isArchived || retired.has(row.id)
-  const price = planPrice(row, interval, { meterNames, currencies, promotion }, archived)
+  const price = planPrice(row, interval, { meterNames, meterUnits, currencies, promotion }, archived)
   if (!price) return
   const key = productKey.endsWith(`:${interval}`) ? productKey.slice(0, -interval.length - 1) : productKey
   const rank = (archived ? 2 : 0) + (interval === 'year' ? 1 : 0)
@@ -333,7 +336,7 @@ function catalogCurrencies(rows: ProductRow[], sources: PricingSources): string[
 }
 
 /** The `getPricing` query of one `setupBilling` call, and the read behind it. */
-export function createPricing({ provider, cache, products, retiredProductIds, catalogIds, meterNameById }: BillingContext, { promotionNamed }: Pick<CatalogDiscounts, 'promotionNamed'>) {
+export function createPricing({ provider, cache, products, retiredProductIds, catalogIds, creditMeters, meterNameById }: BillingContext, { promotionNamed }: Pick<CatalogDiscounts, 'promotionNamed'>) {
   /**
    * The pricing as the products table holds it now: what `getPricing`
    * answers, and where a refusal finds the plans to offer. Each catalog
@@ -354,6 +357,7 @@ export function createPricing({ provider, cache, products, retiredProductIds, ca
       retired: retiredProductIds,
       hidden: new Set(Object.values(catalogIds?.gifts ?? {})),
       meterNames: meterNameById,
+      meterUnits: new Map(Object.entries(creditMeters).flatMap(([key, meter]) => meter.unit ? [[key, meter.unit]] : [])),
       benefitMetadata: new Map(snapshots.map(snapshot => [snapshot.benefitId, snapshot.metadata])),
       ...(catalogIds?.free ? { free: catalogIds.free } : {}),
       currencies: [currency?.trim().toLowerCase(), catalogIds?.currency].filter((code): code is string => Boolean(code)),

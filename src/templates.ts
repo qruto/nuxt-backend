@@ -200,7 +200,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
       getPricing, getConfiguredProducts, getBillingAccess, getFeatures, getCredits,
       getCurrentSubscription, listAllSubscriptions, syncEntitlements, syncProducts, startFreePlan,
       generateCheckoutLink, generateCustomerPortalUrl,
-      updateSubscription, cancelSubscription, acceptSaveOffer, uncancelSubscription,
+      updateSubscription, cancelSubscription, getCancelFlow, acceptSaveOffer, uncancelSubscription,
       cancelPendingChange, pauseSubscription, resumeSubscription,
       getOrders, getInvoiceUrl, getUsageHistory, refundOrder, getWithdrawal, withdraw,
       giftCheckout, getReceivedGifts, claimGift, getSentGifts, resendGift, changeGiftRecipient,

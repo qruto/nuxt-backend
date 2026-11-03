@@ -15,6 +15,7 @@ import { useAuthSession } from '../../utils/auth-session'
 import { getBackendError } from '../../utils/backend-error'
 import { createCancelConfirm } from '../../utils/cancel-confirm'
 import { returnFocus } from '../../utils/focus-return'
+import { useMeterUnit } from '../../utils/meter-unit'
 import { pricingBindings, shownInterval } from '../../utils/pricing-bindings'
 import type { CreditPack, PricingContact, PricingPlan } from '../../../config'
 import { providePricingView, type PlanAction, type PlanTrial, type PricingSlotContext, type PricingTableSlots, type ResolvedPack, type ResolvedPlan } from './pricing-table'
@@ -112,6 +113,7 @@ const { isAuthenticated } = useAuthSession()
 const config = useBackendConfig()
 const labels = useLabels('pricing', () => props.labels)
 const { t, locale } = labels
+const unit = useMeterUnit()
 const login = useBackendPagePath('login')
 const uid = useId()
 
@@ -638,7 +640,7 @@ const statusText = computed(() => progress.value?.() ?? (billing.isFinishingChec
       data-pricing="managed"
       role="note"
     >
-      {{ t('managed') }}
+      {{ t('managed', { unit: unit.word(credits.unit.value ?? resolvedPacks[0]?.offer.credits?.unit) }) }}
     </p>
     <template v-if="showPacks && resolvedPacks.length > 0">
       <slot

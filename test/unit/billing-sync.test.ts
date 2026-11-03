@@ -293,9 +293,11 @@ describe('syncBillingCatalog', () => {
     vi.mocked(productsCreate).mockResolvedValue({ ok: true, value: { id: 'prod_1' } } as never)
     vi.mocked(productsUpdateBenefits).mockResolvedValue({ ok: true, value: {} } as never)
 
-    const result = await syncBillingCatalog({ ...catalog, meters: { credits: { aggregation: 'count' } } }, options, fakeClient)
+    const result = await syncBillingCatalog({ ...catalog, meters: { credits: { aggregation: 'count', unit: { one: 'page', other: 'pages' } } } }, options, fakeClient)
 
     expect(result.log.find(entry => entry.kind === 'meter' && entry.key === 'credits')?.action).toBe('exists')
+    // The unit the labels say goes to the generated map, and nowhere at the provider.
+    expect(result.ids.meters.credits).toEqual({ meterId: 'mtr_live', eventName: 'credits', unit: { one: 'page', other: 'pages' } })
   })
 
   it('reports an existing product whose name or price no longer matches the catalog', async () => {

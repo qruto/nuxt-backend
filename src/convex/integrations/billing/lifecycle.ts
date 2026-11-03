@@ -11,7 +11,7 @@ import { addMonths, type BillingPasses } from './passes.js'
 import { EMAIL_OPT_OUT_METADATA } from './purchase.js'
 import { type BillingSubscriptions, CANCELLATION_COMMENT_MAX, epochOf, type SyncedSubscription } from './subscriptions.js'
 import type { CancellationReason, ProviderCtx, RunQueryCtx, RunWriteCtx } from './types/base.js'
-import type { BillingLifecycle, CancelOutcome, BillingConsole, SaveOffer, SaveOfferRule, WithdrawalPeriod } from './types/lifecycle.js'
+import type { BillingLifecycle, CancelFlowState, CancelOutcome, BillingConsole, SaveOffer, SaveOfferRule, WithdrawalPeriod } from './types/lifecycle.js'
 import type { CancelSubscriptionOptions, SubscriptionTarget } from './types/options.js'
 
 // The billing lifecycle (LIFECYCLE): what the package does around a
@@ -193,6 +193,32 @@ export function createLifecycle(
   const offerBarred = async (ctx: RunQueryCtx, entityId: string, subscription: SyncedSubscription): Promise<boolean> => {
     if (subscription.cancelAtPeriodEnd || subscription.status !== 'active' || await inWithdrawalPeriod(ctx, subscription, Date.now())) return true
     return await ctx.runQuery(records.lastOffer, { entityId, since: Date.now() - SAVE_OFFER_WINDOW_MS }) !== null
+  }
+
+  /**
+   * What the cancel flow reads before it asks, for a billing manager: the
+   * reasons whose offer `cancel` would make now, by the same rules
+   * (`offerBarred`, `termsOf`). None without a running paid subscription to
+   * cancel. `null` for anyone who may not manage the billing.
+   */
+  const getCancelFlow = async (ctx: RunQueryCtx & { auth?: Auth }, options: SubscriptionTarget = {}): Promise<CancelFlowState | null> => {
+    const entity = await allowedEntity(ctx, BILLING_ACCESS.change)
+    if (!entity) return null
+    const none: CancelFlowState = { offers: false, reasons: [] }
+    const rules = Object.entries(lifecycle.saveOffers ?? {}).filter((entry): entry is [CancellationReason, SaveOfferRule] => Boolean(entry[1]))
+    if (rules.length === 0) return none
+    let subscription: SyncedSubscription
+    try {
+      subscription = await subscriptions.resolveSubscription(ctx, entity.userId, options.subscriptionId)
+    }
+    catch {
+      // None running, or several and none named: the cancellation itself refuses.
+      return none
+    }
+    if (await freePlan.isFreeProduct(ctx, subscription.productId) || await offerBarred(ctx, entity.userId, subscription)) return none
+    const reasons: CancellationReason[] = []
+    for (const [reason, rule] of rules) if (await termsOf(ctx, subscription, rule)) reasons.push(reason)
+    return { offers: reasons.length > 0, reasons }
   }
 
   /**
@@ -504,7 +530,7 @@ export function createLifecycle(
     await join(ctx, { email: user.email, userId: openedBy, objected: false, checkoutId: order.checkoutId })
   }
 
-  return { cancel, acceptOffer, getWithdrawal, withdraw, recordConsent, confirmConsent, remindRenewal, abandonCheckout, startReverseTrial, consoleOf, softOptIn }
+  return { cancel, getCancelFlow, acceptOffer, getWithdrawal, withdraw, recordConsent, confirmConsent, remindRenewal, abandonCheckout, startReverseTrial, consoleOf, softOptIn }
 }
 
 /** The billing lifecycle of one `setupBilling` call. */

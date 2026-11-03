@@ -30,13 +30,14 @@ import type { InvitationView } from './components/workspaces/accept-invitation'
 
 export type { ResolvedPack, ResolvedPlan } from './components/billing/pricing-table'
 
-/** The parts of `<CancelFlow>`: `CancelFlowQuestion`, `CancelFlowOffer` and `CancelFlowEnd`. */
+/** The parts of `<CancelFlow>`: `CancelFlowQuestion`, `CancelFlowOffer`, `CancelFlowConfirm` and `CancelFlowEnd`. */
 export interface CancelFlowPartProps {
   /** The cancel flow `<CancelFlow>` runs: `useCancelFlow()`. */
   flow: UseCancelFlowReturn
 }
 export type CancelFlowQuestionProps = CancelFlowPartProps
 export type CancelFlowOfferProps = CancelFlowPartProps
+export type CancelFlowConfirmProps = CancelFlowPartProps
 export type CancelFlowEndProps = CancelFlowPartProps
 
 /** The sign-in parts of `<AuthForm>`: `AuthFormHeader`, `AuthFormChoose`, `AuthFormPasskey`, `AuthFormEmail`, `AuthFormCode`, `AuthFormRecover`, `AuthFormWaitlisted`, `AuthFormInviteCode`, `AuthFormAge`, `AuthFormUndeliverable`, `AuthFormPasskeyOffer`, `AuthFormAgreement`, `AuthFormError`. */

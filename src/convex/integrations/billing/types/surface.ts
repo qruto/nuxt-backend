@@ -2,7 +2,7 @@ import type { Polar } from '@convex-dev/polar'
 import type { actionGeneric, Auth, internalActionGeneric, queryGeneric, RegisteredAction, RegisteredQuery, Scheduler } from 'convex/server'
 import type { CancellationReason, ProviderSubscription, RunQueryCtx, RunWriteCtx } from './base.js'
 import type { RecordBillingEvent } from '../activity.js'
-import type { CancelOutcome, BillingConsole, WithdrawalPeriod } from './lifecycle.js'
+import type { CancelFlowState, CancelOutcome, BillingConsole, WithdrawalPeriod } from './lifecycle.js'
 import type { RevenueInterval, RevenueReport } from './revenue.js'
 import type {
   ApplyDiscountOptions,
@@ -141,6 +141,8 @@ export interface Billing {
      * names one (`{ offer }`; `offer: false` cancels past it).
      */
     cancelSubscription: RegisteredAction<'public', { subscriptionId?: string, atPeriodEnd?: boolean, reason?: CancellationReason, comment?: string, offer?: false }, Promise<CancelOutcome>>
+    /** What the cancel flow reads before it asks: whether a save offer could stand, and for which reasons; `null` for anyone who may not manage the billing (LIFECYCLE). */
+    getCancelFlow: RegisteredQuery<'public', { subscriptionId?: string }, Promise<CancelFlowState | null>>
     /** Apply the save offer the cancel flow made, by its id (LIFECYCLE). */
     acceptSaveOffer: RegisteredAction<'public', { offerId: string }, Promise<null>>
     /** The caller's purchase inside its EU withdrawal period, for the withdrawal button (`period`, `null` without one); `null` for anyone who may not manage the billing (LIFECYCLE). */

@@ -147,6 +147,9 @@ credits and gifts.
 
 - Credits are prepaid: `useCredits()` reads the balance and opens a top-up checkout, and metered
   AI spends them (the `nuxt-backend-ai` skill).
+- A meter that counts something else names its unit in the catalog, `meters: { pages: { unit: {
+  one: 'page', other: 'pages' } } }`, and every packaged label says it instead of "credits": never
+  override the `credits`, `usage`, `settings` and `pricing` labels one by one for that.
 - Gifts are credit packs by catalog key, or a plan as a pass: `useGifts().send('credits500', {
   recipientEmail })` buys the pack's private gift product on the purchaser's own account (after an
   earlier paid order, never for their own address, five a day to one address); `send('pro', {

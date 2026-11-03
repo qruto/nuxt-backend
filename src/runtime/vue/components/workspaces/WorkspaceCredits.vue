@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { busyAttributes } from '../../a11y'
 import type { WorkspaceCreditsProps } from '../../parts'
+import { useMeterUnit } from '../../utils/meter-unit'
 import { useWorkspaceSettingsView } from './workspace-settings'
 
 /** `<WorkspaceSettings>`'s credits: the balance, what was credited and used, a top-up per pack for a billing manager, and a refresh. */
 defineOptions({ name: 'WorkspaceCredits' })
-defineProps<WorkspaceCreditsProps>()
+const props = defineProps<WorkspaceCreditsProps>()
 const view = useWorkspaceSettingsView('WorkspaceCredits')
 const { t } = view.labels
+const unit = useMeterUnit()
+const meterUnit = () => props.credits.unit.value
 const pending = (key: string) => view.context.value.pending === key
 
 // In the template: Busy until the first balance lands; the em dashes mark the
@@ -20,10 +23,10 @@ const pending = (key: string) => view.context.value.pending === key
     :aria-busy="credits.isLoading.value ? 'true' : undefined"
   >
     <h3 data-settings="section-title">
-      {{ t('credits') }}
+      {{ t('credits', { unit: unit.title(meterUnit()) }) }}
     </h3>
     <p data-settings="balance">
-      {{ credits.balance.value === undefined ? t('balanceUnknown') : t('balance', { count: credits.balance.value }) }}
+      {{ credits.balance.value === undefined ? t('balanceUnknown', { unit: unit.word(meterUnit()) }) : t('balance', { count: credits.balance.value, unit: unit.word(meterUnit(), credits.balance.value) }) }}
     </p>
     <p data-settings="usage">
       <span data-settings="credited">{{ t('credited', { count: credits.credited.value ?? '—' }) }}</span>

@@ -191,6 +191,7 @@ export const POLICIES: Record<string, Policy> = {
   'billing:getCredits': { access: 'member' },
   'billing:getBillingAccess': { access: 'member' },
   'billing:getWithdrawal': { access: 'manage', impersonation: 'refused' },
+  'billing:getCancelFlow': { access: 'manage', impersonation: 'refused' },
   'billing:syncEntitlements': { access: 'member' },
   'billing:getReceivedGifts': { access: 'authed' },
   'billing:claimGift': { access: 'authed', owned: true, impersonation: 'refused' },

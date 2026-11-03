@@ -22,8 +22,13 @@ const CANCEL_FLOW_LABELS = {
   },
   comment: 'Anything you want to tell us? (optional)',
   continue: 'Continue',
+  // Beside every step before the end; the question's own button too, when no offer can stand.
   cancel: 'Cancel my plan',
   canceling: 'Canceling…',
+  // The confirmation, when no offer can stand and "Cancel my plan" ends the plan.
+  confirmEnds: 'Your plan ends when the current period does. Until then everything keeps working.',
+  confirmCancel: 'Confirm cancellation',
+  back: 'Back',
   // The one offer, by its kind.
   offerTitle: 'Before you go',
   offerPause: 'Pause {plan} for {count} month instead. It resumes by itself on {date}, and nothing is charged meanwhile. | Pause {plan} for {count} months instead. It resumes by itself on {date}, and nothing is charged meanwhile.',

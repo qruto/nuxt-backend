@@ -7,13 +7,14 @@ import { finishingCheckout } from '../utils/checkout-return'
 import type { BackendError } from '../utils/backend-error'
 import { absentQuery, diagnostics, useLiveQuery } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
+import type { MeterUnit } from '../../../convex/catalog.js'
 import type { QuotaUsage } from '../../../convex/integrations/billing/types/records.js'
-import type { CancelOutcome, SaveOffer, WithdrawalPeriod } from '../../../convex/integrations/billing/types/lifecycle.js'
+import type { CancelFlowState, CancelOutcome, SaveOffer, WithdrawalPeriod } from '../../../convex/integrations/billing/types/lifecycle.js'
 import { openProviderUrl } from '../utils/open-url'
 import { toBillingDate } from './billing-format'
 import { createCheckout, notConfigured } from './billing-provider'
 
-export type { CancelOutcome, SaveOffer, WithdrawalPeriod }
+export type { CancelFlowState, CancelOutcome, SaveOffer, WithdrawalPeriod }
 
 // The helpers the billing composables and components share live in
 // billing-format.ts and billing-provider.ts, re-exported here and documented
@@ -70,6 +71,8 @@ export type UsageEvent = {
   /** The ingested event name (the one the meter filters on). */
   name: string
   units?: number
+  /** What the meter counts, beside `units` when the catalog names its unit. */
+  unit?: MeterUnit
   metadata?: Record<string, string | number | boolean>
 } & Record<string, unknown>
 
@@ -168,6 +171,8 @@ export interface EntitlementMeter {
   meterId: string
   /** The configured friendly name (`setupBilling({ credits })` / catalog key). */
   name?: string
+  /** What the meter counts, when the catalog names its unit (`meters.<key>.unit`). */
+  unit?: MeterUnit
   consumedUnits: number
   creditedUnits: number
   balance: number
@@ -286,6 +291,7 @@ export interface BillingApi {
   // it once `multipleSubscriptions` lets one account hold several.
   updateSubscription?: FunctionReference<'action', 'public', { subscriptionId?: string, productId?: string, proration?: ClientProrationBehavior }, null>
   cancelSubscription?: FunctionReference<'action', 'public', { subscriptionId?: string, atPeriodEnd?: boolean, reason?: CancellationReason, comment?: string, offer?: false }, CancelOutcome | null>
+  getCancelFlow?: FunctionReference<'query', 'public', { subscriptionId?: string }, CancelFlowState | null>
   acceptSaveOffer?: FunctionReference<'action', 'public', { offerId: string }, null>
   getWithdrawal?: Query<{ period: WithdrawalPeriod | null } | null>
   withdraw?: FunctionReference<'action', 'public', { subscriptionId?: string }, { withdrawnAt: number }>

@@ -614,7 +614,7 @@ const REGISTRY = {
     'WorkspaceList', 'WorkspaceBilling', 'WorkspaceCredits', 'AcceptInvitationActions', 'AuditLogEvent',
     'PricingPeriodSwitch', 'PricingCurrencySelect', 'PricingPlanCard', 'PricingPackCard', 'PricingCancelConfirm', 'PricingEmailOptOut',
     'BillingHistoryOrder', 'UsageHistoryEvent',
-    'CancelFlowQuestion', 'CancelFlowOffer', 'CancelFlowEnd',
+    'CancelFlowQuestion', 'CancelFlowOffer', 'CancelFlowConfirm', 'CancelFlowEnd',
     'AdminUsersTable', 'AdminUserDrawer', 'AdminWorkspacesTable', 'AdminWorkspaceDrawer',
     'AccountMenu', 'WorkspaceSwitcher',
     'OnboardingProfile', 'OnboardingWorkspace', 'OnboardingTeammates', 'OnboardingPlan',

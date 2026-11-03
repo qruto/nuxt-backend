@@ -215,13 +215,13 @@
       "loading": "Chargement des forfaits…",
       "empty": "Aucun forfait n’est encore configuré.",
       "credits": {
-        "month": "{count} crédit / mois | {count} crédits / mois",
-        "year": "{count} crédit / an | {count} crédits / an"
+        "month": "{count} {unit} / mois",
+        "year": "{count} {unit} / an"
       },
       "retired": "Plus proposé",
-      "packCredits": "{count} crédit | {count} crédits",
-      "perCredit": "{price} par crédit",
-      "lessPerCredit": "{percent} % de moins par crédit",
+      "packCredits": "{count} {unit}",
+      "perCredit": "{price} par {unit}",
+      "lessPerCredit": "{percent} % de moins par {unit}",
       "bestValue": "Meilleure offre",
       "promotion": {
         "once": "{off} de réduction sur le premier paiement, puis {price}",
@@ -259,7 +259,7 @@
       "canceling": "Résiliation…",
       "uncanceling": "Conservation du forfait…",
       "openingPortal": "Ouverture du portail…",
-      "managed": "Le propriétaire et les administrateurs de votre espace de travail gèrent son forfait et achètent ses crédits.",
+      "managed": "Le propriétaire et les administrateurs de votre espace de travail gèrent son forfait et achètent ses {unit}.",
       "finishingPurchase": "Finalisation de votre achat…",
       "confirmTitle": "Résilier le forfait",
       "confirmEnds": "Le forfait prend fin le {date}. Tout ce qu’il inclut reste disponible d’ici là.",
@@ -332,9 +332,9 @@
       },
       "files": "{count} fichier | {count} fichiers",
       "benefitsPortal": "Les clés complètes, les fichiers et les comptes connectés se trouvent dans le portail de facturation.",
-      "credits": "Crédits",
-      "balance": "{count} crédit | {count} crédits",
-      "balanceUnknown": "— crédits",
+      "credits": "{unit}",
+      "balance": "{count} {unit}",
+      "balanceUnknown": "— {unit}",
       "credited": "Crédités : {count}",
       "used": "Utilisés : {count}",
       "buyPack": "Acheter {pack}",
@@ -361,7 +361,7 @@
     },
     "usage": {
       "title": "",
-      "units": "{count} crédit | {count} crédits",
+      "units": "{count} {unit}",
       "empty": "Aucune utilisation enregistrée pour l’instant.",
       "loading": "Chargement…",
       "newer": "Plus récents",
@@ -1373,7 +1373,14 @@
       "noToken": "Ce lien ne contient pas de code. Ouvrez à nouveau le lien de l’e-mail."
     },
     "credits": {
-      "low": "Il vous reste {balance} crédit. | Crédits restants : {balance}.",
+      "low": "Il vous reste {balance} {unit}.",
+      "unit": {
+        "one": "crédit",
+        "few": "crédits",
+        "many": "crédits",
+        "other": "crédits"
+      },
+      "unitTitle": "Crédits",
       "topUp": "Recharger",
       "topUpPack": "Acheter {pack}",
       "toppingUp": "Ouverture du paiement…",
@@ -1405,6 +1412,9 @@
       "continue": "Continuer",
       "cancel": "Résilier mon forfait",
       "canceling": "Résiliation…",
+      "confirmEnds": "Votre forfait prend fin avec la période en cours. D’ici là, tout continue de fonctionner.",
+      "confirmCancel": "Confirmer la résiliation",
+      "back": "Retour",
       "offerTitle": "Avant de partir",
       "offerPause": "Mettez plutôt {plan} en pause pendant {count} mois. Il reprend automatiquement le {date}, et rien ne vous est facturé entre-temps. | Mettez plutôt {plan} en pause pendant {count} mois. Il reprend automatiquement le {date}, et rien ne vous est facturé entre-temps.",
       "offerDowngrade": "Passez plutôt à {plan} à partir du {date}, à la fin de cette période.",

@@ -84,6 +84,19 @@ export type SaveOffer
 /** What `cancelSubscription` answers: the save offer for the reason, or the cancellation and when the plan ends (epoch ms). */
 export type CancelOutcome = { offer: SaveOffer } | { canceled: true, endsAt: number | null }
 
+/**
+ * What `getCancelFlow` reads before the cancel flow asks its question: the
+ * reasons whose save offer could stand for the subscription now, and
+ * `offers`, whether any could. None inside the withdrawal period, on a
+ * past-due plan or a trial, after an offer in the last 12 months, or with
+ * none configured: "Continue" would then cancel at once, so the flow says
+ * "Cancel my plan" and asks to confirm instead.
+ */
+export interface CancelFlowState {
+  offers: boolean
+  reasons: CancellationReason[]
+}
+
 /** A purchase and its withdrawal period, as `getWithdrawal` reads it: what `<WithdrawalButton>` shows until `endsAt`. */
 export interface WithdrawalPeriod {
   subscriptionId: string

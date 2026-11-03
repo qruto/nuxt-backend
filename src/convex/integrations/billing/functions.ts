@@ -39,7 +39,7 @@ const LIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'p
 
 /** The registered queries and actions `setupBilling` hands the app in `billing.api`. */
 export function createBillingFunctions(
-  { components, config, products, meterNameById, provider, cache, allowedEntity, requireEntity, throttle, requireAdmin, requireProviderAccess, syncProducts: syncProductsTable }: BillingContext,
+  { components, config, products, creditMeters, meterNameById, provider, cache, allowedEntity, requireEntity, throttle, requireAdmin, requireProviderAccess, syncProducts: syncProductsTable }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
   { withChanges, updateSubscription, uncancelSubscription, cancelPendingChange, pauseSubscription, resumeSubscription }: BillingSubscriptions,
   { getOrders, getInvoiceUrl, getUsageHistory, refundOrder }: BillingHistory,
@@ -186,10 +186,12 @@ export function createBillingFunctions(
       // catalog included — and a client asking for "the balance" (no meter
       // name) takes the first. Ordering here means that is always a meter
       // this app declares, whatever order the provider lists them in.
-      const meters = (resolved.row?.meters ?? []).map(meter => ({
-        ...meter,
-        name: meterNameById.get(meter.meterId),
-      }))
+      // And the unit the catalog names, which the packaged labels say.
+      const meters = (resolved.row?.meters ?? []).map((meter) => {
+        const name = meterNameById.get(meter.meterId)
+        const unit = name === undefined ? undefined : creditMeters[name]?.unit
+        return { ...meter, name, ...(unit ? { unit } : {}) }
+      })
       return {
         meters: [...meters.filter(meter => meter.name !== undefined), ...meters.filter(meter => meter.name === undefined)],
       }
@@ -347,6 +349,15 @@ export function createBillingFunctions(
     handler: (ctx, args) => lifecycle.cancel(ctx, args),
   })
 
+  // What the cancel flow reads before it asks: whether a save offer could
+  // stand, and for which reasons, by the rules `cancelSubscription` applies.
+  // Without one, the flow's "Continue" reads "Cancel my plan" and confirms.
+  const getCancelFlow = queryGeneric({
+    args: subscriptionTargetArgs,
+    returns: v.union(v.null(), v.object({ offers: v.boolean(), reasons: v.array(vReason) })),
+    handler: (ctx, args) => lifecycle.getCancelFlow(ctx, args),
+  })
+
   // The cancel flow's offer, taken: the server finds what it made by the id.
   const acceptSaveOfferFn = actionGeneric({
     args: { offerId: v.string() },
@@ -478,6 +489,7 @@ export function createBillingFunctions(
     startFreePlan,
     updateSubscriptionFn,
     cancelSubscriptionFn,
+    getCancelFlow,
     acceptSaveOfferFn,
     getWithdrawal,
     withdrawFn,

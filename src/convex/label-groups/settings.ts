@@ -75,10 +75,11 @@ const SETTINGS_LABELS = {
   },
   files: '{count} file | {count} files',
   benefitsPortal: 'Whole keys, files and connected accounts are in the billing portal.',
-  credits: 'Credits',
-  balance: '{count} credit | {count} credits',
+  // The credits section, by the meter's unit as a heading; `{unit}` as the `credits` group says.
+  credits: '{unit}',
+  balance: '{count} {unit}',
   // While the balance loads.
-  balanceUnknown: '— credits',
+  balanceUnknown: '— {unit}',
   credited: '{count} credited',
   used: '{count} used',
   // A credit pack's button, by the pack's product name.

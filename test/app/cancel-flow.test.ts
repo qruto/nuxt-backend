@@ -178,6 +178,59 @@ describe('<CancelFlow>', () => {
     expect(part(wrapper, 'root').attributes('data-step')).toBe('ended')
   })
 
+  it('says "Cancel my plan" where no offer can stand, and cancels only once that is confirmed', async () => {
+    const backend = subscriber()
+    backend.state.queries['billing:getCancelFlow'] = { offers: false, reasons: [] }
+    const wrapper = await flow({ subscriptionId: 'sub_2' })
+    const button = part(wrapper, 'continue')
+    expect(button.text()).toBe('Cancel my plan')
+    expect(button.attributes('data-intent')).toBe('cancel')
+    // The question's own button is "Cancel my plan": no second one beside it.
+    expect(part(wrapper, 'cancel').exists()).toBe(false)
+
+    await answer(wrapper, 'too_expensive', 'Costs too much')
+    // Nothing is sent before the confirmation.
+    expect(backend.callsTo('billing:cancelSubscription')).toEqual([])
+    expect(part(wrapper, 'root').attributes('data-step')).toBe('confirm')
+    const confirm = part(wrapper, 'confirm')
+    expect(confirm.attributes('role')).toBe('group')
+    expect(wrapper.find(`#${confirm.attributes('aria-labelledby')}`).text()).toBe('Cancel your plan')
+    expect(part(wrapper, 'confirm-ends').text()).toBe('Your plan ends when the current period does. Until then everything keeps working.')
+    expect(part(wrapper, 'cancel').exists()).toBe(false)
+    expect(part(wrapper, 'close').exists()).toBe(false)
+
+    // "Back" returns to the question, the answer kept.
+    await part(wrapper, 'back').trigger('click')
+    expect(part(wrapper, 'root').attributes('data-step')).toBe('question')
+    expect((wrapper.find('input[value="too_expensive"]').element as HTMLInputElement).checked).toBe(true)
+    await part(wrapper, 'question').trigger('submit')
+    await flushPromises()
+
+    expect(part(wrapper, 'confirm-cancel').text()).toBe('Confirm cancellation')
+    await part(wrapper, 'confirm-cancel').trigger('click')
+    await flushPromises()
+    expect(backend.callsTo('billing:cancelSubscription')).toEqual([{ subscriptionId: 'sub_2', atPeriodEnd: true, reason: 'too_expensive', comment: 'Costs too much', offer: false }])
+    expect(part(wrapper, 'root').attributes('data-step')).toBe('ended')
+    expect(wrapper.emitted('canceled')).toEqual([[PERIOD_END]])
+  })
+
+  it('keeps "Continue" for a reason whose offer can stand, and only for it', async () => {
+    const backend = subscriber({ offer: offer({ percentOff: 20 }) })
+    backend.state.queries['billing:getCancelFlow'] = { offers: true, reasons: ['too_expensive'] }
+    const wrapper = await flow()
+    // Skipping the question makes no offer.
+    expect(part(wrapper, 'continue').text()).toBe('Cancel my plan')
+    await wrapper.find('input[value="other"]').setValue(true)
+    expect(part(wrapper, 'continue').text()).toBe('Cancel my plan')
+    await wrapper.find('input[value="too_expensive"]').setValue(true)
+    expect(part(wrapper, 'continue').text()).toBe('Continue')
+    expect(part(wrapper, 'continue').attributes('data-intent')).toBeUndefined()
+    expect(part(wrapper, 'cancel').exists()).toBe(true)
+    await part(wrapper, 'question').trigger('submit')
+    await flushPromises()
+    expect(part(wrapper, 'root').attributes('data-step')).toBe('offer')
+  })
+
   it('runs one step at a time: busy and still focusable, and Escape closes it only when nothing runs', async () => {
     const backend = subscriber()
     let land!: () => void

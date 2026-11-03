@@ -1,6 +1,6 @@
 // The entitlement, credit and gift records the billing modules pass around.
 
-import type { CatalogInterval } from '../../../catalog.js'
+import type { CatalogInterval, MeterUnit } from '../../../catalog.js'
 
 /**
  * What a granted benefit gives, in the package's own words rather than the
@@ -51,6 +51,8 @@ export interface EntitlementBenefit {
 /** A credit-meter balance in a customer's billing state (prepaid credits). */
 export interface EntitlementMeter {
   meterId: string
+  /** What the meter counts, when the catalog names its unit (`getCredits` adds it). */
+  unit?: MeterUnit
   consumedUnits: number
   creditedUnits: number
   balance: number
@@ -93,6 +95,8 @@ export interface CreditMeterConfig {
    * count events, so each spend is exactly 1 credit).
    */
   property?: string
+  /** What the meter counts, as the catalog's `unit` names it: the packaged labels' word for its units. */
+  unit?: MeterUnit
 }
 
 /**
@@ -364,6 +368,8 @@ export interface GiftTask {
 export interface PricedCredits {
   /** The catalog meter they land on; absent for a meter the catalog does not name. */
   meter?: string
+  /** What that meter counts, when the catalog names its unit. */
+  unit?: MeterUnit
   /** Units per billing cycle (a plan), or once (a pack). */
   units: number
   /** Whether unspent units carry over into the next cycle. */

@@ -12,6 +12,26 @@ navigation:
 
 ## Interfaces
 
+### CancelFlowState
+
+Defined in: [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts)
+
+What `getCancelFlow` reads before the cancel flow asks its question: the
+reasons whose save offer could stand for the subscription now, and
+`offers`, whether any could. None inside the withdrawal period, on a
+past-due plan or a trial, after an offer in the last 12 months, or with
+none configured: "Continue" would then cancel at once, so the flow says
+"Cancel my plan" and asks to confirm instead.
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="offers"></a> `offers` | `boolean` | [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts) |
+| <a id="reasons"></a> `reasons` | [`CancellationReason`](/docs/reference/api/billing#cancellationreason)[] | [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts) |
+
+***
+
 ### WithdrawalPeriod
 
 Defined in: [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts)
@@ -104,6 +124,7 @@ A prepaid credit-meter balance (`useCredits()`).
 | ------ | ------ | ------ | ------ |
 | <a id="meterid"></a> `meterId` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="name-1"></a> `name?` | `string` | The configured friendly name (`setupBilling({ credits })` / catalog key). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="unit"></a> `unit?` | [`MeterUnit`](/docs/reference/api/billing#meterunit) | What the meter counts, when the catalog names its unit (`meters.<key>.unit`). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="consumedunits"></a> `consumedUnits` | `number` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="creditedunits"></a> `creditedUnits` | `number` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="balance"></a> `balance` | `number` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
@@ -208,6 +229,7 @@ pass `options.api` to override.
 | <a id="generatecustomerportalurl"></a> `generateCustomerPortalUrl?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, \{ `returnUrl?`: `string`; \}, \{ `url`: `string`; \}\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="updatesubscription"></a> `updateSubscription?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, \{ `subscriptionId?`: `string`; `productId?`: `string`; `proration?`: [`ClientProrationBehavior`](#clientprorationbehavior); \}, `null`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="cancelsubscription"></a> `cancelSubscription?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, \{ `subscriptionId?`: `string`; `atPeriodEnd?`: `boolean`; `reason?`: [`CancellationReason`](#cancellationreason); `comment?`: `string`; `offer?`: `false`; \}, [`CancelOutcome`](#canceloutcome) \| `null`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="getcancelflow"></a> `getCancelFlow?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"query"`, `"public"`, \{ `subscriptionId?`: `string`; \}, [`CancelFlowState`](#cancelflowstate) \| `null`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="acceptsaveoffer"></a> `acceptSaveOffer?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, \{ `offerId`: `string`; \}, `null`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="getwithdrawal"></a> `getWithdrawal?` | `Query`\< \| \{ `period`: [`WithdrawalPeriod`](#withdrawalperiod) \| `null`; \} \| `null`\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="withdraw"></a> `withdraw?` | [`FunctionReference`](https://docs.convex.dev/api/modules/server#functionreference)\<`"action"`, `"public"`, \{ `subscriptionId?`: `string`; \}, \{ `withdrawnAt`: `number`; \}\> | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
@@ -798,6 +820,7 @@ type UsageEvent = {
   timestamp: string;
   name: string;
   units?: number;
+  unit?: MeterUnit;
   metadata?: Record<string, string | number | boolean>;
 } & Record<string, unknown>;
 ```
@@ -817,6 +840,7 @@ property and is absent when the meter is unknown.
 | `timestamp` | `string` | ISO timestamp of the event. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | `name` | `string` | The ingested event name (the one the meter filters on). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | `units?` | `number` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| `unit?` | [`MeterUnit`](/docs/reference/api/billing#meterunit) | What the meter counts, beside `units` when the catalog names its unit. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | `metadata?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 
 ***

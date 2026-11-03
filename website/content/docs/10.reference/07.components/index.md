@@ -40,7 +40,7 @@ In `0.2.0` the module registers about thirty components of its own, auto-importe
 | [`<BillingHistory>`](/docs/reference/components/billing#billinghistory) | Billing | Available | Past charges with their invoices |
 | [`<UsageHistory>`](/docs/reference/components/billing#usagehistory) | Billing | Available | Metered usage, event by event |
 | [`<UpgradePrompt>`](/docs/reference/components/billing#upgradeprompt) | Billing | Available | The plans that include a feature someone lacks |
-| [`<CancelFlow>`](/docs/reference/components/billing#cancelflow) | Billing | Available | One optional question, at most one save offer, then the cancellation, built from the `CancelFlowQuestion`, `CancelFlowOffer` and `CancelFlowEnd` parts ([Handle cancellations](/docs/build/growth/engage/cancel-flow)) |
+| [`<CancelFlow>`](/docs/reference/components/billing#cancelflow) | Billing | Available | One optional question, at most one save offer, then the cancellation, built from the `CancelFlowQuestion`, `CancelFlowOffer`, `CancelFlowConfirm` and `CancelFlowEnd` parts ([Handle cancellations](/docs/build/growth/engage/cancel-flow)) |
 | [`<WithdrawalButton>`](/docs/reference/components/billing#withdrawalbutton) | Billing | Available | The EU withdrawal button, with its confirm step and email receipt ([Follow subscription law](/docs/ship/compliance/subscriptions)) |
 | [`<AdminUsers>`](/docs/reference/components/workspaces#adminusers) | Admin | Available | Every account, for administrators |
 | [`<AdminWorkspaces>`](/docs/reference/components/workspaces#adminworkspaces) | Admin | Available | Every workspace, for administrators |
@@ -112,7 +112,7 @@ Generated from the contract's rows, which the contract tests render every compon
 | `<AdminUsers>` | `data-admin` | `admin` | `header`, `loading`, `empty`, `user`, `pager`, `error`, `footer` | `role-changed`, `banned`, `unbanned`, `sessions-revoked`, `impersonated`, `error` | loading, empty, ready, pending, error, refused |
 | `<AdminWorkspaces>` | `data-admin` | `admin` | `header`, `loading`, `empty`, `workspace`, `pager`, `error`, `footer` | `impersonated`, `error` | loading, empty, ready, pending, error, refused |
 | `<UpgradePrompt>` | `data-upgrade` | `upgrade` | `default`, `message`, `action` | `dismissed` | loading, ready, refused |
-| `<CancelFlow>` | `data-cancel-flow` | `cancelFlow` | `question`, `offer`, `end` | `close`, `canceled`, `kept`, `error` | ready, pending, offered, done, error |
+| `<CancelFlow>` | `data-cancel-flow` | `cancelFlow` | `question`, `offer`, `confirm`, `end` | `close`, `canceled`, `kept`, `error` | ready, pending, offered, done, error, confirm-cancel |
 | `<WithdrawalButton>` | `data-withdrawal` | `withdrawal` | none | `withdrawn`, `error` | refused |
 | `<ReferralCard>` | `data-referral` | `referral` | none | `copied`, `shared`, `error` | ready, loading, error, refused |
 | `<WorkspaceSettings>` | `data-settings` | `settings` | `workspaces`, `workspace`, `create`, `billing`, `credits`, `footer` | `workspace-created`, `workspace-switched`, `plan-canceled`, `plan-uncanceled`, `plan-resumed`, `change-canceled`, `topped-up`, `error` | ready, loading, pending, error, refused, trialing, past-due, paused, canceling, changing, confirm-cancel |

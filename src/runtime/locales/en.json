@@ -215,13 +215,13 @@
       "loading": "Loading plans…",
       "empty": "No plans are configured yet.",
       "credits": {
-        "month": "{count} credit / month | {count} credits / month",
-        "year": "{count} credit / year | {count} credits / year"
+        "month": "{count} {unit} / month",
+        "year": "{count} {unit} / year"
       },
       "retired": "No longer offered",
-      "packCredits": "{count} credit | {count} credits",
-      "perCredit": "{price} per credit",
-      "lessPerCredit": "{percent}% less per credit",
+      "packCredits": "{count} {unit}",
+      "perCredit": "{price} per {unit}",
+      "lessPerCredit": "{percent}% less per {unit}",
       "bestValue": "Best value",
       "promotion": {
         "once": "{off} off the first payment, then {price}",
@@ -259,7 +259,7 @@
       "canceling": "Canceling…",
       "uncanceling": "Keeping the plan…",
       "openingPortal": "Opening the portal…",
-      "managed": "Your workspace's owner and admins manage its plan and buy its credits.",
+      "managed": "Your workspace's owner and admins manage its plan and buy its {unit}.",
       "finishingPurchase": "Finishing your purchase…",
       "confirmTitle": "Cancel the plan",
       "confirmEnds": "The plan ends on {date}. Everything it includes stays until then.",
@@ -332,9 +332,9 @@
       },
       "files": "{count} file | {count} files",
       "benefitsPortal": "Whole keys, files and connected accounts are in the billing portal.",
-      "credits": "Credits",
-      "balance": "{count} credit | {count} credits",
-      "balanceUnknown": "— credits",
+      "credits": "{unit}",
+      "balance": "{count} {unit}",
+      "balanceUnknown": "— {unit}",
       "credited": "{count} credited",
       "used": "{count} used",
       "buyPack": "Buy {pack}",
@@ -361,7 +361,7 @@
     },
     "usage": {
       "title": "",
-      "units": "{count} credit | {count} credits",
+      "units": "{count} {unit}",
       "empty": "No usage recorded yet.",
       "loading": "Loading…",
       "newer": "Newer",
@@ -1373,7 +1373,14 @@
       "noToken": "This link has no code. Open the link in the email again."
     },
     "credits": {
-      "low": "{balance} credit left. | {balance} credits left.",
+      "low": "{balance} {unit} left.",
+      "unit": {
+        "one": "credit",
+        "few": "credits",
+        "many": "credits",
+        "other": "credits"
+      },
+      "unitTitle": "Credits",
       "topUp": "Top up",
       "topUpPack": "Buy {pack}",
       "toppingUp": "Opening checkout…",
@@ -1405,6 +1412,9 @@
       "continue": "Continue",
       "cancel": "Cancel my plan",
       "canceling": "Canceling…",
+      "confirmEnds": "Your plan ends when the current period does. Until then everything keeps working.",
+      "confirmCancel": "Confirm cancellation",
+      "back": "Back",
       "offerTitle": "Before you go",
       "offerPause": "Pause {plan} for {count} month instead. It resumes by itself on {date}, and nothing is charged meanwhile. | Pause {plan} for {count} months instead. It resumes by itself on {date}, and nothing is charged meanwhile.",
       "offerDowngrade": "Switch to {plan} instead, from {date}, when this period ends.",
