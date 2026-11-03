@@ -4,6 +4,34 @@
 
 [compare changes](https://github.com/qruto/nuxt-backend/compare/v0.2.0...v0.2.1)
 
+Fixes from the first apps built on 0.2.0, and the per-visitor sign-in limits behind an app's server.
+
+### Upgrading from 0.2.0
+
+- **Export `getCancelFlow` from `backend/billing.ts`** next to `cancelSubscription`. `<CancelFlow>`
+  reads it to know ahead whether a save offer can stand; where none can, its button reads "Cancel my
+  plan" and asks to confirm. Without the export the flow keeps "Continue" as before, and
+  `nuxt-backend doctor` names it missing.
+- **Set `PROTECTION_PROOF_SECRET` on both sides** (the app's server and the deployment, the same
+  value) to limit sign-in by each visitor's address. Without it, every visitor behind the app's
+  server shares one bucket, as before. Set it on the app first and deploy it, then on the
+  deployment: a deployment that holds it refuses sign-in codes the app has not signed.
+- **Overrides of the credit labels** (`credits`, `usage`, `settings`, `pricing`) now take `{unit}`
+  in place of the word "credits". Old overrides still render; development warns that `{unit}` is
+  missing.
+
+### New
+
+- `meters: { <name>: { unit: { one, other } } }` in the billing catalog names what a meter counts,
+  and the packaged labels say it ("50 pages left").
+- `setupNotifications({ kinds })` lists only the notification kinds an app sends. Without it, the
+  kinds of gifts, passes, reverse trials and referrals stay off the list until the deployment has
+  used the feature.
+- Notifications about the reader's own plan, credits or gift say "your" in apps that bill the
+  person (`billTo: 'user'`), in all five languages.
+- `useAuth().isReady`, and `nuxt-backend billing reset` for billing data of another provider
+  organization.
+
 ### 🚀 Enhancements
 
 #### Billing
