@@ -44,6 +44,7 @@ One notification as the inbox reads it: ids and values, never the words (they ar
 | <a id="channels"></a> `channels` | `string`[] | The channels it went out on. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
 | <a id="actor"></a> `actor` | [`NotificationParty`](#notificationparty) | Who did it. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
 | <a id="workspace"></a> `workspace` | \| \{ `id`: `string`; `name`: `string` \| `null`; \} \| `null` | The workspace it happened in, by its name now. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
+| <a id="entity"></a> `entity` | [`NotificationEntity`](#notificationentity) \| `null` | Whose plan, credits or gift a billing, gift or referral kind is about: `account` the reader's own (`billTo: 'user'`), `workspace` the one `workspace` names. `null` for every other kind. The inbox words an `account` one with the kind's `titleYours` and `bodyYours`. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
 | <a id="targetid"></a> `targetId` | `string` \| `null` | The thing acted on. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
 | <a id="link"></a> `link` | `string` \| `null` | Where it links, for a kind of your own (`notify`'s `link`); `null` for a package kind, which links to a ready-made page by its type. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
 | <a id="data"></a> `data` | `Record`\<`string`, `string` \| `number` \| `boolean` \| `string`[]\> | The kind's own fields. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
@@ -207,6 +208,7 @@ Defined in: [src/convex/integrations/notifications.ts](https://github.com/qruto/
 | <a id="notify"></a> `notify?` | `Readonly`\<`Record`\<`` `app.${string}` ``, [`NotifyKind`](#notifykind)\>\> | What each event of your own (a type under `app.`) becomes: the channels it may use and where it links. A type without an entry stays a row on the activity trail. **Guarantee** - Runs: `link`, in the mutation or action that records the event (`audit.recordBackendEvent`), before its row is written - Delivery: once per event recorded; a notification is delivered in the transaction that records the event, and rolls back with it - Order: before the event is written, and before `onEvent` is scheduled - When it throws: the throw is logged as `notifications.deliver_failed` and the notification goes out without a link; the event is recorded either way - Idempotency: a read only: it can run again for a retried mutation | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
 | <a id="email"></a> `email?` | [`NotificationsEmail`](#notificationsemail) | The email instance (`setupEmail`), which email and push notifications are worded and rendered with: your messages, your brand and layout, and the weekly cap and quiet hours, which a transactional kind skips. Without it, notifications reach the inbox alone. Re-export `deliverNotification` with it. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
 | <a id="paths"></a> `paths?` | `Partial`\<[`BackendPaths`](/docs/reference/api/auth#backendpaths)\> | The paths the Nuxt module writes to `paths.generated.ts`: a package kind's email links to its ready-made page there. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
+| <a id="kinds"></a> `kinds?` | readonly ( \| `"email.bounced"` \| `"auth.passkey_added"` \| `"auth.passkey_removed"` \| `"auth.passkey_only_changed"` \| `"auth.email_changed"` \| `"auth.new_device"` \| `"workspace.invitation_accepted"` \| `"workspace.member_removed"` \| `"workspace.member_role_changed"` \| `"admin.role_changed"` \| `"billing.plan_changed"` \| `"billing.subscription_created"` \| `"billing.subscription_canceled"` \| `"billing.subscription_revoked"` \| `"billing.subscription_past_due"` \| `"billing.order_paid"` \| `"billing.order_refunded"` \| `"billing.credits_low"` \| `"billing.save_offer_accepted"` \| `"billing.contract_withdrawn"` \| `"billing.trial_pass_started"` \| `"billing.credits_exhausted"` \| `"gift.purchased"` \| `"gift.claimed"` \| `"gift.pass_started"` \| `"gift.pass_ending"` \| `"gift.pass_ended"` \| `"gift.refunded"` \| `"referral.claimed"` \| `"referral.rewarded"`)[] | The package's kinds your app sends, for the channel list (`getNotificationChannels`, `useEmailPreferences().channels`): only these appear there, with your own kinds of `notify`, and only these take a choice (`setNotificationChannel`). An app that never shares a workspace leaves out the `workspace.` kinds. Left out, every kind appears but those of a billing feature the deployment has never used: gifts, plan passes, reverse trials and referrals. The list shapes the choices only: a kind it leaves out still reaches the inbox if it happens. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
 
 ***
 
@@ -238,6 +240,7 @@ What one kind of the package's catalog does as a notification.
 | <a id="page-1"></a> `page` | [`NotificationDestination`](#notificationdestination) | Where it links: the page the person manages what the event is about on. | [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts) |
 | <a id="skipself"></a> `skipSelf?` | `true` | Nobody hears of what they did themselves (a role they changed, a plan they switched). | [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts) |
 | <a id="transactional"></a> `transactional?` | `true` | News about the account's own safety or money: its email and push skip the weekly cap and the quiet hours ([NotifyKind.transactional](#transactional-1)). | [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts) |
+| <a id="feature"></a> `feature?` | [`NotificationFeature`](#notificationfeature) | The billing feature that records it: the channel list leaves the kind out while the deployment has never used it. | [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts) |
 
 ***
 
@@ -412,6 +415,48 @@ type NotificationDestination = "profile" | "security" | "settings";
 Defined in: [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts)
 
 The ready-made page a notification links to, resolved by `pages.<key>` in the app's config.
+
+***
+
+### NotificationFeature
+
+```ts
+type NotificationFeature = "gifts" | "passes" | "trialPasses" | "referrals";
+```
+
+Defined in: [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts)
+
+The billing feature a kind comes from, which an app may never use:
+- `gifts`: a gift someone bought (a credit pack, or a plan as a pass);
+- `passes`: a plan pass, gifted, a reverse trial's or a referral reward's;
+- `trialPasses`: a reverse trial (a catalog plan's `trial: { pass: true }`);
+- `referrals`: the referral program (`setupReferrals`).
+
+***
+
+### NotificationType
+
+```ts
+type NotificationType = keyof typeof NOTIFICATION_KINDS;
+```
+
+Defined in: [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts)
+
+A kind of the package's catalog that notifies, by its event type (`billing.order_paid`).
+
+***
+
+### NotificationEntity
+
+```ts
+type NotificationEntity = "account" | "workspace";
+```
+
+Defined in: [src/convex/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/notifications.ts)
+
+Whose plan, credits or gift a billing kind is about: `account` the
+reader's own (`billTo: 'user'`, where the person is the billing entity),
+`workspace` one they manage.
 
 ***
 

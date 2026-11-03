@@ -2111,11 +2111,13 @@
       "billing": {
         "plan_changed": {
           "title": "El plan de {workspace} cambió",
-          "body": "{actor} cambió la suscripción."
+          "body": "{actor} cambió la suscripción.",
+          "titleYours": "Tu plan cambió"
         },
         "subscription_created": {
           "title": "Se inició una suscripción",
-          "body": "El plan de {workspace} está activo."
+          "body": "El plan de {workspace} está activo.",
+          "bodyYours": "Tu plan está activo."
         },
         "subscription_canceled": {
           "title": "Se canceló una suscripción",
@@ -2123,11 +2125,13 @@
         },
         "subscription_revoked": {
           "title": "Una suscripción finalizó",
-          "body": "El plan de {workspace} ya no está activo."
+          "body": "El plan de {workspace} ya no está activo.",
+          "bodyYours": "Tu plan ya no está activo."
         },
         "subscription_past_due": {
           "title": "Un pago falló",
-          "body": "Actualiza el método de pago de {workspace} para conservar su plan."
+          "body": "Actualiza el método de pago de {workspace} para conservar su plan.",
+          "bodyYours": "Actualiza tu método de pago para conservar tu plan."
         },
         "order_paid": {
           "title": "Pago recibido",
@@ -2139,23 +2143,28 @@
         },
         "credits_low": {
           "title": "Quedan pocos créditos",
-          "body": "Créditos restantes en {workspace}: {balance}."
+          "body": "Créditos restantes en {workspace}: {balance}.",
+          "bodyYours": "Créditos restantes: {balance}."
         },
         "credits_exhausted": {
           "title": "Se agotaron los créditos",
-          "body": "Recarga {workspace} para seguir."
+          "body": "Recarga {workspace} para seguir.",
+          "bodyYours": "Recarga para seguir."
         },
         "save_offer_accepted": {
           "title": "Se conservó el plan de {workspace}",
-          "body": "{actor} aceptó una oferta en lugar de cancelar."
+          "body": "{actor} aceptó una oferta en lugar de cancelar.",
+          "titleYours": "Se conservó tu plan"
         },
         "contract_withdrawn": {
           "title": "Se desistió de una compra",
-          "body": "{actor} desistió del plan de {workspace}."
+          "body": "{actor} desistió del plan de {workspace}.",
+          "bodyYours": "{actor} desistió de tu plan."
         },
         "trial_pass_started": {
           "title": "Tu prueba empezó",
-          "body": "{workspace} tiene el plan completo durante la prueba, sin tarjeta."
+          "body": "{workspace} tiene el plan completo durante la prueba, sin tarjeta.",
+          "bodyYours": "Tienes el plan completo durante la prueba, sin tarjeta."
         }
       },
       "gift": {
@@ -2165,19 +2174,23 @@
         },
         "claimed": {
           "title": "Se canjeó un regalo",
-          "body": "Llegó a {workspace}."
+          "body": "Llegó a {workspace}.",
+          "bodyYours": "Llegó a tu cuenta."
         },
         "pass_started": {
           "title": "Empezó un pase de plan",
-          "body": "{workspace} tiene el plan regalado, sin tarjeta y sin renovación."
+          "body": "{workspace} tiene el plan regalado, sin tarjeta y sin renovación.",
+          "bodyYours": "Tienes el plan regalado, sin tarjeta y sin renovación."
         },
         "pass_ending": {
           "title": "Un pase de plan termina en una semana",
-          "body": "Elige el plan de {workspace} para conservarlo."
+          "body": "Elige el plan de {workspace} para conservarlo.",
+          "bodyYours": "Elige el plan para conservarlo."
         },
         "pass_ended": {
           "title": "Un pase de plan terminó",
-          "body": "El plan regalado de {workspace} ha terminado."
+          "body": "El plan regalado de {workspace} ha terminado.",
+          "bodyYours": "Tu plan regalado ha terminado."
         },
         "refunded": {
           "title": "Se reembolsó un regalo",

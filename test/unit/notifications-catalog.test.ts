@@ -7,11 +7,16 @@ import {
   NOTIFICATION_CHANNELS,
   NOTIFICATION_KINDS,
   choosableChannels,
+  listedKind,
   notificationChannels,
+  notificationEntity,
   notificationLabelKey,
+  notificationWordKeys,
   notifyProblem,
   planNotification,
 } from '../../src/convex/notifications'
+import { TRANSLATED_LOCALES } from '../../src/convex/label-format'
+import { LABEL_TRANSLATIONS } from '../../src/convex/label-translations'
 import { LABELS } from '../../src/convex/labels'
 
 // The notification policy against the event catalog: every kind that may
@@ -78,6 +83,55 @@ describe('the notification kinds', () => {
       expect(entry?.title, `${type} title`).toBeTruthy()
       expect(entry?.body, `${type} body`).toBeTruthy()
     }
+  })
+
+  it('word every billing kind both ways in every language: about a workspace, and about the person\'s own account', () => {
+    const entityKinds = Object.entries(NOTIFICATION_KINDS).filter(([, kind]) => kind.audience === 'entity').map(([type]) => type)
+    const languages: Array<[string, unknown]> = [['en', LABELS.notifications], ...TRANSLATED_LOCALES.map(locale => [locale, (LABEL_TRANSLATIONS[locale] as Record<string, unknown>).notifications] as [string, unknown])]
+    const yours: string[] = []
+    for (const [language, words] of languages) {
+      for (const type of entityKinds) {
+        const [area, name] = type.split('.') as [string, string]
+        const entry = ((words as Record<string, unknown>)[area] as Record<string, Record<string, string>>)[name]!
+        for (const part of ['title', 'body'] as const) {
+          const own = entry[`${part}Yours`]
+          // A part about a workspace has words for the account too, and those name none; a part that names none keeps one set.
+          if (entry[part]!.includes('{workspace}')) expect(own, `${language} ${type}.${part}Yours`).toBeTruthy()
+          else expect(own, `${language} ${type}.${part}Yours`).toBeUndefined()
+          if (own !== undefined) expect(own, `${language} ${type}.${part}Yours`).not.toContain('{workspace}')
+          if (language === 'en' && own !== undefined) yours.push(`${type}.${part}`)
+        }
+      }
+    }
+    expect(yours).toContain('billing.subscription_created.body')
+    expect(yours).toContain('gift.pass_ended.body')
+  })
+
+  it('tell a billing kind about the person\'s own account from one about a workspace by the workspace it names', () => {
+    expect(notificationEntity('billing.subscription_created', undefined)).toBe('account')
+    expect(notificationEntity('billing.subscription_created', 'w1')).toBe('workspace')
+    expect(notificationEntity('gift.claimed', null)).toBe('account')
+    expect(notificationEntity('workspace.member_removed', 'w1')).toBeNull()
+    expect(notificationEntity('app.strip_ready', undefined)).toBeNull()
+    expect(notificationWordKeys('body', 'account')).toEqual(['bodyYours', 'body'])
+    expect(notificationWordKeys('title', 'workspace')).toEqual(['title'])
+    expect(notificationWordKeys('title', null)).toEqual(['title'])
+  })
+
+  it('list a billing feature\'s kinds for choosing once the deployment used it, or as the app\'s kinds say', () => {
+    const none = { gifts: false, passes: false, trialPasses: false, referrals: false }
+    const listed = (features: typeof none | null, kinds: ReadonlySet<string> | null = null) => Object.keys(NOTIFICATION_KINDS).filter(type => listedKind(type, kinds, features))
+    expect(listed(none)).not.toEqual(expect.arrayContaining(['billing.trial_pass_started']))
+    for (const type of listed(none)) expect(type, type).not.toMatch(/^(?:gift|referral)\./)
+    expect(listed(none)).toEqual(expect.arrayContaining(['billing.order_paid', 'workspace.member_removed', 'admin.role_changed']))
+    expect(listed({ ...none, gifts: true })).toEqual(expect.arrayContaining(['gift.purchased', 'gift.claimed', 'gift.pass_started', 'gift.refunded']))
+    expect(listed({ ...none, gifts: true })).not.toContain('gift.pass_ending')
+    expect(listed({ ...none, passes: true })).toEqual(expect.arrayContaining(['gift.pass_ending', 'gift.pass_ended']))
+    expect(listed({ ...none, trialPasses: true })).toContain('billing.trial_pass_started')
+    expect(listed({ ...none, referrals: true })).toEqual(expect.arrayContaining(['referral.claimed', 'referral.rewarded']))
+    expect(listed(null)).toEqual(Object.keys(NOTIFICATION_KINDS))
+    // The app's own list is the answer, features or not.
+    expect(listed(none, new Set(['auth.passkey_added', 'gift.claimed']))).toEqual(['auth.passkey_added', 'gift.claimed'])
   })
 })
 

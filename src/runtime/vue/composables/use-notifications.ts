@@ -3,7 +3,7 @@ import { computed, inject, toValue, type ComputedRef, type MaybeRefOrGetter } fr
 import { useBetterAuth } from 'nuxt-convex-module/better-auth/client'
 import { ConvexAuthStateKey, useMutation, usePaginatedQuery_experimental } from 'nuxt-convex-module/client'
 import type { MarkedRead, NotificationEntry, NotificationParty, NotificationsPage, UnreadCount } from '../../../convex/integrations/notifications'
-import { NOTIFICATION_KINDS, NOTIFICATION_PAGE_MAX, notificationLabelKey } from '../../../convex/notifications'
+import { NOTIFICATION_KINDS, NOTIFICATION_PAGE_MAX, notificationLabelKey, notificationWordKeys } from '../../../convex/notifications'
 import { useActionState } from '../utils/action-state'
 import { type BackendError, failureOf } from '../utils/backend-error'
 import { absentQuery, useLiveQuery } from '../utils/live-query'
@@ -35,6 +35,8 @@ export interface NotificationItem {
   actor: NotificationParty
   /** The workspace it happened in, by its name now. */
   workspace: { id: string, name: string | null } | null
+  /** Whose plan, credits or gift a billing kind is about: `account` the reader's own, `workspace` the one named; `null` for any other kind. */
+  entity: NotificationEntry['entity']
   /** The kind's own fields. */
   data: NotificationEntry['data']
 }
@@ -96,7 +98,9 @@ const DEFAULT_LIMIT = 20
  * with `loadMore`, with the unread count and the actions that mark them
  * read. The words are labels, so each item reads in the active language
  * (`backend.notifications.<kind>.title` and `.body`, the package's for its
- * own kinds and yours for the kinds of your own).
+ * own kinds and yours for the kinds of your own). A billing kind about the
+ * reader's own account (`billTo: 'user'`) reads `.titleYours` and
+ * `.bodyYours` where the kind has them.
  *
  * @example
  * ```vue
@@ -159,20 +163,30 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     return kind ? pages[kind.page].value : null
   }
 
-  function worded(entry: NotificationEntry): NotificationItem {
+  /** One part of a kind's words: for the reader's own account, the words written for it first. */
+  function part(entry: NotificationEntry, name: 'title' | 'body', params: Record<string, string | number>): string | null {
     const key = notificationLabelKey(entry.type)
+    for (const label of notificationWordKeys(name, entry.entity ?? null)) {
+      const text = words(`${key}.${label}`, params)
+      if (text !== null) return text
+    }
+    return null
+  }
+
+  function worded(entry: NotificationEntry): NotificationItem {
     const params = paramsOf(entry)
     return {
       id: entry.id,
       type: entry.type,
-      title: words(`${key}.title`, params) ?? labels.t('fallbackTitle'),
-      body: words(`${key}.body`, params),
+      title: part(entry, 'title', params) ?? labels.t('fallbackTitle'),
+      body: part(entry, 'body', params),
       link: linkOf(entry),
       at: entry.at,
       read: entry.readAt !== null,
       channels: entry.channels,
       actor: entry.actor,
       workspace: entry.workspace,
+      entity: entry.entity ?? null,
       data: entry.data,
     }
   }

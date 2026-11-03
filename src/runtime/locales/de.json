@@ -2111,11 +2111,13 @@
       "billing": {
         "plan_changed": {
           "title": "Der Tarif von {workspace} hat sich geändert",
-          "body": "{actor} hat das Abo geändert."
+          "body": "{actor} hat das Abo geändert.",
+          "titleYours": "Ihr Tarif hat sich geändert"
         },
         "subscription_created": {
           "title": "Ein Abo wurde abgeschlossen",
-          "body": "Der Tarif von {workspace} ist aktiv."
+          "body": "Der Tarif von {workspace} ist aktiv.",
+          "bodyYours": "Ihr Tarif ist aktiv."
         },
         "subscription_canceled": {
           "title": "Ein Abo wurde gekündigt",
@@ -2123,11 +2125,13 @@
         },
         "subscription_revoked": {
           "title": "Ein Abo ist beendet",
-          "body": "Der Tarif von {workspace} ist nicht mehr aktiv."
+          "body": "Der Tarif von {workspace} ist nicht mehr aktiv.",
+          "bodyYours": "Ihr Tarif ist nicht mehr aktiv."
         },
         "subscription_past_due": {
           "title": "Eine Zahlung ist fehlgeschlagen",
-          "body": "Aktualisieren Sie die Zahlungsmethode von {workspace}, um den Tarif zu behalten."
+          "body": "Aktualisieren Sie die Zahlungsmethode von {workspace}, um den Tarif zu behalten.",
+          "bodyYours": "Aktualisieren Sie Ihre Zahlungsmethode, um Ihren Tarif zu behalten."
         },
         "order_paid": {
           "title": "Zahlung eingegangen",
@@ -2139,23 +2143,28 @@
         },
         "credits_low": {
           "title": "Die Credits werden knapp",
-          "body": "Verbleibende Credits in {workspace}: {balance}."
+          "body": "Verbleibende Credits in {workspace}: {balance}.",
+          "bodyYours": "Verbleibende Credits: {balance}."
         },
         "credits_exhausted": {
           "title": "Die Credits sind aufgebraucht",
-          "body": "Laden Sie in {workspace} Credits auf, um weiterzumachen."
+          "body": "Laden Sie in {workspace} Credits auf, um weiterzumachen.",
+          "bodyYours": "Laden Sie Credits auf, um weiterzumachen."
         },
         "save_offer_accepted": {
           "title": "Der Tarif von {workspace} bleibt bestehen",
-          "body": "{actor} hat ein Angebot angenommen, statt zu kündigen."
+          "body": "{actor} hat ein Angebot angenommen, statt zu kündigen.",
+          "titleYours": "Ihr Tarif bleibt bestehen"
         },
         "contract_withdrawn": {
           "title": "Von einem Kauf wurde zurückgetreten",
-          "body": "{actor} ist vom Tarif von {workspace} zurückgetreten."
+          "body": "{actor} ist vom Tarif von {workspace} zurückgetreten.",
+          "bodyYours": "{actor} ist von Ihrem Tarif zurückgetreten."
         },
         "trial_pass_started": {
           "title": "Ihre Testphase hat begonnen",
-          "body": "In {workspace} gilt während der Testphase der volle Tarif, ohne Karte."
+          "body": "In {workspace} gilt während der Testphase der volle Tarif, ohne Karte.",
+          "bodyYours": "Während der Testphase haben Sie den vollen Tarif, ohne Karte."
         }
       },
       "gift": {
@@ -2165,19 +2174,23 @@
         },
         "claimed": {
           "title": "Ein Geschenk wurde eingelöst",
-          "body": "Es ist in {workspace} angekommen."
+          "body": "Es ist in {workspace} angekommen.",
+          "bodyYours": "Es ist in Ihrem Konto angekommen."
         },
         "pass_started": {
           "title": "Ein Tarifpass hat begonnen",
-          "body": "In {workspace} gilt der geschenkte Tarif, ohne Karte und ohne Verlängerung."
+          "body": "In {workspace} gilt der geschenkte Tarif, ohne Karte und ohne Verlängerung.",
+          "bodyYours": "Sie haben den geschenkten Tarif, ohne Karte und ohne Verlängerung."
         },
         "pass_ending": {
           "title": "Ein Tarifpass endet in einer Woche",
-          "body": "Wählen Sie den Tarif für {workspace}, um ihn zu behalten."
+          "body": "Wählen Sie den Tarif für {workspace}, um ihn zu behalten.",
+          "bodyYours": "Wählen Sie den Tarif, um ihn zu behalten."
         },
         "pass_ended": {
           "title": "Ein Tarifpass ist abgelaufen",
-          "body": "Der geschenkte Tarif von {workspace} ist abgelaufen."
+          "body": "Der geschenkte Tarif von {workspace} ist abgelaufen.",
+          "bodyYours": "Ihr geschenkter Tarif ist abgelaufen."
         },
         "refunded": {
           "title": "Ein Geschenk wurde erstattet",

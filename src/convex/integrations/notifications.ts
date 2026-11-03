@@ -11,8 +11,15 @@ import {
   type NotificationChannel,
   choosableChannels,
   isTransactional,
+  listedKind,
+  type NotificationEntity,
+  notificationEntity,
+  type NotificationFeatures,
+  notificationKind,
   notificationLabelKey,
   type NotificationPlan,
+  type NotificationType,
+  notificationWordKeys,
   type NotifyEvent,
   type NotifyOptions,
   notifyProblem,
@@ -35,9 +42,12 @@ export type {
   Delivery,
   NotificationAudience,
   NotificationChannel,
+  NotificationEntity,
+  NotificationFeature,
   NotificationKind,
   NotificationDestination,
   NotificationPlan,
+  NotificationType,
   NotifyEvent,
   NotifyKind,
   NotifyOptions,
@@ -64,6 +74,13 @@ export interface NotificationEntry {
   actor: NotificationParty
   /** The workspace it happened in, by its name now. */
   workspace: { id: string, name: string | null } | null
+  /**
+   * Whose plan, credits or gift a billing, gift or referral kind is about:
+   * `account` the reader's own (`billTo: 'user'`), `workspace` the one
+   * `workspace` names. `null` for every other kind. The inbox words an
+   * `account` one with the kind's `titleYours` and `bodyYours`.
+   */
+  entity: NotificationEntity | null
   /** The thing acted on. */
   targetId: string | null
   /** Where it links, for a kind of your own (`notify`'s `link`); `null` for a package kind, which links to a ready-made page by its type. */
@@ -210,6 +227,17 @@ export interface SetupNotificationsOptions {
   email?: NotificationsEmail
   /** The paths the Nuxt module writes to `paths.generated.ts`: a package kind's email links to its ready-made page there. */
   paths?: Partial<BackendPaths>
+  /**
+   * The package's kinds your app sends, for the channel list
+   * (`getNotificationChannels`, `useEmailPreferences().channels`): only
+   * these appear there, with your own kinds of `notify`, and only these
+   * take a choice (`setNotificationChannel`). An app that never shares a
+   * workspace leaves out the `workspace.` kinds. Left out, every kind
+   * appears but those of a billing feature the deployment has never used:
+   * gifts, plan passes, reverse trials and referrals. The list shapes the
+   * choices only: a kind it leaves out still reaches the inbox if it happens.
+   */
+  kinds?: readonly NotificationType[]
 }
 
 /** The `backend` component as the inbox reads it. */
@@ -217,14 +245,18 @@ export interface NotificationsComponents {
   backend: unknown
 }
 
+/** A notification as the component reads it: the entry, before the billing entity is told from its workspace. */
+type StoredEntry = Omit<NotificationEntry, 'entity'>
+
 interface NotificationsRefs {
   notifications: {
-    list: FunctionReference<'query', 'internal', { userId: string, paginationOpts: PaginationArgs }, NotificationsPage>
+    list: FunctionReference<'query', 'internal', { userId: string, paginationOpts: PaginationArgs }, Omit<NotificationsPage, 'page'> & { page: StoredEntry[] }>
     unread: FunctionReference<'query', 'internal', { userId: string }, UnreadCount>
     markRead: FunctionReference<'mutation', 'internal', { userId: string, ids: string[] }, number>
     markAllRead: FunctionReference<'mutation', 'internal', { userId: string }, MarkedRead>
     forget: FunctionReference<'mutation', 'internal', { type: string, targetId: string }, ForgottenNotifications>
     listChoices: FunctionReference<'query', 'internal', { userId: string }, Array<{ type: string, channel: NotificationChannel, enabled: boolean }>>
+    features: FunctionReference<'query', 'internal', Record<string, never>, NotificationFeatures>
     choose: FunctionReference<'mutation', 'internal', { userId: string, type: string, channel: NotificationChannel, enabled: boolean }, null>
     recipient: FunctionReference<'query', 'internal', { userId: string, type: string, channel: NotificationChannel, actorId?: string, impersonated?: boolean, entityId?: string }, Recipient | null>
   }
@@ -272,17 +304,20 @@ const PUSH_RETRY_MAX_MS = 60 * 60 * 1000
 /** The words of a party, when the event names none by name. */
 const ACTOR_WORDS = { you: 'actorSomeone', user: 'actorSomeone', administrator: 'actorAdministrator', app: 'actorApp', erased: 'actorErased' } as const
 
-/** A notification's words in a reader's language: its title and body, the kind's own or the fallback. */
-function notificationWords(t: EmailRenderContext['t'], type: string, recipient: Recipient, data: Record<string, string | number | boolean | string[]>): { title: string, body: string | null } {
+/** A notification's words in a reader's language: its title and body, the kind's own (those for the reader's own account, when the billing entity is theirs) or the fallback. */
+function notificationWords(t: EmailRenderContext['t'], type: string, recipient: Recipient, data: Record<string, string | number | boolean | string[]>, entity: NotificationEntity | null): { title: string, body: string | null } {
   const params: Record<string, string | number> = {}
   for (const [name, value] of Object.entries(data)) params[name] = Array.isArray(value) ? value.join(', ') : typeof value === 'boolean' ? String(value) : value
   params.actor = recipient.actor.name ?? t(`notifications.${ACTOR_WORDS[recipient.actor.kind]}`)
   params.workspace = recipient.workspace ?? t('notifications.workspaceUnnamed')
   // A package kind's words sit under `backend.notifications` (packaged); an app's own kind's under the same key of its messages.
   const key = type.startsWith('app.') ? `backend.notifications.${notificationLabelKey(type)}` : `notifications.${notificationLabelKey(type)}`
-  const read = (part: string) => {
-    const text = t(`${key}.${part}`, params)
-    return text === `${key}.${part}` ? null : text
+  const read = (part: 'title' | 'body') => {
+    for (const name of notificationWordKeys(part, entity)) {
+      const text = t(`${key}.${name}`, params)
+      if (text !== `${key}.${name}`) return text
+    }
+    return null
   }
   return { title: read('title') ?? t('notifications.fallbackTitle'), body: read('body') }
 }
@@ -317,11 +352,15 @@ export function setupNotifications(components: NotificationsComponents, options:
   const notify = options.notify ?? {}
   const problem = notifyProblem(notify)
   if (problem) throw new TypeError(`[nuxt-backend] setupNotifications({ notify }): ${problem}`)
+  const unknownKind = options.kinds?.find(type => !notificationKind(type))
+  if (unknownKind !== undefined) throw new TypeError(`[nuxt-backend] setupNotifications({ kinds }): ${JSON.stringify(unknownKind)} is no kind of the package that notifies. List the package's kinds (\`billing.order_paid\`); your own kinds of \`notify\` are always on the list.`)
+  const kinds = options.kinds ? new Set<string>(options.kinds) : null
 
   const listNotifications = queryGeneric({
     args: { paginationOpts: paginationOptsValidator },
     handler: async (ctx, { paginationOpts }): Promise<NotificationsPage> => {
-      return ctx.runQuery(refs.notifications.list, { userId: await ownCaller(ctx, 'listNotifications'), paginationOpts })
+      const result = await ctx.runQuery(refs.notifications.list, { userId: await ownCaller(ctx, 'listNotifications'), paginationOpts })
+      return { ...result, page: result.page.map(entry => ({ ...entry, entity: notificationEntity(entry.type, entry.workspace?.id) })) }
     },
   })
 
@@ -347,9 +386,9 @@ export function setupNotifications(components: NotificationsComponents, options:
 
   // ── Channels, kind by kind ───────────────────────────────────────────
 
-  /** The channels each kind may use, by the channel matrix, and the email the package sends itself for a new device: the package's kinds that notify, then the app's own. */
+  /** The channels each kind may use, by the channel matrix, and the email the package sends itself for a new device: the package's kinds that notify (those `kinds` lists, when it does), then the app's own. */
   const allowed = new Map<string, NotificationChannel[]>([
-    ...Object.keys(NOTIFICATION_KINDS).map(type => [type, choosableChannels(type, declaredChannels(type))] as const),
+    ...Object.keys(NOTIFICATION_KINDS).filter(type => listedKind(type, kinds, null)).map(type => [type, choosableChannels(type, declaredChannels(type))] as const),
     ...Object.entries(notify).map(([type, kind]) => [type, choosableChannels(type, kind.channels)] as const),
   ].filter(([, channels]) => channels.length > 0))
 
@@ -360,7 +399,9 @@ export function setupNotifications(components: NotificationsComponents, options:
       if (!identity) return null
       const userId = await ownCaller(ctx, 'getNotificationChannels')
       const chosen = new Map((await ctx.runQuery(refs.notifications.listChoices, { userId })).map(row => [`${row.type} ${row.channel}`, row.enabled]))
-      return [...allowed].map(([type, channels]) => ({ type, channels: channels.map(channel => ({ channel, enabled: chosen.get(`${type} ${channel}`) ?? true })) }))
+      // Without `kinds`, a billing feature the deployment has never used (no gift bought, no referral) lists none of its kinds.
+      const features = kinds ? null : await ctx.runQuery(refs.notifications.features, {})
+      return [...allowed].filter(([type]) => listedKind(type, kinds, features)).map(([type, channels]) => ({ type, channels: channels.map(channel => ({ channel, enabled: chosen.get(`${type} ${channel}`) ?? true })) }))
     },
   })
 
@@ -413,7 +454,7 @@ export function setupNotifications(components: NotificationsComponents, options:
   const target = (type: string, link: string | null): string => {
     const site = (readEnv('SITE_URL') ?? '').replace(/\/$/, '')
     if (link) return `${site}${link}`
-    const kind = Object.hasOwn(NOTIFICATION_KINDS, type) ? NOTIFICATION_KINDS[type as keyof typeof NOTIFICATION_KINDS] : undefined
+    const kind = notificationKind(type)
     const page = kind?.page === 'security' ? pages.security : kind?.page === 'settings' ? pages.settings : '/profile'
     return `${site}${page}`
   }
@@ -423,7 +464,7 @@ export function setupNotifications(components: NotificationsComponents, options:
     if (!email) return null
     let words: { title: string, body: string | null, url: string, locale: string } | null = null
     await email.compose((context) => {
-      words = { ...notificationWords(context.t, delivery.event.type, recipient, delivery.event.data ?? {}), url: context.link(target(delivery.event.type, delivery.link)), locale: context.locale }
+      words = { ...notificationWords(context.t, delivery.event.type, recipient, delivery.event.data ?? {}, notificationEntity(delivery.event.type, delivery.event.entityId)), url: context.link(target(delivery.event.type, delivery.link)), locale: context.locale }
       return null
     }, { locale: recipient.locale })
     return words as { title: string, body: string | null, url: string, locale: string } | null
@@ -432,7 +473,7 @@ export function setupNotifications(components: NotificationsComponents, options:
   const deliverEmail = async (ctx: DeliveryCtx, delivery: ScheduledDelivery, recipient: Recipient) => {
     if (!email || !recipient.email) return
     const message = await email.compose(({ t }) => {
-      const words = notificationWords(t, delivery.event.type, recipient, delivery.event.data ?? {})
+      const words = notificationWords(t, delivery.event.type, recipient, delivery.event.data ?? {}, notificationEntity(delivery.event.type, delivery.event.entityId))
       return {
         to: recipient.email!,
         subject: words.title,

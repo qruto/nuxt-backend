@@ -402,6 +402,28 @@ export const listChoices = query({
 })
 
 /**
+ * Which billing features this deployment has used, so the channel list
+ * leaves out the kinds of one it never has: a gift someone bought, a plan
+ * pass of any kind, a reverse trial, a referral. One row each answers it.
+ * A reverse trial and a reward pass have no purchaser (`purchaserUserId`
+ * is empty), and a pass carries its end date from the day it starts.
+ */
+export const features = query({
+  args: {},
+  returns: v.object({ gifts: v.boolean(), passes: v.boolean(), trialPasses: v.boolean(), referrals: v.boolean() }),
+  handler: async (ctx) => {
+    const gifts = () => ctx.db.query('billingGifts')
+    const passRunning = await gifts().withIndex('passEndedAt_passEndsAt', q => q.eq('passEndedAt', undefined).gte('passEndsAt', 0)).first()
+    return {
+      gifts: await gifts().withIndex('purchaserUserId_createdAt', q => q.gt('purchaserUserId', '')).first() !== null,
+      passes: passRunning !== null || await gifts().withIndex('passEndedAt_passEndsAt', q => q.gte('passEndedAt', 0)).first() !== null,
+      trialPasses: await gifts().withIndex('status', q => q.eq('status', 'trial')).first() !== null,
+      referrals: await ctx.db.query('referrals').first() !== null,
+    }
+  },
+})
+
+/**
  * Turn one channel of one kind on or off for a person. The caller, the
  * app's `setNotificationChannel`, checks the kind allows the channel.
  */

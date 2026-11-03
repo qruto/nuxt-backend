@@ -57,14 +57,21 @@ const record = mutationGeneric({
   handler: async (ctx, { event }) => audit.recordBackendEvent(ctx, event),
 })
 
+/** A gift's checkout starting, as billing records it. */
+const gift = mutationGeneric({
+  args: {},
+  handler: async ctx => ctx.runMutation(components.backend.gifts.create, { recipientEmail: 'grace@example.com', purchaserUserId: 'u1', productIds: ['p'] }),
+})
+
 const testApp = defineBackendTestApp(defineSchema({}), {
   './_generated/api.js': () => Promise.resolve({}),
-  './audit.js': () => Promise.resolve({ record }),
+  './audit.js': () => Promise.resolve({ record, gift }),
   './notifications.js': () => Promise.resolve({ ...notifications.api }),
 })
 type App = ReturnType<typeof testApp>
 
 const recordRef = makeFunctionReference<'mutation'>('audit:record')
+const giftRef = makeFunctionReference<'mutation', Record<string, never>, string>('audit:gift')
 const channelsRef = makeFunctionReference<'query', Record<string, never>, NotificationKindChoice[] | null>('notifications:getNotificationChannels')
 const chooseRef = makeFunctionReference<'mutation', { type: string, channel: string, enabled: boolean }, null>('notifications:setNotificationChannel')
 const configRef = makeFunctionReference<'query', Record<string, never>, { publicKey: string | null }>('notifications:getPushConfig')
@@ -216,6 +223,30 @@ describe('the person\'s channel choices', () => {
     const ada = await asUser(t, { workspace: false })
     await expect(ada.mutation(chooseRef, { type: 'billing.order_paid', channel: 'email', enabled: true })).rejects.toThrow(/does not notify by email/)
     expect(await t.query(channelsRef, {})).toBeNull()
+  })
+
+  test('leave out the kinds of a billing feature the deployment never used, until it does', async () => {
+    const ada = await asUser(t, { email: 'ada@example.com', workspace: false })
+    const types = async () => (await ada.query(channelsRef, {}))!.map(kind => kind.type)
+    expect(await types()).toEqual(expect.arrayContaining(['billing.order_paid', 'workspace.member_removed']))
+    expect((await types()).filter(type => /^(?:(?:gift|referral)\.|billing\.trial_pass)/.test(type))).toEqual([])
+    // The first gift bought: its kinds join the list; passes and referrals stay off.
+    await t.mutation(giftRef, {})
+    expect(await types()).toEqual(expect.arrayContaining(['gift.purchased', 'gift.claimed', 'gift.refunded']))
+    expect(await types()).not.toContain('referral.claimed')
+  })
+
+  test('list only the kinds an app says it sends, with its own, and take a choice of no other', async () => {
+    const own = setupNotifications(components as never, { kinds: ['auth.passkey_added', 'billing.order_paid', 'gift.claimed'], notify: { 'app.strip_shared': { channels: ['app'] } } })
+    const app = defineBackendTestApp(defineSchema({}), {
+      './_generated/api.js': () => Promise.resolve({}),
+      './notifications.js': () => Promise.resolve({ ...own.api }),
+    })()
+    const ada = await asUser(app, { workspace: false })
+    // The app's list holds even a kind of a feature never used yet.
+    expect((await ada.query(channelsRef, {}))!.map(kind => kind.type)).toEqual(['auth.passkey_added', 'billing.order_paid', 'gift.claimed', 'app.strip_shared'])
+    await expect(ada.mutation(chooseRef, { type: 'workspace.member_removed', channel: 'app', enabled: false })).rejects.toThrow(/does not notify by app/)
+    expect(() => setupNotifications(components as never, { kinds: ['workspace.member_left' as never] })).toThrow(/no kind of the package that notifies/)
   })
 })
 

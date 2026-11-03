@@ -23,7 +23,7 @@ Every notification starts as an event on the shared event path, the one the [act
 3. **The person's choices narrow it again.** A channel a person turned off for that kind is skipped ([Notification channels](/docs/build/email/preferences#notification-channels)).
 4. **Each channel delivers.** A notification in the app, live in the inbox, written in the same transaction; an email in the package's layout; a [push notification](/docs/build/email/notifications/web-push) to each device the person allowed. Email and push only enqueue there: the deployment schedules your `deliverNotification` with ids alone, and it reads the address, words the message and sends once the event committed. Email and push follow the weekly cap and quiet hours set on `setupEmail` ([Cap how often people hear from you](/docs/build/email/preferences#cap-how-often-people-hear-from-you)), never the sunset rule, except a transactional kind's, which go at once; the inbox never waits.
 
-The words of each notification are labels, so they read in the person's language and change like the rest of the UI ([Change copy and labels](/docs/build/ui/customize/labels)): a `title` and a `body` under `backend.notifications`, such as `workspace.member_removed.title`. A notification links to the ready-made page where the person manages what it is about: the profile, the security page or the settings. A free plan's own lifecycle events notify no one.
+The words of each notification are labels, so they read in the person's language and change like the rest of the UI ([Change copy and labels](/docs/build/ui/customize/labels)): a `title` and a `body` under `backend.notifications`, such as `workspace.member_removed.title`. A billing, gift or pass kind whose words name the workspace has a second set for an app that bills the person (`billTo: 'user'`): `titleYours` and `bodyYours`, such as `billing.subscription_created.bodyYours` ("Your plan is active."). The inbox and the email read them whenever the plan is the reader's own, so nobody reads "The plan of a workspace is active." about their own plan; each entry says which it is as `entity` (`account` or `workspace`). A notification links to the ready-made page where the person manages what it is about: the profile, the security page or the settings. A free plan's own lifecycle events notify no one.
 
 ## What notifies
 
@@ -69,6 +69,26 @@ export const { getNotificationChannels, setNotificationChannel, getPushConfig, s
 Without `email`, notifications reach the inbox alone. `paths` is where a package kind's email links: its ready-made page, wherever `nuxt.config` moves it.
 
 Its `notify` option turns events of your own into notifications ([Notify people about your own events](/docs/build/email/notifications/custom-events)). The package's own kinds need nothing from it: the backend notifies as it records them. `backend/audit.ts` passes the instance to `setupAudit({ notifications })`, so the events of your own that `notify` names reach it too.
+
+### List only what your app sends
+
+The channel list on the profile ([Notification channels](/docs/build/email/preferences#notification-channels)) leaves out what your app has never sent: the gift, plan pass, reverse trial and referral kinds join it once the deployment has sold a gift, run a pass, started a reverse trial or claimed a referral. Every other kind is listed. When your app sends fewer, name the package kinds it does send with `kinds`; your own kinds of `notify` are always listed beside them:
+
+```ts [backend/notifications.ts]
+export const notifications = setupNotifications(components, {
+  email,
+  paths,
+  // Billed per person, with no shared workspaces: no workspace kinds, no role changes.
+  kinds: [
+    'auth.passkey_added', 'auth.passkey_removed', 'auth.passkey_only_changed', 'auth.email_changed', 'auth.new_device',
+    'billing.subscription_created', 'billing.subscription_canceled', 'billing.subscription_revoked', 'billing.subscription_past_due',
+    'billing.order_paid', 'billing.order_refunded', 'billing.credits_low', 'billing.credits_exhausted',
+    'email.bounced',
+  ],
+})
+```
+
+With `kinds`, the list is exactly that, used or not, and a choice of any other kind is refused. It shapes the choices only: a kind it leaves out still reaches the inbox if it ever happens. A name that is no kind of the package throws as the backend loads.
 
 ## Show the inbox
 
