@@ -13,10 +13,13 @@ import { type CancelFlowSlots, useCancelFlow } from './cancel-flow'
  * offer's. Which offer, and whether one may be made at all (none in the
  * withdrawal period, on a past-due plan or a trial, one per customer in 12
  * months), is the server's: `setupBilling({ lifecycle: { saveOffers } })`.
+ * When none can stand for the reason, the question's button is "Cancel my
+ * plan" itself, and a confirmation comes before the plan ends.
  *
- * Its steps are the parts `CancelFlowQuestion`, `CancelFlowOffer` and
- * `CancelFlowEnd`, each given `useCancelFlow()`; slots of the same names
- * replace them here. Its words are the `cancelFlow` labels.
+ * Its steps are the parts `CancelFlowQuestion`, `CancelFlowOffer`,
+ * `CancelFlowConfirm` and `CancelFlowEnd`, each given `useCancelFlow()`;
+ * slots of the same names replace them here. Its words are the
+ * `cancelFlow` labels.
  *
  * @example
  * ```vue
@@ -88,15 +91,22 @@ function keydown(event: KeyboardEvent) {
       <CancelFlowOffer :flow="flow" />
     </slot>
     <slot
+      v-else-if="step === 'confirm'"
+      name="confirm"
+      v-bind="flow"
+    >
+      <CancelFlowConfirm :flow="flow" />
+    </slot>
+    <slot
       v-else
       name="end"
       v-bind="flow"
     >
       <CancelFlowEnd :flow="flow" />
     </slot>
-    <!-- "Cancel my plan" on every step before the end, finishing at once; "Close" after it. -->
+    <!-- "Cancel my plan" before the end, finishing at once, unless the question's own button is it (or the confirmation's); "Close" after it. -->
     <button
-      v-if="step === 'question' || step === 'offer'"
+      v-if="(step === 'question' && flow.offers.value) || step === 'offer'"
       data-cancel-flow="cancel"
       type="button"
       v-bind="flow.busy('cancel')"
@@ -105,7 +115,7 @@ function keydown(event: KeyboardEvent) {
       {{ flow.running.value === 'cancel' ? t('canceling') : t('cancel') }}
     </button>
     <button
-      v-else
+      v-else-if="step === 'ended' || step === 'kept'"
       data-cancel-flow="close"
       type="button"
       @click="emit('close')"

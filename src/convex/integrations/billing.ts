@@ -78,11 +78,11 @@ export type {
 export type { BillingWebhookEventHandlers, SaveOfferTerms, BillingComponents, BillingEmail, BillingEntity, BillingAccessRule, BillingEntityCtx, EntityProfile, SetupBillingConfig } from './billing/types/setup.js'
 export type { AccountBillingErasure, AccountBillingErasureInput, AccountBillingExport, AccountBillingRecord, Billing } from './billing/types/surface.js'
 export type { BillingAudit } from './billing/activity.js'
-export type { BillingLifecycle, CancelOutcome, BillingConsole, SaveOffer, SaveOfferRule, WithdrawalPeriod } from './billing/types/lifecycle.js'
+export type { BillingLifecycle, CancelFlowState, CancelOutcome, BillingConsole, SaveOffer, SaveOfferRule, WithdrawalPeriod } from './billing/types/lifecycle.js'
 export type { MeterUsage, RevenueCancellations, RevenueInterval, RevenueMetric, RevenueOptions, RevenuePeriod, RevenueReport, RevenueValues } from './billing/types/revenue.js'
 
 // Catalog-as-code authoring surface (billing.catalog.ts / `billing sync`).
-export { type BillingCatalog, type CatalogCreditGrant, type CatalogCurrencyPrices, type CatalogDiscount, type CatalogDiscountDuration, type CatalogDiscountProducts, type CatalogDiscountTerms, type CatalogFeature, type CatalogInterval, type CatalogMeter, type CatalogPack, type CatalogPackPrices, type CatalogPlan, type CatalogPlanCreditGrant, type CatalogPlanGift, type CatalogPlanPrices, type CatalogQuota, defineBillingCatalog } from '../catalog.js'
+export { type BillingCatalog, type CatalogCreditGrant, type CatalogCurrencyPrices, type CatalogDiscount, type CatalogDiscountDuration, type CatalogDiscountProducts, type CatalogDiscountTerms, type CatalogFeature, type CatalogInterval, type CatalogMeter, type CatalogPack, type CatalogPackPrices, type CatalogPlan, type CatalogPlanCreditGrant, type CatalogPlanGift, type CatalogPlanPrices, type CatalogQuota, defineBillingCatalog, type MeterUnit } from '../catalog.js'
 export { ALL_BILLING_EVENTS } from './billing/events.js'
 
 // The referral program (REF), set up in its own backend file beside billing.
@@ -202,6 +202,7 @@ export function setupBilling(
       getBillingConsole: functions.getBillingConsole,
       updateSubscription: functions.updateSubscriptionFn,
       cancelSubscription: functions.cancelSubscriptionFn,
+      getCancelFlow: functions.getCancelFlow,
       acceptSaveOffer: functions.acceptSaveOfferFn,
       getWithdrawal: functions.getWithdrawal,
       withdraw: functions.withdrawFn,

@@ -29,6 +29,22 @@ export interface CatalogCreditGrant {
   rollover?: boolean
 }
 
+/**
+ * What a meter counts, as the packaged labels name it: its word for each
+ * plural category of the language (`Intl.PluralRules`), `one` and
+ * `other` at least — `{ one: 'page', other: 'pages' }`. A language with
+ * more forms names them too (`few` and `many` in Russian); a category it
+ * leaves out reads as `other`, and a heading as `other` with a capital.
+ */
+export interface MeterUnit {
+  one: string
+  other: string
+  zero?: string
+  two?: string
+  few?: string
+  many?: string
+}
+
 /** A usage meter, keyed by the event name spends use (`spendCredits({ meter })`). */
 export interface CatalogMeter {
   /**
@@ -41,6 +57,13 @@ export interface CatalogMeter {
   property?: string
   /** Event name the meter filters on. Defaults to the catalog key. */
   eventName?: string
+  /**
+   * The unit it counts in, for the packaged labels ("Buy pages", "120
+   * pages left."): `billing sync` writes it to the generated map, and the
+   * balance, pricing and usage reads carry it. Without it they say
+   * "credits", in every language the package speaks.
+   */
+  unit?: MeterUnit
 }
 
 /**

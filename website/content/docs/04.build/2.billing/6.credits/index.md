@@ -58,6 +58,10 @@ const credits = useCredits({ meter: 'credits' })   // a catalog meter key (or a 
   The resolved provider meter id. Pass it to a raw `spendCredits({ meterId })` if you don't name meters.
   :::
 
+  :::field{name="unit" type="ComputedRef<MeterUnit | undefined>"}
+  What the meter counts, as the catalog's `meters.<key>.unit` names it (`{ one: 'page', other: 'pages' }`); `undefined` without one. The packaged labels say it in place of "credits" ([Name the unit a meter counts](/docs/build/billing/catalog#name-the-unit-a-meter-counts)).
+  :::
+
   :::field{name="isLoading / isPending" type="ComputedRef<boolean>"}
   `isLoading` is `true` until the balances have loaded (`false` once the read failed); `isPending` while `topUp` or `refresh` runs.
   :::
@@ -89,7 +93,7 @@ export default defineAppConfig({
 })
 ```
 
-The low-credits notice of [`<BackendNotices>`](/docs/build/ui/notices), placed once in your layout, says when the balance runs low, with no code of yours. `<UsageHistory meter="credits" />` renders the consumption history from `useUsage()`, the provider's own event log, since the package keeps no usage ledger.
+The low-credits notice of [`<BackendNotices>`](/docs/build/ui/notices), placed once in your layout, says when the balance runs low, with no code of yours: "20 credits left.", or "20 pages left." for a meter whose catalog entry names its unit. `<UsageHistory meter="credits" />` renders the consumption history from `useUsage()`, the provider's own event log, since the package keeps no usage ledger.
 
 ## Grant credits every month on a yearly plan
 

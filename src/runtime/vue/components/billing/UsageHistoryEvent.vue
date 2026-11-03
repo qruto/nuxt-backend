@@ -2,12 +2,14 @@
 import { formatBillingDate } from '../../composables/billing-format'
 import { useLabels } from '../../composables/use-labels'
 import type { UsageHistoryEventProps } from '../../parts'
+import { useMeterUnit } from '../../utils/meter-unit'
 import { useUsageLabels } from './usage-history'
 
 /** One metered event of `<UsageHistory>`: its time, its name, and the units the meter priced it at. */
 defineOptions({ name: 'UsageHistoryEvent' })
 defineProps<UsageHistoryEventProps>()
 const { t, locale } = useUsageLabels() ?? useLabels('usage')
+const unit = useMeterUnit()
 </script>
 
 <template>
@@ -18,6 +20,6 @@ const { t, locale } = useUsageLabels() ?? useLabels('usage')
     <span
       v-if="typeof event.units === 'number'"
       data-usage="event-units"
-    >{{ t('units', { count: event.units }) }}</span>
+    >{{ t('units', { count: event.units, unit: unit.word(event.unit, event.units) }) }}</span>
   </article>
 </template>

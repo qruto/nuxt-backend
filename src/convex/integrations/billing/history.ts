@@ -171,7 +171,8 @@ export function createHistory(
       items: items.map((event) => {
         const normalized = toConvexValue(event) as unknown as UsageEvent
         const units = meterUnits(meter, event.metadata as Record<string, unknown> | undefined)
-        return units === undefined ? normalized : { ...normalized, units }
+        if (units === undefined) return normalized
+        return meter?.unit ? { ...normalized, units, unit: meter.unit } : { ...normalized, units }
       }),
       pagination: totals,
       ...(page < totals.maxPage ? { nextCursor: String(page + 1) } : {}),

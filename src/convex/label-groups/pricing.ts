@@ -26,17 +26,17 @@ const PRICING_LABELS = {
   // While the plans load.
   loading: 'Loading plans…',
   empty: 'No plans are configured yet.',
-  // What a plan grants every cycle, by its interval.
+  // What a plan grants every cycle, by its interval. `{unit}` is the meter's unit, as the `credits` group says.
   credits: {
-    month: '{count} credit / month | {count} credits / month',
-    year: '{count} credit / year | {count} credits / year',
+    month: '{count} {unit} / month',
+    year: '{count} {unit} / year',
   },
   // A retired plan, shown only to the people still on it.
   retired: 'No longer offered',
-  // A credit pack: what it holds, and how its credits compare.
-  packCredits: '{count} credit | {count} credits',
-  perCredit: '{price} per credit',
-  lessPerCredit: '{percent}% less per credit',
+  // A credit pack: what it holds, and what one of its units costs, compared.
+  packCredits: '{count} {unit}',
+  perCredit: '{price} per {unit}',
+  lessPerCredit: '{percent}% less per {unit}',
   bestValue: 'Best value',
   // A promotion on a price (`<PricingTable discount>`): its real terms, then
   // the regular price, and its real end as a date. {off} is a percentage or
@@ -84,7 +84,7 @@ const PRICING_LABELS = {
   uncanceling: 'Keeping the plan…',
   openingPortal: 'Opening the portal…',
   // What a workspace member who manages none of its billing reads in place of the plan and pack buttons.
-  managed: 'Your workspace\'s owner and admins manage its plan and buy its credits.',
+  managed: 'Your workspace\'s owner and admins manage its plan and buy its {unit}.',
   // Back from checkout, while the new plan is read.
   finishingPurchase: 'Finishing your purchase…',
   // Cancelling takes one step: what ends when, and the one button that cancels.

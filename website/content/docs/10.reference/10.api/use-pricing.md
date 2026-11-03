@@ -23,6 +23,7 @@ Credits a price grants, from the live product's meter-credit benefit.
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="meter"></a> `meter?` | `string` | The catalog meter they land on; absent for a meter the catalog does not name. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="unit"></a> `unit?` | [`MeterUnit`](/docs/reference/api/billing#meterunit) | What that meter counts, when the catalog names its unit. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="units"></a> `units` | `number` | Units per billing cycle (a plan), or once (a pack). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="rollover"></a> `rollover` | `boolean` | Whether unspent units carry over into the next cycle. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 

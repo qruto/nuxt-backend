@@ -215,13 +215,13 @@
       "loading": "Tarife werden geladen…",
       "empty": "Es sind noch keine Tarife eingerichtet.",
       "credits": {
-        "month": "{count} Credit / Monat | {count} Credits / Monat",
-        "year": "{count} Credit / Jahr | {count} Credits / Jahr"
+        "month": "{count} {unit} / Monat",
+        "year": "{count} {unit} / Jahr"
       },
       "retired": "Nicht mehr erhältlich",
-      "packCredits": "{count} Credit | {count} Credits",
-      "perCredit": "{price} pro Credit",
-      "lessPerCredit": "{percent} % günstiger pro Credit",
+      "packCredits": "{count} {unit}",
+      "perCredit": "{price} pro {unit}",
+      "lessPerCredit": "{percent} % günstiger pro {unit}",
       "bestValue": "Bestes Angebot",
       "promotion": {
         "once": "{off} Rabatt auf die erste Zahlung, danach {price}",
@@ -259,7 +259,7 @@
       "canceling": "Wird gekündigt…",
       "uncanceling": "Tarif wird behalten…",
       "openingPortal": "Portal wird geöffnet…",
-      "managed": "Inhaber und Admins Ihres Workspaces verwalten dessen Tarif und kaufen dessen Credits.",
+      "managed": "Inhaber und Admins Ihres Workspaces verwalten dessen Tarif und kaufen dessen {unit}.",
       "finishingPurchase": "Ihr Kauf wird abgeschlossen…",
       "confirmTitle": "Tarif kündigen",
       "confirmEnds": "Der Tarif endet am {date}. Alle enthaltenen Leistungen bleiben bis dahin erhalten.",
@@ -332,9 +332,9 @@
       },
       "files": "{count} Datei | {count} Dateien",
       "benefitsPortal": "Vollständige Schlüssel, Dateien und verbundene Konten finden Sie im Abrechnungsportal.",
-      "credits": "Credits",
-      "balance": "{count} Credit | {count} Credits",
-      "balanceUnknown": "— Credits",
+      "credits": "{unit}",
+      "balance": "{count} {unit}",
+      "balanceUnknown": "— {unit}",
       "credited": "{count} gutgeschrieben",
       "used": "{count} verbraucht",
       "buyPack": "{pack} kaufen",
@@ -361,7 +361,7 @@
     },
     "usage": {
       "title": "",
-      "units": "{count} Credit | {count} Credits",
+      "units": "{count} {unit}",
       "empty": "Noch keine Nutzung erfasst.",
       "loading": "Wird geladen…",
       "newer": "Neuer",
@@ -1373,7 +1373,14 @@
       "noToken": "Dieser Link enthält keinen Code. Öffnen Sie den Link in der E-Mail erneut."
     },
     "credits": {
-      "low": "Noch {balance} Credit übrig. | Noch {balance} Credits übrig.",
+      "low": "Noch {balance} {unit} übrig.",
+      "unit": {
+        "one": "Credit",
+        "few": "Credits",
+        "many": "Credits",
+        "other": "Credits"
+      },
+      "unitTitle": "Credits",
       "topUp": "Aufladen",
       "topUpPack": "{pack} kaufen",
       "toppingUp": "Kasse wird geöffnet…",
@@ -1405,6 +1412,9 @@
       "continue": "Weiter",
       "cancel": "Meinen Tarif kündigen",
       "canceling": "Wird gekündigt…",
+      "confirmEnds": "Ihr Tarif endet mit dem aktuellen Zeitraum. Bis dahin funktioniert alles weiter.",
+      "confirmCancel": "Kündigung bestätigen",
+      "back": "Zurück",
       "offerTitle": "Bevor Sie gehen",
       "offerPause": "Pausieren Sie {plan} stattdessen für {count} Monat. Der Tarif wird am {date} automatisch fortgesetzt, und bis dahin wird nichts berechnet. | Pausieren Sie {plan} stattdessen für {count} Monate. Der Tarif wird am {date} automatisch fortgesetzt, und bis dahin wird nichts berechnet.",
       "offerDowngrade": "Wechseln Sie stattdessen ab {date}, wenn dieser Zeitraum endet, zu {plan}.",

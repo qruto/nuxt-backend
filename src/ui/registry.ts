@@ -113,6 +113,7 @@ export const UI_ENTRIES: readonly UiEntry[] = [
   component({ name: 'CancelFlow', folder: 'billing', capability: 'billing' }),
   part({ name: 'CancelFlowQuestion', parent: 'CancelFlow', folder: 'billing', capability: 'billing', unstyled: true }),
   part({ name: 'CancelFlowOffer', parent: 'CancelFlow', folder: 'billing', capability: 'billing', unstyled: true }),
+  part({ name: 'CancelFlowConfirm', parent: 'CancelFlow', folder: 'billing', capability: 'billing', unstyled: true }),
   part({ name: 'CancelFlowEnd', parent: 'CancelFlow', folder: 'billing', capability: 'billing', unstyled: true }),
   component({ name: 'WithdrawalButton', folder: 'billing', capability: 'billing' }),
   component({ name: 'ReferralCard', folder: 'billing', capability: 'billing' }),

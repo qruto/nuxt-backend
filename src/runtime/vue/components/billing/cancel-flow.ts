@@ -1,7 +1,10 @@
-import { computed, type ComputedRef, nextTick, ref, type Ref, useId } from 'vue'
+import { computed, type ComputedRef, inject, nextTick, ref, type Ref, useId } from 'vue'
+import { ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { busyAttributes } from '../../a11y'
-import { type CancellationReason, type SaveOffer, useBilling } from '../../composables/use-billing'
+import { type BillingApi, type CancellationReason, type SaveOffer, useBilling } from '../../composables/use-billing'
 import { refusalText, useLabels, type BackendLabels, type LabelOverrides, type UseLabelsReturn } from '../../composables/use-labels'
+import { useLiveQuery } from '../../utils/live-query'
+import { useBackendNamespace } from '../../utils/namespace'
 
 /**
  * The provider's eight cancellation reasons, in the order `<CancelFlow>`
@@ -9,8 +12,12 @@ import { refusalText, useLabels, type BackendLabels, type LabelOverrides, type U
  */
 export const CANCELLATION_REASONS: readonly CancellationReason[] = ['too_expensive', 'unused', 'missing_features', 'switched_service', 'too_complex', 'low_quality', 'customer_service', 'other']
 
-/** Where `<CancelFlow>` stands: the optional question, the one offer, the end, or the plan kept. */
-export type CancelFlowStep = 'question' | 'offer' | 'ended' | 'kept'
+/**
+ * Where `<CancelFlow>` stands: the optional question, the one offer, the
+ * confirmation (when no offer can stand, so "Cancel my plan" ends the plan),
+ * the end, or the plan kept.
+ */
+export type CancelFlowStep = 'question' | 'offer' | 'confirm' | 'ended' | 'kept'
 
 /** What `<CancelFlow>` is told by its owner. */
 export interface CancelFlowOptions {
@@ -28,10 +35,12 @@ export interface CancelFlowOptions {
 
 /** `<CancelFlow>`'s slots: each step, handed the flow. */
 export interface CancelFlowSlots {
-  /** The optional question: the reasons, the comment and "Continue". */
+  /** The optional question: the reasons, the comment and "Continue" (or "Cancel my plan", when no offer can stand). */
   question: (flow: UseCancelFlowReturn) => unknown
   /** The one offer and the button that accepts it. */
   offer: (flow: UseCancelFlowReturn) => unknown
+  /** What cancelling ends, the button that confirms it and "Back". */
+  confirm: (flow: UseCancelFlowReturn) => unknown
   /** The end: when the plan ends and "Keep my plan", or that it stays. */
   end: (flow: UseCancelFlowReturn) => unknown
 }
@@ -46,6 +55,17 @@ export interface UseCancelFlowReturn {
   comment: Ref<string>
   /** The offer the server made for the reason, once it made one. */
   offer: Ref<SaveOffer | null>
+  /**
+   * Whether a save offer can stand for the reason picked (`getCancelFlow`),
+   * so the question's button reads "Continue". `false` inside the
+   * withdrawal period, on a past-due plan or a trial, after an offer in the
+   * last 12 months, with none configured for the reason, or with no reason
+   * picked: the button then
+   * reads "Cancel my plan", carries `data-intent="cancel"`, and `submit`
+   * asks to confirm first. `true` until the read lands, and with a backend
+   * that does not export `getCancelFlow`.
+   */
+  offers: ComputedRef<boolean>
   /** When the plan ends, epoch ms, once it is canceled (`null` when the server did not say). */
   endsAt: Ref<number | null>
   /** Which action runs: `continue`, `cancel`, `accept` or `keep`. */
@@ -60,10 +80,12 @@ export interface UseCancelFlowReturn {
   acceptText: ComputedRef<string>
   /** When the plan ends, in the reader's words. */
   endText: ComputedRef<string>
-  /** Answer the question (or skip it): the server answers with an offer, or cancels. */
+  /** Answer the question (or skip it): the server answers with an offer, or cancels; with `offers` false, the confirmation first. */
   submit: () => Promise<void>
-  /** "Cancel my plan", on every screen: cancels at once, past any offer. */
+  /** "Cancel my plan", beside the question and the offer, and the confirmation's own button: cancels at once, past any offer. */
   cancelNow: () => Promise<void>
+  /** Back from the confirmation to the question. */
+  back: () => void
   /** Accept the offer the server made. */
   accept: () => Promise<void>
   /** Undo the cancellation before the plan ends: "Keep my plan". */
@@ -84,11 +106,17 @@ function money(amount: number, currency: string, locale: string | undefined): st
 /**
  * The headless cancel flow `<CancelFlow>` renders: one optional question,
  * then at most one offer, then the end, with "Cancel my plan" on every
- * screen. Every rule that keeps an offer lawful is the server's
- * (`useBilling().cancel`): this only shows what it answered.
+ * screen. When no offer can stand, the question's button is "Cancel my
+ * plan" itself, and a confirmation comes before the plan ends. Every rule
+ * that keeps an offer lawful is the server's (`useBilling().cancel`, read
+ * ahead by `getCancelFlow`): this only shows what it answered.
  */
 export function useCancelFlow(options: CancelFlowOptions = {}): UseCancelFlowReturn {
   const billing = useBilling()
+  const api = useBackendNamespace<BillingApi>('billing', 'CancelFlow')
+  const auth = inject(ConvexAuthStateKey, null)
+  const signedOut = computed(() => auth != null && !auth.isAuthenticated.value)
+  const read = api.getCancelFlow ? useLiveQuery(api.getCancelFlow, () => (signedOut.value ? 'skip' as const : { subscriptionId: options.subscriptionId?.() })) : null
   const labels = useLabels('cancelFlow', () => options.labels?.())
   const { t, locale } = labels
   const base = useId()
@@ -139,6 +167,13 @@ export function useCancelFlow(options: CancelFlowOptions = {}): UseCancelFlowRet
     options.onCanceled?.(outcome.endsAt)
   }
 
+  // Unknown (loading, failed, or a backend without the read) keeps "Continue": the server still decides.
+  const offers = computed(() => {
+    const state = read?.data.value
+    if (!state || read?.error.value) return true
+    return reason.value === undefined ? false : state.reasons.includes(reason.value)
+  })
+
   const offerText = computed(() => {
     const current = offer.value
     if (!current) return ''
@@ -162,6 +197,7 @@ export function useCancelFlow(options: CancelFlowOptions = {}): UseCancelFlowRet
     reason,
     comment,
     offer,
+    offers,
     endsAt,
     running,
     error,
@@ -169,8 +205,18 @@ export function useCancelFlow(options: CancelFlowOptions = {}): UseCancelFlowRet
     offerText,
     acceptText,
     endText: computed(() => endsAt.value === null ? t('endsPeriod') : t('endsOn', { date: date(endsAt.value) })),
-    submit: () => run('continue', () => send(false)),
+    submit: async () => {
+      if (offers.value) return run('continue', () => send(false))
+      if (running.value) return
+      error.value = null
+      step.value = 'confirm'
+    },
     cancelNow: () => run('cancel', () => send(true)),
+    back: () => {
+      if (running.value) return
+      error.value = null
+      step.value = 'question'
+    },
     accept: () => run('accept', async () => {
       await billing.acceptOffer(offer.value!)
       step.value = 'kept'

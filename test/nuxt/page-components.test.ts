@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { ConvexError } from 'convex/values'
 import type { PricedPack, PricedPlan, PricedPlanPrice, PricedPromotion, PricedTrial } from '../../src/convex/integrations/billing/types/records'
+import type { MeterUnit } from '../../src/convex/catalog'
 
 // ── Controllable composable state ───────────────────────────────────────────
 
@@ -70,11 +71,13 @@ const billing = {
 
 const creditBalance = ref<number | undefined>(42)
 const creditsLoading = ref(false)
+const creditUnit = ref<MeterUnit | undefined>()
 const credits = {
   balance: computed(() => creditBalance.value),
   credited: computed(() => (creditsLoading.value ? undefined : 50)),
   consumed: computed(() => (creditsLoading.value ? undefined : 8)),
   meterId: computed(() => 'meter_1'),
+  unit: computed(() => creditUnit.value),
   isLoading: computed(() => creditsLoading.value),
   topUp: vi.fn(async () => 'https://billing.example/topup'),
   refresh: vi.fn(async () => {}),
@@ -1064,6 +1067,21 @@ describe('PricingTable: yearly prices, retired plans, campaign links', () => {
     backendConfig.billing.packs = [{ key: 'credits100' }]
   })
 
+  it('names a pack\'s units and a plan\'s by the unit the catalog gives their meter', () => {
+    const pages = { one: 'page', other: 'pages' }
+    pricingPacks.value = [
+      { key: 'credits100', productId: 'prod_100', name: '100 pages', description: null, amount: 1000, currency: 'eur', credits: { meter: 'pages', unit: pages, units: 100, rollover: true }, perCredit: 10, isBestValue: false },
+      { key: 'credits1', productId: 'prod_1', name: 'One page', description: null, amount: 100, currency: 'eur', credits: { meter: 'pages', unit: pages, units: 1, rollover: true }, perCredit: 100, lessPerCredit: 20, isBestValue: false },
+    ]
+    backendConfig.billing.packs = []
+    const [hundred, one] = mount(PricingTable).findAll('[data-pricing="pack"]')
+    expect(hundred!.find('[data-pricing="pack-credits"]').text()).toBe('100 pages')
+    expect(hundred!.find('[data-pricing="pack-per-credit"]').text()).toBe('€0.10 per page')
+    expect(one!.find('[data-pricing="pack-credits"]').text()).toBe('1 page')
+    expect(one!.find('[data-pricing="pack-saving"]').text()).toBe('20% less per page')
+    backendConfig.billing.packs = [{ key: 'credits100' }]
+  })
+
   it('adds the contact card after the plans: a link, never a checkout', () => {
     backendConfig.billing.contact = { name: 'Enterprise', blurb: 'Custom limits.', features: ['SSO'], href: 'mailto:sales@example.com' }
     const wrapper = mount(PricingTable)
@@ -1404,6 +1422,20 @@ describe('CreditsLowBanner', () => {
     expect(wrapper.find('[data-credits="action"]').attributes('href')).toBe('/pricing')
   })
 
+  it('says the balance in the unit the catalog names, by its count', () => {
+    pricingPacks.value = []
+    creditUnit.value = { one: 'page', other: 'pages' }
+    try {
+      creditBalance.value = 1
+      expect(mount(CreditsLowBanner, { props: { threshold: 10 } }).find('[data-credits="message"]').text()).toBe('1 page left.')
+      creditBalance.value = 3
+      expect(mount(CreditsLowBanner, { props: { threshold: 10 } }).find('[data-credits="message"]').text()).toBe('3 pages left.')
+    }
+    finally {
+      creditUnit.value = undefined
+    }
+  })
+
   it('tops up the named pack instead of linking out', async () => {
     creditBalance.value = 3
     const wrapper = mount(CreditsLowBanner, { props: { threshold: 10, pack: 'credits100' } })
@@ -1542,6 +1574,23 @@ describe('WorkspaceSettings', () => {
     expect(wrapper.find('[data-settings="plan-status"]').attributes('data-tone')).toBe('ok')
     expect(wrapper.find('[data-settings="pricing-link"]').attributes('href')).toBe('/pricing')
     expect(wrapper.find('[data-settings="balance"]').text()).toContain('42')
+  })
+
+  it('titles the credits section and words the balance by the meter\'s unit, else as credits', () => {
+    const section = () => mount(WorkspaceSettings).find('[data-settings="section-credits"]')
+    expect(section().find('[data-settings="section-title"]').text()).toBe('Credits')
+    expect(section().find('[data-settings="balance"]').text()).toBe('42 credits')
+    creditUnit.value = { one: 'page', other: 'pages' }
+    try {
+      expect(section().find('[data-settings="section-title"]').text()).toBe('Pages')
+      expect(section().find('[data-settings="balance"]').text()).toBe('42 pages')
+      creditBalance.value = undefined
+      expect(section().find('[data-settings="balance"]').text()).toBe('— pages')
+    }
+    finally {
+      creditUnit.value = undefined
+      creditBalance.value = 42
+    }
   })
 
   it('offers every pack on sale when the app names none', async () => {

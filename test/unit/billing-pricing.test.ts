@@ -176,6 +176,16 @@ describe('buildPricing', () => {
     expect(euro).not.toHaveProperty('lessPerCredit')
   })
 
+  it('carries the unit the catalog names for a meter, beside the meter, and none for a meter without one', () => {
+    const pages = { one: 'page', other: 'pages' }
+    const pricing = buildPricing([
+      row('pages100', { amount: 1000, credits: { units: 100 } }),
+      row('other', { amount: 1000, credits: { units: 100, meterId: 'm_other' } }),
+    ], sources({ pages100: 'pages100', other: 'other' }, { meterNames: new Map([['m_credits', 'pages'], ['m_other', 'other']]), meterUnits: new Map([['pages', pages]]) }))
+    expect(pricing.packs[0]!.credits).toEqual({ meter: 'pages', unit: pages, units: 100, rollover: true })
+    expect(pricing.packs[1]!.credits).toEqual({ meter: 'other', units: 100, rollover: true })
+  })
+
   it('leaves out of the comparison a pack whose credits lapse, a free one, and one with no single credit benefit', () => {
     const pricing = buildPricing([
       row('lapsing', { amount: 500, credits: { units: 100, rollover: false } }),

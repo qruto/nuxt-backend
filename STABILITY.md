@@ -295,6 +295,7 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
   - `AuthFormUndeliverable`
   - `AuthFormWaitlisted`
   - `BillingHistoryOrder`
+  - `CancelFlowConfirm`
   - `CancelFlowEnd`
   - `CancelFlowOffer`
   - `CancelFlowQuestion`
@@ -366,6 +367,7 @@ The composables bind to deployment functions by name, so the scaffolded `backend
   - `generateCheckoutLink`
   - `generateCustomerPortalUrl`
   - `getBillingAccess`
+  - `getCancelFlow`
   - `getConfiguredProducts`
   - `getCredits`
   - `getCurrentSubscription`

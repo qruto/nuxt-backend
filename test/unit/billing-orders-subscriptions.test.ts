@@ -2152,7 +2152,7 @@ describe('registered actions', () => {
   it('billing.api keeps only the provider\'s price list of its own actions', () => {
     expect(Object.keys(make().api).sort()).toEqual([
       'acceptSaveOffer', 'cancelGift', 'cancelPendingChange', 'cancelSubscription', 'changeGiftRecipient', 'claimGift', 'generateCheckoutLink', 'generateCustomerPortalUrl', 'getBillingAccess',
-      'getBillingConsole', 'getConfiguredProducts', 'getCredits', 'getCurrentSubscription', 'getFeatures', 'getInvoiceUrl', 'getOrders', 'getPricing',
+      'getBillingConsole', 'getCancelFlow', 'getConfiguredProducts', 'getCredits', 'getCurrentSubscription', 'getFeatures', 'getInvoiceUrl', 'getOrders', 'getPricing',
       'getReceivedGifts', 'getRevenue', 'getSentGifts', 'getUsageHistory', 'getWithdrawal', 'giftCheckout', 'listAllSubscriptions', 'pauseSubscription',
       'refundOrder', 'rescheduleGift', 'resendGift', 'resumeSubscription', 'runGiftSweep', 'startFreePlan', 'syncEntitlements', 'syncProducts', 'uncancelSubscription', 'updateSubscription', 'withdraw',
     ])

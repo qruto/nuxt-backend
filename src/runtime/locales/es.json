@@ -215,13 +215,13 @@
       "loading": "Cargando planes…",
       "empty": "Todavía no hay planes configurados.",
       "credits": {
-        "month": "{count} crédito al mes | {count} créditos al mes",
-        "year": "{count} crédito al año | {count} créditos al año"
+        "month": "{count} {unit} al mes",
+        "year": "{count} {unit} al año"
       },
       "retired": "Ya no se ofrece",
-      "packCredits": "{count} crédito | {count} créditos",
-      "perCredit": "{price} por crédito",
-      "lessPerCredit": "Un {percent}% menos por crédito",
+      "packCredits": "{count} {unit}",
+      "perCredit": "{price} por {unit}",
+      "lessPerCredit": "Un {percent}% menos por {unit}",
       "bestValue": "Mejor precio",
       "promotion": {
         "once": "{off} de descuento en el primer pago, luego {price}",
@@ -259,7 +259,7 @@
       "canceling": "Cancelando…",
       "uncanceling": "Manteniendo el plan…",
       "openingPortal": "Abriendo el portal…",
-      "managed": "El propietario y los administradores de tu espacio de trabajo gestionan su plan y compran sus créditos.",
+      "managed": "El propietario y los administradores de tu espacio de trabajo gestionan su plan y compran sus {unit}.",
       "finishingPurchase": "Finalizando tu compra…",
       "confirmTitle": "Cancelar el plan",
       "confirmEnds": "El plan termina el {date}. Todo lo que incluye se mantiene hasta entonces.",
@@ -332,9 +332,9 @@
       },
       "files": "{count} archivo | {count} archivos",
       "benefitsPortal": "Las claves completas, los archivos y las cuentas conectadas están en el portal de facturación.",
-      "credits": "Créditos",
-      "balance": "{count} crédito | {count} créditos",
-      "balanceUnknown": "— créditos",
+      "credits": "{unit}",
+      "balance": "{count} {unit}",
+      "balanceUnknown": "— {unit}",
       "credited": "{count} abonados",
       "used": "{count} usados",
       "buyPack": "Comprar {pack}",
@@ -361,7 +361,7 @@
     },
     "usage": {
       "title": "",
-      "units": "{count} crédito | {count} créditos",
+      "units": "{count} {unit}",
       "empty": "Todavía no hay uso registrado.",
       "loading": "Cargando…",
       "newer": "Más recientes",
@@ -1373,7 +1373,14 @@
       "noToken": "Este enlace no tiene código. Vuelve a abrir el enlace del correo."
     },
     "credits": {
-      "low": "Te queda {balance} crédito. | Te quedan {balance} créditos.",
+      "low": "Saldo restante: {balance} {unit}.",
+      "unit": {
+        "one": "crédito",
+        "few": "créditos",
+        "many": "créditos",
+        "other": "créditos"
+      },
+      "unitTitle": "Créditos",
       "topUp": "Recargar",
       "topUpPack": "Comprar {pack}",
       "toppingUp": "Abriendo el pago…",
@@ -1405,6 +1412,9 @@
       "continue": "Continuar",
       "cancel": "Cancelar mi plan",
       "canceling": "Cancelando…",
+      "confirmEnds": "Tu plan termina cuando acabe el periodo actual. Hasta entonces todo sigue funcionando.",
+      "confirmCancel": "Confirmar la cancelación",
+      "back": "Volver",
       "offerTitle": "Antes de que te vayas",
       "offerPause": "Mejor pausa {plan} durante {count} mes. Se reanuda solo el {date} y mientras tanto no se cobra nada. | Mejor pausa {plan} durante {count} meses. Se reanuda solo el {date} y mientras tanto no se cobra nada.",
       "offerDowngrade": "Mejor cambia a {plan} a partir del {date}, cuando termine este periodo.",

@@ -3,6 +3,8 @@
  * through the --bk-* tokens (tokens.css) or the hooks themselves: every rule
  * sits in `@layer nuxt-backend`, so any rule of the app's wins. The offer's
  * two buttons are one style: accepting never looks like the way forward.
+ * Where no offer can stand, the question's "Cancel my plan" and the
+ * confirmation's button carry the danger colour, as a destructive action.
  */
 @layer nuxt-backend {
   [data-cancel-flow='root'] {
@@ -22,6 +24,7 @@
 
   [data-cancel-flow='question'],
   [data-cancel-flow='offer'],
+  [data-cancel-flow='confirm'],
   [data-cancel-flow='end'] {
     display: grid;
     gap: 0.6rem;
@@ -61,6 +64,8 @@
   [data-cancel-flow='continue'],
   [data-cancel-flow='accept'],
   [data-cancel-flow='cancel'],
+  [data-cancel-flow='confirm-cancel'],
+  [data-cancel-flow='back'],
   [data-cancel-flow='keep'],
   [data-cancel-flow='close'] {
     flex: 1 1 10rem;
@@ -73,7 +78,18 @@
     font-size: 0.88rem;
   }
 
+  [data-cancel-flow='continue'][data-intent='cancel'] {
+    border-color: color-mix(in srgb, var(--bk-error) 50%, transparent);
+    color: var(--bk-error);
+  }
+
+  [data-cancel-flow='confirm-cancel'] {
+    border-color: var(--bk-error);
+    color: var(--bk-error);
+  }
+
   [data-cancel-flow='offer-terms'],
+  [data-cancel-flow='confirm-ends'],
   [data-cancel-flow='ends'],
   [data-cancel-flow='kept'] {
     margin: 0;

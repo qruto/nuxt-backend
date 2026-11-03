@@ -139,6 +139,8 @@ const world = {
   activation: ref<Record<string, unknown> | undefined>(undefined),
   activationLoading: ref(false),
   activationOutcome: ref<'hang' | 'ok'>('hang'),
+  // What the cancel flow reads before it asks: `undefined` keeps "Continue".
+  cancelFlow: ref<{ offers: boolean, reasons: string[] } | undefined>(undefined),
   // "How did you hear about us?": answered before, signed out, read in flight, saving, and how the save goes. `hang` never settles.
   sourceAnswered: ref(false),
   sourceSignedOut: ref(false),
@@ -254,6 +256,7 @@ const credits = {
   credited: computed(() => (world.balance.value === undefined ? undefined : 50)),
   consumed: computed(() => (world.balance.value === undefined ? undefined : 8)),
   meterId: computed(() => 'meter_1'),
+  unit: computed(() => undefined),
   isLoading: computed(() => world.balance.value === undefined),
   topUp: vi.fn(never),
   refresh: vi.fn(never),
@@ -555,6 +558,8 @@ const claimFile = async (): Promise<void> => {
 }
 /** The contact form's call, as the world says it goes; its reference stands for `api.email.submitContactMessage`. */
 const contactRef = { name: 'submitContactMessage' }
+/** The cancel flow's read ahead, `api.billing.getCancelFlow`. */
+const cancelFlowRef = { name: 'getCancelFlow' }
 const submitContact = vi.fn(async (): Promise<{ sent: true }> => {
   if (world.contactOutcome.value === 'hang') return never()
   if (world.contactOutcome.value === 'refuse') throw backendError('rate_limited', { limit: 'contact', retryAfter: 60_000 }, 'Too many messages.')
@@ -722,14 +727,16 @@ vi.mock('../../src/runtime/vue/composables/use-flags', async importOriginal => (
 }))
 // The billing links' own seams: the namespace, who may manage, the checkout and the portal action.
 vi.mock('../../src/runtime/vue/utils/namespace', () => ({
-  useBackendNamespace: () => ({ generateCustomerPortalUrl: {}, generateUploadUrl: {}, submitContactMessage: contactRef }),
+  useBackendNamespace: () => ({ generateCustomerPortalUrl: {}, generateUploadUrl: {}, submitContactMessage: contactRef, getCancelFlow: cancelFlowRef }),
   // The shell's seams: finishing the first run, the checklist, and a catalog that sells a plan.
   useApiNamespace: (name: string) => ({ account: { completeOnboarding: completeRef }, audit: { getActivation: activationRef, dismissActivation: dismissRef }, billing: { getPricing: {} } } as Record<string, unknown>)[name],
 }))
-// The checklist's live read: what the world says it is.
+// The checklist's live read, and the cancel flow's: what the world says they are.
 vi.mock('../../src/runtime/vue/utils/live-query', async importOriginal => ({
   ...await importOriginal<Record<string, unknown>>(),
-  useLiveQuery: () => ({ data: computed(() => world.activation.value), isLoading: computed(() => world.activationLoading.value), error: computed(() => null) }),
+  useLiveQuery: (query: unknown) => query === cancelFlowRef
+    ? { data: computed(() => world.cancelFlow.value), isLoading: computed(() => false), error: computed(() => null) }
+    : { data: computed(() => world.activation.value), isLoading: computed(() => world.activationLoading.value), error: computed(() => null) },
 }))
 // The contact form asks for a bot-check token before it sends: this app checks no one.
 vi.mock('../../src/runtime/vue/composables/use-human-check', () => ({ useHumanCheck: () => ({ token: async () => null }) }))
@@ -864,6 +871,7 @@ function reset(): void {
   world.activation.value = ACTIVATION
   world.activationLoading.value = false
   world.activationOutcome.value = 'hang'
+  world.cancelFlow.value = undefined
   world.sourceAnswered.value = false
   world.sourceSignedOut.value = false
   world.sourceLoading.value = false
@@ -1389,22 +1397,29 @@ const STAGING: Record<ContractedComponent, Staging> = {
   },
   CancelFlow: {
     states: {
-      ready: { shows: '[data-cancel-flow="reasons"] [data-cancel-flow="reason-input"]' },
-      pending: { busy: '[data-cancel-flow="continue"]', shows: '[data-cancel-flow="root"][aria-busy="true"]' },
-      offered: {
+      'ready': { shows: '[data-cancel-flow="reasons"] [data-cancel-flow="reason-input"]' },
+      'pending': { busy: '[data-cancel-flow="continue"]', shows: '[data-cancel-flow="root"][aria-busy="true"]' },
+      'offered': {
         before: () => billing.cancel.mockImplementation(async () => ({ offer: { id: 'offer_1', reason: 'too_expensive', kind: 'discount', discount: 'stay30', name: 'Stay', percentOff: 30, duration: 'repeating', months: 3 } }) as never),
         after: click('[data-cancel-flow="continue"]'),
         shows: '[data-cancel-flow="offer-terms"][role="status"]',
       },
-      done: {
+      'done': {
         before: () => billing.cancel.mockImplementation(async () => ({ canceled: true, endsAt: Date.UTC(2026, 8, 1) }) as never),
         after: click('[data-cancel-flow="cancel"]'),
         shows: '[data-cancel-flow="ends"][role="status"]',
       },
-      error: {
+      'error': {
         before: () => billing.cancel.mockImplementation(() => Promise.reject(Object.assign(new Error('refused'), failure('unavailable')))),
         after: click('[data-cancel-flow="continue"]'),
         shows: '[data-cancel-flow="error"][role="alert"]',
+      },
+      // No offer can stand: "Cancel my plan" asks to confirm first.
+      'confirm-cancel': {
+        before: () => (world.cancelFlow.value = { offers: false, reasons: [] }),
+        after: click('[data-cancel-flow="continue"][data-intent="cancel"]'),
+        shows: '[data-cancel-flow="confirm"][role="group"] [data-cancel-flow="confirm-cancel"]',
+        absent: ['[data-cancel-flow="cancel"]'],
       },
     },
   },

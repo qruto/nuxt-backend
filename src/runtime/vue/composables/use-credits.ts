@@ -1,5 +1,6 @@
 import { computed, type ComputedRef, inject, type MaybeRefOrGetter, toValue } from 'vue'
 import { ConvexAuthStateKey, useAction } from 'nuxt-convex-module/client'
+import type { MeterUnit } from '../../../convex/catalog.js'
 import { useActionState } from '../utils/action-state'
 import type { BackendError } from '../utils/backend-error'
 import { absentQuery, useLiveQuery, warnCallShape } from '../utils/live-query'
@@ -60,6 +61,8 @@ export interface UseCreditsReturn {
   expiresAtCycleEnd: ComputedRef<boolean | undefined>
   /** The resolved meter id (the one read above) — pass it to your server-side spend. */
   meterId: ComputedRef<string | undefined>
+  /** What the meter counts, as the catalog's `meters.<key>.unit` names it; `undefined` without one, or while loading (the packaged labels then say "credits"). */
+  unit: ComputedRef<MeterUnit | undefined>
   /** `true` until credit balances have loaded (`false` once the read failed). */
   isLoading: ComputedRef<boolean>
   /** `true` while `topUp` or `refresh` runs. */
@@ -164,6 +167,7 @@ export function useCredits(options: UseCreditsOptions = {}): UseCreditsReturn {
       return m?.rollover === false && m.cycleEnd !== undefined
     }),
     meterId: computed(() => meter.value?.meterId),
+    unit: computed(() => meter.value?.unit),
     isLoading: read.isLoading,
     isPending,
     error: computed(() => failure.value ?? read.error.value),

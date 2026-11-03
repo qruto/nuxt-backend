@@ -1,4 +1,5 @@
 import type { CancellationReason, DiscountInput, ProrationBehavior, ProviderDiscount, RefundReason } from './base.js'
+import type { MeterUnit } from '../../../catalog.js'
 
 // What the subscription, order, usage, refund, discount and checkout
 // operations take and return.
@@ -122,13 +123,15 @@ export interface UsageHistoryOptions {
  * for a Convex action's return value (dates as ISO strings). `units` is
  * resolved from the meter's value property — the same property a spend ingests
  * — and is absent when the meter is unknown or counts events rather than
- * summing a property.
+ * summing a property. `unit` is what the meter counts, beside `units` when
+ * the catalog names it.
  */
 export type UsageEvent = {
   id: string
   timestamp: string
   name: string
   units?: number
+  unit?: MeterUnit
   metadata?: Record<string, string | number | boolean>
 } & Record<string, unknown>
 

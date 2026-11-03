@@ -151,6 +151,32 @@ describe('the cancel flow\'s save offers', () => {
     expect(await invoke(billing.api.cancelSubscription)(makeCtx(), { reason: 'too_expensive' })).toMatchObject({ canceled: true })
   })
 
+  it('tells the cancel flow ahead which reasons an offer could stand for, by the same rules, and nothing to anyone else', async () => {
+    const read = async (billing: ReturnType<typeof make>, subscriptions: unknown[], answers: Record<string, unknown> = {}, args: object = {}) => {
+      withSubscriptions(subscriptions)
+      return invoke(billing.api.getCancelFlow)(makeCtx(answers), args)
+    }
+    const all = { offers: true, reasons: ['too_expensive', 'unused', 'missing_features'] }
+    const none = { offers: false, reasons: [] }
+    expect(await read(make(offers), [pro])).toEqual(all)
+    expect(await read(make(offers), [pro], {}, { subscriptionId: 'sub_1' })).toEqual(all)
+    // A discount that does not apply to the plan makes none.
+    expect(await read(make({ saveOffers: { too_expensive: { discount: 'public10' }, unused: { pause: { months: 1 } } } }), [pro])).toEqual({ offers: true, reasons: ['unused'] })
+    expect(await read(make({}), [pro])).toEqual(none)
+    expect(await read(make(offers), [pro], { 'lifecycle.lastOffer': Date.now() - DAY })).toEqual(none)
+    expect(await read(make(offers), [{ ...pro, status: 'trialing' }])).toEqual(none)
+    expect(await read(make(offers), [{ ...pro, cancelAtPeriodEnd: true }])).toEqual(none)
+    expect(await read(make({ ...offers, withdrawal: true }), [{ ...pro, startedAt: new Date(Date.now() - DAY).toISOString() }])).toEqual(none)
+    // Nothing to cancel, or a subscription of someone else's: none, and no throw from a read.
+    expect(await read(make(offers), [])).toEqual(none)
+    expect(await read(make(offers), [pro], {}, { subscriptionId: 'sub_other' })).toEqual(none)
+    // Signed out: nothing.
+    withSubscriptions([pro])
+    const ctx = makeCtx()
+    ctx.auth.getUserIdentity.mockResolvedValue(null as never)
+    expect(await invoke(make(offers).api.getCancelFlow)(ctx, {})).toBeNull()
+  })
+
   it('makes no offer of a discount that does not apply to the plan, or that has a code', async () => {
     const billing = make({ saveOffers: { too_expensive: { discount: 'public10' }, unused: { discount: 'gone' } } })
     withSubscriptions([pro])

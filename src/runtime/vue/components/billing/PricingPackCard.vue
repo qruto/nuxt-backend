@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { busyAttributes } from '../../a11y'
 import type { PricingPackCardProps } from '../../parts'
+import { useMeterUnit } from '../../utils/meter-unit'
 import { usePricingView } from './pricing-table'
 import PricingPromotion from './PricingPromotion.vue'
 
@@ -13,6 +14,8 @@ const { t } = view.labels
 const nameId = computed(() => view.nameId('pack', props.pack.key))
 const busy = computed(() => props.pricing.pending.value === props.pack.key)
 const promotion = computed(() => view.packPromotion(props.pack))
+const unit = useMeterUnit()
+const meterUnit = computed(() => props.pack.offer.credits?.unit)
 </script>
 
 <template>
@@ -42,16 +45,16 @@ const promotion = computed(() => view.packPromotion(props.pack))
       v-if="pack.credits !== undefined"
       data-pricing="pack-credits"
     >
-      {{ t('packCredits', { count: pack.credits }) }}
+      {{ t('packCredits', { count: pack.credits, unit: unit.word(meterUnit, pack.credits) }) }}
     </p>
     <p
       v-if="pack.perCredit !== undefined"
       data-pricing="pack-per-credit"
     >
-      {{ t('perCredit', { price: pack.perCredit }) }}<span
+      {{ t('perCredit', { price: pack.perCredit, unit: unit.word(meterUnit, 1) }) }}<span
         v-if="pack.lessPerCredit !== undefined"
         data-pricing="pack-saving"
-      >{{ t('lessPerCredit', { percent: pack.lessPerCredit }) }}</span>
+      >{{ t('lessPerCredit', { percent: pack.lessPerCredit, unit: unit.word(meterUnit, 1) }) }}</span>
     </p>
     <p
       v-if="pack.blurb"

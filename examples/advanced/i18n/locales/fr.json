@@ -39,7 +39,7 @@
       "declined": "Invitation refusée."
     },
     "usage": {
-      "units": "{count} crédit | {count} crédits"
+      "units": "{count} {unit}"
     },
     "errors": {
       "unauthenticated": "Connectez-vous pour continuer.",

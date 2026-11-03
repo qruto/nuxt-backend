@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import type { CancelFlowQuestionProps } from '../../parts'
 
-/** `<CancelFlow>`'s optional question: the main reason, a comment and "Continue". "Cancel my plan" is the flow's own, beside every step. */
+/**
+ * `<CancelFlow>`'s optional question: the main reason, a comment and
+ * "Continue". When no offer can stand for the reason, the button reads
+ * "Cancel my plan" with `data-intent="cancel"`, and the confirmation comes
+ * next. "Cancel my plan" is otherwise the flow's own, beside every step.
+ */
 defineOptions({ name: 'CancelFlowQuestion' })
 const props = defineProps<CancelFlowQuestionProps>()
 const { t } = props.flow.labels
@@ -44,9 +49,10 @@ const { t } = props.flow.labels
     <button
       data-cancel-flow="continue"
       type="submit"
+      :data-intent="flow.offers.value ? undefined : 'cancel'"
       v-bind="flow.busy('continue')"
     >
-      {{ flow.running.value === 'continue' ? t('canceling') : t('continue') }}
+      {{ flow.running.value === 'continue' ? t('canceling') : flow.offers.value ? t('continue') : t('cancel') }}
     </button>
   </form>
 </template>

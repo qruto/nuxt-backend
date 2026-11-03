@@ -213,10 +213,10 @@ export const COMPONENT_CONTRACT = {
     file: 'billing/CancelFlow',
     family: 'cancel-flow',
     labels: 'cancelFlow',
-    slots: ['question', 'offer', 'end'],
+    slots: ['question', 'offer', 'confirm', 'end'],
     emits: ['close', 'canceled', 'kept', 'error'],
-    states: ['ready', 'pending', 'offered', 'done', 'error'],
-    a11y: 'The flow is a region named by its heading; the reasons are a group of radio buttons named by the optional question, and the comment a field with a visible label; "Cancel my plan" is a button on every step and finishes at once; the offer is a polite status with its real terms, and its accept button looks like "Cancel my plan", with no countdown; the end is a status that says when the plan ends, with "Keep my plan"; Escape closes the flow except while a step is on its way; a busy button keeps focus (`aria-disabled`) and says what it waits for; a failure is an alert.',
+    states: ['ready', 'pending', 'offered', 'done', 'error', 'confirm-cancel'],
+    a11y: 'The flow is a region named by its heading; the reasons are a group of radio buttons named by the optional question, and the comment a field with a visible label; "Cancel my plan" is a button on every step and finishes at once; where no offer can stand, the question\'s own button says "Cancel my plan" and leads to a confirmation, a group named by the flow\'s heading with "Confirm cancellation" and "Back"; the offer is a polite status with its real terms, and its accept button looks like "Cancel my plan", with no countdown; the end is a status that says when the plan ends, with "Keep my plan"; Escape closes the flow except while a step is on its way; a busy button keeps focus (`aria-disabled`) and says what it waits for; a failure is an alert.',
   },
   WithdrawalButton: {
     file: 'billing/WithdrawalButton',

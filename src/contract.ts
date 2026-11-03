@@ -41,6 +41,7 @@ export const REQUIRED_FUNCTION_EXPORTS = {
     'runGiftSweep',
     'updateSubscription',
     'cancelSubscription',
+    'getCancelFlow',
     'acceptSaveOffer',
     'getWithdrawal',
     'withdraw',

@@ -606,7 +606,7 @@ describe('getCredits', () => {
   it('returns configured meters first, each named, unknown ones after', async () => {
     const named = setupBilling(components, {
       ...(config as object),
-      credits: { credits: { meterId: 'm_current' } },
+      credits: { credits: { meterId: 'm_current', unit: { one: 'page', other: 'pages' } } },
       billTo: 'user',
     } as never)
     const ctx = {
@@ -627,8 +627,10 @@ describe('getCredits', () => {
     const result = await (named.api.getCredits as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<{ meters: Array<{ meterId: string, name?: string, balance: number }> } | null> })._handler(ctx, {}) as { meters: Array<{ meterId: string, name?: string, balance: number }> }
 
     expect(result.meters.map(meter => meter.meterId)).toStrictEqual(['m_current', 'm_retired'])
-    expect(result.meters[0]).toMatchObject({ name: 'credits', balance: 50 })
+    // With the unit the catalog names, for the packaged labels.
+    expect(result.meters[0]).toMatchObject({ name: 'credits', balance: 50, unit: { one: 'page', other: 'pages' } })
     expect(result.meters[1]!.name).toBeUndefined()
+    expect(result.meters[1]).not.toHaveProperty('unit')
   })
 })
 
