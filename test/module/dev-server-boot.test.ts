@@ -98,6 +98,10 @@ describe('a nuxt dev boot', () => {
     expect(nuxt.options.nitro.routeRules?.['/**']?.headers).not.toHaveProperty('Strict-Transport-Security')
   })
 
+  it('leaves connect-src alone without a DSN: no SDK reports anywhere', () => {
+    expect(nitroPlugins(boot.nuxt()).filter(plugin => /server[\\/]monitoring[\\/]csp/.test(plugin))).toEqual([])
+  })
+
   it('registers the DevTools bridge after the plugins it reads, and writes nothing into the app', () => {
     const plugins = ourPlugins(boot.nuxt())
     const bridge = plugins.findIndex(src => /[\\/]devtools[\\/]plugin\.client/.test(src))
@@ -147,5 +151,13 @@ describe('a Vercel build that reports errors', () => {
     expect(security.headers.strictTransportSecurity).toMatchObject({ includeSubdomains: true })
     expect(security.headers.contentSecurityPolicy['upgrade-insecure-requests']).toBe(true)
     expect(nuxt.options.nitro.routeRules?.['/**']?.headers).toHaveProperty('Strict-Transport-Security')
+  })
+
+  it('adds the DSN\'s origin after the base module narrows connect-src, whose plugin runs its hook first', () => {
+    const plugins = nitroPlugins(boot.nuxt())
+    const narrows = plugins.findIndex(plugin => /nuxt-convex-module[\\/].*[\\/]nuxt[\\/]security/.test(plugin))
+    const allows = plugins.findIndex(plugin => /server[\\/]monitoring[\\/]csp/.test(plugin))
+    expect(narrows).toBeGreaterThanOrEqual(0)
+    expect(allows).toBeGreaterThan(narrows)
   })
 })
