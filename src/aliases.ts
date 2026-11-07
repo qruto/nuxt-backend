@@ -45,16 +45,24 @@ export function getBackendAliases(rootDir: string, runtimeDir?: string): Record<
   }
 }
 
+/**
+ * Nitro's alias map, created when absent. Nuxt types `nitro` by the server
+ * builder's own types and, without them in the program, by a fallback that
+ * leaves `alias` out; Nitro still reads it.
+ */
+export function nitroAliases(nuxt: Nuxt): Record<string, string> {
+  const nitro = (nuxt.options.nitro ||= {}) as { alias?: Record<string, string> }
+  return (nitro.alias ||= {})
+}
+
 /** Register the `#backend/*` aliases for both Vite and Nitro. */
 export function registerBackendAliases(nuxt: Nuxt, runtimeDir?: string): void {
   const aliases = getBackendAliases(nuxt.options.rootDir, runtimeDir)
-
-  nuxt.options.nitro ||= {}
-  nuxt.options.nitro.alias ||= {}
+  const nitro = nitroAliases(nuxt)
 
   for (const [alias, target] of Object.entries(aliases)) {
     nuxt.options.alias[alias] = target
-    nuxt.options.nitro.alias[alias] = target
+    nitro[alias] = target
   }
 }
 
