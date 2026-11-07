@@ -173,7 +173,7 @@ describe('the Start tab', () => {
   it('names each service-app feature the release defers, and the upstream holds, on the Roadmap', () => {
     const page = read(contentFile('/docs/start/roadmap'))
     for (const feature of ['API keys', 'Outgoing webhooks', 'An MCP endpoint for your users\' agents', 'Custom workspace roles', 'Workspace ownership transfer', 'Workspace billing permissions', 'The full workspace API', 'Workspace invite links']) expect(page, feature).toContain(`\n| ${feature} |`)
-    for (const hold of ['Better Auth 1.7', 'Polar SDK 1.0', 'Nuxt 5']) expect(page, hold).toContain(`**${hold}.**`)
+    for (const hold of ['Polar SDK 1.0', 'Nuxt 5']) expect(page, hold).toContain(`**${hold}.**`)
   })
 
   it('states each principle with its reason', () => {

@@ -53,6 +53,8 @@ export const {
   updateMany,
   deleteOne,
   deleteMany,
+  consumeOne,
+  incrementOne,
 } = createApi(schema, () => options) as {
   create: RegisteredMutation<'public', Record<string, unknown>, Promise<unknown>>
   findOne: RegisteredQuery<'public', Record<string, unknown>, Promise<unknown>>
@@ -61,4 +63,6 @@ export const {
   updateMany: RegisteredMutation<'public', Record<string, unknown>, Promise<unknown>>
   deleteOne: RegisteredMutation<'public', Record<string, unknown>, Promise<unknown>>
   deleteMany: RegisteredMutation<'public', Record<string, unknown>, Promise<unknown>>
+  consumeOne: RegisteredMutation<'public', Record<string, unknown>, Promise<unknown>>
+  incrementOne: RegisteredMutation<'public', Record<string, unknown>, Promise<unknown>>
 }

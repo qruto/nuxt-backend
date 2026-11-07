@@ -2,16 +2,6 @@
   "$comment": "What this package waits on upstream, in one place. `watches` are checked against the npm registry every week (scripts/check-upstream.mjs, run by weekly.yml's `upstream` job); `asks` are requests to the projects we build on, each with the plan item it blocks and what we do until it lands. The weekly job keeps one issue, \"ci: upstream watch\", in step with this file.",
   "watches": [
     {
-      "id": "better-auth-1.7",
-      "title": "@convex-dev/better-auth accepts Better Auth 1.7",
-      "package": "@convex-dev/better-auth",
-      "field": "peerDependencies",
-      "dependency": "better-auth",
-      "version": "1.7.0",
-      "pr": "get-convex/better-auth#444",
-      "unblocks": "UP1 — Better Auth 1.7 (lift the better-auth hold, and the @better-auth/core and @better-auth/passkey holds in dependabot.yml)"
-    },
-    {
       "id": "convex-eslint-plugin-ts-eslint",
       "title": "@convex-dev/eslint-plugin takes the current @typescript-eslint line",
       "package": "@convex-dev/eslint-plugin",
@@ -153,12 +143,6 @@
       "owner": "get-convex/polar",
       "blocks": "UP2",
       "fallback": "Stay on @polar-sh/sdk ^0.49.0, pinned in the website and the playground; doctor's billing-provider-sdk finding warns an app that resolves 1.x"
-    },
-    {
-      "ask": "Better Auth 1.7 in the peer range",
-      "owner": "get-convex/better-auth",
-      "blocks": "UP1",
-      "fallback": "Stay on Better Auth 1.6"
     },
     {
       "ask": "Forward the client IP to Better Auth (rate limits, session ipAddress)",

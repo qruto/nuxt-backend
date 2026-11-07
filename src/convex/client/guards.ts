@@ -1,5 +1,5 @@
 import type { BetterAuthPlugin } from 'better-auth'
-import { APIError, createAuthMiddleware, getIp } from 'better-auth/api'
+import { APIError, createAuthMiddleware, getIP } from 'better-auth/api'
 import type { BetterAuthOptions } from 'better-auth/minimal'
 import { captcha } from 'better-auth/plugins'
 import type { GenericActionCtx, GenericDataModel, GenericMutationCtx } from 'convex/server'
@@ -449,7 +449,7 @@ const ROUTE_CHECKS: Readonly<Record<string, {
       const { newEmail } = bodyOf(guarded.request)
       const current = session.user.email.toLowerCase()
       if (!isEmail(newEmail) || newEmail.toLowerCase() === current) return false
-      return codeWaiting(guarded.request, `change-email-otp-${current}-${newEmail.toLowerCase()}`)
+      return codeWaiting(guarded.request, `change-email-otp-${session.user.id}:${newEmail.toLowerCase()}`)
     },
     then: async (guarded) => {
       const { newEmail } = bodyOf(guarded.request) as { newEmail: string }
@@ -556,7 +556,7 @@ function keysOnCaller(row: SensitiveAction | undefined, path: string): boolean {
  */
 function clientAddress(request: AuthHookCtx): string | null {
   const headers = request.request?.headers ?? request.headers
-  return headers ? getIp(headers, request.context?.options ?? {}) : null
+  return headers ? getIP(headers, request.context?.options ?? {}) : null
 }
 
 /**

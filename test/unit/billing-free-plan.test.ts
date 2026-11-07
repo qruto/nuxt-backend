@@ -260,8 +260,8 @@ describe('the billing entities the auth routes make', () => {
     const { flow, listener } = await heard()
     const { userId } = await flow.signInWithCode('ada@example.com')
     const [workspace] = flow.db.organization!
-    // The session's workspace is made as the sign-up's session opens, before the account's after-hook runs.
-    expect(listener.mock.calls.map(([, entity]) => entity)).toEqual([{ kind: 'workspace', id: workspace!.id }, { kind: 'user', id: userId }])
+    // The account's after-hook runs first; the session's workspace is made as the sign-up's session opens.
+    expect(listener.mock.calls.map(([, entity]) => entity)).toEqual([{ kind: 'user', id: userId }, { kind: 'workspace', id: workspace!.id }])
     // The listener gets the request's context, which can queue work.
     expect(listener.mock.calls[0]![0]).toBe(flow.runtime.ctx)
     await flow.signInWithCode('ada@example.com')
@@ -308,7 +308,7 @@ describe('the billing entities the auth routes make', () => {
       .map(([delay, reference, args]) => [delay, getFunctionName(reference as FunctionReference<'action'>), args])
       .filter(([, name]) => name === 'billing:startFreePlan')
     // `billing:startFreePlan` decides: nothing without a free plan, nor for the kind billing does not bill.
-    expect(queued).toEqual([[0, 'billing:startFreePlan', { entityId: workspace!.id, kind: 'workspace' }], [0, 'billing:startFreePlan', { entityId: userId, kind: 'user' }]])
+    expect(queued).toEqual([[0, 'billing:startFreePlan', { entityId: userId, kind: 'user' }], [0, 'billing:startFreePlan', { entityId: workspace!.id, kind: 'workspace' }]])
   })
 
   it('holds a member to a few new workspaces an hour: each one is a billing entity', async () => {

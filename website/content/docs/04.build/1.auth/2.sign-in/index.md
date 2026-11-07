@@ -121,7 +121,7 @@ A sign-in code works only in the browser that asked for it.
 
 A code typed in another browser is refused as `invalid_input` on `otp`, with reason `other_browser`. The person reads "This code works only in the browser where you asked for it." and asks again there.
 
-Better Auth's email OTP plugin sets the length (six digits), the five minutes and the three guesses. It has no browser binding, so the package adds it (checked on 2026-10-27, Better Auth 1.6).
+Better Auth's email OTP plugin sets the length (six digits), the five minutes and the three guesses. It has no browser binding, so the package adds it (checked on 2026-11-07, Better Auth 1.7).
 
 ## The passkey offer
 

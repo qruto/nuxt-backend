@@ -66,8 +66,8 @@ describe('the erasure sweep', () => {
       }
       await ctx.db.insert('verification', { identifier: `sign-in-otp-${GONE}`, value: 'hash', expiresAt: now + 600_000, createdAt: now, updatedAt: now })
       await ctx.db.insert('verification', { identifier: 'sign-in-otp-stays@example.com', value: 'hash', expiresAt: now + 600_000, createdAt: now, updatedAt: now })
-      // An email change it started, its code keyed by both addresses.
-      await ctx.db.insert('verification', { identifier: `change-email-otp-${GONE}-new@example.com`, value: 'hash:0', expiresAt: now + 600_000, createdAt: now, updatedAt: now })
+      // An email change it started, its code keyed by the account and the new address.
+      await ctx.db.insert('verification', { identifier: `change-email-otp-${gone}:new@example.com`, value: 'hash:0', expiresAt: now + 600_000, createdAt: now, updatedAt: now })
       await ctx.db.insert('invitation', { organizationId: shared, email: 'friend@example.com', role: 'member', status: 'pending', expiresAt: now + 86_400_000, createdAt: now, inviterId: gone })
       await ctx.db.insert('invitation', { organizationId: shared, email: GONE, role: 'member', status: 'accepted', expiresAt: now, createdAt: now, inviterId: stays })
       await ctx.db.insert('invitation', { organizationId: shared, email: 'next@example.com', role: 'member', status: 'pending', expiresAt: now + 86_400_000, createdAt: now, inviterId: stays })

@@ -77,30 +77,6 @@ id = "GHSA-jfwm-3p3c-6hx5"
 ignoreUntil = 2027-01-09
 reason = "fallow 3.33.1: needs a hostile analyzed repository; fallow only reads this one"
 
-# better-auth 1.6 — @convex-dev/better-auth takes 1.7 from 0.13.0, but
-# nuxt-convex-module 0.12.3 still peers 1.6, and no 1.6 release carries these fixes. Each needs a plugin the package never
-# enables (magic links with a social provider, oAuthProxy, deviceAuthorization),
-# or the Drizzle or Kysely adapter (it stores through Convex's).
-[[IgnoredVulns]]
-id = "GHSA-965c-763c-88jm"
-ignoreUntil = 2027-01-09
-reason = "better-auth 1.6.33: needs the magic-link plugin with social sign-in; never enabled"
-
-[[IgnoredVulns]]
-id = "GHSA-r4xp-prcw-77qf"
-ignoreUntil = 2027-01-09
-reason = "better-auth 1.6.33: needs the oAuthProxy plugin; never enabled"
-
-[[IgnoredVulns]]
-id = "GHSA-q84f-53jg-9ppm"
-ignoreUntil = 2027-01-09
-reason = "better-auth 1.6.33: needs the deviceAuthorization plugin; never enabled"
-
-[[IgnoredVulns]]
-id = "GHSA-44jh-23m7-hpcf"
-ignoreUntil = 2027-01-09
-reason = "better-auth adapters 1.6.33: Drizzle and Kysely on PostgreSQL; the package stores through Convex"
-
 # Nuxt's case-variant route rules — fixed in 4.6.2, and the lockfile resolves
 # 4.6.3. The advisory also lists the 3.x line with no fix, which is what the
 # scanner matches on 4.6.3.
