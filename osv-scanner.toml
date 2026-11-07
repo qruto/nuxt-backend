@@ -77,8 +77,8 @@ id = "GHSA-jfwm-3p3c-6hx5"
 ignoreUntil = 2027-01-09
 reason = "fallow 3.33.1: needs a hostile analyzed repository; fallow only reads this one"
 
-# better-auth 1.6 — @convex-dev/better-auth 0.12.6 accepts nothing newer, and
-# no 1.6 release carries these fixes. Each needs a plugin the package never
+# better-auth 1.6 — @convex-dev/better-auth takes 1.7 from 0.13.0, but
+# nuxt-convex-module 0.12.3 still peers 1.6, and no 1.6 release carries these fixes. Each needs a plugin the package never
 # enables (magic links with a social provider, oAuthProxy, deviceAuthorization),
 # or the Drizzle or Kysely adapter (it stores through Convex's).
 [[IgnoredVulns]]

@@ -26,12 +26,12 @@ updates:
         - convex
         - convex-helpers
         - '@convex-dev/*'
-    # `@convex-dev/better-auth` peers `better-auth: ">=1.6.11 <1.7.0"`, and this
+    # `@convex-dev/better-auth` 0.12 peers `better-auth: ">=1.6.11 <1.7.0"`, and this
     # package mirrors that range for better-auth, @better-auth/core and the passkey
     # plugin. A 1.7.x bump is a *minor* update, so the all-non-major group below
-    # would otherwise propose one that the add-on rejects at install time. Drop
-    # the three entries when @convex-dev/better-auth ships better-auth 1.7 support
-    # (and widen the ranges in package.json with it).
+    # would otherwise propose one that the add-on rejects at install time. 0.13.0
+    # takes 1.7.16 and up: drop the three entries with the move to it, once
+    # nuxt-convex-module's peers allow it (and widen the ranges in package.json).
     #
     # h3 2.x needs Nitro 3, which Nuxt 4 does not run on, and every server
     # handler here is written against h3 1. Drop the entry with the move to
