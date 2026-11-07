@@ -79,6 +79,8 @@ export default defineNuxtConfig({
 })
 ```
 
+A browser that already stored HSTS for `localhost` keeps upgrading until that policy expires, up to 180 days with the default. Clear the stored policy, or wait it out.
+
 `convex.security: false` opts out of the Convex additions. `security: false` turns `nuxt-security` off entirely, which the package does not recommend.
 
 ## Webhooks: fail closed
