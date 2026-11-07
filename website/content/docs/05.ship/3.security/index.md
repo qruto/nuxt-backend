@@ -47,6 +47,8 @@ export default defineNuxtConfig({
 
 With a [bot check](/docs/build/auth/sign-in/bots) challenge site key set, a second plugin lets the challenge in. `https://challenges.cloudflare.com` joins `script-src` and `frame-src` (`child-src` when frames fall back to it). A policy that restricts only `default-src` gains its own `script-src` and `frame-src` from it, so nothing else that directive governs opens.
 
+With [Sentry](/docs/services/sentry) wired, a plugin lets the browser's error reports out: the DSN's origin joins `connect-src`, or a `connect-src` of its own when the policy restricts only `default-src`. A DSN of `https://key@o123.ingest.de.sentry.io/456` adds `https://o123.ingest.de.sentry.io`, so you don't list the ingest origin yourself.
+
 The auth proxy (`/api/auth/**`) carries its own rules, merged over the global config, and your `routeRules` can override them in turn:
 
 - `xssValidator: false`. The validator HTML-escapes JSON bodies and rejects anything that changed, which would break a display name containing `<`. These are opaque credentials forwarded to Better Auth, never rendered HTML.
