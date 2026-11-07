@@ -16,7 +16,12 @@ import { TRUSTED_TYPES_POLICIES } from '../runtime/vue/trusted-types'
  * - Trusted Types, in a production build: `require-trusted-types-for
  *   'script'`, with the policies the package creates (`vue`, `nuxt-backend`
  *   and the narrow `default`, src/runtime/vue/trusted-types.ts). Not in
- *   development, where Vite's error overlay writes markup no policy passes.
+ *   development, where Vite's error overlay writes markup no policy passes;
+ * - in development, no request limiter, no `upgrade-insecure-requests` and
+ *   no HSTS. Every reload, DevTools probe and test run counts against the
+ *   limiter, whose 429s read as page failures, and on a plain-http dev port
+ *   Safari obeys the other two for localhost, so every asset goes to
+ *   https:// and fails. A production build keeps all three.
  *
  * An app that loads code which writes sinks itself lists that code's policy
  * in `trusted-types`, or turns the requirement off with
@@ -24,16 +29,24 @@ import { TRUSTED_TYPES_POLICIES } from '../runtime/vue/trusted-types'
  */
 export function securityDefaults(dev: boolean): Record<string, unknown> {
   const own = { 'worker-src': ['\'self\''], 'manifest-src': ['\'self\''] }
+  if (dev) {
+    return {
+      nonce: true,
+      rateLimiter: false,
+      headers: {
+        contentSecurityPolicy: { ...own, 'upgrade-insecure-requests': false },
+        strictTransportSecurity: false,
+      },
+    }
+  }
   return {
     nonce: true,
     headers: {
-      contentSecurityPolicy: dev
-        ? own
-        : {
-            ...own,
-            'require-trusted-types-for': '\'script\'',
-            'trusted-types': [...TRUSTED_TYPES_POLICIES],
-          },
+      contentSecurityPolicy: {
+        ...own,
+        'require-trusted-types-for': '\'script\'',
+        'trusted-types': [...TRUSTED_TYPES_POLICIES],
+      },
     },
   }
 }
