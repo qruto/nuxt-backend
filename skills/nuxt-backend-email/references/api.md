@@ -16,6 +16,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `useNotifications()` | The signed-in account's in-app notifications, live: newest first, paged with `loadMore`, with the unread count and the actions that mark them read. |
 | `useNotificationInbox()` | `<NotificationInbox>` without its markup: the notifications, where the inbox is, the button's name with the unread count in it, and the bindings for a button and a list that open on the browser's own popover. |
 | `useEmailPreferences()` | The email topics the signed-in person receives and their notification channels, kind by kind, live, and the actions that change them: the same choices as the profile's Email section, the unsubscribe page and the provider's own page, which all stay in step. |
+| `useEmailLink()` | The unsubscribe page without its markup: what the link names, and one press that leaves the topic (or every topic), or confirms a double opt-in. |
 | `usePushSubscription()` | Web push on this device, for the signed-in person: whether the browser can take it, whether this device is subscribed, the permission, and the actions that subscribe and unsubscribe it. |
 | `useAnnouncements()` | The announcements an administrator published that the signed-in person has not dismissed, live: what `<BackendNotices>`' `announcement` notice shows. |
 | `useAnnouncementsAdmin()` | The admin console's Announcements tab, as data: every announcement with its notice and its broadcast, and the changes an administrator makes, through `backend/email.ts`. |

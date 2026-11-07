@@ -85,7 +85,7 @@ export const TASK_SKILLS = [
     name: 'nuxt-backend-growth',
     covers: 'launch phases, offers, referrals, gifts, lifecycle email and the funnel',
     docs: ['/docs/build/growth'],
-    composables: ['useCampaign', 'useGifts', 'useOnboarding', 'useActivation', 'useExperiment', 'useReferrals', 'useReferralAdmin'],
+    composables: ['useCampaign', 'useGifts', 'useOnboarding', 'useActivation', 'useExperiment', 'useReferrals', 'useReferralInvite', 'useReferralAdmin'],
     components: ['OnboardingFlow', 'ActivationChecklist', 'HowDidYouHear', 'ReferralCard'],
     findings: ['analytics'],
   },
@@ -94,7 +94,7 @@ export const TASK_SKILLS = [
     covers: 'transactional email, templates, delivery tracking, the dev inbox and notifications',
     docs: ['/docs/build/email', '/docs/develop/dev-inbox'],
     entrypoints: ['nuxt-backend/email', 'nuxt-backend/notifications'],
-    composables: ['useEmailStatus', 'useSandboxInbox', 'useNotifications', 'useNotificationInbox', 'useEmailPreferences', 'usePushSubscription', 'useAnnouncements', 'useAnnouncementsAdmin', 'useContactForm', 'useInboxAdmin'],
+    composables: ['useEmailStatus', 'useSandboxInbox', 'useNotifications', 'useNotificationInbox', 'useEmailPreferences', 'useEmailLink', 'usePushSubscription', 'useAnnouncements', 'useAnnouncementsAdmin', 'useContactForm', 'useInboxAdmin'],
     components: ['NotificationInbox', 'ContactForm'],
     commands: ['inbox', 'email sync'],
 

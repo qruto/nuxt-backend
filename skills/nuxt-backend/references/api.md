@@ -28,6 +28,7 @@ skill's own `references/api.md` has the part it covers. The docs: https://nuxt-b
 | `useUsage()` | Consumption history for a credit meter, read from the provider's events API — the events your server ingested when it spent credits. |
 | `useGifts()` | Gifts, from both sides. |
 | `useReferrals()` | A person's referral code, link and rewards: the data behind `<ReferralCard>`, for a page of your own. |
+| `useReferralInvite()` | The state of the page a referral link (`/r/<code>`) opens, headless: what the link offers, the sign-in that returns to the page, and the claim. |
 | `useReferralAdmin()` | The admin console's Referrals tab, as data: the program's totals, the top referrers, the flagged queue and one referrer's history, through `backend/referrals.ts`, and the decision an administrator makes on a flagged referral. |
 | `usePasskeys()` | Passkey management over the auth client — list, register, rename, remove. |
 | `useSessions()` | Device-session management: list, revoke one, revoke the rest. |
@@ -48,6 +49,7 @@ skill's own `references/api.md` has the part it covers. The docs: https://nuxt-b
 | `useNotifications()` | The signed-in account's in-app notifications, live: newest first, paged with `loadMore`, with the unread count and the actions that mark them read. |
 | `useNotificationInbox()` | `<NotificationInbox>` without its markup: the notifications, where the inbox is, the button's name with the unread count in it, and the bindings for a button and a list that open on the browser's own popover. |
 | `useEmailPreferences()` | The email topics the signed-in person receives and their notification channels, kind by kind, live, and the actions that change them: the same choices as the profile's Email section, the unsubscribe page and the provider's own page, which all stay in step. |
+| `useEmailLink()` | The unsubscribe page without its markup: what the link names, and one press that leaves the topic (or every topic), or confirms a double opt-in. |
 | `usePushSubscription()` | Web push on this device, for the signed-in person: whether the browser can take it, whether this device is subscribed, the permission, and the actions that subscribe and unsubscribe it. |
 | `useAnnouncements()` | The announcements an administrator published that the signed-in person has not dismissed, live: what `<BackendNotices>`' `announcement` notice shows. |
 | `useAnnouncementsAdmin()` | The admin console's Announcements tab, as data: every announcement with its notice and its broadcast, and the changes an administrator makes, through `backend/email.ts`. |
