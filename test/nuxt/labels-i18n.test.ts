@@ -181,6 +181,16 @@ describe('the override order', () => {
     expect(shadowWarning('invitation.accept', 'Join')).toBeNull()
   })
 
+  it('says a development warning once per key, and nothing where there is none', async () => {
+    const { warnOnce } = await import('../../src/runtime/vue/composables/use-labels')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    warnOnce('test.quiet', () => null)
+    warnOnce('test.warned', () => 'Once.')
+    warnOnce('test.warned', () => 'Twice.')
+    expect(warn.mock.calls).toEqual([['Once.']])
+    warn.mockRestore()
+  })
+
   it('fills plurals the way the active locale words them', () => {
     const Units = defineComponent({
       setup() {

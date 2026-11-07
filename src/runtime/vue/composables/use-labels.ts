@@ -121,9 +121,15 @@ export function shadowWarning(key: string, override: string | undefined): string
   return `[nuxt-backend] The override of the \`${key.replace(/Yours$/, '')}\` label does not reach a notification about the reader's own account (\`billTo: 'user'\`): \`${key}\` goes first, and still reads as the package words it. Override \`${key}\` too.`
 }
 
-/** In development, say once per key what `warning` reads, when it reads anything. */
-function warnOnce(key: string, warning: () => string | null): void {
-  if (!import.meta.dev || warnedOverrides.has(key)) return
+/**
+ * Say once per key what `warning` reads, when it reads anything. Each caller
+ * guards it with `import.meta.dev`, which keeps the warnings' words out of a
+ * production build.
+ *
+ * @internal
+ */
+export function warnOnce(key: string, warning: () => string | null): void {
+  if (warnedOverrides.has(key)) return
   const text = warning()
   if (!text) return
   warnedOverrides.add(key)
@@ -186,10 +192,10 @@ export function useLabels<G extends LabelGroup>(group: G, overrides?: MaybeRefOr
     const overrideOf = (name: string) => (own ? findLabel(own, name) : undefined) ?? (app ? findLabel(app, name) : undefined)
     const override = overrideOf(key)
     if (override !== undefined) {
-      warnOnce(path, () => overrideWarning(path, override))
+      if (import.meta.dev) warnOnce(path, () => overrideWarning(path, override))
       return formatLabel(override, params)
     }
-    if (groupName === 'notifications') warnOnce(path, () => shadowWarning(path, overrideOf(key.replace(/Yours$/, ''))))
+    if (import.meta.dev && groupName === 'notifications') warnOnce(path, () => shadowWarning(path, overrideOf(key.replace(/Yours$/, ''))))
     const english = englishLabel(path, groupName === group)
     const message = `backend.${path}`
     if (i18n?.te(message)) {
