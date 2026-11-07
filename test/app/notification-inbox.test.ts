@@ -95,6 +95,28 @@ describe('<NotificationInbox>, on the backend mock', () => {
     expect(inbox.findAll('[data-notifications="body"]').map(body => body.text())).toEqual(['An administrator changed the subscription.', 'Your plan is active.', '10 credits are left.'])
   })
 
+  describe('an override of a kind the package words for the reader\'s own account', () => {
+    /** The title the inbox shows for one notification, with `labels` over `kind`. */
+    async function titleWith(kind: string, labels: Record<string, string>): Promise<string> {
+      rows.value = [entry('n7', { type: `billing.${kind}`, actor: { kind: 'app', name: null }, workspace: null, entity: 'account', data: {} })]
+      const inbox = await mountSuspended(NotificationInbox, { props: { labels: { billing: { [kind]: labels } } as never } })
+      await flushPromises()
+      return inbox.get('[data-notifications="title"]').text()
+    }
+
+    it('keeps the packaged words over an override of `title`: `titleYours` goes first', async () => {
+      expect(await titleWith('plan_changed', { title: 'New plan' })).toBe('Your plan changed')
+    })
+
+    it('reads `titleYours` once it is overridden too', async () => {
+      expect(await titleWith('plan_changed', { title: 'New plan', titleYours: 'Your new plan' })).toBe('Your new plan')
+    })
+
+    it('shows an override of `title` for a kind the package gives no `titleYours`', async () => {
+      expect(await titleWith('subscription_past_due', { title: 'Payment failed' })).toBe('Payment failed')
+    })
+  })
+
   it('words a kind of the app\'s own from its labels', async () => {
     const inbox = await mountSuspended(NotificationInbox, { props: { labels: { strip_ready: { title: 'Your strip is ready', body: 'Open it to read and share it.' } } as never } })
     await flushPromises()
