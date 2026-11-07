@@ -2,11 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
+import { makeFunctionReference } from 'convex/server'
+import { backendError } from '../../src/convex/errors'
 import { createBackendMock } from '../../src/runtime/test-utils'
 import EmailUnsubscribe from '../../src/runtime/vue/components/account/EmailUnsubscribe.vue'
 import ProfileSettings from '../../src/runtime/vue/components/account/ProfileSettings.vue'
 import type { EmailLinkView, EmailTopicPreference } from '../../src/convex/integrations/email-preferences'
 import type { NotificationKindChoice } from '../../src/convex/integrations/notifications'
+import { useEmailLink, type UseEmailLinkReturn } from '../../src/runtime/vue/composables/use-email-link'
 import { useEmailPreferences } from '../../src/runtime/vue/composables/use-email-preferences'
 import { watchPresence } from '../../src/runtime/vue/utils/email-presence'
 import { registerComponents } from '../helpers/register-components'
@@ -164,6 +167,60 @@ describe('the unsubscribe page', () => {
     await page.get('[data-unsubscribe="confirm"]').trigger('click')
     await flushPromises()
     expect(page.get('[data-unsubscribe="message"]').text()).toBe('You are subscribed to Product news.')
+  })
+})
+
+describe('useEmailLink', () => {
+  const VIEW: EmailLinkView = { kind: 'unsubscribe', topic: { key: 'stripTips', name: 'Strip tips', description: 'Ideas.' }, subscribed: true }
+
+  /** The composable as an app's own page calls it. */
+  async function withLink(...args: Parameters<typeof useEmailLink>): Promise<UseEmailLinkReturn> {
+    let link: UseEmailLinkReturn
+    await mountSuspended(defineComponent({
+      setup() {
+        link = useEmailLink(...args)
+        return () => null
+      },
+    }))
+    await flushPromises()
+    return link!
+  }
+
+  it('reads what the link names, and says nothing is loading once it has', async () => {
+    backend.stub('email:getEmailLink', () => VIEW)
+    const page = await withLink({ token: '1.k1.stripTips.sig' })
+    expect(page.state.value).toBe('ready')
+    expect(page.isLoading.value).toBe(false)
+    expect(page.isPending.value).toBe(false)
+    expect(page.topicName.value).toBe('Strip tips')
+    expect(page.error.value).toBeNull()
+  })
+
+  it('reports a failed action as `{ code, data, message }`, which the page words through its labels', async () => {
+    backend.stub('email:getEmailLink', () => VIEW)
+    backend.fail('email:unsubscribeByLink', backendError('rate_limited'))
+    const page = await withLink({ token: '1.k1.stripTips.sig' })
+    await page.leave()
+    await flushPromises()
+    expect(page.state.value).toBe('error')
+    expect(page.error.value).toMatchObject({ code: 'rate_limited' })
+    expect(page.labels.errorMessage(page.error.value)).toBe(backendError('rate_limited').message)
+
+    const rendered = await mountSuspended(EmailUnsubscribe, { props: { link: { token: '1.k1.stripTips.sig' } } })
+    await flushPromises()
+    await rendered.get('[data-unsubscribe="leave"]').trigger('click')
+    await flushPromises()
+    expect(rendered.get('[data-unsubscribe="error"]').text()).toBe(page.labels.errorMessage(page.error.value))
+  })
+
+  it('takes its words and its functions from the options', async () => {
+    backend.stub('partners:getEmailLink', () => VIEW)
+    const page = await withLink({ token: '1.k1.stripTips.sig' }, {
+      labels: { unsubscribe: { doneAll: 'All gone.' } },
+      api: { getEmailLink: makeFunctionReference<'query'>('partners:getEmailLink') } as never,
+    })
+    expect(page.state.value).toBe('ready')
+    expect(page.labels.t('unsubscribe.doneAll')).toBe('All gone.')
   })
 })
 

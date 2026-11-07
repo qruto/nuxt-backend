@@ -61,6 +61,8 @@ const stub = await startConvexStub({
     'billing:getConfiguredProducts': () => ({ pro: { id: 'prod_pro', name: 'Pro plan' }, credits500: { id: 'prod_credits500', name: '500 credits' } }),
     // `useCredits()` subscribes unconditionally; signed out there is no balance.
     'billing:getCredits': () => null,
+    // The page a referral link opens reads this on the server too.
+    'referrals:previewReferral': ({ code }: { code: string }) => (code === 'ADA123' ? { inviter: 'Ada', program: { referred: { kind: 'trial', days: 14 }, referrer: null, holdDays: 30, caps: { perReferrer: null, perMonth: null } } } : null),
   },
 })
 
@@ -230,6 +232,18 @@ describe('templates/starter (production build)', { timeout: 60_000 }, () => {
     // No SEO module in the starter: no Open Graph tags, no structured data.
     expect(html).not.toContain('application/ld+json')
     expect(stub.calls.some(call => call.path === 'billing:getPricing' && call.transport === 'http')).toBe(true)
+  })
+
+  it('puts a referral link\'s offer in the first paint, and says a code that is none no longer works', async () => {
+    const html = await $fetch<string>('/r/ADA123')
+    expect(html).toContain('data-state="ready"')
+    expect(html).toContain('Ada invited you.')
+    expect(html).not.toContain('Checking the link')
+    expect(stub.calls.some(call => call.path === 'referrals:previewReferral' && call.transport === 'http')).toBe(true)
+
+    const unknown = await $fetch<string>('/r/NOPE')
+    expect(unknown).toContain('data-state="invalid"')
+    expect(unknown).toContain('This link no longer works.')
   })
 
   it('redirects signed-out visitors from a protected page to the login page with a return path', async () => {

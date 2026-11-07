@@ -936,6 +936,12 @@
       "summary": "A person's referral code, link and rewards: the data behind `<ReferralCard>`, for a page of your own.",
       "url": "/docs/reference/nuxt/composables"
     },
+    "useReferralInvite": {
+      "tab": "Billing",
+      "tier": "stable",
+      "summary": "The state of the page a referral link (`/r/<code>`) opens, headless: what the link offers, the sign-in that returns to the page, and the claim.",
+      "url": "/docs/reference/nuxt/composables"
+    },
     "useReferralAdmin": {
       "tab": "Auth",
       "tier": "stable",
@@ -1067,6 +1073,12 @@
       "tab": "Email",
       "tier": "stable",
       "summary": "The email topics the signed-in person receives and their notification channels, kind by kind, live, and the actions that change them: the same choices as the profile's Email section, the unsubscribe page and the provider's own page, which all stay in step.",
+      "url": "/docs/reference/nuxt/composables"
+    },
+    "useEmailLink": {
+      "tab": "Email",
+      "tier": "stable",
+      "summary": "The unsubscribe page without its markup: what the link names, and one press that leaves the topic (or every topic), or confirms a double opt-in.",
       "url": "/docs/reference/nuxt/composables"
     },
     "usePushSubscription": {
