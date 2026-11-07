@@ -3,12 +3,13 @@ import { computed, type ComputedRef, ref, toValue, type MaybeRefOrGetter } from 
 import { useMutation } from 'nuxt-convex-module/client'
 import type { EmailLinkView } from '../../../convex/integrations/email-preferences'
 import { useActionState } from '../utils/action-state'
+import type { BackendError } from '../utils/backend-error'
 import { absentQuery, useLiveQuery } from '../utils/live-query'
-import { useApiNamespace } from '../utils/namespace'
+import { useBackendNamespace } from '../utils/namespace'
 import { type LabelGroupOverrides, useLabels } from './use-labels'
 
 /** The link functions re-exported from `backend/email.ts`. */
-interface EmailLinkApi {
+export interface EmailLinkApiRefs {
   getEmailLink?: FunctionReference<'query', 'public', { token?: string, confirm?: string }, EmailLinkView | null>
   unsubscribeByLink?: FunctionReference<'mutation', 'public', { token: string, all?: boolean }, boolean>
   confirmEmailTopic?: FunctionReference<'mutation', 'public', { confirm: string }, 'confirmed' | 'nothing'>
@@ -23,14 +24,27 @@ export interface EmailLinkQuery {
   confirm?: string
 }
 
+/** The options of {@link useEmailLink}. */
+export interface UseEmailLinkOptions {
+  /** Words of the `preferences` group for this page alone. */
+  labels?: MaybeRefOrGetter<LabelGroupOverrides<'preferences'> | undefined>
+  /** Override the injected `api.email` namespace. */
+  api?: EmailLinkApiRefs
+}
+
+/** What {@link useEmailLink} returns. */
 export interface UseEmailLinkReturn {
   state: ComputedRef<EmailLinkState>
   /** What the link names. */
   link: ComputedRef<EmailLinkView | null>
   /** The topic's name, or `''` for every topic. */
   topicName: ComputedRef<string>
-  /** Why the last action failed, in words, or `null`. */
-  error: ComputedRef<string | null>
+  /** `true` until the link has been read. */
+  isLoading: ComputedRef<boolean>
+  /** `true` while leaving or confirming runs. */
+  isPending: ComputedRef<boolean>
+  /** Why the last action failed, or else why the link could not be read. `labels.errorMessage` words it. */
+  error: ComputedRef<BackendError | null>
   /** The outcome in words, for a polite status. */
   announcement: ComputedRef<string>
   /** Leave the topic the link names, or every topic. */
@@ -47,18 +61,31 @@ export interface UseEmailLinkReturn {
  * the link unsubscribes nobody. State, actions and words; `<EmailUnsubscribe>`
  * is this with the package's markup.
  *
- * @internal
+ * @example
+ * ```vue
+ * <script setup lang="ts">
+ * const route = useRoute()
+ * const { state, topicName, leave, confirm } = useEmailLink(() => ({
+ *   token: route.query.token as string | undefined,
+ *   confirm: route.query.confirm as string | undefined,
+ * }))
+ * </script>
+ * <template>
+ *   <button v-if="state === 'ready'" @click="leave()">Leave {{ topicName }}</button>
+ *   <p v-else-if="state === 'done'">You are off this list.</p>
+ * </template>
+ * ```
  */
-export function useEmailLink(query: MaybeRefOrGetter<EmailLinkQuery>, overrides?: MaybeRefOrGetter<LabelGroupOverrides<'preferences'> | undefined>): UseEmailLinkReturn {
-  const api = useApiNamespace<EmailLinkApi>('email')
-  const labels = useLabels('preferences', () => toValue(overrides))
+export function useEmailLink(query: MaybeRefOrGetter<EmailLinkQuery>, options: UseEmailLinkOptions = {}): UseEmailLinkReturn {
+  const api = useBackendNamespace<EmailLinkApiRefs>('email', 'useEmailLink', options.api)
+  const labels = useLabels('preferences', () => toValue(options.labels))
   const args = computed(() => {
     const { token, confirm } = toValue(query)
     return confirm ? { confirm } : token ? { token } : null
   })
-  const read = api?.getEmailLink ? useLiveQuery(api.getEmailLink, () => args.value ?? 'skip') : absentQuery<EmailLinkView | null>()
-  const runLeave = api?.unsubscribeByLink ? useMutation(api.unsubscribeByLink) : null
-  const runConfirm = api?.confirmEmailTopic ? useMutation(api.confirmEmailTopic) : null
+  const read = api.getEmailLink ? useLiveQuery(api.getEmailLink, () => args.value ?? 'skip') : absentQuery<EmailLinkView | null>()
+  const runLeave = api.unsubscribeByLink ? useMutation(api.unsubscribeByLink) : null
+  const runConfirm = api.confirmEmailTopic ? useMutation(api.confirmEmailTopic) : null
   const { isPending, failure, run } = useActionState()
   const outcome = ref<'done' | 'done-all' | 'confirmed' | 'nothing' | null>(null)
 
@@ -72,7 +99,7 @@ export function useEmailLink(query: MaybeRefOrGetter<EmailLinkQuery>, overrides?
     return read.data.value === null ? 'invalid' : 'ready'
   })
   const topicName = computed(() => link.value?.topic?.name ?? '')
-  const error = computed(() => (failure.value ? labels.errorMessage(failure.value) : read.error.value ? labels.errorMessage(read.error.value) : null))
+  const error = computed(() => failure.value ?? read.error.value)
   const announcement = computed(() => {
     const topic = topicName.value
     switch (state.value) {
@@ -101,5 +128,5 @@ export function useEmailLink(query: MaybeRefOrGetter<EmailLinkQuery>, overrides?
     if (answer) outcome.value = answer
   }
 
-  return { state, link, topicName, error, announcement, leave, confirm, labels }
+  return { state, link, topicName, isLoading: read.isLoading, isPending, error, announcement, leave, confirm, labels }
 }

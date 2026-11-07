@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { reactive } from 'vue'
+import { defineComponent, reactive } from 'vue'
 import { enableAutoUnmount, flushPromises, type VueWrapper } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
+import { makeFunctionReference } from 'convex/server'
 import { backendError } from '../../src/convex/errors'
 import type { ReferralPreview } from '../../src/convex/integrations/referrals'
 import { createBackendMock, resetBackendMock, type BackendMock } from '../../src/runtime/test-utils'
+import type { UseReferralInviteOptions, UseReferralInviteReturn } from '../../src/runtime/vue/composables/use-referral-invite'
 import { registerComponents } from '../helpers/register-components'
 
 // The page a referral link opens, `/r/<code>`: the test app has no pages, so
@@ -14,6 +16,7 @@ mockNuxtImport('useRoute', () => () => route)
 
 await registerComponents('ReferralLanding')
 const { default: ReferralLanding } = await import('../../src/runtime/vue/components/billing/ReferralLanding.vue')
+const { useReferralInvite } = await import('../../src/runtime/vue/composables/use-referral-invite')
 
 // <ReferralLanding> over the backend mock, built on useReferralInvite: who
 // invited the visitor and what they get, the sign-up that brings them back
@@ -38,6 +41,19 @@ async function landing(): Promise<VueWrapper> {
   const wrapper = await mountSuspended(ReferralLanding)
   await flushPromises()
   return wrapper
+}
+
+/** The composable as an app's own page calls it. */
+async function withInvite(options?: UseReferralInviteOptions): Promise<UseReferralInviteReturn> {
+  let invite: UseReferralInviteReturn
+  await mountSuspended(defineComponent({
+    setup() {
+      invite = useReferralInvite(options)
+      return () => null
+    },
+  }))
+  await flushPromises()
+  return invite!
 }
 
 const part = (wrapper: VueWrapper, name: string) => wrapper.find(`[data-referral="${name}"]`)
@@ -88,6 +104,39 @@ describe('the referral link\'s page', () => {
     expect(state(wrapper)).toBe('invalid')
     expect(part(wrapper, 'landing-status').text()).toBe('This link no longer works.')
     expect(part(wrapper, 'landing-sign-up').exists()).toBe(false)
+  })
+
+  it('says a link that cannot be read no longer works, and keeps the reason', async () => {
+    const backend = backendWith()
+    backend.fail('referrals:previewReferral', backendError('rate_limited'))
+    const wrapper = await landing()
+    expect(state(wrapper)).toBe('invalid')
+    expect(part(wrapper, 'landing-status').text()).toBe('This link no longer works.')
+    const invite = await withInvite()
+    expect(invite.state.value).toBe('invalid')
+    expect(invite.preview.value).toBeNull()
+    expect(invite.isLoading.value).toBe(false)
+    expect(invite.error.value).toMatchObject({ code: 'rate_limited' })
+  })
+
+  it('reports loading and the claim as it runs, for a page of the app\'s own', async () => {
+    backendWith(PREVIEW, {})
+    const invite = await withInvite()
+    expect(invite.isLoading.value).toBe(false)
+    expect(invite.preview.value).toEqual(PREVIEW)
+    expect(invite.error.value).toBeNull()
+    const claimed = invite.claim()
+    expect(invite.isPending.value).toBe(true)
+    await claimed
+    expect(invite.isPending.value).toBe(false)
+    expect(invite.state.value).toBe('claimed')
+  })
+
+  it('reads another backend through `api`', async () => {
+    const backend = createBackendMock({ queries: { 'partners:previewReferral': () => PREVIEW } })
+    const invite = await withInvite({ api: { previewReferral: makeFunctionReference<'query'>('partners:previewReferral') } as never })
+    expect(invite.preview.value).toEqual(PREVIEW)
+    expect(backend.callsTo('referrals:previewReferral')).toEqual([])
   })
 
   it('lets a signed-in person claim with a button, then go on', async () => {

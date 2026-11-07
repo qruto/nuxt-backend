@@ -137,6 +137,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useContactForm` — the contact form without its markup: a name and an address for a visitor, the message alone for a signed-in account (so the same form on a page behind sign-in is a feedback form), the bot check, a honeypot, and the deployment's refusals
 - `useCredits` — reactive prepaid-credit balance for the current user, plus a `topUp()` checkout and a `refresh()` re-sync
 - `useEmailChange` — the headless email change behind `<ProfileSettings>`: a code from the current address proves the person asking still holds it, a code from the new address proves they hold that one too
+- `useEmailLink` — the unsubscribe page without its markup: what the link names, and one press that leaves the topic (or every topic), or confirms a double opt-in
 - `useEmailPreferences` — the email topics the signed-in person receives and their notification channels, kind by kind, live, and the actions that change them: the same choices as the profile's Email section, the unsubscribe page and the provider's own page, which all stay in step
 - `useEmailStatus` — reactive delivery status for a sent email
 - `useExperiment` — the variant of an experiment, a `defineFlags` flag with `variants`, for whoever is looking
@@ -159,6 +160,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `usePushSubscription` — web push on this device, for the signed-in person: whether the browser can take it, whether this device is subscribed, the permission, and the actions that subscribe and unsubscribe it
 - `useReauthentication` — asking the person to confirm it is them before a sensitive action: the client half of `requireRecentSignIn` and of the routes that take a recent sign-in
 - `useReferralAdmin` — the admin console's Referrals tab, as data: the program's totals, the top referrers, the flagged queue and one referrer's history, through `backend/referrals.ts`, and the decision an administrator makes on a flagged referral
+- `useReferralInvite` — the state of the page a referral link (`/r/<code>`) opens, headless: what the link offers, the sign-in that returns to the page, and the claim
 - `useReferrals` — a person's referral code, link and rewards: the data behind `<ReferralCard>`, for a page of your own
 - `useReturnPath` — where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere), else where sign-in lands (`redirects.afterSignIn`, `/` without it)
 - `useSandboxInbox` — the mail a test address received within the last hour, refreshed while the page is open — so a demo, a preview deployment or an e2e run can finish an email-code sign-in without a real mailbox (experimental)

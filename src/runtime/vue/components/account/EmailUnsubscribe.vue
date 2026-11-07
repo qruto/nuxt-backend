@@ -16,7 +16,7 @@ const props = defineProps<{
   labels?: LabelGroupOverrides<'preferences'>
 }>()
 
-const page = useEmailLink(() => props.link, () => props.labels)
+const page = useEmailLink(() => props.link, { labels: () => props.labels })
 const { state, link: named, topicName, error, announcement, leave, confirm } = page
 const { t } = page.labels
 
@@ -107,7 +107,7 @@ const { remember } = useOutcomeFocus(root, note, () => ['done', 'done-all', 'con
       role="alert"
       data-unsubscribe="error"
     >
-      {{ error }}
+      {{ page.labels.errorMessage(error) }}
     </p>
     <span
       role="status"

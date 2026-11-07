@@ -17,6 +17,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `useActivation()` | The activation checklist without its markup: the first tasks `defineActivation` declares, which of them are done, the progress, and dismissing it. |
 | `useExperiment()` | The variant of an experiment, a `defineFlags` flag with `variants`, for whoever is looking. |
 | `useReferrals()` | A person's referral code, link and rewards: the data behind `<ReferralCard>`, for a page of your own. |
+| `useReferralInvite()` | The state of the page a referral link (`/r/<code>`) opens, headless: what the link offers, the sign-in that returns to the page, and the claim. |
 | `useReferralAdmin()` | The admin console's Referrals tab, as data: the program's totals, the top referrers, the flagged queue and one referrer's history, through `backend/referrals.ts`, and the decision an administrator makes on a flagged referral. |
 
 ## Components

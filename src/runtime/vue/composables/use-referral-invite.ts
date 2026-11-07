@@ -1,10 +1,11 @@
-import { computed, type ComputedRef, inject, ref, type Ref, shallowRef, watch } from 'vue'
+import { computed, type ComputedRef, inject, ref, shallowRef, watch } from 'vue'
 import { useRoute } from '#imports'
+import { useAsyncQuery } from 'nuxt-convex-module/app'
 import { ConvexAuthStateKey, useMutation } from 'nuxt-convex-module/client'
 import type { ReferralPreview } from '../../../convex/integrations/referrals'
 import type { BackendError } from '../utils/backend-error'
 import { failureOf } from '../utils/backend-error'
-import { absentQuery, useLiveQuery } from '../utils/live-query'
+import { absentQuery } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
 import { useBackendPagePath } from './use-backend-page-path'
 import type { ReferralsApiRefs } from './use-referrals'
@@ -12,18 +13,29 @@ import type { ReferralsApiRefs } from './use-referrals'
 /** Where the page a referral link opens is: reading the link, ready to claim, claiming, or settled. */
 export type ReferralInviteState = 'checking' | 'invalid' | 'ready' | 'claimable' | 'claiming' | 'claimed' | 'ignored' | 'own'
 
+/** The options of {@link useReferralInvite}. */
+export interface UseReferralInviteOptions {
+  /** Override the injected `api.referrals` namespace. */
+  api?: ReferralsApiRefs
+}
+
 /** What {@link useReferralInvite} returns. */
 export interface UseReferralInviteReturn {
   /** The code of the link, from its address. */
   code: ComputedRef<string>
   state: ComputedRef<ReferralInviteState>
-  /** What the link offers: the inviter's first name and what each side gets. `undefined` while it loads, `null` for a link that is none. */
+  /** What the link offers: the inviter's first name and what each side gets. `undefined` while it loads, `null` for a link that is none or could not be read. */
   preview: ComputedRef<ReferralPreview | null | undefined>
+  /** `true` until the link has been read. */
+  isLoading: ComputedRef<boolean>
+  /** `true` while the claim runs. */
+  isPending: ComputedRef<boolean>
   /** Where the sign-in page sends a visitor, who is returned to this page to claim. `null` with the sign-in page turned off. */
   signInTo: ComputedRef<string | null>
   /** Claim the referral for the signed-in account: the explicit step. Never rejects: a code that cannot be used is `ignored`. */
   claim: () => Promise<void>
-  error: Ref<BackendError | null>
+  /** Why the claim failed, or else why the link could not be read. */
+  error: ComputedRef<BackendError | null>
 }
 
 /**
@@ -35,10 +47,28 @@ export interface UseReferralInviteReturn {
  * holds it to a sign-in from the last ten minutes, so a link carrying
  * `?claim=1` that someone signed in earlier opens claims nothing by itself:
  * they, and anyone else who is signed in, claim with a button.
+ *
+ * The link is read on the server too, so the offer is in the first paint,
+ * and stays live in the browser. The server renders nobody as signed in, so
+ * `state` starts at `ready` there, and the claim only ever runs in the
+ * browser. A link that cannot be read reads as `invalid`, with the reason in
+ * `error`.
+ *
+ * @example
+ * ```vue
+ * <script setup lang="ts">
+ * const { state, preview, signInTo, claim } = useReferralInvite()
+ * </script>
+ * <template>
+ *   <p v-if="preview">{{ preview.inviter ?? 'A friend' }} invited you.</p>
+ *   <NuxtLink v-if="state === 'ready' && signInTo" :to="signInTo">Sign up to claim</NuxtLink>
+ *   <button v-else-if="state === 'claimable'" @click="claim()">Claim</button>
+ * </template>
+ * ```
  */
-export function useReferralInvite(): UseReferralInviteReturn {
+export function useReferralInvite(options: UseReferralInviteOptions = {}): UseReferralInviteReturn {
   const route = useRoute()
-  const api = useBackendNamespace<ReferralsApiRefs>('referrals', 'useReferralInvite')
+  const api = useBackendNamespace<ReferralsApiRefs>('referrals', 'useReferralInvite', options.api)
   const auth = inject(ConvexAuthStateKey, null)
   const signedIn = computed(() => auth != null && auth.isAuthenticated.value)
   const loginPath = useBackendPagePath('login')
@@ -48,17 +78,18 @@ export function useReferralInvite(): UseReferralInviteReturn {
     const value = route.params.code
     return String(Array.isArray(value) ? value[0] : value ?? '')
   })
-  const read = api.previewReferral ? useLiveQuery(api.previewReferral, () => ({ code: code.value })) : absentQuery<ReferralPreview | null>()
-  const preview = computed(() => (read.isLoading.value ? undefined : read.data.value))
+  const read = api.previewReferral ? useAsyncQuery(api.previewReferral, () => ({ code: code.value })) : absentQuery<ReferralPreview | null>()
+  const readFailure = computed(() => (read.error.value ? failureOf(read.error.value) : null))
+  const preview = computed(() => (read.data.value === undefined && readFailure.value ? null : read.data.value))
   const runClaim = api.claimReferral ? useMutation(api.claimReferral) : null
 
   const outcome = ref<'claiming' | 'claimed' | 'ignored' | 'own' | null>(null)
-  const error = shallowRef<BackendError | null>(null)
+  const claimFailure = shallowRef<BackendError | null>(null)
 
   const run = async (fromSignIn: boolean) => {
     if (!runClaim || outcome.value === 'claiming' || outcome.value === 'claimed') return
     outcome.value = 'claiming'
-    error.value = null
+    claimFailure.value = null
     try {
       const result = await runClaim({ code: code.value, ...(fromSignIn ? { fromSignIn: true } : {}) })
       outcome.value = result.claimed ? 'claimed' : result.reason === 'own_code' ? 'own' : 'ignored'
@@ -70,7 +101,7 @@ export function useReferralInvite(): UseReferralInviteReturn {
         outcome.value = null
         return
       }
-      error.value = found
+      claimFailure.value = found
       outcome.value = 'ignored'
     }
   }
@@ -98,5 +129,14 @@ export function useReferralInvite(): UseReferralInviteReturn {
     return `${loginPath.value}?redirect=${encodeURIComponent(`${here}?claim=1`)}`
   })
 
-  return { code, state, preview, signInTo, claim, error }
+  return {
+    code,
+    state,
+    preview,
+    isLoading: computed(() => Boolean(api.previewReferral) && preview.value === undefined),
+    isPending: computed(() => outcome.value === 'claiming'),
+    signInTo,
+    claim,
+    error: computed(() => claimFailure.value ?? readFailure.value),
+  }
 }

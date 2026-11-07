@@ -202,6 +202,7 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
   - `useContactForm` — `<ContactForm>` without its markup: a visitor's name and address or a signed-in account, the message, the honeypot, the bot check and the deployment's refusals
   - `useCredits`
   - `useEmailChange`
+  - `useEmailLink` — the page an unsubscribe or confirmation link opens, headless: what the link names, and the one press that leaves the topic or confirms it
   - `useEmailPreferences` — the email topics the signed-in person receives and their notification channels kind by kind, live, with joining and leaving one topic (a double opt-in waits for its confirmation), leaving every one, and turning one channel of one kind on or off
   - `useEmailStatus`
   - `useExperiment` — the variant of a `defineFlags` experiment for whoever is looking, rendered on the server and live, recording the person's exposure on the first read of a running one
@@ -224,6 +225,7 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
   - `usePushSubscription` — web push on this device for the signed-in person: whether the browser can take it, the permission, whether it must be installed first, and subscribing and unsubscribing it
   - `useReauthentication` — the app's "Confirm it's you": `withReauthentication(action)` signs the person in again when the server asks for a recent sign-in, then runs the action once more
   - `useReferralAdmin` — the admin console's Referrals tab as data: the totals, the top referrers, the flagged queue, and the decision an administrator makes on a flagged referral
+  - `useReferralInvite` — the page a referral link opens, headless: what the link offers, read on the server too, the sign-in that returns to it, and the claim
   - `useReferrals` — a person's referral code and link, the share text that discloses the reward, the referrals it earned by state, copy and share, and the choice to carry the code on share pages
   - `useReturnPath` — where the person goes once a page that interrupted them is done: the `?redirect=` kept to this site, else the sign-in landing
   - `useSandboxInbox`
