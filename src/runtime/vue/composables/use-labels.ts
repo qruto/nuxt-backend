@@ -106,13 +106,28 @@ export function overrideWarning(key: string, message: string): string | null {
   return `[nuxt-backend] The override of the \`${key}\` label leaves out ${missing.map(name => `{${name}}`).join(', ')}, which its English message fills: "${english}".`
 }
 
-/** In development, say once per key when an override leaves a placeholder out (see {@link overrideWarning}). */
-function checkOverride(key: string, message: string): void {
+/**
+ * What an override of a kind's `title` or `body` does not reach: a
+ * notification about the reader's own account (`billTo: 'user'`) reads the
+ * `titleYours` or `bodyYours` at `key` first, so where the package words one
+ * and the app overrode only the plain part (`override`), the packaged words
+ * stay. The development warning. Only the entry tells the client which
+ * billing mode it is in, so it rests on reading `key`, never on app config.
+ *
+ * @internal
+ */
+export function shadowWarning(key: string, override: string | undefined): string | null {
+  if (override === undefined || !/\.(?:title|body)Yours$/.test(key) || englishLabel(key) === undefined) return null
+  return `[nuxt-backend] The override of the \`${key.replace(/Yours$/, '')}\` label does not reach a notification about the reader's own account (\`billTo: 'user'\`): \`${key}\` goes first, and still reads as the package words it. Override \`${key}\` too.`
+}
+
+/** In development, say once per key what `warning` reads, when it reads anything. */
+function warnOnce(key: string, warning: () => string | null): void {
   if (!import.meta.dev || warnedOverrides.has(key)) return
-  const warning = overrideWarning(key, message)
-  if (!warning) return
+  const text = warning()
+  if (!text) return
   warnedOverrides.add(key)
-  console.warn(warning)
+  console.warn(text)
 }
 
 // A node param travels through the formatter, and through vue-i18n's, as a
@@ -167,13 +182,14 @@ export function useLabels<G extends LabelGroup>(group: G, overrides?: MaybeRefOr
   /** One label of any group, through the four sources in order; without `englishFallback`, the key when only the package's English has it. */
   const resolve = (groupName: LabelGroup, key: string, params: LabelParams, own?: LabelTree, englishFallback = true): string => {
     const path = `${groupName}.${key}`
-    const fromProp = own ? findLabel(own, key) : undefined
     const app = (config.labels as Record<string, LabelTree | undefined>)[groupName]
-    const override = fromProp ?? (app ? findLabel(app, key) : undefined)
+    const overrideOf = (name: string) => (own ? findLabel(own, name) : undefined) ?? (app ? findLabel(app, name) : undefined)
+    const override = overrideOf(key)
     if (override !== undefined) {
-      checkOverride(path, override)
+      warnOnce(path, () => overrideWarning(path, override))
       return formatLabel(override, params)
     }
+    if (groupName === 'notifications') warnOnce(path, () => shadowWarning(path, overrideOf(key.replace(/Yours$/, ''))))
     const english = englishLabel(path, groupName === group)
     const message = `backend.${path}`
     if (i18n?.te(message)) {
