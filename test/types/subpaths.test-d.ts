@@ -23,7 +23,7 @@ import { type Admin, type AdminUserDetail, type AdminUserPage, type AdminWorkspa
 import { type AdminFlag, BACKEND_FLAGS, defineFlags, type FlagValues, type Flags, setupFlags } from 'nuxt-backend/flags'
 import { setupStorage, type Storage, type StoredFile } from 'nuxt-backend/storage'
 import { type Notifications, type NotificationsPage, type NotifyOptions, setupNotifications, type UnreadCount } from 'nuxt-backend/notifications'
-import { type ImageStoreContext, priceTokens, setupAi, type MeteredContext, type ModelStatus, type ReportedCost, type StepResult } from 'nuxt-backend/ai'
+import { type AiRateLimiter, type ImageStoreContext, priceTokens, setupAi, type MeteredContext, type ModelStatus, type ReportedCost, type StepResult } from 'nuxt-backend/ai'
 import { checkIn, MONITORING_TAGS, reportError, reportingErrors } from 'nuxt-backend/monitoring'
 import backendComponent from 'nuxt-backend/convex.config'
 import authConfig, { defineBackendAuthConfig } from 'nuxt-backend/auth.config'
@@ -171,6 +171,8 @@ describe('integrations', () => {
     expectTypeOf(DEFAULT_LIMITS.emailOtp.kind).toEqualTypeOf<'token bucket'>()
     expectTypeOf(DEFAULT_LIMITS.emailOtpGlobal.kind).toEqualTypeOf<'fixed window'>()
     expectTypeOf(setupRateLimiter).returns.toHaveProperty('limit')
+    // What setupAi's budget gives back through, with the limiter's own signature.
+    expectTypeOf<ReturnType<typeof setupRateLimiter>>().toExtend<AiRateLimiter>()
     expectTypeOf(MINUTE).toBeNumber()
   })
 

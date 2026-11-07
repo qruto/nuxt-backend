@@ -217,7 +217,7 @@ function quotedPassages(passages: ReadonlyArray<{ text: string, document: { titl
  */
 export function createChats(context: AiContext, metering: AiMetering, agentComponent: unknown) {
   const { config, billing, rateLimiter, refuseAi } = context
-  const { prepare, closeSpend, armRelease, modelPicker } = metering
+  const { prepare, closeSpend, releaseMetered, armRelease, modelPicker } = metering
   const rows = context.requests as unknown as ThreadRefs
   const agentRefs = agentComponent as AgentRefs
   const names = new Set<string>()
@@ -411,7 +411,7 @@ export function createChats(context: AiContext, metering: AiMetering, agentCompo
         const searches: ModelCall[] = []
         const progress = { streaming: false }
         if (definition.moderate && await blocked(ctx, args)) {
-          if (metered) await billing.releaseSpend(ctx as never, reservation)
+          if (metered) await releaseMetered(ctx as never, reservation)
           return null
         }
         let text: string
@@ -421,7 +421,7 @@ export function createChats(context: AiContext, metering: AiMetering, agentCompo
           if (failure) throw failure
         }
         catch (error) {
-          if (metered) await billing.releaseSpend(ctx as never, reservation)
+          if (metered) await releaseMetered(ctx as never, reservation)
           // Refused before the Agent component wrote anything: the thread still shows the reply failed.
           if (!progress.streaming) await markReplyFailed(ctx, args, error)
           logBackend('warn', 'ai.chat_reply_failed', `A reply of the '${chatLabel}' chat failed; its reservation was released and nothing is charged.`, error)

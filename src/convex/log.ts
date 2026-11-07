@@ -92,6 +92,7 @@ export const LOG_CODES = {
   'ai.knowledge_embed_failed': 'A knowledge document could not be embedded (the model refused it, or an upload was no plain text or Markdown file); the document reads failed and its reservation was released.',
   'ai.model_failed': 'Every model call a run made failed though its handler returned, so the run was refused and its reservation released.',
   'ai.balance_hook_failed': 'An onCreditsLow or onCreditsExhausted hook threw; the spend itself settled.',
+  'ai.budget_credit_failed': 'What a run did not spend could not be given back to its budget; it stays counted until the window resets.',
   'ai.reservation_close_failed': 'A spend was recorded at the provider but its reservation could not be closed; the balance re-syncs on the next refresh.',
   'ai.stream_release_unscheduled': 'The release timer for a stream\'s reservation could not be scheduled; the pending-spend TTL releases it instead.',
   'ai.stream_spend_lost': 'A stream was delivered but its spend never reached the provider; the reservation was released.',

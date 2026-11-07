@@ -52,7 +52,8 @@ releases them. The endpoint is `/ai/stream`, mounted by `registerBackendRoutes({
 
 ## Budgets and low balances
 
-`setupAi`'s `budget` caps credits per window and entity (`{ units: 500, period: DAY }`), and
+`setupAi`'s `budget` caps credits per window and entity (`{ units: 500, period: DAY }`). A call
+counts its estimate, and the window gets back what the call did not spend once it closes.
 `credits.onCreditsLow` and `onCreditsExhausted` fire when the balance crosses down. Keep the hooks
 thin: record or hand off.
 
