@@ -169,7 +169,8 @@ export default defineNuxtModule<ModuleOptions>({
       // nuxt-security that was never installed. First in the list, so it is
       // set up before the base module looks for it. `security: false` in
       // nuxt.config still disables it outright (nuxt-security's own switch).
-      // Its defaults add the nonce and, in a production build, Trusted Types (src/nuxt/security.ts).
+      // Its defaults add the nonce and, in a production build, Trusted Types; in
+      // development they turn off what breaks a local server (src/nuxt/security.ts).
       ...(securityDisabled(nuxt) ? {} : { 'nuxt-security': { version: dependencyRange('nuxt-security'), defaults: securityDefaults(nuxt.options.dev) } }),
       // <NuxtImg provider="backend"> once the app adds @nuxt/image: the
       // provider and the deployment's file hosts as its defaults.
