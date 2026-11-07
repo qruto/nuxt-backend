@@ -170,6 +170,27 @@ describe('the override order', () => {
     expect(overrideWarning('invitation.accept', 'Join')).toBeNull()
   })
 
+  it('names the words of the reader\'s own account an override does not reach, for the development warning', async () => {
+    const { shadowWarning } = await import('../../src/runtime/vue/composables/use-labels')
+    const warning = shadowWarning('notifications.billing.plan_changed.titleYours', 'New plan')
+    expect(warning).toContain('`notifications.billing.plan_changed.title`')
+    expect(warning).toContain('`notifications.billing.plan_changed.titleYours`')
+    // Nothing overridden, a kind with no such words, and any other label.
+    expect(shadowWarning('notifications.billing.plan_changed.titleYours', undefined)).toBeNull()
+    expect(shadowWarning('notifications.billing.subscription_past_due.titleYours', 'Failed')).toBeNull()
+    expect(shadowWarning('invitation.accept', 'Join')).toBeNull()
+  })
+
+  it('says a development warning once per key, and nothing where there is none', async () => {
+    const { warnOnce } = await import('../../src/runtime/vue/composables/use-labels')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    warnOnce('test.quiet', () => null)
+    warnOnce('test.warned', () => 'Once.')
+    warnOnce('test.warned', () => 'Twice.')
+    expect(warn.mock.calls).toEqual([['Once.']])
+    warn.mockRestore()
+  })
+
   it('fills plurals the way the active locale words them', () => {
     const Units = defineComponent({
       setup() {

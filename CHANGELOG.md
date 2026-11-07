@@ -19,6 +19,11 @@ Fixes from the first apps built on 0.2.0, and the per-visitor sign-in limits beh
 - **Overrides of the credit labels** (`credits`, `usage`, `settings`, `pricing`) now take `{unit}`
   in place of the word "credits". Old overrides still render; development warns that `{unit}` is
   missing.
+- **Overrides of a notification's `title` or `body`, with `billTo: 'user'`.** A kind about the
+  reader's own plan, credits or gift now reads `titleYours` and `bodyYours` first. Where the package
+  words one, an override of the plain `title` or `body` stops showing, in the inbox and the email,
+  and the packaged words read instead. Override `titleYours` or `bodyYours` as well. The release
+  after 0.2.1 warns about it in development, when the inbox reads such a notification.
 
 ### New
 
