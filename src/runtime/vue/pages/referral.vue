@@ -9,8 +9,7 @@ import { useLabels } from '../composables/use-labels'
  * visitor and what they get, sends them to sign up (and back here to claim),
  * and claims the referral for an account that is signed in. The code lives
  * in the address; nothing is stored on the device. An app page at the same
- * path replaces it; build one with `useReferrals()` and the `claimReferral`
- * function.
+ * path replaces it; build one with `useReferralInvite()`.
  */
 defineOptions({ name: 'ReferralPage' })
 const { t } = useLabels('referral')

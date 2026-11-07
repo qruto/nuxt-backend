@@ -71,6 +71,18 @@ export default defineNuxtConfig({
 })
 ```
 
+On `nuxt dev`, the package also turns off `nuxt-security`'s rate limiter, `upgrade-insecure-requests` and HSTS. Every reload and DevTools probe counts against the limiter, and its `429` looks like a broken page. On a plain-http dev port, Safari obeys the other two for `localhost`, so every asset goes to `https://` and fails. A production build keeps all three. A value of your own under the `security` key wins in development too, so a `rateLimiter` you tune for production belongs under `$production` if you want it off locally:
+
+```ts [nuxt.config.ts]
+export default defineNuxtConfig({
+  $production: {
+    security: { rateLimiter: { tokensPerInterval: 2000, interval: 300_000 } },
+  },
+})
+```
+
+A browser that already stored HSTS for `localhost` keeps upgrading until that policy expires, up to 180 days with the default. Clear the stored policy, or wait it out.
+
 `convex.security: false` opts out of the Convex additions. `security: false` turns `nuxt-security` off entirely, which the package does not recommend.
 
 ## Webhooks: fail closed

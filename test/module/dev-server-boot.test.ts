@@ -89,6 +89,15 @@ describe('a nuxt dev boot', () => {
     expect(nitroPlugins(nuxt).filter(plugin => /monitoring[\\/]local-log(?:\.ts)?$/.test(plugin))).toHaveLength(1)
   })
 
+  it('runs without the limiter, the upgrade and HSTS, down to the route rule that carries HSTS', () => {
+    const nuxt = boot.nuxt()
+    const security = nuxt.options.security as unknown as { rateLimiter: unknown, headers: { strictTransportSecurity: unknown, contentSecurityPolicy: Record<string, unknown> } }
+    expect(security.rateLimiter).toBe(false)
+    expect(security.headers.strictTransportSecurity).toBe(false)
+    expect(security.headers.contentSecurityPolicy['upgrade-insecure-requests']).toBe(false)
+    expect(nuxt.options.nitro.routeRules?.['/**']?.headers).not.toHaveProperty('Strict-Transport-Security')
+  })
+
   it('leaves connect-src alone without a DSN: no SDK reports anywhere', () => {
     expect(nitroPlugins(boot.nuxt()).filter(plugin => /server[\\/]monitoring[\\/]csp/.test(plugin))).toEqual([])
   })
@@ -98,6 +107,19 @@ describe('a nuxt dev boot', () => {
     const bridge = plugins.findIndex(src => /[\\/]devtools[\\/]plugin\.client/.test(src))
     expect(bridge).toBeGreaterThanOrEqual(0)
     expect(existsSync(posix.join(fixtureDir, 'convex.json'))).toBe(false)
+  })
+})
+
+describe('a nuxt dev boot of an app that sets its own limiter and HSTS', () => {
+  const rateLimiter = { tokensPerInterval: 2000, interval: 300_000 }
+  const strictTransportSecurity = { maxAge: 60 }
+  const boot = useBoot({ test: false, security: { rateLimiter, headers: { strictTransportSecurity } } }, { dev: true })
+
+  it('keeps them: the app\'s own value wins over the package\'s development default', () => {
+    const security = boot.nuxt().options.security as unknown as { rateLimiter: unknown, headers: { strictTransportSecurity: unknown, contentSecurityPolicy: Record<string, unknown> } }
+    expect(security.rateLimiter).toMatchObject(rateLimiter)
+    expect(security.headers.strictTransportSecurity).toMatchObject(strictTransportSecurity)
+    expect(security.headers.contentSecurityPolicy['upgrade-insecure-requests']).toBe(false)
   })
 })
 
@@ -120,6 +142,15 @@ describe('a Vercel build that reports errors', () => {
 
   it('mounts no local error log outside dev', () => {
     expect(boot.nuxt().options.serverHandlers.map(handler => handler.route)).not.toContain(LOCAL_LOG_ROUTE)
+  })
+
+  it('keeps nuxt-security\'s limiter, upgrade and HSTS', () => {
+    const nuxt = boot.nuxt()
+    const security = nuxt.options.security as unknown as { rateLimiter: unknown, headers: { strictTransportSecurity: unknown, contentSecurityPolicy: Record<string, unknown> } }
+    expect(security.rateLimiter).toMatchObject({ tokensPerInterval: 150 })
+    expect(security.headers.strictTransportSecurity).toMatchObject({ includeSubdomains: true })
+    expect(security.headers.contentSecurityPolicy['upgrade-insecure-requests']).toBe(true)
+    expect(nuxt.options.nitro.routeRules?.['/**']?.headers).toHaveProperty('Strict-Transport-Security')
   })
 
   it('adds the DSN\'s origin after the base module narrows connect-src, whose plugin runs its hook first', () => {

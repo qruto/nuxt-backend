@@ -18,7 +18,25 @@ describe('the security defaults', () => {
   })
 
   it('development keeps the nonce and leaves Trusted Types off, for Vite\'s overlay', () => {
-    expect(securityDefaults(true)).toEqual({ nonce: true, headers: { contentSecurityPolicy: { 'worker-src': ['\'self\''], 'manifest-src': ['\'self\''] } } })
+    const { nonce, headers } = securityDefaults(true) as { nonce: boolean, headers: { contentSecurityPolicy: Record<string, unknown> } }
+    expect(nonce).toBe(true)
+    expect(headers.contentSecurityPolicy).not.toHaveProperty('require-trusted-types-for')
+    expect(headers.contentSecurityPolicy).not.toHaveProperty('trusted-types')
+  })
+
+  it('development turns off the limiter, the upgrade and HSTS, which a production build keeps', () => {
+    expect(securityDefaults(true)).toEqual({
+      nonce: true,
+      rateLimiter: false,
+      headers: {
+        contentSecurityPolicy: { 'worker-src': ['\'self\''], 'manifest-src': ['\'self\''], 'upgrade-insecure-requests': false },
+        strictTransportSecurity: false,
+      },
+    })
+    const production = securityDefaults(false) as { headers: { contentSecurityPolicy: Record<string, unknown> } }
+    expect(production).not.toHaveProperty('rateLimiter')
+    expect(production.headers).not.toHaveProperty('strictTransportSecurity')
+    expect(production.headers.contentSecurityPolicy).not.toHaveProperty('upgrade-insecure-requests')
   })
 
   it('names the push worker and the web app manifest as the app\'s own, whatever the policy\'s fallback', () => {

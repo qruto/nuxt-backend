@@ -555,6 +555,10 @@
         {
           "name": "useReferrals",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useReferralInvite",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
         }
       ]
     },
@@ -735,6 +739,10 @@
         },
         {
           "name": "useEmailPreferences",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useEmailLink",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
@@ -1414,9 +1422,9 @@
       "kind": "Composables",
       "items": [
         {
-          "name": "58 in all",
+          "name": "60 in all",
           "to": "/docs/reference/nuxt/composables",
-          "label": "58 composables in all"
+          "label": "60 composables in all"
         }
       ]
     },
@@ -1740,6 +1748,10 @@
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
+          "name": "useReferralInvite",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useReferralAdmin",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
@@ -1817,6 +1829,10 @@
         },
         {
           "name": "useEmailPreferences",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useEmailLink",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
