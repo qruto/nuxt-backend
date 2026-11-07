@@ -15,8 +15,8 @@ import { logBackend } from '../../log.js'
  * handler, then settles a delivered stream or releases an interrupted one.
  */
 export function createStreams(
-  { billing, pts, requests, corsOrigin, streamRegistry, recordCost }: AiContext,
-  { prepareCall, closeSpend, armRelease, checkDefinition, modelPicker }: AiMetering,
+  { pts, requests, corsOrigin, streamRegistry, recordCost }: AiContext,
+  { prepareCall, closeSpend, releaseMetered, armRelease, checkDefinition, modelPicker }: AiMetering,
 ): Pick<Ai, 'stream' | 'httpHandler'> {
   const stream: Ai['stream'] = (definition) => {
     checkDefinition(definition, 'ai.stream')
@@ -107,7 +107,7 @@ export function createStreams(
     }
 
     const release = async () => {
-      await billing.releaseSpend(ctx as never, reservation)
+      await releaseMetered(ctx as never, reservation)
       await ctx.runMutation(requests.markReleased, { streamId })
     }
     const settle = async (result: unknown, calls: readonly ModelCall[]) => {

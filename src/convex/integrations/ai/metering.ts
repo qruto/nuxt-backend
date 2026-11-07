@@ -81,6 +81,70 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
   const requiredModel = (definition: { model?: AiModel, cost?: unknown }): AiModel | undefined =>
     definition.model ?? (isReportedCost(definition.cost) ? config.model : undefined)
 
+  // One name and one window for the spend and the give-back: an inline config
+  // the two disagreed on would credit a window the spend never counted in.
+  const budget = config.budget
+  const budgetLimit = budget?.limit ?? 'aiBudget'
+  const budgetWindow = budget && { kind: 'fixed window', rate: budget.units, period: budget.period } as const
+
+  /**
+   * Give the budget back what a spend `prepare` counted did not use. Never
+   * throws: this runs once the provider may have the event, and a budget left
+   * spent costs the entity a little of its window and nothing else, the safe
+   * direction to be wrong in.
+   */
+  const giveBackBudget = async (ctx: RunCtx, entityId: string, amount: number): Promise<void> => {
+    if (!budgetWindow || !rateLimiter?.credit || !(amount > 0)) return
+    try {
+      await rateLimiter.credit(ctx, budgetLimit as never, { key: entityId, count: amount, config: budgetWindow })
+    }
+    catch (error) {
+      logBackend('warn', 'ai.budget_credit_failed', `Could not give ${amount} credits back to the '${budgetLimit}' budget: they stay counted until the window resets.`, error)
+    }
+  }
+
+  /**
+   * Release a reservation `prepare` made, and its budget with it. Jobs hold
+   * credits of their own and never count in this budget, so they call
+   * `billing.releaseSpend` directly.
+   */
+  const releaseMetered = async (ctx: RunCtx, reservation: SpendReservation): Promise<void> => {
+    await billing.releaseSpend(ctx as never, reservation)
+    await giveBackBudget(ctx, reservation.entityId, reservation.value)
+  }
+
+  /**
+   * The reservation of a spend the budget already counted. A refusal here
+   * means nothing will run, so the budget gets the cost back: in an action the
+   * count is committed by now, and in a mutation the throw undoes both.
+   */
+  const reserveSpend = async (
+    ctx: RunCtx,
+    entityId: string,
+    options: { meter: string | false, cost: number, allowOverage?: boolean, allowRefresh?: false },
+  ): Promise<SpendReservation> => {
+    if (options.meter === false) {
+      return { entityId, externalId: crypto.randomUUID(), reserved: false, value: options.cost } satisfies SpendReservation
+    }
+    try {
+      return await billing.reserveCredits(ctx, {
+        // Checked by the caller: the reservation is the entity's, not resolved again.
+        userId: entityId,
+        meter: options.meter,
+        value: options.cost,
+        // Pay-as-you-go: a meter with no credit benefit behind it has nothing
+        // prepaid to draw down, so the balance is allowed below zero and the
+        // provider invoices the overage.
+        allowOverage: options.allowOverage,
+        ...(options.allowRefresh === false ? { allowRefresh: false } : {}),
+      })
+    }
+    catch (error) {
+      await giveBackBudget(ctx, entityId, options.cost)
+      throw error
+    }
+  }
+
   /**
    * `ctx.model` for one run: the run's model, or another, each recording
    * its calls into `calls`, which the settle prices.
@@ -138,36 +202,22 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
 
     // The budget is the same limiter, counting credits instead of calls: one
     // fixed window per billing entity, consuming `cost` tokens a spend.
-    const budget = config.budget
-    if (rateLimiter && budget && options.meter !== false) {
+    if (rateLimiter && budget && budgetWindow && options.meter !== false) {
       if (options.cost > budget.units) {
         throw new Error(
           `[nuxt-backend] This call costs ${options.cost} credits but the budget is ${budget.units} per window — it can never fit.`,
         )
       }
-      const budgetLimit = budget.limit ?? 'aiBudget'
       const { ok, retryAfter } = await rateLimiter.limit(ctx as never, budgetLimit as never, {
         key: entity.userId,
         count: options.cost,
-        config: { kind: 'fixed window', rate: budget.units, period: budget.period },
+        config: budgetWindow,
         throws: true,
       })
       if (!ok) throw limitRefusal(budgetLimit, retryAfter, `[nuxt-backend] Credit budget reached — ${budget.units} credits per window.`, 'Resets in')
     }
 
-    const reservation = options.meter === false
-      ? { entityId: entity.userId, externalId: crypto.randomUUID(), reserved: false, value: options.cost } satisfies SpendReservation
-      : await billing.reserveCredits(ctx, {
-          // Checked above: the reservation is the entity's, not resolved again.
-          userId: entity.userId,
-          meter: options.meter,
-          value: options.cost,
-          // Pay-as-you-go: a meter with no credit benefit behind it has nothing
-          // prepaid to draw down, so the balance is allowed below zero and the
-          // provider invoices the overage.
-          allowOverage: options.allowOverage,
-          ...(options.allowRefresh === false ? { allowRefresh: false } : {}),
-        })
+    const reservation = await reserveSpend(ctx, entity.userId, options)
 
     return {
       usage: {
@@ -263,9 +313,11 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
       })
     }
     catch (error) {
-      await billing.releaseSpend(ctx, reservation)
+      await releaseMetered(ctx, reservation)
       throw error
     }
+    // Before the `reserved` check: an overage spend reserves nothing, but the budget counted it.
+    await giveBackBudget(ctx, reservation.entityId, reservation.value - final)
     if (!reservation.reserved) return
     // Past this line the provider has the event and will invoice it: the spend
     // is charged whatever happens next. So the cache bookkeeping below must
@@ -388,7 +440,7 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
           if (failure) throw failure
         }
         catch (error) {
-          if (metered) await billing.releaseSpend(ctx as never, reservation)
+          if (metered) await releaseMetered(ctx as never, reservation)
           throw error
         }
         finally {
@@ -402,7 +454,7 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
     })
   }
 
-  return { prepare, prepareCall, closeSpend, armRelease, meteredAction, checkDefinition, requiredModel, modelPicker }
+  return { prepare, prepareCall, closeSpend, releaseMetered, armRelease, meteredAction, checkDefinition, requiredModel, modelPicker }
 }
 
 export type AiMetering = ReturnType<typeof createMetering>

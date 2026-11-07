@@ -468,6 +468,173 @@ describe('setupAi() budget — a fixed window over credits, per billing entity',
     expect(() => setupAi(components, { billing: makeBilling(), budget }))
       .toThrow(/needs a `rateLimiter`/)
   })
+
+  describe('gives back what a call did not spend', () => {
+    const window = { kind: 'fixed window', rate: 100, period: 60_000 }
+    const reserving = (value: number) => makeBilling({
+      reserveCredits: vi.fn(async () => (
+        { entityId: 'org_1', externalId: 'e', reserved: true, meterId: 'm1', value } as SpendReservation
+      )) as never,
+    })
+    const crediting = () => ({ limit: vi.fn(async () => ({ ok: true })), credit: vi.fn(async () => {}) })
+
+    it('credits the rest of the estimate to the window it counted in', async () => {
+      const limiter = crediting()
+      const ai = setupAi(components, { billing: reserving(30), rateLimiter: limiter as never, budget })
+      const action = ai.meteredAction({ meter: 'credits', cost: { estimate: 30, finalize: () => 12 }, args: {}, handler: async () => 'ok' })
+
+      await invoke(action, identityCtx(), {})
+
+      expect(limiter.credit).toHaveBeenCalledTimes(1)
+      expect(limiter.credit).toHaveBeenCalledWith(expect.anything(), 'aiBudget', { key: 'org_1', count: 18, config: window })
+    })
+
+    it('credits a budget under its own limit name', async () => {
+      const limiter = crediting()
+      const ai = setupAi(components, { billing: reserving(30), rateLimiter: limiter as never, budget: { ...budget, limit: 'draftBudget' } })
+      const action = ai.meteredAction({ meter: 'credits', cost: { estimate: 30, finalize: () => 12 }, args: {}, handler: async () => 'ok' })
+
+      await invoke(action, identityCtx(), {})
+
+      expect(limiter.credit).toHaveBeenCalledWith(expect.anything(), 'draftBudget', { key: 'org_1', count: 18, config: window })
+    })
+
+    it('credits an overage spend, which reserves nothing', async () => {
+      const limiter = crediting()
+      const billing = makeBilling({
+        reserveCredits: vi.fn(async () => ({ entityId: 'org_1', externalId: 'e', reserved: false, value: 30 } as SpendReservation)) as never,
+      })
+      const ai = setupAi(components, { billing, rateLimiter: limiter as never, budget })
+      const action = ai.meteredAction({ meter: 'credits', cost: { estimate: 30, finalize: () => 12 }, args: {}, handler: async () => 'ok' })
+
+      await invoke(action, identityCtx(), {})
+
+      expect(limiter.credit).toHaveBeenCalledWith(expect.anything(), 'aiBudget', { key: 'org_1', count: 18, config: window })
+    })
+
+    it.each([
+      ['settles at its estimate', { estimate: 30, finalize: () => 30 }],
+      ['finalizes above its estimate', { estimate: 30, finalize: () => 45 }],
+      ['has a fixed cost', 30],
+    ])('credits nothing for a run that %s', async (_label, cost) => {
+      const limiter = crediting()
+      const ai = setupAi(components, { billing: reserving(30), rateLimiter: limiter as never, budget })
+      const action = ai.meteredAction({ meter: 'credits', cost, args: {}, handler: async () => 'ok' })
+
+      await invoke(action, identityCtx(), {})
+
+      expect(limiter.credit).not.toHaveBeenCalled()
+    })
+
+    it('credits nothing under charge: \'start\', even when the run fails', async () => {
+      const limiter = crediting()
+      const ai = setupAi(components, { billing: reserving(30), rateLimiter: limiter as never, budget })
+      const action = ai.meteredAction({
+        meter: 'credits',
+        cost: 30,
+        charge: 'start',
+        args: {},
+        handler: async () => {
+          throw new Error('boom')
+        },
+      })
+
+      await expect(invoke(action, identityCtx(), {})).rejects.toThrow('boom')
+
+      expect(limiter.credit).not.toHaveBeenCalled()
+    })
+
+    it('credits nothing for an unmetered action, which never counted', async () => {
+      const limiter = crediting()
+      const ai = setupAi(components, { billing: makeBilling(), rateLimiter: limiter as never, budget })
+      const action = ai.meteredAction({
+        meter: false,
+        args: {},
+        handler: async () => {
+          throw new Error('boom')
+        },
+      })
+
+      await expect(invoke(action, identityCtx(), {})).rejects.toThrow('boom')
+
+      expect(limiter.credit).not.toHaveBeenCalled()
+    })
+
+    it('credits the whole estimate of a run that throws', async () => {
+      const limiter = crediting()
+      const billing = reserving(30)
+      const ai = setupAi(components, { billing, rateLimiter: limiter as never, budget })
+      const action = ai.meteredAction({
+        meter: 'credits',
+        cost: 30,
+        args: {},
+        handler: async () => {
+          throw new Error('boom')
+        },
+      })
+
+      await expect(invoke(action, identityCtx(), {})).rejects.toThrow('boom')
+
+      expect(billing.releaseSpend).toHaveBeenCalledTimes(1)
+      expect(limiter.credit).toHaveBeenCalledTimes(1)
+      expect(limiter.credit).toHaveBeenCalledWith(expect.anything(), 'aiBudget', { key: 'org_1', count: 30, config: window })
+    })
+
+    it('credits the whole estimate once when the provider event never lands', async () => {
+      const limiter = crediting()
+      const billing = makeBilling({
+        reserveCredits: reserving(30).reserveCredits,
+        settleSpend: vi.fn(async () => {
+          throw new Error('provider down')
+        }),
+      })
+      const ai = setupAi(components, { billing, rateLimiter: limiter as never, budget })
+      const action = ai.meteredAction({ meter: 'credits', cost: { estimate: 30, finalize: () => 12 }, args: {}, handler: async () => 'ok' })
+
+      await expect(invoke(action, identityCtx(), {})).rejects.toThrow('provider down')
+
+      expect(limiter.credit).toHaveBeenCalledTimes(1)
+      expect(limiter.credit).toHaveBeenCalledWith(expect.anything(), 'aiBudget', { key: 'org_1', count: 30, config: window })
+    })
+
+    it('credits the cost of a call the balance refuses, and rethrows the refusal', async () => {
+      const limiter = crediting()
+      const billing = makeBilling({
+        reserveCredits: vi.fn(async () => {
+          throw new Error('Insufficient credits')
+        }) as never,
+      })
+      const ai = setupAi(components, { billing, rateLimiter: limiter as never, budget })
+      const action = ai.meteredAction({ meter: 'credits', cost: 30, args: {}, handler: async () => 'ok' })
+
+      await expect(invoke(action, identityCtx(), {})).rejects.toThrow('Insufficient credits')
+
+      expect(limiter.credit).toHaveBeenCalledWith(expect.anything(), 'aiBudget', { key: 'org_1', count: 30, config: window })
+    })
+
+    it('leaves a limiter without credit as it was', async () => {
+      const limiter = { limit: vi.fn(async () => ({ ok: true })) }
+      const ai = setupAi(components, { billing: reserving(30), rateLimiter: limiter as never, budget })
+      const action = ai.meteredAction({ meter: 'credits', cost: { estimate: 30, finalize: () => 12 }, args: {}, handler: async () => 'ok' })
+
+      await expect(invoke(action, identityCtx(), {})).resolves.toBe('ok')
+    })
+
+    it('never fails a settled run over a credit that did not land', async () => {
+      const limiter = { limit: vi.fn(async () => ({ ok: true })), credit: vi.fn(async () => {
+        throw new Error('limiter down')
+      }) }
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const ctx = identityCtx()
+      const ai = setupAi(components, { billing: reserving(30), rateLimiter: limiter as never, budget })
+      const action = ai.meteredAction({ meter: 'credits', cost: { estimate: 30, finalize: () => 12 }, args: {}, handler: async () => 'ok' })
+
+      await expect(invoke(action, ctx, {})).resolves.toBe('ok')
+
+      expect(finalizeCall(ctx)).toMatchObject({ finalAmount: 12 })
+      warn.mockRestore()
+    })
+  })
 })
 
 describe('setupAi() low-balance hooks', () => {

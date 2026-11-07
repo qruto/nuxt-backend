@@ -237,7 +237,7 @@ async function uploadText(ctx: ActionCtx, storage: StorageRefs, storageId: strin
 /** Build `ai.knowledge`. */
 export function createKnowledge(context: AiContext, metering: AiMetering, ragComponent: unknown, storage: StorageRefs) {
   const { config, billing, recordCost } = context
-  const { prepare, closeSpend, armRelease } = metering
+  const { prepare, closeSpend, releaseMetered, armRelease } = metering
   const rows = context.requests as unknown as DocumentRefs
   const ragRefs = ragComponent as RagRefs
 
@@ -382,7 +382,7 @@ export function createKnowledge(context: AiContext, metering: AiMetering, ragCom
         const fail = async (why: string) => {
           logBackend('warn', 'ai.knowledge_embed_failed', `A knowledge document could not be embedded (${why}); it reads failed and its reservation was released.`)
           if (row) await ctx.runMutation(rows.settleDocument, { documentId: args.documentId, status: 'failed' })
-          if (metered) await billing.releaseSpend(ctx as never, reservation)
+          if (metered) await releaseMetered(ctx as never, reservation)
           return null
         }
         // Removed before it was embedded: nothing to embed, nothing to charge.
@@ -395,7 +395,7 @@ export function createKnowledge(context: AiContext, metering: AiMetering, ragCom
         // What the embedding cost, ready or failed, against who added it: it was paid for either way.
         await recordCost(ctx, { userId: usage.userId, owner: usage.entityId }, calls)
         if (!ready) {
-          if (metered) await billing.releaseSpend(ctx as never, reservation)
+          if (metered) await releaseMetered(ctx as never, reservation)
           return null
         }
         if (metered) await closeSpend(ctx as never, usage, reservation, { finalAmount: creditsOf(definition.cost?.add, text.length), metadata: { knowledge: 'add' } })
@@ -437,7 +437,7 @@ export function createKnowledge(context: AiContext, metering: AiMetering, ragCom
           passages = await searchIn(ctx, { namespace: usage.entityId, query, limit, calls })
         }
         catch (error) {
-          if (metered) await billing.releaseSpend(ctx as never, reservation)
+          if (metered) await releaseMetered(ctx as never, reservation)
           throw error
         }
         finally {

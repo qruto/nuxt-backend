@@ -186,6 +186,39 @@ Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt
   `retryAfter?`: `number`;
 \}\>
 
+##### credit()?
+
+```ts
+credit?(
+   ctx, 
+   name, 
+   options?
+): Promise<void>;
+```
+
+Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
+
+**`Experimental`**
+
+Give tokens back to a limit, up to its capacity: how a budget gets back
+what a run did not spend. A limiter of your own without it keeps
+everything a run counted.
+
+###### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `ctx` | `RunWriteCtx` & \{ `auth?`: `Auth`; \} |
+| `name` | `"aiBudget"` |
+| `options?` | \{ `key?`: `string`; `count?`: `number`; `config?`: [`RateLimitConfig`](/docs/reference/api/rate-limit#ratelimitconfig); \} |
+| `options.key?` | `string` |
+| `options.count?` | `number` |
+| `options.config?` | [`RateLimitConfig`](/docs/reference/api/rate-limit#ratelimitconfig) |
+
+###### Returns
+
+`Promise`\<`void`\>
+
 ***
 
 ### AiComponents
@@ -240,10 +273,16 @@ window over spend *value*: each metered call consumes its cost in tokens, so
 `{ units: 500, period: DAY }` is "500 credits a day per workspace", not "500
 calls a day".
 
-A cap, not a ledger — the window is the limiter's own state, there is no new
-table, and (like every rate limit) consumption is never given back: a run
-that fails, or finalizes under its estimate, still spent the estimate
-against the window. Size the budget with that slack in mind.
+The window is the limiter's own state, there is no new table. A call counts
+its whole estimate when it starts, and the window gets back what it did not
+spend when it closes: the rest of the estimate for a run that settles under
+it, all of it for a run that fails or a call the balance refuses. While a run
+is in flight its estimate stays counted, so concurrent calls can't overshoot.
+
+Two things stay counted: an abandoned stream's estimate, whose credits come
+back on a timer that can't reach the limiter, and what `charge: 'start'`
+settles. A run that crosses into the next window gives its remainder to that
+window, up to `units`.
 
 #### Properties
 
