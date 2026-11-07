@@ -84,7 +84,9 @@ const accountOf = (who: keyof typeof SIGNED_IN) => ({ id: `user_${who}`, name: '
 function sessionToken(who: keyof typeof SIGNED_IN): string {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url')
   const { id, image: _image, ...claims } = accountOf(who)
-  return `${encode({ alg: 'none', typ: 'JWT' })}.${encode({ sub: id, ...claims, exp: Math.floor(Date.now() / 1000) + 3600 })}.`
+  const now = Math.floor(Date.now() / 1000)
+  // `iat` and `exp` both: the Convex client schedules the refresh from the two, and logs an error without either.
+  return `${encode({ alg: 'none', typ: 'JWT' })}.${encode({ sub: id, ...claims, iat: now, exp: now + 3600 })}.`
 }
 stub
   .route('GET /api/auth/convex/token', (request) => {
