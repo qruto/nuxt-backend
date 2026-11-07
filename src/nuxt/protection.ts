@@ -2,6 +2,7 @@ import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { addNitroPlugin, addPlugin, addServerHandler, type Resolver } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
+import { nitroAliases } from '../aliases'
 import { readEnvFiles } from '../env-push'
 import { logger } from './logger'
 
@@ -53,10 +54,10 @@ export function registerProtection(resolver: Resolver, nuxt: Nuxt): void {
   if (!botId) {
     const absent = resolver.resolve('./runtime/protection/botid-absent')
     nuxt.options.alias ||= {}
-    nuxt.options.nitro.alias ||= {}
+    const nitro = nitroAliases(nuxt)
     for (const entry of BOTID_ENTRIES) {
       nuxt.options.alias[entry] = absent
-      nuxt.options.nitro.alias[entry] = absent
+      nitro[entry] = absent
     }
   }
   // Public: a challenge's site key is meant for the page. Its name is the
