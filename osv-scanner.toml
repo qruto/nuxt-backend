@@ -84,22 +84,22 @@ reason = "fallow 3.33.1: needs a hostile analyzed repository; fallow only reads 
 [[IgnoredVulns]]
 id = "GHSA-965c-763c-88jm"
 ignoreUntil = 2027-01-09
-reason = "better-auth 1.6.34: needs the magic-link plugin with social sign-in; never enabled"
+reason = "better-auth 1.6.33: needs the magic-link plugin with social sign-in; never enabled"
 
 [[IgnoredVulns]]
 id = "GHSA-r4xp-prcw-77qf"
 ignoreUntil = 2027-01-09
-reason = "better-auth 1.6.34: needs the oAuthProxy plugin; never enabled"
+reason = "better-auth 1.6.33: needs the oAuthProxy plugin; never enabled"
 
 [[IgnoredVulns]]
 id = "GHSA-q84f-53jg-9ppm"
 ignoreUntil = 2027-01-09
-reason = "better-auth 1.6.34: needs the deviceAuthorization plugin; never enabled"
+reason = "better-auth 1.6.33: needs the deviceAuthorization plugin; never enabled"
 
 [[IgnoredVulns]]
 id = "GHSA-44jh-23m7-hpcf"
 ignoreUntil = 2027-01-09
-reason = "better-auth adapters 1.6.34: Drizzle and Kysely on PostgreSQL; the package stores through Convex"
+reason = "better-auth adapters 1.6.33: Drizzle and Kysely on PostgreSQL; the package stores through Convex"
 
 # Nuxt's case-variant route rules — fixed in 4.6.2, and the lockfile resolves
 # 4.6.3. The advisory also lists the 3.x line with no fix, which is what the
