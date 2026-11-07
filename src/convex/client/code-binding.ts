@@ -11,7 +11,7 @@ import { type AuthLibrarySecretConfig, contextSecrets, firstVerified } from '../
 // keeps: Better Auth then writes the row anew, under a new id). Checking the code needs that cookie, so a code read over
 // someone's shoulder or typed into a phishing page signs nobody in
 // elsewhere. Better Auth's email OTP plugin has no binding of its own
-// (checked 2026-10-27, Better Auth 1.6).
+// (checked 2026-11-07, Better Auth 1.7).
 
 /** The cookie's name, under Better Auth's prefix (`__Secure-better-auth.sign_in_code` over HTTPS). */
 const CODE_COOKIE = 'sign_in_code'

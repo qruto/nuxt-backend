@@ -35,7 +35,7 @@ const WORKSPACE = { id: 'org_acme', name: 'Acme', slug: 'acme', createdAt: '2026
 /** An unsigned JWT the Convex client can read the expiry of; the stub accepts any token. */
 function convexToken(): string {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url')
-  return `${encode({ alg: 'none', typ: 'JWT' })}.${encode({ sub: USER.id, iss: 'stub', aud: 'convex', role: USER.role, exp: Math.floor(Date.now() / 1000) + 3600 })}.`
+  return `${encode({ alg: 'none', typ: 'JWT' })}.${encode({ sub: USER.id, iss: 'stub', aud: 'convex', role: USER.role, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 3600 })}.`
 }
 
 const CATALOG: BackendAppConfigInput = {

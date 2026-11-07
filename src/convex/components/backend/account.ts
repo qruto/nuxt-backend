@@ -216,8 +216,10 @@ export const ERASURE_PARTICIPANTS = {
       for (const identifier of [`sign-in-otp-${email}`, `email-verification-otp-${email}`, `forget-password-otp-${email}`]) {
         await budget.remove(ctx, 'verification', () => ctx.db.query('verification').withIndex('identifier', q => q.eq('identifier', identifier)).take(budget.left))
       }
-      // An email change it started: Better Auth keys its code `change-email-otp-<address>-<new address>`.
-      const change = `change-email-otp-${email}-`
+    }
+    if (userId) {
+      // An email change it started: Better Auth keys its code `change-email-otp-<account id>:<new address>`.
+      const change = `change-email-otp-${userId}:`
       await budget.remove(ctx, 'verification', () => ctx.db.query('verification').withIndex('identifier', q => q.gte('identifier', change).lt('identifier', `${change}\uFFFF`)).take(budget.left))
     }
     if (budget.spent) return true

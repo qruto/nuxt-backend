@@ -17,7 +17,9 @@ const holds = [...read('.github/dependabot.yml').matchAll(/^\s+- dependency-name
 
 describe('the upstream watch', () => {
   it('reads the holds', () => {
-    expect(holds).toContain('better-auth')
+    expect(holds).toContain('h3')
+    // Lifted with the move to Better Auth 1.7.
+    expect(holds).not.toContain('better-auth')
   })
 
   it.each(holds)('names a watch that lifts the %s hold', (hold) => {
@@ -31,9 +33,8 @@ describe('the upstream watch', () => {
     if (watch.pr !== undefined) expect(watch.pr).toMatch(/^[\w.-]+\/[\w.-]+#\d+$/)
   })
 
-  it('names the upstream pull requests the Better Auth and Polar SDK holds wait on', () => {
+  it('names the upstream pull request the Polar SDK hold waits on', () => {
     expect(Object.fromEntries(watches.filter(watch => watch.pr).map(watch => [watch.id, watch.pr]))).toMatchObject({
-      'better-auth-1.7': 'get-convex/better-auth#444',
       'polar-sdk-1': 'get-convex/polar#100',
     })
   })

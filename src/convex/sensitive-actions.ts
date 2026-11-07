@@ -139,6 +139,7 @@ const ROWS = {
   // ── Workspaces ─────────────────────────────────────────────────────────
   '/organization/list': VISIT,
   '/organization/get-full-organization': VISIT,
+  '/organization/get-organization': VISIT,
   '/organization/get-active-member': VISIT,
   '/organization/get-active-member-role': VISIT,
   '/organization/get-invitation': VISIT,

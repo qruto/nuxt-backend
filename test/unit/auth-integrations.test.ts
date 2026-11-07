@@ -1129,7 +1129,7 @@ describe('one live code per address and purpose', () => {
     for (const identifier of ['a-random-consent-code', 'delete-account-abc123', 'sign-in-otp', 'reserve:sign-in-otp-x']) {
       await replaceEarlierCodes({ identifier }, { context: { adapter: db } })
     }
-    await replaceEarlierCodes({ identifier: 'change-email-otp-a@b.com-c@d.com' }, null)
+    await replaceEarlierCodes({ identifier: 'change-email-otp-user-1:c@d.com' }, null)
     expect(db.deleteMany).not.toHaveBeenCalled()
   })
 
