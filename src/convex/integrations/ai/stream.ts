@@ -107,7 +107,8 @@ export function createStreams(
     }
 
     const release = async () => {
-      await releaseMetered(ctx as never, reservation)
+      // An unmetered stream keeps its cost on the row, but the budget never counted it.
+      if (definition.meter !== false) await releaseMetered(ctx as never, reservation)
       await ctx.runMutation(requests.markReleased, { streamId })
     }
     const settle = async (result: unknown, calls: readonly ModelCall[]) => {

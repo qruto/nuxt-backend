@@ -702,6 +702,40 @@ describe('the model nuxt-backend/test gives every id', () => {
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:ai.claimRequest', { streamId: 's1' })
   })
 
+  describe('a stream under a budget', () => {
+    const budget = { units: 100, period: 60_000 }
+    const crediting = () => ({ limit: vi.fn(async () => ({ ok: true })), credit: vi.fn(async () => {}) })
+    const failing = async () => {
+      throw new Error('boom')
+    }
+
+    it('gives a failed metered stream its whole estimate back', async () => {
+      const limiter = crediting()
+      const billing = makeBilling(50)
+      const ai = setupAi(components, { billing, rateLimiter: limiter as never, budget })
+      ai.stream({ name: 'answer', meter: 'credits', cost: 50, args: {}, handler: failing })
+
+      const { response } = await postStream(ai, 'answer', 50)
+      await response.text()
+
+      expect(billing.releaseSpend).toHaveBeenCalledTimes(1)
+      expect(limiter.credit).toHaveBeenCalledWith(expect.anything(), 'aiBudget', { key: 'org_1', count: 50, config: { kind: 'fixed window', rate: 100, period: 60_000 } })
+    })
+
+    it('gives a failed unmetered stream nothing back: the budget never counted it', async () => {
+      const limiter = crediting()
+      const billing = makeBilling(50)
+      const ai = setupAi(components, { billing, rateLimiter: limiter as never, budget })
+      ai.stream({ name: 'free', meter: false, cost: 50, args: {}, handler: failing })
+
+      const { response, ctx } = await postStream(ai, 'free', 50)
+      await response.text()
+
+      expect(limiter.credit).not.toHaveBeenCalled()
+      expect(ctx.runMutation).toHaveBeenCalledWith('ref:ai.markReleased', { streamId: 's1' })
+    })
+  })
+
   it('refuses to start a stream whose model this deployment cannot reach', async () => {
     vi.stubEnv('CONVEX_CLOUD_URL', SELF_HOSTED)
     vi.stubEnv('AI_GATEWAY_API_KEY', '')
