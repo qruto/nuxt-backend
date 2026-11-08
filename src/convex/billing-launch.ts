@@ -1,6 +1,6 @@
-// Whether billing sells on a deployment yet: the one rule the runtime (the
-// pricing, checkout and gift refusals), the composables and `doctor` read.
-// Pure: no Convex code, so the CLI imports it as it is.
+// Whether billing sells on a deployment yet: the rule behind `billing.launch`,
+// the pricing's `launched` and the refusal of every sale (`not_launched`).
+// Pure: no Convex code, so a CLI check can import it as it is.
 
 /**
  * Why billing sells nothing yet on a production deployment: no provider

@@ -464,8 +464,10 @@ function eventRoutes({ state, models, now }: ApiContext): Route[] {
         metadata: metadataOf(entry.metadata),
         timestamp: timeOf(entry, 'timestamp') ?? now(),
       }
+      // With `lagEvents`, the event waits for `applyPendingEvents`, as the provider's worker applies it a moment later.
+      if (state.lagEvents) event.pending = true
       state.events.push(event)
-      touchMeters(state, event, now())
+      if (!event.pending) touchMeters(state, event, now())
       inserted += 1
     }
     return reply(200, 'events-ingested', { inserted, duplicates })

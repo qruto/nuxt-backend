@@ -10,6 +10,14 @@
       "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#a-production-checkout-waits-for-billing-to-launch-and-welcome-credits-come-from-the-catalog"
     },
     {
+      "from": "`not_ready` (reason `no_catalog`) from a production checkout",
+      "to": "`unavailable` (reason `not_launched`)",
+      "change": "reshaped",
+      "section": "A production checkout waits for billing to launch, and welcome credits come from the catalog",
+      "note": "a production deployment with a token whose catalog `billing sync --env production` never wrote; a sandbox one keeps `no_catalog`",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#a-production-checkout-waits-for-billing-to-launch-and-welcome-credits-come-from-the-catalog"
+    },
+    {
       "from": "billing.refundCredits in onUserCreated",
       "to": "credits: { meter, units, once: true }",
       "change": "reshaped",

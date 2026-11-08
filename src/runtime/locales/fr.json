@@ -1778,7 +1778,7 @@
           "kept": "Aussi longtemps que le compte."
         },
         "billing": {
-          "holds": "Les forfaits, fonctionnalités et soldes de crédits mis en cache des entités de facturation du compte, leurs changements de forfait programmés et leurs clés de quota, les offres de maintien que le parcours de résiliation leur a faites, et l’essai utilisé par le compte.",
+          "holds": "Les forfaits, fonctionnalités et soldes de crédits mis en cache des entités de facturation du compte, leurs changements de forfait programmés et leurs clés de quota, les offres de maintien que le parcours de résiliation leur a faites, l’essai utilisé par le compte, et une empreinte de l’adresse à laquelle ses crédits de bienvenue sont allés.",
           "kept": "Aussi longtemps que l’entité ; une marque de suppression, 30 jours."
         },
         "billingProofs": {

@@ -104,7 +104,7 @@ Start the dev deployment's billing over in the organization BILLING_ACCESS_TOKEN
 
 | Name | Capability | Read on | Tier | Without it |
 |---|---|---|---|---|
-| `BILLING_ACCESS_TOKEN` | billing | deployment | optional | billing queries return empty and checkout actions fail on invocation |
+| `BILLING_ACCESS_TOKEN` | billing | deployment | optional | billing reads answer empty; on production billing is not launched (the pricing reads "Plans open soon" and every sale is refused as not_launched), elsewhere a checkout is refused as not_configured |
 | `BILLING_WEBHOOK_SECRET` | billing | deployment | optional | billing events are rejected — entitlements refresh only on demand (syncEntitlements) |
 
 ## The scaffold's function contract

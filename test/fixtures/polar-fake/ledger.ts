@@ -22,7 +22,7 @@ function counts(state: FakeState, event: EventRecord, meter: MeterRecord, custom
 export function meterUsage(state: FakeState, meter: MeterRecord, customerId: string, since: number): number {
   let usage = 0
   for (const event of state.events) {
-    if (!counts(state, event, meter, customerId, since)) continue
+    if (event.pending || !counts(state, event, meter, customerId, since)) continue
     if (meter.aggregation.func === 'count') usage += 1
     else {
       const value = event.metadata[meter.aggregation.property]
@@ -51,6 +51,15 @@ export function touchMeters(state: FakeState, event: EventRecord, now: number): 
   if (!event.customerId) return
   for (const meter of Object.values(state.meters)) {
     if (meter.eventName === event.name) meterRow(state, event.customerId, meter.id, now)
+  }
+}
+
+/** Apply every event taken while `lagEvents` held them back: the provider's worker catching up. */
+export function applyPendingEvents(state: FakeState, now: number): void {
+  for (const event of state.events) {
+    if (!event.pending) continue
+    delete event.pending
+    touchMeters(state, event, now)
   }
 }
 

@@ -1,5 +1,5 @@
 import { Polar } from '@convex-dev/polar'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { customersGet } from '@polar-sh/sdk/funcs/customersGet.js'
 import { eventsIngest } from '@polar-sh/sdk/funcs/eventsIngest.js'
 import { setupBilling, type SetupBillingConfig } from '../../src/convex/integrations/billing'
@@ -150,7 +150,8 @@ describe('credit calls with something missing', () => {
     const ctx = makeCtx()
     await billing.refundCredits(ctx as never, { meter: 'credits', value: 2 })
     expect(mockEventsIngest).toHaveBeenCalledWith(expect.anything(), { events: [expect.objectContaining({ externalCustomerId: 'u1', metadata: { amount: -2 } })] })
-    expect(ctx.runMutation).toHaveBeenCalledWith('ref:credit', { userId: 'u1', meterId: 'm_sum', amount: 2 })
+    // Under the event's key, so a read of the provider before it applies the event takes nothing back.
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:credit', { userId: 'u1', meterId: 'm_sum', amount: 2, externalId: expect.any(String) })
 
     expect(await refusal(billing.refundCredits(makeCtx(null) as never, { meter: 'credits', value: 2 }))).toMatchObject({ code: 'unauthenticated' })
   })
@@ -225,5 +226,28 @@ describe('getPricing', () => {
     const getPricing = unsynced.api.getPricing as unknown as { _handler: (ctx: unknown, args: object) => Promise<unknown> }
     expect(await getPricing._handler(ctx, {})).toEqual({ plans: [], packs: [], currencies: [], launched: true })
     expect(ctx.runQuery).not.toHaveBeenCalledWith('ref:getBenefitMetadata', expect.anything())
+  })
+})
+
+describe('billing not launched', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('names a production deployment with a token but no production catalog, and refuses its sales by that reason', async () => {
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
+    // The catalog has only its sandbox entry: `billing sync --env production` never ran.
+    const unlaunched = setupBilling(components, config)
+    expect(unlaunched.launch).toEqual({ launched: false, reason: 'no_catalog' })
+    const getPricing = unlaunched.api.getPricing as unknown as { _handler: (ctx: unknown, args: object) => Promise<{ launched?: boolean }> }
+    expect((await getPricing._handler(makeCtx(null), {})).launched).toBe(false)
+    const refused = await refusal(unlaunched.checkout(makeCtx() as never, { productIds: ['prod_pro'], origin: 'http://localhost:3000', successUrl: 'http://localhost:3000/pricing' }))
+    expect(refused).toMatchObject({ code: 'unavailable', data: { service: 'billing', reason: 'not_launched' } })
+    // A plan change to a paid plan is a sale too; nothing reaches the provider.
+    expect(await refusal(unlaunched.updateSubscription(makeCtx() as never, { productId: 'prod_pro' }))).toMatchObject({ code: 'unavailable', data: { reason: 'not_launched' } })
+    expect(mockEventsIngest).not.toHaveBeenCalled()
+  })
+
+  it('is launched everywhere else, its missing token still a setup error', () => {
+    const sandbox = setupBilling(components, { ...config, accessToken: undefined } as unknown as SetupBillingConfig)
+    expect(sandbox.launch).toEqual({ launched: true })
   })
 })

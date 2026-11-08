@@ -1,12 +1,13 @@
 /// <reference types="vite/client" />
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
-import { defineSchema, makeFunctionReference, type FunctionReference } from 'convex/server'
+import { componentsGeneric, defineSchema, makeFunctionReference, type FunctionReference } from 'convex/server'
 import type { TestConvex } from 'convex-test'
 import { syncBillingCatalog } from '../../src/cli/billing/sync'
 import { createPolarFake, type PolarFake, routeToFake } from '../fixtures/polar-fake/server'
 import type { BillingCatalog } from '../../src/convex/catalog'
 import type { Pricing } from '../../src/convex/integrations/billing/types/records'
-import { asUser, defineBackendTestApp } from '../../src/convex/test'
+import { asUser, defineBackendTestApp, seedWorkspace } from '../../src/convex/test'
+import { applyPendingEvents } from '../fixtures/polar-fake/ledger'
 import { signingSecret } from '../helpers/secrets'
 
 // Welcome credits (`credits: { meter, units, once: true }` on the free
@@ -68,6 +69,7 @@ const testApp = defineBackendTestApp(defineSchema({}), {
 })
 
 const fn = <Kind extends 'query' | 'mutation' | 'action'>(path: string) => makeFunctionReference<Kind>(path) as FunctionReference<Kind, 'public'>
+const adapter = (componentsGeneric() as unknown as { backend: { adapter: Record<'create' | 'deleteOne', FunctionReference<'mutation', 'internal'>> } }).backend.adapter
 const internalFn = (path: string) => makeFunctionReference<'action'>(path) as unknown as FunctionReference<'action', 'internal'>
 
 let t: TestConvex<ReturnType<typeof defineSchema>>
@@ -116,6 +118,15 @@ const balance = async (caller: Caller) => (await caller.query(fn<'query'>('billi
 const start = (entityId: string) => t.action(internalFn('billing:startFreePlan'), { entityId })
 const grantWelcome = (entityId: string) => t.action(internalFn('billing:startFreePlan'), { entityId, welcome: true })
 const welcomeEvents = (entityId: string) => fake.state.events.filter(event => event.externalId === `welcome:${entityId}`)
+
+/** Run the queue for a while, short of the check five and a half minutes after a grant, then let the deliveries land. */
+async function runQueue(): Promise<void> {
+  for (let step = 0; step < 20; step++) {
+    vi.advanceTimersByTime(2000)
+    await t.finishInProgressScheduledFunctions()
+  }
+  await fake.idle()
+}
 
 /** Run the queue (the workpool and the scheduler) until nothing is left, then let the deliveries land. */
 async function drain(): Promise<void> {
@@ -183,6 +194,60 @@ describe('welcome credits', () => {
     await drain()
     expect(refusals).toBe(0)
     expect(welcomeEvents(ada.workspaceId!)).toHaveLength(1)
+    expect(await balance(ada)).toBe(508)
+  })
+
+  test('are once per person: a second workspace of the owner, and an account made again with the address, get none', async () => {
+    const ada = await asUser(t, { email: 'ada@example.com' })
+    await start(ada.workspaceId!)
+    await drain()
+    expect(welcomeEvents(ada.workspaceId!)).toHaveLength(1)
+    // A second workspace its owner holds: the person had theirs.
+    const second = await seedWorkspace(t)
+    await t.mutation(adapter.create, { input: { model: 'member', data: { organizationId: second, userId: ada.userId, role: 'owner', createdAt: Date.now() } } })
+    expect(await start(second)).toBe('started')
+    await drain()
+    expect(welcomeEvents(second)).toEqual([])
+    // The account deleted, then made again with the address: the same person, and so is one with a tag and a dot added.
+    await t.mutation(adapter.deleteOne, { input: { model: 'user', where: [{ field: '_id', value: ada.userId }] } })
+    for (const email of ['ada@example.com', 'a.da+again@example.com']) {
+      const again = await asUser(t, { email })
+      expect(await start(again.workspaceId!)).toBe('started')
+      await drain()
+      expect(welcomeEvents(again.workspaceId!)).toEqual([])
+    }
+  })
+
+  test('are queued for a first start whose answer was lost', async () => {
+    const ada = await asUser(t, { email: 'ada@example.com' })
+    const route = routeToFake(fake, FAKE)
+    // The provider makes the subscription, and its answer never arrives.
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init)
+      const answer = await route(request)
+      return request.method === 'POST' && /^\/v1\/subscriptions\/?$/.test(new URL(request.url).pathname)
+        ? Response.json({ error: 'InternalServerError', detail: 'the answer was lost' }, { status: 500 })
+        : answer
+    })
+    expect(await start(ada.workspaceId!)).toBe('subscribed')
+    await drain()
+    expect(welcomeEvents(ada.workspaceId!)).toHaveLength(1)
+  })
+
+  test('a provider read that does not count the grant yet takes nothing back, and the check reads it once it does', async () => {
+    fake.state.lagEvents = true
+    const ada = await asUser(t, { email: 'ada@example.com' })
+    await start(ada.workspaceId!)
+    await runQueue()
+    expect(welcomeEvents(ada.workspaceId!)).toHaveLength(1)
+    expect(await balance(ada)).toBe(508)
+    // A sync now reads the provider, which has not applied the grant yet: the cache keeps it.
+    await ada.action(fn<'action'>('billing:syncEntitlements'), {})
+    expect(await balance(ada)).toBe(508)
+    // The provider catches up; the check, past the cache's window, reads it from there.
+    fake.state.lagEvents = false
+    applyPendingEvents(fake.state, Date.now())
+    await drain()
     expect(await balance(ada)).toBe(508)
   })
 

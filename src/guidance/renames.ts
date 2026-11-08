@@ -96,6 +96,7 @@ const SESSIONS = 'Sessions are listed and revoked by id'
 export const RENAMES: readonly Rename[] = [
   // 0.3: billing before it launches, and welcome credits.
   { from: '`unavailable` (reason `not_configured`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'only a sale on a production deployment with no token or no production catalog; every other refusal keeps `not_configured`' },
+  { from: '`not_ready` (reason `no_catalog`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'a production deployment with a token whose catalog `billing sync --env production` never wrote; a sandbox one keeps `no_catalog`' },
   { from: 'billing.refundCredits in onUserCreated', to: 'credits: { meter, units, once: true }', change: 'reshaped', section: LAUNCH, note: 'welcome credits on the free plan, granted once after the reverse trial; drop the hand-rolled grant' },
 
   // One way per action. The boundaries, the banners, the auth members and

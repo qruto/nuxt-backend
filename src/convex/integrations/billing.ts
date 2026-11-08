@@ -164,11 +164,13 @@ export function setupBilling(
   const rewards = createRewards(context, customers, rules, catalogDiscounts, gifts.passes)
   const welcome = createWelcomeCredits(context, credits, entitlements, freePlan)
   // A new workspace's first free plan becomes the reverse trial's pass, which
-  // the gift sweep then follows; then its welcome credits are queued.
+  // the gift sweep then follows; then its owner's welcome credits are queued,
+  // once per person.
   freePlan.hooks.firstStart = async (ctx, entityId, owner, subscriptionId) => {
     if (await lifecycle.startReverseTrial(ctx, entityId, owner, subscriptionId)) await gifts.registerSweep(ctx)
-    await welcome.queue(ctx, entityId)
+    await welcome.queue(ctx, entityId, owner)
   }
+  freePlan.hooks.queueWelcome = welcome.queue
   freePlan.hooks.welcome = welcome.run
   const { generateCheckoutLink, checkout } = createCheckout(context, rules, customers, freePlan, catalogDiscounts, lifecycle)
   const { giftCheckout, claimGift, getReceivedGifts, getSentGifts, resendGift, changeGiftRecipient, rescheduleGift, cancelGift, runGiftSweep } = gifts

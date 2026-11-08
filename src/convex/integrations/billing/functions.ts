@@ -285,10 +285,10 @@ export function createBillingFunctions(
   // billing:startFreePlan '{}'` queues the free plan for every existing
   // entity, a page at a time.
   const startFreePlan = internalActionGeneric({
-    args: { entityId: v.optional(v.string()), kind: v.optional(v.union(v.literal('workspace'), v.literal('user'))), cursor: v.optional(v.string()), welcome: v.optional(v.boolean()) },
+    args: { entityId: v.optional(v.string()), kind: v.optional(v.union(v.literal('workspace'), v.literal('user'))), cursor: v.optional(v.string()), welcome: v.optional(v.union(v.literal(true), v.literal('check'))) },
     handler: async (ctx, { entityId, kind, cursor, welcome }) => {
-      // `welcome`: the entity's welcome credits alone, queued after its first start.
-      if (entityId !== undefined) return welcome ? await freePlan.welcome(ctx, entityId) : await freePlan.start(ctx, entityId, kind)
+      // `welcome`: the entity's welcome credits alone (`true`), queued after its first start, or the check that follows them.
+      if (entityId !== undefined) return welcome ? await freePlan.welcome(ctx, entityId, welcome) : await freePlan.start(ctx, entityId, kind)
       await freePlan.backfill(ctx as unknown as QueueCtx, cursor ?? null)
       return null
     },

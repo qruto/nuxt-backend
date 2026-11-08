@@ -1778,7 +1778,7 @@
           "kept": "As long as the account."
         },
         "billing": {
-          "holds": "The cached plans, features and credit balances of the account's billing entities, their scheduled plan changes and quota keys, the save offers the cancel flow made them, and the trial the account used.",
+          "holds": "The cached plans, features and credit balances of the account's billing entities, their scheduled plan changes and quota keys, the save offers the cancel flow made them, the trial the account used, and a digest of the address its welcome credits went to.",
           "kept": "As long as the entity; a deletion mark 30 days."
         },
         "billingProofs": {

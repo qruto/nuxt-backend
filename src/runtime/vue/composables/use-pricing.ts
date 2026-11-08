@@ -103,7 +103,7 @@ export interface UsePricingReturn {
    */
   launched: ComputedRef<boolean | undefined>
   /**
-   * The free plan's welcome credits: what a new billing entity gets once
+   * The free plan's welcome credits: what each person gets once
    * (`credits: { once: true }` in the catalog), with the meter's unit.
    * `undefined` while the pricing loads, or when the catalog grants none.
    */

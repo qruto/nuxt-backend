@@ -180,8 +180,8 @@ export interface BillingCatalogIds {
   free?: string
   /**
    * The free plan's welcome credits (`credits: { once: true }` in the
-   * catalog): the meter they land on and how many, granted once to every
-   * new billing entity as its free plan first starts.
+   * catalog): the meter they land on and how many, granted once per person
+   * as the first billing entity they own first starts on the free plan.
    */
   welcome?: { meter: string, units: number }
   /**
@@ -462,8 +462,9 @@ export interface PricedPlan {
    */
   free?: true
   /**
-   * The free plan's welcome credits: what a new billing entity gets once,
-   * as it first starts on it (`credits: { once: true }` in the catalog).
+   * The free plan's welcome credits: what each person gets once, as the
+   * first billing entity they own first starts on it (`credits: { once:
+   * true }` in the catalog).
    * Only on the catalog's free plan, and only when it grants some.
    */
   welcome?: Omit<PricedCredits, 'rollover'>

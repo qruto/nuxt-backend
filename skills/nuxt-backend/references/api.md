@@ -750,7 +750,7 @@ The app's parts, each detected as `live`, `test`, `missing` or `failing`: `npx n
 | `EMAIL_REGION` | email | deployment | optional | the provider's default region |
 | `EMAIL_WEBHOOK_SECRET` | email | deployment | optional | delivery events are rejected — useEmailStatus stays at "sent" |
 | `EMAIL_DEV_INBOX` | email | deployment | dev-only | the dev inbox's page reader (getSandboxInbox, behind useSandboxInbox) answers nothing; the CLI's inbox still reads |
-| `BILLING_ACCESS_TOKEN` | billing | deployment | optional | billing queries return empty and checkout actions fail on invocation |
+| `BILLING_ACCESS_TOKEN` | billing | deployment | optional | billing reads answer empty; on production billing is not launched (the pricing reads "Plans open soon" and every sale is refused as not_launched), elsewhere a checkout is refused as not_configured |
 | `BILLING_WEBHOOK_SECRET` | billing | deployment | optional | billing events are rejected — entitlements refresh only on demand (syncEntitlements) |
 | `AI_GATEWAY_API_KEY` | ai | deployment | optional | a provider/model id the backend names goes through the Convex AI Gateway alone, on Convex Cloud with a paid plan and @convex-dev/ai-sdk-provider installed; anywhere else (a free plan, a self-hosted deployment) it is refused when called |
 | `PROVENANCE_PRIVATE_KEY` | ai | deployment | optional | generated images are stored with the IPTC source type and no signed C2PA manifest (`ai.provenance_unsigned`); `doctor --prod` fails once the backend turns provenance on |

@@ -1778,7 +1778,7 @@
           "kept": "So lange wie das Konto."
         },
         "billing": {
-          "holds": "Die zwischengespeicherten Tarife, Funktionen und Credit-Guthaben der Abrechnungseinheiten des Kontos, ihre geplanten Tarifwechsel und Kontingentschlüssel, die Halteangebote, die der Kündigungsablauf ihnen gemacht hat, und die Testphase, die das Konto genutzt hat.",
+          "holds": "Die zwischengespeicherten Tarife, Funktionen und Credit-Guthaben der Abrechnungseinheiten des Kontos, ihre geplanten Tarifwechsel und Kontingentschlüssel, die Halteangebote, die der Kündigungsablauf ihnen gemacht hat, die Testphase, die das Konto genutzt hat, und ein Hashwert der Adresse, an die seine Willkommens-Credits gingen.",
           "kept": "So lange wie die Einheit; eine Löschmarkierung 30 Tage."
         },
         "billingProofs": {

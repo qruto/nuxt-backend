@@ -192,17 +192,19 @@ export function createCredits(
     if (!await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, entityId)) {
       throw backendError('not_ready', { reason: 'no_customer' }, `[nuxt-backend] No billing customer for ${entityId}.`)
     }
+    const externalId = event.externalId ?? crypto.randomUUID()
     const result = await eventsIngest(provider.polar, {
       events: [{
         name: meter.eventName ?? meter.key ?? event.meter,
         externalCustomerId: entityId,
         metadata: { ...event.metadata, [meter.property]: -value },
-        externalId: event.externalId ?? crypto.randomUUID(),
+        externalId,
       }],
     })
     const { inserted, duplicates } = unwrapProvider(result, 'usage refund')
     if (inserted === 0 && duplicates > 0) return false
-    await ctx.runMutation(cache.credit, { userId: entityId, meterId: meter.meterId, amount: value })
+    // Kept from a provider read for a few minutes: the provider applies the event a moment after it takes it.
+    await ctx.runMutation(cache.credit, { userId: entityId, meterId: meter.meterId, amount: value, externalId })
     return true
   }
 

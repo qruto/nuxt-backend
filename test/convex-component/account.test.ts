@@ -78,6 +78,9 @@ describe('the erasure sweep', () => {
       await ctx.db.insert('billingDiscountAttempts', { userId: personal, refused: 1, windowStart: now })
       await ctx.db.insert('billingQuotaKeys', { userId: personal, key: 'projects' })
       await ctx.db.insert('billingTrials', { ownerUserId: gone, entityId: personal, used: true, at: now })
+      // The welcome credits its personal workspace got, under the digest of its address, and the ones the shared workspace got.
+      await ctx.db.insert('billingWelcomes', { address: 'digest-of-gone', entityId: personal, at: now })
+      await ctx.db.insert('billingWelcomes', { address: 'digest-of-stays', entityId: shared, at: now })
       const bought = await ctx.db.insert('billingGifts', { recipientEmail: 'friend@example.com', purchaserUserId: gone, purchaserEmail: GONE, purchaserName: 'Gone', productIds: ['p'], message: 'For you', status: 'paid', purchaserEntityId: personal, createdAt: now })
       const received = await ctx.db.insert('billingGifts', { recipientEmail: GONE, purchaserUserId: stays, purchaserEmail: 'stays@example.com', purchaserName: 'Stays', productIds: ['p'], message: 'Enjoy', status: 'claimed', claimingUserId: gone, claimedByUserId: gone, claimedEntityId: personal, createdAt: now })
       await ctx.db.insert('aiRequests', { streamId: 's1', name: 'chat', entityId: personal, userId: gone, args: '{"prompt":"hi"}', cost: 1, externalId: 'x', status: 'reserved', createdAt: now })
@@ -189,6 +192,8 @@ describe('the erasure sweep', () => {
     expect(tables.inboundMessages).toEqual([expect.objectContaining({ emailId: 'em_3', userId: seeded.stays })])
     expect(tables.replyAddresses).toEqual([expect.objectContaining({ token: 'bbbbbbbbbbbbbbbb', userId: seeded.stays })])
     expect(tables.billingEntitlements!.map(row => (row as { userId: string }).userId)).toEqual([seeded.shared])
+    // A welcome grant keeps its digest, so signing up again gets none, and no longer names the workspace it went to.
+    expect(tables.billingWelcomes).toEqual([expect.objectContaining({ address: 'digest-of-gone', entityId: '' }), expect.objectContaining({ address: 'digest-of-stays', entityId: seeded.shared })])
     expect(tables.notifications).toEqual([expect.objectContaining({ userId: seeded.stays, type: 'workspace.member_removed', actorId: expect.stringMatching(/^erased:/) })])
     expect(tables.auditEvents).toEqual([expect.objectContaining({ type: 'workspace.member_removed', entityId: seeded.shared, subjectId: seeded.stays, actorId: expect.stringMatching(/^erased:/) })])
     // A gift is a record of a payment: it stays, neither name nor address of the account in it.

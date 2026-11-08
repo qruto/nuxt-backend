@@ -49,7 +49,10 @@ function refusedStart(error: unknown): 'customer_taken' | 'customer_unknown' | n
 }
 
 /** What `billing:startFreePlan` takes: one entity's start (or its welcome credits), or a page of the backfill. */
-type StartArgs = { entityId?: string, kind?: CreatedEntityKind, cursor?: string, welcome?: boolean }
+type StartArgs = { entityId?: string, kind?: CreatedEntityKind, cursor?: string, welcome?: WelcomeRun }
+
+/** A welcome run: `true` grants them, `'check'` is the follow-up that reads the balance back once the provider applied the grant. */
+export type WelcomeRun = true | 'check'
 
 /**
  * What one welcome grant did: `granted`, `granted_before` (the provider
@@ -98,8 +101,13 @@ export function createFreePlan(
    */
   const hooks: {
     firstStart?: (ctx: RunWriteCtx, entityId: string, owner: { userId: string, email: string }, subscriptionId: string) => Promise<void>
-    /** The welcome credits' grant, which `billing:startFreePlan` runs for `{ entityId, welcome: true }`. */
-    welcome?: (ctx: RunWriteCtx, entityId: string) => Promise<WelcomeGrant>
+    /** The welcome credits' grant, which `billing:startFreePlan` runs for `{ entityId, welcome }`. */
+    welcome?: (ctx: RunWriteCtx, entityId: string, run: WelcomeRun) => Promise<WelcomeGrant>
+    /**
+     * Queue an entity's welcome credits for its owner, once per person: after
+     * `firstStart`, and on its own for a first start whose answer was lost.
+     */
+    queueWelcome?: (ctx: RunWriteCtx, entityId: string, owner: { userId: string, email: string }) => Promise<void>
   } = {}
 
   /**
@@ -139,8 +147,13 @@ export function createFreePlan(
     else await ctx.scheduler.runAfter(0, reference, { entityId, welcome: true })
   }
 
-  /** Grant one entity's welcome credits now: what a queued `{ entityId, welcome: true }` runs. */
-  const welcome = async (ctx: RunWriteCtx, entityId: string): Promise<WelcomeGrant> => hooks.welcome ? await hooks.welcome(ctx, entityId) : 'none'
+  /** Read an entity's balance back after `delayMs`, once the provider applied its welcome grant: on the scheduler, once. */
+  const checkWelcome = async (ctx: QueueCtx, entityId: string, delayMs: number): Promise<void> => {
+    await ctx.scheduler.runAfter(delayMs, reference, { entityId, welcome: 'check' })
+  }
+
+  /** Run one entity's welcome grant, or its check, now: what a queued `{ entityId, welcome }` runs. */
+  const welcome = async (ctx: RunWriteCtx, entityId: string, run: WelcomeRun): Promise<WelcomeGrant> => hooks.welcome ? await hooks.welcome(ctx, entityId, run) : 'none'
 
   /**
    * Queue the free plan for one entity, when the catalog has one: on the
@@ -185,6 +198,17 @@ export function createFreePlan(
   }
 
   /**
+   * A first subscription that stands though its answer was lost (or another
+   * start made it): `firstStart` never ran for it, so its welcome credits
+   * are queued here, granted once per person whoever asks.
+   */
+  const welcomeAfterLostStart = async (ctx: RunWriteCtx, entityId: string, first: boolean, found: { profile: EntityProfile | null, account?: Caller }): Promise<'subscribed'> => {
+    const owner = found.profile?.owner ?? found.account
+    if (first && owner && hooks.queueWelcome) await hooks.queueWelcome(ctx, entityId, { userId: owner.userId, email: owner.email })
+    return 'subscribed'
+  }
+
+  /**
    * Subscribe one entity to the free plan, once: nothing for an entity that
    * no longer exists, nor for one that holds a subscription already at the
    * provider, an adopted customer's included. The provider decides, never
@@ -214,7 +238,7 @@ export function createFreePlan(
     // Its first subscription ever: none was synced for it, ended or not.
     const first = (await provider.listAllUserSubscriptions(ctx as unknown as ProviderCtx, { userId: entityId })).length === 0
     const created = await subscriptionsCreate(provider.polar, { productId: freePlan.productId, externalCustomerId: entityId })
-    if (!created.ok && await holdsProviderSubscription(entityId)) return 'subscribed'
+    if (!created.ok && await holdsProviderSubscription(entityId)) return await welcomeAfterLostStart(ctx, entityId, first, found)
     const subscription = unwrapProvider(created, 'free plan')
     if (first) await firstStarted(ctx, entityId, found.profile?.owner ?? found.account, subscription.id)
     return 'started'
@@ -278,7 +302,7 @@ export function createFreePlan(
     return null
   }
 
-  return { isFreeProduct, freeSubscriptionOf, queue, queueWelcome, welcome, start, backfill, restartAfterRevoke, entityCreated, deletionRefusal, hooks }
+  return { isFreeProduct, freeSubscriptionOf, queue, queueWelcome, checkWelcome, welcome, start, backfill, restartAfterRevoke, entityCreated, deletionRefusal, hooks }
 }
 
 /** The free plan of one `setupBilling` call. */

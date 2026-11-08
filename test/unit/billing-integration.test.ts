@@ -462,7 +462,7 @@ describe('spendCredits', () => {
       expect.anything(),
       { events: [expect.objectContaining({ metadata: { amount: -3 } })] },
     )
-    expect(ctx.runMutation).toHaveBeenCalledWith('ref:credit', { userId: 'u1', meterId: 'm_sum', amount: 3 })
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:credit', { userId: 'u1', meterId: 'm_sum', amount: 3, externalId: expect.any(String) })
 
     await expect(
       named.refundCredits(makeCtx() as never, { userId: 'u1', meter: 'actions', value: 1 }),

@@ -686,7 +686,7 @@
       "readOn": "Deployment",
       "required": "Optional",
       "takes": "an organization access token of the billing provider: a sandbox token outside production, a live one on it",
-      "without": "billing queries return empty and checkout actions fail on invocation",
+      "without": "billing reads answer empty; on production billing is not launched (the pricing reads \"Plans open soon\" and every sale is refused as not_launched), elsewhere a checkout is refused as not_configured",
       "checkedBy": [
         "billing-access",
         "deployment-billing-access-token",

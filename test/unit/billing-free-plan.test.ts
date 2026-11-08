@@ -67,6 +67,12 @@ describe('billing sync of a free plan and of prices in several currencies', () =
     ['usage on a plan in several currencies', { meters: { credits: {} }, plans: { pro: { name: 'Pro', prices: { usd: { month: 2900 }, eur: { month: 2700 } }, usage: [{ meter: 'credits', unitAmount: 5 }] } } }, 'billed in one currency'],
     ['no price in the catalog\'s currency', { currency: 'usd', packs: { pack: { name: 'Pack', price: { eur: 900 }, credits: { meter: 'credits', units: 10 } } } }, 'no price in usd'],
     ['no price in the organization\'s currency', { plans: { pro: { name: 'Pro', prices: { eur: { month: 2700 }, gbp: { month: 2300 } } } } }, 'no price in usd'],
+    // Welcome credits (`once`): the free plan's alone, one whole number, on a sum meter the catalog declares.
+    ['credits once on a paid plan', { meters: { credits: {} }, plans: { pro: { name: 'Pro', prices: { month: 2900 }, credits: { meter: 'credits', units: 8, once: true } } } }, 'which only the free plan does'],
+    ['welcome credits per interval', { meters: { credits: {} }, plans: { free: { name: 'Free', prices: { month: 0 }, credits: { meter: 'credits', units: { month: 8 }, once: true } } } }, 'one whole number above 0'],
+    ['no welcome credits at all', { meters: { credits: {} }, plans: { free: { name: 'Free', prices: { month: 0 }, credits: { meter: 'credits', units: 0, once: true } } } }, 'one whole number above 0'],
+    ['welcome credits on a meter the catalog lacks', { plans: { free: { name: 'Free', prices: { month: 0 }, credits: { meter: 'coins', units: 8, once: true } } } }, 'no meter of the catalog'],
+    ['welcome credits on a count meter', { meters: { credits: { aggregation: 'count' } }, plans: { free: { name: 'Free', prices: { month: 0 }, credits: { meter: 'credits', units: 8, once: true } } } }, 'counts events'],
   ])('refuses %s before the provider hears of it', async (_name, catalog, message) => {
     await expect(sync(catalog)).rejects.toThrow(message)
     expect(Object.keys(fake.state.products)).toEqual([])

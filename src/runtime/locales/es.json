@@ -1778,7 +1778,7 @@
           "kept": "Mientras exista la cuenta."
         },
         "billing": {
-          "holds": "Los planes, funciones y saldos de créditos en caché de las entidades de facturación de la cuenta, sus cambios de plan programados y claves de cuota, las ofertas de retención que les hizo el proceso de cancelación, y la prueba que usó la cuenta.",
+          "holds": "Los planes, funciones y saldos de créditos en caché de las entidades de facturación de la cuenta, sus cambios de plan programados y claves de cuota, las ofertas de retención que les hizo el proceso de cancelación, la prueba que usó la cuenta, y un hash de la dirección a la que fueron sus créditos de bienvenida.",
           "kept": "Mientras exista la entidad; una marca de eliminación, 30 días."
         },
         "billingProofs": {

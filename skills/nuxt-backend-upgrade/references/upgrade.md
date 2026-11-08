@@ -57,6 +57,7 @@ agent files and skills.
 | Was | Now | Change | Note |
 |---|---|---|---|
 | ``unavailable` (reason `not_configured`) from a production checkout` | ``unavailable` (reason `not_launched`)` | reshaped | only a sale on a production deployment with no token or no production catalog; every other refusal keeps `not_configured` |
+| ``not_ready` (reason `no_catalog`) from a production checkout` | ``unavailable` (reason `not_launched`)` | reshaped | a production deployment with a token whose catalog `billing sync --env production` never wrote; a sandbox one keeps `no_catalog` |
 | `billing.refundCredits in onUserCreated` | `credits: { meter, units, once: true }` | reshaped | welcome credits on the free plan, granted once after the reverse trial; drop the hand-rolled grant |
 
 ## [One way to do each thing](https://nuxt-backend.dev/docs/ship/releases/upgrade#one-way-to-do-each-thing)

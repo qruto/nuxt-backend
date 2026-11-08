@@ -200,10 +200,12 @@ export interface CatalogPlanCreditGrant extends Omit<CatalogCreditGrant, 'units'
   units: number | Partial<Record<CatalogInterval, number>>
   /**
    * Grant the credits once, as welcome credits, instead of every cycle:
-   * the free plan's alone. A new billing entity gets `units` (a whole
-   * number) when its free plan first starts, after the reverse trial if
-   * the catalog has one, and never again — retries and concurrent starts
-   * included. `billing sync` pushes no credit benefit for them: they land
+   * the free plan's alone. Each person gets `units` (a whole number) once,
+   * when the first billing entity they own first starts on the free plan,
+   * after the reverse trial if the catalog has one, and never again: not for
+   * a second workspace, an account made again with their address, a retry
+   * or a concurrent start. The person is the owner's address, tags and dots
+   * taken out, kept as a hash, as the reverse trial counts it. `billing sync` pushes no credit benefit for them: they land
    * as a refund-shaped usage event on a sum meter (`meter` needs a
    * `property`), keyed `welcome:<entityId>`.
    */

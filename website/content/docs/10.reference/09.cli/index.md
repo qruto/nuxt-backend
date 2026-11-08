@@ -191,7 +191,7 @@ nuxt-backend status · dev:happy-otter-123 (cloud dev deployment)
 ◐ jobs          test       Convex: runs on the cloud dev deployment
 ○ billing       missing    Polar: BILLING_ACCESS_TOKEN is not set
     unset: BILLING_ACCESS_TOKEN, BILLING_WEBHOOK_SECRET
-    ⚠ Billing access: BILLING_ACCESS_TOKEN is not set (optional): billing queries return empty and checkout actions fail on invocation.
+    ⚠ Billing access: BILLING_ACCESS_TOKEN is not set (optional): billing reads answer empty; on production billing is not launched (the pricing reads "Plans open soon" and every sale is refused as not_launched), elsewhere a checkout is refused as not_configured.
 ◐ email         test       Resend: BACKEND_ENVIRONMENT is development: only the provider's test addresses receive mail
 ◐ notifications test       Web Push: runs on the cloud dev deployment
 ○ ai            missing    AI SDK, Vercel AI Gateway, Convex persistent text streaming, Polar: its credits need billing: BILLING_ACCESS_TOKEN is not set
