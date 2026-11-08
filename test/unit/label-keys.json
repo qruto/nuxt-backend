@@ -1652,6 +1652,7 @@
   "admin.moderation.blocked": [],
   "admin.moderation.passed": [],
   "admin.moderation.escalatedMark": [],
+  "admin.moderation.knownAbuseMark": [],
   "admin.moderation.nobody": [],
   "admin.moderation.newer": [],
   "admin.moderation.older": [],

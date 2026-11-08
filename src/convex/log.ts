@@ -110,6 +110,7 @@ export const LOG_CODES = {
   'ai.spend_limit_reset': 'A new UTC day began: the pause_ai the AI spend limit turned on is off again. A pause an administrator set stays.',
   'ai.provenance_unsigned': 'Generated images were stored with the IPTC source type only, no signed C2PA manifest: PROVENANCE_PRIVATE_KEY and PROVENANCE_CERTIFICATE are not set, cannot be read or do not match, or signing failed. Once per isolate.',
   'ai.provenance_skipped': 'A generated file was stored without the package\'s C2PA manifest: its format carries none (JPEG, PNG and WebP do), or it carried content credentials of its own, which were kept. Its provenance record was written. Once per isolate.',
+  'ai.known_abuse_matched': 'An image matched a known-abuse hash list (`moderation.knownAbuse`): it was blocked, sent to no other provider, and recorded with its SHA-256 for an administrator to follow the CSAM playbook.',
   'ai.content_escalated': 'The safety classifier flagged content in a category setupAi({ moderation: { escalate } }) names: an administrator should look at it in the admin console\'s Moderation tab.',
   'ai.flag_unrecorded': 'A flagged check could not be recorded for the admin console\'s Moderation tab; the check\'s verdict stood.',
   'ai.moderation_unreadable': 'The safety classifier answered something other than a verdict ("safe", or "unsafe" and its categories): the content was refused as unchecked (`unavailable`, reason `provider_refused`). Check that setupAi({ moderation }) names a classifier, not a chat model.',

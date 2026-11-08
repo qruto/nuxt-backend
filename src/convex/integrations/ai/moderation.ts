@@ -7,6 +7,8 @@ import type { RecordCost } from './costs.js'
 import { upstreamErrorOf } from './job-errors.js'
 import { DEFAULT_MODERATION_MODEL } from './model-id.js'
 import { convexGatewayModel, FALLBACK_NAME, loadSdk, meteredModel, modelIdOf, type ModelCall, modelRefusal, type ModelRoute, type ModelRouting, noticeConvexGateway, requireModelId, routeModel } from './models.js'
+import type { KnownAbuseProvider, ModerationImage, ModerationProvider } from './moderation-providers.js'
+import { type CategoryScore, classifierReading, combineReadings, flaggedCategories, inGrayBand, type ModerationCategory, type ProviderReading, requireThresholds, thresholdsFor } from './moderation-taxonomy.js'
 
 // Content safety's check (`ai.moderate`, `ai.requireSafe`, `moderate` on a
 // metered action, a stream, a chat or a job): a call to a safety classifier
@@ -40,12 +42,20 @@ export interface ModerationInput {
   images?: string[]
 }
 
-/** What the classifier said, and what the app's policy makes of it. */
+/** What the providers said, and what the app's policy makes of it. */
 export interface ModerationVerdict {
-  /** Whether it found anything its categories name. */
+  /** Whether it found anything: a category at its threshold, or a classifier's code. */
   flagged: boolean
-  /** The classifier's own codes for what it found, such as Llama Guard's `S1` to `S14`; empty when nothing was. */
-  categories: string[]
+  /** The shared categories at or above their threshold (`sexual`, `violence`…); empty when none is. */
+  categories: ModerationCategory[]
+  /** The providers' own codes for what they found, such as Llama Guard's `S1` to `S14` or Azure's `Sexual:4`. */
+  codes: string[]
+  /** The combined score per shared category, and whether any provider could judge it for this content. */
+  scores: Partial<Record<ModerationCategory, CategoryScore>>
+  /** Every provider the check asked, in order. */
+  providers: string[]
+  /** A known-abuse match (`moderation.knownAbuse`): blocked and escalated whatever the policy says. */
+  knownAbuse?: true
   /** Whether the policy refuses it (`moderation.block`): what `requireSafe` throws on. */
   blocked: boolean
   /** Whether it falls in a category the policy has an administrator look at (`moderation.escalate`). */
@@ -74,6 +84,37 @@ export interface ModerationFlag extends ModerationSubject {
   escalate: boolean
   /** The classifier that flagged it. */
   model: string
+  codes?: string[]
+  providers?: string[]
+  scores?: Record<string, CategoryScore>
+  thresholds?: Record<string, number>
+  policyVersion?: string
+  automated?: boolean
+  /** A known-abuse match's evidence: the image's SHA-256. */
+  hash?: string
+  playbook?: 'csam'
+}
+
+/**
+ * A decision's statement of reasons (DSA Art. 17), as `getModerationStatement`
+ * gives it to the person it was about: what was decided, the categories it
+ * rests on, that it was decided by automated means, by which providers,
+ * and under which version of your policy. Your page adds the redress: how
+ * to appeal, and to whom.
+ */
+export interface ModerationStatement {
+  id: string
+  /** When it was decided, in epoch ms. */
+  at: number
+  /** `blocked`: the content was refused; `flagged`: recorded and let through. */
+  decision: 'blocked' | 'flagged'
+  /** Decided by automated means, with no person in the loop. */
+  automated: boolean
+  categories: string[]
+  providers: string[]
+  policyVersion?: string
+  subject?: string
+  stage?: string
 }
 
 /** How long flags are kept, and whether at all (`moderation.log`). */
@@ -94,6 +135,37 @@ export interface ModerationConfig {
    * a check with images is then refused as unchecked.
    */
   model?: AiModel
+  /** The text classifier: `model`'s name beside the providers. Name one or the other. */
+  text?: AiModel
+  /**
+   * Providers that check images in place of the text classifier, each with
+   * the app's own account: `azureContentSafety({ region })`. Any one that
+   * flags blocks. A check with images and no provider here goes to the
+   * classifier, which must read images.
+   */
+  images?: readonly ModerationProvider[]
+  /**
+   * A provider asked only when a score sits just under its threshold (a
+   * gray band of 0.15): `openaiModeration()`. It can raise a score, never
+   * lower one.
+   */
+  secondOpinion?: ModerationProvider
+  /**
+   * A known-abuse hash match, run on every image before any other provider
+   * sees it: `arachnidShield()`. A match blocks the content whatever
+   * `block` says, escalates it with the CSAM playbook, sends the image
+   * nowhere else, and records its SHA-256, never the image.
+   */
+  knownAbuse?: KnownAbuseProvider
+  /**
+   * The score, from 0 to 1, at or above which a shared category flags.
+   * The defaults suit an app that takes no sexual content (`sexual` 0.3,
+   * `minors_sexual` 0.05, `suggestive` 0.7, `violence`, `self_harm` and
+   * `hate` 0.5); a prompt or a model's output flags any sexual signal.
+   */
+  thresholds?: Partial<Record<ModerationCategory, number>>
+  /** Your moderation policy's version, named in every statement of reasons. */
+  policy?: { version: string }
   /**
    * The categories that refuse content: `requireSafe`, a `moderate` option
    * and a job's check throw on them, and `moderate` answers `blocked`. The
@@ -131,26 +203,46 @@ const MAX_FLAG_DAYS = 3650
 
 /** The backend component's flags, as a check records one. */
 export interface FlagRefs {
-  record: FunctionReference<'mutation', 'internal', { userId?: string, owner?: string, subject?: string, stage?: string, categories: string[], blocked: boolean, escalate: boolean, model: string, days: number }, null>
+  record: FunctionReference<'mutation', 'internal', Omit<ModerationFlag, 'id' | 'at'> & { days: number }, null>
+}
+
+/** A list of categories or codes, each a word. */
+const isCodes = (list: unknown): list is readonly string[] => Array.isArray(list) && list.every(code => typeof code === 'string' && code.trim() !== '')
+
+/** Refuse a moderation config `setupAi` cannot keep, where it is set: its lists, thresholds, classifier and policy version. */
+function requireModerationConfig(config: ModerationConfig | undefined): void {
+  const block = config?.block ?? 'all'
+  if (block !== 'all' && !isCodes(block)) throw new TypeError('[nuxt-backend] setupAi({ moderation }): `block` is \'all\' or a list of categories or codes, such as [\'sexual\', \'S4\'].')
+  if (!isCodes(config?.escalate ?? [])) throw new TypeError('[nuxt-backend] setupAi({ moderation }): `escalate` is a list of categories or codes, such as [\'minors_sexual\', \'S4\'].')
+  requireThresholds(config?.thresholds)
+  if (config?.model !== undefined && config.text !== undefined) throw new TypeError('[nuxt-backend] setupAi({ moderation }): name the text classifier once, as `text` or as `model`.')
+  if (config?.policy !== undefined && (typeof config.policy?.version !== 'string' || !config.policy.version.trim())) throw new TypeError('[nuxt-backend] setupAi({ moderation }): `policy.version` names your moderation policy\'s version, such as \'2026-11-08\'.')
+}
+
+/** How many days flags are kept: `moderation.log`'s, the default, or `false` for none. */
+function flagDays(log: ModerationConfig['log']): number | false {
+  const days = log === false ? false : (log?.days ?? DEFAULT_FLAG_DAYS)
+  if (days !== false && !(Number.isInteger(days) && days >= 1 && days <= MAX_FLAG_DAYS)) throw new TypeError(`[nuxt-backend] setupAi({ moderation }): \`log.days\` is a whole number of days from 1 to ${MAX_FLAG_DAYS}, or \`log: false\` to keep no flags.`)
+  return days
 }
 
 /** The policy `setupAi({ moderation })` sets, checked where it is set. */
-export function moderationPolicy(config: ModerationConfig | undefined): { judge: (verdict: { flagged: boolean, categories: string[] }) => { blocked: boolean, escalate: boolean }, days: number | false } {
+export function moderationPolicy(config: ModerationConfig | undefined): { judge: (verdict: { flagged: boolean, categories: readonly string[], codes?: readonly string[] }) => { blocked: boolean, escalate: boolean }, days: number | false } {
+  requireModerationConfig(config)
   const block = config?.block ?? 'all'
   const escalate = config?.escalate ?? []
-  const isCodes = (list: unknown): list is readonly string[] => Array.isArray(list) && list.every(code => typeof code === 'string' && code.trim() !== '')
-  if (block !== 'all' && !isCodes(block)) throw new TypeError('[nuxt-backend] setupAi({ moderation }): `block` is \'all\' or a list of the classifier\'s category codes, such as [\'S1\', \'S4\'].')
-  if (!isCodes(escalate)) throw new TypeError('[nuxt-backend] setupAi({ moderation }): `escalate` is a list of the classifier\'s category codes, such as [\'S4\'].')
-  const log = config?.log
-  const days = log === false ? false : (log?.days ?? DEFAULT_FLAG_DAYS)
-  if (days !== false && !(Number.isInteger(days) && days >= 1 && days <= MAX_FLAG_DAYS)) throw new TypeError(`[nuxt-backend] setupAi({ moderation }): \`log.days\` is a whole number of days from 1 to ${MAX_FLAG_DAYS}, or \`log: false\` to keep no flags.`)
+  const days = flagDays(config?.log)
   const blocking = block === 'all' ? null : new Set(block.map(code => code.toUpperCase()))
   const escalating = new Set(escalate.map(code => code.toUpperCase()))
   return {
-    judge: ({ flagged, categories }) => ({
-      blocked: flagged && (blocking === null || categories.length === 0 || categories.some(code => blocking.has(code.toUpperCase()))),
-      escalate: flagged && categories.some(code => escalating.has(code.toUpperCase())),
-    }),
+    judge: ({ flagged, categories, codes = [] }) => {
+      // A list names shared categories (`sexual`) or a provider's codes (`S4`) alike.
+      const found = [...categories, ...codes].map(code => code.toUpperCase())
+      return {
+        blocked: flagged && (blocking === null || found.length === 0 || found.some(code => blocking.has(code))),
+        escalate: flagged && found.some(code => escalating.has(code)),
+      }
+    },
     days,
   }
 }
@@ -213,7 +305,7 @@ const answerBudget = (llamaGuard: boolean) => llamaGuard
 const readsImages = (model: AiModel): boolean => typeof model === 'string' ? /llama-guard-4/i.test(model) : !/safeguard/i.test(modelIdOf(model))
 
 /** Read a classifier's answer: `safe`, or `unsafe` and its codes; `null` for anything else. */
-export function readVerdict(answer: string): Pick<ModerationVerdict, 'flagged' | 'categories'> | null {
+export function readVerdict(answer: string): { flagged: boolean, categories: string[] } | null {
   const lines = answer.trim().split(/\r?\n/).map(line => line.trim()).filter(Boolean)
   const head = lines[0]?.toLowerCase().replace(/[^a-z]/g, '')
   if (head === 'safe') return { flagged: false, categories: [] }
@@ -282,12 +374,72 @@ async function defaultClassifier(routing: ModelRouting): Promise<Classifier> {
   return { id: DEFAULT_MODERATION_MODEL, route: fallback }
 }
 
+/** A decision as its record keeps it: who and what it was about, what was found, and how it was reached. */
+function flagRecord(verdict: ModerationVerdict, about: ModerationSubject, decision: Decision, policyVersion: string | undefined): Omit<ModerationFlag, 'id' | 'at'> {
+  const subject = Object.fromEntries(Object.entries({ userId: about.userId, owner: about.owner, subject: about.subject, stage: about.stage }).filter(([, value]) => value)) as ModerationSubject
+  return {
+    ...subject,
+    categories: verdict.categories,
+    blocked: verdict.blocked,
+    escalate: verdict.escalate,
+    model: decision.model,
+    codes: verdict.codes,
+    providers: verdict.providers,
+    scores: verdict.scores as Record<string, CategoryScore>,
+    thresholds: decision.thresholds,
+    ...(policyVersion ? { policyVersion } : {}),
+    automated: true,
+    ...(decision.hash ? { hash: decision.hash, playbook: 'csam' as const } : {}),
+  }
+}
+
+/** How a decision was reached, as its record keeps it: the classifier, the thresholds, and a known-abuse match's hash. */
+interface Decision {
+  model: string
+  thresholds: Record<string, number>
+  hash?: string
+}
+
+type Env = Readonly<Record<string, string | undefined>>
+
+const runtimeEnv = (): Env => (typeof process === 'undefined' ? {} : process.env)
+
+/** An image's SHA-256, as hex: a known-abuse match's evidence. */
+async function sha256(bytes: Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes as BufferSource))
+  return [...digest].map(byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Match every image against the known-abuse list, before any other provider
+ * sees it: the first match decides, and no other image is sent anywhere.
+ */
+async function matchKnownAbuse(provider: KnownAbuseProvider, images: readonly ModerationImage[]): Promise<(Omit<ModerationVerdict, 'blocked' | 'escalate'> & { hash: string }) | undefined> {
+  for (const image of images) {
+    const { matched, code } = await provider.match(image, runtimeEnv())
+    if (!matched) continue
+    return {
+      flagged: true,
+      categories: ['csam_match'],
+      codes: [code ?? 'known_abuse'],
+      scores: { csam_match: { score: 1, supported: true } },
+      providers: [provider.id],
+      knownAbuse: true,
+      hash: await sha256(image.bytes),
+    }
+  }
+  return undefined
+}
+
 /**
  * The check `setupAi` builds: `moderate` answers the verdict, `requireSafe`
  * throws the refusal a flagged prompt gets.
  */
 export function createModeration(config: { moderation?: ModerationConfig, routing: ModelRouting }, storage: StorageBytesRef | undefined, recordCost?: RecordCost, flags?: FlagRefs) {
-  const named = config.moderation?.model
+  const named = config.moderation?.model ?? config.moderation?.text
+  const imageProviders = config.moderation?.images ?? []
+  const { secondOpinion, knownAbuse } = config.moderation ?? {}
+  const policyVersion = config.moderation?.policy?.version
   requireModelId(named, 'setupAi({ moderation })')
   /** The classifier a check calls: the app's own when it names one, else the answering gateway's. */
   const classifier = async (): Promise<Classifier> => named === undefined
@@ -299,22 +451,13 @@ export function createModeration(config: { moderation?: ModerationConfig, routin
    * Record a flagged check, and say an escalated one in the logs. A record
    * that fails is logged and never fails the check: the verdict stands.
    */
-  async function recordFlag(ctx: ModerationCtx, verdict: ModerationVerdict, about: ModerationSubject, id: string): Promise<void> {
-    if (verdict.escalate) logBackend('error', 'ai.content_escalated', `The moderation model flagged content in a category escalated to administrators (${verdict.categories.join(', ')})${about.stage ? ` at ${about.stage}` : ''}: see the Moderation tab.`)
+  async function recordFlag(ctx: ModerationCtx, verdict: ModerationVerdict, about: ModerationSubject, decision: Decision): Promise<void> {
+    if (verdict.knownAbuse) logBackend('error', 'ai.known_abuse_matched', `An image matched a list of known child sexual abuse material${about.stage ? ` at ${about.stage}` : ''}: it was blocked and sent nowhere else. Follow the CSAM playbook from the Moderation tab.`)
+    else if (verdict.escalate) logBackend('error', 'ai.content_escalated', `The moderation providers flagged content in a category escalated to administrators (${[...verdict.categories, ...verdict.codes].join(', ')})${about.stage ? ` at ${about.stage}` : ''}: see the Moderation tab.`)
     if (policy.days === false || !flags) return
     try {
       const userId = about.userId ?? (await ctx.auth?.getUserIdentity())?.subject
-      await ctx.runMutation(flags.record, {
-        ...(userId ? { userId } : {}),
-        ...(about.owner ? { owner: about.owner } : {}),
-        ...(about.subject ? { subject: about.subject } : {}),
-        ...(about.stage ? { stage: about.stage } : {}),
-        categories: verdict.categories,
-        blocked: verdict.blocked,
-        escalate: verdict.escalate,
-        model: id,
-        days: policy.days,
-      })
+      await ctx.runMutation(flags.record, { ...flagRecord(verdict, { ...about, userId }, decision, policyVersion), days: policy.days })
     }
     catch (error) {
       logBackend('warn', 'ai.flag_unrecorded', 'A flagged check could not be recorded for the Moderation tab; its verdict stands.', error)
@@ -338,14 +481,13 @@ export function createModeration(config: { moderation?: ModerationConfig, routin
     }
   }
 
-  /** The image parts of the check, each refused when it is gone or no image. */
-  async function imageParts(ctx: ModerationCtx, ids: readonly string[]) {
+  /** The images of the check, read once, each refused when it is gone or no image. */
+  async function readImages(ctx: ModerationCtx, ids: readonly string[]): Promise<ModerationImage[]> {
     if (ids.length > MODERATION_IMAGES_MAX) {
       throw backendError('invalid_input', { field: 'images', reason: 'too_many' }, `[nuxt-backend] A check reads at most ${MODERATION_IMAGES_MAX} images.`)
     }
     const read = readerFor(ctx)
-    // File parts: AI SDK 7 deprecates the image part, and reads an image file the same way.
-    const parts: Array<{ type: 'file', data: Uint8Array, mediaType: string }> = []
+    const images: ModerationImage[] = []
     for (const storageId of ids) {
       const bytes = await read(storageId)
       if (!bytes) throw backendError('invalid_input', { field: 'images', reason: 'upload_gone' }, `[nuxt-backend] No file has the id ${storageId}: it was never stored here, or it was deleted.`)
@@ -353,26 +495,70 @@ export function createModeration(config: { moderation?: ModerationConfig, routin
       if (!mediaType?.startsWith('image/') || mediaType === 'image/svg+xml') {
         throw backendError('invalid_input', { field: 'images', reason: 'unsupported_type' }, `[nuxt-backend] The file ${storageId} is ${mediaType ?? 'of no known type'}, not an image the classifier reads.`)
       }
-      parts.push({ type: 'file', data: bytes, mediaType })
+      images.push({ bytes, mediaType })
     }
-    return parts
+    return images
   }
 
   const moderate = async (ctx: ModerationCtx, input: ModerationInput, about: ModerationSubject = {}): Promise<ModerationVerdict> => {
-    const { model, ...read } = await classify(ctx, input)
-    const verdict = { ...read, ...policy.judge(read) }
-    if (verdict.flagged) await recordFlag(ctx, verdict, about, model)
+    const { decision, ...read } = await classify(ctx, input, about.stage)
+    const judged = policy.judge(read)
+    // A known-abuse match is blocked and escalated whatever the policy says.
+    const verdict: ModerationVerdict = { ...read, ...(read.knownAbuse ? { blocked: true, escalate: true } : judged) }
+    if (verdict.flagged) await recordFlag(ctx, verdict, about, decision)
     return verdict
   }
 
-  /** The classifier's own verdict, before the policy, and the classifier that gave it. */
-  const classify = async (ctx: ModerationCtx, input: ModerationInput): Promise<{ flagged: boolean, categories: string[], model: string }> => {
+  /** Every provider's reading of the content, before the policy, and what the record keeps of how it was decided. */
+  const classify = async (ctx: ModerationCtx, input: ModerationInput, stage: string | undefined): Promise<Omit<ModerationVerdict, 'blocked' | 'escalate'> & { decision: Decision }> => {
     const text = typeof input?.text === 'string' ? input.text.trim() : ''
     const imageIds = Array.isArray(input?.images) ? input.images.filter(image => typeof image === 'string' && image) : []
-    if (!text && imageIds.length === 0) return { flagged: false, categories: [], model: modelIdOf(named) ?? DEFAULT_MODERATION_MODEL }
-    const { id, route } = await classifier()
-    if (imageIds.length > 0 && !readsImages(named ?? id)) refuseUnreadImages(id, named === undefined)
-    const parts = await imageParts(ctx, imageIds)
+    const thresholds = thresholdsFor(config.moderation?.thresholds, stage)
+    const nothing = { flagged: false, categories: [], codes: [], scores: {}, providers: [], decision: { model: modelIdOf(named) ?? DEFAULT_MODERATION_MODEL, thresholds } }
+    if (!text && imageIds.length === 0) return nothing
+    // Images the classifier would read, and cannot, are refused before any is read.
+    const chosen = imageIds.length > 0 && imageProviders.length === 0 ? await imageReader() : undefined
+    const images = await readImages(ctx, imageIds)
+    // 1. A known-abuse match first, before any other provider sees the bytes.
+    const match = knownAbuse ? await matchKnownAbuse(knownAbuse, images) : undefined
+    if (match) return { ...match, decision: { model: knownAbuse!.id, thresholds, hash: match.hash } }
+    const { readings, unsafe, model } = await readingsOf(ctx, text, images, thresholds, chosen)
+    const scores = combineReadings(readings)
+    const categories = flaggedCategories(scores, thresholds)
+    const codes = [...new Set(readings.flatMap(reading => reading.codes))]
+    return { flagged: categories.length > 0 || unsafe, categories, codes, scores, providers: readings.map(reading => reading.provider), decision: { model, thresholds } }
+  }
+
+  /**
+   * Every provider's reading but a known-abuse match's: the text through the
+   * classifier; the images through the image providers, or the classifier
+   * when the app names none; and a second opinion only where a score sits
+   * just under its threshold, which can raise a score, never lower one.
+   */
+  const readingsOf = async (ctx: ModerationCtx, text: string, images: ModerationImage[], thresholds: Record<string, number>, chosen: Classifier | undefined): Promise<{ readings: ProviderReading[], unsafe: boolean, model: string }> => {
+    const readings: ProviderReading[] = []
+    const classifierImages = imageProviders.length > 0 ? [] : images
+    const read = text || classifierImages.length > 0 ? await askClassifier(ctx, text, classifierImages, chosen) : undefined
+    if (read) readings.push(classifierReading(read.model, read.codes))
+    if (images.length > 0) {
+      for (const provider of imageProviders) readings.push(await provider.check({ images }, runtimeEnv()))
+      if (secondOpinion && inGrayBand(combineReadings(readings), thresholds)) readings.push(await secondOpinion.check({ images }, runtimeEnv()))
+    }
+    return { readings, unsafe: read?.flagged ?? false, model: read?.model ?? modelIdOf(named) ?? DEFAULT_MODERATION_MODEL }
+  }
+
+  /** The classifier, once it is known to read images: a text-only one is refused, as passing images unread would call them safe. */
+  const imageReader = async (): Promise<Classifier> => {
+    const chosen = await classifier()
+    if (!readsImages(named ?? chosen.id)) refuseUnreadImages(chosen.id, named === undefined)
+    return chosen
+  }
+
+  /** The text classifier's verdict on text and images it reads: its codes, and whether it called the content unsafe. */
+  const askClassifier = async (ctx: ModerationCtx, text: string, images: readonly ModerationImage[], chosen?: Classifier): Promise<{ flagged: boolean, codes: string[], model: string }> => {
+    const { id, route } = chosen ?? await classifier()
+    // File parts: AI SDK 7 deprecates the image part, and reads an image file the same way.
+    const parts = images.map(image => ({ type: 'file' as const, data: image.bytes, mediaType: image.mediaType }))
     const llamaGuard = isLlamaGuard(id)
     const words = text || IMAGES_ALONE
     const content = [
@@ -410,14 +596,14 @@ export function createModeration(config: { moderation?: ModerationConfig, routin
       logBackend('error', 'ai.moderation_unreadable', `The moderation model ${id} answered something other than "safe" or "unsafe": the content is refused as unchecked.`)
       throw backendError('unavailable', { service: 'ai', reason: 'provider_refused' }, `[nuxt-backend] The moderation model ${id} gave no verdict. Try again shortly.`)
     }
-    return { ...verdict, model: id }
+    return { flagged: verdict.flagged, codes: verdict.categories, model: id }
   }
 
   const requireSafe = async (ctx: ModerationCtx, input: ModerationInput, about: ModerationSubject = {}): Promise<void> => {
     const verdict = await moderate(ctx, input, about)
     if (!verdict.blocked) return
     const field = input.text?.trim() ? 'prompt' : 'images'
-    throw backendError('invalid_input', { field, reason: 'content_blocked' }, `[nuxt-backend] The moderation model flagged this content (${verdict.categories.join(', ') || 'no category named'}).`)
+    throw backendError('invalid_input', { field, reason: 'content_blocked' }, `[nuxt-backend] The moderation check flagged this content (${[...verdict.categories, ...verdict.codes].join(', ') || 'no category named'}).`)
   }
 
   return { moderate, requireSafe, modelId: modelIdOf(named) ?? DEFAULT_MODERATION_MODEL }

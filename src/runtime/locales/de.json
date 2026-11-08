@@ -584,6 +584,7 @@
         "blocked": "Blockiert",
         "passed": "Durchgelassen",
         "escalatedMark": "Eskaliert",
+        "knownAbuseMark": "Bekannter Missbrauch: dem CSAM-Ablauf folgen",
         "nobody": "Niemand angemeldet",
         "newer": "Neuere",
         "older": "Ältere"

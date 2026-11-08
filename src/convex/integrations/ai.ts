@@ -64,7 +64,11 @@ export type { Chat, ChatConfig, ChatMessage, ChatReply, ChatThread } from './ai/
 export type { AiEmbeddingModel } from './ai/embeddings.js'
 export type { Knowledge, KnowledgeAddCost, KnowledgeApi, KnowledgeConfig, KnowledgeDocument, KnowledgePassage } from './ai/knowledge.js'
 export { setupAi } from './ai/setup.js'
-export type { ModerationConfig, ModerationCtx, ModerationFlag, ModerationInput, ModerationLog, ModerationSubject, ModerationVerdict } from './ai/moderation.js'
+export type { ModerationConfig, ModerationCtx, ModerationFlag, ModerationInput, ModerationLog, ModerationStatement, ModerationSubject, ModerationVerdict } from './ai/moderation.js'
+export { arachnidShield, azureContentSafety, googleContentSafety, hive, openaiModeration, photodna, rekognition, sightengine } from './ai/moderation-providers.js'
+export type { AzureContentSafetyOptions, KnownAbuseProvider, ModerationImage, ModerationProvider, ProviderEnv, ProviderInput } from './ai/moderation-providers.js'
+export { DEFAULT_THRESHOLDS, MODERATION_CATEGORIES } from './ai/moderation-taxonomy.js'
+export type { CategoryScore, ModerationCategory, ProviderReading } from './ai/moderation-taxonomy.js'
 export type {
   AdminJobView,
   CancelOptions,

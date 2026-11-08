@@ -4,6 +4,7 @@ import { DEFAULT_ADMIN_ROLES } from '../../constants.js'
 import { logBackend } from '../../log.js'
 import { type AdapterFindOne, type Administrators, createAccessReads, isAdministratorNow } from '../access.js'
 import type { AiApi, AiComponents, AiCosts } from './config.js'
+import type { ModerationFlag, ModerationStatement } from './moderation.js'
 import type { ModelCall } from './models.js'
 
 // What AI costs per person: every run's model calls are recorded in the
@@ -87,5 +88,36 @@ export function costsApi(components: AiComponents): AiApi {
       return await ctx.runQuery(flags.list, { paginationOpts, ...(escalated ? { escalated } : {}) })
     },
   })
-  return { getCosts, listModerationFlags } as unknown as AiApi
+  // A decision's statement of reasons (DSA Art. 17), for the person it was about or an administrator.
+  const getModerationStatement = queryGeneric({
+    args: { flagId: v.string() },
+    handler: async (ctx, { flagId }): Promise<ModerationStatement | null> => {
+      const identity = await ctx.auth.getUserIdentity()
+      const flags = (components.backend as unknown as { moderation?: { get: FunctionReference<'query', 'internal'> } }).moderation
+      if (!identity || !flags) return null
+      const flag = await ctx.runQuery(flags.get, { id: flagId }) as ModerationFlag | null
+      if (!flag) return null
+      reads ??= createAccessReads(components.backend.adapter.findOne as AdapterFindOne)
+      const administrator = await isAdministratorNow(ctx as never, reads, administrators, 'getModerationStatement')
+      // A known-abuse match goes to the authorities, never back to who uploaded it.
+      if (!administrator && (flag.userId !== identity.subject || flag.playbook === 'csam')) return null
+      return statementOf(flag)
+    },
+  })
+  return { getCosts, listModerationFlags, getModerationStatement } as unknown as AiApi
+}
+
+/** A recorded decision as its statement of reasons: what was decided, on what grounds, by what means and under which policy. */
+function statementOf(flag: ModerationFlag): ModerationStatement {
+  return {
+    id: flag.id,
+    at: flag.at,
+    decision: flag.blocked ? 'blocked' : 'flagged',
+    automated: flag.automated ?? true,
+    categories: flag.categories,
+    providers: flag.providers ?? [flag.model],
+    ...(flag.policyVersion ? { policyVersion: flag.policyVersion } : {}),
+    ...(flag.subject ? { subject: flag.subject } : {}),
+    ...(flag.stage ? { stage: flag.stage } : {}),
+  }
 }

@@ -26,6 +26,19 @@ export const record = mutation({
 /** A flag as the Moderation tab lists it. */
 const vFlag = v.object({ id: v.string(), at: v.number(), ...vAiFlag })
 
+/** One flag, for its statement of reasons; `null` once it was pruned or erased. */
+export const get = query({
+  args: { id: v.string() },
+  returns: v.union(v.null(), vFlag),
+  handler: async (ctx, { id }) => {
+    const flagId = ctx.db.normalizeId('aiFlags', id)
+    const row = flagId ? await ctx.db.get('aiFlags', flagId) : null
+    if (!row) return null
+    const { _id, _creationTime, expiresAt: _, ...flag } = row
+    return { id: _id as string, at: _creationTime, ...flag }
+  },
+})
+
 /** The flags, newest first, a page at a time; the escalated ones alone with `escalated`. */
 export const list = query({
   args: { paginationOpts: paginationOptsValidator, escalated: v.optional(v.boolean()) },

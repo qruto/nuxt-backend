@@ -8,7 +8,7 @@ import type { BillingComponents } from '../billing/types/setup.js'
 import type { Chat, ChatConfig } from './chat.js'
 import type { Knowledge, KnowledgeConfig } from './knowledge.js'
 import type { TokenPriceTable } from './pricing.js'
-import type { ModerationConfig, ModerationCtx, ModerationFlag, ModerationInput, ModerationSubject, ModerationVerdict } from './moderation.js'
+import type { ModerationConfig, ModerationCtx, ModerationFlag, ModerationInput, ModerationStatement, ModerationSubject, ModerationVerdict } from './moderation.js'
 import type { ImageStoreContext, JobProvenance, ProvenanceConfig } from './provenance.js'
 
 // What `setupAi` is configured with and what it hands back: every public type
@@ -667,6 +667,12 @@ export interface AiApi {
    * escalated ones alone with `escalated`, for administrators; `null` for
    * anyone else. The admin console's Moderation tab reads it.
    */
+  /**
+   * A recorded decision's statement of reasons (DSA Art. 17), for the person
+   * it was about or an administrator; `null` to anyone else, once the record
+   * is pruned, and to the uploader of a known-abuse match.
+   */
+  getModerationStatement: RegisteredQuery<'public', { flagId: string }, Promise<ModerationStatement | null>>
   listModerationFlags: RegisteredQuery<'public', { paginationOpts: { numItems: number, cursor: string | null }, escalated?: boolean }, Promise<{ page: ModerationFlag[], isDone: boolean, continueCursor: string } | null>>
 }
 

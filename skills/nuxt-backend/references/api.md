@@ -321,11 +321,21 @@ Types: `WorkflowId`, `WorkflowStatus`, `WorkflowComponents`, `EmailSequenceStep`
 |---|---|
 | `priceTokens()` | Price a model call in credits from its token usage and a price table the app owns. |
 | `setupAi()` | Configure the AI rails over billing + rate limiting + streaming. |
+| `arachnidShield()` | Project Arachnid Shield (the Canadian Centre for Child Protection): a match of an image's hashes against known child sexual abuse material, free once your organization is vetted. |
+| `azureContentSafety()` | Azure AI Content Safety, on your own Azure resource: text and images, in the region you created it in (processing stays there, and inputs are neither stored nor trained on). |
+| `googleContentSafety()` | Google Cloud's content safety (Vision SafeSearch). |
+| `hive()` | Hive (Deploy since 26 Oct 2026; an annual contract). |
+| `openaiModeration()` | OpenAI's moderation endpoint (`omni-moderation-latest`), free with an OpenAI API key: text and images. |
+| `photodna()` | Microsoft PhotoDNA, a known-abuse hash match. |
+| `rekognition()` | Amazon Rekognition's content moderation. |
+| `sightengine()` | Sightengine. |
+| `DEFAULT_THRESHOLDS` | The score at or above which a category flags the content. |
+| `MODERATION_CATEGORIES` | Every category, in the order a statement of reasons lists them. |
 | `defineJobQueue()` | Declare the app's generation queue, once, in `backend/jobs.ts`: kinds of jobs (`jobs.define`) run their steps (`jobs.step`) in a fair line with tiers from plan features, each model under a limit that adapts to `429`s, credits held while a job waits, charged when it starts and refunded when it fails, and each job's cost reported to the billing provider. |
 | `vJobEnd` | How a job ended, as `onJobEnd` receives it: use these as your function's `args` (`internalMutation({ args: vJobEnd, handler })`). |
 | `retryable()` | An error a job step throws for a failure another attempt may not meet, such as a model that answered with no image: the queue waits and runs the step again, up to 4 attempts, as for a provider's passing error, instead of failing the job at once. |
 
-Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBalanceEvent`, `AiCreditsConfig`, `AiModel`, `AiGateway`, `ModelRoutes`, `InferenceRegion`, `MeteredModel`, `ModelStatus`, `SetupAiConfig`, `AiGuestConfig`, `GuestClaim`, `MeteredUsage`, `FinalizedCost`, `ReportedCost`, `MeteredCost`, `MeteredContext`, `MeteredActionConfig`, `MeteredStreamConfig`, `PersonCost`, `AiCosts`, `AiApi`, `Ai`, `ModelPrice`, `TokenPriceTable`, `TokenUsage`, `GeneratedImage`, `ImageStoreContext`, `JobProvenance`, `ProvenanceConfig`, `StoreImageOptions`, `Chat`, `ChatConfig`, `ChatMessage`, `ChatReply`, `ChatThread`, `AiEmbeddingModel`, `Knowledge`, `KnowledgeAddCost`, `KnowledgeApi`, `KnowledgeConfig`, `KnowledgeDocument`, `KnowledgePassage`, `ModerationConfig`, `ModerationCtx`, `ModerationFlag`, `ModerationInput`, `ModerationLog`, `ModerationSubject`, `ModerationVerdict`, `AdminJobView`, `CancelOptions`, `DefineJobQueueOptions`, `EnqueueOptions`, `GuestJobs`, `JobContext`, `JobDefinition`, `JobEnd`, `JobModelLimit`, `JobProgress`, `JobRecord`, `JobQueue`, `JobQueueApi`, `JobQueueComponents`, `JobStepContext`, `JobStepDefinition`, `JobTier`, `JobView`, `OnJobEnd`, `QueueChange`, `StepResult`, `AiImageModel`.
+Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBalanceEvent`, `AiCreditsConfig`, `AiModel`, `AiGateway`, `ModelRoutes`, `InferenceRegion`, `MeteredModel`, `ModelStatus`, `SetupAiConfig`, `AiGuestConfig`, `GuestClaim`, `MeteredUsage`, `FinalizedCost`, `ReportedCost`, `MeteredCost`, `MeteredContext`, `MeteredActionConfig`, `MeteredStreamConfig`, `PersonCost`, `AiCosts`, `AiApi`, `Ai`, `ModelPrice`, `TokenPriceTable`, `TokenUsage`, `GeneratedImage`, `ImageStoreContext`, `JobProvenance`, `ProvenanceConfig`, `StoreImageOptions`, `Chat`, `ChatConfig`, `ChatMessage`, `ChatReply`, `ChatThread`, `AiEmbeddingModel`, `Knowledge`, `KnowledgeAddCost`, `KnowledgeApi`, `KnowledgeConfig`, `KnowledgeDocument`, `KnowledgePassage`, `ModerationConfig`, `ModerationCtx`, `ModerationFlag`, `ModerationInput`, `ModerationLog`, `ModerationStatement`, `ModerationSubject`, `ModerationVerdict`, `AzureContentSafetyOptions`, `KnownAbuseProvider`, `ModerationImage`, `ModerationProvider`, `ProviderEnv`, `ProviderInput`, `CategoryScore`, `ModerationCategory`, `ProviderReading`, `AdminJobView`, `CancelOptions`, `DefineJobQueueOptions`, `EnqueueOptions`, `GuestJobs`, `JobContext`, `JobDefinition`, `JobEnd`, `JobModelLimit`, `JobProgress`, `JobRecord`, `JobQueue`, `JobQueueApi`, `JobQueueComponents`, `JobStepContext`, `JobStepDefinition`, `JobTier`, `JobView`, `OnJobEnd`, `QueueChange`, `StepResult`, `AiImageModel`.
 
 ### `nuxt-backend/storage`
 
@@ -396,6 +406,9 @@ Types: `BackendPaths`, `DefineBackendAuthConfigOptions`.
 | `seedCredits()` | Set one meter's credit balance for a billing entity, as a sync from the provider leaves it, keeping its plans, features and other meters. |
 | `seedWorkspace()` | Create a workspace with no members yet, for several `asUser` callers to join: `asUser(t, { workspace: id, workspaceRole: 'admin' })`. |
 | `asUser()` | Create an account in the `backend` component's auth tables and return the instance signed in as it, the way a real sign-in leaves it: the account with the role `'user'`, a personal workspace it owns and has active, and the claims a real token carries. |
+| `TEST_FAINT()` | The marker that finds a category faintly. |
+| `TEST_KNOWN_ABUSE` | The marker the known-abuse fake matches. |
+| `TEST_UNSAFE()` | The marker that finds a category at full strength. |
 | `default` | The default export. |
 
 Types: `ComponentTestKit`, `BackendTestAppOptions`, `TestFile`, `TestUploadOptions`, `BackendTestApp`, `StubStorageFetchOptions`, `TestTimers`, `TestBilling`, `TestUserOptions`, `TestUser`.

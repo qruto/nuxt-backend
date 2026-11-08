@@ -391,14 +391,14 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './account': ['ACCOUNT_DATA_SOURCES', 'setupAccount'],
   './admin': ['IMPERSONATION_SESSION_SECONDS', 'setupAdmin', 'setupWebhooks'],
   './flags': ['BACKEND_FLAGS', 'FLAG_TARGETS_MAX', 'MAINTENANCE_MESSAGE_MAX', 'ROLLOUT_BUCKETS', 'defineFlags', 'flagBucket', 'setupFlags'],
-  './ai': ['defineJobQueue', 'priceTokens', 'retryable', 'setupAi', 'vJobEnd'],
+  './ai': ['DEFAULT_THRESHOLDS', 'MODERATION_CATEGORIES', 'arachnidShield', 'azureContentSafety', 'defineJobQueue', 'googleContentSafety', 'hive', 'openaiModeration', 'photodna', 'priceTokens', 'rekognition', 'retryable', 'setupAi', 'sightengine', 'vJobEnd'],
   './storage': ['DEFAULT_ACCEPTED_TYPES', 'DEFAULT_MAX_FILE_SIZE', 'SIGNED_URL_TTL_MAX_MS', 'SIGNED_URL_TTL_MS', 'setupStorage', 'sniffContentType', 'stripImageMetadata'],
   './notifications': ['setupNotifications'],
   './monitoring': ['MONITORING_TAGS', 'checkIn', 'checkingIn', 'isReportable', 'reportError', 'reportingErrors'],
 
   './convex.config': ['default'],
   './auth.config': ['default', 'defineBackendAuthConfig'],
-  './test': ['TEST_PNG', 'TEST_STORAGE_URL', 'asUser', 'default', 'defineBackendTestApp', 'drain', 'register', 'seedBilling', 'seedCredits', 'seedWorkspace', 'stubStorageFetch', 'upload'],
+  './test': ['TEST_FAINT', 'TEST_KNOWN_ABUSE', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'asUser', 'default', 'defineBackendTestApp', 'drain', 'register', 'seedBilling', 'seedCredits', 'seedWorkspace', 'stubStorageFetch', 'upload'],
   './test-utils': ['backendMockProvides', 'backendTestAliases', 'createBackendMock', 'renderEmail', 'resetBackendMock'],
   './eslint': ['BACKEND_ESLINT_RULES', 'backendEslint'],
 }
