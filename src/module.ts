@@ -22,7 +22,7 @@ import { hideBaseBrandNames, registerBackendApi, registerBaseComponentAliases, r
 import { imageDependency } from './nuxt/image'
 import { registerStyles } from './nuxt/styles'
 import { registerProtection } from './nuxt/protection'
-import { securityDefaults, securityDisabled } from './nuxt/security'
+import { registerSecurityRules, securityDefaults, securityDisabled } from './nuxt/security'
 
 // The module definition; the helpers setup calls live in nuxt/, one file
 // per concern.
@@ -283,6 +283,8 @@ export default defineNuxtModule<ModuleOptions>({
     addPlugin({ src: resolver.resolve('./runtime/vue/plugins/passkey-ceremony'), mode: 'client' })
     // The narrow Trusted Types `default` policy, for code that writes a sink without one of its own.
     if (!securityDisabled(nuxt)) addPlugin({ src: resolver.resolve('./runtime/vue/plugins/trusted-types.client'), mode: 'client' })
+    // The headers' exceptions for what other sites load, Content's WebAssembly, and canonical URLs' case.
+    registerSecurityRules(resolver, nuxt)
     registerBaseComponentAliases(resolver, nuxt)
     hideBaseBrandNames(nuxt)
 

@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { posix, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { loadNuxt } from '@nuxt/kit'
+import { defineNuxtModule, loadNuxt } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { LOCAL_LOG_ROUTE } from '../../src/convex/constants'
@@ -98,6 +98,15 @@ describe('a nuxt dev boot', () => {
     expect(nuxt.options.nitro.routeRules?.['/**']?.headers).not.toHaveProperty('Strict-Transport-Security')
   })
 
+  it('lets other sites load nuxt-og-image\'s images, and adds no WebAssembly source without Content', () => {
+    const nuxt = boot.nuxt()
+    expect(nuxt.options.routeRules?.['/_og/**']).toEqual({
+      headers: { 'Cross-Origin-Resource-Policy': 'cross-origin' },
+      security: { headers: { crossOriginResourcePolicy: 'cross-origin' } },
+    })
+    expect(nitroPlugins(nuxt).filter(plugin => /server[\\/]content-wasm/.test(plugin))).toEqual([])
+  })
+
   it('leaves connect-src alone without a DSN: no SDK reports anywhere', () => {
     expect(nitroPlugins(boot.nuxt()).filter(plugin => /server[\\/]monitoring[\\/]csp/.test(plugin))).toEqual([])
   })
@@ -159,5 +168,48 @@ describe('a Vercel build that reports errors', () => {
     const allows = plugins.findIndex(plugin => /server[\\/]monitoring[\\/]csp/.test(plugin))
     expect(narrows).toBeGreaterThanOrEqual(0)
     expect(allows).toBeGreaterThan(narrows)
+  })
+})
+
+/** A module that says it is `@nuxt/content`, as `hasNuxtModule` reads one, without Content's own setup. */
+const contentStandIn = defineNuxtModule({ meta: { name: '@nuxt/content' } })
+
+describe('a production boot of an app with Content, nuxt-seo-utils and a brand logo of its own', () => {
+  // nuxt-seo-utils writes its public runtime config in setup; an app's entry there stands in for it.
+  const boot = useBoot({
+    extends: [posix.join(repoRoot, 'test/fixtures/brand-layer')],
+    modules: [contentStandIn],
+    runtimeConfig: { public: { 'seo-utils': { canonicalLowercase: true } } },
+  }, { dev: false })
+
+  it('lets other sites load the brand\'s logo, the path without its query, and keeps the og images\' rule', () => {
+    const rules = boot.nuxt().options.routeRules ?? {}
+    expect(rules['/brand/logo.png']).toMatchObject({ headers: { 'Cross-Origin-Resource-Policy': 'cross-origin' }, security: { headers: { crossOriginResourcePolicy: 'cross-origin' } } })
+    expect(rules['/_og/**']).toMatchObject({ security: { headers: { crossOriginResourcePolicy: 'cross-origin' } } })
+  })
+
+  it('lets Content\'s WebAssembly run: the policy plugin goes in once every module has set up', () => {
+    expect(nitroPlugins(boot.nuxt()).filter(plugin => /server[\\/]content-wasm/.test(plugin))).toHaveLength(1)
+  })
+
+  it('keeps the case of canonical URLs, the app having set nothing of its own', () => {
+    expect((boot.nuxt().options.runtimeConfig.public as Record<string, { canonicalLowercase?: boolean }>)['seo-utils']).toMatchObject({ canonicalLowercase: false })
+  })
+})
+
+describe('a production boot of an app with nuxt-security off', () => {
+  const boot = useBoot({
+    security: false,
+    extends: [posix.join(repoRoot, 'test/fixtures/brand-layer')],
+    modules: [contentStandIn],
+    runtimeConfig: { public: { 'seo-utils': { canonicalLowercase: true } } },
+  }, { dev: false })
+
+  it('makes no exception to headers nobody sends, and still keeps the canonical case', () => {
+    const nuxt = boot.nuxt()
+    expect(nuxt.options.routeRules?.['/_og/**']).toBeUndefined()
+    expect(nuxt.options.routeRules?.['/brand/logo.png']).toBeUndefined()
+    expect(nitroPlugins(nuxt).filter(plugin => /server[\\/]content-wasm/.test(plugin))).toEqual([])
+    expect((nuxt.options.runtimeConfig.public as Record<string, { canonicalLowercase?: boolean }>)['seo-utils']).toMatchObject({ canonicalLowercase: false })
   })
 })
