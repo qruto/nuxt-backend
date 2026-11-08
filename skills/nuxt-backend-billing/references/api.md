@@ -11,7 +11,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 
 | Composable | What it does |
 |---|---|
-| `useBilling()` | Reactive billing state plus the full subscription lifecycle — checkout, gift, portal, plan change and undoing a scheduled one, cancel/uncancel, pause/resume — linked to your auth user. |
+| `useBilling()` | Reactive billing state plus the full subscription lifecycle — checkout, portal, plan change and undoing a scheduled one, cancel (with its save offer) and uncancel, pause/resume — linked to your auth user. |
 | `useFeatures()` | Reactive feature-gating for the current user — the SaaS access primitive. |
 | `useCredits()` | Reactive prepaid-credit balance for the current user, plus a `topUp()` checkout and a `refresh()` re-sync. |
 | `usePricing()` | The app's plans and credit packs as a pricing page shows them — every plan with its monthly and yearly price, what a year saves, its trial and the credits it grants per cycle; every pack with its price per credit and which is the best value — read through the scaffolded `getPricing`, in the visitor's currency where the catalog prices it. |
@@ -29,7 +29,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `<UsageHistory>` | Metered consumption, event by event, straight from the provider's events API — the same records that drew the credit balance down. |
 | `<UpgradePrompt>` | What someone whose plan lacks a feature sees: a sentence naming the plans on sale that include it, in pricing order, and a link to the first of them on the pricing page (`/pricing?plan=<key>`). |
 | `<CancelFlow>` | Cancelling takes one step; a save offer is one optional step (LIFECYCLE). |
-| `<WithdrawalButton>` | The EU withdrawal button (LIFECYCLE; Consumer Rights Directive Art. |
+| `<WithdrawalButton>` | The EU withdrawal button (LIFECYCLE; Consumer Rights Directive Art. 11a, from 2026-06-19): "Withdraw from contract here", for a purchase inside its 14 days, then a confirm step, "Confirm withdrawal". |
 
 ## Import paths
 
