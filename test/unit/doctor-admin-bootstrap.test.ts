@@ -18,6 +18,11 @@ vi.mock('../../src/convex-cli', () => ({
       if (deployment.setRole) throw deployment.setRole
       return { stdout: 'null', stderr: '' }
     }
+    if (args.includes('access:admit')) {
+      // The component's answer: each address admitted, none with an account.
+      const { emails } = JSON.parse(args.at(-1)!) as { emails: string[] }
+      return { stdout: JSON.stringify({ admitted: emails, ids: emails.map((_, i) => `admission${i}`), skipped: [] }), stderr: '' }
+    }
     return { stdout: '{}', stderr: '' }
   }),
 }))

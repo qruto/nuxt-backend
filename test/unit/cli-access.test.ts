@@ -107,4 +107,15 @@ describe('access admit', () => {
     expect(stderr.join('\n')).toContain('access admit refused: CONVEX_DEPLOY_KEY is a preview deploy key')
     expect(runConvex).not.toHaveBeenCalled()
   })
+
+  it.each([
+    [['ada@acme.dev', '--days', 'soon'], undefined, '--days is a whole number of days from 1 to 365.'],
+    [['ada@acme.dev', '--prod'], 'preview', 'CONVEX_DEPLOY_KEY is a preview deploy key'],
+  ])('prints a refusal of %j as its JSON report too, with no expiry', async (args, keyType, message) => {
+    if (keyType) vi.stubEnv('CONVEX_DEPLOY_KEY', `${keyType}:app|${randomBytes(8).toString('hex')}`)
+    const report = await admit(...args)
+    expect(report).toEqual({ deployment: args.includes('--prod') ? 'production' : 'dev', status: 'refused', admitted: [], skipped: [], expiresAt: null, note: expect.stringContaining(message) })
+    expect(runConvex).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(1)
+  })
 })

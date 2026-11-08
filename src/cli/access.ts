@@ -1,6 +1,6 @@
 import { resolve } from 'node:path'
 import { defineCommand } from 'citty'
-import { type AccessAdmitReport, ADMISSION_DAYS, admitCleaned, admitInputRefusal, CLI_ADMISSION_LABEL } from './admin'
+import { type AccessAdmitReport, ADMISSION_DAYS, admitCleaned, admitInputRefusal, admitRefused, CLI_ADMISSION_LABEL } from './admin'
 import { finish, progress, withContract } from './contract'
 import { targetKeyRefusal } from './target'
 
@@ -24,7 +24,7 @@ const SKIPPED: Readonly<Record<AccessAdmitReport['skipped'][number]['reason'], s
 
 /** The report as the lines a person reads. */
 function admitLines(report: AccessAdmitReport): string[] {
-  if (report.status !== 'admitted') return [`[nuxt-backend] access admit: ${report.note}`]
+  if (report.status !== 'admitted' || report.expiresAt === null) return [`[nuxt-backend] access admit${report.status === 'refused' ? ' refused' : ''}: ${report.note}`]
   const until = new Date(report.expiresAt).toISOString().slice(0, 10)
   return [
     ...report.admitted.length ? [`[nuxt-backend] access admit: ${report.admitted.join(', ')} may sign up on the ${report.deployment} deployment until ${until}, whatever the phase.`] : [],
@@ -35,7 +35,7 @@ function admitLines(report: AccessAdmitReport): string[] {
 export const accessAdmit = withContract('access admit', {
   sideEffects: ['writes the dev deployment'],
   byFlag: { '--prod': ['writes production'] },
-  json: '`{ deployment: "dev" | "production", status: "admitted" | "missing" | "failed", admitted, skipped: [{ email, reason: "malformed" | "reserved" | "account" }], expiresAt, note? }`',
+  json: '`{ deployment: "dev" | "production", status: "admitted" | "refused" | "missing" | "failed", admitted, skipped: [{ email, reason: "malformed" | "reserved" | "account" }], expiresAt, note? }`: `expiresAt` is epoch ms, or `null` when refused',
   exitCodes: {
     0: 'the admission ran: each address named holds an invitation, or was skipped with its reason',
     1: 'refused or not admitted: no address or too many, a label or a lifetime out of range, a deploy key for another deployment than the flags name, a deployment without launch access, or one that refused',
@@ -55,13 +55,10 @@ export const accessAdmit = withContract('access admit', {
     const emails = addressesOf(args)
     const days = Number(args.days)
     const refused = admitInputRefusal(emails, args.label, days) ?? targetKeyRefusal(rootDir, args.prod)
-    if (refused) {
-      console.error(`[nuxt-backend] access admit refused: ${refused}`)
-      process.exitCode = 1
-      return
-    }
-    const report = await admitCleaned(rootDir, emails, { prod: args.prod, label: args.label.trim(), expiresAt: Date.now() + days * 24 * 60 * 60 * 1000 })
-    for (const line of admitLines(report)) progress(args.json)(line)
+    const report = refused
+      ? admitRefused(args.prod, refused)
+      : await admitCleaned(rootDir, emails, { prod: args.prod, label: args.label.trim(), expiresAt: Date.now() + days * 24 * 60 * 60 * 1000 })
+    for (const line of admitLines(report)) (refused ? console.error : progress(args.json))(line)
     finish(args.json, { exitCode: report.status === 'admitted' ? 0 : 1, output: report })
   },
 }))

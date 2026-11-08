@@ -127,7 +127,7 @@ Let addresses sign up while the app is closed: an invitation by address each, as
 - `--days`: How many days the invitations admit (default 30, at most 365)
 - `--json`: Print the outcome as one JSON document; progress goes to stderr
 
-`--json`: `{ deployment: "dev" | "production", status: "admitted" | "missing" | "failed", admitted, skipped: [{ email, reason: "malformed" | "reserved" | "account" }], expiresAt, note? }`.
+`--json`: `{ deployment: "dev" | "production", status: "admitted" | "refused" | "missing" | "failed", admitted, skipped: [{ email, reason: "malformed" | "reserved" | "account" }], expiresAt, note? }`: `expiresAt` is epoch ms, or `null` when refused.
 
 ## Doctor findings
 

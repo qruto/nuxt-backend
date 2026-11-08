@@ -1115,6 +1115,7 @@
     "billing resync": [
       "--cwd",
       "--prod",
+      "--entity",
       "--json"
     ],
     "access admit": [

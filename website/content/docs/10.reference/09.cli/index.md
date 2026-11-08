@@ -375,25 +375,29 @@ Paid subscriptions of the old organization stay there: the reset forgets them, i
 
 ## `billing resync`
 
-Read every billing entity's entitlements again from the billing provider into the deployment's cache, as `syncEntitlements` does for one signed-in entity. Run it when the cache may have missed what the provider holds: the webhook endpoint was off or its secret changed while purchases went through, or the deployment was restored from a backup. The webhooks keep the cache current otherwise, so a healthy app never needs it.
+Read the billing entities' entitlements again from the billing provider into the deployment's cache, as `syncEntitlements` does for one signed-in entity: every workspace, or every account with `billTo: 'user'`, or the entities `--entity` names. Run it when the cache may have missed what the provider holds: the webhook endpoint was off or its secret changed while purchases went through, or the deployment was restored from a backup. The webhooks keep the cache current otherwise, so a healthy app never needs it.
 
 <!-- generated:cli-billing-resync (pnpm docs:lookups, from src/cli/contract.ts) -->
 
-**Side effects:** writes the dev deployment; --prod: writes production. **`--json`:** `{ deployment: "dev" | "production", status: "queued" | "missing" | "failed", queued, more, note? }`: `queued` counts the billing entities of the first page, and `more` says further pages follow on the deployment's scheduler. **Exit codes:** `0` queued: every billing entity's entitlements are read again on the deployment, the first page now and the rest as its scheduler reaches them; `1` refused or not queued: a deploy key for another deployment than the flags name, a deployment whose billing.ts does not export resyncEntitlements (scaffolded before it), or one that refused the resync.
+**Side effects:** writes the dev deployment; --prod: writes production. **`--json`:** `{ deployment: "dev" | "production", status: "queued" | "synced" | "custom_entities" | "refused" | "missing" | "failed", queued, more, entities: [{ id, outcome: "synced" | "gone" }], note? }`: `queued` counts the billing entities of the first page, and `more` says further pages follow on the deployment's scheduler; `entities` lists each one `--entity` named that was read. **Exit codes:** `0` queued: every billing entity's entitlements are read again on the deployment, the first page now and the rest as its scheduler reaches them; or synced: each entity `--entity` named was read again; `1` refused or not run: a deploy key for another deployment than the flags name, an `--entity` list that is empty or names more than 100, an app that bills entities of its own (`billTo: "user"` with its own `resolveEntity`) resynced without `--entity`, a deployment whose billing.ts does not export resyncEntitlements (scaffolded before it), or one that refused the resync.
 
 <!-- /generated:cli-billing-resync -->
 
 ```bash
 npx nuxt-backend billing resync          # the dev deployment
 npx nuxt-backend billing resync --prod   # production
+npx nuxt-backend billing resync --entity team_1,team_2   # these entities only
 ```
 
 | Flag | Effect |
 |---|---|
 | `--prod` | Resync the production deployment instead of the dev one. A dev or preview `CONVEX_DEPLOY_KEY` is refused; without `--prod`, so is a key for anything but a dev deployment, since the Convex CLI follows the key whatever the flags say. |
-| `--json` | Print the outcome as one JSON document (`{ deployment, status, queued, more, note? }`); progress goes to stderr. |
+| `--entity <id>[,<id>…]` | Read only these billing entities again, by the id billing knows them by, at most 100, one at a time, and wait for each. `entities` lists them, each `synced`, or `gone` while an erasure deletes it. |
+| `--json` | Print the outcome as one JSON document (`{ deployment, status, queued, more, entities, note? }`), a refusal included; progress goes to stderr. |
 
-It runs the scaffold's `billing:resyncEntitlements '{}'` on the deployment and returns. The deployment pages its billing entities (workspaces, or accounts with `billTo: 'user'`) a hundred at a time, each page scheduling the next, and reads each entity on the queue the free plan uses, which retries a request the provider's rate limit refused. `queued` counts the first page; with `more`, the rest follow after the command ends. An entity an erasure is deleting is left alone.
+Without `--entity` it runs the scaffold's `billing:resyncEntitlements '{}'` on the deployment and returns. The deployment pages its billing entities (workspaces, or accounts with `billTo: 'user'`) a hundred at a time, each page scheduling the next, and reads each entity on the queue the free plan uses, which retries a request the provider's rate limit refused. `queued` counts the first page; with `more`, the rest follow after the command ends. An entity an erasure is deleting is left alone.
+
+An app whose own `resolveEntity` bills entities of its own with `billTo: 'user'` (a team in its own tables) has entities the deployment cannot list, and its accounts are not them. The sweep queues nothing there and says so (`status: "custom_entities"`), and the command fails: name the entities with `--entity`. With `billTo: 'workspace'` a resolver of your own still returns workspaces, so the sweep covers them.
 
 An app scaffolded before `resyncEntitlements` existed lacks it: the command says so (`status: "missing"`) and fails. Add `resyncEntitlements` to the names `backend/billing.ts` re-exports from `billing.api`, push the backend, and run it again. `doctor` does not ask for it: no composable calls it.
 
@@ -403,7 +407,7 @@ Let addresses sign up while the app is closed: an invitation by address for each
 
 <!-- generated:cli-access-admit (pnpm docs:lookups, from src/cli/contract.ts) -->
 
-**Side effects:** writes the dev deployment; --prod: writes production. **`--json`:** `{ deployment: "dev" | "production", status: "admitted" | "missing" | "failed", admitted, skipped: [{ email, reason: "malformed" | "reserved" | "account" }], expiresAt, note? }`. **Exit codes:** `0` the admission ran: each address named holds an invitation, or was skipped with its reason; `1` refused or not admitted: no address or too many, a label or a lifetime out of range, a deploy key for another deployment than the flags name, a deployment without launch access, or one that refused.
+**Side effects:** writes the dev deployment; --prod: writes production. **`--json`:** `{ deployment: "dev" | "production", status: "admitted" | "refused" | "missing" | "failed", admitted, skipped: [{ email, reason: "malformed" | "reserved" | "account" }], expiresAt, note? }`: `expiresAt` is epoch ms, or `null` when refused. **Exit codes:** `0` the admission ran: each address named holds an invitation, or was skipped with its reason; `1` refused or not admitted: no address or too many, a label or a lifetime out of range, a deploy key for another deployment than the flags name, a deployment without launch access, or one that refused.
 
 <!-- /generated:cli-access-admit -->
 
@@ -419,7 +423,7 @@ npx nuxt-backend access admit ada@acme.dev --prod
 | `--label <text>` | What the Access tab lists the invitations under, 1 to 64 characters. Default: `command line`. |
 | `--days <n>` | How many days the invitations admit, from 1 to 365. Default: 30, the Access tab's. |
 | `--prod` | Admit on the production deployment. A dev or preview `CONVEX_DEPLOY_KEY` is refused; without `--prod`, so is a key for anything but a dev deployment. |
-| `--json` | Print the outcome as one JSON document (`{ deployment, status, admitted, skipped, expiresAt, note? }`); progress goes to stderr. |
+| `--json` | Print the outcome as one JSON document (`{ deployment, status, admitted, skipped, expiresAt, note? }`), a refusal included (`status: "refused"`, `expiresAt: null`); progress goes to stderr. |
 
 An address that has an account already is skipped (`reason: "account"`): it signs in whatever the phase. One admitted before and not used yet keeps the later of its two expiry dates. The invitation is not on the activity trail, since no account made it; the Access tab lists it under its label, where an administrator revokes it. [Invite people by address](/docs/build/growth/launch/invites#invite-people-by-address) covers the Access tab's side, and [Launch in phases](/docs/build/growth/launch) every other ticket.
 

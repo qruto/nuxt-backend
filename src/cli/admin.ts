@@ -84,19 +84,25 @@ export interface AccessAdmitReport {
   deployment: 'dev' | 'production'
   /**
    * `admitted`: the admission ran (`admitted` may still be empty when every
-   * address was skipped); `missing`: the deployment has no launch access
-   * to admit through (a backend older than it); `failed`: it refused, or
-   * did not answer.
+   * address was skipped); `refused`: the command ran nothing, for its input
+   * or its deploy key (`note` says why); `missing`: the deployment has no
+   * launch access to admit through (a backend older than it); `failed`: it
+   * refused, or did not answer.
    */
-  status: 'admitted' | 'missing' | 'failed'
+  status: 'admitted' | 'refused' | 'missing' | 'failed'
   /** The addresses that hold an invitation now, lower-cased. */
   admitted: string[]
   /** The addresses it skipped, and why: `malformed`, `reserved` (a documentation or test domain), `account` (an account exists). */
   skipped: Array<{ email: string, reason: 'malformed' | 'reserved' | 'account' }>
-  /** When the invitations stop admitting, epoch ms. */
-  expiresAt: number
-  /** Why it is missing or failed. */
+  /** When the invitations stop admitting, epoch ms; `null` when refused, since none was given. */
+  expiresAt: number | null
+  /** Why it was refused, is missing or failed. */
   note?: string
+}
+
+/** The report of a run refused before it ran anything: nothing admitted, no expiry. */
+export function admitRefused(prod: boolean, note: string): AccessAdmitReport {
+  return { deployment: prod ? 'production' : 'dev', status: 'refused', admitted: [], skipped: [], expiresAt: null, note }
 }
 
 export interface AdmitOptions {
@@ -156,11 +162,13 @@ export const ADMISSION_DAYS = ADMISSION_TTL_MS / (24 * 60 * 60 * 1000)
 
 /**
  * Admit `email` for the first administrator: a day to sign up, whatever
- * the phase. `false` for a deployment without launch access.
+ * the phase. `true` only when the deployment says that address holds the
+ * invitation now: `false` for a deployment without launch access, and for
+ * one that skipped it (an account it found under that address).
  */
 async function admitAddress(rootDir: string, email: string, prod: boolean): Promise<boolean> {
-  const { status } = await admitAddresses(rootDir, [email], { prod, label: 'first-administrator', expiresAt: Date.now() + FIRST_ADMIN_ADMISSION_MS }, runConvex)
-  return status === 'admitted'
+  const { status, admitted } = await admitAddresses(rootDir, [email], { prod, label: 'first-administrator', expiresAt: Date.now() + FIRST_ADMIN_ADMISSION_MS }, runConvex)
+  return status === 'admitted' && admitted.includes(email)
 }
 
 /**
