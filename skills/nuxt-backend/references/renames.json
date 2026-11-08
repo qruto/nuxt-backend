@@ -26,6 +26,14 @@
       "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#a-production-checkout-waits-for-billing-to-launch-and-welcome-credits-come-from-the-catalog"
     },
     {
+      "from": "jobs.enqueue",
+      "to": "jobs.enqueue",
+      "change": "reshaped",
+      "section": "A job joins on a balance never read",
+      "note": "a balance never read no longer refuses `not_synced`: the job joins, and its first step reads the balance or fails `insufficient_credits`; a balance read with no credit meter is still refused `not_ready`",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#a-job-joins-on-a-balance-never-read"
+    },
+    {
       "from": "@sentry/nuxt",
       "to": "@sentry/nuxt@^11.10.0",
       "change": "reshaped",

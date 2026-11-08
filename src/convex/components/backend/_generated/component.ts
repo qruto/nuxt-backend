@@ -4866,6 +4866,22 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       get: FunctionReference<"query", "internal", { jobId: string }, any, Name>;
+      holdTaken: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          hold: {
+            externalId: string;
+            meter?: string;
+            meterId?: string;
+            reserved: boolean;
+            value: number;
+          };
+          jobId: string;
+        },
+        boolean,
+        Name
+      >;
       join: FunctionReference<
         "mutation",
         "internal",
@@ -4874,6 +4890,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           budgetCounted: number;
           budgetWindow?: number;
           cost: number;
+          free?: boolean;
           hold?: {
             externalId: string;
             meter?: string;
@@ -4924,7 +4941,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       mark: FunctionReference<
         "mutation",
         "internal",
-        { charged: true; jobId: string },
+        { charged: true; jobId: string; price?: number },
         { refund: boolean },
         Name
       >;
@@ -4970,6 +4987,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           };
         },
         any,
+        Name
+      >;
+      oweRefund: FunctionReference<
+        "mutation",
+        "internal",
+        { jobId: string },
+        boolean,
         Name
       >;
       ownerState: FunctionReference<
