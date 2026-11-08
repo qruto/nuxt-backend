@@ -13,19 +13,21 @@ import { sha256Hex } from '../../src/convex/tokens'
 const WELCOME = { meter: 'credits', units: 8 }
 const OWNER = { userId: 'u_1', email: 'Ada.Lovelace+work@Example.com' }
 
-function welcome(options: { grant?: typeof WELCOME | null, token?: string, deleting?: boolean, claimed?: boolean, refund?: () => Promise<boolean>, refresh?: () => Promise<void>, queue?: () => Promise<void>, check?: () => Promise<void> } = {}) {
+function welcome(options: { grant?: typeof WELCOME | null, token?: string, deleting?: boolean, claimed?: boolean, synced?: boolean, refund?: () => Promise<boolean>, refresh?: () => Promise<void>, queue?: () => Promise<void>, check?: () => Promise<void> } = {}) {
   const refund = vi.fn(options.refund ?? (async () => true))
   const refreshEntitlements = vi.fn(options.refresh ?? (async () => {}))
   const queueWelcome = vi.fn(options.queue ?? (async () => {}))
   const checkWelcome = vi.fn(options.check ?? (async () => {}))
   const runMutation = vi.fn(async () => options.claimed ?? true)
+  // The entity's cached row: there unless the test says it was never synced.
+  const runQuery = vi.fn(async () => (options.synced === false ? null : { meters: [] }))
   const context = {
     catalogIds: options.grant === null ? {} : { welcome: options.grant ?? WELCOME },
     accessToken: 'token' in options ? options.token : 'polar_oat_fake',
     entityDeleting: async () => options.deleting ?? false,
-    cache: { claimWelcome: 'ref:claimWelcome' },
+    cache: { claimWelcome: 'ref:claimWelcome', getByUser: 'ref:getByUser' },
   } as unknown as BillingContext
-  const ctx = { runMutation } as never
+  const ctx = { runMutation, runQuery } as never
   return { ...createWelcomeCredits(context, { refund }, { refreshEntitlements }, { queueWelcome, checkWelcome }), ctx, refund, refreshEntitlements, queueWelcome, checkWelcome, runMutation }
 }
 
@@ -37,6 +39,13 @@ describe('queueing the welcome grant', () => {
     await credits.queue(credits.ctx, 'ws_1', OWNER)
     expect(credits.runMutation).toHaveBeenCalledWith('ref:claimWelcome', { address: await sha256Hex('adalovelace@example.com'), entityId: 'ws_1' })
     expect(credits.queueWelcome).toHaveBeenCalledWith(credits.ctx, 'ws_1')
+  })
+
+  it('queues nothing for an owner with no address', async () => {
+    const credits = welcome()
+    await credits.queue(credits.ctx, 'ws_1', { userId: 'u_1', email: '' })
+    expect(credits.runMutation).not.toHaveBeenCalled()
+    expect(credits.queueWelcome).not.toHaveBeenCalled()
   })
 
   it('queues nothing once another entity of the person holds it, or without a grant in the catalog', async () => {
@@ -65,6 +74,13 @@ describe('the welcome grant', () => {
     expect(credits.refreshEntitlements).not.toHaveBeenCalled()
     expect(credits.checkWelcome).toHaveBeenCalledWith(credits.ctx, 'ws_1', PENDING_CREDIT_TTL_MS + 30_000)
     expect(welcomeKey('ws_1')).toBe('welcome:ws_1')
+  })
+
+  it('reads the provider first for an entity never synced, so the cache has a row to hold the credit', async () => {
+    const credits = welcome({ synced: false })
+    expect(await credits.run(credits.ctx, 'ws_1')).toBe('granted')
+    expect(credits.refreshEntitlements).toHaveBeenCalledWith(credits.ctx, 'ws_1')
+    expect(credits.refreshEntitlements.mock.invocationCallOrder[0]).toBeLessThan(credits.refund.mock.invocationCallOrder[0]!)
   })
 
   it('answers granted_before when the provider held the event already, and still checks', async () => {

@@ -62,6 +62,16 @@ export type WelcomeRun = true | 'check'
  */
 export type WelcomeGrant = 'granted' | 'granted_before' | 'none' | 'gone' | 'not_configured'
 
+/** A subscription the provider's customer state lists as active. */
+type HeldSubscription = { productId: string, startedAt: Date | null, createdAt: Date }
+
+/**
+ * How long after its free subscription started a start that finds it held
+ * still takes it for its own first start, whose answer was lost: an hour,
+ * well past the workpool's retries.
+ */
+const LOST_START_WINDOW_MS = 60 * 60 * 1000
+
 /** What one start did, as the internal action answers it. */
 export type FreePlanStart = 'started' | 'subscribed' | 'gone' | 'not_billed' | 'customer_taken' | 'customer_unknown' | 'no_plan' | 'not_configured'
 
@@ -185,11 +195,11 @@ export function createFreePlan(
     return { entity: { userId: entityId, email: user.email }, profile: null, account }
   }
 
-  /** Whether the entity's customer holds a live subscription at the provider, read live: a webhook may not have landed yet. */
-  const holdsProviderSubscription = async (entityId: string): Promise<boolean> => {
+  /** The subscriptions the entity's customer holds at the provider, read live: a webhook may not have landed yet. */
+  const providerSubscriptions = async (entityId: string): Promise<HeldSubscription[]> => {
     const state = await customersGetStateExternal(provider.polar, { externalId: entityId })
-    if (!state.ok && isProviderNotFound(state.error)) return false
-    return unwrapProvider(state, 'free plan').activeSubscriptions.length > 0
+    if (!state.ok && isProviderNotFound(state.error)) return []
+    return unwrapProvider(state, 'free plan').activeSubscriptions
   }
 
   /** An entity's very first subscription started: the `firstStart` hook, for its owner. */
@@ -198,13 +208,21 @@ export function createFreePlan(
   }
 
   /**
-   * A first subscription that stands though its answer was lost (or another
-   * start made it): `firstStart` never ran for it, so its welcome credits
-   * are queued here, granted once per person whoever asks.
+   * An entity that holds a subscription already: `subscribed`. When that is
+   * the free plan, started within the hour, and the entity never held any
+   * other plan, it is a first start whose answer was lost (in this attempt
+   * or one the workpool retries) or that another start made: `firstStart`
+   * may never have run for it, so its welcome credits are queued here,
+   * granted once per person whoever asks. The reverse trial is not: a
+   * start that loses its race switches its subscription back to the free
+   * plan, which would undo the pass the first start began.
    */
-  const welcomeAfterLostStart = async (ctx: RunWriteCtx, entityId: string, first: boolean, found: { profile: EntityProfile | null, account?: Caller }): Promise<'subscribed'> => {
+  const subscribedAlready = async (ctx: RunWriteCtx, entityId: string, held: HeldSubscription[], found: { profile: EntityProfile | null, account?: Caller }): Promise<'subscribed'> => {
     const owner = found.profile?.owner ?? found.account
-    if (first && owner && hooks.queueWelcome) await hooks.queueWelcome(ctx, entityId, { userId: owner.userId, email: owner.email })
+    if (!owner || !hooks.queueWelcome || !freePlan || held.length !== 1 || held[0]!.productId !== freePlan.productId) return 'subscribed'
+    if (Date.now() - (held[0]!.startedAt ?? held[0]!.createdAt).getTime() > LOST_START_WINDOW_MS) return 'subscribed'
+    const synced = await provider.listAllUserSubscriptions(ctx as unknown as ProviderCtx, { userId: entityId }) as SyncedSubscription[]
+    if (synced.every(subscription => subscription.productId === freePlan.productId)) await hooks.queueWelcome(ctx, entityId, { userId: owner.userId, email: owner.email })
     return 'subscribed'
   }
 
@@ -234,11 +252,15 @@ export function createFreePlan(
       if (!outcome) throw error
       return outcome
     }
-    if (await holdsProviderSubscription(entityId)) return 'subscribed'
+    const held = await providerSubscriptions(entityId)
+    if (held.length > 0) return await subscribedAlready(ctx, entityId, held, found)
     // Its first subscription ever: none was synced for it, ended or not.
     const first = (await provider.listAllUserSubscriptions(ctx as unknown as ProviderCtx, { userId: entityId })).length === 0
     const created = await subscriptionsCreate(provider.polar, { productId: freePlan.productId, externalCustomerId: entityId })
-    if (!created.ok && await holdsProviderSubscription(entityId)) return await welcomeAfterLostStart(ctx, entityId, first, found)
+    if (!created.ok) {
+      const after = await providerSubscriptions(entityId)
+      if (after.length > 0) return await subscribedAlready(ctx, entityId, after, found)
+    }
     const subscription = unwrapProvider(created, 'free plan')
     if (first) await firstStarted(ctx, entityId, found.profile?.owner ?? found.account, subscription.id)
     return 'started'

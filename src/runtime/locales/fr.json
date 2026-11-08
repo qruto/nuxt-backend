@@ -1778,8 +1778,12 @@
           "kept": "Aussi longtemps que le compte."
         },
         "billing": {
-          "holds": "Les forfaits, fonctionnalités et soldes de crédits mis en cache des entités de facturation du compte, leurs changements de forfait programmés et leurs clés de quota, les offres de maintien que le parcours de résiliation leur a faites, l’essai utilisé par le compte, et une empreinte de l’adresse à laquelle ses crédits de bienvenue sont allés.",
+          "holds": "Les forfaits, fonctionnalités et soldes de crédits mis en cache des entités de facturation du compte, leurs changements de forfait programmés et leurs clés de quota, les offres de maintien que le parcours de résiliation leur a faites, et l’essai utilisé par le compte.",
           "kept": "Aussi longtemps que l’entité ; une marque de suppression, 30 jours."
+        },
+        "welcomeCredits": {
+          "holds": "Une empreinte (SHA-256) de l’adresse à laquelle sont allés les crédits de bienvenue, sa partie locale sans étiquettes ni points, et l’entité de facturation qui les a reçus : jamais l’adresse.",
+          "kept": "Tant que l’app accorde des crédits de bienvenue, pour qu’ils restent une fois par personne."
         },
         "billingProofs": {
           "holds": "La preuve du consentement à un abonnement renouvelable (le forfait, le prix et la périodicité affichés, la version des conditions, quand et par qui) et de chaque rétractation dans l’UE : quand et par qui.",

@@ -2,6 +2,9 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import { componentsGeneric, defineSchema, makeFunctionReference, type FunctionReference } from 'convex/server'
 import type { TestConvex } from 'convex-test'
+import { PolarCore } from '@polar-sh/sdk/core.js'
+import { customersCreate } from '@polar-sh/sdk/funcs/customersCreate.js'
+import { subscriptionsCreate } from '@polar-sh/sdk/funcs/subscriptionsCreate.js'
 import { syncBillingCatalog } from '../../src/cli/billing/sync'
 import { createPolarFake, type PolarFake, routeToFake } from '../fixtures/polar-fake/server'
 import type { BillingCatalog } from '../../src/convex/catalog'
@@ -232,6 +235,49 @@ describe('welcome credits', () => {
     expect(await start(ada.workspaceId!)).toBe('subscribed')
     await drain()
     expect(welcomeEvents(ada.workspaceId!)).toHaveLength(1)
+  })
+
+  test('are queued by a retried first start whose earlier attempt lost the answer, while the read of the provider lagged', async () => {
+    const ada = await asUser(t, { email: 'ada@example.com' })
+    const route = routeToFake(fake, FAKE)
+    let lost = false
+    // The provider makes the subscription, its answer never arrives, and the next read of the customer does not list it yet.
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init)
+      const path = new URL(request.url).pathname
+      const answer = await route(request)
+      if (request.method === 'POST' && /^\/v1\/subscriptions\/?$/.test(path)) {
+        lost = true
+        return Response.json({ error: 'InternalServerError', detail: 'the answer was lost' }, { status: 500 })
+      }
+      if (lost && /^\/v1\/customers\/external\/[^/]+\/state$/.test(path)) {
+        lost = false
+        return Response.json({ ...await answer.json() as object, active_subscriptions: [] })
+      }
+      return answer
+    })
+    await expect(start(ada.workspaceId!)).rejects.toThrow()
+    vi.stubGlobal('fetch', route)
+    await fake.idle()
+    // The workpool's retry finds the free plan held: a first start all the same.
+    expect(await start(ada.workspaceId!)).toBe('subscribed')
+    await drain()
+    expect(welcomeEvents(ada.workspaceId!)).toHaveLength(1)
+  })
+
+  test('are not queued for a free plan held long before, as the backfill finds it', async () => {
+    const workspaceId = await seedWorkspace(t)
+    await asUser(t, { email: 'grace@example.com', workspace: workspaceId, workspaceRole: 'owner' })
+    // A customer and a free subscription made at the provider before this app granted welcome credits.
+    const polar = new PolarCore({ accessToken: 'polar_oat_fake', server: 'sandbox' })
+    const customer = await customersCreate(polar, { email: 'grace@example.com', name: 'Grace', externalId: workspaceId, metadata: { userId: workspaceId } })
+    expect(customer.ok).toBe(true)
+    expect((await subscriptionsCreate(polar, { productId: ids.products.free!, externalCustomerId: workspaceId })).ok).toBe(true)
+    await fake.idle()
+    vi.setSystemTime(Date.now() + 2 * 60 * 60 * 1000)
+    expect(await start(workspaceId)).toBe('subscribed')
+    await drain()
+    expect(welcomeEvents(workspaceId)).toEqual([])
   })
 
   test('a provider read that does not count the grant yet takes nothing back, and the check reads it once it does', async () => {

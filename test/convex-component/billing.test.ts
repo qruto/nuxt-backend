@@ -310,7 +310,7 @@ describe('credits ahead of the provider (component)', () => {
     await t.mutation(api.billing.credit, { userId: 'u1', meterId: 'm1', amount: 8, externalId: 'welcome:u1' })
     // The provider has not applied the event: the read still says 500.
     await synced([{ meterId: 'm1', consumedUnits: 0, creditedUnits: 500, balance: 500 }])
-    expect((await meters())![0]).toMatchObject({ balance: 508, consumedUnits: -8 })
+    expect((await meters())![0]).toMatchObject({ balance: 508, consumedUnits: 0 })
     // A read that counts it, and more, wins.
     await synced([{ meterId: 'm1', consumedUnits: -8, creditedUnits: 530, balance: 538 }])
     expect((await meters())![0]).toMatchObject({ balance: 538 })

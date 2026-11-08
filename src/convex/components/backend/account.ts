@@ -255,16 +255,23 @@ export const ERASURE_PARTICIPANTS = {
       await budget.remove(ctx, 'billingDiscountAttempts', () => ctx.db.query('billingDiscountAttempts').withIndex('userId', q => q.eq('userId', entityId)).take(budget.left))
       await budget.remove(ctx, 'billingQuotaKeys', () => ctx.db.query('billingQuotaKeys').withIndex('userId_key', q => q.eq('userId', entityId)).take(budget.left))
       await budget.remove(ctx, 'billingSaveOffers', () => ctx.db.query('billingSaveOffers').withIndex('entityId_madeAt', q => q.eq('entityId', entityId)).take(budget.left))
-      // A welcome grant keeps the digest of the address it went to, so it is not had again by signing up again; the entity is no longer named.
-      if (budget.spent) continue
-      for (const row of await ctx.db.query('billingWelcomes').withIndex('entityId', q => q.eq('entityId', entityId)).take(budget.left)) {
-        await ctx.db.patch('billingWelcomes', row._id, { entityId: '' })
-        budget.left--
-      }
     }
     const { userId } = erasure
     if (userId) await budget.remove(ctx, 'billingTrials', () => ctx.db.query('billingTrials').withIndex('ownerUserId', q => q.eq('ownerUserId', userId)).take(budget.left))
     return budget.spent
+  },
+
+  // A welcome grant keeps the digest of the address it went to, so signing up again does not get it twice; the entity it went to is no longer named.
+  welcomeCredits: async (ctx, erasure) => {
+    let left = ERASURE_BATCH
+    for (const entityId of entitiesOf(erasure)) {
+      for (const row of await ctx.db.query('billingWelcomes').withIndex('entityId', q => q.eq('entityId', entityId)).take(left)) {
+        await ctx.db.patch('billingWelcomes', row._id, { entityId: '' })
+        left--
+      }
+      if (left <= 0) return true
+    }
+    return false
   },
 
   // A gift is a record of a payment: it stays, with the purchaser's or the

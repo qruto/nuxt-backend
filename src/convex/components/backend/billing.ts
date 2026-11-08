@@ -46,7 +46,7 @@ function keepPendingCredits(meters: Array<typeof vEntitlementMeter.type>, cached
     if (!own) continue
     const index = kept.findIndex(meter => meter.meterId === meterId)
     if (index < 0) kept.push(own)
-    else if (kept[index]!.balance < own.balance) kept[index] = { ...kept[index]!, balance: own.balance, consumedUnits: kept[index]!.creditedUnits - own.balance }
+    else if (kept[index]!.balance < own.balance) kept[index] = { ...kept[index]!, balance: own.balance, consumedUnits: Math.max(0, kept[index]!.creditedUnits - own.balance) }
   }
   return kept
 }

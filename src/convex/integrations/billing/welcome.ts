@@ -44,7 +44,8 @@ export function createWelcomeCredits(
    * it follows: a claim or a queue that refuses is logged.
    */
   const queue = async (ctx: RunWriteCtx, entityId: string, owner: { userId: string, email: string }): Promise<void> => {
-    if (!grant) return
+    // An owner with no address is no person to count once, as the reverse trial skips one.
+    if (!grant || !owner.email) return
     try {
       const address = await sha256Hex(trialAddress(owner.email))
       if (!await ctx.runMutation(cache.claimWelcome, { address, entityId })) return
@@ -77,6 +78,8 @@ export function createWelcomeCredits(
       }
       return 'granted_before'
     }
+    // A grant that runs before the first sync has no cached row to hold its credit: read the provider first.
+    if (!await ctx.runQuery(cache.getByUser, { userId: entityId })) await refreshEntitlements(ctx, entityId)
     let fresh: boolean
     try {
       fresh = await refund(ctx, { userId: entityId, meter: grant.meter, value: grant.units, externalId: welcomeKey(entityId), metadata: { reason: 'welcome' } })

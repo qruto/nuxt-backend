@@ -1778,8 +1778,12 @@
           "kept": "Mientras exista la cuenta."
         },
         "billing": {
-          "holds": "Los planes, funciones y saldos de créditos en caché de las entidades de facturación de la cuenta, sus cambios de plan programados y claves de cuota, las ofertas de retención que les hizo el proceso de cancelación, la prueba que usó la cuenta, y un hash de la dirección a la que fueron sus créditos de bienvenida.",
+          "holds": "Los planes, funciones y saldos de créditos en caché de las entidades de facturación de la cuenta, sus cambios de plan programados y claves de cuota, las ofertas de retención que les hizo el proceso de cancelación, y la prueba que usó la cuenta.",
           "kept": "Mientras exista la entidad; una marca de eliminación, 30 días."
+        },
+        "welcomeCredits": {
+          "holds": "Un hash (SHA-256) de la dirección a la que fueron los créditos de bienvenida, su parte local sin etiquetas ni puntos, y la entidad de facturación que los recibió: nunca la dirección.",
+          "kept": "Mientras la app dé créditos de bienvenida, para que sigan siendo una vez por persona."
         },
         "billingProofs": {
           "holds": "Prueba del consentimiento a una suscripción con renovación (el plan, el precio y el intervalo mostrados, la versión de las condiciones, cuándo y quién) y de cada desistimiento en la UE: cuándo y quién.",

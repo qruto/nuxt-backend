@@ -1468,6 +1468,8 @@
   "legal.data.referrals.kept": [],
   "legal.data.billing.holds": [],
   "legal.data.billing.kept": [],
+  "legal.data.welcomeCredits.holds": [],
+  "legal.data.welcomeCredits.kept": [],
   "legal.data.billingProofs.holds": [],
   "legal.data.billingProofs.kept": [],
   "legal.data.gifts.holds": [],

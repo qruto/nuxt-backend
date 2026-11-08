@@ -68,6 +68,8 @@ const internalFn = (path: string) => makeFunctionReference<'action'>(path) as un
 
 let t: TestConvex<ReturnType<typeof defineSchema>>
 let fake: PolarFake
+/** Whether the provider's deliveries reach the deployment: off, no webhook syncs the cache. */
+let deliver = true
 
 beforeAll(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'] })
@@ -81,11 +83,12 @@ afterAll(() => {
 })
 
 beforeEach(async () => {
+  deliver = true
   t = testApp()
   const app = t
   fake = createPolarFake({
     baseUrl: FAKE,
-    fetcher: (url, init) => app.fetch(new URL(url).pathname, { method: 'POST', headers: init.headers, body: init.body as string }),
+    fetcher: async (url, init) => (deliver ? app.fetch(new URL(url).pathname, { method: 'POST', headers: init.headers, body: init.body as string }) : new Response('Accepted', { status: 202 })),
   })
   vi.stubGlobal('fetch', routeToFake(fake, FAKE))
   fake.ensureEndpoint(ENDPOINT, SECRET)
@@ -139,6 +142,21 @@ describe('welcome credits for accounts billed on their own', () => {
     expect(await balance(ada)).toBe(8)
     await ada.action(fn<'action'>('billing:syncEntitlements'), {})
     expect(await balance(ada)).toBe(8)
+    fake.state.lagEvents = false
+    applyPendingEvents(fake.state, Date.now())
+    await drain()
+    expect(await balance(ada)).toBe(8)
+  })
+
+  test('show when the grant runs before any delivery synced the account, the provider lagging too', async () => {
+    const ada = await asUser(t, { email: 'ada@example.com', workspace: false })
+    deliver = false
+    fake.state.lagEvents = true
+    await start(ada.userId)
+    await runQueue()
+    // No webhook made the cached row: the grant read the provider first, and the cache holds the credit.
+    expect(await balance(ada)).toBe(8)
+    deliver = true
     fake.state.lagEvents = false
     applyPendingEvents(fake.state, Date.now())
     await drain()

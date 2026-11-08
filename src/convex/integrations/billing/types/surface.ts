@@ -249,7 +249,10 @@ export interface Billing {
   spendCredits: (ctx: RunWriteCtx & { auth?: Auth }, event: SpendCreditsEvent) => Promise<void>
   /**
    * Give credits back on a **sum** meter (compensating negative-value event +
-   * optimistic cache re-credit). Count meters cannot be refunded.
+   * optimistic cache re-credit). Count meters cannot be refunded. The cache
+   * holds the credit for five minutes, through any read of the provider that
+   * does not count the event yet; a second refund under the same
+   * `externalId` is dropped by the provider and credits the cache once.
    */
   refundCredits: (ctx: RunWriteCtx & { auth?: Auth }, event: RefundCreditsEvent) => Promise<void>
   /**

@@ -1778,8 +1778,12 @@
           "kept": "So lange wie das Konto."
         },
         "billing": {
-          "holds": "Die zwischengespeicherten Tarife, Funktionen und Credit-Guthaben der Abrechnungseinheiten des Kontos, ihre geplanten Tarifwechsel und Kontingentschlüssel, die Halteangebote, die der Kündigungsablauf ihnen gemacht hat, die Testphase, die das Konto genutzt hat, und ein Hashwert der Adresse, an die seine Willkommens-Credits gingen.",
+          "holds": "Die zwischengespeicherten Tarife, Funktionen und Credit-Guthaben der Abrechnungseinheiten des Kontos, ihre geplanten Tarifwechsel und Kontingentschlüssel, die Halteangebote, die der Kündigungsablauf ihnen gemacht hat, und die Testphase, die das Konto genutzt hat.",
           "kept": "So lange wie die Einheit; eine Löschmarkierung 30 Tage."
+        },
+        "welcomeCredits": {
+          "holds": "Ein Hashwert (SHA-256) der Adresse, an die Willkommens-Credits gingen, ihr lokaler Teil ohne Tags und Punkte, und die Abrechnungseinheit, die sie bekam: nie die Adresse.",
+          "kept": "Solange die App Willkommens-Credits vergibt, damit es bei einmal pro Person bleibt."
         },
         "billingProofs": {
           "holds": "Nachweis der Zustimmung zu einem sich verlängernden Abonnement (Tarif, angezeigter Preis und Intervall, Version der Bedingungen, wann und durch wen) und jedes EU-Widerrufs: wann und durch wen.",
