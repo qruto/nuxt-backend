@@ -467,6 +467,10 @@ describe('expire', () => {
     await maintain(t)
     expect(await exists(t, old)).toBe(false)
 
+    // The component refuses an `at` that is no time, called directly too.
+    const expireDirectly = backend.storage!.expire as unknown as FunctionReference<'mutation', 'internal'>
+    for (const at of [Number.NaN, Number.POSITIVE_INFINITY]) await expect(t.mutation(expireDirectly, { storageId: photoId, at }), String(at)).rejects.toThrow(/is no time|epoch milliseconds/)
+
     const unclaimed = await upload(t, png())
     for (const fileId of ['', 'not-an-id', unclaimed]) expect(await author.mutation(ref.expireFile, { fileId, at: Date.now() }), fileId).toBe(false)
   })

@@ -159,6 +159,8 @@ export function defineBackendTestApp<Schema extends AnySchema>(
     if (typeof kit?.register !== 'function') throw new TypeError(`[nuxt-backend] defineBackendTestApp: mounts.${mount} is a component's test helper, the default export of its \`/test\` entry (\`import workflow from '@convex-dev/workflow/test'\`).`)
   }
   return () => {
+    // A fresh instance has stored nothing yet: what stubStorageFetch serves starts empty.
+    storedFiles.clear()
     const t = convexTest(appSchema, appModules as Record<string, () => Promise<never>>) as unknown as TestConvex<Schema>
     supportMutationStorage()
     register(t)
@@ -299,7 +301,11 @@ const toBase64 = (bytes: Uint8Array): string => {
 
 let mutationStorage = false
 
-/** Every file stored under test, by the SHA-256 (base64) convex-test names its URL after: what {@link stubStorageFetch} serves. */
+/**
+ * Every file the latest test instance stored, by the SHA-256 (base64)
+ * convex-test names its URL after: what {@link stubStorageFetch} serves.
+ * Emptied each time {@link defineBackendTestApp} makes an instance.
+ */
 const storedFiles = new Map<string, Blob>()
 
 /** A blob's SHA-256 as base64, the way convex-test keys a file's URL. */
@@ -382,9 +388,10 @@ export interface StubStorageFetchOptions {
  * Any other request throws, unless `network` answers it. Returns the
  * function that puts the original `fetch` back: call it after the test.
  *
- * It serves the files stored by an instance of {@link defineBackendTestApp},
- * uploads ({@link upload}) included. A storage URL of no stored file answers
- * 404.
+ * It serves the files stored by the latest instance of
+ * {@link defineBackendTestApp}, uploads ({@link upload}) included: making
+ * an instance forgets the files of the ones before. A storage URL of no
+ * stored file answers 404.
  *
  * @experimental
  *

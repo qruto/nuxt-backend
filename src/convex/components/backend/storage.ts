@@ -458,12 +458,14 @@ export const tickUrlClock = internalMutation({
  * When a file goes: `at` (epoch ms), after which the component's
  * maintenance deletes it with its record and gives its bytes back to the
  * quota; `null` keeps it again. A time already past, the epoch or before
- * included, is due at the next run. Returns whether the id names a kept file.
+ * included, is due at the next run. An `at` that is no time (`NaN`,
+ * `Infinity`) throws. Returns whether the id names a kept file.
  */
 export const expire = mutation({
   args: { storageId: v.string(), at: v.union(v.number(), v.null()) },
   returns: v.boolean(),
   handler: async (ctx, { storageId: id, at }) => {
+    if (at !== null && !Number.isFinite(at)) throw new Error(`[nuxt-backend] storage.expire: "at" is when the file goes, epoch milliseconds, or null to keep it; not ${at}.`)
     const record = await recordById(ctx, id)
     if (!record) return false
     // The prune reads the index above 0, so a time at or before the epoch is kept as its first millisecond.

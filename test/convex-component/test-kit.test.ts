@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { actionGeneric, componentsGeneric, defineSchema, type FunctionReference, makeFunctionReference, mutationGeneric, queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
 import workflow from '@convex-dev/workflow/test'
-import { asUser, defineBackendTestApp, drain, seedBilling, seedCredits, seedWorkspace, stubStorageFetch, TEST_PNG, upload } from '../../src/convex/test'
+import { asUser, defineBackendTestApp, drain, seedBilling, seedCredits, seedWorkspace, stubStorageFetch, TEST_PNG, TEST_STORAGE_URL, upload } from '../../src/convex/test'
 import { setupStorage } from '../../src/convex/integrations/storage'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { setupEmail } from '../../src/convex/integrations/email'
@@ -166,6 +166,21 @@ describe('upload, drain and stubStorageFetch', () => {
     const answering = stubStorageFetch({ network: () => new Response('hi') })
     expect(await (await fetch('https://example.com/')).text()).toBe('hi')
     answering()
+  })
+
+  test('stubStorageFetch serves the latest instance\'s files only: a new instance forgets the earlier ones', async () => {
+    const restore = stubStorageFetch()
+    try {
+      const urlOf = async (bytes: string) => TEST_STORAGE_URL + encodeURIComponent(btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(bytes))))))
+      await testApp().upload('first instance')
+      expect((await fetch(await urlOf('first instance'))).status).toBe(200)
+      await testApp().upload('second instance')
+      expect((await fetch(await urlOf('first instance'))).status).toBe(404)
+      expect(await (await fetch(await urlOf('second instance'))).text()).toBe('second instance')
+    }
+    finally {
+      restore()
+    }
   })
 
   test('drain refuses to run without fake timers', async () => {
