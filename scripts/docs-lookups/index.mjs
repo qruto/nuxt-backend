@@ -17,7 +17,7 @@ import { errorCodes } from './errors.mjs'
 import { FEATURE_MAP_FILE, featureMap } from './feature-map.mjs'
 import { hooksSections } from './hooks.mjs'
 import { capabilitiesPage } from './capabilities.mjs'
-import { baseComposablesList, composablesTable, conventionsTable, entrypointsTable, importTree, readmeComponents, readmeComposables } from './nuxt.mjs'
+import { baseComposablesList, bindingsTable, composablesTable, conventionsTable, entrypointsTable, importTree, readmeComponents, readmeComposables } from './nuxt.mjs'
 import { writeRegion } from './regions.mjs'
 import { sectionsOf } from './sections.mjs'
 import { sensitiveActionsTable } from './sensitive-actions.mjs'
@@ -57,6 +57,7 @@ export const LOOKUPS = [
   { file: `${REFERENCE}/06.nuxt/1.composables.md`, region: 'composables', source: 'src/nuxt/registry.ts', render: composablesTable },
   { file: `${REFERENCE}/06.nuxt/1.composables.md`, region: 'base-composables', source: 'nuxt-convex-module', render: baseComposablesList },
   { file: `${REFERENCE}/06.nuxt/2.conventions.md`, region: 'conventions', source: 'the composables\' return types', render: conventionsTable },
+  { file: `${REFERENCE}/06.nuxt/1.composables.md`, region: 'bindings', source: 'the composables\' return types', render: bindingsTable },
   // Auth
   { file: 'website/content/docs/04.build/1.auth/3.access/4.step-up.md', region: 'sensitive-actions', source: 'src/convex/sensitive-actions.ts', render: sensitiveActionsTable },
   // Components

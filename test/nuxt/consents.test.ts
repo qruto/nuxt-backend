@@ -94,7 +94,7 @@ beforeEach(() => {
   authenticated.value = true
   visiting.value = false
   view.value = viewOf()
-  terms.value = { terms: [{ kind: 'terms', version: '2026-10-01', url: '/terms' }, { kind: 'privacy', version: '2026-10-01', url: '/privacy' }], minimumAge: null }
+  terms.value = { terms: [{ kind: 'terms', version: '2026-10-01', url: '/terms' }, { kind: 'privacy', version: '2026-10-01', url: '/privacy' }], documents: [], minimumAge: null }
   purposes.value = []
   clearCookie()
   clearNuxtState('backend:storage-choice')
@@ -461,12 +461,12 @@ describe('<AuthForm>\'s agreement line', () => {
   })
 
   it('names a kind with no document as plain words, and shows nothing for an app without required consents', async () => {
-    terms.value = { terms: [{ kind: 'terms', version: '1' }], minimumAge: null }
+    terms.value = { terms: [{ kind: 'terms', version: '1' }], documents: [], minimumAge: null }
     const wrapper = render(AuthForm)
     await flushPromises()
     expect(wrapper.find('[data-auth="agreement"]').text()).toBe('By continuing, you agree to the Terms.')
     expect(wrapper.find('[data-auth="agreement"] a').exists()).toBe(false)
-    terms.value = { terms: [], minimumAge: null }
+    terms.value = { terms: [], documents: [], minimumAge: null }
     await flushPromises()
     expect(wrapper.find('[data-auth="agreement"]').exists()).toBe(false)
   })

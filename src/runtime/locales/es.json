@@ -1653,6 +1653,12 @@
         "open": "Gracias. Una persona de nuestro equipo está revisando tu recurso y te enviará el resultado por correo.",
         "upheld": "Revisamos tu recurso y mantuvimos nuestra decisión.",
         "reversed": "Revisamos tu recurso y revocamos nuestra decisión."
+      },
+      "content": {
+        "reason": "¿Por qué lo denuncias?",
+        "details": "¿Algo más? (opcional)",
+        "sent": "Gracias. Una persona de nuestro equipo lo revisará.",
+        "trap": "Deja este campo vacío"
       }
     },
     "legal": {
@@ -1671,7 +1677,13 @@
         "company": "{app} está gestionada por {company}.",
         "address": "Dirección postal: {address}",
         "contact": "Contacto: {contact}",
-        "dpo": "Delegado de protección de datos: {dpo}"
+        "dpo": "Delegado de protección de datos: {dpo}",
+        "registration": "Número de registro: {registration}",
+        "vat": "IVA: {vat}",
+        "phone": "Teléfono: {phone}",
+        "capital": "Capital social: {capital}",
+        "director": "Responsable de la publicación: {director}",
+        "host": "Alojamiento: {host}"
       },
       "privacy": {
         "intro": "Esta política explica qué guarda {app} sobre ti, durante cuánto tiempo, quién lo trata por nosotros y cómo obtener una copia o pedir que se elimine.",
@@ -1716,7 +1728,9 @@
         "privacy": "Cómo tratamos tus datos se explica en nuestra política de privacidad.",
         "contactTitle": "Contacto",
         "contact": "Preguntas sobre estas condiciones: {contact}.",
-        "changes": "Te avisamos antes de que entre en vigor un cambio en estas condiciones."
+        "changes": "Te avisamos antes de que entre en vigor un cambio en estas condiciones.",
+        "disputesTitle": "Reclamaciones",
+        "disputes": "Escríbenos primero. Si no podemos resolverlo, puedes llevar la reclamación a nuestro mediador de consumo, sin coste:"
       },
       "subprocessors": {
         "intro": "Los servicios que tratan datos personales para {app}, qué trata cada uno y dónde los guarda.",
@@ -2012,6 +2026,24 @@
           "why": "Graba, de forma enmascarada, el minuto anterior a un error y el resto de esa visita, para averiguar qué falló.",
           "lasts": "Hasta que se cierra la pestaña."
         }
+      },
+      "version": "Versión {version}",
+      "versionUnset": "Sin versión: declara el consentimiento {kind} en backend/account.ts.",
+      "contactPoints": {
+        "title": "Puntos de contacto",
+        "authorities": "Para las autoridades de los Estados miembros de la UE, la Comisión y la Junta",
+        "users": "Para quienes usan {app}",
+        "languages": "Idiomas en los que respondemos"
+      },
+      "moderation": {
+        "title": "Cómo moderamos el contenido",
+        "review": "Una persona de nuestro equipo decide sobre cada denuncia y cada aviso sobre contenido, y sobre cada recurso contra una decisión.",
+        "tools": "Estas herramientas automáticas también revisan el contenido:",
+        "tool": "Herramienta",
+        "checks": "Qué revisa",
+        "decides": "Cómo decide",
+        "decidesAlone": "Por sí sola; si recurres, lo revisa una persona",
+        "flagsOnly": "Marca el contenido para que lo decida una persona"
       }
     },
     "consent": {
@@ -2512,7 +2544,9 @@
       "unavailable_ai_paused": "Las funciones de IA están en pausa por ahora. Inténtalo más tarde.",
       "unavailable_stalled": "Esta tarea dejó de responder. Se te reembolsaron los créditos.",
       "unavailable_job_failed": "Esta tarea falló. Se te reembolsaron los créditos.",
-      "unavailable_unexpected": "Algo salió mal."
+      "unavailable_unexpected": "Algo salió mal.",
+      "invalid_input_reason": "Elige un motivo.",
+      "invalid_input_goodFaith": "Confirma que tu denuncia es exacta y que la haces de buena fe."
     },
     "email": {
       "layout": {

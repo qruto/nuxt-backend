@@ -18,8 +18,15 @@ export interface SignInAlertsState {
   error: ComputedRef<BackendError | null>
 }
 
-interface SignInAlertsApi {
+/** The function of `auth.api` the alerts read. */
+export interface SignInAlertsApi {
   listSignInAlerts?: FunctionReference<'query', 'public', Record<string, never>, SignInAlert[] | null>
+}
+
+/** The device an alert names, in the `security` labels' words: `Firefox · macOS`, `Browser · iOS`, or "Unknown device". */
+export function alertDevice(alert: Pick<SignInAlert, 'browser' | 'os'>, t: (key: 'device' | 'browser' | 'unknownDevice', params?: Record<string, string>) => string): string {
+  if (alert.os) return t('device', { browser: alert.browser ?? t('browser'), os: alert.os })
+  return alert.browser ?? t('unknownDevice')
 }
 
 /**
@@ -28,8 +35,8 @@ interface SignInAlertsApi {
  *
  * @internal
  */
-export function useSignInAlertsState(): SignInAlertsState {
-  const api = useApiNamespace<SignInAlertsApi>('auth')
+export function useSignInAlertsState(own?: SignInAlertsApi): SignInAlertsState {
+  const api = own ?? useApiNamespace<SignInAlertsApi>('auth')
   const auth = inject(ConvexAuthStateKey, null)
   const signedOut = computed(() => auth == null || !auth.isAuthenticated.value)
   const authLoading = computed(() => auth != null && auth.isLoading.value)

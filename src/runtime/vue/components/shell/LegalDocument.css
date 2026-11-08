@@ -81,26 +81,42 @@
     overflow-x: auto;
   }
 
-  :where([data-legal='processors'], [data-legal='storage']) {
+  :where([data-legal='processors'], [data-legal='storage'], [data-legal='moderation-table']) {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9375em;
   }
 
-  :where([data-legal='processors'], [data-legal='storage']) :is(th, td) {
+  :where([data-legal='processors'], [data-legal='storage'], [data-legal='moderation-table']) :is(th, td) {
     padding: 0.5rem;
     border-bottom: 1px solid var(--bk-edge);
     text-align: start;
     vertical-align: top;
   }
 
-  :where([data-legal='processors'], [data-legal='storage']) thead th {
+  :where([data-legal='processors'], [data-legal='storage'], [data-legal='moderation-table']) thead th {
     color: var(--bk-muted);
     font-weight: 600;
   }
 
   :where([data-legal='storage']) code {
     overflow-wrap: anywhere;
+  }
+
+  [data-legal='moderation'],
+  [data-legal='contact-points'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+  }
+
+  :where([data-legal='contact-points']) dd {
+    margin: 0;
+  }
+
+  :where([data-legal='contact-audience']) {
+    font-weight: 600;
   }
 
   [data-legal='rights'] {

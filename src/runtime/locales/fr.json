@@ -1653,6 +1653,12 @@
         "open": "Merci. Une personne de notre équipe examine votre contestation et vous enverra le résultat par e-mail.",
         "upheld": "Nous avons examiné votre contestation et maintenu notre décision.",
         "reversed": "Nous avons examiné votre contestation et annulé notre décision."
+      },
+      "content": {
+        "reason": "Pourquoi le signalez-vous ?",
+        "details": "Autre chose ? (facultatif)",
+        "sent": "Merci. Une personne de notre équipe va l’examiner.",
+        "trap": "Laissez ce champ vide"
       }
     },
     "legal": {
@@ -1671,7 +1677,13 @@
         "company": "{app} est exploité par {company}.",
         "address": "Adresse postale : {address}",
         "contact": "Contact : {contact}",
-        "dpo": "Délégué à la protection des données : {dpo}"
+        "dpo": "Délégué à la protection des données : {dpo}",
+        "registration": "Numéro d’immatriculation : {registration}",
+        "vat": "TVA : {vat}",
+        "phone": "Téléphone : {phone}",
+        "capital": "Capital social : {capital}",
+        "director": "Directeur de la publication : {director}",
+        "host": "Hébergeur : {host}"
       },
       "privacy": {
         "intro": "Cette politique indique ce que {app} conserve à votre sujet, pendant combien de temps, qui le traite pour notre compte, et comment en obtenir une copie ou le faire supprimer.",
@@ -1716,7 +1728,9 @@
         "privacy": "La manière dont nous traitons vos données est décrite dans notre politique de confidentialité.",
         "contactTitle": "Contact",
         "contact": "Questions sur les présentes conditions : {contact}.",
-        "changes": "Nous vous informons avant qu’une modification des présentes conditions ne prenne effet."
+        "changes": "Nous vous informons avant qu’une modification des présentes conditions ne prenne effet.",
+        "disputesTitle": "Litiges",
+        "disputes": "Écrivez-nous d’abord. Si nous ne parvenons pas à le régler, vous pouvez soumettre le litige gratuitement à notre médiateur de la consommation :"
       },
       "subprocessors": {
         "intro": "Les services qui traitent des données personnelles pour {app}, ce que chacun traite et où il les conserve.",
@@ -2012,6 +2026,24 @@
           "why": "Enregistre, de façon masquée, la minute précédant une erreur et le reste de cette visite, afin de trouver ce qui n’a pas fonctionné.",
           "lasts": "Jusqu’à la fermeture de l’onglet."
         }
+      },
+      "version": "Version {version}",
+      "versionUnset": "Aucune version : déclarez le consentement {kind} dans backend/account.ts.",
+      "contactPoints": {
+        "title": "Points de contact",
+        "authorities": "Pour les autorités des États membres de l’UE, la Commission et le Comité",
+        "users": "Pour les personnes qui utilisent {app}",
+        "languages": "Langues dans lesquelles nous répondons"
+      },
+      "moderation": {
+        "title": "Comment nous modérons les contenus",
+        "review": "Une personne de notre équipe tranche chaque signalement et chaque notification concernant un contenu, ainsi que chaque recours contre une décision.",
+        "tools": "Ces outils automatiques vérifient aussi les contenus :",
+        "tool": "Outil",
+        "checks": "Ce qu’il vérifie",
+        "decides": "Comment il décide",
+        "decidesAlone": "Seul ; une personne le réexamine si vous faites recours",
+        "flagsOnly": "Il signale le contenu pour qu’une personne décide"
       }
     },
     "consent": {
@@ -2512,7 +2544,9 @@
       "unavailable_ai_paused": "Les fonctionnalités d’IA sont suspendues pour le moment. Réessayez plus tard.",
       "unavailable_stalled": "Cette tâche a cessé de répondre. Vos crédits ont été remboursés.",
       "unavailable_job_failed": "Cette tâche a échoué. Vos crédits ont été remboursés.",
-      "unavailable_unexpected": "Une erreur s’est produite."
+      "unavailable_unexpected": "Une erreur s’est produite.",
+      "invalid_input_reason": "Choisissez un motif.",
+      "invalid_input_goodFaith": "Confirmez que votre signalement est exact et fait de bonne foi."
     },
     "email": {
       "layout": {

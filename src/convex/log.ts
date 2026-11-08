@@ -115,6 +115,7 @@ export const LOG_CODES = {
   'ai.moderation_images_unchecked': 'Images were passed to a moderation check whose classifier reads text only (any but Llama Guard 4): the check was refused as unchecked (`unavailable`, reason `not_configured`). Once per isolate.',
   'reports.describe_failed': 'setupAdmin({ reports })\'s describe threw for a reported row: the Reports tab shows it as gone, and a report of it is refused.',
   'reports.copies_unmatched': 'A removed intimate image named a file whose identical copies could not be looked for: setupStorage does not keep it, or its bytes could not be read. Nothing was blocked for it.',
+  'reports.honeypot': 'A report or a notice filled the hidden honeypot field: it was taken for a bot\'s, and nothing was filed, mailed or counted.',
   'reports.email_unsent': 'A content-duty email (a notice\'s receipt or outcome, a statement of reasons, an appeal\'s outcome) could not be sent: the decision stands, and the person must be told another way.',
   'audit.recorded': 'An event was recorded on the audit trail: its type and id, nothing else. One line per event, written as the row is: a mutation that fails after recording rolls the row back, but not the line.',
   'audit.record_failed': 'An event (a sign-in, a passkey, a workspace or an administrator change, a billing webhook, a checkout, a gift, a bounce, an export) could not be recorded on the audit trail; what it records went through.',
